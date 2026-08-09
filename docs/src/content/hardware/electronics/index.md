@@ -23,7 +23,7 @@ Wire IDs match the schedule tables. Open items are in section 7.
   <dt>Model</dt><dd>MEAN WELL LRS-350-24</dd>
   <dt>Output</dt><dd>24V, 14.6A, 350.4W, single output</dd>
   <dt>Enclosure</dt><dd>Custom 3D-printed box, fused AC input</dd>
-  <dt>DC outputs</dt><dd>6 × female DC jack, each a 4 in wire with 2 × fork / screw terminals onto the PSU output</dd>
+  <dt>DC outputs</dt><dd>6 × female DC jack, each a 4 in 18 AWG pigtail with 2 × spade/fork terminals (M3.5, 8 mm wide max) onto the PSU output</dd>
 </dl>
 
 ## 2 &nbsp; Component layout
@@ -90,7 +90,7 @@ Wire IDs match the schedule tables. Open items are in section 7.
       <text x="262" y="96" font-size="12" font-weight="700" fill="var(--ink)">v1.3</text>
       <text x="262" y="118" font-size="10.5" fill="var(--muted)">hub for LEDs, sensors,</text>
       <text x="262" y="132" font-size="10.5" fill="var(--muted)">steppers, servo adapters</text>
-      <text x="262" y="184" font-size="9.5" fill="var(--muted)">24V in: JST-XH female</text>
+      <text x="262" y="184" font-size="9.5" fill="var(--muted)">24V in: JST-VH female</text>
       <g font-size="11" fill="var(--ink)" text-anchor="middle">
         <text x="207" y="184">W1 · 36 in</text>
         <text x="207" y="354">W2 · 12 in</text>
@@ -108,7 +108,7 @@ Wire IDs match the schedule tables. Open items are in section 7.
         <text x="535" y="93">L2 · 2x1 dupont · 36+6 in</text>
         <text x="535" y="143">L3 · 2x1 dupont · 36+6 in</text>
         <text x="535" y="188">limit · 2x1 dupont</text>
-        <text x="535" y="233">S1-4 · 4x1 dupont · 40 in</text>
+        <text x="535" y="233">S1-4 · JST-PH 4-pin · 1 m</text>
         <text x="535" y="283">CH · 4x1 dupont · flying leads</text>
         <text x="535" y="328">RIB · 16-pin IDC · 1 m</text>
       </g>
@@ -129,14 +129,14 @@ Wire IDs match the schedule tables. Open items are in section 7.
       </g>
     </svg>
   </div>
-  <figcaption>PSU distributes 24V to basically board v1.3 (through a JST-XH inlet) and the other direct loads (USB hub, Orange Pi, fans). basically board v1.3 then drives the LED drops (L1-L3), the limit switch, the steppers, and the first servo adapter board over a 16-pin IDC ribbon. Wire IDs match the schedule below.</figcaption>
+  <figcaption>PSU distributes 24V to basically board v1.3 (through a JST-VH inlet) and the other direct loads (USB hub, Orange Pi, fans). basically board v1.3 then drives the LED drops (L1-L3), the limit switch, the steppers, and the first servo adapter board over a 16-pin IDC ribbon. Wire IDs match the schedule below.</figcaption>
 </figure>
 
 ### 3.1 &nbsp; Stepper polarity
 
 <div class="callout callout-warning">
   <span class="callout-icon" aria-hidden="true">⚠</span>
-  <p>Source of truth is the basically board v1.3 pinout. Relative to how StepperOnline ships these motors, the inner two wires are flipped: shipped <code>1·2·3·4</code> becomes basically board v1.3 order <code>1·3·2·4</code>. Mark polarity on each of the 4 channel steppers. We did this because that is how the TMC drivers ship.</p>
+  <p>Source of truth is the basically board v1.3 pinout. Cable S plugs into the motor's own 6-position JST-PH socket, so the four board positions <code>1·2·3·4</code> land on motor positions <code>1·4·3·6</code> and motor positions 2 and 5 stay empty. The nets line up, the positions do not. Mark polarity on each of the 4 channel steppers, and check the coils with a multimeter first.</p>
 </div>
 
 Full basically board v1.3 pinout (J23-J40), connector-to-connector mapping, and connector reference: [stepper connectors]({{ '/hardware/electronics/steppers/' | relative_url }}).
@@ -153,7 +153,7 @@ The PSU box is an assembly: the MEAN WELL LRS-350-24, a fused mains inlet switch
   <thead><tr><th>Segment</th><th>From</th><th>To</th><th>Cond.</th><th>Length</th><th>Gauge</th></tr></thead>
   <tbody>
     <tr><td>Mains inlet</td><td>Fused inlet switch (3Dman, 10A fuse)</td><td>PSU AC input (L / N / earth)</td><td>3</td><td>-</td><td>18 AWG</td></tr>
-    <tr><td>DC output jacks (×6)</td><td>PSU 24V output, 2× fork/screw terminal</td><td>Female DC jack</td><td>2</td><td>4 in</td><td>TBD</td></tr>
+    <tr><td>DC output jacks (×6)</td><td>PSU 24V output, 2× spade/fork terminal (M3.5, 8 mm max)</td><td>Female DC jack</td><td>2</td><td>4 in</td><td>18 AWG</td></tr>
   </tbody>
 </table>
 
@@ -164,7 +164,7 @@ A male DC barrel plug on each wire mates one of the PSU output jacks (J1-J6).
 <table>
   <thead><tr><th>ID</th><th>Load</th><th>From</th><th>To</th><th>Cond.</th><th>Length</th><th>Gauge</th></tr></thead>
   <tbody>
-    <tr><td class="wire-id">W1</td><td>basically board v1.3</td><td>PSU J1, male DC</td><td>JST-XH female (board 24V in)</td><td>2</td><td>36 in <span class="flagged">too long</span></td><td>TBD</td></tr>
+    <tr><td class="wire-id">W1</td><td>basically board v1.3</td><td>PSU J1, male DC</td><td>JST-VH female (board 24V in)</td><td>2</td><td>36 in <span class="flagged">too long</span></td><td>TBD</td></tr>
     <tr><td class="wire-id">W2</td><td>Waveshare 4-port USB hub, 24V</td><td>PSU J2, male DC</td><td>Male DC (hub)</td><td>2</td><td>12 in</td><td>TBD</td></tr>
     <tr><td class="wire-id">W3</td><td>Orange Pi 5</td><td>PSU J3, male DC</td><td>24V-5V USB-C buck</td><td>2</td><td>6 in</td><td>TBD</td></tr>
     <tr><td class="wire-id">W4</td><td>Fan, 24V 40mm</td><td>PSU J4, male DC</td><td>Fan</td><td>2</td><td>36 in <span class="flagged">too long</span></td><td>TBD</td></tr>
@@ -201,14 +201,14 @@ Each LED drop is two segments: a 2x1 dupont feed from the board to a female DC j
   <thead><tr><th>ID</th><th>Segment</th><th>From</th><th>To</th><th>Cond.</th><th>Length</th></tr></thead>
   <tbody>
     <tr><td class="wire-id">LIM</td><td>Limit switch</td><td>basically board v1.3, 2x1 dupont</td><td>Limit switch</td><td>2</td><td>24 in</td></tr>
-    <tr><td class="wire-id">S1-4</td><td>Stepper, channels 1-4 (×4)</td><td>basically board v1.3, 4x1 dupont</td><td>Stepper (polarity: inner two flipped vs StepperOnline)</td><td>4</td><td>40 in</td></tr>
-    <tr><td class="wire-id">CH</td><td>Chute stepper</td><td>basically board v1.3, 4x1 dupont</td><td>Chute stepper, flying leads, needs prep</td><td>4</td><td>40 in</td></tr>
+    <tr><td class="wire-id">S1-4</td><td>Stepper, channels 1-4 (×4)</td><td>basically board v1.3, JST-PH 4-pin (PHR-4)</td><td>Stepper, JST-PH 6-pin (PHR-6), positions 1·4·3·6</td><td>4</td><td>1 m</td></tr>
+    <tr><td class="wire-id">CH</td><td>Chute stepper</td><td>basically board v1.3, JST-PH 4-pin (PHR-4)</td><td>Chute stepper, flying leads, needs prep</td><td>4</td><td>40 in <span class="flagged">guess</span></td></tr>
   </tbody>
 </table>
 
 <div class="callout callout-warning">
   <span class="callout-icon" aria-hidden="true">⚠</span>
-  <p><b>Recommended change:</b> switch all the stepper wires from 4x1 dupont to JST-PH 4-pin, to help ensure a better connection.</p>
+  <p><b>Done:</b> the stepper cables are JST-PH 4-pin at the board, not 4x1 dupont. The channel cables follow Jon's Stepper_Harness drawing.</p>
 </div>
 
 ### 4.5 &nbsp; Servo adapter (ribbon)
@@ -238,17 +238,18 @@ Each LED drop is two segments: a 2x1 dupont feed from the board to a female DC j
 - Fork / screw terminal: PSU 24V output to the DC jacks
 - DC barrel jack, female: PSU outputs, LED unplug junctions
 - DC barrel jack, male: load pigtails, LED pigtails
-- JST-XH female: basically board v1.3 24V input (W1)
+- JST-VH female (VHR-2): basically board v1.3 24V input (W1)
 - 2x1 dupont (2.54 mm): LED drops (L1-L3), limit switch
-- 4x1 dupont (2.54 mm): steppers, on the board pin headers J24, J28, J32, J36, J40
+- JST-PH 4-pin (PHR-4): steppers at the board, J23, J27, J31, J35, J39
+- JST-PH 6-pin (PHR-6): the NEMA 17 motor socket, cable S motor end
 - 16-pin IDC (FC), 2.54 mm: ribbon to first servo adapter board
 
 ## 7 &nbsp; Open items
 
 1. **Lengths.** W1, W4, W5 are 36 in and longer than necessary. Pick final lengths and cut.
-2. **Board 24V input connector.** Confirm it is JST-XH (vs JST-VH) and its exact pitch.
+2. **Board 24V input polarity.** The connector is JST-VH (VHR-2) per Jon's drawing; confirm which pin is +24V against the silkscreen.
 3. **Missing LED wire(s).** Re-count the LED drops against the actual LEDs.
-4. **J6 (6th PSU output).** 5 loads on 6 jacks. Confirm the spare or the missing load.
+4. **How many PSU output jacks.** This page and the power drawing have 6 (5 loads plus a spare). Jon's DC_PSU_Harness is drawn as 3 per PSU build. Confirm the count before ordering jacks.
 5. **Gauge per segment.** Current draw per load is needed to spec gauge.
 6. **SKU reduction.** Once gauges are known, standardize on as few gauges and connector types as possible.
 

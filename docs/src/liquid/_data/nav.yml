@@ -80,8 +80,6 @@ sections:
             url: /hardware/electronics/order/
           - title: WireViz drawings
             url: /hardware/electronics/wireviz/
-          - title: Setup photos
-            url: /hardware/electronics/setup/
       - title: Helpers
         url: /hardware/helpers/
         children:

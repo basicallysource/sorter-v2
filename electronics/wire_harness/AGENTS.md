@@ -73,15 +73,14 @@ The wireviz page on that preview is `/hardware/electronics/wireviz/`.
 
 ## Where this shows up in the docs
 
-Five pages under `docs/src/content/hardware/electronics/`:
+Four pages under `docs/src/content/hardware/electronics/`:
 
 | Page | What it is |
 |---|---|
 | `index.md` → `/hardware/electronics/` | Wire harness: PSU spec, interconnect diagram, wire schedule, parts, open items |
-| `steppers.md` → `/hardware/electronics/steppers/` | Board stepper pinout, board-to-motor mapping, the inner-two polarity swap |
+| `steppers.md` → `/hardware/electronics/steppers/` | Board stepper pinout, board-to-motor mapping, the 4-to-6 position crossover |
 | `order.md` → `/hardware/electronics/order/` | Order-ready cable build list for a harness vendor, every guess marked |
-| `wireviz.md` → `/hardware/electronics/wireviz/` | The rendered drawings and downloads. **The page that consumes the bucket.** |
-| `setup.md` → `/hardware/electronics/setup/` | As-built photos (ordinary docs image workflow, not this pipeline) |
+| `wireviz.md` → `/hardware/electronics/wireviz/` | The rendered drawings and the supplier zip. **The page that consumes the bucket.** |
 
 The wire IDs (`W1`, `L3p`, `S1-S4`, `CH`, `RIB`) are the join key across the
 schedule, the order spec, and the drawings. Renaming one means renaming it

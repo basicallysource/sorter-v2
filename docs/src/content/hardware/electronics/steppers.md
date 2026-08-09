@@ -62,18 +62,18 @@ Every stepper output connector on **basically board v1.3** has the same pinout, 
 
 ## 2 &nbsp; basically board v1.3 to motor connections
 
-On the board side the stepper harness uses **4x1 dupont** housings (2.54 mm) on the parallel pin headers. The 4 channel motors are StepperOnline NEMA 17, shipped with a **JST-XH 2.54 mm** 4-pin lead (the 3D-printer "XH2.54" cable, black/green/red/blue). The chute motor ships as bare flying leads.
+The 4 channel motors are NEMA 17 with their own **JST-PH 6-pin** socket, so cable S plugs straight into the motor and the shipped StepperOnline lead is not used. Two of the six motor positions stay empty. The chute motor ships as bare flying leads.
 
 <table>
   <thead><tr><th>Stepper</th><th>basically board v1.3 connector</th><th>Motor connector</th><th>Wire length</th><th>Gauge</th><th>Notes</th></tr></thead>
   <tbody>
     <tr>
       <td>Channels 1-4 (×4)</td>
-      <td>4x1 dupont (2.54 mm) on pin headers J24 / J28 / J32 / J36</td>
-      <td>JST-XH 2.54 mm, 4-pin (StepperOnline "XH2.54")</td>
-      <td>40 in</td>
-      <td>unknown</td>
-      <td>Inner two wires flipped (positions 2 and 3) so coils line up</td>
+      <td>JST-PH 4-pin (PHR-4) on J23 / J27 / J31 / J35</td>
+      <td>JST-PH 6-pin (PHR-6), the motor's own socket</td>
+      <td>1 m</td>
+      <td>24 AWG</td>
+      <td>Board 1·2·3·4 lands on motor 1·4·3·6; motor 2 and 5 stay empty</td>
     </tr>
     <tr>
       <td>Chute (5th)</td>
@@ -90,7 +90,7 @@ Refdes-to-channel assignment (which of J23/J27/J31/J35/J39 is which channel, and
 
 <div class="callout callout-warning">
   <span class="callout-icon" aria-hidden="true">⚠</span>
-  <p><b>Polarity, restated.</b> The basically board v1.3 order is fixed (section 1). For channels 1-4 the cable swaps the inner two conductors relative to how StepperOnline ships them, so the motor coils match the basically board v1.3 grouping. Confirm against the actual motor before crimping the chute.</p>
+  <p><b>Polarity, restated.</b> The basically board v1.3 order is fixed (section 1). For channels 1-4 the cable re-orders positions so the motor coils match that grouping: the nets line up, the positions do not. Check the coils with a multimeter against the actual motor before crimping, chute included.</p>
 </div>
 
 {% include harness/pin-swap.html %}
@@ -100,9 +100,9 @@ Refdes-to-channel assignment (which of J23/J27/J31/J35/J39 is which channel, and
 - **4x1 dupont (2.54 mm)**: board-side harness connector for the steppers, mates the 2.54 mm pin headers J24, J28, J32, J36, J40.
 - **2.54 mm (0.1") pin header, 4-pin**: the board headers the dupont plugs onto (J24, J28, J32, J36, J40).
 - **JST-PH 2.0 mm, 4-pin**: also on the board (J23, J27, J31, J35, J39), same pinout as the headers.
-- **JST-XH 2.54 mm, 4-pin ("XH2.54")**: StepperOnline motor lead (channels 1-4). Color code black/green = one coil, red/blue = the other.
+- **JST-PH 2.0 mm, 6-pin (PHR-6)**: the NEMA 17's own motor socket, cable S's motor end (channels 1-4). Positions 2 and 5 are unpopulated. Contacts are SPH-002T-P0.5S, the same as the 4-pin.
 
 ## 4 &nbsp; Sources
 
-- StepperOnline NEMA 17 motors (XH2.54 lead): [omc-stepperonline.com](https://www.omc-stepperonline.com/nema-17-stepper-motor)
+- StepperOnline NEMA 17 motors: [omc-stepperonline.com](https://www.omc-stepperonline.com/nema-17-stepper-motor)
 - JST PH series: [jst.com](https://www.jst.com/products/crimp-style-connectors-wire-to-board-type/ph-connector/)

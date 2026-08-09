@@ -21,8 +21,8 @@ drawings:
   - name: steppers
     title: Stepper cables
     caption: >-
-      The S1-S4 crossover cable (the red/green cross mid-cable is the inner-two
-      swap) and the straight-through chute cable to bare labeled leads.
+      The S1-S4 cable, board PHR-4 to the motor's own PHR-6 with positions 2
+      and 5 empty, and the straight-through chute cable to bare labeled leads.
   - name: leds
     title: LED drops and limit switch
     caption: >-

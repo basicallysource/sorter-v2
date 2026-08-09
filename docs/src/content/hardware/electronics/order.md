@@ -37,8 +37,8 @@ One row = one buildable cable SKU. End A is the PSU/board side. "Bare" ends are 
 <table>
   <thead><tr><th>ID</th><th>Qty</th><th>Gauge</th><th>Length</th><th>Cond.</th><th>End A</th><th>End B</th><th>Notes</th></tr></thead>
   <tbody>
-    <tr><td class="wire-id">PSU-J</td><td>6</td><td>18 AWG</td><td>4 in</td><td>2</td><td>2× insulated fork terminal (PSU output screws)</td><td>Panel-mount female DC jack 5.5×2.1</td><td>Lives inside the PSU box</td></tr>
-    <tr><td class="wire-id">W1</td><td>1</td><td>22 AWG</td><td>36 in</td><td>2</td><td>Male DC plug 5.5×2.1</td><td>JST XHP-2 + SXH-001T contacts</td><td>Board 24V in. Pin 1 = +24V <span class="flagged">verify silkscreen</span></td></tr>
+    <tr><td class="wire-id">PSU-J</td><td>6 <span class="flagged">count</span></td><td>18 AWG</td><td>4 in</td><td>2</td><td>2× insulated spade/fork terminal, M3.5, 8 mm wide max</td><td>Panel-mount female DC jack 5.5×2.1</td><td>Lives inside the PSU box. Usually comes already attached to the jack, so buy the jacks with leads</td></tr>
+    <tr><td class="wire-id">W1</td><td>1</td><td>18 AWG</td><td>36 in</td><td>2</td><td>Male DC plug 5.5×2.1</td><td>JST VHR-2 + SVH-21T-P1.1 contacts</td><td>Board 24V in. Pin 1 = +24V <span class="flagged">verify silkscreen</span></td></tr>
     <tr><td class="wire-id">W2</td><td>1</td><td>22 AWG</td><td>12 in</td><td>2</td><td>Male DC plug 5.5×2.1</td><td>Male DC plug 5.5×2.1</td><td>USB hub. Double-male, center-positive both ends <span class="flagged">verify hub jack size</span></td></tr>
     <tr><td class="wire-id">W3</td><td>1</td><td>22 AWG</td><td>6 in</td><td>2</td><td>Male DC plug 5.5×2.1</td><td>Bare, tinned</td><td>Splice to USB-C buck input leads</td></tr>
     <tr><td class="wire-id">W4, W5</td><td>2</td><td>22 AWG</td><td>36 in</td><td>2</td><td>Male DC plug 5.5×2.1</td><td>Bare, tinned</td><td>Splice to fan leads (cut off the fan's XH plug)</td></tr>
@@ -46,7 +46,7 @@ One row = one buildable cable SKU. End A is the PSU/board side. "Bare" ends are 
     <tr><td class="wire-id">L1p, L2p</td><td>2</td><td>22 AWG</td><td>6 in</td><td>2</td><td>Male DC plug 5.5×2.1</td><td>Bare, tinned</td><td>Solder to COB board pads</td></tr>
     <tr><td class="wire-id">L3p</td><td>1</td><td>22 AWG</td><td>6 in</td><td>2</td><td>Male DC plug 5.5×2.1</td><td>Bare, tinned</td><td>Solder to LED strip (6000K) pads</td></tr>
     <tr><td class="wire-id">LIM</td><td>1</td><td>22 AWG</td><td>24 in</td><td>2</td><td>Dupont 1x2 female (2.54 mm)</td><td>Bare, tinned</td><td>Solder to limit switch lugs</td></tr>
-    <tr><td class="wire-id">S1-S4</td><td>4</td><td>24 AWG</td><td>40 in</td><td>4</td><td>JST PHR-4 + SPH-002T contacts</td><td>XH2.54 4-pin inline male</td><td>Crossover cable, pin map 3.2. Mates the StepperOnline motor lead</td></tr>
+    <tr><td class="wire-id">S1-S4</td><td>4</td><td>24 AWG</td><td>1 m</td><td>4</td><td>JST PHR-4 + SPH-002T contacts</td><td>JST PHR-6 + SPH-002T contacts</td><td>Crossover cable, pin map 3.2. Into the motor's own 6-pin socket. 4-wire bundle in PVC sleeving</td></tr>
     <tr><td class="wire-id">CH</td><td>1</td><td>24 AWG</td><td>40 in <span class="flagged">guess</span></td><td>4</td><td>JST PHR-4 + SPH-002T contacts</td><td>Bare, tinned, 4 leads labeled 1-4</td><td>Splice to chute stepper flying leads, pin map 3.3</td></tr>
   </tbody>
 </table>
@@ -60,25 +60,26 @@ One row = one buildable cable SKU. End A is the PSU/board side. "Bare" ends are 
 
 ### 3.1 &nbsp; 2-conductor power (PSU-J, W1-W5, L1-L3, pigtails)
 
-Barrel jacks and plugs: center/tip = +24V (red), sleeve = GND (black). W1 board end: XH pin 1 = +24V, pin 2 = GND, <span class="flagged">verify against board silkscreen before ordering</span>. LED feed dupont: pin 1 = +24V, pin 2 = GND, same caveat.
+Barrel jacks and plugs: center/tip = +24V (red), sleeve = GND (black). W1 board end: VH pin 1 = +24V, pin 2 = GND, <span class="flagged">verify against board silkscreen before ordering</span>. LED feed dupont: pin 1 = +24V, pin 2 = GND, same caveat.
 
 ### 3.2 &nbsp; Channel stepper cable S1-S4 (crossover)
 
-The inner-two swap lives in this cable. Colors follow the StepperOnline convention at the motor end, so colors line up straight where the cable mates the motor's shipped XH lead; the crossover is visible at the board end.
+The motor end is a 6-position housing with only 4 positions populated, so the four board positions land on motor 1, 4, 3 and 6. Motor positions 2 and 5 stay empty. The nets match end to end; the positions do not.
 
 <table style="max-width:520px">
-  <thead><tr><th>Board PH pin</th><th>Net</th><th>Motor XH pin</th><th>Color</th></tr></thead>
+  <thead><tr><th>Board PHR-4 pos.</th><th>Net</th><th>Motor PHR-6 pos.</th><th>Color</th></tr></thead>
   <tbody>
-    <tr><td>1</td><td>A2</td><td>1</td><td>black</td></tr>
-    <tr><td>2</td><td>A1</td><td>3</td><td>red</td></tr>
-    <tr><td>3</td><td>B1</td><td>2</td><td>green</td></tr>
-    <tr><td>4</td><td>B2</td><td>4</td><td>blue</td></tr>
+    <tr><td>1</td><td>A2</td><td>1</td><td>blue</td></tr>
+    <tr><td>2</td><td>A1</td><td>4</td><td>green</td></tr>
+    <tr><td>3</td><td>B1</td><td>3</td><td>red</td></tr>
+    <tr><td>4</td><td>B2</td><td>6</td><td>black</td></tr>
+    <tr><td>—</td><td>—</td><td>2, 5</td><td>unpopulated</td></tr>
   </tbody>
 </table>
 
 <div class="callout callout-warning">
   <span class="callout-icon" aria-hidden="true">⚠</span>
-  <p><b>For the vendor, explicitly:</b> this is NOT a straight-through cable. Board pin 2 goes to motor pin 3, board pin 3 goes to motor pin 2. Pins 1 and 4 straight.</p>
+  <p><b>For the vendor, explicitly:</b> this is NOT a straight-through cable, and the two ends have a different number of positions. Board 1→motor 1, board 2→motor 4, board 3→motor 3, board 4→motor 6. Motor positions 2 and 5 are left empty.</p>
 </div>
 
 ### 3.3 &nbsp; Chute stepper cable CH (straight, bare end)
@@ -104,7 +105,7 @@ Rendered harness drawings, BOMs, downloads, and the full supplier package live o
 Some parts come with their own fixed leads or solder pads, so the harness can't fully land on them. Those cables are ordered with one end bare and tinned, and joined on the machine:
 
 - **24V to 5V USB-C buck** (W3): converter has fixed input leads, so splice.
-- **40mm fans** (W4, W5): ship with their own XH-terminated lead, so cut the plug off and splice.
+- **40mm fans** (W4, W5): ship with their own XH2.54-terminated lead, so cut the plug off and splice.
 - **Chute stepper** (CH): flying leads out of the motor, so splice.
 - **COB boards / LED strip** (L1p-L3p): solder pads, so solder direct.
 - **Limit switch** (LIM): solder lugs, so solder direct.
@@ -121,14 +122,14 @@ Genuine JST part numbers given where they exist. Chinese-clone equivalents of al
 <table>
   <thead><tr><th>Connector</th><th>Housing</th><th>Contacts</th><th>Used on</th></tr></thead>
   <tbody>
-    <tr><td>JST XH 2-pin</td><td>XHP-2</td><td>SXH-001T-P0.6 (22-28 AWG)</td><td>W1 board end</td></tr>
+    <tr><td>JST VH 2-pin</td><td>VHR-2</td><td>SVH-21T-P1.1 (16-22 AWG)</td><td>W1 board end</td></tr>
     <tr><td>JST PH 4-pin</td><td>PHR-4</td><td>SPH-002T-P0.5S (24-28 AWG)</td><td>S1-S4, CH board ends</td></tr>
-    <tr><td>XH2.54 4-pin inline male</td><td colspan="2">clone part ("XH2.54 male wire housing"), no genuine JST wire-to-wire equivalent</td><td>S1-S4 motor end, mates the StepperOnline lead</td></tr>
+    <tr><td>JST PH 6-pin</td><td>PHR-6</td><td>SPH-002T-P0.5S (24-28 AWG)</td><td>S1-S4 motor end, into the NEMA 17 socket</td></tr>
     <tr><td>Dupont 1x2 female, 2.54 mm</td><td colspan="2">generic dupont housing + female crimps (any vendor stocks these)</td><td>L1-L3, LIM board ends</td></tr>
     <tr><td>DC barrel male 5.5×2.1</td><td colspan="2">moulded plug w/ lead, or field-installable</td><td>W1-W5, L pigtails</td></tr>
     <tr><td>DC barrel female inline 5.5×2.1</td><td colspan="2">moulded inline jack</td><td>L1-L3 unplug points</td></tr>
     <tr><td>DC barrel female panel-mount 5.5×2.1</td><td colspan="2">panel-mount jack, ≥5 A</td><td>PSU box outputs J1-J6</td></tr>
-    <tr><td>Fork terminal, insulated</td><td colspan="2">22-16 AWG, sized for the LRS-350 output screws (M3.5, <span class="flagged">verify</span>)</td><td>PSU-J</td></tr>
+    <tr><td>Spade/fork terminal, insulated</td><td colspan="2">18 AWG, M3.5 stud, 8 mm wide max, must fit the LRS-350-24 output screws</td><td>PSU-J</td></tr>
   </tbody>
 </table>
 
@@ -140,10 +141,9 @@ Genuine JST part numbers given where they exist. Chinese-clone equivalents of al
 
 ## 7 &nbsp; Guesses to verify before sending
 
-1. **Board 24V input:** XH vs VH, and which pin is +24V. If it turns out VH, W1 becomes VHR-2N + SVH-21T-P1.1 contacts and can move up to 18 AWG.
-2. **Board input current:** XH contacts are rated ~3 A. If all 5 steppers plus LEDs really run through W1 at once, that's tight, and would suggest the connector is actually VH.
-3. **USB hub barrel size:** W2 assumes the Waveshare hub jack is 5.5×2.1. Could be 5.5×2.5.
-4. **Chute stepper length:** 40 in copied from the channel steppers.
-5. **LED drop count:** 3 feeds + 3 pigtails, per the schedule. Re-count against the machine.
-6. **PSU screw size** for the fork terminals (assumed M3.5).
-7. **J6** stays a spare output.
+1. **Board 24V input polarity:** which pin is +24V. The connector itself is settled as VH (VHR-2, 18 AWG).
+2. **USB hub barrel size:** W2 assumes the Waveshare hub jack is 5.5×2.1. Could be 5.5×2.5.
+3. **Chute stepper cable:** 40 in copied from the channel steppers, and it is not covered by Jon's drawing at all.
+4. **LED drop count:** 3 feeds + 3 pigtails, per the schedule. Re-count against the machine.
+5. **PSU output jack count:** 6 here (5 loads plus a spare) against 3 in Jon's DC_PSU_Harness. Settle this before ordering jacks.
+6. **Motor coil order:** the 1·4·3·6 map and the two empty positions come from Jon's drawing, not from a measurement. Check the coils with a multimeter first.

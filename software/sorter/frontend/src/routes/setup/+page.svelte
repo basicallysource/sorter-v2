@@ -181,6 +181,9 @@
 	let wizardError = $state<string | null>(null);
 
 	let nicknameDraft = $state('');
+	// The saved name as of the last wizard load, so an edited field is
+	// recognisable and left alone.
+	let loadedNickname = $state('');
 	let savingName = $state(false);
 	let nameError = $state<string | null>(null);
 	let nameStatus = $state('');
@@ -615,9 +618,13 @@
 			hardwareState = payload.hardware.state;
 			hardwareError = payload.hardware.error;
 			homingStep = payload.hardware.homing_step;
-			// An unnamed machine keeps whatever the naming step suggested rather
-			// than being blanked back out by a reload of the wizard state.
-			nicknameDraft = payload.machine.nickname ?? nicknameDraft;
+			// The wizard reloads on its own (hardware state changes, machine
+			// switches), and it used to overwrite the name field every time —
+			// so a name typed or rolled on this step could vanish mid-edit.
+			// Follow the saved name only while the field still matches it.
+			const savedNickname = payload.machine.nickname ?? '';
+			if (nicknameDraft === loadedNickname) nicknameDraft = savedNickname;
+			loadedNickname = savedNickname;
 			const configuredLayout = payload.config.camera_assignments.layout;
 			selectedLayout =
 				configuredLayout === 'split_feeder'

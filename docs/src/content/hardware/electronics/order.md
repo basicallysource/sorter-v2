@@ -39,7 +39,7 @@ One row = one buildable cable SKU. End A is the PSU/board side. "Bare" ends are 
   <tbody>
     <tr><td class="wire-id">PSU-J</td><td>3</td><td>18 AWG</td><td>4 in</td><td>2</td><td>2× insulated spade/fork terminal, M3.5, 8 mm wide max (PSU screws 7/4, 8/5, 9/6)</td><td>Panel-mount female DC jack 5.5×2.1</td><td>Lives inside the PSU box. Usually comes already attached to the jack, so buy the jacks with leads</td></tr>
     <tr><td class="wire-id">W1</td><td>1</td><td>18 AWG</td><td>36 in</td><td>2</td><td>Male DC plug 5.5×2.1</td><td>JST VHR-2 + SVH-21T-P1.1 contacts</td><td>Board 24V in. Pin 1 = +24V, pin 2 = GND</td></tr>
-    <tr><td class="wire-id">W2</td><td>1</td><td>22 AWG</td><td>12 in</td><td>2</td><td>Male DC plug 5.5×2.1</td><td>Male DC plug 5.5×2.1</td><td>USB hub. Double-male, center-positive both ends <span class="flagged">verify hub jack size</span></td></tr>
+    <tr><td class="wire-id">W2</td><td>1</td><td>22 AWG</td><td>12 in</td><td>2</td><td>Male DC plug 5.5×2.1</td><td>Male DC plug 5.5×2.1</td><td>USB hub. Double-male, center-positive both ends</td></tr>
     <tr><td class="wire-id">W3</td><td>1</td><td>22 AWG</td><td>6 in</td><td>2</td><td>Male DC plug 5.5×2.1</td><td>Bare, tinned</td><td>Splice to USB-C buck input leads</td></tr>
     <tr><td class="wire-id">L1-L3</td><td>3</td><td>22 AWG</td><td>36 in</td><td>2</td><td>Dupont 1x2 female (2.54 mm)</td><td>Female inline DC jack 5.5×2.1</td><td>LED feed from board to unplug point</td></tr>
     <tr><td class="wire-id">L1p, L2p</td><td>2</td><td>22 AWG</td><td>6 in</td><td>2</td><td>Male DC plug 5.5×2.1</td><td>Bare, tinned</td><td>Solder to COB board pads</td></tr>

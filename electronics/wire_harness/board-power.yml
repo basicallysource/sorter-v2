@@ -1,14 +1,12 @@
 metadata:
   title: Sorter V2 - 24V to basically board v1.3
-  description: >
-    The board's 24V feed. The buildable sub-harness for W1 on the 24V power
-    distribution drawing. From Jon's DC_basicallyV1_3_Harness (2026-08-08).
+  description: "The board's 24V feed. The buildable sub-harness for W1 on\nthe 24V power distribution drawing. From Jon's\nDC_basicallyV1_3_Harness (2026-08-08)."
 
 connectors:
   P1:
     type: DC plug 5.5x2.1 male
     pinlabels: [+24V (tip), GND (sleeve)]
-    notes: usually comes as a pigtail on 18 AWG wire
+    notes: "Usually comes as a pigtail on 18 AWG wire."
   BOARD_PWR:
     type: JST VH 2-pin (VHR-2)
     subtype: female
@@ -26,7 +24,7 @@ cables:
     gauge: 18 AWG
     length: 36 in
     colors: [RD, BK]
-    notes: board 24V in. Length deliberately long
+    notes: "Board 24V in. Length deliberately long."
 
 connections:
   -

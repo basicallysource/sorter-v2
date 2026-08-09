@@ -1,10 +1,6 @@
 metadata:
   title: Sorter V2 - PSU output pigtail
-  description: >
-    One PSU output pigtail, x3 per PSU build. The buildable sub-harness for
-    PJ1-PJ3 on the 24V power distribution drawing. Screw numbers are
-    MeanWell's own (LRS-350-SPEC): 4-6 are DC OUTPUT -V, 7-9 are DC OUTPUT
-    +V. From Jon's DC_PSU_Harness (2026-08-08).
+  description: "One PSU output pigtail, x3 per PSU build. The buildable sub-\nharness for PJ1-PJ3 on the 24V power distribution drawing.\nScrew numbers are MeanWell's own (LRS-350-SPEC): 4-6 are DC\nOUTPUT -V, 7-9 are DC OUTPUT +V. From Jon's DC_PSU_Harness\n(2026-08-08)."
 
 connectors:
   F1:
@@ -22,7 +18,7 @@ connectors:
   J1:
     type: DC jack 5.5x2.1 female, panel-mount
     pinlabels: [+24V (tip), GND (sleeve)]
-    notes: panel-mount into the PSU enclosure
+    notes: "Panel-mount into the PSU enclosure."
 
 cables:
   PJ1:

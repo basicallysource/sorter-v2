@@ -39,6 +39,47 @@ theme-aware. The only places where raw color values are allowed:
 - Modal/overlay scrims (`bg-black/50`) and chips floating on a photo.
 - Static assets / SVG / favicons.
 
+## Favicons — one mark, a color per site
+
+The ecosystem is several separate web UIs that people keep open side by side:
+Hive, the docs site, and the machine's own UI. A tab strip full of identical
+basically bricks tells you nothing, so **the mark is constant and the color
+carries the identity**: the basically brick (black outline, white fill) on a
+full-bleed colored disc.
+
+| Site | Color | Palette token |
+|---|---|---|
+| Hive | `#D01012` — LEGO red | `--color-primary` |
+| Docs | `#FFD500` — LEGO yellow | `--color-warning` |
+| A machine (Sorter UI) | `#0055BF` — LEGO blue | `--color-info` |
+
+These are the existing palette values, not new ones. **This is currently a
+favicon-only convention** — it does not tint headers, chrome, or accents, and
+nothing else in the app should read the "site color" yet. If that changes, the
+system starts here.
+
+The brick comes from `~/Documents/basically/logos/square zoomed.png`, the
+outlined-and-white-filled version of the logo (transparent outside the brick).
+Composite it, do not redraw it: building the mark from `basically-logo.svg`
+means adding stroke weight to keep the lines alive at small sizes, and that
+comes out visibly too bold. Crop to the alpha bbox, size the brick to 88% of
+the disc radius (corner-to-center), center it, and render each output size at
+its own resolution rather than downscaling one master.
+
+Each site ships four files from its static dir:
+
+- `favicon.ico` — 16/32/48 frames, the sizes browsers actually use in a tab.
+- `favicon-96.png`, `favicon-192.png` — larger raster sizes.
+- `apple-touch-icon.png` — 180×180, for iOS home-screen bookmarks.
+
+Wire them up in `src/app.html`, not in a `<svelte:head>` — the icon is static
+and belongs in the shell.
+
+Adding a fourth site means picking a fourth color that is unmistakable from the
+other three *at 16px*, where the brick is a smudge and the hue is the entire
+signal. Check it at that size before committing to it. Do not restyle the brick
+itself — a per-site mark defeats the point.
+
 ## Sharp edges (softer than Sorter)
 
 Hive is a public community product, so it is permitted to be friendlier than the Sorter monitoring UI. Rounded corners are still restricted:

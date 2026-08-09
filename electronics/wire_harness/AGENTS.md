@@ -22,6 +22,20 @@ drawings and production shows main's. Objects carry a short cache TTL and the
 docs append a per-deploy `?v=` buster, so nobody ever sees a stale drawing for
 more than about a minute.
 
+That last sentence was false from the day it was written until 2026-08-09, and
+it is worth knowing why, because the failure was silent and cost a day of
+looking at the wrong drawing. `img.basically.website` is a Cloudflare Worker
+(`docs/scripts/img-worker/`), and it used to fetch `ORIGIN + url.pathname`,
+dropping the query string before the subrequest. So the cache key never
+contained the buster and every `?v=` we appended hit the same cached object,
+which a 24h `cacheTtlByStatus` then pinned in place — a fresh render in the
+bucket, a day-old render on the page, and the YAML link on the same page
+disagreeing with the picture above it. Zone purge could not clear it either:
+the key was a `digitaloceanspaces.com` URL, not one in the `basically.website`
+zone, so `purge_cache` returned success and did nothing. The worker now caches
+under its own hostname with the query in the key. If you change that file,
+keep both properties.
+
 Permanent, content-addressed copies are a release-time concern (the lockfile
 mechanism in the unified parts plan), not a live-docs one. The bucket is
 disposable by design: every object in it can be regenerated from git plus the

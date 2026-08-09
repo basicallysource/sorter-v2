@@ -107,6 +107,19 @@ lines, so normal `{% for %}` loops are fine as-is.
 pics are in** (Downloads, Desktop, VLC Snapshots, etc.). Then do all of this
 yourself:
 
+> The worker is not deployed by CI. It ships by hand, from this directory:
+> `CLOUDFLARE_API_TOKEN=… npx wrangler deploy` in `docs/scripts/img-worker/`.
+> Merging a change to `worker.js` therefore changes nothing on its own —
+> deploy it, then check a real URL. Cloudflare keeps prior versions, so the
+> rollback is a redeploy of the previous one.
+>
+> Two things to expect. `wrangler` exits non-zero on
+> `/zones/<id>/workers/routes` unless the token also carries Workers Routes
+> edit; the upload has already happened by then and the custom domain is
+> already attached, so it is noise. And every response carries
+> `x-img-cache: hit|miss` — check it before believing anything about
+> freshness, since a stale object and a fresh one look identical otherwise.
+
 1. **Look at each image** (Read tool) to understand what it shows before naming.
 2. **Upload it:**
    ```bash

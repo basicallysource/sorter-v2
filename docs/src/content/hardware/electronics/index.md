@@ -14,7 +14,7 @@ Wire IDs match the schedule tables. Open items are in section 7.
 
 <div class="callout callout-warning">
   <span class="callout-icon" aria-hidden="true">⚠</span>
-  <p>This is what Spencer had as of July 12th 2026. It is not the final state.</p>
+  <p><b>These electronics pages are working notes right now, not finished documentation.</b> The harness is actively being specced, so parts of this change week to week and some of it contradicts what a machine already built looks like. Anything still undecided is written down as an open item in section 7 rather than smoothed over. Started from what Spencer had on July 12th 2026; treat it as the current thinking, not the final state.</p>
 </div>
 
 ## 1 &nbsp; Power supply
@@ -24,6 +24,8 @@ Wire IDs match the schedule tables. Open items are in section 7.
   <dt>Output</dt><dd>24V, 14.6A, 350.4W, single output</dd>
   <dt>Enclosure</dt><dd>Custom 3D-printed box, fused AC input</dd>
   <dt>DC outputs</dt><dd>3 × female DC jack, each a 4 in 18 AWG pigtail with 2 × spade/fork terminals (M3.5, 8 mm wide max) onto the PSU output</dd>
+  <dt>Loads</dt><dd>basically board v1.3, the USB hub, and the Orange Pi buck converter. One jack each, no spare</dd>
+  <dt>Not on this bus</dt><dd>The cooling fans. They run off the Orange Pi or basically board v1.3 instead, so their voltage follows whichever pins are free (5V is likely sufficient). They are still needed: the Pi and the board end up in a box with no airflow but the fan. See <a href="#7--open-items">open items</a></dd>
 </dl>
 
 ## 2 &nbsp; Component layout

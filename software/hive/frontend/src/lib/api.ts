@@ -559,8 +559,18 @@ export interface StatsOverview {
 	total_machines: number;
 }
 
+export type OAuthProviderName = 'github' | 'discord';
+
+export interface UserIdentitySummary {
+	provider: OAuthProviderName;
+	provider_login: string | null;
+	avatar_url: string | null;
+	created_at: string;
+}
+
 export interface AuthOptions {
 	github_enabled: boolean;
+	discord_enabled: boolean;
 }
 
 export interface ProfileOwner {
@@ -1473,9 +1483,19 @@ export const api = {
 	authOptions() {
 		return request<AuthOptions>('GET', '/api/auth/options');
 	},
-	githubLoginUrl(next?: string) {
-		if (!next) return resolveApiPath('/api/auth/github');
-		return resolveApiPath(`/api/auth/github?${new URLSearchParams({ next }).toString()}`);
+	oauthLoginUrl(provider: OAuthProviderName, next?: string) {
+		if (!next) return resolveApiPath(`/api/auth/${provider}`);
+		return resolveApiPath(`/api/auth/${provider}?${new URLSearchParams({ next }).toString()}`);
+	},
+	oauthLinkUrl(provider: OAuthProviderName, next?: string) {
+		if (!next) return resolveApiPath(`/api/auth/${provider}/link`);
+		return resolveApiPath(`/api/auth/${provider}/link?${new URLSearchParams({ next }).toString()}`);
+	},
+	listIdentities() {
+		return request<UserIdentitySummary[]>('GET', '/api/auth/identities');
+	},
+	unlinkIdentity(provider: OAuthProviderName) {
+		return request<{ ok: boolean }>('DELETE', `/api/auth/identities/${provider}`);
 	},
 	deleteAccount() {
 		return request<void>('DELETE', '/api/auth/me');

@@ -1,7 +1,8 @@
 <script lang="ts">
 	import { auth } from '$lib/auth.svelte';
-	import { api, type AiModelCatalog } from '$lib/api';
+	import { api, type AiModelCatalog, type AuthOptions, type UserIdentitySummary } from '$lib/api';
 	import { goto } from '$app/navigation';
+	import { page } from '$app/state';
 	import Modal from '$lib/components/Modal.svelte';
 	import Badge from '$lib/components/Badge.svelte';
 	import ModelSelect from '$lib/components/primitives/ModelSelect.svelte';
@@ -22,6 +23,55 @@
 	let confirmPassword = $state('');
 	let passwordError = $state<string | null>(null);
 	let passwordSaved = $state(false);
+
+	// Connected accounts (OAuth identities)
+	const OAUTH_PROVIDER_LABELS: Record<string, string> = { github: 'GitHub', discord: 'Discord' };
+	let identities = $state<UserIdentitySummary[]>([]);
+	let authOptions = $state<AuthOptions | null>(null);
+	// Link-flow failures land back here as /settings?error=...
+	let identitiesError = $state<string | null>(page.url.searchParams.get('error'));
+
+	async function loadIdentities() {
+		try {
+			identities = await api.listIdentities();
+		} catch {
+			/* non-blocking */
+		}
+	}
+
+	$effect(() => {
+		if (auth.user) {
+			void loadIdentities();
+			void api
+				.authOptions()
+				.then((o) => {
+					authOptions = o;
+				})
+				.catch(() => {
+					authOptions = null;
+				});
+		}
+	});
+
+	function identityFor(provider: string): UserIdentitySummary | undefined {
+		return identities.find((i) => i.provider === provider);
+	}
+
+	function providerEnabled(provider: string): boolean {
+		if (!authOptions) return false;
+		return provider === 'github' ? authOptions.github_enabled : authOptions.discord_enabled;
+	}
+
+	async function handleUnlink(provider: 'github' | 'discord') {
+		identitiesError = null;
+		if (!confirm(`Disconnect ${OAUTH_PROVIDER_LABELS[provider]} from your account?`)) return;
+		try {
+			await api.unlinkIdentity(provider);
+			await loadIdentities();
+		} catch (e: any) {
+			identitiesError = e.error || 'Failed to disconnect';
+		}
+	}
 
 	// API keys (personal access tokens)
 	import type { ApiKeySummary } from '$lib/api';
@@ -482,6 +532,57 @@
 				</button>
 			</form>
 		</div>
+
+		<!-- Connected accounts (OAuth identities) -->
+		{#if identities.length > 0 || providerEnabled('github') || providerEnabled('discord')}
+		<div class="border border-border bg-surface p-6">
+			<h2 class="mb-1 font-semibold text-text">Connected Accounts</h2>
+			<p class="mb-4 text-sm text-text-muted">
+				Link other sign-in methods to this account. A connected Discord account also verifies you on the community server.
+			</p>
+
+			{#if identitiesError}
+				<div class="mb-4 bg-primary/8 p-3 text-sm text-primary">{identitiesError}</div>
+			{/if}
+
+			<div class="flex flex-col gap-2">
+				{#each ['github', 'discord'] as const as provider (provider)}
+					{@const linked = identityFor(provider)}
+					{#if linked || providerEnabled(provider)}
+						<div class="flex items-center justify-between border border-border px-3 py-2">
+							<div class="flex items-center gap-3">
+								{#if linked?.avatar_url}
+									<img src={linked.avatar_url} alt="" class="h-6 w-6 rounded-full" />
+								{/if}
+								<div>
+									<div class="text-sm font-medium text-text">{OAUTH_PROVIDER_LABELS[provider]}</div>
+									{#if linked}
+										<div class="text-xs text-text-muted">
+											Connected{linked.provider_login ? ` as ${linked.provider_login}` : ''}
+										</div>
+									{:else}
+										<div class="text-xs text-text-muted">Not connected</div>
+									{/if}
+								</div>
+							</div>
+							{#if linked}
+								<button
+									onclick={() => handleUnlink(provider)}
+									class="border border-primary/30 px-2 py-1 text-xs text-primary hover:bg-primary-light"
+									type="button"
+								>Disconnect</button>
+							{:else}
+								<a
+									href={api.oauthLinkUrl(provider)}
+									class="border border-border px-2 py-1 text-xs text-text hover:bg-bg"
+								>Connect</a>
+							{/if}
+						</div>
+					{/if}
+				{/each}
+			</div>
+		</div>
+		{/if}
 
 		<!-- AI Section -->
 		<div class="border border-border bg-surface p-6">

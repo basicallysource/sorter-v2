@@ -24,3 +24,9 @@ dependencies = [
     "scipy>=1.14",
     "onnxruntime>=1.20",
 ]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3",
+    "httpx>=0.28",
+]

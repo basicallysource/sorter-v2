@@ -21,27 +21,31 @@ Quote 2 sets and price breaks at 10 / 50 sets.
 
 3. WIRE SPEC
 - UL1007 stranded tinned copper, 300V, or RoHS equivalent.
-- Gauges per drawing: 18 AWG (PJ), 22 AWG (W, L, LIM), 24 AWG (S, CH).
+- Gauges per drawing: 18 AWG (PJ, W1), 22 AWG (W2-W5, L, LIM),
+  24 AWG (S, CH).
 - Colors per drawing (red=+24V, black=GND on power pairs;
-  steppers BK/RD/GN/BU as drawn).
+  steppers BU/GN/RD/BK as drawn).
+- Cable S is a 4-wire bundle in PVC sleeving.
 - No UL certification / no IPC-A-620 class required. Hobby-grade
   quality is acceptable; continuity test each cable.
 
 4. CONNECTORS
-- JST XHP-2 + SXH-001T-P0.6, JST PHR-4 + SPH-002T-P0.5S
-  (clone equivalents acceptable).
+- JST VHR-2 + SVH-21T-P1.1 (board 24V in), JST PHR-4 and
+  PHR-6 + SPH-002T-P0.5S (steppers). Clone equivalents
+  acceptable.
 - DC barrel 5.5 x 2.1 mm, center-positive: male moulded plugs,
   female inline jacks, female panel-mount jacks (>=5A).
-- "XH2.54 4-pin inline male" = the common clone wire-to-wire
-  XH housing with male pins.
 - Dupont = generic 2.54 mm female socket housing + crimps.
-- Fork terminals: insulated, 22-16 AWG, M3.5 stud (TBC).
+- Spade/fork terminals (PSU end): 18 AWG, M3.5 stud, 8 mm wide
+  MAX so they fit the MeanWell LRS-350-24 screw terminals.
 - Ends marked "bare tinned": strip 5 mm and tin, no connector.
 
 5. IMPORTANT - CROSSOVER CABLE
-Cable S (steppers drawing) is NOT straight-through:
-board pin 2 -> motor pin 3, board pin 3 -> motor pin 2,
-pins 1 and 4 straight. See the drawing.
+Cable S (steppers drawing) is NOT straight-through. The motor
+end is a 6-position housing with only 4 positions populated:
+board 1 -> motor 1, board 2 -> motor 4, board 3 -> motor 3,
+board 4 -> motor 6. Motor positions 2 and 5 stay empty.
+See the drawing.
 All other cables are straight-through pin 1 -> pin 1.
 
 6. TOLERANCES, LABELS, PACKAGING

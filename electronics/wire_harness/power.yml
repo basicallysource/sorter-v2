@@ -2,14 +2,20 @@ metadata:
   title: Sorter V2 - 24V power distribution
   description: >
     PSU box pigtails (PSU-J) and the load cables W1-W5.
-    Values marked GUESS are guesses, not measurements.
+    The PSU end and the board end follow Jon's DC_PSU_Harness and
+    DC_basicallyV1_3_Harness drawings (2026-08-08), which are the source of
+    truth for those. Values marked GUESS are guesses, not measurements.
 
 connectors:
   PSU:
     type: LRS-350-24 output, screw terminals
-    subtype: fork terminals
+    subtype: spade terminal (fork/split ring), 18 AWG, M3.5, 8mm wide MAX
     pinlabels: [+24V, GND (-V)]
-    notes: 6 pigtails land on the same output screws
+    notes: >
+      6 pigtails land on the same output screws. Terminals must fit the
+      MeanWell LRS-350-24 screw terminals. OPEN: Jon's drawing is drawn as
+      x3 per PSU build, this drawing feeds 5 loads plus a spare - confirm
+      how many jacks the box actually gets.
   J1: &jack
     type: DC jack 5.5x2.1 female, panel-mount
     pinlabels: [+24V (tip), GND (sleeve)]
@@ -28,10 +34,16 @@ connectors:
   P4: *plug
   P5: *plug
   BOARD_PWR:
-    type: JST XH 2-pin (XHP-2)
+    type: JST VH 2-pin (VHR-2)
     subtype: female
     pinlabels: [+24V, GND]
-    notes: basically board 24V in. GUESS - verify XH vs VH and which pin is +
+    notes: basically board v1.3 24V input. GUESS - which pin is +
+    additional_components:
+      - type: Terminal - SVH-21T-P1.1
+        qty: 1
+        qty_multiplier: populated
+        manufacturer: JST
+        mpn: SVH-21T-P1.1
   HUB:
     type: DC plug 5.5x2.1 male
     pinlabels: [+24V (tip), GND (sleeve)]
@@ -51,17 +63,20 @@ cables:
     gauge: 18 AWG
     length: 4 in
     colors: [RD, BK]
-    notes: PSU-J pigtail, inside PSU box. Gauge = GUESS
+    notes: >
+      PSU-J pigtail, inside PSU box. Comes already attached to the
+      panel-mount jack, so buy the jacks with leads rather than having
+      these made.
   PJ2: *pigtail
   PJ3: *pigtail
   PJ4: *pigtail
   PJ5: *pigtail
   PJ6: *pigtail
   W1:
-    gauge: 22 AWG
+    gauge: 18 AWG
     length: 36 in
     colors: [RD, BK]
-    notes: board 24V in. Gauge = GUESS. Length deliberately long
+    notes: board 24V in. Length deliberately long
   W2:
     gauge: 22 AWG
     length: 12 in

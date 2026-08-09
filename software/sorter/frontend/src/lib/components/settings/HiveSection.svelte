@@ -9,6 +9,7 @@
 		defaultHiveTargetName
 	} from '$lib/hive/link-flow';
 	import { Cloud, Link2, Pencil, Plus, RefreshCw, Shield, Star, Trash2, Upload } from 'lucide-svelte';
+	import MachineNameField from '$lib/components/MachineNameField.svelte';
 	import Modal from '$lib/components/Modal.svelte';
 
 	const machine = getMachineContext();
@@ -337,29 +338,12 @@
 		pairMachineName = '';
 	}
 
-	// This Sorter's own name for itself — its nickname, or the words in its
-	// Tailscale device name. Hive falls back to rolling one of its own when we
-	// have nothing to offer, so a failed lookup is not worth surfacing.
-	async function loadSuggestedMachineName() {
-		try {
-			const res = await fetch(`${currentBackendBaseUrl()}/api/settings/hive/suggested-machine-name`);
-			if (!res.ok) return;
-			const data = await res.json();
-			if (typeof data?.name === 'string' && data.name.trim() && !pairMachineName.trim()) {
-				pairMachineName = data.name.trim();
-			}
-		} catch {
-			// Leave the field empty; Hive names the machine instead.
-		}
-	}
-
 	function openPairForm() {
 		clearMessages();
 		editingTargetId = null;
 		showRegisterForm = false;
 		showPairForm = true;
 		resetPairForm();
-		void loadSuggestedMachineName();
 	}
 
 	function closeForms() {
@@ -968,11 +952,10 @@
 				</label>
 				<label class="flex flex-col gap-1 text-sm text-text">
 					Suggested machine name (optional)
-					<input
+					<MachineNameField
 						bind:value={pairMachineName}
-						type="text"
+						backendBaseUrl={currentBackendBaseUrl()}
 						placeholder="Hive names this machine if you leave it blank"
-						class="border border-border bg-bg px-2 py-1.5 text-sm text-text"
 					/>
 				</label>
 				<div class="flex justify-end gap-2">
@@ -1022,11 +1005,10 @@
 					placeholder="Account password"
 					class="border border-border bg-bg px-2 py-1.5 text-sm text-text"
 				/>
-				<input
+				<MachineNameField
 					bind:value={regMachineName}
-					type="text"
+					backendBaseUrl={currentBackendBaseUrl()}
 					placeholder="Machine name"
-					class="border border-border bg-bg px-2 py-1.5 text-sm text-text"
 				/>
 				<input
 					bind:value={regMachineDescription}

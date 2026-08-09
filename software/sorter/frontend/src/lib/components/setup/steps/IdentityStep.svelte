@@ -1,14 +1,18 @@
 <script lang="ts">
+	import MachineNameField from '$lib/components/MachineNameField.svelte';
+
 	let {
 		machineId,
 		nicknameDraft = $bindable(),
 		nameError,
-		nameStatus
+		nameStatus,
+		backendBaseUrl
 	}: {
 		machineId: string;
 		nicknameDraft: string;
 		nameError: string | null;
 		nameStatus: string;
+		backendBaseUrl: string;
 	} = $props();
 
 	const MACHINE_NAME_INPUT_ID = 'setup-machine-name';
@@ -23,12 +27,12 @@
 		<label for={MACHINE_NAME_INPUT_ID} class="mb-2 block text-sm font-medium text-text">
 			Machine name
 		</label>
-		<input
-			id={MACHINE_NAME_INPUT_ID}
-			type="text"
+		<MachineNameField
 			bind:value={nicknameDraft}
+			{backendBaseUrl}
+			id={MACHINE_NAME_INPUT_ID}
 			placeholder="e.g. Sorting Bench A"
-			class="setup-control w-full px-3 py-2 text-sm text-text"
+			variant="setup"
 		/>
 	</div>
 	{#if nameError}

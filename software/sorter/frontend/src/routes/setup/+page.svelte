@@ -181,6 +181,9 @@
 	let wizardError = $state<string | null>(null);
 
 	let nicknameDraft = $state('');
+	// The saved name as of the last wizard load, so an edited field is
+	// recognisable and left alone.
+	let loadedNickname = $state('');
 	let savingName = $state(false);
 	let nameError = $state<string | null>(null);
 	let nameStatus = $state('');
@@ -604,24 +607,6 @@
 		goToNextStep();
 	}
 
-	// An unnamed machine starts the naming step from the name it already picked
-	// for itself at firstboot (sorter-dark-azure-brick-… reads back as "Dark
-	// Azure Brick"), or a fresh roll on a machine that never got one. Anyone
-	// who clicks past this step still ends up with a name of their own, and it
-	// is the same name Hive gets later.
-	async function suggestNickname() {
-		try {
-			const res = await fetch(`${currentBackendBaseUrl()}/api/settings/hive/suggested-machine-name`);
-			if (!res.ok) return;
-			const data = await res.json();
-			if (typeof data?.name === 'string' && data.name.trim() && !nicknameDraft.trim()) {
-				nicknameDraft = data.name.trim();
-			}
-		} catch {
-			// Leave it empty; the step still asks for a name.
-		}
-	}
-
 	async function loadWizard() {
 		loadingWizard = true;
 		wizardError = null;
@@ -633,8 +618,13 @@
 			hardwareState = payload.hardware.state;
 			hardwareError = payload.hardware.error;
 			homingStep = payload.hardware.homing_step;
-			nicknameDraft = payload.machine.nickname ?? '';
-			if (!nicknameDraft.trim()) void suggestNickname();
+			// The wizard reloads on its own (hardware state changes, machine
+			// switches), and it used to overwrite the name field every time —
+			// so a name typed or rolled on this step could vanish mid-edit.
+			// Follow the saved name only while the field still matches it.
+			const savedNickname = payload.machine.nickname ?? '';
+			if (nicknameDraft === loadedNickname) nicknameDraft = savedNickname;
+			loadedNickname = savedNickname;
 			const configuredLayout = payload.config.camera_assignments.layout;
 			selectedLayout =
 				configuredLayout === 'split_feeder'
@@ -1050,6 +1040,7 @@
 							bind:nicknameDraft
 							{nameError}
 							{nameStatus}
+							backendBaseUrl={currentBackendBaseUrl()}
 						/>
 					{:else if activeStepId === 'theme'}
 						<ThemeStep />

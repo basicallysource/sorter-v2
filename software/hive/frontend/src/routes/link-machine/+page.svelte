@@ -325,11 +325,10 @@
 								type="button"
 								onclick={() => { machineName = randomMachineName(); }}
 								disabled={submitting}
-								title="Suggest another name"
-								aria-label="Suggest another name"
-								class="flex shrink-0 items-center justify-center border border-border bg-surface px-3 text-text-muted transition-colors hover:bg-bg hover:text-text disabled:opacity-60 dark:bg-bg dark:hover:bg-surface"
+								class="flex shrink-0 items-center gap-2 border border-border bg-surface px-3 text-sm whitespace-nowrap text-text-muted transition-colors hover:bg-bg hover:text-text disabled:opacity-60 dark:bg-bg dark:hover:bg-surface"
 							>
 								<Shuffle class="h-4 w-4" />
+								Generate New Name
 							</button>
 						</div>
 					</div>

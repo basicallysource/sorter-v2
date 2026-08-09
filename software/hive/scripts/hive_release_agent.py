@@ -33,6 +33,16 @@ BACKUP_S3_REGION = os.environ.get("HIVE_BACKUP_S3_REGION", "")
 BACKUP_S3_ACCESS_KEY_ID = os.environ.get("HIVE_BACKUP_S3_ACCESS_KEY_ID", "")
 BACKUP_S3_SECRET_ACCESS_KEY = os.environ.get("HIVE_BACKUP_S3_SECRET_ACCESS_KEY", "")
 RELEASES_KEEP = int(os.environ.get("HIVE_RELEASES_KEEP", "5"))
+# Image layers are the biggest thing a deploy leaves behind: a backend image is
+# 1.36 GB and every release pulls a new one by digest, so the old one is
+# untagged but NOT dangling and no ordinary `docker image prune` touches it. On
+# 2026-08-09 that filled the 77 GB disk to 96% and a deploy died mid-flight on
+# `pg_dump: no space left on device` — the release was built, published and
+# never installed, which is the worst place to stop. This is the fix.
+#
+# Keep the images newer than this so a rollback is a container restart rather
+# than a re-pull. Anything older is still in GHCR and costs a download.
+IMAGE_KEEP_HOURS = int(os.environ.get("HIVE_IMAGE_KEEP_HOURS", "48"))
 HEALTH_URL = os.environ.get("HIVE_HEALTH_URL", "https://hive.basically.website/api/health")
 PG_CONTAINER = os.environ.get("HIVE_PG_CONTAINER", "hive-postgres")
 COMPOSE_PROJECT = os.environ.get("HIVE_COMPOSE_PROJECT", "hive")
@@ -248,6 +258,63 @@ def uploadBackup(path: Path) -> None:
     log(f"  ✓ off-box copy → s3://{BACKUP_S3_BUCKET}/{key}")
 
 
+def pruneImages() -> None:
+    """Delete hive images no container is using and that are old enough not to
+    be the rollback target.
+
+    Never `docker image prune -a`: that would also take traefik, postgres and
+    anything else on the box that happens to be stopped. This names the two
+    repositories this agent pulls and nothing else.
+
+    Best effort — a deploy that worked must not be reported as failed because
+    a cleanup did not. The disk is checked by the next deploy's backup either
+    way, which is how the problem announced itself in the first place.
+    """
+    # subprocess directly rather than run(): these are read-only queries whose
+    # output is a list, and run() echoes every line it sees into the log.
+    def docker(*args: str) -> str:
+        return subprocess.run(
+            ["docker", *args], capture_output=True, text=True, check=True
+        ).stdout
+
+    try:
+        in_use = set(docker("ps", "--format", "{{.Image}}").split())
+        listed = docker(
+            "images",
+            "--filter", "reference=ghcr.io/basicallysource/hive-*",
+            "--format", "{{.ID}} {{.CreatedAt}}",
+        )
+    except Exception as exc:  # pragma: no cover - defensive
+        log(f"image prune: could not list images ({exc})")
+        return
+    cutoff = time.time() - IMAGE_KEEP_HOURS * 3600
+
+    removed = 0
+    for line in listed.splitlines():
+        parts = line.split(maxsplit=1)
+        if len(parts) != 2:
+            continue
+        image_id, created = parts
+        if any(image_id in ref for ref in in_use):
+            continue
+        try:
+            # docker prints "2026-08-09 18:56:39 +0000 UTC"; the first two
+            # fields are all that parses portably.
+            stamp = datetime.strptime(" ".join(created.split()[:2]), "%Y-%m-%d %H:%M:%S")
+            if stamp.replace(tzinfo=timezone.utc).timestamp() > cutoff:
+                continue
+        except ValueError:
+            continue
+        try:
+            docker("rmi", image_id)
+            removed += 1
+        except Exception:
+            # Still referenced by a stopped container or another tag. Fine.
+            continue
+    if removed:
+        log(f"  ✓ pruned {removed} old hive image(s)")
+
+
 def pruneBackups(cfg: AgentConfig) -> None:
     dumps = sorted(cfg.backup_dir.glob("db-*.dump"), key=lambda p: p.stat().st_mtime, reverse=True)
     cutoff = time.time() - BACKUP_KEEP_DAYS * 86400
@@ -405,6 +472,7 @@ def installRelease(cfg: AgentConfig, release: dict[str, Any], force: bool) -> bo
     installed["compose_file"] = str(compose_path)
     writeState(cfg, "current.json", installed)
     pruneReleases(cfg)
+    pruneImages()
     log(f"✓ {manifest['version']} live")
     return True
 

@@ -240,3 +240,53 @@ class TestFleetRoster:
         assert mine["last_hour_pieces"] == 1
         # The month contains both, so the windows nest rather than overlap.
         assert mine["last_30d_pieces"] == 2
+
+
+class TestContributors:
+    """/api/public/contributors — the people tier, behind its own scope."""
+
+    def _admin_headers(self, client, db):
+        return TestStatsScopeKeys._admin_headers(TestStatsScopeKeys(), client, db)
+
+    def _mint(self, client, headers, scopes):
+        return TestStatsScopeKeys._mint(TestStatsScopeKeys(), client, headers, scopes)
+
+    def test_needs_its_own_scope(self, client, db, monkeypatch):
+        """A fleet key must not read the contributor list, and vice versa: the
+        two describe different populations."""
+        monkeypatch.setattr(settings, "PUBLIC_STATS_API_KEY", "")
+        headers = self._admin_headers(client, db)
+        fleet = self._mint(client, headers, ["fleet:read"])
+        r = client.get("/api/public/contributors", headers=_bearer(fleet))
+        assert r.status_code == 403
+        assert "contributors:read" in r.json()["error"]
+
+        contrib = self._mint(client, headers, ["contributors:read"])
+        assert client.get("/api/public/contributors", headers=_bearer(contrib)).status_code == 200
+        assert client.get("/api/public/fleet", headers=_bearer(contrib)).status_code == 403
+
+    def test_the_legacy_secret_does_not_open_it(self, client, monkeypatch):
+        monkeypatch.setattr(settings, "PUBLIC_STATS_API_KEY", STATS_KEY)
+        r = client.get("/api/public/contributors", headers={"X-Stats-Key": STATS_KEY})
+        assert r.status_code == 401
+
+    def test_every_window_is_served_at_once(self, client, db, monkeypatch):
+        monkeypatch.setattr(settings, "PUBLIC_STATS_API_KEY", "")
+        headers = self._admin_headers(client, db)
+        token = self._mint(client, headers, ["contributors:read"])
+        body = client.get("/api/public/contributors", headers=_bearer(token)).json()
+        assert set(body["periods"]) == {"24h", "7d", "30d", "all"}
+
+    def test_no_avatar_and_no_user_id_leak(self, client, db, monkeypatch):
+        """The avatar URL embeds a Discord snowflake for anyone who signed in
+        with Discord, so serving it would hand out the id of people who never
+        linked. The internal user id is a correlation handle with no use here."""
+        monkeypatch.setattr(settings, "PUBLIC_STATS_API_KEY", "")
+        headers = self._admin_headers(client, db)
+        token = self._mint(client, headers, ["contributors:read"])
+        body = client.get("/api/public/contributors", headers=_bearer(token)).json()
+        for entries in body["periods"].values():
+            for e in entries:
+                assert "avatar_url" not in e
+                assert "user_id" not in e
+                assert "email" not in e

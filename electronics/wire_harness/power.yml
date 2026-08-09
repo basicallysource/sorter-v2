@@ -8,12 +8,17 @@ metadata:
 
 connectors:
   PSU:
-    type: LRS-350-24 output, screw terminals
+    type: LRS-350-24, 9-position screw terminal block
     subtype: spade terminal (fork/split ring), 18 AWG, M3.5, 8mm wide MAX
-    pinlabels: [+24V, GND (-V)]
+    pincount: 9
+    pinlabels: [AC/L, AC/N, FG, -V1, -V2, -V3, +V1, +V2, +V3]
     notes: >
-      3 pigtails land on the same output screws, one per load. Terminals
-      must fit the MeanWell LRS-350-24 screw terminals.
+      Terminal numbering is MeanWell's own (LRS-350-SPEC, Terminal Pin No.
+      Assignment): 1 AC/L, 2 AC/N, 3 FG, 4-6 DC OUTPUT -V, 7-9 DC OUTPUT +V.
+      One pigtail per +V/-V screw pair, so 7 with 4, 8 with 5, 9 with 6.
+      Pins 1-3 are the mains side and are fed by the fused IEC inlet
+      switch's own leads, which come pre-terminated and are not part of
+      this harness.
   J1: &jack
     type: DC jack 5.5x2.1 female, panel-mount
     pinlabels: [+24V (tip), GND (sleeve)]
@@ -73,15 +78,15 @@ cables:
 
 connections:
   -
-    - PSU: [1-2]
+    - PSU: [7, 4]
     - PJ1: [1-2]
     - J1: [1-2]
   -
-    - PSU: [1-2]
+    - PSU: [8, 5]
     - PJ2: [1-2]
     - J2: [1-2]
   -
-    - PSU: [1-2]
+    - PSU: [9, 6]
     - PJ3: [1-2]
     - J3: [1-2]
   -

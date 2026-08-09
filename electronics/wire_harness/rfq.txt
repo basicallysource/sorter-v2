@@ -45,7 +45,11 @@ Quote 2 sets and price breaks at 10 / 50 sets.
   soldering. Fully insulated because the switch is SPDT and one
   of its three tabs is left unused.
 - Spade/fork terminals (PSU end): 18 AWG, M3.5 stud, 8 mm wide
-  MAX so they fit the MeanWell LRS-350-24 screw terminals.
+  MAX so they fit the MeanWell LRS-350-24 terminal block. That
+  block is 9 screws, numbered per the MeanWell spec sheet:
+  1 AC/L, 2 AC/N, 3 FG, 4-6 DC OUTPUT -V, 7-9 DC OUTPUT +V.
+  Each pigtail takes one +V/-V pair (7 with 4, 8 with 5,
+  9 with 6). Screws 1-3 are not part of this harness.
 - Ends marked "bare tinned": strip 5 mm and tin, no connector.
 
 5. IMPORTANT - CROSSOVER CABLE

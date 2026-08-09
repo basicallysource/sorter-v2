@@ -35,6 +35,15 @@
 	// Link-flow failures land back here as /settings?error=...
 	let identitiesError = $state<string | null>(page.url.searchParams.get('error'));
 
+	// balloon's Discord "Claim your machine" button points at
+	// /settings?link=discord so a fresh visitor lands straight on a focused
+	// "connect Discord" modal instead of a long settings page.
+	let linkModalOpen = $state(page.url.searchParams.get('link') === 'discord');
+
+	function closeLinkModal() {
+		linkModalOpen = false;
+	}
+
 	async function loadIdentities() {
 		try {
 			identities = await api.listIdentities();
@@ -578,10 +587,12 @@
 
 			<!-- Connected accounts (OAuth identities) -->
 			{#if identities.length > 0 || providerEnabled('github') || providerEnabled('discord')}
-			<!-- The id is a link target: balloon's fleet board in Discord points a
-			     "Claim your machine" button at /settings#connected-accounts, so the
-			     person arrives at this panel rather than at the top of a long page.
-			     Renaming it breaks that button silently. -->
+			<!-- The id is still a valid deep link into this panel. balloon's fleet
+			     board "Claim your machine" button now points at
+			     /settings?link=discord instead, which opens the focused Connect
+			     Discord modal below rather than dropping the person here.
+			     Renaming this id would break any other lingering #connected-accounts
+			     links. -->
 			<div id="connected-accounts" class="scroll-mt-6 border border-border bg-surface p-6">
 				<h2 class="mb-1 font-semibold text-text">Connected Accounts</h2>
 				<p class="mb-4 text-sm text-text-muted">
@@ -1055,5 +1066,52 @@
 				Delete My Account
 			</button>
 		</div>
+	</div>
+</Modal>
+
+<Modal
+	open={linkModalOpen}
+	title={identityFor('discord') ? 'Discord Connected' : 'Connect Discord'}
+	onclose={closeLinkModal}
+>
+	{@const linked = identityFor('discord')}
+	<div class="space-y-4">
+		{#if linked}
+			<p class="text-sm text-text">
+				Your Discord account{linked.provider_login ? ` @${linked.provider_login}` : ''} is already linked.
+			</p>
+			<div class="flex justify-end">
+				<button
+					onclick={closeLinkModal}
+					class="border border-border px-4 py-2 text-sm font-medium text-text hover:bg-bg"
+					type="button"
+				>
+					Done
+				</button>
+			</div>
+		{:else if providerEnabled('discord')}
+			<p class="text-sm text-text-muted">
+				Linking Discord verifies you on the community server and lets any machines you register
+				be credited to you there.
+			</p>
+			<a
+				href={api.oauthLinkUrl('discord', '/settings?link=discord')}
+				class="flex items-center justify-center gap-2 bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary-hover"
+			>
+				<BrandMark brand="discord" size={18} />
+				Connect Discord
+			</a>
+		{:else}
+			<p class="text-sm text-text-muted">Discord sign-in isn't set up on this Hive instance.</p>
+			<div class="flex justify-end">
+				<button
+					onclick={closeLinkModal}
+					class="border border-border px-4 py-2 text-sm font-medium text-text hover:bg-bg"
+					type="button"
+				>
+					Close
+				</button>
+			</div>
+		{/if}
 	</div>
 </Modal>

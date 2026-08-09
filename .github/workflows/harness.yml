@@ -3,7 +3,7 @@ name: Harness drawings
 # Renders the WireViz harness from electronics/wire_harness/*.yml and publishes
 # it to the assets bucket under this ref's name (harness/<branch>/...). The
 # docs derive the same prefix from the ref they're building
-# (docs/_plugins/harness.rb), so a PR's Vercel preview shows the PR's drawings
+# (resolveHarness() in docs/src/lib/server/content.ts), so a PR preview shows the PR's drawings
 # and production shows main's. Nothing rendered is ever committed to git, and
 # nothing is ever committed back to the branch.
 #

@@ -4,7 +4,7 @@
 # electronics/wire_harness/<name>.yml is the source, and the published outputs
 # live in the assets bucket at <harness_base>/<name>.{png,svg,pdf,html,bom.tsv,yml},
 # where harness_base is derived per-build from the git ref by
-# docs/_plugins/harness.rb. CI renders and publishes on any harness change;
+# resolveHarness() in docs/src/lib/server/content.ts. CI renders and publishes on any harness change;
 # nothing rendered lives in this repo and nothing here needs updating when a
 # drawing's content changes.
 #

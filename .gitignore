@@ -22,13 +22,9 @@ software/sorteros/v3/build/.env
 /samples-nav-requests.txt
 /sample-detail-blank.png
 /software/sorter/backend/calibration_image_sample_data_20x128x128x3_float32.npy
-/docs/_site/
-/docs/.jekyll-cache/
-/docs/.jekyll.pid
-/docs/.jekyll.log
-/docs/.sass-cache/
-/docs/vendor/
-/docs/.bundle/
+/docs/node_modules/
+/docs/.svelte-kit/
+/docs/build/
 
 # Rendered WireViz output. build-harness.sh generates it from the YAML sources
 # beside it; upload-harness.py puts it in the basically-docs bucket and prints

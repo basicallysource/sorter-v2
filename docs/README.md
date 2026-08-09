@@ -1,51 +1,47 @@
-# Documentation Site
+# docs — the documentation site
 
-Jekyll static site, the canonical source for Sorter project documentation.
-Deployed via Vercel.
+The Sorter V2 documentation site: SvelteKit + Tailwind v4, fully prerendered
+to static HTML (`@sveltejs/adapter-static`), with client-side navigation and
+hover preloading between pages. It replaced the previous Jekyll site; the
+content carried over unchanged.
 
-## Publishing and PR previews
-
-- Push to `main` → production deploy.
-- Push to any other branch → automatic preview deployment. The stable
-  per-branch preview URL is
-  `https://sorter-v2-docs-git-<branch>-spencer-huberts-projects.vercel.app`,
-  publicly viewable, always tracking the branch's latest push. Send that link
-  to reviewers; merge to `main` once approved.
-
-## Local preview
+## Run it
 
 ```bash
-./docs/serve.sh start
+npm install
+npm run dev        # dev server with HMR
+npm run build      # static site → build/
+npm run preview    # serve the built site
 ```
 
-Runs Jekyll at `http://localhost:4000` with livereload. `./serve.sh
-{status|logs|restart|stop}`. For a containerized build check without local
-Ruby: `./docs/local-jekyll.sh build` (or `serve`).
+## How content works
 
-## Images
+Content is authored the same way it was under Jekyll:
 
-Images are **not stored in git**. Full-resolution originals and web-optimized
-versions live in the `basically-docs` DigitalOcean Spaces bucket, served
-through a Cloudflare Worker (`docs/scripts/img-worker/`) at
-`https://img.basically.website`.
+- **Markdown + frontmatter** in `src/content/`. Same fields (`title`, `type`,
+  `section`, `kicker`, `lede`, `author`, `parts_needed`, `tools_needed`, …).
+  Per-section frontmatter defaults (formerly `_config.yml`) live in
+  `src/lib/server/content.ts`.
+- **Liquid still works.** Pages render through liquidjs at build time with
+  `site.data.*`, `relative_url`, and the includes in `src/liquid/_includes/`
+  (`step.html`, `harness/pin-swap.html`, …). Affiliate links and kramdown
+  `{#heading-id}` attributes are expanded by small transforms in
+  `content.ts`.
+- **Data files** (`nav.yml`, `parts.yml`, `authors.yml`, `harness.yml`) live
+  in `src/liquid/_data/` and drive the nav, parts cards, bylines, and the
+  WireViz page.
 
-To add an image:
+Everything renders once at build time; the browser never fetches or parses
+markdown. `src/routes/[...path]/+page.server.ts` prerenders one page per
+content file (URLs match the old site's pretty permalinks).
 
-```bash
-python3 docs/scripts/upload_image.py <original-file> <dest-path>
-```
+See `AGENTS.md` for the authoring playbook (adding articles, images, parts,
+authors).
 
-Example: `python3 docs/scripts/upload_image.py ~/Downloads/IMG_1234.jpg
-assembly/top-interface/step1` uploads the original to `originals/…` and a
-web-friendly version (long side ≤ 1600px, opaque → progressive `.jpg`,
-transparent → `.png`) to `web/…`, then prints the URLs. Reference the printed
-`https://img.basically.website/web/…` URL in the page.
+## Styling
 
-Names are immutable (the CDN caches for 30 days): if an image's content
-changes, upload it under a new name. The script refuses to overwrite an
-existing name unless `--force`.
-
-Credentials live in `~/.config/basically/do-spaces.env` (`SPACES_KEY` /
-`SPACES_SECRET`), not in the repo.
-
-See `AGENTS.md` in this directory for the full authoring playbook.
+`src/routes/layout.css` — Tailwind v4 `@theme` tokens using the same naming
+scheme as `software/sorter/frontend/src/routes/layout.css`, and the design
+rules from that app's CLAUDE.md apply here too: sharp edges (no `rounded-*`),
+flat 1px borders on callouts (no left-accent stripes), body copy ≥ 14px, no
+raw hex in components. The docs keep LEGO red as `--color-primary`.

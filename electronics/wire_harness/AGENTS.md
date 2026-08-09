@@ -17,7 +17,7 @@ bucket, addressed by git ref:
 
 Refs are mutable, exactly like git branches: pushing to a branch overwrites
 that branch's prefix. The docs derive the prefix for whatever ref they're
-building (`docs/_plugins/harness.rb`), so a PR's Vercel preview shows the PR's
+building (`resolveHarness()` in `docs/src/lib/server/content.ts`), so a PR preview shows the PR's
 drawings and production shows main's. Objects carry a short cache TTL and the
 docs append a per-deploy `?v=` buster, so nobody ever sees a stale drawing for
 more than about a minute.
@@ -69,11 +69,11 @@ The wireviz page on that preview is `/hardware/electronics/wireviz/`.
 1. New `<name>.yml` source here.
 2. Add `<name>` to the `drawings` list in `build-harness.sh` (the supplier
    zip's member list).
-3. Add an entry (name, title, caption) to `docs/_data/harness.yml`.
+3. Add an entry (name, title, caption) to `docs/src/liquid/_data/harness.yml`.
 
 ## Where this shows up in the docs
 
-Five pages under `docs/hardware/electronics/`:
+Five pages under `docs/src/content/hardware/electronics/`:
 
 | Page | What it is |
 |---|---|

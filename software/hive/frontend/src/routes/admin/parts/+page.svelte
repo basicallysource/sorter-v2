@@ -227,11 +227,13 @@
 		bind:value={query}
 		onkeydown={(e) => e.key === 'Enter' && applyFilters()}
 		placeholder="Search part #, name, or BrickLink ID…"
-		class="min-w-64 flex-1 border border-border bg-surface px-3 py-2 text-sm text-text"
+		class="w-full flex-1 border border-border bg-surface px-3 py-2 text-sm text-text sm:min-w-64"
 	/>
+	<!-- A <select> sizes to its widest option; the category names are long enough
+	     to push the row past a phone screen without an explicit cap. -->
 	<select
 		bind:value={catId}
-		class="border border-border bg-surface px-3 py-2 text-sm text-text"
+		class="max-w-full min-w-0 border border-border bg-surface px-3 py-2 text-sm text-text"
 	>
 		<option value={null}>All categories</option>
 		{#each categories as cat}
@@ -240,7 +242,7 @@
 	</select>
 	<select
 		bind:value={missing}
-		class="border border-border bg-surface px-3 py-2 text-sm text-text"
+		class="max-w-full min-w-0 border border-border bg-surface px-3 py-2 text-sm text-text"
 	>
 		<option value="">Any connection</option>
 		<option value="bricklink_id">Missing BrickLink ID</option>
@@ -326,7 +328,7 @@
 				{#if detail.part.part_img_url}
 					<img src={detail.part.part_img_url} alt="" class="h-20 w-20 object-contain border border-border" />
 				{/if}
-				<dl class="grid flex-1 grid-cols-2 gap-x-3 gap-y-1 text-sm">
+				<dl class="grid min-w-0 flex-1 grid-cols-2 gap-x-3 gap-y-1 text-sm">
 					<dt class="text-text-muted">Category</dt>
 					<dd class="text-text">{detail.part._category_name}</dd>
 					<dt class="text-text-muted">Years</dt>
@@ -385,9 +387,9 @@
 				{:else}
 					<div class="space-y-1 text-sm">
 						{#each Object.entries(detail.part.external_ids) as [source, ids]}
-							<div class="flex gap-2">
+							<div class="flex min-w-0 gap-2">
 								<span class="w-24 shrink-0 text-text-muted">{source}</span>
-								<span class="font-mono text-text">{ids.join(', ')}</span>
+								<span class="min-w-0 break-all font-mono text-text">{ids.join(', ')}</span>
 							</div>
 						{/each}
 					</div>
@@ -438,7 +440,7 @@
 				{#if detail.prices.length === 0}
 					<p class="text-sm text-text-muted">No price data yet — run the price sync.</p>
 				{:else}
-					<div class="max-h-64 overflow-y-auto border border-border">
+					<div class="max-h-64 overflow-auto border border-border">
 						<table class="min-w-full divide-y divide-border text-sm">
 							<thead class="sticky top-0 bg-bg">
 								<tr>

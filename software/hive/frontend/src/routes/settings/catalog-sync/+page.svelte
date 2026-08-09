@@ -223,7 +223,7 @@
 					{/if}
 
 					{#if state.last_message}
-						<p class="mt-3 text-sm text-text">{state.last_message}</p>
+						<p class="mt-3 break-words text-sm text-text">{state.last_message}</p>
 					{/if}
 
 					{#if state.error && state.status !== 'running'}

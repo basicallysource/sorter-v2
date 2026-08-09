@@ -1107,15 +1107,15 @@
 	<Alert variant="danger">No version available.</Alert>
 {:else}
 	<!-- Header -->
-	<div class="mb-4 flex items-center justify-between">
-		<div class="flex items-center gap-3">
-			<a href={`/profiles/${profile.id}`} class="text-text-muted hover:text-text" title="Back to profile">
+	<div class="mb-4 flex flex-wrap items-center justify-between gap-3">
+		<div class="flex min-w-0 items-center gap-3">
+			<a href={`/profiles/${profile.id}`} class="shrink-0 text-text-muted hover:text-text" title="Back to profile">
 				<ArrowLeft size={20} />
 			</a>
-			<div>
-				<div class="group flex items-center gap-1.5">
+			<div class="min-w-0">
+				<div class="group flex min-w-0 items-center gap-1.5">
 					<!-- the hidden span sizes the grid cell so the input hugs the name and the pencil sits right after it -->
-					<div class="inline-grid items-center">
+					<div class="inline-grid min-w-0 max-w-full items-center overflow-hidden">
 						<span aria-hidden="true" class="invisible col-start-1 row-start-1 whitespace-pre border-b-2 border-transparent px-1 text-xl font-bold">{nameDraft || 'Untitled Profile'}</span>
 						<input
 							type="text"
@@ -1184,14 +1184,16 @@
 	{/if}
 
 	<!-- Main 2-column layout: Rules (left, wider) | Chat (right) -->
-	<div class="grid min-h-0 grid-cols-1 gap-4 overflow-hidden xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]" style="height: calc(100vh - 200px);">
+	<!-- The viewport-locked height only makes sense once the two panels sit side
+	     by side; stacked, it would split one screen between them. -->
+	<div class="grid min-h-0 grid-cols-1 gap-4 xl:h-[calc(100vh-200px)] xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] xl:overflow-hidden">
 
 		<!-- LEFT: Rules (accordion) -->
-		<div class="flex min-h-0 min-w-0 flex-col border border-border bg-surface">
-			<div class="flex items-center justify-between border-b border-border px-4 py-2">
+		<div class="flex min-h-[60vh] min-w-0 flex-col border border-border bg-surface xl:min-h-0">
+			<div class="flex flex-wrap items-center justify-between gap-2 border-b border-border px-4 py-2">
 				<h2 class="text-sm font-semibold text-text">Rules</h2>
 				{#if !isPreview}
-					<div class="flex items-center gap-1.5">
+					<div class="flex flex-wrap items-center gap-1.5">
 						<button onclick={() => addRule()}
 							class="border border-border bg-surface px-2.5 py-1 text-[11px] font-medium text-text-muted hover:bg-bg hover:text-text">
 							+ Rule
@@ -1208,8 +1210,8 @@
 				{/if}
 			</div>
 			{#if isPreview}
-				<div class="flex items-center justify-between border-b border-warning/30 bg-warning/[0.1] px-4 py-2">
-					<span class="text-xs font-medium text-warning-strong">
+				<div class="flex flex-wrap items-center justify-between gap-2 border-b border-warning/30 bg-warning/[0.1] px-4 py-2">
+					<span class="min-w-0 text-xs font-medium text-warning-strong">
 						Viewing v{previewVersion?.version_number}
 						{#if previewVersion?.change_note}
 							— {previewVersion.change_note}
@@ -1342,7 +1344,7 @@
 	<!-- Sticky bottom bar -->
 	{#if hasUnsavedChanges}
 		<div class="fixed bottom-0 left-0 right-0 z-30 border-t border-border bg-surface px-4 py-3">
-			<div class="mx-auto flex max-w-7xl items-center justify-between">
+			<div class="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-2">
 				<div class="flex items-center gap-2 text-sm text-text-muted">
 					<span class="inline-block h-2 w-2 bg-warning"></span>
 					Unsaved changes

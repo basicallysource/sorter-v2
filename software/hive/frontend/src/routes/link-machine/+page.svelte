@@ -225,12 +225,12 @@
 				</div>
 				<div class="grid gap-1">
 					<span class="text-xs font-semibold tracking-wider text-text-muted uppercase">Return target</span>
-					<span class="font-mono text-text">{destinationLabel()}</span>
+					<span class="break-all font-mono text-text">{destinationLabel()}</span>
 				</div>
 				{#if sorterOrigin()}
 					<div class="grid gap-1">
 						<span class="text-xs font-semibold tracking-wider text-text-muted uppercase">Started from</span>
-						<span class="font-mono text-text">{sorterOrigin()}</span>
+						<span class="break-all font-mono text-text">{sorterOrigin()}</span>
 					</div>
 				{/if}
 			</div>
@@ -339,7 +339,7 @@
 
 				<div class="flex flex-wrap items-center justify-between gap-3">
 					<p class="text-xs leading-relaxed text-text-muted">
-						Only confirm this if you trust <span class="font-mono text-text">{destinationLabel()}</span>.
+						Only confirm this if you trust <span class="break-all font-mono text-text">{destinationLabel()}</span>.
 					</p>
 					<button
 						type="submit"

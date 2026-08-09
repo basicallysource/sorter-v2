@@ -473,7 +473,7 @@
 				</div>
 				<div>
 					<dt class="text-text-muted">Email</dt>
-					<dd class="font-medium text-text">{auth.user.email}</dd>
+					<dd class="break-all font-medium text-text">{auth.user.email}</dd>
 				</div>
 				<div>
 					<dt class="text-text-muted">GitHub</dt>
@@ -912,8 +912,8 @@
 				{#if apiKeys.length === 0}
 					<p class="text-sm text-text-muted">No tokens yet.</p>
 				{:else}
-					<div class="border border-border">
-						<table class="w-full text-sm">
+					<div class="overflow-x-auto border border-border">
+						<table class="w-full min-w-[52rem] text-sm">
 							<thead class="border-b border-border bg-bg text-left text-xs uppercase tracking-wide text-text-muted">
 								<tr>
 									<th class="px-3 py-2">Name</th>

@@ -168,7 +168,7 @@
 	<section class="space-y-4">
 		<h2 class="text-lg font-semibold tracking-tight">Stat Cards</h2>
 		<p class="text-sm text-text-muted">Colored label + dot indicator. The label text and dot carry the semantic color.</p>
-		<div class="grid grid-cols-4 gap-4">
+		<div class="grid grid-cols-2 gap-4 sm:grid-cols-4">
 			<div class="border border-border bg-surface p-4">
 				<p class="flex items-center gap-2 text-xs font-medium text-info"><span class="inline-block h-2.5 w-2.5 bg-info"></span>In Review</p>
 				<p class="font-mono text-2xl font-bold">9</p>
@@ -192,7 +192,7 @@
 	<!-- ─── Profile Cards ─── -->
 	<section class="space-y-4">
 		<h2 class="text-lg font-semibold tracking-tight">Profile Cards</h2>
-		<div class="grid grid-cols-3 gap-4">
+		<div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
 			<a href="#" class="border border-border bg-surface p-4 transition-colors hover:border-text-muted">
 				<p class="font-semibold">My Star Wars Collection</p>
 				<p class="text-xs text-text-muted">Set-based profile</p>
@@ -274,7 +274,7 @@
 	<section class="space-y-4">
 		<h2 class="text-lg font-semibold tracking-tight">Tab Navigation</h2>
 		<div class="border border-border bg-surface p-6">
-			<div class="inline-flex border border-border p-1">
+			<div class="flex flex-wrap border border-border p-1">
 				<button class="px-3 py-1.5 text-sm font-medium text-text-muted hover:text-text hover:bg-bg">Discover</button>
 				<button class="px-3 py-1.5 text-sm font-medium text-text-muted hover:text-text hover:bg-bg">My Library</button>
 				<button class="bg-primary-light px-3 py-1.5 text-sm font-medium text-primary">My Profiles</button>
@@ -311,7 +311,7 @@
 	<section class="space-y-4">
 		<h2 class="text-lg font-semibold tracking-tight">Dropdown Menu</h2>
 		<div class="border border-border bg-surface p-6">
-			<div class="flex gap-8">
+			<div class="flex flex-wrap gap-8">
 				<div class="relative">
 					<button class="flex items-center gap-2 border border-border px-3 py-1.5 text-sm font-medium text-text hover:bg-bg">
 						User Menu
@@ -319,7 +319,7 @@
 							<path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
 						</svg>
 					</button>
-					<div class="absolute left-0 z-50 mt-1 w-56 border border-border bg-surface py-1">
+					<div class="absolute left-0 z-50 mt-1 w-56 max-w-[calc(100vw-3rem)] border border-border bg-surface py-1">
 						<div class="px-4 py-2 text-xs font-medium uppercase tracking-wider text-text-muted">Account</div>
 						<a href="#" class="flex items-center gap-2 px-4 py-2 text-sm text-text hover:bg-bg">Settings</a>
 						<a href="#" class="flex items-center gap-2 px-4 py-2 text-sm text-text hover:bg-bg">Profile</a>
@@ -333,7 +333,7 @@
 							<path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" />
 						</svg>
 					</button>
-					<div class="absolute left-0 z-50 mt-1 w-48 border border-border bg-surface py-1">
+					<div class="absolute left-0 z-50 mt-1 w-48 max-w-[calc(100vw-3rem)] border border-border bg-surface py-1">
 						<a href="#" class="flex items-center gap-2 px-4 py-2 text-sm text-text hover:bg-bg">Edit</a>
 						<a href="#" class="flex items-center gap-2 px-4 py-2 text-sm text-text hover:bg-bg">Duplicate</a>
 						<div class="my-1 border-b border-border"></div>
@@ -350,7 +350,7 @@
 		<h2 class="text-lg font-semibold tracking-tight">Icon Buttons</h2>
 		<div class="border border-border bg-surface p-6">
 			<div class="flex flex-wrap items-center gap-4">
-				<div class="flex items-center gap-1">
+				<div class="flex flex-wrap items-center gap-1">
 					<button class="p-1 text-text-muted hover:text-text" title="Move up">
 						<svg class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
 							<path fill-rule="evenodd" d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z" clip-rule="evenodd" />
@@ -514,7 +514,7 @@
 				<code class="bg-bg px-1">size</code> (px); never hand-roll an <code class="bg-bg px-1">animate-spin</code> ring. It inherits its color from
 				<code class="bg-bg px-1">currentColor</code>.
 			</p>
-			<div class="flex items-end gap-8">
+			<div class="flex flex-wrap items-end gap-8">
 				<div class="flex flex-col items-center gap-2">
 					<Spinner size={32} class="text-primary" />
 					<span class="text-xs text-text-muted">Page — size={32}</span>
@@ -578,7 +578,7 @@
 	<!-- ─── Data Table ─── -->
 	<section class="space-y-4">
 		<h2 class="text-lg font-semibold tracking-tight">Data Table</h2>
-		<div class="border border-border bg-surface">
+		<div class="overflow-x-auto border border-border bg-surface">
 			<table class="min-w-full divide-y divide-border">
 				<thead class="bg-bg">
 					<tr>
@@ -611,7 +611,7 @@
 	<section class="space-y-4">
 		<h2 class="text-lg font-semibold tracking-tight">Pagination</h2>
 		<div class="border border-border bg-surface p-6">
-			<div class="flex items-center gap-1">
+			<div class="flex flex-wrap items-center gap-1">
 				<button class="border border-border px-3 py-1.5 text-sm font-medium text-text hover:bg-bg disabled:opacity-50" disabled>Previous</button>
 				<button class="border border-border px-3 py-1.5 text-sm font-medium bg-primary text-white">1</button>
 				<button class="border border-border px-3 py-1.5 text-sm font-medium text-text hover:bg-bg">2</button>
@@ -693,7 +693,7 @@
 		<div class="border border-border bg-surface p-6">
 			<div class="relative inline-block">
 				<button class="bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary-hover">Save Version</button>
-				<div class="absolute left-0 top-full z-50 mt-2 w-72 border border-border bg-surface p-4">
+				<div class="absolute left-0 top-full z-50 mt-2 w-72 max-w-[calc(100vw-3rem)] border border-border bg-surface p-4">
 					<h3 class="mb-2 text-sm font-semibold">Save New Version</h3>
 					<input type="text" placeholder="Change note (optional)" class="mb-3 w-full border border-border px-2 py-1 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary" />
 					<div class="flex justify-end gap-2">
@@ -754,7 +754,7 @@
 	<!-- ─── Card Grid ─── -->
 	<section class="space-y-4">
 		<h2 class="text-lg font-semibold tracking-tight">Card Grid</h2>
-		<div class="grid grid-cols-3 gap-4">
+		<div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
 			<div class="border border-border border-t-2 border-t-success bg-surface text-left">
 				<div class="aspect-square overflow-hidden bg-bg">
 					<div class="flex h-full items-center justify-center text-sm text-text-muted">Image</div>

@@ -200,7 +200,7 @@
 	<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onkeydown={(e) => { if (e.key === 'Escape') deleteTarget = null; }} onclick={() => deleteTarget = null}>
 		<!-- svelte-ignore a11y_no_static_element_interactions -->
 		<div
-			class="w-full max-w-md bg-surface p-6"
+			class="mx-4 w-full max-w-md bg-surface p-4 sm:p-6"
 			role="dialog"
 			aria-modal="true"
 			tabindex="-1"

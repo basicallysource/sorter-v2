@@ -277,13 +277,13 @@
 
 		{#if job.items_pages > 1}
 			{@const j = job}
-			<div class="mt-4 flex items-center justify-between border border-border bg-surface px-4 py-2.5 text-xs">
+			<div class="mt-4 flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border border-border bg-surface px-4 py-2.5 text-xs">
 				<span class="text-text-muted">
 					Page {j.items_page} of {j.items_pages} · showing
 					{(j.items_page - 1) * j.items_page_size + 1}–{Math.min(j.items_page * j.items_page_size, j.items_total)}
 					of {j.items_total.toLocaleString()}
 				</span>
-				<div class="flex items-center gap-1">
+				<div class="flex flex-wrap items-center gap-1">
 					<button
 						type="button"
 						onclick={() => goToPage(j.items_page - 1)}

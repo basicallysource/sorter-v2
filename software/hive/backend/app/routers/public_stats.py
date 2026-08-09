@@ -18,7 +18,7 @@ import hmac
 from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, Header, HTTPException
-from sqlalchemy import func
+from sqlalchemy import and_, func
 from sqlalchemy.orm import Session
 
 from app.config import settings
@@ -26,6 +26,7 @@ from app.deps import API_KEY_PREFIX, API_KEY_SCOPE_STATS_READ, _resolve_api_key,
 from app.models.machine import Machine
 from app.models.machine_daily_stats import MachineDailyStats
 from app.models.machine_piece import MachinePiece
+from app.models.user_identity import UserIdentity
 from app.services import analytics
 
 router = APIRouter(prefix="/api/public", tags=["public-stats"])
@@ -87,6 +88,48 @@ def get_public_stats(db: Session = Depends(get_db)):
         "last_24h_pieces": _rolling_24h_pieces(db, ids),
         **_local_day_in_progress(db, ids),
         **data,
+    }
+
+
+@router.get("/fleet", dependencies=[Depends(require_stats_key)])
+def get_public_fleet(db: Session = Depends(get_db)):
+    """The fleet roster: every non-archived machine, with the owner's Discord
+    identity attached only when that owner has linked one. Linking Discord is
+    the opt-in — an unlinked owner appears as an anonymous machine."""
+    rows = (
+        db.query(Machine, UserIdentity)
+        .outerjoin(
+            UserIdentity,
+            and_(
+                UserIdentity.user_id == Machine.owner_id,
+                UserIdentity.provider == "discord",
+            ),
+        )
+        .filter(Machine.archived_at.is_(None))
+        .order_by(Machine.created_at)
+        .all()
+    )
+    machines = [
+        {
+            "id": str(machine.id),
+            "name": machine.name,
+            "is_active": machine.is_active,
+            "last_seen_at": machine.last_seen_at.isoformat() if machine.last_seen_at else None,
+            "created_at": machine.created_at.isoformat(),
+            "owner_discord": None
+            if identity is None
+            else {
+                "id": identity.provider_user_id,
+                "login": identity.provider_login,
+                "avatar_url": identity.avatar_url,
+            },
+        }
+        for machine, identity in rows
+    ]
+    return {
+        "machines": machines,
+        "machine_count": len(machines),
+        "discord_linked_count": sum(1 for m in machines if m["owner_discord"] is not None),
     }
 
 

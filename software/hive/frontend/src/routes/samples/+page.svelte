@@ -634,14 +634,14 @@
 	<title>Samples - Hive</title>
 </svelte:head>
 
-<div class="mb-6 flex items-center justify-between">
-	<div>
+<div class="mb-6 flex flex-wrap items-center justify-between gap-3">
+	<div class="min-w-0">
 		<h1 class="text-2xl font-bold text-text">Samples</h1>
 		<p class="mt-1 text-sm text-text-muted">
 			Browse and review training samples captured by your machines.
 		</p>
 	</div>
-	<div class="flex items-center gap-2">
+	<div class="flex flex-wrap items-center gap-2">
 		<a
 			href="/samples/diversity"
 			class="inline-flex items-center gap-2 border border-border bg-surface px-4 py-2 text-sm font-medium text-text hover:bg-bg"
@@ -754,8 +754,8 @@
 	{@const pct = job.total > 0 ? Math.round((job.processed / job.total) * 100) : 0}
 	{@const eta = computeEta(job)}
 	<div class="mb-4 border border-border bg-surface">
-		<div class="flex items-center justify-between gap-3 border-b border-border px-4 py-2.5">
-			<div class="flex items-center gap-2 text-xs">
+		<div class="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border-b border-border px-4 py-2.5">
+			<div class="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
 				<span class="font-semibold text-text">Teacher job</span>
 				<span class="text-text-muted">{job.openrouter_model}</span>
 				<span class="tabular-nums text-text">{job.processed}/{job.total}</span>
@@ -782,7 +782,7 @@
 					</span>
 				{/if}
 			</div>
-			<div class="flex items-center gap-3">
+			<div class="flex flex-wrap items-center gap-3">
 				<a href={`/admin/teacher-jobs/${job.id}`} class="text-xs text-primary hover:underline">
 					Open details →
 				</a>
@@ -859,7 +859,7 @@
 			{#if hasActiveFilters}
 				<div class="border border-border bg-bg px-3 py-2 text-xs">
 					<div class="mb-1 font-semibold text-text-muted">Active filter</div>
-					<div class="flex flex-wrap gap-1.5">
+					<div class="flex flex-wrap gap-1.5 break-all">
 						{#if filterScope === 'mine'}<span class="border border-border px-1.5 py-0.5 text-text">scope=mine</span>{/if}
 						{#if filterMachine}<span class="border border-border px-1.5 py-0.5 text-text">machine={filterMachine}</span>{/if}
 						{#if filterSourceRole}<span class="border border-border px-1.5 py-0.5 text-text">source_role={filterSourceRole}</span>{/if}
@@ -936,7 +936,7 @@
 			{#if hasActiveFilters}
 				<div class="border border-border bg-bg px-3 py-2 text-xs">
 					<div class="mb-1 font-semibold text-text-muted">Active filter</div>
-					<div class="flex flex-wrap gap-1.5">
+					<div class="flex flex-wrap gap-1.5 break-all">
 						{#if filterMachine}<span class="border border-border px-1.5 py-0.5 text-text">machine={filterMachine}</span>{/if}
 						{#if filterSourceRole}<span class="border border-border px-1.5 py-0.5 text-text">source_role={filterSourceRole}</span>{/if}
 						{#if filterCaptureReason}<span class="border border-border px-1.5 py-0.5 text-text">capture_reason={filterCaptureReason}</span>{/if}
@@ -1048,10 +1048,11 @@
 	</div>
 {/if}
 
-<div class="flex gap-5">
-	<!-- Sidebar filters -->
-	<aside class="w-48 shrink-0">
-		<div class="sticky top-20 space-y-1">
+<div class="flex flex-col gap-5 lg:flex-row">
+	<!-- Sidebar filters. Below lg the rail becomes a full-width block stacked
+	     above the grid — a 192px column leaves ~150px for the samples. -->
+	<aside class="w-full shrink-0 lg:w-48">
+		<div class="space-y-1 lg:sticky lg:top-20">
 			{#if hasActiveFilters}
 				<button onclick={clearFilters} class="flex items-center gap-1 text-xs text-primary hover:underline">
 					<svg class="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
@@ -1366,8 +1367,8 @@
 
 			<!-- Pagination -->
 			{#if data.pages > 1}
-				<div class="mt-6 flex items-center justify-between border border-border bg-surface px-4 py-2.5">
-					<div class="flex items-center gap-3">
+				<div class="mt-6 flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border border-border bg-surface px-4 py-2.5">
+					<div class="flex flex-wrap items-center gap-3">
 						<span class="text-xs text-text-muted">{(data.page - 1) * pageSize + 1}–{Math.min(data.page * pageSize, data.total)} of {data.total.toLocaleString()}</span>
 						<select
 							value={pageSize}
@@ -1381,7 +1382,7 @@
 							<option value={100}>100 / page</option>
 						</select>
 					</div>
-					<div class="flex items-center gap-1">
+					<div class="flex flex-wrap items-center gap-1">
 						<button
 							onclick={() => goToPage(currentPage - 1)}
 							disabled={currentPage <= 1}

@@ -112,7 +112,9 @@
 	const hasChildren = $derived(rule.children.length > 0);
 </script>
 
-<div class="{depth > 0 ? 'ml-4 border-l border-border' : ''}">
+<!-- Nesting indent is halved on phones: at 16px per level a depth-4 rule would
+     eat a quarter of the screen before its controls start. -->
+<div class="min-w-0 {depth > 0 ? 'ml-2 border-l border-border sm:ml-4' : ''}">
 	<!-- svelte-ignore a11y_no_static_element_interactions -->
 	<div onclick={() => { onToggleNode(rule.id); onSelectRule(rule.id); }}
 		onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { onToggleNode(rule.id); onSelectRule(rule.id); } }}
@@ -359,7 +361,7 @@
 				{#if rule.conditions.length > 0}
 					<div class="mb-2 space-y-1.5">
 						{#each rule.conditions as cond (cond.id)}
-							<div class="flex items-center gap-1.5">
+							<div class="flex flex-wrap items-center gap-1.5">
 								<select value={cond.field}
 									onchange={(e) => {
 										const field = (e.currentTarget as HTMLSelectElement).value;

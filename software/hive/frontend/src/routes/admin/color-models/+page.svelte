@@ -92,7 +92,7 @@
 
 	{#if modelDir}
 		<p class="text-xs text-text-muted">
-			Scan directory: <code class="bg-bg px-1.5 py-0.5 text-text">{modelDir}</code>
+			Scan directory: <code class="break-all bg-bg px-1.5 py-0.5 text-text">{modelDir}</code>
 		</p>
 	{/if}
 
@@ -108,7 +108,7 @@
 		</div>
 	{:else}
 		<div class="border border-border bg-surface">
-			<div class="flex items-center justify-between border-b border-border bg-bg px-4 py-2">
+			<div class="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 border-b border-border bg-bg px-4 py-2">
 				<span class="text-[10px] font-semibold uppercase tracking-wider text-text-muted">
 					{models.length} model{models.length === 1 ? '' : 's'} on disk
 				</span>
@@ -133,7 +133,7 @@
 						{#if m.description}
 							<p class="mt-0.5 truncate text-xs text-text-muted">{m.description}</p>
 						{/if}
-						<p class="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-text-muted">
+						<p class="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 break-all text-[11px] text-text-muted">
 							<span><code class="text-text-muted">{m.filename}</code></span>
 							<span>{m.class_count} colors</span>
 							<span>{m.input_size}×{m.input_size}</span>

@@ -185,7 +185,9 @@
 		<h2 class="mb-3 text-lg font-semibold text-text">By dimension</h2>
 		<div class="grid gap-6 lg:grid-cols-2">
 			{#each dimensionEntries as dim (dim.key)}
-				<div>
+				<!-- min-w-0: without it the grid track sizes to the widest table cell
+				     and the overflow-x-auto wrapper below never gets to scroll. -->
+				<div class="min-w-0">
 					<h3 class="mb-2 text-sm font-semibold text-text">{dim.label}</h3>
 					<div class="overflow-x-auto border border-border bg-surface">
 						<table class="min-w-full divide-y divide-border">

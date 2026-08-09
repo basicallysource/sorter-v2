@@ -224,9 +224,9 @@
 				<div class="space-y-2">
 					{#each sortedCategories as cat}
 						<div class="flex items-center gap-3">
-							<div class="w-40 truncate text-sm text-text">{cat.name}{#if cat.isFallback} <span class="text-xs text-text-muted">(fallback)</span>{/if}</div>
+							<div class="w-24 truncate text-sm text-text sm:w-40">{cat.name}{#if cat.isFallback} <span class="text-xs text-text-muted">(fallback)</span>{/if}</div>
 							<div class="flex-1"><div class="h-5 bg-primary-light" style="width: {cat.pct}%"><div class="h-full bg-info" style="width: 100%"></div></div></div>
-							<div class="w-20 text-right text-sm text-text-muted">{cat.parts} parts</div>
+							<div class="w-16 shrink-0 text-right text-sm text-text-muted sm:w-20">{cat.parts} parts</div>
 						</div>
 					{/each}
 				</div>

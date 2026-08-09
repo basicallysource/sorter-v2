@@ -117,7 +117,7 @@
 		<!-- Profile Type Toggle -->
 		<div>
 			<div class="mb-2 text-sm font-medium text-text">Profile Type</div>
-			<div class="flex gap-2">
+			<div class="flex flex-col gap-2 sm:flex-row">
 				<button
 					type="button"
 					class="flex-1 border px-4 py-3 text-sm font-medium transition-colors {profileType === 'rule'

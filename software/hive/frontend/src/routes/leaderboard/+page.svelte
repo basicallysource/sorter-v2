@@ -100,7 +100,7 @@
 				Ranked by total contributions — sample reviews plus piece labels (color + same-piece). Period switches the ranking; clicks open full stats + achievements.
 			</p>
 		</div>
-		<div class="flex border border-border bg-surface text-xs">
+		<div class="flex flex-wrap border border-border bg-surface text-xs">
 			{#each PERIOD_OPTIONS as opt}
 				<button
 					type="button"
@@ -123,19 +123,21 @@
 		</div>
 	{:else}
 		<div class="border border-border bg-surface">
-			<div class="grid grid-cols-[40px_1fr_90px_150px_120px] items-center gap-3 border-b border-border bg-bg px-4 py-2 text-[10px] font-semibold uppercase tracking-wider text-text-muted">
+			<!-- Mobile keeps rank/name/total on one line and drops the two detail
+			     columns onto a second grid row; the 5-track layout needs ~480px. -->
+			<div class="grid grid-cols-[32px_minmax(0,1fr)_auto] items-center gap-3 border-b border-border bg-bg px-4 py-2 text-[10px] font-semibold uppercase tracking-wider text-text-muted sm:grid-cols-[40px_1fr_90px_150px_120px]">
 				<span>Rank</span>
 				<span>Contributor</span>
 				<span class="text-right">Total</span>
-				<span class="text-right">Samples · Pieces</span>
-				<span class="text-right">Last activity</span>
+				<span class="hidden text-right sm:block">Samples · Pieces</span>
+				<span class="hidden text-right sm:block">Last activity</span>
 			</div>
 			{#each data.entries as entry, idx (entry.user_id)}
 				{@const isMe = auth.user?.id === entry.user_id}
 				{@const medal = medalFor(idx)}
 				<a
 					href={profileHref(entry)}
-					class="grid grid-cols-[40px_1fr_90px_150px_120px] items-center gap-3 border-b border-border px-4 py-2.5 text-sm transition-colors hover:bg-bg {isMe ? 'bg-primary-light/30' : ''} last:border-b-0"
+					class="grid grid-cols-[32px_minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1 border-b border-border px-4 py-2.5 text-sm transition-colors hover:bg-bg sm:grid-cols-[40px_1fr_90px_150px_120px] {isMe ? 'bg-primary-light/30' : ''} last:border-b-0"
 				>
 					<span class="text-center text-base font-semibold tabular-nums text-text">
 						{medal ?? idx + 1}
@@ -159,13 +161,13 @@
 					<span class="text-right text-base font-bold tabular-nums text-text">
 						{entry.total_contributions.toLocaleString()}
 					</span>
-					<span class="text-right text-xs tabular-nums text-text-muted">
+					<span class="col-start-2 row-start-2 text-xs tabular-nums text-text-muted sm:col-start-auto sm:row-start-auto sm:text-right">
 						<span title="sample reviews">{entry.total_reviews.toLocaleString()}</span>
 						· <span class="text-primary" title="piece color labels + same-piece links">
 							{(entry.piece_color_labels + entry.piece_crop_links).toLocaleString()}
 						</span>
 					</span>
-					<span class="text-right text-xs text-text-muted">{relativeTime(entry.last_review_at)}</span>
+					<span class="col-start-3 row-start-2 text-right text-xs text-text-muted sm:col-start-auto sm:row-start-auto">{relativeTime(entry.last_review_at)}</span>
 				</a>
 			{/each}
 		</div>

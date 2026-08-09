@@ -400,7 +400,7 @@
 				<div class="space-y-2">
 					{#each spectrumPrimary as row}
 						{@const accuracy = clampPct(row.within_1_count_rate)}
-						<div class="grid grid-cols-[5rem_1fr_4.5rem_5rem] items-center gap-3 text-sm">
+						<div class="grid grid-cols-[3.5rem_1fr_3.5rem_4rem] items-center gap-2 text-sm sm:grid-cols-[5rem_1fr_4.5rem_5rem] sm:gap-3">
 							<div class="font-mono text-xs text-[var(--color-text-muted)]">{textValue(row.gt_count_bin)} pc</div>
 							<div class="h-3 bg-[var(--color-bg)]">
 								<div class="h-3" style={`width: ${accuracy}%; background: ${gaugeColor(accuracy)};`}></div>
@@ -421,18 +421,20 @@
 				<span class="text-xs text-[var(--color-text-muted)]">ONNX Runtime · imgsz {textValue(model.imgsz)}</span>
 			</div>
 			<div class="border border-[var(--color-border)] bg-[var(--color-surface)]">
-				<div class="grid grid-cols-[6rem_1fr_5rem_5rem_5rem] items-center gap-3 border-b border-[var(--color-border)] bg-[var(--color-bg)] px-4 py-2 text-[10px] uppercase tracking-wider text-[var(--color-text-muted)]">
+				<!-- The throughput bar is the first thing to go at mobile: five tracks
+				     need ~416px and the bar is decoration next to the numbers. -->
+				<div class="grid grid-cols-[1fr_3.5rem_3.5rem_3rem] items-center gap-2 border-b border-[var(--color-border)] bg-[var(--color-bg)] px-4 py-2 text-[10px] uppercase tracking-wider text-[var(--color-text-muted)] sm:grid-cols-[6rem_1fr_5rem_5rem_5rem] sm:gap-3">
 					<div>Provider</div>
-					<div>Throughput</div>
+					<div class="hidden sm:block">Throughput</div>
 					<div class="text-right">Mean</div>
 					<div class="text-right">P95</div>
 					<div class="text-right">FPS</div>
 				</div>
 				{#each perfRows as row, i (row.name)}
 					{@const widthPct = ((row.fps ?? 0) / perfFpsMax) * 100}
-					<div class={`grid grid-cols-[6rem_1fr_5rem_5rem_5rem] items-center gap-3 px-4 py-2.5 ${i > 0 ? 'border-t border-[var(--color-border)]' : ''}`}>
+					<div class={`grid grid-cols-[1fr_3.5rem_3.5rem_3rem] items-center gap-2 px-4 py-2.5 sm:grid-cols-[6rem_1fr_5rem_5rem_5rem] sm:gap-3 ${i > 0 ? 'border-t border-[var(--color-border)]' : ''}`}>
 						<div class="font-mono text-xs uppercase tracking-wide text-[var(--color-text)]">{row.name}</div>
-						<div class="h-2 bg-[var(--color-bg)]">
+						<div class="hidden h-2 bg-[var(--color-bg)] sm:block">
 							<div class="h-2" style={`width: ${widthPct}%; background: ${softInfo};`}></div>
 						</div>
 						<div class="text-right text-sm tabular-nums">{num(row.mean, 1)} ms</div>

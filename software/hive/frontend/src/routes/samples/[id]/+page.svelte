@@ -487,7 +487,7 @@
 	<p class="text-text-muted">Sample not found.</p>
 {:else}
 	<!-- Header bar -->
-	<div class="mb-5 flex items-center justify-between gap-3">
+	<div class="mb-5 flex flex-wrap items-center justify-between gap-3">
 		<div class="flex items-center gap-3">
 			<a href={listBackHref} class="flex items-center gap-1 text-sm text-text-muted hover:text-text transition-colors">
 				<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
@@ -496,7 +496,7 @@
 			<span class="text-border">/</span>
 			<span class="text-sm font-medium text-text" title={sample.local_sample_id}>{shortId(sample.local_sample_id)}</span>
 		</div>
-		<div class="flex items-center gap-2">
+		<div class="flex flex-wrap items-center gap-2">
 			<div class="flex items-center gap-1" title="Use ← / → to navigate samples">
 				<button
 					type="button"
@@ -524,7 +524,7 @@
 			{#if sample.review_count > 0}
 				<span class="text-xs text-text-muted">{sample.review_count} review{sample.review_count !== 1 ? 's' : ''}</span>
 			{/if}
-			<div class="ml-1 flex items-center gap-1.5">
+			<div class="flex flex-wrap items-center gap-1.5 sm:ml-1">
 				<a
 					href={`/samples/${sample.id}/similar`}
 					class="inline-flex items-center gap-1 border border-border bg-surface px-3 py-1 text-xs font-medium text-text hover:bg-bg"
@@ -552,7 +552,7 @@
 		<!-- Left: Image area -->
 		<div class="min-w-0 space-y-3">
 			<!-- View toggle toolbar (above image) -->
-			<div class="flex items-center gap-1 bg-bg p-1">
+			<div class="flex flex-wrap items-center gap-1 bg-bg p-1">
 				<button
 					onclick={() => setView('image')}
 					class="px-3 py-1.5 text-xs font-medium transition-colors {activeView === 'image' ? 'bg-surface text-text' : 'text-text-muted hover:text-text'}"

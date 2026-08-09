@@ -24,13 +24,13 @@
 					<span class="h-3 w-3 flex-shrink-0 border border-border" style:background-color={item.swatch}></span>
 				{/if}
 				{#if item.sublabel}
-					<span class="w-14 flex-shrink-0 truncate font-mono text-xs text-text-muted">{item.sublabel}</span>
+					<span class="w-10 flex-shrink-0 truncate font-mono text-xs text-text-muted sm:w-14">{item.sublabel}</span>
 				{/if}
-				<span class="w-28 flex-shrink-0 truncate text-text" title={item.label}>{item.label}</span>
+				<span class="w-20 flex-shrink-0 truncate text-text sm:w-28" title={item.label}>{item.label}</span>
 				<div class="h-4 flex-1 bg-bg">
 					<div class="h-full" style="width: {(item.value / max) * 100}%; background: {color}"></div>
 				</div>
-				<span class="w-16 flex-shrink-0 text-right tabular-nums text-text-muted">{item.value.toLocaleString()}</span>
+				<span class="w-12 flex-shrink-0 text-right tabular-nums text-text-muted sm:w-16">{item.value.toLocaleString()}</span>
 			</div>
 		{/each}
 	</div>

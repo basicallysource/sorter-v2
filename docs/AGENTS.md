@@ -216,6 +216,26 @@ preview URL from the PR comment or check (never derive it from the branch
 name; long names get truncated). Images render identically on previews and
 production because they come from `img.basically.website`, not the repo.
 
+**Build watch paths** limit which pushes build at all. They are a Pages
+project setting, not a file in this repo, so they are recorded here:
+
+    path_includes: docs/*, electronics/wire_harness/*
+
+A `*` matches across `/`, so `docs/*` covers `docs/src/content/x.md`. Pushes
+that touch only firmware, `software/`, or hive do not build the docs.
+`electronics/wire_harness/*` is in that list for a non-obvious reason and
+must stay: a harness change re-renders drawings into the SAME bucket path,
+so the only thing that makes a browser fetch the new bytes is the docs
+rebuilding with a new `?v=<sha>`. Drop that path and a changed drawing would
+sit behind a year-long immutable cache entry under the old sha, with nothing
+anywhere reporting an error. To change the filter, edit the project's source
+config (dashboard, or `PATCH /accounts/<id>/pages/projects/sorter-v2-docs`)
+and update this block.
+
+A build can always be triggered by hand, for a branch that the filter would
+otherwise skip: `POST /accounts/<id>/pages/projects/sorter-v2-docs/deployments`
+with `-F branch=<branch>`, or the Create deployment button on the project.
+
 Moved off Vercel on 2026-08-09. Two reasons, in order: static asset requests
 on Pages are unmetered, and the site was generating ~40k Vercel edge requests
 a day against a 100-deploy-a-day Hobby account that had already rate-limited

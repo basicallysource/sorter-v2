@@ -99,7 +99,8 @@
 		{ scope: 'samples:read', label: 'Read samples' },
 		{ scope: 'samples:write', label: 'Write samples' },
 		{ scope: 'keys:manage', label: 'Manage API keys' },
-		{ scope: 'stats:read', label: 'Read aggregate stats' }
+		{ scope: 'stats:read', label: 'Read aggregate stats' },
+		{ scope: 'fleet:read', label: 'Read the fleet roster (machines + linked owners)' }
 	];
 	let apiKeySelectedScopes = $state<string[]>([]);
 	let apiKeyExpiresInDays = $state('');

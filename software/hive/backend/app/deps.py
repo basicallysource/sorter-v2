@@ -19,7 +19,17 @@ API_KEY_SCOPE_MODELS_WRITE = "models:write"
 API_KEY_SCOPE_SAMPLES_READ = "samples:read"
 API_KEY_SCOPE_SAMPLES_WRITE = "samples:write"
 API_KEY_SCOPE_KEYS_MANAGE = "keys:manage"
+# The two tiers of fleet reporting, and the reason they are two scopes rather
+# than one. `stats:read` is the ANONYMOUS tier: fleet-wide aggregates with no
+# machine and no person in them, safe for a consumer that is itself public —
+# the website widget, anything cached at an edge. `fleet:read` is the
+# IDENTIFIED tier: which machines exist, how each is doing, and the owner's
+# Discord where that owner linked one. The consumers differ in how well the
+# credential is kept (a private box and Spencer's phone, versus a website), so
+# the credential has to be able to differ too. One scope for both would mean
+# every key that can draw a public counter can also enumerate owners.
 API_KEY_SCOPE_STATS_READ = "stats:read"
+API_KEY_SCOPE_FLEET_READ = "fleet:read"
 VALID_API_KEY_SCOPES = frozenset(
     {
         API_KEY_SCOPE_MODELS_READ,
@@ -28,6 +38,7 @@ VALID_API_KEY_SCOPES = frozenset(
         API_KEY_SCOPE_SAMPLES_WRITE,
         API_KEY_SCOPE_KEYS_MANAGE,
         API_KEY_SCOPE_STATS_READ,
+        API_KEY_SCOPE_FLEET_READ,
     }
 )
 

@@ -185,10 +185,13 @@ contributor once here; every page crediting them updates automatically.
 
 ## Deploy and PR previews
 
-Not wired up yet for this engine. `npm run build` emits the whole site as
-static files in `build/`, so any static host works; the Vercel setup (prod +
-per-branch previews) needs to be reconfigured for it. Images render
-identically everywhere because they come from `img.basically.website`, not
-the repo.
+Vercel builds from `docs/` (project `sorter-v2-docs`, root directory `docs`);
+`vercel.json` here overrides the dashboard's old Jekyll preset with
+`npm run build` → `build/`. Push to `main` deploys production
+(docs.basically.website). **Every push to any other branch gets an automatic
+preview deployment** — no setup per PR. Take the preview URL from Vercel's PR
+comment or check (never derive it from the branch name; long names get
+truncated). Images render identically on previews and production because
+they come from `img.basically.website`, not the repo.
 
 Commit only when verified; push only when asked.

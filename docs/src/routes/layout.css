@@ -288,6 +288,9 @@ body {
 	position: sticky;
 	top: 16px;
 	align-self: start;
+	display: flex;
+	flex-direction: column;
+	max-height: calc(100vh - 32px);
 }
 
 .section-sidebar-kicker {
@@ -307,6 +310,12 @@ body {
 .section-sidebar nav {
 	display: flex;
 	flex-direction: column;
+	/* The tree is taller than the viewport in some sections (Hardware), so it
+	   scrolls on its own instead of dragging the page with it. */
+	min-height: 0;
+	overflow-y: auto;
+	overscroll-behavior: contain;
+	scrollbar-width: thin;
 }
 
 .section-sidebar-group {
@@ -1222,6 +1231,7 @@ blockquote {
 	.section-sidebar {
 		position: static;
 		padding: 0;
+		max-height: none;
 	}
 
 	.section-sidebar-kicker {
@@ -1258,6 +1268,7 @@ blockquote {
 	.section-sidebar > nav {
 		display: none;
 		padding: 0 10px 12px;
+		overflow-y: visible;
 	}
 
 	.section-sidebar.nav-open > nav {

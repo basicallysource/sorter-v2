@@ -139,8 +139,8 @@ yourself:
    `img-placeholder` divs (above) instead of guessing or embedding the image
    data directly in the page.
 3. **Reference the printed web URL** in the page:
-   `https://img.basically.website/web/<path>.<jpg|png>`. Plain URL, no Liquid.
-4. Nothing image-related gets committed. The URL works identically on PR
+   `https://img.basically.website/web/<path>.<hash>.<jpg|png>`. Plain URL, no Liquid.
+4. Commit the URL, never the image bytes. The URL works identically on PR
    previews and production, since the bucket is branch-independent.
 
 **A contributor's file sometimes carries images embedded as base64 data URIs**
@@ -161,6 +161,12 @@ bytes to each object name, so a changed image always prints a new URL that can
 be cached forever. Name the input path by what it shows (`step2-hole-red-square`),
 not by source filename. Group step images under `assembly/<page>/`, part renders
 under `parts/…`, tools under `tools/`.
+
+**This is the invariant.** Every `img.basically.website/web/` URL in docs source
+must contain the hash of its actual bytes. Never overwrite an object, use a
+descriptive stable URL, add a query-string cache buster, or add browser retry
+code. `npm run build` runs `scripts/validate_images.py`, which rejects a missing
+image, a non-content-addressed URL, or bytes that do not match the URL hash.
 
 ## The WireViz harness
 

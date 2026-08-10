@@ -37,17 +37,17 @@ Three printed parts that bolt together into one external bracket. **6 per distri
 - Matching parts from the same print run are embossed with a shared set code (e.g. **"b2"**) on both the side bracket and the bottom-vertical part, keep marked pairs together so brackets don't get mixed across sets.
 
 <figure>
-  <img class="doc-figure" src="https://img.basically.website/web/assembly/external-bracket/parts-laid-out.jpg" alt="Side bracket, bottom-vertical leg, cover, an extrusion offcut, and the four M5 × 16 mm screws laid out before assembly">
+  <img class="doc-figure" src="https://img.basically.website/web/assembly/external-bracket/parts-laid-out.0a59300a73b4f6c2.jpg" alt="Side bracket, bottom-vertical leg, cover, an extrusion offcut, and the four M5 × 16 mm screws laid out before assembly">
   <figcaption>Parts for one bracket, laid out before assembly: side bracket, bottom-vertical leg, C-Layer vertical support, and the four M5 × 16 mm screws. The cover is fitted last, in Step 4.</figcaption>
 </figure>
 
 <div class="img-row">
   <figure>
-    <img src="https://img.basically.website/web/assembly/external-bracket/side-bracket.jpg" alt="Close-up of the side bracket alone, showing the U-shaped extrusion clamp and the two mounting-hole wings">
+    <img src="https://img.basically.website/web/assembly/external-bracket/side-bracket.6649e3954a498346.jpg" alt="Close-up of the side bracket alone, showing the U-shaped extrusion clamp and the two mounting-hole wings">
     <figcaption>The side bracket on its own: the U-shaped opening clamps around the extrusion, and each of the two wings carries a pair of mounting holes.</figcaption>
   </figure>
   <figure>
-    <img src="https://img.basically.website/web/assembly/external-bracket/bottom-vertical-flange.jpg" alt="Close-up of the bottom-vertical part's top flange, showing the holes used to screw it to the side bracket">
+    <img src="https://img.basically.website/web/assembly/external-bracket/bottom-vertical-flange.4b9a511aea49346c.jpg" alt="Close-up of the bottom-vertical part's top flange, showing the holes used to screw it to the side bracket">
     <figcaption>The bottom-vertical part's top flange, before assembly: the square socket takes the extrusion, and the holes around it are what the two M5 × 16 mm screws in Step 1 go into.</figcaption>
   </figure>
 </div>
@@ -57,7 +57,7 @@ Three printed parts that bolt together into one external bracket. **6 per distri
 Set the bottom-vertical leg's flanged top into the U-shaped opening of the side bracket, tube pointing down. Line up the screw holes shown above and drive two M5 × 16 mm socket head screws down through the flange into the side bracket.
 
 <figure>
-  <img class="doc-figure" src="https://img.basically.website/web/assembly/external-bracket/step1-screwed-underside.jpg" alt="Bottom-vertical leg screwed into the underside of the side bracket, seen from above through the square extrusion socket">
+  <img class="doc-figure" src="https://img.basically.website/web/assembly/external-bracket/step1-screwed-underside.d3637471f50acb1b.jpg" alt="Bottom-vertical leg screwed into the underside of the side bracket, seen from above through the square extrusion socket">
   <figcaption>Two M5 × 16 mm screws join the bottom-vertical leg to the side bracket. Viewed from above, looking down through the square socket that will receive the extrusion.</figcaption>
 </figure>
 
@@ -71,7 +71,7 @@ Set the bottom-vertical leg's flanged top into the U-shaped opening of the side 
 Slide the C-Layer vertical support (the vertical aluminum extrusion) down through the side bracket's U-shaped clamp and into the square socket in the bottom-vertical leg below. The socket is sized to the extrusion's profile, so it can only seat in the correct orientation.
 
 <figure>
-  <img class="doc-figure" src="https://img.basically.website/web/assembly/external-bracket/step2-extrusion-inserted.jpg" alt="C-Layer vertical support extrusion inserted down through the side bracket and into the square socket of the bottom-vertical leg">
+  <img class="doc-figure" src="https://img.basically.website/web/assembly/external-bracket/step2-extrusion-inserted.c56df607b17c4a6c.jpg" alt="C-Layer vertical support extrusion inserted down through the side bracket and into the square socket of the bottom-vertical leg">
   <figcaption>C-Layer vertical support seated through the side bracket and into the bottom-vertical leg's socket. It isn't held in place yet, that's Step 3.</figcaption>
 </figure>
 
@@ -81,11 +81,11 @@ Two more M5 × 16 mm screws clamp the side bracket against the C-Layer vertical 
 
 <div class="img-row">
   <figure>
-    <img src="https://img.basically.website/web/assembly/external-bracket/step3-screw-hole-empty.jpg" alt="Retention screw hole empty, before the screw is driven in">
+    <img src="https://img.basically.website/web/assembly/external-bracket/step3-screw-hole-empty.1086433be655ac1f.jpg" alt="Retention screw hole empty, before the screw is driven in">
     <figcaption>Before: retention-screw hole empty.</figcaption>
   </figure>
   <figure>
-    <img src="https://img.basically.website/web/assembly/external-bracket/step3-screw-driven-in.jpg" alt="Retention screw driven in, seated flush in the hex socket">
+    <img src="https://img.basically.website/web/assembly/external-bracket/step3-screw-driven-in.259bbc4b6fdbb5b2.jpg" alt="Retention screw driven in, seated flush in the hex socket">
     <figcaption>After: M5 × 16 mm screw driven in, clamping the bracket against the extrusion. Repeat for the second hole on the opposite face.</figcaption>
   </figure>
 </div>
@@ -96,11 +96,11 @@ Clip the cover onto the side bracket to close it off. The cover takes no screws,
 
 <div class="img-row">
   <figure>
-    <img src="https://img.basically.website/web/assembly/external-bracket/step4-cover-unattached.jpg" alt="The unattached cover sitting next to the assembled bracket, at the face where it clips on">
+    <img src="https://img.basically.website/web/assembly/external-bracket/step4-cover-unattached.9b93d76f94596b23.jpg" alt="The unattached cover sitting next to the assembled bracket, at the face where it clips on">
     <figcaption>The cover (left), not yet attached, next to the face of the assembly it clips onto.</figcaption>
   </figure>
   <figure>
-    <img src="https://img.basically.website/web/assembly/external-bracket/step4-cover-clipped-on.jpg" alt="Finished bracket with the cover clipped into place">
+    <img src="https://img.basically.website/web/assembly/external-bracket/step4-cover-clipped-on.1fea5b9a357cc5df.jpg" alt="Finished bracket with the cover clipped into place">
     <figcaption>Cover clipped into place. It sits flush against the side bracket, which is why the seam is subtle in photos.</figcaption>
   </figure>
 </div>

@@ -1345,3 +1345,220 @@ blockquote {
 		margin-bottom: 10px;
 	}
 }
+
+/* ── Search nav button ─────────────────────────────────────────────────── */
+
+.search-nav-btn {
+	display: inline-flex;
+	align-items: center;
+	gap: 7px;
+	padding: 6px 10px 6px 10px;
+	font: inherit;
+	font-size: 0.88rem;
+	font-weight: 500;
+	color: var(--muted);
+	background: transparent;
+	border: 1px solid transparent;
+	cursor: pointer;
+	transition:
+		color 0.12s ease,
+		background 0.12s ease;
+}
+
+.search-nav-btn:hover {
+	color: var(--ink);
+	background: var(--surface);
+}
+
+.search-nav-label {
+	/* Hide label on very small screens if needed — icon is enough */
+}
+
+.search-nav-hint {
+	display: inline-block;
+	padding: 1px 5px;
+	font: 0.72rem/1.4 var(--font-mono);
+	color: var(--muted);
+	background: var(--bg);
+	border: 1px solid var(--line);
+	border-radius: 3px;
+	pointer-events: none;
+}
+
+/* ── Search dialog ─────────────────────────────────────────────────────── */
+
+.search-dialog {
+	position: fixed;
+	inset: 0;
+	width: 100%;
+	height: 100%;
+	max-width: 100%;
+	max-height: 100%;
+	padding: 0;
+	background: transparent;
+	border: none;
+	align-items: flex-start;
+	justify-content: center;
+	padding-top: clamp(60px, 12vh, 140px);
+}
+
+.search-dialog:not([open]) {
+	display: none;
+}
+
+.search-dialog[open] {
+	display: flex;
+}
+
+.search-dialog::backdrop {
+	background: rgba(0, 0, 0, 0.46);
+}
+
+.search-panel {
+	width: min(560px, calc(100vw - 32px));
+	background: var(--surface);
+	border: 1px solid var(--line);
+	box-shadow:
+		0 4px 6px -1px rgba(0, 0, 0, 0.1),
+		0 16px 48px -8px rgba(0, 0, 0, 0.18);
+	display: flex;
+	flex-direction: column;
+	overflow: hidden;
+}
+
+.search-input-row {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	padding: 12px 14px;
+	border-bottom: 1px solid var(--line);
+}
+
+.search-icon {
+	flex-shrink: 0;
+	width: 18px;
+	height: 18px;
+	color: var(--muted);
+}
+
+.search-input {
+	flex: 1;
+	font: 1rem var(--font-sans);
+	color: var(--ink);
+	background: transparent;
+	border: none;
+	outline: none;
+	min-width: 0;
+}
+
+.search-input::placeholder {
+	color: var(--muted);
+}
+
+/* Remove default browser search clear button */
+.search-input::-webkit-search-cancel-button { display: none; }
+
+.search-esc-hint {
+	font: 0.72rem/1.4 var(--font-mono);
+	color: var(--muted);
+	background: var(--bg);
+	border: 1px solid var(--line);
+	border-radius: 3px;
+	padding: 1px 5px;
+	cursor: pointer;
+	flex-shrink: 0;
+}
+
+.search-results {
+	list-style: none;
+	margin: 0;
+	padding: 6px 0;
+	max-height: 360px;
+	overflow-y: auto;
+}
+
+.search-result {
+	margin: 0;
+}
+
+.search-result-link {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	padding: 8px 14px;
+	text-decoration: none;
+	color: inherit;
+}
+
+.search-result--selected .search-result-link,
+.search-result-link:hover {
+	background: color-mix(in srgb, var(--primary) 6%, var(--surface));
+}
+
+.search-result--selected .search-result-link {
+	background: color-mix(in srgb, var(--primary) 8%, var(--surface));
+}
+
+.search-result-row {
+	display: flex;
+	align-items: baseline;
+	gap: 10px;
+}
+
+.search-result-title {
+	font-size: 0.92rem;
+	font-weight: 500;
+	color: var(--ink);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	min-width: 0;
+}
+
+.search-result--selected .search-result-title {
+	color: var(--primary);
+}
+
+.search-result-crumb {
+	flex-shrink: 0;
+	font-size: 0.78rem;
+	color: var(--muted);
+	margin-left: auto;
+	white-space: nowrap;
+}
+
+.search-result-lede {
+	font-size: 0.78rem;
+	color: var(--muted);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.search-empty {
+	margin: 0;
+	padding: 18px 14px;
+	font-size: 0.9rem;
+	color: var(--muted);
+	text-align: center;
+}
+
+.search-footer {
+	display: flex;
+	gap: 14px;
+	padding: 8px 14px;
+	border-top: 1px solid var(--line);
+	font-size: 0.74rem;
+	color: var(--muted);
+}
+
+.search-footer kbd {
+	display: inline-block;
+	padding: 0 4px;
+	font: 0.7rem/1.5 var(--font-mono);
+	color: var(--muted);
+	background: var(--bg);
+	border: 1px solid var(--line);
+	border-radius: 3px;
+	margin-right: 2px;
+}

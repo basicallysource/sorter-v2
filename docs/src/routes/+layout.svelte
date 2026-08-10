@@ -2,11 +2,13 @@
 	import './layout.css';
 	import { page } from '$app/state';
 	import NavTree from '$lib/components/NavTree.svelte';
+	import SearchModal from '$lib/components/SearchModal.svelte';
 
 	let { data, children } = $props();
 
 	let modal: HTMLDialogElement | undefined = $state();
 	let sidebarOpen = $state(false);
+	let searchOpen = $state(false);
 	// The header scrolls away above the sticky sidebar, so the sidebar's height
 	// cap has to subtract it. It wraps at narrow widths, so measure it rather
 	// than hard-coding a number; layout.css carries a fallback until this lands.
@@ -19,7 +21,16 @@
 		!!currentSection &&
 			(currentSection.pages.length > 1 || (currentSection.groups?.length ?? 0) > 0)
 	);
+
+	function onGlobalKeydown(e: KeyboardEvent) {
+		if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+			e.preventDefault();
+			searchOpen = true;
+		}
+	}
 </script>
+
+<svelte:window onkeydown={onGlobalKeydown} />
 
 <div class="shell" style={headerHeight ? `--header-height: ${headerHeight}px` : undefined}>
 	<header class="site-header" bind:clientHeight={headerHeight}>
@@ -45,6 +56,19 @@
 					{section.title}
 				</a>
 			{/each}
+			<button
+				type="button"
+				class="search-nav-btn"
+				aria-label="Search docs"
+				onclick={() => { searchOpen = true; }}
+			>
+				<svg viewBox="0 0 20 20" fill="none" aria-hidden="true" width="16" height="16">
+					<circle cx="8.5" cy="8.5" r="5.5" stroke="currentColor" stroke-width="1.6"/>
+					<path d="M13 13l3.5 3.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+				</svg>
+				<span class="search-nav-label">Search</span>
+				<kbd class="search-nav-hint">⌘K</kbd>
+			</button>
 		</nav>
 	</header>
 
@@ -68,6 +92,8 @@
 			</p>
 		</div>
 	</dialog>
+
+	<SearchModal nav={data.nav} bind:open={searchOpen} />
 
 	{#if sidebarHasContent && currentSection}
 		<div class="layout-with-sidebar">

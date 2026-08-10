@@ -164,29 +164,32 @@ show (`step2-hole-red-square`), not by source filename. Group step images under
 
 ## The WireViz harness
 
-Same rule as photos, nothing rendered is in the repo, but unlike photos there
-is no upload step at all: CI owns the whole pipeline.
+**Exactly the same rule as photos**, including the part that matters: the URL
+is a literal string in the repo, and it changes when the image changes. The
+only difference is that CI runs the upload instead of a person, because a
+render is 23 files at once.
 
 Sources live in `electronics/wire_harness/`. On any PR or main push touching
-them, `.github/workflows/harness.yml` renders and publishes to the assets
-bucket under the branch name, and the site build derives the prefix for the
-ref being built (`resolveHarness()` in `src/lib/server/content.ts` →
-`site.harness_base`, plus `site.harness_v`, a per-deploy cache-buster every
-harness URL must carry). So a branch preview shows the branch's drawings,
-production shows main's, and there is nothing to update in `docs/` when a
-drawing's content changes.
+them, `.github/workflows/harness.yml` renders with a pinned toolchain, uploads
+each artifact under a name containing a hash of its bytes
+(`harness/power.2c0ebc6cd1.png`), and then **fails the build unless
+`src/liquid/_data/harness.yml` already names exactly those URLs**, printing the
+block to paste. So changing a drawing is: push, paste the URLs CI prints, push
+again.
 
-**`resolveHarness()` reads the host's branch env var, and that is not
-optional.** Both Pages and Vercel build from a detached HEAD, so the git
-fallback returns `HEAD` and everything collapses to `main`: previews then show
-main's drawings and any drawing added on the branch 404s. It reads
-`CF_PAGES_BRANCH` first, `VERCEL_GIT_COMMIT_REF` second, git last. If the site
-ever moves host again, add that host's variable at the front or previews break
-silently, which is exactly what the Pages move did.
+`src/liquid/_data/harness.yml` carries the display list (name, title, caption,
+`of:`) *and* the six URLs per drawing (`png`, `svg`, `pdf`, `html`, `bom_tsv`,
+`yml`) plus the top-level `zip:`. Nothing in `src/lib/server/content.ts`
+derives harness URLs any more — `resolveHarness()`, `site.harness_base` and
+`site.harness_v` are gone. Do not reintroduce a computed harness URL: the docs
+build and the harness render start on the same push, so anything the docs
+compute can name bytes that have not been uploaded yet, and the `immutable`
+header on the images turns that into a year-long wrong picture in the reader's
+cache. That is a real outage this site had on 2026-08-09, written up in
+`electronics/wire_harness/AGENTS.md`.
 
-`src/liquid/_data/harness.yml` is just the display list (name, title, caption
-per drawing). Adding a drawing: new YAML source, an entry there, and an entry
-in the `drawings` list inside `build-harness.sh`. Full pipeline doc:
+Adding a drawing: new YAML source, an entry in the data file, an entry in the
+`drawings` list inside `build-harness.sh`, then the paste. Full pipeline doc:
 `electronics/wire_harness/AGENTS.md`.
 
 ## Parts
@@ -231,12 +234,13 @@ project setting, not a file in this repo, so they are recorded here:
 
 A `*` matches across `/`, so `docs/*` covers `docs/src/content/x.md`. Pushes
 that touch only firmware, `software/`, or hive do not build the docs.
-`electronics/wire_harness/*` is in that list for a non-obvious reason and
-must stay: a harness change re-renders drawings into the SAME bucket path,
-so the only thing that makes a browser fetch the new bytes is the docs
-rebuilding with a new `?v=<sha>`. Drop that path and a changed drawing would
-sit behind a year-long immutable cache entry under the old sha, with nothing
-anywhere reporting an error. To change the filter, edit the project's source
+`electronics/wire_harness/*` is in that list for historical reasons and is now
+harmless either way: it was load-bearing when a harness change re-rendered into
+the same bucket path and only a docs rebuild issued the `?v=<sha>` that made
+browsers refetch. Harness URLs are literal strings in
+`src/liquid/_data/harness.yml` now, so a drawing change always touches
+`docs/*` too and would trigger a build on its own. Leaving the path in costs a
+no-op build on a YAML-only push. To change the filter, edit the project's source
 config (dashboard, or `PATCH /accounts/<id>/pages/projects/sorter-v2-docs`)
 and update this block.
 
@@ -251,10 +255,13 @@ itself out of deploying; and everything else the docs depend on
 (`img.basically.website`, the DNS, the cache purge) already lives in the same
 Cloudflare account. The site is `@sveltejs/adapter-static` with
 `trailingSlash: 'always'` set in SvelteKit rather than in host config, so
-there was nothing host-specific to port. `vercel.json` is gone. If you are
-about to move it again, the thing that breaks silently is `resolveHarness()`
-in `src/lib/server/content.ts`: it reads the branch and sha from host env
-vars, and on a host that sets neither it falls back to a detached HEAD and
-quietly points every harness image at `main` with no cache-buster.
+there was nothing host-specific to port. `vercel.json` is gone.
+
+The Pages move did break one thing silently and it is worth knowing about even
+though the code is gone: `resolveHarness()` read the branch from
+`VERCEL_GIT_COMMIT_REF` only, so on Pages every preview fell back to a detached
+HEAD and pointed at `main`'s drawings. That whole class of bug is why harness
+URLs are literal strings now and nothing about them is derived from host env
+vars. If you move hosts again, no harness code needs touching.
 
 Commit only when verified; push only when asked.

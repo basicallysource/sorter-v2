@@ -2,7 +2,6 @@
 // files carry the same frontmatter and Liquid includes as before, but here
 // they are rendered once at build time (liquidjs → unified) and the output is
 // prerendered static HTML. Nothing in this module runs in the browser.
-import { execSync } from 'node:child_process';
 import yaml from 'js-yaml';
 import { Liquid } from 'liquidjs';
 import { unified } from 'unified';
@@ -41,39 +40,20 @@ for (const [path, raw] of Object.entries(dataFiles)) {
 	data[name] = yaml.load(raw);
 }
 
-// CI env first, local git branch as fallback, so a branch preview links its own
-// harness renders rather than main's.
-//
-// The host's env vars are the only reliable source of the branch name: Pages and
-// Vercel both build from a detached HEAD, so `git rev-parse --abbrev-ref HEAD`
-// returns "HEAD" there and the fallback below sends everything to main. That is
-// what happened when the site moved to Pages and only the Vercel vars were read:
-// every PR preview showed main's drawings, and any drawing added on the branch
-// 404'd. Keep Pages first, Vercel second, git last.
-function resolveHarness(): { base: string; v: string } {
-	let ref = process.env.CF_PAGES_BRANCH ?? process.env.VERCEL_GIT_COMMIT_REF ?? '';
-	let sha = process.env.CF_PAGES_COMMIT_SHA ?? process.env.VERCEL_GIT_COMMIT_SHA ?? '';
-	try {
-		if (!ref) ref = execSync('git rev-parse --abbrev-ref HEAD').toString().trim();
-		if (!sha) sha = execSync('git rev-parse HEAD').toString().trim();
-	} catch {
-		// not a git checkout — fall through to main
-	}
-	if (!ref || ref === 'HEAD') ref = 'main';
-	return {
-		base: `https://img.basically.website/harness/${ref}`,
-		v: sha ? `?v=${sha.slice(0, 12)}` : ''
-	};
-}
-const harness = resolveHarness();
+// Harness drawing URLs are literal strings in _data/harness.yml, pasted from
+// the render that produced them, exactly like every other asset in the images
+// bucket. Nothing about them is derived here on purpose. The scheme this
+// replaced built them from the branch name plus a ?v=<this build's sha>, which
+// meant the docs could emit a URL for bytes that had not been uploaded yet —
+// the harness render and the docs build start on the same push — and the
+// reader who lost that race cached a stale or truncated drawing under a
+// year-long immutable header. See electronics/wire_harness/AGENTS.md.
 
 export const site = {
 	title: 'Sorter V2 Documentation',
 	description:
 		'Documentation for Sorter, the LEGO sorting machine. Assembly, operation, and software.',
 	url: 'https://docs.basically.website',
-	harness_base: harness.base,
-	harness_v: harness.v,
 	data
 };
 

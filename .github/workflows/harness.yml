@@ -72,12 +72,26 @@ jobs:
 
       - run: ./electronics/wire_harness/build-harness.sh
 
+      # Uploading on every run is safe in a way it was not before: names carry
+      # a hash of their own bytes, so this can only ever add objects, never
+      # replace one somebody is already serving. A re-render of an unchanged
+      # drawing uploads nothing at all.
+      #
+      # Same-repo refs only: fork PRs have no secrets, so they stop at the
+      # render (which is the actual correctness check anyway).
       - name: Publish to the assets bucket
-        # Same-repo refs only: fork PRs have no secrets, so they stop at the
-        # render (which is the actual correctness check anyway).
         if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
         env:
           SPACES_KEY: ${{ secrets.SPACES_KEY }}
           SPACES_SECRET: ${{ secrets.SPACES_SECRET }}
-          REF: ${{ github.head_ref || github.ref_name }}
-        run: python3 electronics/wire_harness/upload-harness.py --ref "$REF"
+        run: python3 electronics/wire_harness/upload-harness.py
+
+      # The URLs the docs serve are literal strings in the data file, pasted by
+      # whoever changed the drawing, exactly like every other asset in this
+      # bucket. This is what keeps that honest: change a drawing without
+      # pasting its new URLs and the job fails with the block to paste. It also
+      # means the objects are in the bucket before any commit names them, which
+      # is the property the old overwrite-in-place scheme lacked.
+      - name: Check the docs point at this render
+        if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+        run: python3 electronics/wire_harness/upload-harness.py --check docs/src/liquid/_data/harness.yml

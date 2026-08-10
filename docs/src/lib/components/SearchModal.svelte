@@ -29,13 +29,19 @@
 		return out;
 	}
 
-	const index: SearchEntry[] = $derived(
-		nav.flatMap((section) => [
+	const index: SearchEntry[] = $derived.by(() => {
+		const seen = new Set<string>();
+		const all = nav.flatMap((section) => [
 			{ title: section.title, url: section.url, section: section.title, crumb: [] },
 			...flattenItems(section.pages, [section.title]),
 			...(section.groups ?? []).flatMap((g) => flattenItems(g.pages, [section.title, g.title]))
-		])
-	);
+		]);
+		return all.filter((e) => {
+			if (seen.has(e.url)) return false;
+			seen.add(e.url);
+			return true;
+		});
+	});
 
 	const results: SearchEntry[] = $derived(
 		query.trim() === ''

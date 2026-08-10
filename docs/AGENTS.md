@@ -156,11 +156,11 @@ photo: that repo's `static/renders/<part-id>.png` is a real OrcaSlicer
 thumbnail for every printed part in its catalog. Upload it the same way,
 under `parts/<page>/<part-id>`.
 
-**Names are immutable.** The CDN caches for 30 days, so if an image's content
-changes, upload under a new name and update the reference — never reuse a name
-(the script refuses to overwrite unless `--force`). Name images by what they
-show (`step2-hole-red-square`), not by source filename. Group step images under
-`assembly/<page>/`, part renders under `parts/…`, tools under `tools/`.
+**Names are content-addressed.** `upload_image.py` adds a hash of the generated
+bytes to each object name, so a changed image always prints a new URL that can
+be cached forever. Name the input path by what it shows (`step2-hole-red-square`),
+not by source filename. Group step images under `assembly/<page>/`, part renders
+under `parts/…`, tools under `tools/`.
 
 ## The WireViz harness
 

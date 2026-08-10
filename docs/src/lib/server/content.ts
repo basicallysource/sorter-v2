@@ -40,6 +40,18 @@ for (const [path, raw] of Object.entries(dataFiles)) {
 	data[name] = yaml.load(raw);
 }
 
+// Legacy photo keys were descriptive and some browsers still hold stale
+// immutable responses for them. This migration gives every image a fresh key.
+const IMAGE_VERSION = '20260810';
+
+function versionImageURL(value: string): string {
+	if (!value.startsWith('https://img.basically.website/')) return value;
+	const url = new URL(value);
+	if (url.searchParams.has('v')) return value;
+	url.searchParams.set('v', IMAGE_VERSION);
+	return url.toString();
+}
+
 // Harness drawing URLs are literal strings in _data/harness.yml, pasted from
 // the render that produced them, exactly like every other asset in the images
 // bucket. Nothing about them is derived here on purpose. The scheme this
@@ -160,7 +172,7 @@ const liquid = new Liquid({
 		readFile: async (file: string) => includes.get(file) ?? '',
 		existsSync: (file: string) => includes.has(file),
 		exists: async (file: string) => includes.has(file),
-		contains: () => true,
+		contains: async () => true,
 		resolve: (_root: string, file: string) => file,
 		sep: '/',
 		dirname: (file: string) => file.split('/').slice(0, -1).join('/')
@@ -238,7 +250,7 @@ function resolveParts(partsNeeded: any[]): { groups: PartsGroup[]; notes: Resolv
 		return {
 			id,
 			name: part.name,
-			image: part.image,
+			image: part.image ? versionImageURL(part.image) : undefined,
 			page: part.page,
 			notes: part.notes,
 			qty,
@@ -300,7 +312,10 @@ export async function getPage(pathParam: string): Promise<Page | null> {
 	body = expandAffiliateLinks(body);
 	body = expandHeadingIds(body);
 	body = await liquid.parseAndRender(body, { site, page: { ...fm, url } });
-	const html = String(await markdown.process(body));
+	const html = String(await markdown.process(body)).replace(
+		/(<img\b[^>]*\bsrc=")([^"]+)(")/gi,
+		(_match, before: string, src: string, after: string) => before + versionImageURL(src) + after
+	);
 
 	const page: Page = { url, fm, html };
 

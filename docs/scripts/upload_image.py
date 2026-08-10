@@ -4,20 +4,19 @@ Takes a full-resolution original and a destination path, generates the
 web-friendly version (long side capped at
 1600px, transparent -> PNG, opaque -> progressive JPEG), and uploads both:
 
-  originals/<dest-path>.<original-ext>   full quality, archival
-  web/<dest-path>.<jpg|png>              what pages embed
+   originals/<dest-path>.<hash>.<original-ext>   full quality, archival
+   web/<dest-path>.<hash>.<jpg|png>              what pages embed
 
 Pages reference the web version via the CDN domain:
 
-  https://img.basically.website/web/<dest-path>.<jpg|png>
+  https://img.basically.website/web/<dest-path>.<hash>.<jpg|png>
 
 Usage:
 
     python3 docs/scripts/upload_image.py ~/Downloads/IMG_1234.jpg assembly/top-interface/step1
 
-Names are immutable by convention: if an image's content changes, upload it
-under a new name (the CDN caches aggressively). Re-uploading an existing name
-requires --force.
+Object names include a hash of their bytes, so a changed image always receives
+a new URL that can safely be cached indefinitely.
 
 Credentials come from ~/.config/basically/do-spaces.env (SPACES_KEY /
 SPACES_SECRET) or the environment. Requires Pillow and boto3.
@@ -26,6 +25,7 @@ SPACES_SECRET) or the environment. Requires Pillow and boto3.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import io
 import mimetypes
 import os
@@ -100,12 +100,9 @@ def key_exists(s3, key: str) -> bool:
         return False
 
 
-def upload(s3, key: str, body: bytes, content_type: str, force: bool) -> None:
-    if not force and key_exists(s3, key):
-        sys.exit(
-            f"refusing to overwrite existing {key} — names are immutable by "
-            "convention (pick a new name, or pass --force if you really mean it)"
-        )
+def upload(s3, key: str, body: bytes, content_type: str) -> None:
+    if key_exists(s3, key):
+        return
     s3.put_object(
         Bucket=BUCKET,
         Key=key,
@@ -123,7 +120,6 @@ def main() -> int:
         "dest",
         help="destination path in the bucket, no extension (e.g. assembly/top-interface/step1)",
     )
-    parser.add_argument("--force", action="store_true", help="overwrite existing keys")
     parser.add_argument(
         "--skip-original", action="store_true", help="only upload the web version"
     )
@@ -146,16 +142,19 @@ def main() -> int:
     )
 
     web_bytes, web_ext = make_web_version(src)
-    web_key = f"web/{dest}{web_ext}"
+    web_hash = hashlib.sha256(web_bytes).hexdigest()[:16]
+    web_key = f"web/{dest}.{web_hash}{web_ext}"
     web_type = "image/png" if web_ext == ".png" else "image/jpeg"
-    upload(s3, web_key, web_bytes, web_type, args.force)
+    upload(s3, web_key, web_bytes, web_type)
     print(f"{PUBLIC_BASE}/{web_key}")
 
     if not args.skip_original:
         orig_ext = ".jpg" if src.suffix.lower() == ".jpeg" else src.suffix.lower()
-        orig_key = f"originals/{dest}{orig_ext}"
+        orig_bytes = src.read_bytes()
+        orig_hash = hashlib.sha256(orig_bytes).hexdigest()[:16]
+        orig_key = f"originals/{dest}.{orig_hash}{orig_ext}"
         orig_type = mimetypes.guess_type(str(src))[0] or "application/octet-stream"
-        upload(s3, orig_key, src.read_bytes(), orig_type, args.force)
+        upload(s3, orig_key, orig_bytes, orig_type)
         print(f"{PUBLIC_BASE}/{orig_key}")
 
     return 0

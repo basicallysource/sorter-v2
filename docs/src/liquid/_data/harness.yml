@@ -15,7 +15,7 @@
 # an entry in the `drawings` list in electronics/wire_harness/build-harness.sh
 # (the supplier zip's member list), then the same paste.
 
-zip: https://img.basically.website/harness/sorter-v2-harness-rfq.35659b2040.zip
+zip: https://img.basically.website/harness/sorter-v2-harness-rfq.ba5527f6b3.zip
 
 drawings:
   - name: power
@@ -38,12 +38,12 @@ drawings:
       One output pigtail, x3 per PSU build. Spade terminals onto a +V/-V screw
       pair on the PSU terminal block (7 with 4, 8 with 5, 9 with 6),
       panel-mount jack on the other end.
-    png: https://img.basically.website/harness/psu-pigtail.8e374550d3.png
-    svg: https://img.basically.website/harness/psu-pigtail.cebba4bf5b.svg
-    pdf: https://img.basically.website/harness/psu-pigtail.3f38946911.pdf
-    html: https://img.basically.website/harness/psu-pigtail.f8230c60dd.html
-    bom_tsv: https://img.basically.website/harness/psu-pigtail.e459cff16c.bom.tsv
-    yml: https://img.basically.website/harness/psu-pigtail.ee27031e74.yml
+    png: https://img.basically.website/harness/psu-pigtail.56181e15b1.png
+    svg: https://img.basically.website/harness/psu-pigtail.62b5f66c79.svg
+    pdf: https://img.basically.website/harness/psu-pigtail.a39d79160e.pdf
+    html: https://img.basically.website/harness/psu-pigtail.d211ab2c42.html
+    bom_tsv: https://img.basically.website/harness/psu-pigtail.0cb9707956.bom.tsv
+    yml: https://img.basically.website/harness/psu-pigtail.ba99475ba7.yml
   - name: board-power
     title: 24V to basically board v1.3
     of: power

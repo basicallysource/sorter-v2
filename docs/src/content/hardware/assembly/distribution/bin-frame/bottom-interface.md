@@ -30,7 +30,7 @@ The bottom interface stacks the chute mount, a spacer ring, the Lazy Susan beari
 
 <div class="img-row">
   <figure>
-    <img src="https://img.basically.website/web/assembly/bottom-interface/exploded-view.5b2e19be78b674c4.png" alt="Exploded view of the bottom interface: chute mount on top, spacer ring, Lazy Susan bearing, and the corner mounting brackets below">
+    <img src="https://img.basically.website/web/assembly/bottom-interface/exploded-view-cropped.1e520f8cdb04989d.jpg" alt="Exploded view of the bottom interface: chute mount on top, spacer ring, Lazy Susan bearing, and the corner mounting brackets below">
   </figure>
   <figure>
     <img src="https://img.basically.website/web/assembly/bottom-interface/exploded-view-detail.43115f353ffc8e8a.png" alt="Close-up exploded view of the bottom interface parts separating from the mounting brackets">

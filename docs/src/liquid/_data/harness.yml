@@ -15,7 +15,7 @@
 # an entry in the `drawings` list in electronics/wire_harness/build-harness.sh
 # (the supplier zip's member list), then the same paste.
 
-zip: https://img.basically.website/harness/sorter-v2-harness-rfq.5ce0afd6b7.zip
+zip: https://img.basically.website/harness/sorter-v2-harness-rfq.35659b2040.zip
 
 drawings:
   - name: power
@@ -51,7 +51,7 @@ drawings:
       The board's own feed, W1 on the overview: barrel plug to JST VHR-2.
     png: https://img.basically.website/harness/board-power.cbda5409b6.png
     svg: https://img.basically.website/harness/board-power.d7b15ac11d.svg
-    pdf: https://img.basically.website/harness/board-power.85b5802911.pdf
+    pdf: https://img.basically.website/harness/board-power.056646935e.pdf
     html: https://img.basically.website/harness/board-power.e8a77bfb82.html
     bom_tsv: https://img.basically.website/harness/board-power.8a0dcbe9b9.bom.tsv
     yml: https://img.basically.website/harness/board-power.a25e847465.yml

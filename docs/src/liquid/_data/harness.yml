@@ -15,7 +15,7 @@
 # an entry in the `drawings` list in electronics/wire_harness/build-harness.sh
 # (the supplier zip's member list), then the same paste.
 
-zip: https://img.basically.website/harness/sorter-v2-harness-rfq.ef5fdb8d0d.zip
+zip: https://img.basically.website/harness/sorter-v2-harness-rfq.5ce0afd6b7.zip
 
 drawings:
   - name: power
@@ -27,7 +27,7 @@ drawings:
       it is made of are below it.
     png: https://img.basically.website/harness/power.2021d6c5f7.png
     svg: https://img.basically.website/harness/power.c07b691d4e.svg
-    pdf: https://img.basically.website/harness/power.01b58fd835.pdf
+    pdf: https://img.basically.website/harness/power.cb10337110.pdf
     html: https://img.basically.website/harness/power.e1f5a23a92.html
     bom_tsv: https://img.basically.website/harness/power.514757618c.bom.tsv
     yml: https://img.basically.website/harness/power.b9dc96651e.yml
@@ -40,7 +40,7 @@ drawings:
       panel-mount jack on the other end.
     png: https://img.basically.website/harness/psu-pigtail.8e374550d3.png
     svg: https://img.basically.website/harness/psu-pigtail.cebba4bf5b.svg
-    pdf: https://img.basically.website/harness/psu-pigtail.81398920b0.pdf
+    pdf: https://img.basically.website/harness/psu-pigtail.3f38946911.pdf
     html: https://img.basically.website/harness/psu-pigtail.f8230c60dd.html
     bom_tsv: https://img.basically.website/harness/psu-pigtail.e459cff16c.bom.tsv
     yml: https://img.basically.website/harness/psu-pigtail.ee27031e74.yml
@@ -51,7 +51,7 @@ drawings:
       The board's own feed, W1 on the overview: barrel plug to JST VHR-2.
     png: https://img.basically.website/harness/board-power.cbda5409b6.png
     svg: https://img.basically.website/harness/board-power.d7b15ac11d.svg
-    pdf: https://img.basically.website/harness/board-power.209539281a.pdf
+    pdf: https://img.basically.website/harness/board-power.85b5802911.pdf
     html: https://img.basically.website/harness/board-power.e8a77bfb82.html
     bom_tsv: https://img.basically.website/harness/board-power.8a0dcbe9b9.bom.tsv
     yml: https://img.basically.website/harness/board-power.a25e847465.yml
@@ -62,7 +62,7 @@ drawings:
       and 5 empty, and the straight-through chute cable to bare labeled leads.
     png: https://img.basically.website/harness/steppers.550d7af474.png
     svg: https://img.basically.website/harness/steppers.9b7334282c.svg
-    pdf: https://img.basically.website/harness/steppers.a879c517ac.pdf
+    pdf: https://img.basically.website/harness/steppers.17631ea5d7.pdf
     html: https://img.basically.website/harness/steppers.08158bdd59.html
     bom_tsv: https://img.basically.website/harness/steppers.3ac179ba97.bom.tsv
     yml: https://img.basically.website/harness/steppers.8820bec2e6.yml
@@ -74,7 +74,7 @@ drawings:
       board, push-on blade terminals at the switch).
     png: https://img.basically.website/harness/leds.3a9294c2ee.png
     svg: https://img.basically.website/harness/leds.3916b8ade2.svg
-    pdf: https://img.basically.website/harness/leds.d6183b68e7.pdf
+    pdf: https://img.basically.website/harness/leds.3791720032.pdf
     html: https://img.basically.website/harness/leds.2c728ca11f.html
     bom_tsv: https://img.basically.website/harness/leds.8e56b3c7a6.bom.tsv
     yml: https://img.basically.website/harness/leds.e93d31515a.yml

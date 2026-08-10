@@ -1,16 +1,21 @@
 # The drawings on the WireViz page, in display order.
 #
-# `name` is the basename of every artifact for a drawing:
-# electronics/wire_harness/<name>.yml is the source, and the published outputs
-# live in the assets bucket at <harness_base>/<name>.{png,svg,pdf,html,bom.tsv,yml},
-# where harness_base is derived per-build from the git ref by
-# resolveHarness() in docs/src/lib/server/content.ts. CI renders and publishes on any harness change;
-# nothing rendered lives in this repo and nothing here needs updating when a
-# drawing's content changes.
+# The URLs below are literal on purpose. Every harness artifact is published
+# under a name containing a hash of its own bytes, nothing in the bucket is
+# ever overwritten, and nothing here is derived at build time -- so a drawing's
+# URL changes in the same commit that changes the drawing, and the docs can
+# never name bytes that have not been uploaded yet. Do not replace these with
+# anything computed; see electronics/wire_harness/AGENTS.md for the outage that
+# rule comes from.
 #
-# Adding a drawing: a new YAML source, an entry here, and an entry in the
-# `drawings` list in electronics/wire_harness/build-harness.sh (the supplier
-# zip's member list).
+# `name` is the basename of the drawing's source, electronics/wire_harness/<name>.yml.
+#
+# Changing a drawing: edit the source, push, and CI fails with the exact block
+# of URLs to paste back in here. Adding one: a new YAML source, an entry here,
+# an entry in the `drawings` list in electronics/wire_harness/build-harness.sh
+# (the supplier zip's member list), then the same paste.
+
+zip: https://img.basically.website/harness/sorter-v2-harness-rfq.ef5fdb8d0d.zip
 
 drawings:
   - name: power
@@ -20,6 +25,12 @@ drawings:
       board, the USB hub and the Orange Pi buck. Dashed arrows are barrel
       jack/plug mates. This is the overview; the two buildable sub-harnesses
       it is made of are below it.
+    png: https://img.basically.website/harness/power.2021d6c5f7.png
+    svg: https://img.basically.website/harness/power.c07b691d4e.svg
+    pdf: https://img.basically.website/harness/power.01b58fd835.pdf
+    html: https://img.basically.website/harness/power.e1f5a23a92.html
+    bom_tsv: https://img.basically.website/harness/power.514757618c.bom.tsv
+    yml: https://img.basically.website/harness/power.b9dc96651e.yml
   - name: psu-pigtail
     title: PSU output pigtail
     of: power
@@ -27,19 +38,43 @@ drawings:
       One output pigtail, x3 per PSU build. Spade terminals onto a +V/-V screw
       pair on the PSU terminal block (7 with 4, 8 with 5, 9 with 6),
       panel-mount jack on the other end.
+    png: https://img.basically.website/harness/psu-pigtail.8e374550d3.png
+    svg: https://img.basically.website/harness/psu-pigtail.cebba4bf5b.svg
+    pdf: https://img.basically.website/harness/psu-pigtail.81398920b0.pdf
+    html: https://img.basically.website/harness/psu-pigtail.f8230c60dd.html
+    bom_tsv: https://img.basically.website/harness/psu-pigtail.e459cff16c.bom.tsv
+    yml: https://img.basically.website/harness/psu-pigtail.ee27031e74.yml
   - name: board-power
     title: 24V to basically board v1.3
     of: power
     caption: >-
       The board's own feed, W1 on the overview: barrel plug to JST VHR-2.
+    png: https://img.basically.website/harness/board-power.cbda5409b6.png
+    svg: https://img.basically.website/harness/board-power.d7b15ac11d.svg
+    pdf: https://img.basically.website/harness/board-power.209539281a.pdf
+    html: https://img.basically.website/harness/board-power.e8a77bfb82.html
+    bom_tsv: https://img.basically.website/harness/board-power.8a0dcbe9b9.bom.tsv
+    yml: https://img.basically.website/harness/board-power.a25e847465.yml
   - name: steppers
     title: Stepper cables
     caption: >-
       The S1-S4 cable, board PHR-4 to the motor's own PHR-6 with positions 2
       and 5 empty, and the straight-through chute cable to bare labeled leads.
+    png: https://img.basically.website/harness/steppers.550d7af474.png
+    svg: https://img.basically.website/harness/steppers.9b7334282c.svg
+    pdf: https://img.basically.website/harness/steppers.a879c517ac.pdf
+    html: https://img.basically.website/harness/steppers.08158bdd59.html
+    bom_tsv: https://img.basically.website/harness/steppers.3ac179ba97.bom.tsv
+    yml: https://img.basically.website/harness/steppers.8820bec2e6.yml
   - name: leds
     title: LED drops and limit switch
     caption: >-
       LED feeds L1-L3 to their unplug-point jacks, pigtails L1p-L3p to the COB
       boards and strip, and the limit switch cable (keyed 1x3 dupont at the
       board, push-on blade terminals at the switch).
+    png: https://img.basically.website/harness/leds.3a9294c2ee.png
+    svg: https://img.basically.website/harness/leds.3916b8ade2.svg
+    pdf: https://img.basically.website/harness/leds.d6183b68e7.pdf
+    html: https://img.basically.website/harness/leds.2c728ca11f.html
+    bom_tsv: https://img.basically.website/harness/leds.8e56b3c7a6.bom.tsv
+    yml: https://img.basically.website/harness/leds.e93d31515a.yml

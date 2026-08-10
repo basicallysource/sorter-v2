@@ -1397,10 +1397,17 @@ blockquote {
 	padding: 0;
 	background: transparent;
 	border: none;
-	display: flex;
 	align-items: flex-start;
 	justify-content: center;
 	padding-top: clamp(60px, 12vh, 140px);
+}
+
+.search-dialog:not([open]) {
+	display: none;
+}
+
+.search-dialog[open] {
+	display: flex;
 }
 
 .search-dialog::backdrop {

@@ -11,6 +11,7 @@ import remarkRehype from 'remark-rehype';
 import rehypeRaw from 'rehype-raw';
 import rehypeSlug from 'rehype-slug';
 import rehypeStringify from 'rehype-stringify';
+import { env } from '$env/dynamic/private';
 
 // ── Raw sources ──────────────────────────────────────────────────────────────
 
@@ -41,13 +42,15 @@ for (const [path, raw] of Object.entries(dataFiles)) {
 }
 
 // Legacy photo keys were descriptive and some browsers still hold stale
-// immutable responses for them. This migration gives every image a fresh key.
-const IMAGE_VERSION = '20260810';
+// immutable responses for them. Each Pages build gives only those keys a fresh
+// URL; new uploads have content-addressed filenames and remain cacheable.
+const IMAGE_VERSION = env.CF_PAGES_COMMIT_SHA ?? '20260810';
+const CONTENT_ADDRESSED = /\.[0-9a-f]{10,}\.[^.]+$/;
 
 function versionImageURL(value: string): string {
 	if (!value.startsWith('https://img.basically.website/')) return value;
 	const url = new URL(value);
-	if (url.searchParams.has('v')) return value;
+	if (url.searchParams.has('v') || CONTENT_ADDRESSED.test(url.pathname)) return value;
 	url.searchParams.set('v', IMAGE_VERSION);
 	return url.toString();
 }

@@ -7,13 +7,17 @@ connectors:
     style: simple
     type: Spade terminal (fork/split ring)
     subtype: 18 AWG, M3.5, 8mm MAX
-    notes: "To +V: screw 7, 8 or 9"
+    manufacturer: Molex
+    mpn: 0191310031
+    notes: "To +V: screw 7, 8 or 9\nOr Equivalent"
     color: RD
   F2:
     style: simple
     type: Spade terminal (fork/split ring)
     subtype: 18 AWG, M3.5, 8mm MAX
-    notes: "To -V: the matching screw\n7+4, 8+5, 9+6"
+    manufacturer: Molex
+    mpn: 0191310031
+    notes: "To -V: the matching screw\n7+4, 8+5, 9+6\nOr Equivalent"
     color: BK
   J1:
     type: DC jack 5.5x2.1 female, panel-mount

@@ -1483,8 +1483,8 @@ blockquote {
 
 .search-result-link {
 	display: flex;
-	align-items: baseline;
-	gap: 10px;
+	flex-direction: column;
+	gap: 2px;
 	padding: 8px 14px;
 	text-decoration: none;
 	color: inherit;
@@ -1497,6 +1497,12 @@ blockquote {
 
 .search-result--selected .search-result-link {
 	background: color-mix(in srgb, var(--primary) 8%, var(--surface));
+}
+
+.search-result-row {
+	display: flex;
+	align-items: baseline;
+	gap: 10px;
 }
 
 .search-result-title {
@@ -1519,6 +1525,14 @@ blockquote {
 	color: var(--muted);
 	margin-left: auto;
 	white-space: nowrap;
+}
+
+.search-result-lede {
+	font-size: 0.78rem;
+	color: var(--muted);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
 }
 
 .search-empty {

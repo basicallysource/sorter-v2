@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 
-	type NavItem = { title: string; url: string; children?: NavItem[] };
+	type NavItem = { title: string; url: string; lede?: string; children?: NavItem[] };
 	type NavGroup = { title: string; pages: NavItem[] };
 	type NavSection = {
 		id: string;
@@ -11,7 +11,7 @@
 		pages: NavItem[];
 		groups?: NavGroup[];
 	};
-	type SearchEntry = { title: string; url: string; section: string; crumb: string[] };
+	type SearchEntry = { title: string; url: string; lede?: string; section: string; crumb: string[] };
 
 	let { nav, open = $bindable(false) }: { nav: NavSection[]; open: boolean } = $props();
 
@@ -23,7 +23,13 @@
 	function flattenItems(items: NavItem[], crumb: string[]): SearchEntry[] {
 		const out: SearchEntry[] = [];
 		for (const item of items) {
-			out.push({ title: item.title, url: item.url, section: crumb[0] ?? '', crumb: crumb.slice(1) });
+			out.push({
+				title: item.title,
+				url: item.url,
+				lede: item.lede,
+				section: crumb[0] ?? '',
+				crumb: crumb.slice(1)
+			});
 			if (item.children) out.push(...flattenItems(item.children, [...crumb, item.title]));
 		}
 		return out;
@@ -32,7 +38,7 @@
 	const index: SearchEntry[] = $derived.by(() => {
 		const seen = new Set<string>();
 		const all = nav.flatMap((section) => [
-			{ title: section.title, url: section.url, section: section.title, crumb: [] },
+			{ title: section.title, url: section.url, lede: section.description, section: section.title, crumb: [] },
 			...flattenItems(section.pages, [section.title]),
 			...(section.groups ?? []).flatMap((g) => flattenItems(g.pages, [section.title, g.title]))
 		]);
@@ -139,11 +145,16 @@
 							onclick={(e) => { e.preventDefault(); navigate(entry.url); }}
 							tabindex="-1"
 						>
-							<span class="search-result-title">{entry.title}</span>
-							{#if entry.crumb.length > 0 || entry.section}
-								<span class="search-result-crumb">
-									{[entry.section, ...entry.crumb].filter(Boolean).join(' › ')}
-								</span>
+							<span class="search-result-row">
+								<span class="search-result-title">{entry.title}</span>
+								{#if entry.crumb.length > 0 || entry.section}
+									<span class="search-result-crumb">
+										{[entry.section, ...entry.crumb].filter(Boolean).join(' › ')}
+									</span>
+								{/if}
+							</span>
+							{#if entry.lede}
+								<span class="search-result-lede">{entry.lede}</span>
 							{/if}
 						</a>
 					</li>

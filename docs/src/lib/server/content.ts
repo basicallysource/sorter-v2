@@ -59,7 +59,7 @@ export const site = {
 
 // ── Nav (verbatim port of _data/nav.yml semantics) ───────────────────────────
 
-export type NavItem = { title: string; url: string; children?: NavItem[] };
+export type NavItem = { title: string; url: string; lede?: string; children?: NavItem[] };
 export type NavGroup = { title: string; pages: NavItem[] };
 export type NavSection = {
 	id: string;
@@ -70,7 +70,7 @@ export type NavSection = {
 	groups?: NavGroup[];
 };
 
-export const navSections: NavSection[] = data.nav?.sections ?? [];
+const rawNavSections: NavSection[] = data.nav?.sections ?? [];
 
 // ── Frontmatter ──────────────────────────────────────────────────────────────
 
@@ -280,6 +280,24 @@ for (const [path, raw] of Object.entries(contentFiles)) {
 	const { fm } = parseFrontmatter(raw);
 	sources.set(urlFor(relPath, fm), { relPath, raw, fm: applyDefaults(relPath, fm) });
 }
+
+// Nav items don't carry their own frontmatter (nav.yml is just title/url), so
+// stitch each item's `lede` on from the matching content source by URL. This
+// rides along with the nav data every page already loads, so search results
+// can show a subtitle with no extra fetch.
+function withLede(items: NavItem[]): NavItem[] {
+	return items.map((item) => ({
+		...item,
+		lede: sources.get(item.url)?.fm.lede,
+		children: item.children ? withLede(item.children) : undefined
+	}));
+}
+
+export const navSections: NavSection[] = rawNavSections.map((section) => ({
+	...section,
+	pages: withLede(section.pages),
+	groups: section.groups?.map((g) => ({ ...g, pages: withLede(g.pages) }))
+}));
 
 const rendered = new Map<string, Page>();
 

@@ -28,18 +28,6 @@
 	$effect(() => {
 		p.url; // rerun per page — {@html} replaces the DOM on navigation
 		if (!contentEl) return;
-		for (const image of contentEl.querySelectorAll<HTMLImageElement>('img')) {
-			if (!image.src.startsWith('https://img.basically.website/')) continue;
-			const retry = () => {
-				if (image.dataset.cacheRetry) return;
-				image.dataset.cacheRetry = '1';
-				const url = new URL(image.src);
-				url.searchParams.set('retry', crypto.randomUUID());
-				image.src = url.toString();
-			};
-			if (image.complete && image.naturalWidth === 0) retry();
-			else image.addEventListener('error', retry, { once: true });
-		}
 		for (const pre of contentEl.querySelectorAll('pre')) {
 			if (pre.parentElement?.classList.contains('code-block')) continue;
 			const wrap = document.createElement('div');

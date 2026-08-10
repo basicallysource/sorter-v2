@@ -4,6 +4,7 @@
 	"version": "0.0.1",
 	"type": "module",
 	"scripts": {
+		"prebuild": "python3 scripts/validate_images.py",
 		"dev": "vite dev",
 		"build": "vite build",
 		"preview": "vite preview",

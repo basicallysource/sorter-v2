@@ -1,10 +1,32 @@
 const ORIGIN = "https://basically-docs.nyc3.digitaloceanspaces.com";
 
-// The docs append `?v=<sha>` to every asset URL, so a URL carrying one names an
-// immutable snapshot and can be cached hard. A bare URL is a mutable ref and
-// gets the bucket's own short TTL.
 const IMMUTABLE = "public, max-age=31536000, immutable";
 const MUTABLE = "public, max-age=60";
+
+// What may be cached for a year. Two things qualify, and the difference
+// matters:
+//
+//   1. A content-addressed name -- `harness/power.2021d6c5f7.png`, where the
+//      hex is a hash of the bytes. Nothing can ever be served under that name
+//      but those bytes, so `immutable` is a fact about the object.
+//   2. A URL carrying `?v=<sha>`, which is a promise by the caller that the
+//      path is a snapshot. Photos work this way (upload_image.py + a name
+//      nobody reuses) and it is only as good as that discipline.
+//
+// The harness used to rely on (2) over a path that was overwritten on every
+// render, which made the header a lie and pinned a stale drawing in readers'
+// caches for a year. It relies on (1) now. Do not "simplify" this back to the
+// query check alone: a content-addressed URL has no reason to carry a buster,
+// and without the name rule it would be served with the short TTL.
+// Matches the hash segment anywhere in the filename, not just before the last
+// dot: `power.514757618c.bom.tsv` keeps its whole `.bom.tsv` suffix chain, so
+// anchoring to a single trailing extension would miss every BOM.
+const CONTENT_ADDRESSED = /\.[0-9a-f]{10,}\./;
+
+function cacheControlFor(url) {
+  if (CONTENT_ADDRESSED.test(url.pathname)) return IMMUTABLE;
+  return url.searchParams.has("v") ? IMMUTABLE : MUTABLE;
+}
 
 export default {
   async fetch(request, env, ctx) {
@@ -52,7 +74,7 @@ export default {
       headers.delete("age");
       headers.delete("cf-cache-status");
       headers.set("access-control-allow-origin", "*");
-      headers.set("cache-control", url.searchParams.has("v") ? IMMUTABLE : MUTABLE);
+      headers.set("cache-control", cacheControlFor(url));
       response = new Response(upstream.body, { status: upstream.status, headers });
       ctx.waitUntil(cache.put(key, response.clone()));
     }

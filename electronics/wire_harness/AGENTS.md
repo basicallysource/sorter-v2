@@ -5,49 +5,80 @@ into everything the docs and a cable vendor need.
 
 ## The one idea
 
-**Sources are in git. Renders never are.**
+**Sources are in git. Renders never are. URLs are.**
 
 `power.yml`, `steppers.yml`, `leds.yml` and `rfq.txt` are the source of truth:
 small, diffable text. Reviewing a harness change means reviewing them.
 Everything derived (PNG, SVG, PDF, HTML, per-cable BOM, the supplier RFQ zip)
 is a build artifact, and build artifacts live in the `basically-docs` assets
-bucket, addressed by git ref:
+bucket under a name carrying a hash of their own bytes:
 
-    https://img.basically.website/harness/<branch>/power.png
+    https://img.basically.website/harness/power.2c0ebc6cd1.png
 
-Refs are mutable, exactly like git branches: pushing to a branch overwrites
-that branch's prefix. The docs derive the prefix for whatever ref they're
-building (`resolveHarness()` in `docs/src/lib/server/content.ts`), so a PR preview shows the PR's
-drawings and production shows main's.
+**Nothing in the bucket is ever overwritten**, and nothing about these URLs is
+derived at docs-build time. They are literal strings in
+`docs/src/liquid/_data/harness.yml`, pasted from the render that produced them
+— the same contract `docs/scripts/upload_image.py` has always had for photos,
+where the tool prints a URL and you paste it into the page. Change a drawing
+and its URL changes in the same commit, right next to the change, visible in
+the diff. A PR preview shows the PR's drawings because the PR's data file names
+them, not because anything resolved a branch.
 
-`img.basically.website` is a Cloudflare Worker in front of the bucket, and it
-keys its cache on the full URL including `?v=`, so a re-rendered drawing shows
-up as soon as a deploy stamps a new `v`. Every response carries
-`x-img-cache: hit|miss`, and that header is the evidence when somebody says a
-drawing looks stale:
+### Why, at length, because this cost a day
 
-    curl -sI "https://img.basically.website/harness/main/power.png?v=<sha>" | grep -i x-img-cache
+The scheme this replaced wrote every render to `harness/<branch>/power.png`,
+overwriting in place, and had the docs build the URL from the branch name plus
+`?v=<the docs build's commit sha>`. Three things were wrong with it, and they
+compounded:
 
-(An earlier version of this file blamed the Cloudflare zone for ignoring query
-strings. It was the worker dropping the query string before its subrequest to
-Spaces; fixed 2026-08-09.) The origin is public and never cached, so it is the
-tiebreaker if the two ever disagree:
+1. The sha in the URL was the *docs build's*, not the drawing's. So a
+   docs-only push reissued all five drawings' URLs (2.3 MB refetched for
+   nothing), and a changed drawing got a new URL for an unrelated reason.
+2. The object behind a URL was mutable, but the worker served it
+   `cache-control: public, max-age=31536000, immutable`. That header was a
+   lie.
+3. The harness render and the docs build start on the *same push*. The docs
+   build can win. In that window the page names `power.png?v=<newsha>` while
+   the bucket still holds the previous render at that path — or a
+   half-uploaded one. Whoever loads the page then pins wrong bytes for a year,
+   in their own browser and in the edge cache, with no recovery but a hard
+   reload they have no reason to attempt.
 
-    https://basically-docs.nyc3.digitaloceanspaces.com/harness/<ref>/power.png
+That is not hypothetical: it is what put a broken drawing on the live WireViz
+page on 2026-08-09, visible in Spencer's browser and fine in incognito. A
+content-addressed name fixes all three at once, because the object now exists
+before any commit can name it.
 
-That last sentence was false from the day it was written until 2026-08-09, and
-it is worth knowing why, because the failure was silent and cost a day of
-looking at the wrong drawing. `img.basically.website` is a Cloudflare Worker
-(`docs/scripts/img-worker/`), and it used to fetch `ORIGIN + url.pathname`,
-dropping the query string before the subrequest. So the cache key never
-contained the buster and every `?v=` we appended hit the same cached object,
-which a 24h `cacheTtlByStatus` then pinned in place — a fresh render in the
-bucket, a day-old render on the page, and the YAML link on the same page
-disagreeing with the picture above it. Zone purge could not clear it either:
-the key was a `digitaloceanspaces.com` URL, not one in the `basically.website`
-zone, so `purge_cache` returned success and did nothing. The worker now caches
-under its own hostname with the query in the key. If you change that file,
-keep both properties.
+`img.basically.website` is a Cloudflare Worker (`docs/scripts/img-worker/`) in
+front of the bucket. Every response carries `x-img-cache: hit|miss`, which is
+the evidence when somebody says a drawing looks wrong:
+
+    curl -sI "https://img.basically.website/harness/power.<hash>.png" | grep -i x-img-cache
+
+The origin is public and never cached, so it is the tiebreaker if the two ever
+disagree:
+
+    https://basically-docs.nyc3.digitaloceanspaces.com/harness/power.<hash>.png
+
+Caching is no longer load-bearing for correctness here, and that is the point
+of content-addressed names: a URL's bytes cannot change, so a stale cache
+entry and a fresh one are the same bytes. Two caching bugs got fixed on the way
+to that and are worth not reintroducing. The worker used to fetch
+`ORIGIN + url.pathname`, dropping the query string before its subrequest, so
+every `?v=` we appended hit one cached object which a 24h `cacheTtlByStatus`
+pinned in place — a fresh render in the bucket, a day-old render on the page,
+and the YAML link disagreeing with the picture above it. Zone purge could not
+clear it either: the key was a `digitaloceanspaces.com` URL, not one in the
+`basically.website` zone, so `purge_cache` returned success and did nothing.
+The worker now caches under its own hostname with the full URL in the key
+(#284, 2026-08-09). Keep both properties if you touch that file.
+
+**If a drawing ever looks wrong again, the first question is which URL the page
+is serving**, and the answer is in the page source and in
+`docs/src/liquid/_data/harness.yml` — no derivation, no build sha, no branch
+resolution. If the URL is the one you expect and the bytes are wrong, that is a
+real cache bug worth chasing. If the URL is not the one you expect, somebody
+skipped the paste.
 
 Permanent, content-addressed copies are a release-time concern (the lockfile
 mechanism in the unified parts plan), not a live-docs one. The bucket is
@@ -56,22 +87,31 @@ pinned toolchain.
 
 ## Changing a harness
 
-Edit the YAML. Push. That's all.
+Edit the YAML. Push. CI renders and uploads, then fails the
+**Check the docs point at this render** step with the exact block of URLs to
+paste into `docs/src/liquid/_data/harness.yml`. Paste it, commit, push again.
+Two rounds, and the second one is copy-paste out of the job log.
 
-`.github/workflows/harness.yml` renders on any PR or main push touching this
-directory and publishes to the branch's prefix, typically within ~90 seconds.
-You do not need WireViz, graphviz, or any credentials to contribute, and there
-is no step to remember: the preview self-corrects when the render lands. Fork
-PRs render without publishing (GitHub withholds secrets from forks), which
-still proves the YAML builds.
+That failing step is the point, not an annoyance: it is what makes it
+impossible to change a drawing and leave the page serving the old one. The
+upload is safe to run on every push precisely because names are content
+addressed — it can only ever add objects, never replace one somebody is
+already serving, and a re-render of an unchanged drawing uploads nothing.
+
+You do not need WireViz, graphviz, or any credentials to contribute. Fork PRs
+render without publishing (GitHub withholds secrets from forks), which still
+proves the YAML builds; a maintainer's push publishes and produces the URLs.
 
 To render locally (optional, for a fast inner loop):
 
     ./electronics/wire_harness/build-harness.sh      # renders into out/ (gitignored)
+    ./electronics/wire_harness/upload-harness.py --dry-run   # names + paste block, uploads nothing
 
-and to publish by hand (rarely needed; CI does this):
-
-    ./electronics/wire_harness/upload-harness.py --ref <branch>
+**Do not paste URLs from a local render.** graphviz's version is part of the
+rendered pixels, so a local render on a different graphviz hashes differently
+than CI's pinned 2.42.2 and the URLs will be for bytes CI would never produce.
+Local renders are for looking at a change. CI is the only renderer whose
+output gets pasted.
 
 Local creds come from `~/.config/basically/do-spaces.env`; CI uses repo
 secrets holding a key scoped to this one bucket. Note CI is the canonical
@@ -102,6 +142,10 @@ the docs site any more. Ignore it.
 2. Add `<name>` to the `drawings` list in `build-harness.sh` (the supplier
    zip's member list).
 3. Add an entry (name, title, caption) to `docs/src/liquid/_data/harness.yml`.
+4. Push; paste the URL block CI prints into that same entry. The check fails
+   until every drawing listed there carries the six URLs
+   (`png`, `svg`, `pdf`, `html`, `bom_tsv`, `yml`) from the current render,
+   and fails too if you rendered a drawing you never listed.
 
 **Overview drawings and sub-harnesses.** A drawing that is one buildable
 assembly out of a bigger diagram carries `of: <parent name>` in
@@ -141,15 +185,16 @@ fetched in the browser, not baked in at build time**, by the `$effect` in
 `docs/src/routes/[...path]/+page.svelte` that picks up
 `<div class="bom" data-bom="...">` placeholders.
 
-Build-time was rejected for a specific reason: the docs build and the harness
-render both start on the same push, so a docs build that wins the race would
-bake in a missing or stale table and keep serving it until some unrelated push
-triggered another deploy. That is the silent-staleness failure this pipeline
-already had once. Fetching at read time cannot go stale, and the `BOM (TSV)`
-download link above each table is the fallback when the fetch does not run.
+Build-time was rejected because the docs build and the harness render used to
+start on the same push, so a docs build that won the race would bake in a
+missing or stale table and keep serving it. Content-addressed URLs removed that
+race — the TSV is uploaded before any commit names it — so baking in at build
+time would now be safe. It is still fetched at read time because there is no
+reason to change it and the `BOM (TSV)` download link above each table is the
+fallback when the fetch does not run.
 
 The bucket sends `access-control-allow-origin: *`, so the cross-origin fetch is
-fine, and the URL carries `?v=` so it is served immutable.
+fine, and the name contains the hash, so it is served immutable and honestly.
 
 ## Where this shows up in the docs
 

@@ -16,32 +16,31 @@ last_verified: 2026-07-12
 </div>
 
 <p class="download-line">
-  <a href="{{ site.harness_base }}/sorter-v2-harness-rfq.zip{{ site.harness_v }}" download><b>↓ sorter-v2-harness-rfq.zip</b></a>
+  <a href="{{ site.data.harness.zip }}" download><b>↓ sorter-v2-harness-rfq.zip</b></a>
   <span>cover sheet + every drawing (PDF/PNG/SVG/HTML) + a BOM per drawing (TSV) + WireViz YAML sources</span>
 </p>
 
-{% assign b = site.harness_base %}{% assign v = site.harness_v %}
 {% for d in site.data.harness.drawings %}
 {% if d.of %}### {{ d.title }}{% else %}## {{ d.title }}{% endif %}
 
 <figure class="harness-figure">
-  <a href="{{ b }}/{{ d.name }}.png{{ v }}" target="_blank" rel="noopener">
-    <img src="{{ b }}/{{ d.name }}.png{{ v }}" alt="WireViz drawing: {{ d.title }}">
+  <a href="{{ d.png }}" target="_blank" rel="noopener">
+    <img src="{{ d.png }}" alt="WireViz drawing: {{ d.title }}">
   </a>
   <figcaption>{{ d.caption }} Click for full size.</figcaption>
 </figure>
 
 <p class="download-line">
   <span>Download:</span>
-  <a href="{{ b }}/{{ d.name }}.pdf{{ v }}">PDF</a> ·
-  <a href="{{ b }}/{{ d.name }}.png{{ v }}" download>PNG</a> ·
-  <a href="{{ b }}/{{ d.name }}.svg{{ v }}" download>SVG</a> ·
-  <a href="{{ b }}/{{ d.name }}.html{{ v }}">HTML (drawing + BOM)</a> ·
-  <a href="{{ b }}/{{ d.name }}.bom.tsv{{ v }}" download>BOM (TSV)</a> ·
-  <a href="{{ b }}/{{ d.name }}.yml{{ v }}" download>YAML source</a>
+  <a href="{{ d.pdf }}">PDF</a> ·
+  <a href="{{ d.png }}" download>PNG</a> ·
+  <a href="{{ d.svg }}" download>SVG</a> ·
+  <a href="{{ d.html }}">HTML (drawing + BOM)</a> ·
+  <a href="{{ d.bom_tsv }}" download>BOM (TSV)</a> ·
+  <a href="{{ d.yml }}" download>YAML source</a>
 </p>
 
-<div class="bom" data-bom="{{ b }}/{{ d.name }}.bom.tsv{{ v }}">
+<div class="bom" data-bom="{{ d.bom_tsv }}">
   <p class="bom-status">Loading the bill of materials for {{ d.title }}</p>
 </div>
 

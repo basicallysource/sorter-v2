@@ -47,8 +47,11 @@ cd "$(dirname "$0")/../.."
 SRC=electronics/wire_harness
 OUT=electronics/wire_harness/out
 
-# Arbitrary fixed instant (2023-11-14T22:13:20Z). Only its constancy matters.
+# Arbitrary fixed instant. Only its constancy matters. The two spellings are
+# the same moment (2023-11-14T22:13:20Z) for two different consumers: tools
+# that honour SOURCE_DATE_EPOCH, and faketime, which wants a date string.
 export SOURCE_DATE_EPOCH=1700000000
+SOURCE_DATE_STRING='2023-11-14 22:13:20'
 
 command -v wireviz >/dev/null || { echo "build-harness: wireviz not on PATH" >&2; exit 1; }
 command -v dot     >/dev/null || { echo "build-harness: graphviz 'dot' not on PATH" >&2; exit 1; }
@@ -90,8 +93,14 @@ cp "$SRC"/*.yml "$SRC"/rfq.txt "$OUT"/
 # Without faketime (a local Mac, usually) the PDFs still move every run. That
 # is fine for looking at a change and is one more reason CI is the only
 # renderer whose URLs get pasted -- see AGENTS.md next to this script.
+#
+# The instant is spelled out rather than derived from SOURCE_DATE_EPOCH:
+# libfaketime's -f takes a date string and cannot parse "@<epoch>" (it fails
+# with "failed to parse FAKETIME timestamp" and takes the build down with it),
+# and converting one to the other needs `date -d`, which is GNU-only and this
+# script runs on Spencer's Mac. Keep the two in sync if you ever change either.
 if command -v faketime >/dev/null; then
-  pin_clock() { faketime -f "@$SOURCE_DATE_EPOCH" "$@"; }
+  pin_clock() { faketime -f "@$SOURCE_DATE_STRING" "$@"; }
 else
   echo "build-harness: faketime not on PATH, PDF timestamps will not be reproducible" >&2
   pin_clock() { "$@"; }

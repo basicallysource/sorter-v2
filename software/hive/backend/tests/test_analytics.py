@@ -60,6 +60,14 @@ def test_single_machine_analytics(client, machine_token, test_machine):
     assert dist["by_machine"] == []  # single machine -> omitted
     parts = {d["part_id"]: d["value"] for d in dist["top_parts"]}
     assert parts.get("3001") == 2 and parts.get("3002") == 1
+    # Colors carry a BrickLink swatch hex; the key is always present (None when
+    # the parts catalog has no swatch or isn't loaded, as in this test env).
+    assert any(c["color_id"] == "5" for c in dist["top_colors"])
+    assert all("rgb" in c for c in dist["top_colors"])
+    # Category breakdown is always a list (empty when no parts catalog is loaded,
+    # as in this test env); each row is a name and a count.
+    assert isinstance(dist["top_categories"], list)
+    assert all({"category_name", "value"} <= set(c) for c in dist["top_categories"])
 
 
 def test_my_fleet_scope_default(client, machine_token, test_machine):

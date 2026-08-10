@@ -433,6 +433,36 @@ class ProfileCatalogService:
                 }
         return [by_bl_id[bl_id] for bl_id in sorted(by_bl_id)]
 
+    def bricklink_category_names(self, item_nos: list[str]) -> dict[str, str]:
+        """BrickLink item number -> BrickLink category name, straight from
+        parts.db. The piece a machine sorted is stored under its BrickLink item
+        number (that is what Brickognize predicts), and the category lives on the
+        bricklink_items row, so this is a single indexed lookup per id.
+
+        Chunked because sqlite caps a statement at 999 bound parameters, and the
+        fleet-wide part set runs to thousands. An id the catalog has never seen
+        is simply absent from the result; the caller decides what "no category"
+        means."""
+        ids = list({str(x) for x in item_nos if x})
+        out: dict[str, str] = {}
+        if not ids:
+            return out
+        chunk = 900
+        for start in range(0, len(ids), chunk):
+            batch = ids[start : start + chunk]
+            placeholders = ",".join("?" * len(batch))
+            rows = self._conn.execute(
+                f"SELECT bi.item_no, bc.name "
+                f"FROM bricklink_items bi "
+                f"JOIN bricklink_categories bc ON bc.id = bi.category_id "
+                f"WHERE bi.item_no IN ({placeholders})",
+                batch,
+            )
+            for item_no, cat_name in rows:
+                if cat_name:
+                    out[str(item_no)] = cat_name
+        return out
+
     def bricklink_part_colors(self, part_id: str, limit: int = 24) -> dict[str, Any]:
         """Every color this part is stocked in on BrickLink, most pieces for sale
         first, priced live across the whole palette.

@@ -231,6 +231,47 @@ def get_timeseries(db: Session, machine_ids: list[Any]) -> list[dict[str, Any]]:
     return series
 
 
+def _category_distribution(part_counts: list[tuple[Any, int]], limit: int) -> list[dict[str, Any]]:
+    """Fold per-part counts into a BrickLink-category breakdown, biggest first.
+
+    The pieces table knows a part but not its category, so the counts come
+    grouped by part here and the catalog supplies the category. A part the
+    catalog can't place is pooled under "Unknown" rather than dropped, so the
+    shares still add up to every piece with a part id. Best-effort: no catalog,
+    no breakdown."""
+    if not part_counts:
+        return []
+    try:
+        from app.services.profile_catalog import get_profile_catalog_service
+
+        cat_by_part = get_profile_catalog_service().bricklink_category_names(
+            [str(pid) for pid, _ in part_counts]
+        )
+    except Exception:
+        return []
+
+    totals: dict[str, int] = {}
+    for pid, count in part_counts:
+        name = cat_by_part.get(str(pid)) or "Unknown"
+        totals[name] = totals.get(name, 0) + count
+    ranked = sorted(totals.items(), key=lambda kv: kv[1], reverse=True)[:limit]
+    return [{"category_name": name, "value": value} for name, value in ranked]
+
+
+def _bricklink_rgb() -> dict[int, str | None]:
+    """BrickLink color id -> swatch hex (no leading '#'), from the parts catalog.
+
+    Best-effort and imported lazily: analytics is imported all over, the catalog
+    is heavy, and a box without it loaded should still serve distributions —
+    just with no rgb, which a client treats as "no swatch"."""
+    try:
+        from app.services.profile_catalog import get_profile_catalog_service
+
+        return {c["id"]: c.get("rgb") for c in get_profile_catalog_service().list_bricklink_colors()}
+    except Exception:
+        return {}
+
+
 def get_distributions(db: Session, machine_ids: list[Any]) -> dict[str, Any]:
     if not machine_ids:
         return {"by_machine": [], "by_status": [], "top_parts": [], "top_colors": []}
@@ -269,6 +310,27 @@ def get_distributions(db: Session, machine_ids: list[Any]) -> dict[str, Any]:
             .all()
         )
     ]
+    # Attach each BrickLink color's swatch hex, so a client can DRAW the colour
+    # instead of only reprinting its name. Same catalog the labeling UI picks
+    # from. A non-numeric bucket like "any_color", or an id the catalog has no
+    # swatch for, gets rgb=None and the client decides how to render "no colour".
+    rgb_by_bl_id = _bricklink_rgb()
+    for entry in top_colors:
+        try:
+            entry["rgb"] = rgb_by_bl_id.get(int(entry["color_id"]))
+        except (TypeError, ValueError):
+            entry["rgb"] = None
+
+    # Categories are parts folded up by their BrickLink category. Every part is
+    # counted (not just the top fifteen) so the shares are honest, then the
+    # catalog maps part -> category and the biggest categories are kept.
+    part_counts = (
+        base.with_entities(MachinePiece.part_id, func.count())
+        .filter(MachinePiece.part_id.isnot(None))
+        .group_by(MachinePiece.part_id)
+        .all()
+    )
+    top_categories = _category_distribution(part_counts, limit=15)
 
     by_machine: list[dict[str, Any]] = []
     if len(machine_ids) > 1:
@@ -292,6 +354,7 @@ def get_distributions(db: Session, machine_ids: list[Any]) -> dict[str, Any]:
         "by_status": by_status,
         "top_parts": top_parts,
         "top_colors": top_colors,
+        "top_categories": top_categories,
     }
 
 

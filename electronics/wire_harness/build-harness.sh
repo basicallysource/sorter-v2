@@ -99,8 +99,15 @@ cp "$SRC"/*.yml "$SRC"/rfq.txt "$OUT"/
 # with "failed to parse FAKETIME timestamp" and takes the build down with it),
 # and converting one to the other needs `date -d`, which is GNU-only and this
 # script runs on Spencer's Mac. Keep the two in sync if you ever change either.
+# `x0.0` freezes the clock instead of merely starting it at a fixed instant.
+# Starting it was not enough: faketime lets time tick from there, so a dot run
+# that happened to cross a second boundary stamped 22:13:21 while the others
+# stamped 22:13:20. That reproduced four of five PDFs and left board-power
+# drifting run to run, which is worse than an obvious failure -- it looks fixed
+# until one drawing quietly demands a repaste. Frozen, every dot invocation
+# sees the same instant no matter how long it takes.
 if command -v faketime >/dev/null; then
-  pin_clock() { faketime -f "@$SOURCE_DATE_STRING" "$@"; }
+  pin_clock() { faketime -f "@$SOURCE_DATE_STRING x0.0" "$@"; }
 else
   echo "build-harness: faketime not on PATH, PDF timestamps will not be reproducible" >&2
   pin_clock() { "$@"; }

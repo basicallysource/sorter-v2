@@ -15,20 +15,22 @@
 # Needs `wireviz` and graphviz's `dot` on PATH. CI installs both; locally,
 # `pip install wireviz==0.4.1` and `brew install graphviz`.
 #
-# Output is byte-for-byte reproducible, which is what lets CI commit only
-# when a drawing actually changed rather than on every run:
+# Output is byte-for-byte reproducible, and that is now load-bearing rather
+# than merely tidy: every artifact is published under a name containing a hash
+# of its bytes, so anything that moves between runs mints a new URL for an
+# unchanged drawing and demands a re-paste into the docs. Two sources of drift,
+# both handled:
 #
-#   - dot's PDF writer stamps a creation time into a compressed object, so
-#     a PDF is only rebuilt when the .gv it comes from actually changed.
-#     SOURCE_DATE_EPOCH below pins the stamp on a graphviz new enough to
-#     honour it and is not sufficient on its own: graphviz 2.43, which is
-#     what Ubuntu 24.04 and therefore CI has, ignores it, and the resulting
-#     PDFs differed by one byte per run and committed on every run. The .gv
-#     is WireViz's own output and carries no timestamp, so it is the honest
-#     thing to key on.
+#   - dot's PDF writer stamps wall-clock time into a compressed object as
+#     /CreationDate. SOURCE_DATE_EPOCH only pins it on a graphviz new enough to
+#     honour it: 2.42.2, which is what Ubuntu 24.04 and therefore CI has,
+#     ignores it, and two runs of identical sources produced PDFs differing in
+#     exactly those 262 bytes. faketime below pins the clock dot sees, which
+#     fixes it at the source rather than by patching the PDF afterwards.
 #   - zip stores mtimes, so the archive is built by Python with a fixed
-#     timestamp and a fixed member order instead of the zip(1) binary. Its
-#     members are stable by the rule above, so it needs no guard of its own.
+#     timestamp and a fixed member order instead of the zip(1) binary. It
+#     contains the PDFs, so it was drifting for their reason too, and is stable
+#     once they are.
 #
 # The version of graphviz IS part of the output: it shifts glyph positions,
 # so a different one rewrites every PNG, SVG and HTML at once. CI pins it
@@ -73,14 +75,38 @@ wireviz "$SRC"/*.yml -f ghpst -o "$OUT"
 # and because the WireViz docs page links it directly.
 cp "$SRC"/*.yml "$SRC"/rfq.txt "$OUT"/
 
+# dot stamps wall-clock time into the PDF as /CreationDate, inside a compressed
+# object stream, and Ubuntu's graphviz ignores SOURCE_DATE_EPOCH. Two runs of
+# identical sources therefore produced PDFs differing in exactly those 262
+# bytes -- and, because the supplier zip contains them, a different zip too.
+#
+# That was survivable when renders overwrote a fixed bucket path. It is not now
+# that a published name is a hash of the bytes: every CI run would mint five
+# new PDF URLs and a new zip URL for an unchanged harness, and demand they be
+# pasted back into the docs. So pin the clock dot sees. faketime is the whole
+# fix; the PDFs come out byte-identical run to run, which makes the zip
+# byte-identical too.
+#
+# Without faketime (a local Mac, usually) the PDFs still move every run. That
+# is fine for looking at a change and is one more reason CI is the only
+# renderer whose URLs get pasted -- see AGENTS.md next to this script.
+if command -v faketime >/dev/null; then
+  pin_clock() { faketime -f "@$SOURCE_DATE_EPOCH" "$@"; }
+else
+  echo "build-harness: faketime not on PATH, PDF timestamps will not be reproducible" >&2
+  pin_clock() { "$@"; }
+fi
+
 for gv in "$OUT"/*.gv; do
   pdf="${gv%.gv}.pdf"
-  # Same drawing and a PDF already on disk: re-rendering would only move the
-  # embedded date, so leave it alone.
+  # Same drawing and a PDF already on disk: re-rendering is a no-op with the
+  # clock pinned, and without it would only move the embedded date. Either way
+  # there is nothing to gain. CI always starts from an empty out/, so this only
+  # ever fires on a local re-run.
   if [ -f "$pdf" ] && cmp -s "$gv" "$PREV/$(basename "$gv")"; then
     continue
   fi
-  dot -Tpdf "$gv" -o "$pdf"
+  pin_clock dot -Tpdf "$gv" -o "$pdf"
 done
 
 python3 - "$OUT" <<'PY'

@@ -8,7 +8,92 @@ kicker: Distribution — Top interface
 lede: The interface between the feeder and the bin tower.
 permalink: /hardware/assembly/distribution/top-interface/
 author: zed0
+parts_needed:
+  - part: interface-upper-fixed-section
+    qty: 1
+  - part: interface-rib
+    qty: 5
+  - part: interface-rib-switch
+    qty: 1
+  - part: interface-bracket
+    qty: 6
+  - part: interface-spacer
+    qty: 6
+  - part: interface-nema23-bracket
+    qty: 1
+  - part: interface-big-spacer
+    qty: 1
+  - part: limit-switch-housing
+    qty: 1
+  - part: limit-switch-dowel-pin
+    qty: 1
+  - part: limit-switch-hammer
+    qty: 1
+  - part: top-interface-split-spur-gear-3
+    qty: 1
+  - part: top-interface-split-spur-gear-1
+    qty: 1
+  - part: top-interface-split-spur-gear-2
+    qty: 1
+  - part: interface-spur-gear
+    qty: 1
+  - part: interface-idler-gear
+    qty: 1
+  - part: interface-cage-bracket
+    qty: 5
+  - part: interface-cage-bracket-cable
+    qty: 1
+  - part: cable-cage-top
+    qty: 1
+  - part: cable-cage-bottom
+    qty: 1
+  - part: cable-clamp-outer
+    qty: 1
+  - part: cable-clamp-inner
+    qty: 1
+  - part: ribbon-cable-clamp
+    qty: 1
+  - part: ext-bracket-left
+    qty: 6
+  - part: ext-bracket-cover
+    qty: 6
+  - part: extrusion-e
+    qty: 6
+  - part: extrusion-f
+    qty: 6
+  - part: lazy-susan
+    qty: 1
+  - part: brg-608-2rs
+    qty: 1
+  - part: motor-nema23
+    qty: 1
+  - part: pulley-20t-8mm
+    qty: 1
+  - part: endstop-mechanical
+    qty: 1
+  - part: cable-idc-2x8-long
+    qty: 1
+  - part: scr-m5-16-shcs
+    qty: 24
+  - part: scr-m5-12-shcs
+    qty: 48
+  - part: m4-12mm-countersunk
+    qty: 8
+  - part: scr-m3-8-cs
+    qty: 20
+  - part: scr-m3-6-bhcs
+    qty: 1
+  - part: tnut-m5-2020
+    qty: 48
+  - part: nut-m5
+    qty: 6
 ---
+
+<div class="callout callout-warning">
+  <span class="callout-icon" aria-hidden="true">⚠</span>
+  <p>The screws, T-nuts, and nuts in the parts list above, and all of the quantities, are a best guess and need checking before this page is published. The printed parts, extrusion, bearing, motor, and cabling are drawn from the assembly itself.</p>
+</div>
+
 
 {% include step.html n="1" title="Attach the interface ribs to the upper fixed section" %}
 
@@ -214,6 +299,30 @@ Place the Cable cage bottom over the Top interface chute mount. Use 6 nuts and b
 
 After this step the chute should still rotate to each of its limits.
 
----
+{% include step.html n="12" title="Attach the framing" %}
 
-_Steps for mounting the full interface frame are coming._
+Insert an extrusion piece F (Interface vertical support) into each of the Interface brackets. Hold each one in place with 4 screws into 4 T-nuts.
+
+<figure>
+  <img class="doc-figure" src="https://img.basically.website/web/assembly/top-interface/framing-1.fbda1317264f8eec.jpg" alt="Six vertical extrusion supports bolted into the interface brackets, seen from above on the hexagonal top plate">
+</figure>
+
+Slide an Interface spacer onto each piece of extrusion, with the lip at the top facing toward the center of the assembly.
+
+<figure>
+  <img class="doc-figure" src="https://img.basically.website/web/assembly/top-interface/framing-2.8a1bb7db57d76b85.jpg" alt="An interface spacer slid onto each vertical extrusion support, lips facing inward">
+</figure>
+
+Follow the first two stages of a regular layer, then place the regular layer assembly onto the interface assembly.
+
+<figure>
+  <img class="doc-figure" src="https://img.basically.website/web/assembly/top-interface/framing-3.2a49c8f1de5726ed.jpg" alt="A regular layer assembly lowered onto the interface assembly">
+</figure>
+
+Attach an External bracket cover to each of the External bracket sides, then fasten each one with 2 M5 × 16 mm screws tapped into the holes at the base of the External bracket sides, bracing against the extrusion.
+
+The top interface is now complete.
+
+<figure>
+  <img class="doc-figure" src="https://img.basically.website/web/assembly/top-interface/framing-4.103ce98e106b4312.jpg" alt="The completed top interface: the hexagonal top plate on its framed leg structure with the chute opening in the centre">
+</figure>

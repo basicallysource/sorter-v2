@@ -420,6 +420,33 @@
 	{/if}
 
 	<SectionCard
+		title="Parameters"
+		description="Pulse distance and pause time per region for the simple pulsing feeder."
+	>
+		{#if loading}
+			<div class="text-sm text-text-muted">Loading…</div>
+		{:else}
+			<div class="flex flex-col gap-8">
+				{#each sections as section}
+					<div class="flex flex-col gap-2">
+						<div class="text-xs font-semibold tracking-wider text-text-muted uppercase">
+							{section.name}
+						</div>
+						{#each section.fields as field}
+							<TuningParamRow {field} bind:values />
+						{/each}
+					</div>
+				{/each}
+			</div>
+
+			<div class="mt-6 flex gap-3">
+				<Button variant="primary" onclick={save} loading={saving}>Save</Button>
+				<Button variant="secondary" onclick={load} disabled={saving}>Reset to saved</Button>
+			</div>
+		{/if}
+	</SectionCard>
+
+	<SectionCard
 		title="Auto-tune"
 		description="Searches for the fastest pulse parameters on this machine. Each trial applies a candidate config and measures pieces/min into the classification channel. A trial only counts as feasible if its double-drop rate stays under the cap below — among feasible trials, highest throughput wins. The trial clock only advances while sorting is running, so this runs on top of normal sorting."
 	>
@@ -760,33 +787,6 @@
 						</tbody>
 					</table>
 				</div>
-			</div>
-		{/if}
-	</SectionCard>
-
-	<SectionCard
-		title="Parameters"
-		description="Pulse distance and pause time per region for the simple pulsing feeder."
-	>
-		{#if loading}
-			<div class="text-sm text-text-muted">Loading…</div>
-		{:else}
-			<div class="flex flex-col gap-8">
-				{#each sections as section}
-					<div class="flex flex-col gap-2">
-						<div class="text-xs font-semibold tracking-wider text-text-muted uppercase">
-							{section.name}
-						</div>
-						{#each section.fields as field}
-							<TuningParamRow {field} bind:values />
-						{/each}
-					</div>
-				{/each}
-			</div>
-
-			<div class="mt-6 flex gap-3">
-				<Button variant="primary" onclick={save} loading={saving}>Save</Button>
-				<Button variant="secondary" onclick={load} disabled={saving}>Reset to saved</Button>
 			</div>
 		{/if}
 	</SectionCard>

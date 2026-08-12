@@ -180,7 +180,7 @@ Align the switch housing with the extrusion of one of the prepared Interface bra
     loading="lazy"></iframe>
 </div>
 
-Slide a T-nut just into the end of the extrusion of the limit switch interface bracket. Slide the extrusion into the Interface rib (switch gap) and Interface upper fixed section, securing it loosely with an M5 × 16 mm button head screw. Slide the extrusion slightly in and out to align the holes on the Interface bracket with the holes on the Top plate, then tighten the screw.
+Slide a T-nut just into the end of the extrusion of the limit switch interface bracket. Slide the extrusion into the Interface rib (switch gap) and Interface upper fixed section, securing it loosely with a screw <span class="fastener-todo">fastener not recorded</span>. Slide the extrusion slightly in and out to align the holes on the Interface bracket with the holes on the Top plate, then tighten the screw.
 
 Repeat with the 5 other prepared Interface brackets into the 5 other Interface ribs.
 

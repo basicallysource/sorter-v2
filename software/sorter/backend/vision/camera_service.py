@@ -208,8 +208,28 @@ class CameraService:
             result[role] = {
                 "status": device.health.value,
                 "last_frame_at": device.last_frame_at,
+                # A camera can be "online" and still useless: if the USB link
+                # dropped to full speed the device silently negotiates a smaller
+                # frame size than we asked for, and frames keep flowing at the
+                # wrong geometry. Surfaced separately so the existing status
+                # enum keeps its meaning.
+                "degraded": device.degraded,
             }
         return result
+
+    def get_recovery_status_for_role(self, role: str) -> dict[str, object] | None:
+        device = self._device_for_role(role)
+        if device is None:
+            return None
+        return device.get_recovery_status()
+
+    def request_recovery_for_role(self, role: str) -> bool:
+        device = self._device_for_role(role)
+        if device is None:
+            return False
+        self._gc.logger.warning(f"camera '{role}': manual capture recovery requested")
+        device.request_recovery()
+        return True
 
     def get_health_map(self) -> dict[str, str]:
         return {role: feed.device.health.value for role, feed in self._feeds.items()}

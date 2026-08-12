@@ -124,6 +124,18 @@ class CameraDevice:
     def describe_device_controls(self) -> tuple[list[dict[str, Any]], dict[str, int | float | bool]]:
         return self._capture.describeDeviceControls()
 
+    # ---- Degraded-capture recovery ----
+
+    @property
+    def degraded(self) -> bool:
+        return self._capture.isDegraded()
+
+    def get_recovery_status(self) -> dict[str, object]:
+        return self._capture.getRecoveryStatus()
+
+    def request_recovery(self) -> None:
+        self._capture.requestRecovery()
+
     # ---- Capture mode ----
 
     def set_capture_mode(

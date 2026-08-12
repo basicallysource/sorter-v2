@@ -26,11 +26,28 @@ from irl.config import (
     clampCameraPictureSettings,
     parseCameraDeviceSettings,
 )
+from . import camera_recovery
 from .types import CameraFrame
 
 CAPTURE_MODE_SETTLE_S = 2.0
 CAPTURE_EXPECTED_FRAME_FALLBACK_S = 10.0
 AUTO_CAMERA_CONTROL_KEYS = ("auto_exposure", "auto_white_balance", "autofocus")
+
+# How long frames may keep arriving at the wrong geometry before we treat the
+# camera as broken rather than still settling. Must exceed
+# CAPTURE_EXPECTED_FRAME_FALLBACK_S so a mode change in progress is never
+# mistaken for the stuck state.
+CAPTURE_WRONG_SIZE_CONFIRM_S = 15.0
+# Floor between ladder rungs. Re-enumeration plus reopen plus the exposure
+# settle is several seconds on its own; anything tighter just stacks resets on
+# a bus that has not finished coming back yet.
+CAPTURE_RECOVERY_COOLDOWN_S = 30.0
+# Once every rung has been tried the cause is almost certainly physical (bad
+# cable, hub browning out). Keep retrying the last rung anyway so the machine
+# heals itself if the hardware recovers, but stop hammering the bus.
+CAPTURE_RECOVERY_EXHAUSTED_COOLDOWN_S = 300.0
+# Re-check beat while a bus-disrupting rung is held back for an active sort.
+CAPTURE_RECOVERY_DEFERRED_COOLDOWN_S = 60.0
 
 if platform.system() == "Darwin":
     try:
@@ -750,6 +767,17 @@ class CaptureThread:
         self._color_profile_lock = threading.Lock()
         self._config_lock = threading.Lock()
         self._cap_lock = threading.Lock()
+        # Recovery bookkeeping. Written only by the capture thread; read by the
+        # health poller and the HTTP handlers, hence the lock on the snapshot.
+        self._recovery_lock = threading.Lock()
+        self._recovery_manual_request = threading.Event()
+        self._recovery_state: dict[str, object] = {
+            "degraded": False,
+            "attempts": 0,
+            "last_action": None,
+            "last_action_at": None,
+            "negotiated_size": None,
+        }
 
     def drain_ring_buffer(self, max_frames: int) -> list[CameraFrame]:
         """Return up to ``max_frames`` most-recent frames from the ring buffer.
@@ -970,6 +998,179 @@ class CaptureThread:
                 "fourcc": getattr(self._config, "fourcc", None),
             }
 
+    def getRecoveryStatus(self) -> dict[str, object]:
+        with self._recovery_lock:
+            status = dict(self._recovery_state)
+        source = self.getCameraSource()
+        if isinstance(source, int):
+            status.update(camera_recovery.describeCameraUsbState(source))
+        mode = self.getCaptureMode()
+        status["expected_size"] = (mode["width"], mode["height"])
+        return status
+
+    def isDegraded(self) -> bool:
+        with self._recovery_lock:
+            return bool(self._recovery_state["degraded"])
+
+    def requestRecovery(self) -> None:
+        # The USB resets have to run with the capture handle closed, so the
+        # request is handed to the capture thread instead of executed inline.
+        self._recovery_manual_request.set()
+        self._requestReopen()
+
+    def _setRecoveryState(self, **fields: object) -> None:
+        with self._recovery_lock:
+            self._recovery_state.update(fields)
+
+    def _clearDegraded(self) -> None:
+        # Runs once per good frame, so take the lock only when there is actually
+        # something to clear. Dict reads are atomic under the GIL.
+        if not self._recovery_state["degraded"] and not self._recovery_state["attempts"]:
+            return
+        with self._recovery_lock:
+            self._recovery_state.update(
+                {"degraded": False, "attempts": 0, "last_action": None}
+            )
+        log.warning("CaptureThread[%s] recovered — capture geometry matches request", self.name)
+
+    def _machineIsSorting(self) -> bool:
+        # Best-effort: if we cannot tell, assume it IS sorting. A deferred reset
+        # costs a degraded feed for a while longer; a reset taken mid-sort drops
+        # the control board's serial port along with the camera.
+        try:
+            from server import shared_state
+
+            controller = shared_state.controller_ref
+            if controller is None:
+                return False
+            return getattr(controller.state, "value", None) == "running"
+        except Exception:
+            return True
+
+    def _runRecoveryAttempt(
+        self,
+        source: int,
+        attempt: int,
+        width: int,
+        height: int,
+        fourcc: str | None,
+    ) -> tuple[int, bool]:
+        """Run one rung of the ladder. Returns the device index to reopen on
+        (which can differ from ``source`` because a USB reset re-mints
+        /dev/videoN) and whether the attempt was actually consumed — a rung
+        deferred because the machine is sorting must not advance the ladder.
+        Frame geometry, not the rung's own return value, is what decides
+        whether the camera actually came back."""
+        device = camera_recovery.resolveCameraUsbDevice(source)
+        negotiated = camera_recovery.readNegotiatedCaptureFormat(source)
+        log.error(
+            "CaptureThread[%s] degraded: want %dx%d, device negotiated %s, usb=%s "
+            "speed=%sMbps — recovery attempt %d",
+            self.name,
+            width,
+            height,
+            f"{negotiated[0]}x{negotiated[1]} {negotiated[2]}" if negotiated else "unknown",
+            device.devpath if device is not None else "unknown",
+            device.speed_mbps if device is not None else "unknown",
+            attempt,
+        )
+
+        if attempt == 0:
+            # Cheapest rung: close and reopen, which re-runs VIDIOC_S_FMT on the
+            # idle node. Skipped when the mode is missing from the descriptor
+            # altogether — at reduced link speed these cameras simply stop
+            # advertising their high-res modes, and no amount of reopening
+            # conjures one back.
+            supported = camera_recovery.supportsCaptureSize(source, width, height)
+            if supported is not False:
+                camera_recovery.forceCaptureFormat(source, width, height, fourcc)
+                self._setRecoveryState(
+                    last_action="reopen", last_action_at=time.time(), attempts=attempt + 1
+                )
+                return source, True
+            log.error(
+                "CaptureThread[%s] %dx%d is no longer in the device's format list — "
+                "skipping reopen, escalating to USB reset",
+                self.name,
+                width,
+                height,
+            )
+            attempt = 1
+
+        if device is None:
+            self._setRecoveryState(
+                last_action="no_usb_device", last_action_at=time.time(), attempts=attempt + 1
+            )
+            return source, True
+
+        ladder_index = min(attempt - 1, len(camera_recovery.RECOVERY_LADDER) - 1)
+        if ladder_index >= len(camera_recovery.RECOVERY_LADDER) - 1 and (
+            camera_recovery.isLikelyPhysicalLinkFault(device)
+        ):
+            # Verified on kitbash: with the link below high speed, every rung
+            # (and an EHCI-companion rebind beyond them) fails the handshake at
+            # the physical layer. Stop pretending a reset will help and tell the
+            # operator what actually needs doing.
+            log.error(
+                "CaptureThread[%s] USB link is %s Mbps, not %d — the high-speed handshake is "
+                "failing in hardware, which no reset can fix. Reseat or replace the USB cable "
+                "to the hub and check its power. Resets exhausted; holding.",
+                self.name,
+                device.speed_mbps,
+                camera_recovery.HIGH_SPEED_MBPS,
+            )
+            self._setRecoveryState(
+                last_action="physical_link_fault", last_action_at=time.time()
+            )
+            return source, True
+        step = camera_recovery.RECOVERY_LADDER[ladder_index]
+        if step.disrupts_shared_bus and self._machineIsSorting():
+            # This rung re-enumerates the hub the control board is also on, so
+            # running it mid-sort would drop motion control to fix a camera.
+            # Hold here without consuming the attempt: the ladder resumes from
+            # this rung as soon as sorting stops.
+            log.error(
+                "CaptureThread[%s] holding recovery step '%s' — it re-enumerates the "
+                "shared USB hub (control board included) and the machine is sorting. "
+                "It will run once sorting stops.",
+                self.name,
+                step.name,
+            )
+            self._setRecoveryState(
+                last_action=f"{step.name}_deferred_sorting", last_action_at=time.time()
+            )
+            return source, False
+        log.error("CaptureThread[%s] applying USB recovery step '%s'", self.name, step.name)
+        performed = False
+        try:
+            performed = bool(step.run(device))
+        except Exception as exc:
+            log.error("CaptureThread[%s] recovery step '%s' raised: %s", self.name, step.name, exc)
+        self._setRecoveryState(
+            last_action=step.name if performed else f"{step.name}_unavailable",
+            last_action_at=time.time(),
+            attempts=attempt + 1,
+        )
+        if not performed:
+            return source, True
+
+        self._stop_event.wait(step.settle_s)
+        # /dev/videoN is re-minted by the reset; follow the camera by its hub
+        # port chain so we reopen the same physical device rather than whatever
+        # index happened to be reused.
+        reresolved = camera_recovery.resolveIndexForDevpath(device.devpath)
+        if reresolved is not None and reresolved != source:
+            log.error(
+                "CaptureThread[%s] device moved /dev/video%d -> /dev/video%d after '%s'",
+                self.name,
+                source,
+                reresolved,
+                step.name,
+            )
+            self.setCameraSource(reresolved)
+            return reresolved, True
+        return source, True
+
     def start(self) -> None:
         if self._thread is not None and self._thread.is_alive():
             return
@@ -1028,6 +1229,11 @@ class CaptureThread:
         # Re-apply after the first successful read so the settings actually stick.
         post_stream_settings: dict[str, int | float | bool] | None = None
         post_stream_source: int | None = None
+        # Wall time of the first wrong-geometry frame in the current run of
+        # them; 0.0 whenever the last frame matched the requested mode.
+        wrong_size_since = 0.0
+        recovery_attempt = 0
+        next_recovery_at = 0.0
 
         while not self._stop_event.is_set():
             source, is_url, width, height, fps, fourcc = self._get_config_snapshot()
@@ -1041,6 +1247,7 @@ class CaptureThread:
                 last_expected_frame_at = 0.0
                 post_stream_settings = None
                 post_stream_source = None
+                wrong_size_since = 0.0
 
             if self._reopen_event.is_set():
                 self._reopen_event.clear()
@@ -1055,6 +1262,23 @@ class CaptureThread:
                 last_expected_frame_at = 0.0
                 post_stream_settings = None
                 post_stream_source = None
+
+            if self._recovery_manual_request.is_set():
+                self._recovery_manual_request.clear()
+                if isinstance(source, int):
+                    if cap is not None:
+                        cap.release()
+                        cap = None
+                    self._cap = None
+                    self.latest_frame = None
+                    _, consumed = self._runRecoveryAttempt(
+                        source, recovery_attempt, width, height, fourcc
+                    )
+                    if consumed:
+                        recovery_attempt += 1
+                    next_recovery_at = time.time() + CAPTURE_RECOVERY_COOLDOWN_S
+                    wrong_size_since = 0.0
+                    continue
 
             if source is None:
                 self.latest_frame = None
@@ -1143,6 +1367,39 @@ class CaptureThread:
                             post_stream_settings = None
                             post_stream_source = None
 
+            if wrong_size_since != 0.0 and isinstance(source, int):
+                now = time.time()
+                if (
+                    now - wrong_size_since >= CAPTURE_WRONG_SIZE_CONFIRM_S
+                    and now >= next_recovery_at
+                ):
+                    # The USB-level rungs need the handle closed; a reset with an
+                    # open fd only invalidates it from under cv2.
+                    cap.release()
+                    cap = None
+                    self._cap = None
+                    self.latest_frame = None
+                    _, consumed = self._runRecoveryAttempt(
+                        source, recovery_attempt, width, height, fourcc
+                    )
+                    if consumed:
+                        recovery_attempt += 1
+                        next_recovery_at = time.time() + (
+                            CAPTURE_RECOVERY_COOLDOWN_S
+                            if recovery_attempt <= len(camera_recovery.RECOVERY_LADDER)
+                            else CAPTURE_RECOVERY_EXHAUSTED_COOLDOWN_S
+                        )
+                    else:
+                        # Held for an active sort. Re-check on a slower beat so a
+                        # long sort with a broken camera does not spam the log.
+                        next_recovery_at = time.time() + CAPTURE_RECOVERY_DEFERRED_COOLDOWN_S
+                    # Re-armed on the next wrong-size frame; if the reset worked
+                    # the matching frame clears the attempt counter instead.
+                    wrong_size_since = 0.0
+                    expected_frame_settle_until = 0.0
+                    last_expected_frame_at = 0.0
+                    continue
+
             # Do not hold _cap_lock while reading. AVFoundation can block inside
             # cap.read(); holding the lock there prevents stop/reopen requests
             # from releasing the handle and leaves the camera stuck until the
@@ -1164,8 +1421,26 @@ class CaptureThread:
                         )
                         if now < expected_frame_settle_until or has_recent_expected:
                             continue
+                        # Past the settle window the wrong geometry is not a mode
+                        # change in flight, it is what the device is actually
+                        # going to keep sending. Everything downstream rescales
+                        # zone polygons and arc centers by frame_w/saved_w, so a
+                        # silently-accepted 640x480 in place of 1280x720 does not
+                        # just look squished — it puts every perception angle and
+                        # mask in the wrong place. Flag it and let the ladder run.
+                        if wrong_size_since == 0.0:
+                            wrong_size_since = now
+                            self._setRecoveryState(
+                                degraded=True,
+                                negotiated_size=(int(frame_w), int(frame_h)),
+                            )
                     else:
                         last_expected_frame_at = time.time()
+                        if wrong_size_since != 0.0:
+                            wrong_size_since = 0.0
+                            recovery_attempt = 0
+                            next_recovery_at = 0.0
+                        self._clearDegraded()
                 if post_stream_settings is not None and post_stream_source is not None:
                     with self._cap_lock:
                         if cap is not None:

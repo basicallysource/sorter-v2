@@ -3304,6 +3304,39 @@ def get_camera_health() -> Dict[str, Any]:
     return shared_state.camera_service.get_health_status()
 
 
+@router.get("/api/cameras/{role}/recovery")
+def get_camera_recovery_status(role: str) -> Dict[str, Any]:
+    """Return what the capture thread negotiated versus what it asked for,
+    plus the USB link state behind it. A `degraded` camera is streaming at a
+    frame size the machine did not request."""
+    import server.shared_state as shared_state
+
+    if shared_state.camera_service is None:
+        raise HTTPException(status_code=500, detail="Camera service not initialized")
+    status = shared_state.camera_service.get_recovery_status_for_role(role)
+    if status is None:
+        raise HTTPException(status_code=404, detail=f"Unknown camera role '{role}'")
+    return {"role": role, **status}
+
+
+@router.post("/api/cameras/{role}/recover")
+def recover_camera(role: str) -> Dict[str, Any]:
+    """Kick the escalating reset ladder for one camera by hand. The automatic
+    path runs the same rungs; this exists so an operator never has to reach for
+    the USB cable while we are still chasing the underlying hub fault."""
+    import server.shared_state as shared_state
+
+    if shared_state.camera_service is None:
+        raise HTTPException(status_code=500, detail="Camera service not initialized")
+    if not shared_state.camera_service.request_recovery_for_role(role):
+        raise HTTPException(status_code=404, detail=f"Unknown camera role '{role}'")
+    return {
+        "ok": True,
+        "role": role,
+        "message": "Camera reset requested; the feed will drop out while it re-enumerates.",
+    }
+
+
 @router.get("/api/cameras/config")
 def get_camera_config() -> Dict[str, Any]:
     """Return current camera assignments from TOML."""

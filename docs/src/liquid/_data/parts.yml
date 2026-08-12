@@ -208,7 +208,6 @@ pulley-20t-8mm:
   name: Timing pulley
   category: Pulleys
   image: https://img.basically.website/web/parts/hardware/pulleys/pulley-20t-8mm.75040004a32a0f14.jpg
-  notes: Best guess at the pulley; confirm before publishing.
 
 endstop-mechanical:
   name: Roller lever limit switch (V-155-1C25)

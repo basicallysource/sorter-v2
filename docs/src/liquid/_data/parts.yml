@@ -186,13 +186,13 @@ extrusion-e:
   name: Interface spoke, long (extrusion E)
   category: Extrusion
   image: https://img.basically.website/web/parts/top-interface/extrusion-e.bce3a0752b0f99f5.png
-  notes: 2020 aluminum extrusion cut to 238 mm. Piece E on the framing cut list.
+  caption: 2020 aluminum extrusion, cut to 238 mm (piece E).
 
 extrusion-f:
   name: Interface vertical support (extrusion F)
   category: Extrusion
   image: https://img.basically.website/web/parts/top-interface/extrusion-f.7e1f6b2dc9e069f7.png
-  notes: 2020 aluminum extrusion cut to 274 mm. Piece F on the framing cut list.
+  caption: 2020 aluminum extrusion, cut to 274 mm (piece F).
 
 brg-608-2rs:
   name: 608 2RS bearing

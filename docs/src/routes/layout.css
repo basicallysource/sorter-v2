@@ -591,6 +591,13 @@ body {
 	text-decoration: underline;
 }
 
+.part-card-caption {
+	margin-top: 3px;
+	font-size: 0.72rem;
+	line-height: 1.35;
+	color: var(--muted);
+}
+
 .part-card-missing {
 	color: var(--muted);
 	font-family: var(--font-mono);

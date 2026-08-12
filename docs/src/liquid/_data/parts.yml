@@ -149,11 +149,13 @@ interface-idler-gear:
 
 cable-cage-top:
   name: Cable cage top
-  category: Printed parts
+  category: Laser-cut parts
+  image: https://img.basically.website/web/parts/top-interface/cable-cage-top.0856e376cd2b9238.jpg
 
 cable-cage-bottom:
   name: Cable cage bottom
-  category: Printed parts
+  category: Laser-cut parts
+  image: https://img.basically.website/web/parts/top-interface/cable-cage-bottom.72b2038544dec559.jpg
 
 interface-cage-bracket:
   name: Cable cage bracket

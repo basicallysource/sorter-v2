@@ -218,7 +218,6 @@ cable-idc-2x8-long:
   name: IDC ribbon cable, 16-pin (2x8), 1 m
   category: Electronics
   image: https://img.basically.website/web/parts/hardware/electronics/cable-idc-2x8-long.78c80cba0d300af0.jpg
-  notes: Length is a guess; could be the 30 cm variant.
 
 scr-m5-12-shcs:
   name: M5 x 12 mm socket head cap screw

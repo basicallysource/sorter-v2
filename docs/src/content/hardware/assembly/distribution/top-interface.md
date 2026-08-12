@@ -316,7 +316,7 @@ Slide an Interface spacer onto each piece of extrusion, with the lip at the top 
 Follow the first two stages of a regular layer, then place the regular layer assembly onto the interface assembly.
 
 <figure>
-  <img class="doc-figure" src="https://img.basically.website/web/assembly/top-interface/framing-3.28f9d54d3c156c6b.jpg" alt="A regular layer assembly lowered onto the interface assembly">
+  <img class="doc-figure" src="https://img.basically.website/web/assembly/top-interface/framing-3.e49b6ce3304489d5.jpg" alt="A regular layer assembly lowered onto the interface assembly">
 </figure>
 
 Attach an External bracket cover to each of the External bracket sides, then fasten each one with 2 M5 × 16 mm screws tapped into the holes at the base of the External bracket sides, bracing against the extrusion.
@@ -324,5 +324,5 @@ Attach an External bracket cover to each of the External bracket sides, then fas
 The top interface is now complete.
 
 <figure>
-  <img class="doc-figure" src="https://img.basically.website/web/assembly/top-interface/framing-4.e49b6ce3304489d5.jpg" alt="The completed top interface: the hexagonal top plate on its framed leg structure with the chute opening in the centre">
+  <img class="doc-figure" src="https://img.basically.website/web/assembly/top-interface/framing-4.28f9d54d3c156c6b.jpg" alt="The completed top interface: the hexagonal top plate on its framed leg structure with the chute opening in the centre">
 </figure>

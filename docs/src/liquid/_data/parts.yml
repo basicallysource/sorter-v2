@@ -1,9 +1,11 @@
 # Catalog of known parts, keyed by id. An assembly page lists what it needs with
 # `parts_needed: [{part: id, qty: N}, ...]` and the "Parts needed" block renders
 # each entry — primary image + name (linked to its detail page when one exists),
-# grouped by `category`, with any `notes` surfaced below.
+# grouped by `category`, with any `notes` surfaced in a list below the cards.
 #
-# Fields: name (required), image, page, category, notes (all optional).
+# Fields: name (required), image, page, category, notes, caption (all optional).
+# `caption` is small text shown directly under a card (e.g. a cut length),
+# distinct from `notes`, which collects into the block beneath the whole group.
 #
 # ids, names, and render filenames mirror the sorter-v2-filament-calculator repo
 # so the two stay aligned for the eventual merge into this repo.

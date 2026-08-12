@@ -202,7 +202,8 @@ Adding a drawing: new YAML source, an entry in the data file, an entry in the
 
 `src/liquid/_data/parts.yml` is the catalog, keyed by id. Fields: `name`,
 `image`, `page` (detail page, optional), `category` (groups the "Parts
-needed" block), `notes` (short, shown under the block),
+needed" block), `notes` (short, collected into a list under the whole block),
+`caption` (small text under a single card, e.g. a cut length),
 `heat_inserts: [{insert, qty}]`. ids and render filenames mirror the
 `sorter-v2-filament-calculator` repo so the two merge cleanly later.
 

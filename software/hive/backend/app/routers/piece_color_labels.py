@@ -384,11 +384,19 @@ def color_coverage(
 
 
 # "Has same-piece candidates" — a channel crop exists within the piece's
-# arrival window (DEFAULT_PARAMS lookback/slop). Computed live this was a
-# correlated EXISTS that Postgres planned as a machine_id-only hash semi join
-# (scanning each machine's whole crop set per piece, >100s); it's precomputed
-# into the piece_has_candidates materialized view instead (a8c1d2e3f4a5
-# migration, refreshed by CandidateMatviewWorker) and hash-joined here.
+# arrival window (DEFAULT_PARAMS lookback/slop). Precomputed into the
+# piece_has_candidates materialized view (a8c1d2e3f4a5, refreshed by
+# CandidateMatviewWorker) and hash-joined here; both the with_candidates filter
+# and the priority sort key read it, so it is needed for every row of the grid
+# before pagination, not just for a piece someone opens.
+#
+# The live correlated EXISTS this replaced was slow (>100s) for one specific
+# reason: `c.ts` sat under interval arithmetic, so no index could serve the time
+# window and each piece scanned its machine's whole crop set. d4f6a8b0c2e1 fixes
+# that by isolating `c.ts`. With that predicate the live EXISTS measures ~2.3s
+# for the worst case (unfiltered, priority sort, every piece), so dropping the
+# matview and computing this inline is a real option if the refresh ever becomes
+# a nuisance again — it was never the concept that was expensive.
 _piece_has_candidates = sa_table(
     "piece_has_candidates",
     sa_column("machine_id", PGUUID(as_uuid=True)),

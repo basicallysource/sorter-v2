@@ -43,6 +43,8 @@ parts_needed:
     qty: 5
   - part: interface-cage-bracket-cable
     qty: 1
+  - part: top-plate
+    qty: 1
   - part: cable-cage-top
     qty: 1
   - part: cable-cage-bottom
@@ -93,6 +95,13 @@ parts_needed:
   <span class="callout-icon" aria-hidden="true">⚠</span>
   <p>The screws, T-nuts, and nuts in the parts list above, and all of the quantities, are a best guess and need checking before this page is published. The printed parts, extrusion, bearing, motor, and cabling are drawn from the assembly itself.</p>
 </div>
+
+Several steps below refer to holes in the Top plate by name (S2 and S3 for the stepper mount, I1 to I6 and O1 to O6 for the interface brackets). This map shows which hole is which:
+
+<figure>
+  <img class="doc-figure" src="https://img.basically.website/web/assembly/top-interface/top-plate-hole-map.756f0dae2288fdb2.jpg" alt="Hole map of the hexagonal top plate: three stepper holes S1 to S3 in a row left of the center opening, six inner-ring holes I1 to I6, six outer-ring holes O1 to O6, and five cable holes C1 to C5, colour-coded by group">
+  <figcaption>Top plate hole map. S = stepper trio, I = inner ring, O = outer ring, C = cable holes.</figcaption>
+</figure>
 
 
 {% include step.html n="1" title="Attach the interface ribs to the upper fixed section" %}

@@ -149,6 +149,12 @@ interface-idler-gear:
   category: Printed parts
   image: https://img.basically.website/web/parts/top-interface/interface-idler-gear.bcf557482f5a061f.png
 
+top-plate:
+  name: Top plate
+  category: Laser-cut parts
+  image: https://img.basically.website/web/parts/top-interface/top-plate.fb89181642abbe25.jpg
+  caption: The machine's hexagonal top plate; the interface mounts under it.
+
 cable-cage-top:
   name: Cable cage top
   category: Laser-cut parts

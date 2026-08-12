@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Optional
 
-from .config import PulsePerceptionConfig
+from .config import PulsePerceptionConfig, channelMoveSpeed
 from subsystems.feeder.incidents import (
     clear_feeder_jam_incident,
     feeder_jam_incident_active,
@@ -72,6 +72,7 @@ class FeederStuckWatchdog:
         channel_id: int,
         channel_label: str,
         upstream_label: str,
+        upstream_channel_id: int,
         upstream_stepper: Any,
         upstream_enabled: bool,
         leading_pos_deg: Optional[float],
@@ -156,7 +157,7 @@ class FeederStuckWatchdog:
         if automatic and upstream_enabled and tracker.nudge_attempts < int(
             cfg.stuck_max_nudge_attempts
         ):
-            moved = self._nudge_upstream(upstream_stepper, cfg)
+            moved = self._nudge_upstream(upstream_stepper, upstream_channel_id, cfg)
             if tracker.nudge_attempts == 0:
                 # First nudge of this stall: remember when it started (monotonic)
                 # so an auto-freed jam records its real duration.
@@ -224,13 +225,15 @@ class FeederStuckWatchdog:
         )
 
     def _nudge_upstream(
-        self, upstream_stepper: Any, cfg: PulsePerceptionConfig
+        self, upstream_stepper: Any, upstream_channel_id: int, cfg: PulsePerceptionConfig
     ) -> bool:
         if upstream_stepper is None:
             return False
         sign = 1 if cfg.forward_direction_sign >= 0 else -1
         motor_deg = sign * abs(float(cfg.stuck_nudge_output_deg)) * CHANNEL_OUTPUT_GEAR_RATIO
-        speed = int(cfg.move_speed_usteps_per_s)
+        # The nudge turns the UPSTREAM rotor, so it runs at that channel's speed,
+        # not the stalled channel's.
+        speed = channelMoveSpeed(cfg, upstream_channel_id)
         try:
             upstream_stepper.enabled = True
         except Exception:

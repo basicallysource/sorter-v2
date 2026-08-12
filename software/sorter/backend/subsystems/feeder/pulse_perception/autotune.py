@@ -12,7 +12,9 @@ if TYPE_CHECKING:
 # bounds. Bounds are deliberately tighter than the config's own clamps — a
 # candidate can be slow or double-feed-prone, but never physically wild.
 TUNABLE_PARAMS: list[dict[str, Any]] = [
-    {"key": "move_speed_usteps_per_s", "type": "int", "min": 800, "max": 5000, "label": "Move speed (µsteps/s)"},
+    {"key": "ch1_move_speed_usteps_per_s", "type": "int", "min": 800, "max": 5000, "label": "C1 move speed (µsteps/s)"},
+    {"key": "ch2_move_speed_usteps_per_s", "type": "int", "min": 800, "max": 5000, "label": "C2 move speed (µsteps/s)"},
+    {"key": "ch3_move_speed_usteps_per_s", "type": "int", "min": 800, "max": 5000, "label": "C3 move speed (µsteps/s)"},
     {"key": "drop_pulse_output_deg", "type": "float", "min": 5.0, "max": 90.0, "label": "Drop-zone pulse distance (deg)"},
     {"key": "drop_pulse_pause_ms", "type": "int", "min": 0, "max": 600, "label": "Drop-zone pause (ms)"},
     {"key": "exit_pulse_output_deg", "type": "float", "min": 0.5, "max": 12.0, "label": "Exit pulse distance (deg)"},

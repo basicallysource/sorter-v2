@@ -262,10 +262,10 @@ scr-m3-35-bhcs:
   category: Screws
   image: https://img.basically.website/web/parts/hardware/screws/button.87be93e901c86545.jpg
 
-scr-m3-10:
-  name: M3 × 10 mm screw
+scr-m3-10-shcs:
+  name: M3 × 10 mm socket head cap screw
   category: Screws
-  caption: Head type not yet recorded.
+  image: https://img.basically.website/web/parts/hardware/screws/m5-shcs.f415c8d0a2ee3205.jpg
 
 tnut-m5-2020:
   name: M5 roll-in T-nut (2020)

@@ -91,7 +91,7 @@ parts_needed:
     qty: 4
   - part: scr-m3-35-bhcs
     qty: 1
-  - part: scr-m3-10
+  - part: scr-m3-10-shcs
     qty: 2
   - part: tnut-m5-2020
     qty: 56
@@ -291,7 +291,7 @@ Screw the other 5 Cable cage brackets down over the other 5 corners of the Cable
     loading="lazy"></iframe>
 </div>
 
-Place an M3 nut into the bottom of the Cable clamp (outer) (the video skips this), then push it into the recess in the Top interface chute mount. Fasten it with two M3 × 10 mm screws.
+Place an M3 nut into the bottom of the Cable clamp (outer) (the video skips this), then push it into the recess in the Top interface chute mount. Fasten it with two M3 × 10 mm socket head screws.
 
 Rotate the chute until it hits the limit switch.
 

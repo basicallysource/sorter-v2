@@ -215,6 +215,10 @@ needed" block), `notes` (short, collected into a list under the whole block),
   with no page.
 - The **Preparation** page (`hardware/preparation/`) auto-lists every part with
   `heat_inserts` — add that field and the part appears in the checklist.
+- Name the specific fastener inline in a step where it is used. When a step
+  uses a screw whose size/type is not known yet, mark it with
+  `<span class="fastener-todo">fastener not recorded</span>` so contributors
+  can find and fill the gaps (styled in `layout.css`).
 - Keep procedural warnings (torque, ordering) in a **callout on the assembly
   page**, not in a part's `notes`.
 

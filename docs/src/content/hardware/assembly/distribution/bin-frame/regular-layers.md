@@ -22,23 +22,27 @@ parts_needed:
     qty: 6
   - part: bin-retainer-right
     qty: 6
-  - part: scr-m5-12-shcs
-  - part: scr-m5-16-shcs
+  - part: ext-2020-ag
+    qty: 6
+  - part: ext-2020-bh
+    qty: 6
+  - part: ext-2020-c
+    qty: 6
+  - part: scr-m5-16-bhcs
+    qty: 36
   - part: scr-m5-20-shcs
+    qty: 12
+  - part: scr-m5-12-bhcs
+    qty: 12
   - part: tnut-m5-2020
+    qty: 36
 ---
 
 This guide covers creating a regular layer. It's also the basis for creating the top and bottom layers, so build N−2 of these for an N-layer machine (the [bottom two layers]({{ '/hardware/assembly/distribution/bin-frame/bottom-two-layers/' | relative_url }}) are covered separately).
 
 Note that some of the ordering in this guide may seem unusual, but it's written this way to avoid both putting unnecessary strain on pieces, and allowing for the use of slide-in T-nuts.
 
-**Extrusion pieces** (aluminum, cut to length), per layer. Fastener counts depend on whether you self-tap or use T-nuts, so the parts list above names the screws and T-nuts without fixing a quantity.
-
-| Piece | Name | Qty |
-|---|---|---|
-| A/G | Outer horizontal / Horizontal interface frame | 6 |
-| B/H | Spoke / Interface spoke (short) | 6 |
-| C | Layer vertical support | 6 |
+The aluminum extrusion is cut to length; the [framing cut list](https://parts-calculator.basically.website/framing) has the exact dimensions for pieces A/G, B/H and C. The T-nut count above is the minimum you need if you tap directly into the printed parts where you can, and goes up if you fasten with T-nuts throughout instead.
 
 {% include step.html n="1" title="Assemble the frame brackets" %}
 

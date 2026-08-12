@@ -85,18 +85,40 @@ bin-retainer-right:
   category: Printed parts
   image: https://img.basically.website/web/parts/bin-retainer/bin-retainer-right.e964a8bd6346119b.png
 
-scr-m5-12-shcs:
-  name: M5 × 12 mm socket head cap screw
+ext-2020-ag:
+  name: Outer horizontal / Horizontal interface frame (A/G)
+  category: Aluminum extrusion (2020)
+
+ext-2020-bh:
+  name: Spoke / Interface spoke, short (B/H)
+  category: Aluminum extrusion (2020)
+
+ext-2020-c:
+  name: Layer vertical support (C)
+  category: Aluminum extrusion (2020)
+
+scr-m5-16-bhcs:
+  name: M5 × 16 mm button head screw
   category: Screws
+  image: https://img.basically.website/web/parts/hardware/screws/m5-button-head.87be93e901c86545.jpg
+
+scr-m5-12-bhcs:
+  name: M5 × 12 mm button head screw
+  category: Screws
+  image: https://img.basically.website/web/parts/hardware/screws/m5-button-head.87be93e901c86545.jpg
 
 scr-m5-16-shcs:
   name: M5 × 16 mm socket head cap screw
   category: Screws
+  image: https://img.basically.website/web/parts/hardware/screws/m5-socket-head.f415c8d0a2ee3205.jpg
 
 scr-m5-20-shcs:
   name: M5 × 20 mm socket head cap screw
   category: Screws
+  image: https://img.basically.website/web/parts/hardware/screws/m5-socket-head.f415c8d0a2ee3205.jpg
 
 tnut-m5-2020:
-  name: M5 roll-in T-nut, 2020
+  name: M5 T-nut, 2020
   category: Nuts
+  image: https://img.basically.website/web/parts/hardware/nuts/m5-tnut-2020.1bcc565052be1e9e.jpg
+  notes: The count assumes you tap directly into the printed parts where you can; fastening with T-nuts throughout needs more.

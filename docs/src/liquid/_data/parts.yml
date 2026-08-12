@@ -88,14 +88,17 @@ bin-retainer-right:
 ext-2020-ag:
   name: Outer horizontal / Horizontal interface frame (A/G)
   category: Aluminum extrusion (2020)
+  image: https://img.basically.website/web/parts/extrusion/extrusion-2020.0691a894c8154731.png
 
 ext-2020-bh:
   name: Spoke / Interface spoke, short (B/H)
   category: Aluminum extrusion (2020)
+  image: https://img.basically.website/web/parts/extrusion/extrusion-2020.0691a894c8154731.png
 
 ext-2020-c:
   name: Layer vertical support (C)
   category: Aluminum extrusion (2020)
+  image: https://img.basically.website/web/parts/extrusion/extrusion-2020.0691a894c8154731.png
 
 scr-m5-16-bhcs:
   name: M5 × 16 mm button head screw

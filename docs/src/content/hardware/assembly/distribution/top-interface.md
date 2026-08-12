@@ -304,19 +304,19 @@ After this step the chute should still rotate to each of its limits.
 Insert an extrusion piece F (Interface vertical support) into each of the Interface brackets. Hold each one in place with 4 screws into 4 T-nuts.
 
 <figure>
-  <img class="doc-figure" src="https://img.basically.website/web/assembly/top-interface/framing-1.fbda1317264f8eec.jpg" alt="Six vertical extrusion supports bolted into the interface brackets, seen from above on the hexagonal top plate">
+  <img class="doc-figure" src="https://img.basically.website/web/assembly/top-interface/framing-1.ae2ef835181f63bd.jpg" alt="Six vertical extrusion supports bolted into the interface brackets, seen from above on the hexagonal top plate">
 </figure>
 
 Slide an Interface spacer onto each piece of extrusion, with the lip at the top facing toward the center of the assembly.
 
 <figure>
-  <img class="doc-figure" src="https://img.basically.website/web/assembly/top-interface/framing-2.8a1bb7db57d76b85.jpg" alt="An interface spacer slid onto each vertical extrusion support, lips facing inward">
+  <img class="doc-figure" src="https://img.basically.website/web/assembly/top-interface/framing-2.b6e8241ef78d74d0.jpg" alt="An interface spacer slid onto each vertical extrusion support, lips facing inward">
 </figure>
 
 Follow the first two stages of a regular layer, then place the regular layer assembly onto the interface assembly.
 
 <figure>
-  <img class="doc-figure" src="https://img.basically.website/web/assembly/top-interface/framing-3.2a49c8f1de5726ed.jpg" alt="A regular layer assembly lowered onto the interface assembly">
+  <img class="doc-figure" src="https://img.basically.website/web/assembly/top-interface/framing-3.28f9d54d3c156c6b.jpg" alt="A regular layer assembly lowered onto the interface assembly">
 </figure>
 
 Attach an External bracket cover to each of the External bracket sides, then fasten each one with 2 M5 × 16 mm screws tapped into the holes at the base of the External bracket sides, bracing against the extrusion.
@@ -324,5 +324,5 @@ Attach an External bracket cover to each of the External bracket sides, then fas
 The top interface is now complete.
 
 <figure>
-  <img class="doc-figure" src="https://img.basically.website/web/assembly/top-interface/framing-4.103ce98e106b4312.jpg" alt="The completed top interface: the hexagonal top plate on its framed leg structure with the chute opening in the centre">
+  <img class="doc-figure" src="https://img.basically.website/web/assembly/top-interface/framing-4.e49b6ce3304489d5.jpg" alt="The completed top interface: the hexagonal top plate on its framed leg structure with the chute opening in the centre">
 </figure>

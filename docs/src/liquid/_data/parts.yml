@@ -68,7 +68,7 @@ ext-bracket-cover:
 scr-m5-16-shcs:
   name: M5 × 16 mm socket head cap screw
   category: Screws
-  image: https://img.basically.website/web/parts/hardware/screws/scr-m5-16-shcs.84fe29409130e7ab.png
+  image: https://img.basically.website/web/parts/hardware/screws/m5-shcs.f415c8d0a2ee3205.jpg
 
 # --- Top interface assembly: parts for the framing step and the parts-needed section ---
 
@@ -195,45 +195,51 @@ extrusion-f:
 brg-608-2rs:
   name: 608 2RS bearing
   category: Bearings
+  image: https://img.basically.website/web/parts/hardware/bearings/brg-608-2rs.2a896b36c1da4ef2.jpg
 
 motor-nema23:
   name: NEMA 23 stepper motor
   category: Motors
+  image: https://img.basically.website/web/parts/hardware/motors/motor-nema23.0a18ad4145b45f71.jpg
 
 pulley-20t-8mm:
   name: Timing pulley
   category: Pulleys
+  image: https://img.basically.website/web/parts/hardware/pulleys/pulley-20t-8mm.75040004a32a0f14.jpg
   notes: Best guess at the pulley; confirm before publishing.
 
 endstop-mechanical:
   name: Roller lever limit switch (V-155-1C25)
   category: Electronics
+  image: https://img.basically.website/web/parts/hardware/electronics/endstop-mechanical.d54e0ccc62893dea.jpg
 
 cable-idc-2x8-long:
   name: IDC ribbon cable, 16-pin (2x8), 1 m
   category: Electronics
+  image: https://img.basically.website/web/parts/hardware/electronics/cable-idc-2x8-long.78c80cba0d300af0.jpg
   notes: Length is a guess; could be the 30 cm variant.
 
 scr-m5-12-shcs:
   name: M5 x 12 mm socket head cap screw
   category: Screws
-  image: https://img.basically.website/web/parts/hardware/screws/scr-m5-12-shcs.fccd5dad98a0d6ec.png
+  image: https://img.basically.website/web/parts/hardware/screws/m5-shcs.f415c8d0a2ee3205.jpg
 
 scr-m3-8-cs:
   name: M3 x 8 mm countersunk screw
   category: Screws
-  image: https://img.basically.website/web/parts/hardware/screws/scr-m3-8-cs.c6bd5c001e587c04.png
+  image: https://img.basically.website/web/parts/hardware/screws/countersunk.707eba7998554ea6.jpg
 
 scr-m3-6-bhcs:
   name: M3 x 6 mm button head cap screw
   category: Screws
-  image: https://img.basically.website/web/parts/hardware/screws/scr-m3-6-bhcs.b497e4b8a7f059c9.png
+  image: https://img.basically.website/web/parts/hardware/screws/m3-button.87be93e901c86545.jpg
 
 tnut-m5-2020:
   name: M5 roll-in T-nut (2020)
   category: Nuts
-  image: https://img.basically.website/web/parts/hardware/nuts/tnut-m5-2020.f0beef4bed1785f1.png
+  image: https://img.basically.website/web/parts/hardware/nuts/tnut-m5-2020-photo.1bcc565052be1e9e.jpg
 
 nut-m5:
   name: M5 nut
   category: Nuts
+  image: https://img.basically.website/web/parts/hardware/nuts/nut-m5.4a3db788bb1ca8a2.jpg

@@ -598,6 +598,16 @@ body {
 	color: var(--muted);
 }
 
+.fastener-todo {
+	display: inline-block;
+	padding: 0 6px;
+	font-size: 0.82em;
+	font-weight: 600;
+	color: var(--ink);
+	background: color-mix(in srgb, var(--color-warning) 16%, var(--surface));
+	border: 1px solid color-mix(in srgb, var(--color-warning) 45%, transparent);
+}
+
 .part-card-missing {
 	color: var(--muted);
 	font-family: var(--font-mono);

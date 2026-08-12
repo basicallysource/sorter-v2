@@ -232,15 +232,40 @@ scr-m5-12-shcs:
   category: Screws
   image: https://img.basically.website/web/parts/hardware/screws/m5-shcs.f415c8d0a2ee3205.jpg
 
-scr-m3-8-cs:
-  name: M3 x 8 mm countersunk screw
+scr-m5-35-shcs:
+  name: M5 × 35 mm socket head cap screw
+  category: Screws
+  image: https://img.basically.website/web/parts/hardware/screws/m5-shcs.f415c8d0a2ee3205.jpg
+
+scr-m5-25-shcs:
+  name: M5 × 25 mm socket head cap screw
+  category: Screws
+  image: https://img.basically.website/web/parts/hardware/screws/m5-shcs.f415c8d0a2ee3205.jpg
+
+scr-m5-22-cs:
+  name: M5 × 22 mm countersunk screw
   category: Screws
   image: https://img.basically.website/web/parts/hardware/screws/countersunk.707eba7998554ea6.jpg
 
-scr-m3-6-bhcs:
-  name: M3 x 6 mm button head cap screw
+scr-m5-20-bhcs:
+  name: M5 × 20 mm button head cap screw
   category: Screws
-  image: https://img.basically.website/web/parts/hardware/screws/m3-button.87be93e901c86545.jpg
+  image: https://img.basically.website/web/parts/hardware/screws/button.87be93e901c86545.jpg
+
+scr-m5-16-bhcs:
+  name: M5 × 16 mm button head cap screw
+  category: Screws
+  image: https://img.basically.website/web/parts/hardware/screws/button.87be93e901c86545.jpg
+
+scr-m3-35-bhcs:
+  name: M3 × 35 mm button head cap screw
+  category: Screws
+  image: https://img.basically.website/web/parts/hardware/screws/button.87be93e901c86545.jpg
+
+scr-m3-10:
+  name: M3 × 10 mm screw
+  category: Screws
+  caption: Head type not yet recorded.
 
 tnut-m5-2020:
   name: M5 roll-in T-nut (2020)
@@ -249,5 +274,10 @@ tnut-m5-2020:
 
 nut-m5:
   name: M5 nut
+  category: Nuts
+  image: https://img.basically.website/web/parts/hardware/nuts/nut-m5.4a3db788bb1ca8a2.jpg
+
+nut-m3:
+  name: M3 nut
   category: Nuts
   image: https://img.basically.website/web/parts/hardware/nuts/nut-m5.4a3db788bb1ca8a2.jpg

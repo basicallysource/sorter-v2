@@ -1,9 +1,11 @@
 # Catalog of known parts, keyed by id. An assembly page lists what it needs with
 # `parts_needed: [{part: id, qty: N}, ...]` and the "Parts needed" block renders
 # each entry — primary image + name (linked to its detail page when one exists),
-# grouped by `category`, with any `notes` surfaced below.
+# grouped by `category`, with any `notes` surfaced in a list below the cards.
 #
-# Fields: name (required), image, page, category, notes (all optional).
+# Fields: name (required), image, page, category, notes, caption (all optional).
+# `caption` is small text shown directly under a card (e.g. a cut length),
+# distinct from `notes`, which collects into the block beneath the whole group.
 #
 # ids, names, and render filenames mirror the sorter-v2-filament-calculator repo
 # so the two stay aligned for the eventual merge into this repo.
@@ -68,3 +70,214 @@ ext-bracket-cover:
 scr-m5-16-shcs:
   name: M5 × 16 mm socket head cap screw
   category: Screws
+  image: https://img.basically.website/web/parts/hardware/screws/m5-shcs.f415c8d0a2ee3205.jpg
+
+# --- Top interface assembly: parts for the framing step and the parts-needed section ---
+
+interface-upper-fixed-section:
+  name: Interface upper fixed section
+  category: Printed parts
+  image: https://img.basically.website/web/parts/top-interface/interface-upper-fixed-section.43022d76c3781bf3.png
+
+interface-rib:
+  name: Interface rib
+  category: Printed parts
+  image: https://img.basically.website/web/parts/top-interface/interface-rib.e1f78a4bb85ac058.png
+
+interface-rib-switch:
+  name: Interface rib (switch gap)
+  category: Printed parts
+  image: https://img.basically.website/web/parts/top-interface/interface-rib-switch.228974f9f11bc476.png
+
+interface-bracket:
+  name: Interface bracket
+  category: Printed parts
+  image: https://img.basically.website/web/parts/top-interface/interface-bracket.06c0c5896cd8eada.png
+
+interface-spacer:
+  name: Interface spacer
+  category: Printed parts
+  image: https://img.basically.website/web/parts/top-interface/interface-spacer.6e705203cb9a28cc.png
+
+interface-nema23-bracket:
+  name: Interface NEMA 23 bracket
+  category: Printed parts
+  image: https://img.basically.website/web/parts/top-interface/interface-nema23-bracket.65680e73221cff98.png
+
+interface-big-spacer:
+  name: Interface big spacer
+  category: Printed parts
+  image: https://img.basically.website/web/parts/top-interface/interface-big-spacer.db6c33380531b205.png
+
+limit-switch-housing:
+  name: Limit switch housing
+  category: Printed parts
+  image: https://img.basically.website/web/parts/top-interface/limit-switch-housing.6e5f8214b3702dbc.png
+
+limit-switch-dowel-pin:
+  name: Printed dowel pin
+  category: Printed parts
+  image: https://img.basically.website/web/parts/top-interface/limit-switch-dowel-pin.1d9942a3d5b3d1cd.png
+
+limit-switch-hammer:
+  name: Limit switch hammer
+  category: Printed parts
+  image: https://img.basically.website/web/parts/top-interface/limit-switch-hammer.e125ead0312a27d0.png
+
+top-interface-split-spur-gear-3:
+  name: Top interface chute mount
+  category: Printed parts
+  image: https://img.basically.website/web/parts/top-interface/top-interface-split-spur-gear-3.38a5bd2da98bbe1a.png
+
+top-interface-split-spur-gear-1:
+  name: Chute gear
+  category: Printed parts
+  image: https://img.basically.website/web/parts/top-interface/top-interface-split-spur-gear-1.53f641b54c0a2025.png
+
+top-interface-split-spur-gear-2:
+  name: Top interface lazy Susan washer
+  category: Printed parts
+  image: https://img.basically.website/web/parts/top-interface/top-interface-split-spur-gear-2.3957a51534edf294.png
+
+interface-spur-gear:
+  name: Interface spur gear (2M 25T)
+  category: Printed parts
+  image: https://img.basically.website/web/parts/top-interface/interface-spur-gear.4ac1e106d8a7814d.png
+
+interface-idler-gear:
+  name: Interface idler gear (2M 25T)
+  category: Printed parts
+  image: https://img.basically.website/web/parts/top-interface/interface-idler-gear.bcf557482f5a061f.png
+
+top-plate:
+  name: Top plate
+  category: Laser-cut parts
+  image: https://img.basically.website/web/parts/top-interface/top-plate.fb89181642abbe25.jpg
+  caption: The machine's hexagonal top plate; the interface mounts under it.
+
+cable-cage-top:
+  name: Cable cage top
+  category: Laser-cut parts
+  image: https://img.basically.website/web/parts/top-interface/cable-cage-top.0856e376cd2b9238.jpg
+
+cable-cage-bottom:
+  name: Cable cage bottom
+  category: Laser-cut parts
+  image: https://img.basically.website/web/parts/top-interface/cable-cage-bottom.72b2038544dec559.jpg
+
+interface-cage-bracket:
+  name: Cable cage bracket
+  category: Printed parts
+  image: https://img.basically.website/web/parts/top-interface/interface-cage-bracket.bd245c6306f15e5f.png
+
+interface-cage-bracket-cable:
+  name: Cable cage bracket (cable mount)
+  category: Printed parts
+  image: https://img.basically.website/web/parts/top-interface/interface-cage-bracket-cable.cc282a11d3fc5359.png
+
+cable-clamp-outer:
+  name: Cable clamp (outer)
+  category: Printed parts
+  image: https://img.basically.website/web/parts/top-interface/cable-clamp-outer.a6beadc0de7f26c7.png
+
+cable-clamp-inner:
+  name: Cable clamp (inner)
+  category: Printed parts
+  image: https://img.basically.website/web/parts/top-interface/cable-clamp-inner.05cabbf3bbc70448.png
+
+ribbon-cable-clamp:
+  name: Ribbon cable clamp
+  category: Printed parts
+  image: https://img.basically.website/web/parts/top-interface/ribbon-cable-clamp.5ff6e38d86a3ee4c.png
+
+extrusion-e:
+  name: Interface spoke, long (extrusion E)
+  category: Extrusion
+  image: https://img.basically.website/web/parts/top-interface/extrusion-e.bce3a0752b0f99f5.png
+  caption: 2020 aluminum extrusion, cut to 238 mm (piece E).
+
+extrusion-f:
+  name: Interface vertical support (extrusion F)
+  category: Extrusion
+  image: https://img.basically.website/web/parts/top-interface/extrusion-f.7e1f6b2dc9e069f7.png
+  caption: 2020 aluminum extrusion, cut to 274 mm (piece F).
+
+brg-608-2rs:
+  name: 608 2RS bearing
+  category: Bearings
+  image: https://img.basically.website/web/parts/hardware/bearings/brg-608-2rs.2a896b36c1da4ef2.jpg
+
+motor-nema23:
+  name: NEMA 23 stepper motor
+  category: Motors
+  image: https://img.basically.website/web/parts/hardware/motors/motor-nema23.0a18ad4145b45f71.jpg
+
+pulley-20t-8mm:
+  name: Timing pulley
+  category: Pulleys
+  image: https://img.basically.website/web/parts/hardware/pulleys/pulley-20t-8mm.75040004a32a0f14.jpg
+
+endstop-mechanical:
+  name: Roller lever limit switch (V-155-1C25)
+  category: Electronics
+  image: https://img.basically.website/web/parts/hardware/electronics/endstop-mechanical.d54e0ccc62893dea.jpg
+
+cable-idc-2x8-long:
+  name: IDC ribbon cable, 16-pin (2x8), 1 m
+  category: Electronics
+  image: https://img.basically.website/web/parts/hardware/electronics/cable-idc-2x8-long.78c80cba0d300af0.jpg
+
+scr-m5-12-shcs:
+  name: M5 x 12 mm socket head cap screw
+  category: Screws
+  image: https://img.basically.website/web/parts/hardware/screws/m5-shcs.f415c8d0a2ee3205.jpg
+
+scr-m5-35-shcs:
+  name: M5 × 35 mm socket head cap screw
+  category: Screws
+  image: https://img.basically.website/web/parts/hardware/screws/m5-shcs.f415c8d0a2ee3205.jpg
+
+scr-m5-25-shcs:
+  name: M5 × 25 mm socket head cap screw
+  category: Screws
+  image: https://img.basically.website/web/parts/hardware/screws/m5-shcs.f415c8d0a2ee3205.jpg
+
+scr-m5-22-cs:
+  name: M5 × 22 mm countersunk screw
+  category: Screws
+  image: https://img.basically.website/web/parts/hardware/screws/countersunk.707eba7998554ea6.jpg
+
+scr-m5-20-bhcs:
+  name: M5 × 20 mm button head cap screw
+  category: Screws
+  image: https://img.basically.website/web/parts/hardware/screws/button.87be93e901c86545.jpg
+
+scr-m5-16-bhcs:
+  name: M5 × 16 mm button head cap screw
+  category: Screws
+  image: https://img.basically.website/web/parts/hardware/screws/button.87be93e901c86545.jpg
+
+scr-m3-35-bhcs:
+  name: M3 × 35 mm button head cap screw
+  category: Screws
+  image: https://img.basically.website/web/parts/hardware/screws/button.87be93e901c86545.jpg
+
+scr-m3-10-shcs:
+  name: M3 × 10 mm socket head cap screw
+  category: Screws
+  image: https://img.basically.website/web/parts/hardware/screws/m5-shcs.f415c8d0a2ee3205.jpg
+
+tnut-m5-2020:
+  name: M5 roll-in T-nut (2020)
+  category: Nuts
+  image: https://img.basically.website/web/parts/hardware/nuts/tnut-m5-2020-photo.1bcc565052be1e9e.jpg
+
+nut-m5:
+  name: M5 nut
+  category: Nuts
+  image: https://img.basically.website/web/parts/hardware/nuts/nut-m5.4a3db788bb1ca8a2.jpg
+
+nut-m3:
+  name: M3 nut
+  category: Nuts
+  image: https://img.basically.website/web/parts/hardware/nuts/nut-m5.4a3db788bb1ca8a2.jpg

@@ -254,6 +254,12 @@ static bool stepper_hw_enabled[STEPPER_COUNT] = {};
 // turn, endstop never fires). Starts true to match enableDriver(true) in setup().
 static bool stepper_drv_current_on[STEPPER_COUNT];
 
+// Tracks which digital outputs currently have their pad routed to the PWM block
+// rather than SIO. Declared up here because initialize_hardware() has to clear
+// it: it puts every output pad back on SIO, and a stale "already PWM" flag would
+// make later duty writes land on a pad the PWM block no longer drives.
+static bool digital_output_pwm_active[DIGITAL_OUTPUT_COUNT];
+
 static void ensure_stepper_hw_enabled(int i) {
     if (!stepper_hw_enabled[i]) {
         gpio_put(STEPPER_nEN_PINS[i], 0);
@@ -502,11 +508,16 @@ void initialize_hardware() {
         gpio_set_dir(digital_input_pins[i], GPIO_IN);
         gpio_pull_up(digital_input_pins[i]);
     }
-    // Initialize digital outputs
+    // Initialize digital outputs. gpio_init routes the pad back to SIO, so any
+    // channel that was driving PWM is no longer in PWM mode — clear the flag to
+    // match, or the next duty write skips re-arming the pad and silently does
+    // nothing. INIT arrives on every host start, so a host restart without a
+    // board reset used to leave the LEDs dark and unlightable.
     for (int i = 0; i < DIGITAL_OUTPUT_COUNT; i++) {
         gpio_init(digital_output_pins[i]);
         gpio_set_dir(digital_output_pins[i], GPIO_OUT);
         gpio_put(digital_output_pins[i], 0);
+        digital_output_pwm_active[i] = false;
     }
     // Turn on FAN0 permanently for cooling on boards that expose it.
     if (FAN0_OUTPUT_CHANNEL >= 0 && FAN0_OUTPUT_CHANNEL < DIGITAL_OUTPUT_COUNT) {
@@ -600,7 +611,6 @@ void CMDH_digital_read(const BusMessage *msg, BusMessage *resp) {
 // likewise always-low, so the full u16 range maps to real 0%..100%.
 static const uint16_t PWM_OUTPUT_WRAP = 65534;
 
-static bool digital_output_pwm_active[DIGITAL_OUTPUT_COUNT];
 static bool pwm_slice_configured[NUM_PWM_SLICES];
 
 static void digital_output_set_plain(int pin, uint8_t channel, bool value) {

@@ -2,7 +2,11 @@ import unittest
 from collections.abc import Sequence
 from typing import Any
 
-from hardware.sorter_interface import DIGITAL_OUTPUT_DUTY_MAX, DigitalOutputPin
+from hardware.sorter_interface import (
+    DIGITAL_OUTPUT_DUTY_MAX,
+    DigitalOutputPin,
+    InterfaceCommandCode,
+)
 from irl.leds import LedController, brightnessPercentToDuty, discoverLedOutputs
 from machine_platform.control_board import BoardIdentity
 
@@ -98,6 +102,57 @@ class LedOutputTests(unittest.TestCase):
         controller.allOff()
 
         self.assertEqual([o.pin.duty for o in self.outputs], [0, 0])
+
+
+class RecordingDevice:
+    def __init__(self) -> None:
+        self.commands: list[tuple[int, int, bytes]] = []
+
+    def send_command(self, command: int, channel: int, payload: bytes) -> object:
+        self.commands.append((command, channel, payload))
+        return None
+
+
+class PwmArmingTests(unittest.TestCase):
+    # The board only routes a pad to its PWM block on the first duty write after
+    # a plain one, and its INIT (sent on every host start) drives the pad low
+    # without clearing that flag. So a host process has to assume the board may
+    # still think it is in PWM mode and open with a plain write.
+    def setUp(self) -> None:
+        self.gc: Any = FakeGlobalConfig()
+        self.device = RecordingDevice()
+        self.pin = DigitalOutputPin(self.device, 0, self.gc)
+
+    def test_first_duty_write_is_preceded_by_a_plain_write(self) -> None:
+        self.pin.setDuty(DIGITAL_OUTPUT_DUTY_MAX)
+
+        self.assertEqual(
+            [command for command, _, _ in self.device.commands],
+            [InterfaceCommandCode.DIGITAL_WRITE, InterfaceCommandCode.DIGITAL_WRITE_PWM],
+        )
+
+    def test_later_duty_writes_do_not_repeat_it(self) -> None:
+        self.pin.setDuty(DIGITAL_OUTPUT_DUTY_MAX)
+        self.device.commands.clear()
+
+        self.pin.setDuty(0)
+
+        self.assertEqual(
+            [command for command, _, _ in self.device.commands],
+            [InterfaceCommandCode.DIGITAL_WRITE_PWM],
+        )
+
+    def test_a_plain_write_re_arms_the_next_duty_write(self) -> None:
+        self.pin.setDuty(DIGITAL_OUTPUT_DUTY_MAX)
+        self.pin.value = True
+        self.device.commands.clear()
+
+        self.pin.setDuty(DIGITAL_OUTPUT_DUTY_MAX)
+
+        self.assertEqual(
+            [command for command, _, _ in self.device.commands],
+            [InterfaceCommandCode.DIGITAL_WRITE, InterfaceCommandCode.DIGITAL_WRITE_PWM],
+        )
 
 
 if __name__ == "__main__":

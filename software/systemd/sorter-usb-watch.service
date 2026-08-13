@@ -1,0 +1,18 @@
+[Unit]
+# Records every change to the camera USB path, and re-initializes the host
+# controllers when that path degrades. Independent of the backend on purpose:
+# the failures it watches for take the cameras down while the backend is
+# healthy, and it has to keep logging across a backend restart.
+Description=Sorter camera USB watchdog
+After=multi-user.target
+
+[Service]
+Type=simple
+# Root: reads dmesg and writes the platform drivers' bind/unbind.
+User=root
+ExecStart=/usr/bin/python3 /home/orangepi/sorter-v2/software/sorter/backend/scripts/usb_camera_watch.py --recover
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

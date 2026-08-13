@@ -202,7 +202,8 @@ Adding a drawing: new YAML source, an entry in the data file, an entry in the
 
 `src/liquid/_data/parts.yml` is the catalog, keyed by id. Fields: `name`,
 `image`, `page` (detail page, optional), `category` (groups the "Parts
-needed" block), `notes` (short, shown under the block),
+needed" block), `notes` (short, collected into a list under the whole block),
+`caption` (small text under a single card, e.g. a cut length),
 `heat_inserts: [{insert, qty}]`. ids and render filenames mirror the
 `sorter-v2-filament-calculator` repo so the two merge cleanly later.
 
@@ -214,6 +215,10 @@ needed" block), `notes` (short, shown under the block),
   with no page.
 - The **Preparation** page (`hardware/preparation/`) auto-lists every part with
   `heat_inserts` — add that field and the part appears in the checklist.
+- Name the specific fastener inline in a step where it is used. When a step
+  uses a screw whose size/type is not known yet, mark it with
+  `<span class="fastener-todo">fastener not recorded</span>` so contributors
+  can find and fill the gaps (styled in `layout.css`).
 - Keep procedural warnings (torque, ordering) in a **callout on the assembly
   page**, not in a part's `notes`.
 

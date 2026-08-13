@@ -224,6 +224,7 @@ export type ResolvedPart = {
 	page?: string;
 	qty?: number;
 	notes?: string;
+	caption?: string;
 	missing?: boolean;
 };
 export type PartsGroup = { category: string; parts: ResolvedPart[] };
@@ -241,6 +242,7 @@ function resolveParts(partsNeeded: any[]): { groups: PartsGroup[]; notes: Resolv
 			image: part.image,
 			page: part.page,
 			notes: part.notes,
+			caption: part.caption,
 			qty,
 			category: part.category ?? 'Other'
 		};

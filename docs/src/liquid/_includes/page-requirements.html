@@ -50,6 +50,7 @@ Unknown ids render the raw id so a missing catalog entry is visible, not silent.
               <span class="part-card-name">
                 {% if part.page %}<a href="{{ part.page | relative_url }}">{{ part.name }}</a>{% else %}{{ part.name }}{% endif %}
               </span>
+              {% if part.caption %}<span class="part-card-caption">{{ part.caption }}</span>{% endif %}
             {% else %}
               <span class="part-card-name part-card-missing">{{ pid }}</span>
             {% endif %}

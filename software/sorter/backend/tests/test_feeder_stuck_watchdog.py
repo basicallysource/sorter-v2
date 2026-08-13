@@ -70,6 +70,7 @@ class FeederStuckWatchdogTests(unittest.TestCase):
             channel_id=2,
             channel_label="C2",
             upstream_label="C1",
+            upstream_channel_id=1,
             upstream_stepper=up,
             upstream_enabled=True,
             leading_pos_deg=pos,

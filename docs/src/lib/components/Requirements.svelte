@@ -34,6 +34,7 @@
 									<span class="part-card-name">
 										{#if part.page}<a href={part.page}>{part.name}</a>{:else}{part.name}{/if}
 									</span>
+									{#if part.caption}<span class="part-card-caption">{part.caption}</span>{/if}
 								{/if}
 							</li>
 						{/each}

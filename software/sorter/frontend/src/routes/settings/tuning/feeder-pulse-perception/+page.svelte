@@ -4,6 +4,9 @@
 	import SectionCard from '$lib/components/settings/SectionCard.svelte';
 	import TuningParamRow from '$lib/components/settings/TuningParamRow.svelte';
 	import TuningPresets from '$lib/components/settings/TuningPresets.svelte';
+	import SettingsSaveBar from '$lib/components/settings/SettingsSaveBar.svelte';
+	import UnsavedChangesDialog from '$lib/components/settings/UnsavedChangesDialog.svelte';
+	import { createUnsavedGuard } from '$lib/settings/unsavedChanges.svelte';
 	import {
 		groupTuningSections,
 		type TuningFieldMeta,
@@ -44,6 +47,15 @@
 	let saved = $state(false);
 
 	let sections = $derived(groupTuningSections(fields));
+
+	// Guards navigation while the form differs from what is stored on the machine.
+	// Armed only once load() has taken a snapshot, so it never fires on a page
+	// that is still fetching.
+	const guard = createUnsavedGuard({
+		current: () => values,
+		save,
+		ready: () => !loading && !saving
+	});
 
 	type AutotuneParamMeta = {
 		key: string;
@@ -343,6 +355,7 @@
 			const data = await res.json();
 			fields = data.fields;
 			values = { ...data.config };
+			guard.markSaved();
 		} catch (e: any) {
 			error = e.message ?? 'Failed to load config';
 		} finally {
@@ -366,6 +379,7 @@
 			}
 			const data = await res.json();
 			values = { ...data.config };
+			guard.markSaved();
 			saved = true;
 			setTimeout(() => (saved = false), 3000);
 		} catch (e: any) {
@@ -402,6 +416,10 @@
 		</div>
 	</div>
 
+	{#if !loading}
+		<SettingsSaveBar {save} reset={load} {saving} dirty={guard.isDirty} />
+	{/if}
+
 	{#if error}
 		<Alert variant="danger">{error}</Alert>
 	{/if}
@@ -418,6 +436,32 @@
 			<TuningPresets presets={exitPulsePresets} bind:values />
 		</SectionCard>
 	{/if}
+
+	<SectionCard
+		title="Parameters"
+		description="Pulse distance and pause time per region for the simple pulsing feeder."
+	>
+		{#if loading}
+			<div class="text-sm text-text-muted">Loading…</div>
+		{:else}
+			<div class="flex flex-col gap-8">
+				{#each sections as section}
+					<div class="flex flex-col gap-2">
+						<div class="text-xs font-semibold tracking-wider text-text-muted uppercase">
+							{section.name}
+						</div>
+						{#each section.fields as field}
+							<TuningParamRow {field} bind:values />
+						{/each}
+					</div>
+				{/each}
+			</div>
+
+			<div class="mt-6">
+				<SettingsSaveBar {save} reset={load} {saving} dirty={guard.isDirty} />
+			</div>
+		{/if}
+	</SectionCard>
 
 	<SectionCard
 		title="Auto-tune"
@@ -764,30 +808,5 @@
 		{/if}
 	</SectionCard>
 
-	<SectionCard
-		title="Parameters"
-		description="Pulse distance and pause time per region for the simple pulsing feeder."
-	>
-		{#if loading}
-			<div class="text-sm text-text-muted">Loading…</div>
-		{:else}
-			<div class="flex flex-col gap-8">
-				{#each sections as section}
-					<div class="flex flex-col gap-2">
-						<div class="text-xs font-semibold tracking-wider text-text-muted uppercase">
-							{section.name}
-						</div>
-						{#each section.fields as field}
-							<TuningParamRow {field} bind:values />
-						{/each}
-					</div>
-				{/each}
-			</div>
-
-			<div class="mt-6 flex gap-3">
-				<Button variant="primary" onclick={save} loading={saving}>Save</Button>
-				<Button variant="secondary" onclick={load} disabled={saving}>Reset to saved</Button>
-			</div>
-		{/if}
-	</SectionCard>
+	<UnsavedChangesDialog {guard} />
 </div>

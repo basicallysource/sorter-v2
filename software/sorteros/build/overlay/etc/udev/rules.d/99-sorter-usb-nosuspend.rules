@@ -1,0 +1,27 @@
+# Keep the camera hub and the cameras out of USB runtime power management.
+#
+# The vendor kernel builds with usbcore.autosuspend=2, so every UVC camera gets
+# a 2 second idle timer and the hub gets a 0 second one — it suspends the moment
+# nothing is streaming. Cheap hubs and UVC cameras are notoriously bad at
+# resuming from that, and a failed resume does not come back as a clean error:
+# the port gets reset, the high-speed handshake is retried, and a link with any
+# margin problem lands on the OHCI companion at 12 Mbit/s instead. Every camera
+# behind it then loses resolution and frame rate at once, and the SuperSpeed
+# half — which has no slower rung — drops its camera entirely.
+#
+# A sorter is mains-powered and its cameras are meant to be streaming whenever
+# it is on, so there is nothing to save here. The Pico already gets this for
+# free because cdc_acm disables autosuspend itself.
+#
+# This has to be a udev rule rather than a one-off write: power/control resets
+# to "auto" on every re-enumeration, which is exactly when things are already
+# going wrong.
+#
+# 2109:0817 / 2109:2817 — the two halves of the VL817 hub (SuperSpeed and High
+# Speed are separate logical devices on the same chip).
+# 0bda:5883 — Innomaker U30CAM 4K.  0bda:5844 — the C-channel cameras.
+
+ACTION=="add", SUBSYSTEM=="usb", ATTR{idVendor}=="2109", ATTR{idProduct}=="0817", TEST=="power/control", ATTR{power/control}="on"
+ACTION=="add", SUBSYSTEM=="usb", ATTR{idVendor}=="2109", ATTR{idProduct}=="2817", TEST=="power/control", ATTR{power/control}="on"
+ACTION=="add", SUBSYSTEM=="usb", ATTR{idVendor}=="0bda", ATTR{idProduct}=="5883", TEST=="power/control", ATTR{power/control}="on"
+ACTION=="add", SUBSYSTEM=="usb", ATTR{idVendor}=="0bda", ATTR{idProduct}=="5844", TEST=="power/control", ATTR{power/control}="on"

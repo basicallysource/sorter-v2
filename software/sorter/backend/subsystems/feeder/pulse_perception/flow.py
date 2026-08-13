@@ -10,7 +10,11 @@ from global_config import GlobalConfig
 from vision import VisionManager
 
 from ..states import FeederState
-from .config import PulsePerceptionConfig, channelMoveSpeed
+from .config import (
+    PulsePerceptionConfig,
+    channelMaxMoveOutputDeg,
+    channelMoveSpeed,
+)
 from .stuck_watchdog import FeederStuckWatchdog
 from subsystems.feeder.incidents import feeder_jam_incident_active
 
@@ -133,7 +137,7 @@ class PulsePerceptionFeeding(BaseState):
         output_deg = abs(output_deg)
         if enforce_min:
             output_deg = max(cfg.min_move_output_deg, output_deg)
-        output_deg = min(cfg.max_move_output_deg, output_deg)
+        output_deg = min(channelMaxMoveOutputDeg(cfg, channel), output_deg)
         sign = 1 if cfg.forward_direction_sign >= 0 else -1
         motor_deg = sign * output_deg * CHANNEL_OUTPUT_GEAR_RATIO
         # Set the move speed and tell the motor to move to the angle — that's it.

@@ -252,6 +252,48 @@ def shutdown_machine() -> Dict[str, Any]:
     return {"ok": True, "message": "Machine is powering down..."}
 
 
+@router.post("/api/system/reboot")
+def reboot_machine() -> Dict[str, Any]:
+    """Reboot the whole Linux machine — equivalent to `reboot`.
+
+    Same deal as the shutdown endpoint: the shell command runs from a
+    background thread after a short delay so the HTTP response is delivered
+    before the OS starts tearing services down.
+    """
+
+    def _deferred_reboot() -> None:
+        import subprocess
+        import time
+
+        time.sleep(0.5)
+        # Backend runs as root on the Pi, so a plain `reboot` works; fall back to
+        # sudo / systemctl in case it's ever launched as an unprivileged user.
+        candidates = [
+            ["shutdown", "-r", "now"],
+            ["systemctl", "reboot"],
+            ["sudo", "-n", "shutdown", "-r", "now"],
+            ["sudo", "-n", "systemctl", "reboot"],
+        ]
+        logger = getattr(shared_state.gc_ref, "logger", None)
+        for cmd in candidates:
+            try:
+                result = subprocess.run(cmd, capture_output=True, text=True, timeout=10.0)
+                if result.returncode == 0:
+                    return
+                if logger is not None:
+                    logger.error(f"Reboot command {cmd!r} failed: {result.stderr.strip()}")
+            except FileNotFoundError:
+                continue
+            except Exception as exc:
+                if logger is not None:
+                    logger.error(f"Reboot command {cmd!r} raised: {exc}")
+        if logger is not None:
+            logger.error("All reboot commands failed; machine did not restart.")
+
+    threading.Thread(target=_deferred_reboot, daemon=True).start()
+    return {"ok": True, "message": "Machine is restarting..."}
+
+
 def _shared_variables():
     controller = shared_state.controller_ref
     coordinator = getattr(controller, "coordinator", None) if controller is not None else None

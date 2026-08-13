@@ -4,6 +4,9 @@
 	import SectionCard from '$lib/components/settings/SectionCard.svelte';
 	import TuningParamRow from '$lib/components/settings/TuningParamRow.svelte';
 	import TuningPresets from '$lib/components/settings/TuningPresets.svelte';
+	import SettingsSaveBar from '$lib/components/settings/SettingsSaveBar.svelte';
+	import UnsavedChangesDialog from '$lib/components/settings/UnsavedChangesDialog.svelte';
+	import { createUnsavedGuard } from '$lib/settings/unsavedChanges.svelte';
 	import {
 		groupTuningSections,
 		type TuningFieldMeta,
@@ -44,6 +47,15 @@
 	let saved = $state(false);
 
 	let sections = $derived(groupTuningSections(fields));
+
+	// Guards navigation while the form differs from what is stored on the machine.
+	// Armed only once load() has taken a snapshot, so it never fires on a page
+	// that is still fetching.
+	const guard = createUnsavedGuard({
+		current: () => values,
+		save,
+		ready: () => !loading && !saving
+	});
 
 	type AutotuneParamMeta = {
 		key: string;
@@ -343,6 +355,7 @@
 			const data = await res.json();
 			fields = data.fields;
 			values = { ...data.config };
+			guard.markSaved();
 		} catch (e: any) {
 			error = e.message ?? 'Failed to load config';
 		} finally {
@@ -366,6 +379,7 @@
 			}
 			const data = await res.json();
 			values = { ...data.config };
+			guard.markSaved();
 			saved = true;
 			setTimeout(() => (saved = false), 3000);
 		} catch (e: any) {
@@ -401,6 +415,10 @@
 			Changes take effect within ~1 second (no restart needed).
 		</div>
 	</div>
+
+	{#if !loading}
+		<SettingsSaveBar {save} reset={load} {saving} dirty={guard.isDirty} />
+	{/if}
 
 	{#if error}
 		<Alert variant="danger">{error}</Alert>
@@ -439,9 +457,8 @@
 				{/each}
 			</div>
 
-			<div class="mt-6 flex gap-3">
-				<Button variant="primary" onclick={save} loading={saving}>Save</Button>
-				<Button variant="secondary" onclick={load} disabled={saving}>Reset to saved</Button>
+			<div class="mt-6">
+				<SettingsSaveBar {save} reset={load} {saving} dirty={guard.isDirty} />
 			</div>
 		{/if}
 	</SectionCard>
@@ -790,4 +807,6 @@
 			</div>
 		{/if}
 	</SectionCard>
+
+	<UnsavedChangesDialog {guard} />
 </div>

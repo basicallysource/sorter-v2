@@ -15,10 +15,17 @@ class PulsePerceptionConfig:
     ch1_move_speed_usteps_per_s: int = 2000
     ch2_move_speed_usteps_per_s: int = 2000
     ch3_move_speed_usteps_per_s: int = 2000
-    # Ignore moves smaller than this (noise) and clamp any single move to the
-    # max so a bad config value can never spin a channel wildly.
+    # Ignore moves smaller than this (noise).
     min_move_output_deg: float = 0.1
-    max_move_output_deg: float = 120.0
+    # Clamp on any single move, per channel, so a bad config value can never
+    # spin a channel wildly. Per channel because the clamp has to sit just above
+    # the largest legitimate pulse for THAT channel, and those differ by an order
+    # of magnitude: C2/C3 meter pieces in small nudges, while C1 shifts the bulk
+    # pile and may be driving something with completely different gearing (a belt
+    # rather than a c-channel rotor), where a useful pulse is far longer.
+    ch1_max_move_output_deg: float = 120.0
+    ch2_max_move_output_deg: float = 120.0
+    ch3_max_move_output_deg: float = 120.0
     # Drop-zone region: a piece is on the channel but not yet at the exit.
     # Pulse it forward this far, then pause this long, to carry the train
     # toward the exit. The advance is capped so it can never shove the leading
@@ -97,8 +104,10 @@ FIELD_META: list[dict] = [
     {"section": "Speeds", "key": "ch1_move_speed_usteps_per_s", "label": "C1 move speed (µsteps/s)", "type": "int", "default": _DEFAULTS.ch1_move_speed_usteps_per_s, "description": "Motor speed used for every C1 (bulk) pulse, in microsteps per second. Higher = snappier moves. C1 shifts the whole bulk pile, so it usually wants a different speed than the metering channels."},
     {"section": "Speeds", "key": "ch2_move_speed_usteps_per_s", "label": "C2 move speed (µsteps/s)", "type": "int", "default": _DEFAULTS.ch2_move_speed_usteps_per_s, "description": "Motor speed used for every C2 pulse, in microsteps per second. Higher = snappier moves."},
     {"section": "Speeds", "key": "ch3_move_speed_usteps_per_s", "label": "C3 move speed (µsteps/s)", "type": "int", "default": _DEFAULTS.ch3_move_speed_usteps_per_s, "description": "Motor speed used for every C3 pulse, in microsteps per second. C3 meters single pieces into the classification channel, so a slower speed here trades throughput for fewer double-drops."},
+    {"section": "Max move", "key": "ch1_max_move_output_deg", "label": "C1 max move clamp (output deg)", "type": "float", "default": _DEFAULTS.ch1_max_move_output_deg, "description": "Hard cap on any single C1 (bulk) pulse, so a bad value can never spin the channel wildly. Raise this if C1 drives something that wants long moves — a conveyor belt rather than a c-channel rotor — and the bulk pulse distance is being clamped."},
+    {"section": "Max move", "key": "ch2_max_move_output_deg", "label": "C2 max move clamp (output deg)", "type": "float", "default": _DEFAULTS.ch2_max_move_output_deg, "description": "Hard cap on any single C2 pulse, so a bad value can never spin the channel wildly."},
+    {"section": "Max move", "key": "ch3_max_move_output_deg", "label": "C3 max move clamp (output deg)", "type": "float", "default": _DEFAULTS.ch3_max_move_output_deg, "description": "Hard cap on any single C3 pulse, so a bad value can never spin the channel wildly."},
     {"section": "Motion", "key": "min_move_output_deg", "label": "Min move (output deg)", "type": "float", "default": _DEFAULTS.min_move_output_deg, "description": "Moves smaller than this are treated as noise and skipped."},
-    {"section": "Motion", "key": "max_move_output_deg", "label": "Max move clamp (output deg)", "type": "float", "default": _DEFAULTS.max_move_output_deg, "description": "Hard cap on any single pulse, so a bad value can never spin a channel wildly."},
     {"section": "Drop-zone pulse", "key": "drop_pulse_output_deg", "label": "Drop-zone pulse distance (output deg)", "type": "float", "default": _DEFAULTS.drop_pulse_output_deg, "description": "How far a piece is nudged per pulse while it is still back in the drop zone (not yet at the exit edge)."},
     {"section": "Drop-zone pulse", "key": "drop_pulse_pause_ms", "label": "Drop-zone pause between pulses (ms)", "type": "int", "default": _DEFAULTS.drop_pulse_pause_ms, "description": "Pause after each drop-zone pulse so vision can re-read the piece before the next nudge."},
     {"section": "Exit pulse", "key": "exit_pulse_output_deg", "label": "Exit pulse distance (output deg)", "type": "float", "default": _DEFAULTS.exit_pulse_output_deg, "description": "How far a piece is nudged per pulse once it reaches the exit edge and is being metered into the next channel. Smaller is gentler and less likely to push two pieces through at once. Use the speed presets above to set this."},
@@ -122,17 +131,25 @@ FIELD_META: list[dict] = [
 ]
 
 
-# Move speed used to be a single machine-wide value; it is now per channel.
-# Machines that were tuned before the split still have the old key in their
-# machine.toml, so it is migrated (see migrateLegacyKeys) rather than dropped —
-# silently reverting a tuned machine to the 2000 default would change its
-# behaviour on upgrade with nothing in the UI to explain it.
+# Move speed and the max-move clamp each used to be a single machine-wide
+# value; both are now per channel. Machines that were tuned before the splits
+# still have the old keys in their machine.toml, so they are migrated (see
+# migrateLegacyKeys) rather than dropped — silently reverting a tuned machine to
+# the stock default would change its behaviour on upgrade with nothing in the UI
+# to explain it.
 LEGACY_MOVE_SPEED_KEY = "move_speed_usteps_per_s"
+LEGACY_MAX_MOVE_KEY = "max_move_output_deg"
 
 CHANNEL_MOVE_SPEED_KEYS: dict[int, str] = {
     1: "ch1_move_speed_usteps_per_s",
     2: "ch2_move_speed_usteps_per_s",
     3: "ch3_move_speed_usteps_per_s",
+}
+
+CHANNEL_MAX_MOVE_KEYS: dict[int, str] = {
+    1: "ch1_max_move_output_deg",
+    2: "ch2_max_move_output_deg",
+    3: "ch3_max_move_output_deg",
 }
 
 
@@ -145,18 +162,30 @@ def channelMoveSpeed(cfg: PulsePerceptionConfig, channel: int) -> int:
     return int(getattr(cfg, key))
 
 
+def channelMaxMoveOutputDeg(cfg: PulsePerceptionConfig, channel: int) -> float:
+    """Max single-move clamp for one feeder channel (1-3). Unknown channels fall
+    back to C2's clamp, matching channelMoveSpeed — a missing-attribute zero here
+    would clamp every move to nothing and freeze the channel."""
+    key = CHANNEL_MAX_MOVE_KEYS.get(channel, CHANNEL_MAX_MOVE_KEYS[2])
+    return float(getattr(cfg, key))
+
+
 def migrateLegacyKeys(section: dict) -> dict:
     """Upgrade a stored config section in place-safe fashion (returns a copy).
 
-    Seeds all three per-channel speeds from the retired single ``move_speed_usteps_per_s``
+    Seeds all three per-channel speeds from the retired single ``move_speed_usteps_per_s``,
+    and all three per-channel clamps from the retired single ``max_move_output_deg``,
     when that is what the machine has. Per-channel values already present always
-    win, so this is a no-op once a machine has been tuned since the split."""
+    win, so this is a no-op once a machine has been tuned since the splits."""
     migrated = dict(section)
-    legacy = migrated.pop(LEGACY_MOVE_SPEED_KEY, None)
-    if not isinstance(legacy, (int, float)) or isinstance(legacy, bool):
-        return migrated
-    for key in CHANNEL_MOVE_SPEED_KEYS.values():
-        migrated.setdefault(key, int(legacy))
+    legacy_speed = migrated.pop(LEGACY_MOVE_SPEED_KEY, None)
+    if isinstance(legacy_speed, (int, float)) and not isinstance(legacy_speed, bool):
+        for key in CHANNEL_MOVE_SPEED_KEYS.values():
+            migrated.setdefault(key, int(legacy_speed))
+    legacy_max_move = migrated.pop(LEGACY_MAX_MOVE_KEY, None)
+    if isinstance(legacy_max_move, (int, float)) and not isinstance(legacy_max_move, bool):
+        for key in CHANNEL_MAX_MOVE_KEYS.values():
+            migrated.setdefault(key, float(legacy_max_move))
     return migrated
 
 

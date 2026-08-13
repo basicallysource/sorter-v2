@@ -6,7 +6,15 @@ class PulsePerceptionConfig:
     # +1 carries pieces toward the exit (camera-clockwise = forward motor
     # direction). Flip to -1 if a channel's stepper is wired the other way.
     forward_direction_sign: int = 1
-    move_speed_usteps_per_s: int = 2000
+    # Move speed per channel. Each channel drives a different mass — C1 pushes a
+    # whole bulk hopper, C3 meters single pieces into classification — so they
+    # want different speeds. These are independent: nothing phase-locks the
+    # channels to each other (each channel's pulse cooldown is keyed on its own
+    # stepper and derived from its own move time), so changing one never desyncs
+    # another.
+    ch1_move_speed_usteps_per_s: int = 2000
+    ch2_move_speed_usteps_per_s: int = 2000
+    ch3_move_speed_usteps_per_s: int = 2000
     # Ignore moves smaller than this (noise) and clamp any single move to the
     # max so a bad config value can never spin a channel wildly.
     min_move_output_deg: float = 0.1
@@ -86,7 +94,9 @@ _DEFAULTS = PulsePerceptionConfig()
 # within a section is preserved; sections appear in first-seen order.
 FIELD_META: list[dict] = [
     {"section": "Motion", "key": "forward_direction_sign", "label": "Forward direction sign (+1/-1)", "type": "int", "default": _DEFAULTS.forward_direction_sign, "description": "Which way the motor turns to carry pieces toward the exit. Leave at +1; use -1 only if this channel's stepper is wired backwards and pieces move the wrong way."},
-    {"section": "Motion", "key": "move_speed_usteps_per_s", "label": "Move speed (µsteps/s)", "type": "int", "default": _DEFAULTS.move_speed_usteps_per_s, "description": "Motor speed used for every pulse on this page (microsteps per second). Higher = snappier moves."},
+    {"section": "Speeds", "key": "ch1_move_speed_usteps_per_s", "label": "C1 move speed (µsteps/s)", "type": "int", "default": _DEFAULTS.ch1_move_speed_usteps_per_s, "description": "Motor speed used for every C1 (bulk) pulse, in microsteps per second. Higher = snappier moves. C1 shifts the whole bulk pile, so it usually wants a different speed than the metering channels."},
+    {"section": "Speeds", "key": "ch2_move_speed_usteps_per_s", "label": "C2 move speed (µsteps/s)", "type": "int", "default": _DEFAULTS.ch2_move_speed_usteps_per_s, "description": "Motor speed used for every C2 pulse, in microsteps per second. Higher = snappier moves."},
+    {"section": "Speeds", "key": "ch3_move_speed_usteps_per_s", "label": "C3 move speed (µsteps/s)", "type": "int", "default": _DEFAULTS.ch3_move_speed_usteps_per_s, "description": "Motor speed used for every C3 pulse, in microsteps per second. C3 meters single pieces into the classification channel, so a slower speed here trades throughput for fewer double-drops."},
     {"section": "Motion", "key": "min_move_output_deg", "label": "Min move (output deg)", "type": "float", "default": _DEFAULTS.min_move_output_deg, "description": "Moves smaller than this are treated as noise and skipped."},
     {"section": "Motion", "key": "max_move_output_deg", "label": "Max move clamp (output deg)", "type": "float", "default": _DEFAULTS.max_move_output_deg, "description": "Hard cap on any single pulse, so a bad value can never spin a channel wildly."},
     {"section": "Drop-zone pulse", "key": "drop_pulse_output_deg", "label": "Drop-zone pulse distance (output deg)", "type": "float", "default": _DEFAULTS.drop_pulse_output_deg, "description": "How far a piece is nudged per pulse while it is still back in the drop zone (not yet at the exit edge)."},
@@ -112,8 +122,47 @@ FIELD_META: list[dict] = [
 ]
 
 
+# Move speed used to be a single machine-wide value; it is now per channel.
+# Machines that were tuned before the split still have the old key in their
+# machine.toml, so it is migrated (see migrateLegacyKeys) rather than dropped —
+# silently reverting a tuned machine to the 2000 default would change its
+# behaviour on upgrade with nothing in the UI to explain it.
+LEGACY_MOVE_SPEED_KEY = "move_speed_usteps_per_s"
+
+CHANNEL_MOVE_SPEED_KEYS: dict[int, str] = {
+    1: "ch1_move_speed_usteps_per_s",
+    2: "ch2_move_speed_usteps_per_s",
+    3: "ch3_move_speed_usteps_per_s",
+}
+
+
+def channelMoveSpeed(cfg: PulsePerceptionConfig, channel: int) -> int:
+    """Move speed for one feeder channel (1-3). Unknown channels fall back to
+    C2's speed — the middle of the chain — so a caller that grows a new channel
+    still gets a sane pulse rather than a zero-speed move (which wedges the
+    firmware, see MIN_MOVE_SPEED_USTEPS_PER_S in flow.py)."""
+    key = CHANNEL_MOVE_SPEED_KEYS.get(channel, CHANNEL_MOVE_SPEED_KEYS[2])
+    return int(getattr(cfg, key))
+
+
+def migrateLegacyKeys(section: dict) -> dict:
+    """Upgrade a stored config section in place-safe fashion (returns a copy).
+
+    Seeds all three per-channel speeds from the retired single ``move_speed_usteps_per_s``
+    when that is what the machine has. Per-channel values already present always
+    win, so this is a no-op once a machine has been tuned since the split."""
+    migrated = dict(section)
+    legacy = migrated.pop(LEGACY_MOVE_SPEED_KEY, None)
+    if not isinstance(legacy, (int, float)) or isinstance(legacy, bool):
+        return migrated
+    for key in CHANNEL_MOVE_SPEED_KEYS.values():
+        migrated.setdefault(key, int(legacy))
+    return migrated
+
+
 def configFromDict(d: dict) -> PulsePerceptionConfig:
     cfg = PulsePerceptionConfig()
+    d = migrateLegacyKeys(d)
     for meta in FIELD_META:
         k = meta["key"]
         if k not in d:

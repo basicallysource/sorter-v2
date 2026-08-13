@@ -306,12 +306,15 @@ def setClassificationProviders(updates: dict[str, Any]) -> dict[str, str]:
 
 def getPulsePerceptionConfig() -> dict[str, Any]:
     from subsystems.feeder.pulse_perception.config import (
-        PulsePerceptionConfig, configToDict,
+        PulsePerceptionConfig, configToDict, migrateLegacyKeys,
     )
     config = _read_toml()
     section = config.get("feeder_pulse_perception")
     defaults = configToDict(PulsePerceptionConfig())
     if isinstance(section, dict):
+        # Migrate before filtering: retired keys are not in ``defaults``, so an
+        # unmigrated section would have its old tuned value dropped on the floor.
+        section = migrateLegacyKeys(section)
         return {**defaults, **{k: v for k, v in section.items() if k in defaults}}
     return defaults
 

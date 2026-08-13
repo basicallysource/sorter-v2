@@ -13,6 +13,7 @@
 	import NotificationsIndicator from '$lib/components/NotificationsIndicator.svelte';
 	import SortingProfileDropdown from '$lib/components/SortingProfileDropdown.svelte';
 	import { getMachinesContext } from '$lib/machines/context';
+	import { machineDowntime } from '$lib/stores/machineDowntime.svelte';
 	import { userConfig } from '$lib/stores/userConfig.svelte';
 	import {
 		AlertTriangle,
@@ -24,6 +25,7 @@
 		PowerOff,
 		RefreshCw,
 		RotateCcw,
+		RotateCw,
 		X
 	} from 'lucide-svelte';
 	import { onMount } from 'svelte';
@@ -39,6 +41,10 @@
 	let powerdownConfirmOpen = $state(false);
 	let poweringDown = $state(false);
 	let powerdownFailed = $state(false);
+	let rebootConfirmOpen = $state(false);
+	let rebooting = $state(false);
+	let rebootFailed = $state(false);
+	let rebootTimedOut = $state(false);
 
 	function currentBackendBaseUrl(): string {
 		return machineHttpBaseUrlFromWsUrl(manager.selectedMachine?.url) ?? getBackendHttpBase();
@@ -218,11 +224,13 @@
 		powerdownConfirmOpen = false;
 		powerdownFailed = false;
 		poweringDown = true;
+		machineDowntime.begin();
 		const baseUrl = currentBackendBaseUrl();
 		try {
 			const response = await fetch(`${baseUrl}/api/system/shutdown`, { method: 'POST' });
 			if (!response.ok) {
 				poweringDown = false;
+				machineDowntime.end();
 				powerdownFailed = true;
 			}
 			// On success, leave the progress modal up — the machine is going down and
@@ -232,6 +240,64 @@
 			// the response is delivered. Treat a dropped connection as success and keep
 			// the progress modal up.
 		}
+	}
+
+	function requestReboot() {
+		powerMenuOpen = false;
+		rebootConfirmOpen = true;
+	}
+
+	// The backend answers the reboot request before the OS starts tearing
+	// services down, so a probe right after it would still succeed. Wait for the
+	// machine to actually go away before we start watching for it to come back.
+	async function waitForBackendToGoDown(baseUrl: string): Promise<void> {
+		for (let attempt = 0; attempt < 30; attempt++) {
+			await new Promise((resolve) => setTimeout(resolve, 1000));
+			try {
+				await fetch(`${baseUrl}/api/system/status`, {
+					signal: AbortSignal.timeout(1500)
+				});
+			} catch {
+				return;
+			}
+		}
+	}
+
+	async function confirmReboot() {
+		rebootConfirmOpen = false;
+		rebootFailed = false;
+		rebootTimedOut = false;
+		rebooting = true;
+		machineDowntime.begin();
+		const baseUrl = currentBackendBaseUrl();
+		try {
+			const response = await fetch(`${baseUrl}/api/system/reboot`, { method: 'POST' });
+			if (!response.ok) {
+				rebooting = false;
+				machineDowntime.end();
+				rebootFailed = true;
+				return;
+			}
+		} catch {
+			// The request may not return if the OS starts tearing things down before
+			// the response is delivered. Treat a dropped connection as success and
+			// wait for the machine to come back.
+		}
+		await waitForBackendToGoDown(baseUrl);
+		// A full boot plus backend startup is a couple of minutes on the Pi.
+		const back = await waitForBackend(baseUrl, {
+			initialDelayMs: 5000,
+			maxAttempts: 180,
+			intervalMs: 2000
+		});
+		rebooting = false;
+		machineDowntime.end();
+		if (!back) {
+			rebootTimedOut = true;
+			return;
+		}
+		manager.connect(currentBackendWsUrl(), { force: true });
+		manager.refreshSelectedCameraFeeds();
 	}
 
 	function handlePowerMenuClickOutside(event: MouseEvent) {
@@ -549,6 +615,14 @@
 								Restart Backend
 							</button>
 							<button
+								onclick={requestReboot}
+								class="flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm text-[#B11618] transition-colors hover:bg-danger/[0.08]"
+								title="Reboot the whole Linux computer the sorter runs on."
+							>
+								<RotateCw size={14} />
+								Full Machine Restart
+							</button>
+							<button
 								onclick={requestPowerDown}
 								class="flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm text-[#B11618] transition-colors hover:bg-danger/[0.08]"
 							>
@@ -740,6 +814,110 @@
 		<div class="flex flex-col items-center gap-4 py-4">
 			<Spinner size={24} class="text-primary" />
 			<div class="text-sm text-text-muted">Waiting for the service to come back online.</div>
+		</div>
+	</Modal>
+
+	<Modal bind:open={rebootConfirmOpen} title="Restart the machine?">
+		<div class="flex flex-col gap-4">
+			<div class="flex items-start gap-3">
+				<div
+					class="flex h-9 w-9 shrink-0 items-center justify-center border border-danger/25 bg-danger/[0.08] text-[#B11618]"
+				>
+					<AlertTriangle size={18} />
+				</div>
+				<div>
+					<div class="text-sm text-text">
+						This reboots the entire machine — the same as running <span class="font-mono"
+							>reboot</span
+						> on the Linux computer. Everything powers back on by itself.
+					</div>
+					<div class="mt-2 text-sm text-text-muted">
+						Any running sort will be interrupted. The UI will be unavailable for a couple of minutes
+						while the machine boots back up.
+					</div>
+				</div>
+			</div>
+
+			<div class="flex items-center justify-end gap-2 border-t border-border pt-3">
+				<button
+					type="button"
+					onclick={() => (rebootConfirmOpen = false)}
+					class="inline-flex items-center gap-1.5 border border-border bg-bg px-3 py-1.5 text-sm text-text transition-colors hover:bg-surface"
+				>
+					Cancel
+				</button>
+				<button
+					type="button"
+					onclick={() => void confirmReboot()}
+					class="inline-flex items-center gap-1.5 border border-danger/25 bg-danger/[0.08] px-3 py-1.5 text-sm font-medium text-[#B11618] transition-colors hover:bg-danger/[0.14]"
+				>
+					<RotateCw size={14} />
+					Restart Machine
+				</button>
+			</div>
+		</div>
+	</Modal>
+
+	<Modal open={rebooting} title="Restarting machine..." dismissible={false}>
+		<div class="flex flex-col items-center gap-4 py-4 text-center">
+			<Spinner size={24} class="text-primary" />
+			<div class="text-sm text-text">The machine is rebooting.</div>
+			<div class="text-sm text-text-muted">
+				This page will stop responding for a bit. It reconnects on its own once the machine is back
+				up — usually a couple of minutes.
+			</div>
+		</div>
+	</Modal>
+
+	<Modal bind:open={rebootFailed} title="Restart failed">
+		<div class="flex flex-col gap-4">
+			<div class="flex items-start gap-3">
+				<div
+					class="flex h-9 w-9 shrink-0 items-center justify-center border border-danger/25 bg-danger/[0.08] text-[#B11618]"
+				>
+					<AlertTriangle size={18} />
+				</div>
+				<div class="text-sm text-text">
+					The reboot command could not be started. The machine is still running. Check the backend
+					logs for details.
+				</div>
+			</div>
+
+			<div class="flex items-center justify-end gap-2 border-t border-border pt-3">
+				<button
+					type="button"
+					onclick={() => (rebootFailed = false)}
+					class="inline-flex items-center gap-1.5 border border-border bg-bg px-3 py-1.5 text-sm text-text transition-colors hover:bg-surface"
+				>
+					Close
+				</button>
+			</div>
+		</div>
+	</Modal>
+
+	<Modal bind:open={rebootTimedOut} title="Machine is taking a while">
+		<div class="flex flex-col gap-4">
+			<div class="flex items-start gap-3">
+				<div
+					class="flex h-9 w-9 shrink-0 items-center justify-center border border-danger/25 bg-danger/[0.08] text-[#B11618]"
+				>
+					<AlertTriangle size={18} />
+				</div>
+				<div class="text-sm text-text">
+					The machine rebooted but hasn't come back online yet. It may still be booting — reload
+					this page in a minute to check again.
+				</div>
+			</div>
+
+			<div class="flex items-center justify-end gap-2 border-t border-border pt-3">
+				<button
+					type="button"
+					onclick={() => (rebootTimedOut = false)}
+					class="inline-flex items-center gap-1.5 border border-border bg-bg px-3 py-1.5 text-sm text-text transition-colors hover:bg-surface"
+				>
+					Close
+				</button>
+			</div>
 		</div>
 	</Modal>
 

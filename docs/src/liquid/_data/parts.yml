@@ -67,6 +67,46 @@ ext-bracket-cover:
   image: https://img.basically.website/web/parts/external-bracket/ext-bracket-cover.d9260aef7e3d6197.png
   page: /hardware/assembly/distribution/external-bracket/
 
+frame-90deg-bracket:
+  name: Frame 90° bracket
+  category: Printed parts
+  image: https://img.basically.website/web/parts/frame/frame-90deg-bracket.9a32e7a7ba590561.png
+
+frame-crossbeam:
+  name: Frame crossbeam
+  category: Printed parts
+  image: https://img.basically.website/web/parts/frame/frame-crossbeam.8e476ab493cd2b4b.png
+
+bin-retainer-left:
+  name: Bin retainer (left)
+  category: Printed parts
+  image: https://img.basically.website/web/parts/bin-retainer/bin-retainer-left.6e5fc4844bdf4211.png
+
+bin-retainer-right:
+  name: Bin retainer (right)
+  category: Printed parts
+  image: https://img.basically.website/web/parts/bin-retainer/bin-retainer-right.e964a8bd6346119b.png
+
+ext-2020-ag:
+  name: Outer horizontal / Horizontal interface frame (A/G)
+  category: Aluminum extrusion (2020)
+  image: https://img.basically.website/web/parts/extrusion/extrusion-2020.0691a894c8154731.png
+
+ext-2020-bh:
+  name: Spoke / Interface spoke, short (B/H)
+  category: Aluminum extrusion (2020)
+  image: https://img.basically.website/web/parts/extrusion/extrusion-2020.0691a894c8154731.png
+
+ext-2020-c:
+  name: Layer vertical support (C)
+  category: Aluminum extrusion (2020)
+  image: https://img.basically.website/web/parts/extrusion/extrusion-2020.0691a894c8154731.png
+
+scr-m5-12-bhcs:
+  name: M5 × 12 mm button head screw
+  category: Screws
+  image: https://img.basically.website/web/parts/hardware/screws/m5-button-head.87be93e901c86545.jpg
+
 scr-m5-16-shcs:
   name: M5 × 16 mm socket head cap screw
   category: Screws
@@ -239,6 +279,11 @@ scr-m5-35-shcs:
 
 scr-m5-25-shcs:
   name: M5 × 25 mm socket head cap screw
+  category: Screws
+  image: https://img.basically.website/web/parts/hardware/screws/m5-shcs.f415c8d0a2ee3205.jpg
+
+scr-m5-20-shcs:
+  name: M5 × 20 mm socket head cap screw
   category: Screws
   image: https://img.basically.website/web/parts/hardware/screws/m5-shcs.f415c8d0a2ee3205.jpg
 

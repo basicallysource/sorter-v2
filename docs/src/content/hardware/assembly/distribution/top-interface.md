@@ -121,30 +121,51 @@ Several steps below refer to holes in the Top plate by name (S2 and S3 for the s
 
 {% include step.html n="1" title="Preparation" %}
 
-Before assembling anything, press the heat inserts into the parts that take them, while the parts are still loose. Fusing them in afterwards is much harder, for example once the Interface upper fixed section is mounted to the Top plate.
+Before assembling anything, press the heat inserts into the parts that take them, while the parts are still loose. Fusing them in afterwards is much harder, for example once the Interface upper fixed section is mounted to the Top plate. See [installing heat inserts]({{ '/hardware/helpers/heat-inserts/' | relative_url }}) for the technique.
 
-- **Interface upper fixed section:** 4 × M4
-- **Interface NEMA 23 bracket:** 6 × M5 (4 on the top edges, 2 underneath) and 1 × M3 (on the tail)
-- **Interface bracket:** 3 × M5 (each of the 6)
-- **Limit switch housing:** 2 × M3
-- **Top interface chute mount:** 4 × M4 and 9 × M3
-
-<div class="img-row">
-  <figure>
-    <img class="doc-figure" src="https://img.basically.website/web/assembly/top-interface/prep-upper-fixed-section-inserts-full.5f320973aa8f4976.jpg" alt="The Interface upper fixed section ring, showing four brass M4 heat inserts pressed into its face">
-    <figcaption>The four M4 inserts in the Interface upper fixed section.</figcaption>
-  </figure>
-  <figure>
-    <img class="doc-figure" src="https://img.basically.website/web/assembly/top-interface/prep-nema23-inserts.51e9fc75c2c3840c.jpg" alt="The Interface NEMA 23 bracket held up, showing four brass M5 inserts on the top edges and one M3 insert on the long tail">
-    <figcaption>The NEMA 23 bracket: four M5 on the top edges and one M3 on the tail. Two more M5 go on the underside.</figcaption>
-  </figure>
-  <figure>
-    <img class="doc-figure" src="https://img.basically.website/web/assembly/top-interface/prep-chute-mount-inserts.d0a7b1921c5103dc.jpg" alt="The white Top interface chute mount with brass M3 and M4 heat inserts pressed into the ring of holes around its face">
-    <figcaption>Brass inserts in the Top interface chute mount.</figcaption>
+<div class="prep-item">
+  <div class="prep-item-body">
+    <p><strong>Interface upper fixed section:</strong> 4 × M4</p>
+  </div>
+  <figure class="prep-item-figure">
+    <img class="doc-figure" src="https://img.basically.website/web/assembly/top-interface/prep-upper-fixed-section-inserts-full.5f320973aa8f4976.jpg" alt="The Interface upper fixed section ring, underside with the NEMA 23 bracket attached, showing four brass M4 heat inserts around its face">
+    <figcaption>Underside, with the NEMA 23 bracket attached.</figcaption>
   </figure>
 </div>
 
-See [installing heat inserts]({{ '/hardware/helpers/heat-inserts/' | relative_url }}) for the technique, and the [Preparation]({{ '/hardware/preparation/' | relative_url }}) page for every part in the machine that needs them.
+<div class="prep-item">
+  <div class="prep-item-body">
+    <p><strong>Interface NEMA 23 bracket:</strong> 6 × M5 (4 on the top edges, 2 underneath) and 1 × M3 (on the tail)</p>
+  </div>
+  <figure class="prep-item-figure">
+    <img class="doc-figure" src="https://img.basically.website/web/assembly/top-interface/prep-nema23-inserts.51e9fc75c2c3840c.jpg" alt="The Interface NEMA 23 bracket held up, showing four brass M5 inserts on the top edges and one M3 insert on the long tail">
+    <figcaption>Four M5 on the top edges, one M3 on the tail; two more M5 on the underside (not shown).</figcaption>
+  </figure>
+</div>
+
+<div class="prep-item">
+  <div class="prep-item-body">
+    <p><strong>Top interface chute mount:</strong> 4 × M4 and 9 × M3</p>
+  </div>
+  <figure class="prep-item-figure">
+    <img class="doc-figure" src="https://img.basically.website/web/assembly/top-interface/prep-chute-mount-inserts.d0a7b1921c5103dc.jpg" alt="The white Top interface chute mount with brass M3 and M4 heat inserts pressed into the ring of holes around its face">
+    <figcaption>The M3 and M4 inserts around the mount face.</figcaption>
+  </figure>
+</div>
+
+<div class="prep-item">
+  <div class="prep-item-body">
+    <p><strong>Interface bracket:</strong> 3 × M5 (each of the 6). <em>Photo to come.</em></p>
+  </div>
+</div>
+
+<div class="prep-item">
+  <div class="prep-item-body">
+    <p><strong>Limit switch housing:</strong> 2 × M3. <em>Photo to come.</em></p>
+  </div>
+</div>
+
+The [Preparation]({{ '/hardware/preparation/' | relative_url }}) page lists every part in the machine that needs inserts.
 
 {% include step.html n="2" title="Attach the interface ribs to the upper fixed section" %}
 

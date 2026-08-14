@@ -166,8 +166,12 @@ Before assembling anything, press the heat inserts into the parts that take them
 
 <div class="prep-item">
   <div class="prep-item-body">
-    <p><strong>Limit switch housing:</strong> 2 × M3. <em>Photo to come.</em></p>
+    <p><strong>Limit switch housing:</strong> 2 × M3</p>
   </div>
+  <figure class="prep-item-figure">
+    <img class="doc-figure" src="https://img.basically.website/web/assembly/top-interface/prep-limit-switch-housing-inserts.0284a86a83e37af7.jpg" alt="The Limit switch housing held up, showing two brass M3 heat inserts on the face where the roller lever limit switch mounts">
+    <figcaption>The two M3 inserts, where the roller lever limit switch mounts.</figcaption>
+  </figure>
 </div>
 
 The [Preparation]({{ '/hardware/preparation/' | relative_url }}) page lists every part in the machine that needs inserts.

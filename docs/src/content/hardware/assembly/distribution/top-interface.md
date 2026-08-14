@@ -101,6 +101,8 @@ parts_needed:
     qty: 1
   - part: scr-m3-10-shcs
     qty: 2
+  - part: scr-m3-12-cs
+    qty: 1
   - part: tnut-m5-2020
     qty: 56
   - part: nut-m5
@@ -205,7 +207,7 @@ Attach the Interface rib (switch gap) to the Interface upper fixed section, two 
 
 Attach the remaining 5 Interface ribs to the Interface upper fixed section, two M5 × 16 mm button head screws each, again tapping into the plastic.
 
-Slot the Interface NEMA 23 bracket into the Interface upper fixed section and secure it with a screw from below <span class="fastener-todo">fastener not recorded</span>.
+Slot the Interface NEMA 23 bracket into the Interface upper fixed section and secure it from below with an M3 × 12 mm countersunk screw.
 
 Attach the whole assembly to the bottom of the Top plate with M5 × 22 mm countersunk screws through holes S2 and S3 into the Interface NEMA 23 bracket.
 

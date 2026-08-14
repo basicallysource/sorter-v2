@@ -131,6 +131,10 @@ Before assembling anything, press the heat inserts into the parts that take them
 
 <div class="img-row">
   <figure>
+    <img class="doc-figure" src="https://img.basically.website/web/assembly/top-interface/prep-upper-fixed-section-inserts.0d837042470067bc.jpg" alt="The Interface upper fixed section ring, showing four brass M4 heat inserts pressed into its face">
+    <figcaption>The four M4 inserts in the Interface upper fixed section.</figcaption>
+  </figure>
+  <figure>
     <img class="doc-figure" src="https://img.basically.website/web/assembly/top-interface/prep-nema23-inserts.51e9fc75c2c3840c.jpg" alt="The Interface NEMA 23 bracket held up, showing five brass M5 heat inserts pressed into its mounting bosses">
     <figcaption>The five M5 inserts in the Interface NEMA 23 bracket.</figcaption>
   </figure>

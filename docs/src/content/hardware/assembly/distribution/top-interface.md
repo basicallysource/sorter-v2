@@ -103,6 +103,8 @@ parts_needed:
     qty: 2
   - part: scr-m3-12-cs
     qty: 1
+  - part: scr-m3-16-shcs
+    qty: 2
   - part: tnut-m5-2020
     qty: 56
   - part: nut-m5
@@ -247,7 +249,7 @@ Repeat for all 6 Interface brackets.
 
 Push the Printed dowel pin into the Limit switch housing.
 
-Attach a Roller lever limit switch with 2 screws <span class="fastener-todo">fastener not recorded</span> so the roller sits next to the dowel pin.
+Attach a Roller lever limit switch with two M3 × 16 mm socket head screws (into the housing's 2 M3 inserts) so the roller sits next to the dowel pin.
 
 Align the switch housing with the extrusion of one of the prepared Interface brackets so the limit switch is on the same face as the sloped side of the bracket. Slide 2 T-nuts into the extrusion and fasten the Limit switch housing to the extrusion with two M5 × 16 mm socket head screws. Slide it as far toward the Interface bracket as possible for now; it gets aligned properly later.
 

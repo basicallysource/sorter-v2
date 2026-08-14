@@ -349,6 +349,11 @@ scr-m3-12-cs:
   category: Screws
   image: https://img.basically.website/web/parts/hardware/screws/countersunk.707eba7998554ea6.jpg
 
+scr-m3-16-shcs:
+  name: M3 × 16 mm socket head cap screw
+  category: Screws
+  image: https://img.basically.website/web/parts/hardware/screws/m5-shcs.f415c8d0a2ee3205.jpg
+
 tnut-m5-2020:
   name: M5 roll-in T-nut (2020)
   category: Nuts

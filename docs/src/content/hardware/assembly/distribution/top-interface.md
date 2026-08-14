@@ -119,6 +119,16 @@ Several steps below refer to holes in the Top plate by name (S2 and S3 for the s
   <figcaption>Top plate hole map. S = stepper trio, I = inner ring, O = outer ring, C = cable holes.</figcaption>
 </figure>
 
+<div class="callout callout-warning">
+  <span class="callout-icon" aria-hidden="true">⚠</span>
+  <p>Press the heat inserts into these parts before you start, while they are still loose. Fusing them in after a part is mounted (the Interface upper fixed section ends up on the Top plate) is much harder.<br>
+  Interface upper fixed section: 4 × M4<br>
+  Interface NEMA 23 bracket: 5 × M5<br>
+  Interface bracket: 3 × M5 (each of the 6)<br>
+  Limit switch housing: 2 × M3<br>
+  Top interface chute mount: 4 × M4 and 9 × M3<br>
+  See <a href="{{ '/hardware/preparation/' | relative_url }}">Preparation</a> for the full list.</p>
+</div>
 
 {% include step.html n="1" title="Attach the interface ribs to the upper fixed section" %}
 
@@ -131,10 +141,7 @@ Several steps below refer to holes in the Top plate by name (S2 and S3 for the s
     loading="lazy"></iframe>
 </div>
 
-<div class="callout callout-warning">
-  <span class="callout-icon" aria-hidden="true">⚠</span>
-  <p>Press the heat inserts into the interface parts before you begin, while they are still loose. The Interface upper fixed section, Interface NEMA 23 bracket, Interface brackets, Limit switch housing, and Top interface chute mount all take them (see <a href="{{ '/hardware/preparation/' | relative_url }}">Preparation</a> for the full list). Doing the upper fixed section first avoids pressing inserts after it is mounted to the Top plate.</p>
-</div>
+**Heat inserts first:** press the 4 × M4 inserts into the Interface upper fixed section and the 5 × M5 inserts into the Interface NEMA 23 bracket before you assemble anything here.
 
 Attach the Interface rib (switch gap) to the Interface upper fixed section, two positions counterclockwise of the notch for the stepper mount. Use two M5 × 16 mm button head screws, tapping directly into the plastic.
 
@@ -155,6 +162,8 @@ Attach the whole assembly to the bottom of the Top plate with M5 × 22 mm counte
     loading="lazy"></iframe>
 </div>
 
+**Heat inserts first:** each Interface bracket takes 3 × M5 inserts. Press them in before fitting the extrusion.
+
 Align an Interface bracket with piece E (Interface spoke, long) of aluminum extrusion.
 
 Place T-nuts in the extrusion, lined up with the 4 holes on the side of the Interface bracket.
@@ -173,6 +182,8 @@ Repeat for all 6 Interface brackets.
     allowfullscreen
     loading="lazy"></iframe>
 </div>
+
+**Heat inserts first:** the Limit switch housing takes 2 × M3 inserts. Press them in before assembling it.
 
 Push the Printed dowel pin into the Limit switch housing.
 
@@ -207,6 +218,8 @@ Flip the whole assembly and screw all 6 Interface brackets into place with M5 ×
     allowfullscreen
     loading="lazy"></iframe>
 </div>
+
+**Heat inserts first:** the Top interface chute mount takes 4 × M4 and 9 × M3 inserts. Press them in before assembling it.
 
 Slot the Limit switch hammer into the Top interface chute mount, then screw it in place from below <span class="fastener-todo">fastener not recorded</span>.
 

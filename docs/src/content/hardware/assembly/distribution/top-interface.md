@@ -80,7 +80,7 @@ parts_needed:
   - part: m5-ruthex-long
     qty: 24
   - part: m3-ruthex-long
-    qty: 12
+    qty: 11
   - part: scr-m5-35-shcs
     qty: 6
   - part: scr-m5-25-shcs
@@ -146,11 +146,11 @@ Before assembling anything, press the heat inserts into the parts that take them
 
 <div class="prep-item">
   <div class="prep-item-body">
-    <p><strong>Top interface chute mount:</strong> 4 × M4 and 9 × M3</p>
+    <p><strong>Top interface chute mount:</strong> 4 × M4 and 7 × M3</p>
   </div>
   <figure class="prep-item-figure">
-    <img class="doc-figure" src="https://img.basically.website/web/assembly/top-interface/prep-chute-mount-inserts.d0a7b1921c5103dc.jpg" alt="The white Top interface chute mount with brass M3 and M4 heat inserts pressed into the ring of holes around its face">
-    <figcaption>The M3 and M4 inserts around the mount face.</figcaption>
+    <img class="doc-figure" src="https://img.basically.website/web/assembly/top-interface/prep-chute-mount-inserts-underside.d9429f336757fc52.jpg" alt="The underside of the white Top interface chute mount, showing brass M4 and M3 heat inserts around the ring">
+    <figcaption>Underside: the 4 M4 and 5 of the M3. The other 2 M3 sit by the cable-clamp recess on the top face.</figcaption>
   </figure>
 </div>
 
@@ -171,6 +171,16 @@ Before assembling anything, press the heat inserts into the parts that take them
   <figure class="prep-item-figure">
     <img class="doc-figure" src="https://img.basically.website/web/assembly/top-interface/prep-limit-switch-housing-inserts.0284a86a83e37af7.jpg" alt="The Limit switch housing held up, showing two brass M3 heat inserts on the face where the roller lever limit switch mounts">
     <figcaption>The two M3 inserts, where the roller lever limit switch mounts.</figcaption>
+  </figure>
+</div>
+
+<div class="prep-item">
+  <div class="prep-item-body">
+    <p><strong>Limit switch hammer:</strong> 1 × M3</p>
+  </div>
+  <figure class="prep-item-figure">
+    <img class="doc-figure" src="https://img.basically.website/web/assembly/top-interface/prep-limit-switch-hammer-inserts.8f73ff6876cebff2.jpg" alt="The Limit switch hammer held up, showing a single brass M3 heat insert in its round disc">
+    <figcaption>One M3 insert in the round disc.</figcaption>
   </figure>
 </div>
 
@@ -265,7 +275,7 @@ Flip the whole assembly and screw all 6 Interface brackets into place with M5 ×
     loading="lazy"></iframe>
 </div>
 
-**Heat inserts first:** the Top interface chute mount takes 4 × M4 and 9 × M3 inserts. Press them in before assembling it.
+**Heat inserts first:** the Top interface chute mount takes 4 × M4 and 7 × M3 inserts, and the Limit switch hammer takes 1 × M3. Press them in before assembling.
 
 Slot the Limit switch hammer into the Top interface chute mount, then screw it in place from below <span class="fastener-todo">fastener not recorded</span>.
 

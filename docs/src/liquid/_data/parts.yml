@@ -147,6 +147,9 @@ limit-switch-hammer:
   name: Limit switch hammer
   category: Printed parts
   image: https://img.basically.website/web/parts/top-interface/limit-switch-hammer.e125ead0312a27d0.png
+  heat_inserts:
+    - insert: m3-ruthex-long
+      qty: 1
 
 top-interface-split-spur-gear-3:
   name: Top interface chute mount
@@ -156,7 +159,7 @@ top-interface-split-spur-gear-3:
     - insert: m4-ruthex-long
       qty: 4
     - insert: m3-ruthex-long
-      qty: 9
+      qty: 7
 
 top-interface-split-spur-gear-1:
   name: Chute gear

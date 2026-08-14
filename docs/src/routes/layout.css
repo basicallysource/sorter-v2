@@ -636,6 +636,9 @@ body {
 	width: 100%;
 	display: block;
 }
+.prep-item-figure img + img {
+	margin-top: 8px;
+}
 
 .part-card-missing {
 	color: var(--muted);

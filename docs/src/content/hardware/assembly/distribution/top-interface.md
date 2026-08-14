@@ -139,7 +139,8 @@ Before assembling anything, press the heat inserts into the parts that take them
   </div>
   <figure class="prep-item-figure">
     <img class="doc-figure" src="https://img.basically.website/web/assembly/top-interface/prep-nema23-inserts.51e9fc75c2c3840c.jpg" alt="The Interface NEMA 23 bracket held up, showing four brass M5 inserts on the top edges and one M3 insert on the long tail">
-    <figcaption>Four M5 on the top edges, one M3 on the tail; two more M5 on the underside (not shown).</figcaption>
+    <img class="doc-figure" src="https://img.basically.website/web/assembly/top-interface/prep-nema23-inserts-underside.a2c5f24a51e32932.jpg" alt="The underside of the Interface NEMA 23 bracket, showing the two remaining brass M5 heat inserts">
+    <figcaption>Top: four M5 on the edges and one M3 on the tail. Underside: the two remaining M5.</figcaption>
   </figure>
 </div>
 

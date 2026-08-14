@@ -131,7 +131,7 @@ Before assembling anything, press the heat inserts into the parts that take them
 
 <div class="img-row">
   <figure>
-    <img class="doc-figure" src="https://img.basically.website/web/assembly/top-interface/prep-upper-fixed-section-inserts.0d837042470067bc.jpg" alt="The Interface upper fixed section ring, showing four brass M4 heat inserts pressed into its face">
+    <img class="doc-figure" src="https://img.basically.website/web/assembly/top-interface/prep-upper-fixed-section-inserts-full.5f320973aa8f4976.jpg" alt="The Interface upper fixed section ring, showing four brass M4 heat inserts pressed into its face">
     <figcaption>The four M4 inserts in the Interface upper fixed section.</figcaption>
   </figure>
   <figure>

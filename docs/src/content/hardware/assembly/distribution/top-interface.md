@@ -129,6 +129,17 @@ Before assembling anything, press the heat inserts into the parts that take them
 - **Limit switch housing:** 2 × M3
 - **Top interface chute mount:** 4 × M4 and 9 × M3
 
+<div class="img-row">
+  <figure>
+    <img class="doc-figure" src="https://img.basically.website/web/assembly/top-interface/prep-nema23-inserts.51e9fc75c2c3840c.jpg" alt="The Interface NEMA 23 bracket held up, showing five brass M5 heat inserts pressed into its mounting bosses">
+    <figcaption>The five M5 inserts in the Interface NEMA 23 bracket.</figcaption>
+  </figure>
+  <figure>
+    <img class="doc-figure" src="https://img.basically.website/web/assembly/top-interface/prep-chute-mount-inserts.d0a7b1921c5103dc.jpg" alt="The white Top interface chute mount with brass M3 and M4 heat inserts pressed into the ring of holes around its face">
+    <figcaption>Brass inserts in the Top interface chute mount.</figcaption>
+  </figure>
+</div>
+
 See [installing heat inserts]({{ '/hardware/helpers/heat-inserts/' | relative_url }}) for the technique, and the [Preparation]({{ '/hardware/preparation/' | relative_url }}) page for every part in the machine that needs them.
 
 {% include step.html n="2" title="Attach the interface ribs to the upper fixed section" %}

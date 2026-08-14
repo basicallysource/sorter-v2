@@ -75,6 +75,12 @@ parts_needed:
     qty: 1
   - part: cable-idc-2x8-long
     qty: 1
+  - part: m4-ruthex-long
+    qty: 8
+  - part: m5-ruthex-long
+    qty: 23
+  - part: m3-ruthex-long
+    qty: 11
   - part: scr-m5-35-shcs
     qty: 6
   - part: scr-m5-25-shcs
@@ -123,6 +129,11 @@ Several steps below refer to holes in the Top plate by name (S2 and S3 for the s
     allow="encrypted-media; picture-in-picture; web-share"
     allowfullscreen
     loading="lazy"></iframe>
+</div>
+
+<div class="callout callout-warning">
+  <span class="callout-icon" aria-hidden="true">⚠</span>
+  <p>Press the heat inserts into the interface parts before you begin, while they are still loose. The Interface upper fixed section, Interface NEMA 23 bracket, Interface brackets, Limit switch housing, and Top interface chute mount all take them (see <a href="{{ '/hardware/preparation/' | relative_url }}">Preparation</a> for the full list). Doing the upper fixed section first avoids pressing inserts after it is mounted to the Top plate.</p>
 </div>
 
 Attach the Interface rib (switch gap) to the Interface upper fixed section, two positions counterclockwise of the notch for the stepper mount. Use two M5 × 16 mm button head screws, tapping directly into the plastic.

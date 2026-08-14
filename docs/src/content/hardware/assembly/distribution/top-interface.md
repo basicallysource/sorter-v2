@@ -156,8 +156,12 @@ Before assembling anything, press the heat inserts into the parts that take them
 
 <div class="prep-item">
   <div class="prep-item-body">
-    <p><strong>Interface bracket:</strong> 3 × M5 (each of the 6). <em>Photo to come.</em></p>
+    <p><strong>Interface bracket:</strong> 3 × M5 (each of the 6)</p>
   </div>
+  <figure class="prep-item-figure">
+    <img class="doc-figure" src="https://img.basically.website/web/assembly/top-interface/prep-interface-bracket-inserts.d4d01073358fa475.jpg" alt="An Interface bracket held up, showing three brass M5 heat inserts: one on each long side and one on the tail end">
+    <figcaption>One M5 on each long side and one on the tail end.</figcaption>
+  </figure>
 </div>
 
 <div class="prep-item">

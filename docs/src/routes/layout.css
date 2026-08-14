@@ -608,6 +608,38 @@ body {
 	border: 1px solid color-mix(in srgb, var(--color-warning) 45%, transparent);
 }
 
+/* Grouped part + insert-photo rows in the Preparation step */
+.prep-item {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 8px 24px;
+	margin: 1.1rem 0;
+	padding-bottom: 1.1rem;
+	border-bottom: 1px solid var(--line);
+}
+.prep-item:last-of-type {
+	border-bottom: none;
+}
+.prep-item-body {
+	flex: 1 1 220px;
+	min-width: 200px;
+}
+.prep-item-body p {
+	margin: 0;
+}
+.prep-item-figure {
+	flex: 0 1 360px;
+	margin: 0;
+}
+.prep-item-figure img {
+	width: 100%;
+	display: block;
+}
+.prep-item-figure img + img {
+	margin-top: 8px;
+}
+
 .part-card-missing {
 	color: var(--muted);
 	font-family: var(--font-mono);

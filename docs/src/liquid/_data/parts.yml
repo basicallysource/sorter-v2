@@ -44,6 +44,16 @@ m4-ruthex-long:
   category: Heat inserts
   image: https://img.basically.website/web/parts/hardware/heat-inserts/m4-ruthex-long/insert.aabba833ab98e7db.jpg
 
+m5-ruthex-long:
+  name: M5 Ruthex heat insert (long)
+  category: Heat inserts
+  image: https://img.basically.website/web/parts/hardware/heat-inserts/m5-ruthex-long.cb9fbbc0fed59e3b.jpg
+
+m3-ruthex-long:
+  name: M3 Ruthex heat insert (long)
+  category: Heat inserts
+  image: https://img.basically.website/web/parts/hardware/heat-inserts/m3-ruthex-long.3173f0ffeef63ca4.jpg
+
 m4-12mm-countersunk:
   name: M4 × 12 mm countersunk screw
   category: Screws
@@ -118,6 +128,9 @@ interface-upper-fixed-section:
   name: Interface upper fixed section
   category: Printed parts
   image: https://img.basically.website/web/parts/top-interface/interface-upper-fixed-section.43022d76c3781bf3.png
+  heat_inserts:
+    - insert: m4-ruthex-long
+      qty: 4
 
 interface-rib:
   name: Interface rib
@@ -133,6 +146,9 @@ interface-bracket:
   name: Interface bracket
   category: Printed parts
   image: https://img.basically.website/web/parts/top-interface/interface-bracket.06c0c5896cd8eada.png
+  heat_inserts:
+    - insert: m5-ruthex-long
+      qty: 3
 
 interface-spacer:
   name: Interface spacer
@@ -143,6 +159,11 @@ interface-nema23-bracket:
   name: Interface NEMA 23 bracket
   category: Printed parts
   image: https://img.basically.website/web/parts/top-interface/interface-nema23-bracket.65680e73221cff98.png
+  heat_inserts:
+    - insert: m5-ruthex-long
+      qty: 6
+    - insert: m3-ruthex-long
+      qty: 1
 
 interface-big-spacer:
   name: Interface big spacer
@@ -153,6 +174,9 @@ limit-switch-housing:
   name: Limit switch housing
   category: Printed parts
   image: https://img.basically.website/web/parts/top-interface/limit-switch-housing.6e5f8214b3702dbc.png
+  heat_inserts:
+    - insert: m3-ruthex-long
+      qty: 2
 
 limit-switch-dowel-pin:
   name: Printed dowel pin
@@ -163,11 +187,19 @@ limit-switch-hammer:
   name: Limit switch hammer
   category: Printed parts
   image: https://img.basically.website/web/parts/top-interface/limit-switch-hammer.e125ead0312a27d0.png
+  heat_inserts:
+    - insert: m3-ruthex-long
+      qty: 1
 
 top-interface-split-spur-gear-3:
   name: Top interface chute mount
   category: Printed parts
   image: https://img.basically.website/web/parts/top-interface/top-interface-split-spur-gear-3.38a5bd2da98bbe1a.png
+  heat_inserts:
+    - insert: m4-ruthex-long
+      qty: 4
+    - insert: m3-ruthex-long
+      qty: 7
 
 top-interface-split-spur-gear-1:
   name: Chute gear

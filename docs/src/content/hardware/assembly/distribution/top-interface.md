@@ -78,9 +78,9 @@ parts_needed:
   - part: m4-ruthex-long
     qty: 8
   - part: m5-ruthex-long
-    qty: 23
+    qty: 24
   - part: m3-ruthex-long
-    qty: 11
+    qty: 12
   - part: scr-m5-35-shcs
     qty: 6
   - part: scr-m5-25-shcs
@@ -124,7 +124,7 @@ Several steps below refer to holes in the Top plate by name (S2 and S3 for the s
 Before assembling anything, press the heat inserts into the parts that take them, while the parts are still loose. Fusing them in afterwards is much harder, for example once the Interface upper fixed section is mounted to the Top plate.
 
 - **Interface upper fixed section:** 4 × M4
-- **Interface NEMA 23 bracket:** 5 × M5
+- **Interface NEMA 23 bracket:** 6 × M5 (4 on the top edges, 2 underneath) and 1 × M3 (on the tail)
 - **Interface bracket:** 3 × M5 (each of the 6)
 - **Limit switch housing:** 2 × M3
 - **Top interface chute mount:** 4 × M4 and 9 × M3
@@ -135,8 +135,8 @@ Before assembling anything, press the heat inserts into the parts that take them
     <figcaption>The four M4 inserts in the Interface upper fixed section.</figcaption>
   </figure>
   <figure>
-    <img class="doc-figure" src="https://img.basically.website/web/assembly/top-interface/prep-nema23-inserts.51e9fc75c2c3840c.jpg" alt="The Interface NEMA 23 bracket held up, showing five brass M5 heat inserts pressed into its mounting bosses">
-    <figcaption>The five M5 inserts in the Interface NEMA 23 bracket.</figcaption>
+    <img class="doc-figure" src="https://img.basically.website/web/assembly/top-interface/prep-nema23-inserts.51e9fc75c2c3840c.jpg" alt="The Interface NEMA 23 bracket held up, showing four brass M5 inserts on the top edges and one M3 insert on the long tail">
+    <figcaption>The NEMA 23 bracket: four M5 on the top edges and one M3 on the tail. Two more M5 go on the underside.</figcaption>
   </figure>
   <figure>
     <img class="doc-figure" src="https://img.basically.website/web/assembly/top-interface/prep-chute-mount-inserts.d0a7b1921c5103dc.jpg" alt="The white Top interface chute mount with brass M3 and M4 heat inserts pressed into the ring of holes around its face">
@@ -157,7 +157,7 @@ See [installing heat inserts]({{ '/hardware/helpers/heat-inserts/' | relative_ur
     loading="lazy"></iframe>
 </div>
 
-**Heat inserts first:** press the 4 × M4 inserts into the Interface upper fixed section and the 5 × M5 inserts into the Interface NEMA 23 bracket before you assemble anything here.
+**Heat inserts first:** press the 4 × M4 inserts into the Interface upper fixed section and the 6 × M5 and 1 × M3 inserts into the Interface NEMA 23 bracket before you assemble anything here.
 
 Attach the Interface rib (switch gap) to the Interface upper fixed section, two positions counterclockwise of the notch for the stepper mount. Use two M5 × 16 mm button head screws, tapping directly into the plastic.
 

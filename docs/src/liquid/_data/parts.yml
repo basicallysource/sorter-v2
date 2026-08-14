@@ -121,7 +121,9 @@ interface-nema23-bracket:
   image: https://img.basically.website/web/parts/top-interface/interface-nema23-bracket.65680e73221cff98.png
   heat_inserts:
     - insert: m5-ruthex-long
-      qty: 5
+      qty: 6
+    - insert: m3-ruthex-long
+      qty: 1
 
 interface-big-spacer:
   name: Interface big spacer

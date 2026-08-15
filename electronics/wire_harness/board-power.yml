@@ -1,6 +1,6 @@
 metadata:
-  title: Sorter V2 - 24V to basically board v1.3
-  description: "The board's 24V feed. The buildable sub-harness for W1 on\nthe 24V power distribution drawing. From Jon's\nDC_basicallyV1_3_Harness (2026-08-08)."
+  title: 24V to controller board v1.3
+  description: "The board's 24V feed. The buildable sub-harness for W1 on\nthe 24V power distribution drawing. From the\ncontroller-board reference drawing (2026-08-08)."
 
 connectors:
   P1:
@@ -11,7 +11,7 @@ connectors:
     type: JST VH 2-pin (VHR-2)
     subtype: female
     pinlabels: [+24V, GND]
-    notes: "basically board v1.3 24V input\nPin 1 = +24V, pin 2 = GND"
+    notes: "controller board v1.3 24V input\nPin 1 = +24V, pin 2 = GND"
     additional_components:
       - type: Terminal - SVH-21T-P1.1
         qty: 1

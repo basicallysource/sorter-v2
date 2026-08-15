@@ -1,6 +1,6 @@
 metadata:
-  title: Sorter V2 - 24V power distribution
-  description: "PSU box pigtails PJ1-PJ3 and load cables W1-W3. The PSU end\nand the board end follow Jon's DC_PSU_Harness and\nDC_basicallyV1_3_Harness drawings (2026-08-08), which are\nthe source of truth for those. Values marked GUESS are\nguesses, not measurements."
+  title: 24V power distribution
+  description: "PSU box pigtails PJ1-PJ3 and load cables W1-W3. The PSU end\nand the board end follow the DC_PSU_Harness and\ncontroller-board reference drawings (2026-08-08),\nwhich are the source of truth for those. Values marked GUESS\nare guesses, not measurements."
 
 connectors:
   PSU:
@@ -22,7 +22,7 @@ connectors:
     type: JST VH 2-pin (VHR-2)
     subtype: female
     pinlabels: [+24V, GND]
-    notes: "basically board v1.3 24V input\nPin 1 = +24V, pin 2 = GND"
+    notes: "controller board v1.3 24V input\nPin 1 = +24V, pin 2 = GND"
     additional_components:
       - type: Terminal - SVH-21T-P1.1
         qty: 1
@@ -55,12 +55,12 @@ cables:
     gauge: 22 AWG
     length: 12 in
     colors: [RD, BK]
-    notes: "USB hub, double-male. Gauge = GUESS, not\ncovered by Jon's drawings."
+    notes: "USB hub, double-male. Gauge = GUESS, not\ncovered by the reference drawings."
   W3:
     gauge: 22 AWG
     length: 6 in
     colors: [RD, BK]
-    notes: "Orange Pi buck. Gauge = GUESS, not covered by\nJon's drawings."
+    notes: "Orange Pi buck. Gauge = GUESS, not covered by\nthe reference drawings."
 
 connections:
   -

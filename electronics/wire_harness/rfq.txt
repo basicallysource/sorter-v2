@@ -1,4 +1,4 @@
-RFQ - Sorter V2 wire harness
+RFQ - custom wire harness
 =============================================================
 STATUS: DRAFT - NOT VALIDATED. Values marked GUESS in the
 drawings are engineering guesses, not measurements. Do not
@@ -6,7 +6,7 @@ start production without a confirmed revision.
 =============================================================
 
 1. WHAT THIS IS
-Custom cable assemblies for one machine (a parts sorter).
+Custom cable assemblies for one machine.
 3 drawing sets are attached (PDF/PNG/SVG/HTML, generated with
 WireViz), each with its own BOM (TSV):
   - power     : PSU pigtails PJ1-PJ3, load cables W1-W3

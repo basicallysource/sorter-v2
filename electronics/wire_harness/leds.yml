@@ -1,12 +1,12 @@
 metadata:
-  title: Sorter V2 - LED drops and limit switch
-  description: "LED feeds L1-L3 (board to unplug point), pigtails L1p-L3p,\nand the limit switch cable. Jon's 2026-08-08 drawings do not\ncover the LED drops, so apart from the limit switch\nterminals everything here is still Spencer's July 12th\nnotes. Values marked GUESS are guesses, not measurements."
+  title: LED drops and limit switch
+  description: "LED feeds L1-L3 (board to unplug point), pigtails L1p-L3p,\nand the limit switch cable. The 2026-08-08 reference drawings\ndo not cover the LED drops, so apart from the limit switch\nterminals everything here is still from earlier engineering\nnotes. Values marked GUESS are guesses, not measurements."
 
 connectors:
   BOARD_L1: &dupont
     type: Dupont 1x2 female, 2.54 mm
     pinlabels: [+24V, GND]
-    notes: "On basically board v1.3. GUESS - verify which\npin is +."
+    notes: "On controller board v1.3. GUESS - verify which\npin is +."
   BOARD_L2: *dupont
   BOARD_L3: *dupont
   LJ1: &ledjack
@@ -33,7 +33,7 @@ connectors:
     type: Dupont 1x3 female, 2.54 mm
     pincount: 3
     pinlabels: [SIG, GND, n/c]
-    notes: "On basically board v1.3. Position 3 is\ndeliberately unpopulated so the plug cannot go\non backwards. GUESS - verify pin order."
+    notes: "On controller board v1.3. Position 3 is\ndeliberately unpopulated so the plug cannot go\non backwards. GUESS - verify pin order."
   SW:
     type: "Quick-connect receptacle, #187 (4.75 x 0.5 mm tab)"
     pinlabels: [SIG, GND]
@@ -44,21 +44,21 @@ cables:
     gauge: 22 AWG
     length: 36 in
     colors: [RD, BK]
-    notes: "LED feed. Gauge = GUESS, not covered by Jon's\ndrawings."
+    notes: "LED feed. Gauge = GUESS, not covered by the\nreference drawings."
   L2: *feed
   L3: *feed
   L1P: &pig
     gauge: 22 AWG
     length: 6 in
     colors: [RD, BK]
-    notes: "LED pigtail. Gauge = GUESS, not covered by\nJon's drawings."
+    notes: "LED pigtail. Gauge = GUESS, not covered by\nthe reference drawings."
   L2P: *pig
   L3P: *pig
   LIM:
     gauge: 22 AWG
     length: 24 in
     colors: [WH, BK]
-    notes: "Limit switch. Gauge = GUESS, not covered by\nJon's drawings."
+    notes: "Limit switch. Gauge = GUESS, not covered by\nthe reference drawings."
 
 connections:
   -

@@ -102,7 +102,7 @@ parts_needed:
   - part: scr-m3-10-shcs
     qty: 2
   - part: scr-m3-12-cs
-    qty: 1
+    qty: 6
   - part: scr-m3-16-shcs
     qty: 2
   - part: scr-m3-6-cs
@@ -289,7 +289,7 @@ Flip the whole assembly and screw all 6 Interface brackets into place with M5 ×
 
 Slot the Limit switch hammer into the Top interface chute mount, then secure it from below with an M3 × 6 mm countersunk screw (into the hammer's M3 insert).
 
-Align the Chute gear on the Top interface chute mount with the notch by the screw for the Limit switch hammer. Attach it with 5 screws <span class="fastener-todo">fastener not recorded</span>.
+Align the Chute gear on the Top interface chute mount with the notch by the screw for the Limit switch hammer. Attach it with five M3 × 12 mm countersunk screws.
 
 Align the Top interface lazy Susan washer with the 4 inner heat inserts on the Top interface chute mount. Align the inner ring of the [Lazy Susan]({{ '/hardware/parts/lazy-susan/' | relative_url }}) with these 4 heat inserts too. Screw the Lazy Susan into position through the washer and into the Top interface chute mount with four M4 × 12 mm countersunk screws.
 

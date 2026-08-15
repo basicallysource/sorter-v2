@@ -87,6 +87,8 @@ parts_needed:
     qty: 6
   - part: scr-m5-22-cs
     qty: 15
+  - part: scr-m5-8-cs
+    qty: 6
   - part: scr-m5-20-bhcs
     qty: 24
   - part: scr-m5-16-bhcs
@@ -266,7 +268,12 @@ Align the switch housing with the extrusion of one of the prepared Interface bra
     loading="lazy"></iframe>
 </div>
 
-Slide a T-nut just into the end of the extrusion of the limit switch interface bracket. Slide the extrusion into the Interface rib (switch gap) and Interface upper fixed section, securing it loosely with a screw <span class="fastener-todo">fastener not recorded</span>. Slide the extrusion slightly in and out to align the holes on the Interface bracket with the holes on the Top plate, then tighten the screw.
+Slide a T-nut just into the end of the extrusion of the limit switch interface bracket. Slide the extrusion into the Interface rib (switch gap) and Interface upper fixed section, securing it loosely with an M5 × 8 mm countersunk screw. Slide the extrusion slightly in and out to align the holes on the Interface bracket with the holes on the Top plate, then tighten the screw.
+
+<div class="callout callout-warning">
+  <span class="callout-icon" aria-hidden="true">⚠</span>
+  <p>The M5 × 8 mm is a snug fit here, it barely reaches the T-nut. Opening the countersink a little and tightening firmly gets the head to sit flush.</p>
+</div>
 
 Repeat with the 5 other prepared Interface brackets into the 5 other Interface ribs.
 

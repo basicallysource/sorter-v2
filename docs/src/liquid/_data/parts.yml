@@ -329,6 +329,12 @@ scr-m5-22-cs:
   image: https://img.basically.website/web/parts/hardware/screws/countersunk.707eba7998554ea6.jpg
   not_in_calc: true
 
+scr-m5-8-cs:
+  name: M5 × 8 mm countersunk screw
+  category: Screws
+  image: https://img.basically.website/web/parts/hardware/screws/countersunk.707eba7998554ea6.jpg
+  not_in_calc: true
+
 scr-m5-20-bhcs:
   name: M5 × 20 mm button head cap screw
   category: Screws

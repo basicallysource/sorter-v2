@@ -105,6 +105,8 @@ parts_needed:
     qty: 1
   - part: scr-m3-16-shcs
     qty: 2
+  - part: scr-m3-6-cs
+    qty: 1
   - part: tnut-m5-2020
     qty: 56
   - part: nut-m5
@@ -285,7 +287,7 @@ Flip the whole assembly and screw all 6 Interface brackets into place with M5 ×
 
 **Heat inserts first:** the Top interface chute mount takes 4 × M4 and 7 × M3 inserts, and the Limit switch hammer takes 1 × M3. Press them in before assembling.
 
-Slot the Limit switch hammer into the Top interface chute mount, then screw it in place from below <span class="fastener-todo">fastener not recorded</span>.
+Slot the Limit switch hammer into the Top interface chute mount, then secure it from below with an M3 × 6 mm countersunk screw (into the hammer's M3 insert).
 
 Align the Chute gear on the Top interface chute mount with the notch by the screw for the Limit switch hammer. Attach it with 5 screws <span class="fastener-todo">fastener not recorded</span>.
 

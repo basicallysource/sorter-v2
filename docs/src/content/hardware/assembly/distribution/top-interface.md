@@ -272,7 +272,7 @@ Repeat with the 5 other prepared Interface brackets into the 5 other Interface r
 
 Flip the whole assembly and screw all 6 Interface brackets into place with M5 × 22 mm countersunk screws through holes I1 to I6 and O1 to O6.
 
-**Alternative:** the Top plate's laser-cut holes are not countersunk, so a countersunk head does not seat flush. M5 × 20 mm pan head screws work here instead (M5 countersunk is not in the parts calculator either).
+**Alternative:** the Top plate's laser-cut holes are not countersunk, so a countersunk head does not seat flush. M5 × 20 mm button head screws work here instead.
 
 {% include step.html n="6" title="Prepare the interface chute gear and mount" %}
 

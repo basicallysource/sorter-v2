@@ -3,9 +3,11 @@
 # each entry — primary image + name (linked to its detail page when one exists),
 # grouped by `category`, with any `notes` surfaced in a list below the cards.
 #
-# Fields: name (required), image, page, category, notes, caption (all optional).
-# `caption` is small text shown directly under a card (e.g. a cut length),
-# distinct from `notes`, which collects into the block beneath the whole group.
+# Fields: name (required), image, page, category, notes, caption, not_in_calc
+# (all optional). `caption` is small text shown directly under a card (e.g. a
+# cut length), distinct from `notes`, which collects into the block beneath the
+# whole group. `not_in_calc: true` marks a card with a red "!" for a part that
+# is not (yet) in the parts calculator.
 #
 # ids, names, and render filenames mirror the sorter-v2-filament-calculator repo
 # so the two stay aligned for the eventual merge into this repo.
@@ -308,11 +310,13 @@ scr-m5-35-shcs:
   name: M5 × 35 mm socket head cap screw
   category: Screws
   image: https://img.basically.website/web/parts/hardware/screws/m5-shcs.f415c8d0a2ee3205.jpg
+  not_in_calc: true
 
 scr-m5-25-shcs:
   name: M5 × 25 mm socket head cap screw
   category: Screws
   image: https://img.basically.website/web/parts/hardware/screws/m5-shcs.f415c8d0a2ee3205.jpg
+  not_in_calc: true
 
 scr-m5-20-shcs:
   name: M5 × 20 mm socket head cap screw
@@ -323,16 +327,19 @@ scr-m5-22-cs:
   name: M5 × 22 mm countersunk screw
   category: Screws
   image: https://img.basically.website/web/parts/hardware/screws/countersunk.707eba7998554ea6.jpg
+  not_in_calc: true
 
 scr-m5-20-bhcs:
   name: M5 × 20 mm button head cap screw
   category: Screws
   image: https://img.basically.website/web/parts/hardware/screws/button.87be93e901c86545.jpg
+  not_in_calc: true
 
 scr-m5-16-bhcs:
   name: M5 × 16 mm button head cap screw
   category: Screws
   image: https://img.basically.website/web/parts/hardware/screws/button.87be93e901c86545.jpg
+  not_in_calc: true
 
 scr-m3-35-bhcs:
   name: M3 × 35 mm button head cap screw
@@ -343,6 +350,7 @@ scr-m3-10-shcs:
   name: M3 × 10 mm socket head cap screw
   category: Screws
   image: https://img.basically.website/web/parts/hardware/screws/m5-shcs.f415c8d0a2ee3205.jpg
+  not_in_calc: true
 
 scr-m3-12-cs:
   name: M3 × 12 mm countersunk screw
@@ -358,6 +366,7 @@ scr-m3-6-cs:
   name: M3 × 6 mm countersunk screw
   category: Screws
   image: https://img.basically.website/web/parts/hardware/screws/countersunk.707eba7998554ea6.jpg
+  not_in_calc: true
 
 tnut-m5-2020:
   name: M5 roll-in T-nut (2020)

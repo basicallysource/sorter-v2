@@ -225,6 +225,7 @@ export type ResolvedPart = {
 	qty?: number;
 	notes?: string;
 	caption?: string;
+	not_in_calc?: boolean;
 	missing?: boolean;
 };
 export type PartsGroup = { category: string; parts: ResolvedPart[] };
@@ -243,6 +244,7 @@ function resolveParts(partsNeeded: any[]): { groups: PartsGroup[]; notes: Resolv
 			page: part.page,
 			notes: part.notes,
 			caption: part.caption,
+			not_in_calc: part.not_in_calc,
 			qty,
 			category: part.category ?? 'Other'
 		};

@@ -445,13 +445,13 @@ Slide an Interface spacer onto each piece of extrusion, with the lip at the top 
   <img class="doc-figure" src="https://img.basically.website/web/assembly/top-interface/framing-2.b6e8241ef78d74d0.jpg" alt="An interface spacer slid onto each vertical extrusion support, lips facing inward">
 </figure>
 
-Follow the first two stages of a regular layer, then place the regular layer assembly onto the interface assembly.
+Follow the first two stages of [a regular layer]({{ '/hardware/assembly/distribution/bin-frame/regular-layers/' | relative_url }}), then place the regular layer assembly onto the interface assembly.
 
 <figure>
   <img class="doc-figure" src="https://img.basically.website/web/assembly/top-interface/framing-3.e49b6ce3304489d5.jpg" alt="A regular layer assembly lowered onto the interface assembly">
 </figure>
 
-Attach an External bracket cover to each of the External bracket sides, then fasten each one with 2 M5 × 16 mm screws tapped into the holes at the base of the External bracket sides, bracing against the extrusion.
+Attach an External bracket cover to each of the External bracket sides, then fasten each one with 2 {% include fastener.html size="M5" variant="socket" length="16" %} screws into the holes at the base of the External bracket sides, bracing against the extrusion. These holes run parallel to the extrusion profile, and the screws are self-tapping. See the [external bracket]({{ '/hardware/assembly/distribution/external-bracket/' | relative_url }}) instructions for building the bracket itself.
 
 The top interface is now complete.
 

@@ -80,13 +80,15 @@ parts_needed:
   - part: m5-ruthex-long
     qty: 24
   - part: m3-ruthex-long
-    qty: 11
+    qty: 12
   - part: scr-m5-35-shcs
     qty: 6
-  - part: scr-m5-25-shcs
+  - part: scr-m5-30-shcs
     qty: 6
   - part: scr-m5-22-cs
     qty: 15
+  - part: scr-m5-8-cs
+    qty: 6
   - part: scr-m5-20-bhcs
     qty: 24
   - part: scr-m5-16-bhcs
@@ -101,8 +103,16 @@ parts_needed:
     qty: 1
   - part: scr-m3-10-shcs
     qty: 2
+  - part: scr-m3-12-cs
+    qty: 6
+  - part: scr-m3-16-shcs
+    qty: 2
+  - part: scr-m3-8-cs
+    qty: 5
+  - part: scr-m3-6-cs
+    qty: 1
   - part: tnut-m5-2020
-    qty: 56
+    qty: 50
   - part: nut-m5
     qty: 6
   - part: nut-m3
@@ -186,6 +196,16 @@ Before assembling anything, press the heat inserts into the parts that take them
   </figure>
 </div>
 
+<div class="prep-item">
+  <div class="prep-item-body">
+    <p><strong>Cable cage bracket (cable mount):</strong> 1 × M3</p>
+  </div>
+  <figure class="prep-item-figure">
+    <img class="doc-figure" src="https://img.basically.website/web/assembly/top-interface/prep-cable-cage-bracket-cable-inserts.72708f4941f1b0da.jpg" alt="The Cable cage bracket (cable mount) held up, showing a single brass M3 heat insert">
+    <figcaption>The one M3 insert in the Cable cage bracket (cable mount).</figcaption>
+  </figure>
+</div>
+
 The [Preparation]({{ '/hardware/preparation/' | relative_url }}) page lists every part in the machine that needs inserts.
 
 {% include step.html n="2" title="Attach the interface ribs to the upper fixed section" %}
@@ -205,7 +225,7 @@ Attach the Interface rib (switch gap) to the Interface upper fixed section, two 
 
 Attach the remaining 5 Interface ribs to the Interface upper fixed section, two M5 × 16 mm button head screws each, again tapping into the plastic.
 
-Slot the Interface NEMA 23 bracket into the Interface upper fixed section and secure it with a screw from below <span class="fastener-todo">fastener not recorded</span>.
+Slot the Interface NEMA 23 bracket into the Interface upper fixed section and secure it from below with an M3 × 12 mm countersunk screw.
 
 Attach the whole assembly to the bottom of the Top plate with M5 × 22 mm countersunk screws through holes S2 and S3 into the Interface NEMA 23 bracket.
 
@@ -245,7 +265,7 @@ Repeat for all 6 Interface brackets.
 
 Push the Printed dowel pin into the Limit switch housing.
 
-Attach a Roller lever limit switch with 2 screws <span class="fastener-todo">fastener not recorded</span> so the roller sits next to the dowel pin.
+Attach a Roller lever limit switch with two M3 × 16 mm socket head screws (into the housing's 2 M3 inserts) so the roller sits next to the dowel pin.
 
 Align the switch housing with the extrusion of one of the prepared Interface brackets so the limit switch is on the same face as the sloped side of the bracket. Slide 2 T-nuts into the extrusion and fasten the Limit switch housing to the extrusion with two M5 × 16 mm socket head screws. Slide it as far toward the Interface bracket as possible for now; it gets aligned properly later.
 
@@ -260,11 +280,18 @@ Align the switch housing with the extrusion of one of the prepared Interface bra
     loading="lazy"></iframe>
 </div>
 
-Slide a T-nut just into the end of the extrusion of the limit switch interface bracket. Slide the extrusion into the Interface rib (switch gap) and Interface upper fixed section, securing it loosely with a screw <span class="fastener-todo">fastener not recorded</span>. Slide the extrusion slightly in and out to align the holes on the Interface bracket with the holes on the Top plate, then tighten the screw.
+Slide a T-nut just into the end of the extrusion of the limit switch interface bracket. Slide the extrusion into the Interface rib (switch gap) and Interface upper fixed section, securing it loosely with an M5 × 8 mm countersunk screw. Slide the extrusion slightly in and out to align the holes on the Interface bracket with the holes on the Top plate, then tighten the screw.
+
+<div class="callout callout-warning">
+  <span class="callout-icon" aria-hidden="true">⚠</span>
+  <p>The M5 × 8 mm is a snug fit here, it barely reaches the T-nut. Opening the countersink a little and tightening firmly gets the head to sit flush.</p>
+</div>
 
 Repeat with the 5 other prepared Interface brackets into the 5 other Interface ribs.
 
 Flip the whole assembly and screw all 6 Interface brackets into place with M5 × 22 mm countersunk screws through holes I1 to I6 and O1 to O6.
+
+**Alternative:** the Top plate's laser-cut holes are not countersunk, so a countersunk head does not seat flush. M5 × 20 mm button head screws work here instead.
 
 {% include step.html n="6" title="Prepare the interface chute gear and mount" %}
 
@@ -279,9 +306,9 @@ Flip the whole assembly and screw all 6 Interface brackets into place with M5 ×
 
 **Heat inserts first:** the Top interface chute mount takes 4 × M4 and 7 × M3 inserts, and the Limit switch hammer takes 1 × M3. Press them in before assembling.
 
-Slot the Limit switch hammer into the Top interface chute mount, then screw it in place from below <span class="fastener-todo">fastener not recorded</span>.
+Slot the Limit switch hammer into the Top interface chute mount, then secure it from below with an M3 × 6 mm countersunk screw (into the hammer's M3 insert).
 
-Align the Chute gear on the Top interface chute mount with the notch by the screw for the Limit switch hammer. Attach it with 5 screws <span class="fastener-todo">fastener not recorded</span>.
+Align the Chute gear on the Top interface chute mount with the notch by the screw for the Limit switch hammer. Attach it with five M3 × 12 mm countersunk screws.
 
 Align the Top interface lazy Susan washer with the 4 inner heat inserts on the Top interface chute mount. Align the inner ring of the [Lazy Susan]({{ '/hardware/parts/lazy-susan/' | relative_url }}) with these 4 heat inserts too. Screw the Lazy Susan into position through the washer and into the Top interface chute mount with four M4 × 12 mm countersunk screws.
 
@@ -335,7 +362,7 @@ Loosen the screws attaching the Limit switch housing to the extrusion. Slide the
     loading="lazy"></iframe>
 </div>
 
-Slide the prepared [Timing pulley]({{ '/hardware/helpers/pulley-gear-mod/' | relative_url }}) over the shaft of the NEMA 23 stepper motor and tighten the two worm screws on its side. Slide the Interface spur gear onto the Timing pulley and secure it with 5 screws <span class="fastener-todo">fastener not recorded</span>, half tapped into the Interface spur gear and half bracing against the Timing pulley.
+Slide the prepared [Timing pulley]({{ '/hardware/helpers/pulley-gear-mod/' | relative_url }}) over the shaft of the NEMA 23 stepper motor and tighten the two worm screws on its side. Slide the Interface spur gear onto the Timing pulley and secure it with five M3 × 8 mm countersunk screws, half tapped into the Interface spur gear and half bracing against the Timing pulley.
 
 Push a 608 2RS bearing into the Interface idler gear.
 
@@ -356,11 +383,13 @@ At this point the chute should still rotate, but you will now feel resistance fr
     loading="lazy"></iframe>
 </div>
 
+**Heat inserts first:** the Cable cage bracket (cable mount) takes 1 × M3 insert. Press it in before assembling.
+
 Slot the Cable cage top over the Top interface chute mount, with the corners of the hexagon aligning with the Interface brackets.
 
-Place the Cable cage bracket (cable mount) on the Interface bracket opposite the Limit switch housing (this minimises the maximum travel of the cable). Screw it into the Interface bracket with an M5 × 25 mm socket head screw and a T-nut, clamping down the Cable cage top.
+Screw the Cable cage bracket (cable mount), on the Interface bracket opposite the Limit switch housing (this minimises the maximum travel of the cable), securely to the tail end of that Interface bracket with an M5 × 30 mm socket head screw into the M5 heat insert, clamping the Cable cage top firmly in place.
 
-Screw the other 5 Cable cage brackets down over the other 5 corners of the Cable cage top with M5 × 25 mm socket head screws and T-nuts.
+Screw the remaining Cable cage brackets to the other 5 corners of the Cable cage top with M5 × 30 mm socket head screws.
 
 {% include step.html n="11" title="Put the cable in the cable cage" %}
 

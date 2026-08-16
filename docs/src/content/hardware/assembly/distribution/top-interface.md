@@ -83,7 +83,7 @@ parts_needed:
     qty: 12
   - part: scr-m5-35-shcs
     qty: 6
-  - part: scr-m5-25-shcs
+  - part: scr-m5-30-shcs
     qty: 6
   - part: scr-m5-22-cs
     qty: 15
@@ -112,7 +112,7 @@ parts_needed:
   - part: scr-m3-6-cs
     qty: 1
   - part: tnut-m5-2020
-    qty: 56
+    qty: 50
   - part: nut-m5
     qty: 6
   - part: nut-m3
@@ -387,9 +387,9 @@ At this point the chute should still rotate, but you will now feel resistance fr
 
 Slot the Cable cage top over the Top interface chute mount, with the corners of the hexagon aligning with the Interface brackets.
 
-Place the Cable cage bracket (cable mount) on the Interface bracket opposite the Limit switch housing (this minimises the maximum travel of the cable). Screw it into the Interface bracket with an M5 × 25 mm socket head screw and a T-nut, clamping down the Cable cage top.
+Screw the Cable cage bracket (cable mount), on the Interface bracket opposite the Limit switch housing (this minimises the maximum travel of the cable), securely to the tail end of that Interface bracket with an M5 × 30 mm socket head screw into the M5 heat insert, clamping the Cable cage top firmly in place.
 
-Screw the other 5 Cable cage brackets down over the other 5 corners of the Cable cage top with M5 × 25 mm socket head screws and T-nuts.
+Screw the remaining Cable cage brackets to the other 5 corners of the Cable cage top with M5 × 30 mm socket head screws.
 
 {% include step.html n="11" title="Put the cable in the cable cage" %}
 

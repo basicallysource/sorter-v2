@@ -315,11 +315,10 @@ scr-m5-35-shcs:
   image: https://img.basically.website/web/parts/hardware/screws/m5-shcs.f415c8d0a2ee3205.jpg
   not_in_calc: true
 
-scr-m5-25-shcs:
-  name: M5 × 25 mm socket head cap screw
+scr-m5-30-shcs:
+  name: M5 × 30 mm socket head cap screw
   category: Screws
   image: https://img.basically.website/web/parts/hardware/screws/m5-shcs.f415c8d0a2ee3205.jpg
-  not_in_calc: true
 
 scr-m5-20-shcs:
   name: M5 × 20 mm socket head cap screw

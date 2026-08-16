@@ -1498,6 +1498,60 @@ def pieceMetadata(conn, part_num, color_key):
     return metadata
 
 
+# SQLite's default host-parameter ceiling is 999. Bind well under it and chunk,
+# so a caller can pass the fleet's whole distinct-part list without knowing.
+_IN_CHUNK = 500
+
+
+def _chunked(items, size=_IN_CHUNK):
+    items = list(items)
+    for i in range(0, len(items), size):
+        yield items[i : i + size]
+
+
+def batchPartWeights(conn, part_nums):
+    # Catalog weight in grams for many parts in one pass, as {part_num: grams}.
+    # A part with no weight on file is simply absent rather than present as None,
+    # so a caller can tell "weighs nothing recorded" from "weighs zero".
+    #
+    # Same two-step resolution as pieceMetadata, for the same reason: an id here
+    # is whatever the machine recorded, which is a Rebrickable part_num for most
+    # pieces and a BrickLink item number for the printed and minifig ones. Doing
+    # only the first step silently drops those, which is a quiet undercount
+    # rather than a visible failure.
+    wanted = [p for p in dict.fromkeys(part_nums) if p]
+    if not wanted:
+        return {}
+
+    out = {}
+    for chunk in _chunked(wanted):
+        marks = ",".join("?" * len(chunk))
+        # ORDER BY is_primary last so the primary item's weight is the one that
+        # survives the dict assignment for a part mapping to several items.
+        rows = conn.execute(
+            f"SELECT pbi.part_num, bi.weight FROM part_bricklink_ids pbi "
+            f"JOIN bricklink_items bi ON bi.item_no = pbi.item_no "
+            f"WHERE pbi.part_num IN ({marks}) AND bi.weight IS NOT NULL "
+            f"ORDER BY pbi.is_primary ASC",
+            chunk,
+        ).fetchall()
+        for part_num, weight in rows:
+            out[part_num] = float(weight)
+
+    missing = [p for p in wanted if p not in out]
+    for chunk in _chunked(missing):
+        marks = ",".join("?" * len(chunk))
+        rows = conn.execute(
+            f"SELECT item_no, weight FROM bricklink_items "
+            f"WHERE item_no IN ({marks}) AND weight IS NOT NULL",
+            chunk,
+        ).fetchall()
+        for item_no, weight in rows:
+            out[item_no] = float(weight)
+
+    return out
+
+
 def batchPieceMovingAvg(conn, pairs):
     # Resolve just the moving-average price for many (part_num, color_id) pairs in
     # one call — the machine revalues its whole piece history this way. color_id is

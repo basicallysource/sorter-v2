@@ -114,6 +114,8 @@ parts_needed:
   <p>The fasteners and quantities in the parts list come from the build notes and are called out inline at each step. A few smaller screws are not recorded yet; those are marked <span class="fastener-todo">fastener not recorded</span> in the steps below. If you know one, please add its size.</p>
 </div>
 
+{% include fastener-legend.html %}
+
 Several steps below refer to holes in the Top plate by name (S2 and S3 for the stepper mount, I1 to I6 and O1 to O6 for the interface brackets). This map shows which hole is which:
 
 <figure>
@@ -201,13 +203,13 @@ The [Preparation]({{ '/hardware/preparation/' | relative_url }}) page lists ever
 
 **Heat inserts first:** press the 4 × M4 inserts into the Interface upper fixed section and the 6 × M5 and 1 × M3 inserts into the Interface NEMA 23 bracket before you assemble anything here.
 
-Attach the Interface rib (switch gap) to the Interface upper fixed section, two positions counterclockwise of the notch for the stepper mount. Use two M5 × 16 mm button head screws, tapping directly into the plastic.
+Attach the Interface rib (switch gap) to the Interface upper fixed section, two positions counterclockwise of the notch for the stepper mount. Use two {% include fastener.html size="M5" variant="button" length="16" %} screws, tapping directly into the plastic.
 
-Attach the remaining 5 Interface ribs to the Interface upper fixed section, two M5 × 16 mm button head screws each, again tapping into the plastic.
+Attach the remaining 5 Interface ribs to the Interface upper fixed section, two {% include fastener.html size="M5" variant="button" length="16" %} screws each, again tapping into the plastic.
 
 Slot the Interface NEMA 23 bracket into the Interface upper fixed section and secure it with a screw from below <span class="fastener-todo">fastener not recorded</span>.
 
-Attach the whole assembly to the bottom of the Top plate with M5 × 22 mm countersunk screws through holes S2 and S3 into the Interface NEMA 23 bracket.
+Attach the whole assembly to the bottom of the Top plate with {% include fastener.html size="M5" variant="countersunk" length="22" %} screws through holes S2 and S3 into the Interface NEMA 23 bracket.
 
 {% include step.html n="3" title="Prepare the interface brackets" %}
 
@@ -226,7 +228,7 @@ Align an Interface bracket with piece E (Interface spoke, long) of aluminum extr
 
 Place T-nuts in the extrusion, lined up with the 4 holes on the side of the Interface bracket.
 
-Slide the extrusion into the Interface bracket, careful not to dislodge the T-nuts, and drive four M5 × 16 mm button head screws into them.
+Slide the extrusion into the Interface bracket, careful not to dislodge the T-nuts, and drive four {% include fastener.html size="M5" variant="button" length="16" %} screws into them.
 
 Repeat for all 6 Interface brackets.
 
@@ -247,7 +249,7 @@ Push the Printed dowel pin into the Limit switch housing.
 
 Attach a Roller lever limit switch with 2 screws <span class="fastener-todo">fastener not recorded</span> so the roller sits next to the dowel pin.
 
-Align the switch housing with the extrusion of one of the prepared Interface brackets so the limit switch is on the same face as the sloped side of the bracket. Slide 2 T-nuts into the extrusion and fasten the Limit switch housing to the extrusion with two M5 × 16 mm socket head screws. Slide it as far toward the Interface bracket as possible for now; it gets aligned properly later.
+Align the switch housing with the extrusion of one of the prepared Interface brackets so the limit switch is on the same face as the sloped side of the bracket. Slide 2 T-nuts into the extrusion and fasten the Limit switch housing to the extrusion with two {% include fastener.html size="M5" variant="socket" length="16" %} screws. Slide it as far toward the Interface bracket as possible for now; it gets aligned properly later.
 
 {% include step.html n="5" title="Install the brackets" %}
 
@@ -264,7 +266,7 @@ Slide a T-nut just into the end of the extrusion of the limit switch interface b
 
 Repeat with the 5 other prepared Interface brackets into the 5 other Interface ribs.
 
-Flip the whole assembly and screw all 6 Interface brackets into place with M5 × 22 mm countersunk screws through holes I1 to I6 and O1 to O6.
+Flip the whole assembly and screw all 6 Interface brackets into place with {% include fastener.html size="M5" variant="countersunk" length="22" %} screws through holes I1 to I6 and O1 to O6.
 
 {% include step.html n="6" title="Prepare the interface chute gear and mount" %}
 
@@ -283,7 +285,7 @@ Slot the Limit switch hammer into the Top interface chute mount, then screw it i
 
 Align the Chute gear on the Top interface chute mount with the notch by the screw for the Limit switch hammer. Attach it with 5 screws <span class="fastener-todo">fastener not recorded</span>.
 
-Align the Top interface lazy Susan washer with the 4 inner heat inserts on the Top interface chute mount. Align the inner ring of the [Lazy Susan]({{ '/hardware/parts/lazy-susan/' | relative_url }}) with these 4 heat inserts too. Screw the Lazy Susan into position through the washer and into the Top interface chute mount with four M4 × 12 mm countersunk screws.
+Align the Top interface lazy Susan washer with the 4 inner heat inserts on the Top interface chute mount. Align the inner ring of the [Lazy Susan]({{ '/hardware/parts/lazy-susan/' | relative_url }}) with these 4 heat inserts too. Screw the Lazy Susan into position through the washer and into the Top interface chute mount with four {% include fastener.html size="M4" variant="countersunk" length="12" %} screws.
 
 <div class="callout callout-warning">
   <span class="callout-icon" aria-hidden="true">⚠</span>
@@ -305,9 +307,9 @@ Once complete, the free section of the Lazy Susan should rotate freely.
 
 Place the Interface big spacer on the Interface upper fixed section with its 4 holes lined up with the 4 heat inserts.
 
-Rotate the free part of the Lazy Susan on the assembled interface chute so that 3 of its holes line up with the holes in the Top interface chute mount. Place the assembly on top of the Interface big spacer with the 3 holes aligned with 3 of the heat inserts. Screw these together tightly with three M4 × 12 mm countersunk screws.
+Rotate the free part of the Lazy Susan on the assembled interface chute so that 3 of its holes line up with the holes in the Top interface chute mount. Place the assembly on top of the Interface big spacer with the 3 holes aligned with 3 of the heat inserts. Screw these together tightly with three {% include fastener.html size="M4" variant="countersunk" length="12" %} screws.
 
-Rotate the Top interface chute mount 90 degrees relative to the Interface upper fixed section to reveal the 4th screw hole in the Lazy Susan (it should also line up with a hole in the Interface big spacer and a heat insert). Drive a fourth M4 × 12 mm countersunk screw tightly through this hole.
+Rotate the Top interface chute mount 90 degrees relative to the Interface upper fixed section to reveal the 4th screw hole in the Lazy Susan (it should also line up with a hole in the Interface big spacer and a heat insert). Drive a fourth {% include fastener.html size="M4" variant="countersunk" length="12" %} screw tightly through this hole.
 
 Once done, check that the chute rotates freely relative to the Interface upper fixed section.
 
@@ -341,7 +343,7 @@ Push a 608 2RS bearing into the Interface idler gear.
 
 Push the idler gear onto the Interface NEMA 23 bracket with the bearing facing outwards and secure it with a button head screw <span class="fastener-todo">fastener not recorded</span> (the video uses a screw with a washer).
 
-Slot the NEMA 23 onto the Interface NEMA 23 bracket and secure it with four M5 × 12 mm screws.
+Slot the NEMA 23 onto the Interface NEMA 23 bracket and secure it with four {% include fastener.html size="M5" variant="socket" length="12" %} screws.
 
 At this point the chute should still rotate, but you will now feel resistance from the stepper motor.
 
@@ -358,9 +360,9 @@ At this point the chute should still rotate, but you will now feel resistance fr
 
 Slot the Cable cage top over the Top interface chute mount, with the corners of the hexagon aligning with the Interface brackets.
 
-Place the Cable cage bracket (cable mount) on the Interface bracket opposite the Limit switch housing (this minimises the maximum travel of the cable). Screw it into the Interface bracket with an M5 × 25 mm socket head screw and a T-nut, clamping down the Cable cage top.
+Place the Cable cage bracket (cable mount) on the Interface bracket opposite the Limit switch housing (this minimises the maximum travel of the cable). Screw it into the Interface bracket with an {% include fastener.html size="M5" variant="socket" length="25" %} screw and a T-nut, clamping down the Cable cage top.
 
-Screw the other 5 Cable cage brackets down over the other 5 corners of the Cable cage top with M5 × 25 mm socket head screws and T-nuts.
+Screw the other 5 Cable cage brackets down over the other 5 corners of the Cable cage top with {% include fastener.html size="M5" variant="socket" length="25" %} screws and T-nuts.
 
 {% include step.html n="11" title="Put the cable in the cable cage" %}
 
@@ -373,7 +375,7 @@ Screw the other 5 Cable cage brackets down over the other 5 corners of the Cable
     loading="lazy"></iframe>
 </div>
 
-Place an M3 nut into the bottom of the Cable clamp (outer) (the video skips this), then push it into the recess in the Top interface chute mount. Fasten it with two M3 × 10 mm socket head screws.
+Place an {% include fastener.html size="M3" variant="nut" %} into the bottom of the Cable clamp (outer) (the video skips this), then push it into the recess in the Top interface chute mount. Fasten it with two {% include fastener.html size="M3" variant="socket" length="10" %} screws.
 
 Rotate the chute until it hits the limit switch.
 
@@ -383,7 +385,7 @@ Guide the rest of the ribbon cable around the side of the Top interface chute mo
 
 Screw the Ribbon cable clamp <span class="fastener-todo">fastener not recorded</span> lightly to the Cable cage bracket (cable mount), clamping the ribbon cable between the two.
 
-Check that the chute can rotate fully to the limit switch in both directions, then tighten the Ribbon cable clamp screw. Use a long M3 × 35 mm screw through the Cable clamp (inner) into the M3 nut in the bottom of the Cable clamp (outer) to secure that end (the video uses a different type of screw here).
+Check that the chute can rotate fully to the limit switch in both directions, then tighten the Ribbon cable clamp screw. Use a long {% include fastener.html size="M3" variant="button" length="35" %} screw through the Cable clamp (inner) into the {% include fastener.html size="M3" variant="nut" %} in the bottom of the Cable clamp (outer) to secure that end (the video uses a different type of screw here).
 
 {% include step.html n="12" title="Attach the cable cage bottom" %}
 
@@ -396,13 +398,13 @@ Check that the chute can rotate fully to the limit switch in both directions, th
     loading="lazy"></iframe>
 </div>
 
-Place the Cable cage bottom over the Top interface chute mount. Use 6 M5 × 35 mm socket head screws and M5 nuts to clamp the Cable cage bottom, Cable cage top, and Cable cage brackets together.
+Place the Cable cage bottom over the Top interface chute mount. Use 6 {% include fastener.html size="M5" variant="socket" length="35" %} screws and {% include fastener.html size="M5" variant="nut" %}s to clamp the Cable cage bottom, Cable cage top, and Cable cage brackets together.
 
 After this step the chute should still rotate to each of its limits.
 
 {% include step.html n="13" title="Attach the framing" %}
 
-Insert an extrusion piece F (Interface vertical support) into each of the Interface brackets. Hold each one in place with four M5 × 20 mm button head screws into four T-nuts.
+Insert an extrusion piece F (Interface vertical support) into each of the Interface brackets. Hold each one in place with four {% include fastener.html size="M5" variant="button" length="20" %} screws into four T-nuts.
 
 <figure>
   <img class="doc-figure" src="https://img.basically.website/web/assembly/top-interface/framing-1.ae2ef835181f63bd.jpg" alt="Six vertical extrusion supports bolted into the interface brackets, seen from above on the hexagonal top plate">
@@ -420,7 +422,7 @@ Follow the first two stages of a regular layer, then place the regular layer ass
   <img class="doc-figure" src="https://img.basically.website/web/assembly/top-interface/framing-3.e49b6ce3304489d5.jpg" alt="A regular layer assembly lowered onto the interface assembly">
 </figure>
 
-Attach an External bracket cover to each of the External bracket sides, then fasten each one with 2 M5 × 16 mm screws tapped into the holes at the base of the External bracket sides, bracing against the extrusion.
+Attach an External bracket cover to each of the External bracket sides, then fasten each one with 2 {% include fastener.html size="M5" variant="socket" length="16" %} screws tapped into the holes at the base of the External bracket sides, bracing against the extrusion.
 
 The top interface is now complete.
 

@@ -19,6 +19,8 @@ parts_needed:
 
 Three printed parts that bolt together into one external bracket. **6 per distribution frame (per layer), plus one set per interface.**
 
+{% include fastener-legend.html %}
+
 | Part | Qty per bracket | Qty per machine (6 brackets/layer) | Weight | STL |
 |---|---|---|---|---|
 | External bracket — side | 1 | 6 | 48.5 g | [Download STL](https://sorter-v2-parts.nyc3.cdn.digitaloceanspaces.com/stl/da4b3abd3db72070484178ef5aa1d0906397c6a310bdf0e22f724940bd62dba2.stl) |
@@ -31,14 +33,14 @@ Three printed parts that bolt together into one external bracket. **6 per distri
 |---|---|---|
 | C-Layer vertical support (extrusion) | 1 | The vertical aluminum extrusion the bracket clamps onto. |
 
-- No heat inserts are used on this assembly. Joining is **self-tap**: the M5 × 16 mm screws thread directly into the printed plastic.
+- No heat inserts are used on this assembly. Joining is **self-tap**: the {% include fastener.html size="M5" variant="socket" length="16" %} screws thread directly into the printed plastic.
 - The most-used M5 in the machine, the same screw used on every external bracket, every bin bracket, every interface rib, and every lazy Susan extrusion mount.
-- Of the four M5 × 16 mm screws: **2** join the bottom-vertical part to the side bracket, and **2** clamp the side bracket against the C-Layer vertical support to hold it in place. The **cover clips on**, it takes no screws.
+- Of the four {% include fastener.html size="M5" variant="socket" length="16" %} screws: **2** join the bottom-vertical part to the side bracket, and **2** clamp the side bracket against the C-Layer vertical support to hold it in place. The **cover clips on**, it takes no screws.
 - Matching parts from the same print run are embossed with a shared set code (e.g. **"b2"**) on both the side bracket and the bottom-vertical part, keep marked pairs together so brackets don't get mixed across sets.
 
 <figure>
   <img class="doc-figure" src="https://img.basically.website/web/assembly/external-bracket/parts-laid-out.0a59300a73b4f6c2.jpg" alt="Side bracket, bottom-vertical leg, cover, an extrusion offcut, and the four M5 × 16 mm screws laid out before assembly">
-  <figcaption>Parts for one bracket, laid out before assembly: side bracket, bottom-vertical leg, C-Layer vertical support, and the four M5 × 16 mm screws. The cover is fitted last, in Step 4.</figcaption>
+  <figcaption>Parts for one bracket, laid out before assembly: side bracket, bottom-vertical leg, C-Layer vertical support, and the four {% include fastener.html size="M5" variant="socket" length="16" %} screws. The cover is fitted last, in Step 4.</figcaption>
 </figure>
 
 <div class="img-row">
@@ -48,17 +50,17 @@ Three printed parts that bolt together into one external bracket. **6 per distri
   </figure>
   <figure>
     <img src="https://img.basically.website/web/assembly/external-bracket/bottom-vertical-flange.4b9a511aea49346c.jpg" alt="Close-up of the bottom-vertical part's top flange, showing the holes used to screw it to the side bracket">
-    <figcaption>The bottom-vertical part's top flange, before assembly: the square socket takes the extrusion, and the holes around it are what the two M5 × 16 mm screws in Step 1 go into.</figcaption>
+    <figcaption>The bottom-vertical part's top flange, before assembly: the square socket takes the extrusion, and the holes around it are what the two {% include fastener.html size="M5" variant="socket" length="16" %} screws in Step 1 go into.</figcaption>
   </figure>
 </div>
 
 {% include step.html n="1" title="Mount the bottom-vertical leg to the side bracket" %}
 
-Set the bottom-vertical leg's flanged top into the U-shaped opening of the side bracket, tube pointing down. Line up the screw holes shown above and drive two M5 × 16 mm socket head screws down through the flange into the side bracket.
+Set the bottom-vertical leg's flanged top into the U-shaped opening of the side bracket, tube pointing down. Line up the screw holes shown above and drive two {% include fastener.html size="M5" variant="socket" length="16" %} screws down through the flange into the side bracket.
 
 <figure>
   <img class="doc-figure" src="https://img.basically.website/web/assembly/external-bracket/step1-screwed-underside.d3637471f50acb1b.jpg" alt="Bottom-vertical leg screwed into the underside of the side bracket, seen from above through the square extrusion socket">
-  <figcaption>Two M5 × 16 mm screws join the bottom-vertical leg to the side bracket. Viewed from above, looking down through the square socket that will receive the extrusion.</figcaption>
+  <figcaption>Two {% include fastener.html size="M5" variant="socket" length="16" %} screws join the bottom-vertical leg to the side bracket. Viewed from above, looking down through the square socket that will receive the extrusion.</figcaption>
 </figure>
 
 <div class="callout callout-warning">
@@ -77,7 +79,7 @@ Slide the C-Layer vertical support (the vertical aluminum extrusion) down throug
 
 {% include step.html n="3" title="Screw the bracket down onto the extrusion" %}
 
-Two more M5 × 16 mm screws clamp the side bracket against the C-Layer vertical support to hold it firmly in place.
+Two more {% include fastener.html size="M5" variant="socket" length="16" %} screws clamp the side bracket against the C-Layer vertical support to hold it firmly in place.
 
 <div class="img-row">
   <figure>
@@ -86,7 +88,7 @@ Two more M5 × 16 mm screws clamp the side bracket against the C-Layer vertical 
   </figure>
   <figure>
     <img src="https://img.basically.website/web/assembly/external-bracket/step3-screw-driven-in.259bbc4b6fdbb5b2.jpg" alt="Retention screw driven in, seated flush in the hex socket">
-    <figcaption>After: M5 × 16 mm screw driven in, clamping the bracket against the extrusion. Repeat for the second hole on the opposite face.</figcaption>
+    <figcaption>After: {% include fastener.html size="M5" variant="socket" length="16" %} screw driven in, clamping the bracket against the extrusion. Repeat for the second hole on the opposite face.</figcaption>
   </figure>
 </div>
 

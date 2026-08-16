@@ -248,6 +248,9 @@ interface-cage-bracket-cable:
   name: Cable cage bracket (cable mount)
   category: Printed parts
   image: https://img.basically.website/web/parts/top-interface/interface-cage-bracket-cable.cc282a11d3fc5359.png
+  heat_inserts:
+    - insert: m3-ruthex-long
+      qty: 1
 
 cable-clamp-outer:
   name: Cable clamp (outer)

@@ -80,7 +80,7 @@ parts_needed:
   - part: m5-ruthex-long
     qty: 24
   - part: m3-ruthex-long
-    qty: 11
+    qty: 12
   - part: scr-m5-35-shcs
     qty: 6
   - part: scr-m5-25-shcs
@@ -193,6 +193,16 @@ Before assembling anything, press the heat inserts into the parts that take them
   <figure class="prep-item-figure">
     <img class="doc-figure" src="https://img.basically.website/web/assembly/top-interface/prep-limit-switch-hammer-inserts.8f73ff6876cebff2.jpg" alt="The Limit switch hammer held up, showing a single brass M3 heat insert in its round disc">
     <figcaption>One M3 insert in the round disc.</figcaption>
+  </figure>
+</div>
+
+<div class="prep-item">
+  <div class="prep-item-body">
+    <p><strong>Cable cage bracket (cable mount):</strong> 1 × M3</p>
+  </div>
+  <figure class="prep-item-figure">
+    <img class="doc-figure" src="https://img.basically.website/web/assembly/top-interface/prep-cable-cage-bracket-cable-inserts.72708f4941f1b0da.jpg" alt="The Cable cage bracket (cable mount) held up, showing a single brass M3 heat insert">
+    <figcaption>One M3 insert, for the ribbon cable clamp.</figcaption>
   </figure>
 </div>
 
@@ -372,6 +382,8 @@ At this point the chute should still rotate, but you will now feel resistance fr
     allowfullscreen
     loading="lazy"></iframe>
 </div>
+
+**Heat inserts first:** the Cable cage bracket (cable mount) takes 1 × M3 insert (for the ribbon cable clamp added in the next step). Press it in before assembling.
 
 Slot the Cable cage top over the Top interface chute mount, with the corners of the hexagon aligning with the Interface brackets.
 

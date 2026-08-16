@@ -368,6 +368,11 @@ scr-m3-16-shcs:
   category: Screws
   image: https://img.basically.website/web/parts/hardware/screws/m5-shcs.f415c8d0a2ee3205.jpg
 
+scr-m3-8-cs:
+  name: M3 × 8 mm countersunk screw
+  category: Screws
+  image: https://img.basically.website/web/parts/hardware/screws/countersunk.707eba7998554ea6.jpg
+
 scr-m3-6-cs:
   name: M3 × 6 mm countersunk screw
   category: Screws

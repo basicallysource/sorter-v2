@@ -107,6 +107,8 @@ parts_needed:
     qty: 6
   - part: scr-m3-16-shcs
     qty: 2
+  - part: scr-m3-8-cs
+    qty: 5
   - part: scr-m3-6-cs
     qty: 1
   - part: tnut-m5-2020
@@ -350,7 +352,7 @@ Loosen the screws attaching the Limit switch housing to the extrusion. Slide the
     loading="lazy"></iframe>
 </div>
 
-Slide the prepared [Timing pulley]({{ '/hardware/helpers/pulley-gear-mod/' | relative_url }}) over the shaft of the NEMA 23 stepper motor and tighten the two worm screws on its side. Slide the Interface spur gear onto the Timing pulley and secure it with 5 screws <span class="fastener-todo">fastener not recorded</span>, half tapped into the Interface spur gear and half bracing against the Timing pulley.
+Slide the prepared [Timing pulley]({{ '/hardware/helpers/pulley-gear-mod/' | relative_url }}) over the shaft of the NEMA 23 stepper motor and tighten the two worm screws on its side. Slide the Interface spur gear onto the Timing pulley and secure it with five M3 × 8 mm countersunk screws, half tapped into the Interface spur gear and half bracing against the Timing pulley.
 
 Push a 608 2RS bearing into the Interface idler gear.
 

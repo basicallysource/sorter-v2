@@ -49,6 +49,29 @@ The PSU box has three DC outputs, and each one is a short pigtail: two crimp spa
 
 Repeat for all three outputs.
 
+### Crimping the spade terminal
+
+The crimp is the fiddly part. Strip the wire, seat it fully in the terminal barrel, crimp it in the matching die, and check it does not pull out.
+
+<div class="photo-grid">
+  <figure>
+    <img src="https://img.basically.website/web/harness/psu-pigtail-step1-stripped.d4bb7664ad7ef113.png" alt="Stripped end of the 18 AWG wire showing bare strands">
+    <figcaption>1. Strip the wire back to bare strands.</figcaption>
+  </figure>
+  <figure>
+    <img src="https://img.basically.website/web/harness/psu-pigtail-step2-terminal.a6187f03935ad6ed.png" alt="Stripped wire seated in the spade terminal barrel, not yet crimped">
+    <figcaption>2. Seat the bare strands fully in the terminal barrel.</figcaption>
+  </figure>
+  <figure>
+    <img src="https://img.basically.website/web/harness/psu-pigtail-step3-crimping.13c6e57cff511a3a.png" alt="Crimping the terminal in the red 22 to 16 AWG die of a ratcheting crimp tool">
+    <figcaption>3. Crimp in the matching die — the red (22–16 AWG) jaw suits the 18 AWG wire.</figcaption>
+  </figure>
+  <figure>
+    <img src="https://img.basically.website/web/harness/psu-pigtail-step4-crimped.5988df4ada6c0bb2.png" alt="The finished crimp with the insulation grip closed on the wire jacket">
+    <figcaption>4. Finished: the grip is closed on the jacket and the wire will not pull out.</figcaption>
+  </figure>
+</div>
+
 ## Reference
 
 The full drawing, BOM and downloads for this pigtail are on the [WireViz drawings]({{ '/hardware/electronics/wireviz/' | n }}) page, under **PSU output pigtail**.

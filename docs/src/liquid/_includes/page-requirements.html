@@ -46,6 +46,7 @@ Unknown ids render the raw id so a missing catalog entry is visible, not silent.
               <div class="part-card-media">
                 {% if part.image %}<img class="part-card-img" src="{{ part.image }}" alt="{{ part.name }}">{% endif %}
                 {% if entry.qty %}<span class="part-card-qty">{{ entry.qty }}×</span>{% endif %}
+                {% if part.not_in_calc %}<span class="part-card-warn" title="Not currently in the parts calculator">!</span>{% endif %}
               </div>
               <span class="part-card-name">
                 {% if part.page %}<a href="{{ part.page | relative_url }}">{{ part.name }}</a>{% else %}{{ part.name }}{% endif %}
@@ -75,6 +76,17 @@ Unknown ids render the raw id so a missing catalog entry is visible, not silent.
         {% if part.notes %}<li><strong>{{ part.name }}:</strong> {{ part.notes }}</li>{% endif %}
       {% endfor %}
     </ul>
+    {% endif %}
+
+    {%- comment -%} Legend when any part is flagged as not in the parts calculator. {%- endcomment -%}
+    {% assign warncount = 0 %}
+    {% for entry in page.parts_needed %}
+      {% assign pid = entry.part | default: entry %}
+      {% assign part = site.data.parts[pid] %}
+      {% if part.not_in_calc %}{% assign warncount = warncount | plus: 1 %}{% endif %}
+    {% endfor %}
+    {% if warncount > 0 %}
+    <p class="parts-warn-legend"><span class="part-card-warn">!</span> not currently in the parts calculator.</p>
     {% endif %}
   </section>
   {% endif %}

@@ -30,6 +30,7 @@
 											<img class="part-card-img" src={part.image} alt={part.name} loading="lazy" />
 										{/if}
 										{#if part.qty}<span class="part-card-qty">{part.qty}×</span>{/if}
+										{#if part.not_in_calc}<span class="part-card-warn" title="Not currently in the parts calculator">!</span>{/if}
 									</div>
 									<span class="part-card-name">
 										{#if part.page}<a href={part.page}>{part.name}</a>{:else}{part.name}{/if}
@@ -46,6 +47,9 @@
 							<li><strong>{part.name}:</strong> {part.notes}</li>
 						{/each}
 					</ul>
+				{/if}
+				{#if parts.groups.some((g) => g.parts.some((p) => p.not_in_calc))}
+					<p class="parts-warn-legend"><span class="part-card-warn">!</span> not currently in the parts calculator.</p>
 				{/if}
 			</section>
 		{/if}

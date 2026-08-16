@@ -28,6 +28,8 @@ parts_needed:
 
 The bottom interface stacks the chute mount, a spacer ring, the Lazy Susan bearing, and the bottom static part. Here it is exploded into its components:
 
+{% include fastener-legend.html %}
+
 <div class="img-row">
   <figure>
     <img src="https://img.basically.website/web/assembly/bottom-interface/exploded-view-cropped.1e520f8cdb04989d.jpg" alt="Exploded view of the bottom interface: chute mount on top, spacer ring, Lazy Susan bearing, and the corner mounting brackets below">
@@ -48,7 +50,7 @@ Once assembled, it mounts into the machine frame:
 
 {% include step.html n="1" title="Mount the Lazy Susan to the chute mount" %}
 
-Set the spacer on the chute mount and the [Lazy Susan]({{ '/hardware/parts/lazy-susan/' | relative_url }}) on top. You need to remove the Lazy Susan's rubber tabs first (see [Preparing Lazy Susan]({{ '/hardware/helpers/lazy-susan/' | relative_url }})). Line up a screw hole with a heat insert in the chute mount and drive the screw. Repeat around the disc.
+Set the spacer on the chute mount and the [Lazy Susan]({{ '/hardware/parts/lazy-susan/' | relative_url }}) on top. You need to remove the Lazy Susan's rubber tabs first (see [Preparing Lazy Susan]({{ '/hardware/helpers/lazy-susan/' | relative_url }})). Line up a screw hole with a heat insert in the chute mount and drive the {% include fastener.html size="M4" variant="countersunk" length="12" %} screw. Repeat around the disc.
 
 <div class="img-row">
   <figure>
@@ -63,7 +65,7 @@ The Lazy Susan is two discs, inner and outer, that spin independently. One disc'
 
 <div class="callout callout-warning">
   <span class="callout-icon" aria-hidden="true">⚠</span>
-  <p>The M4 × 12 mm countersunk screws must be very tight. Most electric screwdrivers won't tighten them enough. They're a hassle to reach if they come loose, and machine vibration can work them loose.</p>
+  <p>The {% include fastener.html size="M4" variant="countersunk" length="12" %} screws must be very tight. Most electric screwdrivers won't tighten them enough. They're a hassle to reach if they come loose, and machine vibration can work them loose.</p>
 </div>
 
 <img class="doc-figure" src="https://img.basically.website/web/assembly/bottom-interface/lazy-susan-on-chute-mount.d478621b1f81e5ae.jpg" alt="Lazy Susan bearing mounted on the chute mount with the spacer between them">

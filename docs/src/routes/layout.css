@@ -562,6 +562,36 @@ body {
 	background: var(--ink);
 }
 
+/* Marker for a part that is not in the parts calculator */
+.part-card-warn {
+	position: absolute;
+	top: 0;
+	right: 0;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	min-width: 18px;
+	height: 18px;
+	padding: 0 4px;
+	font-size: 0.78rem;
+	font-weight: 700;
+	line-height: 1;
+	color: var(--color-primary-contrast);
+	background: var(--color-danger);
+	cursor: help;
+}
+
+.parts-warn-legend {
+	margin: 10px 0 0;
+	font-size: 0.8rem;
+	color: var(--muted);
+}
+
+.parts-warn-legend .part-card-warn {
+	position: static;
+	margin-right: 5px;
+}
+
 .parts-notes {
 	margin: 14px 0 0;
 	padding-left: 1.1rem;
@@ -606,6 +636,54 @@ body {
 	color: var(--ink);
 	background: color-mix(in srgb, var(--color-warning) 16%, var(--surface));
 	border: 1px solid color-mix(in srgb, var(--color-warning) 45%, transparent);
+}
+
+/* Inline fastener reference: parts-calculator icon (head-shape silhouette in
+   thread-size colour) + the part-list name. See _includes/fastener.html. */
+.fastener {
+	display: inline-flex;
+	align-items: baseline;
+	gap: 0.25em;
+	white-space: nowrap;
+}
+
+.fastener-icon {
+	align-self: center;
+	vertical-align: -0.18em;
+	flex-shrink: 0;
+}
+
+.fastener-name {
+	white-space: normal;
+}
+
+/* One-line key for the icons above, mirrors the parts-calculator legend. */
+.fastener-legend {
+	margin: 0 0 1rem;
+	font-size: 0.82rem;
+	line-height: 1.5;
+	color: var(--muted);
+}
+
+.fastener-legend-lead {
+	margin-right: 0.35em;
+}
+
+.fastener-legend-swatch {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.3em;
+	margin-right: 0.5em;
+	font-weight: 600;
+	color: var(--ink);
+}
+
+.fastener-legend-swatch::before {
+	content: '';
+	width: 0.7em;
+	height: 0.7em;
+	border-radius: 2px;
+	background: var(--sw);
 }
 
 /* Grouped part + insert-photo rows in the Preparation step */

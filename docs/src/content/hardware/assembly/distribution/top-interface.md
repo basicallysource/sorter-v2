@@ -202,7 +202,7 @@ Before assembling anything, press the heat inserts into the parts that take them
   </div>
   <figure class="prep-item-figure">
     <img class="doc-figure" src="https://img.basically.website/web/assembly/top-interface/prep-cable-cage-bracket-cable-inserts.72708f4941f1b0da.jpg" alt="The Cable cage bracket (cable mount) held up, showing a single brass M3 heat insert">
-    <figcaption>One M3 insert, for the ribbon cable clamp.</figcaption>
+    <figcaption>The one M3 insert in the Cable cage bracket (cable mount).</figcaption>
   </figure>
 </div>
 
@@ -383,7 +383,7 @@ At this point the chute should still rotate, but you will now feel resistance fr
     loading="lazy"></iframe>
 </div>
 
-**Heat inserts first:** the Cable cage bracket (cable mount) takes 1 × M3 insert (for the ribbon cable clamp added in the next step). Press it in before assembling.
+**Heat inserts first:** the Cable cage bracket (cable mount) takes 1 × M3 insert. Press it in before assembling.
 
 Slot the Cable cage top over the Top interface chute mount, with the corners of the hexagon aligning with the Interface brackets.
 

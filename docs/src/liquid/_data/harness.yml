@@ -38,6 +38,9 @@ drawings:
       One output pigtail, x3 per PSU build. Spade terminals onto a +V/-V screw
       pair on the PSU terminal block (7 with 4, 8 with 5, 9 with 6),
       panel-mount jack on the other end.
+    photo: https://img.basically.website/web/harness/psu-pigtail-built.dc73ad657b30cce2.jpg
+    guide: /hardware/electronics/psu-pigtail/
+    guide_label: How to make your own
     png: https://img.basically.website/harness/psu-pigtail.e7a2cf6fc8.png
     svg: https://img.basically.website/harness/psu-pigtail.7cdf562b21.svg
     pdf: https://img.basically.website/harness/psu-pigtail.791cdb0604.pdf

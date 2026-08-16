@@ -1,6 +1,6 @@
 # Hive auth & permissions
 
-Last verified against the code: 2026-08-09. If you touch auth, re-verify and
+Last verified against the code: 2026-08-16. If you touch auth, re-verify and
 update this doc in the same change.
 
 ## The four credential types
@@ -27,11 +27,43 @@ Design philosophy: **a key grants exactly what its scopes say, nothing more.**
   grants nothing.
 - Scope vocabulary lives in `deps.py` (`VALID_API_KEY_SCOPES`): currently
   `models:read`, `models:write`, `samples:read`, `samples:write`,
-  `keys:manage`, `stats:read`.
-- `stats:read` (admin-owned, non-machine-constrained keys only) grants the
-  aggregate stats endpoint (`routers/public_stats.py`) — the replacement for
-  the legacy `PUBLIC_STATS_API_KEY` shared secret, which stays accepted only
-  until consumers cut over; then delete the env var and the legacy branch.
+  `keys:manage`, `stats:read`, `fleet:read`, `fleet:anon`,
+  `contributors:read`, `parts:read`, `parts:prices`.
+- The last six are the **service-to-service surface** —
+  `routers/public_stats.py` and `routers/public_catalog.py`. Every tier of it
+  additionally requires the key's owner to be an admin and the key to be
+  unconstrained, and both conditions live in `deps.resolve_public_scopes` so an
+  endpoint cannot forget one. Register a new endpoint there with
+  `require_public_scope(<scope>)`.
+
+  | Scope | Grants | Withheld because |
+  |---|---|---|
+  | `stats:read` | `/stats`, `/fleet/mass` — fleet-wide aggregates, no machine and no person | — (this is the tier safe for a public consumer) |
+  | `fleet:read` | `/fleet` — the roster with owner Discord where linked | names machine owners |
+  | `fleet:anon` | `/fleet/anon` — the same machines and counts, de-identified | — (safe to repeat aloud; see below) |
+  | `contributors:read` | `/contributors` — who has been labelling | names contributors |
+  | `parts:read` | the parts catalog: identity, category, geometry, weight, colors | — |
+  | `parts:prices` | adds the price block to every catalog row | market data is a licensed feed, not a fact about a brick |
+
+- `stats:read` is also the replacement for the legacy `PUBLIC_STATS_API_KEY`
+  shared secret, which stays accepted **on that tier only** until consumers cut
+  over; then delete the env var and the legacy branch. It has never opened any
+  tier above the aggregates, and must not: a shared secret cannot be revoked
+  for one consumer or narrowed to one tier.
+- **`fleet:anon` is a separate scope and not a flag on `fleet:read`.** The two
+  differ in who may hold them — the de-identified view is for a consumer that
+  repeats what it reads to strangers — so a consumer that should only ever see
+  that view must not hold a credential able to ask for the other. The
+  de-identification is in the payload (no owner, no owner-chosen name, no real
+  machine id, a date rather than a timestamp) rather than in a promise about
+  how the payload gets used. The reasoning for each dropped field is on
+  `get_public_fleet_anon`; the timestamp one is the non-obvious one.
+- **`parts:prices` shapes a payload rather than gating an endpoint.** A key
+  with `parts:read` alone gets every catalog row in full with the price block
+  absent — nothing 403s halfway through a batch. The stripping is by field-name
+  set (`_PRICE_FIELDS`), so a price field added upstream is excluded by default
+  instead of leaking until somebody notices; add its name there in the same
+  change.
 - Keys may carry an optional `expires_at`; expired keys 401.
 - Revocation is a tombstone (`revoked_at`), not a delete, so the UI can show
   history.

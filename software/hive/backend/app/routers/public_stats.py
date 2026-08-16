@@ -16,12 +16,29 @@ machines exist, how much each has sorted, and the owner's Discord where that
 owner linked one. Only for consumers whose credential is kept as well as the
 data is — the balloon box, Spencer's phone — never a public website.
 
+**`GET /fleet/anon` is the de-identified roster** (scope `fleet:anon`): the same
+machines and the same counts with every handle back to a person taken out — no
+owner, no owner-chosen name, no real machine id, and a date rather than a
+timestamp. For a consumer that repeats what it reads to strangers, where the
+safety has to be in the payload rather than in a promise about how the payload
+gets used. It is a scope of its own and not a flag on `fleet:read`, so a
+consumer that should only ever see this view cannot hold a credential that asks
+for the other one.
+
+**`GET /fleet/mass` is in the anonymous tier** (scope `stats:read`): what the
+fleet has sorted by weight rather than by count. No machine and no person in
+it, so it belongs beside `/stats` — the consumer drawing the headline counter is
+the one that wants this next to it.
+
 The split is enforced by SCOPE and not by convention, which is the whole point:
 a key minted for the website carries `stats:read` alone and is refused the
-roster, so leaking it costs aggregates rather than a list of owners. Both tiers
-additionally require the key's owner to be an admin and the key to be
+roster, so leaking it costs aggregates rather than a list of owners. Every tier
+additionally requires the key's owner to be an admin and the key to be
 unconstrained; a machine-scoped key is strictly less powerful than its owner
-and must not read fleet-wide anything.
+and must not read fleet-wide anything. Those two conditions live in
+`deps.resolve_public_scopes` so an endpoint here cannot forget one.
+
+The parts catalog is the sibling surface, in `routers/public_catalog.py`.
 
 Legacy: the `settings.PUBLIC_STATS_API_KEY` shared secret, presented as
 `Authorization: Bearer <key>` or `X-Stats-Key: <key>`. It opens the ANONYMOUS
@@ -31,6 +48,7 @@ every consumer holds a scoped key; delete the env var and the legacy branch
 below after cutover.
 """
 
+import hashlib
 import hmac
 from datetime import datetime, timedelta, timezone
 
@@ -42,17 +60,20 @@ from app.config import settings
 from app.deps import (
     API_KEY_PREFIX,
     API_KEY_SCOPE_CONTRIBUTORS_READ,
+    API_KEY_SCOPE_FLEET_ANON,
     API_KEY_SCOPE_FLEET_READ,
     API_KEY_SCOPE_STATS_READ,
-    _resolve_api_key,
     get_db,
+    presented_bearer_key,
+    require_public_scope,
+    resolve_public_scopes,
 )
 from app.models.machine import Machine
 from app.models.machine_daily_stats import MachineDailyStats
 from app.models.machine_piece import MachinePiece
 from app.models.user import User
 from app.models.user_identity import UserIdentity
-from app.services import analytics, leaderboard, machine_stats
+from app.services import analytics, fleet_mass, leaderboard, machine_stats
 
 router = APIRouter(prefix="/api/public", tags=["public-stats"])
 
@@ -79,39 +100,26 @@ PUBLIC_STATS_LOCAL_TZ = "America/Los_Angeles"
 ACTIVE_MACHINE_MIN_PIECES = 250
 
 
-def _presented_key(authorization: str | None, x_stats_key: str | None) -> str:
-    presented = x_stats_key
-    if not presented and authorization and authorization.startswith("Bearer "):
-        presented = authorization[7:]
-    return (presented or "").strip()
+def require_stats_key(
+    db: Session = Depends(get_db),
+    authorization: str | None = Header(default=None),
+    x_stats_key: str | None = Header(default=None),
+) -> None:
+    """The anonymous tier: aggregates only, so the legacy secret still opens it.
 
-
-def _require_scope(db: Session, presented: str, scope: str, *, allow_legacy: bool) -> None:
-    """Admit an admin-owned, unconstrained `hv_*` key carrying `scope`.
-
-    `allow_legacy` says whether the shared secret is also accepted, and it is
-    false for every tier above the aggregates. A shared secret cannot be
-    revoked for one consumer or scoped to one tier, so letting it stand in for
-    a scope would undo the split it predates.
+    Every tier above this one is `require_public_scope` and nothing else — a
+    shared secret cannot be revoked for one consumer or narrowed to one tier, so
+    letting it stand in for a scope would undo the split it predates. This
+    endpoint keeps it only until the last consumer holds a scoped key.
     """
+    presented = presented_bearer_key(authorization, x_stats_key)
     if presented.startswith(API_KEY_PREFIX):
-        user, scopes, machine_ids = _resolve_api_key(db, presented)
-        if scope not in scopes:
+        if API_KEY_SCOPE_STATS_READ not in resolve_public_scopes(db, presented):
             raise HTTPException(
-                status_code=403, detail=f"API key is missing required scopes: {scope}"
-            )
-        if user.role != "admin":
-            raise HTTPException(status_code=403, detail="Insufficient permissions")
-        if machine_ids is not None:
-            raise HTTPException(
-                status_code=403, detail="Machine-scoped API keys cannot read fleet-wide stats"
+                status_code=403,
+                detail=f"API key is missing required scopes: {API_KEY_SCOPE_STATS_READ}",
             )
         return
-
-    if not allow_legacy:
-        raise HTTPException(
-            status_code=401, detail=f"This endpoint requires an API key with the {scope} scope"
-        )
     # Legacy shared secret — delete once every consumer holds a scoped key.
     configured = (settings.PUBLIC_STATS_API_KEY or "").strip()
     if not configured:
@@ -120,40 +128,9 @@ def _require_scope(db: Session, presented: str, scope: str, *, allow_legacy: boo
         raise HTTPException(status_code=401, detail="Invalid stats API key")
 
 
-def require_stats_key(
-    db: Session = Depends(get_db),
-    authorization: str | None = Header(default=None),
-    x_stats_key: str | None = Header(default=None),
-) -> None:
-    """The anonymous tier: aggregates only, so the legacy secret still opens it."""
-    _require_scope(
-        db, _presented_key(authorization, x_stats_key), API_KEY_SCOPE_STATS_READ, allow_legacy=True
-    )
-
-
-def require_contributors_key(
-    db: Session = Depends(get_db),
-    authorization: str | None = Header(default=None),
-    x_stats_key: str | None = Header(default=None),
-) -> None:
-    """The people tier: names and Discord ids, so a scoped key or nothing."""
-    _require_scope(
-        db,
-        _presented_key(authorization, x_stats_key),
-        API_KEY_SCOPE_CONTRIBUTORS_READ,
-        allow_legacy=False,
-    )
-
-
-def require_fleet_key(
-    db: Session = Depends(get_db),
-    authorization: str | None = Header(default=None),
-    x_stats_key: str | None = Header(default=None),
-) -> None:
-    """The identified tier: machines and owners, so a scoped key or nothing."""
-    _require_scope(
-        db, _presented_key(authorization, x_stats_key), API_KEY_SCOPE_FLEET_READ, allow_legacy=False
-    )
+require_contributors_key = require_public_scope(API_KEY_SCOPE_CONTRIBUTORS_READ)
+require_fleet_key = require_public_scope(API_KEY_SCOPE_FLEET_READ)
+require_fleet_anon_key = require_public_scope(API_KEY_SCOPE_FLEET_ANON)
 
 
 @router.get("/stats", dependencies=[Depends(require_stats_key)])
@@ -200,6 +177,17 @@ def get_public_fleet(db: Session = Depends(get_db)):
     would be the wrong call — a consumer that wants to know how many
     registrations exist can still ask — but `active_machine_count` is the
     number meant for people, and the balloon board says only that one.
+    """
+    return _roster(db)
+
+
+def _roster(db: Session) -> dict:
+    """The identified roster. `/fleet` serves this; `/fleet/anon` projects it.
+
+    One builder for both so the counts cannot drift apart: a de-identified view
+    assembled by its own query would eventually disagree with this one about
+    how many machines exist, and two endpoints disagreeing about the size of
+    the fleet is worse than either being slightly wrong.
     """
     rows = (
         db.query(Machine, UserIdentity)
@@ -267,6 +255,99 @@ def get_public_fleet(db: Session = Depends(get_db)):
         ),
         "active_discord_linked_count": sum(1 for m in active if m["owner_discord"] is not None),
     }
+
+
+# Domain separator for the machine pseudonym. Machine ids are v4 UUIDs, so the
+# hash is not brute-forceable back to one; the separator is belt-and-braces so
+# a digest from here can never collide with a digest of the same id computed
+# for some other purpose.
+_ANON_LABEL_SALT = b"hive/public/fleet-anon/v1"
+
+
+def _anon_label(machine_id: str) -> str:
+    """A stable opaque handle for one machine.
+
+    Stable so a consumer can hold a conversation about the same machine across
+    two questions, and opaque so the handle says nothing about whose it is. A
+    fresh random label per request would be safer by a hair and useless: the
+    thing asking is answering follow-up questions.
+    """
+    digest = hashlib.sha256(_ANON_LABEL_SALT + machine_id.encode()).hexdigest()
+    return "m-" + digest[:6]
+
+
+@router.get("/fleet/anon", dependencies=[Depends(require_fleet_anon_key)])
+def get_public_fleet_anon(db: Session = Depends(get_db)):
+    """The roster with every handle back to a person removed.
+
+    For a consumer that REPEATS WHAT IT READS TO STRANGERS. `/fleet` is for one
+    that keeps its data as well as it keeps its credential; this is for one that
+    by design does not, so the safety has to be in the payload rather than in a
+    promise about how the payload gets used.
+
+    What is dropped, and why each one is a handle and not just a nicety:
+
+    * **`owner_discord`** — the obvious one. A named owner is a named person.
+    * **`name`** — the owner picked it, and people name a machine after
+      themselves, their shop, or their town. It reads like a label and behaves
+      like an identifier.
+    * **`id`** — the real machine UUID appears in hive URLs and in support
+      threads, so it correlates this row with anywhere else it has been seen.
+      Replaced by a stable pseudonym, which supports a follow-up question
+      without being a join key on anything else.
+    * **`last_seen_at`'s time of day** — the non-obvious one, and the reason
+      this endpoint exists rather than `/fleet` minus two fields. A timestamp
+      per machine, sampled over a fleet, is a daily activity pattern; a daily
+      activity pattern is a working-hours schedule; and a schedule is a
+      timezone, which is a rough location. Served as a UTC DATE, which still
+      answers "has this one run recently" and no longer draws a clock.
+
+    What is kept is what the fleet is: how many machines, how much each has
+    sorted, how fast, and whether it is running now — the last as a boolean off
+    the trailing-hour count rather than as a time.
+    """
+    full = _roster(db)
+    machines = [
+        {
+            "label": _anon_label(m["id"]),
+            "is_active": m["is_active"],
+            "pieces_seen": m["pieces_seen"],
+            "distributed": m["distributed"],
+            "overall_ppm": m["overall_ppm"],
+            "last_24h_pieces": m["last_24h_pieces"],
+            "last_30d_pieces": m["last_30d_pieces"],
+            # A boolean, not the hour it happened. Same question answered,
+            # nothing to plot against a clock.
+            "sorting_within_the_hour": m["last_hour_pieces"] > 0,
+            "last_seen_date": (m["last_seen_at"] or "")[:10] or None,
+            "first_seen_date": (m["created_at"] or "")[:10] or None,
+        }
+        for m in full["machines"]
+    ]
+    return {
+        "machines": machines,
+        "active_threshold_pieces": full["active_threshold_pieces"],
+        "active_machine_count": full["active_machine_count"],
+        # Deliberately no registered_machine_count: it counts benches that never
+        # sorted a piece, and this tier's whole audience is people being told a
+        # number out loud. See the note on /fleet.
+    }
+
+
+@router.get("/fleet/mass", dependencies=[Depends(require_stats_key)])
+def get_public_fleet_mass(db: Session = Depends(get_db)):
+    """How much the fleet has sorted, by mass rather than by count.
+
+    An aggregate with no machine and no person in it, so it sits in the
+    anonymous tier alongside `/stats` — the consumer that draws the headline
+    counter is exactly the one that wants this next to it.
+
+    Read `services/fleet_mass.py` before quoting a field: the honest number
+    depends on coverage, and the payload carries both a measured sum and an
+    extrapolation because neither alone is the answer.
+    """
+    ids = [mid for (mid,) in db.query(Machine.id).filter(Machine.archived_at.is_(None)).all()]
+    return fleet_mass.get_fleet_mass(db, ids)
 
 
 def _pieces_by_machine_since(db: Session, ids: list, *, hours: int) -> dict[str, int]:

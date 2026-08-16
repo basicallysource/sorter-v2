@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import time
 
 from app.config import settings
@@ -335,3 +336,120 @@ class TestContributors:
                 assert "avatar_url" not in e
                 assert "user_id" not in e
                 assert "email" not in e
+
+
+class TestFleetAnonTier:
+    """The de-identified roster: what it drops, and that a key for it cannot
+    ask for the identified one."""
+
+    def _admin_headers(self, client, db):
+        from app.models.user import User
+        from tests.conftest import _auth_headers, _login_user, _register_user
+
+        _register_user(client, "anon-admin@test.com", "Password123!", "Anon Admin")
+        _login_user(client, "anon-admin@test.com", "Password123!")
+        user = db.query(User).filter(User.email == "anon-admin@test.com").first()
+        user.role = "admin"
+        db.commit()
+        _login_user(client, "anon-admin@test.com", "Password123!")
+        return _auth_headers(client)
+
+    def _mint(self, client, headers, scopes):
+        r = client.post(
+            "/api/auth/api-keys", json={"name": "anon-key", "scopes": scopes}, headers=headers
+        )
+        assert r.status_code == 200, r.text
+        return r.json()["raw_token"]
+
+    def _link_discord(self, db, email):
+        """Give the machine owner a linked Discord identity, so the identified
+        tier has something to serve and the anonymous one has something to drop."""
+        from app.models.machine import Machine
+        from app.models.user_identity import UserIdentity
+
+        owner_id = db.query(Machine.owner_id).first()[0]
+        db.add(UserIdentity(
+            user_id=owner_id, provider="discord",
+            provider_user_id="1234567890", provider_login="someowner",
+        ))
+        db.commit()
+
+    def test_scope_is_separate_from_fleet_read_in_both_directions(
+        self, client, db, machine_token
+    ):
+        """The whole point of a third scope: neither key can ask for the other's
+        tier, so a consumer that should only see the de-identified view cannot
+        hold a credential that reaches the roster."""
+        headers = self._admin_headers(client, db)
+        anon_only = self._mint(client, headers, ["fleet:anon"])
+        full_only = self._mint(client, headers, ["fleet:read"])
+
+        assert client.get("/api/public/fleet", headers=_bearer(anon_only)).status_code == 403
+        assert client.get("/api/public/fleet/anon", headers=_bearer(full_only)).status_code == 403
+        assert client.get("/api/public/fleet/anon", headers=_bearer(anon_only)).status_code == 200
+
+    def test_drops_every_handle_back_to_a_person(self, client, db, machine_token):
+        _sync(client, machine_token, [
+            {"piece_uuid": "a", "local_id": 1, "seen_at": time.time() - 60,
+             "classification_status": "classified", "part_id": "3001", "color_id": "5"},
+        ])
+        self._link_discord(db, "anon-admin@test.com")
+        headers = self._admin_headers(client, db)
+
+        full = client.get(
+            "/api/public/fleet", headers=_bearer(self._mint(client, headers, ["fleet:read"]))
+        ).json()
+        anon = client.get(
+            "/api/public/fleet/anon", headers=_bearer(self._mint(client, headers, ["fleet:anon"]))
+        ).json()
+
+        # The identified tier really does carry the things being dropped, so
+        # this test fails if the roster stops serving them rather than passing
+        # vacuously.
+        assert full["machines"][0]["owner_discord"]["id"] == "1234567890"
+        assert full["machines"][0]["name"]
+        assert ":" in full["machines"][0]["last_seen_at"]  # a timestamp, with a clock in it
+
+        row = anon["machines"][0]
+        for gone in ("owner_discord", "name", "id", "last_seen_at", "last_hour_pieces"):
+            assert gone not in row, f"{gone} survived into the de-identified roster"
+        # And nothing anywhere in the payload spells the owner's Discord id.
+        assert "1234567890" not in json.dumps(anon)
+
+    def test_keeps_the_counts_and_a_stable_pseudonym(self, client, db, machine_token):
+        _sync(client, machine_token, [
+            {"piece_uuid": f"p{i}", "local_id": i + 1, "seen_at": time.time() - 60,
+             "classification_status": "classified", "part_id": "3001", "color_id": "5"}
+            for i in range(3)
+        ])
+        # Lifetime counters are served out of machine_stats_cache, which an
+        # hourly worker fills and which is therefore empty in a test.
+        from app.services import machine_stats
+
+        machine_stats.refresh_cache(db)
+
+        headers = self._admin_headers(client, db)
+        token = self._mint(client, headers, ["fleet:anon"])
+
+        first = client.get("/api/public/fleet/anon", headers=_bearer(token)).json()
+        again = client.get("/api/public/fleet/anon", headers=_bearer(token)).json()
+
+        row = first["machines"][0]
+        assert row["pieces_seen"] == 3
+        assert row["sorting_within_the_hour"] is True
+        # A DATE, not a timestamp: no clock to plot a working day against.
+        assert len(row["last_seen_date"]) == 10
+        assert row["label"].startswith("m-")
+        # Stable across calls, so a consumer can hold a follow-up conversation
+        # about the same machine.
+        assert row["label"] == again["machines"][0]["label"]
+
+    def test_does_not_serve_the_registration_count(self, client, db, machine_token):
+        """The number that counts benches which never sorted a piece. This tier's
+        audience is people being told a number out loud."""
+        headers = self._admin_headers(client, db)
+        body = client.get(
+            "/api/public/fleet/anon", headers=_bearer(self._mint(client, headers, ["fleet:anon"]))
+        ).json()
+        assert "registered_machine_count" not in body
+        assert "active_machine_count" in body

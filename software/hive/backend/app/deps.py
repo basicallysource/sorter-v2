@@ -35,6 +35,22 @@ API_KEY_SCOPE_FLEET_READ = "fleet:read"
 # anyone who has ever reviewed a sample — and a key that should see one has no
 # business seeing the other.
 API_KEY_SCOPE_CONTRIBUTORS_READ = "contributors:read"
+# The DE-IDENTIFIED fleet tier, for a consumer that repeats what it reads to
+# strangers. Same machines and the same counts as `fleet:read`, with every
+# handle back to a person removed rather than merely omitted from a template:
+# no owner identity, no owner-chosen machine name, and a last-seen date instead
+# of a timestamp. It is a separate scope and not a flag on `fleet:read` because
+# the two differ in who may hold them, and a consumer that should only ever see
+# the de-identified view must not hold a credential that can ask for the other.
+API_KEY_SCOPE_FLEET_ANON = "fleet:anon"
+# The parts catalog, split in two because the halves carry different risk.
+# `parts:read` is CATALOG FACT — what a part is, what it weighs, how big it is,
+# what colors it comes in. `parts:prices` is the market data, which is a
+# licensed feed rather than a fact about a brick and is the half worth being
+# able to withhold from a consumer that gets the rest. A key that should quote
+# a part's weight has no need to quote its price.
+API_KEY_SCOPE_PARTS_READ = "parts:read"
+API_KEY_SCOPE_PARTS_PRICES = "parts:prices"
 VALID_API_KEY_SCOPES = frozenset(
     {
         API_KEY_SCOPE_MODELS_READ,
@@ -44,7 +60,10 @@ VALID_API_KEY_SCOPES = frozenset(
         API_KEY_SCOPE_KEYS_MANAGE,
         API_KEY_SCOPE_STATS_READ,
         API_KEY_SCOPE_FLEET_READ,
+        API_KEY_SCOPE_FLEET_ANON,
         API_KEY_SCOPE_CONTRIBUTORS_READ,
+        API_KEY_SCOPE_PARTS_READ,
+        API_KEY_SCOPE_PARTS_PRICES,
     }
 )
 
@@ -279,5 +298,86 @@ def require_api_key_scopes(*required_scopes: str):
                 detail=f"API key is missing required scopes: {', '.join(missing)}",
             )
         return current_user
+
+    return dependency
+
+
+def presented_bearer_key(authorization: str | None, x_stats_key: str | None) -> str:
+    """The raw key off a service-to-service request, from either header."""
+    presented = x_stats_key
+    if not presented and authorization and authorization.startswith("Bearer "):
+        presented = authorization[7:]
+    return (presented or "").strip()
+
+
+def resolve_public_scopes(db: Session, presented: str) -> frozenset[str]:
+    """Authenticate an `hv_*` key for the service-to-service surface and return
+    what it grants.
+
+    The two conditions every tier of that surface shares, checked here so no
+    endpoint can forget one: the owner must be an admin, and the key must be
+    unconstrained. A machine-scoped key is deliberately *less* powerful than its
+    owner (see `services/access_window.py`), and fleet-wide or catalog-wide
+    reads are not per-machine data, so there is nothing for the constraint to
+    narrow — admitting one would silently hand it everything.
+
+    Raises 401 for anything that is not a well-formed live key.
+    """
+    if not presented.startswith(API_KEY_PREFIX):
+        raise HTTPException(status_code=401, detail="This endpoint requires an API key")
+    user, scopes, machine_ids = _resolve_api_key(db, presented)
+    if user.role != "admin":
+        raise HTTPException(status_code=403, detail="Insufficient permissions")
+    if machine_ids is not None:
+        raise HTTPException(
+            status_code=403,
+            detail="Machine-scoped API keys cannot read fleet-wide or catalog-wide data",
+        )
+    return scopes
+
+
+def require_public_scope(scope: str):
+    """Dependency: admit a key carrying `scope` on the service-to-service surface.
+
+    Deny-by-default, exactly as `require_api_key_scopes` is for the user-facing
+    surface: holding a key is authentication and the scope is the authorization,
+    so a new endpoint here means a new scope rather than a reused neighbour.
+    """
+
+    def dependency(
+        db: Session = Depends(get_db),
+        authorization: str | None = Header(default=None),
+        x_stats_key: str | None = Header(default=None),
+    ) -> None:
+        presented = presented_bearer_key(authorization, x_stats_key)
+        granted = resolve_public_scopes(db, presented)
+        if scope not in granted:
+            raise HTTPException(
+                status_code=403, detail=f"API key is missing required scopes: {scope}"
+            )
+
+    return dependency
+
+
+def optional_public_scope(scope: str):
+    """Dependency: does this already-authenticated request's key carry `scope`?
+
+    For a payload whose SHAPE depends on a second scope — the catalog serves
+    market data only to a key that also holds `parts:prices`, and serves the
+    same part without it otherwise. Returns a bool rather than raising, so the
+    endpoint's own required scope decides admission and this only decides how
+    much of the row comes back.
+    """
+
+    def dependency(
+        db: Session = Depends(get_db),
+        authorization: str | None = Header(default=None),
+        x_stats_key: str | None = Header(default=None),
+    ) -> bool:
+        presented = presented_bearer_key(authorization, x_stats_key)
+        try:
+            return scope in resolve_public_scopes(db, presented)
+        except HTTPException:
+            return False
 
     return dependency

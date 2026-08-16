@@ -381,6 +381,16 @@ class ProfileCatalogService:
         with self._lock:
             return profile_db.batchPieceMovingAvg(self._conn, pairs)
 
+    def batch_part_weights(self, part_nums: list[str]) -> dict[str, float]:
+        """Catalog weight in grams, keyed by part id, for the ids that have one.
+
+        Absent means no weight on file. Used to turn a piece-count histogram
+        into a mass, which is a couple of queries here and would be thousands
+        through `piece_metadata`.
+        """
+        with self._lock:
+            return profile_db.batchPartWeights(self._conn, part_nums)
+
     def admin_list_categories(self) -> list[dict[str, Any]]:
         return profile_db.adminListCategories(self._conn)
 

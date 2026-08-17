@@ -100,7 +100,7 @@ parts_needed:
   - part: m4-12mm-countersunk
     qty: 8
   - part: scr-m3-35-bhcs
-    qty: 1
+    qty: 2
   - part: scr-m3-10-shcs
     qty: 2
   - part: scr-m3-12-cs
@@ -116,6 +116,8 @@ parts_needed:
   - part: nut-m5
     qty: 6
   - part: nut-m3
+    qty: 1
+  - part: washer-m3-15
     qty: 1
 ---
 
@@ -368,7 +370,7 @@ Slide the prepared [Timing pulley]({{ '/hardware/helpers/pulley-gear-mod/' | rel
 
 Push a 608 2RS bearing into the Interface idler gear.
 
-Push the idler gear onto the Interface NEMA 23 bracket with the bearing facing outwards and secure it with a button head screw <span class="fastener-todo">fastener not recorded</span> (the video uses a screw with a washer).
+Push the idler gear onto the Interface NEMA 23 bracket with the bearing facing outwards and secure it with an {% include fastener.html size="M3" variant="button" length="35" %} screw and an M3 × 15 mm washer.
 
 Slot the NEMA 23 onto the Interface NEMA 23 bracket and secure it with four {% include fastener.html size="M5" variant="socket" length="12" %} screws.
 

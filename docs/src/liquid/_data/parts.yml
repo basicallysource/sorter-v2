@@ -395,3 +395,8 @@ nut-m3:
   name: M3 nut
   category: Nuts
   image: https://img.basically.website/web/parts/hardware/nuts/nut-m5.4a3db788bb1ca8a2.jpg
+
+washer-m3-15:
+  name: M3 × 15 mm washer
+  category: Washers
+  not_in_calc: true

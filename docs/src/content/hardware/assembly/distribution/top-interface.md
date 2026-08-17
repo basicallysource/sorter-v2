@@ -102,7 +102,7 @@ parts_needed:
   - part: scr-m3-35-bhcs
     qty: 2
   - part: scr-m3-10-shcs
-    qty: 2
+    qty: 3
   - part: scr-m3-12-cs
     qty: 6
   - part: scr-m3-16-shcs
@@ -121,10 +121,7 @@ parts_needed:
     qty: 1
 ---
 
-<div class="callout callout-warning">
-  <span class="callout-icon" aria-hidden="true">⚠</span>
-  <p>The fasteners and quantities in the parts list come from the build notes and are called out inline at each step. A few smaller screws are not recorded yet; those are marked <span class="fastener-todo">fastener not recorded</span> in the steps below. If you know one, please add its size.</p>
-</div>
+The fasteners and quantities in the parts list come from the build notes and are called out inline at each step.
 
 {% include fastener-legend.html %}
 
@@ -414,7 +411,7 @@ Fold your IDC ribbon cable around the Cable clamp (inner), following the guides 
 
 Guide the rest of the ribbon cable around the side of the Top interface chute mount, in the direction the chute can rotate, back to the Cable cage bracket (cable mount).
 
-Screw the Ribbon cable clamp <span class="fastener-todo">fastener not recorded</span> lightly to the Cable cage bracket (cable mount), clamping the ribbon cable between the two.
+Screw the Ribbon cable clamp lightly to the Cable cage bracket (cable mount) with one {% include fastener.html size="M3" variant="socket" length="10" %} screw, clamping the ribbon cable between the two.
 
 Check that the chute can rotate fully to the limit switch in both directions, then tighten the Ribbon cable clamp screw. Use a long M3 × 35 mm screw through the Cable clamp (inner) into the {% include fastener.html size="M3" variant="nut" %} in the bottom of the Cable clamp (outer) to secure that end (the video uses a different type of screw here).
 

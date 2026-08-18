@@ -103,16 +103,19 @@ ext-2020-ag:
   name: Outer horizontal / Horizontal interface frame (A/G)
   category: Aluminum extrusion (2020)
   image: https://img.basically.website/web/parts/extrusion/extrusion-2020.0691a894c8154731.png
+  caption: 2020 aluminum extrusion, cut to 320 mm (pieces A and G).
 
 ext-2020-bh:
   name: Spoke / Interface spoke, short (B/H)
   category: Aluminum extrusion (2020)
   image: https://img.basically.website/web/parts/extrusion/extrusion-2020.0691a894c8154731.png
+  caption: 2020 aluminum extrusion, cut to 158 mm (pieces B and H).
 
 ext-2020-c:
   name: Layer vertical support (C)
   category: Aluminum extrusion (2020)
   image: https://img.basically.website/web/parts/extrusion/extrusion-2020.0691a894c8154731.png
+  caption: 2020 aluminum extrusion, cut to 154 mm (piece C).
 
 scr-m5-12-bhcs:
   name: M5 × 12 mm button head screw

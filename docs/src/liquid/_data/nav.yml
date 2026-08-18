@@ -80,6 +80,8 @@ sections:
             url: /hardware/electronics/order/
           - title: WireViz drawings
             url: /hardware/electronics/wireviz/
+          - title: Make your own PSU pigtail
+            url: /hardware/electronics/psu-pigtail/
       - title: Helpers
         url: /hardware/helpers/
         children:

@@ -23,6 +23,15 @@ last_verified: 2026-07-12
 {% for d in site.data.harness.drawings %}
 {% if d.of %}### {{ d.title }}{% else %}## {{ d.title }}{% endif %}
 
+{% if d.photo %}
+<figure class="harness-figure harness-photo">
+  <a href="{{ d.guide | n }}">
+    <img src="{{ d.photo }}" alt="Assembled {{ d.title }}">
+  </a>
+  <figcaption>What it looks like built. <a href="{{ d.guide | n }}">{{ d.guide_label }} →</a></figcaption>
+</figure>
+{% endif %}
+
 <figure class="harness-figure">
   <a href="{{ d.png }}" target="_blank" rel="noopener">
     <img src="{{ d.png }}" alt="WireViz drawing: {{ d.title }}">

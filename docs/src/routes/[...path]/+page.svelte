@@ -138,14 +138,17 @@
 	<p class="lede">{fm.lede}</p>
 {/if}
 
-{#if p.author}
+{#if p.authors?.length}
 	<p class="page-author">
-		<span class="page-author-label">Author</span>
-		{#if p.author.url}
-			<a href={p.author.url} target="_blank" rel="noopener">{p.author.name}</a>
-		{:else}
-			{p.author.name}
-		{/if}
+		<span class="page-author-label">{p.authors.length === 1 ? 'Author' : 'Authors'}</span>
+		{#each p.authors as author, i}
+			{#if i > 0}{i === p.authors.length - 1 ? ' and ' : ', '}{/if}
+			{#if author.url}
+				<a href={author.url} target="_blank" rel="noopener">{author.name}</a>
+			{:else}
+				{author.name}
+			{/if}
+		{/each}
 	</p>
 {/if}
 

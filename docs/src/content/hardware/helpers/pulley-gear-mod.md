@@ -7,6 +7,7 @@ slug: helper-pulley-gear-mod
 kicker: Helpers — Timing pulley
 lede: Remove the top flange from the 20-tooth timing pulley before assembly.
 permalink: /hardware/helpers/pulley-gear-mod/
+authors: [abrianbaker, spencer]
 parts_needed:
   - part: pulley-20t-8mm
 tools_needed: [Bottle opener, Needle-nose pliers]

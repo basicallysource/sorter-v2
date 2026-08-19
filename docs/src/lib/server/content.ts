@@ -265,6 +265,7 @@ export type Page = {
 	fm: Frontmatter;
 	html: string;
 	author?: { name: string; url?: string };
+	authors?: Array<{ name: string; url?: string }>;
 	parts?: { groups: PartsGroup[]; notes: ResolvedPart[] };
 	tools?: string[];
 	ogImage?: string;
@@ -326,9 +327,13 @@ export async function getPage(pathParam: string): Promise<Page | null> {
 
 	const page: Page = { url, fm, html };
 
-	if (fm.author) {
-		const a = data.authors?.[fm.author];
-		page.author = a ? { name: a.name, url: a.url } : { name: fm.author };
+	const authorIds = Array.isArray(fm.authors) ? fm.authors : fm.author ? [fm.author] : [];
+	if (authorIds.length) {
+		page.authors = authorIds.map((id: string) => {
+			const a = data.authors?.[id];
+			return a ? { name: a.name, url: a.url } : { name: id };
+		});
+		page.author = page.authors[0];
 	}
 	if (fm.parts_needed) page.parts = resolveParts(fm.parts_needed);
 	if (fm.tools_needed) page.tools = fm.tools_needed;

@@ -2,10 +2,18 @@
 Renders the page author as a byline directly below the page header. Moved out
 of the bottom page-meta box so attribution shows at the top of the page.
 
-Reads page.author, resolved against _data/authors.yml (falling back to the raw
-id when the author is not in the catalog).
+Reads page.authors or page.author, resolved against _data/authors.yml (falling
+back to the raw id when an author is not in the catalog).
 {%- endcomment -%}
-{% if page.author %}
+{% if page.authors %}
+<p class="page-author">
+  <span class="page-author-label">Authors</span>
+  {% for author_id in page.authors %}
+    {% assign author = site.data.authors[author_id] %}
+    {% if author %}{% if author.url %}<a href="{{ author.url }}" target="_blank" rel="noopener">{{ author.name }}</a>{% else %}{{ author.name }}{% endif %}{% else %}{{ author_id }}{% endif %}{% unless forloop.last %}{% if forloop.rindex == 2 %} and {% else %}, {% endif %}{% endunless %}
+  {% endfor %}
+</p>
+{% elsif page.author %}
 {% assign author = site.data.authors[page.author] %}
 <p class="page-author">
   <span class="page-author-label">Author</span>

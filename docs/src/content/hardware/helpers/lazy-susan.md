@@ -8,6 +8,9 @@ kicker: Helpers — Lazy Susan
 lede: One-time prep for the lazy Susan bearing before it goes into an assembly.
 permalink: /hardware/helpers/lazy-susan/
 author: spencer
+parts_needed:
+  - part: lazy-susan
+tools_needed: [Pliers]
 ---
 
 <img class="doc-figure" src="https://img.basically.website/web/helpers/lazy-susan.624357a2efa7d60e.jpg" alt="8-inch lazy Susan bearing; the rubber foot to remove is boxed in red">

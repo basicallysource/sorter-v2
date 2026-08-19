@@ -717,6 +717,24 @@ body {
 .prep-item-figure img + img {
 	margin-top: 8px;
 }
+/* Stacked photos that each carry their own caption directly beneath them */
+.prep-item-figure-split {
+	display: flex;
+	flex-direction: column;
+	gap: 16px;
+}
+.prep-item-figure-split > figure {
+	margin: 0;
+}
+.prep-item-figure-split img.doc-figure {
+	margin-bottom: 0;
+}
+.prep-item-figure-split figcaption {
+	margin-top: 6px;
+	font-size: 0.875rem;
+	line-height: 1.4;
+	color: var(--muted);
+}
 
 .part-card-missing {
 	color: var(--muted);

@@ -225,8 +225,9 @@ needed" block), `notes` (short, collected into a list under the whole block),
 ## Authors
 
 `src/liquid/_data/authors.yml` maps an id to `{name, url}`. A page sets
-`author: <id>` and the byline renders under the page header. Add a
-contributor once here; every page crediting them updates automatically.
+`author: <id>`, or `authors: [id-one, id-two]` for multiple authors, and the
+byline renders under the page header. Add a contributor once here; every page
+crediting them updates automatically.
 
 ## Deploy and PR previews
 

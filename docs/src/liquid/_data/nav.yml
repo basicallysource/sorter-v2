@@ -87,7 +87,7 @@ sections:
         children:
           - title: Preparing Lazy Susan
             url: /hardware/helpers/lazy-susan/
-          - title: Preparing pulley gear mod
+          - title: Prepare timing pulley 20 tooth
             url: /hardware/helpers/pulley-gear-mod/
           - title: Installing heat inserts
             url: /hardware/helpers/heat-inserts/

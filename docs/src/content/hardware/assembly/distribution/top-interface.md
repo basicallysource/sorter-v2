@@ -235,6 +235,17 @@ Slot the Interface NEMA 23 bracket into the Interface upper fixed section and se
 
 Attach the whole assembly to the bottom of the Top plate with {% include fastener.html size="M5" variant="countersunk" length="22" %} screws through holes S2 and S3 into the Interface NEMA 23 bracket.
 
+<div class="img-row">
+  <figure>
+    <img class="doc-figure" src="https://img.basically.website/web/assembly/top-interface/step2-ribs-upper-fixed-section.7d3f252818e7e1a9.jpg" alt="Six grey Interface ribs attached around the circular Interface upper fixed section">
+    <figcaption>The 6 Interface ribs attached to the Interface upper fixed section.</figcaption>
+  </figure>
+  <figure>
+    <img class="doc-figure" src="https://img.basically.website/web/assembly/top-interface/step2-nema23-bracket-underside.2b9fc415b05a6d76.jpg" alt="Underside of the Interface upper fixed section with the Interface NEMA 23 bracket seated in its notch">
+    <figcaption>Underside, with the Interface NEMA 23 bracket seated in its notch.</figcaption>
+  </figure>
+</div>
+
 {% include step.html n="3" title="Prepare the interface brackets" %}
 
 <div class="video-embed video-embed-wide">
@@ -314,6 +325,11 @@ Flip the whole assembly and screw all 6 Interface brackets into place with {% in
 
 Slot the Limit switch hammer into the Top interface chute mount, then secure it from below with an {% include fastener.html size="M3" variant="countersunk" length="6" %} screw (into the hammer's M3 insert).
 
+<div class="callout callout-warning">
+  <span class="callout-icon" aria-hidden="true">⚠</span>
+  <p>The M3 × 6 mm screw head must sit completely flush with the printed Top interface chute mount. It lies inside the Lazy Susan's rotation path, so a raised head will catch.</p>
+</div>
+
 Align the Chute gear on the Top interface chute mount with the notch by the screw for the Limit switch hammer. Attach it with five {% include fastener.html size="M3" variant="countersunk" length="12" %} screws.
 
 Align the Top interface lazy Susan washer with the 4 inner heat inserts on the Top interface chute mount. Align the inner ring of the [Lazy Susan]({{ '/hardware/parts/lazy-susan/' | relative_url }}) with these 4 heat inserts too. Screw the Lazy Susan into position through the washer and into the Top interface chute mount with four {% include fastener.html size="M4" variant="countersunk" length="12" %} screws.
@@ -324,6 +340,17 @@ Align the Top interface lazy Susan washer with the 4 inner heat inserts on the T
 </div>
 
 Once complete, the free section of the Lazy Susan should rotate freely.
+
+<div class="img-row">
+  <figure>
+    <img class="doc-figure" src="https://img.basically.website/web/assembly/top-interface/step6-chute-mount-gear-side.6ea1334010316081.jpg" alt="Gear side of the assembled Top interface chute mount, showing the chute gear, Lazy Susan, and Limit switch hammer">
+    <figcaption>Gear side, with the Chute gear, Lazy Susan, and Limit switch hammer installed.</figcaption>
+  </figure>
+  <figure>
+    <img class="doc-figure" src="https://img.basically.website/web/assembly/top-interface/step6-chute-mount-underside.9820f5b75d239018.jpg" alt="Chute side of the assembled Top interface chute mount with the Limit switch hammer extending from the edge">
+    <figcaption>Chute side of the assembled gear and mount.</figcaption>
+  </figure>
+</div>
 
 {% include step.html n="7" title="Attach the interface chute to the assembly" %}
 
@@ -377,6 +404,21 @@ Push the idler gear onto the Interface NEMA 23 bracket with the bearing facing o
 Slot the NEMA 23 onto the Interface NEMA 23 bracket and secure it with four {% include fastener.html size="M5" variant="socket" length="12" %} screws.
 
 At this point the chute should still rotate, but you will now feel resistance from the stepper motor.
+
+<div class="img-row">
+  <figure>
+    <img class="doc-figure" src="https://img.basically.website/web/assembly/top-interface/step9-timing-pulley-on-motor.fdc302e89a48e23f.jpg" alt="Timing pulley installed on the shaft of a NEMA 23 stepper motor">
+    <figcaption>Timing pulley installed on the NEMA 23 shaft.</figcaption>
+  </figure>
+  <figure>
+    <img class="doc-figure" src="https://img.basically.website/web/assembly/top-interface/step9-interface-spur-gear.7c03bd4052826aaa.jpg" alt="Grey Interface spur gear secured over the timing pulley with five countersunk screws">
+    <figcaption>Interface spur gear secured over the Timing pulley with five M3 × 8 mm screws.</figcaption>
+  </figure>
+  <figure>
+    <img class="doc-figure" src="https://img.basically.website/web/assembly/top-interface/step9-idler-gear-bearing.e4ae66ea7d10f086.jpg" alt="608 2RS bearing pressed into the centre of the grey Interface idler gear">
+    <figcaption>608 2RS bearing pressed into the Interface idler gear.</figcaption>
+  </figure>
+</div>
 
 {% include step.html n="10" title="Attach the cable cage top" %}
 

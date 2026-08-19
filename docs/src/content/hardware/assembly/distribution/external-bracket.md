@@ -11,27 +11,22 @@ author: christoph
 last_verified: 2026-08-03
 parts_needed:
   - part: ext-bracket-left
+    qty: 1
   - part: ext-bracket-bottom-vertical
+    qty: 1
   - part: ext-bracket-cover
+    qty: 1
+  - part: ext-2020-c
+    qty: 1
   - part: scr-m5-16-shcs
     qty: 4
 ---
 
 Three printed parts that bolt together into one external bracket. **6 per distribution frame (per layer), plus one set per interface.**
 
+The fasteners and quantities are in the parts list above and are called out inline at each step.
+
 {% include fastener-legend.html %}
-
-| Part | Qty per bracket | Qty per machine (6 brackets/layer) | Weight | STL |
-|---|---|---|---|---|
-| External bracket — side | 1 | 6 | 48.5 g | [Download STL](https://sorter-v2-parts.nyc3.cdn.digitaloceanspaces.com/stl/da4b3abd3db72070484178ef5aa1d0906397c6a310bdf0e22f724940bd62dba2.stl) |
-| External bracket — bottom vertical | 1 | 6 | 50.6 g | [Download STL](https://sorter-v2-parts.nyc3.cdn.digitaloceanspaces.com/stl/313397afb08fc1943f045905b96131f73f1dc70c05d59fd2583c77da38318c36.stl) |
-| External bracket — cover | 1 | 6 | 12.4 g | [Download STL](https://sorter-v2-parts.nyc3.cdn.digitaloceanspaces.com/stl/f99e33cea11551b8222feac91c28015488ff2c239e632f5098322e7ea10fc96c.stl) |
-
-**Other parts**
-
-| Part | Qty per bracket | Notes |
-|---|---|---|
-| C-Layer vertical support (extrusion) | 1 | The vertical aluminum extrusion the bracket clamps onto. |
 
 - No heat inserts are used on this assembly. Joining is **self-tap**: the {% include fastener.html size="M5" variant="socket" length="16" %} screws thread directly into the printed plastic.
 - The most-used M5 in the machine, the same screw used on every external bracket, every bin bracket, every interface rib, and every lazy Susan extrusion mount.

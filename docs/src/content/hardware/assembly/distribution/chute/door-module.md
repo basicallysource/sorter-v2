@@ -7,6 +7,7 @@ slug: assembly-door-module
 kicker: Chute — Door module
 lede: The per-layer door mechanism that releases parts into a bin.
 permalink: /hardware/assembly/distribution/chute/door-module/
+author: spencer
 ---
 
 The door module is made up of:

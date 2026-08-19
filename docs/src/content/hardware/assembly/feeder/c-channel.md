@@ -7,6 +7,7 @@ slug: assembly-c-channel
 kicker: Feeder — C-Channel
 lede: The C-channel stage itself.
 permalink: /hardware/assembly/feeder/c-channel/
+author: spencer
 ---
 
 _Content pending._

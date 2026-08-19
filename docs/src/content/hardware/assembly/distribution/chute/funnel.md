@@ -7,6 +7,7 @@ slug: assembly-funnel
 kicker: Chute — Funnel
 lede: The funnel that guides parts through the door.
 permalink: /hardware/assembly/distribution/chute/funnel/
+author: spencer
 ---
 
 _Content pending._

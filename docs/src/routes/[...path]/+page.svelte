@@ -138,18 +138,35 @@
 	<p class="lede">{fm.lede}</p>
 {/if}
 
-{#if p.authors?.length}
-	<p class="page-author">
-		<span class="page-author-label">{p.authors.length === 1 ? 'Author' : 'Authors'}</span>
-		{#each p.authors as author, i}
-			{#if i > 0}{i === p.authors.length - 1 ? ' and ' : ', '}{/if}
-			{#if author.url}
-				<a href={author.url} target="_blank" rel="noopener">{author.name}</a>
-			{:else}
-				{author.name}
-			{/if}
-		{/each}
-	</p>
+{#if p.authors?.length || p.contributors?.length}
+	<div class="page-credits">
+		{#if p.authors?.length}
+			<p class="page-author">
+				<span class="page-author-label">{p.authors.length === 1 ? 'Author' : 'Authors'}</span>
+				{#each p.authors as author, i}
+					{#if i > 0}{i === p.authors.length - 1 ? ' and ' : ', '}{/if}
+					{#if author.url}
+						<a href={author.url} target="_blank" rel="noopener">{author.name}</a>
+					{:else}
+						{author.name}
+					{/if}
+				{/each}
+			</p>
+		{/if}
+		{#if p.contributors?.length}
+			<p class="page-author">
+				<span class="page-author-label">{p.contributors.length === 1 ? 'Contributor' : 'Contributors'}</span>
+				{#each p.contributors as contributor, i}
+					{#if i > 0}{i === p.contributors.length - 1 ? ' and ' : ', '}{/if}
+					{#if contributor.url}
+						<a href={contributor.url} target="_blank" rel="noopener">{contributor.name}</a>
+					{:else}
+						{contributor.name}
+					{/if}
+				{/each}
+			</p>
+		{/if}
+	</div>
 {/if}
 
 <Requirements parts={p.parts} tools={p.tools} />

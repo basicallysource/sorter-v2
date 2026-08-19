@@ -215,7 +215,7 @@ const markdown = unified()
 	.use(rehypeSlug)
 	.use(rehypeStringify, { allowDangerousHtml: true });
 
-// ── Parts / authors resolution (page-requirements.html, page-author.html) ────
+// ── Parts / credits resolution (page-requirements.html, page-author.html) ────
 
 export type ResolvedPart = {
 	id: string;
@@ -232,6 +232,15 @@ export type ResolvedPart = {
 	missing?: boolean;
 };
 export type PartsGroup = { category: string; parts: ResolvedPart[] };
+export type ResolvedPerson = { name: string; url?: string };
+
+function resolvePeople(ids: unknown): ResolvedPerson[] {
+	const values = Array.isArray(ids) ? ids : ids ? [ids] : [];
+	return values.map((id) => {
+		const person = data.authors?.[id];
+		return person ? { name: person.name, url: person.url } : { name: String(id) };
+	});
+}
 
 function resolveParts(partsNeeded: any[]): { groups: PartsGroup[]; notes: ResolvedPart[] } {
 	const catalog = data.parts ?? {};
@@ -268,8 +277,8 @@ export type Page = {
 	url: string;
 	fm: Frontmatter;
 	html: string;
-	author?: { name: string; url?: string };
-	authors?: Array<{ name: string; url?: string }>;
+	authors?: ResolvedPerson[];
+	contributors?: ResolvedPerson[];
 	parts?: { groups: PartsGroup[]; notes: ResolvedPart[] };
 	tools?: string[];
 	ogImage?: string;
@@ -332,13 +341,10 @@ export async function getPage(pathParam: string): Promise<Page | null> {
 	const page: Page = { url, fm, html };
 
 	const authorIds = Array.isArray(fm.authors) ? fm.authors : fm.author ? [fm.author] : [];
-	if (authorIds.length) {
-		page.authors = authorIds.map((id: string) => {
-			const a = data.authors?.[id];
-			return a ? { name: a.name, url: a.url } : { name: id };
-		});
-		page.author = page.authors[0];
-	}
+	page.authors = resolvePeople(authorIds);
+	page.contributors = resolvePeople(fm.contributors).filter(
+		(contributor) => !page.authors?.some((author) => author.name === contributor.name)
+	);
 	if (fm.parts_needed) page.parts = resolveParts(fm.parts_needed);
 	if (fm.tools_needed) page.tools = fm.tools_needed;
 

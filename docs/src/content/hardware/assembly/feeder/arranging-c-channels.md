@@ -7,6 +7,7 @@ slug: assembly-arranging-c-channels
 kicker: Feeder — Arranging C-Channels
 lede: How the C-channels are laid out together.
 permalink: /hardware/assembly/feeder/arranging-c-channels/
+author: spencer
 ---
 
 _Content pending._

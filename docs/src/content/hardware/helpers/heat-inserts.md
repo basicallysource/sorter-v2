@@ -7,6 +7,8 @@ slug: helper-heat-inserts
 kicker: Helpers — Heat inserts
 lede: Pressing brass heat-set inserts into printed parts.
 permalink: /hardware/helpers/heat-inserts/
+author: spencer
+contributors: [brickcyclealice, barthel]
 parts_needed:
   - part: m3-ruthex-long
   - part: m4-ruthex-long

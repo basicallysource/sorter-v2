@@ -7,6 +7,7 @@ slug: assembly-layer-connectors
 kicker: Chute — Layer connectors
 lede: The connectors that chain layers together.
 permalink: /hardware/assembly/distribution/chute/layer-connectors/
+author: spencer
 ---
 
 _Content pending._

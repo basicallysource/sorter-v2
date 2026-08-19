@@ -7,6 +7,7 @@ slug: assembly-bin-frame
 kicker: Distribution — Bin frame
 lede: The stacked layers of bins. Layer count is N; build in this order.
 permalink: /hardware/assembly/distribution/bin-frame/
+author: spencer
 ---
 
 1. **[Bottom interface]({{ '/hardware/assembly/distribution/bin-frame/bottom-interface/' | relative_url }})** — the base the frame builds up from.

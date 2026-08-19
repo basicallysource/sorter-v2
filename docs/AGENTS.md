@@ -225,9 +225,13 @@ needed" block), `notes` (short, collected into a list under the whole block),
 ## Authors
 
 `src/liquid/_data/authors.yml` maps an id to `{name, url}`. A page sets
-`author: <id>`, or `authors: [id-one, id-two]` for multiple authors, and the
-byline renders under the page header. Add a contributor once here; every page
-crediting them updates automatically.
+`author: <id>`, or `authors: [id-one, id-two]` for multiple authors. Use
+`contributors: [id-one, id-two]` for people who supplied or materially
+corrected page content. The credits render under the page header. Add a person
+once here; every page crediting them updates automatically.
+
+Every page under `hardware/`, including landing and placeholder pages, must set
+`author` or `authors`. `scripts/validate_frontmatter.py` enforces this.
 
 ## Deploy and PR previews
 

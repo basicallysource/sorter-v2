@@ -7,6 +7,7 @@ slug: assembly-distribution
 kicker: Assembly — Distribution
 lede: The bin tower and the chute that steers parts into it. Build in this order.
 permalink: /hardware/assembly/distribution/
+author: spencer
 ---
 
 Distribution and the interface layer are assembled as one unit.

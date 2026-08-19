@@ -22,7 +22,6 @@ ls-mount-to-chute:
   name: Lazy Susan chute mount
   category: Printed parts
   image: https://img.basically.website/web/parts/ls-mount-to-chute.6e5e37d01abc3ae2.png
-  notes: Prepared with 4× M4 Ruthex long heat inserts.
   heat_inserts:
     - insert: m4-ruthex-long
       qty: 4
@@ -31,7 +30,6 @@ ls-bottom-static:
   name: Lazy Susan bottom static
   category: Printed parts
   image: https://img.basically.website/web/parts/ls-bottom-static.4776c7617442386d.png
-  notes: Prepared with 4× M4 Ruthex long heat inserts.
   heat_inserts:
     - insert: m4-ruthex-long
       qty: 4

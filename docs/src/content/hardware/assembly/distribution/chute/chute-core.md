@@ -7,6 +7,7 @@ slug: assembly-chute-core
 kicker: Chute — Chute core
 lede: The chute assembly. Build one per layer.
 permalink: /hardware/assembly/distribution/chute/chute-core/
+author: spencer
 ---
 
 Build one chute core per layer.

@@ -7,6 +7,7 @@ slug: assembly-pcb
 kicker: Chute — PCB
 lede: The board that drives the servo.
 permalink: /hardware/assembly/distribution/chute/pcb/
+author: spencer
 ---
 
 _Content pending._

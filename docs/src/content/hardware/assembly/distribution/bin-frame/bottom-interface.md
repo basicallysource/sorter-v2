@@ -8,14 +8,25 @@ kicker: Bin frame — Bottom interface
 lede: The component the chute rests on top of.
 permalink: /hardware/assembly/distribution/bin-frame/bottom-interface/
 author: spencer
+contributors: [abrianbaker]
 parts_needed:
   - part: lazy-susan
+    qty: 1
   - part: ls-mount-to-chute
+    qty: 1
   - part: ls-bottom-static
+    qty: 1
   - part: ls-washer
+    qty: 1
+  - part: m4-ruthex-long
+    qty: 8
   - part: m4-12mm-countersunk
     qty: 8
 ---
+
+The fasteners and quantities in the parts list are called out inline at each step.
+
+{% include fastener-legend.html %}
 
 <div class="video-embed video-embed-wide">
   <iframe
@@ -27,8 +38,6 @@ parts_needed:
 </div>
 
 The bottom interface stacks the chute mount, a spacer ring, the Lazy Susan bearing, and the bottom static part. Here it is exploded into its components:
-
-{% include fastener-legend.html %}
 
 <div class="img-row">
   <figure>
@@ -48,7 +57,33 @@ Once assembled, it mounts into the machine frame:
   </figure>
 </div>
 
-{% include step.html n="1" title="Mount the Lazy Susan to the chute mount" %}
+{% include step.html n="1" title="Preparation" %}
+
+Before assembling anything, press the heat inserts into both printed parts while they are still loose. Installing them after the Lazy Susan is mounted is much harder. See [installing heat inserts]({{ '/hardware/helpers/heat-inserts/' | relative_url }}) for the technique.
+
+<div class="prep-item">
+  <div class="prep-item-body">
+    <p><strong>Lazy Susan chute mount:</strong> 4 × M4</p>
+  </div>
+  <figure class="prep-item-figure">
+    <img class="doc-figure" src="https://img.basically.website/web/assembly/bottom-interface/step1-line-up-hole.68efcd2365b95c9f.jpg" alt="Close-up of the Lazy Susan over the chute mount, with one of the four M4 heat inserts visible through a screw hole">
+    <figcaption>The four M4 inserts sit evenly around the circular mounting face.</figcaption>
+  </figure>
+</div>
+
+<div class="prep-item">
+  <div class="prep-item-body">
+    <p><strong>Lazy Susan bottom static:</strong> 4 × M4</p>
+  </div>
+  <figure class="prep-item-figure">
+    <img class="doc-figure" src="https://img.basically.website/web/assembly/bottom-interface/step2-place-chute-adapter.5d3dfd2a5794d4ef.jpg" alt="The chute mount lifted above the bottom static part, showing three of the four brass M4 heat inserts around the black ring">
+    <figcaption>The four M4 inserts sit evenly around the top face.</figcaption>
+  </figure>
+</div>
+
+{% include step.html n="2" title="Mount the Lazy Susan to the chute mount" %}
+
+**Heat inserts first:** press the 4 × M4 inserts into the Lazy Susan chute mount before placing the spacer and bearing.
 
 Set the spacer on the chute mount and the [Lazy Susan]({{ '/hardware/parts/lazy-susan/' | relative_url }}) on top. You need to remove the Lazy Susan's rubber tabs first (see [Preparing Lazy Susan]({{ '/hardware/helpers/lazy-susan/' | relative_url }})). Line up a screw hole with a heat insert in the chute mount and drive the {% include fastener.html size="M4" variant="countersunk" length="12" %} screw. Repeat around the disc.
 
@@ -70,7 +105,9 @@ The Lazy Susan is two discs, inner and outer, that spin independently. One disc'
 
 <img class="doc-figure" src="https://img.basically.website/web/assembly/bottom-interface/lazy-susan-on-chute-mount.d478621b1f81e5ae.jpg" alt="Lazy Susan bearing mounted on the chute mount with the spacer between them">
 
-{% include step.html n="2" title="Mount the Lazy Susan to the bottom static part" %}
+{% include step.html n="3" title="Mount the Lazy Susan to the bottom static part" %}
+
+**Heat inserts first:** press the 4 × M4 inserts into the Lazy Susan bottom static before placing the chute mount and bearing assembly.
 
 The Lazy Susan's other disc screws down into the bottom static part. You reach those screws through a pass-through hole in the chute mount.
 

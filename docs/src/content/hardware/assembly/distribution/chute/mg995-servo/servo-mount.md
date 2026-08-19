@@ -7,6 +7,7 @@ slug: assembly-servo-mount
 kicker: MG995 servo — Servo mount
 lede: The mount the servo bolts into.
 permalink: /hardware/assembly/distribution/chute/mg995-servo/servo-mount/
+author: spencer
 ---
 
 _Content pending._

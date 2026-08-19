@@ -7,6 +7,7 @@ slug: hardware
 kicker: The Physical Machine
 lede: Parts, sourcing, and step-by-step assembly for the physical Sorter V2 machine.
 permalink: /hardware/
+author: spencer
 ---
 
 - **[Assembly]({{ '/hardware/assembly/' | relative_url }})**: the build order, structured like a set of instructions.

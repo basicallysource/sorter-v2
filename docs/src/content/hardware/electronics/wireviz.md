@@ -7,6 +7,8 @@ slug: electronics-wireviz
 kicker: Electronics — WireViz
 lede: The harness drawings and the zip to send a cable vendor.
 permalink: /hardware/electronics/wireviz/
+author: spencer
+contributors: [effreek]
 last_verified: 2026-07-12
 ---
 

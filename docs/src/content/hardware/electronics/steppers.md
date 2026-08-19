@@ -7,6 +7,8 @@ slug: electronics-stepper-connectors
 kicker: Electronics — Stepper connectors
 lede: basically board v1.3 stepper pinout, the connector-to-motor mapping, and the connector reference.
 permalink: /hardware/electronics/steppers/
+author: spencer
+contributors: [effreek]
 last_verified: 2026-07-12
 ---
 

@@ -7,6 +7,8 @@ slug: electronics-order-spec
 kicker: Electronics — Order spec
 lede: Order-ready cable build list for a custom harness vendor.
 permalink: /hardware/electronics/order/
+author: spencer
+contributors: [effreek]
 last_verified: 2026-07-12
 ---
 

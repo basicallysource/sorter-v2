@@ -6,6 +6,7 @@ slug: BOM
 kicker: Hardware — Bill of Materials
 lede: Parts you'll need to buy to build a machine
 permalink: /hardware/BOM
+author: jgadling
 ---
 
 ## Bill of Materials
@@ -34,6 +35,5 @@ Each bin layer:
 
 Vertical supports:
 - 6x 280mm + (160mm * number of bin layers): the interface layer is 280mm, and each bin layer adds 160mm
-
 
 

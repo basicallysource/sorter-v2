@@ -7,6 +7,8 @@ slug: electronics-wire-harness
 kicker: Electronics — Wire harness
 lede: 24V power distribution from the PSU, plus everything connected to basically board v1.3.
 permalink: /hardware/electronics/
+author: spencer
+contributors: [effreek]
 last_verified: 2026-07-12
 ---
 

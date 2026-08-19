@@ -230,8 +230,8 @@ needed" block), `notes` (short, collected into a list under the whole block),
 corrected page content. The credits render under the page header. Add a person
 once here; every page crediting them updates automatically.
 
-Every page under `hardware/assembly/`, including landing and placeholder pages,
-must set `author` or `authors`. `scripts/validate_frontmatter.py` enforces this.
+Every page under `hardware/`, including landing and placeholder pages, must set
+`author` or `authors`. `scripts/validate_frontmatter.py` enforces this.
 
 ## Deploy and PR previews
 

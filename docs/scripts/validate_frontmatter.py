@@ -41,7 +41,7 @@ ALLOWED_TYPES = (
 
 EXCLUDED_DIRS: set[str] = set()
 EXCLUDED_FILES = {"README.md", "AGENTS.md"}
-CREDIT_REQUIRED_PREFIXES = ("hardware/assembly/",)
+CREDIT_REQUIRED_PREFIXES = ("hardware/",)
 
 # Per-section frontmatter defaults, matched by path prefix (later, more
 # specific matches win). Mirrors FM_DEFAULTS in docs/src/lib/server/content.ts.
@@ -152,7 +152,7 @@ def validate_page(
         authors = page_meta.get("authors")
         if not author and not authors:
             errors.append(
-                f"{relative_path}: assembly page must list 'author' or 'authors'"
+                f"{relative_path}: hardware page must list 'author' or 'authors'"
             )
     return errors
 

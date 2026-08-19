@@ -7,6 +7,7 @@ slug: preparation
 kicker: Hardware — Preparation
 lede: Prep done to parts before assembly. Right now that means pressing heat inserts.
 permalink: /hardware/preparation/
+author: spencer
 ---
 
 ## Heat inserts

@@ -7,6 +7,7 @@ slug: electronics-psu-pigtail
 kicker: Electronics — PSU output pigtail
 lede: Build one of the three DC output pigtails for the PSU box: a panel-mount barrel jack and two crimp spade terminals.
 permalink: /hardware/electronics/psu-pigtail/
+author: effreek
 last_verified: 2026-07-12
 ---
 

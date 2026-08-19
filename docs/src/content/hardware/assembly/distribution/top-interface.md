@@ -164,7 +164,7 @@ Before assembling anything, press the heat inserts into the parts that take them
   <figure class="prep-item-figure">
     <img class="doc-figure" src="https://img.basically.website/web/assembly/top-interface/prep-chute-mount-inserts-underside.d9429f336757fc52.jpg" alt="The underside of the white Top interface chute mount, showing brass M4 and M3 heat inserts around the ring">
     <img class="doc-figure" src="https://img.basically.website/web/assembly/top-interface/prep-chute-mount-inserts-underside-grey.f48d2c86ebeb1716.jpg" alt="A closer grey view of the Top interface chute mount underside, showing two of the M3 inserts on the ring beside the recess for the Limit switch hammer screw">
-    <figcaption>Underside: the 4 M4 and 5 of the M3. The other 2 M3 sit by the cable-clamp recess on the top face. Right: a closer look at two of the M3 inserts, next to the recess for the Limit switch hammer screw.</figcaption>
+    <figcaption>Underside: the 4 M4 and 5 of the M3. The other 2 M3 sit by the cable-clamp recess on the top face. The grey shot is a closer look at two of the M3 inserts, next to the recess for the Limit switch hammer screw.</figcaption>
   </figure>
 </div>
 

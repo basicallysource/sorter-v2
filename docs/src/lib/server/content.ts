@@ -226,6 +226,9 @@ export type ResolvedPart = {
 	notes?: string;
 	caption?: string;
 	not_in_calc?: boolean;
+	// Interchangeable alternative (e.g. socket vs button head): true for a bare
+	// tag, or a string naming the alternative. Renders the green "A" badge.
+	alternative?: string | boolean;
 	missing?: boolean;
 };
 export type PartsGroup = { category: string; parts: ResolvedPart[] };
@@ -245,6 +248,7 @@ function resolveParts(partsNeeded: any[]): { groups: PartsGroup[]; notes: Resolv
 			notes: part.notes,
 			caption: part.caption,
 			not_in_calc: part.not_in_calc,
+			alternative: part.alternative,
 			qty,
 			category: part.category ?? 'Other'
 		};

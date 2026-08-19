@@ -91,10 +91,8 @@ parts_needed:
     qty: 6
   - part: scr-m5-20-bhcs
     qty: 24
-  - part: scr-m5-16-bhcs
-    qty: 36
   - part: scr-m5-16-shcs
-    qty: 2
+    qty: 38
   - part: scr-m5-12-shcs
     qty: 4
   - part: m4-12mm-countersunk
@@ -228,9 +226,9 @@ The [Preparation]({{ '/hardware/preparation/' | relative_url }}) page lists ever
 
 **Heat inserts first:** press the 4 × M4 inserts into the Interface upper fixed section and the 6 × M5 and 1 × M3 inserts into the Interface NEMA 23 bracket before you assemble anything here.
 
-Attach the Interface rib (switch gap) to the Interface upper fixed section, two positions counterclockwise of the notch for the stepper mount. Use two {% include fastener.html size="M5" variant="button" length="16" %} screws, tapping directly into the plastic.
+Attach the Interface rib (switch gap) to the Interface upper fixed section, two positions counterclockwise of the notch for the stepper mount. Use two {% include fastener.html size="M5" variant="socket-button" length="16" %} screws, tapping directly into the plastic.
 
-Attach the remaining 5 Interface ribs to the Interface upper fixed section, two {% include fastener.html size="M5" variant="button" length="16" %} screws each, again tapping into the plastic.
+Attach the remaining 5 Interface ribs to the Interface upper fixed section, two {% include fastener.html size="M5" variant="socket-button" length="16" %} screws each, again tapping into the plastic.
 
 Slot the Interface NEMA 23 bracket into the Interface upper fixed section and secure it from below with an {% include fastener.html size="M3" variant="countersunk" length="12" %} screw.
 
@@ -253,7 +251,7 @@ Align an Interface bracket with piece E (Interface spoke, long) of aluminum extr
 
 Place T-nuts in the extrusion, lined up with the 4 holes on the side of the Interface bracket.
 
-Slide the extrusion into the Interface bracket, careful not to dislodge the T-nuts, and drive four {% include fastener.html size="M5" variant="button" length="16" %} screws into them.
+Slide the extrusion into the Interface bracket, careful not to dislodge the T-nuts, and drive four {% include fastener.html size="M5" variant="socket-button" length="16" %} screws into them.
 
 Repeat for all 6 Interface brackets.
 
@@ -274,7 +272,7 @@ Push the Printed dowel pin into the Limit switch housing.
 
 Attach a Roller lever limit switch with two {% include fastener.html size="M3" variant="socket" length="16" %} screws (into the housing's 2 M3 inserts) so the roller sits next to the dowel pin.
 
-Align the switch housing with the extrusion of one of the prepared Interface brackets so the limit switch is on the same face as the sloped side of the bracket. Slide 2 T-nuts into the extrusion and fasten the Limit switch housing to the extrusion with two {% include fastener.html size="M5" variant="socket" length="16" %} screws. Slide it as far toward the Interface bracket as possible for now; it gets aligned properly later.
+Align the switch housing with the extrusion of one of the prepared Interface brackets so the limit switch is on the same face as the sloped side of the bracket. Slide 2 T-nuts into the extrusion and fasten the Limit switch housing to the extrusion with two {% include fastener.html size="M5" variant="socket-button" length="16" %} screws. Slide it as far toward the Interface bracket as possible for now; it gets aligned properly later.
 
 {% include step.html n="5" title="Install the brackets" %}
 
@@ -456,7 +454,7 @@ Follow the first two stages of [a regular layer]({{ '/hardware/assembly/distribu
   <img class="doc-figure" src="https://img.basically.website/web/assembly/top-interface/framing-3.e49b6ce3304489d5.jpg" alt="A regular layer assembly lowered onto the interface assembly">
 </figure>
 
-Attach an External bracket cover to each of the External bracket sides, then fasten each one with 2 {% include fastener.html size="M5" variant="socket" length="16" %} screws into the holes at the base of the External bracket sides, bracing against the extrusion. These holes run parallel to the extrusion profile, and the screws are self-tapping. See the [external bracket]({{ '/hardware/assembly/distribution/external-bracket/' | relative_url }}) instructions for building the bracket itself.
+Attach an External bracket cover to each of the External bracket sides, then fasten each one with 2 {% include fastener.html size="M5" variant="socket-button" length="16" %} screws into the holes at the base of the External bracket sides, bracing against the extrusion. These holes run parallel to the extrusion profile, and the screws are self-tapping. See the [external bracket]({{ '/hardware/assembly/distribution/external-bracket/' | relative_url }}) instructions for building the bracket itself.
 
 The top interface is now complete.
 

@@ -123,8 +123,9 @@ scr-m5-12-bhcs:
   image: https://img.basically.website/web/parts/hardware/screws/m5-button-head.87be93e901c86545.jpg
 
 scr-m5-16-shcs:
-  name: M5 × 16 mm socket head cap screw
+  name: M5 × 16 mm socket / button head
   category: Screws
+  alternative: Socket or button head
   image: https://img.basically.website/web/parts/hardware/screws/m5-shcs.f415c8d0a2ee3205.jpg
 
 # --- Top interface assembly: parts for the framing step and the parts-needed section ---
@@ -342,12 +343,6 @@ scr-m5-8-cs:
 
 scr-m5-20-bhcs:
   name: M5 × 20 mm button head cap screw
-  category: Screws
-  image: https://img.basically.website/web/parts/hardware/screws/button.87be93e901c86545.jpg
-  not_in_calc: true
-
-scr-m5-16-bhcs:
-  name: M5 × 16 mm button head cap screw
   category: Screws
   image: https://img.basically.website/web/parts/hardware/screws/button.87be93e901c86545.jpg
   not_in_calc: true

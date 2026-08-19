@@ -592,6 +592,36 @@ body {
 	margin-right: 5px;
 }
 
+/* Marker for a part that has an interchangeable alternative (e.g. socket vs
+   button head). Same footprint as the "!" but green, "A" for alternative. */
+.part-card-alt {
+	position: absolute;
+	top: 0;
+	right: 0;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	min-width: 18px;
+	height: 18px;
+	padding: 0 4px;
+	font-size: 0.78rem;
+	font-weight: 700;
+	line-height: 1;
+	color: var(--color-primary-contrast);
+	background: var(--color-success);
+	cursor: help;
+}
+
+/* if a card carries both markers, sit the "A" left of the "!" */
+.part-card-warn + .part-card-alt {
+	right: 20px;
+}
+
+.parts-warn-legend .part-card-alt {
+	position: static;
+	margin-right: 5px;
+}
+
 .parts-notes {
 	margin: 14px 0 0;
 	padding-left: 1.1rem;

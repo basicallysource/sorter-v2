@@ -9,5 +9,6 @@ lede: One-time prep for parts used in multiple places on the machine. The assemb
 permalink: /hardware/helpers/
 ---
 
-- **[Preparing Lazy Susan]({{ '/hardware/helpers/lazy-susan/' | relative_url }})**
+- **[Prepare Lazy Susan]({{ '/hardware/helpers/lazy-susan/' | relative_url }})**
 - **[Prepare timing pulley 20 tooth]({{ '/hardware/helpers/pulley-gear-mod/' | relative_url }})**
+- **[Install heat inserts]({{ '/hardware/helpers/heat-inserts/' | relative_url }})**

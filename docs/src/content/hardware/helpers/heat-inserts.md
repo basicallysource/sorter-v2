@@ -1,12 +1,17 @@
 ---
 layout: default
-title: Installing heat inserts
+title: Install heat inserts
 type: how-to
 section: hardware
 slug: helper-heat-inserts
 kicker: Helpers — Heat inserts
 lede: Pressing brass heat-set inserts into printed parts.
 permalink: /hardware/helpers/heat-inserts/
+parts_needed:
+  - part: m3-ruthex-long
+  - part: m4-ruthex-long
+  - part: m5-ruthex-long
+tools_needed: [Soldering iron or heat-set insert press, Needle-nose pliers]
 ---
 
 You can install the brass inserts with a soldering iron or a dedicated heat-set insert press.

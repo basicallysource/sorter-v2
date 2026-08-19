@@ -130,14 +130,13 @@ yourself:
    `originals/<path>` and the web version to `web/<path>`, and prints both URLs.
    Needs Pillow and boto3.
 
-   **Credentials** come from either the `SPACES_KEY` / `SPACES_SECRET` env vars
-   or `~/.config/basically/do-spaces.env` (`KEY=VALUE` lines). The env vars win.
-   If you're an agent running somewhere other than Spencer's Mac, you almost
-   certainly have neither — ask Spencer for a Spaces key scoped to the
-   `basically-docs` bucket rather than assuming you can't add images. Never
-   commit the credentials. If a key genuinely isn't available, say so and use
-   `img-placeholder` divs (above) instead of guessing or embedding the image
-   data directly in the page.
+   **Credentials** are the `SPACES_KEY` / `SPACES_SECRET` environment
+   variables, holding a key scoped to the `basically-docs` bucket. **Check for
+   them rather than assuming** — `echo $SPACES_KEY` — and do not conclude from
+   a past note, this file included, that you don't have them. Never commit
+   them. Only if they are genuinely absent, say so and use `img-placeholder`
+   divs (above) instead of guessing or embedding the image data directly in
+   the page.
 3. **Reference the printed web URL** in the page:
    `https://img.basically.website/web/<path>.<hash>.<jpg|png>`. Plain URL, no Liquid.
 4. Commit the URL, never the image bytes. The URL works identically on PR

@@ -45,7 +45,8 @@ compounded:
    reload they have no reason to attempt.
 
 That is not hypothetical: it is what put a broken drawing on the live WireViz
-page on 2026-08-09, visible in Spencer's browser and fine in incognito. A
+page on 2026-08-09, visible in an already-warmed browser and fine in
+incognito. A
 content-addressed name fixes all three at once, because the object now exists
 before any commit can name it.
 
@@ -113,15 +114,16 @@ than CI's pinned 2.42.2 and the URLs will be for bytes CI would never produce.
 Local renders are for looking at a change. CI is the only renderer whose
 output gets pasted.
 
-Local creds come from `~/.config/basically/do-spaces.env`; CI uses repo
-secrets holding a key scoped to this one bucket. Note CI is the canonical
+Credentials are the `SPACES_KEY` / `SPACES_SECRET` environment variables; CI
+uses repo secrets holding a key scoped to this one bucket. Note CI is the
+canonical
 renderer: it pins WireViz 0.4.1 and graphviz 2.42.2, the graphviz version is
 part of the rendered pixels, and a local render on a different graphviz gets
 quietly normalized by the next CI run for that ref.
 
 Disaster recovery, if the bucket is ever lost or defaced: rotate the key, run
 the workflow on main (`workflow_dispatch`), done. Photos elsewhere in the
-bucket come back from the gravity mirror.
+bucket are restored from an offline mirror held outside this repo.
 
 ## Linking someone to a preview
 

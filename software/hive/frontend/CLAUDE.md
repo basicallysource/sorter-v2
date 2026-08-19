@@ -161,21 +161,18 @@ has repeatedly come out visually wrong. If Lucide doesn't have the icon, say so
 rather than drawing one. Inline SVGs still present in older files are legacy —
 replace them with the Lucide equivalent when you touch that markup.
 
-## Verifying dev Hive — use Claude in Chrome
+## Verifying a change
 
-Dev Hive runs on this Mac (frontend [http://flux.tailf1686d.ts.net:5174](http://flux.tailf1686d.ts.net:5174)).
-**Always verify Hive changes with the `mcp__claude-in-chrome__*` tools.** Every
-interesting route is behind auth, so the browser the extension is connected to
-has to be signed in as the agent account (`claude@sorterdev.com`, see
-`sorter-v2-agent-notes/documentation/projects/hive/dev-hive.md`). Agents cannot
-type passwords — if a route bounces to `/login`, say so and have Spencer sign
-that browser in once; the session then persists for later sessions.
+Look at the real page. Do not build throwaway static HTML mockups to eyeball a
+change, and do not stand up a second dev server if one is already serving the
+frontend with HMR.
 
-Do **not** use the Browser pane (`preview_start` / `mcp__Claude_Browser__*`) for
-Hive: it has no session, so every authed route renders "Profile not found", and
-it does not need its own dev server — one is already running on `:5174` with HMR,
-so edits are live the moment they're saved. Do not build throwaway static HTML
-mockups to eyeball a change; look at the real page.
+Every interesting route is behind auth, so a browser with no session renders
+"Profile not found" on all of them; verifying a change means driving a browser
+that is already signed in. Agents cannot type passwords — if a route bounces to
+`/login`, say so rather than trying to authenticate. Which browser, which
+account and which host are properties of the machine you are running on, not of
+this repo; they are recorded with the rest of the dev-environment notes.
 
 ## Svelte 5 conventions
 

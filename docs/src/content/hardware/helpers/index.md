@@ -11,3 +11,4 @@ permalink: /hardware/helpers/
 
 - **[Preparing Lazy Susan]({{ '/hardware/helpers/lazy-susan/' | relative_url }})**
 - **[Prepare timing pulley 20 tooth]({{ '/hardware/helpers/pulley-gear-mod/' | relative_url }})**
+- **[Installing heat inserts]({{ '/hardware/helpers/heat-inserts/' | relative_url }})**

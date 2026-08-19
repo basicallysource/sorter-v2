@@ -186,6 +186,19 @@ Each LED drop is two segments: a 2x1 dupont feed from the board to a female DC j
   <p>LED strip for the classification channel is <b>6000K</b>. Length: 2× revolutions around the classification channel inner tube = 108.400 mm × 2, so roughly 220 mm.</p>
 </div>
 
+<div class="callout callout-warning">
+  <span class="callout-icon" aria-hidden="true">⚠</span>
+  <p><b>Every LED needs a current-limiting resistor in series, one per light.</b> The 50 mm COB plates and the LED strip have no current limiting of their own. Wired straight to 24V a COB plate pulls about 0.5A (12W), runs far hotter than it needs to, and melts its printed mount. Two lights sharing one resistor is not enough; give each its own (Jon, 2026-08-17).</p>
+</div>
+
+<dl class="spec-list">
+  <dt>On basically board v1.3</dt><dd>Already fitted. <b>180&#8486;</b>, 1206, 250 mW, 1% (LCSC C17924) in series with the +24V feed to each of the four LED headers: R21 on J8, R22 on J9, R27 on J10, R28 on J11. Each has a solder jumper next to it (JP1-JP4) that bridges the resistor out, for a module that already limits its own current</dd>
+  <dt>Wiring an LED straight to the PSU</dt><dd>Fit your own: <b>220&#8486;</b> is what Spencer settled on for the C-channel COB plates and the classification chamber, and <b>200&#8486; is the ballpark</b> he gives people whose lights are overheating. <b>1/4 W</b> is enough at these currents</dd>
+  <dt>Effect</dt><dd>Draw drops from ~0.5A to ~0.1A. Still bright enough for the camera, per the C-channel testing in Feb 2026</dd>
+</dl>
+
+<p>Sources, since this has been asked several times: Spencer in #c-channels 2026-02-13 (&ldquo;went for 220ohm resistor&rdquo;), in the classification chamber thread 2026-03-22 (&ldquo;220 ohm&rdquo;), and in #machine-setup-help 2026-05-13 (&ldquo;They need resistor. Ballpark of 200ohm is good&rdquo;, in series, 1/4 W) after a builder's C-channel COB mount started melting after a minute.</p>
+
 ### 4.4 &nbsp; Sensors and steppers (from basically board v1.3)
 
 <table>
@@ -218,6 +231,7 @@ Each LED drop is two segments: a 2x1 dupont feed from the board to a female DC j
 - MEAN WELL LRS-350-24, 350.4W 24V 14.6A single output &middot; [link](https://www.amazon.com/dp/B013ETVO12)
 - 3Dman fused mains inlet switch, 15A 250V rocker + 10A fuse, 3-pin, 18 AWG &middot; [link](https://www.amazon.com/dp/B07RQV2NPN)
 - DC 12V/24V to 5V USB-C buck converter, 5A 25W, powers Orange Pi 5 &middot; [link](https://www.amazon.com/dp/B0FV3P6KLS)
+- Current-limiting resistor for any LED not fed through basically board v1.3: 220&#8486;, 1/4 W, one per light. The board's own LED headers already have theirs (see 4.3)
 - Cooling fan, 40mm. Not on the 24V bus: it runs off the Orange Pi or the board, so the voltage follows whichever pin header it ends up on. 5V is likely sufficient.
 - uxcell 16-pin IDC flat ribbon cable, FC/FC, 2.54 mm, 1 m, gray &middot; [link](https://www.amazon.com/dp/B07S2W4N9T)
 - Waveshare 4-port USB hub, 24V model (USB 3.2 version, not the 5V industrial one, which cannot take 24V in)

@@ -29,6 +29,7 @@ line inside it would end the HTML block for the markdown parser.
 {%- assign recess = "" -%}
 {%- case include.variant -%}
   {%- when "socket" -%}{%- assign profile = "M7.5 3 h9 v7 h-9 z" -%}{%- assign word = "socket head" -%}{%- assign recess = '<circle cx="12" cy="6.6" r="1.9" fill="var(--bg)"/>' -%}
+  {%- when "socket-button" -%}{%- assign profile = "M7.5 3 h9 v7 h-9 z" -%}{%- assign word = "socket / button head" -%}{%- assign recess = '<circle cx="12" cy="6.6" r="1.9" fill="var(--bg)"/>' -%}
   {%- when "button" -%}{%- assign profile = "M5 10 a7.6 7.6 0 0 1 14 0 z" -%}{%- assign word = "button head" -%}{%- assign recess = '<circle cx="12" cy="6.6" r="1.9" fill="var(--bg)"/>' -%}
   {%- when "flat" -%}{%- assign profile = "M4 4.5 h16 v4 h-16 z" -%}{%- assign word = "flat head" -%}{%- assign recess = '<circle cx="12" cy="6.5" r="1.9" fill="var(--bg)"/>' -%}
   {%- when "countersunk" -%}{%- assign profile = "M4 3 h16 v2.2 l-6.5 5.3 h-3 L4 5.2 z" -%}{%- assign word = "countersunk" -%}{%- assign recess = '<circle cx="12" cy="5.4" r="1.9" fill="var(--bg)"/>' -%}

@@ -85,11 +85,11 @@ sections:
       - title: Helpers
         url: /hardware/helpers/
         children:
-          - title: Prepare Lazy Susan
+          - title: Preparing Lazy Susan
             url: /hardware/helpers/lazy-susan/
           - title: Prepare timing pulley 20 tooth
             url: /hardware/helpers/pulley-gear-mod/
-          - title: Install heat inserts
+          - title: Installing heat inserts
             url: /hardware/helpers/heat-inserts/
       - title: Parts
         url: /hardware/parts/

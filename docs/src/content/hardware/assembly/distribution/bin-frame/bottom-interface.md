@@ -50,7 +50,7 @@ Once assembled, it mounts into the machine frame:
 
 {% include step.html n="1" title="Mount the Lazy Susan to the chute mount" %}
 
-Set the spacer on the chute mount and the [Lazy Susan]({{ '/hardware/parts/lazy-susan/' | relative_url }}) on top. You need to remove the Lazy Susan's rubber tabs first (see [Prepare Lazy Susan]({{ '/hardware/helpers/lazy-susan/' | relative_url }})). Line up a screw hole with a heat insert in the chute mount and drive the {% include fastener.html size="M4" variant="countersunk" length="12" %} screw. Repeat around the disc.
+Set the spacer on the chute mount and the [Lazy Susan]({{ '/hardware/parts/lazy-susan/' | relative_url }}) on top. You need to remove the Lazy Susan's rubber tabs first (see [Preparing Lazy Susan]({{ '/hardware/helpers/lazy-susan/' | relative_url }})). Line up a screw hole with a heat insert in the chute mount and drive the {% include fastener.html size="M4" variant="countersunk" length="12" %} screw. Repeat around the disc.
 
 <div class="img-row">
   <figure>

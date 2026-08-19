@@ -1,6 +1,6 @@
 ---
 layout: default
-title: Prepare Lazy Susan
+title: Preparing Lazy Susan
 type: how-to
 section: hardware
 slug: helper-lazy-susan

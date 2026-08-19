@@ -1,6 +1,6 @@
 ---
 layout: default
-title: Install heat inserts
+title: Installing heat inserts
 type: how-to
 section: hardware
 slug: helper-heat-inserts

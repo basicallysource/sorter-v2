@@ -7,6 +7,7 @@ slug: assembly-feeder
 kicker: Assembly — Feeder
 lede: The C-channel stages that meter parts toward the distribution system.
 permalink: /hardware/assembly/feeder/
+author: spencer
 ---
 
 1. **[C-Channel]({{ '/hardware/assembly/feeder/c-channel/' | relative_url }})** — the C-channel stage itself.

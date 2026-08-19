@@ -7,6 +7,7 @@ slug: assembly
 kicker: Hardware — Assembly
 lede: Build order for the machine. Follow the sections top to bottom.
 permalink: /hardware/assembly/
+author: spencer
 ---
 
 ## Order of operations

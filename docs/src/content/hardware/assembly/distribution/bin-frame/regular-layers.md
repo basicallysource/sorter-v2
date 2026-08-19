@@ -8,6 +8,7 @@ kicker: Bin frame — Regular layers
 lede: The repeating bin layers above the base. Build N−2 for an N-layer machine.
 permalink: /hardware/assembly/distribution/bin-frame/regular-layers/
 author: zed0
+contributors: [brickcyclealice, barthel]
 parts_needed:
   - part: ext-bracket-left
     qty: 6

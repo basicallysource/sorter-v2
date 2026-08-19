@@ -8,6 +8,7 @@ kicker: Bin frame — Bottom interface
 lede: The component the chute rests on top of.
 permalink: /hardware/assembly/distribution/bin-frame/bottom-interface/
 author: spencer
+contributors: [abrianbaker]
 parts_needed:
   - part: lazy-susan
   - part: ls-mount-to-chute

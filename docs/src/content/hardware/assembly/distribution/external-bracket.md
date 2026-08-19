@@ -8,6 +8,7 @@ kicker: Distribution — External bracket
 lede: The bracket that mounts a distribution-frame vertical extrusion to the frame and gives it a mounting point.
 permalink: /hardware/assembly/distribution/external-bracket/
 author: christoph
+contributors: [barthel]
 last_verified: 2026-08-03
 parts_needed:
   - part: ext-bracket-left

@@ -8,6 +8,7 @@ kicker: Distribution — Top interface
 lede: The interface between the feeder and the bin tower.
 permalink: /hardware/assembly/distribution/top-interface/
 author: zed0
+contributors: [barthel, brickcyclealice]
 parts_needed:
   - part: interface-upper-fixed-section
     qty: 1

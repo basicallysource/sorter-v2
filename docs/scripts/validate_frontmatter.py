@@ -41,6 +41,7 @@ ALLOWED_TYPES = (
 
 EXCLUDED_DIRS: set[str] = set()
 EXCLUDED_FILES = {"README.md", "AGENTS.md"}
+CREDIT_REQUIRED_PREFIXES = ("hardware/assembly/",)
 
 # Per-section frontmatter defaults, matched by path prefix (later, more
 # specific matches win). Mirrors FM_DEFAULTS in docs/src/lib/server/content.ts.
@@ -145,6 +146,14 @@ def validate_page(
                 errors.append(
                     f"{relative_path}: last_verified '{value}' is not a valid YYYY-MM-DD date"
                 )
+
+    if relative_path.startswith(CREDIT_REQUIRED_PREFIXES):
+        author = page_meta.get("author")
+        authors = page_meta.get("authors")
+        if not author and not authors:
+            errors.append(
+                f"{relative_path}: assembly page must list 'author' or 'authors'"
+            )
     return errors
 
 

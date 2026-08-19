@@ -7,6 +7,7 @@ slug: assembly-chute
 kicker: Distribution — Chute
 lede: The rotating chute that aims parts at the correct bin.
 permalink: /hardware/assembly/distribution/chute/
+author: spencer
 ---
 
 1. **[Chute core]({{ '/hardware/assembly/distribution/chute/chute-core/' | relative_url }})** — build one per layer.

@@ -7,6 +7,7 @@ slug: assembly-software-setup
 kicker: Assembly — Software setup
 lede: Flash and configure the machine, then continue in the Sorter section.
 permalink: /hardware/assembly/software-setup/
+author: spencer
 ---
 
 Once the hardware is built, set up the software. This hands off to the [Sorter]({{ '/sorter/' | relative_url }}) section.

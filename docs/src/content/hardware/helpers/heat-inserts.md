@@ -9,18 +9,7 @@ lede: Pressing brass heat-set inserts into printed parts.
 permalink: /hardware/helpers/heat-inserts/
 ---
 
-<img class="doc-figure" src="https://img.basically.website/web/tools/heat-insert-press.3890a976bbb772d5.jpg" alt="Benchtop heat-set insert press with a set of tips">
-
-Easiest with a {% include affiliate-link.html url="https://www.amazon.com/Vertical-Machine-Heat-Insertion-Threaded-Components/dp/B0FRXF1ZH6" text="heat-set insert press" %}. You can also use a regular soldering iron.
-
-<div class="video-embed video-embed-wide">
-  <iframe
-    src="https://www.youtube.com/embed/dnUfhQ9JohU"
-    title="Installing heat-set inserts"
-    allow="encrypted-media; picture-in-picture; web-share"
-    allowfullscreen
-    loading="lazy"></iframe>
-</div>
+You can install the brass inserts with a soldering iron or a dedicated heat-set insert press.
 
 ## Using a soldering iron
 
@@ -36,6 +25,21 @@ It travels faster as it gets hotter, so keep a steady hand. Larger inserts take 
 <div class="callout callout-warning">
   <span class="callout-icon" aria-hidden="true">⚠</span>
   <p>Needle-nose pliers help hold the smaller inserts still. They get hot, so do not use your hands.</p>
+</div>
+
+## Using a heat press
+
+<img class="doc-figure" src="https://img.basically.website/web/tools/heat-insert-press.3890a976bbb772d5.jpg" alt="Benchtop heat-set insert press with a set of tips">
+
+A {% include affiliate-link.html url="https://www.amazon.com/Vertical-Machine-Heat-Insertion-Threaded-Components/dp/B0FRXF1ZH6" text="heat-set insert press" %} is the easiest way to install them: it holds the insert square and drives it straight down, so you just line it up over the hole and lower the arm. The video below shows the process.
+
+<div class="video-embed video-embed-wide">
+  <iframe
+    src="https://www.youtube.com/embed/dnUfhQ9JohU"
+    title="Installing heat-set inserts"
+    allow="encrypted-media; picture-in-picture; web-share"
+    allowfullscreen
+    loading="lazy"></iframe>
 </div>
 
 {% include affiliate-footnotes.html %}

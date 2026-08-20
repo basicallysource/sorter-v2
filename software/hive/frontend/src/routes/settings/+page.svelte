@@ -110,7 +110,11 @@
 		{ scope: 'keys:manage', label: 'Manage API keys' },
 		{ scope: 'stats:read', label: 'Read aggregate stats' },
 		{ scope: 'fleet:read', label: 'Read the fleet roster (machines + linked owners)' },
-		{ scope: 'contributors:read', label: 'Read the contributor leaderboard' }
+		{ scope: 'fleet:anon', label: 'Read the de-identified fleet roster (no owners, no names)' },
+		{ scope: 'contributors:read', label: 'Read the contributor leaderboard' },
+		{ scope: 'parts:read', label: 'Read the parts catalog' },
+		{ scope: 'parts:prices', label: 'Read parts market prices' },
+		{ scope: 'server_health:read', label: 'Read server health (storage, DB size, memory)' }
 	];
 	let apiKeySelectedScopes = $state<string[]>([]);
 	let apiKeyExpiresInDays = $state('');

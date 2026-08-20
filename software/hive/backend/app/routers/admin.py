@@ -4,7 +4,14 @@ from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
-from app.deps import get_db, require_role, verify_csrf
+from app.deps import (
+    API_KEY_SCOPE_SERVER_HEALTH_READ,
+    get_db,
+    require_api_key_scopes,
+    require_role,
+    require_role_flex,
+    verify_csrf,
+)
 from app.errors import APIError
 from app.models.user import User
 from app.schemas.auth import AdminUpdateUserRequest, UserResponse
@@ -19,14 +26,21 @@ router = APIRouter(prefix="/api/admin", tags=["admin"])
 def server_health(
     refresh_storage: bool = Query(False),
     db: Session = Depends(get_db),
-    _admin: User = Depends(require_role("admin")),
+    _admin: User = Depends(require_role_flex("admin")),
+    _scope_guard: User = Depends(require_api_key_scopes(API_KEY_SCOPE_SERVER_HEALTH_READ)),
 ):
     """Storage usage (sample vs piece images vs models), DB size, and memory.
 
     Storage figures come from a cache a background worker walks on a slow
     cadence — reading them is instant. refresh_storage=true just nudges that
     worker to walk again soon and returns the current cache immediately (the
-    walk itself is far too slow to run inside the request)."""
+    walk itself is far too slow to run inside the request).
+
+    The only admin route reachable by API key, so that monitoring can watch the
+    box over days without a human holding a browser session open. Still
+    admin-only: `require_role_flex` authenticates a key, `require_api_key_scopes`
+    is what actually authorizes it, and a key needs both the role and
+    `server_health:read`."""
     if refresh_storage:
         get_storage_stats_worker().wake()
     return get_server_health(db)

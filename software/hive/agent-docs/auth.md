@@ -28,7 +28,10 @@ Design philosophy: **a key grants exactly what its scopes say, nothing more.**
 - Scope vocabulary lives in `deps.py` (`VALID_API_KEY_SCOPES`): currently
   `models:read`, `models:write`, `samples:read`, `samples:write`,
   `keys:manage`, `stats:read`, `fleet:read`, `fleet:anon`,
-  `contributors:read`, `parts:read`, `parts:prices`.
+  `contributors:read`, `parts:read`, `parts:prices`, `server_health:read`.
+  The picker in `frontend/src/routes/settings/+page.svelte` is a hand-kept copy
+  of this list — a scope missing there cannot be minted from the UI at all, so
+  add it in the same change.
 - The last six are the **service-to-service surface** —
   `routers/public_stats.py` and `routers/public_catalog.py`. Every tier of it
   additionally requires the key's owner to be an admin and the key to be
@@ -64,6 +67,15 @@ Design philosophy: **a key grants exactly what its scopes say, nothing more.**
   set (`_PRICE_FIELDS`), so a price field added upstream is excluded by default
   instead of leaking until somebody notices; add its name there in the same
   change.
+- **`server_health:read` is not part of that public surface** — it is the one
+  route under `/api/admin` a key can reach, and it uses the ordinary
+  `require_role_flex("admin")` + `require_api_key_scopes(...)` pairing rather
+  than `require_public_scope`. It exists so monitoring can watch storage, DB
+  size and the API's own memory counters across days without a human keeping a
+  browser session alive, which is what a slow memory leak actually requires.
+  The key's owner must still be an admin: the resolver only authenticates, and
+  dropping either dependency would widen the route rather than merely change
+  how it is called.
 - Keys may carry an optional `expires_at`; expired keys 401.
 - Revocation is a tombstone (`revoked_at`), not a delete, so the UI can show
   history.

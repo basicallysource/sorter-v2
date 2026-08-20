@@ -340,3 +340,59 @@ class TestApiKeyScopes:
             headers=key_headers,
         )
         assert response.status_code == 403
+
+
+class TestServerHealthScope:
+    """`server_health:read` is the one /api/admin route a key can reach.
+
+    Both guards have to hold: the key's owner must be an admin AND the key must
+    carry the scope. Dropping either would widen the route, so both are pinned
+    here rather than only the happy path.
+    """
+
+    def test_scoped_admin_key_reads_server_health(self, client: TestClient, db: Session) -> None:
+        admin_headers = _login_admin(client, db)
+        token = _create_api_key(
+            client, admin_headers, name="monitoring", scopes=["server_health:read"]
+        )
+        response = client.get(
+            "/api/admin/server-health", headers={"Authorization": f"Bearer {token}"}
+        )
+        assert response.status_code == 200, response.text
+        memory = response.json()["memory"]
+        # The counters this scope exists to expose.
+        assert "python_allocated_blocks" in memory
+        assert "glibc" in memory
+
+    def test_key_without_the_scope_is_refused(self, client: TestClient, db: Session) -> None:
+        admin_headers = _login_admin(client, db)
+        token = _create_api_key(
+            client, admin_headers, name="models-only", scopes=["models:read"]
+        )
+        response = client.get(
+            "/api/admin/server-health", headers={"Authorization": f"Bearer {token}"}
+        )
+        assert response.status_code == 403, response.text
+
+    def test_non_admin_key_is_refused_even_with_the_scope(
+        self, client: TestClient, db: Session
+    ) -> None:
+        # Minting needs admin, so mint as admin and then demote the owner. What
+        # is under test is the role check at read time, not who may mint: a key
+        # keeps its scopes when its owner loses the role, and the scope alone
+        # must not be enough.
+        admin_headers = _login_admin(client, db)
+        token = _create_api_key(
+            client, admin_headers, name="soon-demoted", scopes=["server_health:read"]
+        )
+        _promote(db, "admin-scopes@test.com", "member")
+        response = client.get(
+            "/api/admin/server-health", headers={"Authorization": f"Bearer {token}"}
+        )
+        assert response.status_code == 403, response.text
+
+    def test_cookie_admin_still_works(self, client: TestClient, db: Session) -> None:
+        # require_role_flex replaced require_role; the browser path must be intact.
+        admin_headers = _login_admin(client, db)
+        response = client.get("/api/admin/server-health", headers=admin_headers)
+        assert response.status_code == 200, response.text

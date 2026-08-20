@@ -51,6 +51,14 @@ API_KEY_SCOPE_FLEET_ANON = "fleet:anon"
 # a part's weight has no need to quote its price.
 API_KEY_SCOPE_PARTS_READ = "parts:read"
 API_KEY_SCOPE_PARTS_PRICES = "parts:prices"
+# Infrastructure telemetry: storage totals, database size, and the API process's
+# own memory counters. Every scope above describes the DATA hive holds; this one
+# describes the SERVER holding it, which is a different thing to be trusted with.
+# A monitoring key that watches memory over days has no business reading
+# machines, parts or contributors, and none of those consumers need to know how
+# much disk is left. Admin-only on top of the scope, because the storage and DB
+# figures say as much about the business as they do about the box.
+API_KEY_SCOPE_SERVER_HEALTH_READ = "server_health:read"
 VALID_API_KEY_SCOPES = frozenset(
     {
         API_KEY_SCOPE_MODELS_READ,
@@ -64,6 +72,7 @@ VALID_API_KEY_SCOPES = frozenset(
         API_KEY_SCOPE_CONTRIBUTORS_READ,
         API_KEY_SCOPE_PARTS_READ,
         API_KEY_SCOPE_PARTS_PRICES,
+        API_KEY_SCOPE_SERVER_HEALTH_READ,
     }
 )
 

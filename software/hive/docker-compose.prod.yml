@@ -55,6 +55,19 @@ services:
       postgres:
         condition: service_healthy
     environment:
+      # Half the resident set is glibc, not Python. This process runs ~15
+      # threads (uvicorn plus five background daemons and the teacher pool) on a
+      # 2-core box, and glibc lets a threaded program open 8 arenas per core, so
+      # it had spread 625 MB across 14 per-thread arenas — memory Python has
+      # already freed but glibc will not hand back, because a single live
+      # allocation anywhere in a 64 MB arena pins the whole arena.
+      #
+      # Two arenas means allocation contends a little and stays compact instead.
+      # Measured on prod 2026-08-20: 14 arenas, 625 MB of a 1288 MB anon total.
+      # This bounds fragmentation, which is not the same thing as fixing the
+      # leak — whatever keeps allocating is still doing it. Expect a lower
+      # floor and a slower climb, not a flat line.
+      MALLOC_ARENA_MAX: "2"
       ENVIRONMENT: ${ENVIRONMENT}
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
       JWT_SECRET: ${JWT_SECRET}

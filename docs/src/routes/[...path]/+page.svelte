@@ -169,6 +169,15 @@
 	</div>
 {/if}
 
+<!-- A caveat about the whole page (frontmatter `warning:`) goes above the parts
+     block, so it is read before the contents rather than after them. -->
+{#if p.warning}
+	<div class="callout callout-warning page-warning">
+		<span class="callout-icon" aria-hidden="true">⚠</span>
+		<div class="page-warning-body">{@html p.warning}</div>
+	</div>
+{/if}
+
 <Requirements parts={p.parts} tools={p.tools} />
 
 <div class="md-content" bind:this={contentEl}>

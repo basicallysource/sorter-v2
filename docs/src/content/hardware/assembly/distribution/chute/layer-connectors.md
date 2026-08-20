@@ -8,6 +8,41 @@ kicker: Chute — Layer connectors
 lede: The connectors that chain layers together.
 permalink: /hardware/assembly/distribution/chute/layer-connectors/
 author: spencer
+contributors: [barthel]
+warning: >-
+  **AI-generated first draft.** Written from the machine assembly tree in the [parts
+  calculator](https://parts-calculator.basically.website/assembly?focus=layer-connector), not
+  from an actual build. No step here has been checked against a machine. Correct it as you
+  build.
+parts_needed:
+  - part: layer-connector-1
+    qty: 1
+  - part: layer-connector-2
+    qty: 1
+  - part: scr-m3-12-cs
+    qty: 6
+  - part: scr-m3-8-cs
+    qty: 8
 ---
 
-_Content pending._
+The layer connectors are a pair of printed parts, Layer connector A and Layer connector B, that join one layer's chute to the next one down so parts pass from chute to chute without a gap.
+
+The fasteners and quantities are in the parts list above and are called out inline at each step.
+
+{% include fastener-legend.html %}
+
+- **How many:** 1 of each per distribution layer, plus 1 of each for the [top interface]({{ '/hardware/assembly/distribution/top-interface/' | relative_url }}) and 1 of each for the [bottom interface]({{ '/hardware/assembly/distribution/bin-frame/bottom-interface/' | relative_url }}).
+- The screws in the list are the [chute core]({{ '/hardware/assembly/distribution/chute/chute-core/' | relative_url }})'s whole set of 6 {% include fastener.html size="M3" variant="countersunk" length="12" %} and 8 {% include fastener.html size="M3" variant="countersunk" length="8" %}, shared with the funnel brackets and the door module. Only some of them land here.
+- Both connectors go into the chute core's M3 heat inserts.
+
+{% include step.html n="1" title="Fit the connectors to the chute core" %}
+
+Both connectors fasten to the [chute core]({{ '/hardware/assembly/distribution/chute/chute-core/' | relative_url }}), into its M3 heat inserts.
+
+The split between the two screw lengths is not recorded yet: <span class="fastener-todo">fastener not recorded</span>.
+
+<div class="img-placeholder">Image coming</div>
+
+{% include step.html n="2" title="Check the alignment against the layer below" %}
+
+Build the layers up first and check that A on one layer lines up with B on the layer below before tightening. Nothing here is adjustable once the tower is stacked.

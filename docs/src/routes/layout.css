@@ -850,6 +850,15 @@ body {
 	margin: 0;
 }
 
+.page-warning {
+	margin-top: 1.6rem;
+}
+
+/* Multi-paragraph warnings keep the callout's tight paragraph spacing. */
+.page-warning-body p + p {
+	margin-top: 0.5rem;
+}
+
 .callout-warning {
 	border-color: color-mix(in srgb, var(--color-warning) 40%, transparent);
 	background: color-mix(in srgb, var(--color-warning) 6%, var(--surface));
@@ -1098,6 +1107,7 @@ li {
 
 .md-content a,
 .lede a,
+.page-warning-body a,
 .page-meta a {
 	color: var(--primary);
 	text-decoration: underline;
@@ -1107,6 +1117,7 @@ li {
 
 .md-content a:hover,
 .lede a:hover,
+.page-warning-body a:hover,
 .page-meta a:hover {
 	color: var(--primary-hover);
 }

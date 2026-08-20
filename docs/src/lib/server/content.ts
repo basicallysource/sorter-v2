@@ -286,6 +286,9 @@ export type Page = {
 	contributors?: ResolvedPerson[];
 	parts?: { groups: PartsGroup[]; notes: ResolvedPart[] };
 	tools?: string[];
+	/** Rendered `warning:` front matter, shown above the parts block so a caveat
+	 *  about the whole page is read before its contents. */
+	warning?: string;
 	ogImage?: string;
 };
 
@@ -352,6 +355,10 @@ export async function getPage(pathParam: string): Promise<Page | null> {
 	);
 	if (fm.parts_needed) page.parts = resolveParts(fm.parts_needed);
 	if (fm.tools_needed) page.tools = fm.tools_needed;
+	if (fm.warning) {
+		const warned = await liquid.parseAndRender(String(fm.warning), { site, page: { ...fm, url } });
+		page.warning = String(await markdown.process(warned));
+	}
 
 	const img = html.match(/<img[^>]*src="([^"]+)"/);
 	if (img) page.ogImage = img[1].startsWith('http') ? img[1] : site.url + img[1];

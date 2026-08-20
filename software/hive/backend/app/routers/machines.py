@@ -1,12 +1,14 @@
 from datetime import datetime, timezone
 from typing import Any
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, Query, Request
 from pydantic import BaseModel, Field
 from slowapi import Limiter
 from slowapi.util import get_remote_address
-from sqlalchemy import func
+from sqlalchemy import delete, func, select, tuple_
+from sqlalchemy.dialects.postgresql import insert as pg_insert
+from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.orm import Session, joinedload
 
 from app.deps import get_current_machine, get_current_user, get_db, require_role, verify_csrf
@@ -783,41 +785,70 @@ def report_machine_set_progress(
 
     normalized_items = list(normalized_by_key.values())
 
-    existing_rows = db.query(MachineSetProgress).filter(
-        MachineSetProgress.assignment_id == assignment.id
-    ).all()
-    existing_by_key = {
-        (row.set_num, row.part_num, row.color_id): row
-        for row in existing_rows
+    # Set-based write. The previous path loaded every row as an ORM object,
+    # mutated all of them (touching updated_at even when nothing changed) and
+    # flushed an 8.5k-parameter executemany — slower than the sorter's 15s
+    # client timeout, and under contention slower than the 60s statement
+    # timeout. Every retry then queued behind the previous attempt's row locks,
+    # and the pile of abandoned threadpool workers (each pinning its parsed
+    # payload, ORM session and artifact index) is what OOM-cycled hive-prod on
+    # 2026-08-20. The upsert's WHERE makes an unchanged row a no-op, so the
+    # steady state (machine re-reports a mostly-identical snapshot) writes
+    # almost nothing and leaves no dead tuples behind.
+    progress = MachineSetProgress.__table__
+    existing_keys = {
+        (row.set_num, row.part_num, row.color_id)
+        for row in db.execute(
+            select(progress.c.set_num, progress.c.part_num, progress.c.color_id).where(
+                progress.c.assignment_id == assignment.id
+            )
+        )
     }
 
     deleted = 0
-    for key, row in existing_by_key.items():
-        if key not in incoming_keys:
-            db.delete(row)
-            deleted += 1
-
-    for item in normalized_items:
-        key = (item["set_num"], item["part_num"], item["color_id"])
-        existing = existing_by_key.get(key)
-        if existing is not None:
-            existing.quantity_found = item["quantity_found"]
-            existing.quantity_needed = item["quantity_needed"]
-            existing.updated_at = now
-            continue
-
-        db.add(
-            MachineSetProgress(
-                machine_id=machine.id,
-                assignment_id=assignment.id,
-                set_num=item["set_num"],
-                part_num=item["part_num"],
-                color_id=item["color_id"],
-                quantity_needed=item["quantity_needed"],
-                quantity_found=item["quantity_found"],
-                updated_at=now,
+    stale_keys = existing_keys - incoming_keys  # non-empty only right after the profile changed
+    if stale_keys:
+        deleted = db.execute(
+            delete(progress).where(
+                progress.c.assignment_id == assignment.id,
+                tuple_(progress.c.set_num, progress.c.part_num, progress.c.color_id).in_(stale_keys),
             )
+        ).rowcount
+
+    # Chunked: the full snapshot is ~8.5k rows x 9 columns, past both
+    # postgres's and sqlite's bind-parameter caps in one statement.
+    insert_fn = pg_insert if db.bind.dialect.name == "postgresql" else sqlite_insert
+    for start in range(0, len(normalized_items), 1000):
+        chunk = normalized_items[start : start + 1000]
+        stmt = insert_fn(progress).values(
+            [
+                {
+                    "id": uuid4(),
+                    "machine_id": machine.id,
+                    "assignment_id": assignment.id,
+                    "set_num": item["set_num"],
+                    "part_num": item["part_num"],
+                    "color_id": item["color_id"],
+                    "quantity_needed": item["quantity_needed"],
+                    "quantity_found": item["quantity_found"],
+                    "updated_at": now,
+                }
+                for item in chunk
+            ]
         )
+        stmt = stmt.on_conflict_do_update(
+            index_elements=["assignment_id", "set_num", "part_num", "color_id"],
+            set_={
+                "quantity_needed": stmt.excluded.quantity_needed,
+                "quantity_found": stmt.excluded.quantity_found,
+                "updated_at": stmt.excluded.updated_at,
+            },
+            where=(
+                (progress.c.quantity_needed != stmt.excluded.quantity_needed)
+                | (progress.c.quantity_found != stmt.excluded.quantity_found)
+            ),
+        )
+        db.execute(stmt)
 
     db.commit()
     return {"ok": True, "updated": len(normalized_items), "deleted": deleted}

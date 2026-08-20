@@ -9,6 +9,29 @@ lede: The C-channel stage itself.
 permalink: /hardware/assembly/feeder/c-channel/
 author: spencer
 contributors: [barthel]
+parts_needed:
+  - part: stator
+    qty: 1
+  - part: nema-bracket
+    qty: 1
+  - part: output-gear
+    qty: 1
+  - part: idler-gear
+    qty: 1
+  - part: input-gear
+    qty: 1
+  - part: motor-nema17
+    qty: 1
+  - part: brg-6806-2rs
+    qty: 1
+  - part: brg-608-2rs
+    qty: 1
+  - part: scr-m3-12-cs
+    qty: 4
+  - part: scr-m3-16-shcs
+    qty: 3
+  - part: scr-m3-8-cs
+    qty: 5
 ---
 
 <div class="callout callout-warning">
@@ -16,25 +39,16 @@ contributors: [barthel]
   <p><strong>AI-generated first draft.</strong> Written from the machine assembly tree in the <a href="https://parts-calculator.basically.website/assembly?focus=c-channel">parts calculator</a>, not from an actual build. No step here has been checked against a machine. Correct it as you build.</p>
 </div>
 
-A C-channel is one drive unit: a stator, the NEMA bracket bolted under it, a gear train, and a NEMA 17 stepper. **Build 4 per machine**, three in the feeder and one for the classification channel.
+A C-channel is one drive unit: a stator, the NEMA bracket bolted under it, a gear train, and a NEMA 17 stepper.
 
-**Parts, per C-channel:**
-
-| Part | Qty |
-|---|---|
-| Stator | 1 |
-| NEMA bracket | 1 |
-| Output gear (130T) | 1, with a 6806-2RS bearing pressed in |
-| Idler gear (24T) | 1, with a 608-2RS bearing pressed in |
-| Input gear (12T, screw) | 1 |
-| NEMA 17 stepper motor | 1 |
-| M3 × 12 mm countersunk | 4 |
-| M3 × 16 mm socket head | 3 |
-| M3 × 8 mm countersunk | 5 |
-
-The rotor is **not** part of this unit, because it differs by where the C-channel goes: the three feeder channels take a faceted rotor, the classification channel takes the finned one. Colour differs too, the feeder parts are charcoal and the classification-channel parts are ash grey.
+The fasteners and quantities are in the parts list above and are called out inline at each step.
 
 {% include fastener-legend.html %}
+
+- **Build 4 per machine**, three in the feeder and one for the classification channel.
+- The rotor is **not** part of this unit, because it differs by where the C-channel goes: the three feeder channels take the faceted rotor, the classification channel takes the finned one. Colour differs too, the feeder parts are charcoal and the classification-channel parts are ash grey.
+- No heat inserts on this assembly. The screws thread into the printed parts and into the stepper's own tapped holes.
+- Two of the four channels also carry a light post, whose screws belong to the light post rather than to the list above.
 
 {% include step.html n="1" title="Press the gear bearings" %}
 
@@ -60,7 +74,7 @@ Turn the stage by hand before wiring it. The train should run without a tight sp
 
 {% include step.html n="5" title="Fit the light post, on the channels that take one" %}
 
-Two of the C-channels carry a light post, which bolts to this unit's NEMA bracket with 2 {% include fastener.html size="M3" variant="countersunk" length="20" %} screws that thread straight into the printed post. Those screws belong to the light post, not to the parts list above.
+Two of the C-channels carry a light post, which bolts to this unit's NEMA bracket with 2 {% include fastener.html size="M3" variant="countersunk" length="20" %} screws that thread straight into the printed post.
 
 <div class="callout callout-warning">
   <span class="callout-icon" aria-hidden="true">⚠</span>

@@ -9,6 +9,19 @@ lede: Where parts are imaged for classification.
 permalink: /hardware/assembly/feeder/classification-chamber/
 author: spencer
 contributors: [barthel]
+parts_needed:
+  - part: classification-dome
+    qty: 1
+  - part: rotor-finned
+    qty: 1
+  - part: camera-led-insert
+    qty: 1
+  - part: camera-extension
+    qty: 1
+  - part: camera-extension-mount
+    qty: 1
+  - part: cam-imx415
+    qty: 1
 ---
 
 <div class="callout callout-warning">
@@ -16,17 +29,16 @@ contributors: [barthel]
   <p><strong>AI-generated first draft.</strong> Written from the parts registry in the <a href="https://parts-calculator.basically.website/assembly?focus=classification-chamber">parts calculator</a>, not from an actual build. The assembly order is not recorded anywhere yet, so this page lists what the chamber is made of rather than how it goes together. Correct it as you build.</p>
 </div>
 
-The classification chamber is where a part is lit and photographed on its way through. It sits on the fourth [C-channel]({{ '/hardware/assembly/feeder/c-channel/' | relative_url }}), the classification-channel one, and its printed parts are white rather than charcoal, so they bounce light onto the part instead of absorbing it.
+The classification chamber is where a part is lit and photographed on its way through. It sits on the fourth [C-channel]({{ '/hardware/assembly/feeder/c-channel/' | relative_url }}), the classification-channel one.
 
-**Parts, one machine's worth:**
+The parts are in the list above. No fasteners are recorded for this stage yet.
 
-| Part | Qty | Notes |
-|---|---|---|
-| Classification dome | 1 | Large, roughly a full print bed. White |
-| Rotor (finned) | 1 | White. The classification channel's rotor, in place of the feeder's faceted one |
-| Camera and LED insert | 1 | White. Carries the camera and the light |
+{% include fastener-legend.html %}
 
-The camera itself is on its own extension: a 50 mm extension tube and a clamp ring hold the 4K camera module, one per machine. The overhead camera mount that hangs off the C-channels is a different part.
+- **One per machine.**
+- The three chamber parts print **white** rather than charcoal, so the chamber bounces light onto the part instead of absorbing it.
+- The Classification dome is large, roughly a full print bed.
+- The camera sits on its own extension: a 50 mm extension tube and a clamp ring hold the 4K camera module. The overhead camera mount that hangs off the C-channels is a different part.
 
 {% include step.html n="1" title="Build the classification C-channel" %}
 
@@ -34,10 +46,12 @@ Build the classification channel as a normal [C-channel]({{ '/hardware/assembly/
 
 {% include step.html n="2" title="Fit the insert, the camera and the dome" %}
 
-Fit the camera and LED insert, then the camera on its extension tube and mount ring, then close the chamber with the dome.
+Fit the Camera & LED insert, then the camera on its extension tube and mount ring, then close the chamber with the dome.
 
 The fasteners for this stage are not recorded yet: <span class="fastener-todo">fastener not recorded</span>.
 
 <div class="img-placeholder">Image coming</div>
+
+{% include step.html n="3" title="Light the chamber" %}
 
 The chamber is lit by a 24 V white/daylight LED strip, not by the 50 mm COB plate the feeder light posts use. Even, passive light is the point: the camera has to expose every part of the disc the same way. See [electronics]({{ '/hardware/electronics/' | relative_url }}) for how it is driven and for the current-limiting resistor.

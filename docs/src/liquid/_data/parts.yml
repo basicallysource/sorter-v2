@@ -397,3 +397,172 @@ washer-m3-15:
   category: Washers
   image: https://img.basically.website/web/parts/hardware/washers/washer-m3-15.0308d4e5b19bb5e4.jpg
   not_in_calc: true
+
+# --- Chute (per distribution layer) ---
+
+chute-core:
+  name: Chute core
+  category: Printed parts
+  image: https://img.basically.website/web/parts/chute-core.6528cf58bca4dd42.png
+  heat_inserts:
+    - insert: m3-ruthex-long
+      qty: 18
+
+chute-door:
+  name: Chute door
+  category: Printed parts
+  image: https://img.basically.website/web/parts/chute-door.b7a2393df1326488.png
+
+funnel-bracket-left:
+  name: Funnel bracket (left)
+  category: Printed parts
+  image: https://img.basically.website/web/parts/funnel-bracket-left.be239d2c8847ae18.png
+
+funnel-bracket-right:
+  name: Funnel bracket (right)
+  category: Printed parts
+  image: https://img.basically.website/web/parts/funnel-bracket-right.4e570798cac70277.png
+
+funnel-half:
+  name: Funnel (half size)
+  category: Printed parts
+  image: https://img.basically.website/web/parts/funnel-half.ab98cf9404cbd671.png
+  caption: For a layer of 12 half bins.
+
+funnel-third:
+  name: Funnel (third size)
+  category: Printed parts
+  image: https://img.basically.website/web/parts/funnel-third.da78903c014558d7.png
+  caption: For a layer of 18 third bins.
+
+layer-connector-1:
+  name: Layer connector A
+  category: Printed parts
+  image: https://img.basically.website/web/parts/layer-connector-1.28b737ed089139ae.png
+
+layer-connector-2:
+  name: Layer connector B
+  category: Printed parts
+  image: https://img.basically.website/web/parts/layer-connector-2.ca61a28acae60a8f.png
+
+servo-bracket-housing:
+  name: Servo bracket (housing)
+  category: Printed parts
+  image: https://img.basically.website/web/parts/servo-bracket-housing.4243eb15a96c647b.png
+  heat_inserts:
+    - insert: m3-ruthex-long
+      qty: 6
+
+servo-bracket-lower-arm:
+  name: Servo bracket (lower arm)
+  category: Printed parts
+  image: https://img.basically.website/web/parts/servo-bracket-lower-arm.310718b45e12c6f8.png
+
+servo-bracket-side-arm:
+  name: Servo bracket (side arm)
+  category: Printed parts
+  image: https://img.basically.website/web/parts/servo-bracket-side-arm.055da0e4076d450a.png
+
+servo-bracket-cover:
+  name: Servo bracket (cover)
+  category: Printed parts
+  image: https://img.basically.website/web/parts/servo-bracket-cover.e87993d672aefbd3.png
+
+# --- Feeder: C-channel and classification chamber ---
+
+stator:
+  name: Stator
+  category: Printed parts
+  image: https://img.basically.website/web/parts/stator.17bc4dcb603a3b87.png
+
+nema-bracket:
+  name: NEMA bracket
+  category: Printed parts
+  image: https://img.basically.website/web/parts/nema-bracket.3b2938ece10d01a2.png
+
+output-gear:
+  name: Output gear (130T)
+  category: Printed parts
+  image: https://img.basically.website/web/parts/output-gear.52becc7a3135a501.png
+
+idler-gear:
+  name: Idler gear (24T)
+  category: Printed parts
+  image: https://img.basically.website/web/parts/idler-gear.4fde9b2daa3a18a6.png
+
+input-gear:
+  name: Input gear (12T, screw)
+  category: Printed parts
+  image: https://img.basically.website/web/parts/input-gear.4e9611093bce0c25.png
+
+rotor-faceted:
+  name: Rotor (faceted)
+  category: Printed parts
+  image: https://img.basically.website/web/parts/rotor-faceted.e5a96a41bf032410.png
+  caption: The feeder channels' rotor.
+
+rotor-finned:
+  name: Rotor (finned)
+  category: Printed parts
+  image: https://img.basically.website/web/parts/rotor-finned.b8b8baef2b3d6e46.png
+  caption: The classification channel's rotor. Printed white.
+
+classification-dome:
+  name: Classification dome
+  category: Printed parts
+  image: https://img.basically.website/web/parts/classification-dome.6f6be14db10079b5.png
+  caption: Roughly a full print bed. Printed white.
+
+camera-led-insert:
+  name: Camera & LED insert
+  category: Printed parts
+  image: https://img.basically.website/web/parts/camera-led-insert.f2c6d2f256bbadbf.png
+  caption: Printed white.
+
+camera-extension:
+  name: Camera extension
+  category: Printed parts
+  image: https://img.basically.website/web/parts/camera-extension.b68be261bb4feb13.png
+  caption: 50 mm extension tube for the 4K camera module.
+
+camera-extension-mount:
+  name: Camera extension mount
+  category: Printed parts
+  image: https://img.basically.website/web/parts/camera-extension-mount.e19883debdbe1818.png
+
+# --- Chute and feeder hardware ---
+
+servo-mg995:
+  name: MG995 servo
+  category: Motors
+  image: https://img.basically.website/web/parts/hardware/motors/servo-mg995.dc4efa0fab427440.jpg
+
+motor-nema17:
+  name: NEMA 17 stepper motor
+  category: Motors
+  image: https://img.basically.website/web/parts/hardware/motors/motor-nema17.c23957d721c4fe3a.jpg
+
+brg-6806-2rs:
+  name: 6806-2RS bearing
+  category: Bearings
+  image: https://img.basically.website/web/parts/hardware/bearings/brg-6806-2rs.0ad458391ad1d0eb.jpg
+
+cam-imx415:
+  name: IMX415 4K camera module
+  category: Electronics
+  image: https://img.basically.website/web/parts/hardware/cameras/cam-imx415.ccca3eafc3ef8069.jpg
+
+layer-adapter-board-basically:
+  name: basically Layer Adapter Board
+  category: Electronics
+  image: https://img.basically.website/web/parts/hardware/pcbs/layer-adapter-board-basically.74d26e5babb055d6.jpg
+
+scr-m3-6-bhcs:
+  name: M3 × 6 mm button head cap screw
+  category: Screws
+  image: https://img.basically.website/web/parts/hardware/screws/button.87be93e901c86545.jpg
+
+scr-m3-20-cs:
+  name: M3 × 20 mm countersunk screw
+  category: Screws
+  image: https://img.basically.website/web/parts/hardware/screws/countersunk.707eba7998554ea6.jpg

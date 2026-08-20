@@ -9,6 +9,23 @@ lede: The mount the servo bolts into.
 permalink: /hardware/assembly/distribution/chute/mg995-servo/servo-mount/
 author: spencer
 contributors: [barthel]
+parts_needed:
+  - part: servo-bracket-housing
+    qty: 1
+  - part: servo-bracket-lower-arm
+    qty: 1
+  - part: servo-bracket-side-arm
+    qty: 1
+  - part: servo-bracket-cover
+    qty: 1
+  - part: servo-mg995
+    qty: 1
+  - part: m3-ruthex-long
+    qty: 6
+  - part: scr-m3-12-cs
+    qty: 4
+  - part: scr-m3-8-cs
+    qty: 2
 ---
 
 <div class="callout callout-warning">
@@ -18,31 +35,36 @@ contributors: [barthel]
 
 The MG995 sits in a four-part printed bracket, and the whole bracket goes onto the chute core as one unit. Build it on the bench, then bolt it on.
 
-**Parts, per chute:**
-
-| Part | Qty |
-|---|---|
-| Servo bracket, housing | 1 |
-| Servo bracket, lower arm | 1 |
-| Servo bracket, side arm | 1 |
-| Servo bracket, cover | 1 |
-| MG995 servo | 1 |
-| M3 × 12 mm countersunk | 4 |
-| M3 × 8 mm countersunk | 2 |
+The fasteners and quantities are in the parts list above and are called out inline at each step.
 
 {% include fastener-legend.html %}
 
-{% include step.html n="1" title="Press the heat inserts into the housing" %}
+- **One per chute**, so one per layer.
+- Everything on this page threads into the housing's own inserts or the servo's mounting ears. The two screws that hold the finished bracket to the chute core come out of the [chute core]({{ '/hardware/assembly/distribution/chute/chute-core/' | relative_url }})'s set, not this one.
+- The cover clips on and takes no screws.
 
-The Servo bracket housing takes **6 × M3 heat inserts**. Press them in while the housing is loose. See [installing heat inserts]({{ '/hardware/helpers/heat-inserts/' | relative_url }}).
+{% include step.html n="1" title="Preparation" %}
 
-<div class="img-placeholder">Image coming</div>
+Press the inserts into the housing while it is still bare. See [installing heat inserts]({{ '/hardware/helpers/heat-inserts/' | relative_url }}) for the technique.
+
+<div class="prep-item">
+  <div class="prep-item-body">
+    <p><strong>Servo bracket (housing):</strong> 6 × M3</p>
+  </div>
+  <div class="prep-item-figure">
+    <div class="img-placeholder">Image coming</div>
+  </div>
+</div>
+
+The [Preparation]({{ '/hardware/preparation/' | relative_url }}) page lists every part in the machine that needs inserts.
 
 {% include step.html n="2" title="Seat the servo in the housing" %}
 
 Drop the MG995 into the housing and fasten it with 2 {% include fastener.html size="M3" variant="countersunk" length="8" %} screws through the servo's own mounting ears.
 
 Clock the horn before you commit to a position. The MG995 only rotates 180°, and the door has to reach both fully open and fully closed inside that range, see [how to install]({{ '/hardware/assembly/distribution/chute/mg995-servo/how-to-install/' | relative_url }}).
+
+<div class="img-placeholder">Image coming</div>
 
 {% include step.html n="3" title="Add the arms and the cover" %}
 

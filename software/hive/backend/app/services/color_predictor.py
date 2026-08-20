@@ -57,7 +57,14 @@ class _Loaded:
 
 
 _lock = threading.Lock()
-_session_cache: dict[tuple[str, str], _Loaded] = {}
+# Exactly one color model is active at a time — set_active() enforces it — so one
+# slot is all this ever needs. It used to be a dict keyed by (filename, sha256)
+# with no eviction, which meant every model version ever activated kept its ONNX
+# session resident for the life of the process. Replacing the slot drops the
+# previous session; an in-flight predict() holds its own reference and finishes
+# on the model it started with.
+_loaded_key: tuple[str, str] | None = None
+_loaded_model: _Loaded | None = None
 
 
 def _sha256_of(path: Path) -> str:
@@ -185,14 +192,14 @@ def set_active(db: Session, model_id, active: bool) -> ColorModel | None:
 
 
 def _load(row: ColorModel) -> _Loaded | None:
+    global _loaded_key, _loaded_model
     path = model_dir() / row.filename
     if not path.exists():
         return None
     key = (row.filename, row.sha256)
     with _lock:
-        cached = _session_cache.get(key)
-        if cached is not None:
-            return cached
+        if key == _loaded_key and _loaded_model is not None:
+            return _loaded_model
     meta = _read_metadata(path)
     if meta is None:
         return None
@@ -220,7 +227,8 @@ def _load(row: ColorModel) -> _Loaded | None:
         multiview=meta.get("hive.multiview") == "1",
     )
     with _lock:
-        _session_cache[key] = loaded
+        _loaded_key = key
+        _loaded_model = loaded
     return loaded
 
 
@@ -362,8 +370,3 @@ def predict_bytes(db: Session, images: list[bytes], channels: list[int]) -> dict
         "top": [e for i in order[:3] if (e := entry(int(i))) is not None],
         "sample_count": len(batch),
     }
-
-
-def clear_cache() -> None:
-    with _lock:
-        _session_cache.clear()

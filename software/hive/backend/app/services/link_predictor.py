@@ -61,7 +61,14 @@ class _Loaded:
 
 
 _lock = threading.Lock()
-_session_cache: dict[tuple[str, str], _Loaded] = {}
+# Exactly one link model is active at a time — set_active() enforces it — so one
+# slot is all this ever needs. It used to be a dict keyed by (name, sha256) with
+# no eviction, which meant every model version ever activated kept its two ONNX
+# sessions resident for the life of the process. Replacing the slot drops the
+# previous sessions; an in-flight predict() holds its own reference and finishes
+# on the model it started with.
+_loaded_key: tuple[str, str] | None = None
+_loaded_model: _Loaded | None = None
 
 
 def _sha256_of(path: Path) -> str:
@@ -210,6 +217,7 @@ def set_active(db: Session, model_id, active: bool) -> LinkModel | None:
 
 
 def _load(row: LinkModel) -> _Loaded | None:
+    global _loaded_key, _loaded_model
     directory = model_dir()
     enc_path = directory / row.encoder_filename
     head_path = directory / row.head_filename
@@ -217,9 +225,8 @@ def _load(row: LinkModel) -> _Loaded | None:
         return None
     key = (row.name, row.sha256)
     with _lock:
-        cached = _session_cache.get(key)
-        if cached is not None:
-            return cached
+        if key == _loaded_key and _loaded_model is not None:
+            return _loaded_model
     if row.input_size <= 0:
         log.warning("link model %s has no usable input_size", row.name)
         return None
@@ -238,7 +245,8 @@ def _load(row: LinkModel) -> _Loaded | None:
         input_size=row.input_size,
     )
     with _lock:
-        _session_cache[key] = loaded
+        _loaded_key = key
+        _loaded_model = loaded
     return loaded
 
 
@@ -375,8 +383,3 @@ def predict(db: Session, machine_id: UUID, piece_uuid: str, candidates: list[dic
         "threshold": PREDICT_THRESHOLD,
         "scores": {lid: float(p) for lid, p in zip(scored_ids, probs)},
     }
-
-
-def clear_cache() -> None:
-    with _lock:
-        _session_cache.clear()

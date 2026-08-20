@@ -30,10 +30,44 @@ services:
     image: ${HIVE_BACKEND_IMAGE:?HIVE_BACKEND_IMAGE not set - deploy via hive_release_agent.py}
     container_name: hive-backend
     restart: unless-stopped
+    # This process leaks. On 2026-08-20 it reached 2.2 GB, pushed the 3.9 GB box
+    # 2 GB into swap, and served 502/524s for six hours until someone restarted
+    # it by hand. Nothing self-healed because the healthcheck answered normally
+    # the entire time — a thrashing process is still a live one, so there was no
+    # unhealthy state for Docker to act on. The ceiling is the backstop.
+    #
+    # memswap_limit is the half that actually matters, and it only works pinned
+    # to the same value as mem_limit (that is how Docker spells "no swap for
+    # this container"). Swapping IS the failure: with swap available the kernel
+    # never kills anything, it just slows the whole box down, which is how one
+    # leaking service took Postgres and the frontend with it. Denied swap, the
+    # container is OOM-killed at the ceiling and `restart: unless-stopped`
+    # brings it back in seconds.
+    #
+    # 1800m is ~40% above the ~1.3 GB this settles at once its caches and the
+    # onnxruntime arenas fill, so ordinary bursts don't trip it and a recycle
+    # lands roughly every day and a half at the observed leak rate. Override
+    # HIVE_BACKEND_MEM_LIMIT in .env.prod if real work needs more headroom; that
+    # is a container recreate, not a release.
+    mem_limit: ${HIVE_BACKEND_MEM_LIMIT:-1800m}
+    memswap_limit: ${HIVE_BACKEND_MEM_LIMIT:-1800m}
     depends_on:
       postgres:
         condition: service_healthy
     environment:
+      # Half the resident set is glibc, not Python. This process runs ~15
+      # threads (uvicorn plus five background daemons and the teacher pool) on a
+      # 2-core box, and glibc lets a threaded program open 8 arenas per core, so
+      # it had spread 625 MB across 14 per-thread arenas — memory Python has
+      # already freed but glibc will not hand back, because a single live
+      # allocation anywhere in a 64 MB arena pins the whole arena.
+      #
+      # Two arenas means allocation contends a little and stays compact instead.
+      # Measured on prod 2026-08-20: 14 arenas, 625 MB of a 1288 MB anon total.
+      # This bounds fragmentation, which is not the same thing as fixing the
+      # leak — whatever keeps allocating is still doing it. Expect a lower
+      # floor and a slower climb, not a flat line.
+      MALLOC_ARENA_MAX: "2"
       ENVIRONMENT: ${ENVIRONMENT}
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
       JWT_SECRET: ${JWT_SECRET}

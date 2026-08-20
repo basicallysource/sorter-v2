@@ -212,7 +212,7 @@ Before assembling anything, press the heat inserts into the parts that take them
   </figure>
 </div>
 
-The [Preparation]({{ '/hardware/preparation/' | relative_url }}) page lists every part in the machine that needs inserts.
+Printed parts elsewhere in the machine take inserts too. Each assembly page lists its own in a **Preparation** step like this one, so press them in as you reach that page.
 
 {% include step.html n="2" title="Attach the interface ribs to the upper fixed section" %}
 

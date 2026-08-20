@@ -217,8 +217,10 @@ needed" block), `length_mm` (screw length, stamped on the card image),
 - Part detail pages live under `src/content/hardware/parts/`. Only put a part
   in the nav if it has a detail page worth linking; the catalog can hold parts
   with no page.
-- The **Preparation** page (`hardware/preparation/`) auto-lists every part with
-  `heat_inserts` — add that field and the part appears in the checklist.
+- `heat_inserts` on a part records which inserts it takes. There is no longer a
+  central Preparation page: each assembly page opens with its own numbered
+  **Preparation** step listing the inserts for the parts that page uses, with a
+  photo per part (see `assembly/distribution/top-interface.md` for the pattern).
 - Name the specific fastener inline in a step where it is used. When a step
   uses a screw whose size/type is not known yet, mark it with
   `<span class="fastener-todo">fastener not recorded</span>` so contributors

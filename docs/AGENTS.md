@@ -201,7 +201,8 @@ Adding a drawing: new YAML source, an entry in the data file, an entry in the
 
 `src/liquid/_data/parts.yml` is the catalog, keyed by id. Fields: `name`,
 `image`, `page` (detail page, optional), `category` (groups the "Parts
-needed" block), `notes` (short, collected into a list under the whole block),
+needed" block), `length_mm` (screw length, stamped on the card image),
+`notes` (short, collected into a list under the whole block),
 `caption` (small text under a single card, e.g. a cut length),
 `heat_inserts: [{insert, qty}]`. ids and render filenames mirror the
 `sorter-v2-filament-calculator` repo so the two merge cleanly later.
@@ -209,6 +210,10 @@ needed" block), `notes` (short, collected into a list under the whole block),
 - A page lists what it needs via `parts_needed` (see front matter). Cards render
   image + name, linked to the detail page when one exists, grouped by category,
   with a quantity badge and any notes.
+- **Every screw needs `length_mm`.** One photo stands in for a whole family of
+  screws (every M5 socket head cap screw shares one picture), so without the
+  length stamped on the card an M5 x 12 and an M5 x 35 are the same card. The
+  parts calculator's hardware list does the same thing for the same reason.
 - Part detail pages live under `src/content/hardware/parts/`. Only put a part
   in the nav if it has a detail page worth linking; the catalog can hold parts
   with no page.

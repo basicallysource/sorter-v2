@@ -91,6 +91,7 @@ class DigitalOutputPin:
         self._value = False
         self._duty = 0
         self._enabled = True
+        self._pwm_armed = False
         self._gc = gc
 
     @property
@@ -104,6 +105,9 @@ class DigitalOutputPin:
         self._gc.logger.info(f"DigitalOutput ch{self._channel}: set value={self._value}")
         payload = struct.pack("<?", self._value) # 1 byte, boolean
         self._dev.send_command(InterfaceCommandCode.DIGITAL_WRITE, self._channel, payload)
+        # The firmware hands the pad back to SIO on a plain write, so the next
+        # duty write has to re-arm PWM mode.
+        self._pwm_armed = False
 
     @property
     def duty(self) -> int:
@@ -111,6 +115,20 @@ class DigitalOutputPin:
 
     def setDuty(self, duty: int) -> None:
         clamped = max(0, min(DIGITAL_OUTPUT_DUTY_MAX, int(duty)))
+        if not self._pwm_armed:
+            # The board only routes the pad to its PWM block on the first duty
+            # write after a plain one, and it tracks that with a flag that its
+            # INIT command does not clear. INIT is what board discovery sends on
+            # every host start, and it drives the pad low via SIO — so a board
+            # that was left in PWM mode by a previous host process comes back
+            # dark with its flag still saying "already PWM", and every later duty
+            # write lands on a pad the PWM block no longer drives. Older firmware
+            # is out in the field with that bug, so open each process's first duty
+            # write with a plain one: it clears the flag on both sides.
+            self._dev.send_command(
+                InterfaceCommandCode.DIGITAL_WRITE, self._channel, struct.pack("<?", False)
+            )
+            self._pwm_armed = True
         payload = struct.pack("<H", clamped)
         self._dev.send_command(
             InterfaceCommandCode.DIGITAL_WRITE_PWM, self._channel, payload

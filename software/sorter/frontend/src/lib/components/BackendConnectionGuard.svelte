@@ -11,6 +11,7 @@
 		waitForBackend
 	} from '$lib/backend';
 	import { getMachinesContext } from '$lib/machines/context';
+	import { machineDowntime } from '$lib/stores/machineDowntime.svelte';
 	import Modal from '$lib/components/Modal.svelte';
 	import { AlertTriangle, RefreshCw, Power, WifiOff } from 'lucide-svelte';
 	import { onMount } from 'svelte';
@@ -182,7 +183,7 @@
 	});
 </script>
 
-<Modal open={!healthy} title="Backend Unavailable">
+<Modal open={!healthy && !machineDowntime.deliberate} title="Backend Unavailable">
 	<div class="flex flex-col gap-4">
 		<div class="flex items-start gap-3">
 			<div

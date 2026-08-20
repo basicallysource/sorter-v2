@@ -49,6 +49,16 @@ COMPOSE_PROJECT = os.environ.get("HIVE_COMPOSE_PROJECT", "hive")
 GITHUB_TOKEN = os.environ.get("HIVE_GITHUB_TOKEN", "")
 SERVICES = ("backend", "frontend")
 
+# Telling status.basically.website when a deploy starts and ends. Without this a
+# deploy is indistinguishable from an outage: hive stops answering for about a
+# minute either way, and the page would page him for every release.
+#
+# Both monitors, because one deploy takes both down and a reader looking at the
+# web app should not see an unexplained outage while the API says "Updating".
+STATUS_URL = os.environ.get("HIVE_STATUS_URL", "https://status.basically.website")
+STATUS_ENV = Path(os.environ.get("HIVE_STATUS_ENV", "/etc/hive-status/beat.env"))
+STATUS_MONITORS = ("hive", "hive-web")
+
 
 @dataclass
 class AgentConfig:
@@ -467,6 +477,47 @@ def stageRelease(cfg: AgentConfig, release: dict[str, Any]) -> tuple[dict[str, A
     return manifest, compose_path
 
 
+def readStatusToken() -> str:
+    """The status page credential, or "" if this box was never given one.
+
+    Scoped to hive's own monitors, so it cannot file a deploy — or an outage —
+    against anything else we watch.
+    """
+    try:
+        for line in STATUS_ENV.read_text().splitlines():
+            key, _, value = line.strip().partition("=")
+            if key == "BEAT_TOKEN":
+                return value.strip().strip("'\"")
+    except OSError:
+        return ""
+    return ""
+
+
+def statusDeploy(phase: str, version: str = "") -> None:
+    """Tell the status page a deploy is starting or ending.
+
+    Never fatal, and never slow. Shipping must not depend on an external service
+    being reachable: if the status page is down, hive still deploys and the page
+    infers the deploy from the outage afterwards, which is the whole reason
+    inference was kept alongside reporting.
+    """
+    token = readStatusToken()
+    if not token:
+        return
+    body = json.dumps({"version": version}).encode()
+    for monitor in STATUS_MONITORS:
+        request = urllib.request.Request(
+            f"{STATUS_URL}/deploy/{monitor}/{phase}",
+            data=body,
+            headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
+            method="POST",
+        )
+        try:
+            urllib.request.urlopen(request, timeout=10).close()
+        except Exception as exc:
+            log(f"could not tell the status page about the {phase} of {version}: {exc}")
+
+
 def installRelease(cfg: AgentConfig, release: dict[str, Any], force: bool) -> bool:
     manifest, compose_path = stageRelease(cfg, release)
     current = readState(cfg, "current.json")
@@ -474,28 +525,36 @@ def installRelease(cfg: AgentConfig, release: dict[str, Any], force: bool) -> bo
         return False
 
     log(f"installing {manifest['version']} (commit {manifest['commit'][:9]})")
-    if migrationsChanged(current, manifest):
-        takeBackup(cfg, "predeploy")
-    else:
-        log("migrations unchanged — skipping pre-deploy dump (nightly + off-box copies stand)")
-
+    # Opened before the backup, not after: a pre-deploy dump is part of how long
+    # a deploy takes, and it is the slow part on the releases that need one.
+    statusDeploy("start", manifest["version"])
     try:
-        applyRelease(cfg, manifest, compose_path)
-    except Exception as exc:
-        log(f"install FAILED: {exc}")
-        rollback(cfg, current)
-        raise
+        if migrationsChanged(current, manifest):
+            takeBackup(cfg, "predeploy")
+        else:
+            log("migrations unchanged — skipping pre-deploy dump (nightly + off-box copies stand)")
 
-    if current:
-        writeState(cfg, "previous.json", current)
-    installed = dict(manifest)
-    installed["installed_at"] = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-    installed["compose_file"] = str(compose_path)
-    writeState(cfg, "current.json", installed)
-    pruneReleases(cfg)
-    pruneImages()
-    log(f"✓ {manifest['version']} live")
-    return True
+        try:
+            applyRelease(cfg, manifest, compose_path)
+        except Exception as exc:
+            log(f"install FAILED: {exc}")
+            rollback(cfg, current)
+            raise
+
+        if current:
+            writeState(cfg, "previous.json", current)
+        installed = dict(manifest)
+        installed["installed_at"] = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        installed["compose_file"] = str(compose_path)
+        writeState(cfg, "current.json", installed)
+        pruneReleases(cfg)
+        pruneImages()
+        log(f"✓ {manifest['version']} live")
+        return True
+    finally:
+        # Closed on the failure path too, including after a rollback. A window
+        # left open would go on excusing real outages until it aged out.
+        statusDeploy("end", manifest["version"])
 
 
 def rollback(cfg: AgentConfig, target: Optional[dict[str, Any]]) -> None:

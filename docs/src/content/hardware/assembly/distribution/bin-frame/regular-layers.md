@@ -44,7 +44,7 @@ This guide covers creating a regular layer. It's also the basis for creating the
 
 Note that some of the ordering in this guide may seem unusual, but it's written this way to avoid both putting unnecessary strain on pieces, and allowing for the use of slide-in T-nuts.
 
-The aluminum extrusion is cut to length; the [framing cut list](https://parts-calculator.basically.website/framing) has the exact dimensions for pieces A/G, B/H and C. The number of {% include fastener.html size="M5" variant="t-nut" text="M5 T-nuts" %} listed above is the minimum you'll need if you thread the printed parts directly wherever possible; this number increases if you use T-nuts throughout instead. Where a step taps into a printed part and braces against the extrusion, fastening into a T-nut there instead needs a screw 4 mm shorter: an {% include fastener.html size="M5" variant="socket-button" length="12" %} in place of an {% include fastener.html size="M5" variant="socket-button" length="16" %}.
+The aluminum extrusion is cut to length; the [framing cut list](https://parts-calculator.basically.website/framing) has the exact dimensions for pieces A/G, B/H and C. The number of {% include fastener.html size="M5" variant="t-nut" text="M5 T-nuts" %} listed above is the minimum you'll need if you thread the printed parts directly wherever possible; this number increases if you use T-nuts throughout instead. Where a step taps into a printed part and braces against the extrusion, fastening into a T-nut there instead needs a screw 4 mm shorter: an {% include fastener.html size="M5" variant="socket-button" length="12" %} rather than the {% include fastener.html size="M5" variant="socket-button" length="16" %} the step calls for.
 
 {% include fastener-legend.html %}
 

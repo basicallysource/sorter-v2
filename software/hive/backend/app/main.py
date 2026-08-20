@@ -1,13 +1,17 @@
 import logging
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
 
+from sqlalchemy import text
+from sqlalchemy.orm import Session
+
 from app.config import settings
+from app.deps import get_db
 from app.errors import APIError, api_error_handler, http_exception_handler, unhandled_exception_handler
 from app.routers import (
     admin,
@@ -151,5 +155,9 @@ app.include_router(ai_usage.router)
 
 
 @app.get("/api/health")
-def health():
-    return {"ok": True, "service": "hive-backend"}
+def health(db: Session = Depends(get_db)):
+    # The round-trip is the point: a health check that touches nothing reports
+    # a sick service as healthy. A dead DB raises (non-2xx); an exhausted pool
+    # or starved worker hangs, which the caller's timeout turns into a failure.
+    db.execute(text("SELECT 1"))
+    return {"ok": True, "service": "hive-backend", "database": "ok"}

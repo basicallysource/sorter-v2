@@ -419,9 +419,13 @@ python3 /usr/local/lib/hive/hive_release_agent.py rollback
 systemctl start hive-release.timer
 ```
 
-Every deploy writes a `*-predeploy.dump` **before** it migrates, so the dump
-matching the schema you want back is always the one taken by the deploy that
-broke it.
+A deploy whose release changes `alembic/versions` writes a `*-predeploy.dump`
+**before** it migrates, so the dump matching the schema you want back is always
+the one taken by the deploy that broke it. Deploys with no migration changes
+skip the dump on purpose — an app-only deploy is undone by `rollback`, not a
+restore, and the nightly + off-box copies cover data loss. The agent decides by
+comparing the `migrations` fingerprint in `hive-release.json` against the
+running release's; a release without the field always dumps.
 
 ### Updating the agent itself
 

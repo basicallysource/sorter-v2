@@ -198,6 +198,24 @@ def writeState(cfg: AgentConfig, name: str, payload: dict[str, Any]) -> None:
 
 # ------------------------------------------------------------------ backup
 
+def migrationsChanged(current: Optional[dict[str, Any]], manifest: dict[str, Any]) -> bool:
+    """Only a release that can change the schema earns a pre-deploy dump.
+
+    An app-only deploy is undone by rolling back to the previous image, which a
+    dump cannot help with (restoring one would discard data written since). The
+    dump exists for destructive migrations, so it is taken exactly when the
+    incoming release's migrations differ from the running one's. The fingerprint
+    is computed by CI over alembic/versions and shipped in hive-release.json; a
+    missing fingerprint on either side (older manifest, first run under this
+    agent) dumps, because guessing "unchanged" is the expensive mistake.
+    """
+    before = (current or {}).get("migrations")
+    after = manifest.get("migrations")
+    if not before or not after:
+        return True
+    return before != after
+
+
 def takeBackup(cfg: AgentConfig, reason: str) -> Path:
     requirePostgres()
     cfg.backup_dir.mkdir(parents=True, exist_ok=True)
@@ -456,7 +474,10 @@ def installRelease(cfg: AgentConfig, release: dict[str, Any], force: bool) -> bo
         return False
 
     log(f"installing {manifest['version']} (commit {manifest['commit'][:9]})")
-    takeBackup(cfg, "predeploy")
+    if migrationsChanged(current, manifest):
+        takeBackup(cfg, "predeploy")
+    else:
+        log("migrations unchanged — skipping pre-deploy dump (nightly + off-box copies stand)")
 
     try:
         applyRelease(cfg, manifest, compose_path)

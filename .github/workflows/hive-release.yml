@@ -1,10 +1,11 @@
 name: Hive Release
 
-# Pushing a `hive/vX.Y.Z` tag is the ONLY thing that ships Hive. This workflow
-# builds both images, pushes them to GHCR, and then publishes the GitHub
-# Release. The ordering matters: prod polls for releases, so a release that
-# exists is a release whose images are already in the registry. There is no
-# window where prod can see a version it cannot install.
+# Pushing a `hive/vX.Y.Z` tag is the ONLY thing that ships Hive. Tests and
+# image builds run in parallel; the GitHub Release is published only after
+# both succeed. The ordering matters twice over: prod polls for releases, so a
+# release that exists is a release whose images are already in the registry
+# AND whose tests passed. Images for a failed run may exist in GHCR, but prod
+# never sees them — it only installs published releases.
 
 on:
   push:
@@ -15,17 +16,23 @@ env:
   REGISTRY: ghcr.io
 
 jobs:
-  build-and-release:
+  test:
+    uses: ./.github/workflows/hive-tests.yml
+
+  build:
     runs-on: ubuntu-latest
     permissions:
-      contents: write
       packages: write
+    outputs:
+      version: ${{ steps.ver.outputs.version }}
+      backend_image: ${{ steps.ver.outputs.backend_image }}
+      frontend_image: ${{ steps.ver.outputs.frontend_image }}
+      backend_digest: ${{ steps.backend.outputs.digest }}
+      frontend_digest: ${{ steps.frontend.outputs.digest }}
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
       - name: Derive version
         id: ver
@@ -77,22 +84,45 @@ jobs:
           cache-from: type=gha,scope=hive-frontend
           cache-to: type=gha,mode=max,scope=hive-frontend
 
+  release:
+    runs-on: ubuntu-latest
+    needs: [test, build]
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # The release agent compares this against the fingerprint of the release
+      # it is running to decide whether the deploy needs a pre-deploy DB dump.
+      # Only alembic/versions counts: that directory is the schema.
+      - name: Migrations fingerprint
+        id: mig
+        run: |
+          FP=$(find software/hive/backend/alembic/versions -type f -name '*.py' -not -path '*__pycache__*' \
+            | LC_ALL=C sort | xargs sha256sum | sha256sum | cut -d' ' -f1)
+          echo "fingerprint=$FP" >> "$GITHUB_OUTPUT"
+
       # The manifest pins DIGESTS, not tags. Prod pulls by digest, so what runs
-      # is bit-identical to what this job built even if someone later moves the
-      # `:vX.Y.Z` tag. The `latest` tags above exist only for humans poking at
-      # the registry — nothing in the deploy path reads them.
+      # is bit-identical to what the build job built even if someone later
+      # moves the `:vX.Y.Z` tag. The `latest` tags above exist only for humans
+      # poking at the registry — nothing in the deploy path reads them.
       - name: Build release manifest
         run: |
           cat > hive-release.json <<EOF
           {
-            "version": "${{ steps.ver.outputs.version }}",
+            "version": "${{ needs.build.outputs.version }}",
             "tag": "${GITHUB_REF_NAME}",
             "commit": "${GITHUB_SHA}",
             "built_at": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
             "run_url": "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}",
+            "migrations": "${{ steps.mig.outputs.fingerprint }}",
             "images": {
-              "backend": "${{ steps.ver.outputs.backend_image }}@${{ steps.backend.outputs.digest }}",
-              "frontend": "${{ steps.ver.outputs.frontend_image }}@${{ steps.frontend.outputs.digest }}"
+              "backend": "${{ needs.build.outputs.backend_image }}@${{ needs.build.outputs.backend_digest }}",
+              "frontend": "${{ needs.build.outputs.frontend_image }}@${{ needs.build.outputs.frontend_digest }}"
             }
           }
           EOF
@@ -142,7 +172,7 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          name: "Hive ${{ steps.ver.outputs.version }}"
+          name: "Hive ${{ needs.build.outputs.version }}"
           generate_release_notes: false
           body_path: RELEASE_NOTES.md
           files: |

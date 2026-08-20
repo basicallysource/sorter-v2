@@ -1089,6 +1089,7 @@ li {
 
 .md-content a,
 .lede a,
+.page-warning-body a,
 .page-meta a {
 	color: var(--primary);
 	text-decoration: underline;
@@ -1098,6 +1099,7 @@ li {
 
 .md-content a:hover,
 .lede a:hover,
+.page-warning-body a:hover,
 .page-meta a:hover {
 	color: var(--primary-hover);
 }

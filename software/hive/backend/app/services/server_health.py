@@ -10,7 +10,10 @@ size and memory are cheap and read live.
 
 from __future__ import annotations
 
+import ctypes
 import logging
+import re
+import sys
 import threading
 import time
 from datetime import datetime, timezone
@@ -155,7 +158,71 @@ def _process_rss_bytes() -> int | None:
     return None
 
 
+_MALLOC_INFO_TOTALS = re.compile(r'<(total|system) type="([a-z]+)"[^>]*size="(\d+)"')
+
+
+def _glibc_malloc_stats() -> dict[str, int] | None:
+    """glibc's own allocator accounting, read out of malloc_info(3).
+
+    RSS cannot tell "this process is holding live objects" apart from "glibc is
+    sitting on memory Python already freed", and those two have opposite fixes:
+    one is an object leak to hunt, the other is fragmentation to trim.
+
+    Deliberately NOT mallinfo2, which is the obvious choice and is wrong here:
+    it reports the main arena only. Tested against this image it insisted 1.2 MB
+    was in use while 200 MB of live bytearrays sat in the process. A confidently
+    wrong number is worse than no number. malloc_info walks every arena, and the
+    same test tracked the 200 MB alloc and its release exactly.
+
+    Only the trailing summary is parsed; the per-heap detail above it is far more
+    XML than this is worth.
+    """
+    try:
+        libc = ctypes.CDLL("libc.so.6")
+        libc.open_memstream.restype = ctypes.c_void_p
+        libc.open_memstream.argtypes = [ctypes.POINTER(ctypes.c_char_p), ctypes.POINTER(ctypes.c_size_t)]
+        libc.malloc_info.argtypes = [ctypes.c_int, ctypes.c_void_p]
+        libc.fclose.argtypes = [ctypes.c_void_p]
+        libc.free.argtypes = [ctypes.c_void_p]
+    except (OSError, AttributeError):
+        return None
+
+    buf = ctypes.c_char_p()
+    size = ctypes.c_size_t()
+    stream = libc.open_memstream(ctypes.byref(buf), ctypes.byref(size))
+    if not stream:
+        return None
+    try:
+        libc.malloc_info(0, stream)
+        libc.fclose(stream)
+        xml = ctypes.string_at(buf, size.value).decode("ascii", "replace")
+    finally:
+        libc.free(buf)
+
+    tail = xml[xml.rfind("</heap>"):] if "</heap>" in xml else xml
+    found = {f"{kind}:{name}": int(value) for kind, name, value in _MALLOC_INFO_TOTALS.findall(tail)}
+    return {
+        # Memory glibc currently holds from the kernel for its arenas.
+        "arena_bytes": found.get("system:current", 0),
+        # Free space inside those arenas — glibc has it, Python does not want it.
+        "free_in_arena_bytes": found.get("total:rest", 0),
+        # Large blocks mmapped individually, returned to the kernel when freed.
+        "mmapped_bytes": found.get("total:mmap", 0),
+        "heap_count": xml.count("<heap "),
+    }
+
+
 def get_memory_stats() -> dict[str, Any]:
+    # Cheap enough to read on every request: one libc call and one interpreter
+    # counter, no allocation, no walking the heap.
+    process = {
+        "process_rss_bytes": _process_rss_bytes(),
+        # Blocks live in CPython's own allocator. If this climbs with RSS the
+        # leak is Python objects; if RSS climbs while this stays flat it is
+        # C-level (psycopg2 result buffers, boto3, onnxruntime) or glibc.
+        "python_allocated_blocks": sys.getallocatedblocks(),
+        "glibc": _glibc_malloc_stats(),
+    }
     try:
         info = _read_meminfo()
         total = info.get("MemTotal")
@@ -165,7 +232,7 @@ def get_memory_stats() -> dict[str, Any]:
             "total_bytes": total,
             "available_bytes": available,
             "used_bytes": used,
-            "process_rss_bytes": _process_rss_bytes(),
+            **process,
         }
     except (FileNotFoundError, ValueError):
         # Not on Linux (e.g. local Mac dev) — /proc isn't available.
@@ -173,7 +240,7 @@ def get_memory_stats() -> dict[str, Any]:
             "total_bytes": None,
             "available_bytes": None,
             "used_bytes": None,
-            "process_rss_bytes": _process_rss_bytes(),
+            **process,
         }
 
 

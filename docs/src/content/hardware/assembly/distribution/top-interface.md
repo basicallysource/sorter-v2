@@ -90,7 +90,7 @@ parts_needed:
     qty: 15
   - part: scr-m5-8-cs
     qty: 6
-  - part: scr-m5-20-bhcs
+  - part: scr-m5-20-shcs
     qty: 24
   - part: scr-m5-16-shcs
     qty: 38
@@ -282,7 +282,7 @@ Repeat for all 6 Interface brackets.
 
 Push the Printed dowel pin into the Limit switch housing.
 
-Attach a Roller lever limit switch with two {% include fastener.html size="M3" variant="socket" length="16" %} screws (into the housing's 2 M3 inserts) so the roller sits next to the dowel pin.
+Attach a Roller lever limit switch with two {% include fastener.html size="M3" variant="socket-button" length="16" %} screws (into the housing's 2 M3 inserts) so the roller sits next to the dowel pin.
 
 Align the switch housing with the extrusion of one of the prepared Interface brackets so the limit switch is on the same face as the sloped side of the bracket. Slide 2 T-nuts into the extrusion and fasten the Limit switch housing to the extrusion with two {% include fastener.html size="M5" variant="socket-button" length="16" %} screws. Slide it as far toward the Interface bracket as possible for now; it gets aligned properly later.
 
@@ -308,7 +308,7 @@ Repeat with the 5 other prepared Interface brackets into the 5 other Interface r
 
 Flip the whole assembly and screw all 6 Interface brackets into place with {% include fastener.html size="M5" variant="countersunk" length="22" %} screws through holes I1 to I6 and O1 to O6.
 
-**Alternative:** the Top plate's laser-cut holes are not countersunk, so a countersunk head does not seat flush. {% include fastener.html size="M5" variant="button" length="20" %} screws work here instead.
+**Alternative:** the Top plate's laser-cut holes are not countersunk, so a countersunk head does not seat flush. {% include fastener.html size="M5" variant="socket-button" length="20" %} screws work here instead.
 
 {% include step.html n="6" title="Prepare the interface chute gear and mount" %}
 
@@ -399,9 +399,9 @@ Slide the prepared [Timing pulley]({{ '/hardware/helpers/pulley-gear-mod/' | rel
 
 Push a 608 2RS bearing into the Interface idler gear.
 
-Push the idler gear onto the Interface NEMA 23 bracket with the bearing facing outwards and secure it with an {% include fastener.html size="M3" variant="button" length="35" %} screw and an M3 × 15 mm washer.
+Push the idler gear onto the Interface NEMA 23 bracket with the bearing facing outwards and secure it with an {% include fastener.html size="M3" variant="socket-button" length="35" %} screw and an M3 × 15 mm washer.
 
-Slot the NEMA 23 onto the Interface NEMA 23 bracket and secure it with four {% include fastener.html size="M5" variant="socket" length="12" %} screws.
+Slot the NEMA 23 onto the Interface NEMA 23 bracket and secure it with four {% include fastener.html size="M5" variant="socket-button" length="12" %} screws.
 
 At this point the chute should still rotate, but you will now feel resistance from the stepper motor.
 
@@ -435,9 +435,9 @@ At this point the chute should still rotate, but you will now feel resistance fr
 
 Slot the Cable cage top over the Top interface chute mount, with the corners of the hexagon aligning with the Interface brackets.
 
-Screw the Cable cage bracket (cable mount), on the Interface bracket opposite the Limit switch housing (this minimises the maximum travel of the cable), securely to the tail end of that Interface bracket with an {% include fastener.html size="M5" variant="socket" length="30" %} screw into the M5 heat insert, clamping the Cable cage top firmly in place.
+Screw the Cable cage bracket (cable mount), on the Interface bracket opposite the Limit switch housing (this minimises the maximum travel of the cable), securely to the tail end of that Interface bracket with an {% include fastener.html size="M5" variant="socket-button" length="30" %} screw into the M5 heat insert, clamping the Cable cage top firmly in place.
 
-Screw the remaining Cable cage brackets to the other 5 corners of the Cable cage top with {% include fastener.html size="M5" variant="socket" length="30" %} screws.
+Screw the remaining Cable cage brackets to the other 5 corners of the Cable cage top with {% include fastener.html size="M5" variant="socket-button" length="30" %} screws.
 
 {% include step.html n="11" title="Put the cable in the cable cage" %}
 
@@ -450,7 +450,7 @@ Screw the remaining Cable cage brackets to the other 5 corners of the Cable cage
     loading="lazy"></iframe>
 </div>
 
-Place an {% include fastener.html size="M3" variant="nut" %} into the bottom of the Cable clamp (outer) (the video skips this), then push it into the recess in the Top interface chute mount. Fasten it with two {% include fastener.html size="M3" variant="socket" length="10" %} screws.
+Place an {% include fastener.html size="M3" variant="nut" %} into the bottom of the Cable clamp (outer) (the video skips this), then push it into the recess in the Top interface chute mount. Fasten it with two {% include fastener.html size="M3" variant="socket-button" length="10" %} screws.
 
 Rotate the chute until it hits the limit switch.
 
@@ -458,9 +458,9 @@ Fold your IDC ribbon cable around the Cable clamp (inner), following the guides 
 
 Guide the rest of the ribbon cable around the side of the Top interface chute mount, in the direction the chute can rotate, back to the Cable cage bracket (cable mount).
 
-Screw the Ribbon cable clamp lightly to the Cable cage bracket (cable mount) with one {% include fastener.html size="M3" variant="socket" length="10" %} screw, clamping the ribbon cable between the two.
+Screw the Ribbon cable clamp lightly to the Cable cage bracket (cable mount) with one {% include fastener.html size="M3" variant="socket-button" length="10" %} screw, clamping the ribbon cable between the two.
 
-Check that the chute can rotate fully to the limit switch in both directions, then tighten the Ribbon cable clamp screw. Use a long {% include fastener.html size="M3" variant="button" length="35" %} screw through the Cable clamp (inner) into the {% include fastener.html size="M3" variant="nut" %} in the bottom of the Cable clamp (outer) to secure that end.
+Check that the chute can rotate fully to the limit switch in both directions, then tighten the Ribbon cable clamp screw. Use a long {% include fastener.html size="M3" variant="socket-button" length="35" %} screw through the Cable clamp (inner) into the {% include fastener.html size="M3" variant="nut" %} in the bottom of the Cable clamp (outer) to secure that end.
 
 {% include step.html n="12" title="Attach the cable cage bottom" %}
 
@@ -479,7 +479,7 @@ After this step the chute should still rotate to each of its limits.
 
 {% include step.html n="13" title="Attach the framing" %}
 
-Insert an extrusion piece F (Interface vertical support) into each of the Interface brackets. Hold each one in place with four {% include fastener.html size="M5" variant="button" length="20" %} screws into four T-nuts.
+Insert an extrusion piece F (Interface vertical support) into each of the Interface brackets. Hold each one in place with four {% include fastener.html size="M5" variant="socket-button" length="20" %} screws into four T-nuts.
 
 <figure>
   <img class="doc-figure" src="https://img.basically.website/web/assembly/top-interface/framing-1.ae2ef835181f63bd.jpg" alt="Six vertical extrusion supports bolted into the interface brackets, seen from above on the hexagonal top plate">

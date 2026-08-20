@@ -115,11 +115,6 @@ ext-2020-c:
   image: https://img.basically.website/web/parts/extrusion/extrusion-2020.0691a894c8154731.png
   caption: 2020 aluminum extrusion, cut to 154 mm (piece C).
 
-scr-m5-12-bhcs:
-  name: M5 × 12 mm button head screw
-  category: Screws
-  image: https://img.basically.website/web/parts/hardware/screws/m5-button-head.87be93e901c86545.jpg
-
 scr-m5-16-shcs:
   name: M5 × 16 mm socket / button head
   category: Screws
@@ -307,8 +302,9 @@ cable-idc-2x8-long:
   image: https://img.basically.website/web/parts/hardware/electronics/cable-idc-2x8-long.78c80cba0d300af0.jpg
 
 scr-m5-12-shcs:
-  name: M5 x 12 mm socket head cap screw
+  name: M5 × 12 mm socket / button head
   category: Screws
+  alternative: Socket or button head
   image: https://img.basically.website/web/parts/hardware/screws/m5-shcs.f415c8d0a2ee3205.jpg
 
 scr-m5-35-shcs:
@@ -318,13 +314,15 @@ scr-m5-35-shcs:
   not_in_calc: true
 
 scr-m5-30-shcs:
-  name: M5 × 30 mm socket head cap screw
+  name: M5 × 30 mm socket / button head
   category: Screws
+  alternative: Socket or button head
   image: https://img.basically.website/web/parts/hardware/screws/m5-shcs.f415c8d0a2ee3205.jpg
 
 scr-m5-20-shcs:
-  name: M5 × 20 mm socket head cap screw
+  name: M5 × 20 mm socket / button head
   category: Screws
+  alternative: Socket or button head
   image: https://img.basically.website/web/parts/hardware/screws/m5-shcs.f415c8d0a2ee3205.jpg
 
 scr-m5-22-cs:
@@ -339,22 +337,17 @@ scr-m5-8-cs:
   image: https://img.basically.website/web/parts/hardware/screws/countersunk.707eba7998554ea6.jpg
   not_in_calc: true
 
-scr-m5-20-bhcs:
-  name: M5 × 20 mm button head cap screw
-  category: Screws
-  image: https://img.basically.website/web/parts/hardware/screws/button.87be93e901c86545.jpg
-  not_in_calc: true
-
 scr-m3-35-bhcs:
-  name: M3 × 35 mm button head cap screw
+  name: M3 × 35 mm socket / button head
   category: Screws
+  alternative: Socket or button head
   image: https://img.basically.website/web/parts/hardware/screws/button.87be93e901c86545.jpg
 
 scr-m3-10-shcs:
-  name: M3 × 10 mm socket head cap screw
+  name: M3 × 10 mm socket / button head
   category: Screws
+  alternative: Socket or button head
   image: https://img.basically.website/web/parts/hardware/screws/m5-shcs.f415c8d0a2ee3205.jpg
-  not_in_calc: true
 
 scr-m3-12-cs:
   name: M3 × 12 mm countersunk screw
@@ -362,8 +355,9 @@ scr-m3-12-cs:
   image: https://img.basically.website/web/parts/hardware/screws/countersunk.707eba7998554ea6.jpg
 
 scr-m3-16-shcs:
-  name: M3 × 16 mm socket head cap screw
+  name: M3 × 16 mm socket / button head
   category: Screws
+  alternative: Socket or button head
   image: https://img.basically.website/web/parts/hardware/screws/m5-shcs.f415c8d0a2ee3205.jpg
 
 scr-m3-8-cs:

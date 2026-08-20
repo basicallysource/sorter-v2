@@ -34,7 +34,7 @@ parts_needed:
     qty: 36
   - part: scr-m5-20-shcs
     qty: 12
-  - part: scr-m5-12-bhcs
+  - part: scr-m5-12-shcs
     qty: 12
   - part: tnut-m5-2020
     qty: 36
@@ -109,9 +109,9 @@ Prepare 12 Frame 90° brackets by drilling out the holes on the long side to all
 
 <img class="doc-figure" src="https://img.basically.website/web/assembly/regular-layers/spoke-brackets-attached.bdf5459b2c7f06bc.png" alt="Two Frame 90° brackets fastened to the inner face of an A/G extrusion, seen from inside the hexagon">
 
-Loosely attach the long side of 2 Frame 90° brackets to the inner of one piece of the A/G (Outer horizontal / Horizontal interface frame) extrusion of your hexagon using 2 {% include fastener.html size="M5" variant="button" length="12" %} screws, either into your 2 existing slide-in T-nuts or with drop-in / roll-in T-nuts.
+Loosely attach the long side of 2 Frame 90° brackets to the inner of one piece of the A/G (Outer horizontal / Horizontal interface frame) extrusion of your hexagon using 2 {% include fastener.html size="M5" variant="socket-button" length="12" %} screws, either into your 2 existing slide-in T-nuts or with drop-in / roll-in T-nuts.
 
-Slide piece B/H (Spoke / Interface spoke (short)) of aluminum extrusion into the 2 Frame 90° brackets that you have just placed, and secure it with 2 {% include fastener.html size="M5" variant="socket-button" length="16" %} screws tapped directly into the Frame 90° brackets, bracing against the extrusion. You can now tighten up the {% include fastener.html size="M5" variant="button" length="12" %} screws that were previously holding the Frame 90° brackets loosely in place.
+Slide piece B/H (Spoke / Interface spoke (short)) of aluminum extrusion into the 2 Frame 90° brackets that you have just placed, and secure it with 2 {% include fastener.html size="M5" variant="socket-button" length="16" %} screws tapped directly into the Frame 90° brackets, bracing against the extrusion. You can now tighten up the {% include fastener.html size="M5" variant="socket-button" length="12" %} screws that were previously holding the Frame 90° brackets loosely in place.
 
 <div class="img-row">
   <figure>
@@ -122,7 +122,7 @@ Slide piece B/H (Spoke / Interface spoke (short)) of aluminum extrusion into the
   </figure>
 </div>
 
-On each side of this B/H (Spoke / Interface spoke (short)) slide a Frame crossbeam into place until it is level with the end of the extrusion, and secure it with an {% include fastener.html size="M5" variant="socket" length="20" %} screw.
+On each side of this B/H (Spoke / Interface spoke (short)) slide a Frame crossbeam into place until it is level with the end of the extrusion, and secure it with an {% include fastener.html size="M5" variant="socket-button" length="20" %} screw.
 
 Perform these steps 2 more times, on every 2nd side of the hexagon.
 
@@ -137,7 +137,7 @@ Perform these steps 2 more times, on every 2nd side of the hexagon.
   </figure>
 </div>
 
-On each of the remaining 3 sides of the hexagon, use 2 {% include fastener.html size="M5" variant="button" length="12" %} screws (either into your 2 existing slide-in T-nuts or with drop-in / roll-in T-nuts) to loosely fasten 2 Frame 90° brackets, aligning them with the gap in the Frame crossbeams. Slide the remaining B/H (Spoke / Interface spoke (short)) pieces into the slots, through both the Frame crossbeams and Frame 90° brackets.
+On each of the remaining 3 sides of the hexagon, use 2 {% include fastener.html size="M5" variant="socket-button" length="12" %} screws (either into your 2 existing slide-in T-nuts or with drop-in / roll-in T-nuts) to loosely fasten 2 Frame 90° brackets, aligning them with the gap in the Frame crossbeams. Slide the remaining B/H (Spoke / Interface spoke (short)) pieces into the slots, through both the Frame crossbeams and Frame 90° brackets.
 
 <div class="img-row">
   <figure>
@@ -150,7 +150,7 @@ On each of the remaining 3 sides of the hexagon, use 2 {% include fastener.html 
 
 <img class="doc-figure" src="https://img.basically.website/web/assembly/regular-layers/spokes-complete-top.517a329e0407cb17.png" alt="Top-down view of the finished hexagon with all six spokes and crossbeams forming the central ring">
 
-Secure them in place with 2 {% include fastener.html size="M5" variant="socket-button" length="16" %} screws tapped into the Frame 90° brackets and 2 {% include fastener.html size="M5" variant="socket" length="20" %} screws through the Frame crossbeams. You can now tighten up the {% include fastener.html size="M5" variant="button" length="12" %} screws that were previously holding the Frame 90° brackets loosely in place.
+Secure them in place with 2 {% include fastener.html size="M5" variant="socket-button" length="16" %} screws tapped into the Frame 90° brackets and 2 {% include fastener.html size="M5" variant="socket-button" length="20" %} screws through the Frame crossbeams. You can now tighten up the {% include fastener.html size="M5" variant="socket-button" length="12" %} screws that were previously holding the Frame 90° brackets loosely in place.
 
 <div class="callout">
   <p>If you are currently building the interface layer, stop here and return to the interface layer guide.</p>
@@ -184,6 +184,6 @@ On each corner, slide an External bracket — bottom vertical onto piece C (Laye
 
 <img class="doc-figure" src="https://img.basically.website/web/assembly/regular-layers/bin-retainers-installed.945ecff28147b1f1.png" alt="Bin retainers fastened to the outer faces of the hexagon frame">
 
-On each side of the hexagon, attach both the Bin retainer (left) and Bin retainer (right) to the front side of A/G (Outer horizontal / Horizontal interface frame) using 4 {% include fastener.html size="M5" variant="button" length="12" %} screws, either into the T-nuts already installed there or with drop-in / roll-in T-nuts.
+On each side of the hexagon, attach both the Bin retainer (left) and Bin retainer (right) to the front side of A/G (Outer horizontal / Horizontal interface frame) using 4 {% include fastener.html size="M5" variant="socket-button" length="12" %} screws, either into the T-nuts already installed there or with drop-in / roll-in T-nuts.
 
 A regular layer is now complete. You will also need to construct a [Chute core]({{ '/hardware/assembly/distribution/chute/' | relative_url }}) for each layer you build.

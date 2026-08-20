@@ -225,6 +225,10 @@ export type ResolvedPart = {
 	qty?: number;
 	notes?: string;
 	caption?: string;
+	// Screw length in mm, stamped on the corner of the card image. One photo
+	// stands in for a whole family of screws, so the length is the one thing it
+	// cannot show, the same reason the parts calculator's hardware list carries it.
+	length_mm?: number;
 	not_in_calc?: boolean;
 	// Interchangeable alternative (e.g. socket vs button head): true for a bare
 	// tag, or a string naming the alternative. Renders the green "A" badge.
@@ -256,6 +260,7 @@ function resolveParts(partsNeeded: any[]): { groups: PartsGroup[]; notes: Resolv
 			page: part.page,
 			notes: part.notes,
 			caption: part.caption,
+			length_mm: part.length_mm,
 			not_in_calc: part.not_in_calc,
 			alternative: part.alternative,
 			qty,

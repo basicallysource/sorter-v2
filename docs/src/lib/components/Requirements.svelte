@@ -30,6 +30,9 @@
 											<img class="part-card-img" src={part.image} alt={part.name} loading="lazy" />
 										{/if}
 										{#if part.qty}<span class="part-card-qty">{part.qty}×</span>{/if}
+										<!-- One screw photo stands in for every length in its family, so the
+										     length gets stamped on the corner, as on the parts calculator. -->
+										{#if part.length_mm}<span class="part-card-len">{part.length_mm}mm</span>{/if}
 										{#if part.not_in_calc}<span class="part-card-warn" title="Not currently in the parts calculator">!</span>{/if}
 										{#if part.alternative}<span
 												class="part-card-alt"

@@ -568,6 +568,24 @@ body {
 	background: var(--ink);
 }
 
+/* Screw length, stamped on the corner of the card image the way the parts
+   calculator's hardware list does it. One photo stands in for a whole family
+   of screws (every M5 socket head is the same picture), so the length is the
+   one thing the image cannot tell you apart by. */
+.part-card-len {
+	position: absolute;
+	right: 0;
+	bottom: 0;
+	padding: 1px 5px;
+	font-size: 0.7rem;
+	font-weight: 600;
+	line-height: 1.35;
+	font-variant-numeric: tabular-nums;
+	color: var(--ink);
+	background: var(--bg);
+	border: 1px solid var(--line);
+}
+
 /* Marker for a part that is not in the parts calculator */
 .part-card-warn {
 	position: absolute;

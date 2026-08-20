@@ -57,6 +57,7 @@ m3-ruthex-long:
 m4-12mm-countersunk:
   name: M4 × 12 mm countersunk screw
   category: Screws
+  length_mm: 12
   image: https://img.basically.website/web/parts/hardware/screws/m4-12mm-countersunk.eb3c4468cf87495d.jpg
 
 ext-bracket-left:
@@ -118,6 +119,7 @@ ext-2020-c:
 scr-m5-16-shcs:
   name: M5 × 16 mm socket / button head
   category: Screws
+  length_mm: 16
   alternative: Socket or button head
   image: https://img.basically.website/web/parts/scr-m5-16-shcs/socket-button-tile.4997cae8bf08013c.jpg
 
@@ -304,70 +306,82 @@ cable-idc-2x8-long:
 scr-m5-12-shcs:
   name: M5 × 12 mm socket / button head
   category: Screws
+  length_mm: 12
   alternative: Socket or button head
   image: https://img.basically.website/web/parts/scr-m5-16-shcs/socket-button-tile.4997cae8bf08013c.jpg
 
 scr-m5-35-shcs:
   name: M5 × 35 mm socket head cap screw
   category: Screws
+  length_mm: 35
   image: https://img.basically.website/web/parts/hardware/screws/m5-shcs.f415c8d0a2ee3205.jpg
   not_in_calc: true
 
 scr-m5-30-shcs:
   name: M5 × 30 mm socket / button head
   category: Screws
+  length_mm: 30
   alternative: Socket or button head
   image: https://img.basically.website/web/parts/scr-m5-16-shcs/socket-button-tile.4997cae8bf08013c.jpg
 
 scr-m5-20-shcs:
   name: M5 × 20 mm socket / button head
   category: Screws
+  length_mm: 20
   alternative: Socket or button head
   image: https://img.basically.website/web/parts/scr-m5-16-shcs/socket-button-tile.4997cae8bf08013c.jpg
 
 scr-m5-22-cs:
   name: M5 × 22 mm countersunk screw
   category: Screws
+  length_mm: 22
   image: https://img.basically.website/web/parts/hardware/screws/countersunk.707eba7998554ea6.jpg
   not_in_calc: true
 
 scr-m5-8-cs:
   name: M5 × 8 mm countersunk screw
   category: Screws
+  length_mm: 8
   image: https://img.basically.website/web/parts/hardware/screws/countersunk.707eba7998554ea6.jpg
   not_in_calc: true
 
 scr-m3-35-bhcs:
   name: M3 × 35 mm socket / button head
   category: Screws
+  length_mm: 35
   alternative: Socket or button head
   image: https://img.basically.website/web/parts/scr-m5-16-shcs/socket-button-tile.4997cae8bf08013c.jpg
 
 scr-m3-10-shcs:
   name: M3 × 10 mm socket / button head
   category: Screws
+  length_mm: 10
   alternative: Socket or button head
   image: https://img.basically.website/web/parts/scr-m5-16-shcs/socket-button-tile.4997cae8bf08013c.jpg
 
 scr-m3-12-cs:
   name: M3 × 12 mm countersunk screw
   category: Screws
+  length_mm: 12
   image: https://img.basically.website/web/parts/hardware/screws/countersunk.707eba7998554ea6.jpg
 
 scr-m3-16-shcs:
   name: M3 × 16 mm socket / button head
   category: Screws
+  length_mm: 16
   alternative: Socket or button head
   image: https://img.basically.website/web/parts/scr-m5-16-shcs/socket-button-tile.4997cae8bf08013c.jpg
 
 scr-m3-8-cs:
   name: M3 × 8 mm countersunk screw
   category: Screws
+  length_mm: 8
   image: https://img.basically.website/web/parts/hardware/screws/countersunk.707eba7998554ea6.jpg
 
 scr-m3-6-cs:
   name: M3 × 6 mm countersunk screw
   category: Screws
+  length_mm: 6
   image: https://img.basically.website/web/parts/hardware/screws/countersunk.707eba7998554ea6.jpg
   not_in_calc: true
 

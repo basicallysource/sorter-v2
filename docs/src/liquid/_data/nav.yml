@@ -19,8 +19,6 @@ sections:
     pages:
       - title: Overview
         url: /hardware/
-      - title: Preparation
-        url: /hardware/preparation/
       - title: Assembly
         url: /hardware/assembly/
         children:

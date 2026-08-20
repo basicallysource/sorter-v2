@@ -101,18 +101,21 @@ bin-retainer-right:
 ext-2020-ag:
   name: Outer horizontal / Horizontal interface frame (A/G)
   category: Aluminum extrusion (2020)
+  length_mm: 320
   image: https://img.basically.website/web/parts/extrusion/extrusion-2020.0691a894c8154731.png
   caption: 2020 aluminum extrusion, cut to 320 mm (pieces A and G).
 
 ext-2020-bh:
   name: Spoke / Interface spoke, short (B/H)
   category: Aluminum extrusion (2020)
+  length_mm: 158
   image: https://img.basically.website/web/parts/extrusion/extrusion-2020.0691a894c8154731.png
   caption: 2020 aluminum extrusion, cut to 158 mm (pieces B and H).
 
 ext-2020-c:
   name: Layer vertical support (C)
   category: Aluminum extrusion (2020)
+  length_mm: 154
   image: https://img.basically.website/web/parts/extrusion/extrusion-2020.0691a894c8154731.png
   caption: 2020 aluminum extrusion, cut to 154 mm (piece C).
 
@@ -269,12 +272,14 @@ ribbon-cable-clamp:
 extrusion-e:
   name: Interface spoke, long (E)
   category: Aluminum extrusion (2020)
+  length_mm: 238
   image: https://img.basically.website/web/parts/top-interface/extrusion-e.bce3a0752b0f99f5.png
   caption: 2020 aluminum extrusion, cut to 238 mm (piece E).
 
 extrusion-f:
   name: Interface vertical support (F)
   category: Aluminum extrusion (2020)
+  length_mm: 274
   image: https://img.basically.website/web/parts/top-interface/extrusion-f.7e1f6b2dc9e069f7.png
   caption: 2020 aluminum extrusion, cut to 274 mm (piece F).
 

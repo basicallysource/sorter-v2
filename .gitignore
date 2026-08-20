@@ -40,3 +40,6 @@ software/sorteros/v3/build/.env
 .DS_Store
 
 docs/scripts/__pycache__/
+
+# stray OrcaSlicer CLI log from parts-calculator regen
+00000.log

@@ -42,3 +42,6 @@ slicer/inbox/
 # This used to be an LFS directory; pointer stubs got published as the images
 # and broke every hardware photo on the site. See CLAUDE.md.
 slicer/images/
+
+# stray OrcaSlicer CLI log (written to cwd)
+00000.log

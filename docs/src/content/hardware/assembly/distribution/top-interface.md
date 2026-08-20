@@ -399,7 +399,9 @@ Slide the prepared [Timing pulley]({{ '/hardware/helpers/pulley-gear-mod/' | rel
 
 Push a 608 2RS bearing into the Interface idler gear.
 
-Push the idler gear onto the Interface NEMA 23 bracket with the bearing facing outwards and secure it with an {% include fastener.html size="M3" variant="socket-button" length="35" %} screw and an M3 × 15 mm washer.
+Push the idler gear onto the Interface NEMA 23 bracket with the bearing facing outwards.
+
+Slide an M3 × 15 mm washer onto an {% include fastener.html size="M3" variant="socket-button" length="35" %} screw, then drive that screw through the bearing and into the bracket. The washer sits between the screw head and the outer face of the bearing, spanning its 8 mm bore: the screw head on its own is narrower than the bore and drops down inside it, so the washer is what actually holds the idler gear onto the bracket. Tighten until the washer is seated, then check that the idler gear still spins freely.
 
 Slot the NEMA 23 onto the Interface NEMA 23 bracket and secure it with four {% include fastener.html size="M5" variant="socket-button" length="12" %} screws.
 

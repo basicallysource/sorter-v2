@@ -9,6 +9,10 @@ lede: The chute assembly. Build one per layer.
 permalink: /hardware/assembly/distribution/chute/chute-core/
 author: spencer
 contributors: [barthel]
+warning: >-
+  **AI-generated first draft.** Written from the machine assembly tree in the [parts
+  calculator](https://parts-calculator.basically.website/assembly?focus=chute), not from an
+  actual build. No step here has been checked against a machine. Correct it as you build.
 parts_needed:
   - part: chute-core
     qty: 1
@@ -29,11 +33,6 @@ parts_needed:
   - part: scr-m3-8-cs
     qty: 8
 ---
-
-<div class="callout callout-warning">
-  <span class="callout-icon" aria-hidden="true">⚠</span>
-  <p><strong>AI-generated first draft.</strong> Written from the machine assembly tree in the <a href="https://parts-calculator.basically.website/assembly?focus=chute">parts calculator</a>, not from an actual build. No step here has been checked against a machine. Correct it as you build.</p>
-</div>
 
 The chute is what steers a part into the right bin. Build one per layer, plus two for the [bottom interface]({{ '/hardware/assembly/distribution/bin-frame/bottom-interface/' | relative_url }}).
 

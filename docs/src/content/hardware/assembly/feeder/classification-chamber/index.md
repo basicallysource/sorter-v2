@@ -9,6 +9,11 @@ lede: Where parts are imaged for classification.
 permalink: /hardware/assembly/feeder/classification-chamber/
 author: spencer
 contributors: [barthel]
+warning: >-
+  **AI-generated first draft.** Written from the parts registry in the [parts
+  calculator](https://parts-calculator.basically.website/assembly?focus=classification-chamber),
+  not from an actual build. The assembly order is not recorded anywhere yet, so this page
+  lists what the chamber is made of rather than how it goes together. Correct it as you build.
 parts_needed:
   - part: classification-dome
     qty: 1
@@ -23,11 +28,6 @@ parts_needed:
   - part: cam-imx415
     qty: 1
 ---
-
-<div class="callout callout-warning">
-  <span class="callout-icon" aria-hidden="true">⚠</span>
-  <p><strong>AI-generated first draft.</strong> Written from the parts registry in the <a href="https://parts-calculator.basically.website/assembly?focus=classification-chamber">parts calculator</a>, not from an actual build. The assembly order is not recorded anywhere yet, so this page lists what the chamber is made of rather than how it goes together. Correct it as you build.</p>
-</div>
 
 The classification chamber is where a part is lit and photographed on its way through. It sits on the fourth [C-channel]({{ '/hardware/assembly/feeder/c-channel/' | relative_url }}), the classification-channel one.
 

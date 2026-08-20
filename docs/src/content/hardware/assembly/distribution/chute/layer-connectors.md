@@ -9,6 +9,11 @@ lede: The connectors that chain layers together.
 permalink: /hardware/assembly/distribution/chute/layer-connectors/
 author: spencer
 contributors: [barthel]
+warning: >-
+  **AI-generated first draft.** Written from the machine assembly tree in the [parts
+  calculator](https://parts-calculator.basically.website/assembly?focus=layer-connector), not
+  from an actual build. No step here has been checked against a machine. Correct it as you
+  build.
 parts_needed:
   - part: layer-connector-1
     qty: 1
@@ -19,11 +24,6 @@ parts_needed:
   - part: scr-m3-8-cs
     qty: 8
 ---
-
-<div class="callout callout-warning">
-  <span class="callout-icon" aria-hidden="true">⚠</span>
-  <p><strong>AI-generated first draft.</strong> Written from the machine assembly tree in the <a href="https://parts-calculator.basically.website/assembly?focus=layer-connector">parts calculator</a>, not from an actual build. No step here has been checked against a machine. Correct it as you build.</p>
-</div>
 
 The layer connectors are a pair of printed parts, Layer connector A and Layer connector B, that join one layer's chute to the next one down so parts pass from chute to chute without a gap.
 

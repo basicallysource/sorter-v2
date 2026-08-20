@@ -9,6 +9,10 @@ lede: The board that drives the servo.
 permalink: /hardware/assembly/distribution/chute/pcb/
 author: spencer
 contributors: [barthel]
+warning: >-
+  **AI-generated first draft.** Written from the machine assembly tree in the [parts
+  calculator](https://parts-calculator.basically.website/assembly?focus=chute-pcb), not from
+  an actual build. No step here has been checked against a machine. Correct it as you build.
 parts_needed:
   - part: layer-adapter-board-basically
     qty: 1
@@ -17,11 +21,6 @@ parts_needed:
   - part: scr-m3-6-bhcs
     qty: 4
 ---
-
-<div class="callout callout-warning">
-  <span class="callout-icon" aria-hidden="true">⚠</span>
-  <p><strong>AI-generated first draft.</strong> Written from the machine assembly tree in the <a href="https://parts-calculator.basically.website/assembly?focus=chute-pcb">parts calculator</a>, not from an actual build. No step here has been checked against a machine. Correct it as you build.</p>
-</div>
 
 Each layer carries one basically Layer Adapter Board, the in-house board that breaks out the control board's ribbon connectors for that distribution layer and drives the layer's servo. One per layer.
 

@@ -9,6 +9,11 @@ lede: The mount the servo bolts into.
 permalink: /hardware/assembly/distribution/chute/mg995-servo/servo-mount/
 author: spencer
 contributors: [barthel]
+warning: >-
+  **AI-generated first draft.** Written from the machine assembly tree in the [parts
+  calculator](https://parts-calculator.basically.website/assembly?focus=servo-bracket), not
+  from an actual build. No step here has been checked against a machine. Correct it as you
+  build.
 parts_needed:
   - part: servo-bracket-housing
     qty: 1
@@ -27,11 +32,6 @@ parts_needed:
   - part: scr-m3-8-cs
     qty: 2
 ---
-
-<div class="callout callout-warning">
-  <span class="callout-icon" aria-hidden="true">⚠</span>
-  <p><strong>AI-generated first draft.</strong> Written from the machine assembly tree in the <a href="https://parts-calculator.basically.website/assembly?focus=servo-bracket">parts calculator</a>, not from an actual build. No step here has been checked against a machine. Correct it as you build.</p>
-</div>
 
 The MG995 sits in a four-part printed bracket, and the whole bracket goes onto the chute core as one unit. Build it on the bench, then bolt it on.
 

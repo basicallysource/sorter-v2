@@ -9,6 +9,11 @@ lede: The funnel that guides parts through the door.
 permalink: /hardware/assembly/distribution/chute/funnel/
 author: spencer
 contributors: [barthel]
+warning: >-
+  **AI-generated first draft.** Written from the machine assembly tree and parts registry in
+  the [parts calculator](https://parts-calculator.basically.website/assembly?focus=chute), not
+  from an actual build. No step here has been checked against a machine. Correct it as you
+  build.
 parts_needed:
   - part: funnel-half
     qty: 1
@@ -23,11 +28,6 @@ parts_needed:
   - part: scr-m3-8-cs
     qty: 8
 ---
-
-<div class="callout callout-warning">
-  <span class="callout-icon" aria-hidden="true">⚠</span>
-  <p><strong>AI-generated first draft.</strong> Written from the machine assembly tree and parts registry in the <a href="https://parts-calculator.basically.website/assembly?focus=chute">parts calculator</a>, not from an actual build. No step here has been checked against a machine. Correct it as you build.</p>
-</div>
 
 The funnel catches what the door releases and guides it into the bin below. It hangs off two printed brackets that are part of the chute.
 

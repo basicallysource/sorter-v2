@@ -9,6 +9,10 @@ lede: The C-channel stage itself.
 permalink: /hardware/assembly/feeder/c-channel/
 author: spencer
 contributors: [barthel]
+warning: >-
+  **AI-generated first draft.** Written from the machine assembly tree in the [parts
+  calculator](https://parts-calculator.basically.website/assembly?focus=c-channel), not from
+  an actual build. No step here has been checked against a machine. Correct it as you build.
 parts_needed:
   - part: stator
     qty: 1
@@ -33,11 +37,6 @@ parts_needed:
   - part: scr-m3-8-cs
     qty: 5
 ---
-
-<div class="callout callout-warning">
-  <span class="callout-icon" aria-hidden="true">⚠</span>
-  <p><strong>AI-generated first draft.</strong> Written from the machine assembly tree in the <a href="https://parts-calculator.basically.website/assembly?focus=c-channel">parts calculator</a>, not from an actual build. No step here has been checked against a machine. Correct it as you build.</p>
-</div>
 
 A C-channel is one drive unit: a stator, the NEMA bracket bolted under it, a gear train, and a NEMA 17 stepper.
 

@@ -1,3 +1,4 @@
+import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException
@@ -47,6 +48,30 @@ from app.services.condition_worker import get_condition_worker
 from app.services.machine_stats import get_machine_stats_worker
 from app.services.server_health import get_memory_log_worker, get_storage_stats_worker
 from app.services.teacher_worker import get_teacher_worker
+
+def _configure_app_logging() -> None:
+    """Give the ``app`` logger somewhere to write.
+
+    uvicorn configures its own loggers and deliberately leaves the root logger
+    alone, so nothing in this package had a handler and all 50-odd logger calls
+    under app/ went nowhere — including the five background workers announcing
+    themselves at startup, and warnings like "color model has no usable classes"
+    that were meant to be the first sign something was wrong. None of it has
+    ever appeared in `docker logs`.
+
+    Configured on the ``app`` logger rather than the root on purpose: root would
+    also unmute botocore and friends, and this box does not need that volume.
+    uvicorn's own loggers do not propagate, so its access lines are unaffected.
+    """
+    app_logger = logging.getLogger("app")
+    app_logger.setLevel(logging.INFO)
+    if not app_logger.handlers:
+        handler = logging.StreamHandler()
+        handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s [%(name)s] %(message)s"))
+        app_logger.addHandler(handler)
+
+
+_configure_app_logging()
 
 limiter = Limiter(key_func=get_remote_address)
 

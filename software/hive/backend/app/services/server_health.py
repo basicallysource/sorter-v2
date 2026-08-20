@@ -372,3 +372,78 @@ def get_storage_stats_worker() -> StorageStatsWorker:
             if _INSTANCE is None:
                 _INSTANCE = StorageStatsWorker()
     return _INSTANCE
+
+
+MEMORY_LOG_INTERVAL_S = 300.0
+
+
+class MemoryLogWorker:
+    """Writes one memory line to the log every five minutes.
+
+    DIAGNOSTIC. This exists for the leak that took hive down on 2026-08-20 and
+    should be deleted the day that closes — see hive-prod-server.md.
+
+    The same numbers are on /api/admin/server-health, which is the right place
+    for them, but reading that needs a login and a leak is measured in days.
+    A log line is what is still there tomorrow, survives a restart in the
+    journal, and costs nothing to collect. Deliberately not folded into
+    StorageStatsWorker: that ticks every three hours and only after walking the
+    whole object store, which is far too coarse and too expensive to sample on.
+    """
+
+    def __init__(self) -> None:
+        self._thread: threading.Thread | None = None
+        self._stop_event = threading.Event()
+        self._start_lock = threading.Lock()
+
+    def start(self) -> None:
+        with self._start_lock:
+            if self._thread is not None and self._thread.is_alive():
+                return
+            self._stop_event.clear()
+            self._thread = threading.Thread(target=self._loop, daemon=True, name="memory-log-worker")
+            self._thread.start()
+
+    def stop(self) -> None:
+        self._stop_event.set()
+
+    def _loop(self) -> None:
+        logger.info("MemoryLogWorker: started")
+        while not self._stop_event.is_set():
+            self._log_once()
+            if self._stop_event.wait(timeout=MEMORY_LOG_INTERVAL_S):
+                break
+        logger.info("MemoryLogWorker: stopped")
+
+    def _log_once(self) -> None:
+        try:
+            stats = get_memory_stats()
+            glibc = stats.get("glibc") or {}
+            logger.info(
+                "memory rss=%.0fMB blocks=%d arena=%.0fMB free_in_arena=%.0fMB mmap=%.0fMB heaps=%s",
+                _as_mb(stats.get("process_rss_bytes")),
+                stats.get("python_allocated_blocks") or 0,
+                _as_mb(glibc.get("arena_bytes")),
+                _as_mb(glibc.get("free_in_arena_bytes")),
+                _as_mb(glibc.get("mmapped_bytes")),
+                glibc.get("heap_count"),
+            )
+        except Exception:
+            # A diagnostic must never be the reason the process dies.
+            logger.exception("MemoryLogWorker: sample failed")
+
+
+def _as_mb(value: int | None) -> float:
+    return (value or 0) / (1024 * 1024)
+
+
+_MEMORY_LOG_INSTANCE: MemoryLogWorker | None = None
+
+
+def get_memory_log_worker() -> MemoryLogWorker:
+    global _MEMORY_LOG_INSTANCE
+    if _MEMORY_LOG_INSTANCE is None:
+        with _INSTANCE_LOCK:
+            if _MEMORY_LOG_INSTANCE is None:
+                _MEMORY_LOG_INSTANCE = MemoryLogWorker()
+    return _MEMORY_LOG_INSTANCE

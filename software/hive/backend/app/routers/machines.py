@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, Query, Request
 from pydantic import BaseModel, Field
 from slowapi import Limiter
 from slowapi.util import get_remote_address
-from sqlalchemy import delete, func, select, tuple_
+from sqlalchemy import delete, func, select, text, tuple_
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.orm import Session, joinedload
@@ -711,6 +711,28 @@ def report_machine_set_progress(
     ).first()
     if not assignment:
         raise APIError(404, "No profile assignment found", "NO_ASSIGNMENT")
+
+    # One report per assignment at a time. Without this, a retry of a
+    # still-running report joins the row-lock queue behind it — waiting up to
+    # the 60s statement timeout while holding its own locks and pinning its
+    # whole parsed payload — and under a retry storm those waiters convoy
+    # (2026-08-20, the second half of the OOM loop: the convoy persisted even
+    # after the write path itself got fast). The advisory lock is
+    # transaction-scoped, so it releases on commit or rollback no matter how
+    # the request dies; a bounced retry just comes back once the in-flight
+    # report lands, and then usually no-ops. Postgres-only: sqlite (tests) is
+    # single-writer anyway.
+    if db.bind.dialect.name == "postgresql":
+        got_lock = db.execute(
+            text("SELECT pg_try_advisory_xact_lock(hashtext(:aid))"),
+            {"aid": str(assignment.id)},
+        ).scalar()
+        if not got_lock:
+            raise APIError(
+                429,
+                "A set-progress report for this machine is already being processed",
+                "SET_PROGRESS_BUSY",
+            )
 
     expected_version = assignment.active_version or assignment.desired_version
     expected_version_id = expected_version.id if expected_version is not None else None

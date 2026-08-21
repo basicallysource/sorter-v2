@@ -27,9 +27,9 @@ parts_needed:
   - part: scr-m4-12-cs
     qty: 8
   - part: scr-m5-16-shcs
-    qty: 3
+    qty: 9
   - part: tnut-m5-2020
-    qty: 3
+    qty: 6
 ---
 
 The fasteners and quantities in the parts list are called out inline at each step.
@@ -162,19 +162,27 @@ The bearing stack is now complete:
 
 {% include step.html n="4" title="Mount it into the frame" %}
 
-Three Lazy Susan extrusion mounts fix the assembly to the external extrusion of the layer frame, one {% include fastener.html size="M5" variant="socket-button" length="16" %} screw and one {% include fastener.html size="M5" variant="t-nut" %} each. Three Lazy Susan hold in place prints go on with them; the [parts calculator](https://parts-calculator.basically.website/assembly?focus=lazy-susan) marks those optional.
-
-The 2020 extrusion itself is not in the parts list above, because its length depends on your layer count. Every cut piece in the machine comes off the [framing cut list](https://parts-calculator.basically.website/framing).
-
-The order the mounts go on, and how the hold in place prints sit against them, is not recorded yet.
+Three Lazy Susan extrusion mounts fix the assembly to the external extrusion of the layer frame, and a Lazy Susan hold in place bolts to each one. They go together as a pair before either touches the extrusion.
 
 <div class="img-row">
   <figure>
-    <img src="https://img.basically.website/web/assembly/bottom-interface/step4-extrusion-mount.875e1c5a694ae3de.jpg" alt="A printed Lazy Susan extrusion mount, a grey wedge-shaped bracket with a triangular window through its web and two counterbored holes along its bottom face">
-    <figcaption>A Lazy Susan extrusion mount.</figcaption>
+    <img src="https://img.basically.website/web/assembly/bottom-interface/step4-extrusion-mount.875e1c5a694ae3de.jpg" alt="A Lazy Susan extrusion mount and a Lazy Susan hold in place bolted together, forming a grey wedge with a triangular window through its web and two counterbored holes along its bottom face">
+    <figcaption>The extrusion mount and the hold in place, bolted together.</figcaption>
   </figure>
   <figure>
-    <img src="https://img.basically.website/web/assembly/bottom-interface/step4-extrusion-mount-on-2020.c91601474f43c5a1.jpg" alt="The same extrusion mount with a length of 2020 aluminum extrusion seated in the channel along its sloped edge">
+    <img src="https://img.basically.website/web/assembly/bottom-interface/step4-extrusion-mount-on-2020.c91601474f43c5a1.jpg" alt="The same pair with a length of 2020 aluminum extrusion seated in the channel along its sloped edge">
     <figcaption>With a length of 2020 in its channel. Photos by BrickCycleAlice.</figcaption>
   </figure>
 </div>
+
+The screw between the two is an {% include fastener.html size="M5" variant="socket" length="16" %}: it drops through the counterbore in the hold in place, passes a 5.5 mm clearance hole, and taps itself into a 4.4 mm hole in the extrusion mount, the same tap-into-plastic join used everywhere else on the frame. **16 mm is the longest that fits.** Measured off the two STLs, the head seat is exactly 16.0 mm above the bottom of the tapped hole, so a longer screw bottoms out before it clamps.
+
+Each mount then fastens to the extrusion through the two 5.5 mm clearance holes along its bottom face, into {% include fastener.html size="M5" variant="t-nut" %}s in the slot.
+
+<div class="callout">
+  <p>The <a href="https://parts-calculator.basically.website/assembly?focus=lazy-susan">parts calculator</a> lists 3 M5 × 16 and 3 T-nuts for this, which is one screw per mount. The geometry needs three per mount: one into the hold in place and two into the extrusion. The parts list above follows the geometry.</p>
+</div>
+
+The order the three mounts go on around the ring is not recorded yet.
+
+The 2020 extrusion itself is not in the parts list above, because its length depends on your layer count. Every cut piece in the machine comes off the [framing cut list](https://parts-calculator.basically.website/framing).

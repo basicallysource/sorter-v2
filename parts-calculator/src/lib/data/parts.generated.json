@@ -1409,15 +1409,15 @@
 					"commit": null,
 					"stl": "https://sorter-v2-parts.nyc3.cdn.digitaloceanspaces.com/stl/323b2d1f94a5440119359498de7c7f706d4b32f4c54bec45e88b94c53064279b.stl",
 					"render": "https://sorter-v2-parts.nyc3.cdn.digitaloceanspaces.com/render/02ab8b46abb514e96061673c1e078413ab62446e6ef76dde456eadd168d0db95.png",
-					"grams": 175.52
+					"grams": 175.75
 				}
 			],
 			"attributes": [],
-			"grams": 175.52,
-			"support_grams": 23.42,
+			"grams": 175.75,
+			"support_grams": 23.07,
 			"support_used": true,
 			"support_intentional": true,
-			"print_seconds": 16014,
+			"print_seconds": 16023,
 			"color": {
 				"by_section": {
 					"feeder": {
@@ -2861,15 +2861,15 @@
 					"commit": "8bf567e",
 					"stl": "https://sorter-v2-parts.nyc3.cdn.digitaloceanspaces.com/stl/dd778421784bf38babc9ccde0f1007ce61e7e2c575718a933e62aadfedd55484.stl",
 					"render": "https://sorter-v2-parts.nyc3.cdn.digitaloceanspaces.com/render/f11a3bd4df63e55febd864ace0e3cf5f7feb901b3545a1bfdbb557005dec9b01.png",
-					"grams": 19.77
+					"grams": 19.76
 				}
 			],
 			"attributes": [],
-			"grams": 19.77,
-			"support_grams": 6.9,
+			"grams": 19.76,
+			"support_grams": 6.97,
 			"support_used": true,
 			"support_intentional": true,
-			"print_seconds": 3549,
+			"print_seconds": 3555,
 			"color": {
 				"role": "chute-core"
 			},

@@ -726,6 +726,7 @@
 			"id": "meanwell-psu-box",
 			"name": "Meanwell 24V PSU box",
 			"description": "Enclosure for the Meanwell 24V power supply: back mount, connections plate, and cap, screwed to the supply's own case.",
+			"docs": "/hardware/electronics/installation/psu-box/",
 			"status": "partial",
 			"lines": [
 				{
@@ -778,6 +779,7 @@
 			"id": "pico-headers",
 			"name": "Pico with headers",
 			"description": "The Raspberry Pi Pico with 2.54 mm header pins fitted, so it can seat in the PCB. The board ships bare \u2014 the pins are a separate purchase.",
+			"docs": "/hardware/electronics/installation/pico-headers/",
 			"status": "partial",
 			"joining": [
 				{
@@ -1262,6 +1264,7 @@
 			"id": "ctrl-board-mount",
 			"name": "Control board mount",
 			"description": "The basically Embedded Control Board standing off its bracket. The printed bracket is not in the parts registry yet.",
+			"docs": "/hardware/electronics/installation/control-board-mount/",
 			"status": "stub",
 			"lines": [
 				{
@@ -1286,6 +1289,7 @@
 			"id": "orange-pi-mount",
 			"name": "Orange Pi mount",
 			"description": "The Orange Pi 5 standing off its bracket. The printed bracket is not in the parts registry yet.",
+			"docs": "/hardware/electronics/installation/orange-pi-mount/",
 			"status": "stub",
 			"lines": [
 				{
@@ -1310,7 +1314,7 @@
 			"id": "electronics",
 			"name": "Electronics",
 			"description": "The three boxes that bolt to the frame: the PSU, the control board, and the Orange Pi. Each takes 2 \u00d7 [[hw:scr-m5-shcs-tbd]] \u2014 nobody has measured the length yet.",
-			"docs": "/hardware/electronics/",
+			"docs": "/hardware/electronics/installation/",
 			"status": "partial",
 			"lines": [
 				{

@@ -72,6 +72,17 @@ sections:
       - title: Electronics
         url: /hardware/electronics/
         children:
+          - title: Installing the electronics
+            url: /hardware/electronics/installation/
+            children:
+              - title: PSU box
+                url: /hardware/electronics/installation/psu-box/
+              - title: Control board mount
+                url: /hardware/electronics/installation/control-board-mount/
+              - title: Orange Pi mount
+                url: /hardware/electronics/installation/orange-pi-mount/
+              - title: Pico headers
+                url: /hardware/electronics/installation/pico-headers/
           - title: Stepper connectors
             url: /hardware/electronics/steppers/
           - title: Order spec

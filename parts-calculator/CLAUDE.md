@@ -21,10 +21,10 @@ the BOM spreadsheet).
 A SvelteKit static site that tells you what to print/buy for a Sorter V2
 build. Two halves:
 
-- **`slicer/`** — Python + a slicer. Slices every part, reads the
+- **`catalog/`** — Python + a slicer. Slices every part, reads the
   slicer's real `used_g`, renders thumbnails, writes the site's data.
   **Never runs in the site build, and never runs in CI.** Whoever edits the
-  slicer inputs runs `slicer/filament.py` and commits source and outputs
+  slicer inputs runs `catalog/generate.py` and commits source and outputs
   together, in the same change. The script picks its slicing backend itself:
   a local OrcaSlicer when one is installed, otherwise the asset service
   (`ASSET_SERVICE_TOKEN` set) — an uploaded STL gets its slice reports and a
@@ -58,8 +58,8 @@ inconsistent — regenerate and push again.
 ## Hard rules
 
 **Never hand-edit generated files.** `src/lib/data/parts.generated.json`,
-`src/lib/data/plates.generated.json`, and `slicer/artifacts.json` are all
-outputs. The authored source of truth is `slicer/parts.json`. Edit that and
+`src/lib/data/plates.generated.json`, and `catalog/artifacts.json` are all
+outputs. The authored source of truth is `catalog/parts.json`. Edit that and
 re-run the generator.
 
 **Filament weights are measured, never estimated.** Grams come from
@@ -67,7 +67,7 @@ OrcaSlicer's own output. Do not compute weight from volume/density.
 
 **Python is invoked by full path** (no venvs):
 ```
-/opt/homebrew/opt/python@3.11/libexec/bin/python slicer/filament.py
+/opt/homebrew/opt/python@3.11/libexec/bin/python catalog/generate.py
 ```
 
 ## Artifacts and the bucket
@@ -101,7 +101,7 @@ are never stored twice.
 
 ### Someone sent you a product image. What to do with it
 
-Upload it, get a URL back, put the URL in `slicer/parts.json`:
+Upload it, get a URL back, put the URL in `catalog/parts.json`:
 
 ```bash
 python scripts/sync_bucket.py --upload ~/Downloads/new-board.png
@@ -113,12 +113,12 @@ That prints the line to paste:
 "image_url": "https://sorter-v2-parts.nyc3.cdn.digitaloceanspaces.com/img/<hash>.png"
 ```
 
-Set it on the part (or family) in `slicer/parts.json`. That is the whole
+Set it on the part (or family) in `catalog/parts.json`. That is the whole
 workflow. The file stays wherever it was — **never copy it into the repo.**
 
 Images are not committed, in any form. There is no repo-file path any more:
-`filament.py` hard-fails on an `image:` key and tells you to use `image_url`,
-and `slicer/images/` is gitignored so the old habit can't come back.
+`generate.py` hard-fails on an `image:` key and tells you to use `image_url`,
+and `catalog/images/` is gitignored so the old habit can't come back.
 
 Why it's this strict: images used to be LFS-tracked, a CI job checked out
 without `lfs: true`, and the 130-byte pointer stubs got hashed into the URLs
@@ -133,7 +133,7 @@ runs in `check-parts.yml` on every PR, and takes a file argument so you can
 check an image edit without invoking the slicer:
 
 ```bash
-python scripts/check_bucket_urls.py slicer/parts.json
+python scripts/check_bucket_urls.py catalog/parts.json
 ```
 
 ### The caching invariant — do not break this
@@ -161,7 +161,7 @@ revision pin an `stl_hash` and stay retrievable indefinitely.
 ## Storage layout
 
 **NOTHING BINARY IS IN GIT. Not one file, authored or generated.** No STL, no
-3MF, no PNG, no zip, no render. `slicer/parts/`, `slicer/plates/`,
+3MF, no PNG, no zip, no render. `catalog/parts/`, `catalog/plates/`,
 `static/renders/` and `static/plate-thumbs/` do not exist — the history was
 rewritten on 2026-08-20 to remove them, taking the repo from 376 MB to under a
 megabyte packed. Do not recreate any of them, and do not "temporarily" commit a
@@ -173,14 +173,14 @@ by hash from committed JSON:
 
 - each part's `stl` URL and the `all_parts_zip` bundle URL in
   `parts.generated.json` (the zip is staged under gitignored
-  `slicer/build/bundle/` and uploaded by `sync_bucket.py`);
+  `catalog/build/bundle/` and uploaded by `sync_bucket.py`);
 - each plate's `download` URL in `plates.generated.json`;
 - every product image (`image_url`, pinned in `parts.json`).
 
 **Historical part-version geometry is pinned, not reconstructed.** Each
 superseded version in `parts.json` carries `stl_hash` — the sha256 of its
 final bytes, written by `stamp_versions.py` at supersession time — and
-`archive_versions()` in `slicer/filament.py` fetches those bytes from the
+`archive_versions()` in `catalog/generate.py` fetches those bytes from the
 bucket. Git history is never consulted for geometry, which is what made the
 2026-08 history rewrite (dropping the old `static/stl` serving copies and 30+
 committed revisions of `all-parts.zip`) safe. The pre-rewrite history is

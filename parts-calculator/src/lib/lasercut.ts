@@ -6,7 +6,7 @@
 // slicer/parts.json (kind: 'lasercut') and rides through the generated JSON
 // so the docs site renders the same records; this module is the typed view.
 
-import raw from '$lib/data/parts.generated.json';
+import raw from '$lib/data/catalog.generated.json';
 
 export type LaserCutPart = {
 	id: string;

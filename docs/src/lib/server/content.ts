@@ -5,7 +5,7 @@
 import yaml from 'js-yaml';
 // JSON only — importing TS from the sibling package would drag its tsconfig
 // (which extends a generated file) into this build.
-import partsGenerated from '../../../../parts-calculator/src/lib/data/parts.generated.json';
+import partsGenerated from '../../../../parts-calculator/src/lib/data/catalog.generated.json';
 import { Liquid } from 'liquidjs';
 import { unified } from 'unified';
 import remarkParse from 'remark-parse';

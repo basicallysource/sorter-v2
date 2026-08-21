@@ -11,7 +11,7 @@ reads the slicer's own filament weight.
 
 Two pieces:
 
-1. **`slicer/`** — a Python step driving a slicer. It slices every part once,
+1. **`catalog/`** — a Python step driving a slicer. It slices every part once,
    reads `used_g`, renders a thumbnail, copies the STL, and writes the data the
    site reads. Runs wherever the edit happens — against a local OrcaSlicer or
    the asset service's worker — and its outputs are committed with the edit.
@@ -20,10 +20,10 @@ Two pieces:
    color/layer math in the browser. Fully static; Cloudflare Pages builds it.
 
 ```
-slicer/
+catalog/
   parts.json            # manifest: every part, its section(s), qty, color role
                         #   geometry is PINNED here by hash, never committed
-  filament.py           # the local data-generation step
+  generate.py           # the local data-generation step
 src/lib/data/parts.generated.json   # GENERATED, committed — the app's input
 ```
 
@@ -40,7 +40,7 @@ the JSON above. See [CLAUDE.md](CLAUDE.md#storage-layout).
    python scripts/sync_bucket.py --upload ~/Downloads/new-part.stl
    ```
 
-2. Add/edit entries in `slicer/parts.json` — set its `stl_hash` / `stl_id`
+2. Add/edit entries in `catalog/parts.json` — set its `stl_hash` / `stl_id`
    from step 1, plus `quantities`, `color` (a `role`, or `fixed`, or
    `by_section`), and `optional`. Sections are `feeder`,
    `classification-channel`, `interface`, `chute`, `funnel`, `layer`,
@@ -48,7 +48,7 @@ the JSON above. See [CLAUDE.md](CLAUDE.md#storage-layout).
 3. Run the generator and commit **source and regenerated data together**:
 
    ```
-   /opt/homebrew/opt/python@3.11/libexec/bin/python slicer/filament.py
+   /opt/homebrew/opt/python@3.11/libexec/bin/python catalog/generate.py
    ```
 
    **You do not need OrcaSlicer.** The script picks its slicing backend on its
@@ -66,7 +66,7 @@ the JSON above. See [CLAUDE.md](CLAUDE.md#storage-layout).
    your pins and that every URL serves real bytes; if it is red, you forgot
    step 3 — run it and push again.
 
-Slicer settings live at the top of `slicer/filament.py` (printer, infill,
+Slicer settings live at the top of `catalog/generate.py` (printer, infill,
 supports, etc.); changing them re-slices the whole catalog. Terminology is in
 [`notes/TERMINOLOGY.md`](notes/TERMINOLOGY.md).
 
@@ -87,7 +87,7 @@ npm run dev
 ## Build plates
 
 Upload pre-arranged `.3mf` plates with `scripts/sync_bucket.py --upload` and pin
-them in `slicer/plates.json`; they are not committed either. `filament.py`
+them in `catalog/plates.json`; they are not committed either. `generate.py`
 pulls each one's embedded plate previews and reads the parts it contains; downloads
 are served from the content-addressed bucket. To cross-link a plate's parts to the catalog, set a part's
 `source` field in `parts.json` to the part's original filename as it appears in the 3mf.

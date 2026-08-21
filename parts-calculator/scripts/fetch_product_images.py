@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Fetch product images for COTS parts and put them on the bucket.
 
-Only touches parts that need it: a `kind: "cots"` part in slicer/parts.json
+Only touches parts that need it: a `kind: "cots"` part in catalog/parts.json
 with a US Amazon vendor and no `image_url`/`image` yet. Re-running after
 adding a new part fetches just that part -- everything already imaged is
 skipped, so this is the normal way to onboard a new hardware link.
@@ -34,7 +34,7 @@ REPO = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO / "scripts"))
 from sync_bucket import BUCKET, ENDPOINT, PUBLIC_BASE, REGION, load_credentials  # noqa: E402
 
-MANIFEST = REPO / "slicer" / "parts.json"
+MANIFEST = REPO / "catalog" / "parts.json"
 
 UA = ("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
       "(KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36")
@@ -145,7 +145,7 @@ def main() -> None:
     print(f"\nwrote {MANIFEST.relative_to(REPO)}")
     if failures:
         print(f"  ! {len(failures)} failed: {', '.join(failures)}")
-    print("now re-run slicer/filament.py to regenerate the app's data")
+    print("now re-run catalog/generate.py to regenerate the app's data")
 
 
 if __name__ == "__main__":

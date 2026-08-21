@@ -15,7 +15,7 @@ The workflow the version system assumes:
   3. Run this script. It stamps the pending version with the commit that
      changed the pin, and writes the REPLACED stl_hash onto the version it
      superseded -- which is how old geometry stays retrievable forever.
-  4. Commit the resulting parts.json (+ re-run filament.py) as a small "stamp"
+  4. Commit the resulting parts.json (+ re-run generate.py) as a small "stamp"
      commit.
 
 Unchanged parts are left alone, so this is safe to run repeatedly. Run:
@@ -115,7 +115,7 @@ def main():
     json.dump(d, open(MANIFEST, "w"), indent=2, ensure_ascii=False)
     open(MANIFEST, "a").write("\n")
     print(f"\nstamped {len(stamped)} version(s) into parts.json. "
-          f"Re-run filament.py and commit parts.json + parts.generated.json.")
+          f"Re-run generate.py and commit parts.json + parts.generated.json.")
 
 
 if __name__ == "__main__":

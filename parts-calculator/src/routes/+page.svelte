@@ -744,7 +744,7 @@
 	<footer class="mt-10 border-t border-border pt-4 text-xs text-text-muted">
 		A machine = 1 feeder + 1 classification channel + 1 interface + 1 chute + 1 lazy Susan +
 		N × (distribution frame + bins + funnels). Distribution frame, bins and funnels are per layer.
-		Grams from OrcaSlicer; regenerate with <code class="font-mono">slicer/filament.py</code>.
+		Grams from OrcaSlicer; regenerate with <code class="font-mono">catalog/generate.py</code>.
 	</footer>
 </div>
 

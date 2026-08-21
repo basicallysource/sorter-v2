@@ -2564,7 +2564,7 @@
         "variant": "socket",
         "length_mm": 8
       },
-      "name": "M3 × 8 mm socket head",
+      "name": "M3 × 8 mm socket/button head",
       "category": "Screws",
       "description": "Clamps the C-channel input gear (12T) to the flat of the NEMA 17 shaft. 1 per C-channel.",
       "created_at": "2026-08-21",

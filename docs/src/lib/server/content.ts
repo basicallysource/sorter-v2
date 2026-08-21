@@ -3,6 +3,9 @@
 // they are rendered once at build time (liquidjs → unified) and the output is
 // prerendered static HTML. Nothing in this module runs in the browser.
 import yaml from 'js-yaml';
+// JSON only — importing TS from the sibling package would drag its tsconfig
+// (which extends a generated file) into this build.
+import partsGenerated from '../../../../parts-calculator/src/lib/data/parts.generated.json';
 import { Liquid } from 'liquidjs';
 import { unified } from 'unified';
 import remarkParse from 'remark-parse';
@@ -38,6 +41,56 @@ const data: Record<string, any> = {};
 for (const [path, raw] of Object.entries(dataFiles)) {
 	const name = path.split('/').pop()!.replace(/\.yml$/, '');
 	data[name] = yaml.load(raw);
+}
+
+// ── Parts catalog ────────────────────────────────────────────────────────────
+// One catalog: parts-calculator/slicer/parts.json (see its _comment for the
+// merge/conflict model). This site renders the same generated JSON the
+// calculator app ships, so both always agree on ids, names, images, and open
+// conflicts. The old hand-maintained _data/parts.yml is deleted.
+{
+	const gen = partsGenerated as any;
+	// narrowest cots-family match, mirroring the calculator's familyFor()
+	const famImage = (h: any): string | undefined => {
+		const cots = h.cots ?? {};
+		let best: any;
+		for (const f of gen.families ?? []) {
+			const keys = Object.keys(f.match ?? {});
+			if (!keys.every((k) => cots[k] === f.match[k])) continue;
+			if (!best || keys.length > Object.keys(best.match).length) best = f;
+		}
+		return best?.image ?? undefined;
+	};
+	const parts: Record<string, any> = {};
+	for (const h of gen.hardware ?? [])
+		parts[h.id] = {
+			name: h.name,
+			image: h.image ?? famImage(h),
+			category: h.category ?? 'Hardware',
+			page: h.docs_page,
+			caption: h.caption,
+			length_mm: h.cots?.length_mm,
+			alternative: h.alternative,
+			conflicts: h.conflicts
+		};
+	for (const pt of gen.parts ?? [])
+		parts[pt.id] = {
+			name: pt.name,
+			image: pt.render,
+			category: 'Printed parts',
+			page: pt.docs_page,
+			caption: pt.caption,
+			conflicts: pt.conflicts
+		};
+	for (const lc of gen.lasercut ?? [])
+		parts[lc.id] = {
+			name: lc.name,
+			image: lc.photo,
+			category: 'Laser-cut parts',
+			caption: lc.caption
+		};
+	data.parts = parts;
+	data.parts_merges = gen.merges ?? [];
 }
 
 // Harness drawing URLs are literal strings in _data/harness.yml, pasted from
@@ -223,16 +276,24 @@ export type ResolvedPart = {
 	image?: string;
 	page?: string;
 	qty?: number;
-	notes?: string;
 	caption?: string;
 	// Screw length in mm, stamped on the corner of the card image. One photo
 	// stands in for a whole family of screws, so the length is the one thing it
 	// cannot show, the same reason the parts calculator's hardware list carries it.
 	length_mm?: number;
-	not_in_calc?: boolean;
 	// Interchangeable alternative (e.g. socket vs button head): true for a bare
 	// tag, or a string naming the alternative. Renders the green "A" badge.
 	alternative?: string | boolean;
+	// Unresolved factual disagreement between the docs and parts-calculator
+	// catalogs, recorded at their 2026-08-21 merge. Renders the amber "?"
+	// badge and the legend below the cards. Resolving one = fixing the field
+	// in parts-calculator/slicer/parts.json and deleting the conflict there.
+	conflicts?: Array<{
+		merge: string;
+		field: string;
+		claims: { source: string; value: unknown }[];
+		note?: string;
+	}>;
 	missing?: boolean;
 };
 export type PartsGroup = { category: string; parts: ResolvedPart[] };
@@ -246,7 +307,7 @@ function resolvePeople(ids: unknown): ResolvedPerson[] {
 	});
 }
 
-function resolveParts(partsNeeded: any[]): { groups: PartsGroup[]; notes: ResolvedPart[] } {
+function resolveParts(partsNeeded: any[]): { groups: PartsGroup[]; conflicts: ResolvedPart[] } {
 	const catalog = data.parts ?? {};
 	const resolved: Array<ResolvedPart & { category: string }> = partsNeeded.map((entry) => {
 		const id = typeof entry === 'string' ? entry : entry.part;
@@ -258,11 +319,10 @@ function resolveParts(partsNeeded: any[]): { groups: PartsGroup[]; notes: Resolv
 			name: part.name,
 			image: part.image,
 			page: part.page,
-			notes: part.notes,
 			caption: part.caption,
 			length_mm: part.length_mm,
-			not_in_calc: part.not_in_calc,
 			alternative: part.alternative,
+			conflicts: part.conflicts,
 			qty,
 			category: part.category ?? 'Other'
 		};
@@ -273,7 +333,7 @@ function resolveParts(partsNeeded: any[]): { groups: PartsGroup[]; notes: Resolv
 		if (!g) groups.push((g = { category: p.category, parts: [] }));
 		g.parts.push(p);
 	}
-	return { groups, notes: resolved.filter((p) => p.notes) };
+	return { groups, conflicts: resolved.filter((p) => p.conflicts?.length) };
 }
 
 // ── Page assembly ────────────────────────────────────────────────────────────
@@ -284,7 +344,7 @@ export type Page = {
 	html: string;
 	authors?: ResolvedPerson[];
 	contributors?: ResolvedPerson[];
-	parts?: { groups: PartsGroup[]; notes: ResolvedPart[] };
+	parts?: { groups: PartsGroup[]; conflicts: ResolvedPart[] };
 	tools?: string[];
 	/** Rendered `warning:` front matter, shown above the parts block so a caveat
 	 *  about the whole page is read before its contents. */

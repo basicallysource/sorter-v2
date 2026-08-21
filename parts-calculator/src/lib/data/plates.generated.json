@@ -2,9 +2,9 @@
 	{
 		"id": "3-bins",
 		"name": "3-bins",
-		"download": "https://sorter-v2-parts.nyc3.cdn.digitaloceanspaces.com/plate/c6147c79afa98f0f566f9dbbc9818779472c9cf0c5d874b7570800b06c67686d.3mf",
+		"download": "https://img.basically.website/parts/plate/3-bins-c6147c79.3mf",
 		"thumbs": [
-			"https://sorter-v2-parts.nyc3.cdn.digitaloceanspaces.com/thumb/4ef3faa71f64fe9015b195f85aa927a04e48eb85e35c248b0130c8b7b10e983e.png"
+			"https://img.basically.website/parts/thumb/3-bins-1-4ef3faa7.png"
 		],
 		"parts": [
 			{
@@ -27,9 +27,9 @@
 	{
 		"id": "90-deg-brackets",
 		"name": "90-deg-brackets",
-		"download": "https://sorter-v2-parts.nyc3.cdn.digitaloceanspaces.com/plate/6aab6886d1d32a693710441da6c2d80190fcbea9f5a690a08fbe2beec36b9941.3mf",
+		"download": "https://img.basically.website/parts/plate/90-deg-brackets-6aab6886.3mf",
 		"thumbs": [
-			"https://sorter-v2-parts.nyc3.cdn.digitaloceanspaces.com/thumb/bcf2dbe5a41beb2b52024c7302b4c85facbba6923a80a8a9d8a6010e2bcfffd2.png"
+			"https://img.basically.website/parts/thumb/90-deg-brackets-1-bcf2dbe5.png"
 		],
 		"parts": [
 			{
@@ -42,11 +42,11 @@
 	{
 		"id": "chute-core-and-funnel-brackets",
 		"name": "chute-core-and-funnel-brackets",
-		"download": "https://sorter-v2-parts.nyc3.cdn.digitaloceanspaces.com/plate/3605074a7ee51919737ed2a9b6cb0d522919e776e8e8ecf2944f4fe7aa7e3ae4.3mf",
+		"download": "https://img.basically.website/parts/plate/chute-core-and-funnel-brackets-3605074a.3mf",
 		"thumbs": [
-			"https://sorter-v2-parts.nyc3.cdn.digitaloceanspaces.com/thumb/16ca235ae431874eacf3f5ec275eddd7fc96a6f3a9929b6df9be19b3a9aa41b6.png",
-			"https://sorter-v2-parts.nyc3.cdn.digitaloceanspaces.com/thumb/e63bbb31714f411784cd2dbaf880e620fe9c0bb9c5bc621ab78888e747450815.png",
-			"https://sorter-v2-parts.nyc3.cdn.digitaloceanspaces.com/thumb/4f64ada068524e35fa4cbd554208116fb7f724b2d93703c196f4c6f4631c0297.png"
+			"https://img.basically.website/parts/thumb/chute-core-and-funnel-brackets-1-16ca235a.png",
+			"https://img.basically.website/parts/thumb/chute-core-and-funnel-brackets-2-e63bbb31.png",
+			"https://img.basically.website/parts/thumb/chute-core-and-funnel-brackets-3-4f64ada0.png"
 		],
 		"parts": [
 			{
@@ -69,9 +69,9 @@
 	{
 		"id": "external-brackets-6",
 		"name": "external-brackets-6",
-		"download": "https://sorter-v2-parts.nyc3.cdn.digitaloceanspaces.com/plate/64e17ce00e1f3f45ace0ebc81ac235a74d4828d4e87ea71a081cb1fe0e79b95f.3mf",
+		"download": "https://img.basically.website/parts/plate/external-brackets-6-64e17ce0.3mf",
 		"thumbs": [
-			"https://sorter-v2-parts.nyc3.cdn.digitaloceanspaces.com/thumb/eaa2e470eb10cb80d38fb577fba3bf1e313cc1369629f9fd37c64c2f6e6c23a5.png"
+			"https://img.basically.website/parts/thumb/external-brackets-6-1-eaa2e470.png"
 		],
 		"parts": [
 			{
@@ -94,9 +94,9 @@
 	{
 		"id": "external-brackets",
 		"name": "external-brackets",
-		"download": "https://sorter-v2-parts.nyc3.cdn.digitaloceanspaces.com/plate/4a28da2e33e12340c3621421365add2fed8c1a65d235f8afb93ebfc2d8203ff0.3mf",
+		"download": "https://img.basically.website/parts/plate/external-brackets-4a28da2e.3mf",
 		"thumbs": [
-			"https://sorter-v2-parts.nyc3.cdn.digitaloceanspaces.com/thumb/fd853f80cfc03cc61e26bd349cf5b26a1c2b0076a0c8e187f149b3d9bd38bc1c.png"
+			"https://img.basically.website/parts/thumb/external-brackets-1-fd853f80.png"
 		],
 		"parts": [
 			{

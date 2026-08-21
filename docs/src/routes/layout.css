@@ -586,8 +586,64 @@ body {
 	border: 1px solid var(--line);
 }
 
-/* Marker for a part that is not in the parts calculator */
-.part-card-warn {
+/* Instant popover behind every corner badge: no tooltip delay, keyboard and
+   touch reachable (badges are focusable), right-aligned so it stays inside
+   the page. */
+.part-badge {
+	cursor: help;
+}
+
+.part-badge:focus {
+	outline: none;
+}
+
+.part-badge-pop {
+	display: none;
+	position: absolute;
+	top: calc(100% + 4px);
+	right: 0;
+	z-index: 30;
+	min-width: 200px;
+	max-width: 260px;
+	padding: 8px 10px;
+	font-size: 0.75rem;
+	font-weight: 400;
+	line-height: 1.45;
+	text-align: left;
+	white-space: normal;
+	color: var(--ink);
+	background: var(--bg);
+	border: 1px solid var(--line);
+	box-shadow: 0 4px 14px rgb(0 0 0 / 0.12);
+}
+
+.part-badge:hover .part-badge-pop,
+.part-badge:focus .part-badge-pop,
+.part-badge:focus-within .part-badge-pop {
+	display: block;
+}
+
+.part-badge-pop-wide {
+	min-width: 240px;
+	max-width: 300px;
+}
+
+.part-badge-pop-rule {
+	display: block;
+	margin-top: 6px;
+	padding-top: 6px;
+	border-top: 1px solid var(--line);
+}
+
+.part-card-conflict svg {
+	width: 12px;
+	height: 12px;
+}
+
+/* Marker for an unresolved catalog conflict: the docs and the parts
+   calculator disagreed about this part when their catalogs were merged
+   (2026-08-21) and nobody has settled it against the machine yet. */
+.part-card-conflict {
 	position: absolute;
 	top: 0;
 	right: 0;
@@ -600,20 +656,20 @@ body {
 	font-size: 0.78rem;
 	font-weight: 700;
 	line-height: 1;
-	color: var(--color-primary-contrast);
-	background: var(--color-danger);
+	color: var(--color-warning-dark);
+	background: var(--color-warning);
 	cursor: help;
+}
+
+.parts-warn-legend .part-card-conflict {
+	position: static;
+	margin-right: 5px;
 }
 
 .parts-warn-legend {
 	margin: 10px 0 0;
 	font-size: 0.8rem;
 	color: var(--muted);
-}
-
-.parts-warn-legend .part-card-warn {
-	position: static;
-	margin-right: 5px;
 }
 
 /* Marker for a part that has an interchangeable alternative (e.g. socket vs
@@ -636,8 +692,8 @@ body {
 	cursor: help;
 }
 
-/* if a card carries both markers, sit the "A" left of the "!" */
-.part-card-warn + .part-card-alt {
+/* if a card carries both markers, sit the "A" left of the "?" */
+.part-card-conflict + .part-card-alt {
 	right: 20px;
 }
 

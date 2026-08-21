@@ -26,7 +26,7 @@ parts_needed:
     qty: 1
   - part: layer-adapter-board-basically
     qty: 1
-  - part: m3-ruthex-long
+  - part: hsi-m3-long
     qty: 18
   - part: scr-m3-12-cs
     qty: 6

@@ -43,7 +43,7 @@ REPO = os.path.dirname(HERE)
 # correct before any upload has happened -- scripts/sync_bucket.py only has to
 # make sure the bytes are there. See notes/UNIFIED-PARTS-SYSTEM.md section 7.
 sys.path.insert(0, os.path.join(REPO, "scripts"))
-from sync_bucket import artifact_url, PUBLIC_BASE, sha256 as sha256_file  # noqa: E402
+from sync_bucket import artifact_url, named_key, stl_url, PUBLIC_BASE, sha256 as sha256_file  # noqa: E402
 
 # ---------------------------------------------------------------- config knobs
 # Overridable so CI can point at an extracted Linux AppImage. Grams depend on
@@ -134,16 +134,21 @@ def normalize_versions(part):
     return [entry]
 
 
-def fetch_artifact(sha, dest, prefix="stl", suffix=".stl"):
-    """Materialize a content-addressed bucket object at dest, verifying the hash.
+def fetch_artifact(url, sha, dest):
+    """Materialize a bucket object at dest, verifying its full sha256.
 
+    The URL carries only a hash fragment (the name is for humans); the pin in
+    the manifest is the whole hash, and this refuses bytes that don't match it.
     Skips the download when dest already holds the right bytes (gitignored
     build/ keeps these around between local runs)."""
     if os.path.exists(dest) and sha256_file(dest) == sha:
         return
     os.makedirs(os.path.dirname(dest), exist_ok=True)
-    url = f"{PUBLIC_BASE}/{prefix}/{sha}{suffix}"
-    with urllib.request.urlopen(url, timeout=60) as r, open(dest, "wb") as f:
+    # Real UA: the img worker's zone 403s urllib's default Python-urllib/x.y
+    # (Browser Integrity Check) -- the same reason check_bucket_urls.py sets one.
+    req = urllib.request.Request(url, headers={
+        "User-Agent": "sorter-v2-parts-fetch/1.0 (+https://github.com/basicallysource/sorter-v2)"})
+    with urllib.request.urlopen(req, timeout=60) as r, open(dest, "wb") as f:
         shutil.copyfileobj(r, f)
     got = sha256_file(dest)
     if got != sha:
@@ -154,7 +159,7 @@ def fetch_artifact(sha, dest, prefix="stl", suffix=".stl"):
 def master_stl(p):
     """Local path of a part's master STL, fetched by its pinned stl_hash."""
     dest = os.path.join(MASTERS, p["id"] + ".stl")
-    fetch_artifact(p["stl_hash"], dest)
+    fetch_artifact(stl_url(p["id"], p["stl_id"], p["stl_hash"]), p["stl_hash"], dest)
     return dest
 
 
@@ -168,7 +173,16 @@ def render_url_for(stl_abs, hexcolor, out_png, force):
     key = hashlib.sha1(open(stl_abs, "rb").read() + hexcolor.encode()).hexdigest()[:16]
     meta = os.path.join(RENDER_META, key + ".json")
     if not force and os.path.exists(meta):
-        return json.load(open(meta))["url"]
+        # The memo pins the content-addressed FILENAME; the serving base and
+        # the key scheme can both move (2026-08-21: bucket CDN -> the img
+        # worker, then bare hashes -> name-hash8 keys), so rebuild the URL
+        # from what the memo pins instead of trusting it verbatim.
+        tail = json.load(open(meta))["url"].rsplit("/", 1)[1]
+        legacy = re.fullmatch(r"([0-9a-f]{64})(\.\w+)", tail)
+        if legacy:
+            name = os.path.splitext(os.path.basename(out_png))[0]
+            return f"{PUBLIC_BASE}/{named_key('render', name, legacy.group(1), legacy.group(2))}"
+        return f"{PUBLIC_BASE}/render/{tail}"
     render(stl_abs, out_png, hexcolor)
     url = artifact_url(out_png, prefix="render")
     os.makedirs(RENDER_META, exist_ok=True)
@@ -199,9 +213,12 @@ def archive_versions(parts_by_id, out_parts, profiles, hexmap, role_defaults, fo
                 if out.get("stl"):
                     v["stl"], v["render"], v["grams"] = out["stl"], out["render"], out["grams"]
                 continue
+            if not v.get("stl_id"):
+                sys.exit(f"{out['id']} v{v['version']}: pinned stl_hash without stl_id -- "
+                         "mint one (see sync_bucket.py) so the filename can name the version")
             vid = f"{out['id']}-v{v['version']}"
             tmp = os.path.join(CACHE, vid + ".stl")
-            fetch_artifact(pin, tmp)
+            fetch_artifact(stl_url(out["id"], v["stl_id"], pin), pin, tmp)
             info = slice_part(tmp, profiles, support=bool(p.get("support", False)), force=force)
             png = os.path.join(VERS_RENDERS_OUT, vid + ".png")
             try:
@@ -209,7 +226,7 @@ def archive_versions(parts_by_id, out_parts, profiles, hexmap, role_defaults, fo
             except Exception as e:
                 print(f"  ! version render failed for {vid}: {e}")
                 v["render"] = None
-            v["stl"] = f"{PUBLIC_BASE}/stl/{pin}.stl"
+            v["stl"] = stl_url(out["id"], v["stl_id"], pin)
             v["grams"] = info["grams"] if info else None
             archived += 1
     print(f"  {archived} historical part version(s) resolved from pinned stl_hash")
@@ -527,11 +544,24 @@ def build_hardware(manifest):
             # button head, etc.): true for a bare "Alternative" tag, or a string
             # naming the alternative. Renders the blue "A" badge in the app.
             "alternative": p.get("alternative"),
+            "caption": p.get("caption"),
+            "docs_page": p.get("docs_page"),
+            # Unresolved cross-catalog disagreement from a source-of-truth
+            # merge (see manifest `merges`); both sites badge it.
+            "conflicts": p.get("conflicts"),
             # Product images live only on the bucket, authored as a pinned URL.
             # They deliberately never touch git.
             "image": p.get("image_url"),
         })
     return hardware
+
+
+def build_lasercut(manifest):
+    """Laser-cut sheet parts (kind: 'lasercut'): passed through verbatim -- the
+    fields ARE the app's LaserCutPart shape, and the docs site reads the same
+    generated records."""
+    return [{k: v for k, v in p.items() if k != "kind"}
+            for p in manifest["parts"] if p.get("kind") == "lasercut"]
 
 
 def build_families(manifest):
@@ -583,6 +613,15 @@ def main():
     duplicate_ids = sorted({part_id for part_id in part_ids if part_ids.count(part_id) > 1})
     if duplicate_ids:
         sys.exit(f"duplicate part id(s): {duplicate_ids}")
+    # stl_ids are minted randomly (sync_bucket.mint_stl_id) with no global
+    # check, so enforce uniqueness here: a duplicate would make an id grep in
+    # parts.json ambiguous, which is the one job the id has. Re-mint on hit.
+    stl_ids = [x for part in manifest["parts"]
+               for x in ([part.get("stl_id")] +
+                         [v.get("stl_id") for v in part.get("versions") or []]) if x]
+    duplicate_sids = sorted({x for x in stl_ids if stl_ids.count(x) > 1})
+    if duplicate_sids:
+        sys.exit(f"duplicate stl_id(s): {duplicate_sids} -- mint a fresh one")
     check_hardware_refs(manifest, set(part_ids))
     if args.metadata_only:
         if not os.path.exists(DATA_OUT):
@@ -598,6 +637,28 @@ def main():
                 continue
             # Keep this in the same key order and with the same defaults as the full
             # generator so a metadata refresh produces a focused, reviewable diff.
+            def rebased_render(url, name):
+                if not url:
+                    return url
+                tail = url.rsplit("/", 1)[1]
+                legacy = re.fullmatch(r"([0-9a-f]{64})(\.\w+)", tail)
+                if legacy:
+                    return f"{PUBLIC_BASE}/{named_key('render', name, legacy.group(1), legacy.group(2))}"
+                return f"{PUBLIC_BASE}/render/{tail}"
+
+            live_stl = stl_url(source["id"], source["stl_id"], source["stl_hash"])
+            live_render = rebased_render(old["render"], source["id"])
+            src_versions = {str(v.get("version")): v for v in source.get("versions") or []}
+            versions = old.get("versions", normalize_versions(source))
+            for v in versions:
+                sv = src_versions.get(str(v.get("version")), {})
+                if v.get("stl") == old["stl"]:
+                    v["stl"], v["render"] = live_stl, live_render
+                elif sv.get("stl_hash") and sv.get("stl_id"):
+                    v["stl"] = stl_url(source["id"], sv["stl_id"], sv["stl_hash"])
+                    v["render"] = rebased_render(v.get("render"),
+                                                 f"{source['id']}-v{v.get('version')}")
+                v.setdefault("stl_hash", sv.get("stl_hash")) if sv.get("stl_hash") else None
             refreshed.append({
                 "id": source["id"], "name": source["name"],
                 **({"aliases": source["aliases"]} if source.get("aliases") else {}),
@@ -610,7 +671,7 @@ def main():
                 "version": source.get("version", ""),
                 "created_at": source.get("created_at", source.get("date_added", "")),
                 "updated_at": source.get("updated_at", source.get("created_at", source.get("date_added", ""))),
-                "versions": old.get("versions", normalize_versions(source)),
+                "versions": versions,
                 "attributes": source.get("attributes", []),
                 "grams": old["grams"], "support_grams": old["support_grams"],
                 "support_used": old["support_used"],
@@ -623,7 +684,10 @@ def main():
                 "low_tolerance_note": source.get("low_tolerance_note"),
                 "layer_scope": source.get("layer_scope", "all"),
                 "requires": source.get("requires", []),
-                "stl": old["stl"], "render": old["render"],
+                "caption": source.get("caption"),
+                "docs_page": source.get("docs_page"),
+                "conflicts": source.get("conflicts"),
+                "stl": live_stl, "render": live_render,
             })
         data["parts"] = refreshed
         data["sections"] = manifest["sections"]
@@ -632,6 +696,8 @@ def main():
         data["assemblies"] = manifest.get("assemblies", [])
         data["hardware"] = build_hardware(manifest)
         data["families"] = build_families(manifest)
+        data["lasercut"] = build_lasercut(manifest)
+        data["merges"] = manifest.get("merges", [])
         json.dump(data, open(DATA_OUT, "w"), indent="\t")
         print(f"refreshed authored metadata in {DATA_OUT}")
         return
@@ -707,7 +773,10 @@ def main():
             "low_tolerance_note": p.get("low_tolerance_note"),
             "layer_scope": p.get("layer_scope", "all"),
             "requires": p.get("requires", []),
-            "stl": f"{PUBLIC_BASE}/stl/{p['stl_hash']}.stl",
+            "caption": p.get("caption"),
+            "docs_page": p.get("docs_page"),
+            "conflicts": p.get("conflicts"),
+            "stl": stl_url(p["id"], p["stl_id"], p["stl_hash"]),
             "render": render_url,
         })
         sup = " +support" if info["support_used"] else ""
@@ -758,6 +827,8 @@ def main():
         "assemblies": manifest.get("assemblies", []),
         "parts": out_parts,
         "hardware": hardware,
+        "lasercut": build_lasercut(manifest),
+        "merges": manifest.get("merges", []),
     }
     json.dump(data, open(DATA_OUT, "w"), indent="\t")
 
@@ -791,7 +862,8 @@ def process_plates(manifest):
         base = os.path.splitext(entry["file"])[0]
         pid = re.sub(r"[^a-z0-9]+", "-", base.lower()).strip("-")
         f = os.path.join(PLATES_SRC, pid + ".3mf")
-        fetch_artifact(entry["hash"], f, prefix="plate", suffix=".3mf")
+        plate_url = f"{PUBLIC_BASE}/{named_key('plate', pid, entry['hash'], '.3mf')}"
+        fetch_artifact(plate_url, entry["hash"], f)
         thumbs = []
         with zipfile.ZipFile(f) as z:
             for name in sorted(n for n in z.namelist() if re.match(r"Metadata/plate_\d+\.png$", n)):
@@ -812,7 +884,7 @@ def process_plates(manifest):
             parts.append({"name": pretty.replace("_", " ").strip(), "count": c,
                           "part_id": src_to_id.get(nm)})
         parts.sort(key=lambda x: -x["count"])
-        out.append({"id": pid, "name": base, "download": f"{PUBLIC_BASE}/plate/{entry['hash']}.3mf",
+        out.append({"id": pid, "name": base, "download": plate_url,
                     "thumbs": thumbs, "parts": parts})
     json.dump(out, open(PLATES_DATA, "w"), indent="\t")
     print(f"  {len(out)} build plate(s) -> plates.generated.json (thumbs -> bucket)")

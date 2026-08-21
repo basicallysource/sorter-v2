@@ -339,6 +339,15 @@
 			"image": "https://img.basically.website/parts/img/screw-socket-580ba61e.jpg"
 		},
 		{
+			"id": "screw-flat",
+			"name": "Flat (pancake) head socket screw",
+			"match": {
+				"type": "screw",
+				"variant": "flat"
+			},
+			"image": "https://img.basically.website/parts/img/scr-m5-35-fhcs-cb2fdd72.jpg"
+		},
+		{
 			"id": "screw-button",
 			"name": "Button head socket screw",
 			"match": {
@@ -1127,7 +1136,7 @@
 		{
 			"id": "chute-stepper-gearing",
 			"name": "Chute Stepper Gearing",
-			"description": "The printed drive and idler gearing that transfers motion from the NEMA 23 chute stepper.",
+			"description": "The printed drive and idler gearing that transfers motion from the NEMA 23 chute stepper. The idler gear is retained on the bracket by 1 \u00d7 [[hw:scr-m3-35-bhcs]] with a [[hw:washer-m3-15]] under the head, spanning the bearing bore; the low head keeps it clear of the limit switch hammer.",
 			"docs": "/hardware/assembly/distribution/top-interface/",
 			"status": "partial",
 			"lines": [
@@ -1141,6 +1150,10 @@
 				},
 				{
 					"part": "interface-idler-gear",
+					"qty": 1
+				},
+				{
+					"part": "scr-m3-35-bhcs",
 					"qty": 1
 				},
 				{
@@ -6169,15 +6182,15 @@
 			"cots": {
 				"type": "screw",
 				"size": "M3",
-				"variant": "button",
+				"variant": "flat",
 				"length_mm": 35
 			},
-			"name": "M3 \u00d7 35 mm socket/button head",
+			"name": "M3 \u00d7 35 mm flat head",
 			"category": "Screws",
-			"description": "The single long screw that clamps the two cable-clamp halves together.",
+			"description": "The two long M3s on the top interface: one clamps the two cable-clamp halves together, one retains the idler gear on the NEMA 23 bracket. Same screw for both. The head has to stay low because of the idler joint: a socket or button head stands proud enough for the limit switch hammer to catch on it as the chute sweeps past.",
 			"note": null,
 			"created_at": "2026-07-18",
-			"updated_at": "2026-08-18",
+			"updated_at": "2026-08-21",
 			"attributes": [
 				{
 					"label": "Thread",
@@ -6189,18 +6202,18 @@
 				},
 				{
 					"label": "Head",
-					"value": "Socket or button head, interchangeable (both flat-bottomed, so either just clamps; button is the default)"
+					"value": "Flat (pancake) head, hex socket. Pan head works too; both are flat-bottomed and low enough to clear the limit switch hammer, which a socket or button head is not."
 				}
 			],
 			"sheet_qty": null,
 			"sheet_qty_text": null,
 			"stock": null,
 			"sourcing": null,
-			"alternative": "Socket or button head",
+			"alternative": "Flat or pan head",
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"image": "https://img.basically.website/parts/img/scr-m3-35-bhcs-26e52d7d.png"
+			"image": null
 		},
 		{
 			"id": "scr-m4-6-cs",
@@ -6644,7 +6657,7 @@
 			},
 			"name": "M3 \u00d7 15 mm washer",
 			"category": "Washers",
-			"description": "Flat/fender washer, 15 mm outer diameter. Sits under the M3 \u00d7 35 button screw that holds the interface idler gear onto the NEMA 23 bracket.",
+			"description": "Flat/fender washer, 15 mm outer diameter. Sits under the M3 \u00d7 35 flat head screw that holds the interface idler gear onto the NEMA 23 bracket.",
 			"note": "The \u00d71 is the top-interface count (under the idler-gear screw). Washers used elsewhere on the machine aren't tallied here yet.",
 			"created_at": "2026-08-18",
 			"updated_at": "2026-08-18",

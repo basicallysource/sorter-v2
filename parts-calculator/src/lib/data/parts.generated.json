@@ -1082,7 +1082,7 @@
 		{
 			"id": "c-channel",
 			"name": "C-channel drive",
-			"description": "One C-channel drive unit: stator, NEMA bracket, output gear, gear train and stepper. 4 per machine \u2014 3 in the feeder plus the classification channel's. Screw joints: 4 \u00d7 [[hw:scr-m3-12-cs]] hold the NEMA bracket to the stator; 3 \u00d7 [[hw:scr-m3-16-shcs]] hold the stepper to the NEMA bracket; 5 \u00d7 [[hw:scr-m3-8-cs]] attach the output gear to the rotor (the light post's 2 \u00d7 [[hw:scr-m3-20-cs]] into the NEMA bracket live on the light-post assembly). The rotor differs by location (faceted in the feeder, finned in the classification chamber), so it is not part of this node.",
+			"description": "One C-channel drive unit: stator, NEMA bracket, output gear, gear train and stepper. 4 per machine \u2014 3 in the feeder plus the classification channel's. Screw joints: 4 \u00d7 [[hw:scr-m3-12-cs]] hold the NEMA bracket to the stator; 3 \u00d7 [[hw:scr-m3-16-shcs]] hold the stepper to the NEMA bracket; 6 \u00d7 [[hw:scr-m3-8-cs]] attach the output gear to the rotor, one per spoke (the light post's 2 \u00d7 [[hw:scr-m3-20-cs]] into the NEMA bracket live on the light-post assembly). The rotor differs by location (faceted in the feeder, finned in the classification chamber), so it is not part of this node.",
 			"docs": "/hardware/assembly/feeder/c-channel/",
 			"status": "partial",
 			"lines": [
@@ -1120,7 +1120,7 @@
 				},
 				{
 					"part": "scr-m3-8-cs",
-					"qty": 5
+					"qty": 6
 				}
 			]
 		},
@@ -1993,7 +1993,7 @@
 			"support_grams": 9.29,
 			"support_used": true,
 			"support_intentional": false,
-			"print_seconds": 23591,
+			"print_seconds": 23618,
 			"color": {
 				"role": "chute-core"
 			},
@@ -2349,7 +2349,7 @@
 			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 7422,
+			"print_seconds": 7480,
 			"color": {
 				"role": "frame"
 			},

@@ -1426,15 +1426,15 @@
 					"commit": null,
 					"stl": "https://img.basically.website/parts/stl/stator-n6bm-323b2d1f.stl",
 					"render": "https://img.basically.website/parts/render/stator-02ab8b46.png",
-					"grams": 175.52
+					"grams": 175.75
 				}
 			],
 			"attributes": [],
-			"grams": 175.52,
-			"support_grams": 23.42,
+			"grams": 175.75,
+			"support_grams": 23.07,
 			"support_used": true,
 			"support_intentional": true,
-			"print_seconds": 16014,
+			"print_seconds": 16023,
 			"color": {
 				"by_section": {
 					"feeder": {
@@ -2010,7 +2010,7 @@
 			"support_grams": 9.29,
 			"support_used": true,
 			"support_intentional": false,
-			"print_seconds": 23618,
+			"print_seconds": 23648,
 			"color": {
 				"role": "chute-core"
 			},
@@ -2366,7 +2366,7 @@
 			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 7480,
+			"print_seconds": 7484,
 			"color": {
 				"role": "frame"
 			},
@@ -6552,23 +6552,7 @@
 			"alternative": null,
 			"caption": null,
 			"docs_page": null,
-			"conflicts": [
-				{
-					"merge": "docs-merge-2026-08-21",
-					"field": "name",
-					"claims": [
-						{
-							"source": "docs",
-							"value": "M5 \u00d7 35 mm socket head cap screw"
-						},
-						{
-							"source": "parts-calculator",
-							"value": "M5 \u00d7 35 mm flat head"
-						}
-					],
-					"note": "Head type disagreement for the M5x35: docs show a socket head cap screw (with photo), the calculator says flat head countersunk."
-				}
-			],
+			"conflicts": null,
 			"image": "https://img.basically.website/parts/img/scr-m5-35-fhcs-cb2fdd72.jpg"
 		},
 		{

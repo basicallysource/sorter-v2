@@ -78,9 +78,9 @@ parts_needed:
     qty: 1
   - part: hsi-m4
     qty: 8
-  - part: hsi-m5-long
+  - part: hsi-m5
     qty: 24
-  - part: hsi-m3-long
+  - part: hsi-m3
     qty: 12
   - part: scr-m5-35-fhcs
     qty: 6

@@ -1,5 +1,8 @@
 name: Regenerate part data
 
+# Lives in parts-calculator/ since the 2026-08 repo merge; only its paths
+# trigger this.
+#
 # Runs the slicer pipeline (OrcaSlicer CLI, headless) whenever its inputs
 # change on a PR branch or main, and commits the regenerated JSON back to the
 # branch. This makes CI the canonical slicer environment: any agent (or
@@ -24,22 +27,22 @@ name: Regenerate part data
 on:
   pull_request:
     paths:
-      - 'slicer/parts.json'
-      - 'slicer/plates.json'
-      - 'slicer/filament.py'
-      - 'slicer/requirements.txt'
-      - 'src/lib/bambu-colors.ts'
-      - 'scripts/sync_bucket.py'
+      - 'parts-calculator/slicer/parts.json'
+      - 'parts-calculator/slicer/plates.json'
+      - 'parts-calculator/slicer/filament.py'
+      - 'parts-calculator/slicer/requirements.txt'
+      - 'parts-calculator/src/lib/bambu-colors.ts'
+      - 'parts-calculator/scripts/sync_bucket.py'
       - '.github/workflows/regen-parts.yml'
   push:
     branches: [main]
     paths:
-      - 'slicer/parts.json'
-      - 'slicer/plates.json'
-      - 'slicer/filament.py'
-      - 'slicer/requirements.txt'
-      - 'src/lib/bambu-colors.ts'
-      - 'scripts/sync_bucket.py'
+      - 'parts-calculator/slicer/parts.json'
+      - 'parts-calculator/slicer/plates.json'
+      - 'parts-calculator/slicer/filament.py'
+      - 'parts-calculator/slicer/requirements.txt'
+      - 'parts-calculator/src/lib/bambu-colors.ts'
+      - 'parts-calculator/scripts/sync_bucket.py'
       - '.github/workflows/regen-parts.yml'
   schedule:
     # Twice-weekly no-op run: keeps the slice-memo cache from being evicted
@@ -125,9 +128,9 @@ jobs:
         with:
           python-version: '3.11'
           cache: pip
-          cache-dependency-path: slicer/requirements.txt
+          cache-dependency-path: parts-calculator/slicer/requirements.txt
 
-      - run: pip install -r slicer/requirements.txt
+      - run: pip install -r parts-calculator/slicer/requirements.txt
 
       # Only the slice memos (a few hundred bytes per part), not the 3MFs --
       # the memo alone is what makes a warm run skip re-slicing. Failure
@@ -140,14 +143,14 @@ jobs:
           # regen from re-rendering (and re-uploading) every thumbnail. Cold
           # cache -> one full re-render pass, new content-addressed URLs.
           path: |
-            slicer/build/cache/*/info.json
-            slicer/build/cache/renders-meta/*.json
+            parts-calculator/slicer/build/cache/*/info.json
+            parts-calculator/slicer/build/cache/renders-meta/*.json
           key: slice-memos-v2-${{ github.run_id }}
           restore-keys: slice-memos-v2-
 
       - name: Regenerate
         run: |
-          xvfb-run -a python slicer/filament.py --strict
+          xvfb-run -a python parts-calculator/slicer/filament.py --strict
 
       - name: Upload artifacts to bucket
         # Content-addressed + head-checked, so uploading from a PR branch is
@@ -161,7 +164,7 @@ jobs:
             echo "no bucket credentials in this context; skipping upload"
             exit 0
           fi
-          python scripts/sync_bucket.py
+          python parts-calculator/scripts/sync_bucket.py
 
       - name: Verify every bucket URL actually resolves
         # Runs BEFORE the commit-back so broken asset URLs can never reach
@@ -171,13 +174,13 @@ jobs:
         # catches "generated data references bytes nobody uploaded" (e.g. a
         # fork PR, which gets no bucket credentials).
         run: |
-          python scripts/check_bucket_urls.py
+          python parts-calculator/scripts/check_bucket_urls.py
 
       - name: Commit regenerated data
         run: |
-          git add src/lib/data/parts.generated.json \
-                  src/lib/data/plates.generated.json \
-                  slicer/artifacts.json
+          git add parts-calculator/src/lib/data/parts.generated.json \
+                  parts-calculator/src/lib/data/plates.generated.json \
+                  parts-calculator/slicer/artifacts.json
           if git diff --cached --quiet; then
             echo "outputs already up to date"
             exit 0

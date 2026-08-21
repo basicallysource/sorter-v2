@@ -18,10 +18,18 @@ parts_needed:
     qty: 1
   - part: ls-washer
     qty: 1
+  - part: ls-mount-to-extrusion
+    qty: 3
+  - part: ls-hold-in-place
+    qty: 3
   - part: hsi-m4
     qty: 8
   - part: scr-m4-12-cs
     qty: 8
+  - part: scr-m5-16-shcs
+    qty: 3
+  - part: tnut-m5-2020
+    qty: 3
 ---
 
 The fasteners and quantities in the parts list are called out inline at each step.
@@ -148,6 +156,16 @@ Rotate the chute on the Lazy Susan, the way it turns in normal operation rather 
   </figure>
 </div>
 
-The finished bottom interface:
+The bearing stack is now complete:
 
 <img class="doc-figure" src="https://img.basically.website/web/assembly/bottom-interface/complete.8aa4adc4ac4c5ad9.jpg" alt="The completed bottom interface with chute mount, Lazy Susan bearing, and bottom static part assembled">
+
+{% include step.html n="4" title="Mount it into the frame" %}
+
+Three Lazy Susan extrusion mounts fix the assembly to the external extrusion of the layer frame, one {% include fastener.html size="M5" variant="socket-button" length="16" %} screw and one {% include fastener.html size="M5" variant="t-nut" %} each. Three Lazy Susan hold in place prints go on with them; the [parts calculator](https://parts-calculator.basically.website/assembly?focus=lazy-susan) marks those optional.
+
+The 2020 extrusion itself is not in the parts list above, because its length depends on your layer count. Every cut piece in the machine comes off the [framing cut list](https://parts-calculator.basically.website/framing).
+
+The order the mounts go on, and how the hold in place prints sit against them, is not recorded yet.
+
+<div class="img-placeholder">Image coming</div>

@@ -1,0 +1,119 @@
+[
+	{
+		"id": "3-bins",
+		"name": "3-bins",
+		"download": "https://sorter-v2-parts.nyc3.cdn.digitaloceanspaces.com/plate/c6147c79afa98f0f566f9dbbc9818779472c9cf0c5d874b7570800b06c67686d.3mf",
+		"thumbs": [
+			"https://sorter-v2-parts.nyc3.cdn.digitaloceanspaces.com/thumb/4ef3faa71f64fe9015b195f85aa927a04e48eb85e35c248b0130c8b7b10e983e.png"
+		],
+		"parts": [
+			{
+				"name": "bin-third-rightback",
+				"count": 1,
+				"part_id": "bin-third-rightback"
+			},
+			{
+				"name": "bin-third-center",
+				"count": 1,
+				"part_id": "bin-third-center"
+			},
+			{
+				"name": "bin-third-left",
+				"count": 1,
+				"part_id": "bin-third-left"
+			}
+		]
+	},
+	{
+		"id": "90-deg-brackets",
+		"name": "90-deg-brackets",
+		"download": "https://sorter-v2-parts.nyc3.cdn.digitaloceanspaces.com/plate/6aab6886d1d32a693710441da6c2d80190fcbea9f5a690a08fbe2beec36b9941.3mf",
+		"thumbs": [
+			"https://sorter-v2-parts.nyc3.cdn.digitaloceanspaces.com/thumb/bcf2dbe5a41beb2b52024c7302b4c85facbba6923a80a8a9d8a6010e2bcfffd2.png"
+		],
+		"parts": [
+			{
+				"name": "inner 90 bracket",
+				"count": 22,
+				"part_id": "frame-90deg-bracket"
+			}
+		]
+	},
+	{
+		"id": "chute-core-and-funnel-brackets",
+		"name": "chute-core-and-funnel-brackets",
+		"download": "https://sorter-v2-parts.nyc3.cdn.digitaloceanspaces.com/plate/3605074a7ee51919737ed2a9b6cb0d522919e776e8e8ecf2944f4fe7aa7e3ae4.3mf",
+		"thumbs": [
+			"https://sorter-v2-parts.nyc3.cdn.digitaloceanspaces.com/thumb/16ca235ae431874eacf3f5ec275eddd7fc96a6f3a9929b6df9be19b3a9aa41b6.png",
+			"https://sorter-v2-parts.nyc3.cdn.digitaloceanspaces.com/thumb/e63bbb31714f411784cd2dbaf880e620fe9c0bb9c5bc621ab78888e747450815.png",
+			"https://sorter-v2-parts.nyc3.cdn.digitaloceanspaces.com/thumb/4f64ada068524e35fa4cbd554208116fb7f724b2d93703c196f4c6f4631c0297.png"
+		],
+		"parts": [
+			{
+				"name": "left funnel slide",
+				"count": 5,
+				"part_id": "funnel-bracket-left"
+			},
+			{
+				"name": "right funnel slide",
+				"count": 3,
+				"part_id": "funnel-bracket-right"
+			},
+			{
+				"name": "core (2)",
+				"count": 1,
+				"part_id": "chute-core"
+			}
+		]
+	},
+	{
+		"id": "external-brackets-6",
+		"name": "external-brackets-6",
+		"download": "https://sorter-v2-parts.nyc3.cdn.digitaloceanspaces.com/plate/64e17ce00e1f3f45ace0ebc81ac235a74d4828d4e87ea71a081cb1fe0e79b95f.3mf",
+		"thumbs": [
+			"https://sorter-v2-parts.nyc3.cdn.digitaloceanspaces.com/thumb/eaa2e470eb10cb80d38fb577fba3bf1e313cc1369629f9fd37c64c2f6e6c23a5.png"
+		],
+		"parts": [
+			{
+				"name": "bottom vertical bracket",
+				"count": 6,
+				"part_id": "ext-bracket-bottom-vertical"
+			},
+			{
+				"name": "external bracket cover",
+				"count": 6,
+				"part_id": "ext-bracket-cover"
+			},
+			{
+				"name": "left external bracket",
+				"count": 6,
+				"part_id": "ext-bracket-left"
+			}
+		]
+	},
+	{
+		"id": "external-brackets",
+		"name": "external-brackets",
+		"download": "https://sorter-v2-parts.nyc3.cdn.digitaloceanspaces.com/plate/4a28da2e33e12340c3621421365add2fed8c1a65d235f8afb93ebfc2d8203ff0.3mf",
+		"thumbs": [
+			"https://sorter-v2-parts.nyc3.cdn.digitaloceanspaces.com/thumb/fd853f80cfc03cc61e26bd349cf5b26a1c2b0076a0c8e187f149b3d9bd38bc1c.png"
+		],
+		"parts": [
+			{
+				"name": "bottom vertical bracket",
+				"count": 4,
+				"part_id": "ext-bracket-bottom-vertical"
+			},
+			{
+				"name": "left external bracket",
+				"count": 4,
+				"part_id": "ext-bracket-left"
+			},
+			{
+				"name": "external bracket cover",
+				"count": 4,
+				"part_id": "ext-bracket-cover"
+			}
+		]
+	}
+]

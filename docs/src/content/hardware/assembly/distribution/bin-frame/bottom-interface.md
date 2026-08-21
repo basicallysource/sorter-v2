@@ -27,9 +27,7 @@ parts_needed:
   - part: scr-m4-12-cs
     qty: 8
   - part: scr-m5-16-shcs
-    qty: 9
-  - part: tnut-m5-2020
-    qty: 6
+    qty: 3
 ---
 
 The fasteners and quantities in the parts list are called out inline at each step.
@@ -177,12 +175,8 @@ Three Lazy Susan extrusion mounts fix the assembly to the external extrusion of 
 
 The screw between the two is an {% include fastener.html size="M5" variant="socket" length="16" %}: it drops through the counterbore in the hold in place, passes a 5.5 mm clearance hole, and taps itself into a 4.4 mm hole in the extrusion mount, the same tap-into-plastic join used everywhere else on the frame. **16 mm is the longest that fits.** Measured off the two STLs, the head seat is exactly 16.0 mm above the bottom of the tapped hole, so a longer screw bottoms out before it clamps.
 
-Each mount then fastens to the extrusion through the two 5.5 mm clearance holes along its bottom face, into {% include fastener.html size="M5" variant="t-nut" %}s in the slot.
+Each mount then fixes to the frame through the two 5.5 mm M5 clearance holes along its bottom face, 30 mm apart. **These bolt into plastic, not into T-nuts.** Which screw goes in them is not recorded: <span class="fastener-todo">fastener not recorded</span>. That is 6 more screws on top of the 3 in the parts list, two per mount.
 
-<div class="callout">
-  <p>The <a href="https://parts-calculator.basically.website/assembly?focus=lazy-susan">parts calculator</a> lists 3 M5 × 16 and 3 T-nuts for this, which is one screw per mount. The geometry needs three per mount: one into the hold in place and two into the extrusion. The parts list above follows the geometry.</p>
-</div>
-
-The order the three mounts go on around the ring is not recorded yet.
+The order the three mounts go on around the ring is not recorded either.
 
 The 2020 extrusion itself is not in the parts list above, because its length depends on your layer count. Every cut piece in the machine comes off the [framing cut list](https://parts-calculator.basically.website/framing).

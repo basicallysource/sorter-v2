@@ -336,7 +336,7 @@ Align the Top interface lazy Susan washer with the 4 inner heat inserts on the T
 
 <div class="callout callout-warning">
   <span class="callout-icon" aria-hidden="true">⚠</span>
-  <p>These screws have to be very tight. Machine vibration can work them loose.</p>
+  <p>These screws have to be very tight. A drill or electric screwdriver will not get them there, so finish them with a hex key by hand. Machine vibration works a loose one out.</p>
 </div>
 
 Once complete, the free section of the Lazy Susan should rotate freely.

@@ -2006,7 +2006,7 @@
 			"support_grams": 9.29,
 			"support_used": true,
 			"support_intentional": false,
-			"print_seconds": 23591,
+			"print_seconds": 23628,
 			"color": {
 				"role": "chute-core"
 			},
@@ -2362,7 +2362,7 @@
 			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 7422,
+			"print_seconds": 7480,
 			"color": {
 				"role": "frame"
 			},
@@ -2969,15 +2969,15 @@
 					"commit": "8bf567e",
 					"stl": "https://img.basically.website/parts/stl/cable-clamp-outer-50dv-dd778421.stl",
 					"render": "https://img.basically.website/parts/render/cable-clamp-outer-f11a3bd4.png",
-					"grams": 19.77
+					"grams": 19.76
 				}
 			],
 			"attributes": [],
-			"grams": 19.77,
-			"support_grams": 6.9,
+			"grams": 19.76,
+			"support_grams": 6.97,
 			"support_used": true,
 			"support_intentional": true,
-			"print_seconds": 3549,
+			"print_seconds": 3555,
 			"color": {
 				"role": "chute-core"
 			},

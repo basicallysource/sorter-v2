@@ -21,7 +21,9 @@ parts_needed:
   - part: nema-bracket
     qty: 1
   - part: rotor-faceted
+    qty: 3
   - part: rotor-finned
+    qty: 1
   - part: output-gear
     qty: 1
   - part: idler-gear
@@ -40,6 +42,8 @@ parts_needed:
     qty: 3
   - part: scr-m3-8-cs
     qty: 6
+  - part: scr-m3-8-shcs
+    qty: 1
 ---
 
 A C-channel is one drive unit: a rotor turning inside a stator, driven through a gear train by a NEMA 17 stepper on a bracket underneath.
@@ -49,7 +53,7 @@ The fasteners and quantities are in the parts list above and are called out inli
 {% include fastener-legend.html %}
 
 - **Build 4 per machine**, three in the feeder and one for the classification channel. It is the same build four times over, and the rotor is the only thing that changes.
-- **One rotor per unit.** The three feeder channels take the Rotor (faceted); the classification channel takes the Rotor (finned), the one with the fins in the photographs below. A machine therefore needs three faceted and one finned, which is why the parts list above gives no count for either. Colour changes with it too: the feeder parts are charcoal, the classification-channel ones ash grey.
+- **One rotor per unit**, and it is the only part that changes between them. The three feeder channels take the Rotor (faceted); the classification channel takes the Rotor (finned), the one with the fins in the photographs below. The counts in the parts list are per machine for those two and per unit for everything else. Colour changes with the rotor too: the feeder parts are charcoal, the classification-channel ones ash grey.
 - No heat inserts on this assembly. The screws thread into the printed parts and into the stepper's own tapped holes.
 - Two of the four channels also carry a light post, whose screws belong to the light post rather than to the list above.
 
@@ -66,7 +70,9 @@ Then bolt the gear onto the underside of the rotor with 6 {% include fastener.ht
 
 {% include step.html n="2" title="Fit the input gear to the motor shaft" %}
 
-The Input gear (12T, screw) has a hole through its boss for the screw that clamps it to the motor shaft. Line that hole up with the flat on the NEMA 17's shaft, push the gear all the way on, then tighten the screw down onto the flat.
+The Input gear (12T, screw) has a hole through its boss, parallel to the shaft, for the {% include fastener.html size="M3" variant="socket" length="8" %} screw that clamps it on. The bore is plain and round, so there is nothing to key it: turn the gear until that screw lines up with the flat on the NEMA 17's shaft, push the gear all the way on, then tighten the screw down onto the flat.
+
+The head drops into a counterbore in the boss. Tighten until the head is seated and the gear does not turn on the shaft, and no further, it is threading into plastic.
 
 <figure>
   <img class="doc-figure" src="https://img.basically.website/web/assembly/c-channel/input-gear-on-motor-shaft.3c0339a7ab383445.jpg" alt="A black NEMA 17 stepper motor lying on its side with the small grey 12-tooth input gear pushed fully onto its shaft, the clamping screw visible in the side of the gear boss">

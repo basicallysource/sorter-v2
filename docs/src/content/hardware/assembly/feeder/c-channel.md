@@ -78,7 +78,7 @@ Bolt the Output gear onto the underside of the rotor with 6 {% include fastener.
 
 {% include step.html n="3" title="Fit the input gear to the motor shaft" %}
 
-The Input gear (12T, screw) has a hole through its boss, parallel to the shaft, for the {% include fastener.html size="M3" variant="socket" length="8" %} screw that clamps it on. The bore is plain and round, so there is nothing to key it: turn the gear until that screw lines up with the flat on the NEMA 17's shaft, push the gear all the way on, then tighten the screw down onto the flat.
+The Input gear (12T, screw) has a hole through its boss, parallel to the shaft, for the {% include fastener.html size="M3" variant="socket-button" length="8" %} screw that clamps it on. The bore is plain and round, so there is nothing to key it: turn the gear until that screw lines up with the flat on the NEMA 17's shaft, push the gear all the way on, then tighten the screw down onto the flat.
 
 The head drops into a counterbore in the boss. Tighten until the head is seated and the gear does not turn on the shaft, and no further, it is threading into plastic.
 

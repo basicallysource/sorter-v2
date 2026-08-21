@@ -3556,46 +3556,12 @@
 				},
 				{
 					"part": "hsi-m3",
-					"qty": 9
+					"qty": 7
 				}
 			],
 			"caption": null,
 			"docs_page": null,
-			"conflicts": [
-				{
-					"merge": "docs-merge-2026-08-21",
-					"field": "requires",
-					"claims": [
-						{
-							"source": "docs",
-							"value": [
-								{
-									"part": "hsi-m4",
-									"qty": 4
-								},
-								{
-									"part": "hsi-m3",
-									"qty": 7
-								}
-							]
-						},
-						{
-							"source": "parts-calculator",
-							"value": [
-								{
-									"part": "hsi-m4",
-									"qty": 4
-								},
-								{
-									"part": "hsi-m3",
-									"qty": 9
-								}
-							]
-						}
-					],
-					"note": "M3 heat insert count: docs say 7, the calculator says 9."
-				}
-			],
+			"conflicts": null,
 			"stl": "https://img.basically.website/parts/stl/top-interface-split-spur-gear-3-vrz8-11f50ca2.stl",
 			"render": "https://img.basically.website/parts/render/top-interface-split-spur-gear-3-39e19ab0.png"
 		},

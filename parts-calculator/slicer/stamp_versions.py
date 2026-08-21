@@ -49,7 +49,7 @@ def hashes_at(commit):
         d = json.loads(r.stdout)
     except ValueError:
         return None
-    return {p["id"]: p.get("stl_hash") for p in d.get("parts", [])}
+    return {p["id"]: (p.get("stl_hash"), p.get("stl_id")) for p in d.get("parts", [])}
 
 
 def main():
@@ -84,17 +84,21 @@ def main():
             prev = snap(commits[i + 1]) if i + 1 < len(commits) else {}
             if cur is None:
                 continue
-            if cur.get(p["id"]) and cur.get(p["id"]) != (prev or {}).get(p["id"]):
-                found = (c, (prev or {}).get(p["id"]))
+            cur_pin = (cur.get(p["id"]) or (None, None))[0]
+            prev_pin = ((prev or {}).get(p["id"]) or (None, None))
+            if cur_pin and cur_pin != prev_pin[0]:
+                found = (c, prev_pin)
                 break
         if not found:
             continue
-        commit, replaced_hash = found
+        commit, (replaced_hash, replaced_id) = found
         versions[-1]["commit"] = commit
         stamped.append((p["id"], versions[-1].get("version"), commit))
         if len(versions) > 1 and not versions[-2].get("stl_hash"):
             if replaced_hash:
                 versions[-2]["stl_hash"] = replaced_hash
+                if replaced_id:
+                    versions[-2]["stl_id"] = replaced_id
             else:
                 print(f"  ! {p['id']}: no prior stl_hash found at {commit}~; "
                       f"v{versions[-2].get('version')} will fall back to the "

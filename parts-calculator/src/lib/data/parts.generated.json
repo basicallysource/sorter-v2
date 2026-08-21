@@ -11,7 +11,7 @@
 		"density_g_cm3": 1.32,
 		"cost_per_kg": 24.99,
 		"commit_base_url": "https://github.com/basicallysource/sorter-v2/commit/",
-		"all_parts_zip": "https://img.basically.website/parts/bundle/b12f5f6485387ca7188204a55cba237ce07a5fa57626819f48c09129a98e4635.zip"
+		"all_parts_zip": "https://img.basically.website/parts/bundle/all-parts-b12f5f64.zip"
 	},
 	"sections": [
 		{
@@ -226,7 +226,7 @@
 			"description": "Divide the top plate into interlocking puzzle-like sections around a single inner structural support ring, so the plate can be made in smaller pieces while keeping primary support around the center.",
 			"images": [
 				{
-					"url": "https://img.basically.website/parts/img/5900431388c04c4a076abfa0ae88cafed9b221d91aefacec6d463706963cf111.png",
+					"url": "https://img.basically.website/parts/img/split-top-plate-puzzle-59004313.png",
 					"alt": "Seven-piece top plate concept with a single structural inner ring",
 					"caption": "Seven-piece top plate concept"
 				}
@@ -327,7 +327,7 @@
 				"type": "screw",
 				"variant": "countersunk"
 			},
-			"image": "https://img.basically.website/parts/img/faf0edbe33245eec7dff8e0f365b0c006ad6991b7372217c447dfe53928228a4.jpg"
+			"image": "https://img.basically.website/parts/img/screw-countersunk-faf0edbe.jpg"
 		},
 		{
 			"id": "screw-socket",
@@ -336,7 +336,7 @@
 				"type": "screw",
 				"variant": "socket"
 			},
-			"image": "https://img.basically.website/parts/img/580ba61e9d9a2275717f9c9741502e966f45c4382616993365b4d1cb9720d0c0.jpg"
+			"image": "https://img.basically.website/parts/img/screw-socket-580ba61e.jpg"
 		},
 		{
 			"id": "screw-button",
@@ -345,7 +345,7 @@
 				"type": "screw",
 				"variant": "button"
 			},
-			"image": "https://img.basically.website/parts/img/350b2785fbe0a6ada9e624dfd4457a2a2309857171c78515560cb5c3f3faf445.jpg"
+			"image": "https://img.basically.website/parts/img/screw-button-350b2785.jpg"
 		},
 		{
 			"id": "nut",
@@ -353,7 +353,7 @@
 			"match": {
 				"type": "nut"
 			},
-			"image": "https://img.basically.website/parts/img/3731dab3df874778f0dd2d4a36771a2e3266dfae609cab95ce5bf1abe3f177fb.jpg"
+			"image": "https://img.basically.website/parts/img/nut-3731dab3.jpg"
 		}
 	],
 	"assemblies": [
@@ -1407,17 +1407,17 @@
 					"date": "2026-06-27",
 					"message": "Initial version.",
 					"commit": null,
-					"stl": "https://img.basically.website/parts/stl/323b2d1f94a5440119359498de7c7f706d4b32f4c54bec45e88b94c53064279b.stl",
-					"render": "https://img.basically.website/parts/render/02ab8b46abb514e96061673c1e078413ab62446e6ef76dde456eadd168d0db95.png",
-					"grams": 175.52
+					"stl": "https://img.basically.website/parts/stl/stator-n6bm-323b2d1f.stl",
+					"render": "https://img.basically.website/parts/render/stator-02ab8b46.png",
+					"grams": 175.75
 				}
 			],
 			"attributes": [],
-			"grams": 175.52,
-			"support_grams": 23.42,
+			"grams": 175.75,
+			"support_grams": 23.07,
 			"support_used": true,
 			"support_intentional": true,
-			"print_seconds": 16014,
+			"print_seconds": 16023,
 			"color": {
 				"by_section": {
 					"feeder": {
@@ -1438,8 +1438,8 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"stl": "https://img.basically.website/parts/stl/323b2d1f94a5440119359498de7c7f706d4b32f4c54bec45e88b94c53064279b.stl",
-			"render": "https://img.basically.website/parts/render/02ab8b46abb514e96061673c1e078413ab62446e6ef76dde456eadd168d0db95.png"
+			"stl": "https://img.basically.website/parts/stl/stator-n6bm-323b2d1f.stl",
+			"render": "https://img.basically.website/parts/render/stator-02ab8b46.png"
 		},
 		{
 			"id": "rotor-faceted",
@@ -1461,8 +1461,8 @@
 					"date": "2026-06-27",
 					"message": "Initial version.",
 					"commit": null,
-					"stl": "https://img.basically.website/parts/stl/350de3f8e27e7d0bb1f00d2c070c7f255da73987c9b2d86f639664c5db81bfd6.stl",
-					"render": "https://img.basically.website/parts/render/2199a0296335392c404140311946ecec67a88eb5a18aa7f417c95bc89b86c5dc.png",
+					"stl": "https://img.basically.website/parts/stl/rotor-faceted-9v9q-350de3f8.stl",
+					"render": "https://img.basically.website/parts/render/rotor-faceted-2199a029.png",
 					"grams": 166.51
 				}
 			],
@@ -1494,8 +1494,8 @@
 			"caption": "The feeder channels' rotor.",
 			"docs_page": null,
 			"conflicts": null,
-			"stl": "https://img.basically.website/parts/stl/350de3f8e27e7d0bb1f00d2c070c7f255da73987c9b2d86f639664c5db81bfd6.stl",
-			"render": "https://img.basically.website/parts/render/2199a0296335392c404140311946ecec67a88eb5a18aa7f417c95bc89b86c5dc.png"
+			"stl": "https://img.basically.website/parts/stl/rotor-faceted-9v9q-350de3f8.stl",
+			"render": "https://img.basically.website/parts/render/rotor-faceted-2199a029.png"
 		},
 		{
 			"id": "output-gear",
@@ -1518,8 +1518,8 @@
 					"date": "2026-06-27",
 					"message": "Initial version.",
 					"commit": null,
-					"stl": "https://img.basically.website/parts/stl/69ae2f998fe3caef3e9ea75c7b3081203ff7b2e690b8ef56e7c4b4380f19b0aa.stl",
-					"render": "https://img.basically.website/parts/render/b72ef086744fe31998ed78620be4a1e1e4b1b7cc0053171386e80283b7a4a7fc.png",
+					"stl": "https://img.basically.website/parts/stl/output-gear-26ek-69ae2f99.stl",
+					"render": "https://img.basically.website/parts/render/output-gear-b72ef086.png",
 					"grams": 59.69
 				}
 			],
@@ -1547,8 +1547,8 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"stl": "https://img.basically.website/parts/stl/69ae2f998fe3caef3e9ea75c7b3081203ff7b2e690b8ef56e7c4b4380f19b0aa.stl",
-			"render": "https://img.basically.website/parts/render/b72ef086744fe31998ed78620be4a1e1e4b1b7cc0053171386e80283b7a4a7fc.png"
+			"stl": "https://img.basically.website/parts/stl/output-gear-26ek-69ae2f99.stl",
+			"render": "https://img.basically.website/parts/render/output-gear-b72ef086.png"
 		},
 		{
 			"id": "nema-bracket",
@@ -1571,8 +1571,8 @@
 					"date": "2026-06-27",
 					"message": "Initial version.",
 					"commit": null,
-					"stl": "https://img.basically.website/parts/stl/8b2bea87360e0a1030c66f43ac652b3e07626acaa961a963b106358cdeabd845.stl",
-					"render": "https://img.basically.website/parts/render/a22488004b6bc44a3c37d2806ae8765a5c722219df6fc48bdac060a3c540622a.png",
+					"stl": "https://img.basically.website/parts/stl/nema-bracket-x09t-8b2bea87.stl",
+					"render": "https://img.basically.website/parts/render/nema-bracket-a2248800.png",
 					"grams": 72.42
 				}
 			],
@@ -1602,8 +1602,8 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"stl": "https://img.basically.website/parts/stl/8b2bea87360e0a1030c66f43ac652b3e07626acaa961a963b106358cdeabd845.stl",
-			"render": "https://img.basically.website/parts/render/a22488004b6bc44a3c37d2806ae8765a5c722219df6fc48bdac060a3c540622a.png"
+			"stl": "https://img.basically.website/parts/stl/nema-bracket-x09t-8b2bea87.stl",
+			"render": "https://img.basically.website/parts/render/nema-bracket-a2248800.png"
 		},
 		{
 			"id": "light-post",
@@ -1625,8 +1625,8 @@
 					"date": "2026-07-01",
 					"message": "Initial version.",
 					"commit": null,
-					"stl": "https://img.basically.website/parts/stl/4298d9e5383cef563903685c5ba8eb3f177793b7aa3555710a864e2a000660c9.stl",
-					"render": "https://img.basically.website/parts/render/d2c7494e1be40c21ff571156d567f390101663edb44074ddda5a6947a3a70182.png",
+					"stl": "https://img.basically.website/parts/stl/light-post-oac5-4298d9e5.stl",
+					"render": "https://img.basically.website/parts/render/light-post-d2c7494e.png",
 					"grams": 13.16
 				}
 			],
@@ -1649,8 +1649,8 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"stl": "https://img.basically.website/parts/stl/4298d9e5383cef563903685c5ba8eb3f177793b7aa3555710a864e2a000660c9.stl",
-			"render": "https://img.basically.website/parts/render/d2c7494e1be40c21ff571156d567f390101663edb44074ddda5a6947a3a70182.png"
+			"stl": "https://img.basically.website/parts/stl/light-post-oac5-4298d9e5.stl",
+			"render": "https://img.basically.website/parts/render/light-post-d2c7494e.png"
 		},
 		{
 			"id": "light-post-cap",
@@ -1672,8 +1672,8 @@
 					"date": "2026-06-27",
 					"message": "Initial version.",
 					"commit": null,
-					"stl": "https://img.basically.website/parts/stl/8759618be4ccf9f764520921386a0eb1209733f15a9e34b673cd104265b3057a.stl",
-					"render": "https://img.basically.website/parts/render/4b037cf17385e43cb39ac51728ada6484e002668a17c3e3d4ecb6cf8242470b2.png",
+					"stl": "https://img.basically.website/parts/stl/light-post-cap-7a8e-8759618b.stl",
+					"render": "https://img.basically.website/parts/render/light-post-cap-4b037cf1.png",
 					"grams": 21.98
 				}
 			],
@@ -1696,8 +1696,8 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"stl": "https://img.basically.website/parts/stl/8759618be4ccf9f764520921386a0eb1209733f15a9e34b673cd104265b3057a.stl",
-			"render": "https://img.basically.website/parts/render/4b037cf17385e43cb39ac51728ada6484e002668a17c3e3d4ecb6cf8242470b2.png"
+			"stl": "https://img.basically.website/parts/stl/light-post-cap-7a8e-8759618b.stl",
+			"render": "https://img.basically.website/parts/render/light-post-cap-4b037cf1.png"
 		},
 		{
 			"id": "light-post-cap-adapter",
@@ -1719,8 +1719,8 @@
 					"date": "2026-07-03",
 					"message": "Initial version.",
 					"commit": null,
-					"stl": "https://img.basically.website/parts/stl/230825d03733af289fdc5fbf3b28b59f2d4f4cbb1d87b9db9e640f3d8d0e4a34.stl",
-					"render": "https://img.basically.website/parts/render/437c463ed6ec30cb86385e341055c17b40a1449632bbad2fd15f0afa72bb6500.png",
+					"stl": "https://img.basically.website/parts/stl/light-post-cap-adapter-jcnt-230825d0.stl",
+					"render": "https://img.basically.website/parts/render/light-post-cap-adapter-437c463e.png",
 					"grams": 2.59
 				}
 			],
@@ -1743,8 +1743,8 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"stl": "https://img.basically.website/parts/stl/230825d03733af289fdc5fbf3b28b59f2d4f4cbb1d87b9db9e640f3d8d0e4a34.stl",
-			"render": "https://img.basically.website/parts/render/437c463ed6ec30cb86385e341055c17b40a1449632bbad2fd15f0afa72bb6500.png"
+			"stl": "https://img.basically.website/parts/stl/light-post-cap-adapter-jcnt-230825d0.stl",
+			"render": "https://img.basically.website/parts/render/light-post-cap-adapter-437c463e.png"
 		},
 		{
 			"id": "bulk-cap",
@@ -1767,8 +1767,8 @@
 					"message": "Initial version. The dovetail fit was too tight and could make the cap difficult to install on the stator.",
 					"commit": "83deca5",
 					"stl_hash": "c7200a59ee437fb073d90f0fcaf96773cf1aad0e6fcd34f5a68beb8f4752497a",
-					"render": "https://img.basically.website/parts/render/9ec28d7a58973871083297f3a178020952961f3fc69ccd3cd328550ca2c158b6.png",
-					"stl": "https://img.basically.website/parts/stl/c7200a59ee437fb073d90f0fcaf96773cf1aad0e6fcd34f5a68beb8f4752497a.stl",
+					"render": "https://img.basically.website/parts/render/bulk-cap-v1-9ec28d7a.png",
+					"stl": "https://img.basically.website/parts/stl/bulk-cap-wo2a-c7200a59.stl",
 					"grams": 648.51
 				},
 				{
@@ -1777,8 +1777,8 @@
 					"message": "Increased the dovetail clearance so the cap slides onto the stator more easily and seats without excessive force.",
 					"commit": "5faa101",
 					"onshape_version": "https://cad.onshape.com/documents/60aa51fc61d18f2155b99910/v/3101eccaa723ea34388cbee9/e/66109ce96b305bf318354f93",
-					"stl": "https://img.basically.website/parts/stl/20223510233281bcdf32699903e054a22c0cffde8d6c4e7542f9ae8d1bd04a9f.stl",
-					"render": "https://img.basically.website/parts/render/9800500a312dbffe740f334b5242ab4bda69dec41090fd1d76c6233477bd6cd9.png",
+					"stl": "https://img.basically.website/parts/stl/bulk-cap-737f-20223510.stl",
+					"render": "https://img.basically.website/parts/render/bulk-cap-9800500a.png",
 					"grams": 620.43
 				}
 			],
@@ -1801,8 +1801,8 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"stl": "https://img.basically.website/parts/stl/20223510233281bcdf32699903e054a22c0cffde8d6c4e7542f9ae8d1bd04a9f.stl",
-			"render": "https://img.basically.website/parts/render/9800500a312dbffe740f334b5242ab4bda69dec41090fd1d76c6233477bd6cd9.png"
+			"stl": "https://img.basically.website/parts/stl/bulk-cap-737f-20223510.stl",
+			"render": "https://img.basically.website/parts/render/bulk-cap-9800500a.png"
 		},
 		{
 			"id": "classification-dome",
@@ -1824,8 +1824,8 @@
 					"date": "2026-06-27",
 					"message": "Initial version.",
 					"commit": null,
-					"stl": "https://img.basically.website/parts/stl/a6b8ec85b47dd24f549db12cd74dd6f4d09b92a5e92c4361efbf6cbf95fc498e.stl",
-					"render": "https://img.basically.website/parts/render/df101611da2dc624e77f2e17ead862212c0e8d92d5e9db7a8390fdf4d912d8e6.png",
+					"stl": "https://img.basically.website/parts/stl/classification-dome-fheh-a6b8ec85.stl",
+					"render": "https://img.basically.website/parts/render/classification-dome-df101611.png",
 					"grams": 371.28
 				}
 			],
@@ -1848,8 +1848,8 @@
 			"caption": "Roughly a full print bed. Printed white.",
 			"docs_page": null,
 			"conflicts": null,
-			"stl": "https://img.basically.website/parts/stl/a6b8ec85b47dd24f549db12cd74dd6f4d09b92a5e92c4361efbf6cbf95fc498e.stl",
-			"render": "https://img.basically.website/parts/render/df101611da2dc624e77f2e17ead862212c0e8d92d5e9db7a8390fdf4d912d8e6.png"
+			"stl": "https://img.basically.website/parts/stl/classification-dome-fheh-a6b8ec85.stl",
+			"render": "https://img.basically.website/parts/render/classification-dome-df101611.png"
 		},
 		{
 			"id": "interface-bracket",
@@ -1872,8 +1872,8 @@
 					"message": "Initial version. The fit around the horizontal aluminum spoke was too tight.",
 					"commit": "83deca5",
 					"stl_hash": "db2c0ecf58184c752a8d66035b2620a3d1570343167b8b2b7f3b7eedd402c58f",
-					"render": "https://img.basically.website/parts/render/299da0d4e2f9494f0f154cc2e66e4f5bd5a8d4d764eed345bef1d89b4bfc9fe5.png",
-					"stl": "https://img.basically.website/parts/stl/db2c0ecf58184c752a8d66035b2620a3d1570343167b8b2b7f3b7eedd402c58f.stl",
+					"render": "https://img.basically.website/parts/render/interface-bracket-v1-299da0d4.png",
+					"stl": "https://img.basically.website/parts/stl/interface-bracket-s2o9-db2c0ecf.stl",
 					"grams": 159.64
 				},
 				{
@@ -1882,8 +1882,8 @@
 					"message": "Added 0.2 mm clearance on every side of the horizontal aluminum spoke.",
 					"commit": "a496872",
 					"onshape_version": "https://cad.onshape.com/documents/36d65973fe08f685f790dc8b/v/f845b960415692451f2903b1/e/77f0be233cae0dcaf1c2a391",
-					"stl": "https://img.basically.website/parts/stl/5835878c9a32a19bf56b75463137639e6c4fc60615af07313086444697fc717f.stl",
-					"render": "https://img.basically.website/parts/render/5c15729ca1d2b5ec4dd658618f29ac12ee82f5321ccaaef858b37980d1c7dd30.png",
+					"stl": "https://img.basically.website/parts/stl/interface-bracket-jk82-5835878c.stl",
+					"render": "https://img.basically.website/parts/render/interface-bracket-5c15729c.png",
 					"grams": 159.45
 				}
 			],
@@ -1911,8 +1911,8 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"stl": "https://img.basically.website/parts/stl/5835878c9a32a19bf56b75463137639e6c4fc60615af07313086444697fc717f.stl",
-			"render": "https://img.basically.website/parts/render/5c15729ca1d2b5ec4dd658618f29ac12ee82f5321ccaaef858b37980d1c7dd30.png"
+			"stl": "https://img.basically.website/parts/stl/interface-bracket-jk82-5835878c.stl",
+			"render": "https://img.basically.website/parts/render/interface-bracket-5c15729c.png"
 		},
 		{
 			"id": "interface-spacer",
@@ -1934,8 +1934,8 @@
 					"date": "2026-06-27",
 					"message": "Initial version.",
 					"commit": null,
-					"stl": "https://img.basically.website/parts/stl/43dda1e1554853a4759867ecb98e75a54631a9d46f947c548605c3c309709a29.stl",
-					"render": "https://img.basically.website/parts/render/cd6bec995412db81cec1fb2dbc56068a42583c8e7518c9834625b4ac2ade428e.png",
+					"stl": "https://img.basically.website/parts/stl/interface-spacer-bfoc-43dda1e1.stl",
+					"render": "https://img.basically.website/parts/render/interface-spacer-cd6bec99.png",
 					"grams": 45.26
 				}
 			],
@@ -1958,8 +1958,8 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"stl": "https://img.basically.website/parts/stl/43dda1e1554853a4759867ecb98e75a54631a9d46f947c548605c3c309709a29.stl",
-			"render": "https://img.basically.website/parts/render/cd6bec995412db81cec1fb2dbc56068a42583c8e7518c9834625b4ac2ade428e.png"
+			"stl": "https://img.basically.website/parts/stl/interface-spacer-bfoc-43dda1e1.stl",
+			"render": "https://img.basically.website/parts/render/interface-spacer-cd6bec99.png"
 		},
 		{
 			"id": "chute-core",
@@ -1981,8 +1981,8 @@
 					"date": "2026-06-27",
 					"message": "Initial version.",
 					"commit": null,
-					"stl": "https://img.basically.website/parts/stl/fccd4907faf05e295c070b5a5c2a41b6f89a5109bc7e368cb7632f26a2c19590.stl",
-					"render": "https://img.basically.website/parts/render/312ae671ee01b039f12a0ec7642277560eb64101920c92125eef47aa3d85657c.png",
+					"stl": "https://img.basically.website/parts/stl/chute-core-mu36-fccd4907.stl",
+					"render": "https://img.basically.website/parts/render/chute-core-312ae671.png",
 					"grams": 223.63
 				}
 			],
@@ -2010,8 +2010,8 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"stl": "https://img.basically.website/parts/stl/fccd4907faf05e295c070b5a5c2a41b6f89a5109bc7e368cb7632f26a2c19590.stl",
-			"render": "https://img.basically.website/parts/render/312ae671ee01b039f12a0ec7642277560eb64101920c92125eef47aa3d85657c.png"
+			"stl": "https://img.basically.website/parts/stl/chute-core-mu36-fccd4907.stl",
+			"render": "https://img.basically.website/parts/render/chute-core-312ae671.png"
 		},
 		{
 			"id": "bin-retainer-left",
@@ -2033,8 +2033,8 @@
 					"date": "2026-06-27",
 					"message": "Initial version.",
 					"commit": null,
-					"stl": "https://img.basically.website/parts/stl/6e1aa2f4446c9f399fe1d6232fb0991138358b48714ca3c9d27206fa4c728c57.stl",
-					"render": "https://img.basically.website/parts/render/1a29b1f6c061bea55b7672f1a12830a1b93ac0eb63e5dc2b1ffddddebb48bb65.png",
+					"stl": "https://img.basically.website/parts/stl/bin-retainer-left-hqz0-6e1aa2f4.stl",
+					"render": "https://img.basically.website/parts/render/bin-retainer-left-1a29b1f6.png",
 					"grams": 21.19
 				}
 			],
@@ -2057,8 +2057,8 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"stl": "https://img.basically.website/parts/stl/6e1aa2f4446c9f399fe1d6232fb0991138358b48714ca3c9d27206fa4c728c57.stl",
-			"render": "https://img.basically.website/parts/render/1a29b1f6c061bea55b7672f1a12830a1b93ac0eb63e5dc2b1ffddddebb48bb65.png"
+			"stl": "https://img.basically.website/parts/stl/bin-retainer-left-hqz0-6e1aa2f4.stl",
+			"render": "https://img.basically.website/parts/render/bin-retainer-left-1a29b1f6.png"
 		},
 		{
 			"id": "bin-retainer-right",
@@ -2080,8 +2080,8 @@
 					"date": "2026-06-27",
 					"message": "Initial version.",
 					"commit": null,
-					"stl": "https://img.basically.website/parts/stl/54704393c3e0786bb69eed1596296519d032aea277b00ffed1335347d03a8dc6.stl",
-					"render": "https://img.basically.website/parts/render/18dacb249a0888a840a6f9451ee30d7804db3c1d3d8b35c7e8f032b7057ff30a.png",
+					"stl": "https://img.basically.website/parts/stl/bin-retainer-right-ybpv-54704393.stl",
+					"render": "https://img.basically.website/parts/render/bin-retainer-right-18dacb24.png",
 					"grams": 21.44
 				}
 			],
@@ -2104,8 +2104,8 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"stl": "https://img.basically.website/parts/stl/54704393c3e0786bb69eed1596296519d032aea277b00ffed1335347d03a8dc6.stl",
-			"render": "https://img.basically.website/parts/render/18dacb249a0888a840a6f9451ee30d7804db3c1d3d8b35c7e8f032b7057ff30a.png"
+			"stl": "https://img.basically.website/parts/stl/bin-retainer-right-ybpv-54704393.stl",
+			"render": "https://img.basically.website/parts/render/bin-retainer-right-18dacb24.png"
 		},
 		{
 			"id": "frame-crossbeam",
@@ -2129,8 +2129,8 @@
 					"message": "Initial version.",
 					"commit": null,
 					"onshape_version": "https://cad.onshape.com/documents/a4a1965bbaf3a15aff2b13ed/v/7279a42b05833c7b828efb0d/e/b0ee2e787191265cba1c1a31",
-					"stl": "https://img.basically.website/parts/stl/45a69ae6847617b33b1aa45a379f0b413edba4d13203f4de40506a1f7cb80966.stl",
-					"render": "https://img.basically.website/parts/render/59615da4ee1d91f3d7c69938106822347c2d8f77a21a23e3fd8411cad1fc3e61.png",
+					"stl": "https://img.basically.website/parts/stl/frame-crossbeam-cdeg-45a69ae6.stl",
+					"render": "https://img.basically.website/parts/render/frame-crossbeam-59615da4.png",
 					"grams": 86.17
 				}
 			],
@@ -2153,8 +2153,8 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"stl": "https://img.basically.website/parts/stl/45a69ae6847617b33b1aa45a379f0b413edba4d13203f4de40506a1f7cb80966.stl",
-			"render": "https://img.basically.website/parts/render/59615da4ee1d91f3d7c69938106822347c2d8f77a21a23e3fd8411cad1fc3e61.png"
+			"stl": "https://img.basically.website/parts/stl/frame-crossbeam-cdeg-45a69ae6.stl",
+			"render": "https://img.basically.website/parts/render/frame-crossbeam-59615da4.png"
 		},
 		{
 			"id": "frame-90deg-bracket",
@@ -2178,8 +2178,8 @@
 					"message": "Initial version.",
 					"commit": null,
 					"onshape_version": "https://cad.onshape.com/documents/a4a1965bbaf3a15aff2b13ed/v/7279a42b05833c7b828efb0d/e/b0ee2e787191265cba1c1a31",
-					"stl": "https://img.basically.website/parts/stl/1081b927cfb55fab0a62b2b3fdee9a86b39960fc0c1ac4d6119c983e39a2b491.stl",
-					"render": "https://img.basically.website/parts/render/faadb50a48ac0583bb9cd14e1628df4799aad66d22a73e9f85f208b986bc1425.png",
+					"stl": "https://img.basically.website/parts/stl/frame-90deg-bracket-3l20-1081b927.stl",
+					"render": "https://img.basically.website/parts/render/frame-90deg-bracket-faadb50a.png",
 					"grams": 13.62
 				}
 			],
@@ -2202,8 +2202,8 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"stl": "https://img.basically.website/parts/stl/1081b927cfb55fab0a62b2b3fdee9a86b39960fc0c1ac4d6119c983e39a2b491.stl",
-			"render": "https://img.basically.website/parts/render/faadb50a48ac0583bb9cd14e1628df4799aad66d22a73e9f85f208b986bc1425.png"
+			"stl": "https://img.basically.website/parts/stl/frame-90deg-bracket-3l20-1081b927.stl",
+			"render": "https://img.basically.website/parts/render/frame-90deg-bracket-faadb50a.png"
 		},
 		{
 			"id": "ls-mount-to-chute",
@@ -2229,8 +2229,8 @@
 					"date": "2026-06-27",
 					"message": "Initial version.",
 					"commit": null,
-					"stl": "https://img.basically.website/parts/stl/b63cc59f19780e07ce70f28ed4c6b6e90d6c1e6d469ff8692803ad97815ebfe6.stl",
-					"render": "https://img.basically.website/parts/render/58b00fe73984f370c91172577aa816244d9233955beef5c84ed7a2076d7140a5.png",
+					"stl": "https://img.basically.website/parts/stl/ls-mount-to-chute-lma9-b63cc59f.stl",
+					"render": "https://img.basically.website/parts/render/ls-mount-to-chute-58b00fe7.png",
 					"grams": 233.62
 				}
 			],
@@ -2258,8 +2258,8 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"stl": "https://img.basically.website/parts/stl/b63cc59f19780e07ce70f28ed4c6b6e90d6c1e6d469ff8692803ad97815ebfe6.stl",
-			"render": "https://img.basically.website/parts/render/58b00fe73984f370c91172577aa816244d9233955beef5c84ed7a2076d7140a5.png"
+			"stl": "https://img.basically.website/parts/stl/ls-mount-to-chute-lma9-b63cc59f.stl",
+			"render": "https://img.basically.website/parts/render/ls-mount-to-chute-58b00fe7.png"
 		},
 		{
 			"id": "ls-bottom-static",
@@ -2285,8 +2285,8 @@
 					"date": "2026-06-27",
 					"message": "Initial version.",
 					"commit": null,
-					"stl": "https://img.basically.website/parts/stl/d658c97bd1516b3c61f37028761b46b9be1aa1f6cd26f9057fd9c45691f54488.stl",
-					"render": "https://img.basically.website/parts/render/d0afdb95dd742328c37986b2aaaf674b8cf3936abb7b75c41cef06038902ce79.png",
+					"stl": "https://img.basically.website/parts/stl/ls-bottom-static-4mmh-d658c97b.stl",
+					"render": "https://img.basically.website/parts/render/ls-bottom-static-d0afdb95.png",
 					"grams": 206.81
 				}
 			],
@@ -2314,8 +2314,8 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"stl": "https://img.basically.website/parts/stl/d658c97bd1516b3c61f37028761b46b9be1aa1f6cd26f9057fd9c45691f54488.stl",
-			"render": "https://img.basically.website/parts/render/d0afdb95dd742328c37986b2aaaf674b8cf3936abb7b75c41cef06038902ce79.png"
+			"stl": "https://img.basically.website/parts/stl/ls-bottom-static-4mmh-d658c97b.stl",
+			"render": "https://img.basically.website/parts/render/ls-bottom-static-d0afdb95.png"
 		},
 		{
 			"id": "ls-mount-to-extrusion",
@@ -2337,8 +2337,8 @@
 					"date": "2026-06-27",
 					"message": "Initial version.",
 					"commit": null,
-					"stl": "https://img.basically.website/parts/stl/1dac92ed155a14f17d65c6008e8aadd88f6797e975f31f9ccab6d310ce1382f1.stl",
-					"render": "https://img.basically.website/parts/render/223e181ed755559ceb94dccfa1f7c4cef12feca66ae97b4ca079315a522cdd45.png",
+					"stl": "https://img.basically.website/parts/stl/ls-mount-to-extrusion-bmt4-1dac92ed.stl",
+					"render": "https://img.basically.website/parts/render/ls-mount-to-extrusion-223e181e.png",
 					"grams": 56.06
 				}
 			],
@@ -2361,8 +2361,8 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"stl": "https://img.basically.website/parts/stl/1dac92ed155a14f17d65c6008e8aadd88f6797e975f31f9ccab6d310ce1382f1.stl",
-			"render": "https://img.basically.website/parts/render/223e181ed755559ceb94dccfa1f7c4cef12feca66ae97b4ca079315a522cdd45.png"
+			"stl": "https://img.basically.website/parts/stl/ls-mount-to-extrusion-bmt4-1dac92ed.stl",
+			"render": "https://img.basically.website/parts/render/ls-mount-to-extrusion-223e181e.png"
 		},
 		{
 			"id": "ls-hold-in-place",
@@ -2384,8 +2384,8 @@
 					"date": "2026-06-27",
 					"message": "Initial version.",
 					"commit": null,
-					"stl": "https://img.basically.website/parts/stl/18fe2e7e1a18dde42bc8412d288909060d3db35949a7818d56939230d8838872.stl",
-					"render": "https://img.basically.website/parts/render/2758f86084f51fd4a76a22ef87e33ad275e4a88607f36c8fd2b6a22cd595d3a7.png",
+					"stl": "https://img.basically.website/parts/stl/ls-hold-in-place-ss05-18fe2e7e.stl",
+					"render": "https://img.basically.website/parts/render/ls-hold-in-place-2758f860.png",
 					"grams": 6.95
 				}
 			],
@@ -2408,8 +2408,8 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"stl": "https://img.basically.website/parts/stl/18fe2e7e1a18dde42bc8412d288909060d3db35949a7818d56939230d8838872.stl",
-			"render": "https://img.basically.website/parts/render/2758f86084f51fd4a76a22ef87e33ad275e4a88607f36c8fd2b6a22cd595d3a7.png"
+			"stl": "https://img.basically.website/parts/stl/ls-hold-in-place-ss05-18fe2e7e.stl",
+			"render": "https://img.basically.website/parts/render/ls-hold-in-place-2758f860.png"
 		},
 		{
 			"id": "ls-washer",
@@ -2431,8 +2431,8 @@
 					"date": "2026-06-27",
 					"message": "Initial version.",
 					"commit": null,
-					"stl": "https://img.basically.website/parts/stl/cdfc42cbc5c9285089498ebd013c8ee05fa48ad7adcf12c43eb2d1396ef2d231.stl",
-					"render": "https://img.basically.website/parts/render/dbb45813cd27a8e8b7e87935cacf54e90742f56784a9971e11716a4f3f1bec4f.png",
+					"stl": "https://img.basically.website/parts/stl/ls-washer-9c4a-cdfc42cb.stl",
+					"render": "https://img.basically.website/parts/render/ls-washer-dbb45813.png",
 					"grams": 10.63
 				}
 			],
@@ -2455,8 +2455,8 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"stl": "https://img.basically.website/parts/stl/cdfc42cbc5c9285089498ebd013c8ee05fa48ad7adcf12c43eb2d1396ef2d231.stl",
-			"render": "https://img.basically.website/parts/render/dbb45813cd27a8e8b7e87935cacf54e90742f56784a9971e11716a4f3f1bec4f.png"
+			"stl": "https://img.basically.website/parts/stl/ls-washer-9c4a-cdfc42cb.stl",
+			"render": "https://img.basically.website/parts/render/ls-washer-dbb45813.png"
 		},
 		{
 			"id": "ext-bracket-left",
@@ -2480,8 +2480,8 @@
 					"message": "Initial version.",
 					"commit": null,
 					"onshape_version": "https://cad.onshape.com/documents/a4a1965bbaf3a15aff2b13ed/v/7279a42b05833c7b828efb0d/e/b0ee2e787191265cba1c1a31",
-					"stl": "https://img.basically.website/parts/stl/da4b3abd3db72070484178ef5aa1d0906397c6a310bdf0e22f724940bd62dba2.stl",
-					"render": "https://img.basically.website/parts/render/5f374f1971a52540ad099c6bfebc2ac1b8fa08d8a0ca325a6c79dd06ed22ae09.png",
+					"stl": "https://img.basically.website/parts/stl/ext-bracket-left-0b4g-da4b3abd.stl",
+					"render": "https://img.basically.website/parts/render/ext-bracket-left-5f374f19.png",
 					"grams": 48.52
 				}
 			],
@@ -2504,8 +2504,8 @@
 			"caption": null,
 			"docs_page": "/hardware/assembly/distribution/external-bracket/",
 			"conflicts": null,
-			"stl": "https://img.basically.website/parts/stl/da4b3abd3db72070484178ef5aa1d0906397c6a310bdf0e22f724940bd62dba2.stl",
-			"render": "https://img.basically.website/parts/render/5f374f1971a52540ad099c6bfebc2ac1b8fa08d8a0ca325a6c79dd06ed22ae09.png"
+			"stl": "https://img.basically.website/parts/stl/ext-bracket-left-0b4g-da4b3abd.stl",
+			"render": "https://img.basically.website/parts/render/ext-bracket-left-5f374f19.png"
 		},
 		{
 			"id": "ext-bracket-bottom-vertical",
@@ -2529,8 +2529,8 @@
 					"message": "Initial version.",
 					"commit": null,
 					"onshape_version": "https://cad.onshape.com/documents/a4a1965bbaf3a15aff2b13ed/v/7279a42b05833c7b828efb0d/e/b0ee2e787191265cba1c1a31",
-					"stl": "https://img.basically.website/parts/stl/313397afb08fc1943f045905b96131f73f1dc70c05d59fd2583c77da38318c36.stl",
-					"render": "https://img.basically.website/parts/render/962b87dc29591fb5871676cf7d4f6908e6c3b5d57947f3ffb30c8127b1031121.png",
+					"stl": "https://img.basically.website/parts/stl/ext-bracket-bottom-vertical-xgzj-313397af.stl",
+					"render": "https://img.basically.website/parts/render/ext-bracket-bottom-vertical-962b87dc.png",
 					"grams": 50.62
 				}
 			],
@@ -2553,8 +2553,8 @@
 			"caption": null,
 			"docs_page": "/hardware/assembly/distribution/external-bracket/",
 			"conflicts": null,
-			"stl": "https://img.basically.website/parts/stl/313397afb08fc1943f045905b96131f73f1dc70c05d59fd2583c77da38318c36.stl",
-			"render": "https://img.basically.website/parts/render/962b87dc29591fb5871676cf7d4f6908e6c3b5d57947f3ffb30c8127b1031121.png"
+			"stl": "https://img.basically.website/parts/stl/ext-bracket-bottom-vertical-xgzj-313397af.stl",
+			"render": "https://img.basically.website/parts/render/ext-bracket-bottom-vertical-962b87dc.png"
 		},
 		{
 			"id": "ext-bracket-cover",
@@ -2578,8 +2578,8 @@
 					"message": "Initial version.",
 					"commit": null,
 					"onshape_version": "https://cad.onshape.com/documents/a4a1965bbaf3a15aff2b13ed/v/7279a42b05833c7b828efb0d/e/b0ee2e787191265cba1c1a31",
-					"stl": "https://img.basically.website/parts/stl/f99e33cea11551b8222feac91c28015488ff2c239e632f5098322e7ea10fc96c.stl",
-					"render": "https://img.basically.website/parts/render/3bdc8f535bb7ad3bb17cd97cc4549dc164615a9e62e7dd3f5cbd284abe4735d6.png",
+					"stl": "https://img.basically.website/parts/stl/ext-bracket-cover-1r5i-f99e33ce.stl",
+					"render": "https://img.basically.website/parts/render/ext-bracket-cover-3bdc8f53.png",
 					"grams": 12.45
 				}
 			],
@@ -2602,8 +2602,8 @@
 			"caption": null,
 			"docs_page": "/hardware/assembly/distribution/external-bracket/",
 			"conflicts": null,
-			"stl": "https://img.basically.website/parts/stl/f99e33cea11551b8222feac91c28015488ff2c239e632f5098322e7ea10fc96c.stl",
-			"render": "https://img.basically.website/parts/render/3bdc8f535bb7ad3bb17cd97cc4549dc164615a9e62e7dd3f5cbd284abe4735d6.png"
+			"stl": "https://img.basically.website/parts/stl/ext-bracket-cover-1r5i-f99e33ce.stl",
+			"render": "https://img.basically.website/parts/render/ext-bracket-cover-3bdc8f53.png"
 		},
 		{
 			"id": "ext-bracket-foot-cover",
@@ -2625,8 +2625,8 @@
 					"date": "2026-07-03",
 					"message": "Initial version.",
 					"commit": null,
-					"stl": "https://img.basically.website/parts/stl/96356ae844558770db2340012f013d5a18d119cea1facdeac58596b2b425f540.stl",
-					"render": "https://img.basically.website/parts/render/f2886e89867611b90170ff7d744fed5736b642a0f6ac5d31c05ab80139f04f59.png",
+					"stl": "https://img.basically.website/parts/stl/ext-bracket-foot-cover-e5si-96356ae8.stl",
+					"render": "https://img.basically.website/parts/render/ext-bracket-foot-cover-f2886e89.png",
 					"grams": 23.59
 				}
 			],
@@ -2649,8 +2649,8 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"stl": "https://img.basically.website/parts/stl/96356ae844558770db2340012f013d5a18d119cea1facdeac58596b2b425f540.stl",
-			"render": "https://img.basically.website/parts/render/f2886e89867611b90170ff7d744fed5736b642a0f6ac5d31c05ab80139f04f59.png"
+			"stl": "https://img.basically.website/parts/stl/ext-bracket-foot-cover-e5si-96356ae8.stl",
+			"render": "https://img.basically.website/parts/render/ext-bracket-foot-cover-f2886e89.png"
 		},
 		{
 			"id": "interface-upper-fixed-section",
@@ -2676,8 +2676,8 @@
 					"message": "Initial version.",
 					"commit": "36aa6b5",
 					"stl_hash": "bf52ad8b7b81dc61a3ed69517953ad52139f8eec291920627e6ff71a3bc3e0fd",
-					"render": "https://img.basically.website/parts/render/84740ff9ba280bcc7f8104c793b77c27769435d26f5adbdee07b6cdf71909771.png",
-					"stl": "https://img.basically.website/parts/stl/bf52ad8b7b81dc61a3ed69517953ad52139f8eec291920627e6ff71a3bc3e0fd.stl",
+					"render": "https://img.basically.website/parts/render/interface-upper-fixed-section-v1-84740ff9.png",
+					"stl": "https://img.basically.website/parts/stl/interface-upper-fixed-section-vbca-bf52ad8b.stl",
 					"grams": 153.65
 				},
 				{
@@ -2686,8 +2686,8 @@
 					"message": "Reshaped: now 35 mm tall (was 33 mm), with rib attachments.",
 					"commit": "ce5d56e",
 					"onshape_version": "https://cad.onshape.com/documents/36d65973fe08f685f790dc8b/v/3b8fafc8cab54b09332e14d2/e/8f693a0bd7ce7d62c0c00291",
-					"stl": "https://img.basically.website/parts/stl/47d71e76dcfa387953add0876f279b8a8f26dd836d1d06d362f2d8e5477455ea.stl",
-					"render": "https://img.basically.website/parts/render/c38e48d4fd31b5826775ccee81c11d50bc89b75b549c930caf8203c5c7667850.png",
+					"stl": "https://img.basically.website/parts/stl/interface-upper-fixed-section-kigs-47d71e76.stl",
+					"render": "https://img.basically.website/parts/render/interface-upper-fixed-section-c38e48d4.png",
 					"grams": 164.13
 				}
 			],
@@ -2715,8 +2715,8 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"stl": "https://img.basically.website/parts/stl/47d71e76dcfa387953add0876f279b8a8f26dd836d1d06d362f2d8e5477455ea.stl",
-			"render": "https://img.basically.website/parts/render/c38e48d4fd31b5826775ccee81c11d50bc89b75b549c930caf8203c5c7667850.png"
+			"stl": "https://img.basically.website/parts/stl/interface-upper-fixed-section-kigs-47d71e76.stl",
+			"render": "https://img.basically.website/parts/render/interface-upper-fixed-section-c38e48d4.png"
 		},
 		{
 			"id": "interface-rib",
@@ -2739,8 +2739,8 @@
 					"message": "Initial version.",
 					"commit": null,
 					"onshape_version": "https://cad.onshape.com/documents/36d65973fe08f685f790dc8b/v/3b8fafc8cab54b09332e14d2/e/8f693a0bd7ce7d62c0c00291",
-					"stl": "https://img.basically.website/parts/stl/21976d79a569732eee539fcfb466d32251996860b04d6e8db4e197e47ec54f44.stl",
-					"render": "https://img.basically.website/parts/render/8a8b8c082221b2bf161e41fb5537ee5ab16677012ed180a5e73be8b81bc9c8f2.png",
+					"stl": "https://img.basically.website/parts/stl/interface-rib-z9o2-21976d79.stl",
+					"render": "https://img.basically.website/parts/render/interface-rib-8a8b8c08.png",
 					"grams": 26.6
 				}
 			],
@@ -2763,8 +2763,8 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"stl": "https://img.basically.website/parts/stl/21976d79a569732eee539fcfb466d32251996860b04d6e8db4e197e47ec54f44.stl",
-			"render": "https://img.basically.website/parts/render/8a8b8c082221b2bf161e41fb5537ee5ab16677012ed180a5e73be8b81bc9c8f2.png"
+			"stl": "https://img.basically.website/parts/stl/interface-rib-z9o2-21976d79.stl",
+			"render": "https://img.basically.website/parts/render/interface-rib-8a8b8c08.png"
 		},
 		{
 			"id": "interface-rib-switch",
@@ -2787,8 +2787,8 @@
 					"message": "Initial version.",
 					"commit": null,
 					"onshape_version": "https://cad.onshape.com/documents/36d65973fe08f685f790dc8b/v/3b8fafc8cab54b09332e14d2/e/8f693a0bd7ce7d62c0c00291",
-					"stl": "https://img.basically.website/parts/stl/71fd184f21ab0c3a9550eb07542d917014d995a8d607e82d23d764cc47c6efb0.stl",
-					"render": "https://img.basically.website/parts/render/9a1e42399d4117fd1e24623708a32bc809d48c19ae570247bb61afbd96d3240d.png",
+					"stl": "https://img.basically.website/parts/stl/interface-rib-switch-19gx-71fd184f.stl",
+					"render": "https://img.basically.website/parts/render/interface-rib-switch-9a1e4239.png",
 					"grams": 15.27
 				}
 			],
@@ -2811,8 +2811,8 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"stl": "https://img.basically.website/parts/stl/71fd184f21ab0c3a9550eb07542d917014d995a8d607e82d23d764cc47c6efb0.stl",
-			"render": "https://img.basically.website/parts/render/9a1e42399d4117fd1e24623708a32bc809d48c19ae570247bb61afbd96d3240d.png"
+			"stl": "https://img.basically.website/parts/stl/interface-rib-switch-19gx-71fd184f.stl",
+			"render": "https://img.basically.website/parts/render/interface-rib-switch-9a1e4239.png"
 		},
 		{
 			"id": "interface-big-spacer",
@@ -2835,8 +2835,8 @@
 					"message": "Initial version.",
 					"commit": "36aa6b5",
 					"stl_hash": "8ca345012b63e33064706c787705fa3d3f39229891319935beb58eeede6d1a14",
-					"render": "https://img.basically.website/parts/render/8ef4cd81a0f6c510c2ba978a0da0a23b9633663ec0a0da877af23f549913e377.png",
-					"stl": "https://img.basically.website/parts/stl/8ca345012b63e33064706c787705fa3d3f39229891319935beb58eeede6d1a14.stl",
+					"render": "https://img.basically.website/parts/render/interface-big-spacer-v1-8ef4cd81.png",
+					"stl": "https://img.basically.website/parts/stl/interface-big-spacer-m8pp-8ca34501.stl",
 					"grams": 22.19
 				},
 				{
@@ -2845,8 +2845,8 @@
 					"message": "Reshaped: now 1 mm thick (was 3 mm).",
 					"commit": "ce5d56e",
 					"onshape_version": "https://cad.onshape.com/documents/36d65973fe08f685f790dc8b/v/3b8fafc8cab54b09332e14d2/e/8f693a0bd7ce7d62c0c00291",
-					"stl": "https://img.basically.website/parts/stl/5fbb26d2e34975168e734a523dae50d691fcb5725427e1be1c6bc1c30e129643.stl",
-					"render": "https://img.basically.website/parts/render/a6c1a73194a7d17099c52c4834fe1d347c16bc3ac6a0a2f99e2e2d16c73ba810.png",
+					"stl": "https://img.basically.website/parts/stl/interface-big-spacer-vt50-5fbb26d2.stl",
+					"render": "https://img.basically.website/parts/render/interface-big-spacer-a6c1a731.png",
 					"grams": 11.13
 				}
 			],
@@ -2869,8 +2869,8 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"stl": "https://img.basically.website/parts/stl/5fbb26d2e34975168e734a523dae50d691fcb5725427e1be1c6bc1c30e129643.stl",
-			"render": "https://img.basically.website/parts/render/a6c1a73194a7d17099c52c4834fe1d347c16bc3ac6a0a2f99e2e2d16c73ba810.png"
+			"stl": "https://img.basically.website/parts/stl/interface-big-spacer-vt50-5fbb26d2.stl",
+			"render": "https://img.basically.website/parts/render/interface-big-spacer-a6c1a731.png"
 		},
 		{
 			"id": "cable-clamp-inner",
@@ -2892,8 +2892,8 @@
 					"date": "2026-06-27",
 					"message": "Initial version.",
 					"commit": null,
-					"stl": "https://img.basically.website/parts/stl/a77f4963aada127b93e60161a8aa83685a03ce6f3beb318c270627f7641927af.stl",
-					"render": "https://img.basically.website/parts/render/4f2392702519aef441ba23a89535064d1ae2d1d0c2995658396c6201f4b7ae65.png",
+					"stl": "https://img.basically.website/parts/stl/cable-clamp-inner-3fue-a77f4963.stl",
+					"render": "https://img.basically.website/parts/render/cable-clamp-inner-4f239270.png",
 					"grams": 6.45
 				}
 			],
@@ -2916,8 +2916,8 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"stl": "https://img.basically.website/parts/stl/a77f4963aada127b93e60161a8aa83685a03ce6f3beb318c270627f7641927af.stl",
-			"render": "https://img.basically.website/parts/render/4f2392702519aef441ba23a89535064d1ae2d1d0c2995658396c6201f4b7ae65.png"
+			"stl": "https://img.basically.website/parts/stl/cable-clamp-inner-3fue-a77f4963.stl",
+			"render": "https://img.basically.website/parts/render/cable-clamp-inner-4f239270.png"
 		},
 		{
 			"id": "cable-clamp-outer",
@@ -2940,17 +2940,17 @@
 					"message": "Initial version.",
 					"commit": "36aa6b5",
 					"stl_hash": "34485f41055e82d098984ed49824fd0f93f471dac62ea86e6b83cf87482bf9fd",
-					"render": "https://img.basically.website/parts/render/ca79ce549550b61de0afa3125c96733aba074e0e06e1062daa672d3c1a6ea826.png",
-					"stl": "https://img.basically.website/parts/stl/34485f41055e82d098984ed49824fd0f93f471dac62ea86e6b83cf87482bf9fd.stl",
-					"grams": 19.76
+					"render": "https://img.basically.website/parts/render/cable-clamp-outer-v1-ca79ce54.png",
+					"stl": "https://img.basically.website/parts/stl/cable-clamp-outer-03l5-34485f41.stl",
+					"grams": 19.77
 				},
 				{
 					"version": "2",
 					"date": "2026-07-18",
 					"message": "Enlarged the M3 nut pocket. The v1 pocket was undersized and the nut would not seat in it.",
 					"commit": "8bf567e",
-					"stl": "https://img.basically.website/parts/stl/dd778421784bf38babc9ccde0f1007ce61e7e2c575718a933e62aadfedd55484.stl",
-					"render": "https://img.basically.website/parts/render/f11a3bd4df63e55febd864ace0e3cf5f7feb901b3545a1bfdbb557005dec9b01.png",
+					"stl": "https://img.basically.website/parts/stl/cable-clamp-outer-50dv-dd778421.stl",
+					"render": "https://img.basically.website/parts/render/cable-clamp-outer-f11a3bd4.png",
 					"grams": 19.76
 				}
 			],
@@ -2973,8 +2973,8 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"stl": "https://img.basically.website/parts/stl/dd778421784bf38babc9ccde0f1007ce61e7e2c575718a933e62aadfedd55484.stl",
-			"render": "https://img.basically.website/parts/render/f11a3bd4df63e55febd864ace0e3cf5f7feb901b3545a1bfdbb557005dec9b01.png"
+			"stl": "https://img.basically.website/parts/stl/cable-clamp-outer-50dv-dd778421.stl",
+			"render": "https://img.basically.website/parts/render/cable-clamp-outer-f11a3bd4.png"
 		},
 		{
 			"id": "interface-spur-gear",
@@ -3000,8 +3000,8 @@
 					"date": "2026-06-27",
 					"message": "Initial version.",
 					"commit": null,
-					"stl": "https://img.basically.website/parts/stl/f5c3804796153c3ecb0bab5cc2c16983ed4b4f2edf97df45f2fa7c3a5d81e620.stl",
-					"render": "https://img.basically.website/parts/render/e095a624ce39086f8249433c852cbdadf432fe68323d4b532095b8f5002b2e62.png",
+					"stl": "https://img.basically.website/parts/stl/interface-spur-gear-ywxy-f5c38047.stl",
+					"render": "https://img.basically.website/parts/render/interface-spur-gear-e095a624.png",
 					"grams": 9.0
 				}
 			],
@@ -3024,8 +3024,8 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"stl": "https://img.basically.website/parts/stl/f5c3804796153c3ecb0bab5cc2c16983ed4b4f2edf97df45f2fa7c3a5d81e620.stl",
-			"render": "https://img.basically.website/parts/render/e095a624ce39086f8249433c852cbdadf432fe68323d4b532095b8f5002b2e62.png"
+			"stl": "https://img.basically.website/parts/stl/interface-spur-gear-ywxy-f5c38047.stl",
+			"render": "https://img.basically.website/parts/render/interface-spur-gear-e095a624.png"
 		},
 		{
 			"id": "interface-idler-gear",
@@ -3051,8 +3051,8 @@
 					"date": "2026-06-27",
 					"message": "Initial version.",
 					"commit": null,
-					"stl": "https://img.basically.website/parts/stl/86b04df825b6c019f6be0a8894bbbd05a42e6abab86d2694e4a99f5284b6c4d9.stl",
-					"render": "https://img.basically.website/parts/render/41504d0da0c322fdc3b3d43f957419ea5a2d0dbee970094d30ef5b4c989f603c.png",
+					"stl": "https://img.basically.website/parts/stl/interface-idler-gear-ptl7-86b04df8.stl",
+					"render": "https://img.basically.website/parts/render/interface-idler-gear-41504d0d.png",
 					"grams": 8.98
 				}
 			],
@@ -3080,8 +3080,8 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"stl": "https://img.basically.website/parts/stl/86b04df825b6c019f6be0a8894bbbd05a42e6abab86d2694e4a99f5284b6c4d9.stl",
-			"render": "https://img.basically.website/parts/render/41504d0da0c322fdc3b3d43f957419ea5a2d0dbee970094d30ef5b4c989f603c.png"
+			"stl": "https://img.basically.website/parts/stl/interface-idler-gear-ptl7-86b04df8.stl",
+			"render": "https://img.basically.website/parts/render/interface-idler-gear-41504d0d.png"
 		},
 		{
 			"id": "interface-nema23-bracket",
@@ -3106,8 +3106,8 @@
 					"date": "2026-06-27",
 					"message": "Initial version.",
 					"commit": null,
-					"stl": "https://img.basically.website/parts/stl/69a9a1dd8c741866e723d8fd5a32baa78b233538a1341bf50eb0f2425a38d82a.stl",
-					"render": "https://img.basically.website/parts/render/c0e2b1196f89aa8e640018bbc580503708032be470a667c1517a6e0b3288b9c2.png",
+					"stl": "https://img.basically.website/parts/stl/interface-nema23-bracket-if4v-69a9a1dd.stl",
+					"render": "https://img.basically.website/parts/render/interface-nema23-bracket-c0e2b119.png",
 					"grams": 45.02
 				}
 			],
@@ -3165,8 +3165,8 @@
 					"note": "Docs say 6x M5 + 1x M3 heat inserts; the calculator says 5x M5. Count them on the physical part."
 				}
 			],
-			"stl": "https://img.basically.website/parts/stl/69a9a1dd8c741866e723d8fd5a32baa78b233538a1341bf50eb0f2425a38d82a.stl",
-			"render": "https://img.basically.website/parts/render/c0e2b1196f89aa8e640018bbc580503708032be470a667c1517a6e0b3288b9c2.png"
+			"stl": "https://img.basically.website/parts/stl/interface-nema23-bracket-if4v-69a9a1dd.stl",
+			"render": "https://img.basically.website/parts/render/interface-nema23-bracket-c0e2b119.png"
 		},
 		{
 			"id": "chute-stepper-idler-bearing-retainer-outer",
@@ -3192,8 +3192,8 @@
 					"date": "2026-08-17",
 					"message": "Initial version.",
 					"commit": null,
-					"stl": "https://img.basically.website/parts/stl/00180b3aaeab6c4e0222c4accfc69172ea358c68c1a07427324ba22e57795a23.stl",
-					"render": "https://img.basically.website/parts/render/c6bd55cdba24e42714b10933f3ad56779a8b01eec28fc804c629741f8c4a7c91.png",
+					"stl": "https://img.basically.website/parts/stl/chute-stepper-idler-bearing-retainer-outer-wgsc-00180b3a.stl",
+					"render": "https://img.basically.website/parts/render/chute-stepper-idler-bearing-retainer-outer-c6bd55cd.png",
 					"grams": 1.43
 				}
 			],
@@ -3216,8 +3216,8 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"stl": "https://img.basically.website/parts/stl/00180b3aaeab6c4e0222c4accfc69172ea358c68c1a07427324ba22e57795a23.stl",
-			"render": "https://img.basically.website/parts/render/c6bd55cdba24e42714b10933f3ad56779a8b01eec28fc804c629741f8c4a7c91.png"
+			"stl": "https://img.basically.website/parts/stl/chute-stepper-idler-bearing-retainer-outer-wgsc-00180b3a.stl",
+			"render": "https://img.basically.website/parts/render/chute-stepper-idler-bearing-retainer-outer-c6bd55cd.png"
 		},
 		{
 			"id": "chute-stepper-idler-bearing-retainer-inner",
@@ -3243,8 +3243,8 @@
 					"date": "2026-08-17",
 					"message": "Initial version.",
 					"commit": null,
-					"stl": "https://img.basically.website/parts/stl/6157c7c623581c40285ecf8703c915aa95d921369000f5e68e25ccd2989073f4.stl",
-					"render": "https://img.basically.website/parts/render/fc9cf6107c45061d0ebb329669108adcbfcfa4f184e88363995e7f71541b6da9.png",
+					"stl": "https://img.basically.website/parts/stl/chute-stepper-idler-bearing-retainer-inner-zzql-6157c7c6.stl",
+					"render": "https://img.basically.website/parts/render/chute-stepper-idler-bearing-retainer-inner-fc9cf610.png",
 					"grams": 0.26
 				}
 			],
@@ -3267,8 +3267,8 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"stl": "https://img.basically.website/parts/stl/6157c7c623581c40285ecf8703c915aa95d921369000f5e68e25ccd2989073f4.stl",
-			"render": "https://img.basically.website/parts/render/fc9cf6107c45061d0ebb329669108adcbfcfa4f184e88363995e7f71541b6da9.png"
+			"stl": "https://img.basically.website/parts/stl/chute-stepper-idler-bearing-retainer-inner-zzql-6157c7c6.stl",
+			"render": "https://img.basically.website/parts/render/chute-stepper-idler-bearing-retainer-inner-fc9cf610.png"
 		},
 		{
 			"id": "interface-cage-bracket",
@@ -3290,8 +3290,8 @@
 					"date": "2026-06-27",
 					"message": "Initial version.",
 					"commit": null,
-					"stl": "https://img.basically.website/parts/stl/6164e958336a10b2a6f3910b6a0bc754996a15202d2719923b272e0963561074.stl",
-					"render": "https://img.basically.website/parts/render/47013652c7c30cdfad0bcfacbab40d14a5fc94f2fa1eda4dd091cdc557d72421.png",
+					"stl": "https://img.basically.website/parts/stl/interface-cage-bracket-resz-6164e958.stl",
+					"render": "https://img.basically.website/parts/render/interface-cage-bracket-47013652.png",
 					"grams": 15.89
 				}
 			],
@@ -3314,8 +3314,8 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"stl": "https://img.basically.website/parts/stl/6164e958336a10b2a6f3910b6a0bc754996a15202d2719923b272e0963561074.stl",
-			"render": "https://img.basically.website/parts/render/47013652c7c30cdfad0bcfacbab40d14a5fc94f2fa1eda4dd091cdc557d72421.png"
+			"stl": "https://img.basically.website/parts/stl/interface-cage-bracket-resz-6164e958.stl",
+			"render": "https://img.basically.website/parts/render/interface-cage-bracket-47013652.png"
 		},
 		{
 			"id": "interface-cage-bracket-cable",
@@ -3337,8 +3337,8 @@
 					"date": "2026-06-27",
 					"message": "Initial version.",
 					"commit": null,
-					"stl": "https://img.basically.website/parts/stl/081da7a95e53340f4f27219a224c0015905f176707c84f82c2f69bd72da85530.stl",
-					"render": "https://img.basically.website/parts/render/c793cdb8b9c78ec8a2f07a806491750be9c01a3fd380a98abcd16d7fcd694a53.png",
+					"stl": "https://img.basically.website/parts/stl/interface-cage-bracket-cable-cy58-081da7a9.stl",
+					"render": "https://img.basically.website/parts/render/interface-cage-bracket-cable-c793cdb8.png",
 					"grams": 15.88
 				}
 			],
@@ -3366,8 +3366,8 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"stl": "https://img.basically.website/parts/stl/081da7a95e53340f4f27219a224c0015905f176707c84f82c2f69bd72da85530.stl",
-			"render": "https://img.basically.website/parts/render/c793cdb8b9c78ec8a2f07a806491750be9c01a3fd380a98abcd16d7fcd694a53.png"
+			"stl": "https://img.basically.website/parts/stl/interface-cage-bracket-cable-cy58-081da7a9.stl",
+			"render": "https://img.basically.website/parts/render/interface-cage-bracket-cable-c793cdb8.png"
 		},
 		{
 			"id": "ribbon-cable-clamp",
@@ -3389,8 +3389,8 @@
 					"date": "2026-07-03",
 					"message": "Initial version.",
 					"commit": null,
-					"stl": "https://img.basically.website/parts/stl/39b7e6d0e9864c00ca1c75014c1243cabff5a4be54c7671e51352b922c5a0939.stl",
-					"render": "https://img.basically.website/parts/render/52035213dd8a7881dca9c32c44f181a77c96fa2c4f0f8251bd61e20d65e81878.png",
+					"stl": "https://img.basically.website/parts/stl/ribbon-cable-clamp-nf0n-39b7e6d0.stl",
+					"render": "https://img.basically.website/parts/render/ribbon-cable-clamp-52035213.png",
 					"grams": 5.31
 				}
 			],
@@ -3413,8 +3413,8 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"stl": "https://img.basically.website/parts/stl/39b7e6d0e9864c00ca1c75014c1243cabff5a4be54c7671e51352b922c5a0939.stl",
-			"render": "https://img.basically.website/parts/render/52035213dd8a7881dca9c32c44f181a77c96fa2c4f0f8251bd61e20d65e81878.png"
+			"stl": "https://img.basically.website/parts/stl/ribbon-cable-clamp-nf0n-39b7e6d0.stl",
+			"render": "https://img.basically.website/parts/render/ribbon-cable-clamp-52035213.png"
 		},
 		{
 			"id": "top-interface-split-spur-gear-1",
@@ -3436,8 +3436,8 @@
 					"date": "2026-07-03",
 					"message": "Initial version.",
 					"commit": null,
-					"stl": "https://img.basically.website/parts/stl/6a600fb6a6b3f2e5cf22f87fdce65ce0cbeddb2063f598de4dd25f63df23fe0f.stl",
-					"render": "https://img.basically.website/parts/render/852a476adfe902928c7922604f3e83098bcfbc803dfbf602cf39a59d7c1eeced.png",
+					"stl": "https://img.basically.website/parts/stl/top-interface-split-spur-gear-1-1a0l-6a600fb6.stl",
+					"render": "https://img.basically.website/parts/render/top-interface-split-spur-gear-1-852a476a.png",
 					"grams": 59.95
 				}
 			],
@@ -3460,8 +3460,8 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"stl": "https://img.basically.website/parts/stl/6a600fb6a6b3f2e5cf22f87fdce65ce0cbeddb2063f598de4dd25f63df23fe0f.stl",
-			"render": "https://img.basically.website/parts/render/852a476adfe902928c7922604f3e83098bcfbc803dfbf602cf39a59d7c1eeced.png"
+			"stl": "https://img.basically.website/parts/stl/top-interface-split-spur-gear-1-1a0l-6a600fb6.stl",
+			"render": "https://img.basically.website/parts/render/top-interface-split-spur-gear-1-852a476a.png"
 		},
 		{
 			"id": "top-interface-split-spur-gear-2",
@@ -3483,8 +3483,8 @@
 					"date": "2026-07-03",
 					"message": "Initial version.",
 					"commit": null,
-					"stl": "https://img.basically.website/parts/stl/c109b8b226a8652d7dd990168a58f52b202e35b842ee191cee49658daffacf7b.stl",
-					"render": "https://img.basically.website/parts/render/5b6a50d73cd8f08c6a132ee5164b513f4994f715082210b1f6aea28c9488f7b3.png",
+					"stl": "https://img.basically.website/parts/stl/top-interface-split-spur-gear-2-izz5-c109b8b2.stl",
+					"render": "https://img.basically.website/parts/render/top-interface-split-spur-gear-2-5b6a50d7.png",
 					"grams": 8.0
 				}
 			],
@@ -3507,8 +3507,8 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"stl": "https://img.basically.website/parts/stl/c109b8b226a8652d7dd990168a58f52b202e35b842ee191cee49658daffacf7b.stl",
-			"render": "https://img.basically.website/parts/render/5b6a50d73cd8f08c6a132ee5164b513f4994f715082210b1f6aea28c9488f7b3.png"
+			"stl": "https://img.basically.website/parts/stl/top-interface-split-spur-gear-2-izz5-c109b8b2.stl",
+			"render": "https://img.basically.website/parts/render/top-interface-split-spur-gear-2-5b6a50d7.png"
 		},
 		{
 			"id": "top-interface-split-spur-gear-3",
@@ -3533,8 +3533,8 @@
 					"date": "2026-07-03",
 					"message": "Initial version.",
 					"commit": null,
-					"stl": "https://img.basically.website/parts/stl/11f50ca23d809c133d2f409908e19b0e6c277e995a6d06e1c11da81bfe5dd6e1.stl",
-					"render": "https://img.basically.website/parts/render/39e19ab0bff3b91ad5037e81f6036fd88ae2d0122a7f623f5dbff15bdd99bc27.png",
+					"stl": "https://img.basically.website/parts/stl/top-interface-split-spur-gear-3-vrz8-11f50ca2.stl",
+					"render": "https://img.basically.website/parts/render/top-interface-split-spur-gear-3-39e19ab0.png",
 					"grams": 588.31
 				}
 			],
@@ -3600,8 +3600,8 @@
 					"note": "M3 heat insert count: docs say 7, the calculator says 9."
 				}
 			],
-			"stl": "https://img.basically.website/parts/stl/11f50ca23d809c133d2f409908e19b0e6c277e995a6d06e1c11da81bfe5dd6e1.stl",
-			"render": "https://img.basically.website/parts/render/39e19ab0bff3b91ad5037e81f6036fd88ae2d0122a7f623f5dbff15bdd99bc27.png"
+			"stl": "https://img.basically.website/parts/stl/top-interface-split-spur-gear-3-vrz8-11f50ca2.stl",
+			"render": "https://img.basically.website/parts/render/top-interface-split-spur-gear-3-39e19ab0.png"
 		},
 		{
 			"id": "limit-switch-dowel-pin",
@@ -3623,8 +3623,8 @@
 					"date": "2026-07-03",
 					"message": "Initial version.",
 					"commit": null,
-					"stl": "https://img.basically.website/parts/stl/08968eebc8fc928db76c12f0a502feaaa11bb026c5bbf03e9903fd9449581900.stl",
-					"render": "https://img.basically.website/parts/render/b082ba5ab06390aeb775aae4a7efda885988ef79f10e4f70d97928bfebadecaa.png",
+					"stl": "https://img.basically.website/parts/stl/limit-switch-dowel-pin-g68e-08968eeb.stl",
+					"render": "https://img.basically.website/parts/render/limit-switch-dowel-pin-b082ba5a.png",
 					"grams": 0.71
 				}
 			],
@@ -3647,8 +3647,8 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"stl": "https://img.basically.website/parts/stl/08968eebc8fc928db76c12f0a502feaaa11bb026c5bbf03e9903fd9449581900.stl",
-			"render": "https://img.basically.website/parts/render/b082ba5ab06390aeb775aae4a7efda885988ef79f10e4f70d97928bfebadecaa.png"
+			"stl": "https://img.basically.website/parts/stl/limit-switch-dowel-pin-g68e-08968eeb.stl",
+			"render": "https://img.basically.website/parts/render/limit-switch-dowel-pin-b082ba5a.png"
 		},
 		{
 			"id": "limit-switch-housing",
@@ -3670,8 +3670,8 @@
 					"date": "2026-07-03",
 					"message": "Initial version.",
 					"commit": "7fed71e",
-					"stl": "https://img.basically.website/parts/stl/5e22431ac91aad0af6d5878d2cc6fb2ae7dd9c45196dae25d9e2f997b6e3c540.stl",
-					"render": "https://img.basically.website/parts/render/af3689402d18dda1355292770f477edff50c7d3f10eb783a5c80ae480d863e38.png",
+					"stl": "https://img.basically.website/parts/stl/limit-switch-housing-mrs0-5e22431a.stl",
+					"render": "https://img.basically.website/parts/render/limit-switch-housing-af368940.png",
 					"grams": 10.13
 				}
 			],
@@ -3699,8 +3699,8 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"stl": "https://img.basically.website/parts/stl/5e22431ac91aad0af6d5878d2cc6fb2ae7dd9c45196dae25d9e2f997b6e3c540.stl",
-			"render": "https://img.basically.website/parts/render/af3689402d18dda1355292770f477edff50c7d3f10eb783a5c80ae480d863e38.png"
+			"stl": "https://img.basically.website/parts/stl/limit-switch-housing-mrs0-5e22431a.stl",
+			"render": "https://img.basically.website/parts/render/limit-switch-housing-af368940.png"
 		},
 		{
 			"id": "limit-switch-hammer",
@@ -3722,8 +3722,8 @@
 					"date": "2026-07-03",
 					"message": "Initial version.",
 					"commit": null,
-					"stl": "https://img.basically.website/parts/stl/a5105d966296f54b7a01a04c21b46861bc407d1b221903def47130aa9b9ab678.stl",
-					"render": "https://img.basically.website/parts/render/a4bbdee338b228183b39a8c579b8de02d240a163269a71467509101c97faa6ce.png",
+					"stl": "https://img.basically.website/parts/stl/limit-switch-hammer-lfu7-a5105d96.stl",
+					"render": "https://img.basically.website/parts/render/limit-switch-hammer-a4bbdee3.png",
 					"grams": 3.56
 				}
 			],
@@ -3767,8 +3767,8 @@
 					"note": "Docs give the hammer one M3 heat insert; the calculator gives it none."
 				}
 			],
-			"stl": "https://img.basically.website/parts/stl/a5105d966296f54b7a01a04c21b46861bc407d1b221903def47130aa9b9ab678.stl",
-			"render": "https://img.basically.website/parts/render/a4bbdee338b228183b39a8c579b8de02d240a163269a71467509101c97faa6ce.png"
+			"stl": "https://img.basically.website/parts/stl/limit-switch-hammer-lfu7-a5105d96.stl",
+			"render": "https://img.basically.website/parts/render/limit-switch-hammer-a4bbdee3.png"
 		},
 		{
 			"id": "rotor-finned",
@@ -3790,8 +3790,8 @@
 					"date": "2026-06-27",
 					"message": "Initial version.",
 					"commit": null,
-					"stl": "https://img.basically.website/parts/stl/b8986ea64a9d83e3bb9bb7e116e92068d070bbffcc94ae1a3ce95c9ad5c8601b.stl",
-					"render": "https://img.basically.website/parts/render/804fc90539e1b026387ed2f8d03629744d8586d80cd4007812d177adfaf38c69.png",
+					"stl": "https://img.basically.website/parts/stl/rotor-finned-brsr-b8986ea6.stl",
+					"render": "https://img.basically.website/parts/render/rotor-finned-804fc905.png",
 					"grams": 178.76
 				}
 			],
@@ -3814,8 +3814,8 @@
 			"caption": "The classification channel's rotor. Printed white.",
 			"docs_page": null,
 			"conflicts": null,
-			"stl": "https://img.basically.website/parts/stl/b8986ea64a9d83e3bb9bb7e116e92068d070bbffcc94ae1a3ce95c9ad5c8601b.stl",
-			"render": "https://img.basically.website/parts/render/804fc90539e1b026387ed2f8d03629744d8586d80cd4007812d177adfaf38c69.png"
+			"stl": "https://img.basically.website/parts/stl/rotor-finned-brsr-b8986ea6.stl",
+			"render": "https://img.basically.website/parts/render/rotor-finned-804fc905.png"
 		},
 		{
 			"id": "idler-gear",
@@ -3837,8 +3837,8 @@
 					"date": "2026-06-27",
 					"message": "Initial version.",
 					"commit": null,
-					"stl": "https://img.basically.website/parts/stl/dd13e9269f08d3d9a698e043e446abb968ae998435ef7b552325f0b7db629eeb.stl",
-					"render": "https://img.basically.website/parts/render/c0782c6fa418d43aab43e7786becf8987f3e6eb0bde43cd559b63f682379a025.png",
+					"stl": "https://img.basically.website/parts/stl/idler-gear-7bv7-dd13e926.stl",
+					"render": "https://img.basically.website/parts/render/idler-gear-c0782c6f.png",
 					"grams": 4.61
 				}
 			],
@@ -3866,8 +3866,8 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"stl": "https://img.basically.website/parts/stl/dd13e9269f08d3d9a698e043e446abb968ae998435ef7b552325f0b7db629eeb.stl",
-			"render": "https://img.basically.website/parts/render/c0782c6fa418d43aab43e7786becf8987f3e6eb0bde43cd559b63f682379a025.png"
+			"stl": "https://img.basically.website/parts/stl/idler-gear-7bv7-dd13e926.stl",
+			"render": "https://img.basically.website/parts/render/idler-gear-c0782c6f.png"
 		},
 		{
 			"id": "input-gear",
@@ -3889,8 +3889,8 @@
 					"date": "2026-06-27",
 					"message": "Initial version.",
 					"commit": null,
-					"stl": "https://img.basically.website/parts/stl/3587940de2e8559ea125eb2acd59976aa7f3e45bd70b32f41044d1c8ae3a1b44.stl",
-					"render": "https://img.basically.website/parts/render/66cc61e0c19d997964fb9c1d13b4d14ece48ea8cebc771f0be70a0ff29d7b1b4.png",
+					"stl": "https://img.basically.website/parts/stl/input-gear-70ul-3587940d.stl",
+					"render": "https://img.basically.website/parts/render/input-gear-66cc61e0.png",
 					"grams": 3.57
 				}
 			],
@@ -3913,8 +3913,8 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"stl": "https://img.basically.website/parts/stl/3587940de2e8559ea125eb2acd59976aa7f3e45bd70b32f41044d1c8ae3a1b44.stl",
-			"render": "https://img.basically.website/parts/render/66cc61e0c19d997964fb9c1d13b4d14ece48ea8cebc771f0be70a0ff29d7b1b4.png"
+			"stl": "https://img.basically.website/parts/stl/input-gear-70ul-3587940d.stl",
+			"render": "https://img.basically.website/parts/render/input-gear-66cc61e0.png"
 		},
 		{
 			"id": "output-guide",
@@ -3936,8 +3936,8 @@
 					"date": "2026-06-27",
 					"message": "Initial version.",
 					"commit": null,
-					"stl": "https://img.basically.website/parts/stl/8115840b817f57467725c99b987ca4a036df1fe8b98a0991c438bea84ebbe549.stl",
-					"render": "https://img.basically.website/parts/render/ffd57ba0a642c1d2490c5622eb2b04a31ca003a03544b5097dfc7793bff7361b.png",
+					"stl": "https://img.basically.website/parts/stl/output-guide-8j3e-8115840b.stl",
+					"render": "https://img.basically.website/parts/render/output-guide-ffd57ba0.png",
 					"grams": 20.99
 				}
 			],
@@ -3960,8 +3960,8 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"stl": "https://img.basically.website/parts/stl/8115840b817f57467725c99b987ca4a036df1fe8b98a0991c438bea84ebbe549.stl",
-			"render": "https://img.basically.website/parts/render/ffd57ba0a642c1d2490c5622eb2b04a31ca003a03544b5097dfc7793bff7361b.png"
+			"stl": "https://img.basically.website/parts/stl/output-guide-8j3e-8115840b.stl",
+			"render": "https://img.basically.website/parts/render/output-guide-ffd57ba0.png"
 		},
 		{
 			"id": "funnel-bracket-left",
@@ -3984,8 +3984,8 @@
 					"message": "Initial version.",
 					"commit": null,
 					"onshape_version": "https://cad.onshape.com/documents/a4a1965bbaf3a15aff2b13ed/v/353adf90e6a8a99bed6f90a5/e/f48c6c2ac5f2133685e12202",
-					"stl": "https://img.basically.website/parts/stl/ced3172731e0c2a64920edb072501efadf3c57325bf200fcb14bba0048dabff9.stl",
-					"render": "https://img.basically.website/parts/render/cdf94e6ffcea0970b5aa5ca05d1b338bf3ebc38e0c191e3a76723e4b4231306e.png",
+					"stl": "https://img.basically.website/parts/stl/funnel-bracket-left-4oyp-ced31727.stl",
+					"render": "https://img.basically.website/parts/render/funnel-bracket-left-cdf94e6f.png",
 					"grams": 28.75
 				}
 			],
@@ -4008,8 +4008,8 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"stl": "https://img.basically.website/parts/stl/ced3172731e0c2a64920edb072501efadf3c57325bf200fcb14bba0048dabff9.stl",
-			"render": "https://img.basically.website/parts/render/cdf94e6ffcea0970b5aa5ca05d1b338bf3ebc38e0c191e3a76723e4b4231306e.png"
+			"stl": "https://img.basically.website/parts/stl/funnel-bracket-left-4oyp-ced31727.stl",
+			"render": "https://img.basically.website/parts/render/funnel-bracket-left-cdf94e6f.png"
 		},
 		{
 			"id": "funnel-bracket-right",
@@ -4032,8 +4032,8 @@
 					"message": "Initial version.",
 					"commit": null,
 					"onshape_version": "https://cad.onshape.com/documents/a4a1965bbaf3a15aff2b13ed/v/353adf90e6a8a99bed6f90a5/e/f48c6c2ac5f2133685e12202",
-					"stl": "https://img.basically.website/parts/stl/f7932bce6ef7eddb1be6c64a738b41b6573d67bdadb40d6febf131e0a21ccb31.stl",
-					"render": "https://img.basically.website/parts/render/84b830ed45361bc4f603edf5168bd5812ebc533f95c255775e5f00518ff801f3.png",
+					"stl": "https://img.basically.website/parts/stl/funnel-bracket-right-b9vt-f7932bce.stl",
+					"render": "https://img.basically.website/parts/render/funnel-bracket-right-84b830ed.png",
 					"grams": 28.75
 				}
 			],
@@ -4056,8 +4056,8 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"stl": "https://img.basically.website/parts/stl/f7932bce6ef7eddb1be6c64a738b41b6573d67bdadb40d6febf131e0a21ccb31.stl",
-			"render": "https://img.basically.website/parts/render/84b830ed45361bc4f603edf5168bd5812ebc533f95c255775e5f00518ff801f3.png"
+			"stl": "https://img.basically.website/parts/stl/funnel-bracket-right-b9vt-f7932bce.stl",
+			"render": "https://img.basically.website/parts/render/funnel-bracket-right-84b830ed.png"
 		},
 		{
 			"id": "bearing-race",
@@ -4079,8 +4079,8 @@
 					"date": "2026-06-27",
 					"message": "Initial version.",
 					"commit": null,
-					"stl": "https://img.basically.website/parts/stl/b832b7eab72a8392c80d35ebd67bb7cb6326bbc5c82a8592688ccda82fe315b3.stl",
-					"render": "https://img.basically.website/parts/render/b62e32542b38a5bc088f1bc732daa9282e0db2e1db6f9000a2e94627d2e24591.png",
+					"stl": "https://img.basically.website/parts/stl/bearing-race-yo10-b832b7ea.stl",
+					"render": "https://img.basically.website/parts/render/bearing-race-b62e3254.png",
 					"grams": 20.13
 				}
 			],
@@ -4108,8 +4108,8 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"stl": "https://img.basically.website/parts/stl/b832b7eab72a8392c80d35ebd67bb7cb6326bbc5c82a8592688ccda82fe315b3.stl",
-			"render": "https://img.basically.website/parts/render/b62e32542b38a5bc088f1bc732daa9282e0db2e1db6f9000a2e94627d2e24591.png"
+			"stl": "https://img.basically.website/parts/stl/bearing-race-yo10-b832b7ea.stl",
+			"render": "https://img.basically.website/parts/render/bearing-race-b62e3254.png"
 		},
 		{
 			"id": "bearing-holder-left",
@@ -4131,8 +4131,8 @@
 					"date": "2026-06-27",
 					"message": "Initial version.",
 					"commit": null,
-					"stl": "https://img.basically.website/parts/stl/f0cc0eb5d575fc3d79cdea59caa0fcc6f7732c336a6830a186ffce51ef267a68.stl",
-					"render": "https://img.basically.website/parts/render/587e06bc4d4b3f1bda9c88d0e6dcc6ac50251790478736519f79a5dff6c78cb7.png",
+					"stl": "https://img.basically.website/parts/stl/bearing-holder-left-gybh-f0cc0eb5.stl",
+					"render": "https://img.basically.website/parts/render/bearing-holder-left-587e06bc.png",
 					"grams": 7.9
 				}
 			],
@@ -4160,8 +4160,8 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"stl": "https://img.basically.website/parts/stl/f0cc0eb5d575fc3d79cdea59caa0fcc6f7732c336a6830a186ffce51ef267a68.stl",
-			"render": "https://img.basically.website/parts/render/587e06bc4d4b3f1bda9c88d0e6dcc6ac50251790478736519f79a5dff6c78cb7.png"
+			"stl": "https://img.basically.website/parts/stl/bearing-holder-left-gybh-f0cc0eb5.stl",
+			"render": "https://img.basically.website/parts/render/bearing-holder-left-587e06bc.png"
 		},
 		{
 			"id": "bearing-holder-right",
@@ -4183,8 +4183,8 @@
 					"date": "2026-06-27",
 					"message": "Initial version.",
 					"commit": null,
-					"stl": "https://img.basically.website/parts/stl/9577bfc4f70bca72fe7c45d1c88a82df0ef14d712c67a395003c0deb9c89895b.stl",
-					"render": "https://img.basically.website/parts/render/ee69fcdc45be1cb311961439f750244a62d84fc53cb245740eb23e1b021e6ed7.png",
+					"stl": "https://img.basically.website/parts/stl/bearing-holder-right-rnog-9577bfc4.stl",
+					"render": "https://img.basically.website/parts/render/bearing-holder-right-ee69fcdc.png",
 					"grams": 7.98
 				}
 			],
@@ -4212,8 +4212,8 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"stl": "https://img.basically.website/parts/stl/9577bfc4f70bca72fe7c45d1c88a82df0ef14d712c67a395003c0deb9c89895b.stl",
-			"render": "https://img.basically.website/parts/render/ee69fcdc45be1cb311961439f750244a62d84fc53cb245740eb23e1b021e6ed7.png"
+			"stl": "https://img.basically.website/parts/stl/bearing-holder-right-rnog-9577bfc4.stl",
+			"render": "https://img.basically.website/parts/render/bearing-holder-right-ee69fcdc.png"
 		},
 		{
 			"id": "servo-adapter-servo-side",
@@ -4235,8 +4235,8 @@
 					"date": "2026-06-27",
 					"message": "Initial version.",
 					"commit": null,
-					"stl": "https://img.basically.website/parts/stl/a82b26f1d352e337ba3b14bf1440dcb163dae4c53e405dd82ae24d98ef5ac55c.stl",
-					"render": "https://img.basically.website/parts/render/a2d02e031dcf3ad9f4c986198006213b3b591031e98aed6d9b563ec5842cd6e0.png",
+					"stl": "https://img.basically.website/parts/stl/servo-adapter-servo-side-fu2t-a82b26f1.stl",
+					"render": "https://img.basically.website/parts/render/servo-adapter-servo-side-a2d02e03.png",
 					"grams": 4.85
 				}
 			],
@@ -4259,8 +4259,8 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"stl": "https://img.basically.website/parts/stl/a82b26f1d352e337ba3b14bf1440dcb163dae4c53e405dd82ae24d98ef5ac55c.stl",
-			"render": "https://img.basically.website/parts/render/a2d02e031dcf3ad9f4c986198006213b3b591031e98aed6d9b563ec5842cd6e0.png"
+			"stl": "https://img.basically.website/parts/stl/servo-adapter-servo-side-fu2t-a82b26f1.stl",
+			"render": "https://img.basically.website/parts/render/servo-adapter-servo-side-a2d02e03.png"
 		},
 		{
 			"id": "servo-adapter-flap-side",
@@ -4282,8 +4282,8 @@
 					"date": "2026-06-27",
 					"message": "Initial version.",
 					"commit": null,
-					"stl": "https://img.basically.website/parts/stl/546231d66be39ade1f502e53375608447228ced0e81bfa9211fd0fa938a02f05.stl",
-					"render": "https://img.basically.website/parts/render/3282d4e70d32bd97c45da89949a45e6aea171e4d5dab24e60fccf422f205fa66.png",
+					"stl": "https://img.basically.website/parts/stl/servo-adapter-flap-side-lv7n-546231d6.stl",
+					"render": "https://img.basically.website/parts/render/servo-adapter-flap-side-3282d4e7.png",
 					"grams": 5.25
 				}
 			],
@@ -4306,8 +4306,8 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"stl": "https://img.basically.website/parts/stl/546231d66be39ade1f502e53375608447228ced0e81bfa9211fd0fa938a02f05.stl",
-			"render": "https://img.basically.website/parts/render/3282d4e70d32bd97c45da89949a45e6aea171e4d5dab24e60fccf422f205fa66.png"
+			"stl": "https://img.basically.website/parts/stl/servo-adapter-flap-side-lv7n-546231d6.stl",
+			"render": "https://img.basically.website/parts/render/servo-adapter-flap-side-3282d4e7.png"
 		},
 		{
 			"id": "servo-bracket-lower-arm",
@@ -4329,8 +4329,8 @@
 					"date": "2026-06-27",
 					"message": "Initial version.",
 					"commit": null,
-					"stl": "https://img.basically.website/parts/stl/9d6c82450ddd4a21fd0b832f6085298c00414a4d530765651b355c7043754203.stl",
-					"render": "https://img.basically.website/parts/render/2d7bfc72cfe47c31cea86315eb5ff929f44be4b4a44d6a16c28f6d998aad4b38.png",
+					"stl": "https://img.basically.website/parts/stl/servo-bracket-lower-arm-yqz1-9d6c8245.stl",
+					"render": "https://img.basically.website/parts/render/servo-bracket-lower-arm-2d7bfc72.png",
 					"grams": 13.96
 				}
 			],
@@ -4353,8 +4353,8 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"stl": "https://img.basically.website/parts/stl/9d6c82450ddd4a21fd0b832f6085298c00414a4d530765651b355c7043754203.stl",
-			"render": "https://img.basically.website/parts/render/2d7bfc72cfe47c31cea86315eb5ff929f44be4b4a44d6a16c28f6d998aad4b38.png"
+			"stl": "https://img.basically.website/parts/stl/servo-bracket-lower-arm-yqz1-9d6c8245.stl",
+			"render": "https://img.basically.website/parts/render/servo-bracket-lower-arm-2d7bfc72.png"
 		},
 		{
 			"id": "servo-bracket-side-arm",
@@ -4376,8 +4376,8 @@
 					"date": "2026-06-27",
 					"message": "Initial version.",
 					"commit": null,
-					"stl": "https://img.basically.website/parts/stl/b37a2c6b9864744415a50c02da10425ac79d6d8f44c6938c941c36e60357464f.stl",
-					"render": "https://img.basically.website/parts/render/c8f9d3145d05ca888c3dd4c49f7935896fd7bfd674a33874c0f27c70f247eb52.png",
+					"stl": "https://img.basically.website/parts/stl/servo-bracket-side-arm-75na-b37a2c6b.stl",
+					"render": "https://img.basically.website/parts/render/servo-bracket-side-arm-c8f9d314.png",
 					"grams": 9.58
 				}
 			],
@@ -4400,8 +4400,8 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"stl": "https://img.basically.website/parts/stl/b37a2c6b9864744415a50c02da10425ac79d6d8f44c6938c941c36e60357464f.stl",
-			"render": "https://img.basically.website/parts/render/c8f9d3145d05ca888c3dd4c49f7935896fd7bfd674a33874c0f27c70f247eb52.png"
+			"stl": "https://img.basically.website/parts/stl/servo-bracket-side-arm-75na-b37a2c6b.stl",
+			"render": "https://img.basically.website/parts/render/servo-bracket-side-arm-c8f9d314.png"
 		},
 		{
 			"id": "servo-bracket-cover",
@@ -4423,8 +4423,8 @@
 					"date": "2026-06-27",
 					"message": "Initial version.",
 					"commit": null,
-					"stl": "https://img.basically.website/parts/stl/1ebad4ab6770ccf750f33c219e0815f106d44c1d0dce55cacef42b9fdc84c8d2.stl",
-					"render": "https://img.basically.website/parts/render/38397211b0bb79721d8fd6aad56f63e4429a6e1284b62af3a6a9bf0516faeabc.png",
+					"stl": "https://img.basically.website/parts/stl/servo-bracket-cover-rqor-1ebad4ab.stl",
+					"render": "https://img.basically.website/parts/render/servo-bracket-cover-38397211.png",
 					"grams": 6.0
 				}
 			],
@@ -4447,8 +4447,8 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"stl": "https://img.basically.website/parts/stl/1ebad4ab6770ccf750f33c219e0815f106d44c1d0dce55cacef42b9fdc84c8d2.stl",
-			"render": "https://img.basically.website/parts/render/38397211b0bb79721d8fd6aad56f63e4429a6e1284b62af3a6a9bf0516faeabc.png"
+			"stl": "https://img.basically.website/parts/stl/servo-bracket-cover-rqor-1ebad4ab.stl",
+			"render": "https://img.basically.website/parts/render/servo-bracket-cover-38397211.png"
 		},
 		{
 			"id": "servo-bracket-housing",
@@ -4470,8 +4470,8 @@
 					"date": "2026-06-27",
 					"message": "Initial version.",
 					"commit": null,
-					"stl": "https://img.basically.website/parts/stl/e03d031e35f6aeed0303564b228866ca783be596e98f0d52fc0aff8bf41d6bd9.stl",
-					"render": "https://img.basically.website/parts/render/722a1ebd233531d8a8d648461891742ee396a90aa58aa185e3e14cdf0391a84b.png",
+					"stl": "https://img.basically.website/parts/stl/servo-bracket-housing-tr15-e03d031e.stl",
+					"render": "https://img.basically.website/parts/render/servo-bracket-housing-722a1ebd.png",
 					"grams": 17.31
 				}
 			],
@@ -4499,8 +4499,8 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"stl": "https://img.basically.website/parts/stl/e03d031e35f6aeed0303564b228866ca783be596e98f0d52fc0aff8bf41d6bd9.stl",
-			"render": "https://img.basically.website/parts/render/722a1ebd233531d8a8d648461891742ee396a90aa58aa185e3e14cdf0391a84b.png"
+			"stl": "https://img.basically.website/parts/stl/servo-bracket-housing-tr15-e03d031e.stl",
+			"render": "https://img.basically.website/parts/render/servo-bracket-housing-722a1ebd.png"
 		},
 		{
 			"id": "leg",
@@ -4522,8 +4522,8 @@
 					"date": "2026-06-27",
 					"message": "Initial version.",
 					"commit": null,
-					"stl": "https://img.basically.website/parts/stl/6621b702d3ada3422d7e3eb72f86cc7fec8a86b842539f858b7784e4e4587592.stl",
-					"render": "https://img.basically.website/parts/render/c0d7cb12e0e884d3969756ef14527b37a0a700effe2455e6856a48c703e33bd1.png",
+					"stl": "https://img.basically.website/parts/stl/leg-xse1-6621b702.stl",
+					"render": "https://img.basically.website/parts/render/leg-c0d7cb12.png",
 					"grams": 21.11
 				}
 			],
@@ -4546,8 +4546,8 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"stl": "https://img.basically.website/parts/stl/6621b702d3ada3422d7e3eb72f86cc7fec8a86b842539f858b7784e4e4587592.stl",
-			"render": "https://img.basically.website/parts/render/c0d7cb12e0e884d3969756ef14527b37a0a700effe2455e6856a48c703e33bd1.png"
+			"stl": "https://img.basically.website/parts/stl/leg-xse1-6621b702.stl",
+			"render": "https://img.basically.website/parts/render/leg-c0d7cb12.png"
 		},
 		{
 			"id": "foot",
@@ -4569,8 +4569,8 @@
 					"date": "2026-06-27",
 					"message": "Initial version.",
 					"commit": null,
-					"stl": "https://img.basically.website/parts/stl/8c70fc095a1495e9a75f2e88803a9de5cac2d6cc0351d977fd684bed5546ba7e.stl",
-					"render": "https://img.basically.website/parts/render/9f275980ff0a9ab4fa3388829c2121f63af842064c4bfb28c90a6079f08b884e.png",
+					"stl": "https://img.basically.website/parts/stl/foot-jqdx-8c70fc09.stl",
+					"render": "https://img.basically.website/parts/render/foot-9f275980.png",
 					"grams": 8.45
 				}
 			],
@@ -4593,8 +4593,8 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"stl": "https://img.basically.website/parts/stl/8c70fc095a1495e9a75f2e88803a9de5cac2d6cc0351d977fd684bed5546ba7e.stl",
-			"render": "https://img.basically.website/parts/render/9f275980ff0a9ab4fa3388829c2121f63af842064c4bfb28c90a6079f08b884e.png"
+			"stl": "https://img.basically.website/parts/stl/foot-jqdx-8c70fc09.stl",
+			"render": "https://img.basically.website/parts/render/foot-9f275980.png"
 		},
 		{
 			"id": "chute-door",
@@ -4616,8 +4616,8 @@
 					"date": "2026-06-27",
 					"message": "Initial version.",
 					"commit": null,
-					"stl": "https://img.basically.website/parts/stl/9291f5d03edcf10dc1b5f74df681ea1c33f89cacc680aa416f9031bddd1096ff.stl",
-					"render": "https://img.basically.website/parts/render/8538074d7dabc9c9461c9b7e346d19ace34aa02efebe5f98fde9a155e914b8c3.png",
+					"stl": "https://img.basically.website/parts/stl/chute-door-7oxs-9291f5d0.stl",
+					"render": "https://img.basically.website/parts/render/chute-door-8538074d.png",
 					"grams": 46.85
 				}
 			],
@@ -4640,8 +4640,8 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"stl": "https://img.basically.website/parts/stl/9291f5d03edcf10dc1b5f74df681ea1c33f89cacc680aa416f9031bddd1096ff.stl",
-			"render": "https://img.basically.website/parts/render/8538074d7dabc9c9461c9b7e346d19ace34aa02efebe5f98fde9a155e914b8c3.png"
+			"stl": "https://img.basically.website/parts/stl/chute-door-7oxs-9291f5d0.stl",
+			"render": "https://img.basically.website/parts/render/chute-door-8538074d.png"
 		},
 		{
 			"id": "leg-extension",
@@ -4663,8 +4663,8 @@
 					"date": "2026-06-27",
 					"message": "Initial version.",
 					"commit": null,
-					"stl": "https://img.basically.website/parts/stl/a6f22135b92ac953c3c83073064cc2531fe40277339dc3cd0cf0327f73813d50.stl",
-					"render": "https://img.basically.website/parts/render/fae37f749fc76caef86667e75d259a369f89704e0811f6d34c36c6e07a77a5fc.png",
+					"stl": "https://img.basically.website/parts/stl/leg-extension-jewq-a6f22135.stl",
+					"render": "https://img.basically.website/parts/render/leg-extension-fae37f74.png",
 					"grams": 15.47
 				}
 			],
@@ -4687,8 +4687,8 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"stl": "https://img.basically.website/parts/stl/a6f22135b92ac953c3c83073064cc2531fe40277339dc3cd0cf0327f73813d50.stl",
-			"render": "https://img.basically.website/parts/render/fae37f749fc76caef86667e75d259a369f89704e0811f6d34c36c6e07a77a5fc.png"
+			"stl": "https://img.basically.website/parts/stl/leg-extension-jewq-a6f22135.stl",
+			"render": "https://img.basically.website/parts/render/leg-extension-fae37f74.png"
 		},
 		{
 			"id": "camera-mount-part-6",
@@ -4710,8 +4710,8 @@
 					"date": "2026-06-27",
 					"message": "Initial version.",
 					"commit": null,
-					"stl": "https://img.basically.website/parts/stl/b8dfcbe095b0f961276ffce9d01a70936c78e4bc701649670eb10d9385fdfea6.stl",
-					"render": "https://img.basically.website/parts/render/ca2136515b2fab33548e15ca5ec3b327c0206bd46ec203d96c068c4ad00c87e9.png",
+					"stl": "https://img.basically.website/parts/stl/camera-mount-part-6-v9dv-b8dfcbe0.stl",
+					"render": "https://img.basically.website/parts/render/camera-mount-part-6-ca213651.png",
 					"grams": 4.28
 				}
 			],
@@ -4734,8 +4734,8 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"stl": "https://img.basically.website/parts/stl/b8dfcbe095b0f961276ffce9d01a70936c78e4bc701649670eb10d9385fdfea6.stl",
-			"render": "https://img.basically.website/parts/render/ca2136515b2fab33548e15ca5ec3b327c0206bd46ec203d96c068c4ad00c87e9.png"
+			"stl": "https://img.basically.website/parts/stl/camera-mount-part-6-v9dv-b8dfcbe0.stl",
+			"render": "https://img.basically.website/parts/render/camera-mount-part-6-ca213651.png"
 		},
 		{
 			"id": "camera-mount-part-37",
@@ -4757,8 +4757,8 @@
 					"date": "2026-06-27",
 					"message": "Initial version.",
 					"commit": null,
-					"stl": "https://img.basically.website/parts/stl/dd6a72f6ef324012529d0dd0f95b9e81b08fac5a95f0d1277917d4251742df78.stl",
-					"render": "https://img.basically.website/parts/render/ea06c4bf3e27a9e030c2d8fcb584af52a19f2fad32c8dfbafee2706a60f4fd1f.png",
+					"stl": "https://img.basically.website/parts/stl/camera-mount-part-37-8bqo-dd6a72f6.stl",
+					"render": "https://img.basically.website/parts/render/camera-mount-part-37-ea06c4bf.png",
 					"grams": 19.14
 				}
 			],
@@ -4781,8 +4781,8 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"stl": "https://img.basically.website/parts/stl/dd6a72f6ef324012529d0dd0f95b9e81b08fac5a95f0d1277917d4251742df78.stl",
-			"render": "https://img.basically.website/parts/render/ea06c4bf3e27a9e030c2d8fcb584af52a19f2fad32c8dfbafee2706a60f4fd1f.png"
+			"stl": "https://img.basically.website/parts/stl/camera-mount-part-37-8bqo-dd6a72f6.stl",
+			"render": "https://img.basically.website/parts/render/camera-mount-part-37-ea06c4bf.png"
 		},
 		{
 			"id": "camera-mount-part-37b",
@@ -4804,8 +4804,8 @@
 					"date": "2026-06-27",
 					"message": "Initial version.",
 					"commit": null,
-					"stl": "https://img.basically.website/parts/stl/39a3d2c7816ac6c7ad1108111f0d6629564414ea147f0800dc76af85be0ac6c1.stl",
-					"render": "https://img.basically.website/parts/render/161b0d817fc964fc79b569bd04887edd99de88ea07412cb2d12a98f5e185e22f.png",
+					"stl": "https://img.basically.website/parts/stl/camera-mount-part-37b-gut5-39a3d2c7.stl",
+					"render": "https://img.basically.website/parts/render/camera-mount-part-37b-161b0d81.png",
 					"grams": 18.34
 				}
 			],
@@ -4828,8 +4828,8 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"stl": "https://img.basically.website/parts/stl/39a3d2c7816ac6c7ad1108111f0d6629564414ea147f0800dc76af85be0ac6c1.stl",
-			"render": "https://img.basically.website/parts/render/161b0d817fc964fc79b569bd04887edd99de88ea07412cb2d12a98f5e185e22f.png"
+			"stl": "https://img.basically.website/parts/stl/camera-mount-part-37b-gut5-39a3d2c7.stl",
+			"render": "https://img.basically.website/parts/render/camera-mount-part-37b-161b0d81.png"
 		},
 		{
 			"id": "camera-mount-rod-mount",
@@ -4851,8 +4851,8 @@
 					"date": "2026-06-27",
 					"message": "Initial version.",
 					"commit": null,
-					"stl": "https://img.basically.website/parts/stl/373b28aa2891096bc3231820d8f87a6a836b4ab3ba95f58f09708ff696ed6b86.stl",
-					"render": "https://img.basically.website/parts/render/7b2f527421664ca1a6f4ca9687c1e43d3e025e9c123df5dfa58b93a5d76e2ca6.png",
+					"stl": "https://img.basically.website/parts/stl/camera-mount-rod-mount-twuu-373b28aa.stl",
+					"render": "https://img.basically.website/parts/render/camera-mount-rod-mount-7b2f5274.png",
 					"grams": 9.41
 				}
 			],
@@ -4875,8 +4875,8 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"stl": "https://img.basically.website/parts/stl/373b28aa2891096bc3231820d8f87a6a836b4ab3ba95f58f09708ff696ed6b86.stl",
-			"render": "https://img.basically.website/parts/render/7b2f527421664ca1a6f4ca9687c1e43d3e025e9c123df5dfa58b93a5d76e2ca6.png"
+			"stl": "https://img.basically.website/parts/stl/camera-mount-rod-mount-twuu-373b28aa.stl",
+			"render": "https://img.basically.website/parts/render/camera-mount-rod-mount-7b2f5274.png"
 		},
 		{
 			"id": "camera-led-insert",
@@ -4898,8 +4898,8 @@
 					"date": "2026-06-27",
 					"message": "Initial version.",
 					"commit": null,
-					"stl": "https://img.basically.website/parts/stl/14202c7b6732d540148082a5d55b3f33ac532f111fb060bc00f95ed25799f816.stl",
-					"render": "https://img.basically.website/parts/render/9e276823fbf9cd472933ad352ca92d0a391a43d3dae6e3f988a497829d387811.png",
+					"stl": "https://img.basically.website/parts/stl/camera-led-insert-b2v9-14202c7b.stl",
+					"render": "https://img.basically.website/parts/render/camera-led-insert-9e276823.png",
 					"grams": 106.12
 				}
 			],
@@ -4922,8 +4922,8 @@
 			"caption": "Printed white.",
 			"docs_page": null,
 			"conflicts": null,
-			"stl": "https://img.basically.website/parts/stl/14202c7b6732d540148082a5d55b3f33ac532f111fb060bc00f95ed25799f816.stl",
-			"render": "https://img.basically.website/parts/render/9e276823fbf9cd472933ad352ca92d0a391a43d3dae6e3f988a497829d387811.png"
+			"stl": "https://img.basically.website/parts/stl/camera-led-insert-b2v9-14202c7b.stl",
+			"render": "https://img.basically.website/parts/render/camera-led-insert-9e276823.png"
 		},
 		{
 			"id": "camera-extension",
@@ -4947,8 +4947,8 @@
 					"commit": "ce5d56e",
 					"onshape_doc": "https://cad.onshape.com/documents/249bded2198af476185014b6",
 					"onshape_version": "https://cad.onshape.com/documents/249bded2198af476185014b6/v/57d753798ce11a250478918d/e/48c64d61f1276c46f515d6bd",
-					"stl": "https://img.basically.website/parts/stl/1253c651918595ba46bfc57401c0b2b6aeb2893649fa6c0d4b92c486943deee4.stl",
-					"render": "https://img.basically.website/parts/render/33523f61f6e73600ba73f927b74dfc56a639b1377b80f4c51ec1d8379553a7c9.png",
+					"stl": "https://img.basically.website/parts/stl/camera-extension-q7ns-1253c651.stl",
+					"render": "https://img.basically.website/parts/render/camera-extension-33523f61.png",
 					"grams": 28.6
 				}
 			],
@@ -4980,8 +4980,8 @@
 			"caption": "50 mm extension tube for the 4K camera module.",
 			"docs_page": null,
 			"conflicts": null,
-			"stl": "https://img.basically.website/parts/stl/1253c651918595ba46bfc57401c0b2b6aeb2893649fa6c0d4b92c486943deee4.stl",
-			"render": "https://img.basically.website/parts/render/33523f61f6e73600ba73f927b74dfc56a639b1377b80f4c51ec1d8379553a7c9.png"
+			"stl": "https://img.basically.website/parts/stl/camera-extension-q7ns-1253c651.stl",
+			"render": "https://img.basically.website/parts/render/camera-extension-33523f61.png"
 		},
 		{
 			"id": "camera-extension-mount",
@@ -5005,8 +5005,8 @@
 					"commit": "ce5d56e",
 					"onshape_doc": "https://cad.onshape.com/documents/249bded2198af476185014b6",
 					"onshape_version": "https://cad.onshape.com/documents/249bded2198af476185014b6/v/57d753798ce11a250478918d/e/48c64d61f1276c46f515d6bd",
-					"stl": "https://img.basically.website/parts/stl/a69def7f420a0ac70bcc1be0827d5cb9e46b322ea5dfa09fa075f746b5b7f6c8.stl",
-					"render": "https://img.basically.website/parts/render/5b2127b06526f25696748d657d410224b30097f6ea13dfec4f11263ebe69539b.png",
+					"stl": "https://img.basically.website/parts/stl/camera-extension-mount-wt9t-a69def7f.stl",
+					"render": "https://img.basically.website/parts/render/camera-extension-mount-5b2127b0.png",
 					"grams": 7.58
 				}
 			],
@@ -5038,8 +5038,8 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"stl": "https://img.basically.website/parts/stl/a69def7f420a0ac70bcc1be0827d5cb9e46b322ea5dfa09fa075f746b5b7f6c8.stl",
-			"render": "https://img.basically.website/parts/render/5b2127b06526f25696748d657d410224b30097f6ea13dfec4f11263ebe69539b.png"
+			"stl": "https://img.basically.website/parts/stl/camera-extension-mount-wt9t-a69def7f.stl",
+			"render": "https://img.basically.website/parts/render/camera-extension-mount-5b2127b0.png"
 		},
 		{
 			"id": "layer-connector-1",
@@ -5063,8 +5063,8 @@
 					"message": "Initial version.",
 					"commit": null,
 					"onshape_version": "https://cad.onshape.com/documents/a4a1965bbaf3a15aff2b13ed/v/765c27a61823977392947be1/e/c56e3247bb7cfbe93ba7ad08",
-					"stl": "https://img.basically.website/parts/stl/c85e30f35445117061a4c7871f7823171bd503fbcd94ea77b53f405a5626ee1c.stl",
-					"render": "https://img.basically.website/parts/render/5524b1159723d422f8e5ef973f6e211a000740d9840ae5f245c14f87ce7105a3.png",
+					"stl": "https://img.basically.website/parts/stl/layer-connector-1-iwzg-c85e30f3.stl",
+					"render": "https://img.basically.website/parts/render/layer-connector-1-5524b115.png",
 					"grams": 12.31
 				}
 			],
@@ -5087,8 +5087,8 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"stl": "https://img.basically.website/parts/stl/c85e30f35445117061a4c7871f7823171bd503fbcd94ea77b53f405a5626ee1c.stl",
-			"render": "https://img.basically.website/parts/render/5524b1159723d422f8e5ef973f6e211a000740d9840ae5f245c14f87ce7105a3.png"
+			"stl": "https://img.basically.website/parts/stl/layer-connector-1-iwzg-c85e30f3.stl",
+			"render": "https://img.basically.website/parts/render/layer-connector-1-5524b115.png"
 		},
 		{
 			"id": "layer-connector-2",
@@ -5112,8 +5112,8 @@
 					"message": "Initial version.",
 					"commit": null,
 					"onshape_version": "https://cad.onshape.com/documents/a4a1965bbaf3a15aff2b13ed/v/765c27a61823977392947be1/e/c56e3247bb7cfbe93ba7ad08",
-					"stl": "https://img.basically.website/parts/stl/1df17cf7ff0fe530545b45dd107822db2a796f870de67aaa8769663a4eb941f2.stl",
-					"render": "https://img.basically.website/parts/render/2da295eb4f7314a6d9a48559e58ada6595515e81aa434faa7df71b938c8b4a89.png",
+					"stl": "https://img.basically.website/parts/stl/layer-connector-2-3wrh-1df17cf7.stl",
+					"render": "https://img.basically.website/parts/render/layer-connector-2-2da295eb.png",
 					"grams": 12.3
 				}
 			],
@@ -5136,8 +5136,8 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"stl": "https://img.basically.website/parts/stl/1df17cf7ff0fe530545b45dd107822db2a796f870de67aaa8769663a4eb941f2.stl",
-			"render": "https://img.basically.website/parts/render/2da295eb4f7314a6d9a48559e58ada6595515e81aa434faa7df71b938c8b4a89.png"
+			"stl": "https://img.basically.website/parts/stl/layer-connector-2-3wrh-1df17cf7.stl",
+			"render": "https://img.basically.website/parts/render/layer-connector-2-2da295eb.png"
 		},
 		{
 			"id": "chute-stepper-support-block",
@@ -5159,8 +5159,8 @@
 					"date": "2026-07-03",
 					"message": "Initial version.",
 					"commit": null,
-					"stl": "https://img.basically.website/parts/stl/106dec95fef16977ebef133766df63d301b98885ac8a4bf9bf718e3eda72ac7f.stl",
-					"render": "https://img.basically.website/parts/render/226282190bcc254c7d1bdd061461e144d2b0c0e958beb2117b1b5142434ef40a.png",
+					"stl": "https://img.basically.website/parts/stl/chute-stepper-support-block-loc0-106dec95.stl",
+					"render": "https://img.basically.website/parts/render/chute-stepper-support-block-22628219.png",
 					"grams": 26.1
 				}
 			],
@@ -5183,8 +5183,8 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"stl": "https://img.basically.website/parts/stl/106dec95fef16977ebef133766df63d301b98885ac8a4bf9bf718e3eda72ac7f.stl",
-			"render": "https://img.basically.website/parts/render/226282190bcc254c7d1bdd061461e144d2b0c0e958beb2117b1b5142434ef40a.png"
+			"stl": "https://img.basically.website/parts/stl/chute-stepper-support-block-loc0-106dec95.stl",
+			"render": "https://img.basically.website/parts/render/chute-stepper-support-block-22628219.png"
 		},
 		{
 			"id": "funnel-third",
@@ -5207,8 +5207,8 @@
 					"message": "Initial version.",
 					"commit": null,
 					"onshape_version": "https://cad.onshape.com/documents/a4a1965bbaf3a15aff2b13ed/v/353adf90e6a8a99bed6f90a5/e/8f720225506283b24c872672",
-					"stl": "https://img.basically.website/parts/stl/287f8f9936b958f15dc9acd832f6320cbc4fcfb9ee0f7cd73ea67d9953d16961.stl",
-					"render": "https://img.basically.website/parts/render/c8f8a464507421c3f137b256efd9da019df6779bced93b1fdf668b533d153669.png",
+					"stl": "https://img.basically.website/parts/stl/funnel-third-2cww-287f8f99.stl",
+					"render": "https://img.basically.website/parts/render/funnel-third-c8f8a464.png",
 					"grams": 216.27
 				}
 			],
@@ -5231,8 +5231,8 @@
 			"caption": "For a layer of 18 third bins.",
 			"docs_page": null,
 			"conflicts": null,
-			"stl": "https://img.basically.website/parts/stl/287f8f9936b958f15dc9acd832f6320cbc4fcfb9ee0f7cd73ea67d9953d16961.stl",
-			"render": "https://img.basically.website/parts/render/c8f8a464507421c3f137b256efd9da019df6779bced93b1fdf668b533d153669.png"
+			"stl": "https://img.basically.website/parts/stl/funnel-third-2cww-287f8f99.stl",
+			"render": "https://img.basically.website/parts/render/funnel-third-c8f8a464.png"
 		},
 		{
 			"id": "funnel-half",
@@ -5255,8 +5255,8 @@
 					"message": "Initial version.",
 					"commit": null,
 					"onshape_version": "https://cad.onshape.com/documents/a4a1965bbaf3a15aff2b13ed/v/353adf90e6a8a99bed6f90a5/e/8f720225506283b24c872672",
-					"stl": "https://img.basically.website/parts/stl/533487b3dadbdf8ec33af0d9d5185c2d978325e03b13c56a2121135a16c69a53.stl",
-					"render": "https://img.basically.website/parts/render/495cd9cc30554d6f86531670db08b5c494252871dc35c75f7e5e3e3b80bf61d0.png",
+					"stl": "https://img.basically.website/parts/stl/funnel-half-t9lf-533487b3.stl",
+					"render": "https://img.basically.website/parts/render/funnel-half-495cd9cc.png",
 					"grams": 158.23
 				}
 			],
@@ -5279,8 +5279,8 @@
 			"caption": "For a layer of 12 half bins.",
 			"docs_page": null,
 			"conflicts": null,
-			"stl": "https://img.basically.website/parts/stl/533487b3dadbdf8ec33af0d9d5185c2d978325e03b13c56a2121135a16c69a53.stl",
-			"render": "https://img.basically.website/parts/render/495cd9cc30554d6f86531670db08b5c494252871dc35c75f7e5e3e3b80bf61d0.png"
+			"stl": "https://img.basically.website/parts/stl/funnel-half-t9lf-533487b3.stl",
+			"render": "https://img.basically.website/parts/render/funnel-half-495cd9cc.png"
 		},
 		{
 			"id": "bin-half-left",
@@ -5302,8 +5302,8 @@
 					"date": "2026-06-29",
 					"message": "Initial version.",
 					"commit": null,
-					"stl": "https://img.basically.website/parts/stl/2073b94e6ea18fb2a836c3fc17633189771ca8b35a4dd86b0812b1b54ac1fdd5.stl",
-					"render": "https://img.basically.website/parts/render/de4527ff1c2422db03239a36961a9e758aaf5c0a3f952ea26f3ed39c052f5dc9.png",
+					"stl": "https://img.basically.website/parts/stl/bin-half-left-0zbx-2073b94e.stl",
+					"render": "https://img.basically.website/parts/render/bin-half-left-de4527ff.png",
 					"grams": 171.55
 				}
 			],
@@ -5326,8 +5326,8 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"stl": "https://img.basically.website/parts/stl/2073b94e6ea18fb2a836c3fc17633189771ca8b35a4dd86b0812b1b54ac1fdd5.stl",
-			"render": "https://img.basically.website/parts/render/de4527ff1c2422db03239a36961a9e758aaf5c0a3f952ea26f3ed39c052f5dc9.png"
+			"stl": "https://img.basically.website/parts/stl/bin-half-left-0zbx-2073b94e.stl",
+			"render": "https://img.basically.website/parts/render/bin-half-left-de4527ff.png"
 		},
 		{
 			"id": "bin-half-right",
@@ -5349,8 +5349,8 @@
 					"date": "2026-06-29",
 					"message": "Initial version.",
 					"commit": null,
-					"stl": "https://img.basically.website/parts/stl/93ccbb523ae5ee0b767a08ba53371f9c656caf175df2093ddd9c49af96db76d1.stl",
-					"render": "https://img.basically.website/parts/render/0fb741a0d808c214f8852bd4269578ca8c31557c8ed7b21b825604114ed21c27.png",
+					"stl": "https://img.basically.website/parts/stl/bin-half-right-e0ek-93ccbb52.stl",
+					"render": "https://img.basically.website/parts/render/bin-half-right-0fb741a0.png",
 					"grams": 171.67
 				}
 			],
@@ -5373,8 +5373,8 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"stl": "https://img.basically.website/parts/stl/93ccbb523ae5ee0b767a08ba53371f9c656caf175df2093ddd9c49af96db76d1.stl",
-			"render": "https://img.basically.website/parts/render/0fb741a0d808c214f8852bd4269578ca8c31557c8ed7b21b825604114ed21c27.png"
+			"stl": "https://img.basically.website/parts/stl/bin-half-right-e0ek-93ccbb52.stl",
+			"render": "https://img.basically.website/parts/render/bin-half-right-0fb741a0.png"
 		},
 		{
 			"id": "bin-third-left",
@@ -5396,8 +5396,8 @@
 					"date": "2026-06-29",
 					"message": "Initial version.",
 					"commit": null,
-					"stl": "https://img.basically.website/parts/stl/16b47a00d4e464e08ad4f5fd66ab9dac33889d1dd84641fa9db99025d8dd08b5.stl",
-					"render": "https://img.basically.website/parts/render/025625d76732aa0d978610677270e8f984300a8019569a9e28024758eca015ee.png",
+					"stl": "https://img.basically.website/parts/stl/bin-third-left-z8ap-16b47a00.stl",
+					"render": "https://img.basically.website/parts/render/bin-third-left-025625d7.png",
 					"grams": 121.75
 				}
 			],
@@ -5420,8 +5420,8 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"stl": "https://img.basically.website/parts/stl/16b47a00d4e464e08ad4f5fd66ab9dac33889d1dd84641fa9db99025d8dd08b5.stl",
-			"render": "https://img.basically.website/parts/render/025625d76732aa0d978610677270e8f984300a8019569a9e28024758eca015ee.png"
+			"stl": "https://img.basically.website/parts/stl/bin-third-left-z8ap-16b47a00.stl",
+			"render": "https://img.basically.website/parts/render/bin-third-left-025625d7.png"
 		},
 		{
 			"id": "bin-third-center",
@@ -5443,8 +5443,8 @@
 					"date": "2026-06-29",
 					"message": "Initial version.",
 					"commit": null,
-					"stl": "https://img.basically.website/parts/stl/8237c2a114d13e5cc95580b92dd4182c5bbf3b957c63bef7b5245cb288bea1bb.stl",
-					"render": "https://img.basically.website/parts/render/5c125ffb546cab4f115c00073f651fa87ceda9dba55164d2fcdd71e72745a88c.png",
+					"stl": "https://img.basically.website/parts/stl/bin-third-center-g92t-8237c2a1.stl",
+					"render": "https://img.basically.website/parts/render/bin-third-center-5c125ffb.png",
 					"grams": 112.24
 				}
 			],
@@ -5467,8 +5467,8 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"stl": "https://img.basically.website/parts/stl/8237c2a114d13e5cc95580b92dd4182c5bbf3b957c63bef7b5245cb288bea1bb.stl",
-			"render": "https://img.basically.website/parts/render/5c125ffb546cab4f115c00073f651fa87ceda9dba55164d2fcdd71e72745a88c.png"
+			"stl": "https://img.basically.website/parts/stl/bin-third-center-g92t-8237c2a1.stl",
+			"render": "https://img.basically.website/parts/render/bin-third-center-5c125ffb.png"
 		},
 		{
 			"id": "bin-third-rightback",
@@ -5490,8 +5490,8 @@
 					"date": "2026-06-29",
 					"message": "Initial version.",
 					"commit": null,
-					"stl": "https://img.basically.website/parts/stl/afc9d6e16cf3f8db7adb873f2c77158e8924c25ee29c4f669361a59d87d99f4e.stl",
-					"render": "https://img.basically.website/parts/render/b6d0dbff71972a79590f1894f9de75f3cf04b98ab6bb3b7d3eb7330c87faad28.png",
+					"stl": "https://img.basically.website/parts/stl/bin-third-rightback-5o2l-afc9d6e1.stl",
+					"render": "https://img.basically.website/parts/render/bin-third-rightback-b6d0dbff.png",
 					"grams": 121.66
 				}
 			],
@@ -5514,8 +5514,8 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"stl": "https://img.basically.website/parts/stl/afc9d6e16cf3f8db7adb873f2c77158e8924c25ee29c4f669361a59d87d99f4e.stl",
-			"render": "https://img.basically.website/parts/render/b6d0dbff71972a79590f1894f9de75f3cf04b98ab6bb3b7d3eb7330c87faad28.png"
+			"stl": "https://img.basically.website/parts/stl/bin-third-rightback-5o2l-afc9d6e1.stl",
+			"render": "https://img.basically.website/parts/render/bin-third-rightback-b6d0dbff.png"
 		},
 		{
 			"id": "bearing-cover-covered",
@@ -5537,8 +5537,8 @@
 					"date": "2026-06-29",
 					"message": "Initial version.",
 					"commit": null,
-					"stl": "https://img.basically.website/parts/stl/1a177913356c66c6667093d333d457c0b8fedc3e4379ffe023e92670e58b7d1d.stl",
-					"render": "https://img.basically.website/parts/render/1848eacc9e1388d81553a12ce75c8aa5b14e2113c7f8e43232139227a7e79f68.png",
+					"stl": "https://img.basically.website/parts/stl/bearing-cover-covered-75fh-1a177913.stl",
+					"render": "https://img.basically.website/parts/render/bearing-cover-covered-1848eacc.png",
 					"grams": 6.47
 				}
 			],
@@ -5561,8 +5561,8 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"stl": "https://img.basically.website/parts/stl/1a177913356c66c6667093d333d457c0b8fedc3e4379ffe023e92670e58b7d1d.stl",
-			"render": "https://img.basically.website/parts/render/1848eacc9e1388d81553a12ce75c8aa5b14e2113c7f8e43232139227a7e79f68.png"
+			"stl": "https://img.basically.website/parts/stl/bearing-cover-covered-75fh-1a177913.stl",
+			"render": "https://img.basically.website/parts/render/bearing-cover-covered-1848eacc.png"
 		},
 		{
 			"id": "bearing-cover-servo",
@@ -5584,8 +5584,8 @@
 					"date": "2026-06-29",
 					"message": "Initial version.",
 					"commit": null,
-					"stl": "https://img.basically.website/parts/stl/4573bb40f91390f1dcbe7c87eb187fa3a68e7c6ea5de17fc0f9e083e7506242b.stl",
-					"render": "https://img.basically.website/parts/render/d22a3547da23a07e6b8977af564c74ccd04f7809c487a51657980a77c9d1263f.png",
+					"stl": "https://img.basically.website/parts/stl/bearing-cover-servo-g7s2-4573bb40.stl",
+					"render": "https://img.basically.website/parts/render/bearing-cover-servo-d22a3547.png",
 					"grams": 5.9
 				}
 			],
@@ -5608,8 +5608,8 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"stl": "https://img.basically.website/parts/stl/4573bb40f91390f1dcbe7c87eb187fa3a68e7c6ea5de17fc0f9e083e7506242b.stl",
-			"render": "https://img.basically.website/parts/render/d22a3547da23a07e6b8977af564c74ccd04f7809c487a51657980a77c9d1263f.png"
+			"stl": "https://img.basically.website/parts/stl/bearing-cover-servo-g7s2-4573bb40.stl",
+			"render": "https://img.basically.website/parts/render/bearing-cover-servo-d22a3547.png"
 		},
 		{
 			"id": "meanwell-psu-back-mount",
@@ -5631,8 +5631,8 @@
 					"date": "2026-07-03",
 					"message": "Initial version.",
 					"commit": null,
-					"stl": "https://img.basically.website/parts/stl/e09524f65ab42f6647abd8d41f7e4bbde08be8e8261d488d0fbd92c0e8bbddcc.stl",
-					"render": "https://img.basically.website/parts/render/8274bb78334f6425f0a180aa09b03677dfcac2b41e1a2b019f3ceaf5701e167f.png",
+					"stl": "https://img.basically.website/parts/stl/meanwell-psu-back-mount-15uh-e09524f6.stl",
+					"render": "https://img.basically.website/parts/render/meanwell-psu-back-mount-8274bb78.png",
 					"grams": 55.74
 				}
 			],
@@ -5655,8 +5655,8 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"stl": "https://img.basically.website/parts/stl/e09524f65ab42f6647abd8d41f7e4bbde08be8e8261d488d0fbd92c0e8bbddcc.stl",
-			"render": "https://img.basically.website/parts/render/8274bb78334f6425f0a180aa09b03677dfcac2b41e1a2b019f3ceaf5701e167f.png"
+			"stl": "https://img.basically.website/parts/stl/meanwell-psu-back-mount-15uh-e09524f6.stl",
+			"render": "https://img.basically.website/parts/render/meanwell-psu-back-mount-8274bb78.png"
 		},
 		{
 			"id": "meanwell-psu-connections",
@@ -5678,8 +5678,8 @@
 					"date": "2026-07-03",
 					"message": "Initial version.",
 					"commit": null,
-					"stl": "https://img.basically.website/parts/stl/f94f353956fde415361167f6aa391e85b8f13ad619204d60b202fcf09a3686e9.stl",
-					"render": "https://img.basically.website/parts/render/e47505e6a3e5dd877cb305e1db061d8ee97f10c564e92f6b185727587f31a994.png",
+					"stl": "https://img.basically.website/parts/stl/meanwell-psu-connections-08id-f94f3539.stl",
+					"render": "https://img.basically.website/parts/render/meanwell-psu-connections-e47505e6.png",
 					"grams": 101.9
 				}
 			],
@@ -5702,8 +5702,8 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"stl": "https://img.basically.website/parts/stl/f94f353956fde415361167f6aa391e85b8f13ad619204d60b202fcf09a3686e9.stl",
-			"render": "https://img.basically.website/parts/render/e47505e6a3e5dd877cb305e1db061d8ee97f10c564e92f6b185727587f31a994.png"
+			"stl": "https://img.basically.website/parts/stl/meanwell-psu-connections-08id-f94f3539.stl",
+			"render": "https://img.basically.website/parts/render/meanwell-psu-connections-e47505e6.png"
 		},
 		{
 			"id": "meanwell-psu-cap",
@@ -5725,8 +5725,8 @@
 					"date": "2026-07-03",
 					"message": "Initial version.",
 					"commit": null,
-					"stl": "https://img.basically.website/parts/stl/2fa72485f7b395f7cbcb898e99dff616475eb80bb80520b5dbd4b066032aed62.stl",
-					"render": "https://img.basically.website/parts/render/57608c505cf749a63fdae6fd57cdc76a9add856a966d1c6031ab12c1db224257.png",
+					"stl": "https://img.basically.website/parts/stl/meanwell-psu-cap-5nt1-2fa72485.stl",
+					"render": "https://img.basically.website/parts/render/meanwell-psu-cap-57608c50.png",
 					"grams": 60.81
 				}
 			],
@@ -5749,8 +5749,8 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"stl": "https://img.basically.website/parts/stl/2fa72485f7b395f7cbcb898e99dff616475eb80bb80520b5dbd4b066032aed62.stl",
-			"render": "https://img.basically.website/parts/render/57608c505cf749a63fdae6fd57cdc76a9add856a966d1c6031ab12c1db224257.png"
+			"stl": "https://img.basically.website/parts/stl/meanwell-psu-cap-5nt1-2fa72485.stl",
+			"render": "https://img.basically.website/parts/render/meanwell-psu-cap-57608c50.png"
 		}
 	],
 	"hardware": [
@@ -5871,7 +5871,7 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"image": "https://img.basically.website/parts/img/26e52d7d5bcd22688d97056e2e0aa630548cd0f2924bb2e263d905318cf71548.png"
+			"image": "https://img.basically.website/parts/img/scr-m3-10-shcs-26e52d7d.png"
 		},
 		{
 			"id": "scr-m3-8-cs",
@@ -6078,7 +6078,7 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"image": "https://img.basically.website/parts/img/26e52d7d5bcd22688d97056e2e0aa630548cd0f2924bb2e263d905318cf71548.png"
+			"image": "https://img.basically.website/parts/img/scr-m3-16-shcs-26e52d7d.png"
 		},
 		{
 			"id": "scr-m3-6-bhcs",
@@ -6117,7 +6117,7 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"image": "https://img.basically.website/parts/img/26e52d7d5bcd22688d97056e2e0aa630548cd0f2924bb2e263d905318cf71548.png"
+			"image": "https://img.basically.website/parts/img/scr-m3-6-bhcs-26e52d7d.png"
 		},
 		{
 			"id": "scr-m3-12-bhcs",
@@ -6156,7 +6156,7 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"image": "https://img.basically.website/parts/img/26e52d7d5bcd22688d97056e2e0aa630548cd0f2924bb2e263d905318cf71548.png"
+			"image": "https://img.basically.website/parts/img/scr-m3-12-bhcs-26e52d7d.png"
 		},
 		{
 			"id": "scr-m3-35-bhcs",
@@ -6195,7 +6195,7 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"image": "https://img.basically.website/parts/img/26e52d7d5bcd22688d97056e2e0aa630548cd0f2924bb2e263d905318cf71548.png"
+			"image": "https://img.basically.website/parts/img/scr-m3-35-bhcs-26e52d7d.png"
 		},
 		{
 			"id": "scr-m4-6-cs",
@@ -6312,7 +6312,7 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"image": "https://img.basically.website/parts/img/26e52d7d5bcd22688d97056e2e0aa630548cd0f2924bb2e263d905318cf71548.png"
+			"image": "https://img.basically.website/parts/img/scr-m5-12-shcs-26e52d7d.png"
 		},
 		{
 			"id": "scr-m5-16-shcs",
@@ -6351,7 +6351,7 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"image": "https://img.basically.website/parts/img/26e52d7d5bcd22688d97056e2e0aa630548cd0f2924bb2e263d905318cf71548.png"
+			"image": "https://img.basically.website/parts/img/scr-m5-16-shcs-26e52d7d.png"
 		},
 		{
 			"id": "scr-m5-20-shcs",
@@ -6390,7 +6390,7 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"image": "https://img.basically.website/parts/img/26e52d7d5bcd22688d97056e2e0aa630548cd0f2924bb2e263d905318cf71548.png"
+			"image": "https://img.basically.website/parts/img/scr-m5-20-shcs-26e52d7d.png"
 		},
 		{
 			"id": "scr-m5-30-shcs",
@@ -6429,7 +6429,7 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"image": "https://img.basically.website/parts/img/26e52d7d5bcd22688d97056e2e0aa630548cd0f2924bb2e263d905318cf71548.png"
+			"image": "https://img.basically.website/parts/img/scr-m5-30-shcs-26e52d7d.png"
 		},
 		{
 			"id": "scr-m5-35-fhcs",
@@ -6508,7 +6508,7 @@
 					"note": "Head type disagreement for the M5x35: docs show a socket head cap screw (with photo), the calculator says flat head countersunk."
 				}
 			],
-			"image": "https://img.basically.website/parts/img/cb2fdd72471816cef2a69bdd7775a1863cf4dea2d72a15a68a73deebb276164f.jpg"
+			"image": "https://img.basically.website/parts/img/scr-m5-35-fhcs-cb2fdd72.jpg"
 		},
 		{
 			"id": "scr-m5-8-cs",
@@ -6628,7 +6628,7 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"image": "https://img.basically.website/parts/img/26e52d7d5bcd22688d97056e2e0aa630548cd0f2924bb2e263d905318cf71548.png"
+			"image": "https://img.basically.website/parts/img/scr-m5-shcs-tbd-26e52d7d.png"
 		},
 		{
 			"id": "washer-m3-15",
@@ -6816,7 +6816,7 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"image": "https://img.basically.website/parts/img/b0c74a7fb6f0be515fc6bad42d5a927e2330e887b8e74129f2906fde6610a0eb.jpg"
+			"image": "https://img.basically.website/parts/img/rod-steel-3-8-b0c74a7f.jpg"
 		},
 		{
 			"id": "hsi-m3-long",
@@ -6883,7 +6883,7 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"image": "https://img.basically.website/parts/img/ae73fe6bb2304afb8bb591904eb363febfdc98ccde7dd6dbda9dd5ae9cb3151a.png"
+			"image": "https://img.basically.website/parts/img/hsi-m3-long-ae73fe6b.png"
 		},
 		{
 			"id": "hsi-m5-long",
@@ -6941,7 +6941,7 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"image": "https://img.basically.website/parts/img/796e90762460d89234187db02ff76383bac2099041d80a1e95866eaa65e157f8.jpg"
+			"image": "https://img.basically.website/parts/img/hsi-m5-long-796e9076.jpg"
 		},
 		{
 			"id": "hsi-m4",
@@ -7014,7 +7014,7 @@
 					"note": "Docs claim the M4 insert used is the LONG variant; the calculator does not say long. Check which is actually installed."
 				}
 			],
-			"image": "https://img.basically.website/parts/img/abb5a013d071379a34f8b65345b483627803f247627d4ef0a5d5816c5eff0d49.jpg"
+			"image": "https://img.basically.website/parts/img/hsi-m4-abb5a013.jpg"
 		},
 		{
 			"id": "standoff-m3-10mm",
@@ -7051,7 +7051,7 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"image": "https://img.basically.website/parts/img/49ce8284dc28ede2c118a7903c079d6107fbdb80fd0ea8f84396ec6bca5054cb.jpg"
+			"image": "https://img.basically.website/parts/img/standoff-m3-10mm-49ce8284.jpg"
 		},
 		{
 			"id": "tnut-m5-2020",
@@ -7112,7 +7112,7 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"image": "https://img.basically.website/parts/img/3d0256ddc8a45d2b0df7bc3719b4bbc57c4c41a7031f5d3ed9fc9b0fd06ab9fb.jpg"
+			"image": "https://img.basically.website/parts/img/tnut-m5-2020-3d0256dd.jpg"
 		},
 		{
 			"id": "cam-imx415",
@@ -7149,7 +7149,7 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"image": "https://img.basically.website/parts/img/7470d70e089ce5cc7a8cffef0465c105131b5fe4257beef1de377d9b827d8910.jpg"
+			"image": "https://img.basically.website/parts/img/cam-imx415-7470d70e.jpg"
 		},
 		{
 			"id": "cam-ov9732",
@@ -7194,7 +7194,7 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"image": "https://img.basically.website/parts/img/8f536228e5a4502ecd89039d0cbf93c16f9d5a1043fd303cd7c417789334753f.jpg"
+			"image": "https://img.basically.website/parts/img/cam-ov9732-8f536228.jpg"
 		},
 		{
 			"id": "pulley-20t-8mm",
@@ -7231,7 +7231,7 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"image": "https://img.basically.website/parts/img/bf2464997d1ba0ff22e86b57e94e2477ceb7220e49e8474c265f5e509b42cc22.jpg"
+			"image": "https://img.basically.website/parts/img/pulley-20t-8mm-bf246499.jpg"
 		},
 		{
 			"id": "foot-connector-2020-m6",
@@ -7286,7 +7286,7 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"image": "https://img.basically.website/parts/img/865e0c41426542c2661389baa53f30f439e8add28b8aa8c8e6b6117b6cb1c0a0.jpg"
+			"image": "https://img.basically.website/parts/img/foot-connector-2020-m6-865e0c41.jpg"
 		},
 		{
 			"id": "caster-wheel-m6",
@@ -7341,7 +7341,7 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"image": "https://img.basically.website/parts/img/700ae42a92605d1c848ca7b2b210e4fb4c4be2942abe08ce712e891af3b72abf.jpg"
+			"image": "https://img.basically.website/parts/img/caster-wheel-m6-700ae42a.jpg"
 		},
 		{
 			"id": "motor-nema17",
@@ -7383,7 +7383,7 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"image": "https://img.basically.website/parts/img/578841523909d67aa0f1711197935d36bcb2f6673d37f8395efc0644f49a6f9b.jpg"
+			"image": "https://img.basically.website/parts/img/motor-nema17-57884152.jpg"
 		},
 		{
 			"id": "motor-nema23",
@@ -7425,7 +7425,7 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"image": "https://img.basically.website/parts/img/e8eac018a9a8a77a14db0de260beb4cff737bd37a33fd1f16af32e277025e453.jpg"
+			"image": "https://img.basically.website/parts/img/motor-nema23-e8eac018.jpg"
 		},
 		{
 			"id": "servo-mg995",
@@ -7462,7 +7462,7 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"image": "https://img.basically.website/parts/img/8a8b0ae4bdd9679526adf05de4341c528c21cbf42a48491e11fe467c86567589.jpg"
+			"image": "https://img.basically.website/parts/img/servo-mg995-8a8b0ae4.jpg"
 		},
 		{
 			"id": "brg-6806-2rs",
@@ -7512,7 +7512,7 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"image": "https://img.basically.website/parts/img/b7aac380cc216efdc18d1f61e5a9b70b63a35d37b3417fe118a7c7af2d10da96.jpg"
+			"image": "https://img.basically.website/parts/img/brg-6806-2rs-b7aac380.jpg"
 		},
 		{
 			"id": "brg-608-2rs",
@@ -7549,7 +7549,7 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"image": "https://img.basically.website/parts/img/e11bf4434f281628218a4867af0033d0daf845e26e88bc208f973d5a0b7f5b9b.jpg"
+			"image": "https://img.basically.website/parts/img/brg-608-2rs-e11bf443.jpg"
 		},
 		{
 			"id": "brg-6704-2rs",
@@ -7613,7 +7613,7 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"image": "https://img.basically.website/parts/img/9b0d3f8350970397ac0590b4d8ff0317cca9d4322bf23ecdfa386619e565d4fe.jpg"
+			"image": "https://img.basically.website/parts/img/brg-6704-2rs-9b0d3f83.jpg"
 		},
 		{
 			"id": "brg-lazy-susan",
@@ -7662,7 +7662,7 @@
 			"caption": null,
 			"docs_page": "/hardware/parts/lazy-susan/",
 			"conflicts": null,
-			"image": "https://img.basically.website/parts/img/8d3232c97b1f885364c542ed400a855bcbf8af8d7c3a37ee281e60516e9be8db.jpg"
+			"image": "https://img.basically.website/parts/img/brg-lazy-susan-8d3232c9.jpg"
 		},
 		{
 			"id": "sbc-orange-pi-5",
@@ -7699,7 +7699,7 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"image": "https://img.basically.website/parts/img/51ca8492b4994e553fc1e451494ce18f0993c653f35d1db90adf388f33fafd36.jpg"
+			"image": "https://img.basically.website/parts/img/sbc-orange-pi-5-51ca8492.jpg"
 		},
 		{
 			"id": "microsd-32gb",
@@ -7736,7 +7736,7 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"image": "https://img.basically.website/parts/img/18128a75110ff786fbcdca9be2d093b22d955ebf9f81d6c695a930f20f7149a2.jpg"
+			"image": "https://img.basically.website/parts/img/microsd-32gb-18128a75.jpg"
 		},
 		{
 			"id": "wifi-module-opi5",
@@ -7798,7 +7798,7 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"image": "https://img.basically.website/parts/img/8ab3a641760510a72976b5466efdd9c21b8a507d917bd5a9ada48aed97c98766.jpg"
+			"image": "https://img.basically.website/parts/img/wifi-module-opi5-8ab3a641.jpg"
 		},
 		{
 			"id": "usb-hub-powered-24v",
@@ -7835,7 +7835,7 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"image": "https://img.basically.website/parts/img/e327e62a3fb80763bd0f10599ad46db6a8ca432253078fee88d84aa9888b0d5c.jpg"
+			"image": "https://img.basically.website/parts/img/usb-hub-powered-24v-e327e62a.jpg"
 		},
 		{
 			"id": "cable-micro-usb",
@@ -7880,7 +7880,7 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"image": "https://img.basically.website/parts/img/b15f19a1ef56e6c710c09e105e6b8cbeabda0b39368aeff99bc2e11669b0a5f8.jpg"
+			"image": "https://img.basically.website/parts/img/cable-micro-usb-b15f19a1.jpg"
 		},
 		{
 			"id": "drv-tmc2209",
@@ -7925,7 +7925,7 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"image": "https://img.basically.website/parts/img/4eb0a0fc4354607264fdc3dcb81f0a2837c48142b18f547ea94ad5ced5196490.jpg"
+			"image": "https://img.basically.website/parts/img/drv-tmc2209-4eb0a0fc.jpg"
 		},
 		{
 			"id": "mcu-rpi-pico",
@@ -7962,7 +7962,7 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"image": "https://img.basically.website/parts/img/35bf81d20d6e4760955e0394a118c465bcae2f5d0bf3a06d8f639e15552d1769.jpg"
+			"image": "https://img.basically.website/parts/img/mcu-rpi-pico-35bf81d2.jpg"
 		},
 		{
 			"id": "header-pins-254",
@@ -7998,7 +7998,7 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"image": "https://img.basically.website/parts/img/2f61f803bd8318e6b934e405d6063689fcabc5425c7c8aaacc6b862c95d40050.jpg"
+			"image": "https://img.basically.website/parts/img/header-pins-254-2f61f803.jpg"
 		},
 		{
 			"id": "cable-idc-2x8-long",
@@ -8052,7 +8052,7 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"image": "https://img.basically.website/parts/img/69b3da40ac51375f2b998afe1fec97e5faad1adfb0cd9b0a1fbce205a76f9179.jpg"
+			"image": "https://img.basically.website/parts/img/cable-idc-2x8-long-69b3da40.jpg"
 		},
 		{
 			"id": "cable-idc-2x8-short",
@@ -8106,7 +8106,7 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"image": "https://img.basically.website/parts/img/784f9a5733e4ad3815cb8a22b27b7a6610357277e1846a7f1be2e5843ab63e31.jpg"
+			"image": "https://img.basically.website/parts/img/cable-idc-2x8-short-784f9a57.jpg"
 		},
 		{
 			"id": "ctrl-board-basically",
@@ -8144,7 +8144,7 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"image": "https://img.basically.website/parts/img/f7caadca07d5a0dc6894895209da6f1a7f4c865a245ee095fce358902c85ff42.png"
+			"image": "https://img.basically.website/parts/img/ctrl-board-basically-f7caadca.png"
 		},
 		{
 			"id": "layer-adapter-board-basically",
@@ -8177,7 +8177,7 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"image": "https://img.basically.website/parts/img/1838b0588731b2d835ae5f9885f4e486324b89370ab3ea5df086540deb539c75.png"
+			"image": "https://img.basically.website/parts/img/layer-adapter-board-basically-1838b058.png"
 		},
 		{
 			"id": "led-cob-50mm-24v",
@@ -8212,7 +8212,7 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"image": "https://img.basically.website/parts/img/f772d260f547832360f41707bdb5d1ec1f45978d0badb36f7fedc694147a7d4d.jpg"
+			"image": "https://img.basically.website/parts/img/led-cob-50mm-24v-f772d260.jpg"
 		},
 		{
 			"id": "led-strip-24v",
@@ -8248,7 +8248,7 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"image": "https://img.basically.website/parts/img/961391ece43df1628e5a153d3a7ba42b865868e70ace71fde7b0f951c30104eb.jpg"
+			"image": "https://img.basically.website/parts/img/led-strip-24v-961391ec.jpg"
 		},
 		{
 			"id": "endstop-mechanical",
@@ -8293,7 +8293,7 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"image": "https://img.basically.website/parts/img/8fb04d71f715fd2565956ed1e61510fb91b4c4f679d3df8d921bce273453e784.jpg"
+			"image": "https://img.basically.website/parts/img/endstop-mechanical-8fb04d71.jpg"
 		},
 		{
 			"id": "buck-24v-5v-usbc",
@@ -8347,7 +8347,7 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"image": "https://img.basically.website/parts/img/1a5bf367214fa603d33eb785fe23e65887d114006c0e95c996dfc35c1befa8f1.jpg"
+			"image": "https://img.basically.website/parts/img/buck-24v-5v-usbc-1a5bf367.jpg"
 		},
 		{
 			"id": "psu-24v-350w",
@@ -8384,7 +8384,7 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"image": "https://img.basically.website/parts/img/72bba2c3919b12f5bfc2cb5bbfc3ad38257fee4d09e3395db3a016e5fb47b196.jpg"
+			"image": "https://img.basically.website/parts/img/psu-24v-350w-72bba2c3.jpg"
 		},
 		{
 			"id": "psu-switch-fused",
@@ -8442,7 +8442,7 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"image": "https://img.basically.website/parts/img/b507a8b8e3f9fd8df63c5c66596bd8ba129158e6c1f56f35ef0173bca1174308.jpg"
+			"image": "https://img.basically.website/parts/img/psu-switch-fused-b507a8b8.jpg"
 		},
 		{
 			"id": "ext-2020-ag",
@@ -8565,6 +8565,17 @@
 			"image": "https://img.basically.website/web/parts/top-interface/extrusion-f.7e1f6b2dc9e069f7.png"
 		}
 	],
+	"merges": [
+		{
+			"id": "docs-merge-2026-08-21",
+			"date": "2026-08-21",
+			"sources": [
+				"parts-calculator",
+				"docs"
+			],
+			"note": "Unified the docs parts.yml catalog and this manifest into one source of truth. Conflicts referencing this merge were NOT hashed out at merge time: each records both catalogs' claims and is a TODO to resolve against the physical machine."
+		}
+	],
 	"lasercut": [
 		{
 			"id": "cable-cage-top",
@@ -8631,17 +8642,6 @@
 				"stock": "672.4 \u00d7 776.4 mm rectangle (26 15/32\u2033 \u00d7 30 9/16\u2033)",
 				"tools": "jigsaw \u00b7 drill \u00b7 tape measure"
 			}
-		}
-	],
-	"merges": [
-		{
-			"id": "docs-merge-2026-08-21",
-			"date": "2026-08-21",
-			"sources": [
-				"parts-calculator",
-				"docs"
-			],
-			"note": "Unified the docs parts.yml catalog and this manifest into one source of truth. Conflicts referencing this merge were NOT hashed out at merge time: each records both catalogs' claims and is a TODO to resolve against the physical machine."
 		}
 	]
 }

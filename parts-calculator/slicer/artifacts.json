@@ -5,42 +5,37 @@
     "slicer/build/plate-thumbs/3-bins-1.png": {
       "sha256": "4ef3faa71f64fe9015b195f85aa927a04e48eb85e35c248b0130c8b7b10e983e",
       "size": 5361,
-      "url": "https://img.basically.website/parts/thumb/4ef3faa71f64fe9015b195f85aa927a04e48eb85e35c248b0130c8b7b10e983e.png"
+      "url": "https://img.basically.website/parts/thumb/3-bins-1-4ef3faa7.png"
     },
     "slicer/build/plate-thumbs/90-deg-brackets-1.png": {
       "sha256": "bcf2dbe5a41beb2b52024c7302b4c85facbba6923a80a8a9d8a6010e2bcfffd2",
       "size": 13044,
-      "url": "https://img.basically.website/parts/thumb/bcf2dbe5a41beb2b52024c7302b4c85facbba6923a80a8a9d8a6010e2bcfffd2.png"
+      "url": "https://img.basically.website/parts/thumb/90-deg-brackets-1-bcf2dbe5.png"
     },
     "slicer/build/plate-thumbs/chute-core-and-funnel-brackets-1.png": {
       "sha256": "16ca235ae431874eacf3f5ec275eddd7fc96a6f3a9929b6df9be19b3a9aa41b6",
       "size": 10009,
-      "url": "https://img.basically.website/parts/thumb/16ca235ae431874eacf3f5ec275eddd7fc96a6f3a9929b6df9be19b3a9aa41b6.png"
+      "url": "https://img.basically.website/parts/thumb/chute-core-and-funnel-brackets-1-16ca235a.png"
     },
     "slicer/build/plate-thumbs/chute-core-and-funnel-brackets-2.png": {
       "sha256": "e63bbb31714f411784cd2dbaf880e620fe9c0bb9c5bc621ab78888e747450815",
       "size": 9716,
-      "url": "https://img.basically.website/parts/thumb/e63bbb31714f411784cd2dbaf880e620fe9c0bb9c5bc621ab78888e747450815.png"
+      "url": "https://img.basically.website/parts/thumb/chute-core-and-funnel-brackets-2-e63bbb31.png"
     },
     "slicer/build/plate-thumbs/chute-core-and-funnel-brackets-3.png": {
       "sha256": "4f64ada068524e35fa4cbd554208116fb7f724b2d93703c196f4c6f4631c0297",
       "size": 5384,
-      "url": "https://img.basically.website/parts/thumb/4f64ada068524e35fa4cbd554208116fb7f724b2d93703c196f4c6f4631c0297.png"
+      "url": "https://img.basically.website/parts/thumb/chute-core-and-funnel-brackets-3-4f64ada0.png"
     },
     "slicer/build/plate-thumbs/external-brackets-1.png": {
       "sha256": "fd853f80cfc03cc61e26bd349cf5b26a1c2b0076a0c8e187f149b3d9bd38bc1c",
       "size": 16604,
-      "url": "https://img.basically.website/parts/thumb/fd853f80cfc03cc61e26bd349cf5b26a1c2b0076a0c8e187f149b3d9bd38bc1c.png"
+      "url": "https://img.basically.website/parts/thumb/external-brackets-1-fd853f80.png"
     },
     "slicer/build/plate-thumbs/external-brackets-6-1.png": {
       "sha256": "eaa2e470eb10cb80d38fb577fba3bf1e313cc1369629f9fd37c64c2f6e6c23a5",
       "size": 23603,
-      "url": "https://img.basically.website/parts/thumb/eaa2e470eb10cb80d38fb577fba3bf1e313cc1369629f9fd37c64c2f6e6c23a5.png"
-    },
-    "slicer/build/bundle/all-parts.zip": {
-      "sha256": "b12f5f6485387ca7188204a55cba237ce07a5fa57626819f48c09129a98e4635",
-      "size": 17089189,
-      "url": "https://img.basically.website/parts/bundle/b12f5f6485387ca7188204a55cba237ce07a5fa57626819f48c09129a98e4635.zip"
+      "url": "https://img.basically.website/parts/thumb/external-brackets-6-1-eaa2e470.png"
     }
   }
 }

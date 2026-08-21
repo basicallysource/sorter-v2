@@ -1,12 +1,19 @@
 #!/usr/bin/env python3
 """The bucket is the only home binary content has; this script feeds it.
 
-Every file is stored at <prefix>/<sha256><ext> and uploaded only if absent, so
-re-runs are cheap and identical bytes are never stored twice. Because the
-address IS the content hash, every revision of every asset stays downloadable
-forever with zero redundancy -- which is what lets parts.json pin masters and
-historical versions by `stl_hash` (see notes/UNIFIED-PARTS-SYSTEM.md section 7).
-Nothing binary is committed to git, anywhere, ever.
+Every file is stored under a name that identifies itself:
+
+    stl/<part>-<stl_id>-<hash8>.stl      render/<part>-<hash8>.png
+    img/<name>-<hash8>.<ext>             plate/<name>-<hash8>.3mf   ...
+
+The hash fragment makes the address a function of the bytes (identical bytes
+are never stored twice; a revision stays downloadable forever), the human name
+makes a downloaded file readable, and an STL additionally carries its minted
+`stl_id` -- grep that id (or the hash fragment) in slicer/parts.json and you
+have the exact version of the thing in your hand. Uploads happen only if the
+key is absent. Nothing binary is committed to git, anywhere, ever. (Keys were
+bare <sha256><ext> before 2026-08-21; those objects stay on the bucket so URLs
+in old commits keep serving.)
 
 Two jobs:
   * sync (no args): upload what filament.py freshly produced under build/
@@ -31,6 +38,7 @@ import argparse
 import hashlib
 import json
 import os
+import re
 import sys
 from pathlib import Path
 
@@ -42,11 +50,12 @@ ENDPOINT = f"https://{REGION}.digitaloceanspaces.com"
 # CDN endpoint (edge-cached). The origin hostname -- same URL without `.cdn.`
 # -- also serves these objects permanently, so switching between the two is
 # never a breaking change.
-# Public URLs go through the asset service (the img.basically.website worker,
+# Public URLs go through the docs img worker (img.basically.website,
 # docs/scripts/img-worker/), which mounts this bucket at /parts/* -- one public
-# hostname for every asset, immutable caching for free since every filename is
-# a hash of the bytes. The bucket's own CDN endpoint still serves, so URLs in
-# old commits never break.
+# hostname for every asset, the whole prefix cached immutable since every
+# filename carries a hash of the bytes. (Not the asset service -- that does not
+# exist yet; this is its precursor.) The bucket's own CDN endpoint still
+# serves, so URLs in old commits never break.
 PUBLIC_BASE = os.environ.get("DO_SPACES_PUBLIC_BASE", "https://img.basically.website/parts")
 
 # Directories whose contents get pushed. Keep this list narrow: only things
@@ -67,6 +76,35 @@ SOURCES = [
 
 CONTENT_TYPES = {".stl": "model/stl", ".3mf": "model/3mf", ".zip": "application/zip",
                  ".png": "image/png", ".jpg": "image/jpeg"}
+
+# How much of the sha256 rides in a filename. Enough to never collide across
+# a few hundred objects and to be uniquely greppable in parts.json.
+HASH_CHARS = 8
+
+
+def slug(name: str) -> str:
+    s = re.sub(r"[^a-z0-9]+", "-", str(name).lower()).strip("-")
+    return s or "asset"
+
+
+def named_key(prefix: str, name: str, digest: str, suffix: str) -> str:
+    return f"{prefix}/{slug(name)}-{digest[:HASH_CHARS]}{suffix}"
+
+
+def stl_url(name: str, stl_id: str, digest: str) -> str:
+    """stl/<name>-<stl_id>-<hash8>.stl -- the id is the parts.json lookup key."""
+    return f"{PUBLIC_BASE}/stl/{slug(name)}-{stl_id}-{digest[:HASH_CHARS]}.stl"
+
+
+def mint_stl_id() -> str:
+    """4 chars of base36, never all digits; stored beside the stl_hash it names."""
+    import random
+    import string
+    rng = random.SystemRandom()
+    while True:
+        i = "".join(rng.choice(string.ascii_lowercase + string.digits) for _ in range(4))
+        if not i.isdigit():
+            return i
 
 # Images render in <img> tags; everything else is a download.
 INLINE_SUFFIXES = {".png", ".jpg"}
@@ -116,16 +154,17 @@ def sha256(path: str | Path) -> str:
     return h.hexdigest()
 
 
-def artifact_url(path: str | Path, prefix: str = "stl") -> str:
-    """Public URL for a local file, derived purely from its content hash.
+def artifact_url(path: str | Path, prefix: str = "stl", name: str | None = None) -> str:
+    """Public URL for a local file: <prefix>/<name>-<hash8><ext>.
 
     Deliberately does NOT consult the bucket or the manifest: the address is a
-    function of the bytes, so the generator can emit correct URLs before an
-    upload has happened. sync_bucket.py's only job is making sure the bytes are
-    actually there.
+    function of the bytes (plus the human name), so the generator can emit
+    correct URLs before an upload has happened. sync_bucket.py's only job is
+    making sure the bytes are actually there. `name` defaults to the file's
+    own stem, which is already the part/plate id for everything under build/.
     """
     p = Path(path)
-    return f"{PUBLIC_BASE}/{prefix}/{sha256(p)}{p.suffix}"
+    return f"{PUBLIC_BASE}/{named_key(prefix, name or p.stem, sha256(p), p.suffix)}"
 
 
 def set_cors(s3) -> None:
@@ -183,9 +222,9 @@ def upload_loose(paths: list[str]) -> None:
     This is the ONLY way binary content enters the system -- nothing binary is
     committed. The prefix and the paste-line follow from the file type:
 
-      .stl        -> stl/<sha>.stl      "stl_hash": "<sha>"   (slicer/parts.json)
-      .3mf        -> plate/<sha>.3mf    "hash": "<sha>"       (slicer/plates.json)
-      images      -> img/<sha>.<ext>    "image_url": "<url>"  (slicer/parts.json)
+      .stl    -> stl/<name>-<id>-<hash8>.stl   "stl_hash" + "stl_id"  (parts.json)
+      .3mf    -> plate/<name>-<hash8>.3mf      "hash": "<sha>"        (plates.json)
+      images  -> img/<name>-<hash8>.<ext>      "image_url": "<url>"   (parts.json)
     """
     s3 = s3_client()
     for raw in paths:
@@ -197,7 +236,9 @@ def upload_loose(paths: list[str]) -> None:
         suffix = p.suffix.lower()
         prefix = {"": "img", ".stl": "stl", ".3mf": "plate"}.get(
             suffix if suffix in (".stl", ".3mf") else "", "img")
-        key = f"{prefix}/{digest}{suffix}"
+        sid = mint_stl_id() if prefix == "stl" else None
+        key = (f"stl/{slug(p.stem)}-{sid}-{digest[:HASH_CHARS]}{suffix}"
+               if sid else named_key(prefix, p.stem, digest, suffix))
         try:
             s3.head_object(Bucket=BUCKET, Key=key)
             print(f"  already on the bucket  {p.name}")
@@ -205,7 +246,8 @@ def upload_loose(paths: list[str]) -> None:
             s3.upload_file(str(p), BUCKET, key, ExtraArgs=upload_args(p.name))
             print(f"  uploaded  {p.name}  ({p.stat().st_size / 1e6:.1f} MB)")
         if prefix == "stl":
-            print(f'    "stl_hash": "{digest}"')
+            print(f'    "stl_hash": "{digest}",')
+            print(f'    "stl_id": "{sid}"')
         elif prefix == "plate":
             print(f'    "hash": "{digest}"')
         else:
@@ -227,7 +269,7 @@ def collect() -> list[dict]:
                     "name": path.name,
                     "sha256": digest,
                     "size": path.stat().st_size,
-                    "key": f"{prefix}/{digest}{path.suffix}",
+                    "key": named_key(prefix, path.stem, digest, path.suffix),
                 }
             )
     return found

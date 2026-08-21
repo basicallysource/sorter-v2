@@ -1,10 +1,13 @@
-// This worker is the asset service's front door: one public hostname over
-// content-addressed storage. Each namespace maps to its own bucket:
+// The docs img worker: one public hostname over content-addressed storage.
+// (Not "the asset service" -- that doesn't exist yet; this is its precursor
+// and will presumably grow into it.) Each namespace maps to its own bucket:
 //   /web/*, /harness/*, ...  -> basically-docs      (docs images + harness)
 //   /parts/*                 -> sorter-v2-parts     (parts calculator: stl/,
 //                               render/, thumb/, plate/, bundle/, img/)
-// The /parts namespace is content-addressed end to end (every filename IS a
-// hash of the bytes), so the whole prefix is immutable by construction.
+// The /parts namespace is content-addressed end to end (every filename
+// carries a hash of the bytes -- <name>-<hash8>.<ext>, STLs additionally a
+// minted id: <name>-<id>-<hash8>.stl, looked up in slicer/parts.json), so
+// the whole prefix is immutable by construction.
 const ORIGIN = "https://basically-docs.nyc3.digitaloceanspaces.com";
 const PARTS_ORIGIN = "https://sorter-v2-parts.nyc3.digitaloceanspaces.com";
 const PARTS_PREFIX = "/parts/";

@@ -168,4 +168,13 @@ The 2020 extrusion itself is not in the parts list above, because its length dep
 
 The order the mounts go on, and how the hold in place prints sit against them, is not recorded yet.
 
-<div class="img-placeholder">Image coming</div>
+<div class="img-row">
+  <figure>
+    <img src="https://img.basically.website/web/assembly/bottom-interface/step4-extrusion-mount.875e1c5a694ae3de.jpg" alt="A printed Lazy Susan extrusion mount, a grey wedge-shaped bracket with a triangular window through its web and two counterbored holes along its bottom face">
+    <figcaption>A Lazy Susan extrusion mount.</figcaption>
+  </figure>
+  <figure>
+    <img src="https://img.basically.website/web/assembly/bottom-interface/step4-extrusion-mount-on-2020.c91601474f43c5a1.jpg" alt="The same extrusion mount with a length of 2020 aluminum extrusion seated in the channel along its sloped edge">
+    <figcaption>With a length of 2020 in its channel. Photos by BrickCycleAlice.</figcaption>
+  </figure>
+</div>

@@ -3,7 +3,7 @@
 
 This exists because a broken asset is invisible to every other check we run.
 The bucket is content-addressed, so a wrong URL is not a 404 -- it is a 200
-with the wrong bytes. When slicer/images/** was briefly LFS-tracked, CI hashed
+with the wrong bytes. When catalog/images/** was briefly LFS-tracked, CI hashed
 and uploaded 130-byte pointer stubs; every URL looked healthy, returned 200
 with Content-Type: image/png, and rendered as a broken image on production.
 
@@ -16,12 +16,12 @@ credentials in CI) adding a part.
 
     python scripts/check_bucket_urls.py
 
-Checks src/lib/data/parts.generated.json and plates.generated.json. With a
+Checks src/lib/data/catalog.generated.json (parts and plates). With a
 file argument it instead regex-scans that file for image URLs, so an
-`image_url` edit to slicer/parts.json can be checked without invoking the
+`image_url` edit to catalog/parts.json can be checked without invoking the
 slicer:
 
-    python scripts/check_bucket_urls.py slicer/parts.json
+    python scripts/check_bucket_urls.py catalog/parts.json
 
 Exits non-zero listing every URL that fails.
 """
@@ -38,8 +38,7 @@ REPO = Path(__file__).resolve().parent.parent
 # A real UA: the asset service's zone 403s urllib's default Python-urllib/x.y
 # (Browser Integrity Check), which is exactly how CI runs this.
 UA = "sorter-v2-parts-check/1.0 (+https://github.com/basicallysource/sorter-v2)"
-PARTS = REPO / "src/lib/data/parts.generated.json"
-PLATES = REPO / "src/lib/data/plates.generated.json"
+CATALOG = REPO / "src/lib/data/catalog.generated.json"
 
 # An asset smaller than this is not real; the LFS pointer stubs that broke
 # production were 130 bytes.
@@ -56,7 +55,7 @@ def collect_urls() -> dict[str, str]:
         if isinstance(u, str) and u.startswith("http"):
             urls[u] = kind
 
-    parts = json.loads(PARTS.read_text())
+    parts = json.loads(CATALOG.read_text())
     add(parts.get("settings", {}).get("all_parts_zip"), "binary")
     for p in parts.get("parts", []):
         add(p.get("stl"), "binary")
@@ -74,11 +73,10 @@ def collect_urls() -> dict[str, str]:
         for im in c.get("images") or []:
             add(im.get("url"), "image")
 
-    if PLATES.exists():
-        for plate in json.loads(PLATES.read_text()):
-            add(plate.get("download"), "binary")
-            for t in plate.get("thumbs") or []:
-                add(t, "image")
+    for plate in parts.get("plates", []):
+        add(plate.get("download"), "binary")
+        for t in plate.get("thumbs") or []:
+            add(t, "image")
 
     return urls
 
@@ -118,7 +116,7 @@ def check(item: tuple[str, str]) -> tuple[str, str | None]:
 
 def main() -> None:
     if len(sys.argv) > 1:
-        # lint one file's image URLs directly (works on slicer/parts.json)
+        # lint one file's image URLs directly (works on catalog/parts.json)
         blob = Path(sys.argv[1]).read_text()
         found = re.findall(r'"image(?:_url)?":\s*"(https?://[^"]+)"', blob)
         urls = {u: "image" for u in found}

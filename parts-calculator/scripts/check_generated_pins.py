@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Verify the committed generated data agrees with the committed source pins.
 
-The generated files are written by whoever edits slicer/parts.json running
-slicer/filament.py, and committed in the same change; nothing regenerates them
+The generated files are written by whoever edits catalog/parts.json running
+catalog/generate.py, and committed in the same change; nothing regenerates them
 after the fact. So the guard against "edited the source, forgot to regenerate"
 is this cross-check: every printed part's generated entry must serve exactly
 the STL its pin names, carry real slice numbers, and no entry may outlive its
@@ -22,9 +22,9 @@ from sync_bucket import stl_url  # noqa: E402
 
 
 def main():
-    manifest = json.loads((HERE / "slicer" / "parts.json").read_text())
+    manifest = json.loads((HERE / "catalog" / "parts.json").read_text())
     generated = json.loads(
-        (HERE / "src" / "lib" / "data" / "parts.generated.json").read_text())
+        (HERE / "src" / "lib" / "data" / "catalog.generated.json").read_text())
     gen = {p["id"]: p for p in generated["parts"]}
 
     printed = [p for p in manifest["parts"]
@@ -50,9 +50,9 @@ def main():
         print(f"{len(bad)} disagreement(s) between parts.json and parts.generated.json:")
         for b in bad:
             print(f"  {b}")
-        print("\nRun slicer/filament.py and commit the regenerated data with your change.")
+        print("\nRun catalog/generate.py and commit the regenerated data with your change.")
         sys.exit(1)
-    print(f"parts.generated.json agrees with parts.json ({len(printed)} pinned parts)")
+    print(f"catalog.generated.json agrees with parts.json ({len(printed)} pinned parts)")
 
 
 if __name__ == "__main__":

@@ -1,16 +1,15 @@
 /**
- * Filament math. Everything downstream of `grams` comes from the slicer
- * (slicer/filament.py) — this module only multiplies by quantities and groups
- * by color. No estimation happens here.
+ * Catalog data + filament math. Everything here reads the one generated file
+ * (catalog.generated.json, written by catalog/generate.py) — this module only
+ * multiplies by quantities and groups by color. No estimation happens here.
  */
 import { LASER_CUT_PARTS, type LaserCutPart } from './lasercut';
-import raw from '$lib/data/parts.generated.json';
-import platesRaw from '$lib/data/plates.generated.json';
+import raw from '$lib/data/catalog.generated.json';
 import { getBambuColor, type BambuColor } from '$lib/bambu-colors';
 
 export type PlatePart = { name: string; count: number; part_id: string | null };
 export type Plate = { id: string; name: string; download: string; thumbs: string[]; parts: PlatePart[] };
-export const PLATES = platesRaw as Plate[];
+export const PLATES = ((raw as { plates?: Plate[] }).plates ?? []) as Plate[];
 const _platesByPart = new Map<string, Plate[]>();
 for (const pl of PLATES)
 	for (const pp of pl.parts)

@@ -323,7 +323,7 @@ it rare.
 
 ## 5. Schema
 
-Extending `slicer/parts.json` (which stays the authored manifest; the build
+Extending `catalog/parts.json` (which stays the authored manifest; the build
 still generates the app's data from it). **Schema rule: a field may only be
 added if its absence means something sensible for every existing part.**
 That rule is why all 84 current parts are valid on day one with zero edits.
@@ -603,7 +603,7 @@ The one real dependency is bucket availability — which is why the masters
 stay committed in git as the archival copy.
 
 **Dual storage (as built, 2026-08-20).** Plain git holds the canonical
-masters (`slicer/parts/**`, not LFS — see `.gitattributes` for why LFS is
+masters (`catalog/parts/**`, not LFS — see `.gitattributes` for why LFS is
 banned); the bucket is the serving layer. The site never reads repo binaries
 — every download URL in the generated JSON is a bucket URL, superseded
 version geometry is pinned by `stl_hash`, and the old `static/stl/` serving
@@ -674,7 +674,7 @@ end on printed parts and everything else is enrichment.
    silently falls back to the *current* geometry — wrong data, no error.
    Once each revision pins its own `stl_hash` (step 1), the bucket is
    authoritative and git history stops being load-bearing; the migration is
-   then safe. If moving sooner, run `filament.py --force` first so every
+   then safe. If moving sooner, run `generate.py --force` first so every
    revision still discoverable in history gets archived to the bucket.
 10. **Sheet retirement** — stamp each tab superseded with a link as its
     domain migrates (extrusion-tab pattern). Optionally add a one-way
@@ -684,7 +684,7 @@ end on printed parts and everything else is enrichment.
 
 ## Appendix: current-state facts this design was built against
 
-- Calculator: 84 printed parts in `slicer/parts.json` (all currently valid
+- Calculator: 84 printed parts in `catalog/parts.json` (all currently valid
   against schema v2 with zero edits); 3 laser parts; 9 framing pieces;
   14 assembly labels; 2 variant groups (funnel, bin); 9 sections; layer
   config `['third','third','half']`; 81 parts at internal version 1, 3 at

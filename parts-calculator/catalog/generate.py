@@ -1,6 +1,18 @@
 #!/usr/bin/env python
 """
-Data-generation step for the Sorter parts calculator.
+The catalog generator: authored sources in, one site-ready file out.
+
+Reads catalog/parts.json (and plates.json), derives everything the sites
+display -- the slicer's own grams and print times, thumbnails, download URLs
+-- and writes src/lib/data/catalog.generated.json, the single generated
+artifact both the parts calculator and the docs site consume. The generated
+file is not meant to be read or edited by a person; regenerate it.
+
+Slices are already derived by the asset service, content-addressed by
+geometry, so a re-run redoes only what actually changed and "which of these
+already exist" is a manifest read. Thumbnails are headed the same way --
+parameterized service derivations keyed by (geometry, color, ...) -- at
+which point the local matplotlib rendering here disappears.
 
 Runs anywhere: against a local OrcaSlicer when one is installed (ORCA_BIN /
 ORCA_PROFILES), otherwise through the asset service's slicer worker
@@ -21,7 +33,7 @@ repo.
 Commit the generated JSON (nothing else changes in git). Re-run whenever a pin
 changes or you add/remove parts.
 
-Run:  /opt/homebrew/opt/python@3.11/libexec/bin/python filament.py [--force]
+Run:  /opt/homebrew/opt/python@3.11/libexec/bin/python generate.py [--force]
 See ../notes/TERMINOLOGY.md for terminology.
 """
 
@@ -72,7 +84,7 @@ AUTO_ORIENT = False                        # CLI auto-orient is unreliable; use 
 BUILD = os.path.join(HERE, "build")       # gitignored slicer scratch
 CACHE = os.path.join(BUILD, "cache")
 PROFILE_DIR = os.path.join(BUILD, "profiles")
-DATA_OUT = os.path.join(REPO, "src", "lib", "data", "parts.generated.json")
+DATA_OUT = os.path.join(REPO, "src", "lib", "data", "catalog.generated.json")
 # NOTHING binary is written into the repo. Masters are fetched from the bucket
 # by the stl_hash pinned per part in parts.json; renders, plate thumbnails and
 # the all-parts zip are staged under gitignored build/ and uploaded
@@ -83,18 +95,11 @@ MASTERS = os.path.join(BUILD, "masters")
 RENDERS_OUT = os.path.join(BUILD, "renders")
 VERS_RENDERS_OUT = os.path.join(RENDERS_OUT, "versions")
 RENDER_META = os.path.join(CACHE, "renders-meta")   # (stl bytes, hex) -> URL memo
-# The committed half of the render memo: (stl bytes, hex) -> content-addressed
-# filename, in git beside the pins. build/ is gitignored, so without this a
-# fresh clone -- every container, every new machine -- re-renders the whole
-# catalog with matplotlib it may not have. Renders only happen for geometry or
-# color that actually changed; everything else resolves here.
-RENDER_URLS = os.path.join(HERE, "render-urls.json")
 BUNDLE_OUT = os.path.join(BUILD, "bundle")
-# build plates: pre-arranged .3mf files pinned by hash in slicer/plates.json
+# build plates: pre-arranged .3mf files pinned by hash in catalog/plates.json
 PLATES_SRC = os.path.join(BUILD, "plates")
 PLATES_MANIFEST = os.path.join(HERE, "plates.json")
 PLATE_THUMB_OUT = os.path.join(BUILD, "plate-thumbs")
-PLATES_DATA = os.path.join(REPO, "src", "lib", "data", "plates.generated.json")
 
 
 # ---------------------------------------------------------------- profile prep
@@ -172,16 +177,6 @@ def master_stl(p):
     return dest
 
 
-_render_urls = json.load(open(RENDER_URLS)) if os.path.exists(RENDER_URLS) else {}
-_render_urls_dirty = False
-
-
-def save_render_urls():
-    if _render_urls_dirty:
-        json.dump(dict(sorted(_render_urls.items())), open(RENDER_URLS, "w"), indent=1)
-        print(f"  render memo -> {os.path.basename(RENDER_URLS)} ({len(_render_urls)} entries; commit it)")
-
-
 def render_url_for(stl_abs, hexcolor, out_png, force):
     """Bucket URL for this geometry's thumbnail, rendering only when needed.
 
@@ -189,10 +184,7 @@ def render_url_for(stl_abs, hexcolor, out_png, force):
     same picture, so its content-addressed URL never changes and nothing needs
     re-rendering or re-uploading. A fresh render lands in build/renders/ where
     sync_bucket.py picks it up."""
-    global _render_urls_dirty
     key = hashlib.sha1(open(stl_abs, "rb").read() + hexcolor.encode()).hexdigest()[:16]
-    if not force and key in _render_urls:
-        return f"{PUBLIC_BASE}/render/{_render_urls[key]}"
     meta = os.path.join(RENDER_META, key + ".json")
     if not force and os.path.exists(meta):
         # The memo pins the content-addressed FILENAME; the serving base and
@@ -204,17 +196,11 @@ def render_url_for(stl_abs, hexcolor, out_png, force):
         if legacy:
             name = os.path.splitext(os.path.basename(out_png))[0]
             tail = named_key('render', name, legacy.group(1), legacy.group(2)).rsplit("/", 1)[1]
-        # Backfill the committed memo from the build-cache one, so a machine
-        # that has rendered carries every URL it knows into git.
-        _render_urls[key] = tail
-        _render_urls_dirty = True
         return f"{PUBLIC_BASE}/render/{tail}"
     render(stl_abs, out_png, hexcolor)
     url = artifact_url(out_png, prefix="render")
     os.makedirs(RENDER_META, exist_ok=True)
     json.dump({"url": url}, open(meta, "w"))
-    _render_urls[key] = url.rsplit("/", 1)[1]
-    _render_urls_dirty = True
     return url
 
 
@@ -374,7 +360,7 @@ def prepare_mesh(stl_abs, out_path):
 ASSET_SERVICE_URL = os.environ.get("ASSET_SERVICE_URL", "https://assets.basically.website").rstrip("/")
 ASSET_SERVICE_TOKEN = os.environ.get("ASSET_SERVICE_TOKEN", "")
 ASSET_NAMESPACE = "sorter-parts"
-UA = "sorter-v2-slicer/1.0 (+https://github.com/basicallysource/sorter-v2)"
+UA = "sorter-v2-catalog/1.0 (+https://github.com/basicallysource/sorter-v2)"
 REMOTE_WAIT_S = 900          # a part slices in seconds once a worker claims it
 _remote_manifests = {}       # sha256 -> manifest, so both variants share one poll
 
@@ -754,7 +740,7 @@ def main():
     check_hardware_refs(manifest, set(part_ids))
     if args.metadata_only:
         if not os.path.exists(DATA_OUT):
-            sys.exit("--metadata-only needs an existing parts.generated.json")
+            sys.exit("--metadata-only needs an existing catalog.generated.json; run the full generator once")
         data = json.load(open(DATA_OUT))
         authored = {p["id"]: p for p in manifest["parts"]
                     if p.get("kind", "printed") == "printed"}
@@ -958,6 +944,8 @@ def main():
             zi.external_attr = 0o644 << 16
             zf.writestr(zi, open(src, "rb").read())
 
+    plates = process_plates(manifest)
+
     data = {
         "settings": {
             "printer": PRINTER, "process": PROCESS, "filament": FILAMENT,
@@ -975,12 +963,12 @@ def main():
         "families": families,
         "assemblies": manifest.get("assemblies", []),
         "parts": out_parts,
+        "plates": plates,
         "hardware": hardware,
         "lasercut": build_lasercut(manifest),
         "merges": manifest.get("merges", []),
     }
     json.dump(data, open(DATA_OUT, "w"), indent="\t")
-    save_render_urls()
 
     print(f"\nwrote {DATA_OUT}")
     print(f"  {len(out_parts)} parts · thumbnails, STLs + bundle -> bucket")
@@ -990,15 +978,13 @@ def main():
     if failed:
         print(f"  ! {len(failed)} part(s) FAILED to slice: {', '.join(failed)}")
 
-    process_plates(manifest)
-
     if args.strict and (failed or not out_parts):
         sys.exit(f"strict mode: {len(failed)} part(s) failed, "
                  f"{len(out_parts)} produced -- refusing to bless this output")
 
 
 def process_plates(manifest):
-    """Build plates from slicer/plates.json: each entry pins a 3mf on the
+    """Build plates from catalog/plates.json: each entry pins a 3mf on the
     bucket by hash. Fetch it, pull its embedded plate previews (uploaded
     content-addressed too), and read the parts it contains (cross-linked to
     manifest parts via each part's optional `source` filename)."""
@@ -1036,8 +1022,8 @@ def process_plates(manifest):
         parts.sort(key=lambda x: -x["count"])
         out.append({"id": pid, "name": base, "download": plate_url,
                     "thumbs": thumbs, "parts": parts})
-    json.dump(out, open(PLATES_DATA, "w"), indent="\t")
-    print(f"  {len(out)} build plate(s) -> plates.generated.json (thumbs -> bucket)")
+    print(f"  {len(out)} build plate(s) (thumbs -> bucket)")
+    return out
 
 
 if __name__ == "__main__":

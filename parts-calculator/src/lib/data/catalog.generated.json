@@ -5699,6 +5699,125 @@
 			"render": "https://img.basically.website/parts/render/meanwell-psu-cap-57608c50.png"
 		}
 	],
+	"plates": [
+		{
+			"id": "3-bins",
+			"name": "3-bins",
+			"download": "https://img.basically.website/parts/plate/3-bins-c6147c79.3mf",
+			"thumbs": [
+				"https://img.basically.website/parts/thumb/3-bins-1-4ef3faa7.png"
+			],
+			"parts": [
+				{
+					"name": "bin-third-rightback",
+					"count": 1,
+					"part_id": "bin-third-rightback"
+				},
+				{
+					"name": "bin-third-center",
+					"count": 1,
+					"part_id": "bin-third-center"
+				},
+				{
+					"name": "bin-third-left",
+					"count": 1,
+					"part_id": "bin-third-left"
+				}
+			]
+		},
+		{
+			"id": "90-deg-brackets",
+			"name": "90-deg-brackets",
+			"download": "https://img.basically.website/parts/plate/90-deg-brackets-6aab6886.3mf",
+			"thumbs": [
+				"https://img.basically.website/parts/thumb/90-deg-brackets-1-bcf2dbe5.png"
+			],
+			"parts": [
+				{
+					"name": "inner 90 bracket",
+					"count": 22,
+					"part_id": "frame-90deg-bracket"
+				}
+			]
+		},
+		{
+			"id": "chute-core-and-funnel-brackets",
+			"name": "chute-core-and-funnel-brackets",
+			"download": "https://img.basically.website/parts/plate/chute-core-and-funnel-brackets-3605074a.3mf",
+			"thumbs": [
+				"https://img.basically.website/parts/thumb/chute-core-and-funnel-brackets-1-16ca235a.png",
+				"https://img.basically.website/parts/thumb/chute-core-and-funnel-brackets-2-e63bbb31.png",
+				"https://img.basically.website/parts/thumb/chute-core-and-funnel-brackets-3-4f64ada0.png"
+			],
+			"parts": [
+				{
+					"name": "left funnel slide",
+					"count": 5,
+					"part_id": "funnel-bracket-left"
+				},
+				{
+					"name": "right funnel slide",
+					"count": 3,
+					"part_id": "funnel-bracket-right"
+				},
+				{
+					"name": "core (2)",
+					"count": 1,
+					"part_id": "chute-core"
+				}
+			]
+		},
+		{
+			"id": "external-brackets-6",
+			"name": "external-brackets-6",
+			"download": "https://img.basically.website/parts/plate/external-brackets-6-64e17ce0.3mf",
+			"thumbs": [
+				"https://img.basically.website/parts/thumb/external-brackets-6-1-eaa2e470.png"
+			],
+			"parts": [
+				{
+					"name": "bottom vertical bracket",
+					"count": 6,
+					"part_id": "ext-bracket-bottom-vertical"
+				},
+				{
+					"name": "external bracket cover",
+					"count": 6,
+					"part_id": "ext-bracket-cover"
+				},
+				{
+					"name": "left external bracket",
+					"count": 6,
+					"part_id": "ext-bracket-left"
+				}
+			]
+		},
+		{
+			"id": "external-brackets",
+			"name": "external-brackets",
+			"download": "https://img.basically.website/parts/plate/external-brackets-4a28da2e.3mf",
+			"thumbs": [
+				"https://img.basically.website/parts/thumb/external-brackets-1-fd853f80.png"
+			],
+			"parts": [
+				{
+					"name": "bottom vertical bracket",
+					"count": 4,
+					"part_id": "ext-bracket-bottom-vertical"
+				},
+				{
+					"name": "left external bracket",
+					"count": 4,
+					"part_id": "ext-bracket-left"
+				},
+				{
+					"name": "external bracket cover",
+					"count": 4,
+					"part_id": "ext-bracket-cover"
+				}
+			]
+		}
+	],
 	"hardware": [
 		{
 			"id": "scr-m3-tbd",

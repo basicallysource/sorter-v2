@@ -9,18 +9,18 @@ Every file is stored under a name that identifies itself:
 The hash fragment makes the address a function of the bytes (identical bytes
 are never stored twice; a revision stays downloadable forever), the human name
 makes a downloaded file readable, and an STL additionally carries its minted
-`stl_id` -- grep that id (or the hash fragment) in slicer/parts.json and you
+`stl_id` -- grep that id (or the hash fragment) in catalog/parts.json and you
 have the exact version of the thing in your hand. Uploads happen only if the
 key is absent. Nothing binary is committed to git, anywhere, ever. (Keys were
 bare <sha256><ext> before 2026-08-21; those objects stay on the bucket so URLs
 in old commits keep serving.)
 
 Two jobs:
-  * sync (no args): upload what filament.py freshly produced under build/
+  * sync (no args): upload what generate.py freshly produced under build/
     (renders, plate thumbnails, the all-parts zip) and write the manifest.
   * --upload FILE...: author an asset -- an STL master, a plate 3mf, a product
     image -- straight onto the bucket, printing the pin line to paste into
-    slicer/parts.json or slicer/plates.json.
+    catalog/parts.json or catalog/plates.json.
 
 Credentials, in order of precedence:
   1. env: DO_SPACES_KEY / DO_SPACES_SECRET
@@ -61,17 +61,17 @@ PUBLIC_BASE = os.environ.get("DO_SPACES_PUBLIC_BASE", "https://img.basically.web
 # Directories whose contents get pushed. Keep this list narrow: only things
 # the website serves or that pin a revision. Renders (1.4M total) stay as
 # normal git blobs -- they are small and the site wants them at build time.
-# Everything here lives in gitignored build/, freshly produced by filament.py:
+# Everything here lives in gitignored build/, freshly produced by generate.py:
 # renders and plate thumbnails it generated this run, and the all-parts zip.
 # Files that were memoized (already uploaded by an earlier run) are not on
 # disk, so a sync only pushes new bytes. Masters and plates never appear:
 # they are authored straight onto the bucket with `--upload` and pinned by
-# hash in slicer/parts.json / plates.json, so their bytes exist before any
+# hash in catalog/parts.json / plates.json, so their bytes exist before any
 # regen needs them.
 SOURCES = [
-    ("slicer/build/renders", "*.png", "render"),
-    ("slicer/build/plate-thumbs", "*.png", "thumb"),
-    ("slicer/build/bundle", "all-parts.zip", "bundle"),
+    ("catalog/build/renders", "*.png", "render"),
+    ("catalog/build/plate-thumbs", "*.png", "thumb"),
+    ("catalog/build/bundle", "all-parts.zip", "bundle"),
 ]
 
 CONTENT_TYPES = {".stl": "model/stl", ".3mf": "model/3mf", ".zip": "application/zip",
@@ -109,7 +109,7 @@ def mint_stl_id() -> str:
 # Images render in <img> tags; everything else is a download.
 INLINE_SUFFIXES = {".png", ".jpg"}
 
-MANIFEST = REPO / "slicer" / "artifacts.json"
+MANIFEST = REPO / "catalog" / "artifacts.json"
 CREDS_FILE = Path.home() / ".config" / "do-spaces" / "sorter-v2-parts.env"
 
 

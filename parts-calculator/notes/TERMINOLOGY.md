@@ -1,7 +1,7 @@
 # Sorter terminology & part notes (for the agent)
 
 My working notes so I use the right words and quantities. Not shown in the app.
-Source of truth for the calculator is `slicer/parts.json`; this explains the *why*.
+Source of truth for the calculator is `catalog/parts.json`; this explains the *why*.
 
 ## The machine, top to bottom
 

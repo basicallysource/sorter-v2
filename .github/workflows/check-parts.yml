@@ -1,0 +1,36 @@
+name: Check part data
+
+# A merge to main already carries the PR run's CI-normalized outputs; all a
+# push to main needs is proof that the committed data references bytes the
+# bucket actually serves. Slicing and commit-back live in regen-parts.yml and
+# run only on PRs -- separate files so neither shows a skipped job in the
+# other's context.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'parts-calculator/src/lib/data/parts.generated.json'
+      - 'parts-calculator/src/lib/data/plates.generated.json'
+      - 'parts-calculator/slicer/parts.json'
+      - 'parts-calculator/slicer/plates.json'
+      - 'parts-calculator/slicer/filament.py'
+      - 'parts-calculator/slicer/requirements.txt'
+      - 'parts-calculator/src/lib/bambu-colors.ts'
+      - 'parts-calculator/scripts/sync_bucket.py'
+      - '.github/workflows/check-parts.yml'
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+          cache-dependency-path: parts-calculator/slicer/requirements.txt
+      - run: pip install -r parts-calculator/slicer/requirements.txt
+      - run: python parts-calculator/scripts/check_bucket_urls.py

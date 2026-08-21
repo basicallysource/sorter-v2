@@ -36,6 +36,11 @@
       "sha256": "eaa2e470eb10cb80d38fb577fba3bf1e313cc1369629f9fd37c64c2f6e6c23a5",
       "size": 23603,
       "url": "https://img.basically.website/parts/thumb/external-brackets-6-1-eaa2e470.png"
+    },
+    "slicer/build/bundle/all-parts.zip": {
+      "sha256": "b12f5f6485387ca7188204a55cba237ce07a5fa57626819f48c09129a98e4635",
+      "size": 17089189,
+      "url": "https://img.basically.website/parts/bundle/all-parts-b12f5f64.zip"
     }
   }
 }

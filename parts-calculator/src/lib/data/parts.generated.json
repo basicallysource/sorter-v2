@@ -1409,15 +1409,15 @@
 					"commit": null,
 					"stl": "https://img.basically.website/parts/stl/stator-n6bm-323b2d1f.stl",
 					"render": "https://img.basically.website/parts/render/stator-02ab8b46.png",
-					"grams": 175.75
+					"grams": 175.52
 				}
 			],
 			"attributes": [],
-			"grams": 175.75,
-			"support_grams": 23.07,
+			"grams": 175.52,
+			"support_grams": 23.42,
 			"support_used": true,
 			"support_intentional": true,
-			"print_seconds": 16023,
+			"print_seconds": 16014,
 			"color": {
 				"by_section": {
 					"feeder": {
@@ -1767,6 +1767,7 @@
 					"message": "Initial version. The dovetail fit was too tight and could make the cap difficult to install on the stator.",
 					"commit": "83deca5",
 					"stl_hash": "c7200a59ee437fb073d90f0fcaf96773cf1aad0e6fcd34f5a68beb8f4752497a",
+					"stl_id": "wo2a",
 					"render": "https://img.basically.website/parts/render/bulk-cap-v1-9ec28d7a.png",
 					"stl": "https://img.basically.website/parts/stl/bulk-cap-wo2a-c7200a59.stl",
 					"grams": 648.51
@@ -1872,6 +1873,7 @@
 					"message": "Initial version. The fit around the horizontal aluminum spoke was too tight.",
 					"commit": "83deca5",
 					"stl_hash": "db2c0ecf58184c752a8d66035b2620a3d1570343167b8b2b7f3b7eedd402c58f",
+					"stl_id": "s2o9",
 					"render": "https://img.basically.website/parts/render/interface-bracket-v1-299da0d4.png",
 					"stl": "https://img.basically.website/parts/stl/interface-bracket-s2o9-db2c0ecf.stl",
 					"grams": 159.64
@@ -2676,6 +2678,7 @@
 					"message": "Initial version.",
 					"commit": "36aa6b5",
 					"stl_hash": "bf52ad8b7b81dc61a3ed69517953ad52139f8eec291920627e6ff71a3bc3e0fd",
+					"stl_id": "vbca",
 					"render": "https://img.basically.website/parts/render/interface-upper-fixed-section-v1-84740ff9.png",
 					"stl": "https://img.basically.website/parts/stl/interface-upper-fixed-section-vbca-bf52ad8b.stl",
 					"grams": 153.65
@@ -2835,6 +2838,7 @@
 					"message": "Initial version.",
 					"commit": "36aa6b5",
 					"stl_hash": "8ca345012b63e33064706c787705fa3d3f39229891319935beb58eeede6d1a14",
+					"stl_id": "m8pp",
 					"render": "https://img.basically.website/parts/render/interface-big-spacer-v1-8ef4cd81.png",
 					"stl": "https://img.basically.website/parts/stl/interface-big-spacer-m8pp-8ca34501.stl",
 					"grams": 22.19
@@ -2940,9 +2944,10 @@
 					"message": "Initial version.",
 					"commit": "36aa6b5",
 					"stl_hash": "34485f41055e82d098984ed49824fd0f93f471dac62ea86e6b83cf87482bf9fd",
+					"stl_id": "03l5",
 					"render": "https://img.basically.website/parts/render/cable-clamp-outer-v1-ca79ce54.png",
 					"stl": "https://img.basically.website/parts/stl/cable-clamp-outer-03l5-34485f41.stl",
-					"grams": 19.77
+					"grams": 19.76
 				},
 				{
 					"version": "2",
@@ -8565,17 +8570,6 @@
 			"image": "https://img.basically.website/web/parts/top-interface/extrusion-f.7e1f6b2dc9e069f7.png"
 		}
 	],
-	"merges": [
-		{
-			"id": "docs-merge-2026-08-21",
-			"date": "2026-08-21",
-			"sources": [
-				"parts-calculator",
-				"docs"
-			],
-			"note": "Unified the docs parts.yml catalog and this manifest into one source of truth. Conflicts referencing this merge were NOT hashed out at merge time: each records both catalogs' claims and is a TODO to resolve against the physical machine."
-		}
-	],
 	"lasercut": [
 		{
 			"id": "cable-cage-top",
@@ -8642,6 +8636,17 @@
 				"stock": "672.4 \u00d7 776.4 mm rectangle (26 15/32\u2033 \u00d7 30 9/16\u2033)",
 				"tools": "jigsaw \u00b7 drill \u00b7 tape measure"
 			}
+		}
+	],
+	"merges": [
+		{
+			"id": "docs-merge-2026-08-21",
+			"date": "2026-08-21",
+			"sources": [
+				"parts-calculator",
+				"docs"
+			],
+			"note": "Unified the docs parts.yml catalog and this manifest into one source of truth. Conflicts referencing this merge were NOT hashed out at merge time: each records both catalogs' claims and is a TODO to resolve against the physical machine."
 		}
 	]
 }

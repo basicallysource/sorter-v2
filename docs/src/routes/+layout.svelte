@@ -3,6 +3,7 @@
 	import { page } from '$app/state';
 	import NavTree from '$lib/components/NavTree.svelte';
 	import SearchModal from '$lib/components/SearchModal.svelte';
+	import BackToTop from '$lib/components/BackToTop.svelte';
 
 	let { data, children } = $props();
 
@@ -145,3 +146,5 @@
 		</p>
 	</footer>
 </div>
+
+<BackToTop />

@@ -1828,3 +1828,68 @@ blockquote {
 	border-radius: 3px;
 	margin-right: 2px;
 }
+
+/* ── Back to top ───────────────────────────────────────────────────────── */
+
+/* Fixed bottom right on every page. Hidden until BackToTop.svelte decides
+   otherwise (an upward scroll, once you are a screenful down), and hidden in
+   the prerendered HTML because `visible` starts false. */
+.back-to-top {
+	position: fixed;
+	right: max(20px, env(safe-area-inset-right));
+	bottom: max(20px, env(safe-area-inset-bottom));
+	z-index: 40;
+	display: inline-flex;
+	align-items: center;
+	gap: 7px;
+	padding: 9px 12px;
+	font: inherit;
+	font-size: 0.82rem;
+	font-weight: 500;
+	color: var(--muted);
+	background: var(--surface);
+	border: 1px solid var(--line);
+	box-shadow: 0 2px 10px -2px rgba(0, 0, 0, 0.14);
+	cursor: pointer;
+	opacity: 0;
+	visibility: hidden;
+	transform: translateY(6px);
+	transition:
+		opacity 0.16s ease,
+		transform 0.16s ease,
+		visibility 0.16s ease,
+		color 0.12s ease,
+		border-color 0.12s ease;
+}
+
+.back-to-top.is-visible {
+	opacity: 1;
+	visibility: visible;
+	transform: translateY(0);
+}
+
+.back-to-top:hover {
+	color: var(--ink);
+	border-color: var(--muted);
+}
+
+@media (max-width: 740px) {
+	.back-to-top {
+		right: max(12px, env(safe-area-inset-right));
+		bottom: max(12px, env(safe-area-inset-bottom));
+		padding: 9px 10px;
+	}
+
+	/* Icon only where the page is narrow enough for the label to crowd the
+	   copy underneath it. */
+	.back-to-top span {
+		display: none;
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.back-to-top {
+		transition: none;
+		transform: none;
+	}
+}

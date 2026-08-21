@@ -1,0 +1,6 @@
+# Python deps for slicer/filament.py + scripts/sync_bucket.py.
+# Pinned to match Spencer's machine so CI renders/output stay comparable.
+numpy==2.2.6
+matplotlib==3.11.1
+trimesh==4.8.3
+boto3==1.42.44

@@ -1,0 +1,25 @@
+{
+  "_comment": "Pre-arranged build plates. file is the display/download name; hash is the sha256 content address of the 3mf on the bucket (plate/<hash>.3mf). Author a new plate with: python scripts/sync_bucket.py --upload myplate.3mf, then add it here.",
+  "plates": [
+    {
+      "file": "3-bins.3mf",
+      "hash": "c6147c79afa98f0f566f9dbbc9818779472c9cf0c5d874b7570800b06c67686d"
+    },
+    {
+      "file": "90-deg-brackets.3mf",
+      "hash": "6aab6886d1d32a693710441da6c2d80190fcbea9f5a690a08fbe2beec36b9941"
+    },
+    {
+      "file": "chute-core-and-funnel-brackets.3mf",
+      "hash": "3605074a7ee51919737ed2a9b6cb0d522919e776e8e8ecf2944f4fe7aa7e3ae4"
+    },
+    {
+      "file": "external-brackets-6.3mf",
+      "hash": "64e17ce00e1f3f45ace0ebc81ac235a74d4828d4e87ea71a081cb1fe0e79b95f"
+    },
+    {
+      "file": "external-brackets.3mf",
+      "hash": "4a28da2e33e12340c3621421365add2fed8c1a65d235f8afb93ebfc2d8203ff0"
+    }
+  ]
+}

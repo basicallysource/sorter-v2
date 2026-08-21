@@ -39,7 +39,7 @@ Press the heat inserts in while both halves are still loose, before anything is 
 
 <div class="prep-item">
   <div class="prep-item-body">
-    <p><strong>Servo adapter:</strong> 4 × {% include fastener.html size="M3" variant="heat-insert" text="M3 short heat-set insert (ruthex RX-M3Sx4.0)" %}, per the BOM. <strong>Check your own printed halves before you press any</strong>, and read the warning below.</p>
+    <p><strong>Servo adapter:</strong> 4 × {% include fastener.html size="M3" variant="heat-insert" text="M3 short heat-set insert (ruthex RX-M3Sx4.0)" %} per the BOM. <strong>Check your own printed halves before you press any</strong>, and read the warning below.</p>
   </div>
 </div>
 

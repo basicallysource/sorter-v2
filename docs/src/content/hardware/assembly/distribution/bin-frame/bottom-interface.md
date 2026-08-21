@@ -108,7 +108,7 @@ Remove the Lazy Susan's rubber tabs first (see [Preparing Lazy Susan]({{ '/hardw
 
 <div class="callout callout-warning">
   <span class="callout-icon" aria-hidden="true">⚠</span>
-  <p>The {% include fastener.html size="M4" variant="countersunk" length="12" %} screws must be very tight. Most electric screwdrivers won't tighten them enough, and machine vibration works a loose one out of a spot that is a hassle to reach later.</p>
+  <p>The {% include fastener.html size="M4" variant="countersunk" length="12" %} screws must be very tight. A drill or electric screwdriver will not get them there, so finish them with a hex key by hand. Machine vibration works a loose one out of a spot that is a hassle to reach later.</p>
 </div>
 
 <img class="doc-figure" src="https://img.basically.website/web/assembly/bottom-interface/lazy-susan-on-chute-mount.d478621b1f81e5ae.jpg" alt="Lazy Susan bearing mounted on the chute mount with the washer between them">

@@ -1256,7 +1256,7 @@
 					"qty": 4
 				},
 				{
-					"part": "hsi-m3-long",
+					"part": "hsi-m3",
 					"qty": 4
 				},
 				{
@@ -1280,7 +1280,7 @@
 					"qty": 4
 				},
 				{
-					"part": "hsi-m3-long",
+					"part": "hsi-m3",
 					"qty": 4
 				},
 				{
@@ -1906,7 +1906,7 @@
 			"layer_scope": "all",
 			"requires": [
 				{
-					"part": "hsi-m5-long",
+					"part": "hsi-m5",
 					"qty": 3
 				}
 			],
@@ -2005,7 +2005,7 @@
 			"layer_scope": "all",
 			"requires": [
 				{
-					"part": "hsi-m3-long",
+					"part": "hsi-m3",
 					"qty": 18
 				}
 			],
@@ -3133,7 +3133,7 @@
 			"layer_scope": "all",
 			"requires": [
 				{
-					"part": "hsi-m5-long",
+					"part": "hsi-m5",
 					"qty": 5
 				}
 			],
@@ -3148,11 +3148,11 @@
 							"source": "docs",
 							"value": [
 								{
-									"part": "hsi-m5-long",
+									"part": "hsi-m5",
 									"qty": 6
 								},
 								{
-									"part": "hsi-m3-long",
+									"part": "hsi-m3",
 									"qty": 1
 								}
 							]
@@ -3161,7 +3161,7 @@
 							"source": "parts-calculator",
 							"value": [
 								{
-									"part": "hsi-m5-long",
+									"part": "hsi-m5",
 									"qty": 5
 								}
 							]
@@ -3364,7 +3364,7 @@
 			"layer_scope": "all",
 			"requires": [
 				{
-					"part": "hsi-m3-long",
+					"part": "hsi-m3",
 					"qty": 1
 				}
 			],
@@ -3564,7 +3564,7 @@
 					"qty": 4
 				},
 				{
-					"part": "hsi-m3-long",
+					"part": "hsi-m3",
 					"qty": 9
 				}
 			],
@@ -3583,7 +3583,7 @@
 									"qty": 4
 								},
 								{
-									"part": "hsi-m3-long",
+									"part": "hsi-m3",
 									"qty": 7
 								}
 							]
@@ -3596,7 +3596,7 @@
 									"qty": 4
 								},
 								{
-									"part": "hsi-m3-long",
+									"part": "hsi-m3",
 									"qty": 9
 								}
 							]
@@ -3697,7 +3697,7 @@
 			"layer_scope": "all",
 			"requires": [
 				{
-					"part": "hsi-m3-long",
+					"part": "hsi-m3",
 					"qty": 2
 				}
 			],
@@ -3759,7 +3759,7 @@
 							"source": "docs",
 							"value": [
 								{
-									"part": "hsi-m3-long",
+									"part": "hsi-m3",
 									"qty": 1
 								}
 							]
@@ -4106,7 +4106,7 @@
 			"layer_scope": "all",
 			"requires": [
 				{
-					"part": "hsi-m3-long",
+					"part": "hsi-m3",
 					"qty": 4
 				}
 			],
@@ -4158,7 +4158,7 @@
 			"layer_scope": "all",
 			"requires": [
 				{
-					"part": "hsi-m3-long",
+					"part": "hsi-m3",
 					"qty": 3
 				}
 			],
@@ -4210,7 +4210,7 @@
 			"layer_scope": "all",
 			"requires": [
 				{
-					"part": "hsi-m3-long",
+					"part": "hsi-m3",
 					"qty": 3
 				}
 			],
@@ -4497,7 +4497,7 @@
 			"layer_scope": "all",
 			"requires": [
 				{
-					"part": "hsi-m3-long",
+					"part": "hsi-m3",
 					"qty": 6
 				}
 			],
@@ -6824,7 +6824,7 @@
 			"image": "https://img.basically.website/parts/img/rod-steel-3-8-b0c74a7f.jpg"
 		},
 		{
-			"id": "hsi-m3-long",
+			"id": "hsi-m3",
 			"kind": "cots",
 			"cots": {
 				"type": "heat-insert",
@@ -6887,7 +6887,7 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"image": "https://img.basically.website/parts/img/hsi-m3-long-ae73fe6b.png"
+			"image": "https://img.basically.website/parts/img/hsi-m3-ae73fe6b.png"
 		},
 		{
 			"id": "hsi-m3s",
@@ -6959,7 +6959,7 @@
 			"image": "https://img.basically.website/parts/img/hsi-m3s-bdb4c6b1.jpg"
 		},
 		{
-			"id": "hsi-m5-long",
+			"id": "hsi-m5",
 			"kind": "cots",
 			"cots": {
 				"type": "heat-insert",
@@ -7013,7 +7013,7 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"image": "https://img.basically.website/parts/img/hsi-m5-long-796e9076.jpg"
+			"image": "https://img.basically.website/parts/img/hsi-m5-796e9076.jpg"
 		},
 		{
 			"id": "hsi-m4",

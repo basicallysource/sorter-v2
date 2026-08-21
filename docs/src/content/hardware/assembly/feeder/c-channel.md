@@ -10,7 +10,7 @@ permalink: /hardware/assembly/feeder/c-channel/
 author: spencer
 contributors: [barthel, brickcyclealice]
 warning: >-
-  **Steps 2 to 5 come from a build**, the order of operations and the photographs are
+  **Steps 1 to 5 come from a build**, the order of operations and the photographs are
   BrickCycleAlice's. Step 6, the light post, is still an AI-generated first draft written
   from the machine assembly tree in the [parts
   calculator](https://parts-calculator.basically.website/assembly?focus=c-channel) and has
@@ -58,7 +58,7 @@ The fasteners and quantities are in the parts list above and are called out inli
 
 {% include step.html n="1" title="Preparation" %}
 
-**No heat inserts on this assembly.** Every screw here threads straight into a printed part, except the three that go into the stepper's own tapped holes. Measured off the part STLs: the rotor's six holes are Ø2.8 mm and the stator's are Ø2.4 and Ø2.8 mm, all thread-forming, while the NEMA bracket and the output gear are Ø3.4 mm clearance throughout with nothing threaded in them.
+**No heat inserts on this assembly.** Every screw here threads straight into a printed part, except the three that go into the stepper's own tapped holes. That is how one was built, and the part STLs agree: the rotor's six holes are Ø2.8 mm and the stator's are Ø2.4 and Ø2.8 mm, all thread-forming, while the NEMA bracket and the output gear are Ø3.4 mm clearance throughout with nothing threaded in them.
 
 **Press both bearings into their gears first**, while the parts are loose and you can support them on the bench.
 

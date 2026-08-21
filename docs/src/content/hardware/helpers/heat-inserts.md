@@ -11,6 +11,7 @@ author: spencer
 contributors: [brickcyclealice, barthel]
 parts_needed:
   - part: hsi-m3-long
+  - part: hsi-m3s
   - part: hsi-m4
   - part: hsi-m5-long
 tools_needed: [Soldering iron or heat-set insert press, Needle-nose pliers]

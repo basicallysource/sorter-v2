@@ -1426,15 +1426,15 @@
 					"commit": null,
 					"stl": "https://img.basically.website/parts/stl/stator-n6bm-323b2d1f.stl",
 					"render": "https://img.basically.website/parts/render/stator-02ab8b46.png",
-					"grams": 175.75
+					"grams": 175.52
 				}
 			],
 			"attributes": [],
-			"grams": 175.75,
-			"support_grams": 23.07,
+			"grams": 175.52,
+			"support_grams": 23.42,
 			"support_used": true,
 			"support_intentional": true,
-			"print_seconds": 16023,
+			"print_seconds": 16014,
 			"color": {
 				"by_section": {
 					"feeder": {
@@ -2366,7 +2366,7 @@
 			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 7484,
+			"print_seconds": 7492,
 			"color": {
 				"role": "frame"
 			},
@@ -3151,42 +3151,16 @@
 			"requires": [
 				{
 					"part": "hsi-m5",
-					"qty": 5
+					"qty": 6
+				},
+				{
+					"part": "hsi-m3",
+					"qty": 1
 				}
 			],
 			"caption": null,
 			"docs_page": null,
-			"conflicts": [
-				{
-					"merge": "docs-merge-2026-08-21",
-					"field": "requires",
-					"claims": [
-						{
-							"source": "docs",
-							"value": [
-								{
-									"part": "hsi-m5",
-									"qty": 6
-								},
-								{
-									"part": "hsi-m3",
-									"qty": 1
-								}
-							]
-						},
-						{
-							"source": "parts-calculator",
-							"value": [
-								{
-									"part": "hsi-m5",
-									"qty": 5
-								}
-							]
-						}
-					],
-					"note": "Docs say 6x M5 + 1x M3 heat inserts; the calculator says 5x M5. Count them on the physical part."
-				}
-			],
+			"conflicts": null,
 			"stl": "https://img.basically.website/parts/stl/interface-nema23-bracket-if4v-69a9a1dd.stl",
 			"render": "https://img.basically.website/parts/render/interface-nema23-bracket-c0e2b119.png"
 		},
@@ -3582,46 +3556,12 @@
 				},
 				{
 					"part": "hsi-m3",
-					"qty": 9
+					"qty": 7
 				}
 			],
 			"caption": null,
 			"docs_page": null,
-			"conflicts": [
-				{
-					"merge": "docs-merge-2026-08-21",
-					"field": "requires",
-					"claims": [
-						{
-							"source": "docs",
-							"value": [
-								{
-									"part": "hsi-m4",
-									"qty": 4
-								},
-								{
-									"part": "hsi-m3",
-									"qty": 7
-								}
-							]
-						},
-						{
-							"source": "parts-calculator",
-							"value": [
-								{
-									"part": "hsi-m4",
-									"qty": 4
-								},
-								{
-									"part": "hsi-m3",
-									"qty": 9
-								}
-							]
-						}
-					],
-					"note": "M3 heat insert count: docs say 7, the calculator says 9."
-				}
-			],
+			"conflicts": null,
 			"stl": "https://img.basically.website/parts/stl/top-interface-split-spur-gear-3-vrz8-11f50ca2.stl",
 			"render": "https://img.basically.website/parts/render/top-interface-split-spur-gear-3-39e19ab0.png"
 		},
@@ -3764,31 +3704,15 @@
 			"low_tolerance": false,
 			"low_tolerance_note": null,
 			"layer_scope": "all",
-			"requires": [],
-			"caption": null,
-			"docs_page": null,
-			"conflicts": [
+			"requires": [
 				{
-					"merge": "docs-merge-2026-08-21",
-					"field": "requires",
-					"claims": [
-						{
-							"source": "docs",
-							"value": [
-								{
-									"part": "hsi-m3",
-									"qty": 1
-								}
-							]
-						},
-						{
-							"source": "parts-calculator",
-							"value": []
-						}
-					],
-					"note": "Docs give the hammer one M3 heat insert; the calculator gives it none."
+					"part": "hsi-m3",
+					"qty": 1
 				}
 			],
+			"caption": null,
+			"docs_page": null,
+			"conflicts": null,
 			"stl": "https://img.basically.website/parts/stl/limit-switch-hammer-lfu7-a5105d96.stl",
 			"render": "https://img.basically.website/parts/render/limit-switch-hammer-a4bbdee3.png"
 		},

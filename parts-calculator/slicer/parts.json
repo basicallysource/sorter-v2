@@ -1184,7 +1184,7 @@
         "Interface NEMA 23 bracket"
       ],
       "description": "NEMA 23 motor bracket for the chute stepper. 1 needed.",
-      "internal_notes": "1 per interface. Frame color. 5 M5 inserts: 4 take the NEMA 23's mounting screws, 1 more elsewhere on the bracket.",
+      "internal_notes": "1 per interface. Frame color. 6 M5 inserts: 4 take the NEMA 23's mounting screws and 2 are on the underside; plus 1 M3 insert in the tail end. Counted on the physical bracket by barthel 2026-08-21 and confirmed against the STL (6 x 6.40 mm + 1 x 4.20 mm bores, ruthex's recommended insert holes for M5 and M3); resolves the docs-merge-2026-08-21 conflict, which had the calculator at 5 M5 and no M3.",
       "version": "1",
       "created_at": "2026-06-27",
       "updated_at": "2026-06-27",
@@ -1202,38 +1202,11 @@
       "requires": [
         {
           "part": "hsi-m5",
-          "qty": 5
-        }
-      ],
-      "conflicts": [
+          "qty": 6
+        },
         {
-          "merge": "docs-merge-2026-08-21",
-          "field": "requires",
-          "claims": [
-            {
-              "source": "docs",
-              "value": [
-                {
-                  "part": "hsi-m5",
-                  "qty": 6
-                },
-                {
-                  "part": "hsi-m3",
-                  "qty": 1
-                }
-              ]
-            },
-            {
-              "source": "parts-calculator",
-              "value": [
-                {
-                  "part": "hsi-m5",
-                  "qty": 5
-                }
-              ]
-            }
-          ],
-          "note": "Docs say 6x M5 + 1x M3 heat inserts; the calculator says 5x M5. Count them on the physical part."
+          "part": "hsi-m3",
+          "qty": 1
         }
       ]
     },
@@ -1402,7 +1375,7 @@
         "chute core mount"
       ],
       "description": "Section 3 of 3 of the top interface split spur gear (Spur 2M 120T).",
-      "internal_notes": "Split spur gear for the top interface; the 3 sections print separately and assemble into one gear. Chute-core color. Carries 4× M4 inserts, plus 9× M3: 2 for the cable clamp, 2 for the layer connector, and 5 that the chute gear screws down into.",
+      "internal_notes": "Split spur gear for the top interface; the 3 sections print separately and assemble into one gear. Chute-core color. Carries 4× M4 inserts, plus 7× M3: 2 for the cable clamp and 5 on the underside that the chute gear screws down into. Counted on the physical part by barthel 2026-08-21 and confirmed against the STL (7 x 4.20 mm bores, ruthex's recommended M3 insert hole, re-measured with the detection thresholds loosened in case any were missed). The previous count of 9 added 2 for the layer connector, which the published model does not have; resolves the docs-merge-2026-08-21 conflict.",
       "version": "1",
       "created_at": "2026-07-03",
       "updated_at": "2026-07-03",
@@ -1425,42 +1398,7 @@
         },
         {
           "part": "hsi-m3",
-          "qty": 9
-        }
-      ],
-      "conflicts": [
-        {
-          "merge": "docs-merge-2026-08-21",
-          "field": "requires",
-          "claims": [
-            {
-              "source": "docs",
-              "value": [
-                {
-                  "part": "hsi-m4",
-                  "qty": 4
-                },
-                {
-                  "part": "hsi-m3",
-                  "qty": 7
-                }
-              ]
-            },
-            {
-              "source": "parts-calculator",
-              "value": [
-                {
-                  "part": "hsi-m4",
-                  "qty": 4
-                },
-                {
-                  "part": "hsi-m3",
-                  "qty": 9
-                }
-              ]
-            }
-          ],
-          "note": "M3 heat insert count: docs say 7, the calculator says 9."
+          "qty": 7
         }
       ]
     },
@@ -1524,7 +1462,7 @@
       "id": "limit-switch-hammer",
       "name": "Limit switch hammer",
       "description": "Hammer/stop for the interface limit switch.",
-      "internal_notes": "Interface limit switch assembly. Frame colour + qty 1/machine are DEFAULTS pending confirmation.",
+      "internal_notes": "Interface limit switch assembly. Frame colour + qty 1/machine are DEFAULTS pending confirmation. 1 M3 insert in the round disc, taking the M3 x 6 countersunk screw that secures the hammer from below in the Top interface chute mount: confirmed by barthel 2026-08-21 and by the STL (a single 4.20 mm blind bore, ruthex's recommended M3 insert hole); resolves the docs-merge-2026-08-21 conflict, which had the calculator at zero inserts.",
       "version": "1",
       "created_at": "2026-07-03",
       "updated_at": "2026-07-03",
@@ -1540,26 +1478,10 @@
       },
       "optional": false,
       "support": false,
-      "conflicts": [
+      "requires": [
         {
-          "merge": "docs-merge-2026-08-21",
-          "field": "requires",
-          "claims": [
-            {
-              "source": "docs",
-              "value": [
-                {
-                  "part": "hsi-m3",
-                  "qty": 1
-                }
-              ]
-            },
-            {
-              "source": "parts-calculator",
-              "value": []
-            }
-          ],
-          "note": "Docs give the hammer one M3 heat insert; the calculator gives it none."
+          "part": "hsi-m3",
+          "qty": 1
         }
       ]
     },

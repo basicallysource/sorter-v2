@@ -175,7 +175,7 @@ def admin_machine_stats(
     """Per-machine lifetime metrics (pieces, PPM, on-time %) across ALL machines.
 
     Served from the machine_stats_cache table, refreshed hourly by the
-    MachineStatsWorker (see app.services.machine_stats). Cold-start fallback:
+    machine-stats worker (see app.services.machine_stats). Cold-start fallback:
     if the cache has never been populated, compute it once here so the first
     admin load isn't blank.
     """
@@ -199,7 +199,7 @@ def admin_refresh_machine_stats(
     _csrf: None = Depends(verify_csrf),
 ):
     """Force an immediate recompute of every machine's cached stats."""
-    count = machine_stats.refresh_cache(db)
+    count = machine_stats.refresh_all(db)
     return {"ok": True, "refreshed": count, "worker": get_machine_stats_worker().status()}
 
 

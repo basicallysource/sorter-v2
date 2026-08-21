@@ -386,7 +386,7 @@ def color_coverage(
 # "Has same-piece candidates" — a channel crop exists within the piece's
 # arrival window (DEFAULT_PARAMS lookback/slop). Precomputed into the
 # piece_has_candidates materialized view (a8c1d2e3f4a5, refreshed by
-# CandidateMatviewWorker) and hash-joined here; both the with_candidates filter
+# candidate_matview worker) and hash-joined here; both the with_candidates filter
 # and the priority sort key read it, so it is needed for every row of the grid
 # before pagination, not just for a piece someone opens.
 #

@@ -69,7 +69,6 @@ from app.deps import (
     resolve_public_scopes,
 )
 from app.models.machine import Machine
-from app.models.machine_daily_stats import MachineDailyStats
 from app.models.machine_piece import MachinePiece
 from app.models.user import User
 from app.models.user_identity import UserIdentity
@@ -136,15 +135,16 @@ require_fleet_anon_key = require_public_scope(API_KEY_SCOPE_FLEET_ANON)
 @router.get("/stats", dependencies=[Depends(require_stats_key)])
 def get_public_stats(db: Session = Depends(get_db)):
     """Aggregate analytics across every non-archived machine — the same block the
-    admin all-machines dashboard renders, minus any per-owner PII."""
+    admin all-machines dashboard renders, minus any per-owner PII.
+
+    This is the most-called endpoint hive has: the website's live counter polls
+    it through an edge cache that misses once per Cloudflare PoP, which lands as
+    a steady ten requests a minute whether or not anyone is looking. It must
+    therefore cost approximately nothing. It is a fold over cached rows plus
+    three indexed range counts, none of which touch more than the last day of
+    machine_pieces. See `services/analytics` for what happens when it doesn't.
+    """
     ids = [mid for (mid,) in db.query(Machine.id).filter(Machine.archived_at.is_(None)).all()]
-    # Cold-start: populate the daily table on the first request if the worker
-    # hasn't run yet, so stats aren't blank on a fresh deploy.
-    if db.query(MachineDailyStats.machine_id).first() is None:
-        try:
-            analytics.refresh_daily_stats(db)
-        except Exception:
-            db.rollback()
     data = analytics.get_analytics(db, ids)
     return {
         "scope": {"kind": "all", "label": "All machines", "machine_count": len(ids)},
@@ -396,16 +396,27 @@ def _local_day_in_progress(db: Session, ids: list) -> dict:
 
     Postgres only (prod); the local-zone date math relies on ``timezone()``.
     Elsewhere (SQLite tests) return nothing and the client keeps its UTC fallback.
+
+    The zone conversion happens ONCE, to produce a UTC instant for local
+    midnight, and the filter is then a plain range on seen_at. Comparing
+    ``date(timezone(tz, seen_at))`` to today instead — which is what this used
+    to do — wraps the indexed column in a function, so no index applies and
+    every call sequentially scanned the whole table to count one day.
     """
     if db.bind.dialect.name != "postgresql":
         return {}
-    today_local = db.query(func.date(func.timezone(PUBLIC_STATS_LOCAL_TZ, func.now()))).scalar()
-    piece_local_date = func.date(func.timezone(PUBLIC_STATS_LOCAL_TZ, MachinePiece.seen_at))
+    today_local, day_start_utc = db.query(
+        func.date(func.timezone(PUBLIC_STATS_LOCAL_TZ, func.now())),
+        func.timezone(
+            PUBLIC_STATS_LOCAL_TZ,
+            func.date_trunc("day", func.timezone(PUBLIC_STATS_LOCAL_TZ, func.now())),
+        ),
+    ).one()
     pieces = (
         db.query(func.count())
         .select_from(MachinePiece)
         .filter(MachinePiece.machine_id.in_(ids))
-        .filter(piece_local_date == today_local)
+        .filter(MachinePiece.seen_at >= day_start_utc)
         .scalar()
     ) or 0
     return {"last_day_local": today_local.isoformat(), "last_day_local_pieces": int(pieces)}

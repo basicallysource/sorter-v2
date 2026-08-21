@@ -4,7 +4,6 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from app.deps import get_current_user, get_db
-from app.models.machine_daily_stats import MachineDailyStats
 from app.models.user import User
 from app.services import analytics
 
@@ -21,17 +20,10 @@ def get_analytics(
 ):
     """Analytics over a set of machines, chosen by (in precedence order)
     machine_id, owner_id, or scope=mine|all. Authorization is enforced by
-    resolve_machine_set; served from machine_daily_stats + live group-bys."""
+    resolve_machine_set; served entirely from the pre-computed caches."""
     resolved = analytics.resolve_machine_set(
         db, current_user, machine_id=machine_id, owner_id=owner_id, scope=scope
     )
-    # Cold-start: populate the daily table on the first request if the worker
-    # hasn't run yet, so analytics isn't blank on a fresh deploy.
-    if db.query(MachineDailyStats.machine_id).first() is None:
-        try:
-            analytics.refresh_daily_stats(db)
-        except Exception:
-            db.rollback()
     data = analytics.get_analytics(db, resolved["ids"])
     return {
         "scope": {

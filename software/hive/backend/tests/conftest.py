@@ -39,6 +39,25 @@ engine = create_engine(TEST_DB_URL, connect_args={"check_same_thread": False})
 TestingSessionLocal = sessionmaker(bind=engine, autocommit=False, autoflush=False)
 
 
+def refresh_stats() -> None:
+    """Run the stats worker's pass against the test database.
+
+    Every number the analytics endpoints serve is a fold over
+    machine_stats_cache and machine_daily_stats, so a test that syncs pieces
+    and then reads a distribution or a daily series has to let the worker run
+    in between — which is exactly what production does on its hourly pass.
+    Reading immediately after a sync legitimately returns the pre-sync numbers,
+    except for the piece counter, which is topped up live.
+    """
+    from app.services import machine_stats
+
+    session = TestingSessionLocal()
+    try:
+        machine_stats.refresh_all(session)
+    finally:
+        session.close()
+
+
 @pytest.fixture(autouse=True)
 def _setup_db() -> Generator[None, None, None]:
     """Create all tables before each test and drop them after."""

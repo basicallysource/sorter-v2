@@ -2,25 +2,37 @@
 	/* A floating "back to top" control, bottom right, on every page.
 
 	   It is not permanently on screen: the assembly tree gets deep, and the
-	   moment you want the menu again is the moment you start scrolling back
-	   up. So it appears on an upward scroll once you are a screenful or so
-	   down, and gets out of the way again as soon as you scroll on down. */
+	   moment you want the menu again is the moment you stop, or start
+	   scrolling back up. So it hides itself only while you are actively
+	   scrolling down the page, and is there the rest of the time. Revealing it
+	   on an upward scroll alone was too well hidden: two people looked for it
+	   on the day it shipped and neither found it. */
 
-	// How far down the page you have to be before the button can appear.
-	const SHOW_AFTER = 600;
+	// How far down the page you have to be before the button appears at all.
+	// Low enough that a page which barely scrolls still gets one.
+	const SHOW_AFTER = 240;
 	// Ignore scroll jitter and touch momentum wobble; only a deliberate
 	// movement flips the direction. Small deltas accumulate instead of
 	// resetting the anchor, so a slow drag upward still counts.
 	const DELTA = 24;
+	// Scrolling stops, the button comes back. This is what makes it findable:
+	// you never have to know the reveal gesture, you just have to stop.
+	const IDLE_MS = 350;
 
 	let visible = $state(false);
 	let anchorY = 0;
+	let idleTimer: ReturnType<typeof setTimeout> | undefined;
 
 	$effect(() => {
 		anchorY = window.scrollY;
+		// Firefox restores the scroll position on reload, and a link can land
+		// part-way down a page. Neither fires a scroll event, so seed from
+		// where we actually are rather than waiting to be told.
+		visible = anchorY >= SHOW_AFTER;
 
 		const onScroll = () => {
 			const y = window.scrollY;
+			clearTimeout(idleTimer);
 			if (y < SHOW_AFTER) {
 				visible = false;
 				anchorY = y;
@@ -34,10 +46,14 @@
 				visible = false;
 				anchorY = y;
 			}
+			idleTimer = setTimeout(() => (visible = true), IDLE_MS);
 		};
 
 		window.addEventListener('scroll', onScroll, { passive: true });
-		return () => window.removeEventListener('scroll', onScroll);
+		return () => {
+			window.removeEventListener('scroll', onScroll);
+			clearTimeout(idleTimer);
+		};
 	});
 
 	function toTop() {

@@ -3376,7 +3376,7 @@
       "internal_notes": "First COTS part in the manifest (unified-parts-system MVP). ruthex has no \"long\" designation: RX-M3x5.7 is their standard M3 and RX-M3Sx4.0 is the short one, the S in the model number being the only marker. Their scheme is RX-[thread][S if short]x[length]. The short M3S is `hsi-m3s`, servo adapter only. BOM sheet says the machine needs ~235 across machine+layers; the chute core alone takes 18 (4 PCB + 4 bearing race + 4 funnel slides + 4 layer connector + 2 arms).",
       "created_at": "2026-07-18",
       "updated_at": "2026-07-18",
-      "image_url": "https://img.basically.website/parts/img/hsi-m3-ae73fe6b.png",
+      "image_url": "https://img.basically.website/parts/img/hsi-m3-db828502.jpg",
       "attributes": [
         {
           "label": "Type",

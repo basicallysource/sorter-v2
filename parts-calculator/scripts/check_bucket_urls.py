@@ -34,6 +34,10 @@ import urllib.request
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
+
+# A real UA: the asset service's zone 403s urllib's default Python-urllib/x.y
+# (Browser Integrity Check), which is exactly how CI runs this.
+UA = "sorter-v2-parts-check/1.0 (+https://github.com/basicallysource/sorter-v2)"
 PARTS = REPO / "src/lib/data/parts.generated.json"
 PLATES = REPO / "src/lib/data/plates.generated.json"
 
@@ -62,6 +66,8 @@ def collect_urls() -> dict[str, str]:
             add(v.get("render"), "image")
     for h in parts.get("hardware", []):
         add(h.get("image"), "image")
+    for lc in parts.get("lasercut", []):
+        add(lc.get("photo"), "image")
     for f in parts.get("families", []):
         add(f.get("image"), "image")
     for c in parts.get("changes", []):
@@ -81,12 +87,18 @@ def check(item: tuple[str, str]) -> tuple[str, str | None]:
     """Return (url, error) -- error is None when the URL serves real bytes."""
     url, kind = item
     try:
-        req = urllib.request.Request(url, headers={"Range": "bytes=0-1023"})
+        req = urllib.request.Request(
+            url, headers={"Range": "bytes=0-1023", "User-Agent": UA})
         with urllib.request.urlopen(req, timeout=30) as r:
-            head = r.read()
-            # 206 gives the range; a 200 means the whole (small) object came back.
+            # Read a bounded head either way: the asset service answers 200
+            # with the full body (its cache holds whole objects), so an
+            # unbounded read here would download every STL and the bundle.
+            head = r.read(1024)
             total = r.headers.get("Content-Range")
-            size = int(total.split("/")[-1]) if total else len(head)
+            if total:  # 206: the range tells us the true size
+                size = int(total.split("/")[-1])
+            else:
+                size = int(r.headers.get("Content-Length") or len(head))
     except urllib.error.HTTPError as e:
         return url, f"HTTP {e.code}"
     except Exception as e:  # network/DNS/timeout

@@ -1,4 +1,13 @@
+// This worker is the asset service's front door: one public hostname over
+// content-addressed storage. Each namespace maps to its own bucket:
+//   /web/*, /harness/*, ...  -> basically-docs      (docs images + harness)
+//   /parts/*                 -> sorter-v2-parts     (parts calculator: stl/,
+//                               render/, thumb/, plate/, bundle/, img/)
+// The /parts namespace is content-addressed end to end (every filename IS a
+// hash of the bytes), so the whole prefix is immutable by construction.
 const ORIGIN = "https://basically-docs.nyc3.digitaloceanspaces.com";
+const PARTS_ORIGIN = "https://sorter-v2-parts.nyc3.digitaloceanspaces.com";
+const PARTS_PREFIX = "/parts/";
 
 const IMMUTABLE = "public, max-age=31536000, immutable";
 const MUTABLE = "public, max-age=60";
@@ -24,6 +33,7 @@ const MUTABLE = "public, max-age=60";
 const CONTENT_ADDRESSED = /\.[0-9a-f]{10,}\./;
 
 function cacheControlFor(url) {
+  if (url.pathname.startsWith(PARTS_PREFIX)) return IMMUTABLE;
   if (CONTENT_ADDRESSED.test(url.pathname)) return IMMUTABLE;
   return url.searchParams.has("v") ? IMMUTABLE : MUTABLE;
 }
@@ -62,7 +72,10 @@ export default {
       // and braces: tell the edge not to cache it, and carry the buster
       // upstream so the key differs anyway. Spaces ignores unknown query
       // params on GET (verified), it just wants the path.
-      const upstream = await fetch(ORIGIN + url.pathname + url.search, {
+      const upstreamBase = url.pathname.startsWith(PARTS_PREFIX)
+        ? PARTS_ORIGIN + url.pathname.slice(PARTS_PREFIX.length - 1)
+        : ORIGIN + url.pathname;
+      const upstream = await fetch(upstreamBase + url.search, {
         cf: { cacheEverything: true, cacheTtlByStatus: { "200-599": -1 } },
       });
       if (!upstream.ok) {

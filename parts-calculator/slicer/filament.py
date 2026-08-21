@@ -168,7 +168,12 @@ def render_url_for(stl_abs, hexcolor, out_png, force):
     key = hashlib.sha1(open(stl_abs, "rb").read() + hexcolor.encode()).hexdigest()[:16]
     meta = os.path.join(RENDER_META, key + ".json")
     if not force and os.path.exists(meta):
-        return json.load(open(meta))["url"]
+        # The memo pins the content-addressed FILENAME; the serving base can
+        # move (it did on 2026-08-21, bucket CDN -> asset service), so rebase
+        # the stored URL onto the current PUBLIC_BASE instead of trusting its
+        # host. Same bytes, same name, whatever the front door is today.
+        stored = json.load(open(meta))["url"]
+        return f"{PUBLIC_BASE}/render/{stored.rsplit('/', 1)[1]}"
     render(stl_abs, out_png, hexcolor)
     url = artifact_url(out_png, prefix="render")
     os.makedirs(RENDER_META, exist_ok=True)
@@ -539,6 +544,14 @@ def build_hardware(manifest):
     return hardware
 
 
+def build_lasercut(manifest):
+    """Laser-cut sheet parts (kind: 'lasercut'): passed through verbatim -- the
+    fields ARE the app's LaserCutPart shape, and the docs site reads the same
+    generated records."""
+    return [{k: v for k, v in p.items() if k != "kind"}
+            for p in manifest["parts"] if p.get("kind") == "lasercut"]
+
+
 def build_families(manifest):
     """Build the generated shared-photo families without invoking the slicer."""
     families = []
@@ -640,6 +653,7 @@ def main():
         data["assemblies"] = manifest.get("assemblies", [])
         data["hardware"] = build_hardware(manifest)
         data["families"] = build_families(manifest)
+        data["lasercut"] = build_lasercut(manifest)
         data["merges"] = manifest.get("merges", [])
         json.dump(data, open(DATA_OUT, "w"), indent="\t")
         print(f"refreshed authored metadata in {DATA_OUT}")
@@ -770,6 +784,7 @@ def main():
         "assemblies": manifest.get("assemblies", []),
         "parts": out_parts,
         "hardware": hardware,
+        "lasercut": build_lasercut(manifest),
         "merges": manifest.get("merges", []),
     }
     json.dump(data, open(DATA_OUT, "w"), indent="\t")

@@ -3,8 +3,9 @@
 // they are rendered once at build time (liquidjs → unified) and the output is
 // prerendered static HTML. Nothing in this module runs in the browser.
 import yaml from 'js-yaml';
+// JSON only — importing TS from the sibling package would drag its tsconfig
+// (which extends a generated file) into this build.
 import partsGenerated from '../../../../parts-calculator/src/lib/data/parts.generated.json';
-import { LASER_CUT_PARTS } from '../../../../parts-calculator/src/lib/lasercut';
 import { Liquid } from 'liquidjs';
 import { unified } from 'unified';
 import remarkParse from 'remark-parse';
@@ -81,7 +82,7 @@ for (const [path, raw] of Object.entries(dataFiles)) {
 			caption: pt.caption,
 			conflicts: pt.conflicts
 		};
-	for (const lc of LASER_CUT_PARTS)
+	for (const lc of gen.lasercut ?? [])
 		parts[lc.id] = {
 			name: lc.name,
 			image: lc.photo,
@@ -287,7 +288,12 @@ export type ResolvedPart = {
 	// catalogs, recorded at their 2026-08-21 merge. Renders the amber "?"
 	// badge and the legend below the cards. Resolving one = fixing the field
 	// in parts-calculator/slicer/parts.json and deleting the conflict there.
-	conflicts?: Array<{ merge: string; field: string; note?: string }>;
+	conflicts?: Array<{
+		merge: string;
+		field: string;
+		claims: { source: string; value: unknown }[];
+		note?: string;
+	}>;
 	missing?: boolean;
 };
 export type PartsGroup = { category: string; parts: ResolvedPart[] };

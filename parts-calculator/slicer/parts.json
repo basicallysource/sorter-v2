@@ -1,5 +1,5 @@
 {
-  "_comment": "Source-of-truth manifest. filament.py slices each STL once and writes ../src/lib/data/parts.generated.json + thumbnails + STL copies. Per part: id, name, category, description (short, shown in app), internal_notes (extended, agent-only, NOT emitted to the app), version, created_at, updated_at, stl_hash (sha256 pin of the master STL on the bucket; upload with scripts/sync_bucket.py --upload), quantity (per ONE instance of its category), color, optional. attributes (optional list of {label,value} shown in the app), versions (optional archetype history: list of {version,date,message,commit}; commit ties to a real git commit, null = pending an upcoming clean commit). low_tolerance (optional bool: part has little tolerance for dimensional error - a tight/precise fit - so a test print is worth doing) + low_tolerance_note (the specifics, shown in the app). color is one of {\"role\":\"<roleid>\"} (user-picked), {\"fixed\":\"<lego-id>\"}, {\"split\":[{\"color\":\"<lego-id>\",\"qty\":N},...]} (sums to quantity), or {\"any\":true}, or {\"by_section\":{\"<sectionid>\":<colorspec>,...}} (per-section color when a part lives in multiple sections). Machine = 1 of each non-scaling category + N of each scaling category. See ../notes/TERMINOLOGY.md. SCHEMA V2 (unified parts system, see ../notes/UNIFIED-PARTS-SYSTEM.md, incremental): a part may carry kind ('printed' when absent | 'cots'); cots parts have cots {type,size?,variant?}, category (display grouping on the hardware tab), note (builder-critical caveat from the BOM sheet), image (slicer-relative path, uploaded to the bucket by sync_bucket.py and served from there) OR image_url (an already-uploaded content-addressed bucket URL; BOM product images never touch git), sourcing {vendors:[{region,vendor,url,affiliate_url?,price,currency?,pack_qty?,as_of?,note?}]} (url is always the plain listing; affiliate_url is the same listing carrying the project's Amazon tag, mirroring the BOM sheet's 'US Source 1 with Affiliate' column — both are kept so a builder can choose) (price is USD unless currency says otherwise), and no stl/color/quantities. sheet_qty {per_machine|per_layer} / sheet_qty_text are TRANSITIONAL hand counts carried over from the BOM sheet; they die once these parts are placed as requires/lines in the tree. A printed part may carry requires [{part,qty}] = hardware committed to that single physical part (heat inserts, press-fit bearings); qty scales with the part automatically. An assembly may carry lines [{part|assembly, qty}] (qty is a number, or 'per-layer' = multiplied by the total layer count, or 'middle-layers' = layer count minus 2, the layers that sit between the top and bottom interfaces) and status 'stub' (placeholder, nothing inside yet) or 'partial' (some lines filled in) — these form the experimental machine tree rooted at the 'machine' assembly. A line may also reference a laser-cut part by id (e.g. 'top-plate'); those still live in src/lib/lasercut.ts and are resolved from there until §5.5 folds them into this manifest. Line ids are unique within an assembly: two joints that use the same screw are one merged line. Screws and other hardware that JOIN parts are lines of the assembly that makes the joint, never requires of either member (requires is only for hardware committed to one physical part). joining [{method,note}] records how the lines become one unit — 'solder'|'crimp'|'glue'|'press'|'self-tap' (screw cuts its own thread in printed plastic, no insert or nut) |'friction' (held by clamping force alone, e.g. jammed in an extrusion slot). A cots part that is cut from a bought length carries stock {unit_length_mm, cut_length_mm, pieces_per_unit, unit_label, piece_label}; its lines count PIECES and the app divides to get lengths to buy. MERGES/CONFLICTS (2026-08-21, docs catalog folded in): top-level merges [{id,date,sources,note}] records source-of-truth merger events. A part may carry conflicts [{merge,field,claims:[{source,value},...],note}] = an unresolved factual disagreement between the merged catalogs, kept as data on purpose and rendered as a badge on BOTH sites (docs parts-needed cards + calculator detail views); resolving one means fixing the disputed field against the physical machine and DELETING the conflict entry (git is the history). A part may also carry caption (small text under its docs parts-needed card) and docs_page (its docs detail page path; lets either site cross-link). The docs site renders its parts data from parts.generated.json -- docs/src/liquid/_data/parts.yml is deleted; this manifest is the only parts catalog.",
+  "_comment": "Source-of-truth manifest. filament.py slices each STL once and writes ../src/lib/data/parts.generated.json + thumbnails + STL copies. Per part: id, name, category, description (short, shown in app), internal_notes (extended, agent-only, NOT emitted to the app), version, created_at, updated_at, stl_hash (sha256 pin of the master STL on the bucket; upload with scripts/sync_bucket.py --upload), quantity (per ONE instance of its category), color, optional. attributes (optional list of {label,value} shown in the app), versions (optional archetype history: list of {version,date,message,commit}; commit ties to a real git commit, null = pending an upcoming clean commit). low_tolerance (optional bool: part has little tolerance for dimensional error - a tight/precise fit - so a test print is worth doing) + low_tolerance_note (the specifics, shown in the app). color is one of {\"role\":\"<roleid>\"} (user-picked), {\"fixed\":\"<lego-id>\"}, {\"split\":[{\"color\":\"<lego-id>\",\"qty\":N},...]} (sums to quantity), or {\"any\":true}, or {\"by_section\":{\"<sectionid>\":<colorspec>,...}} (per-section color when a part lives in multiple sections). Machine = 1 of each non-scaling category + N of each scaling category. See ../notes/TERMINOLOGY.md. SCHEMA V2 (unified parts system, see ../notes/UNIFIED-PARTS-SYSTEM.md, incremental): a part may carry kind ('printed' when absent | 'cots'); cots parts have cots {type,size?,variant?}, category (display grouping on the hardware tab), note (builder-critical caveat from the BOM sheet), image (slicer-relative path, uploaded to the bucket by sync_bucket.py and served from there) OR image_url (an already-uploaded content-addressed bucket URL; BOM product images never touch git), sourcing {vendors:[{region,vendor,url,affiliate_url?,price,currency?,pack_qty?,as_of?,note?}]} (url is always the plain listing; affiliate_url is the same listing carrying the project's Amazon tag, mirroring the BOM sheet's 'US Source 1 with Affiliate' column — both are kept so a builder can choose) (price is USD unless currency says otherwise), and no stl/color/quantities. sheet_qty {per_machine|per_layer} / sheet_qty_text are TRANSITIONAL hand counts carried over from the BOM sheet; they die once these parts are placed as requires/lines in the tree. A printed part may carry requires [{part,qty}] = hardware committed to that single physical part (heat inserts, press-fit bearings); qty scales with the part automatically. An assembly may carry lines [{part|assembly, qty}] (qty is a number, or 'per-layer' = multiplied by the total layer count, or 'middle-layers' = layer count minus 2, the layers that sit between the top and bottom interfaces) and status 'stub' (placeholder, nothing inside yet) or 'partial' (some lines filled in) — these form the experimental machine tree rooted at the 'machine' assembly. A line may also reference a laser-cut part by id (e.g. 'top-plate'); those still live in src/lib/lasercut.ts and are resolved from there until §5.5 folds them into this manifest. Line ids are unique within an assembly: two joints that use the same screw are one merged line. Screws and other hardware that JOIN parts are lines of the assembly that makes the joint, never requires of either member (requires is only for hardware committed to one physical part). joining [{method,note}] records how the lines become one unit — 'solder'|'crimp'|'glue'|'press'|'self-tap' (screw cuts its own thread in printed plastic, no insert or nut) |'friction' (held by clamping force alone, e.g. jammed in an extrusion slot). A cots part that is cut from a bought length carries stock {unit_length_mm, cut_length_mm, pieces_per_unit, unit_label, piece_label}; its lines count PIECES and the app divides to get lengths to buy. MERGES/CONFLICTS (2026-08-21, docs catalog folded in): top-level merges [{id,date,sources,note}] records source-of-truth merger events. A part may carry conflicts [{merge,field,claims:[{source,value},...],note}] = an unresolved factual disagreement between the merged catalogs, kept as data on purpose and rendered as a badge on BOTH sites (docs parts-needed cards + calculator detail views); resolving one means fixing the disputed field against the physical machine and DELETING the conflict entry (git is the history). A part may also carry caption (small text under its docs parts-needed card) and docs_page (its docs detail page path; lets either site cross-link). The docs site renders its parts data from parts.generated.json -- docs/src/liquid/_data/parts.yml is deleted; this manifest is the only parts catalog. LASERCUT (2026-08-21, §5.5 partly done): parts with kind 'lasercut' are the flat sheet parts, passed through to the generated JSON verbatim (fields match the app's LaserCutPart type in src/lib/lasercut.ts, which now reads the generated data instead of hardcoding it; the docs site reads the same JSON). dxf/preview are app-static paths; photo is a bucket URL.",
   "sections": [
     {
       "id": "feeder",
@@ -213,7 +213,7 @@
       "description": "Divide the top plate into interlocking puzzle-like sections around a single inner structural support ring, so the plate can be made in smaller pieces while keeping primary support around the center.",
       "images": [
         {
-          "url": "https://sorter-v2-parts.nyc3.cdn.digitaloceanspaces.com/img/5900431388c04c4a076abfa0ae88cafed9b221d91aefacec6d463706963cf111.png",
+          "url": "https://img.basically.website/parts/img/5900431388c04c4a076abfa0ae88cafed9b221d91aefacec6d463706963cf111.png",
           "alt": "Seven-piece top plate concept with a single structural inner ring",
           "caption": "Seven-piece top plate concept"
         }
@@ -2470,7 +2470,7 @@
       "name": "M3 × 10 mm socket/button head",
       "category": "Screws",
       "alternative": "Socket or button head",
-      "image_url": "https://sorter-v2-parts.nyc3.cdn.digitaloceanspaces.com/img/26e52d7d5bcd22688d97056e2e0aa630548cd0f2924bb2e263d905318cf71548.png",
+      "image_url": "https://img.basically.website/parts/img/26e52d7d5bcd22688d97056e2e0aa630548cd0f2924bb2e263d905318cf71548.png",
       "description": "Fastens the outer cable clamp into the top interface chute mount, and the ribbon cable clamp to the cable cage bracket.",
       "created_at": "2026-08-18",
       "updated_at": "2026-08-18",
@@ -2649,7 +2649,7 @@
       "name": "M3 × 16 mm socket/button head",
       "category": "Screws",
       "alternative": "Socket or button head",
-      "image_url": "https://sorter-v2-parts.nyc3.cdn.digitaloceanspaces.com/img/26e52d7d5bcd22688d97056e2e0aa630548cd0f2924bb2e263d905318cf71548.png",
+      "image_url": "https://img.basically.website/parts/img/26e52d7d5bcd22688d97056e2e0aa630548cd0f2924bb2e263d905318cf71548.png",
       "description": "Bolts the NEMA 17 stepper to the NEMA bracket. 3 per C-channel.",
       "created_at": "2026-07-18",
       "updated_at": "2026-08-18",
@@ -2680,7 +2680,7 @@
       "name": "M3 × 6 mm socket/button head",
       "category": "Screws",
       "alternative": "Socket or button head",
-      "image_url": "https://sorter-v2-parts.nyc3.cdn.digitaloceanspaces.com/img/26e52d7d5bcd22688d97056e2e0aa630548cd0f2924bb2e263d905318cf71548.png",
+      "image_url": "https://img.basically.website/parts/img/26e52d7d5bcd22688d97056e2e0aa630548cd0f2924bb2e263d905318cf71548.png",
       "description": "Holds the layer adapter board down on the chute core's heat inserts.",
       "created_at": "2026-07-18",
       "updated_at": "2026-08-18",
@@ -2711,7 +2711,7 @@
       "name": "M3 × 12 mm socket/button head",
       "category": "Screws",
       "alternative": "Socket or button head",
-      "image_url": "https://sorter-v2-parts.nyc3.cdn.digitaloceanspaces.com/img/26e52d7d5bcd22688d97056e2e0aa630548cd0f2924bb2e263d905318cf71548.png",
+      "image_url": "https://img.basically.website/parts/img/26e52d7d5bcd22688d97056e2e0aa630548cd0f2924bb2e263d905318cf71548.png",
       "description": "Mounts the cable clamp to the interface, and the limit switch to its housing.",
       "created_at": "2026-07-18",
       "updated_at": "2026-08-18",
@@ -2742,7 +2742,7 @@
       "name": "M3 × 35 mm socket/button head",
       "category": "Screws",
       "alternative": "Socket or button head",
-      "image_url": "https://sorter-v2-parts.nyc3.cdn.digitaloceanspaces.com/img/26e52d7d5bcd22688d97056e2e0aa630548cd0f2924bb2e263d905318cf71548.png",
+      "image_url": "https://img.basically.website/parts/img/26e52d7d5bcd22688d97056e2e0aa630548cd0f2924bb2e263d905318cf71548.png",
       "description": "The single long screw that clamps the two cable-clamp halves together.",
       "created_at": "2026-07-18",
       "updated_at": "2026-08-18",
@@ -2832,7 +2832,7 @@
       "name": "M5 × 12 mm socket/button head",
       "category": "Screws",
       "alternative": "Socket or button head",
-      "image_url": "https://sorter-v2-parts.nyc3.cdn.digitaloceanspaces.com/img/26e52d7d5bcd22688d97056e2e0aa630548cd0f2924bb2e263d905318cf71548.png",
+      "image_url": "https://img.basically.website/parts/img/26e52d7d5bcd22688d97056e2e0aa630548cd0f2924bb2e263d905318cf71548.png",
       "description": "Holds the NEMA 23 stepper onto the interface bracket.",
       "created_at": "2026-07-18",
       "updated_at": "2026-08-18",
@@ -2863,7 +2863,7 @@
       "name": "M5 × 16 mm socket/button head",
       "category": "Screws",
       "alternative": "Socket or button head",
-      "image_url": "https://sorter-v2-parts.nyc3.cdn.digitaloceanspaces.com/img/26e52d7d5bcd22688d97056e2e0aa630548cd0f2924bb2e263d905318cf71548.png",
+      "image_url": "https://img.basically.website/parts/img/26e52d7d5bcd22688d97056e2e0aa630548cd0f2924bb2e263d905318cf71548.png",
       "description": "The most-used M5 in the machine: every external bracket, every bin bracket, every interface rib, every lazy Susan extrusion mount.",
       "created_at": "2026-07-18",
       "updated_at": "2026-08-18",
@@ -2895,7 +2895,7 @@
       "name": "M5 × 20 mm socket/button head",
       "category": "Screws",
       "alternative": "Socket or button head",
-      "image_url": "https://sorter-v2-parts.nyc3.cdn.digitaloceanspaces.com/img/26e52d7d5bcd22688d97056e2e0aa630548cd0f2924bb2e263d905318cf71548.png",
+      "image_url": "https://img.basically.website/parts/img/26e52d7d5bcd22688d97056e2e0aa630548cd0f2924bb2e263d905318cf71548.png",
       "description": "Mounts the chute limit switch assembly to the interface frame, into T-nuts.",
       "created_at": "2026-07-18",
       "updated_at": "2026-08-18",
@@ -2926,7 +2926,7 @@
       "name": "M5 × 30 mm socket/button head",
       "category": "Screws",
       "alternative": "Socket or button head",
-      "image_url": "https://sorter-v2-parts.nyc3.cdn.digitaloceanspaces.com/img/26e52d7d5bcd22688d97056e2e0aa630548cd0f2924bb2e263d905318cf71548.png",
+      "image_url": "https://img.basically.website/parts/img/26e52d7d5bcd22688d97056e2e0aa630548cd0f2924bb2e263d905318cf71548.png",
       "description": "Attaches the cable cage to the six interface brackets.",
       "created_at": "2026-07-18",
       "updated_at": "2026-08-18",
@@ -2998,7 +2998,7 @@
           }
         ]
       },
-      "image_url": "https://sorter-v2-parts.nyc3.cdn.digitaloceanspaces.com/img/cb2fdd72471816cef2a69bdd7775a1863cf4dea2d72a15a68a73deebb276164f.jpg",
+      "image_url": "https://img.basically.website/parts/img/cb2fdd72471816cef2a69bdd7775a1863cf4dea2d72a15a68a73deebb276164f.jpg",
       "conflicts": [
         {
           "merge": "docs-merge-2026-08-21",
@@ -3096,7 +3096,7 @@
       "name": "M5 socket/button head, length TBD",
       "category": "Screws",
       "alternative": "Socket or button head",
-      "image_url": "https://sorter-v2-parts.nyc3.cdn.digitaloceanspaces.com/img/26e52d7d5bcd22688d97056e2e0aa630548cd0f2924bb2e263d905318cf71548.png",
+      "image_url": "https://img.basically.website/parts/img/26e52d7d5bcd22688d97056e2e0aa630548cd0f2924bb2e263d905318cf71548.png",
       "description": "Placeholder for the three electronics mounts that bolt to the frame. The length has not been measured yet.",
       "created_at": "2026-07-18",
       "updated_at": "2026-08-18",
@@ -3257,7 +3257,7 @@
           "value": "Cold-rolled plain low-carbon steel"
         }
       ],
-      "image_url": "https://sorter-v2-parts.nyc3.cdn.digitaloceanspaces.com/img/b0c74a7fb6f0be515fc6bad42d5a927e2330e887b8e74129f2906fde6610a0eb.jpg",
+      "image_url": "https://img.basically.website/parts/img/b0c74a7fb6f0be515fc6bad42d5a927e2330e887b8e74129f2906fde6610a0eb.jpg",
       "sourcing": {
         "vendors": [
           {
@@ -3286,7 +3286,7 @@
       "internal_notes": "First COTS part in the manifest (unified-parts-system MVP). 'Long' = ruthex's standard M3 (5.7 mm), vs the M3S short (4 mm) used only on the servo adapter. BOM sheet says the machine needs ~235 across machine+layers; the chute core alone takes 18 (4 PCB + 4 bearing race + 4 funnel slides + 4 layer connector + 2 arms).",
       "created_at": "2026-07-18",
       "updated_at": "2026-07-18",
-      "image_url": "https://sorter-v2-parts.nyc3.cdn.digitaloceanspaces.com/img/ae73fe6bb2304afb8bb591904eb363febfdc98ccde7dd6dbda9dd5ae9cb3151a.png",
+      "image_url": "https://img.basically.website/parts/img/ae73fe6bb2304afb8bb591904eb363febfdc98ccde7dd6dbda9dd5ae9cb3151a.png",
       "attributes": [
         {
           "label": "Type",
@@ -3380,7 +3380,7 @@
           }
         ]
       },
-      "image_url": "https://sorter-v2-parts.nyc3.cdn.digitaloceanspaces.com/img/796e90762460d89234187db02ff76383bac2099041d80a1e95866eaa65e157f8.jpg"
+      "image_url": "https://img.basically.website/parts/img/796e90762460d89234187db02ff76383bac2099041d80a1e95866eaa65e157f8.jpg"
     },
     {
       "id": "hsi-m4",
@@ -3429,7 +3429,7 @@
           }
         ]
       },
-      "image_url": "https://sorter-v2-parts.nyc3.cdn.digitaloceanspaces.com/img/abb5a013d071379a34f8b65345b483627803f247627d4ef0a5d5816c5eff0d49.jpg",
+      "image_url": "https://img.basically.website/parts/img/abb5a013d071379a34f8b65345b483627803f247627d4ef0a5d5816c5eff0d49.jpg",
       "conflicts": [
         {
           "merge": "docs-merge-2026-08-21",
@@ -3462,7 +3462,7 @@
       "sheet_qty": {
         "per_machine": 8
       },
-      "image_url": "https://sorter-v2-parts.nyc3.cdn.digitaloceanspaces.com/img/49ce8284dc28ede2c118a7903c079d6107fbdb80fd0ea8f84396ec6bca5054cb.jpg",
+      "image_url": "https://img.basically.website/parts/img/49ce8284dc28ede2c118a7903c079d6107fbdb80fd0ea8f84396ec6bca5054cb.jpg",
       "sourcing": {
         "vendors": [
           {
@@ -3529,7 +3529,7 @@
           }
         ]
       },
-      "image_url": "https://sorter-v2-parts.nyc3.cdn.digitaloceanspaces.com/img/3d0256ddc8a45d2b0df7bc3719b4bbc57c4c41a7031f5d3ed9fc9b0fd06ab9fb.jpg"
+      "image_url": "https://img.basically.website/parts/img/3d0256ddc8a45d2b0df7bc3719b4bbc57c4c41a7031f5d3ed9fc9b0fd06ab9fb.jpg"
     },
     {
       "id": "cam-imx415",
@@ -3545,7 +3545,7 @@
       "sheet_qty": {
         "per_machine": 1
       },
-      "image_url": "https://sorter-v2-parts.nyc3.cdn.digitaloceanspaces.com/img/7470d70e089ce5cc7a8cffef0465c105131b5fe4257beef1de377d9b827d8910.jpg",
+      "image_url": "https://img.basically.website/parts/img/7470d70e089ce5cc7a8cffef0465c105131b5fe4257beef1de377d9b827d8910.jpg",
       "sourcing": {
         "vendors": [
           {
@@ -3574,7 +3574,7 @@
       "sheet_qty": {
         "per_machine": 2
       },
-      "image_url": "https://sorter-v2-parts.nyc3.cdn.digitaloceanspaces.com/img/8f536228e5a4502ecd89039d0cbf93c16f9d5a1043fd303cd7c417789334753f.jpg",
+      "image_url": "https://img.basically.website/parts/img/8f536228e5a4502ecd89039d0cbf93c16f9d5a1043fd303cd7c417789334753f.jpg",
       "sourcing": {
         "vendors": [
           {
@@ -3611,7 +3611,7 @@
       "sheet_qty": {
         "per_machine": 1
       },
-      "image_url": "https://sorter-v2-parts.nyc3.cdn.digitaloceanspaces.com/img/bf2464997d1ba0ff22e86b57e94e2477ceb7220e49e8474c265f5e509b42cc22.jpg",
+      "image_url": "https://img.basically.website/parts/img/bf2464997d1ba0ff22e86b57e94e2477ceb7220e49e8474c265f5e509b42cc22.jpg",
       "sourcing": {
         "vendors": [
           {
@@ -3672,7 +3672,7 @@
           }
         ]
       },
-      "image_url": "https://sorter-v2-parts.nyc3.cdn.digitaloceanspaces.com/img/865e0c41426542c2661389baa53f30f439e8add28b8aa8c8e6b6117b6cb1c0a0.jpg"
+      "image_url": "https://img.basically.website/parts/img/865e0c41426542c2661389baa53f30f439e8add28b8aa8c8e6b6117b6cb1c0a0.jpg"
     },
     {
       "id": "caster-wheel-m6",
@@ -3720,7 +3720,7 @@
           }
         ]
       },
-      "image_url": "https://sorter-v2-parts.nyc3.cdn.digitaloceanspaces.com/img/700ae42a92605d1c848ca7b2b210e4fb4c4be2942abe08ce712e891af3b72abf.jpg"
+      "image_url": "https://img.basically.website/parts/img/700ae42a92605d1c848ca7b2b210e4fb4c4be2942abe08ce712e891af3b72abf.jpg"
     },
     {
       "id": "motor-nema17",
@@ -3736,7 +3736,7 @@
       "sheet_qty": {
         "per_machine": 4
       },
-      "image_url": "https://sorter-v2-parts.nyc3.cdn.digitaloceanspaces.com/img/578841523909d67aa0f1711197935d36bcb2f6673d37f8395efc0644f49a6f9b.jpg",
+      "image_url": "https://img.basically.website/parts/img/578841523909d67aa0f1711197935d36bcb2f6673d37f8395efc0644f49a6f9b.jpg",
       "sourcing": {
         "vendors": [
           {
@@ -3770,7 +3770,7 @@
       "sheet_qty": {
         "per_machine": 1
       },
-      "image_url": "https://sorter-v2-parts.nyc3.cdn.digitaloceanspaces.com/img/e8eac018a9a8a77a14db0de260beb4cff737bd37a33fd1f16af32e277025e453.jpg",
+      "image_url": "https://img.basically.website/parts/img/e8eac018a9a8a77a14db0de260beb4cff737bd37a33fd1f16af32e277025e453.jpg",
       "sourcing": {
         "vendors": [
           {
@@ -3804,7 +3804,7 @@
       "sheet_qty": {
         "per_layer": 1
       },
-      "image_url": "https://sorter-v2-parts.nyc3.cdn.digitaloceanspaces.com/img/8a8b0ae4bdd9679526adf05de4341c528c21cbf42a48491e11fe467c86567589.jpg",
+      "image_url": "https://img.basically.website/parts/img/8a8b0ae4bdd9679526adf05de4341c528c21cbf42a48491e11fe467c86567589.jpg",
       "sourcing": {
         "vendors": [
           {
@@ -3833,7 +3833,7 @@
       "sheet_qty": {
         "per_machine": 3
       },
-      "image_url": "https://sorter-v2-parts.nyc3.cdn.digitaloceanspaces.com/img/b7aac380cc216efdc18d1f61e5a9b70b63a35d37b3417fe118a7c7af2d10da96.jpg",
+      "image_url": "https://img.basically.website/parts/img/b7aac380cc216efdc18d1f61e5a9b70b63a35d37b3417fe118a7c7af2d10da96.jpg",
       "sourcing": {
         "vendors": [
           {
@@ -3876,7 +3876,7 @@
       "sheet_qty": {
         "per_machine": 8
       },
-      "image_url": "https://sorter-v2-parts.nyc3.cdn.digitaloceanspaces.com/img/e11bf4434f281628218a4867af0033d0daf845e26e88bc208f973d5a0b7f5b9b.jpg",
+      "image_url": "https://img.basically.website/parts/img/e11bf4434f281628218a4867af0033d0daf845e26e88bc208f973d5a0b7f5b9b.jpg",
       "sourcing": {
         "vendors": [
           {
@@ -3905,7 +3905,7 @@
       "sheet_qty": {
         "per_layer": 2
       },
-      "image_url": "https://sorter-v2-parts.nyc3.cdn.digitaloceanspaces.com/img/9b0d3f8350970397ac0590b4d8ff0317cca9d4322bf23ecdfa386619e565d4fe.jpg",
+      "image_url": "https://img.basically.website/parts/img/9b0d3f8350970397ac0590b4d8ff0317cca9d4322bf23ecdfa386619e565d4fe.jpg",
       "sourcing": {
         "vendors": [
           {
@@ -3962,7 +3962,7 @@
       "sheet_qty": {
         "per_machine": 1
       },
-      "image_url": "https://sorter-v2-parts.nyc3.cdn.digitaloceanspaces.com/img/8d3232c97b1f885364c542ed400a855bcbf8af8d7c3a37ee281e60516e9be8db.jpg",
+      "image_url": "https://img.basically.website/parts/img/8d3232c97b1f885364c542ed400a855bcbf8af8d7c3a37ee281e60516e9be8db.jpg",
       "sourcing": {
         "vendors": [
           {
@@ -4005,7 +4005,7 @@
       "sheet_qty": {
         "per_machine": 1
       },
-      "image_url": "https://sorter-v2-parts.nyc3.cdn.digitaloceanspaces.com/img/51ca8492b4994e553fc1e451494ce18f0993c653f35d1db90adf388f33fafd36.jpg",
+      "image_url": "https://img.basically.website/parts/img/51ca8492b4994e553fc1e451494ce18f0993c653f35d1db90adf388f33fafd36.jpg",
       "sourcing": {
         "vendors": [
           {
@@ -4034,7 +4034,7 @@
       "sheet_qty": {
         "per_machine": 1
       },
-      "image_url": "https://sorter-v2-parts.nyc3.cdn.digitaloceanspaces.com/img/18128a75110ff786fbcdca9be2d093b22d955ebf9f81d6c695a930f20f7149a2.jpg",
+      "image_url": "https://img.basically.website/parts/img/18128a75110ff786fbcdca9be2d093b22d955ebf9f81d6c695a930f20f7149a2.jpg",
       "sourcing": {
         "vendors": [
           {
@@ -4102,7 +4102,7 @@
           }
         ]
       },
-      "image_url": "https://sorter-v2-parts.nyc3.cdn.digitaloceanspaces.com/img/8ab3a641760510a72976b5466efdd9c21b8a507d917bd5a9ada48aed97c98766.jpg"
+      "image_url": "https://img.basically.website/parts/img/8ab3a641760510a72976b5466efdd9c21b8a507d917bd5a9ada48aed97c98766.jpg"
     },
     {
       "id": "usb-hub-powered-24v",
@@ -4118,7 +4118,7 @@
       "sheet_qty": {
         "per_machine": 1
       },
-      "image_url": "https://sorter-v2-parts.nyc3.cdn.digitaloceanspaces.com/img/e327e62a3fb80763bd0f10599ad46db6a8ca432253078fee88d84aa9888b0d5c.jpg",
+      "image_url": "https://img.basically.website/parts/img/e327e62a3fb80763bd0f10599ad46db6a8ca432253078fee88d84aa9888b0d5c.jpg",
       "sourcing": {
         "vendors": [
           {
@@ -4148,7 +4148,7 @@
       "sheet_qty": {
         "per_machine": 1
       },
-      "image_url": "https://sorter-v2-parts.nyc3.cdn.digitaloceanspaces.com/img/b15f19a1ef56e6c710c09e105e6b8cbeabda0b39368aeff99bc2e11669b0a5f8.jpg",
+      "image_url": "https://img.basically.website/parts/img/b15f19a1ef56e6c710c09e105e6b8cbeabda0b39368aeff99bc2e11669b0a5f8.jpg",
       "sourcing": {
         "vendors": [
           {
@@ -4185,7 +4185,7 @@
       "sheet_qty": {
         "per_machine": 5
       },
-      "image_url": "https://sorter-v2-parts.nyc3.cdn.digitaloceanspaces.com/img/4eb0a0fc4354607264fdc3dcb81f0a2837c48142b18f547ea94ad5ced5196490.jpg",
+      "image_url": "https://img.basically.website/parts/img/4eb0a0fc4354607264fdc3dcb81f0a2837c48142b18f547ea94ad5ced5196490.jpg",
       "sourcing": {
         "vendors": [
           {
@@ -4222,7 +4222,7 @@
       "sheet_qty": {
         "per_machine": 1
       },
-      "image_url": "https://sorter-v2-parts.nyc3.cdn.digitaloceanspaces.com/img/35bf81d20d6e4760955e0394a118c465bcae2f5d0bf3a06d8f639e15552d1769.jpg",
+      "image_url": "https://img.basically.website/parts/img/35bf81d20d6e4760955e0394a118c465bcae2f5d0bf3a06d8f639e15552d1769.jpg",
       "sourcing": {
         "vendors": [
           {
@@ -4251,7 +4251,7 @@
       "sheet_qty": {
         "per_machine": 20
       },
-      "image_url": "https://sorter-v2-parts.nyc3.cdn.digitaloceanspaces.com/img/2f61f803bd8318e6b934e405d6063689fcabc5425c7c8aaacc6b862c95d40050.jpg",
+      "image_url": "https://img.basically.website/parts/img/2f61f803bd8318e6b934e405d6063689fcabc5425c7c8aaacc6b862c95d40050.jpg",
       "sourcing": {
         "vendors": [
           {
@@ -4279,7 +4279,7 @@
       "sheet_qty": {
         "per_machine": 1
       },
-      "image_url": "https://sorter-v2-parts.nyc3.cdn.digitaloceanspaces.com/img/69b3da40ac51375f2b998afe1fec97e5faad1adfb0cd9b0a1fbce205a76f9179.jpg",
+      "image_url": "https://img.basically.website/parts/img/69b3da40ac51375f2b998afe1fec97e5faad1adfb0cd9b0a1fbce205a76f9179.jpg",
       "sourcing": {
         "vendors": [
           {
@@ -4326,7 +4326,7 @@
       "sheet_qty": {
         "per_layer": 1
       },
-      "image_url": "https://sorter-v2-parts.nyc3.cdn.digitaloceanspaces.com/img/784f9a5733e4ad3815cb8a22b27b7a6610357277e1846a7f1be2e5843ab63e31.jpg",
+      "image_url": "https://img.basically.website/parts/img/784f9a5733e4ad3815cb8a22b27b7a6610357277e1846a7f1be2e5843ab63e31.jpg",
       "sourcing": {
         "vendors": [
           {
@@ -4373,7 +4373,7 @@
       "sheet_qty": {
         "per_machine": 1
       },
-      "image_url": "https://sorter-v2-parts.nyc3.cdn.digitaloceanspaces.com/img/f7caadca07d5a0dc6894895209da6f1a7f4c865a245ee095fce358902c85ff42.png",
+      "image_url": "https://img.basically.website/parts/img/f7caadca07d5a0dc6894895209da6f1a7f4c865a245ee095fce358902c85ff42.png",
       "attributes": [
         {
           "label": "Version",
@@ -4404,7 +4404,7 @@
       "sheet_qty": {
         "per_layer": 1
       },
-      "image_url": "https://sorter-v2-parts.nyc3.cdn.digitaloceanspaces.com/img/1838b0588731b2d835ae5f9885f4e486324b89370ab3ea5df086540deb539c75.png",
+      "image_url": "https://img.basically.website/parts/img/1838b0588731b2d835ae5f9885f4e486324b89370ab3ea5df086540deb539c75.png",
       "sourcing": {
         "vendors": [
           {
@@ -4426,7 +4426,7 @@
       "description": "Lights the feeder C-channels. One per light post.",
       "created_at": "2026-07-18",
       "updated_at": "2026-07-18",
-      "image_url": "https://sorter-v2-parts.nyc3.cdn.digitaloceanspaces.com/img/f772d260f547832360f41707bdb5d1ec1f45978d0badb36f7fedc694147a7d4d.jpg",
+      "image_url": "https://img.basically.website/parts/img/f772d260f547832360f41707bdb5d1ec1f45978d0badb36f7fedc694147a7d4d.jpg",
       "sourcing": {
         "vendors": [
           {
@@ -4452,7 +4452,7 @@
       "description": "Lighting for classification chamber",
       "created_at": "2026-07-18",
       "updated_at": "2026-07-18",
-      "image_url": "https://sorter-v2-parts.nyc3.cdn.digitaloceanspaces.com/img/961391ece43df1628e5a153d3a7ba42b865868e70ace71fde7b0f951c30104eb.jpg",
+      "image_url": "https://img.basically.website/parts/img/961391ece43df1628e5a153d3a7ba42b865868e70ace71fde7b0f951c30104eb.jpg",
       "sourcing": {
         "vendors": [
           {
@@ -4483,7 +4483,7 @@
       "sheet_qty": {
         "per_machine": 1
       },
-      "image_url": "https://sorter-v2-parts.nyc3.cdn.digitaloceanspaces.com/img/8fb04d71f715fd2565956ed1e61510fb91b4c4f679d3df8d921bce273453e784.jpg",
+      "image_url": "https://img.basically.website/parts/img/8fb04d71f715fd2565956ed1e61510fb91b4c4f679d3df8d921bce273453e784.jpg",
       "sourcing": {
         "vendors": [
           {
@@ -4551,7 +4551,7 @@
           }
         ]
       },
-      "image_url": "https://sorter-v2-parts.nyc3.cdn.digitaloceanspaces.com/img/1a5bf367214fa603d33eb785fe23e65887d114006c0e95c996dfc35c1befa8f1.jpg"
+      "image_url": "https://img.basically.website/parts/img/1a5bf367214fa603d33eb785fe23e65887d114006c0e95c996dfc35c1befa8f1.jpg"
     },
     {
       "id": "psu-24v-350w",
@@ -4567,7 +4567,7 @@
       "sheet_qty": {
         "per_machine": 1
       },
-      "image_url": "https://sorter-v2-parts.nyc3.cdn.digitaloceanspaces.com/img/72bba2c3919b12f5bfc2cb5bbfc3ad38257fee4d09e3395db3a016e5fb47b196.jpg",
+      "image_url": "https://img.basically.website/parts/img/72bba2c3919b12f5bfc2cb5bbfc3ad38257fee4d09e3395db3a016e5fb47b196.jpg",
       "sourcing": {
         "vendors": [
           {
@@ -4631,7 +4631,7 @@
           }
         ]
       },
-      "image_url": "https://sorter-v2-parts.nyc3.cdn.digitaloceanspaces.com/img/b507a8b8e3f9fd8df63c5c66596bd8ba129158e6c1f56f35ef0173bca1174308.jpg"
+      "image_url": "https://img.basically.website/parts/img/b507a8b8e3f9fd8df63c5c66596bd8ba129158e6c1f56f35ef0173bca1174308.jpg"
     },
     {
       "id": "ext-2020-ag",
@@ -4707,6 +4707,75 @@
       "updated_at": "2026-08-21",
       "image_url": "https://img.basically.website/web/parts/top-interface/extrusion-f.7e1f6b2dc9e069f7.png",
       "caption": "2020 aluminum extrusion, cut to 274 mm (piece F)."
+    },
+    {
+      "id": "cable-cage-top",
+      "kind": "lasercut",
+      "name": "Cable cage top",
+      "photo": "https://img.basically.website/web/parts/top-interface/cable-cage-top.0856e376cd2b9238.jpg",
+      "assembly": "Cable Cage",
+      "description": "Top plate of the cable cage. Has a keyed cutout for easy insertion/removal of the interface.",
+      "thicknessIn": "1/8″",
+      "thicknessMm": 3,
+      "widthMm": 325,
+      "heightMm": 375,
+      "qty": 1,
+      "onshape": "https://cad.onshape.com/documents/36d65973fe08f685f790dc8b/v/3b8fafc8cab54b09332e14d2/e/80730ec6cc50aab029fb5397",
+      "dxf": "/dxf/cable-cage-top.dxf",
+      "preview": "/dxf-previews/cable-cage-top.svg",
+      "updated": "2026-07-10",
+      "handcut": {
+        "guide": "cage-top",
+        "blurb": "A regular hexagon, same outline as the bottom plate. Lays out from a rectangle with a tape measure: the centre is one big Ø177 mm drilled-and-jigsawed hole, six mounting holes sit on a 175 mm-radius bolt circle, and a small keyed notch is drilled at each end.",
+        "stock": "325 × 375 mm rectangle (12 13/16″ × 14 3/4″)",
+        "tools": "jigsaw · drill · tape measure"
+      }
+    },
+    {
+      "id": "cable-cage-bottom",
+      "kind": "lasercut",
+      "name": "Cable cage bottom",
+      "photo": "https://img.basically.website/web/parts/top-interface/cable-cage-bottom.72b2038544dec559.jpg",
+      "assembly": "Cable Cage",
+      "description": "Bottom plate of the cable cage.",
+      "thicknessIn": "1/8″",
+      "thicknessMm": 3,
+      "widthMm": 325,
+      "heightMm": 375,
+      "qty": 1,
+      "onshape": "https://cad.onshape.com/documents/36d65973fe08f685f790dc8b/v/3b8fafc8cab54b09332e14d2/e/5faa32cf4604f648fd981991",
+      "dxf": "/dxf/cable-cage-bottom.dxf",
+      "preview": "/dxf-previews/cable-cage-bottom.svg",
+      "updated": "2026-07-10",
+      "handcut": {
+        "guide": "cage-bottom",
+        "blurb": "The same regular-hexagon outline as the top cage, but simpler: one big Ø177 mm centre hole and six Ø5.5 mm mounting holes on a 175 mm-radius bolt circle. No small holes, no notch.",
+        "stock": "325 × 375 mm rectangle (12 13/16″ × 14 3/4″)",
+        "tools": "jigsaw · drill · tape measure"
+      }
+    },
+    {
+      "id": "top-plate",
+      "kind": "lasercut",
+      "name": "Top plate",
+      "photo": "https://img.basically.website/web/parts/top-interface/top-plate.fb89181642abbe25.jpg",
+      "caption": "The machine's hexagonal top plate; the interface mounts under it.",
+      "description": "Machine top plate. Has 5 cable holes and holes for the main stepper. Does not yet have mount holes for the C-channels.",
+      "thicknessIn": "3/8″",
+      "thicknessMm": 10,
+      "widthMm": 672,
+      "heightMm": 770,
+      "qty": 1,
+      "onshape": "https://cad.onshape.com/documents/36d65973fe08f685f790dc8b/v/3b8fafc8cab54b09332e14d2/e/e6605a6f604d25617d91b7bc",
+      "dxf": "/dxf/top-plate.dxf",
+      "preview": "/dxf-previews/top-plate.svg",
+      "updated": "2026-07-10",
+      "handcut": {
+        "guide": "top-plate",
+        "blurb": "This plate is a regular hexagon — it can be laid out with a tape measure and cut accurately with just a jigsaw and a drill. The five cable slots become single 22 mm (7/8″) drill holes.",
+        "stock": "672.4 × 776.4 mm rectangle (26 15/32″ × 30 9/16″)",
+        "tools": "jigsaw · drill · tape measure"
+      }
     }
   ],
   "assemblies": [
@@ -5746,7 +5815,7 @@
         "type": "screw",
         "variant": "countersunk"
       },
-      "image_url": "https://sorter-v2-parts.nyc3.cdn.digitaloceanspaces.com/img/faf0edbe33245eec7dff8e0f365b0c006ad6991b7372217c447dfe53928228a4.jpg",
+      "image_url": "https://img.basically.website/parts/img/faf0edbe33245eec7dff8e0f365b0c006ad6991b7372217c447dfe53928228a4.jpg",
       "image_credit": "DTGN M3 flat head listing (amazon.com/dp/B0CQ4XMVLZ), cropped"
     },
     {
@@ -5756,7 +5825,7 @@
         "type": "screw",
         "variant": "socket"
       },
-      "image_url": "https://sorter-v2-parts.nyc3.cdn.digitaloceanspaces.com/img/580ba61e9d9a2275717f9c9741502e966f45c4382616993365b4d1cb9720d0c0.jpg",
+      "image_url": "https://img.basically.website/parts/img/580ba61e9d9a2275717f9c9741502e966f45c4382616993365b4d1cb9720d0c0.jpg",
       "image_credit": "uxcell M3 socket head listing (amazon.com/dp/B01MCW5GM3), cropped"
     },
     {
@@ -5766,7 +5835,7 @@
         "type": "screw",
         "variant": "button"
       },
-      "image_url": "https://sorter-v2-parts.nyc3.cdn.digitaloceanspaces.com/img/350b2785fbe0a6ada9e624dfd4457a2a2309857171c78515560cb5c3f3faf445.jpg",
+      "image_url": "https://img.basically.website/parts/img/350b2785fbe0a6ada9e624dfd4457a2a2309857171c78515560cb5c3f3faf445.jpg",
       "image_credit": "uxcell M3 button head listing (amazon.com/dp/B06VWBPXSV), cropped"
     },
     {
@@ -5775,7 +5844,7 @@
       "match": {
         "type": "nut"
       },
-      "image_url": "https://sorter-v2-parts.nyc3.cdn.digitaloceanspaces.com/img/3731dab3df874778f0dd2d4a36771a2e3266dfae609cab95ce5bf1abe3f177fb.jpg",
+      "image_url": "https://img.basically.website/parts/img/3731dab3df874778f0dd2d4a36771a2e3266dfae609cab95ce5bf1abe3f177fb.jpg",
       "image_credit": "uxcell M3 hex nut listing (amazon.com/dp/B07H3T4859), cropped"
     }
   ],

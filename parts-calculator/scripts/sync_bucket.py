@@ -42,9 +42,12 @@ ENDPOINT = f"https://{REGION}.digitaloceanspaces.com"
 # CDN endpoint (edge-cached). The origin hostname -- same URL without `.cdn.`
 # -- also serves these objects permanently, so switching between the two is
 # never a breaking change.
-PUBLIC_BASE = os.environ.get(
-    "DO_SPACES_PUBLIC_BASE", f"https://{BUCKET}.{REGION}.cdn.digitaloceanspaces.com"
-)
+# Public URLs go through the asset service (the img.basically.website worker,
+# docs/scripts/img-worker/), which mounts this bucket at /parts/* -- one public
+# hostname for every asset, immutable caching for free since every filename is
+# a hash of the bytes. The bucket's own CDN endpoint still serves, so URLs in
+# old commits never break.
+PUBLIC_BASE = os.environ.get("DO_SPACES_PUBLIC_BASE", "https://img.basically.website/parts")
 
 # Directories whose contents get pushed. Keep this list narrow: only things
 # the website serves or that pin a revision. Renders (1.4M total) stay as

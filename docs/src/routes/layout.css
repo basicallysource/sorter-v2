@@ -586,6 +586,60 @@ body {
 	border: 1px solid var(--line);
 }
 
+/* Instant popover behind every corner badge: no tooltip delay, keyboard and
+   touch reachable (badges are focusable), right-aligned so it stays inside
+   the page. */
+.part-badge {
+	cursor: help;
+}
+
+.part-badge:focus {
+	outline: none;
+}
+
+.part-badge-pop {
+	display: none;
+	position: absolute;
+	top: calc(100% + 4px);
+	right: 0;
+	z-index: 30;
+	min-width: 200px;
+	max-width: 260px;
+	padding: 8px 10px;
+	font-size: 0.75rem;
+	font-weight: 400;
+	line-height: 1.45;
+	text-align: left;
+	white-space: normal;
+	color: var(--ink);
+	background: var(--bg);
+	border: 1px solid var(--line);
+	box-shadow: 0 4px 14px rgb(0 0 0 / 0.12);
+}
+
+.part-badge:hover .part-badge-pop,
+.part-badge:focus .part-badge-pop,
+.part-badge:focus-within .part-badge-pop {
+	display: block;
+}
+
+.part-badge-pop-wide {
+	min-width: 240px;
+	max-width: 300px;
+}
+
+.part-badge-pop-rule {
+	display: block;
+	margin-top: 6px;
+	padding-top: 6px;
+	border-top: 1px solid var(--line);
+}
+
+.part-card-conflict svg {
+	width: 12px;
+	height: 12px;
+}
+
 /* Marker for an unresolved catalog conflict: the docs and the parts
    calculator disagreed about this part when their catalogs were merged
    (2026-08-21) and nobody has settled it against the machine yet. */

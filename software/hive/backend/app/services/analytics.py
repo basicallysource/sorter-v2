@@ -463,7 +463,7 @@ def get_analytics(db: Session, machine_ids: list[Any]) -> dict[str, Any]:
             "unique_parts": len(folded["parts"]),
             "unique_colors": len(folded["colors"]),
             "active_seconds": round(active_seconds, 1),
-            "overall_ppm": (counts["distributed"] * 60.0 / active_seconds) if active_seconds > 0 else 0.0,
+            "overall_ppm": round(counts["distributed"] * 60.0 / active_seconds, 3) if active_seconds > 0 else 0.0,
             "capacity_recent": series[-1]["capacity_per_day"] if series else 0.0,
             "first_day": day_bounds[0].isoformat() if day_bounds[0] else None,
             "last_day": day_bounds[1].isoformat() if day_bounds[1] else None,

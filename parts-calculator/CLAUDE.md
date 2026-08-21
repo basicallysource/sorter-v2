@@ -21,17 +21,20 @@ the BOM spreadsheet).
 A SvelteKit static site that tells you what to print/buy for a Sorter V2
 build. Two halves:
 
-- **`slicer/`** — Python + OrcaSlicer. Slices every part, reads the
+- **`slicer/`** — Python + a slicer. Slices every part, reads the
   slicer's real `used_g`, renders thumbnails, writes the site's data.
-  **Never runs in the site build.** Runs locally on the Mac *or* in CI:
-  `.github/workflows/regen-parts.yml` re-runs it (pinned Linux AppImage,
-  headless) on any PR touching slicer inputs and commits the regenerated
-  outputs back to the branch — so agents/bots can change parts data with no
-  local slicer, and the branch preview shows the branch's own correct data.
-  CI is the canonical slicer environment; slice results are memoized per
-  (STL bytes + settings), so warm runs only re-slice what changed. A push to
-  `main` runs `.github/workflows/check-parts.yml` instead, which only proves
-  the committed data references bytes the bucket actually serves.
+  **Never runs in the site build, and never runs in CI.** Whoever edits the
+  slicer inputs runs `slicer/filament.py` and commits source and outputs
+  together, in the same change. The script picks its slicing backend itself:
+  a local OrcaSlicer when one is installed, otherwise the asset service
+  (`ASSET_SERVICE_TOKEN` set) — an uploaded STL gets its slice reports and a
+  render as derived forms, made by the service's worker on the same pinned
+  profile. So no machine needs OrcaSlicer to change parts data, and a branch
+  preview is correct from the first push, because the data rode in with it.
+  `.github/workflows/check-parts.yml` guards every PR and push: the generated
+  data must agree with the source pins (`check_generated_pins.py`) and every
+  URL the site ships must serve real bytes (`check_bucket_urls.py`). Pure
+  checks, about a minute; nothing commits onto your branch.
 - **`src/`** — the app. Reads generated JSON, does all math in the browser.
   Fully static.
 
@@ -44,27 +47,13 @@ live at parts-calculator.basically.website. There is no separate deploy step;
 treat every push to `main` as a production release. The Vercel project is
 deleted — nothing here builds on Vercel any more.
 
-## PR previews — when they are actually valid
+## PR previews
 
-Every branch gets a Pages preview, commented on the PR. **If the PR touched
-anything under `slicer/`, that preview is wrong until CI's regen commit
-lands**: the app reads the committed `parts.generated.json`, not `parts.json`,
-so a changed part shows its old grams and old thumbnail, and a new part is
-missing.
-
-Budget minutes, not seconds, for a parts change: a build on stale data, then
-the regen run, then a second build on the correct data. A slicer-settings
-change invalidates every part and re-slices the whole catalog, which is several
-times longer. A PR touching nothing under `slicer/` skips regen entirely.
-
-Do not report a preview as ready — or screenshot it — on the first green
-check. CI moves the branch head underneath you. Wait for the `regen` check to
-succeed, *then* the deployment on the resulting head SHA. Do not wait on "all
-checks green": a commit-back can park a duplicate, never-executed run in
-`action_required` on the PR forever.
-
-Sharing a preview *link* early is fine — the URL is stable per branch and
-self-corrects once the second build lands.
+Every branch gets a Pages preview, commented on the PR, and it is correct as
+soon as it builds: the generated data is committed in the same change as the
+source that produced it, so the app never waits on anything. Nothing commits
+onto your branch after you push. If `check-parts` is red, the change itself is
+inconsistent — regenerate and push again.
 
 ## Hard rules
 
@@ -102,10 +91,9 @@ python scripts/sync_bucket.py             # upload missing + rewrite manifest
 ```
 
 Credentials come from `DO_SPACES_KEY` / `DO_SPACES_SECRET` (env, or
-`~/.config/do-spaces/sorter-v2-parts.env`). In CI they are repo secrets; the
-regen workflow (`.github/workflows/regen-parts.yml`) runs the same script
-right after slicing, then verifies every URL the generated data references
-actually resolves (`scripts/check_bucket_urls.py`).
+`~/.config/do-spaces/sorter-v2-parts.env`). `check-parts.yml` verifies every
+URL the generated data references actually resolves
+(`scripts/check_bucket_urls.py`) on each PR and push to main.
 
 Uploads are idempotent — the key IS the content hash, and the script
 head-checks before writing, so re-runs upload nothing and identical bytes
@@ -141,8 +129,8 @@ Because the bucket is content-addressed, **a wrong image URL is never a 404** �
 it's a 200 serving the wrong bytes, which no build or type check can see.
 `scripts/check_bucket_urls.py` fetches each URL and checks the bytes (magic
 numbers for images; reachable, non-stub content for STLs/plates/the zip). It
-runs in `regen-parts.yml` before the commit-back, and takes a file argument so
-you can check an image edit without invoking the slicer:
+runs in `check-parts.yml` on every PR, and takes a file argument so you can
+check an image edit without invoking the slicer:
 
 ```bash
 python scripts/check_bucket_urls.py slicer/parts.json

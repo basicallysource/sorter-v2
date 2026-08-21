@@ -2,10 +2,12 @@
 """
 Data-generation step for the Sorter parts calculator.
 
-Runs anywhere OrcaSlicer is installed -- locally on a Mac, or headlessly in
-CI (.github/workflows/regen-parts.yml drives it with a pinned Linux
-AppImage via ORCA_BIN/ORCA_PROFILES and commits the outputs back, so PRs
-that touch parts get correct data without a local slicer). Never on Vercel.
+Runs anywhere: against a local OrcaSlicer when one is installed (ORCA_BIN /
+ORCA_PROFILES), otherwise through the asset service's slicer worker
+(ASSET_SERVICE_URL / ASSET_SERVICE_TOKEN) -- upload the master, read back the
+service's slice reports, same pinned profile either way. Whoever edits the
+inputs runs this and commits the regenerated outputs in the same change;
+nothing regenerates in CI. Never in the site build.
 For every part in parts.json it:
   - slices the STL headlessly with OrcaSlicer using Spencer's settings
   - reads the SLICER'S OWN gram number (used_g) -- not an estimate
@@ -32,6 +34,7 @@ import shutil
 import struct
 import subprocess
 import sys
+import time
 import urllib.request
 import zipfile
 
@@ -80,6 +83,12 @@ MASTERS = os.path.join(BUILD, "masters")
 RENDERS_OUT = os.path.join(BUILD, "renders")
 VERS_RENDERS_OUT = os.path.join(RENDERS_OUT, "versions")
 RENDER_META = os.path.join(CACHE, "renders-meta")   # (stl bytes, hex) -> URL memo
+# The committed half of the render memo: (stl bytes, hex) -> content-addressed
+# filename, in git beside the pins. build/ is gitignored, so without this a
+# fresh clone -- every container, every new machine -- re-renders the whole
+# catalog with matplotlib it may not have. Renders only happen for geometry or
+# color that actually changed; everything else resolves here.
+RENDER_URLS = os.path.join(HERE, "render-urls.json")
 BUNDLE_OUT = os.path.join(BUILD, "bundle")
 # build plates: pre-arranged .3mf files pinned by hash in slicer/plates.json
 PLATES_SRC = os.path.join(BUILD, "plates")
@@ -163,6 +172,16 @@ def master_stl(p):
     return dest
 
 
+_render_urls = json.load(open(RENDER_URLS)) if os.path.exists(RENDER_URLS) else {}
+_render_urls_dirty = False
+
+
+def save_render_urls():
+    if _render_urls_dirty:
+        json.dump(dict(sorted(_render_urls.items())), open(RENDER_URLS, "w"), indent=1)
+        print(f"  render memo -> {os.path.basename(RENDER_URLS)} ({len(_render_urls)} entries; commit it)")
+
+
 def render_url_for(stl_abs, hexcolor, out_png, force):
     """Bucket URL for this geometry's thumbnail, rendering only when needed.
 
@@ -170,7 +189,10 @@ def render_url_for(stl_abs, hexcolor, out_png, force):
     same picture, so its content-addressed URL never changes and nothing needs
     re-rendering or re-uploading. A fresh render lands in build/renders/ where
     sync_bucket.py picks it up."""
+    global _render_urls_dirty
     key = hashlib.sha1(open(stl_abs, "rb").read() + hexcolor.encode()).hexdigest()[:16]
+    if not force and key in _render_urls:
+        return f"{PUBLIC_BASE}/render/{_render_urls[key]}"
     meta = os.path.join(RENDER_META, key + ".json")
     if not force and os.path.exists(meta):
         # The memo pins the content-addressed FILENAME; the serving base and
@@ -181,12 +203,18 @@ def render_url_for(stl_abs, hexcolor, out_png, force):
         legacy = re.fullmatch(r"([0-9a-f]{64})(\.\w+)", tail)
         if legacy:
             name = os.path.splitext(os.path.basename(out_png))[0]
-            return f"{PUBLIC_BASE}/{named_key('render', name, legacy.group(1), legacy.group(2))}"
+            tail = named_key('render', name, legacy.group(1), legacy.group(2)).rsplit("/", 1)[1]
+        # Backfill the committed memo from the build-cache one, so a machine
+        # that has rendered carries every URL it knows into git.
+        _render_urls[key] = tail
+        _render_urls_dirty = True
         return f"{PUBLIC_BASE}/render/{tail}"
     render(stl_abs, out_png, hexcolor)
     url = artifact_url(out_png, prefix="render")
     os.makedirs(RENDER_META, exist_ok=True)
     json.dump({"url": url}, open(meta, "w"))
+    _render_urls[key] = url.rsplit("/", 1)[1]
+    _render_urls_dirty = True
     return url
 
 
@@ -334,8 +362,86 @@ def prepare_mesh(stl_abs, out_path):
     m.export(out_path)
 
 
+# ---------------------------------------------------------- remote slicing
+# The asset service (assets.basically.website) slices every uploaded STL both
+# ways -- supports off and on -- under the same pinned profile constants as
+# this script (asset-service internal/model mirrors PRINTER/PROCESS/FILAMENT/
+# INFILL above; keep them in step). So remote slicing is: upload the master,
+# content-addressed and idempotent, wait for the rendition worker to have been
+# through it, and read the report for the variant asked for. A missing variant
+# means the slicer refused that one (floating regions with support off), which
+# is exactly what a local None means.
+ASSET_SERVICE_URL = os.environ.get("ASSET_SERVICE_URL", "https://assets.basically.website").rstrip("/")
+ASSET_SERVICE_TOKEN = os.environ.get("ASSET_SERVICE_TOKEN", "")
+ASSET_NAMESPACE = "sorter-parts"
+UA = "sorter-v2-slicer/1.0 (+https://github.com/basicallysource/sorter-v2)"
+REMOTE_WAIT_S = 900          # a part slices in seconds once a worker claims it
+_remote_manifests = {}       # sha256 -> manifest, so both variants share one poll
+
+
+def _asset_api(method, path, body=None, ctype=None):
+    req = urllib.request.Request(ASSET_SERVICE_URL + path, data=body, method=method)
+    req.add_header("User-Agent", UA)
+    req.add_header("Authorization", "Bearer " + ASSET_SERVICE_TOKEN)
+    if ctype:
+        req.add_header("Content-Type", ctype)
+    with urllib.request.urlopen(req, timeout=120) as r:
+        return json.load(r)
+
+
+def slice_remote(stl_abs, support=False, force=False):
+    stl_bytes = open(stl_abs, "rb").read()
+    sig = settings_signature() + ("|support" if support else "|nosupport")
+    key = hashlib.sha1(stl_bytes + sig.encode()).hexdigest()[:16]
+    cdir = os.path.join(CACHE, key)
+    info_path = os.path.join(cdir, "info.json")
+    fail_path = os.path.join(cdir, "failed")
+    if not force:
+        if os.path.exists(info_path):
+            info = json.load(open(info_path))
+            if "support_grams" in info:
+                return info
+        if os.path.exists(fail_path):
+            return None
+
+    digest = hashlib.sha256(stl_bytes).hexdigest()
+    manifest = _remote_manifests.get(digest)
+    if manifest is None:
+        name = os.path.basename(stl_abs)
+        manifest = _asset_api("POST", f"/v1/assets?namespace={ASSET_NAMESPACE}&filename={name}",
+                              body=stl_bytes, ctype="model/stl")
+        waited = 0
+        while manifest.get("renditions_status") == "pending":
+            if waited >= REMOTE_WAIT_S:
+                sys.exit(f"asset service produced no slice reports for {name} in {REMOTE_WAIT_S}s.\n"
+                         "Is the rendition worker running?")
+            step = 5 if waited < 60 else 15
+            time.sleep(step)
+            waited += step
+            manifest = _asset_api("GET", "/v1/assets/" + manifest["key"])
+        _remote_manifests[digest] = manifest
+
+    want = "slice-support" if support else "slice"
+    rend = next((r for r in manifest.get("renditions", []) if r["name"] == want), None)
+    os.makedirs(cdir, exist_ok=True)
+    if rend is None:
+        open(fail_path, "w").close()
+        return None
+    req = urllib.request.Request(rend["url"], headers={"User-Agent": UA})
+    with urllib.request.urlopen(req, timeout=120) as r:
+        report = json.load(r)
+    info = {"grams": report["grams"], "support_grams": report.get("support_grams", 0.0),
+            "cm3": report.get("cm3", 0.0), "support_used": report.get("support_used", False),
+            "print_seconds": report.get("print_seconds", 0)}
+    json.dump(info, open(info_path, "w"), indent=1)
+    info["fresh"] = True
+    return info
+
+
 # ---------------------------------------------------------------- slicing
 def slice_part(stl_abs, profiles, support=False, force=False):
+    if profiles is None:
+        return slice_remote(stl_abs, support=support, force=force)
     machine_path, process_off, process_on, filament_path = profiles
     process_path = process_on if support else process_off
     stl_bytes = open(stl_abs, "rb").read()
@@ -598,6 +704,17 @@ def check_hardware_refs(manifest, known_ids):
                  + "\n  ".join(bad))
 
 
+def committed_filament_constants():
+    """Filament density and cost normally come off the local filament profile.
+    Without one, the committed data already carries them -- and they only
+    change when the FILAMENT profile does, which is a settings change that
+    re-baselines the whole catalog and needs a local slicer anyway."""
+    if not os.path.exists(DATA_OUT):
+        sys.exit("remote slicing needs an existing parts.generated.json for filament density/cost")
+    s = json.load(open(DATA_OUT))["settings"]
+    return s["density_g_cm3"], s["cost_per_kg"]
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--force", action="store_true", help="re-slice + re-render everything")
@@ -701,7 +818,16 @@ def main():
         json.dump(data, open(DATA_OUT, "w"), indent="\t")
         print(f"refreshed authored metadata in {DATA_OUT}")
         return
-    profiles, density, cost_per_kg = build_profiles()
+    if os.path.exists(ORCA) and os.path.isdir(PROFILES):
+        profiles, density, cost_per_kg = build_profiles()
+        print("slicing locally with OrcaSlicer")
+    elif ASSET_SERVICE_TOKEN:
+        profiles = None
+        density, cost_per_kg = committed_filament_constants()
+        print(f"slicing via the asset service ({ASSET_SERVICE_URL})")
+    else:
+        sys.exit("no slicer available: install OrcaSlicer (or set ORCA_BIN/ORCA_PROFILES), "
+                 "or set ASSET_SERVICE_TOKEN to slice via the asset service")
     hexmap = lego_hex_map()
     role_defaults = {r["id"]: r["default"] for r in manifest["color_roles"]}
     os.makedirs(RENDERS_OUT, exist_ok=True)
@@ -710,6 +836,11 @@ def main():
     print(f"settings: {INFILL_DENSITY} {INFILL_PATTERN} | supports per-part "
           f"(off by default; {SUPPORT_TYPE} @{SUPPORT_THRESHOLD}deg when on) | "
           f"{FILAMENT} ({density} g/cm3, ${cost_per_kg}/kg)\n")
+
+    prev_renders = {}
+    if os.path.exists(DATA_OUT):
+        prev_renders = {q["id"]: q.get("render")
+                        for q in json.load(open(DATA_OUT)).get("parts", [])}
 
     out_parts = []
     zip_members = []
@@ -738,8 +869,11 @@ def main():
             render_url = render_url_for(stl_abs, default_hex(p, role_defaults, hexmap),
                                         png, args.force)
         except Exception as e:
-            print(f"  ! render failed for {p['id']}: {e}")
-            render_url = None
+            # A machine that cannot render (no matplotlib in a container)
+            # keeps the part's previous thumbnail rather than shipping none.
+            render_url = prev_renders.get(p["id"])
+            kept = " -- keeping the previous thumbnail" if render_url else ""
+            print(f"  ! render failed for {p['id']}: {e}{kept}")
 
         zip_members.append((stl_abs, p["id"] + ".stl"))
 
@@ -831,6 +965,7 @@ def main():
         "merges": manifest.get("merges", []),
     }
     json.dump(data, open(DATA_OUT, "w"), indent="\t")
+    save_render_urls()
 
     print(f"\nwrote {DATA_OUT}")
     print(f"  {len(out_parts)} parts · thumbnails, STLs + bundle -> bucket")

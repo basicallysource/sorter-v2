@@ -1,14 +1,32 @@
 """Analytics over an arbitrary set of machines.
 
-The same primitives serve every context — one machine, a user's whole fleet, one
-user's fleet (admin), or the entire fleet (admin) — by resolving the request to a
-list of machine ids and aggregating over it:
+**No request aggregates.** Every number served here is a fold over two
+pre-computed tables — machine_stats_cache (one row per machine, hourly) and
+machine_daily_stats (one row per machine-day) — and the fold is plain Python
+over rows fetched by primary key. The set a caller asks about (one machine, one
+owner's fleet, yours, the whole fleet) only chooses which rows to add up.
+
+That rule is the point of this module and it was learned the expensive way. The
+version this replaced ran the group-bys live, "cheap at current scale". By
+August 2026 machine_pieces held 354k rows in 240 MB, one /stats call was about
+18 sequential scans of it and took 5-7 seconds, the public site called it every
+6 seconds, and both of prod's vCPUs were pinned around the clock. Nothing about
+that was a sudden failure: the cost per call had been growing linearly with the
+table since June and nobody was watching it.
+
+So: if a number here starts needing a scan of machine_pieces, it belongs in the
+worker that builds the cache (`services/machine_stats.py`), not here.
+
+The one exception, deliberately: `_live_pieces_since` counts rows newer than
+the cache watermark through the (machine_id, seen_at) index, so the headline
+piece counter ticks up between hourly passes. It reads minutes of data, never
+the table.
 
   * time-series  — machines / pieces / distributed / avg-PPM / sorting-capacity
-    per day, from the pre-computed machine_daily_stats table.
-  * distributions — pieces by machine / classification status / top parts / top
-    colors (live group-bys, cheap at current scale).
-  * totals        — headline numbers for the set.
+    per day, from machine_daily_stats.
+  * distributions — pieces by machine / classification status / top parts /
+    colors / categories, folded from the cached per-machine maps.
+  * totals        — headline numbers for the set, plus the live top-up.
 
 "Sorting capacity" on day D = for each machine active that day, its PPM that day
 projected over a full day (× 1440 min), summed across machines — i.e. how many
@@ -18,6 +36,7 @@ pieces the fleet could theoretically sort in a day at that day's throughput.
 from __future__ import annotations
 
 import uuid as uuid_mod
+from datetime import datetime
 from typing import Any
 
 from sqlalchemy import func
@@ -27,6 +46,7 @@ from app.errors import APIError
 from app.models.machine import Machine
 from app.models.machine_daily_stats import MachineDailyStats
 from app.models.machine_piece import MachinePiece
+from app.models.machine_stats_cache import MachineStatsCache
 from app.models.user import User
 
 # Idle-gap threshold — must match app.services.machine_stats so the derived
@@ -272,112 +292,144 @@ def _bricklink_rgb() -> dict[int, str | None]:
         return {}
 
 
-def get_distributions(db: Session, machine_ids: list[Any]) -> dict[str, Any]:
-    if not machine_ids:
-        return {"by_machine": [], "by_status": [], "top_parts": [], "top_colors": []}
+def _fold_cached(db: Session, machine_ids: list[Any]) -> dict[str, Any]:
+    """Merge the cached per-machine rows for a set into one aggregate.
 
-    base = db.query(MachinePiece).filter(MachinePiece.machine_id.in_(machine_ids))
-
-    by_status = [
-        {"label": status or "unknown", "value": count}
-        for status, count in (
-            base.with_entities(MachinePiece.classification_status, func.count())
-            .group_by(MachinePiece.classification_status)
-            .all()
-        )
-    ]
-
-    top_parts = [
-        {"part_id": pid, "part_name": pname, "value": count}
-        for pid, pname, count in (
-            base.with_entities(MachinePiece.part_id, func.max(MachinePiece.part_name), func.count())
-            .filter(MachinePiece.part_id.isnot(None))
-            .group_by(MachinePiece.part_id)
-            .order_by(func.count().desc())
-            .limit(15)
-            .all()
-        )
-    ]
-
-    top_colors = [
-        {"color_id": cid, "color_name": cname, "value": count}
-        for cid, cname, count in (
-            base.with_entities(MachinePiece.color_id, func.max(MachinePiece.color_name), func.count())
-            .filter(MachinePiece.color_id.isnot(None))
-            .group_by(MachinePiece.color_id)
-            .order_by(func.count().desc())
-            .limit(15)
-            .all()
-        )
-    ]
-    # Attach each BrickLink color's swatch hex, so a client can DRAW the colour
-    # instead of only reprinting its name. Same catalog the labeling UI picks
-    # from. A non-numeric bucket like "any_color", or an id the catalog has no
-    # swatch for, gets rgb=None and the client decides how to render "no colour".
-    rgb_by_bl_id = _bricklink_rgb()
-    for entry in top_colors:
-        try:
-            entry["rgb"] = rgb_by_bl_id.get(int(entry["color_id"]))
-        except (TypeError, ValueError):
-            entry["rgb"] = None
-
-    # Categories are parts folded up by their BrickLink category. Every part is
-    # counted (not just the top fifteen) so the shares are honest, then the
-    # catalog maps part -> category and the biggest categories are kept.
-    part_counts = (
-        base.with_entities(MachinePiece.part_id, func.count())
-        .filter(MachinePiece.part_id.isnot(None))
-        .group_by(MachinePiece.part_id)
-        .all()
+    Pure Python over rows already fetched by primary key. Sums are sums; the
+    part and colour maps are merged key-by-key, which is what makes
+    `unique_parts` for a set exactly the size of the union rather than an
+    estimate, and what makes a fleet-wide top-15 correct rather than a top-15
+    of top-15s.
+    """
+    rows = (
+        db.query(MachineStatsCache).filter(MachineStatsCache.machine_id.in_(machine_ids)).all()
+        if machine_ids
+        else []
     )
-    top_categories = _category_distribution(part_counts, limit=15)
 
-    by_machine: list[dict[str, Any]] = []
-    if len(machine_ids) > 1:
-        name_by_id = {
-            str(mid): name
-            for mid, name in db.query(Machine.id, Machine.name).filter(Machine.id.in_(machine_ids)).all()
-        }
-        rows = (
-            base.with_entities(MachinePiece.machine_id, func.count())
-            .group_by(MachinePiece.machine_id)
-            .order_by(func.count().desc())
-            .all()
-        )
-        by_machine = [
-            {"machine_id": str(mid), "label": name_by_id.get(str(mid), "?"), "value": count}
-            for mid, count in rows
-        ]
+    totals = {"pieces_seen": 0, "distributed": 0, "classified": 0, "machines": 0}
+    status: dict[str, int] = {}
+    parts: dict[str, list[Any]] = {}
+    colors: dict[str, list[Any]] = {}
+    by_machine: list[tuple[str, int]] = []
+    # Machines grouped by how fresh their row is, which is what the live top-up
+    # counts forward from. Per machine and not per set: a machine with no row
+    # yet (registered since the last pass) contributes nothing to the sums, so
+    # its bucket is None and ALL of its pieces are counted live. That is the
+    # cold-start case handled by arithmetic instead of by a special case.
+    cached = {str(row.machine_id): row for row in rows}
+    since_buckets: dict[datetime | None, list[Any]] = {}
+    for mid in machine_ids:
+        row = cached.get(str(mid))
+        since_buckets.setdefault(row.computed_at if row is not None else None, []).append(mid)
+
+    for row in rows:
+        totals["pieces_seen"] += row.pieces_seen or 0
+        totals["distributed"] += row.distributed or 0
+        totals["classified"] += row.classified or 0
+        if row.pieces_seen:
+            totals["machines"] += 1
+            by_machine.append((str(row.machine_id), int(row.pieces_seen)))
+
+        dist = row.distributions or {}
+        for label, count in (dist.get("status") or {}).items():
+            status[label] = status.get(label, 0) + int(count)
+        for src, dest in ((dist.get("parts") or {}, parts), (dist.get("colors") or {}, colors)):
+            for key, entry in src.items():
+                count, name = (entry + [None])[:2] if isinstance(entry, list) else (entry, None)
+                current = dest.get(key)
+                if current is None:
+                    dest[key] = [int(count), name]
+                else:
+                    current[0] += int(count)
+                    current[1] = current[1] or name
 
     return {
+        "totals": totals,
+        "status": status,
+        "parts": parts,
+        "colors": colors,
         "by_machine": by_machine,
-        "by_status": by_status,
-        "top_parts": top_parts,
-        "top_colors": top_colors,
-        "top_categories": top_categories,
+        "since_buckets": since_buckets,
+        # When the folded half was built — the stalest row in the set, so "as
+        # of" is never a claim the freshest member can't back up.
+        "watermark": min((r.computed_at for r in rows if r.computed_at), default=None),
     }
 
 
-def get_totals(db: Session, machine_ids: list[Any], series: list[dict[str, Any]] | None = None) -> dict[str, Any]:
-    empty = {
-        "machines": 0, "pieces_seen": 0, "distributed": 0, "classified": 0,
-        "unique_parts": 0, "unique_colors": 0, "active_seconds": 0.0,
-        "overall_ppm": 0.0, "capacity_recent": 0.0, "first_day": None, "last_day": None,
-    }
-    if not machine_ids:
-        return empty
+def _live_pieces_since(db: Session, since_buckets: dict[datetime | None, list[Any]]) -> int:
+    """Pieces this fleet reported since each machine's cache row was built.
 
-    agg = (
-        db.query(
-            func.count().label("pieces_seen"),
-            func.count().filter(MachinePiece.bin_x.isnot(None)).label("distributed"),
-            func.count().filter(MachinePiece.classification_status == "classified").label("classified"),
-            func.count(func.distinct(MachinePiece.part_id)).label("unique_parts"),
-            func.count(func.distinct(MachinePiece.color_id)).label("unique_colors"),
+    The only query analytics runs against machine_pieces, and normally it is a
+    single index range on (machine_id, created_at) covering rows newer than the
+    last refresh — minutes of data, not the table. One query per distinct
+    watermark, and a fleet refreshed in one pass shares one.
+
+    ``created_at`` (when hive stored the row) and not ``seen_at`` (when the
+    machine saw the piece): a machine that has been offline uploads a backlog
+    stamped days ago, and those pieces have to count when they arrive rather
+    than an hour later.
+
+    A machine with no cached row yet counts from the beginning, which is the
+    right answer — its cached contribution is zero — and is bounded by what
+    that one machine has ever sorted. It self-corrects on the next worker pass.
+
+    The count can lag by the few seconds a refresh takes (rows landing mid-pass
+    are in neither half until the following one). That direction is chosen: the
+    counter creeps up to the truth instead of overshooting and visibly falling
+    back, which is what stamping the watermark before the pass would do.
+    """
+    total = 0
+    for since, ids in since_buckets.items():
+        if not ids:
+            continue
+        query = (
+            db.query(func.count())
+            .select_from(MachinePiece)
+            .filter(MachinePiece.machine_id.in_(ids))
         )
-        .filter(MachinePiece.machine_id.in_(machine_ids))
-        .one()
-    )
+        if since is not None:
+            query = query.filter(MachinePiece.created_at >= since)
+        total += int(query.scalar() or 0)
+    return total
+
+
+def _ranked(counts: dict[str, list[Any]], id_key: str, name_key: str, limit: int) -> list[dict[str, Any]]:
+    ranked = sorted(counts.items(), key=lambda kv: kv[1][0], reverse=True)[:limit]
+    return [{id_key: key, name_key: entry[1], "value": entry[0]} for key, entry in ranked]
+
+
+def get_analytics(db: Session, machine_ids: list[Any]) -> dict[str, Any]:
+    """Totals, time-series and distributions for a set of machines.
+
+    Reads machine_stats_cache and machine_daily_stats and folds them. The only
+    thing it asks of machine_pieces is an indexed count of rows newer than the
+    cache, so the cost is flat in the size of that table — which is the whole
+    point, because it grew from 51k rows in June to 354k in August and the old
+    version's cost grew with it.
+    """
+    if not machine_ids:
+        return {
+            "totals": {
+                "machines": 0, "pieces_seen": 0, "distributed": 0, "classified": 0,
+                "unique_parts": 0, "unique_colors": 0, "active_seconds": 0.0,
+                "overall_ppm": 0.0, "capacity_recent": 0.0,
+                "first_day": None, "last_day": None,
+            },
+            "timeseries": [],
+            "distributions": {"by_machine": [], "by_status": [], "top_parts": [], "top_colors": [], "top_categories": []},
+            "fresh_as_of": None,
+        }
+
+    folded = _fold_cached(db, machine_ids)
+    series = get_timeseries(db, machine_ids)
+    counts = folded["totals"]
+
+    # Live top-up. Only pieces_seen gets it: it is the number people watch
+    # climb, and the rest (which part, which colour, whether it was
+    # distributed) is not knowable without reading the rows themselves.
+    pieces_seen = counts["pieces_seen"] + _live_pieces_since(db, folded["since_buckets"])
+
     active_seconds = (
         db.query(func.coalesce(func.sum(MachineDailyStats.active_seconds), 0.0))
         .filter(MachineDailyStats.machine_id.in_(machine_ids))
@@ -388,39 +440,51 @@ def get_totals(db: Session, machine_ids: list[Any], series: list[dict[str, Any]]
         .filter(MachineDailyStats.machine_id.in_(machine_ids))
         .one()
     )
-    machines_with_pieces = (
-        db.query(func.count(func.distinct(MachinePiece.machine_id)))
-        .filter(MachinePiece.machine_id.in_(machine_ids))
-        .scalar()
-    ) or 0
 
-    distributed = agg.distributed or 0
-    overall_ppm = (distributed * 60.0 / active_seconds) if active_seconds > 0 else 0.0
+    top_colors = _ranked(folded["colors"], "color_id", "color_name", 15)
+    rgb_by_bl_id = _bricklink_rgb()
+    for entry in top_colors:
+        try:
+            entry["rgb"] = rgb_by_bl_id.get(int(entry["color_id"]))
+        except (TypeError, ValueError):
+            entry["rgb"] = None
 
-    # Recent capacity = the most recent day's theoretical daily throughput.
-    if series is None:
-        series = get_timeseries(db, machine_ids)
-    capacity_recent = series[-1]["capacity_per_day"] if series else 0.0
-
-    return {
-        "machines": machines_with_pieces,
-        "pieces_seen": agg.pieces_seen or 0,
-        "distributed": distributed,
-        "classified": agg.classified or 0,
-        "unique_parts": agg.unique_parts or 0,
-        "unique_colors": agg.unique_colors or 0,
-        "active_seconds": round(active_seconds, 1),
-        "overall_ppm": round(overall_ppm, 3),
-        "capacity_recent": capacity_recent,
-        "first_day": day_bounds[0].isoformat() if day_bounds[0] else None,
-        "last_day": day_bounds[1].isoformat() if day_bounds[1] else None,
+    name_by_id = {
+        str(mid): name
+        for mid, name in db.query(Machine.id, Machine.name).filter(Machine.id.in_(machine_ids)).all()
     }
 
-
-def get_analytics(db: Session, machine_ids: list[Any]) -> dict[str, Any]:
-    series = get_timeseries(db, machine_ids)
     return {
-        "totals": get_totals(db, machine_ids, series=series),
+        "totals": {
+            "machines": counts["machines"],
+            "pieces_seen": pieces_seen,
+            "distributed": counts["distributed"],
+            "classified": counts["classified"],
+            "unique_parts": len(folded["parts"]),
+            "unique_colors": len(folded["colors"]),
+            "active_seconds": round(active_seconds, 1),
+            "overall_ppm": round(counts["distributed"] * 60.0 / active_seconds, 3) if active_seconds > 0 else 0.0,
+            "capacity_recent": series[-1]["capacity_per_day"] if series else 0.0,
+            "first_day": day_bounds[0].isoformat() if day_bounds[0] else None,
+            "last_day": day_bounds[1].isoformat() if day_bounds[1] else None,
+        },
         "timeseries": series,
-        "distributions": get_distributions(db, machine_ids),
+        "distributions": {
+            # Only meaningful for a set; one machine's breakdown by machine is itself.
+            "by_machine": [
+                {"machine_id": mid, "label": name_by_id.get(mid, "?"), "value": value}
+                for mid, value in sorted(folded["by_machine"], key=lambda kv: kv[1], reverse=True)
+            ] if len(machine_ids) > 1 else [],
+            "by_status": [{"label": label, "value": value} for label, value in folded["status"].items()],
+            "top_parts": _ranked(folded["parts"], "part_id", "part_name", 15),
+            "top_colors": top_colors,
+            # Every part is counted, not just the top fifteen, so the shares are
+            # honest; the catalog then maps part -> category.
+            "top_categories": _category_distribution(
+                [(key, entry[0]) for key, entry in folded["parts"].items()], limit=15
+            ),
+        },
+        # When the folded half was built. The caller can say "as of" rather than
+        # implying every number in the payload is to-the-second.
+        "fresh_as_of": folded["watermark"].isoformat() if folded["watermark"] else None,
     }

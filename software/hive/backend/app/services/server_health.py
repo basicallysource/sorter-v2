@@ -2,10 +2,9 @@
 
 Storage accounting walks the whole object store (local disk or S3). On S3/Spaces
 that lists every key, which takes long enough that doing it inside the request
-blew past Cloudflare's proxy timeout (524). So a background daemon thread
-(StorageStatsWorker, mirroring MachineStatsWorker) walks the store on a slow
-cadence and upserts a single cache row; the API reads that row instantly. DB
-size and memory are cheap and read live.
+blew past Cloudflare's proxy timeout (524). So a PeriodicWorker walks the store
+on a slow cadence and upserts a single cache row; the API reads that row
+instantly. DB size and memory are cheap and read live.
 """
 
 from __future__ import annotations
@@ -15,7 +14,6 @@ import logging
 import re
 import sys
 import threading
-import time
 from datetime import datetime, timezone
 from typing import Any
 
@@ -25,6 +23,7 @@ from sqlalchemy.orm import Session
 from app.config import settings
 from app.database import SessionLocal
 from app.models.server_storage_cache import ServerStorageCache
+from app.services.periodic import PeriodicWorker
 from app.services.storage_backend import get_backend
 
 logger = logging.getLogger(__name__)
@@ -252,198 +251,100 @@ def get_server_health(db: Session) -> dict[str, Any]:
     }
 
 
-class StorageStatsWorker:
-    """Daemon thread that walks the object store into server_storage_cache on a
-    slow cadence. Mirrors MachineStatsWorker."""
+def _storage_interval_s() -> float:
+    return max(300.0, float(settings.SERVER_STORAGE_REFRESH_INTERVAL_MINUTES) * 60.0)
 
-    def __init__(self) -> None:
-        self._thread: threading.Thread | None = None
-        self._stop_event = threading.Event()
-        self._wake_event = threading.Event()
-        self._start_lock = threading.Lock()
-        self._state_lock = threading.Lock()
-        self._state: dict[str, Any] = {
-            "running": False,
-            "last_run_at": None,
-            "last_run_files": 0,
-            "last_run_duration_s": None,
-            "last_error": None,
-            "total_runs": 0,
-        }
 
-    def start(self) -> None:
-        with self._start_lock:
-            if self._thread is not None and self._thread.is_alive():
-                return
-            self._stop_event.clear()
-            self._thread = threading.Thread(target=self._loop, daemon=True, name="storage-stats-worker")
-            self._thread.start()
-        self._update_state(running=True)
-
-    def stop(self) -> None:
-        self._stop_event.set()
-        self._wake_event.set()
-        self._update_state(running=False)
-
-    def wake(self) -> None:
-        """Ask the loop to run a fresh storage walk as soon as possible."""
-        self._wake_event.set()
-
-    def status(self) -> dict[str, Any]:
-        with self._state_lock:
-            snapshot = dict(self._state)
-        snapshot["interval_s"] = self._interval_s()
-        return snapshot
-
-    def _interval_s(self) -> float:
-        return max(300.0, float(settings.SERVER_STORAGE_REFRESH_INTERVAL_MINUTES) * 60.0)
-
-    def _loop(self) -> None:
-        logger.info("StorageStatsWorker: started")
-        # Prime the cache on boot so the first server-health load is warm. Only
-        # walk if the row is stale/missing, so a restart doesn't re-walk a store
-        # that was just measured.
-        if self._needs_initial_walk():
-            self._run_one_pass()
-        while not self._stop_event.is_set():
-            self._wake_event.wait(timeout=self._interval_s())
-            self._wake_event.clear()
-            if self._stop_event.is_set():
-                break
-            self._run_one_pass()
-        self._update_state(running=False)
-        logger.info("StorageStatsWorker: stopped")
-
-    def _needs_initial_walk(self) -> bool:
-        db = SessionLocal()
-        try:
-            row = db.query(ServerStorageCache).filter(ServerStorageCache.id == 1).first()
-            if row is None or row.computed_at is None:
-                return True
-            age = datetime.now(timezone.utc) - row.computed_at
-            return age.total_seconds() >= self._interval_s()
-        except Exception:
+def _needs_initial_walk() -> bool:
+    """Only walk on boot if the cached row is missing or already stale, so a
+    restart does not re-walk a store that was measured minutes ago."""
+    db = SessionLocal()
+    try:
+        row = db.query(ServerStorageCache).filter(ServerStorageCache.id == 1).first()
+        if row is None or row.computed_at is None:
             return True
-        finally:
-            db.close()
-
-    def _run_one_pass(self) -> None:
-        started = time.monotonic()
-        db = SessionLocal()
-        try:
-            stats = refresh_storage_cache(db)
-            self._update_state(
-                last_run_at=datetime.now(timezone.utc).isoformat(),
-                last_run_files=int(stats.get("total_files", 0)),
-                last_run_duration_s=round(time.monotonic() - started, 3),
-                last_error=None,
-                increment_runs=1,
-            )
-            logger.info(
-                "StorageStatsWorker: walked %d files in %.2fs",
-                stats.get("total_files", 0),
-                time.monotonic() - started,
-            )
-        except Exception as exc:
-            logger.exception("StorageStatsWorker pass crashed: %s", exc)
-            db.rollback()
-            self._update_state(last_error=str(exc))
-        finally:
-            db.close()
-
-    def _update_state(self, **kwargs: Any) -> None:
-        with self._state_lock:
-            if "running" in kwargs:
-                self._state["running"] = bool(kwargs.pop("running"))
-            if "increment_runs" in kwargs:
-                self._state["total_runs"] += int(kwargs.pop("increment_runs"))
-            for key, value in kwargs.items():
-                self._state[key] = value
+        return (datetime.now(timezone.utc) - row.computed_at).total_seconds() >= _storage_interval_s()
+    except Exception:
+        return True
+    finally:
+        db.close()
 
 
-_INSTANCE: StorageStatsWorker | None = None
+def _storage_pass() -> dict[str, Any]:
+    db = SessionLocal()
+    try:
+        stats = refresh_storage_cache(db)
+        return {"last_run_files": int(stats.get("total_files", 0))}
+    except Exception:
+        db.rollback()
+        raise
+    finally:
+        db.close()
+
+
+_INSTANCE: PeriodicWorker | None = None
 _INSTANCE_LOCK = threading.Lock()
 
 
-def get_storage_stats_worker() -> StorageStatsWorker:
+def get_storage_stats_worker() -> PeriodicWorker:
     global _INSTANCE
     if _INSTANCE is None:
         with _INSTANCE_LOCK:
             if _INSTANCE is None:
-                _INSTANCE = StorageStatsWorker()
+                _INSTANCE = PeriodicWorker(
+                    "storage-stats-worker",
+                    _storage_pass,
+                    _storage_interval_s,
+                    run_at_start=_needs_initial_walk,
+                )
     return _INSTANCE
 
 
 MEMORY_LOG_INTERVAL_S = 300.0
 
 
-class MemoryLogWorker:
-    """Writes one memory line to the log every five minutes.
+def _log_memory_once() -> None:
+    """Write one memory line to the log.
 
     DIAGNOSTIC. This exists for the leak that took hive down on 2026-08-20 and
     should be deleted the day that closes — see hive-prod-server.md.
 
     The same numbers are on /api/admin/server-health, which is the right place
-    for them, but reading that needs a login and a leak is measured in days.
-    A log line is what is still there tomorrow, survives a restart in the
-    journal, and costs nothing to collect. Deliberately not folded into
-    StorageStatsWorker: that ticks every three hours and only after walking the
-    whole object store, which is far too coarse and too expensive to sample on.
+    for them, but reading that needs a login and a leak is measured in days. A
+    log line is what is still there tomorrow, survives a restart in the
+    journal, and costs nothing to collect. Deliberately its own worker rather
+    than folded into the storage walk: that ticks every three hours and only
+    after walking the whole object store, far too coarse to sample on.
     """
-
-    def __init__(self) -> None:
-        self._thread: threading.Thread | None = None
-        self._stop_event = threading.Event()
-        self._start_lock = threading.Lock()
-
-    def start(self) -> None:
-        with self._start_lock:
-            if self._thread is not None and self._thread.is_alive():
-                return
-            self._stop_event.clear()
-            self._thread = threading.Thread(target=self._loop, daemon=True, name="memory-log-worker")
-            self._thread.start()
-
-    def stop(self) -> None:
-        self._stop_event.set()
-
-    def _loop(self) -> None:
-        logger.info("MemoryLogWorker: started")
-        while not self._stop_event.is_set():
-            self._log_once()
-            if self._stop_event.wait(timeout=MEMORY_LOG_INTERVAL_S):
-                break
-        logger.info("MemoryLogWorker: stopped")
-
-    def _log_once(self) -> None:
-        try:
-            stats = get_memory_stats()
-            glibc = stats.get("glibc") or {}
-            logger.info(
-                "memory rss=%.0fMB blocks=%d arena=%.0fMB free_in_arena=%.0fMB mmap=%.0fMB heaps=%s",
-                _as_mb(stats.get("process_rss_bytes")),
-                stats.get("python_allocated_blocks") or 0,
-                _as_mb(glibc.get("arena_bytes")),
-                _as_mb(glibc.get("free_in_arena_bytes")),
-                _as_mb(glibc.get("mmapped_bytes")),
-                glibc.get("heap_count"),
-            )
-        except Exception:
-            # A diagnostic must never be the reason the process dies.
-            logger.exception("MemoryLogWorker: sample failed")
+    stats = get_memory_stats()
+    glibc = stats.get("glibc") or {}
+    logger.info(
+        "memory rss=%.0fMB blocks=%d arena=%.0fMB free_in_arena=%.0fMB mmap=%.0fMB heaps=%s",
+        _as_mb(stats.get("process_rss_bytes")),
+        stats.get("python_allocated_blocks") or 0,
+        _as_mb(glibc.get("arena_bytes")),
+        _as_mb(glibc.get("free_in_arena_bytes")),
+        _as_mb(glibc.get("mmapped_bytes")),
+        glibc.get("heap_count"),
+    )
 
 
 def _as_mb(value: int | None) -> float:
     return (value or 0) / (1024 * 1024)
 
 
-_MEMORY_LOG_INSTANCE: MemoryLogWorker | None = None
+_MEMORY_LOG_INSTANCE: PeriodicWorker | None = None
 
 
-def get_memory_log_worker() -> MemoryLogWorker:
+def get_memory_log_worker() -> PeriodicWorker:
     global _MEMORY_LOG_INSTANCE
     if _MEMORY_LOG_INSTANCE is None:
         with _INSTANCE_LOCK:
             if _MEMORY_LOG_INSTANCE is None:
-                _MEMORY_LOG_INSTANCE = MemoryLogWorker()
+                _MEMORY_LOG_INSTANCE = PeriodicWorker(
+                    "memory-log-worker",
+                    _log_memory_once,
+                    lambda: MEMORY_LOG_INTERVAL_S,
+                    run_at_start=True,
+                )
     return _MEMORY_LOG_INSTANCE

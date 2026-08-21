@@ -68,4 +68,10 @@ class MachinePiece(Base):
         UniqueConstraint("machine_id", "piece_uuid", name="uq_machine_pieces_machine_piece"),
         Index("ix_machine_pieces_machine_local_id", "machine_id", "local_id"),
         Index("ix_machine_pieces_machine_seen_at", "machine_id", "seen_at"),
+        # Rows by when HIVE learned of them, which is what the analytics cache
+        # counts forward from between refreshes. Deliberately not seen_at: a
+        # machine that was offline uploads a backlog whose seen_at is days old,
+        # and those pieces have to show up in the live counter when they land,
+        # not whenever the next hourly pass happens to run.
+        Index("ix_machine_pieces_machine_created_at", "machine_id", "created_at"),
     )

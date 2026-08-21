@@ -438,6 +438,18 @@ def slice_remote(stl_abs, support=False, force=False):
     return info
 
 
+def service_render(stl_abs):
+    """The asset service's render of this geometry, if remote slicing already
+    fetched its manifest this run. Grey and uncolored -- a placeholder for a
+    machine that cannot render, not a replacement for the real thumbnail."""
+    digest = hashlib.sha256(open(stl_abs, "rb").read()).hexdigest()
+    manifest = _remote_manifests.get(digest)
+    if not manifest:
+        return None
+    return next((r["url"] for r in manifest.get("renditions", [])
+                 if r["name"] == "render"), None)
+
+
 # ---------------------------------------------------------------- slicing
 def slice_part(stl_abs, profiles, support=False, force=False):
     if profiles is None:
@@ -871,7 +883,10 @@ def main():
         except Exception as e:
             # A machine that cannot render (no matplotlib in a container)
             # keeps the part's previous thumbnail rather than shipping none.
-            render_url = prev_renders.get(p["id"])
+            # A NEW part has no previous thumbnail, but if it was sliced
+            # remotely the service already rendered it (grey, uncolored --
+            # a placeholder, not the final picture), so fall back to that.
+            render_url = prev_renders.get(p["id"]) or service_render(stl_abs)
             kept = " -- keeping the previous thumbnail" if render_url else ""
             print(f"  ! render failed for {p['id']}: {e}{kept}")
 

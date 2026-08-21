@@ -83,6 +83,12 @@ MASTERS = os.path.join(BUILD, "masters")
 RENDERS_OUT = os.path.join(BUILD, "renders")
 VERS_RENDERS_OUT = os.path.join(RENDERS_OUT, "versions")
 RENDER_META = os.path.join(CACHE, "renders-meta")   # (stl bytes, hex) -> URL memo
+# The committed half of the render memo: (stl bytes, hex) -> content-addressed
+# filename, in git beside the pins. build/ is gitignored, so without this a
+# fresh clone -- every container, every new machine -- re-renders the whole
+# catalog with matplotlib it may not have. Renders only happen for geometry or
+# color that actually changed; everything else resolves here.
+RENDER_URLS = os.path.join(HERE, "render-urls.json")
 BUNDLE_OUT = os.path.join(BUILD, "bundle")
 # build plates: pre-arranged .3mf files pinned by hash in slicer/plates.json
 PLATES_SRC = os.path.join(BUILD, "plates")
@@ -166,6 +172,16 @@ def master_stl(p):
     return dest
 
 
+_render_urls = json.load(open(RENDER_URLS)) if os.path.exists(RENDER_URLS) else {}
+_render_urls_dirty = False
+
+
+def save_render_urls():
+    if _render_urls_dirty:
+        json.dump(dict(sorted(_render_urls.items())), open(RENDER_URLS, "w"), indent=1)
+        print(f"  render memo -> {os.path.basename(RENDER_URLS)} ({len(_render_urls)} entries; commit it)")
+
+
 def render_url_for(stl_abs, hexcolor, out_png, force):
     """Bucket URL for this geometry's thumbnail, rendering only when needed.
 
@@ -173,7 +189,10 @@ def render_url_for(stl_abs, hexcolor, out_png, force):
     same picture, so its content-addressed URL never changes and nothing needs
     re-rendering or re-uploading. A fresh render lands in build/renders/ where
     sync_bucket.py picks it up."""
+    global _render_urls_dirty
     key = hashlib.sha1(open(stl_abs, "rb").read() + hexcolor.encode()).hexdigest()[:16]
+    if not force and key in _render_urls:
+        return f"{PUBLIC_BASE}/render/{_render_urls[key]}"
     meta = os.path.join(RENDER_META, key + ".json")
     if not force and os.path.exists(meta):
         # The memo pins the content-addressed FILENAME; the serving base and
@@ -190,6 +209,8 @@ def render_url_for(stl_abs, hexcolor, out_png, force):
     url = artifact_url(out_png, prefix="render")
     os.makedirs(RENDER_META, exist_ok=True)
     json.dump({"url": url}, open(meta, "w"))
+    _render_urls[key] = url.rsplit("/", 1)[1]
+    _render_urls_dirty = True
     return url
 
 
@@ -812,6 +833,11 @@ def main():
           f"(off by default; {SUPPORT_TYPE} @{SUPPORT_THRESHOLD}deg when on) | "
           f"{FILAMENT} ({density} g/cm3, ${cost_per_kg}/kg)\n")
 
+    prev_renders = {}
+    if os.path.exists(DATA_OUT):
+        prev_renders = {q["id"]: q.get("render")
+                        for q in json.load(open(DATA_OUT)).get("parts", [])}
+
     out_parts = []
     zip_members = []
     failed = []
@@ -839,8 +865,11 @@ def main():
             render_url = render_url_for(stl_abs, default_hex(p, role_defaults, hexmap),
                                         png, args.force)
         except Exception as e:
-            print(f"  ! render failed for {p['id']}: {e}")
-            render_url = None
+            # A machine that cannot render (no matplotlib in a container)
+            # keeps the part's previous thumbnail rather than shipping none.
+            render_url = prev_renders.get(p["id"])
+            kept = " -- keeping the previous thumbnail" if render_url else ""
+            print(f"  ! render failed for {p['id']}: {e}{kept}")
 
         zip_members.append((stl_abs, p["id"] + ".stl"))
 
@@ -932,6 +961,7 @@ def main():
         "merges": manifest.get("merges", []),
     }
     json.dump(data, open(DATA_OUT, "w"), indent="\t")
+    save_render_urls()
 
     print(f"\nwrote {DATA_OUT}")
     print(f"  {len(out_parts)} parts · thumbnails, STLs + bundle -> bucket")

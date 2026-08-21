@@ -68,7 +68,12 @@ The [Preparation]({{ '/hardware/preparation/' | relative_url }}) page lists ever
 
 Fit the Funnel bracket (left) and the Funnel bracket (right) to the chute core. Together with the door module and the layer connectors these use the chute's 6 {% include fastener.html size="M3" variant="countersunk" length="12" %} and 8 {% include fastener.html size="M3" variant="countersunk" length="8" %} screws, all into the core's inserts.
 
-Which screw goes in which hole is not recorded yet: <span class="fastener-todo">fastener not recorded</span>.
+The split across those 14, worked out from the STLs by comparing each mating part's wall thickness at its screw hole against the core's blind 5.70 mm insert pockets:
+
+- **Funnel brackets:** 4 × {% include fastener.html size="M3" variant="countersunk" length="12" %} (8.16 mm wall, so an 8 mm screw would not reach the insert at all)
+- **Bearing covers:** 4 × {% include fastener.html size="M3" variant="countersunk" length="8" %} (5.00 mm wall, 2 per cover)
+- **[Layer connectors]({{ '/hardware/assembly/distribution/chute/layer-connectors/' | relative_url }}):** 4 × {% include fastener.html size="M3" variant="countersunk" length="8" %} (3.78 mm strap, 2 per connector)
+- **Servo bracket arms:** the remaining 2 × {% include fastener.html size="M3" variant="countersunk" length="12" %}. No published part sits on those two inserts, so this one is by elimination rather than measured.
 
 <div class="img-placeholder">Image coming</div>
 

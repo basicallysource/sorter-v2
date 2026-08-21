@@ -24,9 +24,7 @@ parts_needed:
   - part: funnel-bracket-right
     qty: 1
   - part: scr-m3-12-cs
-    qty: 6
-  - part: scr-m3-8-cs
-    qty: 8
+    qty: 4
 ---
 
 The funnel catches what the door releases and guides it into the bin below. It hangs off two printed brackets that are part of the chute.
@@ -52,7 +50,7 @@ Decide before printing, since it changes both the funnel and the bin set. The [p
 
 Every chute carries a Funnel bracket (left) and a Funnel bracket (right), one of each. They screw into the [chute core]({{ '/hardware/assembly/distribution/chute/chute-core/' | relative_url }})'s M3 heat inserts, using screws from the chute's set.
 
-Which of those go into the funnel brackets is not recorded yet: <span class="fastener-todo">fastener not recorded</span>.
+Each bracket takes 2 {% include fastener.html size="M3" variant="countersunk" length="12" %} screws, 4 for the pair, out of the chute's set of 6. Measured from the STLs: the bracket is 8.16 mm thick at the screw and the core's insert pocket is 5.70 mm deep, so a 12 mm screw goes 3.84 mm into the insert. An 8 mm screw would stop short of the insert entirely.
 
 <div class="img-placeholder">Image coming</div>
 

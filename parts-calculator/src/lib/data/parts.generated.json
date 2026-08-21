@@ -8448,7 +8448,8 @@
 			"id": "ext-2020-ag",
 			"kind": "cots",
 			"cots": {
-				"type": "extrusion-2020"
+				"type": "extrusion-2020",
+				"length_mm": 320
 			},
 			"name": "Outer horizontal / Horizontal interface frame (A/G)",
 			"category": "Aluminum extrusion (2020)",
@@ -8456,12 +8457,7 @@
 			"note": null,
 			"created_at": "2026-08-21",
 			"updated_at": "2026-08-21",
-			"attributes": [
-				{
-					"label": "Cut length",
-					"value": "320 mm"
-				}
-			],
+			"attributes": [],
 			"sheet_qty": null,
 			"sheet_qty_text": null,
 			"stock": null,
@@ -8476,7 +8472,8 @@
 			"id": "ext-2020-bh",
 			"kind": "cots",
 			"cots": {
-				"type": "extrusion-2020"
+				"type": "extrusion-2020",
+				"length_mm": 158
 			},
 			"name": "Spoke / Interface spoke, short (B/H)",
 			"category": "Aluminum extrusion (2020)",
@@ -8484,12 +8481,7 @@
 			"note": null,
 			"created_at": "2026-08-21",
 			"updated_at": "2026-08-21",
-			"attributes": [
-				{
-					"label": "Cut length",
-					"value": "158 mm"
-				}
-			],
+			"attributes": [],
 			"sheet_qty": null,
 			"sheet_qty_text": null,
 			"stock": null,
@@ -8504,7 +8496,8 @@
 			"id": "ext-2020-c",
 			"kind": "cots",
 			"cots": {
-				"type": "extrusion-2020"
+				"type": "extrusion-2020",
+				"length_mm": 154
 			},
 			"name": "Layer vertical support (C)",
 			"category": "Aluminum extrusion (2020)",
@@ -8512,12 +8505,7 @@
 			"note": null,
 			"created_at": "2026-08-21",
 			"updated_at": "2026-08-21",
-			"attributes": [
-				{
-					"label": "Cut length",
-					"value": "154 mm"
-				}
-			],
+			"attributes": [],
 			"sheet_qty": null,
 			"sheet_qty_text": null,
 			"stock": null,
@@ -8532,7 +8520,8 @@
 			"id": "extrusion-e",
 			"kind": "cots",
 			"cots": {
-				"type": "extrusion-2020"
+				"type": "extrusion-2020",
+				"length_mm": 238
 			},
 			"name": "Interface spoke, long (E)",
 			"category": "Aluminum extrusion (2020)",
@@ -8540,12 +8529,7 @@
 			"note": null,
 			"created_at": "2026-08-21",
 			"updated_at": "2026-08-21",
-			"attributes": [
-				{
-					"label": "Cut length",
-					"value": "238 mm"
-				}
-			],
+			"attributes": [],
 			"sheet_qty": null,
 			"sheet_qty_text": null,
 			"stock": null,
@@ -8560,7 +8544,8 @@
 			"id": "extrusion-f",
 			"kind": "cots",
 			"cots": {
-				"type": "extrusion-2020"
+				"type": "extrusion-2020",
+				"length_mm": 274
 			},
 			"name": "Interface vertical support (F)",
 			"category": "Aluminum extrusion (2020)",
@@ -8568,12 +8553,7 @@
 			"note": null,
 			"created_at": "2026-08-21",
 			"updated_at": "2026-08-21",
-			"attributes": [
-				{
-					"label": "Cut length",
-					"value": "274 mm"
-				}
-			],
+			"attributes": [],
 			"sheet_qty": null,
 			"sheet_qty_text": null,
 			"stock": null,

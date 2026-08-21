@@ -586,8 +586,10 @@ body {
 	border: 1px solid var(--line);
 }
 
-/* Marker for a part that is not in the parts calculator */
-.part-card-warn {
+/* Marker for an unresolved catalog conflict: the docs and the parts
+   calculator disagreed about this part when their catalogs were merged
+   (2026-08-21) and nobody has settled it against the machine yet. */
+.part-card-conflict {
 	position: absolute;
 	top: 0;
 	right: 0;
@@ -600,20 +602,20 @@ body {
 	font-size: 0.78rem;
 	font-weight: 700;
 	line-height: 1;
-	color: var(--color-primary-contrast);
-	background: var(--color-danger);
+	color: var(--color-warning-dark);
+	background: var(--color-warning);
 	cursor: help;
+}
+
+.parts-warn-legend .part-card-conflict {
+	position: static;
+	margin-right: 5px;
 }
 
 .parts-warn-legend {
 	margin: 10px 0 0;
 	font-size: 0.8rem;
 	color: var(--muted);
-}
-
-.parts-warn-legend .part-card-warn {
-	position: static;
-	margin-right: 5px;
 }
 
 /* Marker for a part that has an interchangeable alternative (e.g. socket vs
@@ -636,8 +638,8 @@ body {
 	cursor: help;
 }
 
-/* if a card carries both markers, sit the "A" left of the "!" */
-.part-card-warn + .part-card-alt {
+/* if a card carries both markers, sit the "A" left of the "?" */
+.part-card-conflict + .part-card-alt {
 	right: 20px;
 }
 

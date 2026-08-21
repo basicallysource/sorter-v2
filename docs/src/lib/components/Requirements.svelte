@@ -5,7 +5,7 @@
 		parts,
 		tools
 	}: {
-		parts?: { groups: PartsGroup[]; notes: ResolvedPart[] };
+		parts?: { groups: PartsGroup[]; conflicts: ResolvedPart[] };
 		tools?: string[];
 	} = $props();
 </script>
@@ -34,7 +34,10 @@
 										     every cut length of 2020 extrusion, so the length gets stamped on
 										     the corner, as on the parts calculator. -->
 										{#if part.length_mm}<span class="part-card-len">{part.length_mm}mm</span>{/if}
-										{#if part.not_in_calc}<span class="part-card-warn" title="Not currently in the parts calculator">!</span>{/if}
+										{#if part.conflicts?.length}<span
+											class="part-card-conflict"
+											title={part.conflicts.map((c) => c.note ?? c.field).join(' ')}>?</span
+										>{/if}
 										{#if part.alternative}<span
 												class="part-card-alt"
 												title={typeof part.alternative === 'string'
@@ -51,15 +54,19 @@
 						{/each}
 					</ul>
 				{/each}
-				{#if parts.notes.length}
+				{#if parts.conflicts.length}
+					<p class="parts-warn-legend">
+						<span class="part-card-conflict">?</span> the docs and the parts calculator disagreed
+						about this part when their catalogs were merged (2026-08-21); not yet settled against
+						the machine:
+					</p>
 					<ul class="parts-notes">
-						{#each parts.notes as part (part.id)}
-							<li><strong>{part.name}:</strong> {part.notes}</li>
+						{#each parts.conflicts as part (part.id)}
+							{#each part.conflicts ?? [] as conflict (conflict.field)}
+								<li><strong>{part.name}:</strong> {conflict.note ?? conflict.field}</li>
+							{/each}
 						{/each}
 					</ul>
-				{/if}
-				{#if parts.groups.some((g) => g.parts.some((p) => p.not_in_calc))}
-					<p class="parts-warn-legend"><span class="part-card-warn">!</span> not currently in the parts calculator.</p>
 				{/if}
 				{#if parts.groups.some((g) => g.parts.some((p) => p.alternative))}
 					<p class="parts-warn-legend"><span class="part-card-alt">A</span> an interchangeable alternative works (hover for what).</p>

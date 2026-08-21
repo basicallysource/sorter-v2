@@ -7,7 +7,7 @@ export default defineConfig({
 	server: {
 		fs: {
 			// content markdown + liquid includes live outside routes/lib
-			allow: ['.']
+			allow: ['..']
 		}
 	}
 });

@@ -4637,19 +4637,14 @@
       "id": "ext-2020-ag",
       "kind": "cots",
       "cots": {
-        "type": "extrusion-2020"
+        "type": "extrusion-2020",
+        "length_mm": 320
       },
       "name": "Outer horizontal / Horizontal interface frame (A/G)",
       "category": "Aluminum extrusion (2020)",
       "description": "2020 aluminum extrusion, cut to 320 mm (pieces A and G).",
       "created_at": "2026-08-21",
       "updated_at": "2026-08-21",
-      "attributes": [
-        {
-          "label": "Cut length",
-          "value": "320 mm"
-        }
-      ],
       "image_url": "https://img.basically.website/web/parts/extrusion/extrusion-2020.0691a894c8154731.png",
       "caption": "2020 aluminum extrusion, cut to 320 mm (pieces A and G)."
     },
@@ -4657,19 +4652,14 @@
       "id": "ext-2020-bh",
       "kind": "cots",
       "cots": {
-        "type": "extrusion-2020"
+        "type": "extrusion-2020",
+        "length_mm": 158
       },
       "name": "Spoke / Interface spoke, short (B/H)",
       "category": "Aluminum extrusion (2020)",
       "description": "2020 aluminum extrusion, cut to 158 mm (pieces B and H).",
       "created_at": "2026-08-21",
       "updated_at": "2026-08-21",
-      "attributes": [
-        {
-          "label": "Cut length",
-          "value": "158 mm"
-        }
-      ],
       "image_url": "https://img.basically.website/web/parts/extrusion/extrusion-2020.0691a894c8154731.png",
       "caption": "2020 aluminum extrusion, cut to 158 mm (pieces B and H)."
     },
@@ -4677,19 +4667,14 @@
       "id": "ext-2020-c",
       "kind": "cots",
       "cots": {
-        "type": "extrusion-2020"
+        "type": "extrusion-2020",
+        "length_mm": 154
       },
       "name": "Layer vertical support (C)",
       "category": "Aluminum extrusion (2020)",
       "description": "2020 aluminum extrusion, cut to 154 mm (piece C).",
       "created_at": "2026-08-21",
       "updated_at": "2026-08-21",
-      "attributes": [
-        {
-          "label": "Cut length",
-          "value": "154 mm"
-        }
-      ],
       "image_url": "https://img.basically.website/web/parts/extrusion/extrusion-2020.0691a894c8154731.png",
       "caption": "2020 aluminum extrusion, cut to 154 mm (piece C)."
     },
@@ -4697,19 +4682,14 @@
       "id": "extrusion-e",
       "kind": "cots",
       "cots": {
-        "type": "extrusion-2020"
+        "type": "extrusion-2020",
+        "length_mm": 238
       },
       "name": "Interface spoke, long (E)",
       "category": "Aluminum extrusion (2020)",
       "description": "2020 aluminum extrusion, cut to 238 mm (piece E).",
       "created_at": "2026-08-21",
       "updated_at": "2026-08-21",
-      "attributes": [
-        {
-          "label": "Cut length",
-          "value": "238 mm"
-        }
-      ],
       "image_url": "https://img.basically.website/web/parts/top-interface/extrusion-e.bce3a0752b0f99f5.png",
       "caption": "2020 aluminum extrusion, cut to 238 mm (piece E)."
     },
@@ -4717,19 +4697,14 @@
       "id": "extrusion-f",
       "kind": "cots",
       "cots": {
-        "type": "extrusion-2020"
+        "type": "extrusion-2020",
+        "length_mm": 274
       },
       "name": "Interface vertical support (F)",
       "category": "Aluminum extrusion (2020)",
       "description": "2020 aluminum extrusion, cut to 274 mm (piece F).",
       "created_at": "2026-08-21",
       "updated_at": "2026-08-21",
-      "attributes": [
-        {
-          "label": "Cut length",
-          "value": "274 mm"
-        }
-      ],
       "image_url": "https://img.basically.website/web/parts/top-interface/extrusion-f.7e1f6b2dc9e069f7.png",
       "caption": "2020 aluminum extrusion, cut to 274 mm (piece F)."
     }

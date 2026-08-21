@@ -1,0 +1,682 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>machine.toml Reference | Sorter V2 Documentation</title>
+    <meta name="description" content="All fields for the machine-specific config file. Set MACHINE_SPECIFIC_PARAMS_PATH to point to your copy.">
+    <meta property="og:site_name" content="Sorter V2 Documentation">
+    <meta property="og:type" content="article">
+    <meta property="og:title" content="machine.toml Reference">
+    <meta property="og:description" content="All fields for the machine-specific config file. Set MACHINE_SPECIFIC_PARAMS_PATH to point to your copy.">
+    <meta property="og:url" content="http://localhost:4000/sorter/machine-toml-reference/">
+    <meta name="twitter:card" content="summary">
+    <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+    <link rel="stylesheet" href="/assets/site.css">
+  </head>
+  <body>
+    <div class="shell">
+      <header class="site-header">
+        <a class="brand" href="/">
+          <img class="brand-logo" src="/assets/basically-logo.svg" alt="basically logo" width="26" height="24">
+          <span>
+            <strong>Sorter V2</strong>
+            <small>Documentation</small>
+          </span>
+        </a>
+        <button type="button" class="construction-banner" aria-haspopup="dialog" aria-controls="construction-modal">
+          <span class="construction-banner-icon" aria-hidden="true">⚠</span>
+          <span class="construction-banner-text">
+            <strong>Under heavy construction</strong>
+            <small>Docs are incomplete &amp; may be inaccurate — don't build Sorter yet.</small>
+          </span>
+          <span class="construction-banner-chevron" aria-hidden="true">▾</span>
+        </button>
+        <nav class="site-nav" aria-label="Primary">
+          <a href="/">Overview</a>
+          
+            <a href="/hardware/">Hardware</a>
+          
+            <a href="/sorter/" aria-current="page">Sorter</a>
+          
+            <a href="/hive/">Hive</a>
+          
+            <a href="/lab/">Lab</a>
+          
+        </nav>
+      </header>
+
+      <dialog id="construction-modal" class="construction-modal">
+        <div class="construction-modal-inner">
+          <div class="construction-modal-head">
+            <h2>⚠ Under heavy construction</h2>
+            <form method="dialog">
+              <button class="construction-modal-close" aria-label="Close">✕</button>
+            </form>
+          </div>
+          <p>As of July 11, 2026, Sorter V2 is not yet in a position to be built.</p>
+          <p>The documentation that exists is incomplete. Any given page may be accurate, inaccurate, present only as an example, or badly out of date. We do not yet recommend that anyone attempt to build Sorter.</p>
+          <p class="construction-modal-discord">
+            For the most live updates on our progress, <a href="https://discord.gg/6PZtqkwtaS" target="_blank" rel="noopener">join our Discord&nbsp;↗</a>.
+          </p>
+        </div>
+      </dialog>
+
+      
+      
+
+      
+      
+
+      
+        <div class="layout-with-sidebar">
+          <aside class="section-sidebar" aria-label="Sorter navigation">
+            <button type="button" class="section-sidebar-toggle" aria-expanded="false" aria-controls="section-nav">
+              <span>Sorter</span>
+              <span class="section-sidebar-toggle-icon" aria-hidden="true">▾</span>
+            </button>
+            <p class="section-sidebar-kicker">Sorter</p>
+            <nav id="section-nav">
+              <ul class="nav-tree"><li>
+    <a href="/sorter/">Overview</a></li></ul>
+
+              
+                
+                  <p class="section-sidebar-group">Install</p>
+                  
+                    
+                    
+                    <a href="/sorter/installation/">Installation</a>
+                  
+                    
+                    
+                    <a href="/sorter/installation/sorter-os/">SorterOS</a>
+                  
+                    
+                    
+                    <a href="/sorter/installation/linux-generic/">Linux (generic)</a>
+                  
+                    
+                    
+                    <a href="/sorter/installation/by-hand/">By hand</a>
+                  
+                
+                  <p class="section-sidebar-group">Operate</p>
+                  
+                    
+                    
+                    <a href="/sorter/tutorials/first-sort-run/">Your first sort run</a>
+                  
+                    
+                    
+                    <a href="/sorter/camera-calibration/">Camera calibration</a>
+                  
+                    
+                    
+                    <a href="/sorter/safe-shutdown/">Shutting down the machine</a>
+                  
+                    
+                    
+                    <a href="/sorter/troubleshooting/">Troubleshooting</a>
+                  
+                
+                  <p class="section-sidebar-group">Under the hood</p>
+                  
+                    
+                    
+                    <a href="/sorter/dev-flow/">Dev flow</a>
+                  
+                    
+                    
+                    <a href="/sorter/profile-reference/">Sorting profile reference</a>
+                  
+                    
+                    
+                    <a href="/sorter/what-leaves-the-machine/">What leaves the machine</a>
+                  
+                
+              
+            </nav>
+          </aside>
+          <main class="content">
+            
+<p class="kicker">Sorter Configuration</p>
+
+
+
+  
+  
+
+  
+    <h1>machine.toml Reference</h1>
+  
+
+
+
+<p class="lede">All fields for the machine-specific config file. Set MACHINE_SPECIFIC_PARAMS_PATH to point to your copy.</p>
+
+
+            
+
+            
+
+            <h2 id="servo"><code class="language-plaintext highlighter-rouge">[servo]</code></h2>
+
+<p>Controls flap servo angles and hardware backend selection.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Key</th>
+      <th>Type</th>
+      <th>Default</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">open_angle</code></td>
+      <td>int (0–180)</td>
+      <td><code class="language-plaintext highlighter-rouge">10</code></td>
+      <td>Angle in degrees for the open (drop) position.</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">closed_angle</code></td>
+      <td>int (0–180)</td>
+      <td><code class="language-plaintext highlighter-rouge">83</code></td>
+      <td>Angle in degrees for the closed (hold) position.</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">backend</code></td>
+      <td><code class="language-plaintext highlighter-rouge">"pca9685"</code> | <code class="language-plaintext highlighter-rouge">"waveshare"</code></td>
+      <td><code class="language-plaintext highlighter-rouge">"pca9685"</code></td>
+      <td>Servo driver to use. <code class="language-plaintext highlighter-rouge">"pca9685"</code> uses the onboard I²C driver; <code class="language-plaintext highlighter-rouge">"waveshare"</code> uses the SC bus over USB.</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">port</code></td>
+      <td>string</td>
+      <td>auto-detected</td>
+      <td>Serial port for the Waveshare SC bus. Omit to auto-detect. Only used when <code class="language-plaintext highlighter-rouge">backend = "waveshare"</code>.</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2 id="servochannels"><code class="language-plaintext highlighter-rouge">[[servo.channels]]</code></h2>
+
+<p>Per-channel servo configuration. One entry per servo, in layer order. Only used when <code class="language-plaintext highlighter-rouge">backend = "waveshare"</code>.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Key</th>
+      <th>Type</th>
+      <th>Default</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">id</code></td>
+      <td>int | null</td>
+      <td>—</td>
+      <td>SC bus servo ID (1–253). Null skips this slot.</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">invert</code></td>
+      <td>bool</td>
+      <td><code class="language-plaintext highlighter-rouge">false</code></td>
+      <td>Flip the direction of open/closed angles for this servo.</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2 id="layers"><code class="language-plaintext highlighter-rouge">[layers]</code></h2>
+
+<p>Bin layout — one inner array per physical layer of the tower (bottom to top), each containing bin size strings.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Key</th>
+      <th>Type</th>
+      <th>Default</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">sections</code></td>
+      <td>array of arrays</td>
+      <td>—</td>
+      <td>Each element is a layer; each layer is an array of bin-pair arrays like <code class="language-plaintext highlighter-rouge">["medium","medium"]</code>. Defines the physical bin topology.</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">servo_open_angles</code></td>
+      <td>table <code class="language-plaintext highlighter-rouge">{layer_index = angle}</code></td>
+      <td>—</td>
+      <td>Per-layer open angle overrides. Keys are 0-based layer indices.</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">servo_closed_angles</code></td>
+      <td>table <code class="language-plaintext highlighter-rouge">{layer_index = angle}</code></td>
+      <td>—</td>
+      <td>Per-layer closed angle overrides. Keys are 0-based layer indices.</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2 id="chute"><code class="language-plaintext highlighter-rouge">[chute]</code></h2>
+
+<p>Chute stepper calibration — home pin wiring and bin layout geometry.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Key</th>
+      <th>Type</th>
+      <th>Default</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">home_pin_channel</code></td>
+      <td>int</td>
+      <td><code class="language-plaintext highlighter-rouge">3</code></td>
+      <td>Digital input channel index on the distribution board where the chute endstop is wired.</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">first_bin_center</code></td>
+      <td>float (degrees)</td>
+      <td><code class="language-plaintext highlighter-rouge">8.25</code></td>
+      <td>Angular position of the first bin center after homing completes.</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">pillar_width_deg</code></td>
+      <td>float (degrees)</td>
+      <td><code class="language-plaintext highlighter-rouge">8.25</code></td>
+      <td>Angular width consumed by each divider pillar between bins.</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">endstop_active_high</code></td>
+      <td>bool</td>
+      <td><code class="language-plaintext highlighter-rouge">true</code></td>
+      <td>Set to true if the chute endstop input reads high when physically triggered.</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">operating_speed_microsteps_per_second</code></td>
+      <td>int</td>
+      <td><code class="language-plaintext highlighter-rouge">3000</code></td>
+      <td>Chute stepper top speed during normal positioning moves.</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2 id="carousel"><code class="language-plaintext highlighter-rouge">[carousel]</code></h2>
+
+<p>Carousel stepper calibration — home pin wiring.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Key</th>
+      <th>Type</th>
+      <th>Default</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">home_pin_channel</code></td>
+      <td>int</td>
+      <td><code class="language-plaintext highlighter-rouge">2</code></td>
+      <td>Digital input channel index on the feeder board where the carousel home sensor is wired.</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">endstop_active_high</code></td>
+      <td>bool</td>
+      <td><code class="language-plaintext highlighter-rouge">false</code></td>
+      <td>Set to true if the carousel home sensor reads high when triggered.</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2 id="machine_setup"><code class="language-plaintext highlighter-rouge">[machine_setup]</code></h2>
+
+<p>Selects the overall machine topology. Changing this requires a full reset and re-home.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Key</th>
+      <th>Type</th>
+      <th>Default</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">type</code></td>
+      <td><code class="language-plaintext highlighter-rouge">"standard_carousel"</code> | <code class="language-plaintext highlighter-rouge">"classification_channel"</code> | <code class="language-plaintext highlighter-rouge">"manual_carousel"</code></td>
+      <td><code class="language-plaintext highlighter-rouge">"standard_carousel"</code></td>
+      <td><code class="language-plaintext highlighter-rouge">"standard_carousel"</code>: full FIDA + carousel + classification path. <code class="language-plaintext highlighter-rouge">"classification_channel"</code>: dedicated C-channel classifier. <code class="language-plaintext highlighter-rouge">"manual_carousel"</code>: operator places parts directly into the carousel.</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2 id="stepper_bindings"><code class="language-plaintext highlighter-rouge">[stepper_bindings]</code></h2>
+
+<p>Remaps logical stepper names to physical firmware channel names when the physical wiring does not match the firmware defaults.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Key</th>
+      <th>Type</th>
+      <th>Default</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">carousel</code></td>
+      <td>string (physical stepper name)</td>
+      <td>—</td>
+      <td>Override which physical stepper drives the carousel.</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">c_channel_1</code></td>
+      <td>string (physical stepper name)</td>
+      <td>—</td>
+      <td>Override which physical stepper drives C-channel 1.</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">c_channel_2</code></td>
+      <td>string (physical stepper name)</td>
+      <td>—</td>
+      <td>Override which physical stepper drives C-channel 2.</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">c_channel_3</code></td>
+      <td>string (physical stepper name)</td>
+      <td>—</td>
+      <td>Override which physical stepper drives C-channel 3.</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">chute</code></td>
+      <td>string (physical stepper name)</td>
+      <td>—</td>
+      <td>Override which physical stepper drives the distribution chute.</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2 id="stepper_direction_inverts"><code class="language-plaintext highlighter-rouge">[stepper_direction_inverts]</code></h2>
+
+<p>Flip the logical direction of a stepper without reflashing firmware. Keys are logical stepper names (<code class="language-plaintext highlighter-rouge">carousel</code>, <code class="language-plaintext highlighter-rouge">c_channel_1</code>, <code class="language-plaintext highlighter-rouge">c_channel_2</code>, <code class="language-plaintext highlighter-rouge">c_channel_3</code>, <code class="language-plaintext highlighter-rouge">chute</code>).</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Key</th>
+      <th>Type</th>
+      <th>Default</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">&lt;logical_stepper_name&gt;</code></td>
+      <td>bool</td>
+      <td><code class="language-plaintext highlighter-rouge">false</code></td>
+      <td>Set to true to invert CW/CCW for that stepper. Example: <code class="language-plaintext highlighter-rouge">carousel = true</code></td>
+    </tr>
+  </tbody>
+</table>
+
+<h2 id="stepper_current_overridesstepper_name"><code class="language-plaintext highlighter-rouge">[stepper_current_overrides.&lt;stepper_name&gt;]</code></h2>
+
+<p>Per-stepper TMC driver current settings. Omit to use firmware defaults. Keys are physical or canonical stepper names.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Key</th>
+      <th>Type</th>
+      <th>Default</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">irun</code></td>
+      <td>int (0–31)</td>
+      <td><code class="language-plaintext highlighter-rouge">16</code></td>
+      <td>Run current register value. Higher = more torque, more heat.</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">ihold</code></td>
+      <td>int (0–31)</td>
+      <td><code class="language-plaintext highlighter-rouge">4</code></td>
+      <td>Hold current register value when the stepper is stopped.</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">ihold_delay</code></td>
+      <td>int (0–15)</td>
+      <td><code class="language-plaintext highlighter-rouge">8</code></td>
+      <td>Delay (in clock cycles) before current ramps from irun to ihold after a move ends.</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2 id="cameras"><code class="language-plaintext highlighter-rouge">[cameras]</code></h2>
+
+<p>Camera layout and device index assignments.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Key</th>
+      <th>Type</th>
+      <th>Default</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">layout</code></td>
+      <td><code class="language-plaintext highlighter-rouge">"default"</code> | <code class="language-plaintext highlighter-rouge">"split_feeder"</code></td>
+      <td><code class="language-plaintext highlighter-rouge">"default"</code></td>
+      <td><code class="language-plaintext highlighter-rouge">"default"</code>: single feeder camera + classification cameras. <code class="language-plaintext highlighter-rouge">"split_feeder"</code>: separate camera per C-channel + carousel.</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">feeder</code></td>
+      <td>int</td>
+      <td>—</td>
+      <td>OpenCV device index for the feeder camera. Used in <code class="language-plaintext highlighter-rouge">"default"</code> layout.</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">carousel</code></td>
+      <td>int | string (URL)</td>
+      <td>—</td>
+      <td>Device index or MJPEG URL for the carousel/classification camera.</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">classification_top</code></td>
+      <td>int | string (URL)</td>
+      <td>—</td>
+      <td>Device index or URL for the top classification camera.</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">classification_bottom</code></td>
+      <td>int | string (URL)</td>
+      <td>—</td>
+      <td>Device index or URL for the bottom classification camera.</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">c_channel_2</code></td>
+      <td>int</td>
+      <td>—</td>
+      <td>Device index for the C-channel 2 camera. Only used in <code class="language-plaintext highlighter-rouge">"split_feeder"</code> layout.</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">c_channel_3</code></td>
+      <td>int</td>
+      <td>—</td>
+      <td>Device index for the C-channel 3 camera. Only used in <code class="language-plaintext highlighter-rouge">"split_feeder"</code> layout.</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2 id="camera_capture_modesrole"><code class="language-plaintext highlighter-rouge">[camera_capture_modes.&lt;role&gt;]</code></h2>
+
+<p>Per-camera capture settings. Role matches camera keys from <code class="language-plaintext highlighter-rouge">[cameras]</code> (e.g. <code class="language-plaintext highlighter-rouge">feeder</code>, <code class="language-plaintext highlighter-rouge">carousel</code>). Strongly recommended on Linux to force MJPG and avoid USB bandwidth exhaustion.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Key</th>
+      <th>Type</th>
+      <th>Default</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">fourcc</code></td>
+      <td>string</td>
+      <td>—</td>
+      <td>Four-character code for the capture format. <code class="language-plaintext highlighter-rouge">"MJPG"</code> is strongly recommended on Linux multi-cam setups.</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">width</code></td>
+      <td>int</td>
+      <td>—</td>
+      <td>Capture width in pixels.</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">height</code></td>
+      <td>int</td>
+      <td>—</td>
+      <td>Capture height in pixels.</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">fps</code></td>
+      <td>int</td>
+      <td>—</td>
+      <td>Target capture frame rate.</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2 id="camera_picture_settingsrole"><code class="language-plaintext highlighter-rouge">[camera_picture_settings.&lt;role&gt;]</code></h2>
+
+<p>Per-camera image transform settings applied after capture.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Key</th>
+      <th>Type</th>
+      <th>Default</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">rotation</code></td>
+      <td>int (0, 90, 180, 270)</td>
+      <td><code class="language-plaintext highlighter-rouge">0</code></td>
+      <td>Clockwise rotation in degrees applied to every captured frame.</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">flip_horizontal</code></td>
+      <td>bool</td>
+      <td><code class="language-plaintext highlighter-rouge">false</code></td>
+      <td>Mirror the image left-to-right.</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">flip_vertical</code></td>
+      <td>bool</td>
+      <td><code class="language-plaintext highlighter-rouge">false</code></td>
+      <td>Flip the image top-to-bottom.</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2 id="gpio_leds"><code class="language-plaintext highlighter-rouge">[[gpio_leds]]</code></h2>
+
+<p>Digital output pins that are driven HIGH on boot and LOW on shutdown. One entry per pin. Useful for status LEDs wired to the basically or SKR Pico boards.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Key</th>
+      <th>Type</th>
+      <th>Default</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">board</code></td>
+      <td><code class="language-plaintext highlighter-rouge">"feeder"</code> | <code class="language-plaintext highlighter-rouge">"distribution"</code> | <code class="language-plaintext highlighter-rouge">"any"</code></td>
+      <td>—</td>
+      <td>Which board to target. <code class="language-plaintext highlighter-rouge">"any"</code> applies the same pin index to all connected boards.</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">pin</code></td>
+      <td>int (≥ 0)</td>
+      <td>—</td>
+      <td>0-based digital output channel index on the target board.</td>
+    </tr>
+  </tbody>
+</table>
+
+            
+
+
+
+
+
+          </main>
+        </div>
+      
+
+      <footer class="site-footer">
+        <nav class="site-footer-links" aria-label="Footer">
+          <a href="https://basically.website/policies/privacy-policy" target="_blank" rel="noopener">Privacy Policy</a>
+          <a href="https://basically.website/policies/terms-of-service" target="_blank" rel="noopener">Terms of Service</a>
+          <a href="mailto:contact@basically.website">contact@basically.website</a>
+          <a href="https://basically.website/?updates=1" target="_blank" rel="noopener">Get updates&nbsp;↗</a>
+          <a href="https://discord.gg/6PZtqkwtaS" target="_blank" rel="noopener">Discord</a>
+          <a href="https://github.com/basicallysource/sorter-v2/tree/main/docs">Source&nbsp;(<code>docs/</code>)</a>
+        </nav>
+        <p class="site-footer-legal">
+          © basically. All rights reserved. LEGO® is a trademark of the LEGO Group of companies which does not sponsor, authorize, or endorse this site.
+        </p>
+      </footer>
+    </div>
+    <script src="/assets/copy-code.js" defer></script>
+    <script>
+      (function () {
+        var modal = document.getElementById('construction-modal');
+        var opener = document.querySelector('.construction-banner');
+        if (!modal || !opener || typeof modal.showModal !== 'function') return;
+        opener.addEventListener('click', function () { modal.showModal(); });
+        modal.addEventListener('click', function (e) {
+          if (e.target === modal) modal.close();
+        });
+      })();
+      (function () {
+        var toggle = document.querySelector('.section-sidebar-toggle');
+        if (!toggle) return;
+        var sidebar = toggle.closest('.section-sidebar');
+        toggle.addEventListener('click', function () {
+          var open = sidebar.classList.toggle('nav-open');
+          toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+        });
+      })();
+    </script>
+  </body>
+</html>

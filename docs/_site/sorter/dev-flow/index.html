@@ -1,0 +1,362 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Dev flow | Sorter V2 Documentation</title>
+    <meta name="description" content="The two systemd services that run the machine in dev mode, how to enable them, and the difference between a soft restart and a full restart.">
+    <meta property="og:site_name" content="Sorter V2 Documentation">
+    <meta property="og:type" content="article">
+    <meta property="og:title" content="Dev flow">
+    <meta property="og:description" content="The two systemd services that run the machine in dev mode, how to enable them, and the difference between a soft restart and a full restart.">
+    <meta property="og:url" content="http://localhost:4000/sorter/dev-flow/">
+    <meta name="twitter:card" content="summary">
+    <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+    <link rel="stylesheet" href="/assets/site.css">
+  </head>
+  <body>
+    <div class="shell">
+      <header class="site-header">
+        <a class="brand" href="/">
+          <img class="brand-logo" src="/assets/basically-logo.svg" alt="basically logo" width="26" height="24">
+          <span>
+            <strong>Sorter V2</strong>
+            <small>Documentation</small>
+          </span>
+        </a>
+        <button type="button" class="construction-banner" aria-haspopup="dialog" aria-controls="construction-modal">
+          <span class="construction-banner-icon" aria-hidden="true">⚠</span>
+          <span class="construction-banner-text">
+            <strong>Under heavy construction</strong>
+            <small>Docs are incomplete &amp; may be inaccurate — don't build Sorter yet.</small>
+          </span>
+          <span class="construction-banner-chevron" aria-hidden="true">▾</span>
+        </button>
+        <nav class="site-nav" aria-label="Primary">
+          <a href="/">Overview</a>
+          
+            <a href="/hardware/">Hardware</a>
+          
+            <a href="/sorter/" aria-current="page">Sorter</a>
+          
+            <a href="/hive/">Hive</a>
+          
+            <a href="/lab/">Lab</a>
+          
+        </nav>
+      </header>
+
+      <dialog id="construction-modal" class="construction-modal">
+        <div class="construction-modal-inner">
+          <div class="construction-modal-head">
+            <h2>⚠ Under heavy construction</h2>
+            <form method="dialog">
+              <button class="construction-modal-close" aria-label="Close">✕</button>
+            </form>
+          </div>
+          <p>As of July 11, 2026, Sorter V2 is not yet in a position to be built.</p>
+          <p>The documentation that exists is incomplete. Any given page may be accurate, inaccurate, present only as an example, or badly out of date. We do not yet recommend that anyone attempt to build Sorter.</p>
+          <p class="construction-modal-discord">
+            For the most live updates on our progress, <a href="https://discord.gg/6PZtqkwtaS" target="_blank" rel="noopener">join our Discord&nbsp;↗</a>.
+          </p>
+        </div>
+      </dialog>
+
+      
+      
+
+      
+      
+
+      
+        <div class="layout-with-sidebar">
+          <aside class="section-sidebar" aria-label="Sorter navigation">
+            <button type="button" class="section-sidebar-toggle" aria-expanded="false" aria-controls="section-nav">
+              <span>Sorter</span>
+              <span class="section-sidebar-toggle-icon" aria-hidden="true">▾</span>
+            </button>
+            <p class="section-sidebar-kicker">Sorter</p>
+            <nav id="section-nav">
+              <ul class="nav-tree"><li>
+    <a href="/sorter/">Overview</a></li></ul>
+
+              
+                
+                  <p class="section-sidebar-group">Install</p>
+                  
+                    
+                    
+                    <a href="/sorter/installation/">Installation</a>
+                  
+                    
+                    
+                    <a href="/sorter/installation/sorter-os/">SorterOS</a>
+                  
+                    
+                    
+                    <a href="/sorter/installation/linux-generic/">Linux (generic)</a>
+                  
+                    
+                    
+                    <a href="/sorter/installation/by-hand/">By hand</a>
+                  
+                
+                  <p class="section-sidebar-group">Operate</p>
+                  
+                    
+                    
+                    <a href="/sorter/tutorials/first-sort-run/">Your first sort run</a>
+                  
+                    
+                    
+                    <a href="/sorter/camera-calibration/">Camera calibration</a>
+                  
+                    
+                    
+                    <a href="/sorter/safe-shutdown/">Shutting down the machine</a>
+                  
+                    
+                    
+                    <a href="/sorter/troubleshooting/">Troubleshooting</a>
+                  
+                
+                  <p class="section-sidebar-group">Under the hood</p>
+                  
+                    
+                    
+                    <a href="/sorter/dev-flow/" aria-current="page">Dev flow</a>
+                  
+                    
+                    
+                    <a href="/sorter/profile-reference/">Sorting profile reference</a>
+                  
+                    
+                    
+                    <a href="/sorter/what-leaves-the-machine/">What leaves the machine</a>
+                  
+                
+              
+            </nav>
+          </aside>
+          <main class="content">
+            
+<p class="kicker">Sorter — Under the hood</p>
+
+
+
+  
+  
+
+  <div class="page-title-row">
+      <h1>Dev flow</h1>
+      <span class="page-type-badge page-type-how-to">How-to guide</span>
+    </div>
+  
+
+
+
+<p class="lede">The two systemd services that run the machine in dev mode, how to enable them, and the difference between a soft restart and a full restart.</p>
+
+
+            
+
+            
+
+            <p>The machine runs as two systemd services: the <strong>Python backend</strong> (hardware,
+vision, state) and the <strong>SvelteKit UI</strong> (the web interface you operate it
+from). Each ships in a <strong>dev</strong> and a <strong>prod</strong> variant; everyone working on the
+machine right now runs the <strong>dev</strong> ones, so those are the only ones this page
+covers.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Component</th>
+      <th>Dev service</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Backend</td>
+      <td><code class="language-plaintext highlighter-rouge">sorter-backend-dev.service</code></td>
+    </tr>
+    <tr>
+      <td>UI</td>
+      <td><code class="language-plaintext highlighter-rouge">sorter-ui-dev.service</code></td>
+    </tr>
+  </tbody>
+</table>
+
+<p>The dev services run the UI through Vite with hot-module reload, so a code
+change to a <code class="language-plaintext highlighter-rouge">.svelte</code> or <code class="language-plaintext highlighter-rouge">.ts</code> file shows up in the browser within a second
+without a manual restart.</p>
+
+<h2 id="enabling-the-dev-services">Enabling the dev services</h2>
+
+<p>“Enabling” a systemd service does two separate things:</p>
+
+<ul>
+  <li><strong><code class="language-plaintext highlighter-rouge">enable</code></strong> marks the service to start automatically on every boot.</li>
+  <li><strong><code class="language-plaintext highlighter-rouge">start</code></strong> starts it right now, this boot.</li>
+</ul>
+
+<p><code class="language-plaintext highlighter-rouge">systemctl enable --now</code> does both at once:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">sudo </span>systemctl <span class="nb">enable</span> <span class="nt">--now</span> sorter-backend-dev.service sorter-ui-dev.service
+</code></pre></div></div>
+
+<p>Check what is currently running and watch the logs with:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>systemctl status sorter-backend-dev.service sorter-ui-dev.service
+journalctl <span class="nt">-u</span> sorter-backend-dev.service <span class="nt">-f</span>
+journalctl <span class="nt">-u</span> sorter-ui-dev.service <span class="nt">-f</span>
+</code></pre></div></div>
+
+<h2 id="restarting-the-backend">Restarting the backend</h2>
+
+<p>When you change backend Python code, the running process needs to pick it up.
+There are two ways to do that, and they are not the same thing.</p>
+
+<h3 id="soft-restart-the-fast-one">Soft restart (the fast one)</h3>
+
+<p>A soft restart bounces only the backend’s <code class="language-plaintext highlighter-rouge">main.py</code> worker, leaving its
+supervisor process and the systemd unit untouched. The supervisor kills the
+worker and immediately launches a fresh one — a clean Python interpreter with
+every module re-imported from disk. It re-initializes the hardware from
+scratch and is back online in about two seconds.</p>
+
+<p>This is what you want for essentially every code edit. Trigger it by POSTing to
+the supervisor’s control endpoint:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>curl <span class="nt">-sS</span> <span class="nt">-X</span> POST http://127.0.0.1:8001/api/supervisor/restart <span class="se">\</span>
+  <span class="nt">-H</span> <span class="s2">"Origin: http://sorter.local:5173"</span>
+</code></pre></div></div>
+
+<p>The <code class="language-plaintext highlighter-rouge">Origin</code> header is required — the supervisor only accepts requests from an
+allowed UI origin. <code class="language-plaintext highlighter-rouge">http://sorter.local:5173</code> works from any machine.</p>
+
+<blockquote>
+  <p>The <strong>Restart Backend</strong> button in the machine UI (under the power menu in the
+top-right header) does exactly this — it is the same soft restart as the
+<code class="language-plaintext highlighter-rouge">curl</code> call above, just from the browser. It releases the camera handles,
+bounces <code class="language-plaintext highlighter-rouge">main.py</code> through the supervisor, then reconnects the UI
+automatically.</p>
+</blockquote>
+
+<h3 id="full-restart-the-heavier-one">Full restart (the heavier one)</h3>
+
+<p>A full restart goes through systemd and bounces the <strong>whole service</strong> — the
+supervisor process and its <code class="language-plaintext highlighter-rouge">main.py</code> worker together:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">sudo </span>systemctl restart sorter-backend-dev.service
+</code></pre></div></div>
+
+<p>This re-reads the systemd unit and re-sources the environment file, so it is
+the one to use when something <em>outside</em> the Python worker changed: the systemd
+unit itself, the <code class="language-plaintext highlighter-rouge">.env</code> file, or a newly installed package in the environment.
+It is a few seconds slower than a soft restart because systemd waits out its
+configured <code class="language-plaintext highlighter-rouge">RestartSec</code> delay before bringing the service back.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>You changed…</th>
+      <th>Use</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>A <code class="language-plaintext highlighter-rouge">.py</code> file in the backend</td>
+      <td>Soft restart (UI button or <code class="language-plaintext highlighter-rouge">curl</code>)</td>
+    </tr>
+    <tr>
+      <td>The <code class="language-plaintext highlighter-rouge">.env</code> file or a newly installed package</td>
+      <td>Full restart (<code class="language-plaintext highlighter-rouge">systemctl restart</code>)</td>
+    </tr>
+    <tr>
+      <td>The systemd unit file</td>
+      <td>Full restart (<code class="language-plaintext highlighter-rouge">systemctl restart</code>)</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>For the UI, Vite hot-reloads source edits on its own; you only need
+<code class="language-plaintext highlighter-rouge">systemctl restart sorter-ui-dev.service</code> if the Vite process itself wedges or
+its unit/environment changed.</p>
+
+            
+
+
+
+
+<aside class="page-meta" aria-label="Page metadata">
+  <dl>
+    
+    <div>
+      <dt>Audience</dt>
+      <dd>self-hosting operator</dd>
+    </div>
+    
+    
+    <div>
+      <dt>Applies to</dt>
+      <dd>sorter 2.x</dd>
+    </div>
+    
+    
+    <div>
+      <dt>Last verified</dt>
+      <dd>2026-06-02</dd>
+    </div>
+    
+    
+    <div>
+      <dt>Owner</dt>
+      <dd>sorter</dd>
+    </div>
+    
+  </dl>
+</aside>
+
+
+          </main>
+        </div>
+      
+
+      <footer class="site-footer">
+        <nav class="site-footer-links" aria-label="Footer">
+          <a href="https://basically.website/policies/privacy-policy" target="_blank" rel="noopener">Privacy Policy</a>
+          <a href="https://basically.website/policies/terms-of-service" target="_blank" rel="noopener">Terms of Service</a>
+          <a href="mailto:contact@basically.website">contact@basically.website</a>
+          <a href="https://basically.website/?updates=1" target="_blank" rel="noopener">Get updates&nbsp;↗</a>
+          <a href="https://discord.gg/6PZtqkwtaS" target="_blank" rel="noopener">Discord</a>
+          <a href="https://github.com/basicallysource/sorter-v2/tree/main/docs">Source&nbsp;(<code>docs/</code>)</a>
+        </nav>
+        <p class="site-footer-legal">
+          © basically. All rights reserved. LEGO® is a trademark of the LEGO Group of companies which does not sponsor, authorize, or endorse this site.
+        </p>
+      </footer>
+    </div>
+    <script src="/assets/copy-code.js" defer></script>
+    <script>
+      (function () {
+        var modal = document.getElementById('construction-modal');
+        var opener = document.querySelector('.construction-banner');
+        if (!modal || !opener || typeof modal.showModal !== 'function') return;
+        opener.addEventListener('click', function () { modal.showModal(); });
+        modal.addEventListener('click', function (e) {
+          if (e.target === modal) modal.close();
+        });
+      })();
+      (function () {
+        var toggle = document.querySelector('.section-sidebar-toggle');
+        if (!toggle) return;
+        var sidebar = toggle.closest('.section-sidebar');
+        toggle.addEventListener('click', function () {
+          var open = sidebar.classList.toggle('nav-open');
+          toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+        });
+      })();
+    </script>
+  </body>
+</html>

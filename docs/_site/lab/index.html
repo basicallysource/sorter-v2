@@ -1,0 +1,257 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Lab | Sorter V2 Documentation</title>
+    <meta name="description" content="The lab is where we keep durable findings from hands-on research and the shared contributor references the rest of the project builds on. Right now it holds two areas — the object detection model research, and the shared styleguide used by the Sorter UI, Hive, and these docs.">
+    <meta property="og:site_name" content="Sorter V2 Documentation">
+    <meta property="og:type" content="article">
+    <meta property="og:title" content="Lab">
+    <meta property="og:description" content="The lab is where we keep durable findings from hands-on research and the shared contributor references the rest of the project builds on. Right now it holds two areas — the object detection model research, and the shared styleguide used by the Sorter UI, Hive, and these docs.">
+    <meta property="og:url" content="http://localhost:4000/lab/">
+    <meta name="twitter:card" content="summary">
+    <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+    <link rel="stylesheet" href="/assets/site.css">
+  </head>
+  <body>
+    <div class="shell">
+      <header class="site-header">
+        <a class="brand" href="/">
+          <img class="brand-logo" src="/assets/basically-logo.svg" alt="basically logo" width="26" height="24">
+          <span>
+            <strong>Sorter V2</strong>
+            <small>Documentation</small>
+          </span>
+        </a>
+        <button type="button" class="construction-banner" aria-haspopup="dialog" aria-controls="construction-modal">
+          <span class="construction-banner-icon" aria-hidden="true">⚠</span>
+          <span class="construction-banner-text">
+            <strong>Under heavy construction</strong>
+            <small>Docs are incomplete &amp; may be inaccurate — don't build Sorter yet.</small>
+          </span>
+          <span class="construction-banner-chevron" aria-hidden="true">▾</span>
+        </button>
+        <nav class="site-nav" aria-label="Primary">
+          <a href="/">Overview</a>
+          
+            <a href="/hardware/">Hardware</a>
+          
+            <a href="/sorter/">Sorter</a>
+          
+            <a href="/hive/">Hive</a>
+          
+            <a href="/lab/" aria-current="page">Lab</a>
+          
+        </nav>
+      </header>
+
+      <dialog id="construction-modal" class="construction-modal">
+        <div class="construction-modal-inner">
+          <div class="construction-modal-head">
+            <h2>⚠ Under heavy construction</h2>
+            <form method="dialog">
+              <button class="construction-modal-close" aria-label="Close">✕</button>
+            </form>
+          </div>
+          <p>As of July 11, 2026, Sorter V2 is not yet in a position to be built.</p>
+          <p>The documentation that exists is incomplete. Any given page may be accurate, inaccurate, present only as an example, or badly out of date. We do not yet recommend that anyone attempt to build Sorter.</p>
+          <p class="construction-modal-discord">
+            For the most live updates on our progress, <a href="https://discord.gg/6PZtqkwtaS" target="_blank" rel="noopener">join our Discord&nbsp;↗</a>.
+          </p>
+        </div>
+      </dialog>
+
+      
+      
+
+      
+      
+
+      
+        <div class="layout-with-sidebar">
+          <aside class="section-sidebar" aria-label="Lab navigation">
+            <button type="button" class="section-sidebar-toggle" aria-expanded="false" aria-controls="section-nav">
+              <span>Lab</span>
+              <span class="section-sidebar-toggle-icon" aria-hidden="true">▾</span>
+            </button>
+            <p class="section-sidebar-kicker">Lab</p>
+            <nav id="section-nav">
+              <ul class="nav-tree"><li>
+    <a href="/lab/" aria-current="page">Overview</a></li></ul>
+
+              
+                
+                  <p class="section-sidebar-group">Object Detection Research</p>
+                  
+                    
+                    
+                    <a href="/lab/object-detection/">Overview</a>
+                  
+                    
+                    
+                    <a href="/lab/object-detection/how-models-are-built/">How the Models Are Built</a>
+                  
+                    
+                    
+                    <a href="/lab/object-detection/device-benchmarking/">Benchmarking Workflow</a>
+                  
+                    
+                    
+                    <a href="/lab/object-detection/hailo-hef-workflow/">Hailo HEF Workflow</a>
+                  
+                
+                  <p class="section-sidebar-group">Styleguide</p>
+                  
+                    
+                    
+                    <a href="/lab/styleguide/">Overview</a>
+                  
+                    
+                    
+                    <a href="/lab/styleguide/#design-principles">Design Principles</a>
+                  
+                    
+                    
+                    <a href="/lab/styleguide/#colors">Colors</a>
+                  
+                    
+                    
+                    <a href="/lab/styleguide/#typography">Typography</a>
+                  
+                    
+                    
+                    <a href="/lab/styleguide/#notifications">Notifications</a>
+                  
+                    
+                    
+                    <a href="/lab/styleguide/#components">Components</a>
+                  
+                    
+                    
+                    <a href="/lab/styleguide/#primary-color">Primary Color</a>
+                  
+                
+              
+            </nav>
+          </aside>
+          <main class="content">
+            
+<p class="kicker">Research & Contributor References</p>
+
+
+
+  
+  
+
+  
+    <h1>Lab</h1>
+  
+
+
+
+<p class="lede">The lab is where we keep durable findings from hands-on research and the shared contributor references the rest of the project builds on. Right now it holds two areas — the object detection model research, and the shared styleguide used by the Sorter UI, Hive, and these docs.</p>
+
+
+            
+
+            
+
+            <h2 id="research-areas">Research areas</h2>
+
+<div class="callout-grid">
+  <div class="callout">
+    <strong><a href="/lab/object-detection/">Object detection research</a></strong>
+    <p>Which detector runtimes we validated, where the canonical artifacts live, the cross-device benchmark workflow, and the Raspberry Pi 5 Hailo HEF compile path.</p>
+  </div>
+  <div class="callout">
+    <strong><a href="/lab/c-channel-singulation/">C-channel singulation</a></strong>
+    <p>How the sorter separates tangled LEGO into single pieces using rotating C-shaped channels — a novel approach with no known published precedent.</p>
+  </div>
+  <div class="callout">
+    <strong><a href="/lab/classification-research/">Classification research</a></strong>
+    <p>Embeddings vs classifiers, the Brickognize API, training data strategy, and why color detection avoids ML entirely.</p>
+  </div>
+  <div class="callout">
+    <strong><a href="/lab/feeder-experiments/">Feeder experiments</a></strong>
+    <p>Turntable, vibration, and chute experiments that preceded the C-channel design — what was tested, what failed, and what the data showed.</p>
+  </div>
+  <div class="callout">
+    <strong><a href="/lab/software-architecture-decisions/">Software architecture decisions</a></strong>
+    <p>Why the project uses a dumb-firmware / smart-host split, what alternatives were evaluated, and the design principles behind the stack.</p>
+  </div>
+  <div class="callout">
+    <strong><a href="/lab/styleguide/">Styleguide</a></strong>
+    <p>The shared visual language used by the Sorter UI, Hive, and this documentation site. Contributor reference only — not useful for end users.</p>
+  </div>
+</div>
+
+<h2 id="what-counts-as-lab-content">What counts as lab content</h2>
+
+<p>The lab sits one level below the end-user-facing sections. Content lands here when:</p>
+
+<ul>
+  <li>it’s a <strong>contributor reference</strong> the rest of the project builds on but that an operator would never need to read (the styleguide);</li>
+  <li>it’s an <strong>active research thread</strong> where we’re still validating conclusions, and the findings aren’t ready to be promoted into a stable hardware or Sorter docs page (the object detection work).</li>
+</ul>
+
+<p>Once a finding stabilizes enough to be promoted — for example, when we settle on a single accelerated deployment path and it belongs in the Sorter setup docs — it graduates out of the lab into the appropriate top-level section.</p>
+
+<h2 id="artifact-policy">Artifact policy</h2>
+
+<p>The durable rule across all lab work:</p>
+
+<ol>
+  <li>Keep decisions and workflows in checked-in Markdown on these pages.</li>
+  <li>Keep only the latest canonical benchmark and compile artifacts under <code class="language-plaintext highlighter-rouge">software/sorter/backend/blob/</code>.</li>
+  <li>Regenerate reports from benchmark JSONs instead of treating every HTML file as permanent.</li>
+  <li>Promote a finding out of the lab only after it has both a quality comparison against a reference and a sustained-throughput measurement.</li>
+</ol>
+
+            
+
+
+
+
+
+          </main>
+        </div>
+      
+
+      <footer class="site-footer">
+        <nav class="site-footer-links" aria-label="Footer">
+          <a href="https://basically.website/policies/privacy-policy" target="_blank" rel="noopener">Privacy Policy</a>
+          <a href="https://basically.website/policies/terms-of-service" target="_blank" rel="noopener">Terms of Service</a>
+          <a href="mailto:contact@basically.website">contact@basically.website</a>
+          <a href="https://basically.website/?updates=1" target="_blank" rel="noopener">Get updates&nbsp;↗</a>
+          <a href="https://discord.gg/6PZtqkwtaS" target="_blank" rel="noopener">Discord</a>
+          <a href="https://github.com/basicallysource/sorter-v2/tree/main/docs">Source&nbsp;(<code>docs/</code>)</a>
+        </nav>
+        <p class="site-footer-legal">
+          © basically. All rights reserved. LEGO® is a trademark of the LEGO Group of companies which does not sponsor, authorize, or endorse this site.
+        </p>
+      </footer>
+    </div>
+    <script src="/assets/copy-code.js" defer></script>
+    <script>
+      (function () {
+        var modal = document.getElementById('construction-modal');
+        var opener = document.querySelector('.construction-banner');
+        if (!modal || !opener || typeof modal.showModal !== 'function') return;
+        opener.addEventListener('click', function () { modal.showModal(); });
+        modal.addEventListener('click', function (e) {
+          if (e.target === modal) modal.close();
+        });
+      })();
+      (function () {
+        var toggle = document.querySelector('.section-sidebar-toggle');
+        if (!toggle) return;
+        var sidebar = toggle.closest('.section-sidebar');
+        toggle.addEventListener('click', function () {
+          var open = sidebar.classList.toggle('nav-open');
+          toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+        });
+      })();
+    </script>
+  </body>
+</html>

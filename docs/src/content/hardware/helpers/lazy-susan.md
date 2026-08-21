@@ -9,7 +9,7 @@ lede: One-time prep for the lazy Susan bearing before it goes into an assembly.
 permalink: /hardware/helpers/lazy-susan/
 author: spencer
 parts_needed:
-  - part: lazy-susan
+  - part: brg-lazy-susan
 tools_needed: [Pliers]
 ---
 

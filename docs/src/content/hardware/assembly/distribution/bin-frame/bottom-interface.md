@@ -10,7 +10,7 @@ permalink: /hardware/assembly/distribution/bin-frame/bottom-interface/
 author: spencer
 contributors: [abrianbaker]
 parts_needed:
-  - part: lazy-susan
+  - part: brg-lazy-susan
     qty: 1
   - part: ls-mount-to-chute
     qty: 1
@@ -18,9 +18,9 @@ parts_needed:
     qty: 1
   - part: ls-washer
     qty: 1
-  - part: m4-ruthex-long
+  - part: hsi-m4
     qty: 8
-  - part: m4-12mm-countersunk
+  - part: scr-m4-12-cs
     qty: 8
 ---
 

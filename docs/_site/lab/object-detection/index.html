@@ -1,0 +1,523 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Object Detection Research | Sorter V2 Documentation</title>
+    <meta name="description" content="The Sorter needs to know where each LEGO piece sits inside the chamber so it can decide what to do next. This page records what we have measured so far — which detector models we trained and what kind of throughput each piece of hardware actually delivers.">
+    <meta property="og:site_name" content="Sorter V2 Documentation">
+    <meta property="og:type" content="article">
+    <meta property="og:title" content="Object Detection Research">
+    <meta property="og:description" content="The Sorter needs to know where each LEGO piece sits inside the chamber so it can decide what to do next. This page records what we have measured so far — which detector models we trained and what kind of throughput each piece of hardware actually delivers.">
+    <meta property="og:url" content="http://localhost:4000/lab/object-detection/">
+    <meta name="twitter:card" content="summary">
+    <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+    <link rel="stylesheet" href="/assets/site.css">
+  </head>
+  <body>
+    <div class="shell">
+      <header class="site-header">
+        <a class="brand" href="/">
+          <img class="brand-logo" src="/assets/basically-logo.svg" alt="basically logo" width="26" height="24">
+          <span>
+            <strong>Sorter V2</strong>
+            <small>Documentation</small>
+          </span>
+        </a>
+        <button type="button" class="construction-banner" aria-haspopup="dialog" aria-controls="construction-modal">
+          <span class="construction-banner-icon" aria-hidden="true">⚠</span>
+          <span class="construction-banner-text">
+            <strong>Under heavy construction</strong>
+            <small>Docs are incomplete &amp; may be inaccurate — don't build Sorter yet.</small>
+          </span>
+          <span class="construction-banner-chevron" aria-hidden="true">▾</span>
+        </button>
+        <nav class="site-nav" aria-label="Primary">
+          <a href="/">Overview</a>
+          
+            <a href="/hardware/">Hardware</a>
+          
+            <a href="/sorter/">Sorter</a>
+          
+            <a href="/hive/">Hive</a>
+          
+            <a href="/lab/" aria-current="page">Lab</a>
+          
+        </nav>
+      </header>
+
+      <dialog id="construction-modal" class="construction-modal">
+        <div class="construction-modal-inner">
+          <div class="construction-modal-head">
+            <h2>⚠ Under heavy construction</h2>
+            <form method="dialog">
+              <button class="construction-modal-close" aria-label="Close">✕</button>
+            </form>
+          </div>
+          <p>As of July 11, 2026, Sorter V2 is not yet in a position to be built.</p>
+          <p>The documentation that exists is incomplete. Any given page may be accurate, inaccurate, present only as an example, or badly out of date. We do not yet recommend that anyone attempt to build Sorter.</p>
+          <p class="construction-modal-discord">
+            For the most live updates on our progress, <a href="https://discord.gg/6PZtqkwtaS" target="_blank" rel="noopener">join our Discord&nbsp;↗</a>.
+          </p>
+        </div>
+      </dialog>
+
+      
+      
+
+      
+      
+
+      
+        <div class="layout-with-sidebar">
+          <aside class="section-sidebar" aria-label="Lab navigation">
+            <button type="button" class="section-sidebar-toggle" aria-expanded="false" aria-controls="section-nav">
+              <span>Lab</span>
+              <span class="section-sidebar-toggle-icon" aria-hidden="true">▾</span>
+            </button>
+            <p class="section-sidebar-kicker">Lab</p>
+            <nav id="section-nav">
+              <ul class="nav-tree"><li>
+    <a href="/lab/">Overview</a></li></ul>
+
+              
+                
+                  <p class="section-sidebar-group">Object Detection Research</p>
+                  
+                    
+                    
+                    <a href="/lab/object-detection/" aria-current="page">Overview</a>
+                  
+                    
+                    
+                    <a href="/lab/object-detection/how-models-are-built/">How the Models Are Built</a>
+                  
+                    
+                    
+                    <a href="/lab/object-detection/device-benchmarking/">Benchmarking Workflow</a>
+                  
+                    
+                    
+                    <a href="/lab/object-detection/hailo-hef-workflow/">Hailo HEF Workflow</a>
+                  
+                
+                  <p class="section-sidebar-group">Styleguide</p>
+                  
+                    
+                    
+                    <a href="/lab/styleguide/">Overview</a>
+                  
+                    
+                    
+                    <a href="/lab/styleguide/#design-principles">Design Principles</a>
+                  
+                    
+                    
+                    <a href="/lab/styleguide/#colors">Colors</a>
+                  
+                    
+                    
+                    <a href="/lab/styleguide/#typography">Typography</a>
+                  
+                    
+                    
+                    <a href="/lab/styleguide/#notifications">Notifications</a>
+                  
+                    
+                    
+                    <a href="/lab/styleguide/#components">Components</a>
+                  
+                    
+                    
+                    <a href="/lab/styleguide/#primary-color">Primary Color</a>
+                  
+                
+              
+            </nav>
+          </aside>
+          <main class="content">
+            
+<p class="kicker">Lab — Research Area</p>
+
+
+
+  
+  
+
+  <div class="page-title-row">
+      <h1>Object Detection Research</h1>
+      <span class="page-type-badge page-type-explanation">Explanation</span>
+    </div>
+  
+
+
+
+<p class="lede">The Sorter needs to know where each LEGO piece sits inside the chamber so it can decide what to do next. This page records what we have measured so far — which detector models we trained and what kind of throughput each piece of hardware actually delivers.</p>
+
+
+            
+
+            
+
+            <h2 id="what-this-research-area-is-about">What this research area is about</h2>
+
+<p>The sorter’s camera sits over a fixed chamber. The job of the detector is: given one camera frame, <strong>find the piece in the chamber</strong> and return a tight bounding box around it. That box becomes the cropped image we feed into the next stage and is also what the mechanical system plans its next motion around.</p>
+
+<p>There is exactly one class — <code class="language-plaintext highlighter-rouge">piece</code> — and the camera position is fixed. That single-class, fixed-viewpoint setup is what lets a comparatively small model do useful work on edge hardware.</p>
+
+<p>This page is a <strong>measurement record</strong>, not a recommendation. The deeper trade-off discussion and the eventual deployment decision live elsewhere; here we just write down what we did and what came out of it.</p>
+
+<h2 id="current-maintained-models">Current maintained models</h2>
+
+<p>Both models share the same training dataset (1,877 labelled chamber frames, single class <code class="language-plaintext highlighter-rouge">piece</code>, 90/10 train/val split) and were trained on rented Vast.ai GPU instances.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Model</th>
+      <th>Architecture</th>
+      <th>Input size</th>
+      <th>Training mAP</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Chamber Zone NanoDet</strong></td>
+      <td>NanoDet-Plus-m 1.5x</td>
+      <td>416 × 416</td>
+      <td>mAP 0.885 (AP50 0.941, AP75 0.900)</td>
+    </tr>
+    <tr>
+      <td><strong>Chamber Zone YOLO11s</strong></td>
+      <td>YOLOv11s</td>
+      <td>320 × 320</td>
+      <td>mAP50 0.960, mAP50–95 0.911 (precision 0.944, recall 0.872 at epoch 124)</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>The canonical exports live under <code class="language-plaintext highlighter-rouge">software/sorter/backend/blob/local_detection_models/</code>. Dig into <a href="/lab/object-detection/how-models-are-built/">How the Models Are Built</a> for the training and export pipeline.</p>
+
+<h2 id="single-stream-fps-across-devices">Single-stream FPS across devices</h2>
+
+<p>Every row below is a real run against the same 50-image chamber-zone benchmark bundle (3 warm-up frames, then 50 timed frames per model). The numbers come from <code class="language-plaintext highlighter-rouge">software/sorter/backend/blob/device_benchmarks/*/…__*.json</code>.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Device</th>
+      <th>Runtime</th>
+      <th style="text-align: right">NanoDet FPS</th>
+      <th style="text-align: right">YOLO11s FPS</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Mac Mini (Apple Silicon)</td>
+      <td>CPU via ONNX Runtime</td>
+      <td style="text-align: right">76.5</td>
+      <td style="text-align: right">59.8</td>
+    </tr>
+    <tr>
+      <td>Mac Mini (Apple Silicon)</td>
+      <td>CoreML via ORT</td>
+      <td style="text-align: right">40.4</td>
+      <td style="text-align: right">418.3</td>
+    </tr>
+    <tr>
+      <td>Raspberry Pi 5</td>
+      <td>Hailo-8</td>
+      <td style="text-align: right">132.1</td>
+      <td style="text-align: right">100.1</td>
+    </tr>
+    <tr>
+      <td>Raspberry Pi 5</td>
+      <td>CPU via ONNX Runtime 1.23.2</td>
+      <td style="text-align: right">12.7</td>
+      <td style="text-align: right">8.6</td>
+    </tr>
+    <tr>
+      <td>Raspberry Pi 5</td>
+      <td>NCNN</td>
+      <td style="text-align: right">25.7</td>
+      <td style="text-align: right">18.5</td>
+    </tr>
+    <tr>
+      <td>Orange Pi 5</td>
+      <td>CPU via ONNX Runtime</td>
+      <td style="text-align: right">20.6</td>
+      <td style="text-align: right">12.0</td>
+    </tr>
+    <tr>
+      <td>Orange Pi 5</td>
+      <td>NPU via RKNN (1 worker)</td>
+      <td style="text-align: right">46.0</td>
+      <td style="text-align: right">41.6</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>FPS is the average frames-per-second across the 50 benchmark samples after the warm-up.</p>
+
+<h2 id="sustained-parallel-throughput">Sustained parallel throughput</h2>
+
+<p>A single-stream FPS number does not tell the whole story for accelerator hardware. Both the Hailo-8 on the Pi 5 and the RKNPU on the Orange Pi 5 expose multiple inference workers, so we ran a separate concurrency harness (<code class="language-plaintext highlighter-rouge">software/sorter/backend/blob/device_benchmarks/concurrency/</code>) to measure what happens when several streams hit the same device at the same time.</p>
+
+<h3 id="orange-pi-5-npu-rknn--3-sustained-workers">Orange Pi 5 NPU (RKNN) — 3 sustained workers</h3>
+
+<p>The RK3588 ships with <strong>three physical NPU cores</strong>, and the parallel benchmark shows that we can keep all three of them busy with independent inference workers without losing per-worker throughput. Each worker runs at very close to its single-worker speed.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Model</th>
+      <th style="text-align: right">Workers</th>
+      <th style="text-align: right">Per-worker FPS</th>
+      <th style="text-align: right">Combined FPS</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>NanoDet</td>
+      <td style="text-align: right">1</td>
+      <td style="text-align: right">40.0</td>
+      <td style="text-align: right">40.0</td>
+    </tr>
+    <tr>
+      <td>NanoDet</td>
+      <td style="text-align: right">3 (sustained)</td>
+      <td style="text-align: right">~33 each</td>
+      <td style="text-align: right"><strong>95.0</strong></td>
+    </tr>
+    <tr>
+      <td>YOLO11s</td>
+      <td style="text-align: right">1</td>
+      <td style="text-align: right">39.0</td>
+      <td style="text-align: right">39.0</td>
+    </tr>
+    <tr>
+      <td>YOLO11s</td>
+      <td style="text-align: right">3 (sustained)</td>
+      <td style="text-align: right">~36 each</td>
+      <td style="text-align: right"><strong>106.0</strong></td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Source: <code class="language-plaintext highlighter-rouge">concurrency/orangepi_parallel_npu_20260406.json</code>. The three-worker scenarios are real sustained runs (~165–192 frames per worker), not micro-bursts, so this is genuine sustained throughput rather than a peak number.</p>
+
+<h3 id="raspberry-pi-5-hailo-8--concurrency-behaviour">Raspberry Pi 5 Hailo-8 — concurrency behaviour</h3>
+
+<p>The Hailo-8 also accepts multiple workers, but it does not parallelize the same way the RK3588 NPU does — it <strong>time-slices a roughly fixed throughput budget</strong>. Combined throughput stays nearly constant as you add workers, while per-worker FPS falls off proportionally.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Model</th>
+      <th style="text-align: right">Workers</th>
+      <th style="text-align: right">Per-worker FPS</th>
+      <th style="text-align: right">Combined FPS</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>NanoDet</td>
+      <td style="text-align: right">1</td>
+      <td style="text-align: right">111.8</td>
+      <td style="text-align: right">111.8</td>
+    </tr>
+    <tr>
+      <td>NanoDet</td>
+      <td style="text-align: right">2</td>
+      <td style="text-align: right">57.9</td>
+      <td style="text-align: right">115.8</td>
+    </tr>
+    <tr>
+      <td>NanoDet</td>
+      <td style="text-align: right">3</td>
+      <td style="text-align: right">38.6</td>
+      <td style="text-align: right">115.8</td>
+    </tr>
+    <tr>
+      <td>YOLO11s</td>
+      <td style="text-align: right">1</td>
+      <td style="text-align: right">72.8</td>
+      <td style="text-align: right">72.8</td>
+    </tr>
+    <tr>
+      <td>YOLO11s</td>
+      <td style="text-align: right">2</td>
+      <td style="text-align: right">36.4</td>
+      <td style="text-align: right">72.8</td>
+    </tr>
+    <tr>
+      <td>YOLO11s</td>
+      <td style="text-align: right">3</td>
+      <td style="text-align: right">24.3</td>
+      <td style="text-align: right">73.0</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Source: <code class="language-plaintext highlighter-rouge">concurrency/hailo_parallel_20260406.json</code>. Note that the single-worker numbers in this run differ slightly from the main single-stream table above (132.1 vs 111.8 for NanoDet, 100.1 vs 72.8 for YOLO11s) because the concurrency harness is a separate measurement script — the relative behaviour across worker counts is what this table is for.</p>
+
+<h3 id="raspberry-pi-5-cpu--concurrency-behaviour">Raspberry Pi 5 CPU — concurrency behaviour</h3>
+
+<p>For comparison, the same concurrency harness against the Pi 5 CPU (ONNX Runtime) shows the opposite pattern: parallel workers actively cost combined throughput because the four CPU cores get into contention.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Model</th>
+      <th style="text-align: right">Workers</th>
+      <th style="text-align: right">Per-worker FPS</th>
+      <th style="text-align: right">Combined FPS</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>NanoDet</td>
+      <td style="text-align: right">1</td>
+      <td style="text-align: right">12.2</td>
+      <td style="text-align: right">11.4</td>
+    </tr>
+    <tr>
+      <td>NanoDet</td>
+      <td style="text-align: right">2</td>
+      <td style="text-align: right">5.8</td>
+      <td style="text-align: right">10.4</td>
+    </tr>
+    <tr>
+      <td>NanoDet</td>
+      <td style="text-align: right">3</td>
+      <td style="text-align: right">3.6</td>
+      <td style="text-align: right">9.1</td>
+    </tr>
+    <tr>
+      <td>YOLO11s</td>
+      <td style="text-align: right">1</td>
+      <td style="text-align: right">8.8</td>
+      <td style="text-align: right">8.2</td>
+    </tr>
+    <tr>
+      <td>YOLO11s</td>
+      <td style="text-align: right">2</td>
+      <td style="text-align: right">4.6</td>
+      <td style="text-align: right">7.9</td>
+    </tr>
+    <tr>
+      <td>YOLO11s</td>
+      <td style="text-align: right">3</td>
+      <td style="text-align: right">2.8</td>
+      <td style="text-align: right">6.7</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Source: <code class="language-plaintext highlighter-rouge">concurrency/spencer_pi_cpu_parallel_20260406.json</code>.</p>
+
+<h2 id="what-this-tells-us-about-the-hardware">What this tells us about the hardware</h2>
+
+<p>These three concurrency tables together describe three different concurrency behaviours:</p>
+
+<ul>
+  <li><strong>RK3588 NPU (Orange Pi 5):</strong> scales close to linearly up to 3 workers because each worker gets one of the three physical NPU cores. Three sustained streams at ~33 FPS each.</li>
+  <li><strong>Hailo-8 (Raspberry Pi 5 AI HAT):</strong> time-slices a fixed throughput budget. One worker is already saturating the device; adding workers just splits the same total FPS across them.</li>
+  <li><strong>Pi 5 CPU (ONNX Runtime):</strong> loses combined throughput as workers are added because the four ARM cores get into contention.</li>
+</ul>
+
+<p>Interpretation of which combination is the right one to actually deploy is intentionally <strong>out of scope on this page</strong> — it depends on per-worker latency, quality of the deployed export, and the surrounding pipeline. We will come back to that in a dedicated decision page once the deployment direction is settled.</p>
+
+<h2 id="where-to-dig-deeper">Where to dig deeper</h2>
+
+<div class="callout-grid">
+  <div class="callout">
+    <strong><a href="/lab/object-detection/how-models-are-built/">How the Models Are Built</a></strong>
+    <p>Dataset, architectures, the Vast.ai training workflow, the canonical export pipeline, and the quantization story for Hailo and RKNN targets.</p>
+  </div>
+  <div class="callout">
+    <strong><a href="/lab/object-detection/device-benchmarking/">Benchmarking Workflow</a></strong>
+    <p>How to run the same benchmark bundle on a new device, compare the results against the Mac CPU reference, and regenerate the FPS and parity tables.</p>
+  </div>
+  <div class="callout">
+    <strong><a href="/lab/object-detection/hailo-hef-workflow/">Hailo HEF Workflow</a></strong>
+    <p>The maintained ONNX → HEF compile path for the Raspberry Pi 5 AI HAT, including the Vast.ai compile session packaging.</p>
+  </div>
+</div>
+
+            
+
+
+
+
+<aside class="page-meta" aria-label="Page metadata">
+  <dl>
+    
+    <div>
+      <dt>Audience</dt>
+      <dd>contributor</dd>
+    </div>
+    
+    
+    <div>
+      <dt>Applies to</dt>
+      <dd>2026-04-06 measurement set</dd>
+    </div>
+    
+    
+    <div>
+      <dt>Last verified</dt>
+      <dd>2026-04-08</dd>
+    </div>
+    
+    
+    <div>
+      <dt>Owner</dt>
+      <dd>lab</dd>
+    </div>
+    
+  </dl>
+</aside>
+
+
+          </main>
+        </div>
+      
+
+      <footer class="site-footer">
+        <nav class="site-footer-links" aria-label="Footer">
+          <a href="https://basically.website/policies/privacy-policy" target="_blank" rel="noopener">Privacy Policy</a>
+          <a href="https://basically.website/policies/terms-of-service" target="_blank" rel="noopener">Terms of Service</a>
+          <a href="mailto:contact@basically.website">contact@basically.website</a>
+          <a href="https://basically.website/?updates=1" target="_blank" rel="noopener">Get updates&nbsp;↗</a>
+          <a href="https://discord.gg/6PZtqkwtaS" target="_blank" rel="noopener">Discord</a>
+          <a href="https://github.com/basicallysource/sorter-v2/tree/main/docs">Source&nbsp;(<code>docs/</code>)</a>
+        </nav>
+        <p class="site-footer-legal">
+          © basically. All rights reserved. LEGO® is a trademark of the LEGO Group of companies which does not sponsor, authorize, or endorse this site.
+        </p>
+      </footer>
+    </div>
+    <script src="/assets/copy-code.js" defer></script>
+    <script>
+      (function () {
+        var modal = document.getElementById('construction-modal');
+        var opener = document.querySelector('.construction-banner');
+        if (!modal || !opener || typeof modal.showModal !== 'function') return;
+        opener.addEventListener('click', function () { modal.showModal(); });
+        modal.addEventListener('click', function (e) {
+          if (e.target === modal) modal.close();
+        });
+      })();
+      (function () {
+        var toggle = document.querySelector('.section-sidebar-toggle');
+        if (!toggle) return;
+        var sidebar = toggle.closest('.section-sidebar');
+        toggle.addEventListener('click', function () {
+          var open = sidebar.classList.toggle('nav-open');
+          toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+        });
+      })();
+    </script>
+  </body>
+</html>

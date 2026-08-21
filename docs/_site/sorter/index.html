@@ -1,0 +1,243 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Sorter | Sorter V2 Documentation</title>
+    <meta name="description" content="The Sorter V2 local software — the Python backend that drives the hardware and the SvelteKit UI that operates it. Install it, operate it, and read how it works under the hood.">
+    <meta property="og:site_name" content="Sorter V2 Documentation">
+    <meta property="og:type" content="article">
+    <meta property="og:title" content="Sorter">
+    <meta property="og:description" content="The Sorter V2 local software — the Python backend that drives the hardware and the SvelteKit UI that operates it. Install it, operate it, and read how it works under the hood.">
+    <meta property="og:url" content="http://localhost:4000/sorter/">
+    <meta name="twitter:card" content="summary">
+    <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+    <link rel="stylesheet" href="/assets/site.css">
+  </head>
+  <body>
+    <div class="shell">
+      <header class="site-header">
+        <a class="brand" href="/">
+          <img class="brand-logo" src="/assets/basically-logo.svg" alt="basically logo" width="26" height="24">
+          <span>
+            <strong>Sorter V2</strong>
+            <small>Documentation</small>
+          </span>
+        </a>
+        <button type="button" class="construction-banner" aria-haspopup="dialog" aria-controls="construction-modal">
+          <span class="construction-banner-icon" aria-hidden="true">⚠</span>
+          <span class="construction-banner-text">
+            <strong>Under heavy construction</strong>
+            <small>Docs are incomplete &amp; may be inaccurate — don't build Sorter yet.</small>
+          </span>
+          <span class="construction-banner-chevron" aria-hidden="true">▾</span>
+        </button>
+        <nav class="site-nav" aria-label="Primary">
+          <a href="/">Overview</a>
+          
+            <a href="/hardware/">Hardware</a>
+          
+            <a href="/sorter/" aria-current="page">Sorter</a>
+          
+            <a href="/hive/">Hive</a>
+          
+            <a href="/lab/">Lab</a>
+          
+        </nav>
+      </header>
+
+      <dialog id="construction-modal" class="construction-modal">
+        <div class="construction-modal-inner">
+          <div class="construction-modal-head">
+            <h2>⚠ Under heavy construction</h2>
+            <form method="dialog">
+              <button class="construction-modal-close" aria-label="Close">✕</button>
+            </form>
+          </div>
+          <p>As of July 11, 2026, Sorter V2 is not yet in a position to be built.</p>
+          <p>The documentation that exists is incomplete. Any given page may be accurate, inaccurate, present only as an example, or badly out of date. We do not yet recommend that anyone attempt to build Sorter.</p>
+          <p class="construction-modal-discord">
+            For the most live updates on our progress, <a href="https://discord.gg/6PZtqkwtaS" target="_blank" rel="noopener">join our Discord&nbsp;↗</a>.
+          </p>
+        </div>
+      </dialog>
+
+      
+      
+
+      
+      
+
+      
+        <div class="layout-with-sidebar">
+          <aside class="section-sidebar" aria-label="Sorter navigation">
+            <button type="button" class="section-sidebar-toggle" aria-expanded="false" aria-controls="section-nav">
+              <span>Sorter</span>
+              <span class="section-sidebar-toggle-icon" aria-hidden="true">▾</span>
+            </button>
+            <p class="section-sidebar-kicker">Sorter</p>
+            <nav id="section-nav">
+              <ul class="nav-tree"><li>
+    <a href="/sorter/" aria-current="page">Overview</a></li></ul>
+
+              
+                
+                  <p class="section-sidebar-group">Install</p>
+                  
+                    
+                    
+                    <a href="/sorter/installation/">Installation</a>
+                  
+                    
+                    
+                    <a href="/sorter/installation/sorter-os/">SorterOS</a>
+                  
+                    
+                    
+                    <a href="/sorter/installation/linux-generic/">Linux (generic)</a>
+                  
+                    
+                    
+                    <a href="/sorter/installation/by-hand/">By hand</a>
+                  
+                
+                  <p class="section-sidebar-group">Operate</p>
+                  
+                    
+                    
+                    <a href="/sorter/tutorials/first-sort-run/">Your first sort run</a>
+                  
+                    
+                    
+                    <a href="/sorter/camera-calibration/">Camera calibration</a>
+                  
+                    
+                    
+                    <a href="/sorter/safe-shutdown/">Shutting down the machine</a>
+                  
+                    
+                    
+                    <a href="/sorter/troubleshooting/">Troubleshooting</a>
+                  
+                
+                  <p class="section-sidebar-group">Under the hood</p>
+                  
+                    
+                    
+                    <a href="/sorter/dev-flow/">Dev flow</a>
+                  
+                    
+                    
+                    <a href="/sorter/profile-reference/">Sorting profile reference</a>
+                  
+                    
+                    
+                    <a href="/sorter/what-leaves-the-machine/">What leaves the machine</a>
+                  
+                
+              
+            </nav>
+          </aside>
+          <main class="content">
+            
+<p class="kicker">Local Machine Software</p>
+
+
+
+  
+  
+
+  
+    <h1>Sorter</h1>
+  
+
+
+
+<p class="lede">The Sorter V2 local software — the Python backend that drives the hardware and the SvelteKit UI that operates it. Install it, operate it, and read how it works under the hood.</p>
+
+
+            
+
+            
+
+            <h2 id="install">Install</h2>
+
+<ul>
+  <li><strong><a href="/sorter/installation/">Installation</a></strong> — SorterOS image for Orange Pi 5, one-command installer for generic Linux, or manual setup.</li>
+  <li><strong><a href="/sorter/installation/by-hand/">Install by hand</a></strong> — the manual sequence, for when the installer does not yet support your platform.</li>
+</ul>
+
+<h2 id="operate">Operate</h2>
+
+<ul>
+  <li><strong><a href="/sorter/tutorials/first-sort-run/">Your first sort run</a></strong> — the end-to-end happy path: pick a profile, feed the machine, check a bin, stop cleanly.</li>
+  <li><strong><a href="/sorter/camera-calibration/">Camera calibration</a></strong> — focus with a Siemens Star, then auto-calibrate color with a SpyderCheckr 24.</li>
+  <li><strong><a href="/sorter/troubleshooting/">Sorter troubleshooting</a></strong> — symptom-led entries for install, first-run, and runtime problems.</li>
+</ul>
+
+<h2 id="under-the-hood">Under the hood</h2>
+
+<ul>
+  <li><strong><a href="/sorter/dev-flow/">Dev flow</a></strong> — the dev backend and UI services, how to enable them, and the difference between a soft restart and a full restart.</li>
+  <li><strong><a href="/sorter/profile-reference/">Sorting profile reference</a></strong> — the on-disk shape of <code class="language-plaintext highlighter-rouge">sorting_profile.json</code> — rules, conditions, <code class="language-plaintext highlighter-rouge">part_to_category</code>, set inventories. Accurate for <code class="language-plaintext highlighter-rouge">schema_version: 1</code>.</li>
+  <li><strong><a href="/sorter/machine-toml-reference/">machine.toml reference</a></strong> — every field in the machine-specific config file: servo, chute, carousel, stepper bindings and overrides, cameras, and GPIO LEDs. This lives in the docs site, not the Sorter UI.</li>
+</ul>
+
+<h2 id="coming-soon">Coming soon</h2>
+
+<p>These flows do not yet have dedicated pages:</p>
+
+<ul>
+  <li><strong>Setup wizard</strong> — the first-boot flow: cameras, lighting, homing, chamber zones, servos, Hive link.</li>
+  <li><strong>Operating the UI at scale</strong> — running long sessions, reviewing classification samples, tuning vision, checking runtime health.</li>
+</ul>
+
+<p>Until those land, the authoritative sources are <code class="language-plaintext highlighter-rouge">software/README.md</code>, <code class="language-plaintext highlighter-rouge">software/sorter/backend/coordinator.py</code>, and the in-app <a href="/lab/styleguide/"><code class="language-plaintext highlighter-rouge">/styleguide</code></a> route which renders the live component set.</p>
+
+            
+
+
+
+
+
+          </main>
+        </div>
+      
+
+      <footer class="site-footer">
+        <nav class="site-footer-links" aria-label="Footer">
+          <a href="https://basically.website/policies/privacy-policy" target="_blank" rel="noopener">Privacy Policy</a>
+          <a href="https://basically.website/policies/terms-of-service" target="_blank" rel="noopener">Terms of Service</a>
+          <a href="mailto:contact@basically.website">contact@basically.website</a>
+          <a href="https://basically.website/?updates=1" target="_blank" rel="noopener">Get updates&nbsp;↗</a>
+          <a href="https://discord.gg/6PZtqkwtaS" target="_blank" rel="noopener">Discord</a>
+          <a href="https://github.com/basicallysource/sorter-v2/tree/main/docs">Source&nbsp;(<code>docs/</code>)</a>
+        </nav>
+        <p class="site-footer-legal">
+          © basically. All rights reserved. LEGO® is a trademark of the LEGO Group of companies which does not sponsor, authorize, or endorse this site.
+        </p>
+      </footer>
+    </div>
+    <script src="/assets/copy-code.js" defer></script>
+    <script>
+      (function () {
+        var modal = document.getElementById('construction-modal');
+        var opener = document.querySelector('.construction-banner');
+        if (!modal || !opener || typeof modal.showModal !== 'function') return;
+        opener.addEventListener('click', function () { modal.showModal(); });
+        modal.addEventListener('click', function (e) {
+          if (e.target === modal) modal.close();
+        });
+      })();
+      (function () {
+        var toggle = document.querySelector('.section-sidebar-toggle');
+        if (!toggle) return;
+        var sidebar = toggle.closest('.section-sidebar');
+        toggle.addEventListener('click', function () {
+          var open = sidebar.classList.toggle('nav-open');
+          toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+        });
+      })();
+    </script>
+  </body>
+</html>

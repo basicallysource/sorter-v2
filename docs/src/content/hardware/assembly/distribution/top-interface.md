@@ -64,7 +64,7 @@ parts_needed:
     qty: 6
   - part: extrusion-f
     qty: 6
-  - part: lazy-susan
+  - part: brg-lazy-susan
     qty: 1
   - part: brg-608-2rs
     qty: 1
@@ -76,13 +76,13 @@ parts_needed:
     qty: 1
   - part: cable-idc-2x8-long
     qty: 1
-  - part: m4-ruthex-long
+  - part: hsi-m4
     qty: 8
-  - part: m5-ruthex-long
+  - part: hsi-m5-long
     qty: 24
-  - part: m3-ruthex-long
+  - part: hsi-m3-long
     qty: 12
-  - part: scr-m5-35-shcs
+  - part: scr-m5-35-fhcs
     qty: 6
   - part: scr-m5-30-shcs
     qty: 6
@@ -96,7 +96,7 @@ parts_needed:
     qty: 38
   - part: scr-m5-12-shcs
     qty: 4
-  - part: m4-12mm-countersunk
+  - part: scr-m4-12-cs
     qty: 8
   - part: scr-m3-35-bhcs
     qty: 2

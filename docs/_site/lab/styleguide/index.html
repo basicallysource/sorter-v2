@@ -1,0 +1,633 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Styleguide | Sorter V2 Documentation</title>
+    <meta name="description" content="The shared visual language used by the Sorter UI, the Hive community platform, and this documentation site. This page is the source of truth — both apps render an in-app `/styleguide` route that mirrors these patterns as a live smoke test.">
+    <meta property="og:site_name" content="Sorter V2 Documentation">
+    <meta property="og:type" content="article">
+    <meta property="og:title" content="Styleguide">
+    <meta property="og:description" content="The shared visual language used by the Sorter UI, the Hive community platform, and this documentation site. This page is the source of truth — both apps render an in-app `/styleguide` route that mirrors these patterns as a live smoke test.">
+    <meta property="og:url" content="http://localhost:4000/lab/styleguide/">
+    <meta name="twitter:card" content="summary">
+    <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+    <link rel="stylesheet" href="/assets/site.css">
+  </head>
+  <body>
+    <div class="shell">
+      <header class="site-header">
+        <a class="brand" href="/">
+          <img class="brand-logo" src="/assets/basically-logo.svg" alt="basically logo" width="26" height="24">
+          <span>
+            <strong>Sorter V2</strong>
+            <small>Documentation</small>
+          </span>
+        </a>
+        <button type="button" class="construction-banner" aria-haspopup="dialog" aria-controls="construction-modal">
+          <span class="construction-banner-icon" aria-hidden="true">⚠</span>
+          <span class="construction-banner-text">
+            <strong>Under heavy construction</strong>
+            <small>Docs are incomplete &amp; may be inaccurate — don't build Sorter yet.</small>
+          </span>
+          <span class="construction-banner-chevron" aria-hidden="true">▾</span>
+        </button>
+        <nav class="site-nav" aria-label="Primary">
+          <a href="/">Overview</a>
+          
+            <a href="/hardware/">Hardware</a>
+          
+            <a href="/sorter/">Sorter</a>
+          
+            <a href="/hive/">Hive</a>
+          
+            <a href="/lab/" aria-current="page">Lab</a>
+          
+        </nav>
+      </header>
+
+      <dialog id="construction-modal" class="construction-modal">
+        <div class="construction-modal-inner">
+          <div class="construction-modal-head">
+            <h2>⚠ Under heavy construction</h2>
+            <form method="dialog">
+              <button class="construction-modal-close" aria-label="Close">✕</button>
+            </form>
+          </div>
+          <p>As of July 11, 2026, Sorter V2 is not yet in a position to be built.</p>
+          <p>The documentation that exists is incomplete. Any given page may be accurate, inaccurate, present only as an example, or badly out of date. We do not yet recommend that anyone attempt to build Sorter.</p>
+          <p class="construction-modal-discord">
+            For the most live updates on our progress, <a href="https://discord.gg/6PZtqkwtaS" target="_blank" rel="noopener">join our Discord&nbsp;↗</a>.
+          </p>
+        </div>
+      </dialog>
+
+      
+      
+
+      
+      
+
+      
+        <div class="layout-with-sidebar">
+          <aside class="section-sidebar" aria-label="Lab navigation">
+            <button type="button" class="section-sidebar-toggle" aria-expanded="false" aria-controls="section-nav">
+              <span>Lab</span>
+              <span class="section-sidebar-toggle-icon" aria-hidden="true">▾</span>
+            </button>
+            <p class="section-sidebar-kicker">Lab</p>
+            <nav id="section-nav">
+              <ul class="nav-tree"><li>
+    <a href="/lab/">Overview</a></li></ul>
+
+              
+                
+                  <p class="section-sidebar-group">Object Detection Research</p>
+                  
+                    
+                    
+                    <a href="/lab/object-detection/">Overview</a>
+                  
+                    
+                    
+                    <a href="/lab/object-detection/how-models-are-built/">How the Models Are Built</a>
+                  
+                    
+                    
+                    <a href="/lab/object-detection/device-benchmarking/">Benchmarking Workflow</a>
+                  
+                    
+                    
+                    <a href="/lab/object-detection/hailo-hef-workflow/">Hailo HEF Workflow</a>
+                  
+                
+                  <p class="section-sidebar-group">Styleguide</p>
+                  
+                    
+                    
+                    <a href="/lab/styleguide/" aria-current="page">Overview</a>
+                  
+                    
+                    
+                    <a href="/lab/styleguide/#design-principles">Design Principles</a>
+                  
+                    
+                    
+                    <a href="/lab/styleguide/#colors">Colors</a>
+                  
+                    
+                    
+                    <a href="/lab/styleguide/#typography">Typography</a>
+                  
+                    
+                    
+                    <a href="/lab/styleguide/#notifications">Notifications</a>
+                  
+                    
+                    
+                    <a href="/lab/styleguide/#components">Components</a>
+                  
+                    
+                    
+                    <a href="/lab/styleguide/#primary-color">Primary Color</a>
+                  
+                
+              
+            </nav>
+          </aside>
+          <main class="content">
+            
+<p class="kicker">Lab — Contributor Reference</p>
+
+
+
+  
+  
+
+  <div class="page-title-row">
+      <h1>Styleguide</h1>
+      <span class="page-type-badge page-type-reference">Reference</span>
+    </div>
+  
+
+
+
+<p class="lede">The shared visual language used by the Sorter UI, the Hive community platform, and this documentation site. This page is the source of truth — both apps render an in-app `/styleguide` route that mirrors these patterns as a live smoke test.</p>
+
+
+            
+
+            
+
+            <h2 id="design-principles">Design Principles</h2>
+
+<p>Five rules that apply across Sorter, Hive, and these docs. Every new screen or component must honor them unless you have a documented reason not to.</p>
+
+<h3 id="1-no-rounded-corners">1. No rounded corners</h3>
+
+<p>Sharp 0px edges everywhere. The LEGO family is intentionally industrial — rounded corners belong to consumer surfaces, not to our tools. The only sanctioned exception is the circular check icon used in hero celebration panels.</p>
+
+<h3 id="2-no-colored-left-accent-borders">2. No colored left-accent borders</h3>
+
+<p>Notifications and callouts use a flat 1px border at 40% opacity on <em>all four sides</em> — never <code class="language-plaintext highlighter-rouge">border-left: 4px solid</code> stripes. That style is forbidden by the style guide.</p>
+
+<h3 id="3-one-unified-notification-template">3. One unified notification template</h3>
+
+<p>Info, success, warning, and error notifications all share the same shape and rhythm; only the brand color tone changes. Never invent a fifth variant. See <a href="#notifications">Notifications</a> below for the canonical markup.</p>
+
+<h3 id="4-11px-uppercase-labels-for-micro-headings">4. 11px uppercase labels for micro-headings</h3>
+
+<p>Section labels, notification kickers, and stat cells use <code class="language-plaintext highlighter-rouge">11px</code> / <code class="language-plaintext highlighter-rouge">font-semibold</code> / <code class="language-plaintext highlighter-rouge">uppercase</code> / <code class="language-plaintext highlighter-rouge">tracking-wider</code>. Body copy stays at <code class="language-plaintext highlighter-rouge">12px</code> (<code class="language-plaintext highlighter-rouge">text-xs</code>) with relaxed leading. Resist the urge to grow labels back to <code class="language-plaintext highlighter-rouge">text-sm</code>.</p>
+
+<h3 id="5-darker-tones-on-tinted-backgrounds">5. Darker tones on tinted backgrounds</h3>
+
+<p>The standard LEGO palette is too light against the ~6% tinted notification backgrounds. Use the darker contrast tones listed in <a href="#colors">Colors</a> for any text layered on a tinted surface.</p>
+
+<h2 id="colors">Colors</h2>
+
+<h3 id="brand-colors--user-selectable-primary">Brand colors — user-selectable primary</h3>
+
+<p>Each operator can choose their preferred LEGO primary in the app settings. The four primary options below are equally valid; every screen that uses a primary color must pull it from the <code class="language-plaintext highlighter-rouge">--color-primary</code> CSS variable rather than hard-coding one of the four values.</p>
+
+<div class="sg-swatch-grid">
+  <div class="sg-swatch">
+    <div class="sg-swatch-chip" style="background:#D01012"></div>
+    <div class="sg-swatch-label">LEGO Red</div>
+    <div class="sg-swatch-value">#D01012</div>
+    <div class="sg-swatch-usage">Default primary for Hive and docs. Destructive actions, active nav, errors.</div>
+  </div>
+  <div class="sg-swatch">
+    <div class="sg-swatch-chip" style="background:#0055BF"></div>
+    <div class="sg-swatch-label">LEGO Blue</div>
+    <div class="sg-swatch-value">#0055BF</div>
+    <div class="sg-swatch-usage">Default primary for the Sorter UI. Info, focus rings, selection.</div>
+  </div>
+  <div class="sg-swatch">
+    <div class="sg-swatch-chip" style="background:#00852B"></div>
+    <div class="sg-swatch-label">LEGO Green</div>
+    <div class="sg-swatch-value">#00852B</div>
+    <div class="sg-swatch-usage">Success, completion, connected state, confirm buttons.</div>
+  </div>
+  <div class="sg-swatch">
+    <div class="sg-swatch-chip" style="background:#FFD500"></div>
+    <div class="sg-swatch-label">LEGO Yellow</div>
+    <div class="sg-swatch-value">#FFD500</div>
+    <div class="sg-swatch-usage">Warnings, calibration-weak, highlight. The canonical warning tone.</div>
+  </div>
+</div>
+
+<p>See <a href="#primary-color">Primary Color</a> for the mechanics of how the pick is wired through the CSS variable.</p>
+
+<h3 id="dark-contrast-tones">Dark contrast tones</h3>
+
+<p>Use these darker shades for any label text that sits on a tinted notification background. They are <em>not</em> replacements for the brand colors — they are strictly reserved for legibility on top of 6%-opacity surfaces.</p>
+
+<div class="sg-swatch-grid">
+  <div class="sg-swatch">
+    <div class="sg-swatch-chip" style="background:#7A0A0B"></div>
+    <div class="sg-swatch-label">Red (dark)</div>
+    <div class="sg-swatch-value">#5C0708 / #7A0A0B</div>
+    <div class="sg-swatch-usage">Notification labels on tinted red background.</div>
+  </div>
+  <div class="sg-swatch">
+    <div class="sg-swatch-chip" style="background:#003A8C"></div>
+    <div class="sg-swatch-label">Blue (dark)</div>
+    <div class="sg-swatch-value">#003A8C</div>
+    <div class="sg-swatch-usage">Notification labels on tinted blue background.</div>
+  </div>
+  <div class="sg-swatch">
+    <div class="sg-swatch-chip" style="background:#003D14"></div>
+    <div class="sg-swatch-label">Green (dark)</div>
+    <div class="sg-swatch-value">#003D14</div>
+    <div class="sg-swatch-usage">Notification labels on tinted green background.</div>
+  </div>
+  <div class="sg-swatch">
+    <div class="sg-swatch-chip" style="background:#4A3300"></div>
+    <div class="sg-swatch-label">Yellow (dark)</div>
+    <div class="sg-swatch-value">#4A3300</div>
+    <div class="sg-swatch-usage">Notification labels on tinted yellow background.</div>
+  </div>
+</div>
+
+<h3 id="neutral-tokens">Neutral tokens</h3>
+
+<p>The app-agnostic neutral palette. Every LEGO-family surface draws from these.</p>
+
+<div class="sg-swatch-grid">
+  <div class="sg-swatch">
+    <div class="sg-swatch-chip" style="background:#F7F6F3; border-color:#E2E0DB"></div>
+    <div class="sg-swatch-label">bg</div>
+    <div class="sg-swatch-value">#F7F6F3</div>
+    <div class="sg-swatch-usage">Page background.</div>
+  </div>
+  <div class="sg-swatch">
+    <div class="sg-swatch-chip" style="background:#FFFFFF; border-color:#E2E0DB"></div>
+    <div class="sg-swatch-label">surface</div>
+    <div class="sg-swatch-value">#FFFFFF</div>
+    <div class="sg-swatch-usage">Card and panel background.</div>
+  </div>
+  <div class="sg-swatch">
+    <div class="sg-swatch-chip" style="background:#E2E0DB; border-color:#C8C6C1"></div>
+    <div class="sg-swatch-label">border</div>
+    <div class="sg-swatch-value">#E2E0DB</div>
+    <div class="sg-swatch-usage">Divider lines, card outlines.</div>
+  </div>
+  <div class="sg-swatch">
+    <div class="sg-swatch-chip" style="background:#1A1A1A"></div>
+    <div class="sg-swatch-label">text</div>
+    <div class="sg-swatch-value">#1A1A1A</div>
+    <div class="sg-swatch-usage">Primary copy.</div>
+  </div>
+  <div class="sg-swatch">
+    <div class="sg-swatch-chip" style="background:#7A7770"></div>
+    <div class="sg-swatch-label">text-muted</div>
+    <div class="sg-swatch-value">#7A7770</div>
+    <div class="sg-swatch-usage">Secondary copy, labels, descriptions.</div>
+  </div>
+</div>
+
+<h2 id="typography">Typography</h2>
+
+<p>Both apps and these docs use IBM Plex Sans for copy and IBM Plex Mono for identifiers, URLs, hex values, and numeric read-outs.</p>
+
+<h3 id="type-scale">Type scale</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>Role</th>
+      <th>Size</th>
+      <th>Weight</th>
+      <th>Classes</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Page hero headline</td>
+      <td>24px</td>
+      <td>Bold</td>
+      <td><code class="language-plaintext highlighter-rouge">text-2xl font-bold text-text</code></td>
+    </tr>
+    <tr>
+      <td>Section card title</td>
+      <td>16px</td>
+      <td>Semibold</td>
+      <td><code class="language-plaintext highlighter-rouge">text-base font-semibold text-text</code></td>
+    </tr>
+    <tr>
+      <td>Section description</td>
+      <td>14px</td>
+      <td>Regular</td>
+      <td><code class="language-plaintext highlighter-rouge">text-sm text-text-muted</code></td>
+    </tr>
+    <tr>
+      <td>Body / notification copy</td>
+      <td>12px</td>
+      <td>Regular</td>
+      <td><code class="language-plaintext highlighter-rouge">text-xs leading-relaxed text-text</code></td>
+    </tr>
+    <tr>
+      <td>Micro-heading / stat label</td>
+      <td>11px</td>
+      <td>Semibold</td>
+      <td><code class="language-plaintext highlighter-rouge">text-[11px] font-semibold tracking-wider uppercase</code></td>
+    </tr>
+    <tr>
+      <td>Identifier / URL</td>
+      <td>14px</td>
+      <td>Regular</td>
+      <td><code class="language-plaintext highlighter-rouge">font-mono text-sm text-text</code></td>
+    </tr>
+  </tbody>
+</table>
+
+<h3 id="rules-of-thumb">Rules of thumb</h3>
+
+<ul>
+  <li><strong>Never grow a micro-heading back to <code class="language-plaintext highlighter-rouge">text-sm</code>.</strong> The 11px uppercase label is a deliberate rhythm — inflating it to the body scale dissolves the hierarchy we rely on inside notification blocks and stat cells.</li>
+  <li><strong>Body copy is 12px (<code class="language-plaintext highlighter-rouge">text-xs</code>), not 14px.</strong> Sorter and Hive both default to the tighter scale; <code class="language-plaintext highlighter-rouge">text-sm</code> is reserved for hero descriptions and form labels that carry a specific hint.</li>
+  <li><strong>Mono is for things you copy.</strong> Hashes, URLs, hex codes, machine identifiers. Prose and UI chrome stay in IBM Plex Sans.</li>
+</ul>
+
+<h2 id="notifications">Notifications</h2>
+
+<p>Every info, success, warning, and error surface must use the same template. Four variants, one shape.</p>
+
+<h3 id="shape-contract">Shape contract</h3>
+
+<p>All four variants share the exact same layout:</p>
+
+<ul>
+  <li>1px border at 40% opacity on all four sides</li>
+  <li>Background tint at ~6% opacity of the same brand color</li>
+  <li>11px uppercase kicker in the darker contrast tone</li>
+  <li>12px body text in the default <code class="language-plaintext highlighter-rouge">text-text</code> color</li>
+  <li>No left-colored stripe, no rounded corners, no drop shadow</li>
+</ul>
+
+<h3 id="info-blue">Info (blue)</h3>
+
+<div class="language-html highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nt">&lt;div</span> <span class="na">class=</span><span class="s">"border border-[#0055BF]/40 bg-[#0055BF]/[0.06] px-3 py-2
+            dark:border-sky-500/40 dark:bg-sky-500/[0.08]"</span><span class="nt">&gt;</span>
+  <span class="nt">&lt;div</span> <span class="na">class=</span><span class="s">"text-[11px] font-semibold tracking-wider text-[#003A8C]
+              uppercase dark:text-sky-200"</span><span class="nt">&gt;</span>
+    Calibration hint
+  <span class="nt">&lt;/div&gt;</span>
+  <span class="nt">&lt;div</span> <span class="na">class=</span><span class="s">"mt-1 text-xs leading-relaxed text-text"</span><span class="nt">&gt;</span>
+    Hold a flat reference card under the camera and click Capture.
+  <span class="nt">&lt;/div&gt;</span>
+<span class="nt">&lt;/div&gt;</span>
+</code></pre></div></div>
+
+<h3 id="success-green">Success (green)</h3>
+
+<div class="language-html highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nt">&lt;div</span> <span class="na">class=</span><span class="s">"border border-[#00852B]/40 bg-[#00852B]/[0.06] px-3 py-2
+            dark:border-emerald-500/40 dark:bg-emerald-500/[0.08]"</span><span class="nt">&gt;</span>
+  <span class="nt">&lt;div</span> <span class="na">class=</span><span class="s">"text-[11px] font-semibold tracking-wider text-[#003D14]
+              uppercase dark:text-emerald-200"</span><span class="nt">&gt;</span>
+    Calibration is usable
+  <span class="nt">&lt;/div&gt;</span>
+  <span class="nt">&lt;div</span> <span class="na">class=</span><span class="s">"mt-1 text-xs leading-relaxed text-text"</span><span class="nt">&gt;</span>
+    White balance and exposure are within tolerance.
+  <span class="nt">&lt;/div&gt;</span>
+<span class="nt">&lt;/div&gt;</span>
+</code></pre></div></div>
+
+<h3 id="warning-yellow">Warning (yellow)</h3>
+
+<p>The canonical warning tone is <code class="language-plaintext highlighter-rouge">#FFD500</code> — the real LEGO yellow. The yellow tint uses 10% opacity (not 6%) because yellow reads too faintly at the lower level.</p>
+
+<div class="language-html highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nt">&lt;div</span> <span class="na">class=</span><span class="s">"border border-[#FFD500]/50 bg-[#FFD500]/[0.10] px-3 py-2
+            dark:border-amber-500/40 dark:bg-amber-500/[0.08]"</span><span class="nt">&gt;</span>
+  <span class="nt">&lt;div</span> <span class="na">class=</span><span class="s">"text-[11px] font-semibold tracking-wider text-[#4A3300]
+              uppercase dark:text-amber-200"</span><span class="nt">&gt;</span>
+    Calibration weak
+  <span class="nt">&lt;/div&gt;</span>
+  <span class="nt">&lt;div</span> <span class="na">class=</span><span class="s">"mt-1 text-xs leading-relaxed text-text"</span><span class="nt">&gt;</span>
+    Reference patches drifted by 8.3 ΔE. Re-shoot the calibration card.
+  <span class="nt">&lt;/div&gt;</span>
+<span class="nt">&lt;/div&gt;</span>
+</code></pre></div></div>
+
+<h3 id="error-red">Error (red)</h3>
+
+<div class="language-html highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nt">&lt;div</span> <span class="na">class=</span><span class="s">"border border-[#D01012]/40 bg-[#D01012]/[0.06] px-3 py-2
+            dark:border-rose-500/40 dark:bg-rose-500/[0.08]"</span><span class="nt">&gt;</span>
+  <span class="nt">&lt;div</span> <span class="na">class=</span><span class="s">"text-[11px] font-semibold tracking-wider text-[#5C0708]
+              uppercase dark:text-rose-200"</span><span class="nt">&gt;</span>
+    Connection failed
+  <span class="nt">&lt;/div&gt;</span>
+  <span class="nt">&lt;div</span> <span class="na">class=</span><span class="s">"mt-1 text-xs leading-relaxed text-text"</span><span class="nt">&gt;</span>
+    Could not reach the Hive server. Check your credentials.
+  <span class="nt">&lt;/div&gt;</span>
+<span class="nt">&lt;/div&gt;</span>
+</code></pre></div></div>
+
+<h3 id="why-the-uniform-shape">Why the uniform shape</h3>
+
+<p>Notification style drift was the single biggest source of visual noise before this rule existed. Keeping one template means:</p>
+
+<ul>
+  <li>the eye instantly recognizes “this is a status message”, regardless of tone;</li>
+  <li>severity reads from <em>color</em>, not from <em>layout</em>;</li>
+  <li>new contributors don’t need to invent a new banner shape for every feature.</li>
+</ul>
+
+<p>If you need a fifth visual affordance, you probably want a <a href="#components">panel or card</a> instead of a notification.</p>
+
+<h2 id="components">Components</h2>
+
+<p>Panels, buttons, form controls, and loading states — the building blocks that show up on almost every screen.</p>
+
+<h3 id="panels-and-cards">Panels and cards</h3>
+
+<p>The base surface is a flat 1px bordered rectangle with the <code class="language-plaintext highlighter-rouge">bg-surface</code> background — called <code class="language-plaintext highlighter-rouge">.setup-panel</code> in the Sorter UI. Use it for grouped content, stat cells, and inline forms.</p>
+
+<div class="language-html highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nt">&lt;div</span> <span class="na">class=</span><span class="s">"setup-panel px-4 py-3"</span><span class="nt">&gt;</span>
+  ... content ...
+<span class="nt">&lt;/div&gt;</span>
+</code></pre></div></div>
+
+<p>A hero panel (Setup Complete, first-run celebration, empty state) uses a gradient tinted background in the chosen accent color and may contain the single sanctioned rounded shape — the circular success check.</p>
+
+<h3 id="buttons">Buttons</h3>
+
+<p>Three button roles:</p>
+
+<ul>
+  <li><strong>Primary</strong> — uses <code class="language-plaintext highlighter-rouge">--color-primary</code> (user-selected). One primary per screen, maximum.</li>
+  <li><strong>Secondary</strong> — flat bordered button with the neutral surface background.</li>
+  <li><strong>Brand confirm</strong> — inline affirmative actions that carry a fixed brand color regardless of the user’s primary (for example, the LEGO-green “Connect to Hive” confirm in the setup wizard).</li>
+</ul>
+
+<div class="language-html highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c">&lt;!-- primary --&gt;</span>
+<span class="nt">&lt;button</span> <span class="na">class=</span><span class="s">"setup-button-primary inline-flex items-center gap-2
+               px-4 py-2 text-sm font-medium"</span><span class="nt">&gt;</span>
+  Continue
+<span class="nt">&lt;/button&gt;</span>
+
+<span class="c">&lt;!-- secondary --&gt;</span>
+<span class="nt">&lt;button</span> <span class="na">class=</span><span class="s">"setup-button-secondary inline-flex items-center gap-2
+               px-3 py-2 text-sm text-text"</span><span class="nt">&gt;</span>
+  Rescan
+<span class="nt">&lt;/button&gt;</span>
+
+<span class="c">&lt;!-- brand confirm --&gt;</span>
+<span class="nt">&lt;button</span> <span class="na">class=</span><span class="s">"inline-flex items-center gap-2 border border-[#00852B]
+               bg-[#00852B] px-4 py-2 text-sm font-medium text-white
+               hover:bg-[#00852B]/90"</span><span class="nt">&gt;</span>
+  Connect to Hive
+<span class="nt">&lt;/button&gt;</span>
+</code></pre></div></div>
+
+<h3 id="form-controls">Form controls</h3>
+
+<p>The <code class="language-plaintext highlighter-rouge">.setup-control</code> class gives every input the same focus ring and surface. Focus always draws from <code class="language-plaintext highlighter-rouge">--color-primary</code>, not a hard-coded brand color.</p>
+
+<div class="language-html highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nt">&lt;input</span> <span class="na">type=</span><span class="s">"text"</span>
+       <span class="na">class=</span><span class="s">"setup-control w-full px-3 py-2 text-sm text-text"</span>
+       <span class="na">placeholder=</span><span class="s">"e.g. Sorting Bench A"</span><span class="nt">&gt;</span>
+</code></pre></div></div>
+
+<h3 id="loading-states">Loading states</h3>
+
+<p>The standard spinner row used when fetching async data inside a step or panel:</p>
+
+<div class="language-html highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nt">&lt;div</span> <span class="na">class=</span><span class="s">"setup-panel flex items-center gap-2 px-4 py-3
+            text-sm text-text-muted"</span><span class="nt">&gt;</span>
+  <span class="nt">&lt;Loader2</span> <span class="na">size=</span><span class="s">{14}</span> <span class="na">class=</span><span class="s">"animate-spin"</span> <span class="nt">/&gt;</span>
+  Checking current Hive configuration…
+<span class="nt">&lt;/div&gt;</span>
+</code></pre></div></div>
+
+<h2 id="primary-color">Primary Color</h2>
+
+<p>How the user-selectable primary is wired through CSS custom properties, and which semantic slots stay fixed regardless of the user’s pick.</p>
+
+<h3 id="mechanics">Mechanics</h3>
+
+<ul>
+  <li>Each app reads <code class="language-plaintext highlighter-rouge">--color-primary</code> from CSS custom properties at the <code class="language-plaintext highlighter-rouge">:root</code> level.</li>
+  <li>Defaults are:
+    <ul>
+      <li><strong>Sorter UI</strong> → <code class="language-plaintext highlighter-rouge">#0055BF</code> (LEGO Blue)</li>
+      <li><strong>Hive</strong> → <code class="language-plaintext highlighter-rouge">#D01012</code> (LEGO Red)</li>
+      <li><strong>Docs site</strong> → <code class="language-plaintext highlighter-rouge">#D01012</code> (LEGO Red)</li>
+    </ul>
+  </li>
+  <li>In both apps the user can override the default via <strong>Settings → Appearance → Primary color</strong>. The choice is persisted per-machine (Sorter) or per-user (Hive).</li>
+  <li>Components must consume <code class="language-plaintext highlighter-rouge">--color-primary</code> via the utility classes <code class="language-plaintext highlighter-rouge">.text-primary</code>, <code class="language-plaintext highlighter-rouge">.bg-primary</code>, <code class="language-plaintext highlighter-rouge">.border-primary</code>, or raw <code class="language-plaintext highlighter-rouge">var(--color-primary)</code> — <strong>never via hard-coded hex values</strong> of the four LEGO options.</li>
+</ul>
+
+<h3 id="semantic-slots-are-fixed">Semantic slots are fixed</h3>
+
+<p>Semantic slots are <em>not</em> affected by the primary picker:</p>
+
+<ul>
+  <li><strong>Success</strong> stays green (<code class="language-plaintext highlighter-rouge">#00852B</code>)</li>
+  <li><strong>Warning</strong> stays yellow (<code class="language-plaintext highlighter-rouge">#FFD500</code>)</li>
+  <li><strong>Error</strong> stays red (<code class="language-plaintext highlighter-rouge">#D01012</code>)</li>
+  <li><strong>Info</strong> stays blue (<code class="language-plaintext highlighter-rouge">#0055BF</code>)</li>
+</ul>
+
+<p>This holds regardless of what the user picks as their primary.</p>
+
+<h3 id="collision-handling">Collision handling</h3>
+
+<p>If a user picks a primary that collides with a semantic slot (for example, Green-as-primary on a success screen), the semantic slot wins on its own component and the primary slot uses its natural color everywhere else. The two rarely sit side by side, but when they do the semantic meaning takes precedence over the personalization.</p>
+
+<h3 id="checklist-when-adding-a-primary-coloured-element">Checklist when adding a primary-coloured element</h3>
+
+<ol>
+  <li>Use <code class="language-plaintext highlighter-rouge">var(--color-primary)</code> or one of the <code class="language-plaintext highlighter-rouge">.text-primary</code> / <code class="language-plaintext highlighter-rouge">.bg-primary</code> / <code class="language-plaintext highlighter-rouge">.border-primary</code> utility classes.</li>
+  <li>Don’t hard-code <code class="language-plaintext highlighter-rouge">#0055BF</code>, <code class="language-plaintext highlighter-rouge">#D01012</code>, <code class="language-plaintext highlighter-rouge">#00852B</code>, or <code class="language-plaintext highlighter-rouge">#FFD500</code> for a primary slot.</li>
+  <li>Make sure the background and text pair still reach AA contrast when the user picks any of the four options — Yellow primary in particular needs dark text.</li>
+  <li>If the component has a focus ring, derive it from <code class="language-plaintext highlighter-rouge">--color-primary</code> too.</li>
+</ol>
+
+<h2 id="where-this-guide-lives">Where this guide lives</h2>
+
+<ul>
+  <li><strong>Canonical prose and rules:</strong> this page.</li>
+  <li><strong>Live smoke test:</strong> <code class="language-plaintext highlighter-rouge">/styleguide</code> in the Sorter UI and <code class="language-plaintext highlighter-rouge">/styleguide</code> in the Hive frontend. Both routes render the same patterns with real components so designers can spot drift at a glance.</li>
+  <li><strong>Design tokens:</strong> <code class="language-plaintext highlighter-rouge">--color-bg</code>, <code class="language-plaintext highlighter-rouge">--color-surface</code>, <code class="language-plaintext highlighter-rouge">--color-border</code>, <code class="language-plaintext highlighter-rouge">--color-text</code>, <code class="language-plaintext highlighter-rouge">--color-text-muted</code>, <code class="language-plaintext highlighter-rouge">--color-primary</code> (CSS custom properties, same names across all three surfaces).</li>
+</ul>
+
+<p>When you add a new pattern, update the matching section above first, then mirror it into both in-app styleguides.</p>
+
+            
+
+
+
+
+<aside class="page-meta" aria-label="Page metadata">
+  <dl>
+    
+    <div>
+      <dt>Audience</dt>
+      <dd>contributor working on the Sorter UI, Hive, or these docs</dd>
+    </div>
+    
+    
+    <div>
+      <dt>Applies to</dt>
+      <dd>visual language v1</dd>
+    </div>
+    
+    
+    <div>
+      <dt>Last verified</dt>
+      <dd>2026-04-08</dd>
+    </div>
+    
+    
+    <div>
+      <dt>Owner</dt>
+      <dd>ui</dd>
+    </div>
+    
+  </dl>
+</aside>
+
+
+          </main>
+        </div>
+      
+
+      <footer class="site-footer">
+        <nav class="site-footer-links" aria-label="Footer">
+          <a href="https://basically.website/policies/privacy-policy" target="_blank" rel="noopener">Privacy Policy</a>
+          <a href="https://basically.website/policies/terms-of-service" target="_blank" rel="noopener">Terms of Service</a>
+          <a href="mailto:contact@basically.website">contact@basically.website</a>
+          <a href="https://basically.website/?updates=1" target="_blank" rel="noopener">Get updates&nbsp;↗</a>
+          <a href="https://discord.gg/6PZtqkwtaS" target="_blank" rel="noopener">Discord</a>
+          <a href="https://github.com/basicallysource/sorter-v2/tree/main/docs">Source&nbsp;(<code>docs/</code>)</a>
+        </nav>
+        <p class="site-footer-legal">
+          © basically. All rights reserved. LEGO® is a trademark of the LEGO Group of companies which does not sponsor, authorize, or endorse this site.
+        </p>
+      </footer>
+    </div>
+    <script src="/assets/copy-code.js" defer></script>
+    <script>
+      (function () {
+        var modal = document.getElementById('construction-modal');
+        var opener = document.querySelector('.construction-banner');
+        if (!modal || !opener || typeof modal.showModal !== 'function') return;
+        opener.addEventListener('click', function () { modal.showModal(); });
+        modal.addEventListener('click', function (e) {
+          if (e.target === modal) modal.close();
+        });
+      })();
+      (function () {
+        var toggle = document.querySelector('.section-sidebar-toggle');
+        if (!toggle) return;
+        var sidebar = toggle.closest('.section-sidebar');
+        toggle.addEventListener('click', function () {
+          var open = sidebar.classList.toggle('nav-open');
+          toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+        });
+      })();
+    </script>
+  </body>
+</html>

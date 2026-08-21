@@ -1,0 +1,359 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Software architecture decisions | Sorter V2 Documentation</title>
+    <meta name="description" content="Why Sorter V2 uses a dumb-firmware / smart-host split, what alternatives were evaluated, and the design principles that guide the stack.">
+    <meta property="og:site_name" content="Sorter V2 Documentation">
+    <meta property="og:type" content="article">
+    <meta property="og:title" content="Software architecture decisions">
+    <meta property="og:description" content="Why Sorter V2 uses a dumb-firmware / smart-host split, what alternatives were evaluated, and the design principles that guide the stack.">
+    <meta property="og:url" content="http://localhost:4000/lab/software-architecture-decisions/">
+    <meta name="twitter:card" content="summary">
+    <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+    <link rel="stylesheet" href="/assets/site.css">
+  </head>
+  <body>
+    <div class="shell">
+      <header class="site-header">
+        <a class="brand" href="/">
+          <img class="brand-logo" src="/assets/basically-logo.svg" alt="basically logo" width="26" height="24">
+          <span>
+            <strong>Sorter V2</strong>
+            <small>Documentation</small>
+          </span>
+        </a>
+        <button type="button" class="construction-banner" aria-haspopup="dialog" aria-controls="construction-modal">
+          <span class="construction-banner-icon" aria-hidden="true">⚠</span>
+          <span class="construction-banner-text">
+            <strong>Under heavy construction</strong>
+            <small>Docs are incomplete &amp; may be inaccurate — don't build Sorter yet.</small>
+          </span>
+          <span class="construction-banner-chevron" aria-hidden="true">▾</span>
+        </button>
+        <nav class="site-nav" aria-label="Primary">
+          <a href="/">Overview</a>
+          
+            <a href="/hardware/">Hardware</a>
+          
+            <a href="/sorter/">Sorter</a>
+          
+            <a href="/hive/">Hive</a>
+          
+            <a href="/lab/" aria-current="page">Lab</a>
+          
+        </nav>
+      </header>
+
+      <dialog id="construction-modal" class="construction-modal">
+        <div class="construction-modal-inner">
+          <div class="construction-modal-head">
+            <h2>⚠ Under heavy construction</h2>
+            <form method="dialog">
+              <button class="construction-modal-close" aria-label="Close">✕</button>
+            </form>
+          </div>
+          <p>As of July 11, 2026, Sorter V2 is not yet in a position to be built.</p>
+          <p>The documentation that exists is incomplete. Any given page may be accurate, inaccurate, present only as an example, or badly out of date. We do not yet recommend that anyone attempt to build Sorter.</p>
+          <p class="construction-modal-discord">
+            For the most live updates on our progress, <a href="https://discord.gg/6PZtqkwtaS" target="_blank" rel="noopener">join our Discord&nbsp;↗</a>.
+          </p>
+        </div>
+      </dialog>
+
+      
+      
+
+      
+      
+
+      
+        <div class="layout-with-sidebar">
+          <aside class="section-sidebar" aria-label="Lab navigation">
+            <button type="button" class="section-sidebar-toggle" aria-expanded="false" aria-controls="section-nav">
+              <span>Lab</span>
+              <span class="section-sidebar-toggle-icon" aria-hidden="true">▾</span>
+            </button>
+            <p class="section-sidebar-kicker">Lab</p>
+            <nav id="section-nav">
+              <ul class="nav-tree"><li>
+    <a href="/lab/">Overview</a></li></ul>
+
+              
+                
+                  <p class="section-sidebar-group">Object Detection Research</p>
+                  
+                    
+                    
+                    <a href="/lab/object-detection/">Overview</a>
+                  
+                    
+                    
+                    <a href="/lab/object-detection/how-models-are-built/">How the Models Are Built</a>
+                  
+                    
+                    
+                    <a href="/lab/object-detection/device-benchmarking/">Benchmarking Workflow</a>
+                  
+                    
+                    
+                    <a href="/lab/object-detection/hailo-hef-workflow/">Hailo HEF Workflow</a>
+                  
+                
+                  <p class="section-sidebar-group">Styleguide</p>
+                  
+                    
+                    
+                    <a href="/lab/styleguide/">Overview</a>
+                  
+                    
+                    
+                    <a href="/lab/styleguide/#design-principles">Design Principles</a>
+                  
+                    
+                    
+                    <a href="/lab/styleguide/#colors">Colors</a>
+                  
+                    
+                    
+                    <a href="/lab/styleguide/#typography">Typography</a>
+                  
+                    
+                    
+                    <a href="/lab/styleguide/#notifications">Notifications</a>
+                  
+                    
+                    
+                    <a href="/lab/styleguide/#components">Components</a>
+                  
+                    
+                    
+                    <a href="/lab/styleguide/#primary-color">Primary Color</a>
+                  
+                
+              
+            </nav>
+          </aside>
+          <main class="content">
+            
+<p class="kicker">Lab — Research Area</p>
+
+
+
+  
+  
+
+  <div class="page-title-row">
+      <h1>Software architecture decisions</h1>
+      <span class="page-type-badge page-type-explanation">Explanation</span>
+    </div>
+  
+
+
+
+<p class="lede">Why Sorter V2 uses a dumb-firmware / smart-host split, what alternatives were evaluated, and the design principles that guide the stack.</p>
+
+
+            
+
+            
+
+            <h2 id="the-question">The question</h2>
+
+<p>Why does Sorter V2 use a Klipper-inspired architecture with dumb firmware and a smart host, and what was rejected along the way?</p>
+
+<h2 id="why-this-matters">Why this matters</h2>
+
+<p>The firmware/host split is the most load-bearing architectural decision in the project. It determines where logic lives, how fast features can ship, which hardware is supported, and how contributors divide work. Understanding why this split exists prevents re-debating settled questions.</p>
+
+<h2 id="the-mental-model">The mental model</h2>
+
+<p>Two layers, strict separation:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Layer</th>
+      <th>Hardware</th>
+      <th>Responsibility</th>
+      <th>Language</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Firmware</strong></td>
+      <td>RP2040 (Raspberry Pi Pico)</td>
+      <td>Real-time: 10kHz step generation, 1kHz motion control, sensor reads, PWM</td>
+      <td>C++</td>
+    </tr>
+    <tr>
+      <td><strong>Host</strong></td>
+      <td>Raspberry Pi 5</td>
+      <td>Everything else: vision, classification, coordination, UI, sorting logic</td>
+      <td>Python + SvelteKit</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Communication: USB serial. The firmware sends a JSON config on startup describing its capabilities. The host sends commands; the firmware executes them. All actuators are addressable by name.</p>
+
+<p><strong>Design principle:</strong> “Bare minimum at every layer so we can pivot into features easily.” — Spencer</p>
+
+<h2 id="firmware-details">Firmware details</h2>
+
+<ul>
+  <li><strong>Two threads:</strong> 10kHz stepgen thread (precise timing) + 1kHz motion control thread (trajectory planning).</li>
+  <li><strong>Custom serial protocol.</strong> Not Firmata, not gcode. Asynchronous commands with named actuators.</li>
+  <li><strong>Stepper drivers:</strong> 3× TMC2209 on a shared UART bus, addressable individually.</li>
+  <li><strong>Timing constraint:</strong> &lt;10ms response to any USB message. The host must not micromanage — it sends goals, not individual steps.</li>
+  <li><strong>Updates are rare.</strong> Most development happens on the host side. Firmware changes only for new hardware support.</li>
+</ul>
+
+<h2 id="host-details">Host details</h2>
+
+<ul>
+  <li><strong>Camera inference</strong> runs in a separate thread to avoid blocking the main coordination loop.</li>
+  <li><strong>State machines</strong> per subsystem (feeder, distribution, carousel). Each reacts to signals from other subsystems independently.</li>
+  <li><strong>Sorting logic:</strong> <code class="language-plaintext highlighter-rouge">item_id</code> (part + color) → <code class="language-plaintext highlighter-rouge">category_id</code> → <code class="language-plaintext highlighter-rouge">bin</code>. MVP rule: “If category has a bin, use it; otherwise assign the next empty bin.”</li>
+  <li><strong>Classification:</strong> Brickognize API (remote) with a planned local model for offline operation. Dual-mode: local for common parts, API for rare/uncertain.</li>
+  <li><strong>Data output:</strong> BrickStore XML export format for sellers to catalog sorted pieces.</li>
+</ul>
+
+<h2 id="what-was-rejected">What was rejected</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th>Alternative</th>
+      <th>Why rejected</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Klipper</strong></td>
+      <td>Designed for 3D printers. Over-abstracted for sorting — carries assumptions about toolheads, bed geometry, and print-move semantics that do not map to sorting.</td>
+    </tr>
+    <tr>
+      <td><strong>ROS2</strong></td>
+      <td>Modularity is appealing, but the runtime weight and complexity are disproportionate for a single-machine sorting system. Too cumbersome for rapid iteration.</td>
+    </tr>
+    <tr>
+      <td><strong>Marlin</strong></td>
+      <td>Firmware-heavy — all logic lives on the MCU. Constrains feature development to C++ on resource-limited hardware. Cannot leverage Pi’s compute for vision.</td>
+    </tr>
+    <tr>
+      <td><strong>Firmata</strong></td>
+      <td>V1 used Firmata. 7-bit encoding causes data mangling, the project is effectively dead, and threading behavior was unreliable. Abandoned after V1 experience.</td>
+    </tr>
+    <tr>
+      <td><strong>WiFi for MCU comms</strong></td>
+      <td>Non-deterministic latency. USB serial provides the consistent &lt;10ms response time that real-time motion control requires.</td>
+    </tr>
+    <tr>
+      <td><strong>RS485 for multi-MCU</strong></td>
+      <td>Planned for future multi-machine setups (passing buckets between sorters for multi-phase sorts), but USB serial suffices for single-machine V2.</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2 id="trade-offs">Trade-offs</h2>
+
+<ul>
+  <li><strong>Host-side logic vs firmware logic</strong> — Keeping logic on the host means Python iteration speed but introduces serial latency. Acceptable because sorting decisions operate on ~100ms timescales, not microsecond timescales.</li>
+  <li><strong>Custom protocol vs standard (gcode)</strong> — A custom protocol fits the sorting domain better than repurposing 3D printer gcode. The cost is less ecosystem tooling — no existing slicers or visualizers.</li>
+  <li><strong>Remote API vs local classification</strong> — Remote API ships faster but needs internet. Local model needs training infrastructure. Dual-mode defers the hard choice.</li>
+  <li><strong>Single MCU vs multi-MCU</strong> — Current design uses one Pico. Multi-MCU (with time-synchronization for coordinated motion) is architecturally supported but not yet needed.</li>
+</ul>
+
+<h2 id="what-this-is-not">What this is not</h2>
+
+<ul>
+  <li><strong>Not a recommendation for other projects.</strong> This architecture fits a LEGO sorting machine with specific latency and throughput requirements. A pick-and-place robot or CNC machine has different constraints.</li>
+  <li><strong>Not frozen.</strong> The host-MCU split is stable, but the protocol, classification strategy, and deployment model are still evolving.</li>
+</ul>
+
+<h2 id="where-to-go-next">Where to go next</h2>
+
+<ul>
+  <li><a href="/sorter/architecture/">Sorter architecture</a> — the detailed component map of coordinator, state machines, vision manager, and UI</li>
+  <li><a href="/lab/classification-research/">Classification research</a> — the ML strategy behind the classification layer</li>
+  <li><a href="/lab/c-channel-singulation/">C-channel singulation</a> — the mechanical system the firmware drives</li>
+</ul>
+
+            
+
+
+
+
+<aside class="page-meta" aria-label="Page metadata">
+  <dl>
+    
+    <div>
+      <dt>Audience</dt>
+      <dd>contributor understanding the software stack</dd>
+    </div>
+    
+    
+    <div>
+      <dt>Applies to</dt>
+      <dd>sorter 2.x</dd>
+    </div>
+    
+    
+    <div>
+      <dt>Last verified</dt>
+      <dd>2026-04-14</dd>
+    </div>
+    
+    
+    <div>
+      <dt>Owner</dt>
+      <dd>lab</dd>
+    </div>
+    
+  </dl>
+</aside>
+
+
+          </main>
+        </div>
+      
+
+      <footer class="site-footer">
+        <nav class="site-footer-links" aria-label="Footer">
+          <a href="https://basically.website/policies/privacy-policy" target="_blank" rel="noopener">Privacy Policy</a>
+          <a href="https://basically.website/policies/terms-of-service" target="_blank" rel="noopener">Terms of Service</a>
+          <a href="mailto:contact@basically.website">contact@basically.website</a>
+          <a href="https://basically.website/?updates=1" target="_blank" rel="noopener">Get updates&nbsp;↗</a>
+          <a href="https://discord.gg/6PZtqkwtaS" target="_blank" rel="noopener">Discord</a>
+          <a href="https://github.com/basicallysource/sorter-v2/tree/main/docs">Source&nbsp;(<code>docs/</code>)</a>
+        </nav>
+        <p class="site-footer-legal">
+          © basically. All rights reserved. LEGO® is a trademark of the LEGO Group of companies which does not sponsor, authorize, or endorse this site.
+        </p>
+      </footer>
+    </div>
+    <script src="/assets/copy-code.js" defer></script>
+    <script>
+      (function () {
+        var modal = document.getElementById('construction-modal');
+        var opener = document.querySelector('.construction-banner');
+        if (!modal || !opener || typeof modal.showModal !== 'function') return;
+        opener.addEventListener('click', function () { modal.showModal(); });
+        modal.addEventListener('click', function (e) {
+          if (e.target === modal) modal.close();
+        });
+      })();
+      (function () {
+        var toggle = document.querySelector('.section-sidebar-toggle');
+        if (!toggle) return;
+        var sidebar = toggle.closest('.section-sidebar');
+        toggle.addEventListener('click', function () {
+          var open = sidebar.classList.toggle('nav-open');
+          toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+        });
+      })();
+    </script>
+  </body>
+</html>

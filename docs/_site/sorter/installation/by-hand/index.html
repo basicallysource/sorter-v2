@@ -1,0 +1,355 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Install by hand | Sorter V2 Documentation</title>
+    <meta name="description" content="The manual install sequence — for when the one-command installer does not yet support your platform, or when you want to know exactly what it does.">
+    <meta property="og:site_name" content="Sorter V2 Documentation">
+    <meta property="og:type" content="article">
+    <meta property="og:title" content="Install by hand">
+    <meta property="og:description" content="The manual install sequence — for when the one-command installer does not yet support your platform, or when you want to know exactly what it does.">
+    <meta property="og:url" content="http://localhost:4000/sorter/installation/by-hand/">
+    <meta name="twitter:card" content="summary">
+    <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+    <link rel="stylesheet" href="/assets/site.css">
+  </head>
+  <body>
+    <div class="shell">
+      <header class="site-header">
+        <a class="brand" href="/">
+          <img class="brand-logo" src="/assets/basically-logo.svg" alt="basically logo" width="26" height="24">
+          <span>
+            <strong>Sorter V2</strong>
+            <small>Documentation</small>
+          </span>
+        </a>
+        <button type="button" class="construction-banner" aria-haspopup="dialog" aria-controls="construction-modal">
+          <span class="construction-banner-icon" aria-hidden="true">⚠</span>
+          <span class="construction-banner-text">
+            <strong>Under heavy construction</strong>
+            <small>Docs are incomplete &amp; may be inaccurate — don't build Sorter yet.</small>
+          </span>
+          <span class="construction-banner-chevron" aria-hidden="true">▾</span>
+        </button>
+        <nav class="site-nav" aria-label="Primary">
+          <a href="/">Overview</a>
+          
+            <a href="/hardware/">Hardware</a>
+          
+            <a href="/sorter/" aria-current="page">Sorter</a>
+          
+            <a href="/hive/">Hive</a>
+          
+            <a href="/lab/">Lab</a>
+          
+        </nav>
+      </header>
+
+      <dialog id="construction-modal" class="construction-modal">
+        <div class="construction-modal-inner">
+          <div class="construction-modal-head">
+            <h2>⚠ Under heavy construction</h2>
+            <form method="dialog">
+              <button class="construction-modal-close" aria-label="Close">✕</button>
+            </form>
+          </div>
+          <p>As of July 11, 2026, Sorter V2 is not yet in a position to be built.</p>
+          <p>The documentation that exists is incomplete. Any given page may be accurate, inaccurate, present only as an example, or badly out of date. We do not yet recommend that anyone attempt to build Sorter.</p>
+          <p class="construction-modal-discord">
+            For the most live updates on our progress, <a href="https://discord.gg/6PZtqkwtaS" target="_blank" rel="noopener">join our Discord&nbsp;↗</a>.
+          </p>
+        </div>
+      </dialog>
+
+      
+      
+
+      
+      
+
+      
+        <div class="layout-with-sidebar">
+          <aside class="section-sidebar" aria-label="Sorter navigation">
+            <button type="button" class="section-sidebar-toggle" aria-expanded="false" aria-controls="section-nav">
+              <span>Sorter</span>
+              <span class="section-sidebar-toggle-icon" aria-hidden="true">▾</span>
+            </button>
+            <p class="section-sidebar-kicker">Sorter</p>
+            <nav id="section-nav">
+              <ul class="nav-tree"><li>
+    <a href="/sorter/">Overview</a></li></ul>
+
+              
+                
+                  <p class="section-sidebar-group">Install</p>
+                  
+                    
+                    
+                    <a href="/sorter/installation/">Installation</a>
+                  
+                    
+                    
+                    <a href="/sorter/installation/sorter-os/">SorterOS</a>
+                  
+                    
+                    
+                    <a href="/sorter/installation/linux-generic/">Linux (generic)</a>
+                  
+                    
+                    
+                    <a href="/sorter/installation/by-hand/" aria-current="page">By hand</a>
+                  
+                
+                  <p class="section-sidebar-group">Operate</p>
+                  
+                    
+                    
+                    <a href="/sorter/tutorials/first-sort-run/">Your first sort run</a>
+                  
+                    
+                    
+                    <a href="/sorter/camera-calibration/">Camera calibration</a>
+                  
+                    
+                    
+                    <a href="/sorter/safe-shutdown/">Shutting down the machine</a>
+                  
+                    
+                    
+                    <a href="/sorter/troubleshooting/">Troubleshooting</a>
+                  
+                
+                  <p class="section-sidebar-group">Under the hood</p>
+                  
+                    
+                    
+                    <a href="/sorter/dev-flow/">Dev flow</a>
+                  
+                    
+                    
+                    <a href="/sorter/profile-reference/">Sorting profile reference</a>
+                  
+                    
+                    
+                    <a href="/sorter/what-leaves-the-machine/">What leaves the machine</a>
+                  
+                
+              
+            </nav>
+          </aside>
+          <main class="content">
+            
+<p class="kicker">Installation — Manual</p>
+
+
+
+  
+  
+
+  <div class="page-title-row">
+      <h1>Install by hand</h1>
+      <span class="page-type-badge page-type-how-to">How-to guide</span>
+    </div>
+  
+
+
+
+<p class="lede">The manual install sequence — for when the one-command installer does not yet support your platform, or when you want to know exactly what it does.</p>
+
+
+            
+
+            
+
+            <h2 id="when-to-use-this">When to use this</h2>
+
+<p>Use this guide when:</p>
+
+<ul>
+  <li>you are installing on a system the <a href="/sorter/installation/linux-generic/">one-command installer</a> does not yet support;</li>
+  <li>you want to walk every step yourself to understand what the installer is doing;</li>
+  <li>you are debugging a failing <code class="language-plaintext highlighter-rouge">install.sh</code> and want to isolate which step is going wrong.</li>
+</ul>
+
+<p>If neither of those applies, use the <a href="/sorter/installation/linux-generic/">one-command installer</a> instead — it is the maintained path and the one we test against in CI.</p>
+
+<h2 id="prerequisites">Prerequisites</h2>
+
+<p>You will need:</p>
+
+<ul>
+  <li>a sudo-capable user account</li>
+  <li>a working internet connection</li>
+  <li>~3 GB free disk</li>
+  <li>a shell that understands <code class="language-plaintext highlighter-rouge">curl | bash</code> patterns (any modern bash or zsh)</li>
+</ul>
+
+<h2 id="manual-install-sequence">Manual install sequence</h2>
+
+<h3 id="1-system-packages">1. System packages</h3>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">sudo </span>apt update <span class="o">&amp;&amp;</span> <span class="nb">sudo </span>apt <span class="nb">install</span> <span class="nt">-y</span> <span class="se">\</span>
+  git git-lfs curl ca-certificates <span class="se">\</span>
+  build-essential pkg-config <span class="se">\</span>
+  libgl1 libglib2.0-0 lsof v4l-utils
+</code></pre></div></div>
+
+<p><code class="language-plaintext highlighter-rouge">libgl1</code> is what OpenCV needs at import time — leaving it out is the most common silent backend failure.</p>
+
+<h3 id="2-udev-rule-for-pico-boards">2. Udev rule for Pico boards</h3>
+
+<p>This restricts Pico USB serial access to the <code class="language-plaintext highlighter-rouge">plugdev</code> group plus the active desktop seat user (via <code class="language-plaintext highlighter-rouge">uaccess</code>), so arbitrary local users cannot flash firmware. Add your user to <code class="language-plaintext highlighter-rouge">plugdev</code> for headless/SSH access; a desktop seat session works immediately without logout/login.</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">sudo cp </span>software/systemd/99-sorter-pico.rules /etc/udev/rules.d/
+<span class="nb">sudo </span>usermod <span class="nt">-aG</span> plugdev <span class="s2">"</span><span class="nv">$USER</span><span class="s2">"</span>   <span class="c"># log out/in for headless/SSH sessions</span>
+<span class="nb">sudo </span>udevadm control <span class="nt">--reload-rules</span> <span class="o">&amp;&amp;</span> <span class="nb">sudo </span>udevadm trigger
+</code></pre></div></div>
+
+<h3 id="3-uv-python-toolchain">3. <code class="language-plaintext highlighter-rouge">uv</code> (Python toolchain)</h3>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>curl <span class="nt">-LsSf</span> https://astral.sh/uv/install.sh | sh
+<span class="nb">export </span><span class="nv">PATH</span><span class="o">=</span><span class="s2">"</span><span class="nv">$HOME</span><span class="s2">/.local/bin:</span><span class="nv">$PATH</span><span class="s2">"</span>
+</code></pre></div></div>
+
+<p><code class="language-plaintext highlighter-rouge">uv</code> will fetch the exact pinned Python version when you run <code class="language-plaintext highlighter-rouge">uv sync</code> later — you do not need to install Python from apt.</p>
+
+<h3 id="4-node-20-and-pnpm-ui-toolchain">4. Node 20 and pnpm (UI toolchain)</h3>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>curl <span class="nt">-fsSL</span> https://deb.nodesource.com/setup_20.x | <span class="nb">sudo</span> <span class="nt">-E</span> bash -
+<span class="nb">sudo </span>apt <span class="nb">install</span> <span class="nt">-y</span> nodejs
+<span class="nb">sudo </span>npm <span class="nb">install</span> <span class="nt">-g</span> pnpm
+</code></pre></div></div>
+
+<p><code class="language-plaintext highlighter-rouge">pnpm</code> is mandatory — the dev runner explicitly invokes <code class="language-plaintext highlighter-rouge">pnpm dev</code>. Do not use <code class="language-plaintext highlighter-rouge">npm</code> or <code class="language-plaintext highlighter-rouge">yarn</code>.</p>
+
+<h3 id="5-clone-the-repo">5. Clone the repo</h3>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git lfs <span class="nb">install
+</span>git clone https://github.com/basicallysource/sorter-v2.git
+<span class="nb">cd </span>sorter-v2/software
+git lfs pull
+</code></pre></div></div>
+
+<p><code class="language-plaintext highlighter-rouge">git lfs pull</code> is what brings down the detector model artifacts and the parts catalogue.</p>
+
+<h3 id="6-generate-env">6. Generate <code class="language-plaintext highlighter-rouge">.env</code></h3>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">cp</span> .env.example .env
+<span class="nv">$EDITOR</span> .env
+<span class="nb">cp </span>ui/.env.example ui/.env
+</code></pre></div></div>
+
+<p>This is the step that bites people manually: <code class="language-plaintext highlighter-rouge">.env.example</code> ships with placeholder paths like <code class="language-plaintext highlighter-rouge">/home/user/sorter-v2/...</code> which you must replace with the absolute path of your actual clone. The one-command installer does this automatically — by hand you have to.</p>
+
+<h3 id="7-install-dependencies">7. Install dependencies</h3>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="o">(</span> <span class="nb">cd </span>client <span class="o">&amp;&amp;</span> uv <span class="nb">sync</span> <span class="o">)</span>
+<span class="o">(</span> <span class="nb">cd </span>ui <span class="o">&amp;&amp;</span> pnpm <span class="nb">install</span> <span class="o">)</span>
+</code></pre></div></div>
+
+<p><code class="language-plaintext highlighter-rouge">uv sync</code> is the slow step on first install because it downloads the Python interpreter and resolves all 53 backend dependencies including OpenCV and ONNX Runtime.</p>
+
+<h3 id="8-start-the-dev-runner">8. Start the dev runner</h3>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>./dev.sh
+</code></pre></div></div>
+
+<p>This starts the Python backend on <code class="language-plaintext highlighter-rouge">:8000</code> and the Vite dev server on <code class="language-plaintext highlighter-rouge">:5173</code>.</p>
+
+<h2 id="verify-the-install">Verify the install</h2>
+
+<p>Open <code class="language-plaintext highlighter-rouge">http://localhost:5173/</code> in a browser. You should see the Sorter UI. The first time you open it, the in-app <strong>Setup Wizard</strong> takes over.</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>curl <span class="nt">-fsS</span> http://localhost:8000/api/health
+</code></pre></div></div>
+
+<p>Should return a JSON status response.</p>
+
+<h2 id="if-something-goes-wrong">If something goes wrong</h2>
+
+<p>See <a href="/sorter/troubleshooting/">Sorter troubleshooting</a> for the common failures and their fixes.</p>
+
+<h2 id="related">Related</h2>
+
+<ul>
+  <li><a href="/sorter/installation/linux-generic/">Install on a Linux machine (generic)</a> — the maintained one-command path.</li>
+  <li><a href="/sorter/troubleshooting/">Sorter troubleshooting</a></li>
+</ul>
+
+            
+
+
+
+
+<aside class="page-meta" aria-label="Page metadata">
+  <dl>
+    
+    <div>
+      <dt>Audience</dt>
+      <dd>self-hosting operator</dd>
+    </div>
+    
+    
+    <div>
+      <dt>Applies to</dt>
+      <dd>sorter 2.x</dd>
+    </div>
+    
+    
+    <div>
+      <dt>Last verified</dt>
+      <dd>2026-04-08</dd>
+    </div>
+    
+    
+    <div>
+      <dt>Owner</dt>
+      <dd>sorter</dd>
+    </div>
+    
+  </dl>
+</aside>
+
+
+          </main>
+        </div>
+      
+
+      <footer class="site-footer">
+        <nav class="site-footer-links" aria-label="Footer">
+          <a href="https://basically.website/policies/privacy-policy" target="_blank" rel="noopener">Privacy Policy</a>
+          <a href="https://basically.website/policies/terms-of-service" target="_blank" rel="noopener">Terms of Service</a>
+          <a href="mailto:contact@basically.website">contact@basically.website</a>
+          <a href="https://basically.website/?updates=1" target="_blank" rel="noopener">Get updates&nbsp;↗</a>
+          <a href="https://discord.gg/6PZtqkwtaS" target="_blank" rel="noopener">Discord</a>
+          <a href="https://github.com/basicallysource/sorter-v2/tree/main/docs">Source&nbsp;(<code>docs/</code>)</a>
+        </nav>
+        <p class="site-footer-legal">
+          © basically. All rights reserved. LEGO® is a trademark of the LEGO Group of companies which does not sponsor, authorize, or endorse this site.
+        </p>
+      </footer>
+    </div>
+    <script src="/assets/copy-code.js" defer></script>
+    <script>
+      (function () {
+        var modal = document.getElementById('construction-modal');
+        var opener = document.querySelector('.construction-banner');
+        if (!modal || !opener || typeof modal.showModal !== 'function') return;
+        opener.addEventListener('click', function () { modal.showModal(); });
+        modal.addEventListener('click', function (e) {
+          if (e.target === modal) modal.close();
+        });
+      })();
+      (function () {
+        var toggle = document.querySelector('.section-sidebar-toggle');
+        if (!toggle) return;
+        var sidebar = toggle.closest('.section-sidebar');
+        toggle.addEventListener('click', function () {
+          var open = sidebar.classList.toggle('nav-open');
+          toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+        });
+      })();
+    </script>
+  </body>
+</html>

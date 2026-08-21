@@ -7,6 +7,10 @@
 export type LaserCutPart = {
 	id: string;
 	name: string;
+	// context photo (bucket URL); the docs site's parts-needed cards use this,
+	// while this app shows the DXF outline preview
+	photo?: string;
+	caption?: string; // small text under the docs card
 	assembly?: string; // grouping label, e.g. the two cage pieces
 	description: string;
 	// expected stock thickness, quoted both ways since sheets are sold in imperial
@@ -32,7 +36,8 @@ export type LaserCutPart = {
 export const LASER_CUT_PARTS: LaserCutPart[] = [
 	{
 		id: 'cable-cage-top',
-		name: 'Cable Cage Top',
+		name: 'Cable cage top',
+		photo: 'https://img.basically.website/web/parts/top-interface/cable-cage-top.0856e376cd2b9238.jpg',
 		assembly: 'Cable Cage',
 		description:
 			'Top plate of the cable cage. Has a keyed cutout for easy insertion/removal of the interface.',
@@ -56,7 +61,8 @@ export const LASER_CUT_PARTS: LaserCutPart[] = [
 	},
 	{
 		id: 'cable-cage-bottom',
-		name: 'Cable Cage Bottom',
+		name: 'Cable cage bottom',
+		photo: 'https://img.basically.website/web/parts/top-interface/cable-cage-bottom.72b2038544dec559.jpg',
 		assembly: 'Cable Cage',
 		description: 'Bottom plate of the cable cage.',
 		thicknessIn: '1/8″',
@@ -80,6 +86,8 @@ export const LASER_CUT_PARTS: LaserCutPart[] = [
 	{
 		id: 'top-plate',
 		name: 'Top plate',
+		photo: 'https://img.basically.website/web/parts/top-interface/top-plate.fb89181642abbe25.jpg',
+		caption: "The machine's hexagonal top plate; the interface mounts under it.",
 		description:
 			'Machine top plate. Has 5 cable holes and holes for the main stepper. Does not yet have mount holes for the C-channels.',
 		thicknessIn: '3/8″',

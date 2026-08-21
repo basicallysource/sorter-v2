@@ -1,0 +1,432 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>How the Models Are Built | Sorter V2 Documentation</title>
+    <meta name="description" content="The dataset, the model architectures, the training pipeline, and the export workflow that turn raw chamber frames into the deployable detector files we ship to each target device.">
+    <meta property="og:site_name" content="Sorter V2 Documentation">
+    <meta property="og:type" content="article">
+    <meta property="og:title" content="How the Models Are Built">
+    <meta property="og:description" content="The dataset, the model architectures, the training pipeline, and the export workflow that turn raw chamber frames into the deployable detector files we ship to each target device.">
+    <meta property="og:url" content="http://localhost:4000/lab/object-detection/how-models-are-built/">
+    <meta name="twitter:card" content="summary">
+    <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+    <link rel="stylesheet" href="/assets/site.css">
+  </head>
+  <body>
+    <div class="shell">
+      <header class="site-header">
+        <a class="brand" href="/">
+          <img class="brand-logo" src="/assets/basically-logo.svg" alt="basically logo" width="26" height="24">
+          <span>
+            <strong>Sorter V2</strong>
+            <small>Documentation</small>
+          </span>
+        </a>
+        <button type="button" class="construction-banner" aria-haspopup="dialog" aria-controls="construction-modal">
+          <span class="construction-banner-icon" aria-hidden="true">⚠</span>
+          <span class="construction-banner-text">
+            <strong>Under heavy construction</strong>
+            <small>Docs are incomplete &amp; may be inaccurate — don't build Sorter yet.</small>
+          </span>
+          <span class="construction-banner-chevron" aria-hidden="true">▾</span>
+        </button>
+        <nav class="site-nav" aria-label="Primary">
+          <a href="/">Overview</a>
+          
+            <a href="/hardware/">Hardware</a>
+          
+            <a href="/sorter/">Sorter</a>
+          
+            <a href="/hive/">Hive</a>
+          
+            <a href="/lab/" aria-current="page">Lab</a>
+          
+        </nav>
+      </header>
+
+      <dialog id="construction-modal" class="construction-modal">
+        <div class="construction-modal-inner">
+          <div class="construction-modal-head">
+            <h2>⚠ Under heavy construction</h2>
+            <form method="dialog">
+              <button class="construction-modal-close" aria-label="Close">✕</button>
+            </form>
+          </div>
+          <p>As of July 11, 2026, Sorter V2 is not yet in a position to be built.</p>
+          <p>The documentation that exists is incomplete. Any given page may be accurate, inaccurate, present only as an example, or badly out of date. We do not yet recommend that anyone attempt to build Sorter.</p>
+          <p class="construction-modal-discord">
+            For the most live updates on our progress, <a href="https://discord.gg/6PZtqkwtaS" target="_blank" rel="noopener">join our Discord&nbsp;↗</a>.
+          </p>
+        </div>
+      </dialog>
+
+      
+      
+
+      
+      
+
+      
+        <div class="layout-with-sidebar">
+          <aside class="section-sidebar" aria-label="Lab navigation">
+            <button type="button" class="section-sidebar-toggle" aria-expanded="false" aria-controls="section-nav">
+              <span>Lab</span>
+              <span class="section-sidebar-toggle-icon" aria-hidden="true">▾</span>
+            </button>
+            <p class="section-sidebar-kicker">Lab</p>
+            <nav id="section-nav">
+              <ul class="nav-tree"><li>
+    <a href="/lab/">Overview</a></li></ul>
+
+              
+                
+                  <p class="section-sidebar-group">Object Detection Research</p>
+                  
+                    
+                    
+                    <a href="/lab/object-detection/">Overview</a>
+                  
+                    
+                    
+                    <a href="/lab/object-detection/how-models-are-built/" aria-current="page">How the Models Are Built</a>
+                  
+                    
+                    
+                    <a href="/lab/object-detection/device-benchmarking/">Benchmarking Workflow</a>
+                  
+                    
+                    
+                    <a href="/lab/object-detection/hailo-hef-workflow/">Hailo HEF Workflow</a>
+                  
+                
+                  <p class="section-sidebar-group">Styleguide</p>
+                  
+                    
+                    
+                    <a href="/lab/styleguide/">Overview</a>
+                  
+                    
+                    
+                    <a href="/lab/styleguide/#design-principles">Design Principles</a>
+                  
+                    
+                    
+                    <a href="/lab/styleguide/#colors">Colors</a>
+                  
+                    
+                    
+                    <a href="/lab/styleguide/#typography">Typography</a>
+                  
+                    
+                    
+                    <a href="/lab/styleguide/#notifications">Notifications</a>
+                  
+                    
+                    
+                    <a href="/lab/styleguide/#components">Components</a>
+                  
+                    
+                    
+                    <a href="/lab/styleguide/#primary-color">Primary Color</a>
+                  
+                
+              
+            </nav>
+          </aside>
+          <main class="content">
+            
+<p class="kicker">Object Detection Research</p>
+
+
+
+  
+  
+
+  <div class="page-title-row">
+      <h1>How the Models Are Built</h1>
+      <span class="page-type-badge page-type-explanation">Explanation</span>
+    </div>
+  
+
+
+
+<p class="lede">The dataset, the model architectures, the training pipeline, and the export workflow that turn raw chamber frames into the deployable detector files we ship to each target device.</p>
+
+
+            
+
+            
+
+            <h2 id="what-the-model-has-to-do">What the model has to do</h2>
+
+<p>The detector’s job is narrow on purpose: <strong>find the LEGO piece in the chamber and return one tight bounding box around it.</strong> There is exactly one class — <code class="language-plaintext highlighter-rouge">piece</code> — and the camera position is fixed, so the model never has to deal with arbitrary scenes or many objects. That single-class, fixed-viewpoint setup is what lets a comparatively small model reach the quality we need.</p>
+
+<p>Everything downstream — the cropped image we feed into colour and shape classification, the position the mechanical system plans against, the decision about whether the chamber holds zero, one, or several pieces — is built on top of that one bounding box.</p>
+
+<h2 id="the-dataset">The dataset</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th>Property</th>
+      <th>Value</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Source location</td>
+      <td><code class="language-plaintext highlighter-rouge">software/sorter/backend/blob/zone_datasets/classification_chamber/</code></td>
+    </tr>
+    <tr>
+      <td>Images total</td>
+      <td>1,877</td>
+    </tr>
+    <tr>
+      <td>Train / val split</td>
+      <td>1,690 / 187 (≈ 90 / 10)</td>
+    </tr>
+    <tr>
+      <td>Classes</td>
+      <td>1 (<code class="language-plaintext highlighter-rouge">piece</code>)</td>
+    </tr>
+    <tr>
+      <td>Resolution</td>
+      <td>Native chamber camera resolution; resized at training time</td>
+    </tr>
+    <tr>
+      <td>Annotation format</td>
+      <td>YOLO-style bounding boxes</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>The dataset is single-class and chamber-specific. Every image was captured in the same fixed camera rig with the same lighting, which is the main reason a model with under 10M parameters can hit <code class="language-plaintext highlighter-rouge">mAP &gt; 0.88</code> on real frames.</p>
+
+<p>The same dataset feeds <strong>both</strong> model architectures — there is no separate NanoDet dataset and YOLO dataset. That keeps the cross-architecture comparison fair: any quality difference between NanoDet and YOLO11s is a property of the model and the export pipeline, not of the data.</p>
+
+<h2 id="the-two-architectures-we-maintain">The two architectures we maintain</h2>
+
+<p>We deliberately keep two model families in production rotation. They are not redundant — they trade off in different directions, and on different target hardware different trade-offs win.</p>
+
+<h3 id="nanodet-plus-m-15x-chamber-zone-nanodet">NanoDet-Plus-m 1.5x (<code class="language-plaintext highlighter-rouge">Chamber Zone NanoDet</code>)</h3>
+
+<ul>
+  <li><strong>Family:</strong> NanoDet — an anchor-free detector designed for mobile and edge inference.</li>
+  <li><strong>Variant:</strong> the <code class="language-plaintext highlighter-rouge">Plus-m</code> head with the <code class="language-plaintext highlighter-rouge">1.5x</code> width multiplier. This is the heaviest of the standard NanoDet sizes, but it still ends up substantially smaller than YOLO11s.</li>
+  <li><strong>Input size:</strong> 416 × 416.</li>
+  <li><strong>Best training metrics:</strong> <code class="language-plaintext highlighter-rouge">mAP 0.885</code>, <code class="language-plaintext highlighter-rouge">AP_50 0.941</code>, <code class="language-plaintext highlighter-rouge">AP_75 0.900</code>.</li>
+  <li><strong>Why we keep it:</strong> it is the model that compiles cleanly to Hailo HEF and stays close to reference quality after the compile. The Hailo <code class="language-plaintext highlighter-rouge">NanoDet</code> path is currently our <strong>best edge deployment</strong> — see the <a href="/lab/object-detection/">Overview</a> FPS table.</li>
+</ul>
+
+<h3 id="yolo11s-chamber-zone-yolo11s">YOLO11s (<code class="language-plaintext highlighter-rouge">Chamber Zone YOLO11s</code>)</h3>
+
+<ul>
+  <li><strong>Family:</strong> Ultralytics YOLOv11 in the <code class="language-plaintext highlighter-rouge">s</code> (small) size class.</li>
+  <li><strong>Input size:</strong> 320 × 320.</li>
+  <li><strong>Best training metrics:</strong> <code class="language-plaintext highlighter-rouge">mAP_50 0.96049</code>, <code class="language-plaintext highlighter-rouge">mAP_50–95 0.91101</code>, <code class="language-plaintext highlighter-rouge">precision 0.94381</code>, <code class="language-plaintext highlighter-rouge">recall 0.87160</code> — captured at training epoch 124.</li>
+  <li><strong>Why we keep it:</strong> it is the highest-fidelity model we have on the Mac CoreML path, where it hits about <strong>418 FPS</strong> while staying parity-exact to the Mac CPU reference. It is also the architecture where we want to invest in better Hailo post-training optimization, because the runtime is fast on Hailo (100 FPS) but the box parity is currently weaker than NanoDet’s.</li>
+</ul>
+
+<h3 id="why-not-pick-one-and-drop-the-other">Why not pick one and drop the other?</h3>
+
+<p>Because the right model depends on where you are running it. NanoDet wins on Hailo, YOLO11s wins on CoreML, and they are both exact-match on plain CPU paths. Maintaining both costs almost nothing — they share the same dataset and the same benchmark bundle — and it gives the rest of the project a real choice rather than a fixed bet.</p>
+
+<h2 id="the-training-pipeline">The training pipeline</h2>
+
+<p>Both models are trained off-machine on rented Vast.ai GPU instances. We do not train on the Mac Mini or on the Pi — training would be unreasonably slow on either, and it would block the developer machine for hours.</p>
+
+<p>The end-to-end flow is:</p>
+
+<ol>
+  <li><strong>Prepare the labelled chamber dataset</strong> in <code class="language-plaintext highlighter-rouge">software/sorter/backend/blob/zone_datasets/classification_chamber/</code> (the <code class="language-plaintext highlighter-rouge">data.yaml</code> plus <code class="language-plaintext highlighter-rouge">train/</code> and <code class="language-plaintext highlighter-rouge">val/</code> splits).</li>
+  <li><strong>Provision a Vast.ai GPU instance</strong> with the appropriate framework (Ultralytics for YOLO, the NanoDet trainer for NanoDet).</li>
+  <li><strong>Run the training job</strong> on the instance, capturing best-checkpoint metrics into a <code class="language-plaintext highlighter-rouge">run.json</code> file.</li>
+  <li><strong>Pull the resulting checkpoint and the <code class="language-plaintext highlighter-rouge">run.json</code></strong> back into <code class="language-plaintext highlighter-rouge">software/sorter/backend/blob/local_detection_models/&lt;run-id&gt;/</code>.</li>
+  <li><strong>Run the export step</strong> on the developer machine, producing the canonical <code class="language-plaintext highlighter-rouge">best.onnx</code> and a sibling <code class="language-plaintext highlighter-rouge">best_ncnn_model/</code> directory.</li>
+</ol>
+
+<p>The <code class="language-plaintext highlighter-rouge">run.json</code> for each model is the durable record of the training run — it carries the model family, the input size, the source provider (<code class="language-plaintext highlighter-rouge">vastai</code>), the best metrics, and the absolute paths to the resulting ONNX and NCNN exports. Both maintained models point at:</p>
+
+<ul>
+  <li><code class="language-plaintext highlighter-rouge">blob/local_detection_models/20260331-zone-classification_chamber-yolo11s/</code></li>
+  <li><code class="language-plaintext highlighter-rouge">blob/local_detection_models/20260331-zone-classification_chamber-nanodet/</code></li>
+</ul>
+
+<h2 id="the-export-and-packaging-pipeline">The export and packaging pipeline</h2>
+
+<p>Once the training step has produced a checkpoint, the rule is simple:</p>
+
+<p><code class="language-plaintext highlighter-rouge">training run → canonical ONNX export → target-specific compiled format</code></p>
+
+<p>The canonical ONNX export is the <strong>single source of truth</strong>. Every other format on every other target device is supposed to be produced from that exact ONNX file. If the source ONNX is unclear or out of date, the downstream artifact is suspect — this is exactly what bit the current Orange Pi RKNN files, where the <code class="language-plaintext highlighter-rouge">.rknn</code> artifacts were never rebuilt against the latest ONNX export.</p>
+
+<h3 id="the-benchmark-bundle">The benchmark bundle</h3>
+
+<p>The first thing we do with a new ONNX export is package it into a <strong>benchmark bundle</strong>. The bundle is one self-contained directory holding the model files (in every format we test), a fixed set of 50 chamber-frame images, and the metadata describing how the bundle was built.</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">cd </span>software/client
+uv run python scripts/device_detector_benchmark.py bundle <span class="se">\</span>
+  <span class="nt">--preset</span> chamber_zone_pair <span class="se">\</span>
+  <span class="nt">--output</span> blob/device_benchmarks/chamber_zone_pair_bundle <span class="se">\</span>
+  <span class="nt">--archive</span>
+</code></pre></div></div>
+
+<p>This single bundle then becomes the input to every device-side run, which is how we keep cross-device comparisons honest. See <a href="/lab/object-detection/device-benchmarking/">Device Benchmarking</a> for the full workflow.</p>
+
+<h3 id="per-target-export-paths">Per-target export paths</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>Target</th>
+      <th>Format</th>
+      <th>Producer</th>
+      <th>Notes</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Mac CPU / Orange Pi CPU / Pi 5 CPU</td>
+      <td><code class="language-plaintext highlighter-rouge">ONNX</code></td>
+      <td>The canonical <code class="language-plaintext highlighter-rouge">best.onnx</code> from the training run</td>
+      <td>Used directly by ONNX Runtime — no further conversion</td>
+    </tr>
+    <tr>
+      <td>Mac CoreML</td>
+      <td><code class="language-plaintext highlighter-rouge">ONNX</code> + <code class="language-plaintext highlighter-rouge">CoreMLExecutionProvider</code></td>
+      <td>The same canonical ONNX</td>
+      <td>We do not maintain a separate <code class="language-plaintext highlighter-rouge">.mlpackage</code> — the CoreML execution provider in ORT is what wires it into the Mac neural engine</td>
+    </tr>
+    <tr>
+      <td>Raspberry Pi 5 NCNN</td>
+      <td><code class="language-plaintext highlighter-rouge">.ncnn.param</code> + <code class="language-plaintext highlighter-rouge">.ncnn.bin</code></td>
+      <td>Produced alongside the ONNX export at training time</td>
+      <td>Currently broken on these chamber-zone models — the parity scores collapse</td>
+    </tr>
+    <tr>
+      <td>Orange Pi 5 RKNN</td>
+      <td><code class="language-plaintext highlighter-rouge">.rknn</code></td>
+      <td>Built with the Rockchip RKNN toolkit from the canonical ONNX</td>
+      <td>Quantization-sensitive — the current artifacts are stale and need rebuilding</td>
+    </tr>
+    <tr>
+      <td>Raspberry Pi 5 Hailo-8</td>
+      <td><code class="language-plaintext highlighter-rouge">.hef</code> (compiled), <code class="language-plaintext highlighter-rouge">.har</code> (intermediate)</td>
+      <td>Built with the Hailo Dataflow Compiler on a Linux x86_64 host</td>
+      <td>The maintained compile path is documented in <a href="/lab/object-detection/hailo-hef-workflow/">Hailo HEF Workflow</a></td>
+    </tr>
+  </tbody>
+</table>
+
+<p>For the exact commands that drive each step — bundle build, per-device run, parity compare — see <a href="/lab/object-detection/device-benchmarking/">Benchmarking Workflow</a>. The Hailo-specific compile steps live in <a href="/lab/object-detection/hailo-hef-workflow/">Hailo HEF Workflow</a>.</p>
+
+<h2 id="why-quantization-matters-here">Why quantization matters here</h2>
+
+<p>ONNX, CoreML, and pure-CPU paths all run the model in <strong>floating point</strong>, so they reproduce the original training behaviour bit-for-bit (or close enough that the parity numbers come out at 1.0 / IoU 1.0). The accelerated edge paths are different: both <strong>Hailo HEF</strong> and <strong>Rockchip RKNN</strong> require the model to be <strong>quantized</strong> down to integer weights so the on-chip NPU can run it efficiently. Quantization is where most of our quality drift comes from.</p>
+
+<p>There are two pieces that have to be right for quantization not to wreck the detector:</p>
+
+<ol>
+  <li><strong>The calibration dataset.</strong> The compiler picks per-tensor activation ranges by feeding sample images through the FP32 model and recording the distributions. If the calibration set does not cover the same lighting and object shapes as production frames, the quantized model will mis-scale and start missing pieces.</li>
+  <li><strong>The compile flow itself.</strong> Running the Hailo compiler at optimization level 0 (which is what our current NanoDet HEF uses, because the Vast.ai image we rented did not expose a working GPU stack for the Hailo toolchain) leaves performance on the table compared to a higher optimization level. The current NanoDet HEF is still very good — but a future re-compile with a better optimization pass is the obvious next quality-and-speed lever for YOLO11s on Hailo specifically.</li>
+</ol>
+
+<p>The current state of each accelerated path:</p>
+
+<ul>
+  <li><strong>Hailo + NanoDet:</strong> quantization is currently good enough that decision parity sits at 0.98 and IoU at 0.94 against the Mac CPU reference. This is the strongest accelerated result we have.</li>
+  <li><strong>Hailo + YOLO11s:</strong> quantization holds the high-level decision (0.92) but the box IoU drops to 0.69 — the boxes are in roughly the right place but no longer tight. This is the path we want to revisit with a better optimization pass.</li>
+  <li><strong>Orange Pi RKNN:</strong> the existing artifacts are not from the current ONNX exports. They need to be rebuilt with a fresh calibration step against the current dataset before we can compare them fairly.</li>
+</ul>
+
+<h2 id="how-training-quality-maps-to-real-world-quality">How training quality maps to real-world quality</h2>
+
+<p>The training metrics (<code class="language-plaintext highlighter-rouge">mAP</code>, <code class="language-plaintext highlighter-rouge">AP_50</code>, <code class="language-plaintext highlighter-rouge">AP_75</code>) are useful as a sanity check — they tell us whether the trained model fundamentally learned the chamber detection task. They do <strong>not</strong> tell us how well that model will run on a Pi or how much quality the Hailo compile gives back.</p>
+
+<p>That is why we have two parallel quality measurements:</p>
+
+<ul>
+  <li><strong>Training-time <code class="language-plaintext highlighter-rouge">mAP</code></strong> — how well the FP32 checkpoint detects pieces on the held-out validation split.</li>
+  <li><strong>Runtime parity vs Mac CPU reference</strong> — how closely each deployed export reproduces the Mac CPU run on the same 50 chamber frames. This is the metric that actually predicts whether a target deployment will behave like the model we trained.</li>
+</ul>
+
+<p>A new model only gets promoted into production rotation when <strong>both</strong> numbers are healthy: the training mAP is in the same neighbourhood as the existing models, <strong>and</strong> the Mac-CPU-parity comparison on the deployed export is within tolerance. That gate is what stops a “looks good in training” export from quietly regressing the running sorter.</p>
+
+            
+
+
+
+
+<aside class="page-meta" aria-label="Page metadata">
+  <dl>
+    
+    <div>
+      <dt>Audience</dt>
+      <dd>contributor</dd>
+    </div>
+    
+    
+    <div>
+      <dt>Applies to</dt>
+      <dd>2026-04-06 measurement set</dd>
+    </div>
+    
+    
+    <div>
+      <dt>Last verified</dt>
+      <dd>2026-04-08</dd>
+    </div>
+    
+    
+    <div>
+      <dt>Owner</dt>
+      <dd>lab</dd>
+    </div>
+    
+  </dl>
+</aside>
+
+
+          </main>
+        </div>
+      
+
+      <footer class="site-footer">
+        <nav class="site-footer-links" aria-label="Footer">
+          <a href="https://basically.website/policies/privacy-policy" target="_blank" rel="noopener">Privacy Policy</a>
+          <a href="https://basically.website/policies/terms-of-service" target="_blank" rel="noopener">Terms of Service</a>
+          <a href="mailto:contact@basically.website">contact@basically.website</a>
+          <a href="https://basically.website/?updates=1" target="_blank" rel="noopener">Get updates&nbsp;↗</a>
+          <a href="https://discord.gg/6PZtqkwtaS" target="_blank" rel="noopener">Discord</a>
+          <a href="https://github.com/basicallysource/sorter-v2/tree/main/docs">Source&nbsp;(<code>docs/</code>)</a>
+        </nav>
+        <p class="site-footer-legal">
+          © basically. All rights reserved. LEGO® is a trademark of the LEGO Group of companies which does not sponsor, authorize, or endorse this site.
+        </p>
+      </footer>
+    </div>
+    <script src="/assets/copy-code.js" defer></script>
+    <script>
+      (function () {
+        var modal = document.getElementById('construction-modal');
+        var opener = document.querySelector('.construction-banner');
+        if (!modal || !opener || typeof modal.showModal !== 'function') return;
+        opener.addEventListener('click', function () { modal.showModal(); });
+        modal.addEventListener('click', function (e) {
+          if (e.target === modal) modal.close();
+        });
+      })();
+      (function () {
+        var toggle = document.querySelector('.section-sidebar-toggle');
+        if (!toggle) return;
+        var sidebar = toggle.closest('.section-sidebar');
+        toggle.addEventListener('click', function () {
+          var open = sidebar.classList.toggle('nav-open');
+          toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+        });
+      })();
+    </script>
+  </body>
+</html>

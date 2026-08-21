@@ -1426,15 +1426,15 @@
 					"commit": null,
 					"stl": "https://img.basically.website/parts/stl/stator-n6bm-323b2d1f.stl",
 					"render": "https://img.basically.website/parts/render/stator-02ab8b46.png",
-					"grams": 175.75
+					"grams": 175.52
 				}
 			],
 			"attributes": [],
-			"grams": 175.75,
-			"support_grams": 23.07,
+			"grams": 175.52,
+			"support_grams": 23.42,
 			"support_used": true,
 			"support_intentional": true,
-			"print_seconds": 16023,
+			"print_seconds": 16014,
 			"color": {
 				"by_section": {
 					"feeder": {
@@ -2366,7 +2366,7 @@
 			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 7484,
+			"print_seconds": 7492,
 			"color": {
 				"role": "frame"
 			},

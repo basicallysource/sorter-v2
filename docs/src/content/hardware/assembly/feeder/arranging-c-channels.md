@@ -11,9 +11,9 @@ author: barthel
 warning: >-
   **Skeleton page.** Assembled from the parts registry in the [parts
   calculator](https://parts-calculator.basically.website/assembly?focus=feeder) and the
-  extrusion list on the bill of materials. No height, angle or fastener here has been checked
-  against a machine, and the two starred questions below are the ones that make the feeder work.
-  Fill it in as you build.
+  extrusion list on the bill of materials, not from a build. No height, angle or fastener here
+  has been checked against a machine, and the two starred steps are the ones that make the
+  feeder work. Fill it in as you build.
 parts_needed:
   - part: leg
     qty: 9
@@ -25,58 +25,79 @@ parts_needed:
 
 Four [C-channels]({{ '/hardware/assembly/feeder/c-channel/' | relative_url }}) are built the same way and then stood at different heights, so a part cascades from one to the next under gravity and arrives at the [interface]({{ '/hardware/assembly/distribution/top-interface/' | relative_url }}) singulated.
 
+The fasteners and quantities in the parts list come from the parts registry and are called out inline at each step.
+
 {% include fastener-legend.html %}
 
-## The order parts travel
+Steps below refer to the channels by the names the software uses, in the order a part travels:
 
-1. **C1**, the bulk channel, under the [bulk input]({{ '/hardware/assembly/feeder/bulk-input/' | relative_url }}). Highest.
-2. **C2**, with a [light post]({{ '/hardware/assembly/feeder/light-post/' | relative_url }}) and an [overhead camera mount]({{ '/hardware/assembly/feeder/camera-mount/' | relative_url }}).
-3. **C3**, the same again, and the last metering stage.
-4. **The classification channel**, inside the [classification chamber]({{ '/hardware/assembly/feeder/classification-chamber/' | relative_url }}), which images the part before it drops into the chute.
+- **C1**, the bulk channel, under the [bulk input]({{ '/hardware/assembly/feeder/bulk-input/' | relative_url }}). Highest.
+- **C2**, with a [light post]({{ '/hardware/assembly/feeder/light-post/' | relative_url }}) and an [overhead camera mount]({{ '/hardware/assembly/feeder/camera-mount/' | relative_url }}).
+- **C3**, the same again, and the last metering stage.
+- **The classification channel**, inside the [classification chamber]({{ '/hardware/assembly/feeder/classification-chamber/' | relative_url }}), which images the part before it drops into the chute.
 
-[Output guides]({{ '/hardware/assembly/feeder/output-guides/' | relative_url }}) bridge the handovers between them.
+{% include step.html n="1" title="Preparation" %}
 
-## The stand
+<div class="prep-item">
+  <div class="prep-item-body">
+    <p><strong>Legs, feet and leg extensions:</strong> 3 of each per channel, 9 of each across the three feeder channels. The Leg is the 135 mm print, the extension raises it further, and the foot is what meets the bench. No heat inserts recorded.</p>
+  </div>
+  <figure class="prep-item-figure">
+    <div class="img-placeholder">Image coming</div>
+  </figure>
+</div>
 
-Each channel stands on its own printed legs: **3 legs, 3 feet and 3 leg extensions per channel**, 9 of each across the three feeder channels. The Leg is the 135 mm print; the extension raises it further, and the foot is what meets the bench.
+<div class="prep-item">
+  <div class="prep-item-body">
+    <p><strong>Feeder extrusion, from the bill of materials:</strong> 3 pieces of 2020 at 270 mm (bulk bucket supports), 3 at 190 mm (mid C-channel supports), 3 at 110 mm (lower C-channel supports), and the camera support, either 1 at 300 mm fixed or 1 at 350 mm plus 1 at 200 mm adjustable. No step records what any of them bolts to.</p>
+  </div>
+  <figure class="prep-item-figure">
+    <div class="img-placeholder">Image coming</div>
+  </figure>
+</div>
 
-- How the leg, extension and foot stack, and what fastens them to each other, is not recorded: <span class="fastener-todo">fastener not recorded</span>.
-- How a leg attaches to the C-channel's stator or NEMA bracket is not recorded: <span class="fastener-todo">fastener not recorded</span>.
-- Whether the classification channel stands on legs of its own, or is carried by the chamber and the interface, is not recorded either. The catalog gives 9 of each for the feeder and none for the classification channel, which suggests the latter.
+Build all four [C-channels]({{ '/hardware/assembly/feeder/c-channel/' | relative_url }}) before starting here, three with the faceted rotor and one with the finned one.
 
-## The framing
+{% include step.html n="2" title="Stand each channel" %}
 
-The bill of materials gives the feeder's 2020 cut list. No step uses it yet, so what each piece bolts to is an open question.
+Fit 3 legs, 3 extensions and 3 feet to each of the three feeder channels.
 
-- **3 at 270 mm**, bulk bucket supports.
-- **3 at 190 mm**, mid C-channel supports.
-- **3 at 110 mm**, lower C-channel supports.
-- **Camera support**, either 1 at 300 mm fixed, or 1 at 350 mm plus 1 at 200 mm for the adjustable version. How that relates to the rod-and-arm [camera mount]({{ '/hardware/assembly/feeder/camera-mount/' | relative_url }}), which hangs off the channels rather than off extrusion, is unclear and worth resolving on this page.
+**Not recorded:** how the leg, extension and foot stack, what fastens them to each other, and how a leg attaches to the channel's stator or NEMA bracket. <span class="fastener-todo">fastener not recorded</span>
 
-{% include step.html n="1" title="Stand each channel" %}
-
-Fit legs, extensions and feet to each of the three feeder channels. Details unrecorded, see above.
+**Not recorded:** whether the classification channel stands on legs of its own or is carried by the chamber and the interface below it. The catalog gives 9 of each for the feeder and none for the classification channel, which suggests the latter.
 
 <div class="img-placeholder">Image coming</div>
 
-{% include step.html n="2" title="Set the heights and the spacing" %}
+{% include step.html n="3" title="★ Set the heights and the spacing" %}
 
-**★ The numbers this page most needs.** For each handover: the drop from one rotor to the next, the horizontal overlap between the channels, and how far around the circle the handover happens. Nothing about any of it is written down anywhere today.
+The numbers this page most needs, and none of them are written down anywhere today. For each handover, record:
+
+- the drop from one rotor to the next,
+- the horizontal overlap between the two channels,
+- how far around the circle the handover happens.
 
 <div class="img-placeholder">Image coming</div>
 
-{% include step.html n="3" title="Fit the output guides" %}
+{% include step.html n="4" title="Fit the output guides" %}
 
-See [output guides]({{ '/hardware/assembly/feeder/output-guides/' | relative_url }}).
+One [output guide]({{ '/hardware/assembly/feeder/output-guides/' | relative_url }}) at each handover, C1 to C2 and C2 to C3.
 
-{% include step.html n="4" title="Add the bulk input, light posts and camera arms" %}
+<div class="img-placeholder">Image coming</div>
 
-[Bulk input]({{ '/hardware/assembly/feeder/bulk-input/' | relative_url }}) on C1, [light post]({{ '/hardware/assembly/feeder/light-post/' | relative_url }}) and [camera mount]({{ '/hardware/assembly/feeder/camera-mount/' | relative_url }}) on C2 and C3.
+{% include step.html n="5" title="Add the bulk input, the light posts and the camera arms" %}
 
-{% include step.html n="5" title="Hand over to the classification channel" %}
+[Bulk input]({{ '/hardware/assembly/feeder/bulk-input/' | relative_url }}) on C1. A [light post]({{ '/hardware/assembly/feeder/light-post/' | relative_url }}) and an [overhead camera mount]({{ '/hardware/assembly/feeder/camera-mount/' | relative_url }}) on C2 and on C3.
 
-**★ The other open question.** How the classification channel sits relative to C3 and to the interface below it, and what carries it. Record it here.
+<div class="img-placeholder">Image coming</div>
 
-{% include step.html n="6" title="Turn it all by hand" %}
+{% include step.html n="6" title="★ Hand over to the classification channel" %}
 
-Run parts through the whole cascade by hand, one channel at a time, before wiring the steppers. Anything that needs a nudge here will jam under power.
+The other open question: how the classification channel sits relative to C3 and to the [top interface]({{ '/hardware/assembly/distribution/top-interface/' | relative_url }}) below it, and what carries its weight.
+
+<div class="img-placeholder">Image coming</div>
+
+{% include step.html n="7" title="Turn it all by hand" %}
+
+Run parts through the whole cascade by hand, one channel at a time, before wiring the steppers. Anything that needs a nudge here will jam under power. Wiring is on the [electronics]({{ '/hardware/electronics/' | relative_url }}) page.
+
+<div class="img-placeholder">Image coming</div>

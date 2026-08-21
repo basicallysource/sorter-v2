@@ -20,15 +20,33 @@ parts_needed:
 
 An output guide bridges the gap where one C-channel hands parts to the next, so a part leaving a rotor lands on the following channel instead of on the floor.
 
-- **2 per machine.** Which channels they sit between is not recorded. Three feeder channels give two handovers (C1 to C2, C2 to C3), so two guides is consistent with one per handover, but that is inference from the count, not a documented fact.
-- Prints in the feeder colour (black or charcoal).
+Two per machine. Which channels they sit between is not recorded: three feeder channels give two handovers, C1 to C2 and C2 to C3, so two guides is consistent with one per handover, but that is inference from the count rather than a documented fact.
 
-{% include step.html n="1" title="Fit the guides between channels" %}
+{% include fastener-legend.html %}
 
-How the guide fastens, to which part, and at what angle are all unrecorded: <span class="fastener-todo">fastener not recorded</span>.
+{% include step.html n="1" title="Preparation" %}
+
+<div class="prep-item">
+  <div class="prep-item-body">
+    <p><strong>Output guide:</strong> no heat inserts recorded and no fasteners of its own. Prints in the feeder colour.</p>
+  </div>
+  <figure class="prep-item-figure">
+    <div class="img-placeholder">Image coming</div>
+  </figure>
+</div>
+
+{% include step.html n="2" title="Fit a guide at each handover" %}
+
+Build the channels and stand them first, see [arranging C-Channels]({{ '/hardware/assembly/feeder/arranging-c-channels/' | relative_url }}). The guide goes in once the two channels either side of it are at their final heights.
+
+**Not recorded:** what the guide fastens to, with what, and at what angle. <span class="fastener-todo">fastener not recorded</span>
 
 <div class="img-placeholder">Image coming</div>
 
-{% include step.html n="2" title="Check the handover" %}
+{% include step.html n="3" title="Check the handover" %}
 
-Turn both channels by hand with a few parts on the upstream rotor and watch the transfer before wiring anything. Note here what gap or angle worked.
+Turn both channels by hand with a few parts on the upstream rotor and watch the transfer before wiring anything. A part should leave one rotor and land on the next without being carried back around.
+
+Write down here what gap and angle worked.
+
+<div class="img-placeholder">Image coming</div>

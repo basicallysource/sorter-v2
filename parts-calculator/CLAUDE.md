@@ -1,6 +1,17 @@
 # CLAUDE.md
 
-Working rules for this repo. Read `notes/UNIFIED-PARTS-SYSTEM.md` before
+Working rules for this directory. **This was its own repository until
+2026-08-20; it is now `parts-calculator/` inside `basicallysource/sorter-v2`,
+with its full history.** The old `basicallysource/parts-calculator` is archived
+and read-only, and pre-rewrite history is at `parts-calculator-archive`. Paths
+below are relative to this directory unless they start with `.github/`, which is
+the sorter-v2 repository root.
+
+The docs site is the other half of the same catalog now: `docs/` imports
+`src/lib/data/parts.generated.json` directly, so a part edited here changes both
+sites. `docs/_data/parts.yml` is deleted and is not where parts live any more.
+
+Read `notes/UNIFIED-PARTS-SYSTEM.md` before
 making structural changes to the parts data model — it is the design spec
 for where this is heading (unified registry across this repo, the docs, and
 the BOM spreadsheet).
@@ -12,41 +23,45 @@ build. Two halves:
 
 - **`slicer/`** — Python + OrcaSlicer. Slices every part, reads the
   slicer's real `used_g`, renders thumbnails, writes the site's data.
-  **Never runs on Vercel.** Runs locally on the Mac *or* in CI:
+  **Never runs in the site build.** Runs locally on the Mac *or* in CI:
   `.github/workflows/regen-parts.yml` re-runs it (pinned Linux AppImage,
-  headless) on any PR/push touching slicer inputs and commits the
-  regenerated outputs back to the branch — so agents/bots can change parts
-  data with no local slicer, and Vercel previews show the branch's own
-  correct data. CI is the canonical slicer environment; slice results are
-  memoized per (STL bytes + settings), so warm runs only re-slice what
-  changed.
+  headless) on any PR touching slicer inputs and commits the regenerated
+  outputs back to the branch — so agents/bots can change parts data with no
+  local slicer, and the branch preview shows the branch's own correct data.
+  CI is the canonical slicer environment; slice results are memoized per
+  (STL bytes + settings), so warm runs only re-slice what changed. A push to
+  `main` runs `.github/workflows/check-parts.yml` instead, which only proves
+  the committed data references bytes the bucket actually serves.
 - **`src/`** — the app. Reads generated JSON, does all math in the browser.
   Fully static.
 
 ## Deploying
 
-**Pushing/merging to `main` auto-deploys** (Vercel builds `main` on every
-push). There is no separate deploy step — a commit that lands on `main` is
-live. Treat every push to `main` as a production release.
+**Pushing/merging to `main` auto-deploys.** Cloudflare Pages project
+`parts-calculator` builds from sorter-v2 with this directory as its root and
+`parts-calculator/*` as its watch paths, so a commit that lands on `main` is
+live at parts-calculator.basically.website. There is no separate deploy step;
+treat every push to `main` as a production release. The Vercel project is
+deleted — nothing here builds on Vercel any more.
 
 ## PR previews — when they are actually valid
 
-Every branch gets a Vercel preview. **If the PR touched anything under
-`slicer/`, that preview is wrong until CI's regen commit lands**: the app
-reads the committed `parts.generated.json`, not `parts.json`, so a changed
-part shows its old grams and old thumbnail, and a new part is missing.
+Every branch gets a Pages preview, commented on the PR. **If the PR touched
+anything under `slicer/`, that preview is wrong until CI's regen commit
+lands**: the app reads the committed `parts.generated.json`, not `parts.json`,
+so a changed part shows its old grams and old thumbnail, and a new part is
+missing.
 
-Budget **~2 minutes** from push to a correct preview for a parts change
-(~25 s Vercel on stale data → ~70 s regen → ~25 s Vercel on correct data).
-A slicer-settings change re-slices all 84 parts: ~7.5 min. A PR touching
-nothing under `slicer/` skips regen entirely: ~25 s. Full table with the
-per-part cost is in [README.md](README.md#how-long-until-the-preview-is-right).
+Budget minutes, not seconds, for a parts change: a build on stale data, then
+the regen run, then a second build on the correct data. A slicer-settings
+change invalidates every part and re-slices the whole catalog, which is several
+times longer. A PR touching nothing under `slicer/` skips regen entirely.
 
 Do not report a preview as ready — or screenshot it — on the first green
-Vercel check. CI moves the branch head underneath you. Wait for the `regen`
-check to succeed, *then* the Vercel deployment on the resulting head SHA.
-Do not wait on "all checks green": a commit-back can park a duplicate,
-never-executed run in `action_required` on the PR forever.
+check. CI moves the branch head underneath you. Wait for the `regen` check to
+succeed, *then* the deployment on the resulting head SHA. Do not wait on "all
+checks green": a commit-back can park a duplicate, never-executed run in
+`action_required` on the PR forever.
 
 Sharing a preview *link* early is fine — the URL is stable per branch and
 self-corrects once the second build lands.
@@ -68,8 +83,18 @@ OrcaSlicer's own output. Do not compute weight from volume/density.
 
 ## Artifacts and the bucket
 
-Large binaries (STLs, 3MFs) sync to a DigitalOcean Space,
-**content-addressed** at `stl/<sha256>.stl`:
+Large binaries (STLs, 3MFs) sync to a DigitalOcean Space, every filename
+carrying the content hash so it is immutable by construction:
+
+```
+stl/<part>-<stl_id>-<hash8>.stl     render/<part>-<hash8>.png
+img/<name>-<hash8>.<ext>            plate/<name>-<hash8>.3mf
+```
+
+Public URLs are served through the asset worker at
+`https://img.basically.website/parts` (`PUBLIC_BASE` in `sync_bucket.py`); the
+bucket's own CDN endpoint still serves the same objects, so URLs in old commits
+never break. Pins are hashes, not URLs.
 
 ```
 python scripts/sync_bucket.py --dry-run   # report only
@@ -147,11 +172,16 @@ revision pin an `stl_hash` and stay retrievable indefinitely.
 
 ## Storage layout
 
-The only binaries in git are the AUTHORED sources: `slicer/parts/**` (STL
-masters, ~49 MB) and `slicer/plates/*.3mf`, plus the small generated PNGs the
-site wants at build time (`static/renders/`, `static/plate-thumbs/`).
+**NOTHING BINARY IS IN GIT. Not one file, authored or generated.** No STL, no
+3MF, no PNG, no zip, no render. `slicer/parts/`, `slicer/plates/`,
+`static/renders/` and `static/plate-thumbs/` do not exist — the history was
+rewritten on 2026-08-20 to remove them, taking the repo from 376 MB to under a
+megabyte packed. Do not recreate any of them, and do not "temporarily" commit a
+binary to get a build working.
 
-Everything served for download comes from the bucket, content-addressed:
+What git holds is JSON, code, site chrome (favicon, logo) and the DXF/SVG cut
+sources under `static/dxf*`. Everything else lives on the bucket and is pinned
+by hash from committed JSON:
 
 - each part's `stl` URL and the `all_parts_zip` bundle URL in
   `parts.generated.json` (the zip is staged under gitignored
@@ -167,10 +197,3 @@ bucket. Git history is never consulted for geometry, which is what made the
 2026-08 history rewrite (dropping the old `static/stl` serving copies and 30+
 committed revisions of `all-parts.zip`) safe. The pre-rewrite history is
 preserved read-only at `basicallysource/parts-calculator-archive`.
-
-## Known stale docs
-
-`README.md`'s three known errors were fixed when CI slicing landed: the
-bogus "STLs go to Git LFS automatically" line, the reference to
-`slicer/PARTS_CONTEXT.md` (terminology lives in `notes/TERMINOLOGY.md`),
-and the 4-item section list (there are 9 sections in `slicer/parts.json`).

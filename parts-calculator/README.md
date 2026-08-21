@@ -15,26 +15,36 @@ Two pieces:
    reads `used_g`, renders a thumbnail, copies the STL, and writes the data the
    site reads. Runs on your machine *or* in GitHub Actions
    (`.github/workflows/regen-parts.yml`), which is the canonical environment.
-   **It never runs on Vercel.**
+   **It never runs in the site build.**
 2. **SvelteKit app** (`src/`) — reads the generated data and does all the
-   color/layer math in the browser. Fully static; deploys to Vercel as-is.
+   color/layer math in the browser. Fully static; Cloudflare Pages builds it.
 
 ```
 slicer/
   parts.json            # manifest: every part, its section(s), qty, color role
-  parts/<section>/*.stl # source STLs (the known-good iteration)
+                        #   geometry is PINNED here by hash, never committed
   filament.py           # the local data-generation step
 src/lib/data/parts.generated.json   # GENERATED, committed — the app's input
-static/renders/*.png                # GENERATED, committed — thumbnails
 ```
+
+**Nothing binary is in git** — no STL, 3MF, PNG or zip. Every asset lives on
+the `sorter-v2-parts` bucket under a hash-bearing filename and is pinned from
+the JSON above. See [CLAUDE.md](CLAUDE.md#storage-layout).
 
 ## Updating parts
 
-1. Drop new STLs into `slicer/parts/<section>/` (sections: `feeder`,
+1. Upload the STL and take the pin it prints — it goes on the bucket, not
+   into the tree:
+
+   ```
+   python scripts/sync_bucket.py --upload ~/Downloads/new-part.stl
+   ```
+
+2. Add/edit entries in `slicer/parts.json` — set its `stl_hash` / `stl_id`
+   from step 1, plus `quantities`, `color` (a `role`, or `fixed`, or
+   `by_section`), and `optional`. Sections are `feeder`,
    `classification-channel`, `interface`, `chute`, `funnel`, `layer`,
-   `lazy-susan`, `bins`, `electronics`).
-2. Add/edit entries in `slicer/parts.json` — set `quantities`, `color`
-   (a `role`, or `fixed`, or `by_section`), and `optional`.
+   `lazy-susan`, `bins`, `electronics`.
 3. Commit and push on a branch, then open a PR. **You do not need OrcaSlicer.**
    CI slices what changed, renders thumbnails, uploads artifacts, and commits
    the regenerated data back to your branch.
@@ -55,28 +65,21 @@ supports, etc.); changing them re-slices the whole catalog. Terminology is in
 
 ### How long until the preview is right
 
-Every branch gets a Vercel preview URL. If your PR touched anything under
+Every branch gets a Cloudflare Pages preview URL. If your PR touched anything under
 `slicer/`, that preview is **wrong until CI finishes** — the app reads the
 committed `parts.generated.json`, not `parts.json`, so a changed part shows its
 old weight and old thumbnail (and a brand-new part is missing entirely) until
-the regen commit lands and Vercel rebuilds.
+the regen commit lands and Pages rebuilds.
 
-Measured on this repo (84 parts):
+The sequence for a parts change is: push → Pages builds your commit on **stale
+data** → CI regenerates and commits back → Pages rebuilds, correct. Budget
+minutes, not seconds. A PR touching nothing under `slicer/` skips regen
+entirely; a change to slicer settings or the pinned Orca version re-slices the
+whole catalog and takes several times longer than a single part.
 
-| What the PR changes | CI regen | Preview correct after |
-| --- | --- | --- |
-| Nothing under `slicer/` (UI, copy, docs) | not triggered | ~25 s |
-| One part's STL or `parts.json` entry | ~70 s | **~2 min** |
-| N parts | ~65 s + ~4 s each | ~2 min |
-| Slicer settings or the pinned Orca version | ~7 min (all parts) | ~7.5 min |
-
-The sequence for a parts change is: push → Vercel builds your commit (~25 s,
-**stale data**) → CI regenerates and commits back (~70 s) → Vercel rebuilds
-(~25 s, correct).
-
-**If you are automating this**, do not treat the first green Vercel check as
-done — CI moves the branch head underneath you. Wait for the `regen` check to
-succeed, then for the Vercel deployment on the *resulting* head SHA. Waiting on
+**If you are automating this**, do not treat the first green check as done — CI
+moves the branch head underneath you. Wait for the `regen` check to succeed,
+then for the deployment on the *resulting* head SHA. Waiting on
 "all checks green" is not reliable: a commit-back can leave a duplicate,
 never-executed run parked in `action_required` on the PR.
 
@@ -91,11 +94,10 @@ npm install
 npm run dev
 ```
 
-STLs/3mfs are committed as normal Git objects (not LFS) so Vercel serves the real files.
-
 ## Build plates
 
-Drop pre-arranged `.3mf` plates into `slicer/plates/` (auto-discovered). `filament.py`
+Upload pre-arranged `.3mf` plates with `scripts/sync_bucket.py --upload` and pin
+them in `slicer/plates.json`; they are not committed either. `filament.py`
 pulls each one's embedded plate previews and reads the parts it contains; downloads
 are served from the content-addressed bucket. To cross-link a plate's parts to the catalog, set a part's
 `source` field in `parts.json` to the part's original filename as it appears in the 3mf.

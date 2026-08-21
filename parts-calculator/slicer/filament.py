@@ -203,7 +203,11 @@ def render_url_for(stl_abs, hexcolor, out_png, force):
         legacy = re.fullmatch(r"([0-9a-f]{64})(\.\w+)", tail)
         if legacy:
             name = os.path.splitext(os.path.basename(out_png))[0]
-            return f"{PUBLIC_BASE}/{named_key('render', name, legacy.group(1), legacy.group(2))}"
+            tail = named_key('render', name, legacy.group(1), legacy.group(2)).rsplit("/", 1)[1]
+        # Backfill the committed memo from the build-cache one, so a machine
+        # that has rendered carries every URL it knows into git.
+        _render_urls[key] = tail
+        _render_urls_dirty = True
         return f"{PUBLIC_BASE}/render/{tail}"
     render(stl_abs, out_png, hexcolor)
     url = artifact_url(out_png, prefix="render")

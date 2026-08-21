@@ -6890,6 +6890,75 @@
 			"image": "https://img.basically.website/parts/img/hsi-m3-long-ae73fe6b.png"
 		},
 		{
+			"id": "hsi-m3s",
+			"kind": "cots",
+			"cots": {
+				"type": "heat-insert",
+				"size": "M3",
+				"variant": "short"
+			},
+			"name": "Ruthex M3S heat insert (short)",
+			"category": "Heat inserts",
+			"description": "ruthex RX-M3Sx4.0 brass heat-set threaded insert, the short M3. Servo adapter only; everywhere else takes the standard 5.7 mm M3.",
+			"note": "Servo adapter only. Count comes from the BOM sheet, not from the assembly tree -- the current adapter STLs show a self-tapping joint, so confirm before buying.",
+			"created_at": "2026-08-21",
+			"updated_at": "2026-08-21",
+			"attributes": [
+				{
+					"label": "Type",
+					"value": "Heat-set threaded insert"
+				},
+				{
+					"label": "Thread",
+					"value": "M3"
+				},
+				{
+					"label": "Length",
+					"value": "4.0 mm"
+				},
+				{
+					"label": "Material",
+					"value": "Brass"
+				},
+				{
+					"label": "Model",
+					"value": "ruthex RX-M3Sx4.0"
+				}
+			],
+			"sheet_qty": {
+				"per_layer": 4
+			},
+			"sheet_qty_text": null,
+			"stock": null,
+			"sourcing": {
+				"vendors": [
+					{
+						"region": "US",
+						"vendor": "Amazon (ruthex)",
+						"url": "https://www.amazon.com/dp/B09ZHSGHXD",
+						"affiliate_url": "https://www.amazon.com/dp/B09ZHSGHXD?tag=sorterv2-20",
+						"price": 9.99,
+						"pack_qty": 100,
+						"as_of": "2026-08-21"
+					},
+					{
+						"region": "EU",
+						"vendor": "ruthex",
+						"url": "https://www.ruthex.de/en/products/ruthex-gewindeeinsatz-m3s-100stuck-rx-m3x4-0-short-messing-gewindebuchsen-fur-3d-druck",
+						"price": 8.99,
+						"currency": "EUR",
+						"pack_qty": 100,
+						"as_of": "2026-08-21"
+					}
+				]
+			},
+			"alternative": null,
+			"caption": null,
+			"docs_page": null,
+			"conflicts": null,
+			"image": "https://img.basically.website/parts/img/hsi-m3s-bdb4c6b1.jpg"
+		},
+		{
 			"id": "hsi-m5-long",
 			"kind": "cots",
 			"cots": {

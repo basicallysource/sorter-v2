@@ -1,5 +1,5 @@
 {
-  "_comment": "Source-of-truth manifest. filament.py slices each STL once and writes ../src/lib/data/parts.generated.json + thumbnails + STL copies. Per part: id, name, category, description (short, shown in app), internal_notes (extended, agent-only, NOT emitted to the app), version, created_at, updated_at, stl_hash (sha256 pin of the master STL on the bucket; upload with scripts/sync_bucket.py --upload), quantity (per ONE instance of its category), color, optional. attributes (optional list of {label,value} shown in the app), versions (optional archetype history: list of {version,date,message,commit}; commit ties to a real git commit, null = pending an upcoming clean commit). low_tolerance (optional bool: part has little tolerance for dimensional error - a tight/precise fit - so a test print is worth doing) + low_tolerance_note (the specifics, shown in the app). color is one of {\"role\":\"<roleid>\"} (user-picked), {\"fixed\":\"<lego-id>\"}, {\"split\":[{\"color\":\"<lego-id>\",\"qty\":N},...]} (sums to quantity), or {\"any\":true}, or {\"by_section\":{\"<sectionid>\":<colorspec>,...}} (per-section color when a part lives in multiple sections). Machine = 1 of each non-scaling category + N of each scaling category. See ../notes/TERMINOLOGY.md. SCHEMA V2 (unified parts system, see ../notes/UNIFIED-PARTS-SYSTEM.md, incremental): a part may carry kind ('printed' when absent | 'cots'); cots parts have cots {type,size?,variant?}, category (display grouping on the hardware tab), note (builder-critical caveat from the BOM sheet), image (slicer-relative path, uploaded to the bucket by sync_bucket.py and served from there) OR image_url (an already-uploaded content-addressed bucket URL; BOM product images never touch git), sourcing {vendors:[{region,vendor,url,affiliate_url?,price,currency?,pack_qty?,as_of?,note?}]} (url is always the plain listing; affiliate_url is the same listing carrying the project's Amazon tag, mirroring the BOM sheet's 'US Source 1 with Affiliate' column — both are kept so a builder can choose) (price is USD unless currency says otherwise), and no stl/color/quantities. sheet_qty {per_machine|per_layer} / sheet_qty_text are TRANSITIONAL hand counts carried over from the BOM sheet; they die once these parts are placed as requires/lines in the tree. A printed part may carry requires [{part,qty}] = hardware committed to that single physical part (heat inserts, press-fit bearings); qty scales with the part automatically. An assembly may carry lines [{part|assembly, qty}] (qty is a number, or 'per-layer' = multiplied by the total layer count, or 'middle-layers' = layer count minus 2, the layers that sit between the top and bottom interfaces) and status 'stub' (placeholder, nothing inside yet) or 'partial' (some lines filled in) — these form the experimental machine tree rooted at the 'machine' assembly. A line may also reference a laser-cut part by id (e.g. 'top-plate'); those still live in src/lib/lasercut.ts and are resolved from there until §5.5 folds them into this manifest. Line ids are unique within an assembly: two joints that use the same screw are one merged line. Screws and other hardware that JOIN parts are lines of the assembly that makes the joint, never requires of either member (requires is only for hardware committed to one physical part). joining [{method,note}] records how the lines become one unit — 'solder'|'crimp'|'glue'|'press'|'self-tap' (screw cuts its own thread in printed plastic, no insert or nut) |'friction' (held by clamping force alone, e.g. jammed in an extrusion slot). A cots part that is cut from a bought length carries stock {unit_length_mm, cut_length_mm, pieces_per_unit, unit_label, piece_label}; its lines count PIECES and the app divides to get lengths to buy.",
+  "_comment": "Source-of-truth manifest. filament.py slices each STL once and writes ../src/lib/data/parts.generated.json + thumbnails + STL copies. Per part: id, name, category, description (short, shown in app), internal_notes (extended, agent-only, NOT emitted to the app), version, created_at, updated_at, stl_hash (sha256 pin of the master STL on the bucket; upload with scripts/sync_bucket.py --upload), quantity (per ONE instance of its category), color, optional. attributes (optional list of {label,value} shown in the app), versions (optional archetype history: list of {version,date,message,commit}; commit ties to a real git commit, null = pending an upcoming clean commit). low_tolerance (optional bool: part has little tolerance for dimensional error - a tight/precise fit - so a test print is worth doing) + low_tolerance_note (the specifics, shown in the app). color is one of {\"role\":\"<roleid>\"} (user-picked), {\"fixed\":\"<lego-id>\"}, {\"split\":[{\"color\":\"<lego-id>\",\"qty\":N},...]} (sums to quantity), or {\"any\":true}, or {\"by_section\":{\"<sectionid>\":<colorspec>,...}} (per-section color when a part lives in multiple sections). Machine = 1 of each non-scaling category + N of each scaling category. See ../notes/TERMINOLOGY.md. SCHEMA V2 (unified parts system, see ../notes/UNIFIED-PARTS-SYSTEM.md, incremental): a part may carry kind ('printed' when absent | 'cots'); cots parts have cots {type,size?,variant?}, category (display grouping on the hardware tab), note (builder-critical caveat from the BOM sheet), image (slicer-relative path, uploaded to the bucket by sync_bucket.py and served from there) OR image_url (an already-uploaded content-addressed bucket URL; BOM product images never touch git), sourcing {vendors:[{region,vendor,url,affiliate_url?,price,currency?,pack_qty?,as_of?,note?}]} (url is always the plain listing; affiliate_url is the same listing carrying the project's Amazon tag, mirroring the BOM sheet's 'US Source 1 with Affiliate' column — both are kept so a builder can choose) (price is USD unless currency says otherwise), and no stl/color/quantities. sheet_qty {per_machine|per_layer} / sheet_qty_text are TRANSITIONAL hand counts carried over from the BOM sheet; they die once these parts are placed as requires/lines in the tree. A printed part may carry requires [{part,qty}] = hardware committed to that single physical part (heat inserts, press-fit bearings); qty scales with the part automatically. An assembly may carry lines [{part|assembly, qty}] (qty is a number, or 'per-layer' = multiplied by the total layer count, or 'middle-layers' = layer count minus 2, the layers that sit between the top and bottom interfaces) and status 'stub' (placeholder, nothing inside yet) or 'partial' (some lines filled in) — these form the experimental machine tree rooted at the 'machine' assembly. A line may also reference a laser-cut part by id (e.g. 'top-plate'); those still live in src/lib/lasercut.ts and are resolved from there until §5.5 folds them into this manifest. Line ids are unique within an assembly: two joints that use the same screw are one merged line. Screws and other hardware that JOIN parts are lines of the assembly that makes the joint, never requires of either member (requires is only for hardware committed to one physical part). joining [{method,note}] records how the lines become one unit — 'solder'|'crimp'|'glue'|'press'|'self-tap' (screw cuts its own thread in printed plastic, no insert or nut) |'friction' (held by clamping force alone, e.g. jammed in an extrusion slot). A cots part that is cut from a bought length carries stock {unit_length_mm, cut_length_mm, pieces_per_unit, unit_label, piece_label}; its lines count PIECES and the app divides to get lengths to buy. MERGES/CONFLICTS (2026-08-21, docs catalog folded in): top-level merges [{id,date,sources,note}] records source-of-truth merger events. A part may carry conflicts [{merge,field,claims:[{source,value},...],note}] = an unresolved factual disagreement between the merged catalogs, kept as data on purpose and rendered as a badge on BOTH sites (docs parts-needed cards + calculator detail views); resolving one means fixing the disputed field against the physical machine and DELETING the conflict entry (git is the history). A part may also carry caption (small text under its docs parts-needed card) and docs_page (its docs detail page path; lets either site cross-link). The docs site renders its parts data from parts.generated.json -- docs/src/liquid/_data/parts.yml is deleted; this manifest is the only parts catalog.",
   "sections": [
     {
       "id": "feeder",
@@ -56,7 +56,11 @@
       "priority": "P2",
       "description": "Replace the current C-channel legs, feet, and leg extensions. These prototype parts work, but they are unstable and will be replaced with improved designs.",
       "targets": {
-        "parts": ["leg", "foot", "leg-extension"]
+        "parts": [
+          "leg",
+          "foot",
+          "leg-extension"
+        ]
       }
     },
     {
@@ -66,7 +70,9 @@
       "condition": "broken",
       "description": "Update the output guide so large pieces that are still within specification can pass through the C-channel exit.",
       "targets": {
-        "parts": ["output-guide"]
+        "parts": [
+          "output-guide"
+        ]
       }
     },
     {
@@ -75,8 +81,14 @@
       "priority": "P2",
       "description": "The camera extension was a prototype and needs to be made official. The finished design should also force the camera into the correct orientation.",
       "targets": {
-        "parts": ["camera-led-insert", "camera-extension", "camera-extension-mount"],
-        "assemblies": ["camera-extension"]
+        "parts": [
+          "camera-led-insert",
+          "camera-extension",
+          "camera-extension-mount"
+        ],
+        "assemblies": [
+          "camera-extension"
+        ]
       }
     },
     {
@@ -85,7 +97,9 @@
       "priority": "P2",
       "description": "Update the Camera & LED insert so the LED strips are mechanically retained instead of depending on their adhesive. Integrated clips would be a good approach.",
       "targets": {
-        "parts": ["camera-led-insert"]
+        "parts": [
+          "camera-led-insert"
+        ]
       }
     },
     {
@@ -95,8 +109,14 @@
       "condition": "broken",
       "description": "Improve the Mean Well 24V enclosure because the current cap can pop off too easily. Redesign the cap retention so it locks securely in place.",
       "targets": {
-        "parts": ["meanwell-psu-back-mount", "meanwell-psu-connections", "meanwell-psu-cap"],
-        "assemblies": ["meanwell-psu-box"]
+        "parts": [
+          "meanwell-psu-back-mount",
+          "meanwell-psu-connections",
+          "meanwell-psu-cap"
+        ],
+        "assemblies": [
+          "meanwell-psu-box"
+        ]
       }
     },
     {
@@ -108,7 +128,9 @@
       "completed_at": "2026-08-18",
       "description": "Added 0.2 mm clearance on every side of the horizontal aluminum spoke.",
       "targets": {
-        "parts": ["interface-bracket"]
+        "parts": [
+          "interface-bracket"
+        ]
       }
     },
     {
@@ -120,7 +142,9 @@
       "completed_at": "2026-08-18",
       "description": "Increased the dovetail clearance so the bulk cap slides onto the stator more easily and seats without excessive force.",
       "targets": {
-        "parts": ["bulk-cap"]
+        "parts": [
+          "bulk-cap"
+        ]
       }
     },
     {
@@ -129,7 +153,9 @@
       "priority": "P3",
       "description": "Make the screws for the vertical aluminum extrusion easier to install and remove the interface bracket's unnecessary bulk.",
       "targets": {
-        "parts": ["interface-bracket"]
+        "parts": [
+          "interface-bracket"
+        ]
       }
     },
     {
@@ -138,7 +164,9 @@
       "priority": "P3",
       "description": "Move the chute door to the other side so the flap closes the open funnel hole. This affects the chute as a whole and all of its parts.",
       "targets": {
-        "sections": ["chute"]
+        "sections": [
+          "chute"
+        ]
       }
     },
     {
@@ -147,7 +175,10 @@
       "priority": "P2",
       "description": "Redesign the left and right bin retainers to snap on and remove their screen holes. Each retainer currently uses two screws, two nuts, and two washers, so this could eliminate roughly 200 purchased pieces from a machine build.",
       "targets": {
-        "parts": ["bin-retainer-left", "bin-retainer-right"]
+        "parts": [
+          "bin-retainer-left",
+          "bin-retainer-right"
+        ]
       }
     },
     {
@@ -156,7 +187,9 @@
       "priority": "P3",
       "description": "It would be ideal to lock the overhead camera mount in place completely.",
       "targets": {
-        "assemblies": ["camera-mount"]
+        "assemblies": [
+          "camera-mount"
+        ]
       }
     },
     {
@@ -165,7 +198,12 @@
       "priority": "P3",
       "description": "Update the four printed parts in the top and bottom interface lazy-Susan joints from M4 to M5 countersunk screws and matching M5 heat-set inserts. The upper interface holes are currently too close together and should be corrected as part of the change.",
       "targets": {
-        "parts": ["interface-upper-fixed-section", "top-interface-split-spur-gear-3", "ls-mount-to-chute", "ls-bottom-static"]
+        "parts": [
+          "interface-upper-fixed-section",
+          "top-interface-split-spur-gear-3",
+          "ls-mount-to-chute",
+          "ls-bottom-static"
+        ]
       }
     },
     {
@@ -181,7 +219,9 @@
         }
       ],
       "targets": {
-        "lasercut": ["top-plate"]
+        "lasercut": [
+          "top-plate"
+        ]
       }
     },
     {
@@ -190,7 +230,9 @@
       "priority": "P4",
       "description": "The classification chamber can rotate out of place too easily. Even passing pieces can push it out of alignment, which shifts the camera detection zones. A more secure rotational lock would be a useful improvement.",
       "targets": {
-        "parts": ["classification-dome"]
+        "parts": [
+          "classification-dome"
+        ]
       }
     },
     {
@@ -199,7 +241,9 @@
       "priority": "P4",
       "description": "The interface spacer falls off the aluminum profile it slots into too easily. Improve its retention so it stays seated during handling and assembly.",
       "targets": {
-        "parts": ["interface-spacer"]
+        "parts": [
+          "interface-spacer"
+        ]
       }
     }
   ],
@@ -316,7 +360,8 @@
         ]
       },
       "optional": false,
-      "support": false
+      "support": false,
+      "caption": "The feeder channels' rotor."
     },
     {
       "id": "output-gear",
@@ -483,7 +528,8 @@
         "fixed": "ivory-white"
       },
       "optional": false,
-      "support": false
+      "support": false,
+      "caption": "Roughly a full print bed. Printed white."
     },
     {
       "id": "interface-bracket",
@@ -658,7 +704,10 @@
     {
       "id": "ls-mount-to-chute",
       "name": "Lazy Susan — chute mount",
-      "aliases": ["bottom interface lazy Susan chute mount", "bottom interface chute mount"],
+      "aliases": [
+        "bottom interface lazy Susan chute mount",
+        "bottom interface chute mount"
+      ],
       "description": "Bottom lazy Susan adapter that connects to the chute. White.",
       "internal_notes": "The adapter/connector that mounts to the chute. White. The rest of the lazy Susan is frame color. 4 M4 inserts; the other half of the bottom lazy Susan sandwich.",
       "version": "1",
@@ -684,7 +733,10 @@
     {
       "id": "ls-bottom-static",
       "name": "Lazy Susan — bottom static",
-      "aliases": ["bottom interface lazy Susan fixed section", "bottom interface fixed section"],
+      "aliases": [
+        "bottom interface lazy Susan fixed section",
+        "bottom interface fixed section"
+      ],
       "description": "Bottom lazy Susan static base.",
       "internal_notes": "Frame color. QUANTITY ASSUMED 1. 4 M4 inserts; the lazy Susan bolts through these to the chute mount.",
       "version": "1",
@@ -788,7 +840,8 @@
       "support": false,
       "low_tolerance": true,
       "low_tolerance_note": "A test print is suggested. This part is a tight fit around the 2020 aluminum profile, so print one first and confirm it seats properly before committing to the full set — dial in your printer and profile together.",
-      "onshape_version": "https://cad.onshape.com/documents/a4a1965bbaf3a15aff2b13ed/v/7279a42b05833c7b828efb0d/e/b0ee2e787191265cba1c1a31"
+      "onshape_version": "https://cad.onshape.com/documents/a4a1965bbaf3a15aff2b13ed/v/7279a42b05833c7b828efb0d/e/b0ee2e787191265cba1c1a31",
+      "docs_page": "/hardware/assembly/distribution/external-bracket/"
     },
     {
       "id": "ext-bracket-bottom-vertical",
@@ -811,7 +864,8 @@
       "optional": false,
       "support": false,
       "layer_scope": "non-bottom",
-      "onshape_version": "https://cad.onshape.com/documents/a4a1965bbaf3a15aff2b13ed/v/7279a42b05833c7b828efb0d/e/b0ee2e787191265cba1c1a31"
+      "onshape_version": "https://cad.onshape.com/documents/a4a1965bbaf3a15aff2b13ed/v/7279a42b05833c7b828efb0d/e/b0ee2e787191265cba1c1a31",
+      "docs_page": "/hardware/assembly/distribution/external-bracket/"
     },
     {
       "id": "ext-bracket-cover",
@@ -834,7 +888,8 @@
       "optional": false,
       "support": false,
       "layer_scope": "non-bottom",
-      "onshape_version": "https://cad.onshape.com/documents/a4a1965bbaf3a15aff2b13ed/v/7279a42b05833c7b828efb0d/e/b0ee2e787191265cba1c1a31"
+      "onshape_version": "https://cad.onshape.com/documents/a4a1965bbaf3a15aff2b13ed/v/7279a42b05833c7b828efb0d/e/b0ee2e787191265cba1c1a31",
+      "docs_page": "/hardware/assembly/distribution/external-bracket/"
     },
     {
       "id": "ext-bracket-foot-cover",
@@ -861,7 +916,9 @@
     {
       "id": "interface-upper-fixed-section",
       "name": "Interface upper fixed section",
-      "aliases": ["fixed upper section"],
+      "aliases": [
+        "fixed upper section"
+      ],
       "description": "Interface upper fixed section. 1 needed.",
       "internal_notes": "1 per interface. Frame color. Part of the fixed-upper-section assembly. v2 (2026-07-08): reshaped STL, now 35mm tall (was 33mm).",
       "version": "2",
@@ -1033,7 +1090,10 @@
     {
       "id": "interface-spur-gear",
       "name": "Chute stepper drive gear (2M 25T)",
-      "aliases": ["Interface spur gear", "Interface spur gear (2M 25T)"],
+      "aliases": [
+        "Interface spur gear",
+        "Interface spur gear (2M 25T)"
+      ],
       "description": "Drive gear for the chute stepper, 2M 25T. 1 needed.",
       "internal_notes": "1 per interface. Frame color.",
       "version": "1",
@@ -1053,7 +1113,10 @@
     {
       "id": "interface-idler-gear",
       "name": "Chute stepper idler gear (2M 25T)",
-      "aliases": ["Interface idler gear", "Interface idler gear (2M 25T)"],
+      "aliases": [
+        "Interface idler gear",
+        "Interface idler gear (2M 25T)"
+      ],
       "description": "Idler gear for the chute stepper, 2M 25T. 1 needed.",
       "internal_notes": "1 per interface. Frame color.",
       "version": "1",
@@ -1078,8 +1141,10 @@
     },
     {
       "id": "interface-nema23-bracket",
-      "name": "Chute Stepper NEMA 23 Bracket",
-      "aliases": ["Interface NEMA 23 bracket"],
+      "name": "Chute stepper NEMA 23 bracket",
+      "aliases": [
+        "Interface NEMA 23 bracket"
+      ],
       "description": "NEMA 23 motor bracket for the chute stepper. 1 needed.",
       "internal_notes": "1 per interface. Frame color. 5 M5 inserts: 4 take the NEMA 23's mounting screws, 1 more elsewhere on the bracket.",
       "version": "1",
@@ -1100,12 +1165,46 @@
           "part": "hsi-m5-long",
           "qty": 5
         }
+      ],
+      "conflicts": [
+        {
+          "merge": "docs-merge-2026-08-21",
+          "field": "requires",
+          "claims": [
+            {
+              "source": "docs",
+              "value": [
+                {
+                  "part": "hsi-m5-long",
+                  "qty": 6
+                },
+                {
+                  "part": "hsi-m3-long",
+                  "qty": 1
+                }
+              ]
+            },
+            {
+              "source": "parts-calculator",
+              "value": [
+                {
+                  "part": "hsi-m5-long",
+                  "qty": 5
+                }
+              ]
+            }
+          ],
+          "note": "Docs say 6x M5 + 1x M3 heat inserts; the calculator says 5x M5. Count them on the physical part."
+        }
       ]
     },
     {
       "id": "chute-stepper-idler-bearing-retainer-outer",
       "name": "Chute Stepper Idler Gear Bearing Retainer — Outer",
-      "aliases": ["Idler Gear Bearing Retainer - Outer", "idler bearing retainer"],
+      "aliases": [
+        "Idler Gear Bearing Retainer - Outer",
+        "idler bearing retainer"
+      ],
       "description": "Outer bearing-retainer ring for the chute stepper idler gear.",
       "internal_notes": "The larger of the two idler bearing retainer pieces supplied in the idler gear assembly export; approximately 37.9 mm across.",
       "version": "1",
@@ -1126,7 +1225,10 @@
     {
       "id": "chute-stepper-idler-bearing-retainer-inner",
       "name": "Chute Stepper Idler Gear Bearing Retainer — Inner",
-      "aliases": ["Idler Gear Bearing Retainer - Inner", "idler gear cap"],
+      "aliases": [
+        "Idler Gear Bearing Retainer - Inner",
+        "idler gear cap"
+      ],
       "description": "Inner bearing-retainer cap for the chute stepper idler gear.",
       "internal_notes": "The smaller of the two idler bearing retainer pieces supplied in the idler gear assembly export; approximately 13 mm across.",
       "version": "1",
@@ -1250,7 +1352,9 @@
     {
       "id": "top-interface-split-spur-gear-3",
       "name": "Top interface chute mount",
-      "aliases": ["chute core mount"],
+      "aliases": [
+        "chute core mount"
+      ],
       "description": "Section 3 of 3 of the top interface split spur gear (Spur 2M 120T).",
       "internal_notes": "Split spur gear for the top interface; the 3 sections print separately and assemble into one gear. Chute-core color. Carries 4× M4 inserts, plus 9× M3: 2 for the cable clamp, 2 for the layer connector, and 5 that the chute gear screws down into.",
       "version": "1",
@@ -1275,6 +1379,41 @@
         {
           "part": "hsi-m3-long",
           "qty": 9
+        }
+      ],
+      "conflicts": [
+        {
+          "merge": "docs-merge-2026-08-21",
+          "field": "requires",
+          "claims": [
+            {
+              "source": "docs",
+              "value": [
+                {
+                  "part": "hsi-m4",
+                  "qty": 4
+                },
+                {
+                  "part": "hsi-m3-long",
+                  "qty": 7
+                }
+              ]
+            },
+            {
+              "source": "parts-calculator",
+              "value": [
+                {
+                  "part": "hsi-m4",
+                  "qty": 4
+                },
+                {
+                  "part": "hsi-m3-long",
+                  "qty": 9
+                }
+              ]
+            }
+          ],
+          "note": "M3 heat insert count: docs say 7, the calculator says 9."
         }
       ]
     },
@@ -1350,7 +1489,29 @@
         "role": "chute-core"
       },
       "optional": false,
-      "support": false
+      "support": false,
+      "conflicts": [
+        {
+          "merge": "docs-merge-2026-08-21",
+          "field": "requires",
+          "claims": [
+            {
+              "source": "docs",
+              "value": [
+                {
+                  "part": "hsi-m3-long",
+                  "qty": 1
+                }
+              ]
+            },
+            {
+              "source": "parts-calculator",
+              "value": []
+            }
+          ],
+          "note": "Docs give the hammer one M3 heat insert; the calculator gives it none."
+        }
+      ]
     },
     {
       "id": "rotor-finned",
@@ -1369,7 +1530,8 @@
         "fixed": "ivory-white"
       },
       "optional": false,
-      "support": false
+      "support": false,
+      "caption": "The classification channel's rotor. Printed white."
     },
     {
       "id": "idler-gear",
@@ -1836,7 +1998,8 @@
       "color": {
         "fixed": "ivory-white"
       },
-      "optional": false
+      "optional": false,
+      "caption": "Printed white."
     },
     {
       "id": "camera-extension",
@@ -1875,7 +2038,8 @@
         "fixed": "ash-gray"
       },
       "optional": false,
-      "support": false
+      "support": false,
+      "caption": "50 mm extension tube for the 4K camera module."
     },
     {
       "id": "camera-extension-mount",
@@ -1998,7 +2162,8 @@
         "role": "funnel"
       },
       "optional": false,
-      "onshape_version": "https://cad.onshape.com/documents/a4a1965bbaf3a15aff2b13ed/v/353adf90e6a8a99bed6f90a5/e/8f720225506283b24c872672"
+      "onshape_version": "https://cad.onshape.com/documents/a4a1965bbaf3a15aff2b13ed/v/353adf90e6a8a99bed6f90a5/e/8f720225506283b24c872672",
+      "caption": "For a layer of 18 third bins."
     },
     {
       "id": "funnel-half",
@@ -2019,7 +2184,8 @@
         "role": "funnel"
       },
       "optional": false,
-      "onshape_version": "https://cad.onshape.com/documents/a4a1965bbaf3a15aff2b13ed/v/353adf90e6a8a99bed6f90a5/e/8f720225506283b24c872672"
+      "onshape_version": "https://cad.onshape.com/documents/a4a1965bbaf3a15aff2b13ed/v/353adf90e6a8a99bed6f90a5/e/8f720225506283b24c872672",
+      "caption": "For a layer of 12 half bins."
     },
     {
       "id": "bin-half-left",
@@ -2286,8 +2452,11 @@
           "value": "Countersunk (flat) socket"
         }
       ],
-      "sheet_qty": { "per_machine": 1 },
-      "note": "The ×1 is the top-interface count (limit-switch hammer). Screws used elsewhere on the machine aren't tallied here yet."
+      "sheet_qty": {
+        "per_machine": 1
+      },
+      "note": "The ×1 is the top-interface count (limit-switch hammer). Screws used elsewhere on the machine aren't tallied here yet.",
+      "image_url": "https://img.basically.website/web/parts/hardware/screws/countersunk.707eba7998554ea6.jpg"
     },
     {
       "id": "scr-m3-10-shcs",
@@ -2319,7 +2488,9 @@
           "value": "Socket head cap"
         }
       ],
-      "sheet_qty": { "per_machine": 3 },
+      "sheet_qty": {
+        "per_machine": 3
+      },
       "note": "The ×3 is the top-interface count (2 cable clamp, 1 ribbon clamp). Screws used elsewhere on the machine aren't tallied here yet."
     },
     {
@@ -2368,7 +2539,8 @@
             "as_of": "2026-07-18"
           }
         ]
-      }
+      },
+      "image_url": "https://img.basically.website/web/parts/hardware/screws/countersunk.707eba7998554ea6.jpg"
     },
     {
       "id": "scr-m3-12-cs",
@@ -2416,7 +2588,8 @@
             "as_of": "2026-07-18"
           }
         ]
-      }
+      },
+      "image_url": "https://img.basically.website/web/parts/hardware/screws/countersunk.707eba7998554ea6.jpg"
     },
     {
       "id": "scr-m3-20-cs",
@@ -2461,7 +2634,8 @@
             "pack_qty": 50
           }
         ]
-      }
+      },
+      "image_url": "https://img.basically.website/web/parts/hardware/screws/countersunk.707eba7998554ea6.jpg"
     },
     {
       "id": "scr-m3-16-shcs",
@@ -2643,7 +2817,8 @@
           "label": "Head",
           "value": "Countersunk (flat) socket"
         }
-      ]
+      ],
+      "image_url": "https://img.basically.website/web/parts/hardware/screws/m4-12mm-countersunk.eb3c4468cf87495d.jpg"
     },
     {
       "id": "scr-m5-12-shcs",
@@ -2823,7 +2998,24 @@
           }
         ]
       },
-      "image_url": "https://sorter-v2-parts.nyc3.cdn.digitaloceanspaces.com/img/cb2fdd72471816cef2a69bdd7775a1863cf4dea2d72a15a68a73deebb276164f.jpg"
+      "image_url": "https://sorter-v2-parts.nyc3.cdn.digitaloceanspaces.com/img/cb2fdd72471816cef2a69bdd7775a1863cf4dea2d72a15a68a73deebb276164f.jpg",
+      "conflicts": [
+        {
+          "merge": "docs-merge-2026-08-21",
+          "field": "name",
+          "claims": [
+            {
+              "source": "docs",
+              "value": "M5 × 35 mm socket head cap screw"
+            },
+            {
+              "source": "parts-calculator",
+              "value": "M5 × 35 mm flat head"
+            }
+          ],
+          "note": "Head type disagreement for the M5x35: docs show a socket head cap screw (with photo), the calculator says flat head countersunk."
+        }
+      ]
     },
     {
       "id": "scr-m5-8-cs",
@@ -2854,7 +3046,10 @@
         }
       ],
       "note": "A snug fit here, it barely reaches the T-nut. Opening the countersink a little and tightening firmly gets the head to sit flush. The ×6 is the top-interface count (1 per interface bracket); screws used elsewhere on the machine aren't tallied here yet.",
-      "sheet_qty": { "per_machine": 6 }
+      "sheet_qty": {
+        "per_machine": 6
+      },
+      "image_url": "https://img.basically.website/web/parts/hardware/screws/countersunk.707eba7998554ea6.jpg"
     },
     {
       "id": "scr-m5-22-cs",
@@ -2885,7 +3080,10 @@
         }
       ],
       "note": "The top plate's laser-cut holes aren't countersunk, so where a flush head won't seat an M5 × 20 button head is used instead. The ×14 is the top-interface count (2 to the top plate, 12 through the bracket holes); screws used elsewhere on the machine aren't tallied here yet.",
-      "sheet_qty": { "per_machine": 14 }
+      "sheet_qty": {
+        "per_machine": 14
+      },
+      "image_url": "https://img.basically.website/web/parts/hardware/screws/countersunk.707eba7998554ea6.jpg"
     },
     {
       "id": "scr-m5-shcs-tbd",
@@ -2952,7 +3150,9 @@
           "value": "Silver"
         }
       ],
-      "sheet_qty": { "per_machine": 1 },
+      "sheet_qty": {
+        "per_machine": 1
+      },
       "note": "The ×1 is the top-interface count (under the idler-gear screw). Washers used elsewhere on the machine aren't tallied here yet.",
       "image_url": "https://m.media-amazon.com/images/I/61Fizm2iCGL._SL1500_.jpg"
     },
@@ -2985,7 +3185,8 @@
           "label": "Finish",
           "value": "Silver"
         }
-      ]
+      ],
+      "image_url": "https://img.basically.website/web/parts/hardware/nuts/nut-m5.4a3db788bb1ca8a2.jpg"
     },
     {
       "id": "nut-m5",
@@ -3016,7 +3217,8 @@
           "label": "Finish",
           "value": "Silver"
         }
-      ]
+      ],
+      "image_url": "https://img.basically.website/web/parts/hardware/nuts/nut-m5.4a3db788bb1ca8a2.jpg"
     },
     {
       "id": "rod-steel-3-8",
@@ -3227,7 +3429,24 @@
           }
         ]
       },
-      "image_url": "https://sorter-v2-parts.nyc3.cdn.digitaloceanspaces.com/img/abb5a013d071379a34f8b65345b483627803f247627d4ef0a5d5816c5eff0d49.jpg"
+      "image_url": "https://sorter-v2-parts.nyc3.cdn.digitaloceanspaces.com/img/abb5a013d071379a34f8b65345b483627803f247627d4ef0a5d5816c5eff0d49.jpg",
+      "conflicts": [
+        {
+          "merge": "docs-merge-2026-08-21",
+          "field": "name",
+          "claims": [
+            {
+              "source": "docs",
+              "value": "M4 Ruthex heat insert (long)"
+            },
+            {
+              "source": "parts-calculator",
+              "value": "Ruthex M4 heat insert"
+            }
+          ],
+          "note": "Docs claim the M4 insert used is the LONG variant; the calculator does not say long. Check which is actually installed."
+        }
+      ]
     },
     {
       "id": "standoff-m3-10mm",
@@ -3318,7 +3537,7 @@
       "cots": {
         "type": "camera"
       },
-      "name": "IMX415 4k Camera Module",
+      "name": "IMX415 4K camera module",
       "category": "Cameras",
       "description": "Classification top camera",
       "created_at": "2026-07-18",
@@ -3384,7 +3603,7 @@
       "cots": {
         "type": "pulley"
       },
-      "name": "Timing Pulley - 20T 8mm shaft - 10mm belt",
+      "name": "Timing pulley (20T, 8 mm shaft, 10 mm belt)",
       "category": "Pulleys",
       "description": "Interface between stepper shaft and chute gear",
       "created_at": "2026-07-18",
@@ -3509,7 +3728,7 @@
       "cots": {
         "type": "stepper-motor"
       },
-      "name": "Nema 17 Stepper Motor",
+      "name": "NEMA 17 stepper motor",
       "category": "Motors",
       "description": "C-Channel and carousel drive motors",
       "created_at": "2026-07-18",
@@ -3543,7 +3762,7 @@
       "cots": {
         "type": "stepper-motor"
       },
-      "name": "Nema 23",
+      "name": "NEMA 23 stepper motor",
       "category": "Motors",
       "description": "Chute drive motor",
       "created_at": "2026-07-18",
@@ -3577,7 +3796,7 @@
       "cots": {
         "type": "servo"
       },
-      "name": "MG995 Servo",
+      "name": "MG995 servo",
       "category": "Motors",
       "description": "Standard Servo for flap (serial upgrade see note)",
       "created_at": "2026-07-18",
@@ -3649,7 +3868,7 @@
       "cots": {
         "type": "bearing"
       },
-      "name": "608 2RS",
+      "name": "608 2RS bearing",
       "category": "Bearings",
       "description": "Bearings for c-channel idler, chute idler, carousel arms",
       "created_at": "2026-07-18",
@@ -3769,7 +3988,8 @@
           "label": "Size",
           "value": "8\" / 200 mm"
         }
-      ]
+      ],
+      "docs_page": "/hardware/parts/lazy-susan/"
     },
     {
       "id": "sbc-orange-pi-5",
@@ -4412,6 +4632,106 @@
         ]
       },
       "image_url": "https://sorter-v2-parts.nyc3.cdn.digitaloceanspaces.com/img/b507a8b8e3f9fd8df63c5c66596bd8ba129158e6c1f56f35ef0173bca1174308.jpg"
+    },
+    {
+      "id": "ext-2020-ag",
+      "kind": "cots",
+      "cots": {
+        "type": "extrusion-2020"
+      },
+      "name": "Outer horizontal / Horizontal interface frame (A/G)",
+      "category": "Aluminum extrusion (2020)",
+      "description": "2020 aluminum extrusion, cut to 320 mm (pieces A and G).",
+      "created_at": "2026-08-21",
+      "updated_at": "2026-08-21",
+      "attributes": [
+        {
+          "label": "Cut length",
+          "value": "320 mm"
+        }
+      ],
+      "image_url": "https://img.basically.website/web/parts/extrusion/extrusion-2020.0691a894c8154731.png",
+      "caption": "2020 aluminum extrusion, cut to 320 mm (pieces A and G)."
+    },
+    {
+      "id": "ext-2020-bh",
+      "kind": "cots",
+      "cots": {
+        "type": "extrusion-2020"
+      },
+      "name": "Spoke / Interface spoke, short (B/H)",
+      "category": "Aluminum extrusion (2020)",
+      "description": "2020 aluminum extrusion, cut to 158 mm (pieces B and H).",
+      "created_at": "2026-08-21",
+      "updated_at": "2026-08-21",
+      "attributes": [
+        {
+          "label": "Cut length",
+          "value": "158 mm"
+        }
+      ],
+      "image_url": "https://img.basically.website/web/parts/extrusion/extrusion-2020.0691a894c8154731.png",
+      "caption": "2020 aluminum extrusion, cut to 158 mm (pieces B and H)."
+    },
+    {
+      "id": "ext-2020-c",
+      "kind": "cots",
+      "cots": {
+        "type": "extrusion-2020"
+      },
+      "name": "Layer vertical support (C)",
+      "category": "Aluminum extrusion (2020)",
+      "description": "2020 aluminum extrusion, cut to 154 mm (piece C).",
+      "created_at": "2026-08-21",
+      "updated_at": "2026-08-21",
+      "attributes": [
+        {
+          "label": "Cut length",
+          "value": "154 mm"
+        }
+      ],
+      "image_url": "https://img.basically.website/web/parts/extrusion/extrusion-2020.0691a894c8154731.png",
+      "caption": "2020 aluminum extrusion, cut to 154 mm (piece C)."
+    },
+    {
+      "id": "extrusion-e",
+      "kind": "cots",
+      "cots": {
+        "type": "extrusion-2020"
+      },
+      "name": "Interface spoke, long (E)",
+      "category": "Aluminum extrusion (2020)",
+      "description": "2020 aluminum extrusion, cut to 238 mm (piece E).",
+      "created_at": "2026-08-21",
+      "updated_at": "2026-08-21",
+      "attributes": [
+        {
+          "label": "Cut length",
+          "value": "238 mm"
+        }
+      ],
+      "image_url": "https://img.basically.website/web/parts/top-interface/extrusion-e.bce3a0752b0f99f5.png",
+      "caption": "2020 aluminum extrusion, cut to 238 mm (piece E)."
+    },
+    {
+      "id": "extrusion-f",
+      "kind": "cots",
+      "cots": {
+        "type": "extrusion-2020"
+      },
+      "name": "Interface vertical support (F)",
+      "category": "Aluminum extrusion (2020)",
+      "description": "2020 aluminum extrusion, cut to 274 mm (piece F).",
+      "created_at": "2026-08-21",
+      "updated_at": "2026-08-21",
+      "attributes": [
+        {
+          "label": "Cut length",
+          "value": "274 mm"
+        }
+      ],
+      "image_url": "https://img.basically.website/web/parts/top-interface/extrusion-f.7e1f6b2dc9e069f7.png",
+      "caption": "2020 aluminum extrusion, cut to 274 mm (piece F)."
     }
   ],
   "assemblies": [
@@ -5482,6 +5802,17 @@
       },
       "image_url": "https://sorter-v2-parts.nyc3.cdn.digitaloceanspaces.com/img/3731dab3df874778f0dd2d4a36771a2e3266dfae609cab95ce5bf1abe3f177fb.jpg",
       "image_credit": "uxcell M3 hex nut listing (amazon.com/dp/B07H3T4859), cropped"
+    }
+  ],
+  "merges": [
+    {
+      "id": "docs-merge-2026-08-21",
+      "date": "2026-08-21",
+      "sources": [
+        "parts-calculator",
+        "docs"
+      ],
+      "note": "Unified the docs parts.yml catalog and this manifest into one source of truth. Conflicts referencing this merge were NOT hashed out at merge time: each records both catalogs' claims and is a TODO to resolve against the physical machine."
     }
   ]
 }

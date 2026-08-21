@@ -527,6 +527,11 @@ def build_hardware(manifest):
             # button head, etc.): true for a bare "Alternative" tag, or a string
             # naming the alternative. Renders the blue "A" badge in the app.
             "alternative": p.get("alternative"),
+            "caption": p.get("caption"),
+            "docs_page": p.get("docs_page"),
+            # Unresolved cross-catalog disagreement from a source-of-truth
+            # merge (see manifest `merges`); both sites badge it.
+            "conflicts": p.get("conflicts"),
             # Product images live only on the bucket, authored as a pinned URL.
             # They deliberately never touch git.
             "image": p.get("image_url"),
@@ -623,6 +628,9 @@ def main():
                 "low_tolerance_note": source.get("low_tolerance_note"),
                 "layer_scope": source.get("layer_scope", "all"),
                 "requires": source.get("requires", []),
+                "caption": source.get("caption"),
+                "docs_page": source.get("docs_page"),
+                "conflicts": source.get("conflicts"),
                 "stl": old["stl"], "render": old["render"],
             })
         data["parts"] = refreshed
@@ -632,6 +640,7 @@ def main():
         data["assemblies"] = manifest.get("assemblies", [])
         data["hardware"] = build_hardware(manifest)
         data["families"] = build_families(manifest)
+        data["merges"] = manifest.get("merges", [])
         json.dump(data, open(DATA_OUT, "w"), indent="\t")
         print(f"refreshed authored metadata in {DATA_OUT}")
         return
@@ -707,6 +716,9 @@ def main():
             "low_tolerance_note": p.get("low_tolerance_note"),
             "layer_scope": p.get("layer_scope", "all"),
             "requires": p.get("requires", []),
+            "caption": p.get("caption"),
+            "docs_page": p.get("docs_page"),
+            "conflicts": p.get("conflicts"),
             "stl": f"{PUBLIC_BASE}/stl/{p['stl_hash']}.stl",
             "render": render_url,
         })
@@ -758,6 +770,7 @@ def main():
         "assemblies": manifest.get("assemblies", []),
         "parts": out_parts,
         "hardware": hardware,
+        "merges": manifest.get("merges", []),
     }
     json.dump(data, open(DATA_OUT, "w"), indent="\t")
 

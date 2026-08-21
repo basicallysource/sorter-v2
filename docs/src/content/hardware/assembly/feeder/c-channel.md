@@ -115,6 +115,8 @@ Turn the stage by hand before wiring it. The train should run without a tight sp
 
 Two of the C-channels carry a light post, which bolts to this unit's NEMA bracket with 2 {% include fastener.html size="M3" variant="countersunk" length="20" %} screws that thread straight into the printed post.
 
+The post, its cap, the cap adapter and the COB plate have their own page: [light post]({{ '/hardware/assembly/feeder/light-post/' | relative_url }}).
+
 <div class="callout callout-warning">
   <span class="callout-icon" aria-hidden="true">⚠</span>
   <p><b>The C-channel COB light boards need a current-limiting resistor.</b> <b>220&#8486;, 1/4 W, in series, one per board.</b> Wired straight to 24V a 50 mm COB plate pulls about 0.5A and melts its printed mount. A board fed from a basically board v1.3 LED header already has one on the board. Full detail: <a href="{{ '/hardware/electronics/#43--leds-from-basically-board-v13' | relative_url }}">LEDs, on the wire harness page</a>.</p>

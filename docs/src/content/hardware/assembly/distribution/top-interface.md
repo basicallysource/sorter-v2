@@ -98,8 +98,10 @@ parts_needed:
     qty: 4
   - part: scr-m4-12-cs
     qty: 8
+  - part: scr-m3-35-fhcs
+    qty: 1
   - part: scr-m3-35-bhcs
-    qty: 2
+    qty: 1
   - part: scr-m3-10-shcs
     qty: 3
   - part: scr-m3-12-cs
@@ -401,7 +403,9 @@ Push a 608 2RS bearing into the Interface idler gear.
 
 Push the idler gear onto the Interface NEMA 23 bracket with the bearing facing outwards.
 
-Slide an M3 × 15 mm washer onto an {% include fastener.html size="M3" variant="socket-button" length="35" %} screw, then drive that screw through the bearing and into the bracket. The washer sits between the screw head and the outer face of the bearing, spanning its 8 mm bore: the screw head on its own is narrower than the bore and drops down inside it, so the washer is what actually holds the idler gear onto the bracket. Tighten until the washer is seated, then check that the idler gear still spins freely.
+Slide an M3 × 15 mm washer onto an {% include fastener.html size="M3" variant="flat" length="35" %} screw, then drive that screw through the bearing and into the bracket. The washer sits between the screw head and the outer face of the bearing, spanning its 8 mm bore: the screw head on its own is narrower than the bore and drops down inside it, so the washer is what actually holds the idler gear onto the bracket. Tighten until the washer is seated, then check that the idler gear still spins freely.
+
+The head has to be a low one here. A socket or button head stands proud enough that the Limit switch hammer can catch on it as the chute sweeps past, so use a flat (pancake) head, or a pan head if that is what you have.
 
 Slot the NEMA 23 onto the Interface NEMA 23 bracket and secure it with four {% include fastener.html size="M5" variant="socket-button" length="12" %} screws.
 

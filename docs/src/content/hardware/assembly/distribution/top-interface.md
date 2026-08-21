@@ -477,7 +477,7 @@ Check that the chute can rotate fully to the limit switch in both directions, th
     loading="lazy"></iframe>
 </div>
 
-Place the Cable cage bottom over the Top interface chute mount. Use 6 {% include fastener.html size="M5" variant="socket" length="35" %} screws and {% include fastener.html size="M5" variant="nut" %}s to clamp the Cable cage bottom, Cable cage top, and Cable cage brackets together.
+Place the Cable cage bottom over the Top interface chute mount. Use 6 {% include fastener.html size="M5" variant="flat" length="35" %} screws and {% include fastener.html size="M5" variant="nut" %}s to clamp the Cable cage bottom, Cable cage top, and Cable cage brackets together.
 
 After this step the chute should still rotate to each of its limits.
 

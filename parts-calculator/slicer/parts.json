@@ -3075,6 +3075,7 @@
         "length_mm": 35
       },
       "name": "M5 × 35 mm flat head",
+      "internal_notes": "Flat (pancake) head, hex socket, confirmed by barthel 2026-08-21: \"The m3x35mm must be a flat hat screw like in calculator\" (the M5 x 35 is the only 35 mm screw the two catalogs disagreed about; the M3 x 35 was already settled as flat head in #356). The docs catalog had called it a socket head cap screw; that claim is dropped and the docs prose now says flat head. Resolves the last docs-merge-2026-08-21 conflict.",
       "category": "Screws",
       "description": "The long screws that stack the cable cage together, and that bolt the plywood top plate down onto the interface brackets.",
       "created_at": "2026-07-18",
@@ -3118,24 +3119,7 @@
           }
         ]
       },
-      "image_url": "https://img.basically.website/parts/img/scr-m5-35-fhcs-cb2fdd72.jpg",
-      "conflicts": [
-        {
-          "merge": "docs-merge-2026-08-21",
-          "field": "name",
-          "claims": [
-            {
-              "source": "docs",
-              "value": "M5 × 35 mm socket head cap screw"
-            },
-            {
-              "source": "parts-calculator",
-              "value": "M5 × 35 mm flat head"
-            }
-          ],
-          "note": "Head type disagreement for the M5x35: docs show a socket head cap screw (with photo), the calculator says flat head countersunk."
-        }
-      ]
+      "image_url": "https://img.basically.website/parts/img/scr-m5-35-fhcs-cb2fdd72.jpg"
     },
     {
       "id": "scr-m5-8-cs",

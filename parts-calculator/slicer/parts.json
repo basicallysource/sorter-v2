@@ -2566,6 +2566,7 @@
       },
       "name": "M3 × 8 mm socket/button head",
       "category": "Screws",
+      "alternative": "Socket or button head",
       "description": "Clamps the C-channel input gear (12T) to the flat of the NEMA 17 shaft. 1 per C-channel.",
       "created_at": "2026-08-21",
       "updated_at": "2026-08-21",
@@ -2580,10 +2581,10 @@
         },
         {
           "label": "Head",
-          "value": "Socket head cap"
+          "value": "Socket or button head, interchangeable (both bottom on the counterbore floor, so either just clamps)"
         }
       ],
-      "note": "Head type and length measured off the input-gear STL: the boss carries a \u00d82.80 mm hole parallel to the shaft, 3.61 mm off the axis, opening into the \u00d84.87 mm bore; the head sits in a \u00d86.40 mm \u00d7 2.7 mm counterbore, which is a cap-head counterbore rather than a countersink. At 8 mm the head seats and about 6 mm of thread is left in the plastic."
+      "note": "Head type and length measured off the input-gear STL: the boss carries a \u00d82.80 mm hole parallel to the shaft, 3.61 mm off the axis, opening into the \u00d84.87 mm bore; the head sits in a round \u00d86.40 mm \u00d7 2.7 mm counterbore with a 90\u00b0 cone at the bottom, which is a flat-bottomed head seat rather than a countersink. A socket cap head (\u00d85.5 \u00d7 3.0) bottoms on that floor and stands about 0.3 mm proud; a button head (\u00d85.7 \u00d7 1.65) bottoms on the same floor about 1 mm below flush, so either clamps. At 8 mm the head seats and about 6 mm of thread is left in the plastic."
     },
     {
       "id": "scr-m3-12-cs",

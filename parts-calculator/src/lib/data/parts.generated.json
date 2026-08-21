@@ -1091,7 +1091,7 @@
 		{
 			"id": "c-channel",
 			"name": "C-channel drive",
-			"description": "One C-channel drive unit: stator, NEMA bracket, output gear, gear train and stepper. 4 per machine \u2014 3 in the feeder plus the classification channel's. Screw joints: 4 \u00d7 [[hw:scr-m3-12-cs]] hold the NEMA bracket to the stator; 3 \u00d7 [[hw:scr-m3-16-shcs]] hold the stepper to the NEMA bracket; 5 \u00d7 [[hw:scr-m3-8-cs]] attach the output gear to the rotor (the light post's 2 \u00d7 [[hw:scr-m3-20-cs]] into the NEMA bracket live on the light-post assembly). The rotor differs by location (faceted in the feeder, finned in the classification chamber), so it is not part of this node.",
+			"description": "One C-channel drive unit: stator, NEMA bracket, output gear, gear train and stepper. 4 per machine \u2014 3 in the feeder plus the classification channel's. Screw joints: 4 \u00d7 [[hw:scr-m3-12-cs]] hold the NEMA bracket to the stator; 3 \u00d7 [[hw:scr-m3-16-shcs]] hold the stepper to the NEMA bracket; 1 \u00d7 [[hw:scr-m3-8-shcs]] clamps the input gear to the motor shaft flat; 6 \u00d7 [[hw:scr-m3-8-cs]] attach the output gear to the rotor, one per spoke (the light post's 2 \u00d7 [[hw:scr-m3-20-cs]] into the NEMA bracket live on the light-post assembly). The rotor differs by location (faceted in the feeder, finned in the classification chamber), so it is not part of this node.",
 			"docs": "/hardware/assembly/feeder/c-channel/",
 			"status": "partial",
 			"lines": [
@@ -1129,7 +1129,11 @@
 				},
 				{
 					"part": "scr-m3-8-cs",
-					"qty": 5
+					"qty": 6
+				},
+				{
+					"part": "scr-m3-8-shcs",
+					"qty": 1
 				}
 			]
 		},
@@ -2006,7 +2010,7 @@
 			"support_grams": 9.29,
 			"support_used": true,
 			"support_intentional": false,
-			"print_seconds": 23628,
+			"print_seconds": 23618,
 			"color": {
 				"role": "chute-core"
 			},
@@ -2969,15 +2973,15 @@
 					"commit": "8bf567e",
 					"stl": "https://img.basically.website/parts/stl/cable-clamp-outer-50dv-dd778421.stl",
 					"render": "https://img.basically.website/parts/render/cable-clamp-outer-f11a3bd4.png",
-					"grams": 19.76
+					"grams": 19.77
 				}
 			],
 			"attributes": [],
-			"grams": 19.76,
-			"support_grams": 6.97,
+			"grams": 19.77,
+			"support_grams": 6.9,
 			"support_used": true,
 			"support_intentional": true,
-			"print_seconds": 3555,
+			"print_seconds": 3549,
 			"color": {
 				"role": "chute-core"
 			},
@@ -5947,6 +5951,45 @@
 			"docs_page": null,
 			"conflicts": null,
 			"image": "https://img.basically.website/web/parts/hardware/screws/countersunk.707eba7998554ea6.jpg"
+		},
+		{
+			"id": "scr-m3-8-shcs",
+			"kind": "cots",
+			"cots": {
+				"type": "screw",
+				"size": "M3",
+				"variant": "socket",
+				"length_mm": 8
+			},
+			"name": "M3 \u00d7 8 mm socket head",
+			"category": "Screws",
+			"description": "Clamps the C-channel input gear (12T) to the flat of the NEMA 17 shaft. 1 per C-channel.",
+			"note": "Head type and length measured off the input-gear STL: the boss carries a \u00d82.80 mm hole parallel to the shaft, 3.61 mm off the axis, opening into the \u00d84.87 mm bore; the head sits in a \u00d86.40 mm \u00d7 2.7 mm counterbore, which is a cap-head counterbore rather than a countersink. At 8 mm the head seats and about 6 mm of thread is left in the plastic.",
+			"created_at": "2026-08-21",
+			"updated_at": "2026-08-21",
+			"attributes": [
+				{
+					"label": "Thread",
+					"value": "M3"
+				},
+				{
+					"label": "Length",
+					"value": "8 mm"
+				},
+				{
+					"label": "Head",
+					"value": "Socket head cap"
+				}
+			],
+			"sheet_qty": null,
+			"sheet_qty_text": null,
+			"stock": null,
+			"sourcing": null,
+			"alternative": null,
+			"caption": null,
+			"docs_page": null,
+			"conflicts": null,
+			"image": null
 		},
 		{
 			"id": "scr-m3-12-cs",

@@ -2634,6 +2634,36 @@
       "image_url": "https://img.basically.website/web/parts/hardware/screws/countersunk.707eba7998554ea6.jpg"
     },
     {
+      "id": "scr-m3-8-shcs",
+      "kind": "cots",
+      "cots": {
+        "type": "screw",
+        "size": "M3",
+        "variant": "socket",
+        "length_mm": 8
+      },
+      "name": "M3 × 8 mm socket head",
+      "category": "Screws",
+      "description": "Clamps the C-channel input gear (12T) to the flat of the NEMA 17 shaft. 1 per C-channel.",
+      "created_at": "2026-08-21",
+      "updated_at": "2026-08-21",
+      "attributes": [
+        {
+          "label": "Thread",
+          "value": "M3"
+        },
+        {
+          "label": "Length",
+          "value": "8 mm"
+        },
+        {
+          "label": "Head",
+          "value": "Socket head cap"
+        }
+      ],
+      "note": "Head type and length measured off the input-gear STL: the boss carries a \u00d82.80 mm hole parallel to the shaft, 3.61 mm off the axis, opening into the \u00d84.87 mm bore; the head sits in a \u00d86.40 mm \u00d7 2.7 mm counterbore, which is a cap-head counterbore rather than a countersink. At 8 mm the head seats and about 6 mm of thread is left in the plastic."
+    },
+    {
       "id": "scr-m3-12-cs",
       "kind": "cots",
       "cots": {
@@ -5640,7 +5670,7 @@
     {
       "id": "c-channel",
       "name": "C-channel drive",
-      "description": "One C-channel drive unit: stator, NEMA bracket, output gear, gear train and stepper. 4 per machine — 3 in the feeder plus the classification channel's. Screw joints: 4 × [[hw:scr-m3-12-cs]] hold the NEMA bracket to the stator; 3 × [[hw:scr-m3-16-shcs]] hold the stepper to the NEMA bracket; 5 × [[hw:scr-m3-8-cs]] attach the output gear to the rotor (the light post's 2 × [[hw:scr-m3-20-cs]] into the NEMA bracket live on the light-post assembly). The rotor differs by location (faceted in the feeder, finned in the classification chamber), so it is not part of this node.",
+      "description": "One C-channel drive unit: stator, NEMA bracket, output gear, gear train and stepper. 4 per machine — 3 in the feeder plus the classification channel's. Screw joints: 4 × [[hw:scr-m3-12-cs]] hold the NEMA bracket to the stator; 3 × [[hw:scr-m3-16-shcs]] hold the stepper to the NEMA bracket; 1 × [[hw:scr-m3-8-shcs]] clamps the input gear to the motor shaft flat; 6 × [[hw:scr-m3-8-cs]] attach the output gear to the rotor, one per spoke (the light post's 2 × [[hw:scr-m3-20-cs]] into the NEMA bracket live on the light-post assembly). The rotor differs by location (faceted in the feeder, finned in the classification chamber), so it is not part of this node.",
       "docs": "/hardware/assembly/feeder/c-channel/",
       "status": "partial",
       "lines": [
@@ -5678,7 +5708,11 @@
         },
         {
           "part": "scr-m3-8-cs",
-          "qty": 5
+          "qty": 6
+        },
+        {
+          "part": "scr-m3-8-shcs",
+          "qty": 1
         }
       ]
     },

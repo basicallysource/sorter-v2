@@ -1409,15 +1409,15 @@
 					"commit": null,
 					"stl": "https://img.basically.website/parts/stl/323b2d1f94a5440119359498de7c7f706d4b32f4c54bec45e88b94c53064279b.stl",
 					"render": "https://img.basically.website/parts/render/02ab8b46abb514e96061673c1e078413ab62446e6ef76dde456eadd168d0db95.png",
-					"grams": 175.75
+					"grams": 175.52
 				}
 			],
 			"attributes": [],
-			"grams": 175.75,
-			"support_grams": 23.07,
+			"grams": 175.52,
+			"support_grams": 23.42,
 			"support_used": true,
 			"support_intentional": true,
-			"print_seconds": 16023,
+			"print_seconds": 16014,
 			"color": {
 				"by_section": {
 					"feeder": {
@@ -2942,7 +2942,7 @@
 					"stl_hash": "34485f41055e82d098984ed49824fd0f93f471dac62ea86e6b83cf87482bf9fd",
 					"render": "https://img.basically.website/parts/render/ca79ce549550b61de0afa3125c96733aba074e0e06e1062daa672d3c1a6ea826.png",
 					"stl": "https://img.basically.website/parts/stl/34485f41055e82d098984ed49824fd0f93f471dac62ea86e6b83cf87482bf9fd.stl",
-					"grams": 19.77
+					"grams": 19.76
 				},
 				{
 					"version": "2",
@@ -8565,17 +8565,6 @@
 			"image": "https://img.basically.website/web/parts/top-interface/extrusion-f.7e1f6b2dc9e069f7.png"
 		}
 	],
-	"merges": [
-		{
-			"id": "docs-merge-2026-08-21",
-			"date": "2026-08-21",
-			"sources": [
-				"parts-calculator",
-				"docs"
-			],
-			"note": "Unified the docs parts.yml catalog and this manifest into one source of truth. Conflicts referencing this merge were NOT hashed out at merge time: each records both catalogs' claims and is a TODO to resolve against the physical machine."
-		}
-	],
 	"lasercut": [
 		{
 			"id": "cable-cage-top",
@@ -8642,6 +8631,17 @@
 				"stock": "672.4 \u00d7 776.4 mm rectangle (26 15/32\u2033 \u00d7 30 9/16\u2033)",
 				"tools": "jigsaw \u00b7 drill \u00b7 tape measure"
 			}
+		}
+	],
+	"merges": [
+		{
+			"id": "docs-merge-2026-08-21",
+			"date": "2026-08-21",
+			"sources": [
+				"parts-calculator",
+				"docs"
+			],
+			"note": "Unified the docs parts.yml catalog and this manifest into one source of truth. Conflicts referencing this merge were NOT hashed out at merge time: each records both catalogs' claims and is a TODO to resolve against the physical machine."
 		}
 	]
 }

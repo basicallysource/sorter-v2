@@ -57,8 +57,8 @@ parts_needed:
 The bottom two layers are two ordinary bin layers built at the same time, because the vertical extrusion between them is one continuous piece per corner instead of one per layer. That piece is the machine's leg: the caster screws into the bottom of it, so running it up through the bottom layer and into the second gives the wheel something much stiffer to push against than a single layer's worth of extrusion would.
 
 <figure>
-  <img class="doc-figure" src="https://img.basically.website/web/assembly/bottom-two-layers/frame-on-casters.e335e00b93578e94.jpg" alt="The bottom of a built machine: two bin-frame layers on six swivel casters, with the extrusion legs running up past the bottom frame into the second">
-  <figcaption>The bottom two layers standing on their casters, before the rest of the tower goes on. Photo courtesy of Christoph in the basically Discord.</figcaption>
+  <img class="doc-figure" src="https://img.basically.website/web/assembly/bottom-two-layers/frame-on-casters.e335e00b93578e94.jpg" alt="The bottom of a built machine: two bin-frame layers on six swivel casters, with the extrusion legs running up past the bottom frame into the second, and the start of a third layer's hexagon ring above them">
+  <figcaption>The bottom two layers on their casters. The hexagon ring at the top is the next layer starting, not part of these two, so this is about two and a half layers of machine. Photo courtesy of Christoph in the basically Discord.</figcaption>
 </figure>
 
 Everything else about these two layers is the same as any other. Build each one with the [regular layers]({{ '/hardware/assembly/distribution/bin-frame/regular-layers/' | relative_url }}) guide and come back here for the parts that differ, which are only the verticals, the corners at floor level, and the feet.

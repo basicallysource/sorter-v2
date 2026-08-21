@@ -26,6 +26,8 @@ parts_needed:
     qty: 8
   - part: scr-m4-12-cs
     qty: 8
+  - part: ext-2020-bh
+    qty: 3
   - part: scr-m5-16-shcs
     qty: 3
 ---
@@ -179,4 +181,4 @@ Each mount then fixes to the frame through the two 5.5 mm M5 clearance holes alo
 
 The order the three mounts go on around the ring is not recorded either.
 
-The 2020 extrusion itself is not in the parts list above, because its length depends on your layer count. Every cut piece in the machine comes off the [framing cut list](https://parts-calculator.basically.website/framing).
+The extrusion the mounts fix to is **piece B/H (Spoke)**, the same 158 mm cut a regular layer uses. The three here stand in for three of that layer's six B/H spokes rather than being extra pieces, so the cut list for the machine does not change. Every cut length is on the [framing cut list](https://parts-calculator.basically.website/framing).

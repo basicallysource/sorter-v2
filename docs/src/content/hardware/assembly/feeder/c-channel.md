@@ -8,16 +8,20 @@ kicker: Feeder — C-Channel
 lede: The C-channel stage itself.
 permalink: /hardware/assembly/feeder/c-channel/
 author: spencer
-contributors: [barthel]
+contributors: [barthel, brickcyclealice]
 warning: >-
-  **AI-generated first draft.** Written from the machine assembly tree in the [parts
-  calculator](https://parts-calculator.basically.website/assembly?focus=c-channel), not from
-  an actual build. No step here has been checked against a machine. Correct it as you build.
+  **Steps 1 to 4 come from a build**, the order of operations and the photographs are
+  BrickCycleAlice's. Step 5, the light post, is still an AI-generated first draft written
+  from the machine assembly tree in the [parts
+  calculator](https://parts-calculator.basically.website/assembly?focus=c-channel) and has
+  not been checked against a machine. Correct it as you build.
 parts_needed:
   - part: stator
     qty: 1
   - part: nema-bracket
     qty: 1
+  - part: rotor-faceted
+  - part: rotor-finned
   - part: output-gear
     qty: 1
   - part: idler-gear
@@ -35,41 +39,63 @@ parts_needed:
   - part: scr-m3-16-shcs
     qty: 3
   - part: scr-m3-8-cs
-    qty: 5
+    qty: 6
 ---
 
-A C-channel is one drive unit: a stator, the NEMA bracket bolted under it, a gear train, and a NEMA 17 stepper.
+A C-channel is one drive unit: a rotor turning inside a stator, driven through a gear train by a NEMA 17 stepper on a bracket underneath.
 
 The fasteners and quantities are in the parts list above and are called out inline at each step.
 
 {% include fastener-legend.html %}
 
-- **Build 4 per machine**, three in the feeder and one for the classification channel.
-- The rotor is **not** part of this unit, because it differs by where the C-channel goes: the three feeder channels take the faceted rotor, the classification channel takes the finned one. Colour differs too, the feeder parts are charcoal and the classification-channel parts are ash grey.
+- **Build 4 per machine**, three in the feeder and one for the classification channel. It is the same build four times over, and the rotor is the only thing that changes.
+- **One rotor per unit.** The three feeder channels take the Rotor (faceted); the classification channel takes the Rotor (finned), the one with the fins in the photographs below. A machine therefore needs three faceted and one finned, which is why the parts list above gives no count for either. Colour changes with it too: the feeder parts are charcoal, the classification-channel ones ash grey.
 - No heat inserts on this assembly. The screws thread into the printed parts and into the stepper's own tapped holes.
 - Two of the four channels also carry a light post, whose screws belong to the light post rather than to the list above.
 
-{% include step.html n="1" title="Press the gear bearings" %}
+{% include step.html n="1" title="Bolt the output gear to the rotor" %}
 
-Press a 6806-2RS bearing into the Output gear (130T) and a 608-2RS bearing into the Idler gear (24T). Both are press fits, no screws and no adhesive.
+Press a 6806-2RS bearing into the Output gear (130T). It is a press fit, no screws and no adhesive.
 
-<div class="img-placeholder">Image coming</div>
+Then bolt the gear onto the underside of the rotor with 6 {% include fastener.html size="M3" variant="countersunk" length="8" %} screws, one at the outer end of each spoke, seated flush in the countersinks.
 
-{% include step.html n="2" title="Bolt the NEMA bracket to the stator" %}
+<figure>
+  <img class="doc-figure" src="https://img.basically.website/web/assembly/c-channel/output-gear-bolted-to-rotor.71754b0d6ad3bd9a.jpg" alt="The grey 130-tooth output gear with a black-sealed 6806 bearing pressed into its centre, bolted onto a white rotor behind it, with a countersunk screw at the outer end of each of the six spokes">
+  <figcaption>Output gear, bearing pressed in, bolted to a rotor. Six screws, one per spoke.</figcaption>
+</figure>
+
+{% include step.html n="2" title="Fit the input gear to the motor shaft" %}
+
+The Input gear (12T, screw) has a hole through its boss for the screw that clamps it to the motor shaft. Line that hole up with the flat on the NEMA 17's shaft, push the gear all the way on, then tighten the screw down onto the flat.
+
+<figure>
+  <img class="doc-figure" src="https://img.basically.website/web/assembly/c-channel/input-gear-on-motor-shaft.3c0339a7ab383445.jpg" alt="A black NEMA 17 stepper motor lying on its side with the small grey 12-tooth input gear pushed fully onto its shaft, the clamping screw visible in the side of the gear boss">
+  <figcaption>Pushed fully onto the shaft, clamp screw bearing on the flat.</figcaption>
+</figure>
+
+{% include step.html n="3" title="Fit the idler gear and the stepper to the NEMA bracket" %}
+
+Press a 608-2RS bearing into the Idler gear (24T), another press fit. Drop the gear onto its post on the NEMA bracket **with the bearing facing up**.
+
+Then fasten the NEMA 17 to the bracket with 3 {% include fastener.html size="M3" variant="socket-button" length="16" %} screws. Three, not four: one corner of the motor face is left free. The input gear meshes with the idler as the motor goes down.
+
+<figure>
+  <img class="doc-figure" src="https://img.basically.website/web/assembly/c-channel/idler-gear-and-motor-on-nema-bracket.51305bc394aeafbc.jpg" alt="The three-armed grey NEMA bracket seen from above, with the 24-tooth idler gear sitting on its post with the 608 bearing uppermost, the stepper motor bolted to the outer end of the bracket, and the raised hub at the centre of the bracket">
+  <figcaption>Idler on its post, bearing up, with the stepper bolted on beside it.</figcaption>
+</figure>
+
+{% include step.html n="4" title="Mount the stator, then drop in the rotor" %}
 
 Fasten the NEMA bracket to the underside of the stator with 4 {% include fastener.html size="M3" variant="countersunk" length="12" %} screws.
 
-{% include step.html n="3" title="Mount the stepper" %}
-
-Fasten the NEMA 17 to the NEMA bracket with 3 {% include fastener.html size="M3" variant="socket" length="16" %} screws. Three, not four: one corner of the motor face is left free.
-
-Fit the Input gear (12T, screw) onto the motor shaft. It has a vertical screw hole for the grub screw that clamps it to the flat of the shaft.
-
-{% include step.html n="4" title="Fit the gear train and the output gear" %}
-
-Set the Idler gear (24T) between the input gear and the output gear, then attach the Output gear (130T) to the rotor with 5 {% include fastener.html size="M3" variant="countersunk" length="8" %} screws.
+Then lower the rotor, output gear and all, onto the raised hub in the middle of the bracket, so the 130T comes down into mesh with the idler.
 
 Turn the stage by hand before wiring it. The train should run without a tight spot anywhere in a full revolution.
+
+<figure>
+  <img class="doc-figure" src="https://img.basically.website/web/assembly/c-channel/stator-and-rotor-fitted.e77448962bc1f578.jpg" alt="A finished C-channel seen from above: the white finned classification rotor sitting inside the grey stator ring, with the stepper motor projecting from the right-hand side">
+  <figcaption>The finished stage, here the classification one with the finned rotor.</figcaption>
+</figure>
 
 {% include step.html n="5" title="Fit the light post, on the channels that take one" %}
 

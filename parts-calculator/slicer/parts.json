@@ -4829,6 +4829,24 @@
       "caption": "2020 aluminum extrusion, cut to 154 mm (piece C)."
     },
     {
+      "id": "ext-2020-d",
+      "kind": "cots",
+      "cots": {
+        "type": "extrusion-2020",
+        "length_mm": 231
+      },
+      "name": "Foot extension (D)",
+      "category": "Aluminum extrusion (2020)",
+      "description": "2020 aluminum extrusion, cut to 231 mm (piece D). Replaces piece C on the bottom two layers: one D per corner runs from the caster up through the bottom layer to the second, so 6 per machine.",
+      "created_at": "2026-08-21",
+      "updated_at": "2026-08-21",
+      "sheet_qty": {
+        "per_machine": 6
+      },
+      "image_url": "https://img.basically.website/web/parts/extrusion/extrusion-2020.0691a894c8154731.png",
+      "caption": "2020 aluminum extrusion, cut to 231 mm (piece D)."
+    },
+    {
       "id": "extrusion-e",
       "kind": "cots",
       "cots": {

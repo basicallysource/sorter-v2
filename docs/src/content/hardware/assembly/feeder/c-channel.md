@@ -21,7 +21,7 @@ parts_needed:
   - part: nema-bracket
     qty: 1
   - part: rotor-faceted
-    qty: 3
+    qty: 1
   - part: rotor-finned
     qty: 1
   - part: output-gear
@@ -52,8 +52,8 @@ The fasteners and quantities are in the parts list above and are called out inli
 
 {% include fastener-legend.html %}
 
-- **Build 4 per machine**, three in the feeder and one for the classification channel. It is the same build four times over, and the rotor is the only thing that changes.
-- **One rotor per unit**, and it is the only part that changes between them. The three feeder channels take the Rotor (faceted); the classification channel takes the Rotor (finned), the one with the fins in the photographs below. The counts in the parts list are per machine for those two and per unit for everything else. Colour changes with the rotor too: the feeder parts are charcoal, the classification-channel ones ash grey.
+- **Build 4 per machine**, three in the feeder and one for the classification channel. It is the same build four times over, and the rotor is the only thing that changes. **The parts list above is one unit's worth**, so multiply it by four for a whole machine, or read the machine totals off the [parts calculator](https://parts-calculator.basically.website/assembly?focus=c-channel).
+- **One rotor per unit, and only one of the two.** The three feeder channels take the Rotor (faceted); the classification channel takes the Rotor (finned), the one with the fins in the photographs below. Both are listed above because either can be the one you need; across a machine it is three faceted and one finned. Colour changes with the rotor too: the feeder parts are charcoal, the classification-channel ones ash grey.
 - No heat inserts on this assembly. The screws thread into the printed parts and into the stepper's own tapped holes.
 - Two of the four channels also carry a light post, whose screws belong to the light post rather than to the list above.
 

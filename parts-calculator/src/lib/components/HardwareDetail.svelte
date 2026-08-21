@@ -1,4 +1,5 @@
 <script lang="ts">
+	import ConflictNotice from '$lib/components/ConflictNotice.svelte';
 	import AssemblyDescription from '$lib/components/AssemblyDescription.svelte';
 	import Badge from '$lib/components/Badge.svelte';
 	import { copyText } from '$lib/clipboard';
@@ -81,6 +82,8 @@
 		}
 	}
 </script>
+
+<ConflictNotice conflicts={hardware.conflicts} />
 
 {#key hardware.id}
 	{@const h = hardware}

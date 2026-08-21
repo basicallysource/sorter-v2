@@ -12,6 +12,7 @@
 	import Badge from '$lib/components/Badge.svelte';
 	import HardwareIcon from '$lib/components/HardwareIcon.svelte';
 	import AlternativeBadge from '$lib/components/AlternativeBadge.svelte';
+	import ConflictBadge from '$lib/components/ConflictBadge.svelte';
 	import Callout from '$lib/components/Callout.svelte';
 	import LayerControl from '$lib/components/LayerControl.svelte';
 	import HardwareDetailModal from '$lib/components/HardwareDetailModal.svelte';
@@ -333,6 +334,7 @@
 				<h3 class="flex items-center gap-1.5 text-sm font-semibold text-text">
 						<HardwareIcon hw={h} />{h.name}
 							<AlternativeBadge value={h.alternative} />
+							<ConflictBadge conflicts={h.conflicts} />
 						<!-- Placed in the assembly tree, so the modal can say where it goes.
 						     A quiet mark rather than a badge: it holds for most rows, and the
 						     row's own content is what people are scanning for. -->

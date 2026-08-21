@@ -1,4 +1,5 @@
 <script lang="ts">
+	import ConflictNotice from '$lib/components/ConflictNotice.svelte';
 	import StlViewer from '$lib/components/StlViewer.svelte';
 	import ColorPicker from '$lib/components/ColorPicker.svelte';
 	import DownloadButton from '$lib/components/DownloadButton.svelte';
@@ -45,6 +46,8 @@
 		}
 	}
 </script>
+
+<ConflictNotice conflicts={part.conflicts} />
 
 {#key part.id}
 	{@const vers = [...(part.versions ?? [])].reverse()}

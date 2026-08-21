@@ -146,6 +146,20 @@ export type Stock = {
 /** A COTS (off-the-shelf) part: no STL, carries sourcing instead.
  *  sheet_qty/sheet_qty_text are transitional hand counts from the BOM sheet,
  *  kept until each part is placed as requires/lines in the assembly tree. */
+/** An unresolved factual disagreement between merged parts catalogs (see the
+ *  manifest's `merges`): each claim is one source's version of the disputed
+ *  field. Kept as data on purpose and badged in the UI until someone settles
+ *  it against the physical machine and deletes the entry in parts.json. */
+export type CatalogConflict = {
+	merge: string;
+	field: string;
+	claims: { source: string; value: unknown }[];
+	note?: string | null;
+};
+
+/** A recorded catalog-merger event that conflicts point at via `merge`. */
+export type CatalogMerge = { id: string; date: string; sources: string[]; note?: string };
+
 export type Hardware = {
 	id: string;
 	kind: 'cots';
@@ -165,6 +179,9 @@ export type Hardware = {
 	// Marks a part that has an interchangeable alternative (e.g. socket vs button
 	// head). `true` = a bare "Alternative" tag; a string names the alternative.
 	alternative?: string | boolean | null;
+	caption?: string | null; // small text under this part's docs parts-needed card
+	docs_page?: string | null; // its docs-site detail page, when one exists
+	conflicts?: CatalogConflict[] | null;
 };
 
 /** A part's color is exactly one of these shapes. `by_section` lets a part that
@@ -224,6 +241,9 @@ export type Part = {
 	// or the bottom layer only (for bottom-layer-swapped parts like the foot cover)
 	layer_scope?: 'all' | 'non-bottom' | 'bottom-only';
 	requires?: Requirement[]; // hardware committed to this physical part
+	caption?: string | null; // small text under this part's docs parts-needed card
+	docs_page?: string | null; // its docs-site detail page, when one exists
+	conflicts?: CatalogConflict[] | null;
 	stl: string;
 	render: string;
 };
@@ -255,6 +275,7 @@ export const FOLDERS = ((raw as Record<string, unknown>).folders ?? []) as Folde
 export const COLOR_ROLES = raw.color_roles as ColorRoleDef[];
 export const ASSEMBLIES = (raw.assemblies ?? []) as Assembly[];
 export const PARTS = raw.parts as unknown as Part[];
+export const MERGES = ((raw as Record<string, unknown>).merges ?? []) as CatalogMerge[];
 export function plannedChangesFor(kind: ChangeTargetKind, id: string): PlannedChange[] {
 	return CHANGES.filter((change) => {
 		if (change.status === 'complete') return false;

@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { BookOpen, Download, ExternalLink, ShoppingCart, Zap } from 'lucide-svelte';
 	import AlternativeBadge from '$lib/components/AlternativeBadge.svelte';
+	import ConflictBadge from '$lib/components/ConflictBadge.svelte';
 	import AssemblyDescription from '$lib/components/AssemblyDescription.svelte';
 	import Badge from '$lib/components/Badge.svelte';
 	import Callout from '$lib/components/Callout.svelte';
@@ -118,6 +119,7 @@
 					<div class="flex items-center gap-1.5 text-xs font-semibold text-text">
 						<HardwareIcon {hw} size={14} /><span class="truncate">{hw.name}</span>
 						<AlternativeBadge value={hw.alternative} size={14} />
+						<ConflictBadge conflicts={hw.conflicts} size={14} />
 					</div>
 				</div>
 				<div class="text-right text-xs tabular-nums text-text">
@@ -142,6 +144,7 @@
 		<div class="flex min-w-0 flex-1 items-center gap-1.5 text-xs font-semibold text-text">
 			<HardwareIcon {hw} size={14} /><span class="truncate">{hw.name}</span>
 			<AlternativeBadge value={hw.alternative} size={14} />
+						<ConflictBadge conflicts={hw.conflicts} size={14} />
 		</div>
 		<div class="text-right text-xs tabular-nums text-text">
 			<div class="font-semibold">×{each}</div>
@@ -319,6 +322,7 @@
 							<div class="flex items-center gap-1.5 text-sm font-semibold text-text">
 								<HardwareIcon hw={t.hw} size={16} /><span class="truncate">{t.hw.name}</span>
 								<AlternativeBadge value={t.hw.alternative} size={16} />
+								<ConflictBadge conflicts={t.hw.conflicts} size={16} />
 							</div>
 							<p class="mt-0.5 text-xs text-text-muted">{t.hw.description}</p>
 						</div>

@@ -613,6 +613,15 @@ def main():
     duplicate_ids = sorted({part_id for part_id in part_ids if part_ids.count(part_id) > 1})
     if duplicate_ids:
         sys.exit(f"duplicate part id(s): {duplicate_ids}")
+    # stl_ids are minted randomly (sync_bucket.mint_stl_id) with no global
+    # check, so enforce uniqueness here: a duplicate would make an id grep in
+    # parts.json ambiguous, which is the one job the id has. Re-mint on hit.
+    stl_ids = [x for part in manifest["parts"]
+               for x in ([part.get("stl_id")] +
+                         [v.get("stl_id") for v in part.get("versions") or []]) if x]
+    duplicate_sids = sorted({x for x in stl_ids if stl_ids.count(x) > 1})
+    if duplicate_sids:
+        sys.exit(f"duplicate stl_id(s): {duplicate_sids} -- mint a fresh one")
     check_hardware_refs(manifest, set(part_ids))
     if args.metadata_only:
         if not os.path.exists(DATA_OUT):

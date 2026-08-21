@@ -14,6 +14,10 @@ parts_needed:
     qty: 1
   - part: servo-adapter-flap-side
     qty: 1
+  - part: hsi-m3s
+    qty: 4
+  - part: scr-m3-6-cs
+    qty: 4
 ---
 
 The door module is made up of:
@@ -25,9 +29,25 @@ The door module is made up of:
 
 ## Servo adapter
 
-The servo output couples to the door through a **two-piece servo adapter**, servo side and flap side, listed above. The two halves bolt together with 4 countersunk M3 screws on a bolt circle they share.
+The servo output couples to the door through a **two-piece servo adapter**, servo side and flap side. The two halves share a bolt circle of four holes and bolt together through it.
+
+{% include fastener-legend.html %}
+
+{% include step.html n="1" title="Preparation" %}
+
+Press the heat inserts in while both halves are still loose, before anything is bolted together. See [installing heat inserts]({{ '/hardware/helpers/heat-inserts/' | relative_url }}) for the technique.
+
+<div class="prep-item">
+  <div class="prep-item-body">
+    <p><strong>Servo adapter:</strong> 4 × {% include fastener.html size="M3" variant="heat-insert" text="M3 short heat-set insert (ruthex RX-M3Sx4.0)" %}, per the BOM. <strong>Check your own printed halves before you press any</strong>, and read the warning below.</p>
+  </div>
+</div>
 
 <div class="callout callout-warning">
   <span class="callout-icon" aria-hidden="true">⚠</span>
-  <p><strong>Do not press heat inserts into the adapter without checking your own parts first.</strong> The BOM lists 4 short M3 inserts (ruthex RX-M3Sx4.0) per adapter, but the adapter models published here do not have a pocket for one: the flap side has four 4.0 mm bores through a 5.0 mm wall with a 90° countersink on the back face, and the servo side has four blind 2.8 mm holes, 4.0 mm deep, with solid material behind them. That is a self-tapping joint, screw straight into plastic. Until somebody confirms it against a built adapter, treat the insert count in the parts calculator as unverified.</p>
+  <p><strong>This joint is not confirmed against a built machine.</strong> The BOM lists 4 short M3 inserts (ruthex RX-M3Sx4.0) per adapter, but the adapter models published here have no pocket that clearly takes one: the flap side has four 4.0 mm bores through a 5.0 mm wall with a 90° countersink on the back face, and the servo side has four blind 2.8 mm holes, 4.0 mm deep, with solid material behind them. Read as printed, that is a countersunk screw self-tapping straight into plastic, with no insert anywhere, and on that reading an M3 × 6 mm screw only bites about 1 mm. Treat both the insert count and the screw length here as unverified until somebody checks a built adapter.</p>
 </div>
+
+{% include step.html n="2" title="Join the two halves" %}
+
+Bolt the flap side to the servo side with 4 {% include fastener.html size="M3" variant="countersunk" length="6" %} screws through the shared bolt circle, heads into the countersinks on the flap side.

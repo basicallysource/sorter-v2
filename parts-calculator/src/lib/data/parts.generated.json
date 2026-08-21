@@ -1256,7 +1256,7 @@
 					"qty": 4
 				},
 				{
-					"part": "hsi-m3-long",
+					"part": "hsi-m3",
 					"qty": 4
 				},
 				{
@@ -1280,7 +1280,7 @@
 					"qty": 4
 				},
 				{
-					"part": "hsi-m3-long",
+					"part": "hsi-m3",
 					"qty": 4
 				},
 				{
@@ -1906,7 +1906,7 @@
 			"layer_scope": "all",
 			"requires": [
 				{
-					"part": "hsi-m5-long",
+					"part": "hsi-m5",
 					"qty": 3
 				}
 			],
@@ -1993,7 +1993,7 @@
 			"support_grams": 9.29,
 			"support_used": true,
 			"support_intentional": false,
-			"print_seconds": 23648,
+			"print_seconds": 23591,
 			"color": {
 				"role": "chute-core"
 			},
@@ -2005,7 +2005,7 @@
 			"layer_scope": "all",
 			"requires": [
 				{
-					"part": "hsi-m3-long",
+					"part": "hsi-m3",
 					"qty": 18
 				}
 			],
@@ -2349,7 +2349,7 @@
 			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 7480,
+			"print_seconds": 7422,
 			"color": {
 				"role": "frame"
 			},
@@ -2947,7 +2947,7 @@
 					"stl_id": "03l5",
 					"render": "https://img.basically.website/parts/render/cable-clamp-outer-v1-ca79ce54.png",
 					"stl": "https://img.basically.website/parts/stl/cable-clamp-outer-03l5-34485f41.stl",
-					"grams": 19.76
+					"grams": 19.77
 				},
 				{
 					"version": "2",
@@ -2956,15 +2956,15 @@
 					"commit": "8bf567e",
 					"stl": "https://img.basically.website/parts/stl/cable-clamp-outer-50dv-dd778421.stl",
 					"render": "https://img.basically.website/parts/render/cable-clamp-outer-f11a3bd4.png",
-					"grams": 19.76
+					"grams": 19.77
 				}
 			],
 			"attributes": [],
-			"grams": 19.76,
-			"support_grams": 6.97,
+			"grams": 19.77,
+			"support_grams": 6.9,
 			"support_used": true,
 			"support_intentional": true,
-			"print_seconds": 3555,
+			"print_seconds": 3549,
 			"color": {
 				"role": "chute-core"
 			},
@@ -3133,7 +3133,7 @@
 			"layer_scope": "all",
 			"requires": [
 				{
-					"part": "hsi-m5-long",
+					"part": "hsi-m5",
 					"qty": 5
 				}
 			],
@@ -3148,11 +3148,11 @@
 							"source": "docs",
 							"value": [
 								{
-									"part": "hsi-m5-long",
+									"part": "hsi-m5",
 									"qty": 6
 								},
 								{
-									"part": "hsi-m3-long",
+									"part": "hsi-m3",
 									"qty": 1
 								}
 							]
@@ -3161,7 +3161,7 @@
 							"source": "parts-calculator",
 							"value": [
 								{
-									"part": "hsi-m5-long",
+									"part": "hsi-m5",
 									"qty": 5
 								}
 							]
@@ -3364,7 +3364,7 @@
 			"layer_scope": "all",
 			"requires": [
 				{
-					"part": "hsi-m3-long",
+					"part": "hsi-m3",
 					"qty": 1
 				}
 			],
@@ -3564,7 +3564,7 @@
 					"qty": 4
 				},
 				{
-					"part": "hsi-m3-long",
+					"part": "hsi-m3",
 					"qty": 9
 				}
 			],
@@ -3583,7 +3583,7 @@
 									"qty": 4
 								},
 								{
-									"part": "hsi-m3-long",
+									"part": "hsi-m3",
 									"qty": 7
 								}
 							]
@@ -3596,7 +3596,7 @@
 									"qty": 4
 								},
 								{
-									"part": "hsi-m3-long",
+									"part": "hsi-m3",
 									"qty": 9
 								}
 							]
@@ -3697,7 +3697,7 @@
 			"layer_scope": "all",
 			"requires": [
 				{
-					"part": "hsi-m3-long",
+					"part": "hsi-m3",
 					"qty": 2
 				}
 			],
@@ -3759,7 +3759,7 @@
 							"source": "docs",
 							"value": [
 								{
-									"part": "hsi-m3-long",
+									"part": "hsi-m3",
 									"qty": 1
 								}
 							]
@@ -4106,7 +4106,7 @@
 			"layer_scope": "all",
 			"requires": [
 				{
-					"part": "hsi-m3-long",
+					"part": "hsi-m3",
 					"qty": 4
 				}
 			],
@@ -4158,7 +4158,7 @@
 			"layer_scope": "all",
 			"requires": [
 				{
-					"part": "hsi-m3-long",
+					"part": "hsi-m3",
 					"qty": 3
 				}
 			],
@@ -4210,7 +4210,7 @@
 			"layer_scope": "all",
 			"requires": [
 				{
-					"part": "hsi-m3-long",
+					"part": "hsi-m3",
 					"qty": 3
 				}
 			],
@@ -4497,7 +4497,7 @@
 			"layer_scope": "all",
 			"requires": [
 				{
-					"part": "hsi-m3-long",
+					"part": "hsi-m3",
 					"qty": 6
 				}
 			],
@@ -6824,14 +6824,13 @@
 			"image": "https://img.basically.website/parts/img/rod-steel-3-8-b0c74a7f.jpg"
 		},
 		{
-			"id": "hsi-m3-long",
+			"id": "hsi-m3",
 			"kind": "cots",
 			"cots": {
 				"type": "heat-insert",
-				"size": "M3",
-				"variant": "long"
+				"size": "M3"
 			},
-			"name": "Ruthex M3 heat insert (long)",
+			"name": "Ruthex M3 heat insert",
 			"category": "Heat inserts",
 			"description": "ruthex RX-M3x5.7 brass heat-set threaded insert. The default M3 insert anywhere one is called for.",
 			"note": null,
@@ -6847,8 +6846,8 @@
 					"value": "M3"
 				},
 				{
-					"label": "Variant",
-					"value": "Long (5.7 mm)"
+					"label": "Length",
+					"value": "5.7 mm"
 				},
 				{
 					"label": "Material",
@@ -6888,19 +6887,87 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"image": "https://img.basically.website/parts/img/hsi-m3-long-ae73fe6b.png"
+			"image": "https://img.basically.website/parts/img/hsi-m3-db828502.jpg"
 		},
 		{
-			"id": "hsi-m5-long",
+			"id": "hsi-m3s",
 			"kind": "cots",
 			"cots": {
 				"type": "heat-insert",
-				"size": "M5",
-				"variant": "long"
+				"size": "M3",
+				"variant": "short"
 			},
-			"name": "Ruthex M5 heat insert (long)",
+			"name": "Ruthex M3S heat insert (short)",
 			"category": "Heat inserts",
-			"description": "The default M5 insert anywhere one is called for.",
+			"description": "ruthex RX-M3Sx4.0 brass heat-set threaded insert, the short M3. Servo adapter only; everywhere else takes the standard 5.7 mm M3.",
+			"note": "Servo adapter only. Count comes from the BOM sheet, not from the assembly tree -- the current adapter STLs show a self-tapping joint, so confirm before buying.",
+			"created_at": "2026-08-21",
+			"updated_at": "2026-08-21",
+			"attributes": [
+				{
+					"label": "Type",
+					"value": "Heat-set threaded insert"
+				},
+				{
+					"label": "Thread",
+					"value": "M3"
+				},
+				{
+					"label": "Length",
+					"value": "4.0 mm"
+				},
+				{
+					"label": "Material",
+					"value": "Brass"
+				},
+				{
+					"label": "Model",
+					"value": "ruthex RX-M3Sx4.0"
+				}
+			],
+			"sheet_qty": {
+				"per_layer": 4
+			},
+			"sheet_qty_text": null,
+			"stock": null,
+			"sourcing": {
+				"vendors": [
+					{
+						"region": "US",
+						"vendor": "Amazon (ruthex)",
+						"url": "https://www.amazon.com/dp/B09ZHSGHXD",
+						"affiliate_url": "https://www.amazon.com/dp/B09ZHSGHXD?tag=sorterv2-20",
+						"price": 9.99,
+						"pack_qty": 100,
+						"as_of": "2026-08-21"
+					},
+					{
+						"region": "EU",
+						"vendor": "ruthex",
+						"url": "https://www.ruthex.de/en/products/ruthex-gewindeeinsatz-m3s-100stuck-rx-m3x4-0-short-messing-gewindebuchsen-fur-3d-druck",
+						"price": 8.99,
+						"currency": "EUR",
+						"pack_qty": 100,
+						"as_of": "2026-08-21"
+					}
+				]
+			},
+			"alternative": null,
+			"caption": null,
+			"docs_page": null,
+			"conflicts": null,
+			"image": "https://img.basically.website/parts/img/hsi-m3s-bdb4c6b1.jpg"
+		},
+		{
+			"id": "hsi-m5",
+			"kind": "cots",
+			"cots": {
+				"type": "heat-insert",
+				"size": "M5"
+			},
+			"name": "Ruthex M5 heat insert",
+			"category": "Heat inserts",
+			"description": "ruthex RX-M5x9.5 brass heat-set threaded insert. The default M5 insert anywhere one is called for.",
 			"note": null,
 			"created_at": "2026-07-18",
 			"updated_at": "2026-07-18",
@@ -6914,8 +6981,8 @@
 					"value": "M5"
 				},
 				{
-					"label": "Variant",
-					"value": "Long (9.5 mm)"
+					"label": "Length",
+					"value": "9.5 mm"
 				},
 				{
 					"label": "Material",
@@ -6946,7 +7013,7 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"image": "https://img.basically.website/parts/img/hsi-m5-long-796e9076.jpg"
+			"image": "https://img.basically.website/parts/img/hsi-m5-796e9076.jpg"
 		},
 		{
 			"id": "hsi-m4",
@@ -6957,7 +7024,7 @@
 			},
 			"name": "Ruthex M4 heat insert",
 			"category": "Heat inserts",
-			"description": "Lazy Susan mount only.",
+			"description": "ruthex RX-M4x8.1 brass heat-set threaded insert. The only M4 insert in the machine.",
 			"note": null,
 			"created_at": "2026-07-18",
 			"updated_at": "2026-07-18",
@@ -7002,23 +7069,7 @@
 			"alternative": null,
 			"caption": null,
 			"docs_page": null,
-			"conflicts": [
-				{
-					"merge": "docs-merge-2026-08-21",
-					"field": "name",
-					"claims": [
-						{
-							"source": "docs",
-							"value": "M4 Ruthex heat insert (long)"
-						},
-						{
-							"source": "parts-calculator",
-							"value": "Ruthex M4 heat insert"
-						}
-					],
-					"note": "Docs claim the M4 insert used is the LONG variant; the calculator does not say long. Check which is actually installed."
-				}
-			],
+			"conflicts": null,
 			"image": "https://img.basically.website/parts/img/hsi-m4-abb5a013.jpg"
 		},
 		{

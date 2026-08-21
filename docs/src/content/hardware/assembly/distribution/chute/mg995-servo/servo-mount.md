@@ -25,7 +25,7 @@ parts_needed:
     qty: 1
   - part: servo-mg995
     qty: 1
-  - part: hsi-m3-long
+  - part: hsi-m3
     qty: 6
   - part: scr-m3-12-cs
     qty: 4

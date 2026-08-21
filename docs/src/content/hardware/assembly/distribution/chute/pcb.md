@@ -16,7 +16,7 @@ warning: >-
 parts_needed:
   - part: layer-adapter-board-basically
     qty: 1
-  - part: hsi-m3-long
+  - part: hsi-m3
     qty: 4
   - part: scr-m3-6-bhcs
     qty: 4

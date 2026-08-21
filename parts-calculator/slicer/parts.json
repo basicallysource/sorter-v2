@@ -580,7 +580,7 @@
       "support": false,
       "requires": [
         {
-          "part": "hsi-m5-long",
+          "part": "hsi-m5",
           "qty": 3
         }
       ]
@@ -627,7 +627,7 @@
       "source": "1_chute_core - core (2).stl",
       "requires": [
         {
-          "part": "hsi-m3-long",
+          "part": "hsi-m3",
           "qty": 18
         }
       ]
@@ -1201,7 +1201,7 @@
       "support": false,
       "requires": [
         {
-          "part": "hsi-m5-long",
+          "part": "hsi-m5",
           "qty": 5
         }
       ],
@@ -1214,11 +1214,11 @@
               "source": "docs",
               "value": [
                 {
-                  "part": "hsi-m5-long",
+                  "part": "hsi-m5",
                   "qty": 6
                 },
                 {
-                  "part": "hsi-m3-long",
+                  "part": "hsi-m3",
                   "qty": 1
                 }
               ]
@@ -1227,7 +1227,7 @@
               "source": "parts-calculator",
               "value": [
                 {
-                  "part": "hsi-m5-long",
+                  "part": "hsi-m5",
                   "qty": 5
                 }
               ]
@@ -1328,7 +1328,7 @@
       "support": false,
       "requires": [
         {
-          "part": "hsi-m3-long",
+          "part": "hsi-m3",
           "qty": 1
         }
       ]
@@ -1424,7 +1424,7 @@
           "qty": 4
         },
         {
-          "part": "hsi-m3-long",
+          "part": "hsi-m3",
           "qty": 9
         }
       ],
@@ -1441,7 +1441,7 @@
                   "qty": 4
                 },
                 {
-                  "part": "hsi-m3-long",
+                  "part": "hsi-m3",
                   "qty": 7
                 }
               ]
@@ -1454,7 +1454,7 @@
                   "qty": 4
                 },
                 {
-                  "part": "hsi-m3-long",
+                  "part": "hsi-m3",
                   "qty": 9
                 }
               ]
@@ -1515,7 +1515,7 @@
       "support": false,
       "requires": [
         {
-          "part": "hsi-m3-long",
+          "part": "hsi-m3",
           "qty": 2
         }
       ]
@@ -1549,7 +1549,7 @@
               "source": "docs",
               "value": [
                 {
-                  "part": "hsi-m3-long",
+                  "part": "hsi-m3",
                   "qty": 1
                 }
               ]
@@ -1717,7 +1717,7 @@
       "support": false,
       "requires": [
         {
-          "part": "hsi-m3-long",
+          "part": "hsi-m3",
           "qty": 4
         }
       ]
@@ -1743,7 +1743,7 @@
       "support": false,
       "requires": [
         {
-          "part": "hsi-m3-long",
+          "part": "hsi-m3",
           "qty": 3
         }
       ]
@@ -1769,7 +1769,7 @@
       "support": false,
       "requires": [
         {
-          "part": "hsi-m3-long",
+          "part": "hsi-m3",
           "qty": 3
         }
       ]
@@ -1890,7 +1890,7 @@
       "stl_id": "tr15",
       "requires": [
         {
-          "part": "hsi-m3-long",
+          "part": "hsi-m3",
           "qty": 6
         }
       ],
@@ -3364,20 +3364,19 @@
       }
     },
     {
-      "id": "hsi-m3-long",
+      "id": "hsi-m3",
       "kind": "cots",
       "cots": {
         "type": "heat-insert",
-        "size": "M3",
-        "variant": "long"
+        "size": "M3"
       },
-      "name": "Ruthex M3 heat insert (long)",
+      "name": "Ruthex M3 heat insert",
       "category": "Heat inserts",
       "description": "ruthex RX-M3x5.7 brass heat-set threaded insert. The default M3 insert anywhere one is called for.",
-      "internal_notes": "First COTS part in the manifest (unified-parts-system MVP). 'Long' = ruthex's standard M3 (5.7 mm), vs the M3S short (4 mm) used only on the servo adapter. BOM sheet says the machine needs ~235 across machine+layers; the chute core alone takes 18 (4 PCB + 4 bearing race + 4 funnel slides + 4 layer connector + 2 arms).",
+      "internal_notes": "First COTS part in the manifest (unified-parts-system MVP). ruthex has no \"long\" designation: RX-M3x5.7 is their standard M3 and RX-M3Sx4.0 is the short one, the S in the model number being the only marker. Their scheme is RX-[thread][S if short]x[length]. The short M3S is `hsi-m3s`, servo adapter only. BOM sheet says the machine needs ~235 across machine+layers; the chute core alone takes 18 (4 PCB + 4 bearing race + 4 funnel slides + 4 layer connector + 2 arms).",
       "created_at": "2026-07-18",
       "updated_at": "2026-07-18",
-      "image_url": "https://img.basically.website/parts/img/hsi-m3-long-ae73fe6b.png",
+      "image_url": "https://img.basically.website/parts/img/hsi-m3-db828502.jpg",
       "attributes": [
         {
           "label": "Type",
@@ -3388,8 +3387,8 @@
           "value": "M3"
         },
         {
-          "label": "Variant",
-          "value": "Long (5.7 mm)"
+          "label": "Length",
+          "value": "5.7 mm"
         },
         {
           "label": "Material",
@@ -3424,16 +3423,79 @@
       }
     },
     {
-      "id": "hsi-m5-long",
+      "id": "hsi-m3s",
       "kind": "cots",
       "cots": {
         "type": "heat-insert",
-        "size": "M5",
-        "variant": "long"
+        "size": "M3",
+        "variant": "short"
       },
-      "name": "Ruthex M5 heat insert (long)",
+      "name": "Ruthex M3S heat insert (short)",
       "category": "Heat inserts",
-      "description": "The default M5 insert anywhere one is called for.",
+      "description": "ruthex RX-M3Sx4.0 brass heat-set threaded insert, the short M3. Servo adapter only; everywhere else takes the standard 5.7 mm M3.",
+      "internal_notes": "Added 2026-08-21 (barthel asked for it after the ruthex naming pass). BOM sheet, Screws tab: 'M3 | Small | 4 per layer | 20 per machine | Ruthex M3x4 | Servo adapter only'. NOT placed as a requires yet, because the current servo-adapter STLs do not have an insert pocket: servo-adapter-flap-side (v1, fu2t/lv7n pins) has four 4.0 mm bores through a 5.0 mm wall with a 90-degree countersink on the back face, and servo-adapter-servo-side has four blind 2.8 mm holes 4.0 mm deep on the same bolt circle with 2.25 mm of material behind them, which reads as a countersunk screw self-tapping into plastic. 4.0 mm is ruthex's recommended hole for an M3 insert, so the flap-side bore could be an insert pocket, but then nothing on the servo side would receive the screw. Needs confirming against current CAD or a physical adapter; if it is self-tapping now, delete this part and the BOM row with it.",
+      "note": "Servo adapter only. Count comes from the BOM sheet, not from the assembly tree -- the current adapter STLs show a self-tapping joint, so confirm before buying.",
+      "created_at": "2026-08-21",
+      "updated_at": "2026-08-21",
+      "sheet_qty": {
+        "per_layer": 4
+      },
+      "image_url": "https://img.basically.website/parts/img/hsi-m3s-bdb4c6b1.jpg",
+      "attributes": [
+        {
+          "label": "Type",
+          "value": "Heat-set threaded insert"
+        },
+        {
+          "label": "Thread",
+          "value": "M3"
+        },
+        {
+          "label": "Length",
+          "value": "4.0 mm"
+        },
+        {
+          "label": "Material",
+          "value": "Brass"
+        },
+        {
+          "label": "Model",
+          "value": "ruthex RX-M3Sx4.0"
+        }
+      ],
+      "sourcing": {
+        "vendors": [
+          {
+            "region": "US",
+            "vendor": "Amazon (ruthex)",
+            "url": "https://www.amazon.com/dp/B09ZHSGHXD",
+            "affiliate_url": "https://www.amazon.com/dp/B09ZHSGHXD?tag=sorterv2-20",
+            "price": 9.99,
+            "pack_qty": 100,
+            "as_of": "2026-08-21"
+          },
+          {
+            "region": "EU",
+            "vendor": "ruthex",
+            "url": "https://www.ruthex.de/en/products/ruthex-gewindeeinsatz-m3s-100stuck-rx-m3x4-0-short-messing-gewindebuchsen-fur-3d-druck",
+            "price": 8.99,
+            "currency": "EUR",
+            "pack_qty": 100,
+            "as_of": "2026-08-21"
+          }
+        ]
+      }
+    },
+    {
+      "id": "hsi-m5",
+      "kind": "cots",
+      "cots": {
+        "type": "heat-insert",
+        "size": "M5"
+      },
+      "name": "Ruthex M5 heat insert",
+      "category": "Heat inserts",
+      "description": "ruthex RX-M5x9.5 brass heat-set threaded insert. The default M5 insert anywhere one is called for.",
       "created_at": "2026-07-18",
       "updated_at": "2026-07-18",
       "attributes": [
@@ -3446,8 +3508,8 @@
           "value": "M5"
         },
         {
-          "label": "Variant",
-          "value": "Long (9.5 mm)"
+          "label": "Length",
+          "value": "9.5 mm"
         },
         {
           "label": "Material",
@@ -3471,7 +3533,7 @@
           }
         ]
       },
-      "image_url": "https://img.basically.website/parts/img/hsi-m5-long-796e9076.jpg"
+      "image_url": "https://img.basically.website/parts/img/hsi-m5-796e9076.jpg"
     },
     {
       "id": "hsi-m4",
@@ -3482,7 +3544,7 @@
       },
       "name": "Ruthex M4 heat insert",
       "category": "Heat inserts",
-      "description": "Lazy Susan mount only.",
+      "description": "ruthex RX-M4x8.1 brass heat-set threaded insert. The only M4 insert in the machine.",
       "created_at": "2026-07-18",
       "updated_at": "2026-07-18",
       "attributes": [
@@ -3521,23 +3583,7 @@
         ]
       },
       "image_url": "https://img.basically.website/parts/img/hsi-m4-abb5a013.jpg",
-      "conflicts": [
-        {
-          "merge": "docs-merge-2026-08-21",
-          "field": "name",
-          "claims": [
-            {
-              "source": "docs",
-              "value": "M4 Ruthex heat insert (long)"
-            },
-            {
-              "source": "parts-calculator",
-              "value": "Ruthex M4 heat insert"
-            }
-          ],
-          "note": "Docs claim the M4 insert used is the LONG variant; the calculator does not say long. Check which is actually installed."
-        }
-      ]
+      "internal_notes": "Resolved docs-merge-2026-08-21 name conflict (2026-08-21): the docs called this the LONG variant, but ruthex sells no \"long\" M4. Both catalogs meant the same product, ruthex RX-M4x8.1 (Amazon B07YSV66Y5), whose short counterpart is RX-M4Sx4.0. Naming across the heat inserts now follows ruthex: no \"long\", and an S suffix (M3S/M4S/M5S) if a short one is ever added."
     },
     {
       "id": "standoff-m3-10mm",
@@ -5769,7 +5815,7 @@
           "qty": 4
         },
         {
-          "part": "hsi-m3-long",
+          "part": "hsi-m3",
           "qty": 4
         },
         {
@@ -5793,7 +5839,7 @@
           "qty": 4
         },
         {
-          "part": "hsi-m3-long",
+          "part": "hsi-m3",
           "qty": 4
         },
         {

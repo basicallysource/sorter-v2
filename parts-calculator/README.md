@@ -11,11 +11,11 @@ reads the slicer's own filament weight.
 
 Two pieces:
 
-1. **`slicer/`** — a Python step driving OrcaSlicer. It slices every part once,
+1. **`slicer/`** — a Python step driving a slicer. It slices every part once,
    reads `used_g`, renders a thumbnail, copies the STL, and writes the data the
-   site reads. Runs on your machine *or* in GitHub Actions
-   (`.github/workflows/regen-parts.yml`), which is the canonical environment.
-   **It never runs in the site build.**
+   site reads. Runs wherever the edit happens — against a local OrcaSlicer or
+   the asset service's worker — and its outputs are committed with the edit.
+   **It never runs in the site build, and never in CI.**
 2. **SvelteKit app** (`src/`) — reads the generated data and does all the
    color/layer math in the browser. Fully static; Cloudflare Pages builds it.
 
@@ -45,47 +45,37 @@ the JSON above. See [CLAUDE.md](CLAUDE.md#storage-layout).
    `by_section`), and `optional`. Sections are `feeder`,
    `classification-channel`, `interface`, `chute`, `funnel`, `layer`,
    `lazy-susan`, `bins`, `electronics`.
-3. Commit and push on a branch, then open a PR. **You do not need OrcaSlicer.**
-   CI slices what changed, renders thumbnails, uploads artifacts, and commits
-   the regenerated data back to your branch.
+3. Run the generator and commit **source and regenerated data together**:
 
-If you *do* have OrcaSlicer installed and want the numbers before pushing, run
-it yourself — same script, same pinned settings:
+   ```
+   /opt/homebrew/opt/python@3.11/libexec/bin/python slicer/filament.py
+   ```
 
-```
-/opt/homebrew/opt/python@3.11/libexec/bin/python slicer/filament.py
-```
+   **You do not need OrcaSlicer.** The script picks its slicing backend on its
+   own: a local OrcaSlicer when one is installed, otherwise the asset service
+   (`ASSET_SERVICE_URL` / `ASSET_SERVICE_TOKEN` in the environment) — it
+   uploads the changed masters, the service's worker slices them under the
+   same pinned profile, and the reports come back in seconds for anything the
+   service has seen before. Nothing regenerates in CI and nothing ever
+   commits onto your branch.
 
-(add `--force` to re-slice/re-render everything, `--strict` to exit nonzero if
-any part fails — CI always uses `--strict`.)
+   (`--force` re-slices/re-renders everything, `--strict` exits nonzero if
+   any part fails.)
+
+4. Push and open a PR. `check-parts` proves the generated data agrees with
+   your pins and that every URL serves real bytes; if it is red, you forgot
+   step 3 — run it and push again.
 
 Slicer settings live at the top of `slicer/filament.py` (printer, infill,
 supports, etc.); changing them re-slices the whole catalog. Terminology is in
 [`notes/TERMINOLOGY.md`](notes/TERMINOLOGY.md).
 
-### How long until the preview is right
+### Previews
 
-Every branch gets a Cloudflare Pages preview URL. If your PR touched anything under
-`slicer/`, that preview is **wrong until CI finishes** — the app reads the
-committed `parts.generated.json`, not `parts.json`, so a changed part shows its
-old weight and old thumbnail (and a brand-new part is missing entirely) until
-the regen commit lands and Pages rebuilds.
-
-The sequence for a parts change is: push → Pages builds your commit on **stale
-data** → CI regenerates and commits back → Pages rebuilds, correct. Budget
-minutes, not seconds. A PR touching nothing under `slicer/` skips regen
-entirely; a change to slicer settings or the pinned Orca version re-slices the
-whole catalog and takes several times longer than a single part.
-
-**If you are automating this**, do not treat the first green check as done — CI
-moves the branch head underneath you. Wait for the `regen` check to succeed,
-then for the deployment on the *resulting* head SHA. Waiting on
-"all checks green" is not reliable: a commit-back can leave a duplicate,
-never-executed run parked in `action_required` on the PR.
-
-The preview URL itself is stable per branch, so a link shared early stops being
-wrong on its own once the second build lands — it is screenshots and scrapes
-taken in that first ~2 minutes that mislead.
+Every branch gets a Cloudflare Pages preview URL, and it is right the first
+time: the generated data travels in the same commits as the source that
+produced it, so the preview never waits on anything and nothing moves the
+branch head underneath you.
 
 ## Dev
 

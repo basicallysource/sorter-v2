@@ -1,24 +1,32 @@
 name: Check part data
 
-# A merge to main already carries the PR run's CI-normalized outputs; all a
-# push to main needs is proof that the committed data references bytes the
-# bucket actually serves. Slicing and commit-back live in regen-parts.yml and
-# run only on PRs -- separate files so neither shows a skipped job in the
-# other's context.
+# The generated part data is written by whoever edits the slicer inputs --
+# running slicer/filament.py against a local OrcaSlicer or, with
+# ASSET_SERVICE_TOKEN set, against the asset service's slicer worker -- and
+# committed in the same change. Nothing regenerates anything in CI, so a PR's
+# preview always shows the branch's own data, and the checks here are the
+# whole gate:
+#
+#  - check_generated_pins.py  : the generated data agrees with the source pins
+#                               ("edited parts.json, forgot to regenerate")
+#  - check_bucket_urls.py     : every URL the site ships serves real bytes
+#                               (the bucket is content-addressed, so a wrong
+#                               URL is a 200 with the wrong bytes, not a 404)
+#
+# Both are pure checks, a minute end to end. regen-parts.yml -- the old
+# CI-canonical slicer that committed back onto PR branches -- is deleted; its
+# job moved into the asset service (an STL upload gets slice reports and a
+# render as derived forms) and slicing follows the editor instead of the
+# merge.
 
 on:
+  pull_request:
+    paths:
+      - 'parts-calculator/**'
   push:
     branches: [main]
     paths:
-      - 'parts-calculator/src/lib/data/parts.generated.json'
-      - 'parts-calculator/src/lib/data/plates.generated.json'
-      - 'parts-calculator/slicer/parts.json'
-      - 'parts-calculator/slicer/plates.json'
-      - 'parts-calculator/slicer/filament.py'
-      - 'parts-calculator/slicer/requirements.txt'
-      - 'parts-calculator/src/lib/bambu-colors.ts'
-      - 'parts-calculator/scripts/sync_bucket.py'
-      - '.github/workflows/check-parts.yml'
+      - 'parts-calculator/**'
 
 jobs:
   check:
@@ -30,7 +38,5 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-          cache: pip
-          cache-dependency-path: parts-calculator/slicer/requirements.txt
-      - run: pip install -r parts-calculator/slicer/requirements.txt
+      - run: python parts-calculator/scripts/check_generated_pins.py
       - run: python parts-calculator/scripts/check_bucket_urls.py

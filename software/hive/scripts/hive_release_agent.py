@@ -509,7 +509,17 @@ def statusDeploy(phase: str, version: str = "") -> None:
         request = urllib.request.Request(
             f"{STATUS_URL}/deploy/{monitor}/{phase}",
             data=body,
-            headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
+            headers={
+                "Authorization": f"Bearer {token}",
+                "Content-Type": "application/json",
+                # Required, and the reason this never once worked. Every other
+                # request in this file sets a User-Agent; this one passed a
+                # headers dict and left it out, so urllib supplied its own
+                # "Python-urllib/3.x" and Cloudflare 403'd it in front of the
+                # worker. The failure read like an auth problem and was not one:
+                # the status page answers a bad token with 401, never 403.
+                "User-Agent": "hive-release-agent",
+            },
             method="POST",
         )
         try:

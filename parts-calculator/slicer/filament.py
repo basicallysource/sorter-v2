@@ -143,7 +143,11 @@ def fetch_artifact(sha, dest, prefix="stl", suffix=".stl"):
         return
     os.makedirs(os.path.dirname(dest), exist_ok=True)
     url = f"{PUBLIC_BASE}/{prefix}/{sha}{suffix}"
-    with urllib.request.urlopen(url, timeout=60) as r, open(dest, "wb") as f:
+    # Real UA: the asset service's zone 403s urllib's default Python-urllib/x.y
+    # (Browser Integrity Check) -- the same reason check_bucket_urls.py sets one.
+    req = urllib.request.Request(url, headers={
+        "User-Agent": "sorter-v2-parts-fetch/1.0 (+https://github.com/basicallysource/sorter-v2)"})
+    with urllib.request.urlopen(req, timeout=60) as r, open(dest, "wb") as f:
         shutil.copyfileobj(r, f)
     got = sha256_file(dest)
     if got != sha:

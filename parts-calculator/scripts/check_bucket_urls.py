@@ -71,12 +71,16 @@ def collect_urls() -> dict[str, str]:
         add(p.get("stl"), "binary")
         add(p.get("render"), "image")
         add_images(p)
+        for s in p.get("stamped") or []:
+            add(s.get("stl"), "binary")
         for v in p.get("versions") or []:
             add(v.get("stl"), "binary")
             add(v.get("render"), "image")
         for c in p.get("candidates") or []:
             add(c.get("stl"), "binary")
             add(c.get("render"), "image")
+            for s in c.get("stamped") or []:
+                add(s.get("stl"), "binary")
     for h in parts.get("hardware", []):
         add(h.get("image"), "image")
         add_images(h)

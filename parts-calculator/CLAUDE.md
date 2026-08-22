@@ -204,6 +204,21 @@ marked `superseded_by` / `rejected_at`, because a uid on a test print has to
 keep resolving; `check_generated_pins.py` fails any change that drops a uid
 from `parts.json`.
 
+**Stamped downloads are derived, never authored.** `catalog/engrave.py`
+recesses the uid into a face (uppercase, 3.5 mm cap, 0.6 mm deep, Source Code
+Pro Bold -- the font is a pinned bucket object, fetched by hash into
+`build/fonts/`), and `generate.py` pre-cuts up to four face variants per
+printed part and candidate into `build/stamped/`, memoized on (STL bytes, uid,
+`engrave.SIGNATURE`). They ride the generated data as `stamped: [{face, stl,
+normal, center}]`, best face first, empty when nothing fits; the site's part
+page picks from that list and the viewer opens on `center` along `normal`.
+The all-parts zip ships the default variant. Placement is quantised and the
+boolean is manifold's, so the same geometry stamps to the same bytes on any
+machine -- the generator warns if a re-cut lands on a different URL than the
+memo. The face ranking is in `engrave.variants()`; there is deliberately no
+per-part authoring of where the stamp goes. `/u/<uid>` is one prerendered
+page per uid the catalog has ever minted.
+
 **Assemblies carry `uid` / `version` / `versions` / `candidates` too.** An
 assembly version is an authored structural change; its superseded entries
 snapshot the lines with each member's uid of the day (`stamp_versions.py`),

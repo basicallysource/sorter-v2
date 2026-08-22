@@ -1,9 +1,22 @@
 <script lang="ts">
 	import './layout.css';
 	import { page } from '$app/stores';
+	import { goto } from '$app/navigation';
 	import { Menu, X } from 'lucide-svelte';
 
 	let { children } = $props();
+
+	// The 4 characters stamped into a print: type them here, land on /u/<uid>.
+	// Uids are lowercase in the catalog; what is read off a part is uppercase.
+	let lookup = $state('');
+	function lookupUid(e: SubmitEvent) {
+		e.preventDefault();
+		const uid = lookup.trim().toLowerCase();
+		if (!uid) return;
+		lookup = '';
+		menuOpen = false;
+		goto(`/u/${encodeURIComponent(uid)}`);
+	}
 
 	const tabs = [
 		{ href: '/', label: '3D printed parts' },
@@ -72,6 +85,19 @@
 			{/each}
 		</nav>
 
+		<form onsubmit={lookupUid} class="ml-auto hidden items-center sm:flex" title="The id stamped into a print">
+			<input
+				bind:value={lookup}
+				type="search"
+				inputmode="text"
+				autocapitalize="characters"
+				spellcheck="false"
+				maxlength="4"
+				placeholder="id on a print"
+				aria-label="Look up the id stamped into a print"
+				class="h-8 w-32 border border-border bg-[var(--color-bg)] px-2 font-mono text-sm uppercase text-text placeholder:font-sans placeholder:normal-case placeholder:text-text-muted focus:border-primary focus:outline-none"
+			/>
+		</form>
 	</div>
 
 	{#if menuOpen}
@@ -98,6 +124,19 @@
 					{tab.label}
 				</a>
 			{/each}
+			<form onsubmit={lookupUid} class="flex items-center gap-2 border-t border-border px-4 py-3">
+				<input
+					bind:value={lookup}
+					type="search"
+					autocapitalize="characters"
+					spellcheck="false"
+					maxlength="4"
+					placeholder="id on a print"
+					aria-label="Look up the id stamped into a print"
+					class="h-9 w-36 border border-border bg-[var(--color-bg)] px-2 font-mono text-sm uppercase text-text placeholder:font-sans placeholder:normal-case placeholder:text-text-muted focus:border-primary focus:outline-none"
+				/>
+				<button type="submit" class="setup-button-secondary h-9 px-3 text-sm font-semibold">Look up</button>
+			</form>
 		</nav>
 	{/if}
 </header>

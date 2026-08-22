@@ -12,7 +12,7 @@
 	import { SITE_URL } from '$lib/seo';
 	import { copyText } from '$lib/clipboard';
 	import { duration, fmtDate, partOnshape, platesForPart, type Part, type PartCandidate, type PartVersion } from '$lib/filament';
-	import { ExternalLink, FlaskConical, History, Image, Layers3, Share2, Check } from 'lucide-svelte';
+	import { ExternalLink, FlaskConical, History, Image, Layers3, Share2, Check, ChevronLeft, ChevronRight, Stamp } from 'lucide-svelte';
 
 	// The 3D-printed part detail view: 3D viewer, specs, download/share, build plates
 	// and version history. Rendered two ways off the SAME markup — inside the parts
@@ -38,6 +38,38 @@
 		candidate = null;
 	});
 
+	// The id stamp. The current part and every candidate come with pre-cut
+	// downloads carrying their uid on one face each, best face first
+	// (catalog/engrave.py); an older version has none. Index into that list,
+	// -1 for the plain file. Default is the first: a stamped print is the point,
+	// and the arrow keys are for saying "not that face" until one is fine.
+	const stamps = $derived(
+		(candidate ? candidate.stamped : !version || version.version === part.version ? part.stamped : []) ?? []
+	);
+	let stampIdx = $state(0);
+	$effect(() => {
+		part.id;
+		candidate;
+		version;
+		stampIdx = 0;
+	});
+	const stamp = $derived(stampIdx >= 0 ? (stamps[stampIdx] ?? null) : null);
+	const stampUid = $derived((candidate?.uid ?? part.uid).toUpperCase());
+	// cycles plain -> face 1 -> ... -> face n -> plain
+	function cycleStamp(dir: 1 | -1) {
+		const total = stamps.length + 1;
+		stampIdx = ((stampIdx + 1 + dir + total) % total) - 1;
+	}
+	function onKey(e: KeyboardEvent) {
+		if (!stamps.length || e.metaKey || e.ctrlKey || e.altKey) return;
+		const t = e.target as HTMLElement | null;
+		if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable)) return;
+		if (e.key === 'ArrowRight') cycleStamp(1);
+		else if (e.key === 'ArrowLeft') cycleStamp(-1);
+		else return;
+		e.preventDefault();
+	}
+
 	// A part's own build-plate popup, opened from the "view" link on a plate card.
 	let platesOpen = $state(false);
 
@@ -55,12 +87,14 @@
 	}
 </script>
 
+<svelte:window onkeydown={onKey} />
+
 <ConflictNotice conflicts={part.conflicts} />
 
 {#key part.id}
 	{@const vers = [...(part.versions ?? [])].reverse()}
 	{@const active = version ?? part.versions?.[part.versions.length - 1] ?? null}
-	{@const activeStl = candidate?.stl ?? active?.stl ?? part.stl}
+	{@const activeStl = stamp?.stl ?? candidate?.stl ?? active?.stl ?? part.stl}
 	{@const isCurrent = !candidate && (!active || active.version === part.version)}
 	{@const cands = part.candidates ?? []}
 	{@const os = partOnshape(part)}
@@ -68,8 +102,22 @@
 	{@const plates = platesForPart(pid)}
 	<div class={variant === 'modal' ? 'shrink-0' : ''}>
 		{#key activeStl}
-			<StlViewer url={activeStl} color={getBambuColor(colorId).hex} />
+			<StlViewer url={activeStl} color={getBambuColor(colorId).hex} focus={stamp ? { center: stamp.center, normal: stamp.normal } : null} />
 		{/key}
+		{#if stamps.length}
+			<!-- the id stamp picker: the viewer above is already looking at the chosen face -->
+			<div class="flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-border px-4 py-2 text-xs">
+				<span class="inline-flex items-center gap-1 font-semibold uppercase tracking-wider text-text-muted"><Stamp size={12} /> Id stamp</span>
+				<span class="font-mono text-sm font-bold tracking-wider text-text">{stampUid}</span>
+				<span class="inline-flex items-center gap-0.5">
+					<button type="button" class="inline-flex h-6 w-6 items-center justify-center border border-border text-text hover:border-primary" onclick={() => cycleStamp(-1)} aria-label="Previous face" title="Previous face (←)"><ChevronLeft size={14} /></button>
+					<span class="min-w-[11rem] text-center text-text" aria-live="polite">{#if stamp}on the {stamp.face} <span class="text-text-muted">· {stampIdx + 1} of {stamps.length}</span>{:else}no stamp{/if}</span>
+					<button type="button" class="inline-flex h-6 w-6 items-center justify-center border border-border text-text hover:border-primary" onclick={() => cycleStamp(1)} aria-label="Next face" title="Next face (→)"><ChevronRight size={14} /></button>
+				</span>
+				<button type="button" class="text-primary hover:text-primary-hover" onclick={() => (stampIdx = stamp ? -1 : 0)}>{stamp ? 'No stamp' : 'Stamp it'}</button>
+				<span class="text-text-muted">Recessed 0.6 mm into that face. Arrow keys flip faces. A print is looked up at <a href="/u/{stampUid.toLowerCase()}" class="font-mono text-primary hover:text-primary-hover">/u/{stampUid.toLowerCase()}</a>.</span>
+			</div>
+		{/if}
 	</div>
 	<!-- in the modal the details scroll independently of the pinned 3D viewer (which
 	     owns wheel = zoom); on the page everything just flows -->
@@ -100,7 +148,7 @@
 					<Callout variant="info" title="Low tolerance — test print suggested">{part.low_tolerance_note ?? 'This part has little room for dimensional error. Print one first and confirm the fit before committing to the full set.'}</Callout>
 				{/if}
 				<div class="flex flex-wrap items-center gap-3 pt-1">
-					<DownloadButton href={activeStl} size="md" label={candidate ? `Download STL (candidate ${candidate.uid})` : isCurrent ? 'Download STL' : `Download STL (v${active?.version})`} />
+					<DownloadButton href={activeStl} size="md" label={stamp ? `Download STL (${stampUid} on the ${stamp.face})` : candidate ? `Download STL (candidate ${candidate.uid})` : isCurrent ? 'Download STL' : `Download STL (v${active?.version})`} />
 					<button type="button" onclick={share} class="inline-flex items-center gap-1 text-xs {copied ? 'text-success' : 'text-primary hover:text-primary-hover'}" title="Copy a shareable link to this part's page">
 						{#if copied}<Check size={13} /> Copied{:else}<Share2 size={13} /> Share{/if}
 					</button>

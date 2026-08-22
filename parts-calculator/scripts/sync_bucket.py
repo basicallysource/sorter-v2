@@ -65,7 +65,8 @@ PUBLIC_BASE = os.environ.get("DO_SPACES_PUBLIC_BASE", "https://img.basically.web
 # the website serves or that pin a revision. Renders (1.4M total) stay as
 # normal git blobs -- they are small and the site wants them at build time.
 # Everything here lives in gitignored build/, freshly produced by generate.py:
-# renders and plate thumbnails it generated this run, and the all-parts zip.
+# renders and plate thumbnails it generated this run, the uid-stamped STL
+# variants (catalog/engrave.py), and the all-parts zip.
 # Files that were memoized (already uploaded by an earlier run) are not on
 # disk, so a sync only pushes new bytes. Masters and plates never appear:
 # they are authored straight onto the bucket with `--upload` and pinned by
@@ -74,11 +75,12 @@ PUBLIC_BASE = os.environ.get("DO_SPACES_PUBLIC_BASE", "https://img.basically.web
 SOURCES = [
     ("catalog/build/renders", "*.png", "render"),
     ("catalog/build/plate-thumbs", "*.png", "thumb"),
+    ("catalog/build/stamped", "*.stl", "stl"),
     ("catalog/build/bundle", "all-parts.zip", "bundle"),
 ]
 
 CONTENT_TYPES = {".stl": "model/stl", ".3mf": "model/3mf", ".zip": "application/zip",
-                 ".png": "image/png", ".jpg": "image/jpeg"}
+                 ".png": "image/png", ".jpg": "image/jpeg", ".ttf": "font/ttf"}
 
 # How much of the sha256 rides in a filename. Enough to never collide across
 # a few hundred objects and to be uniquely greppable in parts.json.
@@ -231,6 +233,7 @@ def upload_loose(paths: list[str], uid: str | None = None) -> None:
 
       .stl    -> stl/<part>-<uid>-<hash8>.stl  "stl_hash": "<sha>"    (parts.json)
       .3mf    -> plate/<name>-<hash8>.3mf      "hash": "<sha>"        (plates.json)
+      .ttf    -> font/<name>-<hash8>.ttf       FONT_URL + FONT_SHA    (catalog/engrave.py)
       images  -> img/<name>-<hash8>.<ext>      "image_url": "<url>"   (parts.json),
                                                or an `images` entry {url, alt}
 
@@ -246,8 +249,7 @@ def upload_loose(paths: list[str], uid: str | None = None) -> None:
         # sha256() refuses LFS pointers, so a stub can't be published here either.
         digest = sha256(p)
         suffix = p.suffix.lower()
-        prefix = {"": "img", ".stl": "stl", ".3mf": "plate"}.get(
-            suffix if suffix in (".stl", ".3mf") else "", "img")
+        prefix = {".stl": "stl", ".3mf": "plate", ".ttf": "font"}.get(suffix, "img")
         if prefix == "stl":
             key = f"stl/{slug(p.stem)}-{uid or uid_for(slug(p.stem))}-{digest[:HASH_CHARS]}{suffix}"
         else:
@@ -262,6 +264,8 @@ def upload_loose(paths: list[str], uid: str | None = None) -> None:
             print(f'    "stl_hash": "{digest}"')
         elif prefix == "plate":
             print(f'    "hash": "{digest}"')
+        elif prefix == "font":
+            print(f'    FONT_URL = "{PUBLIC_BASE}/{key}"\n    FONT_SHA = "{digest}"')
         else:
             url = f"{PUBLIC_BASE}/{key}"
             print(f'    "image_url": "{url}"')

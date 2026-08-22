@@ -4,7 +4,15 @@
 	import { STLLoader } from 'three/examples/jsm/loaders/STLLoader.js';
 	import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 
-	let { url, color = '#0055bf' }: { url: string; color?: string } = $props();
+	// `focus` is a point and outward normal in the STL's own coordinates -- the
+	// uid stamp on a variant (catalog/engrave.py writes them) -- and when given,
+	// the camera opens looking straight at it, close enough to read it, so
+	// flipping through the stamped faces shows each mark without hunting.
+	let {
+		url,
+		color = '#0055bf',
+		focus = null
+	}: { url: string; color?: string; focus?: { center: number[]; normal: number[] } | null } = $props();
 
 	let host: HTMLDivElement;
 	let status = $state<'loading' | 'ready' | 'error'>('loading');
@@ -79,6 +87,9 @@
 			url,
 			(geo) => {
 				geo.computeVertexNormals();
+				// remember where the STL's origin went: focus points are in STL space
+				geo.computeBoundingBox();
+				const stlCenter = geo.boundingBox!.getCenter(new THREE.Vector3());
 				geo.center();
 				material = new THREE.MeshPhysicalMaterial({
 					color: legibleViewerColor(color),
@@ -100,6 +111,19 @@
 				const radius = Math.max(size.x, size.y, size.z);
 				camera.position.set(radius * 1.1, radius * 0.9, radius * 1.4);
 				controls.target.set(0, 0, 0);
+				if (focus) {
+					// the mark, and the direction it faces, in world space
+					const target = mesh.localToWorld(
+						new THREE.Vector3().fromArray(focus.center).sub(stlCenter)
+					);
+					const n = new THREE.Vector3().fromArray(focus.normal).applyQuaternion(mesh.quaternion);
+					// ~55 mm tall view: 3.5 mm text reads, the face around it gives context.
+					// Nudged off the pure normal so a face looking straight up or down
+					// never puts the camera on the orbit pole.
+					const dist = 55 / (2 * Math.tan((camera.fov * Math.PI) / 360));
+					camera.position.copy(target).addScaledVector(n, dist).add(new THREE.Vector3(0, dist * 0.12, 0));
+					controls.target.copy(target);
+				}
 				controls.update();
 				status = 'ready';
 			},

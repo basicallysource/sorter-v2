@@ -24,6 +24,7 @@ catalog/
   parts.json            # manifest: every part, its section(s), qty, color role
                         #   geometry is PINNED here by hash, never committed
   generate.py           # the local data-generation step
+  engrave.py            # the uid stamp: where it fits on a part, and cutting it
 src/lib/data/catalog.generated.json # GENERATED, committed — both sites' input
 ```
 
@@ -106,6 +107,21 @@ bump `version`, add a `versions` entry, delete the candidate line. To iterate
 on or drop one: **never delete it** — add `superseded_by` / `superseded_at`
 or `rejected_at` and leave its pin, so the uid engraved on any test print
 still resolves here. CI fails a change that removes a uid from `parts.json`.
+
+### The id stamp
+
+Every printed part's page offers its STL with the uid recessed into one face
+(3.5 mm Source Code Pro Bold, 0.6 mm deep), so a print can be looked up later
+at `/u/<uid>` — or typed into the "id on a print" box in the header. Nothing
+to author: `catalog/engrave.py` finds every flat face the four characters fit
+on, ranks them (the bed face first, then vertical and upward faces by size,
+overhangs last), and `generate.py` pre-cuts up to four variants per part and
+candidate, uploaded like any other artifact. The page opens on the first; the
+arrow keys flip through the rest, and "no stamp" is the plain master. The
+all-parts zip ships each part's default stamped variant. A part too small for
+the text, or whose mesh is not watertight, simply gets no stamp (the generator
+lists them). Stamped bytes are memoized on (geometry, uid, parameters); a
+change to the font or the sizes in `engrave.py` re-cuts the catalog.
 
 Assemblies version the same way: every one has a `uid` and `version`, a new
 version is an authored *structural* change (a line added or removed, a qty

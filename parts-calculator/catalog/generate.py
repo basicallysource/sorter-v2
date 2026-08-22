@@ -24,7 +24,7 @@ For every part in parts.json it:
   - slices the STL headlessly with OrcaSlicer using Spencer's settings
   - reads the SLICER'S OWN gram number (used_g) -- not an estimate
   - renders a thumbnail
-Then it writes ../src/lib/data/parts.generated.json, which the SvelteKit app
+Then it writes ../src/lib/data/catalog.generated.json, which the SvelteKit app
 reads to do all the color/layer math in the browser. Every STL/3MF/zip URL in
 the generated data is a content-addressed bucket URL (see scripts/
 sync_bucket.py, which uploads the bytes); no binary serving copies live in the
@@ -133,12 +133,17 @@ def lego_hex_map():
 def normalize_versions(part):
     """Always return a versions list. If the manifest declares `versions`, pass it
     through; otherwise synthesize a single entry from created_at/version so the app
-    can render history uniformly."""
+    can render history uniformly. Every entry names its uid: a superseded one
+    carries its own (written by stamp_versions.py), the newest is the part's."""
     vs = part.get("versions")
     if vs:
-        return vs
+        newest = vs[-1]
+        if "uid" not in newest:
+            newest = {"version": newest.get("version"), "uid": part["uid"],
+                      **{k: x for k, x in newest.items() if k != "version"}}
+        return vs[:-1] + [newest]
     date = part.get("created_at", part.get("date_added", ""))
-    entry = {"version": part.get("version", "1"), "date": date,
+    entry = {"version": part.get("version", "1"), "uid": part["uid"], "date": date,
              "message": "Initial version.", "commit": None}
     # a single-version part can still carry OnShape links at the part level
     if part.get("onshape_version"):
@@ -173,7 +178,7 @@ def fetch_artifact(url, sha, dest):
 def master_stl(p):
     """Local path of a part's master STL, fetched by its pinned stl_hash."""
     dest = os.path.join(MASTERS, p["id"] + ".stl")
-    fetch_artifact(stl_url(p["id"], p["stl_id"], p["stl_hash"]), p["stl_hash"], dest)
+    fetch_artifact(stl_url(p["id"], p["uid"], p["stl_hash"]), p["stl_hash"], dest)
     return dest
 
 
@@ -227,12 +232,12 @@ def archive_versions(parts_by_id, out_parts, profiles, hexmap, role_defaults, fo
                 if out.get("stl"):
                     v["stl"], v["render"], v["grams"] = out["stl"], out["render"], out["grams"]
                 continue
-            if not v.get("stl_id"):
-                sys.exit(f"{out['id']} v{v['version']}: pinned stl_hash without stl_id -- "
-                         "mint one (see sync_bucket.py) so the filename can name the version")
+            if not v.get("uid"):
+                sys.exit(f"{out['id']} v{v['version']}: pinned stl_hash without a uid -- "
+                         "stamp_versions.py writes the superseded uid beside the hash")
             vid = f"{out['id']}-v{v['version']}"
             tmp = os.path.join(CACHE, vid + ".stl")
-            fetch_artifact(stl_url(out["id"], v["stl_id"], pin), pin, tmp)
+            fetch_artifact(stl_url(out["id"], v["uid"], pin), pin, tmp)
             info = slice_part(tmp, profiles, support=bool(p.get("support", False)), force=force)
             png = os.path.join(VERS_RENDERS_OUT, vid + ".png")
             try:
@@ -240,7 +245,7 @@ def archive_versions(parts_by_id, out_parts, profiles, hexmap, role_defaults, fo
             except Exception as e:
                 print(f"  ! version render failed for {vid}: {e}")
                 v["render"] = None
-            v["stl"] = stl_url(out["id"], v["stl_id"], pin)
+            v["stl"] = stl_url(out["id"], v["uid"], pin)
             v["grams"] = info["grams"] if info else None
             archived += 1
     print(f"  {archived} historical part version(s) resolved from pinned stl_hash")
@@ -630,6 +635,7 @@ def build_hardware(manifest):
                 "images live only on the bucket. Use 'image_url'.")
         hardware.append({
             "id": p["id"],
+            "uid": p["uid"],
             "kind": "cots",
             "cots": p.get("cots"),
             "name": p["name"],
@@ -708,7 +714,7 @@ def committed_filament_constants():
     change when the FILAMENT profile does, which is a settings change that
     re-baselines the whole catalog and needs a local slicer anyway."""
     if not os.path.exists(DATA_OUT):
-        sys.exit("remote slicing needs an existing parts.generated.json for filament density/cost")
+        sys.exit("remote slicing needs an existing catalog.generated.json for filament density/cost")
     s = json.load(open(DATA_OUT))["settings"]
     return s["density_g_cm3"], s["cost_per_kg"]
 
@@ -728,15 +734,19 @@ def main():
     duplicate_ids = sorted({part_id for part_id in part_ids if part_ids.count(part_id) > 1})
     if duplicate_ids:
         sys.exit(f"duplicate part id(s): {duplicate_ids}")
-    # stl_ids are minted randomly (sync_bucket.mint_stl_id) with no global
-    # check, so enforce uniqueness here: a duplicate would make an id grep in
-    # parts.json ambiguous, which is the one job the id has. Re-mint on hit.
-    stl_ids = [x for part in manifest["parts"]
-               for x in ([part.get("stl_id")] +
-                         [v.get("stl_id") for v in part.get("versions") or []]) if x]
-    duplicate_sids = sorted({x for x in stl_ids if stl_ids.count(x) > 1})
-    if duplicate_sids:
-        sys.exit(f"duplicate stl_id(s): {duplicate_sids} -- mint a fresh one")
+    # Every part, whatever its kind, carries a uid naming its current version
+    # (catalog/mint_uid.py). Minting avoids what parts.json already holds, but
+    # nothing stops a hand-pasted duplicate, and a duplicate would make a uid
+    # grep ambiguous -- the one job the uid has.
+    bad_uid = [part["id"] for part in manifest["parts"]
+               if not re.fullmatch(r"[a-z0-9]{4}", str(part.get("uid", "")))]
+    if bad_uid:
+        sys.exit(f"part(s) without a 4-char uid: {bad_uid} -- mint one with catalog/mint_uid.py")
+    uids = [x for part in manifest["parts"]
+            for x in ([part["uid"]] + [v.get("uid") for v in part.get("versions") or []]) if x]
+    duplicate_uids = sorted({x for x in uids if uids.count(x) > 1})
+    if duplicate_uids:
+        sys.exit(f"duplicate uid(s): {duplicate_uids} -- mint a fresh one")
     check_hardware_refs(manifest, set(part_ids))
     if args.metadata_only:
         if not os.path.exists(DATA_OUT):
@@ -761,21 +771,28 @@ def main():
                     return f"{PUBLIC_BASE}/{named_key('render', name, legacy.group(1), legacy.group(2))}"
                 return f"{PUBLIC_BASE}/render/{tail}"
 
-            live_stl = stl_url(source["id"], source["stl_id"], source["stl_hash"])
+            live_stl = stl_url(source["id"], source["uid"], source["stl_hash"])
             live_render = rebased_render(old["render"], source["id"])
-            src_versions = {str(v.get("version")): v for v in source.get("versions") or []}
-            versions = old.get("versions", normalize_versions(source))
-            for v in versions:
-                sv = src_versions.get(str(v.get("version")), {})
-                if v.get("stl") == old["stl"]:
-                    v["stl"], v["render"] = live_stl, live_render
-                elif sv.get("stl_hash") and sv.get("stl_id"):
-                    v["stl"] = stl_url(source["id"], sv["stl_id"], sv["stl_hash"])
-                    v["render"] = rebased_render(v.get("render"),
+            # Authored fields come from the manifest; the sliced and rendered
+            # ones from the previous generated entry of the same version, in
+            # the order archive_versions() would have left them.
+            old_versions = {str(v.get("version")): v for v in old.get("versions") or []}
+            src_versions = normalize_versions(source)
+            versions = []
+            for i, sv in enumerate(src_versions):
+                v = dict(sv)
+                ov = old_versions.get(str(v.get("version")), {})
+                pin = v.get("stl_hash")
+                if i == len(src_versions) - 1 or not pin or pin == source["stl_hash"]:
+                    v["stl"], v["render"], v["grams"] = live_stl, live_render, old["grams"]
+                else:
+                    v["render"] = rebased_render(ov.get("render"),
                                                  f"{source['id']}-v{v.get('version')}")
-                v.setdefault("stl_hash", sv.get("stl_hash")) if sv.get("stl_hash") else None
+                    v["stl"] = stl_url(source["id"], v["uid"], pin)
+                    v["grams"] = ov.get("grams")
+                versions.append(v)
             refreshed.append({
-                "id": source["id"], "name": source["name"],
+                "id": source["id"], "uid": source["uid"], "name": source["name"],
                 **({"aliases": source["aliases"]} if source.get("aliases") else {}),
                 "quantities": source.get("quantities", {}),
                 "assembly": source.get("assembly"),
@@ -880,6 +897,7 @@ def main():
 
         out_parts.append({
             "id": p["id"],
+            "uid": p["uid"],
             "name": p["name"],
             **({"aliases": p["aliases"]} if p.get("aliases") else {}),
             "quantities": p.get("quantities", {}),
@@ -911,7 +929,7 @@ def main():
             "caption": p.get("caption"),
             "docs_page": p.get("docs_page"),
             "conflicts": p.get("conflicts"),
-            "stl": stl_url(p["id"], p["stl_id"], p["stl_hash"]),
+            "stl": stl_url(p["id"], p["uid"], p["stl_hash"]),
             "render": render_url,
         })
         sup = " +support" if info["support_used"] else ""

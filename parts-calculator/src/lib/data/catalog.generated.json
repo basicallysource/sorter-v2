@@ -1411,6 +1411,7 @@
 	"parts": [
 		{
 			"id": "stator",
+			"uid": "n6bm",
 			"name": "Stator",
 			"quantities": {
 				"feeder": 3,
@@ -1427,6 +1428,7 @@
 			"versions": [
 				{
 					"version": "1",
+					"uid": "n6bm",
 					"date": "2026-06-27",
 					"message": "Initial version.",
 					"commit": null,
@@ -1466,6 +1468,7 @@
 		},
 		{
 			"id": "rotor-faceted",
+			"uid": "9v9q",
 			"name": "Rotor (faceted)",
 			"quantities": {
 				"feeder": 3
@@ -1481,6 +1484,7 @@
 			"versions": [
 				{
 					"version": "1",
+					"uid": "9v9q",
 					"date": "2026-06-27",
 					"message": "Initial version.",
 					"commit": null,
@@ -1522,6 +1526,7 @@
 		},
 		{
 			"id": "output-gear",
+			"uid": "26ek",
 			"name": "Output gear (130T)",
 			"quantities": {
 				"feeder": 3,
@@ -1538,6 +1543,7 @@
 			"versions": [
 				{
 					"version": "1",
+					"uid": "26ek",
 					"date": "2026-06-27",
 					"message": "Initial version.",
 					"commit": null,
@@ -1575,6 +1581,7 @@
 		},
 		{
 			"id": "nema-bracket",
+			"uid": "x09t",
 			"name": "NEMA bracket",
 			"quantities": {
 				"feeder": 3,
@@ -1591,6 +1598,7 @@
 			"versions": [
 				{
 					"version": "2",
+					"uid": "x09t",
 					"date": "2026-06-27",
 					"message": "Initial version.",
 					"commit": null,
@@ -1630,6 +1638,7 @@
 		},
 		{
 			"id": "light-post",
+			"uid": "oac5",
 			"name": "Light post",
 			"quantities": {
 				"feeder": 2
@@ -1645,6 +1654,7 @@
 			"versions": [
 				{
 					"version": "1",
+					"uid": "oac5",
 					"date": "2026-07-01",
 					"message": "Initial version.",
 					"commit": null,
@@ -1677,6 +1687,7 @@
 		},
 		{
 			"id": "light-post-cap",
+			"uid": "7a8e",
 			"name": "Light post cap",
 			"quantities": {
 				"feeder": 2
@@ -1692,6 +1703,7 @@
 			"versions": [
 				{
 					"version": "1",
+					"uid": "7a8e",
 					"date": "2026-06-27",
 					"message": "Initial version.",
 					"commit": null,
@@ -1724,6 +1736,7 @@
 		},
 		{
 			"id": "light-post-cap-adapter",
+			"uid": "jcnt",
 			"name": "Light post cap adapter",
 			"quantities": {
 				"feeder": 2
@@ -1739,6 +1752,7 @@
 			"versions": [
 				{
 					"version": "1",
+					"uid": "jcnt",
 					"date": "2026-07-03",
 					"message": "Initial version.",
 					"commit": null,
@@ -1771,6 +1785,7 @@
 		},
 		{
 			"id": "bulk-cap",
+			"uid": "737f",
 			"name": "Bulk cap",
 			"quantities": {
 				"feeder": 1
@@ -1786,17 +1801,18 @@
 			"versions": [
 				{
 					"version": "1",
+					"uid": "wo2a",
 					"date": "2026-06-27",
 					"message": "Initial version. The dovetail fit was too tight and could make the cap difficult to install on the stator.",
 					"commit": "83deca5",
 					"stl_hash": "c7200a59ee437fb073d90f0fcaf96773cf1aad0e6fcd34f5a68beb8f4752497a",
-					"stl_id": "wo2a",
 					"render": "https://img.basically.website/parts/render/bulk-cap-v1-9ec28d7a.png",
 					"stl": "https://img.basically.website/parts/stl/bulk-cap-wo2a-c7200a59.stl",
 					"grams": 648.51
 				},
 				{
 					"version": "2",
+					"uid": "737f",
 					"date": "2026-08-18",
 					"message": "Increased the dovetail clearance so the cap slides onto the stator more easily and seats without excessive force.",
 					"commit": "5faa101",
@@ -1830,6 +1846,7 @@
 		},
 		{
 			"id": "classification-dome",
+			"uid": "fheh",
 			"name": "Classification dome",
 			"quantities": {
 				"classification-channel": 1
@@ -1845,6 +1862,7 @@
 			"versions": [
 				{
 					"version": "1",
+					"uid": "fheh",
 					"date": "2026-06-27",
 					"message": "Initial version.",
 					"commit": null,
@@ -1877,6 +1895,7 @@
 		},
 		{
 			"id": "interface-bracket",
+			"uid": "jk82",
 			"name": "Interface bracket",
 			"quantities": {
 				"interface": 6
@@ -1892,17 +1911,18 @@
 			"versions": [
 				{
 					"version": "1",
+					"uid": "s2o9",
 					"date": "2026-06-27",
 					"message": "Initial version. The fit around the horizontal aluminum spoke was too tight.",
 					"commit": "83deca5",
 					"stl_hash": "db2c0ecf58184c752a8d66035b2620a3d1570343167b8b2b7f3b7eedd402c58f",
-					"stl_id": "s2o9",
 					"render": "https://img.basically.website/parts/render/interface-bracket-v1-299da0d4.png",
 					"stl": "https://img.basically.website/parts/stl/interface-bracket-s2o9-db2c0ecf.stl",
 					"grams": 159.64
 				},
 				{
 					"version": "2",
+					"uid": "jk82",
 					"date": "2026-08-18",
 					"message": "Added 0.2 mm clearance on every side of the horizontal aluminum spoke.",
 					"commit": "a496872",
@@ -1941,6 +1961,7 @@
 		},
 		{
 			"id": "interface-spacer",
+			"uid": "bfoc",
 			"name": "Interface spacer",
 			"quantities": {
 				"interface": 6
@@ -1956,6 +1977,7 @@
 			"versions": [
 				{
 					"version": "1",
+					"uid": "bfoc",
 					"date": "2026-06-27",
 					"message": "Initial version.",
 					"commit": null,
@@ -1988,6 +2010,7 @@
 		},
 		{
 			"id": "chute-core",
+			"uid": "mu36",
 			"name": "Chute core",
 			"quantities": {
 				"chute": 1
@@ -2003,6 +2026,7 @@
 			"versions": [
 				{
 					"version": "1",
+					"uid": "mu36",
 					"date": "2026-06-27",
 					"message": "Initial version.",
 					"commit": null,
@@ -2040,6 +2064,7 @@
 		},
 		{
 			"id": "bin-retainer-left",
+			"uid": "hqz0",
 			"name": "Bin retainer (left)",
 			"quantities": {
 				"layer": 6
@@ -2055,6 +2080,7 @@
 			"versions": [
 				{
 					"version": "1",
+					"uid": "hqz0",
 					"date": "2026-06-27",
 					"message": "Initial version.",
 					"commit": null,
@@ -2087,6 +2113,7 @@
 		},
 		{
 			"id": "bin-retainer-right",
+			"uid": "ybpv",
 			"name": "Bin retainer (right)",
 			"quantities": {
 				"layer": 6
@@ -2102,6 +2129,7 @@
 			"versions": [
 				{
 					"version": "1",
+					"uid": "ybpv",
 					"date": "2026-06-27",
 					"message": "Initial version.",
 					"commit": null,
@@ -2134,6 +2162,7 @@
 		},
 		{
 			"id": "frame-crossbeam",
+			"uid": "cdeg",
 			"name": "Frame crossbeam",
 			"quantities": {
 				"layer": 6,
@@ -2150,6 +2179,7 @@
 			"versions": [
 				{
 					"version": "1",
+					"uid": "cdeg",
 					"date": "2026-06-27",
 					"message": "Initial version.",
 					"commit": null,
@@ -2183,6 +2213,7 @@
 		},
 		{
 			"id": "frame-90deg-bracket",
+			"uid": "3l20",
 			"name": "Frame 90\u00b0 bracket",
 			"quantities": {
 				"layer": 12,
@@ -2199,6 +2230,7 @@
 			"versions": [
 				{
 					"version": "1",
+					"uid": "3l20",
 					"date": "2026-06-27",
 					"message": "Initial version.",
 					"commit": null,
@@ -2232,6 +2264,7 @@
 		},
 		{
 			"id": "ls-mount-to-chute",
+			"uid": "lma9",
 			"name": "Lazy Susan \u2014 chute mount",
 			"aliases": [
 				"bottom interface lazy Susan chute mount",
@@ -2251,6 +2284,7 @@
 			"versions": [
 				{
 					"version": "1",
+					"uid": "lma9",
 					"date": "2026-06-27",
 					"message": "Initial version.",
 					"commit": null,
@@ -2288,6 +2322,7 @@
 		},
 		{
 			"id": "ls-bottom-static",
+			"uid": "4mmh",
 			"name": "Lazy Susan \u2014 bottom static",
 			"aliases": [
 				"bottom interface lazy Susan fixed section",
@@ -2307,6 +2342,7 @@
 			"versions": [
 				{
 					"version": "1",
+					"uid": "4mmh",
 					"date": "2026-06-27",
 					"message": "Initial version.",
 					"commit": null,
@@ -2344,6 +2380,7 @@
 		},
 		{
 			"id": "ls-mount-to-extrusion",
+			"uid": "bmt4",
 			"name": "Lazy Susan \u2014 extrusion mount",
 			"quantities": {
 				"lazy-susan": 3
@@ -2359,6 +2396,7 @@
 			"versions": [
 				{
 					"version": "1",
+					"uid": "bmt4",
 					"date": "2026-06-27",
 					"message": "Initial version.",
 					"commit": null,
@@ -2391,6 +2429,7 @@
 		},
 		{
 			"id": "ls-hold-in-place",
+			"uid": "ss05",
 			"name": "Lazy Susan \u2014 hold in place",
 			"quantities": {
 				"lazy-susan": 3
@@ -2406,6 +2445,7 @@
 			"versions": [
 				{
 					"version": "1",
+					"uid": "ss05",
 					"date": "2026-06-27",
 					"message": "Initial version.",
 					"commit": null,
@@ -2438,6 +2478,7 @@
 		},
 		{
 			"id": "ls-washer",
+			"uid": "9c4a",
 			"name": "Lazy Susan \u2014 washer",
 			"quantities": {
 				"lazy-susan": 1
@@ -2453,6 +2494,7 @@
 			"versions": [
 				{
 					"version": "1",
+					"uid": "9c4a",
 					"date": "2026-06-27",
 					"message": "Initial version.",
 					"commit": null,
@@ -2485,6 +2527,7 @@
 		},
 		{
 			"id": "ext-bracket-left",
+			"uid": "0b4g",
 			"name": "External bracket \u2014 side",
 			"quantities": {
 				"layer": 6,
@@ -2501,6 +2544,7 @@
 			"versions": [
 				{
 					"version": "1",
+					"uid": "0b4g",
 					"date": "2026-06-27",
 					"message": "Initial version.",
 					"commit": null,
@@ -2534,6 +2578,7 @@
 		},
 		{
 			"id": "ext-bracket-bottom-vertical",
+			"uid": "xgzj",
 			"name": "External bracket \u2014 bottom vertical",
 			"quantities": {
 				"layer": 6,
@@ -2550,6 +2595,7 @@
 			"versions": [
 				{
 					"version": "1",
+					"uid": "xgzj",
 					"date": "2026-06-27",
 					"message": "Initial version.",
 					"commit": null,
@@ -2583,6 +2629,7 @@
 		},
 		{
 			"id": "ext-bracket-cover",
+			"uid": "1r5i",
 			"name": "External bracket \u2014 cover",
 			"quantities": {
 				"layer": 6,
@@ -2599,6 +2646,7 @@
 			"versions": [
 				{
 					"version": "1",
+					"uid": "1r5i",
 					"date": "2026-06-27",
 					"message": "Initial version.",
 					"commit": null,
@@ -2632,6 +2680,7 @@
 		},
 		{
 			"id": "ext-bracket-foot-cover",
+			"uid": "e5si",
 			"name": "External bracket - foot cover",
 			"quantities": {
 				"layer": 6
@@ -2647,6 +2696,7 @@
 			"versions": [
 				{
 					"version": "1",
+					"uid": "e5si",
 					"date": "2026-07-03",
 					"message": "Initial version.",
 					"commit": null,
@@ -2679,6 +2729,7 @@
 		},
 		{
 			"id": "interface-upper-fixed-section",
+			"uid": "kigs",
 			"name": "Interface upper fixed section",
 			"aliases": [
 				"fixed upper section"
@@ -2697,17 +2748,18 @@
 			"versions": [
 				{
 					"version": "1",
+					"uid": "vbca",
 					"date": "2026-06-27",
 					"message": "Initial version.",
 					"commit": "36aa6b5",
 					"stl_hash": "bf52ad8b7b81dc61a3ed69517953ad52139f8eec291920627e6ff71a3bc3e0fd",
-					"stl_id": "vbca",
 					"render": "https://img.basically.website/parts/render/interface-upper-fixed-section-v1-84740ff9.png",
 					"stl": "https://img.basically.website/parts/stl/interface-upper-fixed-section-vbca-bf52ad8b.stl",
 					"grams": 153.65
 				},
 				{
 					"version": "2",
+					"uid": "kigs",
 					"date": "2026-07-08",
 					"message": "Reshaped: now 35 mm tall (was 33 mm), with rib attachments.",
 					"commit": "ce5d56e",
@@ -2746,6 +2798,7 @@
 		},
 		{
 			"id": "interface-rib",
+			"uid": "z9o2",
 			"name": "Interface rib",
 			"quantities": {
 				"interface": 5
@@ -2761,6 +2814,7 @@
 			"versions": [
 				{
 					"version": "1",
+					"uid": "z9o2",
 					"date": "2026-06-27",
 					"message": "Initial version.",
 					"commit": null,
@@ -2794,6 +2848,7 @@
 		},
 		{
 			"id": "interface-rib-switch",
+			"uid": "19gx",
 			"name": "Interface rib (switch gap)",
 			"quantities": {
 				"interface": 1
@@ -2809,6 +2864,7 @@
 			"versions": [
 				{
 					"version": "1",
+					"uid": "19gx",
 					"date": "2026-06-27",
 					"message": "Initial version.",
 					"commit": null,
@@ -2842,6 +2898,7 @@
 		},
 		{
 			"id": "interface-big-spacer",
+			"uid": "vt50",
 			"name": "Interface big spacer",
 			"quantities": {
 				"interface": 1
@@ -2857,17 +2914,18 @@
 			"versions": [
 				{
 					"version": "1",
+					"uid": "m8pp",
 					"date": "2026-06-27",
 					"message": "Initial version.",
 					"commit": "36aa6b5",
 					"stl_hash": "8ca345012b63e33064706c787705fa3d3f39229891319935beb58eeede6d1a14",
-					"stl_id": "m8pp",
 					"render": "https://img.basically.website/parts/render/interface-big-spacer-v1-8ef4cd81.png",
 					"stl": "https://img.basically.website/parts/stl/interface-big-spacer-m8pp-8ca34501.stl",
 					"grams": 22.19
 				},
 				{
 					"version": "2",
+					"uid": "vt50",
 					"date": "2026-07-08",
 					"message": "Reshaped: now 1 mm thick (was 3 mm).",
 					"commit": "ce5d56e",
@@ -2901,6 +2959,7 @@
 		},
 		{
 			"id": "cable-clamp-inner",
+			"uid": "3fue",
 			"name": "Cable clamp (inner)",
 			"quantities": {
 				"interface": 1
@@ -2916,6 +2975,7 @@
 			"versions": [
 				{
 					"version": "1",
+					"uid": "3fue",
 					"date": "2026-06-27",
 					"message": "Initial version.",
 					"commit": null,
@@ -2948,6 +3008,7 @@
 		},
 		{
 			"id": "cable-clamp-outer",
+			"uid": "50dv",
 			"name": "Cable clamp (outer)",
 			"quantities": {
 				"interface": 1
@@ -2963,17 +3024,18 @@
 			"versions": [
 				{
 					"version": "1",
+					"uid": "03l5",
 					"date": "2026-06-27",
 					"message": "Initial version.",
 					"commit": "36aa6b5",
 					"stl_hash": "34485f41055e82d098984ed49824fd0f93f471dac62ea86e6b83cf87482bf9fd",
-					"stl_id": "03l5",
 					"render": "https://img.basically.website/parts/render/cable-clamp-outer-v1-ca79ce54.png",
 					"stl": "https://img.basically.website/parts/stl/cable-clamp-outer-03l5-34485f41.stl",
 					"grams": 19.76
 				},
 				{
 					"version": "2",
+					"uid": "50dv",
 					"date": "2026-07-18",
 					"message": "Enlarged the M3 nut pocket. The v1 pocket was undersized and the nut would not seat in it.",
 					"commit": "8bf567e",
@@ -3006,6 +3068,7 @@
 		},
 		{
 			"id": "interface-spur-gear",
+			"uid": "ywxy",
 			"name": "Chute stepper drive gear (2M 25T)",
 			"aliases": [
 				"Interface spur gear",
@@ -3025,6 +3088,7 @@
 			"versions": [
 				{
 					"version": "1",
+					"uid": "ywxy",
 					"date": "2026-06-27",
 					"message": "Initial version.",
 					"commit": null,
@@ -3057,6 +3121,7 @@
 		},
 		{
 			"id": "interface-idler-gear",
+			"uid": "ptl7",
 			"name": "Chute stepper idler gear (2M 25T)",
 			"aliases": [
 				"Interface idler gear",
@@ -3076,6 +3141,7 @@
 			"versions": [
 				{
 					"version": "1",
+					"uid": "ptl7",
 					"date": "2026-06-27",
 					"message": "Initial version.",
 					"commit": null,
@@ -3113,6 +3179,7 @@
 		},
 		{
 			"id": "interface-nema23-bracket",
+			"uid": "if4v",
 			"name": "Chute stepper NEMA 23 bracket",
 			"aliases": [
 				"Interface NEMA 23 bracket"
@@ -3131,6 +3198,7 @@
 			"versions": [
 				{
 					"version": "1",
+					"uid": "if4v",
 					"date": "2026-06-27",
 					"message": "Initial version.",
 					"commit": null,
@@ -3172,6 +3240,7 @@
 		},
 		{
 			"id": "chute-stepper-idler-bearing-retainer-outer",
+			"uid": "wgsc",
 			"name": "Chute Stepper Idler Gear Bearing Retainer \u2014 Outer",
 			"aliases": [
 				"Idler Gear Bearing Retainer - Outer",
@@ -3191,6 +3260,7 @@
 			"versions": [
 				{
 					"version": "1",
+					"uid": "wgsc",
 					"date": "2026-08-17",
 					"message": "Initial version.",
 					"commit": null,
@@ -3223,6 +3293,7 @@
 		},
 		{
 			"id": "chute-stepper-idler-bearing-retainer-inner",
+			"uid": "zzql",
 			"name": "Chute Stepper Idler Gear Bearing Retainer \u2014 Inner",
 			"aliases": [
 				"Idler Gear Bearing Retainer - Inner",
@@ -3242,6 +3313,7 @@
 			"versions": [
 				{
 					"version": "1",
+					"uid": "zzql",
 					"date": "2026-08-17",
 					"message": "Initial version.",
 					"commit": null,
@@ -3274,6 +3346,7 @@
 		},
 		{
 			"id": "interface-cage-bracket",
+			"uid": "resz",
 			"name": "Cable cage bracket",
 			"quantities": {
 				"interface": 5
@@ -3289,6 +3362,7 @@
 			"versions": [
 				{
 					"version": "1",
+					"uid": "resz",
 					"date": "2026-06-27",
 					"message": "Initial version.",
 					"commit": null,
@@ -3321,6 +3395,7 @@
 		},
 		{
 			"id": "interface-cage-bracket-cable",
+			"uid": "cy58",
 			"name": "Cable cage bracket (cable mount)",
 			"quantities": {
 				"interface": 1
@@ -3336,6 +3411,7 @@
 			"versions": [
 				{
 					"version": "1",
+					"uid": "cy58",
 					"date": "2026-06-27",
 					"message": "Initial version.",
 					"commit": null,
@@ -3373,6 +3449,7 @@
 		},
 		{
 			"id": "ribbon-cable-clamp",
+			"uid": "nf0n",
 			"name": "Ribbon cable clamp",
 			"quantities": {
 				"interface": 1
@@ -3388,6 +3465,7 @@
 			"versions": [
 				{
 					"version": "1",
+					"uid": "nf0n",
 					"date": "2026-07-03",
 					"message": "Initial version.",
 					"commit": null,
@@ -3420,6 +3498,7 @@
 		},
 		{
 			"id": "top-interface-split-spur-gear-1",
+			"uid": "1a0l",
 			"name": "Chute gear",
 			"quantities": {
 				"interface": 1
@@ -3435,6 +3514,7 @@
 			"versions": [
 				{
 					"version": "1",
+					"uid": "1a0l",
 					"date": "2026-07-03",
 					"message": "Initial version.",
 					"commit": null,
@@ -3467,6 +3547,7 @@
 		},
 		{
 			"id": "top-interface-split-spur-gear-2",
+			"uid": "izz5",
 			"name": "Top interface lazy Susan washer",
 			"quantities": {
 				"interface": 1
@@ -3482,6 +3563,7 @@
 			"versions": [
 				{
 					"version": "1",
+					"uid": "izz5",
 					"date": "2026-07-03",
 					"message": "Initial version.",
 					"commit": null,
@@ -3514,6 +3596,7 @@
 		},
 		{
 			"id": "top-interface-split-spur-gear-3",
+			"uid": "vrz8",
 			"name": "Top interface chute mount",
 			"aliases": [
 				"chute core mount"
@@ -3532,6 +3615,7 @@
 			"versions": [
 				{
 					"version": "1",
+					"uid": "vrz8",
 					"date": "2026-07-03",
 					"message": "Initial version.",
 					"commit": null,
@@ -3573,6 +3657,7 @@
 		},
 		{
 			"id": "limit-switch-dowel-pin",
+			"uid": "g68e",
 			"name": "Printed dowel pin",
 			"quantities": {
 				"interface": 1
@@ -3588,6 +3673,7 @@
 			"versions": [
 				{
 					"version": "1",
+					"uid": "g68e",
 					"date": "2026-07-03",
 					"message": "Initial version.",
 					"commit": null,
@@ -3620,6 +3706,7 @@
 		},
 		{
 			"id": "limit-switch-housing",
+			"uid": "mrs0",
 			"name": "Limit switch housing",
 			"quantities": {
 				"interface": 1
@@ -3635,6 +3722,7 @@
 			"versions": [
 				{
 					"version": "1",
+					"uid": "mrs0",
 					"date": "2026-07-03",
 					"message": "Initial version.",
 					"commit": "7fed71e",
@@ -3672,6 +3760,7 @@
 		},
 		{
 			"id": "limit-switch-hammer",
+			"uid": "lfu7",
 			"name": "Limit switch hammer",
 			"quantities": {
 				"interface": 1
@@ -3687,6 +3776,7 @@
 			"versions": [
 				{
 					"version": "1",
+					"uid": "lfu7",
 					"date": "2026-07-03",
 					"message": "Initial version.",
 					"commit": null,
@@ -3724,6 +3814,7 @@
 		},
 		{
 			"id": "rotor-finned",
+			"uid": "brsr",
 			"name": "Rotor (finned)",
 			"quantities": {
 				"classification-channel": 1
@@ -3739,6 +3830,7 @@
 			"versions": [
 				{
 					"version": "1",
+					"uid": "brsr",
 					"date": "2026-06-27",
 					"message": "Initial version.",
 					"commit": null,
@@ -3771,6 +3863,7 @@
 		},
 		{
 			"id": "idler-gear",
+			"uid": "7bv7",
 			"name": "Idler gear (24T)",
 			"quantities": {
 				"feeder": 4
@@ -3786,6 +3879,7 @@
 			"versions": [
 				{
 					"version": "1",
+					"uid": "7bv7",
 					"date": "2026-06-27",
 					"message": "Initial version.",
 					"commit": null,
@@ -3823,6 +3917,7 @@
 		},
 		{
 			"id": "input-gear",
+			"uid": "70ul",
 			"name": "Input gear (12T, screw)",
 			"quantities": {
 				"feeder": 4
@@ -3838,6 +3933,7 @@
 			"versions": [
 				{
 					"version": "1",
+					"uid": "70ul",
 					"date": "2026-06-27",
 					"message": "Initial version.",
 					"commit": null,
@@ -3870,6 +3966,7 @@
 		},
 		{
 			"id": "output-guide",
+			"uid": "8j3e",
 			"name": "Output guide",
 			"quantities": {
 				"feeder": 2
@@ -3885,6 +3982,7 @@
 			"versions": [
 				{
 					"version": "1",
+					"uid": "8j3e",
 					"date": "2026-06-27",
 					"message": "Initial version.",
 					"commit": null,
@@ -3917,6 +4015,7 @@
 		},
 		{
 			"id": "funnel-bracket-left",
+			"uid": "4oyp",
 			"name": "Funnel bracket (left)",
 			"quantities": {
 				"chute": 1
@@ -3932,6 +4031,7 @@
 			"versions": [
 				{
 					"version": "1",
+					"uid": "4oyp",
 					"date": "2026-06-27",
 					"message": "Initial version.",
 					"commit": null,
@@ -3965,6 +4065,7 @@
 		},
 		{
 			"id": "funnel-bracket-right",
+			"uid": "b9vt",
 			"name": "Funnel bracket (right)",
 			"quantities": {
 				"chute": 1
@@ -3980,6 +4081,7 @@
 			"versions": [
 				{
 					"version": "1",
+					"uid": "b9vt",
 					"date": "2026-06-27",
 					"message": "Initial version.",
 					"commit": null,
@@ -4013,6 +4115,7 @@
 		},
 		{
 			"id": "bearing-race",
+			"uid": "yo10",
 			"name": "Bearing race",
 			"quantities": {
 				"chute": 1
@@ -4028,6 +4131,7 @@
 			"versions": [
 				{
 					"version": "1",
+					"uid": "yo10",
 					"date": "2026-06-27",
 					"message": "Initial version.",
 					"commit": null,
@@ -4065,6 +4169,7 @@
 		},
 		{
 			"id": "bearing-holder-left",
+			"uid": "gybh",
 			"name": "Bearing holder (left)",
 			"quantities": {
 				"chute": 1
@@ -4080,6 +4185,7 @@
 			"versions": [
 				{
 					"version": "1",
+					"uid": "gybh",
 					"date": "2026-06-27",
 					"message": "Initial version.",
 					"commit": null,
@@ -4117,6 +4223,7 @@
 		},
 		{
 			"id": "bearing-holder-right",
+			"uid": "rnog",
 			"name": "Bearing holder (right)",
 			"quantities": {
 				"chute": 1
@@ -4132,6 +4239,7 @@
 			"versions": [
 				{
 					"version": "1",
+					"uid": "rnog",
 					"date": "2026-06-27",
 					"message": "Initial version.",
 					"commit": null,
@@ -4169,6 +4277,7 @@
 		},
 		{
 			"id": "servo-adapter-servo-side",
+			"uid": "fu2t",
 			"name": "Servo adapter \u2014 servo side",
 			"quantities": {
 				"chute": 1
@@ -4184,6 +4293,7 @@
 			"versions": [
 				{
 					"version": "1",
+					"uid": "fu2t",
 					"date": "2026-06-27",
 					"message": "Initial version.",
 					"commit": null,
@@ -4216,6 +4326,7 @@
 		},
 		{
 			"id": "servo-adapter-flap-side",
+			"uid": "lv7n",
 			"name": "Servo adapter \u2014 flap side",
 			"quantities": {
 				"chute": 1
@@ -4231,6 +4342,7 @@
 			"versions": [
 				{
 					"version": "1",
+					"uid": "lv7n",
 					"date": "2026-06-27",
 					"message": "Initial version.",
 					"commit": null,
@@ -4263,6 +4375,7 @@
 		},
 		{
 			"id": "servo-bracket-lower-arm",
+			"uid": "yqz1",
 			"name": "Servo bracket \u2014 lower arm",
 			"quantities": {
 				"chute": 1
@@ -4278,6 +4391,7 @@
 			"versions": [
 				{
 					"version": "1",
+					"uid": "yqz1",
 					"date": "2026-06-27",
 					"message": "Initial version.",
 					"commit": null,
@@ -4310,6 +4424,7 @@
 		},
 		{
 			"id": "servo-bracket-side-arm",
+			"uid": "75na",
 			"name": "Servo bracket \u2014 side arm",
 			"quantities": {
 				"chute": 1
@@ -4325,6 +4440,7 @@
 			"versions": [
 				{
 					"version": "1",
+					"uid": "75na",
 					"date": "2026-06-27",
 					"message": "Initial version.",
 					"commit": null,
@@ -4357,6 +4473,7 @@
 		},
 		{
 			"id": "servo-bracket-cover",
+			"uid": "rqor",
 			"name": "Servo bracket \u2014 cover",
 			"quantities": {
 				"chute": 1
@@ -4372,6 +4489,7 @@
 			"versions": [
 				{
 					"version": "1",
+					"uid": "rqor",
 					"date": "2026-06-27",
 					"message": "Initial version.",
 					"commit": null,
@@ -4404,6 +4522,7 @@
 		},
 		{
 			"id": "servo-bracket-housing",
+			"uid": "tr15",
 			"name": "Servo bracket \u2014 housing",
 			"quantities": {
 				"chute": 1
@@ -4419,6 +4538,7 @@
 			"versions": [
 				{
 					"version": "1",
+					"uid": "tr15",
 					"date": "2026-06-27",
 					"message": "Initial version.",
 					"commit": null,
@@ -4456,6 +4576,7 @@
 		},
 		{
 			"id": "leg",
+			"uid": "xse1",
 			"name": "Leg",
 			"quantities": {
 				"feeder": 9
@@ -4471,6 +4592,7 @@
 			"versions": [
 				{
 					"version": "1",
+					"uid": "xse1",
 					"date": "2026-06-27",
 					"message": "Initial version.",
 					"commit": null,
@@ -4503,6 +4625,7 @@
 		},
 		{
 			"id": "foot",
+			"uid": "jqdx",
 			"name": "Foot",
 			"quantities": {
 				"feeder": 9
@@ -4518,6 +4641,7 @@
 			"versions": [
 				{
 					"version": "1",
+					"uid": "jqdx",
 					"date": "2026-06-27",
 					"message": "Initial version.",
 					"commit": null,
@@ -4550,6 +4674,7 @@
 		},
 		{
 			"id": "chute-door",
+			"uid": "7oxs",
 			"name": "Chute door",
 			"quantities": {
 				"chute": 1
@@ -4565,6 +4690,7 @@
 			"versions": [
 				{
 					"version": "1",
+					"uid": "7oxs",
 					"date": "2026-06-27",
 					"message": "Initial version.",
 					"commit": null,
@@ -4597,6 +4723,7 @@
 		},
 		{
 			"id": "leg-extension",
+			"uid": "jewq",
 			"name": "Leg extension",
 			"quantities": {
 				"feeder": 9
@@ -4612,6 +4739,7 @@
 			"versions": [
 				{
 					"version": "1",
+					"uid": "jewq",
 					"date": "2026-06-27",
 					"message": "Initial version.",
 					"commit": null,
@@ -4644,6 +4772,7 @@
 		},
 		{
 			"id": "camera-mount-part-6",
+			"uid": "v9dv",
 			"name": "Overhead camera mount \u2014 A/B connector",
 			"quantities": {
 				"feeder": 2
@@ -4659,6 +4788,7 @@
 			"versions": [
 				{
 					"version": "1",
+					"uid": "v9dv",
 					"date": "2026-06-27",
 					"message": "Initial version.",
 					"commit": null,
@@ -4691,6 +4821,7 @@
 		},
 		{
 			"id": "camera-mount-part-37",
+			"uid": "8bqo",
 			"name": "Overhead camera mount A",
 			"quantities": {
 				"feeder": 2
@@ -4706,6 +4837,7 @@
 			"versions": [
 				{
 					"version": "1",
+					"uid": "8bqo",
 					"date": "2026-06-27",
 					"message": "Initial version.",
 					"commit": null,
@@ -4738,6 +4870,7 @@
 		},
 		{
 			"id": "camera-mount-part-37b",
+			"uid": "gut5",
 			"name": "Overhead camera mount B",
 			"quantities": {
 				"feeder": 2
@@ -4753,6 +4886,7 @@
 			"versions": [
 				{
 					"version": "1",
+					"uid": "gut5",
 					"date": "2026-06-27",
 					"message": "Initial version.",
 					"commit": null,
@@ -4785,6 +4919,7 @@
 		},
 		{
 			"id": "camera-mount-rod-mount",
+			"uid": "twuu",
 			"name": "Camera mount \u2014 rod-to-C-channel mount",
 			"quantities": {
 				"feeder": 4
@@ -4800,6 +4935,7 @@
 			"versions": [
 				{
 					"version": "1",
+					"uid": "twuu",
 					"date": "2026-06-27",
 					"message": "Initial version.",
 					"commit": null,
@@ -4832,6 +4968,7 @@
 		},
 		{
 			"id": "camera-led-insert",
+			"uid": "b2v9",
 			"name": "Camera & LED insert",
 			"quantities": {
 				"classification-channel": 1
@@ -4847,6 +4984,7 @@
 			"versions": [
 				{
 					"version": "1",
+					"uid": "b2v9",
 					"date": "2026-06-27",
 					"message": "Initial version.",
 					"commit": null,
@@ -4879,6 +5017,7 @@
 		},
 		{
 			"id": "camera-extension",
+			"uid": "q7ns",
 			"name": "Camera extension",
 			"quantities": {
 				"classification-channel": 1
@@ -4894,6 +5033,7 @@
 			"versions": [
 				{
 					"version": "1",
+					"uid": "q7ns",
 					"date": "2026-07-08",
 					"message": "Initial version.",
 					"commit": "ce5d56e",
@@ -4937,6 +5077,7 @@
 		},
 		{
 			"id": "camera-extension-mount",
+			"uid": "wt9t",
 			"name": "Camera extension mount",
 			"quantities": {
 				"classification-channel": 1
@@ -4952,6 +5093,7 @@
 			"versions": [
 				{
 					"version": "1",
+					"uid": "wt9t",
 					"date": "2026-07-08",
 					"message": "Initial version.",
 					"commit": "ce5d56e",
@@ -4995,6 +5137,7 @@
 		},
 		{
 			"id": "layer-connector-1",
+			"uid": "iwzg",
 			"name": "Layer connector A",
 			"quantities": {
 				"chute": 1,
@@ -5011,6 +5154,7 @@
 			"versions": [
 				{
 					"version": "1",
+					"uid": "iwzg",
 					"date": "2026-06-27",
 					"message": "Initial version.",
 					"commit": null,
@@ -5044,6 +5188,7 @@
 		},
 		{
 			"id": "layer-connector-2",
+			"uid": "3wrh",
 			"name": "Layer connector B",
 			"quantities": {
 				"chute": 1,
@@ -5060,6 +5205,7 @@
 			"versions": [
 				{
 					"version": "1",
+					"uid": "3wrh",
 					"date": "2026-06-27",
 					"message": "Initial version.",
 					"commit": null,
@@ -5093,6 +5239,7 @@
 		},
 		{
 			"id": "chute-stepper-support-block",
+			"uid": "loc0",
 			"name": "Chute stepper support block",
 			"quantities": {
 				"interface": 1
@@ -5108,6 +5255,7 @@
 			"versions": [
 				{
 					"version": "1",
+					"uid": "loc0",
 					"date": "2026-07-03",
 					"message": "Initial version.",
 					"commit": null,
@@ -5140,6 +5288,7 @@
 		},
 		{
 			"id": "funnel-third",
+			"uid": "2cww",
 			"name": "Funnel (third size)",
 			"quantities": {
 				"funnel": 1
@@ -5155,6 +5304,7 @@
 			"versions": [
 				{
 					"version": "1",
+					"uid": "2cww",
 					"date": "2026-06-29",
 					"message": "Initial version.",
 					"commit": null,
@@ -5188,6 +5338,7 @@
 		},
 		{
 			"id": "funnel-half",
+			"uid": "t9lf",
 			"name": "Funnel (half size)",
 			"quantities": {
 				"funnel": 1
@@ -5203,6 +5354,7 @@
 			"versions": [
 				{
 					"version": "1",
+					"uid": "t9lf",
 					"date": "2026-06-29",
 					"message": "Initial version.",
 					"commit": null,
@@ -5236,6 +5388,7 @@
 		},
 		{
 			"id": "bin-half-left",
+			"uid": "0zbx",
 			"name": "Bin (half, left)",
 			"quantities": {
 				"bins": 6
@@ -5251,6 +5404,7 @@
 			"versions": [
 				{
 					"version": "1",
+					"uid": "0zbx",
 					"date": "2026-06-29",
 					"message": "Initial version.",
 					"commit": null,
@@ -5283,6 +5437,7 @@
 		},
 		{
 			"id": "bin-half-right",
+			"uid": "e0ek",
 			"name": "Bin (half, right)",
 			"quantities": {
 				"bins": 6
@@ -5298,6 +5453,7 @@
 			"versions": [
 				{
 					"version": "1",
+					"uid": "e0ek",
 					"date": "2026-06-29",
 					"message": "Initial version.",
 					"commit": null,
@@ -5330,6 +5486,7 @@
 		},
 		{
 			"id": "bin-third-left",
+			"uid": "z8ap",
 			"name": "Bin (third, left)",
 			"quantities": {
 				"bins": 6
@@ -5345,6 +5502,7 @@
 			"versions": [
 				{
 					"version": "1",
+					"uid": "z8ap",
 					"date": "2026-06-29",
 					"message": "Initial version.",
 					"commit": null,
@@ -5377,6 +5535,7 @@
 		},
 		{
 			"id": "bin-third-center",
+			"uid": "g92t",
 			"name": "Bin (third, center)",
 			"quantities": {
 				"bins": 6
@@ -5392,6 +5551,7 @@
 			"versions": [
 				{
 					"version": "1",
+					"uid": "g92t",
 					"date": "2026-06-29",
 					"message": "Initial version.",
 					"commit": null,
@@ -5424,6 +5584,7 @@
 		},
 		{
 			"id": "bin-third-rightback",
+			"uid": "5o2l",
 			"name": "Bin (third, right-back)",
 			"quantities": {
 				"bins": 6
@@ -5439,6 +5600,7 @@
 			"versions": [
 				{
 					"version": "1",
+					"uid": "5o2l",
 					"date": "2026-06-29",
 					"message": "Initial version.",
 					"commit": null,
@@ -5471,6 +5633,7 @@
 		},
 		{
 			"id": "bearing-cover-covered",
+			"uid": "75fh",
 			"name": "Bearing cover (covered side)",
 			"quantities": {
 				"chute": 1
@@ -5486,6 +5649,7 @@
 			"versions": [
 				{
 					"version": "1",
+					"uid": "75fh",
 					"date": "2026-06-29",
 					"message": "Initial version.",
 					"commit": null,
@@ -5518,6 +5682,7 @@
 		},
 		{
 			"id": "bearing-cover-servo",
+			"uid": "g7s2",
 			"name": "Bearing cover (servo side)",
 			"quantities": {
 				"chute": 1
@@ -5533,6 +5698,7 @@
 			"versions": [
 				{
 					"version": "1",
+					"uid": "g7s2",
 					"date": "2026-06-29",
 					"message": "Initial version.",
 					"commit": null,
@@ -5565,6 +5731,7 @@
 		},
 		{
 			"id": "meanwell-psu-back-mount",
+			"uid": "15uh",
 			"name": "PSU back mount",
 			"quantities": {
 				"electronics": 1
@@ -5580,6 +5747,7 @@
 			"versions": [
 				{
 					"version": "1",
+					"uid": "15uh",
 					"date": "2026-07-03",
 					"message": "Initial version.",
 					"commit": null,
@@ -5612,6 +5780,7 @@
 		},
 		{
 			"id": "meanwell-psu-connections",
+			"uid": "08id",
 			"name": "PSU connections plate",
 			"quantities": {
 				"electronics": 1
@@ -5627,6 +5796,7 @@
 			"versions": [
 				{
 					"version": "1",
+					"uid": "08id",
 					"date": "2026-07-03",
 					"message": "Initial version.",
 					"commit": null,
@@ -5659,6 +5829,7 @@
 		},
 		{
 			"id": "meanwell-psu-cap",
+			"uid": "5nt1",
 			"name": "PSU box cap",
 			"quantities": {
 				"electronics": 1
@@ -5674,6 +5845,7 @@
 			"versions": [
 				{
 					"version": "1",
+					"uid": "5nt1",
 					"date": "2026-07-03",
 					"message": "Initial version.",
 					"commit": null,
@@ -5827,6 +5999,7 @@
 	"hardware": [
 		{
 			"id": "scr-m3-tbd",
+			"uid": "1kgy",
 			"kind": "cots",
 			"cots": {
 				"type": "screw",
@@ -5864,6 +6037,7 @@
 		},
 		{
 			"id": "scr-m3-6-cs",
+			"uid": "unfk",
 			"kind": "cots",
 			"cots": {
 				"type": "screw",
@@ -5905,6 +6079,7 @@
 		},
 		{
 			"id": "scr-m3-10-shcs",
+			"uid": "ufvb",
 			"kind": "cots",
 			"cots": {
 				"type": "screw",
@@ -5946,6 +6121,7 @@
 		},
 		{
 			"id": "scr-m3-8-cs",
+			"uid": "l6br",
 			"kind": "cots",
 			"cots": {
 				"type": "screw",
@@ -6003,6 +6179,7 @@
 		},
 		{
 			"id": "scr-m3-8-shcs",
+			"uid": "ql35",
 			"kind": "cots",
 			"cots": {
 				"type": "screw",
@@ -6042,6 +6219,7 @@
 		},
 		{
 			"id": "scr-m3-12-cs",
+			"uid": "0a9x",
 			"kind": "cots",
 			"cots": {
 				"type": "screw",
@@ -6099,6 +6277,7 @@
 		},
 		{
 			"id": "scr-m3-20-cs",
+			"uid": "60g4",
 			"kind": "cots",
 			"cots": {
 				"type": "screw",
@@ -6153,6 +6332,7 @@
 		},
 		{
 			"id": "scr-m3-16-shcs",
+			"uid": "e0ud",
 			"kind": "cots",
 			"cots": {
 				"type": "screw",
@@ -6192,6 +6372,7 @@
 		},
 		{
 			"id": "scr-m3-6-bhcs",
+			"uid": "e04c",
 			"kind": "cots",
 			"cots": {
 				"type": "screw",
@@ -6231,6 +6412,7 @@
 		},
 		{
 			"id": "scr-m3-12-bhcs",
+			"uid": "izrb",
 			"kind": "cots",
 			"cots": {
 				"type": "screw",
@@ -6270,6 +6452,7 @@
 		},
 		{
 			"id": "scr-m3-35-bhcs",
+			"uid": "38vn",
 			"kind": "cots",
 			"cots": {
 				"type": "screw",
@@ -6309,6 +6492,7 @@
 		},
 		{
 			"id": "scr-m4-6-cs",
+			"uid": "5r29",
 			"kind": "cots",
 			"cots": {
 				"type": "screw",
@@ -6348,6 +6532,7 @@
 		},
 		{
 			"id": "scr-m4-12-cs",
+			"uid": "h8h4",
 			"kind": "cots",
 			"cots": {
 				"type": "screw",
@@ -6387,6 +6572,7 @@
 		},
 		{
 			"id": "scr-m5-12-shcs",
+			"uid": "kmah",
 			"kind": "cots",
 			"cots": {
 				"type": "screw",
@@ -6426,6 +6612,7 @@
 		},
 		{
 			"id": "scr-m5-16-shcs",
+			"uid": "2e0s",
 			"kind": "cots",
 			"cots": {
 				"type": "screw",
@@ -6465,6 +6652,7 @@
 		},
 		{
 			"id": "scr-m5-20-shcs",
+			"uid": "e4hi",
 			"kind": "cots",
 			"cots": {
 				"type": "screw",
@@ -6504,6 +6692,7 @@
 		},
 		{
 			"id": "scr-m5-30-shcs",
+			"uid": "92kv",
 			"kind": "cots",
 			"cots": {
 				"type": "screw",
@@ -6543,6 +6732,7 @@
 		},
 		{
 			"id": "scr-m5-35-fhcs",
+			"uid": "xkl4",
 			"kind": "cots",
 			"cots": {
 				"type": "screw",
@@ -6606,6 +6796,7 @@
 		},
 		{
 			"id": "scr-m5-8-cs",
+			"uid": "mqh4",
 			"kind": "cots",
 			"cots": {
 				"type": "screw",
@@ -6647,6 +6838,7 @@
 		},
 		{
 			"id": "scr-m5-22-cs",
+			"uid": "hr49",
 			"kind": "cots",
 			"cots": {
 				"type": "screw",
@@ -6688,6 +6880,7 @@
 		},
 		{
 			"id": "scr-m5-shcs-tbd",
+			"uid": "wy04",
 			"kind": "cots",
 			"cots": {
 				"type": "screw",
@@ -6726,6 +6919,7 @@
 		},
 		{
 			"id": "washer-m3-15",
+			"uid": "phwe",
 			"kind": "cots",
 			"cots": {
 				"type": "washer",
@@ -6773,6 +6967,7 @@
 		},
 		{
 			"id": "nut-m3",
+			"uid": "sc1c",
 			"kind": "cots",
 			"cots": {
 				"type": "nut",
@@ -6814,6 +7009,7 @@
 		},
 		{
 			"id": "nut-m5",
+			"uid": "7m70",
 			"kind": "cots",
 			"cots": {
 				"type": "nut",
@@ -6855,6 +7051,7 @@
 		},
 		{
 			"id": "rod-steel-3-8",
+			"uid": "1o92",
 			"kind": "cots",
 			"cots": {
 				"type": "stock-material",
@@ -6914,6 +7111,7 @@
 		},
 		{
 			"id": "hsi-m3",
+			"uid": "ksut",
 			"kind": "cots",
 			"cots": {
 				"type": "heat-insert",
@@ -6980,6 +7178,7 @@
 		},
 		{
 			"id": "hsi-m3s",
+			"uid": "5nkl",
 			"kind": "cots",
 			"cots": {
 				"type": "heat-insert",
@@ -7049,6 +7248,7 @@
 		},
 		{
 			"id": "hsi-m5",
+			"uid": "kd5o",
 			"kind": "cots",
 			"cots": {
 				"type": "heat-insert",
@@ -7106,6 +7306,7 @@
 		},
 		{
 			"id": "hsi-m4",
+			"uid": "naj8",
 			"kind": "cots",
 			"cots": {
 				"type": "heat-insert",
@@ -7163,6 +7364,7 @@
 		},
 		{
 			"id": "standoff-m3-10mm",
+			"uid": "hkor",
 			"kind": "cots",
 			"cots": {
 				"type": "standoff"
@@ -7200,6 +7402,7 @@
 		},
 		{
 			"id": "tnut-m5-2020",
+			"uid": "bpwm",
 			"kind": "cots",
 			"cots": {
 				"type": "t-nut",
@@ -7261,6 +7464,7 @@
 		},
 		{
 			"id": "cam-imx415",
+			"uid": "1lze",
 			"kind": "cots",
 			"cots": {
 				"type": "camera"
@@ -7298,6 +7502,7 @@
 		},
 		{
 			"id": "cam-ov9732",
+			"uid": "6g79",
 			"kind": "cots",
 			"cots": {
 				"type": "camera"
@@ -7343,6 +7548,7 @@
 		},
 		{
 			"id": "pulley-20t-8mm",
+			"uid": "xjzk",
 			"kind": "cots",
 			"cots": {
 				"type": "pulley"
@@ -7380,6 +7586,7 @@
 		},
 		{
 			"id": "foot-connector-2020-m6",
+			"uid": "sxxb",
 			"kind": "cots",
 			"cots": {
 				"type": "extrusion-fitting",
@@ -7435,6 +7642,7 @@
 		},
 		{
 			"id": "caster-wheel-m6",
+			"uid": "l7ww",
 			"kind": "cots",
 			"cots": {
 				"type": "wheel",
@@ -7490,6 +7698,7 @@
 		},
 		{
 			"id": "motor-nema17",
+			"uid": "w7pq",
 			"kind": "cots",
 			"cots": {
 				"type": "stepper-motor"
@@ -7532,6 +7741,7 @@
 		},
 		{
 			"id": "motor-nema23",
+			"uid": "pvi7",
 			"kind": "cots",
 			"cots": {
 				"type": "stepper-motor"
@@ -7574,6 +7784,7 @@
 		},
 		{
 			"id": "servo-mg995",
+			"uid": "dylk",
 			"kind": "cots",
 			"cots": {
 				"type": "servo"
@@ -7611,6 +7822,7 @@
 		},
 		{
 			"id": "brg-6806-2rs",
+			"uid": "elxe",
 			"kind": "cots",
 			"cots": {
 				"type": "bearing"
@@ -7661,6 +7873,7 @@
 		},
 		{
 			"id": "brg-608-2rs",
+			"uid": "mi1l",
 			"kind": "cots",
 			"cots": {
 				"type": "bearing"
@@ -7698,6 +7911,7 @@
 		},
 		{
 			"id": "brg-6704-2rs",
+			"uid": "mzxu",
 			"kind": "cots",
 			"cots": {
 				"type": "bearing"
@@ -7762,6 +7976,7 @@
 		},
 		{
 			"id": "brg-lazy-susan",
+			"uid": "wrxu",
 			"kind": "cots",
 			"cots": {
 				"type": "bearing"
@@ -7811,6 +8026,7 @@
 		},
 		{
 			"id": "sbc-orange-pi-5",
+			"uid": "ilqj",
 			"kind": "cots",
 			"cots": {
 				"type": "computer"
@@ -7848,6 +8064,7 @@
 		},
 		{
 			"id": "microsd-32gb",
+			"uid": "7fvo",
 			"kind": "cots",
 			"cots": {
 				"type": "storage"
@@ -7885,6 +8102,7 @@
 		},
 		{
 			"id": "wifi-module-opi5",
+			"uid": "b25j",
 			"kind": "cots",
 			"cots": {
 				"type": "wifi"
@@ -7947,6 +8165,7 @@
 		},
 		{
 			"id": "usb-hub-powered-24v",
+			"uid": "krx5",
 			"kind": "cots",
 			"cots": {
 				"type": "usb-hub"
@@ -7984,6 +8203,7 @@
 		},
 		{
 			"id": "cable-micro-usb",
+			"uid": "e1so",
 			"kind": "cots",
 			"cots": {
 				"type": "cable"
@@ -8029,6 +8249,7 @@
 		},
 		{
 			"id": "drv-tmc2209",
+			"uid": "b7c2",
 			"kind": "cots",
 			"cots": {
 				"type": "stepper-driver"
@@ -8074,6 +8295,7 @@
 		},
 		{
 			"id": "mcu-rpi-pico",
+			"uid": "hx8l",
 			"kind": "cots",
 			"cots": {
 				"type": "mcu"
@@ -8111,6 +8333,7 @@
 		},
 		{
 			"id": "header-pins-254",
+			"uid": "10o3",
 			"kind": "cots",
 			"cots": {
 				"type": "headers"
@@ -8147,6 +8370,7 @@
 		},
 		{
 			"id": "cable-idc-2x8-long",
+			"uid": "2iv3",
 			"kind": "cots",
 			"cots": {
 				"type": "cable"
@@ -8201,6 +8425,7 @@
 		},
 		{
 			"id": "cable-idc-2x8-short",
+			"uid": "ncil",
 			"kind": "cots",
 			"cots": {
 				"type": "cable"
@@ -8255,6 +8480,7 @@
 		},
 		{
 			"id": "ctrl-board-basically",
+			"uid": "yugu",
 			"kind": "cots",
 			"cots": {
 				"type": "custom-pcb"
@@ -8293,6 +8519,7 @@
 		},
 		{
 			"id": "layer-adapter-board-basically",
+			"uid": "vpcg",
 			"kind": "cots",
 			"cots": {
 				"type": "custom-pcb"
@@ -8326,6 +8553,7 @@
 		},
 		{
 			"id": "led-cob-50mm-24v",
+			"uid": "s34o",
 			"kind": "cots",
 			"cots": {
 				"type": "led"
@@ -8361,6 +8589,7 @@
 		},
 		{
 			"id": "led-strip-24v",
+			"uid": "pzah",
 			"kind": "cots",
 			"cots": {
 				"type": "led-strip"
@@ -8397,6 +8626,7 @@
 		},
 		{
 			"id": "endstop-mechanical",
+			"uid": "92h6",
 			"kind": "cots",
 			"cots": {
 				"type": "endstop"
@@ -8442,6 +8672,7 @@
 		},
 		{
 			"id": "buck-24v-5v-usbc",
+			"uid": "x1vg",
 			"kind": "cots",
 			"cots": {
 				"type": "converter"
@@ -8496,6 +8727,7 @@
 		},
 		{
 			"id": "psu-24v-350w",
+			"uid": "s3ru",
 			"kind": "cots",
 			"cots": {
 				"type": "psu"
@@ -8533,6 +8765,7 @@
 		},
 		{
 			"id": "psu-switch-fused",
+			"uid": "lmu7",
 			"kind": "cots",
 			"cots": {
 				"type": "switch"
@@ -8591,6 +8824,7 @@
 		},
 		{
 			"id": "ext-2020-ag",
+			"uid": "lnvw",
 			"kind": "cots",
 			"cots": {
 				"type": "extrusion-2020",
@@ -8615,6 +8849,7 @@
 		},
 		{
 			"id": "ext-2020-bh",
+			"uid": "tuer",
 			"kind": "cots",
 			"cots": {
 				"type": "extrusion-2020",
@@ -8639,6 +8874,7 @@
 		},
 		{
 			"id": "ext-2020-c",
+			"uid": "pc3b",
 			"kind": "cots",
 			"cots": {
 				"type": "extrusion-2020",
@@ -8663,6 +8899,7 @@
 		},
 		{
 			"id": "ext-2020-d",
+			"uid": "h9ov",
 			"kind": "cots",
 			"cots": {
 				"type": "extrusion-2020",
@@ -8689,6 +8926,7 @@
 		},
 		{
 			"id": "extrusion-e",
+			"uid": "rwuw",
 			"kind": "cots",
 			"cots": {
 				"type": "extrusion-2020",
@@ -8713,6 +8951,7 @@
 		},
 		{
 			"id": "extrusion-f",
+			"uid": "dfbb",
 			"kind": "cots",
 			"cots": {
 				"type": "extrusion-2020",
@@ -8739,6 +8978,7 @@
 	"lasercut": [
 		{
 			"id": "cable-cage-top",
+			"uid": "x5i1",
 			"name": "Cable cage top",
 			"photo": "https://img.basically.website/web/parts/top-interface/cable-cage-top.0856e376cd2b9238.jpg",
 			"assembly": "Cable Cage",
@@ -8761,6 +9001,7 @@
 		},
 		{
 			"id": "cable-cage-bottom",
+			"uid": "oj14",
 			"name": "Cable cage bottom",
 			"photo": "https://img.basically.website/web/parts/top-interface/cable-cage-bottom.72b2038544dec559.jpg",
 			"assembly": "Cable Cage",
@@ -8783,6 +9024,7 @@
 		},
 		{
 			"id": "top-plate",
+			"uid": "1g22",
 			"name": "Top plate",
 			"photo": "https://img.basically.website/web/parts/top-interface/top-plate.fb89181642abbe25.jpg",
 			"caption": "The machine's hexagonal top plate; the interface mounts under it.",

@@ -24,7 +24,7 @@ catalog/
   parts.json            # manifest: every part, its section(s), qty, color role
                         #   geometry is PINNED here by hash, never committed
   generate.py           # the local data-generation step
-src/lib/data/parts.generated.json   # GENERATED, committed — the app's input
+src/lib/data/catalog.generated.json # GENERATED, committed — both sites' input
 ```
 
 **Nothing binary is in git** — no STL, 3MF, PNG or zip. Every asset lives on
@@ -33,18 +33,34 @@ the JSON above. See [CLAUDE.md](CLAUDE.md#storage-layout).
 
 ## Updating parts
 
-1. Upload the STL and take the pin it prints — it goes on the bucket, not
-   into the tree:
+Every part carries a `uid`: a minted 4-character id naming its current
+version — the exact thing in your hand, and what a print gets engraved with.
+A new version mints a new uid; re-exporting the same design is new bytes (a
+new `stl_hash`) under the same uid. Screws and laser-cut parts carry one too.
+
+1. Mint a uid and write the entry in `catalog/parts.json` first — the uid
+   exists before the STL does:
 
    ```
-   python scripts/sync_bucket.py --upload ~/Downloads/new-part.stl
+   /opt/homebrew/opt/python@3.11/libexec/bin/python catalog/mint_uid.py
    ```
 
-2. Add/edit entries in `catalog/parts.json` — set its `stl_hash` / `stl_id`
-   from step 1, plus `quantities`, `color` (a `role`, or `fixed`, or
+   Set `uid`, plus `quantities`, `color` (a `role`, or `fixed`, or
    `by_section`), and `optional`. Sections are `feeder`,
    `classification-channel`, `interface`, `chute`, `funnel`, `layer`,
-   `lazy-susan`, `bins`, `electronics`.
+   `lazy-susan`, `bins`, `electronics`. For a new version of an existing
+   part: bump `version`, replace `uid` with the fresh one, and add a
+   `versions` entry with `"commit": null`; `catalog/stamp_versions.py`
+   carries the old uid and hash onto the superseded entry once committed.
+
+2. Upload the STL, named `<part-id>.stl`, and paste the `stl_hash` it
+   prints — the file goes on the bucket under the entry's uid, never into
+   the tree:
+
+   ```
+   python scripts/sync_bucket.py --upload ~/Downloads/chute-core.stl
+   ```
+
 3. Run the generator and commit **source and regenerated data together**:
 
    ```

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import ConflictNotice from '$lib/components/ConflictNotice.svelte';
+	import ImageStrip from '$lib/components/ImageStrip.svelte';
 	import AssemblyDescription from '$lib/components/AssemblyDescription.svelte';
 	import Badge from '$lib/components/Badge.svelte';
 	import { copyText } from '$lib/clipboard';
@@ -107,6 +108,7 @@
 						{h.note}
 					</p>
 				{/if}
+				{#if h.images?.length}<div class="mt-3"><ImageStrip images={h.images} /></div>{/if}
 
 				<dl class="mt-3 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm">
 					<dt class="text-text-muted">Needed</dt>

@@ -25,6 +25,10 @@ export type Section = {
 	experimental?: boolean; // early / subject to heavy change — surfaced with a warning
 	experimental_note?: string | null;
 };
+/** A picture of a thing beyond its render: an Onshape screenshot, a section
+ *  view, a photo of it built. `url` is a pinned bucket URL (upload the file with
+ *  scripts/sync_bucket.py --upload); `alt` says what the picture shows. */
+export type CatalogImage = { url: string; alt: string; caption?: string };
 export type ChangePriority = `P${number}`;
 export type ChangeTargetKind = 'parts' | 'assemblies' | 'sections' | 'lasercut' | 'hardware';
 export type PlannedChange = {
@@ -35,7 +39,7 @@ export type PlannedChange = {
 	condition?: 'working' | 'broken';
 	status?: 'planned' | 'complete';
 	completed_at?: string;
-	images?: { url: string; alt: string; caption?: string }[];
+	images?: CatalogImage[];
 	targets: Partial<Record<ChangeTargetKind, string[]>>;
 };
 export type ColorRoleDef = { id: string; name: string; default: string };
@@ -69,12 +73,45 @@ export const JOIN_LABELS: Record<JoinMethod, string> = {
 	friction: 'Friction'
 };
 
+/** A superseded structure of an assembly: its lines as they were, each member
+ *  pinned to the uid it had then, so the box as built at that time reads back
+ *  part by part. Written by stamp_versions.py at supersession. */
+export type AssemblySnapshotLine = AssemblyLine & { uid?: string };
+export type AssemblyVersion = {
+	version: string;
+	uid?: string;
+	date: string;
+	message: string;
+	commit: string | null;
+	lines?: AssemblySnapshotLine[];
+	images?: CatalogImage[];
+};
+
+/** A whole alternative bill of materials under test for an assembly -- its own
+ *  uid, never counted, never deleted once listed (marked superseded/rejected). */
+export type AssemblyCandidate = {
+	uid: string;
+	name?: string; // what the slot is called if this is adopted
+	created_at: string;
+	message: string;
+	lines: AssemblyLine[];
+	joining?: Joining[]; // how these lines become one unit, when it differs
+	images?: CatalogImage[];
+	superseded_by?: string | null;
+	superseded_at?: string | null;
+	rejected_at?: string | null;
+};
+
 /** Assemblies double as (a) legacy flat groupings the parts list rolls up under
  *  and (b) nodes of the experimental machine tree (when they carry `lines`).
  *  status: 'stub' = placeholder with nothing inside yet, 'partial' = some lines
  *  filled in but not everything the real assembly contains. */
 export type Assembly = {
 	id: string;
+	uid: string; // the current structure's id, minted like a part's
+	version?: string; // bumps on an authored structural change, not a member rev
+	versions?: AssemblyVersion[]; // newest last; superseded ones carry a line snapshot
+	candidates?: AssemblyCandidate[]; // alternative BOMs under test, oldest first
 	name: string;
 	description: string;
 	docs?: string; // path on the docs site to the full assembly guide, e.g. /hardware/assembly/...
@@ -82,6 +119,7 @@ export type Assembly = {
 	status?: 'stub' | 'partial';
 	joining?: Joining[]; // work needed to make these lines into one unit
 	lines?: AssemblyLine[];
+	images?: CatalogImage[]; // beyond the members' renders: a photo of it built, a section view
 };
 
 /** The documentation site. An assembly's `docs` is a path on it, never a full
@@ -175,6 +213,7 @@ export type Hardware = {
 	stock?: Stock | null; // set when the part is cut from a bought length
 	sourcing?: { vendors: Vendor[] } | null;
 	image: string | null; // content-addressed bucket URL
+	images?: CatalogImage[]; // extra pictures beyond the product photo
 	// Marks a part that has an interchangeable alternative (e.g. socket vs button
 	// head). `true` = a bare "Alternative" tag; a string names the alternative.
 	alternative?: string | boolean | null;
@@ -208,10 +247,33 @@ export type PartVersion = {
 	stl?: string;
 	render?: string;
 	grams?: number | null;
+	images?: CatalogImage[];
+};
+
+/** A design revision under test for a part's slot: its own uid and pinned STL,
+ *  sliced and rendered like a version, but never adopted (yet) and so with no
+ *  version number. Superseded and rejected candidates stay listed so the uid
+ *  engraved on a test print always resolves. */
+export type PartCandidate = {
+	uid: string;
+	name?: string; // what the slot is called if this is adopted
+	created_at: string;
+	message: string;
+	onshape_version?: string | null;
+	images?: CatalogImage[];
+	superseded_by?: string | null;
+	superseded_at?: string | null;
+	rejected_at?: string | null;
+	stl: string;
+	render?: string | null;
+	grams?: number | null;
+	print_seconds?: number | null;
+	support_used?: boolean;
 };
 
 export type Part = {
 	id: string;
+	uid: string; // the current version's id -- what a print is engraved with
 	name: string;
 	aliases?: string[]; // alternate shop/CAD names; canonical id and display name stay stable
 	quantities: Record<string, number>; // category id -> count per ONE instance of that category
@@ -224,6 +286,8 @@ export type Part = {
 	created_at: string;
 	updated_at: string;
 	versions?: PartVersion[]; // archetype history, newest last
+	candidates?: PartCandidate[]; // revisions under test for this slot, oldest first
+	images?: CatalogImage[]; // extra pictures beyond the render
 	attributes?: { label: string; value: string }[]; // variant characteristics shown in the app
 	grams: number; // total incl. any support
 	support_grams: number; // the support portion of `grams`

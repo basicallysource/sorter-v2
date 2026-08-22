@@ -251,6 +251,42 @@ def archive_versions(parts_by_id, out_parts, profiles, hexmap, role_defaults, fo
     print(f"  {archived} historical part version(s) resolved from pinned stl_hash")
 
 
+def resolve_candidates(parts_by_id, out_parts, profiles, hexmap, role_defaults, force):
+    """Slice and render every candidate: a design revision under test for a
+    part's slot, pinned by uid + stl_hash exactly like a superseded version
+    but never adopted (yet), so it has no version number. It counts toward
+    nothing -- it only has to be printable and identifiable from the page."""
+    resolved = 0
+    for out in out_parts:
+        p = parts_by_id[out["id"]]
+        cands = []
+        for c in p.get("candidates") or []:
+            c = dict(c)
+            cid = f"{out['id']}-{c['uid']}"
+            tmp = os.path.join(CACHE, cid + ".stl")
+            fetch_artifact(stl_url(out["id"], c["uid"], c["stl_hash"]), c["stl_hash"], tmp)
+            want = bool(c.get("support", p.get("support", False)))
+            info = slice_part(tmp, profiles, support=want, force=force)
+            if info is None and not want:
+                info = slice_part(tmp, profiles, support=True, force=force)
+            png = os.path.join(VERS_RENDERS_OUT, cid + ".png")
+            try:
+                c["render"] = render_url_for(tmp, default_hex(p, role_defaults, hexmap), png, force)
+            except Exception as e:
+                print(f"  ! candidate render failed for {cid}: {e}")
+                c["render"] = service_render(tmp)
+            c["stl"] = stl_url(out["id"], c["uid"], c["stl_hash"])
+            c["grams"] = info["grams"] if info else None
+            c["print_seconds"] = info["print_seconds"] if info else None
+            c["support_used"] = bool(info and info["support_used"])
+            cands.append(c)
+            resolved += 1
+        if cands:
+            out["candidates"] = cands
+    if resolved:
+        print(f"  {resolved} candidate(s) sliced and rendered")
+
+
 def git_commit_base_url():
     """`https://github.com/owner/repo/commit/` derived from origin, else None."""
     try:
@@ -660,8 +696,10 @@ def build_hardware(manifest):
             # merge (see manifest `merges`); both sites badge it.
             "conflicts": p.get("conflicts"),
             # Product images live only on the bucket, authored as a pinned URL.
-            # They deliberately never touch git.
+            # They deliberately never touch git. `images` are the extra
+            # pictures, same rule (check_images).
             "image": p.get("image_url"),
+            **({"images": p["images"]} if p.get("images") else {}),
         })
     return hardware
 
@@ -691,21 +729,72 @@ def build_families(manifest):
     return families
 
 
-def check_hardware_refs(manifest, known_ids):
-    """Assembly descriptions and joining notes name fasteners as `[[hw:<id>]]` so
-    the app can draw the real head symbol and name instead of a bare "M5x16". A
-    typo'd id would otherwise reach the site as a raw token in the middle of a
-    sentence, so it fails here instead."""
+def check_assemblies(manifest, part_ids):
+    """Every assembly carries a uid and version like a part does, and every id it
+    names has to exist: fasteners written as `[[hw:<id>]]` in descriptions and
+    joining notes (the app draws the real head symbol and name instead of a
+    bare "M5x16"), and the part or assembly on every line -- current, candidate
+    or snapshotted. A typo'd id would otherwise reach the site as a raw token
+    or a line that silently renders nothing, so it fails here instead."""
+    asm_ids = {a["id"] for a in manifest.get("assemblies", [])}
+    known = part_ids | asm_ids
     bad = []
     for asm in manifest.get("assemblies", []):
+        if not re.fullmatch(r"[a-z0-9]{4}", str(asm.get("uid", ""))):
+            bad.append(f"{asm['id']}: no 4-char uid -- mint one with catalog/mint_uid.py")
+        if not asm.get("version"):
+            bad.append(f"{asm['id']}: no version")
         texts = [asm.get("description", "")]
         texts += [j.get("note", "") or "" for j in asm.get("joining", []) or []]
+        for sub in (asm.get("candidates") or []) + (asm.get("versions") or []):
+            texts.append(sub.get("message", "") or "")
+            texts += [j.get("note", "") or "" for j in sub.get("joining", []) or []]
         for ref in re.findall(r"\[\[hw:([a-z0-9-]+)\]\]", " ".join(texts)):
-            if ref not in known_ids:
-                bad.append(f"{asm['id']}: [[hw:{ref}]]")
+            if ref not in known:
+                bad.append(f"{asm['id']}: [[hw:{ref}]] is not a part")
+        line_sets = [("lines", asm.get("lines") or [])]
+        line_sets += [(f"candidate {c.get('uid')}", c.get("lines") or []) for c in asm.get("candidates") or []]
+        line_sets += [(f"v{v.get('version')}", v.get("lines") or []) for v in asm.get("versions") or []]
+        for where, lines in line_sets:
+            for line in lines:
+                ref = line.get("part") or line.get("assembly")
+                if ref not in known:
+                    bad.append(f"{asm['id']} {where}: {ref!r} is not a part or assembly")
+        for c in asm.get("candidates") or []:
+            if not (re.fullmatch(r"[a-z0-9]{4}", str(c.get("uid", ""))) and c.get("lines")):
+                bad.append(f"{asm['id']}: a candidate needs a 4-char uid and lines")
     if bad:
-        sys.exit("assembly description references an unknown part id:\n  "
-                 + "\n  ".join(bad))
+        sys.exit("assemblies:\n  " + "\n  ".join(bad))
+
+
+def check_images(manifest):
+    """`images` -- on any part, assembly, candidate, version or planned change --
+    is the extra pictures of it beyond the render or product photo: an Onshape
+    screenshot, a section view, a photo of it built. Each is {url, alt,
+    caption?}: the url a pinned bucket URL exactly like image_url (what
+    scripts/sync_bucket.py --upload prints), the alt what the picture shows.
+    A bare string or a repo path would reach the site as a broken image, so
+    it fails here instead."""
+    bad = []
+
+    def walk(where, item):
+        ims = item.get("images")
+        if ims is not None and not isinstance(ims, list):
+            bad.append(f"{where}: images must be a list of {{url, alt, caption?}}")
+        for im in ims if isinstance(ims, list) else []:
+            if not (isinstance(im, dict) and str(im.get("url", "")).startswith("https://")
+                    and str(im.get("alt", "")).strip()):
+                bad.append(f"{where}: an image needs an https url and an alt -- {im!r}")
+        for extra in ("versions", "candidates"):
+            for sub in item.get(extra) or []:
+                walk(f"{where} {extra[:-1]} {sub.get('uid') or sub.get('version')}", sub)
+
+    for item in manifest["parts"] + manifest.get("assemblies", []):
+        walk(item["id"], item)
+    for change in manifest.get("changes", []):
+        walk(f"change {change['id']}", change)
+    if bad:
+        sys.exit("images:\n  " + "\n  ".join(bad))
 
 
 def committed_filament_constants():
@@ -742,12 +831,20 @@ def main():
                if not re.fullmatch(r"[a-z0-9]{4}", str(part.get("uid", "")))]
     if bad_uid:
         sys.exit(f"part(s) without a 4-char uid: {bad_uid} -- mint one with catalog/mint_uid.py")
-    uids = [x for part in manifest["parts"]
-            for x in ([part["uid"]] + [v.get("uid") for v in part.get("versions") or []]) if x]
+    for part in manifest["parts"]:
+        for c in part.get("candidates") or []:
+            if part.get("kind", "printed") != "printed":
+                sys.exit(f"{part['id']}: only a printed part can carry candidates")
+            if not (re.fullmatch(r"[a-z0-9]{4}", str(c.get("uid", ""))) and c.get("stl_hash")):
+                sys.exit(f"{part['id']}: a candidate needs a 4-char uid and an stl_hash")
+    uids = [x for item in manifest["parts"] + manifest.get("assemblies", [])
+            for x in ([item.get("uid")] + [v.get("uid") for v in item.get("versions") or []]
+                      + [c.get("uid") for c in item.get("candidates") or []]) if x]
     duplicate_uids = sorted({x for x in uids if uids.count(x) > 1})
     if duplicate_uids:
         sys.exit(f"duplicate uid(s): {duplicate_uids} -- mint a fresh one")
-    check_hardware_refs(manifest, set(part_ids))
+    check_assemblies(manifest, set(part_ids))
+    check_images(manifest)
     if args.metadata_only:
         if not os.path.exists(DATA_OUT):
             sys.exit("--metadata-only needs an existing catalog.generated.json; run the full generator once")
@@ -791,9 +888,21 @@ def main():
                     v["stl"] = stl_url(source["id"], v["uid"], pin)
                     v["grams"] = ov.get("grams")
                 versions.append(v)
+            old_cands = {c.get("uid"): c for c in old.get("candidates") or []}
+            cands = []
+            for sc in source.get("candidates") or []:
+                c = dict(sc)
+                oc = old_cands.get(c["uid"], {})
+                c["render"] = rebased_render(oc.get("render"), f"{source['id']}-{c['uid']}")
+                c["stl"] = stl_url(source["id"], c["uid"], c["stl_hash"])
+                c["grams"] = oc.get("grams")
+                c["print_seconds"] = oc.get("print_seconds")
+                c["support_used"] = bool(oc.get("support_used"))
+                cands.append(c)
             refreshed.append({
                 "id": source["id"], "uid": source["uid"], "name": source["name"],
                 **({"aliases": source["aliases"]} if source.get("aliases") else {}),
+                **({"images": source["images"]} if source.get("images") else {}),
                 "quantities": source.get("quantities", {}),
                 "assembly": source.get("assembly"),
                 "folder": source.get("folder"),
@@ -820,6 +929,7 @@ def main():
                 "docs_page": source.get("docs_page"),
                 "conflicts": source.get("conflicts"),
                 "stl": live_stl, "render": live_render,
+                **({"candidates": cands} if cands else {}),
             })
         data["parts"] = refreshed
         data["sections"] = manifest["sections"]
@@ -893,13 +1003,20 @@ def main():
             kept = " -- keeping the previous thumbnail" if render_url else ""
             print(f"  ! render failed for {p['id']}: {e}{kept}")
 
-        zip_members.append((stl_abs, p["id"] + ".stl"))
+        # A part in no section -- it exists only inside a candidate assembly --
+        # is not part of the build, so it stays out of the every-part bundle.
+        # Members carry the bucket filename, <id>-<uid>-<hash8>.stl: the uid
+        # has to survive into the slicer project (the 3mf takes the STL's name)
+        # so a print can be traced back to its exact version and settings.
+        if p.get("quantities"):
+            zip_members.append((stl_abs, os.path.basename(stl_url(p["id"], p["uid"], p["stl_hash"]))))
 
         out_parts.append({
             "id": p["id"],
             "uid": p["uid"],
             "name": p["name"],
             **({"aliases": p["aliases"]} if p.get("aliases") else {}),
+            **({"images": p["images"]} if p.get("images") else {}),
             "quantities": p.get("quantities", {}),
             "assembly": p.get("assembly"),
             "folder": p.get("folder"),
@@ -939,6 +1056,8 @@ def main():
 
     archive_versions({p["id"]: p for p in printed}, out_parts,
                      profiles, hexmap, role_defaults, args.force)
+    resolve_candidates({p["id"]: p for p in printed}, out_parts,
+                       profiles, hexmap, role_defaults, args.force)
 
     # COTS hardware (kind: "cots") is passed through, not sliced. Product images
     # are pinned bucket URLs authored in parts.json; they never live in the repo.

@@ -1,7 +1,7 @@
 name: Check part data
 
 # The generated part data is written by whoever edits the slicer inputs --
-# running slicer/filament.py against a local OrcaSlicer or, with
+# running catalog/generate.py against a local OrcaSlicer or, with
 # ASSET_SERVICE_TOKEN set, against the asset service's slicer worker -- and
 # committed in the same change. Nothing regenerates anything in CI, so a PR's
 # preview always shows the branch's own data, and the checks here are the
@@ -34,7 +34,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 1
+          # 2, not 1: check_generated_pins.py reads HEAD~1's parts.json to
+          # prove no uid was removed (on a PR's merge ref HEAD~1 is main).
+          fetch-depth: 2
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'

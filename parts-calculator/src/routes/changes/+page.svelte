@@ -3,6 +3,7 @@
 	import Badge from '$lib/components/Badge.svelte';
 	import PriorityBadge from '$lib/components/PriorityBadge.svelte';
 	import Modal from '$lib/components/Modal.svelte';
+	import ImageStrip from '$lib/components/ImageStrip.svelte';
 	import PartDetailModal from '$lib/components/PartDetailModal.svelte';
 	import Seo from '$lib/components/Seo.svelte';
 	import { ASSEMBLIES, CHANGES, HARDWARE, PARTS, SECTIONS, fmtDate, hardwareImage, type ChangeTargetKind, type Part, type PartVersion, type PlannedChange } from '$lib/filament';
@@ -94,9 +95,7 @@
 							<h2 class="font-bold leading-tight text-text">{change.name}</h2>
 							<p class="mt-1 text-xs leading-relaxed text-text-muted">{change.description}</p>
 							{#if change.images?.length}
-								<div class="mt-2 flex gap-2 overflow-x-auto">
-									{#each change.images as image}<figure class="w-40 shrink-0"><button type="button" class="block cursor-zoom-in" title="Open full-size image" onclick={() => openImage(image.url, image.alt)}><img src={image.url} alt={image.alt} class="h-24 w-40 border border-border bg-white object-contain hover:border-primary" /></button>{#if image.caption}<figcaption class="mt-0.5 truncate text-[10px] text-text-muted">{image.caption}</figcaption>{/if}</figure>{/each}
-								</div>
+								<div class="mt-2"><ImageStrip images={change.images} /></div>
 							{/if}
 							<div class="mt-2 flex flex-wrap gap-x-3 gap-y-1">
 								{#each Object.entries(change.targets) as [kind, ids]}

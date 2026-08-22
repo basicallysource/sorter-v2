@@ -20,9 +20,9 @@ in old commits keep serving.)
 
 Two jobs:
   * sync (no args): upload what generate.py freshly produced under build/
-    (renders, plate thumbnails, the all-parts zip) and write the manifest.
+    (renders, plate thumbnails, the all-parts zip).
   * --upload FILE...: author an asset -- an STL master, a plate 3mf, a product
-    image -- straight onto the bucket, printing the pin line to paste into
+    image, a picture of a part or assembly -- straight onto the bucket, printing the pin line to paste into
     catalog/parts.json or catalog/plates.json.
 
 Credentials, in order of precedence:
@@ -31,7 +31,7 @@ Credentials, in order of precedence:
 
 Usage:
   python scripts/sync_bucket.py --dry-run     # show what would upload
-  python scripts/sync_bucket.py               # upload missing, write manifest
+  python scripts/sync_bucket.py               # upload missing
   python scripts/sync_bucket.py --upload part.stl plate.3mf photo.jpg
 """
 
@@ -114,7 +114,6 @@ def uid_for(part_id: str) -> str:
 # Images render in <img> tags; everything else is a download.
 INLINE_SUFFIXES = {".png", ".jpg"}
 
-MANIFEST = REPO / "catalog" / "artifacts.json"
 CREDS_FILE = Path.home() / ".config" / "do-spaces" / "sorter-v2-parts.env"
 
 
@@ -200,8 +199,11 @@ def upload_args(name: str) -> dict:
     return {
         "ACL": "public-read",
         "ContentType": CONTENT_TYPES.get(Path(name).suffix, "application/octet-stream"),
-        # So a browser download lands as "chute-core.stl", not a hash.
-        # Images stay inline so <img> and open-in-tab both behave.
+        # The browser names a download after this header, not the URL, so it
+        # is always the KEY's basename: a downloaded STL must read
+        # <part>-<uid>-<hash8>.stl, and the slicer project made from it
+        # inherits that name. Images stay inline so <img> and open-in-tab
+        # both behave.
         "ContentDisposition": (
             f'inline; filename="{name}"'
             if Path(name).suffix in INLINE_SUFFIXES
@@ -229,7 +231,8 @@ def upload_loose(paths: list[str], uid: str | None = None) -> None:
 
       .stl    -> stl/<part>-<uid>-<hash8>.stl  "stl_hash": "<sha>"    (parts.json)
       .3mf    -> plate/<name>-<hash8>.3mf      "hash": "<sha>"        (plates.json)
-      images  -> img/<name>-<hash8>.<ext>      "image_url": "<url>"   (parts.json)
+      images  -> img/<name>-<hash8>.<ext>      "image_url": "<url>"   (parts.json),
+                                               or an `images` entry {url, alt}
 
     An STL is named <part-id>.stl and keyed under that part's uid from
     parts.json, so the entry exists before the upload; `uid` overrides the
@@ -253,14 +256,16 @@ def upload_loose(paths: list[str], uid: str | None = None) -> None:
             s3.head_object(Bucket=BUCKET, Key=key)
             print(f"  already on the bucket  {p.name}")
         except Exception:
-            s3.upload_file(str(p), BUCKET, key, ExtraArgs=upload_args(p.name))
+            s3.upload_file(str(p), BUCKET, key, ExtraArgs=upload_args(Path(key).name))
             print(f"  uploaded  {p.name}  ({p.stat().st_size / 1e6:.1f} MB)")
         if prefix == "stl":
             print(f'    "stl_hash": "{digest}"')
         elif prefix == "plate":
             print(f'    "hash": "{digest}"')
         else:
-            print(f'    "image_url": "{PUBLIC_BASE}/{key}"')
+            url = f"{PUBLIC_BASE}/{key}"
+            print(f'    "image_url": "{url}"')
+            print(f'    or in an images list:  {{ "url": "{url}", "alt": "<what it shows>" }}')
 
 
 def collect() -> list[dict]:
@@ -343,28 +348,13 @@ def main() -> None:
             continue
 
         s3.upload_file(
-            str(REPO / f["path"]), BUCKET, f["key"], ExtraArgs=upload_args(f["name"])
+            str(REPO / f["path"]), BUCKET, f["key"], ExtraArgs=upload_args(Path(f["key"]).name)
         )
         print(f"  uploaded {f['name']:<44} {f['size']/1e6:6.1f} MB")
         uploaded += 1
 
     verb = "would upload" if args.dry_run else "uploaded"
     print(f"\n{verb} {uploaded}, already present {skipped}")
-
-    if args.dry_run:
-        return
-
-    manifest = {
-        "bucket": BUCKET,
-        "public_base": PUBLIC_BASE,
-        "artifacts": {
-            f["path"]: {"sha256": f["sha256"], "size": f["size"],
-                        "url": f"{PUBLIC_BASE}/{f['key']}"}
-            for f in files
-        },
-    }
-    MANIFEST.write_text(json.dumps(manifest, indent=2) + "\n")
-    print(f"wrote {MANIFEST.relative_to(REPO)} ({len(files)} entries)")
 
 
 if __name__ == "__main__":

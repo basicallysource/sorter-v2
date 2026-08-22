@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { BookOpen, Download, ExternalLink, ShoppingCart, Zap } from 'lucide-svelte';
+	import { BookOpen, Download, ExternalLink, FlaskConical, History, ShoppingCart, Zap } from 'lucide-svelte';
 	import AlternativeBadge from '$lib/components/AlternativeBadge.svelte';
 	import ConflictBadge from '$lib/components/ConflictBadge.svelte';
 	import AssemblyDescription from '$lib/components/AssemblyDescription.svelte';
@@ -9,10 +9,12 @@
 	import PartDetailModal from '$lib/components/PartDetailModal.svelte';
 	import HardwareDetailModal from '$lib/components/HardwareDetailModal.svelte';
 	import HardwareIcon from '$lib/components/HardwareIcon.svelte';
+	import ImageStrip from '$lib/components/ImageStrip.svelte';
 	import Seo from '$lib/components/Seo.svelte';
 	import { colorStore } from '$lib/colors.svelte';
 	import {
 		docsUrl,
+		fmtDate,
 		getAssembly,
 		getHardware,
 		getLasercut,
@@ -24,6 +26,7 @@
 		resolveHardwareTotals,
 		type AssemblyLine,
 		type Hardware,
+		type Joining,
 		type Part,
 		type PartVersion
 	} from '$lib/filament';
@@ -153,6 +156,72 @@
 	</div>
 {/snippet}
 
+<!-- how a set of lines becomes one unit — soldered, self-tapped, friction-held -->
+{#snippet joiningRows(list: Joining[] | undefined)}
+	{#each list ?? [] as j (j.method)}
+		<div class="mt-1 flex max-w-2xl flex-wrap items-baseline gap-x-2">
+			<Badge variant="warning"><Zap size={10} />{JOIN_LABELS[j.method]}</Badge>
+			{#if j.note}<AssemblyDescription text={j.note} as="span" class="text-xs text-text-muted" />{/if}
+		</div>
+	{/each}
+{/snippet}
+
+{#snippet lines(list: AssemblyLine[], mult: number, depth: number)}
+	<!-- Keyed by position as well as id: two lines can legitimately name the
+	     same part, and a bare id key makes that a duplicate-key error that
+	     blanks the whole page on hydration. -->
+	{#each list as line, i (`${line.part ?? line.assembly}-${i}`)}
+		{#if line.assembly}
+			{@render node(line.assembly, line.qty, lineQty(line, layers) * mult, depth + 1)}
+		{:else if line.part && getLasercut(line.part)}
+			{@const lc = getLasercut(line.part)!}
+			<div class="ml-1.5 mt-2 flex items-center gap-3 border border-border bg-surface p-2 sm:ml-4 sm:p-3">
+				<img src={lc.preview} alt={lc.name} class="h-12 w-12 shrink-0 object-contain" />
+				<div class="min-w-0 flex-1">
+					<div class="flex flex-wrap items-baseline gap-x-2">
+						<span class="text-sm font-semibold text-text">{lc.name}</span>
+						<span class="border border-border px-1.5 py-px text-[10px] font-semibold uppercase tracking-wider text-text-muted"
+							>laser cut</span>
+					</div>
+					<div class="text-xs text-text-muted">{lc.thicknessIn} plywood · {lc.widthMm}×{lc.heightMm} mm</div>
+				</div>
+				<div class="text-right text-xs font-semibold tabular-nums text-text">×{lineQty(line, layers)}</div>
+			</div>
+		{:else if line.part && getHardware(line.part)}
+			{@render hardwareRow(
+				getHardware(line.part)!,
+				lineQty(line, layers),
+				lineQty(line, layers) * mult
+			)}
+		{:else if line.part}
+			{@const part = getPart(line.part)}
+			{#if part}
+				{@const total = lineQty(line, layers) * mult}
+				<div class="ml-1.5 mt-2 border border-border bg-surface p-2 sm:ml-4 sm:p-3">
+					<div class="flex items-center gap-3">
+						<button type="button" class="asm-thumb shrink-0" title="View {part.name} details" onclick={() => openPart(part)}>
+							<img src={part.render} alt={part.name} class="h-12 w-12 object-contain" />
+						</button>
+						<div class="min-w-0 flex-1">
+							<div class="flex flex-wrap items-baseline gap-x-2">
+								<span class="text-sm font-semibold text-text">{part.name}</span>
+								<span class="border border-border px-1.5 py-px text-[10px] font-semibold uppercase tracking-wider text-text-muted"
+									>3D printed</span>
+							</div>
+							<div class="text-xs text-text-muted">{part.grams.toFixed(0)} g each</div>
+						</div>
+						<div class="text-right text-xs tabular-nums text-text">
+							<div class="font-semibold">×{lineQty(line, layers)}</div>
+							{#if total !== lineQty(line, layers)}<div class="text-text-muted">{total} total</div>{/if}
+						</div>
+					</div>
+					{@render requiresRows(line.part, total)}
+				</div>
+			{/if}
+		{/if}
+	{/each}
+{/snippet}
+
 {#snippet node(id: string, qty: AssemblyLine['qty'], mult: number, depth: number)}
 	{@const asm = getAssembly(id)}
 	{#if asm}
@@ -185,6 +254,7 @@
 					class="mt-0.5 max-w-2xl text-xs text-text-muted"
 				/>
 			{/if}
+			{#if asm.images?.length}<div class="mt-2"><ImageStrip images={asm.images} /></div>{/if}
 			<!-- The docs site is where the step-by-step build lives; this node is only
 			     the bill of materials for it. Link out when a page exists. -->
 			{#if docsUrl(asm)}
@@ -197,70 +267,51 @@
 					<BookOpen size={11} /> Assembly guide <ExternalLink size={10} />
 				</a>
 			{/if}
-			<!-- how these lines become one unit — soldered, self-tapped, friction-held -->
-			{#each asm.joining ?? [] as j (j.method)}
-				<div class="mt-1 flex max-w-2xl flex-wrap items-baseline gap-x-2">
-					<Badge variant="warning"><Zap size={10} />{JOIN_LABELS[j.method]}</Badge>
-					{#if j.note}<AssemblyDescription
-							text={j.note}
-							as="span"
-							class="text-xs text-text-muted"
-						/>{/if}
+			{@render joiningRows(asm.joining)}
+			{@render lines(asm.lines ?? [], mult, depth)}
+			<!-- Alternative bills of materials under test. Rendered with the same line
+			     rows, but nothing here reaches the totals: resolveHardwareTotals walks
+			     only `lines`. -->
+			{#each asm.candidates ?? [] as c (c.uid)}
+				{@const retired = !!(c.superseded_by || c.rejected_at)}
+				<div class="ml-1.5 mt-3 border border-dashed p-2 sm:ml-4 sm:p-3 {retired ? 'border-border opacity-60' : 'border-primary/60'}">
+					<div class="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+						<span class="inline-flex items-center gap-1 text-xs font-semibold uppercase tracking-wider text-primary"><FlaskConical size={11} /> Candidate</span>
+						{#if c.name}<span class="text-sm font-semibold text-text">{c.name}</span>{/if}
+						<span class="font-mono text-xs text-text">{c.uid}</span>
+						<span class="text-xs text-text-muted">· {fmtDate(c.created_at)}</span>
+						{#if retired}<span class="border border-border px-1.5 py-px text-[10px] font-semibold uppercase tracking-wider text-text-muted">{c.rejected_at ? 'rejected' : 'superseded'}</span>{/if}
+					</div>
+					<AssemblyDescription text={c.message} class="mt-0.5 max-w-2xl text-xs text-text-muted" />
+					{#if c.images?.length}<div class="mt-2"><ImageStrip images={c.images} /></div>{/if}
+					{@render joiningRows(c.joining)}
+					<p class="mt-1 text-xs italic text-text-muted/70">An alternative bill of materials under test — not part of the build and not in the totals.</p>
+					{@render lines(c.lines, mult, depth)}
 				</div>
 			{/each}
-			<!-- Keyed by position as well as id: two lines can legitimately name the
-			     same part, and a bare id key makes that a duplicate-key error that
-			     blanks the whole page on hydration. -->
-			{#each asm.lines ?? [] as line, i (`${line.part ?? line.assembly}-${i}`)}
-				{#if line.assembly}
-					{@render node(line.assembly, line.qty, lineQty(line, layers) * mult, depth + 1)}
-				{:else if line.part && getLasercut(line.part)}
-					{@const lc = getLasercut(line.part)!}
-					<div class="ml-1.5 mt-2 flex items-center gap-3 border border-border bg-surface p-2 sm:ml-4 sm:p-3">
-						<img src={lc.preview} alt={lc.name} class="h-12 w-12 shrink-0 object-contain" />
-						<div class="min-w-0 flex-1">
+			<!-- Superseded structures, each line pinned to the member's uid of the day. -->
+			{#if (asm.versions?.length ?? 0) > 1}
+				<details class="ml-1.5 mt-3 sm:ml-4">
+					<summary class="inline-flex cursor-pointer items-center gap-1 text-xs font-semibold uppercase tracking-wider text-text-muted hover:text-text"><History size={11} /> Previous revisions · {(asm.versions?.length ?? 1) - 1}</summary>
+					{#each [...(asm.versions ?? [])].slice(0, -1).reverse() as v (v.version)}
+						<div class="mt-2 border border-border bg-surface p-2 text-xs sm:p-3">
 							<div class="flex flex-wrap items-baseline gap-x-2">
-								<span class="text-sm font-semibold text-text">{lc.name}</span>
-								<span class="border border-border px-1.5 py-px text-[10px] font-semibold uppercase tracking-wider text-text-muted"
-									>laser cut</span>
+								<b class="text-text">v{v.version}</b>
+								{#if v.uid}<span class="font-mono text-text-muted">{v.uid}</span>{/if}
+								<span class="text-text-muted">· {fmtDate(v.date)}</span>
 							</div>
-							<div class="text-xs text-text-muted">{lc.thicknessIn} plywood · {lc.widthMm}×{lc.heightMm} mm</div>
+							<AssemblyDescription text={v.message} class="mt-0.5 max-w-2xl text-text-muted" />
+							{#if v.images?.length}<div class="mt-2"><ImageStrip images={v.images} /></div>{/if}
+							<ul class="mt-1.5 space-y-0.5 text-text-muted">
+								{#each v.lines ?? [] as l, i (`${l.part ?? l.assembly}-${i}`)}
+									{@const name = (l.part && (getPart(l.part)?.name ?? getHardware(l.part)?.name ?? getLasercut(l.part)?.name)) ?? (l.assembly && getAssembly(l.assembly)?.name) ?? l.part ?? l.assembly}
+									<li><span class="tabular-nums">×{l.qty}</span> {name}{#if l.uid} <span class="font-mono">{l.uid}</span>{/if}</li>
+								{/each}
+							</ul>
 						</div>
-						<div class="text-right text-xs font-semibold tabular-nums text-text">×{lineQty(line, layers)}</div>
-					</div>
-				{:else if line.part && getHardware(line.part)}
-					{@render hardwareRow(
-						getHardware(line.part)!,
-						lineQty(line, layers),
-						lineQty(line, layers) * mult
-					)}
-				{:else if line.part}
-					{@const part = getPart(line.part)}
-					{#if part}
-						{@const total = lineQty(line, layers) * mult}
-						<div class="ml-1.5 mt-2 border border-border bg-surface p-2 sm:ml-4 sm:p-3">
-							<div class="flex items-center gap-3">
-								<button type="button" class="asm-thumb shrink-0" title="View {part.name} details" onclick={() => openPart(part)}>
-									<img src={part.render} alt={part.name} class="h-12 w-12 object-contain" />
-								</button>
-								<div class="min-w-0 flex-1">
-									<div class="flex flex-wrap items-baseline gap-x-2">
-										<span class="text-sm font-semibold text-text">{part.name}</span>
-										<span class="border border-border px-1.5 py-px text-[10px] font-semibold uppercase tracking-wider text-text-muted"
-											>3D printed</span>
-									</div>
-									<div class="text-xs text-text-muted">{part.grams.toFixed(0)} g each</div>
-								</div>
-								<div class="text-right text-xs tabular-nums text-text">
-									<div class="font-semibold">×{lineQty(line, layers)}</div>
-									{#if total !== lineQty(line, layers)}<div class="text-text-muted">{total} total</div>{/if}
-								</div>
-							</div>
-							{@render requiresRows(line.part, total)}
-						</div>
-					{/if}
-				{/if}
-			{/each}
+					{/each}
+				</details>
+			{/if}
 		</div>
 	{/if}
 {/snippet}

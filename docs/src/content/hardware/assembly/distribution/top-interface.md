@@ -505,11 +505,11 @@ Attach an External bracket cover to each of the External bracket sides, then fas
 
 {% include step.html n="14" title="How the interface joins the top layer" %}
 
-<figure class="figure-float-right">
+<figure>
   <a href="https://img.basically.website/originals/assembly/top-interface/framing-joint.ed0a06d244ffe45d.png" target="_blank" rel="noopener">
-    <img src="https://img.basically.website/web/assembly/top-interface/framing-joint.be2cac2fd31d13c3.jpg" alt="The interface assembly upside down on its top plate with six vertical extrusions standing out of it, each held in an interface bracket and sleeved by an interface spacer">
+    <img class="doc-figure" src="https://img.basically.website/web/assembly/top-interface/framing-joint.be2cac2fd31d13c3.jpg" alt="The interface assembly upside down on its top plate with six vertical extrusions standing out of it, each held in an interface bracket and sleeved by an interface spacer">
   </a>
-  <figcaption>The interface framing before the top layer goes on, with one arm marked. The numbers match the list below. Click to enlarge.</figcaption>
+  <figcaption>The interface framing before the top layer goes on, with one arm marked. The numbers match the list below. Click the photo to open it full size.</figcaption>
 </figure>
 
 This joint is not the same as the one between two layers, so it is worth naming what is different. There is **no External bracket — bottom vertical and no flange here**, and therefore none of the vertical screws that hold one layer to the next.

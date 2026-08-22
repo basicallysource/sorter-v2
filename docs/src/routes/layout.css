@@ -1072,6 +1072,18 @@ body {
 	color: var(--muted);
 }
 
+/* An ordered procedure inside a step: the site's lists carry no markers, so a
+   list whose order matters draws plain numbers. */
+.numbered-steps {
+	list-style: decimal;
+	padding-left: 1.6rem;
+	margin: 0 0 1.4rem;
+}
+
+.numbered-steps li {
+	margin-bottom: 0.5rem;
+}
+
 /* Numbered key for a keyed drawing: the site's lists render without markers, so
    a list whose items are referred to by number draws its own. The badges match
    the numbered markers on the drawing, including their colour. */

@@ -187,3 +187,16 @@ On each corner, slide an External bracket — bottom vertical onto piece C (Laye
 On each side of the hexagon, attach both the Bin retainer (left) and Bin retainer (right) to the front side of A/G (Outer horizontal / Horizontal interface frame) using 4 {% include fastener.html size="M5" variant="socket-button" length="12" %} screws, either into the T-nuts already installed there or with drop-in / roll-in T-nuts.
 
 A regular layer is now complete. You will also need to construct a [Chute core]({{ '/hardware/assembly/distribution/chute/' | relative_url }}) for each layer you build.
+
+{% include step.html n="5" title="Join the layer to the one below" %}
+
+A finished layer already carries everything that spans up to the next one: piece C standing out of its External bracket — side, and the External bracket — bottom vertical capping that extrusion. Joining two layers is therefore only the flange joint at each of the six corners.
+
+Set the next layer down so that each External bracket — bottom vertical's flange face meets the underside of that layer's External bracket — side, and drive 2 {% include fastener.html size="M5" variant="socket-button" length="16" %} screws up through each flange into the bracket above. **That pair is the whole layer-to-layer fastening, 12 screws per joint.** The flange carries a 5.6 mm clearance hole through 8 mm of plastic and the bracket above a 4.4 mm self-tapping hole 10 mm deep, so an {% include fastener.html size="M5" variant="socket-button" length="16" %} is 8 mm of clearance and 8 mm of thread, and a longer screw has nowhere to go.
+
+The extrusion is not screwed to the layer above. Piece C is clamped only in its own layer's bracket, and two layers' pieces of C stop about 3 mm short of each other at the flange face, so they never touch. The foot of the External bracket — bottom vertical seats on the rim of its own layer's collar, and that is what sets the 160 mm spacing between one frame and the next.
+
+<figure>
+  <img class="doc-figure" src="https://img.basically.website/web/assembly/regular-layers/layer-joint-section.abfaad01e86d6134.jpg" alt="Vertical cross-section through one corner of two stacked layers, showing the lower layer's vertical extrusion and bottom-vertical tube in blue, the upper layer's bracket in purple, and the two screw pairs in red">
+  <figcaption>Section through one corner, cut through the centre of the profile on the bracket's symmetry plane. Blue is the lower layer, purple the layer above: the whole span between two frames belongs to the lower layer, and the only fasteners between the two are the two {% include fastener.html size="M5" variant="socket-button" length="16" %} through the flange. Drawn from the part geometry rather than from a build.</figcaption>
+</figure>

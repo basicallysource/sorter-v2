@@ -509,20 +509,27 @@ Attach an External bracket cover to each of the External bracket sides, then fas
   <a href="https://img.basically.website/originals/assembly/top-interface/framing-joint.ed0a06d244ffe45d.png" target="_blank" rel="noopener">
     <img class="doc-figure" src="https://img.basically.website/web/assembly/top-interface/framing-joint.be2cac2fd31d13c3.jpg" alt="The interface assembly upside down on its top plate with six vertical extrusions standing out of it, each held in an interface bracket and sleeved by an interface spacer">
   </a>
-  <figcaption>The interface framing before the top layer goes on, with one arm marked. The numbers match the list below. Click the photo to open it full size.</figcaption>
+  <figcaption>The interface framing before the top layer goes on, with one arm marked 1 to 3. Click the photo to open it full size.</figcaption>
 </figure>
 
-This joint is not the same as the one between two layers, so it is worth naming what is different. There is **no External bracket — bottom vertical and no flange here**, and therefore none of the vertical screws that hold one layer to the next.
+<figure class="figure-float-right">
+  <a href="https://img.basically.website/originals/assembly/top-interface/joint-section.e96f8eb4493c6488.png" target="_blank" rel="noopener">
+    <img src="https://img.basically.website/web/assembly/top-interface/joint-section.78eb670eb255aa81.jpg" alt="Vertical cross-section through one interface corner, showing the interface bracket and spacer in purple, piece F in grey running down into the top layer's bracket in blue">
+  </a>
+  <figcaption>The same corner in section, cut through the centre of the profile. Purple is the interface, blue the top layer's bracket, grey the extrusion. Click to enlarge. The interface parts are not exported in a shared frame with the layer parts, so the part lengths are measured but their heights come from seating each one on the part below it.</figcaption>
+</figure>
 
-The numbers on the photo:
+This joint is not the same as the one between two layers, so it is worth naming what is different. There is **no External bracket — bottom vertical and no flange here**, and therefore none of the vertical screws that hold one layer to the next. Piece F is instead gripped at the interface end and clamped at the layer end, and it is sleeved the whole way between them, so no extrusion shows on a finished machine.
+
+The numbers on the photo and the drawing:
 
 <ol class="keyed-list">
-  <li><strong>Interface bracket</strong>, one per corner. Piece F is held in it by 4 {% include fastener.html size="M5" variant="socket-button" length="20" %} screws into {% include fastener.html size="M5" variant="t-nut" text="T-nuts" %}, the only place in the framing where the vertical is fixed with T-nuts rather than a self-tapping screw.</li>
-  <li><strong>Interface spacer</strong>, slid onto the extrusion with its lip at the top facing the centre. It takes no screws.</li>
+  <li><strong>Interface bracket</strong>, one per corner, a 120 mm channel around the extrusion. Piece F is held in it by 4 {% include fastener.html size="M5" variant="socket-button" length="20" %} screws into {% include fastener.html size="M5" variant="t-nut" text="T-nuts" %}, the only place in the framing where a vertical is fixed with T-nuts rather than a self-tapping screw.</li>
+  <li><strong>Interface spacer</strong>, a 129.7 mm sleeve, slid onto the extrusion with its lip at the top facing the centre. It takes no screws and simply sits between the bracket and the layer's collar.</li>
   <li><strong>Piece F</strong>, 274 mm cut (280 mm in CAD) against a layer's 154 mm, so the interface sits 120 mm further above the top layer than one layer's spacing.</li>
+  <li><strong>The top layer's External bracket — side</strong>, with its cover, exactly the collar any layer has.</li>
+  <li class="key-screw"><strong>Two {% include fastener.html size="M5" variant="socket-button" length="16" %} screws</strong> at the base of that bracket brace it against the extrusion, the same screws and holes a layer's own vertical gets. Nothing else fastens the interface to the layer.</li>
 </ol>
-
-At the other end the joint is ordinary: piece F drops into the top layer's **External bracket — side**, the cover clips on, and 2 {% include fastener.html size="M5" variant="socket-button" length="16" %} screws at the base of the bracket brace it against the extrusion, exactly as a layer's own vertical is held. Nothing else fastens the interface to the layer.
 
 The top interface is now complete.
 

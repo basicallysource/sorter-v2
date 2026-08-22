@@ -485,6 +485,8 @@ After this step the chute should still rotate to each of its limits.
 
 Insert an extrusion piece F (Interface vertical support) into each of the Interface brackets. Hold each one in place with four {% include fastener.html size="M5" variant="socket-button" length="20" %} screws into four T-nuts.
 
+**Do not push piece F all the way through the bracket.** Leave its end roughly 20 mm short of the far end of the channel: that is far enough in to cover both pairs of T-nut screws, and it leaves enough of the extrusion standing out to reach past the screws at the base of the layer's External bracket — side later in this step. [Step 14]({{ '/hardware/assembly/distribution/top-interface/' | relative_url }}#step-14) shows the whole corner in section.
+
 <figure>
   <img class="doc-figure" src="https://img.basically.website/web/assembly/top-interface/framing-1.ae2ef835181f63bd.jpg" alt="Six vertical extrusion supports bolted into the interface brackets, seen from above on the hexagonal top plate">
 </figure>

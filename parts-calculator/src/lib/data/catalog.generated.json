@@ -371,6 +371,7 @@
 			"name": "Light post",
 			"description": "The feeder light post: post, cap, and cap adapter. 2 per machine. Bolts to a C-channel NEMA bracket.",
 			"status": "partial",
+			"docs": "/hardware/assembly/feeder/light-post/",
 			"joining": [
 				{
 					"method": "self-tap",
@@ -596,6 +597,7 @@
 			"name": "Overhead camera mount",
 			"description": "Camera mount for the C-channels. 2 per machine, each hanging off two ~1 ft steel rods.",
 			"status": "partial",
+			"docs": "/hardware/assembly/feeder/camera-mount/",
 			"lines": [
 				{
 					"part": "camera-mount-part-6",

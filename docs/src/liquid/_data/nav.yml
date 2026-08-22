@@ -65,6 +65,14 @@ sections:
                 url: /hardware/assembly/feeder/c-channel/
               - title: Classification chamber
                 url: /hardware/assembly/feeder/classification-chamber/
+              - title: Light post
+                url: /hardware/assembly/feeder/light-post/
+              - title: Overhead camera mount
+                url: /hardware/assembly/feeder/camera-mount/
+              - title: Bulk input
+                url: /hardware/assembly/feeder/bulk-input/
+              - title: Output guides
+                url: /hardware/assembly/feeder/output-guides/
               - title: Arranging C-Channels
                 url: /hardware/assembly/feeder/arranging-c-channels/
           - title: Software setup

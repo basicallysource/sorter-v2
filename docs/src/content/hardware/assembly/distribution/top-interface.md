@@ -503,6 +503,27 @@ Follow the first two stages of [a regular layer]({{ '/hardware/assembly/distribu
 
 Attach an External bracket cover to each of the External bracket sides, then fasten each one with 2 {% include fastener.html size="M5" variant="socket-button" length="16" %} screws into the holes at the base of the External bracket sides, bracing against the extrusion. These holes run parallel to the extrusion profile, and the screws are self-tapping. See the [external bracket]({{ '/hardware/assembly/distribution/external-bracket/' | relative_url }}) instructions for building the bracket itself.
 
+{% include step.html n="14" title="How the interface joins the top layer" %}
+
+<figure class="figure-float-right">
+  <a href="https://img.basically.website/originals/assembly/top-interface/framing-joint.ed0a06d244ffe45d.png" target="_blank" rel="noopener">
+    <img src="https://img.basically.website/web/assembly/top-interface/framing-joint.be2cac2fd31d13c3.jpg" alt="The interface assembly upside down on its top plate with six vertical extrusions standing out of it, each held in an interface bracket and sleeved by an interface spacer">
+  </a>
+  <figcaption>The interface framing before the top layer goes on, with one arm marked. The numbers match the list below. Click to enlarge.</figcaption>
+</figure>
+
+This joint is not the same as the one between two layers, so it is worth naming what is different. There is **no External bracket — bottom vertical and no flange here**, and therefore none of the vertical screws that hold one layer to the next.
+
+The numbers on the photo:
+
+<ol class="keyed-list">
+  <li><strong>Interface bracket</strong>, one per corner. Piece F is held in it by 4 {% include fastener.html size="M5" variant="socket-button" length="20" %} screws into {% include fastener.html size="M5" variant="t-nut" text="T-nuts" %}, the only place in the framing where the vertical is fixed with T-nuts rather than a self-tapping screw.</li>
+  <li><strong>Interface spacer</strong>, slid onto the extrusion with its lip at the top facing the centre. It takes no screws.</li>
+  <li><strong>Piece F</strong>, 274 mm cut (280 mm in CAD) against a layer's 154 mm, so the interface sits 120 mm further above the top layer than one layer's spacing.</li>
+</ol>
+
+At the other end the joint is ordinary: piece F drops into the top layer's **External bracket — side**, the cover clips on, and 2 {% include fastener.html size="M5" variant="socket-button" length="16" %} screws at the base of the bracket brace it against the extrusion, exactly as a layer's own vertical is held. Nothing else fastens the interface to the layer.
+
 The top interface is now complete.
 
 <figure>

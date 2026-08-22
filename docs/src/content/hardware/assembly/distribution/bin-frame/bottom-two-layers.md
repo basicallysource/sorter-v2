@@ -143,6 +143,30 @@ Screw a **swivel stem caster (M6 × 15 mm)** into the connector's M6 thread. The
 
 Both layers take bin retainers, exactly as in [regular layers]({{ '/hardware/assembly/distribution/bin-frame/regular-layers/' | relative_url }}) step 4: on each side of each hexagon, a Bin retainer (left) and a Bin retainer (right) on the front face of the A/G extrusion, 4 {% include fastener.html size="M5" variant="socket-button" length="12" %} screws into T-nuts.
 
+{% include step.html n="7" title="How the foot corner goes together" %}
+
+<figure class="figure-float-right">
+  <a href="https://img.basically.website/originals/assembly/bottom-two-layers/foot-corner-section.6ec3353ee6cf01ff.png" target="_blank" rel="noopener">
+    <img src="https://img.basically.website/web/assembly/bottom-two-layers/foot-corner-section.337680f09407c66f.jpg" alt="Vertical cross-section through one corner at the bottom of the machine, showing piece D running through the bottom layer's bracket and up into the second layer, the foot cover around it, and the exposed end below">
+  </a>
+  <figcaption>One corner at floor level, cut through the centre of the profile. The bottom layer is blue, the second layer's collar purple. The numbers match the list below. Click to enlarge. Drawn from the part geometry rather than from a build.</figcaption>
+</figure>
+
+The corner itself is the same as any other, and it is only the vertical that changes: one piece D takes the place of the C that each of these two layers would otherwise have, and it stands proud at the bottom instead of being capped.
+
+The numbers on the drawing:
+
+<ol class="keyed-list">
+  <li><strong>External bracket — side</strong>, the same collar as on any layer, at the bottom layer's frame.</li>
+  <li><strong>External bracket - foot cover</strong> in place of the bottom vertical and cover. It closes the corner off but is far shorter, so the extrusion can leave the bottom of it.</li>
+  <li><strong>Piece D</strong>, 231 mm cut. It runs from below the bottom layer, through that layer's collar, and up to 3 mm below the flange face of the second layer's collar, replacing a piece C in each of the two layers.</li>
+  <li class="key-screw"><strong>Two {% include fastener.html size="M5" variant="socket-button" length="16" %} screws per collar</strong> clamp the bracket onto piece D, at the bottom layer and again at the second layer. Same screws, same holes as on a regular layer.</li>
+  <li class="key-note"><strong>The exposed end of piece D</strong>, which takes the 2020 M6 foot connector and the caster. On the lengths as drawn it stands about 54 mm below the foot cover, but how far it should protrude is not recorded anywhere, so hold a foot connector against the end before you tighten the corner screws.</li>
+  <li><strong>The second layer's collar</strong>, with its External bracket — bottom vertical below it. From here up, every joint is the ordinary layer joint described in <a href="{{ '/hardware/assembly/distribution/bin-frame/regular-layers/' | relative_url }}#step-5">regular layers, step 5</a>.</li>
+</ol>
+
+Measured off the parts: the foot cover has no fastener holes of any kind, neither the vertical pair the bottom vertical's flange carries nor the self-tapping pair the brackets use, so it appears to go on as a cover rather than being screwed. <span class="fastener-todo">fastener not recorded</span>
+
 ## What comes next
 
 - Each of these two layers takes a [chute]({{ '/hardware/assembly/distribution/chute/' | relative_url }}), the same as any other layer.

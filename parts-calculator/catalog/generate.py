@@ -59,6 +59,7 @@ REPO = os.path.dirname(HERE)
 # make sure the bytes are there. See notes/UNIFIED-PARTS-SYSTEM.md section 7.
 sys.path.insert(0, os.path.join(REPO, "scripts"))
 from sync_bucket import artifact_url, named_key, stl_url, PUBLIC_BASE, sha256 as sha256_file  # noqa: E402
+import engrave  # noqa: E402
 
 # ---------------------------------------------------------------- config knobs
 # Overridable so CI can point at an extracted Linux AppImage. Grams depend on
@@ -95,6 +96,10 @@ MASTERS = os.path.join(BUILD, "masters")
 RENDERS_OUT = os.path.join(BUILD, "renders")
 VERS_RENDERS_OUT = os.path.join(RENDERS_OUT, "versions")
 RENDER_META = os.path.join(CACHE, "renders-meta")   # (stl bytes, hex) -> URL memo
+# uid-stamped variants of every master and candidate (catalog/engrave.py):
+# one STL per face the uid fits on, uploaded like any other artifact
+STAMPED_OUT = os.path.join(BUILD, "stamped")
+STAMP_META = os.path.join(CACHE, "stamp-meta")      # (stl bytes, uid, params) -> variants memo
 BUNDLE_OUT = os.path.join(BUILD, "bundle")
 # build plates: pre-arranged .3mf files pinned by hash in catalog/plates.json
 PLATES_SRC = os.path.join(BUILD, "plates")
@@ -182,15 +187,24 @@ def master_stl(p):
     return dest
 
 
-def render_url_for(stl_abs, hexcolor, out_png, force):
+def render_url_for(stl_abs, hexcolor, out_png, force, prev_url=None):
     """Bucket URL for this geometry's thumbnail, rendering only when needed.
 
     Memoized on (STL bytes, hex): the same geometry in the same color is the
     same picture, so its content-addressed URL never changes and nothing needs
     re-rendering or re-uploading. A fresh render lands in build/renders/ where
-    sync_bucket.py picks it up."""
+    sync_bucket.py picks it up.
+
+    `prev_url` is the committed data's thumbnail for this same geometry and
+    color, when the caller has established both are unchanged. The memo lives
+    in gitignored build/, so a fresh checkout has none, and matplotlib's PNG
+    bytes differ from machine to machine: without this every checkout would
+    re-render the whole catalog and move every thumbnail URL for no reason."""
     key = hashlib.sha1(open(stl_abs, "rb").read() + hexcolor.encode()).hexdigest()[:16]
     meta = os.path.join(RENDER_META, key + ".json")
+    if not force and prev_url and not os.path.exists(meta):
+        os.makedirs(RENDER_META, exist_ok=True)
+        json.dump({"url": prev_url}, open(meta, "w"))
     if not force and os.path.exists(meta):
         # The memo pins the content-addressed FILENAME; the serving base and
         # the key scheme can both move (2026-08-21: bucket CDN -> the img
@@ -209,7 +223,60 @@ def render_url_for(stl_abs, hexcolor, out_png, force):
     return url
 
 
-def archive_versions(parts_by_id, out_parts, profiles, hexmap, role_defaults, force):
+def stamped_variants(stl_abs, uid, name, force):
+    """The uid-stamped downloads for this geometry: a list of
+    {face, stl, normal, center}, best face first, empty when the uid fits
+    nowhere on the part (or the mesh is not a volume). Every entry is a
+    content-addressed STL under build/stamped/ that sync_bucket.py pushes.
+
+    Memoized on (STL bytes, uid, engraving parameters) like renders are. The
+    files themselves are only on disk when this run made them, and the
+    all-parts zip needs the default one's bytes -- so a memo whose file is
+    gone re-cuts (seconds, deterministic) and checks it still lands on the
+    same URL, which doubles as the reproducibility test."""
+    key = hashlib.sha1(open(stl_abs, "rb").read()
+                       + json.dumps([uid, engrave.SIGNATURE]).encode()).hexdigest()[:16]
+    meta = os.path.join(STAMP_META, key + ".json")
+    memo = json.load(open(meta)) if os.path.exists(meta) else None
+    if memo is not None and not force and all(
+            os.path.exists(v["path"]) and "depth" in v for v in memo["variants"]):
+        return [{k: v[k] for k in STAMP_KEYS + ("path",) if k in v} for v in memo["variants"]]
+    try:
+        found = engrave.stamp(stl_abs, uid, STAMPED_OUT, name)
+    except engrave.NotAVolume as e:
+        print(f"  ~ {e}")
+        found = []
+    variants = [{"stl": artifact_url(v["path"], prefix="stl"),
+                 **{k: v[k] for k in STAMP_KEYS if k in v}, "path": v["path"]} for v in found]
+    if memo is not None:
+        for old, new in zip(memo["variants"], variants):
+            if old["stl"] != new["stl"]:
+                print(f"  ! stamp for {name} on {new['face']!r} no longer reproduces: "
+                      f"{old['stl'].rsplit('/', 1)[1]} -> {new['stl'].rsplit('/', 1)[1]}")
+    os.makedirs(STAMP_META, exist_ok=True)
+    json.dump({"variants": variants}, open(meta, "w"))
+    return variants
+
+
+STAMP_KEYS = ("face", "stl", "normal", "center", "size", "cap", "depth", "note", "surface")  # note/surface optional
+
+
+def public_stamped(variants):
+    """The generated-data shape: the local path stays out of it."""
+    return [{k: v[k] for k in STAMP_KEYS if k in v} for v in variants]
+
+
+def unchanged_render(prev, stl, part):
+    """The committed thumbnail of `prev` (a previous generated entry, or None),
+    reusable only if it pictures the same bytes in the same color -- the STL
+    URL carries the hash, and the color spec is what picks the hex."""
+    if prev and prev.get("render") and prev.get("stl") == stl \
+            and prev.get("color", {"any": True}) == part.get("color", {"any": True}):
+        return prev["render"]
+    return None
+
+
+def archive_versions(parts_by_id, out_parts, profiles, hexmap, role_defaults, force, prev_parts):
     """Give every part version a previewable/downloadable STL.
 
     The newest version IS the current master file. Every superseded version
@@ -240,8 +307,12 @@ def archive_versions(parts_by_id, out_parts, profiles, hexmap, role_defaults, fo
             fetch_artifact(stl_url(out["id"], v["uid"], pin), pin, tmp)
             info = slice_part(tmp, profiles, support=bool(p.get("support", False)), force=force)
             png = os.path.join(VERS_RENDERS_OUT, vid + ".png")
+            prev_v = next((q for q in (prev_parts.get(out["id"]) or {}).get("versions") or []
+                           if str(q.get("version")) == str(v["version"])), None)
+            prev_url = unchanged_render({**(prev_v or {}), "color": (prev_parts.get(out["id"]) or {}).get("color")}
+                                        if prev_v else None, stl_url(out["id"], v["uid"], pin), p)
             try:
-                v["render"] = render_url_for(tmp, default_hex(p, role_defaults, hexmap), png, force)
+                v["render"] = render_url_for(tmp, default_hex(p, role_defaults, hexmap), png, force, prev_url)
             except Exception as e:
                 print(f"  ! version render failed for {vid}: {e}")
                 v["render"] = None
@@ -251,7 +322,7 @@ def archive_versions(parts_by_id, out_parts, profiles, hexmap, role_defaults, fo
     print(f"  {archived} historical part version(s) resolved from pinned stl_hash")
 
 
-def resolve_candidates(parts_by_id, out_parts, profiles, hexmap, role_defaults, force):
+def resolve_candidates(parts_by_id, out_parts, profiles, hexmap, role_defaults, force, prev_parts):
     """Slice and render every candidate: a design revision under test for a
     part's slot, pinned by uid + stl_hash exactly like a superseded version
     but never adopted (yet), so it has no version number. It counts toward
@@ -270,8 +341,12 @@ def resolve_candidates(parts_by_id, out_parts, profiles, hexmap, role_defaults, 
             if info is None and not want:
                 info = slice_part(tmp, profiles, support=True, force=force)
             png = os.path.join(VERS_RENDERS_OUT, cid + ".png")
+            prev_c = next((q for q in (prev_parts.get(out["id"]) or {}).get("candidates") or []
+                           if q.get("uid") == c["uid"]), None)
+            prev_url = unchanged_render({**prev_c, "color": (prev_parts.get(out["id"]) or {}).get("color")}
+                                        if prev_c else None, stl_url(out["id"], c["uid"], c["stl_hash"]), p)
             try:
-                c["render"] = render_url_for(tmp, default_hex(p, role_defaults, hexmap), png, force)
+                c["render"] = render_url_for(tmp, default_hex(p, role_defaults, hexmap), png, force, prev_url)
             except Exception as e:
                 print(f"  ! candidate render failed for {cid}: {e}")
                 c["render"] = service_render(tmp)
@@ -279,6 +354,8 @@ def resolve_candidates(parts_by_id, out_parts, profiles, hexmap, role_defaults, 
             c["grams"] = info["grams"] if info else None
             c["print_seconds"] = info["print_seconds"] if info else None
             c["support_used"] = bool(info and info["support_used"])
+            # a candidate is exactly what gets test-printed, so it is stamped too
+            c["stamped"] = public_stamped(stamped_variants(tmp, c["uid"], cid, force))
             cands.append(c)
             resolved += 1
         if cands:
@@ -898,6 +975,7 @@ def main():
                 c["grams"] = oc.get("grams")
                 c["print_seconds"] = oc.get("print_seconds")
                 c["support_used"] = bool(oc.get("support_used"))
+                c["stamped"] = oc.get("stamped") or []
                 cands.append(c)
             refreshed.append({
                 "id": source["id"], "uid": source["uid"], "name": source["name"],
@@ -929,6 +1007,7 @@ def main():
                 "docs_page": source.get("docs_page"),
                 "conflicts": source.get("conflicts"),
                 "stl": live_stl, "render": live_render,
+                "stamped": old.get("stamped") or [],
                 **({"candidates": cands} if cands else {}),
             })
         data["parts"] = refreshed
@@ -962,13 +1041,13 @@ def main():
           f"(off by default; {SUPPORT_TYPE} @{SUPPORT_THRESHOLD}deg when on) | "
           f"{FILAMENT} ({density} g/cm3, ${cost_per_kg}/kg)\n")
 
-    prev_renders = {}
+    prev_parts = {}
     if os.path.exists(DATA_OUT):
-        prev_renders = {q["id"]: q.get("render")
-                        for q in json.load(open(DATA_OUT)).get("parts", [])}
+        prev_parts = {q["id"]: q for q in json.load(open(DATA_OUT)).get("parts", [])}
 
     out_parts = []
-    zip_members = []
+    zip_members = []      # the all-parts bundle: each part's default stamped variant
+    plain_members = []    # the same parts unstamped, for whoever unticks "engrave"
     failed = []
     forced_support = []
     printed = [p for p in manifest["parts"] if p.get("kind", "printed") == "printed"]
@@ -990,26 +1069,36 @@ def main():
             continue
 
         png = os.path.join(RENDERS_OUT, p["id"] + ".png")
+        live_stl = stl_url(p["id"], p["uid"], p["stl_hash"])
         try:
             render_url = render_url_for(stl_abs, default_hex(p, role_defaults, hexmap),
-                                        png, args.force)
+                                        png, args.force,
+                                        unchanged_render(prev_parts.get(p["id"]), live_stl, p))
         except Exception as e:
             # A machine that cannot render (no matplotlib in a container)
             # keeps the part's previous thumbnail rather than shipping none.
             # A NEW part has no previous thumbnail, but if it was sliced
             # remotely the service already rendered it (grey, uncolored --
             # a placeholder, not the final picture), so fall back to that.
-            render_url = prev_renders.get(p["id"]) or service_render(stl_abs)
+            render_url = (prev_parts.get(p["id"]) or {}).get("render") or service_render(stl_abs)
             kept = " -- keeping the previous thumbnail" if render_url else ""
             print(f"  ! render failed for {p['id']}: {e}{kept}")
 
+        # The uid recessed into the part, one STL per face it fits on; the
+        # first is the default the bundle ships. Empty for a part too small
+        # to carry it -- the page then offers no stamp. (catalog/engrave.py)
+        stamped = stamped_variants(stl_abs, p["uid"], f"{p['id']}-{p['uid']}", args.force)
+
         # A part in no section -- it exists only inside a candidate assembly --
         # is not part of the build, so it stays out of the every-part bundle.
-        # Members carry the bucket filename, <id>-<uid>-<hash8>.stl: the uid
-        # has to survive into the slicer project (the 3mf takes the STL's name)
-        # so a print can be traced back to its exact version and settings.
+        # Members carry the bucket filename, <id>-<uid>-<hash8>.stl (or the
+        # default stamped variant's): the uid has to survive into the slicer
+        # project (the 3mf takes the STL's name) so a print can be traced
+        # back to its exact version and settings.
         if p.get("quantities"):
-            zip_members.append((stl_abs, os.path.basename(stl_url(p["id"], p["uid"], p["stl_hash"]))))
+            plain = (stl_abs, os.path.basename(stl_url(p["id"], p["uid"], p["stl_hash"])))
+            plain_members.append(plain)
+            zip_members.append((stamped[0]["path"], stamped[0]["stl"].rsplit("/", 1)[1]) if stamped else plain)
 
         out_parts.append({
             "id": p["id"],
@@ -1046,18 +1135,20 @@ def main():
             "caption": p.get("caption"),
             "docs_page": p.get("docs_page"),
             "conflicts": p.get("conflicts"),
-            "stl": stl_url(p["id"], p["uid"], p["stl_hash"]),
+            "stl": live_stl,
             "render": render_url,
+            "stamped": public_stamped(stamped),
         })
         sup = " +support" if info["support_used"] else ""
+        mark = f"  stamp: {', '.join(v['face'] for v in stamped)}" if stamped else "  (no stamp fits)"
         # [n/total] makes mid-run CI log pings read as real progress
-        print(f"  [{i}/{len(printed)}] {p['name']:<26} {info['grams']:7.1f} g/ea{sup}",
+        print(f"  [{i}/{len(printed)}] {p['name']:<26} {info['grams']:7.1f} g/ea{sup}{mark}",
               flush=True)
 
     archive_versions({p["id"]: p for p in printed}, out_parts,
-                     profiles, hexmap, role_defaults, args.force)
+                     profiles, hexmap, role_defaults, args.force, prev_parts)
     resolve_candidates({p["id"]: p for p in printed}, out_parts,
-                       profiles, hexmap, role_defaults, args.force)
+                       profiles, hexmap, role_defaults, args.force, prev_parts)
 
     # COTS hardware (kind: "cots") is passed through, not sliced. Product images
     # are pinned bucket URLs authored in parts.json; they never live in the repo.
@@ -1073,13 +1164,19 @@ def main():
     # therefore the content-addressed URL) depend only on the STLs. zf.write()
     # would embed file mtimes, which a fresh CI checkout changes every run.
     os.makedirs(BUNDLE_OUT, exist_ok=True)
-    zip_path = os.path.join(BUNDLE_OUT, "all-parts.zip")
-    with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
-        for src, name in sorted(zip_members, key=lambda t: t[1]):
-            zi = zipfile.ZipInfo(name, date_time=(2020, 1, 1, 0, 0, 0))
-            zi.compress_type = zipfile.ZIP_DEFLATED
-            zi.external_attr = 0o644 << 16
-            zf.writestr(zi, open(src, "rb").read())
+
+    def bundle(filename, members):
+        path = os.path.join(BUNDLE_OUT, filename)
+        with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as zf:
+            for src, name in sorted(members, key=lambda t: t[1]):
+                zi = zipfile.ZipInfo(name, date_time=(2020, 1, 1, 0, 0, 0))
+                zi.compress_type = zipfile.ZIP_DEFLATED
+                zi.external_attr = 0o644 << 16
+                zf.writestr(zi, open(src, "rb").read())
+        return path
+
+    zip_path = bundle("all-parts.zip", zip_members)
+    plain_zip_path = bundle("all-parts-plain.zip", plain_members)
 
     plates = process_plates(manifest)
 
@@ -1092,6 +1189,7 @@ def main():
             "density_g_cm3": density, "cost_per_kg": cost_per_kg,
             "commit_base_url": git_commit_base_url(),
             "all_parts_zip": artifact_url(zip_path, prefix="bundle"),
+            "all_parts_plain_zip": artifact_url(plain_zip_path, prefix="bundle"),
         },
         "sections": manifest["sections"],
         "changes": manifest.get("changes", []),
@@ -1108,7 +1206,11 @@ def main():
     json.dump(data, open(DATA_OUT, "w"), indent="\t")
 
     print(f"\nwrote {DATA_OUT}")
-    print(f"  {len(out_parts)} parts · thumbnails, STLs + bundle -> bucket")
+    print(f"  {len(out_parts)} parts · thumbnails, stamped STLs + bundle -> bucket")
+    unstamped = [q["id"] for q in out_parts if not q["stamped"]]
+    if unstamped:
+        print(f"  ~ {len(unstamped)} part(s) carry no uid stamp (no face fits {engrave.CAP} mm "
+              f"text, or not a volume): {', '.join(unstamped)}")
     if forced_support:
         print(f"  ~ {len(forced_support)} part(s) needed support to slice (floating regions "
               f"in modeled orientation); sliced WITH support: {', '.join(forced_support)}")

@@ -28,7 +28,8 @@
 		PLATES,
 		platesForPart,
 		type Part,
-		type PartVersion
+		type PartVersion,
+		partDownload
 	} from '$lib/filament';
 	import { getBambuColor } from '$lib/bambu-colors';
 	import { partsCsv } from '$lib/parts-csv';
@@ -36,6 +37,7 @@
 	import ColorPicker from '$lib/components/ColorPicker.svelte';
 	import Modal from '$lib/components/Modal.svelte';
 	import PartDetailModal from '$lib/components/PartDetailModal.svelte';
+	import IdStamp from '$lib/components/IdStamp.svelte';
 	import BuildPlates from '$lib/components/BuildPlates.svelte';
 	import Seo from '$lib/components/Seo.svelte';
 	import { zipSync } from 'fflate';
@@ -44,6 +46,7 @@
 	import { layerStore, addLayer as addLayerStore, removeLayerAt, setSize, setSizes } from '$lib/layers.svelte';
 	import { colorStore, defaultRoleColors, resetRoleColors } from '$lib/colors.svelte';
 	import Popover from '$lib/components/Popover.svelte';
+	import Disclosure from '$lib/components/Disclosure.svelte';
 	import Badge from '$lib/components/Badge.svelte';
 	import ChangeStatus from '$lib/components/ChangeStatus.svelte';
 	import MissingImage from '$lib/components/MissingImage.svelte';
@@ -156,6 +159,11 @@
 		clearConfig();
 	}
 	let zipping = $state(false);
+	// One choice over every download this page hands out: the row arrows, the
+	// selected-parts zip and the all-parts bundle all carry each part's version
+	// id recessed into its default face while this is on. Same meaning as the
+	// checkbox on a part's own page. (catalog/engrave.py)
+	let engraveIds = $state(true);
 	let activeTab = $state<'parts' | 'plates'>('parts');
 	let platesModalOpen = $state(false);
 	let platesModalPartId = $state<string | null>(null);
@@ -252,6 +260,19 @@
 	const allSelected = $derived(PARTS.every((p) => selected[p.id]));
 
 	const prettyPattern = SETTINGS.infill_pattern.replace('adaptivecubic', 'adaptive cubic');
+	// both boxes at the top of the page start closed, so their one-line summary is
+	// what most visits read; the parts list is the page.
+	let showSettings = $state(false);
+	let showBuild = $state(false);
+	const settingsSummary = `Bambu Lab A1 · 0.20 mm layers · ${SETTINGS.infill_density} ${prettyPattern} · ${SETTINGS.filament}`;
+	const buildSummary = $derived(
+		[
+			`${layers} layer${layers === 1 ? '' : 's'}`,
+			`${funnelSizes.map((sz) => (sz === 'half' ? '12' : '18')).join('/')} bins`,
+			printBins ? 'bins included' : 'bins not printed',
+			COLOR_ROLES.map((r) => getBambuColor(roleColors[r.id])?.name ?? roleColors[r.id]).join(', ')
+		].join('  ·  ')
+	);
 	const settingsRows: [string, string][] = [
 		['Printer', 'Bambu Lab A1 · 0.4 mm'],
 		['Layer height', '0.20 mm'],
@@ -336,8 +357,11 @@
 		try {
 			const files: Record<string, Uint8Array> = {};
 			for (const p of parts) {
-				const res = await fetch(p.stl);
-				files[`${p.id}.stl`] = new Uint8Array(await res.arrayBuffer());
+				const url = partDownload(p, engraveIds);
+				const res = await fetch(url);
+				// the bucket's own filename, <part>-<uid>[-stamped-<face>]-<hash8>.stl,
+				// so the id survives into whatever the slicer names the project
+				files[url.slice(url.lastIndexOf('/') + 1)] = new Uint8Array(await res.arrayBuffer());
 			}
 			const zipped = zipSync(files, { level: 6 });
 			const a = document.createElement('a');
@@ -362,22 +386,24 @@
 		</p>
 	</header>
 
-	<!-- print settings -->
-	<table class="pl-card pl-settings mb-6 max-w-xl">
-		<tbody>
-			{#each settingsRows as [k, v] (k)}
-				<tr>
-					<td class="pl-settings-k">{k}</td>
-					<td class="pl-settings-v">{v}</td>
-				</tr>
-			{/each}
-		</tbody>
-	</table>
+	<!-- print settings and build options: two boxes that say what they hold -->
+	<div class="mb-6 flex flex-col gap-3">
+	<Disclosure title="Print settings" summary={settingsSummary} bind:open={showSettings} flush>
+		<table class="pl-settings w-full max-w-xl">
+			<tbody>
+				{#each settingsRows as [k, v] (k)}
+					<tr>
+						<td class="pl-settings-k">{k}</td>
+						<td class="pl-settings-v">{v}</td>
+					</tr>
+				{/each}
+			</tbody>
+		</table>
+	</Disclosure>
 
 	<!-- BUILD OPTIONS = colors + layer configuration -->
-	<section class="mb-8">
-		<div class="mb-3 flex items-center justify-between">
-			<h2 class="text-base font-semibold text-text">Build options</h2>
+	<Disclosure title="Build options" summary={buildSummary} bind:open={showBuild} flush>
+		{#snippet actions()}
 			<button
 				class="inline-flex items-center gap-1.5 text-sm text-text-muted hover:text-text"
 				onclick={resetToDefaults}
@@ -385,10 +411,10 @@
 			>
 				<RotateCcw size={14} /> Reset to default
 			</button>
-		</div>
+		{/snippet}
 
 		<!-- colors -->
-		<div class="setup-panel mb-4 p-4">
+		<div class="p-4">
 			<div class="mb-3 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-text-muted">
 				Colors
 				<Popover width="w-72" label="About the color options">
@@ -405,7 +431,7 @@
 		</div>
 
 		<!-- layer configuration -->
-		<div class="setup-panel p-4">
+		<div class="border-t border-border p-4">
 			<div class="mb-3 flex flex-wrap items-center justify-between gap-3">
 				<span class="text-xs font-semibold uppercase tracking-wider text-text-muted">
 					Layers <span class="font-normal normal-case text-text-muted">· {layers} layer{layers === 1 ? '' : 's'}, bins per layer</span>
@@ -452,7 +478,8 @@
 				</button>
 			</div>
 		</div>
-	</section>
+	</Disclosure>
+	</div>
 
 	{#snippet partRow(p: Part, sectionId: string, indent: boolean)}
 		{@const n = displayCount(p, sectionId, layers, variantCount)}
@@ -506,7 +533,7 @@
 			<td class="pl-c-each">{eff.toFixed(0)} g × {n}</td>
 			<td class="pl-c-total">{grams(eff * n)}</td>
 			<td class="pl-c-dl">
-				<a class="pl-dl" href={p.stl} download title="Download {p.name}.stl"><Download size={16} /></a>
+				<a class="pl-dl" href={partDownload(p, engraveIds)} download title="Download {p.name}.stl{engraveIds && p.stamped?.[0] ? ` (id ${p.uid.toUpperCase()} on the ${p.stamped[0].face})` : ''}"><Download size={16} /></a>
 			</td>
 		</tr>
 	{/snippet}
@@ -545,7 +572,7 @@
 			{#if activeTab === 'parts'}
 				<a href="/changes" class="mb-4 flex items-center justify-between gap-4 border border-warning/60 bg-warning/[0.08] px-4 py-3 text-sm text-text transition-colors hover:bg-warning/[0.14]">
 					<span><b>Changes and improvements are tracked for some parts.</b> Review what is planned before printing.</span>
-					<span class="shrink-0 font-semibold text-primary">View {CHANGES.length} changes →</span>
+					<span class="shrink-0 font-semibold text-primary">View {CHANGES.length} potential changes →</span>
 				</a>
 				{#each sectionRows as { section, parts, mult, selectedGrams } (section.id)}
 				<section class="pl-sec" id="section-{section.id}">
@@ -726,6 +753,7 @@
 			</div>
 
 			<div class="mt-3 grid gap-2">
+				<div class="flex items-center justify-end gap-1.5"><IdStamp where="global" bind:on={engraveIds} /></div>
 				<button
 					class="setup-button-primary inline-flex h-10 items-center justify-center gap-2 px-4 text-sm font-semibold disabled:opacity-50"
 					onclick={() => downloadZip(selectedParts, 'sorter-stls.zip')}
@@ -734,7 +762,7 @@
 					{#if zipping}<Loader size={15} class="animate-spin" />{:else}<Download size={15} />{/if}
 					Download selected ({selectedParts.length})
 				</button>
-				<a class="setup-button-secondary inline-flex h-10 items-center justify-center gap-2 px-4 text-sm font-semibold" href={SETTINGS.all_parts_zip} download>
+				<a class="setup-button-secondary inline-flex h-10 items-center justify-center gap-2 px-4 text-sm font-semibold" href={engraveIds ? SETTINGS.all_parts_zip : SETTINGS.all_parts_plain_zip} download>
 					<Download size={15} /> Download all ({PARTS.length})
 				</a>
 			</div>

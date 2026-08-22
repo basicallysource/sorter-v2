@@ -10,6 +10,7 @@ import raw from '$lib/data/catalog.generated.json';
 
 export type LaserCutPart = {
 	id: string;
+	uid: string; // minted like a printed part's (catalog/mint_uid.py)
 	name: string;
 	// context photo (bucket URL); the docs site's parts-needed cards use this,
 	// while this app shows the DXF outline preview

@@ -204,6 +204,35 @@ marked `superseded_by` / `rejected_at`, because a uid on a test print has to
 keep resolving; `check_generated_pins.py` fails any change that drops a uid
 from `parts.json`.
 
+**Stamped downloads are derived, never authored.** `catalog/engrave.py`
+recesses the uid into a face (uppercase, 3.5 mm cap, 0.6 mm deep, Source Code
+Pro Bold -- the font is a pinned bucket object, fetched by hash into
+`build/fonts/`), and `generate.py` pre-cuts up to four face variants per
+printed part and candidate into `build/stamped/`, memoized on (STL bytes, uid,
+`engrave.SIGNATURE`). They ride the generated data as `stamped: [{face, stl,
+normal, center}]`, best face first, empty when nothing fits; the site's part
+page picks from that list; the viewer paints the pocket (found from
+`center`, `normal`, `size`) in the accent colour and "show me" flies to it.
+Two bundles: `all_parts_zip` ships each part's default variant,
+`all_parts_plain_zip` the masters. One `IdStamp` component is the whole UI
+for the concept (viewport overlay, download checkbox, dashboard checkbox). Placement is quantised and the
+boolean is manifold's, so the same geometry stamps to the same bytes on any
+machine -- the generator warns if a re-cut lands on a different URL than the
+memo. Faces are planar facets plus cylindrical and conical walls (a smooth
+walk across small dihedral angles, then a surface-of-revolution fit with
+the fillets it merged with rejected as tilt outliers; unrolled exactly,
+cutter bent back on; bores excluded; text turned sideways along the axis if
+it would wrap past ~60°). Every spot needs 1.6 mm of wall behind a 0.6 mm
+pocket, or 1.0 mm behind a 0.4 mm one (ray-cast). Per face the ladder is
+3.5 mm upright, 3.5 sideways, 2.5 upright, 2.5 sideways; each variant
+carries its `cap` and `depth` and a `note` when either is the fallback.
+The face ranking is in `engrave.variants()` -- full-size before small
+text; large flats, then walls, then small flats, inside bed / upright /
+overhang classes -- and there is deliberately no per-part authoring of
+where the stamp goes. The viewer's CAD mode (feature edges, grey ground)
+is the default; "Shaded" is the bare surface. `/u/<uid>` is one prerendered
+page per uid the catalog has ever minted.
+
 **Assemblies carry `uid` / `version` / `versions` / `candidates` too.** An
 assembly version is an authored structural change; its superseded entries
 snapshot the lines with each member's uid of the day (`stamp_versions.py`),

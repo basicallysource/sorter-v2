@@ -24,6 +24,7 @@ catalog/
   parts.json            # manifest: every part, its section(s), qty, color role
                         #   geometry is PINNED here by hash, never committed
   generate.py           # the local data-generation step
+  engrave.py            # the uid stamp: where it fits on a part, and cutting it
 src/lib/data/catalog.generated.json # GENERATED, committed — both sites' input
 ```
 
@@ -106,6 +107,29 @@ bump `version`, add a `versions` entry, delete the candidate line. To iterate
 on or drop one: **never delete it** — add `superseded_by` / `superseded_at`
 or `rejected_at` and leave its pin, so the uid engraved on any test print
 still resolves here. CI fails a change that removes a uid from `parts.json`.
+
+### The id stamp
+
+Every printed part's page offers its STL with the uid recessed into one face
+(3.5 mm Source Code Pro Bold, 0.6 mm deep), so a print can be looked up later
+at `/u/<uid>` — or typed into the "id on a print" box in the header. Nothing
+to author: `catalog/engrave.py` finds every flat face the four characters fit
+on, plus cylindrical and conical walls for a part running out of big flat
+ones (unrolled, text bent onto the wall; never a bore, never where the text
+would wrap more than ~60°), refuses any spot with under 1.6 mm of wall
+behind it (1.0 mm for a 0.4 mm pocket), falls back per face from upright
+3.5 mm text to sideways, then 2.5 mm, then the shallow pocket, ranks them
+(the bed face first, then vertical and upward faces,
+overhangs last; large flats before walls before small flats), and
+`generate.py` pre-cuts up to four variants per part and
+candidate, uploaded like any other artifact. The page opens on the first; the
+arrow keys flip through the rest, and unticking "Engrave version id" is the
+plain master. The dashboard has the same checkbox over every download it
+hands out; "Download all" is the stamped bundle or the plain one
+(`all_parts_zip` / `all_parts_plain_zip`) accordingly. A part too small for
+the text, or whose mesh is not watertight, simply gets no stamp (the generator
+lists them). Stamped bytes are memoized on (geometry, uid, parameters); a
+change to the font or the sizes in `engrave.py` re-cuts the catalog.
 
 Assemblies version the same way: every one has a `uid` and `version`, a new
 version is an authored *structural* change (a line added or removed, a qty

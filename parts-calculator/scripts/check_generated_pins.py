@@ -29,6 +29,22 @@ def all_uids(manifest):
                      + [c.get("uid") for c in item.get("candidates") or []] if u}
 
 
+def stamp_problems(where, uid, g):
+    """The stamped downloads (catalog/engrave.py) are named for the uid they
+    carry, <id>-<uid>-stamped-<face>-<hash8>.stl; one named for another uid
+    would hand out a print engraved with the wrong id. A missing list means
+    the generator that wrote this entry predates stamping."""
+    out = []
+    stamped = g.get("stamped")
+    if stamped is None:
+        return [f"{where}: no stamped list -- run the full generator"]
+    for v in stamped:
+        tail = str(v.get("stl", "")).rsplit("/", 1)[-1]
+        if f"-{uid}-stamped-" not in tail:
+            out.append(f"{where}: stamped download {tail!r} is not named for uid {uid}")
+    return out
+
+
 def previous_uids():
     """Every uid in parts.json one commit back: HEAD~1 is the previous main commit
     on a push and the base branch on a PR's merge ref. None when history is not
@@ -60,6 +76,7 @@ def main():
             bad.append(f"{p['id']}: generated stl is {g.get('stl')!r}, the pin says {want!r}")
         if not isinstance(g.get("grams"), (int, float)):
             bad.append(f"{p['id']}: no grams in the generated data")
+        bad += stamp_problems(p["id"], p["uid"], g)
 
     live = {p["id"] for p in printed}
     for pid in gen:
@@ -84,6 +101,8 @@ def main():
                 bad.append(f"{p['id']}: candidate {c['uid']} serves {gc.get('stl')!r}, the pin says {want!r}")
             elif not isinstance(gc.get("grams"), (int, float)):
                 bad.append(f"{p['id']}: candidate {c['uid']} has no grams -- run the full generator, not --metadata-only")
+            else:
+                bad += stamp_problems(f"{p['id']} candidate {c['uid']}", c["uid"], gc)
 
     # A uid is a promise to whoever engraved it on a print: once in parts.json it
     # never leaves. Superseded and rejected candidates are marked, not deleted.

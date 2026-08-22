@@ -199,6 +199,7 @@ export type CatalogMerge = { id: string; date: string; sources: string[]; note?:
 
 export type Hardware = {
 	id: string;
+	uid: string; // minted like a printed part's, so one id scheme covers the machine
 	kind: 'cots';
 	cots?: { type: string; size?: string; variant?: string; length_mm?: number } | null;
 	name: string;
@@ -237,6 +238,7 @@ export type ColorSpec =
  *  immutable OnShape version this STL was exported from. */
 export type PartVersion = {
 	version: string;
+	uid?: string; // the id this version carried; the newest's is the part's own
 	date: string;
 	message: string;
 	commit: string | null;
@@ -269,6 +271,27 @@ export type PartCandidate = {
 	grams?: number | null;
 	print_seconds?: number | null;
 	support_used?: boolean;
+	stamped?: PartStamp[];
+};
+/** A download with the uid recessed into one face (catalog/engrave.py). `face`
+ *  names it ("bottom", "+x side", "angled face"); `center`, `normal` and
+ *  `size` ([width, height] mm) locate the text in the STL's own coordinates so
+ *  the viewer can paint its pocket and fly to it. The first of a list is the
+ *  default: the face a stamp prints and hides best. */
+export type PartStamp = {
+	face: string;
+	stl: string;
+	normal: number[];
+	center: number[];
+	size: number[];
+	cap: number; // text height, mm: 3.5, or 2.5 when nothing on the part takes 3.5
+	depth: number; // pocket depth, mm: 0.6, or 0.4 on a sheet too thin for it
+	note?: string; // "smaller text", "shallow pocket" -- why this one is not the usual
+	// set when the face is a cylindrical or conical wall: the surface of
+	// revolution it sits on (axis, a point on it, radius there, radius change
+	// per mm along the axis, +1 convex / -1 bore), so depth is measured
+	// radially rather than against a tangent plane
+	surface?: { axis: number[]; point: number[]; r0: number; slope: number; sign: number };
 };
 
 export type Part = {
@@ -309,6 +332,7 @@ export type Part = {
 	conflicts?: CatalogConflict[] | null;
 	stl: string;
 	render: string;
+	stamped?: PartStamp[]; // uid-stamped downloads, best face first; empty when the uid fits nowhere
 };
 export type Settings = {
 	printer: string;
@@ -322,8 +346,15 @@ export type Settings = {
 	density_g_cm3: number;
 	cost_per_kg: number;
 	commit_base_url?: string; // e.g. https://github.com/owner/repo/commit/
-	all_parts_zip?: string; // content-addressed bucket URL for the every-part bundle
+	all_parts_zip?: string; // content-addressed bucket URL for the every-part bundle (each part's default stamped variant)
+	all_parts_plain_zip?: string; // the same parts unstamped
 };
+
+/** The download for a part honouring the "engrave version id" choice: its
+ *  default stamped variant when on and one exists, else the plain master. */
+export function partDownload(p: Part, engrave: boolean): string {
+	return (engrave && p.stamped?.[0]?.stl) || p.stl;
+}
 
 /** Full URL for a version's commit, or null when the commit isn't known yet. */
 export function commitUrl(commit: string | null | undefined): string | null {
@@ -453,6 +484,43 @@ export function getLasercut(id: string): LaserCutPart | undefined {
 
 export function getPart(id: string): Part | undefined {
 	return partById.get(id);
+}
+
+/** What a uid names. A uid is the 4-character id every part, version,
+ *  candidate and assembly carries (catalog/mint_uid.py) -- the thing recessed
+ *  into a print -- and once minted it never leaves the catalog, so anything
+ *  ever stamped resolves here, current or not. */
+export type UidMatch =
+	| { kind: 'part'; part: Part }
+	| { kind: 'part-version'; part: Part; version: PartVersion }
+	| { kind: 'part-candidate'; part: Part; candidate: PartCandidate }
+	| { kind: 'assembly'; assembly: Assembly }
+	| { kind: 'assembly-version'; assembly: Assembly; version: AssemblyVersion }
+	| { kind: 'assembly-candidate'; assembly: Assembly; candidate: AssemblyCandidate }
+	| { kind: 'hardware'; hardware: Hardware }
+	| { kind: 'lasercut'; lasercut: LaserCutPart };
+
+const uidIndex = new Map<string, UidMatch>();
+for (const part of PARTS) {
+	uidIndex.set(part.uid, { kind: 'part', part });
+	for (const version of part.versions ?? [])
+		if (version.uid && version.uid !== part.uid) uidIndex.set(version.uid, { kind: 'part-version', part, version });
+	for (const candidate of part.candidates ?? []) uidIndex.set(candidate.uid, { kind: 'part-candidate', part, candidate });
+}
+for (const assembly of ASSEMBLIES) {
+	uidIndex.set(assembly.uid, { kind: 'assembly', assembly });
+	for (const version of assembly.versions ?? [])
+		if (version.uid && version.uid !== assembly.uid) uidIndex.set(version.uid, { kind: 'assembly-version', assembly, version });
+	for (const candidate of assembly.candidates ?? []) uidIndex.set(candidate.uid, { kind: 'assembly-candidate', assembly, candidate });
+}
+for (const hardware of HARDWARE) if (hardware.uid) uidIndex.set(hardware.uid, { kind: 'hardware', hardware });
+for (const lasercut of LASER_CUT_PARTS) if (lasercut.uid) uidIndex.set(lasercut.uid, { kind: 'lasercut', lasercut });
+
+export function resolveUid(uid: string): UidMatch | undefined {
+	return uidIndex.get(uid.trim().toLowerCase());
+}
+export function allUids(): string[] {
+	return [...uidIndex.keys()];
 }
 export function getHardware(id: string): Hardware | undefined {
 	return hardwareById.get(id);

@@ -861,6 +861,7 @@ body {
 /* ── Step headings ─────────────────────────────────────────────────────── */
 
 .step-heading {
+	clear: both;
 	display: flex;
 	flex-direction: column;
 	gap: 3px;
@@ -1046,6 +1047,98 @@ body {
 	height: auto;
 	margin: 0 auto 1.4rem;
 	border: 1px solid var(--line);
+}
+
+/* A figure floated into the right margin, with the step text running beside it.
+   Falls back to a normal centred figure on narrow screens. */
+.figure-float-right {
+	float: right;
+	width: 240px;
+	max-width: 45%;
+	margin: 0 0 1rem 1.6rem;
+}
+
+.figure-float-right img {
+	display: block;
+	width: 100%;
+	height: auto;
+	border: 1px solid var(--line);
+}
+
+.figure-float-right figcaption {
+	margin-top: 6px;
+	font-size: 0.8125rem;
+	line-height: 1.4;
+	color: var(--muted);
+}
+
+/* Ends a floated figure, so what follows starts below it rather than beside. */
+.clear-float {
+	clear: both;
+}
+
+/* An ordered procedure inside a step: the site's lists carry no markers, so a
+   list whose order matters draws plain numbers. */
+.numbered-steps {
+	list-style: decimal;
+	padding-left: 1.6rem;
+	margin: 0 0 1.4rem;
+}
+
+.numbered-steps li {
+	margin-bottom: 0.5rem;
+}
+
+/* Numbered key for a keyed drawing: the site's lists render without markers, so
+   a list whose items are referred to by number draws its own. The badges match
+   the numbered markers on the drawing, including their colour. */
+.keyed-list {
+	list-style: none;
+	counter-reset: keyed;
+	padding-left: 0;
+	margin: 0 0 1.4rem;
+}
+
+.keyed-list li {
+	counter-increment: keyed;
+	position: relative;
+	padding-left: 2.1rem;
+	margin-bottom: 0.6rem;
+}
+
+.keyed-list li::before {
+	content: counter(keyed);
+	position: absolute;
+	left: 0;
+	top: 0.1em;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 1.4rem;
+	height: 1.4rem;
+	border-radius: 50%;
+	background: #1a6eb0;
+	color: #fff;
+	font-size: 0.78rem;
+	font-weight: 700;
+	line-height: 1;
+}
+
+.keyed-list li.key-screw::before {
+	background: #c4322c;
+}
+
+.keyed-list li.key-note::before {
+	background: #262c36;
+}
+
+@media (max-width: 740px) {
+	.figure-float-right {
+		float: none;
+		width: 100%;
+		max-width: 440px;
+		margin: 1.4rem auto;
+	}
 }
 
 .video-embed-portrait {

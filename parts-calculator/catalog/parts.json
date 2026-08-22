@@ -1084,7 +1084,8 @@
       },
       "optional": false,
       "support": true,
-      "onshape": "https://cad.onshape.com/documents/36d65973fe08f685f790dc8b/w/63d9095d8167813360e7753c/e/279fa8866ec0d8c56c8226cf"
+      "onshape": "https://cad.onshape.com/documents/36d65973fe08f685f790dc8b/w/63d9095d8167813360e7753c/e/279fa8866ec0d8c56c8226cf",
+      "note": "3v2p"
     },
     {
       "id": "cable-clamp-outer",
@@ -2032,7 +2033,8 @@
           "message": "Dropped the raised \"50 mm\" lettering. Its geometry tessellated into zero-area slivers, which left the exported mesh non-manifold, so it could neither be checked nor stamped. The tube itself is unchanged.",
           "commit": "0aeff083",
           "onshape_doc": "https://cad.onshape.com/documents/249bded2198af476185014b6",
-          "onshape_version": "https://cad.onshape.com/documents/249bded2198af476185014b6/v/3ec354b28012f6c0ab41285a/e/48c64d61f1276c46f515d6bd"
+          "onshape_version": "https://cad.onshape.com/documents/249bded2198af476185014b6/v/3ec354b28012f6c0ab41285a/e/48c64d61f1276c46f515d6bd",
+          "note": "3v2p"
         }
       ],
       "attributes": [

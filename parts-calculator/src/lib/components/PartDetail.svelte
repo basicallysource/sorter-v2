@@ -12,8 +12,8 @@
 	import { getBambuColor } from '$lib/bambu-colors';
 	import { SITE_URL } from '$lib/seo';
 	import { copyText } from '$lib/clipboard';
-	import { duration, fmtDate, partOnshape, platesForPart, type Part, type PartCandidate, type PartVersion } from '$lib/filament';
-	import { ExternalLink, FlaskConical, History, Image, Layers3, Share2, Check } from 'lucide-svelte';
+	import { duration, fmtDate, noteUrl, partOnshape, platesForPart, type Part, type PartCandidate, type PartVersion } from '$lib/filament';
+	import { ExternalLink, FileText, FlaskConical, History, Image, Layers3, Share2, Check } from 'lucide-svelte';
 
 	// The 3D-printed part detail view: the preview with the id-stamp controls laid
 	// over it, then the facts, the download, and the history. Rendered two ways off
@@ -109,6 +109,7 @@
 	{@const grams = candidate ? candidate.grams : (active?.grams ?? part.grams)}
 	{@const seconds = candidate ? candidate.print_seconds : part.print_seconds}
 	{@const onshapeHref = candidate?.onshape_version ?? os.version}
+	{@const noteId = candidate?.note ?? active?.note ?? part.note}
 
 	<!-- the preview, with the id-stamp controls and the colour picker laid over it -->
 	<div class="relative {variant === 'modal' ? 'shrink-0' : ''}">
@@ -135,6 +136,11 @@
 						<div class="flex flex-wrap gap-1.5">
 							{#each part.attributes as a}<span class="border border-border bg-[var(--color-bg)] px-1.5 py-0.5 text-xs text-text-muted">{a.label}: <span class="text-text">{a.value}</span></span>{/each}
 						</div>
+					{/if}
+					{#if noteId}
+						<a class="inline-flex items-center gap-1 text-xs text-primary hover:text-primary-hover" href={noteUrl(noteId)} target="_blank" rel="noopener" title="A permanent write-up of something that happened to this part">
+							<FileText size={12} /> Engineering note {noteId}
+						</a>
 					{/if}
 				</div>
 				<div class="flex shrink-0 flex-col items-start gap-2 sm:items-end">

@@ -5491,6 +5491,7 @@
 					"date": "2026-06-27",
 					"message": "Initial version.",
 					"commit": null,
+					"note": "3v2p",
 					"stl": "https://img.basically.website/parts/stl/cable-clamp-inner-3fue-a77f4963.stl",
 					"render": "https://img.basically.website/parts/render/cable-clamp-inner-4f239270.png",
 					"grams": 6.45
@@ -10303,6 +10304,7 @@
 					"commit": "0aeff083",
 					"onshape_doc": "https://cad.onshape.com/documents/249bded2198af476185014b6",
 					"onshape_version": "https://cad.onshape.com/documents/249bded2198af476185014b6/v/3ec354b28012f6c0ab41285a/e/48c64d61f1276c46f515d6bd",
+					"note": "3v2p",
 					"stl": "https://img.basically.website/parts/stl/camera-extension-v684-c9cf562f.stl",
 					"render": "https://img.basically.website/parts/render/camera-extension-e53f4965.png",
 					"grams": 28.37
@@ -10319,10 +10321,10 @@
 				}
 			],
 			"grams": 28.37,
-			"support_grams": 0.0,
+			"support_grams": 0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 4105,
+			"print_seconds": 4106,
 			"color": {
 				"fixed": "ash-gray"
 			},

@@ -192,11 +192,22 @@ A regular layer is now complete. You will also need to construct a [Chute core](
 
 A finished layer already carries everything that spans up to the next one: piece C standing out of its External bracket — side, and the External bracket — bottom vertical capping that extrusion. Joining two layers is therefore only the flange joint at each of the six corners.
 
-Set the next layer down so that each External bracket — bottom vertical's flange face meets the underside of that layer's External bracket — side, and drive 2 {% include fastener.html size="M5" variant="socket-button" length="16" %} screws up through each flange into the bracket above. **That pair is the whole layer-to-layer fastening, 12 screws per joint.** The flange carries a 5.6 mm clearance hole through 8 mm of plastic and the bracket above a 4.4 mm self-tapping hole 10 mm deep, so an {% include fastener.html size="M5" variant="socket-button" length="16" %} is 8 mm of clearance and 8 mm of thread, and a longer screw has nowhere to go.
-
-The extrusion is not screwed to the layer above. Piece C is clamped only in its own layer's bracket, and two layers' pieces of C stop about 3 mm short of each other at the flange face, so they never touch. The foot of the External bracket — bottom vertical seats on the rim of its own layer's collar, and that is what sets the 160 mm spacing between one frame and the next.
+Set the next layer down so that each External bracket — bottom vertical's flange face meets the underside of that layer's External bracket — side, and drive 2 {% include fastener.html size="M5" variant="socket-button" length="16" %} screws up through each flange into the bracket above. **That pair is the whole layer-to-layer fastening, 12 screws per joint.**
 
 <figure>
-  <img class="doc-figure" src="https://img.basically.website/web/assembly/regular-layers/layer-joint-section.abfaad01e86d6134.jpg" alt="Vertical cross-section through one corner of two stacked layers, showing the lower layer's vertical extrusion and bottom-vertical tube in blue, the upper layer's bracket in purple, and the two screw pairs in red">
-  <figcaption>Section through one corner, cut through the centre of the profile on the bracket's symmetry plane. Blue is the lower layer, purple the layer above: the whole span between two frames belongs to the lower layer, and the only fasteners between the two are the two {% include fastener.html size="M5" variant="socket-button" length="16" %} through the flange. Drawn from the part geometry rather than from a build.</figcaption>
+  <a href="https://img.basically.website/originals/assembly/regular-layers/layer-joint-section.11acc0911bc91277.png" target="_blank" rel="noopener">
+    <img class="doc-figure" src="https://img.basically.website/web/assembly/regular-layers/layer-joint-section.21c4ee094a2c72b8.jpg" alt="Vertical cross-section through one corner of two stacked layers, with the lower layer's extrusion and bottom-vertical tube in blue, the upper layer's bracket in purple, the two screw pairs dashed in red, and six numbered callouts">
+  </a>
+  <figcaption>Section through one corner, cut through the centre of the profile. Blue is the lower layer, purple the layer above. Click the drawing to enlarge it. Drawn from the part geometry rather than from a build.</figcaption>
 </figure>
+
+What the numbers mark:
+
+1. **External bracket — side and cover**, the 60.5 mm collar at each frame.
+2. **Piece C**, 154 mm cut. It starts 3 mm above its own collar's underside and ends 3 mm below the flange face of the collar above, so it spans the whole 160 mm between one frame and the next.
+3. **External bracket — bottom vertical**, 119.6 mm of tube. It sleeves the upper part of piece C, so the extrusion is not visible on an assembled machine, and its foot seats on the rim of its own layer's collar. That seat is what sets the 160 mm spacing between frames.
+4. **The two {% include fastener.html size="M5" variant="socket-button" length="16" %} screws that join the layers**, up through the flange into the bracket above. The flange has a 5.6 mm clearance hole through 8 mm of plastic and the bracket above a 4.4 mm self-tapping hole 10 mm deep, so the screw is 8 mm of clearance and 8 mm of thread, and a longer one bottoms out before it clamps.
+5. **The two {% include fastener.html size="M5" variant="socket-button" length="16" %} screws that clamp the bracket onto the extrusion**, self-tapping through the bracket wall. Piece C is held only here, in its own layer's bracket, and nothing screws into it from the layer above.
+6. **Where two pieces of C meet**: they stop about 3 mm short of each other at the flange face and never touch.
+
+Both screw pairs are drawn dashed because neither lies in the plane of the cut: the joining pair sits 20.6 mm either side of it, and the clamping pair comes in at 45° to it.

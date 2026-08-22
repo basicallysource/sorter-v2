@@ -1072,6 +1072,11 @@ body {
 	color: var(--muted);
 }
 
+/* Ends a floated figure, so what follows starts below it rather than beside. */
+.clear-float {
+	clear: both;
+}
+
 /* An ordered procedure inside a step: the site's lists carry no markers, so a
    list whose order matters draws plain numbers. */
 .numbered-steps {

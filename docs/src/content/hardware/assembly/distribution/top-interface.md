@@ -531,8 +531,11 @@ The numbers on the photo and the drawing:
   <li class="key-screw"><strong>Two {% include fastener.html size="M5" variant="socket-button" length="16" %} screws</strong> at the base of that bracket brace it against the extrusion, the same screws and holes a layer's own vertical gets. Nothing else fastens the interface to the layer.</li>
 </ol>
 
+<div class="clear-float"></div>
+
 The top interface is now complete.
 
 <figure>
   <img class="doc-figure" src="https://img.basically.website/web/assembly/top-interface/framing-4.28f9d54d3c156c6b.jpg" alt="The completed top interface: the hexagonal top plate on its framed leg structure with the chute opening in the centre">
+  <figcaption>The finished interface, seen from above with the top plate on.</figcaption>
 </figure>

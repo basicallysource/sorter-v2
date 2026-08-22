@@ -13,7 +13,12 @@ export const CONFIG_KEY = 'sorter-filament-config-v1';
 export type StoredConfig = {
 	printBins: boolean;
 	surplus: number;
-	selected: Record<string, boolean>;
+	/** Parts whose printed count has been edited away from what the machine
+	 *  needs, id -> count (0 = not printing it). Absent means "follow the
+	 *  machine", so a new part in the catalog needs no migration. */
+	qty: Record<string, number>;
+	/** v1's per-part checkbox. Read once and folded into `qty`, never written. */
+	selected?: Record<string, boolean>;
 	inclSupport: Record<string, boolean>;
 };
 

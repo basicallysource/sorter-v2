@@ -126,6 +126,15 @@ export type Assembly = {
  *  URL, so the two stay linkable if the host ever moves. */
 export const DOCS_BASE = 'https://docs.basically.website';
 
+/** Absolute URL of an engineering note: one permanent, unlisted page per
+ *  minted id, written when something happened to a part that a version line
+ *  cannot carry (why an export was replaced, what was measured, what was
+ *  ruled out). Ids come from the same pool as part uids, so one never means
+ *  two things. */
+export function noteUrl(id: string): string {
+	return `${DOCS_BASE}/n/${id}/`;
+}
+
 /** Absolute URL of an assembly's write-up on the docs site, or null when that
  *  assembly has no page there yet. */
 export function docsUrl(a: Assembly): string | null {
@@ -242,6 +251,7 @@ export type PartVersion = {
 	date: string;
 	message: string;
 	commit: string | null;
+	note?: string; // an engineering note's id, if this version has one
 	onshape_doc?: string | null;
 	onshape_version?: string | null;
 	// archived assets for this version (old geometry pulled from git); the current
@@ -272,6 +282,7 @@ export type PartCandidate = {
 	print_seconds?: number | null;
 	support_used?: boolean;
 	stamped?: PartStamp[];
+	note?: string; // an engineering note's id, if this candidate has one
 };
 /** A download with the uid recessed into one face (catalog/engrave.py). `face`
  *  names it ("bottom", "+x side", "angled face"); `center`, `normal` and
@@ -308,6 +319,7 @@ export type Part = {
 	version: string;
 	created_at: string;
 	updated_at: string;
+	note?: string; // an engineering note's id, when the part itself has one
 	versions?: PartVersion[]; // archetype history, newest last
 	candidates?: PartCandidate[]; // revisions under test for this slot, oldest first
 	images?: CatalogImage[]; // extra pictures beyond the render

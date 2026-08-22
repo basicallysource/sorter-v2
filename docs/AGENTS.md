@@ -59,6 +59,35 @@ asset spec, and the rules for adding a site live in
    arbitrarily deep).
 4. `python3 scripts/validate_frontmatter.py` must pass.
 
+## Engineering notes (`/n/<id>/`)
+
+A note is a permanent page about something that happened, written when a part
+or a decision needs a record that a changelog line cannot carry: why an export
+was replaced, what was measured, what was ruled out. They are deliberately
+unlike the rest of this site.
+
+- **Minted id, no slug.** `docs/src/content/notes/<id>.md` with
+  `permalink: /n/<id>/`. Get the id from
+  `parts-calculator/catalog/mint_uid.py`, which draws from the same pool as
+  part uids and skips ids already naming a note, so an id means one thing
+  wherever you type it. A slug would be a claim that goes stale; the words
+  live in the title, where being wrong later costs nothing.
+- **Not in `nav.yml`, ever.** That keeps it out of the sidebar and out of
+  search (both are built from the nav), so it is reachable only from whatever
+  links it. Leave `section:` unset and the page renders full width with no
+  sidebar.
+- **Not edited after the fact.** Say so at the foot of the page. If the
+  situation changes, mint a new note that supersedes it and leave the old one
+  exactly where it is.
+- **Link it from the thing it is about.** A part, version or candidate in
+  `parts-calculator/catalog/parts.json` takes `"note": "<id>"`, and the part
+  page renders "Engineering note <id>" pointing back here.
+
+Images follow the ordinary rules below (upload, content-addressed URL, never
+in git), under `notes/<id>/`. A detail image wants the full column: put a
+single `<figure>` inside an `img-row` rather than using `doc-figure`, which
+caps at 440px for assembly photos.
+
 ## Components (write these as raw HTML in the markdown)
 
 Liquid includes and `site.data` still work exactly as they did under Jekyll —

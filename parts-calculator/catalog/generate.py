@@ -150,7 +150,10 @@ def normalize_versions(part):
     date = part.get("created_at", part.get("date_added", ""))
     entry = {"version": part.get("version", "1"), "uid": part["uid"], "date": date,
              "message": "Initial version.", "commit": None}
-    # a single-version part can still carry OnShape links at the part level
+    # a single-version part can still carry an engineering note and OnShape
+    # links at the part level
+    if part.get("note"):
+        entry["note"] = part["note"]
     if part.get("onshape_version"):
         entry["onshape_version"] = part["onshape_version"]
     if part.get("onshape_doc"):

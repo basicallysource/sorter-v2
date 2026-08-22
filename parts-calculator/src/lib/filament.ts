@@ -278,7 +278,18 @@ export type PartCandidate = {
  *  `size` ([width, height] mm) locate the text in the STL's own coordinates so
  *  the viewer can paint its pocket and fly to it. The first of a list is the
  *  default: the face a stamp prints and hides best. */
-export type PartStamp = { face: string; stl: string; normal: number[]; center: number[]; size: number[] };
+export type PartStamp = {
+	face: string;
+	stl: string;
+	normal: number[];
+	center: number[];
+	size: number[];
+	// set when the face is a cylindrical or conical wall: the surface of
+	// revolution it sits on (axis, a point on it, radius there, radius change
+	// per mm along the axis, +1 convex / -1 bore), so depth is measured
+	// radially rather than against a tangent plane
+	surface?: { axis: number[]; point: number[]; r0: number; slope: number; sign: number };
+};
 
 export type Part = {
 	id: string;

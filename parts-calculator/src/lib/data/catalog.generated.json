@@ -11,7 +11,7 @@
 		"density_g_cm3": 1.32,
 		"cost_per_kg": 24.99,
 		"commit_base_url": "https://github.com/basicallysource/sorter-v2/commit/",
-		"all_parts_zip": "https://img.basically.website/parts/bundle/all-parts-70099fd1.zip",
+		"all_parts_zip": "https://img.basically.website/parts/bundle/all-parts-81fd4965.zip",
 		"all_parts_plain_zip": "https://img.basically.website/parts/bundle/all-parts-plain-eee4ad8e.zip"
 	},
 	"sections": [
@@ -1644,22 +1644,37 @@
 					]
 				},
 				{
-					"face": "angled face",
-					"stl": "https://img.basically.website/parts/stl/stator-n6bm-stamped-angled-face-05d1e048.stl",
+					"face": "outer wall",
+					"stl": "https://img.basically.website/parts/stl/stator-n6bm-stamped-outer-wall-6ef45e0f.stl",
 					"normal": [
-						-0.7083,
-						-0.7059,
-						-0.0
+						-0.3804,
+						0.9248,
+						0.0013
 					],
 					"center": [
-						77.99,
-						-78.26,
-						-15.84
+						-45.64,
+						110.96,
+						15.65
 					],
 					"size": [
 						12.22,
-						3.56
-					]
+						3.57
+					],
+					"surface": {
+						"axis": [
+							0.00063,
+							-0.00113,
+							1.0
+						],
+						"point": [
+							0.001,
+							0.001,
+							18.17
+						],
+						"r0": 119.977,
+						"slope": 0.0,
+						"sign": 1
+					}
 				}
 			]
 		},
@@ -2173,6 +2188,72 @@
 					]
 				},
 				{
+					"face": "outer wall",
+					"stl": "https://img.basically.website/parts/stl/light-post-cap-7a8e-stamped-outer-wall-72304569.stl",
+					"normal": [
+						0.0255,
+						0.7428,
+						0.669
+					],
+					"center": [
+						1.27,
+						36.84,
+						76.66
+					],
+					"size": [
+						12.2,
+						3.56
+					],
+					"surface": {
+						"axis": [
+							-0.0,
+							0.0,
+							1.0
+						],
+						"point": [
+							0.0,
+							0.0,
+							78.028
+						],
+						"r0": 35.627,
+						"slope": -0.90002,
+						"sign": 1
+					}
+				},
+				{
+					"face": "outer wall 2",
+					"stl": "https://img.basically.website/parts/stl/light-post-cap-7a8e-stamped-outer-wall-2-c52d8cac.stl",
+					"normal": [
+						0.0218,
+						0.9998,
+						0.0
+					],
+					"center": [
+						0.86,
+						39.28,
+						70.48
+					],
+					"size": [
+						12.2,
+						3.56
+					],
+					"surface": {
+						"axis": [
+							0.0,
+							0.0,
+							1.0
+						],
+						"point": [
+							-0.0,
+							-0.0,
+							70.479
+						],
+						"r0": 39.292,
+						"slope": 0.0,
+						"sign": 1
+					}
+				},
+				{
 					"face": "bottom",
 					"stl": "https://img.basically.website/parts/stl/light-post-cap-7a8e-stamped-bottom-f6fdfa65.stl",
 					"normal": [
@@ -2443,6 +2524,105 @@
 						11.98,
 						3.5
 					]
+				},
+				{
+					"face": "outer wall",
+					"stl": "https://img.basically.website/parts/stl/classification-dome-fheh-stamped-outer-wall-16b59bb5.stl",
+					"normal": [
+						0.4273,
+						0.9041,
+						0.0
+					],
+					"center": [
+						51.36,
+						108.68,
+						65.32
+					],
+					"size": [
+						11.98,
+						3.5
+					],
+					"surface": {
+						"axis": [
+							-0.0,
+							-1e-05,
+							1.0
+						],
+						"point": [
+							-0.002,
+							0.004,
+							164.21
+						],
+						"r0": 120.201,
+						"slope": 0.0,
+						"sign": 1
+					}
+				},
+				{
+					"face": "outer wall 2",
+					"stl": "https://img.basically.website/parts/stl/classification-dome-fheh-stamped-outer-wall-2-ce922719.stl",
+					"normal": [
+						0.0399,
+						0.7061,
+						0.707
+					],
+					"center": [
+						6.65,
+						117.53,
+						242.26
+					],
+					"size": [
+						11.98,
+						3.5
+					],
+					"surface": {
+						"axis": [
+							0.0,
+							-0.0,
+							1.0
+						],
+						"point": [
+							0.0,
+							-0.0,
+							254.177
+						],
+						"r0": 105.805,
+						"slope": -0.99958,
+						"sign": 1
+					}
+				},
+				{
+					"face": "outer wall 3",
+					"stl": "https://img.basically.website/parts/stl/classification-dome-fheh-stamped-outer-wall-3-8b9d4130.stl",
+					"normal": [
+						0.9151,
+						-0.4031,
+						-0.0
+					],
+					"center": [
+						111.99,
+						-49.33,
+						43.97
+					],
+					"size": [
+						11.98,
+						3.5
+					],
+					"surface": {
+						"axis": [
+							0.0,
+							0.0,
+							1.0
+						],
+						"point": [
+							-0.0,
+							0.0,
+							50.42
+						],
+						"r0": 122.379,
+						"slope": 0.0,
+						"sign": 1
+					}
 				}
 			]
 		},
@@ -3542,22 +3722,37 @@
 					]
 				},
 				{
-					"face": "angled face",
-					"stl": "https://img.basically.website/parts/stl/ls-bottom-static-4mmh-stamped-angled-face-b4917231.stl",
+					"face": "outer wall",
+					"stl": "https://img.basically.website/parts/stl/ls-bottom-static-4mmh-stamped-outer-wall-1aceff34.stl",
 					"normal": [
-						0.5,
-						0.866,
+						0.0218,
+						0.9998,
 						0.0
 					],
 					"center": [
-						44.66,
-						69.06,
-						-95.99
+						2.73,
+						124.94,
+						-88.11
 					],
 					"size": [
 						12.35,
 						3.5
-					]
+					],
+					"surface": {
+						"axis": [
+							0.0,
+							-0.0,
+							1.0
+						],
+						"point": [
+							0.0,
+							-0.0,
+							-87.588
+						],
+						"r0": 124.969,
+						"slope": 0.0,
+						"sign": 1
+					}
 				}
 			]
 		},
@@ -3855,44 +4050,7 @@
 			"conflicts": null,
 			"stl": "https://img.basically.website/parts/stl/ls-washer-9c4a-cdfc42cb.stl",
 			"render": "https://img.basically.website/parts/render/ls-washer-dbb45813.png",
-			"stamped": [
-				{
-					"face": "bottom",
-					"stl": "https://img.basically.website/parts/stl/ls-washer-9c4a-stamped-bottom-9b8bd2b6.stl",
-					"normal": [
-						-0.0,
-						0.0,
-						-1.0
-					],
-					"center": [
-						10.85,
-						-96.31,
-						-67.61
-					],
-					"size": [
-						12.55,
-						3.63
-					]
-				},
-				{
-					"face": "top",
-					"stl": "https://img.basically.website/parts/stl/ls-washer-9c4a-stamped-top-56be412f.stl",
-					"normal": [
-						-0.0,
-						0.0,
-						1.0
-					],
-					"center": [
-						-10.85,
-						-96.31,
-						-66.61
-					],
-					"size": [
-						12.55,
-						3.63
-					]
-				}
-			]
+			"stamped": []
 		},
 		{
 			"id": "ext-bracket-left",
@@ -4250,22 +4408,37 @@
 					]
 				},
 				{
-					"face": "angled face",
-					"stl": "https://img.basically.website/parts/stl/ext-bracket-cover-1r5i-stamped-angled-face-d625c238.stl",
+					"face": "outer wall",
+					"stl": "https://img.basically.website/parts/stl/ext-bracket-cover-1r5i-stamped-outer-wall-46013677.stl",
 					"normal": [
-						0.25,
-						-0.433,
-						0.866
+						-0.0,
+						-1.0,
+						-0.0001
 					],
 					"center": [
-						12.68,
-						-381.54,
-						38.42
+						0.0,
+						-395.69,
+						19.06
 					],
 					"size": [
 						12.06,
 						3.56
-					]
+					],
+					"surface": {
+						"axis": [
+							0.0,
+							-7e-05,
+							1.0
+						],
+						"point": [
+							0.001,
+							-366.646,
+							17.341
+						],
+						"r0": 29.039,
+						"slope": 0.0,
+						"sign": 1
+					}
 				}
 			]
 		},
@@ -4843,44 +5016,7 @@
 			"conflicts": null,
 			"stl": "https://img.basically.website/parts/stl/interface-big-spacer-vt50-5fbb26d2.stl",
 			"render": "https://img.basically.website/parts/render/interface-big-spacer-a6c1a731.png",
-			"stamped": [
-				{
-					"face": "bottom",
-					"stl": "https://img.basically.website/parts/stl/interface-big-spacer-vt50-stamped-bottom-eff64fcb.stl",
-					"normal": [
-						0.0,
-						0.0,
-						-1.0
-					],
-					"center": [
-						3.12,
-						-97.09,
-						261.68
-					],
-					"size": [
-						12.5,
-						3.56
-					]
-				},
-				{
-					"face": "top",
-					"stl": "https://img.basically.website/parts/stl/interface-big-spacer-vt50-stamped-top-cf66322b.stl",
-					"normal": [
-						-0.0,
-						0.0,
-						1.0
-					],
-					"center": [
-						-3.12,
-						-97.09,
-						262.68
-					],
-					"size": [
-						12.5,
-						3.56
-					]
-				}
-			]
+			"stamped": []
 		},
 		{
 			"id": "cable-clamp-inner",
@@ -5030,25 +5166,7 @@
 				},
 				{
 					"face": "-x side 2",
-					"stl": "https://img.basically.website/parts/stl/cable-clamp-outer-50dv-stamped-minus-x-side-2-7bbae07f.stl",
-					"normal": [
-						-0.9999,
-						-0.0156,
-						-0.0
-					],
-					"center": [
-						-79.09,
-						16.7,
-						223.34
-					],
-					"size": [
-						12.56,
-						3.56
-					]
-				},
-				{
-					"face": "-x side 3",
-					"stl": "https://img.basically.website/parts/stl/cable-clamp-outer-50dv-stamped-minus-x-side-3-e3f7a55b.stl",
+					"stl": "https://img.basically.website/parts/stl/cable-clamp-outer-50dv-stamped-minus-x-side-2-e3f7a55b.stl",
 					"normal": [
 						-1.0,
 						0.0,
@@ -5951,44 +6069,7 @@
 			"conflicts": null,
 			"stl": "https://img.basically.website/parts/stl/top-interface-split-spur-gear-2-izz5-c109b8b2.stl",
 			"render": "https://img.basically.website/parts/render/top-interface-split-spur-gear-2-5b6a50d7.png",
-			"stamped": [
-				{
-					"face": "bottom",
-					"stl": "https://img.basically.website/parts/stl/top-interface-split-spur-gear-2-izz5-stamped-bottom-c6335ea7.stl",
-					"normal": [
-						0.0,
-						0.0,
-						-1.0
-					],
-					"center": [
-						12.06,
-						-80.84,
-						303.18
-					],
-					"size": [
-						12.12,
-						3.56
-					]
-				},
-				{
-					"face": "top",
-					"stl": "https://img.basically.website/parts/stl/top-interface-split-spur-gear-2-izz5-stamped-top-d62485cc.stl",
-					"normal": [
-						0.0,
-						-0.0,
-						1.0
-					],
-					"center": [
-						-12.06,
-						-80.84,
-						304.18
-					],
-					"size": [
-						12.12,
-						3.56
-					]
-				}
-			]
+			"stamped": []
 		},
 		{
 			"id": "top-interface-split-spur-gear-3",
@@ -9686,7 +9767,7 @@
 					],
 					"center": [
 						267.77,
-						-0.0,
+						0.0,
 						-33.24
 					],
 					"size": [

@@ -114,8 +114,12 @@ Every printed part's page offers its STL with the uid recessed into one face
 (3.5 mm Source Code Pro Bold, 0.6 mm deep), so a print can be looked up later
 at `/u/<uid>` — or typed into the "id on a print" box in the header. Nothing
 to author: `catalog/engrave.py` finds every flat face the four characters fit
-on, ranks them (the bed face first, then vertical and upward faces by size,
-overhangs last), and `generate.py` pre-cuts up to four variants per part and
+on, plus cylindrical and conical walls for a part running out of big flat
+ones (unrolled, text bent onto the wall; never a bore, never where the text
+would wrap more than ~60°), refuses any spot with under 1.6 mm of wall
+behind it, ranks them (the bed face first, then vertical and upward faces,
+overhangs last; large flats before walls before small flats), and
+`generate.py` pre-cuts up to four variants per part and
 candidate, uploaded like any other artifact. The page opens on the first; the
 arrow keys flip through the rest, and unticking "Engrave version id" is the
 plain master. The dashboard has the same checkbox over every download it

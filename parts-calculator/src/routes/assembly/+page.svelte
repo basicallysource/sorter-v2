@@ -9,6 +9,7 @@
 	import PartDetailModal from '$lib/components/PartDetailModal.svelte';
 	import HardwareDetailModal from '$lib/components/HardwareDetailModal.svelte';
 	import HardwareIcon from '$lib/components/HardwareIcon.svelte';
+	import ImageStrip from '$lib/components/ImageStrip.svelte';
 	import Seo from '$lib/components/Seo.svelte';
 	import { colorStore } from '$lib/colors.svelte';
 	import {
@@ -25,6 +26,7 @@
 		resolveHardwareTotals,
 		type AssemblyLine,
 		type Hardware,
+		type Joining,
 		type Part,
 		type PartVersion
 	} from '$lib/filament';
@@ -154,6 +156,16 @@
 	</div>
 {/snippet}
 
+<!-- how a set of lines becomes one unit — soldered, self-tapped, friction-held -->
+{#snippet joiningRows(list: Joining[] | undefined)}
+	{#each list ?? [] as j (j.method)}
+		<div class="mt-1 flex max-w-2xl flex-wrap items-baseline gap-x-2">
+			<Badge variant="warning"><Zap size={10} />{JOIN_LABELS[j.method]}</Badge>
+			{#if j.note}<AssemblyDescription text={j.note} as="span" class="text-xs text-text-muted" />{/if}
+		</div>
+	{/each}
+{/snippet}
+
 {#snippet lines(list: AssemblyLine[], mult: number, depth: number)}
 	<!-- Keyed by position as well as id: two lines can legitimately name the
 	     same part, and a bare id key makes that a duplicate-key error that
@@ -242,6 +254,7 @@
 					class="mt-0.5 max-w-2xl text-xs text-text-muted"
 				/>
 			{/if}
+			{#if asm.images?.length}<div class="mt-2"><ImageStrip images={asm.images} /></div>{/if}
 			<!-- The docs site is where the step-by-step build lives; this node is only
 			     the bill of materials for it. Link out when a page exists. -->
 			{#if docsUrl(asm)}
@@ -254,17 +267,7 @@
 					<BookOpen size={11} /> Assembly guide <ExternalLink size={10} />
 				</a>
 			{/if}
-			<!-- how these lines become one unit — soldered, self-tapped, friction-held -->
-			{#each asm.joining ?? [] as j (j.method)}
-				<div class="mt-1 flex max-w-2xl flex-wrap items-baseline gap-x-2">
-					<Badge variant="warning"><Zap size={10} />{JOIN_LABELS[j.method]}</Badge>
-					{#if j.note}<AssemblyDescription
-							text={j.note}
-							as="span"
-							class="text-xs text-text-muted"
-						/>{/if}
-				</div>
-			{/each}
+			{@render joiningRows(asm.joining)}
 			{@render lines(asm.lines ?? [], mult, depth)}
 			<!-- Alternative bills of materials under test. Rendered with the same line
 			     rows, but nothing here reaches the totals: resolveHardwareTotals walks
@@ -274,11 +277,14 @@
 				<div class="ml-1.5 mt-3 border border-dashed p-2 sm:ml-4 sm:p-3 {retired ? 'border-border opacity-60' : 'border-primary/60'}">
 					<div class="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
 						<span class="inline-flex items-center gap-1 text-xs font-semibold uppercase tracking-wider text-primary"><FlaskConical size={11} /> Candidate</span>
+						{#if c.name}<span class="text-sm font-semibold text-text">{c.name}</span>{/if}
 						<span class="font-mono text-xs text-text">{c.uid}</span>
 						<span class="text-xs text-text-muted">· {fmtDate(c.created_at)}</span>
 						{#if retired}<span class="border border-border px-1.5 py-px text-[10px] font-semibold uppercase tracking-wider text-text-muted">{c.rejected_at ? 'rejected' : 'superseded'}</span>{/if}
 					</div>
 					<AssemblyDescription text={c.message} class="mt-0.5 max-w-2xl text-xs text-text-muted" />
+					{#if c.images?.length}<div class="mt-2"><ImageStrip images={c.images} /></div>{/if}
+					{@render joiningRows(c.joining)}
 					<p class="mt-1 text-xs italic text-text-muted/70">An alternative bill of materials under test — not part of the build and not in the totals.</p>
 					{@render lines(c.lines, mult, depth)}
 				</div>
@@ -295,6 +301,7 @@
 								<span class="text-text-muted">· {fmtDate(v.date)}</span>
 							</div>
 							<AssemblyDescription text={v.message} class="mt-0.5 max-w-2xl text-text-muted" />
+							{#if v.images?.length}<div class="mt-2"><ImageStrip images={v.images} /></div>{/if}
 							<ul class="mt-1.5 space-y-0.5 text-text-muted">
 								{#each v.lines ?? [] as l, i (`${l.part ?? l.assembly}-${i}`)}
 									{@const name = (l.part && (getPart(l.part)?.name ?? getHardware(l.part)?.name ?? getLasercut(l.part)?.name)) ?? (l.assembly && getAssembly(l.assembly)?.name) ?? l.part ?? l.assembly}

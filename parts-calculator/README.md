@@ -95,7 +95,10 @@ goes on the part as a candidate — not as a new part, not as a version:
 ```
 
 Mint its uid, upload the STL under it (`python scripts/sync_bucket.py
---upload output-guide.stl --uid 6sk3`), run the generator. It gets sliced,
+--upload output-guide.stl --uid 6sk3`), run the generator. Every STL
+downloads as `<part>-<uid>-<hash8>.stl` — from the part page, from a
+candidate, and inside the all-parts zip — so the slicer project made from
+it, which takes the STL's name, carries the exact version and its settings. It gets sliced,
 rendered and listed on the part's page with its own download; it counts
 toward nothing and has no version number — numbers are handed out in
 adoption order. To promote it: move its `uid` and `stl_hash` up to the part,
@@ -109,9 +112,30 @@ version is an authored *structural* change (a line added or removed, a qty
 changed — a member part revving is that part's own history), and a
 candidate is a whole alternative bill of materials (`lines`) under test,
 whose new parts enter the catalog with empty `quantities` so they count
-toward nothing until promoted. `stamp_versions.py` carries a snapshot of
-the superseded lines, each pinned to the member's uid at the time, so a box
-as built then can be read back part by part.
+toward nothing and stay out of the all-parts bundle until promoted.
+`stamp_versions.py` carries a snapshot of the superseded lines, each pinned
+to the member's uid at the time, so a box as built then can be read back
+part by part.
+
+A candidate may carry a `name` — what the slot is called if it is adopted
+(the control-board housing candidate renames "Control board mount" on
+promotion) — and, like any part, assembly or version, `images`.
+
+### Images
+
+Any part, assembly, candidate or version may carry pictures beyond its
+render — an Onshape screenshot, a section view, a photo of it built:
+
+```json
+"images": [
+  { "url": "https://img.basically.website/parts/img/<name>-<hash8>.png",
+    "alt": "What the picture shows", "caption": "Optional, shown under it" }
+]
+```
+
+Upload the file with `python scripts/sync_bucket.py --upload shot.png` and
+paste the URL it prints; the file never enters the repo. The site shows
+them as a zoomable strip on the part, hardware and assembly views.
 
 Slicer settings live at the top of `catalog/generate.py` (printer, infill,
 supports, etc.); changing them re-slices the whole catalog. Terminology is in

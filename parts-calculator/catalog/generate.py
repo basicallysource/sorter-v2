@@ -696,8 +696,10 @@ def build_hardware(manifest):
             # merge (see manifest `merges`); both sites badge it.
             "conflicts": p.get("conflicts"),
             # Product images live only on the bucket, authored as a pinned URL.
-            # They deliberately never touch git.
+            # They deliberately never touch git. `images` are the extra
+            # pictures, same rule (check_images).
             "image": p.get("image_url"),
+            **({"images": p["images"]} if p.get("images") else {}),
         })
     return hardware
 
@@ -744,6 +746,9 @@ def check_assemblies(manifest, part_ids):
             bad.append(f"{asm['id']}: no version")
         texts = [asm.get("description", "")]
         texts += [j.get("note", "") or "" for j in asm.get("joining", []) or []]
+        for sub in (asm.get("candidates") or []) + (asm.get("versions") or []):
+            texts.append(sub.get("message", "") or "")
+            texts += [j.get("note", "") or "" for j in sub.get("joining", []) or []]
         for ref in re.findall(r"\[\[hw:([a-z0-9-]+)\]\]", " ".join(texts)):
             if ref not in known:
                 bad.append(f"{asm['id']}: [[hw:{ref}]] is not a part")
@@ -760,6 +765,36 @@ def check_assemblies(manifest, part_ids):
                 bad.append(f"{asm['id']}: a candidate needs a 4-char uid and lines")
     if bad:
         sys.exit("assemblies:\n  " + "\n  ".join(bad))
+
+
+def check_images(manifest):
+    """`images` -- on any part, assembly, candidate, version or planned change --
+    is the extra pictures of it beyond the render or product photo: an Onshape
+    screenshot, a section view, a photo of it built. Each is {url, alt,
+    caption?}: the url a pinned bucket URL exactly like image_url (what
+    scripts/sync_bucket.py --upload prints), the alt what the picture shows.
+    A bare string or a repo path would reach the site as a broken image, so
+    it fails here instead."""
+    bad = []
+
+    def walk(where, item):
+        ims = item.get("images")
+        if ims is not None and not isinstance(ims, list):
+            bad.append(f"{where}: images must be a list of {{url, alt, caption?}}")
+        for im in ims if isinstance(ims, list) else []:
+            if not (isinstance(im, dict) and str(im.get("url", "")).startswith("https://")
+                    and str(im.get("alt", "")).strip()):
+                bad.append(f"{where}: an image needs an https url and an alt -- {im!r}")
+        for extra in ("versions", "candidates"):
+            for sub in item.get(extra) or []:
+                walk(f"{where} {extra[:-1]} {sub.get('uid') or sub.get('version')}", sub)
+
+    for item in manifest["parts"] + manifest.get("assemblies", []):
+        walk(item["id"], item)
+    for change in manifest.get("changes", []):
+        walk(f"change {change['id']}", change)
+    if bad:
+        sys.exit("images:\n  " + "\n  ".join(bad))
 
 
 def committed_filament_constants():
@@ -809,6 +844,7 @@ def main():
     if duplicate_uids:
         sys.exit(f"duplicate uid(s): {duplicate_uids} -- mint a fresh one")
     check_assemblies(manifest, set(part_ids))
+    check_images(manifest)
     if args.metadata_only:
         if not os.path.exists(DATA_OUT):
             sys.exit("--metadata-only needs an existing catalog.generated.json; run the full generator once")
@@ -866,6 +902,7 @@ def main():
             refreshed.append({
                 "id": source["id"], "uid": source["uid"], "name": source["name"],
                 **({"aliases": source["aliases"]} if source.get("aliases") else {}),
+                **({"images": source["images"]} if source.get("images") else {}),
                 "quantities": source.get("quantities", {}),
                 "assembly": source.get("assembly"),
                 "folder": source.get("folder"),
@@ -966,13 +1003,20 @@ def main():
             kept = " -- keeping the previous thumbnail" if render_url else ""
             print(f"  ! render failed for {p['id']}: {e}{kept}")
 
-        zip_members.append((stl_abs, p["id"] + ".stl"))
+        # A part in no section -- it exists only inside a candidate assembly --
+        # is not part of the build, so it stays out of the every-part bundle.
+        # Members carry the bucket filename, <id>-<uid>-<hash8>.stl: the uid
+        # has to survive into the slicer project (the 3mf takes the STL's name)
+        # so a print can be traced back to its exact version and settings.
+        if p.get("quantities"):
+            zip_members.append((stl_abs, os.path.basename(stl_url(p["id"], p["uid"], p["stl_hash"]))))
 
         out_parts.append({
             "id": p["id"],
             "uid": p["uid"],
             "name": p["name"],
             **({"aliases": p["aliases"]} if p.get("aliases") else {}),
+            **({"images": p["images"]} if p.get("images") else {}),
             "quantities": p.get("quantities", {}),
             "assembly": p.get("assembly"),
             "folder": p.get("folder"),

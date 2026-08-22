@@ -7,11 +7,12 @@
 	import ChangeStatus from '$lib/components/ChangeStatus.svelte';
 	import BuildPlates from '$lib/components/BuildPlates.svelte';
 	import Modal from '$lib/components/Modal.svelte';
+	import ImageStrip from '$lib/components/ImageStrip.svelte';
 	import { getBambuColor } from '$lib/bambu-colors';
 	import { SITE_URL } from '$lib/seo';
 	import { copyText } from '$lib/clipboard';
 	import { duration, fmtDate, partOnshape, platesForPart, type Part, type PartCandidate, type PartVersion } from '$lib/filament';
-	import { ExternalLink, FlaskConical, History, Layers3, Share2, Check } from 'lucide-svelte';
+	import { ExternalLink, FlaskConical, History, Image, Layers3, Share2, Check } from 'lucide-svelte';
 
 	// The 3D-printed part detail view: 3D viewer, specs, download/share, build plates
 	// and version history. Rendered two ways off the SAME markup — inside the parts
@@ -105,6 +106,12 @@
 					</button>
 					{#if candidate?.onshape_version}<a href={candidate.onshape_version} target="_blank" rel="noopener" class="inline-flex items-center gap-0.5 text-xs text-primary hover:text-primary-hover">OnShape <ExternalLink size={11} /></a>{:else if os.version}<a href={os.version} target="_blank" rel="noopener" class="inline-flex items-center gap-0.5 text-xs text-primary hover:text-primary-hover">OnShape <ExternalLink size={11} /></a>{/if}
 				</div>
+				{#if part.images?.length}
+					<div class="pt-1">
+						<div class="mb-1.5 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-text-muted"><Image size={12} /> Images</div>
+						<ImageStrip images={part.images} />
+					</div>
+				{/if}
 				{#if plates.length}
 					<div class="pt-1">
 						<div class="mb-1.5 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-text-muted"><Layers3 size={12} /> On build plates</div>
@@ -151,6 +158,7 @@
 					<div class="mt-2 border-t border-border pt-2 text-sm">
 						<div class="font-medium text-text">v{active.version} · {fmtDate(active.date)}</div>
 						<p class="mt-0.5 text-text-muted">{active.message}</p>
+						{#if active.images?.length}<div class="mt-2"><ImageStrip images={active.images} /></div>{/if}
 						{#if !isCurrent}<p class="mt-1 text-xs italic text-text-muted/70">Viewing an older version for reference. Build from the current version unless you specifically need this one.</p>{/if}
 					</div>
 				{/if}
@@ -175,8 +183,9 @@
 				</div>
 				{#if candidate}
 					<div class="mt-2 border-t border-border pt-2 text-sm">
-						<div class="font-medium text-text">Candidate <span class="font-mono">{candidate.uid}</span> · {fmtDate(candidate.created_at)}</div>
+						<div class="font-medium text-text">Candidate <span class="font-mono">{candidate.uid}</span>{#if candidate.name} · {candidate.name}{/if} · {fmtDate(candidate.created_at)}</div>
 						<p class="mt-0.5 text-text-muted">{candidate.message}</p>
+						{#if candidate.images?.length}<div class="mt-2"><ImageStrip images={candidate.images} /></div>{/if}
 						{#if candidate.superseded_by}<p class="mt-1 text-xs text-text-muted">Superseded by <span class="font-mono">{candidate.superseded_by}</span>{#if candidate.superseded_at} on {fmtDate(candidate.superseded_at)}{/if}.</p>{/if}
 						{#if candidate.rejected_at}<p class="mt-1 text-xs text-text-muted">Rejected {fmtDate(candidate.rejected_at)}.</p>{/if}
 						<p class="mt-1 text-xs italic text-text-muted/70">Viewing a candidate. It is not the current part and is not counted in the build.</p>

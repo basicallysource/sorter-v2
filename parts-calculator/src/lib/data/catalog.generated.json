@@ -11,7 +11,7 @@
 		"density_g_cm3": 1.32,
 		"cost_per_kg": 24.99,
 		"commit_base_url": "https://github.com/basicallysource/sorter-v2/commit/",
-		"all_parts_zip": "https://img.basically.website/parts/bundle/all-parts-b12f5f64.zip"
+		"all_parts_zip": "https://img.basically.website/parts/bundle/all-parts-eee4ad8e.zip"
 	},
 	"sections": [
 		{
@@ -1329,6 +1329,74 @@
 				{
 					"part": "standoff-m3-10mm",
 					"qty": 4
+				}
+			],
+			"candidates": [
+				{
+					"uid": "rns2",
+					"name": "basically Embedded Control Board housing",
+					"created_at": "2026-08-22",
+					"message": "A printed housing in place of the bracket and standoffs. The board screws straight to the base on four [[hw:hsi-m3]] with four [[hw:scr-m3-shcs-tbd]]; the cover closes onto four more inserts in the base with four [[hw:scr-m3-12-cs]] and carries a 40 mm 24 V fan; a plunger through the cover is held in by the plunger retainer on two [[hw:scr-m3-8-cs]]. Being test-printed; may become the next version, and renames this assembly if it does.",
+					"joining": [
+						{
+							"method": "self-tap",
+							"note": "The fan's four [[hw:scr-m3-16-shcs]] cut their own threads in the cover; no inserts there."
+						}
+					],
+					"images": [
+						{
+							"url": "https://img.basically.website/parts/img/ctrl-board-housing-assembly-render-8d104a6e.png",
+							"alt": "Onshape render of the control board housing, closed",
+							"caption": "The housing closed, from Onshape: fan vent and plunger in the cover."
+						},
+						{
+							"url": "https://img.basically.website/parts/img/ctrl-board-housing-plunger-section-82fccc39.png",
+							"alt": "Section through the housing at the plunger",
+							"caption": "Section at the plunger: through the cover, held by the retainer (blue), over the board."
+						}
+					],
+					"lines": [
+						{
+							"part": "ctrl-board-housing-base",
+							"qty": 1
+						},
+						{
+							"part": "ctrl-board-basically",
+							"qty": 1
+						},
+						{
+							"part": "scr-m3-shcs-tbd",
+							"qty": 4
+						},
+						{
+							"part": "ctrl-board-housing-cover",
+							"qty": 1
+						},
+						{
+							"part": "scr-m3-12-cs",
+							"qty": 4
+						},
+						{
+							"part": "ctrl-board-housing-plunger",
+							"qty": 1
+						},
+						{
+							"part": "ctrl-board-housing-plunger-retainer",
+							"qty": 1
+						},
+						{
+							"part": "scr-m3-8-cs",
+							"qty": 2
+						},
+						{
+							"part": "fan-40mm-24v",
+							"qty": 1
+						},
+						{
+							"part": "scr-m3-16-shcs",
+							"qty": 4
+						}
+					]
 				}
 			]
 		},
@@ -5943,6 +6011,199 @@
 			"conflicts": null,
 			"stl": "https://img.basically.website/parts/stl/meanwell-psu-cap-5nt1-2fa72485.stl",
 			"render": "https://img.basically.website/parts/render/meanwell-psu-cap-57608c50.png"
+		},
+		{
+			"id": "ctrl-board-housing-base",
+			"uid": "204b",
+			"name": "Control board housing \u2014 base",
+			"quantities": {},
+			"assembly": null,
+			"folder": null,
+			"variant_group": null,
+			"variant_name": null,
+			"description": "Base of the basically Embedded Control Board housing. The board screws straight to it on four heat inserts and the cover screws down onto four more; no standoffs.",
+			"version": "1",
+			"created_at": "2026-08-22",
+			"updated_at": "2026-08-22",
+			"versions": [
+				{
+					"version": "1",
+					"uid": "204b",
+					"date": "2026-08-22",
+					"message": "Initial version.",
+					"commit": null,
+					"stl": "https://img.basically.website/parts/stl/ctrl-board-housing-base-204b-e2068058.stl",
+					"render": "https://img.basically.website/parts/render/ctrl-board-housing-base-24ee44a9.png",
+					"grams": 89.65
+				}
+			],
+			"attributes": [],
+			"grams": 89.65,
+			"support_grams": 0,
+			"support_used": false,
+			"support_intentional": false,
+			"print_seconds": 10898,
+			"color": {
+				"role": "frame"
+			},
+			"optional": false,
+			"onshape": null,
+			"info": null,
+			"low_tolerance": false,
+			"low_tolerance_note": null,
+			"layer_scope": "all",
+			"requires": [
+				{
+					"part": "hsi-m3",
+					"qty": 8
+				}
+			],
+			"caption": null,
+			"docs_page": null,
+			"conflicts": null,
+			"stl": "https://img.basically.website/parts/stl/ctrl-board-housing-base-204b-e2068058.stl",
+			"render": "https://img.basically.website/parts/render/ctrl-board-housing-base-24ee44a9.png"
+		},
+		{
+			"id": "ctrl-board-housing-cover",
+			"uid": "ksh2",
+			"name": "Control board housing \u2014 cover",
+			"quantities": {},
+			"assembly": null,
+			"folder": null,
+			"variant_group": null,
+			"variant_name": null,
+			"description": "Cover of the basically Embedded Control Board housing. Screws to the base with four M3 \u00d7 12 mm countersunk screws, carries the 40 mm 24 V fan on four self-tapping M3 \u00d7 16 mm screws, and the plunger passes through it.",
+			"version": "1",
+			"created_at": "2026-08-22",
+			"updated_at": "2026-08-22",
+			"versions": [
+				{
+					"version": "1",
+					"uid": "ksh2",
+					"date": "2026-08-22",
+					"message": "Initial version.",
+					"commit": null,
+					"stl": "https://img.basically.website/parts/stl/ctrl-board-housing-cover-ksh2-462b0290.stl",
+					"render": "https://img.basically.website/parts/render/ctrl-board-housing-cover-92dcbb28.png",
+					"grams": 130.39
+				}
+			],
+			"attributes": [],
+			"grams": 130.39,
+			"support_grams": 0,
+			"support_used": false,
+			"support_intentional": false,
+			"print_seconds": 15104,
+			"color": {
+				"role": "frame"
+			},
+			"optional": false,
+			"onshape": null,
+			"info": null,
+			"low_tolerance": false,
+			"low_tolerance_note": null,
+			"layer_scope": "all",
+			"requires": [],
+			"caption": null,
+			"docs_page": null,
+			"conflicts": null,
+			"stl": "https://img.basically.website/parts/stl/ctrl-board-housing-cover-ksh2-462b0290.stl",
+			"render": "https://img.basically.website/parts/render/ctrl-board-housing-cover-92dcbb28.png"
+		},
+		{
+			"id": "ctrl-board-housing-plunger",
+			"uid": "cljt",
+			"name": "Control board housing \u2014 plunger",
+			"quantities": {},
+			"assembly": null,
+			"folder": null,
+			"variant_group": null,
+			"variant_name": null,
+			"description": "Plunger that passes through the housing cover, held in by the plunger retainer.",
+			"version": "1",
+			"created_at": "2026-08-22",
+			"updated_at": "2026-08-22",
+			"versions": [
+				{
+					"version": "1",
+					"uid": "cljt",
+					"date": "2026-08-22",
+					"message": "Initial version.",
+					"commit": null,
+					"stl": "https://img.basically.website/parts/stl/ctrl-board-housing-plunger-cljt-ab938f5b.stl",
+					"render": "https://img.basically.website/parts/render/ctrl-board-housing-plunger-4bfe5b7d.png",
+					"grams": 1.47
+				}
+			],
+			"attributes": [],
+			"grams": 1.47,
+			"support_grams": 0,
+			"support_used": false,
+			"support_intentional": false,
+			"print_seconds": 1626,
+			"color": {
+				"role": "frame"
+			},
+			"optional": false,
+			"onshape": null,
+			"info": null,
+			"low_tolerance": false,
+			"low_tolerance_note": null,
+			"layer_scope": "all",
+			"requires": [],
+			"caption": null,
+			"docs_page": null,
+			"conflicts": null,
+			"stl": "https://img.basically.website/parts/stl/ctrl-board-housing-plunger-cljt-ab938f5b.stl",
+			"render": "https://img.basically.website/parts/render/ctrl-board-housing-plunger-4bfe5b7d.png"
+		},
+		{
+			"id": "ctrl-board-housing-plunger-retainer",
+			"uid": "g9sx",
+			"name": "Control board housing \u2014 plunger retainer",
+			"quantities": {},
+			"assembly": null,
+			"folder": null,
+			"variant_group": null,
+			"variant_name": null,
+			"description": "Retains the plunger in the housing cover. Screws to the cover with two M3 \u00d7 8 mm countersunk screws.",
+			"version": "1",
+			"created_at": "2026-08-22",
+			"updated_at": "2026-08-22",
+			"versions": [
+				{
+					"version": "1",
+					"uid": "g9sx",
+					"date": "2026-08-22",
+					"message": "Initial version.",
+					"commit": null,
+					"stl": "https://img.basically.website/parts/stl/ctrl-board-housing-plunger-retainer-g9sx-a3f84a1f.stl",
+					"render": "https://img.basically.website/parts/render/ctrl-board-housing-plunger-retainer-e543b945.png",
+					"grams": 1.28
+				}
+			],
+			"attributes": [],
+			"grams": 1.28,
+			"support_grams": 0,
+			"support_used": false,
+			"support_intentional": false,
+			"print_seconds": 620,
+			"color": {
+				"role": "frame"
+			},
+			"optional": false,
+			"onshape": null,
+			"info": null,
+			"low_tolerance": false,
+			"low_tolerance_note": null,
+			"layer_scope": "all",
+			"requires": [],
+			"caption": null,
+			"docs_page": null,
+			"conflicts": null,
+			"stl": "https://img.basically.website/parts/stl/ctrl-board-housing-plunger-retainer-g9sx-a3f84a1f.stl",
+			"render": "https://img.basically.website/parts/render/ctrl-board-housing-plunger-retainer-e543b945.png"
 		}
 	],
 	"plates": [
@@ -6098,6 +6359,45 @@
 			"stock": null,
 			"sourcing": null,
 			"alternative": null,
+			"caption": null,
+			"docs_page": null,
+			"conflicts": null,
+			"image": null
+		},
+		{
+			"id": "scr-m3-shcs-tbd",
+			"uid": "xe72",
+			"kind": "cots",
+			"cots": {
+				"type": "screw",
+				"size": "M3",
+				"variant": "socket"
+			},
+			"name": "M3 socket/button head, length TBD",
+			"category": "Screws",
+			"description": "Holds the basically Embedded Control Board to the housing base, into its heat inserts. The head is known, the length has not been measured.",
+			"note": "Length unknown \u2014 measure before ordering.",
+			"created_at": "2026-08-22",
+			"updated_at": "2026-08-22",
+			"attributes": [
+				{
+					"label": "Thread",
+					"value": "M3"
+				},
+				{
+					"label": "Head",
+					"value": "Socket or button head, interchangeable"
+				},
+				{
+					"label": "Length",
+					"value": "Unknown"
+				}
+			],
+			"sheet_qty": null,
+			"sheet_qty_text": null,
+			"stock": null,
+			"sourcing": null,
+			"alternative": "Socket or button head",
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
@@ -8889,6 +9189,39 @@
 			"docs_page": null,
 			"conflicts": null,
 			"image": "https://img.basically.website/parts/img/psu-switch-fused-b507a8b8.jpg"
+		},
+		{
+			"id": "fan-40mm-24v",
+			"uid": "7o57",
+			"kind": "cots",
+			"cots": {
+				"type": "fan"
+			},
+			"name": "40 mm 24 V fan",
+			"category": "Electronics",
+			"description": "40 mm axial fan, 24 V, on the control board housing cover; mounted with four self-tapping M3 \u00d7 16 mm screws.",
+			"note": null,
+			"created_at": "2026-08-22",
+			"updated_at": "2026-08-22",
+			"attributes": [
+				{
+					"label": "Size",
+					"value": "40 mm"
+				},
+				{
+					"label": "Voltage",
+					"value": "24 V"
+				}
+			],
+			"sheet_qty": null,
+			"sheet_qty_text": null,
+			"stock": null,
+			"sourcing": null,
+			"alternative": null,
+			"caption": null,
+			"docs_page": null,
+			"conflicts": null,
+			"image": null
 		},
 		{
 			"id": "ext-2020-ag",

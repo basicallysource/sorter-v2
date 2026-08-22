@@ -1,5 +1,5 @@
 {
-  "_comment": "Source-of-truth manifest. filament.py slices each STL once and writes ../src/lib/data/parts.generated.json + thumbnails + STL copies. Per part: id, uid (see UID below), name, category, description (short, shown in app), internal_notes (extended, agent-only, NOT emitted to the app), version, created_at, updated_at, stl_hash (sha256 pin of the master STL on the bucket; upload with scripts/sync_bucket.py --upload), quantity (per ONE instance of its category), color, optional. attributes (optional list of {label,value} shown in the app), versions (optional archetype history: list of {version,date,message,commit}; commit ties to a real git commit, null = pending an upcoming clean commit). low_tolerance (optional bool: part has little tolerance for dimensional error - a tight/precise fit - so a test print is worth doing) + low_tolerance_note (the specifics, shown in the app). color is one of {\"role\":\"<roleid>\"} (user-picked), {\"fixed\":\"<lego-id>\"}, {\"split\":[{\"color\":\"<lego-id>\",\"qty\":N},...]} (sums to quantity), or {\"any\":true}, or {\"by_section\":{\"<sectionid>\":<colorspec>,...}} (per-section color when a part lives in multiple sections). Machine = 1 of each non-scaling category + N of each scaling category. See ../notes/TERMINOLOGY.md. SCHEMA V2 (unified parts system, see ../notes/UNIFIED-PARTS-SYSTEM.md, incremental): a part may carry kind ('printed' when absent | 'cots'); cots parts have cots {type,size?,variant?}, category (display grouping on the hardware tab), note (builder-critical caveat from the BOM sheet), image (slicer-relative path, uploaded to the bucket by sync_bucket.py and served from there) OR image_url (an already-uploaded content-addressed bucket URL; BOM product images never touch git), sourcing {vendors:[{region,vendor,url,affiliate_url?,price,currency?,pack_qty?,as_of?,note?}]} (url is always the plain listing; affiliate_url is the same listing carrying the project's Amazon tag, mirroring the BOM sheet's 'US Source 1 with Affiliate' column — both are kept so a builder can choose) (price is USD unless currency says otherwise), and no stl/color/quantities. sheet_qty {per_machine|per_layer} / sheet_qty_text are TRANSITIONAL hand counts carried over from the BOM sheet; they die once these parts are placed as requires/lines in the tree. A printed part may carry requires [{part,qty}] = hardware committed to that single physical part (heat inserts, press-fit bearings); qty scales with the part automatically. An assembly may carry lines [{part|assembly, qty}] (qty is a number, or 'per-layer' = multiplied by the total layer count, or 'middle-layers' = layer count minus 2, the layers that sit between the top and bottom interfaces) and status 'stub' (placeholder, nothing inside yet) or 'partial' (some lines filled in) — these form the experimental machine tree rooted at the 'machine' assembly. A line may also reference a laser-cut part by id (e.g. 'top-plate'); those still live in src/lib/lasercut.ts and are resolved from there until §5.5 folds them into this manifest. Line ids are unique within an assembly: two joints that use the same screw are one merged line. Screws and other hardware that JOIN parts are lines of the assembly that makes the joint, never requires of either member (requires is only for hardware committed to one physical part). joining [{method,note}] records how the lines become one unit — 'solder'|'crimp'|'glue'|'press'|'self-tap' (screw cuts its own thread in printed plastic, no insert or nut) |'friction' (held by clamping force alone, e.g. jammed in an extrusion slot). A cots part that is cut from a bought length carries stock {unit_length_mm, cut_length_mm, pieces_per_unit, unit_label, piece_label}; its lines count PIECES and the app divides to get lengths to buy. MERGES/CONFLICTS (2026-08-21, docs catalog folded in): top-level merges [{id,date,sources,note}] records source-of-truth merger events. A part may carry conflicts [{merge,field,claims:[{source,value},...],note}] = an unresolved factual disagreement between the merged catalogs, kept as data on purpose and rendered as a badge on BOTH sites (docs parts-needed cards + calculator detail views); resolving one means fixing the disputed field against the physical machine and DELETING the conflict entry (git is the history). A part may also carry caption (small text under its docs parts-needed card) and docs_page (its docs detail page path; lets either site cross-link). The docs site renders its parts data from parts.generated.json -- docs/src/liquid/_data/parts.yml is deleted; this manifest is the only parts catalog. LASERCUT (2026-08-21, §5.5 partly done): parts with kind 'lasercut' are the flat sheet parts, passed through to the generated JSON verbatim (fields match the app's LaserCutPart type in src/lib/lasercut.ts, which now reads the generated data instead of hardcoding it; the docs site reads the same JSON). dxf/preview are app-static paths; photo is a bucket URL. UID (2026-08-22): every part, whatever its kind, carries uid -- a minted 4-char id (catalog/mint_uid.py) naming its CURRENT VERSION: the exact thing in your hand, and what a print gets engraved with. A human bumping `version` mints a new uid; a re-export of the same design is new bytes (a new stl_hash) under the same uid, not a new version. A superseded version entry carries the uid it had (stamp_versions.py writes it beside the superseded stl_hash). Mint BEFORE the STL exists: the entry holds the uid and sync_bucket.py --upload reads it from here to key the file. FILENAMES (2026-08-21): serving keys carry the human name -- an STL is stl/<part-id>-<uid>-<hash8>.stl and an image is <prefix>/<name>-<hash8>.<ext> -- so a downloaded file identifies itself: grep the uid or hash fragment here and you have the exact version. Old pure-hash keys stay on the bucket so URLs in old commits keep serving. CANDIDATES (2026-08-22): a printed part may carry candidates [{uid, stl_hash, created_at, message, onshape_version?, support?, superseded_by?, superseded_at?, rejected_at?}] -- design revisions under test for that part's slot. Each is minted its own uid and pinned by hash (upload with sync_bucket.py --upload <part-id>.stl --uid <uid>), gets sliced and rendered and is downloadable from the part's page, counts toward nothing, and has NO version number: numbers are handed out in adoption order. Promotion = the candidate's uid + stl_hash become the part's current, version bumps, a versions entry is added, the candidate line is removed (its uid lives on at part level). A candidate that is iterated on or dropped is NEVER deleted: mark it superseded_by/superseded_at or rejected_at and leave its pin, so the uid engraved on a test print always resolves here. check_generated_pins.py fails any change that makes a uid disappear from this file. ASSEMBLIES (2026-08-22): every assembly carries uid and version exactly like a part. A new version is an authored STRUCTURAL change (a line added or removed, a qty changed) -- a member part revving is that part's own history, not the assembly's. versions [{version, uid, date, message, commit, lines}] is written like a part's: author the new entry with commit null, and stamp_versions.py carries the superseded uid plus a snapshot of the lines as they were, each line pinned to the member's uid at the time, so a box as built then can be read back part by part. candidates [{uid, created_at, message, lines, superseded_by?, superseded_at?, rejected_at?}] is a whole alternative bill of materials under test (new parts enter with empty quantities so they count toward nothing); promotion = the candidate's lines and uid become the assembly's, version bumps, a versions entry is added, the candidate line is removed. Same retention rule: a candidate is marked, never deleted.",
+  "_comment": "Source-of-truth manifest. filament.py slices each STL once and writes ../src/lib/data/parts.generated.json + thumbnails + STL copies. Per part: id, uid (see UID below), name, category, description (short, shown in app), internal_notes (extended, agent-only, NOT emitted to the app), version, created_at, updated_at, stl_hash (sha256 pin of the master STL on the bucket; upload with scripts/sync_bucket.py --upload), quantity (per ONE instance of its category), color, optional. attributes (optional list of {label,value} shown in the app), versions (optional archetype history: list of {version,date,message,commit}; commit ties to a real git commit, null = pending an upcoming clean commit). low_tolerance (optional bool: part has little tolerance for dimensional error - a tight/precise fit - so a test print is worth doing) + low_tolerance_note (the specifics, shown in the app). color is one of {\"role\":\"<roleid>\"} (user-picked), {\"fixed\":\"<lego-id>\"}, {\"split\":[{\"color\":\"<lego-id>\",\"qty\":N},...]} (sums to quantity), or {\"any\":true}, or {\"by_section\":{\"<sectionid>\":<colorspec>,...}} (per-section color when a part lives in multiple sections). Machine = 1 of each non-scaling category + N of each scaling category. See ../notes/TERMINOLOGY.md. SCHEMA V2 (unified parts system, see ../notes/UNIFIED-PARTS-SYSTEM.md, incremental): a part may carry kind ('printed' when absent | 'cots'); cots parts have cots {type,size?,variant?}, category (display grouping on the hardware tab), note (builder-critical caveat from the BOM sheet), image (slicer-relative path, uploaded to the bucket by sync_bucket.py and served from there) OR image_url (an already-uploaded content-addressed bucket URL; BOM product images never touch git), sourcing {vendors:[{region,vendor,url,affiliate_url?,price,currency?,pack_qty?,as_of?,note?}]} (url is always the plain listing; affiliate_url is the same listing carrying the project's Amazon tag, mirroring the BOM sheet's 'US Source 1 with Affiliate' column — both are kept so a builder can choose) (price is USD unless currency says otherwise), and no stl/color/quantities. sheet_qty {per_machine|per_layer} / sheet_qty_text are TRANSITIONAL hand counts carried over from the BOM sheet; they die once these parts are placed as requires/lines in the tree. A printed part may carry requires [{part,qty}] = hardware committed to that single physical part (heat inserts, press-fit bearings); qty scales with the part automatically. An assembly may carry lines [{part|assembly, qty}] (qty is a number, or 'per-layer' = multiplied by the total layer count, or 'middle-layers' = layer count minus 2, the layers that sit between the top and bottom interfaces) and status 'stub' (placeholder, nothing inside yet) or 'partial' (some lines filled in) — these form the experimental machine tree rooted at the 'machine' assembly. A line may also reference a laser-cut part by id (e.g. 'top-plate'); those still live in src/lib/lasercut.ts and are resolved from there until §5.5 folds them into this manifest. Line ids are unique within an assembly: two joints that use the same screw are one merged line. Screws and other hardware that JOIN parts are lines of the assembly that makes the joint, never requires of either member (requires is only for hardware committed to one physical part). joining [{method,note}] records how the lines become one unit — 'solder'|'crimp'|'glue'|'press'|'self-tap' (screw cuts its own thread in printed plastic, no insert or nut) |'friction' (held by clamping force alone, e.g. jammed in an extrusion slot). A cots part that is cut from a bought length carries stock {unit_length_mm, cut_length_mm, pieces_per_unit, unit_label, piece_label}; its lines count PIECES and the app divides to get lengths to buy. MERGES/CONFLICTS (2026-08-21, docs catalog folded in): top-level merges [{id,date,sources,note}] records source-of-truth merger events. A part may carry conflicts [{merge,field,claims:[{source,value},...],note}] = an unresolved factual disagreement between the merged catalogs, kept as data on purpose and rendered as a badge on BOTH sites (docs parts-needed cards + calculator detail views); resolving one means fixing the disputed field against the physical machine and DELETING the conflict entry (git is the history). A part may also carry caption (small text under its docs parts-needed card) and docs_page (its docs detail page path; lets either site cross-link). The docs site renders its parts data from parts.generated.json -- docs/src/liquid/_data/parts.yml is deleted; this manifest is the only parts catalog. LASERCUT (2026-08-21, §5.5 partly done): parts with kind 'lasercut' are the flat sheet parts, passed through to the generated JSON verbatim (fields match the app's LaserCutPart type in src/lib/lasercut.ts, which now reads the generated data instead of hardcoding it; the docs site reads the same JSON). dxf/preview are app-static paths; photo is a bucket URL. UID (2026-08-22): every part, whatever its kind, carries uid -- a minted 4-char id (catalog/mint_uid.py) naming its CURRENT VERSION: the exact thing in your hand, and what a print gets engraved with. A human bumping `version` mints a new uid; a re-export of the same design is new bytes (a new stl_hash) under the same uid, not a new version. A superseded version entry carries the uid it had (stamp_versions.py writes it beside the superseded stl_hash). Mint BEFORE the STL exists: the entry holds the uid and sync_bucket.py --upload reads it from here to key the file. FILENAMES (2026-08-21): serving keys carry the human name -- an STL is stl/<part-id>-<uid>-<hash8>.stl and an image is <prefix>/<name>-<hash8>.<ext> -- so a downloaded file identifies itself: grep the uid or hash fragment here and you have the exact version. Old pure-hash keys stay on the bucket so URLs in old commits keep serving. CANDIDATES (2026-08-22): a printed part may carry candidates [{uid, name?, stl_hash, created_at, message, onshape_version?, images?, support?, superseded_by?, superseded_at?, rejected_at?}] -- design revisions under test for that part's slot. Each is minted its own uid and pinned by hash (upload with sync_bucket.py --upload <part-id>.stl --uid <uid>), gets sliced and rendered and is downloadable from the part's page, counts toward nothing, and has NO version number: numbers are handed out in adoption order. Promotion = the candidate's uid + stl_hash become the part's current, version bumps, a versions entry is added, the candidate line is removed (its uid lives on at part level). A candidate that is iterated on or dropped is NEVER deleted: mark it superseded_by/superseded_at or rejected_at and leave its pin, so the uid engraved on a test print always resolves here. check_generated_pins.py fails any change that makes a uid disappear from this file. ASSEMBLIES (2026-08-22): every assembly carries uid and version exactly like a part. A new version is an authored STRUCTURAL change (a line added or removed, a qty changed) -- a member part revving is that part's own history, not the assembly's. versions [{version, uid, date, message, commit, lines}] is written like a part's: author the new entry with commit null, and stamp_versions.py carries the superseded uid plus a snapshot of the lines as they were, each line pinned to the member's uid at the time, so a box as built then can be read back part by part. candidates [{uid, name?, created_at, message, lines, joining?, images?, superseded_by?, superseded_at?, rejected_at?}] is a whole alternative bill of materials under test (new parts enter with empty quantities so they count toward nothing); promotion = the candidate's lines and uid become the assembly's, version bumps, a versions entry is added, the candidate line is removed. Same retention rule: a candidate is marked, never deleted. A candidate may carry name: what the slot is called if it is adopted (the housing candidate on ctrl-board-mount renames it on promotion). IMAGES (2026-08-22): any part (printed or cots), assembly, candidate or version may carry images [{url, alt, caption?}] -- extra pictures beyond the render or product photo: an Onshape screenshot, a section view, a photo of it built. url is a pinned bucket URL exactly like image_url (sync_bucket.py --upload <file>.png prints it; never a repo path) and alt says what the picture shows; generate.py refuses anything else and check_bucket_urls.py fetches every one. The site shows them as a zoomable strip on the part, hardware and assembly views.",
   "sections": [
     {
       "id": "feeder",
@@ -2419,6 +2419,84 @@
       "support": false
     },
     {
+      "id": "ctrl-board-housing-base",
+      "uid": "204b",
+      "name": "Control board housing — base",
+      "description": "Base of the basically Embedded Control Board housing. The board screws straight to it on four heat inserts and the cover screws down onto four more; no standoffs.",
+      "internal_notes": "From 'control board housing.zip' (Sorter V2 STLs, 2026-08-22). Exists only inside candidate rns2 on ctrl-board-mount, so quantities stay empty and it stays out of the bundle until that candidate is promoted. Eight standard M3 inserts (hsi-m3, RX-M3x5.7 -- Spencer said 'the long variant', which is this one relative to the short M3S): four under the board, four for the cover.",
+      "version": "1",
+      "created_at": "2026-08-22",
+      "updated_at": "2026-08-22",
+      "quantities": {},
+      "assembly": null,
+      "stl_hash": "e20680585196ef0e1c7eaeaa0e865011b638fc765fbe0c79dff01ef66ef3e07e",
+      "color": {
+        "role": "frame"
+      },
+      "optional": false,
+      "support": false,
+      "requires": [
+        {
+          "part": "hsi-m3",
+          "qty": 8
+        }
+      ]
+    },
+    {
+      "id": "ctrl-board-housing-cover",
+      "uid": "ksh2",
+      "name": "Control board housing — cover",
+      "description": "Cover of the basically Embedded Control Board housing. Screws to the base with four M3 × 12 mm countersunk screws, carries the 40 mm 24 V fan on four self-tapping M3 × 16 mm screws, and the plunger passes through it.",
+      "internal_notes": "From 'control board housing.zip' (Sorter V2 STLs, 2026-08-22). Exists only inside candidate rns2 on ctrl-board-mount, so quantities stay empty and it stays out of the bundle until that candidate is promoted.",
+      "version": "1",
+      "created_at": "2026-08-22",
+      "updated_at": "2026-08-22",
+      "quantities": {},
+      "assembly": null,
+      "stl_hash": "462b029022221124347ea77f4ecb20339a91bbfa2eda70a63b7cab6751cb3446",
+      "color": {
+        "role": "frame"
+      },
+      "optional": false,
+      "support": false
+    },
+    {
+      "id": "ctrl-board-housing-plunger",
+      "uid": "cljt",
+      "name": "Control board housing — plunger",
+      "description": "Plunger that passes through the housing cover, held in by the plunger retainer.",
+      "internal_notes": "From 'control board housing.zip' (Sorter V2 STLs, 2026-08-22). Exists only inside candidate rns2 on ctrl-board-mount, so quantities stay empty and it stays out of the bundle until that candidate is promoted.",
+      "version": "1",
+      "created_at": "2026-08-22",
+      "updated_at": "2026-08-22",
+      "quantities": {},
+      "assembly": null,
+      "stl_hash": "ab938f5b08fd476aea7664bbb5d0d3bf50ccd722ed4f15d06b77aaa7b94257fd",
+      "color": {
+        "role": "frame"
+      },
+      "optional": false,
+      "support": false
+    },
+    {
+      "id": "ctrl-board-housing-plunger-retainer",
+      "uid": "g9sx",
+      "name": "Control board housing — plunger retainer",
+      "description": "Retains the plunger in the housing cover. Screws to the cover with two M3 × 8 mm countersunk screws.",
+      "internal_notes": "From 'control board housing.zip' (Sorter V2 STLs, 2026-08-22). Exists only inside candidate rns2 on ctrl-board-mount, so quantities stay empty and it stays out of the bundle until that candidate is promoted. Two countersunk holes either side of the plunger slot (counted off the STL).",
+      "version": "1",
+      "created_at": "2026-08-22",
+      "updated_at": "2026-08-22",
+      "quantities": {},
+      "assembly": null,
+      "stl_hash": "a3f84a1f2cd72fa919cedc1c62b762cc791b644118b57505002d7781189f249a",
+      "color": {
+        "role": "frame"
+      },
+      "optional": false,
+      "support": false
+    },
+    {
       "id": "scr-m3-tbd",
       "uid": "1kgy",
       "kind": "cots",
@@ -2440,6 +2518,37 @@
         {
           "label": "Head",
           "value": "Unknown"
+        },
+        {
+          "label": "Length",
+          "value": "Unknown"
+        }
+      ]
+    },
+    {
+      "id": "scr-m3-shcs-tbd",
+      "uid": "xe72",
+      "kind": "cots",
+      "cots": {
+        "type": "screw",
+        "size": "M3",
+        "variant": "socket"
+      },
+      "name": "M3 socket/button head, length TBD",
+      "category": "Screws",
+      "alternative": "Socket or button head",
+      "description": "Holds the basically Embedded Control Board to the housing base, into its heat inserts. The head is known, the length has not been measured.",
+      "created_at": "2026-08-22",
+      "updated_at": "2026-08-22",
+      "note": "Length unknown — measure before ordering.",
+      "attributes": [
+        {
+          "label": "Thread",
+          "value": "M3"
+        },
+        {
+          "label": "Head",
+          "value": "Socket or button head, interchangeable"
         },
         {
           "label": "Length",
@@ -4777,6 +4886,29 @@
       "image_url": "https://img.basically.website/parts/img/psu-switch-fused-b507a8b8.jpg"
     },
     {
+      "id": "fan-40mm-24v",
+      "uid": "7o57",
+      "kind": "cots",
+      "cots": {
+        "type": "fan"
+      },
+      "name": "40 mm 24 V fan",
+      "category": "Electronics",
+      "description": "40 mm axial fan, 24 V, on the control board housing cover; mounted with four self-tapping M3 × 16 mm screws.",
+      "created_at": "2026-08-22",
+      "updated_at": "2026-08-22",
+      "attributes": [
+        {
+          "label": "Size",
+          "value": "40 mm"
+        },
+        {
+          "label": "Voltage",
+          "value": "24 V"
+        }
+      ]
+    },
+    {
       "id": "ext-2020-ag",
       "uid": "lnvw",
       "kind": "cots",
@@ -5912,6 +6044,74 @@
         {
           "part": "standoff-m3-10mm",
           "qty": 4
+        }
+      ],
+      "candidates": [
+        {
+          "uid": "rns2",
+          "name": "basically Embedded Control Board housing",
+          "created_at": "2026-08-22",
+          "message": "A printed housing in place of the bracket and standoffs. The board screws straight to the base on four [[hw:hsi-m3]] with four [[hw:scr-m3-shcs-tbd]]; the cover closes onto four more inserts in the base with four [[hw:scr-m3-12-cs]] and carries a 40 mm 24 V fan; a plunger through the cover is held in by the plunger retainer on two [[hw:scr-m3-8-cs]]. Being test-printed; may become the next version, and renames this assembly if it does.",
+          "joining": [
+            {
+              "method": "self-tap",
+              "note": "The fan's four [[hw:scr-m3-16-shcs]] cut their own threads in the cover; no inserts there."
+            }
+          ],
+          "images": [
+            {
+              "url": "https://img.basically.website/parts/img/ctrl-board-housing-assembly-render-8d104a6e.png",
+              "alt": "Onshape render of the control board housing, closed",
+              "caption": "The housing closed, from Onshape: fan vent and plunger in the cover."
+            },
+            {
+              "url": "https://img.basically.website/parts/img/ctrl-board-housing-plunger-section-82fccc39.png",
+              "alt": "Section through the housing at the plunger",
+              "caption": "Section at the plunger: through the cover, held by the retainer (blue), over the board."
+            }
+          ],
+          "lines": [
+            {
+              "part": "ctrl-board-housing-base",
+              "qty": 1
+            },
+            {
+              "part": "ctrl-board-basically",
+              "qty": 1
+            },
+            {
+              "part": "scr-m3-shcs-tbd",
+              "qty": 4
+            },
+            {
+              "part": "ctrl-board-housing-cover",
+              "qty": 1
+            },
+            {
+              "part": "scr-m3-12-cs",
+              "qty": 4
+            },
+            {
+              "part": "ctrl-board-housing-plunger",
+              "qty": 1
+            },
+            {
+              "part": "ctrl-board-housing-plunger-retainer",
+              "qty": 1
+            },
+            {
+              "part": "scr-m3-8-cs",
+              "qty": 2
+            },
+            {
+              "part": "fan-40mm-24v",
+              "qty": 1
+            },
+            {
+              "part": "scr-m3-16-shcs",
+              "qty": 4
+            }
+          ]
         }
       ]
     },

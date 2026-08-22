@@ -25,6 +25,10 @@ export type Section = {
 	experimental?: boolean; // early / subject to heavy change — surfaced with a warning
 	experimental_note?: string | null;
 };
+/** A picture of a thing beyond its render: an Onshape screenshot, a section
+ *  view, a photo of it built. `url` is a pinned bucket URL (upload the file with
+ *  scripts/sync_bucket.py --upload); `alt` says what the picture shows. */
+export type CatalogImage = { url: string; alt: string; caption?: string };
 export type ChangePriority = `P${number}`;
 export type ChangeTargetKind = 'parts' | 'assemblies' | 'sections' | 'lasercut' | 'hardware';
 export type PlannedChange = {
@@ -35,7 +39,7 @@ export type PlannedChange = {
 	condition?: 'working' | 'broken';
 	status?: 'planned' | 'complete';
 	completed_at?: string;
-	images?: { url: string; alt: string; caption?: string }[];
+	images?: CatalogImage[];
 	targets: Partial<Record<ChangeTargetKind, string[]>>;
 };
 export type ColorRoleDef = { id: string; name: string; default: string };
@@ -80,15 +84,19 @@ export type AssemblyVersion = {
 	message: string;
 	commit: string | null;
 	lines?: AssemblySnapshotLine[];
+	images?: CatalogImage[];
 };
 
 /** A whole alternative bill of materials under test for an assembly -- its own
  *  uid, never counted, never deleted once listed (marked superseded/rejected). */
 export type AssemblyCandidate = {
 	uid: string;
+	name?: string; // what the slot is called if this is adopted
 	created_at: string;
 	message: string;
 	lines: AssemblyLine[];
+	joining?: Joining[]; // how these lines become one unit, when it differs
+	images?: CatalogImage[];
 	superseded_by?: string | null;
 	superseded_at?: string | null;
 	rejected_at?: string | null;
@@ -111,6 +119,7 @@ export type Assembly = {
 	status?: 'stub' | 'partial';
 	joining?: Joining[]; // work needed to make these lines into one unit
 	lines?: AssemblyLine[];
+	images?: CatalogImage[]; // beyond the members' renders: a photo of it built, a section view
 };
 
 /** The documentation site. An assembly's `docs` is a path on it, never a full
@@ -204,6 +213,7 @@ export type Hardware = {
 	stock?: Stock | null; // set when the part is cut from a bought length
 	sourcing?: { vendors: Vendor[] } | null;
 	image: string | null; // content-addressed bucket URL
+	images?: CatalogImage[]; // extra pictures beyond the product photo
 	// Marks a part that has an interchangeable alternative (e.g. socket vs button
 	// head). `true` = a bare "Alternative" tag; a string names the alternative.
 	alternative?: string | boolean | null;
@@ -237,6 +247,7 @@ export type PartVersion = {
 	stl?: string;
 	render?: string;
 	grams?: number | null;
+	images?: CatalogImage[];
 };
 
 /** A design revision under test for a part's slot: its own uid and pinned STL,
@@ -245,9 +256,11 @@ export type PartVersion = {
  *  engraved on a test print always resolves. */
 export type PartCandidate = {
 	uid: string;
+	name?: string; // what the slot is called if this is adopted
 	created_at: string;
 	message: string;
 	onshape_version?: string | null;
+	images?: CatalogImage[];
 	superseded_by?: string | null;
 	superseded_at?: string | null;
 	rejected_at?: string | null;
@@ -274,6 +287,7 @@ export type Part = {
 	updated_at: string;
 	versions?: PartVersion[]; // archetype history, newest last
 	candidates?: PartCandidate[]; // revisions under test for this slot, oldest first
+	images?: CatalogImage[]; // extra pictures beyond the render
 	attributes?: { label: string; value: string }[]; // variant characteristics shown in the app
 	grams: number; // total incl. any support
 	support_grams: number; // the support portion of `grams`

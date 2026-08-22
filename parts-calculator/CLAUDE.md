@@ -115,11 +115,15 @@ python scripts/sync_bucket.py --upload ~/Downloads/new-board.png
 That prints the line to paste:
 
 ```
-"image_url": "https://sorter-v2-parts.nyc3.cdn.digitaloceanspaces.com/img/<hash>.png"
+"image_url": "https://img.basically.website/parts/img/<name>-<hash8>.png"
 ```
 
 Set it on the part (or family) in `catalog/parts.json`. That is the whole
 workflow. The file stays wherever it was — **never copy it into the repo.**
+The same URL goes in an `images` list (`{url, alt, caption?}`) when it is an
+extra picture rather than the product photo — an Onshape screenshot, a
+section view, a photo of it built — on any part, assembly, candidate or
+version. `generate.py` refuses an image without an https url and an alt.
 
 Images are not committed, in any form. There is no repo-file path any more:
 `generate.py` hard-fails on an `image:` key and tells you to use `image_url`,
@@ -180,7 +184,8 @@ by hash from committed JSON:
   `catalog.generated.json` (the zip is staged under gitignored
   `catalog/build/bundle/` and uploaded by `sync_bucket.py`);
 - each plate's `download` URL in the same file;
-- every product image (`image_url`, pinned in `parts.json`).
+- every product image (`image_url`) and every extra picture
+  (`images[].url`), pinned in `parts.json`.
 
 **Historical part-version geometry is pinned, not reconstructed.** Each
 superseded version in `parts.json` carries its `uid` and `stl_hash` — the
@@ -202,5 +207,8 @@ from `parts.json`.
 **Assemblies carry `uid` / `version` / `versions` / `candidates` too.** An
 assembly version is an authored structural change; its superseded entries
 snapshot the lines with each member's uid of the day (`stamp_versions.py`),
-and a candidate is an alternative bill of materials under test. Same minting,
-same retention rule.
+and a candidate is an alternative bill of materials under test, optionally
+carrying the `name` the slot takes if it is adopted. Same minting, same
+retention rule. A part that exists only inside a candidate assembly has
+empty `quantities`: it is in no section, counts toward nothing, and is left
+out of the all-parts bundle.

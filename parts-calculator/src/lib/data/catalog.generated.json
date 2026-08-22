@@ -11,8 +11,8 @@
 		"density_g_cm3": 1.32,
 		"cost_per_kg": 24.99,
 		"commit_base_url": "https://github.com/basicallysource/sorter-v2/commit/",
-		"all_parts_zip": "https://img.basically.website/parts/bundle/all-parts-70099fd1.zip",
-		"all_parts_plain_zip": "https://img.basically.website/parts/bundle/all-parts-plain-eee4ad8e.zip"
+		"all_parts_zip": "https://img.basically.website/parts/bundle/all-parts-88a99646.zip",
+		"all_parts_plain_zip": "https://img.basically.website/parts/bundle/all-parts-plain-21d78499.zip"
 	},
 	"sections": [
 		{
@@ -762,6 +762,61 @@
 					"part": "scr-m4-6-cs",
 					"qty": 4
 				}
+			],
+			"candidates": [
+				{
+					"uid": "1d0t",
+					"name": "Meanwell 24V PSU housing",
+					"created_at": "2026-08-22",
+					"message": "A five-piece printed housing around the supply in place of the three plates screwed to its own case. The Meanwell bolts into the shell rear tray on four [[hw:scr-m4-12-cs]]; the rear lid closes onto the tray with four [[hw:scr-m3-8-cs]] and the front lid spans the joint with four more, two into the rear tray and two into the shell front module; the front panel carries the mains inlet and simply slots into the front module, held by the front lid. Being test-printed; may become the next version, and renames this assembly if it does.",
+					"joining": [
+						{
+							"method": "self-tap",
+							"note": "Every [[hw:scr-m3-8-cs]] here cuts its own thread -- the tapping holes are in the printed shell parts, not the lids, and there are no inserts."
+						}
+					],
+					"images": [
+						{
+							"url": "https://img.basically.website/parts/img/meanwell-psu-housing-v2-render-1fd60da3.png",
+							"alt": "Onshape render of the v2 PSU housing, closed and mounted on a 2020 extrusion",
+							"caption": "The v2 housing closed: vented rear lid, front panel with the mains inlet, on its extrusion."
+						}
+					],
+					"lines": [
+						{
+							"part": "meanwell-psu-housing-shell-rear",
+							"qty": 1
+						},
+						{
+							"part": "psu-24v-350w",
+							"qty": 1
+						},
+						{
+							"part": "scr-m4-12-cs",
+							"qty": 4
+						},
+						{
+							"part": "meanwell-psu-housing-shell-front",
+							"qty": 1
+						},
+						{
+							"part": "meanwell-psu-housing-front-panel",
+							"qty": 1
+						},
+						{
+							"part": "meanwell-psu-housing-lid-rear",
+							"qty": 1
+						},
+						{
+							"part": "meanwell-psu-housing-lid-front",
+							"qty": 1
+						},
+						{
+							"part": "scr-m3-8-cs",
+							"qty": 8
+						}
+					]
+				}
 			]
 		},
 		{
@@ -1310,11 +1365,15 @@
 			"uid": "u12m",
 			"version": "1",
 			"name": "Control board mount",
-			"description": "The basically Embedded Control Board standing off its bracket. The printed bracket is not in the parts registry yet.",
+			"description": "The basically Embedded Control Board standing off its bracket, which bolts to the 2020 extrusion, with a 40 mm fan on a bracket cantilevered over it.",
 			"section": "electronics",
 			"docs": "/hardware/electronics/installation/control-board-mount/",
-			"status": "stub",
+			"status": "partial",
 			"lines": [
+				{
+					"part": "ctrl-board-extrusion-mount",
+					"qty": 1
+				},
 				{
 					"part": "ctrl-board-basically",
 					"qty": 1
@@ -1330,6 +1389,14 @@
 				{
 					"part": "standoff-m3-10mm",
 					"qty": 4
+				},
+				{
+					"part": "fan-bracket-40mm",
+					"qty": 1
+				},
+				{
+					"part": "fan-40mm-24v",
+					"qty": 1
 				}
 			],
 			"candidates": [
@@ -1399,6 +1466,13 @@
 						}
 					]
 				}
+			],
+			"images": [
+				{
+					"url": "https://img.basically.website/parts/img/ctrl-board-mount-v1-render-d7411f58.png",
+					"alt": "Onshape render of the control board's v1 extrusion mount and fan bracket",
+					"caption": "The v1 mounting, from Onshape: the board's plate (blue) and the shared fan bracket (grey)."
+				}
 			]
 		},
 		{
@@ -1406,11 +1480,15 @@
 			"uid": "5vat",
 			"version": "1",
 			"name": "Orange Pi mount",
-			"description": "The Orange Pi 5 standing off its bracket. The printed bracket is not in the parts registry yet.",
+			"description": "The Orange Pi 5 standing off its bracket, which bolts to the 2020 extrusion, with a 40 mm fan on a bracket cantilevered over it.",
 			"section": "electronics",
 			"docs": "/hardware/electronics/installation/orange-pi-mount/",
-			"status": "stub",
+			"status": "partial",
 			"lines": [
+				{
+					"part": "orange-pi-extrusion-mount",
+					"qty": 1
+				},
 				{
 					"part": "sbc-orange-pi-5",
 					"qty": 1
@@ -1426,6 +1504,21 @@
 				{
 					"part": "standoff-m3-10mm",
 					"qty": 4
+				},
+				{
+					"part": "fan-bracket-40mm",
+					"qty": 1
+				},
+				{
+					"part": "fan-40mm-24v",
+					"qty": 1
+				}
+			],
+			"images": [
+				{
+					"url": "https://img.basically.website/parts/img/orange-pi-mount-v1-render-f5159489.png",
+					"alt": "Onshape render of the Orange Pi's v1 extrusion mount and fan bracket",
+					"caption": "The v1 mounting, from Onshape: the board's plate (blue) and the shared fan bracket (grey)."
 				}
 			]
 		},
@@ -11073,6 +11166,880 @@
 			"stl": "https://img.basically.website/parts/stl/ctrl-board-housing-plunger-retainer-g9sx-a3f84a1f.stl",
 			"render": "https://img.basically.website/parts/render/ctrl-board-housing-plunger-retainer-e543b945.png",
 			"stamped": []
+		},
+		{
+			"id": "ctrl-board-extrusion-mount",
+			"uid": "1d5n",
+			"name": "Control board extrusion mount",
+			"quantities": {
+				"electronics": 1
+			},
+			"assembly": "ctrl-board-mount",
+			"folder": null,
+			"variant_group": null,
+			"variant_name": null,
+			"description": "Plate the basically Embedded Control Board stands off, which bolts to the 2020 extrusion. The v1 mounting, in the machine today; the printed housing is the candidate that would replace it.",
+			"version": "1",
+			"created_at": "2026-08-22",
+			"updated_at": "2026-08-22",
+			"versions": [
+				{
+					"version": "1",
+					"uid": "1d5n",
+					"date": "2026-08-22",
+					"message": "Initial version.",
+					"commit": null,
+					"onshape_version": "https://cad.onshape.com/documents/10ae43b609bb2df0f86cce4b/v/226293ea2e329f1f548b78a1/e/6e1da7cee8967d584080406f",
+					"stl": "https://img.basically.website/parts/stl/ctrl-board-extrusion-mount-1d5n-f855b06c.stl",
+					"render": "https://img.basically.website/parts/render/ctrl-board-extrusion-mount-d9e570a6.png",
+					"grams": 32.58
+				}
+			],
+			"attributes": [],
+			"grams": 32.58,
+			"support_grams": 0,
+			"support_used": false,
+			"support_intentional": false,
+			"print_seconds": 3339,
+			"color": {
+				"role": "frame"
+			},
+			"optional": false,
+			"onshape": null,
+			"info": null,
+			"low_tolerance": false,
+			"low_tolerance_note": null,
+			"layer_scope": "all",
+			"requires": [],
+			"caption": null,
+			"docs_page": null,
+			"conflicts": null,
+			"stl": "https://img.basically.website/parts/stl/ctrl-board-extrusion-mount-1d5n-f855b06c.stl",
+			"render": "https://img.basically.website/parts/render/ctrl-board-extrusion-mount-d9e570a6.png",
+			"stamped": [
+				{
+					"face": "bottom",
+					"stl": "https://img.basically.website/parts/stl/ctrl-board-extrusion-mount-1d5n-stamped-bottom-772743a4.stl",
+					"normal": [
+						0.0,
+						-0.0,
+						-1.0
+					],
+					"center": [
+						124.22,
+						-4.84,
+						0.0
+					],
+					"size": [
+						12.1,
+						3.56
+					]
+				},
+				{
+					"face": "top",
+					"stl": "https://img.basically.website/parts/stl/ctrl-board-extrusion-mount-1d5n-stamped-top-3e806cdb.stl",
+					"normal": [
+						0.0,
+						0.0,
+						1.0
+					],
+					"center": [
+						-17.07,
+						-4.84,
+						8.0
+					],
+					"size": [
+						12.1,
+						3.56
+					]
+				},
+				{
+					"face": "-y side",
+					"stl": "https://img.basically.website/parts/stl/ctrl-board-extrusion-mount-1d5n-stamped-minus-y-side-921c15f1.stl",
+					"normal": [
+						-0.0,
+						-1.0,
+						0.0
+					],
+					"center": [
+						-16.37,
+						-8.0,
+						3.16
+					],
+					"size": [
+						12.1,
+						3.56
+					]
+				},
+				{
+					"face": "+y side",
+					"stl": "https://img.basically.website/parts/stl/ctrl-board-extrusion-mount-1d5n-stamped-plus-y-side-0634aa9d.stl",
+					"normal": [
+						-0.0,
+						1.0,
+						0.0
+					],
+					"center": [
+						103.52,
+						128.0,
+						3.16
+					],
+					"size": [
+						12.1,
+						3.56
+					]
+				}
+			]
+		},
+		{
+			"id": "orange-pi-extrusion-mount",
+			"uid": "nxh7",
+			"name": "Orange Pi extrusion mount",
+			"quantities": {
+				"electronics": 1
+			},
+			"assembly": "orange-pi-mount",
+			"folder": null,
+			"variant_group": null,
+			"variant_name": null,
+			"description": "Plate the Orange Pi 5 stands off, which bolts to the 2020 extrusion. Same design as the control board's mount with the opening and bolt pattern changed for the Pi.",
+			"version": "1",
+			"created_at": "2026-08-22",
+			"updated_at": "2026-08-22",
+			"versions": [
+				{
+					"version": "1",
+					"uid": "nxh7",
+					"date": "2026-08-22",
+					"message": "Initial version.",
+					"commit": null,
+					"onshape_version": "https://cad.onshape.com/documents/10ae43b609bb2df0f86cce4b/v/226293ea2e329f1f548b78a1/e/745c16803d318039967603f7",
+					"stl": "https://img.basically.website/parts/stl/orange-pi-extrusion-mount-nxh7-4832b406.stl",
+					"render": "https://img.basically.website/parts/render/orange-pi-extrusion-mount-fbabeb84.png",
+					"grams": 23.49
+				}
+			],
+			"attributes": [],
+			"grams": 23.49,
+			"support_grams": 0,
+			"support_used": false,
+			"support_intentional": false,
+			"print_seconds": 2671,
+			"color": {
+				"role": "frame"
+			},
+			"optional": false,
+			"onshape": null,
+			"info": null,
+			"low_tolerance": false,
+			"low_tolerance_note": null,
+			"layer_scope": "all",
+			"requires": [],
+			"caption": null,
+			"docs_page": null,
+			"conflicts": null,
+			"stl": "https://img.basically.website/parts/stl/orange-pi-extrusion-mount-nxh7-4832b406.stl",
+			"render": "https://img.basically.website/parts/render/orange-pi-extrusion-mount-fbabeb84.png",
+			"stamped": [
+				{
+					"face": "bottom",
+					"stl": "https://img.basically.website/parts/stl/orange-pi-extrusion-mount-nxh7-stamped-bottom-b22cd234.stl",
+					"normal": [
+						0.0,
+						-0.0,
+						-1.0
+					],
+					"center": [
+						112.02,
+						-4.88,
+						0.0
+					],
+					"size": [
+						12.2,
+						3.5
+					]
+				},
+				{
+					"face": "top",
+					"stl": "https://img.basically.website/parts/stl/orange-pi-extrusion-mount-nxh7-stamped-top-21e7c631.stl",
+					"normal": [
+						0.0,
+						-0.0,
+						1.0
+					],
+					"center": [
+						-17.02,
+						-4.88,
+						8.0
+					],
+					"size": [
+						12.2,
+						3.5
+					]
+				},
+				{
+					"face": "-y side",
+					"stl": "https://img.basically.website/parts/stl/orange-pi-extrusion-mount-nxh7-stamped-minus-y-side-dd7500fc.stl",
+					"normal": [
+						0.0,
+						-1.0,
+						0.0
+					],
+					"center": [
+						-16.32,
+						-8.0,
+						3.12
+					],
+					"size": [
+						12.2,
+						3.5
+					]
+				},
+				{
+					"face": "+y side",
+					"stl": "https://img.basically.website/parts/stl/orange-pi-extrusion-mount-nxh7-stamped-plus-y-side-a48b059d.stl",
+					"normal": [
+						-0.0,
+						1.0,
+						0.0
+					],
+					"center": [
+						91.32,
+						64.0,
+						3.12
+					],
+					"size": [
+						12.2,
+						3.5
+					]
+				}
+			]
+		},
+		{
+			"id": "fan-bracket-40mm",
+			"uid": "3ufy",
+			"name": "40 mm fan bracket",
+			"quantities": {
+				"electronics": 2
+			},
+			"assembly": null,
+			"folder": null,
+			"variant_group": null,
+			"variant_name": null,
+			"description": "L-shaped bracket that cantilevers a 40 mm fan over a board on its extrusion mount. The same part on both the control board and the Orange Pi mounts, so two per machine.",
+			"version": "1",
+			"created_at": "2026-08-22",
+			"updated_at": "2026-08-22",
+			"versions": [
+				{
+					"version": "1",
+					"uid": "3ufy",
+					"date": "2026-08-22",
+					"message": "Initial version.",
+					"commit": null,
+					"onshape_version": "https://cad.onshape.com/documents/10ae43b609bb2df0f86cce4b/v/226293ea2e329f1f548b78a1/e/6e1da7cee8967d584080406f",
+					"stl": "https://img.basically.website/parts/stl/fan-bracket-40mm-3ufy-d4757b35.stl",
+					"render": "https://img.basically.website/parts/render/fan-bracket-40mm-acca133f.png",
+					"grams": 27.34
+				}
+			],
+			"attributes": [],
+			"grams": 27.34,
+			"support_grams": 0,
+			"support_used": false,
+			"support_intentional": false,
+			"print_seconds": 4396,
+			"color": {
+				"role": "frame"
+			},
+			"optional": false,
+			"onshape": null,
+			"info": null,
+			"low_tolerance": false,
+			"low_tolerance_note": null,
+			"layer_scope": "all",
+			"requires": [],
+			"caption": null,
+			"docs_page": null,
+			"conflicts": null,
+			"stl": "https://img.basically.website/parts/stl/fan-bracket-40mm-3ufy-d4757b35.stl",
+			"render": "https://img.basically.website/parts/render/fan-bracket-40mm-acca133f.png",
+			"stamped": [
+				{
+					"face": "bottom",
+					"stl": "https://img.basically.website/parts/stl/fan-bracket-40mm-3ufy-stamped-bottom-e46be2a1.stl",
+					"normal": [
+						-0.0,
+						-0.0,
+						-1.0
+					],
+					"center": [
+						68.91,
+						-15.84,
+						-0.0
+					],
+					"size": [
+						12.57,
+						3.56
+					]
+				},
+				{
+					"face": "-y side",
+					"stl": "https://img.basically.website/parts/stl/fan-bracket-40mm-3ufy-stamped-minus-y-side-89a347bd.stl",
+					"normal": [
+						0.0,
+						-1.0,
+						0.0
+					],
+					"center": [
+						38.24,
+						-20.0,
+						65.84
+					],
+					"size": [
+						12.57,
+						3.56
+					]
+				},
+				{
+					"face": "top",
+					"stl": "https://img.basically.website/parts/stl/fan-bracket-40mm-3ufy-stamped-top-7e2cb9e3.stl",
+					"normal": [
+						0.0,
+						-0.0,
+						1.0
+					],
+					"center": [
+						38.24,
+						-15.84,
+						70.0
+					],
+					"size": [
+						12.57,
+						3.56
+					]
+				},
+				{
+					"face": "+y side",
+					"stl": "https://img.basically.website/parts/stl/fan-bracket-40mm-3ufy-stamped-plus-y-side-b430fa09.stl",
+					"normal": [
+						0.0,
+						1.0,
+						0.0
+					],
+					"center": [
+						68.91,
+						-8.0,
+						42.84
+					],
+					"size": [
+						12.57,
+						3.56
+					]
+				}
+			]
+		},
+		{
+			"id": "meanwell-psu-housing-shell-rear",
+			"uid": "7qz3",
+			"name": "PSU housing \u2014 shell rear tray",
+			"quantities": {},
+			"assembly": null,
+			"folder": null,
+			"variant_group": null,
+			"variant_name": null,
+			"description": "Rear tray of the v2 PSU housing. The Meanwell supply bolts into it on four M4 countersunk screws, and both lids screw down into it.",
+			"version": "1",
+			"created_at": "2026-08-22",
+			"updated_at": "2026-08-22",
+			"versions": [
+				{
+					"version": "1",
+					"uid": "7qz3",
+					"date": "2026-08-22",
+					"message": "Initial version.",
+					"commit": null,
+					"onshape_version": "https://cad.onshape.com/documents/f7d34331a9a020dce9231dc1/v/13f56af58b306d7850aa3ea4/e/562fad1e09332ebe5efdd59c",
+					"stl": "https://img.basically.website/parts/stl/meanwell-psu-housing-shell-rear-7qz3-f4bc3601.stl",
+					"render": "https://img.basically.website/parts/render/meanwell-psu-housing-shell-rear-dbcabe40.png",
+					"grams": 207.01
+				}
+			],
+			"attributes": [],
+			"grams": 207.01,
+			"support_grams": 0,
+			"support_used": false,
+			"support_intentional": false,
+			"print_seconds": 26626,
+			"color": {
+				"role": "frame"
+			},
+			"optional": false,
+			"onshape": null,
+			"info": null,
+			"low_tolerance": false,
+			"low_tolerance_note": null,
+			"layer_scope": "all",
+			"requires": [],
+			"caption": null,
+			"docs_page": null,
+			"conflicts": null,
+			"stl": "https://img.basically.website/parts/stl/meanwell-psu-housing-shell-rear-7qz3-f4bc3601.stl",
+			"render": "https://img.basically.website/parts/render/meanwell-psu-housing-shell-rear-dbcabe40.png",
+			"stamped": [
+				{
+					"face": "bottom",
+					"stl": "https://img.basically.website/parts/stl/meanwell-psu-housing-shell-rear-7qz3-stamped-bottom-e138db4a.stl",
+					"normal": [
+						-0.0,
+						0.0,
+						-1.0
+					],
+					"center": [
+						7.46,
+						121.57,
+						-9.0
+					],
+					"size": [
+						12.18,
+						4.52
+					]
+				},
+				{
+					"face": "top",
+					"stl": "https://img.basically.website/parts/stl/meanwell-psu-housing-shell-rear-7qz3-stamped-top-8491c2b0.stl",
+					"normal": [
+						-0.0,
+						0.0,
+						1.0
+					],
+					"center": [
+						23.46,
+						-1.37,
+						0.0
+					],
+					"size": [
+						12.18,
+						4.52
+					]
+				},
+				{
+					"face": "+y side",
+					"stl": "https://img.basically.website/parts/stl/meanwell-psu-housing-shell-rear-7qz3-stamped-plus-y-side-be233f81.stl",
+					"normal": [
+						-0.0,
+						1.0,
+						0.0
+					],
+					"center": [
+						212.54,
+						126.0,
+						-4.57
+					],
+					"size": [
+						12.18,
+						4.52
+					]
+				},
+				{
+					"face": "-y side",
+					"stl": "https://img.basically.website/parts/stl/meanwell-psu-housing-shell-rear-7qz3-stamped-minus-y-side-c5985a36.stl",
+					"normal": [
+						-0.0,
+						-1.0,
+						0.0
+					],
+					"center": [
+						7.46,
+						-11.0,
+						-4.57
+					],
+					"size": [
+						12.18,
+						4.52
+					]
+				}
+			]
+		},
+		{
+			"id": "meanwell-psu-housing-shell-front",
+			"uid": "1h8p",
+			"name": "PSU housing \u2014 shell front module",
+			"quantities": {},
+			"assembly": null,
+			"folder": null,
+			"variant_group": null,
+			"variant_name": null,
+			"description": "Front module of the v2 PSU housing. The front panel slots into it, and the front lid screws down into it and into the rear tray.",
+			"version": "1",
+			"created_at": "2026-08-22",
+			"updated_at": "2026-08-22",
+			"versions": [
+				{
+					"version": "1",
+					"uid": "1h8p",
+					"date": "2026-08-22",
+					"message": "Initial version.",
+					"commit": null,
+					"onshape_version": "https://cad.onshape.com/documents/f7d34331a9a020dce9231dc1/v/13f56af58b306d7850aa3ea4/e/562fad1e09332ebe5efdd59c",
+					"stl": "https://img.basically.website/parts/stl/meanwell-psu-housing-shell-front-1h8p-942fdcbb.stl",
+					"render": "https://img.basically.website/parts/render/meanwell-psu-housing-shell-front-3ee222fa.png",
+					"grams": 56.13
+				}
+			],
+			"attributes": [],
+			"grams": 56.13,
+			"support_grams": 0,
+			"support_used": false,
+			"support_intentional": false,
+			"print_seconds": 6676,
+			"color": {
+				"role": "frame"
+			},
+			"optional": false,
+			"onshape": null,
+			"info": null,
+			"low_tolerance": false,
+			"low_tolerance_note": null,
+			"layer_scope": "all",
+			"requires": [],
+			"caption": null,
+			"docs_page": null,
+			"conflicts": null,
+			"stl": "https://img.basically.website/parts/stl/meanwell-psu-housing-shell-front-1h8p-942fdcbb.stl",
+			"render": "https://img.basically.website/parts/render/meanwell-psu-housing-shell-front-3ee222fa.png",
+			"stamped": [
+				{
+					"face": "bottom",
+					"stl": "https://img.basically.website/parts/stl/meanwell-psu-housing-shell-front-1h8p-stamped-bottom-c042d4e0.stl",
+					"normal": [
+						-0.0,
+						0.0,
+						-1.0
+					],
+					"center": [
+						-21.35,
+						44.4,
+						-9.0
+					],
+					"size": [
+						12.25,
+						3.56
+					]
+				},
+				{
+					"face": "top",
+					"stl": "https://img.basically.website/parts/stl/meanwell-psu-housing-shell-front-1h8p-stamped-top-b8ca71e8.stl",
+					"normal": [
+						0.0,
+						-0.0,
+						1.0
+					],
+					"center": [
+						-42.5,
+						116.84,
+						0.0
+					],
+					"size": [
+						12.25,
+						3.56
+					]
+				},
+				{
+					"face": "+y side",
+					"stl": "https://img.basically.website/parts/stl/meanwell-psu-housing-shell-front-1h8p-stamped-plus-y-side-8dea25aa.stl",
+					"normal": [
+						-0.0,
+						1.0,
+						0.0
+					],
+					"center": [
+						-7.7,
+						126.0,
+						-5.04
+					],
+					"size": [
+						12.25,
+						3.56
+					]
+				},
+				{
+					"face": "-y side",
+					"stl": "https://img.basically.website/parts/stl/meanwell-psu-housing-shell-front-1h8p-stamped-minus-y-side-e7b60828.stl",
+					"normal": [
+						-0.0,
+						-1.0,
+						-0.0
+					],
+					"center": [
+						-44.8,
+						-11.0,
+						42.84
+					],
+					"size": [
+						12.25,
+						3.56
+					]
+				}
+			]
+		},
+		{
+			"id": "meanwell-psu-housing-lid-rear",
+			"uid": "m26o",
+			"name": "PSU housing \u2014 lid rear",
+			"quantities": {},
+			"assembly": null,
+			"folder": null,
+			"variant_group": null,
+			"variant_name": null,
+			"description": "Rear lid of the v2 PSU housing, vented over the supply. Screws into the rear tray on four self-tapping M3 countersunk screws.",
+			"version": "1",
+			"created_at": "2026-08-22",
+			"updated_at": "2026-08-22",
+			"versions": [
+				{
+					"version": "1",
+					"uid": "m26o",
+					"date": "2026-08-22",
+					"message": "Initial version.",
+					"commit": null,
+					"onshape_version": "https://cad.onshape.com/documents/f7d34331a9a020dce9231dc1/v/13f56af58b306d7850aa3ea4/e/562fad1e09332ebe5efdd59c",
+					"stl": "https://img.basically.website/parts/stl/meanwell-psu-housing-lid-rear-m26o-83f226b5.stl",
+					"render": "https://img.basically.website/parts/render/meanwell-psu-housing-lid-rear-94f18cfc.png",
+					"grams": 37.27
+				}
+			],
+			"attributes": [],
+			"grams": 37.27,
+			"support_grams": 0,
+			"support_used": false,
+			"support_intentional": false,
+			"print_seconds": 3979,
+			"color": {
+				"role": "frame"
+			},
+			"optional": false,
+			"onshape": null,
+			"info": null,
+			"low_tolerance": false,
+			"low_tolerance_note": null,
+			"layer_scope": "all",
+			"requires": [],
+			"caption": null,
+			"docs_page": null,
+			"conflicts": null,
+			"stl": "https://img.basically.website/parts/stl/meanwell-psu-housing-lid-rear-m26o-83f226b5.stl",
+			"render": "https://img.basically.website/parts/render/meanwell-psu-housing-lid-rear-94f18cfc.png",
+			"stamped": [
+				{
+					"face": "bottom",
+					"stl": "https://img.basically.website/parts/stl/meanwell-psu-housing-lid-rear-m26o-stamped-bottom-4a8feebd.stl",
+					"normal": [
+						0.0,
+						0.0,
+						-1.0
+					],
+					"center": [
+						117.56,
+						-7.81,
+						46.2
+					],
+					"size": [
+						12.37,
+						3.63
+					]
+				},
+				{
+					"face": "top",
+					"stl": "https://img.basically.website/parts/stl/meanwell-psu-housing-lid-rear-m26o-stamped-top-afc23a17.stl",
+					"normal": [
+						-0.0,
+						0.0,
+						1.0
+					],
+					"center": [
+						118.36,
+						-7.01,
+						50.2
+					],
+					"size": [
+						12.37,
+						3.63
+					]
+				}
+			]
+		},
+		{
+			"id": "meanwell-psu-housing-lid-front",
+			"uid": "avux",
+			"name": "PSU housing \u2014 lid front",
+			"quantities": {},
+			"assembly": null,
+			"folder": null,
+			"variant_group": null,
+			"variant_name": null,
+			"description": "Front lid of the v2 PSU housing. Spans the joint, screwing two into the front module and two into the rear tray, and traps the front panel once fitted.",
+			"version": "1",
+			"created_at": "2026-08-22",
+			"updated_at": "2026-08-22",
+			"versions": [
+				{
+					"version": "1",
+					"uid": "avux",
+					"date": "2026-08-22",
+					"message": "Initial version.",
+					"commit": null,
+					"onshape_version": "https://cad.onshape.com/documents/f7d34331a9a020dce9231dc1/v/13f56af58b306d7850aa3ea4/e/562fad1e09332ebe5efdd59c",
+					"stl": "https://img.basically.website/parts/stl/meanwell-psu-housing-lid-front-avux-126a70b0.stl",
+					"render": "https://img.basically.website/parts/render/meanwell-psu-housing-lid-front-5480c80f.png",
+					"grams": 59.08
+				}
+			],
+			"attributes": [],
+			"grams": 59.08,
+			"support_grams": 0,
+			"support_used": false,
+			"support_intentional": false,
+			"print_seconds": 3969,
+			"color": {
+				"role": "frame"
+			},
+			"optional": false,
+			"onshape": null,
+			"info": null,
+			"low_tolerance": false,
+			"low_tolerance_note": null,
+			"layer_scope": "all",
+			"requires": [],
+			"caption": null,
+			"docs_page": null,
+			"conflicts": null,
+			"stl": "https://img.basically.website/parts/stl/meanwell-psu-housing-lid-front-avux-126a70b0.stl",
+			"render": "https://img.basically.website/parts/render/meanwell-psu-housing-lid-front-5480c80f.png",
+			"stamped": [
+				{
+					"face": "bottom",
+					"stl": "https://img.basically.website/parts/stl/meanwell-psu-housing-lid-front-avux-stamped-bottom-eacd61c0.stl",
+					"normal": [
+						0.0,
+						0.0,
+						-1.0
+					],
+					"center": [
+						102.06,
+						-7.84,
+						46.2
+					],
+					"size": [
+						12.74,
+						3.56
+					]
+				},
+				{
+					"face": "top",
+					"stl": "https://img.basically.website/parts/stl/meanwell-psu-housing-lid-front-avux-stamped-top-613f5ec5.stl",
+					"normal": [
+						0.0,
+						0.0,
+						1.0
+					],
+					"center": [
+						101.26,
+						-7.04,
+						50.2
+					],
+					"size": [
+						12.74,
+						3.56
+					]
+				}
+			]
+		},
+		{
+			"id": "meanwell-psu-housing-front-panel",
+			"uid": "n1oh",
+			"name": "PSU housing \u2014 front panel",
+			"quantities": {},
+			"assembly": null,
+			"folder": null,
+			"variant_group": null,
+			"variant_name": null,
+			"description": "Front panel of the v2 PSU housing, carrying the mains inlet cutout. No fasteners of its own: it slots into the front module and the front lid holds it in.",
+			"version": "1",
+			"created_at": "2026-08-22",
+			"updated_at": "2026-08-22",
+			"versions": [
+				{
+					"version": "1",
+					"uid": "n1oh",
+					"date": "2026-08-22",
+					"message": "Initial version.",
+					"commit": null,
+					"onshape_version": "https://cad.onshape.com/documents/f7d34331a9a020dce9231dc1/v/13f56af58b306d7850aa3ea4/e/562fad1e09332ebe5efdd59c",
+					"stl": "https://img.basically.website/parts/stl/meanwell-psu-housing-front-panel-n1oh-69dae822.stl",
+					"render": "https://img.basically.website/parts/render/meanwell-psu-housing-front-panel-4aada3d4.png",
+					"grams": 15.7
+				}
+			],
+			"attributes": [],
+			"grams": 15.7,
+			"support_grams": 0,
+			"support_used": false,
+			"support_intentional": false,
+			"print_seconds": 3031,
+			"color": {
+				"role": "frame"
+			},
+			"optional": false,
+			"onshape": null,
+			"info": null,
+			"low_tolerance": false,
+			"low_tolerance_note": null,
+			"layer_scope": "all",
+			"requires": [],
+			"caption": null,
+			"docs_page": null,
+			"conflicts": null,
+			"stl": "https://img.basically.website/parts/stl/meanwell-psu-housing-front-panel-n1oh-69dae822.stl",
+			"render": "https://img.basically.website/parts/render/meanwell-psu-housing-front-panel-4aada3d4.png",
+			"stamped": [
+				{
+					"face": "+x side",
+					"stl": "https://img.basically.website/parts/stl/meanwell-psu-housing-front-panel-n1oh-stamped-plus-x-side-d35582d2.stl",
+					"normal": [
+						1.0,
+						0.0,
+						0.0
+					],
+					"center": [
+						-50.2,
+						-0.53,
+						-0.81
+					],
+					"size": [
+						12.18,
+						3.63
+					]
+				},
+				{
+					"face": "-x side",
+					"stl": "https://img.basically.website/parts/stl/meanwell-psu-housing-front-panel-n1oh-stamped-minus-x-side-321212f7.stl",
+					"normal": [
+						-1.0,
+						0.0,
+						0.0
+					],
+					"center": [
+						-55.1,
+						115.53,
+						-0.81
+					],
+					"size": [
+						12.18,
+						3.63
+					]
+				}
+			]
 		}
 	],
 	"plates": [

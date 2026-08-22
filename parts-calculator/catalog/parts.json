@@ -2497,6 +2497,164 @@
       "support": false
     },
     {
+      "id": "ctrl-board-extrusion-mount",
+      "uid": "1d5n",
+      "name": "Control board extrusion mount",
+      "description": "Plate the basically Embedded Control Board stands off, which bolts to the 2020 extrusion. The v1 mounting, in the machine today; the printed housing is the candidate that would replace it.",
+      "internal_notes": "From 'PCB Extrusion Mount (1).zip' (Sorter V2 STLs, 2026-08-22), a zip of two zips, one per board. Named 'basically board v1-3 open air fan - basically PCB to extrusion mount.stl'.",
+      "version": "1",
+      "created_at": "2026-08-22",
+      "updated_at": "2026-08-22",
+      "quantities": {
+        "electronics": 1
+      },
+      "assembly": "ctrl-board-mount",
+      "stl_hash": "f855b06c3b0f57fbd3756ebca08fa7e9a5aaf2f7c0b72d41c72ccb8cb5716873",
+      "color": {
+        "role": "frame"
+      },
+      "optional": false,
+      "support": false,
+      "onshape_version": "https://cad.onshape.com/documents/10ae43b609bb2df0f86cce4b/v/226293ea2e329f1f548b78a1/e/6e1da7cee8967d584080406f"
+    },
+    {
+      "id": "orange-pi-extrusion-mount",
+      "uid": "nxh7",
+      "name": "Orange Pi extrusion mount",
+      "description": "Plate the Orange Pi 5 stands off, which bolts to the 2020 extrusion. Same design as the control board's mount with the opening and bolt pattern changed for the Pi.",
+      "internal_notes": "From 'PCB Extrusion Mount (1).zip' (Sorter V2 STLs, 2026-08-22), a zip of two zips, one per board. Named 'basically board v1-3 open air fan - Orange Pi 5 to extrusion mount.stl' (the zip's own prefix says 'basically board'; the part inside is the Pi's).",
+      "version": "1",
+      "created_at": "2026-08-22",
+      "updated_at": "2026-08-22",
+      "quantities": {
+        "electronics": 1
+      },
+      "assembly": "orange-pi-mount",
+      "stl_hash": "4832b4065aef40589ccbe353e0e2214201f9ef5af1dd6c5df0af51fa079c4394",
+      "color": {
+        "role": "frame"
+      },
+      "optional": false,
+      "support": false,
+      "onshape_version": "https://cad.onshape.com/documents/10ae43b609bb2df0f86cce4b/v/226293ea2e329f1f548b78a1/e/745c16803d318039967603f7"
+    },
+    {
+      "id": "fan-bracket-40mm",
+      "uid": "3ufy",
+      "name": "40 mm fan bracket",
+      "description": "L-shaped bracket that cantilevers a 40 mm fan over a board on its extrusion mount. The same part on both the control board and the Orange Pi mounts, so two per machine.",
+      "internal_notes": "From 'PCB Extrusion Mount (1).zip' (Sorter V2 STLs, 2026-08-22), a zip of two zips, one per board. Both zips carry a '40mm fan bracket.stl' -- Spencer: 'the fan bracket thing was identical on both'. The two files are NOT byte-identical (sha256 d4757b35... vs 7c3ea544...) but are the same solid: same 48x90x70 mm bounding box, same 7152 triangles, and the same volume to 7 significant figures (67894.9 mm3); no axis-aligned transform maps one onto the other, so it is one design re-exported at a different orientation. Exactly the case the uid model is for: one uid, and whichever bytes we pin are that design's stl_hash. Pinned from the control board's zip.",
+      "version": "1",
+      "created_at": "2026-08-22",
+      "updated_at": "2026-08-22",
+      "quantities": {
+        "electronics": 2
+      },
+      "assembly": null,
+      "stl_hash": "d4757b350b5690524838d0727a2e81c22135424104d47f4e102b73bbecdde995",
+      "color": {
+        "role": "frame"
+      },
+      "optional": false,
+      "support": false,
+      "onshape_version": "https://cad.onshape.com/documents/10ae43b609bb2df0f86cce4b/v/226293ea2e329f1f548b78a1/e/6e1da7cee8967d584080406f"
+    },
+    {
+      "id": "meanwell-psu-housing-shell-rear",
+      "uid": "7qz3",
+      "name": "PSU housing — shell rear tray",
+      "description": "Rear tray of the v2 PSU housing. The Meanwell supply bolts into it on four M4 countersunk screws, and both lids screw down into it.",
+      "internal_notes": "From 'meanwell psu housing v2.zip' (Sorter V2 STLs, 2026-08-22). Exists only inside candidate 1d0t on meanwell-psu-box, so quantities stay empty and it stays out of the all-parts bundle until that candidate is promoted. Named 'housing - shell rear tray.stl'. Carries the self-tapping M3 holes for both lids.",
+      "version": "1",
+      "created_at": "2026-08-22",
+      "updated_at": "2026-08-22",
+      "quantities": {},
+      "assembly": null,
+      "stl_hash": "f4bc36015be125fe42a7027f667c3e3a8db46efe7e588000beb38ef1face83ec",
+      "color": {
+        "role": "frame"
+      },
+      "optional": false,
+      "support": false,
+      "onshape_version": "https://cad.onshape.com/documents/f7d34331a9a020dce9231dc1/v/13f56af58b306d7850aa3ea4/e/562fad1e09332ebe5efdd59c"
+    },
+    {
+      "id": "meanwell-psu-housing-shell-front",
+      "uid": "1h8p",
+      "name": "PSU housing — shell front module",
+      "description": "Front module of the v2 PSU housing. The front panel slots into it, and the front lid screws down into it and into the rear tray.",
+      "internal_notes": "From 'meanwell psu housing v2.zip' (Sorter V2 STLs, 2026-08-22). Exists only inside candidate 1d0t on meanwell-psu-box, so quantities stay empty and it stays out of the all-parts bundle until that candidate is promoted. Named 'housing - shell front module.stl'.",
+      "version": "1",
+      "created_at": "2026-08-22",
+      "updated_at": "2026-08-22",
+      "quantities": {},
+      "assembly": null,
+      "stl_hash": "942fdcbb41979c057a8e2fb77fc7bbb69439284c76182f973eea802497ecfa9c",
+      "color": {
+        "role": "frame"
+      },
+      "optional": false,
+      "support": false,
+      "onshape_version": "https://cad.onshape.com/documents/f7d34331a9a020dce9231dc1/v/13f56af58b306d7850aa3ea4/e/562fad1e09332ebe5efdd59c"
+    },
+    {
+      "id": "meanwell-psu-housing-lid-rear",
+      "uid": "m26o",
+      "name": "PSU housing — lid rear",
+      "description": "Rear lid of the v2 PSU housing, vented over the supply. Screws into the rear tray on four self-tapping M3 countersunk screws.",
+      "internal_notes": "From 'meanwell psu housing v2.zip' (Sorter V2 STLs, 2026-08-22). Exists only inside candidate 1d0t on meanwell-psu-box, so quantities stay empty and it stays out of the all-parts bundle until that candidate is promoted. Named 'housing - lid rear.stl'.",
+      "version": "1",
+      "created_at": "2026-08-22",
+      "updated_at": "2026-08-22",
+      "quantities": {},
+      "assembly": null,
+      "stl_hash": "83f226b5531d7eae5310e53213eaa63ba3bc49996d7b43dc71e661be3b614706",
+      "color": {
+        "role": "frame"
+      },
+      "optional": false,
+      "support": false,
+      "onshape_version": "https://cad.onshape.com/documents/f7d34331a9a020dce9231dc1/v/13f56af58b306d7850aa3ea4/e/562fad1e09332ebe5efdd59c"
+    },
+    {
+      "id": "meanwell-psu-housing-lid-front",
+      "uid": "avux",
+      "name": "PSU housing — lid front",
+      "description": "Front lid of the v2 PSU housing. Spans the joint, screwing two into the front module and two into the rear tray, and traps the front panel once fitted.",
+      "internal_notes": "From 'meanwell psu housing v2.zip' (Sorter V2 STLs, 2026-08-22). Exists only inside candidate 1d0t on meanwell-psu-box, so quantities stay empty and it stays out of the all-parts bundle until that candidate is promoted. Named 'housing - lid front.stl'.",
+      "version": "1",
+      "created_at": "2026-08-22",
+      "updated_at": "2026-08-22",
+      "quantities": {},
+      "assembly": null,
+      "stl_hash": "126a70b01f4e677d0187902ad886ad4e310de50174889cb725b6edc8b46b0db0",
+      "color": {
+        "role": "frame"
+      },
+      "optional": false,
+      "support": false,
+      "onshape_version": "https://cad.onshape.com/documents/f7d34331a9a020dce9231dc1/v/13f56af58b306d7850aa3ea4/e/562fad1e09332ebe5efdd59c"
+    },
+    {
+      "id": "meanwell-psu-housing-front-panel",
+      "uid": "n1oh",
+      "name": "PSU housing — front panel",
+      "description": "Front panel of the v2 PSU housing, carrying the mains inlet cutout. No fasteners of its own: it slots into the front module and the front lid holds it in.",
+      "internal_notes": "From 'meanwell psu housing v2.zip' (Sorter V2 STLs, 2026-08-22). Exists only inside candidate 1d0t on meanwell-psu-box, so quantities stay empty and it stays out of the all-parts bundle until that candidate is promoted. Named 'housing - front panel.stl'.",
+      "version": "1",
+      "created_at": "2026-08-22",
+      "updated_at": "2026-08-22",
+      "quantities": {},
+      "assembly": null,
+      "stl_hash": "69dae822bcaf92f97b84be2b482a138e57b704db4104ab6440dbee550168964f",
+      "color": {
+        "role": "frame"
+      },
+      "optional": false,
+      "support": false,
+      "onshape_version": "https://cad.onshape.com/documents/f7d34331a9a020dce9231dc1/v/13f56af58b306d7850aa3ea4/e/562fad1e09332ebe5efdd59c"
+    },
+    {
       "id": "scr-m3-tbd",
       "uid": "1kgy",
       "kind": "cots",
@@ -5476,6 +5634,61 @@
           "part": "scr-m4-6-cs",
           "qty": 4
         }
+      ],
+      "candidates": [
+        {
+          "uid": "1d0t",
+          "name": "Meanwell 24V PSU housing",
+          "created_at": "2026-08-22",
+          "message": "A five-piece printed housing around the supply in place of the three plates screwed to its own case. The Meanwell bolts into the shell rear tray on four [[hw:scr-m4-12-cs]]; the rear lid closes onto the tray with four [[hw:scr-m3-8-cs]] and the front lid spans the joint with four more, two into the rear tray and two into the shell front module; the front panel carries the mains inlet and simply slots into the front module, held by the front lid. Being test-printed; may become the next version, and renames this assembly if it does.",
+          "joining": [
+            {
+              "method": "self-tap",
+              "note": "Every [[hw:scr-m3-8-cs]] here cuts its own thread -- the tapping holes are in the printed shell parts, not the lids, and there are no inserts."
+            }
+          ],
+          "images": [
+            {
+              "url": "https://img.basically.website/parts/img/meanwell-psu-housing-v2-render-1fd60da3.png",
+              "alt": "Onshape render of the v2 PSU housing, closed and mounted on a 2020 extrusion",
+              "caption": "The v2 housing closed: vented rear lid, front panel with the mains inlet, on its extrusion."
+            }
+          ],
+          "lines": [
+            {
+              "part": "meanwell-psu-housing-shell-rear",
+              "qty": 1
+            },
+            {
+              "part": "psu-24v-350w",
+              "qty": 1
+            },
+            {
+              "part": "scr-m4-12-cs",
+              "qty": 4
+            },
+            {
+              "part": "meanwell-psu-housing-shell-front",
+              "qty": 1
+            },
+            {
+              "part": "meanwell-psu-housing-front-panel",
+              "qty": 1
+            },
+            {
+              "part": "meanwell-psu-housing-lid-rear",
+              "qty": 1
+            },
+            {
+              "part": "meanwell-psu-housing-lid-front",
+              "qty": 1
+            },
+            {
+              "part": "scr-m3-8-cs",
+              "qty": 8
+            }
+          ]
+        }
       ]
     },
     {
@@ -6024,11 +6237,15 @@
       "uid": "u12m",
       "version": "1",
       "name": "Control board mount",
-      "description": "The basically Embedded Control Board standing off its bracket. The printed bracket is not in the parts registry yet.",
+      "description": "The basically Embedded Control Board standing off its bracket, which bolts to the 2020 extrusion, with a 40 mm fan on a bracket cantilevered over it.",
       "section": "electronics",
       "docs": "/hardware/electronics/installation/control-board-mount/",
-      "status": "stub",
+      "status": "partial",
       "lines": [
+        {
+          "part": "ctrl-board-extrusion-mount",
+          "qty": 1
+        },
         {
           "part": "ctrl-board-basically",
           "qty": 1
@@ -6044,6 +6261,14 @@
         {
           "part": "standoff-m3-10mm",
           "qty": 4
+        },
+        {
+          "part": "fan-bracket-40mm",
+          "qty": 1
+        },
+        {
+          "part": "fan-40mm-24v",
+          "qty": 1
         }
       ],
       "candidates": [
@@ -6113,6 +6338,13 @@
             }
           ]
         }
+      ],
+      "images": [
+        {
+          "url": "https://img.basically.website/parts/img/ctrl-board-mount-v1-render-d7411f58.png",
+          "alt": "Onshape render of the control board's v1 extrusion mount and fan bracket",
+          "caption": "The v1 mounting, from Onshape: the board's plate (blue) and the shared fan bracket (grey)."
+        }
       ]
     },
     {
@@ -6120,11 +6352,15 @@
       "uid": "5vat",
       "version": "1",
       "name": "Orange Pi mount",
-      "description": "The Orange Pi 5 standing off its bracket. The printed bracket is not in the parts registry yet.",
+      "description": "The Orange Pi 5 standing off its bracket, which bolts to the 2020 extrusion, with a 40 mm fan on a bracket cantilevered over it.",
       "section": "electronics",
       "docs": "/hardware/electronics/installation/orange-pi-mount/",
-      "status": "stub",
+      "status": "partial",
       "lines": [
+        {
+          "part": "orange-pi-extrusion-mount",
+          "qty": 1
+        },
         {
           "part": "sbc-orange-pi-5",
           "qty": 1
@@ -6140,6 +6376,21 @@
         {
           "part": "standoff-m3-10mm",
           "qty": 4
+        },
+        {
+          "part": "fan-bracket-40mm",
+          "qty": 1
+        },
+        {
+          "part": "fan-40mm-24v",
+          "qty": 1
+        }
+      ],
+      "images": [
+        {
+          "url": "https://img.basically.website/parts/img/orange-pi-mount-v1-render-f5159489.png",
+          "alt": "Onshape render of the Orange Pi's v1 extrusion mount and fan bracket",
+          "caption": "The v1 mounting, from Onshape: the board's plate (blue) and the shared fan bracket (grey)."
         }
       ]
     },

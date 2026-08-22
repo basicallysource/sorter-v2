@@ -10,10 +10,11 @@ permalink: /hardware/electronics/installation/orange-pi-mount/
 author: barthel
 contributors: [spencer]
 warning: >-
-  **Skeleton page.** The parts and quantities are real, from the [parts
-  calculator](https://parts-calculator.basically.website/assembly?focus=orange-pi-mount), but
-  the printed bracket the Pi stands off is **not in the parts registry**, and no step here has
-  been checked against a machine. The steps below are placeholders with the gaps marked.
+  **AI-generated first draft.** Written from the machine assembly tree in the [parts
+  calculator](https://parts-calculator.basically.website/assembly?focus=orange-pi-mount), not
+  from an actual build. The parts and quantities are real, but the printed bracket the Pi stands
+  off is **not in the parts registry**, and no step here has been checked against a machine. The
+  steps below are placeholders with the gaps marked.
 parts_needed:
   - part: sbc-orange-pi-5
     qty: 1

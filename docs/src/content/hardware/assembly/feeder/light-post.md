@@ -9,9 +9,9 @@ lede: The vertical COB light that lights a C-channel for the overhead camera.
 permalink: /hardware/assembly/feeder/light-post/
 author: barthel
 warning: >-
-  **Skeleton page.** Written from the parts registry in the [parts
-  calculator](https://parts-calculator.basically.website/assembly?focus=light-post), not from a
-  build. The parts and the two screws into the NEMA bracket are recorded; the rest of the
+  **AI-generated first draft.** Written from the machine assembly tree in the [parts
+  calculator](https://parts-calculator.basically.website/assembly?focus=light-post), not from an
+  actual build. The parts and the two screws into the NEMA bracket are recorded; the rest of the
   order, the remaining screws and every photograph are still missing. Fill it in as you build.
 parts_needed:
   - part: light-post

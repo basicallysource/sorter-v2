@@ -9,10 +9,11 @@ lede: The printed guides that carry parts from one C-channel to the next.
 permalink: /hardware/assembly/feeder/output-guides/
 author: barthel
 warning: >-
-  **Skeleton page.** The Output guide is in the parts catalog with a quantity and a colour and
-  nothing else: it is in no assembly in the [parts
-  calculator](https://parts-calculator.basically.website/assembly), and where it mounts is not
-  recorded anywhere. This page exists to be filled in, not to be followed.
+  **AI-generated first draft.** Written from the machine assembly tree in the [parts
+  calculator](https://parts-calculator.basically.website/assembly), not from an actual build.
+  The Output guide is in the parts catalog with a quantity and a colour and nothing else: it is
+  in no assembly there, and where it mounts is not recorded anywhere. This page exists to be
+  filled in, not to be followed.
 parts_needed:
   - part: output-guide
     qty: 2

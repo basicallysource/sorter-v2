@@ -18,4 +18,4 @@ author: spencer
 6. **[Output guides]({{ '/hardware/assembly/feeder/output-guides/' | relative_url }})**, the handovers between channels.
 7. **[Arranging C-Channels]({{ '/hardware/assembly/feeder/arranging-c-channels/' | relative_url }})**, the stand, the heights, and how the four sit together.
 
-Everything after the C-Channel page is a skeleton: the parts are recorded, the steps and the photographs are not. Each page says at the top what is missing from it.
+Everything after the C-Channel page is an AI-generated first draft: the parts are recorded, the steps and the photographs are not. Each page says at the top what is missing from it.

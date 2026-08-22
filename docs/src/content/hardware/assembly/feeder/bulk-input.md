@@ -9,9 +9,9 @@ lede: The bucket and cap that hold unsorted parts over the first C-channel.
 permalink: /hardware/assembly/feeder/bulk-input/
 author: barthel
 warning: >-
-  **Skeleton page.** Written from the parts registry in the [parts
+  **AI-generated first draft.** Written from the machine assembly tree in the [parts
   calculator](https://parts-calculator.basically.website/assembly?focus=bulk-cap) and the
-  extrusion list on the bill of materials, not from a build. The bulk bucket itself is not
+  extrusion list on the bill of materials, not from an actual build. The bulk bucket itself is not
   published yet, so this page is mostly the shape of what is missing. Fill it in as you build.
 parts_needed:
   - part: bulk-cap

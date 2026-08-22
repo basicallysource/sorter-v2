@@ -10,11 +10,12 @@ permalink: /hardware/electronics/installation/
 author: barthel
 contributors: [spencer]
 warning: >-
-  **Skeleton pages.** These four pages exist so the gap is visible and fillable, not because the
-  steps are written. The parts on each come from the [parts
-  calculator](https://parts-calculator.basically.website/assembly), which records what every
-  mount is made of; the assembly order, the orientation and most of the screw sizes are recorded
-  nowhere, so each gap is marked in place rather than guessed at. Correct them as you build.
+  **AI-generated first drafts.** Written from the machine assembly tree in the [parts
+  calculator](https://parts-calculator.basically.website/assembly), not from an actual build.
+  These four pages exist so the gap is visible and fillable, not because the steps are written.
+  The parts on each come from the calculator, which records what every mount is made of; the
+  assembly order, the orientation and most of the screw sizes are recorded nowhere, so each gap
+  is marked in place rather than guessed at. Correct them as you build.
 ---
 
 The [wire harness]({{ '/hardware/electronics/' | relative_url }}) pages cover what connects to what. These cover the other half: where the hardware physically sits and what holds it there.

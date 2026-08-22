@@ -10,10 +10,11 @@ permalink: /hardware/electronics/installation/psu-box/
 author: barthel
 contributors: [spencer]
 warning: >-
-  **Skeleton page.** The parts and quantities are real, from the [parts
-  calculator](https://parts-calculator.basically.website/assembly?focus=meanwell-psu-box). The
-  assembly order is not recorded anywhere and no step here has been checked against a machine,
-  so the steps below are placeholders with the gaps marked. Correct them as you build.
+  **AI-generated first draft.** Written from the machine assembly tree in the [parts
+  calculator](https://parts-calculator.basically.website/assembly?focus=meanwell-psu-box), not
+  from an actual build. The parts and quantities are real. The assembly order is not recorded
+  anywhere and no step here has been checked against a machine, so the steps below are
+  placeholders with the gaps marked. Correct them as you build.
 parts_needed:
   - part: psu-24v-350w
     qty: 1

@@ -10,10 +10,11 @@ permalink: /hardware/electronics/installation/pico-headers/
 author: barthel
 contributors: [spencer]
 warning: >-
-  **Skeleton page.** The parts and quantities are real, from the [parts
-  calculator](https://parts-calculator.basically.website/assembly?focus=pico-headers). The
-  procedure is not recorded anywhere and no step here has been checked against a build, so the
-  steps below are placeholders with the gaps marked.
+  **AI-generated first draft.** Written from the machine assembly tree in the [parts
+  calculator](https://parts-calculator.basically.website/assembly?focus=pico-headers), not from
+  an actual build. The parts and quantities are real. The procedure is not recorded anywhere and
+  no step here has been checked against a build, so the steps below are placeholders with the
+  gaps marked.
 parts_needed:
   - part: mcu-rpi-pico
     qty: 1

@@ -9,9 +9,9 @@ lede: How the four C-channels stand, at what heights, and what passes parts betw
 permalink: /hardware/assembly/feeder/arranging-c-channels/
 author: barthel
 warning: >-
-  **Skeleton page.** Assembled from the parts registry in the [parts
+  **AI-generated first draft.** Written from the machine assembly tree in the [parts
   calculator](https://parts-calculator.basically.website/assembly?focus=feeder) and the
-  extrusion list on the bill of materials, not from a build. No height, angle or fastener here
+  extrusion list on the bill of materials, not from an actual build. No height, angle or fastener here
   has been checked against a machine, and the two starred steps are the ones that make the
   feeder work. Fill it in as you build.
 parts_needed:

@@ -9,9 +9,9 @@ lede: The rod arm that hangs a detection camera over a C-channel.
 permalink: /hardware/assembly/feeder/camera-mount/
 author: barthel
 warning: >-
-  **Skeleton page.** Written from the parts registry in the [parts
-  calculator](https://parts-calculator.basically.website/assembly?focus=camera-mount), not from a
-  build. The parts are recorded; the assembly order, every screw's position, the camera fixing
+  **AI-generated first draft.** Written from the machine assembly tree in the [parts
+  calculator](https://parts-calculator.basically.website/assembly?focus=camera-mount), not from an
+  actual build. The parts are recorded; the assembly order, every screw's position, the camera fixing
   and all photographs are missing. Fill it in as you build.
 parts_needed:
   - part: camera-mount-part-6

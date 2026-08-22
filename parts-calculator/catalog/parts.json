@@ -2421,7 +2421,7 @@
     {
       "id": "ctrl-board-housing-base",
       "uid": "204b",
-      "name": "Control board housing — base",
+      "name": "Control Board Housing — Base",
       "description": "Base of the basically Embedded Control Board housing. The board screws straight to it on four heat inserts and the cover screws down onto four more; no standoffs.",
       "internal_notes": "From 'control board housing.zip' (Sorter V2 STLs, 2026-08-22). Exists only inside candidate rns2 on ctrl-board-mount, so quantities stay empty and it stays out of the bundle until that candidate is promoted. Eight standard M3 inserts (hsi-m3, RX-M3x5.7 -- Spencer said 'the long variant', which is this one relative to the short M3S): four under the board, four for the cover.",
       "version": "1",
@@ -2445,7 +2445,7 @@
     {
       "id": "ctrl-board-housing-cover",
       "uid": "ksh2",
-      "name": "Control board housing — cover",
+      "name": "Control Board Housing — Cover",
       "description": "Cover of the basically Embedded Control Board housing. Screws to the base with four M3 × 12 mm countersunk screws, carries the 40 mm 24 V fan on four self-tapping M3 × 16 mm screws, and the plunger passes through it.",
       "internal_notes": "From 'control board housing.zip' (Sorter V2 STLs, 2026-08-22). Exists only inside candidate rns2 on ctrl-board-mount, so quantities stay empty and it stays out of the bundle until that candidate is promoted.",
       "version": "1",
@@ -2463,7 +2463,7 @@
     {
       "id": "ctrl-board-housing-plunger",
       "uid": "cljt",
-      "name": "Control board housing — plunger",
+      "name": "Control Board Housing — Plunger",
       "description": "Plunger that passes through the housing cover, held in by the plunger retainer.",
       "internal_notes": "From 'control board housing.zip' (Sorter V2 STLs, 2026-08-22). Exists only inside candidate rns2 on ctrl-board-mount, so quantities stay empty and it stays out of the bundle until that candidate is promoted.",
       "version": "1",
@@ -2481,7 +2481,7 @@
     {
       "id": "ctrl-board-housing-plunger-retainer",
       "uid": "g9sx",
-      "name": "Control board housing — plunger retainer",
+      "name": "Control Board Housing — Plunger Retainer",
       "description": "Retains the plunger in the housing cover. Screws to the cover with two M3 × 8 mm countersunk screws.",
       "internal_notes": "From 'control board housing.zip' (Sorter V2 STLs, 2026-08-22). Exists only inside candidate rns2 on ctrl-board-mount, so quantities stay empty and it stays out of the bundle until that candidate is promoted. Two countersunk holes either side of the plunger slot (counted off the STL).",
       "version": "1",
@@ -2499,7 +2499,7 @@
     {
       "id": "ctrl-board-extrusion-mount",
       "uid": "1d5n",
-      "name": "Control board extrusion mount",
+      "name": "Control Board Extrusion Mount",
       "description": "Plate the basically Embedded Control Board stands off, which bolts to the 2020 extrusion. The v1 mounting, in the machine today; the printed housing is the candidate that would replace it.",
       "internal_notes": "From 'PCB Extrusion Mount (1).zip' (Sorter V2 STLs, 2026-08-22), a zip of two zips, one per board. Named 'basically board v1-3 open air fan - basically PCB to extrusion mount.stl'.",
       "version": "1",
@@ -2520,7 +2520,7 @@
     {
       "id": "orange-pi-extrusion-mount",
       "uid": "nxh7",
-      "name": "Orange Pi extrusion mount",
+      "name": "Orange Pi Extrusion Mount",
       "description": "Plate the Orange Pi 5 stands off, which bolts to the 2020 extrusion. Same design as the control board's mount with the opening and bolt pattern changed for the Pi.",
       "internal_notes": "From 'PCB Extrusion Mount (1).zip' (Sorter V2 STLs, 2026-08-22), a zip of two zips, one per board. Named 'basically board v1-3 open air fan - Orange Pi 5 to extrusion mount.stl' (the zip's own prefix says 'basically board'; the part inside is the Pi's).",
       "version": "1",
@@ -2541,7 +2541,7 @@
     {
       "id": "fan-bracket-40mm",
       "uid": "3ufy",
-      "name": "40 mm fan bracket",
+      "name": "40 mm Fan Bracket",
       "description": "L-shaped bracket that cantilevers a 40 mm fan over a board on its extrusion mount. The same part on both the control board and the Orange Pi mounts, so two per machine.",
       "internal_notes": "From 'PCB Extrusion Mount (1).zip' (Sorter V2 STLs, 2026-08-22), a zip of two zips, one per board. Both zips carry a '40mm fan bracket.stl' -- Spencer: 'the fan bracket thing was identical on both'. The two files are NOT byte-identical (sha256 d4757b35... vs 7c3ea544...) but are the same solid: same 48x90x70 mm bounding box, same 7152 triangles, and the same volume to 7 significant figures (67894.9 mm3); no axis-aligned transform maps one onto the other, so it is one design re-exported at a different orientation. Exactly the case the uid model is for: one uid, and whichever bytes we pin are that design's stl_hash. Pinned from the control board's zip.",
       "version": "1",
@@ -2562,7 +2562,7 @@
     {
       "id": "meanwell-psu-housing-shell-rear",
       "uid": "7qz3",
-      "name": "PSU housing — shell rear tray",
+      "name": "PSU Housing — Shell Rear Tray",
       "description": "Rear tray of the v2 PSU housing. The Meanwell supply bolts into it on four M4 countersunk screws, and both lids screw down into it.",
       "internal_notes": "From 'meanwell psu housing v2.zip' (Sorter V2 STLs, 2026-08-22). Exists only inside candidate 1d0t on meanwell-psu-box, so quantities stay empty and it stays out of the all-parts bundle until that candidate is promoted. Named 'housing - shell rear tray.stl'. Carries the self-tapping M3 holes for both lids.",
       "version": "1",
@@ -2581,7 +2581,7 @@
     {
       "id": "meanwell-psu-housing-shell-front",
       "uid": "1h8p",
-      "name": "PSU housing — shell front module",
+      "name": "PSU Housing — Shell Front Module",
       "description": "Front module of the v2 PSU housing. The front panel slots into it, and the front lid screws down into it and into the rear tray.",
       "internal_notes": "From 'meanwell psu housing v2.zip' (Sorter V2 STLs, 2026-08-22). Exists only inside candidate 1d0t on meanwell-psu-box, so quantities stay empty and it stays out of the all-parts bundle until that candidate is promoted. Named 'housing - shell front module.stl'.",
       "version": "1",
@@ -2600,7 +2600,7 @@
     {
       "id": "meanwell-psu-housing-lid-rear",
       "uid": "m26o",
-      "name": "PSU housing — lid rear",
+      "name": "PSU Housing — Lid Rear",
       "description": "Rear lid of the v2 PSU housing, vented over the supply. Screws into the rear tray on four self-tapping M3 countersunk screws.",
       "internal_notes": "From 'meanwell psu housing v2.zip' (Sorter V2 STLs, 2026-08-22). Exists only inside candidate 1d0t on meanwell-psu-box, so quantities stay empty and it stays out of the all-parts bundle until that candidate is promoted. Named 'housing - lid rear.stl'.",
       "version": "1",
@@ -2619,7 +2619,7 @@
     {
       "id": "meanwell-psu-housing-lid-front",
       "uid": "avux",
-      "name": "PSU housing — lid front",
+      "name": "PSU Housing — Lid Front",
       "description": "Front lid of the v2 PSU housing. Spans the joint, screwing two into the front module and two into the rear tray, and traps the front panel once fitted.",
       "internal_notes": "From 'meanwell psu housing v2.zip' (Sorter V2 STLs, 2026-08-22). Exists only inside candidate 1d0t on meanwell-psu-box, so quantities stay empty and it stays out of the all-parts bundle until that candidate is promoted. Named 'housing - lid front.stl'.",
       "version": "1",
@@ -2638,7 +2638,7 @@
     {
       "id": "meanwell-psu-housing-front-panel",
       "uid": "n1oh",
-      "name": "PSU housing — front panel",
+      "name": "PSU Housing — Front Panel",
       "description": "Front panel of the v2 PSU housing, carrying the mains inlet cutout. No fasteners of its own: it slots into the front module and the front lid holds it in.",
       "internal_notes": "From 'meanwell psu housing v2.zip' (Sorter V2 STLs, 2026-08-22). Exists only inside candidate 1d0t on meanwell-psu-box, so quantities stay empty and it stays out of the all-parts bundle until that candidate is promoted. Named 'housing - front panel.stl'.",
       "version": "1",
@@ -5638,7 +5638,7 @@
       "candidates": [
         {
           "uid": "1d0t",
-          "name": "Meanwell 24V PSU housing",
+          "name": "Meanwell 24V PSU Housing",
           "created_at": "2026-08-22",
           "message": "A five-piece printed housing around the supply in place of the three plates screwed to its own case. The Meanwell bolts into the shell rear tray on four [[hw:scr-m4-12-cs]]; the rear lid closes onto the tray with four [[hw:scr-m3-8-cs]] and the front lid spans the joint with four more, two into the rear tray and two into the shell front module; the front panel carries the mains inlet and simply slots into the front module, held by the front lid. Being test-printed; may become the next version, and renames this assembly if it does.",
           "joining": [
@@ -6274,7 +6274,7 @@
       "candidates": [
         {
           "uid": "rns2",
-          "name": "basically Embedded Control Board housing",
+          "name": "basically Embedded Control Board Housing",
           "created_at": "2026-08-22",
           "message": "A printed housing in place of the bracket and standoffs. The board screws straight to the base on four [[hw:hsi-m3]] with four [[hw:scr-m3-shcs-tbd]]; the cover closes onto four more inserts in the base with four [[hw:scr-m3-12-cs]] and carries a 40 mm 24 V fan; a plunger through the cover is held in by the plunger retainer on two [[hw:scr-m3-8-cs]]. Being test-printed; may become the next version, and renames this assembly if it does.",
           "joining": [

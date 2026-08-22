@@ -766,7 +766,7 @@
 			"candidates": [
 				{
 					"uid": "1d0t",
-					"name": "Meanwell 24V PSU housing",
+					"name": "Meanwell 24V PSU Housing",
 					"created_at": "2026-08-22",
 					"message": "A five-piece printed housing around the supply in place of the three plates screwed to its own case. The Meanwell bolts into the shell rear tray on four [[hw:scr-m4-12-cs]]; the rear lid closes onto the tray with four [[hw:scr-m3-8-cs]] and the front lid spans the joint with four more, two into the rear tray and two into the shell front module; the front panel carries the mains inlet and simply slots into the front module, held by the front lid. Being test-printed; may become the next version, and renames this assembly if it does.",
 					"joining": [
@@ -1402,7 +1402,7 @@
 			"candidates": [
 				{
 					"uid": "rns2",
-					"name": "basically Embedded Control Board housing",
+					"name": "basically Embedded Control Board Housing",
 					"created_at": "2026-08-22",
 					"message": "A printed housing in place of the bracket and standoffs. The board screws straight to the base on four [[hw:hsi-m3]] with four [[hw:scr-m3-shcs-tbd]]; the cover closes onto four more inserts in the base with four [[hw:scr-m3-12-cs]] and carries a 40 mm 24 V fan; a plunger through the cover is held in by the plunger retainer on two [[hw:scr-m3-8-cs]]. Being test-printed; may become the next version, and renames this assembly if it does.",
 					"joining": [
@@ -10827,7 +10827,7 @@
 		{
 			"id": "ctrl-board-housing-base",
 			"uid": "204b",
-			"name": "Control board housing \u2014 base",
+			"name": "Control Board Housing \u2014 Base",
 			"quantities": {},
 			"assembly": null,
 			"folder": null,
@@ -10953,7 +10953,7 @@
 		{
 			"id": "ctrl-board-housing-cover",
 			"uid": "ksh2",
-			"name": "Control board housing \u2014 cover",
+			"name": "Control Board Housing \u2014 Cover",
 			"quantities": {},
 			"assembly": null,
 			"folder": null,
@@ -11074,7 +11074,7 @@
 		{
 			"id": "ctrl-board-housing-plunger",
 			"uid": "cljt",
-			"name": "Control board housing \u2014 plunger",
+			"name": "Control Board Housing \u2014 Plunger",
 			"quantities": {},
 			"assembly": null,
 			"folder": null,
@@ -11122,7 +11122,7 @@
 		{
 			"id": "ctrl-board-housing-plunger-retainer",
 			"uid": "g9sx",
-			"name": "Control board housing \u2014 plunger retainer",
+			"name": "Control Board Housing \u2014 Plunger Retainer",
 			"quantities": {},
 			"assembly": null,
 			"folder": null,
@@ -11170,7 +11170,7 @@
 		{
 			"id": "ctrl-board-extrusion-mount",
 			"uid": "1d5n",
-			"name": "Control board extrusion mount",
+			"name": "Control Board Extrusion Mount",
 			"quantities": {
 				"electronics": 1
 			},
@@ -11294,7 +11294,7 @@
 		{
 			"id": "orange-pi-extrusion-mount",
 			"uid": "nxh7",
-			"name": "Orange Pi extrusion mount",
+			"name": "Orange Pi Extrusion Mount",
 			"quantities": {
 				"electronics": 1
 			},
@@ -11418,7 +11418,7 @@
 		{
 			"id": "fan-bracket-40mm",
 			"uid": "3ufy",
-			"name": "40 mm fan bracket",
+			"name": "40 mm Fan Bracket",
 			"quantities": {
 				"electronics": 2
 			},
@@ -11542,7 +11542,7 @@
 		{
 			"id": "meanwell-psu-housing-shell-rear",
 			"uid": "7qz3",
-			"name": "PSU housing \u2014 shell rear tray",
+			"name": "PSU Housing \u2014 Shell Rear Tray",
 			"quantities": {},
 			"assembly": null,
 			"folder": null,
@@ -11664,7 +11664,7 @@
 		{
 			"id": "meanwell-psu-housing-shell-front",
 			"uid": "1h8p",
-			"name": "PSU housing \u2014 shell front module",
+			"name": "PSU Housing \u2014 Shell Front Module",
 			"quantities": {},
 			"assembly": null,
 			"folder": null,
@@ -11786,7 +11786,7 @@
 		{
 			"id": "meanwell-psu-housing-lid-rear",
 			"uid": "m26o",
-			"name": "PSU housing \u2014 lid rear",
+			"name": "PSU Housing \u2014 Lid Rear",
 			"quantities": {},
 			"assembly": null,
 			"folder": null,
@@ -11872,7 +11872,7 @@
 		{
 			"id": "meanwell-psu-housing-lid-front",
 			"uid": "avux",
-			"name": "PSU housing \u2014 lid front",
+			"name": "PSU Housing \u2014 Lid Front",
 			"quantities": {},
 			"assembly": null,
 			"folder": null,
@@ -11958,7 +11958,7 @@
 		{
 			"id": "meanwell-psu-housing-front-panel",
 			"uid": "n1oh",
-			"name": "PSU housing \u2014 front panel",
+			"name": "PSU Housing \u2014 Front Panel",
 			"quantities": {},
 			"assembly": null,
 			"folder": null,

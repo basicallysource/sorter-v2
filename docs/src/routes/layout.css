@@ -1072,6 +1072,18 @@ body {
 	color: var(--muted);
 }
 
+/* Numbered key for a keyed drawing: the site's lists render without markers,
+   so a list whose items are referred to by number opts back in. */
+.keyed-list {
+	list-style: decimal;
+	padding-left: 1.5rem;
+	margin: 0 0 1.4rem;
+}
+
+.keyed-list li {
+	margin-bottom: 0.5rem;
+}
+
 @media (max-width: 740px) {
 	.figure-float-right {
 		float: none;

@@ -158,6 +158,25 @@ def normalize_versions(part):
     return [entry]
 
 
+def normalize_assemblies(manifest):
+    """Assemblies pass through to the app as authored, with one fix-up: the
+    newest `versions` entry names the assembly's current uid, the way
+    normalize_versions() does it for a part. Only the SUPERSEDED entries carry
+    a uid in parts.json -- stamp_versions.py writes one there when a version is
+    replaced -- so without this the current revision reads back as uid null,
+    which is the one revision whose id is never in doubt."""
+    out = []
+    for asm in manifest.get("assemblies", []):
+        vs = asm.get("versions")
+        if vs and not vs[-1].get("uid"):
+            newest = vs[-1]
+            asm = dict(asm, versions=vs[:-1] + [{
+                "version": newest.get("version"), "uid": asm["uid"],
+                **{k: v for k, v in newest.items() if k != "version"}}])
+        out.append(asm)
+    return out
+
+
 def fetch_artifact(url, sha, dest):
     """Materialize a bucket object at dest, verifying its full sha256.
 
@@ -920,6 +939,16 @@ def main():
     duplicate_uids = sorted({x for x in uids if uids.count(x) > 1})
     if duplicate_uids:
         sys.exit(f"duplicate uid(s): {duplicate_uids} -- mint a fresh one")
+    # An id names exactly one thing. A line says `part:` or `assembly:` so a
+    # collision still resolves there, but getPart(id)/getAssembly(id) do not
+    # take a kind, and a planned change targeting `parts` and `assemblies` by
+    # the same string is two different targets wearing one name. Keep the two
+    # namespaces disjoint (2026-08-22: `light-post` and `camera-extension`
+    # were each both, and became `-assembly` on the assembly side).
+    collisions = sorted(set(part_ids) & {a["id"] for a in manifest.get("assemblies", [])})
+    if collisions:
+        sys.exit(f"id(s) used by both a part and an assembly: {collisions} -- "
+                 f"rename the assembly (e.g. '<id>-assembly')")
     check_assemblies(manifest, set(part_ids))
     check_images(manifest)
     if args.metadata_only:
@@ -1014,7 +1043,7 @@ def main():
         data["sections"] = manifest["sections"]
         data["changes"] = manifest.get("changes", [])
         data["folders"] = manifest.get("folders", [])
-        data["assemblies"] = manifest.get("assemblies", [])
+        data["assemblies"] = normalize_assemblies(manifest)
         data["hardware"] = build_hardware(manifest)
         data["families"] = build_families(manifest)
         data["lasercut"] = build_lasercut(manifest)
@@ -1196,7 +1225,7 @@ def main():
         "folders": manifest.get("folders", []),
         "color_roles": manifest["color_roles"],
         "families": families,
-        "assemblies": manifest.get("assemblies", []),
+        "assemblies": normalize_assemblies(manifest),
         "parts": out_parts,
         "plates": plates,
         "hardware": hardware,

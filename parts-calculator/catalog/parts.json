@@ -1073,12 +1073,12 @@
       "internal_notes": "1 per interface. White. Pairs with the outer clamp (cable-clamp assembly).",
       "version": "1",
       "created_at": "2026-06-27",
-      "updated_at": "2026-06-27",
+      "updated_at": "2026-08-22",
       "quantities": {
         "interface": 1
       },
       "assembly": "cable-clamp",
-      "stl_hash": "a77f4963aada127b93e60161a8aa83685a03ce6f3beb318c270627f7641927af",
+      "stl_hash": "16cfdfea28d0f04e62014bc4caa8d32a7dd41eb495914824a64be629ab64b4a0",
       "color": {
         "role": "chute-core"
       },
@@ -2008,13 +2008,13 @@
     },
     {
       "id": "camera-extension",
-      "uid": "q7ns",
+      "uid": "v684",
       "name": "Camera extension",
       "description": "Camera extension tube for the classification channel. 1 needed.",
       "internal_notes": "Raises the Innomaker 4K camera module (50 mm extension). Part of the camera-extension assembly. Ash gray.",
-      "version": "1",
+      "version": "2",
       "created_at": "2026-07-08",
-      "updated_at": "2026-07-08",
+      "updated_at": "2026-08-22",
       "versions": [
         {
           "version": "1",
@@ -2023,6 +2023,14 @@
           "commit": "ce5d56e",
           "onshape_doc": "https://cad.onshape.com/documents/249bded2198af476185014b6",
           "onshape_version": "https://cad.onshape.com/documents/249bded2198af476185014b6/v/57d753798ce11a250478918d/e/48c64d61f1276c46f515d6bd"
+        },
+        {
+          "version": "2",
+          "date": "2026-08-22",
+          "message": "Dropped the raised \"50 mm\" lettering. Its geometry tessellated into zero-area slivers, which left the exported mesh non-manifold, so it could neither be checked nor stamped. The tube itself is unchanged.",
+          "commit": null,
+          "onshape_doc": "https://cad.onshape.com/documents/249bded2198af476185014b6",
+          "onshape_version": "https://cad.onshape.com/documents/249bded2198af476185014b6/v/3ec354b28012f6c0ab41285a/e/48c64d61f1276c46f515d6bd"
         }
       ],
       "attributes": [
@@ -2039,7 +2047,7 @@
         "classification-channel": 1
       },
       "assembly": "camera-extension",
-      "stl_hash": "1253c651918595ba46bfc57401c0b2b6aeb2893649fa6c0d4b92c486943deee4",
+      "stl_hash": "c9cf562fd9a5b1f90bcdbbddb402b6bd7621e33b005c1c8a15d50ee6f7d9f524",
       "color": {
         "fixed": "ash-gray"
       },

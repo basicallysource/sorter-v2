@@ -11,8 +11,8 @@
 		"density_g_cm3": 1.32,
 		"cost_per_kg": 24.99,
 		"commit_base_url": "https://github.com/basicallysource/sorter-v2/commit/",
-		"all_parts_zip": "https://img.basically.website/parts/bundle/all-parts-33c26ebb.zip",
-		"all_parts_plain_zip": "https://img.basically.website/parts/bundle/all-parts-plain-eee4ad8e.zip"
+		"all_parts_zip": "https://img.basically.website/parts/bundle/all-parts-09ee1c6e.zip",
+		"all_parts_plain_zip": "https://img.basically.website/parts/bundle/all-parts-plain-4d45d13a.zip"
 	},
 	"sections": [
 		{
@@ -5394,7 +5394,7 @@
 			"description": "Inner half of the ribbon cable clamp. White.",
 			"version": "1",
 			"created_at": "2026-06-27",
-			"updated_at": "2026-06-27",
+			"updated_at": "2026-08-22",
 			"versions": [
 				{
 					"version": "1",
@@ -5402,8 +5402,8 @@
 					"date": "2026-06-27",
 					"message": "Initial version.",
 					"commit": null,
-					"stl": "https://img.basically.website/parts/stl/cable-clamp-inner-3fue-a77f4963.stl",
-					"render": "https://img.basically.website/parts/render/cable-clamp-inner-4f239270.png",
+					"stl": "https://img.basically.website/parts/stl/cable-clamp-inner-3fue-16cfdfea.stl",
+					"render": "https://img.basically.website/parts/render/cable-clamp-inner-16baaea1.png",
 					"grams": 6.45
 				}
 			],
@@ -5426,9 +5426,92 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"stl": "https://img.basically.website/parts/stl/cable-clamp-inner-3fue-a77f4963.stl",
-			"render": "https://img.basically.website/parts/render/cable-clamp-inner-4f239270.png",
-			"stamped": []
+			"stl": "https://img.basically.website/parts/stl/cable-clamp-inner-3fue-16cfdfea.stl",
+			"render": "https://img.basically.website/parts/render/cable-clamp-inner-16baaea1.png",
+			"stamped": [
+				{
+					"face": "bottom",
+					"stl": "https://img.basically.website/parts/stl/cable-clamp-inner-3fue-stamped-bottom-ba82cb82.stl",
+					"normal": [
+						-0.0,
+						-0.0,
+						-1.0
+					],
+					"center": [
+						-81.38,
+						13.27,
+						204.62
+					],
+					"size": [
+						2.55,
+						8.79
+					],
+					"cap": 2.5,
+					"depth": 0.6,
+					"note": "smaller text"
+				},
+				{
+					"face": "bottom 2",
+					"stl": "https://img.basically.website/parts/stl/cable-clamp-inner-3fue-stamped-bottom-2-6e3ce509.stl",
+					"normal": [
+						-0.0,
+						-0.0,
+						-1.0
+					],
+					"center": [
+						-83.66,
+						-6.92,
+						204.62
+					],
+					"size": [
+						2.55,
+						8.79
+					],
+					"cap": 2.5,
+					"depth": 0.6,
+					"note": "smaller text"
+				},
+				{
+					"face": "-x side",
+					"stl": "https://img.basically.website/parts/stl/cable-clamp-inner-3fue-stamped-minus-x-side-0b6c48ad.stl",
+					"normal": [
+						-1.0,
+						0.0,
+						0.0
+					],
+					"center": [
+						-87.21,
+						32.09,
+						232.54
+					],
+					"size": [
+						12.3,
+						3.56
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "+x side",
+					"stl": "https://img.basically.website/parts/stl/cable-clamp-inner-3fue-stamped-plus-x-side-e4cb889e.stl",
+					"normal": [
+						1.0,
+						0.0,
+						0.0
+					],
+					"center": [
+						-79.21,
+						32.09,
+						232.54
+					],
+					"size": [
+						12.3,
+						3.56
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				}
+			]
 		},
 		{
 			"id": "cable-clamp-outer",
@@ -10179,7 +10262,7 @@
 		},
 		{
 			"id": "camera-extension",
-			"uid": "q7ns",
+			"uid": "v684",
 			"name": "Camera extension",
 			"quantities": {
 				"classification-channel": 1
@@ -10189,21 +10272,32 @@
 			"variant_group": null,
 			"variant_name": null,
 			"description": "Camera extension tube for the classification channel. 1 needed.",
-			"version": "1",
+			"version": "2",
 			"created_at": "2026-07-08",
-			"updated_at": "2026-07-08",
+			"updated_at": "2026-08-22",
 			"versions": [
 				{
 					"version": "1",
-					"uid": "q7ns",
 					"date": "2026-07-08",
 					"message": "Initial version.",
 					"commit": "ce5d56e",
 					"onshape_doc": "https://cad.onshape.com/documents/249bded2198af476185014b6",
 					"onshape_version": "https://cad.onshape.com/documents/249bded2198af476185014b6/v/57d753798ce11a250478918d/e/48c64d61f1276c46f515d6bd",
-					"stl": "https://img.basically.website/parts/stl/camera-extension-q7ns-1253c651.stl",
-					"render": "https://img.basically.website/parts/render/camera-extension-33523f61.png",
-					"grams": 28.6
+					"stl": "https://img.basically.website/parts/stl/camera-extension-v684-c9cf562f.stl",
+					"render": "https://img.basically.website/parts/render/camera-extension-e53f4965.png",
+					"grams": 28.37
+				},
+				{
+					"version": "2",
+					"uid": "v684",
+					"date": "2026-08-22",
+					"message": "Dropped the raised \"50 mm\" lettering. Its geometry tessellated into zero-area slivers, which left the exported mesh non-manifold, so it could neither be checked nor stamped. The tube itself is unchanged.",
+					"commit": null,
+					"onshape_doc": "https://cad.onshape.com/documents/249bded2198af476185014b6",
+					"onshape_version": "https://cad.onshape.com/documents/249bded2198af476185014b6/v/3ec354b28012f6c0ab41285a/e/48c64d61f1276c46f515d6bd",
+					"stl": "https://img.basically.website/parts/stl/camera-extension-v684-c9cf562f.stl",
+					"render": "https://img.basically.website/parts/render/camera-extension-e53f4965.png",
+					"grams": 28.37
 				}
 			],
 			"attributes": [
@@ -10216,11 +10310,11 @@
 					"value": "Innomaker 4K Camera Module"
 				}
 			],
-			"grams": 28.6,
+			"grams": 28.37,
 			"support_grams": 0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 4219,
+			"print_seconds": 4106,
 			"color": {
 				"fixed": "ash-gray"
 			},
@@ -10234,9 +10328,90 @@
 			"caption": "50 mm extension tube for the 4K camera module.",
 			"docs_page": null,
 			"conflicts": null,
-			"stl": "https://img.basically.website/parts/stl/camera-extension-q7ns-1253c651.stl",
-			"render": "https://img.basically.website/parts/render/camera-extension-33523f61.png",
-			"stamped": []
+			"stl": "https://img.basically.website/parts/stl/camera-extension-v684-c9cf562f.stl",
+			"render": "https://img.basically.website/parts/render/camera-extension-e53f4965.png",
+			"stamped": [
+				{
+					"face": "bottom",
+					"stl": "https://img.basically.website/parts/stl/camera-extension-v684-stamped-bottom-e3e2f50d.stl",
+					"normal": [
+						0.0,
+						0.0,
+						-1.0
+					],
+					"center": [
+						33.09,
+						-6.84,
+						2.0
+					],
+					"size": [
+						12.58,
+						3.56
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "-x side",
+					"stl": "https://img.basically.website/parts/stl/camera-extension-v684-stamped-minus-x-side-97933eea.stl",
+					"normal": [
+						-1.0,
+						0.0,
+						-0.0
+					],
+					"center": [
+						-10.0,
+						40.59,
+						5.16
+					],
+					"size": [
+						12.58,
+						3.56
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "+x side",
+					"stl": "https://img.basically.website/parts/stl/camera-extension-v684-stamped-plus-x-side-00ac02d0.stl",
+					"normal": [
+						1.0,
+						0.0,
+						0.0
+					],
+					"center": [
+						48.25,
+						-2.34,
+						5.16
+					],
+					"size": [
+						12.58,
+						3.56
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "+x side 2",
+					"stl": "https://img.basically.website/parts/stl/camera-extension-v684-stamped-plus-x-side-2-c8e5dd28.stl",
+					"normal": [
+						1.0,
+						0.0,
+						-0.0
+					],
+					"center": [
+						-0.3,
+						-2.34,
+						52.84
+					],
+					"size": [
+						12.58,
+						3.56
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				}
+			]
 		},
 		{
 			"id": "camera-extension-mount",

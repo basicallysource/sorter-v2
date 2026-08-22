@@ -9,7 +9,9 @@ with Content-Type: image/png, and rendered as a broken image on production.
 
 So status codes alone prove nothing here. Images must return a real PNG/JPEG
 magic number; STLs, plates, and the all-parts bundle must be reachable, larger
-than a pointer stub, and not LFS pointer text. Since the repo no longer holds
+than a pointer stub, not LFS pointer text, and served with a Content-Disposition
+naming the key's basename (what the browser names the download, so the uid in
+`<part>-<uid>-<hash8>.stl` survives into the slicer project). Since the repo no longer holds
 any binary serving copies, this is also the check that catches "the generated
 data references bytes nobody uploaded" -- e.g. a fork PR (no bucket
 credentials in CI) adding a part.
@@ -55,11 +57,20 @@ def collect_urls() -> dict[str, str]:
         if isinstance(u, str) and u.startswith("http"):
             urls[u] = kind
 
+    def add_images(item):
+        # the extra pictures of a thing, and of its versions and candidates
+        for im in item.get("images") or []:
+            add(im.get("url"), "image")
+        for extra in ("versions", "candidates"):
+            for sub in item.get(extra) or []:
+                add_images(sub)
+
     parts = json.loads(CATALOG.read_text())
     add(parts.get("settings", {}).get("all_parts_zip"), "binary")
     for p in parts.get("parts", []):
         add(p.get("stl"), "binary")
         add(p.get("render"), "image")
+        add_images(p)
         for v in p.get("versions") or []:
             add(v.get("stl"), "binary")
             add(v.get("render"), "image")
@@ -68,13 +79,15 @@ def collect_urls() -> dict[str, str]:
             add(c.get("render"), "image")
     for h in parts.get("hardware", []):
         add(h.get("image"), "image")
+        add_images(h)
+    for a in parts.get("assemblies", []):
+        add_images(a)
     for lc in parts.get("lasercut", []):
         add(lc.get("photo"), "image")
     for f in parts.get("families", []):
         add(f.get("image"), "image")
     for c in parts.get("changes", []):
-        for im in c.get("images") or []:
-            add(im.get("url"), "image")
+        add_images(c)
 
     for plate in parts.get("plates", []):
         add(plate.get("download"), "binary")
@@ -95,6 +108,7 @@ def check(item: tuple[str, str]) -> tuple[str, str | None]:
             # with the full body (its cache holds whole objects), so an
             # unbounded read here would download every STL and the bundle.
             head = r.read(1024)
+            disposition = r.headers.get("Content-Disposition")
             total = r.headers.get("Content-Range")
             if total:  # 206: the range tells us the true size
                 size = int(total.split("/")[-1])
@@ -105,6 +119,16 @@ def check(item: tuple[str, str]) -> tuple[str, str | None]:
     except Exception as e:  # network/DNS/timeout
         return url, f"unreachable: {type(e).__name__}"
 
+    if kind == "binary":
+        # The browser names a download after Content-Disposition, not the URL.
+        # A downloaded STL has to read <part>-<uid>-<hash8>.stl so the print
+        # (and the slicer project, which takes the STL's name) traces back to
+        # its exact version; an upload stamped with a local filename loses it.
+        m = re.search(r'filename="([^"]+)"', disposition or "")
+        want = url.rsplit("/", 1)[1]
+        if not m or m.group(1) != want:
+            return url, (f"Content-Disposition names {m.group(1) if m else None!r}, "
+                         f"not {want!r} -- the download would lose its uid")
     if head.startswith(LFS_POINTER):
         return url, (
             "serves a Git LFS pointer, not real content -- something hashed "

@@ -10,9 +10,11 @@ laser-cut parts carry one too -- one scheme for everything on the machine.
 
   /opt/homebrew/opt/python@3.11/libexec/bin/python catalog/mint_uid.py [N]
 
-prints N (default 1) fresh uids, none of them anywhere in parts.json.
+prints N (default 1) fresh uids, none of them anywhere in parts.json or
+already naming a note.
 generate.py refuses a parts.json with a duplicate or missing uid.
 """
+import glob
 import json
 import os
 import random
@@ -22,6 +24,9 @@ import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 MANIFEST = os.path.join(HERE, "parts.json")
+# Engineering notes (docs/src/content/notes/<id>.md, served at /n/<id>/) are
+# named from this same pool, so an id means one thing whatever you type it into.
+NOTES = os.path.join(HERE, "..", "..", "docs", "src", "content", "notes", "*.md")
 
 ALPHABET = string.ascii_lowercase + string.digits
 UID = re.compile(r"[a-z0-9]{4}")
@@ -29,11 +34,11 @@ UID = re.compile(r"[a-z0-9]{4}")
 
 def taken_uids(manifest):
     """Every uid in use: each part's and assembly's current one, their superseded
-    versions' and their candidates'."""
+    versions' and their candidates', plus every note id."""
     return {u for item in manifest["parts"] + manifest.get("assemblies", [])
             for u in [item.get("uid")] + [v.get("uid") for v in item.get("versions") or []]
                      + [c.get("uid") for c in item.get("candidates") or []]
-            if u}
+            if u} | {os.path.basename(p)[:-3] for p in glob.glob(NOTES)}
 
 
 def mint(taken):

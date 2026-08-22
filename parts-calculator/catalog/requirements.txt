@@ -10,3 +10,7 @@ shapely==2.1.2
 manifold3d==3.5.2
 scipy==1.17.1
 boto3==1.42.44
+# scripts/mesh_report.py and mesh_repair.py: finding the places an export is not
+# a closed solid, and drawing them (meshfig.py rasterises with numpy + Pillow,
+# since a build box has no GL context)
+pillow==12.3.0

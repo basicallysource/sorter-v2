@@ -8,7 +8,7 @@ kicker: Feeder — C-Channel
 lede: The C-channel stage itself.
 permalink: /hardware/assembly/feeder/c-channel/
 author: spencer
-contributors: [barthel, brickcyclealice]
+contributors: [barthel, brickcyclealice, christoph]
 warning: >-
   **Steps 1 to 5 come from a build**, the order of operations and the photographs are
   BrickCycleAlice's. Step 6, the light post, is still an AI-generated first draft written
@@ -37,11 +37,9 @@ parts_needed:
   - part: brg-608-2rs
     qty: 1
   - part: scr-m3-12-cs
-    qty: 4
+    qty: 10
   - part: scr-m3-16-shcs
     qty: 3
-  - part: scr-m3-8-cs
-    qty: 6
   - part: scr-m3-8-shcs
     qty: 1
 ---
@@ -69,7 +67,9 @@ Both are press fits. No screws, no adhesive, no heat.
 
 {% include step.html n="2" title="Bolt the output gear to the rotor" %}
 
-Bolt the Output gear onto the underside of the rotor with 6 {% include fastener.html size="M3" variant="countersunk" length="8" %} screws, one at the outer end of each spoke, seated flush in the countersinks. The six holes are 60° apart on a 90 mm bolt circle, so the gear only goes on one way up.
+Bolt the Output gear onto the underside of the rotor with 6 {% include fastener.html size="M3" variant="countersunk" length="12" %} screws, one at the outer end of each spoke, seated flush in the countersinks. The six holes are 60° apart on a 90 mm bolt circle, so the gear only goes on one way up.
+
+**Use the 12 mm, not the 8 mm.** The gear is 8 mm thick at the bolt circle, and a countersunk screw's length is measured over its head, so an M3 × 8 seated flush in the countersink finishes level with the top of the gear and never enters the rotor at all. The 12 mm leaves 4 mm of thread in the rotor's 5 mm flange and stops short of breaking through the far side.
 
 <figure>
   <img class="doc-figure" src="https://img.basically.website/web/assembly/c-channel/output-gear-bolted-to-rotor.71754b0d6ad3bd9a.jpg" alt="The grey 130-tooth output gear with a black-sealed 6806 bearing pressed into its centre, bolted onto a white rotor behind it, with a countersunk screw at the outer end of each of the six spokes">

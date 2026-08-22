@@ -11,5 +11,5 @@ author: spencer
 ---
 
 - **[Assembly]({{ '/hardware/assembly/' | relative_url }})**: the build order, structured like a set of instructions.
-- **[Electronics]({{ '/hardware/electronics/' | relative_url }})**: the wire harness, stepper connectors and polarity, the cable order spec, and the rendered WireViz drawings.
+- **[Electronics]({{ '/hardware/electronics/' | relative_url }})**: the wire harness, stepper connectors and polarity, the cable order spec, the rendered WireViz drawings, and [installing the electronics]({{ '/hardware/electronics/installation/' | relative_url }}).
 - **[Bill of materials](https://parts-calculator.basically.website/hardware)**: every part, with sources and part numbers.

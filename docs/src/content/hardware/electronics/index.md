@@ -19,6 +19,8 @@ Wire IDs match the schedule tables. Open items are in section 7.
   <p><b>These electronics pages are working notes right now, not finished documentation.</b> The harness is actively being specced, so parts of this change week to week and some of it contradicts what a machine already built looks like. Anything still undecided is written down as an open item in section 7 rather than smoothed over. Started from what Spencer had on July 12th 2026; treat it as the current thinking, not the final state.</p>
 </div>
 
+This page is the wiring. Where the PSU, the control board and the Orange Pi physically mount is [Installing the electronics]({{ '/hardware/electronics/installation/' | relative_url }}).
+
 ## 1 &nbsp; Power supply
 
 <dl class="spec-list">

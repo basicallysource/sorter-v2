@@ -313,6 +313,7 @@
       "name": "Stator",
       "description": "Feeder stator. 4 required: 1 gray + 3 black.",
       "internal_notes": "One per C-channel area. 1 gray, 3 black. Required. ~240mm disc (bed-max).",
+      "info": "The four holes the NEMA bracket screws into are modelled at \u00d82.4 mm, under an M3's 2.46 mm thread root, so an M3 will not thread into 10 mm of them as printed. Drill those four out to 2.8 mm, matching the other four thread-forming holes in the same part, before assembly.",
       "version": "1",
       "created_at": "2026-06-27",
       "updated_at": "2026-06-27",

@@ -56,7 +56,7 @@ The fasteners and quantities are in the parts list above and are called out inli
 
 {% include step.html n="1" title="Preparation" %}
 
-**No heat inserts on this assembly.** Every screw here threads straight into a printed part, except the three that go into the stepper's own tapped holes. That is how one was built, and the part STLs agree: the rotor's six holes are Ø2.8 mm and the stator's are Ø2.4 and Ø2.8 mm, all thread-forming, while the NEMA bracket and the output gear are Ø3.4 mm clearance throughout with nothing threaded in them.
+**No heat inserts on this assembly.** Every screw here threads straight into a printed part, except the three that go into the stepper's own tapped holes. That is how one was built, and the part STLs agree: the rotor's six holes are Ø2.8 mm and the stator's are Ø2.4 and Ø2.8 mm, all thread-forming (the four Ø2.4 need opening out before they will take a screw, see step 5), while the NEMA bracket and the output gear are Ø3.4 mm clearance throughout with nothing threaded in them.
 
 **Press both bearings into their gears first**, while the parts are loose and you can support them on the bench.
 
@@ -101,6 +101,11 @@ Then fasten the NEMA 17 to the bracket with 3 {% include fastener.html size="M3"
 {% include step.html n="5" title="Mount the stator, then drop in the rotor" %}
 
 Fasten the NEMA bracket to the underside of the stator with 4 {% include fastener.html size="M3" variant="countersunk" length="12" %} screws.
+
+<div class="callout callout-warning">
+  <span class="callout-icon" aria-hidden="true">⚠</span>
+  <p><b>Drill these four holes in the stator out to 2.8 mm first.</b> They are modelled at Ø2.4 mm, which is under an M3's 2.46 mm thread root, and a printed hole comes out smaller again, so the screw has to cut a full-depth thread through 10 mm of plastic. It will cam out or split the boss before it goes in. Every other M3 thread-forming hole on this assembly, including the other four in the same stator, is Ø2.8 mm, so open these to match (a 2.8 mm bit, or 7/64"). With 10 mm of engagement there is no loss of holding power.</p>
+</div>
 
 Then lower the rotor, output gear and all, onto the raised hub in the middle of the bracket, so the 130T comes down into mesh with the idler.
 

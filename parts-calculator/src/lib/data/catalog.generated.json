@@ -1127,7 +1127,7 @@
 			"uid": "mttx",
 			"version": "1",
 			"name": "C-channel drive",
-			"description": "One C-channel drive unit: stator, NEMA bracket, output gear, gear train and stepper. 4 per machine \u2014 3 in the feeder plus the classification channel's. Screw joints: 4 \u00d7 [[hw:scr-m3-12-cs]] hold the NEMA bracket to the stator; 3 \u00d7 [[hw:scr-m3-16-shcs]] hold the stepper to the NEMA bracket; 1 \u00d7 [[hw:scr-m3-8-shcs]] clamps the input gear to the motor shaft flat; 6 \u00d7 [[hw:scr-m3-8-cs]] attach the output gear to the rotor, one per spoke (the light post's 2 \u00d7 [[hw:scr-m3-20-cs]] into the NEMA bracket live on the light-post assembly). The rotor differs by location (faceted in the feeder, finned in the classification chamber), so it is not part of this node.",
+			"description": "One C-channel drive unit: stator, NEMA bracket, output gear, gear train and stepper. 4 per machine \u2014 3 in the feeder plus the classification channel's. Screw joints: 4 \u00d7 [[hw:scr-m3-12-cs]] hold the NEMA bracket to the stator; 3 \u00d7 [[hw:scr-m3-16-shcs]] hold the stepper to the NEMA bracket; 1 \u00d7 [[hw:scr-m3-8-shcs]] clamps the input gear to the motor shaft flat; 6 \u00d7 [[hw:scr-m3-12-cs]] attach the output gear to the rotor, one per spoke \u2014 the gear is 8 mm thick at the bolt circle and a countersunk screw's length is measured over its head, so an M3 \u00d7 8 seated flush reaches nothing (the light post's 2 \u00d7 [[hw:scr-m3-20-cs]] into the NEMA bracket live on the light-post assembly). The rotor differs by location (faceted in the feeder, finned in the classification chamber), so it is not part of this node.",
 			"docs": "/hardware/assembly/feeder/c-channel/",
 			"status": "partial",
 			"lines": [
@@ -1161,11 +1161,7 @@
 				},
 				{
 					"part": "scr-m3-12-cs",
-					"qty": 4
-				},
-				{
-					"part": "scr-m3-8-cs",
-					"qty": 6
+					"qty": 10
 				},
 				{
 					"part": "scr-m3-8-shcs",
@@ -1577,7 +1573,7 @@
 			},
 			"optional": false,
 			"onshape": null,
-			"info": null,
+			"info": "The four holes the NEMA bracket screws into are modelled at \u00d82.4 mm, under an M3's 2.46 mm thread root, so an M3 will not thread into 10 mm of them as printed. Drill those four out to 2.8 mm, matching the other four thread-forming holes in the same part, before assembly.",
 			"low_tolerance": false,
 			"low_tolerance_note": null,
 			"layer_scope": "all",

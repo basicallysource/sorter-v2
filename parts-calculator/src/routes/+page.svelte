@@ -37,6 +37,7 @@
 	import ColorPicker from '$lib/components/ColorPicker.svelte';
 	import Modal from '$lib/components/Modal.svelte';
 	import PartDetailModal from '$lib/components/PartDetailModal.svelte';
+	import AssemblyDetailModal from '$lib/components/AssemblyDetailModal.svelte';
 	import IdStamp from '$lib/components/IdStamp.svelte';
 	import BuildPlates from '$lib/components/BuildPlates.svelte';
 	import Seo from '$lib/components/Seo.svelte';
@@ -52,7 +53,7 @@
 	import Badge from '$lib/components/Badge.svelte';
 	import ChangeStatus from '$lib/components/ChangeStatus.svelte';
 	import MissingImage from '$lib/components/MissingImage.svelte';
-	import { Download, Package, ZoomIn, Loader, Info, Plus, X, RotateCcw, Clock, Layers3, ExternalLink, AlertTriangle, History, ChevronRight, ChevronDown } from 'lucide-svelte';
+	import { Download, Package, ZoomIn, Loader, Info, Plus, X, RotateCcw, Clock, Layers3, ExternalLink, AlertTriangle, History, ChevronRight, ChevronDown, ArrowUpRight, FlaskConical } from 'lucide-svelte';
 	import { page } from '$app/state';
 	import { replaceState } from '$app/navigation';
 	import { browser } from '$app/environment';
@@ -152,6 +153,8 @@
 				version: v ? p.versions?.find((x) => String(x.version) === v) : undefined
 			});
 		}
+		const aid = sp.get('assembly');
+		if (aid && getAssembly(aid)) openAssembly(aid);
 		urlReady = true;
 	});
 
@@ -175,6 +178,8 @@
 			params.delete('color');
 			params.delete('v');
 		}
+		if (asmOpen && asmId) params.set('assembly', asmId);
+		else params.delete('assembly');
 		const qs = params.toString();
 		const target = qs ? `${location.pathname}?${qs}` : location.pathname;
 		if (target !== location.pathname + location.search) replaceState(target, {});
@@ -204,6 +209,15 @@
 	function openPlatesModal(id: string) {
 		platesModalPartId = id;
 		platesModalOpen = true;
+	}
+	// The assembly modal: the rollup rows and the assembly tab open the same view
+	// of one box. Held here (not inside the modal) so it can be deep-linked, the
+	// same way the part viewer is.
+	let asmOpen = $state(false);
+	let asmId = $state<string | null>(null);
+	function openAssembly(id: string) {
+		asmId = id;
+		asmOpen = true;
 	}
 	let viewerOpen = $state(false);
 	let viewerPart = $state<Part | null>(null);
@@ -602,15 +616,20 @@
 				{/if}
 			</td>
 			<td class="pl-c-thumb">
-				<button
-					type="button"
-					class="pl-thumb group relative"
-					onclick={() => openViewer(p)}
-					title="View {p.name} in 3D"
-				>
-					<img src={p.render} alt={p.name} />
-					<span class="absolute inset-0 flex items-center justify-center bg-black/40 text-white opacity-0 transition-opacity group-hover:opacity-100 group-hover/row:opacity-100"><ZoomIn size={16} /></span>
-				</button>
+				<span class="pl-thumbwrap">
+					<!-- empty twist slot: keeps a part's thumbnail on the same line as
+					     the fans on the assembly rows above it -->
+					<span class="pl-twist"></span>
+					<button
+						type="button"
+						class="pl-thumb group relative"
+						onclick={() => openViewer(p)}
+						title="View {p.name} in 3D"
+					>
+						<img src={p.render} alt={p.name} />
+						<span class="absolute inset-0 flex items-center justify-center bg-black/40 text-white opacity-0 transition-opacity group-hover:opacity-100 group-hover/row:opacity-100"><ZoomIn size={16} /></span>
+					</button>
+				</span>
 			</td>
 			<td class="pl-c-name">
 				<span class="pl-name">
@@ -824,46 +843,72 @@
 									{@const open = expandedAsm[k]}
 									{@const allOn = asmAllOn(block.parts)}
 									<!-- svelte-ignore a11y_no_noninteractive_element_interactions a11y_click_events_have_key_events -->
-									<tr class="pl-row" id="assembly-{block.id}" onclick={() => toggleAsm(k)}>
+									<tr
+										class="pl-row"
+										id="assembly-{block.id}"
+										onclick={() => (a ? openAssembly(a.id) : toggleAsm(k))}
+										title={a ? `View ${a.name}` : undefined}
+									>
 										<td class="pl-c-check">
-										<input
+											<input
 												class="setup-toggle h-4 w-4"
 												type="checkbox"
 												checked={allOn}
 												indeterminate={!allOn && asmSomeOn(block.parts)}
 												onclick={(e) => e.stopPropagation()}
 												onchange={() => setAsm(block.parts, !allOn)}
-											aria-label="Select every part in {group?.name}"
-											disabled={!block.parts.length}
+												aria-label="Select every part in {group?.name}"
+												disabled={!block.parts.length}
 											/>
 										</td>
 										<td class="pl-c-thumb">
-										<span class="pl-fan">
-											{#if !block.parts.length}<MissingImage class="pl-thumb" />{/if}
-												{#each block.parts.slice(0, 3) as bp, i (bp.id)}
-													<span class="pl-thumb" style="z-index:{3 - i}"><img src={bp.render} alt={bp.name} /></span>
-												{/each}
+											<span class="pl-thumbwrap">
+												<!-- The only control that expands the members in place. Everything
+												     else on the row opens the assembly itself. -->
+												{#if block.parts.length}
+													<button
+														type="button"
+														class="pl-twist"
+														onclick={(e) => { e.stopPropagation(); toggleAsm(k); }}
+														aria-expanded={!!open}
+														aria-label="{open ? 'Hide' : 'Show'} the parts inside {group?.name}"
+														title="{open ? 'Hide' : 'Show'} the {block.parts.length} parts inside"
+													>
+														{#if open}<ChevronDown size={15} />{:else}<ChevronRight size={15} />{/if}
+													</button>
+												{:else}<span class="pl-twist"></span>{/if}
+												<span class="pl-fan">
+													{#if !block.parts.length}<MissingImage class="pl-thumb" />{/if}
+													{#each block.parts.slice(0, 3) as bp, i (bp.id)}
+														<span class="pl-thumb" style="z-index:{3 - i}"><img src={bp.render} alt={bp.name} /></span>
+													{/each}
+												</span>
 											</span>
 										</td>
 										<td class="pl-c-name">
-											<span class="pl-name">
-												{#if open}<ChevronDown size={15} class="text-text-muted" />{:else}<ChevronRight size={15} class="text-text-muted" />{/if}
-												{group?.name}
-												<Badge variant={block.groupKind === 'folder' ? 'neutral' : 'info'}>{block.groupKind === 'folder' ? 'Folder' : 'Assembly'}</Badge>
-												{#if block.groupKind === 'assembly' && a?.status === 'stub'}<Badge variant="neutral">Coming soon</Badge>{/if}
-												{#if block.groupKind === 'assembly' && a}<ChangeStatus kind="assemblies" id={a.id} name={a.name} />{/if}
+											<span class="pl-nameblock" class:pl-open={!!a}>
+												<span class="pl-name">
+													{group?.name}
+													<Badge variant={block.groupKind === 'folder' ? 'neutral' : 'info'}>{block.groupKind === 'folder' ? 'Folder' : 'Assembly'}</Badge>
+													{#if block.groupKind === 'assembly' && a?.status === 'stub'}<Badge variant="neutral">Coming soon</Badge>{/if}
+													{#if a?.candidates?.some((c) => !c.superseded_by && !c.rejected_at)}<Badge variant="info"><FlaskConical size={11} /> Candidate</Badge>{/if}
+													{#if block.groupKind === 'assembly' && a}<ChangeStatus kind="assemblies" id={a.id} name={a.name} />{/if}
+												</span>
+												<span class="pl-meta">
+													{block.parts.length ? `${block.parts.length} printed parts` : 'Parts and print details coming soon'}
+													{#if a}<span class="pl-hint">View assembly <ArrowUpRight size={12} /></span>{:else if block.parts.length}· click to {open ? 'collapse' : 'expand'}{/if}
+												</span>
 											</span>
-										<span class="pl-meta">{block.parts.length ? `${block.parts.length} parts · click to ${open ? 'collapse' : 'expand'}` : 'Parts and print details coming soon'}</span>
 										</td>
-									<td class="pl-c-each">{block.parts.length ? `${block.parts.length} parts` : '—'}</td>
-									<td class="pl-c-total">{block.parts.length ? grams(asmGrams(block.parts, section.id)) : '—'}</td>
+										<td class="pl-c-each">{block.parts.length ? `${block.parts.length} parts` : '—'}</td>
+										<td class="pl-c-total">{block.parts.length ? grams(asmGrams(block.parts, section.id)) : '—'}</td>
 										<td class="pl-c-dl">
-										{#if block.parts.length}<button
-												type="button"
-												class="pl-dl"
-												onclick={(e) => { e.stopPropagation(); downloadZip(block.parts, `${block.id}.zip`); }}
-												title="Download every STL in {group?.name}"
-										><Download size={16} /></button>{/if}
+											{#if block.parts.length}<button
+													type="button"
+													class="pl-dl"
+													onclick={(e) => { e.stopPropagation(); downloadZip(block.parts, `${block.id}.zip`); }}
+													title="Download every STL in {group?.name}"
+											><Download size={16} /></button>{/if}
 										</td>
 									</tr>
 									{#if open}
@@ -984,6 +1029,7 @@
 	</footer>
 </div>
 
+<AssemblyDetailModal bind:open={asmOpen} id={asmId} {layers} onPart={(p) => openViewer(p)} />
 <PartDetailModal bind:open={viewerOpen} part={viewerPart} bind:colorId={viewerColor} bind:version={viewerVersion} />
 
 <Modal bind:open={platesModalOpen} title="Build plates · {partsById.get(platesModalPartId ?? '')?.name ?? ''}">
@@ -1050,16 +1096,22 @@
 		.pl-row > td:first-child { padding-left: 0.5rem; }
 		.pl-kid > td:first-child { padding-left: 1.25rem; }
 		.pl-c-each { display: none; }
-		.pl-c-check { width: 1.75rem; }
-		.pl-c-thumb { width: 2.75rem; }
-		.pl-c-thumb img { width: 2.25rem; height: 2.25rem; }
+		/* Prefixed with .pl-tbl on purpose: the desktop column widths below are
+		   written after this block, so a bare .pl-c-* here loses to them and the
+		   phone layout silently keeps desktop widths. Costs one class of
+		   specificity; buys the tightening this block exists for. */
+		.pl-tbl .pl-c-check { width: 1.75rem; }
+		/* twist slot + thumbnail have to fit inside the fixed column, borders and
+		   all, or the name cell begins underneath the image */
+		.pl-tbl .pl-c-thumb { width: 4.75rem; }
+		.pl-c-thumb .pl-thumb { width: 2.25rem; height: 2.25rem; }
 		/* the rollup's fan of three thumbnails has nowhere to go in a phone's thumb
 		   column — it spilled over the name. One stands in; the badge and the
 		   "3 parts" line already say it's an assembly. */
 		.pl-fan .pl-thumb + .pl-thumb { display: none; }
 		.pl-c-name { width: auto; }
-		.pl-c-total { width: 3.5rem; }
-		.pl-c-dl { width: 1.5rem; }
+		.pl-tbl .pl-c-total { width: 3.5rem; }
+		.pl-tbl .pl-c-dl { width: 1.5rem; }
 		.pl-sec { margin-bottom: 1.75rem; }
 		/* long unbroken part names would otherwise force the column wider */
 		.pl-name,
@@ -1101,6 +1153,34 @@
 	.pl-fan { display: flex; }
 	.pl-fan .pl-thumb { border: 1px solid var(--color-border); background: var(--color-surface); }
 	.pl-fan .pl-thumb + .pl-thumb { margin-left: -0.75rem; }
+
+	/* An assembly row is a door, not a disclosure widget. The name and its count
+	   are drawn as one object you open; the chevron beside the thumbnails is the
+	   only thing that expands the members in place. Part rows keep an empty twist
+	   slot so their single thumbnail lines up with the fans above it. */
+	.pl-thumbwrap { display: flex; align-items: center; gap: 0.25rem; }
+	.pl-twist {
+		display: inline-flex; align-items: center; justify-content: center;
+		width: 1.125rem; height: 1.5rem; flex: none;
+		color: var(--color-text-muted);
+	}
+	button.pl-twist { cursor: pointer; transition: color 120ms; }
+	button.pl-twist:hover, button.pl-twist:focus-visible { outline: none; color: var(--color-primary); }
+
+	.pl-nameblock { display: block; }
+	.pl-open {
+		/* No negative margin to pull the text back into line with the part rows
+		   below: at 375px the name cell is narrow enough that the box would slide
+		   under the thumbnail. The half-rem inset reads as hierarchy anyway. */
+		display: inline-block; padding: 0.3125rem 0.5rem;
+		border: 1px solid var(--color-border); background: var(--color-bg);
+		transition: border-color 120ms ease, background-color 120ms ease;
+	}
+	.pl-row:hover .pl-open, .pl-row:focus-within .pl-open {
+		border-color: var(--color-primary);
+		background: color-mix(in oklab, var(--color-primary) 6%, var(--color-bg));
+	}
+	.pl-hint { display: inline-flex; align-items: center; gap: 0.125rem; color: var(--color-primary); }
 
 	.pl-dl { display: inline-flex; color: var(--color-primary); }
 	.pl-dl:hover { color: var(--color-primary-hover); }

@@ -69,6 +69,28 @@ OrcaSlicer's own output. Do not compute weight from volume/density.
 /opt/homebrew/opt/python@3.11/libexec/bin/python catalog/generate.py
 ```
 
+## One detail view per thing
+
+A part, a hardware item and an assembly each have exactly one detail view, and
+every surface opens that same one: `PartDetail`, `HardwareDetail`,
+`AssemblyDetail`, each with a thin `*DetailModal` wrapper. The parts dashboard
+and the assembly tab both open the same component, so "view the PSU box" cannot
+come to mean two different screens. A new place that needs to show one of these
+imports the existing view; it does not write a second rendering of the same
+data.
+
+`AssemblyDetail` renders **one level**. Sub-assemblies are rows you open in
+turn, and the modal keeps its own back trail — the tree page already shows the
+whole thing nested, and this view exists for the opposite need: one box at a
+time. Parts and hardware are handed back to the host through `onPart` /
+`onHardware`, because the host already owns those modals.
+
+**Modals stack.** Opening a part from inside an assembly puts one on top of the
+other, and `Modal.svelte` keeps a module-level stack so Escape closes the front
+one instead of the whole pile. Stacked modals are ordered by where they appear
+in the markup, so a modal that can be opened *from* another must be rendered
+before it.
+
 ## Artifacts and the bucket
 
 Large binaries (STLs, 3MFs) sync to a DigitalOcean Space, every filename

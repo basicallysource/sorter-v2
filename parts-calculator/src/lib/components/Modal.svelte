@@ -1,3 +1,10 @@
+<script lang="ts" module>
+	// Modals stack: an assembly opens a part on top of itself. Escape has to close
+	// the one in front rather than the whole pile, so each open instance registers
+	// here and only the last one registered acts on the key.
+	const stack: symbol[] = [];
+</script>
+
 <script lang="ts">
 	import { X } from 'lucide-svelte';
 	import type { Snippet } from 'svelte';
@@ -16,8 +23,18 @@
 		children: Snippet;
 	} = $props();
 
+	const token = Symbol('modal');
+	$effect(() => {
+		if (!open) return;
+		stack.push(token);
+		return () => {
+			const i = stack.lastIndexOf(token);
+			if (i >= 0) stack.splice(i, 1);
+		};
+	});
+
 	function onKey(e: KeyboardEvent) {
-		if (e.key === 'Escape') open = false;
+		if (e.key === 'Escape' && stack[stack.length - 1] === token) open = false;
 	}
 </script>
 

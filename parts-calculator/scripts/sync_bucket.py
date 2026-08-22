@@ -76,7 +76,7 @@ SOURCES = [
     ("catalog/build/renders", "*.png", "render"),
     ("catalog/build/plate-thumbs", "*.png", "thumb"),
     ("catalog/build/stamped", "*.stl", "stl"),
-    ("catalog/build/bundle", "all-parts.zip", "bundle"),
+    ("catalog/build/bundle", "all-parts*.zip", "bundle"),
 ]
 
 CONTENT_TYPES = {".stl": "model/stl", ".3mf": "model/3mf", ".zip": "application/zip",

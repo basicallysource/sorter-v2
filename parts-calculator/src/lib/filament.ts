@@ -332,8 +332,15 @@ export type Settings = {
 	density_g_cm3: number;
 	cost_per_kg: number;
 	commit_base_url?: string; // e.g. https://github.com/owner/repo/commit/
-	all_parts_zip?: string; // content-addressed bucket URL for the every-part bundle
+	all_parts_zip?: string; // content-addressed bucket URL for the every-part bundle (each part's default stamped variant)
+	all_parts_plain_zip?: string; // the same parts unstamped
 };
+
+/** The download for a part honouring the "engrave version id" choice: its
+ *  default stamped variant when on and one exists, else the plain master. */
+export function partDownload(p: Part, engrave: boolean): string {
+	return (engrave && p.stamped?.[0]?.stl) || p.stl;
+}
 
 /** Full URL for a version's commit, or null when the commit isn't known yet. */
 export function commitUrl(commit: string | null | undefined): string | null {

@@ -9,21 +9,23 @@
 	// its explanation, "show me" to fly the camera to the mark, and a second group
 	// for trying a different face. `where="download"` is the same checkbox beside
 	// the download button, so what you see is what you get. Both bind to the same
-	// two values in PartDetail.
+	// two values in PartDetail. `where="global"` is the dashboard's one checkbox
+	// over every download it hands out (rows, selected, all): no uid, no faces,
+	// just the choice and what it means.
 	let {
-		uid,
-		stamps,
+		uid = '',
+		stamps = [],
 		on = $bindable(true),
 		faceIdx = $bindable(0),
 		where = 'download',
 		onView,
 		onReset
 	}: {
-		uid: string;
-		stamps: PartStamp[];
+		uid?: string;
+		stamps?: PartStamp[];
 		on?: boolean;
 		faceIdx?: number;
-		where?: 'viewport' | 'download';
+		where?: 'viewport' | 'download' | 'global';
 		onView?: () => void;
 		onReset?: () => void;
 	} = $props();
@@ -35,7 +37,16 @@
 	const boxId = `stamp-${uniq}`;
 </script>
 
-{#if stamps.length}
+{#if where === 'global'}
+	<label class="inline-flex cursor-pointer items-center gap-1.5 text-xs text-text" for={boxId}>
+		<input id={boxId} type="checkbox" class="setup-toggle h-3.5 w-3.5" bind:checked={on} />
+		<span>Engrave version ids</span>
+	</label>
+	<Popover width="w-72" align="right">
+		<p>Every part has a 4-character version id. With this on, each STL you download here has its own id recessed 0.6 mm into one face, so a print can be looked up later by typing the id into the site.</p>
+		<p class="mt-1.5">Open a part to see where its mark goes, or to put it on a different face. A few parts are too small to carry one and come plain either way.</p>
+	</Popover>
+{:else if stamps.length}
 	{#if where === 'viewport'}
 		<div class="pointer-events-auto flex flex-wrap items-center gap-x-3 gap-y-1.5 border border-border bg-[var(--color-surface)]/95 px-2.5 py-1.5 text-xs shadow-sm backdrop-blur">
 			<label class="inline-flex cursor-pointer items-center gap-1.5 text-text" for={boxId}>

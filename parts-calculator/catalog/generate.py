@@ -1047,7 +1047,8 @@ def main():
         prev_parts = {q["id"]: q for q in json.load(open(DATA_OUT)).get("parts", [])}
 
     out_parts = []
-    zip_members = []
+    zip_members = []      # the all-parts bundle: each part's default stamped variant
+    plain_members = []    # the same parts unstamped, for whoever unticks "engrave"
     failed = []
     forced_support = []
     printed = [p for p in manifest["parts"] if p.get("kind", "printed") == "printed"]
@@ -1096,10 +1097,9 @@ def main():
         # project (the 3mf takes the STL's name) so a print can be traced
         # back to its exact version and settings.
         if p.get("quantities"):
-            if stamped:
-                zip_members.append((stamped[0]["path"], stamped[0]["stl"].rsplit("/", 1)[1]))
-            else:
-                zip_members.append((stl_abs, os.path.basename(stl_url(p["id"], p["uid"], p["stl_hash"]))))
+            plain = (stl_abs, os.path.basename(stl_url(p["id"], p["uid"], p["stl_hash"])))
+            plain_members.append(plain)
+            zip_members.append((stamped[0]["path"], stamped[0]["stl"].rsplit("/", 1)[1]) if stamped else plain)
 
         out_parts.append({
             "id": p["id"],
@@ -1165,13 +1165,19 @@ def main():
     # therefore the content-addressed URL) depend only on the STLs. zf.write()
     # would embed file mtimes, which a fresh CI checkout changes every run.
     os.makedirs(BUNDLE_OUT, exist_ok=True)
-    zip_path = os.path.join(BUNDLE_OUT, "all-parts.zip")
-    with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
-        for src, name in sorted(zip_members, key=lambda t: t[1]):
-            zi = zipfile.ZipInfo(name, date_time=(2020, 1, 1, 0, 0, 0))
-            zi.compress_type = zipfile.ZIP_DEFLATED
-            zi.external_attr = 0o644 << 16
-            zf.writestr(zi, open(src, "rb").read())
+
+    def bundle(filename, members):
+        path = os.path.join(BUNDLE_OUT, filename)
+        with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as zf:
+            for src, name in sorted(members, key=lambda t: t[1]):
+                zi = zipfile.ZipInfo(name, date_time=(2020, 1, 1, 0, 0, 0))
+                zi.compress_type = zipfile.ZIP_DEFLATED
+                zi.external_attr = 0o644 << 16
+                zf.writestr(zi, open(src, "rb").read())
+        return path
+
+    zip_path = bundle("all-parts.zip", zip_members)
+    plain_zip_path = bundle("all-parts-plain.zip", plain_members)
 
     plates = process_plates(manifest)
 
@@ -1184,6 +1190,7 @@ def main():
             "density_g_cm3": density, "cost_per_kg": cost_per_kg,
             "commit_base_url": git_commit_base_url(),
             "all_parts_zip": artifact_url(zip_path, prefix="bundle"),
+            "all_parts_plain_zip": artifact_url(plain_zip_path, prefix="bundle"),
         },
         "sections": manifest["sections"],
         "changes": manifest.get("changes", []),

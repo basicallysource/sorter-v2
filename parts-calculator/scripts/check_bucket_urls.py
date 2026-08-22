@@ -67,6 +67,7 @@ def collect_urls() -> dict[str, str]:
 
     parts = json.loads(CATALOG.read_text())
     add(parts.get("settings", {}).get("all_parts_zip"), "binary")
+    add(parts.get("settings", {}).get("all_parts_plain_zip"), "binary")
     for p in parts.get("parts", []):
         add(p.get("stl"), "binary")
         add(p.get("render"), "image")

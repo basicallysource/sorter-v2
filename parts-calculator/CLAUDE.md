@@ -211,8 +211,11 @@ Pro Bold -- the font is a pinned bucket object, fetched by hash into
 printed part and candidate into `build/stamped/`, memoized on (STL bytes, uid,
 `engrave.SIGNATURE`). They ride the generated data as `stamped: [{face, stl,
 normal, center}]`, best face first, empty when nothing fits; the site's part
-page picks from that list and the viewer opens on `center` along `normal`.
-The all-parts zip ships the default variant. Placement is quantised and the
+page picks from that list; the viewer paints the pocket (found from
+`center`, `normal`, `size`) in the accent colour and "show me" flies to it.
+Two bundles: `all_parts_zip` ships each part's default variant,
+`all_parts_plain_zip` the masters. One `IdStamp` component is the whole UI
+for the concept (viewport overlay, download checkbox, dashboard checkbox). Placement is quantised and the
 boolean is manifold's, so the same geometry stamps to the same bytes on any
 machine -- the generator warns if a re-cut lands on a different URL than the
 memo. The face ranking is in `engrave.variants()`; there is deliberately no

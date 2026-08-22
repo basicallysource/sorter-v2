@@ -11,7 +11,8 @@
 		"density_g_cm3": 1.32,
 		"cost_per_kg": 24.99,
 		"commit_base_url": "https://github.com/basicallysource/sorter-v2/commit/",
-		"all_parts_zip": "https://img.basically.website/parts/bundle/all-parts-70099fd1.zip"
+		"all_parts_zip": "https://img.basically.website/parts/bundle/all-parts-70099fd1.zip",
+		"all_parts_plain_zip": "https://img.basically.website/parts/bundle/all-parts-plain-eee4ad8e.zip"
 	},
 	"sections": [
 		{

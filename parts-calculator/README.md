@@ -117,8 +117,10 @@ to author: `catalog/engrave.py` finds every flat face the four characters fit
 on, ranks them (the bed face first, then vertical and upward faces by size,
 overhangs last), and `generate.py` pre-cuts up to four variants per part and
 candidate, uploaded like any other artifact. The page opens on the first; the
-arrow keys flip through the rest, and "no stamp" is the plain master. The
-all-parts zip ships each part's default stamped variant. A part too small for
+arrow keys flip through the rest, and unticking "Engrave version id" is the
+plain master. The dashboard has the same checkbox over every download it
+hands out; "Download all" is the stamped bundle or the plain one
+(`all_parts_zip` / `all_parts_plain_zip`) accordingly. A part too small for
 the text, or whose mesh is not watertight, simply gets no stamp (the generator
 lists them). Stamped bytes are memoized on (geometry, uid, parameters); a
 change to the font or the sizes in `engrave.py` re-cuts the catalog.

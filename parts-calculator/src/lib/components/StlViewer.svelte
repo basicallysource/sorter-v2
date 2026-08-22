@@ -27,6 +27,7 @@
 			center: number[];
 			normal: number[];
 			size: number[];
+			depth?: number;
 			surface?: { axis: number[]; point: number[]; r0: number; slope: number; sign: number };
 		} | null;
 		heightClass?: string;
@@ -37,6 +38,17 @@
 	let host: HTMLDivElement;
 	let status = $state<'loading' | 'ready' | 'error'>('loading');
 	let hasMesh = $state(false); // after the first load, a swap keeps the old part on screen
+
+	// Two looks. "cad" draws the feature edges (every crease over 25 degrees)
+	// as thin dark lines over the shading and sits the part on a grey gradient,
+	// which is what makes a white part on a pale page readable at all; "shaded"
+	// is the bare lit surface on the page background. CAD is the default.
+	let mode = $state<'cad' | 'shaded'>('cad');
+	let edges: THREE.LineSegments | undefined;
+	const EDGE_ANGLE = 25;
+	$effect(() => {
+		if (edges) edges.visible = mode === 'cad';
+	});
 
 	// Literal black absorbs everything under any lighting model, so recesses
 	// and edges vanish. Keep the hue; floor the luminance for display only.
@@ -98,7 +110,7 @@
 					below = -p.clone().sub(m.c).dot(m.n);
 				}
 				p.sub(m.c);
-				hit = below > 0.02 && below < 0.75 && Math.abs(p.dot(m.u)) <= m.hw && Math.abs(p.dot(m.v)) <= m.hh;
+				hit = below > 0.02 && below < (mark!.depth ?? 0.6) + 0.15 && Math.abs(p.dot(m.u)) <= m.hw && Math.abs(p.dot(m.v)) <= m.hh;
 			}
 			const col = hit ? accent : base;
 			for (let k = 0; k < 3; k++) col.toArray(colors, (i + k) * 3);
@@ -169,6 +181,15 @@
 					scene.add(mesh);
 					hasMesh = true;
 				}
+				// feature edges ride on the mesh so they follow its transform
+				edges?.geometry.dispose();
+				if (edges) mesh.remove(edges);
+				edges = new THREE.LineSegments(
+					new THREE.EdgesGeometry(geo, EDGE_ANGLE),
+					new THREE.LineBasicMaterial({ color: 0x1f2328, transparent: true, opacity: 0.6 })
+				);
+				edges.visible = mode === 'cad';
+				mesh.add(edges);
 				geo.computeBoundingSphere();
 				radius = geo.boundingSphere!.radius || 1;
 				if (!framed) {
@@ -217,7 +238,8 @@
 		camera.add(headlight);
 		scene.add(camera);
 
-		material = new THREE.MeshStandardMaterial({ vertexColors: true, metalness: 0, roughness: 0.9 });
+		// polygon offset pushes the surface back a hair so the edge lines sit on it
+		material = new THREE.MeshStandardMaterial({ vertexColors: true, metalness: 0, roughness: 0.9, polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 });
 
 		controls = new OrbitControls(camera, renderer.domElement);
 		controls.enableDamping = true;
@@ -268,13 +290,14 @@
 			controls.dispose();
 			renderer.dispose();
 			mesh?.geometry.dispose();
+			edges?.geometry.dispose();
 			material.dispose();
 			renderer.domElement.remove();
 		};
 	});
 </script>
 
-<div class="relative {heightClass} w-full bg-[var(--color-bg)]">
+<div class="relative {heightClass} w-full {mode === 'cad' ? 'viewer-cad' : 'bg-[var(--color-bg)]'}">
 	<div bind:this={host} class="h-full w-full"></div>
 	{#if status === 'error'}
 		<div class="absolute inset-0 flex items-center justify-center text-sm text-text-muted">Could not load model.</div>
@@ -282,4 +305,16 @@
 		<div class="absolute inset-0 flex items-center justify-center text-sm text-text-muted">Loading 3D model…</div>
 	{/if}
 	<div class="pointer-events-none absolute bottom-2 left-3 text-xs text-text-muted">drag to rotate · scroll to zoom</div>
+	<div class="absolute bottom-2 right-3 inline-flex border border-border bg-[var(--color-surface)]/95 text-xs" role="group" aria-label="View style">
+		<button type="button" class="px-2 py-0.5 {mode === 'cad' ? 'bg-text text-[var(--color-surface)]' : 'text-text-muted hover:text-text'}" onclick={() => (mode = 'cad')} title="Shaded with feature edges, on a grey ground">CAD</button>
+		<button type="button" class="px-2 py-0.5 {mode === 'shaded' ? 'bg-text text-[var(--color-surface)]' : 'text-text-muted hover:text-text'}" onclick={() => (mode = 'shaded')} title="Bare shaded surface">Shaded</button>
+	</div>
 </div>
+
+<style>
+	/* a soft grey ground: light enough for dark parts, grey enough that a white
+	   part has an edge against it */
+	.viewer-cad {
+		background: linear-gradient(180deg, #e6e9ee 0%, #cdd3db 100%);
+	}
+</style>

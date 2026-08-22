@@ -239,17 +239,15 @@ def stamped_variants(stl_abs, uid, name, force):
     meta = os.path.join(STAMP_META, key + ".json")
     memo = json.load(open(meta)) if os.path.exists(meta) else None
     if memo is not None and not force and all(
-            os.path.exists(v["path"]) and "size" in v for v in memo["variants"]):
+            os.path.exists(v["path"]) and "depth" in v for v in memo["variants"]):
         return [{k: v[k] for k in STAMP_KEYS + ("path",) if k in v} for v in memo["variants"]]
     try:
         found = engrave.stamp(stl_abs, uid, STAMPED_OUT, name)
     except engrave.NotAVolume as e:
         print(f"  ~ {e}")
         found = []
-    variants = [{"face": v["face"], "stl": artifact_url(v["path"], prefix="stl"),
-                 "normal": v["normal"], "center": v["center"], "size": v["size"],
-                 **({"surface": v["surface"]} if "surface" in v else {}),
-                 "path": v["path"]} for v in found]
+    variants = [{"stl": artifact_url(v["path"], prefix="stl"),
+                 **{k: v[k] for k in STAMP_KEYS if k in v}, "path": v["path"]} for v in found]
     if memo is not None:
         for old, new in zip(memo["variants"], variants):
             if old["stl"] != new["stl"]:
@@ -260,7 +258,7 @@ def stamped_variants(stl_abs, uid, name, force):
     return variants
 
 
-STAMP_KEYS = ("face", "stl", "normal", "center", "size", "surface")   # surface only on a wall
+STAMP_KEYS = ("face", "stl", "normal", "center", "size", "cap", "depth", "note", "surface")  # note/surface optional
 
 
 def public_stamped(variants):

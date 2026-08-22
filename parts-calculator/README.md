@@ -117,7 +117,9 @@ to author: `catalog/engrave.py` finds every flat face the four characters fit
 on, plus cylindrical and conical walls for a part running out of big flat
 ones (unrolled, text bent onto the wall; never a bore, never where the text
 would wrap more than ~60°), refuses any spot with under 1.6 mm of wall
-behind it, ranks them (the bed face first, then vertical and upward faces,
+behind it (1.0 mm for a 0.4 mm pocket), falls back per face from upright
+3.5 mm text to sideways, then 2.5 mm, then the shallow pocket, ranks them
+(the bed face first, then vertical and upward faces,
 overhangs last; large flats before walls before small flats), and
 `generate.py` pre-cuts up to four variants per part and
 candidate, uploaded like any other artifact. The page opens on the first; the

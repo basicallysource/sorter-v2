@@ -55,7 +55,7 @@
 				<span class="font-mono font-bold tracking-wider">{UID}</span>
 			</label>
 			<Popover width="w-72">
-				<p>The exact version of this part, <span class="font-mono font-semibold text-text">{UID}</span>, is recessed 0.6 mm into one face of the download. Anyone holding the print can type it into the site and land on exactly this version.</p>
+				<p>The exact version of this part, <span class="font-mono font-semibold text-text">{UID}</span>, is recessed {stamp?.depth ?? 0.6} mm into one face of the download{#if stamp && stamp.cap < 3.5}, at {stamp.cap} mm because nothing on this part takes the usual 3.5{/if}. Anyone holding the print can type it into the site and land on exactly this version.</p>
 				<p class="mt-1.5">It is painted <span class="font-semibold text-warning-dark">yellow</span> in the preview so you can find it. Uncheck to download the plain file.</p>
 			</Popover>
 			{#if on}
@@ -70,14 +70,14 @@
 					<span class="h-4 w-px bg-border"></span>
 					<span class="inline-flex items-center gap-1">
 						<button type="button" class="inline-flex h-5 w-5 items-center justify-center border border-border text-text hover:border-primary" onclick={() => cycle(-1)} aria-label="Previous face" title="Previous face (←)"><ChevronLeft size={13} /></button>
-						<span class="min-w-[7.5rem] text-center text-text" aria-live="polite">on the {stamp?.face} <span class="text-text-muted">· {faceIdx + 1}/{stamps.length}</span></span>
+						<span class="min-w-[7.5rem] text-center text-text" aria-live="polite">on the {stamp?.face}{#if stamp?.note}{' '}<span class="text-text-muted">({stamp.note})</span>{/if} <span class="text-text-muted">· {faceIdx + 1}/{stamps.length}</span></span>
 						<button type="button" class="inline-flex h-5 w-5 items-center justify-center border border-border text-text hover:border-primary" onclick={() => cycle(1)} aria-label="Next face" title="Next face (→)"><ChevronRight size={13} /></button>
 					</span>
 					<Popover width="w-64" align="right">
 						<p>If this face is a bad place for it (a mating surface, somewhere you'll see it), try another. The first one offered is where it prints and hides best. The arrow keys flip too.</p>
 					</Popover>
 				{:else}
-					<span class="text-text-muted">on the {stamp?.face}</span>
+					<span class="text-text-muted">on the {stamp?.face}{#if stamp?.note}{' '}({stamp.note}){/if}</span>
 				{/if}
 			{/if}
 		</div>
@@ -86,10 +86,10 @@
 			<input id={boxId} type="checkbox" class="setup-toggle h-3.5 w-3.5" bind:checked={on} />
 			<span>Engrave version id</span>
 			<span class="font-mono font-semibold tracking-wider">{UID}</span>
-			{#if stamp}<span class="text-text-muted">on the {stamp.face}</span>{/if}
+			{#if stamp}<span class="text-text-muted">on the {stamp.face}{#if stamp.note}{' '}({stamp.note}){/if}</span>{/if}
 		</label>
 		<Popover width="w-72">
-			<p>With this on, the STL you download has <span class="font-mono font-semibold text-text">{UID}</span> recessed 0.6 mm into {stamp ? `the ${stamp.face}` : 'one face'}, so the print can be looked up later. Use the controls on the preview to see where, or to pick a different face.</p>
+			<p>With this on, the STL you download has <span class="font-mono font-semibold text-text">{UID}</span> recessed {stamp?.depth ?? 0.6} mm into {stamp ? `the ${stamp.face}` : 'one face'}, so the print can be looked up later. Use the controls on the preview to see where, or to pick a different face.</p>
 		</Popover>
 	{/if}
 {/if}

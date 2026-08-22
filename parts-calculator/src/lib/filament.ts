@@ -284,6 +284,9 @@ export type PartStamp = {
 	normal: number[];
 	center: number[];
 	size: number[];
+	cap: number; // text height, mm: 3.5, or 2.5 when nothing on the part takes 3.5
+	depth: number; // pocket depth, mm: 0.6, or 0.4 on a sheet too thin for it
+	note?: string; // "smaller text", "shallow pocket" -- why this one is not the usual
 	// set when the face is a cylindrical or conical wall: the surface of
 	// revolution it sits on (axis, a point on it, radius there, radius change
 	// per mm along the axis, +1 convex / -1 bore), so depth is measured

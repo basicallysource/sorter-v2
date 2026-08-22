@@ -11,7 +11,7 @@
 		"density_g_cm3": 1.32,
 		"cost_per_kg": 24.99,
 		"commit_base_url": "https://github.com/basicallysource/sorter-v2/commit/",
-		"all_parts_zip": "https://img.basically.website/parts/bundle/all-parts-86307b13.zip",
+		"all_parts_zip": "https://img.basically.website/parts/bundle/all-parts-33c26ebb.zip",
 		"all_parts_plain_zip": "https://img.basically.website/parts/bundle/all-parts-plain-eee4ad8e.zip"
 	},
 	"sections": [
@@ -1605,7 +1605,9 @@
 					"size": [
 						12.22,
 						3.56
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
 					"face": "bottom 2",
@@ -1623,7 +1625,9 @@
 					"size": [
 						12.22,
 						3.56
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
 					"face": "bottom 3",
@@ -1641,7 +1645,9 @@
 					"size": [
 						12.22,
 						3.56
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
 					"face": "outer wall",
@@ -1660,6 +1666,8 @@
 						12.22,
 						3.57
 					],
+					"cap": 3.5,
+					"depth": 0.6,
 					"surface": {
 						"axis": [
 							0.00063,
@@ -1752,7 +1760,9 @@
 					"size": [
 						12.51,
 						4.52
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
 					"face": "angled face",
@@ -1770,7 +1780,9 @@
 					"size": [
 						12.51,
 						4.52
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
 					"face": "angled face 2",
@@ -1788,7 +1800,9 @@
 					"size": [
 						12.51,
 						4.52
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
 					"face": "angled face 3",
@@ -1806,7 +1820,9 @@
 					"size": [
 						12.51,
 						4.52
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				}
 			]
 		},
@@ -1881,7 +1897,9 @@
 					"size": [
 						12.58,
 						3.56
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
 					"face": "top",
@@ -1899,7 +1917,9 @@
 					"size": [
 						12.58,
 						3.56
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
 					"face": "angled face",
@@ -1917,7 +1937,9 @@
 					"size": [
 						12.58,
 						3.56
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
 					"face": "angled face 2",
@@ -1935,7 +1957,9 @@
 					"size": [
 						12.58,
 						3.56
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				}
 			]
 		},
@@ -2012,7 +2036,9 @@
 					"size": [
 						12.62,
 						3.56
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
 					"face": "top",
@@ -2030,7 +2056,9 @@
 					"size": [
 						12.62,
 						3.56
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
 					"face": "top 2",
@@ -2048,7 +2076,9 @@
 					"size": [
 						12.62,
 						3.56
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
 					"face": "angled face",
@@ -2066,7 +2096,9 @@
 					"size": [
 						12.62,
 						3.56
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				}
 			]
 		},
@@ -2136,6 +2168,8 @@
 						3.66,
 						12.32
 					],
+					"cap": 3.5,
+					"depth": 0.6,
 					"surface": {
 						"axis": [
 							0.00018,
@@ -2219,7 +2253,9 @@
 					"size": [
 						12.2,
 						3.56
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
 					"face": "outer wall",
@@ -2238,6 +2274,8 @@
 						12.2,
 						3.56
 					],
+					"cap": 3.5,
+					"depth": 0.6,
 					"surface": {
 						"axis": [
 							0.0,
@@ -2270,7 +2308,9 @@
 					"size": [
 						12.2,
 						3.56
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				}
 			]
 		},
@@ -2340,6 +2380,8 @@
 						12.4,
 						3.63
 					],
+					"cap": 3.5,
+					"depth": 0.6,
 					"surface": {
 						"axis": [
 							0.0,
@@ -2435,7 +2477,9 @@
 					"size": [
 						12.22,
 						3.56
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
 					"face": "-x side",
@@ -2453,7 +2497,9 @@
 					"size": [
 						12.22,
 						3.56
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
 					"face": "+x side",
@@ -2471,7 +2517,9 @@
 					"size": [
 						12.22,
 						3.56
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
 					"face": "+x side 2",
@@ -2489,7 +2537,9 @@
 					"size": [
 						12.22,
 						3.56
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				}
 			]
 		},
@@ -2558,7 +2608,9 @@
 					"size": [
 						11.98,
 						3.5
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
 					"face": "outer wall",
@@ -2577,6 +2629,8 @@
 						11.98,
 						3.5
 					],
+					"cap": 3.5,
+					"depth": 0.6,
 					"surface": {
 						"axis": [
 							-0.0,
@@ -2610,6 +2664,8 @@
 						11.98,
 						3.5
 					],
+					"cap": 3.5,
+					"depth": 0.6,
 					"surface": {
 						"axis": [
 							0.0,
@@ -2643,6 +2699,8 @@
 						11.98,
 						3.5
 					],
+					"cap": 3.5,
+					"depth": 0.6,
 					"surface": {
 						"axis": [
 							0.0,
@@ -2743,7 +2801,9 @@
 					"size": [
 						12.22,
 						3.56
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
 					"face": "angled face",
@@ -2761,7 +2821,9 @@
 					"size": [
 						12.22,
 						3.56
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
 					"face": "angled face 2",
@@ -2779,7 +2841,9 @@
 					"size": [
 						12.22,
 						3.56
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
 					"face": "angled face 3",
@@ -2797,7 +2861,9 @@
 					"size": [
 						12.22,
 						3.56
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				}
 			]
 		},
@@ -2866,7 +2932,9 @@
 					"size": [
 						12.32,
 						3.63
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
 					"face": "-x side",
@@ -2884,7 +2952,9 @@
 					"size": [
 						12.32,
 						3.63
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
 					"face": "+x side",
@@ -2902,7 +2972,9 @@
 					"size": [
 						12.32,
 						3.63
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
 					"face": "+y side",
@@ -2920,7 +2992,9 @@
 					"size": [
 						12.32,
 						3.63
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				}
 			]
 		},
@@ -2994,7 +3068,9 @@
 					"size": [
 						12.28,
 						3.56
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
 					"face": "+y side",
@@ -3012,7 +3088,9 @@
 					"size": [
 						12.28,
 						3.56
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
 					"face": "+x side",
@@ -3030,7 +3108,9 @@
 					"size": [
 						12.28,
 						3.56
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
 					"face": "-x side",
@@ -3048,7 +3128,9 @@
 					"size": [
 						12.28,
 						3.56
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				}
 			]
 		},
@@ -3102,6 +3184,26 @@
 			"render": "https://img.basically.website/parts/render/bin-retainer-left-1a29b1f6.png",
 			"stamped": [
 				{
+					"face": "bottom",
+					"stl": "https://img.basically.website/parts/stl/bin-retainer-left-hqz0-stamped-bottom-45880b98.stl",
+					"normal": [
+						0.0,
+						0.0,
+						-1.0
+					],
+					"center": [
+						331.98,
+						7.49,
+						-137.24
+					],
+					"size": [
+						4.52,
+						12.24
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
 					"face": "angled face",
 					"stl": "https://img.basically.website/parts/stl/bin-retainer-left-hqz0-stamped-angled-face-9d382f05.stl",
 					"normal": [
@@ -3117,7 +3219,9 @@
 					"size": [
 						12.24,
 						4.52
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
 					"face": "angled face 2",
@@ -3135,25 +3239,30 @@
 					"size": [
 						12.24,
 						4.52
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
-					"face": "angled face 3",
-					"stl": "https://img.basically.website/parts/stl/bin-retainer-left-hqz0-stamped-angled-face-3-9c79c6d1.stl",
+					"face": "+x side",
+					"stl": "https://img.basically.website/parts/stl/bin-retainer-left-hqz0-stamped-plus-x-side-6062ce13.stl",
 					"normal": [
-						0.866,
+						0.9659,
 						0.0,
-						-0.5
+						0.2588
 					],
 					"center": [
-						337.43,
-						7.49,
-						-134.09
+						343.47,
+						5.5,
+						-119.75
 					],
 					"size": [
-						12.24,
-						4.52
-					]
+						8.74,
+						3.23
+					],
+					"cap": 2.5,
+					"depth": 0.6,
+					"note": "smaller text"
 				}
 			]
 		},
@@ -3207,6 +3316,26 @@
 			"render": "https://img.basically.website/parts/render/bin-retainer-right-18dacb24.png",
 			"stamped": [
 				{
+					"face": "bottom",
+					"stl": "https://img.basically.website/parts/stl/bin-retainer-right-ybpv-stamped-bottom-dc446329.stl",
+					"normal": [
+						0.0,
+						0.0,
+						-1.0
+					],
+					"center": [
+						332.49,
+						-7.73,
+						-137.24
+					],
+					"size": [
+						3.5,
+						12.72
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
 					"face": "angled face",
 					"stl": "https://img.basically.website/parts/stl/bin-retainer-right-ybpv-stamped-angled-face-0d0ae692.stl",
 					"normal": [
@@ -3222,7 +3351,9 @@
 					"size": [
 						12.72,
 						3.5
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
 					"face": "angled face 2",
@@ -3240,25 +3371,30 @@
 					"size": [
 						12.72,
 						3.5
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
-					"face": "angled face 3",
-					"stl": "https://img.basically.website/parts/stl/bin-retainer-right-ybpv-stamped-angled-face-3-02896a7b.stl",
+					"face": "+x side",
+					"stl": "https://img.basically.website/parts/stl/bin-retainer-right-ybpv-stamped-plus-x-side-90507cf6.stl",
 					"normal": [
-						0.866,
-						0.0,
-						-0.5
+						0.9659,
+						-0.0,
+						0.2588
 					],
 					"center": [
-						337.17,
-						-7.73,
-						-134.53
+						343.56,
+						-162.98,
+						-120.11
 					],
 					"size": [
-						12.72,
-						3.5
-					]
+						9.08,
+						2.5
+					],
+					"cap": 2.5,
+					"depth": 0.6,
+					"note": "smaller text"
 				}
 			]
 		},
@@ -3329,7 +3465,9 @@
 					"size": [
 						12.31,
 						3.63
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
 					"face": "angled face 2",
@@ -3347,7 +3485,9 @@
 					"size": [
 						12.31,
 						3.63
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
 					"face": "angled face 3",
@@ -3365,7 +3505,9 @@
 					"size": [
 						12.31,
 						3.63
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
 					"face": "angled face 4",
@@ -3383,7 +3525,9 @@
 					"size": [
 						12.31,
 						3.63
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				}
 			]
 		},
@@ -3454,7 +3598,9 @@
 					"size": [
 						12.36,
 						3.56
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
 					"face": "angled face 2",
@@ -3472,7 +3618,9 @@
 					"size": [
 						12.36,
 						3.56
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
 					"face": "angled face 3",
@@ -3490,25 +3638,30 @@
 					"size": [
 						12.36,
 						3.56
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
 					"face": "angled face 4",
-					"stl": "https://img.basically.website/parts/stl/frame-90deg-bracket-3l20-stamped-angled-face-4-47fa9b20.stl",
+					"stl": "https://img.basically.website/parts/stl/frame-90deg-bracket-3l20-stamped-angled-face-4-a2204623.stl",
 					"normal": [
-						0.433,
-						-0.75,
-						-0.5
+						0.866,
+						0.5,
+						-0.0
 					],
 					"center": [
-						131.27,
-						-278.47,
-						36.85
+						127.01,
+						-239.99,
+						70.42
 					],
 					"size": [
-						12.36,
-						3.56
-					]
+						8.83,
+						2.55
+					],
+					"cap": 2.5,
+					"depth": 0.6,
+					"note": "smaller text"
 				}
 			]
 		},
@@ -3586,7 +3739,9 @@
 					"size": [
 						11.98,
 						3.56
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
 					"face": "-x side",
@@ -3604,7 +3759,9 @@
 					"size": [
 						11.98,
 						3.56
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
 					"face": "-y side",
@@ -3622,7 +3779,9 @@
 					"size": [
 						11.98,
 						3.56
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
 					"face": "+y side",
@@ -3640,7 +3799,9 @@
 					"size": [
 						11.98,
 						3.56
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				}
 			]
 		},
@@ -3718,7 +3879,9 @@
 					"size": [
 						12.35,
 						3.5
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
 					"face": "top",
@@ -3736,7 +3899,9 @@
 					"size": [
 						12.35,
 						3.5
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
 					"face": "top 2",
@@ -3754,7 +3919,9 @@
 					"size": [
 						12.35,
 						3.5
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
 					"face": "outer wall",
@@ -3773,6 +3940,8 @@
 						12.35,
 						3.5
 					],
+					"cap": 3.5,
+					"depth": 0.6,
 					"surface": {
 						"axis": [
 							0.0,
@@ -3856,7 +4025,9 @@
 					"size": [
 						12.26,
 						3.5
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
 					"face": "+y side",
@@ -3874,7 +4045,29 @@
 					"size": [
 						12.26,
 						3.5
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "angled face",
+					"stl": "https://img.basically.website/parts/stl/ls-mount-to-extrusion-bmt4-stamped-angled-face-0d5a712a.stl",
+					"normal": [
+						0.5,
+						-0.0,
+						0.866
+					],
+					"center": [
+						247.76,
+						-9.38,
+						-93.29
+					],
+					"size": [
+						3.5,
+						12.26
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
 					"face": "top",
@@ -3892,25 +4085,9 @@
 					"size": [
 						12.26,
 						3.5
-					]
-				},
-				{
-					"face": "+x side",
-					"stl": "https://img.basically.website/parts/stl/ls-mount-to-extrusion-bmt4-stamped-plus-x-side-5bcce1ce.stl",
-					"normal": [
-						1.0,
-						0.0,
-						-0.0
 					],
-					"center": [
-						158.13,
-						-5.5,
-						-105.11
-					],
-					"size": [
-						12.26,
-						3.5
-					]
+					"cap": 3.5,
+					"depth": 0.6
 				}
 			]
 		},
@@ -3979,7 +4156,9 @@
 					"size": [
 						12.25,
 						3.63
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
 					"face": "+y side",
@@ -3997,7 +4176,9 @@
 					"size": [
 						12.25,
 						3.63
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
 					"face": "-y side",
@@ -4015,7 +4196,9 @@
 					"size": [
 						12.25,
 						3.63
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
 					"face": "bottom",
@@ -4033,7 +4216,9 @@
 					"size": [
 						12.25,
 						3.63
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				}
 			]
 		},
@@ -4085,7 +4270,50 @@
 			"conflicts": null,
 			"stl": "https://img.basically.website/parts/stl/ls-washer-9c4a-cdfc42cb.stl",
 			"render": "https://img.basically.website/parts/render/ls-washer-dbb45813.png",
-			"stamped": []
+			"stamped": [
+				{
+					"face": "bottom",
+					"stl": "https://img.basically.website/parts/stl/ls-washer-9c4a-stamped-bottom-446ae30e.stl",
+					"normal": [
+						-0.0,
+						0.0,
+						-1.0
+					],
+					"center": [
+						10.85,
+						-96.31,
+						-67.61
+					],
+					"size": [
+						12.55,
+						3.63
+					],
+					"cap": 3.5,
+					"depth": 0.4,
+					"note": "shallow pocket"
+				},
+				{
+					"face": "top",
+					"stl": "https://img.basically.website/parts/stl/ls-washer-9c4a-stamped-top-7594d44a.stl",
+					"normal": [
+						-0.0,
+						0.0,
+						1.0
+					],
+					"center": [
+						-10.85,
+						-96.31,
+						-66.61
+					],
+					"size": [
+						12.55,
+						3.63
+					],
+					"cap": 3.5,
+					"depth": 0.4,
+					"note": "shallow pocket"
+				}
+			]
 		},
 		{
 			"id": "ext-bracket-left",
@@ -4154,7 +4382,9 @@
 					"size": [
 						12.3,
 						3.63
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
 					"face": "angled face",
@@ -4172,7 +4402,9 @@
 					"size": [
 						12.3,
 						3.63
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
 					"face": "angled face 2",
@@ -4190,7 +4422,9 @@
 					"size": [
 						12.3,
 						3.63
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
 					"face": "angled face 3",
@@ -4208,7 +4442,9 @@
 					"size": [
 						12.3,
 						3.63
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				}
 			]
 		},
@@ -4279,7 +4515,9 @@
 					"size": [
 						12.34,
 						3.63
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
 					"face": "angled face 2",
@@ -4297,7 +4535,9 @@
 					"size": [
 						12.34,
 						3.63
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
 					"face": "angled face 3",
@@ -4315,7 +4555,9 @@
 					"size": [
 						12.34,
 						3.63
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
 					"face": "angled face 4",
@@ -4333,7 +4575,9 @@
 					"size": [
 						12.34,
 						3.63
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				}
 			]
 		},
@@ -4404,7 +4648,9 @@
 					"size": [
 						12.06,
 						3.56
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
 					"face": "+y side",
@@ -4422,7 +4668,9 @@
 					"size": [
 						12.06,
 						3.56
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
 					"face": "+y side 2",
@@ -4440,7 +4688,9 @@
 					"size": [
 						12.06,
 						3.56
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
 					"face": "outer wall",
@@ -4459,6 +4709,8 @@
 						12.06,
 						3.56
 					],
+					"cap": 3.5,
+					"depth": 0.6,
 					"surface": {
 						"axis": [
 							0.0,
@@ -4542,7 +4794,9 @@
 					"size": [
 						11.99,
 						3.63
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
 					"face": "angled face",
@@ -4560,7 +4814,9 @@
 					"size": [
 						11.99,
 						3.63
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
 					"face": "angled face 2",
@@ -4578,7 +4834,9 @@
 					"size": [
 						11.99,
 						3.63
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
 					"face": "+y side",
@@ -4596,7 +4854,9 @@
 					"size": [
 						11.99,
 						3.63
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				}
 			]
 		},
@@ -4685,7 +4945,9 @@
 					"size": [
 						12.25,
 						3.63
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
 					"face": "top",
@@ -4703,7 +4965,9 @@
 					"size": [
 						12.25,
 						3.63
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
 					"face": "top 2",
@@ -4721,7 +4985,9 @@
 					"size": [
 						12.25,
 						3.63
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
 					"face": "top 3",
@@ -4739,7 +5005,9 @@
 					"size": [
 						12.25,
 						3.63
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				}
 			]
 		},
@@ -4809,7 +5077,9 @@
 					"size": [
 						12.23,
 						3.63
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
 					"face": "top",
@@ -4827,7 +5097,9 @@
 					"size": [
 						12.23,
 						3.63
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
 					"face": "top 2",
@@ -4845,7 +5117,9 @@
 					"size": [
 						12.23,
 						3.63
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
 					"face": "-x side",
@@ -4863,7 +5137,9 @@
 					"size": [
 						12.23,
 						3.63
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				}
 			]
 		},
@@ -4933,7 +5209,9 @@
 					"size": [
 						12.36,
 						3.63
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
 					"face": "angled face",
@@ -4951,7 +5229,9 @@
 					"size": [
 						12.36,
 						3.63
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
 					"face": "top",
@@ -4969,7 +5249,9 @@
 					"size": [
 						12.36,
 						3.63
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
 					"face": "angled face 2",
@@ -4987,7 +5269,9 @@
 					"size": [
 						12.36,
 						3.63
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				}
 			]
 		},
@@ -5051,7 +5335,50 @@
 			"conflicts": null,
 			"stl": "https://img.basically.website/parts/stl/interface-big-spacer-vt50-5fbb26d2.stl",
 			"render": "https://img.basically.website/parts/render/interface-big-spacer-a6c1a731.png",
-			"stamped": []
+			"stamped": [
+				{
+					"face": "bottom",
+					"stl": "https://img.basically.website/parts/stl/interface-big-spacer-vt50-stamped-bottom-d734369d.stl",
+					"normal": [
+						0.0,
+						0.0,
+						-1.0
+					],
+					"center": [
+						3.12,
+						-97.09,
+						261.68
+					],
+					"size": [
+						12.5,
+						3.56
+					],
+					"cap": 3.5,
+					"depth": 0.4,
+					"note": "shallow pocket"
+				},
+				{
+					"face": "top",
+					"stl": "https://img.basically.website/parts/stl/interface-big-spacer-vt50-stamped-top-6cc2bd3f.stl",
+					"normal": [
+						-0.0,
+						0.0,
+						1.0
+					],
+					"center": [
+						-3.12,
+						-97.09,
+						262.68
+					],
+					"size": [
+						12.5,
+						3.56
+					],
+					"cap": 3.5,
+					"depth": 0.4,
+					"note": "shallow pocket"
+				}
+			]
 		},
 		{
 			"id": "cable-clamp-inner",
@@ -5179,7 +5506,29 @@
 					"size": [
 						12.56,
 						3.56
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "top",
+					"stl": "https://img.basically.website/parts/stl/cable-clamp-outer-50dv-stamped-top-98404a76.stl",
+					"normal": [
+						-0.0,
+						-0.0,
+						1.0
+					],
+					"center": [
+						-78.05,
+						0.0,
+						244.62
+					],
+					"size": [
+						3.56,
+						12.56
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
 					"face": "+x side",
@@ -5197,25 +5546,29 @@
 					"size": [
 						12.56,
 						3.56
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
-					"face": "-x side 2",
-					"stl": "https://img.basically.website/parts/stl/cable-clamp-outer-50dv-stamped-minus-x-side-2-e3f7a55b.stl",
+					"face": "-y side",
+					"stl": "https://img.basically.website/parts/stl/cable-clamp-outer-50dv-stamped-minus-y-side-a9b4a5a6.stl",
 					"normal": [
-						-1.0,
-						0.0,
+						0.2756,
+						-0.9613,
 						0.0
 					],
 					"center": [
-						-78.01,
-						-2.57,
-						208.07
+						-80.56,
+						-24.16,
+						212.77
 					],
 					"size": [
-						12.56,
-						3.56
-					]
+						3.56,
+						12.56
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				}
 			]
 		},
@@ -5288,7 +5641,9 @@
 					"size": [
 						12.71,
 						3.5
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
 					"face": "top",
@@ -5306,7 +5661,9 @@
 					"size": [
 						12.71,
 						3.5
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				}
 			]
 		},
@@ -5384,7 +5741,9 @@
 					"size": [
 						12.15,
 						3.5
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				}
 			]
 		},
@@ -5465,7 +5824,9 @@
 					"size": [
 						12.4,
 						3.5
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
 					"face": "-x side",
@@ -5483,7 +5844,9 @@
 					"size": [
 						12.4,
 						3.5
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
 					"face": "-y side",
@@ -5501,7 +5864,9 @@
 					"size": [
 						12.4,
 						3.5
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
 					"face": "+y side",
@@ -5519,7 +5884,9 @@
 					"size": [
 						12.4,
 						3.5
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				}
 			]
 		},
@@ -5681,6 +6048,26 @@
 			"render": "https://img.basically.website/parts/render/interface-cage-bracket-47013652.png",
 			"stamped": [
 				{
+					"face": "bottom",
+					"stl": "https://img.basically.website/parts/stl/interface-cage-bracket-resz-stamped-bottom-3e108801.stl",
+					"normal": [
+						-0.0,
+						-0.0,
+						-1.0
+					],
+					"center": [
+						11.31,
+						199.65,
+						210.0
+					],
+					"size": [
+						3.63,
+						12.22
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
 					"face": "-x side",
 					"stl": "https://img.basically.website/parts/stl/interface-cage-bracket-resz-stamped-minus-x-side-d9ba0c2a.stl",
 					"normal": [
@@ -5696,7 +6083,9 @@
 					"size": [
 						12.22,
 						3.63
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
 					"face": "+x side",
@@ -5714,7 +6103,9 @@
 					"size": [
 						12.22,
 						3.63
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
 					"face": "+y side",
@@ -5732,25 +6123,9 @@
 					"size": [
 						12.22,
 						3.63
-					]
-				},
-				{
-					"face": "-y side",
-					"stl": "https://img.basically.website/parts/stl/interface-cage-bracket-resz-stamped-minus-y-side-a0d891fc.stl",
-					"normal": [
-						-0.0,
-						-1.0,
-						0.0
 					],
-					"center": [
-						-7.01,
-						162.64,
-						216.19
-					],
-					"size": [
-						12.22,
-						3.63
-					]
+					"cap": 3.5,
+					"depth": 0.6
 				}
 			]
 		},
@@ -5809,6 +6184,26 @@
 			"render": "https://img.basically.website/parts/render/interface-cage-bracket-cable-c793cdb8.png",
 			"stamped": [
 				{
+					"face": "bottom",
+					"stl": "https://img.basically.website/parts/stl/interface-cage-bracket-cable-cy58-stamped-bottom-b6605bfc.stl",
+					"normal": [
+						-0.0,
+						-0.0,
+						-1.0
+					],
+					"center": [
+						11.31,
+						199.63,
+						210.0
+					],
+					"size": [
+						3.63,
+						12.27
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
 					"face": "+x side",
 					"stl": "https://img.basically.website/parts/stl/interface-cage-bracket-cable-cy58-stamped-plus-x-side-2cc81fb6.stl",
 					"normal": [
@@ -5824,7 +6219,9 @@
 					"size": [
 						12.27,
 						3.63
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
 					"face": "-x side",
@@ -5842,7 +6239,9 @@
 					"size": [
 						12.27,
 						3.63
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
 					"face": "+y side",
@@ -5860,25 +6259,9 @@
 					"size": [
 						12.27,
 						3.63
-					]
-				},
-				{
-					"face": "-y side",
-					"stl": "https://img.basically.website/parts/stl/interface-cage-bracket-cable-cy58-stamped-minus-y-side-4e5a4dd6.stl",
-					"normal": [
-						-0.0,
-						-1.0,
-						0.0
 					],
-					"center": [
-						-6.99,
-						162.64,
-						216.19
-					],
-					"size": [
-						12.27,
-						3.63
-					]
+					"cap": 3.5,
+					"depth": 0.6
 				}
 			]
 		},
@@ -5932,6 +6315,26 @@
 			"render": "https://img.basically.website/parts/render/ribbon-cable-clamp-52035213.png",
 			"stamped": [
 				{
+					"face": "bottom",
+					"stl": "https://img.basically.website/parts/stl/ribbon-cable-clamp-nf0n-stamped-bottom-f308ac37.stl",
+					"normal": [
+						0.0,
+						0.0,
+						-1.0
+					],
+					"center": [
+						-19.18,
+						186.9,
+						208.5
+					],
+					"size": [
+						3.56,
+						12.17
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
 					"face": "-x side",
 					"stl": "https://img.basically.website/parts/stl/ribbon-cable-clamp-nf0n-stamped-minus-x-side-3c3eef07.stl",
 					"normal": [
@@ -5947,7 +6350,9 @@
 					"size": [
 						12.17,
 						3.56
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
 					"face": "+x side",
@@ -5965,7 +6370,30 @@
 					"size": [
 						12.17,
 						3.56
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "+y side",
+					"stl": "https://img.basically.website/parts/stl/ribbon-cable-clamp-nf0n-stamped-plus-y-side-22e31976.stl",
+					"normal": [
+						-0.0,
+						1.0,
+						0.0
+					],
+					"center": [
+						-19.94,
+						207.14,
+						214.47
+					],
+					"size": [
+						2.55,
+						8.7
+					],
+					"cap": 2.5,
+					"depth": 0.6,
+					"note": "smaller text"
 				}
 			]
 		},
@@ -6019,6 +6447,27 @@
 			"render": "https://img.basically.website/parts/render/top-interface-split-spur-gear-1-852a476a.png",
 			"stamped": [
 				{
+					"face": "bottom",
+					"stl": "https://img.basically.website/parts/stl/top-interface-split-spur-gear-1-1a0l-stamped-bottom-0a6e4ff2.stl",
+					"normal": [
+						0.0,
+						-0.0,
+						-1.0
+					],
+					"center": [
+						3.44,
+						-115.01,
+						352.68
+					],
+					"size": [
+						8.68,
+						2.55
+					],
+					"cap": 2.5,
+					"depth": 0.6,
+					"note": "smaller text"
+				},
+				{
 					"face": "top",
 					"stl": "https://img.basically.website/parts/stl/top-interface-split-spur-gear-1-1a0l-stamped-top-d3a50770.stl",
 					"normal": [
@@ -6034,11 +6483,13 @@
 					"size": [
 						12.16,
 						3.56
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
-					"face": "bottom",
-					"stl": "https://img.basically.website/parts/stl/top-interface-split-spur-gear-1-1a0l-stamped-bottom-e8cead64.stl",
+					"face": "bottom 2",
+					"stl": "https://img.basically.website/parts/stl/top-interface-split-spur-gear-1-1a0l-stamped-bottom-2-e8cead64.stl",
 					"normal": [
 						-0.0,
 						0.0,
@@ -6052,7 +6503,9 @@
 					"size": [
 						12.16,
 						3.56
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				}
 			]
 		},
@@ -6104,7 +6557,50 @@
 			"conflicts": null,
 			"stl": "https://img.basically.website/parts/stl/top-interface-split-spur-gear-2-izz5-c109b8b2.stl",
 			"render": "https://img.basically.website/parts/render/top-interface-split-spur-gear-2-5b6a50d7.png",
-			"stamped": []
+			"stamped": [
+				{
+					"face": "bottom",
+					"stl": "https://img.basically.website/parts/stl/top-interface-split-spur-gear-2-izz5-stamped-bottom-c9b633e6.stl",
+					"normal": [
+						0.0,
+						0.0,
+						-1.0
+					],
+					"center": [
+						12.06,
+						-80.84,
+						303.18
+					],
+					"size": [
+						12.12,
+						3.56
+					],
+					"cap": 3.5,
+					"depth": 0.4,
+					"note": "shallow pocket"
+				},
+				{
+					"face": "top",
+					"stl": "https://img.basically.website/parts/stl/top-interface-split-spur-gear-2-izz5-stamped-top-4564d8f6.stl",
+					"normal": [
+						0.0,
+						-0.0,
+						1.0
+					],
+					"center": [
+						-12.06,
+						-80.84,
+						304.18
+					],
+					"size": [
+						12.12,
+						3.56
+					],
+					"cap": 3.5,
+					"depth": 0.4,
+					"note": "shallow pocket"
+				}
+			]
 		},
 		{
 			"id": "top-interface-split-spur-gear-3",
@@ -6183,7 +6679,9 @@
 					"size": [
 						12.48,
 						3.56
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
 					"face": "+x side",
@@ -6201,7 +6699,9 @@
 					"size": [
 						12.48,
 						3.56
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
 					"face": "-x side",
@@ -6219,7 +6719,9 @@
 					"size": [
 						12.48,
 						3.56
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
 					"face": "-y side",
@@ -6237,7 +6739,9 @@
 					"size": [
 						12.48,
 						3.56
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				}
 			]
 		},
@@ -6361,7 +6865,9 @@
 					"size": [
 						12.27,
 						3.63
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
 					"face": "top",
@@ -6379,7 +6885,9 @@
 					"size": [
 						12.27,
 						3.63
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
 					"face": "angled face",
@@ -6397,7 +6905,9 @@
 					"size": [
 						12.27,
 						3.63
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
 					"face": "angled face 2",
@@ -6415,7 +6925,9 @@
 					"size": [
 						12.27,
 						3.63
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				}
 			]
 		},
@@ -6474,6 +6986,27 @@
 			"render": "https://img.basically.website/parts/render/limit-switch-hammer-a4bbdee3.png",
 			"stamped": [
 				{
+					"face": "bottom",
+					"stl": "https://img.basically.website/parts/stl/limit-switch-hammer-lfu7-stamped-bottom-801047eb.stl",
+					"normal": [
+						-0.0,
+						0.0,
+						-1.0
+					],
+					"center": [
+						-86.51,
+						-52.9,
+						242.68
+					],
+					"size": [
+						8.56,
+						2.55
+					],
+					"cap": 2.5,
+					"depth": 0.6,
+					"note": "smaller text"
+				},
+				{
 					"face": "angled face",
 					"stl": "https://img.basically.website/parts/stl/limit-switch-hammer-lfu7-stamped-angled-face-9276b52a.stl",
 					"normal": [
@@ -6489,7 +7022,9 @@
 					"size": [
 						11.98,
 						3.56
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
 					"face": "angled face 2",
@@ -6507,7 +7042,9 @@
 					"size": [
 						11.98,
 						3.56
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				}
 			]
 		},
@@ -6576,7 +7113,9 @@
 					"size": [
 						12.4,
 						3.63
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
 					"face": "angled face",
@@ -6594,7 +7133,9 @@
 					"size": [
 						12.4,
 						3.63
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
 					"face": "angled face 2",
@@ -6612,7 +7153,9 @@
 					"size": [
 						12.4,
 						3.63
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
 					"face": "angled face 3",
@@ -6630,7 +7173,9 @@
 					"size": [
 						12.4,
 						3.63
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				}
 			]
 		},
@@ -6689,6 +7234,27 @@
 			"render": "https://img.basically.website/parts/render/idler-gear-c0782c6f.png",
 			"stamped": [
 				{
+					"face": "bottom",
+					"stl": "https://img.basically.website/parts/stl/idler-gear-7bv7-stamped-bottom-a1ecd068.stl",
+					"normal": [
+						0.0,
+						0.0,
+						-1.0
+					],
+					"center": [
+						-37.78,
+						-123.11,
+						-11.0
+					],
+					"size": [
+						8.73,
+						2.5
+					],
+					"cap": 2.5,
+					"depth": 0.6,
+					"note": "smaller text"
+				},
+				{
 					"face": "top",
 					"stl": "https://img.basically.website/parts/stl/idler-gear-7bv7-stamped-top-86a8eb20.stl",
 					"normal": [
@@ -6704,7 +7270,9 @@
 					"size": [
 						12.22,
 						3.5
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				}
 			]
 		},
@@ -6756,7 +7324,65 @@
 			"conflicts": null,
 			"stl": "https://img.basically.website/parts/stl/input-gear-70ul-3587940d.stl",
 			"render": "https://img.basically.website/parts/render/input-gear-66cc61e0.png",
-			"stamped": []
+			"stamped": [
+				{
+					"face": "outer wall",
+					"stl": "https://img.basically.website/parts/stl/input-gear-70ul-stamped-outer-wall-51ee2568.stl",
+					"normal": [
+						-0.0201,
+						0.9998,
+						0.0
+					],
+					"center": [
+						-60.2,
+						-117.57,
+						4.63
+					],
+					"size": [
+						8.75,
+						2.55
+					],
+					"cap": 2.5,
+					"depth": 0.6,
+					"note": "smaller text",
+					"surface": {
+						"axis": [
+							0.0,
+							0.0,
+							1.0
+						],
+						"point": [
+							-59.984,
+							-128.07,
+							3.826
+						],
+						"r0": 10.498,
+						"slope": 0.0,
+						"sign": 1
+					}
+				},
+				{
+					"face": "top",
+					"stl": "https://img.basically.website/parts/stl/input-gear-70ul-stamped-top-c9e4172f.stl",
+					"normal": [
+						0.0,
+						0.0,
+						1.0
+					],
+					"center": [
+						-60.48,
+						-134.67,
+						11.35
+					],
+					"size": [
+						8.75,
+						2.55
+					],
+					"cap": 2.5,
+					"depth": 0.6,
+					"note": "smaller text"
+				}
+			]
 		},
 		{
 			"id": "output-guide",
@@ -6808,6 +7434,27 @@
 			"render": "https://img.basically.website/parts/render/output-guide-ffd57ba0.png",
 			"stamped": [
 				{
+					"face": "bottom",
+					"stl": "https://img.basically.website/parts/stl/output-guide-8j3e-stamped-bottom-9c89b003.stl",
+					"normal": [
+						0.0,
+						0.0,
+						-1.0
+					],
+					"center": [
+						7.99,
+						-111.51,
+						-19.0
+					],
+					"size": [
+						2.55,
+						8.72
+					],
+					"cap": 2.5,
+					"depth": 0.6,
+					"note": "smaller text"
+				},
+				{
 					"face": "+x side",
 					"stl": "https://img.basically.website/parts/stl/output-guide-8j3e-stamped-plus-x-side-e739ef3c.stl",
 					"normal": [
@@ -6823,7 +7470,9 @@
 					"size": [
 						12.2,
 						3.56
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
 					"face": "angled face",
@@ -6841,7 +7490,29 @@
 					"size": [
 						12.2,
 						3.56
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "top",
+					"stl": "https://img.basically.website/parts/stl/output-guide-8j3e-stamped-top-5446c819.stl",
+					"normal": [
+						0.0,
+						-0.0,
+						1.0
+					],
+					"center": [
+						5.57,
+						-66.27,
+						50.0
+					],
+					"size": [
+						3.56,
+						12.2
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				}
 			],
 			"candidates": [
@@ -6873,7 +7544,9 @@
 							"size": [
 								12.19,
 								3.63
-							]
+							],
+							"cap": 3.5,
+							"depth": 0.6
 						},
 						{
 							"face": "-y side",
@@ -6891,7 +7564,9 @@
 							"size": [
 								12.19,
 								3.63
-							]
+							],
+							"cap": 3.5,
+							"depth": 0.6
 						},
 						{
 							"face": "top",
@@ -6909,7 +7584,29 @@
 							"size": [
 								12.19,
 								3.63
-							]
+							],
+							"cap": 3.5,
+							"depth": 0.6
+						},
+						{
+							"face": "angled face",
+							"stl": "https://img.basically.website/parts/stl/output-guide-6sk3-stamped-angled-face-be9665bb.stl",
+							"normal": [
+								-0.7334,
+								-0.6796,
+								-0.0175
+							],
+							"center": [
+								83.03,
+								-75.38,
+								-7.39
+							],
+							"size": [
+								3.63,
+								12.19
+							],
+							"cap": 3.5,
+							"depth": 0.6
 						}
 					]
 				}
@@ -6981,7 +7678,9 @@
 					"size": [
 						12.49,
 						3.63
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
 					"face": "+y side",
@@ -6999,7 +7698,9 @@
 					"size": [
 						12.49,
 						3.63
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
 					"face": "+y side 2",
@@ -7017,25 +7718,29 @@
 					"size": [
 						12.49,
 						3.63
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
-					"face": "+y side 3",
-					"stl": "https://img.basically.website/parts/stl/funnel-bracket-left-4oyp-stamped-plus-y-side-3-d68ec818.stl",
+					"face": "angled face",
+					"stl": "https://img.basically.website/parts/stl/funnel-bracket-left-4oyp-stamped-angled-face-3ad379bf.stl",
 					"normal": [
-						0.0,
-						1.0,
-						0.0
+						0.5,
+						-0.0,
+						0.866
 					],
 					"center": [
-						43.62,
-						-60.0,
-						101.36
+						123.46,
+						-71.39,
+						62.82
 					],
 					"size": [
-						12.49,
-						3.63
-					]
+						3.63,
+						12.49
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				}
 			]
 		},
@@ -7105,7 +7810,9 @@
 					"size": [
 						12.32,
 						3.56
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
 					"face": "-y side",
@@ -7123,7 +7830,9 @@
 					"size": [
 						12.32,
 						3.56
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
 					"face": "-y side 2",
@@ -7141,25 +7850,29 @@
 					"size": [
 						12.32,
 						3.56
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
-					"face": "-y side 3",
-					"stl": "https://img.basically.website/parts/stl/funnel-bracket-right-b9vt-stamped-minus-y-side-3-80b686d1.stl",
+					"face": "angled face",
+					"stl": "https://img.basically.website/parts/stl/funnel-bracket-right-b9vt-stamped-angled-face-c4d88ad2.stl",
 					"normal": [
+						0.5,
 						-0.0,
-						-1.0,
-						-0.0
+						0.866
 					],
 					"center": [
-						43.53,
-						60.0,
-						101.39
+						123.53,
+						63.16,
+						62.77
 					],
 					"size": [
-						12.32,
-						3.56
-					]
+						3.56,
+						12.32
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				}
 			]
 		},
@@ -7233,7 +7946,9 @@
 					"size": [
 						12.5,
 						3.63
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
 					"face": "angled face",
@@ -7251,7 +7966,9 @@
 					"size": [
 						12.5,
 						3.63
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
 					"face": "angled face 2",
@@ -7269,7 +7986,9 @@
 					"size": [
 						12.5,
 						3.63
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
 					"face": "-y side 2",
@@ -7287,7 +8006,9 @@
 					"size": [
 						12.5,
 						3.63
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				}
 			]
 		},
@@ -7361,25 +8082,71 @@
 					"size": [
 						12.3,
 						3.63
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
 					"face": "angled face 2",
-					"stl": "https://img.basically.website/parts/stl/bearing-holder-left-gybh-stamped-angled-face-2-943deccd.stl",
+					"stl": "https://img.basically.website/parts/stl/bearing-holder-left-gybh-stamped-angled-face-2-93985c1b.stl",
 					"normal": [
-						-0.0,
-						-0.9063,
-						-0.4226
+						0.0,
+						-0.4226,
+						0.9063
 					],
 					"center": [
-						-45.21,
-						66.83,
-						157.19
+						-64.65,
+						52.39,
+						167.99
 					],
 					"size": [
-						12.3,
-						3.63
-					]
+						3.63,
+						12.3
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "+x side",
+					"stl": "https://img.basically.website/parts/stl/bearing-holder-left-gybh-stamped-plus-x-side-c2ca1abf.stl",
+					"normal": [
+						1.0,
+						0.0,
+						0.0
+					],
+					"center": [
+						-55.0,
+						52.91,
+						163.44
+					],
+					"size": [
+						8.79,
+						2.59
+					],
+					"cap": 2.5,
+					"depth": 0.6,
+					"note": "smaller text"
+				},
+				{
+					"face": "-x side",
+					"stl": "https://img.basically.website/parts/stl/bearing-holder-left-gybh-stamped-minus-x-side-9ba11481.stl",
+					"normal": [
+						-1.0,
+						0.0,
+						0.0
+					],
+					"center": [
+						-67.84,
+						69.67,
+						152.54
+					],
+					"size": [
+						2.59,
+						8.79
+					],
+					"cap": 2.5,
+					"depth": 0.6,
+					"note": "smaller text"
 				}
 			]
 		},
@@ -7453,7 +8220,71 @@
 					"size": [
 						12.22,
 						3.63
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "angled face 2",
+					"stl": "https://img.basically.website/parts/stl/bearing-holder-right-rnog-stamped-angled-face-2-8504611a.stl",
+					"normal": [
+						0.0,
+						-0.4226,
+						0.9063
+					],
+					"center": [
+						64.65,
+						52.35,
+						167.98
+					],
+					"size": [
+						3.63,
+						12.22
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "-x side",
+					"stl": "https://img.basically.website/parts/stl/bearing-holder-right-rnog-stamped-minus-x-side-c5c41a2d.stl",
+					"normal": [
+						-1.0,
+						0.0,
+						0.0
+					],
+					"center": [
+						55.0,
+						57.68,
+						163.44
+					],
+					"size": [
+						8.73,
+						2.59
+					],
+					"cap": 2.5,
+					"depth": 0.6,
+					"note": "smaller text"
+				},
+				{
+					"face": "+x side",
+					"stl": "https://img.basically.website/parts/stl/bearing-holder-right-rnog-stamped-plus-x-side-943589a5.stl",
+					"normal": [
+						1.0,
+						0.0,
+						0.0
+					],
+					"center": [
+						67.84,
+						68.5,
+						152.51
+					],
+					"size": [
+						2.59,
+						8.73
+					],
+					"cap": 2.5,
+					"depth": 0.6,
+					"note": "smaller text"
 				}
 			]
 		},
@@ -7522,7 +8353,86 @@
 					"size": [
 						12.15,
 						3.56
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "-x side",
+					"stl": "https://img.basically.website/parts/stl/servo-adapter-servo-side-fu2t-stamped-minus-x-side-a2d60179.stl",
+					"normal": [
+						-1.0,
+						0.0,
+						0.0
+					],
+					"center": [
+						84.84,
+						36.62,
+						111.61
+					],
+					"size": [
+						3.56,
+						12.15
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "outer wall",
+					"stl": "https://img.basically.website/parts/stl/servo-adapter-servo-side-fu2t-stamped-outer-wall-31ea8eaf.stl",
+					"normal": [
+						-0.0,
+						-0.9998,
+						0.0218
+					],
+					"center": [
+						87.96,
+						31.29,
+						114.87
+					],
+					"size": [
+						8.68,
+						2.55
+					],
+					"cap": 2.5,
+					"depth": 0.6,
+					"note": "smaller text",
+					"surface": {
+						"axis": [
+							1.0,
+							-0.0,
+							0.0
+						],
+						"point": [
+							87.965,
+							52.281,
+							114.41
+						],
+						"r0": 20.996,
+						"slope": 0.0,
+						"sign": 1
+					}
+				},
+				{
+					"face": "-x side 2",
+					"stl": "https://img.basically.website/parts/stl/servo-adapter-servo-side-fu2t-stamped-minus-x-side-2-9fdff4ae.stl",
+					"normal": [
+						-1.0,
+						-0.0,
+						0.0
+					],
+					"center": [
+						87.09,
+						52.43,
+						101.55
+					],
+					"size": [
+						2.55,
+						8.68
+					],
+					"cap": 2.5,
+					"depth": 0.6,
+					"note": "smaller text"
 				}
 			]
 		},
@@ -7591,7 +8501,9 @@
 					"size": [
 						11.95,
 						3.5
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
 					"face": "-x side",
@@ -7609,7 +8521,45 @@
 					"size": [
 						11.95,
 						3.5
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "outer wall",
+					"stl": "https://img.basically.website/parts/stl/servo-adapter-flap-side-lv7n-stamped-outer-wall-d3fc253f.stl",
+					"normal": [
+						0.0,
+						-0.9672,
+						0.2541
+					],
+					"center": [
+						82.21,
+						31.98,
+						119.75
+					],
+					"size": [
+						8.54,
+						2.5
+					],
+					"cap": 2.5,
+					"depth": 0.6,
+					"note": "smaller text",
+					"surface": {
+						"axis": [
+							-1.0,
+							-0.0,
+							0.0
+						],
+						"point": [
+							82.34,
+							52.281,
+							114.41
+						],
+						"r0": 20.994,
+						"slope": 0.0,
+						"sign": 1
+					}
 				}
 			]
 		},
@@ -7678,7 +8628,9 @@
 					"size": [
 						12.48,
 						4.52
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
 					"face": "-y side",
@@ -7696,7 +8648,9 @@
 					"size": [
 						12.48,
 						4.52
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
 					"face": "-x side",
@@ -7714,25 +8668,29 @@
 					"size": [
 						12.48,
 						4.52
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
-					"face": "+y side",
-					"stl": "https://img.basically.website/parts/stl/servo-bracket-lower-arm-yqz1-stamped-plus-y-side-93787735.stl",
+					"face": "angled face",
+					"stl": "https://img.basically.website/parts/stl/servo-bracket-lower-arm-yqz1-stamped-angled-face-47b03912.stl",
 					"normal": [
+						-0.5,
 						0.0,
-						1.0,
-						0.0
+						0.866
 					],
 					"center": [
-						88.88,
-						48.58,
-						81.4
+						86.76,
+						38.79,
+						88.9
 					],
 					"size": [
-						12.48,
-						4.52
-					]
+						4.52,
+						12.48
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				}
 			]
 		},
@@ -7801,7 +8759,9 @@
 					"size": [
 						12.5,
 						3.56
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
 					"face": "-y side",
@@ -7819,7 +8779,9 @@
 					"size": [
 						12.5,
 						3.56
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
 					"face": "+y side",
@@ -7837,7 +8799,9 @@
 					"size": [
 						12.5,
 						3.56
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
 					"face": "-x side",
@@ -7855,7 +8819,9 @@
 					"size": [
 						12.5,
 						3.56
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				}
 			]
 		},
@@ -7907,7 +8873,91 @@
 			"conflicts": null,
 			"stl": "https://img.basically.website/parts/stl/servo-bracket-cover-rqor-1ebad4ab.stl",
 			"render": "https://img.basically.website/parts/render/servo-bracket-cover-38397211.png",
-			"stamped": []
+			"stamped": [
+				{
+					"face": "-x side",
+					"stl": "https://img.basically.website/parts/stl/servo-bracket-cover-rqor-stamped-minus-x-side-2f1136e5.stl",
+					"normal": [
+						-1.0,
+						0.0,
+						0.0
+					],
+					"center": [
+						96.19,
+						73.1,
+						106.22
+					],
+					"size": [
+						4.52,
+						12.42
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "+x side",
+					"stl": "https://img.basically.website/parts/stl/servo-bracket-cover-rqor-stamped-plus-x-side-622c661a.stl",
+					"normal": [
+						1.0,
+						0.0,
+						0.0
+					],
+					"center": [
+						102.84,
+						29.76,
+						100.92
+					],
+					"size": [
+						8.87,
+						3.23
+					],
+					"cap": 2.5,
+					"depth": 0.6,
+					"note": "smaller text"
+				},
+				{
+					"face": "top",
+					"stl": "https://img.basically.website/parts/stl/servo-bracket-cover-rqor-stamped-top-ce9dd0df.stl",
+					"normal": [
+						-0.0,
+						0.0,
+						1.0
+					],
+					"center": [
+						98.93,
+						27.22,
+						104.47
+					],
+					"size": [
+						3.23,
+						8.87
+					],
+					"cap": 2.5,
+					"depth": 0.6,
+					"note": "smaller text"
+				},
+				{
+					"face": "-y side",
+					"stl": "https://img.basically.website/parts/stl/servo-bracket-cover-rqor-stamped-minus-y-side-02a95b61.stl",
+					"normal": [
+						-0.0,
+						-1.0,
+						-0.0
+					],
+					"center": [
+						98.93,
+						10.2,
+						103.74
+					],
+					"size": [
+						3.23,
+						8.87
+					],
+					"cap": 2.5,
+					"depth": 0.6,
+					"note": "smaller text"
+				}
+			]
 		},
 		{
 			"id": "servo-bracket-housing",
@@ -7979,7 +9029,49 @@
 					"size": [
 						12.35,
 						3.56
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "-x side",
+					"stl": "https://img.basically.website/parts/stl/servo-bracket-housing-tr15-stamped-minus-x-side-c129fdfa.stl",
+					"normal": [
+						-1.0,
+						0.0,
+						-0.0
+					],
+					"center": [
+						102.84,
+						17.57,
+						105.73
+					],
+					"size": [
+						3.56,
+						12.35
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "+x side",
+					"stl": "https://img.basically.website/parts/stl/servo-bracket-housing-tr15-stamped-plus-x-side-1da36922.stl",
+					"normal": [
+						1.0,
+						0.0,
+						0.0
+					],
+					"center": [
+						131.34,
+						13.36,
+						105.73
+					],
+					"size": [
+						3.56,
+						12.35
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
 					"face": "top 2",
@@ -7997,43 +9089,9 @@
 					"size": [
 						12.35,
 						3.56
-					]
-				},
-				{
-					"face": "-y side",
-					"stl": "https://img.basically.website/parts/stl/servo-bracket-housing-tr15-stamped-minus-y-side-023dc22b.stl",
-					"normal": [
-						0.0,
-						-1.0,
-						0.0
 					],
-					"center": [
-						117.09,
-						10.2,
-						114.41
-					],
-					"size": [
-						12.35,
-						3.56
-					]
-				},
-				{
-					"face": "+y side",
-					"stl": "https://img.basically.website/parts/stl/servo-bracket-housing-tr15-stamped-plus-y-side-32095696.stl",
-					"normal": [
-						0.0,
-						1.0,
-						-0.0
-					],
-					"center": [
-						123.79,
-						21.67,
-						108.07
-					],
-					"size": [
-						12.35,
-						3.56
-					]
+					"cap": 3.5,
+					"depth": 0.6
 				}
 			]
 		},
@@ -8102,7 +9160,9 @@
 					"size": [
 						12.47,
 						3.63
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
 					"face": "+x side",
@@ -8120,7 +9180,9 @@
 					"size": [
 						12.47,
 						3.63
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
 					"face": "-x side",
@@ -8138,25 +9200,29 @@
 					"size": [
 						12.47,
 						3.63
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
-					"face": "-x side 2",
-					"stl": "https://img.basically.website/parts/stl/leg-xse1-stamped-minus-x-side-2-fbbd7ade.stl",
+					"face": "-y side",
+					"stl": "https://img.basically.website/parts/stl/leg-xse1-stamped-minus-y-side-5a378751.stl",
 					"normal": [
-						-0.9736,
-						-0.2222,
-						-0.0523
+						0.2221,
+						-0.9702,
+						0.0973
 					],
 					"center": [
-						-109.36,
-						-24.95,
-						-130.81
+						-108.37,
+						-45.59,
+						-126.43
 					],
 					"size": [
-						12.47,
-						3.63
-					]
+						3.63,
+						12.47
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				}
 			]
 		},
@@ -8225,7 +9291,9 @@
 					"size": [
 						12.47,
 						4.52
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
 					"face": "top",
@@ -8243,7 +9311,9 @@
 					"size": [
 						12.47,
 						4.52
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
 					"face": "-x side",
@@ -8261,7 +9331,9 @@
 					"size": [
 						12.47,
 						4.52
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
 					"face": "+x side",
@@ -8279,7 +9351,9 @@
 					"size": [
 						12.47,
 						4.52
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				}
 			]
 		},
@@ -8348,7 +9422,9 @@
 					"size": [
 						12.29,
 						3.63
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
 					"face": "-x side",
@@ -8366,58 +9442,51 @@
 					"size": [
 						12.29,
 						3.63
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
-					"face": "angled face 2",
-					"stl": "https://img.basically.website/parts/stl/chute-door-7oxs-stamped-angled-face-2-d8d81dee.stl",
+					"face": "-y side",
+					"stl": "https://img.basically.website/parts/stl/chute-door-7oxs-stamped-minus-y-side-d80418a3.stl",
 					"normal": [
 						0.0,
-						0.4226,
-						-0.9063
+						-1.0,
+						0.0
 					],
 					"center": [
-						47.48,
-						50.45,
-						146.8
+						-48.02,
+						-59.07,
+						98.15
 					],
 					"size": [
-						12.29,
-						3.63
-					]
+						8.78,
+						2.59
+					],
+					"cap": 2.5,
+					"depth": 0.6,
+					"note": "smaller text"
 				},
 				{
-					"face": "outer wall",
-					"stl": "https://img.basically.website/parts/stl/chute-door-7oxs-stamped-outer-wall-8f831989.stl",
+					"face": "+x side",
+					"stl": "https://img.basically.website/parts/stl/chute-door-7oxs-stamped-plus-x-side-ee978154.stl",
 					"normal": [
+						1.0,
 						0.0,
-						-0.9428,
-						-0.3333
+						0.0
 					],
 					"center": [
-						61.32,
-						42.96,
-						147.11
+						-55.0,
+						53.16,
+						155.44
 					],
 					"size": [
-						3.63,
-						12.29
+						8.78,
+						2.59
 					],
-					"surface": {
-						"axis": [
-							-1.0,
-							-0.0,
-							0.0
-						],
-						"point": [
-							14.329,
-							52.282,
-							150.41
-						],
-						"r0": 9.887,
-						"slope": 0.0,
-						"sign": 1
-					}
+					"cap": 2.5,
+					"depth": 0.6,
+					"note": "smaller text"
 				}
 			]
 		},
@@ -8486,7 +9555,9 @@
 					"size": [
 						12.47,
 						4.52
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
 					"face": "+x side",
@@ -8504,7 +9575,9 @@
 					"size": [
 						12.47,
 						4.52
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
 					"face": "-x side",
@@ -8522,25 +9595,29 @@
 					"size": [
 						12.47,
 						4.52
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
-					"face": "top",
-					"stl": "https://img.basically.website/parts/stl/leg-extension-jewq-stamped-top-cfec590f.stl",
+					"face": "+y side",
+					"stl": "https://img.basically.website/parts/stl/leg-extension-jewq-stamped-plus-y-side-0d37c6cf.stl",
 					"normal": [
-						0.0,
-						0.0,
-						1.0
+						-0.2231,
+						0.9748,
+						0.0
 					],
 					"center": [
-						-105.24,
-						-40.3,
-						-154.0
+						-109.61,
+						-3.55,
+						-206.39
 					],
 					"size": [
-						12.47,
-						4.52
-					]
+						4.52,
+						12.47
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				}
 			]
 		},
@@ -8659,7 +9736,9 @@
 					"size": [
 						12.35,
 						4.52
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
 					"face": "top",
@@ -8677,7 +9756,9 @@
 					"size": [
 						12.35,
 						4.52
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
 					"face": "-y side",
@@ -8695,7 +9776,9 @@
 					"size": [
 						12.35,
 						4.52
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
 					"face": "+y side",
@@ -8713,7 +9796,9 @@
 					"size": [
 						12.35,
 						4.52
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				}
 			]
 		},
@@ -8782,7 +9867,9 @@
 					"size": [
 						12.28,
 						3.63
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
 					"face": "top",
@@ -8800,7 +9887,9 @@
 					"size": [
 						12.28,
 						3.63
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
 					"face": "-y side",
@@ -8818,7 +9907,9 @@
 					"size": [
 						12.28,
 						3.63
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
 					"face": "+y side",
@@ -8836,7 +9927,9 @@
 					"size": [
 						12.28,
 						3.63
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				}
 			]
 		},
@@ -8891,7 +9984,27 @@
 			"stamped": [
 				{
 					"face": "angled face",
-					"stl": "https://img.basically.website/parts/stl/camera-mount-rod-mount-twuu-stamped-angled-face-8fbde7f6.stl",
+					"stl": "https://img.basically.website/parts/stl/camera-mount-rod-mount-twuu-stamped-angled-face-1fc7f208.stl",
+					"normal": [
+						-0.7818,
+						0.6235,
+						0.0
+					],
+					"center": [
+						95.08,
+						-73.25,
+						8.56
+					],
+					"size": [
+						3.56,
+						12.37
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "angled face 2",
+					"stl": "https://img.basically.website/parts/stl/camera-mount-rod-mount-twuu-stamped-angled-face-2-8fbde7f6.stl",
 					"normal": [
 						-0.7804,
 						0.6231,
@@ -8905,7 +10018,51 @@
 					"size": [
 						12.37,
 						3.56
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "-y side",
+					"stl": "https://img.basically.website/parts/stl/camera-mount-rod-mount-twuu-stamped-minus-y-side-9c43aea1.stl",
+					"normal": [
+						-0.0638,
+						-0.9966,
+						0.0523
+					],
+					"center": [
+						86.08,
+						-77.57,
+						-12.91
+					],
+					"size": [
+						2.55,
+						8.84
+					],
+					"cap": 2.5,
+					"depth": 0.6,
+					"note": "smaller text"
+				},
+				{
+					"face": "+x side",
+					"stl": "https://img.basically.website/parts/stl/camera-mount-rod-mount-twuu-stamped-plus-x-side-26a4db09.stl",
+					"normal": [
+						0.958,
+						0.2818,
+						0.0523
+					],
+					"center": [
+						94.91,
+						-66.67,
+						-12.91
+					],
+					"size": [
+						2.55,
+						8.84
+					],
+					"cap": 2.5,
+					"depth": 0.6,
+					"note": "smaller text"
 				}
 			]
 		},
@@ -8974,7 +10131,9 @@
 					"size": [
 						12.15,
 						3.56
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
 					"face": "bottom",
@@ -8992,7 +10151,9 @@
 					"size": [
 						12.15,
 						3.56
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
 					"face": "bottom 2",
@@ -9010,7 +10171,9 @@
 					"size": [
 						12.15,
 						3.56
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				}
 			]
 		},
@@ -9151,7 +10314,9 @@
 					"size": [
 						12.69,
 						3.56
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
 					"face": "top",
@@ -9169,7 +10334,51 @@
 					"size": [
 						12.69,
 						3.56
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "+x side",
+					"stl": "https://img.basically.website/parts/stl/camera-extension-mount-wt9t-stamped-plus-x-side-43a4a097.stl",
+					"normal": [
+						1.0,
+						-0.0,
+						0.0
+					],
+					"center": [
+						157.13,
+						74.9,
+						2.4
+					],
+					"size": [
+						9.07,
+						2.55
+					],
+					"cap": 2.5,
+					"depth": 0.6,
+					"note": "smaller text"
+				},
+				{
+					"face": "-x side",
+					"stl": "https://img.basically.website/parts/stl/camera-extension-mount-wt9t-stamped-minus-x-side-b2f36589.stl",
+					"normal": [
+						-1.0,
+						0.0,
+						-0.0
+					],
+					"center": [
+						98.87,
+						121.84,
+						2.4
+					],
+					"size": [
+						9.07,
+						2.55
+					],
+					"cap": 2.5,
+					"depth": 0.6,
+					"note": "smaller text"
 				}
 			]
 		},
@@ -9240,7 +10449,9 @@
 					"size": [
 						12.2,
 						3.63
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
 					"face": "+y side",
@@ -9258,7 +10469,49 @@
 					"size": [
 						12.2,
 						3.63
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "+x side",
+					"stl": "https://img.basically.website/parts/stl/layer-connector-1-iwzg-stamped-plus-x-side-842ef9e7.stl",
+					"normal": [
+						1.0,
+						0.0,
+						-0.0
+					],
+					"center": [
+						-47.53,
+						-214.17,
+						-124.69
+					],
+					"size": [
+						3.63,
+						12.2
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "-x side",
+					"stl": "https://img.basically.website/parts/stl/layer-connector-1-iwzg-stamped-minus-x-side-c63a0759.stl",
+					"normal": [
+						-1.0,
+						0.0,
+						0.0
+					],
+					"center": [
+						-89.53,
+						-205.97,
+						-124.69
+					],
+					"size": [
+						3.63,
+						12.2
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				}
 			]
 		},
@@ -9329,7 +10582,9 @@
 					"size": [
 						12.31,
 						3.56
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
 					"face": "-y side",
@@ -9347,7 +10602,49 @@
 					"size": [
 						12.31,
 						3.56
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "-x side",
+					"stl": "https://img.basically.website/parts/stl/layer-connector-2-3wrh-stamped-minus-x-side-ae00dbf0.stl",
+					"normal": [
+						-1.0,
+						-0.0,
+						-0.0
+					],
+					"center": [
+						-89.53,
+						-70.94,
+						-124.63
+					],
+					"size": [
+						3.56,
+						12.31
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "+x side",
+					"stl": "https://img.basically.website/parts/stl/layer-connector-2-3wrh-stamped-plus-x-side-9fa0626d.stl",
+					"normal": [
+						1.0,
+						0.0,
+						0.0
+					],
+					"center": [
+						-47.53,
+						-79.2,
+						-124.63
+					],
+					"size": [
+						3.56,
+						12.31
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				}
 			]
 		},
@@ -9416,7 +10713,9 @@
 					"size": [
 						12.01,
 						3.63
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
 					"face": "+x side",
@@ -9434,7 +10733,9 @@
 					"size": [
 						12.01,
 						3.63
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
 					"face": "-x side",
@@ -9452,7 +10753,9 @@
 					"size": [
 						12.01,
 						3.63
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
 					"face": "top",
@@ -9470,7 +10773,9 @@
 					"size": [
 						12.01,
 						3.63
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				}
 			]
 		},
@@ -9540,7 +10845,9 @@
 					"size": [
 						12.59,
 						3.63
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
 					"face": "angled face 2",
@@ -9558,7 +10865,9 @@
 					"size": [
 						12.59,
 						3.63
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
 					"face": "-y side",
@@ -9576,7 +10885,9 @@
 					"size": [
 						12.59,
 						3.63
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
 					"face": "+y side",
@@ -9594,7 +10905,9 @@
 					"size": [
 						12.59,
 						3.63
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				}
 			]
 		},
@@ -9664,7 +10977,9 @@
 					"size": [
 						12.38,
 						3.56
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
 					"face": "angled face 2",
@@ -9682,7 +10997,9 @@
 					"size": [
 						12.38,
 						3.56
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
 					"face": "+y side",
@@ -9700,7 +11017,9 @@
 					"size": [
 						12.38,
 						3.56
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
 					"face": "-y side",
@@ -9718,7 +11037,9 @@
 					"size": [
 						12.38,
 						3.56
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				}
 			]
 		},
@@ -9787,7 +11108,9 @@
 					"size": [
 						12.49,
 						3.56
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
 					"face": "angled face 2",
@@ -9805,7 +11128,9 @@
 					"size": [
 						12.49,
 						3.56
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
 					"face": "angled face 3",
@@ -9823,7 +11148,9 @@
 					"size": [
 						12.49,
 						3.56
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
 					"face": "+y side",
@@ -9841,7 +11168,9 @@
 					"size": [
 						12.49,
 						3.56
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				}
 			]
 		},
@@ -9910,7 +11239,9 @@
 					"size": [
 						12.36,
 						3.56
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
 					"face": "angled face 2",
@@ -9928,7 +11259,9 @@
 					"size": [
 						12.36,
 						3.56
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
 					"face": "angled face 3",
@@ -9946,7 +11279,9 @@
 					"size": [
 						12.36,
 						3.56
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
 					"face": "-y side",
@@ -9964,7 +11299,9 @@
 					"size": [
 						12.36,
 						3.56
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				}
 			]
 		},
@@ -10033,7 +11370,9 @@
 					"size": [
 						12.37,
 						3.56
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
 					"face": "angled face 2",
@@ -10051,7 +11390,9 @@
 					"size": [
 						12.37,
 						3.56
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
 					"face": "angled face 3",
@@ -10069,7 +11410,9 @@
 					"size": [
 						12.37,
 						3.56
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
 					"face": "+y side",
@@ -10087,7 +11430,9 @@
 					"size": [
 						12.37,
 						3.56
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				}
 			]
 		},
@@ -10156,7 +11501,9 @@
 					"size": [
 						12.48,
 						3.63
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
 					"face": "-y side",
@@ -10174,7 +11521,9 @@
 					"size": [
 						12.48,
 						3.63
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
 					"face": "+y side 2",
@@ -10192,7 +11541,9 @@
 					"size": [
 						12.48,
 						3.63
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
 					"face": "-y side 2",
@@ -10210,7 +11561,9 @@
 					"size": [
 						12.48,
 						3.63
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				}
 			]
 		},
@@ -10279,7 +11632,9 @@
 					"size": [
 						12.34,
 						3.63
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
 					"face": "angled face 2",
@@ -10297,7 +11652,9 @@
 					"size": [
 						12.34,
 						3.63
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
 					"face": "angled face 3",
@@ -10315,7 +11672,9 @@
 					"size": [
 						12.34,
 						3.63
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
 					"face": "-y side",
@@ -10333,7 +11692,9 @@
 					"size": [
 						12.34,
 						3.63
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				}
 			]
 		},
@@ -10402,7 +11763,9 @@
 					"size": [
 						12.21,
 						3.56
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
 					"face": "+y side",
@@ -10420,7 +11783,9 @@
 					"size": [
 						12.21,
 						3.56
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
 					"face": "+y side 2",
@@ -10438,7 +11803,9 @@
 					"size": [
 						12.21,
 						3.56
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				}
 			]
 		},
@@ -10507,7 +11874,9 @@
 					"size": [
 						12.3,
 						3.63
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
 					"face": "-y side",
@@ -10525,7 +11894,9 @@
 					"size": [
 						12.3,
 						3.63
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				}
 			]
 		},
@@ -10579,6 +11950,26 @@
 			"render": "https://img.basically.website/parts/render/meanwell-psu-back-mount-8274bb78.png",
 			"stamped": [
 				{
+					"face": "bottom",
+					"stl": "https://img.basically.website/parts/stl/meanwell-psu-back-mount-15uh-stamped-bottom-8b14d7f8.stl",
+					"normal": [
+						0.0,
+						-0.0,
+						-1.0
+					],
+					"center": [
+						-0.84,
+						16.57,
+						165.0
+					],
+					"size": [
+						3.56,
+						12.11
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
 					"face": "-x side",
 					"stl": "https://img.basically.website/parts/stl/meanwell-psu-back-mount-15uh-stamped-minus-x-side-1fdcb3ed.stl",
 					"normal": [
@@ -10594,7 +11985,9 @@
 					"size": [
 						12.11,
 						3.56
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
 					"face": "+x side",
@@ -10612,7 +12005,9 @@
 					"size": [
 						12.11,
 						3.56
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
 					"face": "+x side 2",
@@ -10630,25 +12025,9 @@
 					"size": [
 						12.11,
 						3.56
-					]
-				},
-				{
-					"face": "top",
-					"stl": "https://img.basically.website/parts/stl/meanwell-psu-back-mount-15uh-stamped-top-37e0a228.stl",
-					"normal": [
-						0.0,
-						-0.0,
-						1.0
 					],
-					"center": [
-						3.43,
-						-115.84,
-						219.0
-					],
-					"size": [
-						12.11,
-						3.56
-					]
+					"cap": 3.5,
+					"depth": 0.6
 				}
 			]
 		},
@@ -10717,7 +12096,9 @@
 					"size": [
 						12.39,
 						3.56
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
 					"face": "-x side",
@@ -10735,7 +12116,9 @@
 					"size": [
 						12.39,
 						3.56
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
 					"face": "+x side",
@@ -10753,7 +12136,9 @@
 					"size": [
 						12.39,
 						3.56
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
 					"face": "-y side",
@@ -10771,7 +12156,9 @@
 					"size": [
 						12.39,
 						3.56
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				}
 			]
 		},
@@ -10825,6 +12212,26 @@
 			"render": "https://img.basically.website/parts/render/meanwell-psu-cap-57608c50.png",
 			"stamped": [
 				{
+					"face": "bottom",
+					"stl": "https://img.basically.website/parts/stl/meanwell-psu-cap-5nt1-stamped-bottom-e93ff7bc.stl",
+					"normal": [
+						-0.0,
+						-0.0,
+						-1.0
+					],
+					"center": [
+						54.84,
+						-113.67,
+						-76.2
+					],
+					"size": [
+						3.56,
+						12.32
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
 					"face": "+x side",
 					"stl": "https://img.basically.website/parts/stl/meanwell-psu-cap-5nt1-stamped-plus-x-side-dc889a4f.stl",
 					"normal": [
@@ -10840,7 +12247,9 @@
 					"size": [
 						12.32,
 						3.56
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
 					"face": "-x side",
@@ -10858,7 +12267,9 @@
 					"size": [
 						12.32,
 						3.56
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
 					"face": "top",
@@ -10876,7 +12287,9 @@
 					"size": [
 						12.32,
 						3.56
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				}
 			]
 		},
@@ -10948,7 +12361,9 @@
 					"size": [
 						12.41,
 						3.56
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
 					"face": "top",
@@ -10966,7 +12381,9 @@
 					"size": [
 						12.41,
 						3.56
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
 					"face": "-y side",
@@ -10984,7 +12401,9 @@
 					"size": [
 						12.41,
 						3.56
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
 					"face": "+y side",
@@ -11002,7 +12421,9 @@
 					"size": [
 						12.41,
 						3.56
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				}
 			]
 		},
@@ -11054,6 +12475,48 @@
 			"render": "https://img.basically.website/parts/render/ctrl-board-housing-cover-92dcbb28.png",
 			"stamped": [
 				{
+					"face": "bottom",
+					"stl": "https://img.basically.website/parts/stl/ctrl-board-housing-cover-ksh2-stamped-bottom-8d62eeba.stl",
+					"normal": [
+						-0.0,
+						0.0,
+						-1.0
+					],
+					"center": [
+						17.22,
+						-23.0,
+						-5.6
+					],
+					"size": [
+						8.69,
+						2.59
+					],
+					"cap": 2.5,
+					"depth": 0.6,
+					"note": "smaller text"
+				},
+				{
+					"face": "bottom 2",
+					"stl": "https://img.basically.website/parts/stl/ctrl-board-housing-cover-ksh2-stamped-bottom-2-42b7d5ea.stl",
+					"normal": [
+						0.0,
+						0.0,
+						-1.0
+					],
+					"center": [
+						19.55,
+						-157.08,
+						-5.6
+					],
+					"size": [
+						8.69,
+						2.59
+					],
+					"cap": 2.5,
+					"depth": 0.6,
+					"note": "smaller text"
+				},
+				{
 					"face": "top",
 					"stl": "https://img.basically.website/parts/stl/ctrl-board-housing-cover-ksh2-stamped-top-a64dee05.stl",
 					"normal": [
@@ -11069,7 +12532,9 @@
 					"size": [
 						12.17,
 						3.63
-					]
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
 					"face": "+y side",
@@ -11087,43 +12552,9 @@
 					"size": [
 						12.17,
 						3.63
-					]
-				},
-				{
-					"face": "-x side",
-					"stl": "https://img.basically.website/parts/stl/ctrl-board-housing-cover-ksh2-stamped-minus-x-side-071d051a.stl",
-					"normal": [
-						-1.0,
-						0.0,
-						0.0
 					],
-					"center": [
-						10.5,
-						-89.06,
-						-2.41
-					],
-					"size": [
-						12.17,
-						3.63
-					]
-				},
-				{
-					"face": "-x side 2",
-					"stl": "https://img.basically.website/parts/stl/ctrl-board-housing-cover-ksh2-stamped-minus-x-side-2-da2402a9.stl",
-					"normal": [
-						-1.0,
-						0.0,
-						0.0
-					],
-					"center": [
-						10.5,
-						-20.96,
-						-2.41
-					],
-					"size": [
-						12.17,
-						3.63
-					]
+					"cap": 3.5,
+					"depth": 0.6
 				}
 			]
 		},
@@ -11173,7 +12604,92 @@
 			"conflicts": null,
 			"stl": "https://img.basically.website/parts/stl/ctrl-board-housing-plunger-cljt-ab938f5b.stl",
 			"render": "https://img.basically.website/parts/render/ctrl-board-housing-plunger-4bfe5b7d.png",
-			"stamped": []
+			"stamped": [
+				{
+					"face": "+y side",
+					"stl": "https://img.basically.website/parts/stl/ctrl-board-housing-plunger-cljt-stamped-plus-y-side-ef74bc0f.stl",
+					"normal": [
+						-0.0,
+						1.0,
+						0.0
+					],
+					"center": [
+						102.33,
+						-50.25,
+						7.16
+					],
+					"size": [
+						2.59,
+						8.88
+					],
+					"cap": 2.5,
+					"depth": 0.6,
+					"note": "smaller text"
+				},
+				{
+					"face": "+x side",
+					"stl": "https://img.basically.website/parts/stl/ctrl-board-housing-plunger-cljt-stamped-plus-x-side-753f9b7e.stl",
+					"normal": [
+						1.0,
+						-0.0,
+						0.0
+					],
+					"center": [
+						104.75,
+						-52.83,
+						7.16
+					],
+					"size": [
+						2.59,
+						8.88
+					],
+					"cap": 2.5,
+					"depth": 0.6,
+					"note": "smaller text"
+				},
+				{
+					"face": "-y side",
+					"stl": "https://img.basically.website/parts/stl/ctrl-board-housing-plunger-cljt-stamped-minus-y-side-59d5c8d8.stl",
+					"normal": [
+						-0.0,
+						-1.0,
+						-0.0
+					],
+					"center": [
+						102.17,
+						-55.25,
+						7.16
+					],
+					"size": [
+						2.59,
+						8.88
+					],
+					"cap": 2.5,
+					"depth": 0.6,
+					"note": "smaller text"
+				},
+				{
+					"face": "-x side",
+					"stl": "https://img.basically.website/parts/stl/ctrl-board-housing-plunger-cljt-stamped-minus-x-side-01fbd7c2.stl",
+					"normal": [
+						-1.0,
+						0.0,
+						-0.0
+					],
+					"center": [
+						99.75,
+						-52.67,
+						7.16
+					],
+					"size": [
+						2.59,
+						8.88
+					],
+					"cap": 2.5,
+					"depth": 0.6,
+					"note": "smaller text"
+				}
+			]
 		},
 		{
 			"id": "ctrl-board-housing-plunger-retainer",
@@ -11221,7 +12737,50 @@
 			"conflicts": null,
 			"stl": "https://img.basically.website/parts/stl/ctrl-board-housing-plunger-retainer-g9sx-a3f84a1f.stl",
 			"render": "https://img.basically.website/parts/render/ctrl-board-housing-plunger-retainer-e543b945.png",
-			"stamped": []
+			"stamped": [
+				{
+					"face": "bottom",
+					"stl": "https://img.basically.website/parts/stl/ctrl-board-housing-plunger-retainer-g9sx-stamped-bottom-caa781cf.stl",
+					"normal": [
+						-0.0,
+						0.0,
+						-1.0
+					],
+					"center": [
+						111.64,
+						-58.33,
+						20.9
+					],
+					"size": [
+						8.96,
+						2.59
+					],
+					"cap": 2.5,
+					"depth": 0.6,
+					"note": "smaller text"
+				},
+				{
+					"face": "top",
+					"stl": "https://img.basically.website/parts/stl/ctrl-board-housing-plunger-retainer-g9sx-stamped-top-0561e4d6.stl",
+					"normal": [
+						0.0,
+						0.0,
+						1.0
+					],
+					"center": [
+						92.86,
+						-58.33,
+						23.9
+					],
+					"size": [
+						8.96,
+						2.59
+					],
+					"cap": 2.5,
+					"depth": 0.6,
+					"note": "smaller text"
+				}
+			]
 		}
 	],
 	"plates": [

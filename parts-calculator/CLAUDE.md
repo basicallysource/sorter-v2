@@ -222,10 +222,15 @@ memo. Faces are planar facets plus cylindrical and conical walls (a smooth
 walk across small dihedral angles, then a surface-of-revolution fit with
 the fillets it merged with rejected as tilt outliers; unrolled exactly,
 cutter bent back on; bores excluded; text turned sideways along the axis if
-it would wrap past ~60°). Every spot needs 1.6 mm of wall behind it
-(ray-cast). The face ranking is in `engrave.variants()` -- large flats,
-then walls, then small flats, inside bed / upright / overhang classes --
-and there is deliberately no per-part authoring of where the stamp goes. `/u/<uid>` is one prerendered
+it would wrap past ~60°). Every spot needs 1.6 mm of wall behind a 0.6 mm
+pocket, or 1.0 mm behind a 0.4 mm one (ray-cast). Per face the ladder is
+3.5 mm upright, 3.5 sideways, 2.5 upright, 2.5 sideways; each variant
+carries its `cap` and `depth` and a `note` when either is the fallback.
+The face ranking is in `engrave.variants()` -- full-size before small
+text; large flats, then walls, then small flats, inside bed / upright /
+overhang classes -- and there is deliberately no per-part authoring of
+where the stamp goes. The viewer's CAD mode (feature edges, grey ground)
+is the default; "Shaded" is the bare surface. `/u/<uid>` is one prerendered
 page per uid the catalog has ever minted.
 
 **Assemblies carry `uid` / `version` / `versions` / `candidates` too.** An

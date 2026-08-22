@@ -21,7 +21,10 @@ goes:
      cylinder is unrolled first, which is an isometry, so margins mean the
      same thing -- and find room for the text in a corner, rastering across
      the face when no corner has room
-  3. refuse a spot whose wall is too thin to take a 0.6 mm pocket
+  3. refuse a spot whose wall is too thin for the pocket. Fallbacks, in
+     order, when a face does not take the text as is: turn it sideways, then
+     the smaller size (2.5 mm), and on a sheet too thin for a 0.6 mm pocket a
+     0.4 mm one -- so the washers and thin frames still get a mark
   4. rank: the bed face first (a pocket in the first layer prints cleanest
      and is out of sight once assembled), then upward and vertical faces,
      downward overhangs last; within that, large flat faces before walls,
@@ -72,9 +75,12 @@ FONT_SHA = "b2095e0d657e6d28dc32444a9dacabab0c9241d0bf39d96371756cc9bdbc3a5f"
 FONT_DIR = os.path.join(HERE, "build", "fonts")
 
 CAP = 3.5          # cap height, mm: the smallest a person reads in hand
+CAP_SMALL = 2.5    # the fallback when nothing on a part takes the full size
 DEPTH = 0.6        # three 0.2 mm layers; a pocket two layers deep reads as a smudge
+DEPTH_SHALLOW = 0.4  # two layers: the fallback for a sheet too thin for three
 SLACK = 0.05       # cutter overshoot past the face so the boolean is clean
 MIN_WALL = 1.6     # mm of material under the pocket: 0.6 removed, five layers left
+MIN_WALL_SHALLOW = 1.0  # under a 0.4 mm pocket, three layers left
 MAX_VARIANTS = 4   # faces offered per part; the first is the default
 PLANE_TOL = 0.02   # two faces are coplanar within this, mm
 NORMAL_TOL = 0.9995
@@ -87,7 +93,8 @@ LARGE_FACE = 600.0 # mm2: a flat face this big is preferred over any wall; a
 
 # Anything in this tuple changes every stamped STL when it changes, so it is
 # folded into generate.py's memo key and a bump here regenerates the lot.
-SIGNATURE = ("engrave-v2", FONT_SHA, CAP, DEPTH, MAX_VARIANTS, MIN_WALL, MIN_RADIUS)
+SIGNATURE = ("engrave-v3", FONT_SHA, CAP, CAP_SMALL, DEPTH, DEPTH_SHALLOW, MAX_VARIANTS,
+             MIN_WALL, MIN_WALL_SHALLOW, MIN_RADIUS)
 
 
 def font_path() -> str:
@@ -116,17 +123,17 @@ def _sha256(path: str) -> str:
 
 
 # ------------------------------------------------------------------ text
-_font_scale = None
+_font_em = None
 
 
-def _glyphs(text: str, font: str):
-    """The text as a shapely geometry in mm, baseline at y=0, cap height CAP."""
-    global _font_scale
+def _glyphs(text: str, font: str, cap: float = CAP):
+    """The text as a shapely geometry in mm, baseline at y=0, cap height `cap`."""
+    global _font_em
     fp = FontProperties(fname=font)
-    if _font_scale is None:
+    if _font_em is None:
         h = _even_odd(TextPath((0, 0), "H", size=10.0, prop=fp))
-        _font_scale = 10.0 * CAP / (h.bounds[3] - h.bounds[1])
-    return _even_odd(TextPath((0, 0), text, size=_font_scale, prop=fp))
+        _font_em = 10.0 / (h.bounds[3] - h.bounds[1])   # em size per mm of cap height
+    return _even_odd(TextPath((0, 0), text, size=_font_em * cap, prop=fp))
 
 
 def _even_odd(tp: TextPath):
@@ -550,19 +557,19 @@ def variants(mesh: trimesh.Trimesh, text: str, font: str | None = None) -> list[
     find the pocket's triangles and paint them, and to fly the camera to it
     -- plus two private keys `cut()` needs."""
     font = font or font_path()
-    glyphs = _glyphs(text.upper(), font)
-    margin = 0.5 + CAP * 0.25
+    glyphs = {cap: _glyphs(text.upper(), font, cap) for cap in (CAP, CAP_SMALL)}
     found = []
     for face in _flat_faces(mesh) + _round_faces(mesh):
         if isinstance(face, RoundFace) and face.sign < 0:
             continue                    # a bore is a fit far more often than a wall is
         placed = None
-        # on a wall, text that would wrap too far around the axis is turned
-        # sideways to run along it instead (the print on a pen)
-        for extra in ((0.0,) if not isinstance(face, RoundFace) else (0.0, 90.0)):
+        # the ladder: full size upright, full size sideways (along a frame's
+        # bar, or along a post so the text does not wrap), then the small size
+        # both ways. The first rung that fits is the one.
+        for cap, extra in ((CAP, 0.0), (CAP, 90.0), (CAP_SMALL, 0.0), (CAP_SMALL, 90.0)):
             rot = face.text_rotation() + extra
-            tg = glyphs if rot == 0 else shapely.affinity.rotate(glyphs, rot, origin=(0, 0))
-            at = _place(face.outline, tg, margin)
+            tg = glyphs[cap] if rot == 0 else shapely.affinity.rotate(glyphs[cap], rot, origin=(0, 0))
+            at = _place(face.outline, tg, 0.5 + cap * 0.25)
             if at is None:
                 continue
             cand = shapely.affinity.translate(tg, *at)
@@ -575,24 +582,31 @@ def variants(mesh: trimesh.Trimesh, text: str, font: str | None = None) -> list[
         if placed is None:
             continue
         x0, y0, x1, y1 = placed.bounds
-        if _wall_thickness(mesh, face, placed) < MIN_WALL:
+        # the pocket: three layers when the wall allows, two on a thin sheet
+        wall = _wall_thickness(mesh, face, placed)
+        # (a hair of tolerance: a 1.00 mm sheet ray-casts to 0.9999)
+        depth = DEPTH if wall >= MIN_WALL - 0.01 else DEPTH_SHALLOW if wall >= MIN_WALL_SHALLOW - 0.01 else None
+        if depth is None:
             continue
         cx, cy = (x0 + x1) / 2, (y0 + y1) / 2
         n = face.normal_at(cx, cy)
         rank = 0 if face.is_bed else 1 if n[2] >= -0.2 else 2
         tier = 1 if isinstance(face, RoundFace) else 0 if face.area >= LARGE_FACE else 2
-        found.append((rank, tier, -face.area, face, placed, n, (cx, cy)))
-    found.sort(key=lambda t: (t[0], t[1], t[2]))
+        found.append((rank, cap < CAP, tier, -face.area, face, placed, n, (cx, cy), cap, depth))
+    found.sort(key=lambda t: (t[0], t[1], t[2], t[3]))
     out, labels = [], {}
-    for rank, tier, _, face, placed, n, (cx, cy) in found[:MAX_VARIANTS]:
+    for rank, _, tier, _, face, placed, n, (cx, cy), cap, depth in found[:MAX_VARIANTS]:
         k = labels[face.label] = labels.get(face.label, 0) + 1
         label = face.label if k == 1 else f"{face.label} {k}"
         x0, y0, x1, y1 = placed.bounds
+        notes = (["smaller text"] if cap < CAP else []) + (["shallow pocket"] if depth < DEPTH else [])
         out.append({
             "face": label,
             "normal": [round(float(t), 4) for t in n],
             "center": [round(float(t), 2) for t in face.world(cx, cy, 0.0)],
             "size": [round(x1 - x0, 2), round(y1 - y0, 2)],
+            "cap": cap, "depth": depth,
+            **({"note": ", ".join(notes)} if notes else {}),
             **face.describe(),
             "_placed": placed, "_face": face,
         })
@@ -601,14 +615,14 @@ def variants(mesh: trimesh.Trimesh, text: str, font: str | None = None) -> list[
 
 def cut(mesh: trimesh.Trimesh, variant: dict) -> trimesh.Trimesh:
     """The mesh with this variant's text recessed into its face."""
-    face, placed = variant["_face"], variant["_placed"]
-    pieces = [trimesh.creation.extrude_polygon(g, DEPTH + SLACK)
+    face, placed, depth = variant["_face"], variant["_placed"], variant["depth"]
+    pieces = [trimesh.creation.extrude_polygon(g, depth + SLACK)
               for g in getattr(placed, "geoms", [placed])]
     cutter = trimesh.util.concatenate(pieces)
-    # local +z is outward: the prism starts DEPTH inside the face and ends
+    # local +z is outward: the prism starts `depth` inside the face and ends
     # SLACK proud of it. Mapping every vertex through the face (a plane, or a
     # cylinder that bends the prism onto the wall) puts it in STL space.
-    cutter.apply_translation((0, 0, -DEPTH))
+    cutter.apply_translation((0, 0, -depth))
     v = cutter.vertices
     cutter.vertices = np.array([face.world(x, y, z) for x, y, z in v])
     out = trimesh.boolean.difference([mesh, cutter], engine="manifold")
@@ -623,7 +637,7 @@ def slug(text: str) -> str:
     return re.sub(r"[^a-z0-9]+", "-", text).strip("-")
 
 
-PUBLIC_KEYS = ("face", "normal", "center", "size", "surface")
+PUBLIC_KEYS = ("face", "normal", "center", "size", "cap", "depth", "note", "surface")
 
 
 def stamp(stl_path: str, text: str, out_dir: str, name: str) -> list[dict]:
@@ -657,5 +671,6 @@ if __name__ == "__main__":
     res = stamp(sys.argv[1], sys.argv[2], sys.argv[3] if len(sys.argv) > 3 else ".",
                 os.path.splitext(os.path.basename(sys.argv[1]))[0])
     for r in res:
-        print(f"{r['face']:16} normal {r['normal']}  center {r['center']}  size {r['size']}  -> {r['path']}")
+        print(f"{r['face']:16} {r['cap']} mm x {r['depth']} deep  normal {r['normal']}  center {r['center']}"
+              f"  {r.get('note', '')}  -> {r['path']}")
     print(f"{len(res)} variant(s) in {time.time() - t0:.1f}s")

@@ -531,6 +531,8 @@ The numbers on the photo and the drawing:
   <li class="key-screw"><strong>Two {% include fastener.html size="M5" variant="socket-button" length="16" %} screws</strong> at the base of that bracket brace it against the extrusion, the same screws and holes a layer's own vertical gets. Nothing else fastens the interface to the layer.</li>
 </ol>
 
+**Piece F does not reach the top of the Interface bracket, and nowhere near the top plate.** How deep it goes is not stated anywhere in the build, but it is fixed at both ends by what has to be screwed: the lower end has to reach past the two screws at the base of the layer's bracket, and the upper end has to cover the bracket's second pair of T-nut screws, whose bosses sit about 90 mm above the bracket's underside. A 274 mm piece cannot do both and also reach the top of a 120 mm bracket, so it stands about 6 mm past the upper screws and stops roughly 23 mm short of the top of the bracket. That is what the drawing shows.
+
 <div class="clear-float"></div>
 
 The top interface is now complete.

@@ -1073,12 +1073,12 @@
       "internal_notes": "1 per interface. White. Pairs with the outer clamp (cable-clamp assembly).",
       "version": "1",
       "created_at": "2026-06-27",
-      "updated_at": "2026-08-22",
+      "updated_at": "2026-06-27",
       "quantities": {
         "interface": 1
       },
       "assembly": "cable-clamp",
-      "stl_hash": "16cfdfea28d0f04e62014bc4caa8d32a7dd41eb495914824a64be629ab64b4a0",
+      "stl_hash": "a77f4963aada127b93e60161a8aa83685a03ce6f3beb318c270627f7641927af",
       "color": {
         "role": "chute-core"
       },

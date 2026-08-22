@@ -11,8 +11,8 @@
 		"density_g_cm3": 1.32,
 		"cost_per_kg": 24.99,
 		"commit_base_url": "https://github.com/basicallysource/sorter-v2/commit/",
-		"all_parts_zip": "https://img.basically.website/parts/bundle/all-parts-09ee1c6e.zip",
-		"all_parts_plain_zip": "https://img.basically.website/parts/bundle/all-parts-plain-4d45d13a.zip"
+		"all_parts_zip": "https://img.basically.website/parts/bundle/all-parts-d40cbfdd.zip",
+		"all_parts_plain_zip": "https://img.basically.website/parts/bundle/all-parts-plain-62f4820e.zip"
 	},
 	"sections": [
 		{
@@ -5394,7 +5394,7 @@
 			"description": "Inner half of the ribbon cable clamp. White.",
 			"version": "1",
 			"created_at": "2026-06-27",
-			"updated_at": "2026-08-22",
+			"updated_at": "2026-06-27",
 			"versions": [
 				{
 					"version": "1",
@@ -5402,8 +5402,8 @@
 					"date": "2026-06-27",
 					"message": "Initial version.",
 					"commit": null,
-					"stl": "https://img.basically.website/parts/stl/cable-clamp-inner-3fue-16cfdfea.stl",
-					"render": "https://img.basically.website/parts/render/cable-clamp-inner-16baaea1.png",
+					"stl": "https://img.basically.website/parts/stl/cable-clamp-inner-3fue-a77f4963.stl",
+					"render": "https://img.basically.website/parts/render/cable-clamp-inner-4f239270.png",
 					"grams": 6.45
 				}
 			],
@@ -5426,92 +5426,9 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"stl": "https://img.basically.website/parts/stl/cable-clamp-inner-3fue-16cfdfea.stl",
-			"render": "https://img.basically.website/parts/render/cable-clamp-inner-16baaea1.png",
-			"stamped": [
-				{
-					"face": "bottom",
-					"stl": "https://img.basically.website/parts/stl/cable-clamp-inner-3fue-stamped-bottom-ba82cb82.stl",
-					"normal": [
-						-0.0,
-						-0.0,
-						-1.0
-					],
-					"center": [
-						-81.38,
-						13.27,
-						204.62
-					],
-					"size": [
-						2.55,
-						8.79
-					],
-					"cap": 2.5,
-					"depth": 0.6,
-					"note": "smaller text"
-				},
-				{
-					"face": "bottom 2",
-					"stl": "https://img.basically.website/parts/stl/cable-clamp-inner-3fue-stamped-bottom-2-6e3ce509.stl",
-					"normal": [
-						-0.0,
-						-0.0,
-						-1.0
-					],
-					"center": [
-						-83.66,
-						-6.92,
-						204.62
-					],
-					"size": [
-						2.55,
-						8.79
-					],
-					"cap": 2.5,
-					"depth": 0.6,
-					"note": "smaller text"
-				},
-				{
-					"face": "-x side",
-					"stl": "https://img.basically.website/parts/stl/cable-clamp-inner-3fue-stamped-minus-x-side-0b6c48ad.stl",
-					"normal": [
-						-1.0,
-						0.0,
-						0.0
-					],
-					"center": [
-						-87.21,
-						32.09,
-						232.54
-					],
-					"size": [
-						12.3,
-						3.56
-					],
-					"cap": 3.5,
-					"depth": 0.6
-				},
-				{
-					"face": "+x side",
-					"stl": "https://img.basically.website/parts/stl/cable-clamp-inner-3fue-stamped-plus-x-side-e4cb889e.stl",
-					"normal": [
-						1.0,
-						0.0,
-						0.0
-					],
-					"center": [
-						-79.21,
-						32.09,
-						232.54
-					],
-					"size": [
-						12.3,
-						3.56
-					],
-					"cap": 3.5,
-					"depth": 0.6
-				}
-			]
+			"stl": "https://img.basically.website/parts/stl/cable-clamp-inner-3fue-a77f4963.stl",
+			"render": "https://img.basically.website/parts/render/cable-clamp-inner-4f239270.png",
+			"stamped": []
 		},
 		{
 			"id": "cable-clamp-outer",

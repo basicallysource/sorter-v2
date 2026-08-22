@@ -101,7 +101,7 @@
 					"camera-extension-mount"
 				],
 				"assemblies": [
-					"camera-extension"
+					"camera-extension-assembly"
 				]
 			}
 		},
@@ -368,7 +368,7 @@
 	],
 	"assemblies": [
 		{
-			"id": "light-post",
+			"id": "light-post-assembly",
 			"uid": "v06x",
 			"version": "1",
 			"name": "Light post",
@@ -820,7 +820,7 @@
 			]
 		},
 		{
-			"id": "camera-extension",
+			"id": "camera-extension-assembly",
 			"uid": "dc2i",
 			"version": "1",
 			"name": "Camera extension",
@@ -923,11 +923,11 @@
 					"qty": 1
 				},
 				{
-					"assembly": "camera-extension",
+					"assembly": "camera-extension-assembly",
 					"qty": 1
 				},
 				{
-					"assembly": "light-post",
+					"assembly": "light-post-assembly",
 					"qty": 2
 				},
 				{
@@ -2155,7 +2155,7 @@
 			"quantities": {
 				"feeder": 2
 			},
-			"assembly": "light-post",
+			"assembly": "light-post-assembly",
 			"folder": null,
 			"variant_group": null,
 			"variant_name": null,
@@ -2205,7 +2205,7 @@
 			"quantities": {
 				"feeder": 2
 			},
-			"assembly": "light-post",
+			"assembly": "light-post-assembly",
 			"folder": null,
 			"variant_group": null,
 			"variant_name": null,
@@ -2292,7 +2292,7 @@
 			"quantities": {
 				"feeder": 2
 			},
-			"assembly": "light-post",
+			"assembly": "light-post-assembly",
 			"folder": null,
 			"variant_group": null,
 			"variant_name": null,
@@ -8965,7 +8965,7 @@
 			"quantities": {
 				"classification-channel": 1
 			},
-			"assembly": "camera-extension",
+			"assembly": "camera-extension-assembly",
 			"folder": null,
 			"variant_group": null,
 			"variant_name": null,
@@ -9026,7 +9026,7 @@
 			"quantities": {
 				"classification-channel": 1
 			},
-			"assembly": "camera-extension",
+			"assembly": "camera-extension-assembly",
 			"folder": null,
 			"variant_group": null,
 			"variant_name": null,

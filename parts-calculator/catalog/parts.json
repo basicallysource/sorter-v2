@@ -87,7 +87,7 @@
           "camera-extension-mount"
         ],
         "assemblies": [
-          "camera-extension"
+          "camera-extension-assembly"
         ]
       }
     },
@@ -432,7 +432,7 @@
       "quantities": {
         "feeder": 2
       },
-      "assembly": "light-post",
+      "assembly": "light-post-assembly",
       "stl_hash": "4298d9e5383cef563903685c5ba8eb3f177793b7aa3555710a864e2a000660c9",
       "color": {
         "role": "feeder"
@@ -453,7 +453,7 @@
       "quantities": {
         "feeder": 2
       },
-      "assembly": "light-post",
+      "assembly": "light-post-assembly",
       "stl_hash": "8759618be4ccf9f764520921386a0eb1209733f15a9e34b673cd104265b3057a",
       "color": {
         "fixed": "ivory-white"
@@ -473,7 +473,7 @@
       "quantities": {
         "feeder": 2
       },
-      "assembly": "light-post",
+      "assembly": "light-post-assembly",
       "stl_hash": "230825d03733af289fdc5fbf3b28b59f2d4f4cbb1d87b9db9e640f3d8d0e4a34",
       "color": {
         "role": "feeder"
@@ -2038,7 +2038,7 @@
       "quantities": {
         "classification-channel": 1
       },
-      "assembly": "camera-extension",
+      "assembly": "camera-extension-assembly",
       "stl_hash": "1253c651918595ba46bfc57401c0b2b6aeb2893649fa6c0d4b92c486943deee4",
       "color": {
         "fixed": "ash-gray"
@@ -2079,7 +2079,7 @@
       "quantities": {
         "classification-channel": 1
       },
-      "assembly": "camera-extension",
+      "assembly": "camera-extension-assembly",
       "stl_hash": "a69def7f420a0ac70bcc1be0827d5cb9e46b322ea5dfa09fa075f746b5b7f6c8",
       "color": {
         "fixed": "ash-gray"
@@ -5240,7 +5240,7 @@
   ],
   "assemblies": [
     {
-      "id": "light-post",
+      "id": "light-post-assembly",
       "uid": "v06x",
       "version": "1",
       "name": "Light post",
@@ -5692,7 +5692,7 @@
       ]
     },
     {
-      "id": "camera-extension",
+      "id": "camera-extension-assembly",
       "uid": "dc2i",
       "version": "1",
       "name": "Camera extension",
@@ -5795,11 +5795,11 @@
           "qty": 1
         },
         {
-          "assembly": "camera-extension",
+          "assembly": "camera-extension-assembly",
           "qty": 1
         },
         {
-          "assembly": "light-post",
+          "assembly": "light-post-assembly",
           "qty": 2
         },
         {

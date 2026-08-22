@@ -940,6 +940,16 @@ def main():
     duplicate_uids = sorted({x for x in uids if uids.count(x) > 1})
     if duplicate_uids:
         sys.exit(f"duplicate uid(s): {duplicate_uids} -- mint a fresh one")
+    # An id names exactly one thing. A line says `part:` or `assembly:` so a
+    # collision still resolves there, but getPart(id)/getAssembly(id) do not
+    # take a kind, and a planned change targeting `parts` and `assemblies` by
+    # the same string is two different targets wearing one name. Keep the two
+    # namespaces disjoint (2026-08-22: `light-post` and `camera-extension`
+    # were each both, and became `-assembly` on the assembly side).
+    collisions = sorted(set(part_ids) & {a["id"] for a in manifest.get("assemblies", [])})
+    if collisions:
+        sys.exit(f"id(s) used by both a part and an assembly: {collisions} -- "
+                 f"rename the assembly (e.g. '<id>-assembly')")
     check_assemblies(manifest, set(part_ids))
     check_images(manifest)
     if args.metadata_only:

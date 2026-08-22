@@ -861,6 +861,7 @@ body {
 /* ── Step headings ─────────────────────────────────────────────────────── */
 
 .step-heading {
+	clear: both;
 	display: flex;
 	flex-direction: column;
 	gap: 3px;
@@ -1046,6 +1047,38 @@ body {
 	height: auto;
 	margin: 0 auto 1.4rem;
 	border: 1px solid var(--line);
+}
+
+/* A figure floated into the right margin, with the step text running beside it.
+   Falls back to a normal centred figure on narrow screens. */
+.figure-float-right {
+	float: right;
+	width: 240px;
+	max-width: 45%;
+	margin: 0 0 1rem 1.6rem;
+}
+
+.figure-float-right img {
+	display: block;
+	width: 100%;
+	height: auto;
+	border: 1px solid var(--line);
+}
+
+.figure-float-right figcaption {
+	margin-top: 6px;
+	font-size: 0.8125rem;
+	line-height: 1.4;
+	color: var(--muted);
+}
+
+@media (max-width: 740px) {
+	.figure-float-right {
+		float: none;
+		width: 100%;
+		max-width: 440px;
+		margin: 1.4rem auto;
+	}
 }
 
 .video-embed-portrait {

@@ -190,16 +190,16 @@ A regular layer is now complete. You will also need to construct a [Chute core](
 
 {% include step.html n="5" title="Join the layer to the one below" %}
 
+<figure class="figure-float-right">
+  <a href="https://img.basically.website/originals/assembly/regular-layers/layer-joint-section.11acc0911bc91277.png" target="_blank" rel="noopener">
+    <img src="https://img.basically.website/web/assembly/regular-layers/layer-joint-section.21c4ee094a2c72b8.jpg" alt="Vertical cross-section through one corner of two stacked layers, with the lower layer's extrusion and bottom-vertical tube in blue, the upper layer's bracket in purple, the two screw pairs dashed in red, and six numbered callouts">
+  </a>
+  <figcaption>Section through one corner, cut through the centre of the profile. Blue is the lower layer, purple the layer above. Click to enlarge. Drawn from the part geometry rather than from a build.</figcaption>
+</figure>
+
 A finished layer already carries everything that spans up to the next one: piece C standing out of its External bracket — side, and the External bracket — bottom vertical capping that extrusion. Joining two layers is therefore only the flange joint at each of the six corners.
 
 Set the next layer down so that each External bracket — bottom vertical's flange face meets the underside of that layer's External bracket — side, and drive 2 {% include fastener.html size="M5" variant="socket-button" length="16" %} screws up through each flange into the bracket above. **That pair is the whole layer-to-layer fastening, 12 screws per joint.**
-
-<figure>
-  <a href="https://img.basically.website/originals/assembly/regular-layers/layer-joint-section.11acc0911bc91277.png" target="_blank" rel="noopener">
-    <img class="doc-figure" src="https://img.basically.website/web/assembly/regular-layers/layer-joint-section.21c4ee094a2c72b8.jpg" alt="Vertical cross-section through one corner of two stacked layers, with the lower layer's extrusion and bottom-vertical tube in blue, the upper layer's bracket in purple, the two screw pairs dashed in red, and six numbered callouts">
-  </a>
-  <figcaption>Section through one corner, cut through the centre of the profile. Blue is the lower layer, purple the layer above. Click the drawing to enlarge it. Drawn from the part geometry rather than from a build.</figcaption>
-</figure>
 
 What the numbers mark:
 

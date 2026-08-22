@@ -41,6 +41,8 @@
 	import BuildPlates from '$lib/components/BuildPlates.svelte';
 	import Seo from '$lib/components/Seo.svelte';
 	import { zipSync } from 'fflate';
+	import { buildUses, defaultQty as sumUses, sharedParts } from '$lib/uses';
+	import { printManifest, manifestFilename, type ManifestRow } from '$lib/manifest';
 	import { onMount } from 'svelte';
 	import { loadConfig, saveConfig, clearConfig } from '$lib/config';
 	import { layerStore, addLayer as addLayerStore, removeLayerAt, setSize, setSizes } from '$lib/layers.svelte';
@@ -56,8 +58,6 @@
 
 	// ---- defaults (also used by "reset to default") -----------------------------
 	const defaultFunnelSizes = (): ('third' | 'half')[] => ['third', 'third', 'half'];
-	const defaultSelected = () =>
-		Object.fromEntries(PARTS.map((p) => [p.id, !('bins' in p.quantities)]));
 	// only parts that *opt into* support (support_intentional) expose the toggle; they
 	// default to counting their support. Parts the slicer auto-forced support on are
 	// left out entirely — no toggle, no support in the totals.
@@ -75,15 +75,46 @@
 	}
 	// colours live in the shared store so the assembly tab sees the same choices
 	const roleColors = $derived(colorStore.roles);
-	let selected = $state<Record<string, boolean>>(defaultSelected());
+	// What to print, as a count. Only parts whose quantity has been EDITED away
+	// from what the machine needs live here; everything else follows the machine,
+	// so adding a part to the catalog doesn't need a migration. 0 means "not
+	// printing it", which is what the row checkbox writes.
+	let qtyOverride = $state<Record<string, number>>({});
+	let listView = $state<'assembly' | 'unique'>('assembly');
 	let surplus = $state(15);
 	let printBins = $state(false); // top-level: print bins or not (auto-selects the right bins)
 	const partsById = new Map(PARTS.map((p) => [p.id, p]));
-	// bins are governed by the printBins toggle (+ per-layer size); everything else by its checkbox
-	function isIncluded(id: string): boolean {
+	// How many the machine needs, before any editing. Bins are governed by the
+	// printBins toggle rather than a count, so they are 0 until it is on.
+	function machineNeeds(id: string): number {
 		const p = partsById.get(id);
-		if (p && 'bins' in p.quantities) return printBins;
-		return selected[id];
+		if (!p) return 0;
+		if ('bins' in p.quantities && !printBins) return 0;
+		return sumUses(uses.get(id));
+	}
+	/** How many are actually being printed. */
+	function qtyOf(id: string): number {
+		const over = qtyOverride[id];
+		return over === undefined ? machineNeeds(id) : Math.max(0, over);
+	}
+	function isEdited(id: string): boolean {
+		return qtyOverride[id] !== undefined && qtyOverride[id] !== machineNeeds(id);
+	}
+	function setQty(id: string, n: number) {
+		const clean = Math.max(0, Math.round(Number(n) || 0));
+		if (clean === machineNeeds(id)) delete qtyOverride[id];
+		else qtyOverride[id] = clean;
+	}
+	function resetQty(id: string) {
+		delete qtyOverride[id];
+	}
+	function isIncluded(id: string): boolean {
+		return qtyOf(id) > 0;
+	}
+	/** Scale a machine-wide figure to the quantity actually being printed. */
+	function qtyScale(id: string): number {
+		const need = machineNeeds(id);
+		return need > 0 ? qtyOf(id) / need : 0;
 	}
 	// include each part's support material in totals — default on for the stator only
 	let inclSupport = $state<Record<string, boolean>>(defaultInclSupport());
@@ -98,7 +129,10 @@
 			// roleColors is not read here — colors.svelte owns it (and migrates the old blob)
 			if (typeof c.printBins === 'boolean') printBins = c.printBins;
 			if (typeof c.surplus === 'number') surplus = c.surplus;
-			if (c.selected) selected = { ...selected, ...c.selected };
+			if (c.qty) qtyOverride = { ...c.qty };
+			// v1 stored a checkbox per part; a false becomes "print none of it".
+			else if (c.selected)
+				for (const [id, on] of Object.entries(c.selected)) if (!on) qtyOverride[id] = 0;
 			if (c.inclSupport) inclSupport = { ...inclSupport, ...c.inclSupport };
 		}
 		configLoaded = true;
@@ -145,13 +179,13 @@
 		if (target !== location.pathname + location.search) replaceState(target, {});
 	});
 	$effect(() => {
-		const snapshot = { printBins, surplus, selected, inclSupport };
+		const snapshot = { printBins, surplus, qty: qtyOverride, inclSupport };
 		if (configLoaded) saveConfig($state.snapshot(snapshot));
 	});
 	function resetToDefaults() {
 		setSizes(defaultFunnelSizes());
 		resetRoleColors();
-		selected = defaultSelected();
+		qtyOverride = {};
 		inclSupport = defaultInclSupport();
 		surplus = 15;
 		printBins = false;
@@ -197,6 +231,21 @@
 		}
 	}
 
+	// Every part's places-it-is-used, reconciled against the section quantities
+	// (see $lib/uses). The assembly tree supplies the grouping; anything it can't
+	// account for lands in an explicit bucket so the counts always add up.
+	const uses = $derived(buildUses(layers, variantCount));
+	const shared = $derived(sharedParts(uses));
+	function usedIn(id: string): string[] {
+		return (uses.get(id) ?? []).map((u) => u.assemblyName);
+	}
+	/** The assembly a part is filed under in the by-assembly view: the first one
+	 *  the machine tree walks into. A part used in several places is listed once,
+	 *  under the first, and carries a marker naming the others. */
+	function primaryAssembly(id: string): string | null {
+		return (uses.get(id) ?? []).find((u) => u.assemblyId)?.assemblyId ?? null;
+	}
+
 	// per-layer size 'half' = 12 bins, 'third' = 18 bins
 	const sizePreview = {
 		half: { count: 12, bins: ['bin-half-left', 'bin-half-right'], funnel: 'funnel-half' },
@@ -207,35 +256,44 @@
 	}
 
 	const buy = $derived(
-		buyList(layers, roleColors, isIncluded, supportOn, variantCount, surplus)
+		buyList(layers, roleColors, qtyOf, supportOn, variantCount, surplus)
 	);
 
 	// theoretical total print time: every included part printed alone, sequentially,
 	// on one printer (one part per plate — no batching)
 	const totalPrintSeconds = $derived(
-		PARTS.reduce((sum, p) => {
-			if (!isIncluded(p.id)) return sum;
-			const vc = variantCount(p.id);
-			const count = vc !== null ? vc : machineQty(p, layers);
-			return sum + p.print_seconds * count;
-		}, 0)
+		PARTS.reduce((sum, p) => sum + p.print_seconds * qtyOf(p.id), 0)
 	);
 
 	const sectionRows = $derived(
 		SECTIONS.map((s) => {
 			const parts = PARTS.filter((p) => sectionQty(p, s.id) > 0);
 			const mult = categoryMultiplier(s.id, layers);
-			const selectedGrams = parts
-				.filter((p) => isIncluded(p.id))
-				.reduce(
-					(sum, p) => sum + effectiveGrams(p, supportOn(p.id)) * displayCount(p, s.id, layers, variantCount),
-					0
-				);
+			const selectedGrams = parts.reduce(
+				(sum, p) =>
+					sum +
+					effectiveGrams(p, supportOn(p.id)) *
+						displayCount(p, s.id, layers, variantCount) *
+						qtyScale(p.id),
+				0
+			);
 			return { section: s, parts, mult, selectedGrams };
 		}).filter((r) => r.parts.length > 0)
 	);
 
 	const selectedParts = $derived(PARTS.filter((p) => isIncluded(p.id)));
+
+	// The flat view: every part in the build exactly once, alphabetical, with the
+	// count it is being printed at. Parts with no section (a candidate's parts)
+	// are not in the build and are not listed.
+	const uniqueRows = $derived(
+		PARTS.filter((p) => Object.keys(p.quantities).length > 0)
+			.map((p) => ({ p, qty: qtyOf(p.id), need: machineNeeds(p.id) }))
+			.sort((a, b) => a.p.name.localeCompare(b.p.name))
+	);
+	const uniqueGrams = $derived(
+		uniqueRows.reduce((sum, r) => sum + effectiveGrams(r.p, supportOn(r.p.id)) * r.qty, 0)
+	);
 
 	// CSV of what's selected: quantities, real sliced weights, resolved colours,
 	// and the permanent STL link, so the file is enough to print from.
@@ -256,7 +314,7 @@
 			})
 		);
 	}
-	const allSelected = $derived(PARTS.every((p) => selected[p.id]));
+	const allSelected = $derived(PARTS.every((p) => machineNeeds(p.id) === 0 || qtyOf(p.id) > 0));
 
 	const prettyPattern = SETTINGS.infill_pattern.replace('adaptivecubic', 'adaptive cubic');
 	const settingsRows: [string, string][] = [
@@ -269,7 +327,11 @@
 	];
 
 	function setAll(v: boolean) {
-		selected = Object.fromEntries(PARTS.map((p) => [p.id, v]));
+		for (const p of PARTS) {
+			if ('bins' in p.quantities) continue; // the printBins toggle owns these
+			if (v) resetQty(p.id);
+			else setQty(p.id, 0);
+		}
 	}
 
 	type Block =
@@ -278,21 +340,29 @@
 	function groupBlocks(parts: Part[], sectionId: string): Block[] {
 		const blocks: Block[] = [];
 		const represented = new Set<string>();
-		let cur: Extract<Block, { kind: 'group' }> | null = null;
+		// The assembly comes from the machine tree (which assembly LISTS this part),
+		// never from a field on the part: one part is used in several assemblies and
+		// a single field cannot say so. Members of a group need not be adjacent in
+		// the catalog, so a group is placed where its first member appears and the
+		// rest join it there.
+		const byGroup = new Map<string, Extract<Block, { kind: 'group' }>>();
 		for (const p of parts) {
-			const groupKind = p.folder ? 'folder' : p.assembly ? 'assembly' : null;
-			const groupId = p.folder ?? p.assembly;
-			if (groupKind && groupId) {
-				if (groupKind === 'assembly') represented.add(groupId);
-				if (!cur || cur.id !== groupId || cur.groupKind !== groupKind) {
-					cur = { kind: 'group', groupKind, id: groupId, parts: [] };
-					blocks.push(cur);
-				}
-				cur.parts.push(p);
-			} else {
-				cur = null;
+			const asmId = primaryAssembly(p.id);
+			const groupKind = p.folder ? 'folder' : asmId ? 'assembly' : null;
+			const groupId = p.folder ?? asmId;
+			if (!groupKind || !groupId) {
 				blocks.push({ kind: 'part', part: p });
+				continue;
 			}
+			if (groupKind === 'assembly') represented.add(groupId);
+			const key = `${groupKind}:${groupId}`;
+			let g = byGroup.get(key);
+			if (!g) {
+				g = { kind: 'group', groupKind, id: groupId, parts: [] };
+				byGroup.set(key, g);
+				blocks.push(g);
+			}
+			g.parts.push(p);
 		}
 		for (const assembly of ASSEMBLIES) {
 			if (assembly.section === sectionId && assembly.status === 'stub' && !represented.has(assembly.id)) {
@@ -313,7 +383,7 @@
 			(sum, p) =>
 				sum +
 				(isIncluded(p.id)
-					? effectiveGrams(p, supportOn(p.id)) * displayCount(p, sectionId, layers, variantCount)
+					? effectiveGrams(p, supportOn(p.id)) * displayCount(p, sectionId, layers, variantCount) * qtyScale(p.id)
 					: 0),
 			0
 		);
@@ -322,7 +392,11 @@
 	const asmSomeOn = (parts: Part[]) => parts.some((p) => isIncluded(p.id));
 	// bins are governed by the Print bins toggle, so the rollup checkbox skips them
 	function setAsm(parts: Part[], v: boolean) {
-		for (const p of parts) if (!('bins' in p.quantities)) selected[p.id] = v;
+		for (const p of parts) {
+			if ('bins' in p.quantities) continue;
+			if (v) resetQty(p.id);
+			else setQty(p.id, 0);
+		}
 	}
 
 	function openViewer(p: Part, seed?: { color?: string; version?: PartVersion | null }) {
@@ -337,6 +411,33 @@
 		if ((e.target as HTMLElement).closest('button, a, input, label, [role="tooltip"]')) return;
 		openViewer(p);
 	}
+	/** What to print, as rows: the same data the manifest and the zip both need. */
+	function manifestRows(parts: Part[]): ManifestRow[] {
+		return parts.map((p) => {
+			const url = partDownload(p, engraveIds);
+			const colorId = primaryColorId(p, roleColors);
+			return {
+				part: p,
+				qty: qtyOf(p.id),
+				defaultQty: machineNeeds(p.id),
+				gramsEach: effectiveGrams(p, supportOn(p.id)),
+				colorName: colorId ? (getBambuColor(colorId)?.name ?? colorId) : 'Any color',
+				file: url.slice(url.lastIndexOf('/') + 1),
+				usedIn: usedIn(p.id)
+			};
+		});
+	}
+	function downloadManifest() {
+		const spec = exportSpec(layers);
+		const body = printManifest(manifestRows(selectedParts), spec, funnelSizes);
+		const url = URL.createObjectURL(new Blob([body], { type: 'text/plain;charset=utf-8' }));
+		const a = document.createElement('a');
+		a.href = url;
+		a.download = manifestFilename(spec);
+		a.click();
+		URL.revokeObjectURL(url);
+	}
+
 	async function downloadZip(parts: Part[], name: string) {
 		if (!parts.length) return;
 		zipping = true;
@@ -349,6 +450,11 @@
 				// so the id survives into whatever the slicer names the project
 				files[url.slice(url.lastIndexOf('/') + 1)] = new Uint8Array(await res.arrayBuffer());
 			}
+			// A zip of forty hash-named STLs says nothing about how many of each to
+			// run. The manifest rides along and answers exactly that.
+			files['print-manifest.txt'] = new TextEncoder().encode(
+				printManifest(manifestRows(parts), exportSpec(layers), funnelSizes)
+			);
 			const zipped = zipSync(files, { level: 6 });
 			const a = document.createElement('a');
 			a.href = URL.createObjectURL(new Blob([zipped as BlobPart], { type: 'application/zip' }));
@@ -475,7 +581,7 @@
 				{#if 'bins' in p.quantities}
 					<input class="setup-toggle h-4 w-4" type="checkbox" checked={printBins} onchange={() => (printBins = !printBins)} aria-label="Print bins (set in Build options)" title="Controlled by the Print bins toggle in Build options" />
 				{:else}
-					<input class="setup-toggle h-4 w-4" type="checkbox" bind:checked={selected[p.id]} aria-label="Select {p.name}" />
+					<input class="setup-toggle h-4 w-4" type="checkbox" checked={qtyOf(p.id) > 0} onchange={(e) => (e.currentTarget.checked ? resetQty(p.id) : setQty(p.id, 0))} aria-label="Print {p.name}" />
 				{/if}
 			</td>
 			<td class="pl-c-thumb">
@@ -492,6 +598,8 @@
 			<td class="pl-c-name">
 				<span class="pl-name">
 					{p.name}
+					{#if shared.has(p.id)}<span class="cursor-help border border-border px-1 text-xs text-text-muted" title="Also used in {usedIn(p.id).slice(1).join(', ')}">used in {usedIn(p.id).length} places</span>{/if}
+					{#if isEdited(p.id)}<span class="border border-primary/60 px-1 text-xs text-primary" title="Printing {qtyOf(p.id)}, the machine needs {machineNeeds(p.id)}">qty {qtyOf(p.id)}</span>{/if}
 					{#if p.optional}<Badge variant="warning">Optional</Badge>{/if}
 					{#if p.support_intentional}<Badge variant="info" title="Printed with support material — included in this part's grams">Supports</Badge>{/if}
 						{#if platesForPart(p.id).length}<button type="button" class="inline-flex items-center gap-0.5 border border-border px-1 text-xs text-text-muted hover:border-primary hover:text-primary" onclick={() => openPlatesModal(p.id)} title="Show plates with this part"><Layers3 size={11} /> {platesForPart(p.id).length} plate{platesForPart(p.id).length === 1 ? '' : 's'}</button>{/if}{#if os.version}<a href={os.version} target="_blank" rel="noopener" class="inline-flex items-center gap-0.5 border border-border px-1 text-xs text-text-muted hover:border-primary hover:text-primary" title="Open the exact OnShape version this STL came from">OnShape <ExternalLink size={11} /></a>{/if}{#if p.info}<Popover width="w-64" label="About {p.name}" text={p.info} />{/if}<ChangeStatus kind="parts" id={p.id} name={p.name} />{#if p.low_tolerance}<Popover width="w-72" label="Fit notes for {p.name}">{#snippet trigger({ toggle, open })}<Badge as="button" variant="warning" onclick={toggle} aria-expanded={open}><AlertTriangle size={11} /> Tight fit</Badge>{/snippet}<b class="text-text">Low tolerance.</b> This part has little room for dimensional error, so a test print is worth doing before you commit to the full set.{#if p.low_tolerance_note}<span class="mt-2 block border-t border-border pt-2 text-text">{p.low_tolerance_note}</span>{/if}</Popover>{/if}{#if p.attributes?.length}{#each p.attributes as a}<span class="border border-border bg-[var(--color-bg)] px-1 text-xs text-text-muted" title={a.label}>{a.label}: <span class="text-text">{a.value}</span></span>{/each}{/if}{#if p.versions && p.versions.length > 1}<Popover width="w-80" label="Version history for {p.name}">{#snippet trigger({ toggle, open })}<button type="button" onclick={toggle} aria-expanded={open} class="inline-flex items-center gap-0.5 border border-border px-1 text-xs text-text-muted hover:border-primary hover:text-primary" title="Version history"><History size={11} /> v{p.version} · {p.versions?.length ?? 0} versions</button>{/snippet}<b class="text-text">Version history</b><ul class="mt-1 space-y-2">{#each [...(p.versions ?? [])].reverse() as v}<li class="border-t border-border pt-2 first:border-t-0 first:pt-0"><div class="flex items-center gap-1.5 text-text"><b>v{v.version}</b><span class="text-text-muted">· {fmtDate(v.date)}</span>{#if commitUrl(v.commit)}<a href={commitUrl(v.commit)} target="_blank" rel="noopener" class="ml-auto inline-flex items-center gap-0.5 text-primary hover:text-primary-hover">{v.commit} <ExternalLink size={10} /></a>{:else}<span class="ml-auto italic text-text-muted/70">uncommitted</span>{/if}</div><div class="mt-0.5">{v.message}</div>{#if v.onshape_version}<div class="mt-1"><a href={v.onshape_version} target="_blank" rel="noopener" class="inline-flex items-center gap-0.5 text-primary hover:text-primary-hover">OnShape <ExternalLink size={10} /></a></div>{/if}</li>{/each}</ul></Popover>{/if}
@@ -548,6 +656,13 @@
 								>· {selectedParts.length ? `${selectedParts.length} selected` : `all ${PARTS.length}`}, {layers}
 								layers</span>
 						</button>
+						<button
+							class="ml-3 inline-flex items-center gap-1 text-primary hover:text-primary-hover"
+							onclick={downloadManifest}
+							title="What to print and how many of each, as plain text. The same file rides inside the STL zip."
+						>
+							<Download size={13} /> Manifest
+						</button>
 					</span>
 				{/if}
 			</div>
@@ -557,6 +672,98 @@
 					<span><b>Changes and improvements are tracked for some parts.</b> Review what is planned before printing.</span>
 					<span class="shrink-0 font-semibold text-primary">View {CHANGES.length} changes →</span>
 				</a>
+				<div class="mb-4 flex flex-wrap items-center gap-2">
+					<div class="inline-flex border border-border">
+						<button
+							class="px-3 py-1.5 text-sm font-semibold {listView === 'assembly' ? 'bg-[var(--color-bg)] text-text' : 'text-text-muted hover:text-text'}"
+							onclick={() => (listView = 'assembly')}
+							aria-pressed={listView === 'assembly'}
+							title="Grouped by what bolts to what. A part used in several places is listed under the first and marked.">By assembly</button>
+						<button
+							class="border-l border-border px-3 py-1.5 text-sm font-semibold {listView === 'unique' ? 'bg-[var(--color-bg)] text-text' : 'text-text-muted hover:text-text'}"
+							onclick={() => (listView = 'unique')}
+							aria-pressed={listView === 'unique'}
+							title="Every part once, with the number you are printing. This is the list you print from.">By unique part</button>
+					</div>
+					<span class="text-xs text-text-muted">
+						{listView === 'assembly'
+							? 'Grouped by what bolts to what.'
+							: 'Every part once. Edit a quantity to print more or fewer than the machine needs.'}
+					</span>
+				</div>
+				{#if listView === 'unique'}
+					<div class="pl-scroll mb-6">
+						<table class="pl-tbl">
+							<thead>
+								<tr>
+									<th class="pl-c-thumb"></th>
+									<th class="pl-c-name">Part</th>
+									<th class="pl-c-each">Each</th>
+									<th class="pl-c-total">Qty</th>
+									<th class="pl-c-total">Total</th>
+									<th class="pl-c-dl"></th>
+								</tr>
+							</thead>
+							<tbody>
+								{#each uniqueRows as { p, qty, need } (p.id)}
+									{@const each = effectiveGrams(p, supportOn(p.id))}
+									<tr class="pl-row group/row" class:opacity-50={qty === 0}>
+										<td class="pl-c-thumb">
+											<button type="button" class="pl-thumb group relative" onclick={() => openViewer(p)} title="View {p.name} in 3D">
+												<img src={p.render} alt={p.name} />
+												<span class="absolute inset-0 flex items-center justify-center bg-black/40 text-white opacity-0 transition-opacity group-hover:opacity-100"><ZoomIn size={16} /></span>
+											</button>
+										</td>
+										<td class="pl-c-name">
+											<span class="pl-name">
+												{p.name}
+												{#if shared.has(p.id)}<span class="cursor-help border border-border px-1 text-xs text-text-muted" title="Used in {usedIn(p.id).join(', ')}">used in {usedIn(p.id).length} places</span>{/if}
+												{#if p.optional}<Badge variant="warning">Optional</Badge>{/if}
+												<ChangeStatus kind="parts" id={p.id} name={p.name} />
+											</span>
+											<span class="pl-meta">{usedIn(p.id).join(' · ') || 'not placed yet'}</span>
+										</td>
+										<td class="pl-c-each">{grams(each)}</td>
+										<td class="pl-c-total">
+											<span class="inline-flex items-center gap-1">
+												<input
+													class="setup-control h-7 w-16 text-center text-sm"
+													type="number"
+													min="0"
+													value={qty}
+													aria-label="How many {p.name} to print"
+													onchange={(e) => setQty(p.id, e.currentTarget.valueAsNumber)}
+												/>
+												{#if isEdited(p.id)}
+													<button
+														type="button"
+														class="text-text-muted hover:text-primary"
+														onclick={() => resetQty(p.id)}
+														title="Back to {need}, what the machine needs"
+														aria-label="Reset {p.name} to {need}"><RotateCcw size={13} /></button>
+												{/if}
+											</span>
+										</td>
+										<td class="pl-c-total">{grams(each * qty)}</td>
+										<td class="pl-c-dl">
+											<a href={partDownload(p, engraveIds)} download class="text-text-muted hover:text-primary" title="Download {p.name}"><Download size={16} /></a>
+										</td>
+									</tr>
+								{/each}
+							</tbody>
+							<tfoot>
+								<tr>
+									<td></td>
+									<td class="pl-c-name"><span class="pl-name">{uniqueRows.filter((r) => r.qty > 0).length} parts · {uniqueRows.reduce((n, r) => n + r.qty, 0)} pieces</span></td>
+									<td></td>
+									<td></td>
+									<td class="pl-c-total">{grams(uniqueGrams)}</td>
+									<td></td>
+								</tr>
+							</tfoot>
+						</table>
+					</div>
+				{:else}
 				{#each sectionRows as { section, parts, mult, selectedGrams } (section.id)}
 				<section class="pl-sec" id="section-{section.id}">
 					<h3 class="pl-sec-hd">
@@ -656,6 +863,7 @@
 					</div>
 				</section>
 			{/each}
+				{/if}
 			{:else}
 				<BuildPlates highlightPartId={null} />
 			{/if}

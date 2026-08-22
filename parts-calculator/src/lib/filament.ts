@@ -808,10 +808,35 @@ export function effectiveGrams(part: Part, inclSupport: boolean): number {
 /** Group the SELECTED parts' filament by resolved color, with bulk-tier pricing.
  *  `inclSupport(id)` decides whether a part's support material counts.
  *  `surplusPct` adds a buffer (incidental parts / failed prints) before spool counts. */
+/** Split `total` across `weights` as whole units, keeping the proportions and
+ *  summing to exactly `total` (largest remainder). Used when a part's printed
+ *  quantity has been edited away from what the machine needs and its colours
+ *  have to follow: 3 of 4 charcoal and 1 of 4 white, asked for 2, is 2 and 0
+ *  rather than a fractional spool. */
+export function apportion(weights: number[], total: number): number[] {
+	const sum = weights.reduce((a, b) => a + b, 0);
+	if (total <= 0 || weights.length === 0) return weights.map(() => 0);
+	if (sum <= 0) return weights.map((_, i) => (i === 0 ? total : 0));
+	const exact = weights.map((w) => (w / sum) * total);
+	const out = exact.map(Math.floor);
+	let left = total - out.reduce((a, b) => a + b, 0);
+	// hand the remainder to the largest fractional parts first
+	const order = exact
+		.map((v, i) => ({ i, frac: v - Math.floor(v) }))
+		.sort((a, b) => b.frac - a.frac);
+	for (const { i } of order) {
+		if (left <= 0) break;
+		out[i] += 1;
+		left -= 1;
+	}
+	return out;
+}
+
 export function buyList(
 	layers: number,
 	roleColors: Record<string, string>,
-	isSelected: (id: string) => boolean,
+	/** How many of this part are actually being printed (0 = not printing it). */
+	qtyOf: (id: string) => number,
 	inclSupport: (id: string) => boolean,
 	variantCount: (id: string) => number | null,
 	surplusPct = 0
@@ -824,24 +849,22 @@ export function buyList(
 } {
 	const byColor = new Map<string, number>();
 	for (const part of PARTS) {
-		if (!isSelected(part.id)) continue;
+		const want = qtyOf(part.id);
+		if (want <= 0) continue;
 		const each = effectiveGrams(part, inclSupport(part.id));
 		const vc = variantCount(part.id);
-		if (vc !== null) {
-			// variant part (e.g. funnel): total machine count chosen per layer
-			for (const u of colorUnits(part, vc, roleColors)) {
-				const key = u.colorId ?? '__any__';
-				byColor.set(key, (byColor.get(key) ?? 0) + each * u.count);
-			}
-			continue;
-		}
-		for (const [cat, qty] of Object.entries(part.quantities)) {
-			const mult = effectiveMult(part, cat, layers);
-			for (const u of colorUnits(part, qty, roleColors, cat)) {
-				const key = u.colorId ?? '__any__';
-				byColor.set(key, (byColor.get(key) ?? 0) + each * u.count * mult);
-			}
-		}
+		// The colour split is authored per machine, so scale it to whatever is
+		// actually being printed. Unedited, this is the identity.
+		const units =
+			vc !== null ? colorUnits(part, vc, roleColors) : machineColorUnits(part, layers, roleColors);
+		const counts = apportion(
+			units.map((u) => u.count),
+			want
+		);
+		units.forEach((u, i) => {
+			const key = u.colorId ?? '__any__';
+			byColor.set(key, (byColor.get(key) ?? 0) + each * counts[i]);
+		});
 	}
 	const buffer = 1 + surplusPct / 100;
 	const rows = [...byColor.entries()].map(([key, raw]) => {

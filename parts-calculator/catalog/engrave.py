@@ -232,10 +232,12 @@ def load(stl_path: str) -> trimesh.Trimesh:
 def variants(mesh: trimesh.Trimesh, text: str, font: str | None = None) -> list[dict]:
     """Every face the text fits on, best first, at most MAX_VARIANTS.
 
-    Each is {face, normal, center, _placed, _frame}: `face` a short label
-    ("bottom", "+x side", "angled face"), `normal` the face's outward unit
-    normal and `center` the middle of the text in the STL's own coordinates
-    (what the viewer swings its camera to), and two private keys `cut()` needs."""
+    Each is {face, normal, center, size, _placed, _frame}: `face` a short
+    label ("bottom", "+x side", "angled face"), `normal` the face's outward
+    unit normal, `center` the middle of the text in the STL's own coordinates
+    and `size` its [width, height] in mm on the face -- enough for the viewer
+    to find the pocket's triangles and paint them, and to fly the camera to
+    it -- plus two private keys `cut()` needs."""
     font = font or font_path()
     glyphs = _glyphs(text.upper(), font)
     margin = 0.5 + CAP * 0.25
@@ -261,6 +263,8 @@ def variants(mesh: trimesh.Trimesh, text: str, font: str | None = None) -> list[
             "face": label,
             "normal": [round(float(x), 4) for x in d],
             "center": [round(float(x), 2) for x in center],
+            "size": [round(placed.bounds[2] - placed.bounds[0], 2),
+                     round(placed.bounds[3] - placed.bounds[1], 2)],
             "_placed": placed, "_frame": (u, v, d, offset),
         })
         if len(found) >= MAX_VARIANTS:
@@ -306,7 +310,7 @@ def stamp(stl_path: str, text: str, out_dir: str, name: str) -> list[dict]:
         path = os.path.join(out_dir, f"{name}-stamped-{slug(var['face'])}.stl")
         cut(mesh, var).export(path)
         out.append({"face": var["face"], "normal": var["normal"],
-                    "center": var["center"], "path": path})
+                    "center": var["center"], "size": var["size"], "path": path})
     return out
 
 
@@ -319,5 +323,5 @@ if __name__ == "__main__":
     res = stamp(sys.argv[1], sys.argv[2], sys.argv[3] if len(sys.argv) > 3 else ".",
                 os.path.splitext(os.path.basename(sys.argv[1]))[0])
     for r in res:
-        print(f"{r['face']:16} normal {r['normal']}  center {r['center']}  -> {r['path']}")
+        print(f"{r['face']:16} normal {r['normal']}  center {r['center']}  size {r['size']}  -> {r['path']}")
     print(f"{len(res)} variant(s) in {time.time() - t0:.1f}s")

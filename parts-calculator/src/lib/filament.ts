@@ -274,10 +274,11 @@ export type PartCandidate = {
 	stamped?: PartStamp[];
 };
 /** A download with the uid recessed into one face (catalog/engrave.py). `face`
- *  names it ("bottom", "+x side", "angled face"); `center` and `normal` locate
- *  the mark in the STL's own coordinates so the viewer can open on it. The
- *  first of a list is the default: the face a stamp prints and hides best. */
-export type PartStamp = { face: string; stl: string; normal: number[]; center: number[] };
+ *  names it ("bottom", "+x side", "angled face"); `center`, `normal` and
+ *  `size` ([width, height] mm) locate the text in the STL's own coordinates so
+ *  the viewer can paint its pocket and fly to it. The first of a list is the
+ *  default: the face a stamp prints and hides best. */
+export type PartStamp = { face: string; stl: string; normal: number[]; center: number[]; size: number[] };
 
 export type Part = {
 	id: string;

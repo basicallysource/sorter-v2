@@ -20,7 +20,7 @@
 	} = $props();
 </script>
 
-<Modal bind:open title={part?.name} bodyScroll={false}>
+<Modal bind:open title={part?.name} bodyScroll={false} maxW="max-w-5xl">
 	{#if part}
 		<PartDetail {part} bind:colorId bind:version variant="modal" />
 	{/if}

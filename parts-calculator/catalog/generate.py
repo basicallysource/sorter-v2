@@ -238,15 +238,17 @@ def stamped_variants(stl_abs, uid, name, force):
                        + json.dumps([uid, engrave.SIGNATURE]).encode()).hexdigest()[:16]
     meta = os.path.join(STAMP_META, key + ".json")
     memo = json.load(open(meta)) if os.path.exists(meta) else None
-    if memo is not None and not force and all(os.path.exists(v["path"]) for v in memo["variants"]):
-        return [{k: v[k] for k in ("face", "stl", "normal", "center", "path")} for v in memo["variants"]]
+    if memo is not None and not force and all(
+            os.path.exists(v["path"]) and "size" in v for v in memo["variants"]):
+        return [{k: v[k] for k in STAMP_KEYS + ("path",)} for v in memo["variants"]]
     try:
         found = engrave.stamp(stl_abs, uid, STAMPED_OUT, name)
     except engrave.NotAVolume as e:
         print(f"  ~ {e}")
         found = []
     variants = [{"face": v["face"], "stl": artifact_url(v["path"], prefix="stl"),
-                 "normal": v["normal"], "center": v["center"], "path": v["path"]} for v in found]
+                 "normal": v["normal"], "center": v["center"], "size": v["size"],
+                 "path": v["path"]} for v in found]
     if memo is not None:
         for old, new in zip(memo["variants"], variants):
             if old["stl"] != new["stl"]:
@@ -257,9 +259,12 @@ def stamped_variants(stl_abs, uid, name, force):
     return variants
 
 
+STAMP_KEYS = ("face", "stl", "normal", "center", "size")
+
+
 def public_stamped(variants):
     """The generated-data shape: the local path stays out of it."""
-    return [{k: v[k] for k in ("face", "stl", "normal", "center")} for v in variants]
+    return [{k: v[k] for k in STAMP_KEYS} for v in variants]
 
 
 def unchanged_render(prev, stl, part):

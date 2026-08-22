@@ -6,7 +6,8 @@ import type { EntryGenerator, PageLoad } from './$types';
 // per uid the catalog has ever minted -- current parts, superseded versions,
 // candidates, assemblies, hardware, laser-cut sheets -- so the four characters
 // on a part found in a drawer a year from now still say what it is. Uids are
-// lowercase in the catalog; the header's lookup box lowercases what is typed.
+// lowercase in the catalog; the search palette lowercases what is typed and
+// resolves it before navigating, so this route's 404 is now the rare case.
 export const prerender = true;
 
 export const entries: EntryGenerator = () => allUids().map((uid) => ({ uid }));

@@ -48,6 +48,8 @@
 	import { loadConfig, saveConfig, clearConfig } from '$lib/config';
 	import { layerStore, addLayer as addLayerStore, removeLayerAt, setSize, setSizes } from '$lib/layers.svelte';
 	import { colorStore, defaultRoleColors, resetRoleColors } from '$lib/colors.svelte';
+	import SearchField from '$lib/components/search/SearchField.svelte';
+	import { search, type Searchable } from '$lib/search';
 	import Popover from '$lib/components/Popover.svelte';
 	import Disclosure from '$lib/components/Disclosure.svelte';
 	import Badge from '$lib/components/Badge.svelte';
@@ -261,6 +263,25 @@
 		return (uses.get(id) ?? []).find((u) => u.assemblyId)?.assemblyId ?? null;
 	}
 
+	// ---- filtering the list ------------------------------------------------
+	// Narrows what is on screen and nothing else: the totals below still describe
+	// the whole build, because a filter answers "where is it" and must not quietly
+	// restate what you are about to print. It ranks through the same matcher as
+	// the ⌘K palette, so a part found one way is found the other way.
+	let partFilter = $state('');
+	const filtering = $derived(partFilter.trim().length > 0);
+	const partSearchable = (p: Part): Searchable => ({
+		name: p.name,
+		uid: p.uid,
+		id: p.id,
+		keywords: [...(p.aliases ?? []), ...usedIn(p.id), getFolder(p.folder ?? null)?.name ?? ''].filter(Boolean),
+		text: p.description
+	});
+	function filterParts(list: Part[]): Part[] {
+		if (!filtering) return list;
+		return search(partFilter, list, partSearchable).map((r) => r.item);
+	}
+
 	// per-layer size 'half' = 12 bins, 'third' = 18 bins
 	const sizePreview = {
 		half: { count: 12, bins: ['bin-half-left', 'bin-half-right'], funnel: 'funnel-half' },
@@ -282,9 +303,11 @@
 
 	const sectionRows = $derived(
 		SECTIONS.map((s) => {
-			const parts = PARTS.filter((p) => sectionQty(p, s.id) > 0);
+			const all = PARTS.filter((p) => sectionQty(p, s.id) > 0);
 			const mult = categoryMultiplier(s.id, layers);
-			const selectedGrams = parts.reduce(
+			// over the whole section, not the filtered view — the header states what
+			// the section weighs, which doesn't change because you typed something
+			const selectedGrams = all.reduce(
 				(sum, p) =>
 					sum +
 					effectiveGrams(p, supportOn(p.id)) *
@@ -292,8 +315,15 @@
 						qtyScale(p.id),
 				0
 			);
-			return { section: s, parts, mult, selectedGrams };
+			return { section: s, parts: filterParts(all), mult, selectedGrams };
 		}).filter((r) => r.parts.length > 0)
+	);
+	/** Rows on screen in the by-assembly view, against rows there would be with no
+	 *  filter. A part counted in two sections is listed in both, so both halves of
+	 *  the ratio count (part, section) pairs and the two agree. */
+	const sectionShown = $derived(sectionRows.reduce((n, r) => n + r.parts.length, 0));
+	const sectionTotal = $derived(
+		SECTIONS.reduce((n, s) => n + PARTS.filter((p) => sectionQty(p, s.id) > 0).length, 0)
 	);
 
 	const selectedParts = $derived(PARTS.filter((p) => isIncluded(p.id)));
@@ -306,6 +336,13 @@
 			.map((p) => ({ p, qty: qtyOf(p.id), need: machineNeeds(p.id) }))
 			.sort((a, b) => a.p.name.localeCompare(b.p.name))
 	);
+	// While filtering the rows come back in relevance order — alphabetical is only
+	// useful when you are scanning the whole list.
+	const uniqueShown = $derived.by(() => {
+		if (!filtering) return uniqueRows;
+		const keep = new Map(uniqueRows.map((r) => [r.p.id, r]));
+		return filterParts(uniqueRows.map((r) => r.p)).map((p) => keep.get(p.id)!);
+	});
 	const uniqueGrams = $derived(
 		uniqueRows.reduce((sum, r) => sum + effectiveGrams(r.p, supportOn(r.p.id)) * r.qty, 0)
 	);
@@ -392,11 +429,14 @@
 			}
 			g.parts.push(p);
 		}
-		for (const assembly of ASSEMBLIES) {
-			if (assembly.section === sectionId && assembly.status === 'stub' && !represented.has(assembly.id)) {
-				blocks.push({ kind: 'group', groupKind: 'assembly', id: assembly.id, parts: [] });
+		// Stubs are placeholders for assemblies with nothing in them yet. They match
+		// nothing, so while a filter is on they are noise around the thing you asked for.
+		if (!filtering)
+			for (const assembly of ASSEMBLIES) {
+				if (assembly.section === sectionId && assembly.status === 'stub' && !represented.has(assembly.id)) {
+					blocks.push({ kind: 'group', groupKind: 'assembly', id: assembly.id, parts: [] });
+				}
 			}
-		}
 		return blocks;
 	}
 	// Assemblies collapse to a single rollup row carrying the part count and the
@@ -721,11 +761,15 @@
 							aria-pressed={listView === 'unique'}
 							title="Every part once, with the number you are printing. This is the list you print from.">By unique part</button>
 					</div>
-					<span class="text-xs text-text-muted">
-						{listView === 'assembly'
-							? 'Grouped by what bolts to what.'
-							: 'Every part once. Edit a quantity to print more or fewer than the machine needs.'}
-					</span>
+					<SearchField
+						bind:value={partFilter}
+						label="Filter the parts list"
+						placeholder="Filter parts by name, id or where they go"
+						noun="part"
+						found={listView === 'unique' ? uniqueShown.length : sectionShown}
+						total={listView === 'unique' ? uniqueRows.length : sectionTotal}
+						class="min-w-0 flex-1"
+					/>
 				</div>
 				{#if listView === 'unique'}
 					<div class="pl-scroll mb-6">
@@ -741,7 +785,7 @@
 								</tr>
 							</thead>
 							<tbody>
-								{#each uniqueRows as { p, qty, need } (p.id)}
+								{#each uniqueShown as { p, qty, need } (p.id)}
 									{@const each = effectiveGrams(p, supportOn(p.id))}
 									<tr class="pl-row group/row" class:opacity-50={qty === 0}>
 										<td class="pl-c-thumb">
@@ -790,7 +834,7 @@
 							<tfoot>
 								<tr>
 									<td></td>
-									<td class="pl-c-name"><span class="pl-name">{uniqueRows.filter((r) => r.qty > 0).length} parts · {uniqueRows.reduce((n, r) => n + r.qty, 0)} pieces</span></td>
+									<td class="pl-c-name"><span class="pl-name">{uniqueRows.filter((r) => r.qty > 0).length} parts · {uniqueRows.reduce((n, r) => n + r.qty, 0)} pieces{#if filtering}<span class="font-normal text-text-muted"> · the whole build, not the filtered rows</span>{/if}</span></td>
 									<td></td>
 									<td></td>
 									<td class="pl-c-total">{grams(uniqueGrams)}</td>
@@ -840,7 +884,7 @@
 									{@const folder = getFolder(block.id)}
 									{@const group = block.groupKind === 'folder' ? folder : a}
 									{@const k = asmKey(section.id, `${block.groupKind}:${block.id}`)}
-									{@const open = expandedAsm[k]}
+									{@const open = expandedAsm[k] || filtering}
 									{@const allOn = asmAllOn(block.parts)}
 									<!-- svelte-ignore a11y_no_noninteractive_element_interactions a11y_click_events_have_key_events -->
 									<tr
@@ -896,7 +940,7 @@
 												</span>
 												<span class="pl-meta">
 													{block.parts.length ? `${block.parts.length} printed parts` : 'Parts and print details coming soon'}
-													{#if a}<span class="pl-hint">View assembly <ArrowUpRight size={12} /></span>{:else if block.parts.length}· click to {open ? 'collapse' : 'expand'}{/if}
+													{#if a}<span class="pl-hint">View assembly <ArrowUpRight size={12} /></span>{:else if block.parts.length && !filtering}· click to {open ? 'collapse' : 'expand'}{/if}
 												</span>
 											</span>
 										</td>

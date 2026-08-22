@@ -80,7 +80,7 @@ PLANE_TOL = 0.02   # two faces are coplanar within this, mm
 NORMAL_TOL = 0.9995
 SMOOTH_DEG = 8.0   # adjacent triangles this close in angle are one smooth surface
 CYL_TOL = 0.06     # a fitted cylinder's radial residual, mm, for a face to count
-MIN_RADIUS = 12.0  # below this the text would wrap more than ~60 degrees
+MIN_RADIUS = 8.0   # smallest wall considered; MAX_ARC keeps the text legible on it
 MAX_ARC = 1.05     # radians the text box may subtend around a cylinder's axis
 LARGE_FACE = 600.0 # mm2: a flat face this big is preferred over any wall; a
                    # wall is only offered when a part is running out of these
@@ -304,9 +304,11 @@ def _fit_round(mesh, faces):
     lie in the plane across it, on a cone they tilt toward it by a constant
     angle. Faces whose tilt is off the dominant value are dropped first --
     that is what splits a wall from the fillets and flats a smooth walk
-    merged it with -- then the radius-vs-height line is fitted with a few
-    Gauss-Newton steps and radial outliers are dropped. Returns (axis, point
-    on axis, r0, slope, sign, inlier faces) or None."""
+    merged it with -- then, since the tilt fixes the slope of radius against
+    height, the dominant intercept picks the wall out of other walls on the
+    same axis (a post's shaft from its flared ends), and the line is refined
+    with a few Gauss-Newton steps. Returns (axis, point on axis, r0, slope,
+    sign, inlier faces) or None."""
     n = mesh.face_normals[faces]
     w = mesh.area_faces[faces]
     cen = mesh.triangles_center[faces]
@@ -331,12 +333,29 @@ def _fit_round(mesh, faces):
     e1 /= np.linalg.norm(e1)
     e2 = np.cross(a, e1)
     px, py, t = cen @ e1, cen @ e2, cen @ a
-    # start from an algebraic circle through the kept centroids
+    # start from an algebraic circle through the kept centroids: its centre is
+    # about right even when they sit at several radii
     k = keep
     A = np.stack([2 * px[k], 2 * py[k], np.ones(k.sum())], axis=1) * np.sqrt(w[k])[:, None]
     b = (px[k] ** 2 + py[k] ** 2) * np.sqrt(w[k])
     (cx, cy, q), *_ = np.linalg.lstsq(A, b, rcond=None)
-    r0, slope = math.sqrt(max(q + cx * cx + cy * cy, 1e-9)), 0.0
+    # the tilt fixes |dr/dt|: a cylinder's is 0, a cone's is cot(tilt). With
+    # the slope known up to sign, every face has an intercept r - slope * t,
+    # and the wall is the intercept most of the area agrees on
+    r_all = np.hypot(px - cx, py - cy)
+    mag = 0.0 if abs(mode) < 0.02 else math.sqrt(max(1 - mode * mode, 0.0)) / abs(mode)
+    best = None
+    for s0 in ((0.0,) if mag == 0.0 else (mag, -mag)):
+        icept = r_all - s0 * t
+        lo, hi = icept[keep].min(), icept[keep].max()
+        hist, edges = np.histogram(icept[keep], bins=max(int((hi - lo) / 0.25) + 1, 1), range=(lo, lo + max(hi - lo, 0.25)), weights=w[keep])
+        centre = edges[hist.argmax()] + 0.125
+        inl = keep & (np.abs(icept - centre) < 0.3)
+        if best is None or w[inl].sum() > best[0]:
+            best = (w[inl].sum(), s0, centre, inl)
+    _, slope, r0, k = best
+    if w[k].sum() < LARGE_FACE:
+        return None
     for _ in range(8):
         dx, dy = px[k] - cx, py[k] - cy
         r = np.hypot(dx, dy)

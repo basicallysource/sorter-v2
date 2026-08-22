@@ -11,7 +11,7 @@
 		"density_g_cm3": 1.32,
 		"cost_per_kg": 24.99,
 		"commit_base_url": "https://github.com/basicallysource/sorter-v2/commit/",
-		"all_parts_zip": "https://img.basically.website/parts/bundle/all-parts-81fd4965.zip",
+		"all_parts_zip": "https://img.basically.website/parts/bundle/all-parts-86307b13.zip",
 		"all_parts_plain_zip": "https://img.basically.website/parts/bundle/all-parts-plain-eee4ad8e.zip"
 	},
 	"sections": [
@@ -2118,7 +2118,41 @@
 			"conflicts": null,
 			"stl": "https://img.basically.website/parts/stl/light-post-oac5-4298d9e5.stl",
 			"render": "https://img.basically.website/parts/render/light-post-d2c7494e.png",
-			"stamped": []
+			"stamped": [
+				{
+					"face": "outer wall",
+					"stl": "https://img.basically.website/parts/stl/light-post-oac5-stamped-outer-wall-6607ae6e.stl",
+					"normal": [
+						-0.9696,
+						0.2449,
+						0.0012
+					],
+					"center": [
+						-9.48,
+						2.42,
+						15.03
+					],
+					"size": [
+						3.66,
+						12.32
+					],
+					"surface": {
+						"axis": [
+							0.00018,
+							-0.00422,
+							0.99999
+						],
+						"point": [
+							-0.003,
+							0.006,
+							20.058
+						],
+						"r0": 9.778,
+						"slope": 0.0,
+						"sign": 1
+					}
+				}
+			]
 		},
 		{
 			"id": "light-post-cap",
@@ -2189,40 +2223,7 @@
 				},
 				{
 					"face": "outer wall",
-					"stl": "https://img.basically.website/parts/stl/light-post-cap-7a8e-stamped-outer-wall-72304569.stl",
-					"normal": [
-						0.0255,
-						0.7428,
-						0.669
-					],
-					"center": [
-						1.27,
-						36.84,
-						76.66
-					],
-					"size": [
-						12.2,
-						3.56
-					],
-					"surface": {
-						"axis": [
-							-0.0,
-							0.0,
-							1.0
-						],
-						"point": [
-							0.0,
-							0.0,
-							78.028
-						],
-						"r0": 35.627,
-						"slope": -0.90002,
-						"sign": 1
-					}
-				},
-				{
-					"face": "outer wall 2",
-					"stl": "https://img.basically.website/parts/stl/light-post-cap-7a8e-stamped-outer-wall-2-c52d8cac.stl",
+					"stl": "https://img.basically.website/parts/stl/light-post-cap-7a8e-stamped-outer-wall-c52d8cac.stl",
 					"normal": [
 						0.0218,
 						0.9998,
@@ -2321,7 +2322,41 @@
 			"conflicts": null,
 			"stl": "https://img.basically.website/parts/stl/light-post-cap-adapter-jcnt-230825d0.stl",
 			"render": "https://img.basically.website/parts/render/light-post-cap-adapter-437c463e.png",
-			"stamped": []
+			"stamped": [
+				{
+					"face": "outer wall",
+					"stl": "https://img.basically.website/parts/stl/light-post-cap-adapter-jcnt-stamped-outer-wall-eaaf9c34.stl",
+					"normal": [
+						0.9016,
+						0.4326,
+						0.0
+					],
+					"center": [
+						14.29,
+						6.86,
+						73.19
+					],
+					"size": [
+						12.4,
+						3.63
+					],
+					"surface": {
+						"axis": [
+							0.0,
+							-0.0,
+							1.0
+						],
+						"point": [
+							0.0,
+							0.0,
+							74.24
+						],
+						"r0": 15.847,
+						"slope": 0.0,
+						"sign": 1
+					}
+				}
+			]
 		},
 		{
 			"id": "bulk-cap",
@@ -2582,8 +2617,8 @@
 							1.0
 						],
 						"point": [
-							0.0,
 							-0.0,
+							0.0,
 							254.177
 						],
 						"r0": 105.805,
@@ -8350,6 +8385,39 @@
 						12.29,
 						3.63
 					]
+				},
+				{
+					"face": "outer wall",
+					"stl": "https://img.basically.website/parts/stl/chute-door-7oxs-stamped-outer-wall-8f831989.stl",
+					"normal": [
+						0.0,
+						-0.9428,
+						-0.3333
+					],
+					"center": [
+						61.32,
+						42.96,
+						147.11
+					],
+					"size": [
+						3.63,
+						12.29
+					],
+					"surface": {
+						"axis": [
+							-1.0,
+							-0.0,
+							0.0
+						],
+						"point": [
+							14.329,
+							52.282,
+							150.41
+						],
+						"r0": 9.887,
+						"slope": 0.0,
+						"sign": 1
+					}
 				}
 			]
 		},

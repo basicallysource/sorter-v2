@@ -7,6 +7,7 @@
 	import Callout from '$lib/components/Callout.svelte';
 	import LayerControl from '$lib/components/LayerControl.svelte';
 	import PartDetailModal from '$lib/components/PartDetailModal.svelte';
+	import AssemblyDetailModal from '$lib/components/AssemblyDetailModal.svelte';
 	import HardwareDetailModal from '$lib/components/HardwareDetailModal.svelte';
 	import HardwareIcon from '$lib/components/HardwareIcon.svelte';
 	import ImageStrip from '$lib/components/ImageStrip.svelte';
@@ -91,6 +92,15 @@
 	function openHardware(h: Hardware) {
 		hwModal = h;
 		hwOpen = true;
+	}
+	// A node's name pulls it out of the tree into the same one-box view the parts
+	// dashboard opens, which is the point of having the view at all: on this page
+	// an assembly is a branch among hundreds, and sometimes you want just the box.
+	let asmOpen = $state(false);
+	let asmId = $state<string | null>(null);
+	function openAssembly(id: string) {
+		asmId = id;
+		asmOpen = true;
 	}
 
 	// The whole tree flattened, one row per node, with STL/DXF links on anything
@@ -232,7 +242,7 @@
 				: 'border-border'}"
 		>
 			<div class="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
-				<span class="text-sm font-semibold text-text">{asm.name}</span>
+				<button type="button" class="asm-open text-sm font-semibold text-text" onclick={() => openAssembly(asm.id)} title="View {asm.name} on its own">{asm.name}</button>
 				<span class="text-xs tabular-nums text-text-muted">
 					{#if qty === 'per-layer'}×{layers} (1 per layer)
 					{:else if qty === 'middle-layers'}×{Math.max(0, layers - 2)} (layers between the interfaces)
@@ -419,6 +429,7 @@
 	</div>
 </div>
 
+<AssemblyDetailModal bind:open={asmOpen} id={asmId} {layers} onPart={openPart} onHardware={openHardware} />
 <PartDetailModal bind:open={partOpen} part={partModal} bind:colorId={partColor} bind:version={partVersion} />
 <HardwareDetailModal bind:open={hwOpen} hardware={hwModal} {layers} />
 
@@ -434,5 +445,18 @@
 	.asm-thumb:focus-visible {
 		outline: none;
 		box-shadow: 0 0 0 2px var(--color-primary);
+	}
+	/* The node's name opens the assembly on its own. Underlined on hover rather
+	   than always, so a tree of two hundred names doesn't read as a link farm. */
+	.asm-open {
+		cursor: pointer;
+		text-align: left;
+		text-underline-offset: 3px;
+	}
+	.asm-open:hover,
+	.asm-open:focus-visible {
+		outline: none;
+		color: var(--color-primary);
+		text-decoration: underline;
 	}
 </style>

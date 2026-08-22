@@ -10278,21 +10278,23 @@
 			"versions": [
 				{
 					"version": "1",
+					"uid": "q7ns",
 					"date": "2026-07-08",
 					"message": "Initial version.",
 					"commit": "ce5d56e",
 					"onshape_doc": "https://cad.onshape.com/documents/249bded2198af476185014b6",
 					"onshape_version": "https://cad.onshape.com/documents/249bded2198af476185014b6/v/57d753798ce11a250478918d/e/48c64d61f1276c46f515d6bd",
-					"stl": "https://img.basically.website/parts/stl/camera-extension-v684-c9cf562f.stl",
-					"render": "https://img.basically.website/parts/render/camera-extension-e53f4965.png",
-					"grams": 28.37
+					"stl_hash": "1253c651918595ba46bfc57401c0b2b6aeb2893649fa6c0d4b92c486943deee4",
+					"render": "https://img.basically.website/parts/render/camera-extension-33523f61.png",
+					"stl": "https://img.basically.website/parts/stl/camera-extension-q7ns-1253c651.stl",
+					"grams": 28.6
 				},
 				{
 					"version": "2",
 					"uid": "v684",
 					"date": "2026-08-22",
 					"message": "Dropped the raised \"50 mm\" lettering. Its geometry tessellated into zero-area slivers, which left the exported mesh non-manifold, so it could neither be checked nor stamped. The tube itself is unchanged.",
-					"commit": null,
+					"commit": "0aeff083",
 					"onshape_doc": "https://cad.onshape.com/documents/249bded2198af476185014b6",
 					"onshape_version": "https://cad.onshape.com/documents/249bded2198af476185014b6/v/3ec354b28012f6c0ab41285a/e/48c64d61f1276c46f515d6bd",
 					"stl": "https://img.basically.website/parts/stl/camera-extension-v684-c9cf562f.stl",

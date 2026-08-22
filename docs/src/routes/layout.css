@@ -1072,16 +1072,47 @@ body {
 	color: var(--muted);
 }
 
-/* Numbered key for a keyed drawing: the site's lists render without markers,
-   so a list whose items are referred to by number opts back in. */
+/* Numbered key for a keyed drawing: the site's lists render without markers, so
+   a list whose items are referred to by number draws its own. The badges match
+   the numbered markers on the drawing, including their colour. */
 .keyed-list {
-	list-style: decimal;
-	padding-left: 1.5rem;
+	list-style: none;
+	counter-reset: keyed;
+	padding-left: 0;
 	margin: 0 0 1.4rem;
 }
 
 .keyed-list li {
-	margin-bottom: 0.5rem;
+	counter-increment: keyed;
+	position: relative;
+	padding-left: 2.1rem;
+	margin-bottom: 0.6rem;
+}
+
+.keyed-list li::before {
+	content: counter(keyed);
+	position: absolute;
+	left: 0;
+	top: 0.1em;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 1.4rem;
+	height: 1.4rem;
+	border-radius: 50%;
+	background: #1a6eb0;
+	color: #fff;
+	font-size: 0.78rem;
+	font-weight: 700;
+	line-height: 1;
+}
+
+.keyed-list li.key-screw::before {
+	background: #c4322c;
+}
+
+.keyed-list li.key-note::before {
+	background: #262c36;
 }
 
 @media (max-width: 740px) {

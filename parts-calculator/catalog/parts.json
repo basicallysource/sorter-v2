@@ -1,5 +1,5 @@
 {
-  "_comment": "Source-of-truth manifest. filament.py slices each STL once and writes ../src/lib/data/parts.generated.json + thumbnails + STL copies. Per part: id, uid (see UID below), name, category, description (short, shown in app), internal_notes (extended, agent-only, NOT emitted to the app), version, created_at, updated_at, stl_hash (sha256 pin of the master STL on the bucket; upload with scripts/sync_bucket.py --upload), quantity (per ONE instance of its category), color, optional. attributes (optional list of {label,value} shown in the app), versions (optional archetype history: list of {version,date,message,commit}; commit ties to a real git commit, null = pending an upcoming clean commit). low_tolerance (optional bool: part has little tolerance for dimensional error - a tight/precise fit - so a test print is worth doing) + low_tolerance_note (the specifics, shown in the app). color is one of {\"role\":\"<roleid>\"} (user-picked), {\"fixed\":\"<lego-id>\"}, {\"split\":[{\"color\":\"<lego-id>\",\"qty\":N},...]} (sums to quantity), or {\"any\":true}, or {\"by_section\":{\"<sectionid>\":<colorspec>,...}} (per-section color when a part lives in multiple sections). Machine = 1 of each non-scaling category + N of each scaling category. See ../notes/TERMINOLOGY.md. SCHEMA V2 (unified parts system, see ../notes/UNIFIED-PARTS-SYSTEM.md, incremental): a part may carry kind ('printed' when absent | 'cots'); cots parts have cots {type,size?,variant?}, category (display grouping on the hardware tab), note (builder-critical caveat from the BOM sheet), image (slicer-relative path, uploaded to the bucket by sync_bucket.py and served from there) OR image_url (an already-uploaded content-addressed bucket URL; BOM product images never touch git), sourcing {vendors:[{region,vendor,url,affiliate_url?,price,currency?,pack_qty?,as_of?,note?}]} (url is always the plain listing; affiliate_url is the same listing carrying the project's Amazon tag, mirroring the BOM sheet's 'US Source 1 with Affiliate' column — both are kept so a builder can choose) (price is USD unless currency says otherwise), and no stl/color/quantities. sheet_qty {per_machine|per_layer} / sheet_qty_text are TRANSITIONAL hand counts carried over from the BOM sheet; they die once these parts are placed as requires/lines in the tree. A printed part may carry requires [{part,qty}] = hardware committed to that single physical part (heat inserts, press-fit bearings); qty scales with the part automatically. An assembly may carry lines [{part|assembly, qty}] (qty is a number, or 'per-layer' = multiplied by the total layer count, or 'middle-layers' = layer count minus 2, the layers that sit between the top and bottom interfaces) and status 'stub' (placeholder, nothing inside yet) or 'partial' (some lines filled in) — these form the experimental machine tree rooted at the 'machine' assembly. A line may also reference a laser-cut part by id (e.g. 'top-plate'); those still live in src/lib/lasercut.ts and are resolved from there until §5.5 folds them into this manifest. Line ids are unique within an assembly: two joints that use the same screw are one merged line. Screws and other hardware that JOIN parts are lines of the assembly that makes the joint, never requires of either member (requires is only for hardware committed to one physical part). joining [{method,note}] records how the lines become one unit — 'solder'|'crimp'|'glue'|'press'|'self-tap' (screw cuts its own thread in printed plastic, no insert or nut) |'friction' (held by clamping force alone, e.g. jammed in an extrusion slot). A cots part that is cut from a bought length carries stock {unit_length_mm, cut_length_mm, pieces_per_unit, unit_label, piece_label}; its lines count PIECES and the app divides to get lengths to buy. MERGES/CONFLICTS (2026-08-21, docs catalog folded in): top-level merges [{id,date,sources,note}] records source-of-truth merger events. A part may carry conflicts [{merge,field,claims:[{source,value},...],note}] = an unresolved factual disagreement between the merged catalogs, kept as data on purpose and rendered as a badge on BOTH sites (docs parts-needed cards + calculator detail views); resolving one means fixing the disputed field against the physical machine and DELETING the conflict entry (git is the history). A part may also carry caption (small text under its docs parts-needed card) and docs_page (its docs detail page path; lets either site cross-link). The docs site renders its parts data from parts.generated.json -- docs/src/liquid/_data/parts.yml is deleted; this manifest is the only parts catalog. LASERCUT (2026-08-21, §5.5 partly done): parts with kind 'lasercut' are the flat sheet parts, passed through to the generated JSON verbatim (fields match the app's LaserCutPart type in src/lib/lasercut.ts, which now reads the generated data instead of hardcoding it; the docs site reads the same JSON). dxf/preview are app-static paths; photo is a bucket URL. UID (2026-08-22): every part, whatever its kind, carries uid -- a minted 4-char id (catalog/mint_uid.py) naming its CURRENT VERSION: the exact thing in your hand, and what a print gets engraved with. A human bumping `version` mints a new uid; a re-export of the same design is new bytes (a new stl_hash) under the same uid, not a new version. A superseded version entry carries the uid it had (stamp_versions.py writes it beside the superseded stl_hash). Mint BEFORE the STL exists: the entry holds the uid and sync_bucket.py --upload reads it from here to key the file. FILENAMES (2026-08-21): serving keys carry the human name -- an STL is stl/<part-id>-<uid>-<hash8>.stl and an image is <prefix>/<name>-<hash8>.<ext> -- so a downloaded file identifies itself: grep the uid or hash fragment here and you have the exact version. Old pure-hash keys stay on the bucket so URLs in old commits keep serving. CANDIDATES (2026-08-22): a printed part may carry candidates [{uid, stl_hash, created_at, message, onshape_version?, support?, superseded_by?, superseded_at?, rejected_at?}] -- design revisions under test for that part's slot. Each is minted its own uid and pinned by hash (upload with sync_bucket.py --upload <part-id>.stl --uid <uid>), gets sliced and rendered and is downloadable from the part's page, counts toward nothing, and has NO version number: numbers are handed out in adoption order. Promotion = the candidate's uid + stl_hash become the part's current, version bumps, a versions entry is added, the candidate line is removed (its uid lives on at part level). A candidate that is iterated on or dropped is NEVER deleted: mark it superseded_by/superseded_at or rejected_at and leave its pin, so the uid engraved on a test print always resolves here. check_generated_pins.py fails any change that makes a uid disappear from this file.",
+  "_comment": "Source-of-truth manifest. filament.py slices each STL once and writes ../src/lib/data/parts.generated.json + thumbnails + STL copies. Per part: id, uid (see UID below), name, category, description (short, shown in app), internal_notes (extended, agent-only, NOT emitted to the app), version, created_at, updated_at, stl_hash (sha256 pin of the master STL on the bucket; upload with scripts/sync_bucket.py --upload), quantity (per ONE instance of its category), color, optional. attributes (optional list of {label,value} shown in the app), versions (optional archetype history: list of {version,date,message,commit}; commit ties to a real git commit, null = pending an upcoming clean commit). low_tolerance (optional bool: part has little tolerance for dimensional error - a tight/precise fit - so a test print is worth doing) + low_tolerance_note (the specifics, shown in the app). color is one of {\"role\":\"<roleid>\"} (user-picked), {\"fixed\":\"<lego-id>\"}, {\"split\":[{\"color\":\"<lego-id>\",\"qty\":N},...]} (sums to quantity), or {\"any\":true}, or {\"by_section\":{\"<sectionid>\":<colorspec>,...}} (per-section color when a part lives in multiple sections). Machine = 1 of each non-scaling category + N of each scaling category. See ../notes/TERMINOLOGY.md. SCHEMA V2 (unified parts system, see ../notes/UNIFIED-PARTS-SYSTEM.md, incremental): a part may carry kind ('printed' when absent | 'cots'); cots parts have cots {type,size?,variant?}, category (display grouping on the hardware tab), note (builder-critical caveat from the BOM sheet), image (slicer-relative path, uploaded to the bucket by sync_bucket.py and served from there) OR image_url (an already-uploaded content-addressed bucket URL; BOM product images never touch git), sourcing {vendors:[{region,vendor,url,affiliate_url?,price,currency?,pack_qty?,as_of?,note?}]} (url is always the plain listing; affiliate_url is the same listing carrying the project's Amazon tag, mirroring the BOM sheet's 'US Source 1 with Affiliate' column — both are kept so a builder can choose) (price is USD unless currency says otherwise), and no stl/color/quantities. sheet_qty {per_machine|per_layer} / sheet_qty_text are TRANSITIONAL hand counts carried over from the BOM sheet; they die once these parts are placed as requires/lines in the tree. A printed part may carry requires [{part,qty}] = hardware committed to that single physical part (heat inserts, press-fit bearings); qty scales with the part automatically. An assembly may carry lines [{part|assembly, qty}] (qty is a number, or 'per-layer' = multiplied by the total layer count, or 'middle-layers' = layer count minus 2, the layers that sit between the top and bottom interfaces) and status 'stub' (placeholder, nothing inside yet) or 'partial' (some lines filled in) — these form the experimental machine tree rooted at the 'machine' assembly. A line may also reference a laser-cut part by id (e.g. 'top-plate'); those still live in src/lib/lasercut.ts and are resolved from there until §5.5 folds them into this manifest. Line ids are unique within an assembly: two joints that use the same screw are one merged line. Screws and other hardware that JOIN parts are lines of the assembly that makes the joint, never requires of either member (requires is only for hardware committed to one physical part). joining [{method,note}] records how the lines become one unit — 'solder'|'crimp'|'glue'|'press'|'self-tap' (screw cuts its own thread in printed plastic, no insert or nut) |'friction' (held by clamping force alone, e.g. jammed in an extrusion slot). A cots part that is cut from a bought length carries stock {unit_length_mm, cut_length_mm, pieces_per_unit, unit_label, piece_label}; its lines count PIECES and the app divides to get lengths to buy. MERGES/CONFLICTS (2026-08-21, docs catalog folded in): top-level merges [{id,date,sources,note}] records source-of-truth merger events. A part may carry conflicts [{merge,field,claims:[{source,value},...],note}] = an unresolved factual disagreement between the merged catalogs, kept as data on purpose and rendered as a badge on BOTH sites (docs parts-needed cards + calculator detail views); resolving one means fixing the disputed field against the physical machine and DELETING the conflict entry (git is the history). A part may also carry caption (small text under its docs parts-needed card) and docs_page (its docs detail page path; lets either site cross-link). The docs site renders its parts data from parts.generated.json -- docs/src/liquid/_data/parts.yml is deleted; this manifest is the only parts catalog. LASERCUT (2026-08-21, §5.5 partly done): parts with kind 'lasercut' are the flat sheet parts, passed through to the generated JSON verbatim (fields match the app's LaserCutPart type in src/lib/lasercut.ts, which now reads the generated data instead of hardcoding it; the docs site reads the same JSON). dxf/preview are app-static paths; photo is a bucket URL. UID (2026-08-22): every part, whatever its kind, carries uid -- a minted 4-char id (catalog/mint_uid.py) naming its CURRENT VERSION: the exact thing in your hand, and what a print gets engraved with. A human bumping `version` mints a new uid; a re-export of the same design is new bytes (a new stl_hash) under the same uid, not a new version. A superseded version entry carries the uid it had (stamp_versions.py writes it beside the superseded stl_hash). Mint BEFORE the STL exists: the entry holds the uid and sync_bucket.py --upload reads it from here to key the file. FILENAMES (2026-08-21): serving keys carry the human name -- an STL is stl/<part-id>-<uid>-<hash8>.stl and an image is <prefix>/<name>-<hash8>.<ext> -- so a downloaded file identifies itself: grep the uid or hash fragment here and you have the exact version. Old pure-hash keys stay on the bucket so URLs in old commits keep serving. CANDIDATES (2026-08-22): a printed part may carry candidates [{uid, stl_hash, created_at, message, onshape_version?, support?, superseded_by?, superseded_at?, rejected_at?}] -- design revisions under test for that part's slot. Each is minted its own uid and pinned by hash (upload with sync_bucket.py --upload <part-id>.stl --uid <uid>), gets sliced and rendered and is downloadable from the part's page, counts toward nothing, and has NO version number: numbers are handed out in adoption order. Promotion = the candidate's uid + stl_hash become the part's current, version bumps, a versions entry is added, the candidate line is removed (its uid lives on at part level). A candidate that is iterated on or dropped is NEVER deleted: mark it superseded_by/superseded_at or rejected_at and leave its pin, so the uid engraved on a test print always resolves here. check_generated_pins.py fails any change that makes a uid disappear from this file. ASSEMBLIES (2026-08-22): every assembly carries uid and version exactly like a part. A new version is an authored STRUCTURAL change (a line added or removed, a qty changed) -- a member part revving is that part's own history, not the assembly's. versions [{version, uid, date, message, commit, lines}] is written like a part's: author the new entry with commit null, and stamp_versions.py carries the superseded uid plus a snapshot of the lines as they were, each line pinned to the member's uid at the time, so a box as built then can be read back part by part. candidates [{uid, created_at, message, lines, superseded_by?, superseded_at?, rejected_at?}] is a whole alternative bill of materials under test (new parts enter with empty quantities so they count toward nothing); promotion = the candidate's lines and uid become the assembly's, version bumps, a versions entry is added, the candidate line is removed. Same retention rule: a candidate is marked, never deleted.",
   "sections": [
     {
       "id": "feeder",
@@ -4951,6 +4951,8 @@
   "assemblies": [
     {
       "id": "light-post",
+      "uid": "v06x",
+      "version": "1",
       "name": "Light post",
       "description": "The feeder light post: post, cap, and cap adapter. 2 per machine. Bolts to a C-channel NEMA bracket.",
       "status": "partial",
@@ -4990,6 +4992,8 @@
     },
     {
       "id": "external-bracket",
+      "uid": "6h3l",
+      "version": "1",
       "name": "External distribution-frame bracket",
       "description": "Three parts that bolt together into one external bracket. 6 per distribution frame (per layer), plus a set per interface. The cover clips on and takes no screws.",
       "docs": "/hardware/assembly/distribution/external-bracket/",
@@ -5021,6 +5025,8 @@
     },
     {
       "id": "fixed-upper-section",
+      "uid": "99af",
+      "version": "1",
       "name": "Fixed upper section",
       "description": "The interface's fixed upper section: the upper-fixed-section plate, its ribs (5 plain + 1 with the limit-switch gap), and the big spacer. 1 per interface. Each rib takes 2 × [[hw:scr-m5-16-shcs]] into the plate; the screw that ties it to its bracket's extrusion belongs to the interface above.",
       "docs": "/hardware/assembly/distribution/top-interface/",
@@ -5056,6 +5062,8 @@
     },
     {
       "id": "cable-clamp",
+      "uid": "e0p9",
+      "version": "1",
       "name": "Cable clamp",
       "description": "Inner + outer ribbon cable clamp; the two halves clamp together around the cable and the pair bolts to the top interface chute mount.",
       "docs": "/hardware/assembly/distribution/top-interface/",
@@ -5081,12 +5089,16 @@
     },
     {
       "id": "classification-chamber",
+      "uid": "umxp",
+      "version": "1",
       "name": "Classification chamber",
       "description": "The classification chamber: the dome, the finned rotor, and the camera & LED insert. All three print white, so the chamber bounces light onto the part instead of absorbing it.",
       "docs": "/hardware/assembly/feeder/classification-chamber/"
     },
     {
       "id": "chute-bearing",
+      "uid": "jqhp",
+      "version": "1",
       "name": "Chute bearing assembly",
       "description": "The flap's bearing assembly: left + right bearing holders, the race between them, and the covers. Carries 10 M3 inserts and the two flap bearings, one screw per insert: 6 M3 × 8 hold the covers to the holders (3 each), 4 hold the holders to the race (2 each).",
       "status": "partial",
@@ -5123,6 +5135,8 @@
     },
     {
       "id": "servo-adapter",
+      "uid": "irue",
+      "version": "1",
       "name": "Servo adapter (MG995)",
       "description": "MG995 servo adapter: servo side + flap side.",
       "docs": "/hardware/assembly/distribution/chute/door-module/",
@@ -5140,6 +5154,8 @@
     },
     {
       "id": "servo-bracket",
+      "uid": "okza",
+      "version": "1",
       "name": "Servo assembly (MG995)",
       "description": "The MG995 servo in its bracket: lower arm, side arm, cover, housing. Bolts to the chute core's two arm inserts as a unit.",
       "docs": "/hardware/assembly/distribution/chute/mg995-servo/servo-mount/",
@@ -5177,6 +5193,8 @@
     },
     {
       "id": "camera-mount",
+      "uid": "b3zx",
+      "version": "1",
       "name": "Overhead camera mount",
       "description": "Camera mount for the C-channels. 2 per machine, each hanging off two ~1 ft steel rods.",
       "status": "partial",
@@ -5214,6 +5232,8 @@
     },
     {
       "id": "layer-connector",
+      "uid": "6m38",
+      "version": "1",
       "name": "Layer connector",
       "description": "Pair of connectors. 1 of each per layer + 1 of each per bottom interface.",
       "docs": "/hardware/assembly/distribution/chute/layer-connectors/",
@@ -5231,6 +5251,8 @@
     },
     {
       "id": "limit-switch",
+      "uid": "eb8m",
+      "version": "1",
       "name": "Chute limit switch",
       "description": "Interface limit switch: printed dowel pin, housing, hammer, and the switch itself. Bolts to the interface frame as a unit.",
       "docs": "/hardware/assembly/distribution/top-interface/",
@@ -5260,6 +5282,8 @@
     },
     {
       "id": "cable-cage",
+      "uid": "nam6",
+      "version": "1",
       "name": "Cable cage",
       "description": "Six cable cage brackets (5 regular + 1 cable mount) stacked with the ribbon cable clamp. Also sandwiches the laser-cut cage top and bottom plates, which are not in the parts registry yet.",
       "docs": "/hardware/assembly/distribution/top-interface/",
@@ -5292,23 +5316,9 @@
       ]
     },
     {
-      "id": "orange-pi-5-housing",
-      "name": "Orange Pi 5 Housing",
-      "description": "Housing for the Orange Pi 5. Parts and print details are coming soon.",
-      "section": "electronics",
-      "status": "stub",
-      "lines": []
-    },
-    {
-      "id": "embedded-control-board-housing",
-      "name": "basically Embedded Control Board Housing",
-      "description": "Housing for the basically Embedded Control Board. Parts and print details are coming soon.",
-      "section": "electronics",
-      "status": "stub",
-      "lines": []
-    },
-    {
       "id": "meanwell-psu-box",
+      "uid": "skg6",
+      "version": "1",
       "name": "Meanwell 24V PSU box",
       "description": "Enclosure for the Meanwell 24V power supply: back mount, connections plate, and cap, screwed to the supply's own case.",
       "docs": "/hardware/electronics/installation/psu-box/",
@@ -5338,6 +5348,8 @@
     },
     {
       "id": "camera-extension",
+      "uid": "dc2i",
+      "version": "1",
       "name": "Camera extension",
       "description": "Classification-channel camera extension for the 4K camera module: the 50 mm extension tube, its mount, and the camera. 1 per machine.",
       "status": "partial",
@@ -5362,6 +5374,8 @@
     },
     {
       "id": "pico-headers",
+      "uid": "s7bo",
+      "version": "1",
       "name": "Pico with headers",
       "description": "The Raspberry Pi Pico with 2.54 mm header pins fitted, so it can seat in the PCB. The board ships bare — the pins are a separate purchase.",
       "docs": "/hardware/electronics/installation/pico-headers/",
@@ -5385,6 +5399,8 @@
     },
     {
       "id": "machine",
+      "uid": "e4k9",
+      "version": "1",
       "name": "Sorter V2",
       "description": "The whole machine: feeder on top, interface, the distribution layers between the interfaces, and the bottom interface.",
       "docs": "/hardware/assembly/",
@@ -5414,6 +5430,8 @@
     },
     {
       "id": "feeder",
+      "uid": "4swk",
+      "version": "1",
       "name": "Feeder",
       "description": "Feeder + classification channel. Everything above the interface.",
       "docs": "/hardware/assembly/feeder/",
@@ -5447,6 +5465,8 @@
     },
     {
       "id": "interface",
+      "uid": "zz8s",
+      "version": "1",
       "name": "Interface",
       "description": "The interface between the feeder and the distribution layers. Its lazy Susan sandwiches the upper fixed section and the chute mount, 4 × [[hw:scr-m4-12-cs]] a side, and the plywood top plate bolts down onto the six brackets' inserts.",
       "docs": "/hardware/assembly/distribution/top-interface/",
@@ -5540,6 +5560,8 @@
     },
     {
       "id": "layer",
+      "uid": "a17l",
+      "version": "1",
       "name": "Distribution layer",
       "description": "One distribution layer between the interfaces: frame, chute, bin retainers, funnels, bins. Each bin retainer takes 2 × [[hw:scr-m5-12-shcs]] into a [[hw:tnut-m5-2020]].",
       "docs": "/hardware/assembly/distribution/bin-frame/regular-layers/",
@@ -5573,6 +5595,8 @@
     },
     {
       "id": "bottom-interface",
+      "uid": "67uq",
+      "version": "1",
       "name": "Bottom interface",
       "description": "The bottom interface / lazy Susan level. Carries two chutes.",
       "docs": "/hardware/assembly/distribution/bin-frame/bottom-interface/",
@@ -5594,6 +5618,8 @@
     },
     {
       "id": "chute",
+      "uid": "axlb",
+      "version": "1",
       "name": "Chute",
       "description": "One chute: the core plus its door module, funnel brackets, connectors, and PCB. Every screw here lands in one of the chute core's 18 M3 inserts.",
       "docs": "/hardware/assembly/distribution/chute/chute-core/",
@@ -5635,6 +5661,8 @@
     },
     {
       "id": "flap-module",
+      "uid": "9tm6",
+      "version": "1",
       "name": "Flap module",
       "description": "The chute's flap: the door itself, the bearing assembly it swings on, and the servo that drives it.",
       "docs": "/hardware/assembly/distribution/chute/door-module/",
@@ -5660,6 +5688,8 @@
     },
     {
       "id": "chute-pcb",
+      "uid": "f3s0",
+      "version": "1",
       "name": "Chute PCB",
       "description": "The layer adapter board, screwed onto the chute core's four PCB inserts.",
       "docs": "/hardware/assembly/distribution/chute/pcb/",
@@ -5677,6 +5707,8 @@
     },
     {
       "id": "c-channel",
+      "uid": "mttx",
+      "version": "1",
       "name": "C-channel drive",
       "description": "One C-channel drive unit: stator, NEMA bracket, output gear, gear train and stepper. 4 per machine — 3 in the feeder plus the classification channel's. Screw joints: 4 × [[hw:scr-m3-12-cs]] hold the NEMA bracket to the stator; 3 × [[hw:scr-m3-16-shcs]] hold the stepper to the NEMA bracket; 1 × [[hw:scr-m3-8-shcs]] clamps the input gear to the motor shaft flat; 6 × [[hw:scr-m3-8-cs]] attach the output gear to the rotor, one per spoke (the light post's 2 × [[hw:scr-m3-20-cs]] into the NEMA bracket live on the light-post assembly). The rotor differs by location (faceted in the feeder, finned in the classification chamber), so it is not part of this node.",
       "docs": "/hardware/assembly/feeder/c-channel/",
@@ -5726,6 +5758,8 @@
     },
     {
       "id": "chute-stepper-gearing",
+      "uid": "cwji",
+      "version": "1",
       "name": "Chute Stepper Gearing",
       "description": "The printed drive and idler gearing that transfers motion from the NEMA 23 chute stepper. The idler gear is retained on the bracket by 1 × [[hw:scr-m3-35-bhcs]] with a [[hw:washer-m3-15]] under the head, spanning the bearing bore; the low head keeps it clear of the limit switch hammer.",
       "docs": "/hardware/assembly/distribution/top-interface/",
@@ -5763,6 +5797,8 @@
     },
     {
       "id": "interface-nema23-mount",
+      "uid": "bxxh",
+      "version": "1",
       "name": "Chute stepper NEMA 23 mount",
       "description": "The NEMA 23 stepper on its interface bracket. 1 per interface.",
       "docs": "/hardware/assembly/distribution/top-interface/",
@@ -5784,6 +5820,8 @@
     },
     {
       "id": "interface-spur-gear-drive",
+      "uid": "qlos",
+      "version": "1",
       "name": "Chute stepper drive gear",
       "description": "The chute stepper drive gear with its 8 mm bore timing pulley. 1 per interface.",
       "docs": "/hardware/assembly/distribution/top-interface/",
@@ -5805,6 +5843,8 @@
     },
     {
       "id": "interface-chute-drive",
+      "uid": "8cjj",
+      "version": "1",
       "name": "Interface chute gear + mount",
       "description": "The chute gear screwed down onto the top interface chute mount — two sections of the split spur gear that become one turning unit.",
       "docs": "/hardware/assembly/distribution/top-interface/",
@@ -5826,6 +5866,8 @@
     },
     {
       "id": "layer-frame",
+      "uid": "adaj",
+      "version": "1",
       "name": "Distribution frame",
       "description": "The frame of one distribution layer: six external brackets, the crossbeams between them, and the 90° brackets. The aluminum extrusion it is built on is sized on the framing tab, not listed here.",
       "docs": "/hardware/assembly/distribution/bin-frame/regular-layers/",
@@ -5847,8 +5889,11 @@
     },
     {
       "id": "ctrl-board-mount",
+      "uid": "u12m",
+      "version": "1",
       "name": "Control board mount",
       "description": "The basically Embedded Control Board standing off its bracket. The printed bracket is not in the parts registry yet.",
+      "section": "electronics",
       "docs": "/hardware/electronics/installation/control-board-mount/",
       "status": "stub",
       "lines": [
@@ -5872,8 +5917,11 @@
     },
     {
       "id": "orange-pi-mount",
+      "uid": "5vat",
+      "version": "1",
       "name": "Orange Pi mount",
       "description": "The Orange Pi 5 standing off its bracket. The printed bracket is not in the parts registry yet.",
+      "section": "electronics",
       "docs": "/hardware/electronics/installation/orange-pi-mount/",
       "status": "stub",
       "lines": [
@@ -5897,6 +5945,8 @@
     },
     {
       "id": "electronics",
+      "uid": "lbrp",
+      "version": "1",
       "name": "Electronics",
       "description": "The three boxes that bolt to the frame: the PSU, the control board, and the Orange Pi. Each takes 2 × [[hw:scr-m5-shcs-tbd]] — nobody has measured the length yet.",
       "docs": "/hardware/electronics/installation/",
@@ -5922,6 +5972,8 @@
     },
     {
       "id": "interface-bracket-mount",
+      "uid": "rhr6",
+      "version": "1",
       "name": "Interface bracket",
       "description": "One interface bracket with its spacer, bolted onto its vertical extrusion. 6 per interface.",
       "docs": "/hardware/assembly/distribution/top-interface/",
@@ -5947,6 +5999,8 @@
     },
     {
       "id": "lazy-susan",
+      "uid": "l1un",
+      "version": "1",
       "name": "Bottom lazy Susan",
       "description": "The bottom interface's lazy Susan: the static half, the chute mount that spins on it, the extrusion mounts, and the bearing itself. Bolted through 4 × [[hw:scr-m4-12-cs]] a side, same as the top interface's.",
       "docs": "/hardware/assembly/distribution/bin-frame/bottom-interface/",

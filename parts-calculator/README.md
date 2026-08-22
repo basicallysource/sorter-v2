@@ -104,6 +104,15 @@ on or drop one: **never delete it** — add `superseded_by` / `superseded_at`
 or `rejected_at` and leave its pin, so the uid engraved on any test print
 still resolves here. CI fails a change that removes a uid from `parts.json`.
 
+Assemblies version the same way: every one has a `uid` and `version`, a new
+version is an authored *structural* change (a line added or removed, a qty
+changed — a member part revving is that part's own history), and a
+candidate is a whole alternative bill of materials (`lines`) under test,
+whose new parts enter the catalog with empty `quantities` so they count
+toward nothing until promoted. `stamp_versions.py` carries a snapshot of
+the superseded lines, each pinned to the member's uid at the time, so a box
+as built then can be read back part by part.
+
 Slicer settings live at the top of `catalog/generate.py` (printer, infill,
 supports, etc.); changing them re-slices the whole catalog. Terminology is in
 [`notes/TERMINOLOGY.md`](notes/TERMINOLOGY.md).

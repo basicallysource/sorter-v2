@@ -24,9 +24,9 @@ from sync_bucket import stl_url  # noqa: E402
 
 
 def all_uids(manifest):
-    return {u for p in manifest["parts"]
-            for u in [p.get("uid")] + [v.get("uid") for v in p.get("versions") or []]
-                     + [c.get("uid") for c in p.get("candidates") or []] if u}
+    return {u for item in manifest["parts"] + manifest.get("assemblies", [])
+            for u in [item.get("uid")] + [v.get("uid") for v in item.get("versions") or []]
+                     + [c.get("uid") for c in item.get("candidates") or []] if u}
 
 
 def previous_uids():

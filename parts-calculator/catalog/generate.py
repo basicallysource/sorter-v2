@@ -727,21 +727,39 @@ def build_families(manifest):
     return families
 
 
-def check_hardware_refs(manifest, known_ids):
-    """Assembly descriptions and joining notes name fasteners as `[[hw:<id>]]` so
-    the app can draw the real head symbol and name instead of a bare "M5x16". A
-    typo'd id would otherwise reach the site as a raw token in the middle of a
-    sentence, so it fails here instead."""
+def check_assemblies(manifest, part_ids):
+    """Every assembly carries a uid and version like a part does, and every id it
+    names has to exist: fasteners written as `[[hw:<id>]]` in descriptions and
+    joining notes (the app draws the real head symbol and name instead of a
+    bare "M5x16"), and the part or assembly on every line -- current, candidate
+    or snapshotted. A typo'd id would otherwise reach the site as a raw token
+    or a line that silently renders nothing, so it fails here instead."""
+    asm_ids = {a["id"] for a in manifest.get("assemblies", [])}
+    known = part_ids | asm_ids
     bad = []
     for asm in manifest.get("assemblies", []):
+        if not re.fullmatch(r"[a-z0-9]{4}", str(asm.get("uid", ""))):
+            bad.append(f"{asm['id']}: no 4-char uid -- mint one with catalog/mint_uid.py")
+        if not asm.get("version"):
+            bad.append(f"{asm['id']}: no version")
         texts = [asm.get("description", "")]
         texts += [j.get("note", "") or "" for j in asm.get("joining", []) or []]
         for ref in re.findall(r"\[\[hw:([a-z0-9-]+)\]\]", " ".join(texts)):
-            if ref not in known_ids:
-                bad.append(f"{asm['id']}: [[hw:{ref}]]")
+            if ref not in known:
+                bad.append(f"{asm['id']}: [[hw:{ref}]] is not a part")
+        line_sets = [("lines", asm.get("lines") or [])]
+        line_sets += [(f"candidate {c.get('uid')}", c.get("lines") or []) for c in asm.get("candidates") or []]
+        line_sets += [(f"v{v.get('version')}", v.get("lines") or []) for v in asm.get("versions") or []]
+        for where, lines in line_sets:
+            for line in lines:
+                ref = line.get("part") or line.get("assembly")
+                if ref not in known:
+                    bad.append(f"{asm['id']} {where}: {ref!r} is not a part or assembly")
+        for c in asm.get("candidates") or []:
+            if not (re.fullmatch(r"[a-z0-9]{4}", str(c.get("uid", ""))) and c.get("lines")):
+                bad.append(f"{asm['id']}: a candidate needs a 4-char uid and lines")
     if bad:
-        sys.exit("assembly description references an unknown part id:\n  "
-                 + "\n  ".join(bad))
+        sys.exit("assemblies:\n  " + "\n  ".join(bad))
 
 
 def committed_filament_constants():
@@ -784,13 +802,13 @@ def main():
                 sys.exit(f"{part['id']}: only a printed part can carry candidates")
             if not (re.fullmatch(r"[a-z0-9]{4}", str(c.get("uid", ""))) and c.get("stl_hash")):
                 sys.exit(f"{part['id']}: a candidate needs a 4-char uid and an stl_hash")
-    uids = [x for part in manifest["parts"]
-            for x in ([part["uid"]] + [v.get("uid") for v in part.get("versions") or []]
-                      + [c.get("uid") for c in part.get("candidates") or []]) if x]
+    uids = [x for item in manifest["parts"] + manifest.get("assemblies", [])
+            for x in ([item.get("uid")] + [v.get("uid") for v in item.get("versions") or []]
+                      + [c.get("uid") for c in item.get("candidates") or []]) if x]
     duplicate_uids = sorted({x for x in uids if uids.count(x) > 1})
     if duplicate_uids:
         sys.exit(f"duplicate uid(s): {duplicate_uids} -- mint a fresh one")
-    check_hardware_refs(manifest, set(part_ids))
+    check_assemblies(manifest, set(part_ids))
     if args.metadata_only:
         if not os.path.exists(DATA_OUT):
             sys.exit("--metadata-only needs an existing catalog.generated.json; run the full generator once")

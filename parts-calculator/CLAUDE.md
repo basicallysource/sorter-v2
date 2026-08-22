@@ -198,3 +198,9 @@ rendered, no version number until adopted. They are never deleted, only
 marked `superseded_by` / `rejected_at`, because a uid on a test print has to
 keep resolving; `check_generated_pins.py` fails any change that drops a uid
 from `parts.json`.
+
+**Assemblies carry `uid` / `version` / `versions` / `candidates` too.** An
+assembly version is an authored structural change; its superseded entries
+snapshot the lines with each member's uid of the day (`stamp_versions.py`),
+and a candidate is an alternative bill of materials under test. Same minting,
+same retention rule.

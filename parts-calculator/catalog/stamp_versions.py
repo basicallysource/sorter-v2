@@ -8,6 +8,10 @@ version" is the commit that changed the part's uid, and this script finds it
 by walking parts.json's own history. A hash change with the same uid is a
 re-export of the same design and is not a version.
 
+Assemblies version the same way, and what gets carried onto the superseded
+entry is a snapshot of the lines as they were, each pinned to the member's
+uid at the time, so the box as built then reads back part by part.
+
 The workflow the version system assumes:
   1. Mint a uid (`python catalog/mint_uid.py`), put it on the part, bump
      `version`, and author a new version entry with `"commit": null`
@@ -43,7 +47,9 @@ def manifest_commits():
 
 
 def pins_at(commit):
-    """{part id: (stl_hash, uid)} as of `commit`, or None if parts.json unreadable there."""
+    """As of `commit`: {"parts": {id: (uid, stl_hash)}, "assemblies": {id: (uid,
+    lines)}} with each line pinned to its member's uid then, or None if
+    parts.json is unreadable there."""
     r = subprocess.run(["git", "-C", HERE, "show", f"{commit}:./parts.json"],
                        capture_output=True)
     if r.returncode != 0 or not r.stdout:
@@ -52,7 +58,20 @@ def pins_at(commit):
         d = json.loads(r.stdout)
     except ValueError:
         return None
-    return {p["id"]: (p.get("stl_hash"), p.get("uid")) for p in d.get("parts", [])}
+    member_uid = {p["id"]: p.get("uid") for p in d.get("parts", [])}
+    member_uid.update({a["id"]: a.get("uid") for a in d.get("assemblies", [])})
+    assemblies = {}
+    for a in d.get("assemblies", []):
+        lines = []
+        for line in a.get("lines") or []:
+            snap = collections.OrderedDict(line)
+            uid = member_uid.get(line.get("part") or line.get("assembly"))
+            if uid:
+                snap["uid"] = uid
+            lines.append(snap)
+        assemblies[a["id"]] = (a.get("uid"), lines)
+    return {"parts": {p["id"]: (p.get("uid"), p.get("stl_hash")) for p in d.get("parts", [])},
+            "assemblies": assemblies}
 
 
 def main():
@@ -61,14 +80,16 @@ def main():
     args = ap.parse_args()
 
     d = json.load(open(MANIFEST), object_pairs_hook=collections.OrderedDict)
-    pending = [p for p in d["parts"]
+    pending = [("parts", p) for p in d["parts"]
                if p.get("versions") and not p["versions"][-1].get("commit")]
+    pending += [("assemblies", a) for a in d.get("assemblies", [])
+                if a.get("versions") and not a["versions"][-1].get("commit")]
     if not pending:
         print("nothing to stamp — all versions already tied to commits.")
         return
 
     commits = manifest_commits()
-    snapshots = {}          # commit -> {id: (stl_hash, uid)}, filled lazily
+    snapshots = {}          # commit -> pins_at(commit), filled lazily
 
     def snap(c):
         if c not in snapshots:
@@ -76,7 +97,7 @@ def main():
         return snapshots[c]
 
     stamped = []
-    for p in pending:
+    for kind, p in pending:
         versions = p["versions"]
         used = {v.get("commit") for v in versions if v.get("commit")}
         found = None
@@ -87,27 +108,29 @@ def main():
             prev = snap(commits[i + 1]) if i + 1 < len(commits) else {}
             if cur is None:
                 continue
-            cur_uid = (cur.get(p["id"]) or (None, None))[1]
-            prev_pin = ((prev or {}).get(p["id"]) or (None, None))
-            if cur_uid and cur_uid != prev_pin[1]:
+            cur_uid = (cur[kind].get(p["id"]) or (None, None))[0]
+            prev_pin = ((prev or {kind: {}})[kind].get(p["id"]) or (None, None))
+            if cur_uid and cur_uid != prev_pin[0]:
                 found = (c, prev_pin)
                 break
         if not found:
             continue
-        commit, (replaced_hash, replaced_uid) = found
+        commit, (replaced_uid, replaced_pin) = found
         versions[-1]["commit"] = commit
         stamped.append((p["id"], versions[-1].get("version"), commit))
         if len(versions) > 1 and not versions[-2].get("uid"):
-            if replaced_hash and replaced_uid:
+            if replaced_uid and replaced_pin:
                 old = versions[-2]
+                # a part pins its geometry (stl_hash); an assembly its lines,
+                # each carrying the member's uid of the day
+                pin_key = "stl_hash" if kind == "parts" else "lines"
                 versions[-2] = collections.OrderedDict(
                     [("version", old.get("version")), ("uid", replaced_uid)]
                     + [(k, v) for k, v in old.items() if k != "version"]
-                    + [("stl_hash", replaced_hash)])
+                    + [(pin_key, replaced_pin)])
             else:
-                print(f"  ! {p['id']}: no prior stl_hash found at {commit}~; "
-                      f"v{versions[-2].get('version')} will fall back to the "
-                      "live asset")
+                print(f"  ! {p['id']}: nothing to carry from {commit}~; "
+                      f"v{versions[-2].get('version')} stays unpinned")
 
     if not stamped:
         print("nothing to stamp — no pin changes found for the pending versions.")

@@ -69,12 +69,41 @@ export const JOIN_LABELS: Record<JoinMethod, string> = {
 	friction: 'Friction'
 };
 
+/** A superseded structure of an assembly: its lines as they were, each member
+ *  pinned to the uid it had then, so the box as built at that time reads back
+ *  part by part. Written by stamp_versions.py at supersession. */
+export type AssemblySnapshotLine = AssemblyLine & { uid?: string };
+export type AssemblyVersion = {
+	version: string;
+	uid?: string;
+	date: string;
+	message: string;
+	commit: string | null;
+	lines?: AssemblySnapshotLine[];
+};
+
+/** A whole alternative bill of materials under test for an assembly -- its own
+ *  uid, never counted, never deleted once listed (marked superseded/rejected). */
+export type AssemblyCandidate = {
+	uid: string;
+	created_at: string;
+	message: string;
+	lines: AssemblyLine[];
+	superseded_by?: string | null;
+	superseded_at?: string | null;
+	rejected_at?: string | null;
+};
+
 /** Assemblies double as (a) legacy flat groupings the parts list rolls up under
  *  and (b) nodes of the experimental machine tree (when they carry `lines`).
  *  status: 'stub' = placeholder with nothing inside yet, 'partial' = some lines
  *  filled in but not everything the real assembly contains. */
 export type Assembly = {
 	id: string;
+	uid: string; // the current structure's id, minted like a part's
+	version?: string; // bumps on an authored structural change, not a member rev
+	versions?: AssemblyVersion[]; // newest last; superseded ones carry a line snapshot
+	candidates?: AssemblyCandidate[]; // alternative BOMs under test, oldest first
 	name: string;
 	description: string;
 	docs?: string; // path on the docs site to the full assembly guide, e.g. /hardware/assembly/...

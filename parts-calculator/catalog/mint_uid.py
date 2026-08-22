@@ -28,11 +28,11 @@ UID = re.compile(r"[a-z0-9]{4}")
 
 
 def taken_uids(manifest):
-    """Every uid in use: each part's current one, its superseded versions' and
-    its candidates'."""
-    return {u for part in manifest["parts"]
-            for u in [part.get("uid")] + [v.get("uid") for v in part.get("versions") or []]
-                     + [c.get("uid") for c in part.get("candidates") or []]
+    """Every uid in use: each part's and assembly's current one, their superseded
+    versions' and their candidates'."""
+    return {u for item in manifest["parts"] + manifest.get("assemblies", [])
+            for u in [item.get("uid")] + [v.get("uid") for v in item.get("versions") or []]
+                     + [c.get("uid") for c in item.get("candidates") or []]
             if u}
 
 

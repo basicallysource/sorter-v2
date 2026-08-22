@@ -3,14 +3,17 @@
 
 Every file is stored under a name that identifies itself:
 
-    stl/<part>-<stl_id>-<hash8>.stl      render/<part>-<hash8>.png
+    stl/<part>-<uid>-<hash8>.stl         render/<part>-<hash8>.png
     img/<name>-<hash8>.<ext>             plate/<name>-<hash8>.3mf   ...
 
 The hash fragment makes the address a function of the bytes (identical bytes
 are never stored twice; a revision stays downloadable forever), the human name
-makes a downloaded file readable, and an STL additionally carries its minted
-`stl_id` -- grep that id (or the hash fragment) in catalog/parts.json and you
-have the exact version of the thing in your hand. Uploads happen only if the
+makes a downloaded file readable, and an STL additionally carries the `uid` of
+the part version it is -- grep that uid (or the hash fragment) in
+catalog/parts.json and you have the exact version of the thing in your hand.
+The uid is never minted here: it names the design revision, it is on the
+part's entry before the STL exists (catalog/mint_uid.py), and a re-export of
+the same design is new bytes under the same uid. Uploads happen only if the
 key is absent. Nothing binary is committed to git, anywhere, ever. (Keys were
 bare <sha256><ext> before 2026-08-21; those objects stay on the bucket so URLs
 in old commits keep serving.)
@@ -91,20 +94,22 @@ def named_key(prefix: str, name: str, digest: str, suffix: str) -> str:
     return f"{prefix}/{slug(name)}-{digest[:HASH_CHARS]}{suffix}"
 
 
-def stl_url(name: str, stl_id: str, digest: str) -> str:
-    """stl/<name>-<stl_id>-<hash8>.stl -- the id is the parts.json lookup key."""
-    return f"{PUBLIC_BASE}/stl/{slug(name)}-{stl_id}-{digest[:HASH_CHARS]}.stl"
+def stl_url(name: str, uid: str, digest: str) -> str:
+    """stl/<name>-<uid>-<hash8>.stl -- the uid is the parts.json lookup key."""
+    return f"{PUBLIC_BASE}/stl/{slug(name)}-{uid}-{digest[:HASH_CHARS]}.stl"
 
 
-def mint_stl_id() -> str:
-    """4 chars of base36, never all digits; stored beside the stl_hash it names."""
-    import random
-    import string
-    rng = random.SystemRandom()
-    while True:
-        i = "".join(rng.choice(string.ascii_lowercase + string.digits) for _ in range(4))
-        if not i.isdigit():
-            return i
+def uid_for(part_id: str) -> str:
+    """The uid of a part's current version, read off its catalog/parts.json entry."""
+    manifest = json.loads((REPO / "catalog" / "parts.json").read_text())
+    for part in manifest["parts"]:
+        if part["id"] == part_id:
+            if not part.get("uid"):
+                sys.exit(f"{part_id} has no uid in catalog/parts.json -- "
+                         "mint one (catalog/mint_uid.py) before uploading")
+            return part["uid"]
+    sys.exit(f"no part {part_id!r} in catalog/parts.json -- write its entry (with a "
+             "minted uid) before uploading, or pass --uid to key the file explicitly")
 
 # Images render in <img> tags; everything else is a download.
 INLINE_SUFFIXES = {".png", ".jpg"}
@@ -216,15 +221,19 @@ def s3_client():
     )
 
 
-def upload_loose(paths: list[str]) -> None:
+def upload_loose(paths: list[str], uid: str | None = None) -> None:
     """Author an asset straight onto the bucket and print the line to paste.
 
     This is the ONLY way binary content enters the system -- nothing binary is
     committed. The prefix and the paste-line follow from the file type:
 
-      .stl    -> stl/<name>-<id>-<hash8>.stl   "stl_hash" + "stl_id"  (parts.json)
+      .stl    -> stl/<part>-<uid>-<hash8>.stl  "stl_hash": "<sha>"    (parts.json)
       .3mf    -> plate/<name>-<hash8>.3mf      "hash": "<sha>"        (plates.json)
       images  -> img/<name>-<hash8>.<ext>      "image_url": "<url>"   (parts.json)
+
+    An STL is named <part-id>.stl and keyed under that part's uid from
+    parts.json, so the entry exists before the upload; `uid` overrides the
+    lookup (a file not named for its part, or a superseded version).
     """
     s3 = s3_client()
     for raw in paths:
@@ -236,9 +245,10 @@ def upload_loose(paths: list[str]) -> None:
         suffix = p.suffix.lower()
         prefix = {"": "img", ".stl": "stl", ".3mf": "plate"}.get(
             suffix if suffix in (".stl", ".3mf") else "", "img")
-        sid = mint_stl_id() if prefix == "stl" else None
-        key = (f"stl/{slug(p.stem)}-{sid}-{digest[:HASH_CHARS]}{suffix}"
-               if sid else named_key(prefix, p.stem, digest, suffix))
+        if prefix == "stl":
+            key = f"stl/{slug(p.stem)}-{uid or uid_for(slug(p.stem))}-{digest[:HASH_CHARS]}{suffix}"
+        else:
+            key = named_key(prefix, p.stem, digest, suffix)
         try:
             s3.head_object(Bucket=BUCKET, Key=key)
             print(f"  already on the bucket  {p.name}")
@@ -246,8 +256,7 @@ def upload_loose(paths: list[str]) -> None:
             s3.upload_file(str(p), BUCKET, key, ExtraArgs=upload_args(p.name))
             print(f"  uploaded  {p.name}  ({p.stat().st_size / 1e6:.1f} MB)")
         if prefix == "stl":
-            print(f'    "stl_hash": "{digest}",')
-            print(f'    "stl_id": "{sid}"')
+            print(f'    "stl_hash": "{digest}"')
         elif prefix == "plate":
             print(f'    "hash": "{digest}"')
         else:
@@ -283,10 +292,13 @@ def main() -> None:
                     help="author asset(s) straight onto the bucket and print the "
                          "pin line to paste (stl_hash for .stl, hash for .3mf, "
                          "image_url for images); files are never copied into the repo")
+    ap.add_argument("--uid", metavar="UID",
+                    help="with --upload: key an STL under this uid instead of looking "
+                         "it up by the file's name in catalog/parts.json")
     args = ap.parse_args()
 
     if args.upload:
-        upload_loose(args.upload)
+        upload_loose(args.upload, uid=args.uid)
         return
 
     if args.set_cors:

@@ -1,20 +1,23 @@
 #!/usr/bin/env python
 """Backfill `commit: null` version entries in parts.json with real git commit hashes.
 
-A part's geometry is its `stl_hash` pin in parts.json (the bytes live on the
-content-addressed bucket; nothing binary is in git). So "the commit that
-changed the geometry" is the commit that changed the part's stl_hash value,
-and this script finds it by walking parts.json's own history.
+A part's current version is its `uid` in parts.json and its geometry is its
+`stl_hash` pin (the bytes live on the content-addressed bucket; nothing binary
+is in git). A new version IS a new uid, so "the commit that introduced the
+version" is the commit that changed the part's uid, and this script finds it
+by walking parts.json's own history. A hash change with the same uid is a
+re-export of the same design and is not a version.
 
 The workflow the version system assumes:
-  1. Upload the new STL (`python scripts/sync_bucket.py --upload part.stl`),
-     set the printed stl_hash on the part, and author a new version entry with
-     `"commit": null` (pending).
+  1. Mint a uid (`python catalog/mint_uid.py`), put it on the part, bump
+     `version`, and author a new version entry with `"commit": null`
+     (pending). Then upload the new STL (`python scripts/sync_bucket.py
+     --upload part.stl`) and set the printed stl_hash.
   2. Commit ONLY that part's change, with a clear message (the version's
      changelog).
   3. Run this script. It stamps the pending version with the commit that
-     changed the pin, and writes the REPLACED stl_hash onto the version it
-     superseded -- which is how old geometry stays retrievable forever.
+     changed the uid, and writes the REPLACED uid + stl_hash onto the version
+     it superseded -- which is how old geometry stays retrievable forever.
   4. Commit the resulting parts.json (+ re-run generate.py) as a small "stamp"
      commit.
 
@@ -39,8 +42,8 @@ def manifest_commits():
     return [h for h in out.splitlines() if h.strip()]
 
 
-def hashes_at(commit):
-    """{part id: stl_hash} as of `commit`, or None if parts.json unreadable there."""
+def pins_at(commit):
+    """{part id: (stl_hash, uid)} as of `commit`, or None if parts.json unreadable there."""
     r = subprocess.run(["git", "-C", HERE, "show", f"{commit}:./parts.json"],
                        capture_output=True)
     if r.returncode != 0 or not r.stdout:
@@ -49,7 +52,7 @@ def hashes_at(commit):
         d = json.loads(r.stdout)
     except ValueError:
         return None
-    return {p["id"]: (p.get("stl_hash"), p.get("stl_id")) for p in d.get("parts", [])}
+    return {p["id"]: (p.get("stl_hash"), p.get("uid")) for p in d.get("parts", [])}
 
 
 def main():
@@ -65,11 +68,11 @@ def main():
         return
 
     commits = manifest_commits()
-    snapshots = {}          # commit -> {id: stl_hash}, filled lazily
+    snapshots = {}          # commit -> {id: (stl_hash, uid)}, filled lazily
 
     def snap(c):
         if c not in snapshots:
-            snapshots[c] = hashes_at(c)
+            snapshots[c] = pins_at(c)
         return snapshots[c]
 
     stamped = []
@@ -84,21 +87,23 @@ def main():
             prev = snap(commits[i + 1]) if i + 1 < len(commits) else {}
             if cur is None:
                 continue
-            cur_pin = (cur.get(p["id"]) or (None, None))[0]
+            cur_uid = (cur.get(p["id"]) or (None, None))[1]
             prev_pin = ((prev or {}).get(p["id"]) or (None, None))
-            if cur_pin and cur_pin != prev_pin[0]:
+            if cur_uid and cur_uid != prev_pin[1]:
                 found = (c, prev_pin)
                 break
         if not found:
             continue
-        commit, (replaced_hash, replaced_id) = found
+        commit, (replaced_hash, replaced_uid) = found
         versions[-1]["commit"] = commit
         stamped.append((p["id"], versions[-1].get("version"), commit))
-        if len(versions) > 1 and not versions[-2].get("stl_hash"):
-            if replaced_hash:
-                versions[-2]["stl_hash"] = replaced_hash
-                if replaced_id:
-                    versions[-2]["stl_id"] = replaced_id
+        if len(versions) > 1 and not versions[-2].get("uid"):
+            if replaced_hash and replaced_uid:
+                old = versions[-2]
+                versions[-2] = collections.OrderedDict(
+                    [("version", old.get("version")), ("uid", replaced_uid)]
+                    + [(k, v) for k, v in old.items() if k != "version"]
+                    + [("stl_hash", replaced_hash)])
             else:
                 print(f"  ! {p['id']}: no prior stl_hash found at {commit}~; "
                       f"v{versions[-2].get('version')} will fall back to the "
@@ -115,7 +120,7 @@ def main():
     json.dump(d, open(MANIFEST, "w"), indent=2, ensure_ascii=False)
     open(MANIFEST, "a").write("\n")
     print(f"\nstamped {len(stamped)} version(s) into parts.json. "
-          f"Re-run generate.py and commit parts.json + parts.generated.json.")
+          f"Re-run generate.py and commit parts.json + catalog.generated.json.")
 
 
 if __name__ == "__main__":

@@ -8,7 +8,7 @@ below are relative to this directory unless they start with `.github/`, which is
 the sorter-v2 repository root.
 
 The docs site is the other half of the same catalog now: `docs/` imports
-`src/lib/data/parts.generated.json` directly, so a part edited here changes both
+`src/lib/data/catalog.generated.json` directly, so a part edited here changes both
 sites. `docs/_data/parts.yml` is deleted and is not where parts live any more.
 
 Read `notes/UNIFIED-PARTS-SYSTEM.md` before
@@ -57,9 +57,8 @@ inconsistent — regenerate and push again.
 
 ## Hard rules
 
-**Never hand-edit generated files.** `src/lib/data/parts.generated.json`,
-`src/lib/data/plates.generated.json`, and `catalog/artifacts.json` are all
-outputs. The authored source of truth is `catalog/parts.json`. Edit that and
+**Never hand-edit generated files.** `src/lib/data/catalog.generated.json` and
+`catalog/artifacts.json` are outputs. The authored source of truth is `catalog/parts.json`. Edit that and
 re-run the generator.
 
 **Filament weights are measured, never estimated.** Grams come from
@@ -76,7 +75,7 @@ Large binaries (STLs, 3MFs) sync to a DigitalOcean Space, every filename
 carrying the content hash so it is immutable by construction:
 
 ```
-stl/<part>-<stl_id>-<hash8>.stl     render/<part>-<hash8>.png
+stl/<part>-<uid>-<hash8>.stl        render/<part>-<hash8>.png
 img/<name>-<hash8>.<ext>            plate/<name>-<hash8>.3mf
 ```
 
@@ -84,6 +83,12 @@ Public URLs are served through the asset worker at
 `https://img.basically.website/parts` (`PUBLIC_BASE` in `sync_bucket.py`); the
 bucket's own CDN endpoint still serves the same objects, so URLs in old commits
 never break. Pins are hashes, not URLs.
+
+The `uid` in an STL's name is the part version's id from `catalog/parts.json`,
+minted by `catalog/mint_uid.py` before the STL exists — every part has one,
+screws included. The uid names the design revision and the hash names the
+bytes: a new version is a new uid, a re-export of the same design is a new
+hash under the same uid.
 
 ```
 python scripts/sync_bucket.py --dry-run   # report only
@@ -172,14 +177,15 @@ sources under `static/dxf*`. Everything else lives on the bucket and is pinned
 by hash from committed JSON:
 
 - each part's `stl` URL and the `all_parts_zip` bundle URL in
-  `parts.generated.json` (the zip is staged under gitignored
+  `catalog.generated.json` (the zip is staged under gitignored
   `catalog/build/bundle/` and uploaded by `sync_bucket.py`);
-- each plate's `download` URL in `plates.generated.json`;
+- each plate's `download` URL in the same file;
 - every product image (`image_url`, pinned in `parts.json`).
 
 **Historical part-version geometry is pinned, not reconstructed.** Each
-superseded version in `parts.json` carries `stl_hash` — the sha256 of its
-final bytes, written by `stamp_versions.py` at supersession time — and
+superseded version in `parts.json` carries its `uid` and `stl_hash` — the
+sha256 of its final bytes, both written by `stamp_versions.py` at supersession
+time — and
 `archive_versions()` in `catalog/generate.py` fetches those bytes from the
 bucket. Git history is never consulted for geometry, which is what made the
 2026-08 history rewrite (dropping the old `static/stl` serving copies and 30+

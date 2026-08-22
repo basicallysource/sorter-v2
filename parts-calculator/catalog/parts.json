@@ -1,5 +1,5 @@
 {
-  "_comment": "Source-of-truth manifest. filament.py slices each STL once and writes ../src/lib/data/parts.generated.json + thumbnails + STL copies. Per part: id, name, category, description (short, shown in app), internal_notes (extended, agent-only, NOT emitted to the app), version, created_at, updated_at, stl_hash (sha256 pin of the master STL on the bucket; upload with scripts/sync_bucket.py --upload), quantity (per ONE instance of its category), color, optional. attributes (optional list of {label,value} shown in the app), versions (optional archetype history: list of {version,date,message,commit}; commit ties to a real git commit, null = pending an upcoming clean commit). low_tolerance (optional bool: part has little tolerance for dimensional error - a tight/precise fit - so a test print is worth doing) + low_tolerance_note (the specifics, shown in the app). color is one of {\"role\":\"<roleid>\"} (user-picked), {\"fixed\":\"<lego-id>\"}, {\"split\":[{\"color\":\"<lego-id>\",\"qty\":N},...]} (sums to quantity), or {\"any\":true}, or {\"by_section\":{\"<sectionid>\":<colorspec>,...}} (per-section color when a part lives in multiple sections). Machine = 1 of each non-scaling category + N of each scaling category. See ../notes/TERMINOLOGY.md. SCHEMA V2 (unified parts system, see ../notes/UNIFIED-PARTS-SYSTEM.md, incremental): a part may carry kind ('printed' when absent | 'cots'); cots parts have cots {type,size?,variant?}, category (display grouping on the hardware tab), note (builder-critical caveat from the BOM sheet), image (slicer-relative path, uploaded to the bucket by sync_bucket.py and served from there) OR image_url (an already-uploaded content-addressed bucket URL; BOM product images never touch git), sourcing {vendors:[{region,vendor,url,affiliate_url?,price,currency?,pack_qty?,as_of?,note?}]} (url is always the plain listing; affiliate_url is the same listing carrying the project's Amazon tag, mirroring the BOM sheet's 'US Source 1 with Affiliate' column — both are kept so a builder can choose) (price is USD unless currency says otherwise), and no stl/color/quantities. sheet_qty {per_machine|per_layer} / sheet_qty_text are TRANSITIONAL hand counts carried over from the BOM sheet; they die once these parts are placed as requires/lines in the tree. A printed part may carry requires [{part,qty}] = hardware committed to that single physical part (heat inserts, press-fit bearings); qty scales with the part automatically. An assembly may carry lines [{part|assembly, qty}] (qty is a number, or 'per-layer' = multiplied by the total layer count, or 'middle-layers' = layer count minus 2, the layers that sit between the top and bottom interfaces) and status 'stub' (placeholder, nothing inside yet) or 'partial' (some lines filled in) — these form the experimental machine tree rooted at the 'machine' assembly. A line may also reference a laser-cut part by id (e.g. 'top-plate'); those still live in src/lib/lasercut.ts and are resolved from there until §5.5 folds them into this manifest. Line ids are unique within an assembly: two joints that use the same screw are one merged line. Screws and other hardware that JOIN parts are lines of the assembly that makes the joint, never requires of either member (requires is only for hardware committed to one physical part). joining [{method,note}] records how the lines become one unit — 'solder'|'crimp'|'glue'|'press'|'self-tap' (screw cuts its own thread in printed plastic, no insert or nut) |'friction' (held by clamping force alone, e.g. jammed in an extrusion slot). A cots part that is cut from a bought length carries stock {unit_length_mm, cut_length_mm, pieces_per_unit, unit_label, piece_label}; its lines count PIECES and the app divides to get lengths to buy. MERGES/CONFLICTS (2026-08-21, docs catalog folded in): top-level merges [{id,date,sources,note}] records source-of-truth merger events. A part may carry conflicts [{merge,field,claims:[{source,value},...],note}] = an unresolved factual disagreement between the merged catalogs, kept as data on purpose and rendered as a badge on BOTH sites (docs parts-needed cards + calculator detail views); resolving one means fixing the disputed field against the physical machine and DELETING the conflict entry (git is the history). A part may also carry caption (small text under its docs parts-needed card) and docs_page (its docs detail page path; lets either site cross-link). The docs site renders its parts data from parts.generated.json -- docs/src/liquid/_data/parts.yml is deleted; this manifest is the only parts catalog. LASERCUT (2026-08-21, §5.5 partly done): parts with kind 'lasercut' are the flat sheet parts, passed through to the generated JSON verbatim (fields match the app's LaserCutPart type in src/lib/lasercut.ts, which now reads the generated data instead of hardcoding it; the docs site reads the same JSON). dxf/preview are app-static paths; photo is a bucket URL. FILENAMES (2026-08-21): serving keys carry the human name -- an STL is stl/<part-id>-<stl_id>-<hash8>.stl and an image is <prefix>/<name>-<hash8>.<ext> -- so a downloaded file identifies itself. stl_id is a minted 4-char id stored next to every stl_hash (current pin AND each superseded version): given a file, grep its id or hash fragment here and you have the exact version. sync_bucket.py --upload mints and prints the id for a new STL. Old pure-hash keys stay on the bucket so URLs in old commits keep serving.",
+  "_comment": "Source-of-truth manifest. filament.py slices each STL once and writes ../src/lib/data/parts.generated.json + thumbnails + STL copies. Per part: id, uid (see UID below), name, category, description (short, shown in app), internal_notes (extended, agent-only, NOT emitted to the app), version, created_at, updated_at, stl_hash (sha256 pin of the master STL on the bucket; upload with scripts/sync_bucket.py --upload), quantity (per ONE instance of its category), color, optional. attributes (optional list of {label,value} shown in the app), versions (optional archetype history: list of {version,date,message,commit}; commit ties to a real git commit, null = pending an upcoming clean commit). low_tolerance (optional bool: part has little tolerance for dimensional error - a tight/precise fit - so a test print is worth doing) + low_tolerance_note (the specifics, shown in the app). color is one of {\"role\":\"<roleid>\"} (user-picked), {\"fixed\":\"<lego-id>\"}, {\"split\":[{\"color\":\"<lego-id>\",\"qty\":N},...]} (sums to quantity), or {\"any\":true}, or {\"by_section\":{\"<sectionid>\":<colorspec>,...}} (per-section color when a part lives in multiple sections). Machine = 1 of each non-scaling category + N of each scaling category. See ../notes/TERMINOLOGY.md. SCHEMA V2 (unified parts system, see ../notes/UNIFIED-PARTS-SYSTEM.md, incremental): a part may carry kind ('printed' when absent | 'cots'); cots parts have cots {type,size?,variant?}, category (display grouping on the hardware tab), note (builder-critical caveat from the BOM sheet), image (slicer-relative path, uploaded to the bucket by sync_bucket.py and served from there) OR image_url (an already-uploaded content-addressed bucket URL; BOM product images never touch git), sourcing {vendors:[{region,vendor,url,affiliate_url?,price,currency?,pack_qty?,as_of?,note?}]} (url is always the plain listing; affiliate_url is the same listing carrying the project's Amazon tag, mirroring the BOM sheet's 'US Source 1 with Affiliate' column — both are kept so a builder can choose) (price is USD unless currency says otherwise), and no stl/color/quantities. sheet_qty {per_machine|per_layer} / sheet_qty_text are TRANSITIONAL hand counts carried over from the BOM sheet; they die once these parts are placed as requires/lines in the tree. A printed part may carry requires [{part,qty}] = hardware committed to that single physical part (heat inserts, press-fit bearings); qty scales with the part automatically. An assembly may carry lines [{part|assembly, qty}] (qty is a number, or 'per-layer' = multiplied by the total layer count, or 'middle-layers' = layer count minus 2, the layers that sit between the top and bottom interfaces) and status 'stub' (placeholder, nothing inside yet) or 'partial' (some lines filled in) — these form the experimental machine tree rooted at the 'machine' assembly. A line may also reference a laser-cut part by id (e.g. 'top-plate'); those still live in src/lib/lasercut.ts and are resolved from there until §5.5 folds them into this manifest. Line ids are unique within an assembly: two joints that use the same screw are one merged line. Screws and other hardware that JOIN parts are lines of the assembly that makes the joint, never requires of either member (requires is only for hardware committed to one physical part). joining [{method,note}] records how the lines become one unit — 'solder'|'crimp'|'glue'|'press'|'self-tap' (screw cuts its own thread in printed plastic, no insert or nut) |'friction' (held by clamping force alone, e.g. jammed in an extrusion slot). A cots part that is cut from a bought length carries stock {unit_length_mm, cut_length_mm, pieces_per_unit, unit_label, piece_label}; its lines count PIECES and the app divides to get lengths to buy. MERGES/CONFLICTS (2026-08-21, docs catalog folded in): top-level merges [{id,date,sources,note}] records source-of-truth merger events. A part may carry conflicts [{merge,field,claims:[{source,value},...],note}] = an unresolved factual disagreement between the merged catalogs, kept as data on purpose and rendered as a badge on BOTH sites (docs parts-needed cards + calculator detail views); resolving one means fixing the disputed field against the physical machine and DELETING the conflict entry (git is the history). A part may also carry caption (small text under its docs parts-needed card) and docs_page (its docs detail page path; lets either site cross-link). The docs site renders its parts data from parts.generated.json -- docs/src/liquid/_data/parts.yml is deleted; this manifest is the only parts catalog. LASERCUT (2026-08-21, §5.5 partly done): parts with kind 'lasercut' are the flat sheet parts, passed through to the generated JSON verbatim (fields match the app's LaserCutPart type in src/lib/lasercut.ts, which now reads the generated data instead of hardcoding it; the docs site reads the same JSON). dxf/preview are app-static paths; photo is a bucket URL. UID (2026-08-22): every part, whatever its kind, carries uid -- a minted 4-char id (catalog/mint_uid.py) naming its CURRENT VERSION: the exact thing in your hand, and what a print gets engraved with. A human bumping `version` mints a new uid; a re-export of the same design is new bytes (a new stl_hash) under the same uid, not a new version. A superseded version entry carries the uid it had (stamp_versions.py writes it beside the superseded stl_hash). Mint BEFORE the STL exists: the entry holds the uid and sync_bucket.py --upload reads it from here to key the file. FILENAMES (2026-08-21): serving keys carry the human name -- an STL is stl/<part-id>-<uid>-<hash8>.stl and an image is <prefix>/<name>-<hash8>.<ext> -- so a downloaded file identifies itself: grep the uid or hash fragment here and you have the exact version. Old pure-hash keys stay on the bucket so URLs in old commits keep serving.",
   "sections": [
     {
       "id": "feeder",
@@ -309,6 +309,7 @@
   "parts": [
     {
       "id": "stator",
+      "uid": "n6bm",
       "name": "Stator",
       "description": "Feeder stator. 4 required: 1 gray + 3 black.",
       "internal_notes": "One per C-channel area. 1 gray, 3 black. Required. ~240mm disc (bed-max).",
@@ -321,7 +322,6 @@
       },
       "assembly": null,
       "stl_hash": "323b2d1f94a5440119359498de7c7f706d4b32f4c54bec45e88b94c53064279b",
-      "stl_id": "n6bm",
       "color": {
         "by_section": {
           "feeder": {
@@ -337,6 +337,7 @@
     },
     {
       "id": "rotor-faceted",
+      "uid": "9v9q",
       "name": "Rotor (faceted)",
       "description": "Faceted rotor. 3 required: 2 white + 1 gray.",
       "internal_notes": "2 white, 1 gray. Required.",
@@ -348,7 +349,6 @@
       },
       "assembly": null,
       "stl_hash": "350de3f8e27e7d0bb1f00d2c070c7f255da73987c9b2d86f639664c5db81bfd6",
-      "stl_id": "9v9q",
       "color": {
         "split": [
           {
@@ -367,6 +367,7 @@
     },
     {
       "id": "output-gear",
+      "uid": "26ek",
       "name": "Output gear (130T)",
       "description": "Output gear, 130 teeth. One per C-channel (4 total).",
       "internal_notes": "1 per C-channel => 4 total. Feeder color. Takes the 6806 (30 mm bore) bearing.",
@@ -379,7 +380,6 @@
       },
       "assembly": null,
       "stl_hash": "69ae2f998fe3caef3e9ea75c7b3081203ff7b2e690b8ef56e7c4b4380f19b0aa",
-      "stl_id": "26ek",
       "color": {
         "role": "feeder"
       },
@@ -394,6 +394,7 @@
     },
     {
       "id": "nema-bracket",
+      "uid": "x09t",
       "name": "NEMA bracket",
       "description": "NEMA motor bracket. One per C-channel (4 total).",
       "internal_notes": "1 per C-channel => 4 total. Spencer believes all NEMA brackets are the same across C-channels. Feeder color. v2 STL from 01_c_channel (5).zip.",
@@ -406,7 +407,6 @@
       },
       "assembly": null,
       "stl_hash": "8b2bea87360e0a1030c66f43ac652b3e07626acaa961a963b106358cdeabd845",
-      "stl_id": "x09t",
       "color": {
         "by_section": {
           "feeder": {
@@ -422,6 +422,7 @@
     },
     {
       "id": "light-post",
+      "uid": "oac5",
       "name": "Light post",
       "description": "Light post on the C-channel feeder. 2 total.",
       "internal_notes": "Part of the feeder. 2x, feeder color. STL from 01_c_channel (5).zip.",
@@ -433,7 +434,6 @@
       },
       "assembly": "light-post",
       "stl_hash": "4298d9e5383cef563903685c5ba8eb3f177793b7aa3555710a864e2a000660c9",
-      "stl_id": "oac5",
       "color": {
         "role": "feeder"
       },
@@ -443,6 +443,7 @@
     },
     {
       "id": "light-post-cap",
+      "uid": "7a8e",
       "name": "Light post cap",
       "description": "Light post cap. 2 total (C-channels 2 & 3). White.",
       "internal_notes": "2 of the C-channels (2 and 3) have these. White. NOT the big classification dome.",
@@ -454,7 +455,6 @@
       },
       "assembly": "light-post",
       "stl_hash": "8759618be4ccf9f764520921386a0eb1209733f15a9e34b673cd104265b3057a",
-      "stl_id": "7a8e",
       "color": {
         "fixed": "ivory-white"
       },
@@ -463,6 +463,7 @@
     },
     {
       "id": "light-post-cap-adapter",
+      "uid": "jcnt",
       "name": "Light post cap adapter",
       "description": "Adapts the light post cap to the C-channel. 2 per machine.",
       "internal_notes": "Light post cap mount/adapter, C-channel feeder. Light post (feeder) colour.",
@@ -474,7 +475,6 @@
       },
       "assembly": "light-post",
       "stl_hash": "230825d03733af289fdc5fbf3b28b59f2d4f4cbb1d87b9db9e640f3d8d0e4a34",
-      "stl_id": "jcnt",
       "color": {
         "role": "feeder"
       },
@@ -484,6 +484,7 @@
     },
     {
       "id": "bulk-cap",
+      "uid": "737f",
       "name": "Bulk cap",
       "description": "Bulk cap. Slides onto the stator at the top of the first C-channel.",
       "internal_notes": "1 bulk cap, on top of the first C-channel. Color not critical; default black (follows feeder color). File: 'Bulk Cap B'. Distinct from the bulk bucket (separate bed-max optional part, not yet provided). v2 (2026-08-18): increased dovetail clearance so it slides onto the stator without the excessive force required by v1.",
@@ -494,11 +495,11 @@
       "versions": [
         {
           "version": "1",
+          "uid": "wo2a",
           "date": "2026-06-27",
           "message": "Initial version. The dovetail fit was too tight and could make the cap difficult to install on the stator.",
           "commit": "83deca5",
-          "stl_hash": "c7200a59ee437fb073d90f0fcaf96773cf1aad0e6fcd34f5a68beb8f4752497a",
-          "stl_id": "wo2a"
+          "stl_hash": "c7200a59ee437fb073d90f0fcaf96773cf1aad0e6fcd34f5a68beb8f4752497a"
         },
         {
           "version": "2",
@@ -513,7 +514,6 @@
       },
       "assembly": null,
       "stl_hash": "20223510233281bcdf32699903e054a22c0cffde8d6c4e7542f9ae8d1bd04a9f",
-      "stl_id": "737f",
       "color": {
         "role": "feeder"
       },
@@ -522,6 +522,7 @@
     },
     {
       "id": "classification-dome",
+      "uid": "fheh",
       "name": "Classification dome",
       "description": "Large classification-channel dome (~full bed). White.",
       "internal_notes": "Big dome, almost the entire print bed. White (lighting/diffusion). Was previously mislabeled 'light cap'. QUANTITY ASSUMED 1 - confirm.",
@@ -533,7 +534,6 @@
       },
       "assembly": "classification-chamber",
       "stl_hash": "a6b8ec85b47dd24f549db12cd74dd6f4d09b92a5e92c4361efbf6cbf95fc498e",
-      "stl_id": "fheh",
       "color": {
         "fixed": "ivory-white"
       },
@@ -543,6 +543,7 @@
     },
     {
       "id": "interface-bracket",
+      "uid": "jk82",
       "name": "Interface bracket",
       "description": "Interface bracket. Pairs with the spacer; 6 on the interface.",
       "internal_notes": "6 bracket+spacer pairs on the interface. Frame color. File: 000_interface_layer_assembly - top_bracket. v2 (2026-08-18): added 0.2 mm clearance on every side of the horizontal aluminum spoke.",
@@ -553,11 +554,11 @@
       "versions": [
         {
           "version": "1",
+          "uid": "s2o9",
           "date": "2026-06-27",
           "message": "Initial version. The fit around the horizontal aluminum spoke was too tight.",
           "commit": "83deca5",
-          "stl_hash": "db2c0ecf58184c752a8d66035b2620a3d1570343167b8b2b7f3b7eedd402c58f",
-          "stl_id": "s2o9"
+          "stl_hash": "db2c0ecf58184c752a8d66035b2620a3d1570343167b8b2b7f3b7eedd402c58f"
         },
         {
           "version": "2",
@@ -572,7 +573,6 @@
       },
       "assembly": null,
       "stl_hash": "5835878c9a32a19bf56b75463137639e6c4fc60615af07313086444697fc717f",
-      "stl_id": "jk82",
       "color": {
         "role": "frame"
       },
@@ -587,6 +587,7 @@
     },
     {
       "id": "interface-spacer",
+      "uid": "bfoc",
       "name": "Interface spacer",
       "description": "Interface spacer. Pairs with the bracket; 6 on the interface.",
       "internal_notes": "6 on the interface. Frame color. File: 000_interface_layer_assembly - bottom_spacer.",
@@ -598,7 +599,6 @@
       },
       "assembly": null,
       "stl_hash": "43dda1e1554853a4759867ecb98e75a54631a9d46f947c548605c3c309709a29",
-      "stl_id": "bfoc",
       "color": {
         "role": "frame"
       },
@@ -607,6 +607,7 @@
     },
     {
       "id": "chute-core",
+      "uid": "mu36",
       "name": "Chute core",
       "description": "The chute core. 1 per machine.",
       "internal_notes": "1 per machine. Its own color selector (chute core).",
@@ -618,7 +619,6 @@
       },
       "assembly": null,
       "stl_hash": "fccd4907faf05e295c070b5a5c2a41b6f89a5109bc7e368cb7632f26a2c19590",
-      "stl_id": "mu36",
       "color": {
         "role": "chute-core"
       },
@@ -634,6 +634,7 @@
     },
     {
       "id": "bin-retainer-left",
+      "uid": "hqz0",
       "name": "Bin retainer (left)",
       "description": "Bin retainer, left. Optional.",
       "internal_notes": "Bin retainer (per layer, 6 each). Required (not optional). Frame color.",
@@ -646,7 +647,6 @@
       "assembly": null,
       "folder": "bin-retainers",
       "stl_hash": "6e1aa2f4446c9f399fe1d6232fb0991138358b48714ca3c9d27206fa4c728c57",
-      "stl_id": "hqz0",
       "color": {
         "role": "frame"
       },
@@ -655,6 +655,7 @@
     },
     {
       "id": "bin-retainer-right",
+      "uid": "ybpv",
       "name": "Bin retainer (right)",
       "description": "Bin retainer, right. Optional.",
       "internal_notes": "Bin retainer (per layer, 6 each). Required (not optional). Frame color.",
@@ -667,7 +668,6 @@
       "assembly": null,
       "folder": "bin-retainers",
       "stl_hash": "54704393c3e0786bb69eed1596296519d032aea277b00ffed1335347d03a8dc6",
-      "stl_id": "ybpv",
       "color": {
         "role": "frame"
       },
@@ -676,6 +676,7 @@
     },
     {
       "id": "frame-crossbeam",
+      "uid": "cdeg",
       "name": "Frame crossbeam",
       "description": "Distribution frame crossbeam. One between each of the 6 frame sections.",
       "internal_notes": "6 per frame (per layer); interface qty ASSUMED 6 (Spencer said 'one set per interface' - confirm). Frame color. File: combined_internal_bracket.",
@@ -688,7 +689,6 @@
       },
       "assembly": null,
       "stl_hash": "45a69ae6847617b33b1aa45a379f0b413edba4d13203f4de40506a1f7cb80966",
-      "stl_id": "cdeg",
       "color": {
         "role": "frame"
       },
@@ -698,6 +698,7 @@
     },
     {
       "id": "frame-90deg-bracket",
+      "uid": "3l20",
       "name": "Frame 90° bracket",
       "description": "Distribution frame 90° bracket. Two per frame section.",
       "internal_notes": "12 per frame (per layer); interface qty ASSUMED 12 (Spencer said 'one set per interface' - confirm). Frame color. File: inner_90_bracket.",
@@ -710,7 +711,6 @@
       },
       "assembly": null,
       "stl_hash": "1081b927cfb55fab0a62b2b3fdee9a86b39960fc0c1ac4d6119c983e39a2b491",
-      "stl_id": "3l20",
       "source": "1_printed_crossbeams - inner_90_bracket.stl",
       "color": {
         "role": "frame"
@@ -721,6 +721,7 @@
     },
     {
       "id": "ls-mount-to-chute",
+      "uid": "lma9",
       "name": "Lazy Susan — chute mount",
       "aliases": [
         "bottom interface lazy Susan chute mount",
@@ -736,7 +737,6 @@
       },
       "assembly": null,
       "stl_hash": "b63cc59f19780e07ce70f28ed4c6b6e90d6c1e6d469ff8692803ad97815ebfe6",
-      "stl_id": "lma9",
       "color": {
         "role": "chute-core"
       },
@@ -751,6 +751,7 @@
     },
     {
       "id": "ls-bottom-static",
+      "uid": "4mmh",
       "name": "Lazy Susan — bottom static",
       "aliases": [
         "bottom interface lazy Susan fixed section",
@@ -766,7 +767,6 @@
       },
       "assembly": null,
       "stl_hash": "d658c97bd1516b3c61f37028761b46b9be1aa1f6cd26f9057fd9c45691f54488",
-      "stl_id": "4mmh",
       "color": {
         "role": "frame"
       },
@@ -781,6 +781,7 @@
     },
     {
       "id": "ls-mount-to-extrusion",
+      "uid": "bmt4",
       "name": "Lazy Susan — extrusion mount",
       "description": "Bottom lazy Susan mount to the external extrusion.",
       "internal_notes": "Frame color. QUANTITY ASSUMED 1.",
@@ -793,7 +794,6 @@
       "assembly": null,
       "folder": "lazy-susan-extrusion-mounts",
       "stl_hash": "1dac92ed155a14f17d65c6008e8aadd88f6797e975f31f9ccab6d310ce1382f1",
-      "stl_id": "bmt4",
       "color": {
         "role": "frame"
       },
@@ -802,6 +802,7 @@
     },
     {
       "id": "ls-hold-in-place",
+      "uid": "ss05",
       "name": "Lazy Susan — hold in place",
       "description": "Bottom lazy Susan hold-in-place. Optional.",
       "internal_notes": "Optional (file: 'optional hold in place'). Frame color. QUANTITY ASSUMED 1.",
@@ -814,7 +815,6 @@
       "assembly": null,
       "folder": "lazy-susan-extrusion-mounts",
       "stl_hash": "18fe2e7e1a18dde42bc8412d288909060d3db35949a7818d56939230d8838872",
-      "stl_id": "ss05",
       "color": {
         "role": "frame"
       },
@@ -823,6 +823,7 @@
     },
     {
       "id": "ls-washer",
+      "uid": "9c4a",
       "name": "Lazy Susan — washer",
       "description": "Bottom lazy Susan washer.",
       "internal_notes": "Frame color. QUANTITY UNCONFIRMED (assumed 1; may be several).",
@@ -834,7 +835,6 @@
       },
       "assembly": null,
       "stl_hash": "cdfc42cbc5c9285089498ebd013c8ee05fa48ad7adcf12c43eb2d1396ef2d231",
-      "stl_id": "9c4a",
       "color": {
         "role": "frame"
       },
@@ -843,6 +843,7 @@
     },
     {
       "id": "ext-bracket-left",
+      "uid": "0b4g",
       "name": "External bracket — side",
       "description": "Part of the external distribution-frame bracket (3-part assembly).",
       "internal_notes": "External distribution-frame bracket assembly member. 6 per distribution frame (per layer); interface qty ASSUMED 6 (Spencer said 'one set per interface' - confirm). Frame color.",
@@ -850,7 +851,6 @@
       "created_at": "2026-06-27",
       "updated_at": "2026-06-27",
       "stl_hash": "da4b3abd3db72070484178ef5aa1d0906397c6a310bdf0e22f724940bd62dba2",
-      "stl_id": "0b4g",
       "source": "1_printed_crossbeams - left_external_bracket.stl",
       "quantities": {
         "layer": 6,
@@ -869,6 +869,7 @@
     },
     {
       "id": "ext-bracket-bottom-vertical",
+      "uid": "xgzj",
       "name": "External bracket — bottom vertical",
       "description": "Part of the external distribution-frame bracket (3-part assembly).",
       "internal_notes": "External distribution-frame bracket assembly member. 6 per distribution frame (per layer); interface qty ASSUMED 6 (Spencer said 'one set per interface' - confirm). Frame color.",
@@ -876,7 +877,6 @@
       "created_at": "2026-06-27",
       "updated_at": "2026-06-27",
       "stl_hash": "313397afb08fc1943f045905b96131f73f1dc70c05d59fd2583c77da38318c36",
-      "stl_id": "xgzj",
       "source": "1_printed_crossbeams - bottom_vertical_bracket.stl",
       "quantities": {
         "layer": 6,
@@ -894,6 +894,7 @@
     },
     {
       "id": "ext-bracket-cover",
+      "uid": "1r5i",
       "name": "External bracket — cover",
       "description": "Part of the external distribution-frame bracket (3-part assembly).",
       "internal_notes": "External distribution-frame bracket assembly member. 6 per distribution frame (per layer); interface qty ASSUMED 6 (Spencer said 'one set per interface' - confirm). Frame color.",
@@ -901,7 +902,6 @@
       "created_at": "2026-06-27",
       "updated_at": "2026-06-27",
       "stl_hash": "f99e33cea11551b8222feac91c28015488ff2c239e632f5098322e7ea10fc96c",
-      "stl_id": "1r5i",
       "source": "1_printed_crossbeams - external_bracket_cover.stl",
       "quantities": {
         "layer": 6,
@@ -919,6 +919,7 @@
     },
     {
       "id": "ext-bracket-foot-cover",
+      "uid": "e5si",
       "name": "External bracket - foot cover",
       "description": "Bottom-layer replacement for the external bracket bottom vertical + cover.",
       "internal_notes": "Replaces ext-bracket-bottom-vertical + ext-bracket-cover on the bottom-most distribution layer (6 per machine). Shorter so the extrusion pops out to mount the wheels.",
@@ -933,7 +934,6 @@
       "assembly": "external-bracket",
       "onshape": "https://cad.onshape.com/documents/a4a1965bbaf3a15aff2b13ed/w/473cbfa6d8551e3b96a576e2/e/ee7cac13ee3ea67850bf1cf3",
       "stl_hash": "96356ae844558770db2340012f013d5a18d119cea1facdeac58596b2b425f540",
-      "stl_id": "e5si",
       "color": {
         "role": "frame"
       },
@@ -942,6 +942,7 @@
     },
     {
       "id": "interface-upper-fixed-section",
+      "uid": "kigs",
       "name": "Interface upper fixed section",
       "aliases": [
         "fixed upper section"
@@ -954,11 +955,11 @@
       "versions": [
         {
           "version": "1",
+          "uid": "vbca",
           "date": "2026-06-27",
           "message": "Initial version.",
           "commit": "36aa6b5",
-          "stl_hash": "bf52ad8b7b81dc61a3ed69517953ad52139f8eec291920627e6ff71a3bc3e0fd",
-          "stl_id": "vbca"
+          "stl_hash": "bf52ad8b7b81dc61a3ed69517953ad52139f8eec291920627e6ff71a3bc3e0fd"
         },
         {
           "version": "2",
@@ -973,7 +974,6 @@
       },
       "assembly": "fixed-upper-section",
       "stl_hash": "47d71e76dcfa387953add0876f279b8a8f26dd836d1d06d362f2d8e5477455ea",
-      "stl_id": "kigs",
       "color": {
         "role": "frame"
       },
@@ -988,6 +988,7 @@
     },
     {
       "id": "interface-rib",
+      "uid": "z9o2",
       "name": "Interface rib",
       "description": "Ribbed interface piece. 5 needed.",
       "internal_notes": "5 per interface. Frame color. Part of the fixed-upper-section assembly.",
@@ -999,7 +1000,6 @@
       },
       "assembly": "fixed-upper-section",
       "stl_hash": "21976d79a569732eee539fcfb466d32251996860b04d6e8db4e197e47ec54f44",
-      "stl_id": "z9o2",
       "color": {
         "role": "frame"
       },
@@ -1009,6 +1009,7 @@
     },
     {
       "id": "interface-rib-switch",
+      "uid": "19gx",
       "name": "Interface rib (switch gap)",
       "description": "Interface rib with the opening for the limit switch. 1 needed.",
       "internal_notes": "1 per interface. The rib variant with the limit-switch gap. Frame color. Part of the fixed-upper-section assembly.",
@@ -1020,7 +1021,6 @@
       },
       "assembly": "fixed-upper-section",
       "stl_hash": "71fd184f21ab0c3a9550eb07542d917014d995a8d607e82d23d764cc47c6efb0",
-      "stl_id": "19gx",
       "color": {
         "role": "frame"
       },
@@ -1030,6 +1030,7 @@
     },
     {
       "id": "interface-big-spacer",
+      "uid": "vt50",
       "name": "Interface big spacer",
       "description": "Interface big spacer. 1 needed.",
       "internal_notes": "1 per interface. Frame color. Distinct from interface-spacer. Part of the fixed-upper-section assembly. v2 (2026-07-08): reshaped STL, now 1mm thick (was 3mm).",
@@ -1039,11 +1040,11 @@
       "versions": [
         {
           "version": "1",
+          "uid": "m8pp",
           "date": "2026-06-27",
           "message": "Initial version.",
           "commit": "36aa6b5",
-          "stl_hash": "8ca345012b63e33064706c787705fa3d3f39229891319935beb58eeede6d1a14",
-          "stl_id": "m8pp"
+          "stl_hash": "8ca345012b63e33064706c787705fa3d3f39229891319935beb58eeede6d1a14"
         },
         {
           "version": "2",
@@ -1058,7 +1059,6 @@
       },
       "assembly": "fixed-upper-section",
       "stl_hash": "5fbb26d2e34975168e734a523dae50d691fcb5725427e1be1c6bc1c30e129643",
-      "stl_id": "vt50",
       "color": {
         "role": "frame"
       },
@@ -1067,6 +1067,7 @@
     },
     {
       "id": "cable-clamp-inner",
+      "uid": "3fue",
       "name": "Cable clamp (inner)",
       "description": "Inner half of the ribbon cable clamp. White.",
       "internal_notes": "1 per interface. White. Pairs with the outer clamp (cable-clamp assembly).",
@@ -1078,7 +1079,6 @@
       },
       "assembly": "cable-clamp",
       "stl_hash": "a77f4963aada127b93e60161a8aa83685a03ce6f3beb318c270627f7641927af",
-      "stl_id": "3fue",
       "color": {
         "role": "chute-core"
       },
@@ -1088,6 +1088,7 @@
     },
     {
       "id": "cable-clamp-outer",
+      "uid": "50dv",
       "name": "Cable clamp (outer)",
       "description": "Outer half of the ribbon cable clamp. White.",
       "internal_notes": "1 per interface. White. Pairs with the inner clamp (cable-clamp assembly). v2 (2026-07-18): enlarged the M3 nut pocket so the nut seats — it did not fit in v1.",
@@ -1097,11 +1098,11 @@
       "versions": [
         {
           "version": "1",
+          "uid": "03l5",
           "date": "2026-06-27",
           "message": "Initial version.",
           "commit": "36aa6b5",
-          "stl_hash": "34485f41055e82d098984ed49824fd0f93f471dac62ea86e6b83cf87482bf9fd",
-          "stl_id": "03l5"
+          "stl_hash": "34485f41055e82d098984ed49824fd0f93f471dac62ea86e6b83cf87482bf9fd"
         },
         {
           "version": "2",
@@ -1115,7 +1116,6 @@
       },
       "assembly": "cable-clamp",
       "stl_hash": "dd778421784bf38babc9ccde0f1007ce61e7e2c575718a933e62aadfedd55484",
-      "stl_id": "50dv",
       "color": {
         "role": "chute-core"
       },
@@ -1125,6 +1125,7 @@
     },
     {
       "id": "interface-spur-gear",
+      "uid": "ywxy",
       "name": "Chute stepper drive gear (2M 25T)",
       "aliases": [
         "Interface spur gear",
@@ -1140,7 +1141,6 @@
       },
       "assembly": "chute-stepper-gearing",
       "stl_hash": "f5c3804796153c3ecb0bab5cc2c16983ed4b4f2edf97df45f2fa7c3a5d81e620",
-      "stl_id": "ywxy",
       "color": {
         "role": "frame"
       },
@@ -1149,6 +1149,7 @@
     },
     {
       "id": "interface-idler-gear",
+      "uid": "ptl7",
       "name": "Chute stepper idler gear (2M 25T)",
       "aliases": [
         "Interface idler gear",
@@ -1164,7 +1165,6 @@
       },
       "assembly": "chute-stepper-gearing",
       "stl_hash": "86b04df825b6c019f6be0a8894bbbd05a42e6abab86d2694e4a99f5284b6c4d9",
-      "stl_id": "ptl7",
       "color": {
         "role": "frame"
       },
@@ -1179,6 +1179,7 @@
     },
     {
       "id": "interface-nema23-bracket",
+      "uid": "if4v",
       "name": "Chute stepper NEMA 23 bracket",
       "aliases": [
         "Interface NEMA 23 bracket"
@@ -1193,7 +1194,6 @@
       },
       "assembly": "chute-stepper-gearing",
       "stl_hash": "69a9a1dd8c741866e723d8fd5a32baa78b233538a1341bf50eb0f2425a38d82a",
-      "stl_id": "if4v",
       "color": {
         "role": "frame"
       },
@@ -1212,6 +1212,7 @@
     },
     {
       "id": "chute-stepper-idler-bearing-retainer-outer",
+      "uid": "wgsc",
       "name": "Chute Stepper Idler Gear Bearing Retainer — Outer",
       "aliases": [
         "Idler Gear Bearing Retainer - Outer",
@@ -1227,7 +1228,6 @@
       },
       "assembly": "chute-stepper-gearing",
       "stl_hash": "00180b3aaeab6c4e0222c4accfc69172ea358c68c1a07427324ba22e57795a23",
-      "stl_id": "wgsc",
       "color": {
         "role": "frame"
       },
@@ -1237,6 +1237,7 @@
     },
     {
       "id": "chute-stepper-idler-bearing-retainer-inner",
+      "uid": "zzql",
       "name": "Chute Stepper Idler Gear Bearing Retainer — Inner",
       "aliases": [
         "Idler Gear Bearing Retainer - Inner",
@@ -1252,7 +1253,6 @@
       },
       "assembly": "chute-stepper-gearing",
       "stl_hash": "6157c7c623581c40285ecf8703c915aa95d921369000f5e68e25ccd2989073f4",
-      "stl_id": "zzql",
       "color": {
         "role": "frame"
       },
@@ -1262,6 +1262,7 @@
     },
     {
       "id": "interface-cage-bracket",
+      "uid": "resz",
       "name": "Cable cage bracket",
       "description": "Interface cable cage bracket (regular). 5 needed.",
       "internal_notes": "5 regular per interface; plus 1 of the cable-mount variant. Frame color.",
@@ -1273,7 +1274,6 @@
       },
       "assembly": "cable-cage",
       "stl_hash": "6164e958336a10b2a6f3910b6a0bc754996a15202d2719923b272e0963561074",
-      "stl_id": "resz",
       "color": {
         "role": "frame"
       },
@@ -1282,6 +1282,7 @@
     },
     {
       "id": "interface-cage-bracket-cable",
+      "uid": "cy58",
       "name": "Cable cage bracket (cable mount)",
       "description": "Cable cage bracket with the cable mount. 1 needed.",
       "internal_notes": "1 per interface; the cage bracket variant with a cable mount. Frame color.",
@@ -1293,7 +1294,6 @@
       },
       "assembly": "cable-cage",
       "stl_hash": "081da7a95e53340f4f27219a224c0015905f176707c84f82c2f69bd72da85530",
-      "stl_id": "cy58",
       "color": {
         "role": "frame"
       },
@@ -1308,6 +1308,7 @@
     },
     {
       "id": "ribbon-cable-clamp",
+      "uid": "nf0n",
       "name": "Ribbon cable clamp",
       "description": "Outer ribbon cable clamp, paired with the cable cage brackets.",
       "internal_notes": "Outer ribbon cable clamp. Grouped with the cable cage brackets. Colour (frame) + qty 1/machine are DEFAULTS pending confirmation.",
@@ -1319,7 +1320,6 @@
       },
       "assembly": "cable-cage",
       "stl_hash": "39b7e6d0e9864c00ca1c75014c1243cabff5a4be54c7671e51352b922c5a0939",
-      "stl_id": "nf0n",
       "color": {
         "role": "frame"
       },
@@ -1328,6 +1328,7 @@
     },
     {
       "id": "top-interface-split-spur-gear-1",
+      "uid": "1a0l",
       "name": "Chute gear",
       "description": "Section 1 of 3 of the top interface split spur gear (Spur 2M 120T).",
       "internal_notes": "Split spur gear for the top interface; the 3 sections print separately and assemble into one gear. Chute-core color.",
@@ -1340,7 +1341,6 @@
       "assembly": null,
       "onshape": "https://cad.onshape.com/documents/36d65973fe08f685f790dc8b/w/05b09a7158dd399ac6f8e446/e/12bfe1cca4fda5bc5763c0c9",
       "stl_hash": "6a600fb6a6b3f2e5cf22f87fdce65ce0cbeddb2063f598de4dd25f63df23fe0f",
-      "stl_id": "1a0l",
       "color": {
         "role": "chute-core"
       },
@@ -1349,6 +1349,7 @@
     },
     {
       "id": "top-interface-split-spur-gear-2",
+      "uid": "izz5",
       "name": "Top interface lazy Susan washer",
       "description": "Section 2 of 3 of the top interface split spur gear (Spur 2M 120T).",
       "internal_notes": "Split spur gear for the top interface; the 3 sections print separately and assemble into one gear. Chute-core color.",
@@ -1361,7 +1362,6 @@
       "assembly": null,
       "onshape": "https://cad.onshape.com/documents/36d65973fe08f685f790dc8b/w/05b09a7158dd399ac6f8e446/e/12bfe1cca4fda5bc5763c0c9",
       "stl_hash": "c109b8b226a8652d7dd990168a58f52b202e35b842ee191cee49658daffacf7b",
-      "stl_id": "izz5",
       "color": {
         "role": "chute-core"
       },
@@ -1370,6 +1370,7 @@
     },
     {
       "id": "top-interface-split-spur-gear-3",
+      "uid": "vrz8",
       "name": "Top interface chute mount",
       "aliases": [
         "chute core mount"
@@ -1385,7 +1386,6 @@
       "assembly": null,
       "onshape": "https://cad.onshape.com/documents/36d65973fe08f685f790dc8b/w/05b09a7158dd399ac6f8e446/e/12bfe1cca4fda5bc5763c0c9",
       "stl_hash": "11f50ca23d809c133d2f409908e19b0e6c277e995a6d06e1c11da81bfe5dd6e1",
-      "stl_id": "vrz8",
       "color": {
         "role": "chute-core"
       },
@@ -1404,6 +1404,7 @@
     },
     {
       "id": "limit-switch-dowel-pin",
+      "uid": "g68e",
       "name": "Printed dowel pin",
       "description": "Printed dowel pin for the interface limit switch.",
       "internal_notes": "Interface limit switch assembly. Frame colour + qty 1/machine are DEFAULTS pending confirmation.",
@@ -1416,7 +1417,6 @@
       "assembly": "limit-switch",
       "onshape": "https://cad.onshape.com/documents/36d65973fe08f685f790dc8b/w/05b09a7158dd399ac6f8e446/e/f23afbf63ca583eed726c9b4",
       "stl_hash": "08968eebc8fc928db76c12f0a502feaaa11bb026c5bbf03e9903fd9449581900",
-      "stl_id": "g68e",
       "color": {
         "role": "frame"
       },
@@ -1425,6 +1425,7 @@
     },
     {
       "id": "limit-switch-housing",
+      "uid": "mrs0",
       "name": "Limit switch housing",
       "description": "Housing for the interface limit switch.",
       "internal_notes": "Interface limit switch assembly. Frame colour + qty 1/machine are DEFAULTS pending confirmation.",
@@ -1445,7 +1446,6 @@
       "assembly": "limit-switch",
       "onshape": "https://cad.onshape.com/documents/36d65973fe08f685f790dc8b/w/05b09a7158dd399ac6f8e446/e/70838d736e83bd9b6f0ccb7a",
       "stl_hash": "5e22431ac91aad0af6d5878d2cc6fb2ae7dd9c45196dae25d9e2f997b6e3c540",
-      "stl_id": "mrs0",
       "color": {
         "role": "frame"
       },
@@ -1460,6 +1460,7 @@
     },
     {
       "id": "limit-switch-hammer",
+      "uid": "lfu7",
       "name": "Limit switch hammer",
       "description": "Hammer/stop for the interface limit switch.",
       "internal_notes": "Interface limit switch assembly. Frame colour + qty 1/machine are DEFAULTS pending confirmation. 1 M3 insert in the round disc, taking the M3 x 6 countersunk screw that secures the hammer from below in the Top interface chute mount: confirmed by barthel 2026-08-21 and by the STL (a single 4.20 mm blind bore, ruthex's recommended M3 insert hole); resolves the docs-merge-2026-08-21 conflict, which had the calculator at zero inserts.",
@@ -1472,7 +1473,6 @@
       "assembly": "limit-switch",
       "onshape": "https://cad.onshape.com/documents/36d65973fe08f685f790dc8b/w/6952c4b6ff33a9eff9bf58c6/e/3c6d45d569e85f2df62b8449",
       "stl_hash": "a5105d966296f54b7a01a04c21b46861bc407d1b221903def47130aa9b9ab678",
-      "stl_id": "lfu7",
       "color": {
         "role": "chute-core"
       },
@@ -1487,6 +1487,7 @@
     },
     {
       "id": "rotor-finned",
+      "uid": "brsr",
       "name": "Rotor (finned)",
       "description": "Finned rotor on the classification chamber. White. 1 needed.",
       "internal_notes": "File '01_c_channel - Rotor - with fins.stl'. White. 1x. On the classification chamber.",
@@ -1498,7 +1499,6 @@
       },
       "assembly": "classification-chamber",
       "stl_hash": "b8986ea64a9d83e3bb9bb7e116e92068d070bbffcc94ae1a3ce95c9ad5c8601b",
-      "stl_id": "brsr",
       "color": {
         "fixed": "ivory-white"
       },
@@ -1508,6 +1508,7 @@
     },
     {
       "id": "idler-gear",
+      "uid": "7bv7",
       "name": "Idler gear (24T)",
       "description": "C-channel idler gear, 24 teeth. One per C-channel (4 total).",
       "internal_notes": "Idler gear (24 teeth). 1 per C-channel => 4. Feeder color. Takes a standard 608 skateboard bearing.",
@@ -1519,7 +1520,6 @@
       },
       "assembly": null,
       "stl_hash": "dd13e9269f08d3d9a698e043e446abb968ae998435ef7b552325f0b7db629eeb",
-      "stl_id": "7bv7",
       "color": {
         "role": "feeder"
       },
@@ -1534,6 +1534,7 @@
     },
     {
       "id": "input-gear",
+      "uid": "70ul",
       "name": "Input gear (12T, screw)",
       "description": "C-channel input/drive gear (12T) with vertical screw hole. One per C-channel (4 total).",
       "internal_notes": "File 'Spur gear (12 teeth) - vertical screw' - the input/drive gear variant WITH the screw hole. 1 per C-channel => 4. Feeder color.",
@@ -1545,7 +1546,6 @@
       },
       "assembly": null,
       "stl_hash": "3587940de2e8559ea125eb2acd59976aa7f3e45bd70b32f41044d1c8ae3a1b44",
-      "stl_id": "70ul",
       "color": {
         "role": "feeder"
       },
@@ -1554,6 +1554,7 @@
     },
     {
       "id": "output-guide",
+      "uid": "8j3e",
       "name": "Output guide",
       "description": "Output guide. 2 needed. Black.",
       "internal_notes": "Plain 'Output Guide.stl'. 2 total. Black (feeder color default).",
@@ -1565,7 +1566,6 @@
       },
       "assembly": null,
       "stl_hash": "8115840b817f57467725c99b987ca4a036df1fe8b98a0991c438bea84ebbe549",
-      "stl_id": "8j3e",
       "color": {
         "role": "feeder"
       },
@@ -1574,6 +1574,7 @@
     },
     {
       "id": "funnel-bracket-left",
+      "uid": "4oyp",
       "name": "Funnel bracket (left)",
       "description": "Funnel bracket, left. 2 funnel brackets total.",
       "internal_notes": "Snap-in funnel bracket (left/right). Chute-core color.",
@@ -1586,7 +1587,6 @@
       "assembly": null,
       "folder": "funnel-brackets",
       "stl_hash": "ced3172731e0c2a64920edb072501efadf3c57325bf200fcb14bba0048dabff9",
-      "stl_id": "4oyp",
       "color": {
         "role": "chute-core"
       },
@@ -1597,6 +1597,7 @@
     },
     {
       "id": "funnel-bracket-right",
+      "uid": "b9vt",
       "name": "Funnel bracket (right)",
       "description": "Funnel bracket, right. 2 funnel brackets total.",
       "internal_notes": "Snap-in funnel bracket (left/right). Chute-core color.",
@@ -1609,7 +1610,6 @@
       "assembly": null,
       "folder": "funnel-brackets",
       "stl_hash": "f7932bce6ef7eddb1be6c64a738b41b6573d67bdadb40d6febf131e0a21ccb31",
-      "stl_id": "b9vt",
       "color": {
         "role": "chute-core"
       },
@@ -1620,6 +1620,7 @@
     },
     {
       "id": "bearing-race",
+      "uid": "yo10",
       "name": "Bearing race",
       "description": "The race between the two chute bearing holders.",
       "internal_notes": "Renamed from 'door-module' (2026-07-18): the old name collided with the flap module assembly and, as its own notes said, mislabeled it as the door. File: part_door_module.",
@@ -1631,7 +1632,6 @@
       },
       "assembly": "chute-bearing",
       "stl_hash": "b832b7eab72a8392c80d35ebd67bb7cb6326bbc5c82a8592688ccda82fe315b3",
-      "stl_id": "yo10",
       "color": {
         "role": "chute-core"
       },
@@ -1646,6 +1646,7 @@
     },
     {
       "id": "bearing-holder-left",
+      "uid": "gybh",
       "name": "Bearing holder (left)",
       "description": "Bearing holder, left.",
       "internal_notes": "Chute-core assembly part. COLOR UNSPECIFIED by Spencer - defaulted to frame (black); confirm.",
@@ -1657,7 +1658,6 @@
       },
       "assembly": "chute-bearing",
       "stl_hash": "f0cc0eb5d575fc3d79cdea59caa0fcc6f7732c336a6830a186ffce51ef267a68",
-      "stl_id": "gybh",
       "color": {
         "role": "chute-core"
       },
@@ -1672,6 +1672,7 @@
     },
     {
       "id": "bearing-holder-right",
+      "uid": "rnog",
       "name": "Bearing holder (right)",
       "description": "Bearing holder, right.",
       "internal_notes": "Chute-core assembly part. COLOR UNSPECIFIED by Spencer - defaulted to frame (black); confirm.",
@@ -1683,7 +1684,6 @@
       },
       "assembly": "chute-bearing",
       "stl_hash": "9577bfc4f70bca72fe7c45d1c88a82df0ef14d712c67a395003c0deb9c89895b",
-      "stl_id": "rnog",
       "color": {
         "role": "chute-core"
       },
@@ -1698,6 +1698,7 @@
     },
     {
       "id": "servo-adapter-servo-side",
+      "uid": "fu2t",
       "name": "Servo adapter — servo side",
       "description": "MG995 servo adapter, servo side.",
       "internal_notes": "Chute-core assembly part. COLOR UNSPECIFIED by Spencer - defaulted to frame (black); confirm.",
@@ -1709,7 +1710,6 @@
       },
       "assembly": "servo-adapter",
       "stl_hash": "a82b26f1d352e337ba3b14bf1440dcb163dae4c53e405dd82ae24d98ef5ac55c",
-      "stl_id": "fu2t",
       "color": {
         "role": "chute-core"
       },
@@ -1718,6 +1718,7 @@
     },
     {
       "id": "servo-adapter-flap-side",
+      "uid": "lv7n",
       "name": "Servo adapter — flap side",
       "description": "MG995 servo adapter, flap side.",
       "internal_notes": "Chute-core assembly part. COLOR UNSPECIFIED by Spencer - defaulted to frame (black); confirm.",
@@ -1729,7 +1730,6 @@
       },
       "assembly": "servo-adapter",
       "stl_hash": "546231d66be39ade1f502e53375608447228ced0e81bfa9211fd0fa938a02f05",
-      "stl_id": "lv7n",
       "color": {
         "role": "chute-core"
       },
@@ -1738,6 +1738,7 @@
     },
     {
       "id": "servo-bracket-lower-arm",
+      "uid": "yqz1",
       "name": "Servo bracket — lower arm",
       "description": "MG995 servo bracket, lower arm.",
       "internal_notes": "Chute-core assembly part. COLOR UNSPECIFIED by Spencer - defaulted to frame (black); confirm.",
@@ -1749,7 +1750,6 @@
       },
       "assembly": "servo-bracket",
       "stl_hash": "9d6c82450ddd4a21fd0b832f6085298c00414a4d530765651b355c7043754203",
-      "stl_id": "yqz1",
       "color": {
         "role": "chute-core"
       },
@@ -1758,6 +1758,7 @@
     },
     {
       "id": "servo-bracket-side-arm",
+      "uid": "75na",
       "name": "Servo bracket — side arm",
       "description": "MG995 servo bracket, side arm.",
       "internal_notes": "Chute-core assembly part. COLOR UNSPECIFIED by Spencer - defaulted to frame (black); confirm.",
@@ -1769,7 +1770,6 @@
       },
       "assembly": "servo-bracket",
       "stl_hash": "b37a2c6b9864744415a50c02da10425ac79d6d8f44c6938c941c36e60357464f",
-      "stl_id": "75na",
       "color": {
         "role": "chute-core"
       },
@@ -1778,6 +1778,7 @@
     },
     {
       "id": "servo-bracket-cover",
+      "uid": "rqor",
       "name": "Servo bracket — cover",
       "description": "MG995 servo bracket, cover.",
       "internal_notes": "Chute-core assembly part. COLOR UNSPECIFIED by Spencer - defaulted to frame (black); confirm.",
@@ -1789,7 +1790,6 @@
       },
       "assembly": "servo-bracket",
       "stl_hash": "1ebad4ab6770ccf750f33c219e0815f106d44c1d0dce55cacef42b9fdc84c8d2",
-      "stl_id": "rqor",
       "color": {
         "role": "chute-core"
       },
@@ -1798,6 +1798,7 @@
     },
     {
       "id": "servo-bracket-housing",
+      "uid": "tr15",
       "name": "Servo bracket — housing",
       "description": "MG995 servo bracket, housing.",
       "internal_notes": "Chute-core assembly part. COLOR UNSPECIFIED by Spencer - defaulted to frame (black); confirm.",
@@ -1809,7 +1810,6 @@
       },
       "assembly": "servo-bracket",
       "stl_hash": "e03d031e35f6aeed0303564b228866ca783be596e98f0d52fc0aff8bf41d6bd9",
-      "stl_id": "tr15",
       "requires": [
         {
           "part": "hsi-m3",
@@ -1824,6 +1824,7 @@
     },
     {
       "id": "leg",
+      "uid": "xse1",
       "name": "Leg",
       "description": "C-channel leg. 9 in the feeder.",
       "internal_notes": "9 per feeder. Plain 'Leg.stl' (135mm) - replaces the earlier mismapped 'Classification Leg'. Feeder color.",
@@ -1835,7 +1836,6 @@
       },
       "assembly": null,
       "stl_hash": "6621b702d3ada3422d7e3eb72f86cc7fec8a86b842539f858b7784e4e4587592",
-      "stl_id": "xse1",
       "color": {
         "role": "feeder"
       },
@@ -1844,6 +1844,7 @@
     },
     {
       "id": "foot",
+      "uid": "jqdx",
       "name": "Foot",
       "description": "C-channel foot. 9 in the feeder.",
       "internal_notes": "9 per feeder. 'Foot.stl'. Feeder color.",
@@ -1855,7 +1856,6 @@
       },
       "assembly": null,
       "stl_hash": "8c70fc095a1495e9a75f2e88803a9de5cac2d6cc0351d977fd684bed5546ba7e",
-      "stl_id": "jqdx",
       "color": {
         "role": "feeder"
       },
@@ -1864,6 +1864,7 @@
     },
     {
       "id": "chute-door",
+      "uid": "7oxs",
       "name": "Chute door",
       "description": "The chute door / flap. 1 per machine.",
       "internal_notes": "Correct door file: 'DOOR 3_chute_flap_mg995_and_sc09 - left_axle (2)'. Chute-core color.",
@@ -1875,7 +1876,6 @@
       },
       "assembly": null,
       "stl_hash": "9291f5d03edcf10dc1b5f74df681ea1c33f89cacc680aa416f9031bddd1096ff",
-      "stl_id": "7oxs",
       "color": {
         "role": "chute-core"
       },
@@ -1884,6 +1884,7 @@
     },
     {
       "id": "leg-extension",
+      "uid": "jewq",
       "name": "Leg extension",
       "description": "C-channel leg extension. 9 in the feeder.",
       "internal_notes": "9 per feeder. C-channel (feeder) color.",
@@ -1895,7 +1896,6 @@
       },
       "assembly": null,
       "stl_hash": "a6f22135b92ac953c3c83073064cc2531fe40277339dc3cd0cf0327f73813d50",
-      "stl_id": "jewq",
       "color": {
         "role": "feeder"
       },
@@ -1903,6 +1903,7 @@
     },
     {
       "id": "camera-mount-part-6",
+      "uid": "v9dv",
       "name": "Overhead camera mount — A/B connector",
       "description": "Camera mount part 6. 2 per machine.",
       "internal_notes": "1 per camera mount x 2 mounts. Color not important (feeder).",
@@ -1914,7 +1915,6 @@
       },
       "assembly": "camera-mount",
       "stl_hash": "b8dfcbe095b0f961276ffce9d01a70936c78e4bc701649670eb10d9385fdfea6",
-      "stl_id": "v9dv",
       "color": {
         "role": "feeder"
       },
@@ -1922,6 +1922,7 @@
     },
     {
       "id": "camera-mount-part-37",
+      "uid": "8bqo",
       "name": "Overhead camera mount A",
       "description": "Camera mount part 37. 2 per machine.",
       "internal_notes": "1 per camera mount x 2 mounts. Color not important (feeder).",
@@ -1933,7 +1934,6 @@
       },
       "assembly": "camera-mount",
       "stl_hash": "dd6a72f6ef324012529d0dd0f95b9e81b08fac5a95f0d1277917d4251742df78",
-      "stl_id": "8bqo",
       "color": {
         "role": "feeder"
       },
@@ -1941,6 +1941,7 @@
     },
     {
       "id": "camera-mount-part-37b",
+      "uid": "gut5",
       "name": "Overhead camera mount B",
       "description": "Camera mount part 37 (second). 2 per machine.",
       "internal_notes": "1 per camera mount x 2 mounts. Color not important (feeder).",
@@ -1952,7 +1953,6 @@
       },
       "assembly": "camera-mount",
       "stl_hash": "39a3d2c7816ac6c7ad1108111f0d6629564414ea147f0800dc76af85be0ac6c1",
-      "stl_id": "gut5",
       "color": {
         "role": "feeder"
       },
@@ -1960,6 +1960,7 @@
     },
     {
       "id": "camera-mount-rod-mount",
+      "uid": "twuu",
       "name": "Camera mount — rod-to-C-channel mount",
       "description": "Rod-to-C-channel mount (Part 33). 2 per camera mount, 4 total.",
       "internal_notes": "Part 33, the rod-to-c-channel mount. 2 per camera mount x 2 mounts = 4. Color not important (feeder).",
@@ -1971,7 +1972,6 @@
       },
       "assembly": "camera-mount",
       "stl_hash": "373b28aa2891096bc3231820d8f87a6a836b4ab3ba95f58f09708ff696ed6b86",
-      "stl_id": "twuu",
       "color": {
         "role": "feeder"
       },
@@ -1979,6 +1979,7 @@
     },
     {
       "id": "camera-led-insert",
+      "uid": "b2v9",
       "name": "Camera & LED insert",
       "description": "C-channel camera & LED light insert. White.",
       "internal_notes": "The other classification cap piece (Classification Cap (3) == removed small cap geometry). Must be WHITE. Qty ASSUMED 1.",
@@ -1990,7 +1991,6 @@
       },
       "assembly": "classification-chamber",
       "stl_hash": "14202c7b6732d540148082a5d55b3f33ac532f111fb060bc00f95ed25799f816",
-      "stl_id": "b2v9",
       "color": {
         "fixed": "ivory-white"
       },
@@ -1999,6 +1999,7 @@
     },
     {
       "id": "camera-extension",
+      "uid": "q7ns",
       "name": "Camera extension",
       "description": "Camera extension tube for the classification channel. 1 needed.",
       "internal_notes": "Raises the Innomaker 4K camera module (50 mm extension). Part of the camera-extension assembly. Ash gray.",
@@ -2030,7 +2031,6 @@
       },
       "assembly": "camera-extension",
       "stl_hash": "1253c651918595ba46bfc57401c0b2b6aeb2893649fa6c0d4b92c486943deee4",
-      "stl_id": "q7ns",
       "color": {
         "fixed": "ash-gray"
       },
@@ -2040,6 +2040,7 @@
     },
     {
       "id": "camera-extension-mount",
+      "uid": "wt9t",
       "name": "Camera extension mount",
       "description": "Clamp/mount ring that fixes the camera to the extension. 1 needed.",
       "internal_notes": "Clamps the Innomaker 4K camera module to the extension. Part of the camera-extension assembly. Ash gray.",
@@ -2071,7 +2072,6 @@
       },
       "assembly": "camera-extension",
       "stl_hash": "a69def7f420a0ac70bcc1be0827d5cb9e46b322ea5dfa09fa075f746b5b7f6c8",
-      "stl_id": "wt9t",
       "color": {
         "fixed": "ash-gray"
       },
@@ -2080,6 +2080,7 @@
     },
     {
       "id": "layer-connector-1",
+      "uid": "iwzg",
       "name": "Layer connector A",
       "description": "Layer connector. 1 per layer + 1 per bottom interface.",
       "internal_notes": "Chute-core concept: A and B go on the chute core (1 each) + one set on the bottom interface (interface category). Chute-core color. NOT per-layer.",
@@ -2093,7 +2094,6 @@
       "assembly": null,
       "folder": "layer-connectors",
       "stl_hash": "c85e30f35445117061a4c7871f7823171bd503fbcd94ea77b53f405a5626ee1c",
-      "stl_id": "iwzg",
       "color": {
         "role": "chute-core"
       },
@@ -2102,6 +2102,7 @@
     },
     {
       "id": "layer-connector-2",
+      "uid": "3wrh",
       "name": "Layer connector B",
       "description": "Layer connector. 1 per layer + 1 per bottom interface.",
       "internal_notes": "Chute-core concept: A and B go on the chute core (1 each) + one set on the bottom interface (interface category). Chute-core color. NOT per-layer.",
@@ -2115,7 +2116,6 @@
       "assembly": null,
       "folder": "layer-connectors",
       "stl_hash": "1df17cf7ff0fe530545b45dd107822db2a796f870de67aaa8769663a4eb941f2",
-      "stl_id": "3wrh",
       "color": {
         "role": "chute-core"
       },
@@ -2124,6 +2124,7 @@
     },
     {
       "id": "chute-stepper-support-block",
+      "uid": "loc0",
       "name": "Chute stepper support block",
       "description": "Support block for the chute stepper.",
       "internal_notes": "Interface part. Frame colour. Qty 1/machine is a DEFAULT pending confirmation.",
@@ -2136,7 +2137,6 @@
       "assembly": null,
       "onshape": "https://cad.onshape.com/documents/238eb36f4ee3382c5a50a32b/w/78eed8b37e676b442c6450e1/e/753de7ce802d72cd739d82e2",
       "stl_hash": "106dec95fef16977ebef133766df63d301b98885ac8a4bf9bf718e3eda72ac7f",
-      "stl_id": "loc0",
       "source": "Chute stepper support block.stl",
       "color": {
         "role": "frame"
@@ -2146,6 +2146,7 @@
     },
     {
       "id": "funnel-third",
+      "uid": "2cww",
       "name": "Funnel (third size)",
       "description": "Third size funnel. Per layer (choose size per layer).",
       "internal_notes": "Funnel size variant (Third size). One funnel per layer; size chosen per layer. Funnel color role.",
@@ -2159,7 +2160,6 @@
       "variant_group": "funnel",
       "variant_name": "Third size",
       "stl_hash": "287f8f9936b958f15dc9acd832f6320cbc4fcfb9ee0f7cd73ea67d9953d16961",
-      "stl_id": "2cww",
       "color": {
         "role": "funnel"
       },
@@ -2169,6 +2169,7 @@
     },
     {
       "id": "funnel-half",
+      "uid": "t9lf",
       "name": "Funnel (half size)",
       "description": "Half size funnel. Per layer (choose size per layer).",
       "internal_notes": "Funnel size variant (Half size). One funnel per layer; size chosen per layer. Funnel color role.",
@@ -2182,7 +2183,6 @@
       "variant_group": "funnel",
       "variant_name": "Half size",
       "stl_hash": "533487b3dadbdf8ec33af0d9d5185c2d978325e03b13c56a2121135a16c69a53",
-      "stl_id": "t9lf",
       "color": {
         "role": "funnel"
       },
@@ -2192,6 +2192,7 @@
     },
     {
       "id": "bin-half-left",
+      "uid": "0zbx",
       "name": "Bin (half, left)",
       "description": "Bin (half, left). Half bins: 6 per layer of that size.",
       "internal_notes": "Bin variant (Half). 6 per layer that uses Half size. Half layer = 12 bins (L+R); Third layer = 18 bins (L+center+right-back). Optional to print. Bin color role.",
@@ -2206,7 +2207,6 @@
       "variant_group": "bin",
       "variant_name": "Half",
       "stl_hash": "2073b94e6ea18fb2a836c3fc17633189771ca8b35a4dd86b0812b1b54ac1fdd5",
-      "stl_id": "0zbx",
       "color": {
         "role": "bin"
       },
@@ -2214,6 +2214,7 @@
     },
     {
       "id": "bin-half-right",
+      "uid": "e0ek",
       "name": "Bin (half, right)",
       "description": "Bin (half, right). Half bins: 6 per layer of that size.",
       "internal_notes": "Bin variant (Half). 6 per layer that uses Half size. Half layer = 12 bins (L+R); Third layer = 18 bins (L+center+right-back). Optional to print. Bin color role.",
@@ -2228,7 +2229,6 @@
       "variant_group": "bin",
       "variant_name": "Half",
       "stl_hash": "93ccbb523ae5ee0b767a08ba53371f9c656caf175df2093ddd9c49af96db76d1",
-      "stl_id": "e0ek",
       "color": {
         "role": "bin"
       },
@@ -2236,6 +2236,7 @@
     },
     {
       "id": "bin-third-left",
+      "uid": "z8ap",
       "name": "Bin (third, left)",
       "description": "Bin (third, left). Third bins: 6 per layer of that size.",
       "internal_notes": "Bin variant (Third). 6 per layer that uses Third size. Half layer = 12 bins (L+R); Third layer = 18 bins (L+center+right-back). Optional to print. Bin color role.",
@@ -2251,7 +2252,6 @@
       "variant_name": "Third",
       "source": "bin-third-left.stl",
       "stl_hash": "16b47a00d4e464e08ad4f5fd66ab9dac33889d1dd84641fa9db99025d8dd08b5",
-      "stl_id": "z8ap",
       "color": {
         "role": "bin"
       },
@@ -2259,6 +2259,7 @@
     },
     {
       "id": "bin-third-center",
+      "uid": "g92t",
       "name": "Bin (third, center)",
       "description": "Bin (third, center). Third bins: 6 per layer of that size.",
       "internal_notes": "Bin variant (Third). 6 per layer that uses Third size. Half layer = 12 bins (L+R); Third layer = 18 bins (L+center+right-back). Optional to print. Bin color role.",
@@ -2274,7 +2275,6 @@
       "variant_name": "Third",
       "source": "bin-third-center.stl",
       "stl_hash": "8237c2a114d13e5cc95580b92dd4182c5bbf3b957c63bef7b5245cb288bea1bb",
-      "stl_id": "g92t",
       "color": {
         "role": "bin"
       },
@@ -2282,6 +2282,7 @@
     },
     {
       "id": "bin-third-rightback",
+      "uid": "5o2l",
       "name": "Bin (third, right-back)",
       "description": "Bin (third, right-back). Third bins: 6 per layer of that size.",
       "internal_notes": "Bin variant (Third). 6 per layer that uses Third size. Half layer = 12 bins (L+R); Third layer = 18 bins (L+center+right-back). Optional to print. Bin color role.",
@@ -2297,7 +2298,6 @@
       "variant_name": "Third",
       "source": "bin-third-rightback.stl",
       "stl_hash": "afc9d6e16cf3f8db7adb873f2c77158e8924c25ee29c4f669361a59d87d99f4e",
-      "stl_id": "5o2l",
       "color": {
         "role": "bin"
       },
@@ -2305,6 +2305,7 @@
     },
     {
       "id": "bearing-cover-covered",
+      "uid": "75fh",
       "name": "Bearing cover (covered side)",
       "description": "Chute bearing cover. 1 per machine.",
       "internal_notes": "Left/right bearing cover for the chute. Chute-core color. Chute bearing assembly.",
@@ -2317,7 +2318,6 @@
       "assembly": null,
       "folder": "bearing-covers",
       "stl_hash": "1a177913356c66c6667093d333d457c0b8fedc3e4379ffe023e92670e58b7d1d",
-      "stl_id": "75fh",
       "color": {
         "role": "chute-core"
       },
@@ -2325,6 +2325,7 @@
     },
     {
       "id": "bearing-cover-servo",
+      "uid": "g7s2",
       "name": "Bearing cover (servo side)",
       "description": "Chute bearing cover. 1 per machine.",
       "internal_notes": "Left/right bearing cover for the chute. Chute-core color. Chute bearing assembly.",
@@ -2337,7 +2338,6 @@
       "assembly": null,
       "folder": "bearing-covers",
       "stl_hash": "4573bb40f91390f1dcbe7c87eb187fa3a68e7c6ea5de17fc0f9e083e7506242b",
-      "stl_id": "g7s2",
       "color": {
         "role": "chute-core"
       },
@@ -2345,6 +2345,7 @@
     },
     {
       "id": "meanwell-psu-back-mount",
+      "uid": "15uh",
       "name": "PSU back mount",
       "description": "Back mount that holds the Meanwell 24V PSU.",
       "internal_notes": "Meanwell 24V PSU box assembly. Colour (frame) + qty 1/machine are DEFAULTS pending confirmation. Electronics section is experimental.",
@@ -2357,7 +2358,6 @@
       "assembly": "meanwell-psu-box",
       "onshape": "https://cad.onshape.com/documents/ff3546ceb03f5fc907e6ed4c/w/76ea03e60d160b9d0990194d/e/b9f80b00e4dd34407e23b560",
       "stl_hash": "e09524f65ab42f6647abd8d41f7e4bbde08be8e8261d488d0fbd92c0e8bbddcc",
-      "stl_id": "15uh",
       "source": "Meanwell 24v PSU Box - psu back mount.stl",
       "color": {
         "role": "frame"
@@ -2367,6 +2367,7 @@
     },
     {
       "id": "meanwell-psu-connections",
+      "uid": "08id",
       "name": "PSU connections plate",
       "description": "Connections plate for the Meanwell 24V PSU box.",
       "internal_notes": "Meanwell 24V PSU box assembly. Colour (frame) + qty 1/machine are DEFAULTS pending confirmation. Electronics section is experimental.",
@@ -2379,7 +2380,6 @@
       "assembly": "meanwell-psu-box",
       "onshape": "https://cad.onshape.com/documents/ff3546ceb03f5fc907e6ed4c/w/76ea03e60d160b9d0990194d/e/b9f80b00e4dd34407e23b560",
       "stl_hash": "f94f353956fde415361167f6aa391e85b8f13ad619204d60b202fcf09a3686e9",
-      "stl_id": "08id",
       "source": "Meanwell 24v PSU Box - psu connections.stl",
       "color": {
         "role": "frame"
@@ -2389,6 +2389,7 @@
     },
     {
       "id": "meanwell-psu-cap",
+      "uid": "5nt1",
       "name": "PSU box cap",
       "description": "Cap for the Meanwell 24V PSU box.",
       "internal_notes": "Meanwell 24V PSU box assembly. Colour (frame) + qty 1/machine are DEFAULTS pending confirmation. Electronics section is experimental.",
@@ -2401,7 +2402,6 @@
       "assembly": "meanwell-psu-box",
       "onshape": "https://cad.onshape.com/documents/ff3546ceb03f5fc907e6ed4c/w/76ea03e60d160b9d0990194d/e/b9f80b00e4dd34407e23b560",
       "stl_hash": "2fa72485f7b395f7cbcb898e99dff616475eb80bb80520b5dbd4b066032aed62",
-      "stl_id": "5nt1",
       "source": "Meanwell 24v PSU Box - cap.stl",
       "color": {
         "role": "frame"
@@ -2411,6 +2411,7 @@
     },
     {
       "id": "scr-m3-tbd",
+      "uid": "1kgy",
       "kind": "cots",
       "cots": {
         "type": "screw",
@@ -2439,6 +2440,7 @@
     },
     {
       "id": "scr-m3-6-cs",
+      "uid": "unfk",
       "kind": "cots",
       "cots": {
         "type": "screw",
@@ -2473,6 +2475,7 @@
     },
     {
       "id": "scr-m3-10-shcs",
+      "uid": "ufvb",
       "kind": "cots",
       "cots": {
         "type": "screw",
@@ -2508,6 +2511,7 @@
     },
     {
       "id": "scr-m3-8-cs",
+      "uid": "l6br",
       "kind": "cots",
       "cots": {
         "type": "screw",
@@ -2557,6 +2561,7 @@
     },
     {
       "id": "scr-m3-8-shcs",
+      "uid": "ql35",
       "kind": "cots",
       "cots": {
         "type": "screw",
@@ -2584,10 +2589,11 @@
           "value": "Socket or button head, interchangeable (both bottom on the counterbore floor, so either just clamps)"
         }
       ],
-      "note": "Head type and length measured off the input-gear STL: the boss carries a \u00d82.80 mm hole parallel to the shaft, 3.61 mm off the axis, opening into the \u00d84.87 mm bore; the head sits in a round \u00d86.40 mm \u00d7 2.7 mm counterbore with a 90\u00b0 cone at the bottom, which is a flat-bottomed head seat rather than a countersink. A socket cap head (\u00d85.5 \u00d7 3.0) bottoms on that floor and stands about 0.3 mm proud; a button head (\u00d85.7 \u00d7 1.65) bottoms on the same floor about 1 mm below flush, so either clamps. At 8 mm the head seats and about 6 mm of thread is left in the plastic."
+      "note": "Head type and length measured off the input-gear STL: the boss carries a Ø2.80 mm hole parallel to the shaft, 3.61 mm off the axis, opening into the Ø4.87 mm bore; the head sits in a round Ø6.40 mm × 2.7 mm counterbore with a 90° cone at the bottom, which is a flat-bottomed head seat rather than a countersink. A socket cap head (Ø5.5 × 3.0) bottoms on that floor and stands about 0.3 mm proud; a button head (Ø5.7 × 1.65) bottoms on the same floor about 1 mm below flush, so either clamps. At 8 mm the head seats and about 6 mm of thread is left in the plastic."
     },
     {
       "id": "scr-m3-12-cs",
+      "uid": "0a9x",
       "kind": "cots",
       "cots": {
         "type": "screw",
@@ -2637,6 +2643,7 @@
     },
     {
       "id": "scr-m3-20-cs",
+      "uid": "60g4",
       "kind": "cots",
       "cots": {
         "type": "screw",
@@ -2683,6 +2690,7 @@
     },
     {
       "id": "scr-m3-16-shcs",
+      "uid": "e0ud",
       "kind": "cots",
       "cots": {
         "type": "screw",
@@ -2714,6 +2722,7 @@
     },
     {
       "id": "scr-m3-6-bhcs",
+      "uid": "e04c",
       "kind": "cots",
       "cots": {
         "type": "screw",
@@ -2745,6 +2754,7 @@
     },
     {
       "id": "scr-m3-12-bhcs",
+      "uid": "izrb",
       "kind": "cots",
       "cots": {
         "type": "screw",
@@ -2776,6 +2786,7 @@
     },
     {
       "id": "scr-m3-35-bhcs",
+      "uid": "38vn",
       "kind": "cots",
       "cots": {
         "type": "screw",
@@ -2806,6 +2817,7 @@
     },
     {
       "id": "scr-m4-6-cs",
+      "uid": "5r29",
       "kind": "cots",
       "cots": {
         "type": "screw",
@@ -2835,6 +2847,7 @@
     },
     {
       "id": "scr-m4-12-cs",
+      "uid": "h8h4",
       "kind": "cots",
       "cots": {
         "type": "screw",
@@ -2865,6 +2878,7 @@
     },
     {
       "id": "scr-m5-12-shcs",
+      "uid": "kmah",
       "kind": "cots",
       "cots": {
         "type": "screw",
@@ -2896,6 +2910,7 @@
     },
     {
       "id": "scr-m5-16-shcs",
+      "uid": "2e0s",
       "kind": "cots",
       "cots": {
         "type": "screw",
@@ -2928,6 +2943,7 @@
     },
     {
       "id": "scr-m5-20-shcs",
+      "uid": "e4hi",
       "kind": "cots",
       "cots": {
         "type": "screw",
@@ -2959,6 +2975,7 @@
     },
     {
       "id": "scr-m5-30-shcs",
+      "uid": "92kv",
       "kind": "cots",
       "cots": {
         "type": "screw",
@@ -2990,6 +3007,7 @@
     },
     {
       "id": "scr-m5-35-fhcs",
+      "uid": "xkl4",
       "kind": "cots",
       "cots": {
         "type": "screw",
@@ -3046,6 +3064,7 @@
     },
     {
       "id": "scr-m5-8-cs",
+      "uid": "mqh4",
       "kind": "cots",
       "cots": {
         "type": "screw",
@@ -3080,6 +3099,7 @@
     },
     {
       "id": "scr-m5-22-cs",
+      "uid": "hr49",
       "kind": "cots",
       "cots": {
         "type": "screw",
@@ -3114,6 +3134,7 @@
     },
     {
       "id": "scr-m5-shcs-tbd",
+      "uid": "wy04",
       "kind": "cots",
       "cots": {
         "type": "screw",
@@ -3145,6 +3166,7 @@
     },
     {
       "id": "washer-m3-15",
+      "uid": "phwe",
       "kind": "cots",
       "cots": {
         "type": "washer",
@@ -3185,6 +3207,7 @@
     },
     {
       "id": "nut-m3",
+      "uid": "sc1c",
       "kind": "cots",
       "cots": {
         "type": "nut",
@@ -3217,6 +3240,7 @@
     },
     {
       "id": "nut-m5",
+      "uid": "7m70",
       "kind": "cots",
       "cots": {
         "type": "nut",
@@ -3249,6 +3273,7 @@
     },
     {
       "id": "rod-steel-3-8",
+      "uid": "1o92",
       "kind": "cots",
       "cots": {
         "type": "stock-material",
@@ -3301,6 +3326,7 @@
     },
     {
       "id": "hsi-m3",
+      "uid": "ksut",
       "kind": "cots",
       "cots": {
         "type": "heat-insert",
@@ -3360,6 +3386,7 @@
     },
     {
       "id": "hsi-m3s",
+      "uid": "5nkl",
       "kind": "cots",
       "cots": {
         "type": "heat-insert",
@@ -3424,6 +3451,7 @@
     },
     {
       "id": "hsi-m5",
+      "uid": "kd5o",
       "kind": "cots",
       "cots": {
         "type": "heat-insert",
@@ -3473,6 +3501,7 @@
     },
     {
       "id": "hsi-m4",
+      "uid": "naj8",
       "kind": "cots",
       "cots": {
         "type": "heat-insert",
@@ -3523,6 +3552,7 @@
     },
     {
       "id": "standoff-m3-10mm",
+      "uid": "hkor",
       "kind": "cots",
       "cots": {
         "type": "standoff"
@@ -3553,6 +3583,7 @@
     },
     {
       "id": "tnut-m5-2020",
+      "uid": "bpwm",
       "kind": "cots",
       "cots": {
         "type": "t-nut",
@@ -3606,6 +3637,7 @@
     },
     {
       "id": "cam-imx415",
+      "uid": "1lze",
       "kind": "cots",
       "cots": {
         "type": "camera"
@@ -3635,6 +3667,7 @@
     },
     {
       "id": "cam-ov9732",
+      "uid": "6g79",
       "kind": "cots",
       "cots": {
         "type": "camera"
@@ -3672,6 +3705,7 @@
     },
     {
       "id": "pulley-20t-8mm",
+      "uid": "xjzk",
       "kind": "cots",
       "cots": {
         "type": "pulley"
@@ -3701,6 +3735,7 @@
     },
     {
       "id": "foot-connector-2020-m6",
+      "uid": "sxxb",
       "kind": "cots",
       "cots": {
         "type": "extrusion-fitting",
@@ -3749,6 +3784,7 @@
     },
     {
       "id": "caster-wheel-m6",
+      "uid": "l7ww",
       "kind": "cots",
       "cots": {
         "type": "wheel",
@@ -3797,6 +3833,7 @@
     },
     {
       "id": "motor-nema17",
+      "uid": "w7pq",
       "kind": "cots",
       "cots": {
         "type": "stepper-motor"
@@ -3831,6 +3868,7 @@
     },
     {
       "id": "motor-nema23",
+      "uid": "pvi7",
       "kind": "cots",
       "cots": {
         "type": "stepper-motor"
@@ -3865,6 +3903,7 @@
     },
     {
       "id": "servo-mg995",
+      "uid": "dylk",
       "kind": "cots",
       "cots": {
         "type": "servo"
@@ -3894,6 +3933,7 @@
     },
     {
       "id": "brg-6806-2rs",
+      "uid": "elxe",
       "kind": "cots",
       "cots": {
         "type": "bearing"
@@ -3937,6 +3977,7 @@
     },
     {
       "id": "brg-608-2rs",
+      "uid": "mi1l",
       "kind": "cots",
       "cots": {
         "type": "bearing"
@@ -3966,6 +4007,7 @@
     },
     {
       "id": "brg-6704-2rs",
+      "uid": "mzxu",
       "kind": "cots",
       "cots": {
         "type": "bearing"
@@ -4023,6 +4065,7 @@
     },
     {
       "id": "brg-lazy-susan",
+      "uid": "wrxu",
       "kind": "cots",
       "cots": {
         "type": "bearing"
@@ -4066,6 +4109,7 @@
     },
     {
       "id": "sbc-orange-pi-5",
+      "uid": "ilqj",
       "kind": "cots",
       "cots": {
         "type": "computer"
@@ -4095,6 +4139,7 @@
     },
     {
       "id": "microsd-32gb",
+      "uid": "7fvo",
       "kind": "cots",
       "cots": {
         "type": "storage"
@@ -4124,6 +4169,7 @@
     },
     {
       "id": "wifi-module-opi5",
+      "uid": "b25j",
       "kind": "cots",
       "cots": {
         "type": "wifi"
@@ -4179,6 +4225,7 @@
     },
     {
       "id": "usb-hub-powered-24v",
+      "uid": "krx5",
       "kind": "cots",
       "cots": {
         "type": "usb-hub"
@@ -4208,6 +4255,7 @@
     },
     {
       "id": "cable-micro-usb",
+      "uid": "e1so",
       "kind": "cots",
       "cots": {
         "type": "cable"
@@ -4246,6 +4294,7 @@
     },
     {
       "id": "drv-tmc2209",
+      "uid": "b7c2",
       "kind": "cots",
       "cots": {
         "type": "stepper-driver"
@@ -4283,6 +4332,7 @@
     },
     {
       "id": "mcu-rpi-pico",
+      "uid": "hx8l",
       "kind": "cots",
       "cots": {
         "type": "mcu"
@@ -4312,6 +4362,7 @@
     },
     {
       "id": "header-pins-254",
+      "uid": "10o3",
       "kind": "cots",
       "cots": {
         "type": "headers"
@@ -4340,6 +4391,7 @@
     },
     {
       "id": "cable-idc-2x8-long",
+      "uid": "2iv3",
       "kind": "cots",
       "cots": {
         "type": "cable"
@@ -4387,6 +4439,7 @@
     },
     {
       "id": "cable-idc-2x8-short",
+      "uid": "ncil",
       "kind": "cots",
       "cots": {
         "type": "cable"
@@ -4434,6 +4487,7 @@
     },
     {
       "id": "ctrl-board-basically",
+      "uid": "yugu",
       "kind": "cots",
       "cots": {
         "type": "custom-pcb"
@@ -4465,6 +4519,7 @@
     },
     {
       "id": "layer-adapter-board-basically",
+      "uid": "vpcg",
       "kind": "cots",
       "cots": {
         "type": "custom-pcb"
@@ -4490,6 +4545,7 @@
     },
     {
       "id": "led-cob-50mm-24v",
+      "uid": "s34o",
       "kind": "cots",
       "cots": {
         "type": "led"
@@ -4516,6 +4572,7 @@
     },
     {
       "id": "led-strip-24v",
+      "uid": "pzah",
       "kind": "cots",
       "cots": {
         "type": "led-strip"
@@ -4544,6 +4601,7 @@
     },
     {
       "id": "endstop-mechanical",
+      "uid": "92h6",
       "kind": "cots",
       "cots": {
         "type": "endstop"
@@ -4581,6 +4639,7 @@
     },
     {
       "id": "buck-24v-5v-usbc",
+      "uid": "x1vg",
       "kind": "cots",
       "cots": {
         "type": "converter"
@@ -4628,6 +4687,7 @@
     },
     {
       "id": "psu-24v-350w",
+      "uid": "s3ru",
       "kind": "cots",
       "cots": {
         "type": "psu"
@@ -4657,6 +4717,7 @@
     },
     {
       "id": "psu-switch-fused",
+      "uid": "lmu7",
       "kind": "cots",
       "cots": {
         "type": "switch"
@@ -4708,6 +4769,7 @@
     },
     {
       "id": "ext-2020-ag",
+      "uid": "lnvw",
       "kind": "cots",
       "cots": {
         "type": "extrusion-2020",
@@ -4723,6 +4785,7 @@
     },
     {
       "id": "ext-2020-bh",
+      "uid": "tuer",
       "kind": "cots",
       "cots": {
         "type": "extrusion-2020",
@@ -4738,6 +4801,7 @@
     },
     {
       "id": "ext-2020-c",
+      "uid": "pc3b",
       "kind": "cots",
       "cots": {
         "type": "extrusion-2020",
@@ -4753,6 +4817,7 @@
     },
     {
       "id": "ext-2020-d",
+      "uid": "h9ov",
       "kind": "cots",
       "cots": {
         "type": "extrusion-2020",
@@ -4771,6 +4836,7 @@
     },
     {
       "id": "extrusion-e",
+      "uid": "rwuw",
       "kind": "cots",
       "cots": {
         "type": "extrusion-2020",
@@ -4786,6 +4852,7 @@
     },
     {
       "id": "extrusion-f",
+      "uid": "dfbb",
       "kind": "cots",
       "cots": {
         "type": "extrusion-2020",
@@ -4801,6 +4868,7 @@
     },
     {
       "id": "cable-cage-top",
+      "uid": "x5i1",
       "kind": "lasercut",
       "name": "Cable cage top",
       "photo": "https://img.basically.website/web/parts/top-interface/cable-cage-top.0856e376cd2b9238.jpg",
@@ -4824,6 +4892,7 @@
     },
     {
       "id": "cable-cage-bottom",
+      "uid": "oj14",
       "kind": "lasercut",
       "name": "Cable cage bottom",
       "photo": "https://img.basically.website/web/parts/top-interface/cable-cage-bottom.72b2038544dec559.jpg",
@@ -4847,6 +4916,7 @@
     },
     {
       "id": "top-plate",
+      "uid": "1g22",
       "kind": "lasercut",
       "name": "Top plate",
       "photo": "https://img.basically.website/web/parts/top-interface/top-plate.fb89181642abbe25.jpg",

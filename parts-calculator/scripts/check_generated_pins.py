@@ -4,9 +4,10 @@
 The generated files are written by whoever edits catalog/parts.json running
 catalog/generate.py, and committed in the same change; nothing regenerates them
 after the fact. So the guard against "edited the source, forgot to regenerate"
-is this cross-check: every printed part's generated entry must serve exactly
-the STL its pin names, carry real slice numbers, and no entry may outlive its
-part. Pure JSON, no network, no slicer.
+is this cross-check: every part's generated entry must carry the uid its
+source names, every printed one must serve exactly the STL its pin names and
+carry real slice numbers, and no entry may outlive its part. Pure JSON, no
+network, no slicer.
 
     python scripts/check_generated_pins.py
 
@@ -33,9 +34,9 @@ def main():
     for p in printed:
         g = gen.get(p["id"])
         if g is None:
-            bad.append(f"{p['id']}: pinned in parts.json but absent from parts.generated.json")
+            bad.append(f"{p['id']}: pinned in parts.json but absent from catalog.generated.json")
             continue
-        want = stl_url(p["id"], p["stl_id"], p["stl_hash"])
+        want = stl_url(p["id"], p["uid"], p["stl_hash"])
         if g.get("stl") != want:
             bad.append(f"{p['id']}: generated stl is {g.get('stl')!r}, the pin says {want!r}")
         if not isinstance(g.get("grams"), (int, float)):
@@ -44,10 +45,17 @@ def main():
     live = {p["id"] for p in printed}
     for pid in gen:
         if pid not in live:
-            bad.append(f"{pid}: in parts.generated.json but no longer pinned in parts.json")
+            bad.append(f"{pid}: in catalog.generated.json but no longer pinned in parts.json")
+
+    emitted = {**{h["id"]: h for h in generated.get("hardware", [])},
+               **{lc["id"]: lc for lc in generated.get("lasercut", [])}, **gen}
+    for p in manifest["parts"]:
+        g = emitted.get(p["id"])
+        if g is not None and g.get("uid") != p.get("uid"):
+            bad.append(f"{p['id']}: generated uid is {g.get('uid')!r}, parts.json says {p.get('uid')!r}")
 
     if bad:
-        print(f"{len(bad)} disagreement(s) between parts.json and parts.generated.json:")
+        print(f"{len(bad)} disagreement(s) between parts.json and catalog.generated.json:")
         for b in bad:
             print(f"  {b}")
         print("\nRun catalog/generate.py and commit the regenerated data with your change.")

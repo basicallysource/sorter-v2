@@ -4011,7 +4011,21 @@
 			"docs_page": null,
 			"conflicts": null,
 			"stl": "https://img.basically.website/parts/stl/output-guide-8j3e-8115840b.stl",
-			"render": "https://img.basically.website/parts/render/output-guide-ffd57ba0.png"
+			"render": "https://img.basically.website/parts/render/output-guide-ffd57ba0.png",
+			"candidates": [
+				{
+					"uid": "6sk3",
+					"stl_hash": "c03ecb616255b62649b1dbacd412d7a680a514fbef105271f64d741406d74859",
+					"created_at": "2026-08-22",
+					"message": "Shortened and angled so large pieces that are still within specification clear the C-channel exit. Being test-printed; may become the next version.",
+					"onshape_version": "https://cad.onshape.com/documents/60aa51fc61d18f2155b99910/v/e7fde51c3fa45104d5722ecd/e/66109ce96b305bf318354f93",
+					"render": "https://img.basically.website/parts/render/output-guide-6sk3-3a8c10af.png",
+					"stl": "https://img.basically.website/parts/stl/output-guide-6sk3-c03ecb61.stl",
+					"grams": 11.31,
+					"print_seconds": 3145,
+					"support_used": false
+				}
+			]
 		},
 		{
 			"id": "funnel-bracket-left",

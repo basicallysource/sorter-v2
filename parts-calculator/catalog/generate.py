@@ -251,6 +251,42 @@ def archive_versions(parts_by_id, out_parts, profiles, hexmap, role_defaults, fo
     print(f"  {archived} historical part version(s) resolved from pinned stl_hash")
 
 
+def resolve_candidates(parts_by_id, out_parts, profiles, hexmap, role_defaults, force):
+    """Slice and render every candidate: a design revision under test for a
+    part's slot, pinned by uid + stl_hash exactly like a superseded version
+    but never adopted (yet), so it has no version number. It counts toward
+    nothing -- it only has to be printable and identifiable from the page."""
+    resolved = 0
+    for out in out_parts:
+        p = parts_by_id[out["id"]]
+        cands = []
+        for c in p.get("candidates") or []:
+            c = dict(c)
+            cid = f"{out['id']}-{c['uid']}"
+            tmp = os.path.join(CACHE, cid + ".stl")
+            fetch_artifact(stl_url(out["id"], c["uid"], c["stl_hash"]), c["stl_hash"], tmp)
+            want = bool(c.get("support", p.get("support", False)))
+            info = slice_part(tmp, profiles, support=want, force=force)
+            if info is None and not want:
+                info = slice_part(tmp, profiles, support=True, force=force)
+            png = os.path.join(VERS_RENDERS_OUT, cid + ".png")
+            try:
+                c["render"] = render_url_for(tmp, default_hex(p, role_defaults, hexmap), png, force)
+            except Exception as e:
+                print(f"  ! candidate render failed for {cid}: {e}")
+                c["render"] = service_render(tmp)
+            c["stl"] = stl_url(out["id"], c["uid"], c["stl_hash"])
+            c["grams"] = info["grams"] if info else None
+            c["print_seconds"] = info["print_seconds"] if info else None
+            c["support_used"] = bool(info and info["support_used"])
+            cands.append(c)
+            resolved += 1
+        if cands:
+            out["candidates"] = cands
+    if resolved:
+        print(f"  {resolved} candidate(s) sliced and rendered")
+
+
 def git_commit_base_url():
     """`https://github.com/owner/repo/commit/` derived from origin, else None."""
     try:
@@ -742,8 +778,15 @@ def main():
                if not re.fullmatch(r"[a-z0-9]{4}", str(part.get("uid", "")))]
     if bad_uid:
         sys.exit(f"part(s) without a 4-char uid: {bad_uid} -- mint one with catalog/mint_uid.py")
+    for part in manifest["parts"]:
+        for c in part.get("candidates") or []:
+            if part.get("kind", "printed") != "printed":
+                sys.exit(f"{part['id']}: only a printed part can carry candidates")
+            if not (re.fullmatch(r"[a-z0-9]{4}", str(c.get("uid", ""))) and c.get("stl_hash")):
+                sys.exit(f"{part['id']}: a candidate needs a 4-char uid and an stl_hash")
     uids = [x for part in manifest["parts"]
-            for x in ([part["uid"]] + [v.get("uid") for v in part.get("versions") or []]) if x]
+            for x in ([part["uid"]] + [v.get("uid") for v in part.get("versions") or []]
+                      + [c.get("uid") for c in part.get("candidates") or []]) if x]
     duplicate_uids = sorted({x for x in uids if uids.count(x) > 1})
     if duplicate_uids:
         sys.exit(f"duplicate uid(s): {duplicate_uids} -- mint a fresh one")
@@ -791,6 +834,17 @@ def main():
                     v["stl"] = stl_url(source["id"], v["uid"], pin)
                     v["grams"] = ov.get("grams")
                 versions.append(v)
+            old_cands = {c.get("uid"): c for c in old.get("candidates") or []}
+            cands = []
+            for sc in source.get("candidates") or []:
+                c = dict(sc)
+                oc = old_cands.get(c["uid"], {})
+                c["render"] = rebased_render(oc.get("render"), f"{source['id']}-{c['uid']}")
+                c["stl"] = stl_url(source["id"], c["uid"], c["stl_hash"])
+                c["grams"] = oc.get("grams")
+                c["print_seconds"] = oc.get("print_seconds")
+                c["support_used"] = bool(oc.get("support_used"))
+                cands.append(c)
             refreshed.append({
                 "id": source["id"], "uid": source["uid"], "name": source["name"],
                 **({"aliases": source["aliases"]} if source.get("aliases") else {}),
@@ -820,6 +874,7 @@ def main():
                 "docs_page": source.get("docs_page"),
                 "conflicts": source.get("conflicts"),
                 "stl": live_stl, "render": live_render,
+                **({"candidates": cands} if cands else {}),
             })
         data["parts"] = refreshed
         data["sections"] = manifest["sections"]
@@ -939,6 +994,8 @@ def main():
 
     archive_versions({p["id"]: p for p in printed}, out_parts,
                      profiles, hexmap, role_defaults, args.force)
+    resolve_candidates({p["id"]: p for p in printed}, out_parts,
+                       profiles, hexmap, role_defaults, args.force)
 
     # COTS hardware (kind: "cots") is passed through, not sliced. Product images
     # are pinned bucket URLs authored in parts.json; they never live in the repo.

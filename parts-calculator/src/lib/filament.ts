@@ -210,8 +210,28 @@ export type PartVersion = {
 	grams?: number | null;
 };
 
+/** A design revision under test for a part's slot: its own uid and pinned STL,
+ *  sliced and rendered like a version, but never adopted (yet) and so with no
+ *  version number. Superseded and rejected candidates stay listed so the uid
+ *  engraved on a test print always resolves. */
+export type PartCandidate = {
+	uid: string;
+	created_at: string;
+	message: string;
+	onshape_version?: string | null;
+	superseded_by?: string | null;
+	superseded_at?: string | null;
+	rejected_at?: string | null;
+	stl: string;
+	render?: string | null;
+	grams?: number | null;
+	print_seconds?: number | null;
+	support_used?: boolean;
+};
+
 export type Part = {
 	id: string;
+	uid: string; // the current version's id -- what a print is engraved with
 	name: string;
 	aliases?: string[]; // alternate shop/CAD names; canonical id and display name stay stable
 	quantities: Record<string, number>; // category id -> count per ONE instance of that category
@@ -224,6 +244,7 @@ export type Part = {
 	created_at: string;
 	updated_at: string;
 	versions?: PartVersion[]; // archetype history, newest last
+	candidates?: PartCandidate[]; // revisions under test for this slot, oldest first
 	attributes?: { label: string; value: string }[]; // variant characteristics shown in the app
 	grams: number; // total incl. any support
 	support_grams: number; // the support portion of `grams`

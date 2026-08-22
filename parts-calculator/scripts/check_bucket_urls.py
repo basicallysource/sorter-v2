@@ -63,6 +63,9 @@ def collect_urls() -> dict[str, str]:
         for v in p.get("versions") or []:
             add(v.get("stl"), "binary")
             add(v.get("render"), "image")
+        for c in p.get("candidates") or []:
+            add(c.get("stl"), "binary")
+            add(c.get("render"), "image")
     for h in parts.get("hardware", []):
         add(h.get("image"), "image")
     for lc in parts.get("lasercut", []):

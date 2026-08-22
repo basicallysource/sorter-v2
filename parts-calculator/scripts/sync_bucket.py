@@ -20,7 +20,7 @@ in old commits keep serving.)
 
 Two jobs:
   * sync (no args): upload what generate.py freshly produced under build/
-    (renders, plate thumbnails, the all-parts zip) and write the manifest.
+    (renders, plate thumbnails, the all-parts zip).
   * --upload FILE...: author an asset -- an STL master, a plate 3mf, a product
     image -- straight onto the bucket, printing the pin line to paste into
     catalog/parts.json or catalog/plates.json.
@@ -31,7 +31,7 @@ Credentials, in order of precedence:
 
 Usage:
   python scripts/sync_bucket.py --dry-run     # show what would upload
-  python scripts/sync_bucket.py               # upload missing, write manifest
+  python scripts/sync_bucket.py               # upload missing
   python scripts/sync_bucket.py --upload part.stl plate.3mf photo.jpg
 """
 
@@ -114,7 +114,6 @@ def uid_for(part_id: str) -> str:
 # Images render in <img> tags; everything else is a download.
 INLINE_SUFFIXES = {".png", ".jpg"}
 
-MANIFEST = REPO / "catalog" / "artifacts.json"
 CREDS_FILE = Path.home() / ".config" / "do-spaces" / "sorter-v2-parts.env"
 
 
@@ -350,21 +349,6 @@ def main() -> None:
 
     verb = "would upload" if args.dry_run else "uploaded"
     print(f"\n{verb} {uploaded}, already present {skipped}")
-
-    if args.dry_run:
-        return
-
-    manifest = {
-        "bucket": BUCKET,
-        "public_base": PUBLIC_BASE,
-        "artifacts": {
-            f["path"]: {"sha256": f["sha256"], "size": f["size"],
-                        "url": f"{PUBLIC_BASE}/{f['key']}"}
-            for f in files
-        },
-    }
-    MANIFEST.write_text(json.dumps(manifest, indent=2) + "\n")
-    print(f"wrote {MANIFEST.relative_to(REPO)} ({len(files)} entries)")
 
 
 if __name__ == "__main__":

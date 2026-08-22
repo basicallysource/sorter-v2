@@ -82,6 +82,28 @@ new `stl_hash`) under the same uid. Screws and laser-cut parts carry one too.
    your pins and that every URL serves real bytes; if it is red, you forgot
    step 3 — run it and push again.
 
+### Candidates
+
+A design that is being test-printed and might become the part's next version
+goes on the part as a candidate — not as a new part, not as a version:
+
+```json
+"candidates": [
+  { "uid": "6sk3", "stl_hash": "…", "created_at": "2026-08-22",
+    "message": "Shortened and angled. Being tested." }
+]
+```
+
+Mint its uid, upload the STL under it (`python scripts/sync_bucket.py
+--upload output-guide.stl --uid 6sk3`), run the generator. It gets sliced,
+rendered and listed on the part's page with its own download; it counts
+toward nothing and has no version number — numbers are handed out in
+adoption order. To promote it: move its `uid` and `stl_hash` up to the part,
+bump `version`, add a `versions` entry, delete the candidate line. To iterate
+on or drop one: **never delete it** — add `superseded_by` / `superseded_at`
+or `rejected_at` and leave its pin, so the uid engraved on any test print
+still resolves here. CI fails a change that removes a uid from `parts.json`.
+
 Slicer settings live at the top of `catalog/generate.py` (printer, infill,
 supports, etc.); changing them re-slices the whole catalog. Terminology is in
 [`notes/TERMINOLOGY.md`](notes/TERMINOLOGY.md).

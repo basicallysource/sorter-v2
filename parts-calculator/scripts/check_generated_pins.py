@@ -14,12 +14,31 @@ network, no slicer.
 Exits non-zero listing every disagreement.
 """
 import json
+import subprocess
 import sys
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(HERE / "scripts"))
 from sync_bucket import stl_url  # noqa: E402
+
+
+def all_uids(manifest):
+    return {u for p in manifest["parts"]
+            for u in [p.get("uid")] + [v.get("uid") for v in p.get("versions") or []]
+                     + [c.get("uid") for c in p.get("candidates") or []] if u}
+
+
+def previous_uids():
+    """Every uid in parts.json one commit back: HEAD~1 is the previous main commit
+    on a push and the base branch on a PR's merge ref. None when history is not
+    there (a depth-1 clone), in which case the check is skipped, not failed."""
+    r = subprocess.run(["git", "-C", str(HERE), "show", "HEAD~1:parts-calculator/catalog/parts.json"],
+                       capture_output=True)
+    if r.returncode != 0:
+        print("note: no previous parts.json in history, skipping the uid-retention check")
+        return None
+    return all_uids(json.loads(r.stdout))
 
 
 def main():
@@ -53,6 +72,26 @@ def main():
         g = emitted.get(p["id"])
         if g is not None and g.get("uid") != p.get("uid"):
             bad.append(f"{p['id']}: generated uid is {g.get('uid')!r}, parts.json says {p.get('uid')!r}")
+
+    for p in printed:
+        have = {c.get("uid"): c for c in (gen.get(p["id"]) or {}).get("candidates") or []}
+        for c in p.get("candidates") or []:
+            gc = have.get(c["uid"])
+            want = stl_url(p["id"], c["uid"], c["stl_hash"])
+            if gc is None:
+                bad.append(f"{p['id']}: candidate {c['uid']} is in parts.json but not in the generated data")
+            elif gc.get("stl") != want:
+                bad.append(f"{p['id']}: candidate {c['uid']} serves {gc.get('stl')!r}, the pin says {want!r}")
+            elif not isinstance(gc.get("grams"), (int, float)):
+                bad.append(f"{p['id']}: candidate {c['uid']} has no grams -- run the full generator, not --metadata-only")
+
+    # A uid is a promise to whoever engraved it on a print: once in parts.json it
+    # never leaves. Superseded and rejected candidates are marked, not deleted.
+    before = previous_uids()
+    if before is not None:
+        gone = sorted(before - all_uids(manifest))
+        if gone:
+            bad.append(f"uid(s) removed from parts.json: {gone} -- mark them superseded/rejected instead")
 
     if bad:
         print(f"{len(bad)} disagreement(s) between parts.json and catalog.generated.json:")

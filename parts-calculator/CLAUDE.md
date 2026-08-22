@@ -57,8 +57,8 @@ inconsistent — regenerate and push again.
 
 ## Hard rules
 
-**Never hand-edit generated files.** `src/lib/data/catalog.generated.json` and
-`catalog/artifacts.json` are outputs. The authored source of truth is `catalog/parts.json`. Edit that and
+**Never hand-edit generated files.** `src/lib/data/catalog.generated.json` is
+an output. The authored source of truth is `catalog/parts.json`. Edit that and
 re-run the generator.
 
 **Filament weights are measured, never estimated.** Grams come from
@@ -92,7 +92,7 @@ hash under the same uid.
 
 ```
 python scripts/sync_bucket.py --dry-run   # report only
-python scripts/sync_bucket.py             # upload missing + rewrite manifest
+python scripts/sync_bucket.py             # upload missing
 ```
 
 Credentials come from `DO_SPACES_KEY` / `DO_SPACES_SECRET` (env, or
@@ -191,3 +191,10 @@ bucket. Git history is never consulted for geometry, which is what made the
 2026-08 history rewrite (dropping the old `static/stl` serving copies and 30+
 committed revisions of `all-parts.zip`) safe. The pre-rewrite history is
 preserved read-only at `basicallysource/parts-calculator-archive`.
+
+**Candidates are pinned the same way.** A part's `candidates` are design
+revisions under test for its slot — own uid, own `stl_hash`, sliced and
+rendered, no version number until adopted. They are never deleted, only
+marked `superseded_by` / `rejected_at`, because a uid on a test print has to
+keep resolving; `check_generated_pins.py` fails any change that drops a uid
+from `parts.json`.

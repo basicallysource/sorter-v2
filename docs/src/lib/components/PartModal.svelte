@@ -12,9 +12,12 @@
 
 	const detail = $derived(part?.detail);
 
+	// Round to whole minutes first, then split: rounding the remainder on its own
+	// is what prints "3 h 60 min".
 	function duration(seconds: number): string {
-		const h = Math.floor(seconds / 3600);
-		const m = Math.round((seconds % 3600) / 60);
+		const total = Math.round(seconds / 60);
+		const h = Math.floor(total / 60);
+		const m = total % 60;
 		return h ? `${h} h ${m} min` : `${m} min`;
 	}
 

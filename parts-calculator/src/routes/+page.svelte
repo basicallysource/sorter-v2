@@ -748,6 +748,10 @@
 					<span><b>Changes and improvements are tracked for some parts.</b> Review what is planned before printing.</span>
 					<span class="shrink-0 font-semibold text-primary">View {CHANGES.length} potential changes →</span>
 				</a>
+				<a href="/updates" class="mb-4 flex items-center justify-between gap-4 border border-border bg-surface px-4 py-3 text-sm text-text transition-colors hover:border-primary">
+					<span><b>Printed a set already?</b> Give the date you printed and see only the parts that are new or revised since.</span>
+					<span class="shrink-0 font-semibold text-primary">What changed since… →</span>
+				</a>
 				<div class="mb-4 flex flex-wrap items-center gap-2">
 					<div class="inline-flex border border-border">
 						<button

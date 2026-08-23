@@ -56,8 +56,6 @@ Press the inserts into the housing while it is still bare. See [installing heat 
   </div>
 </div>
 
-The [Preparation]({{ '/hardware/preparation/' | relative_url }}) page lists every part in the machine that needs inserts.
-
 {% include step.html n="2" title="Seat the servo in the housing" %}
 
 Drop the MG995 into the housing and fasten it with 2 {% include fastener.html size="M3" variant="countersunk" length="8" %} screws through the servo's own mounting ears.

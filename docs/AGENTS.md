@@ -194,15 +194,21 @@ live in its `internal/derive`, and a second copy of them here would drift:
 asset-service upload --derive --namespace sorter-docs ~/Downloads/IMG_7204.MOV
 ```
 
-**`--derive` is not optional.** The service *queues* derivation rather than
-doing it, and the queue is only worked while somebody is running
-`asset-service work` — deliberately, so ffmpeg never runs on the box serving
-production. With no worker up, a plain upload sits at
-`renditions_status: pending` forever: you get no MP4, no poster, and no error.
-`--derive` does the encode on your machine and uploads the results, so it does
-not depend on a worker existing. (Confirmed 2026-08-23: an ordinary upload of a
-15 KB PNG was still pending an hour later, and `--derive` finished the same 4K
-clip in seconds.)
+**`--derive` is not optional for anything big.** The service *queues*
+derivation rather than doing it, and a standing worker elsewhere drains that
+queue. That worker has a memory ceiling, and a 4K phone clip goes straight
+through it: encoding 3840x2160 down to the 1920 rung wanted more than the
+worker is allowed, so ffmpeg was OOM-killed. The worker restarts on failure,
+re-claims the same job, and dies again, which blocks **everything** behind it
+in the queue, including uploads that would have been fine on their own. From
+the client all you see is `renditions_status: pending` forever, with no error
+and nothing to poll (`/v1/health`, `/v1/namespaces` are 404), so you cannot
+tell a busy queue from a jammed one.
+
+`--derive` sidesteps all of that: it encodes on your machine, where the file
+already is, and uploads the results. It finished the same clip in seconds.
+(Diagnosed 2026-08-23, after a plain upload jammed the shared queue for an
+hour.)
 
 Then turn the manifest into markup:
 

@@ -61,6 +61,39 @@ for (const [path, raw] of Object.entries(dataFiles)) {
 		}
 		return best?.image ?? undefined;
 	};
+	// A part's open planned changes, same rule the calculator's plannedChangesFor()
+	// applies: anything not complete that names this id, plus (for printed parts)
+	// anything aimed at a whole section the part is built into. This is how a P0
+	// "broken feature" reaches a reader who is standing at the bench with the
+	// assembly page open rather than the calculator.
+	const changesFor = (kind: 'parts' | 'hardware', id: string, quantities?: Record<string, number>) =>
+		(gen.changes ?? [])
+			.filter((c: any) => {
+				if (c.status === 'complete') return false;
+				if (c.targets?.[kind]?.includes(id)) return true;
+				if (kind !== 'parts' || !quantities) return false;
+				return (c.targets?.sections ?? []).some((s: string) => s in quantities);
+			})
+			.map((c: any) => ({
+				id: c.id,
+				name: c.name,
+				priority: c.priority,
+				condition: c.condition,
+				description: c.description
+			}));
+
+	// Names for the heat inserts (and anything else) a printed part `requires`,
+	// resolved out of the same catalog so the modal can say "18 × M3 heat insert"
+	// rather than an id.
+	const nameOf = (id: string) =>
+		(gen.hardware ?? []).find((h: any) => h.id === id)?.name ??
+		(gen.parts ?? []).find((p: any) => p.id === id)?.name ??
+		id;
+
+	// The calculator owns every part's own page; a laser-cut part has no /part/<id>
+	// there, so it points at the laser-cut list instead.
+	const CALC = 'https://parts-calculator.basically.website';
+
 	const parts: Record<string, any> = {};
 	for (const h of gen.hardware ?? [])
 		parts[h.id] = {
@@ -71,7 +104,23 @@ for (const [path, raw] of Object.entries(dataFiles)) {
 			caption: h.caption,
 			length_mm: h.cots?.length_mm,
 			alternative: h.alternative,
-			conflicts: h.conflicts
+			conflicts: h.conflicts,
+			detail: {
+				kind: 'cots',
+				uid: h.uid,
+				description: h.description,
+				note: h.note,
+				attributes: h.attributes,
+				vendors: (h.sourcing?.vendors ?? []).map((v: any) => ({
+					vendor: v.vendor,
+					region: v.region,
+					url: v.affiliate_url ?? v.url
+				})),
+				stock_label: h.stock?.unit_label,
+				sheet_qty_text: h.sheet_qty_text,
+				calc_url: `${CALC}/part/${h.id}`,
+				changes: changesFor('hardware', h.id)
+			}
 		};
 	for (const pt of gen.parts ?? [])
 		parts[pt.id] = {
@@ -80,14 +129,53 @@ for (const [path, raw] of Object.entries(dataFiles)) {
 			category: 'Printed parts',
 			page: pt.docs_page,
 			caption: pt.caption,
-			conflicts: pt.conflicts
+			conflicts: pt.conflicts,
+			detail: {
+				kind: 'printed',
+				uid: pt.uid,
+				description: pt.description,
+				attributes: pt.attributes,
+				stl: pt.stl,
+				version: pt.version,
+				updated_at: pt.updated_at,
+				grams: pt.grams,
+				print_seconds: pt.print_seconds,
+				onshape: pt.versions?.[pt.versions.length - 1]?.onshape_version ?? pt.onshape,
+				info: pt.info,
+				low_tolerance: pt.low_tolerance,
+				low_tolerance_note: pt.low_tolerance_note,
+				requires: (pt.requires ?? []).map((r: any) => ({
+					id: r.part,
+					name: nameOf(r.part),
+					qty: r.qty
+				})),
+				calc_url: `${CALC}/part/${pt.id}`,
+				changes: changesFor('parts', pt.id, pt.quantities)
+			}
 		};
 	for (const lc of gen.lasercut ?? [])
 		parts[lc.id] = {
 			name: lc.name,
 			image: lc.photo,
 			category: 'Laser-cut parts',
-			caption: lc.caption
+			caption: lc.caption,
+			detail: {
+				kind: 'lasercut',
+				uid: lc.uid,
+				description: lc.description,
+				attributes: [
+					lc.thicknessMm != null && {
+						label: 'Thickness',
+						value: `${lc.thicknessMm} mm${lc.thicknessIn ? ` (${lc.thicknessIn})` : ''}`
+					},
+					lc.widthMm != null &&
+						lc.heightMm != null && { label: 'Stock', value: `${lc.widthMm} × ${lc.heightMm} mm` }
+				].filter(Boolean),
+				dxf: lc.dxf ? CALC + lc.dxf : undefined,
+				onshape: lc.onshape,
+				calc_url: `${CALC}/lasercut`,
+				changes: []
+			}
 		};
 	data.parts = parts;
 	data.parts_merges = gen.merges ?? [];
@@ -295,6 +383,49 @@ export type ResolvedPart = {
 		note?: string;
 	}>;
 	missing?: boolean;
+	/** Everything the part modal shows, taken straight off the calculator's
+	 *  generated catalog so the two never drift. Absent on a missing part. */
+	detail?: PartDetail;
+};
+
+/** The detail of one catalog entry, in the three shapes the catalog has. Only
+ *  the fields the docs modal renders are carried through — the calculator's own
+ *  part page is one click away for the rest (versions, candidates, build
+ *  plates, cart maths). */
+export type PartDetail = {
+	kind: 'printed' | 'cots' | 'lasercut';
+	uid?: string;
+	description?: string;
+	/** Prose the catalog carries about fitting or handling the part. */
+	info?: string;
+	/** COTS caveat, e.g. "length unknown, measure before ordering". */
+	note?: string;
+	attributes?: { label: string; value: string }[];
+	/** Its page on the parts calculator: the everything-else link. */
+	calc_url: string;
+	changes?: {
+		id: string;
+		name: string;
+		priority: string;
+		condition?: string;
+		description?: string;
+	}[];
+	// printed
+	stl?: string;
+	version?: string;
+	updated_at?: string;
+	grams?: number;
+	print_seconds?: number;
+	onshape?: string;
+	low_tolerance?: boolean;
+	low_tolerance_note?: string;
+	requires?: { id: string; name: string; qty: number }[];
+	// cots
+	vendors?: { vendor: string; region?: string; url: string }[];
+	stock_label?: string;
+	sheet_qty_text?: string;
+	// laser-cut
+	dxf?: string;
 };
 export type PartsGroup = { category: string; parts: ResolvedPart[] };
 export type ResolvedPerson = { name: string; url?: string };
@@ -323,6 +454,7 @@ function resolveParts(partsNeeded: any[]): { groups: PartsGroup[]; conflicts: Re
 			length_mm: part.length_mm,
 			alternative: part.alternative,
 			conflicts: part.conflicts,
+			detail: part.detail,
 			qty,
 			category: part.category ?? 'Other'
 		};

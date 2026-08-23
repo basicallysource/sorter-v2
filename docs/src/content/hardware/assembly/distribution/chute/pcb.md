@@ -33,7 +33,7 @@ The fasteners and quantities are in the parts list above and are called out inli
 
 {% include step.html n="1" title="Preparation" %}
 
-Press the chute core's inserts before the chute is assembled, the four PCB inserts among them. See [installing heat inserts]({{ '/hardware/helpers/heat-inserts/' | relative_url }}) for the technique, and the [Preparation]({{ '/hardware/preparation/' | relative_url }}) page for every part in the machine that takes inserts.
+Press the chute core's inserts before the chute is assembled, the four PCB inserts among them. See [installing heat inserts]({{ '/hardware/helpers/heat-inserts/' | relative_url }}) for the technique.
 
 {% include step.html n="2" title="Screw the board onto the chute core" %}
 

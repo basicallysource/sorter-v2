@@ -62,8 +62,6 @@ Press the heat inserts into the chute core before anything is mounted to it. Onc
   </div>
 </div>
 
-The [Preparation]({{ '/hardware/preparation/' | relative_url }}) page lists every part in the machine that needs inserts.
-
 {% include step.html n="2" title="Fit the funnel brackets" %}
 
 Fit the Funnel bracket (left) and the Funnel bracket (right) to the chute core. Together with the door module and the layer connectors these use the chute's 6 {% include fastener.html size="M3" variant="countersunk" length="12" %} and 8 {% include fastener.html size="M3" variant="countersunk" length="8" %} screws, all into the core's inserts.

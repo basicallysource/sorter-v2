@@ -66,8 +66,7 @@ The `og:image` a page unfurls with is **its first `<img>`**, picked up
 automatically, so most pages need nothing. Assembly pages are the exception:
 they open with the parts laid out on a bench, which is a poor thumbnail for
 the finished thing. Set `og_image:` in front matter to a full
-asset URL (`https://assets.basically.website/...`; older pages still use
-`img.basically.website`) to override it (relative paths are
+`https://assets.basically.website/...` URL to override it (relative paths are
 resolved against the site URL). The image stays wherever it already is in the
 body; this only changes what the embed shows.
 
@@ -176,21 +175,6 @@ Desktop, VLC Snapshots, etc.). Then do all of this yourself:
 4. Commit the URL, never the image bytes. The URL works identically on PR
    previews and production, since the service is branch-independent.
 
-### The legacy image domain
-
-Existing pages are full of `https://img.basically.website/web/…` URLs — the
-previous home for docs images, a DO Spaces bucket behind the Cloudflare Worker
-in `scripts/img-worker/`. Those URLs stay live until every one is rewritten to
-the asset service, and `validate_images.py` still checks them. **Never mint a
-new one** — the upload path above is the only one; the old script that wrote
-to the bucket is gone.
-
-> If the worker itself needs touching before it retires: it is not deployed
-> by CI. It ships by hand — `CLOUDFLARE_API_TOKEN=… npx wrangler deploy` in
-> `docs/scripts/img-worker/` — and every response carries
-> `x-img-cache: hit|miss`, which to check before believing anything about
-> freshness.
-
 ## Video — the workflow
 
 A clip does **not** go in the images bucket. `upload_image.py` uploads exactly
@@ -239,9 +223,9 @@ binary is committed; a re-encode is a new URL.
 
 Three things to know.
 
-- **`validate_images.py` checks these URLs too** — both domains, same rule:
-  the hash in the name must match the bytes the URL serves. It cannot press
-  play for you, so load the page and do that before you push.
+- **`validate_images.py` checks these URLs too** — same rule as images: the
+  hash in the name must match the bytes the URL serves. It cannot press play
+  for you, so load the page and do that before you push.
 - **Size the player from the poster, not from an encode.** A phone shoots
   portrait into a landscape frame and sets a rotation flag, so the MP4 reports
   1920x1080 and plays 1080x1920 while the poster is a still with the rotation
@@ -280,8 +264,8 @@ cached forever. Name the upload by what it shows
 (`top-interface-step2-hole-red-square`), not by source filename — names are
 flat now, so the page or part belongs in the name itself.
 
-**This is the invariant.** Every asset URL in docs source — either domain —
-must contain the hash of its actual bytes. Never overwrite an object, use a
+**This is the invariant.** Every asset URL in docs source must contain the
+hash of its actual bytes. Never overwrite an object, use a
 descriptive stable URL, add a query-string cache buster, or add browser retry
 code. `npm run build` runs `scripts/validate_images.py`, which rejects a missing
 image, a non-content-addressed URL, or bytes that do not match the URL hash.
@@ -396,8 +380,7 @@ Moved off Vercel on 2026-08-09. Two reasons, in order: static asset requests
 on Pages are unmetered, and the site was generating ~40k Vercel edge requests
 a day against a 100-deploy-a-day Hobby account that had already rate-limited
 itself out of deploying; and everything else the docs depend on
-(`img.basically.website`, the DNS, the cache purge) already lives in the same
-Cloudflare account. The site is `@sveltejs/adapter-static` with
+already lived in the same Cloudflare account. The site is `@sveltejs/adapter-static` with
 `trailingSlash: 'always'` set in SvelteKit rather than in host config, so
 there was nothing host-specific to port. `vercel.json` is gone.
 

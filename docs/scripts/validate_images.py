@@ -1,12 +1,9 @@
 """Reject docs asset URLs that are not immutable objects or cannot be fetched.
 
-Two URL shapes are checked, both content-addressed:
-
-  https://assets.basically.website/<ns>/<name>-<hash12>.<ext>   the asset service
-  https://img.basically.website/web/<path>.<hash16>.<ext>       legacy; no new ones
-
-Either way the hash in the name must be a prefix of the SHA-256 of the bytes
-the URL actually serves, so a URL can never drift from its content.
+Every asset a page references lives on the asset service and is
+content-addressed: the name ends in a hash of the bytes
+(`<name>-<hash12>.<ext>`), so a URL can never drift from its content. This
+fetches each one and holds it to that.
 """
 
 import hashlib
@@ -16,31 +13,18 @@ import urllib.request
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1] / "src"
+URL = re.compile(r"https://assets\.basically\.website/[a-z0-9-]+/[^\s\"<>)]+")
+CONTENT_ADDRESSED = re.compile(r"-([0-9a-f]{12})\.[A-Za-z0-9]+$")
 
-# (url pattern, pattern extracting the claimed hash from a matched url)
-SHAPES = [
-    (
-        re.compile(r"https://assets\.basically\.website/[a-z0-9-]+/[^\s\"<>)]+"),
-        re.compile(r"-([0-9a-f]{12})\.[A-Za-z0-9]+$"),
-    ),
-    (
-        re.compile(r"https://img\.basically\.website/web/[^\s\"<>)]+"),
-        re.compile(r"\.([0-9a-f]{10,})\."),
-    ),
-]
-
-urls: dict[str, re.Pattern] = {}
-for path in ROOT.rglob("*"):
-    if path.suffix not in {".md", ".yml"}:
-        continue
-    text = path.read_text()
-    for url_pattern, hash_pattern in SHAPES:
-        for url in url_pattern.findall(text):
-            urls[url] = hash_pattern
-
+urls = {
+    url
+    for path in ROOT.rglob("*")
+    if path.suffix in {".md", ".yml"}
+    for url in URL.findall(path.read_text())
+}
 errors = []
-for url, hash_pattern in sorted(urls.items()):
-    match = hash_pattern.search(url)
+for url in sorted(urls):
+    match = CONTENT_ADDRESSED.search(url)
     if not match:
         errors.append(f"not content-addressed: {url}")
         continue
@@ -53,6 +37,14 @@ for url, hash_pattern in sorted(urls.items()):
                 errors.append(f"hash mismatch: {url}")
     except OSError as error:
         errors.append(f"unavailable ({error}): {url}")
+
+stray = {
+    f"{path.relative_to(ROOT)}: {url}"
+    for path in ROOT.rglob("*")
+    if path.suffix in {".md", ".yml"}
+    for url in re.findall(r"https://img\.basically\.website/[^\s\"<>)]+", path.read_text())
+}
+errors += [f"retired domain: {line}" for line in sorted(stray)]
 
 if errors:
     print("\n".join(errors), file=sys.stderr)

@@ -259,6 +259,26 @@
 					"interface-spacer"
 				]
 			}
+		},
+		{
+			"id": "fix-output-gear-rotor-fastener",
+			"name": "Output gear to rotor screw does not reach the rotor",
+			"priority": "P0",
+			"condition": "broken",
+			"description": "The six screws holding the Output gear (130T) to the rotor were specified as M3 x 8 mm countersunk. The gear is 8.00 mm thick at the bolt circle and a countersunk screw's length is measured over its head, so an M3 x 8 seated flush in the countersink ends level with the gear's top face and takes no thread in the rotor at all. Fit M3 x 12 mm countersunk for now: 4.0 mm of thread in the rotor's 5.0 mm flange, 1 mm short of breaking through the far side. Whether the joint settles as a 12 mm screw or the gear boss changes is still to be decided, so treat the length as provisional. Reported from a build by aleph1111/christoph and scres; measured off the pinned output-gear and rotor STLs.",
+			"targets": {
+				"parts": [
+					"output-gear",
+					"rotor-faceted",
+					"rotor-finned"
+				],
+				"assemblies": [
+					"c-channel"
+				],
+				"hardware": [
+					"scr-m3-12-cs"
+				]
+			}
 		}
 	],
 	"folders": [

@@ -660,15 +660,20 @@
 					<!-- empty twist slot: keeps a part's thumbnail on the same line as
 					     the fans on the assembly rows above it -->
 					<span class="pl-twist"></span>
-					<button
-						type="button"
-						class="pl-thumb group relative"
-						onclick={() => openViewer(p)}
-						title="View {p.name} in 3D"
-					>
-						<img src={p.render} alt={p.name} />
-						<span class="absolute inset-0 flex items-center justify-center bg-black/40 text-white opacity-0 transition-opacity group-hover:opacity-100 group-hover/row:opacity-100"><ZoomIn size={16} /></span>
-					</button>
+					<!-- the notice marker is a sibling of the viewer button, not inside
+					     it: both are buttons and one cannot nest in the other -->
+					<span class="relative inline-flex">
+						<button
+							type="button"
+							class="pl-thumb group relative"
+							onclick={() => openViewer(p)}
+							title="View {p.name} in 3D"
+						>
+							<img src={p.render} alt={p.name} />
+							<span class="absolute inset-0 flex items-center justify-center bg-black/40 text-white opacity-0 transition-opacity group-hover:opacity-100 group-hover/row:opacity-100"><ZoomIn size={16} /></span>
+						</button>
+						<ChangeStatus kind="parts" id={p.id} name={p.name} variant="marker" />
+					</span>
 				</span>
 			</td>
 			<td class="pl-c-name">
@@ -789,10 +794,13 @@
 									{@const each = effectiveGrams(p, supportOn(p.id))}
 									<tr class="pl-row group/row" class:opacity-50={qty === 0}>
 										<td class="pl-c-thumb">
-											<button type="button" class="pl-thumb group relative" onclick={() => openViewer(p)} title="View {p.name} in 3D">
-												<img src={p.render} alt={p.name} />
-												<span class="absolute inset-0 flex items-center justify-center bg-black/40 text-white opacity-0 transition-opacity group-hover:opacity-100"><ZoomIn size={16} /></span>
-											</button>
+											<span class="relative inline-flex">
+												<button type="button" class="pl-thumb group relative" onclick={() => openViewer(p)} title="View {p.name} in 3D">
+													<img src={p.render} alt={p.name} />
+													<span class="absolute inset-0 flex items-center justify-center bg-black/40 text-white opacity-0 transition-opacity group-hover:opacity-100"><ZoomIn size={16} /></span>
+												</button>
+												<ChangeStatus kind="parts" id={p.id} name={p.name} variant="marker" />
+											</span>
 										</td>
 										<td class="pl-c-name">
 											<span class="pl-name">

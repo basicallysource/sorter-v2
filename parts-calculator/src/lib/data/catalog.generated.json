@@ -1481,7 +1481,7 @@
 					"uid": "rns2",
 					"date": "2026-08-23",
 					"message": "The printed housing replaces the bracket and standoffs. The board bolts straight to the base on four of its eight heat inserts; the cover closes onto the other four, carries the 40 mm 24 V fan on self-tapping M3 \u00d7 12 mm button heads, and holds a plunger over the board's reset button. Adopted from candidate rns2 after a test print.",
-					"commit": null
+					"commit": "9ff8a1e3"
 				}
 			]
 		},

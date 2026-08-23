@@ -6,15 +6,18 @@
 	// What a "Parts needed" card opens: the same facts the parts calculator's own
 	// part modal shows, rendered in this site's styling, off the same generated
 	// catalog both sites build from. Deliberately not a copy of everything over
-	// there — versions, candidates, build plates and the cart maths stay one
-	// click away on the part's own calculator page, which every modal links to.
+	// there: versions, candidates, build plates and the cart maths stay one click
+	// away on the part's own calculator page, which every modal links to.
 	let { open = $bindable(false), part }: { open?: boolean; part: ResolvedPart | null } = $props();
 
 	const detail = $derived(part?.detail);
 
+	// Round to whole minutes first, then split: rounding the remainder on its own
+	// is what prints "3 h 60 min".
 	function duration(seconds: number): string {
-		const h = Math.floor(seconds / 3600);
-		const m = Math.round((seconds % 3600) / 60);
+		const total = Math.round(seconds / 60);
+		const h = Math.floor(total / 60);
+		const m = total % 60;
 		return h ? `${h} h ${m} min` : `${m} min`;
 	}
 

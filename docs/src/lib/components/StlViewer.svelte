@@ -4,8 +4,8 @@
 	// The 3D preview of a printed part, the same one the parts calculator shows
 	// (parts-calculator/src/lib/components/StlViewer.svelte), trimmed to what a
 	// docs reader needs: orbit, zoom, two looks, no id-stamp controls or version
-	// flipping. Lit the way CAD lights a part — flat ambient plus one headlight
-	// riding on the camera, no tone mapping — so a face is brighter the more it
+	// flipping. Lit the way CAD lights a part (flat ambient plus one headlight
+	// riding on the camera, no tone mapping), so a face is brighter the more it
 	// faces you and that is all the shading there is.
 	//
 	// three is imported dynamically on mount, never at module scope: this

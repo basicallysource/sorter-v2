@@ -9,13 +9,6 @@
 	let openPart = $state<ResolvedPart | null>(null);
 	let modalOpen = $state(false);
 
-	// TEMP screenshot hook, reverted before this branch is reviewed.
-	$effect(() => {
-		const all = (parts?.groups ?? []).flatMap((g) => g.parts);
-		const first = all.find((p) => p.detail?.stl) ?? all.find((p) => p.detail);
-		if (first) { openPart = first; modalOpen = true; }
-	});
-
 	function show(part: ResolvedPart) {
 		if (!part.detail) return; // an id the catalog does not describe: nothing to open
 		openPart = part;

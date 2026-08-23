@@ -389,7 +389,7 @@ export type ResolvedPart = {
 };
 
 /** The detail of one catalog entry, in the three shapes the catalog has. Only
- *  the fields the docs modal renders are carried through — the calculator's own
+ *  the fields the docs modal renders are carried through. The calculator's own
  *  part page is one click away for the rest (versions, candidates, build
  *  plates, cart maths). */
 export type PartDetail = {

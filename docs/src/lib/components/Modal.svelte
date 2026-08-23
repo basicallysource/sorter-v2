@@ -3,8 +3,8 @@
 
 	// The site's one modal. A native <dialog>, so Escape, the backdrop, focus
 	// trapping and inert-ing the page behind it are the browser's job rather than
-	// ours — the same thing SearchModal does, factored out so anything else that
-	// needs a panel (the part detail, for now) opens the same object.
+	// ours, the same way SearchModal already opens. Written generic so anything
+	// else that needs a panel (the part detail, for now) opens the same object.
 	let {
 		open = $bindable(false),
 		title,

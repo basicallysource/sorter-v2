@@ -22,7 +22,7 @@ parts_needed:
     qty: 20
 ---
 
-The Pico ships bare. The [basically Embedded Control Board]({{ '/hardware/electronics/installation/control-board-mount/' | relative_url }}) expects it on 2.54 mm headers, so the pins are a separate purchase and a soldering job before the board goes on its mount.
+The Pico ships bare. The [basically Embedded Control Board]({{ '/hardware/electronics/installation/control-board-prep/' | relative_url }}) expects it on 2.54 mm headers, so the pins are a separate purchase and a soldering job before the board goes on its mount.
 
 One Pico per machine, 20 header pins, two rows of 20 broken off a breakaway strip. It is the only assembly in the parts tree recorded as soldered: every pin goes into the Pico's through-holes, nothing here presses or clips together.
 
@@ -40,6 +40,6 @@ Which face of the Pico the pins go on, and therefore which way up it sits in the
 
 {% include step.html n="3" title="Seat it in the board" %}
 
-Push the Pico into its socket on the basically Embedded Control Board, then carry on with the [control board mount]({{ '/hardware/electronics/installation/control-board-mount/' | relative_url }}).
+Push the Pico into its socket on the basically Embedded Control Board, then carry on with the [preparing the control board]({{ '/hardware/electronics/installation/control-board-prep/' | relative_url }}).
 
 The Pico is now ready. Flashing its firmware is covered in [software setup]({{ '/hardware/assembly/software-setup/' | relative_url }}).

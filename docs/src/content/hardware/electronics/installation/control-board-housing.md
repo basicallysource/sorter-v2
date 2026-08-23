@@ -8,6 +8,7 @@ kicker: Electronics — Control board housing
 lede: Closing the control board into its printed housing, with the 40 mm fan on a GPIO-controlled port, and bolting it to the frame.
 permalink: /hardware/electronics/installation/control-board-housing/
 author: spencer
+og_image: https://img.basically.website/web/assembly/control-board-housing/housing-angled.c67cd89578b97f5f.jpg
 parts_needed:
   - part: ctrl-board-housing-base
     qty: 1

@@ -50,6 +50,7 @@ asset spec, and the rules for adding a site live in
      - part: m4-12mm-countersunk
        qty: 8
    tools_needed: [Screwdriver]      # optional, plain strings
+   og_image: <full image URL>       # optional; see Link previews
    ---
    ```
    `audience`, `applies_to`, `owner`, `last_verified` come from per-section
@@ -58,6 +59,16 @@ asset spec, and the rules for adding a site live in
    section's `pages:` (nest with `children:` — the sidebar renders
    arbitrarily deep).
 4. `python3 scripts/validate_frontmatter.py` must pass.
+
+## Link previews (`og:image`)
+
+The `og:image` a page unfurls with is **its first `<img>`**, picked up
+automatically, so most pages need nothing. Assembly pages are the exception:
+they open with the parts laid out on a bench, which is a poor thumbnail for
+the finished thing. Set `og_image:` in front matter to a full
+`https://img.basically.website/...` URL to override it (relative paths are
+resolved against the site URL). The image stays wherever it already is in the
+body; this only changes what the embed shows.
 
 ## Engineering notes (`/n/<id>/`)
 

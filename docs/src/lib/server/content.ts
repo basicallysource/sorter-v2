@@ -552,8 +552,13 @@ export async function getPage(pathParam: string): Promise<Page | null> {
 		page.warning = String(await markdown.process(warned));
 	}
 
-	const img = html.match(/<img[^>]*src="([^"]+)"/);
-	if (img) page.ogImage = img[1].startsWith('http') ? img[1] : site.url + img[1];
+	// Social preview image: `og_image` in front matter wins, otherwise the first
+	// photo in the body. The first photo is usually the right one, but on a page
+	// that opens with parts laid out on a bench the finished thing is a long way
+	// down, and that is the shot worth unfurling in a link.
+	const explicit = typeof fm.og_image === 'string' ? fm.og_image.trim() : '';
+	const ogSrc = explicit || html.match(/<img[^>]*src="([^"]+)"/)?.[1];
+	if (ogSrc) page.ogImage = ogSrc.startsWith('http') ? ogSrc : site.url + ogSrc;
 
 	rendered.set(url, page);
 	return page;

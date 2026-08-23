@@ -34,41 +34,43 @@
 	const START = catalogStart();
 	const KEY = 'sorter-updates-since-v1';
 
+	const isDate = (v: string | null | undefined): v is string => !!v && /^\d{4}-\d{2}-\d{2}$/.test(v);
+
+	// The page is prerendered, so the date can only be read once we are in the
+	// browser: `?since=` first (a shared link wins), then the last date this
+	// person used, then a month back as a starting point.
 	let since = $state('');
-	let ready = $state(false); // URL/storage read; before this, write nothing back
 
 	onMount(() => {
 		const fromUrl = page.url.searchParams.get('since');
-		const stored = (() => {
-			try {
-				return localStorage.getItem(KEY);
-			} catch {
-				return null;
-			}
-		})();
-		const initial = fromUrl ?? stored ?? daysAgo(30);
-		if (/^\d{4}-\d{2}-\d{2}$/.test(initial)) since = initial;
-		ready = true;
+		let stored: string | null = null;
+		try {
+			stored = localStorage.getItem(KEY);
+		} catch {
+			/* storage disabled */
+		}
+		since = [fromUrl, stored, daysAgo(30)].find(isDate) ?? '';
 	});
 
-	// Mirror the date into the URL so a view is shareable, and into storage so
-	// it survives a return visit. replaceState before the router has finished
-	// hydrating throws and kills the page, hence the `ready` guard — the same
-	// one /lasercut uses.
-	$effect(() => {
-		if (!browser || !ready) return;
+	// Only a deliberate choice writes back — the URL and storage are updated in
+	// the handler rather than from an effect, so nothing calls replaceState
+	// while the router is still hydrating (which throws, and takes the page
+	// with it).
+	function pick(value: string) {
+		since = value;
+		if (!browser) return;
 		try {
-			localStorage.setItem(KEY, since);
+			localStorage.setItem(KEY, value);
 		} catch {
 			/* storage full / disabled */
 		}
-		const params = new URLSearchParams(page.url.search);
-		if (since) params.set('since', since);
+		const params = new URLSearchParams(location.search);
+		if (isDate(value)) params.set('since', value);
 		else params.delete('since');
 		const qs = params.toString();
 		const target = qs ? `${location.pathname}?${qs}` : location.pathname;
 		if (target !== location.pathname + location.search) replaceState(target, {});
-	});
+	}
 
 	const layers = $derived(layerStore.sizes.length);
 	const updates = $derived(partUpdatesSince(since));
@@ -218,8 +220,9 @@
 				<CalendarClock size={16} class="text-text-muted" />
 				<input
 					type="date"
-					bind:value={since}
+					value={since}
 					min={START}
+					onchange={(e) => pick(e.currentTarget.value)}
 					class="border border-border bg-[var(--color-bg)] px-2 py-1.5 text-sm text-text"
 				/>
 			</span>
@@ -229,7 +232,7 @@
 				<button
 					type="button"
 					class="border border-border px-2.5 py-1.5 text-xs font-semibold text-text-muted transition-colors hover:border-primary hover:text-primary"
-					onclick={() => (since = preset.value())}
+					onclick={() => pick(preset.value())}
 				>
 					{preset.label}
 				</button>

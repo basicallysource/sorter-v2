@@ -546,6 +546,15 @@
 		</p>
 	</header>
 
+	<!-- about the catalog as a whole rather than this build, so it sits above the
+	     settings; the /changes banner lives in the Parts tab, next to the parts -->
+	<div class="mb-6 flex flex-col gap-3">
+		<a href="/updates" class="flex items-center justify-between gap-4 border border-border bg-surface px-4 py-3 text-sm text-text transition-colors hover:border-primary">
+			<span><b>Compare the catalog against a date.</b> What is new since, what has a newer design revision, and what only changed on paper.</span>
+			<span class="shrink-0 font-semibold text-primary">What changed since… →</span>
+		</a>
+	</div>
+
 	<!-- print settings and build options: two boxes that say what they hold -->
 	<div class="mb-6 flex flex-col gap-3">
 	<Disclosure title="Print settings" summary={settingsSummary} bind:open={showSettings} flush>

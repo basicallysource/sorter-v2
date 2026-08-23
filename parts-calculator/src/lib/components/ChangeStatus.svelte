@@ -17,8 +17,15 @@
 		kind,
 		id,
 		name,
-		variant = 'badge'
-	}: { kind: ChangeTargetKind; id: string; name: string; variant?: 'badge' | 'marker' } = $props();
+		variant = 'badge',
+		align = 'left'
+	}: {
+		kind: ChangeTargetKind;
+		id: string;
+		name: string;
+		variant?: 'badge' | 'marker';
+		align?: 'left' | 'right';
+	} = $props();
 
 	const rank = (change: PlannedChange) =>
 		(change.condition === 'broken' ? 0 : 1) * 100 + (Number.parseInt(change.priority.slice(1), 10) || 0);
@@ -55,7 +62,12 @@
 </script>
 
 {#if changes.length}
-	<Popover width="w-80" align={variant === 'marker' ? 'right' : 'left'} {label}>
+	<!-- Left by default, both variants. The parts table scrolls horizontally
+	     (`.pl-scroll`), which clips an absolutely positioned panel, and a marker
+	     sits in the narrow thumbnail cell at the very left — so a right-aligned
+	     panel runs 20rem off the edge of the table and loses its first half.
+	     Opening rightwards into the table body always has room. -->
+	<Popover width="w-80" {align} {label}>
 		{#snippet trigger({ toggle, open })}
 			{#if variant === 'marker'}
 				<button
@@ -65,7 +77,6 @@
 					onclick={toggle}
 					aria-expanded={open}
 					aria-label={label}
-					title={label}
 				>
 					<AlertTriangle size={11} />
 					{#if changes.length > 1}<span class="change-marker-n">{changes.length}</span>{/if}

@@ -998,6 +998,7 @@ body {
 .img-row {
 	display: flex;
 	flex-wrap: wrap;
+	align-items: center;
 	gap: 12px;
 	margin: 1.4rem 0;
 }
@@ -1008,10 +1009,19 @@ body {
 	margin: 0;
 }
 
+/* Capped by height, not width. A single figure in a row gets the full column,
+   which is right for a wide shot and absurd for a portrait one: at 838px wide
+   a 3:4 photo is over 1100px tall and takes the whole screen. Bounding the
+   height instead lets a wide image fill the column while a tall one shrinks to
+   fit and centres, so both read as one picture in a page rather than a wall.
+   (A click-to-enlarge wrapper is the eventual answer; this is the floor.) */
 .img-row img {
 	display: block;
-	width: 100%;
+	width: auto;
+	max-width: 100%;
+	max-height: 460px;
 	height: auto;
+	margin: 0 auto;
 	border: 1px solid var(--line);
 }
 
@@ -1042,8 +1052,9 @@ body {
 
 .doc-figure {
 	display: block;
-	width: 100%;
-	max-width: 440px;
+	width: auto;
+	max-width: min(100%, 440px);
+	max-height: 460px;
 	height: auto;
 	margin: 0 auto 1.4rem;
 	border: 1px solid var(--line);
@@ -1170,9 +1181,11 @@ body {
 }
 .video-embed-self video {
 	display: block;
-	width: 100%;
-	max-width: 440px;
+	width: auto;
+	max-width: min(100%, 440px);
+	max-height: 460px;
 	height: auto;
+	margin: 0 auto;
 	border: 1px solid var(--line);
 	background: var(--line);
 }

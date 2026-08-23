@@ -119,7 +119,7 @@ Lower the cover on, keeping the fan lead clear of the board, and fix it with 4 {
 
 <div class="img-row">
   <figure>
-    <img src="https://img.basically.website/web/assembly/control-board-housing/cover-on-base.2c86cc89b2ac5f5e.jpg" alt="The cover set down on the base with the housing closed, the fan's lead emerging through the corner cutout, and four countersunk screws lying on the bench beside it ready to go in">
+    <img src="https://img.basically.website/web/assembly/control-board-housing/cover-on-base.8c6a304677a0aff3.jpg" alt="The cover set down on the base with the housing closed, the fan's lead emerging through the corner cutout, and four countersunk screws lying on the bench beside it ready to go in">
   </figure>
   <figure>
     <img src="https://img.basically.website/web/assembly/control-board-housing/housing-angled.c67cd89578b97f5f.jpg" alt="The finished housing at an angle, showing the honeycomb vent and basically logo on the lid, the plunger standing proud of the surface, and the slots along the right edge that expose the stepper connectors">
@@ -134,6 +134,16 @@ Press the plunger on the lid. You should hear the button click.
   <figure>
     <img src="https://img.basically.website/web/assembly/control-board-housing/plunger-outside.2bf22968c23a6de8.jpg" alt="Close-up of the lid surface showing the small square head of the plunger standing proud of the textured black plastic, with the honeycomb vent and basically logo nearby">
   </figure>
+</div>
+
+<div class="video-embed-self">
+  <video controls preload="none" playsinline
+    poster="https://assets.basically.website/sorter-docs/pressing-the-plunger-poster-6e2ab26816a2.jpg"
+    width="1280" height="2275"
+  >
+    <source src="https://assets.basically.website/sorter-docs/pressing-the-plunger-w960-0383f6a741bb.mp4" type="video/mp4">
+    <source src="https://assets.basically.website/sorter-docs/pressing-the-plunger-w1920-7d9064396d9c.mp4" type="video/mp4">
+  </video>
 </div>
 
 {% include step.html n="8" title="Bolt it to the frame" %}

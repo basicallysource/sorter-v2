@@ -17079,31 +17079,68 @@
 			"cots": {
 				"type": "fan"
 			},
-			"name": "40 mm 24 V fan",
+			"name": "40 mm 24 V fan (WINSINN 4010)",
 			"category": "Electronics",
-			"description": "40 mm axial fan, 24 V, on the control board housing cover; mounted with four self-tapping M3 \u00d7 12 mm button head screws.",
+			"description": "40 x 40 x 10 mm axial fan, 24 V, on the control board housing cover; mounted with four self-tapping M3 \u00d7 12 mm button head screws. Comes with an XH2.54 2-pin lead, which plugs straight into one of the board's LED ports.",
 			"note": null,
 			"created_at": "2026-08-22",
-			"updated_at": "2026-08-22",
+			"updated_at": "2026-08-23",
 			"attributes": [
 				{
 					"label": "Size",
-					"value": "40 mm"
+					"value": "40 \u00d7 40 \u00d7 10 mm"
 				},
 				{
 					"label": "Voltage",
-					"value": "24 V"
+					"value": "24 V DC"
+				},
+				{
+					"label": "Current",
+					"value": "0.04 A"
+				},
+				{
+					"label": "Speed",
+					"value": "5000 RPM"
+				},
+				{
+					"label": "Airflow",
+					"value": "4.95 CFM"
+				},
+				{
+					"label": "Noise",
+					"value": "26 dBA"
+				},
+				{
+					"label": "Bearing",
+					"value": "Hydraulic"
+				},
+				{
+					"label": "Connector",
+					"value": "XH2.54 2-pin, 30 cm lead"
 				}
 			],
 			"sheet_qty": null,
 			"sheet_qty_text": null,
 			"stock": null,
-			"sourcing": null,
+			"sourcing": {
+				"vendors": [
+					{
+						"region": "US",
+						"vendor": "Amazon",
+						"url": "https://www.amazon.com/dp/B0757RPCN9",
+						"affiliate_url": "https://www.amazon.com/dp/B0757RPCN9?tag=sorterv2-20",
+						"price": 8.99,
+						"pack_qty": 5,
+						"as_of": "2026-08-23",
+						"note": "The 24V - 5000RPM style. The listing also sells 5 V and 12 V under the same page."
+					}
+				]
+			},
 			"alternative": null,
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"image": null
+			"image": "https://img.basically.website/parts/img/fan-40mm-24v-97c8fa9b.png"
 		},
 		{
 			"id": "ext-2020-ag",

@@ -16499,6 +16499,51 @@
 			"image": "https://img.basically.website/parts/img/drv-tmc2209-4eb0a0fc.jpg"
 		},
 		{
+			"id": "jumper-cap-254",
+			"uid": "46qm",
+			"kind": "cots",
+			"cots": {
+				"type": "jumper"
+			},
+			"name": "2.54 mm jumper cap",
+			"category": "Electronics",
+			"description": "Shunt for the control board's MS1/MS2 headers, which set each TMC2209's address on its UART bus. 10 per machine, two per driver.",
+			"note": null,
+			"created_at": "2026-08-23",
+			"updated_at": "2026-08-23",
+			"attributes": [
+				{
+					"label": "Pitch",
+					"value": "2.54 mm"
+				},
+				{
+					"label": "Type",
+					"value": "Open-top shunt, 2-pin"
+				}
+			],
+			"sheet_qty": {
+				"per_machine": 10
+			},
+			"sheet_qty_text": null,
+			"stock": null,
+			"sourcing": {
+				"vendors": [
+					{
+						"region": "US",
+						"vendor": "Amazon",
+						"url": "https://www.amazon.com/dp/B0BRK36G33",
+						"affiliate_url": "https://www.amazon.com/dp/B0BRK36G33?tag=sorterv2-20",
+						"as_of": "2026-08-23"
+					}
+				]
+			},
+			"alternative": null,
+			"caption": null,
+			"docs_page": null,
+			"conflicts": null,
+			"image": "https://img.basically.website/parts/img/jumper-cap-3b10ebbc.png"
+		},
+		{
 			"id": "mcu-rpi-pico",
 			"uid": "hx8l",
 			"kind": "cots",

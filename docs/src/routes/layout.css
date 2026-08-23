@@ -1153,11 +1153,28 @@ body {
 }
 
 .video-embed-portrait iframe,
-.video-embed-wide iframe {
+.video-embed-wide iframe,
+.video-embed-portrait video,
+.video-embed-wide video {
 	display: block;
 	width: 100%;
 	height: 100%;
 	border: 1px solid var(--line);
+}
+
+/* A self-hosted clip from the asset service, which returns its own aspect
+   ratio rather than YouTube's 16:9 frame. Sized by the video, capped so a
+   portrait phone clip does not run the length of the page. */
+.video-embed-self {
+	margin: 1.4rem 0;
+}
+.video-embed-self video {
+	display: block;
+	width: 100%;
+	max-width: 440px;
+	height: auto;
+	border: 1px solid var(--line);
+	background: var(--line);
 }
 
 .photo-grid {

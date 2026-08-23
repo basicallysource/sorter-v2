@@ -78,20 +78,17 @@ Fan on the inside of the cover, over the vent, label facing into the enclosure s
 
 <div class="img-row">
   <figure>
-    <img src="https://img.basically.website/web/assembly/control-board-housing/fan-in-cover.7f275a28105a93d2.jpg" alt="The inside of the printed cover with the 40 mm WINSINN fan screwed down over its vent opening on four screws, its red and black lead running off to the left, and the rectangular plunger slot beside it">
+    <img src="https://img.basically.website/web/assembly/control-board-housing/fan-in-cover.c945a84566cafed1.jpg" alt="The inside of the printed cover with the 40 mm WINSINN fan screwed down over its vent opening on four screws, its red and black lead running off to the left, and the rectangular plunger slot beside it">
   </figure>
 </div>
 
 {% include step.html n="4" title="Fit the plunger and its retainer" %}
 
-The plunger reaches the board's RESET switch from outside. Drop it through the slot from the outside of the cover, then hold it in with the retainer on 2 {% include fastener.html size="M3" variant="countersunk" length="8" %} self-tapping screws. It should slide freely and fall back on its own.
+The plunger lands on the board's reset button, so the button can be pressed with the housing shut. Drop it through the slot from the outside of the cover, then hold it in with the retainer on 2 {% include fastener.html size="M3" variant="countersunk" length="8" %} self-tapping screws. It should slide freely and fall back on its own.
 
 <div class="img-row">
   <figure>
-    <img src="https://img.basically.website/web/assembly/control-board-housing/plunger-and-retainer.e9d6ac8a8bca453b.jpg" alt="Inside the cover: the printed plunger standing up through its slot with the retainer plate sitting loosely over it, the two screw holes still empty, and the fan behind">
-  </figure>
-  <figure>
-    <img src="https://img.basically.website/web/assembly/control-board-housing/retainer-fitted.8ae3738262ebcac3.jpg" alt="The same view with the retainer screwed down on two countersunk screws, capturing the plunger so it can slide but not fall out">
+    <img src="https://img.basically.website/web/assembly/control-board-housing/retainer-fitted.9b5186fe6c45a466.jpg" alt="Inside the cover, the retainer screwed down on two countersunk screws over the plunger, capturing it so it can slide but not fall out, with the fan behind">
   </figure>
 </div>
 
@@ -106,7 +103,7 @@ The fan runs off one of the board's four LED ports, which are 24 V switched to g
 
 <div class="img-row">
   <figure>
-    <img src="https://img.basically.website/web/assembly/control-board-housing/fan-into-led-port.4423da9097ea9609.jpg" alt="Looking down through the cover's corner cutout at the board below, where the fan's red and black lead is plugged into the two-pin connector silkscreened LED_1_2, with Controlled by GPIO6 printed beside it">
+    <img src="https://img.basically.website/web/assembly/control-board-housing/fan-into-led-port.74abe08742b086c0.jpg" alt="Looking down through the cover's corner cutout at the board below, where the fan's red and black lead is plugged into the two-pin connector silkscreened LED_1_2, with Controlled by GPIO6 printed beside it">
     <figcaption>Into LED_1_2, driven by GPIO6.</figcaption>
   </figure>
 </div>
@@ -125,20 +122,17 @@ Lower the cover on, keeping the fan lead clear of the board, and fix it with 4 {
     <img src="https://img.basically.website/web/assembly/control-board-housing/cover-on-base.2c86cc89b2ac5f5e.jpg" alt="The cover set down on the base with the housing closed, the fan's lead emerging through the corner cutout, and four countersunk screws lying on the bench beside it ready to go in">
   </figure>
   <figure>
-    <img src="https://img.basically.website/web/assembly/control-board-housing/housing-angled.b205375e00aa1ee4.jpg" alt="The finished housing at an angle, showing the honeycomb vent and basically logo on the lid, the plunger standing proud of the surface, and the slots along the right edge that expose the stepper connectors">
+    <img src="https://img.basically.website/web/assembly/control-board-housing/housing-angled.c67cd89578b97f5f.jpg" alt="The finished housing at an angle, showing the honeycomb vent and basically logo on the lid, the plunger standing proud of the surface, and the slots along the right edge that expose the stepper connectors">
   </figure>
 </div>
 
 {% include step.html n="7" title="Check the reset plunger" %}
 
-Press the plunger on the lid. You should feel the switch click and the plunger should spring back.
+Press the plunger on the lid. You should hear the button click.
 
 <div class="img-row">
   <figure>
-    <img src="https://img.basically.website/web/assembly/control-board-housing/plunger-outside.4739b13cc3445d89.jpg" alt="Close-up of the lid surface showing the small square head of the plunger standing proud of the textured black plastic, with the honeycomb vent and basically logo nearby">
-  </figure>
-  <figure>
-    <img src="https://img.basically.website/web/assembly/control-board-housing/pressing-the-plunger.db18b6672136b333.jpg" alt="A finger reaching down to the plunger on the closed housing lid to press it">
+    <img src="https://img.basically.website/web/assembly/control-board-housing/plunger-outside.2bf22968c23a6de8.jpg" alt="Close-up of the lid surface showing the small square head of the plunger standing proud of the textured black plastic, with the honeycomb vent and basically logo nearby">
   </figure>
 </div>
 

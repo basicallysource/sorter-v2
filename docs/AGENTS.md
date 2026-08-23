@@ -114,7 +114,7 @@ pages are rendered through liquidjs at build time. Includes live in
     <p>Warning text.</p>
   </div>
   ```
-- **Video:** plain embed, 16:9 full width. No autoplay (just the normal player).
+- **Video (YouTube):** plain embed, 16:9 full width. No autoplay (just the normal player).
   ```html
   <div class="video-embed video-embed-wide">
     <iframe src="https://www.youtube.com/embed/VIDEO_ID" title="…"
@@ -122,6 +122,9 @@ pages are rendered through liquidjs at build time. Includes live in
   </div>
   ```
   `video-embed-portrait` exists for true 9:16 shorts, but most videos are wide.
+- **Video (a clip of your own):** `video-embed-self`, holding a real `<video>`
+  whose sources come from the asset service. See **Video** below for how it
+  gets there; never hand-write one of these URLs.
 
 One Liquid caveat that did not exist under Jekyll: a loop that emits rows
 inside a raw HTML `<table>` must not leave blank lines between rows (the
@@ -170,6 +173,47 @@ yourself:
    `https://img.basically.website/web/<path>.<hash>.<jpg|png>`. Plain URL, no Liquid.
 4. Commit the URL, never the image bytes. The URL works identically on PR
    previews and production, since the bucket is branch-independent.
+
+## Video — the workflow
+
+A clip does **not** go in the images bucket. `upload_image.py` uploads exactly
+what you hand it, which is right for a photo and wrong for a phone video: tens
+of megabytes of HEVC at 4K, which no browser should be asked to download to
+show a two-second demonstration.
+
+Video goes through the **asset service** (`assets.basically.website`), the same
+one the parts calculator slices STLs with. It keeps the original and derives
+what a browser should actually fetch: an **MP4 ladder** (one encode per width)
+and a **poster frame**. A page shows the poster and downloads nothing until
+someone presses play.
+
+```bash
+python3 docs/scripts/upload_video.py ~/Downloads/IMG_7204.MOV \
+    assembly/control-board-housing/pressing-the-plunger
+```
+
+That uploads, waits for the encodes, prints every rendition, and prints the
+`<video>` block to paste. Paste it as-is. Rules that carry over from images
+apply unchanged: every URL contains a hash of its bytes, so it is immutable and
+cacheable forever; nothing binary is committed; a re-encode is a new URL.
+
+Two things to expect. **Transcoding takes minutes and the service runs one job
+at a time**, so a page with several clips is a slow first upload; interrupting
+is safe, since the upload is content-addressed and re-running picks the same
+asset back up. And **`validate_images.py` does not check these URLs** — it
+walks `img.basically.website/web/` only, and video is served from
+`assets.basically.website`. Nothing will catch a typo in a pasted video URL, so
+load the page and press play before you push.
+
+Credentials are `ASSET_SERVICE_URL` / `ASSET_SERVICE_TOKEN`, read from
+`~/.config/asset-service/*.env` or the environment. **Check rather than
+assume**, the same as with `SPACES_KEY`. If they are genuinely absent, say so
+and leave the clip out rather than shipping a still and calling it a video.
+
+**A still frame is not a substitute.** If the point of the shot is motion —
+something clicking, spinning, falling through — either it goes up as a video or
+it does not go on the page. Pulling a frame out with `ffmpeg` and captioning it
+as though it moved is worse than omitting it.
 
 **A contributor's file sometimes carries images embedded as base64 data URIs**
 (e.g. `![alt](data:image/jpeg;base64,...)`) instead of as separate

@@ -208,10 +208,11 @@
 	<div class="mb-6">
 		<h1 class="text-3xl font-bold tracking-tight text-text">What changed since…</h1>
 		<p class="mt-2 max-w-3xl text-sm text-text-muted">
-			A time-based diff of the catalog. Pick any date and this lists what has moved between then and
-			now: parts that did not exist yet, parts that have a newer design revision, and entries whose
-			listing changed without the geometry moving. It reads the dates already in the catalog, so
-			there is no second changelog to maintain and nothing here records what you have printed.
+			Comparing an older set of parts against the current catalog is otherwise near impossible: this
+			does it from one date. Everything between that date and now, in three groups — parts that did
+			not exist yet, parts that have a newer design revision, and entries whose listing changed
+			without the geometry moving. It reads the dates already in the catalog, so there is no second
+			changelog to maintain and nothing here records or assumes what you have.
 		</p>
 	</div>
 

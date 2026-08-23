@@ -114,7 +114,7 @@ pages are rendered through liquidjs at build time. Includes live in
     <p>Warning text.</p>
   </div>
   ```
-- **Video:** plain embed, 16:9 full width. No autoplay (just the normal player).
+- **Video (YouTube):** plain embed, 16:9 full width. No autoplay (just the normal player).
   ```html
   <div class="video-embed video-embed-wide">
     <iframe src="https://www.youtube.com/embed/VIDEO_ID" title="…"
@@ -122,6 +122,9 @@ pages are rendered through liquidjs at build time. Includes live in
   </div>
   ```
   `video-embed-portrait` exists for true 9:16 shorts, but most videos are wide.
+- **Video (a clip of your own):** `video-embed-self`, holding a real `<video>`
+  whose sources come from the asset service. See **Video** below for how it
+  gets there; never hand-write one of these URLs.
 
 One Liquid caveat that did not exist under Jekyll: a loop that emits rows
 inside a raw HTML `<table>` must not leave blank lines between rows (the
@@ -170,6 +173,77 @@ yourself:
    `https://img.basically.website/web/<path>.<hash>.<jpg|png>`. Plain URL, no Liquid.
 4. Commit the URL, never the image bytes. The URL works identically on PR
    previews and production, since the bucket is branch-independent.
+
+## Video — the workflow
+
+A clip does **not** go in the images bucket. `upload_image.py` uploads exactly
+what you hand it, which is right for a photo and wrong for a phone video: tens
+of megabytes of HEVC at 4K, which no browser should be asked to download to
+watch two seconds of something clicking.
+
+Video goes to the **asset service** (`assets.basically.website`, public repo
+`basicallysource/asset-service`), the same one the parts calculator slices STLs
+through. It keeps the original and holds derived forms beside it: an **MP4
+ladder** (960 and 1920 wide, never upscaled) and a **poster** still. A page
+shows the poster and downloads nothing until someone presses play.
+
+Upload with that repo's own CLI, not with a script in here. The encoding rules
+live in its `internal/derive`, and a second copy of them here would drift:
+
+```bash
+asset-service upload --derive --namespace sorter-docs ~/Downloads/IMG_7204.MOV
+```
+
+**`--derive` is not optional for anything big.** The service *queues*
+derivation rather than doing it, and a standing worker elsewhere drains that
+queue. That worker has a memory ceiling, and a 4K phone clip goes straight
+through it: encoding 3840x2160 down to the 1920 rung wanted more than the
+worker is allowed, so ffmpeg was OOM-killed. The worker restarts on failure,
+re-claims the same job, and dies again, which blocks **everything** behind it
+in the queue, including uploads that would have been fine on their own. From
+the client all you see is `renditions_status: pending` forever, with no error
+and nothing to poll (`/v1/health`, `/v1/namespaces` are 404), so you cannot
+tell a busy queue from a jammed one.
+
+`--derive` sidesteps all of that: it encodes on your machine, where the file
+already is, and uploads the results. It finished the same clip in seconds.
+(Diagnosed 2026-08-23, after a plain upload jammed the shared queue for an
+hour.)
+
+Then turn the manifest into markup:
+
+```bash
+python3 docs/scripts/video_embed.py sorter-docs/<name>-<hash>.mov
+```
+
+Paste the block it prints. Rules carry over from images unchanged: every URL
+contains a hash of its bytes, so it is immutable and cacheable forever; nothing
+binary is committed; a re-encode is a new URL.
+
+Three things to know.
+
+- **`validate_images.py` does not check these URLs.** It walks
+  `img.basically.website/web/` only, and video is served from
+  `assets.basically.website`. Nothing catches a typo in a pasted video URL, so
+  load the page and press play before you push.
+- **Size the player from the poster, not from an encode.** A phone shoots
+  portrait into a landscape frame and sets a rotation flag, so the MP4 reports
+  1920x1080 and plays 1080x1920 while the poster is a still with the rotation
+  already applied. `video_embed.py` already does this; if you hand-write a
+  block, do the same or the page reserves a landscape hole the video will not
+  fill.
+- **Nothing deletes.** `DELETE /v1/assets/<key>` is 405. An upload you regret
+  is an object that stays, so do not use the real namespace as a scratchpad.
+
+Credentials are `ASSET_SERVICE_URL` / `ASSET_SERVICE_TOKEN`, read from
+`~/.config/asset-service/*.env` or the environment. **Check rather than
+assume**, the same as with `SPACES_KEY`. If they are genuinely absent, say so
+and leave the clip out rather than shipping a still and calling it a video.
+
+**A still frame is not a substitute.** If the point of the shot is motion,
+something clicking or spinning or falling through, either it goes up as a video
+or it does not go on the page. Pulling a frame out with `ffmpeg` and captioning
+it as though it moved is worse than omitting it.
 
 **A contributor's file sometimes carries images embedded as base64 data URIs**
 (e.g. `![alt](data:image/jpeg;base64,...)`) instead of as separate

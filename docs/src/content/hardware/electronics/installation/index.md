@@ -10,12 +10,10 @@ permalink: /hardware/electronics/installation/
 author: barthel
 contributors: [spencer]
 warning: >-
-  **AI-generated first drafts.** Written from the machine assembly tree in the [parts
-  calculator](https://parts-calculator.basically.website/assembly), not from an actual build.
-  These four pages exist so the gap is visible and fillable, not because the steps are written.
-  The parts on each come from the calculator, which records what every mount is made of; the
-  assembly order, the orientation and most of the screw sizes are recorded nowhere, so each gap
-  is marked in place rather than guessed at. Correct them as you build.
+  **Mixed.** The two control board pages come from a real build. The PSU box, Orange Pi mount
+  and Pico headers pages are AI-generated first drafts written from the [parts
+  calculator](https://parts-calculator.basically.website/assembly), not from a build: the parts
+  are real, the steps are not checked. Gaps are marked in place. Correct them as you build.
 ---
 
 The [wire harness]({{ '/hardware/electronics/' | relative_url }}) pages cover what connects to what. These cover the other half: where the hardware physically sits and what holds it there.
@@ -29,8 +27,9 @@ The PSU, the control board and the Orange Pi each live in their own mount, and a
 
 1. **[Pico headers]({{ '/hardware/electronics/installation/pico-headers/' | relative_url }})**: soldering the header pins so the Pico can seat in the control board. First, while the board is still loose.
 2. **[PSU box]({{ '/hardware/electronics/installation/psu-box/' | relative_url }})**: the printed enclosure around the Mean Well LRS-350-24.
-3. **[Control board mount]({{ '/hardware/electronics/installation/control-board-mount/' | relative_url }})**: basically Embedded Control Board v1.3 on standoffs.
-4. **[Orange Pi mount]({{ '/hardware/electronics/installation/orange-pi-mount/' | relative_url }})**: Orange Pi 5 on standoffs.
+3. **[Preparing the control board]({{ '/hardware/electronics/installation/control-board-prep/' | relative_url }})**: the five stepper drivers, the Pico, and the jumpers that address the drivers.
+4. **[Control board housing]({{ '/hardware/electronics/installation/control-board-housing/' | relative_url }})**: the printed housing the board closes into, with its fan.
+5. **[Orange Pi mount]({{ '/hardware/electronics/installation/orange-pi-mount/' | relative_url }})**: Orange Pi 5 on standoffs.
 
 Wiring follows on the [wire harness]({{ '/hardware/electronics/' | relative_url }}) page, then [software setup]({{ '/hardware/assembly/software-setup/' | relative_url }}).
 
@@ -38,8 +37,7 @@ Wiring follows on the [wire harness]({{ '/hardware/electronics/' | relative_url 
 
 Collected here rather than left on the individual pages, because these are the things that block finishing them.
 
-- **The printed brackets for the control board and the Orange Pi are not in the parts registry.** The calculator lists the board, the standoffs, the inserts and the screws, but not the part each one stands off. No STL, no render, no print settings.
-- **Screw lengths.** The six M5s that hold the mounts to the frame and the eight M3s in the two board mounts are placeholders. Measure one on a built machine.
+- **The Orange Pi's printed bracket is not in the parts registry.** No STL, no render, no print settings. The control board's housing is, as of v2.
+- **Screw lengths.** The six M5s that hold the mounts to the frame are placeholders. Measure one on a built machine.
 - **Where on the frame each mount goes.** The photo above is the whole record. Which extrusion, which face, and which way round are not written down.
-- **Cooling.** The Pi and the board end up in enclosures with no airflow other than a fan, and how the fans are powered is still open (open item 1 on the [wire harness]({{ '/hardware/electronics/' | relative_url }}) page).
-- **Whether the two housings and the two mounts are the same thing.** The calculator carries an Orange Pi 5 Housing and an Embedded Control Board Housing as separate, empty assemblies alongside the two mounts. Somebody who knows the CAD needs to say whether those are the missing brackets or a different design.
+- **Cooling the Orange Pi.** The control board's fan is answered: it sits in the housing cover and runs off a GPIO-switched 24 V port on the board itself. How the Pi's fan is powered is still open (open item 1 on the [wire harness]({{ '/hardware/electronics/' | relative_url }}) page).

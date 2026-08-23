@@ -32,7 +32,7 @@ The fasteners and quantities in the parts list come from the parts calculator an
 
 {% include fastener-legend.html %}
 
-One per machine. Which Orange Pi 5 to buy, how much RAM and storage it needs, the WiFi module, the USB hub and cooling are all on the [Orange Pi 5]({{ '/hardware/orange-pi-5/' | relative_url }}) page. This page is only about bolting it to the machine, and it is the same shape as the [control board mount]({{ '/hardware/electronics/installation/control-board-mount/' | relative_url }}): 4 inserts, 4 standoffs, 4 M3 screws, 2 M5 into the frame.
+One per machine. Which Orange Pi 5 to buy, how much RAM and storage it needs, the WiFi module, the USB hub and cooling are all on the [Orange Pi 5]({{ '/hardware/orange-pi-5/' | relative_url }}) page. This page is only about bolting it to the machine, and it is the same shape as the [control board housing]({{ '/hardware/electronics/installation/control-board-housing/' | relative_url }}): 4 inserts, 4 standoffs, 4 M3 screws, 2 M5 into the frame.
 
 <div class="callout callout-warning">
   <span class="callout-icon" aria-hidden="true">⚠</span>
@@ -68,7 +68,7 @@ Whether the Pi's heatsink or fan clears the standoffs is not recorded either.
 
 {% include step.html n="3" title="Bolt the mount to the frame" %}
 
-The mount hangs off the 2020 frame on 2 <span class="fastener-todo">M5, length not recorded</span> screws, the same as the [PSU box]({{ '/hardware/electronics/installation/psu-box/' | relative_url }}) and the [control board mount]({{ '/hardware/electronics/installation/control-board-mount/' | relative_url }}).
+The mount hangs off the 2020 frame on 2 <span class="fastener-todo">M5, length not recorded</span> screws, the same as the [PSU box]({{ '/hardware/electronics/installation/psu-box/' | relative_url }}) and the [control board housing]({{ '/hardware/electronics/installation/control-board-housing/' | relative_url }}).
 
 Which extrusion it goes on, and in which orientation, is not written down. The top-down layout photo on the [installation overview]({{ '/hardware/electronics/installation/' | relative_url }}) is the only record.
 

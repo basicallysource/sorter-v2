@@ -85,8 +85,10 @@ sections:
             children:
               - title: PSU box
                 url: /hardware/electronics/installation/psu-box/
-              - title: Control board mount
-                url: /hardware/electronics/installation/control-board-mount/
+              - title: Preparing the control board
+                url: /hardware/electronics/installation/control-board-prep/
+              - title: Control board housing
+                url: /hardware/electronics/installation/control-board-housing/
               - title: Orange Pi mount
                 url: /hardware/electronics/installation/orange-pi-mount/
               - title: Pico headers

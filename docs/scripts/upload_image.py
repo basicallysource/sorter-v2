@@ -34,7 +34,7 @@ from pathlib import Path
 
 import boto3
 from botocore.exceptions import ClientError
-from PIL import Image
+from PIL import Image, ImageOps
 
 MAX_PX = 1600
 JPEG_Q = 82
@@ -80,6 +80,11 @@ def downscale(img: Image.Image) -> Image.Image:
 def make_web_version(src: Path) -> tuple[bytes, str]:
     with Image.open(src) as img:
         img.load()
+        # Bake EXIF orientation into the pixels. A phone photo stores its frames
+        # landscape and carries "rotate me" in a tag; Pillow does not apply it and
+        # the tag does not survive the re-encode below, so without this the web
+        # copy ships sideways while every local preview looks upright.
+        img = ImageOps.exif_transpose(img)
         transparent = has_transparency(img)
         img = downscale(img)
         buf = io.BytesIO()

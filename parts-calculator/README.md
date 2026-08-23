@@ -172,6 +172,38 @@ time: the generated data travels in the same commits as the source that
 produced it, so the preview never waits on anything and nothing moves the
 branch head underneath you.
 
+## JSON API
+
+The catalog is readable as JSON straight off the site. The endpoints are
+prerendered, so they are plain files on the CDN rather than a running service:
+no query parameters, no filtering, and no auth. `Access-Control-Allow-Origin: *`
+is set for `/api/*` in [`static/_headers`](static/_headers), so a browser on any
+origin can fetch them.
+
+| endpoint | what it is |
+|---|---|
+| `/api/catalog.json` | everything the site reads: `settings`, `sections`, `changes`, `folders`, `color_roles`, `families`, `assemblies`, `parts`, `plates`, `hardware`, `lasercut`, `merges` |
+| `/api/parts.json` | the printed parts only |
+| `/api/hardware.json` | the bought parts: fasteners, extrusion, electronics |
+| `/api/changes.json` | the tracked changes behind `/changes` |
+
+The bodies are the catalog's own objects, unwrapped and unrenamed, so the API
+and the site are looking at the same fields. Live:
+
+```
+curl -s https://parts-calculator.basically.website/api/changes.json | jq '.[] | {id, priority, condition}'
+```
+
+Every printed part carries `created_at`, `updated_at` and a `versions` list with
+a date, a message and an STL URL per revision — that is all `/updates` ("what
+changed since…") computes from, so it is reproducible against `/api/parts.json`
+with no server involved.
+
+The endpoints are slices of the one generated file, so adding another is a
+`+server.ts` under `src/routes/api/` returning a different key. Nothing is
+hand-maintained: change `catalog/parts.json`, regenerate, and the API moves with
+the site.
+
 ## Dev
 
 ```

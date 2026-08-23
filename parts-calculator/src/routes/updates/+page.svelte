@@ -27,10 +27,12 @@
 	import { browser } from '$app/environment';
 	import { onMount } from 'svelte';
 
-	// Answers one question: I printed my parts on some date — what has the
-	// catalog done since? The dates are already in the data (`created_at`,
-	// `updated_at` and a dated `versions` entry per revision), so this page is a
-	// filter over them, not a second record of what changed.
+	// A time-based diff of the catalog: given a date, what has changed between
+	// then and now. It tracks the catalog, not the reader — nothing here knows
+	// or records what anybody has printed, and the date is just one end of the
+	// comparison. The dates are already in the data (`created_at`, `updated_at`
+	// and a dated `versions` entry per revision), so this page is a filter over
+	// them, not a second record of what changed.
 	const START = catalogStart();
 	const KEY = 'sorter-updates-since-v1';
 
@@ -79,14 +81,14 @@
 	const touched = $derived(updates.filter((u) => u.kind === 'touched'));
 	const candidates = $derived(candidatesSince(since));
 
-	// What the catch-up costs: every new part, and one replacement of every
-	// revised one, at the current layer count.
-	const reprint = $derived([...added, ...revised]);
-	const reprintGrams = $derived(
-		reprint.reduce((sum, u) => sum + u.part.grams * machineQty(u.part, layers), 0)
+	// What the difference weighs: every new part plus one of every revised one,
+	// at the current layer count. A size for the diff, not an instruction.
+	const changed = $derived([...added, ...revised]);
+	const changedGrams = $derived(
+		changed.reduce((sum, u) => sum + u.part.grams * machineQty(u.part, layers), 0)
 	);
-	const reprintSeconds = $derived(
-		reprint.reduce((sum, u) => sum + u.part.print_seconds * machineQty(u.part, layers), 0)
+	const changedSeconds = $derived(
+		changed.reduce((sum, u) => sum + u.part.print_seconds * machineQty(u.part, layers), 0)
 	);
 
 	const presets = [
@@ -127,7 +129,7 @@
 				{#if u.kind === 'new'}
 					<Badge variant="success"><Plus size={11} /> New</Badge>
 				{:else if u.kind === 'revised'}
-					<Badge variant="warning"><RefreshCw size={11} /> Reprint · v{u.part.version}</Badge>
+					<Badge variant="warning"><RefreshCw size={11} /> Revised · v{u.part.version}</Badge>
 				{:else}
 					<Badge variant="neutral"><Info size={11} /> Listing only</Badge>
 				{/if}
@@ -149,11 +151,11 @@
 						</li>
 					{/each}
 				</ul>
-				{#if u.printed}
+				{#if u.atCutoff}
 					<p class="mt-1.5 text-xs text-text-muted">
-						You printed <b class="text-text">v{u.printed.version}</b> ({fmtDate(u.printed.date)}).
-						{#if u.printed.stl}
-							<a href={u.printed.stl} download class="text-primary hover:text-primary-hover">Download that older STL</a> if you need to compare.
+						Current on that date: <b class="text-text">v{u.atCutoff.version}</b> ({fmtDate(u.atCutoff.date)}).
+						{#if u.atCutoff.stl}
+							<a href={u.atCutoff.stl} download class="text-primary hover:text-primary-hover">Download that older STL</a> to compare.
 						{/if}
 					</p>
 				{/if}
@@ -197,7 +199,7 @@
 
 <Seo
 	title="What changed since"
-	description="Give the date you last printed and see only the Sorter V2 printed parts that are new or have been revised since."
+	description="A time-based diff of the Sorter V2 printed-parts catalog: pick a date and see which parts are new since, which have a newer design revision, and which listings changed."
 />
 
 <main class="mx-auto max-w-6xl px-4 py-8 sm:px-6">
@@ -206,16 +208,16 @@
 	<div class="mb-6">
 		<h1 class="text-3xl font-bold tracking-tight text-text">What changed since…</h1>
 		<p class="mt-2 max-w-3xl text-sm text-text-muted">
-			Give the date you printed (or downloaded) your parts and this lists only what has moved since:
-			parts that did not exist then, and parts that have a newer design revision than the one you
-			have. Dates come from the catalog itself, so this stays right without anyone maintaining a
-			second changelog.
+			A time-based diff of the catalog. Pick any date and this lists what has moved between then and
+			now: parts that did not exist yet, parts that have a newer design revision, and entries whose
+			listing changed without the geometry moving. It reads the dates already in the catalog, so
+			there is no second changelog to maintain and nothing here records what you have printed.
 		</p>
 	</div>
 
 	<div class="setup-panel mb-6 flex flex-wrap items-end gap-x-4 gap-y-3 p-4">
 		<label class="flex flex-col gap-1 text-sm">
-			<span class="font-semibold text-text">I printed on</span>
+			<span class="font-semibold text-text">Changes since</span>
 			<span class="inline-flex items-center gap-2">
 				<CalendarClock size={16} class="text-text-muted" />
 				<input
@@ -248,30 +250,30 @@
 			<b>{added.length}</b> new {added.length === 1 ? 'part' : 'parts'},
 			<b>{revised.length}</b> revised,
 			<b>{touched.length}</b> listing-only {touched.length === 1 ? 'change' : 'changes'}.
-			{#if reprint.length}
+			{#if changed.length}
 				<span class="mt-1 block text-text-muted">
-					Printing the new and revised ones at {layers} layer{layers === 1 ? '' : 's'}:
-					<b class="text-text">{grams(reprintGrams)}</b> of filament, about
-					<b class="text-text">{duration(reprintSeconds)}</b> of printer time.
+					The new and revised parts together, at {layers} layer{layers === 1 ? '' : 's'}:
+					<b class="text-text">{grams(changedGrams)}</b> of filament, about
+					<b class="text-text">{duration(changedSeconds)}</b> of printer time.
 				</span>
 			{/if}
 		</p>
 
 		{@render section(
 			'New parts',
-			'These did not exist on your date, so you have never printed them.',
+			'These did not exist in the catalog on that date.',
 			added,
 			'new'
 		)}
 		{@render section(
-			'Revised parts — reprint these',
-			'A newer design revision exists. What you have in the machine is the older one; the version notes below say what changed and why.',
+			'Revised parts',
+			'A design revision was released after that date. The version notes below say what changed and why, and the older revision is linked so the two can be compared.',
 			revised,
 			'revised'
 		)}
 		{@render section(
 			'Listing changed, design did not',
-			'Same design revision as the one you printed — only the catalog entry moved (description, quantity, colour or pictures). Nothing to reprint.',
+			'Same design revision as on that date — only the catalog entry moved (description, quantity, colour or pictures). The geometry is identical.',
 			touched,
 			'touched'
 		)}
@@ -282,9 +284,9 @@
 					<FlaskConical size={18} class="text-info" /> Revisions under test <span class="text-text-muted">({candidates.length})</span>
 				</h2>
 				<p class="mb-3 mt-1 max-w-3xl text-sm text-text-muted">
-					Candidates raised since your date: alternative designs being test-printed for a part's slot.
-					They are not part of the build and carry no version number, but if one is for a part you
-					were about to print, it is worth knowing.
+					Candidates raised since that date: alternative designs being tested for a part's slot. They
+					are not part of the build and carry no version number, but they are a change to the
+					catalog like any other.
 				</p>
 				<ul class="border border-border bg-surface">
 					{#each candidates as c (c.candidate.uid)}
@@ -314,7 +316,7 @@
 
 		{#if !updates.length && !candidates.length}
 			<p class="border border-border bg-surface px-4 py-6 text-sm text-text-muted">
-				Nothing has changed since {fmtDate(since)} — your printed parts are current.
+				Nothing in the catalog has changed since {fmtDate(since)}.
 			</p>
 		{/if}
 	{/if}

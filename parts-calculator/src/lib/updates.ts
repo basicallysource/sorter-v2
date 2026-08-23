@@ -1,19 +1,21 @@
-// "What has changed since I printed?" — the catalog already answers it.
+// A time-based diff of the catalog: what changed between a date and now.
+//
+// This tracks the catalog, never the reader. Nothing here knows or stores what
+// anybody has printed; the date is one end of a comparison and that is all.
 //
 // Every part carries `created_at`, `updated_at` and, once it has been revised,
 // a `versions` list with a date and a message per version. Given one date, a
 // part falls into exactly one bucket:
 //
-//   new      — it did not exist then, so it was never printed
-//   revised  — a new version was released since, so the print in the machine is
-//              an older revision of the same part
+//   new      — it did not exist in the catalog then
+//   revised  — a new design revision was released after that date
 //   touched  — same design revision (no version bump), but its catalog entry
 //              changed: description, quantities, colour, pictures, or a
-//              re-export of identical geometry. Nothing to reprint.
+//              re-export of identical geometry. The geometry is unchanged.
 //
-// The split matters because only the first two cost filament. `touched` is
-// deliberately kept apart rather than folded into "changed", so a builder
-// reading the list never reprints a part whose design never moved.
+// The split matters because the third is not a design change at all. `touched`
+// is deliberately kept apart rather than folded into "changed", so nobody
+// reads a listing edit as a part that moved.
 
 import {
 	PARTS,
@@ -31,8 +33,8 @@ export type PartUpdate = {
 	date: string;
 	/** Versions released after the cutoff, oldest first (revised only). */
 	newVersions: PartVersion[];
-	/** The version that was current at the cutoff — the one they printed. */
-	printed: PartVersion | null;
+	/** The revision that was current on the cutoff date, for comparison. */
+	atCutoff: PartVersion | null;
 };
 
 export type CandidateUpdate = { part: Part; candidate: PartCandidate };
@@ -53,7 +55,7 @@ export function partUpdatesSince(cutoff: string, parts: Part[] = PARTS): PartUpd
 	const out: PartUpdate[] = [];
 	for (const part of parts) {
 		if (isAfter(part.created_at, cutoff)) {
-			out.push({ part, kind: 'new', date: part.created_at, newVersions: [], printed: null });
+			out.push({ part, kind: 'new', date: part.created_at, newVersions: [], atCutoff: null });
 			continue;
 		}
 		const newVersions = (part.versions ?? []).filter((v) => isAfter(v.date, cutoff));
@@ -63,12 +65,12 @@ export function partUpdatesSince(cutoff: string, parts: Part[] = PARTS): PartUpd
 				kind: 'revised',
 				date: newVersions[newVersions.length - 1].date,
 				newVersions,
-				printed: versionAt(part, cutoff)
+				atCutoff: versionAt(part, cutoff)
 			});
 			continue;
 		}
 		if (isAfter(part.updated_at, cutoff))
-			out.push({ part, kind: 'touched', date: part.updated_at, newVersions: [], printed: null });
+			out.push({ part, kind: 'touched', date: part.updated_at, newVersions: [], atCutoff: null });
 	}
 	return out.sort(
 		(a, b) => b.date.localeCompare(a.date) || a.part.name.localeCompare(b.part.name)
@@ -76,8 +78,8 @@ export function partUpdatesSince(cutoff: string, parts: Part[] = PARTS): PartUpd
 }
 
 /** Candidates raised since the cutoff: revisions under test for a part's slot.
- *  Not part of any build — listed so someone deciding what to print knows a
- *  replacement is already being tried. */
+ *  Not part of any build, and carrying no version number, but a change to the
+ *  catalog in the window like any other. */
 export function candidatesSince(cutoff: string, parts: Part[] = PARTS): CandidateUpdate[] {
 	if (!/^\d{4}-\d{2}-\d{2}$/.test(cutoff)) return [];
 	const out: CandidateUpdate[] = [];

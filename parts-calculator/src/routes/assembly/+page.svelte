@@ -11,7 +11,9 @@
 	import HardwareDetailModal from '$lib/components/HardwareDetailModal.svelte';
 	import HardwareIcon from '$lib/components/HardwareIcon.svelte';
 	import ImageStrip from '$lib/components/ImageStrip.svelte';
+	import SearchField from '$lib/components/search/SearchField.svelte';
 	import Seo from '$lib/components/Seo.svelte';
+	import { scoreEntry } from '$lib/search';
 	import { colorStore } from '$lib/colors.svelte';
 	import {
 		docsUrl,
@@ -23,6 +25,7 @@
 		hardwareImage,
 		JOIN_LABELS,
 		lineQty,
+		plainDescription,
 		primaryColorId,
 		resolveHardwareTotals,
 		type AssemblyLine,
@@ -56,6 +59,101 @@
 		const timers = [0, 120, 400, 900].map((t) => setTimeout(aim, t));
 		return () => timers.forEach(clearTimeout);
 	});
+
+	// ---- filtering the tree --------------------------------------------------
+	// A tree can't be filtered like a list: hiding everything that doesn't match
+	// would also hide the branch that tells you WHERE the match is, which is the
+	// only reason to search a tree in the first place. So a node survives when it
+	// matches or when anything beneath it does, and the path down to a match stays
+	// on screen. An assembly that matches by its own name keeps its whole subtree
+	// — you asked for the chute core, you want what is in it.
+	let filter = $state('');
+	const filtering = $derived(filter.trim().length > 0);
+
+	/** Does this member — printed part, bought part or laser-cut sheet — match? */
+	function memberMatches(id: string): boolean {
+		const p = getPart(id);
+		if (p) return !!scoreEntry(filter, { name: p.name, uid: p.uid, id: p.id, keywords: p.aliases, text: p.description });
+		const h = getHardware(id);
+		if (h)
+			return !!scoreEntry(filter, {
+				name: h.name,
+				uid: h.uid,
+				id: h.id,
+				keywords: [h.category ?? '', h.cots?.size ?? '', h.cots?.type ?? ''].filter(Boolean),
+				text: plainDescription(h.description)
+			});
+		const l = getLasercut(id);
+		if (l) return !!scoreEntry(filter, { name: l.name, uid: l.uid, id: l.id, text: l.description });
+		return false;
+	}
+
+	const keep = $derived.by(() => {
+		const assemblies = new Set<string>();
+		const members = new Set<string>();
+		// What actually matched, as opposed to what is on screen: most of
+		// `assemblies` is the path down to a hit, and calling those matches would
+		// overstate what was found.
+		const matched = new Set<string>();
+		if (!filtering) return { assemblies, members, matched };
+
+		// An assembly that matched by name pulls everything under it along.
+		const whole = new Set<string>();
+		function includeAll(id: string) {
+			if (whole.has(id)) return;
+			whole.add(id);
+			assemblies.add(id);
+			for (const line of getAssembly(id)?.lines ?? []) {
+				if (line.assembly) includeAll(line.assembly);
+				else if (line.part) members.add(line.part);
+			}
+		}
+
+		// Memoised, and seeded false before recursing, so a subtree shared by two
+		// branches is walked once and an authoring typo can't spin forever.
+		const seen = new Map<string, boolean>();
+		function visit(id: string): boolean {
+			const memo = seen.get(id);
+			if (memo !== undefined) return memo;
+			seen.set(id, false);
+			const asm = getAssembly(id);
+			if (!asm) return false;
+			let hit = !!scoreEntry(filter, {
+				name: asm.name,
+				uid: asm.uid,
+				id: asm.id,
+				text: plainDescription(asm.description)
+			});
+			if (hit) {
+				matched.add(id);
+				includeAll(id);
+			}
+			else {
+				for (const line of asm.lines ?? []) {
+					if (line.assembly) {
+						if (visit(line.assembly)) hit = true;
+					} else if (line.part && memberMatches(line.part)) {
+						members.add(line.part);
+						matched.add(line.part);
+						hit = true;
+					}
+				}
+				if (hit) assemblies.add(id);
+			}
+			seen.set(id, hit);
+			return hit;
+		}
+		visit('machine');
+		return { assemblies, members, matched };
+	});
+
+	/** Is this line still on screen? Assemblies self-guard in `node`; members are
+	 *  checked here because they have nowhere else to do it. */
+	const lineShown = (line: AssemblyLine) =>
+		!filtering ||
+		(line.assembly ? keep.assemblies.has(line.assembly) : !!line.part && keep.members.has(line.part));
+
+	const matchCount = $derived(keep.matched.size);
 
 	// What the badges mean. The tree records that a node is incomplete but not
 	// which pieces are missing, so the tooltip says exactly that much and no more.
@@ -181,7 +279,9 @@
 	     same part, and a bare id key makes that a duplicate-key error that
 	     blanks the whole page on hydration. -->
 	{#each list as line, i (`${line.part ?? line.assembly}-${i}`)}
-		{#if line.assembly}
+		{#if !lineShown(line)}
+			<!-- filtered out -->
+		{:else if line.assembly}
 			{@render node(line.assembly, line.qty, lineQty(line, layers) * mult, depth + 1)}
 		{:else if line.part && getLasercut(line.part)}
 			{@const lc = getLasercut(line.part)!}
@@ -234,7 +334,7 @@
 
 {#snippet node(id: string, qty: AssemblyLine['qty'], mult: number, depth: number)}
 	{@const asm = getAssembly(id)}
-	{#if asm}
+	{#if asm && (!filtering || keep.assemblies.has(asm.id))}
 		<div
 			id="asm-{asm.id}"
 			class="border-l-2 {depth > 0 ? 'ml-1.5 pl-2 sm:ml-4 sm:pl-4' : 'pl-2 sm:pl-4'} py-2 {focus === asm.id
@@ -282,7 +382,7 @@
 			<!-- Alternative bills of materials under test. Rendered with the same line
 			     rows, but nothing here reaches the totals: resolveHardwareTotals walks
 			     only `lines`. -->
-			{#each asm.candidates ?? [] as c (c.uid)}
+			{#each (filtering ? [] : (asm.candidates ?? [])) as c (c.uid)}
 				{@const retired = !!(c.superseded_by || c.rejected_at)}
 				<div class="ml-1.5 mt-3 border border-dashed p-2 sm:ml-4 sm:p-3 {retired ? 'border-border opacity-60' : 'border-primary/60'}">
 					<div class="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
@@ -300,7 +400,7 @@
 				</div>
 			{/each}
 			<!-- Superseded structures, each line pinned to the member's uid of the day. -->
-			{#if (asm.versions?.length ?? 0) > 1}
+			{#if !filtering && (asm.versions?.length ?? 0) > 1}
 				<details class="ml-1.5 mt-3 sm:ml-4">
 					<summary class="inline-flex cursor-pointer items-center gap-1 text-xs font-semibold uppercase tracking-wider text-text-muted hover:text-text"><History size={11} /> Previous revisions · {(asm.versions?.length ?? 1) - 1}</summary>
 					{#each [...(asm.versions ?? [])].slice(0, -1).reverse() as v (v.version)}
@@ -360,6 +460,21 @@
 					<span class="font-normal text-text-muted">· {layers} layers</span>
 				</button>
 			</div>
+			<SearchField
+				bind:value={filter}
+				label="Filter the assembly tree"
+				placeholder="Find a part, a screw or an assembly in the tree"
+				noun="match"
+				nouns="matches"
+				found={filtering ? matchCount : null}
+				class="mb-3"
+			/>
+			{#if filtering && matchCount === 0}
+				<p class="px-1 py-6 text-center text-sm text-text-muted">
+					Nothing in the tree matches. Most branches are still stubs — the part may be in the
+					catalog without being placed here yet.
+				</p>
+			{/if}
 			{@render node('machine', 1, 1, 0)}
 		</section>
 

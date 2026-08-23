@@ -1,22 +1,13 @@
 <script lang="ts">
 	import './layout.css';
 	import { page } from '$app/stores';
-	import { goto } from '$app/navigation';
+	import { onMount } from 'svelte';
 	import { Menu, X } from 'lucide-svelte';
+	import SearchPalette from '$lib/components/search/SearchPalette.svelte';
+	import SearchTrigger from '$lib/components/search/SearchTrigger.svelte';
+	import { isSearchChord, palette } from '$lib/search.svelte';
 
 	let { children } = $props();
-
-	// The 4 characters stamped into a print: type them here, land on /u/<uid>.
-	// Uids are lowercase in the catalog; what is read off a part is uppercase.
-	let lookup = $state('');
-	function lookupUid(e: SubmitEvent) {
-		e.preventDefault();
-		const uid = lookup.trim().toLowerCase();
-		if (!uid) return;
-		lookup = '';
-		menuOpen = false;
-		goto(`/u/${encodeURIComponent(uid)}`);
-	}
 
 	const tabs = [
 		{ href: '/', label: '3D printed parts' },
@@ -39,17 +30,27 @@
 		$page.url.pathname;
 		menuOpen = false;
 	});
+
+	onMount(() => palette.load());
+
+	// The search chord works from anywhere on the site, which is the whole point
+	// of a chord. It is registered here rather than inside the palette so it
+	// still fires when the palette isn't mounted, and so it can't be swallowed
+	// by whatever has focus.
+	function onKey(e: KeyboardEvent) {
+		if (e.key === 'Escape') menuOpen = false;
+		if (palette.open || !isSearchChord(e)) return;
+		e.preventDefault();
+		menuOpen = false;
+		palette.show();
+	}
 </script>
 
 <svelte:head><link rel="icon" href="/favicon.ico" /></svelte:head>
-<svelte:window
-	onkeydown={(e) => {
-		if (e.key === 'Escape') menuOpen = false;
-	}}
-/>
+<svelte:window onkeydown={onKey} />
 
 <header class="relative border-b border-border bg-surface">
-	<div class="mx-auto flex max-w-6xl items-center gap-x-6 gap-y-2 px-4 py-3 sm:flex-wrap sm:px-6">
+	<div class="mx-auto flex max-w-6xl items-center gap-x-4 gap-y-2 px-4 py-3 sm:flex-wrap sm:px-6">
 		<a
 			href="/"
 			class="flex min-w-0 items-center gap-2 text-base font-bold tracking-tight text-text sm:text-lg"
@@ -58,23 +59,28 @@
 			<span class="truncate">Sorter Parts Calculator</span>
 		</a>
 
-		<!-- phone: the menu button, labelled with where you are -->
-		<button
-			class="ml-auto inline-flex shrink-0 items-center gap-1.5 border border-border px-2.5 py-1.5 text-sm text-text transition-colors hover:border-primary sm:hidden"
-			aria-expanded={menuOpen}
-			aria-controls="nav-menu"
-			onclick={() => (menuOpen = !menuOpen)}
-		>
-			{#if menuOpen}<X size={16} />{:else}<Menu size={16} />{/if}
-			<span class="max-w-[9rem] truncate font-medium">{current}</span>
-		</button>
+		<SearchTrigger class="hidden w-44 shrink-0 sm:flex" />
+
+		<!-- phone: search as an icon, then the menu button labelled with where you are -->
+		<div class="ml-auto flex shrink-0 items-center gap-2 sm:hidden">
+			<SearchTrigger compact class="w-auto px-2" />
+			<button
+				class="inline-flex shrink-0 items-center gap-1.5 border border-border px-2.5 py-1.5 text-sm text-text transition-colors hover:border-primary"
+				aria-expanded={menuOpen}
+				aria-controls="nav-menu"
+				onclick={() => (menuOpen = !menuOpen)}
+			>
+				{#if menuOpen}<X size={16} />{:else}<Menu size={16} />{/if}
+				<span class="max-w-[9rem] truncate font-medium">{current}</span>
+			</button>
+		</div>
 
 		<!-- desktop: the tabs inline, as before -->
-		<nav class="hidden items-center gap-1 sm:flex">
+		<nav class="ml-auto hidden items-center gap-1 sm:flex">
 			{#each tabs as tab (tab.href)}
 				<a
 					href={tab.href}
-					class="whitespace-nowrap border-b-2 px-3 py-2 text-sm font-semibold transition-colors {isActive(
+					class="whitespace-nowrap border-b-2 px-2.5 py-2 text-sm font-semibold transition-colors {isActive(
 						tab.href
 					)
 						? 'border-primary text-text'
@@ -84,20 +90,6 @@
 				</a>
 			{/each}
 		</nav>
-
-		<form onsubmit={lookupUid} class="ml-auto hidden items-center sm:flex" title="The id stamped into a print">
-			<input
-				bind:value={lookup}
-				type="search"
-				inputmode="text"
-				autocapitalize="characters"
-				spellcheck="false"
-				maxlength="4"
-				placeholder="id on a print"
-				aria-label="Look up the id stamped into a print"
-				class="h-8 w-32 border border-border bg-[var(--color-bg)] px-2 font-mono text-sm uppercase text-text placeholder:font-sans placeholder:normal-case placeholder:text-text-muted focus:border-primary focus:outline-none"
-			/>
-		</form>
 	</div>
 
 	{#if menuOpen}
@@ -124,21 +116,10 @@
 					{tab.label}
 				</a>
 			{/each}
-			<form onsubmit={lookupUid} class="flex items-center gap-2 border-t border-border px-4 py-3">
-				<input
-					bind:value={lookup}
-					type="search"
-					autocapitalize="characters"
-					spellcheck="false"
-					maxlength="4"
-					placeholder="id on a print"
-					aria-label="Look up the id stamped into a print"
-					class="h-9 w-36 border border-border bg-[var(--color-bg)] px-2 font-mono text-sm uppercase text-text placeholder:font-sans placeholder:normal-case placeholder:text-text-muted focus:border-primary focus:outline-none"
-				/>
-				<button type="submit" class="setup-button-secondary h-9 px-3 text-sm font-semibold">Look up</button>
-			</form>
 		</nav>
 	{/if}
 </header>
+
+<SearchPalette />
 
 {@render children()}

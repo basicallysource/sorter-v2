@@ -17,6 +17,8 @@
 	import LayerControl from '$lib/components/LayerControl.svelte';
 	import HardwareDetailModal from '$lib/components/HardwareDetailModal.svelte';
 	import ChangeStatus from '$lib/components/ChangeStatus.svelte';
+	import SearchField from '$lib/components/search/SearchField.svelte';
+	import { search, type Searchable } from '$lib/search';
 	import {
 		assembliesContaining,
 		bestUsVendor,
@@ -52,10 +54,36 @@
 	// it; the sheet's hand counts (sheet_qty) are the fallback for the rest.
 	const layers = $derived(layerStore.sizes.length);
 
+	// ---- filtering the list ------------------------------------------------
+	// A shopping list is the wrong shape for scrolling: you arrive knowing the
+	// screw. Ranked through the same matcher as the ⌘K palette, so `m3x8` finds
+	// the M3 × 8 whichever way you write it, and an id off a print works here too.
+	let filter = $state('');
+	const filtering = $derived(filter.trim().length > 0);
+	const hardwareSearchable = (h: Hardware): Searchable => ({
+		name: h.name,
+		uid: h.uid,
+		id: h.id,
+		keywords: [
+			h.category ?? '',
+			h.cots?.type ?? '',
+			h.cots?.size ?? '',
+			h.cots?.variant ?? '',
+			h.cots?.length_mm ? `${h.cots.length_mm}mm` : '',
+			h.cots?.size && h.cots.length_mm ? `${h.cots.size}x${h.cots.length_mm}` : '',
+			...h.attributes.map((a) => `${a.label} ${a.value}`),
+			...assembliesContaining(h.id).map((a) => a.name)
+		].filter(Boolean),
+		text: plainDescription(h.description)
+	});
+	const shown = $derived(
+		filtering ? search(filter, HARDWARE, hardwareSearchable).map((r) => r.item) : HARDWARE
+	);
+
 	// categories in manifest order, preserving first-seen order
 	const groups = $derived.by(() => {
 		const by = new Map<string, Hardware[]>();
-		for (const h of HARDWARE) {
+		for (const h of shown) {
 			const cat = h.category ?? 'Other';
 			if (!by.has(cat)) by.set(cat, []);
 			by.get(cat)!.push(h);
@@ -449,6 +477,15 @@
 					</span>
 				{/each}
 			</div>
+			<SearchField
+				bind:value={filter}
+				label="Filter the hardware list"
+				placeholder="Filter by name, size, id or where it goes"
+				noun="item"
+				found={shown.length}
+				total={HARDWARE.length}
+				class="mb-3"
+			/>
 			<div class="mb-3 flex flex-wrap items-center justify-between gap-2 border-b border-border pb-2">
 				<span class="text-xs font-semibold uppercase tracking-wider text-text-muted">
 					Rough US total <span class="font-bold normal-case tracking-normal text-text"

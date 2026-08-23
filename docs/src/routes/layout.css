@@ -549,7 +549,35 @@ body {
 	height: 108px;
 }
 
+/* The card image is a button: clicking it opens the part's detail modal (the
+   3D model, the print facts, the download, the way through to the parts
+   calculator). The corner badges sit above it as siblings so their popovers
+   stay reachable. */
+.part-card-open {
+	display: block;
+	width: 108px;
+	height: 108px;
+	padding: 0;
+	margin: 0;
+	background: none;
+	border: none;
+	cursor: pointer;
+}
+
+.part-card-open:disabled {
+	cursor: default;
+}
+
+.part-card-open:hover:not(:disabled) .part-card-img,
+.part-card-open:focus-visible .part-card-img {
+	border-color: var(--primary);
+	outline: none;
+}
+
 .part-card-img {
+	display: flex;
+	align-items: center;
+	justify-content: center;
 	width: 108px;
 	height: 108px;
 	object-fit: contain;
@@ -557,8 +585,14 @@ body {
 	border: 1px solid var(--line);
 }
 
+.part-card-noimg {
+	font-size: 0.7rem;
+	color: var(--muted);
+}
+
 .part-card-qty {
 	position: absolute;
+	z-index: 2;
 	top: 0;
 	left: 0;
 	padding: 2px 7px;
@@ -574,6 +608,7 @@ body {
    one thing the image cannot tell you apart by. */
 .part-card-len {
 	position: absolute;
+	z-index: 2;
 	right: 0;
 	bottom: 0;
 	padding: 1px 5px;
@@ -645,6 +680,7 @@ body {
    (2026-08-21) and nobody has settled it against the machine yet. */
 .part-card-conflict {
 	position: absolute;
+	z-index: 2;
 	top: 0;
 	right: 0;
 	display: inline-flex;
@@ -676,6 +712,7 @@ body {
    button head). Same footprint as the "!" but green, "A" for alternative. */
 .part-card-alt {
 	position: absolute;
+	z-index: 2;
 	top: 0;
 	right: 0;
 	display: inline-flex;
@@ -729,6 +766,28 @@ body {
 
 .part-card-name a:hover {
 	text-decoration: underline;
+}
+
+/* The name opens the same modal the image does. It reads as the card's text,
+   not as a control, until you point at it. */
+.part-card-name-button {
+	padding: 0;
+	font: inherit;
+	color: var(--ink);
+	text-align: left;
+	background: none;
+	border: none;
+	cursor: pointer;
+}
+
+.part-card-name-button:hover:not(:disabled),
+.part-card-name-button:focus-visible {
+	color: var(--primary);
+	text-decoration: underline;
+}
+
+.part-card-name-button:disabled {
+	cursor: default;
 }
 
 .part-card-caption {
@@ -2015,4 +2074,336 @@ blockquote {
 		transition: none;
 		transform: none;
 	}
+}
+
+/* ── Modal ─────────────────────────────────────────────────────────────── */
+/* The generic panel (Modal.svelte). A native <dialog>, so the backdrop,
+   Escape and focus trapping come from the browser. The part detail is its
+   only caller today. */
+
+.modal {
+	position: fixed;
+	inset: 0;
+	width: 100%;
+	height: 100%;
+	max-width: 100%;
+	max-height: 100%;
+	padding: clamp(12px, 4vh, 48px) 16px;
+	background: transparent;
+	border: none;
+	align-items: flex-start;
+	justify-content: center;
+}
+
+.modal:not([open]) {
+	display: none;
+}
+
+.modal[open] {
+	display: flex;
+}
+
+.modal::backdrop {
+	background: rgba(0, 0, 0, 0.46);
+}
+
+.modal-panel {
+	display: flex;
+	flex-direction: column;
+	width: min(900px, 100%);
+	max-height: 100%;
+	background: var(--surface);
+	border: 1px solid var(--line);
+	box-shadow:
+		0 4px 6px -1px rgba(0, 0, 0, 0.1),
+		0 16px 48px -8px rgba(0, 0, 0, 0.18);
+	overflow: hidden;
+}
+
+.modal-header {
+	display: flex;
+	align-items: flex-start;
+	gap: 12px;
+	padding: 12px 14px;
+	border-bottom: 1px solid var(--line);
+}
+
+.modal-heading {
+	min-width: 0;
+	flex: 1;
+}
+
+.modal-title {
+	margin: 0;
+	font-size: 1rem;
+	font-weight: 600;
+	line-height: 1.3;
+	color: var(--ink);
+}
+
+.modal-subtitle {
+	margin: 2px 0 0;
+	font: 0.72rem/1.4 var(--font-mono);
+	color: var(--muted);
+}
+
+.modal-close {
+	flex-shrink: 0;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 28px;
+	height: 28px;
+	padding: 0;
+	color: var(--muted);
+	background: var(--bg);
+	border: 1px solid var(--line);
+	cursor: pointer;
+}
+
+.modal-close:hover {
+	color: var(--ink);
+	border-color: var(--muted);
+}
+
+.modal-close svg {
+	width: 16px;
+	height: 16px;
+}
+
+.modal-body {
+	min-height: 0;
+	overflow-y: auto;
+}
+
+/* ── Part detail modal ─────────────────────────────────────────────────── */
+
+.part-modal-media {
+	border-bottom: 1px solid var(--line);
+	background: var(--bg);
+}
+
+.part-modal-img {
+	display: block;
+	width: 100%;
+	max-height: 46vh;
+	object-fit: contain;
+	background: var(--surface);
+}
+
+.part-modal-noimg {
+	margin: 0;
+	padding: 40px 0;
+	font-size: 0.85rem;
+	color: var(--muted);
+	text-align: center;
+}
+
+.part-modal-detail {
+	padding: 14px 16px 18px;
+}
+
+.part-modal-change {
+	margin: 0 0 12px;
+}
+
+.part-modal-desc {
+	margin: 0 0 8px;
+	font-size: 0.92rem;
+	line-height: 1.55;
+	color: var(--ink);
+}
+
+.part-modal-note {
+	margin: 0 0 8px;
+	font-size: 0.84rem;
+	line-height: 1.5;
+	color: var(--muted);
+}
+
+.part-modal-attrs {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px;
+	margin: 10px 0;
+	padding: 0;
+	list-style: none;
+}
+
+.part-modal-attrs li {
+	padding: 2px 7px;
+	font-size: 0.76rem;
+	color: var(--ink);
+	background: var(--bg);
+	border: 1px solid var(--line);
+}
+
+.part-modal-attrs span {
+	color: var(--muted);
+}
+
+.part-modal-facts {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+	gap: 8px;
+	margin: 12px 0;
+}
+
+.part-modal-facts dt {
+	font-size: 0.6rem;
+	font-weight: 700;
+	letter-spacing: 0.1em;
+	text-transform: uppercase;
+	color: var(--muted);
+}
+
+.part-modal-facts dd {
+	margin: 2px 0 0;
+	font-size: 0.88rem;
+	font-weight: 500;
+	color: var(--ink);
+}
+
+.part-modal-facts > div {
+	padding: 7px 9px;
+	background: var(--bg);
+	border: 1px solid var(--line);
+}
+
+.part-modal-block {
+	margin-top: 14px;
+}
+
+.part-modal-block h3 {
+	margin: 0 0 5px;
+	font-size: 0.6rem;
+	font-weight: 700;
+	letter-spacing: 0.1em;
+	text-transform: uppercase;
+	color: var(--muted);
+}
+
+.part-modal-list {
+	margin: 0;
+	padding-left: 1.1rem;
+	font-size: 0.85rem;
+	line-height: 1.6;
+	color: var(--ink);
+}
+
+.part-modal-region {
+	color: var(--muted);
+	font-size: 0.78rem;
+}
+
+.part-modal-actions {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 10px 16px;
+	margin-top: 16px;
+	padding-top: 14px;
+	border-top: 1px solid var(--line);
+}
+
+.part-modal-button {
+	padding: 7px 14px;
+	font-size: 0.85rem;
+	font-weight: 600;
+	color: var(--color-primary-contrast);
+	background: var(--primary);
+	border: 1px solid var(--primary);
+	text-decoration: none;
+}
+
+.part-modal-button:hover {
+	background: var(--primary-hover);
+	border-color: var(--primary-hover);
+}
+
+.part-modal-link {
+	font-size: 0.85rem;
+	color: var(--primary);
+	text-decoration: none;
+}
+
+.part-modal-link:hover {
+	text-decoration: underline;
+}
+
+/* ── STL viewer ────────────────────────────────────────────────────────── */
+
+.stl-viewer {
+	position: relative;
+	width: 100%;
+	height: min(46vh, 420px);
+	background: var(--bg);
+}
+
+/* a soft grey ground: light enough for dark parts, grey enough that a white
+   part has an edge against it */
+.stl-viewer--cad {
+	background: linear-gradient(180deg, #e6e9ee 0%, #cdd3db 100%);
+}
+
+.stl-canvas {
+	width: 100%;
+	height: 100%;
+}
+
+.stl-poster {
+	position: absolute;
+	inset: 0;
+	width: 100%;
+	height: 100%;
+	object-fit: contain;
+	opacity: 0.35;
+}
+
+.stl-status {
+	position: absolute;
+	inset: 0;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	margin: 0;
+	font-size: 0.85rem;
+	color: var(--muted);
+}
+
+.stl-hint {
+	position: absolute;
+	left: 12px;
+	bottom: 8px;
+	margin: 0;
+	font-size: 0.72rem;
+	color: var(--muted);
+	pointer-events: none;
+}
+
+.stl-controls {
+	position: absolute;
+	right: 12px;
+	bottom: 8px;
+	display: inline-flex;
+	background: var(--surface);
+	border: 1px solid var(--line);
+}
+
+.stl-controls button {
+	padding: 2px 8px;
+	font: 0.72rem var(--font-sans);
+	color: var(--muted);
+	background: none;
+	border: none;
+	cursor: pointer;
+}
+
+.stl-controls button:hover {
+	color: var(--ink);
+}
+
+.stl-controls button.stl-mode--on {
+	color: var(--surface);
+	background: var(--ink);
 }

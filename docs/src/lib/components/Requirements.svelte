@@ -1,5 +1,26 @@
 <script lang="ts">
+	import PartModal from '$lib/components/PartModal.svelte';
 	import type { PartsGroup, ResolvedPart } from '$lib/server/content';
+
+	// The card a reader clicks opens the part's detail (the 3D model, the print
+	// facts, the download, the way through to the parts calculator). Both sites
+	// read the same generated catalog, so the modal shows the same part the
+	// calculator would.
+	let openPart = $state<ResolvedPart | null>(null);
+	let modalOpen = $state(false);
+
+	// TEMP screenshot hook, reverted before this branch is reviewed.
+	$effect(() => {
+		const all = (parts?.groups ?? []).flatMap((g) => g.parts);
+		const first = all.find((p) => p.detail?.stl) ?? all.find((p) => p.detail);
+		if (first) { openPart = first; modalOpen = true; }
+	});
+
+	function show(part: ResolvedPart) {
+		if (!part.detail) return; // an id the catalog does not describe: nothing to open
+		openPart = part;
+		modalOpen = true;
+	}
 
 	function fmtClaim(value: unknown): string {
 		if (value == null) return 'none';
@@ -41,9 +62,23 @@
 									<span class="part-card-name part-card-missing">{part.id}</span>
 								{:else}
 									<div class="part-card-media">
-										{#if part.image}
-											<img class="part-card-img" src={part.image} alt={part.name} loading="lazy" />
-										{/if}
+										<!-- the button carries only the image: the corner badges are its
+										     siblings, painted over it, so a badge's popover stays reachable
+										     without nesting one control inside another -->
+										<button
+											class="part-card-open"
+											type="button"
+											onclick={() => show(part)}
+											disabled={!part.detail}
+											aria-label="Open details for {part.name}"
+											aria-haspopup="dialog"
+										>
+											{#if part.image}
+												<img class="part-card-img" src={part.image} alt={part.name} loading="lazy" />
+											{:else}
+												<span class="part-card-img part-card-noimg">no image</span>
+											{/if}
+										</button>
 										{#if part.qty}<span class="part-card-qty part-badge" tabindex="0"
 											>{part.qty}×<span class="part-badge-pop">How many this step needs.</span></span
 										>{/if}
@@ -89,7 +124,12 @@
 										>{/if}
 									</div>
 									<span class="part-card-name">
-										{#if part.page}<a href={part.page}>{part.name}</a>{:else}{part.name}{/if}
+										<button
+											class="part-card-name-button"
+											type="button"
+											onclick={() => show(part)}
+											disabled={!part.detail}>{part.name}</button
+										>
 									</span>
 									{#if part.caption}<span class="part-card-caption">{part.caption}</span>{/if}
 								{/if}
@@ -126,4 +166,5 @@
 			</section>
 		{/if}
 	</div>
+	<PartModal bind:open={modalOpen} part={openPart} />
 {/if}

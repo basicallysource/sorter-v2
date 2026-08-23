@@ -17,6 +17,7 @@
 		"@sveltejs/vite-plugin-svelte": "^6.2.1",
 		"@tailwindcss/vite": "^4.1.17",
 		"@types/js-yaml": "^4.0.9",
+		"@types/three": "^0.185.4",
 		"js-yaml": "^4.1.0",
 		"liquidjs": "^10.21.0",
 		"rehype-raw": "^7.0.0",
@@ -28,6 +29,7 @@
 		"svelte": "^5.45.6",
 		"svelte-check": "^4.3.4",
 		"tailwindcss": "^4.1.17",
+		"three": "^0.185.1",
 		"typescript": "^5.9.3",
 		"unified": "^11.0.5",
 		"vite": "^7.2.6"

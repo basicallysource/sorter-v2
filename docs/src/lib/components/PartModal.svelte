@@ -6,8 +6,8 @@
 	// What a "Parts needed" card opens: the same facts the parts calculator's own
 	// part modal shows, rendered in this site's styling, off the same generated
 	// catalog both sites build from. Deliberately not a copy of everything over
-	// there — versions, candidates, build plates and the cart maths stay one
-	// click away on the part's own calculator page, which every modal links to.
+	// there: versions, candidates, build plates and the cart maths stay one click
+	// away on the part's own calculator page, which every modal links to.
 	let { open = $bindable(false), part }: { open?: boolean; part: ResolvedPart | null } = $props();
 
 	const detail = $derived(part?.detail);

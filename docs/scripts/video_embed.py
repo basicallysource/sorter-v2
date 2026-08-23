@@ -13,9 +13,9 @@ would drift:
     asset-service upload --derive --namespace sorter-docs <file>
 
 `--derive` matters. The service queues derivation rather than doing it, and
-the queue is only worked while someone runs `asset-service work` somewhere
-(hive-prod is pinned ASSET_RENDITIONS=false on purpose: ffmpeg next to prod
-hive is what that flag exists to prevent). With no worker up, an upload sits
+the queue is only worked while a worker process is up somewhere (the serving
+process deliberately is not one: transcoding next to whatever shares its host
+is what that separation exists for). With no worker up, an upload sits
 `renditions_status: pending` forever and you get no MP4 and no poster.
 `--derive` does the encode on this machine and uploads the results, so it
 never depends on a worker running.

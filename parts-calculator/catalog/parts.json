@@ -2435,12 +2435,14 @@
       "uid": "204b",
       "name": "Control Board Housing — Base",
       "description": "Base of the basically Embedded Control Board housing. The board screws straight to it on four heat inserts and the cover screws down onto four more; no standoffs.",
-      "internal_notes": "From 'control board housing.zip' (Sorter V2 STLs, 2026-08-22). Exists only inside candidate rns2 on ctrl-board-mount, so quantities stay empty and it stays out of the bundle until that candidate is promoted. Eight standard M3 inserts (hsi-m3, RX-M3x5.7 -- Spencer said 'the long variant', which is this one relative to the short M3S): four under the board, four for the cover.",
+      "internal_notes": "From 'control board housing.zip' (Sorter V2 STLs, 2026-08-22). Entered the machine on 2026-08-23 when candidate rns2 was promoted to ctrl-board-mount v2. Eight standard M3 inserts (hsi-m3, RX-M3x5.7 -- Spencer said 'the long variant', which is this one relative to the short M3S): four under the board, four for the cover.",
       "version": "1",
       "created_at": "2026-08-22",
-      "updated_at": "2026-08-22",
-      "quantities": {},
-      "assembly": null,
+      "updated_at": "2026-08-23",
+      "quantities": {
+        "electronics": 1
+      },
+      "assembly": "ctrl-board-mount",
       "stl_hash": "e20680585196ef0e1c7eaeaa0e865011b638fc765fbe0c79dff01ef66ef3e07e",
       "color": {
         "role": "frame"
@@ -2452,25 +2454,29 @@
           "part": "hsi-m3",
           "qty": 8
         }
-      ]
+      ],
+      "onshape_version": "https://cad.onshape.com/documents/09541e2012f9c0d0a5643fe7/v/9901d0807c3f84ce0f00abc1/e/f6e7bc459ae4ed1576edc10c"
     },
     {
       "id": "ctrl-board-housing-cover",
       "uid": "ksh2",
       "name": "Control Board Housing — Cover",
-      "description": "Cover of the basically Embedded Control Board housing. Screws to the base with four M3 × 12 mm countersunk screws, carries the 40 mm 24 V fan on four self-tapping M3 × 16 mm screws, and the plunger passes through it.",
+      "description": "Cover of the basically Embedded Control Board housing. Screws to the base with four M3 × 12 mm countersunk screws, carries the 40 mm 24 V fan on four self-tapping M3 × 12 mm button head screws, and the plunger passes through it.",
       "internal_notes": "From 'control board housing.zip' (Sorter V2 STLs, 2026-08-22). Exists only inside candidate rns2 on ctrl-board-mount, so quantities stay empty and it stays out of the bundle until that candidate is promoted.",
       "version": "1",
       "created_at": "2026-08-22",
-      "updated_at": "2026-08-22",
-      "quantities": {},
-      "assembly": null,
+      "updated_at": "2026-08-23",
+      "quantities": {
+        "electronics": 1
+      },
+      "assembly": "ctrl-board-mount",
       "stl_hash": "462b029022221124347ea77f4ecb20339a91bbfa2eda70a63b7cab6751cb3446",
       "color": {
         "role": "frame"
       },
       "optional": false,
-      "support": false
+      "support": false,
+      "onshape_version": "https://cad.onshape.com/documents/09541e2012f9c0d0a5643fe7/v/9901d0807c3f84ce0f00abc1/e/f6e7bc459ae4ed1576edc10c"
     },
     {
       "id": "ctrl-board-housing-plunger",
@@ -2480,47 +2486,51 @@
       "internal_notes": "From 'control board housing.zip' (Sorter V2 STLs, 2026-08-22). Exists only inside candidate rns2 on ctrl-board-mount, so quantities stay empty and it stays out of the bundle until that candidate is promoted.",
       "version": "1",
       "created_at": "2026-08-22",
-      "updated_at": "2026-08-22",
-      "quantities": {},
-      "assembly": null,
+      "updated_at": "2026-08-23",
+      "quantities": {
+        "electronics": 1
+      },
+      "assembly": "ctrl-board-mount",
       "stl_hash": "ab938f5b08fd476aea7664bbb5d0d3bf50ccd722ed4f15d06b77aaa7b94257fd",
       "color": {
         "role": "frame"
       },
       "optional": false,
-      "support": false
+      "support": false,
+      "onshape_version": "https://cad.onshape.com/documents/09541e2012f9c0d0a5643fe7/v/9901d0807c3f84ce0f00abc1/e/f6e7bc459ae4ed1576edc10c"
     },
     {
       "id": "ctrl-board-housing-plunger-retainer",
       "uid": "g9sx",
       "name": "Control Board Housing — Plunger Retainer",
       "description": "Retains the plunger in the housing cover. Screws to the cover with two M3 × 8 mm countersunk screws.",
-      "internal_notes": "From 'control board housing.zip' (Sorter V2 STLs, 2026-08-22). Exists only inside candidate rns2 on ctrl-board-mount, so quantities stay empty and it stays out of the bundle until that candidate is promoted. Two countersunk holes either side of the plunger slot (counted off the STL).",
+      "internal_notes": "From 'control board housing.zip' (Sorter V2 STLs, 2026-08-22). Entered the machine on 2026-08-23 when candidate rns2 was promoted to ctrl-board-mount v2. Two countersunk holes either side of the plunger slot (counted off the STL).",
       "version": "1",
       "created_at": "2026-08-22",
-      "updated_at": "2026-08-22",
-      "quantities": {},
-      "assembly": null,
+      "updated_at": "2026-08-23",
+      "quantities": {
+        "electronics": 1
+      },
+      "assembly": "ctrl-board-mount",
       "stl_hash": "a3f84a1f2cd72fa919cedc1c62b762cc791b644118b57505002d7781189f249a",
       "color": {
         "role": "frame"
       },
       "optional": false,
-      "support": false
+      "support": false,
+      "onshape_version": "https://cad.onshape.com/documents/09541e2012f9c0d0a5643fe7/v/9901d0807c3f84ce0f00abc1/e/f6e7bc459ae4ed1576edc10c"
     },
     {
       "id": "ctrl-board-extrusion-mount",
       "uid": "1d5n",
       "name": "Control Board Extrusion Mount",
       "description": "Plate the basically Embedded Control Board stands off, which bolts to the 2020 extrusion. The v1 mounting, in the machine today; the printed housing is the candidate that would replace it.",
-      "internal_notes": "From 'PCB Extrusion Mount (1).zip' (Sorter V2 STLs, 2026-08-22), a zip of two zips, one per board. Named 'basically board v1-3 open air fan - basically PCB to extrusion mount.stl'.",
+      "internal_notes": "Superseded by the printed housing (ctrl-board-mount v2, 2026-08-23). Kept for the v1 snapshot only: no quantities, out of the bundle.",
       "version": "1",
       "created_at": "2026-08-22",
-      "updated_at": "2026-08-22",
-      "quantities": {
-        "electronics": 1
-      },
-      "assembly": "ctrl-board-mount",
+      "updated_at": "2026-08-23",
+      "quantities": {},
+      "assembly": null,
       "stl_hash": "f855b06c3b0f57fbd3756ebca08fa7e9a5aaf2f7c0b72d41c72ccb8cb5716873",
       "color": {
         "role": "frame"
@@ -2555,12 +2565,12 @@
       "uid": "3ufy",
       "name": "40 mm Fan Bracket",
       "description": "L-shaped bracket that cantilevers a 40 mm fan over a board on its extrusion mount. The same part on both the control board and the Orange Pi mounts, so two per machine.",
-      "internal_notes": "From 'PCB Extrusion Mount (1).zip' (Sorter V2 STLs, 2026-08-22), a zip of two zips, one per board. Both zips carry a '40mm fan bracket.stl' -- Spencer: 'the fan bracket thing was identical on both'. The two files are NOT byte-identical (sha256 d4757b35... vs 7c3ea544...) but are the same solid: same 48x90x70 mm bounding box, same 7152 triangles, and the same volume to 7 significant figures (67894.9 mm3); no axis-aligned transform maps one onto the other, so it is one design re-exported at a different orientation. Exactly the case the uid model is for: one uid, and whichever bytes we pin are that design's stl_hash. Pinned from the control board's zip.",
+      "internal_notes": "Was 2 per machine — the control board and the Orange Pi each had one. The control board's housing carries its own fan as of ctrl-board-mount v2 (2026-08-23), so only the Orange Pi mount still uses this.",
       "version": "1",
       "created_at": "2026-08-22",
-      "updated_at": "2026-08-22",
+      "updated_at": "2026-08-23",
       "quantities": {
-        "electronics": 2
+        "electronics": 1
       },
       "assembly": null,
       "stl_hash": "d4757b350b5690524838d0727a2e81c22135424104d47f4e102b73bbecdde995",
@@ -2707,10 +2717,10 @@
       "name": "M3 socket/button head, length TBD",
       "category": "Screws",
       "alternative": "Socket or button head",
-      "description": "Holds the basically Embedded Control Board to the housing base, into its heat inserts. The head is known, the length has not been measured.",
+      "description": "Was the placeholder for the screws holding the basically Embedded Control Board to the housing base, before they were measured as M3 × 6 mm button head. Nothing calls for it now; the uid is kept because it was minted.",
       "created_at": "2026-08-22",
       "updated_at": "2026-08-22",
-      "note": "Length unknown — measure before ordering.",
+      "note": "Superseded before it was ever ordered — nothing in the catalog calls for it.",
       "attributes": [
         {
           "label": "Thread",
@@ -5064,7 +5074,7 @@
       },
       "name": "40 mm 24 V fan",
       "category": "Electronics",
-      "description": "40 mm axial fan, 24 V, on the control board housing cover; mounted with four self-tapping M3 × 16 mm screws.",
+      "description": "40 mm axial fan, 24 V, on the control board housing cover; mounted with four self-tapping M3 × 12 mm button head screws.",
       "created_at": "2026-08-22",
       "updated_at": "2026-08-22",
       "attributes": [
@@ -6242,16 +6252,16 @@
     },
     {
       "id": "ctrl-board-mount",
-      "uid": "u12m",
-      "version": "1",
-      "name": "Control board mount",
-      "description": "The basically Embedded Control Board standing off its bracket, which bolts to the 2020 extrusion, with a 40 mm fan on a bracket cantilevered over it.",
+      "uid": "rns2",
+      "version": "2",
+      "name": "basically Embedded Control Board Housing",
+      "description": "The basically Embedded Control Board closed into a two-part printed housing that bolts to the 2020 extrusion. The board screws straight to the base — no bracket, no standoffs — and the cover carries a 40 mm 24 V fan and a plunger that reaches the board's reset button from outside.",
       "section": "electronics",
-      "docs": "/hardware/electronics/installation/control-board-mount/",
+      "docs": "/hardware/electronics/installation/control-board-housing/",
       "status": "partial",
       "lines": [
         {
-          "part": "ctrl-board-extrusion-mount",
+          "part": "ctrl-board-housing-base",
           "qty": 1
         },
         {
@@ -6259,99 +6269,112 @@
           "qty": 1
         },
         {
-          "part": "scr-m3-tbd",
+          "part": "scr-m3-6-bhcs",
           "qty": 4
         },
         {
-          "part": "hsi-m3",
-          "qty": 4
-        },
-        {
-          "part": "standoff-m3-10mm",
-          "qty": 4
-        },
-        {
-          "part": "fan-bracket-40mm",
+          "part": "ctrl-board-housing-cover",
           "qty": 1
+        },
+        {
+          "part": "scr-m3-12-cs",
+          "qty": 4
+        },
+        {
+          "part": "ctrl-board-housing-plunger",
+          "qty": 1
+        },
+        {
+          "part": "ctrl-board-housing-plunger-retainer",
+          "qty": 1
+        },
+        {
+          "part": "scr-m3-8-cs",
+          "qty": 2
         },
         {
           "part": "fan-40mm-24v",
           "qty": 1
+        },
+        {
+          "part": "scr-m3-12-bhcs",
+          "qty": 4
         }
       ],
-      "candidates": [
+      "joining": [
         {
-          "uid": "rns2",
-          "name": "basically Embedded Control Board Housing",
-          "created_at": "2026-08-22",
-          "message": "A printed housing in place of the bracket and standoffs. The board screws straight to the base on four [[hw:hsi-m3]] with four [[hw:scr-m3-shcs-tbd]]; the cover closes onto four more inserts in the base with four [[hw:scr-m3-12-cs]] and carries a 40 mm 24 V fan; a plunger through the cover is held in by the plunger retainer on two [[hw:scr-m3-8-cs]]. Being test-printed; may become the next version, and renames this assembly if it does.",
-          "joining": [
-            {
-              "method": "self-tap",
-              "note": "The fan's four [[hw:scr-m3-16-shcs]] cut their own threads in the cover; no inserts there."
-            }
-          ],
-          "images": [
-            {
-              "url": "https://img.basically.website/parts/img/ctrl-board-housing-assembly-render-8d104a6e.png",
-              "alt": "Onshape render of the control board housing, closed",
-              "caption": "The housing closed, from Onshape: fan vent and plunger in the cover."
-            },
-            {
-              "url": "https://img.basically.website/parts/img/ctrl-board-housing-plunger-section-82fccc39.png",
-              "alt": "Section through the housing at the plunger",
-              "caption": "Section at the plunger: through the cover, held by the retainer (blue), over the board."
-            }
-          ],
-          "lines": [
-            {
-              "part": "ctrl-board-housing-base",
-              "qty": 1
-            },
-            {
-              "part": "ctrl-board-basically",
-              "qty": 1
-            },
-            {
-              "part": "scr-m3-shcs-tbd",
-              "qty": 4
-            },
-            {
-              "part": "ctrl-board-housing-cover",
-              "qty": 1
-            },
-            {
-              "part": "scr-m3-12-cs",
-              "qty": 4
-            },
-            {
-              "part": "ctrl-board-housing-plunger",
-              "qty": 1
-            },
-            {
-              "part": "ctrl-board-housing-plunger-retainer",
-              "qty": 1
-            },
-            {
-              "part": "scr-m3-8-cs",
-              "qty": 2
-            },
-            {
-              "part": "fan-40mm-24v",
-              "qty": 1
-            },
-            {
-              "part": "scr-m3-16-shcs",
-              "qty": 4
-            }
-          ]
+          "method": "self-tap",
+          "note": "The fan's four [[hw:scr-m3-12-bhcs]] cut their own threads in the cover; no inserts there."
         }
       ],
       "images": [
         {
-          "url": "https://img.basically.website/parts/img/ctrl-board-mount-v1-render-d7411f58.png",
-          "alt": "Onshape render of the control board's v1 extrusion mount and fan bracket",
-          "caption": "The v1 mounting, from Onshape: the board's plate (blue) and the shared fan bracket (grey)."
+          "url": "https://img.basically.website/parts/img/ctrl-board-housing-assembly-render-8d104a6e.png",
+          "alt": "Onshape render of the control board housing, closed",
+          "caption": "The housing closed, from Onshape: fan vent and plunger in the cover."
+        },
+        {
+          "url": "https://img.basically.website/parts/img/ctrl-board-housing-plunger-section-82fccc39.png",
+          "alt": "Section through the housing at the plunger",
+          "caption": "Section at the plunger: through the cover, held by the retainer (blue), over the board."
+        }
+      ],
+      "versions": [
+        {
+          "version": "1",
+          "uid": "u12m",
+          "date": "2026-07-18",
+          "message": "The board stood off a printed bracket on four 10 mm standoffs, and the 40 mm fan sat on a separate bracket cantilevered over it — the same bracket the Orange Pi mount uses. Superseded by the printed housing.",
+          "images": [
+            {
+              "url": "https://img.basically.website/parts/img/ctrl-board-mount-v1-render-d7411f58.png",
+              "alt": "Onshape render of the control board's v1 extrusion mount and fan bracket",
+              "caption": "The v1 mounting, from Onshape: the board's plate (blue) and the shared fan bracket (grey)."
+            }
+          ],
+          "lines": [
+            {
+              "part": "ctrl-board-extrusion-mount",
+              "qty": 1,
+              "uid": "1d5n"
+            },
+            {
+              "part": "ctrl-board-basically",
+              "qty": 1,
+              "uid": "yugu"
+            },
+            {
+              "part": "scr-m3-tbd",
+              "qty": 4,
+              "uid": "1kgy"
+            },
+            {
+              "part": "hsi-m3",
+              "qty": 4,
+              "uid": "ksut"
+            },
+            {
+              "part": "standoff-m3-10mm",
+              "qty": 4,
+              "uid": "hkor"
+            },
+            {
+              "part": "fan-bracket-40mm",
+              "qty": 1,
+              "uid": "3ufy"
+            },
+            {
+              "part": "fan-40mm-24v",
+              "qty": 1,
+              "uid": "7o57"
+            }
+          ]
+        },
+        {
+          "version": "2",
+          "date": "2026-08-23",
+          "message": "The printed housing replaces the bracket and standoffs. The board bolts straight to the base on four of its eight heat inserts; the cover closes onto the other four, carries the 40 mm 24 V fan on self-tapping M3 × 12 mm button heads, and holds a plunger over the board's reset button. Adopted from candidate rns2 after a test print.",
+          "commit": null
         }
       ]
     },

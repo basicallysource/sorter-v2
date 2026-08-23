@@ -11,8 +11,8 @@
 		"density_g_cm3": 1.32,
 		"cost_per_kg": 24.99,
 		"commit_base_url": "https://github.com/basicallysource/sorter-v2/commit/",
-		"all_parts_zip": "https://img.basically.website/parts/bundle/all-parts-d0a9c297.zip",
-		"all_parts_plain_zip": "https://img.basically.website/parts/bundle/all-parts-plain-e1df71a9.zip"
+		"all_parts_zip": "https://img.basically.website/parts/bundle/all-parts-3065dd93.zip",
+		"all_parts_plain_zip": "https://img.basically.website/parts/bundle/all-parts-plain-8b1c9c7e.zip"
 	},
 	"sections": [
 		{
@@ -1358,16 +1358,16 @@
 		},
 		{
 			"id": "ctrl-board-mount",
-			"uid": "u12m",
-			"version": "1",
-			"name": "Control board mount",
-			"description": "The basically Embedded Control Board standing off its bracket, which bolts to the 2020 extrusion, with a 40 mm fan on a bracket cantilevered over it.",
+			"uid": "rns2",
+			"version": "2",
+			"name": "basically Embedded Control Board Housing",
+			"description": "The basically Embedded Control Board closed into a two-part printed housing that bolts to the 2020 extrusion. The board screws straight to the base \u2014 no bracket, no standoffs \u2014 and the cover carries a 40 mm 24 V fan and a plunger that reaches the board's reset button from outside.",
 			"section": "electronics",
-			"docs": "/hardware/electronics/installation/control-board-mount/",
+			"docs": "/hardware/electronics/installation/control-board-housing/",
 			"status": "partial",
 			"lines": [
 				{
-					"part": "ctrl-board-extrusion-mount",
+					"part": "ctrl-board-housing-base",
 					"qty": 1
 				},
 				{
@@ -1375,99 +1375,113 @@
 					"qty": 1
 				},
 				{
-					"part": "scr-m3-tbd",
+					"part": "scr-m3-6-bhcs",
 					"qty": 4
 				},
 				{
-					"part": "hsi-m3",
-					"qty": 4
-				},
-				{
-					"part": "standoff-m3-10mm",
-					"qty": 4
-				},
-				{
-					"part": "fan-bracket-40mm",
+					"part": "ctrl-board-housing-cover",
 					"qty": 1
+				},
+				{
+					"part": "scr-m3-12-cs",
+					"qty": 4
+				},
+				{
+					"part": "ctrl-board-housing-plunger",
+					"qty": 1
+				},
+				{
+					"part": "ctrl-board-housing-plunger-retainer",
+					"qty": 1
+				},
+				{
+					"part": "scr-m3-8-cs",
+					"qty": 2
 				},
 				{
 					"part": "fan-40mm-24v",
 					"qty": 1
+				},
+				{
+					"part": "scr-m3-12-bhcs",
+					"qty": 4
 				}
 			],
-			"candidates": [
+			"joining": [
 				{
-					"uid": "rns2",
-					"name": "basically Embedded Control Board Housing",
-					"created_at": "2026-08-22",
-					"message": "A printed housing in place of the bracket and standoffs. The board screws straight to the base on four [[hw:hsi-m3]] with four [[hw:scr-m3-shcs-tbd]]; the cover closes onto four more inserts in the base with four [[hw:scr-m3-12-cs]] and carries a 40 mm 24 V fan; a plunger through the cover is held in by the plunger retainer on two [[hw:scr-m3-8-cs]]. Being test-printed; may become the next version, and renames this assembly if it does.",
-					"joining": [
-						{
-							"method": "self-tap",
-							"note": "The fan's four [[hw:scr-m3-16-shcs]] cut their own threads in the cover; no inserts there."
-						}
-					],
-					"images": [
-						{
-							"url": "https://img.basically.website/parts/img/ctrl-board-housing-assembly-render-8d104a6e.png",
-							"alt": "Onshape render of the control board housing, closed",
-							"caption": "The housing closed, from Onshape: fan vent and plunger in the cover."
-						},
-						{
-							"url": "https://img.basically.website/parts/img/ctrl-board-housing-plunger-section-82fccc39.png",
-							"alt": "Section through the housing at the plunger",
-							"caption": "Section at the plunger: through the cover, held by the retainer (blue), over the board."
-						}
-					],
-					"lines": [
-						{
-							"part": "ctrl-board-housing-base",
-							"qty": 1
-						},
-						{
-							"part": "ctrl-board-basically",
-							"qty": 1
-						},
-						{
-							"part": "scr-m3-shcs-tbd",
-							"qty": 4
-						},
-						{
-							"part": "ctrl-board-housing-cover",
-							"qty": 1
-						},
-						{
-							"part": "scr-m3-12-cs",
-							"qty": 4
-						},
-						{
-							"part": "ctrl-board-housing-plunger",
-							"qty": 1
-						},
-						{
-							"part": "ctrl-board-housing-plunger-retainer",
-							"qty": 1
-						},
-						{
-							"part": "scr-m3-8-cs",
-							"qty": 2
-						},
-						{
-							"part": "fan-40mm-24v",
-							"qty": 1
-						},
-						{
-							"part": "scr-m3-16-shcs",
-							"qty": 4
-						}
-					]
+					"method": "self-tap",
+					"note": "The fan's four [[hw:scr-m3-12-bhcs]] cut their own threads in the cover; no inserts there."
 				}
 			],
 			"images": [
 				{
-					"url": "https://img.basically.website/parts/img/ctrl-board-mount-v1-render-d7411f58.png",
-					"alt": "Onshape render of the control board's v1 extrusion mount and fan bracket",
-					"caption": "The v1 mounting, from Onshape: the board's plate (blue) and the shared fan bracket (grey)."
+					"url": "https://img.basically.website/parts/img/ctrl-board-housing-assembly-render-8d104a6e.png",
+					"alt": "Onshape render of the control board housing, closed",
+					"caption": "The housing closed, from Onshape: fan vent and plunger in the cover."
+				},
+				{
+					"url": "https://img.basically.website/parts/img/ctrl-board-housing-plunger-section-82fccc39.png",
+					"alt": "Section through the housing at the plunger",
+					"caption": "Section at the plunger: through the cover, held by the retainer (blue), over the board."
+				}
+			],
+			"versions": [
+				{
+					"version": "1",
+					"uid": "u12m",
+					"date": "2026-07-18",
+					"message": "The board stood off a printed bracket on four 10 mm standoffs, and the 40 mm fan sat on a separate bracket cantilevered over it \u2014 the same bracket the Orange Pi mount uses. Superseded by the printed housing.",
+					"images": [
+						{
+							"url": "https://img.basically.website/parts/img/ctrl-board-mount-v1-render-d7411f58.png",
+							"alt": "Onshape render of the control board's v1 extrusion mount and fan bracket",
+							"caption": "The v1 mounting, from Onshape: the board's plate (blue) and the shared fan bracket (grey)."
+						}
+					],
+					"lines": [
+						{
+							"part": "ctrl-board-extrusion-mount",
+							"qty": 1,
+							"uid": "1d5n"
+						},
+						{
+							"part": "ctrl-board-basically",
+							"qty": 1,
+							"uid": "yugu"
+						},
+						{
+							"part": "scr-m3-tbd",
+							"qty": 4,
+							"uid": "1kgy"
+						},
+						{
+							"part": "hsi-m3",
+							"qty": 4,
+							"uid": "ksut"
+						},
+						{
+							"part": "standoff-m3-10mm",
+							"qty": 4,
+							"uid": "hkor"
+						},
+						{
+							"part": "fan-bracket-40mm",
+							"qty": 1,
+							"uid": "3ufy"
+						},
+						{
+							"part": "fan-40mm-24v",
+							"qty": 1,
+							"uid": "7o57"
+						}
+					]
+				},
+				{
+					"version": "2",
+					"uid": "rns2",
+					"date": "2026-08-23",
+					"message": "The printed housing replaces the bracket and standoffs. The board bolts straight to the base on four of its eight heat inserts; the cover closes onto the other four, carries the 40 mm 24 V fan on self-tapping M3 \u00d7 12 mm button heads, and holds a plunger over the board's reset button. Adopted from candidate rns2 after a test print.",
+					"commit": null
 				}
 			]
 		},
@@ -1646,15 +1660,15 @@
 					"commit": null,
 					"stl": "https://img.basically.website/parts/stl/stator-n6bm-323b2d1f.stl",
 					"render": "https://img.basically.website/parts/render/stator-02ab8b46.png",
-					"grams": 175.75
+					"grams": 175.52
 				}
 			],
 			"attributes": [],
-			"grams": 175.75,
-			"support_grams": 23.06,
+			"grams": 175.52,
+			"support_grams": 23.42,
 			"support_used": true,
 			"support_intentional": true,
-			"print_seconds": 16022,
+			"print_seconds": 16012,
 			"color": {
 				"by_section": {
 					"feeder": {
@@ -1799,15 +1813,15 @@
 					"commit": null,
 					"stl": "https://img.basically.website/parts/stl/rotor-faceted-9v9q-350de3f8.stl",
 					"render": "https://img.basically.website/parts/render/rotor-faceted-2199a029.png",
-					"grams": 166.51
+					"grams": 166.5
 				}
 			],
 			"attributes": [],
-			"grams": 166.51,
-			"support_grams": 0,
+			"grams": 166.5,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 11081,
+			"print_seconds": 11084,
 			"color": {
 				"split": [
 					{
@@ -1940,15 +1954,15 @@
 					"commit": null,
 					"stl": "https://img.basically.website/parts/stl/output-gear-26ek-69ae2f99.stl",
 					"render": "https://img.basically.website/parts/render/output-gear-b72ef086.png",
-					"grams": 59.69
+					"grams": 59.67
 				}
 			],
 			"attributes": [],
-			"grams": 59.69,
-			"support_grams": 0,
+			"grams": 59.67,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 7237,
+			"print_seconds": 7249,
 			"color": {
 				"role": "feeder"
 			},
@@ -2077,15 +2091,15 @@
 					"commit": null,
 					"stl": "https://img.basically.website/parts/stl/nema-bracket-x09t-8b2bea87.stl",
 					"render": "https://img.basically.website/parts/render/nema-bracket-a2248800.png",
-					"grams": 72.42
+					"grams": 72.45
 				}
 			],
 			"attributes": [],
-			"grams": 72.42,
-			"support_grams": 0,
+			"grams": 72.45,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 7206,
+			"print_seconds": 7209,
 			"color": {
 				"by_section": {
 					"feeder": {
@@ -2220,10 +2234,10 @@
 			],
 			"attributes": [],
 			"grams": 13.16,
-			"support_grams": 2.51,
+			"support_grams": 2.47,
 			"support_used": true,
 			"support_intentional": true,
-			"print_seconds": 5161,
+			"print_seconds": 5172,
 			"color": {
 				"role": "feeder"
 			},
@@ -2309,7 +2323,7 @@
 			"support_grams": 4.62,
 			"support_used": true,
 			"support_intentional": true,
-			"print_seconds": 3246,
+			"print_seconds": 3240,
 			"color": {
 				"fixed": "ivory-white"
 			},
@@ -2432,10 +2446,10 @@
 			],
 			"attributes": [],
 			"grams": 2.59,
-			"support_grams": 0,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 956,
+			"print_seconds": 955,
 			"color": {
 				"role": "feeder"
 			},
@@ -2530,10 +2544,10 @@
 			],
 			"attributes": [],
 			"grams": 620.43,
-			"support_grams": 0,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 43772,
+			"print_seconds": 43773,
 			"color": {
 				"role": "feeder"
 			},
@@ -2661,10 +2675,10 @@
 			],
 			"attributes": [],
 			"grams": 371.28,
-			"support_grams": 0,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 31045,
+			"print_seconds": 30870,
 			"color": {
 				"fixed": "ivory-white"
 			},
@@ -2833,7 +2847,7 @@
 					"stl_hash": "db2c0ecf58184c752a8d66035b2620a3d1570343167b8b2b7f3b7eedd402c58f",
 					"render": "https://img.basically.website/parts/render/interface-bracket-v1-299da0d4.png",
 					"stl": "https://img.basically.website/parts/stl/interface-bracket-s2o9-db2c0ecf.stl",
-					"grams": 159.64
+					"grams": 159.48
 				},
 				{
 					"version": "2",
@@ -2844,15 +2858,15 @@
 					"onshape_version": "https://cad.onshape.com/documents/36d65973fe08f685f790dc8b/v/f845b960415692451f2903b1/e/77f0be233cae0dcaf1c2a391",
 					"stl": "https://img.basically.website/parts/stl/interface-bracket-jk82-5835878c.stl",
 					"render": "https://img.basically.website/parts/render/interface-bracket-5c15729c.png",
-					"grams": 159.45
+					"grams": 159.46
 				}
 			],
 			"attributes": [],
-			"grams": 159.45,
-			"support_grams": 0,
+			"grams": 159.46,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 14632,
+			"print_seconds": 14631,
 			"color": {
 				"role": "frame"
 			},
@@ -3119,7 +3133,7 @@
 			"support_grams": 9.29,
 			"support_used": true,
 			"support_intentional": false,
-			"print_seconds": 23661,
+			"print_seconds": 23973,
 			"color": {
 				"role": "chute-core"
 			},
@@ -3252,10 +3266,10 @@
 			],
 			"attributes": [],
 			"grams": 21.19,
-			"support_grams": 0,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 2583,
+			"print_seconds": 2584,
 			"color": {
 				"role": "frame"
 			},
@@ -3384,10 +3398,10 @@
 			],
 			"attributes": [],
 			"grams": 21.44,
-			"support_grams": 0,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 2606,
+			"print_seconds": 2604,
 			"color": {
 				"role": "frame"
 			},
@@ -3518,7 +3532,7 @@
 			],
 			"attributes": [],
 			"grams": 86.17,
-			"support_grams": 0,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 9567,
@@ -3651,7 +3665,7 @@
 			],
 			"attributes": [],
 			"grams": 13.62,
-			"support_grams": 0,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 2678,
@@ -3787,10 +3801,10 @@
 			],
 			"attributes": [],
 			"grams": 233.62,
-			"support_grams": 0,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 18175,
+			"print_seconds": 18078,
 			"color": {
 				"role": "chute-core"
 			},
@@ -3927,10 +3941,10 @@
 			],
 			"attributes": [],
 			"grams": 206.81,
-			"support_grams": 0,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 14392,
+			"print_seconds": 14391,
 			"color": {
 				"role": "frame"
 			},
@@ -4078,10 +4092,10 @@
 			],
 			"attributes": [],
 			"grams": 56.06,
-			"support_grams": 0,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 7500,
+			"print_seconds": 7438,
 			"color": {
 				"role": "frame"
 			},
@@ -4340,10 +4354,10 @@
 			],
 			"attributes": [],
 			"grams": 10.63,
-			"support_grams": 0,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 1456,
+			"print_seconds": 1458,
 			"color": {
 				"role": "frame"
 			},
@@ -4435,10 +4449,10 @@
 			],
 			"attributes": [],
 			"grams": 48.52,
-			"support_grams": 0,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 6009,
+			"print_seconds": 6010,
 			"color": {
 				"role": "frame"
 			},
@@ -4563,15 +4577,15 @@
 					"onshape_version": "https://cad.onshape.com/documents/a4a1965bbaf3a15aff2b13ed/v/7279a42b05833c7b828efb0d/e/b0ee2e787191265cba1c1a31",
 					"stl": "https://img.basically.website/parts/stl/ext-bracket-bottom-vertical-xgzj-313397af.stl",
 					"render": "https://img.basically.website/parts/render/ext-bracket-bottom-vertical-962b87dc.png",
-					"grams": 50.66
+					"grams": 50.62
 				}
 			],
 			"attributes": [],
-			"grams": 50.66,
-			"support_grams": 10.41,
+			"grams": 50.62,
+			"support_grams": 10.43,
 			"support_used": true,
 			"support_intentional": false,
-			"print_seconds": 8759,
+			"print_seconds": 8873,
 			"color": {
 				"role": "frame"
 			},
@@ -4701,7 +4715,7 @@
 			],
 			"attributes": [],
 			"grams": 12.45,
-			"support_grams": 0,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 2264,
@@ -4847,10 +4861,10 @@
 			],
 			"attributes": [],
 			"grams": 23.59,
-			"support_grams": 0,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 3585,
+			"print_seconds": 3584,
 			"color": {
 				"role": "frame"
 			},
@@ -4988,15 +5002,15 @@
 					"onshape_version": "https://cad.onshape.com/documents/36d65973fe08f685f790dc8b/v/3b8fafc8cab54b09332e14d2/e/8f693a0bd7ce7d62c0c00291",
 					"stl": "https://img.basically.website/parts/stl/interface-upper-fixed-section-kigs-47d71e76.stl",
 					"render": "https://img.basically.website/parts/render/interface-upper-fixed-section-c38e48d4.png",
-					"grams": 164.13
+					"grams": 164.14
 				}
 			],
 			"attributes": [],
-			"grams": 164.13,
-			"support_grams": 0,
+			"grams": 164.14,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 12159,
+			"print_seconds": 12186,
 			"color": {
 				"role": "frame"
 			},
@@ -5130,10 +5144,10 @@
 			],
 			"attributes": [],
 			"grams": 26.6,
-			"support_grams": 0,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 3124,
+			"print_seconds": 3123,
 			"color": {
 				"role": "frame"
 			},
@@ -5262,7 +5276,7 @@
 			],
 			"attributes": [],
 			"grams": 15.27,
-			"support_grams": 0,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 2264,
@@ -5389,7 +5403,7 @@
 					"stl_hash": "8ca345012b63e33064706c787705fa3d3f39229891319935beb58eeede6d1a14",
 					"render": "https://img.basically.website/parts/render/interface-big-spacer-v1-8ef4cd81.png",
 					"stl": "https://img.basically.website/parts/stl/interface-big-spacer-m8pp-8ca34501.stl",
-					"grams": 22.19
+					"grams": 22.18
 				},
 				{
 					"version": "2",
@@ -5405,10 +5419,10 @@
 			],
 			"attributes": [],
 			"grams": 11.13,
-			"support_grams": 0,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 1484,
+			"print_seconds": 1485,
 			"color": {
 				"role": "frame"
 			},
@@ -5502,7 +5516,7 @@
 			"support_grams": 0.92,
 			"support_used": true,
 			"support_intentional": true,
-			"print_seconds": 1949,
+			"print_seconds": 1948,
 			"color": {
 				"role": "chute-core"
 			},
@@ -5643,10 +5657,10 @@
 			],
 			"attributes": [],
 			"grams": 19.76,
-			"support_grams": 6.97,
+			"support_grams": 6.9,
 			"support_used": true,
 			"support_intentional": true,
-			"print_seconds": 3555,
+			"print_seconds": 3550,
 			"color": {
 				"role": "chute-core"
 			},
@@ -5773,15 +5787,15 @@
 					"commit": null,
 					"stl": "https://img.basically.website/parts/stl/interface-spur-gear-ywxy-f5c38047.stl",
 					"render": "https://img.basically.website/parts/render/interface-spur-gear-e095a624.png",
-					"grams": 9
+					"grams": 9.0
 				}
 			],
 			"attributes": [],
-			"grams": 9,
-			"support_grams": 0,
+			"grams": 9.0,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 1916,
+			"print_seconds": 1920,
 			"color": {
 				"role": "frame"
 			},
@@ -5873,10 +5887,10 @@
 			],
 			"attributes": [],
 			"grams": 8.98,
-			"support_grams": 0,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 1989,
+			"print_seconds": 1993,
 			"color": {
 				"role": "frame"
 			},
@@ -5952,10 +5966,10 @@
 			],
 			"attributes": [],
 			"grams": 45.02,
-			"support_grams": 0,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 5392,
+			"print_seconds": 5384,
 			"color": {
 				"role": "frame"
 			},
@@ -6096,10 +6110,10 @@
 			],
 			"attributes": [],
 			"grams": 1.43,
-			"support_grams": 0,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 610,
+			"print_seconds": 609,
 			"color": {
 				"role": "frame"
 			},
@@ -6150,7 +6164,7 @@
 			],
 			"attributes": [],
 			"grams": 0.26,
-			"support_grams": 0,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 445,
@@ -6200,7 +6214,7 @@
 			],
 			"attributes": [],
 			"grams": 15.89,
-			"support_grams": 0,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 2797,
@@ -6331,7 +6345,7 @@
 			],
 			"attributes": [],
 			"grams": 15.88,
-			"support_grams": 0,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 2841,
@@ -6467,7 +6481,7 @@
 			],
 			"attributes": [],
 			"grams": 5.31,
-			"support_grams": 0,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 1992,
@@ -6594,15 +6608,15 @@
 					"commit": null,
 					"stl": "https://img.basically.website/parts/stl/top-interface-split-spur-gear-1-1a0l-6a600fb6.stl",
 					"render": "https://img.basically.website/parts/render/top-interface-split-spur-gear-1-852a476a.png",
-					"grams": 59.95
+					"grams": 59.97
 				}
 			],
 			"attributes": [],
-			"grams": 59.95,
-			"support_grams": 0,
+			"grams": 59.97,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 7668,
+			"print_seconds": 7684,
 			"color": {
 				"role": "chute-core"
 			},
@@ -6706,12 +6720,12 @@
 					"commit": null,
 					"stl": "https://img.basically.website/parts/stl/top-interface-split-spur-gear-2-izz5-c109b8b2.stl",
 					"render": "https://img.basically.website/parts/render/top-interface-split-spur-gear-2-5b6a50d7.png",
-					"grams": 8
+					"grams": 8.0
 				}
 			],
 			"attributes": [],
-			"grams": 8,
-			"support_grams": 0,
+			"grams": 8.0,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 1250,
@@ -6802,15 +6816,15 @@
 					"commit": null,
 					"stl": "https://img.basically.website/parts/stl/top-interface-split-spur-gear-3-vrz8-11f50ca2.stl",
 					"render": "https://img.basically.website/parts/render/top-interface-split-spur-gear-3-39e19ab0.png",
-					"grams": 588.15
+					"grams": 588.3
 				}
 			],
 			"attributes": [],
-			"grams": 588.15,
-			"support_grams": 400.62,
+			"grams": 588.3,
+			"support_grams": 400.58,
 			"support_used": true,
 			"support_intentional": false,
-			"print_seconds": 46282,
+			"print_seconds": 46254,
 			"color": {
 				"role": "chute-core"
 			},
@@ -6947,7 +6961,7 @@
 			],
 			"attributes": [],
 			"grams": 0.71,
-			"support_grams": 0,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 1057,
@@ -6997,7 +7011,7 @@
 			],
 			"attributes": [],
 			"grams": 10.13,
-			"support_grams": 0,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 2140,
@@ -7133,7 +7147,7 @@
 			],
 			"attributes": [],
 			"grams": 3.56,
-			"support_grams": 0,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 973,
@@ -7250,10 +7264,10 @@
 			],
 			"attributes": [],
 			"grams": 178.76,
-			"support_grams": 0,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 12910,
+			"print_seconds": 12914,
 			"color": {
 				"fixed": "ivory-white"
 			},
@@ -7381,10 +7395,10 @@
 			],
 			"attributes": [],
 			"grams": 4.61,
-			"support_grams": 0,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 1444,
+			"print_seconds": 1437,
 			"color": {
 				"role": "feeder"
 			},
@@ -7478,7 +7492,7 @@
 			],
 			"attributes": [],
 			"grams": 3.57,
-			"support_grams": 0,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 1448,
@@ -7586,7 +7600,7 @@
 			],
 			"attributes": [],
 			"grams": 20.99,
-			"support_grams": 0,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 3689,
@@ -8078,10 +8092,10 @@
 			],
 			"attributes": [],
 			"grams": 20.13,
-			"support_grams": 0,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 2948,
+			"print_seconds": 2947,
 			"color": {
 				"role": "chute-core"
 			},
@@ -8209,15 +8223,15 @@
 					"commit": null,
 					"stl": "https://img.basically.website/parts/stl/bearing-holder-left-gybh-f0cc0eb5.stl",
 					"render": "https://img.basically.website/parts/render/bearing-holder-left-587e06bc.png",
-					"grams": 7.9
+					"grams": 7.95
 				}
 			],
 			"attributes": [],
-			"grams": 7.9,
-			"support_grams": 0,
+			"grams": 7.95,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 2226,
+			"print_seconds": 2231,
 			"color": {
 				"role": "chute-core"
 			},
@@ -8352,7 +8366,7 @@
 			],
 			"attributes": [],
 			"grams": 7.98,
-			"support_grams": 0,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 2249,
@@ -8490,7 +8504,7 @@
 			],
 			"attributes": [],
 			"grams": 4.85,
-			"support_grams": 0,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 2035,
@@ -8638,7 +8652,7 @@
 			],
 			"attributes": [],
 			"grams": 5.25,
-			"support_grams": 0,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 2095,
@@ -8896,7 +8910,7 @@
 			],
 			"attributes": [],
 			"grams": 9.58,
-			"support_grams": 0,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 2330,
@@ -9022,15 +9036,15 @@
 					"commit": null,
 					"stl": "https://img.basically.website/parts/stl/servo-bracket-cover-rqor-1ebad4ab.stl",
 					"render": "https://img.basically.website/parts/render/servo-bracket-cover-38397211.png",
-					"grams": 6
+					"grams": 6.0
 				}
 			],
 			"attributes": [],
-			"grams": 6,
-			"support_grams": 0,
+			"grams": 6.0,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 2183,
+			"print_seconds": 2182,
 			"color": {
 				"role": "chute-core"
 			},
@@ -9161,7 +9175,7 @@
 			],
 			"attributes": [],
 			"grams": 17.31,
-			"support_grams": 0,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 2881,
@@ -9297,7 +9311,7 @@
 			],
 			"attributes": [],
 			"grams": 21.11,
-			"support_grams": 0,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 5597,
@@ -9428,7 +9442,7 @@
 			],
 			"attributes": [],
 			"grams": 8.45,
-			"support_grams": 0,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 1891,
@@ -9559,7 +9573,7 @@
 			],
 			"attributes": [],
 			"grams": 46.85,
-			"support_grams": 3.53,
+			"support_grams": 3.54,
 			"support_used": true,
 			"support_intentional": false,
 			"print_seconds": 5504,
@@ -9692,7 +9706,7 @@
 			],
 			"attributes": [],
 			"grams": 15.47,
-			"support_grams": 0,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 3638,
@@ -9823,7 +9837,7 @@
 			],
 			"attributes": [],
 			"grams": 4.28,
-			"support_grams": 0,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 1121,
@@ -9873,10 +9887,10 @@
 			],
 			"attributes": [],
 			"grams": 19.14,
-			"support_grams": 0,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 3507,
+			"print_seconds": 3504,
 			"color": {
 				"role": "feeder"
 			},
@@ -10004,10 +10018,10 @@
 			],
 			"attributes": [],
 			"grams": 18.34,
-			"support_grams": 0,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 3320,
+			"print_seconds": 3321,
 			"color": {
 				"role": "feeder"
 			},
@@ -10135,7 +10149,7 @@
 			],
 			"attributes": [],
 			"grams": 9.41,
-			"support_grams": 0,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 3255,
@@ -10263,15 +10277,15 @@
 					"commit": null,
 					"stl": "https://img.basically.website/parts/stl/camera-led-insert-b2v9-14202c7b.stl",
 					"render": "https://img.basically.website/parts/render/camera-led-insert-9e276823.png",
-					"grams": 106.12
+					"grams": 106.11
 				}
 			],
 			"attributes": [],
-			"grams": 106.12,
-			"support_grams": 0,
+			"grams": 106.11,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 10331,
+			"print_seconds": 10305,
 			"color": {
 				"fixed": "ivory-white"
 			},
@@ -10404,10 +10418,10 @@
 				}
 			],
 			"grams": 28.37,
-			"support_grams": 0,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 4106,
+			"print_seconds": 4105,
 			"color": {
 				"fixed": "ash-gray"
 			},
@@ -10546,7 +10560,7 @@
 				}
 			],
 			"grams": 7.58,
-			"support_grams": 0,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 1344,
@@ -10681,10 +10695,10 @@
 			],
 			"attributes": [],
 			"grams": 12.31,
-			"support_grams": 0,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 2842,
+			"print_seconds": 2841,
 			"color": {
 				"role": "chute-core"
 			},
@@ -10814,7 +10828,7 @@
 			],
 			"attributes": [],
 			"grams": 12.3,
-			"support_grams": 0,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 2840,
@@ -11077,7 +11091,7 @@
 			],
 			"attributes": [],
 			"grams": 216.27,
-			"support_grams": 0,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 19064,
@@ -11209,7 +11223,7 @@
 			],
 			"attributes": [],
 			"grams": 158.23,
-			"support_grams": 0,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 14385,
@@ -11335,15 +11349,15 @@
 					"commit": null,
 					"stl": "https://img.basically.website/parts/stl/bin-half-left-0zbx-2073b94e.stl",
 					"render": "https://img.basically.website/parts/render/bin-half-left-de4527ff.png",
-					"grams": 171.55
+					"grams": 171.54
 				}
 			],
 			"attributes": [],
-			"grams": 171.55,
-			"support_grams": 0.73,
+			"grams": 171.54,
+			"support_grams": 0.69,
 			"support_used": true,
 			"support_intentional": false,
-			"print_seconds": 16592,
+			"print_seconds": 16584,
 			"color": {
 				"role": "bin"
 			},
@@ -11466,15 +11480,15 @@
 					"commit": null,
 					"stl": "https://img.basically.website/parts/stl/bin-half-right-e0ek-93ccbb52.stl",
 					"render": "https://img.basically.website/parts/render/bin-half-right-0fb741a0.png",
-					"grams": 171.67
+					"grams": 171.5
 				}
 			],
 			"attributes": [],
-			"grams": 171.67,
-			"support_grams": 0.9,
+			"grams": 171.5,
+			"support_grams": 0.67,
 			"support_used": true,
 			"support_intentional": false,
-			"print_seconds": 16691,
+			"print_seconds": 16657,
 			"color": {
 				"role": "bin"
 			},
@@ -11597,15 +11611,15 @@
 					"commit": null,
 					"stl": "https://img.basically.website/parts/stl/bin-third-left-z8ap-16b47a00.stl",
 					"render": "https://img.basically.website/parts/render/bin-third-left-025625d7.png",
-					"grams": 121.75
+					"grams": 121.81
 				}
 			],
 			"attributes": [],
-			"grams": 121.75,
-			"support_grams": 0.96,
+			"grams": 121.81,
+			"support_grams": 1.06,
 			"support_used": true,
 			"support_intentional": false,
-			"print_seconds": 12370,
+			"print_seconds": 12385,
 			"color": {
 				"role": "bin"
 			},
@@ -11995,7 +12009,7 @@
 			],
 			"attributes": [],
 			"grams": 6.47,
-			"support_grams": 0,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 2417,
@@ -12106,10 +12120,10 @@
 			],
 			"attributes": [],
 			"grams": 5.9,
-			"support_grams": 0,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 2427,
+			"print_seconds": 2426,
 			"color": {
 				"role": "chute-core"
 			},
@@ -12197,7 +12211,7 @@
 			],
 			"attributes": [],
 			"grams": 55.74,
-			"support_grams": 0,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 5727,
@@ -12328,10 +12342,10 @@
 			],
 			"attributes": [],
 			"grams": 101.9,
-			"support_grams": 0,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 10960,
+			"print_seconds": 10583,
 			"color": {
 				"role": "frame"
 			},
@@ -12459,7 +12473,7 @@
 			],
 			"attributes": [],
 			"grams": 60.81,
-			"support_grams": 0,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 7682,
@@ -12565,15 +12579,17 @@
 			"id": "ctrl-board-housing-base",
 			"uid": "204b",
 			"name": "Control Board Housing \u2014 Base",
-			"quantities": {},
-			"assembly": null,
+			"quantities": {
+				"electronics": 1
+			},
+			"assembly": "ctrl-board-mount",
 			"folder": null,
 			"variant_group": null,
 			"variant_name": null,
 			"description": "Base of the basically Embedded Control Board housing. The board screws straight to it on four heat inserts and the cover screws down onto four more; no standoffs.",
 			"version": "1",
 			"created_at": "2026-08-22",
-			"updated_at": "2026-08-22",
+			"updated_at": "2026-08-23",
 			"versions": [
 				{
 					"version": "1",
@@ -12581,6 +12597,7 @@
 					"date": "2026-08-22",
 					"message": "Initial version.",
 					"commit": null,
+					"onshape_version": "https://cad.onshape.com/documents/09541e2012f9c0d0a5643fe7/v/9901d0807c3f84ce0f00abc1/e/f6e7bc459ae4ed1576edc10c",
 					"stl": "https://img.basically.website/parts/stl/ctrl-board-housing-base-204b-e2068058.stl",
 					"render": "https://img.basically.website/parts/render/ctrl-board-housing-base-24ee44a9.png",
 					"grams": 89.65
@@ -12588,10 +12605,10 @@
 			],
 			"attributes": [],
 			"grams": 89.65,
-			"support_grams": 0,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 10898,
+			"print_seconds": 10845,
 			"color": {
 				"role": "frame"
 			},
@@ -12699,15 +12716,17 @@
 			"id": "ctrl-board-housing-cover",
 			"uid": "ksh2",
 			"name": "Control Board Housing \u2014 Cover",
-			"quantities": {},
-			"assembly": null,
+			"quantities": {
+				"electronics": 1
+			},
+			"assembly": "ctrl-board-mount",
 			"folder": null,
 			"variant_group": null,
 			"variant_name": null,
-			"description": "Cover of the basically Embedded Control Board housing. Screws to the base with four M3 \u00d7 12 mm countersunk screws, carries the 40 mm 24 V fan on four self-tapping M3 \u00d7 16 mm screws, and the plunger passes through it.",
+			"description": "Cover of the basically Embedded Control Board housing. Screws to the base with four M3 \u00d7 12 mm countersunk screws, carries the 40 mm 24 V fan on four self-tapping M3 \u00d7 12 mm button head screws, and the plunger passes through it.",
 			"version": "1",
 			"created_at": "2026-08-22",
-			"updated_at": "2026-08-22",
+			"updated_at": "2026-08-23",
 			"versions": [
 				{
 					"version": "1",
@@ -12715,6 +12734,7 @@
 					"date": "2026-08-22",
 					"message": "Initial version.",
 					"commit": null,
+					"onshape_version": "https://cad.onshape.com/documents/09541e2012f9c0d0a5643fe7/v/9901d0807c3f84ce0f00abc1/e/f6e7bc459ae4ed1576edc10c",
 					"stl": "https://img.basically.website/parts/stl/ctrl-board-housing-cover-ksh2-462b0290.stl",
 					"render": "https://img.basically.website/parts/render/ctrl-board-housing-cover-92dcbb28.png",
 					"grams": 130.39
@@ -12722,10 +12742,10 @@
 			],
 			"attributes": [],
 			"grams": 130.39,
-			"support_grams": 0,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 15104,
+			"print_seconds": 15132,
 			"color": {
 				"role": "frame"
 			},
@@ -12830,15 +12850,17 @@
 			"id": "ctrl-board-housing-plunger",
 			"uid": "cljt",
 			"name": "Control Board Housing \u2014 Plunger",
-			"quantities": {},
-			"assembly": null,
+			"quantities": {
+				"electronics": 1
+			},
+			"assembly": "ctrl-board-mount",
 			"folder": null,
 			"variant_group": null,
 			"variant_name": null,
 			"description": "Plunger that passes through the housing cover, held in by the plunger retainer.",
 			"version": "1",
 			"created_at": "2026-08-22",
-			"updated_at": "2026-08-22",
+			"updated_at": "2026-08-23",
 			"versions": [
 				{
 					"version": "1",
@@ -12846,6 +12868,7 @@
 					"date": "2026-08-22",
 					"message": "Initial version.",
 					"commit": null,
+					"onshape_version": "https://cad.onshape.com/documents/09541e2012f9c0d0a5643fe7/v/9901d0807c3f84ce0f00abc1/e/f6e7bc459ae4ed1576edc10c",
 					"stl": "https://img.basically.website/parts/stl/ctrl-board-housing-plunger-cljt-ab938f5b.stl",
 					"render": "https://img.basically.website/parts/render/ctrl-board-housing-plunger-4bfe5b7d.png",
 					"grams": 1.47
@@ -12853,7 +12876,7 @@
 			],
 			"attributes": [],
 			"grams": 1.47,
-			"support_grams": 0,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 1626,
@@ -12963,15 +12986,17 @@
 			"id": "ctrl-board-housing-plunger-retainer",
 			"uid": "g9sx",
 			"name": "Control Board Housing \u2014 Plunger Retainer",
-			"quantities": {},
-			"assembly": null,
+			"quantities": {
+				"electronics": 1
+			},
+			"assembly": "ctrl-board-mount",
 			"folder": null,
 			"variant_group": null,
 			"variant_name": null,
 			"description": "Retains the plunger in the housing cover. Screws to the cover with two M3 \u00d7 8 mm countersunk screws.",
 			"version": "1",
 			"created_at": "2026-08-22",
-			"updated_at": "2026-08-22",
+			"updated_at": "2026-08-23",
 			"versions": [
 				{
 					"version": "1",
@@ -12979,6 +13004,7 @@
 					"date": "2026-08-22",
 					"message": "Initial version.",
 					"commit": null,
+					"onshape_version": "https://cad.onshape.com/documents/09541e2012f9c0d0a5643fe7/v/9901d0807c3f84ce0f00abc1/e/f6e7bc459ae4ed1576edc10c",
 					"stl": "https://img.basically.website/parts/stl/ctrl-board-housing-plunger-retainer-g9sx-a3f84a1f.stl",
 					"render": "https://img.basically.website/parts/render/ctrl-board-housing-plunger-retainer-e543b945.png",
 					"grams": 1.28
@@ -12986,10 +13012,10 @@
 			],
 			"attributes": [],
 			"grams": 1.28,
-			"support_grams": 0,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 620,
+			"print_seconds": 619,
 			"color": {
 				"role": "frame"
 			},
@@ -13054,17 +13080,15 @@
 			"id": "ctrl-board-extrusion-mount",
 			"uid": "1d5n",
 			"name": "Control Board Extrusion Mount",
-			"quantities": {
-				"electronics": 1
-			},
-			"assembly": "ctrl-board-mount",
+			"quantities": {},
+			"assembly": null,
 			"folder": null,
 			"variant_group": null,
 			"variant_name": null,
 			"description": "Plate the basically Embedded Control Board stands off, which bolts to the 2020 extrusion. The v1 mounting, in the machine today; the printed housing is the candidate that would replace it.",
 			"version": "1",
 			"created_at": "2026-08-22",
-			"updated_at": "2026-08-22",
+			"updated_at": "2026-08-23",
 			"versions": [
 				{
 					"version": "1",
@@ -13080,7 +13104,7 @@
 			],
 			"attributes": [],
 			"grams": 32.58,
-			"support_grams": 0,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 3339,
@@ -13212,7 +13236,7 @@
 			],
 			"attributes": [],
 			"grams": 23.49,
-			"support_grams": 0,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 2671,
@@ -13319,7 +13343,7 @@
 			"uid": "3ufy",
 			"name": "40 mm Fan Bracket",
 			"quantities": {
-				"electronics": 2
+				"electronics": 1
 			},
 			"assembly": null,
 			"folder": null,
@@ -13328,7 +13352,7 @@
 			"description": "L-shaped bracket that cantilevers a 40 mm fan over a board on its extrusion mount. The same part on both the control board and the Orange Pi mounts, so two per machine.",
 			"version": "1",
 			"created_at": "2026-08-22",
-			"updated_at": "2026-08-22",
+			"updated_at": "2026-08-23",
 			"versions": [
 				{
 					"version": "1",
@@ -13344,7 +13368,7 @@
 			],
 			"attributes": [],
 			"grams": 27.34,
-			"support_grams": 0,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 4396,
@@ -13474,10 +13498,10 @@
 			],
 			"attributes": [],
 			"grams": 207.01,
-			"support_grams": 0,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 26626,
+			"print_seconds": 26710,
 			"color": {
 				"role": "frame"
 			},
@@ -13604,10 +13628,10 @@
 			],
 			"attributes": [],
 			"grams": 56.13,
-			"support_grams": 0,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 6676,
+			"print_seconds": 6680,
 			"color": {
 				"role": "frame"
 			},
@@ -13734,7 +13758,7 @@
 			],
 			"attributes": [],
 			"grams": 37.27,
-			"support_grams": 0,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 3979,
@@ -13824,10 +13848,10 @@
 			],
 			"attributes": [],
 			"grams": 59.08,
-			"support_grams": 0,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 3969,
+			"print_seconds": 3970,
 			"color": {
 				"role": "frame"
 			},
@@ -13909,15 +13933,15 @@
 					"onshape_version": "https://cad.onshape.com/documents/f7d34331a9a020dce9231dc1/v/13f56af58b306d7850aa3ea4/e/562fad1e09332ebe5efdd59c",
 					"stl": "https://img.basically.website/parts/stl/meanwell-psu-housing-front-panel-n1oh-69dae822.stl",
 					"render": "https://img.basically.website/parts/render/meanwell-psu-housing-front-panel-4aada3d4.png",
-					"grams": 15.7
+					"grams": 15.69
 				}
 			],
 			"attributes": [],
-			"grams": 15.7,
-			"support_grams": 0,
+			"grams": 15.69,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 3031,
+			"print_seconds": 3027,
 			"color": {
 				"role": "frame"
 			},
@@ -14188,8 +14212,8 @@
 			},
 			"name": "M3 socket/button head, length TBD",
 			"category": "Screws",
-			"description": "Holds the basically Embedded Control Board to the housing base, into its heat inserts. The head is known, the length has not been measured.",
-			"note": "Length unknown \u2014 measure before ordering.",
+			"description": "Was the placeholder for the screws holding the basically Embedded Control Board to the housing base, before they were measured as M3 \u00d7 6 mm button head. Nothing calls for it now; the uid is kept because it was minted.",
+			"note": "Superseded before it was ever ordered \u2014 nothing in the catalog calls for it.",
 			"created_at": "2026-08-22",
 			"updated_at": "2026-08-22",
 			"attributes": [
@@ -17012,7 +17036,7 @@
 			},
 			"name": "40 mm 24 V fan",
 			"category": "Electronics",
-			"description": "40 mm axial fan, 24 V, on the control board housing cover; mounted with four self-tapping M3 \u00d7 16 mm screws.",
+			"description": "40 mm axial fan, 24 V, on the control board housing cover; mounted with four self-tapping M3 \u00d7 12 mm button head screws.",
 			"note": null,
 			"created_at": "2026-08-22",
 			"updated_at": "2026-08-22",

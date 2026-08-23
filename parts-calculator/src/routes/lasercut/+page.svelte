@@ -107,8 +107,9 @@
 			<div class="grid gap-4 sm:grid-cols-2">
 				{#each group.parts as p (p.id)}
 					<div class="setup-card-shell flex scroll-mt-6 flex-col border" id="laser-{p.id}">
-						<div class="flex items-center justify-center border-b border-border bg-[var(--color-bg)] p-4">
+						<div class="relative flex items-center justify-center border-b border-border bg-[var(--color-bg)] p-4">
 							<img src={p.preview} alt="{p.name} outline" class="h-48 w-auto max-w-full" />
+							<ChangeStatus kind="lasercut" id={p.id} name={p.name} variant="marker" />
 						</div>
 						<div class="flex gap-1 border-b border-border px-2">
 							<button

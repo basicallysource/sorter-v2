@@ -29,7 +29,10 @@
 	}
 	function targetHref(kind: ChangeTargetKind, id: string): string {
 		if (kind === 'parts') return `/part/${id}`;
-		if (kind === 'assemblies') return `/#assembly-${id}`;
+		// the assembly explorer, not /#assembly-<id>: that anchor only exists when
+		// some part carries the assembly as its own `assembly` field, so an
+		// assembly whose members are only in its `lines` (c-channel) has none.
+		if (kind === 'assemblies') return `/assembly?focus=${id}`;
 		if (kind === 'sections') return `/#section-${id}`;
 		if (kind === 'lasercut') return `/lasercut#laser-${id}`;
 		return `/hardware#hardware-${id}`;

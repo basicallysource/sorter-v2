@@ -345,6 +345,7 @@
 				{#if lengthLabel}
 					<span class="hw-len">{lengthLabel}</span>
 				{/if}
+				<ChangeStatus kind="hardware" id={h.id} name={h.name} variant="marker" />
 				<!-- hover preview; decorative, the thumbnail already carries the alt -->
 				<img src={img.src} alt="" aria-hidden="true" class="hw-zoom" />
 			</span>

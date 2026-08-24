@@ -297,6 +297,30 @@
 					"scr-m3-12-cs"
 				]
 			}
+		},
+		{
+			"id": "fix-ribbon-cable-clamp-standoffs",
+			"name": "Ribbon cable clamp does not seat flat on the cage bracket",
+			"priority": "P1",
+			"condition": "broken",
+			"description": "The clamp cannot close on the ribbon cable. The lip at its lower end is a hook meant to go over the bottom edge of the cage post, which is what stops the clamp rotating on its single M3, but in the published files the lip's ledge sits 1.43 mm above the post's underside, so it lands on the post's bottom edge instead of clearing it. The clamp is then held 3.80 mm off the post at that end and pivots on the screw, sitting crooked with the cable loose. The screw hole is 3.5 mm on an M3, 0.25 mm of adjustment, so it cannot be pushed down over the edge. The fix is to drop the lip about 1.5 mm, extend the post's outer skirt about 1.5 mm, or notch the post to take the lip; the two parts change together and it is not decided which way it goes. Until then, cut the notch in the post, or trim the lip flush and accept that the clamp can rotate. Reported from builds by barthel, zed0 and Jon, design intent from ChrisKiepfer; measured off the pinned ribbon-cable-clamp and cage bracket STLs. Tracked as sorter-v2 issue #403.",
+			"images": [
+				{
+					"url": "https://img.basically.website/parts/img/clamp-lip-section-bb73576e.png",
+					"alt": "Cross-section of the clamp and cage post showing the lip's ledge 1.43 mm above the post's underside",
+					"caption": "The lip lands on the post's bottom edge instead of hooking over it"
+				}
+			],
+			"targets": {
+				"parts": [
+					"ribbon-cable-clamp",
+					"interface-cage-bracket",
+					"interface-cage-bracket-cable"
+				],
+				"assemblies": [
+					"cable-cage"
+				]
+			}
 		}
 	],
 	"folders": [

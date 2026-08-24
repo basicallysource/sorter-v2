@@ -10,12 +10,13 @@ into everything the docs and a cable vendor need.
 `power.yml`, `steppers.yml`, `leds.yml` and `rfq.txt` are the source of truth:
 small, diffable text. Reviewing a harness change means reviewing them.
 Everything derived (PNG, SVG, PDF, HTML, per-cable BOM, the supplier RFQ zip)
-is a build artifact, and build artifacts live in the `basically-docs` assets
-bucket under a name carrying a hash of their own bytes:
+is a build artifact, and build artifacts live in the **asset service**
+(`assets.basically.website`, public repo `basicallysource/asset-service`,
+namespace `sorter-harness`) under a name carrying a hash of their own bytes:
 
-    https://img.basically.website/harness/power.2c0ebc6cd1.png
+    https://assets.basically.website/sorter-harness/power-accd2693fc83.png
 
-**Nothing in the bucket is ever overwritten**, and nothing about these URLs is
+**Nothing in the store is ever overwritten**, and nothing about these URLs is
 derived at docs-build time. They are literal strings in
 `docs/src/liquid/_data/harness.yml`, pasted from the render that produced them
 — the same contract `docs/scripts/upload_image.py` has always had for photos,
@@ -50,29 +51,15 @@ incognito. A
 content-addressed name fixes all three at once, because the object now exists
 before any commit can name it.
 
-`img.basically.website` is a Cloudflare Worker (`docs/scripts/img-worker/`) in
-front of the bucket. Every response carries `x-img-cache: hit|miss`, which is
-the evidence when somebody says a drawing looks wrong:
+Caching is not load-bearing for correctness here, and that is the point of
+content-addressed names: a URL's bytes cannot change, so a stale cache entry
+and a fresh one are the same bytes.
 
-    curl -sI "https://img.basically.website/harness/power.<hash>.png" | grep -i x-img-cache
-
-The origin is public and never cached, so it is the tiebreaker if the two ever
-disagree:
-
-    https://basically-docs.nyc3.digitaloceanspaces.com/harness/power.<hash>.png
-
-Caching is no longer load-bearing for correctness here, and that is the point
-of content-addressed names: a URL's bytes cannot change, so a stale cache
-entry and a fresh one are the same bytes. Two caching bugs got fixed on the way
-to that and are worth not reintroducing. The worker used to fetch
-`ORIGIN + url.pathname`, dropping the query string before its subrequest, so
-every `?v=` we appended hit one cached object which a 24h `cacheTtlByStatus`
-pinned in place — a fresh render in the bucket, a day-old render on the page,
-and the YAML link disagreeing with the picture above it. Zone purge could not
-clear it either: the key was a `digitaloceanspaces.com` URL, not one in the
-`basically.website` zone, so `purge_cache` returned success and did nothing.
-The worker now caches under its own hostname with the full URL in the key
-(#284, 2026-08-09). Keep both properties if you touch that file.
+One thing the asset service adds: a PNG is an image, and the service never
+serves an image's uploaded file directly — pages get a byte-identical (for
+these renders) metadata-free copy under its own `-full-` name. The pasteable
+URL is whatever the upload tool prints, which reads it off the manifest;
+never hand-construct a PNG URL.
 
 **If a drawing ever looks wrong again, the first question is which URL the page
 is serving**, and the answer is in the page source and in
@@ -82,7 +69,7 @@ real cache bug worth chasing. If the URL is not the one you expect, somebody
 skipped the paste.
 
 Permanent, content-addressed copies are a release-time concern (the lockfile
-mechanism in the unified parts plan), not a live-docs one. The bucket is
+mechanism in the unified parts plan), not a live-docs one. The store is
 disposable by design: every object in it can be regenerated from git plus the
 pinned toolchain.
 
@@ -114,16 +101,16 @@ than CI's pinned 2.42.2 and the URLs will be for bytes CI would never produce.
 Local renders are for looking at a change. CI is the only renderer whose
 output gets pasted.
 
-Credentials are the `SPACES_KEY` / `SPACES_SECRET` environment variables; CI
-uses repo secrets holding a key scoped to this one bucket. Note CI is the
-canonical
-renderer: it pins WireViz 0.4.1 and graphviz 2.42.2, the graphviz version is
-part of the rendered pixels, and a local render on a different graphviz gets
-quietly normalized by the next CI run for that ref.
+Credentials are `ASSET_SERVICE_URL` / `ASSET_SERVICE_TOKEN`; CI uses a repo
+secret holding a key scoped to the `sorter-harness` namespace only. Note CI is
+the canonical renderer: it pins WireViz 0.4.1 and graphviz 2.42.2, the
+graphviz version is part of the rendered pixels, and a local render on a
+different graphviz gets quietly normalized by the next CI run for that ref.
 
-Disaster recovery, if the bucket is ever lost or defaced: rotate the key, run
-the workflow on main (`workflow_dispatch`), done. Photos elsewhere in the
-bucket are restored from an offline mirror held outside this repo.
+Disaster recovery: revoke the key (`asset-service keys revoke
+sorter-harness-ci`), mint another, update the repo secret, run the workflow on
+main (`workflow_dispatch`). Every object is regenerable from git plus the
+pinned toolchain, and nothing can be overwritten or deleted with the CI key.
 
 ## Linking someone to a preview
 
@@ -195,8 +182,9 @@ time would now be safe. It is still fetched at read time because there is no
 reason to change it and the `BOM (TSV)` download link above each table is the
 fallback when the fetch does not run.
 
-The bucket sends `access-control-allow-origin: *`, so the cross-origin fetch is
-fine, and the name contains the hash, so it is served immutable and honestly.
+The asset service sends `access-control-allow-origin: *`, so the cross-origin
+fetch is fine, and the name contains the hash, so it is served immutable and
+honestly.
 
 ## Where this shows up in the docs
 
@@ -207,7 +195,7 @@ Four pages under `docs/src/content/hardware/electronics/`:
 | `index.md` → `/hardware/electronics/` | Wire harness: PSU spec, interconnect diagram, wire schedule, parts, open items |
 | `steppers.md` → `/hardware/electronics/steppers/` | Board stepper pinout, board-to-motor mapping, the 4-to-6 position crossover |
 | `order.md` → `/hardware/electronics/order/` | Order-ready cable build list for a harness vendor, every guess marked |
-| `wireviz.md` → `/hardware/electronics/wireviz/` | The rendered drawings and the supplier zip. **The page that consumes the bucket.** |
+| `wireviz.md` → `/hardware/electronics/wireviz/` | The rendered drawings and the supplier zip. **The page that consumes the store.** |
 
 The wire IDs (`W1`, `L3p`, `S1-S4`, `CH`, `RIB`) are the join key across the
 schedule, the order spec, and the drawings. Renaming one means renaming it

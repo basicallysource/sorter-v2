@@ -18,14 +18,12 @@ same bytes is a no-op that prints the same URLs back.
 
 Credentials are ASSET_SERVICE_URL / ASSET_SERVICE_TOKEN, from the environment
 or ~/.config/asset-service/*.env -- the same pair video_embed.py reads.
-Requires Pillow, only for the EXIF workaround below.
 """
 
 from __future__ import annotations
 
 import argparse
 import json
-import io
 import os
 import sys
 import time
@@ -64,32 +62,10 @@ def load_creds() -> tuple[str, str]:
 
 
 def prepare(src: Path) -> tuple[bytes, str]:
-    """The bytes to upload, and their content type.
-
-    Normally that is the file exactly as it is. The one exception: a photo
-    whose EXIF says "rotate me". The asset service decodes with Go's stdlib,
-    which ignores that tag, so an untouched phone photo would come back as a
-    sideways ladder. Until the service bakes orientation itself, bake it here
-    and upload the corrected pixels. Delete this whole branch when it does.
-    """
-    raw = src.read_bytes()
-    content_type = CONTENT_TYPES[src.suffix.lower()]
-
-    from PIL import Image, ImageOps
-
-    with Image.open(io.BytesIO(raw)) as img:
-        orientation = img.getexif().get(0x0112, 1)
-        if orientation == 1:
-            return raw, content_type
-        img.load()
-        img = ImageOps.exif_transpose(img)
-        buf = io.BytesIO()
-        if content_type == "image/png":
-            img.save(buf, format="PNG", optimize=True)
-        else:
-            img.convert("RGB").save(buf, format="JPEG", quality=95, optimize=True)
-            content_type = "image/jpeg"
-        return buf.getvalue(), content_type
+    """The bytes exactly as they are, and their content type. The service does
+    the rest itself: it turns a photo the way its EXIF says to, and it never
+    publishes the camera's own file -- pages get metadata-free copies."""
+    return src.read_bytes(), CONTENT_TYPES[src.suffix.lower()]
 
 
 def request(base: str, token: str, method: str, path: str, body: bytes | None = None,
@@ -112,6 +88,7 @@ def embed_url(manifest: dict) -> str:
     rungs = [
         r for r in manifest.get("renditions", [])
         if r.get("name") != "original"
+        and not r.get("url_expires")
         and r.get("content_type", "").startswith("image/")
         and (r.get("width") or 0) <= EMBED_WIDTH
     ]

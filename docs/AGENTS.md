@@ -279,8 +279,8 @@ render is 23 files at once.
 
 Sources live in `electronics/wire_harness/`. On any PR or main push touching
 them, `.github/workflows/harness.yml` renders with a pinned toolchain, uploads
-each artifact under a name containing a hash of its bytes
-(`harness/power.2c0ebc6cd1.png`), and then **fails the build unless
+each artifact to the asset service under a name containing a hash of its bytes
+(`sorter-harness/power-accd2693fc83.png`), and then **fails the build unless
 `src/liquid/_data/harness.yml` already names exactly those URLs**, printing the
 block to paste. So changing a drawing is: push, paste the URLs CI prints, push
 again.

@@ -16,16 +16,6 @@ warning: >-
 parts_needed:
   - part: chute-core
     qty: 1
-  - part: funnel-bracket-left
-    qty: 1
-  - part: funnel-bracket-right
-    qty: 1
-  - part: layer-connector-1
-    qty: 1
-  - part: layer-connector-2
-    qty: 1
-  - part: layer-adapter-board-basically
-    qty: 1
   - part: hsi-m3
     qty: 18
   - part: scr-m3-12-cs

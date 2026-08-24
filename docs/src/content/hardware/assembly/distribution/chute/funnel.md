@@ -16,9 +16,7 @@ warning: >-
   build.
 parts_needed:
   - part: funnel-half
-    qty: 1
   - part: funnel-third
-    qty: 1
   - part: funnel-bracket-left
     qty: 1
   - part: funnel-bracket-right

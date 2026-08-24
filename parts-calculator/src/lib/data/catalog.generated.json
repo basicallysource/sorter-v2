@@ -648,6 +648,10 @@
 					"qty": 1
 				},
 				{
+					"part": "mg995-servo-horn",
+					"qty": 1
+				},
+				{
 					"part": "scr-m3-8-cs",
 					"qty": 4
 				}
@@ -16107,6 +16111,30 @@
 			"docs_page": null,
 			"conflicts": null,
 			"image": "https://img.basically.website/parts/img/servo-mg995-8a8b0ae4.jpg"
+		},
+		{
+			"id": "mg995-servo-horn",
+			"uid": "s8dv",
+			"kind": "cots",
+			"cots": {
+				"type": "servo-horn"
+			},
+			"name": "MG995 Servo Horn",
+			"category": "Motors",
+			"description": "Two-arm splined servo horn. Clasped between the servo-adapter's two halves once they're screwed together.",
+			"note": "Ships in the box with the MG995 servo. Not sold separately, so it has no sourcing of its own here.",
+			"created_at": "2026-08-24",
+			"updated_at": "2026-08-24",
+			"attributes": [],
+			"sheet_qty": null,
+			"sheet_qty_text": null,
+			"stock": null,
+			"sourcing": null,
+			"alternative": null,
+			"caption": null,
+			"docs_page": null,
+			"conflicts": null,
+			"image": "https://assets.basically.website/sorter-parts/mg995-servo-horn-full-e3eb30ad4de0.png"
 		},
 		{
 			"id": "brg-6806-2rs",

@@ -33,6 +33,8 @@ parts_needed:
     qty: 1
   - part: servo-adapter-flap-side
     qty: 1
+  - part: mg995-servo-horn
+    qty: 1
   - part: servo-bracket-housing
     qty: 1
   - part: servo-bracket-lower-arm
@@ -78,6 +80,18 @@ Four things make it up:
 Four of the module's parts take heat inserts, 16 between them. Press them all in while the parts are still bare, before anything is screwed together. See [installing heat inserts]({{ '/hardware/helpers/heat-inserts/' | relative_url }}) for the technique.
 
 Every pocket is the same one the rest of the chute uses: Ø4.2 mm, blind, 5.7 mm deep. The two bearing covers, the chute door and the two servo adapter halves take none, so if a part is not below it needs no inserts.
+
+The servo adapter takes no inserts, but assemble it here anyway, before the bracket steps:
+
+<div class="prep-item">
+  <div class="prep-item-body">
+    <p><strong>Servo adapter:</strong> the servo-side and flap-side plates clamp the MG995 Servo Horn between them. The horn ships with the servo, it isn't printed. Lay it against the servo-side half, bring the flap-side half down over it, and drive 4 {% include fastener.html size="M3" variant="countersunk" length="8" %} screws through the flap side (it's the half with the visible screw holes) into the servo side. No heat inserts, the screws cut their own thread in the printed plastic.</p>
+  </div>
+  <figure class="prep-item-figure">
+    <img class="doc-figure" src="https://assets.basically.website/sorter-parts/mg995-servo-horn-full-e3eb30ad4de0.png" alt="The MG995 Servo Horn, a two-arm splined servo arm that ships with the MG995 servo">
+    <figcaption>The MG995 Servo Horn. Clasped between the two adapter halves before they're screwed together.</figcaption>
+  </figure>
+</div>
 
 <div class="prep-item">
   <div class="prep-item-body">

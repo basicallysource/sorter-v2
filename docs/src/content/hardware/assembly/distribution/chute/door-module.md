@@ -84,7 +84,7 @@ Every pocket is the same one the rest of the chute uses: Ø4.2 mm, blind, 5.7 mm
   </div>
   <figure class="prep-item-figure">
     <img class="doc-figure" src="https://assets.basically.website/sorter-parts/door-module-inserts-servo-bracket-housing-full-7545917fe3d9.png" alt="Render of the servo bracket housing at an angle, with its six heat-insert pockets circled in red, two on each of three faces">
-    <figcaption>All six, seen from the corner. They are the only view that catches all three faces at once.</figcaption>
+    <figcaption>All six, seen from the corner. That is the only angle that catches all three faces at once.</figcaption>
   </figure>
 </div>
 

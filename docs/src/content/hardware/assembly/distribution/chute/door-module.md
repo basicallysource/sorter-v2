@@ -14,6 +14,29 @@ warning: >-
   an actual build. Nothing here has been checked against a machine, and only the servo has
   build pages: the door, the bearing assembly and the servo adapter have no assembly steps
   written yet. Correct it as you build.
+parts_needed:
+  - part: chute-door
+    qty: 1
+  - part: bearing-race
+    qty: 1
+  - part: bearing-holder-left
+    qty: 1
+  - part: bearing-holder-right
+    qty: 1
+  - part: bearing-cover-covered
+    qty: 1
+  - part: bearing-cover-servo
+    qty: 1
+  - part: servo-adapter-servo-side
+    qty: 1
+  - part: servo-adapter-flap-side
+    qty: 1
+  - part: brg-6704-2rs
+    qty: 2
+  - part: hsi-m3
+    qty: 10
+  - part: scr-m3-8-cs
+    qty: 10
 ---
 
 The door module is the moving half of the chute. It is built on the bench as one unit and then bolted to the [chute core]({{ '/hardware/assembly/distribution/chute/chute-core/' | relative_url }}), which is where all of its mounting screws land. One per chute, so one per layer.

@@ -8,7 +8,7 @@ kicker: Electronics — Control board housing
 lede: Closing the control board into its printed housing, with the 40 mm fan on a GPIO-controlled port, and bolting it to the frame.
 permalink: /hardware/electronics/installation/control-board-housing/
 author: spencer
-og_image: https://img.basically.website/web/assembly/control-board-housing/housing-angled.c67cd89578b97f5f.jpg
+og_image: https://assets.basically.website/sorter-docs/assembly-control-board-housing-housing-angled-w1600-d8c3ed33682d.jpg
 parts_needed:
   - part: ctrl-board-housing-base
     qty: 1
@@ -42,7 +42,7 @@ The board needs its drivers, Pico and jumpers in first: see [preparing the contr
 
 <div class="img-row">
   <figure>
-    <img src="https://img.basically.website/web/assembly/control-board-housing/parts-laid-out.ed286d04e3a094ca.jpg" alt="All the housing parts laid out on a bench: the black printed cover on the left, the populated green control board in the middle, the black printed base with brass inserts on the right, and above them the 40 mm fan, four groups of screws, the plunger retainer and the plunger">
+    <img src="https://assets.basically.website/sorter-docs/assembly-control-board-housing-parts-laid-out-w1600-ce307f40e5fe.jpg" alt="All the housing parts laid out on a bench: the black printed cover on the left, the populated green control board in the middle, the black printed base with brass inserts on the right, and above them the 40 mm fan, four groups of screws, the plunger retainer and the plunger">
     <figcaption>Cover left, board centre, base right.</figcaption>
   </figure>
 </div>
@@ -58,7 +58,7 @@ Press 8 M3 inserts into the base while it is loose: four on the inner bosses for
     <p><strong>Control Board Housing base:</strong> 8 × M3</p>
   </div>
   <figure class="prep-item-figure">
-    <img class="doc-figure" src="https://img.basically.website/web/assembly/control-board-housing/base-inserts.2e555ad4361b5ff9.jpg" alt="The printed housing base seen from above, showing the large honeycomb vent in its floor and eight brass M3 heat inserts, four on raised bosses inside and four at the outer corners">
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-control-board-housing-base-inserts-w1600-b45ee1e919a8.jpg" alt="The printed housing base seen from above, showing the large honeycomb vent in its floor and eight brass M3 heat inserts, four on raised bosses inside and four at the outer corners">
     <figcaption>Four inside, four at the corners.</figcaption>
   </figure>
 </div>
@@ -69,7 +69,7 @@ Sit the board on the four inner bosses and fix it with 4 {% include fastener.htm
 
 <div class="img-row">
   <figure>
-    <img src="https://img.basically.website/web/assembly/control-board-housing/board-on-base.cec346b931c22df7.jpg" alt="Left, the populated control board screwed flat onto the printed base with its two extrusion clamp bosses at the bottom. Right, the printed cover upside down with the 40 mm fan and the plunger retainer already fitted inside it">
+    <img src="https://assets.basically.website/sorter-docs/assembly-control-board-housing-board-on-base-w1600-481484d82b53.jpg" alt="Left, the populated control board screwed flat onto the printed base with its two extrusion clamp bosses at the bottom. Right, the printed cover upside down with the 40 mm fan and the plunger retainer already fitted inside it">
   </figure>
 </div>
 
@@ -79,7 +79,7 @@ Fan on the inside of the cover, over the vent, label facing into the enclosure s
 
 <div class="img-row">
   <figure>
-    <img src="https://img.basically.website/web/assembly/control-board-housing/fan-in-cover.c945a84566cafed1.jpg" alt="The inside of the printed cover with the 40 mm WINSINN fan screwed down over its vent opening on four screws, its red and black lead running off to the left, and the rectangular plunger slot beside it">
+    <img src="https://assets.basically.website/sorter-docs/assembly-control-board-housing-fan-in-cover-w1600-73bbe941cbdb.jpg" alt="The inside of the printed cover with the 40 mm WINSINN fan screwed down over its vent opening on four screws, its red and black lead running off to the left, and the rectangular plunger slot beside it">
   </figure>
 </div>
 
@@ -89,7 +89,7 @@ The plunger lands on the board's reset button, so the button can be pressed with
 
 <div class="img-row">
   <figure>
-    <img src="https://img.basically.website/web/assembly/control-board-housing/retainer-fitted.9b5186fe6c45a466.jpg" alt="Inside the cover, the retainer screwed down on two countersunk screws over the plunger, capturing it so it can slide but not fall out, with the fan behind">
+    <img src="https://assets.basically.website/sorter-docs/assembly-control-board-housing-retainer-fitted-w1600-c7677da6c247.jpg" alt="Inside the cover, the retainer screwed down on two countersunk screws over the plunger, capturing it so it can slide but not fall out, with the fan behind">
   </figure>
 </div>
 
@@ -104,7 +104,7 @@ The fan runs off one of the board's four LED ports, which are 24 V switched to g
 
 <div class="img-row">
   <figure>
-    <img src="https://img.basically.website/web/assembly/control-board-housing/fan-into-led-port.74abe08742b086c0.jpg" alt="Looking down through the cover's corner cutout at the board below, where the fan's red and black lead is plugged into the two-pin connector silkscreened LED_1_2, with Controlled by GPIO6 printed beside it">
+    <img src="https://assets.basically.website/sorter-docs/assembly-control-board-housing-fan-into-led-port-w1600-cfd2665dc48e.jpg" alt="Looking down through the cover's corner cutout at the board below, where the fan's red and black lead is plugged into the two-pin connector silkscreened LED_1_2, with Controlled by GPIO6 printed beside it">
     <figcaption>Into LED_1_2, driven by GPIO6.</figcaption>
   </figure>
 </div>
@@ -120,10 +120,10 @@ Lower the cover on, keeping the fan lead clear of the board, and fix it with 4 {
 
 <div class="img-row">
   <figure>
-    <img src="https://img.basically.website/web/assembly/control-board-housing/cover-on-base.8c6a304677a0aff3.jpg" alt="The cover set down on the base with the housing closed, the fan's lead emerging through the corner cutout, and four countersunk screws lying on the bench beside it ready to go in">
+    <img src="https://assets.basically.website/sorter-docs/assembly-control-board-housing-cover-on-base-w1600-a77ec49b9e64.jpg" alt="The cover set down on the base with the housing closed, the fan's lead emerging through the corner cutout, and four countersunk screws lying on the bench beside it ready to go in">
   </figure>
   <figure>
-    <img src="https://img.basically.website/web/assembly/control-board-housing/housing-angled.c67cd89578b97f5f.jpg" alt="The finished housing at an angle, showing the honeycomb vent and basically logo on the lid, the plunger standing proud of the surface, and the slots along the right edge that expose the stepper connectors">
+    <img src="https://assets.basically.website/sorter-docs/assembly-control-board-housing-housing-angled-w1600-d8c3ed33682d.jpg" alt="The finished housing at an angle, showing the honeycomb vent and basically logo on the lid, the plunger standing proud of the surface, and the slots along the right edge that expose the stepper connectors">
   </figure>
 </div>
 
@@ -133,7 +133,7 @@ Press the plunger on the lid. You should hear the button click.
 
 <div class="img-row">
   <figure>
-    <img src="https://img.basically.website/web/assembly/control-board-housing/plunger-outside.2bf22968c23a6de8.jpg" alt="Close-up of the lid surface showing the small square head of the plunger standing proud of the textured black plastic, with the honeycomb vent and basically logo nearby">
+    <img src="https://assets.basically.website/sorter-docs/assembly-control-board-housing-plunger-outside-w1600-737114636bdb.jpg" alt="Close-up of the lid surface showing the small square head of the plunger standing proud of the textured black plastic, with the honeycomb vent and basically logo nearby">
   </figure>
 </div>
 
@@ -153,7 +153,7 @@ The two clamp bosses go onto the 2020 extrusion on 2 <span class="fastener-todo"
 
 <div class="img-row">
   <figure>
-    <img src="https://img.basically.website/web/assembly/control-board-housing/on-the-extrusion.e931ee126522ca7a.jpg" alt="The finished housing bolted down onto a 2020 aluminium extrusion under the machine's frame, with two socket head screws through its clamp bosses">
+    <img src="https://assets.basically.website/sorter-docs/assembly-control-board-housing-on-the-extrusion-w1600-813fbb56a0d6.jpg" alt="The finished housing bolted down onto a 2020 aluminium extrusion under the machine's frame, with two socket head screws through its clamp bosses">
   </figure>
 </div>
 

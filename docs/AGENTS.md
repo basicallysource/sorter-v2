@@ -66,7 +66,7 @@ The `og:image` a page unfurls with is **its first `<img>`**, picked up
 automatically, so most pages need nothing. Assembly pages are the exception:
 they open with the parts laid out on a bench, which is a poor thumbnail for
 the finished thing. Set `og_image:` in front matter to a full
-`https://img.basically.website/...` URL to override it (relative paths are
+`https://assets.basically.website/...` URL to override it (relative paths are
 resolved against the site URL). The image stays wherever it already is in the
 body; this only changes what the embed shows.
 
@@ -95,7 +95,7 @@ unlike the rest of this site.
   page renders "Engineering note <id>" pointing back here.
 
 Images follow the ordinary rules below (upload, content-addressed URL, never
-in git), under `notes/<id>/`. A detail image wants the full column: put a
+in git), named `note-<id>-<what>`. A detail image wants the full column: put a
 single `<figure>` inside an `img-row` rather than using `doc-figure`, which
 caps at 440px for assembly photos.
 
@@ -107,7 +107,7 @@ pages are rendered through liquidjs at build time. Includes live in
 
 - **Step heading:** `{% include step.html n="1" title="Mount the thing" %}`
   → a small "Step 1" tag over the title.
-- **Figure:** `<img class="doc-figure" src="https://img.basically.website/web/…" alt="…">`
+- **Figure:** `<img class="doc-figure" src="https://assets.basically.website/sorter-docs/…" alt="…">`
 - **Side-by-side images** (share one full-width row, wrap on mobile):
   ```html
   <div class="img-row">
@@ -144,46 +144,36 @@ lines, so normal `{% for %}` loops are fine as-is.
 
 ## Images — the workflow
 
-**Images are not in git.** Originals and web versions live in the
-`basically-docs` DO Spaces bucket, served at `https://img.basically.website`
-(Cloudflare Worker in `scripts/img-worker/`). Ask the user **which folder the
-pics are in** (Downloads, Desktop, VLC Snapshots, etc.). Then do all of this
-yourself:
-
-> The worker is not deployed by CI. It ships by hand, from this directory:
-> `CLOUDFLARE_API_TOKEN=… npx wrangler deploy` in `docs/scripts/img-worker/`.
-> Merging a change to `worker.js` therefore changes nothing on its own —
-> deploy it, then check a real URL. Cloudflare keeps prior versions, so the
-> rollback is a redeploy of the previous one.
->
-> Two things to expect. `wrangler` exits non-zero on
-> `/zones/<id>/workers/routes` unless the token also carries Workers Routes
-> edit; the upload has already happened by then and the custom domain is
-> already attached, so it is noise. And every response carries
-> `x-img-cache: hit|miss` — check it before believing anything about
-> freshness, since a stale object and a fresh one look identical otherwise.
+**Images are not in git.** Every file a page embeds — image or video — goes
+to the **asset service** (`assets.basically.website`, public repo
+`basicallysource/asset-service`). You upload the original; the service stores
+it under a content-addressed name and builds the smaller copies a page should
+actually download. Ask the user **which folder the pics are in** (Downloads,
+Desktop, VLC Snapshots, etc.). Then do all of this yourself:
 
 1. **Look at each image** (Read tool) to understand what it shows before naming.
 2. **Upload it:**
    ```bash
-   python3 docs/scripts/upload_image.py <original-file> assembly/<page>/<name>
+   python3 docs/scripts/upload_image.py <original-file> <name>
    ```
-   The script generates the web version (long side ≤ 1600px, **opaque →
-   `.jpg`**, **transparent → `.png`**), uploads the full-res original to
-   `originals/<path>` and the web version to `web/<path>`, and prints both URLs.
-   Needs Pillow and boto3.
+   The service builds the ladder in the background (320–2048px wide, **opaque
+   → `.jpg`**, **transparent → `.png`**); the script waits for it and prints
+   two URLs: the ~1600px rung pages embed, then the original. Needs Pillow.
 
-   **Credentials** are the `SPACES_KEY` / `SPACES_SECRET` environment
-   variables, holding a key scoped to the `basically-docs` bucket. **Check for
-   them rather than assuming** — `echo $SPACES_KEY` — and do not conclude from
-   a past note, this file included, that you don't have them. Never commit
-   them. Only if they are genuinely absent, say so and use `img-placeholder`
-   divs (above) instead of guessing or embedding the image data directly in
-   the page.
-3. **Reference the printed web URL** in the page:
-   `https://img.basically.website/web/<path>.<hash>.<jpg|png>`. Plain URL, no Liquid.
+   **Credentials** are `ASSET_SERVICE_URL` / `ASSET_SERVICE_TOKEN`, from the
+   environment or `~/.config/asset-service/*.env`. **Check for them rather
+   than assuming** — and do not conclude from a past note, this file included,
+   that you don't have them. Never commit them. Anyone can mint their own
+   token by signing in with GitHub at the service's `/login` page — a
+   self-served account uploads images only, throttled; video and bigger files
+   take a contributor account, which whoever runs the service grants. Only if
+   a token is genuinely absent, say so and use `img-placeholder` divs (above)
+   instead of guessing or embedding the image data directly in the page.
+3. **Reference the first printed URL** in the page:
+   `https://assets.basically.website/sorter-docs/<name>-w1600-<hash>.jpg`.
+   Plain URL, no Liquid.
 4. Commit the URL, never the image bytes. The URL works identically on PR
-   previews and production, since the bucket is branch-independent.
+   previews and production, since the service is branch-independent.
 
 ## Video — the workflow
 
@@ -233,10 +223,9 @@ binary is committed; a re-encode is a new URL.
 
 Three things to know.
 
-- **`validate_images.py` does not check these URLs.** It walks
-  `img.basically.website/web/` only, and video is served from
-  `assets.basically.website`. Nothing catches a typo in a pasted video URL, so
-  load the page and press play before you push.
+- **`validate_images.py` checks these URLs too** — same rule as images: the
+  hash in the name must match the bytes the URL serves. It cannot press play
+  for you, so load the page and do that before you push.
 - **Size the player from the poster, not from an encode.** A phone shoots
   portrait into a landscape frame and sets a rotation flag, so the MP4 reports
   1920x1080 and plays 1080x1920 while the poster is a still with the rotation
@@ -246,10 +235,10 @@ Three things to know.
 - **Nothing deletes.** `DELETE /v1/assets/<key>` is 405. An upload you regret
   is an object that stays, so do not use the real namespace as a scratchpad.
 
-Credentials are `ASSET_SERVICE_URL` / `ASSET_SERVICE_TOKEN`, read from
-`~/.config/asset-service/*.env` or the environment. **Check rather than
-assume**, the same as with `SPACES_KEY`. If they are genuinely absent, say so
-and leave the clip out rather than shipping a still and calling it a video.
+Credentials are the same `ASSET_SERVICE_URL` / `ASSET_SERVICE_TOKEN` pair
+`upload_image.py` reads. **Check rather than assume.** If they are genuinely
+absent, say so and leave the clip out rather than shipping a still and
+calling it a video.
 
 **A still frame is not a substitute.** If the point of the shot is motion,
 something clicking or spinning or falling through, either it goes up as a video
@@ -267,16 +256,16 @@ not in git" and bloats the repo.
 pulled from `parts-calculator`'s own renders** instead of asking for a fresh
 photo: that repo's `static/renders/<part-id>.png` is a real OrcaSlicer
 thumbnail for every printed part in its catalog. Upload it the same way,
-under `parts/<page>/<part-id>`.
+named after the part id.
 
-**Names are content-addressed.** `upload_image.py` adds a hash of the generated
-bytes to each object name, so a changed image always prints a new URL that can
-be cached forever. Name the input path by what it shows (`step2-hole-red-square`),
-not by source filename. Group step images under `assembly/<page>/`, part renders
-under `parts/…`, tools under `tools/`.
+**Names are content-addressed.** The service appends a hash of the bytes to
+every object name, so a changed image always prints a new URL that can be
+cached forever. Name the upload by what it shows
+(`top-interface-step2-hole-red-square`), not by source filename — names are
+flat now, so the page or part belongs in the name itself.
 
-**This is the invariant.** Every `img.basically.website/web/` URL in docs source
-must contain the hash of its actual bytes. Never overwrite an object, use a
+**This is the invariant.** Every asset URL in docs source must contain the
+hash of its actual bytes. Never overwrite an object, use a
 descriptive stable URL, add a query-string cache buster, or add browser retry
 code. `npm run build` runs `scripts/validate_images.py`, which rejects a missing
 image, a non-content-addressed URL, or bytes that do not match the URL hash.
@@ -290,8 +279,8 @@ render is 23 files at once.
 
 Sources live in `electronics/wire_harness/`. On any PR or main push touching
 them, `.github/workflows/harness.yml` renders with a pinned toolchain, uploads
-each artifact under a name containing a hash of its bytes
-(`harness/power.2c0ebc6cd1.png`), and then **fails the build unless
+each artifact to the asset service under a name containing a hash of its bytes
+(`sorter-harness/power-accd2693fc83.png`), and then **fails the build unless
 `src/liquid/_data/harness.yml` already names exactly those URLs**, printing the
 block to paste. So changing a drawing is: push, paste the URLs CI prints, push
 again.
@@ -364,7 +353,7 @@ directory `docs`, `npm run build` → `build/`, `NODE_VERSION=22`. Push to
 branch gets an automatic preview deployment** — no setup per PR. Take the
 preview URL from the PR comment or check (never derive it from the branch
 name; long names get truncated). Images render identically on previews and
-production because they come from `img.basically.website`, not the repo.
+production because they come from the asset domains, not the repo.
 
 **Build watch paths** limit which pushes build at all. They are a Pages
 project setting, not a file in this repo, so they are recorded here:
@@ -391,8 +380,7 @@ Moved off Vercel on 2026-08-09. Two reasons, in order: static asset requests
 on Pages are unmetered, and the site was generating ~40k Vercel edge requests
 a day against a 100-deploy-a-day Hobby account that had already rate-limited
 itself out of deploying; and everything else the docs depend on
-(`img.basically.website`, the DNS, the cache purge) already lives in the same
-Cloudflare account. The site is `@sveltejs/adapter-static` with
+already lived in the same Cloudflare account. The site is `@sveltejs/adapter-static` with
 `trailingSlash: 'always'` set in SvelteKit rather than in host config, so
 there was nothing host-specific to port. `vercel.json` is gone.
 

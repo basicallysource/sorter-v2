@@ -13,7 +13,7 @@ parts_needed:
 tools_needed: [Pliers]
 ---
 
-<img class="doc-figure" src="https://img.basically.website/web/helpers/lazy-susan.624357a2efa7d60e.jpg" alt="8-inch lazy Susan bearing; the rubber foot to remove is boxed in red">
+<img class="doc-figure" src="https://assets.basically.website/sorter-docs/helpers-lazy-susan-full-624357a2efa7.jpg" alt="8-inch lazy Susan bearing; the rubber foot to remove is boxed in red">
 
 Background on the part — sourcing, load rating, the 8" variant — is on the [Lazy Susan part page]({{ '/hardware/parts/lazy-susan/' | relative_url }}).
 

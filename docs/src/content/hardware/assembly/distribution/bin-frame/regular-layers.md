@@ -52,10 +52,10 @@ The aluminum extrusion is cut to length; the [framing cut list](https://parts-ca
 
 <div class="img-row">
   <figure>
-    <img src="https://img.basically.website/web/assembly/regular-layers/frame-corner-joint.8cbfd8b7506bf318.png" alt="Two A/G aluminum extrusions meeting at an External bracket — side, forming one corner of the hexagon">
+    <img src="https://assets.basically.website/sorter-docs/assembly-regular-layers-frame-corner-joint-w1600-a47ad55fb797.png" alt="Two A/G aluminum extrusions meeting at an External bracket — side, forming one corner of the hexagon">
   </figure>
   <figure>
-    <img src="https://img.basically.website/web/assembly/regular-layers/frame-corner-joint-angled.e9321cce8978898d.png" alt="Angled view of the same corner joint, showing the fasteners along the extrusion">
+    <img src="https://assets.basically.website/sorter-docs/assembly-regular-layers-frame-corner-joint-angled-w1600-6265c41bbf5f.png" alt="Angled view of the same corner joint, showing the fasteners along the extrusion">
   </figure>
 </div>
 
@@ -74,23 +74,23 @@ If you are using slide-in T-nuts rather than drop-in or roll-in T-nuts, insert 2
 
 <div class="img-row">
   <figure>
-    <img src="https://img.basically.website/web/assembly/regular-layers/extrusion-tnut-holes.51f13d97da6705d7.png" alt="Side view of an A/G extrusion showing the row of holes where T-nuts sit and the screws pass through">
+    <img src="https://assets.basically.website/sorter-docs/assembly-regular-layers-extrusion-tnut-holes-w1600-b5863688aeea.png" alt="Side view of an A/G extrusion showing the row of holes where T-nuts sit and the screws pass through">
   </figure>
   <figure>
-    <img src="https://img.basically.website/web/assembly/regular-layers/extrusion-into-bracket.f7f3b91c6fa374d4.png" alt="An A/G extrusion sliding into an External bracket — side">
+    <img src="https://assets.basically.website/sorter-docs/assembly-regular-layers-extrusion-into-bracket-w1600-1cd20074b56c.png" alt="An A/G extrusion sliding into an External bracket — side">
   </figure>
 </div>
 
 Repeat these steps to make two semi-circles of three sections of extrusion and three External bracket — sides, then slot the two half-hexagons together into a full hexagon and secure it with 2 more {% include fastener.html size="M5" variant="socket-button" length="16" %} screws. Joining in this manner, rather than working your way around the hexagon, prevents having to force the brackets into awkward angles.
 
-<img class="doc-figure" src="https://img.basically.website/web/assembly/regular-layers/two-half-hexagons.cfd5d241ba46d491.png" alt="Two three-section half-hexagons laid out before being joined into a full hexagon">
+<img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-regular-layers-two-half-hexagons-full-5e7c0f80f57f.png" alt="Two three-section half-hexagons laid out before being joined into a full hexagon">
 
 <div class="img-row">
   <figure>
-    <img src="https://img.basically.website/web/assembly/regular-layers/hexagon-assembled.9f17d897cec87f50.png" alt="The completed hexagon frame of six A/G extrusions and six corner brackets">
+    <img src="https://assets.basically.website/sorter-docs/assembly-regular-layers-hexagon-assembled-full-a1fb3a1b6fb4.png" alt="The completed hexagon frame of six A/G extrusions and six corner brackets">
   </figure>
   <figure>
-    <img src="https://img.basically.website/web/assembly/regular-layers/hexagon-assembled-top.b6db35fc036a5185.png" alt="Top-down view of the completed hexagon frame">
+    <img src="https://assets.basically.website/sorter-docs/assembly-regular-layers-hexagon-assembled-top-w1600-5a469702622a.png" alt="Top-down view of the completed hexagon frame">
   </figure>
 </div>
 
@@ -107,7 +107,7 @@ Prepare 12 Frame 90° brackets by drilling out the holes on the long side to all
     loading="lazy"></iframe>
 </div>
 
-<img class="doc-figure" src="https://img.basically.website/web/assembly/regular-layers/spoke-brackets-attached.bdf5459b2c7f06bc.png" alt="Two Frame 90° brackets fastened to the inner face of an A/G extrusion, seen from inside the hexagon">
+<img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-regular-layers-spoke-brackets-attached-w1600-47b3c12e2344.png" alt="Two Frame 90° brackets fastened to the inner face of an A/G extrusion, seen from inside the hexagon">
 
 Loosely attach the long side of 2 Frame 90° brackets to the inner of one piece of the A/G (Outer horizontal / Horizontal interface frame) extrusion of your hexagon using 2 {% include fastener.html size="M5" variant="socket-button" length="12" %} screws, either into your 2 existing slide-in T-nuts or with drop-in / roll-in T-nuts.
 
@@ -115,10 +115,10 @@ Slide piece B/H (Spoke / Interface spoke (short)) of aluminum extrusion into the
 
 <div class="img-row">
   <figure>
-    <img src="https://img.basically.website/web/assembly/regular-layers/spoke-installed.63790c0e4cedaa87.png" alt="A B/H spoke extrusion standing up in the two Frame 90° brackets">
+    <img src="https://assets.basically.website/sorter-docs/assembly-regular-layers-spoke-installed-w1600-536d49087ec4.png" alt="A B/H spoke extrusion standing up in the two Frame 90° brackets">
   </figure>
   <figure>
-    <img src="https://img.basically.website/web/assembly/regular-layers/spoke-crossbeams-first.4fbd6e2771158f5a.png" alt="A spoke with a Frame crossbeam slid into place on each side">
+    <img src="https://assets.basically.website/sorter-docs/assembly-regular-layers-spoke-crossbeams-first-full-dca5e96ee46d.png" alt="A spoke with a Frame crossbeam slid into place on each side">
   </figure>
 </div>
 
@@ -126,14 +126,14 @@ On each side of this B/H (Spoke / Interface spoke (short)) slide a Frame crossbe
 
 Perform these steps 2 more times, on every 2nd side of the hexagon.
 
-<img class="doc-figure" src="https://img.basically.website/web/assembly/regular-layers/spokes-crossbeams-top.fdcfbec44d9a095d.png" alt="Top-down view of three spokes with crossbeams, forming a partial inner ring">
+<img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-regular-layers-spokes-crossbeams-top-full-d16c233ea6e1.png" alt="Top-down view of three spokes with crossbeams, forming a partial inner ring">
 
 <div class="img-row">
   <figure>
-    <img src="https://img.basically.website/web/assembly/regular-layers/spokes-progress-1.6856de61dff00eff.png" alt="The hexagon partway through spoke installation, some sides done">
+    <img src="https://assets.basically.website/sorter-docs/assembly-regular-layers-spokes-progress-1-w1600-bfbe2a608499.png" alt="The hexagon partway through spoke installation, some sides done">
   </figure>
   <figure>
-    <img src="https://img.basically.website/web/assembly/regular-layers/spokes-progress-2.6b214ce9f91d3556.png" alt="More spokes and crossbeams filled in around the hexagon">
+    <img src="https://assets.basically.website/sorter-docs/assembly-regular-layers-spokes-progress-2-w1600-5a478c564363.png" alt="More spokes and crossbeams filled in around the hexagon">
   </figure>
 </div>
 
@@ -141,14 +141,14 @@ On each of the remaining 3 sides of the hexagon, use 2 {% include fastener.html 
 
 <div class="img-row">
   <figure>
-    <img src="https://img.basically.website/web/assembly/regular-layers/spokes-progress-3.46d6de1f2fd52a75.png" alt="Nearly all spokes and crossbeams installed">
+    <img src="https://assets.basically.website/sorter-docs/assembly-regular-layers-spokes-progress-3-w1600-e63cf43ad122.png" alt="Nearly all spokes and crossbeams installed">
   </figure>
   <figure>
-    <img src="https://img.basically.website/web/assembly/regular-layers/spokes-nearly-complete.8aeb3500e2d37363.png" alt="The spoke ring almost complete, seen at an angle">
+    <img src="https://assets.basically.website/sorter-docs/assembly-regular-layers-spokes-nearly-complete-w1600-8911fb6fef42.png" alt="The spoke ring almost complete, seen at an angle">
   </figure>
 </div>
 
-<img class="doc-figure" src="https://img.basically.website/web/assembly/regular-layers/spokes-complete-top.517a329e0407cb17.png" alt="Top-down view of the finished hexagon with all six spokes and crossbeams forming the central ring">
+<img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-regular-layers-spokes-complete-top-full-f9b0a154d84b.png" alt="Top-down view of the finished hexagon with all six spokes and crossbeams forming the central ring">
 
 Secure them in place with 2 {% include fastener.html size="M5" variant="socket-button" length="16" %} screws tapped into the Frame 90° brackets and 2 {% include fastener.html size="M5" variant="socket-button" length="20" %} screws through the Frame crossbeams. You can now tighten up the {% include fastener.html size="M5" variant="socket-button" length="12" %} screws that were previously holding the Frame 90° brackets loosely in place.
 
@@ -160,10 +160,10 @@ Secure them in place with 2 {% include fastener.html size="M5" variant="socket-b
 
 <div class="img-row">
   <figure>
-    <img src="https://img.basically.website/web/assembly/regular-layers/vertical-corner-detail.6f223d95295eb5c8.png" alt="A corner with piece C vertical extrusion held between the External bracket — cover and the External bracket — side, seen from below">
+    <img src="https://assets.basically.website/sorter-docs/assembly-regular-layers-vertical-corner-detail-w1600-81d31a256733.png" alt="A corner with piece C vertical extrusion held between the External bracket — cover and the External bracket — side, seen from below">
   </figure>
   <figure>
-    <img src="https://img.basically.website/web/assembly/regular-layers/verticals-installed.c9fb491ca7ad6eb3.png" alt="The hexagon with vertical supports standing up at each corner">
+    <img src="https://assets.basically.website/sorter-docs/assembly-regular-layers-verticals-installed-full-b1393c02452b.png" alt="The hexagon with vertical supports standing up at each corner">
   </figure>
 </div>
 
@@ -171,10 +171,10 @@ On each corner of your hexagon, slot an External bracket — cover onto the Exte
 
 <div class="img-row">
   <figure>
-    <img src="https://img.basically.website/web/assembly/regular-layers/vertical-bottom-bracket.85c0929e5a4e4ed0.png" alt="Close-up of an External bracket — bottom vertical at the base of a corner vertical extrusion">
+    <img src="https://assets.basically.website/sorter-docs/assembly-regular-layers-vertical-bottom-bracket-w1600-a45e5b572247.png" alt="Close-up of an External bracket — bottom vertical at the base of a corner vertical extrusion">
   </figure>
   <figure>
-    <img src="https://img.basically.website/web/assembly/regular-layers/verticals-top.a0ee60c91903c400.png" alt="Top view of the layer with vertical supports and bottom brackets at every corner">
+    <img src="https://assets.basically.website/sorter-docs/assembly-regular-layers-verticals-top-w1600-400576ddb1b6.png" alt="Top view of the layer with vertical supports and bottom brackets at every corner">
   </figure>
 </div>
 
@@ -182,7 +182,7 @@ On each corner, slide an External bracket — bottom vertical onto piece C (Laye
 
 {% include step.html n="4" title="Add the bin retainers" %}
 
-<img class="doc-figure" src="https://img.basically.website/web/assembly/regular-layers/bin-retainers-installed.945ecff28147b1f1.png" alt="Bin retainers fastened to the outer faces of the hexagon frame">
+<img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-regular-layers-bin-retainers-installed-w1600-31bf32089e71.png" alt="Bin retainers fastened to the outer faces of the hexagon frame">
 
 On each side of the hexagon, attach both the Bin retainer (left) and Bin retainer (right) to the front side of A/G (Outer horizontal / Horizontal interface frame) using 4 {% include fastener.html size="M5" variant="socket-button" length="12" %} screws, either into the T-nuts already installed there or with drop-in / roll-in T-nuts.
 
@@ -191,8 +191,8 @@ A regular layer is now complete. You will also need to construct a [Chute core](
 {% include step.html n="5" title="Join the layer to the one below" %}
 
 <figure class="figure-float-right">
-  <a href="https://img.basically.website/originals/assembly/regular-layers/layer-joint-section.11acc0911bc91277.png" target="_blank" rel="noopener">
-    <img src="https://img.basically.website/web/assembly/regular-layers/layer-joint-section.21c4ee094a2c72b8.jpg" alt="Vertical cross-section through one corner of two stacked layers, with the lower layer's extrusion and bottom-vertical tube in blue, the upper layer's bracket in purple, the two screw pairs dashed in red, and six numbered callouts">
+  <a href="https://assets.basically.website/sorter-docs/assembly-regular-layers-layer-joint-section-full-71e3c366f4e7.png" target="_blank" rel="noopener">
+    <img src="https://assets.basically.website/sorter-docs/assembly-regular-layers-layer-joint-section-w1600-b40f8b102c10.jpg" alt="Vertical cross-section through one corner of two stacked layers, with the lower layer's extrusion and bottom-vertical tube in blue, the upper layer's bracket in purple, the two screw pairs dashed in red, and six numbered callouts">
   </a>
   <figcaption>One corner where any two layers meet, cut through the centre of the profile. Blue is the lower layer, purple the layer above. The numbers match the list below. Click to enlarge. Drawn from the part geometry rather than from a build.</figcaption>
 </figure>

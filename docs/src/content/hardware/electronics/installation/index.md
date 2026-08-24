@@ -21,7 +21,7 @@ The [wire harness]({{ '/hardware/electronics/' | relative_url }}) pages cover wh
 The PSU, the control board and the Orange Pi each live in their own mount, and all three bolt to the machine's 2020 frame with 2 <span class="fastener-todo">M5, length not recorded</span> screws each, six in total.
 
 <figure>
-  <img class="doc-figure" src="https://img.basically.website/web/electronics/component-layout-topdown.2d38b86c4b2e4d05.jpg" alt="Top-down physical component layout on the machine, with the PSU, Pi, basically board, USB hub, Pico, chute stepper and ribbon run called out">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/electronics-component-layout-topdown-full-2d38b86c4b2e.jpg" alt="Top-down physical component layout on the machine, with the PSU, Pi, basically board, USB hub, Pico, chute stepper and ribbon run called out">
   <figcaption>Where everything sits, top-down. This photo is currently the only record of the placement.</figcaption>
 </figure>
 

@@ -321,6 +321,23 @@
 					"cable-cage"
 				]
 			}
+		},
+		{
+			"id": "retain-nema23-motor-mounting-screws",
+			"name": "NEMA 23 chute motor screws have no retention against vibration",
+			"priority": "P2",
+			"description": "The four M5 x 12 screws holding the NEMA 23 chute stepper onto its bracket are driven upward from below, since the bracket is already mounted to the underside of the Top plate by the time the motor goes on. Nothing but the screws' own friction holds that joint, so machine vibration backs them out over time and they can drop out completely. The fix needs some form of positive retention at the joint (captive nut/washer, a retaining boss or clip, or reworked bracket/motor mount geometry) rather than relying on threadlocker. Reported by Nafets from a machine with 280k+ pieces sorted, diagnosed by barthel. Tracked as sorter-v2 issue #411.",
+			"targets": {
+				"parts": [
+					"interface-nema23-bracket"
+				],
+				"assemblies": [
+					"interface-nema23-mount"
+				],
+				"hardware": [
+					"scr-m5-12-shcs"
+				]
+			}
 		}
 	],
 	"folders": [

@@ -5606,7 +5606,7 @@
       "uid": "irue",
       "version": "1",
       "name": "Servo adapter (MG995)",
-      "description": "MG995 servo adapter: servo side + flap side.",
+      "description": "MG995 servo adapter: servo side + flap side, clamping the MG995 Servo Horn (comes with the servo) between them. 4 M3 x 8 countersunk hold the two halves together, no heat inserts.",
       "docs": "/hardware/assembly/distribution/chute/door-module/",
       "status": "partial",
       "lines": [
@@ -5617,6 +5617,10 @@
         {
           "part": "servo-adapter-flap-side",
           "qty": 1
+        },
+        {
+          "part": "scr-m3-8-cs",
+          "qty": 4
         }
       ]
     },

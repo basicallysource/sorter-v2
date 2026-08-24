@@ -50,7 +50,7 @@ parts_needed:
   - part: scr-m3-12-cs
     qty: 4
   - part: scr-m3-8-cs
-    qty: 12
+    qty: 16
 ---
 
 The door module is the moving half of the chute. It is built on the bench as one unit and then bolted to the [chute core]({{ '/hardware/assembly/distribution/chute/chute-core/' | relative_url }}). One per chute, so one per layer.
@@ -63,12 +63,13 @@ Four things make it up:
 
 1. **Chute door**. The flap itself, one printed part.
 2. **Bearing assembly**. What the door swings on: the Bearing race, a Bearing holder (left) and a Bearing holder (right), a Bearing cover (covered side) and a Bearing cover (servo side), and two 6704-2RS bearings.
-3. **Servo adapter**. Two printed parts, a servo side and a flap side, that couple the servo's output to the door.
+3. **Servo adapter**. Two printed parts, a servo side and a flap side, that couple the servo's output to the door. The MG995 Servo Horn that comes with the servo is clasped between the two halves, then the halves are screwed together around it: 4 {% include fastener.html size="M3" variant="countersunk" length="8" %} screws, driven through the flap side (it's the half with the visible screw holes) into the servo side. No heat inserts, the screws thread directly into the printed plastic.
 4. **MG995 servo** in its four-part bracket: a housing, a lower arm, a side arm and a cover. Built on the bench, in the steps below.
 
 **What each fastener is for.** The list above gives totals for the whole module; this is the split:
 
 - **Bearing assembly, its own:** 10 {% include fastener.html size="M3" variant="heat-insert" %} (4 in the race, 3 in each holder) and 10 {% include fastener.html size="M3" variant="countersunk" length="8" %}. Six hold the covers to the holders, 3 each, and 4 hold the holders to the race, 2 each.
+- **Servo adapter, its own:** 4 {% include fastener.html size="M3" variant="countersunk" length="8" %}, no heat inserts. They hold the servo-side and flap-side halves together with the MG995 Servo Horn clasped between them.
 - **Servo bracket, its own:** 6 {% include fastener.html size="M3" variant="heat-insert" %} in the housing, 4 {% include fastener.html size="M3" variant="countersunk" length="12" %} for the arms, and 2 {% include fastener.html size="M3" variant="countersunk" length="8" %} through the servo's mounting ears.
 - **Holding the finished module to the chute core:** not in the list above at all. Those screws come out of the [chute core]({{ '/hardware/assembly/distribution/chute/chute-core/' | relative_url }})'s own set and are counted on that page.
 

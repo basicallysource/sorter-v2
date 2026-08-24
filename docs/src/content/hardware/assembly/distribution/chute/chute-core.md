@@ -58,32 +58,24 @@ Press the heat inserts into the chute core before anything is mounted to it. Onc
     <p><strong>Chute core:</strong> 18 × M3, which is every insert on this page. 2 for the servo bracket arms, 4 for the layer adapter board, and the rest for the funnel brackets, the bearing assembly and the layer connectors.</p>
   </div>
   <figure class="prep-item-figure">
-    <img class="doc-figure" src="URL_REAR" alt="Render of the chute core seen from the rear, with the four heat-insert pockets for the layer adapter board circled in purple on the recessed panel at the top end">
-    <figcaption>Rear face: the four inserts the layer adapter board screws into.</figcaption>
+    <img class="doc-figure" src="URL_REAR" alt="Render of the chute core from the rear, with the four heat-insert pockets on the rear panel filled orange and circled">
+    <figcaption>Rear face: 4 pockets.</figcaption>
   </figure>
 </div>
 
-The 18 pockets are on three faces of the core: **8 on the right side, 6 on the left, 4 on the rear**. Every one of them is the same Ø4.2 mm blind hole, 5.7 mm deep, and takes the same M3 insert, so nothing below changes what you press in. The letters only say what gets screwed into that pocket later, and are there so you can check none has been missed:
-
-- **F** — funnel brackets (orange)
-- **B** — bearing covers (blue)
-- **L** — layer connectors (green)
-- **S** — servo bracket arms (pink)
-- **P** — layer adapter board (purple), the four in the picture above
-
-All three views are rendered from the chute core STL, so a circle sits where the geometry actually puts the pocket. Both side views have the part lying on its side, base to the left, and are taken straight on to the face.
+Every one of the 18 is the same pocket, Ø4.2 mm and blind, 5.7 mm deep, so there is nothing to tell apart while you press them in. They sit on three faces of the core, **8 + 6 + 4**. Each view below is rendered from the chute core STL with the pocket itself filled orange, and marks only the pockets that are actually visible in that view.
 
 <div class="img-row">
   <figure>
-    <img src="URL_RIGHT" alt="Render of the right side of the chute core seen straight on, with eight heat-insert pockets circled: two orange for the funnel brackets, two blue for the bearing covers, two green for the layer connectors and two pink for the servo bracket arms">
-    <figcaption><strong>Right side, 8 inserts.</strong> This is the side with the two servo-bracket pockets (pink), which is what tells it apart from the other one.</figcaption>
+    <img src="URL_SIDE8" alt="Render of one long side of the chute core seen straight on, with eight heat-insert pockets filled orange and circled">
+    <figcaption><strong>One long side, 8 pockets.</strong> The round cut-out near the end is the giveaway: this side has two pockets together beside it, and one more on its own in the middle of the face.</figcaption>
   </figure>
 </div>
 
 <div class="img-row">
   <figure>
-    <img src="URL_LEFT" alt="Render of the left side of the chute core seen straight on, with six heat-insert pockets circled: two orange for the funnel brackets, two blue for the bearing covers and two green for the layer connectors">
-    <figcaption><strong>Left side, 6 inserts.</strong> The same as the right side without the two servo-bracket pockets.</figcaption>
+    <img src="URL_SIDE6" alt="Render of the other long side of the chute core seen straight on, with six heat-insert pockets filled orange and circled">
+    <figcaption><strong>The other long side, 6 pockets.</strong> The same face mirrored, without those two: one pocket either side of the round cut-out, and nothing in the middle.</figcaption>
   </figure>
 </div>
 

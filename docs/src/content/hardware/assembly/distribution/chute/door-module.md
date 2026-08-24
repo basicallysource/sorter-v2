@@ -128,7 +128,7 @@ Drop the MG995 into the housing and fasten it with 2 {% include fastener.html si
 
 Clock the horn before you commit to a position. The servo only rotates 180° and the door has to reach both of its positions inside that range; the video at the end of this page shows how it is set.
 
-<div class="img-placeholder">Image coming</div>
+<div class="img-placeholder">Photo of the MG995 seated in the bracket housing, held by its two mounting-ear screws, with the horn already clocked to a known position before the arms go on</div>
 
 {% include step.html n="3" title="Add the bracket arms and the cover" %}
 

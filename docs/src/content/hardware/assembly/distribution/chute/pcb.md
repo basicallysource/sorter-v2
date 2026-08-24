@@ -16,8 +16,6 @@ warning: >-
 parts_needed:
   - part: layer-adapter-board-basically
     qty: 1
-  - part: hsi-m3
-    qty: 4
   - part: scr-m3-6-bhcs
     qty: 4
 ---
@@ -33,7 +31,7 @@ The fasteners and quantities are in the parts list above and are called out inli
 
 {% include step.html n="1" title="Preparation" %}
 
-Press the chute core's inserts before the chute is assembled, the four PCB inserts among them. See [installing heat inserts]({{ '/hardware/helpers/heat-inserts/' | relative_url }}) for the technique.
+Nothing to press in here. The four inserts the board sits on are pressed into the chute core along with the rest of its 18, before the chute is assembled. See [Chute core]({{ '/hardware/assembly/distribution/chute/chute-core/' | relative_url }}) for where they are, and [installing heat inserts]({{ '/hardware/helpers/heat-inserts/' | relative_url }}) for the technique.
 
 {% include step.html n="2" title="Screw the board onto the chute core" %}
 

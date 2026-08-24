@@ -43,21 +43,22 @@ sections:
                 children:
                   - title: Chute core
                     url: /hardware/assembly/distribution/chute/chute-core/
-                  - title: Door module
-                    url: /hardware/assembly/distribution/chute/door-module/
-                  - title: MG995 servo
-                    url: /hardware/assembly/distribution/chute/mg995-servo/
-                    children:
-                      - title: Servo mount
-                        url: /hardware/assembly/distribution/chute/mg995-servo/servo-mount/
-                      - title: How to install
-                        url: /hardware/assembly/distribution/chute/mg995-servo/how-to-install/
                   - title: Funnel
                     url: /hardware/assembly/distribution/chute/funnel/
-                  - title: PCB
-                    url: /hardware/assembly/distribution/chute/pcb/
+                  - title: Door module
+                    url: /hardware/assembly/distribution/chute/door-module/
+                    children:
+                      - title: MG995 servo
+                        url: /hardware/assembly/distribution/chute/mg995-servo/
+                        children:
+                          - title: Servo mount
+                            url: /hardware/assembly/distribution/chute/mg995-servo/servo-mount/
+                          - title: How to install
+                            url: /hardware/assembly/distribution/chute/mg995-servo/how-to-install/
                   - title: Layer connectors
                     url: /hardware/assembly/distribution/chute/layer-connectors/
+                  - title: PCB
+                    url: /hardware/assembly/distribution/chute/pcb/
           - title: Feeder
             url: /hardware/assembly/feeder/
             children:

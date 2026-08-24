@@ -28,24 +28,24 @@ The chute is one per layer. Build the core first, since everything else bolts in
 
 ## Installing the chutes in the machine
 
-**The chutes do not go in as you build the layers.** Build the whole frame first, then put the chutes in one at a time. That is the correction alex gave when the interleaved order was suggested to him: "first build all the frame then add the chutes one by one without funnel."
+**Do not add the chutes while you build the layers.** Build the whole frame first, then add the chutes afterward, one at a time. alex was clear about this: "first build all the frame then add the chutes one by one without funnel."
 
 {% include step.html n="1" title="Build the whole frame first, upside down" %}
 
-Lay the [top interface]({{ '/hardware/assembly/distribution/top-interface/' | relative_url }}) on the floor with its top plate down, then stack every [layer]({{ '/hardware/assembly/distribution/bin-frame/regular-layers/' | relative_url }}) onto it. Finish the framing before any chute goes near it.
+Put the [top interface]({{ '/hardware/assembly/distribution/top-interface/' | relative_url }}) on the floor with its top plate facing down, then stack every [layer]({{ '/hardware/assembly/distribution/bin-frame/regular-layers/' | relative_url }}) on top of it. Finish the whole frame before you add any chutes.
 
-Building inverted pays for itself here: with the machine upside down, each layer's vertical screws are driven **downwards from above** rather than reached from underneath.
+Building it upside down helps here: each layer's vertical screws can be driven **down from above** instead of reached from underneath.
 
-{% include step.html n="2" title="Put the chutes in one at a time" %}
+{% include step.html n="2" title="Add the chutes one at a time" %}
 
-With the frame finished, fit the chutes one after another rather than one per layer as the tower goes up. Each one goes in as a unit, the [chute core]({{ '/hardware/assembly/distribution/chute/chute-core/' | relative_url }}) with the parts above already bolted to it, and since the [layer connectors]({{ '/hardware/assembly/distribution/chute/layer-connectors/' | relative_url }}) join each chute to the one below, they go in in order.
+Once the frame is finished, add the chutes one after another, not one per layer as you build the frame up. Each chute goes in as a complete unit, the [chute core]({{ '/hardware/assembly/distribution/chute/chute-core/' | relative_url }}) with its own parts already attached. The [layer connectors]({{ '/hardware/assembly/distribution/chute/layer-connectors/' | relative_url }}) join each chute to the one below it, so add the chutes in order rather than skipping around.
 
 {% include step.html n="3" title="Leave the funnels off" %}
 
-The chutes go in **without their funnels fitted**. When the funnels go on afterwards is not recorded anywhere, so treat that as an open question rather than assuming it happens just before the Lazy Susan.
+Add the chutes **without their funnels**. Nobody has said yet when the funnels should go on, so don't assume it happens right before the Lazy Susan step below.
 
 {% include step.html n="4" title="Bottom Lazy Susan, then the feeder" %}
 
-The [bottom interface]({{ '/hardware/assembly/distribution/bin-frame/bottom-interface/' | relative_url }}) and its Lazy Susan go on after the chutes. The [feeder]({{ '/hardware/assembly/feeder/' | relative_url }}) is the very last thing on the machine, which is BrickCycleAlice's reading of the order and one alex confirmed for his own build.
+The [bottom interface]({{ '/hardware/assembly/distribution/bin-frame/bottom-interface/' | relative_url }}) and its Lazy Susan go on after the chutes. The [feeder]({{ '/hardware/assembly/feeder/' | relative_url }}) goes on last. This last part is based on how BrickCycleAlice and alex both built their machines.
 
-If you built yours in a different order, that is worth saying: this is one machine, not a house method.
+If you built yours in a different order, let us know. This is how one person built their machine, not an official method everyone has to follow.

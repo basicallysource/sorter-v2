@@ -265,6 +265,24 @@
           "scr-m3-12-cs"
         ]
       }
+    },
+    {
+      "id": "open-stator-bracket-holes",
+      "name": "Stator's four NEMA-bracket holes are too small for an M3",
+      "priority": "P0",
+      "condition": "broken",
+      "description": "The four holes the NEMA bracket bolts into are Ø2.40 mm and 10 mm deep. M3's minor (thread-root) diameter is 2.459 mm, so the hole is already narrower than the root before print tolerance takes another 0.1-0.2 mm off it, and the screw has to form a full-depth thread through 10 mm of plastic. It cams out or splits the boss instead, so the bracket cannot be fastened to the stator as printed. Every other M3 thread-forming hole in this assembly is Ø2.80 — the rotor's six, the light post's five, and four more in this same stator — so Ø2.40 is the odd one out inside its own part, which reads as a CAD slip rather than an intent. The fix is to open the four to Ø2.80 in CAD. Reported by aleph1111/christoph from a build; measured off the pinned stator STL. Tracked as sorter-v2 issue #405.",
+      "targets": {
+        "parts": [
+          "stator"
+        ],
+        "assemblies": [
+          "c-channel"
+        ],
+        "hardware": [
+          "scr-m3-12-cs"
+        ]
+      }
     }
   ],
   "folders": [

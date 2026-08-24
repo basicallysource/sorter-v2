@@ -7,7 +7,7 @@
 	import HandCutCageGuide from '$lib/components/HandCutCageGuide.svelte';
 	import ChangeStatus from '$lib/components/ChangeStatus.svelte';
 	import { LASER_CUT_PARTS, type LaserCutPart } from '$lib/lasercut';
-	import { fmtDate } from '$lib/filament';
+	import { fmtDate, PARTS } from '$lib/filament';
 	import { type Units } from '$lib/handcut';
 	import { page } from '$app/state';
 	import { replaceState } from '$app/navigation';
@@ -23,10 +23,12 @@
 	}
 
 	// each card offers a second view besides the laser-cut files: parts with a
-	// `handcut` config can be cut by hand (jigsaw + drill); parts without one
-	// show a disabled "3D Printed" tab as a placeholder.
-	type Mode = 'laser' | 'hand';
+	// `handcut` config can be cut by hand (jigsaw + drill), and parts with a
+	// `printed` config can be built from printed pieces instead. A part with
+	// neither shows a disabled "3D Printed" tab as a placeholder.
+	type Mode = 'laser' | 'hand' | 'printed';
 	const handCutReady = (p: LaserCutPart) => !!p.handcut;
+	const printedReady = (p: LaserCutPart) => !!p.printed;
 	let mode = $state<Record<string, Mode>>(
 		Object.fromEntries(LASER_CUT_PARTS.map((p) => [p.id, 'laser' as Mode]))
 	);
@@ -88,8 +90,8 @@
 			<p class="mt-1 text-sm text-text-muted">
 				Flat plywood parts, cut from the DXFs below. Thicknesses are quoted in the imperial size the
 				sheet is sold as, with the nearest full-mm equivalent the CAD expects. No laser? The top
-				plate and both cable cage plates have a “by hand” view; 3D-printable cage options are still
-				to come.
+				plate and both cable cage plates have a “by hand” view, and both cable cage plates also
+				have a 3D-printed option.
 			</p>
 		</div>
 		<a href="https://bin-gen.basically.website/" target="_blank" rel="noopener" class="inline-flex shrink-0 items-center justify-center gap-1.5 border border-border bg-surface px-3 py-2 text-sm font-semibold text-text-muted transition-colors hover:border-primary hover:text-primary">
@@ -129,6 +131,16 @@
 								>
 									<Hammer size={12} /> By hand
 								</button>
+							{/if}
+							{#if printedReady(p)}
+								<button
+									class="inline-flex items-center gap-1 border-b-2 px-2.5 py-1.5 text-xs font-semibold {mode[p.id] === 'printed'
+										? 'border-text text-text'
+										: 'border-transparent text-text-muted hover:text-text'}"
+									onclick={() => (mode[p.id] = 'printed')}
+								>
+									<Box size={12} /> 3D Printed
+								</button>
 							{:else}
 								<span
 									class="inline-flex cursor-not-allowed items-center gap-1 border-b-2 border-transparent px-2.5 py-1.5 text-xs font-semibold text-text-muted opacity-40"
@@ -165,7 +177,7 @@
 										OnShape <ExternalLink size={11} />
 									</a>
 								</div>
-							{:else}
+							{:else if mode[p.id] === 'hand'}
 								<p class="text-sm text-text-muted">{p.handcut?.blurb}</p>
 								<dl class="grid max-w-sm grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-xs text-text-muted">
 									<dt>Thickness</dt>
@@ -183,6 +195,22 @@
 										<Hammer size={14} /> Open the step-by-step guide
 									</button>
 								</div>
+							{:else}
+								<p class="text-sm text-text-muted">{p.printed?.blurb}</p>
+								<ul class="flex flex-col gap-1.5">
+									{#each p.printed?.components ?? [] as c (c.part)}
+										{@const printedPart = PARTS.find((x) => x.id === c.part)}
+										<li class="flex items-center justify-between gap-2 text-xs">
+											<a
+												href="/part/{c.part}"
+												class="text-text hover:text-primary hover:underline"
+											>
+												{printedPart?.name ?? c.part}
+											</a>
+											<span class="shrink-0 text-text-muted">× {c.qty}</span>
+										</li>
+									{/each}
+								</ul>
 							{/if}
 						</div>
 					</div>

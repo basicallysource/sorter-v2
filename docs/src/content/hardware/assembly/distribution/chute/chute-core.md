@@ -58,23 +58,23 @@ Press the heat inserts into the chute core before anything is mounted to it. Onc
     <p><strong>Chute core:</strong> 18 × M3, which is every insert on this page. 2 for the servo bracket arms, 4 for the layer adapter board, and the rest for the funnel brackets, the bearing assembly and the layer connectors.</p>
   </div>
   <figure class="prep-item-figure">
-    <img class="doc-figure" src="URL_REAR" alt="Render of the chute core from the rear, with the four heat-insert pockets on the rear panel filled orange and circled">
-    <figcaption>Rear face: 4 pockets.</figcaption>
+    <img class="doc-figure" src="URL_REAR" alt="Close render of the rear end of the chute core at a slight angle, with the four heat-insert pockets on the rear panel circled in red">
+    <figcaption>Rear face: 4 pockets, seen close in.</figcaption>
   </figure>
 </div>
 
-Every one of the 18 is the same pocket, Ø4.2 mm and blind, 5.7 mm deep, so there is nothing to tell apart while you press them in. They sit on three faces of the core, **8 + 6 + 4**. Each view below is rendered from the chute core STL with the pocket itself filled orange, and marks only the pockets that are actually visible in that view.
+Every one of the 18 is the same pocket, Ø4.2 mm and blind, 5.7 mm deep, so there is nothing to tell apart while you press them in. They sit on three faces of the core, **8 + 6 + 4**. Each view below is rendered from the chute core STL, turned about 18° off the face so the pockets shade as holes rather than disappearing into the plate, and circles only the pockets that are actually visible in that view.
 
 <div class="img-row">
   <figure>
-    <img src="URL_SIDE8" alt="Render of one long side of the chute core seen straight on, with eight heat-insert pockets filled orange and circled">
+    <img src="URL_SIDE8" alt="Render of one long side of the chute core at a slight angle, with eight heat-insert pockets circled in red">
     <figcaption><strong>One long side, 8 pockets.</strong> The round cut-out near the end is the giveaway: this side has two pockets together beside it, and one more on its own in the middle of the face.</figcaption>
   </figure>
 </div>
 
 <div class="img-row">
   <figure>
-    <img src="URL_SIDE6" alt="Render of the other long side of the chute core seen straight on, with six heat-insert pockets filled orange and circled">
+    <img src="URL_SIDE6" alt="Render of the other long side of the chute core at a slight angle, with six heat-insert pockets circled in red">
     <figcaption><strong>The other long side, 6 pockets.</strong> The same face mirrored, without those two: one pocket either side of the round cut-out, and nothing in the middle.</figcaption>
   </figure>
 </div>

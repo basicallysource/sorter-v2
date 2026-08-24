@@ -8,6 +8,11 @@ kicker: Distribution — Chute
 lede: The rotating chute that aims parts at the correct bin.
 permalink: /hardware/assembly/distribution/chute/
 author: spencer
+warning: >-
+  **AI-generated first draft.** The order and the descriptions below come from the machine
+  assembly tree in the [parts
+  calculator](https://parts-calculator.basically.website/assembly?focus=chute), not from an
+  actual build. Each page carries its own note. Correct them as you build.
 ---
 
 The chute is one per layer. Build the core first, since everything else bolts into its heat inserts.

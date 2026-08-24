@@ -8,6 +8,12 @@ kicker: Chute — Door module
 lede: The per-layer door mechanism that releases parts into a bin.
 permalink: /hardware/assembly/distribution/chute/door-module/
 author: spencer
+warning: >-
+  **AI-generated first draft.** Written from the machine assembly tree in the [parts
+  calculator](https://parts-calculator.basically.website/assembly?focus=flap-module), not from
+  an actual build. Nothing here has been checked against a machine, and only the servo has
+  build pages: the door, the bearing assembly and the servo adapter have no assembly steps
+  written yet. Correct it as you build.
 ---
 
 The door module is the moving half of the chute. It is built on the bench as one unit and then bolted to the [chute core]({{ '/hardware/assembly/distribution/chute/chute-core/' | relative_url }}), which is where all of its mounting screws land. One per chute, so one per layer.
@@ -27,8 +33,3 @@ Six of the core's 18 inserts are for this module, and the screws come out of the
 - **Servo bracket arms**, 2 {% include fastener.html size="M3" variant="countersunk" length="12" %}.
 
 The full split across the core's 14 countersunk screws is on the [chute core]({{ '/hardware/assembly/distribution/chute/chute-core/' | relative_url }}) page, which is the one place it is written down.
-
-<div class="callout callout-warning">
-  <span class="callout-icon" aria-hidden="true">⚠</span>
-  <p>Only the servo has build pages so far. The door, the bearing assembly and the servo adapter have no assembly steps written yet, and nothing on this page has been checked against a machine.</p>
-</div>

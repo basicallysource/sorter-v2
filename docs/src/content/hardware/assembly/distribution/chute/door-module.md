@@ -10,9 +10,25 @@ permalink: /hardware/assembly/distribution/chute/door-module/
 author: spencer
 ---
 
-The door module is made up of:
+The door module is the moving half of the chute. It is built on the bench as one unit and then bolted to the [chute core]({{ '/hardware/assembly/distribution/chute/chute-core/' | relative_url }}), which is where all of its mounting screws land. One per chute, so one per layer.
 
-1. **[MG995 servo]({{ '/hardware/assembly/distribution/chute/mg995-servo/' | relative_url }})** — the servo that drives the door, and how to mount and install it.
-2. **[Funnel]({{ '/hardware/assembly/distribution/chute/funnel/' | relative_url }})** — the funnel that guides parts through the door.
-3. **[PCB]({{ '/hardware/assembly/distribution/chute/pcb/' | relative_url }})** — the board that drives the servo.
-4. **[Layer connectors]({{ '/hardware/assembly/distribution/chute/layer-connectors/' | relative_url }})** — the connectors that chain layers together.
+Four things make it up:
+
+1. **Chute door**. The flap itself, one printed part.
+2. **Bearing assembly**. What the door swings on: the Bearing race, a Bearing holder (left) and a Bearing holder (right), a Bearing cover (covered side) and a Bearing cover (servo side), and two 6704-2RS bearings. It carries 10 M3 heat inserts of its own, 4 in the race and 3 in each holder, and takes 10 {% include fastener.html size="M3" variant="countersunk" length="8" %} screws: 6 hold the covers to the holders, 3 each, and 4 hold the holders to the race, 2 each. Those are separate from the chute core's 18 inserts.
+3. **Servo adapter**. Two printed parts, a servo side and a flap side, that couple the servo's output to the door.
+4. **[MG995 servo]({{ '/hardware/assembly/distribution/chute/mg995-servo/' | relative_url }})** in its four-part bracket. Build it and clock the horn on the [Servo mount]({{ '/hardware/assembly/distribution/chute/mg995-servo/servo-mount/' | relative_url }}) page, then see [How to install]({{ '/hardware/assembly/distribution/chute/mg995-servo/how-to-install/' | relative_url }}).
+
+## How it mounts to the chute core
+
+Six of the core's 18 inserts are for this module, and the screws come out of the core's own set rather than being extra:
+
+- **2 bearing covers**, 4 {% include fastener.html size="M3" variant="countersunk" length="8" %} in total, 2 per cover.
+- **Servo bracket arms**, 2 {% include fastener.html size="M3" variant="countersunk" length="12" %}.
+
+The full split across the core's 14 countersunk screws is on the [chute core]({{ '/hardware/assembly/distribution/chute/chute-core/' | relative_url }}) page, which is the one place it is written down.
+
+<div class="callout callout-warning">
+  <span class="callout-icon" aria-hidden="true">⚠</span>
+  <p>Only the servo has build pages so far. The door, the bearing assembly and the servo adapter have no assembly steps written yet, and nothing on this page has been checked against a machine.</p>
+</div>

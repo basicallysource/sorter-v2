@@ -62,25 +62,17 @@ Press the heat inserts into the chute core before anything is mounted to it. Onc
   </div>
 </div>
 
-{% include step.html n="2" title="Fit the funnel brackets" %}
+{% include step.html n="2" title="Bolt the four sub-assemblies on" %}
 
-Fit the Funnel bracket (left) and the Funnel bracket (right) to the chute core. Together with the door module and the layer connectors these use the chute's 6 {% include fastener.html size="M3" variant="countersunk" length="12" %} and 8 {% include fastener.html size="M3" variant="countersunk" length="8" %} screws, all into the core's inserts.
+Fit them in this order: the funnel brackets, the door module, the layer connectors, then the layer adapter board. Each has its own page for the procedure. What follows is the one thing those pages do not repeat, which screw goes into which insert, worked out from the STLs by comparing each mating part's wall thickness at its screw hole against the core's blind 5.70 mm pockets.
 
-The split across those 14, worked out from the STLs by comparing each mating part's wall thickness at its screw hole against the core's blind 5.70 mm insert pockets:
+- **[Funnel brackets]({{ '/hardware/assembly/distribution/chute/funnel/' | relative_url }})**, left and right: 4 × {% include fastener.html size="M3" variant="countersunk" length="12" %}, 2 per bracket. The bracket is 8.16 mm thick at the screw, so a 12 mm screw reaches 3.84 mm into the insert and an 8 mm one would not reach it at all.
+- **[Door module]({{ '/hardware/assembly/distribution/chute/door-module/' | relative_url }})**, bolted on as a unit: 4 × {% include fastener.html size="M3" variant="countersunk" length="8" %} through the two bearing covers, 2 per cover into 5.00 mm of wall, plus 2 × {% include fastener.html size="M3" variant="countersunk" length="12" %} for the servo bracket arms.
+- **[Layer connectors]({{ '/hardware/assembly/distribution/chute/layer-connectors/' | relative_url }})** A and B: 4 × {% include fastener.html size="M3" variant="countersunk" length="8" %}, 2 per connector. The strap is 3.78 mm thick, so an 8 mm screw reaches 4.22 mm in and stops 1.5 mm short of the pocket bottom, while a 12 mm screw would bottom out before the head seated.
+- **[Layer adapter board]({{ '/hardware/assembly/distribution/chute/pcb/' | relative_url }})**: 4 × {% include fastener.html size="M3" variant="button" length="6" %} on the four inserts in the rear face, the only button heads on the chute. They are in that page's parts list, not this one.
 
-- **Funnel brackets:** 4 × {% include fastener.html size="M3" variant="countersunk" length="12" %} (8.16 mm wall, so an 8 mm screw would not reach the insert at all)
-- **Bearing covers:** 4 × {% include fastener.html size="M3" variant="countersunk" length="8" %} (5.00 mm wall, 2 per cover)
-- **[Layer connectors]({{ '/hardware/assembly/distribution/chute/layer-connectors/' | relative_url }}):** 4 × {% include fastener.html size="M3" variant="countersunk" length="8" %} (3.78 mm strap, 2 per connector)
-- **Servo bracket arms:** the remaining 2 × {% include fastener.html size="M3" variant="countersunk" length="12" %}. No published part sits on those two inserts, so this one is by elimination rather than measured.
+That accounts for all 14 countersunk screws in the list above, 6 twelves and 8 eights. The servo-bracket row is the only one nothing published confirms: no STL sits on those two inserts, so 12 mm is by elimination from the other three rather than measured.
 
 <div class="img-placeholder">Image coming</div>
 
-{% include step.html n="3" title="Fit the door module" %}
-
-Build the [door module]({{ '/hardware/assembly/distribution/chute/door-module/' | relative_url }}) as a unit (door, bearing assembly, servo adapter, servo in its bracket) and bolt it to the chute core. The servo bracket lands on **two** of the core's M3 inserts.
-
-{% include step.html n="4" title="Fit the layer connectors and the PCB" %}
-
-Attach Layer connector A and Layer connector B, then the [layer adapter board]({{ '/hardware/assembly/distribution/chute/pcb/' | relative_url }}) on its four PCB inserts.
-
-The chute is now complete. Repeat for every layer.
+The chute is complete when all four are on. Repeat for every layer.

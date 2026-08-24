@@ -60,7 +60,7 @@ Press the inserts into the housing while it is still bare. See [installing heat 
 
 Drop the MG995 into the housing and fasten it with 2 {% include fastener.html size="M3" variant="countersunk" length="8" %} screws through the servo's own mounting ears.
 
-Clock the horn before you commit to a position. The MG995 only rotates 180°, and the door has to reach both fully open and fully closed inside that range, see [how to install]({{ '/hardware/assembly/distribution/chute/mg995-servo/how-to-install/' | relative_url }}).
+Clock the horn before you commit to a position. [How to install]({{ '/hardware/assembly/distribution/chute/mg995-servo/how-to-install/' | relative_url }}) covers why it matters and how far the servo can actually travel.
 
 <div class="img-placeholder">Image coming</div>
 

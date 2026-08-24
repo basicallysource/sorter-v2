@@ -23,8 +23,6 @@ parts_needed:
     qty: 1
   - part: funnel-bracket-right
     qty: 1
-  - part: scr-m3-12-cs
-    qty: 4
 ---
 
 The funnel catches what the door releases and guides it into the bin below. It hangs off two printed brackets that are part of the chute.
@@ -34,8 +32,8 @@ The fasteners and quantities are in the parts list above and are called out inli
 {% include fastener-legend.html %}
 
 - **One funnel per layer**, in one of two sizes. Print the size that matches that layer's bins.
-- The 6 {% include fastener.html size="M3" variant="countersunk" length="12" %} and 8 {% include fastener.html size="M3" variant="countersunk" length="8" %} screws in the list are the [chute core]({{ '/hardware/assembly/distribution/chute/chute-core/' | relative_url }})'s whole set, shared between the funnel brackets, the door module and the layer connectors. Only some of them land here.
-- The brackets screw into the chute core's M3 heat inserts, so there is nothing to tap.
+- The brackets screw into the [chute core]({{ '/hardware/assembly/distribution/chute/chute-core/' | relative_url }})'s M3 heat inserts, so there is nothing to tap.
+- The 4 {% include fastener.html size="M3" variant="countersunk" length="12" %} they take come out of the core's set of 6 and are not extra, so they are on that page's parts list rather than this one.
 
 {% include step.html n="1" title="Pick the funnel size for the layer" %}
 
@@ -50,7 +48,7 @@ Decide before printing, since it changes both the funnel and the bin set. The [p
 
 Every chute carries a Funnel bracket (left) and a Funnel bracket (right), one of each. They screw into the [chute core]({{ '/hardware/assembly/distribution/chute/chute-core/' | relative_url }})'s M3 heat inserts, using screws from the chute's set.
 
-Each bracket takes 2 {% include fastener.html size="M3" variant="countersunk" length="12" %} screws, 4 for the pair, out of the chute's set of 6. Measured from the STLs: the bracket is 8.16 mm thick at the screw and the core's insert pocket is 5.70 mm deep, so a 12 mm screw goes 3.84 mm into the insert. An 8 mm screw would stop short of the insert entirely.
+Each bracket takes 2 {% include fastener.html size="M3" variant="countersunk" length="12" %} screws, 4 for the pair. Why 12 mm and not 8 is on the [chute core]({{ '/hardware/assembly/distribution/chute/chute-core/' | relative_url }}) page, along with the rest of the split.
 
 <div class="img-placeholder">Image coming</div>
 

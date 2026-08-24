@@ -283,6 +283,23 @@
           "scr-m3-12-cs"
         ]
       }
+    },
+    {
+      "id": "fix-ribbon-cable-clamp-standoffs",
+      "name": "Ribbon cable clamp does not seat flat on the cage bracket",
+      "priority": "P1",
+      "condition": "broken",
+      "description": "The clamp cannot close on the ribbon cable. Its two standoffs are different heights: the pad at the screw end stands 1.30 mm proud of the clamping face and lands flush on the bracket, while the foot at the far end stands 5.00 mm proud, 3.80 mm past the bracket's outer face. The cage bracket's face is flat, with the M3 heat-insert bore as its only feature, so the foot levers the clamp off the bracket and the part pivots on its single M3 and sits crooked. The fix is either a mating slot in the cage bracket to take the foot, which keeps it as an anti-rotation key, or cutting the foot back to 1.30 mm; the two parts have to change together and it is not decided which way it goes. Until then, trim the foot flush with a knife or cut the matching notch in the bracket. Reported from builds by barthel, zed0 and Jon; measured off the pinned ribbon-cable-clamp and cage bracket STLs. Tracked as sorter-v2 issue #403.",
+      "targets": {
+        "parts": [
+          "ribbon-cable-clamp",
+          "interface-cage-bracket",
+          "interface-cage-bracket-cable"
+        ],
+        "assemblies": [
+          "cable-cage"
+        ]
+      }
     }
   ],
   "folders": [

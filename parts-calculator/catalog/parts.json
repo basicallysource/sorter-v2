@@ -944,7 +944,7 @@
       "low_tolerance": true,
       "low_tolerance_note": "A test print is suggested. This part is a tight fit around the 2020 aluminum profile, so print one first and confirm it seats properly before committing to the full set — dial in your printer and profile together.",
       "onshape_version": "https://cad.onshape.com/documents/a4a1965bbaf3a15aff2b13ed/v/7279a42b05833c7b828efb0d/e/b0ee2e787191265cba1c1a31",
-      "docs_page": "/hardware/assembly/distribution/bin-frame/regular-layers/"
+      "docs_page": "/hardware/parts/external-bracket/"
     },
     {
       "id": "ext-bracket-bottom-vertical",
@@ -968,7 +968,7 @@
       "support": false,
       "layer_scope": "non-bottom",
       "onshape_version": "https://cad.onshape.com/documents/a4a1965bbaf3a15aff2b13ed/v/7279a42b05833c7b828efb0d/e/b0ee2e787191265cba1c1a31",
-      "docs_page": "/hardware/assembly/distribution/bin-frame/regular-layers/"
+      "docs_page": "/hardware/parts/external-bracket/"
     },
     {
       "id": "ext-bracket-cover",
@@ -993,7 +993,7 @@
       "support": false,
       "layer_scope": "non-bottom",
       "onshape_version": "https://cad.onshape.com/documents/a4a1965bbaf3a15aff2b13ed/v/7279a42b05833c7b828efb0d/e/b0ee2e787191265cba1c1a31",
-      "docs_page": "/hardware/assembly/distribution/bin-frame/regular-layers/"
+      "docs_page": "/hardware/parts/external-bracket/"
     },
     {
       "id": "ext-bracket-foot-cover",
@@ -5536,7 +5536,7 @@
       "version": "1",
       "name": "External distribution-frame bracket",
       "description": "Three parts that bolt together into one external bracket. 6 per distribution frame (per layer). The cover clips on and takes no screws. The top interface uses only the side and cover from this set, no bottom vertical, see the interface assembly.",
-      "docs": "/hardware/assembly/distribution/bin-frame/regular-layers/",
+      "docs": "/hardware/parts/external-bracket/",
       "status": "partial",
       "joining": [
         {

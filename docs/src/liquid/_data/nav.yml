@@ -106,6 +106,8 @@ sections:
         children:
           - title: Lazy Susan
             url: /hardware/parts/lazy-susan/
+          - title: External bracket
+            url: /hardware/parts/external-bracket/
           - title: Orange Pi 5
             url: /hardware/orange-pi-5/
 

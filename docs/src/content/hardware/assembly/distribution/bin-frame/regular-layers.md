@@ -46,6 +46,8 @@ Note that some of the ordering in this guide may seem unusual, but it's written 
 
 The aluminum extrusion is cut to length; the [framing cut list](https://parts-calculator.basically.website/framing) has the exact dimensions for pieces A/G, B/H and C. The number of {% include fastener.html size="M5" variant="t-nut" text="M5 T-nuts" %} listed above is the minimum you'll need if you thread the printed parts directly wherever possible; this number increases if you use T-nuts throughout instead.
 
+See the [External bracket]({{ '/hardware/parts/external-bracket/' | relative_url }}) reference page for a look at the three bracket parts on their own.
+
 {% include fastener-legend.html %}
 
 {% include step.html n="1" title="Assemble the frame brackets" %}

@@ -11,3 +11,4 @@ author: spencer
 ---
 
 - **[Lazy Susan]({{ '/hardware/parts/lazy-susan/' | relative_url }})**
+- **[External bracket]({{ '/hardware/parts/external-bracket/' | relative_url }})**

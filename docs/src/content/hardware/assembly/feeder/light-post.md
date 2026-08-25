@@ -9,10 +9,11 @@ lede: The vertical COB light that lights a C-channel for the overhead camera.
 permalink: /hardware/assembly/feeder/light-post/
 author: barthel
 warning: >-
-  **AI-generated first draft.** Written from the machine assembly tree in the [parts
-  calculator](https://parts-calculator.basically.website/assembly?focus=light-post), not from an
-  actual build. The parts and the two screws into the NEMA bracket are recorded; the rest of the
-  order, the remaining screws and every photograph are still missing. Fill it in as you build.
+  **AI-generated first draft, mounting order still unbuilt.** Written from the machine assembly
+  tree in the [parts calculator](https://parts-calculator.basically.website/assembly?focus=light-post),
+  not from an actual build. The two screws into the NEMA bracket, and the three that join the
+  post to the adapter, are now measured off the part geometry. The assembly order, the COB
+  plate's retention, and every photograph are still missing. Fill it in as you build.
 parts_needed:
   - part: light-post
     qty: 1
@@ -38,7 +39,7 @@ The fasteners and quantities in the parts list come from the parts registry and 
 
 <div class="prep-item">
   <div class="prep-item-body">
-    <p><strong>Light post:</strong> no heat inserts recorded. The 2 M3 × 20 mm screws that hold it to the NEMA bracket thread straight into the print.</p>
+    <p><strong>Light post:</strong> no heat inserts, front or back — every screw here is self-tapping. The 2 M3 × 20 mm screws that hold it to the NEMA bracket, and the 3 M3 × 12 mm that hold the cap adapter on top (Step 2), all thread straight into the print.</p>
   </div>
   <figure class="prep-item-figure">
     <div class="img-placeholder">Image coming</div>
@@ -56,19 +57,24 @@ The fasteners and quantities in the parts list come from the parts registry and 
 
 The post and the cap adapter follow the feeder colour.
 
-{% include step.html n="2" title="Assemble the post, adapter and cap" %}
+{% include step.html n="2" title="Screw the adapter to the post" %}
 
-Join the Light post, the Light post cap adapter and the Light post cap with the 3 {% include fastener.html size="M3" variant="countersunk" length="12" %} screws in the list above.
+All 3 {% include fastener.html size="M3" variant="countersunk" length="12" %} screws join the Light post cap adapter down onto the Light post — the cap takes none of them. Measured off the two STLs: the post's top face carries 3 self-tapping pilot holes, 2.8 mm across, spaced 120° apart on a 12.1 mm radius; the adapter has a matching 3.4 mm clearance hole over each one. Screw down through the adapter into the post.
 
-**Not recorded:** how the three screws split between the two joints, and which way round the adapter goes. <span class="fastener-todo">fastener not recorded</span>
+<figure>
+  <img class="doc-figure" src="https://assets.basically.website/sorter-parts/post-top-render-full-bbceca84e28a.png" alt="Top-down outline of the light post's top face, showing three screw bosses at 120 degrees, one of them (bottom left) carrying an asymmetric tail-shaped lobe the other two don't have">
+  <figcaption>The post's top face, seen from above. One boss (bottom left here) carries an extra lobe the other two don't — the same asymmetry should be visible on the adapter, and is the only thing that pins the orientation. Drawn from the part geometry, not from a build.</figcaption>
+</figure>
+
+**Still not recorded:** which way the lobed boss lines up on the adapter — the geometry rules out the two wrong 120°/240° rotations if you match it by eye, but nobody has confirmed which adapter feature it keys to. <span class="fastener-todo">fastener not recorded</span>
 
 <div class="img-placeholder">Image coming</div>
 
-{% include step.html n="3" title="Fit the COB plate" %}
+{% include step.html n="3" title="Fit the cap and the COB plate" %}
 
-The 50 mm COB plate mounts in the cap, facing across the channel.
+The Light post cap has no screw holes of its own anywhere in its geometry — it fits over the post-and-adapter assembly without fasteners, so it needs no heat insert either. The 50 mm COB plate mounts inside it, facing across the channel.
 
-**Not recorded:** what retains the plate. <span class="fastener-todo">fastener not recorded</span>
+**Not recorded:** how the cap is retained (snap or friction fit — the geometry doesn't say which) and what holds the COB plate in place. <span class="fastener-todo">fastener not recorded</span>
 
 <div class="callout callout-warning">
   <span class="callout-icon" aria-hidden="true">⚠</span>

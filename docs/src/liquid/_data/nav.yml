@@ -34,8 +34,6 @@ sections:
                     url: /hardware/assembly/distribution/bin-frame/bottom-two-layers/
                   - title: Regular layers
                     url: /hardware/assembly/distribution/bin-frame/regular-layers/
-              - title: External bracket
-                url: /hardware/assembly/distribution/external-bracket/
               - title: Top interface
                 url: /hardware/assembly/distribution/top-interface/
               - title: Chute

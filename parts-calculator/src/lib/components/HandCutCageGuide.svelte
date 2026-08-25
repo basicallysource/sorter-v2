@@ -29,8 +29,8 @@
 
 	const overview = $derived(
 		isTop
-			? 'https://sorter-v2-parts.nyc3.cdn.digitaloceanspaces.com/img/4a2aea74e2dadc3713612e44974a0a751d7ae0ac2891df6a588e7cd9d6d925dd.png'
-			: 'https://sorter-v2-parts.nyc3.cdn.digitaloceanspaces.com/img/8398abac6bbe5bbbfeee2ed9206ea47278a6f9664509473812d0f882bba50ba5.png'
+			? 'https://assets.basically.website/sorter-parts/cable-cage-top-handcut-overview-full-2925f46655a7.png'
+			: 'https://assets.basically.website/sorter-parts/cable-cage-bottom-handcut-overview-full-145a3d21f986.png'
 	);
 
 	// plate coords are y-up; SVG is y-down

@@ -26,8 +26,8 @@ export type Section = {
 	experimental_note?: string | null;
 };
 /** A picture of a thing beyond its render: an Onshape screenshot, a section
- *  view, a photo of it built. `url` is a pinned bucket URL (upload the file with
- *  scripts/sync_bucket.py --upload); `alt` says what the picture shows. */
+ *  view, a photo of it built. `url` is a pinned published URL (publish the file
+ *  with scripts/publish_assets.py --upload); `alt` says what the picture shows. */
 export type CatalogImage = { url: string; alt: string; caption?: string };
 export type ChangePriority = `P${number}`;
 export type ChangeTargetKind = 'parts' | 'assemblies' | 'sections' | 'lasercut' | 'hardware';
@@ -222,7 +222,7 @@ export type Hardware = {
 	sheet_qty_text?: string | null;
 	stock?: Stock | null; // set when the part is cut from a bought length
 	sourcing?: { vendors: Vendor[] } | null;
-	image: string | null; // content-addressed bucket URL
+	image: string | null; // content-addressed published URL
 	images?: CatalogImage[]; // extra pictures beyond the product photo
 	// Marks a part that has an interchangeable alternative (e.g. socket vs button
 	// head). `true` = a bare "Alternative" tag; a string names the alternative.
@@ -358,7 +358,7 @@ export type Settings = {
 	density_g_cm3: number;
 	cost_per_kg: number;
 	commit_base_url?: string; // e.g. https://github.com/owner/repo/commit/
-	all_parts_zip?: string; // content-addressed bucket URL for the every-part bundle (each part's default stamped variant)
+	all_parts_zip?: string; // content-addressed URL for the every-part bundle (each part's default stamped variant)
 	all_parts_plain_zip?: string; // the same parts unstamped
 };
 

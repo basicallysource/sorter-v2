@@ -375,7 +375,7 @@ That rule is why all 84 current parts are valid on day one with zero edits.
       "onshape_version": "https://cad.onshape.com/documents/…/v/…",
       "letter": "A",                   // NEW — minted because 2.0 is released
       "breaking": false,               // NEW — old part still fits; optional reprint
-      "stl_hash": "sha256:9f2c…"       // NEW — content address in the bucket (§7)
+      "stl_hash": "sha256:9f2c…"       // NEW — the content address (§7)
     }
   ]
 }
@@ -596,21 +596,31 @@ stale. Two rules preserve this:
 2. **Never use presigned URLs** for public artifacts — they expire. These
    are public-read objects at permanent keys.
 
-Origin and CDN hostnames both serve the objects permanently, so switching
-between them is not a breaking change either.
+**As built, 2026-08-23 — the asset service is the store.** The plan above
+described a bucket the repo talked to with S3 credentials, reached through a
+Cloudflare worker on an image domain of its own. Both are gone. Everything is
+published to and served from the asset service
+(`assets.basically.website`, public repo `basicallysource/asset-service`) in
+the `sorter-parts` namespace, and `scripts/publish_assets.py` is the only way
+bytes get in.
 
-The one real dependency is bucket availability — which is why the masters
-stay committed in git as the archival copy.
+What this changed about the design, beyond the hostname:
 
-**Dual storage (as built, 2026-08-20).** Plain git holds the canonical
-masters (`catalog/parts/**`, not LFS — see `.gitattributes` for why LFS is
-banned); the bucket is the serving layer. The site never reads repo binaries
-— every download URL in the generated JSON is a bucket URL, superseded
-version geometry is pinned by `stl_hash`, and the old `static/stl/` serving
-copies and the committed `all-parts.zip` are gone. The masters leave git too
-once uploads stop requiring bucket credentials (the asset-service plan);
-until then, committing the STL in the PR is what lets any agent author a
-part.
+- **Nothing binary is in git at all**, masters included. The archival copy is
+  the service, and geometry is pinned by `stl_hash` from committed JSON, so
+  `git show` is never consulted for bytes — which is what made the 2026-08
+  history rewrite safe.
+- **A key is a name plus a hash of the bytes**, not a bare hash:
+  `sorter-parts/<part-id>-<hash12>.stl`. A downloaded file identifies
+  itself, and since there is no `Content-Disposition`, the browser names the
+  download after that key.
+- **Publishing needs no S3 credentials** — an `ASSET_SERVICE_TOKEN` mints
+  from a GitHub sign-in, which is what finally let the masters leave git.
+- **Images are the one thing not addressed by the bytes you hold.** The
+  service withholds an uploaded image and publishes a metadata-stripped copy
+  of it instead, so a render's or photo's URL is read back from the service
+  rather than computed. Everything else — STL, 3mf, zip, font — is served
+  exactly as uploaded, so its URL still follows from its pin.
 
 ---
 
@@ -663,8 +673,8 @@ end on printed parts and everything else is enrichment.
    (generate `_data/parts.yml` or fetch published JSON); assembly-scoped
    `parts_needed`; extend `validate_frontmatter.py` into the id +
    staleness linter; structured `applies_to`.
-9. **STL bucket** — §7. Done: artifacts are content-addressed in the Space
-   and the site links to them.
+9. **Artifact storage** — §7. Done: artifacts are content-addressed in the
+   asset service and the site links to them.
 
    **Ordering constraint — do not migrate git history to LFS before step 1.**
    Historical part revisions are not stored; they are *reconstructed* from
@@ -672,10 +682,10 @@ end on printed parts and everything else is enrichment.
    recover pre-change geometry). After an LFS migration `git show` returns
    pointer text, the `is_lfs_pointer()` guard fires, and the revision
    silently falls back to the *current* geometry — wrong data, no error.
-   Once each revision pins its own `stl_hash` (step 1), the bucket is
-   authoritative and git history stops being load-bearing; the migration is
-   then safe. If moving sooner, run `generate.py --force` first so every
-   revision still discoverable in history gets archived to the bucket.
+   Once each revision pins its own `stl_hash` (step 1), the published bytes
+   are authoritative and git history stops being load-bearing. That is now
+   the case: every revision pins its own hash, and no binary is committed at
+   all, so this constraint is discharged.
 10. **Sheet retirement** — stamp each tab superseded with a link as its
     domain migrates (extrusion-tab pattern). Optionally add a one-way
     lockfile→sheet export for spreadsheet lovers; never authoritative again.

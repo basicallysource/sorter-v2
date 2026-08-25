@@ -1,5 +1,5 @@
 {
-  "_comment": "Source-of-truth manifest. filament.py slices each STL once and writes ../src/lib/data/parts.generated.json + thumbnails + STL copies. Per part: id, uid (see UID below), name, category, description (short, shown in app), internal_notes (extended, agent-only, NOT emitted to the app), version, created_at, updated_at, stl_hash (sha256 pin of the master STL on the bucket; upload with scripts/sync_bucket.py --upload), quantity (per ONE instance of its category), color, optional. attributes (optional list of {label,value} shown in the app), versions (optional archetype history: list of {version,date,message,commit}; commit ties to a real git commit, null = pending an upcoming clean commit). low_tolerance (optional bool: part has little tolerance for dimensional error - a tight/precise fit - so a test print is worth doing) + low_tolerance_note (the specifics, shown in the app). color is one of {\"role\":\"<roleid>\"} (user-picked), {\"fixed\":\"<lego-id>\"}, {\"split\":[{\"color\":\"<lego-id>\",\"qty\":N},...]} (sums to quantity), or {\"any\":true}, or {\"by_section\":{\"<sectionid>\":<colorspec>,...}} (per-section color when a part lives in multiple sections). Machine = 1 of each non-scaling category + N of each scaling category. See ../notes/TERMINOLOGY.md. SCHEMA V2 (unified parts system, see ../notes/UNIFIED-PARTS-SYSTEM.md, incremental): a part may carry kind ('printed' when absent | 'cots'); cots parts have cots {type,size?,variant?}, category (display grouping on the hardware tab), note (builder-critical caveat from the BOM sheet), image (slicer-relative path, uploaded to the bucket by sync_bucket.py and served from there) OR image_url (an already-uploaded content-addressed bucket URL; BOM product images never touch git), sourcing {vendors:[{region,vendor,url,affiliate_url?,price,currency?,pack_qty?,as_of?,note?}]} (url is always the plain listing; affiliate_url is the same listing carrying the project's Amazon tag, mirroring the BOM sheet's 'US Source 1 with Affiliate' column — both are kept so a builder can choose) (price is USD unless currency says otherwise), and no stl/color/quantities. sheet_qty {per_machine|per_layer} / sheet_qty_text are TRANSITIONAL hand counts carried over from the BOM sheet; they die once these parts are placed as requires/lines in the tree. A printed part may carry requires [{part,qty}] = hardware committed to that single physical part (heat inserts, press-fit bearings); qty scales with the part automatically. An assembly may carry lines [{part|assembly, qty}] (qty is a number, or 'per-layer' = multiplied by the total layer count, or 'middle-layers' = layer count minus 2, the layers that sit between the top and bottom interfaces) and status 'stub' (placeholder, nothing inside yet) or 'partial' (some lines filled in) — these form the experimental machine tree rooted at the 'machine' assembly. A line may also reference a laser-cut part by id (e.g. 'top-plate'); those still live in src/lib/lasercut.ts and are resolved from there until §5.5 folds them into this manifest. Line ids are unique within an assembly: two joints that use the same screw are one merged line. Screws and other hardware that JOIN parts are lines of the assembly that makes the joint, never requires of either member (requires is only for hardware committed to one physical part). joining [{method,note}] records how the lines become one unit — 'solder'|'crimp'|'glue'|'press'|'self-tap' (screw cuts its own thread in printed plastic, no insert or nut) |'friction' (held by clamping force alone, e.g. jammed in an extrusion slot). A cots part that is cut from a bought length carries stock {unit_length_mm, cut_length_mm, pieces_per_unit, unit_label, piece_label}; its lines count PIECES and the app divides to get lengths to buy. MERGES/CONFLICTS (2026-08-21, docs catalog folded in): top-level merges [{id,date,sources,note}] records source-of-truth merger events. A part may carry conflicts [{merge,field,claims:[{source,value},...],note}] = an unresolved factual disagreement between the merged catalogs, kept as data on purpose and rendered as a badge on BOTH sites (docs parts-needed cards + calculator detail views); resolving one means fixing the disputed field against the physical machine and DELETING the conflict entry (git is the history). A part may also carry caption (small text under its docs parts-needed card) and docs_page (its docs detail page path; lets either site cross-link). The docs site renders its parts data from parts.generated.json -- docs/src/liquid/_data/parts.yml is deleted; this manifest is the only parts catalog. LASERCUT (2026-08-21, §5.5 partly done): parts with kind 'lasercut' are the flat sheet parts, passed through to the generated JSON verbatim (fields match the app's LaserCutPart type in src/lib/lasercut.ts, which now reads the generated data instead of hardcoding it; the docs site reads the same JSON). dxf/preview are app-static paths; photo is a bucket URL. UID (2026-08-22): every part, whatever its kind, carries uid -- a minted 4-char id (catalog/mint_uid.py) naming its CURRENT VERSION: the exact thing in your hand, and what a print gets engraved with. A human bumping `version` mints a new uid; a re-export of the same design is new bytes (a new stl_hash) under the same uid, not a new version. A superseded version entry carries the uid it had (stamp_versions.py writes it beside the superseded stl_hash). Mint BEFORE the STL exists: the entry holds the uid and sync_bucket.py --upload reads it from here to key the file. FILENAMES (2026-08-21): serving keys carry the human name -- an STL is stl/<part-id>-<uid>-<hash8>.stl and an image is <prefix>/<name>-<hash8>.<ext> -- so a downloaded file identifies itself: grep the uid or hash fragment here and you have the exact version. Old pure-hash keys stay on the bucket so URLs in old commits keep serving. CANDIDATES (2026-08-22): a printed part may carry candidates [{uid, name?, stl_hash, created_at, message, onshape_version?, images?, support?, superseded_by?, superseded_at?, rejected_at?}] -- design revisions under test for that part's slot. Each is minted its own uid and pinned by hash (upload with sync_bucket.py --upload <part-id>.stl --uid <uid>), gets sliced and rendered and is downloadable from the part's page, counts toward nothing, and has NO version number: numbers are handed out in adoption order. Promotion = the candidate's uid + stl_hash become the part's current, version bumps, a versions entry is added, the candidate line is removed (its uid lives on at part level). A candidate that is iterated on or dropped is NEVER deleted: mark it superseded_by/superseded_at or rejected_at and leave its pin, so the uid engraved on a test print always resolves here. check_generated_pins.py fails any change that makes a uid disappear from this file. ASSEMBLIES (2026-08-22): every assembly carries uid and version exactly like a part. A new version is an authored STRUCTURAL change (a line added or removed, a qty changed) -- a member part revving is that part's own history, not the assembly's. versions [{version, uid, date, message, commit, lines}] is written like a part's: author the new entry with commit null, and stamp_versions.py carries the superseded uid plus a snapshot of the lines as they were, each line pinned to the member's uid at the time, so a box as built then can be read back part by part. candidates [{uid, name?, created_at, message, lines, joining?, images?, superseded_by?, superseded_at?, rejected_at?}] is a whole alternative bill of materials under test (new parts enter with empty quantities so they count toward nothing); promotion = the candidate's lines and uid become the assembly's, version bumps, a versions entry is added, the candidate line is removed. Same retention rule: a candidate is marked, never deleted. A candidate may carry name: what the slot is called if it is adopted (the housing candidate on ctrl-board-mount renames it on promotion). IMAGES (2026-08-22): any part (printed or cots), assembly, candidate or version may carry images [{url, alt, caption?}] -- extra pictures beyond the render or product photo: an Onshape screenshot, a section view, a photo of it built. url is a pinned bucket URL exactly like image_url (sync_bucket.py --upload <file>.png prints it; never a repo path) and alt says what the picture shows; generate.py refuses anything else and check_bucket_urls.py fetches every one. The site shows them as a zoomable strip on the part, hardware and assembly views.",
+  "_comment": "Source-of-truth manifest. filament.py slices each STL once and writes ../src/lib/data/parts.generated.json + thumbnails + STL copies. Per part: id, uid (see UID below), name, category, description (short, shown in app), internal_notes (extended, agent-only, NOT emitted to the app), version, created_at, updated_at, stl_hash (sha256 pin of the master STL; publish with scripts/publish_assets.py --upload), quantity (per ONE instance of its category), color, optional. attributes (optional list of {label,value} shown in the app), versions (optional archetype history: list of {version,date,message,commit}; commit ties to a real git commit, null = pending an upcoming clean commit). low_tolerance (optional bool: part has little tolerance for dimensional error - a tight/precise fit - so a test print is worth doing) + low_tolerance_note (the specifics, shown in the app). color is one of {\"role\":\"<roleid>\"} (user-picked), {\"fixed\":\"<lego-id>\"}, {\"split\":[{\"color\":\"<lego-id>\",\"qty\":N},...]} (sums to quantity), or {\"any\":true}, or {\"by_section\":{\"<sectionid>\":<colorspec>,...}} (per-section color when a part lives in multiple sections). Machine = 1 of each non-scaling category + N of each scaling category. See ../notes/TERMINOLOGY.md. SCHEMA V2 (unified parts system, see ../notes/UNIFIED-PARTS-SYSTEM.md, incremental): a part may carry kind ('printed' when absent | 'cots'); cots parts have cots {type,size?,variant?}, category (display grouping on the hardware tab), note (builder-critical caveat from the BOM sheet), image (slicer-relative path, published by publish_assets.py and served from the asset service) OR image_url (an already-published content-addressed URL; BOM product images never touch git), sourcing {vendors:[{region,vendor,url,affiliate_url?,price,currency?,pack_qty?,as_of?,note?}]} (url is always the plain listing; affiliate_url is the same listing carrying the project's Amazon tag, mirroring the BOM sheet's 'US Source 1 with Affiliate' column — both are kept so a builder can choose) (price is USD unless currency says otherwise), and no stl/color/quantities. sheet_qty {per_machine|per_layer} / sheet_qty_text are TRANSITIONAL hand counts carried over from the BOM sheet; they die once these parts are placed as requires/lines in the tree. A printed part may carry requires [{part,qty}] = hardware committed to that single physical part (heat inserts, press-fit bearings); qty scales with the part automatically. An assembly may carry lines [{part|assembly, qty}] (qty is a number, or 'per-layer' = multiplied by the total layer count, or 'middle-layers' = layer count minus 2, the layers that sit between the top and bottom interfaces) and status 'stub' (placeholder, nothing inside yet) or 'partial' (some lines filled in) — these form the experimental machine tree rooted at the 'machine' assembly. A line may also reference a laser-cut part by id (e.g. 'top-plate'); those still live in src/lib/lasercut.ts and are resolved from there until §5.5 folds them into this manifest. Line ids are unique within an assembly: two joints that use the same screw are one merged line. Screws and other hardware that JOIN parts are lines of the assembly that makes the joint, never requires of either member (requires is only for hardware committed to one physical part). joining [{method,note}] records how the lines become one unit — 'solder'|'crimp'|'glue'|'press'|'self-tap' (screw cuts its own thread in printed plastic, no insert or nut) |'friction' (held by clamping force alone, e.g. jammed in an extrusion slot). A cots part that is cut from a bought length carries stock {unit_length_mm, cut_length_mm, pieces_per_unit, unit_label, piece_label}; its lines count PIECES and the app divides to get lengths to buy. MERGES/CONFLICTS (2026-08-21, docs catalog folded in): top-level merges [{id,date,sources,note}] records source-of-truth merger events. A part may carry conflicts [{merge,field,claims:[{source,value},...],note}] = an unresolved factual disagreement between the merged catalogs, kept as data on purpose and rendered as a badge on BOTH sites (docs parts-needed cards + calculator detail views); resolving one means fixing the disputed field against the physical machine and DELETING the conflict entry (git is the history). A part may also carry caption (small text under its docs parts-needed card) and docs_page (its docs detail page path; lets either site cross-link). The docs site renders its parts data from parts.generated.json -- docs/src/liquid/_data/parts.yml is deleted; this manifest is the only parts catalog. LASERCUT (2026-08-21, §5.5 partly done): parts with kind 'lasercut' are the flat sheet parts, passed through to the generated JSON verbatim (fields match the app's LaserCutPart type in src/lib/lasercut.ts, which now reads the generated data instead of hardcoding it; the docs site reads the same JSON). dxf/preview are app-static paths; photo is a published URL. UID (2026-08-22): every part, whatever its kind, carries uid -- a minted 4-char id (catalog/mint_uid.py) naming its CURRENT VERSION: the exact thing in your hand, and what a print gets engraved with. A human bumping `version` mints a new uid; a re-export of the same design is new bytes (a new stl_hash) under the same uid, not a new version. A superseded version entry carries the uid it had (stamp_versions.py writes it beside the superseded stl_hash). Mint BEFORE the STL exists: the entry holds the uid, and the engraved downloads generate.py cuts are named for it. FILENAMES (2026-08-23, the asset service is the only store): a key is the name the file was published under plus a hash of its own bytes, in the sorter-parts namespace. A master STL, and every archived version and candidate of it, is published under the part's id -- sorter-parts/<part-id>-<hash12>.stl -- so the hash is what tells the versions apart, and it is the stl_hash pinned right here: grep a downloaded file's hash fragment in this file and you have the exact version. An engraved download carries the uid as well, sorter-parts/<part-id>-<uid>-stamped-<face>-<hash12>.stl, because that is the string recessed into the plastic. An image is published as a copy with the camera's metadata stripped, so its URL is read off the service, never derived. CANDIDATES (2026-08-22): a printed part may carry candidates [{uid, name?, stl_hash, created_at, message, onshape_version?, images?, support?, superseded_by?, superseded_at?, rejected_at?}] -- design revisions under test for that part's slot. Each is minted its own uid and pinned by hash (publish with publish_assets.py --upload <part-id>.stl), gets sliced and rendered and is downloadable from the part's page, counts toward nothing, and has NO version number: numbers are handed out in adoption order. Promotion = the candidate's uid + stl_hash become the part's current, version bumps, a versions entry is added, the candidate line is removed (its uid lives on at part level). A candidate that is iterated on or dropped is NEVER deleted: mark it superseded_by/superseded_at or rejected_at and leave its pin, so the uid engraved on a test print always resolves here. check_generated_pins.py fails any change that makes a uid disappear from this file. ASSEMBLIES (2026-08-22): every assembly carries uid and version exactly like a part. A new version is an authored STRUCTURAL change (a line added or removed, a qty changed) -- a member part revving is that part's own history, not the assembly's. versions [{version, uid, date, message, commit, lines}] is written like a part's: author the new entry with commit null, and stamp_versions.py carries the superseded uid plus a snapshot of the lines as they were, each line pinned to the member's uid at the time, so a box as built then can be read back part by part. candidates [{uid, name?, created_at, message, lines, joining?, images?, superseded_by?, superseded_at?, rejected_at?}] is a whole alternative bill of materials under test (new parts enter with empty quantities so they count toward nothing); promotion = the candidate's lines and uid become the assembly's, version bumps, a versions entry is added, the candidate line is removed. Same retention rule: a candidate is marked, never deleted. A candidate may carry name: what the slot is called if it is adopted (the housing candidate on ctrl-board-mount renames it on promotion). IMAGES (2026-08-22): any part (printed or cots), assembly, candidate or version may carry images [{url, alt, caption?}] -- extra pictures beyond the render or product photo: an Onshape screenshot, a section view, a photo of it built. url is a pinned published URL exactly like image_url (publish_assets.py --upload <file>.png prints it; never a repo path) and alt says what the picture shows; generate.py refuses anything else and check_asset_urls.py fetches every one. The site shows them as a zoomable strip on the part, hardware and assembly views.",
   "sections": [
     {
       "id": "feeder",
@@ -213,7 +213,7 @@
       "description": "Divide the top plate into interlocking puzzle-like sections around a single inner structural support ring, so the plate can be made in smaller pieces while keeping primary support around the center.",
       "images": [
         {
-          "url": "https://img.basically.website/parts/img/split-top-plate-puzzle-59004313.png",
+          "url": "https://assets.basically.website/sorter-parts/split-top-plate-puzzle-full-5900431388c0.png",
           "alt": "Seven-piece top plate concept with a single structural inner ring",
           "caption": "Seven-piece top plate concept"
         }
@@ -292,7 +292,7 @@
       "description": "The clamp cannot close on the ribbon cable. The lip at its lower end is a hook meant to go over the bottom edge of the cage post, which is what stops the clamp rotating on its single M3, but in the published files the lip's ledge sits 1.43 mm above the post's underside, so it lands on the post's bottom edge instead of clearing it. The clamp is then held 3.80 mm off the post at that end and pivots on the screw, sitting crooked with the cable loose. The screw hole is 3.5 mm on an M3, 0.25 mm of adjustment, so it cannot be pushed down over the edge. The fix is to drop the lip about 1.5 mm, extend the post's outer skirt about 1.5 mm, or notch the post to take the lip; the two parts change together and it is not decided which way it goes. Until then, cut the notch in the post, or trim the lip flush and accept that the clamp can rotate. Reported from builds by barthel, zed0 and Jon, design intent from ChrisKiepfer; measured off the pinned ribbon-cable-clamp and cage bracket STLs. Tracked as sorter-v2 issue #403.",
       "images": [
         {
-          "url": "https://img.basically.website/parts/img/clamp-lip-section-bb73576e.png",
+          "url": "https://assets.basically.website/sorter-parts/clamp-lip-section-full-bb73576e2065.png",
           "alt": "Cross-section of the clamp and cage post showing the lip's ledge 1.43 mm above the post's underside",
           "caption": "The lip lands on the post's bottom edge instead of hooking over it"
         }
@@ -2848,7 +2848,7 @@
         "per_machine": 1
       },
       "note": "The ×1 is the top-interface count (limit-switch hammer). Screws used elsewhere on the machine aren't tallied here yet.",
-      "image_url": "https://img.basically.website/web/parts/hardware/screws/countersunk.707eba7998554ea6.jpg"
+      "image_url": "https://assets.basically.website/sorter-parts/hardware-screws-countersunk-full-faf0edbe3324.jpg"
     },
     {
       "id": "scr-m3-10-shcs",
@@ -2863,7 +2863,7 @@
       "name": "M3 × 10 mm socket/button head",
       "category": "Screws",
       "alternative": "Socket or button head",
-      "image_url": "https://img.basically.website/parts/img/scr-m3-10-shcs-26e52d7d.png",
+      "image_url": "https://assets.basically.website/sorter-parts/scr-m3-10-shcs-full-26e52d7d5bcd.png",
       "description": "Fastens the outer cable clamp into the top interface chute mount, and the ribbon cable clamp to the cable cage bracket.",
       "created_at": "2026-08-18",
       "updated_at": "2026-08-18",
@@ -2934,7 +2934,7 @@
           }
         ]
       },
-      "image_url": "https://img.basically.website/web/parts/hardware/screws/countersunk.707eba7998554ea6.jpg"
+      "image_url": "https://assets.basically.website/sorter-parts/hardware-screws-countersunk-full-faf0edbe3324.jpg"
     },
     {
       "id": "scr-m3-8-shcs",
@@ -3016,7 +3016,7 @@
           }
         ]
       },
-      "image_url": "https://img.basically.website/web/parts/hardware/screws/countersunk.707eba7998554ea6.jpg"
+      "image_url": "https://assets.basically.website/sorter-parts/hardware-screws-countersunk-full-faf0edbe3324.jpg"
     },
     {
       "id": "scr-m3-20-cs",
@@ -3063,7 +3063,7 @@
           }
         ]
       },
-      "image_url": "https://img.basically.website/web/parts/hardware/screws/countersunk.707eba7998554ea6.jpg"
+      "image_url": "https://assets.basically.website/sorter-parts/hardware-screws-countersunk-full-faf0edbe3324.jpg"
     },
     {
       "id": "scr-m3-16-shcs",
@@ -3078,7 +3078,7 @@
       "name": "M3 × 16 mm socket/button head",
       "category": "Screws",
       "alternative": "Socket or button head",
-      "image_url": "https://img.basically.website/parts/img/scr-m3-16-shcs-26e52d7d.png",
+      "image_url": "https://assets.basically.website/sorter-parts/scr-m3-16-shcs-full-26e52d7d5bcd.png",
       "description": "Bolts the NEMA 17 stepper to the NEMA bracket. 3 per C-channel.",
       "created_at": "2026-07-18",
       "updated_at": "2026-08-18",
@@ -3110,7 +3110,7 @@
       "name": "M3 × 6 mm socket/button head",
       "category": "Screws",
       "alternative": "Socket or button head",
-      "image_url": "https://img.basically.website/parts/img/scr-m3-6-bhcs-26e52d7d.png",
+      "image_url": "https://assets.basically.website/sorter-parts/scr-m3-6-bhcs-full-26e52d7d5bcd.png",
       "description": "Holds the layer adapter board down on the chute core's heat inserts.",
       "created_at": "2026-07-18",
       "updated_at": "2026-08-18",
@@ -3142,7 +3142,7 @@
       "name": "M3 × 12 mm socket/button head",
       "category": "Screws",
       "alternative": "Socket or button head",
-      "image_url": "https://img.basically.website/parts/img/scr-m3-12-bhcs-26e52d7d.png",
+      "image_url": "https://assets.basically.website/sorter-parts/scr-m3-12-bhcs-full-26e52d7d5bcd.png",
       "description": "Mounts the cable clamp to the interface, and the limit switch to its housing.",
       "created_at": "2026-07-18",
       "updated_at": "2026-08-18",
@@ -3251,7 +3251,7 @@
           "value": "Countersunk (flat) socket"
         }
       ],
-      "image_url": "https://img.basically.website/web/parts/hardware/screws/m4-12mm-countersunk.eb3c4468cf87495d.jpg"
+      "image_url": "https://assets.basically.website/sorter-parts/hardware-screws-m4-12mm-countersunk-full-eb3c4468cf87.jpg"
     },
     {
       "id": "scr-m5-12-shcs",
@@ -3266,7 +3266,7 @@
       "name": "M5 × 12 mm socket/button head",
       "category": "Screws",
       "alternative": "Socket or button head",
-      "image_url": "https://img.basically.website/parts/img/scr-m5-12-shcs-26e52d7d.png",
+      "image_url": "https://assets.basically.website/sorter-parts/scr-m5-12-shcs-full-26e52d7d5bcd.png",
       "description": "Holds the NEMA 23 stepper onto the interface bracket.",
       "created_at": "2026-07-18",
       "updated_at": "2026-08-18",
@@ -3298,7 +3298,7 @@
       "name": "M5 × 16 mm socket/button head",
       "category": "Screws",
       "alternative": "Socket or button head",
-      "image_url": "https://img.basically.website/parts/img/scr-m5-16-shcs-26e52d7d.png",
+      "image_url": "https://assets.basically.website/sorter-parts/scr-m5-16-shcs-full-26e52d7d5bcd.png",
       "description": "The most-used M5 in the machine: every external bracket, every bin bracket, every interface rib, every lazy Susan extrusion mount.",
       "created_at": "2026-07-18",
       "updated_at": "2026-08-18",
@@ -3331,7 +3331,7 @@
       "name": "M5 × 20 mm socket/button head",
       "category": "Screws",
       "alternative": "Socket or button head",
-      "image_url": "https://img.basically.website/parts/img/scr-m5-20-shcs-26e52d7d.png",
+      "image_url": "https://assets.basically.website/sorter-parts/scr-m5-20-shcs-full-26e52d7d5bcd.png",
       "description": "Mounts the chute limit switch assembly to the interface frame, into T-nuts.",
       "created_at": "2026-07-18",
       "updated_at": "2026-08-18",
@@ -3363,7 +3363,7 @@
       "name": "M5 × 30 mm socket/button head",
       "category": "Screws",
       "alternative": "Socket or button head",
-      "image_url": "https://img.basically.website/parts/img/scr-m5-30-shcs-26e52d7d.png",
+      "image_url": "https://assets.basically.website/sorter-parts/scr-m5-30-shcs-full-26e52d7d5bcd.png",
       "description": "Attaches the cable cage to the six interface brackets.",
       "created_at": "2026-07-18",
       "updated_at": "2026-08-18",
@@ -3437,7 +3437,7 @@
           }
         ]
       },
-      "image_url": "https://img.basically.website/parts/img/scr-m5-35-fhcs-cb2fdd72.jpg"
+      "image_url": "https://assets.basically.website/sorter-parts/scr-m5-35-fhcs-full-cf13d79a5110.jpg"
     },
     {
       "id": "scr-m5-8-cs",
@@ -3472,7 +3472,7 @@
       "sheet_qty": {
         "per_machine": 6
       },
-      "image_url": "https://img.basically.website/web/parts/hardware/screws/countersunk.707eba7998554ea6.jpg"
+      "image_url": "https://assets.basically.website/sorter-parts/hardware-screws-countersunk-full-faf0edbe3324.jpg"
     },
     {
       "id": "scr-m5-22-cs",
@@ -3507,7 +3507,7 @@
       "sheet_qty": {
         "per_machine": 14
       },
-      "image_url": "https://img.basically.website/web/parts/hardware/screws/countersunk.707eba7998554ea6.jpg"
+      "image_url": "https://assets.basically.website/sorter-parts/hardware-screws-countersunk-full-faf0edbe3324.jpg"
     },
     {
       "id": "scr-m5-shcs-tbd",
@@ -3521,7 +3521,7 @@
       "name": "M5 socket/button head, length TBD",
       "category": "Screws",
       "alternative": "Socket or button head",
-      "image_url": "https://img.basically.website/parts/img/scr-m5-shcs-tbd-26e52d7d.png",
+      "image_url": "https://assets.basically.website/sorter-parts/scr-m5-shcs-tbd-full-26e52d7d5bcd.png",
       "description": "Placeholder for the three electronics mounts that bolt to the frame. The length has not been measured yet.",
       "created_at": "2026-07-18",
       "updated_at": "2026-08-18",
@@ -3580,7 +3580,7 @@
         "per_machine": 1
       },
       "note": "The ×1 is the top-interface count (under the idler-gear screw). Washers used elsewhere on the machine aren't tallied here yet.",
-      "image_url": "https://m.media-amazon.com/images/I/61Fizm2iCGL._SL1500_.jpg"
+      "image_url": "https://assets.basically.website/sorter-parts/washer-m3-15-full-2d7e5321c11c.jpg"
     },
     {
       "id": "nut-m3",
@@ -3613,7 +3613,7 @@
           "value": "Silver"
         }
       ],
-      "image_url": "https://img.basically.website/web/parts/hardware/nuts/nut-m5.4a3db788bb1ca8a2.jpg"
+      "image_url": "https://assets.basically.website/sorter-parts/hardware-nuts-nut-m5-full-3731dab3df87.jpg"
     },
     {
       "id": "nut-m5",
@@ -3646,7 +3646,7 @@
           "value": "Silver"
         }
       ],
-      "image_url": "https://img.basically.website/web/parts/hardware/nuts/nut-m5.4a3db788bb1ca8a2.jpg"
+      "image_url": "https://assets.basically.website/sorter-parts/hardware-nuts-nut-m5-full-3731dab3df87.jpg"
     },
     {
       "id": "rod-steel-3-8",
@@ -3686,7 +3686,7 @@
           "value": "Cold-rolled plain low-carbon steel"
         }
       ],
-      "image_url": "https://img.basically.website/parts/img/rod-steel-3-8-b0c74a7f.jpg",
+      "image_url": "https://assets.basically.website/sorter-parts/rod-steel-3-8-full-b0c74a7fb6f0.jpg",
       "sourcing": {
         "vendors": [
           {
@@ -3715,7 +3715,7 @@
       "internal_notes": "First COTS part in the manifest (unified-parts-system MVP). ruthex has no \"long\" designation: RX-M3x5.7 is their standard M3 and RX-M3Sx4.0 is the short one, the S in the model number being the only marker. Their scheme is RX-[thread][S if short]x[length]. The short M3S is `hsi-m3s`, servo adapter only. BOM sheet says the machine needs ~235 across machine+layers; the chute core alone takes 18 (4 PCB + 4 bearing race + 4 funnel slides + 4 layer connector + 2 arms).",
       "created_at": "2026-07-18",
       "updated_at": "2026-07-18",
-      "image_url": "https://img.basically.website/parts/img/hsi-m3-db828502.jpg",
+      "image_url": "https://assets.basically.website/sorter-parts/hsi-m3-full-db828502e0db.jpg",
       "attributes": [
         {
           "label": "Type",
@@ -3780,7 +3780,7 @@
       "sheet_qty": {
         "per_layer": 4
       },
-      "image_url": "https://img.basically.website/parts/img/hsi-m3s-bdb4c6b1.jpg",
+      "image_url": "https://assets.basically.website/sorter-parts/hsi-m3s-full-bdb4c6b1b9b8.jpg",
       "attributes": [
         {
           "label": "Type",
@@ -3874,7 +3874,7 @@
           }
         ]
       },
-      "image_url": "https://img.basically.website/parts/img/hsi-m5-796e9076.jpg"
+      "image_url": "https://assets.basically.website/sorter-parts/hsi-m5-full-796e90762460.jpg"
     },
     {
       "id": "hsi-m4",
@@ -3924,7 +3924,7 @@
           }
         ]
       },
-      "image_url": "https://img.basically.website/parts/img/hsi-m4-abb5a013.jpg",
+      "image_url": "https://assets.basically.website/sorter-parts/hsi-m4-full-abb5a013d071.jpg",
       "internal_notes": "Resolved docs-merge-2026-08-21 name conflict (2026-08-21): the docs called this the LONG variant, but ruthex sells no \"long\" M4. Both catalogs meant the same product, ruthex RX-M4x8.1 (Amazon B07YSV66Y5), whose short counterpart is RX-M4Sx4.0. Naming across the heat inserts now follows ruthex: no \"long\", and an S suffix (M3S/M4S/M5S) if a short one is ever added."
     },
     {
@@ -3942,7 +3942,7 @@
       "sheet_qty": {
         "per_machine": 8
       },
-      "image_url": "https://img.basically.website/parts/img/standoff-m3-10mm-49ce8284.jpg",
+      "image_url": "https://assets.basically.website/sorter-parts/standoff-m3-10mm-full-08660bba7bbb.jpg",
       "sourcing": {
         "vendors": [
           {
@@ -4010,7 +4010,7 @@
           }
         ]
       },
-      "image_url": "https://img.basically.website/parts/img/tnut-m5-2020-3d0256dd.jpg"
+      "image_url": "https://assets.basically.website/sorter-parts/tnut-m5-2020-full-3d0256ddc8a4.jpg"
     },
     {
       "id": "cam-imx415",
@@ -4027,7 +4027,7 @@
       "sheet_qty": {
         "per_machine": 1
       },
-      "image_url": "https://img.basically.website/parts/img/cam-imx415-7470d70e.jpg",
+      "image_url": "https://assets.basically.website/sorter-parts/cam-imx415-full-7470d70e089c.jpg",
       "sourcing": {
         "vendors": [
           {
@@ -4057,7 +4057,7 @@
       "sheet_qty": {
         "per_machine": 2
       },
-      "image_url": "https://img.basically.website/parts/img/cam-ov9732-8f536228.jpg",
+      "image_url": "https://assets.basically.website/sorter-parts/cam-ov9732-full-8f536228e5a4.jpg",
       "sourcing": {
         "vendors": [
           {
@@ -4095,7 +4095,7 @@
       "sheet_qty": {
         "per_machine": 1
       },
-      "image_url": "https://img.basically.website/parts/img/pulley-20t-8mm-bf246499.jpg",
+      "image_url": "https://assets.basically.website/sorter-parts/pulley-20t-8mm-full-d4b62d01cc9c.jpg",
       "sourcing": {
         "vendors": [
           {
@@ -4157,7 +4157,7 @@
           }
         ]
       },
-      "image_url": "https://img.basically.website/parts/img/foot-connector-2020-m6-865e0c41.jpg"
+      "image_url": "https://assets.basically.website/sorter-parts/foot-connector-2020-m6-full-865e0c414265.jpg"
     },
     {
       "id": "caster-wheel-m6",
@@ -4206,7 +4206,7 @@
           }
         ]
       },
-      "image_url": "https://img.basically.website/parts/img/caster-wheel-m6-700ae42a.jpg"
+      "image_url": "https://assets.basically.website/sorter-parts/caster-wheel-m6-full-700ae42a9260.jpg"
     },
     {
       "id": "motor-nema17",
@@ -4223,7 +4223,7 @@
       "sheet_qty": {
         "per_machine": 4
       },
-      "image_url": "https://img.basically.website/parts/img/motor-nema17-57884152.jpg",
+      "image_url": "https://assets.basically.website/sorter-parts/motor-nema17-full-578841523909.jpg",
       "sourcing": {
         "vendors": [
           {
@@ -4258,7 +4258,7 @@
       "sheet_qty": {
         "per_machine": 1
       },
-      "image_url": "https://img.basically.website/parts/img/motor-nema23-e8eac018.jpg",
+      "image_url": "https://assets.basically.website/sorter-parts/motor-nema23-full-e8eac018a9a8.jpg",
       "sourcing": {
         "vendors": [
           {
@@ -4293,7 +4293,7 @@
       "sheet_qty": {
         "per_layer": 1
       },
-      "image_url": "https://img.basically.website/parts/img/servo-mg995-8a8b0ae4.jpg",
+      "image_url": "https://assets.basically.website/sorter-parts/servo-mg995-full-8a8b0ae4bdd9.jpg",
       "sourcing": {
         "vendors": [
           {
@@ -4323,7 +4323,7 @@
       "sheet_qty": {
         "per_machine": 3
       },
-      "image_url": "https://img.basically.website/parts/img/brg-6806-2rs-b7aac380.jpg",
+      "image_url": "https://assets.basically.website/sorter-parts/brg-6806-2rs-full-b7aac380cc21.jpg",
       "sourcing": {
         "vendors": [
           {
@@ -4367,7 +4367,7 @@
       "sheet_qty": {
         "per_machine": 8
       },
-      "image_url": "https://img.basically.website/parts/img/brg-608-2rs-e11bf443.jpg",
+      "image_url": "https://assets.basically.website/sorter-parts/brg-608-2rs-full-e11bf4434f28.jpg",
       "sourcing": {
         "vendors": [
           {
@@ -4397,7 +4397,7 @@
       "sheet_qty": {
         "per_layer": 2
       },
-      "image_url": "https://img.basically.website/parts/img/brg-6704-2rs-9b0d3f83.jpg",
+      "image_url": "https://assets.basically.website/sorter-parts/brg-6704-2rs-full-9b0d3f835097.jpg",
       "sourcing": {
         "vendors": [
           {
@@ -4455,7 +4455,7 @@
       "sheet_qty": {
         "per_machine": 1
       },
-      "image_url": "https://img.basically.website/parts/img/brg-lazy-susan-8d3232c9.jpg",
+      "image_url": "https://assets.basically.website/sorter-parts/brg-lazy-susan-full-8d3232c97b1f.jpg",
       "sourcing": {
         "vendors": [
           {
@@ -4499,7 +4499,7 @@
       "sheet_qty": {
         "per_machine": 1
       },
-      "image_url": "https://img.basically.website/parts/img/sbc-orange-pi-5-51ca8492.jpg",
+      "image_url": "https://assets.basically.website/sorter-parts/sbc-orange-pi-5-full-51ca8492b499.jpg",
       "sourcing": {
         "vendors": [
           {
@@ -4529,7 +4529,7 @@
       "sheet_qty": {
         "per_machine": 1
       },
-      "image_url": "https://img.basically.website/parts/img/microsd-32gb-18128a75.jpg",
+      "image_url": "https://assets.basically.website/sorter-parts/microsd-32gb-full-18128a75110f.jpg",
       "sourcing": {
         "vendors": [
           {
@@ -4598,7 +4598,7 @@
           }
         ]
       },
-      "image_url": "https://img.basically.website/parts/img/wifi-module-opi5-8ab3a641.jpg"
+      "image_url": "https://assets.basically.website/sorter-parts/wifi-module-opi5-full-8ab3a6417605.jpg"
     },
     {
       "id": "usb-hub-powered-24v",
@@ -4615,7 +4615,7 @@
       "sheet_qty": {
         "per_machine": 1
       },
-      "image_url": "https://img.basically.website/parts/img/usb-hub-powered-24v-e327e62a.jpg",
+      "image_url": "https://assets.basically.website/sorter-parts/usb-hub-powered-24v-full-e327e62a3fb8.jpg",
       "sourcing": {
         "vendors": [
           {
@@ -4646,7 +4646,7 @@
       "sheet_qty": {
         "per_machine": 1
       },
-      "image_url": "https://img.basically.website/parts/img/cable-micro-usb-b15f19a1.jpg",
+      "image_url": "https://assets.basically.website/sorter-parts/cable-micro-usb-full-f1f7e32a349d.jpg",
       "sourcing": {
         "vendors": [
           {
@@ -4684,7 +4684,7 @@
       "sheet_qty": {
         "per_machine": 5
       },
-      "image_url": "https://img.basically.website/parts/img/drv-tmc2209-4eb0a0fc.jpg",
+      "image_url": "https://assets.basically.website/sorter-parts/drv-tmc2209-full-4eb0a0fc4354.jpg",
       "sourcing": {
         "vendors": [
           {
@@ -4722,7 +4722,7 @@
       "sheet_qty": {
         "per_machine": 10
       },
-      "image_url": "https://img.basically.website/parts/img/jumper-cap-3b10ebbc.png",
+      "image_url": "https://assets.basically.website/sorter-parts/jumper-cap-full-1ffebeb4f956.png",
       "attributes": [
         {
           "label": "Pitch",
@@ -4760,7 +4760,7 @@
       "sheet_qty": {
         "per_machine": 1
       },
-      "image_url": "https://img.basically.website/parts/img/mcu-rpi-pico-35bf81d2.jpg",
+      "image_url": "https://assets.basically.website/sorter-parts/mcu-rpi-pico-full-35bf81d20d6e.jpg",
       "sourcing": {
         "vendors": [
           {
@@ -4790,7 +4790,7 @@
       "sheet_qty": {
         "per_machine": 20
       },
-      "image_url": "https://img.basically.website/parts/img/header-pins-254-2f61f803.jpg",
+      "image_url": "https://assets.basically.website/sorter-parts/header-pins-254-full-2f61f803bd83.jpg",
       "sourcing": {
         "vendors": [
           {
@@ -4819,7 +4819,7 @@
       "sheet_qty": {
         "per_machine": 1
       },
-      "image_url": "https://img.basically.website/parts/img/cable-idc-2x8-long-69b3da40.jpg",
+      "image_url": "https://assets.basically.website/sorter-parts/cable-idc-2x8-long-full-28665209f12d.jpg",
       "sourcing": {
         "vendors": [
           {
@@ -4867,7 +4867,7 @@
       "sheet_qty": {
         "per_layer": 1
       },
-      "image_url": "https://img.basically.website/parts/img/cable-idc-2x8-short-784f9a57.jpg",
+      "image_url": "https://assets.basically.website/sorter-parts/cable-idc-2x8-short-full-784f9a5733e4.jpg",
       "sourcing": {
         "vendors": [
           {
@@ -4915,7 +4915,7 @@
       "sheet_qty": {
         "per_machine": 1
       },
-      "image_url": "https://img.basically.website/parts/img/ctrl-board-basically-f7caadca.png",
+      "image_url": "https://assets.basically.website/sorter-parts/ctrl-board-basically-full-f7caadca07d5.png",
       "attributes": [
         {
           "label": "Version",
@@ -4947,7 +4947,7 @@
       "sheet_qty": {
         "per_layer": 1
       },
-      "image_url": "https://img.basically.website/parts/img/layer-adapter-board-basically-1838b058.png",
+      "image_url": "https://assets.basically.website/sorter-parts/layer-adapter-board-basically-full-1838b0588731.png",
       "sourcing": {
         "vendors": [
           {
@@ -4970,7 +4970,7 @@
       "description": "Lights the feeder C-channels. One per light post.",
       "created_at": "2026-07-18",
       "updated_at": "2026-07-18",
-      "image_url": "https://img.basically.website/parts/img/led-cob-50mm-24v-f772d260.jpg",
+      "image_url": "https://assets.basically.website/sorter-parts/led-cob-50mm-24v-full-f772d260f547.jpg",
       "sourcing": {
         "vendors": [
           {
@@ -4997,7 +4997,7 @@
       "description": "Lighting for classification chamber",
       "created_at": "2026-07-18",
       "updated_at": "2026-07-18",
-      "image_url": "https://img.basically.website/parts/img/led-strip-24v-961391ec.jpg",
+      "image_url": "https://assets.basically.website/sorter-parts/led-strip-24v-full-961391ece43d.jpg",
       "sourcing": {
         "vendors": [
           {
@@ -5029,7 +5029,7 @@
       "sheet_qty": {
         "per_machine": 1
       },
-      "image_url": "https://img.basically.website/parts/img/endstop-mechanical-8fb04d71.jpg",
+      "image_url": "https://assets.basically.website/sorter-parts/endstop-mechanical-full-8fb04d71f715.jpg",
       "sourcing": {
         "vendors": [
           {
@@ -5098,7 +5098,7 @@
           }
         ]
       },
-      "image_url": "https://img.basically.website/parts/img/buck-24v-5v-usbc-1a5bf367.jpg"
+      "image_url": "https://assets.basically.website/sorter-parts/buck-24v-5v-usbc-full-1a5bf367214f.jpg"
     },
     {
       "id": "psu-24v-350w",
@@ -5115,7 +5115,7 @@
       "sheet_qty": {
         "per_machine": 1
       },
-      "image_url": "https://img.basically.website/parts/img/psu-24v-350w-72bba2c3.jpg",
+      "image_url": "https://assets.basically.website/sorter-parts/psu-24v-350w-full-72bba2c3919b.jpg",
       "sourcing": {
         "vendors": [
           {
@@ -5180,7 +5180,7 @@
           }
         ]
       },
-      "image_url": "https://img.basically.website/parts/img/psu-switch-fused-b507a8b8.jpg"
+      "image_url": "https://assets.basically.website/sorter-parts/psu-switch-fused-full-d442e682a279.jpg"
     },
     {
       "id": "fan-40mm-24v",
@@ -5228,7 +5228,7 @@
           "value": "XH2.54 2-pin, 30 cm lead"
         }
       ],
-      "image_url": "https://img.basically.website/parts/img/fan-40mm-24v-97c8fa9b.png",
+      "image_url": "https://assets.basically.website/sorter-parts/fan-40mm-24v-full-aab71b941312.png",
       "sourcing": {
         "vendors": [
           {
@@ -5257,7 +5257,7 @@
       "description": "2020 aluminum extrusion, cut to 320 mm (pieces A and G).",
       "created_at": "2026-08-21",
       "updated_at": "2026-08-21",
-      "image_url": "https://img.basically.website/web/parts/extrusion/extrusion-2020.0691a894c8154731.png",
+      "image_url": "https://assets.basically.website/sorter-parts/extrusion-extrusion-2020-full-01bd50e7eac0.png",
       "caption": "2020 aluminum extrusion, cut to 320 mm (pieces A and G)."
     },
     {
@@ -5273,7 +5273,7 @@
       "description": "2020 aluminum extrusion, cut to 158 mm (pieces B and H).",
       "created_at": "2026-08-21",
       "updated_at": "2026-08-21",
-      "image_url": "https://img.basically.website/web/parts/extrusion/extrusion-2020.0691a894c8154731.png",
+      "image_url": "https://assets.basically.website/sorter-parts/extrusion-extrusion-2020-full-01bd50e7eac0.png",
       "caption": "2020 aluminum extrusion, cut to 158 mm (pieces B and H)."
     },
     {
@@ -5289,7 +5289,7 @@
       "description": "2020 aluminum extrusion, cut to 154 mm (piece C).",
       "created_at": "2026-08-21",
       "updated_at": "2026-08-21",
-      "image_url": "https://img.basically.website/web/parts/extrusion/extrusion-2020.0691a894c8154731.png",
+      "image_url": "https://assets.basically.website/sorter-parts/extrusion-extrusion-2020-full-01bd50e7eac0.png",
       "caption": "2020 aluminum extrusion, cut to 154 mm (piece C)."
     },
     {
@@ -5308,7 +5308,7 @@
       "sheet_qty": {
         "per_machine": 6
       },
-      "image_url": "https://img.basically.website/web/parts/extrusion/extrusion-2020.0691a894c8154731.png",
+      "image_url": "https://assets.basically.website/sorter-parts/extrusion-extrusion-2020-full-01bd50e7eac0.png",
       "caption": "2020 aluminum extrusion, cut to 231 mm (piece D)."
     },
     {
@@ -5324,7 +5324,7 @@
       "description": "2020 aluminum extrusion, cut to 238 mm (piece E).",
       "created_at": "2026-08-21",
       "updated_at": "2026-08-21",
-      "image_url": "https://img.basically.website/web/parts/top-interface/extrusion-e.bce3a0752b0f99f5.png",
+      "image_url": "https://assets.basically.website/sorter-parts/top-interface-extrusion-e-full-d8fdcc54b309.png",
       "caption": "2020 aluminum extrusion, cut to 238 mm (piece E)."
     },
     {
@@ -5340,7 +5340,7 @@
       "description": "2020 aluminum extrusion, cut to 274 mm (piece F).",
       "created_at": "2026-08-21",
       "updated_at": "2026-08-21",
-      "image_url": "https://img.basically.website/web/parts/top-interface/extrusion-f.7e1f6b2dc9e069f7.png",
+      "image_url": "https://assets.basically.website/sorter-parts/top-interface-extrusion-f-full-ed5f291c6635.png",
       "caption": "2020 aluminum extrusion, cut to 274 mm (piece F)."
     },
     {
@@ -5348,7 +5348,7 @@
       "uid": "x5i1",
       "kind": "lasercut",
       "name": "Cable cage top",
-      "photo": "https://img.basically.website/web/parts/top-interface/cable-cage-top.0856e376cd2b9238.jpg",
+      "photo": "https://assets.basically.website/sorter-parts/top-interface-cable-cage-top-full-9e4c43a620ca.png",
       "assembly": "Cable Cage",
       "description": "Top plate of the cable cage. Has a keyed cutout for easy insertion/removal of the interface.",
       "thicknessIn": "1/8″",
@@ -5372,7 +5372,7 @@
       "uid": "oj14",
       "kind": "lasercut",
       "name": "Cable cage bottom",
-      "photo": "https://img.basically.website/web/parts/top-interface/cable-cage-bottom.72b2038544dec559.jpg",
+      "photo": "https://assets.basically.website/sorter-parts/top-interface-cable-cage-bottom-full-283aeb114195.png",
       "assembly": "Cable Cage",
       "description": "Bottom plate of the cable cage.",
       "thicknessIn": "1/8″",
@@ -5396,7 +5396,7 @@
       "uid": "1g22",
       "kind": "lasercut",
       "name": "Top plate",
-      "photo": "https://img.basically.website/web/parts/top-interface/top-plate.fb89181642abbe25.jpg",
+      "photo": "https://assets.basically.website/sorter-parts/top-interface-top-plate-w1600-00182ea8156d.jpg",
       "caption": "The machine's hexagonal top plate; the interface mounts under it.",
       "description": "Machine top plate. Has 5 cable holes and holes for the main stepper. Does not yet have mount holes for the C-channels.",
       "thicknessIn": "3/8″",
@@ -5827,7 +5827,7 @@
           ],
           "images": [
             {
-              "url": "https://img.basically.website/parts/img/meanwell-psu-housing-v2-render-1fd60da3.png",
+              "url": "https://assets.basically.website/sorter-parts/meanwell-psu-housing-v2-render-full-f4b161896ea6.png",
               "alt": "Onshape render of the v2 PSU housing, closed and mounted on a 2020 extrusion",
               "caption": "The v2 housing closed: vented rear lid, front panel with the mains inlet, on its extrusion."
             }
@@ -6465,12 +6465,12 @@
       ],
       "images": [
         {
-          "url": "https://img.basically.website/parts/img/ctrl-board-housing-assembly-render-8d104a6e.png",
+          "url": "https://assets.basically.website/sorter-parts/ctrl-board-housing-assembly-render-full-6f4acadd3ffc.png",
           "alt": "Onshape render of the control board housing, closed",
           "caption": "The housing closed, from Onshape: fan vent and plunger in the cover."
         },
         {
-          "url": "https://img.basically.website/parts/img/ctrl-board-housing-plunger-section-82fccc39.png",
+          "url": "https://assets.basically.website/sorter-parts/ctrl-board-housing-plunger-section-full-a5319da2b902.png",
           "alt": "Section through the housing at the plunger",
           "caption": "Section at the plunger: through the cover, held by the retainer (blue), over the board."
         }
@@ -6483,7 +6483,7 @@
           "message": "The board stood off a printed bracket on four 10 mm standoffs, and the 40 mm fan sat on a separate bracket cantilevered over it — the same bracket the Orange Pi mount uses. Superseded by the printed housing.",
           "images": [
             {
-              "url": "https://img.basically.website/parts/img/ctrl-board-mount-v1-render-d7411f58.png",
+              "url": "https://assets.basically.website/sorter-parts/ctrl-board-mount-v1-render-full-617e995364c7.png",
               "alt": "Onshape render of the control board's v1 extrusion mount and fan bracket",
               "caption": "The v1 mounting, from Onshape: the board's plate (blue) and the shared fan bracket (grey)."
             }
@@ -6575,7 +6575,7 @@
       ],
       "images": [
         {
-          "url": "https://img.basically.website/parts/img/orange-pi-mount-v1-render-f5159489.png",
+          "url": "https://assets.basically.website/sorter-parts/orange-pi-mount-v1-render-full-d5893e241c96.png",
           "alt": "Onshape render of the Orange Pi's v1 extrusion mount and fan bracket",
           "caption": "The v1 mounting, from Onshape: the board's plate (blue) and the shared fan bracket (grey)."
         }
@@ -6691,7 +6691,7 @@
         "type": "screw",
         "variant": "countersunk"
       },
-      "image_url": "https://img.basically.website/parts/img/screw-countersunk-faf0edbe.jpg",
+      "image_url": "https://assets.basically.website/sorter-parts/screw-countersunk-full-faf0edbe3324.jpg",
       "image_credit": "DTGN M3 flat head listing (amazon.com/dp/B0CQ4XMVLZ), cropped"
     },
     {
@@ -6701,7 +6701,7 @@
         "type": "screw",
         "variant": "socket"
       },
-      "image_url": "https://img.basically.website/parts/img/screw-socket-580ba61e.jpg",
+      "image_url": "https://assets.basically.website/sorter-parts/screw-socket-full-580ba61e9d9a.jpg",
       "image_credit": "uxcell M3 socket head listing (amazon.com/dp/B01MCW5GM3), cropped"
     },
     {
@@ -6711,7 +6711,7 @@
         "type": "screw",
         "variant": "flat"
       },
-      "image_url": "https://img.basically.website/parts/img/scr-m5-35-fhcs-cb2fdd72.jpg",
+      "image_url": "https://assets.basically.website/sorter-parts/scr-m5-35-fhcs-full-cf13d79a5110.jpg",
       "image_credit": "M5 × 35 flat head listing photo, reused for the head shape"
     },
     {
@@ -6721,7 +6721,7 @@
         "type": "screw",
         "variant": "button"
       },
-      "image_url": "https://img.basically.website/parts/img/screw-button-350b2785.jpg",
+      "image_url": "https://assets.basically.website/sorter-parts/screw-button-full-350b2785fbe0.jpg",
       "image_credit": "uxcell M3 button head listing (amazon.com/dp/B06VWBPXSV), cropped"
     },
     {
@@ -6730,7 +6730,7 @@
       "match": {
         "type": "nut"
       },
-      "image_url": "https://img.basically.website/parts/img/nut-3731dab3.jpg",
+      "image_url": "https://assets.basically.website/sorter-parts/nut-full-3731dab3df87.jpg",
       "image_credit": "uxcell M3 hex nut listing (amazon.com/dp/B07H3T4859), cropped"
     }
   ],

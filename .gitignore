@@ -27,7 +27,7 @@ software/sorteros/v3/build/.env
 /docs/build/
 
 # Rendered WireViz output. build-harness.sh generates it from the YAML sources
-# beside it; upload-harness.py puts it in the basically-docs bucket and prints
+# beside it; upload-harness.py publishes it to the asset service and prints
 # the URLs the docs reference. Never committed: no images go into git history.
 /electronics/wire_harness/out/
 /data/

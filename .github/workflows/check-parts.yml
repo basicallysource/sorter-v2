@@ -9,9 +9,10 @@ name: Check part data
 #
 #  - check_generated_pins.py  : the generated data agrees with the source pins
 #                               ("edited parts.json, forgot to regenerate")
-#  - check_bucket_urls.py     : every URL the site ships serves real bytes
-#                               (the bucket is content-addressed, so a wrong
-#                               URL is a 200 with the wrong bytes, not a 404)
+#  - check_asset_urls.py      : every URL the site ships serves real bytes
+#                               (assets are content-addressed, so a wrong URL
+#                               is a 200 with the wrong bytes, not a 404), and
+#                               nothing names the retired image domain
 #
 # Both are pure checks, a minute end to end. regen-parts.yml -- the old
 # CI-canonical slicer that committed back onto PR branches -- is deleted; its
@@ -41,4 +42,4 @@ jobs:
         with:
           python-version: '3.11'
       - run: python parts-calculator/scripts/check_generated_pins.py
-      - run: python parts-calculator/scripts/check_bucket_urls.py
+      - run: python parts-calculator/scripts/check_asset_urls.py

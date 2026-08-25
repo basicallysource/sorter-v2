@@ -78,13 +78,13 @@
 	<figure class="m-0">
 		<div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
 			<img
-				src="https://sorter-v2-parts.nyc3.cdn.digitaloceanspaces.com/img/4cada9d1b70e2cf3dd196b4e0d9d05b9102068a719d8866a26fcee21603ba0db.jpg"
+				src="https://assets.basically.website/sorter-parts/top-plate-handcut-drilled-full-e1fdd41dbce9.jpg"
 				alt="A hand-cut hexagonal top plate with the drilled hole pattern and center opening"
 				class="w-full border border-border"
 				loading="lazy"
 			/>
 			<img
-				src="https://sorter-v2-parts.nyc3.cdn.digitaloceanspaces.com/img/67d2fbb69a5186ec479492b77e8248485618d0b5e8eaf5aec62e6c7328b48938.jpg"
+				src="https://assets.basically.website/sorter-parts/top-plate-handcut-with-interface-full-317a8889640a.jpg"
 				alt="The same hand-cut top plate with the interface assembly mounted"
 				class="w-full border border-border"
 				loading="lazy"
@@ -317,7 +317,7 @@
 		</p>
 		<figure class="mt-3">
 			<img
-				src="https://img.basically.website/web/assembly/top-plate/handcut-layout-marked.57ec0d10558593fa.jpg"
+				src="https://assets.basically.website/sorter-parts/assembly-top-plate-handcut-layout-marked-w1600-8adaba91ce82.jpg"
 				alt="Black-painted plywood rectangle with the hexagonal top plate outline, center opening, cable holes, stepper holes, and two mounting-hole rings marked in white pencil"
 				class="w-full border border-border"
 				loading="lazy"
@@ -346,13 +346,13 @@
 		<figure class="mt-3">
 			<div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
 				<img
-					src="https://img.basically.website/web/assembly/top-plate/handcut-drilling.2c55404e78214d33.jpg"
+					src="https://assets.basically.website/sorter-parts/assembly-top-plate-handcut-drilling-w1600-75a1717de973.jpg"
 					alt="A large hole being drilled square to the black-painted plywood top plate while the panel is still rectangular"
 					class="w-full border border-border"
 					loading="lazy"
 				/>
 				<img
-					src="https://img.basically.website/web/assembly/top-plate/handcut-holes-cut.a775177a326c6a6a.jpg"
+					src="https://assets.basically.website/sorter-parts/assembly-top-plate-handcut-holes-cut-w1600-941bc69da6ba.jpg"
 					alt="Black-painted plywood top plate with the center opening, cable holes, and small mounting holes cut before the corner waste is removed"
 					class="w-full border border-border"
 					loading="lazy"

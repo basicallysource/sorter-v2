@@ -2,7 +2,7 @@
 """Backfill `commit: null` version entries in parts.json with real git commit hashes.
 
 A part's current version is its `uid` in parts.json and its geometry is its
-`stl_hash` pin (the bytes live on the content-addressed bucket; nothing binary
+`stl_hash` pin (the bytes are published content-addressed; nothing binary
 is in git). A new version IS a new uid, so "the commit that introduced the
 version" is the commit that changed the part's uid, and this script finds it
 by walking parts.json's own history. A hash change with the same uid is a
@@ -15,7 +15,7 @@ uid at the time, so the box as built then reads back part by part.
 The workflow the version system assumes:
   1. Mint a uid (`python catalog/mint_uid.py`), put it on the part, bump
      `version`, and author a new version entry with `"commit": null`
-     (pending). Then upload the new STL (`python scripts/sync_bucket.py
+     (pending). Then publish the new STL (`python scripts/publish_assets.py
      --upload part.stl`) and set the printed stl_hash.
   2. Commit ONLY that part's change, with a clear message (the version's
      changelog).

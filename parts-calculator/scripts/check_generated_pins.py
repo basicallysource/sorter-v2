@@ -20,7 +20,7 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(HERE / "scripts"))
-from sync_bucket import stl_url  # noqa: E402
+from publish_assets import stl_url  # noqa: E402
 
 
 def all_uids(manifest):
@@ -31,7 +31,7 @@ def all_uids(manifest):
 
 def stamp_problems(where, uid, g):
     """The stamped downloads (catalog/engrave.py) are named for the uid they
-    carry, <id>-<uid>-stamped-<face>-<hash8>.stl; one named for another uid
+    carry, <id>-<uid>-stamped-<face>-<hash12>.stl; one named for another uid
     would hand out a print engraved with the wrong id. A missing list means
     the generator that wrote this entry predates stamping."""
     out = []
@@ -71,7 +71,7 @@ def main():
         if g is None:
             bad.append(f"{p['id']}: pinned in parts.json but absent from catalog.generated.json")
             continue
-        want = stl_url(p["id"], p["uid"], p["stl_hash"])
+        want = stl_url(p["id"], p["stl_hash"])
         if g.get("stl") != want:
             bad.append(f"{p['id']}: generated stl is {g.get('stl')!r}, the pin says {want!r}")
         if not isinstance(g.get("grams"), (int, float)):
@@ -94,7 +94,7 @@ def main():
         have = {c.get("uid"): c for c in (gen.get(p["id"]) or {}).get("candidates") or []}
         for c in p.get("candidates") or []:
             gc = have.get(c["uid"])
-            want = stl_url(p["id"], c["uid"], c["stl_hash"])
+            want = stl_url(p["id"], c["stl_hash"])
             if gc is None:
                 bad.append(f"{p['id']}: candidate {c['uid']} is in parts.json but not in the generated data")
             elif gc.get("stl") != want:

@@ -1,5 +1,5 @@
 {
-  "_comment": "Pre-arranged build plates. file is the display/download name; hash is the sha256 content address of the 3mf on the bucket (plate/<hash>.3mf). Author a new plate with: python scripts/sync_bucket.py --upload myplate.3mf, then add it here.",
+  "_comment": "Pre-arranged build plates. file is the display/download name; hash is the sha256 content address of the 3mf in the asset service, which serves it at sorter-parts/<plate-id>-<hash12>.3mf. Author a new plate with: python scripts/publish_assets.py --upload myplate.3mf, then add it here.",
   "plates": [
     {
       "file": "3-bins.3mf",

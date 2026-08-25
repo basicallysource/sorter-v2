@@ -1,7 +1,0 @@
-name = "basically-docs-img"
-main = "worker.js"
-compatibility_date = "2026-08-01"
-
-routes = [
-  { pattern = "img.basically.website", custom_domain = true }
-]

@@ -1,16 +1,17 @@
 #!/usr/bin/env python3
-"""Fetch product images for COTS parts and put them on the bucket.
+"""Fetch product images for COTS parts and publish them.
 
 Only touches parts that need it: a `kind: "cots"` part in catalog/parts.json
 with a US Amazon vendor and no `image_url`/`image` yet. Re-running after
 adding a new part fetches just that part -- everything already imaged is
 skipped, so this is the normal way to onboard a new hardware link.
 
-The image is scraped from the listing, uploaded content-addressed to
-img/<sha256><ext> (same bucket + immutability rules as the STLs -- see
-notes/UNIFIED-PARTS-SYSTEM.md section 7), and the resulting URL is written back
-into the manifest as `image_url`. Product images deliberately never enter git:
-the bucket is their only store, and the manifest just points at it.
+The image is scraped from the listing and published to the asset service
+under the part's id (same content-addressing and immutability rules as the
+STLs -- see notes/UNIFIED-PARTS-SYSTEM.md section 7), and the URL that comes
+back is written into the manifest as `image_url`. Product images deliberately
+never enter git: the service is their only store, and the manifest just points
+at it.
 
 Usage:
   python scripts/fetch_product_images.py --dry-run   # list what's missing
@@ -22,17 +23,17 @@ Usage:
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
 import re
 import sys
+import tempfile
 import time
 import urllib.request
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO / "scripts"))
-from sync_bucket import BUCKET, ENDPOINT, PUBLIC_BASE, REGION, load_credentials  # noqa: E402
+from publish_assets import publish  # noqa: E402
 
 MANIFEST = REPO / "catalog" / "parts.json"
 
@@ -106,12 +107,6 @@ def main() -> None:
             print(f"  would fetch {p['id']:<26} {url}")
         return
 
-    import boto3
-
-    key, secret = load_credentials()
-    s3 = boto3.client("s3", region_name=REGION, endpoint_url=ENDPOINT,
-                      aws_access_key_id=key, aws_secret_access_key=secret)
-
     failures = []
     for i, (part, url) in enumerate(todo):
         pid = part["id"]
@@ -123,18 +118,13 @@ def main() -> None:
             if len(data) < 2000:
                 raise RuntimeError(f"suspiciously small image ({len(data)} bytes)")
             ext = ".png" if img.lower().split("?")[0].endswith(".png") else ".jpg"
-            digest = hashlib.sha256(data).hexdigest()
-            obj_key = f"img/{digest}{ext}"
-            s3.put_object(
-                Bucket=BUCKET, Key=obj_key, Body=data,
-                ACL="public-read",
-                ContentType="image/png" if ext == ".png" else "image/jpeg",
-                # inline so <img> and open-in-tab both behave
-                ContentDisposition=f'inline; filename="{pid}{ext}"',
-                CacheControl="public, max-age=31536000, immutable",
-            )
-            part["image_url"] = f"{PUBLIC_BASE}/{obj_key}"
-            print(f"  + {pid:<26} {len(data)/1024:5.0f} KB  {obj_key}")
+            # publish() takes a path, and the service is what names the thing:
+            # the file is scratch, its stem is the name the part is stored as.
+            with tempfile.TemporaryDirectory() as tmp:
+                scratch = Path(tmp) / f"{pid}{ext}"
+                scratch.write_bytes(data)
+                part["image_url"] = publish(scratch)
+            print(f"  + {pid:<26} {len(data)/1024:5.0f} KB  {part['image_url'].rsplit('/', 1)[1]}")
         except Exception as e:
             failures.append(pid)
             print(f"  ! {pid:<26} {e}")

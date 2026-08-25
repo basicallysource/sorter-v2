@@ -514,8 +514,8 @@
 			for (const p of parts) {
 				const url = partDownload(p, engraveIds);
 				const res = await fetch(url);
-				// the bucket's own filename, <part>-<uid>[-stamped-<face>]-<hash8>.stl,
-				// so the id survives into whatever the slicer names the project
+				// the published filename, <part>[-<uid>-stamped-<face>]-<hash12>.stl,
+				// so the version survives into whatever the slicer names the project
 				files[url.slice(url.lastIndexOf('/') + 1)] = new Uint8Array(await res.arrayBuffer());
 			}
 			// A zip of forty hash-named STLs says nothing about how many of each to

@@ -23,7 +23,7 @@ parts_needed:
     qty: 4
   - part: hsi-m3
     qty: 4
-  - part: scr-m3-tbd
+  - part: scr-m3-6-bhcs
     qty: 4
   - part: scr-m5-12-shcs
     qty: 2
@@ -55,15 +55,15 @@ The Pi itself takes no inserts, and neither does anything else on this page.
 
 **Heat inserts first:** the bracket takes 4 × M3 inserts, one per standoff. Press them in before assembling.
 
-Screw the 4 M3 × 10 mm standoffs into the inserts. Sit the Pi on them and fasten it down with 4 M3 screws.
+Screw the 4 M3 × 10 mm standoffs into the inserts. Sit the Pi on them and fasten it down with 4 {% include fastener.html size="M3" variant="socket-button" length="6" %} screws.
 
-Neither the head type nor the length of those screws is recorded: <span class="fastener-todo">M3, type and length not recorded</span>. Unlike the frame screws in step 3, this one can't be worked out from the bracket's own geometry either — neither the standoff nor the Orange Pi 5 has a 3D model in the catalog, so there's no bore depth or board thickness to measure. The 10 mm standoff length is the BOM sheet's number and has not been confirmed against the bracket either.
+Not a direct measurement — neither the standoff nor the Orange Pi 5 has a 3D model in the catalog, so there's no bore depth or board thickness to check it against — but a reasonable call rather than a placeholder: a PCB mounting hole is a plain clearance hole, never countersunk (there's no chamfer machined into the board to seat a countersunk head against), and M3×6 is the standard length for a board-to-standoff screw. It's also what the basically Embedded Control Board uses for the same kind of joint once that one was actually measured, the same size and head type, not just the same reasoning. The 10 mm standoff length is the BOM sheet's number and has not been confirmed against the bracket either.
 
 Whether the Pi's heatsink or fan clears the standoffs is not recorded either.
 
 <figure>
   <img class="doc-figure" src="https://assets.basically.website/sorter-parts/opi-screws-top2-full-9743aaed8c16.png" alt="The Orange Pi extrusion mount seen from directly above with 4 standoffs mounted in the insert holes on the middle rail and a screw head in blue on top of each, shown as plain placeholders since neither part is modelled in the catalog">
-  <figcaption>The 4 standoffs mounted, with a board-retention screw on top of each (blue). Both are parametric placeholders, not the real parts' geometry — there's no standoff or screw STL in the catalog, and the screw's length here is illustrative, not the confirmed dimension the text above says is still missing. The Pi itself isn't shown for the same reason.</figcaption>
+  <figcaption>The 4 standoffs mounted, with a board-retention screw on top of each (blue), drawn at the M3 × 6 mm this joint is expected to use. Both are parametric placeholders, not the real parts' geometry — there's no standoff or screw STL in the catalog. The Pi itself isn't shown for the same reason.</figcaption>
 </figure>
 
 {% include step.html n="3" title="Bolt the mount to the frame" %}

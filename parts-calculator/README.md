@@ -28,9 +28,9 @@ catalog/
 src/lib/data/catalog.generated.json # GENERATED, committed — both sites' input
 ```
 
-**Nothing binary is in git** — no STL, 3MF, PNG or zip. Every asset lives on
-the `sorter-v2-parts` bucket under a hash-bearing filename and is pinned from
-the JSON above. See [CLAUDE.md](CLAUDE.md#storage-layout).
+**Nothing binary is in git** — no STL, 3MF, PNG or zip. Every asset lives in
+the asset service under a hash-bearing filename and is pinned from the JSON
+above. See [CLAUDE.md](CLAUDE.md#storage-layout).
 
 ## Updating parts
 
@@ -54,12 +54,12 @@ new `stl_hash`) under the same uid. Screws and laser-cut parts carry one too.
    `versions` entry with `"commit": null`; `catalog/stamp_versions.py`
    carries the old uid and hash onto the superseded entry once committed.
 
-2. Upload the STL, named `<part-id>.stl`, and paste the `stl_hash` it
-   prints — the file goes on the bucket under the entry's uid, never into
-   the tree:
+2. Publish the STL, named `<part-id>.stl`, and paste the `stl_hash` it
+   prints — the file goes into the asset service under the part's id, never
+   into the tree:
 
    ```
-   python scripts/sync_bucket.py --upload ~/Downloads/chute-core.stl
+   python scripts/publish_assets.py --upload ~/Downloads/chute-core.stl
    ```
 
 3. Run the generator and commit **source and regenerated data together**:
@@ -95,11 +95,12 @@ goes on the part as a candidate — not as a new part, not as a version:
 ]
 ```
 
-Mint its uid, upload the STL under it (`python scripts/sync_bucket.py
---upload output-guide.stl --uid 6sk3`), run the generator. Every STL
-downloads as `<part>-<uid>-<hash8>.stl` — from the part page, from a
-candidate, and inside the all-parts zip — so the slicer project made from
-it, which takes the STL's name, carries the exact version and its settings. It gets sliced,
+Mint its uid, publish the STL (`python scripts/publish_assets.py --upload
+output-guide.stl`), run the generator. Every STL downloads under a name
+carrying a hash of its own bytes — `<part>-<hash12>.stl`, and for an engraved
+one `<part>-<uid>-stamped-<face>-<hash12>.stl` — from the part page, from a
+candidate, and inside the all-parts zip, so the slicer project made from it,
+which takes the STL's name, carries the exact version and its settings. It gets sliced,
 rendered and listed on the part's page with its own download; it counts
 toward nothing and has no version number — numbers are handed out in
 adoption order. To promote it: move its `uid` and `stl_hash` up to the part,
@@ -152,13 +153,13 @@ render — an Onshape screenshot, a section view, a photo of it built:
 
 ```json
 "images": [
-  { "url": "https://img.basically.website/parts/img/<name>-<hash8>.png",
+  { "url": "https://assets.basically.website/sorter-parts/<name>-full-<hash12>.png",
     "alt": "What the picture shows", "caption": "Optional, shown under it" }
 ]
 ```
 
-Upload the file with `python scripts/sync_bucket.py --upload shot.png` and
-paste the URL it prints; the file never enters the repo. The site shows
+Publish the file with `python scripts/publish_assets.py --upload shot.png`
+and paste the URL it prints; the file never enters the repo. The site shows
 them as a zoomable strip on the part, hardware and assembly views.
 
 Slicer settings live at the top of `catalog/generate.py` (printer, infill,
@@ -213,8 +214,8 @@ npm run dev
 
 ## Build plates
 
-Upload pre-arranged `.3mf` plates with `scripts/sync_bucket.py --upload` and pin
-them in `catalog/plates.json`; they are not committed either. `generate.py`
-pulls each one's embedded plate previews and reads the parts it contains; downloads
-are served from the content-addressed bucket. To cross-link a plate's parts to the catalog, set a part's
+Publish pre-arranged `.3mf` plates with `scripts/publish_assets.py --upload`
+and pin them in `catalog/plates.json`; they are not committed either.
+`generate.py` pulls each one's embedded plate previews and reads the parts it
+contains; downloads are served content-addressed like everything else. To cross-link a plate's parts to the catalog, set a part's
 `source` field in `parts.json` to the part's original filename as it appears in the 3mf.

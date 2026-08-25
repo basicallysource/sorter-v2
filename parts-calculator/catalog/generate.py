@@ -26,9 +26,9 @@ For every part in parts.json it:
   - renders a thumbnail
 Then it writes ../src/lib/data/catalog.generated.json, which the SvelteKit app
 reads to do all the color/layer math in the browser. Every STL/3MF/zip URL in
-the generated data is a content-addressed bucket URL (see scripts/
-sync_bucket.py, which uploads the bytes); no binary serving copies live in the
-repo.
+the generated data is a content-addressed asset service URL (see scripts/
+publish_assets.py, which puts the bytes there); no binary serving copies live
+in the repo.
 
 Commit the generated JSON (nothing else changes in git). Re-run whenever a pin
 changes or you add/remove parts.
@@ -53,12 +53,13 @@ import zipfile
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.dirname(HERE)
 
-# Large binaries are served from the content-addressed bucket, not from the
-# repo. artifact_url() derives the URL from the file's own hash, so it is
-# correct before any upload has happened -- scripts/sync_bucket.py only has to
-# make sure the bytes are there. See notes/UNIFIED-PARTS-SYSTEM.md section 7.
+# Large binaries are served from the asset service, not from the repo.
+# publish() puts bytes there and hands back the URL to reference; pinned_url()
+# answers the same for content the catalog already pins by hash, without
+# asking anyone. See notes/UNIFIED-PARTS-SYSTEM.md section 7.
 sys.path.insert(0, os.path.join(REPO, "scripts"))
-from sync_bucket import artifact_url, named_key, stl_url, PUBLIC_BASE, sha256 as sha256_file  # noqa: E402
+from publish_assets import (  # noqa: E402
+    publish, pinned_url, stl_url, sha256 as sha256_file, SERVICE as ASSET_SERVICE)
 import engrave  # noqa: E402
 
 # ---------------------------------------------------------------- config knobs
@@ -86,12 +87,12 @@ BUILD = os.path.join(HERE, "build")       # gitignored slicer scratch
 CACHE = os.path.join(BUILD, "cache")
 PROFILE_DIR = os.path.join(BUILD, "profiles")
 DATA_OUT = os.path.join(REPO, "src", "lib", "data", "catalog.generated.json")
-# NOTHING binary is written into the repo. Masters are fetched from the bucket
-# by the stl_hash pinned per part in parts.json; renders, plate thumbnails and
-# the all-parts zip are staged under gitignored build/ and uploaded
-# content-addressed by sync_bucket.py -- the generated JSON carries their
-# bucket URLs. Freshly produced files are the only ones on disk, so an upload
-# run only ever pushes new bytes.
+# NOTHING binary is written into the repo. Masters are fetched from the asset
+# service by the stl_hash pinned per part in parts.json; renders, plate
+# thumbnails and the all-parts zip are staged under gitignored build/ and
+# published content-addressed by publish_assets.py -- the generated JSON
+# carries the URLs it hands back. Publishing is skipped for bytes already
+# there, so a run only ever sends what is new.
 MASTERS = os.path.join(BUILD, "masters")
 RENDERS_OUT = os.path.join(BUILD, "renders")
 VERS_RENDERS_OUT = os.path.join(RENDERS_OUT, "versions")
@@ -181,7 +182,7 @@ def normalize_assemblies(manifest):
 
 
 def fetch_artifact(url, sha, dest):
-    """Materialize a bucket object at dest, verifying its full sha256.
+    """Materialize a published object at dest, verifying its full sha256.
 
     The URL carries only a hash fragment (the name is for humans); the pin in
     the manifest is the whole hash, and this refuses bytes that don't match it.
@@ -190,8 +191,8 @@ def fetch_artifact(url, sha, dest):
     if os.path.exists(dest) and sha256_file(dest) == sha:
         return
     os.makedirs(os.path.dirname(dest), exist_ok=True)
-    # Real UA: the img worker's zone 403s urllib's default Python-urllib/x.y
-    # (Browser Integrity Check) -- the same reason check_bucket_urls.py sets one.
+    # Real UA: the service's zone 403s urllib's default Python-urllib/x.y
+    # (Browser Integrity Check) -- the same reason check_asset_urls.py sets one.
     req = urllib.request.Request(url, headers={
         "User-Agent": "sorter-v2-parts-fetch/1.0 (+https://github.com/basicallysource/sorter-v2)"})
     with urllib.request.urlopen(req, timeout=60) as r, open(dest, "wb") as f:
@@ -199,23 +200,22 @@ def fetch_artifact(url, sha, dest):
     got = sha256_file(dest)
     if got != sha:
         os.remove(dest)
-        raise RuntimeError(f"bucket object {url} hashed to {got}, expected {sha}")
+        raise RuntimeError(f"{url} hashed to {got}, expected {sha}")
 
 
 def master_stl(p):
     """Local path of a part's master STL, fetched by its pinned stl_hash."""
     dest = os.path.join(MASTERS, p["id"] + ".stl")
-    fetch_artifact(stl_url(p["id"], p["uid"], p["stl_hash"]), p["stl_hash"], dest)
+    fetch_artifact(stl_url(p["id"], p["stl_hash"]), p["stl_hash"], dest)
     return dest
 
 
 def render_url_for(stl_abs, hexcolor, out_png, force, prev_url=None):
-    """Bucket URL for this geometry's thumbnail, rendering only when needed.
+    """Published URL for this geometry's thumbnail, rendering only when needed.
 
     Memoized on (STL bytes, hex): the same geometry in the same color is the
-    same picture, so its content-addressed URL never changes and nothing needs
-    re-rendering or re-uploading. A fresh render lands in build/renders/ where
-    sync_bucket.py picks it up.
+    same picture, so its URL never changes and nothing needs re-rendering or
+    re-publishing. A fresh render is published as it is made.
 
     `prev_url` is the committed data's thumbnail for this same geometry and
     color, when the caller has established both are unchanged. The memo lives
@@ -224,22 +224,24 @@ def render_url_for(stl_abs, hexcolor, out_png, force, prev_url=None):
     re-render the whole catalog and move every thumbnail URL for no reason."""
     key = hashlib.sha1(open(stl_abs, "rb").read() + hexcolor.encode()).hexdigest()[:16]
     meta = os.path.join(RENDER_META, key + ".json")
-    if not force and prev_url and not os.path.exists(meta):
+    memo = json.load(open(meta))["url"] if os.path.exists(meta) else None
+    # A memo written before the move to the asset service names a store that
+    # no longer serves. It is not an answer, and unlike an STL's URL it cannot
+    # be rebuilt from what it pins -- an image is published as a copy of
+    # itself. Fall through to the committed data, which does name the picture.
+    if memo and not memo.startswith(ASSET_SERVICE + "/"):
+        memo = None
+    if not force and memo is None and prev_url:
+        memo = prev_url
         os.makedirs(RENDER_META, exist_ok=True)
-        json.dump({"url": prev_url}, open(meta, "w"))
-    if not force and os.path.exists(meta):
-        # The memo pins the content-addressed FILENAME; the serving base and
-        # the key scheme can both move (2026-08-21: bucket CDN -> the img
-        # worker, then bare hashes -> name-hash8 keys), so rebuild the URL
-        # from what the memo pins instead of trusting it verbatim.
-        tail = json.load(open(meta))["url"].rsplit("/", 1)[1]
-        legacy = re.fullmatch(r"([0-9a-f]{64})(\.\w+)", tail)
-        if legacy:
-            name = os.path.splitext(os.path.basename(out_png))[0]
-            tail = named_key('render', name, legacy.group(1), legacy.group(2)).rsplit("/", 1)[1]
-        return f"{PUBLIC_BASE}/render/{tail}"
+        json.dump({"url": memo}, open(meta, "w"))
+    if not force and memo:
+        # Taken verbatim. What is published for an image is a copy the service
+        # made of it, so unlike an STL its URL is not something this side can
+        # compute from the bytes -- the memo is the record of what came back.
+        return memo
     render(stl_abs, out_png, hexcolor)
-    url = artifact_url(out_png, prefix="render")
+    url = publish(out_png)
     os.makedirs(RENDER_META, exist_ok=True)
     json.dump({"url": url}, open(meta, "w"))
     return url
@@ -249,7 +251,7 @@ def stamped_variants(stl_abs, uid, name, force):
     """The uid-stamped downloads for this geometry: a list of
     {face, stl, normal, center}, best face first, empty when the uid fits
     nowhere on the part (or the mesh is not a volume). Every entry is a
-    content-addressed STL under build/stamped/ that sync_bucket.py pushes.
+    published STL cut in build/stamped/.
 
     Memoized on (STL bytes, uid, engraving parameters) like renders are. The
     files themselves are only on disk when this run made them, and the
@@ -260,6 +262,12 @@ def stamped_variants(stl_abs, uid, name, force):
                        + json.dumps([uid, engrave.SIGNATURE]).encode()).hexdigest()[:16]
     meta = os.path.join(STAMP_META, key + ".json")
     memo = json.load(open(meta)) if os.path.exists(meta) else None
+    # Same as renders: a memo naming the retired store is stale. These URLs
+    # could be rebuilt from the bytes, but re-cutting is deterministic and
+    # takes seconds, so the simpler thing is to treat the memo as absent.
+    if memo is not None and any(not v["stl"].startswith(ASSET_SERVICE + "/")
+                                for v in memo["variants"]):
+        memo = None
     if memo is not None and not force and all(
             os.path.exists(v["path"]) and "depth" in v for v in memo["variants"]):
         return [{k: v[k] for k in STAMP_KEYS + ("path",) if k in v} for v in memo["variants"]]
@@ -268,7 +276,7 @@ def stamped_variants(stl_abs, uid, name, force):
     except engrave.NotAVolume as e:
         print(f"  ~ {e}")
         found = []
-    variants = [{"stl": artifact_url(v["path"], prefix="stl"),
+    variants = [{"stl": publish(v["path"]),
                  **{k: v[k] for k in STAMP_KEYS if k in v}, "path": v["path"]} for v in found]
     if memo is not None:
         for old, new in zip(memo["variants"], variants):
@@ -303,11 +311,10 @@ def archive_versions(parts_by_id, out_parts, profiles, hexmap, role_defaults, fo
 
     The newest version IS the current master file. Every superseded version
     pins its exact geometry via `stl_hash` in parts.json (written by
-    stamp_versions.py at supersession time); the bytes are always already on
-    the content-addressed bucket, uploaded by the regen that ran while that
-    geometry was current. Git history is never consulted. A pre-pin-era
-    version with no stl_hash reuses the live asset, the same fallback it
-    always had."""
+    stamp_versions.py at supersession time); the bytes are always already
+    published, by the regen that ran while that geometry was current. Git
+    history is never consulted. A pre-pin-era version with no stl_hash reuses
+    the live asset, the same fallback it always had."""
     os.makedirs(VERS_RENDERS_OUT, exist_ok=True)
     os.makedirs(CACHE, exist_ok=True)
     archived = 0
@@ -326,19 +333,19 @@ def archive_versions(parts_by_id, out_parts, profiles, hexmap, role_defaults, fo
                          "stamp_versions.py writes the superseded uid beside the hash")
             vid = f"{out['id']}-v{v['version']}"
             tmp = os.path.join(CACHE, vid + ".stl")
-            fetch_artifact(stl_url(out["id"], v["uid"], pin), pin, tmp)
+            fetch_artifact(stl_url(out["id"], pin), pin, tmp)
             info = slice_part(tmp, profiles, support=bool(p.get("support", False)), force=force)
             png = os.path.join(VERS_RENDERS_OUT, vid + ".png")
             prev_v = next((q for q in (prev_parts.get(out["id"]) or {}).get("versions") or []
                            if str(q.get("version")) == str(v["version"])), None)
             prev_url = unchanged_render({**(prev_v or {}), "color": (prev_parts.get(out["id"]) or {}).get("color")}
-                                        if prev_v else None, stl_url(out["id"], v["uid"], pin), p)
+                                        if prev_v else None, stl_url(out["id"], pin), p)
             try:
                 v["render"] = render_url_for(tmp, default_hex(p, role_defaults, hexmap), png, force, prev_url)
             except Exception as e:
                 print(f"  ! version render failed for {vid}: {e}")
                 v["render"] = None
-            v["stl"] = stl_url(out["id"], v["uid"], pin)
+            v["stl"] = stl_url(out["id"], pin)
             v["grams"] = info["grams"] if info else None
             archived += 1
     print(f"  {archived} historical part version(s) resolved from pinned stl_hash")
@@ -357,7 +364,7 @@ def resolve_candidates(parts_by_id, out_parts, profiles, hexmap, role_defaults, 
             c = dict(c)
             cid = f"{out['id']}-{c['uid']}"
             tmp = os.path.join(CACHE, cid + ".stl")
-            fetch_artifact(stl_url(out["id"], c["uid"], c["stl_hash"]), c["stl_hash"], tmp)
+            fetch_artifact(stl_url(out["id"], c["stl_hash"]), c["stl_hash"], tmp)
             want = bool(c.get("support", p.get("support", False)))
             info = slice_part(tmp, profiles, support=want, force=force)
             if info is None and not want:
@@ -366,13 +373,13 @@ def resolve_candidates(parts_by_id, out_parts, profiles, hexmap, role_defaults, 
             prev_c = next((q for q in (prev_parts.get(out["id"]) or {}).get("candidates") or []
                            if q.get("uid") == c["uid"]), None)
             prev_url = unchanged_render({**prev_c, "color": (prev_parts.get(out["id"]) or {}).get("color")}
-                                        if prev_c else None, stl_url(out["id"], c["uid"], c["stl_hash"]), p)
+                                        if prev_c else None, stl_url(out["id"], c["stl_hash"]), p)
             try:
                 c["render"] = render_url_for(tmp, default_hex(p, role_defaults, hexmap), png, force, prev_url)
             except Exception as e:
                 print(f"  ! candidate render failed for {cid}: {e}")
                 c["render"] = service_render(tmp)
-            c["stl"] = stl_url(out["id"], c["uid"], c["stl_hash"])
+            c["stl"] = stl_url(out["id"], c["stl_hash"])
             c["grams"] = info["grams"] if info else None
             c["print_seconds"] = info["print_seconds"] if info else None
             c["support_used"] = bool(info and info["support_used"])
@@ -767,7 +774,7 @@ def build_hardware(manifest):
         if p.get("image"):
             raise SystemExit(
                 f"{p['id']}: 'image' (a repo file path) is no longer supported -- "
-                "images live only on the bucket. Use 'image_url'.")
+                "images are published, never committed. Use 'image_url'.")
         hardware.append({
             "id": p["id"],
             "uid": p["uid"],
@@ -794,7 +801,7 @@ def build_hardware(manifest):
             # Unresolved cross-catalog disagreement from a source-of-truth
             # merge (see manifest `merges`); both sites badge it.
             "conflicts": p.get("conflicts"),
-            # Product images live only on the bucket, authored as a pinned URL.
+            # Product images are published, never committed: a pinned URL.
             # They deliberately never touch git. `images` are the extra
             # pictures, same rule (check_images).
             "image": p.get("image_url"),
@@ -818,7 +825,7 @@ def build_families(manifest):
         if f.get("image"):
             raise SystemExit(
                 f"family {f['id']}: 'image' (a repo file path) is no longer "
-                "supported -- images live only on the bucket. Use 'image_url'.")
+                "supported -- images are published, never committed. Use 'image_url'.")
         families.append({
             "id": f["id"],
             "name": f["name"],
@@ -870,8 +877,8 @@ def check_images(manifest):
     """`images` -- on any part, assembly, candidate, version or planned change --
     is the extra pictures of it beyond the render or product photo: an Onshape
     screenshot, a section view, a photo of it built. Each is {url, alt,
-    caption?}: the url a pinned bucket URL exactly like image_url (what
-    scripts/sync_bucket.py --upload prints), the alt what the picture shows.
+    caption?}: the url a pinned published URL exactly like image_url (what
+    scripts/publish_assets.py --upload prints), the alt what the picture shows.
     A bare string or a repo path would reach the site as a broken image, so
     it fails here instead."""
     bad = []
@@ -968,17 +975,10 @@ def main():
                 continue
             # Keep this in the same key order and with the same defaults as the full
             # generator so a metadata refresh produces a focused, reviewable diff.
-            def rebased_render(url, name):
-                if not url:
-                    return url
-                tail = url.rsplit("/", 1)[1]
-                legacy = re.fullmatch(r"([0-9a-f]{64})(\.\w+)", tail)
-                if legacy:
-                    return f"{PUBLIC_BASE}/{named_key('render', name, legacy.group(1), legacy.group(2))}"
-                return f"{PUBLIC_BASE}/render/{tail}"
-
-            live_stl = stl_url(source["id"], source["uid"], source["stl_hash"])
-            live_render = rebased_render(old["render"], source["id"])
+            live_stl = stl_url(source["id"], source["stl_hash"])
+            # Carried over as it stands: a render's published URL is the
+            # service's copy of it, not anything derivable from a name.
+            live_render = old["render"]
             # Authored fields come from the manifest; the sliced and rendered
             # ones from the previous generated entry of the same version, in
             # the order archive_versions() would have left them.
@@ -994,7 +994,7 @@ def main():
                 else:
                     v["render"] = rebased_render(ov.get("render"),
                                                  f"{source['id']}-v{v.get('version')}")
-                    v["stl"] = stl_url(source["id"], v["uid"], pin)
+                    v["stl"] = stl_url(source["id"], pin)
                     v["grams"] = ov.get("grams")
                 versions.append(v)
             old_cands = {c.get("uid"): c for c in old.get("candidates") or []}
@@ -1003,7 +1003,7 @@ def main():
                 c = dict(sc)
                 oc = old_cands.get(c["uid"], {})
                 c["render"] = rebased_render(oc.get("render"), f"{source['id']}-{c['uid']}")
-                c["stl"] = stl_url(source["id"], c["uid"], c["stl_hash"])
+                c["stl"] = stl_url(source["id"], c["stl_hash"])
                 c["grams"] = oc.get("grams")
                 c["print_seconds"] = oc.get("print_seconds")
                 c["support_used"] = bool(oc.get("support_used"))
@@ -1101,7 +1101,7 @@ def main():
             continue
 
         png = os.path.join(RENDERS_OUT, p["id"] + ".png")
-        live_stl = stl_url(p["id"], p["uid"], p["stl_hash"])
+        live_stl = stl_url(p["id"], p["stl_hash"])
         try:
             render_url = render_url_for(stl_abs, default_hex(p, role_defaults, hexmap),
                                         png, args.force,
@@ -1123,12 +1123,14 @@ def main():
 
         # A part in no section -- it exists only inside a candidate assembly --
         # is not part of the build, so it stays out of the every-part bundle.
-        # Members carry the bucket filename, <id>-<uid>-<hash8>.stl (or the
-        # default stamped variant's): the uid has to survive into the slicer
-        # project (the 3mf takes the STL's name) so a print can be traced
-        # back to its exact version and settings.
+        # Members carry the published filename: <id>-<hash12>.stl, or the
+        # default stamped variant's <id>-<uid>-stamped-<face>-<hash12>.stl.
+        # What has to survive into the slicer project (the 3mf takes the STL's
+        # name) is which exact version this is -- the hash pins that, and a
+        # part engraved with its uid carries that too, the same string that is
+        # recessed into the plastic.
         if p.get("quantities"):
-            plain = (stl_abs, os.path.basename(stl_url(p["id"], p["uid"], p["stl_hash"])))
+            plain = (stl_abs, os.path.basename(stl_url(p["id"], p["stl_hash"])))
             plain_members.append(plain)
             zip_members.append((stamped[0]["path"], stamped[0]["stl"].rsplit("/", 1)[1]) if stamped else plain)
 
@@ -1183,11 +1185,11 @@ def main():
                        profiles, hexmap, role_defaults, args.force, prev_parts)
 
     # COTS hardware (kind: "cots") is passed through, not sliced. Product images
-    # are pinned bucket URLs authored in parts.json; they never live in the repo.
+    # are pinned published URLs authored in parts.json; never in the repo.
     hardware = build_hardware(manifest)
 
     # Hardware families: one product photo shared by every cots part whose `cots`
-    # block matches. Like all product images, it is a pinned bucket URL.
+    # block matches. Like all product images, it is a pinned published URL.
     families = build_families(manifest)
 
     # bundle every STL into one downloadable zip (built before the data dict so
@@ -1220,8 +1222,8 @@ def main():
             "support_threshold_deg": int(SUPPORT_THRESHOLD),
             "density_g_cm3": density, "cost_per_kg": cost_per_kg,
             "commit_base_url": git_commit_base_url(),
-            "all_parts_zip": artifact_url(zip_path, prefix="bundle"),
-            "all_parts_plain_zip": artifact_url(plain_zip_path, prefix="bundle"),
+            "all_parts_zip": publish(zip_path),
+            "all_parts_plain_zip": publish(plain_zip_path),
         },
         "sections": manifest["sections"],
         "changes": manifest.get("changes", []),
@@ -1238,7 +1240,7 @@ def main():
     json.dump(data, open(DATA_OUT, "w"), indent="\t")
 
     print(f"\nwrote {DATA_OUT}")
-    print(f"  {len(out_parts)} parts · thumbnails, stamped STLs + bundle -> bucket")
+    print(f"  {len(out_parts)} parts · thumbnails, stamped STLs + bundle published")
     unstamped = [q["id"] for q in out_parts if not q["stamped"]]
     if unstamped:
         print(f"  ~ {len(unstamped)} part(s) carry no uid stamp (no face fits {engrave.CAP} mm "
@@ -1255,9 +1257,9 @@ def main():
 
 
 def process_plates(manifest):
-    """Build plates from catalog/plates.json: each entry pins a 3mf on the
-    bucket by hash. Fetch it, pull its embedded plate previews (uploaded
-    content-addressed too), and read the parts it contains (cross-linked to
+    """Build plates from catalog/plates.json: each entry pins a 3mf by hash.
+    Fetch it, pull its embedded plate previews (published too), and read the
+    parts it contains (cross-linked to
     manifest parts via each part's optional `source` filename)."""
     import re
     import collections
@@ -1269,7 +1271,7 @@ def process_plates(manifest):
         base = os.path.splitext(entry["file"])[0]
         pid = re.sub(r"[^a-z0-9]+", "-", base.lower()).strip("-")
         f = os.path.join(PLATES_SRC, pid + ".3mf")
-        plate_url = f"{PUBLIC_BASE}/{named_key('plate', pid, entry['hash'], '.3mf')}"
+        plate_url = pinned_url(pid, entry["hash"], ".3mf")
         fetch_artifact(plate_url, entry["hash"], f)
         thumbs = []
         with zipfile.ZipFile(f) as z:
@@ -1279,7 +1281,7 @@ def process_plates(manifest):
                 tp = os.path.join(PLATE_THUMB_OUT, tn)
                 with open(tp, "wb") as o:
                     o.write(z.read(name))
-                thumbs.append(artifact_url(tp, prefix="thumb"))
+                thumbs.append(publish(tp))
             cfg = z.read("Metadata/model_settings.config").decode("utf-8", "ignore")
         raw = re.findall(r'<object\b[^>]*>\s*<metadata key="name" value="([^"]+)"', cfg)
         # Skip decorative/label objects (e.g. embossed "text_shape"); real parts are .stl
@@ -1293,7 +1295,7 @@ def process_plates(manifest):
         parts.sort(key=lambda x: -x["count"])
         out.append({"id": pid, "name": base, "download": plate_url,
                     "thumbs": thumbs, "parts": parts})
-    print(f"  {len(out)} build plate(s) (thumbs -> bucket)")
+    print(f"  {len(out)} build plate(s) (thumbs published)")
     return out
 
 

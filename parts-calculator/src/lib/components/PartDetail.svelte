@@ -61,8 +61,8 @@
 	let viewer: StlViewer | undefined = $state();
 
 	// Every face's STL is fetched as soon as the part is shown, so flipping
-	// through them swaps instantly out of the browser cache (the bucket serves
-	// them immutable) instead of loading on each arrow press.
+	// through them swaps instantly out of the browser cache (they are served
+	// immutable) instead of loading on each arrow press.
 	$effect(() => {
 		for (const s of stamps) fetch(s.stl).then((r) => r.arrayBuffer()).catch(() => {});
 	});

@@ -3,7 +3,7 @@
 # small generated PNGs the site wants at build time (static/renders,
 # static/plate-thumbs). Everything the site serves for download (STLs, plates,
 # the all-parts zip) and every product image comes from the content-addressed
-# bucket, pinned by URL/hash in the data (see scripts/sync_bucket.py).
+# asset service, pinned by URL/hash in the data (see scripts/publish_assets.py).
 #
 # LFS is banned by scar tissue: images were briefly LFS-tracked, a CI job
 # checked out without lfs, and 130-byte pointer stubs got hashed and published

@@ -33,7 +33,7 @@ build. Two halves:
   preview is correct from the first push, because the data rode in with it.
   `.github/workflows/check-parts.yml` guards every PR and push: the generated
   data must agree with the source pins (`check_generated_pins.py`) and every
-  URL the site ships must serve real bytes (`check_bucket_urls.py`). Pure
+  URL the site ships must serve real bytes (`check_asset_urls.py`). Pure
   checks, about a minute; nothing commits onto your branch.
 - **`src/`** — the app. Reads generated JSON, does all math in the browser.
   Fully static.
@@ -91,53 +91,63 @@ one instead of the whole pile. Stacked modals are ordered by where they appear
 in the markup, so a modal that can be opened *from* another must be rendered
 before it.
 
-## Artifacts and the bucket
+## Artifacts and the asset service
 
-Large binaries (STLs, 3MFs) sync to a DigitalOcean Space, every filename
-carrying the content hash so it is immutable by construction:
+Large binaries (STLs, 3MFs) live in the asset service
+(`assets.basically.website`, public repo `basicallysource/asset-service`),
+in the `sorter-parts` namespace. The service builds every key from the name
+it is given plus a hash of the bytes, so a key is immutable by construction:
 
 ```
-stl/<part>-<uid>-<hash8>.stl        render/<part>-<hash8>.png
-img/<name>-<hash8>.<ext>            plate/<name>-<hash8>.3mf
+sorter-parts/<part>-<hash12>.stl                       master, and each
+                                                       archived version of it
+sorter-parts/<part>-<uid>-stamped-<face>-<hash12>.stl  the engraved downloads
+sorter-parts/<name>-<hash12>.{3mf,zip,ttf}             plates, bundles, font
+sorter-parts/<name>-full-<hash12>.{png,jpg}            renders and photos
 ```
 
-Public URLs are served through the asset worker at
-`https://img.basically.website/parts` (`PUBLIC_BASE` in `sync_bucket.py`); the
-bucket's own CDN endpoint still serves the same objects, so URLs in old commits
-never break. Pins are hashes, not URLs.
+Pins are hashes, not URLs. For anything served as uploaded — STL, 3mf, zip,
+font — the URL follows from the pin, so `publish_assets.pinned_url()` can name
+it without asking anyone. **Images are the exception**: the service does not
+publish the file that was uploaded, it publishes a copy with the camera's
+notes stripped out, so an image's URL is a fact only the service knows and it
+is read off the manifest. That is why renders and product images are recorded
+in the generated data and the render memo rather than derived.
 
-The `uid` in an STL's name is the part version's id from `catalog/parts.json`,
-minted by `catalog/mint_uid.py` before the STL exists — every part has one,
-screws included. The uid names the design revision and the hash names the
-bytes: a new version is a new uid, a re-export of the same design is a new
+The `uid` is the part version's id from `catalog/parts.json`, minted by
+`catalog/mint_uid.py` before the STL exists — every part has one, screws
+included. It names the design revision and it is the string recessed into the
+plastic, which is why the engraved downloads carry it; the hash names the
+bytes. A new version is a new uid, a re-export of the same design is a new
 hash under the same uid.
 
 ```
-python scripts/sync_bucket.py --dry-run   # report only
-python scripts/sync_bucket.py             # upload missing
+python scripts/publish_assets.py --upload part.stl   # publish + print the pin
 ```
 
-Credentials come from `DO_SPACES_KEY` / `DO_SPACES_SECRET` (env, or
-`~/.config/do-spaces/sorter-v2-parts.env`). `check-parts.yml` verifies every
-URL the generated data references actually resolves
-(`scripts/check_bucket_urls.py`) on each PR and push to main.
+Credentials come from `ASSET_SERVICE_TOKEN` (env, or
+`~/.config/asset-service/*.env`), and only publishing needs them: an asset that
+is already there is looked up anonymously, so regenerating unchanged data needs
+no credentials at all. `check-parts.yml` verifies every URL the generated data
+references actually resolves (`scripts/check_asset_urls.py`) on each PR and
+push to main.
 
-Uploads are idempotent — the key IS the content hash, and the script
-head-checks before writing, so re-runs upload nothing and identical bytes
-are never stored twice.
+Publishing is idempotent — the key carries the content hash, and the script
+checks before writing, so re-runs send nothing and identical bytes are never
+stored twice.
 
 ### Someone sent you a product image. What to do with it
 
-Upload it, get a URL back, put the URL in `catalog/parts.json`:
+Publish it, get a URL back, put the URL in `catalog/parts.json`:
 
 ```bash
-python scripts/sync_bucket.py --upload ~/Downloads/new-board.png
+python scripts/publish_assets.py --upload ~/Downloads/new-board.png
 ```
 
 That prints the line to paste:
 
 ```
-"image_url": "https://img.basically.website/parts/img/<name>-<hash8>.png"
+"image_url": "https://assets.basically.website/sorter-parts/<name>-full-<hash12>.png"
 ```
 
 Set it on the part (or family) in `catalog/parts.json`. That is the whole
@@ -156,15 +166,15 @@ without `lfs: true`, and the 130-byte pointer stubs got hashed into the URLs
 and uploaded as the images. Every URL returned 200 with
 `Content-Type: image/png` and rendered broken on production.
 
-Because the bucket is content-addressed, **a wrong image URL is never a 404** —
+Because assets are content-addressed, **a wrong image URL is never a 404** —
 it's a 200 serving the wrong bytes, which no build or type check can see.
-`scripts/check_bucket_urls.py` fetches each URL and checks the bytes (magic
+`scripts/check_asset_urls.py` fetches each URL and checks the bytes (magic
 numbers for images; reachable, non-stub content for STLs/plates/the zip). It
 runs in `check-parts.yml` on every PR, and takes a file argument so you can
 check an image edit without invoking the slicer:
 
 ```bash
-python scripts/check_bucket_urls.py catalog/parts.json
+python scripts/check_asset_urls.py catalog/parts.json
 ```
 
 ### The caching invariant — do not break this
@@ -199,12 +209,12 @@ megabyte packed. Do not recreate any of them, and do not "temporarily" commit a
 binary to get a build working.
 
 What git holds is JSON, code, site chrome (favicon, logo) and the DXF/SVG cut
-sources under `static/dxf*`. Everything else lives on the bucket and is pinned
-by hash from committed JSON:
+sources under `static/dxf*`. Everything else lives in the asset service and is
+pinned by hash from committed JSON:
 
 - each part's `stl` URL and the `all_parts_zip` bundle URL in
   `catalog.generated.json` (the zip is staged under gitignored
-  `catalog/build/bundle/` and uploaded by `sync_bucket.py`);
+  `catalog/build/bundle/` and published by `publish_assets.py`);
 - each plate's `download` URL in the same file;
 - every product image (`image_url`) and every extra picture
   (`images[].url`), pinned in `parts.json`.
@@ -213,8 +223,8 @@ by hash from committed JSON:
 superseded version in `parts.json` carries its `uid` and `stl_hash` — the
 sha256 of its final bytes, both written by `stamp_versions.py` at supersession
 time — and
-`archive_versions()` in `catalog/generate.py` fetches those bytes from the
-bucket. Git history is never consulted for geometry, which is what made the
+`archive_versions()` in `catalog/generate.py` fetches those bytes by that
+pin. Git history is never consulted for geometry, which is what made the
 2026-08 history rewrite (dropping the old `static/stl` serving copies and 30+
 committed revisions of `all-parts.zip`) safe. The pre-rewrite history is
 preserved read-only at `basicallysource/parts-calculator-archive`.
@@ -228,7 +238,7 @@ from `parts.json`.
 
 **Stamped downloads are derived, never authored.** `catalog/engrave.py`
 recesses the uid into a face (uppercase, 3.5 mm cap, 0.6 mm deep, Source Code
-Pro Bold -- the font is a pinned bucket object, fetched by hash into
+Pro Bold -- the font is a pinned published object, fetched by hash into
 `build/fonts/`), and `generate.py` pre-cuts up to four face variants per
 printed part and candidate into `build/stamped/`, memoized on (STL bytes, uid,
 `engrave.SIGNATURE`). They ride the generated data as `stamped: [{face, stl,

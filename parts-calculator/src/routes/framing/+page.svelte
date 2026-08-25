@@ -28,7 +28,7 @@
 		<ExtrusionScene>
 			{#snippet aside()}
 				<Figure
-					src="https://sorter-v2-parts.nyc3.cdn.digitaloceanspaces.com/img/7991b2c2abd86f3b517d230f697d3d4ce96e118cb0ee355e02bbc8d0261aaf81.png"
+					src="https://assets.basically.website/sorter-parts/extrusion-assembly-explainer-full-7991b2c2abd8.png"
 					alt="Extrusion assembly explainer"
 					title="Extrusion assembly explainer"
 					caption="The foot extensions (D) aren't in the CAD yet. On a build they replace the C supports on the bottom two layers, one D spanning both."

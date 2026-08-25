@@ -37,8 +37,8 @@ Parts too small to carry the text, or with no face, get no variants: the page
 simply does not offer a stamp.
 
 Reproducibility is the constraint behind the details. The same geometry has to
-stamp to the same bytes on any machine or the content-addressed bucket starts
-collecting near-duplicates: the font is one pinned file fetched by hash, facet
+stamp to the same bytes on any machine or the store starts collecting
+near-duplicates: the font is one pinned file fetched by hash, facet
 grouping, cylinder fits and corner order are quantised and fixed, and the
 boolean is manifold's, which is deterministic for identical input.
 """
@@ -69,8 +69,8 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 # pocket inside a 0.77 mm ring of standing plastic, both comfortably above a
 # 0.4 mm nozzle, so 0 and O print differently. Its 1, I and l are distinct
 # too. (DejaVu Sans, which the renders use, has no dot at all.) OFL-licensed;
-# the file lives on the bucket like every other binary and is pinned here.
-FONT_URL = "https://img.basically.website/parts/font/source-code-pro-bold-b2095e0d.ttf"
+# the file is published like every other binary and is pinned here.
+FONT_URL = "https://assets.basically.website/sorter-parts/source-code-pro-bold-b2095e0d657e.ttf"
 FONT_SHA = "b2095e0d657e6d28dc32444a9dacabab0c9241d0bf39d96371756cc9bdbc3a5f"
 FONT_DIR = os.path.join(HERE, "build", "fonts")
 

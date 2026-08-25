@@ -3,8 +3,8 @@
 
 A uid names a design revision, not bytes. It is the exact thing in your hand
 (and what a print gets engraved with), so it exists before the STL does: mint,
-write it on the entry in parts.json, then upload the STL and sync_bucket.py
-keys the file under it. A human bumping `version` mints a new uid; a re-export
+write it on the entry in parts.json, then publish the STL. The uid is what
+an engraved print carries, so the stamped downloads are named for it. A human bumping `version` mints a new uid; a re-export
 of the same design is new bytes (a new stl_hash) under the same uid. Screws and
 laser-cut parts carry one too -- one scheme for everything on the machine.
 

@@ -635,7 +635,7 @@
 			"uid": "irue",
 			"version": "1",
 			"name": "Servo adapter (MG995)",
-			"description": "MG995 servo adapter: servo side + flap side.",
+			"description": "MG995 servo adapter: servo side + flap side, clamping the MG995 Servo Horn (comes with the servo) between them. 4 M3 x 8 countersunk hold the two halves together, no heat inserts.",
 			"docs": "/hardware/assembly/distribution/chute/door-module/",
 			"status": "partial",
 			"lines": [
@@ -646,6 +646,14 @@
 				{
 					"part": "servo-adapter-flap-side",
 					"qty": 1
+				},
+				{
+					"part": "mg995-servo-horn",
+					"qty": 1
+				},
+				{
+					"part": "scr-m3-8-cs",
+					"qty": 4
 				}
 			]
 		},
@@ -16103,6 +16111,30 @@
 			"docs_page": null,
 			"conflicts": null,
 			"image": "https://assets.basically.website/sorter-parts/servo-mg995-full-8a8b0ae4bdd9.jpg"
+		},
+		{
+			"id": "mg995-servo-horn",
+			"uid": "s8dv",
+			"kind": "cots",
+			"cots": {
+				"type": "servo-horn"
+			},
+			"name": "MG995 Servo Horn",
+			"category": "Motors",
+			"description": "Two-arm splined servo horn. Clasped between the servo-adapter's two halves once they're screwed together.",
+			"note": "Ships in the box with the MG995 servo. Not sold separately, so it has no sourcing of its own here.",
+			"created_at": "2026-08-24",
+			"updated_at": "2026-08-24",
+			"attributes": [],
+			"sheet_qty": null,
+			"sheet_qty_text": null,
+			"stock": null,
+			"sourcing": null,
+			"alternative": null,
+			"caption": null,
+			"docs_page": null,
+			"conflicts": null,
+			"image": "https://assets.basically.website/sorter-parts/mg995-servo-horn-square-full-150991b8cde4.png"
 		},
 		{
 			"id": "brg-6806-2rs",

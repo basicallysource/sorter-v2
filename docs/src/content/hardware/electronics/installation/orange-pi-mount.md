@@ -62,8 +62,8 @@ Neither the head type nor the length of those screws is recorded: <span class="f
 Whether the Pi's heatsink or fan clears the standoffs is not recorded either.
 
 <figure>
-  <img class="doc-figure" src="https://assets.basically.website/sorter-parts/opi-standoffs-top-full-6a41479303b6.png" alt="The Orange Pi extrusion mount seen from directly above with 4 standoffs mounted in the insert holes on the middle rail, shown as plain hex placeholders since the standoff isn't modelled in the catalog">
-  <figcaption>The 4 standoffs mounted, seen from above. The standoffs are a plain parametric placeholder (M3, ~10 mm), not the real part's geometry — there's no standoff STL in the catalog. The Pi itself isn't shown for the same reason.</figcaption>
+  <img class="doc-figure" src="https://assets.basically.website/sorter-parts/opi-screws-top2-full-9743aaed8c16.png" alt="The Orange Pi extrusion mount seen from directly above with 4 standoffs mounted in the insert holes on the middle rail and a screw head in blue on top of each, shown as plain placeholders since neither part is modelled in the catalog">
+  <figcaption>The 4 standoffs mounted, with a board-retention screw on top of each (blue). Both are parametric placeholders, not the real parts' geometry — there's no standoff or screw STL in the catalog, and the screw's length here is illustrative, not the confirmed dimension the text above says is still missing. The Pi itself isn't shown for the same reason.</figcaption>
 </figure>
 
 {% include step.html n="3" title="Bolt the mount to the frame" %}

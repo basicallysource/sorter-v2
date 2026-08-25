@@ -40,6 +40,8 @@ parts_needed:
     qty: 1
   - part: interface-idler-gear
     qty: 1
+  - part: chute-stepper-support-block
+    qty: 1
   - part: interface-cage-bracket
     qty: 5
   - part: interface-cage-bracket-cable
@@ -406,6 +408,8 @@ Slide an M3 × 15 mm washer onto an {% include fastener.html size="M3" variant="
 The head has to be a low one here. A socket or button head stands proud enough that the Limit switch hammer can catch on it as the chute sweeps past, so use a flat (pancake) head, or a pan head if that is what you have. It is the same screw as the one on the Cable clamp in step 11, so buy two of the one head type.
 
 Slot the NEMA 23 onto the Interface NEMA 23 bracket and secure it with four {% include fastener.html size="M5" variant="socket-button" length="12" %} screws.
+
+Fit the Chute stepper support block with 2 × <span class="fastener-todo">M5, length not recorded</span> screws. The parts catalog names it only as "support block for the chute stepper"; exactly which face it bolts to and where it sits against the bracket is not recorded: <span class="fastener-todo">placement not recorded</span>. It has its own Onshape document, separate from the shared Interface Layer one this page otherwise draws from.
 
 At this point the chute should still rotate, but you will now feel resistance from the stepper motor.
 

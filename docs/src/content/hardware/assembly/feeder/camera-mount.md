@@ -11,8 +11,8 @@ author: barthel
 warning: >-
   **AI-generated first draft.** Written from the machine assembly tree in the [parts
   calculator](https://parts-calculator.basically.website/assembly?focus=camera-mount), not from an
-  actual build. The parts are recorded; the assembly order, every screw's position, the camera fixing
-  and all photographs are missing. Fill it in as you build.
+  actual build. The A/B connector's joint is now measured off the STLs. The rod mounts, the camera
+  fixing and every photograph are still missing. Fill it in as you build.
 parts_needed:
   - part: camera-mount-part-6
     qty: 1
@@ -78,13 +78,16 @@ Slide a cut rod into each mount.
 
 <div class="img-placeholder">Image coming</div>
 
-{% include step.html n="4" title="Join the two arm halves" %}
+{% include step.html n="4" title="Join arm A to the connector" %}
 
-Overhead camera mount A (part 37) and B (part 37b) join through the A/B connector (part 6), using the 3 {% include fastener.html size="M3" variant="countersunk" length="12" %} screws and 3 M3 nuts in the list above.
+Overhead camera mount A (part 37) bolts to the A/B connector (part 6) with the 3 {% include fastener.html size="M3" variant="countersunk" length="12" %} screws and 3 M3 nuts in the list above — measured off the two STLs, both parts carry the same bolt circle: 12 holes, 3.3 mm across, evenly spaced 30° apart on a 27 mm radius. Only 3 of the 12 are used at once, so the joint sets the arm's **angle**, not its reach — pick which 3 (every 4th hole, 120° apart, matching the 3-screw pattern) to fix the rotation you want, in 30° steps.
 
-**Not recorded:** which joint takes which screw, and whether the connector is what sets the arm's reach over the channel. <span class="fastener-todo">fastener not recorded</span>
+**Not recorded:** which 3 of the 12 holes are the intended ones, and how part B (part 37b) joins in — it doesn't share this bolt circle, so it connects some other way. <span class="fastener-todo">fastener not recorded</span>
 
-<div class="img-placeholder">Image coming</div>
+<figure>
+  <img class="doc-figure" src="https://assets.basically.website/sorter-parts/connector-holes-full-24e039791962.png" alt="The A/B connector's bolt face, showing 12 evenly-spaced holes on a circle with one example set of 3, 120 degrees apart, marked in red dashes">
+  <figcaption>The connector's bolt circle: 12 holes, 30° apart. One example set of 3 (120° apart) marked — any of the 4 such sets fixes a different 30°-step rotation. Drawn from the part geometry, not from a build.</figcaption>
+</figure>
 
 {% include step.html n="5" title="Fit the camera and set the height" %}
 

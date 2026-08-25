@@ -95,8 +95,8 @@ The servo adapter takes no inserts, but assemble it here anyway, before the brac
     <figcaption>Servo-side half. The recess the horn seats into, plus the 4 pilot holes the screws thread into.</figcaption>
   </figure>
   <figure>
-    <img class="doc-figure" src="https://assets.basically.website/sorter-parts/servo-adapter-flap-side-holes-white-full-5a4ace682ea3.png" alt="The flap-side adapter half, showing its four countersunk screw holes and the keyed centre hole">
-    <figcaption>Flap-side half. The 4 countersunk holes the screws pass through, into the servo side.</figcaption>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-parts/servo-adapter-flap-side-door-face-full-ec3b4136d249.png" alt="The flap-side adapter half, rotated 180 degrees from the screw side to show the hexagonal boss and keyed bore that the chute door's shaft inserts into">
+    <figcaption>Flap-side half, other face. The hex boss the chute door's shaft inserts into.</figcaption>
   </figure>
 </div>
 

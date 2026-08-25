@@ -1,12 +1,12 @@
 ---
 layout: default
-title: External bracket
+title: Assembling External bracket
 type: how-to
 section: hardware
-slug: part-external-bracket
-kicker: Parts — External bracket
+slug: helper-external-bracket
+kicker: Helpers — Assembling External bracket
 lede: The bracket that mounts a distribution-frame vertical extrusion to the frame and gives it a mounting point.
-permalink: /hardware/parts/external-bracket/
+permalink: /hardware/helpers/external-bracket/
 author: christoph
 contributors: [barthel]
 last_verified: 2026-08-03

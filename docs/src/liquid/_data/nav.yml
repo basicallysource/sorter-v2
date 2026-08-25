@@ -101,13 +101,13 @@ sections:
             url: /hardware/helpers/heat-inserts/
           - title: Soldering Pico headers
             url: /hardware/electronics/installation/pico-headers/
+          - title: Assembling External bracket
+            url: /hardware/helpers/external-bracket/
       - title: Parts
         url: /hardware/parts/
         children:
           - title: Lazy Susan
             url: /hardware/parts/lazy-susan/
-          - title: External bracket
-            url: /hardware/parts/external-bracket/
           - title: Orange Pi 5
             url: /hardware/orange-pi-5/
 

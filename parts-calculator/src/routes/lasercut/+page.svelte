@@ -6,8 +6,10 @@
 	import HandCutTopPlateGuide from '$lib/components/HandCutTopPlateGuide.svelte';
 	import HandCutCageGuide from '$lib/components/HandCutCageGuide.svelte';
 	import ChangeStatus from '$lib/components/ChangeStatus.svelte';
+	import PartDetailModal from '$lib/components/PartDetailModal.svelte';
 	import { LASER_CUT_PARTS, type LaserCutPart } from '$lib/lasercut';
-	import { fmtDate, PARTS } from '$lib/filament';
+	import { fmtDate, PARTS, primaryColorId, type Part, type PartVersion } from '$lib/filament';
+	import { colorStore } from '$lib/colors.svelte';
 	import { type Units } from '$lib/handcut';
 	import { page } from '$app/state';
 	import { replaceState } from '$app/navigation';
@@ -37,6 +39,19 @@
 	function openGuide(p: LaserCutPart) {
 		guidePart = p;
 		guideOpen = true;
+	}
+
+	// Clicking a printed component opens the same detail view the parts
+	// dashboard and assembly tree use, rather than navigating to /part/<id>.
+	let partOpen = $state(false);
+	let partModal = $state<Part | null>(null);
+	let partColor = $state('ash-gray');
+	let partVersion = $state<PartVersion | null>(null);
+	function openPart(p: Part) {
+		partModal = p;
+		partColor = primaryColorId(p, colorStore.roles) ?? 'ash-gray';
+		partVersion = p.versions?.[p.versions.length - 1] ?? null;
+		partOpen = true;
 	}
 
 	// Deep-link the hand-cut guide: `?guide=top-plate` opens the modal and
@@ -201,12 +216,17 @@
 									{#each p.printed?.components ?? [] as c (c.part)}
 										{@const printedPart = PARTS.find((x) => x.id === c.part)}
 										<li class="flex items-center justify-between gap-2 text-xs">
-											<a
-												href="/part/{c.part}"
-												class="text-text hover:text-primary hover:underline"
-											>
-												{printedPart?.name ?? c.part}
-											</a>
+											{#if printedPart}
+												<button
+													type="button"
+													class="text-text hover:text-primary hover:underline"
+													onclick={() => openPart(printedPart)}
+												>
+													{printedPart.name}
+												</button>
+											{:else}
+												<span class="text-text">{c.part}</span>
+											{/if}
 											<span class="shrink-0 text-text-muted">× {c.qty}</span>
 										</li>
 									{/each}
@@ -243,3 +263,5 @@
 		<HandCutCageGuide variant="bottom" bind:units />
 	{/if}
 </Modal>
+
+<PartDetailModal bind:open={partOpen} part={partModal} bind:colorId={partColor} bind:version={partVersion} />

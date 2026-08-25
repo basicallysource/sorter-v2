@@ -53,14 +53,16 @@ The Pi itself takes no inserts, and neither does anything else on this page.
 
 {% include step.html n="2" title="Stand the Pi off the bracket" %}
 
+<figure class="figure-float-right">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-parts/opi-landscape-standoffs-full-cefb56a912b0.png" alt="The Orange Pi extrusion mount lying on its long edge with 4 standoffs mounted in the corner insert holes and a screw head in blue on top of each, shown as plain placeholders since neither part is modelled in the catalog">
+  <figcaption>The 4 standoffs and their retention screws (blue), drawn as parametric placeholders.</figcaption>
+</figure>
+
 **Heat inserts first:** the bracket takes 4 × M3 inserts, one per standoff. Press them in before assembling.
 
 Screw the 4 M3 standoffs into the inserts. Sit the Pi on them and fasten it down with 4 {% include fastener.html size="M3" variant="socket-button" length="6" %} screws. The 10 mm standoffs are used.
 
-<figure>
-  <img class="doc-figure" src="https://assets.basically.website/sorter-parts/opi-landscape-standoffs-full-cefb56a912b0.png" alt="The Orange Pi extrusion mount lying on its long edge with 4 standoffs mounted in the corner insert holes and a screw head in blue on top of each, shown as plain placeholders since neither part is modelled in the catalog">
-  <figcaption>The 4 standoffs and their retention screws (blue), drawn as parametric placeholders.</figcaption>
-</figure>
+<div class="clear-float"></div>
 
 {% include step.html n="3" title="Bolt the mount to the frame" %}
 

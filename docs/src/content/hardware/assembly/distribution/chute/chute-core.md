@@ -24,7 +24,7 @@ parts_needed:
     qty: 8
 ---
 
-The chute is what steers a part into the right bin. Build one per layer, plus two for the [bottom interface]({{ '/hardware/assembly/distribution/bin-frame/bottom-interface/' | relative_url }}).
+The chute is what steers a part into the right bin. Build one per layer, N for an N-layer machine. The [bottom interface]({{ '/hardware/assembly/distribution/bin-frame/bottom-interface/' | relative_url }}) doesn't add any extra chutes of its own, it's a mounting stage the bottommost chute sits on, bridged to it by a [layer connector]({{ '/hardware/assembly/distribution/chute/layer-connectors/' | relative_url }}).
 
 The fasteners and quantities are in the parts list above and are called out inline at each step.
 

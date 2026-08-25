@@ -44,7 +44,7 @@ Before assembling anything, press the heat inserts into the parts that take them
     <p><strong>Orange Pi extrusion mount:</strong> 4 × M3, one per standoff</p>
   </div>
   <figure class="prep-item-figure">
-    <img class="doc-figure" src="https://assets.basically.website/sorter-parts/opi-corners-test-full-84d5deb7769f.png" alt="The Orange Pi extrusion mount at a slight angle off vertical, with all four M3 standoff insert holes circled in red near the four corners of the frame, each showing a real shadowed hole">
+    <img class="doc-figure" src="https://assets.basically.website/sorter-parts/opi-landscape-ringed-full-aa8aaac704ff.png" alt="The Orange Pi extrusion mount lying on its long edge, with all four M3 standoff insert holes circled in red near the four corners of the frame, each showing a real shadowed hole">
     <figcaption>The 4 insert holes, ringed, near the four corners of the frame.</figcaption>
   </figure>
 </div>
@@ -58,7 +58,7 @@ The Pi itself takes no inserts, and neither does anything else on this page.
 Screw the 4 M3 standoffs into the inserts. Sit the Pi on them and fasten it down with 4 {% include fastener.html size="M3" variant="socket-button" length="6" %} screws. The 10 mm standoffs are used.
 
 <figure>
-  <img class="doc-figure" src="https://assets.basically.website/sorter-parts/opi-corners-standoffs-full-840e1699b56c.png" alt="The Orange Pi extrusion mount with 4 standoffs mounted in the corner insert holes and a screw head in blue on top of each, shown as plain placeholders since neither part is modelled in the catalog">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-parts/opi-landscape-standoffs-full-cefb56a912b0.png" alt="The Orange Pi extrusion mount lying on its long edge with 4 standoffs mounted in the corner insert holes and a screw head in blue on top of each, shown as plain placeholders since neither part is modelled in the catalog">
   <figcaption>The 4 standoffs and their retention screws (blue), drawn as parametric placeholders.</figcaption>
 </figure>
 

@@ -49,14 +49,26 @@ Build the classification channel as a normal [C-channel]({{ '/hardware/assembly/
 
 Fit the Camera & LED insert, then the camera on its extension tube and mount ring, then close the chamber with the dome.
 
-Measured off the Camera & LED insert's own STL: its top face carries two separate hole patterns, both visible in the render below. Four countersunk M3 holes (3.4 mm clearance) sit in a 46 mm square around the central opening — most likely the camera board's own mounting holes. A second, outer ring of 10 larger holes (10 mm, no thread, 65 mm radius, 36° apart) runs around the rim — almost certainly what fastens the insert to the rest of the chamber, but nothing records what goes through them or what they thread into. The Classification dome itself has no screw holes anywhere in its own geometry — how it closes onto the rest of the chamber (screwed, clipped, or just resting in place) isn't recorded either.
+Measured off the STLs. The Camera & LED insert's top face carries two hole patterns, both visible in the first render below: 4 countersunk M3 holes (3.4 mm clearance) in a 46 mm square around the central opening, and an outer ring of 10 larger holes (10 mm, no thread, 65 mm radius, 36° apart). The inner 46 mm square repeats on the camera extension's mount ring at the same 3.4-3.5 mm size — that's the real match, so the insert's 4 holes are the mount-ring joint, M3 like everything else on this page, not the camera board.
 
-<figure>
-  <img class="doc-figure" src="https://assets.basically.website/sorter-parts/insert-iso-full-e4b396fc8c88.png" alt="Angled render of the camera and LED insert's top face, showing a ring of 10 large holes around the rim and 4 smaller countersunk holes around a central square opening">
-  <figcaption>The insert's top face: 10 larger holes around the rim (what it mounts to the chamber with), 4 smaller countersunk ones around the central opening (likely the camera board). Rendered from the part geometry, not from a build.</figcaption>
-</figure>
+The camera board itself mounts to the **camera extension**, not the insert. It's a bracket with two posts, each carrying a hole near the top and near the bottom — 4 holes total, 2.6 mm, sized for the **M2** the IMX415 module's own datasheet calls for (barthel confirmed 2.6 mm is right and gave the module's board thickness, 1.57 mm). The board sits on the top pair. Working from those two numbers: 1.57 mm of board, plus reaching into an 8 mm-deep post with nothing narrower or countersunk in the way — a straight 2.6 mm clearance bore the whole depth, so whatever it threads into (nut or insert) isn't visible in the geometry. {% include fastener.html size="M2" variant="socket-button" length="8" %} clears the board and reaches well into the post without bottoming out before the head seats. Confirm against the physical board which of nut/insert/self-tap it actually is; that's the one thing the STL can't show.
 
-**Not recorded:** what fastens through the outer ring and what it threads into, what screw the inner 4 holes take, how the extension tube and mount ring join, and how the dome closes the chamber. <span class="fastener-todo">fastener not recorded</span>
+**M2 is new to this catalog.** Every other screw on the site is M3, M4, M5 or M6 — there's no M2 part id yet, so this one isn't in the parts list above and doesn't have a legend colour (it renders grey). Add `scr-m2-8-shcs` (or whichever head style is correct) when this is confirmed.
+
+The Classification dome itself has no screw holes anywhere in its own geometry — how it closes onto the rest of the chamber (screwed, clipped, or just resting in place) isn't recorded either.
+
+<div class="img-row">
+  <figure>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-parts/insert-iso-full-e4b396fc8c88.png" alt="Angled render of the camera and LED insert's top face, showing a ring of 10 large holes around the rim and 4 smaller countersunk holes around a central square opening">
+    <figcaption>The insert's top face: 10 holes around the rim (mounts to the chamber), 4 smaller ones around the central opening (matches the extension mount, M3). Rendered from the part geometry, not from a build.</figcaption>
+  </figure>
+  <figure>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-parts/extension-iso-full-8d1f0c51606f.png" alt="Angled render of the camera extension bracket, showing two posts each with a mounting hole">
+    <figcaption>The camera extension: two posts, a hole near the top and bottom of each. The top pair takes the M2 camera-board screws. Rendered from the part geometry, not from a build.</figcaption>
+  </figure>
+</div>
+
+**Not recorded:** what fastens through the insert's outer ring and what it threads into, whether the extension's M2 holes are a nut, an insert, or self-tap, how the extension's bottom pair joins the mount ring, and how the dome closes the chamber. <span class="fastener-todo">fastener not recorded</span>
 
 {% include step.html n="3" title="Light the chamber" %}
 

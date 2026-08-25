@@ -74,8 +74,8 @@ Slide the C-Layer vertical support (the vertical aluminum extrusion) down throug
 </figure>
 
 <figure>
-  <img class="doc-figure" src="https://assets.basically.website/sorter-parts/final2-hires-full-876c97670620.png" alt="Vertical cross-section through the assembled bracket, showing the side bracket and bottom-vertical tube's two walls in tan and the aluminum extrusion running through the bore in a hatched diamond, cut off top and bottom">
-  <figcaption>The bracket in section, cut through the centre of the bore. Tan is the two printed parts (side bracket above, bottom-vertical tube below); the hatched strip is the extrusion, which continues past both cut ends. Drawn from the part geometry, not from a build.</figcaption>
+  <img class="doc-figure" src="https://assets.basically.website/sorter-parts/final3-hires-full-36c5c6d15e18.png" alt="Vertical cross-section through the bracket: the collar (side bracket and cover) at the bottom, the bottom-vertical tube at the top, and the extrusion running through both as a hatched strip from its real start to its real end, with a dashed line marking each screw">
+  <figcaption>The bracket in section, cut through the centre of the bore. Tan is the two printed parts — the collar (side bracket and cover) at the bottom, the bottom-vertical tube sleeving the upper part of the extrusion. The hatched strip is the extrusion at its real length, start to end; the dashed lines mark the clamp screw (lower) and the flange screw that joins to the layer above (upper, not shown). Drawn from the part geometry, not from a build.</figcaption>
 </figure>
 
 {% include step.html n="3" title="Screw the bracket down onto the extrusion" %}

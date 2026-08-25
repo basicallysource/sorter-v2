@@ -1387,6 +1387,42 @@
       ]
     },
     {
+      "id": "cage-top-hex-corner",
+      "uid": "o732",
+      "name": "Cable cage hex corner (printed)",
+      "description": "One corner segment of the 3D-printed cable cage hexagon. 6 build the bottom plate; 4 plus one cage motor piece build the top plate.",
+      "internal_notes": "Community 3D-printed alternative to the laser-cut cable-cage-top/-bottom hexagon plates, from Alec's own OnShape design (shared 2026-07-16 in the general build thread, see cable cage 3d-print status). Assembly: bolt segments together with M3 nuts and bolts as a temporary clamp, glue the joints, then remove the M3 hardware once the glue is dry. Not wired into quantities -- this is an alternative fabrication route for cable-cage-top/-bottom, not an extra part on the machine; the laser-cut plates stay the counted default. 6x builds cable-cage-bottom; 4x (with 1x cage-top-motor-piece) builds cable-cage-top.",
+      "version": "1",
+      "created_at": "2026-08-24",
+      "updated_at": "2026-08-24",
+      "quantities": {},
+      "assembly": "cable-cage",
+      "stl_hash": "92c8342eaa282d1c6b25d83f73d179f545426072198f544d1035306c8380dabc",
+      "color": {
+        "role": "frame"
+      },
+      "optional": true,
+      "support": false
+    },
+    {
+      "id": "cage-top-motor-piece",
+      "uid": "64tz",
+      "name": "Cable cage motor piece (printed)",
+      "description": "The chute-motor segment of the 3D-printed cable cage top plate. 1 needed, alongside 4 hex corner pieces.",
+      "internal_notes": "Community 3D-printed alternative to the laser-cut cable-cage-top/-bottom hexagon plates, from Alec's own OnShape design (shared 2026-07-16 in the general build thread, see cable cage 3d-print status). Assembly: bolt segments together with M3 nuts and bolts as a temporary clamp, glue the joints, then remove the M3 hardware once the glue is dry. Not wired into quantities -- this is an alternative fabrication route for cable-cage-top/-bottom, not an extra part on the machine; the laser-cut plates stay the counted default. Used only in the top plate build: 4x cage-top-hex-corner + 1x this piece.",
+      "version": "1",
+      "created_at": "2026-08-24",
+      "updated_at": "2026-08-24",
+      "quantities": {},
+      "assembly": "cable-cage",
+      "stl_hash": "c4d97fa88f75337acfb5fd9e1ae88b761b87a19be409d3ef0213d432187b77ec",
+      "color": {
+        "role": "frame"
+      },
+      "optional": true,
+      "support": false
+    },
+    {
       "id": "ribbon-cable-clamp",
       "uid": "nf0n",
       "name": "Ribbon cable clamp",
@@ -5380,6 +5416,19 @@
         "blurb": "A regular hexagon, same outline as the bottom plate. Lays out from a rectangle with a tape measure: the centre is one big Ø177 mm drilled-and-jigsawed hole, six mounting holes sit on a 175 mm-radius bolt circle, and a small keyed notch is drilled at each end.",
         "stock": "325 × 375 mm rectangle (12 13/16″ × 14 3/4″)",
         "tools": "jigsaw · drill · tape measure"
+      },
+      "printed": {
+        "blurb": "A community 3D-printed alternative from Alec, in six/five segments (a Bambu A1's bed can't fit the whole hexagon in one piece). Bolt the segments together with M3 nuts and bolts as a clamp, glue the joints, then remove the M3 hardware once the glue has cured.",
+        "components": [
+          {
+            "part": "cage-top-hex-corner",
+            "qty": 4
+          },
+          {
+            "part": "cage-top-motor-piece",
+            "qty": 1
+          }
+        ]
       }
     },
     {
@@ -5404,6 +5453,15 @@
         "blurb": "The same regular-hexagon outline as the top cage, but simpler: one big Ø177 mm centre hole and six Ø5.5 mm mounting holes on a 175 mm-radius bolt circle. No small holes, no notch.",
         "stock": "325 × 375 mm rectangle (12 13/16″ × 14 3/4″)",
         "tools": "jigsaw · drill · tape measure"
+      },
+      "printed": {
+        "blurb": "A community 3D-printed alternative from Alec, in six/five segments (a Bambu A1's bed can't fit the whole hexagon in one piece). Bolt the segments together with M3 nuts and bolts as a clamp, glue the joints, then remove the M3 hardware once the glue has cured.",
+        "components": [
+          {
+            "part": "cage-top-hex-corner",
+            "qty": 6
+          }
+        ]
       }
     },
     {

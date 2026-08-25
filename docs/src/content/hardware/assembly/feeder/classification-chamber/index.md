@@ -28,6 +28,8 @@ parts_needed:
     qty: 1
   - part: cam-imx415
     qty: 1
+  - part: scr-m2-8-shcs
+    qty: 4
 ---
 
 The classification chamber is where a part is lit and photographed on its way through. It sits on the fourth [C-channel]({{ '/hardware/assembly/feeder/c-channel/' | relative_url }}), the classification-channel one.
@@ -53,7 +55,7 @@ Measured off the STLs. The Camera & LED insert's top face carries two hole patte
 
 The camera board itself mounts to the **camera extension**, not the insert. It's a bracket with two posts, each carrying a hole near the top and near the bottom — 4 holes total, 2.6 mm, sized for the **M2** the IMX415 module's own datasheet calls for (barthel confirmed 2.6 mm is right, gave the module's board thickness — 1.57 mm — and confirmed the joint is self-tapping, straight into the post). Working from those numbers: 1.57 mm of board, then self-tapping the rest of the way into an 8 mm-deep post — {% include fastener.html size="M2" variant="socket-button" length="8" %} reaches most of the way into the post for a solid thread bite without quite bottoming out before the head seats.
 
-**M2 is new to this catalog.** Every other screw on the site is M3, M4, M5 or M6 — there's no M2 part id yet, so this one isn't in the parts list above and doesn't have a legend colour (it renders grey). Add `scr-m2-8-shcs` (or whichever head style is correct) when this is confirmed.
+**M2 is new to this catalog** — every other screw on the site is M3, M4, M5 or M6, and `scr-m2-8-shcs` is the first M2 part added. It doesn't have a legend colour yet (renders grey above), since the swatch list is hard-coded to the four existing sizes.
 
 The Classification dome itself has no screw holes anywhere in its own geometry — how it closes onto the rest of the chamber (screwed, clipped, or just resting in place) isn't recorded either.
 

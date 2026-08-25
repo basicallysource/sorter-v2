@@ -927,8 +927,12 @@
 					"qty": 1
 				},
 				{
+					"part": "scr-m2-8-shcs",
+					"qty": 4
+				},
+				{
 					"part": "scr-m3-tbd",
-					"qty": 8
+					"qty": 4
 				}
 			]
 		},
@@ -14742,6 +14746,46 @@
 			"docs_page": null,
 			"conflicts": null,
 			"image": "https://assets.basically.website/sorter-parts/hardware-screws-countersunk-full-faf0edbe3324.jpg"
+		},
+		{
+			"id": "scr-m2-8-shcs",
+			"uid": "iwk6",
+			"kind": "cots",
+			"cots": {
+				"type": "screw",
+				"size": "M2",
+				"variant": "socket",
+				"length_mm": 8
+			},
+			"name": "M2 \u00d7 8 mm socket/button head",
+			"category": "Screws",
+			"description": "Self-taps the IMX415 classification camera board to the camera extension's printed post. 4 per module, no insert. May also fit the OV9732 overhead camera mount once that gets a real bracket (sorter-v2#426), not confirmed.",
+			"note": "First M2 in the catalog -- every other screw here is M3/M4/M5/M6. Length worked from what barthel gave directly (module datasheet: M2, board 1.57 mm thick, self-tapping) plus what's measured off the camera-extension STL: 4 holes, 2.6 mm, on a two-post bracket, each post an 8 mm-deep constant-diameter self-tap bore. 8 mm clears the board and uses most of the post's depth for thread engagement without bottoming out before the head seats.",
+			"created_at": "2026-08-25",
+			"updated_at": "2026-08-25",
+			"attributes": [
+				{
+					"label": "Thread",
+					"value": "M2"
+				},
+				{
+					"label": "Length",
+					"value": "8 mm"
+				},
+				{
+					"label": "Head",
+					"value": "Socket or button head"
+				}
+			],
+			"sheet_qty": null,
+			"sheet_qty_text": null,
+			"stock": null,
+			"sourcing": null,
+			"alternative": "Socket or button head",
+			"caption": null,
+			"docs_page": null,
+			"conflicts": null,
+			"image": null
 		},
 		{
 			"id": "scr-m3-8-shcs",

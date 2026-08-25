@@ -83,21 +83,24 @@ Every pocket is the same one the rest of the chute uses: Ø4.2 mm, blind, 5.7 mm
 
 The servo adapter takes no inserts, but assemble it here anyway, before the bracket steps:
 
-<p><strong>Servo adapter:</strong> the servo-side and flap-side plates clamp the MG995 Servo Horn between them. The horn ships with the servo, it isn't printed. Lay it against the servo-side half, bring the flap-side half down over it, and drive 4 {% include fastener.html size="M3" variant="countersunk" length="8" %} screws through the flap side (it's the half with the visible screw holes) into the servo side. No heat inserts, the screws cut their own thread in the printed plastic.</p>
-
-<div class="img-row">
-  <figure>
-    <img class="doc-figure" src="https://assets.basically.website/sorter-parts/mg995-servo-horn-square-full-150991b8cde4.png" alt="The MG995 Servo Horn, a two-arm splined servo arm that ships with the MG995 servo">
-    <figcaption>The MG995 Servo Horn. Clasped between the two adapter halves before they're screwed together.</figcaption>
-  </figure>
-  <figure>
-    <img class="doc-figure" src="https://assets.basically.website/sorter-parts/servo-adapter-servo-side-recess-white-full-32262f257d09.png" alt="The servo-side adapter half, rotated to show the recess that the MG995 Servo Horn seats into, with the four screw pilot holes around it">
-    <figcaption>Servo-side half. The recess the horn seats into, plus the 4 pilot holes the screws thread into.</figcaption>
-  </figure>
-  <figure>
-    <img class="doc-figure" src="https://assets.basically.website/sorter-parts/servo-adapter-flap-side-door-face-full-ec3b4136d249.png" alt="The flap-side adapter half, rotated 180 degrees from the screw side to show the hexagonal boss and keyed bore that the chute door's shaft inserts into">
-    <figcaption>Flap-side half, other face. The hex boss the chute door's shaft inserts into.</figcaption>
-  </figure>
+<div class="prep-item">
+  <div class="prep-item-body">
+    <p><strong>Servo adapter:</strong> the servo-side and flap-side plates clamp the MG995 Servo Horn between them. The horn ships with the servo, it isn't printed. Lay it against the servo-side half, bring the flap-side half down over it, and drive 4 {% include fastener.html size="M3" variant="countersunk" length="8" %} screws through the flap side (it's the half with the visible screw holes) into the servo side. No heat inserts, the screws cut their own thread in the printed plastic.</p>
+  </div>
+  <div class="prep-item-figure prep-item-figure-split">
+    <figure>
+      <img class="doc-figure" src="https://assets.basically.website/sorter-parts/mg995-servo-horn-square-full-150991b8cde4.png" alt="The MG995 Servo Horn, a two-arm splined servo arm that ships with the MG995 servo">
+      <figcaption>The MG995 Servo Horn. Clasped between the two adapter halves before they're screwed together.</figcaption>
+    </figure>
+    <figure>
+      <img class="doc-figure" src="https://assets.basically.website/sorter-parts/servo-adapter-servo-side-recess-white-full-32262f257d09.png" alt="The servo-side adapter half, rotated to show the recess that the MG995 Servo Horn seats into, with the four screw pilot holes around it">
+      <figcaption>Servo-side half. The recess the horn seats into, plus the 4 pilot holes the screws thread into.</figcaption>
+    </figure>
+    <figure>
+      <img class="doc-figure" src="https://assets.basically.website/sorter-parts/servo-adapter-flap-side-door-face-full-ec3b4136d249.png" alt="The flap-side adapter half, rotated 180 degrees from the screw side to show the hexagonal boss and keyed bore that the chute door's shaft inserts into">
+      <figcaption>Flap-side half, other face. The hex boss the chute door's shaft inserts into.</figcaption>
+    </figure>
+  </div>
 </div>
 
 <div class="prep-item">

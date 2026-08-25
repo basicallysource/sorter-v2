@@ -12,11 +12,12 @@ contributors: [spencer]
 warning: >-
   **AI-generated first draft.** Written from the machine assembly tree in the [parts
   calculator](https://parts-calculator.basically.website/assembly?focus=orange-pi-mount), not
-  from an actual build. The parts and quantities are real, but the printed bracket the Pi stands
-  off is **not in the parts registry**, and no step here has been checked against a machine. The
-  steps below are placeholders with the gaps marked.
+  from an actual build. The parts and quantities are real, but no step here has been checked
+  against a machine. The steps below are placeholders with the gaps marked.
 parts_needed:
   - part: sbc-orange-pi-5
+    qty: 1
+  - part: orange-pi-extrusion-mount
     qty: 1
   - part: standoff-m3-10mm
     qty: 4
@@ -34,21 +35,17 @@ The fasteners and quantities in the parts list come from the parts calculator an
 
 One per machine. Which Orange Pi 5 to buy, how much RAM and storage it needs, the WiFi module, the USB hub and cooling are all on the [Orange Pi 5]({{ '/hardware/orange-pi-5/' | relative_url }}) page. This page is only about bolting it to the machine, and it is the same shape as the [control board housing]({{ '/hardware/electronics/installation/control-board-housing/' | relative_url }}): 4 inserts, 4 standoffs, 4 M3 screws, 2 M5 into the frame.
 
-<div class="callout callout-warning">
-  <span class="callout-icon" aria-hidden="true">⚠</span>
-  <p><b>The bracket is missing from the parts registry.</b> The calculator records the Pi, the standoffs, the inserts and the screws, but not the printed part they all attach to. There is no STL and no render for it, so steps 1 and 2 below cannot be followed as written until somebody adds it.</p>
-</div>
-
 {% include step.html n="1" title="Preparation" %}
 
 Before assembling anything, press the heat inserts into the parts that take them, while the parts are still loose. See [installing heat inserts]({{ '/hardware/helpers/heat-inserts/' | relative_url }}) for the technique.
 
 <div class="prep-item">
   <div class="prep-item-body">
-    <p><strong>Orange Pi bracket:</strong> 4 × M3, one per standoff</p>
+    <p><strong>Orange Pi extrusion mount:</strong> 4 × M3, one per standoff</p>
   </div>
   <figure class="prep-item-figure">
-    <div class="img-placeholder">Image coming</div>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-parts/opi-iso-full-5c4a45070801.png" alt="The Orange Pi extrusion mount, an iso view of the flat printed bracket showing its central cutout, the 4 M3 standoff holes along the middle rail, and the 2 larger M5 holes at each end for mounting to the extrusion">
+    <figcaption>The bracket. 4 M3 inserts along the middle rail for the standoffs, 2 larger M5 holes at each end for the frame.</figcaption>
   </figure>
 </div>
 
@@ -64,7 +61,10 @@ Neither the head type nor the length of those screws is recorded: <span class="f
 
 Whether the Pi's heatsink or fan clears the standoffs is not recorded either.
 
-<div class="img-placeholder">Image coming</div>
+<figure>
+  <img class="doc-figure" src="https://assets.basically.website/sorter-parts/opi-top-full-b540d66f03fa.png" alt="The Orange Pi extrusion mount seen from directly above, showing the standoff face with its 4 M3 holes along the middle rail and the central cutout">
+  <figcaption>The standoff face, straight on. The Pi itself isn't modelled in the catalog, so this shows the bracket only.</figcaption>
+</figure>
 
 {% include step.html n="3" title="Bolt the mount to the frame" %}
 

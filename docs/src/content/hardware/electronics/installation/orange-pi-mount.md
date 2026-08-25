@@ -44,8 +44,8 @@ Before assembling anything, press the heat inserts into the parts that take them
     <p><strong>Orange Pi extrusion mount:</strong> 4 × M3, one per standoff</p>
   </div>
   <figure class="prep-item-figure">
-    <img class="doc-figure" src="https://assets.basically.website/sorter-parts/opi-top-final-ringed-full-f6c52bec2a4a.png" alt="The Orange Pi extrusion mount from directly above, with the 4 M3 standoff insert holes on the middle rail circled in red, and the 2 larger M5 frame holes visible at each end">
-    <figcaption>The bracket, insert locations ringed. 4 M3 along the middle rail for the standoffs, 2 larger M5 holes at each end for the frame (no insert, plain clearance).</figcaption>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-parts/opi-ring-near-full-f66229fc5a95.png" alt="The Orange Pi extrusion mount at a slight angle off vertical, with two of the four M3 standoff insert holes circled in red, each showing a real shadowed hole rather than a flat mark">
+    <figcaption>Two of the 4 insert holes, ringed, angled enough for the shadow to actually show a hole. The other 2 mirror these on the far side of the same rail — a straight top-down shot marks the spot but flattens out the shadow that makes it read as a hole at all.</figcaption>
   </figure>
 </div>
 

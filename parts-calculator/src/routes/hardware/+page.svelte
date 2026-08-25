@@ -80,6 +80,14 @@
 		filtering ? search(filter, HARDWARE, hardwareSearchable).map((r) => r.item) : HARDWARE
 	);
 
+	// Screws, nuts and heat inserts read as a size chart, so within these
+	// categories rows go by thread size then length ascending (M2x8 before
+	// M3x6 before M3x12) instead of manifest order.
+	const SIZE_SORTED_CATEGORIES = new Set(['Screws', 'Nuts', 'Heat inserts']);
+	const sizeNum = (h: Hardware) => parseInt(h.cots?.size?.replace(/\D/g, '') ?? '', 10) || 0;
+	const bySizeThenLength = (a: Hardware, b: Hardware) =>
+		sizeNum(a) - sizeNum(b) || (a.cots?.length_mm ?? 0) - (b.cots?.length_mm ?? 0);
+
 	// categories in manifest order, preserving first-seen order
 	const groups = $derived.by(() => {
 		const by = new Map<string, Hardware[]>();
@@ -87,6 +95,9 @@
 			const cat = h.category ?? 'Other';
 			if (!by.has(cat)) by.set(cat, []);
 			by.get(cat)!.push(h);
+		}
+		for (const [cat, items] of by) {
+			if (SIZE_SORTED_CATEGORIES.has(cat)) items.sort(bySizeThenLength);
 		}
 		return [...by.entries()];
 	});

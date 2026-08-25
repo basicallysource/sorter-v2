@@ -5887,6 +5887,10 @@
         {
           "part": "scr-m4-6-cs",
           "qty": 4
+        },
+        {
+          "part": "scr-m5-12-shcs",
+          "qty": 2
         }
       ],
       "candidates": [
@@ -6543,6 +6547,10 @@
         {
           "part": "scr-m3-12-bhcs",
           "qty": 4
+        },
+        {
+          "part": "scr-m5-16-shcs",
+          "qty": 2
         }
       ],
       "joining": [
@@ -6659,6 +6667,10 @@
         {
           "part": "fan-40mm-24v",
           "qty": 1
+        },
+        {
+          "part": "scr-m5-12-shcs",
+          "qty": 2
         }
       ],
       "images": [
@@ -6674,7 +6686,7 @@
       "uid": "lbrp",
       "version": "1",
       "name": "Electronics",
-      "description": "The three boxes that bolt to the frame: the PSU, the control board, and the Orange Pi. Each takes 2 × [[hw:scr-m5-shcs-tbd]] — nobody has measured the length yet.",
+      "description": "The three boxes that bolt to the frame: the PSU, the control board, and the Orange Pi.",
       "docs": "/hardware/electronics/installation/",
       "status": "partial",
       "lines": [
@@ -6689,10 +6701,6 @@
         {
           "assembly": "orange-pi-mount",
           "qty": 1
-        },
-        {
-          "part": "scr-m5-shcs-tbd",
-          "qty": 6
         }
       ]
     },

@@ -66,7 +66,7 @@ Screw the 4 M3 standoffs into the inserts. Sit the Pi on them and fasten it down
 
 {% include step.html n="3" title="Bolt the mount to the frame" %}
 
-The mount hangs off the 2020 frame on 2 {% include fastener.html size="M5" variant="socket-button" length="12" %} screws, the same as the [PSU box]({{ '/hardware/electronics/installation/psu-box/' | relative_url }}) and the [control board housing]({{ '/hardware/electronics/installation/control-board-housing/' | relative_url }}).
+The mount hangs off the 2020 frame on 2 {% include fastener.html size="M5" variant="socket-button" length="12" %} screws.
 
 Which extrusion it goes on, and in which orientation, is not written down. The top-down layout photo on the [installation overview]({{ '/hardware/electronics/installation/' | relative_url }}) is the only record.
 

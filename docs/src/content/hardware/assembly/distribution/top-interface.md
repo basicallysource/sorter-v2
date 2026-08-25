@@ -40,6 +40,10 @@ parts_needed:
     qty: 1
   - part: interface-idler-gear
     qty: 1
+  - part: chute-stepper-idler-bearing-retainer-outer
+    qty: 1
+  - part: chute-stepper-idler-bearing-retainer-inner
+    qty: 1
   - part: interface-cage-bracket
     qty: 5
   - part: interface-cage-bracket-cable
@@ -81,7 +85,7 @@ parts_needed:
   - part: hsi-m5
     qty: 24
   - part: hsi-m3
-    qty: 12
+    qty: 16
   - part: scr-m5-35-fhcs
     qty: 6
   - part: scr-m5-30-shcs
@@ -107,7 +111,7 @@ parts_needed:
   - part: scr-m3-16-shcs
     qty: 2
   - part: scr-m3-8-cs
-    qty: 5
+    qty: 9
   - part: scr-m3-6-cs
     qty: 1
   - part: tnut-m5-2020
@@ -115,8 +119,6 @@ parts_needed:
   - part: nut-m5
     qty: 6
   - part: nut-m3
-    qty: 1
-  - part: washer-m3-15
     qty: 1
 ---
 
@@ -212,7 +214,27 @@ Before assembling anything, press the heat inserts into the parts that take them
   </figure>
 </div>
 
-Printed parts elsewhere in the machine take inserts too. Each assembly page lists its own in a **Preparation** step like this one, so press them in as you reach that page.
+<div class="prep-item">
+  <div class="prep-item-body">
+    <p><strong>Interface idler gear:</strong> 4 × M3, around the bearing pocket on the underside</p>
+    <p>Build the bearing sub-assembly now too, while the gear is still loose — it is easier off the bracket than on it. Push a 608 2RS bearing into the pocket, fit the Chute stepper idler gear bearing retainer (inner) over the bearing's bore, then the Chute stepper idler gear bearing retainer (outer) over that, seated flush in the recess with its 4 holes lined up on the gear's 4 inserts. Secure it with 4 × {% include fastener.html size="M3" variant="countersunk" length="8" %} screws, the same screw the Interface spur gear uses a few lines up. See step 9 for how the idler gear then goes onto the bracket.</p>
+    <p>The exploded and assembled views below are reconstructions built from the STL geometry, not a CAD export — there is no assembly photo of the retainer caps yet. The photo of the bearing itself is real, from before the caps existed.</p>
+  </div>
+  <div class="prep-item-figure prep-item-figure-split">
+    <figure>
+      <img class="doc-figure" src="https://assets.basically.website/sorter-parts/idler-exploded-3color-full-227310630981.png" alt="An exploded view from below of the idler gear stack in build order: the grey gear, the bearing highlighted in blue, and the inner and outer bearing retainer caps highlighted in red">
+      <figcaption>Exploded, in build order: gear, bearing, inner cap, outer ring.</figcaption>
+    </figure>
+    <figure>
+      <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-top-interface-step9-idler-gear-bearing-w1600-2fe924b61150.jpg" alt="608 2RS bearing pressed into the centre of the grey Interface idler gear, from before the bearing retainer caps existed">
+      <figcaption>608 2RS bearing pressed into the pocket. Real photo, predates the retainer caps.</figcaption>
+    </figure>
+    <figure>
+      <img class="doc-figure" src="https://assets.basically.website/sorter-parts/idler-assembled-3color-full-7de4573e7301.png" alt="The Interface idler gear seen from below at an angle, assembled, with the bearing highlighted in blue showing through the centre and the outer and inner bearing retainer caps highlighted in red, the outer retainer's four countersunk screw holes visible">
+      <figcaption>Assembled: bearing pocket recess with both retainer caps fitted.</figcaption>
+    </figure>
+  </div>
+</div>
 
 {% include step.html n="2" title="Attach the interface ribs to the upper fixed section" %}
 
@@ -395,13 +417,16 @@ Loosen the screws attaching the Limit switch housing to the extrusion. Slide the
     loading="lazy"></iframe>
 </div>
 
+<div class="callout callout-warning">
+  <span class="callout-icon" aria-hidden="true">⚠</span>
+  <p>This video predates the idler gear's bearing retainer caps. It shows the idler gear built the old way, with a loose washer under the M3 × 35 screw instead of the two printed caps from step 1.</p>
+</div>
+
 Slide the prepared [Timing pulley]({{ '/hardware/helpers/pulley-gear-mod/' | relative_url }}) over the shaft of the NEMA 23 stepper motor and tighten the two worm screws on its side. Slide the Interface spur gear onto the Timing pulley and secure it with five {% include fastener.html size="M3" variant="countersunk" length="8" %} screws, half tapped into the Interface spur gear and half bracing against the Timing pulley.
 
-Push a 608 2RS bearing into the Interface idler gear.
+Push the prepared Interface idler gear — bearing, inner retainer cap, and outer retainer already fitted, see step 1 — onto the Interface NEMA 23 bracket with the bearing facing outwards.
 
-Push the idler gear onto the Interface NEMA 23 bracket with the bearing facing outwards.
-
-Slide an M3 × 15 mm washer onto an {% include fastener.html size="M3" variant="flat" length="35" %} screw, then drive that screw through the bearing and into the bracket. The washer sits between the screw head and the outer face of the bearing, spanning its 8 mm bore: the screw head on its own is narrower than the bore and drops down inside it, so the washer is what actually holds the idler gear onto the bracket. Tighten until the washer is seated, then check that the idler gear still spins freely.
+Drive an {% include fastener.html size="M3" variant="flat" length="35" %} screw through the middle of the gear and into the bracket. The inner retainer cap sits between the screw head and the bearing, spanning the 8 mm bore, so the screw head on its own (narrower than the bore) has something to clamp against. Tighten until it's seated, then check that the idler gear still spins freely.
 
 The head has to be a low one here. A socket or button head stands proud enough that the Limit switch hammer can catch on it as the chute sweeps past, so use a flat (pancake) head, or a pan head if that is what you have. It is the same screw as the one on the Cable clamp in step 11, so buy two of the one head type.
 
@@ -417,10 +442,6 @@ At this point the chute should still rotate, but you will now feel resistance fr
   <figure>
     <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-top-interface-step9-interface-spur-gear-w1600-7dcec28e692a.jpg" alt="Grey Interface spur gear secured over the timing pulley with five countersunk screws">
     <figcaption>Interface spur gear secured over the Timing pulley with five M3 × 8 mm screws.</figcaption>
-  </figure>
-  <figure>
-    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-top-interface-step9-idler-gear-bearing-w1600-2fe924b61150.jpg" alt="608 2RS bearing pressed into the centre of the grey Interface idler gear">
-    <figcaption>608 2RS bearing pressed into the Interface idler gear.</figcaption>
   </figure>
 </div>
 

@@ -11,7 +11,7 @@ author: barthel
 contributors: [spencer]
 warning: >-
   **Mixed.** The two control board pages come from a real build. The PSU box, Orange Pi mount
-  and Pico headers pages are AI-generated first drafts written from the [parts
+  and Soldering Pico headers pages are AI-generated first drafts written from the [parts
   calculator](https://parts-calculator.basically.website/assembly), not from a build: the parts
   are real, the steps are not checked. Gaps are marked in place. Correct them as you build.
 ---
@@ -25,7 +25,7 @@ The PSU, the control board and the Orange Pi each live in their own mount, and a
   <figcaption>Where everything sits, top-down. This photo is currently the only record of the placement.</figcaption>
 </figure>
 
-1. **[Pico headers]({{ '/hardware/electronics/installation/pico-headers/' | relative_url }})**: soldering the header pins so the Pico can seat in the control board. First, while the board is still loose.
+1. **[Soldering Pico headers]({{ '/hardware/electronics/installation/pico-headers/' | relative_url }})**: soldering the header pins so the Pico can seat in the control board. First, while the board is still loose.
 2. **[PSU box]({{ '/hardware/electronics/installation/psu-box/' | relative_url }})**: the printed enclosure around the Mean Well LRS-350-24.
 3. **[Preparing the control board]({{ '/hardware/electronics/installation/control-board-prep/' | relative_url }})**: the five stepper drivers, the Pico, and the jumpers that address the drivers.
 4. **[Control board housing]({{ '/hardware/electronics/installation/control-board-housing/' | relative_url }})**: the printed housing the board closes into, with its fan.

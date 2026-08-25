@@ -82,8 +82,6 @@ sections:
                 url: /hardware/electronics/installation/control-board-housing/
               - title: Orange Pi mount
                 url: /hardware/electronics/installation/orange-pi-mount/
-              - title: Pico headers
-                url: /hardware/electronics/installation/pico-headers/
           - title: Stepper connectors
             url: /hardware/electronics/steppers/
           - title: Order spec
@@ -101,6 +99,8 @@ sections:
             url: /hardware/helpers/pulley-gear-mod/
           - title: Installing heat inserts
             url: /hardware/helpers/heat-inserts/
+          - title: Soldering Pico headers
+            url: /hardware/electronics/installation/pico-headers/
       - title: Parts
         url: /hardware/parts/
         children:

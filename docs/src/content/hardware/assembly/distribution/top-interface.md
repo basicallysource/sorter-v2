@@ -222,12 +222,12 @@ Before assembling anything, press the heat inserts into the parts that take them
   </div>
   <div class="prep-item-figure prep-item-figure-split">
     <figure>
-      <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-top-interface-step9-idler-gear-bearing-w1600-2fe924b61150.jpg" alt="608 2RS bearing pressed into the centre of the grey Interface idler gear, from before the bearing retainer caps existed">
-      <figcaption>608 2RS bearing pressed into the pocket. Real photo, predates the retainer caps.</figcaption>
-    </figure>
-    <figure>
       <img class="doc-figure" src="https://assets.basically.website/sorter-parts/idler-exploded-3color-full-227310630981.png" alt="An exploded view from below of the idler gear stack in build order: the grey gear, the bearing highlighted in blue, and the inner and outer bearing retainer caps highlighted in red">
       <figcaption>Exploded, in build order: gear, bearing, inner cap, outer ring.</figcaption>
+    </figure>
+    <figure>
+      <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-top-interface-step9-idler-gear-bearing-w1600-2fe924b61150.jpg" alt="608 2RS bearing pressed into the centre of the grey Interface idler gear, from before the bearing retainer caps existed">
+      <figcaption>608 2RS bearing pressed into the pocket. Real photo, predates the retainer caps.</figcaption>
     </figure>
     <figure>
       <img class="doc-figure" src="https://assets.basically.website/sorter-parts/idler-assembled-3color-full-7de4573e7301.png" alt="The Interface idler gear seen from below at an angle, assembled, with the bearing highlighted in blue showing through the centre and the outer and inner bearing retainer caps highlighted in red, the outer retainer's four countersunk screw holes visible">

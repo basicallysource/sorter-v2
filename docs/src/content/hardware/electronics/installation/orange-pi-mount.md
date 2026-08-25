@@ -44,8 +44,8 @@ Before assembling anything, press the heat inserts into the parts that take them
     <p><strong>Orange Pi extrusion mount:</strong> 4 × M3, one per standoff</p>
   </div>
   <figure class="prep-item-figure">
-    <img class="doc-figure" src="https://assets.basically.website/sorter-parts/opi-ring-near-full-f66229fc5a95.png" alt="The Orange Pi extrusion mount at a slight angle off vertical, with two of the four M3 standoff insert holes circled in red, each showing a real shadowed hole rather than a flat mark">
-    <figcaption>2 of the 4 insert holes, ringed. The other 2 mirror these on the far side of the same rail.</figcaption>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-parts/opi-corners-test-full-84d5deb7769f.png" alt="The Orange Pi extrusion mount at a slight angle off vertical, with all four M3 standoff insert holes circled in red near the four corners of the frame, each showing a real shadowed hole">
+    <figcaption>The 4 insert holes, ringed, near the four corners of the frame.</figcaption>
   </figure>
 </div>
 
@@ -60,7 +60,7 @@ Screw the 4 M3 × 10 mm standoffs into the inserts. Sit the Pi on them and faste
 Whether the Pi's heatsink or fan clears the standoffs is not recorded either.
 
 <figure>
-  <img class="doc-figure" src="https://assets.basically.website/sorter-parts/opi-screws-top2-full-9743aaed8c16.png" alt="The Orange Pi extrusion mount seen from directly above with 4 standoffs mounted in the insert holes on the middle rail and a screw head in blue on top of each, shown as plain placeholders since neither part is modelled in the catalog">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-parts/opi-corners-standoffs-full-840e1699b56c.png" alt="The Orange Pi extrusion mount with 4 standoffs mounted in the corner insert holes and a screw head in blue on top of each, shown as plain placeholders since neither part is modelled in the catalog">
   <figcaption>The 4 standoffs and their retention screws (blue), drawn as parametric placeholders — no standoff or screw STL in the catalog. The Pi itself isn't shown for the same reason.</figcaption>
 </figure>
 

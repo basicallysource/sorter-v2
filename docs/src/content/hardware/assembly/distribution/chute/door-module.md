@@ -83,13 +83,20 @@ Every pocket is the same one the rest of the chute uses: Ø4.2 mm, blind, 5.7 mm
 
 The servo adapter takes no inserts, but assemble it here anyway, before the bracket steps:
 
-<div class="prep-item">
-  <div class="prep-item-body">
-    <p><strong>Servo adapter:</strong> the servo-side and flap-side plates clamp the MG995 Servo Horn between them. The horn ships with the servo, it isn't printed. Lay it against the servo-side half, bring the flap-side half down over it, and drive 4 {% include fastener.html size="M3" variant="countersunk" length="8" %} screws through the flap side (it's the half with the visible screw holes) into the servo side. No heat inserts, the screws cut their own thread in the printed plastic.</p>
-  </div>
-  <figure class="prep-item-figure">
+<p><strong>Servo adapter:</strong> the servo-side and flap-side plates clamp the MG995 Servo Horn between them. The horn ships with the servo, it isn't printed. Lay it against the servo-side half, bring the flap-side half down over it, and drive 4 {% include fastener.html size="M3" variant="countersunk" length="8" %} screws through the flap side (it's the half with the visible screw holes) into the servo side. No heat inserts, the screws cut their own thread in the printed plastic.</p>
+
+<div class="img-row">
+  <figure>
     <img class="doc-figure" src="https://assets.basically.website/sorter-parts/mg995-servo-horn-full-e3eb30ad4de0.png" alt="The MG995 Servo Horn, a two-arm splined servo arm that ships with the MG995 servo">
     <figcaption>The MG995 Servo Horn. Clasped between the two adapter halves before they're screwed together.</figcaption>
+  </figure>
+  <figure>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-parts/servo-adapter-servo-side-recess-full-b4266d52934f.png" alt="The servo-side adapter half, rotated to show the recess that the MG995 Servo Horn seats into, with the four screw pilot holes around it">
+    <figcaption>Servo-side half. The recess the horn seats into, plus the 4 pilot holes the screws thread into.</figcaption>
+  </figure>
+  <figure>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-parts/servo-adapter-flap-side-holes-full-d9bfc444c1c4.png" alt="The flap-side adapter half, showing its four countersunk screw holes and the keyed centre hole">
+    <figcaption>Flap-side half. The 4 countersunk holes the screws pass through, into the servo side.</figcaption>
   </figure>
 </div>
 

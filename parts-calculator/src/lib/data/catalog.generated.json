@@ -1317,7 +1317,7 @@
 			"uid": "cwji",
 			"version": "1",
 			"name": "Chute Stepper Gearing",
-			"description": "The printed drive and idler gearing that transfers motion from the NEMA 23 chute stepper. The idler gear's 608 2RS bearing is retained by two printed caps: [[hw:chute-stepper-idler-bearing-retainer-outer]] bolts over the bearing pocket on 4 \u00d7 [[hw:scr-m3-tbd]] countersunk screws into the gear's own heat inserts, and [[hw:chute-stepper-idler-bearing-retainer-inner]] caps the bore where 1 \u00d7 [[hw:scr-m3-35-bhcs]] still runs through into the bracket. Replaces the loose M3 \u00d7 15 mm washer this joint used to take. The low head on the M3\u00d735 keeps it clear of the limit switch hammer.",
+			"description": "The printed drive and idler gearing that transfers motion from the NEMA 23 chute stepper. The idler gear's 608 2RS bearing is retained by two printed caps: [[hw:chute-stepper-idler-bearing-retainer-outer]] bolts over the bearing pocket on 4 \u00d7 [[hw:scr-m3-8-cs]] into the gear's own heat inserts (the same screw the Interface spur gear uses two lines up), and [[hw:chute-stepper-idler-bearing-retainer-inner]] caps the bore where 1 \u00d7 [[hw:scr-m3-35-bhcs]] still runs through into the bracket. The low head on the M3\u00d735 keeps it clear of the limit switch hammer.",
 			"docs": "/hardware/assembly/distribution/top-interface/",
 			"status": "partial",
 			"lines": [
@@ -1346,7 +1346,7 @@
 					"qty": 1
 				},
 				{
-					"part": "scr-m3-tbd",
+					"part": "scr-m3-8-cs",
 					"qty": 4
 				},
 				{

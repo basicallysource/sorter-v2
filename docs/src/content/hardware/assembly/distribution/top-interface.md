@@ -111,11 +111,9 @@ parts_needed:
   - part: scr-m3-16-shcs
     qty: 2
   - part: scr-m3-8-cs
-    qty: 5
+    qty: 9
   - part: scr-m3-6-cs
     qty: 1
-  - part: scr-m3-tbd
-    qty: 4
   - part: tnut-m5-2020
     qty: 50
   - part: nut-m5
@@ -219,29 +217,21 @@ Before assembling anything, press the heat inserts into the parts that take them
 <div class="prep-item">
   <div class="prep-item-body">
     <p><strong>Interface idler gear:</strong> 4 × M3, around the bearing pocket on the underside</p>
+    <p>Build the bearing sub-assembly now too, while the gear is still loose — it is easier off the bracket than on it. Push a 608 2RS bearing into the pocket, fit the Chute stepper idler gear bearing retainer (inner) over the bearing's bore, then the Chute stepper idler gear bearing retainer (outer) over that, seated flush in the recess with its 4 holes lined up on the gear's 4 inserts. Secure it with 4 × {% include fastener.html size="M3" variant="countersunk" length="8" %} screws, the same screw the Interface spur gear uses a few lines up. See step 9 for how the idler gear then goes onto the bracket.</p>
+  </div>
+  <div class="prep-item-figure prep-item-figure-split">
+    <figure>
+      <img class="doc-figure" src="https://assets.basically.website/sorter-parts/idler-exploded-3color-full-227310630981.png" alt="An exploded view from below of the idler gear stack in build order: the grey gear, the bearing highlighted in blue, and the inner and outer bearing retainer caps highlighted in red">
+      <figcaption>Exploded, in build order: gear, bearing, inner cap, outer ring.</figcaption>
+    </figure>
+    <figure>
+      <img class="doc-figure" src="https://assets.basically.website/sorter-parts/idler-assembled-3color-full-7de4573e7301.png" alt="The Interface idler gear seen from below at an angle, assembled, with the bearing highlighted in blue showing through the centre and the outer and inner bearing retainer caps highlighted in red, the outer retainer's four countersunk screw holes visible">
+      <figcaption>Assembled: bearing pocket recess with both retainer caps fitted.</figcaption>
+    </figure>
   </div>
 </div>
 
-Build the idler gear's bearing sub-assembly now too, while it is still loose — it is easier off the bracket than on it. Push a 608 2RS bearing into the Interface idler gear's pocket. Fit the Chute stepper idler gear bearing retainer (inner) into the middle of the recess, over the bearing's bore. Fit the Chute stepper idler gear bearing retainer (outer) over it, seated flush in the same recess with its 4 holes lined up on the gear's 4 new M3 inserts, and secure it with 4 × <span class="fastener-todo">M3 countersunk, length not recorded</span> screws. This pair of printed caps takes the place of the loose M3 × 15 mm washer this joint used to use; see step 9 for how the idler gear then goes onto the bracket.
-
-<div class="img-row">
-  <figure>
-    <img class="doc-figure" src="https://assets.basically.website/sorter-parts/idler-iso-recess-full-997b8558aae9.png" alt="The Interface idler gear seen from below at an angle, with the bearing pocket recess and the outer and inner bearing retainer caps highlighted in red, their four countersunk screw holes visible">
-    <figcaption>The gear from below: bearing pocket recess with both retainer caps fitted.</figcaption>
-  </figure>
-  <figure>
-    <img class="doc-figure" src="https://assets.basically.website/sorter-parts/idler-from-below-full-41061b3f2bc9.png" alt="The Interface idler gear viewed straight on from underneath, showing the outer bearing retainer ring flush in the gear with its four countersunk screws around the smaller inner retainer cap at the centre">
-    <figcaption>Straight on: the outer retainer's 4 screws around the inner cap.</figcaption>
-  </figure>
-  <figure>
-    <img class="doc-figure" src="https://assets.basically.website/sorter-parts/idler-exploded-recess-full-48b3293e64b8.png" alt="An exploded view from below of the idler gear stack: the gear, the 608 bearing, the inner retainer cap, and the outer retainer ring, in the order they assemble">
-    <figcaption>Exploded, in build order: gear, bearing, inner cap, outer ring.</figcaption>
-  </figure>
-</div>
-
-These three are reconstructions built from the STL geometry, not photos or a CAD export — there is no assembly photo of this joint yet.
-
-Printed parts elsewhere in the machine take inserts too. Each assembly page lists its own in a **Preparation** step like this one, so press them in as you reach that page.
+These are reconstructions built from the STL geometry, not photos or a CAD export — there is no assembly photo of this joint yet.
 
 {% include step.html n="2" title="Attach the interface ribs to the upper fixed section" %}
 
@@ -428,7 +418,7 @@ Slide the prepared [Timing pulley]({{ '/hardware/helpers/pulley-gear-mod/' | rel
 
 Push the prepared Interface idler gear — bearing, inner retainer cap, and outer retainer already fitted, see step 1 — onto the Interface NEMA 23 bracket with the bearing facing outwards.
 
-Drive an {% include fastener.html size="M3" variant="flat" length="35" %} screw through the middle of the gear and into the bracket. The inner retainer cap does the job a loose M3 × 15 mm washer used to: it sits between the screw head and the bearing, spanning the 8 mm bore, so the screw head on its own (narrower than the bore) has something to clamp against. Tighten until it's seated, then check that the idler gear still spins freely.
+Drive an {% include fastener.html size="M3" variant="flat" length="35" %} screw through the middle of the gear and into the bracket. The inner retainer cap sits between the screw head and the bearing, spanning the 8 mm bore, so the screw head on its own (narrower than the bore) has something to clamp against. Tighten until it's seated, then check that the idler gear still spins freely.
 
 The head has to be a low one here. A socket or button head stands proud enough that the Limit switch hammer can catch on it as the chute sweeps past, so use a flat (pancake) head, or a pan head if that is what you have. It is the same screw as the one on the Cable clamp in step 11, so buy two of the one head type.
 

@@ -635,7 +635,7 @@
 			"uid": "irue",
 			"version": "1",
 			"name": "Servo adapter (MG995)",
-			"description": "MG995 servo adapter: servo side + flap side.",
+			"description": "MG995 servo adapter: servo side + flap side, clamping the MG995 Servo Horn (comes with the servo) between them. 4 M3 x 8 countersunk hold the two halves together, no heat inserts.",
 			"docs": "/hardware/assembly/distribution/chute/door-module/",
 			"status": "partial",
 			"lines": [
@@ -646,6 +646,14 @@
 				{
 					"part": "servo-adapter-flap-side",
 					"qty": 1
+				},
+				{
+					"part": "mg995-servo-horn",
+					"qty": 1
+				},
+				{
+					"part": "scr-m3-8-cs",
+					"qty": 4
 				}
 			]
 		},
@@ -1309,7 +1317,7 @@
 			"uid": "cwji",
 			"version": "1",
 			"name": "Chute Stepper Gearing",
-			"description": "The printed drive and idler gearing that transfers motion from the NEMA 23 chute stepper. The idler gear is retained on the bracket by 1 \u00d7 [[hw:scr-m3-35-bhcs]] with a [[hw:washer-m3-15]] under the head, spanning the bearing bore; the low head keeps it clear of the limit switch hammer.",
+			"description": "The printed drive and idler gearing that transfers motion from the NEMA 23 chute stepper. The idler gear's 608 2RS bearing is retained by two printed caps: [[hw:chute-stepper-idler-bearing-retainer-outer]] bolts over the bearing pocket on 4 \u00d7 [[hw:scr-m3-8-cs]] into the gear's own heat inserts (the same screw the Interface spur gear uses two lines up), and [[hw:chute-stepper-idler-bearing-retainer-inner]] caps the bore where 1 \u00d7 [[hw:scr-m3-35-bhcs]] still runs through into the bracket. The low head on the M3\u00d735 keeps it clear of the limit switch hammer.",
 			"docs": "/hardware/assembly/distribution/top-interface/",
 			"status": "partial",
 			"lines": [
@@ -1330,16 +1338,20 @@
 					"qty": 1
 				},
 				{
-					"part": "washer-m3-15",
-					"qty": 1
-				},
-				{
 					"part": "chute-stepper-idler-bearing-retainer-outer",
 					"qty": 1
 				},
 				{
 					"part": "chute-stepper-idler-bearing-retainer-inner",
 					"qty": 1
+				},
+				{
+					"part": "scr-m3-8-cs",
+					"qty": 4
+				},
+				{
+					"part": "hsi-m3",
+					"qty": 4
 				}
 			]
 		},
@@ -14120,6 +14132,263 @@
 					"note": "smaller text"
 				}
 			]
+		},
+		{
+			"id": "cage-top-hex-corner",
+			"uid": "o732",
+			"name": "Cable cage hex corner (printed)",
+			"quantities": {},
+			"assembly": "cable-cage",
+			"folder": null,
+			"variant_group": null,
+			"variant_name": null,
+			"description": "One corner segment of the 3D-printed cable cage hexagon. 6 build the bottom plate; 4 plus one cage motor piece build the top plate.",
+			"version": "1",
+			"created_at": "2026-08-24",
+			"updated_at": "2026-08-24",
+			"versions": [
+				{
+					"version": "1",
+					"uid": "o732",
+					"date": "2026-08-24",
+					"message": "Initial version.",
+					"commit": null
+				}
+			],
+			"attributes": [],
+			"grams": 29.01,
+			"support_grams": 0,
+			"support_used": false,
+			"support_intentional": false,
+			"print_seconds": 2334,
+			"color": {
+				"role": "frame"
+			},
+			"optional": true,
+			"onshape": null,
+			"info": null,
+			"low_tolerance": false,
+			"low_tolerance_note": null,
+			"layer_scope": "all",
+			"requires": [],
+			"caption": null,
+			"docs_page": null,
+			"conflicts": null,
+			"stl": "https://img.basically.website/parts/stl/cage-top-hex-corner-o732-92c8342e.stl",
+			"render": "https://img.basically.website/parts/render/cage-top-hex-corner-3a346d2e.png",
+			"stamped": [
+				{
+					"face": "bottom",
+					"stl": "https://img.basically.website/parts/stl/cage-top-hex-corner-o732-stamped-bottom-fcb66f29.stl",
+					"normal": [
+						0.0,
+						-0.0,
+						-1.0
+					],
+					"center": [
+						100.41,
+						68.36,
+						237.0
+					],
+					"size": [
+						12.33,
+						3.63
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "top",
+					"stl": "https://img.basically.website/parts/stl/cage-top-hex-corner-o732-stamped-top-84208af2.stl",
+					"normal": [
+						-0.0,
+						0.0,
+						1.0
+					],
+					"center": [
+						154.96,
+						10.19,
+						240.0
+					],
+					"size": [
+						12.33,
+						3.63
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "top 2",
+					"stl": "https://img.basically.website/parts/stl/cage-top-hex-corner-o732-stamped-top-2-d39f1122.stl",
+					"normal": [
+						-0.0,
+						0.0,
+						1.0
+					],
+					"center": [
+						95.8,
+						-3.81,
+						238.5
+					],
+					"size": [
+						12.33,
+						3.63
+					],
+					"cap": 3.5,
+					"depth": 0.4,
+					"note": "shallow pocket"
+				},
+				{
+					"face": "top 3",
+					"stl": "https://img.basically.website/parts/stl/cage-top-hex-corner-o732-stamped-top-3-5ef81bc5.stl",
+					"normal": [
+						0.0,
+						0.0,
+						1.0
+					],
+					"center": [
+						48.51,
+						82.57,
+						238.5
+					],
+					"size": [
+						3.63,
+						12.33
+					],
+					"cap": 3.5,
+					"depth": 0.4,
+					"note": "shallow pocket"
+				}
+			]
+		},
+		{
+			"id": "cage-top-motor-piece",
+			"uid": "64tz",
+			"name": "Cable cage motor piece (printed)",
+			"quantities": {},
+			"assembly": "cable-cage",
+			"folder": null,
+			"variant_group": null,
+			"variant_name": null,
+			"description": "The chute-motor segment of the 3D-printed cable cage top plate. 1 needed, alongside 4 hex corner pieces.",
+			"version": "1",
+			"created_at": "2026-08-24",
+			"updated_at": "2026-08-24",
+			"versions": [
+				{
+					"version": "1",
+					"uid": "64tz",
+					"date": "2026-08-24",
+					"message": "Initial version.",
+					"commit": null
+				}
+			],
+			"attributes": [],
+			"grams": 52.99,
+			"support_grams": 0,
+			"support_used": false,
+			"support_intentional": false,
+			"print_seconds": 3798,
+			"color": {
+				"role": "frame"
+			},
+			"optional": true,
+			"onshape": null,
+			"info": null,
+			"low_tolerance": false,
+			"low_tolerance_note": null,
+			"layer_scope": "all",
+			"requires": [],
+			"caption": null,
+			"docs_page": null,
+			"conflicts": null,
+			"stl": "https://img.basically.website/parts/stl/cage-top-motor-piece-64tz-c4d97fa8.stl",
+			"render": "https://img.basically.website/parts/render/cage-top-motor-piece-fe7fc28a.png",
+			"stamped": [
+				{
+					"face": "bottom",
+					"stl": "https://img.basically.website/parts/stl/cage-top-motor-piece-64tz-stamped-bottom-aff68d79.stl",
+					"normal": [
+						0.0,
+						0.0,
+						-1.0
+					],
+					"center": [
+						-78.84,
+						-135.07,
+						237.0
+					],
+					"size": [
+						12.28,
+						3.56
+					],
+					"cap": 3.5,
+					"depth": 0.4,
+					"note": "shallow pocket"
+				},
+				{
+					"face": "top",
+					"stl": "https://img.basically.website/parts/stl/cage-top-motor-piece-64tz-stamped-top-0f01b6da.stl",
+					"normal": [
+						0.0,
+						-0.0,
+						1.0
+					],
+					"center": [
+						-90.99,
+						-128.07,
+						240.0
+					],
+					"size": [
+						12.28,
+						3.56
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "top 2",
+					"stl": "https://img.basically.website/parts/stl/cage-top-motor-piece-64tz-stamped-top-2-468a76f6.stl",
+					"normal": [
+						0.0,
+						0.0,
+						1.0
+					],
+					"center": [
+						-68.65,
+						-120.71,
+						238.5
+					],
+					"size": [
+						3.56,
+						12.28
+					],
+					"cap": 3.5,
+					"depth": 0.4,
+					"note": "shallow pocket"
+				},
+				{
+					"face": "bottom 2",
+					"stl": "https://img.basically.website/parts/stl/cage-top-motor-piece-64tz-stamped-bottom-2-a4896b9d.stl",
+					"normal": [
+						0.0,
+						0.0,
+						-1.0
+					],
+					"center": [
+						-48.48,
+						82.54,
+						238.5
+					],
+					"size": [
+						3.56,
+						12.28
+					],
+					"cap": 3.5,
+					"depth": 0.4,
+					"note": "shallow pocket"
+				}
+			]
 		}
 	],
 	"plates": [
@@ -15211,10 +15480,10 @@
 			},
 			"name": "M3 \u00d7 15 mm washer",
 			"category": "Washers",
-			"description": "Flat/fender washer, 15 mm outer diameter. Sits under the M3 \u00d7 35 flat head screw that holds the interface idler gear onto the NEMA 23 bracket.",
-			"note": "The \u00d71 is the top-interface count (under the idler-gear screw). Washers used elsewhere on the machine aren't tallied here yet.",
+			"description": "Flat/fender washer, 15 mm outer diameter. Added to the catalog to match the documentation's description of the interface idler gear joint, under the M3 \u00d7 35 screw that holds the gear onto the NEMA 23 bracket. That documentation was wrong: the joint's actual design uses the printed chute stepper idler bearing retainers instead (wired up 2026-08-25), so this part was never correct here. Not used anywhere in the machine.",
+			"note": null,
 			"created_at": "2026-08-18",
-			"updated_at": "2026-08-18",
+			"updated_at": "2026-08-25",
 			"attributes": [
 				{
 					"label": "Thread",
@@ -15237,9 +15506,7 @@
 					"value": "Silver"
 				}
 			],
-			"sheet_qty": {
-				"per_machine": 1
-			},
+			"sheet_qty": null,
 			"sheet_qty_text": null,
 			"stock": null,
 			"sourcing": null,
@@ -16103,6 +16370,30 @@
 			"docs_page": null,
 			"conflicts": null,
 			"image": "https://assets.basically.website/sorter-parts/servo-mg995-full-8a8b0ae4bdd9.jpg"
+		},
+		{
+			"id": "mg995-servo-horn",
+			"uid": "s8dv",
+			"kind": "cots",
+			"cots": {
+				"type": "servo-horn"
+			},
+			"name": "MG995 Servo Horn",
+			"category": "Motors",
+			"description": "Two-arm splined servo horn. Clasped between the servo-adapter's two halves once they're screwed together.",
+			"note": "Ships in the box with the MG995 servo. Not sold separately, so it has no sourcing of its own here.",
+			"created_at": "2026-08-24",
+			"updated_at": "2026-08-24",
+			"attributes": [],
+			"sheet_qty": null,
+			"sheet_qty_text": null,
+			"stock": null,
+			"sourcing": null,
+			"alternative": null,
+			"caption": null,
+			"docs_page": null,
+			"conflicts": null,
+			"image": "https://assets.basically.website/sorter-parts/mg995-servo-horn-square-full-150991b8cde4.png"
 		},
 		{
 			"id": "brg-6806-2rs",
@@ -17396,6 +17687,19 @@
 				"blurb": "A regular hexagon, same outline as the bottom plate. Lays out from a rectangle with a tape measure: the centre is one big \u00d8177 mm drilled-and-jigsawed hole, six mounting holes sit on a 175 mm-radius bolt circle, and a small keyed notch is drilled at each end.",
 				"stock": "325 \u00d7 375 mm rectangle (12 13/16\u2033 \u00d7 14 3/4\u2033)",
 				"tools": "jigsaw \u00b7 drill \u00b7 tape measure"
+			},
+			"printed": {
+				"blurb": "A community 3D-printed alternative from Alec, in six/five segments (a Bambu A1's bed can't fit the whole hexagon in one piece). Bolt the segments together with M3 nuts and bolts as a clamp, glue the joints, then remove the M3 hardware once the glue has cured.",
+				"components": [
+					{
+						"part": "cage-top-hex-corner",
+						"qty": 4
+					},
+					{
+						"part": "cage-top-motor-piece",
+						"qty": 1
+					}
+				]
 			}
 		},
 		{
@@ -17419,6 +17723,15 @@
 				"blurb": "The same regular-hexagon outline as the top cage, but simpler: one big \u00d8177 mm centre hole and six \u00d85.5 mm mounting holes on a 175 mm-radius bolt circle. No small holes, no notch.",
 				"stock": "325 \u00d7 375 mm rectangle (12 13/16\u2033 \u00d7 14 3/4\u2033)",
 				"tools": "jigsaw \u00b7 drill \u00b7 tape measure"
+			},
+			"printed": {
+				"blurb": "A community 3D-printed alternative from Alec, in six/five segments (a Bambu A1's bed can't fit the whole hexagon in one piece). Bolt the segments together with M3 nuts and bolts as a clamp, glue the joints, then remove the M3 hardware once the glue has cured.",
+				"components": [
+					{
+						"part": "cage-top-hex-corner",
+						"qty": 6
+					}
+				]
 			}
 		},
 		{

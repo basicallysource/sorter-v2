@@ -36,6 +36,12 @@ export type LaserCutPart = {
 		stock: string; // stock size, shown on the tab
 		tools: string; // tools line, shown on the tab
 	};
+	// optional 3D-printed route: this sheet part built instead from printed
+	// pieces (ids into PARTS) rather than cut from stock
+	printed?: {
+		blurb: string; // the "3D Printed" tab paragraph
+		components: { part: string; qty: number }[]; // printed part id + count needed
+	};
 };
 
 export const LASER_CUT_PARTS = ((raw as Record<string, unknown>).lasercut ??

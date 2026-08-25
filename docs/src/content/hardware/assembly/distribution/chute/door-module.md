@@ -87,15 +87,15 @@ The servo adapter takes no inserts, but assemble it here anyway, before the brac
 
 <div class="img-row">
   <figure>
-    <img class="doc-figure" src="https://assets.basically.website/sorter-parts/mg995-servo-horn-full-e3eb30ad4de0.png" alt="The MG995 Servo Horn, a two-arm splined servo arm that ships with the MG995 servo">
+    <img class="doc-figure" src="https://assets.basically.website/sorter-parts/mg995-servo-horn-square-full-150991b8cde4.png" alt="The MG995 Servo Horn, a two-arm splined servo arm that ships with the MG995 servo">
     <figcaption>The MG995 Servo Horn. Clasped between the two adapter halves before they're screwed together.</figcaption>
   </figure>
   <figure>
-    <img class="doc-figure" src="https://assets.basically.website/sorter-parts/servo-adapter-servo-side-recess-full-b4266d52934f.png" alt="The servo-side adapter half, rotated to show the recess that the MG995 Servo Horn seats into, with the four screw pilot holes around it">
+    <img class="doc-figure" src="https://assets.basically.website/sorter-parts/servo-adapter-servo-side-recess-white-full-32262f257d09.png" alt="The servo-side adapter half, rotated to show the recess that the MG995 Servo Horn seats into, with the four screw pilot holes around it">
     <figcaption>Servo-side half. The recess the horn seats into, plus the 4 pilot holes the screws thread into.</figcaption>
   </figure>
   <figure>
-    <img class="doc-figure" src="https://assets.basically.website/sorter-parts/servo-adapter-flap-side-holes-full-d9bfc444c1c4.png" alt="The flap-side adapter half, showing its four countersunk screw holes and the keyed centre hole">
+    <img class="doc-figure" src="https://assets.basically.website/sorter-parts/servo-adapter-flap-side-holes-white-full-5a4ace682ea3.png" alt="The flap-side adapter half, showing its four countersunk screw holes and the keyed centre hole">
     <figcaption>Flap-side half. The 4 countersunk holes the screws pass through, into the servo side.</figcaption>
   </figure>
 </div>

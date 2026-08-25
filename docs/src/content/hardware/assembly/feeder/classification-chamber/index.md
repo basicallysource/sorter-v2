@@ -49,19 +49,14 @@ Build the classification channel as a normal [C-channel]({{ '/hardware/assembly/
 
 Fit the Camera & LED insert, then the camera on its extension tube and mount ring, then close the chamber with the dome.
 
-Measured off the Camera & LED insert's own STL: its face carries 4 countersunk M3 holes, 3.4 mm clearance, in a 46 mm square pattern near the top. Most likely where the camera extension's mount ring bolts on, but that isn't confirmed, and the screw length isn't either — the STL gives the hole diameter, not the wall thickness behind it. The Classification dome itself has no screw holes anywhere in its geometry — how it closes onto the rest of the chamber (screwed, clipped, or just resting in place) isn't recorded.
+Measured off the Camera & LED insert's own STL: its top face carries two separate hole patterns, both visible in the render below. Four countersunk M3 holes (3.4 mm clearance) sit in a 46 mm square around the central opening — most likely the camera board's own mounting holes. A second, outer ring of 10 larger holes (10 mm, no thread, 65 mm radius, 36° apart) runs around the rim — almost certainly what fastens the insert to the rest of the chamber, but nothing records what goes through them or what they thread into. The Classification dome itself has no screw holes anywhere in its own geometry — how it closes onto the rest of the chamber (screwed, clipped, or just resting in place) isn't recorded either.
 
-<div class="img-row">
-  <figure>
-    <img class="doc-figure" src="https://assets.basically.website/sorter-parts/insert-top-render-full-67381d1cb15a.png" alt="Top-down outline of the camera and LED insert's face, showing four countersunk screw holes in a square pattern">
-    <figcaption>The insert's face: 4 countersunk holes, 46 mm square. Drawn from the part geometry, not from a build.</figcaption>
-  </figure>
-  <figure>
-    <div class="img-placeholder">Image coming</div>
-  </figure>
-</div>
+<figure>
+  <img class="doc-figure" src="https://assets.basically.website/sorter-parts/insert-iso-full-e4b396fc8c88.png" alt="Angled render of the camera and LED insert's top face, showing a ring of 10 large holes around the rim and 4 smaller countersunk holes around a central square opening">
+  <figcaption>The insert's top face: 10 larger holes around the rim (what it mounts to the chamber with), 4 smaller countersunk ones around the central opening (likely the camera board). Rendered from the part geometry, not from a build.</figcaption>
+</figure>
 
-**Not recorded:** what those 4 holes actually bolt to, what screw length they take, how the extension tube and mount ring join, and how the dome closes the chamber. <span class="fastener-todo">fastener not recorded</span>
+**Not recorded:** what fastens through the outer ring and what it threads into, what screw the inner 4 holes take, how the extension tube and mount ring join, and how the dome closes the chamber. <span class="fastener-todo">fastener not recorded</span>
 
 {% include step.html n="3" title="Light the chamber" %}
 

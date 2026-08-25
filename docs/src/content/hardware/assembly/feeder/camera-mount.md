@@ -85,8 +85,8 @@ Overhead camera mount A (part 37) bolts to the A/B connector (part 6) with the 3
 **Not recorded:** which 3 of the 12 holes are the intended ones, and how part B (part 37b) joins in — it doesn't share this bolt circle, so it connects some other way. <span class="fastener-todo">fastener not recorded</span>
 
 <figure>
-  <img class="doc-figure" src="https://assets.basically.website/sorter-parts/connector-holes-full-24e039791962.png" alt="The A/B connector's bolt face, showing 12 evenly-spaced holes on a circle with one example set of 3, 120 degrees apart, marked in red dashes">
-  <figcaption>The connector's bolt circle: 12 holes, 30° apart. One example set of 3 (120° apart) marked — any of the 4 such sets fixes a different 30°-step rotation. Drawn from the part geometry, not from a build.</figcaption>
+  <img class="doc-figure" src="https://assets.basically.website/sorter-parts/connector-iso-full-9426650a084d.png" alt="Angled render of the A/B connector, showing all 12 holes of its bolt circle">
+  <figcaption>The connector's bolt circle: 12 holes, 30° apart. Any 3 spaced 120° apart (every 4th hole) fix one of 4 possible rotations. Rendered from the part geometry, not from a build.</figcaption>
 </figure>
 
 {% include step.html n="5" title="Fit the camera and set the height" %}

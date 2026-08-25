@@ -1166,7 +1166,7 @@
 			"uid": "67uq",
 			"version": "1",
 			"name": "Bottom interface",
-			"description": "The bottom interface / lazy Susan level. Carries two chutes.",
+			"description": "The bottom interface / lazy Susan level. The chute above it is one of the machine's N regular chutes, already counted there; this assembly only adds the layer connector that bridges down to it.",
 			"docs": "/hardware/assembly/distribution/bin-frame/bottom-interface/",
 			"status": "partial",
 			"lines": [
@@ -1179,8 +1179,8 @@
 					"qty": 1
 				},
 				{
-					"assembly": "chute",
-					"qty": 2
+					"assembly": "layer-connector",
+					"qty": 1
 				}
 			]
 		},

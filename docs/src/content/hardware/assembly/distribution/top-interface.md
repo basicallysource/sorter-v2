@@ -413,6 +413,11 @@ Loosen the screws attaching the Limit switch housing to the extrusion. Slide the
     loading="lazy"></iframe>
 </div>
 
+<div class="callout callout-warning">
+  <span class="callout-icon" aria-hidden="true">⚠</span>
+  <p>This video predates the idler gear's bearing retainer caps. It shows the idler gear built the old way, with a loose washer under the M3 × 35 screw instead of the two printed caps from step 1.</p>
+</div>
+
 Slide the prepared [Timing pulley]({{ '/hardware/helpers/pulley-gear-mod/' | relative_url }}) over the shaft of the NEMA 23 stepper motor and tighten the two worm screws on its side. Slide the Interface spur gear onto the Timing pulley and secure it with five {% include fastener.html size="M3" variant="countersunk" length="8" %} screws, half tapped into the Interface spur gear and half bracing against the Timing pulley.
 
 Push the prepared Interface idler gear — bearing, inner retainer cap, and outer retainer already fitted, see step 1 — onto the Interface NEMA 23 bracket with the bearing facing outwards.

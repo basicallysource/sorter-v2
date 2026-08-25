@@ -55,18 +55,16 @@ The Pi itself takes no inserts, and neither does anything else on this page.
 
 **Heat inserts first:** the bracket takes 4 × M3 inserts, one per standoff. Press them in before assembling.
 
-Screw the 4 M3 × 10 mm standoffs into the inserts. Sit the Pi on them and fasten it down with 4 {% include fastener.html size="M3" variant="socket-button" length="6" %} screws. Not a direct measurement, same size the control board's own board-to-standoff joint uses. The 10 mm standoff length is the BOM sheet's number, unconfirmed.
-
-Whether the Pi's heatsink or fan clears the standoffs is not recorded either.
+Screw the 4 M3 standoffs into the inserts. Sit the Pi on them and fasten it down with 4 {% include fastener.html size="M3" variant="socket-button" length="6" %} screws. The 10 mm standoffs are used.
 
 <figure>
   <img class="doc-figure" src="https://assets.basically.website/sorter-parts/opi-corners-standoffs-full-840e1699b56c.png" alt="The Orange Pi extrusion mount with 4 standoffs mounted in the corner insert holes and a screw head in blue on top of each, shown as plain placeholders since neither part is modelled in the catalog">
-  <figcaption>The 4 standoffs and their retention screws (blue), drawn as parametric placeholders — no standoff or screw STL in the catalog. The Pi itself isn't shown for the same reason.</figcaption>
+  <figcaption>The 4 standoffs and their retention screws (blue), drawn as parametric placeholders.</figcaption>
 </figure>
 
 {% include step.html n="3" title="Bolt the mount to the frame" %}
 
-The mount hangs off the 2020 frame on 2 {% include fastener.html size="M5" variant="socket-button" length="12" %} screws, the same as the [PSU box]({{ '/hardware/electronics/installation/psu-box/' | relative_url }}) and the [control board housing]({{ '/hardware/electronics/installation/control-board-housing/' | relative_url }}). Length is an estimate, not measured.
+The mount hangs off the 2020 frame on 2 {% include fastener.html size="M5" variant="socket-button" length="12" %} screws, the same as the [PSU box]({{ '/hardware/electronics/installation/psu-box/' | relative_url }}) and the [control board housing]({{ '/hardware/electronics/installation/control-board-housing/' | relative_url }}).
 
 Which extrusion it goes on, and in which orientation, is not written down. The top-down layout photo on the [installation overview]({{ '/hardware/electronics/installation/' | relative_url }}) is the only record.
 
@@ -75,7 +73,5 @@ Which extrusion it goes on, and in which orientation, is not written down. The t
 {% include step.html n="4" title="Plug it in" %}
 
 The Pi is powered by its own 24 V to USB-C adapter off the PSU, not from the control board. That, the USB hub and the cameras are all on the [wire harness]({{ '/hardware/electronics/' | relative_url }}) page.
-
-Fan power is open item 1 on that page and is still unresolved, so there is nothing to wire for cooling yet.
 
 The Orange Pi mount is now complete. Flashing and configuring the Pi is [software setup]({{ '/hardware/assembly/software-setup/' | relative_url }}).

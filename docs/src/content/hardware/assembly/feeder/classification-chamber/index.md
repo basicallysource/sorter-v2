@@ -51,7 +51,7 @@ Fit the Camera & LED insert, then the camera on its extension tube and mount rin
 
 Measured off the STLs. The Camera & LED insert's top face carries two hole patterns, both visible in the first render below: 4 countersunk M3 holes (3.4 mm clearance) in a 46 mm square around the central opening, and an outer ring of 10 larger holes (10 mm, no thread, 65 mm radius, 36° apart). The inner 46 mm square repeats on the camera extension's mount ring at the same 3.4-3.5 mm size — that's the real match, so the insert's 4 holes are the mount-ring joint, M3 like everything else on this page, not the camera board.
 
-The camera board itself mounts to the **camera extension**, not the insert. It's a bracket with two posts, each carrying a hole near the top and near the bottom — 4 holes total, 2.6 mm, sized for the **M2** the IMX415 module's own datasheet calls for (barthel confirmed 2.6 mm is right and gave the module's board thickness, 1.57 mm). The board sits on the top pair. Working from those two numbers: 1.57 mm of board, plus reaching into an 8 mm-deep post with nothing narrower or countersunk in the way — a straight 2.6 mm clearance bore the whole depth, so whatever it threads into (nut or insert) isn't visible in the geometry. {% include fastener.html size="M2" variant="socket-button" length="8" %} clears the board and reaches well into the post without bottoming out before the head seats. Confirm against the physical board which of nut/insert/self-tap it actually is; that's the one thing the STL can't show.
+The camera board itself mounts to the **camera extension**, not the insert. It's a bracket with two posts, each carrying a hole near the top and near the bottom — 4 holes total, 2.6 mm, sized for the **M2** the IMX415 module's own datasheet calls for (barthel confirmed 2.6 mm is right, gave the module's board thickness — 1.57 mm — and confirmed the joint is self-tapping, straight into the post). Working from those numbers: 1.57 mm of board, then self-tapping the rest of the way into an 8 mm-deep post — {% include fastener.html size="M2" variant="socket-button" length="8" %} reaches most of the way into the post for a solid thread bite without quite bottoming out before the head seats.
 
 **M2 is new to this catalog.** Every other screw on the site is M3, M4, M5 or M6 — there's no M2 part id yet, so this one isn't in the parts list above and doesn't have a legend colour (it renders grey). Add `scr-m2-8-shcs` (or whichever head style is correct) when this is confirmed.
 
@@ -68,7 +68,7 @@ The Classification dome itself has no screw holes anywhere in its own geometry �
   </figure>
 </div>
 
-**Not recorded:** what fastens through the insert's outer ring and what it threads into, whether the extension's M2 holes are a nut, an insert, or self-tap, how the extension's bottom pair joins the mount ring, and how the dome closes the chamber. <span class="fastener-todo">fastener not recorded</span>
+**Not recorded:** what fastens through the insert's outer ring and what it threads into, how the extension's bottom pair joins the mount ring, and how the dome closes the chamber. <span class="fastener-todo">fastener not recorded</span>
 
 {% include step.html n="3" title="Light the chamber" %}
 

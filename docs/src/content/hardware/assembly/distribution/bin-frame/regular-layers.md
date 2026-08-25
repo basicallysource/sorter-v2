@@ -46,6 +46,8 @@ Note that some of the ordering in this guide may seem unusual, but it's written 
 
 The aluminum extrusion is cut to length; the [framing cut list](https://parts-calculator.basically.website/framing) has the exact dimensions for pieces A/G, B/H and C. The number of {% include fastener.html size="M5" variant="t-nut" text="M5 T-nuts" %} listed above is the minimum you'll need if you thread the printed parts directly wherever possible; this number increases if you use T-nuts throughout instead.
 
+See the [External bracket]({{ '/hardware/parts/external-bracket/' | relative_url }}) reference page for a look at the three bracket parts on their own.
+
 {% include fastener-legend.html %}
 
 {% include step.html n="1" title="Assemble the frame brackets" %}
@@ -179,6 +181,8 @@ On each corner of your hexagon, slot an External bracket — cover onto the Exte
 </div>
 
 On each corner, slide an External bracket — bottom vertical onto piece C (Layer vertical support), ensuring the angles of the External bracket — bottom vertical align at the bottom. Secure them with 2 {% include fastener.html size="M5" variant="socket-button" length="16" %} screws through the outer holes on the External bracket — bottom vertical. The extrusion will likely rest a few mm below the top.
+
+Matching parts from the same print run are embossed with a shared set code (e.g. **"b2"**) on both the External bracket — side and the External bracket — bottom vertical. Keep marked pairs together so brackets don't get mixed across corners.
 
 {% include step.html n="4" title="Add the bin retainers" %}
 

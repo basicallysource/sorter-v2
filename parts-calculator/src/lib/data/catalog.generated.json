@@ -492,8 +492,8 @@
 			"uid": "6h3l",
 			"version": "1",
 			"name": "External distribution-frame bracket",
-			"description": "Three parts that bolt together into one external bracket. 6 per distribution frame (per layer), plus a set per interface. The cover clips on and takes no screws.",
-			"docs": "/hardware/assembly/distribution/external-bracket/",
+			"description": "Three parts that bolt together into one external bracket. 6 per distribution frame (per layer). The cover clips on and takes no screws. The top interface uses only the side and cover from this set, no bottom vertical, see the interface assembly.",
+			"docs": "/hardware/parts/external-bracket/",
 			"status": "partial",
 			"joining": [
 				{
@@ -1037,8 +1037,16 @@
 					"qty": 6
 				},
 				{
-					"assembly": "external-bracket",
+					"part": "ext-bracket-left",
 					"qty": 6
+				},
+				{
+					"part": "ext-bracket-cover",
+					"qty": 6
+				},
+				{
+					"part": "scr-m5-16-shcs",
+					"qty": 12
 				},
 				{
 					"assembly": "fixed-upper-section",
@@ -4555,7 +4563,7 @@
 			"layer_scope": "all",
 			"requires": [],
 			"caption": null,
-			"docs_page": "/hardware/assembly/distribution/external-bracket/",
+			"docs_page": "/hardware/parts/external-bracket/",
 			"conflicts": null,
 			"stl": "https://assets.basically.website/sorter-parts/ext-bracket-left-da4b3abd3db7.stl",
 			"render": "https://assets.basically.website/sorter-parts/ext-bracket-left-full-a105b452a4e1.png",
@@ -4647,8 +4655,7 @@
 			"uid": "xgzj",
 			"name": "External bracket \u2014 bottom vertical",
 			"quantities": {
-				"layer": 6,
-				"interface": 6
+				"layer": 6
 			},
 			"assembly": "external-bracket",
 			"folder": null,
@@ -4688,7 +4695,7 @@
 			"layer_scope": "non-bottom",
 			"requires": [],
 			"caption": null,
-			"docs_page": "/hardware/assembly/distribution/external-bracket/",
+			"docs_page": "/hardware/parts/external-bracket/",
 			"conflicts": null,
 			"stl": "https://assets.basically.website/sorter-parts/ext-bracket-bottom-vertical-313397afb08f.stl",
 			"render": "https://assets.basically.website/sorter-parts/ext-bracket-bottom-vertical-full-9d75356a3cf1.png",
@@ -4821,7 +4828,7 @@
 			"layer_scope": "non-bottom",
 			"requires": [],
 			"caption": null,
-			"docs_page": "/hardware/assembly/distribution/external-bracket/",
+			"docs_page": "/hardware/parts/external-bracket/",
 			"conflicts": null,
 			"stl": "https://assets.basically.website/sorter-parts/ext-bracket-cover-f99e33cea115.stl",
 			"render": "https://assets.basically.website/sorter-parts/ext-bracket-cover-full-2936c7ca9c44.png",
@@ -14152,7 +14159,10 @@
 					"uid": "o732",
 					"date": "2026-08-24",
 					"message": "Initial version.",
-					"commit": null
+					"commit": null,
+					"stl": "https://assets.basically.website/sorter-parts/cage-top-hex-corner-92c8342eaa28.stl",
+					"render": "https://img.basically.website/parts/render/cage-top-hex-corner-3a346d2e.png",
+					"grams": 29.01
 				}
 			],
 			"attributes": [],
@@ -14174,7 +14184,7 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"stl": "https://img.basically.website/parts/stl/cage-top-hex-corner-o732-92c8342e.stl",
+			"stl": "https://assets.basically.website/sorter-parts/cage-top-hex-corner-92c8342eaa28.stl",
 			"render": "https://img.basically.website/parts/render/cage-top-hex-corner-3a346d2e.png",
 			"stamped": [
 				{
@@ -14280,7 +14290,10 @@
 					"uid": "64tz",
 					"date": "2026-08-24",
 					"message": "Initial version.",
-					"commit": null
+					"commit": null,
+					"stl": "https://assets.basically.website/sorter-parts/cage-top-motor-piece-c4d97fa88f75.stl",
+					"render": "https://img.basically.website/parts/render/cage-top-motor-piece-fe7fc28a.png",
+					"grams": 52.99
 				}
 			],
 			"attributes": [],
@@ -14302,7 +14315,7 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"stl": "https://img.basically.website/parts/stl/cage-top-motor-piece-64tz-c4d97fa8.stl",
+			"stl": "https://assets.basically.website/sorter-parts/cage-top-motor-piece-c4d97fa88f75.stl",
 			"render": "https://img.basically.website/parts/render/cage-top-motor-piece-fe7fc28a.png",
 			"stamped": [
 				{

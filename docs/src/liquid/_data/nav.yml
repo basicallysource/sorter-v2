@@ -34,8 +34,6 @@ sections:
                     url: /hardware/assembly/distribution/bin-frame/bottom-two-layers/
                   - title: Regular layers
                     url: /hardware/assembly/distribution/bin-frame/regular-layers/
-              - title: External bracket
-                url: /hardware/assembly/distribution/external-bracket/
               - title: Top interface
                 url: /hardware/assembly/distribution/top-interface/
               - title: Chute
@@ -108,6 +106,8 @@ sections:
         children:
           - title: Lazy Susan
             url: /hardware/parts/lazy-susan/
+          - title: External bracket
+            url: /hardware/parts/external-bracket/
           - title: Orange Pi 5
             url: /hardware/orange-pi-5/
 

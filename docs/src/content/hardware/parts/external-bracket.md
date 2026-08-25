@@ -3,10 +3,10 @@ layout: default
 title: External bracket
 type: how-to
 section: hardware
-slug: assembly-external-bracket
-kicker: Distribution — External bracket
+slug: part-external-bracket
+kicker: Parts — External bracket
 lede: The bracket that mounts a distribution-frame vertical extrusion to the frame and gives it a mounting point.
-permalink: /hardware/assembly/distribution/external-bracket/
+permalink: /hardware/parts/external-bracket/
 author: christoph
 contributors: [barthel]
 last_verified: 2026-08-03
@@ -23,7 +23,7 @@ parts_needed:
     qty: 4
 ---
 
-Three printed parts that bolt together into one external bracket. **6 per distribution frame (per layer), plus one set per interface.**
+Three printed parts that bolt together into one external bracket. **6 per distribution frame (per layer), plus one set per interface** (side and cover only there, no bottom vertical — see [top interface, step 13]({{ '/hardware/assembly/distribution/top-interface/' | relative_url }}#step-13)).
 
 The fasteners and quantities are in the parts list above and are called out inline at each step.
 
@@ -68,10 +68,16 @@ Set the bottom-vertical leg's flanged top into the U-shaped opening of the side 
 
 Slide the C-Layer vertical support (the vertical aluminum extrusion) down through the side bracket's U-shaped clamp and into the square socket in the bottom-vertical leg below. The socket is sized to the extrusion's profile, so it can only seat in the correct orientation.
 
-<figure>
-  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-external-bracket-step2-extrusion-inserted-full-c56df607b17c.jpg" alt="C-Layer vertical support extrusion inserted down through the side bracket and into the square socket of the bottom-vertical leg">
-  <figcaption>C-Layer vertical support seated through the side bracket and into the bottom-vertical leg's socket. It isn't held in place yet, that's Step 3.</figcaption>
-</figure>
+<div class="img-row">
+  <figure>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-external-bracket-step2-extrusion-inserted-full-c56df607b17c.jpg" alt="C-Layer vertical support extrusion inserted down through the side bracket and into the square socket of the bottom-vertical leg">
+    <figcaption>C-Layer vertical support seated through the side bracket and into the bottom-vertical leg's socket. It isn't held in place yet, that's Step 3.</figcaption>
+  </figure>
+  <figure>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-parts/final4-hires-full-c713a740a66b.png" alt="Vertical cross-section through the side bracket and cover, with the extrusion running through the bore as a hatched strip and a dashed line marking the clamp screw">
+    <figcaption>The collar in section, cut through the centre of the bore. Tan is the side bracket and cover; the hatched strip is the extrusion. The dashed line marks the clamp screw from Step 3. Drawn from the part geometry, not from a build.</figcaption>
+  </figure>
+</div>
 
 {% include step.html n="3" title="Screw the bracket down onto the extrusion" %}
 
@@ -102,3 +108,5 @@ Clip the cover onto the side bracket to close it off. The cover takes no screws,
     <figcaption>Cover clipped into place. It sits flush against the side bracket, which is why the seam is subtle in photos.</figcaption>
   </figure>
 </div>
+
+This is the bracket as a stand-alone unit. For how it's actually installed on the frame — and the one difference at the layer-to-layer joint — see [regular layers, step 3]({{ '/hardware/assembly/distribution/bin-frame/regular-layers/' | relative_url }}#step-3) and [step 5]({{ '/hardware/assembly/distribution/bin-frame/regular-layers/' | relative_url }}#step-5).

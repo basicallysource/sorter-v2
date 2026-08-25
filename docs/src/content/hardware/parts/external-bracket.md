@@ -68,15 +68,16 @@ Set the bottom-vertical leg's flanged top into the U-shaped opening of the side 
 
 Slide the C-Layer vertical support (the vertical aluminum extrusion) down through the side bracket's U-shaped clamp and into the square socket in the bottom-vertical leg below. The socket is sized to the extrusion's profile, so it can only seat in the correct orientation.
 
-<figure>
-  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-external-bracket-step2-extrusion-inserted-full-c56df607b17c.jpg" alt="C-Layer vertical support extrusion inserted down through the side bracket and into the square socket of the bottom-vertical leg">
-  <figcaption>C-Layer vertical support seated through the side bracket and into the bottom-vertical leg's socket. It isn't held in place yet, that's Step 3.</figcaption>
-</figure>
-
-<figure>
-  <img class="doc-figure" src="https://assets.basically.website/sorter-parts/final3-hires-full-36c5c6d15e18.png" alt="Vertical cross-section through the bracket: the collar (side bracket and cover) at the bottom, the bottom-vertical tube at the top, and the extrusion running through both as a hatched strip from its real start to its real end, with a dashed line marking each screw">
-  <figcaption>The bracket in section, cut through the centre of the bore. Tan is the two printed parts — the collar (side bracket and cover) at the bottom, the bottom-vertical tube sleeving the upper part of the extrusion. The hatched strip is the extrusion at its real length, start to end; the dashed lines mark the clamp screw (lower) and the flange screw that joins to the layer above (upper, not shown). Drawn from the part geometry, not from a build.</figcaption>
-</figure>
+<div class="img-row">
+  <figure>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-external-bracket-step2-extrusion-inserted-full-c56df607b17c.jpg" alt="C-Layer vertical support extrusion inserted down through the side bracket and into the square socket of the bottom-vertical leg">
+    <figcaption>C-Layer vertical support seated through the side bracket and into the bottom-vertical leg's socket. It isn't held in place yet, that's Step 3.</figcaption>
+  </figure>
+  <figure>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-parts/final4-hires-full-c713a740a66b.png" alt="Vertical cross-section through the side bracket and cover, with the extrusion running through the bore as a hatched strip and a dashed line marking the clamp screw">
+    <figcaption>The collar in section, cut through the centre of the bore. Tan is the side bracket and cover; the hatched strip is the extrusion. The dashed line marks the clamp screw from Step 3. Drawn from the part geometry, not from a build.</figcaption>
+  </figure>
+</div>
 
 {% include step.html n="3" title="Screw the bracket down onto the extrusion" %}
 

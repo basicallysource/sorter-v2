@@ -12,8 +12,9 @@ contributors: [barthel]
 warning: >-
   **AI-generated first draft.** Written from the parts registry in the [parts
   calculator](https://parts-calculator.basically.website/assembly?focus=classification-chamber),
-  not from an actual build. The assembly order is not recorded anywhere yet, so this page
-  lists what the chamber is made of rather than how it goes together. Correct it as you build.
+  not from an actual build. The assembly order is still not recorded, so this page mostly lists
+  what the chamber is made of rather than how it goes together — one fastener is now measured
+  off the STLs, everything else about how the pieces join is still open. Correct it as you build.
 parts_needed:
   - part: classification-dome
     qty: 1
@@ -31,7 +32,7 @@ parts_needed:
 
 The classification chamber is where a part is lit and photographed on its way through. It sits on the fourth [C-channel]({{ '/hardware/assembly/feeder/c-channel/' | relative_url }}), the classification-channel one.
 
-The parts are in the list above. No fasteners are recorded for this stage yet.
+The parts are in the list above. Most fasteners for this stage still aren't recorded; what is, is called out in Step 2.
 
 {% include fastener-legend.html %}
 
@@ -48,9 +49,19 @@ Build the classification channel as a normal [C-channel]({{ '/hardware/assembly/
 
 Fit the Camera & LED insert, then the camera on its extension tube and mount ring, then close the chamber with the dome.
 
-The fasteners for this stage are not recorded yet: <span class="fastener-todo">fastener not recorded</span>.
+Measured off the Camera & LED insert's own STL: its face carries 4 countersunk M3 holes, 3.4 mm clearance, in a 46 mm square pattern near the top. Most likely where the camera extension's mount ring bolts on, but that isn't confirmed, and the screw length isn't either — the STL gives the hole diameter, not the wall thickness behind it. The Classification dome itself has no screw holes anywhere in its geometry — how it closes onto the rest of the chamber (screwed, clipped, or just resting in place) isn't recorded.
 
-<div class="img-placeholder">Image coming</div>
+<div class="img-row">
+  <figure>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-parts/insert-top-render-full-67381d1cb15a.png" alt="Top-down outline of the camera and LED insert's face, showing four countersunk screw holes in a square pattern">
+    <figcaption>The insert's face: 4 countersunk holes, 46 mm square. Drawn from the part geometry, not from a build.</figcaption>
+  </figure>
+  <figure>
+    <div class="img-placeholder">Image coming</div>
+  </figure>
+</div>
+
+**Not recorded:** what those 4 holes actually bolt to, what screw length they take, how the extension tube and mount ring join, and how the dome closes the chamber. <span class="fastener-todo">fastener not recorded</span>
 
 {% include step.html n="3" title="Light the chamber" %}
 

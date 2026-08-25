@@ -32,7 +32,7 @@ parts_needed:
     qty: 4
   - part: scr-m3-8-cs
     qty: 2
-  - part: scr-m5-shcs-tbd
+  - part: scr-m5-16-shcs
     qty: 2
 ---
 
@@ -149,7 +149,7 @@ Press the plunger on the lid. You should hear the button click.
 
 {% include step.html n="8" title="Bolt it to the frame" %}
 
-The two clamp bosses go onto the 2020 extrusion on 2 <span class="fastener-todo">M5, length not recorded</span> screws. Which extrusion and which orientation is not written down; the layout photo on the [installation overview]({{ '/hardware/electronics/installation/' | relative_url }}) is the only record.
+The two clamp bosses go onto the 2020 extrusion on 2 {% include fastener.html size="M5" variant="socket-button" length="16" %} screws. Which extrusion and which orientation is not written down; the layout photo on the [installation overview]({{ '/hardware/electronics/installation/' | relative_url }}) is the only record.
 
 <div class="img-row">
   <figure>

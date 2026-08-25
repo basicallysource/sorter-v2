@@ -31,7 +31,7 @@ This page is the wiring. Where the PSU, the control board and the Orange Pi phys
   <dt>DC outputs</dt><dd>3 × female DC jack, each a 4 in 18 AWG pigtail with 2 × spade/fork terminals (M3.5, 8 mm wide max, Molex 0191310031 or equivalent). One pigtail per +V/-V screw pair: 7 with 4, 8 with 5, 9 with 6</dd>
   <dt>AC input</dt><dd>Screws 1, 2, 3. Fed by the fused IEC inlet switch's own pre-terminated leads, so there is no cable to make</dd>
   <dt>Loads</dt><dd>basically board v1.3, the USB hub, and the Orange Pi buck converter. One jack each, no spare</dd>
-  <dt>Not on this bus</dt><dd>The cooling fans. They run off the Orange Pi or basically board v1.3 instead, so their voltage follows whichever pins are free (5V is likely sufficient). They are still needed: the Pi and the board end up in a box with no airflow but the fan. See <a href="#7--open-items">open items</a></dd>
+  <dt>Not on this bus</dt><dd>The cooling fans. They run off the Orange Pi or basically board v1.3 instead — both supply 5V natively (OPi 26-pin header pins 2/4, board v1.3's empty <code>J16</code> socket pin 2), plug-in on either, no soldering. They are still needed: the Pi and the board end up in a box with no airflow but the fan. See <a href="#7--open-items">open items</a></dd>
 </dl>
 
 ## 2 &nbsp; Component layout
@@ -234,7 +234,7 @@ Each LED drop is two segments: a 2x1 dupont feed from the board to a female DC j
 - 3Dman fused mains inlet switch, 15A 250V rocker + 10A fuse, 3-pin, 18 AWG &middot; [link](https://www.amazon.com/dp/B07RQV2NPN)
 - DC 12V/24V to 5V USB-C buck converter, 5A 25W, powers Orange Pi 5 &middot; [link](https://www.amazon.com/dp/B0FV3P6KLS)
 - Current-limiting resistor for any COB board not fed through basically board v1.3: 220&#8486;, 1/4 W, one per board. The board's own LED headers already have theirs (see 4.3). The LED strip does not need one
-- Cooling fan, 40mm. Not on the 24V bus: it runs off the Orange Pi or the board, so the voltage follows whichever pin header it ends up on. 5V is likely sufficient.
+- Cooling fan, 40×40×10mm, 5V &middot; two of them, one per box (Orange Pi 26-pin header pins 2/4, board v1.3's `J16` pin 2 — see open items). Not on the 24V bus.
 - uxcell 16-pin IDC flat ribbon cable, FC/FC, 2.54 mm, 1 m, gray &middot; [link](https://www.amazon.com/dp/B07S2W4N9T)
 - Waveshare 4-port USB hub, 24V model (USB 3.2 version, not the 5V industrial one, which cannot take 24V in)
 - Orange Pi 5
@@ -256,7 +256,7 @@ Each LED drop is two segments: a 2x1 dupont feed from the board to a female DC j
 
 ## 7 &nbsp; Open items
 
-1. **How the fans are powered.** They are wanted: the Pi and the board end up in a box with no airflow but the fan. They are just not on the 24V bus, so they run off the Pi or the board and the voltage follows the available pins. 5V is likely sufficient (Spencer, 2026-08-09).
+1. **How the fans are powered — worked out from the v1.3 KiCad and the Orange Pi 5's own manual (2026-08-22).** Both boards can supply 5V natively, no soldering: on basically board v1.3, `J16` pin 2 is VSYS (~4.7V through the Pico's schottky) and pin 6 is GND, a pluggable dupont pair (this socket sits empty on assembled boards, the PCA9685 chip itself is soldered on). On the Orange Pi 5, the 26-pin header's pins 2 and 4 are both 5V, GND on 6/9/14/20/25 — the official manual documents running a 5V fan straight off this header, no PWM, live whenever USB-C power is present. Recommended size: **40×40×10mm 5V** (fits the OPi's RK3588 and covers the stepper-driver row; Noctua NF-A4x10 5V or a generic Sunon/Delta 4010 at ~0.05-0.1A, light enough for either board's 5V rail). Orient it to **blow in** (down onto the board), not exhaust, with low vents near the stepper row for the air to leave — impingement cools the drivers better and positive pressure keeps dust out except at the filtered intake. A 24V fan on either 5V rail is harmless but won't spin (most need roughly half their rated voltage to start); the reverse, a 5V fan on 24V, is instantly fatal, so key or label the plugs if both voltages exist on the bench at once.
 2. **Lengths.** W1 is 36 in and longer than necessary. Pick a final length and cut.
 3. **LED feed polarity.** Which dupont pin is +24V on `L1-L3`. The board's own 24V input is settled: JST-VH (VHR-2), pin 1 = +24V, pin 2 = GND.
 4. **Missing LED wire(s).** Re-count the LED drops against the actual LEDs.

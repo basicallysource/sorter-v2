@@ -18,7 +18,7 @@ warning: >-
 
 The [wire harness]({{ '/hardware/electronics/' | relative_url }}) pages cover what connects to what. These cover the other half: where the hardware physically sits and what holds it there.
 
-The PSU, the control board and the Orange Pi each live in their own mount, and all three bolt to the machine's 2020 frame with 2 <span class="fastener-todo">M5, length not recorded</span> screws each, six in total.
+The PSU, the control board and the Orange Pi each live in their own mount, and all three bolt to the machine's 2020 frame with 2 M5 screws each, six in total: {% include fastener.html size="M5" variant="socket-button" length="12" %} for the PSU box and the Orange Pi mount, {% include fastener.html size="M5" variant="socket-button" length="16" %} for the control board housing.
 
 <figure>
   <img class="doc-figure" src="https://assets.basically.website/sorter-docs/electronics-component-layout-topdown-full-2d38b86c4b2e.jpg" alt="Top-down physical component layout on the machine, with the PSU, Pi, basically board, USB hub, Pico, chute stepper and ribbon run called out">
@@ -38,6 +38,5 @@ Wiring follows on the [wire harness]({{ '/hardware/electronics/' | relative_url 
 Collected here rather than left on the individual pages, because these are the things that block finishing them.
 
 - **The Orange Pi's printed bracket is not in the parts registry.** No STL, no render, no print settings. The control board's housing is, as of v2.
-- **Screw lengths.** The six M5s that hold the mounts to the frame are placeholders. Measure one on a built machine.
 - **Where on the frame each mount goes.** The photo above is the whole record. Which extrusion, which face, and which way round are not written down.
 - **Cooling the Orange Pi.** The control board's fan is answered: it sits in the housing cover and runs off a GPIO-switched 24 V port on the board itself. How the Pi's fan is powered is still open (open item 1 on the [wire harness]({{ '/hardware/electronics/' | relative_url }}) page).

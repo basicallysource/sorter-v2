@@ -74,9 +74,9 @@ Each entry: what you see → cause → fix → how to verify. For the install pr
 
 ---
 
-## Carousel keeps rotating past the part — classification never completes
+## Classification rotor keeps turning past the part — classification never completes
 
-**Cause:** The classification detector returns `found=false` every attempt. Two real causes: OpenRouter API key missing or rate-limited, or the classification region polygon is misaligned with where the carousel actually presents parts.
+**Cause:** The classification detector returns `found=false` every attempt. Two real causes: OpenRouter API key missing or rate-limited, or the classification region polygon is misaligned with where the classification chamber actually presents parts.
 
 **Fix:**
 - Set `OPENROUTER_API_KEY` in `.env`, or lower `OPENROUTER_MAX_CONCURRENCY` from 10.

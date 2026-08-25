@@ -18,7 +18,7 @@ This tutorial assumes the first-boot setup wizard is done and `./dev.sh` is runn
 - Setup wizard finished (no wizard at `http://localhost:5173/`).
 - `./dev.sh` running. `curl -fsS http://localhost:8000/api/health` returns JSON.
 - 10–20 mixed bricks, plates, tiles. Skip stickered/printed parts on your first run.
-- Empty bins in their slots. Nothing left in the chute, carousel, or chamber.
+- Empty bins in their slots. Nothing left in the chute or classification chamber.
 
 ## 1. Pick a profile
 
@@ -31,7 +31,7 @@ Back on the home dashboard, check:
 - **Lifecycle: READY** (not `PAUSED` or `RUNNING`).
 - **All cameras live** — every tile shows a moving image.
 - **Chute homed.** If not, **Hardware → Chute → Home**.
-- **Carousel idle** — no part visible in the dropzone.
+- **Classification chamber idle** — no part visible in the dropzone.
 
 ## 3. Load five parts
 
@@ -53,11 +53,11 @@ The five transitions you should see, in order:
 4. `distribution: idle → positioning → ready`
 5. `distribution: ready → sending` — chute drops the part into a bin.
 
-If it stalls in `detecting`, see [Carousel keeps rotating past the part]({{ '/sorter/troubleshooting/' | relative_url }}#carousel-keeps-rotating-past-the-part--classification-never-completes).
+If it stalls in `detecting`, see [Classification rotor keeps turning past the part]({{ '/sorter/troubleshooting/' | relative_url }}#classification-rotor-keeps-turning-past-the-part--classification-never-completes).
 
 ## 6. Drain the rest
 
-Once the first part lands, top up the hopper with the remaining parts. Expect 4–8 parts/min on a first run. Don't hand-feed the carousel in `auto_channels` mode — the state machine doesn't expect it.
+Once the first part lands, top up the hopper with the remaining parts. Expect 4–8 parts/min on a first run. Don't hand-feed the classification chamber in `auto_channels` mode — the state machine doesn't expect it.
 
 ## 7. Check a bin
 
@@ -65,7 +65,7 @@ When the dashboard shows no pending work, **Stop run**. Open the Bricks bin — 
 
 ## 8. Shut down clean
 
-- Remove any part still sitting in a C-channel, the carousel, or the chamber. Stuck parts at shutdown break the next MOG2 bootstrap.
+- Remove any part still sitting in a C-channel or the classification chamber. Stuck parts at shutdown break the next MOG2 bootstrap.
 - Backend can keep running — no need to `Ctrl-C` `./dev.sh`.
 
 ## What you learned

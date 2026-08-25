@@ -38,7 +38,7 @@ The camera these carry is the **OV9732 720p module**, which the parts registry l
 
 {% include fastener-legend.html %}
 
-Two arms for three feeder channels is not a mistake. The software's `split_feeder` camera layout puts a camera on C2, on C3 and on the carousel, which lines up with the two arms and the two [light posts]({{ '/hardware/assembly/feeder/light-post/' | relative_url }}). That pairing is inferred from the part counts and the software config, not from a build.
+Two arms for three feeder channels is not a mistake. The software's `split_feeder` camera layout puts a camera on C2, on C3 and on the classification chamber (the config still calls this camera role `carousel`), which lines up with the two arms and the two [light posts]({{ '/hardware/assembly/feeder/light-post/' | relative_url }}). That pairing is inferred from the part counts and the software config, not from a build.
 
 {% include step.html n="1" title="Preparation" %}
 

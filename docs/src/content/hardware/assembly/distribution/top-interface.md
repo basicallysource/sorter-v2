@@ -218,9 +218,13 @@ Before assembling anything, press the heat inserts into the parts that take them
   <div class="prep-item-body">
     <p><strong>Interface idler gear:</strong> 4 × M3, around the bearing pocket on the underside</p>
     <p>Build the bearing sub-assembly now too, while the gear is still loose — it is easier off the bracket than on it. Push a 608 2RS bearing into the pocket, fit the Chute stepper idler gear bearing retainer (inner) over the bearing's bore, then the Chute stepper idler gear bearing retainer (outer) over that, seated flush in the recess with its 4 holes lined up on the gear's 4 inserts. Secure it with 4 × {% include fastener.html size="M3" variant="countersunk" length="8" %} screws, the same screw the Interface spur gear uses a few lines up. See step 9 for how the idler gear then goes onto the bracket.</p>
-    <p>These are reconstructions built from the STL geometry, not photos or a CAD export — there is no assembly photo of this joint yet.</p>
+    <p>The exploded and assembled views below are reconstructions built from the STL geometry, not a CAD export — there is no assembly photo of the retainer caps yet. The photo of the bearing itself is real, from before the caps existed.</p>
   </div>
   <div class="prep-item-figure prep-item-figure-split">
+    <figure>
+      <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-top-interface-step9-idler-gear-bearing-w1600-2fe924b61150.jpg" alt="608 2RS bearing pressed into the centre of the grey Interface idler gear, from before the bearing retainer caps existed">
+      <figcaption>608 2RS bearing pressed into the pocket. Real photo, predates the retainer caps.</figcaption>
+    </figure>
     <figure>
       <img class="doc-figure" src="https://assets.basically.website/sorter-parts/idler-exploded-3color-full-227310630981.png" alt="An exploded view from below of the idler gear stack in build order: the grey gear, the bearing highlighted in blue, and the inner and outer bearing retainer caps highlighted in red">
       <figcaption>Exploded, in build order: gear, bearing, inner cap, outer ring.</figcaption>
@@ -438,10 +442,6 @@ At this point the chute should still rotate, but you will now feel resistance fr
   <figure>
     <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-top-interface-step9-interface-spur-gear-w1600-7dcec28e692a.jpg" alt="Grey Interface spur gear secured over the timing pulley with five countersunk screws">
     <figcaption>Interface spur gear secured over the Timing pulley with five M3 × 8 mm screws.</figcaption>
-  </figure>
-  <figure>
-    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-top-interface-step9-idler-gear-bearing-w1600-2fe924b61150.jpg" alt="608 2RS bearing pressed into the centre of the grey Interface idler gear">
-    <figcaption>608 2RS bearing pressed into the Interface idler gear.</figcaption>
   </figure>
 </div>
 

@@ -28,6 +28,28 @@ asset spec, and the rules for adding a site live in
 - **No em dashes (`—`) in copy.** Use commas, periods, or parentheses. (The
   kicker breadcrumb is the one place they still appear, site-wide.)
 - Titles are sentence case. Alt text on every image.
+- **Every photo and video needs a credit in its caption**, not just implied by
+  the page's `author:`/`contributors:` front matter (barthel, 2026-08-26, see
+  [sorter-v2 #434](https://github.com/basicallysource/sorter-v2/pull/434)).
+  Append it to the existing figcaption text (don't replace the description),
+  using whichever of these fits:
+  - Named contributor, real photo: `Photo: {Name}.`
+  - CAD/STL render: `Rendered from the part geometry, not from a build.
+    Render: {who}.`
+  - Manufacturer/stock photo, not Basically's own: `Manufacturer photo
+    ({source}).`
+  - Video with nobody named as filmer: its own line right after the embed,
+    `_Video: {credit, or "Basically's own YouTube channel. Who filmed it
+    isn't recorded."}_` — a video embed is a `<div>`, not a `<figure>`, so
+    there's no figcaption slot to use.
+  - Nothing traces: say so plainly, `Photographer not recorded.` Don't guess
+    a name from the page's `author:` field unless there's a real reason to
+    believe they took it (e.g. they're the only person ever named for that
+    page's build and nobody else is credited for anything on it).
+  `python3 scripts/validate_credits.py` checks for one of these phrases near
+  every `<img>` and video embed; it doesn't parse the sentence, so match the
+  wording above rather than paraphrasing. `notes/` pages are exempt (see
+  "Engineering notes" below, they're never edited after publication).
 
 ## Add a new article
 
@@ -58,7 +80,11 @@ asset spec, and the rules for adding a site live in
 3. Add it to the sidebar in `src/liquid/_data/nav.yml` under the right
    section's `pages:` (nest with `children:` — the sidebar renders
    arbitrarily deep).
-4. `python3 scripts/validate_frontmatter.py` must pass.
+4. `python3 scripts/validate_frontmatter.py` must pass, and so must
+   `python3 scripts/validate_credits.py` if the page has any photo or video
+   (see "Writing conventions" above). As of 2026-08-26 `top-interface.md`
+   fails this until its open PR lands and gets credits in a follow-up; that
+   is not yours to fix along the way.
 
 ## Link previews (`og:image`)
 

@@ -159,11 +159,6 @@ The numbers on the drawing:
   <p>The foot cover takes 2 {% include fastener.html size="M5" variant="socket-button" length="16" %} screws to the External bracket — side, the same as the bottom vertical it replaces, mounted before the extrusion goes in (list item 1 above). Confirmed against a build (BrickCycleAlice, 2026-08-26); it contradicts an earlier read of the part as having no fastener holes, which was apparently taken from a geometry that does not match what is actually printed and screwed together.</p>
 </div>
 
-<figure>
-  <img class="doc-figure" src="https://assets.basically.website/sorter-parts/img-4205-full-cca3ed901a45.jpg" alt="The two foot-cover-to-bracket screws marked in green on the collar, the ones confirmed to be M5 x 16">
-  <figcaption>The two confirmed screws, marked. Photo courtesy of BrickCycleAlice.</figcaption>
-</figure>
-
 The two layers are now one rigid unit and their spacing is set by the bracket positions, not by anything you have to measure.
 
 {% include step.html n="4" title="Close off the corners at floor level" %}

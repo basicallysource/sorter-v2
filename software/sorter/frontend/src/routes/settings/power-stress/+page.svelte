@@ -39,7 +39,7 @@
 	};
 
 	let durationMinutes = $state(10);
-	let stepperSpeed = $state(12000);
+	let stepperSpeed = $state(6000);
 	let chuteSpeed = $state(3000);
 	let chuteMax = $state(345);
 	let active = $state(false);

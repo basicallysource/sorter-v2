@@ -122,8 +122,8 @@ On each of the six corners, working on the second layer first:
 
 <div class="img-row">
   <figure>
-    <img class="doc-figure" src="https://assets.basically.website/sorter-parts/img-4206-full-677bbaa8ee74.jpg" alt="The bottom layer's corner, seen upside down: the foot cover mounted to the External bracket — side, which is bolted into the hexagon extrusion">
-    <figcaption>The bottom layer's corner, upside down for access. Photo courtesy of BrickCycleAlice.</figcaption>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-parts/img-4215-full-20922c73cacb.jpg" alt="Close-up of the foot cover bolted to the External bracket — side, with the two foot-cover screws and the extrusion mounting screws visible">
+    <figcaption>The foot cover to External bracket connection. Photo courtesy of BrickCycleAlice.</figcaption>
   </figure>
   <figure>
     <img class="doc-figure" src="https://assets.basically.website/sorter-parts/img-4207-full-ccd9635abfe0.jpg" alt="Piece D held against the bracket with a tape measure alongside, measuring from the bottom before the collar screws are tightened">

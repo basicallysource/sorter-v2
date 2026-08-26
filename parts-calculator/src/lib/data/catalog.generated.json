@@ -341,10 +341,10 @@
 		},
 		{
 			"id": "widen-frame-90deg-bracket-holes",
-			"name": "Frame 90\u00b0 bracket long-side holes too tight for an M5",
+			"name": "Frame 90\u00b0 bracket pivot hole too tight for an M5",
 			"priority": "P0",
 			"condition": "broken",
-			"description": "The two holes on the bracket's long side, which take the M5 that lets it pivot loosely against the A/G extrusion while the B/H spoke is fitted, print too tight for the screw to rotate freely. As printed, every one has to be drilled out to M5 clearance by hand, or opened by deliberately overtightening a screwdriver through it to strip the hole -- 2 holes per bracket, 12 brackets per layer, 144 holes across a full machine. The fix is to open both holes to a real M5 clearance diameter in CAD. Reported by BrickCycleAlice from a build. Tracked as sorter-v2 issue #436.",
+			"description": "Measured off the pinned STL: each bracket has exactly one hole on its long side and one on its short side, both \u00d84.40 mm -- not two holes on the long side as first written here. The long-side hole takes the M5 \u00d7 12 that lets the bracket pivot against the A/G extrusion (via a T-nut) while the B/H spoke is fitted, and 4.40 mm is far under M5 clearance (~5.3-5.5 mm, the standard used elsewhere in this frame), so it cannot rotate as printed. The short-side hole takes the M5 \u00d7 16 that is meant to tap directly into the bracket, bracing against the extrusion (regular-layers.md step 2), and 4.40 mm matches the M5 self-tap size used across the rest of the frame -- but BrickCycleAlice needed it drilled out too on her build, so whoever fixes the long side should also check whether the short side is printing too tight to thread reliably. Builders currently drill or strip both open by hand, on all 144 holes across a full machine (2 per bracket x 12 brackets x 6 layers). Reported and measured by BrickCycleAlice from a build. Tracked as sorter-v2 issue #436.",
 			"targets": {
 				"parts": [
 					"frame-90deg-bracket"

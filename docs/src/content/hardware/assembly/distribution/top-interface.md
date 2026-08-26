@@ -524,7 +524,7 @@ Follow the first two stages of [a regular layer]({{ '/hardware/assembly/distribu
   <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-top-interface-framing-3-full-b9ae16940954.jpg" alt="A regular layer assembly lowered onto the interface assembly">
 </figure>
 
-Attach an External bracket cover to each of the External bracket sides, then fasten each one with 2 {% include fastener.html size="M5" variant="socket-button" length="16" %} screws into the holes at the base of the External bracket sides, bracing against the extrusion. These holes run parallel to the extrusion profile, and the screws are self-tapping. See the [External bracket]({{ '/hardware/parts/external-bracket/' | relative_url }}) reference page for the parts themselves — there is no External bracket — bottom vertical at this joint, see [step 14](#step-14) for what's different here.
+Attach an External bracket cover to each of the External bracket sides, then fasten each one with 2 {% include fastener.html size="M5" variant="socket-button" length="16" %} screws into the holes at the base of the External bracket sides, bracing against the extrusion. These holes run parallel to the extrusion profile, and the screws are self-tapping. See [Assembling External bracket]({{ '/hardware/helpers/external-bracket/' | relative_url }}) for the parts themselves — there is no External bracket — bottom vertical at this joint, see [step 14](#step-14) for what's different here.
 
 {% include step.html n="14" title="How the interface joins the top layer" %}
 

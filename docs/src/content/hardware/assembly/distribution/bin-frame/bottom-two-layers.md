@@ -45,7 +45,7 @@ parts_needed:
   - part: caster-wheel-m6
     qty: 6
   - part: scr-m5-16-shcs
-    qty: 84
+    qty: 96
   - part: scr-m5-20-shcs
     qty: 24
   - part: scr-m5-12-shcs
@@ -84,10 +84,9 @@ Where the {% include fastener.html size="M5" variant="socket-button" length="16"
 - **48** for the two hexagons and their spokes, which is [regular layers]({{ '/hardware/assembly/distribution/bin-frame/regular-layers/' | relative_url }}) steps 1 and 2 done twice
 - **24** for the foot extensions, 4 per corner (step 3 below), two into each layer
 - **12** for the second layer's External bracket — bottom verticals, 2 per corner (step 4 below)
+- **12** for the bottom layer's External bracket - foot covers, 2 per corner (step 4 below), the same as the bottom vertical it replaces
 
 The {% include fastener.html size="M5" variant="socket-button" length="12" %} count is the same arithmetic: **12** per layer holding the Frame 90° brackets and **24** per layer for the bin retainers, so **72** across both.
-
-The bottom layer's External bracket - foot cover is the one that is not accounted for: whether it takes the 2 screws the bottom vertical it replaces would have, or clips on like a cover, is not recorded anywhere. <span class="fastener-todo">fastener not recorded</span>
 
 {% include step.html n="2" title="Build two layer frames" %}
 
@@ -121,11 +120,27 @@ The corner itself is the same as on any layer. Only the vertical changes: one pi
 On each of the six corners, working on the second layer first:
 
 <ol class="numbered-steps">
-  <li>Slot an External bracket — cover onto the second layer's External bracket — side, before the extrusion goes in. It is awkward to fit afterwards.</li>
+  <li>Slot an External bracket — cover onto the second layer's External bracket — side, and the External bracket - foot cover onto the bottom layer's, before either extrusion goes in. Both take 2 {% include fastener.html size="M5" variant="socket-button" length="16" %} screws and are awkward to fit afterwards.</li>
+  <li>Partially thread the 2 {% include fastener.html size="M5" variant="socket-button" length="16" %} screws that will clamp each collar onto piece D, at both the second layer's bracket and the bottom layer's, so they are started but not yet tight.</li>
   <li>Slide a piece D down through the second layer's bracket and on down through the matching corner of the bottom layer, so one piece passes through both.</li>
-  <li>Secure it at the second layer with 2 {% include fastener.html size="M5" variant="socket-button" length="16" %} screws tapped through the holes near the bottom of the External bracket — side, bracing against the extrusion.</li>
-  <li>Secure it again at the bottom layer's External bracket — side the same way, 2 more {% include fastener.html size="M5" variant="socket-button" length="16" %} screws.</li>
+  <li>Measure from the bottom before tightening anything, to check how far the exposed end will stand proud once the corner is clamped.</li>
+  <li>Tighten the collar screws at the second layer, bracing against the extrusion, then the same 2 screws at the bottom layer.</li>
 </ol>
+
+<div class="img-row">
+  <figure>
+    <div class="img-placeholder">Image coming</div>
+    <figcaption>The bottom layer's corner, foot cover already mounted to the External bracket — side, then the bracket bolted into the hexagon extrusion as in regular layers step 2. Photo courtesy of BrickCycleAlice in the basically Discord; pending upload.</figcaption>
+  </figure>
+  <figure>
+    <div class="img-placeholder">Image coming</div>
+    <figcaption>Measuring piece D from the bottom before the collar screws are tightened down. Photo courtesy of BrickCycleAlice; pending upload.</figcaption>
+  </figure>
+  <figure>
+    <div class="img-placeholder">Image coming</div>
+    <figcaption>Tightening the collar screw once piece D is positioned. Photo courtesy of BrickCycleAlice; pending upload.</figcaption>
+  </figure>
+</div>
 
 Let the bottom end of piece D stand proud of the bottom layer's corner rather than sitting flush with it: the foot connector bolts into that exposed end, and the External bracket - foot cover in step 4 is deliberately shorter than an ordinary cover so the extrusion pops out far enough to take it.
 
@@ -140,7 +155,9 @@ The numbers on the drawing:
   <li><strong>The second layer's collar</strong>, with its External bracket — bottom vertical below it. From here up, every joint is the ordinary layer joint described in <a href="{{ '/hardware/assembly/distribution/bin-frame/regular-layers/' | relative_url }}#step-5">regular layers, step 5</a>.</li>
 </ol>
 
-Measured off the parts: the foot cover has no fastener holes of any kind, neither the vertical pair the bottom vertical's flange carries nor the self-tapping pair the brackets use, so it appears to go on as a cover rather than being screwed. <span class="fastener-todo">fastener not recorded</span>
+<div class="callout">
+  <p>The foot cover takes 2 {% include fastener.html size="M5" variant="socket-button" length="16" %} screws to the External bracket — side, the same as the bottom vertical it replaces, mounted before the extrusion goes in (list item 1 above). Confirmed against a build (BrickCycleAlice, 2026-08-26); it contradicts an earlier read of the part as having no fastener holes, which was apparently taken from a geometry that does not match what is actually printed and screwed together.</p>
+</div>
 
 The two layers are now one rigid unit and their spacing is set by the bracket positions, not by anything you have to measure.
 
@@ -148,7 +165,7 @@ The two layers are now one rigid unit and their spacing is set by the bracket po
 
 The bottom layer does not get an External bracket — bottom vertical or an External bracket — cover. It gets an **External bracket - foot cover** instead, one per corner, which is the single printed part that replaces both of them. It is shorter than the pair it replaces, on purpose, so the extrusion stands out past it far enough for the foot connector in step 5.
 
-How the foot cover fastens is not recorded: the bottom vertical it replaces takes 2 {% include fastener.html size="M5" variant="socket-button" length="16" %} screws through its outer holes, and the cover it replaces clips on and takes none. <span class="fastener-todo">fastener not recorded</span>
+The foot cover fastens the same way the bottom vertical it replaces would: 2 {% include fastener.html size="M5" variant="socket-button" length="16" %} screws through its outer holes into the External bracket — side. Mount it before the extrusion goes in, at the same point as the second layer's cover in step 3 (BrickCycleAlice, 2026-08-26).
 
 The second layer's corners are ordinary, exactly as in [regular layers]({{ '/hardware/assembly/distribution/bin-frame/regular-layers/' | relative_url }}) step 3: an External bracket — bottom vertical slid onto piece D with its angles aligned at the bottom, 2 {% include fastener.html size="M5" variant="socket-button" length="16" %} screws through its outer holes.
 

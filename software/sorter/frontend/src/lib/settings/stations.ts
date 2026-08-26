@@ -156,6 +156,12 @@ export const incidentsNavItem: SettingsNavItem = {
 	icon: ShieldAlert
 };
 
+export const powerStressNavItem: SettingsNavItem = {
+	href: '/settings/power-stress',
+	label: 'Power Stress Test',
+	icon: Zap
+};
+
 export const tuningNavItems: SettingsNavItem[] = [
 	{
 		href: '/settings/tuning/feeder-go-to-angle',
@@ -288,6 +294,7 @@ const baseSettingsNavItems: SettingsNavEntry[] = [
 	controlBoardNavItem,
 	{ type: 'heading', label: 'Helpers' },
 	incidentsNavItem,
+	powerStressNavItem,
 	chuteAimingNavItem,
 	stallguardNavItem,
 	jitterTestNavItem,

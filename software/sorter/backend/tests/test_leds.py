@@ -103,6 +103,16 @@ class LedOutputTests(unittest.TestCase):
 
         self.assertEqual([o.pin.duty for o in self.outputs], [0, 0])
 
+    def test_all_on_drives_every_output_at_full_duty(self) -> None:
+        controller = LedController(self.gc, self.outputs)
+
+        controller.allOn()
+
+        self.assertEqual(
+            [o.pin.duty for o in self.outputs],
+            [DIGITAL_OUTPUT_DUTY_MAX, DIGITAL_OUTPUT_DUTY_MAX],
+        )
+
 
 class RecordingDevice:
     def __init__(self) -> None:

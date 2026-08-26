@@ -133,6 +133,7 @@ from server.routers.pieces import router as pieces_router
 from server.routers.incidents import router as incidents_router
 from server.routers.runtimes import router as runtimes_router
 from server.routers.chute_stress import router as chute_stress_router
+from server.routers.power_stress import router as power_stress_router
 from server.routers.tuning import router as tuning_router
 from server.routers.telemetry import router as telemetry_router
 from server.routers.tailscale import router as tailscale_router
@@ -157,6 +158,7 @@ app.include_router(pieces_router)
 app.include_router(incidents_router)
 app.include_router(runtimes_router)
 app.include_router(chute_stress_router)
+app.include_router(power_stress_router)
 app.include_router(tuning_router)
 app.include_router(telemetry_router)
 app.include_router(tailscale_router)

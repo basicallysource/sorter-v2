@@ -1054,6 +1054,18 @@ body {
 
 /* ── Media ─────────────────────────────────────────────────────────────── */
 
+/* A bare <figure><figcaption> (not in an .img-row or a floated figure, both
+   of which set their own) had no caption styling at all, so it rendered
+   exactly like the body text that followed it. This is the fallback so any
+   figcaption reads as a caption tied to its image. */
+figure > figcaption {
+	margin-top: 6px;
+	font-size: 0.875rem;
+	line-height: 1.4;
+	text-align: center;
+	color: var(--muted);
+}
+
 .img-row {
 	display: flex;
 	flex-wrap: wrap;

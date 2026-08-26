@@ -48,6 +48,30 @@ The main run held 117.9–118.5 V at the plug. Mean AC input current was 0.883 A
 
 The highest sustained load was the stable phase with all four non-chute steppers running continuously. Random stopping and restarting did not exceed that phase at the Shelly's one-second resolution.
 
+## Phase distribution and load duration
+
+![Power distribution and load-duration curve](./kitbash-power-phase-analysis-2026-08-25.png)
+
+The phase distributions show that this was a sustained load rather than a result dominated by one spike. Half of the main-run samples were at or above 63.3 W, 25% were at or above 65.0 W, and 5% were at or above 68.3 W. Even 95% of the samples were at or above 59.2 W; the final low tail is preparation and phase-transition cleanup.
+
+Stable continuous motion had a 65.0 W median and 64.8 W mean. Random burst motion had a 61.9 W median and mean. The 2.8 W difference between those modes is more useful for sizing than the command rate alone.
+
+## Correlation with sorter activity
+
+![Power aligned to sorter actuator activity](./kitbash-power-sorter-correlation-2026-08-25.png)
+
+The correlation chart aligns Shelly samples with actual `move_at_speed`, servo-target, and chute-move messages from the sorter journal. Non-chute stepper running state was reconstructed from every nonzero and zero speed command. Command activity is grouped into five-second bins so it remains readable against the one-second power measurement.
+
+| Mode | Non-chute stepper behavior | Stepper start/stop commands | Servo target commands | Chute move commands | Mean power |
+| --- | --- | ---: | ---: | ---: | ---: |
+| Stable | All 4 continuously moving | 4 | 318 | 19 | 64.8 W |
+| Random | 0–4 moving as bursts overlap | 946 | 473 | 172 | 61.9 W |
+| Mixed partial | 2 continuous plus 2 bursting | 41 | 42 | 1 | 63.6 W |
+
+The important result is that **command count is not a reliable power proxy**. Random mode generated far more host commands but used less power than stable mode. Within random and partial mixed operation, one-second power versus reconstructed non-chute steppers moving had Pearson `r ≈ 0.04`, which is no meaningful linear relationship at this resolution. Enabled drivers still draw holding current while stopped, bursts change faster than the Shelly's integration window, and chute/servo loads overlap.
+
+Sorter operating mode correlates more usefully with power than individual commands: four continuously moving steppers added about 2.8 W over burst mode, while both modes remained near a 62–65 W sustained plateau. Supply sizing should therefore use the phase envelope and observed peak, not multiply a per-command estimate.
+
 ## Timeline
 
 All times below are warehouse time, EDT. Epoch timestamps from the test recorder were converted directly; the Kitbash journal's displayed `+0800` timestamps were not interpreted as local warehouse time.

@@ -163,11 +163,6 @@ The bottom layer does not get an External bracket — bottom vertical or an Exte
 
 The foot cover fastens the same way the bottom vertical it replaces would: 2 {% include fastener.html size="M5" variant="socket-button" length="16" %} screws through its outer holes into the External bracket — side. Mount it before the extrusion goes in, at the same point as the second layer's cover in step 3.
 
-<figure>
-  <img class="doc-figure" src="https://assets.basically.website/sorter-parts/img-4205-full-cca3ed901a45.jpg" alt="The two foot-cover screws marked in green on the collar">
-  <figcaption>The two foot-cover screws, marked.</figcaption>
-</figure>
-
 The second layer's corners are ordinary, exactly as in [regular layers]({{ '/hardware/assembly/distribution/bin-frame/regular-layers/' | relative_url }}) step 3: an External bracket — bottom vertical slid onto piece D with its angles aligned at the bottom, 2 {% include fastener.html size="M5" variant="socket-button" length="16" %} screws through its outer holes.
 
 {% include step.html n="5" title="Fit the feet" %}

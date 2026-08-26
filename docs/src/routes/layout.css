@@ -1092,6 +1092,16 @@ body {
 	color: var(--muted);
 }
 
+/* An attribution line inside a figcaption, kept visually apart from the
+   description above it rather than folded into the same sentence. */
+.photo-credit {
+	display: block;
+	margin-top: 2px;
+	font-size: 0.85em;
+	font-style: italic;
+	color: var(--muted);
+}
+
 .img-placeholder {
 	display: flex;
 	align-items: center;

@@ -58,7 +58,7 @@ The bottom two layers are two ordinary bin layers built at the same time, becaus
 
 <figure>
   <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-bottom-two-layers-frame-on-casters-w1600-6454aa70d746.jpg" alt="The bottom of a built machine: two bin-frame layers on six swivel casters, with the extrusion legs running up past the bottom frame into the second, and the start of a third layer's hexagon ring above them">
-  <figcaption>The bottom two layers on their casters. The hexagon ring at the top is the next layer starting, not part of these two, so this is about two and a half layers of machine. Photo courtesy of Christoph in the basically Discord.</figcaption>
+  <figcaption>The bottom two layers on their casters. The hexagon ring at the top is the next layer starting, not part of these two, so this is about two and a half layers of machine. <span class="photo-credit">Photo courtesy of Christoph in the basically Discord.</span></figcaption>
 </figure>
 
 Everything else about these two layers is the same as any other. Build each one with the [regular layers]({{ '/hardware/assembly/distribution/bin-frame/regular-layers/' | relative_url }}) guide and come back here for the parts that differ, which are only the verticals, the corners at floor level, and the feet.
@@ -105,7 +105,7 @@ If you are using slide-in T-nuts, put them in as that guide says. The ends of th
 
 <figure>
   <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-bottom-two-layers-c-and-d-extrusion-w1600-71a8f20c58c5.jpg" alt="The bottom corner of a built machine, with the C layer vertical support marked between the second and third frames and the longer D foot extension marked running from the caster up past the bottom frame to the second">
-  <figcaption>C between the layers above; D from the caster, past the bottom layer's corner, to the second layer. Photo courtesy of Christoph in the basically Discord.</figcaption>
+  <figcaption>C between the layers above; D from the caster, past the bottom layer's corner, to the second layer. <span class="photo-credit">Photo courtesy of Christoph in the basically Discord.</span></figcaption>
 </figure>
 
 The corner itself is the same as on any layer. Only the vertical changes: one piece D takes the place of the C that each of these two layers would otherwise have, and it stands proud at the bottom instead of being capped.
@@ -123,15 +123,15 @@ On each of the six corners, working on the second layer first:
 <div class="img-row">
   <figure>
     <img class="doc-figure" src="https://assets.basically.website/sorter-parts/img-4215-crop1-full-d1ae19d41e44.jpg" alt="Close-up of the foot cover bolted to the External bracket — side, with the two foot-cover screws and the extrusion mounting screws visible">
-    <figcaption>The foot cover to External bracket connection. Photo courtesy of BrickCycleAlice.</figcaption>
+    <figcaption>The foot cover to External bracket connection. <span class="photo-credit">Photo courtesy of BrickCycleAlice.</span></figcaption>
   </figure>
   <figure>
     <img class="doc-figure" src="https://assets.basically.website/sorter-parts/img-4207-full-ccd9635abfe0.jpg" alt="Piece D held against the bracket with a tape measure alongside, measuring from the bottom before the collar screws are tightened">
-    <figcaption>Measuring piece D from the bottom before the collar screws are tightened down. Photo courtesy of BrickCycleAlice.</figcaption>
+    <figcaption>Measuring piece D from the bottom before the collar screws are tightened down. <span class="photo-credit">Photo courtesy of BrickCycleAlice.</span></figcaption>
   </figure>
   <figure>
     <img class="doc-figure" src="https://assets.basically.website/sorter-parts/img-4208-full-a6f410b71459.jpg" alt="Driving one of the collar screws home with a hex key once piece D is positioned">
-    <figcaption>Tightening the collar screw once piece D is positioned. Photo courtesy of BrickCycleAlice.</figcaption>
+    <figcaption>Tightening the collar screw once piece D is positioned. <span class="photo-credit">Photo courtesy of BrickCycleAlice.</span></figcaption>
   </figure>
 </div>
 

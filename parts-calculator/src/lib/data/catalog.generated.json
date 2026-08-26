@@ -1460,6 +1460,10 @@
 				{
 					"part": "frame-90deg-bracket",
 					"qty": 12
+				},
+				{
+					"part": "scr-m5-12-shcs",
+					"qty": 12
 				}
 			]
 		},

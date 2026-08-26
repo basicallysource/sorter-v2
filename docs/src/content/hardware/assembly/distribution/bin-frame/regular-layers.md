@@ -35,7 +35,7 @@ parts_needed:
   - part: scr-m5-20-shcs
     qty: 12
   - part: scr-m5-12-shcs
-    qty: 12
+    qty: 36
   - part: tnut-m5-2020
     qty: 36
 ---

@@ -36,16 +36,17 @@ The fasteners and quantities in the parts list are called out inline at each ste
 
 {% include fastener-legend.html %}
 
-<div class="video-embed video-embed-wide">
-  <iframe
-    src="https://www.youtube.com/embed/XsVXOLvNsMA"
-    title="Bottom interface assembly"
-    allow="encrypted-media; picture-in-picture; web-share"
-    allowfullscreen
-    loading="lazy"></iframe>
-</div>
-
-_Video: Basically's own YouTube channel. Who filmed it isn't recorded._
+<figure class="video-figure">
+  <div class="video-embed video-embed-wide">
+    <iframe
+      src="https://www.youtube.com/embed/XsVXOLvNsMA"
+      title="Bottom interface assembly"
+      allow="encrypted-media; picture-in-picture; web-share"
+      allowfullscreen
+      loading="lazy"></iframe>
+  </div>
+  <figcaption><cite>Video: Basically's own YouTube channel. Who filmed it isn't recorded.</cite></figcaption>
+</figure>
 
 The bottom interface stacks the chute mount, the Lazy Susan washer, the Lazy Susan bearing, and the bottom static part. Here it is exploded into its components:
 
@@ -187,7 +188,7 @@ Three Lazy Susan extrusion mounts fix the assembly to the external extrusion of 
   </figure>
   <figure>
     <img src="https://assets.basically.website/sorter-docs/assembly-bottom-interface-step4-extrusion-mount-on-2020-w1600-36f5200925fd.jpg" alt="The same pair with a length of 2020 aluminum extrusion seated in the channel along its sloped edge">
-    <figcaption>With a length of 2020 in its channel. <cite>Photos by BrickCycleAlice.</cite></figcaption>
+    <figcaption>With a length of 2020 in its channel. <cite>Photo: BrickCycleAlice.</cite></figcaption>
   </figure>
 </div>
 

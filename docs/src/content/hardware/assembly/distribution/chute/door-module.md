@@ -175,13 +175,14 @@ The servo output then couples to the door through the two-piece servo adapter, s
   <p>The MG995 only rotates 180°. Install the servo so the door can reach <strong>both</strong> its fully open and fully closed positions inside that range: clock the horn and set the mounting angle so neither extreme falls outside the servo's travel.</p>
 </div>
 
-<div class="video-embed video-embed-wide">
-  <iframe
-    src="https://www.youtube.com/embed/TMo_xE-Zyy0"
-    title="How to install the MG995 servo"
-    allow="encrypted-media; picture-in-picture; web-share"
-    allowfullscreen
-    loading="lazy"></iframe>
-</div>
-
-_Video: Basically's own YouTube channel. Who filmed it isn't recorded._
+<figure class="video-figure">
+  <div class="video-embed video-embed-wide">
+    <iframe
+      src="https://www.youtube.com/embed/TMo_xE-Zyy0"
+      title="How to install the MG995 servo"
+      allow="encrypted-media; picture-in-picture; web-share"
+      allowfullscreen
+      loading="lazy"></iframe>
+  </div>
+  <figcaption><cite>Video: Basically's own YouTube channel. Who filmed it isn't recorded.</cite></figcaption>
+</figure>

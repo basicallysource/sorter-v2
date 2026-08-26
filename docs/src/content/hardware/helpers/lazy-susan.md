@@ -24,13 +24,14 @@ Background on the part — sourcing, load rating, the 8" variant — is on the [
 
 Some variants ship with rubber feet. Pull them off — pliers work well.
 
-<div class="video-embed video-embed-wide">
-  <iframe
-    src="https://www.youtube.com/embed/YQCLAKlc9-M"
-    title="Removing the lazy Susan rubber feet"
-    allow="encrypted-media; picture-in-picture; web-share"
-    allowfullscreen
-    loading="lazy"></iframe>
-</div>
-
-_Video: Basically's own YouTube channel. Who filmed it isn't recorded._
+<figure class="video-figure">
+  <div class="video-embed video-embed-wide">
+    <iframe
+      src="https://www.youtube.com/embed/YQCLAKlc9-M"
+      title="Removing the lazy Susan rubber feet"
+      allow="encrypted-media; picture-in-picture; web-share"
+      allowfullscreen
+      loading="lazy"></iframe>
+  </div>
+  <figcaption><cite>Video: Basically's own YouTube channel. Who filmed it isn't recorded.</cite></figcaption>
+</figure>

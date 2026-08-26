@@ -44,15 +44,16 @@ It travels faster as it gets hotter, so keep a steady hand. Larger inserts take 
 
 A {% include affiliate-link.html url="https://www.amazon.com/Vertical-Machine-Heat-Insertion-Threaded-Components/dp/B0FRXF1ZH6" text="heat-set insert press" %} is the easiest way to install them: it holds the insert square and drives it straight down, so you just line it up over the hole and lower the arm. The video below shows the process.
 
-<div class="video-embed video-embed-wide">
-  <iframe
-    src="https://www.youtube.com/embed/dnUfhQ9JohU"
-    title="Installing heat-set inserts"
-    allow="encrypted-media; picture-in-picture; web-share"
-    allowfullscreen
-    loading="lazy"></iframe>
-</div>
-
-_Video: Basically's own YouTube channel. Who filmed it isn't recorded._
+<figure class="video-figure">
+  <div class="video-embed video-embed-wide">
+    <iframe
+      src="https://www.youtube.com/embed/dnUfhQ9JohU"
+      title="Installing heat-set inserts"
+      allow="encrypted-media; picture-in-picture; web-share"
+      allowfullscreen
+      loading="lazy"></iframe>
+  </div>
+  <figcaption><cite>Video: Basically's own YouTube channel. Who filmed it isn't recorded.</cite></figcaption>
+</figure>
 
 {% include affiliate-footnotes.html %}

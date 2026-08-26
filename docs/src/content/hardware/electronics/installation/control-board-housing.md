@@ -143,17 +143,18 @@ Press the plunger on the lid. You should hear the button click.
   </figure>
 </div>
 
-<div class="video-embed-self">
-  <video controls preload="none" playsinline
-    poster="https://assets.basically.website/sorter-docs/pressing-the-plunger-poster-6e2ab26816a2.jpg"
-    width="1280" height="2275"
-  >
-    <source src="https://assets.basically.website/sorter-docs/pressing-the-plunger-w960-0383f6a741bb.mp4" type="video/mp4">
-    <source src="https://assets.basically.website/sorter-docs/pressing-the-plunger-w1920-7d9064396d9c.mp4" type="video/mp4">
-  </video>
-</div>
-
-_Video: Spencer._
+<figure class="video-figure">
+  <div class="video-embed-self">
+    <video controls preload="none" playsinline
+      poster="https://assets.basically.website/sorter-docs/pressing-the-plunger-poster-6e2ab26816a2.jpg"
+      width="1280" height="2275"
+    >
+      <source src="https://assets.basically.website/sorter-docs/pressing-the-plunger-w960-0383f6a741bb.mp4" type="video/mp4">
+      <source src="https://assets.basically.website/sorter-docs/pressing-the-plunger-w1920-7d9064396d9c.mp4" type="video/mp4">
+    </video>
+  </div>
+  <figcaption><cite>Video: Spencer.</cite></figcaption>
+</figure>
 
 {% include step.html n="8" title="Bolt it to the frame" %}
 

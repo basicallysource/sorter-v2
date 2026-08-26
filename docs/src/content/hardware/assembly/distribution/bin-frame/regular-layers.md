@@ -67,16 +67,17 @@ Slide piece A/G (Outer horizontal / Horizontal interface frame) of aluminum extr
 
 If you are using slide-in T-nuts rather than drop-in or roll-in T-nuts, insert 2 into the innermost section of the extrusion and 4 into the outermost section before connecting the next External bracket — side, as this is the last time the ends of the extrusion are accessible.
 
-<div class="video-embed video-embed-wide">
-  <iframe
-    src="https://www.youtube.com/embed/LWruBv-fMz4"
-    title="Assembling the frame brackets"
-    allow="encrypted-media; picture-in-picture; web-share"
-    allowfullscreen
-    loading="lazy"></iframe>
-</div>
-
-_Video: zed0._
+<figure class="video-figure">
+  <div class="video-embed video-embed-wide">
+    <iframe
+      src="https://www.youtube.com/embed/LWruBv-fMz4"
+      title="Assembling the frame brackets"
+      allow="encrypted-media; picture-in-picture; web-share"
+      allowfullscreen
+      loading="lazy"></iframe>
+  </div>
+  <figcaption><cite>Video: zed0.</cite></figcaption>
+</figure>
 
 <div class="img-row">
   <figure>
@@ -111,16 +112,17 @@ Repeat these steps to make two semi-circles of three sections of extrusion and t
 
 Prepare 12 Frame 90° brackets by drilling out the holes on the long side to allow an M5 screw to rotate freely. If you do not have a drill of the correct diameter, this can also be done using an electric screwdriver to overtighten an M5 screw, thus breaking the threads.
 
-<div class="video-embed video-embed-wide">
-  <iframe
-    src="https://www.youtube.com/embed/ULeByfqfVZs"
-    title="Preparing the Frame 90° brackets and attaching the spokes"
-    allow="encrypted-media; picture-in-picture; web-share"
-    allowfullscreen
-    loading="lazy"></iframe>
-</div>
-
-_Video: zed0._
+<figure class="video-figure">
+  <div class="video-embed video-embed-wide">
+    <iframe
+      src="https://www.youtube.com/embed/ULeByfqfVZs"
+      title="Preparing the Frame 90° brackets and attaching the spokes"
+      allow="encrypted-media; picture-in-picture; web-share"
+      allowfullscreen
+      loading="lazy"></iframe>
+  </div>
+  <figcaption><cite>Video: zed0.</cite></figcaption>
+</figure>
 
 <figure class="single-figure">
   <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-regular-layers-spoke-brackets-attached-w1600-47b3c12e2344.png" alt="Two Frame 90° brackets fastened to the inner face of an A/G extrusion, seen from inside the hexagon">

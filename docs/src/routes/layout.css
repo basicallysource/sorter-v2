@@ -1286,6 +1286,28 @@ figcaption cite {
 	background: var(--line);
 }
 
+/* Wraps a video-embed/video-embed-self div so its credit reads the same as a
+   photo's: a <figcaption><cite> line under the player, not a floating
+   markdown paragraph. The inner div keeps sizing the player; this just adds
+   the caption and absorbs the margin the div used to carry on its own. */
+.video-figure {
+	margin: 0 0 1.4rem;
+}
+
+.video-figure .video-embed-portrait,
+.video-figure .video-embed-wide,
+.video-figure .video-embed-self {
+	margin: 0;
+}
+
+.video-figure figcaption {
+	margin-top: 6px;
+	font-size: 0.875rem;
+	line-height: 1.4;
+	text-align: center;
+	color: var(--muted);
+}
+
 .photo-grid {
 	display: grid;
 	grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));

@@ -24,7 +24,7 @@ The PSU box has three DC outputs, and each one is a short pigtail: two crimp spa
 
 <figure class="harness-figure">
   <img src="https://assets.basically.website/sorter-docs/harness-psu-pigtail-built-w1600-59554dc6b189.jpg" alt="An assembled PSU output pigtail: a panel-mount barrel jack with red and black 18 AWG leads, each ending in an insulated spade terminal">
-  <figcaption>One assembled pigtail: panel-mount barrel jack, red +24V and black ground leads, an insulated spade terminal crimped on each.</figcaption>
+  <figcaption>One assembled pigtail: panel-mount barrel jack, red +24V and black ground leads, an insulated spade terminal crimped on each. <cite>Photo: Jon.</cite></figcaption>
 </figure>
 
 ## Parts, per pigtail
@@ -57,19 +57,19 @@ The crimp is the fiddly part. Strip the wire, seat it fully in the terminal barr
 <div class="photo-grid">
   <figure>
     <img src="https://assets.basically.website/sorter-docs/harness-psu-pigtail-step1-stripped-w1600-7fe6beee8efc.png" alt="Stripped end of the 18 AWG wire showing bare strands">
-    <figcaption>1. Strip the wire back to bare strands.</figcaption>
+    <figcaption>1. Strip the wire back to bare strands. <cite>Photo: Jon.</cite></figcaption>
   </figure>
   <figure>
     <img src="https://assets.basically.website/sorter-docs/harness-psu-pigtail-step2-terminal-w1600-6302bb6e8bc4.png" alt="Stripped wire seated in the spade terminal barrel, not yet crimped">
-    <figcaption>2. Seat the bare strands fully in the terminal barrel.</figcaption>
+    <figcaption>2. Seat the bare strands fully in the terminal barrel. <cite>Photo: Jon.</cite></figcaption>
   </figure>
   <figure>
     <img src="https://assets.basically.website/sorter-docs/harness-psu-pigtail-step3-crimping-w1600-0ecacc7e17fd.png" alt="Crimping the terminal in the red 22 to 16 AWG die of a ratcheting crimp tool">
-    <figcaption>3. Crimp in the matching die — the red (22–16 AWG) jaw suits the 18 AWG wire.</figcaption>
+    <figcaption>3. Crimp in the matching die — the red (22–16 AWG) jaw suits the 18 AWG wire. <cite>Photo: Jon.</cite></figcaption>
   </figure>
   <figure>
     <img src="https://assets.basically.website/sorter-docs/harness-psu-pigtail-step4-crimped-w1600-ba1c9b488c45.png" alt="The finished crimp with the insulation grip closed on the wire jacket">
-    <figcaption>4. Finished: the grip is closed on the jacket and the wire will not pull out.</figcaption>
+    <figcaption>4. Finished: the grip is closed on the jacket and the wire will not pull out. <cite>Photo: Jon.</cite></figcaption>
   </figure>
 </div>
 

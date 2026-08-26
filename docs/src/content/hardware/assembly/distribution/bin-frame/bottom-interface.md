@@ -36,23 +36,28 @@ The fasteners and quantities in the parts list are called out inline at each ste
 
 {% include fastener-legend.html %}
 
-<div class="video-embed video-embed-wide">
-  <iframe
-    src="https://www.youtube.com/embed/XsVXOLvNsMA"
-    title="Bottom interface assembly"
-    allow="encrypted-media; picture-in-picture; web-share"
-    allowfullscreen
-    loading="lazy"></iframe>
-</div>
+<figure class="video-figure">
+  <div class="video-embed video-embed-wide">
+    <iframe
+      src="https://www.youtube.com/embed/XsVXOLvNsMA"
+      title="Bottom interface assembly"
+      allow="encrypted-media; picture-in-picture; web-share"
+      allowfullscreen
+      loading="lazy"></iframe>
+  </div>
+  <figcaption><cite>Video: Basically's own YouTube channel. Who filmed it isn't recorded.</cite></figcaption>
+</figure>
 
 The bottom interface stacks the chute mount, the Lazy Susan washer, the Lazy Susan bearing, and the bottom static part. Here it is exploded into its components:
 
 <div class="img-row">
   <figure>
     <img src="https://assets.basically.website/sorter-docs/assembly-bottom-interface-exploded-view-cropped-full-b7caae0e6e6f.png" alt="Exploded view of the bottom interface: chute mount on top, Lazy Susan washer, Lazy Susan bearing, and the corner mounting brackets below">
+    <figcaption>Exploded view. <cite>Render: Adrianbaker.</cite></figcaption>
   </figure>
   <figure>
     <img src="https://assets.basically.website/sorter-docs/assembly-bottom-interface-exploded-view-detail-full-43115f353ffc.png" alt="Close-up exploded view of the bottom interface parts separating from the mounting brackets">
+    <figcaption>Detail of the same exploded view. <cite>Render: Adrianbaker.</cite></figcaption>
   </figure>
 </div>
 
@@ -61,7 +66,7 @@ Once assembled, it mounts into the machine frame:
 <div class="img-row">
   <figure>
     <img src="https://assets.basically.website/sorter-docs/assembly-bottom-interface-mounted-in-frame-full-476d171d148e.png" alt="The bottom interface assembly mounted into the aluminum extrusion machine frame">
-    <figcaption>Diagram pictures courtesy of Adrianbaker in the basically Discord.</figcaption>
+    <figcaption><cite>Diagram pictures courtesy of Adrianbaker in the basically Discord.</cite></figcaption>
   </figure>
 </div>
 
@@ -84,7 +89,7 @@ Press the heat inserts into both printed parts while they are still loose. Once 
   </div>
   <figure class="prep-item-figure">
     <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-bottom-interface-prep-bottom-static-inserts-full-55b0a52a2cd1.png" alt="Close-up of the black Lazy Susan bottom static ring with three of its four brass M4 heat inserts clearly visible, pressed flush into the top face">
-    <figcaption>Three of the four M4 inserts in the bottom static part. The fourth sits under the chute mount coming down on the right.</figcaption>
+    <figcaption>Three of the four M4 inserts in the bottom static part. The fourth sits under the chute mount coming down on the right. <cite>Photo: Spencer.</cite></figcaption>
   </figure>
 </div>
 
@@ -99,10 +104,11 @@ Remove the Lazy Susan's rubber tabs first (see [Preparing Lazy Susan]({{ '/hardw
 <div class="img-row">
   <figure>
     <img src="https://assets.basically.website/sorter-docs/assembly-bottom-interface-step2-insert-through-hole-full-a67b71f5c4a7.png" alt="Close-up down an aligned hole in the Lazy Susan, with the brass M4 heat insert in the chute mount visible at the bottom of it">
-    <figcaption>Lined up: the brass insert sits at the bottom of the hole.</figcaption>
+    <figcaption>Lined up: the brass insert sits at the bottom of the hole. <cite>Photo: Spencer.</cite></figcaption>
   </figure>
   <figure>
     <img src="https://assets.basically.website/sorter-docs/assembly-bottom-interface-step1-drive-screw-full-622f05a7a4fe.jpg" alt="Driving a countersunk screw through the Lazy Susan into the chute mount">
+    <figcaption><cite>Photo: Spencer.</cite></figcaption>
   </figure>
 </div>
 
@@ -111,7 +117,10 @@ Remove the Lazy Susan's rubber tabs first (see [Preparing Lazy Susan]({{ '/hardw
   <p>The {% include fastener.html size="M4" variant="countersunk" length="12" %} screws must be very tight. A drill or electric screwdriver will not get them there, so finish them with a hex key by hand. Machine vibration works a loose one out of a spot that is a hassle to reach later.</p>
 </div>
 
-<img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-bottom-interface-lazy-susan-on-chute-mount-full-d478621b1f81.jpg" alt="Lazy Susan bearing mounted on the chute mount with the washer between them">
+<figure class="single-figure">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-bottom-interface-lazy-susan-on-chute-mount-full-d478621b1f81.jpg" alt="Lazy Susan bearing mounted on the chute mount with the washer between them">
+  <figcaption><cite>Photo: Spencer.</cite></figcaption>
+</figure>
 
 {% include step.html n="3" title="Mount the Lazy Susan to the bottom static part" %}
 
@@ -120,11 +129,11 @@ The bearing's other disc screws down into the bottom static part. All four of th
 <div class="img-row">
   <figure>
     <img src="https://assets.basically.website/sorter-docs/assembly-bottom-interface-step2-holes-aligned-full-ebf0c303cdb4.jpg" alt="Lazy Susan hole aligned with the pass-through hole, seen from the top">
-    <figcaption>Seen from the top, with the bearing hole over the pass-through.</figcaption>
+    <figcaption>Seen from the top, with the bearing hole over the pass-through. <cite>Photo: Spencer.</cite></figcaption>
   </figure>
   <figure>
     <img src="https://assets.basically.website/sorter-docs/assembly-bottom-interface-step2-pass-through-full-0522b2c6e677.jpg" alt="Pass-through hole in the chute mount with the screw reachable underneath">
-    <figcaption>The pass-through hole in the chute mount.</figcaption>
+    <figcaption>The pass-through hole in the chute mount. <cite>Photo: Spencer.</cite></figcaption>
   </figure>
 </div>
 
@@ -133,32 +142,40 @@ Set the chute mount and Lazy Susan assembly onto the bottom static part, then li
 <div class="img-row">
   <figure>
     <img src="https://assets.basically.website/sorter-docs/assembly-bottom-interface-step2-place-chute-adapter-full-5d3dfd2a5794.jpg" alt="Placing the chute mount and Lazy Susan assembly onto the bottom static part">
+    <figcaption><cite>Photo: Spencer.</cite></figcaption>
   </figure>
   <figure>
     <img src="https://assets.basically.website/sorter-docs/assembly-bottom-interface-step2-hole-red-square-full-fd314fd2c0a2.jpg" alt="Pass-through hole lined up over the heat insert, marked with a red square">
-    <figcaption>Lined up over the marked insert.</figcaption>
+    <figcaption>Lined up over the marked insert. <cite>Photo: Spencer.</cite></figcaption>
   </figure>
 </div>
 
 Drive the first {% include fastener.html size="M4" variant="countersunk" length="12" %} screw through the pass-through hole.
 
-<img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-bottom-interface-step2-screwed-in-full-92f81fc1417a.jpg" alt="First screw driven through the pass-through hole">
+<figure class="single-figure">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-bottom-interface-step2-screwed-in-full-92f81fc1417a.jpg" alt="First screw driven through the pass-through hole">
+  <figcaption><cite>Photo: Spencer.</cite></figcaption>
+</figure>
 
 Rotate the chute on the Lazy Susan, the way it turns in normal operation rather than forcing the whole assembly, to bring the pass-through hole over the next insert. Repeat for all four screws.
 
 <div class="img-row">
   <figure>
     <img src="https://assets.basically.website/sorter-docs/assembly-bottom-interface-step2-rotate-90-full-7139a08a65e9.jpg" alt="Rotating the chute with the Lazy Susan to the next screw position">
+    <figcaption><cite>Photo: Spencer.</cite></figcaption>
   </figure>
   <figure>
     <img src="https://assets.basically.website/sorter-docs/assembly-bottom-interface-step2-after-rotate-full-cdec5eba44af.jpg" alt="Pass-through hole lined up over the next heat insert after rotating">
-    <figcaption>Pass-through hole now over the next insert.</figcaption>
+    <figcaption>Pass-through hole now over the next insert. <cite>Photo: Spencer.</cite></figcaption>
   </figure>
 </div>
 
 The bearing stack is now complete:
 
-<img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-bottom-interface-complete-full-8aa4adc4ac4c.jpg" alt="The completed bottom interface with chute mount, Lazy Susan bearing, and bottom static part assembled">
+<figure class="single-figure">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-bottom-interface-complete-full-8aa4adc4ac4c.jpg" alt="The completed bottom interface with chute mount, Lazy Susan bearing, and bottom static part assembled">
+  <figcaption><cite>Photo: Spencer.</cite></figcaption>
+</figure>
 
 {% include step.html n="4" title="Mount it into the frame" %}
 
@@ -167,11 +184,11 @@ Three Lazy Susan extrusion mounts fix the assembly to the external extrusion of 
 <div class="img-row">
   <figure>
     <img src="https://assets.basically.website/sorter-docs/assembly-bottom-interface-step4-extrusion-mount-w1600-06391df95795.jpg" alt="A Lazy Susan extrusion mount and a Lazy Susan hold in place bolted together, forming a grey wedge with a triangular window through its web and two counterbored holes along its bottom face">
-    <figcaption>The extrusion mount and the hold in place, bolted together.</figcaption>
+    <figcaption>The extrusion mount and the hold in place, bolted together. <cite>Photo: BrickCycleAlice.</cite></figcaption>
   </figure>
   <figure>
     <img src="https://assets.basically.website/sorter-docs/assembly-bottom-interface-step4-extrusion-mount-on-2020-w1600-36f5200925fd.jpg" alt="The same pair with a length of 2020 aluminum extrusion seated in the channel along its sloped edge">
-    <figcaption>With a length of 2020 in its channel. Photos by BrickCycleAlice.</figcaption>
+    <figcaption>With a length of 2020 in its channel. <cite>Photo: BrickCycleAlice.</cite></figcaption>
   </figure>
 </div>
 

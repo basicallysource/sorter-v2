@@ -76,7 +76,7 @@ No heat inserts on this assembly. Every printed part here takes a self-tapping {
 Cut the extrusion first. These two layers use **6 × piece D (Foot extension), 231 mm**, and **no piece C at all** — D stands in for the C that each of these two layers would otherwise have. The [framing cut list](https://parts-calculator.basically.website/framing) has every length; at 1 or 2 layers, C is genuinely absent from that list rather than missing.
 
 <div class="callout">
-  <p>D is 1.5 × a single layer's vertical support, not 2 ×. It runs from the caster at the bottom, through the bottom layer's corner, up to the second layer's frame, so the bottom layer sits about half a layer's height off the floor. Spencer confirmed this is what the Brickworld machines were built to.</p>
+  <p>D is 1.5 × a single layer's vertical support, not 2 ×, so the bottom layer sits about half a layer's height off the floor.</p>
 </div>
 
 Where the {% include fastener.html size="M5" variant="socket-button" length="16" %} count in the parts list comes from, since nobody has counted these off a built machine:

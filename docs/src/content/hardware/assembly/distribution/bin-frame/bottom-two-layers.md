@@ -45,7 +45,7 @@ parts_needed:
   - part: caster-wheel-m6
     qty: 6
   - part: scr-m5-16-shcs
-    qty: 84
+    qty: 96
   - part: scr-m5-20-shcs
     qty: 24
   - part: scr-m5-12-shcs
@@ -58,7 +58,7 @@ The bottom two layers are two ordinary bin layers built at the same time, becaus
 
 <figure>
   <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-bottom-two-layers-frame-on-casters-w1600-6454aa70d746.jpg" alt="The bottom of a built machine: two bin-frame layers on six swivel casters, with the extrusion legs running up past the bottom frame into the second, and the start of a third layer's hexagon ring above them">
-  <figcaption>The bottom two layers on their casters. The hexagon ring at the top is the next layer starting, not part of these two, so this is about two and a half layers of machine. Photo courtesy of Christoph in the basically Discord.</figcaption>
+  <figcaption>The bottom two layers on their casters. The hexagon ring at the top is the next layer starting, not part of these two, so this is about two and a half layers of machine. <span class="photo-credit">Photo courtesy of Christoph in the basically Discord.</span></figcaption>
 </figure>
 
 Everything else about these two layers is the same as any other. Build each one with the [regular layers]({{ '/hardware/assembly/distribution/bin-frame/regular-layers/' | relative_url }}) guide and come back here for the parts that differ, which are only the verticals, the corners at floor level, and the feet.
@@ -76,7 +76,7 @@ No heat inserts on this assembly. Every printed part here takes a self-tapping {
 Cut the extrusion first. These two layers use **6 × piece D (Foot extension), 231 mm**, and **no piece C at all** — D stands in for the C that each of these two layers would otherwise have. The [framing cut list](https://parts-calculator.basically.website/framing) has every length; at 1 or 2 layers, C is genuinely absent from that list rather than missing.
 
 <div class="callout">
-  <p>D is 1.5 × a single layer's vertical support, not 2 ×. It runs from the caster at the bottom, through the bottom layer's corner, up to the second layer's frame, so the bottom layer sits about half a layer's height off the floor. Spencer confirmed this is what the Brickworld machines were built to.</p>
+  <p>D is 1.5 × a single layer's vertical support, not 2 ×, so the bottom layer sits about half a layer's height off the floor.</p>
 </div>
 
 Where the {% include fastener.html size="M5" variant="socket-button" length="16" %} count in the parts list comes from, since nobody has counted these off a built machine:
@@ -84,10 +84,9 @@ Where the {% include fastener.html size="M5" variant="socket-button" length="16"
 - **48** for the two hexagons and their spokes, which is [regular layers]({{ '/hardware/assembly/distribution/bin-frame/regular-layers/' | relative_url }}) steps 1 and 2 done twice
 - **24** for the foot extensions, 4 per corner (step 3 below), two into each layer
 - **12** for the second layer's External bracket — bottom verticals, 2 per corner (step 4 below)
+- **12** for the bottom layer's External bracket - foot covers, 2 per corner (step 4 below), the same as the bottom vertical it replaces
 
 The {% include fastener.html size="M5" variant="socket-button" length="12" %} count is the same arithmetic: **12** per layer holding the Frame 90° brackets and **24** per layer for the bin retainers, so **72** across both.
-
-The bottom layer's External bracket - foot cover is the one that is not accounted for: whether it takes the 2 screws the bottom vertical it replaces would have, or clips on like a cover, is not recorded anywhere. <span class="fastener-todo">fastener not recorded</span>
 
 {% include step.html n="2" title="Build two layer frames" %}
 
@@ -106,14 +105,7 @@ If you are using slide-in T-nuts, put them in as that guide says. The ends of th
 
 <figure>
   <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-bottom-two-layers-c-and-d-extrusion-w1600-71a8f20c58c5.jpg" alt="The bottom corner of a built machine, with the C layer vertical support marked between the second and third frames and the longer D foot extension marked running from the caster up past the bottom frame to the second">
-  <figcaption>C between the layers above; D from the caster, past the bottom layer's corner, to the second layer. Photo courtesy of Christoph in the basically Discord.</figcaption>
-</figure>
-
-<figure class="figure-float-right">
-  <a href="https://assets.basically.website/sorter-docs/assembly-bottom-two-layers-foot-corner-section-full-6ec3353ee6cf.png" target="_blank" rel="noopener">
-    <img src="https://assets.basically.website/sorter-docs/assembly-bottom-two-layers-foot-corner-section-full-6ec3353ee6cf.png" alt="Vertical cross-section through one corner at the bottom of the machine, showing piece D running through the bottom layer's bracket and up into the second layer, the foot cover around it, and the exposed end below">
-  </a>
-  <figcaption>One corner at floor level, cut through the centre of the profile. The bottom layer is blue, the second layer's collar purple. The numbers match the list below. Click to enlarge. Drawn from the part geometry rather than from a build.</figcaption>
+  <figcaption>C between the layers above; D from the caster, past the bottom layer's corner, to the second layer. <span class="photo-credit">Photo courtesy of Christoph in the basically Discord.</span></figcaption>
 </figure>
 
 The corner itself is the same as on any layer. Only the vertical changes: one piece D takes the place of the C that each of these two layers would otherwise have, and it stands proud at the bottom instead of being capped.
@@ -121,13 +113,36 @@ The corner itself is the same as on any layer. Only the vertical changes: one pi
 On each of the six corners, working on the second layer first:
 
 <ol class="numbered-steps">
-  <li>Slot an External bracket — cover onto the second layer's External bracket — side, before the extrusion goes in. It is awkward to fit afterwards.</li>
+  <li>Slot an External bracket — cover onto the second layer's External bracket — side, and the External bracket - foot cover onto the bottom layer's, before either extrusion goes in. Both take 2 {% include fastener.html size="M5" variant="socket-button" length="16" %} screws and are awkward to fit afterwards.</li>
+  <li>Partially thread the 2 {% include fastener.html size="M5" variant="socket-button" length="16" %} screws that will clamp each collar onto piece D, at both the second layer's bracket and the bottom layer's, so they are started but not yet tight.</li>
   <li>Slide a piece D down through the second layer's bracket and on down through the matching corner of the bottom layer, so one piece passes through both.</li>
-  <li>Secure it at the second layer with 2 {% include fastener.html size="M5" variant="socket-button" length="16" %} screws tapped through the holes near the bottom of the External bracket — side, bracing against the extrusion.</li>
-  <li>Secure it again at the bottom layer's External bracket — side the same way, 2 more {% include fastener.html size="M5" variant="socket-button" length="16" %} screws.</li>
+  <li>Measure from the bottom before tightening anything, to check how far the exposed end will stand proud once the corner is clamped.</li>
+  <li>Tighten the collar screws at the second layer, bracing against the extrusion, then the same 2 screws at the bottom layer.</li>
 </ol>
 
+<div class="img-row">
+  <figure>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-parts/img-4215-crop1-full-d1ae19d41e44.jpg" alt="Close-up of the foot cover bolted to the External bracket — side, with the two foot-cover screws and the extrusion mounting screws visible">
+    <figcaption>The foot cover to External bracket connection. <span class="photo-credit">Photo courtesy of BrickCycleAlice.</span></figcaption>
+  </figure>
+  <figure>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-parts/img-4207-full-ccd9635abfe0.jpg" alt="Piece D held against the bracket with a tape measure alongside, measuring from the bottom before the collar screws are tightened">
+    <figcaption>Measuring piece D from the bottom before the collar screws are tightened down. <span class="photo-credit">Photo courtesy of BrickCycleAlice.</span></figcaption>
+  </figure>
+  <figure>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-parts/img-4208-full-a6f410b71459.jpg" alt="Driving one of the collar screws home with a hex key once piece D is positioned">
+    <figcaption>Tightening the collar screw once piece D is positioned. <span class="photo-credit">Photo courtesy of BrickCycleAlice.</span></figcaption>
+  </figure>
+</div>
+
 Let the bottom end of piece D stand proud of the bottom layer's corner rather than sitting flush with it: the foot connector bolts into that exposed end, and the External bracket - foot cover in step 4 is deliberately shorter than an ordinary cover so the extrusion pops out far enough to take it.
+
+<figure class="figure-float-right">
+  <a href="https://assets.basically.website/sorter-docs/assembly-bottom-two-layers-foot-corner-section-full-6ec3353ee6cf.png" target="_blank" rel="noopener">
+    <img src="https://assets.basically.website/sorter-docs/assembly-bottom-two-layers-foot-corner-section-full-6ec3353ee6cf.png" alt="Vertical cross-section through one corner at the bottom of the machine, showing piece D running through the bottom layer's bracket and up into the second layer, the foot cover around it, and the exposed end below">
+  </a>
+  <figcaption>One corner at floor level, cut through the centre of the profile. The bottom layer is blue, the second layer's collar purple. The numbers match the list below. Click to enlarge. Drawn from the part geometry rather than from a build.</figcaption>
+</figure>
 
 The numbers on the drawing:
 
@@ -140,15 +155,13 @@ The numbers on the drawing:
   <li><strong>The second layer's collar</strong>, with its External bracket — bottom vertical below it. From here up, every joint is the ordinary layer joint described in <a href="{{ '/hardware/assembly/distribution/bin-frame/regular-layers/' | relative_url }}#step-5">regular layers, step 5</a>.</li>
 </ol>
 
-Measured off the parts: the foot cover has no fastener holes of any kind, neither the vertical pair the bottom vertical's flange carries nor the self-tapping pair the brackets use, so it appears to go on as a cover rather than being screwed. <span class="fastener-todo">fastener not recorded</span>
-
 The two layers are now one rigid unit and their spacing is set by the bracket positions, not by anything you have to measure.
 
 {% include step.html n="4" title="Close off the corners at floor level" %}
 
 The bottom layer does not get an External bracket — bottom vertical or an External bracket — cover. It gets an **External bracket - foot cover** instead, one per corner, which is the single printed part that replaces both of them. It is shorter than the pair it replaces, on purpose, so the extrusion stands out past it far enough for the foot connector in step 5.
 
-How the foot cover fastens is not recorded: the bottom vertical it replaces takes 2 {% include fastener.html size="M5" variant="socket-button" length="16" %} screws through its outer holes, and the cover it replaces clips on and takes none. <span class="fastener-todo">fastener not recorded</span>
+The foot cover fastens the same way the bottom vertical it replaces would: 2 {% include fastener.html size="M5" variant="socket-button" length="16" %} screws through its outer holes into the External bracket — side. Mount it before the extrusion goes in, at the same point as the second layer's cover in step 3.
 
 The second layer's corners are ordinary, exactly as in [regular layers]({{ '/hardware/assembly/distribution/bin-frame/regular-layers/' | relative_url }}) step 3: an External bracket — bottom vertical slid onto piece D with its angles aligned at the bottom, 2 {% include fastener.html size="M5" variant="socket-button" length="16" %} screws through its outer holes.
 

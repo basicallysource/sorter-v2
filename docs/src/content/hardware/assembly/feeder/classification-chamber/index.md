@@ -12,8 +12,9 @@ contributors: [barthel]
 warning: >-
   **AI-generated first draft.** Written from the parts registry in the [parts
   calculator](https://parts-calculator.basically.website/assembly?focus=classification-chamber),
-  not from an actual build. The assembly order is not recorded anywhere yet, so this page
-  lists what the chamber is made of rather than how it goes together. Correct it as you build.
+  not from an actual build. The assembly order is still not recorded, so this page mostly lists
+  what the chamber is made of rather than how it goes together — one fastener is now measured
+  off the STLs, everything else about how the pieces join is still open. Correct it as you build.
 parts_needed:
   - part: classification-dome
     qty: 1
@@ -27,11 +28,13 @@ parts_needed:
     qty: 1
   - part: cam-imx415
     qty: 1
+  - part: scr-m2-8-shcs
+    qty: 4
 ---
 
 The classification chamber is where a part is lit and photographed on its way through. It sits on the fourth [C-channel]({{ '/hardware/assembly/feeder/c-channel/' | relative_url }}), the classification-channel one.
 
-The parts are in the list above. No fasteners are recorded for this stage yet.
+The parts are in the list above. Most fasteners for this stage still aren't recorded; what is, is called out in Step 2.
 
 {% include fastener-legend.html %}
 
@@ -48,9 +51,23 @@ Build the classification channel as a normal [C-channel]({{ '/hardware/assembly/
 
 Fit the Camera & LED insert, then the camera on its extension tube and mount ring, then close the chamber with the dome.
 
-The fasteners for this stage are not recorded yet: <span class="fastener-todo">fastener not recorded</span>.
+- **Insert to camera extension's mount ring:** 4 × M3, 46 mm square pattern around the central opening.
+- **Insert to the rest of the chamber:** an outer ring of 10 larger holes (10 mm). Not recorded what goes through them.
+- **Camera board to the camera extension:** 4 × {% include fastener.html size="M2" variant="socket-button" length="8" %}, self-tapping into the extension's two posts.
+- **Classification dome:** no screw holes anywhere. Not recorded how it closes onto the chamber.
 
-<div class="img-placeholder">Image coming</div>
+<div class="img-row">
+  <figure>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-parts/insert-iso-full-e4b396fc8c88.png" alt="Angled render of the camera and LED insert's top face, showing a ring of 10 large holes around the rim and 4 smaller countersunk holes around a central square opening">
+    <figcaption>The insert's top face: 10 holes around the rim (mounts to the chamber), 4 smaller ones around the central opening (matches the extension mount, M3). <cite>Rendered from the part geometry, not from a build. Render: Balloon.</cite></figcaption>
+  </figure>
+  <figure>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-parts/extension-iso-full-8d1f0c51606f.png" alt="Angled render of the camera extension bracket, showing two posts each with a mounting hole">
+    <figcaption>The camera extension: two posts, a hole near the top and bottom of each. The top pair takes the M2 camera-board screws. <cite>Rendered from the part geometry, not from a build. Render: Balloon.</cite></figcaption>
+  </figure>
+</div>
+
+**Not recorded:** how the extension's bottom pair of posts joins the mount ring. <span class="fastener-todo">fastener not recorded</span>
 
 {% include step.html n="3" title="Light the chamber" %}
 

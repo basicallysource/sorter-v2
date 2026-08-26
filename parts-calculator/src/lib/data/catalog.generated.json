@@ -492,8 +492,8 @@
 			"uid": "6h3l",
 			"version": "1",
 			"name": "External distribution-frame bracket",
-			"description": "Three parts that bolt together into one external bracket. 6 per distribution frame (per layer), plus a set per interface. The cover clips on and takes no screws.",
-			"docs": "/hardware/assembly/distribution/external-bracket/",
+			"description": "Three parts that bolt together into one external bracket. 6 per distribution frame (per layer). The cover clips on and takes no screws. The top interface uses only the side and cover from this set, no bottom vertical, see the interface assembly.",
+			"docs": "/hardware/helpers/external-bracket/",
 			"status": "partial",
 			"joining": [
 				{
@@ -848,6 +848,10 @@
 				{
 					"part": "scr-m4-6-cs",
 					"qty": 4
+				},
+				{
+					"part": "scr-m5-12-shcs",
+					"qty": 2
 				}
 			],
 			"candidates": [
@@ -927,8 +931,12 @@
 					"qty": 1
 				},
 				{
+					"part": "scr-m2-8-shcs",
+					"qty": 4
+				},
+				{
 					"part": "scr-m3-tbd",
-					"qty": 8
+					"qty": 4
 				}
 			]
 		},
@@ -1037,8 +1045,16 @@
 					"qty": 6
 				},
 				{
-					"assembly": "external-bracket",
+					"part": "ext-bracket-left",
 					"qty": 6
+				},
+				{
+					"part": "ext-bracket-cover",
+					"qty": 6
+				},
+				{
+					"part": "scr-m5-16-shcs",
+					"qty": 12
 				},
 				{
 					"assembly": "fixed-upper-section",
@@ -1158,7 +1174,7 @@
 			"uid": "67uq",
 			"version": "1",
 			"name": "Bottom interface",
-			"description": "The bottom interface / lazy Susan level. Carries two chutes.",
+			"description": "The bottom interface / lazy Susan level. The chute above it is one of the machine's N regular chutes, already counted there; this assembly only adds the layer connector that bridges down to it.",
 			"docs": "/hardware/assembly/distribution/bin-frame/bottom-interface/",
 			"status": "partial",
 			"lines": [
@@ -1171,8 +1187,8 @@
 					"qty": 1
 				},
 				{
-					"assembly": "chute",
-					"qty": 2
+					"assembly": "layer-connector",
+					"qty": 1
 				}
 			]
 		},
@@ -1496,6 +1512,10 @@
 				{
 					"part": "scr-m3-12-bhcs",
 					"qty": 4
+				},
+				{
+					"part": "scr-m5-16-shcs",
+					"qty": 2
 				}
 			],
 			"joining": [
@@ -1613,6 +1633,10 @@
 				{
 					"part": "fan-40mm-24v",
 					"qty": 1
+				},
+				{
+					"part": "scr-m5-12-shcs",
+					"qty": 2
 				}
 			],
 			"images": [
@@ -1628,7 +1652,7 @@
 			"uid": "lbrp",
 			"version": "1",
 			"name": "Electronics",
-			"description": "The three boxes that bolt to the frame: the PSU, the control board, and the Orange Pi. Each takes 2 \u00d7 [[hw:scr-m5-shcs-tbd]] \u2014 nobody has measured the length yet.",
+			"description": "The three boxes that bolt to the frame: the PSU, the control board, and the Orange Pi.",
 			"docs": "/hardware/electronics/installation/",
 			"status": "partial",
 			"lines": [
@@ -1643,10 +1667,6 @@
 				{
 					"assembly": "orange-pi-mount",
 					"qty": 1
-				},
-				{
-					"part": "scr-m5-shcs-tbd",
-					"qty": 6
 				}
 			]
 		},
@@ -4555,7 +4575,7 @@
 			"layer_scope": "all",
 			"requires": [],
 			"caption": null,
-			"docs_page": "/hardware/assembly/distribution/external-bracket/",
+			"docs_page": "/hardware/helpers/external-bracket/",
 			"conflicts": null,
 			"stl": "https://assets.basically.website/sorter-parts/ext-bracket-left-da4b3abd3db7.stl",
 			"render": "https://assets.basically.website/sorter-parts/ext-bracket-left-full-a105b452a4e1.png",
@@ -4647,8 +4667,7 @@
 			"uid": "xgzj",
 			"name": "External bracket \u2014 bottom vertical",
 			"quantities": {
-				"layer": 6,
-				"interface": 6
+				"layer": 6
 			},
 			"assembly": "external-bracket",
 			"folder": null,
@@ -4688,7 +4707,7 @@
 			"layer_scope": "non-bottom",
 			"requires": [],
 			"caption": null,
-			"docs_page": "/hardware/assembly/distribution/external-bracket/",
+			"docs_page": "/hardware/helpers/external-bracket/",
 			"conflicts": null,
 			"stl": "https://assets.basically.website/sorter-parts/ext-bracket-bottom-vertical-313397afb08f.stl",
 			"render": "https://assets.basically.website/sorter-parts/ext-bracket-bottom-vertical-full-9d75356a3cf1.png",
@@ -4821,7 +4840,7 @@
 			"layer_scope": "non-bottom",
 			"requires": [],
 			"caption": null,
-			"docs_page": "/hardware/assembly/distribution/external-bracket/",
+			"docs_page": "/hardware/helpers/external-bracket/",
 			"conflicts": null,
 			"stl": "https://assets.basically.website/sorter-parts/ext-bracket-cover-f99e33cea115.stl",
 			"render": "https://assets.basically.website/sorter-parts/ext-bracket-cover-full-2936c7ca9c44.png",
@@ -14152,7 +14171,10 @@
 					"uid": "o732",
 					"date": "2026-08-24",
 					"message": "Initial version.",
-					"commit": null
+					"commit": null,
+					"stl": "https://assets.basically.website/sorter-parts/cage-top-hex-corner-92c8342eaa28.stl",
+					"render": "https://img.basically.website/parts/render/cage-top-hex-corner-3a346d2e.png",
+					"grams": 29.01
 				}
 			],
 			"attributes": [],
@@ -14174,7 +14196,7 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"stl": "https://img.basically.website/parts/stl/cage-top-hex-corner-o732-92c8342e.stl",
+			"stl": "https://assets.basically.website/sorter-parts/cage-top-hex-corner-92c8342eaa28.stl",
 			"render": "https://img.basically.website/parts/render/cage-top-hex-corner-3a346d2e.png",
 			"stamped": [
 				{
@@ -14280,7 +14302,10 @@
 					"uid": "64tz",
 					"date": "2026-08-24",
 					"message": "Initial version.",
-					"commit": null
+					"commit": null,
+					"stl": "https://assets.basically.website/sorter-parts/cage-top-motor-piece-c4d97fa88f75.stl",
+					"render": "https://img.basically.website/parts/render/cage-top-motor-piece-fe7fc28a.png",
+					"grams": 52.99
 				}
 			],
 			"attributes": [],
@@ -14302,7 +14327,7 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"stl": "https://img.basically.website/parts/stl/cage-top-motor-piece-64tz-c4d97fa8.stl",
+			"stl": "https://assets.basically.website/sorter-parts/cage-top-motor-piece-c4d97fa88f75.stl",
 			"render": "https://img.basically.website/parts/render/cage-top-motor-piece-fe7fc28a.png",
 			"stamped": [
 				{
@@ -14729,6 +14754,46 @@
 			"docs_page": null,
 			"conflicts": null,
 			"image": "https://assets.basically.website/sorter-parts/hardware-screws-countersunk-full-faf0edbe3324.jpg"
+		},
+		{
+			"id": "scr-m2-8-shcs",
+			"uid": "iwk6",
+			"kind": "cots",
+			"cots": {
+				"type": "screw",
+				"size": "M2",
+				"variant": "socket",
+				"length_mm": 8
+			},
+			"name": "M2 \u00d7 8 mm socket/button head",
+			"category": "Screws",
+			"description": "Self-taps the IMX415 classification camera board to the camera extension's printed post. 4 per module, no insert. May also fit the OV9732 overhead camera mount once that gets a real bracket (sorter-v2#426), not confirmed.",
+			"note": "First M2 in the catalog -- every other screw here is M3/M4/M5/M6. Length worked from what barthel gave directly (module datasheet: M2, board 1.57 mm thick, self-tapping) plus what's measured off the camera-extension STL: 4 holes, 2.6 mm, on a two-post bracket, each post an 8 mm-deep constant-diameter self-tap bore. 8 mm clears the board and uses most of the post's depth for thread engagement without bottoming out before the head seats.",
+			"created_at": "2026-08-25",
+			"updated_at": "2026-08-25",
+			"attributes": [
+				{
+					"label": "Thread",
+					"value": "M2"
+				},
+				{
+					"label": "Length",
+					"value": "8 mm"
+				},
+				{
+					"label": "Head",
+					"value": "Socket or button head"
+				}
+			],
+			"sheet_qty": null,
+			"sheet_qty_text": null,
+			"stock": null,
+			"sourcing": null,
+			"alternative": "Socket or button head",
+			"caption": null,
+			"docs_page": null,
+			"conflicts": null,
+			"image": null
 		},
 		{
 			"id": "scr-m3-8-shcs",

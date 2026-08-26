@@ -18,8 +18,8 @@ The 20-tooth timing pulley needs its top flange removed before it fits into the 
 ## Remove the top flange
 
 <div class="img-row">
-  <figure><img src="https://assets.basically.website/sorter-docs/helpers-timing-pulley-before-flange-removal-w1600-cb631cc9caf6.jpg" alt="20-tooth timing pulley before preparation, with the top flange attached"><figcaption>Before: top flange attached.</figcaption></figure>
-  <figure><img src="https://assets.basically.website/sorter-docs/helpers-timing-pulley-after-flange-removal-w1600-fbac3db7df0c.jpg" alt="20-tooth timing pulley after preparation, with the removed top flange beside it"><figcaption>After: top flange removed.</figcaption></figure>
+  <figure><img src="https://assets.basically.website/sorter-docs/helpers-timing-pulley-before-flange-removal-w1600-cb631cc9caf6.jpg" alt="20-tooth timing pulley before preparation, with the top flange attached"><figcaption>Before: top flange attached. <cite>Photo: Abrianbaker.</cite></figcaption></figure>
+  <figure><img src="https://assets.basically.website/sorter-docs/helpers-timing-pulley-after-flange-removal-w1600-fbac3db7df0c.jpg" alt="20-tooth timing pulley after preparation, with the removed top flange beside it"><figcaption>After: top flange removed. <cite>Photo: Abrianbaker.</cite></figcaption></figure>
 </div>
 
 Grip the top flange with needle-nose pliers and pry it upwards. It should pop off cleanly without damaging the pulley.

@@ -45,7 +45,7 @@ Before assembling anything, press the heat inserts into the parts that take them
   </div>
   <figure class="prep-item-figure">
     <img class="doc-figure" src="https://assets.basically.website/sorter-parts/opi-landscape-ringed-full-aa8aaac704ff.png" alt="The Orange Pi extrusion mount lying on its long edge, with all four M3 standoff insert holes circled in red near the four corners of the frame, each showing a real shadowed hole">
-    <figcaption>The 4 insert holes, ringed, near the four corners of the frame.</figcaption>
+    <figcaption>The 4 insert holes, ringed, near the four corners of the frame. <cite>Rendered from the part geometry, not from a build. Render: Balloon.</cite></figcaption>
   </figure>
 </div>
 
@@ -55,7 +55,7 @@ The Pi itself takes no inserts, and neither does anything else on this page.
 
 <figure class="figure-float-right">
   <img class="doc-figure" src="https://assets.basically.website/sorter-parts/opi-landscape-standoffs-full-cefb56a912b0.png" alt="The Orange Pi extrusion mount lying on its long edge with 4 standoffs mounted in the corner insert holes and a screw head in blue on top of each, shown as plain placeholders since neither part is modelled in the catalog">
-  <figcaption>The 4 standoffs and their retention screws (blue), drawn as parametric placeholders.</figcaption>
+  <figcaption>The 4 standoffs and their retention screws (blue), drawn as parametric placeholders. <cite>Render: Balloon.</cite></figcaption>
 </figure>
 
 **Heat inserts first:** the bracket takes 4 × M3 inserts, one per standoff. Press them in before assembling.
@@ -66,7 +66,7 @@ Screw the 4 M3 standoffs into the inserts. Sit the Pi on them and fasten it down
 
 {% include step.html n="3" title="Bolt the mount to the frame" %}
 
-The mount hangs off the 2020 frame on 2 {% include fastener.html size="M5" variant="socket-button" length="12" %} screws, the same as the [PSU box]({{ '/hardware/electronics/installation/psu-box/' | relative_url }}) and the [control board housing]({{ '/hardware/electronics/installation/control-board-housing/' | relative_url }}).
+The mount hangs off the 2020 frame on 2 {% include fastener.html size="M5" variant="socket-button" length="12" %} screws.
 
 Which extrusion it goes on, and in which orientation, is not written down. The top-down layout photo on the [installation overview]({{ '/hardware/electronics/installation/' | relative_url }}) is the only record.
 

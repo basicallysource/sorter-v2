@@ -10,7 +10,10 @@ permalink: /hardware/parts/lazy-susan/
 author: spencer
 ---
 
-<img class="doc-figure" src="https://assets.basically.website/sorter-docs/lazy-susan-top-full-f7085d147da1.jpg" alt="8-inch lazy Susan bearing, top view">
+<figure class="single-figure">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/lazy-susan-top-full-f7085d147da1.jpg" alt="8-inch lazy Susan bearing, top view">
+  <figcaption><cite>Photographer not recorded.</cite></figcaption>
+</figure>
 
 Repurposed from a dinner-table lazy Susan. It's rated for heavy loads — at least 50 lb, likely more — and holds up well over long run times, with no manufacturing issues seen across Amazon and AliExpress sources. Use the **8" variant**; see the [BOM](https://docs.google.com/spreadsheets/d/1aoxcyK0xa0i3iWYlO4u3-vsruOGU8V_U9XT65YhMZmY/edit?gid=0#gid=0) for sources.
 

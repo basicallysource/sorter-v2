@@ -26,7 +26,7 @@ parts_needed:
     qty: 1
   - part: scr-m4-6-cs
     qty: 4
-  - part: scr-m5-shcs-tbd
+  - part: scr-m5-12-shcs
     qty: 2
 ---
 
@@ -81,7 +81,7 @@ Fit the cap. The box is closed before the machine sees mains.
 
 {% include step.html n="5" title="Bolt the box to the frame" %}
 
-The box hangs off the 2020 frame on 2 <span class="fastener-todo">M5, length not recorded</span> screws, the same as the [control board housing]({{ '/hardware/electronics/installation/control-board-housing/' | relative_url }}) and the [Orange Pi mount]({{ '/hardware/electronics/installation/orange-pi-mount/' | relative_url }}).
+The box hangs off the 2020 frame on 2 {% include fastener.html size="M5" variant="socket-button" length="12" %} screws.
 
 Which extrusion it goes on, and in which orientation, is not written down. The top-down layout photo on the [installation overview]({{ '/hardware/electronics/installation/' | relative_url }}) is the only record.
 

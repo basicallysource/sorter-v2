@@ -1059,7 +1059,8 @@ body {
    exactly like the body text that followed it. This is the fallback so any
    figcaption reads as a caption tied to its image. */
 figure > figcaption {
-	margin-top: 6px;
+	max-width: min(100%, 440px);
+	margin: 6px auto 0;
 	font-size: 0.875rem;
 	line-height: 1.4;
 	text-align: center;

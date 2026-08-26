@@ -338,6 +338,21 @@
 					"scr-m5-12-shcs"
 				]
 			}
+		},
+		{
+			"id": "widen-frame-90deg-bracket-holes",
+			"name": "Frame 90\u00b0 bracket long-side holes too tight for an M5",
+			"priority": "P0",
+			"condition": "broken",
+			"description": "The two holes on the bracket's long side, which take the M5 that lets it pivot loosely against the A/G extrusion while the B/H spoke is fitted, print too tight for the screw to rotate freely. As printed, every one has to be drilled out to M5 clearance by hand, or opened by deliberately overtightening a screwdriver through it to strip the hole -- 2 holes per bracket, 12 brackets per layer, 144 holes across a full machine. The fix is to open both holes to a real M5 clearance diameter in CAD. Reported by BrickCycleAlice from a build. Tracked as sorter-v2 issue #436.",
+			"targets": {
+				"parts": [
+					"frame-90deg-bracket"
+				],
+				"assemblies": [
+					"layer-frame"
+				]
+			}
 		}
 	],
 	"folders": [

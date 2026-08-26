@@ -108,13 +108,6 @@ If you are using slide-in T-nuts, put them in as that guide says. The ends of th
   <figcaption>C between the layers above; D from the caster, past the bottom layer's corner, to the second layer. Photo courtesy of Christoph in the basically Discord.</figcaption>
 </figure>
 
-<figure class="figure-float-right">
-  <a href="https://assets.basically.website/sorter-docs/assembly-bottom-two-layers-foot-corner-section-full-6ec3353ee6cf.png" target="_blank" rel="noopener">
-    <img src="https://assets.basically.website/sorter-docs/assembly-bottom-two-layers-foot-corner-section-full-6ec3353ee6cf.png" alt="Vertical cross-section through one corner at the bottom of the machine, showing piece D running through the bottom layer's bracket and up into the second layer, the foot cover around it, and the exposed end below">
-  </a>
-  <figcaption>One corner at floor level, cut through the centre of the profile. The bottom layer is blue, the second layer's collar purple. The numbers match the list below. Click to enlarge. Drawn from the part geometry rather than from a build.</figcaption>
-</figure>
-
 The corner itself is the same as on any layer. Only the vertical changes: one piece D takes the place of the C that each of these two layers would otherwise have, and it stands proud at the bottom instead of being capped.
 
 On each of the six corners, working on the second layer first:
@@ -143,6 +136,13 @@ On each of the six corners, working on the second layer first:
 </div>
 
 Let the bottom end of piece D stand proud of the bottom layer's corner rather than sitting flush with it: the foot connector bolts into that exposed end, and the External bracket - foot cover in step 4 is deliberately shorter than an ordinary cover so the extrusion pops out far enough to take it.
+
+<figure class="figure-float-right">
+  <a href="https://assets.basically.website/sorter-docs/assembly-bottom-two-layers-foot-corner-section-full-6ec3353ee6cf.png" target="_blank" rel="noopener">
+    <img src="https://assets.basically.website/sorter-docs/assembly-bottom-two-layers-foot-corner-section-full-6ec3353ee6cf.png" alt="Vertical cross-section through one corner at the bottom of the machine, showing piece D running through the bottom layer's bracket and up into the second layer, the foot cover around it, and the exposed end below">
+  </a>
+  <figcaption>One corner at floor level, cut through the centre of the profile. The bottom layer is blue, the second layer's collar purple. The numbers match the list below. Click to enlarge. Drawn from the part geometry rather than from a build.</figcaption>
+</figure>
 
 The numbers on the drawing:
 

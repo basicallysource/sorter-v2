@@ -45,7 +45,7 @@ Before assembling anything, press the heat inserts into the parts that take them
   </div>
   <figure class="prep-item-figure">
     <img class="doc-figure" src="https://assets.basically.website/sorter-parts/opi-landscape-ringed-full-aa8aaac704ff.png" alt="The Orange Pi extrusion mount lying on its long edge, with all four M3 standoff insert holes circled in red near the four corners of the frame, each showing a real shadowed hole">
-    <figcaption>The 4 insert holes, ringed, near the four corners of the frame.</figcaption>
+    <figcaption>The 4 insert holes, ringed, near the four corners of the frame. Rendered from the part geometry, not from a build. Render: Balloon.</figcaption>
   </figure>
 </div>
 
@@ -55,7 +55,7 @@ The Pi itself takes no inserts, and neither does anything else on this page.
 
 <figure class="figure-float-right">
   <img class="doc-figure" src="https://assets.basically.website/sorter-parts/opi-landscape-standoffs-full-cefb56a912b0.png" alt="The Orange Pi extrusion mount lying on its long edge with 4 standoffs mounted in the corner insert holes and a screw head in blue on top of each, shown as plain placeholders since neither part is modelled in the catalog">
-  <figcaption>The 4 standoffs and their retention screws (blue), drawn as parametric placeholders.</figcaption>
+  <figcaption>The 4 standoffs and their retention screws (blue), drawn as parametric placeholders. Render: Balloon.</figcaption>
 </figure>
 
 **Heat inserts first:** the bracket takes 4 × M3 inserts, one per standoff. Press them in before assembling.

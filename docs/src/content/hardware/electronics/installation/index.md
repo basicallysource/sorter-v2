@@ -22,7 +22,7 @@ The PSU, the control board and the Orange Pi each live in their own mount, and a
 
 <figure>
   <img class="doc-figure" src="https://assets.basically.website/sorter-docs/electronics-component-layout-topdown-full-2d38b86c4b2e.jpg" alt="Top-down physical component layout on the machine, with the PSU, Pi, basically board, USB hub, Pico, chute stepper and ribbon run called out">
-  <figcaption>Where everything sits, top-down. This photo is currently the only record of the placement.</figcaption>
+  <figcaption>Where everything sits, top-down. This render is currently the only record of the placement. Render: Spencer.</figcaption>
 </figure>
 
 1. **[Soldering Pico headers]({{ '/hardware/electronics/installation/pico-headers/' | relative_url }})**: soldering the header pins so the Pico can seat in the control board. First, while the board is still loose.

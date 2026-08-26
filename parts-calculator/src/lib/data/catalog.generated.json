@@ -1131,6 +1131,26 @@
 				{
 					"part": "scr-m5-8-cs",
 					"qty": 6
+				},
+				{
+					"part": "ext-2020-ag",
+					"qty": 6
+				},
+				{
+					"part": "ext-2020-bh",
+					"qty": 6
+				},
+				{
+					"part": "frame-90deg-bracket",
+					"qty": 12
+				},
+				{
+					"part": "frame-crossbeam",
+					"qty": 6
+				},
+				{
+					"part": "scr-m5-12-shcs",
+					"qty": 12
 				}
 			]
 		},

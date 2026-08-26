@@ -64,6 +64,14 @@ parts_needed:
     qty: 6
   - part: ext-bracket-cover
     qty: 6
+  - part: ext-2020-ag
+    qty: 6
+  - part: ext-2020-bh
+    qty: 6
+  - part: frame-90deg-bracket
+    qty: 12
+  - part: frame-crossbeam
+    qty: 6
   - part: extrusion-e
     qty: 6
   - part: extrusion-f
@@ -99,7 +107,7 @@ parts_needed:
   - part: scr-m5-16-shcs
     qty: 38
   - part: scr-m5-12-shcs
-    qty: 4
+    qty: 16
   - part: scr-m4-12-cs
     qty: 8
   - part: scr-m3-35-bhcs

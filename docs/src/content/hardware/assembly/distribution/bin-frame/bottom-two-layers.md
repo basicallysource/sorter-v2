@@ -123,7 +123,7 @@ On each of the six corners, working on the second layer first:
 <div class="img-row">
   <figure>
     <img class="doc-figure" src="https://assets.basically.website/sorter-parts/img-4206-full-677bbaa8ee74.jpg" alt="The bottom layer's corner, seen upside down: the foot cover mounted to the External bracket — side, which is bolted into the hexagon extrusion">
-    <figcaption>The bottom layer's corner, upside down for access: foot cover mounted to the External bracket — side, then the bracket bolted into the hexagon extrusion as in regular layers step 2. Photo courtesy of BrickCycleAlice in the basically Discord.</figcaption>
+    <figcaption>The bottom layer's corner, upside down for access. Photo courtesy of BrickCycleAlice.</figcaption>
   </figure>
   <figure>
     <img class="doc-figure" src="https://assets.basically.website/sorter-parts/img-4207-full-ccd9635abfe0.jpg" alt="Piece D held against the bracket with a tape measure alongside, measuring from the bottom before the collar screws are tightened">
@@ -162,6 +162,11 @@ The two layers are now one rigid unit and their spacing is set by the bracket po
 The bottom layer does not get an External bracket — bottom vertical or an External bracket — cover. It gets an **External bracket - foot cover** instead, one per corner, which is the single printed part that replaces both of them. It is shorter than the pair it replaces, on purpose, so the extrusion stands out past it far enough for the foot connector in step 5.
 
 The foot cover fastens the same way the bottom vertical it replaces would: 2 {% include fastener.html size="M5" variant="socket-button" length="16" %} screws through its outer holes into the External bracket — side. Mount it before the extrusion goes in, at the same point as the second layer's cover in step 3.
+
+<figure>
+  <img class="doc-figure" src="https://assets.basically.website/sorter-parts/img-4205-full-cca3ed901a45.jpg" alt="The two foot-cover screws marked in green on the collar">
+  <figcaption>The two foot-cover screws, marked.</figcaption>
+</figure>
 
 The second layer's corners are ordinary, exactly as in [regular layers]({{ '/hardware/assembly/distribution/bin-frame/regular-layers/' | relative_url }}) step 3: an External bracket — bottom vertical slid onto piece D with its angles aligned at the bottom, 2 {% include fastener.html size="M5" variant="socket-button" length="16" %} screws through its outer holes.
 

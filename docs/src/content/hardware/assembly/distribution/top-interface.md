@@ -130,9 +130,9 @@ The fasteners and quantities in the parts list come from the build notes and are
 
 Several steps below refer to holes in the Top plate by name (S2 and S3 for the stepper mount, I1 to I6 and O1 to O6 for the interface brackets). This map shows which hole is which:
 
-<figure>
+<figure class="single-figure">
   <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-top-interface-top-plate-hole-map-full-423bbae45ba3.png" alt="Hole map of the hexagonal top plate: three stepper holes S1 to S3 in a row left of the center opening, six inner-ring holes I1 to I6, six outer-ring holes O1 to O6, and five cable holes C1 to C5, colour-coded by group">
-  <figcaption>Top plate hole map. S = stepper trio, I = inner ring, O = outer ring, C = cable holes.</figcaption>
+  <figcaption>Top plate hole map. S = stepper trio, I = inner ring, O = outer ring, C = cable holes. <cite>Diagram courtesy of zed0.</cite></figcaption>
 </figure>
 
 {% include step.html n="1" title="Preparation" %}
@@ -145,7 +145,7 @@ Before assembling anything, press the heat inserts into the parts that take them
   </div>
   <figure class="prep-item-figure">
     <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-top-interface-prep-upper-fixed-section-inserts-full-ful-4f73af3a5587.png" alt="The Interface upper fixed section ring, underside with the NEMA 23 bracket attached, showing four brass M4 heat inserts around its face">
-    <figcaption>Underside, with the NEMA 23 bracket attached.</figcaption>
+    <figcaption>Underside, with the NEMA 23 bracket attached. <cite>Photo: zed0.</cite></figcaption>
   </figure>
 </div>
 
@@ -156,7 +156,7 @@ Before assembling anything, press the heat inserts into the parts that take them
   <figure class="prep-item-figure">
     <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-top-interface-prep-nema23-inserts-full-5fda8f6ef8c0.png" alt="The Interface NEMA 23 bracket held up, showing four brass M5 inserts on the top edges and one M3 insert on the long tail">
     <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-top-interface-prep-nema23-inserts-underside-full-97cf1ce3e1b0.png" alt="The underside of the Interface NEMA 23 bracket, showing the two remaining brass M5 heat inserts">
-    <figcaption>Top: four M5 on the edges and one M3 on the tail. Underside: the two remaining M5.</figcaption>
+    <figcaption>Top: four M5 on the edges and one M3 on the tail. Underside: the two remaining M5. <cite>Photo: zed0.</cite></figcaption>
   </figure>
 </div>
 
@@ -167,11 +167,11 @@ Before assembling anything, press the heat inserts into the parts that take them
   <div class="prep-item-figure prep-item-figure-split">
     <figure>
       <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-top-interface-prep-chute-mount-inserts-underside-full-ec67c0262221.png" alt="The underside of the white Top interface chute mount, showing brass M4 and M3 heat inserts around the ring">
-      <figcaption>Underside: the 4 M4 and 5 of the M3. The other 2 M3 sit by the cable-clamp recess on the top face.</figcaption>
+      <figcaption>Underside: the 4 M4 and 5 of the M3. The other 2 M3 sit by the cable-clamp recess on the top face. <cite>Photo: zed0.</cite></figcaption>
     </figure>
     <figure>
       <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-top-interface-prep-chute-mount-inserts-underside-grey-w-52b54ffa44db.jpg" alt="A closer grey view of the Top interface chute mount underside, showing two of the M3 inserts on the ring beside the recess for the Limit switch hammer screw">
-      <figcaption>A closer look at two of the M3 inserts, next to the recess for the Limit switch hammer screw.</figcaption>
+      <figcaption>A closer look at two of the M3 inserts, next to the recess for the Limit switch hammer screw. <cite>Photo: zed0.</cite></figcaption>
     </figure>
   </div>
 </div>
@@ -182,7 +182,7 @@ Before assembling anything, press the heat inserts into the parts that take them
   </div>
   <figure class="prep-item-figure">
     <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-top-interface-prep-interface-bracket-inserts-full-ab1f495c0778.png" alt="An Interface bracket held up, showing three brass M5 heat inserts: one on each long side and one on the tail end">
-    <figcaption>One M5 on each long side and one on the tail end.</figcaption>
+    <figcaption>One M5 on each long side and one on the tail end. <cite>Photo: zed0.</cite></figcaption>
   </figure>
 </div>
 
@@ -192,7 +192,7 @@ Before assembling anything, press the heat inserts into the parts that take them
   </div>
   <figure class="prep-item-figure">
     <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-top-interface-prep-limit-switch-housing-inserts-grey-w1-ef9cced25713.jpg" alt="The grey Limit switch housing, showing two brass M3 heat inserts on the angled face where the roller lever limit switch mounts, with the dowel pin hole above them">
-    <figcaption>The two M3 inserts, where the roller lever limit switch mounts.</figcaption>
+    <figcaption>The two M3 inserts, where the roller lever limit switch mounts. <cite>Photo: zed0.</cite></figcaption>
   </figure>
 </div>
 
@@ -202,7 +202,7 @@ Before assembling anything, press the heat inserts into the parts that take them
   </div>
   <figure class="prep-item-figure">
     <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-top-interface-prep-limit-switch-hammer-inserts-full-ff286afdd969.png" alt="The Limit switch hammer held up, showing a single brass M3 heat insert in its round disc">
-    <figcaption>One M3 insert in the round disc.</figcaption>
+    <figcaption>One M3 insert in the round disc. <cite>Photo: zed0.</cite></figcaption>
   </figure>
 </div>
 
@@ -212,7 +212,7 @@ Before assembling anything, press the heat inserts into the parts that take them
   </div>
   <figure class="prep-item-figure">
     <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-top-interface-prep-cable-cage-bracket-cable-inserts-ful-9188d3883103.png" alt="The Cable cage bracket (cable mount) held up, showing a single brass M3 heat insert">
-    <figcaption>The one M3 insert in the Cable cage bracket (cable mount).</figcaption>
+    <figcaption>The one M3 insert in the Cable cage bracket (cable mount). <cite>Photo: zed0.</cite></figcaption>
   </figure>
 </div>
 
@@ -225,15 +225,15 @@ Before assembling anything, press the heat inserts into the parts that take them
   <div class="prep-item-figure prep-item-figure-split">
     <figure>
       <img class="doc-figure" src="https://assets.basically.website/sorter-parts/idler-exploded-3color-full-227310630981.png" alt="An exploded view from below of the idler gear stack in build order: the grey gear, the bearing highlighted in blue, and the inner and outer bearing retainer caps highlighted in red">
-      <figcaption>Exploded, in build order: gear, bearing, inner cap, outer ring.</figcaption>
+      <figcaption>Exploded, in build order: gear, bearing, inner cap, outer ring. <cite>Render: Balloon.</cite></figcaption>
     </figure>
     <figure>
       <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-top-interface-step9-idler-gear-bearing-w1600-2fe924b61150.jpg" alt="608 2RS bearing pressed into the centre of the grey Interface idler gear, from before the bearing retainer caps existed">
-      <figcaption>608 2RS bearing pressed into the pocket. Real photo, predates the retainer caps.</figcaption>
+      <figcaption>608 2RS bearing pressed into the pocket. Real photo, predates the retainer caps. <cite>Photo: BrickCycleAlice.</cite></figcaption>
     </figure>
     <figure>
       <img class="doc-figure" src="https://assets.basically.website/sorter-parts/idler-assembled-3color-full-7de4573e7301.png" alt="The Interface idler gear seen from below at an angle, assembled, with the bearing highlighted in blue showing through the centre and the outer and inner bearing retainer caps highlighted in red, the outer retainer's four countersunk screw holes visible">
-      <figcaption>Assembled: bearing pocket recess with both retainer caps fitted.</figcaption>
+      <figcaption>Assembled: bearing pocket recess with both retainer caps fitted. <cite>Render: Balloon.</cite></figcaption>
     </figure>
   </div>
 </div>
@@ -249,6 +249,8 @@ Before assembling anything, press the heat inserts into the parts that take them
     loading="lazy"></iframe>
 </div>
 
+_Video: zed0._
+
 **Heat inserts first:** press the 4 × M4 inserts into the Interface upper fixed section and the 6 × M5 and 1 × M3 inserts into the Interface NEMA 23 bracket before you assemble anything here.
 
 Attach the Interface rib (switch gap) to the Interface upper fixed section, two positions counterclockwise of the notch for the stepper mount. Use two {% include fastener.html size="M5" variant="socket-button" length="16" %} screws, tapping directly into the plastic.
@@ -262,11 +264,11 @@ Attach the whole assembly to the bottom of the Top plate with {% include fastene
 <div class="img-row">
   <figure>
     <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-top-interface-step2-ribs-upper-fixed-section-w1600-4ebd47453115.jpg" alt="Six grey Interface ribs attached around the circular Interface upper fixed section">
-    <figcaption>The 6 Interface ribs attached to the Interface upper fixed section.</figcaption>
+    <figcaption>The 6 Interface ribs attached to the Interface upper fixed section. <cite>Photo: BrickCycleAlice.</cite></figcaption>
   </figure>
   <figure>
     <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-top-interface-step2-nema23-bracket-underside-w1600-cb1666b20cca.jpg" alt="Underside of the Interface upper fixed section with the Interface NEMA 23 bracket seated in its notch">
-    <figcaption>Underside, with the Interface NEMA 23 bracket seated in its notch.</figcaption>
+    <figcaption>Underside, with the Interface NEMA 23 bracket seated in its notch. <cite>Photo: BrickCycleAlice.</cite></figcaption>
   </figure>
 </div>
 
@@ -280,6 +282,8 @@ Attach the whole assembly to the bottom of the Top plate with {% include fastene
     allowfullscreen
     loading="lazy"></iframe>
 </div>
+
+_Video: zed0._
 
 **Heat inserts first:** each Interface bracket takes 3 × M5 inserts. Press them in before fitting the extrusion.
 
@@ -302,6 +306,8 @@ Repeat for all 6 Interface brackets.
     loading="lazy"></iframe>
 </div>
 
+_Video: zed0._
+
 **Heat inserts first:** the Limit switch housing takes 2 × M3 inserts. Press them in before assembling it.
 
 Push the Printed dowel pin into the Limit switch housing.
@@ -320,6 +326,8 @@ Align the switch housing with the extrusion of one of the prepared Interface bra
     allowfullscreen
     loading="lazy"></iframe>
 </div>
+
+_Video: zed0._
 
 Slide a T-nut just into the end of the extrusion of the limit switch interface bracket. Slide the extrusion into the Interface rib (switch gap) and Interface upper fixed section, securing it loosely with an {% include fastener.html size="M5" variant="countersunk" length="8" %} screw. Slide the extrusion slightly in and out to align the holes on the Interface bracket with the holes on the Top plate, then tighten the screw.
 
@@ -345,6 +353,8 @@ Flip the whole assembly and screw all 6 Interface brackets into place with {% in
     loading="lazy"></iframe>
 </div>
 
+_Video: zed0._
+
 **Heat inserts first:** the Top interface chute mount takes 4 × M4 and 7 × M3 inserts, and the Limit switch hammer takes 1 × M3. Press them in before assembling.
 
 Slot the Limit switch hammer into the Top interface chute mount, then secure it from below with an {% include fastener.html size="M3" variant="countersunk" length="6" %} screw (into the hammer's M3 insert).
@@ -368,11 +378,11 @@ Once complete, the free section of the Lazy Susan should rotate freely.
 <div class="img-row">
   <figure>
     <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-top-interface-step6-chute-mount-gear-side-w1600-c3ac0c996f20.jpg" alt="Gear side of the assembled Top interface chute mount, showing the chute gear, Lazy Susan, and Limit switch hammer">
-    <figcaption>Gear side, with the Chute gear, Lazy Susan, and Limit switch hammer installed.</figcaption>
+    <figcaption>Gear side, with the Chute gear, Lazy Susan, and Limit switch hammer installed. <cite>Photo: BrickCycleAlice.</cite></figcaption>
   </figure>
   <figure>
     <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-top-interface-step6-chute-mount-underside-w1600-ef7ef1645c43.jpg" alt="Chute side of the assembled Top interface chute mount with the Limit switch hammer extending from the edge">
-    <figcaption>Chute side of the assembled gear and mount.</figcaption>
+    <figcaption>Chute side of the assembled gear and mount. <cite>Photo: BrickCycleAlice.</cite></figcaption>
   </figure>
 </div>
 
@@ -386,6 +396,8 @@ Once complete, the free section of the Lazy Susan should rotate freely.
     allowfullscreen
     loading="lazy"></iframe>
 </div>
+
+_Video: zed0._
 
 Place the Interface big spacer on the Interface upper fixed section with its 4 holes lined up with the 4 heat inserts.
 
@@ -406,6 +418,8 @@ Once done, check that the chute rotates freely relative to the Interface upper f
     loading="lazy"></iframe>
 </div>
 
+_Video: zed0._
+
 Loosen the screws attaching the Limit switch housing to the extrusion. Slide the housing so the Limit switch hammer rotates into place between the Roller lever limit switch and the Printed dowel pin in both directions of rotation. The switch clicks when it is being activated correctly. Avoid friction between the Limit switch hammer and the Printed dowel pin. Tighten the screws to keep the housing in this position.
 
 {% include step.html n="9" title="Install the chute stepper motor" %}
@@ -418,6 +432,8 @@ Loosen the screws attaching the Limit switch housing to the extrusion. Slide the
     allowfullscreen
     loading="lazy"></iframe>
 </div>
+
+_Video: zed0._
 
 <div class="callout callout-warning">
   <span class="callout-icon" aria-hidden="true">⚠</span>
@@ -441,11 +457,11 @@ At this point the chute should still rotate, but you will now feel resistance fr
 <div class="img-row">
   <figure>
     <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-top-interface-step9-timing-pulley-on-motor-w1600-0b0a8e04d17c.jpg" alt="Timing pulley installed on the shaft of a NEMA 23 stepper motor">
-    <figcaption>Timing pulley installed on the NEMA 23 shaft.</figcaption>
+    <figcaption>Timing pulley installed on the NEMA 23 shaft. <cite>Photo: BrickCycleAlice.</cite></figcaption>
   </figure>
   <figure>
     <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-top-interface-step9-interface-spur-gear-w1600-7dcec28e692a.jpg" alt="Grey Interface spur gear secured over the timing pulley with five countersunk screws">
-    <figcaption>Interface spur gear secured over the Timing pulley with five M3 × 8 mm screws.</figcaption>
+    <figcaption>Interface spur gear secured over the Timing pulley with five M3 × 8 mm screws. <cite>Photo: BrickCycleAlice.</cite></figcaption>
   </figure>
 </div>
 
@@ -459,6 +475,8 @@ At this point the chute should still rotate, but you will now feel resistance fr
     allowfullscreen
     loading="lazy"></iframe>
 </div>
+
+_Video: zed0._
 
 **Heat inserts first:** the Cable cage bracket (cable mount) takes 1 × M3 insert. Press it in before assembling.
 
@@ -478,6 +496,8 @@ Screw the remaining Cable cage brackets to the other 5 corners of the Cable cage
     allowfullscreen
     loading="lazy"></iframe>
 </div>
+
+_Video: zed0._
 
 Place an {% include fastener.html size="M3" variant="nut" %} into the bottom of the Cable clamp (outer) (the video skips this), then push it into the recess in the Top interface chute mount. Fasten it with two {% include fastener.html size="M3" variant="socket-button" length="10" %} screws.
 
@@ -502,6 +522,8 @@ Check that the chute can rotate fully to the limit switch in both directions, th
     loading="lazy"></iframe>
 </div>
 
+_Video: zed0._
+
 Place the Cable cage bottom over the Top interface chute mount. Use 6 {% include fastener.html size="M5" variant="flat" length="35" %} screws and {% include fastener.html size="M5" variant="nut" %}s to clamp the Cable cage bottom, Cable cage top, and Cable cage brackets together.
 
 After this step the chute should still rotate to each of its limits.
@@ -512,38 +534,41 @@ Insert an extrusion piece F (Interface vertical support) into each of the Interf
 
 **Do not push piece F all the way through the bracket.** Leave its end roughly 20 mm short of the far end of the channel: that is far enough in to cover both pairs of T-nut screws, and it leaves enough of the extrusion standing out to reach past the screws at the base of the layer's External bracket — side later in this step. [Step 14]({{ '/hardware/assembly/distribution/top-interface/' | relative_url }}#step-14) shows the whole corner in section.
 
-<figure>
+<figure class="single-figure">
   <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-top-interface-framing-1-full-b8dacf182230.jpg" alt="Six vertical extrusion supports bolted into the interface brackets, seen from above on the hexagonal top plate">
+  <figcaption><cite>Photo: zed0.</cite></figcaption>
 </figure>
 
 Slide an Interface spacer onto each piece of extrusion, with the lip at the top facing toward the center of the assembly.
 
-<figure>
+<figure class="single-figure">
   <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-top-interface-framing-2-w1600-f626512783f3.jpg" alt="An interface spacer slid onto each vertical extrusion support, lips facing inward">
+  <figcaption><cite>Photo: zed0.</cite></figcaption>
 </figure>
 
 Follow the first two stages of [a regular layer]({{ '/hardware/assembly/distribution/bin-frame/regular-layers/' | relative_url }}), then place the regular layer assembly onto the interface assembly.
 
-<figure>
+<figure class="single-figure">
   <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-top-interface-framing-3-full-b9ae16940954.jpg" alt="A regular layer assembly lowered onto the interface assembly">
+  <figcaption><cite>Photo: zed0.</cite></figcaption>
 </figure>
 
 Attach an External bracket cover to each of the External bracket sides, then fasten each one with 2 {% include fastener.html size="M5" variant="socket-button" length="16" %} screws into the holes at the base of the External bracket sides, bracing against the extrusion. These holes run parallel to the extrusion profile, and the screws are self-tapping. See [Assembling External bracket]({{ '/hardware/helpers/external-bracket/' | relative_url }}) for the parts themselves — there is no External bracket — bottom vertical at this joint, see [step 14](#step-14) for what's different here.
 
 {% include step.html n="14" title="How the interface joins the top layer" %}
 
-<figure>
+<figure class="single-figure">
   <a href="https://assets.basically.website/sorter-docs/assembly-top-interface-framing-joint-full-ed0a06d244ff.png" target="_blank" rel="noopener">
     <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-top-interface-framing-joint-full-ed0a06d244ff.png" alt="The interface assembly upside down on its top plate with six vertical extrusions standing out of it, each held in an interface bracket and sleeved by an interface spacer">
   </a>
-  <figcaption>The interface framing before the top layer goes on, with one arm marked 1 to 3. Click the photo to open it full size.</figcaption>
+  <figcaption>The interface framing before the top layer goes on, with one arm marked 1 to 3. Click the photo to open it full size. <cite>Photo: zed0.</cite></figcaption>
 </figure>
 
 <figure class="figure-float-right">
   <a href="https://assets.basically.website/sorter-docs/assembly-top-interface-joint-section-full-e96f8eb4493c.png" target="_blank" rel="noopener">
     <img src="https://assets.basically.website/sorter-docs/assembly-top-interface-joint-section-full-e96f8eb4493c.png" alt="Vertical cross-section through one interface corner, showing the interface bracket and spacer in purple, piece F in grey running down into the top layer's bracket in blue">
   </a>
-  <figcaption>The same corner in section, cut through the centre of the profile. Purple is the interface, blue the top layer's bracket, grey the extrusion. Click to enlarge. The interface parts are not exported in a shared frame with the layer parts, so the part lengths are measured but their heights come from seating each one on the part below it.</figcaption>
+  <figcaption>The same corner in section, cut through the centre of the profile. Purple is the interface, blue the top layer's bracket, grey the extrusion. Click to enlarge. The interface parts are not exported in a shared frame with the layer parts, so the part lengths are measured but their heights come from seating each one on the part below it. <cite>Render: Balloon.</cite></figcaption>
 </figure>
 
 This joint is not the same as the one between two layers, so it is worth naming what is different. There is **no External bracket — bottom vertical and no flange here**, and therefore none of the vertical screws that hold one layer to the next. Piece F is instead gripped at the interface end and clamped at the layer end, and it is sleeved the whole way between them, so no extrusion shows on a finished machine.
@@ -564,7 +589,7 @@ The numbers on the photo and the drawing:
 
 The top interface is now complete.
 
-<figure>
+<figure class="single-figure">
   <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-top-interface-framing-4-full-b9ae16940954.jpg" alt="The completed top interface: the hexagonal top plate on its framed leg structure with the chute opening in the centre">
-  <figcaption>The finished interface, seen from above with the top plate on.</figcaption>
+  <figcaption>The finished interface, seen from above with the top plate on. <cite>Photo: zed0.</cite></figcaption>
 </figure>

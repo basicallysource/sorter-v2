@@ -122,7 +122,7 @@ On each of the six corners, working on the second layer first:
 
 <div class="img-row">
   <figure>
-    <img class="doc-figure" src="https://assets.basically.website/sorter-parts/img-4215-full-20922c73cacb.jpg" alt="Close-up of the foot cover bolted to the External bracket — side, with the two foot-cover screws and the extrusion mounting screws visible">
+    <img class="doc-figure" src="https://assets.basically.website/sorter-parts/img-4215-crop1-full-d1ae19d41e44.jpg" alt="Close-up of the foot cover bolted to the External bracket — side, with the two foot-cover screws and the extrusion mounting screws visible">
     <figcaption>The foot cover to External bracket connection. Photo courtesy of BrickCycleAlice.</figcaption>
   </figure>
   <figure>

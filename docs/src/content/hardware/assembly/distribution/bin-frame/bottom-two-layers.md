@@ -129,16 +129,16 @@ On each of the six corners, working on the second layer first:
 
 <div class="img-row">
   <figure>
-    <div class="img-placeholder">Image coming</div>
-    <figcaption>The bottom layer's corner, foot cover already mounted to the External bracket — side, then the bracket bolted into the hexagon extrusion as in regular layers step 2. Photo courtesy of BrickCycleAlice in the basically Discord; pending upload.</figcaption>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-parts/img-4206-full-677bbaa8ee74.jpg" alt="The bottom layer's corner, seen upside down: the foot cover mounted to the External bracket — side, which is bolted into the hexagon extrusion">
+    <figcaption>The bottom layer's corner, upside down for access: foot cover mounted to the External bracket — side, then the bracket bolted into the hexagon extrusion as in regular layers step 2. Photo courtesy of BrickCycleAlice in the basically Discord.</figcaption>
   </figure>
   <figure>
-    <div class="img-placeholder">Image coming</div>
-    <figcaption>Measuring piece D from the bottom before the collar screws are tightened down. Photo courtesy of BrickCycleAlice; pending upload.</figcaption>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-parts/img-4207-full-ccd9635abfe0.jpg" alt="Piece D held against the bracket with a tape measure alongside, measuring from the bottom before the collar screws are tightened">
+    <figcaption>Measuring piece D from the bottom before the collar screws are tightened down. Photo courtesy of BrickCycleAlice.</figcaption>
   </figure>
   <figure>
-    <div class="img-placeholder">Image coming</div>
-    <figcaption>Tightening the collar screw once piece D is positioned. Photo courtesy of BrickCycleAlice; pending upload.</figcaption>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-parts/img-4208-full-a6f410b71459.jpg" alt="Driving one of the collar screws home with a hex key once piece D is positioned">
+    <figcaption>Tightening the collar screw once piece D is positioned. Photo courtesy of BrickCycleAlice.</figcaption>
   </figure>
 </div>
 
@@ -158,6 +158,11 @@ The numbers on the drawing:
 <div class="callout">
   <p>The foot cover takes 2 {% include fastener.html size="M5" variant="socket-button" length="16" %} screws to the External bracket — side, the same as the bottom vertical it replaces, mounted before the extrusion goes in (list item 1 above). Confirmed against a build (BrickCycleAlice, 2026-08-26); it contradicts an earlier read of the part as having no fastener holes, which was apparently taken from a geometry that does not match what is actually printed and screwed together.</p>
 </div>
+
+<figure>
+  <img class="doc-figure" src="https://assets.basically.website/sorter-parts/img-4205-full-cca3ed901a45.jpg" alt="The two foot-cover-to-bracket screws marked in green on the collar, the ones confirmed to be M5 x 16">
+  <figcaption>The two confirmed screws, marked. Photo courtesy of BrickCycleAlice.</figcaption>
+</figure>
 
 The two layers are now one rigid unit and their spacing is set by the bracket positions, not by anything you have to measure.
 

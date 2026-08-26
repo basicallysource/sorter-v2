@@ -71,9 +71,9 @@ Bolt the Output gear onto the underside of the rotor with 6 {% include fastener.
 
 **Use the 12 mm, not the 8 mm.** The gear is 8 mm thick at the bolt circle, and a countersunk screw's length is measured over its head, so an M3 × 8 seated flush in the countersink finishes level with the top of the gear and never enters the rotor at all. The 12 mm leaves 4 mm of thread in the rotor's 5 mm flange and stops short of breaking through the far side.
 
-<figure>
+<figure class="single-figure">
   <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-c-channel-output-gear-bolted-to-rotor-w1600-7ca0b30ba41a.jpg" alt="The grey 130-tooth output gear with a black-sealed 6806 bearing pressed into its centre, bolted onto a white rotor behind it, with a countersunk screw at the outer end of each of the six spokes">
-  <figcaption>Output gear, bearing pressed in, bolted to a rotor. Six screws, one per spoke. Photo: BrickCycleAlice.</figcaption>
+  <figcaption>Output gear, bearing pressed in, bolted to a rotor. Six screws, one per spoke. <cite>Photo: BrickCycleAlice.</cite></figcaption>
 </figure>
 
 {% include step.html n="3" title="Fit the input gear to the motor shaft" %}
@@ -82,9 +82,9 @@ The Input gear (12T, screw) has a hole through its boss, parallel to the shaft, 
 
 The head drops into a counterbore in the boss. Tighten until the head is seated and the gear does not turn on the shaft, and no further, it is threading into plastic.
 
-<figure>
+<figure class="single-figure">
   <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-c-channel-input-gear-on-motor-shaft-w1600-be00a0374988.jpg" alt="A black NEMA 17 stepper motor lying on its side with the small grey 12-tooth input gear pushed fully onto its shaft, the clamping screw visible in the side of the gear boss">
-  <figcaption>Pushed fully onto the shaft, clamp screw bearing on the flat. Photo: BrickCycleAlice.</figcaption>
+  <figcaption>Pushed fully onto the shaft, clamp screw bearing on the flat. <cite>Photo: BrickCycleAlice.</cite></figcaption>
 </figure>
 
 {% include step.html n="4" title="Fit the idler gear and the stepper to the NEMA bracket" %}
@@ -93,9 +93,9 @@ Drop the Idler gear (24T) onto its post on the NEMA bracket **with the bearing f
 
 Then fasten the NEMA 17 to the bracket with 3 {% include fastener.html size="M3" variant="socket-button" length="16" %} screws. Three, not four: one corner of the motor face is left free. The input gear meshes with the idler as the motor goes down.
 
-<figure>
+<figure class="single-figure">
   <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-c-channel-idler-gear-and-motor-on-nema-bracket-w1600-dfefb06e2166.jpg" alt="The three-armed grey NEMA bracket seen from above, with the 24-tooth idler gear sitting on its post with the 608 bearing uppermost, the stepper motor bolted to the outer end of the bracket, and the raised hub at the centre of the bracket">
-  <figcaption>Idler on its post, bearing up, with the stepper bolted on beside it. Photo: BrickCycleAlice.</figcaption>
+  <figcaption>Idler on its post, bearing up, with the stepper bolted on beside it. <cite>Photo: BrickCycleAlice.</cite></figcaption>
 </figure>
 
 {% include step.html n="5" title="Mount the stator, then drop in the rotor" %}
@@ -106,9 +106,9 @@ Then lower the rotor, output gear and all, onto the raised hub in the middle of 
 
 Turn the stage by hand before wiring it. The train should run without a tight spot anywhere in a full revolution.
 
-<figure>
+<figure class="single-figure">
   <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-c-channel-stator-and-rotor-fitted-w1600-60758bbee2d5.jpg" alt="A finished C-channel seen from above: the white finned classification rotor sitting inside the grey stator ring, with the stepper motor projecting from the right-hand side">
-  <figcaption>The finished stage, here the classification one with the finned rotor. Photo: BrickCycleAlice.</figcaption>
+  <figcaption>The finished stage, here the classification one with the finned rotor. <cite>Photo: BrickCycleAlice.</cite></figcaption>
 </figure>
 
 {% include step.html n="6" title="Fit the light post, on the channels that take one" %}

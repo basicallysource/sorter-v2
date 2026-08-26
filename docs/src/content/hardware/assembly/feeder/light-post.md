@@ -61,9 +61,9 @@ The post and the cap adapter follow the feeder colour.
 
 All 3 {% include fastener.html size="M3" variant="countersunk" length="12" %} screws join the Light post cap adapter down onto the Light post — the cap takes none of them. Measured off the two STLs: the post's top face carries 3 self-tapping pilot holes, 2.8 mm across, spaced 120° apart on a 12.1 mm radius; the adapter has a matching 3.4 mm clearance hole over each one. Screw down through the adapter into the post.
 
-<figure>
+<figure class="single-figure">
   <img class="doc-figure" src="https://assets.basically.website/sorter-parts/post-iso-render-full-d45cabf034b8.png" alt="Angled render of the post's top, with the adapter's ring seated over it and two of the three screw pockets visible">
-  <figcaption>The joint from a slight angle, adapter seated on the post. Two of the three screw pockets are visible here; the third is on the far side. Rendered from the part geometry, not from a build. Render: Balloon.</figcaption>
+  <figcaption>The joint from a slight angle, adapter seated on the post. Two of the three screw pockets are visible here; the third is on the far side. <cite>Rendered from the part geometry, not from a build. Render: Balloon.</cite></figcaption>
 </figure>
 
 **Still not recorded:** which way the lobed boss lines up on the adapter — the geometry rules out the two wrong 120°/240° rotations if you match it by eye, but nobody has confirmed which adapter feature it keys to. <span class="fastener-todo">fastener not recorded</span>

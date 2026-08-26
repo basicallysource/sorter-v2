@@ -30,7 +30,7 @@ last_verified: 2026-07-12
   <a href="{{ d.guide | n }}">
     <img src="{{ d.photo }}" alt="Assembled {{ d.title }}">
   </a>
-  <figcaption>What it looks like built.{% if d.photo_credit %} Photo: {{ d.photo_credit }}.{% else %} Photographer not recorded.{% endif %} <a href="{{ d.guide | n }}">{{ d.guide_label }} →</a></figcaption>
+  <figcaption>What it looks like built. <cite>{% if d.photo_credit %}Photo: {{ d.photo_credit }}.{% else %}Photographer not recorded.{% endif %}</cite> <a href="{{ d.guide | n }}">{{ d.guide_label }} →</a></figcaption>
 </figure>
 {% endif %}
 
@@ -38,7 +38,7 @@ last_verified: 2026-07-12
   <a href="{{ d.png }}" target="_blank" rel="noopener">
     <img src="{{ d.png }}" alt="WireViz drawing: {{ d.title }}">
   </a>
-  <figcaption>{{ d.caption }} WireViz-generated drawing, not a photo. Click for full size.</figcaption>
+  <figcaption>{{ d.caption }} <cite>WireViz-generated drawing, not a photo.</cite> Click for full size.</figcaption>
 </figure>
 
 <p class="download-line">

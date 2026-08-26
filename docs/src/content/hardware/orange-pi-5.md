@@ -18,8 +18,10 @@ last_verified: 2026-05-19
   <p>The Orange Pi 5 is the required compute board for Sorter. SorterOS is built on top of the official Ubuntu image provided by Orange Pi for this board.</p>
 </div>
 
-<img src="/assets/pi5-01.png" alt="Orange Pi 5 single-board computer" style="max-width: 480px; width: 100%; display: block; margin: 1.6rem 0 0.4rem; border: 1px solid var(--line);">
-<p><em>Manufacturer photo (orangepi.org), not a Basically photo.</em></p>
+<figure class="single-figure">
+  <img class="doc-figure" src="/assets/pi5-01.png" alt="Orange Pi 5 single-board computer">
+  <figcaption><cite>Manufacturer photo (orangepi.org), not a Basically photo.</cite></figcaption>
+</figure>
 
 ## Why the Orange Pi 5
 

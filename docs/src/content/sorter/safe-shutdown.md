@@ -15,18 +15,18 @@ The machine's computer writes files continuously while it runs. Cutting power mi
 
 Click the dropdown at the top right of the UI and select **Full Machine Power Down**.
 
-<figure>
+<figure class="single-figure">
   <img class="doc-figure" src="https://assets.basically.website/sorter-docs/sorter-safe-shutdown-full-machine-power-down-menu-full-fb7d3867ed81.jpg" alt="The top-right UI dropdown open, showing the Full Machine Power Down action">
-  <figcaption>UI screenshot. Who took it isn't recorded.</figcaption>
+  <figcaption><cite>UI screenshot. Who took it isn't recorded.</cite></figcaption>
 </figure>
 
 ## Option 2: the button on the Orange Pi
 
 Press the small black button on the side of the Orange Pi once (circled below). That begins the shutdown procedure.
 
-<figure>
+<figure class="single-figure">
   <img class="doc-figure" src="https://assets.basically.website/sorter-docs/sorter-safe-shutdown-orange-pi-power-button-full-a39aa5a490fc.jpg" alt="Orange Pi 5 board with the side power button circled in red">
-  <figcaption>Photographer not recorded.</figcaption>
+  <figcaption><cite>Photographer not recorded.</cite></figcaption>
 </figure>
 
 You'll know it's shut down when the red and green light on the board have stopped blinking.

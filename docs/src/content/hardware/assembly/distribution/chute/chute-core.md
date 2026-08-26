@@ -51,15 +51,15 @@ Press the heat inserts into the chute core before anything is mounted to it. Onc
   <div class="prep-item-figure prep-item-figure-split">
     <figure>
       <img class="doc-figure" src="https://assets.basically.website/sorter-parts/chute-core-inserts-v3-side-8-full-9f0f3b659b63.png" alt="Render of one long side of the chute core at a slight angle, with eight heat-insert pockets circled in red">
-      <figcaption>One long side: 8. The round cut-out near the end is the giveaway, this side has two pockets together beside it and one on its own in the middle of the face. Render: Balloon.</figcaption>
+      <figcaption>One long side: 8. The round cut-out near the end is the giveaway, this side has two pockets together beside it and one on its own in the middle of the face. <cite>Render: Balloon.</cite></figcaption>
     </figure>
     <figure>
       <img class="doc-figure" src="https://assets.basically.website/sorter-parts/chute-core-inserts-v3-side-6-full-c4074e29338f.png" alt="Render of the other long side of the chute core at a slight angle, with six heat-insert pockets circled in red">
-      <figcaption>The other long side: 6. The same face mirrored, without those two. Render: Balloon.</figcaption>
+      <figcaption>The other long side: 6. The same face mirrored, without those two. <cite>Render: Balloon.</cite></figcaption>
     </figure>
     <figure>
       <img class="doc-figure" src="https://assets.basically.website/sorter-parts/chute-core-inserts-v3-rear-full-ad4c2cc7869c.png" alt="Close render of the rear end of the chute core at a slight angle, with the four heat-insert pockets on the rear panel circled in red">
-      <figcaption>Rear face: the last 4, all on the panel at the top end. Shown closer in than the other two. Render: Balloon.</figcaption>
+      <figcaption>Rear face: the last 4, all on the panel at the top end. Shown closer in than the other two. <cite>Render: Balloon.</cite></figcaption>
     </figure>
   </div>
 </div>

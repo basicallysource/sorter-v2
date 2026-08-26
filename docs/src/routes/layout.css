@@ -1119,6 +1119,43 @@ body {
 	border: 1px solid var(--line);
 }
 
+/* A standalone figure (one doc-figure image, one caption): shrink-wraps to the
+   image's own rendered width and centers, so the caption underneath wraps at
+   that width too instead of stretching across the whole text column. Without
+   this a <figure> is a plain block and its <figcaption> just reads as a
+   full-width paragraph, indistinguishable from body copy. Opt in with
+   class="single-figure" on the <figure> rather than making this the default,
+   since img-row/figure-float-right/harness-figure figures each need their own
+   sizing and already have it. */
+.single-figure {
+	display: table;
+	margin: 0 auto 1.4rem;
+}
+
+.single-figure .doc-figure {
+	margin-bottom: 0;
+}
+
+.single-figure figcaption {
+	margin-top: 6px;
+	font-size: 0.875rem;
+	line-height: 1.4;
+	text-align: center;
+	color: var(--muted);
+}
+
+/* The credit clause of any caption, marked up as <cite>: its own line, a touch
+   smaller and italic, so a reader can tell "what this shows" from "who made
+   it" at a glance instead of one run-on sentence. Deliberately not scoped to
+   .single-figure — the same markup works inside img-row, prep-item and video
+   captions too. */
+figcaption cite {
+	display: block;
+	margin-top: 4px;
+	font-size: 0.8125rem;
+	font-style: italic;
+}
+
 /* A figure floated into the right margin, with the step text running beside it.
    Falls back to a normal centred figure on narrow screens. */
 .figure-float-right {

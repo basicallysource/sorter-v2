@@ -90,15 +90,15 @@ The servo adapter takes no inserts, but assemble it here anyway, before the brac
   <div class="prep-item-figure prep-item-figure-split">
     <figure>
       <img class="doc-figure" src="https://assets.basically.website/sorter-parts/mg995-servo-horn-square-full-150991b8cde4.png" alt="The MG995 Servo Horn, a two-arm splined servo arm that ships with the MG995 servo">
-      <figcaption>The MG995 Servo Horn. Clasped between the two adapter halves before they're screwed together. Reference photo of the stock part, not from a build. Photographer not recorded.</figcaption>
+      <figcaption>The MG995 Servo Horn. Clasped between the two adapter halves before they're screwed together. <cite>Reference photo of the stock part, not from a build. Photographer not recorded.</cite></figcaption>
     </figure>
     <figure>
       <img class="doc-figure" src="https://assets.basically.website/sorter-parts/servo-adapter-servo-side-recess-white-full-32262f257d09.png" alt="The servo-side adapter half, rotated to show the recess that the MG995 Servo Horn seats into, with the four screw pilot holes around it">
-      <figcaption>Servo-side half. The recess the horn seats into, plus the 4 pilot holes the screws thread into. Rendered from the part geometry, not from a build.</figcaption>
+      <figcaption>Servo-side half. The recess the horn seats into, plus the 4 pilot holes the screws thread into. <cite>Rendered from the part geometry, not from a build.</cite></figcaption>
     </figure>
     <figure>
       <img class="doc-figure" src="https://assets.basically.website/sorter-parts/servo-adapter-flap-side-door-face-full-ec3b4136d249.png" alt="The flap-side adapter half, rotated 180 degrees from the screw side to show the hexagonal boss and keyed bore that the chute door's shaft inserts into">
-      <figcaption>Flap-side half, other face. The hex boss the chute door's shaft inserts into. Rendered from the part geometry, not from a build.</figcaption>
+      <figcaption>Flap-side half, other face. The hex boss the chute door's shaft inserts into. <cite>Rendered from the part geometry, not from a build.</cite></figcaption>
     </figure>
   </div>
 </div>
@@ -109,7 +109,7 @@ The servo adapter takes no inserts, but assemble it here anyway, before the brac
   </div>
   <figure class="prep-item-figure">
     <img class="doc-figure" src="https://assets.basically.website/sorter-parts/door-module-inserts-servo-bracket-housing-full-7545917fe3d9.png" alt="Render of the servo bracket housing at an angle, with its six heat-insert pockets circled in red, two on each of three faces">
-    <figcaption>All six, seen from the corner. That is the only angle that catches all three faces at once. Render: Balloon.</figcaption>
+    <figcaption>All six, seen from the corner. That is the only angle that catches all three faces at once. <cite>Render: Balloon.</cite></figcaption>
   </figure>
 </div>
 
@@ -119,7 +119,7 @@ The servo adapter takes no inserts, but assemble it here anyway, before the brac
   </div>
   <figure class="prep-item-figure">
     <img class="doc-figure" src="https://assets.basically.website/sorter-parts/door-module-inserts-bearing-race-full-4a30d9cbcc4a.png" alt="Render of the bearing race seen almost straight on, with its four heat-insert pockets circled in red, two at each end">
-    <figcaption>Two at each end of the race. Render: Balloon.</figcaption>
+    <figcaption>Two at each end of the race. <cite>Render: Balloon.</cite></figcaption>
   </figure>
 </div>
 
@@ -129,7 +129,7 @@ The servo adapter takes no inserts, but assemble it here anyway, before the brac
   </div>
   <figure class="prep-item-figure">
     <img class="doc-figure" src="https://assets.basically.website/sorter-parts/door-module-inserts-bearing-holder-left-full-20b5c1bf8883.png" alt="Render of the left bearing holder at an angle, with its three heat-insert pockets circled in red around the bearing bore">
-    <figcaption>Three around the bore on the outboard face. Render: Balloon.</figcaption>
+    <figcaption>Three around the bore on the outboard face. <cite>Render: Balloon.</cite></figcaption>
   </figure>
 </div>
 
@@ -139,7 +139,7 @@ The servo adapter takes no inserts, but assemble it here anyway, before the brac
   </div>
   <figure class="prep-item-figure">
     <img class="doc-figure" src="https://assets.basically.website/sorter-parts/door-module-inserts-bearing-holder-right-full-91e140ed31b4.png" alt="Render of the right bearing holder at an angle, with its three heat-insert pockets circled in red around the bearing bore, mirroring the left holder">
-    <figcaption>The same three, mirrored. Render: Balloon.</figcaption>
+    <figcaption>The same three, mirrored. <cite>Render: Balloon.</cite></figcaption>
   </figure>
 </div>
 

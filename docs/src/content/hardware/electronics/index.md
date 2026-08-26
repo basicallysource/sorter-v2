@@ -38,7 +38,7 @@ This page is the wiring. Where the PSU, the control board and the Orange Pi phys
 
 <figure class="harness-figure">
   <img src="https://assets.basically.website/sorter-docs/electronics-component-layout-topdown-full-2d38b86c4b2e.jpg" alt="Top-down physical component layout on the machine, with the PSU, Pi, basically board, USB hub, Pico, chute stepper and ribbon run called out">
-  <figcaption>Physical placement on the machine (top-down): PSU, Orange Pi, basically board v1.3, USB hub, Pico, the chute stepper and its limit switch, and the ribbon run. Rendered from the layout, not a photo. Render: Spencer.</figcaption>
+  <figcaption>Physical placement on the machine (top-down): PSU, Orange Pi, basically board v1.3, USB hub, Pico, the chute stepper and its limit switch, and the ribbon run. <cite>Rendered from the layout, not a photo. Render: Spencer.</cite></figcaption>
 </figure>
 
 ## 3 &nbsp; Interconnect diagram
@@ -226,9 +226,9 @@ Each LED drop is two segments: a 2x1 dupont feed from the board to a female DC j
   </tbody>
 </table>
 
-<figure>
+<figure class="single-figure">
   <img class="doc-figure" src="https://assets.basically.website/sorter-docs/electronics-idc-ribbon-16pin-full-21fee4f419fb.jpg" alt="uxcell 16-pin IDC flat ribbon cable, gray, with FC connectors at both ends">
-  <figcaption>Manufacturer product photo (uxcell), not a Basically photo.</figcaption>
+  <figcaption><cite>Manufacturer product photo (uxcell), not a Basically photo.</cite></figcaption>
 </figure>
 
 ## 5 &nbsp; Parts

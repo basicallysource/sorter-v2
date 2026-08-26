@@ -20,9 +20,9 @@ The [wire harness]({{ '/hardware/electronics/' | relative_url }}) pages cover wh
 
 The PSU, the control board and the Orange Pi each live in their own mount, and all three bolt to the machine's 2020 frame with 2 M5 screws each, six in total: {% include fastener.html size="M5" variant="socket-button" length="12" %} for the PSU box and the Orange Pi mount, {% include fastener.html size="M5" variant="socket-button" length="16" %} for the control board housing.
 
-<figure>
+<figure class="single-figure">
   <img class="doc-figure" src="https://assets.basically.website/sorter-docs/electronics-component-layout-topdown-full-2d38b86c4b2e.jpg" alt="Top-down physical component layout on the machine, with the PSU, Pi, basically board, USB hub, Pico, chute stepper and ribbon run called out">
-  <figcaption>Where everything sits, top-down. This render is currently the only record of the placement. Render: Spencer.</figcaption>
+  <figcaption>Where everything sits, top-down. This render is currently the only record of the placement. <cite>Render: Spencer.</cite></figcaption>
 </figure>
 
 1. **[Soldering Pico headers]({{ '/hardware/electronics/installation/pico-headers/' | relative_url }})**: soldering the header pins so the Pico can seat in the control board. First, while the board is still loose.

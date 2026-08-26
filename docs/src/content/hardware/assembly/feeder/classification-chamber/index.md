@@ -59,11 +59,11 @@ Fit the Camera & LED insert, then the camera on its extension tube and mount rin
 <div class="img-row">
   <figure>
     <img class="doc-figure" src="https://assets.basically.website/sorter-parts/insert-iso-full-e4b396fc8c88.png" alt="Angled render of the camera and LED insert's top face, showing a ring of 10 large holes around the rim and 4 smaller countersunk holes around a central square opening">
-    <figcaption>The insert's top face: 10 holes around the rim (mounts to the chamber), 4 smaller ones around the central opening (matches the extension mount, M3). Rendered from the part geometry, not from a build. Render: Balloon.</figcaption>
+    <figcaption>The insert's top face: 10 holes around the rim (mounts to the chamber), 4 smaller ones around the central opening (matches the extension mount, M3). <cite>Rendered from the part geometry, not from a build. Render: Balloon.</cite></figcaption>
   </figure>
   <figure>
     <img class="doc-figure" src="https://assets.basically.website/sorter-parts/extension-iso-full-8d1f0c51606f.png" alt="Angled render of the camera extension bracket, showing two posts each with a mounting hole">
-    <figcaption>The camera extension: two posts, a hole near the top and bottom of each. The top pair takes the M2 camera-board screws. Rendered from the part geometry, not from a build. Render: Balloon.</figcaption>
+    <figcaption>The camera extension: two posts, a hole near the top and bottom of each. The top pair takes the M2 camera-board screws. <cite>Rendered from the part geometry, not from a build. Render: Balloon.</cite></figcaption>
   </figure>
 </div>
 

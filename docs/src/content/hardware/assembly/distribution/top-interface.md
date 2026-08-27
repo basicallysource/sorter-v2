@@ -107,7 +107,7 @@ parts_needed:
   - part: scr-m5-16-shcs
     qty: 38
   - part: scr-m5-12-shcs
-    qty: 16
+    qty: 4
   - part: scr-m4-12-cs
     qty: 8
   - part: scr-m3-35-bhcs

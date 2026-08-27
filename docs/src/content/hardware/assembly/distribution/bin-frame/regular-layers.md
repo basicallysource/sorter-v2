@@ -16,28 +16,18 @@ parts_needed:
     qty: 6
   - part: ext-bracket-bottom-vertical
     qty: 6
-  - part: frame-90deg-bracket
-    qty: 12
-  - part: frame-crossbeam
-    qty: 6
   - part: bin-retainer-left
     qty: 6
   - part: bin-retainer-right
     qty: 6
   - part: ext-2020-ag
     qty: 6
-  - part: ext-2020-bh
-    qty: 6
   - part: ext-2020-c
     qty: 6
   - part: scr-m5-16-shcs
-    qty: 36
-  - part: scr-m5-20-shcs
-    qty: 12
-  - part: scr-m5-12-shcs
-    qty: 12
+    qty: 24
   - part: tnut-m5-2020
-    qty: 36
+    qty: 24
 ---
 
 This guide covers creating a regular layer. It's also the basis for creating the top and bottom layers, so build N−2 of these for an N-layer machine (the [bottom two layers]({{ '/hardware/assembly/distribution/bin-frame/bottom-two-layers/' | relative_url }}) are covered separately).
@@ -97,18 +87,7 @@ Repeat these steps to make two semi-circles of three sections of extrusion and t
   <figcaption><cite>Photo: zed0.</cite></figcaption>
 </figure>
 
-<div class="img-row">
-  <figure>
-    <img src="https://assets.basically.website/sorter-docs/assembly-regular-layers-hexagon-assembled-full-a1fb3a1b6fb4.png" alt="The completed hexagon frame of six A/G extrusions and six corner brackets">
-    <figcaption><cite>Photo: zed0.</cite></figcaption>
-  </figure>
-  <figure>
-    <img src="https://assets.basically.website/sorter-docs/assembly-regular-layers-hexagon-assembled-top-w1600-5a469702622a.png" alt="Top-down view of the completed hexagon frame">
-    <figcaption><cite>Photo: zed0.</cite></figcaption>
-  </figure>
-</div>
-
-{% include step.html n="2" title="Preparation" %}
+{% include step.html n="2" title="Attach the spokes" %}
 
 <div class="prep-item">
   <div class="prep-item-body">

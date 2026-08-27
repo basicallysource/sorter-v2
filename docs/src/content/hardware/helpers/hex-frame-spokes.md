@@ -22,7 +22,7 @@ parts_needed:
     qty: 6
 ---
 
-This covers attaching the six B/H spokes and their Frame crossbeams to the inside of the outer hexagon ring, using the Frame 90° bracket. It does not cover the outer ring itself (the A/G extrusions and External bracket — side), see [Regular layers, step 1]({{ '/hardware/assembly/distribution/bin-frame/regular-layers/' | relative_url }}#step-1).
+A layer's frame is two nested hexagons: an outer ring of A/G extrusion and External bracket — side, and an inner ring of six B/H spokes. This page covers only the inner ring — attaching the six B/H spokes and their Frame crossbeams — and how it connects to the outer one, which the Frame 90° bracket does by resting directly against the outer ring's A/G extrusion, at the point where each spoke lands. Building the outer ring itself is covered on [Regular layers, step 1]({{ '/hardware/assembly/distribution/bin-frame/regular-layers/' | relative_url }}#step-1); build that first.
 
 {% include step.html n="1" title="Fit the Frame 90° brackets" %}
 

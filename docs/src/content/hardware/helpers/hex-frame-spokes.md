@@ -48,3 +48,8 @@ Perform these two steps 2 more times, on every 2nd side of the hexagon, then rep
 {% include step.html n="3" title="Close the hexagon in two halves" %}
 
 Build three spoke assemblies on one half of the hexagon, then the other three on the other half, and only then bring the two halves together — completing the whole hexagon one side at a time makes the last piece impossible to fit. Once the hexagon is closed, the spokes and crossbeams hold themselves in place.
+
+<div class="callout callout-warning">
+  <span class="callout-icon" aria-hidden="true">⚠</span>
+  <p>There's no screw to undo here: once the hexagon is closed, taking a spoke or crossbeam back out means working it back through the same tight friction fit that holds it in, on a ring that's no longer open on either side. Check every bracket, spoke and crossbeam is correctly seated, on both halves, before joining them, and make sure the outer ring itself (<a href="{{ '/hardware/assembly/distribution/bin-frame/regular-layers/' | relative_url }}#step-1">step 1</a>) is fully built and correct first.</p>
+</div>

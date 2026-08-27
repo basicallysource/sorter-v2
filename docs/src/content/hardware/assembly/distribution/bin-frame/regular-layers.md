@@ -87,7 +87,7 @@ Repeat these steps to make two semi-circles of three sections of extrusion and t
   <figcaption><cite>Photo: zed0.</cite></figcaption>
 </figure>
 
-{% include step.html n="2" title="Attach the spokes" %}
+{% include step.html n="2" title="Attach the hexagonal frame's spokes" %}
 
 <div class="prep-item">
   <div class="prep-item-body">

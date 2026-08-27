@@ -314,7 +314,6 @@
 			"targets": {
 				"parts": [
 					"ribbon-cable-clamp",
-					"interface-cage-bracket",
 					"interface-cage-bracket-cable"
 				],
 				"assemblies": [

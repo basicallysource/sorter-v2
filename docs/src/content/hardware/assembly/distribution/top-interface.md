@@ -66,12 +66,6 @@ parts_needed:
     qty: 6
   - part: ext-2020-ag
     qty: 6
-  - part: ext-2020-bh
-    qty: 6
-  - part: frame-90deg-bracket
-    qty: 12
-  - part: frame-crossbeam
-    qty: 6
   - part: extrusion-e
     qty: 6
   - part: extrusion-f
@@ -526,7 +520,7 @@ Slide an Interface spacer onto each piece of extrusion, with the lip at the top 
   <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-top-interface-framing-2-w1600-f626512783f3.jpg" alt="An interface spacer slid onto each vertical extrusion support, lips facing inward">
 </figure>
 
-Follow the first two stages of [a regular layer]({{ '/hardware/assembly/distribution/bin-frame/regular-layers/' | relative_url }}), then place the regular layer assembly onto the interface assembly.
+Follow the first two stages of [a regular layer]({{ '/hardware/assembly/distribution/bin-frame/regular-layers/' | relative_url }}) — the hexagon of six A/G extrusions in six External bracket — sides, then the six B/H spokes on their Frame 90° brackets with a Frame crossbeam each side, see [Attaching the hexagonal frame's spokes]({{ '/hardware/helpers/hex-frame-spokes/' | relative_url }}) for the parts and the method — then place the regular layer assembly onto the interface assembly.
 
 <figure>
   <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-top-interface-framing-3-full-b9ae16940954.jpg" alt="A regular layer assembly lowered onto the interface assembly">

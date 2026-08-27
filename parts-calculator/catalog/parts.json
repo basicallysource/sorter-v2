@@ -6110,6 +6110,12 @@
       "description": "The interface between the feeder and the distribution layers. Its lazy Susan sandwiches the upper fixed section and the chute mount, 4 × [[hw:scr-m4-12-cs]] a side, and the plywood top plate bolts down onto the six brackets' inserts.",
       "docs": "/hardware/assembly/distribution/top-interface/",
       "status": "partial",
+      "joining": [
+        {
+          "method": "friction",
+          "note": "The Frame 90° bracket and Frame crossbeam take no hardware at all -- they hold in place by friction against alignment nubs in the extrusion. Confirmed by Spencer 2026-08-26, see the docs' Attaching the hexagonal frame's spokes helper page."
+        }
+      ],
       "lines": [
         {
           "assembly": "interface-bracket-mount",

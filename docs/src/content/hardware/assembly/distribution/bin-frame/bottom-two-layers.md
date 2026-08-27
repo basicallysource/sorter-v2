@@ -26,17 +26,11 @@ parts_needed:
     qty: 6
   - part: ext-bracket-foot-cover
     qty: 6
-  - part: frame-90deg-bracket
-    qty: 24
-  - part: frame-crossbeam
-    qty: 12
   - part: bin-retainer-left
     qty: 12
   - part: bin-retainer-right
     qty: 12
   - part: ext-2020-ag
-    qty: 12
-  - part: ext-2020-bh
     qty: 12
   - part: ext-2020-d
     qty: 6
@@ -45,13 +39,11 @@ parts_needed:
   - part: caster-wheel-m6
     qty: 6
   - part: scr-m5-16-shcs
-    qty: 96
-  - part: scr-m5-20-shcs
-    qty: 24
+    qty: 64
   - part: scr-m5-12-shcs
-    qty: 72
+    qty: 48
   - part: tnut-m5-2020
-    qty: 72
+    qty: 48
 ---
 
 The bottom two layers are two ordinary bin layers built at the same time, because the vertical extrusion between them is one continuous piece per corner instead of one per layer. That piece is the machine's leg: the caster screws into the bottom of it, so running it up through the bottom layer and into the second gives the wheel something much stiffer to push against than a single layer's worth of extrusion would.
@@ -81,16 +73,16 @@ Cut the extrusion first. These two layers use **6 × piece D (Foot extension), 2
 
 Where the {% include fastener.html size="M5" variant="socket-button" length="16" %} count in the parts list comes from, since nobody has counted these off a built machine:
 
-- **48** for the two hexagons and their spokes, which is [regular layers]({{ '/hardware/assembly/distribution/bin-frame/regular-layers/' | relative_url }}) steps 1 and 2 done twice
+- **16** for the two hexagons' outer rings, which is [regular layers]({{ '/hardware/assembly/distribution/bin-frame/regular-layers/' | relative_url }}) step 1 done twice
 - **24** for the foot extensions, 4 per corner (step 3 below), two into each layer
 - **12** for the second layer's External bracket — bottom verticals, 2 per corner (step 4 below)
 - **12** for the bottom layer's External bracket - foot covers, 2 per corner (step 4 below), the same as the bottom vertical it replaces
 
-The {% include fastener.html size="M5" variant="socket-button" length="12" %} count is the same arithmetic: **12** per layer holding the Frame 90° brackets and **24** per layer for the bin retainers, so **72** across both.
+The {% include fastener.html size="M5" variant="socket-button" length="12" %} count is the same arithmetic: **24** per layer for the bin retainers, so **48** across both.
 
 {% include step.html n="2" title="Build two layer frames" %}
 
-Work through [regular layers]({{ '/hardware/assembly/distribution/bin-frame/regular-layers/' | relative_url }}) steps 1 and 2 twice, once per layer: the hexagon of six A/G extrusions in six External bracket — sides, then the six B/H spokes on their Frame 90° brackets with a Frame crossbeam each side.
+Work through [regular layers]({{ '/hardware/assembly/distribution/bin-frame/regular-layers/' | relative_url }}) steps 1 and 2 twice, once per layer: the hexagon of six A/G extrusions in six External bracket — sides, then the six B/H spokes on their Frame 90° brackets with a Frame crossbeam each side — see [Attaching the hexagonal frame's spokes]({{ '/hardware/helpers/hex-frame-spokes/' | relative_url }}) for the parts and the method.
 
 **Stop before that guide's step 3 (Install the verticals).** The verticals are the part that differs here, and they are step 3 below.
 

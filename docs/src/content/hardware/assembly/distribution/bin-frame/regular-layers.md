@@ -16,28 +16,18 @@ parts_needed:
     qty: 6
   - part: ext-bracket-bottom-vertical
     qty: 6
-  - part: frame-90deg-bracket
-    qty: 12
-  - part: frame-crossbeam
-    qty: 6
   - part: bin-retainer-left
     qty: 6
   - part: bin-retainer-right
     qty: 6
   - part: ext-2020-ag
     qty: 6
-  - part: ext-2020-bh
-    qty: 6
   - part: ext-2020-c
     qty: 6
   - part: scr-m5-16-shcs
-    qty: 36
-  - part: scr-m5-20-shcs
-    qty: 12
-  - part: scr-m5-12-shcs
-    qty: 12
+    qty: 24
   - part: tnut-m5-2020
-    qty: 36
+    qty: 24
 ---
 
 This guide covers creating a regular layer. It's also the basis for creating the top and bottom layers, so build N−2 of these for an N-layer machine (the [bottom two layers]({{ '/hardware/assembly/distribution/bin-frame/bottom-two-layers/' | relative_url }}) are covered separately).
@@ -46,7 +36,7 @@ Note that some of the ordering in this guide may seem unusual, but it's written 
 
 The aluminum extrusion is cut to length; the [framing cut list](https://parts-calculator.basically.website/framing) has the exact dimensions for pieces A/G, B/H and C. The number of {% include fastener.html size="M5" variant="t-nut" text="M5 T-nuts" %} listed above is the minimum you'll need if you thread the printed parts directly wherever possible; this number increases if you use T-nuts throughout instead.
 
-See [Assembling External bracket]({{ '/hardware/helpers/external-bracket/' | relative_url }}) for a look at the three bracket parts on their own.
+See [Assembling External bracket]({{ '/hardware/helpers/external-bracket/' | relative_url }}) for a look at the three bracket parts on their own, and [Attaching the hexagonal frame's spokes]({{ '/hardware/helpers/hex-frame-spokes/' | relative_url }}) for how the Frame 90° bracket, B/H spoke and Frame crossbeam are prepared and attached as needed.
 
 {% include fastener-legend.html %}
 
@@ -97,92 +87,17 @@ Repeat these steps to make two semi-circles of three sections of extrusion and t
   <figcaption><cite>Photo: zed0.</cite></figcaption>
 </figure>
 
-<div class="img-row">
-  <figure>
-    <img src="https://assets.basically.website/sorter-docs/assembly-regular-layers-hexagon-assembled-full-a1fb3a1b6fb4.png" alt="The completed hexagon frame of six A/G extrusions and six corner brackets">
-    <figcaption><cite>Photo: zed0.</cite></figcaption>
-  </figure>
-  <figure>
-    <img src="https://assets.basically.website/sorter-docs/assembly-regular-layers-hexagon-assembled-top-w1600-5a469702622a.png" alt="Top-down view of the completed hexagon frame">
-    <figcaption><cite>Photo: zed0.</cite></figcaption>
-  </figure>
-</div>
+{% include step.html n="2" title="Attach the hexagonal frame's spokes" %}
 
-{% include step.html n="2" title="Attach the spokes" %}
-
-Prepare 12 Frame 90° brackets by drilling out the holes on the long side to allow an M5 screw to rotate freely. If you do not have a drill of the correct diameter, this can also be done using an electric screwdriver to overtighten an M5 screw, thus breaking the threads.
-
-<figure class="video-figure">
-  <div class="video-embed video-embed-wide">
-    <iframe
-      src="https://www.youtube.com/embed/ULeByfqfVZs"
-      title="Preparing the Frame 90° brackets and attaching the spokes"
-      allow="encrypted-media; picture-in-picture; web-share"
-      allowfullscreen
-      loading="lazy"></iframe>
+<div class="prep-item">
+  <div class="prep-item-body">
+    <p>Attach the six B/H spokes and their Frame crossbeams to the inside of the hexagon, using the Frame 90° bracket. See <a href="{{ '/hardware/helpers/hex-frame-spokes/' | relative_url }}">Attaching the hexagonal frame's spokes</a> for the parts and the method.</p>
   </div>
-  <figcaption><cite>Video: zed0.</cite></figcaption>
-</figure>
-
-<figure class="single-figure">
-  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-regular-layers-spoke-brackets-attached-w1600-47b3c12e2344.png" alt="Two Frame 90° brackets fastened to the inner face of an A/G extrusion, seen from inside the hexagon">
-  <figcaption><cite>Photo: zed0.</cite></figcaption>
-</figure>
-
-Loosely attach the long side of 2 Frame 90° brackets to the inner of one piece of the A/G (Outer horizontal / Horizontal interface frame) extrusion of your hexagon using 2 {% include fastener.html size="M5" variant="socket-button" length="12" %} screws, either into your 2 existing slide-in T-nuts or with drop-in / roll-in T-nuts.
-
-Slide piece B/H (Spoke / Interface spoke (short)) of aluminum extrusion into the 2 Frame 90° brackets that you have just placed, and secure it with 2 {% include fastener.html size="M5" variant="socket-button" length="16" %} screws tapped directly into the Frame 90° brackets, bracing against the extrusion. You can now tighten up the {% include fastener.html size="M5" variant="socket-button" length="12" %} screws that were previously holding the Frame 90° brackets loosely in place.
-
-<div class="img-row">
-  <figure>
-    <img src="https://assets.basically.website/sorter-docs/assembly-regular-layers-spoke-installed-w1600-536d49087ec4.png" alt="A B/H spoke extrusion standing up in the two Frame 90° brackets">
-    <figcaption><cite>Photo: zed0.</cite></figcaption>
-  </figure>
-  <figure>
-    <img src="https://assets.basically.website/sorter-docs/assembly-regular-layers-spoke-crossbeams-first-full-dca5e96ee46d.png" alt="A spoke with a Frame crossbeam slid into place on each side">
-    <figcaption><cite>Photo: zed0.</cite></figcaption>
+  <figure class="prep-item-figure">
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-regular-layers-spokes-complete-top-full-f9b0a154d84b.png" alt="Top-down view of the finished hexagon with all six spokes and crossbeams forming the central ring">
+    <figcaption>A pre-made hexagon, with all six spokes and crossbeams fitted.</figcaption>
   </figure>
 </div>
-
-On each side of this B/H (Spoke / Interface spoke (short)) slide a Frame crossbeam into place until it is level with the end of the extrusion, and secure it with an {% include fastener.html size="M5" variant="socket-button" length="20" %} screw.
-
-Perform these steps 2 more times, on every 2nd side of the hexagon.
-
-<figure class="single-figure">
-  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-regular-layers-spokes-crossbeams-top-full-d16c233ea6e1.png" alt="Top-down view of three spokes with crossbeams, forming a partial inner ring">
-  <figcaption><cite>Photo: zed0.</cite></figcaption>
-</figure>
-
-<div class="img-row">
-  <figure>
-    <img src="https://assets.basically.website/sorter-docs/assembly-regular-layers-spokes-progress-1-w1600-bfbe2a608499.png" alt="The hexagon partway through spoke installation, some sides done">
-    <figcaption><cite>Photo: zed0.</cite></figcaption>
-  </figure>
-  <figure>
-    <img src="https://assets.basically.website/sorter-docs/assembly-regular-layers-spokes-progress-2-w1600-5a478c564363.png" alt="More spokes and crossbeams filled in around the hexagon">
-    <figcaption><cite>Photo: zed0.</cite></figcaption>
-  </figure>
-</div>
-
-On each of the remaining 3 sides of the hexagon, use 2 {% include fastener.html size="M5" variant="socket-button" length="12" %} screws (either into your 2 existing slide-in T-nuts or with drop-in / roll-in T-nuts) to loosely fasten 2 Frame 90° brackets, aligning them with the gap in the Frame crossbeams. Slide the remaining B/H (Spoke / Interface spoke (short)) pieces into the slots, through both the Frame crossbeams and Frame 90° brackets.
-
-<div class="img-row">
-  <figure>
-    <img src="https://assets.basically.website/sorter-docs/assembly-regular-layers-spokes-progress-3-w1600-e63cf43ad122.png" alt="Nearly all spokes and crossbeams installed">
-    <figcaption><cite>Photo: zed0.</cite></figcaption>
-  </figure>
-  <figure>
-    <img src="https://assets.basically.website/sorter-docs/assembly-regular-layers-spokes-nearly-complete-w1600-8911fb6fef42.png" alt="The spoke ring almost complete, seen at an angle">
-    <figcaption><cite>Photo: zed0.</cite></figcaption>
-  </figure>
-</div>
-
-<figure class="single-figure">
-  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-regular-layers-spokes-complete-top-full-f9b0a154d84b.png" alt="Top-down view of the finished hexagon with all six spokes and crossbeams forming the central ring">
-  <figcaption><cite>Photo: zed0.</cite></figcaption>
-</figure>
-
-Secure them in place with 2 {% include fastener.html size="M5" variant="socket-button" length="16" %} screws tapped into the Frame 90° brackets and 2 {% include fastener.html size="M5" variant="socket-button" length="20" %} screws through the Frame crossbeams. You can now tighten up the {% include fastener.html size="M5" variant="socket-button" length="12" %} screws that were previously holding the Frame 90° brackets loosely in place.
 
 <div class="callout">
   <p>If you are currently building the interface layer, stop here and return to the interface layer guide.</p>

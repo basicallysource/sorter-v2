@@ -1448,6 +1448,12 @@
 			"description": "The frame of one distribution layer: six external brackets, the crossbeams between them, and the 90\u00b0 brackets. The aluminum extrusion it is built on is sized on the framing tab, not listed here.",
 			"docs": "/hardware/assembly/distribution/bin-frame/regular-layers/",
 			"status": "partial",
+			"joining": [
+				{
+					"method": "friction",
+					"note": "The Frame 90\u00b0 bracket and Frame crossbeam take no hardware at all -- they hold in place by friction against alignment nubs in the extrusion. Confirmed by Spencer 2026-08-26, see the docs' Attaching the hexagonal frame's spokes helper page."
+				}
+			],
 			"lines": [
 				{
 					"assembly": "external-bracket",

@@ -45,11 +45,11 @@ Slide a Frame crossbeam into place on the spoke until it is level with the end o
 
 Perform these two steps 2 more times, on every 2nd side of the hexagon, then repeat for the remaining 3 sides.
 
-{% include step.html n="3" title="Close the hexagon in two halves" %}
-
-Build three spoke assemblies on one half of the hexagon, then the other three on the other half, and only then bring the two halves together — completing the whole hexagon one side at a time makes the last piece impossible to fit. Once the hexagon is closed, the spokes and crossbeams hold themselves in place.
+{% include step.html n="3" title="Closing the hexagon" %}
 
 <div class="callout callout-warning">
   <span class="callout-icon" aria-hidden="true">⚠</span>
-  <p>There's no screw to undo here: once the hexagon is closed, taking a spoke or crossbeam back out means working it back through the same tight friction fit that holds it in, on a ring that's no longer open on either side. Check every bracket, spoke and crossbeam is correctly seated, on both halves, before joining them, and make sure the outer ring itself (<a href="{{ '/hardware/assembly/distribution/bin-frame/regular-layers/' | relative_url }}#step-1">step 1</a>) is fully built and correct first.</p>
+  <p><strong>How the last few spoke assemblies actually go in is not settled.</strong> Step 2's order above (every 2nd side, then the remaining 3) is inherited from the old, screwed version of this joint, and that version depended on the Frame 90° bracket being loosely attached and tightened afterward for clearance — a friction-fit bracket has no equivalent loose state, so this sequence may not actually work the same way here. It may instead need each outer-ring half (<a href="{{ '/hardware/assembly/distribution/bin-frame/regular-layers/' | relative_url }}#step-1">Regular layers step 1</a>) built together with its own 3 spoke assemblies while that half is still open, joining the two complete halves last — closer to Spencer's own description, but a different build order than this page and that one currently describe. Unverified either way; do not treat this step as settled, and there's no screw to undo it with if it goes wrong.</p>
 </div>
+
+Once the hexagon is closed, the spokes and crossbeams hold themselves in place.

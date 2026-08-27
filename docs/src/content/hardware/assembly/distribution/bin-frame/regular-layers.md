@@ -108,9 +108,17 @@ Repeat these steps to make two semi-circles of three sections of extrusion and t
   </figure>
 </div>
 
-{% include step.html n="2" title="Attach the spokes" %}
+{% include step.html n="2" title="Preparation" %}
 
-Attach the six B/H spokes and their Frame crossbeams to the inside of the hexagon, using the Frame 90° bracket. See [Attaching the hexagonal frame's spokes]({{ '/hardware/helpers/hex-frame-spokes/' | relative_url }}) for the parts and the method — prepare and attach them as needed.
+<div class="prep-item">
+  <div class="prep-item-body">
+    <p>Attach the six B/H spokes and their Frame crossbeams to the inside of the hexagon, using the Frame 90° bracket. See <a href="{{ '/hardware/helpers/hex-frame-spokes/' | relative_url }}">Attaching the hexagonal frame's spokes</a> for the parts and the method.</p>
+  </div>
+  <figure class="prep-item-figure">
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-regular-layers-spokes-complete-top-full-f9b0a154d84b.png" alt="Top-down view of the finished hexagon with all six spokes and crossbeams forming the central ring">
+    <figcaption>A pre-made hexagon, with all six spokes and crossbeams fitted.</figcaption>
+  </figure>
+</div>
 
 <div class="callout">
   <p>If you are currently building the interface layer, stop here and return to the interface layer guide.</p>

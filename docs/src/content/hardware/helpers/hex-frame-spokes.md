@@ -10,8 +10,9 @@ permalink: /hardware/helpers/hex-frame-spokes/
 author: barthel
 contributors: [spencer, brickcyclealice]
 warning: >-
-  **AI-generated, DRAFT.** Written from a Discord conversation, not from a
-  build, and not checked against a machine.
+  **AI-generated first draft.** Written from a Discord conversation, not
+  from an actual build. No step here has been checked against a machine.
+  Correct it as you build.
 parts_needed:
   - part: frame-90deg-bracket
     qty: 12

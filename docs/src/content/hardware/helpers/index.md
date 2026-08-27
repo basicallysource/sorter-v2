@@ -14,3 +14,4 @@ contributors: [barthel]
 - **[Preparing Lazy Susan]({{ '/hardware/helpers/lazy-susan/' | relative_url }})**
 - **[Prepare timing pulley 20 tooth]({{ '/hardware/helpers/pulley-gear-mod/' | relative_url }})**
 - **[Installing heat inserts]({{ '/hardware/helpers/heat-inserts/' | relative_url }})**
+- **[Attaching the hexagonal frame's spokes]({{ '/hardware/helpers/hex-frame-spokes/' | relative_url }})**

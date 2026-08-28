@@ -223,10 +223,7 @@ Each mount then bolts to the extrusion through two more 5.5 mm M5 clearance hole
 
 <span class="fastener-todo">fastener not recorded</span> for these, 6 more screws on top of the 3 in the parts list (two per mount). Mount order around the ring isn't recorded either.
 
-<figure class="single-figure">
-  <img class="doc-figure" src="https://assets.basically.website/sorter-parts/bottom-interface-step4-mount-in-hex-frame-full-3e374267e81f.jpg" alt="A Lazy Susan extrusion mount fitted onto a length of extrusion at the corner of an assembled hexagonal layer frame">
-  <figcaption>Fitted into a hex frame. <cite>Photo: BrickCycleAlice.</cite></figcaption>
-</figure>
+<div class="img-placeholder">Image coming</div>
 
 The mounts fix to **piece B/H (Spoke)**, the same 158 mm cut a regular layer uses, standing in for three of that layer's six spokes rather than adding new pieces. Cut lengths are on the [framing cut list](https://parts-calculator.basically.website/framing).
 

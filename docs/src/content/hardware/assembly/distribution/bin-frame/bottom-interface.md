@@ -109,8 +109,8 @@ The Lazy Susan is two discs, inner and outer, that spin independently. The chute
 Remove the Lazy Susan's rubber tabs first (see [Preparing Lazy Susan]({{ '/hardware/helpers/lazy-susan/' | relative_url }})). **The washer goes on before the bearing**: set the Lazy Susan washer on the chute mount, then the [Lazy Susan]({{ '/hardware/parts/lazy-susan/' | relative_url }}) on top of that.
 
 <figure class="single-figure">
-  <img class="doc-figure" src="https://assets.basically.website/sorter-parts/bottom-interface-step2-chute-mount-before-washer-full-c591bbfe8687.jpg" alt="The Lazy Susan chute mount held up on its own, before the washer goes on">
-  <figcaption>The chute mount, before the washer. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+  <img class="doc-figure" src="https://assets.basically.website/sorter-parts/bottom-interface-step2-washer-held-in-place-full-c591bbfe8687.jpg" alt="A thumb holding the Lazy Susan washer in place on the chute mount, before the bearing goes on top">
+  <figcaption>Holding the washer in place before the bearing goes on. <cite>Photo: BrickCycleAlice.</cite></figcaption>
 </figure>
 
 Line up a hole in the disc with one of the chute mount's inserts, drive an {% include fastener.html size="M4" variant="countersunk" length="12" %} screw, and repeat around the disc.

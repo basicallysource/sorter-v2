@@ -29,7 +29,9 @@ parts_needed:
   - part: ext-2020-bh
     qty: 3
   - part: scr-m5-16-shcs
-    qty: 3
+    qty: 9
+  - part: tnut-m5-2020
+    qty: 6
 ---
 
 The fasteners and quantities in the parts list are called out inline at each step.
@@ -208,14 +210,14 @@ Three Lazy Susan extrusion mounts carry the bearing assembly's weight; a hold in
 
 The screw between the extrusion mount and the hold in place is an {% include fastener.html size="M5" variant="socket" length="16" %}.
 
-Each mount then bolts to the extrusion through two more 5.5 mm M5 clearance holes, 30 mm apart, into plastic rather than a T-nut:
+Each mount then bolts to the spoke through two more 5.5 mm M5 clearance holes, 30 mm apart, into a T-nut in the extrusion:
 
 <figure class="single-figure">
   <img class="doc-figure" src="https://assets.basically.website/sorter-parts/bottom-interface-step4-extrusion-mount-bolt-holes-full-9104e9681f61.jpg" alt="The end of a Lazy Susan extrusion mount seated on a length of 2020 extrusion, with two screws visible in counterbored holes bolting it down">
   <figcaption>The two bolt holes that connect the mount to the spoke. <cite>Photo: BrickCycleAlice.</cite></figcaption>
 </figure>
 
-<span class="fastener-todo">fastener not recorded</span> for these, 6 more screws on top of the 3 in the parts list (two per mount). Mount order around the ring isn't recorded either.
+That's two {% include fastener.html size="M5" variant="socket" length="16" %} screws per mount, 6 more on top of the 3 between mount and hold in place. Mount order around the ring isn't recorded.
 
 <div class="img-placeholder">Image coming</div>
 

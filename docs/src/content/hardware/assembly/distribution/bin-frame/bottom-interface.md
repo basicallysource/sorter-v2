@@ -219,7 +219,16 @@ Each mount then bolts to the spoke through two more 5.5 mm M5 clearance holes, 3
 
 That's two {% include fastener.html size="M5" variant="socket" length="16" %} screws per mount, 6 more on top of the 3 between mount and hold in place. Mount order around the ring isn't recorded.
 
-<div class="img-placeholder">Image coming</div>
+<div class="img-row">
+  <figure>
+    <img src="https://assets.basically.website/sorter-parts/bottom-interface-step4-hex-frame-overview-full-bab24577ff64.jpg" alt="Top-down view of the assembled hexagonal layer frame with three Lazy Susan extrusion mounts fitted at alternating spokes">
+    <figcaption>All three mounts, fitted around the ring. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+  </figure>
+  <figure>
+    <img src="https://assets.basically.website/sorter-parts/bottom-interface-step4-hex-frame-corner-full-1a86a71db08d.jpg" alt="Closer view of one Lazy Susan extrusion mount fitted at a corner of the hexagonal layer frame">
+    <figcaption>One mount, closer in. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+  </figure>
+</div>
 
 The mounts fix to **piece B/H (Spoke)**, the same 158 mm cut a regular layer uses, standing in for three of that layer's six spokes rather than adding new pieces. Cut lengths are on the [framing cut list](https://parts-calculator.basically.website/framing).
 

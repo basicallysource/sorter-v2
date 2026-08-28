@@ -29,7 +29,9 @@ parts_needed:
   - part: ext-2020-bh
     qty: 3
   - part: scr-m5-16-shcs
-    qty: 3
+    qty: 9
+  - part: tnut-m5-2020
+    qty: 6
 ---
 
 The fasteners and quantities in the parts list are called out inline at each step.
@@ -72,15 +74,16 @@ Once assembled, it mounts into the machine frame:
 
 {% include step.html n="1" title="Preparation" %}
 
-Press the heat inserts into both printed parts while they are still loose. Once the Lazy Susan is on, an iron cannot reach them. See [installing heat inserts]({{ '/hardware/helpers/heat-inserts/' | relative_url }}) for the technique.
+Press the heat inserts into both printed parts while they are still loose. See [installing heat inserts]({{ '/hardware/helpers/heat-inserts/' | relative_url }}) for the technique.
 
 <div class="prep-item">
   <div class="prep-item-body">
     <p><strong>Lazy Susan chute mount:</strong> 4 × M4, evenly spaced around the circular mounting face.</p>
   </div>
-  <div class="prep-item-figure">
-    <div class="img-placeholder">Image coming</div>
-  </div>
+  <figure class="prep-item-figure">
+    <img class="doc-figure" src="https://assets.basically.website/sorter-parts/bottom-interface-prep-chute-mount-inserts-1-full-70bcf9a84302.jpg" alt="Looking into the Lazy Susan chute mount's circular face: four brass M4 heat inserts around the rim, with the raised square socket for the chute in the middle and the pass-through hole between two of the inserts">
+    <figcaption>All four M4 inserts, with the pass-through hole. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+  </figure>
 </div>
 
 <div class="prep-item">
@@ -88,8 +91,8 @@ Press the heat inserts into both printed parts while they are still loose. Once 
     <p><strong>Lazy Susan bottom static:</strong> 4 × M4, evenly spaced around the top face.</p>
   </div>
   <figure class="prep-item-figure">
-    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-bottom-interface-prep-bottom-static-inserts-full-55b0a52a2cd1.png" alt="Close-up of the black Lazy Susan bottom static ring with three of its four brass M4 heat inserts clearly visible, pressed flush into the top face">
-    <figcaption>Three of the four M4 inserts in the bottom static part. The fourth sits under the chute mount coming down on the right. <cite>Photo: Spencer.</cite></figcaption>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-parts/bottom-interface-prep-bottom-static-inserts-2-full-4af3b6d0eda1.jpg" alt="The flat Lazy Susan bottom static ring from above, with all four M4 heat inserts and a hole between two of them">
+    <figcaption>The bottom static ring, all four inserts visible. <cite>Photo: BrickCycleAlice.</cite></figcaption>
   </figure>
 </div>
 
@@ -99,7 +102,14 @@ Printed parts elsewhere in the machine take inserts too. Each assembly page list
 
 The Lazy Susan is two discs, inner and outer, that spin independently. The chute mount screws to one disc and the bottom static part to the other, so this step and the next work on opposite faces of the same bearing.
 
-Remove the Lazy Susan's rubber tabs first (see [Preparing Lazy Susan]({{ '/hardware/helpers/lazy-susan/' | relative_url }})). Set the Lazy Susan washer on the chute mount and the [Lazy Susan]({{ '/hardware/parts/lazy-susan/' | relative_url }}) on top. Line up a hole in the disc with one of the chute mount's inserts, drive an {% include fastener.html size="M4" variant="countersunk" length="12" %} screw, and repeat around the disc.
+Remove the Lazy Susan's rubber tabs first (see [Preparing Lazy Susan]({{ '/hardware/helpers/lazy-susan/' | relative_url }})). **The washer goes on before the bearing**: set the Lazy Susan washer on the chute mount, then the [Lazy Susan]({{ '/hardware/parts/lazy-susan/' | relative_url }}) on top of that.
+
+<figure class="single-figure">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-parts/bottom-interface-step2-washer-held-in-place-full-c591bbfe8687.jpg" alt="A thumb holding the Lazy Susan washer in place on the chute mount, before the bearing goes on top">
+  <figcaption>Holding the washer in place before the bearing goes on. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+</figure>
+
+Line up a hole in the disc with one of the chute mount's inserts, drive an {% include fastener.html size="M4" variant="countersunk" length="12" %} screw, and repeat around the disc.
 
 <div class="img-row">
   <figure>
@@ -117,10 +127,16 @@ Remove the Lazy Susan's rubber tabs first (see [Preparing Lazy Susan]({{ '/hardw
   <p>The {% include fastener.html size="M4" variant="countersunk" length="12" %} screws must be very tight. A drill or electric screwdriver will not get them there, so finish them with a hex key by hand. Machine vibration works a loose one out of a spot that is a hassle to reach later.</p>
 </div>
 
-<figure class="single-figure">
-  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-bottom-interface-lazy-susan-on-chute-mount-full-d478621b1f81.jpg" alt="Lazy Susan bearing mounted on the chute mount with the washer between them">
-  <figcaption><cite>Photo: Spencer.</cite></figcaption>
-</figure>
+<div class="img-row">
+  <figure>
+    <img src="https://assets.basically.website/sorter-parts/bottom-interface-step2-lazy-susan-bolted-full-f5f13531472d.jpg" alt="The Lazy Susan bearing bolted onto the chute mount, seen from above">
+    <figcaption>Bolted on. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+  </figure>
+  <figure>
+    <img src="https://assets.basically.website/sorter-parts/bottom-interface-step2-washer-visible-full-8e7b77b68c48.jpg" alt="Side view of the bolted assembly with the thin white Lazy Susan washer visible sandwiched between the bearing and the chute mount">
+    <figcaption>Side view, with the washer visible between bearing and mount. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+  </figure>
+</div>
 
 {% include step.html n="3" title="Mount the Lazy Susan to the bottom static part" %}
 
@@ -150,14 +166,14 @@ Set the chute mount and Lazy Susan assembly onto the bottom static part, then li
   </figure>
 </div>
 
-Drive the first {% include fastener.html size="M4" variant="countersunk" length="12" %} screw through the pass-through hole.
+Drive the first {% include fastener.html size="M4" variant="countersunk" length="12" %} screw through the pass-through hole. Don't tighten it fully yet, leave some play while you get the rest of the four seated.
 
 <figure class="single-figure">
   <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-bottom-interface-step2-screwed-in-full-92f81fc1417a.jpg" alt="First screw driven through the pass-through hole">
   <figcaption><cite>Photo: Spencer.</cite></figcaption>
 </figure>
 
-Rotate the chute on the Lazy Susan, the way it turns in normal operation rather than forcing the whole assembly, to bring the pass-through hole over the next insert. Repeat for all four screws.
+Rotate the chute on the Lazy Susan, the way it turns in normal operation rather than forcing the whole assembly, to bring the pass-through hole over the next insert. Repeat for all four screws, then tighten all four the rest of the way.
 
 <div class="img-row">
   <figure>
@@ -177,25 +193,39 @@ The bearing stack is now complete:
   <figcaption><cite>Photo: Spencer.</cite></figcaption>
 </figure>
 
-{% include step.html n="4" title="Mount it into the frame" %}
+{% include step.html n="4" title="Prepare the frame" %}
 
-Three Lazy Susan extrusion mounts fix the assembly to the external extrusion of the layer frame, and a Lazy Susan hold in place bolts to each one. They go together as a pair before either touches the extrusion.
+Three Lazy Susan extrusion mounts carry the bearing assembly's weight; a hold in place bolts to each one first, as a pair, before either touches the extrusion. **They don't fix the chute itself**, that's attached up at the [top interface]({{ '/hardware/assembly/distribution/top-interface/' | relative_url }}).
 
 <div class="img-row">
   <figure>
     <img src="https://assets.basically.website/sorter-docs/assembly-bottom-interface-step4-extrusion-mount-w1600-06391df95795.jpg" alt="A Lazy Susan extrusion mount and a Lazy Susan hold in place bolted together, forming a grey wedge with a triangular window through its web and two counterbored holes along its bottom face">
-    <figcaption>The extrusion mount and the hold in place, bolted together. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+    <figcaption>Mount and hold in place, bolted together. <cite>Photo: BrickCycleAlice.</cite></figcaption>
   </figure>
   <figure>
     <img src="https://assets.basically.website/sorter-docs/assembly-bottom-interface-step4-extrusion-mount-on-2020-w1600-36f5200925fd.jpg" alt="The same pair with a length of 2020 aluminum extrusion seated in the channel along its sloped edge">
-    <figcaption>With a length of 2020 in its channel. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+    <figcaption>Seated on its length of 2020. <cite>Photo: BrickCycleAlice.</cite></figcaption>
   </figure>
 </div>
 
-The screw between the two is an {% include fastener.html size="M5" variant="socket" length="16" %}: it drops through the counterbore in the hold in place, passes a 5.5 mm clearance hole, and taps itself into a 4.4 mm hole in the extrusion mount, the same tap-into-plastic join used everywhere else on the frame. **16 mm is the longest that fits.** Measured off the two STLs, the head seat is exactly 16.0 mm above the bottom of the tapped hole, so a longer screw bottoms out before it clamps.
+The screw between the extrusion mount and the hold in place is an {% include fastener.html size="M5" variant="socket" length="16" %}.
 
-Each mount then fixes to the frame through the two 5.5 mm M5 clearance holes along its bottom face, 30 mm apart. **These bolt into plastic, not into T-nuts.** Which screw goes in them is not recorded: <span class="fastener-todo">fastener not recorded</span>. That is 6 more screws on top of the 3 in the parts list, two per mount.
+Each mount then bolts to the spoke through two more 5.5 mm M5 clearance holes, 30 mm apart, into a T-nut in the extrusion:
 
-The order the three mounts go on around the ring is not recorded either.
+<figure class="single-figure">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-parts/bottom-interface-step4-extrusion-mount-bolt-holes-full-9104e9681f61.jpg" alt="The end of a Lazy Susan extrusion mount seated on a length of 2020 extrusion, with two screws visible in counterbored holes bolting it down">
+  <figcaption>The two bolt holes that connect the mount to the spoke. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+</figure>
 
-The extrusion the mounts fix to is **piece B/H (Spoke)**, the same 158 mm cut a regular layer uses. The three here stand in for three of that layer's six B/H spokes rather than being extra pieces, so the cut list for the machine does not change. Every cut length is on the [framing cut list](https://parts-calculator.basically.website/framing).
+That's two {% include fastener.html size="M5" variant="socket" length="16" %} screws per mount, 6 more on top of the 3 between mount and hold in place. Mount order around the ring isn't recorded.
+
+<div class="img-placeholder">Image coming</div>
+
+The mounts fix to **piece B/H (Spoke)**, the same 158 mm cut a regular layer uses, standing in for three of that layer's six spokes rather than adding new pieces. Cut lengths are on the [framing cut list](https://parts-calculator.basically.website/framing).
+
+You end this step with four separate pieces: the bearing stack from steps 1-3, and three mount pairs each on their own length of extrusion. The mounts go on with the frame in [bottom two layers]({{ '/hardware/assembly/distribution/bin-frame/bottom-two-layers/' | relative_url }}); the bearing stack takes the [chute core]({{ '/hardware/assembly/distribution/chute/chute-core/' | relative_url }}).
+
+<figure class="single-figure">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-parts/bottom-interface-step4-four-pieces-complete-full-b63f796f63e6.jpg" alt="Four finished pieces laid out: the assembled bearing stack in the centre, and three Lazy Susan extrusion mounts each on a length of extrusion around it">
+  <figcaption>What you have at the end of this step. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+</figure>

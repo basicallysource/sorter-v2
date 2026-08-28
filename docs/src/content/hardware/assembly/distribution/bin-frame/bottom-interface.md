@@ -88,16 +88,10 @@ Press the heat inserts into both printed parts while they are still loose. See [
   <div class="prep-item-body">
     <p><strong>Lazy Susan bottom static:</strong> 4 × M4, evenly spaced around the top face.</p>
   </div>
-  <div class="prep-item-figure prep-item-figure-split">
-    <figure>
-      <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-bottom-interface-prep-bottom-static-inserts-full-55b0a52a2cd1.png" alt="Close-up of the black Lazy Susan bottom static ring with three of its four brass M4 heat inserts clearly visible, pressed flush into the top face">
-      <figcaption>Three of the four M4 inserts in the bottom static part. The fourth sits under the chute mount coming down on the right. <cite>Photo: Spencer.</cite></figcaption>
-    </figure>
-    <figure>
-      <img class="doc-figure" src="https://assets.basically.website/sorter-parts/bottom-interface-prep-bottom-static-inserts-2-full-4af3b6d0eda1.jpg" alt="The flat Lazy Susan bottom static ring from above, with all four M4 heat inserts and a hole between two of them">
-      <figcaption>The bottom static ring, all four inserts visible. <cite>Photo: BrickCycleAlice.</cite></figcaption>
-    </figure>
-  </div>
+  <figure class="prep-item-figure">
+    <img class="doc-figure" src="https://assets.basically.website/sorter-parts/bottom-interface-prep-bottom-static-inserts-2-full-4af3b6d0eda1.jpg" alt="The flat Lazy Susan bottom static ring from above, with all four M4 heat inserts and a hole between two of them">
+    <figcaption>The bottom static ring, all four inserts visible. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+  </figure>
 </div>
 
 Printed parts elsewhere in the machine take inserts too. Each assembly page lists its own in a **Preparation** step like this one.

@@ -72,7 +72,7 @@ Once assembled, it mounts into the machine frame:
 
 {% include step.html n="1" title="Preparation" %}
 
-Press the heat inserts into both printed parts while they are still loose. Once the Lazy Susan is on, an iron cannot reach them. See [installing heat inserts]({{ '/hardware/helpers/heat-inserts/' | relative_url }}) for the technique.
+Press the heat inserts into both printed parts while they are still loose. See [installing heat inserts]({{ '/hardware/helpers/heat-inserts/' | relative_url }}) for the technique.
 
 <div class="prep-item">
   <div class="prep-item-body">

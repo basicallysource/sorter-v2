@@ -212,7 +212,7 @@ Three Lazy Susan extrusion mounts carry the bearing assembly's weight; a hold in
   </figure>
 </div>
 
-The screw between the two is an {% include fastener.html size="M5" variant="socket" length="16" %}, the longest that fits: it taps into a 4.4 mm hole in the mount, whose head seat sits exactly 16.0 mm above the bottom of that hole.
+The screw between the extrusion mount and the hold in place is an {% include fastener.html size="M5" variant="socket" length="16" %}.
 
 Each mount then bolts to the extrusion through two more 5.5 mm M5 clearance holes, 30 mm apart, into plastic rather than a T-nut:
 

@@ -31,14 +31,14 @@ parts_needed:
   - part: scr-m5-16-shcs
     qty: 8
   - part: tnut-m5-2020
-    qty: 8
+    qty: 24
 ---
 
 This guide builds one hexagonal frame: the outer ring of A/G extrusion and External bracket — side, with the six B/H spokes and Frame crossbeams held inside it by the Frame 90° brackets. No fasteners are used from step 2 onward — the spokes, crossbeams and brackets are a friction-and-slide fit, no screws or T-nuts.
 
 An N-layer machine needs **N + 1 of these**: one per planned layer, plus one for the [bottom interface]({{ '/hardware/assembly/distribution/bin-frame/bottom-interface/' | relative_url }}) and one for the [top interface]({{ '/hardware/assembly/distribution/top-interface/' | relative_url }}).
 
-The aluminum extrusion is cut to length; the [framing cut list](https://parts-calculator.basically.website/framing) has the exact dimensions. Each frame uses 6 A/G (320mm) and 6 B/H (158mm).
+The aluminum extrusion is cut to length; the [framing cut list](https://parts-calculator.basically.website/framing) has the exact dimensions. Each frame uses 6 A/G (320mm) and 6 B/H (158mm). The 24 T-nuts in the list above aren't used by anything in this guide — they're pre-installed in step 1 while the extrusion ends are still accessible, for the bin retainers a later page attaches to the outer ring.
 
 {% include fastener-legend.html %}
 
@@ -57,7 +57,7 @@ The aluminum extrusion is cut to length; the [framing cut list](https://parts-ca
 
 Slide piece A/G (Outer horizontal / Horizontal interface frame, 320mm) of aluminum extrusion into an External bracket — side. Use an {% include fastener.html size="M5" variant="socket-button" length="16" %} screw to tap directly through the outer of the two adjacent holes on the External bracket — side, bracing it against the extrusion. If you would rather not tap and brace, place T-nuts in the extrusion and use the inner holes to fasten into them instead.
 
-If you are using slide-in T-nuts rather than drop-in or roll-in T-nuts, insert 2 into the innermost section of the extrusion and 4 into the outermost section before connecting the next External bracket — side, as this is the last time the ends of the extrusion are accessible.
+If you are using slide-in T-nuts rather than drop-in or roll-in T-nuts, insert 4 into the outermost section of the extrusion before connecting the next External bracket — side, as this is the last time the ends of the extrusion are accessible.
 
 <figure class="video-figure">
   <div class="video-embed video-embed-wide">
@@ -71,16 +71,15 @@ If you are using slide-in T-nuts rather than drop-in or roll-in T-nuts, insert 2
   <figcaption><cite>Video: zed0.</cite></figcaption>
 </figure>
 
-<div class="img-row">
-  <figure>
-    <img src="https://assets.basically.website/sorter-docs/assembly-regular-layers-extrusion-tnut-holes-w1600-b5863688aeea.png" alt="Side view of an A/G extrusion showing the row of holes where T-nuts sit and the screws pass through">
-    <figcaption><cite>Photo: zed0.</cite></figcaption>
-  </figure>
-  <figure>
-    <img src="https://assets.basically.website/sorter-docs/assembly-regular-layers-extrusion-into-bracket-w1600-1cd20074b56c.png" alt="An A/G extrusion sliding into an External bracket — side">
-    <figcaption><cite>Photo: zed0.</cite></figcaption>
-  </figure>
+<div class="callout callout-warning">
+  <span class="callout-icon" aria-hidden="true">⚠</span>
+  <p>Only the 4 outer T-nuts per extrusion are needed, for the bin retainers added on a later page. The video also shows 2 inner T-nuts partway along the extrusion — skip those, they're no longer necessary.</p>
 </div>
+
+<figure class="single-figure">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-regular-layers-extrusion-tnut-holes-w1600-b5863688aeea.png" alt="Side view of an A/G extrusion showing the row of holes where T-nuts sit and the screws pass through">
+  <figcaption><cite>Photo: zed0.</cite></figcaption>
+</figure>
 
 Repeat these steps to make two semi-circles of three sections of A/G extrusion (320mm) and three External bracket — sides, then slot the two half-hexagons together into a full hexagon and secure it with 2 more {% include fastener.html size="M5" variant="socket-button" length="16" %} screws. Joining in this manner, rather than working your way around the hexagon, prevents having to force the brackets into awkward angles.
 

@@ -12,11 +12,7 @@ contributors: [barthel, brickcyclealice]
 warning: >-
   **Step 13 reorganized to reference [Build the hex frame]({{ '/hardware/assembly/distribution/bin-frame/hex-frame/' | relative_url }})
   instead of describing frame construction inline, not yet reviewed by a
-  builder.** The rest of the page is unchanged. `ext-bracket-left` and
-  `ext-2020-ag` were removed from the parts list below since they're now the
-  hex frame page's own parts; the fastener totals here (`scr-m5-16-shcs`,
-  `tnut-m5-2020`) still span the whole page and have not been split into
-  "the hex frame's own" vs "specific to this page". Correct it as you build.
+  builder.** The rest of the page is unchanged. Correct it as you build.
 parts_needed:
   - part: interface-upper-fixed-section
     qty: 1

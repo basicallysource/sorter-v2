@@ -28,6 +28,8 @@ sections:
               - title: Bin frame
                 url: /hardware/assembly/distribution/bin-frame/
                 children:
+                  - title: Build the hex frame
+                    url: /hardware/assembly/distribution/bin-frame/hex-frame/
                   - title: Bottom interface
                     url: /hardware/assembly/distribution/bin-frame/bottom-interface/
                   - title: Bottom two layers

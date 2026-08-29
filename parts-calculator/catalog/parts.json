@@ -300,6 +300,7 @@
       "targets": {
         "parts": [
           "ribbon-cable-clamp",
+          "interface-cage-bracket",
           "interface-cage-bracket-cable"
         ],
         "assemblies": [
@@ -5848,8 +5849,8 @@
     },
     {
       "id": "limit-switch",
-      "uid": "eb8m",
-      "version": "1",
+      "uid": "xzje",
+      "version": "2",
       "name": "Chute limit switch",
       "description": "Interface limit switch: printed dowel pin, housing, hammer, and the switch itself. Bolts to the interface frame as a unit.",
       "docs": "/hardware/assembly/distribution/top-interface/",
@@ -5874,6 +5875,54 @@
         {
           "part": "scr-m3-12-bhcs",
           "qty": 2
+        },
+        {
+          "part": "scr-m5-16-shcs",
+          "qty": 2
+        },
+        {
+          "part": "tnut-m5-2020",
+          "qty": 2
+        }
+      ],
+      "versions": [
+        {
+          "version": "1",
+          "uid": "eb8m",
+          "message": "Original version: only modeled the switch-to-housing M3 screws; the housing-to-extrusion scr-m5-16-shcs + tnut-m5-2020 (step 4) weren't in the catalog at all.",
+          "lines": [
+            {
+              "part": "limit-switch-dowel-pin",
+              "qty": 1,
+              "uid": "g68e"
+            },
+            {
+              "part": "limit-switch-housing",
+              "qty": 1,
+              "uid": "mrs0"
+            },
+            {
+              "part": "limit-switch-hammer",
+              "qty": 1,
+              "uid": "lfu7"
+            },
+            {
+              "part": "endstop-mechanical",
+              "qty": 1,
+              "uid": "92h6"
+            },
+            {
+              "part": "scr-m3-12-bhcs",
+              "qty": 2,
+              "uid": "izrb"
+            }
+          ]
+        },
+        {
+          "version": "2",
+          "date": "2026-08-29",
+          "message": "Added the 2 scr-m5-16-shcs + 2 tnut-m5-2020 that fasten the Limit switch housing to its bracket's extrusion (step 4), previously missing -- only the switch-to-housing M3s were modeled.",
+          "commit": "a2c66436"
         }
       ]
     },
@@ -6125,8 +6174,8 @@
     },
     {
       "id": "interface",
-      "uid": "zz8s",
-      "version": "1",
+      "uid": "bkgq",
+      "version": "2",
       "name": "Interface",
       "description": "The interface between the feeder and the distribution layers. Its lazy Susan sandwiches the upper fixed section and the chute mount, 4 × [[hw:scr-m4-12-cs]] a side, and the plywood top plate bolts down onto the six brackets' inserts.",
       "docs": "/hardware/assembly/distribution/top-interface/",
@@ -6137,8 +6186,8 @@
           "qty": 6
         },
         {
-          "part": "ext-bracket-left",
-          "qty": 6
+          "assembly": "hex-frame",
+          "qty": 1
         },
         {
           "part": "ext-bracket-cover",
@@ -6175,10 +6224,6 @@
         {
           "part": "scr-m5-20-shcs",
           "qty": 2
-        },
-        {
-          "part": "tnut-m5-2020",
-          "qty": 8
         },
         {
           "assembly": "chute-stepper-gearing",
@@ -6224,12 +6269,162 @@
           "part": "scr-m5-8-cs",
           "qty": 6
         }
+      ],
+      "versions": [
+        {
+          "version": "1",
+          "uid": "zz8s",
+          "message": "Original version: duplicated the hex frame's own ext-bracket-left/ext-2020-ag/ext-2020-bh/frame-90deg-bracket/frame-crossbeam lines inline instead of consuming a shared hex-frame assembly, and carried a stray top-level tnut-m5-2020 qty 8 not tied to any specific step.",
+          "lines": [
+            {
+              "assembly": "interface-bracket-mount",
+              "qty": 6,
+              "uid": "rhr6"
+            },
+            {
+              "part": "ext-bracket-left",
+              "qty": 6,
+              "uid": "0b4g"
+            },
+            {
+              "part": "ext-bracket-cover",
+              "qty": 6,
+              "uid": "1r5i"
+            },
+            {
+              "part": "scr-m5-16-shcs",
+              "qty": 12,
+              "uid": "2e0s"
+            },
+            {
+              "assembly": "fixed-upper-section",
+              "qty": 1,
+              "uid": "99af"
+            },
+            {
+              "assembly": "cable-cage",
+              "qty": 1,
+              "uid": "nam6"
+            },
+            {
+              "part": "scr-m5-30-shcs",
+              "qty": 6,
+              "uid": "92kv"
+            },
+            {
+              "assembly": "cable-clamp",
+              "qty": 1,
+              "uid": "e0p9"
+            },
+            {
+              "part": "scr-m3-12-bhcs",
+              "qty": 2,
+              "uid": "izrb"
+            },
+            {
+              "assembly": "limit-switch",
+              "qty": 1,
+              "uid": "eb8m"
+            },
+            {
+              "part": "scr-m5-20-shcs",
+              "qty": 2,
+              "uid": "e4hi"
+            },
+            {
+              "part": "tnut-m5-2020",
+              "qty": 8,
+              "uid": "bpwm"
+            },
+            {
+              "assembly": "chute-stepper-gearing",
+              "qty": 1,
+              "uid": "cwji"
+            },
+            {
+              "assembly": "interface-chute-drive",
+              "qty": 1,
+              "uid": "8cjj"
+            },
+            {
+              "part": "top-interface-split-spur-gear-2",
+              "qty": 1,
+              "uid": "izz5"
+            },
+            {
+              "part": "chute-stepper-support-block",
+              "qty": 1,
+              "uid": "loc0"
+            },
+            {
+              "part": "scr-m5-shcs-tbd",
+              "qty": 2,
+              "uid": "wy04"
+            },
+            {
+              "assembly": "layer-connector",
+              "qty": 1,
+              "uid": "6m38"
+            },
+            {
+              "part": "brg-lazy-susan",
+              "qty": 1,
+              "uid": "wrxu"
+            },
+            {
+              "part": "scr-m4-12-cs",
+              "qty": 8,
+              "uid": "h8h4"
+            },
+            {
+              "part": "top-plate",
+              "qty": 1,
+              "uid": "1g22"
+            },
+            {
+              "part": "scr-m5-35-fhcs",
+              "qty": 6,
+              "uid": "xkl4"
+            },
+            {
+              "part": "scr-m5-8-cs",
+              "qty": 6,
+              "uid": "mqh4"
+            },
+            {
+              "part": "ext-2020-ag",
+              "qty": 6,
+              "uid": "lnvw"
+            },
+            {
+              "part": "ext-2020-bh",
+              "qty": 6,
+              "uid": "tuer"
+            },
+            {
+              "part": "frame-90deg-bracket",
+              "qty": 12,
+              "uid": "3l20"
+            },
+            {
+              "part": "frame-crossbeam",
+              "qty": 6,
+              "uid": "cdeg"
+            }
+          ]
+        },
+        {
+          "version": "2",
+          "date": "2026-08-29",
+          "message": "Consumes the new hex-frame assembly instead of duplicating its ext-bracket-left/ext-2020-ag/ext-2020-bh/frame-90deg-bracket/frame-crossbeam lines inline. Dropped the stray top-level tnut-m5-2020 qty 8, now superseded by interface-bracket-mount's and limit-switch's own per-step T-nut lines.",
+          "commit": "a2c66436"
+        }
       ]
     },
     {
       "id": "layer",
-      "uid": "a17l",
-      "version": "1",
+      "uid": "jog7",
+      "version": "2",
       "name": "Distribution layer",
       "description": "One distribution layer between the interfaces: frame, chute, bin retainers, funnels, bins. Each bin retainer takes 2 × [[hw:scr-m5-12-shcs]] into a [[hw:tnut-m5-2020]].",
       "docs": "/hardware/assembly/distribution/bin-frame/regular-layers/",
@@ -6256,8 +6451,53 @@
           "qty": 24
         },
         {
-          "part": "tnut-m5-2020",
-          "qty": 24
+          "part": "scr-m5-16-shcs",
+          "qty": 12
+        }
+      ],
+      "versions": [
+        {
+          "version": "1",
+          "uid": "a17l",
+          "message": "Original version: listed tnut-m5-2020 qty 24 for the bin retainers (double-counting the hex frame's own pre-installed T-nuts) and had no line for the layer-to-layer flange-join screws.",
+          "lines": [
+            {
+              "assembly": "layer-frame",
+              "qty": 1,
+              "uid": "adaj"
+            },
+            {
+              "assembly": "chute",
+              "qty": 1,
+              "uid": "axlb"
+            },
+            {
+              "part": "bin-retainer-left",
+              "qty": 6,
+              "uid": "hqz0"
+            },
+            {
+              "part": "bin-retainer-right",
+              "qty": 6,
+              "uid": "ybpv"
+            },
+            {
+              "part": "scr-m5-12-shcs",
+              "qty": 24,
+              "uid": "kmah"
+            },
+            {
+              "part": "tnut-m5-2020",
+              "qty": 24,
+              "uid": "bpwm"
+            }
+          ]
+        },
+        {
+          "version": "2",
+          "date": "2026-08-29",
+          "message": "Dropped tnut-m5-2020 qty 24 -- those are the hex frame's own pre-installed T-nuts (bin retainers reuse them, not new ones), same double-count barthel already caught on bottom two layers. Added the 12 scr-m5-16-shcs that join this layer's flange up to the layer above, previously missing.",
+          "commit": "a2c66436"
         }
       ]
     },
@@ -6533,22 +6773,30 @@
       ]
     },
     {
-      "id": "layer-frame",
-      "uid": "adaj",
+      "id": "hex-frame",
+      "uid": "8z0e",
       "version": "1",
-      "name": "Distribution frame",
-      "description": "The frame of one distribution layer: six external brackets, the crossbeams between them, and the 90° brackets. The aluminum extrusion it is built on is sized on the framing tab, not listed here.",
-      "docs": "/hardware/assembly/distribution/bin-frame/regular-layers/",
+      "name": "Hex frame",
+      "description": "The hexagonal aluminum-and-bracket ring shared by every layer, the bottom interface and the top interface. Six A/G outer-ring sections joined by six External bracket — side, with six B/H spokes and Frame crossbeams held inside by the Frame 90° brackets, friction-fit with no hardware. The 24 T-nuts are pre-installed in the A/G extrusion for the bin retainers a layer attaches later; the top interface's own hex frame pre-installs the same 24 without using them, since it has no bin retainers.",
+      "docs": "/hardware/assembly/distribution/bin-frame/hex-frame/",
       "status": "partial",
       "joining": [
         {
           "method": "friction",
-          "note": "The Frame 90° bracket and Frame crossbeam take no hardware at all -- they hold in place by friction against alignment nubs in the extrusion. Confirmed by Spencer 2026-08-26, see the docs' Attaching the hexagonal frame's spokes helper page."
+          "note": "The Frame 90° bracket and Frame crossbeam take no hardware at all -- they hold in place by friction against alignment nubs in the extrusion. Confirmed by Spencer 2026-08-26, see the docs' Build the hex frame page."
         }
       ],
       "lines": [
         {
-          "assembly": "external-bracket",
+          "part": "ext-2020-ag",
+          "qty": 6
+        },
+        {
+          "part": "ext-bracket-left",
+          "qty": 6
+        },
+        {
+          "part": "ext-2020-bh",
           "qty": 6
         },
         {
@@ -6558,6 +6806,71 @@
         {
           "part": "frame-90deg-bracket",
           "qty": 12
+        },
+        {
+          "part": "scr-m5-16-shcs",
+          "qty": 8
+        },
+        {
+          "part": "tnut-m5-2020",
+          "qty": 24
+        }
+      ]
+    },
+    {
+      "id": "layer-frame",
+      "uid": "22ck",
+      "version": "2",
+      "name": "Distribution frame",
+      "description": "The frame of one distribution layer: a hex frame plus the External bracket — cover and — bottom vertical that turn its side brackets into full collars for piece C. The aluminum extrusion it is built on is sized on the framing tab, not listed here.",
+      "docs": "/hardware/assembly/distribution/bin-frame/regular-layers/",
+      "status": "partial",
+      "lines": [
+        {
+          "assembly": "hex-frame",
+          "qty": 1
+        },
+        {
+          "part": "ext-bracket-bottom-vertical",
+          "qty": 6
+        },
+        {
+          "part": "ext-bracket-cover",
+          "qty": 6
+        },
+        {
+          "part": "scr-m5-16-shcs",
+          "qty": 24
+        }
+      ],
+      "versions": [
+        {
+          "version": "1",
+          "uid": "adaj",
+          "message": "Original version: bundled the hex frame's own outer ring, spokes, crossbeams and 90° brackets inline instead of as a separate assembly.",
+          "lines": [
+            {
+              "assembly": "external-bracket",
+              "qty": 6,
+              "uid": "6h3l"
+            },
+            {
+              "part": "frame-crossbeam",
+              "qty": 6,
+              "uid": "cdeg"
+            },
+            {
+              "part": "frame-90deg-bracket",
+              "qty": 12,
+              "uid": "3l20"
+            }
+          ]
+        },
+        {
+          "version": "2",
+          "date": "2026-08-29",
+          "message": "Split the hex frame (outer ring, spokes, crossbeams, 90° brackets) out into its own hex-frame assembly, reused by layer, bottom-interface and interface, instead of duplicating it. This assembly is now just the collar delta on top of one hex frame.",
+          "commit": "a2c66436"
         }
       ]
     },
@@ -6769,10 +7082,10 @@
     },
     {
       "id": "interface-bracket-mount",
-      "uid": "rhr6",
-      "version": "1",
+      "uid": "pnl9",
+      "version": "2",
       "name": "Interface bracket",
-      "description": "One interface bracket with its spacer, bolted onto its vertical extrusion. 6 per interface.",
+      "description": "One interface bracket with its spacer, bolted onto its vertical extrusion (piece F) and its spoke extrusion (piece E). 6 per interface.",
       "docs": "/hardware/assembly/distribution/top-interface/",
       "status": "partial",
       "lines": [
@@ -6785,19 +7098,62 @@
           "qty": 1
         },
         {
+          "part": "scr-m5-16-shcs",
+          "qty": 4
+        },
+        {
           "part": "scr-m5-20-shcs",
           "qty": 4
         },
         {
+          "part": "scr-m5-8-cs",
+          "qty": 1
+        },
+        {
           "part": "tnut-m5-2020",
-          "qty": 4
+          "qty": 9
+        }
+      ],
+      "versions": [
+        {
+          "version": "1",
+          "uid": "rhr6",
+          "message": "Original version: only modeled the piece-F mount (step 13); the piece-E attachment (step 3) and rib-securing T-nut (step 5) weren't in the catalog at all.",
+          "lines": [
+            {
+              "part": "interface-bracket",
+              "qty": 1,
+              "uid": "jk82"
+            },
+            {
+              "part": "interface-spacer",
+              "qty": 1,
+              "uid": "bfoc"
+            },
+            {
+              "part": "scr-m5-20-shcs",
+              "qty": 4,
+              "uid": "e4hi"
+            },
+            {
+              "part": "tnut-m5-2020",
+              "qty": 4,
+              "uid": "bpwm"
+            }
+          ]
+        },
+        {
+          "version": "2",
+          "date": "2026-08-29",
+          "message": "Added the piece-E attachment (4 scr-m5-16-shcs into 4 tnut-m5-2020, step 3) and the rib-securing tnut-m5-2020 (step 5), neither previously modeled -- only step 13's piece-F mount (scr-m5-20-shcs + 4 T-nuts) was here before.",
+          "commit": "a2c66436"
         }
       ]
     },
     {
       "id": "lazy-susan",
-      "uid": "l1un",
-      "version": "1",
+      "uid": "v6ss",
+      "version": "2",
       "name": "Bottom lazy Susan",
       "description": "The bottom interface's lazy Susan: the static half, the chute mount that spins on it, the extrusion mounts, and the bearing itself. Bolted through 4 × [[hw:scr-m4-12-cs]] a side, same as the top interface's.",
       "docs": "/hardware/assembly/distribution/bin-frame/bottom-interface/",
@@ -6833,11 +7189,71 @@
         },
         {
           "part": "scr-m5-16-shcs",
-          "qty": 3
+          "qty": 9
         },
         {
           "part": "tnut-m5-2020",
-          "qty": 3
+          "qty": 6
+        }
+      ],
+      "versions": [
+        {
+          "version": "1",
+          "uid": "l1un",
+          "message": "Original version: 1 scr-m5-16-shcs + 1 tnut-m5-2020 per extrusion mount (3 total each), before BrickCycleAlice's 2026-08-28 build photos showed it's actually 2 self-tapping-into-plastic screws for the mount-to-hold-in-place joint (no T-nut) plus 2 more screws per mount into a T-nut in the extrusion (sorter-v2#447).",
+          "lines": [
+            {
+              "part": "ls-mount-to-chute",
+              "qty": 1,
+              "uid": "lma9"
+            },
+            {
+              "part": "ls-bottom-static",
+              "qty": 1,
+              "uid": "4mmh"
+            },
+            {
+              "part": "ls-washer",
+              "qty": 1,
+              "uid": "9c4a"
+            },
+            {
+              "part": "ls-mount-to-extrusion",
+              "qty": 3,
+              "uid": "bmt4"
+            },
+            {
+              "part": "ls-hold-in-place",
+              "qty": 3,
+              "uid": "ss05"
+            },
+            {
+              "part": "brg-lazy-susan",
+              "qty": 1,
+              "uid": "wrxu"
+            },
+            {
+              "part": "scr-m4-12-cs",
+              "qty": 8,
+              "uid": "h8h4"
+            },
+            {
+              "part": "scr-m5-16-shcs",
+              "qty": 3,
+              "uid": "2e0s"
+            },
+            {
+              "part": "tnut-m5-2020",
+              "qty": 3,
+              "uid": "bpwm"
+            }
+          ]
+        },
+        {
+          "version": "2",
+          "date": "2026-08-29",
+          "message": "Catalog never picked up sorter-v2#447's fastener correction on bottom-interface.md: 1 screw per mount into the hold-in-place (self-tap, 3 total) plus 2 more per mount into a T-nut in the extrusion (6 more), so 9 scr-m5-16-shcs and 6 tnut-m5-2020 total, not 3 and 3.",
+          "commit": "9708a416"
         }
       ]
     }

@@ -8,7 +8,11 @@ kicker: Bin frame — Bottom interface
 lede: The component the chute rests on top of.
 permalink: /hardware/assembly/distribution/bin-frame/bottom-interface/
 author: spencer
-contributors: [abrianbaker, brickcyclealice]
+contributors: [abrianbaker, brickcyclealice, barthel]
+warning: >-
+  **Reorganized to reference [Build the hex frame]({{ '/hardware/assembly/distribution/bin-frame/hex-frame/' | relative_url }})
+  instead of describing frame construction inline, not yet reviewed by a
+  builder.** Correct it as you build.
 parts_needed:
   - part: brg-lazy-susan
     qty: 1
@@ -26,15 +30,23 @@ parts_needed:
     qty: 8
   - part: scr-m4-12-cs
     qty: 8
-  - part: ext-2020-bh
-    qty: 3
   - part: scr-m5-16-shcs
     qty: 9
   - part: tnut-m5-2020
     qty: 6
 ---
 
-The fasteners and quantities in the parts list are called out inline at each step.
+<div class="prep-item">
+  <div class="prep-item-body">
+    <p><strong>Build a <a href="{{ '/hardware/assembly/distribution/bin-frame/hex-frame/' | relative_url }}">hex frame</a> before you start.</strong> It's a required component of this page, not optional or covered here — step 4 bolts onto one, it doesn't build one.</p>
+  </div>
+  <figure class="prep-item-figure">
+    <img class="doc-figure" src="https://assets.basically.website/sorter-parts/hex-frame-finished-top-down-full-c6abfb4dad6e.jpg" alt="A finished hex frame from above, the alternating grey spoke and teal crossbeam pieces forming the inner ring inside the aluminum outer hexagon">
+    <figcaption>A finished hex frame. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+  </figure>
+</div>
+
+The parts list above is only the Lazy Susan bearing stack and the extrusion mounts added in step 4; the hex frame itself is [Build the hex frame]({{ '/hardware/assembly/distribution/bin-frame/hex-frame/' | relative_url }})'s own parts list, built ordinary and unmodified. The fasteners and quantities below are called out inline at each step.
 
 {% include fastener-legend.html %}
 
@@ -195,29 +207,20 @@ The bearing stack is now complete:
 
 {% include step.html n="4" title="Prepare the frame" %}
 
+The bottom interface's frame is an ordinary [hex frame]({{ '/hardware/assembly/distribution/bin-frame/hex-frame/' | relative_url }}), built exactly as that page describes with no changes. Once it's built, a Lazy Susan extrusion mount pair bolts directly onto 3 of its spokes, alternating around the ring, on top of the spoke's existing Frame 90° bracket and crossbeam rather than replacing anything.
+
 Three Lazy Susan extrusion mounts carry the bearing assembly's weight; a hold in place bolts to each one first, as a pair, before either touches the extrusion. **They don't fix the chute itself**, that's attached up at the [top interface]({{ '/hardware/assembly/distribution/top-interface/' | relative_url }}).
 
-<div class="img-row">
-  <figure>
-    <img src="https://assets.basically.website/sorter-docs/assembly-bottom-interface-step4-extrusion-mount-w1600-06391df95795.jpg" alt="A Lazy Susan extrusion mount and a Lazy Susan hold in place bolted together, forming a grey wedge with a triangular window through its web and two counterbored holes along its bottom face">
-    <figcaption>Mount and hold in place, bolted together. <cite>Photo: BrickCycleAlice.</cite></figcaption>
-  </figure>
-  <figure>
-    <img src="https://assets.basically.website/sorter-docs/assembly-bottom-interface-step4-extrusion-mount-on-2020-w1600-36f5200925fd.jpg" alt="The same pair with a length of 2020 aluminum extrusion seated in the channel along its sloped edge">
-    <figcaption>Seated on its length of 2020. <cite>Photo: BrickCycleAlice.</cite></figcaption>
-  </figure>
-</div>
+<figure class="single-figure">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-bottom-interface-step4-extrusion-mount-w1600-06391df95795.jpg" alt="A Lazy Susan extrusion mount and a Lazy Susan hold in place bolted together, forming a grey wedge with a triangular window through its web and two counterbored holes along its bottom face">
+  <figcaption>Mount and hold in place, bolted together. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+</figure>
 
 The screw between the extrusion mount and the hold in place is an {% include fastener.html size="M5" variant="socket" length="16" %}.
 
-Each mount then bolts to the spoke through two more 5.5 mm M5 clearance holes, 30 mm apart, into a T-nut in the extrusion:
+Each mount then bolts directly onto the B/H spoke (158mm) already in place in the hex frame, through two more 5.5 mm M5 clearance holes, 30 mm apart, into a T-nut in the extrusion.
 
-<figure class="single-figure">
-  <img class="doc-figure" src="https://assets.basically.website/sorter-parts/bottom-interface-step4-extrusion-mount-bolt-holes-full-9104e9681f61.jpg" alt="The end of a Lazy Susan extrusion mount seated on a length of 2020 extrusion, with two screws visible in counterbored holes bolting it down">
-  <figcaption>The two bolt holes that connect the mount to the spoke. <cite>Photo: BrickCycleAlice.</cite></figcaption>
-</figure>
-
-That's two {% include fastener.html size="M5" variant="socket" length="16" %} screws per mount, 6 more on top of the 3 between mount and hold in place. Mount order around the ring isn't recorded.
+That's two {% include fastener.html size="M5" variant="socket" length="16" %} screws per mount, 6 more on top of the 3 between mount and hold in place.
 
 <div class="img-row">
   <figure>
@@ -230,11 +233,4 @@ That's two {% include fastener.html size="M5" variant="socket" length="16" %} sc
   </figure>
 </div>
 
-The mounts fix to **piece B/H (Spoke)**, the same 158 mm cut a regular layer uses, standing in for three of that layer's six spokes rather than adding new pieces. Cut lengths are on the [framing cut list](https://parts-calculator.basically.website/framing).
-
-You end this step with four separate pieces: the bearing stack from steps 1-3, and three mount pairs each on their own length of extrusion. The mounts go on with the frame in [bottom two layers]({{ '/hardware/assembly/distribution/bin-frame/bottom-two-layers/' | relative_url }}); the bearing stack takes the [chute core]({{ '/hardware/assembly/distribution/chute/chute-core/' | relative_url }}).
-
-<figure class="single-figure">
-  <img class="doc-figure" src="https://assets.basically.website/sorter-parts/bottom-interface-step4-four-pieces-complete-full-b63f796f63e6.jpg" alt="Four finished pieces laid out: the assembled bearing stack in the centre, and three Lazy Susan extrusion mounts each on a length of extrusion around it">
-  <figcaption>What you have at the end of this step. <cite>Photo: BrickCycleAlice.</cite></figcaption>
-</figure>
+You end this step with two pieces: the bearing stack from steps 1-3, and the hex frame with its three Lazy Susan extrusion mounts now bolted onto alternating spokes. The frame goes on in [bottom two layers]({{ '/hardware/assembly/distribution/bin-frame/bottom-two-layers/' | relative_url }}); the bearing stack takes the [chute core]({{ '/hardware/assembly/distribution/chute/chute-core/' | relative_url }}).

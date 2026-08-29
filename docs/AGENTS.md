@@ -117,6 +117,28 @@ pages are rendered through liquidjs at build time. Includes live in
   ```
 - **Placeholder** for a not-yet-supplied image: `<div class="img-placeholder">Image coming</div>`
   (standalone, or inside an `img-row` `<figure>`).
+- **Required pre-built component** (a page needs something assembled on
+  another page before it can start, e.g. "build a hex frame first"): a bold
+  sentence naming and linking the prerequisite, next to a photo of the
+  finished thing, using `prep-item` — the same layout the Preparation step
+  uses for a part-plus-photo row, but it works standalone anywhere in the
+  page, not just inside a step.
+  ```html
+  <div class="prep-item">
+    <div class="prep-item-body">
+      <p><strong>Build a <a href="…">thing</a> before you start.</strong> One sentence on why/where.</p>
+    </div>
+    <figure class="prep-item-figure">
+      <img class="doc-figure" src="…" alt="…">
+      <figcaption>Caption. <cite>Photo: whoever.</cite></figcaption>
+    </figure>
+  </div>
+  ```
+  See `assembly/distribution/bin-frame/bottom-interface.md` for the pattern
+  in place. Don't invent a `parts_needed` entry for the prerequisite itself —
+  `resolveParts()` only resolves real catalog parts (STL/vendor data), not an
+  assembly built across several of those, so a sub-assembly like this always
+  gets linked in prose, never listed as a part.
 - **Callout:** neutral, or `callout-warning` (amber). Use for warnings/notes
   that belong in the flow of a step, NOT in the parts catalog.
   ```html

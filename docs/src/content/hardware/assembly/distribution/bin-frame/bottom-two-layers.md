@@ -24,7 +24,10 @@ warning: >-
   sentence plus a warning) into step 1; the rest shifted down by one. The
   fastener counts are derived from Regular layers rather than measured, the
   tally under step 1 shows the arithmetic, and one count is genuinely
-  unknown. Correct it as you build.
+  unknown. Added step 6, "Attach the bottom interface", as a placeholder —
+  it's the missing joint between this page and bottom-interface.md, not
+  written yet since the physical mechanism isn't confirmed. Correct it as
+  you build.
 parts_needed:
   - part: ext-bracket-cover
     qty: 6
@@ -185,8 +188,16 @@ Screw a **swivel stem caster (M6 × 15 mm)** into the connector's M6 thread. The
 
 Both layers take bin retainers, exactly as in [regular layers]({{ '/hardware/assembly/distribution/bin-frame/regular-layers/' | relative_url }}) step 2: on each side of each hexagon, a Bin retainer (left) and a Bin retainer (right) on the front face of the A/G extrusion, 4 {% include fastener.html size="M5" variant="socket-button" length="12" %} screws into T-nuts.
 
+{% include step.html n="6" title="Attach the bottom interface" %}
+
+<div class="callout callout-warning">
+  <span class="callout-icon" aria-hidden="true">⚠</span>
+  <p><strong>Not written yet — this step is a placeholder.</strong> Build the <a href="{{ '/hardware/assembly/distribution/bin-frame/bottom-interface/' | relative_url }}">bottom interface</a> separately, then it joins the bottom of this frame here, but the physical mechanism isn't confirmed: whether it shares piece D's legs with this stack or connects some other way, and how that reconciles with the T-nut note under step 1. Needs a builder to confirm before this step can be written for real.</p>
+</div>
+
+<div class="img-placeholder">Image coming</div>
+
 ## What comes next
 
 - Each of these two layers takes a [chute]({{ '/hardware/assembly/distribution/chute/' | relative_url }}), the same as any other layer.
 - Above them, build N−2 [regular layers]({{ '/hardware/assembly/distribution/bin-frame/regular-layers/' | relative_url }}) for an N-layer machine.
-- The [bottom interface]({{ '/hardware/assembly/distribution/bin-frame/bottom-interface/' | relative_url }}) mounts to this frame on its three extrusion mounts.

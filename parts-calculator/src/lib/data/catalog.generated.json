@@ -348,6 +348,17 @@
 					"scr-m3-tbd"
 				]
 			}
+		},
+		{
+			"id": "delete-unused-m3-shcs-tbd-placeholder",
+			"name": "Delete the unused M3 socket/button head length-TBD placeholder",
+			"priority": "P4",
+			"description": "This placeholder screw is not used anywhere in the machine \u2014 it stood in for the basically Embedded Control Board's screws before they were measured as M3 x 6 mm button head (scr-m3-6-bhcs), and nothing has called for it since. It should be deleted outright, but a minted part id has to stay resolvable once it exists, and the catalog's own consistency check refuses a change that removes one, so deleting it needs that check overridden by someone who can make that call, not an edit from here. Tracked as sorter-v2 issue #454.",
+			"targets": {
+				"hardware": [
+					"scr-m3-shcs-tbd"
+				]
+			}
 		}
 	],
 	"folders": [

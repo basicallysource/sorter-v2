@@ -221,8 +221,8 @@ Before assembling anything, press the heat inserts into the parts that take them
     <p><strong>Interface bracket:</strong> 3 × M5 (each of the 6)</p>
   </div>
   <figure class="prep-item-figure">
-    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-top-interface-prep-interface-bracket-inserts-full-ab1f495c0778.png" alt="An Interface bracket held up, showing three brass M5 heat inserts: one on each long side and one on the tail end">
-    <figcaption>One M5 on each long side and one on the tail end.</figcaption>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-parts/top-interface-prep-interface-bracket-inserts-full-799264fe5508.jpg" alt="An Interface bracket held up, showing three brass M5 heat inserts: one near the top boss, one in the middle of the channel, and one at the bottom end">
+    <figcaption>One M5 on each long side and one on the tail end, including the one in the channel that's easy to miss. <cite>Photo: BrickCycleAlice.</cite></figcaption>
   </figure>
 </div>
 

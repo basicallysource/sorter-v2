@@ -99,7 +99,7 @@ parts_needed:
   - part: scr-m5-20-shcs
     qty: 24
   - part: scr-m5-16-shcs
-    qty: 38
+    qty: 50
   - part: scr-m5-12-shcs
     qty: 4
   - part: scr-m4-12-cs
@@ -117,7 +117,7 @@ parts_needed:
   - part: scr-m3-6-cs
     qty: 1
   - part: tnut-m5-2020
-    qty: 50
+    qty: 56
   - part: nut-m5
     qty: 6
   - part: nut-m3

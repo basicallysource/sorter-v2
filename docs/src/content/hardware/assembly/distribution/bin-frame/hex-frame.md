@@ -168,5 +168,5 @@ A hex frame is now complete. Build as many as your machine needs (see the note a
 
 <div class="callout callout-warning">
   <span class="callout-icon" aria-hidden="true">⚠</span>
-  <p>The fastener counts above cover step 1 only (the outer ring). This page hasn't yet been reconciled against the parts calculator's assembly groupings, which don't currently line up with hex-frame-first construction — see the open discussion in Discord before treating the totals here as final.</p>
+  <p>The fastener counts above are the complete per-frame total: 8 screws and 24 T-nuts, all from step 1 — steps 2-8 use no fasteners at all. Regular layers and bottom two layers reuse these 24 T-nuts for their bin retainers rather than listing their own, so don't double them up in a shopping list. This page still hasn't been reconciled against the parts calculator's assembly groupings, which don't currently line up with hex-frame-first construction — see the open discussion in Discord before treating that side as final.</p>
 </div>

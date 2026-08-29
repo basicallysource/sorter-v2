@@ -26,8 +26,8 @@ parts_needed:
   - part: ext-2020-c
     qty: 6
   - part: scr-m5-16-shcs
-    qty: 24
-  - part: tnut-m5-2020
+    qty: 36
+  - part: scr-m5-12-shcs
     qty: 24
 ---
 
@@ -43,7 +43,7 @@ This guide covers creating a regular layer. It's also the basis for creating the
   </figure>
 </div>
 
-The aluminum extrusion is cut to length; the [framing cut list](https://parts-calculator.basically.website/framing) has the exact dimensions for piece C. The number of {% include fastener.html size="M5" variant="t-nut" text="M5 T-nuts" %} listed above is the minimum you'll need if you thread the printed parts directly wherever possible; this number increases if you use T-nuts throughout instead.
+The aluminum extrusion is cut to length; the [framing cut list](https://parts-calculator.basically.website/framing) has the exact dimensions for piece C. This page needs no {% include fastener.html size="M5" variant="t-nut" text="M5 T-nuts" %} of its own: the bin retainers in step 2 use the 4 T-nuts per A/G extrusion that [Build the hex frame]({{ '/hardware/assembly/distribution/bin-frame/hex-frame/' | relative_url }}) already pre-installs for exactly this purpose.
 
 See [Assembling External bracket]({{ '/hardware/helpers/external-bracket/' | relative_url }}) for a look at the three bracket parts on their own.
 
@@ -86,7 +86,7 @@ Matching parts from the same print run are embossed with a shared set code (e.g.
   <figcaption><cite>Photo: zed0.</cite></figcaption>
 </figure>
 
-On each side of the hexagon, attach both the Bin retainer (left) and Bin retainer (right) to the front side of A/G (Outer horizontal / Horizontal interface frame) using 4 {% include fastener.html size="M5" variant="socket-button" length="12" %} screws, either into the T-nuts already installed there or with drop-in / roll-in T-nuts.
+On each side of the hexagon, attach both the Bin retainer (left) and Bin retainer (right) to the front side of A/G (Outer horizontal / Horizontal interface frame) using 4 {% include fastener.html size="M5" variant="socket-button" length="12" %} screws into the T-nuts your hex frame already has installed there.
 
 A regular layer is now complete.
 

@@ -8,7 +8,13 @@ kicker: Bin frame — Bottom interface
 lede: The component the chute rests on top of.
 permalink: /hardware/assembly/distribution/bin-frame/bottom-interface/
 author: spencer
-contributors: [abrianbaker, brickcyclealice]
+contributors: [abrianbaker, brickcyclealice, barthel]
+warning: >-
+  **Reorganized to reference [Build the hex frame]({{ '/hardware/assembly/distribution/bin-frame/hex-frame/' | relative_url }})
+  instead of describing frame construction inline, not yet reviewed by a
+  builder.** Steps 1-3 (the Lazy Susan bearing stack) are unchanged. Step 4
+  now points at that page for the hex frame itself; only the parts specific
+  to this page's substitution are listed below. Correct it as you build.
 parts_needed:
   - part: brg-lazy-susan
     qty: 1
@@ -34,7 +40,7 @@ parts_needed:
     qty: 6
 ---
 
-The fasteners and quantities in the parts list are called out inline at each step.
+The parts list above is only the Lazy Susan bearing stack and the extrusion-mount substitution in step 4; the hex frame itself (outer ring and the other 3 ordinary spoke positions) is [Build the hex frame]({{ '/hardware/assembly/distribution/bin-frame/hex-frame/' | relative_url }})'s own parts list. The fasteners and quantities below are called out inline at each step.
 
 {% include fastener-legend.html %}
 
@@ -195,6 +201,8 @@ The bearing stack is now complete:
 
 {% include step.html n="4" title="Prepare the frame" %}
 
+The bottom interface's frame is a [hex frame]({{ '/hardware/assembly/distribution/bin-frame/hex-frame/' | relative_url }}) with a substitution: at **3 of its 6 spoke positions, alternating around the ring**, a Lazy Susan extrusion mount pair replaces the ordinary Frame 90° bracket + B/H spoke + Frame crossbeam combination. Build the outer ring (hex frame step 1) and the other 3 spoke positions (hex frame steps 2-4) exactly as that page describes; the rest of this step covers only the 3 substituted positions.
+
 Three Lazy Susan extrusion mounts carry the bearing assembly's weight; a hold in place bolts to each one first, as a pair, before either touches the extrusion. **They don't fix the chute itself**, that's attached up at the [top interface]({{ '/hardware/assembly/distribution/top-interface/' | relative_url }}).
 
 <div class="img-row">
@@ -230,7 +238,7 @@ That's two {% include fastener.html size="M5" variant="socket" length="16" %} sc
   </figure>
 </div>
 
-The mounts fix to **piece B/H (Spoke)**, the same 158 mm cut a regular layer uses, standing in for three of that layer's six spokes rather than adding new pieces. Cut lengths are on the [framing cut list](https://parts-calculator.basically.website/framing).
+The mounts fix to **piece B/H (Spoke, 158mm)**, the same cut any hex frame uses, standing in for three of the frame's six spokes rather than adding new pieces. Cut lengths are on the [framing cut list](https://parts-calculator.basically.website/framing).
 
 You end this step with four separate pieces: the bearing stack from steps 1-3, and three mount pairs each on their own length of extrusion. The mounts go on with the frame in [bottom two layers]({{ '/hardware/assembly/distribution/bin-frame/bottom-two-layers/' | relative_url }}); the bearing stack takes the [chute core]({{ '/hardware/assembly/distribution/chute/chute-core/' | relative_url }}).
 

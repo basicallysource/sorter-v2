@@ -300,6 +300,7 @@
       "targets": {
         "parts": [
           "ribbon-cable-clamp",
+          "interface-cage-bracket",
           "interface-cage-bracket-cable"
         ],
         "assemblies": [
@@ -6109,6 +6110,12 @@
       "description": "The interface between the feeder and the distribution layers. Its lazy Susan sandwiches the upper fixed section and the chute mount, 4 × [[hw:scr-m4-12-cs]] a side, and the plywood top plate bolts down onto the six brackets' inserts.",
       "docs": "/hardware/assembly/distribution/top-interface/",
       "status": "partial",
+      "joining": [
+        {
+          "method": "friction",
+          "note": "The Frame 90° bracket and Frame crossbeam take no hardware at all -- they hold in place by friction against alignment nubs in the extrusion. Confirmed by Spencer 2026-08-26, see the docs' Attaching the hexagonal frame's spokes helper page."
+        }
+      ],
       "lines": [
         {
           "assembly": "interface-bracket-mount",
@@ -6200,6 +6207,22 @@
         },
         {
           "part": "scr-m5-8-cs",
+          "qty": 6
+        },
+        {
+          "part": "ext-2020-ag",
+          "qty": 6
+        },
+        {
+          "part": "ext-2020-bh",
+          "qty": 6
+        },
+        {
+          "part": "frame-90deg-bracket",
+          "qty": 12
+        },
+        {
+          "part": "frame-crossbeam",
           "qty": 6
         }
       ]
@@ -6518,12 +6541,6 @@
       "description": "The frame of one distribution layer: six external brackets, the crossbeams between them, and the 90° brackets. The aluminum extrusion it is built on is sized on the framing tab, not listed here.",
       "docs": "/hardware/assembly/distribution/bin-frame/regular-layers/",
       "status": "partial",
-      "joining": [
-        {
-          "method": "friction",
-          "note": "The Frame 90° bracket and Frame crossbeam take no hardware at all -- they hold in place by friction against alignment nubs in the extrusion. Confirmed by Spencer 2026-08-26, see the docs' Attaching the hexagonal frame's spokes helper page."
-        }
-      ],
       "lines": [
         {
           "assembly": "external-bracket",

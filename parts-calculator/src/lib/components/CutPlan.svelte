@@ -5,6 +5,7 @@
 	import { ftin, expand, packOptimal, packBundle, planGroups } from '$lib/cutplan';
 	import Popover from '$lib/components/Popover.svelte';
 	import Callout from '$lib/components/Callout.svelte';
+	import Figure from '$lib/components/Figure.svelte';
 	import { framingCsv } from '$lib/parts-csv';
 	import { download, exportSpec, filename } from '$lib/csv';
 
@@ -332,6 +333,14 @@
 				secondhand 20×20 mm profile varies: one with more angular, square corners on the T-slot seats
 				tightly against the crossbeam brackets, while a profile with more rounded corners can fit
 				loosely and add friction. Check the corner profile before buying, especially secondhand.
+				<div class="mt-2 max-w-xs">
+					<Figure
+						src="https://assets.basically.website/sorter-parts/img-0036-full-76e2483ec1e7.jpg"
+						alt="Two 2020 extrusion profiles held end-on side by side — the right one has angular T-slot corners, the left one has rounded corners"
+						caption="Right: angular corners, seats tight. Left: rounded corners, fits loose."
+						imgClass="max-h-40"
+					/>
+				</div>
 			</li>
 			<li>
 				<b class="text-text">D stands in for C at the bottom.</b> Every layer above the bottom two

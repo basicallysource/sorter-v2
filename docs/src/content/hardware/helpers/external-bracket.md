@@ -109,4 +109,4 @@ Clip the cover onto the side bracket to close it off. The cover takes no screws,
   </figure>
 </div>
 
-This is the bracket as a stand-alone unit. For how it's actually installed on the frame — and the one difference at the layer-to-layer joint — see [regular layers, step 3]({{ '/hardware/assembly/distribution/bin-frame/regular-layers/' | relative_url }}#step-3) and [step 5]({{ '/hardware/assembly/distribution/bin-frame/regular-layers/' | relative_url }}#step-5).
+This is the bracket as a stand-alone unit. For how it's actually installed on the frame — and the one difference at the layer-to-layer joint — see [regular layers, step 1]({{ '/hardware/assembly/distribution/bin-frame/regular-layers/' | relative_url }}#step-1) and [step 3]({{ '/hardware/assembly/distribution/bin-frame/regular-layers/' | relative_url }}#step-3).

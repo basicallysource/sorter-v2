@@ -10,16 +10,19 @@ permalink: /hardware/assembly/distribution/bin-frame/bottom-two-layers/
 author: spencer
 contributors: [brickcyclealice, christoph]
 warning: >-
-  **AI-generated first draft.** Written from the [framing cut
-  list](https://parts-calculator.basically.website/framing), the machine assembly tree in the
-  [parts calculator](https://parts-calculator.basically.website/assembly?focus=layer-frame) and
-  photos of finished machines in the Discord, not from an actual build. No step here has been
-  checked against a machine. The fastener counts are derived from Regular layers rather than
-  measured, the tally under step 1 shows the arithmetic, and one count is genuinely unknown.
-  Correct it as you build.
+  **AI-generated first draft, reorganized to reference [Build the hex
+  frame]({{ '/hardware/assembly/distribution/bin-frame/hex-frame/' | relative_url }})
+  instead of Regular layers' old steps 1-2.** No step here has been checked
+  against a machine. `ext-bracket-left` and `ext-2020-ag` were removed from
+  the parts list since they're now the hex frame page's own parts (2 frames'
+  worth); `tnut-m5-2020` was removed too since its 48 exactly matched 2
+  hex frames' own bin-retainer-prep T-nuts (2 × 24) and nothing here needs
+  more beyond that, but this hasn't been re-verified against a build.
+  `scr-m5-16-shcs` dropped from 64 to 48, removing the 16 that were the two
+  hex frames' own outer-ring screws. The fastener counts are derived from
+  Regular layers rather than measured, the tally under step 1 shows the
+  arithmetic, and one count is genuinely unknown. Correct it as you build.
 parts_needed:
-  - part: ext-bracket-left
-    qty: 12
   - part: ext-bracket-cover
     qty: 6
   - part: ext-bracket-bottom-vertical
@@ -30,8 +33,6 @@ parts_needed:
     qty: 12
   - part: bin-retainer-right
     qty: 12
-  - part: ext-2020-ag
-    qty: 12
   - part: ext-2020-d
     qty: 6
   - part: foot-connector-2020-m6
@@ -39,10 +40,8 @@ parts_needed:
   - part: caster-wheel-m6
     qty: 6
   - part: scr-m5-16-shcs
-    qty: 64
-  - part: scr-m5-12-shcs
     qty: 48
-  - part: tnut-m5-2020
+  - part: scr-m5-12-shcs
     qty: 48
 ---
 
@@ -55,7 +54,9 @@ The bottom two layers are two ordinary bin layers built at the same time, becaus
 
 Everything else about these two layers is the same as any other. Build each one with the [regular layers]({{ '/hardware/assembly/distribution/bin-frame/regular-layers/' | relative_url }}) guide and come back here for the parts that differ, which are only the verticals, the corners at floor level, and the feet.
 
-The aluminum extrusion is cut to length; the [framing cut list](https://parts-calculator.basically.website/framing) has the exact dimensions for pieces A/G, B/H and D. The number of {% include fastener.html size="M5" variant="t-nut" text="M5 T-nuts" %} listed above is the minimum you'll need if you thread the printed parts directly wherever possible; this number increases if you use T-nuts throughout instead.
+**Build two [hex frames]({{ '/hardware/assembly/distribution/bin-frame/hex-frame/' | relative_url }}) before you start**, one for each layer. They're required components of this page, not covered here.
+
+The aluminum extrusion is cut to length; the [framing cut list](https://parts-calculator.basically.website/framing) has the exact dimensions for piece D. The number of {% include fastener.html size="M5" variant="t-nut" text="M5 T-nuts" %} listed above is the minimum you'll need if you thread the printed parts directly wherever possible; this number increases if you use T-nuts throughout instead.
 
 **Build the [bottom interface]({{ '/hardware/assembly/distribution/bin-frame/bottom-interface/' | relative_url }}) before you start.** It is step 1 of the bin frame and it mounts to this frame with three Lazy Susan extrusion mounts, each on an {% include fastener.html size="M5" variant="socket-button" length="16" %} screw into a {% include fastener.html size="M5" variant="t-nut" text="T-nut" %}. Getting T-nuts into an extrusion that already has both layers built around it is the kind of job you only do once.
 
@@ -71,26 +72,21 @@ Cut the extrusion first. These two layers use **6 × piece D (Foot extension), 2
   <p>D is 1.5 × a single layer's vertical support, not 2 ×, so the bottom layer sits about half a layer's height off the floor.</p>
 </div>
 
-Where the {% include fastener.html size="M5" variant="socket-button" length="16" %} count in the parts list comes from, since nobody has counted these off a built machine:
+Where the {% include fastener.html size="M5" variant="socket-button" length="16" %} count in the parts list comes from, since nobody has counted these off a built machine (the two hex frames' own outer-ring screws are on that page's own list, not counted here):
 
-- **16** for the two hexagons' outer rings, which is [regular layers]({{ '/hardware/assembly/distribution/bin-frame/regular-layers/' | relative_url }}) step 1 done twice
 - **24** for the foot extensions, 4 per corner (step 3 below), two into each layer
 - **12** for the second layer's External bracket — bottom verticals, 2 per corner (step 4 below)
 - **12** for the bottom layer's External bracket - foot covers, 2 per corner (step 4 below), the same as the bottom vertical it replaces
 
 The {% include fastener.html size="M5" variant="socket-button" length="12" %} count is the same arithmetic: **24** per layer for the bin retainers, so **48** across both.
 
-{% include step.html n="2" title="Build two layer frames" %}
+{% include step.html n="2" title="Start from two hex frames" %}
 
-Work through [regular layers]({{ '/hardware/assembly/distribution/bin-frame/regular-layers/' | relative_url }}) steps 1 and 2 twice, once per layer: the hexagon of six A/G extrusions in six External bracket — sides, then the six B/H spokes on their Frame 90° brackets with a Frame crossbeam each side — see [Attaching the hexagonal frame's spokes]({{ '/hardware/helpers/hex-frame-spokes/' | relative_url }}) for the parts and the method.
-
-**Stop before that guide's step 3 (Install the verticals).** The verticals are the part that differs here, and they are step 3 below.
-
-If you are using slide-in T-nuts, put them in as that guide says. The ends of the extrusion are no more accessible on these two layers than on any other.
+You should already have two [hex frames]({{ '/hardware/assembly/distribution/bin-frame/hex-frame/' | relative_url }}) built, one for each layer. The verticals are the part that differs here, and they are step 3 below.
 
 <div class="callout callout-warning">
   <span class="callout-icon" aria-hidden="true">⚠</span>
-  <p>Put the <a href="{{ '/hardware/assembly/distribution/bin-frame/bottom-interface/' | relative_url }}">bottom interface</a>'s three T-nuts into this frame now, while the extrusion is still open. Three Lazy Susan extrusion mounts each take one {% include fastener.html size="M5" variant="socket-button" length="16" %} into a {% include fastener.html size="M5" variant="t-nut" text="T-nut" %}, and once both layers are built around the extrusion a slide-in T-nut has nowhere to go in.</p>
+  <p>This callout predates the hex frame reorg and hasn't been re-checked against it: put the <a href="{{ '/hardware/assembly/distribution/bin-frame/bottom-interface/' | relative_url }}">bottom interface</a>'s three T-nuts into this frame now, while the extrusion is still open. Three Lazy Susan extrusion mounts each take one {% include fastener.html size="M5" variant="socket-button" length="16" %} into a {% include fastener.html size="M5" variant="t-nut" text="T-nut" %}, and once both layers are built around the extrusion a slide-in T-nut has nowhere to go in. But bottom-interface.md now says those mounts bolt onto <em>its own</em> hex frame's spokes, not onto this page's extrusion — this note may be describing a mounting relationship that no longer holds. Flagged, not resolved.</p>
 </div>
 
 {% include step.html n="3" title="Run the foot extensions through both layers" %}
@@ -144,7 +140,7 @@ The numbers on the drawing:
   <li><strong>Piece D</strong>, 231 mm cut. It runs from below the bottom layer, through that layer's collar, and up to 3 mm below the flange face of the second layer's collar, replacing a piece C in each of the two layers.</li>
   <li class="key-screw"><strong>Two {% include fastener.html size="M5" variant="socket-button" length="16" %} screws per collar</strong> clamp the bracket onto piece D, at the bottom layer and again at the second layer. Same screws, same holes as on a regular layer.</li>
   <li class="key-note"><strong>The exposed end of piece D</strong>, which takes the 2020 M6 foot connector and the caster. On the lengths as drawn it stands about 54 mm below the foot cover, but how far it should protrude is not recorded anywhere, so hold a foot connector against the end before you tighten the corner screws.</li>
-  <li><strong>The second layer's collar</strong>, with its External bracket — bottom vertical below it. From here up, every joint is the ordinary layer joint described in <a href="{{ '/hardware/assembly/distribution/bin-frame/regular-layers/' | relative_url }}#step-5">regular layers, step 5</a>.</li>
+  <li><strong>The second layer's collar</strong>, with its External bracket — bottom vertical below it. From here up, every joint is the ordinary layer joint described in <a href="{{ '/hardware/assembly/distribution/bin-frame/regular-layers/' | relative_url }}#step-3">regular layers, step 3</a>.</li>
 </ol>
 
 The two layers are now one rigid unit and their spacing is set by the bracket positions, not by anything you have to measure.
@@ -155,7 +151,7 @@ The bottom layer does not get an External bracket — bottom vertical or an Exte
 
 The foot cover fastens the same way the bottom vertical it replaces would: 2 {% include fastener.html size="M5" variant="socket-button" length="16" %} screws through its outer holes into the External bracket — side. Mount it before the extrusion goes in, at the same point as the second layer's cover in step 3.
 
-The second layer's corners are ordinary, exactly as in [regular layers]({{ '/hardware/assembly/distribution/bin-frame/regular-layers/' | relative_url }}) step 3: an External bracket — bottom vertical slid onto piece D with its angles aligned at the bottom, 2 {% include fastener.html size="M5" variant="socket-button" length="16" %} screws through its outer holes.
+The second layer's corners are ordinary, exactly as in [regular layers]({{ '/hardware/assembly/distribution/bin-frame/regular-layers/' | relative_url }}) step 1: an External bracket — bottom vertical slid onto piece D with its angles aligned at the bottom, 2 {% include fastener.html size="M5" variant="socket-button" length="16" %} screws through its outer holes.
 
 {% include step.html n="5" title="Fit the feet" %}
 
@@ -170,7 +166,7 @@ Screw a **swivel stem caster (M6 × 15 mm)** into the connector's M6 thread. The
 
 {% include step.html n="6" title="Add the bin retainers" %}
 
-Both layers take bin retainers, exactly as in [regular layers]({{ '/hardware/assembly/distribution/bin-frame/regular-layers/' | relative_url }}) step 4: on each side of each hexagon, a Bin retainer (left) and a Bin retainer (right) on the front face of the A/G extrusion, 4 {% include fastener.html size="M5" variant="socket-button" length="12" %} screws into T-nuts.
+Both layers take bin retainers, exactly as in [regular layers]({{ '/hardware/assembly/distribution/bin-frame/regular-layers/' | relative_url }}) step 2: on each side of each hexagon, a Bin retainer (left) and a Bin retainer (right) on the front face of the A/G extrusion, 4 {% include fastener.html size="M5" variant="socket-button" length="12" %} screws into T-nuts.
 
 ## What comes next
 

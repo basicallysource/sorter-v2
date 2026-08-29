@@ -9,9 +9,16 @@ lede: The repeating bin layers above the base. Build N−2 for an N-layer machin
 permalink: /hardware/assembly/distribution/bin-frame/regular-layers/
 author: zed0
 contributors: [brickcyclealice, barthel]
+warning: >-
+  **Reorganized to reference [Build the hex frame]({{ '/hardware/assembly/distribution/bin-frame/hex-frame/' | relative_url }})
+  instead of describing frame construction inline, not yet reviewed by a
+  builder.** The old steps 1-2 (outer ring, spokes) are gone; build a hex
+  frame on that page first. Steps below are renumbered — old step 3 is now
+  1, old step 4 is now 2, old step 5 is now 3. `ext-bracket-left` and
+  `ext-2020-ag` were removed from the parts list since they're now the hex
+  frame page's own parts; the fastener totals here have not been re-split.
+  Correct it as you build.
 parts_needed:
-  - part: ext-bracket-left
-    qty: 6
   - part: ext-bracket-cover
     qty: 6
   - part: ext-bracket-bottom-vertical
@@ -19,8 +26,6 @@ parts_needed:
   - part: bin-retainer-left
     qty: 6
   - part: bin-retainer-right
-    qty: 6
-  - part: ext-2020-ag
     qty: 6
   - part: ext-2020-c
     qty: 6
@@ -32,78 +37,15 @@ parts_needed:
 
 This guide covers creating a regular layer. It's also the basis for creating the top and bottom layers, so build N−2 of these for an N-layer machine (the [bottom two layers]({{ '/hardware/assembly/distribution/bin-frame/bottom-two-layers/' | relative_url }}) are covered separately).
 
-Note that some of the ordering in this guide may seem unusual, but it's written this way to avoid both putting unnecessary strain on pieces, and allowing for the use of slide-in T-nuts.
+**Build a [hex frame]({{ '/hardware/assembly/distribution/bin-frame/hex-frame/' | relative_url }}) before you start.** It's a required component of this page, not covered here.
 
-The aluminum extrusion is cut to length; the [framing cut list](https://parts-calculator.basically.website/framing) has the exact dimensions for pieces A/G, B/H and C. The number of {% include fastener.html size="M5" variant="t-nut" text="M5 T-nuts" %} listed above is the minimum you'll need if you thread the printed parts directly wherever possible; this number increases if you use T-nuts throughout instead.
+The aluminum extrusion is cut to length; the [framing cut list](https://parts-calculator.basically.website/framing) has the exact dimensions for piece C. The number of {% include fastener.html size="M5" variant="t-nut" text="M5 T-nuts" %} listed above is the minimum you'll need if you thread the printed parts directly wherever possible; this number increases if you use T-nuts throughout instead.
 
-See [Assembling External bracket]({{ '/hardware/helpers/external-bracket/' | relative_url }}) for a look at the three bracket parts on their own, and [Attaching the hexagonal frame's spokes]({{ '/hardware/helpers/hex-frame-spokes/' | relative_url }}) for how the Frame 90° bracket, B/H spoke and Frame crossbeam are prepared and attached as needed.
+See [Assembling External bracket]({{ '/hardware/helpers/external-bracket/' | relative_url }}) for a look at the three bracket parts on their own.
 
 {% include fastener-legend.html %}
 
-{% include step.html n="1" title="Assemble the frame brackets" %}
-
-<div class="img-row">
-  <figure>
-    <img src="https://assets.basically.website/sorter-docs/assembly-regular-layers-frame-corner-joint-w1600-a47ad55fb797.png" alt="Two A/G aluminum extrusions meeting at an External bracket — side, forming one corner of the hexagon">
-    <figcaption><cite>Photo: zed0.</cite></figcaption>
-  </figure>
-  <figure>
-    <img src="https://assets.basically.website/sorter-docs/assembly-regular-layers-frame-corner-joint-angled-w1600-6265c41bbf5f.png" alt="Angled view of the same corner joint, showing the fasteners along the extrusion">
-    <figcaption><cite>Photo: zed0.</cite></figcaption>
-  </figure>
-</div>
-
-Slide piece A/G (Outer horizontal / Horizontal interface frame) of aluminum extrusion into an External bracket — side. Use an {% include fastener.html size="M5" variant="socket-button" length="16" %} screw to tap directly through the outer of the two adjacent holes on the External bracket — side, bracing it against the extrusion. If you would rather not tap and brace, place T-nuts in the extrusion and use the inner holes to fasten into them instead.
-
-If you are using slide-in T-nuts rather than drop-in or roll-in T-nuts, insert 2 into the innermost section of the extrusion and 4 into the outermost section before connecting the next External bracket — side, as this is the last time the ends of the extrusion are accessible.
-
-<figure class="video-figure">
-  <div class="video-embed video-embed-wide">
-    <iframe
-      src="https://www.youtube.com/embed/LWruBv-fMz4"
-      title="Assembling the frame brackets"
-      allow="encrypted-media; picture-in-picture; web-share"
-      allowfullscreen
-      loading="lazy"></iframe>
-  </div>
-  <figcaption><cite>Video: zed0.</cite></figcaption>
-</figure>
-
-<div class="img-row">
-  <figure>
-    <img src="https://assets.basically.website/sorter-docs/assembly-regular-layers-extrusion-tnut-holes-w1600-b5863688aeea.png" alt="Side view of an A/G extrusion showing the row of holes where T-nuts sit and the screws pass through">
-    <figcaption><cite>Photo: zed0.</cite></figcaption>
-  </figure>
-  <figure>
-    <img src="https://assets.basically.website/sorter-docs/assembly-regular-layers-extrusion-into-bracket-w1600-1cd20074b56c.png" alt="An A/G extrusion sliding into an External bracket — side">
-    <figcaption><cite>Photo: zed0.</cite></figcaption>
-  </figure>
-</div>
-
-Repeat these steps to make two semi-circles of three sections of extrusion and three External bracket — sides, then slot the two half-hexagons together into a full hexagon and secure it with 2 more {% include fastener.html size="M5" variant="socket-button" length="16" %} screws. Joining in this manner, rather than working your way around the hexagon, prevents having to force the brackets into awkward angles.
-
-<figure class="single-figure">
-  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-regular-layers-two-half-hexagons-full-5e7c0f80f57f.png" alt="Two three-section half-hexagons laid out before being joined into a full hexagon">
-  <figcaption><cite>Photo: zed0.</cite></figcaption>
-</figure>
-
-{% include step.html n="2" title="Attach the hexagonal frame's spokes" %}
-
-<div class="prep-item">
-  <div class="prep-item-body">
-    <p>Attach the six B/H spokes and their Frame crossbeams to the inside of the hexagon, using the Frame 90° bracket. See <a href="{{ '/hardware/helpers/hex-frame-spokes/' | relative_url }}">Attaching the hexagonal frame's spokes</a> for the parts and the method.</p>
-  </div>
-  <figure class="prep-item-figure">
-    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-regular-layers-spokes-complete-top-full-f9b0a154d84b.png" alt="Top-down view of the finished hexagon with all six spokes and crossbeams forming the central ring">
-    <figcaption>A pre-made hexagon, with all six spokes and crossbeams fitted.</figcaption>
-  </figure>
-</div>
-
-<div class="callout">
-  <p>If you are currently building the interface layer, stop here and return to the interface layer guide.</p>
-</div>
-
-{% include step.html n="3" title="Install the verticals" %}
+{% include step.html n="1" title="Install the verticals" %}
 
 <div class="img-row">
   <figure>
@@ -133,7 +75,7 @@ On each corner, slide an External bracket — bottom vertical onto piece C (Laye
 
 Matching parts from the same print run are embossed with a shared set code (e.g. **"b2"**) on both the External bracket — side and the External bracket — bottom vertical. Keep marked pairs together so brackets don't get mixed across corners.
 
-{% include step.html n="4" title="Add the bin retainers" %}
+{% include step.html n="2" title="Add the bin retainers" %}
 
 <figure class="single-figure">
   <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-regular-layers-bin-retainers-installed-w1600-31bf32089e71.png" alt="Bin retainers fastened to the outer faces of the hexagon frame">
@@ -144,7 +86,7 @@ On each side of the hexagon, attach both the Bin retainer (left) and Bin retaine
 
 A regular layer is now complete. You will also need to construct a [Chute core]({{ '/hardware/assembly/distribution/chute/' | relative_url }}) for each layer you build.
 
-{% include step.html n="5" title="Join the layer to the one below" %}
+{% include step.html n="3" title="Join the layer to the one below" %}
 
 <figure class="figure-float-right">
   <a href="https://assets.basically.website/sorter-docs/assembly-regular-layers-layer-joint-section-full-71e3c366f4e7.png" target="_blank" rel="noopener">

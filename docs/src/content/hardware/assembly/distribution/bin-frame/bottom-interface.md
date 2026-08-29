@@ -214,14 +214,9 @@ Three Lazy Susan extrusion mounts carry the bearing assembly's weight; a hold in
 
 The screw between the extrusion mount and the hold in place is an {% include fastener.html size="M5" variant="socket" length="16" %}.
 
-Each mount then bolts directly onto the B/H spoke (158mm) already in place in the hex frame, through two more 5.5 mm M5 clearance holes, 30 mm apart, into a T-nut in the extrusion:
+Each mount then bolts directly onto the B/H spoke (158mm) already in place in the hex frame, through two more 5.5 mm M5 clearance holes, 30 mm apart, into a T-nut in the extrusion.
 
-<figure class="single-figure">
-  <img class="doc-figure" src="https://assets.basically.website/sorter-parts/bottom-interface-step4-extrusion-mount-bolt-holes-full-9104e9681f61.jpg" alt="The end of a Lazy Susan extrusion mount seated on a length of 2020 extrusion, with two screws visible in counterbored holes bolting it down">
-  <figcaption>The two bolt holes that connect the mount to the spoke. <cite>Photo: BrickCycleAlice.</cite></figcaption>
-</figure>
-
-That's two {% include fastener.html size="M5" variant="socket" length="16" %} screws per mount, 6 more on top of the 3 between mount and hold in place. Mount order around the ring isn't recorded.
+That's two {% include fastener.html size="M5" variant="socket" length="16" %} screws per mount, 6 more on top of the 3 between mount and hold in place.
 
 <div class="img-row">
   <figure>

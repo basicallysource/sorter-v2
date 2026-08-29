@@ -54,7 +54,15 @@ The bottom two layers are two ordinary bin layers built at the same time, becaus
 
 Everything else about these two layers is the same as any other. Build each one with the [regular layers]({{ '/hardware/assembly/distribution/bin-frame/regular-layers/' | relative_url }}) guide and come back here for the parts that differ, which are only the verticals, the corners at floor level, and the feet.
 
-**Build two [hex frames]({{ '/hardware/assembly/distribution/bin-frame/hex-frame/' | relative_url }}) before you start**, one for each layer. They're required components of this page, not covered here.
+<div class="prep-item">
+  <div class="prep-item-body">
+    <p><strong>Build two <a href="{{ '/hardware/assembly/distribution/bin-frame/hex-frame/' | relative_url }}">hex frames</a> before you start</strong>, one for each layer. They're required components of this page, not covered here.</p>
+  </div>
+  <figure class="prep-item-figure">
+    <img class="doc-figure" src="https://assets.basically.website/sorter-parts/hex-frame-finished-top-down-full-c6abfb4dad6e.jpg" alt="A finished hex frame from above, the alternating grey spoke and teal crossbeam pieces forming the inner ring inside the aluminum outer hexagon">
+    <figcaption>A finished hex frame. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+  </figure>
+</div>
 
 The aluminum extrusion is cut to length; the [framing cut list](https://parts-calculator.basically.website/framing) has the exact dimensions for piece D. The number of {% include fastener.html size="M5" variant="t-nut" text="M5 T-nuts" %} listed above is the minimum you'll need if you thread the printed parts directly wherever possible; this number increases if you use T-nuts throughout instead.
 

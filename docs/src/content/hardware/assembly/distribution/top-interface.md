@@ -128,7 +128,15 @@ parts_needed:
     qty: 1
 ---
 
-**Have a [hex frame]({{ '/hardware/assembly/distribution/bin-frame/hex-frame/' | relative_url }}) ready by step 13.** It's a required component of this page — step 13 places one onto the assembly, it doesn't build one. The rest of this page (steps 1-12, 14+) doesn't need it.
+<div class="prep-item">
+  <div class="prep-item-body">
+    <p><strong>Have a <a href="{{ '/hardware/assembly/distribution/bin-frame/hex-frame/' | relative_url }}">hex frame</a> ready by step 13.</strong> It's a required component of this page — step 13 places one onto the assembly, it doesn't build one. The rest of this page (steps 1-12, 14+) doesn't need it.</p>
+  </div>
+  <figure class="prep-item-figure">
+    <img class="doc-figure" src="https://assets.basically.website/sorter-parts/hex-frame-finished-top-down-full-c6abfb4dad6e.jpg" alt="A finished hex frame from above, the alternating grey spoke and teal crossbeam pieces forming the inner ring inside the aluminum outer hexagon">
+    <figcaption>A finished hex frame. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+  </figure>
+</div>
 
 The fasteners and quantities in the parts list come from the build notes and are called out inline at each step.
 

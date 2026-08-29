@@ -40,7 +40,15 @@ parts_needed:
     qty: 6
 ---
 
-**Build a [hex frame]({{ '/hardware/assembly/distribution/bin-frame/hex-frame/' | relative_url }}) before you start.** It's a required component of this page, not optional or covered here — step 4 bolts onto one, it doesn't build one.
+<div class="prep-item">
+  <div class="prep-item-body">
+    <p><strong>Build a <a href="{{ '/hardware/assembly/distribution/bin-frame/hex-frame/' | relative_url }}">hex frame</a> before you start.</strong> It's a required component of this page, not optional or covered here — step 4 bolts onto one, it doesn't build one.</p>
+  </div>
+  <figure class="prep-item-figure">
+    <img class="doc-figure" src="https://assets.basically.website/sorter-parts/hex-frame-finished-top-down-full-c6abfb4dad6e.jpg" alt="A finished hex frame from above, the alternating grey spoke and teal crossbeam pieces forming the inner ring inside the aluminum outer hexagon">
+    <figcaption>A finished hex frame. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+  </figure>
+</div>
 
 The parts list above is only the Lazy Susan bearing stack and the extrusion mounts added in step 4; the hex frame itself is [Build the hex frame]({{ '/hardware/assembly/distribution/bin-frame/hex-frame/' | relative_url }})'s own parts list, built ordinary and unmodified. The fasteners and quantities below are called out inline at each step.
 

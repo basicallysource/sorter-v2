@@ -47,12 +47,8 @@
 	<section class="mb-8">
 		<Callout variant="info" title="Notes">
 			<ul class="list-disc space-y-2 pl-4 leading-relaxed">
-				<li>
-					<b class="text-text">Not all 2020 extrusion is the same stock.</b> Builders have found that
-					secondhand 20×20 mm profile varies: one with more angular, square corners on the T-slot seats
-					tightly against the crossbeam brackets, while a profile with more rounded corners can fit
-					loosely and add friction. Check the corner profile before buying, especially secondhand.
-					<div class="mt-2 max-w-xs">
+				<li class="flow-root">
+					<div class="float-right ml-3 mb-1 w-40 sm:w-48">
 						<Figure
 							src="https://assets.basically.website/sorter-parts/img-0036-full-76e2483ec1e7.jpg"
 							alt="Two 2020 extrusion profiles held end-on side by side — the right one has angular T-slot corners, the left one has rounded corners"
@@ -60,6 +56,10 @@
 							imgClass="max-h-40"
 						/>
 					</div>
+					<b class="text-text">Not all 2020 extrusion is the same stock.</b> Builders have found that
+					secondhand 20×20 mm profile varies: one with more angular, square corners on the T-slot seats
+					tightly against the crossbeam brackets, while a profile with more rounded corners can fit
+					loosely and add friction. Check the corner profile before buying, especially secondhand.
 				</li>
 				<li>
 					<b class="text-text">D stands in for C at the bottom.</b> Every layer above the bottom two

@@ -814,7 +814,7 @@
 					"qty": 6
 				},
 				{
-					"part": "scr-m3-tbd",
+					"part": "scr-m3-10-shcs",
 					"qty": 1
 				}
 			]
@@ -1620,7 +1620,7 @@
 					"qty": 1
 				},
 				{
-					"part": "scr-m3-tbd",
+					"part": "scr-m3-6-bhcs",
 					"qty": 4
 				},
 				{
@@ -14551,10 +14551,10 @@
 			},
 			"name": "M3 screw \u2014 type and length TBD",
 			"category": "Screws",
-			"description": "Placeholder for the M3s whose head type and length nobody has written down yet: the cable-mount cage bracket, the camera extension, and the two board mounts.",
-			"note": "Neither the head type nor the length is recorded \u2014 measure before ordering.",
+			"description": "Retired placeholder, no longer used anywhere. Every joint that carried this (the cable-mount cage bracket, the camera extension, and the Orange Pi mount) turned out to already have a specific screw recorded in the docs; the catalog just hadn't been updated to match. Kept as an unused entry rather than deleted, since a minted uid has to stay resolvable (see parts-calculator's own CLAUDE.md).",
+			"note": "Unused as of 2026-08-29. Do not add a new joint to this placeholder \u2014 measure the real screw and use a real catalog part instead.",
 			"created_at": "2026-07-18",
-			"updated_at": "2026-07-18",
+			"updated_at": "2026-08-29",
 			"attributes": [
 				{
 					"label": "Thread",

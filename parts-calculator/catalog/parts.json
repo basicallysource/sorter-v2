@@ -1,5 +1,5 @@
 {
-  "_comment": "Source-of-truth manifest. filament.py slices each STL once and writes ../src/lib/data/parts.generated.json + thumbnails + STL copies. Per part: id, uid (see UID below), name, category, description (short, shown in app), internal_notes (extended, agent-only, NOT emitted to the app), version, created_at, updated_at, stl_hash (sha256 pin of the master STL; publish with scripts/publish_assets.py --upload), quantity (per ONE instance of its category), color, optional. attributes (optional list of {label,value} shown in the app), versions (optional archetype history: list of {version,date,message,commit}; commit ties to a real git commit, null = pending an upcoming clean commit). low_tolerance (optional bool: part has little tolerance for dimensional error - a tight/precise fit - so a test print is worth doing) + low_tolerance_note (the specifics, shown in the app). color is one of {\"role\":\"<roleid>\"} (user-picked), {\"fixed\":\"<lego-id>\"}, {\"split\":[{\"color\":\"<lego-id>\",\"qty\":N},...]} (sums to quantity), or {\"any\":true}, or {\"by_section\":{\"<sectionid>\":<colorspec>,...}} (per-section color when a part lives in multiple sections). Machine = 1 of each non-scaling category + N of each scaling category. See ../notes/TERMINOLOGY.md. SCHEMA V2 (unified parts system, see ../notes/UNIFIED-PARTS-SYSTEM.md, incremental): a part may carry kind ('printed' when absent | 'cots'); cots parts have cots {type,size?,variant?}, category (display grouping on the hardware tab), note (builder-critical caveat from the BOM sheet), image (slicer-relative path, published by publish_assets.py and served from the asset service) OR image_url (an already-published content-addressed URL; BOM product images never touch git), sourcing {vendors:[{region,vendor,url,affiliate_url?,price,currency?,pack_qty?,as_of?,note?}]} (url is always the plain listing; affiliate_url is the same listing carrying the project's Amazon tag, mirroring the BOM sheet's 'US Source 1 with Affiliate' column — both are kept so a builder can choose) (price is USD unless currency says otherwise), and no stl/color/quantities. sheet_qty {per_machine|per_layer} / sheet_qty_text are TRANSITIONAL hand counts carried over from the BOM sheet; they die once these parts are placed as requires/lines in the tree. A printed part may carry requires [{part,qty}] = hardware committed to that single physical part (heat inserts, press-fit bearings); qty scales with the part automatically. An assembly may carry lines [{part|assembly, qty}] (qty is a number, or 'per-layer' = multiplied by the total layer count, or 'middle-layers' = layer count minus 2, the layers that sit between the top and bottom interfaces) and status 'stub' (placeholder, nothing inside yet) or 'partial' (some lines filled in) — these form the experimental machine tree rooted at the 'machine' assembly. A line may also reference a laser-cut part by id (e.g. 'top-plate'); those still live in src/lib/lasercut.ts and are resolved from there until §5.5 folds them into this manifest. Line ids are unique within an assembly: two joints that use the same screw are one merged line. Screws and other hardware that JOIN parts are lines of the assembly that makes the joint, never requires of either member (requires is only for hardware committed to one physical part). joining [{method,note}] records how the lines become one unit — 'solder'|'crimp'|'glue'|'press'|'self-tap' (screw cuts its own thread in printed plastic, no insert or nut) |'friction' (held by clamping force alone, e.g. jammed in an extrusion slot). A cots part that is cut from a bought length carries stock {unit_length_mm, cut_length_mm, pieces_per_unit, unit_label, piece_label}; its lines count PIECES and the app divides to get lengths to buy. MERGES/CONFLICTS (2026-08-21, docs catalog folded in): top-level merges [{id,date,sources,note}] records source-of-truth merger events. A part may carry conflicts [{merge,field,claims:[{source,value},...],note}] = an unresolved factual disagreement between the merged catalogs, kept as data on purpose and rendered as a badge on BOTH sites (docs parts-needed cards + calculator detail views); resolving one means fixing the disputed field against the physical machine and DELETING the conflict entry (git is the history). A part may also carry caption (small text under its docs parts-needed card) and docs_page (its docs detail page path; lets either site cross-link). The docs site renders its parts data from parts.generated.json -- docs/src/liquid/_data/parts.yml is deleted; this manifest is the only parts catalog. LASERCUT (2026-08-21, §5.5 partly done): parts with kind 'lasercut' are the flat sheet parts, passed through to the generated JSON verbatim (fields match the app's LaserCutPart type in src/lib/lasercut.ts, which now reads the generated data instead of hardcoding it; the docs site reads the same JSON). dxf/preview are app-static paths; photo is a published URL. UID (2026-08-22): every part, whatever its kind, carries uid -- a minted 4-char id (catalog/mint_uid.py) naming its CURRENT VERSION: the exact thing in your hand, and what a print gets engraved with. A human bumping `version` mints a new uid; a re-export of the same design is new bytes (a new stl_hash) under the same uid, not a new version. A superseded version entry carries the uid it had (stamp_versions.py writes it beside the superseded stl_hash). Mint BEFORE the STL exists: the entry holds the uid, and the engraved downloads generate.py cuts are named for it. FILENAMES (2026-08-23, the asset service is the only store): a key is the name the file was published under plus a hash of its own bytes, in the sorter-parts namespace. A master STL, and every archived version and candidate of it, is published under the part's id -- sorter-parts/<part-id>-<hash12>.stl -- so the hash is what tells the versions apart, and it is the stl_hash pinned right here: grep a downloaded file's hash fragment in this file and you have the exact version. An engraved download carries the uid as well, sorter-parts/<part-id>-<uid>-stamped-<face>-<hash12>.stl, because that is the string recessed into the plastic. An image is published as a copy with the camera's metadata stripped, so its URL is read off the service, never derived. CANDIDATES (2026-08-22): a printed part may carry candidates [{uid, name?, stl_hash, created_at, message, onshape_version?, images?, support?, superseded_by?, superseded_at?, rejected_at?}] -- design revisions under test for that part's slot. Each is minted its own uid and pinned by hash (publish with publish_assets.py --upload <part-id>.stl), gets sliced and rendered and is downloadable from the part's page, counts toward nothing, and has NO version number: numbers are handed out in adoption order. Promotion = the candidate's uid + stl_hash become the part's current, version bumps, a versions entry is added, the candidate line is removed (its uid lives on at part level). A candidate that is iterated on or dropped is NEVER deleted: mark it superseded_by/superseded_at or rejected_at and leave its pin, so the uid engraved on a test print always resolves here. check_generated_pins.py fails any change that makes a uid disappear from this file. ASSEMBLIES (2026-08-22): every assembly carries uid and version exactly like a part. A new version is an authored STRUCTURAL change (a line added or removed, a qty changed) -- a member part revving is that part's own history, not the assembly's. versions [{version, uid, date, message, commit, lines}] is written like a part's: author the new entry with commit null, and stamp_versions.py carries the superseded uid plus a snapshot of the lines as they were, each line pinned to the member's uid at the time, so a box as built then can be read back part by part. candidates [{uid, name?, created_at, message, lines, joining?, images?, superseded_by?, superseded_at?, rejected_at?}] is a whole alternative bill of materials under test (new parts enter with empty quantities so they count toward nothing); promotion = the candidate's lines and uid become the assembly's, version bumps, a versions entry is added, the candidate line is removed. Same retention rule: a candidate is marked, never deleted. A candidate may carry name: what the slot is called if it is adopted (the housing candidate on ctrl-board-mount renames it on promotion). IMAGES (2026-08-22): any part (printed or cots), assembly, candidate or version may carry images [{url, alt, caption?}] -- extra pictures beyond the render or product photo: an Onshape screenshot, a section view, a photo of it built. url is a pinned published URL exactly like image_url (publish_assets.py --upload <file>.png prints it; never a repo path) and alt says what the picture shows; generate.py refuses anything else and check_asset_urls.py fetches every one. The site shows them as a zoomable strip on the part, hardware and assembly views.",
+  "_comment": "Source-of-truth manifest. filament.py slices each STL once and writes ../src/lib/data/parts.generated.json + thumbnails + STL copies. Per part: id, uid (see UID below), name, category, description (short, shown in app), internal_notes (extended, agent-only, NOT emitted to the app), version, created_at, updated_at, stl_hash (sha256 pin of the master STL; publish with scripts/publish_assets.py --upload), quantity (per ONE instance of its category), color, optional. attributes (optional list of {label,value} shown in the app), versions (optional archetype history: list of {version,date,message,commit}; commit ties to a real git commit, null = pending an upcoming clean commit). low_tolerance (optional bool: part has little tolerance for dimensional error - a tight/precise fit - so a test print is worth doing) + low_tolerance_note (the specifics, shown in the app). color is one of {\"role\":\"<roleid>\"} (user-picked), {\"fixed\":\"<lego-id>\"}, {\"split\":[{\"color\":\"<lego-id>\",\"qty\":N},...]} (sums to quantity), or {\"any\":true}, or {\"by_section\":{\"<sectionid>\":<colorspec>,...}} (per-section color when a part lives in multiple sections). Machine = 1 of each non-scaling category + N of each scaling category. See ../notes/TERMINOLOGY.md. SCHEMA V2 (unified parts system, see ../notes/UNIFIED-PARTS-SYSTEM.md, incremental): a part may carry kind ('printed' when absent | 'cots'); cots parts have cots {type,size?,variant?}, category (display grouping on the hardware tab), note (builder-critical caveat from the BOM sheet), image (slicer-relative path, published by publish_assets.py and served from the asset service) OR image_url (an already-published content-addressed URL; BOM product images never touch git), sourcing {vendors:[{region,vendor,url,affiliate_url?,price,currency?,pack_qty?,as_of?,note?}]} (url is always the plain listing; affiliate_url is the same listing carrying the project's Amazon tag, mirroring the BOM sheet's 'US Source 1 with Affiliate' column \u2014 both are kept so a builder can choose) (price is USD unless currency says otherwise), and no stl/color/quantities. sheet_qty {per_machine|per_layer} / sheet_qty_text are TRANSITIONAL hand counts carried over from the BOM sheet; they die once these parts are placed as requires/lines in the tree. A printed part may carry requires [{part,qty}] = hardware committed to that single physical part (heat inserts, press-fit bearings); qty scales with the part automatically. An assembly may carry lines [{part|assembly, qty}] (qty is a number, or 'per-layer' = multiplied by the total layer count, or 'middle-layers' = layer count minus 2, the layers that sit between the top and bottom interfaces) and status 'stub' (placeholder, nothing inside yet) or 'partial' (some lines filled in) \u2014 these form the experimental machine tree rooted at the 'machine' assembly. A line may also reference a laser-cut part by id (e.g. 'top-plate'); those still live in src/lib/lasercut.ts and are resolved from there until \u00a75.5 folds them into this manifest. Line ids are unique within an assembly: two joints that use the same screw are one merged line. Screws and other hardware that JOIN parts are lines of the assembly that makes the joint, never requires of either member (requires is only for hardware committed to one physical part). joining [{method,note}] records how the lines become one unit \u2014 'solder'|'crimp'|'glue'|'press'|'self-tap' (screw cuts its own thread in printed plastic, no insert or nut) |'friction' (held by clamping force alone, e.g. jammed in an extrusion slot). A cots part that is cut from a bought length carries stock {unit_length_mm, cut_length_mm, pieces_per_unit, unit_label, piece_label}; its lines count PIECES and the app divides to get lengths to buy. MERGES/CONFLICTS (2026-08-21, docs catalog folded in): top-level merges [{id,date,sources,note}] records source-of-truth merger events. A part may carry conflicts [{merge,field,claims:[{source,value},...],note}] = an unresolved factual disagreement between the merged catalogs, kept as data on purpose and rendered as a badge on BOTH sites (docs parts-needed cards + calculator detail views); resolving one means fixing the disputed field against the physical machine and DELETING the conflict entry (git is the history). A part may also carry caption (small text under its docs parts-needed card) and docs_page (its docs detail page path; lets either site cross-link). The docs site renders its parts data from parts.generated.json -- docs/src/liquid/_data/parts.yml is deleted; this manifest is the only parts catalog. LASERCUT (2026-08-21, \u00a75.5 partly done): parts with kind 'lasercut' are the flat sheet parts, passed through to the generated JSON verbatim (fields match the app's LaserCutPart type in src/lib/lasercut.ts, which now reads the generated data instead of hardcoding it; the docs site reads the same JSON). dxf/preview are app-static paths; photo is a published URL. UID (2026-08-22): every part, whatever its kind, carries uid -- a minted 4-char id (catalog/mint_uid.py) naming its CURRENT VERSION: the exact thing in your hand, and what a print gets engraved with. A human bumping `version` mints a new uid; a re-export of the same design is new bytes (a new stl_hash) under the same uid, not a new version. A superseded version entry carries the uid it had (stamp_versions.py writes it beside the superseded stl_hash). Mint BEFORE the STL exists: the entry holds the uid, and the engraved downloads generate.py cuts are named for it. FILENAMES (2026-08-23, the asset service is the only store): a key is the name the file was published under plus a hash of its own bytes, in the sorter-parts namespace. A master STL, and every archived version and candidate of it, is published under the part's id -- sorter-parts/<part-id>-<hash12>.stl -- so the hash is what tells the versions apart, and it is the stl_hash pinned right here: grep a downloaded file's hash fragment in this file and you have the exact version. An engraved download carries the uid as well, sorter-parts/<part-id>-<uid>-stamped-<face>-<hash12>.stl, because that is the string recessed into the plastic. An image is published as a copy with the camera's metadata stripped, so its URL is read off the service, never derived. CANDIDATES (2026-08-22): a printed part may carry candidates [{uid, name?, stl_hash, created_at, message, onshape_version?, images?, support?, superseded_by?, superseded_at?, rejected_at?}] -- design revisions under test for that part's slot. Each is minted its own uid and pinned by hash (publish with publish_assets.py --upload <part-id>.stl), gets sliced and rendered and is downloadable from the part's page, counts toward nothing, and has NO version number: numbers are handed out in adoption order. Promotion = the candidate's uid + stl_hash become the part's current, version bumps, a versions entry is added, the candidate line is removed (its uid lives on at part level). A candidate that is iterated on or dropped is NEVER deleted: mark it superseded_by/superseded_at or rejected_at and leave its pin, so the uid engraved on a test print always resolves here. check_generated_pins.py fails any change that makes a uid disappear from this file. ASSEMBLIES (2026-08-22): every assembly carries uid and version exactly like a part. A new version is an authored STRUCTURAL change (a line added or removed, a qty changed) -- a member part revving is that part's own history, not the assembly's. versions [{version, uid, date, message, commit, lines}] is written like a part's: author the new entry with commit null, and stamp_versions.py carries the superseded uid plus a snapshot of the lines as they were, each line pinned to the member's uid at the time, so a box as built then can be read back part by part. candidates [{uid, name?, created_at, message, lines, joining?, images?, superseded_by?, superseded_at?, rejected_at?}] is a whole alternative bill of materials under test (new parts enter with empty quantities so they count toward nothing); promotion = the candidate's lines and uid become the assembly's, version bumps, a versions entry is added, the candidate line is removed. Same retention rule: a candidate is marked, never deleted. A candidate may carry name: what the slot is called if it is adopted (the housing candidate on ctrl-board-mount renames it on promotion). IMAGES (2026-08-22): any part (printed or cots), assembly, candidate or version may carry images [{url, alt, caption?}] -- extra pictures beyond the render or product photo: an Onshape screenshot, a section view, a photo of it built. url is a pinned published URL exactly like image_url (publish_assets.py --upload <file>.png prints it; never a repo path) and alt says what the picture shows; generate.py refuses anything else and check_asset_urls.py fetches every one. The site shows them as a zoomable strip on the part, hardware and assembly views.",
   "sections": [
     {
       "id": "feeder",
@@ -271,7 +271,7 @@
       "name": "Stator's four NEMA-bracket holes are too small for an M3",
       "priority": "P0",
       "condition": "broken",
-      "description": "The four holes the NEMA bracket bolts into are Ø2.40 mm and 10 mm deep. M3's minor (thread-root) diameter is 2.459 mm, so the hole is already narrower than the root before print tolerance takes another 0.1-0.2 mm off it, and the screw has to form a full-depth thread through 10 mm of plastic. It cams out or splits the boss instead, so the bracket cannot be fastened to the stator as printed. Every other M3 thread-forming hole in this assembly is Ø2.80 — the rotor's six, the light post's five, and four more in this same stator — so Ø2.40 is the odd one out inside its own part, which reads as a CAD slip rather than an intent. The fix is to open the four to Ø2.80 in CAD. Reported by aleph1111/christoph from a build; measured off the pinned stator STL. Tracked as sorter-v2 issue #405.",
+      "description": "The four holes the NEMA bracket bolts into are \u00d82.40 mm and 10 mm deep. M3's minor (thread-root) diameter is 2.459 mm, so the hole is already narrower than the root before print tolerance takes another 0.1-0.2 mm off it, and the screw has to form a full-depth thread through 10 mm of plastic. It cams out or splits the boss instead, so the bracket cannot be fastened to the stator as printed. Every other M3 thread-forming hole in this assembly is \u00d82.80 \u2014 the rotor's six, the light post's five, and four more in this same stator \u2014 so \u00d82.40 is the odd one out inside its own part, which reads as a CAD slip rather than an intent. The fix is to open the four to \u00d82.80 in CAD. Reported by aleph1111/christoph from a build; measured off the pinned stator STL. Tracked as sorter-v2 issue #405.",
       "targets": {
         "parts": [
           "stator"
@@ -778,8 +778,8 @@
     {
       "id": "frame-90deg-bracket",
       "uid": "3l20",
-      "name": "Frame 90° bracket",
-      "description": "Distribution frame 90° bracket. Two per frame section.",
+      "name": "Frame 90\u00b0 bracket",
+      "description": "Distribution frame 90\u00b0 bracket. Two per frame section.",
       "internal_notes": "12 per frame (per layer); interface qty ASSUMED 12 (Spencer said 'one set per interface' - confirm). Frame color. File: inner_90_bracket.",
       "version": "1",
       "created_at": "2026-06-27",
@@ -801,7 +801,7 @@
     {
       "id": "ls-mount-to-chute",
       "uid": "lma9",
-      "name": "Lazy Susan — chute mount",
+      "name": "Lazy Susan \u2014 chute mount",
       "aliases": [
         "bottom interface lazy Susan chute mount",
         "bottom interface chute mount"
@@ -831,7 +831,7 @@
     {
       "id": "ls-bottom-static",
       "uid": "4mmh",
-      "name": "Lazy Susan — bottom static",
+      "name": "Lazy Susan \u2014 bottom static",
       "aliases": [
         "bottom interface lazy Susan fixed section",
         "bottom interface fixed section"
@@ -861,7 +861,7 @@
     {
       "id": "ls-mount-to-extrusion",
       "uid": "bmt4",
-      "name": "Lazy Susan — extrusion mount",
+      "name": "Lazy Susan \u2014 extrusion mount",
       "description": "Bottom lazy Susan mount to the external extrusion.",
       "internal_notes": "Frame color. QUANTITY ASSUMED 1.",
       "version": "1",
@@ -882,7 +882,7 @@
     {
       "id": "ls-hold-in-place",
       "uid": "ss05",
-      "name": "Lazy Susan — hold in place",
+      "name": "Lazy Susan \u2014 hold in place",
       "description": "Bottom lazy Susan hold-in-place. Optional.",
       "internal_notes": "Optional (file: 'optional hold in place'). Frame color. QUANTITY ASSUMED 1.",
       "version": "1",
@@ -903,7 +903,7 @@
     {
       "id": "ls-washer",
       "uid": "9c4a",
-      "name": "Lazy Susan — washer",
+      "name": "Lazy Susan \u2014 washer",
       "description": "Bottom lazy Susan washer.",
       "internal_notes": "Frame color. QUANTITY UNCONFIRMED (assumed 1; may be several).",
       "version": "1",
@@ -923,7 +923,7 @@
     {
       "id": "ext-bracket-left",
       "uid": "0b4g",
-      "name": "External bracket — side",
+      "name": "External bracket \u2014 side",
       "description": "Part of the external distribution-frame bracket (3-part assembly).",
       "internal_notes": "External distribution-frame bracket assembly member. 6 per distribution frame (per layer). Interface qty confirmed at 6, side and cover only, no bottom vertical there (top-interface.md step 14). Frame color.",
       "version": "1",
@@ -942,14 +942,14 @@
       "optional": false,
       "support": false,
       "low_tolerance": true,
-      "low_tolerance_note": "A test print is suggested. This part is a tight fit around the 2020 aluminum profile, so print one first and confirm it seats properly before committing to the full set — dial in your printer and profile together.",
+      "low_tolerance_note": "A test print is suggested. This part is a tight fit around the 2020 aluminum profile, so print one first and confirm it seats properly before committing to the full set \u2014 dial in your printer and profile together.",
       "onshape_version": "https://cad.onshape.com/documents/a4a1965bbaf3a15aff2b13ed/v/7279a42b05833c7b828efb0d/e/b0ee2e787191265cba1c1a31",
       "docs_page": "/hardware/helpers/external-bracket/"
     },
     {
       "id": "ext-bracket-bottom-vertical",
       "uid": "xgzj",
-      "name": "External bracket — bottom vertical",
+      "name": "External bracket \u2014 bottom vertical",
       "description": "Part of the external distribution-frame bracket (3-part assembly).",
       "internal_notes": "External distribution-frame bracket assembly member. 6 per distribution frame (per layer). Not used at the top interface: that joint has no bottom vertical or flange (top-interface.md step 14, confirmed 2026-08-25). The earlier 'interface: 6' assumption here was wrong, removed. Frame color.",
       "version": "1",
@@ -973,7 +973,7 @@
     {
       "id": "ext-bracket-cover",
       "uid": "1r5i",
-      "name": "External bracket — cover",
+      "name": "External bracket \u2014 cover",
       "description": "Part of the external distribution-frame bracket (3-part assembly).",
       "internal_notes": "External distribution-frame bracket assembly member. 6 per distribution frame (per layer). Interface qty confirmed at 6, side and cover only, no bottom vertical there (top-interface.md step 14). Frame color.",
       "version": "1",
@@ -1170,7 +1170,7 @@
       "uid": "50dv",
       "name": "Cable clamp (outer)",
       "description": "Outer half of the ribbon cable clamp. White.",
-      "internal_notes": "1 per interface. White. Pairs with the inner clamp (cable-clamp assembly). v2 (2026-07-18): enlarged the M3 nut pocket so the nut seats — it did not fit in v1.",
+      "internal_notes": "1 per interface. White. Pairs with the inner clamp (cable-clamp assembly). v2 (2026-07-18): enlarged the M3 nut pocket so the nut seats \u2014 it did not fit in v1.",
       "version": "2",
       "created_at": "2026-06-27",
       "updated_at": "2026-07-18",
@@ -1292,7 +1292,7 @@
     {
       "id": "chute-stepper-idler-bearing-retainer-outer",
       "uid": "wgsc",
-      "name": "Chute Stepper Idler Gear Bearing Retainer — Outer",
+      "name": "Chute Stepper Idler Gear Bearing Retainer \u2014 Outer",
       "aliases": [
         "Idler Gear Bearing Retainer - Outer",
         "idler bearing retainer"
@@ -1317,7 +1317,7 @@
     {
       "id": "chute-stepper-idler-bearing-retainer-inner",
       "uid": "zzql",
-      "name": "Chute Stepper Idler Gear Bearing Retainer — Inner",
+      "name": "Chute Stepper Idler Gear Bearing Retainer \u2014 Inner",
       "aliases": [
         "Idler Gear Bearing Retainer - Inner",
         "idler gear cap"
@@ -1491,7 +1491,7 @@
         "chute core mount"
       ],
       "description": "Section 3 of 3 of the top interface split spur gear (Spur 2M 120T).",
-      "internal_notes": "Split spur gear for the top interface; the 3 sections print separately and assemble into one gear. Chute-core color. Carries 4× M4 inserts, plus 7× M3: 2 for the cable clamp and 5 on the underside that the chute gear screws down into. Counted on the physical part by barthel 2026-08-21 and confirmed against the STL (7 x 4.20 mm bores, ruthex's recommended M3 insert hole, re-measured with the detection thresholds loosened in case any were missed). The previous count of 9 added 2 for the layer connector, which the published model does not have; resolves the docs-merge-2026-08-21 conflict.",
+      "internal_notes": "Split spur gear for the top interface; the 3 sections print separately and assemble into one gear. Chute-core color. Carries 4\u00d7 M4 inserts, plus 7\u00d7 M3: 2 for the cable clamp and 5 on the underside that the chute gear screws down into. Counted on the physical part by barthel 2026-08-21 and confirmed against the STL (7 x 4.20 mm bores, ruthex's recommended M3 insert hole, re-measured with the detection thresholds loosened in case any were missed). The previous count of 9 added 2 for the layer connector, which the published model does not have; resolves the docs-merge-2026-08-21 conflict.",
       "version": "1",
       "created_at": "2026-07-03",
       "updated_at": "2026-07-03",
@@ -1823,7 +1823,7 @@
     {
       "id": "servo-adapter-servo-side",
       "uid": "fu2t",
-      "name": "Servo adapter — servo side",
+      "name": "Servo adapter \u2014 servo side",
       "description": "MG995 servo adapter, servo side.",
       "internal_notes": "Chute-core assembly part. COLOR UNSPECIFIED by Spencer - defaulted to frame (black); confirm.",
       "version": "1",
@@ -1843,7 +1843,7 @@
     {
       "id": "servo-adapter-flap-side",
       "uid": "lv7n",
-      "name": "Servo adapter — flap side",
+      "name": "Servo adapter \u2014 flap side",
       "description": "MG995 servo adapter, flap side.",
       "internal_notes": "Chute-core assembly part. COLOR UNSPECIFIED by Spencer - defaulted to frame (black); confirm.",
       "version": "1",
@@ -1863,7 +1863,7 @@
     {
       "id": "servo-bracket-lower-arm",
       "uid": "yqz1",
-      "name": "Servo bracket — lower arm",
+      "name": "Servo bracket \u2014 lower arm",
       "description": "MG995 servo bracket, lower arm.",
       "internal_notes": "Chute-core assembly part. COLOR UNSPECIFIED by Spencer - defaulted to frame (black); confirm.",
       "version": "1",
@@ -1883,7 +1883,7 @@
     {
       "id": "servo-bracket-side-arm",
       "uid": "75na",
-      "name": "Servo bracket — side arm",
+      "name": "Servo bracket \u2014 side arm",
       "description": "MG995 servo bracket, side arm.",
       "internal_notes": "Chute-core assembly part. COLOR UNSPECIFIED by Spencer - defaulted to frame (black); confirm.",
       "version": "1",
@@ -1903,7 +1903,7 @@
     {
       "id": "servo-bracket-cover",
       "uid": "rqor",
-      "name": "Servo bracket — cover",
+      "name": "Servo bracket \u2014 cover",
       "description": "MG995 servo bracket, cover.",
       "internal_notes": "Chute-core assembly part. COLOR UNSPECIFIED by Spencer - defaulted to frame (black); confirm.",
       "version": "1",
@@ -1923,7 +1923,7 @@
     {
       "id": "servo-bracket-housing",
       "uid": "tr15",
-      "name": "Servo bracket — housing",
+      "name": "Servo bracket \u2014 housing",
       "description": "MG995 servo bracket, housing.",
       "internal_notes": "Chute-core assembly part. COLOR UNSPECIFIED by Spencer - defaulted to frame (black); confirm.",
       "version": "1",
@@ -2028,7 +2028,7 @@
     {
       "id": "camera-mount-part-6",
       "uid": "v9dv",
-      "name": "Overhead camera mount — A/B connector",
+      "name": "Overhead camera mount \u2014 A/B connector",
       "description": "Camera mount part 6. 2 per machine.",
       "internal_notes": "1 per camera mount x 2 mounts. Color not important (feeder).",
       "version": "1",
@@ -2085,7 +2085,7 @@
     {
       "id": "camera-mount-rod-mount",
       "uid": "twuu",
-      "name": "Camera mount — rod-to-C-channel mount",
+      "name": "Camera mount \u2014 rod-to-C-channel mount",
       "description": "Rod-to-C-channel mount (Part 33). 2 per camera mount, 4 total.",
       "internal_notes": "Part 33, the rod-to-c-channel mount. 2 per camera mount x 2 mounts = 4. Color not important (feeder).",
       "version": "1",
@@ -2547,7 +2547,7 @@
     {
       "id": "ctrl-board-housing-base",
       "uid": "204b",
-      "name": "Control Board Housing — Base",
+      "name": "Control Board Housing \u2014 Base",
       "description": "Base of the basically Embedded Control Board housing. The board screws straight to it on four heat inserts and the cover screws down onto four more; no standoffs.",
       "internal_notes": "From 'control board housing.zip' (Sorter V2 STLs, 2026-08-22). Entered the machine on 2026-08-23 when candidate rns2 was promoted to ctrl-board-mount v2. Eight standard M3 inserts (hsi-m3, RX-M3x5.7 -- Spencer said 'the long variant', which is this one relative to the short M3S): four under the board, four for the cover.",
       "version": "1",
@@ -2574,8 +2574,8 @@
     {
       "id": "ctrl-board-housing-cover",
       "uid": "ksh2",
-      "name": "Control Board Housing — Cover",
-      "description": "Cover of the basically Embedded Control Board housing. Screws to the base with four M3 × 12 mm countersunk screws, carries the 40 mm 24 V fan on four self-tapping M3 × 12 mm button head screws, and the plunger passes through it.",
+      "name": "Control Board Housing \u2014 Cover",
+      "description": "Cover of the basically Embedded Control Board housing. Screws to the base with four M3 \u00d7 12 mm countersunk screws, carries the 40 mm 24 V fan on four self-tapping M3 \u00d7 12 mm button head screws, and the plunger passes through it.",
       "internal_notes": "From 'control board housing.zip' (Sorter V2 STLs, 2026-08-22). Exists only inside candidate rns2 on ctrl-board-mount, so quantities stay empty and it stays out of the bundle until that candidate is promoted.",
       "version": "1",
       "created_at": "2026-08-22",
@@ -2595,7 +2595,7 @@
     {
       "id": "ctrl-board-housing-plunger",
       "uid": "cljt",
-      "name": "Control Board Housing — Plunger",
+      "name": "Control Board Housing \u2014 Plunger",
       "description": "Plunger that passes through the housing cover, held in by the plunger retainer.",
       "internal_notes": "From 'control board housing.zip' (Sorter V2 STLs, 2026-08-22). Exists only inside candidate rns2 on ctrl-board-mount, so quantities stay empty and it stays out of the bundle until that candidate is promoted.",
       "version": "1",
@@ -2616,8 +2616,8 @@
     {
       "id": "ctrl-board-housing-plunger-retainer",
       "uid": "g9sx",
-      "name": "Control Board Housing — Plunger Retainer",
-      "description": "Retains the plunger in the housing cover. Screws to the cover with two M3 × 8 mm countersunk screws.",
+      "name": "Control Board Housing \u2014 Plunger Retainer",
+      "description": "Retains the plunger in the housing cover. Screws to the cover with two M3 \u00d7 8 mm countersunk screws.",
       "internal_notes": "From 'control board housing.zip' (Sorter V2 STLs, 2026-08-22). Entered the machine on 2026-08-23 when candidate rns2 was promoted to ctrl-board-mount v2. Two countersunk holes either side of the plunger slot (counted off the STL).",
       "version": "1",
       "created_at": "2026-08-22",
@@ -2679,7 +2679,7 @@
       "uid": "3ufy",
       "name": "40 mm Fan Bracket",
       "description": "L-shaped bracket that cantilevers a 40 mm fan over a board on its extrusion mount. The same part on both the control board and the Orange Pi mounts, so two per machine.",
-      "internal_notes": "Was 2 per machine — the control board and the Orange Pi each had one. The control board's housing carries its own fan as of ctrl-board-mount v2 (2026-08-23), so only the Orange Pi mount still uses this.",
+      "internal_notes": "Was 2 per machine \u2014 the control board and the Orange Pi each had one. The control board's housing carries its own fan as of ctrl-board-mount v2 (2026-08-23), so only the Orange Pi mount still uses this.",
       "version": "1",
       "created_at": "2026-08-22",
       "updated_at": "2026-08-23",
@@ -2698,7 +2698,7 @@
     {
       "id": "meanwell-psu-housing-shell-rear",
       "uid": "7qz3",
-      "name": "PSU Housing — Shell Rear Tray",
+      "name": "PSU Housing \u2014 Shell Rear Tray",
       "description": "Rear tray of the v2 PSU housing. The Meanwell supply bolts into it on four M4 countersunk screws, and both lids screw down into it.",
       "internal_notes": "From 'meanwell psu housing v2.zip' (Sorter V2 STLs, 2026-08-22). Exists only inside candidate 1d0t on meanwell-psu-box, so quantities stay empty and it stays out of the all-parts bundle until that candidate is promoted. Named 'housing - shell rear tray.stl'. Carries the self-tapping M3 holes for both lids.",
       "version": "1",
@@ -2717,7 +2717,7 @@
     {
       "id": "meanwell-psu-housing-shell-front",
       "uid": "1h8p",
-      "name": "PSU Housing — Shell Front Module",
+      "name": "PSU Housing \u2014 Shell Front Module",
       "description": "Front module of the v2 PSU housing. The front panel slots into it, and the front lid screws down into it and into the rear tray.",
       "internal_notes": "From 'meanwell psu housing v2.zip' (Sorter V2 STLs, 2026-08-22). Exists only inside candidate 1d0t on meanwell-psu-box, so quantities stay empty and it stays out of the all-parts bundle until that candidate is promoted. Named 'housing - shell front module.stl'.",
       "version": "1",
@@ -2736,7 +2736,7 @@
     {
       "id": "meanwell-psu-housing-lid-rear",
       "uid": "m26o",
-      "name": "PSU Housing — Lid Rear",
+      "name": "PSU Housing \u2014 Lid Rear",
       "description": "Rear lid of the v2 PSU housing, vented over the supply. Screws into the rear tray on four self-tapping M3 countersunk screws.",
       "internal_notes": "From 'meanwell psu housing v2.zip' (Sorter V2 STLs, 2026-08-22). Exists only inside candidate 1d0t on meanwell-psu-box, so quantities stay empty and it stays out of the all-parts bundle until that candidate is promoted. Named 'housing - lid rear.stl'.",
       "version": "1",
@@ -2755,7 +2755,7 @@
     {
       "id": "meanwell-psu-housing-lid-front",
       "uid": "avux",
-      "name": "PSU Housing — Lid Front",
+      "name": "PSU Housing \u2014 Lid Front",
       "description": "Front lid of the v2 PSU housing. Spans the joint, screwing two into the front module and two into the rear tray, and traps the front panel once fitted.",
       "internal_notes": "From 'meanwell psu housing v2.zip' (Sorter V2 STLs, 2026-08-22). Exists only inside candidate 1d0t on meanwell-psu-box, so quantities stay empty and it stays out of the all-parts bundle until that candidate is promoted. Named 'housing - lid front.stl'.",
       "version": "1",
@@ -2774,7 +2774,7 @@
     {
       "id": "meanwell-psu-housing-front-panel",
       "uid": "n1oh",
-      "name": "PSU Housing — Front Panel",
+      "name": "PSU Housing \u2014 Front Panel",
       "description": "Front panel of the v2 PSU housing, carrying the mains inlet cutout. No fasteners of its own: it slots into the front module and the front lid holds it in.",
       "internal_notes": "From 'meanwell psu housing v2.zip' (Sorter V2 STLs, 2026-08-22). Exists only inside candidate 1d0t on meanwell-psu-box, so quantities stay empty and it stays out of the all-parts bundle until that candidate is promoted. Named 'housing - front panel.stl'.",
       "version": "1",
@@ -2798,12 +2798,12 @@
         "type": "screw",
         "size": "M3"
       },
-      "name": "M3 screw — type and length TBD",
+      "name": "M3 screw \u2014 type and length TBD",
       "category": "Screws",
       "description": "Placeholder for the M3s whose head type and length nobody has written down yet: the cable-mount cage bracket, the camera extension, and the two board mounts.",
       "created_at": "2026-07-18",
       "updated_at": "2026-07-18",
-      "note": "Neither the head type nor the length is recorded — measure before ordering.",
+      "note": "Neither the head type nor the length is recorded \u2014 measure before ordering.",
       "attributes": [
         {
           "label": "Thread",
@@ -2831,10 +2831,10 @@
       "name": "M3 socket/button head, length TBD",
       "category": "Screws",
       "alternative": "Socket or button head",
-      "description": "Was the placeholder for the screws holding the basically Embedded Control Board to the housing base, before they were measured as M3 × 6 mm button head. Nothing calls for it now; the uid is kept because it was minted.",
+      "description": "Was the placeholder for the screws holding the basically Embedded Control Board to the housing base, before they were measured as M3 \u00d7 6 mm button head. Nothing calls for it now; the uid is kept because it was minted.",
       "created_at": "2026-08-22",
       "updated_at": "2026-08-22",
-      "note": "Superseded before it was ever ordered — nothing in the catalog calls for it.",
+      "note": "Superseded before it was ever ordered \u2014 nothing in the catalog calls for it.",
       "attributes": [
         {
           "label": "Thread",
@@ -2860,7 +2860,7 @@
         "variant": "countersunk",
         "length_mm": 6
       },
-      "name": "M3 × 6 mm countersunk",
+      "name": "M3 \u00d7 6 mm countersunk",
       "category": "Screws",
       "description": "Secures the limit switch hammer into the top interface chute mount from below, into the hammer's M3 insert.",
       "created_at": "2026-08-18",
@@ -2882,7 +2882,7 @@
       "sheet_qty": {
         "per_machine": 1
       },
-      "note": "The ×1 is the top-interface count (limit-switch hammer). Screws used elsewhere on the machine aren't tallied here yet.",
+      "note": "The \u00d71 is the top-interface count (limit-switch hammer). Screws used elsewhere on the machine aren't tallied here yet.",
       "image_url": "https://assets.basically.website/sorter-parts/hardware-screws-countersunk-full-faf0edbe3324.jpg"
     },
     {
@@ -2895,7 +2895,7 @@
         "variant": "socket",
         "length_mm": 10
       },
-      "name": "M3 × 10 mm socket/button head",
+      "name": "M3 \u00d7 10 mm socket/button head",
       "category": "Screws",
       "alternative": "Socket or button head",
       "image_url": "https://assets.basically.website/sorter-parts/scr-m3-10-shcs-full-26e52d7d5bcd.png",
@@ -2919,7 +2919,7 @@
       "sheet_qty": {
         "per_machine": 3
       },
-      "note": "The ×3 is the top-interface count (2 cable clamp, 1 ribbon clamp). Screws used elsewhere on the machine aren't tallied here yet."
+      "note": "The \u00d73 is the top-interface count (2 cable clamp, 1 ribbon clamp). Screws used elsewhere on the machine aren't tallied here yet."
     },
     {
       "id": "scr-m3-8-cs",
@@ -2931,9 +2931,9 @@
         "variant": "countersunk",
         "length_mm": 8
       },
-      "name": "M3 × 8 mm countersunk",
+      "name": "M3 \u00d7 8 mm countersunk",
       "category": "Screws",
-      "description": "The workhorse M3 screw — used all over the machine wherever a flush head is wanted.",
+      "description": "The workhorse M3 screw \u2014 used all over the machine wherever a flush head is wanted.",
       "created_at": "2026-07-18",
       "updated_at": "2026-07-18",
       "attributes": [
@@ -2981,7 +2981,7 @@
         "variant": "socket",
         "length_mm": 8
       },
-      "name": "M2 × 8 mm socket/button head",
+      "name": "M2 \u00d7 8 mm socket/button head",
       "category": "Screws",
       "alternative": "Socket or button head",
       "description": "Self-taps the IMX415 classification camera board to the camera extension's printed post. 4 per module, no insert. May also fit the OV9732 overhead camera mount once that gets a real bracket (sorter-v2#426), not confirmed.",
@@ -3013,7 +3013,7 @@
         "variant": "socket",
         "length_mm": 8
       },
-      "name": "M3 × 8 mm socket/button head",
+      "name": "M3 \u00d7 8 mm socket/button head",
       "category": "Screws",
       "alternative": "Socket or button head",
       "description": "Clamps the C-channel input gear (12T) to the flat of the NEMA 17 shaft. 1 per C-channel.",
@@ -3033,7 +3033,7 @@
           "value": "Socket or button head, interchangeable (both bottom on the counterbore floor, so either just clamps)"
         }
       ],
-      "note": "Head type and length measured off the input-gear STL: the boss carries a Ø2.80 mm hole parallel to the shaft, 3.61 mm off the axis, opening into the Ø4.87 mm bore; the head sits in a round Ø6.40 mm × 2.7 mm counterbore with a 90° cone at the bottom, which is a flat-bottomed head seat rather than a countersink. A socket cap head (Ø5.5 × 3.0) bottoms on that floor and stands about 0.3 mm proud; a button head (Ø5.7 × 1.65) bottoms on the same floor about 1 mm below flush, so either clamps. At 8 mm the head seats and about 6 mm of thread is left in the plastic."
+      "note": "Head type and length measured off the input-gear STL: the boss carries a \u00d82.80 mm hole parallel to the shaft, 3.61 mm off the axis, opening into the \u00d84.87 mm bore; the head sits in a round \u00d86.40 mm \u00d7 2.7 mm counterbore with a 90\u00b0 cone at the bottom, which is a flat-bottomed head seat rather than a countersink. A socket cap head (\u00d85.5 \u00d7 3.0) bottoms on that floor and stands about 0.3 mm proud; a button head (\u00d85.7 \u00d7 1.65) bottoms on the same floor about 1 mm below flush, so either clamps. At 8 mm the head seats and about 6 mm of thread is left in the plastic."
     },
     {
       "id": "scr-m3-12-cs",
@@ -3045,7 +3045,7 @@
         "variant": "countersunk",
         "length_mm": 12
       },
-      "name": "M3 × 12 mm countersunk",
+      "name": "M3 \u00d7 12 mm countersunk",
       "category": "Screws",
       "description": "The long M3 countersunk. Used all over the machine.",
       "created_at": "2026-07-18",
@@ -3095,9 +3095,9 @@
         "variant": "countersunk",
         "length_mm": 20
       },
-      "name": "M3 × 20 mm countersunk",
+      "name": "M3 \u00d7 20 mm countersunk",
       "category": "Screws",
-      "description": "Joins the C-channel light post to the NEMA bracket. Threads straight into the printed post — no insert, no nut.",
+      "description": "Joins the C-channel light post to the NEMA bracket. Threads straight into the printed post \u2014 no insert, no nut.",
       "created_at": "2026-07-18",
       "updated_at": "2026-07-18",
       "attributes": [
@@ -3142,7 +3142,7 @@
         "variant": "socket",
         "length_mm": 16
       },
-      "name": "M3 × 16 mm socket/button head",
+      "name": "M3 \u00d7 16 mm socket/button head",
       "category": "Screws",
       "alternative": "Socket or button head",
       "image_url": "https://assets.basically.website/sorter-parts/scr-m3-16-shcs-full-26e52d7d5bcd.png",
@@ -3174,7 +3174,7 @@
         "variant": "button",
         "length_mm": 6
       },
-      "name": "M3 × 6 mm socket/button head",
+      "name": "M3 \u00d7 6 mm socket/button head",
       "category": "Screws",
       "alternative": "Socket or button head",
       "image_url": "https://assets.basically.website/sorter-parts/scr-m3-6-bhcs-full-26e52d7d5bcd.png",
@@ -3206,7 +3206,7 @@
         "variant": "button",
         "length_mm": 12
       },
-      "name": "M3 × 12 mm socket/button head",
+      "name": "M3 \u00d7 12 mm socket/button head",
       "category": "Screws",
       "alternative": "Socket or button head",
       "image_url": "https://assets.basically.website/sorter-parts/scr-m3-12-bhcs-full-26e52d7d5bcd.png",
@@ -3238,7 +3238,7 @@
         "variant": "flat",
         "length_mm": 35
       },
-      "name": "M3 × 35 mm flat head",
+      "name": "M3 \u00d7 35 mm flat head",
       "category": "Screws",
       "alternative": "Flat or pan head",
       "description": "The two long M3s on the top interface: one clamps the two cable-clamp halves together, one retains the idler gear on the NEMA 23 bracket. Same screw for both. The head has to stay low because of the idler joint: a socket or button head stands proud enough for the limit switch hammer to catch on it as the chute sweeps past.",
@@ -3269,7 +3269,7 @@
         "variant": "countersunk",
         "length_mm": 6
       },
-      "name": "M4 × 6 mm countersunk",
+      "name": "M4 \u00d7 6 mm countersunk",
       "category": "Screws",
       "description": "Fastens the printed PSU housing to the power supply's own case threads.",
       "created_at": "2026-07-18",
@@ -3299,9 +3299,9 @@
         "variant": "countersunk",
         "length_mm": 12
       },
-      "name": "M4 × 12 mm countersunk",
+      "name": "M4 \u00d7 12 mm countersunk",
       "category": "Screws",
-      "description": "Bolts each lazy Susan together — 4 a side, through the M4 inserts in the static half and the chute mount. 2 lazy Susans per machine.",
+      "description": "Bolts each lazy Susan together \u2014 4 a side, through the M4 inserts in the static half and the chute mount. 2 lazy Susans per machine.",
       "created_at": "2026-07-18",
       "updated_at": "2026-07-18",
       "attributes": [
@@ -3330,7 +3330,7 @@
         "variant": "socket",
         "length_mm": 12
       },
-      "name": "M5 × 12 mm socket/button head",
+      "name": "M5 \u00d7 12 mm socket/button head",
       "category": "Screws",
       "alternative": "Socket or button head",
       "image_url": "https://assets.basically.website/sorter-parts/scr-m5-12-shcs-full-26e52d7d5bcd.png",
@@ -3362,7 +3362,7 @@
         "variant": "socket",
         "length_mm": 16
       },
-      "name": "M5 × 16 mm socket/button head",
+      "name": "M5 \u00d7 16 mm socket/button head",
       "category": "Screws",
       "alternative": "Socket or button head",
       "image_url": "https://assets.basically.website/sorter-parts/scr-m5-16-shcs-full-26e52d7d5bcd.png",
@@ -3383,7 +3383,7 @@
           "value": "Socket or button head, interchangeable (both flat-bottomed, so either just clamps; socket is the default)"
         }
       ],
-      "note": "Designed to self-tap into printed plastic wherever it lands in an external bracket or the upper fixed section — no nut and no insert there."
+      "note": "Designed to self-tap into printed plastic wherever it lands in an external bracket or the upper fixed section \u2014 no nut and no insert there."
     },
     {
       "id": "scr-m5-20-shcs",
@@ -3395,7 +3395,7 @@
         "variant": "socket",
         "length_mm": 20
       },
-      "name": "M5 × 20 mm socket/button head",
+      "name": "M5 \u00d7 20 mm socket/button head",
       "category": "Screws",
       "alternative": "Socket or button head",
       "image_url": "https://assets.basically.website/sorter-parts/scr-m5-20-shcs-full-26e52d7d5bcd.png",
@@ -3427,7 +3427,7 @@
         "variant": "socket",
         "length_mm": 30
       },
-      "name": "M5 × 30 mm socket/button head",
+      "name": "M5 \u00d7 30 mm socket/button head",
       "category": "Screws",
       "alternative": "Socket or button head",
       "image_url": "https://assets.basically.website/sorter-parts/scr-m5-30-shcs-full-26e52d7d5bcd.png",
@@ -3459,7 +3459,7 @@
         "variant": "flat",
         "length_mm": 35
       },
-      "name": "M5 × 35 mm flat head",
+      "name": "M5 \u00d7 35 mm flat head",
       "internal_notes": "Flat (pancake) head, hex socket, confirmed by barthel 2026-08-21: \"The m3x35mm must be a flat hat screw like in calculator\" (the M5 x 35 is the only 35 mm screw the two catalogs disagreed about; the M3 x 35 was already settled as flat head in #356). The docs catalog had called it a socket head cap screw; that claim is dropped and the docs prose now says flat head. Resolves the last docs-merge-2026-08-21 conflict.",
       "category": "Screws",
       "description": "The long screws that stack the cable cage together, and that bolt the plywood top plate down onto the interface brackets.",
@@ -3516,7 +3516,7 @@
         "variant": "countersunk",
         "length_mm": 8
       },
-      "name": "M5 × 8 mm countersunk",
+      "name": "M5 \u00d7 8 mm countersunk",
       "category": "Screws",
       "description": "Loosely fixes the limit-switch interface bracket's extrusion into the interface rib while aligning it, into a T-nut.",
       "created_at": "2026-08-18",
@@ -3535,7 +3535,7 @@
           "value": "Countersunk (flat) socket"
         }
       ],
-      "note": "A snug fit here, it barely reaches the T-nut. Opening the countersink a little and tightening firmly gets the head to sit flush. The ×6 is the top-interface count (1 per interface bracket); screws used elsewhere on the machine aren't tallied here yet.",
+      "note": "A snug fit here, it barely reaches the T-nut. Opening the countersink a little and tightening firmly gets the head to sit flush. The \u00d76 is the top-interface count (1 per interface bracket); screws used elsewhere on the machine aren't tallied here yet.",
       "sheet_qty": {
         "per_machine": 6
       },
@@ -3551,9 +3551,9 @@
         "variant": "countersunk",
         "length_mm": 22
       },
-      "name": "M5 × 22 mm countersunk",
+      "name": "M5 \u00d7 22 mm countersunk",
       "category": "Screws",
-      "description": "Bolts the interface bracket assembly and all six interface brackets down through the laser-cut top plate (holes S2/S3, then I1–I6 and O1–O6).",
+      "description": "Bolts the interface bracket assembly and all six interface brackets down through the laser-cut top plate (holes S2/S3, then I1\u2013I6 and O1\u2013O6).",
       "created_at": "2026-08-18",
       "updated_at": "2026-08-18",
       "attributes": [
@@ -3570,7 +3570,7 @@
           "value": "Countersunk (flat) socket"
         }
       ],
-      "note": "The top plate's laser-cut holes aren't countersunk, so where a flush head won't seat an M5 × 20 button head is used instead. The ×14 is the top-interface count (2 to the top plate, 12 through the bracket holes); screws used elsewhere on the machine aren't tallied here yet.",
+      "note": "The top plate's laser-cut holes aren't countersunk, so where a flush head won't seat an M5 \u00d7 20 button head is used instead. The \u00d714 is the top-interface count (2 to the top plate, 12 through the bracket holes); screws used elsewhere on the machine aren't tallied here yet.",
       "sheet_qty": {
         "per_machine": 14
       },
@@ -3606,7 +3606,7 @@
           "value": "Socket or button head, interchangeable (both flat-bottomed, so either just clamps; socket is the default)"
         }
       ],
-      "note": "Length unknown — measure one on the machine before ordering. Six are used: PSU box, control board mount, Orange Pi mount."
+      "note": "Length unknown \u2014 measure one on the machine before ordering. Six are used: PSU box, control board mount, Orange Pi mount."
     },
     {
       "id": "washer-m3-15",
@@ -3616,9 +3616,9 @@
         "type": "washer",
         "size": "M3"
       },
-      "name": "M3 × 15 mm washer",
+      "name": "M3 \u00d7 15 mm washer",
       "category": "Washers",
-      "description": "Flat/fender washer, 15 mm outer diameter. Added to the catalog to match the documentation's description of the interface idler gear joint, under the M3 × 35 screw that holds the gear onto the NEMA 23 bracket. That documentation was wrong: the joint's actual design uses the printed chute stepper idler bearing retainers instead (wired up 2026-08-25), so this part was never correct here. Not used anywhere in the machine.",
+      "description": "Flat/fender washer, 15 mm outer diameter. Added to the catalog to match the documentation's description of the interface idler gear joint, under the M3 \u00d7 35 screw that holds the gear onto the NEMA 23 bracket. That documentation was wrong: the joint's actual design uses the printed chute stepper idler bearing retainers instead (wired up 2026-08-25), so this part was never correct here. Not used anywhere in the machine.",
       "created_at": "2026-08-18",
       "updated_at": "2026-08-25",
       "attributes": [
@@ -3719,7 +3719,7 @@
         "type": "stock-material",
         "size": "3/8 in"
       },
-      "name": "Steel rod, 3/8 in — 4 ft stock",
+      "name": "Steel rod, 3/8 in \u2014 4 ft stock",
       "category": "Stock material",
       "description": "Bought as a length and cut down. One 4 ft rod yields all four ~1 ft pieces the two overhead camera arms hang from.",
       "created_at": "2026-07-18",
@@ -3734,7 +3734,7 @@
       "attributes": [
         {
           "label": "Diameter",
-          "value": "3/8 in (9.53 mm) · 10 mm in metric"
+          "value": "3/8 in (9.53 mm) \u00b7 10 mm in metric"
         },
         {
           "label": "Buy",
@@ -3742,7 +3742,7 @@
         },
         {
           "label": "Cut into",
-          "value": "4 × ~1 ft (305 mm)"
+          "value": "4 \u00d7 ~1 ft (305 mm)"
         },
         {
           "label": "Material",
@@ -4193,7 +4193,7 @@
         },
         {
           "label": "Thread",
-          "value": "M6 × 1.0"
+          "value": "M6 \u00d7 1.0"
         },
         {
           "label": "Material",
@@ -4230,7 +4230,7 @@
         "type": "wheel",
         "size": "M6"
       },
-      "name": "Swivel stem caster, M6 × 15 mm",
+      "name": "Swivel stem caster, M6 \u00d7 15 mm",
       "category": "Wheels",
       "description": "Screws into the 2020 foot connector so the machine can roll.",
       "created_at": "2026-07-18",
@@ -4238,7 +4238,7 @@
       "attributes": [
         {
           "label": "Thread",
-          "value": "M6 × 1.0, 15 mm stem"
+          "value": "M6 \u00d7 1.0, 15 mm stem"
         },
         {
           "label": "Wheel",
@@ -4418,7 +4418,7 @@
       "attributes": [
         {
           "label": "Size",
-          "value": "30 × 42 × 7 mm (ID × OD × W)"
+          "value": "30 \u00d7 42 \u00d7 7 mm (ID \u00d7 OD \u00d7 W)"
         },
         {
           "label": "Seal",
@@ -4506,7 +4506,7 @@
       "attributes": [
         {
           "label": "Size",
-          "value": "20 × 27 × 4 mm (ID × OD × W)"
+          "value": "20 \u00d7 27 \u00d7 4 mm (ID \u00d7 OD \u00d7 W)"
         },
         {
           "label": "Seal",
@@ -4652,7 +4652,7 @@
         },
         {
           "label": "Size",
-          "value": "22 × 30 mm"
+          "value": "22 \u00d7 30 mm"
         },
         {
           "label": "Fits",
@@ -4889,7 +4889,7 @@
       "cots": {
         "type": "cable"
       },
-      "name": "IDC ribbon cable, 16-pin (2×8), 1 m",
+      "name": "IDC ribbon cable, 16-pin (2\u00d78), 1 m",
       "category": "Electronics",
       "description": "Cable from distribution board to chute",
       "created_at": "2026-07-18",
@@ -4914,7 +4914,7 @@
       "attributes": [
         {
           "label": "Pins",
-          "value": "16 (2×8), FC to FC, A-type"
+          "value": "16 (2\u00d78), FC to FC, A-type"
         },
         {
           "label": "Pitch",
@@ -4937,7 +4937,7 @@
       "cots": {
         "type": "cable"
       },
-      "name": "IDC ribbon cable, 16-pin (2×8), 30 cm",
+      "name": "IDC ribbon cable, 16-pin (2\u00d78), 30 cm",
       "category": "Electronics",
       "description": "Cable between layer and layer below",
       "created_at": "2026-07-18",
@@ -4962,7 +4962,7 @@
       "attributes": [
         {
           "label": "Pins",
-          "value": "16 (2×8), female-to-female FC"
+          "value": "16 (2\u00d78), female-to-female FC"
         },
         {
           "label": "Pitch",
@@ -5137,7 +5137,7 @@
       "cots": {
         "type": "converter"
       },
-      "name": "24 V → 5 V USB-C buck converter",
+      "name": "24 V \u2192 5 V USB-C buck converter",
       "category": "Wire harness",
       "description": "Powers the Orange Pi from the 24 V PSU.",
       "created_at": "2026-07-18",
@@ -5145,7 +5145,7 @@
       "attributes": [
         {
           "label": "Input",
-          "value": "DC 8–32 V (12 V / 24 V nominal)"
+          "value": "DC 8\u201332 V (12 V / 24 V nominal)"
         },
         {
           "label": "Output",
@@ -5231,7 +5231,7 @@
         },
         {
           "label": "Fuse",
-          "value": "10 A installed (5 × 20 mm)"
+          "value": "10 A installed (5 \u00d7 20 mm)"
         },
         {
           "label": "Wiring",
@@ -5239,7 +5239,7 @@
         },
         {
           "label": "Cutout",
-          "value": "47 × 28 mm; holes 40 mm apart, 3.2 mm"
+          "value": "47 \u00d7 28 mm; holes 40 mm apart, 3.2 mm"
         }
       ],
       "sheet_qty": {
@@ -5269,13 +5269,13 @@
       },
       "name": "40 mm 24 V fan (WINSINN 4010)",
       "category": "Electronics",
-      "description": "40 x 40 x 10 mm axial fan, 24 V, on the control board housing cover; mounted with four self-tapping M3 × 12 mm button head screws. Comes with an XH2.54 2-pin lead, which plugs straight into one of the board's LED ports.",
+      "description": "40 x 40 x 10 mm axial fan, 24 V, on the control board housing cover; mounted with four self-tapping M3 \u00d7 12 mm button head screws. Comes with an XH2.54 2-pin lead, which plugs straight into one of the board's LED ports.",
       "created_at": "2026-08-22",
       "updated_at": "2026-08-23",
       "attributes": [
         {
           "label": "Size",
-          "value": "40 × 40 × 10 mm"
+          "value": "40 \u00d7 40 \u00d7 10 mm"
         },
         {
           "label": "Voltage",
@@ -5429,7 +5429,7 @@
       "photo": "https://assets.basically.website/sorter-parts/top-interface-cable-cage-top-full-9e4c43a620ca.png",
       "assembly": "Cable Cage",
       "description": "Top plate of the cable cage. Has a keyed cutout for easy insertion/removal of the interface.",
-      "thicknessIn": "1/8″",
+      "thicknessIn": "1/8\u2033",
       "thicknessMm": 3,
       "widthMm": 325,
       "heightMm": 375,
@@ -5440,9 +5440,9 @@
       "updated": "2026-07-10",
       "handcut": {
         "guide": "cage-top",
-        "blurb": "A regular hexagon, same outline as the bottom plate. Lays out from a rectangle with a tape measure: the centre is one big Ø177 mm drilled-and-jigsawed hole, six mounting holes sit on a 175 mm-radius bolt circle, and a small keyed notch is drilled at each end.",
-        "stock": "325 × 375 mm rectangle (12 13/16″ × 14 3/4″)",
-        "tools": "jigsaw · drill · tape measure"
+        "blurb": "A regular hexagon, same outline as the bottom plate. Lays out from a rectangle with a tape measure: the centre is one big \u00d8177 mm drilled-and-jigsawed hole, six mounting holes sit on a 175 mm-radius bolt circle, and a small keyed notch is drilled at each end.",
+        "stock": "325 \u00d7 375 mm rectangle (12 13/16\u2033 \u00d7 14 3/4\u2033)",
+        "tools": "jigsaw \u00b7 drill \u00b7 tape measure"
       },
       "printed": {
         "blurb": "A community 3D-printed alternative from Alec, in six/five segments (a Bambu A1's bed can't fit the whole hexagon in one piece). Bolt the segments together with M3 nuts and bolts as a clamp, glue the joints, then remove the M3 hardware once the glue has cured.",
@@ -5466,7 +5466,7 @@
       "photo": "https://assets.basically.website/sorter-parts/top-interface-cable-cage-bottom-full-283aeb114195.png",
       "assembly": "Cable Cage",
       "description": "Bottom plate of the cable cage.",
-      "thicknessIn": "1/8″",
+      "thicknessIn": "1/8\u2033",
       "thicknessMm": 3,
       "widthMm": 325,
       "heightMm": 375,
@@ -5477,9 +5477,9 @@
       "updated": "2026-07-10",
       "handcut": {
         "guide": "cage-bottom",
-        "blurb": "The same regular-hexagon outline as the top cage, but simpler: one big Ø177 mm centre hole and six Ø5.5 mm mounting holes on a 175 mm-radius bolt circle. No small holes, no notch.",
-        "stock": "325 × 375 mm rectangle (12 13/16″ × 14 3/4″)",
-        "tools": "jigsaw · drill · tape measure"
+        "blurb": "The same regular-hexagon outline as the top cage, but simpler: one big \u00d8177 mm centre hole and six \u00d85.5 mm mounting holes on a 175 mm-radius bolt circle. No small holes, no notch.",
+        "stock": "325 \u00d7 375 mm rectangle (12 13/16\u2033 \u00d7 14 3/4\u2033)",
+        "tools": "jigsaw \u00b7 drill \u00b7 tape measure"
       },
       "printed": {
         "blurb": "A community 3D-printed alternative from Alec, in six/five segments (a Bambu A1's bed can't fit the whole hexagon in one piece). Bolt the segments together with M3 nuts and bolts as a clamp, glue the joints, then remove the M3 hardware once the glue has cured.",
@@ -5499,7 +5499,7 @@
       "photo": "https://assets.basically.website/sorter-parts/top-interface-top-plate-w1600-00182ea8156d.jpg",
       "caption": "The machine's hexagonal top plate; the interface mounts under it.",
       "description": "Machine top plate. Has 5 cable holes and holes for the main stepper. Does not yet have mount holes for the C-channels.",
-      "thicknessIn": "3/8″",
+      "thicknessIn": "3/8\u2033",
       "thicknessMm": 10,
       "widthMm": 672,
       "heightMm": 770,
@@ -5510,9 +5510,9 @@
       "updated": "2026-07-10",
       "handcut": {
         "guide": "top-plate",
-        "blurb": "This plate is a regular hexagon — it can be laid out with a tape measure and cut accurately with just a jigsaw and a drill. The five cable slots become single 22 mm (7/8″) drill holes.",
-        "stock": "672.4 × 776.4 mm rectangle (26 15/32″ × 30 9/16″)",
-        "tools": "jigsaw · drill · tape measure"
+        "blurb": "This plate is a regular hexagon \u2014 it can be laid out with a tape measure and cut accurately with just a jigsaw and a drill. The five cable slots become single 22 mm (7/8\u2033) drill holes.",
+        "stock": "672.4 \u00d7 776.4 mm rectangle (26 15/32\u2033 \u00d7 30 9/16\u2033)",
+        "tools": "jigsaw \u00b7 drill \u00b7 tape measure"
       }
     }
   ],
@@ -5528,7 +5528,7 @@
       "joining": [
         {
           "method": "self-tap",
-          "note": "The two [[hw:scr-m3-20-cs]] screws that join the post to the NEMA bracket thread straight into the printed post — no insert, no nut."
+          "note": "The two [[hw:scr-m3-20-cs]] screws that join the post to the NEMA bracket thread straight into the printed post \u2014 no insert, no nut."
         }
       ],
       "lines": [
@@ -5596,13 +5596,13 @@
       "uid": "99af",
       "version": "1",
       "name": "Fixed upper section",
-      "description": "The interface's fixed upper section: the upper-fixed-section plate, its ribs (5 plain + 1 with the limit-switch gap), and the big spacer. 1 per interface. Each rib takes 2 × [[hw:scr-m5-16-shcs]] into the plate; the screw that ties it to its bracket's extrusion belongs to the interface above.",
+      "description": "The interface's fixed upper section: the upper-fixed-section plate, its ribs (5 plain + 1 with the limit-switch gap), and the big spacer. 1 per interface. Each rib takes 2 \u00d7 [[hw:scr-m5-16-shcs]] into the plate; the screw that ties it to its bracket's extrusion belongs to the interface above.",
       "docs": "/hardware/assembly/distribution/top-interface/",
       "status": "partial",
       "joining": [
         {
           "method": "self-tap",
-          "note": "Both of each rib's [[hw:scr-m5-16-shcs]] thread straight into the printed upper fixed section — no insert, no nut."
+          "note": "Both of each rib's [[hw:scr-m5-16-shcs]] thread straight into the printed upper fixed section \u2014 no insert, no nut."
         }
       ],
       "lines": [
@@ -5668,7 +5668,7 @@
       "uid": "jqhp",
       "version": "1",
       "name": "Chute bearing assembly",
-      "description": "The flap's bearing assembly: left + right bearing holders, the race between them, and the covers. Carries 10 M3 inserts and the two flap bearings, one screw per insert: 6 M3 × 8 hold the covers to the holders (3 each), 4 hold the holders to the race (2 each).",
+      "description": "The flap's bearing assembly: left + right bearing holders, the race between them, and the covers. Carries 10 M3 inserts and the two flap bearings, one screw per insert: 6 M3 \u00d7 8 hold the covers to the holders (3 each), 4 hold the holders to the race (2 each).",
       "status": "partial",
       "lines": [
         {
@@ -6064,7 +6064,7 @@
       "uid": "s7bo",
       "version": "1",
       "name": "Pico with headers",
-      "description": "The Raspberry Pi Pico with 2.54 mm header pins fitted, so it can seat in the PCB. The board ships bare — the pins are a separate purchase.",
+      "description": "The Raspberry Pi Pico with 2.54 mm header pins fitted, so it can seat in the PCB. The board ships bare \u2014 the pins are a separate purchase.",
       "docs": "/hardware/electronics/installation/pico-headers/",
       "status": "partial",
       "joining": [
@@ -6155,7 +6155,7 @@
       "uid": "bkgq",
       "version": "2",
       "name": "Interface",
-      "description": "The interface between the feeder and the distribution layers. Its lazy Susan sandwiches the upper fixed section and the chute mount, 4 × [[hw:scr-m4-12-cs]] a side, and the plywood top plate bolts down onto the six brackets' inserts.",
+      "description": "The interface between the feeder and the distribution layers. Its lazy Susan sandwiches the upper fixed section and the chute mount, 4 \u00d7 [[hw:scr-m4-12-cs]] a side, and the plywood top plate bolts down onto the six brackets' inserts.",
       "docs": "/hardware/assembly/distribution/top-interface/",
       "status": "partial",
       "lines": [
@@ -6404,7 +6404,7 @@
       "uid": "jog7",
       "version": "2",
       "name": "Distribution layer",
-      "description": "One distribution layer between the interfaces: frame, chute, bin retainers, funnels, bins. Each bin retainer takes 2 × [[hw:scr-m5-12-shcs]] into a [[hw:tnut-m5-2020]].",
+      "description": "One distribution layer between the interfaces: frame, chute, bin retainers, funnels, bins. Each bin retainer takes 2 \u00d7 [[hw:scr-m5-12-shcs]] into a [[hw:tnut-m5-2020]].",
       "docs": "/hardware/assembly/distribution/bin-frame/regular-layers/",
       "status": "partial",
       "lines": [
@@ -6596,7 +6596,7 @@
       "uid": "mttx",
       "version": "1",
       "name": "C-channel drive",
-      "description": "One C-channel drive unit: stator, NEMA bracket, output gear, gear train and stepper. 4 per machine — 3 in the feeder plus the classification channel's. Screw joints: 4 × [[hw:scr-m3-12-cs]] hold the NEMA bracket to the stator; 3 × [[hw:scr-m3-16-shcs]] hold the stepper to the NEMA bracket; 1 × [[hw:scr-m3-8-shcs]] clamps the input gear to the motor shaft flat; 6 × [[hw:scr-m3-12-cs]] attach the output gear to the rotor, one per spoke — the gear is 8 mm thick at the bolt circle and a countersunk screw's length is measured over its head, so an M3 × 8 seated flush reaches nothing (the light post's 2 × [[hw:scr-m3-20-cs]] into the NEMA bracket live on the light-post assembly). The rotor differs by location (faceted in the feeder, finned in the classification chamber), so it is not part of this node.",
+      "description": "One C-channel drive unit: stator, NEMA bracket, output gear, gear train and stepper. 4 per machine \u2014 3 in the feeder plus the classification channel's. Screw joints: 4 \u00d7 [[hw:scr-m3-12-cs]] hold the NEMA bracket to the stator; 3 \u00d7 [[hw:scr-m3-16-shcs]] hold the stepper to the NEMA bracket; 1 \u00d7 [[hw:scr-m3-8-shcs]] clamps the input gear to the motor shaft flat; 6 \u00d7 [[hw:scr-m3-12-cs]] attach the output gear to the rotor, one per spoke \u2014 the gear is 8 mm thick at the bolt circle and a countersunk screw's length is measured over its head, so an M3 \u00d7 8 seated flush reaches nothing (the light post's 2 \u00d7 [[hw:scr-m3-20-cs]] into the NEMA bracket live on the light-post assembly). The rotor differs by location (faceted in the feeder, finned in the classification chamber), so it is not part of this node.",
       "docs": "/hardware/assembly/feeder/c-channel/",
       "status": "partial",
       "lines": [
@@ -6643,7 +6643,7 @@
       "uid": "cwji",
       "version": "1",
       "name": "Chute Stepper Gearing",
-      "description": "The printed drive and idler gearing that transfers motion from the NEMA 23 chute stepper. The idler gear's 608 2RS bearing is retained by two printed caps: [[hw:chute-stepper-idler-bearing-retainer-outer]] bolts over the bearing pocket on 4 × [[hw:scr-m3-8-cs]] into the gear's own heat inserts (the same screw the Interface spur gear uses two lines up), and [[hw:chute-stepper-idler-bearing-retainer-inner]] caps the bore where 1 × [[hw:scr-m3-35-bhcs]] still runs through into the bracket. The low head on the M3×35 keeps it clear of the limit switch hammer.",
+      "description": "The printed drive and idler gearing that transfers motion from the NEMA 23 chute stepper. The idler gear's 608 2RS bearing is retained by two printed caps: [[hw:chute-stepper-idler-bearing-retainer-outer]] bolts over the bearing pocket on 4 \u00d7 [[hw:scr-m3-8-cs]] into the gear's own heat inserts (the same screw the Interface spur gear uses two lines up), and [[hw:chute-stepper-idler-bearing-retainer-inner]] caps the bore where 1 \u00d7 [[hw:scr-m3-35-bhcs]] still runs through into the bracket. The low head on the M3\u00d735 keeps it clear of the limit switch hammer.",
       "docs": "/hardware/assembly/distribution/top-interface/",
       "status": "partial",
       "lines": [
@@ -6732,7 +6732,7 @@
       "uid": "8cjj",
       "version": "1",
       "name": "Interface chute gear + mount",
-      "description": "The chute gear screwed down onto the top interface chute mount — two sections of the split spur gear that become one turning unit.",
+      "description": "The chute gear screwed down onto the top interface chute mount \u2014 two sections of the split spur gear that become one turning unit.",
       "docs": "/hardware/assembly/distribution/top-interface/",
       "status": "partial",
       "lines": [
@@ -6755,13 +6755,13 @@
       "uid": "8z0e",
       "version": "1",
       "name": "Hex frame",
-      "description": "The hexagonal aluminum-and-bracket ring shared by every layer, the bottom interface and the top interface. Six A/G outer-ring sections joined by six External bracket — side, with six B/H spokes and Frame crossbeams held inside by the Frame 90° brackets, friction-fit with no hardware. The 24 T-nuts are pre-installed in the A/G extrusion for the bin retainers a layer attaches later; the top interface's own hex frame pre-installs the same 24 without using them, since it has no bin retainers.",
+      "description": "The hexagonal aluminum-and-bracket ring shared by every layer, the bottom interface and the top interface. Six A/G outer-ring sections joined by six External bracket \u2014 side, with six B/H spokes and Frame crossbeams held inside by the Frame 90\u00b0 brackets, friction-fit with no hardware. The 24 T-nuts are pre-installed in the A/G extrusion for the bin retainers a layer attaches later; the top interface's own hex frame pre-installs the same 24 without using them, since it has no bin retainers.",
       "docs": "/hardware/assembly/distribution/bin-frame/hex-frame/",
       "status": "partial",
       "joining": [
         {
           "method": "friction",
-          "note": "The Frame 90° bracket and Frame crossbeam take no hardware at all -- they hold in place by friction against alignment nubs in the extrusion. Confirmed by Spencer 2026-08-26, see the docs' Build the hex frame page."
+          "note": "The Frame 90\u00b0 bracket and Frame crossbeam take no hardware at all -- they hold in place by friction against alignment nubs in the extrusion. Confirmed by Spencer 2026-08-26, see the docs' Build the hex frame page."
         }
       ],
       "lines": [
@@ -6800,7 +6800,7 @@
       "uid": "22ck",
       "version": "2",
       "name": "Distribution frame",
-      "description": "The frame of one distribution layer: a hex frame plus the External bracket — cover and — bottom vertical that turn its side brackets into full collars for piece C. The aluminum extrusion it is built on is sized on the framing tab, not listed here.",
+      "description": "The frame of one distribution layer: a hex frame plus the External bracket \u2014 cover and \u2014 bottom vertical that turn its side brackets into full collars for piece C. The aluminum extrusion it is built on is sized on the framing tab, not listed here.",
       "docs": "/hardware/assembly/distribution/bin-frame/regular-layers/",
       "status": "partial",
       "lines": [
@@ -6825,7 +6825,7 @@
         {
           "version": "1",
           "uid": "adaj",
-          "message": "Original version: bundled the hex frame's own outer ring, spokes, crossbeams and 90° brackets inline instead of as a separate assembly.",
+          "message": "Original version: bundled the hex frame's own outer ring, spokes, crossbeams and 90\u00b0 brackets inline instead of as a separate assembly.",
           "lines": [
             {
               "assembly": "external-bracket",
@@ -6847,7 +6847,7 @@
         {
           "version": "2",
           "date": "2026-08-29",
-          "message": "Split the hex frame (outer ring, spokes, crossbeams, 90° brackets) out into its own hex-frame assembly, reused by layer, bottom-interface and interface, instead of duplicating it. This assembly is now just the collar delta on top of one hex frame.",
+          "message": "Split the hex frame (outer ring, spokes, crossbeams, 90\u00b0 brackets) out into its own hex-frame assembly, reused by layer, bottom-interface and interface, instead of duplicating it. This assembly is now just the collar delta on top of one hex frame.",
           "commit": "a2c66436"
         }
       ]
@@ -6857,7 +6857,7 @@
       "uid": "rns2",
       "version": "2",
       "name": "basically Embedded Control Board Housing",
-      "description": "The basically Embedded Control Board closed into a two-part printed housing that bolts to the 2020 extrusion. The board screws straight to the base — no bracket, no standoffs — and the cover carries a 40 mm 24 V fan and a plunger that reaches the board's reset button from outside.",
+      "description": "The basically Embedded Control Board closed into a two-part printed housing that bolts to the 2020 extrusion. The board screws straight to the base \u2014 no bracket, no standoffs \u2014 and the cover carries a 40 mm 24 V fan and a plunger that reaches the board's reset button from outside.",
       "section": "electronics",
       "docs": "/hardware/electronics/installation/control-board-housing/",
       "status": "partial",
@@ -6930,7 +6930,7 @@
           "version": "1",
           "uid": "u12m",
           "date": "2026-07-18",
-          "message": "The board stood off a printed bracket on four 10 mm standoffs, and the 40 mm fan sat on a separate bracket cantilevered over it — the same bracket the Orange Pi mount uses. Superseded by the printed housing.",
+          "message": "The board stood off a printed bracket on four 10 mm standoffs, and the 40 mm fan sat on a separate bracket cantilevered over it \u2014 the same bracket the Orange Pi mount uses. Superseded by the printed housing.",
           "images": [
             {
               "url": "https://assets.basically.website/sorter-parts/ctrl-board-mount-v1-render-full-617e995364c7.png",
@@ -6979,7 +6979,7 @@
         {
           "version": "2",
           "date": "2026-08-23",
-          "message": "The printed housing replaces the bracket and standoffs. The board bolts straight to the base on four of its eight heat inserts; the cover closes onto the other four, carries the 40 mm 24 V fan on self-tapping M3 × 12 mm button heads, and holds a plunger over the board's reset button. Adopted from candidate rns2 after a test print.",
+          "message": "The printed housing replaces the bracket and standoffs. The board bolts straight to the base on four of its eight heat inserts; the cover closes onto the other four, carries the 40 mm 24 V fan on self-tapping M3 \u00d7 12 mm button heads, and holds a plunger over the board's reset button. Adopted from candidate rns2 after a test print.",
           "commit": "9ff8a1e3"
         }
       ]
@@ -7130,10 +7130,10 @@
     },
     {
       "id": "lazy-susan",
-      "uid": "l1un",
-      "version": "1",
+      "uid": "v6ss",
+      "version": "2",
       "name": "Bottom lazy Susan",
-      "description": "The bottom interface's lazy Susan: the static half, the chute mount that spins on it, the extrusion mounts, and the bearing itself. Bolted through 4 × [[hw:scr-m4-12-cs]] a side, same as the top interface's.",
+      "description": "The bottom interface's lazy Susan: the static half, the chute mount that spins on it, the extrusion mounts, and the bearing itself. Bolted through 4 \u00d7 [[hw:scr-m4-12-cs]] a side, same as the top interface's.",
       "docs": "/hardware/assembly/distribution/bin-frame/bottom-interface/",
       "status": "partial",
       "lines": [
@@ -7167,11 +7167,23 @@
         },
         {
           "part": "scr-m5-16-shcs",
-          "qty": 3
+          "qty": 9
         },
         {
           "part": "tnut-m5-2020",
-          "qty": 3
+          "qty": 6
+        }
+      ],
+      "versions": [
+        {
+          "version": "1",
+          "message": "Original version: 1 scr-m5-16-shcs + 1 tnut-m5-2020 per extrusion mount (3 total each), before BrickCycleAlice's 2026-08-28 build photos showed it's actually 2 self-tapping-into-plastic screws for the mount-to-hold-in-place joint (no T-nut) plus 2 more screws per mount into a T-nut in the extrusion (sorter-v2#447)."
+        },
+        {
+          "version": "2",
+          "date": "2026-08-29",
+          "message": "Catalog never picked up sorter-v2#447's fastener correction on bottom-interface.md: 1 screw per mount into the hold-in-place (self-tap, 3 total) plus 2 more per mount into a T-nut in the extrusion (6 more), so 9 scr-m5-16-shcs and 6 tnut-m5-2020 total, not 3 and 3.",
+          "commit": null
         }
       ]
     }
@@ -7205,7 +7217,7 @@
         "variant": "flat"
       },
       "image_url": "https://assets.basically.website/sorter-parts/scr-m5-35-fhcs-full-cf13d79a5110.jpg",
-      "image_credit": "M5 × 35 flat head listing photo, reused for the head shape"
+      "image_credit": "M5 \u00d7 35 flat head listing photo, reused for the head shape"
     },
     {
       "id": "screw-button",

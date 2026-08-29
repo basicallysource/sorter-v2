@@ -2999,8 +2999,7 @@
           "label": "Head",
           "value": "Socket or button head"
         }
-      ],
-      "note": "First M2 in the catalog -- every other screw here is M3/M4/M5/M6. Length worked from what barthel gave directly (module datasheet: M2, board 1.57 mm thick, self-tapping) plus what's measured off the camera-extension STL: 4 holes, 2.6 mm, on a two-post bracket, each post an 8 mm-deep constant-diameter self-tap bore. 8 mm clears the board and uses most of the post's depth for thread engagement without bottoming out before the head seats."
+      ]
     },
     {
       "id": "scr-m3-8-shcs",

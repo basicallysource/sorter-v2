@@ -12,11 +12,7 @@ contributors: [abrianbaker, brickcyclealice, barthel]
 warning: >-
   **Reorganized to reference [Build the hex frame]({{ '/hardware/assembly/distribution/bin-frame/hex-frame/' | relative_url }})
   instead of describing frame construction inline, not yet reviewed by a
-  builder.** Steps 1-3 (the Lazy Susan bearing stack) are unchanged. Step 4
-  now points at that page for an ordinary, unmodified hex frame; the Lazy
-  Susan extrusion mounts bolt directly onto 3 of its already-built spokes
-  rather than replacing anything, and only the parts specific to that
-  addition are listed below. Correct it as you build.
+  builder.** Correct it as you build.
 parts_needed:
   - part: brg-lazy-susan
     qty: 1

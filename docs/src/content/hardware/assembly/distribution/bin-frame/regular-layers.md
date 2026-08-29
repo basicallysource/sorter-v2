@@ -13,11 +13,7 @@ warning: >-
   **Reorganized to reference [Build the hex frame]({{ '/hardware/assembly/distribution/bin-frame/hex-frame/' | relative_url }})
   instead of describing frame construction inline, not yet reviewed by a
   builder.** The old steps 1-2 (outer ring, spokes) are gone; build a hex
-  frame on that page first. Steps below are renumbered — old step 3 is now
-  1, old step 4 is now 2, old step 5 is now 3. `ext-bracket-left` and
-  `ext-2020-ag` were removed from the parts list since they're now the hex
-  frame page's own parts; the fastener totals here have not been re-split.
-  Correct it as you build.
+  frame on that page first. Correct it as you build.
 parts_needed:
   - part: ext-bracket-cover
     qty: 6

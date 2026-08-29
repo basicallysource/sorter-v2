@@ -53,6 +53,7 @@
 							src="https://assets.basically.website/sorter-parts/img-0036-full-76e2483ec1e7.jpg"
 							alt="Two 2020 extrusion profiles held end-on side by side — the right one has angular T-slot corners, the left one has rounded corners"
 							caption="Right: angular corners, seats tight. Left: rounded corners, fits loose."
+							credit="sytem"
 							imgClass="max-h-40"
 						/>
 					</div>

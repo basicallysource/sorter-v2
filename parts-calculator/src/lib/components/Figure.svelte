@@ -8,9 +8,17 @@
 		src,
 		alt = '',
 		caption = '',
+		credit = '',
 		title = '',
 		imgClass = 'max-h-[34vh]'
-	}: { src: string; alt?: string; caption?: string; title?: string; imgClass?: string } = $props();
+	}: {
+		src: string;
+		alt?: string;
+		caption?: string;
+		credit?: string;
+		title?: string;
+		imgClass?: string;
+	} = $props();
 
 	let open = $state(false);
 </script>
@@ -29,7 +37,12 @@
 			<span class="flex items-center justify-center bg-black/55 p-2 text-white"><ZoomIn size={20} /></span>
 		</span>
 	</button>
-	{#if caption}<figcaption class="text-center text-xs text-text-muted">{caption}</figcaption>{/if}
+	{#if caption || credit}
+		<figcaption class="text-center text-xs text-text-muted">
+			{caption}
+			{#if credit}<cite class="mt-0.5 block text-[0.8125rem] italic">Photo: {credit}.</cite>{/if}
+		</figcaption>
+	{/if}
 </figure>
 
 <Modal bind:open title={title || alt}>

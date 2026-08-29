@@ -13,7 +13,7 @@ warning: >-
   **AI-generated first draft.** Written from the parts registry in the [parts
   calculator](https://parts-calculator.basically.website/assembly?focus=classification-chamber),
   not from an actual build. The assembly order is still not recorded, so this page mostly lists
-  what the chamber is made of rather than how it goes together — one fastener is now measured
+  what the chamber is made of rather than how it goes together — two fasteners are now measured
   off the STLs, everything else about how the pieces join is still open. Correct it as you build.
 parts_needed:
   - part: classification-dome
@@ -29,6 +29,8 @@ parts_needed:
   - part: cam-imx415
     qty: 1
   - part: scr-m2-8-shcs
+    qty: 4
+  - part: scr-m3-12-bhcs
     qty: 4
 ---
 
@@ -51,15 +53,15 @@ Build the classification channel as a normal [C-channel]({{ '/hardware/assembly/
 
 Fit the Camera & LED insert, then the camera on its extension tube and mount ring, then close the chamber with the dome.
 
-- **Insert to camera extension's mount ring:** 4 × M3, 46 mm square pattern around the central opening.
+- **Insert to camera extension's mount ring:** 4 × {% include fastener.html size="M3" variant="socket-button" length="12" %} screws, 46 mm square pattern around the central opening. Measured off the STLs: the mount ring is a plain 6 mm clearance hole, and the insert takes a blind ~9.4 mm deep hole behind it, so 12 mm clears the mount and engages about 6 mm into the insert without bottoming out.
 - **Insert to the rest of the chamber:** an outer ring of 10 larger holes (10 mm). Not recorded what goes through them.
 - **Camera board to the camera extension:** 4 × {% include fastener.html size="M2" variant="socket-button" length="8" %}, self-tapping into the extension's two posts.
 - **Classification dome:** no screw holes anywhere. Not recorded how it closes onto the chamber.
 
 <div class="img-row">
   <figure>
-    <img class="doc-figure" src="https://assets.basically.website/sorter-parts/insert-iso-full-e4b396fc8c88.png" alt="Angled render of the camera and LED insert's top face, showing a ring of 10 large holes around the rim and 4 smaller countersunk holes around a central square opening">
-    <figcaption>The insert's top face: 10 holes around the rim (mounts to the chamber), 4 smaller ones around the central opening (matches the extension mount, M3). <cite>Rendered from the part geometry, not from a build. Render: Balloon.</cite></figcaption>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-parts/insert-iso-full-e4b396fc8c88.png" alt="Angled render of the camera and LED insert's top face, showing a ring of 10 large holes around the rim and 4 smaller blind holes around a central square opening">
+    <figcaption>The insert's top face: 10 holes around the rim (mounts to the chamber), 4 smaller blind ones around the central opening (matches the extension mount, M3 × 12 mm). <cite>Rendered from the part geometry, not from a build. Render: Balloon.</cite></figcaption>
   </figure>
   <figure>
     <img class="doc-figure" src="https://assets.basically.website/sorter-parts/extension-iso-full-8d1f0c51606f.png" alt="Angled render of the camera extension bracket, showing two posts each with a mounting hole">

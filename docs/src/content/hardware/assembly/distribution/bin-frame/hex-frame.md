@@ -11,12 +11,8 @@ author: barthel
 contributors: [brickcyclealice, zed0]
 warning: >-
   **Reorganized from a Discord build walkthrough, not yet reviewed by a
-  builder.** Step 1 is carried over unchanged from Regular layers. Steps 2
-  onward are BrickCycleAlice's own screw-free construction method,
-  transcribed from her build photos, replacing the old
-  [Attaching the hexagonal frame's spokes]({{ '/hardware/helpers/hex-frame-spokes/' | relative_url }})
-  helper page's untested method. This page has not been checked step-by-step
-  against a build. Correct it as you go.
+  builder.** This page has not been checked step-by-step against a build.
+  Correct it as you go.
 parts_needed:
   - part: ext-2020-ag
     qty: 6

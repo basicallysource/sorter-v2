@@ -328,6 +328,12 @@
 	<Callout variant="info" title="Notes">
 		<ul class="list-disc space-y-2 pl-4 leading-relaxed">
 			<li>
+				<b class="text-text">Not all 2020 extrusion is the same stock.</b> Builders have found that
+				secondhand 20×20 mm profile varies: one with more angular, square corners on the T-slot seats
+				tightly against the crossbeam brackets, while a profile with more rounded corners can fit
+				loosely and add friction. Check the corner profile before buying, especially secondhand.
+			</li>
+			<li>
 				<b class="text-text">D stands in for C at the bottom.</b> Every layer above the bottom two
 				gets 6 layer supports (<b class="text-text">C</b>, {lenC} mm). The bottom two share 6 foot
 				extensions (<b class="text-text">D</b>, {lenD} mm), one spanning both, in place of a C on

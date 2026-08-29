@@ -150,7 +150,7 @@ parts_needed:
 
 <div class="prep-item">
   <div class="prep-item-body">
-    <p><strong>Have the Cable cage top laser-cut and ready by step 10, and the Cable cage bottom by step 12.</strong> Same as the Top plate: laser-cut ahead of time, not built on this page.</p>
+    <p><strong>Have the <a href="https://parts-calculator.basically.website/lasercut">Cable cage top</a> laser-cut and ready by step 10, and the Cable cage bottom by step 12.</strong> Same as the Top plate: laser-cut ahead of time, not built on this page.</p>
   </div>
   <div class="prep-item-figure prep-item-figure-split">
     <figure>

@@ -92,7 +92,16 @@ Matching parts from the same print run are embossed with a shared set code (e.g.
 
 On each side of the hexagon, attach both the Bin retainer (left) and Bin retainer (right) to the front side of A/G (Outer horizontal / Horizontal interface frame) using 4 {% include fastener.html size="M5" variant="socket-button" length="12" %} screws, either into the T-nuts already installed there or with drop-in / roll-in T-nuts.
 
-A regular layer is now complete. You will also need to construct a [Chute core]({{ '/hardware/assembly/distribution/chute/' | relative_url }}) for each layer you build.
+A regular layer is now complete.
+
+<div class="prep-item">
+  <div class="prep-item-body">
+    <p><strong>You will also need to construct a <a href="{{ '/hardware/assembly/distribution/chute/' | relative_url }}">Chute core</a> for each layer you build.</strong> Not covered on this page.</p>
+  </div>
+  <figure class="prep-item-figure">
+    <div class="img-placeholder">Image coming</div>
+  </figure>
+</div>
 
 {% include step.html n="3" title="Join the layer to the one below" %}
 

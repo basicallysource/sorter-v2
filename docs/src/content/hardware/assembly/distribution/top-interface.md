@@ -128,6 +128,8 @@ parts_needed:
     qty: 1
 ---
 
+**Have a [hex frame]({{ '/hardware/assembly/distribution/bin-frame/hex-frame/' | relative_url }}) ready by step 13.** It's a required component of this page — step 13 places one onto the assembly, it doesn't build one. The rest of this page (steps 1-12, 14+) doesn't need it.
+
 The fasteners and quantities in the parts list come from the build notes and are called out inline at each step.
 
 {% include fastener-legend.html %}

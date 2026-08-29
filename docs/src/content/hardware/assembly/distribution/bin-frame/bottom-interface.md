@@ -40,6 +40,8 @@ parts_needed:
     qty: 6
 ---
 
+**Build a [hex frame]({{ '/hardware/assembly/distribution/bin-frame/hex-frame/' | relative_url }}) before you start.** It's a required component of this page, not optional or covered here — step 4 bolts onto one, it doesn't build one.
+
 The parts list above is only the Lazy Susan bearing stack and the extrusion mounts added in step 4; the hex frame itself is [Build the hex frame]({{ '/hardware/assembly/distribution/bin-frame/hex-frame/' | relative_url }})'s own parts list, built ordinary and unmodified. The fasteners and quantities below are called out inline at each step.
 
 {% include fastener-legend.html %}

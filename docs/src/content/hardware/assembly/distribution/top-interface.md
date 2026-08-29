@@ -138,6 +138,32 @@ parts_needed:
   </figure>
 </div>
 
+<div class="prep-item">
+  <div class="prep-item-body">
+    <p><strong>Have the <a href="https://parts-calculator.basically.website/lasercut">Top plate</a> laser-cut and ready by step 2.</strong> It's not printed or built on any page, it's ordered or hand-cut ahead of time — see the parts calculator's lasercut page for the DXF and hand-cut instructions.</p>
+  </div>
+  <figure class="prep-item-figure">
+    <img class="doc-figure" src="https://assets.basically.website/sorter-parts/top-interface-top-plate-w1600-00182ea8156d.jpg" alt="The machine's hexagonal top plate, laser-cut, with cable holes and stepper mount holes visible">
+    <figcaption>The Top plate.</figcaption>
+  </figure>
+</div>
+
+<div class="prep-item">
+  <div class="prep-item-body">
+    <p><strong>Have the Cable cage top laser-cut and ready by step 10, and the Cable cage bottom by step 12.</strong> Same as the Top plate: laser-cut ahead of time, not built on this page.</p>
+  </div>
+  <div class="prep-item-figure prep-item-figure-split">
+    <figure>
+      <img class="doc-figure" src="https://assets.basically.website/sorter-parts/top-interface-cable-cage-top-full-9e4c43a620ca.png" alt="The Cable cage top, a laser-cut hexagonal plate with a keyed centre cutout">
+      <figcaption>Cable cage top.</figcaption>
+    </figure>
+    <figure>
+      <img class="doc-figure" src="https://assets.basically.website/sorter-parts/top-interface-cable-cage-bottom-full-283aeb114195.png" alt="The Cable cage bottom, a laser-cut hexagonal plate with a large centre cutout">
+      <figcaption>Cable cage bottom.</figcaption>
+    </figure>
+  </div>
+</div>
+
 The fasteners and quantities in the parts list come from the build notes and are called out inline at each step.
 
 {% include fastener-legend.html %}

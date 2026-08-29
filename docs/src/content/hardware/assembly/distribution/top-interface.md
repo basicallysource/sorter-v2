@@ -185,7 +185,7 @@ Before assembling anything, press the heat inserts into the parts that take them
   </div>
   <figure class="prep-item-figure">
     <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-top-interface-prep-upper-fixed-section-inserts-full-ful-4f73af3a5587.png" alt="The Interface upper fixed section ring, underside with the NEMA 23 bracket attached, showing four brass M4 heat inserts around its face">
-    <figcaption>Underside, with the NEMA 23 bracket attached.</figcaption>
+    <figcaption>Underside, with the NEMA 23 bracket attached. <cite>Photo: zed0.</cite></figcaption>
   </figure>
 </div>
 
@@ -196,7 +196,7 @@ Before assembling anything, press the heat inserts into the parts that take them
   <figure class="prep-item-figure">
     <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-top-interface-prep-nema23-inserts-full-5fda8f6ef8c0.png" alt="The Interface NEMA 23 bracket held up, showing four brass M5 inserts on the top edges and one M3 insert on the long tail">
     <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-top-interface-prep-nema23-inserts-underside-full-97cf1ce3e1b0.png" alt="The underside of the Interface NEMA 23 bracket, showing the two remaining brass M5 heat inserts">
-    <figcaption>Top: four M5 on the edges and one M3 on the tail. Underside: the two remaining M5.</figcaption>
+    <figcaption>Top: four M5 on the edges and one M3 on the tail. Underside: the two remaining M5. <cite>Photo: zed0.</cite></figcaption>
   </figure>
 </div>
 
@@ -207,11 +207,11 @@ Before assembling anything, press the heat inserts into the parts that take them
   <div class="prep-item-figure prep-item-figure-split">
     <figure>
       <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-top-interface-prep-chute-mount-inserts-underside-full-ec67c0262221.png" alt="The underside of the white Top interface chute mount, showing brass M4 and M3 heat inserts around the ring">
-      <figcaption>Underside: the 4 M4 and 5 of the M3. The other 2 M3 sit by the cable-clamp recess on the top face.</figcaption>
+      <figcaption>Underside: the 4 M4 and 5 of the M3. The other 2 M3 sit by the cable-clamp recess on the top face. <cite>Photo: zed0.</cite></figcaption>
     </figure>
     <figure>
       <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-top-interface-prep-chute-mount-inserts-underside-grey-w-52b54ffa44db.jpg" alt="A closer grey view of the Top interface chute mount underside, showing two of the M3 inserts on the ring beside the recess for the Limit switch hammer screw">
-      <figcaption>A closer look at two of the M3 inserts, next to the recess for the Limit switch hammer screw.</figcaption>
+      <figcaption>A closer look at two of the M3 inserts, next to the recess for the Limit switch hammer screw. <cite>Photo: zed0.</cite></figcaption>
     </figure>
   </div>
 </div>
@@ -232,7 +232,7 @@ Before assembling anything, press the heat inserts into the parts that take them
   </div>
   <figure class="prep-item-figure">
     <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-top-interface-prep-limit-switch-housing-inserts-grey-w1-ef9cced25713.jpg" alt="The grey Limit switch housing, showing two brass M3 heat inserts on the angled face where the roller lever limit switch mounts, with the dowel pin hole above them">
-    <figcaption>The two M3 inserts, where the roller lever limit switch mounts.</figcaption>
+    <figcaption>The two M3 inserts, where the roller lever limit switch mounts. <cite>Photo: zed0.</cite></figcaption>
   </figure>
 </div>
 
@@ -242,7 +242,7 @@ Before assembling anything, press the heat inserts into the parts that take them
   </div>
   <figure class="prep-item-figure">
     <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-top-interface-prep-limit-switch-hammer-inserts-full-ff286afdd969.png" alt="The Limit switch hammer held up, showing a single brass M3 heat insert in its round disc">
-    <figcaption>One M3 insert in the round disc.</figcaption>
+    <figcaption>One M3 insert in the round disc. <cite>Photo: zed0.</cite></figcaption>
   </figure>
 </div>
 
@@ -252,7 +252,7 @@ Before assembling anything, press the heat inserts into the parts that take them
   </div>
   <figure class="prep-item-figure">
     <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-top-interface-prep-cable-cage-bracket-cable-inserts-ful-9188d3883103.png" alt="The Cable cage bracket (cable mount) held up, showing a single brass M3 heat insert">
-    <figcaption>The one M3 insert in the Cable cage bracket (cable mount).</figcaption>
+    <figcaption>The one M3 insert in the Cable cage bracket (cable mount). <cite>Photo: zed0.</cite></figcaption>
   </figure>
 </div>
 

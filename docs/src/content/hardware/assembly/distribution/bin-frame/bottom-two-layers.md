@@ -13,21 +13,7 @@ warning: >-
   **AI-generated first draft, reorganized to reference [Build the hex
   frame]({{ '/hardware/assembly/distribution/bin-frame/hex-frame/' | relative_url }})
   instead of Regular layers' old steps 1-2.** No step here has been checked
-  against a machine. `ext-bracket-left` and `ext-2020-ag` were removed from
-  the parts list since they're now the hex frame page's own parts (2 frames'
-  worth); `tnut-m5-2020` was removed too since its 48 exactly matched 2
-  hex frames' own bin-retainer-prep T-nuts (2 × 24) and nothing here needs
-  more beyond that, but this hasn't been re-verified against a build.
-  `scr-m5-16-shcs` dropped from 64 to 48, removing the 16 that were the two
-  hex frames' own outer-ring screws. Steps renumbered again after folding
-  the old "Start from two hex frames" step (which had shrunk to one
-  sentence plus a warning) into step 1; the rest shifted down by one. The
-  fastener counts are derived from Regular layers rather than measured, the
-  tally under step 1 shows the arithmetic, and one count is genuinely
-  unknown. Added step 6, "Attach the bottom interface", as a placeholder —
-  it's the missing joint between this page and bottom-interface.md, not
-  written yet since the physical mechanism isn't confirmed. Correct it as
-  you build.
+  against a machine. Correct it as you build.
 parts_needed:
   - part: ext-bracket-cover
     qty: 6

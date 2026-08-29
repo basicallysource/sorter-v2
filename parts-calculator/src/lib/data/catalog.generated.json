@@ -2065,8 +2065,8 @@
 		},
 		{
 			"id": "lazy-susan",
-			"uid": "l1un",
-			"version": "1",
+			"uid": "v6ss",
+			"version": "2",
 			"name": "Bottom lazy Susan",
 			"description": "The bottom interface's lazy Susan: the static half, the chute mount that spins on it, the extrusion mounts, and the bearing itself. Bolted through 4 \u00d7 [[hw:scr-m4-12-cs]] a side, same as the top interface's.",
 			"docs": "/hardware/assembly/distribution/bin-frame/bottom-interface/",
@@ -2102,11 +2102,72 @@
 				},
 				{
 					"part": "scr-m5-16-shcs",
-					"qty": 3
+					"qty": 9
 				},
 				{
 					"part": "tnut-m5-2020",
-					"qty": 3
+					"qty": 6
+				}
+			],
+			"versions": [
+				{
+					"version": "1",
+					"uid": "l1un",
+					"message": "Original version: 1 scr-m5-16-shcs + 1 tnut-m5-2020 per extrusion mount (3 total each), before BrickCycleAlice's 2026-08-28 build photos showed it's actually 2 self-tapping-into-plastic screws for the mount-to-hold-in-place joint (no T-nut) plus 2 more screws per mount into a T-nut in the extrusion (sorter-v2#447).",
+					"lines": [
+						{
+							"part": "ls-mount-to-chute",
+							"qty": 1,
+							"uid": "lma9"
+						},
+						{
+							"part": "ls-bottom-static",
+							"qty": 1,
+							"uid": "4mmh"
+						},
+						{
+							"part": "ls-washer",
+							"qty": 1,
+							"uid": "9c4a"
+						},
+						{
+							"part": "ls-mount-to-extrusion",
+							"qty": 3,
+							"uid": "bmt4"
+						},
+						{
+							"part": "ls-hold-in-place",
+							"qty": 3,
+							"uid": "ss05"
+						},
+						{
+							"part": "brg-lazy-susan",
+							"qty": 1,
+							"uid": "wrxu"
+						},
+						{
+							"part": "scr-m4-12-cs",
+							"qty": 8,
+							"uid": "h8h4"
+						},
+						{
+							"part": "scr-m5-16-shcs",
+							"qty": 3,
+							"uid": "2e0s"
+						},
+						{
+							"part": "tnut-m5-2020",
+							"qty": 3,
+							"uid": "bpwm"
+						}
+					]
+				},
+				{
+					"version": "2",
+					"uid": "v6ss",
+					"date": "2026-08-29",
+					"message": "Catalog never picked up sorter-v2#447's fastener correction on bottom-interface.md: 1 screw per mount into the hold-in-place (self-tap, 3 total) plus 2 more per mount into a T-nut in the extrusion (6 more), so 9 scr-m5-16-shcs and 6 tnut-m5-2020 total, not 3 and 3.",
+					"commit": "9708a416"
 				}
 			]
 		}

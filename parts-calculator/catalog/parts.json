@@ -323,6 +323,17 @@
           "scr-m5-12-shcs"
         ]
       }
+    },
+    {
+      "id": "delete-unused-m3-tbd-placeholder",
+      "name": "Delete the unused M3 screw placeholder",
+      "priority": "P4",
+      "description": "This placeholder screw is not used anywhere in the machine any more — every joint that carried it (the cable-mount cage bracket, the camera extension, the Orange Pi mount) turned out to already have a specific screw recorded, and those catalog lines have been updated to point at the real ones. It should be deleted outright, but a minted part id has to stay resolvable once it exists, and the catalog's own consistency check refuses a change that removes one, so deleting it needs that check overridden by someone who can make that call, not an edit from here. Tracked as sorter-v2 issue #453.",
+      "targets": {
+        "hardware": [
+          "scr-m3-tbd"
+        ]
+      }
     }
   ],
   "folders": [

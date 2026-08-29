@@ -27,7 +27,7 @@ The fasteners and quantities are in the parts list above and are called out inli
 {% include fastener-legend.html %}
 
 - The 4 M3 inserts the board sits on are part of the [chute core]({{ '/hardware/assembly/distribution/chute/chute-core/' | relative_url }})'s 18, not extra ones.
-- The board is the only thing on the chute that uses a {% include fastener.html size="M3" variant="button" length="6" %} screw.
+- The board is the only thing on the chute that uses a {% include fastener.html size="M3" variant="socket-button" length="6" %} screw.
 
 {% include step.html n="1" title="Preparation" %}
 
@@ -35,7 +35,7 @@ Nothing to press in here. The four inserts the board sits on are pressed into th
 
 {% include step.html n="2" title="Screw the board onto the chute core" %}
 
-Seat the board over the four inserts and fasten it with 4 {% include fastener.html size="M3" variant="button" length="6" %} screws. Do not overtighten, the board is standing on printed plastic.
+Seat the board over the four inserts and fasten it with 4 {% include fastener.html size="M3" variant="socket-button" length="6" %} screws. Do not overtighten, the board is standing on printed plastic.
 
 <div class="img-placeholder">Image coming</div>
 

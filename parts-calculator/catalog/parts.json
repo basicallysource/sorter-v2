@@ -4579,6 +4579,14 @@
         {
           "label": "Size",
           "value": "8\" / 200 mm"
+        },
+        {
+          "label": "Thickness",
+          "value": "9 mm"
+        },
+        {
+          "label": "Weight",
+          "value": "350 g"
         }
       ],
       "docs_page": "/hardware/parts/lazy-susan/"

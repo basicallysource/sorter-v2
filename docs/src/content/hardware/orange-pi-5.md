@@ -18,6 +18,8 @@ last_verified: 2026-05-19
   <p>The Orange Pi 5 is the required compute board for Sorter. SorterOS is built on top of the official Ubuntu image provided by Orange Pi for this board.</p>
 </div>
 
+The Orange Pi 5 is installed and wired during [Electronics assembly]({{ '/hardware/electronics/installation/orange-pi-mount/' | relative_url }}), where it connects to the Pico controllers and cameras; this page only covers selecting and configuring the board itself.
+
 <figure class="single-figure">
   <img class="doc-figure" src="/assets/pi5-01.png" alt="Orange Pi 5 single-board computer">
   <figcaption><cite>Manufacturer photo (orangepi.org), not a Basically photo.</cite></figcaption>
@@ -60,6 +62,16 @@ The Orange Pi family uses **two distinct M.2 connector formats** depending on th
 | Orange Pi 5 Plus | PCIe M.2 E-KEY | R6 module (Wi-Fi 6 + BT5.2, 1201 Mbps) — [Amazon](https://www.amazon.com/dp/B0CFY7SJRN) |
 
 If you order the wrong module for your board variant it will not physically seat. Double-check which board you have before purchasing.
+
+**Telling the two slots apart by eye:** both are the same width and length, but the keying notch (the gap cut into the row of gold contacts) is in a different place. On the original Orange Pi 5's Standard M.2 PCIe (M-key) slot, the notch sits close to one end of the contact row. On the Orange Pi 5 Plus's E-key slot, the notch sits nearer the middle of the row. The module you buy has a matching notch, so a module only physically seats in the slot it's keyed for, and that mismatch is the fastest way to confirm which one you have before ordering.
+
+### Installing the module
+
+1. Power off the board and disconnect it before opening the case.
+2. Locate the M.2 slot on the underside of the board (check the [Orange Pi mount]({{ '/hardware/electronics/installation/orange-pi-mount/' | relative_url }}) page for where the board sits in the machine).
+3. Insert the module into the slot at a shallow angle (roughly 30°), gold contacts first, until it's fully seated.
+4. Press the free end down flat and secure it with the small retention screw the module ships with.
+5. Connect the antenna cable(s) to the module's u.FL connectors.
 
 <div class="notice">
   <strong>Driver support</strong>

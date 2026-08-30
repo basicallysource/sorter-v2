@@ -67,7 +67,12 @@ Which part takes which of the four screws, and the order they go on in, is not r
 
 {% include step.html n="3" title="Wire the terminal block" %}
 
-Land the fused IEC inlet switch's leads on screws 1, 2 and 3, and the three DC output pigtails on the +V/-V pairs above. Route them out through the connections plate.
+<div class="callout callout-warning">
+  <span class="callout-icon" aria-hidden="true">⚠</span>
+  <p>The PSU must be unplugged from the wall for this entire step. Screws 1-3 carry mains voltage whenever it's plugged in; after unplugging, wait a few seconds before touching the terminal block.</p>
+</div>
+
+Land the fused IEC inlet switch's leads on screws 1, 2 and 3, and the three DC output pigtails on the +V/-V pairs above. Tug-test each connection, then route every wire through the connections plate so nothing can shift and touch the mains terminals once the box is closed.
 
 Whether this happens before or after the plates go on is the open question in step 2.
 
@@ -83,7 +88,7 @@ Fit the cap. The box is closed before the machine sees mains.
 
 The box hangs off the 2020 frame on 2 {% include fastener.html size="M5" variant="socket-button" length="12" %} screws.
 
-Which extrusion it goes on, and in which orientation, is not written down. The top-down layout photo on the [installation overview]({{ '/hardware/electronics/installation/' | relative_url }}) is the only record.
+Which extrusion it goes on, and in which orientation: see [what's not recorded yet]({{ '/hardware/electronics/installation/' | relative_url }}#what-is-not-recorded-yet) on the installation overview.
 
 <div class="img-placeholder">Image coming</div>
 

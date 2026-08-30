@@ -98,7 +98,7 @@ The plunger lands on the board's reset button, so the button can be pressed with
 
 {% include step.html n="5" title="Plug the fan into a GPIO-controlled port" %}
 
-The fan runs off one of the board's four LED ports, which are 24 V switched to ground by a MOSFET the Pico drives, so the firmware can turn it on and off. Red wire to +V.
+Disconnect the board from its 24 V supply before wiring the fan or bridging the jumper. The fan runs off one of the board's four LED ports (24 V switched to ground by a Pico-driven MOSFET) — red wire goes to +V.
 
 <dl class="spec-list">
   <dt>LED_0_1, LED_0_2</dt><dd>GPIO1 (output channel 0)</dd>
@@ -114,7 +114,7 @@ The fan runs off one of the board's four LED ports, which are 24 V switched to g
 
 <div class="callout callout-warning">
   <span class="callout-icon" aria-hidden="true">⚠</span>
-  <p><b>Bridge the port's bypass jumper.</b> Each port feeds +V through a 180 Ω resistor meant for an LED strip, which drops most of the supply across itself. Bridge the solder jumper marked <b>Bypass R21</b>, <b>R22</b>, <b>R27</b> or <b>R28</b> for the port you used to give the fan the full 24 V.</p>
+  <p><b>Bridge the port's bypass jumper.</b> Each port feeds +V through a 180 Ω resistor meant for an LED strip. Skip the bridge and the fan will barely turn, if it turns at all, because most of the 24 V drops across the resistor instead of reaching the fan. Bridge the solder jumper marked <b>Bypass R21</b>, <b>R22</b>, <b>R27</b> or <b>R28</b> for the port you used to give the fan the full 24 V.</p>
 </div>
 
 {% include step.html n="6" title="Close the housing" %}
@@ -158,7 +158,7 @@ Press the plunger on the lid. You should hear the button click.
 
 {% include step.html n="8" title="Bolt it to the frame" %}
 
-The two clamp bosses go onto the 2020 extrusion on 2 {% include fastener.html size="M5" variant="socket-button" length="16" %} screws. Which extrusion and which orientation is not written down; the layout photo on the [installation overview]({{ '/hardware/electronics/installation/' | relative_url }}) is the only record.
+The two clamp bosses go onto the 2020 extrusion on 2 {% include fastener.html size="M5" variant="socket-button" length="16" %} screws. Which extrusion and which orientation: see [what's not recorded yet]({{ '/hardware/electronics/installation/' | relative_url }}#what-is-not-recorded-yet) on the installation overview.
 
 <div class="img-row">
   <figure>

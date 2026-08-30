@@ -30,7 +30,12 @@ Do this with the board loose, before the [housing]({{ '/hardware/electronics/ins
 
 {% include step.html n="1" title="Seat the five drivers" %}
 
-Heatsink up, EN/MS1/MS2 edge towards the middle of the board. Module and socket are both silkscreened, so match the labels.
+<div class="callout callout-warning">
+  <span class="callout-icon" aria-hidden="true">⚠</span>
+  <p>Static caution: the TMC2209 modules and the board are ESD-sensitive. Touch a grounded metal surface before handling them, and avoid doing this on carpet in dry weather.</p>
+</div>
+
+Heatsink up, EN/MS1/MS2 edge towards the middle of the board. Module and socket are both silkscreened, so match the labels. A reversed module can be damaged the moment power is applied, so double-check against the photo before moving on.
 
 <div class="img-row">
   <figure>
@@ -60,7 +65,7 @@ Into the two long sockets down the middle, USB end towards the edge of the board
 
 {% include step.html n="3" title="Set the address jumpers" %}
 
-The drivers share a UART bus, so each needs an address, and the address is set by bridging MS1 and MS2: a jumper on pins 1-2 is 3V3 and reads HIGH, on 2-3 is GND and reads LOW, with MS1 the low bit. Two pins allow four addresses, one short of five steppers, so the board runs a second bus for the fifth driver. Ten jumpers in total, two per driver.
+The five drivers share a UART bus, so each needs its own address. You set it by bridging the MS1 and MS2 header pins: 1-2 bridged reads 3V3 (HIGH); 2-3 bridged reads GND (LOW). MS1 is the low bit of the two-bit address. Two pins allow four addresses, one short of five steppers, so the board runs a second bus for the fifth driver. Ten jumpers in total, two per driver; tweezers or needle-nose pliers make placing the small 2.54mm jumper caps much easier.
 
 <div class="img-row">
   <figure>

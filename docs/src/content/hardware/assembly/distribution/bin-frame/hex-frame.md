@@ -111,6 +111,11 @@ Slide a B/H spoke (158mm) and a Frame crossbeam together. For easy assembly, sta
 
 Repeat step 2 around the hexagon until you have used **6 Frame crossbeams and 5 B/H spokes (158mm)**. Deliberately hold the 6th spoke back — it closes the loop later, in step 7.
 
+<div class="callout callout-warning">
+  <span class="callout-icon" aria-hidden="true">⚠</span>
+  <p>Building this frame for the <a href="{{ '/hardware/assembly/distribution/bin-frame/bottom-interface/' | relative_url }}">bottom interface</a>? Its three Lazy Susan extrusion mounts each bolt into a T-nut in a B/H spoke, on 3 of the 6 spokes alternating around the ring. If you're using slide-in T-nuts, slide 2 into each of those 3 spokes as you build them here in steps 2-3, since this is the last time their ends are open; drop-in or roll-in T-nuts can go in any time before the ring closes in step 7. An ordinary hex frame for a layer needs none of this.</p>
+</div>
+
 {% include step.html n="4" title="Fit 10 of the 12 Frame 90° brackets" %}
 
 <div class="img-row">

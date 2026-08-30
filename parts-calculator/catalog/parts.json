@@ -3639,9 +3639,10 @@
       },
       "name": "M3 × 15 mm washer",
       "category": "Washers",
-      "description": "Flat/fender washer, 15 mm outer diameter. Added to the catalog to match the documentation's description of the interface idler gear joint, under the M3 × 35 screw that holds the gear onto the NEMA 23 bracket. That documentation was wrong: the joint's actual design uses the printed chute stepper idler bearing retainers instead (wired up 2026-08-25), so this part was never correct here. Not used anywhere in the machine.",
+      "description": "Flat/fender washer, 15 mm outer diameter. Added to the catalog to match the documentation's description of the interface idler gear joint, under the M3 × 35 screw that holds the gear onto the NEMA 23 bracket. That documentation was wrong: the joint's actual design uses the printed chute stepper idler bearing retainers instead (wired up 2026-08-25), so this part was never correct here. Not used anywhere in the machine. Kept as an unused entry rather than deleted, since a minted uid has to stay resolvable (see parts-calculator's own CLAUDE.md).",
       "created_at": "2026-08-18",
-      "updated_at": "2026-08-25",
+      "updated_at": "2026-08-30",
+      "note": "Unused as of 2026-08-30. Do not add a new joint to this washer — the idler gear joint it was meant for uses the printed chute stepper idler bearing retainers instead.",
       "attributes": [
         {
           "label": "Thread",

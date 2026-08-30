@@ -992,7 +992,8 @@ def main():
                 if i == len(src_versions) - 1 or not pin or pin == source["stl_hash"]:
                     v["stl"], v["render"], v["grams"] = live_stl, live_render, old["grams"]
                 else:
-                    v["render"] = ov.get("render")
+                    v["render"] = rebased_render(ov.get("render"),
+                                                 f"{source['id']}-v{v.get('version')}")
                     v["stl"] = stl_url(source["id"], pin)
                     v["grams"] = ov.get("grams")
                 versions.append(v)
@@ -1001,7 +1002,7 @@ def main():
             for sc in source.get("candidates") or []:
                 c = dict(sc)
                 oc = old_cands.get(c["uid"], {})
-                c["render"] = oc.get("render")
+                c["render"] = rebased_render(oc.get("render"), f"{source['id']}-{c['uid']}")
                 c["stl"] = stl_url(source["id"], c["stl_hash"])
                 c["grams"] = oc.get("grams")
                 c["print_seconds"] = oc.get("print_seconds")

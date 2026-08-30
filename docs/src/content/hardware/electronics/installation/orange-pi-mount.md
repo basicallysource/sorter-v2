@@ -58,7 +58,12 @@ The Pi itself takes no inserts, and neither does anything else on this page.
   <figcaption>The 4 standoffs and their retention screws (blue), drawn as parametric placeholders. <cite>Render: Balloon.</cite></figcaption>
 </figure>
 
-(Inserts already pressed in step 1.) Handle the Pi like any ESD-sensitive board: touch a grounded metal surface before standing it off.
+(Inserts already pressed in step 1.)
+
+<div class="callout callout-warning">
+  <span class="callout-icon" aria-hidden="true">⚠</span>
+  <p>Static caution: the Orange Pi is ESD-sensitive like any other bare board. Touch a grounded metal surface before handling it, and avoid doing this on carpet in dry weather.</p>
+</div>
 
 Screw the 4 M3 standoffs into the inserts. Sit the Pi on them and fasten it down with 4 {% include fastener.html size="M3" variant="socket-button" length="6" %} screws. The 10 mm standoffs are used.
 

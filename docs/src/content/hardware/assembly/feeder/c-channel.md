@@ -1,10 +1,10 @@
 ---
 layout: default
-title: C-Channel
+title: C-channel
 type: how-to
 section: hardware
 slug: assembly-c-channel
-kicker: Feeder — C-Channel
+kicker: Feeder — C-channel
 lede: The C-channel stage itself.
 permalink: /hardware/assembly/feeder/c-channel/
 author: spencer

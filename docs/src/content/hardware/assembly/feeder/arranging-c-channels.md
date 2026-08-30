@@ -1,10 +1,10 @@
 ---
 layout: default
-title: Arranging C-Channels
+title: Arranging C-channels
 type: how-to
 section: hardware
 slug: assembly-arranging-c-channels
-kicker: Feeder — Arranging C-Channels
+kicker: Feeder — Arranging C-channels
 lede: How the four C-channels stand, at what heights, and what passes parts between them.
 permalink: /hardware/assembly/feeder/arranging-c-channels/
 author: barthel

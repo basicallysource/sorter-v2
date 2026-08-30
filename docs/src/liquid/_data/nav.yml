@@ -54,7 +54,7 @@ sections:
           - title: Feeder
             url: /hardware/assembly/feeder/
             children:
-              - title: C-Channel
+              - title: C-channel
                 url: /hardware/assembly/feeder/c-channel/
               - title: Classification chamber
                 url: /hardware/assembly/feeder/classification-chamber/
@@ -66,7 +66,7 @@ sections:
                 url: /hardware/assembly/feeder/bulk-input/
               - title: Output guides
                 url: /hardware/assembly/feeder/output-guides/
-              - title: Arranging C-Channels
+              - title: Arranging C-channels
                 url: /hardware/assembly/feeder/arranging-c-channels/
           - title: Software setup
             url: /hardware/assembly/software-setup/

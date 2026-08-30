@@ -76,7 +76,7 @@ The parts are in the list above. Most fasteners for this stage still aren't reco
 
 <div class="prep-item">
   <div class="prep-item-body">
-    <p><strong>4K IMX415 camera module:</strong> mounts to the camera extension with 4 × {% include fastener.html size="M2" variant="socket-button" length="8" %} screws, self-tapping into the extension's two posts (Step 3). A different camera from the one on the [overhead camera mount]({{ '/hardware/assembly/feeder/camera-mount/' | relative_url }}).</p>
+    <p><strong>4K IMX415 camera module:</strong> mounts to the camera extension with 4 × {% include fastener.html size="M2" variant="socket-button" length="8" %} screws, self-tapping into the extension's two posts (Step 3).</p>
   </div>
   <figure class="prep-item-figure">
     <div class="img-placeholder">Image coming</div>

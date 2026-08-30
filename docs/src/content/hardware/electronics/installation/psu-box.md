@@ -59,9 +59,9 @@ Print the three enclosure parts: the PSU back mount, the PSU connections plate a
 
 {% include step.html n="2" title="Fit the printed parts to the supply" %}
 
-Fasten the PSU back mount, the PSU connections plate and the PSU box cap to the supply's case with 4 {% include fastener.html size="M4" variant="countersunk" length="6" %} screws.
+Fasten the PSU back mount and the PSU connections plate to the supply's case with the 4 {% include fastener.html size="M4" variant="countersunk" length="6" %} screws, before wiring: the connections plate's cable routing needs to be in place first.
 
-Which part takes which of the four screws, and the order they go on in, is not recorded: <span class="fastener-todo">assembly order not recorded</span>. It matters, because the connections plate is the end the cables pass through and the terminal block has to still be reachable.
+Which part takes which screw isn't fully recorded, but the parts' own STLs answer most of it: the back mount has one clearance hole into the case (at the end away from the terminal block, the same end that bolts to the frame in step 5), and the connections plate has two, spread along the case nearer the terminal-block end. That's three of the four screws. The PSU box cap's STL has no case-screw holes at all, so it isn't fastened here despite this step covering all three parts in the parts list; see step 4. <span class="fastener-todo">Read from the STLs, not confirmed against a built box — worth checking against a real assembly, and the fourth screw's hole isn't accounted for either way.</span>
 
 <div class="img-placeholder">Image coming</div>
 
@@ -74,13 +74,13 @@ Which part takes which of the four screws, and the order they go on in, is not r
 
 Land the fused IEC inlet switch's leads on screws 1, 2 and 3, and the three DC output pigtails on the +V/-V pairs above. Tug-test each connection, then route every wire through the connections plate so nothing can shift and touch the mains terminals once the box is closed.
 
-Whether this happens before or after the plates go on is the open question in step 2.
+The connections plate is already fastened at this point (step 2); the cap isn't on yet (step 4).
 
 <div class="img-placeholder">Image coming</div>
 
 {% include step.html n="4" title="Close the box" %}
 
-Fit the cap. The box is closed before the machine sees mains.
+Fit the cap. It carries no screws of its own — its STL has no case-screw holes, and its footprint sits directly over the connections plate's face, which reads as a friction or snap fit rather than a fastened one, but that isn't confirmed against a built box either. The box is closed before the machine sees mains.
 
 <div class="img-placeholder">Image coming</div>
 

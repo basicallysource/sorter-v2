@@ -57,9 +57,18 @@ The Orange Pi family uses **two distinct M.2 connector formats** depending on th
 | Orange Pi 5 (original) | Standard M.2 PCIe | AP6275P (Wi-Fi 6 + BT5.0) — [Amazon](https://www.amazon.com/dp/B0BZRNM6HR) |
 | Orange Pi 5 Plus | PCIe M.2 E-KEY | R6 module (Wi-Fi 6 + BT5.2, 1201 Mbps) — [Amazon](https://www.amazon.com/dp/B0CFY7SJRN) |
 
-If you order the wrong module for your board variant it will not physically seat. Double-check which board you have before purchasing.
+If you order the wrong module for your board variant it will not physically seat. Double-check which board you have before purchasing — if you're looking at the bare board, the keying notch is what actually tells the two apart: a **Standard M.2 PCIe (M-key)** slot has its key tab positioned near the far end of the connector, and is usually long enough to accept a 2242/2260-length card. A **PCIe M.2 E-KEY** slot has its key tab further toward the middle of the connector, and is typically only long enough for a short (2230-length) card like the R6 module above. Some boards also silkscreen the slot type next to the connector.
 
 > **Note on driver support:** The AP6275P module for the original Orange Pi 5 requires drivers included in the official Orange Pi Ubuntu image. It works on SorterOS (which is based on that image) but may not work on other third-party OS images out of the box.
+
+### Installing the module
+
+1. Power off the board and disconnect it from power.
+2. Locate the M.2 slot on the board and remove anything covering it (heatsink, standoff cap) so the connector is clear.
+3. Insert the module into the slot at a shallow angle (around 30°) — it only goes in one way, matched to the slot's keying.
+4. Press the far end of the module flat down onto the standoff.
+5. Secure it with the mounting screw that came with the module (or the board, if one is preinstalled).
+6. Power the board back on and confirm the OS sees the adapter, e.g. `ip link` or `nmcli device wifi list` should list it.
 
 ## USB hubs
 

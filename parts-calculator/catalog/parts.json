@@ -3312,9 +3312,9 @@
       "name": "M3 × 35 mm flat head",
       "category": "Screws",
       "alternative": "Flat or pan head",
-      "description": "The two long M3s on the top interface: one clamps the two cable-clamp halves together, one retains the idler gear on the NEMA 23 bracket. Same screw for both. The head has to stay low because of the idler joint: a socket or button head stands proud enough for the limit switch hammer to catch on it as the chute sweeps past.",
+      "description": "The long M3 that clamps the two cable-clamp halves together at the top interface, threading into an M3 nut in the bottom of the Cable clamp (outer).",
       "created_at": "2026-07-18",
-      "updated_at": "2026-08-21",
+      "updated_at": "2026-08-30",
       "attributes": [
         {
           "label": "Thread",
@@ -3326,7 +3326,7 @@
         },
         {
           "label": "Head",
-          "value": "Flat (pancake) head, hex socket. Pan head works too; both are flat-bottomed and low enough to clear the limit switch hammer, which a socket or button head is not."
+          "value": "Flat (pancake) head, hex socket. Pan head works too."
         }
       ]
     },
@@ -7203,7 +7203,7 @@
       "uid": "cwji",
       "version": "1",
       "name": "Chute Stepper Gearing",
-      "description": "The printed drive and idler gearing that transfers motion from the NEMA 23 chute stepper. The idler gear's 608 2RS bearing is retained by two printed caps: [[hw:chute-stepper-idler-bearing-retainer-outer]] bolts over the bearing pocket on 4 × [[hw:scr-m3-8-cs]] into the gear's own heat inserts (the same screw the Interface spur gear uses two lines up), and [[hw:chute-stepper-idler-bearing-retainer-inner]] caps the bore where 1 × [[hw:scr-m3-35-bhcs]] still runs through into the bracket. The low head on the M3×35 keeps it clear of the limit switch hammer.",
+      "description": "The printed drive and idler gearing that transfers motion from the NEMA 23 chute stepper. The idler gear's 608 2RS bearing is retained by two printed caps: [[hw:chute-stepper-idler-bearing-retainer-outer]] bolts over the bearing pocket on 4 × [[hw:scr-m3-8-cs]] into the gear's own heat inserts (the same screw the Interface spur gear uses two lines up), and [[hw:chute-stepper-idler-bearing-retainer-inner]] caps the bore where 1 × [[hw:scr-m3-20-cs]] runs through into the bracket, self-tapping straight into the printed NEMA 23 bracket rather than reaching all the way to the plywood Top plate.",
       "docs": "/hardware/assembly/distribution/top-interface/",
       "status": "partial",
       "lines": [
@@ -7224,7 +7224,7 @@
           "qty": 1
         },
         {
-          "part": "scr-m3-35-bhcs",
+          "part": "scr-m3-20-cs",
           "qty": 1
         },
         {

@@ -27,7 +27,7 @@ The fasteners and quantities are in the parts list above and are called out inli
 
 {% include fastener-legend.html %}
 
-- **How many:** 1 of each per distribution layer, plus 1 of each for the [top interface]({{ '/hardware/assembly/distribution/top-interface/' | relative_url }}) and 1 of each for the [bottom interface]({{ '/hardware/assembly/distribution/bin-frame/bottom-interface/' | relative_url }}).
+- **How many:** 1 of each per distribution layer, plus 1 of each for the [top interface]({{ '/hardware/assembly/distribution/top-interface/' | relative_url }}) and 1 of each for the [bottom interface]({{ '/hardware/assembly/distribution/bin-frame/bottom-interface/' | relative_url }}). For an N-layer machine, that's N + 2 pairs total.
 - **Screws:** 2 {% include fastener.html size="M3" variant="countersunk" length="8" %} per connector, 4 for the pair. They come out of the [chute core]({{ '/hardware/assembly/distribution/chute/chute-core/' | relative_url }})'s set of 8 and are not extra, so they are on that page's parts list rather than this one.
 - Both connectors go into the chute core's M3 heat inserts.
 
@@ -35,12 +35,12 @@ The fasteners and quantities are in the parts list above and are called out inli
 
 Both connectors fasten to the [chute core]({{ '/hardware/assembly/distribution/chute/chute-core/' | relative_url }}), into its M3 heat inserts.
 
-Each connector takes 2 {% include fastener.html size="M3" variant="countersunk" length="8" %} screws through the flat strap between its two end blocks.
+Each connector takes 2 {% include fastener.html size="M3" variant="countersunk" length="8" %} screws through the flat strap between its two end blocks, but don't fully tighten them yet: step 2 covers checking the alignment first.
 
 The strap is countersunk 90° on its outer face, so the head sits flush. Why 8 mm and not 12 is on the [chute core]({{ '/hardware/assembly/distribution/chute/chute-core/' | relative_url }}) page with the rest of the split.
 
-<div class="img-placeholder">Image coming</div>
+<div class="img-placeholder">Photo of both layer connectors screwed to the chute core.</div>
 
 {% include step.html n="2" title="Check the alignment against the layer below" %}
 
-Build the layers up first and check that A on one layer lines up with B on the layer below before tightening. Nothing here is adjustable once the tower is stacked.
+Build the layers up first and check that A on one layer sits flush against B on the layer below, with no visible gap or twist between the two straps, before tightening either one down. Nothing here is adjustable once the tower is stacked.

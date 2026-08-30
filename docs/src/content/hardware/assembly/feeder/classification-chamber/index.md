@@ -87,6 +87,11 @@ The parts are in the list above. Most fasteners for this stage still aren't reco
 
 Build the classification channel as a normal [C-channel]({{ '/hardware/assembly/feeder/c-channel/' | relative_url }}), but with the finned rotor rather than a faceted one, and in ash grey rather than charcoal.
 
+<figure class="single-figure">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-c-channel-stator-and-rotor-fitted-w1600-60758bbee2d5.jpg" alt="A finished C-channel seen from above: the white finned classification rotor sitting inside the grey stator ring, with the stepper motor projecting from the right-hand side">
+  <figcaption>The classification channel, finned rotor fitted in the stator. Same photo as the C-channel page's step 5, since it's the same build. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+</figure>
+
 {% include step.html n="3" title="Fit the insert, the camera and the dome" %}
 
 Fit the Camera & LED insert, then the camera on its extension tube and mount ring, then close the chamber with the dome.

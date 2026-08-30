@@ -34,7 +34,10 @@ parts_needed:
     qty: 9
   - part: tnut-m5-2020
     qty: 6
+tools_needed: [Hex key, Drill or electric screwdriver]
 ---
+
+The bottom interface is the Lazy Susan bearing assembly the chute rests and spins on, sitting between the chute and the bottom two layers of the frame.
 
 <div class="prep-item">
   <div class="prep-item-body">
@@ -62,7 +65,7 @@ The parts list above is only the Lazy Susan bearing stack and the extrusion moun
   <figcaption><cite>Video: Basically's own YouTube channel. Who filmed it isn't recorded.</cite></figcaption>
 </figure>
 
-The bottom interface stacks the chute mount, the Lazy Susan washer, the Lazy Susan bearing, and the bottom static part. Here it is exploded into its components:
+The bottom interface stacks the chute mount, the Lazy Susan washer, the Lazy Susan bearing, and the bottom static part. The Lazy Susan itself is two discs, inner and outer, that spin independently: the chute mount screws to one disc and the bottom static part to the other. Here it is exploded into its components:
 
 <div class="img-row">
   <figure>
@@ -112,7 +115,7 @@ Printed parts elsewhere in the machine take inserts too. Each assembly page list
 
 {% include step.html n="2" title="Mount the Lazy Susan to the chute mount" %}
 
-The Lazy Susan is two discs, inner and outer, that spin independently. The chute mount screws to one disc and the bottom static part to the other, so this step and the next work on opposite faces of the same bearing.
+This step and the next work on opposite faces of the same bearing.
 
 Remove the Lazy Susan's rubber tabs first (see [Preparing Lazy Susan]({{ '/hardware/helpers/lazy-susan/' | relative_url }})). **The washer goes on before the bearing**: set the Lazy Susan washer on the chute mount, then the [Lazy Susan]({{ '/hardware/parts/lazy-susan/' | relative_url }}) on top of that.
 
@@ -207,7 +210,7 @@ The bearing stack is now complete:
 
 {% include step.html n="4" title="Prepare the frame" %}
 
-The bottom interface's frame is an ordinary [hex frame]({{ '/hardware/assembly/distribution/bin-frame/hex-frame/' | relative_url }}), built exactly as that page describes with no changes. Once it's built, a Lazy Susan extrusion mount pair bolts directly onto 3 of its spokes, alternating around the ring, on top of the spoke's existing Frame 90° bracket and crossbeam rather than replacing anything.
+The bottom interface's frame is an ordinary [hex frame]({{ '/hardware/assembly/distribution/bin-frame/hex-frame/' | relative_url }}), built exactly as that page describes, with one addition: that page's step 3 has a note on getting this page's 6 T-nuts into 3 of its spokes while they're still open. Once it's built, a Lazy Susan extrusion mount pair bolts directly onto those 3 spokes, alternating around the ring, on top of the spoke's existing Frame 90° bracket and crossbeam rather than replacing anything.
 
 Three Lazy Susan extrusion mounts carry the bearing assembly's weight; a hold in place bolts to each one first, as a pair, before either touches the extrusion. **They don't fix the chute itself**, that's attached up at the [top interface]({{ '/hardware/assembly/distribution/top-interface/' | relative_url }}).
 
@@ -216,11 +219,11 @@ Three Lazy Susan extrusion mounts carry the bearing assembly's weight; a hold in
   <figcaption>Mount and hold in place, bolted together. <cite>Photo: BrickCycleAlice.</cite></figcaption>
 </figure>
 
-The screw between the extrusion mount and the hold in place is an {% include fastener.html size="M5" variant="socket" length="16" %}.
+The screw between the extrusion mount and the hold in place is an {% include fastener.html size="M5" variant="socket-button" length="16" %}.
 
 Each mount then bolts directly onto the B/H spoke (158mm) already in place in the hex frame, through two more 5.5 mm M5 clearance holes, 30 mm apart, into a T-nut in the extrusion.
 
-That's two {% include fastener.html size="M5" variant="socket" length="16" %} screws per mount, 6 more on top of the 3 between mount and hold in place.
+That's two {% include fastener.html size="M5" variant="socket-button" length="16" %} screws per mount, 6 more on top of the 3 between mount and hold in place.
 
 <div class="img-row">
   <figure>

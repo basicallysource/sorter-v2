@@ -26,25 +26,25 @@ This covers attaching the six B/H spokes and their Frame crossbeams to the insid
 
 {% include step.html n="1" title="Fit the Frame 90° brackets" %}
 
-<div class="img-placeholder">Image coming</div>
+<div class="img-placeholder">Two Frame 90° brackets seated against the inner face of an A/G extrusion, at the point where a B/H spoke will land</div>
 
 Rest 2 Frame 90° brackets against the inner face of one A/G extrusion of your assembled outer hexagon, at the point where a B/H spoke will land. Alignment nubs on the bracket key against the extrusion and hold it in place on their own.
 
 <div class="callout callout-warning">
   <span class="callout-icon" aria-hidden="true">⚠</span>
-  <p>The brackets can sit loosely before the rest of the frame is built up around them — handle the half-built frame gently until the spoke and crossbeam below are in and the hexagon is closed.</p>
+  <p>The brackets sit loosely until the crossbeam locks them in — don't lift or carry the half-built frame by a single spoke or bracket until the hexagon below is fully closed.</p>
 </div>
 
 {% include step.html n="2" title="Slide in the spoke and crossbeams" %}
 
-<div class="img-placeholder">Image coming</div>
+<div class="img-placeholder">The B/H spoke and Frame crossbeam slid into a mounted pair of brackets, level with the end of the extrusion</div>
 
-Slide piece B/H (Spoke / Interface spoke (short)) into the 2 Frame 90° brackets you just placed.
+Slide the B/H spoke (labeled "Interface spoke (short)" in the parts list) into the 2 Frame 90° brackets you just placed.
 
 Slide a Frame crossbeam into place on the spoke until it is level with the end of the extrusion.
 
-Perform these two steps 2 more times, on every 2nd side of the hexagon, then repeat for the remaining 3 sides.
+Perform these two steps on three alternating sides of the hexagon first, then the remaining three sides, for six spoke assemblies total.
 
 {% include step.html n="3" title="Close the hexagon in two halves" %}
 
-Build three spoke assemblies on one half of the hexagon, then the other three on the other half, and only then bring the two halves together — completing the whole hexagon one side at a time makes the last piece impossible to fit. Once the hexagon is closed, the spokes and crossbeams hold themselves in place.
+Build the spoke assemblies on three alternating sides first, then the other three, and only bring the ring together once all six are in place — closing the hexagon one side at a time in order makes the last piece impossible to fit. Once the hexagon is closed, the spokes and crossbeams hold themselves in place.

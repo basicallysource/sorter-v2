@@ -19,21 +19,33 @@ tools_needed: [Soldering iron or heat-set insert press, Needle-nose pliers]
 
 You can install the brass inserts with a soldering iron or a dedicated heat-set insert press.
 
+Heat inserts give printed threads that can be screwed and unscrewed repeatedly without stripping the plastic, unlike a self-tapping screw driven straight into a hole. This page is linked from wherever a part's assembly step calls for one; do the insert for that part before starting its steps.
+
 ## Using a soldering iron
+
+{% include step.html n="1" title="Place the insert" %}
 
 <div class="img-row">
   <figure><img src="https://assets.basically.website/sorter-docs/assembly-heat-inserts-soldering-iron-insert-placed-w1600-7615c6569fb3.jpg" alt="Brass heat insert standing over its hole in a printed part, thinner end down, next to an insert already installed flush"><figcaption>Set each insert over its hole, thinner section first. <cite>Photo: BrickCycleAlice.</cite></figcaption></figure>
   <figure><img src="https://assets.basically.website/sorter-docs/assembly-heat-inserts-soldering-iron-pressing-insert-w1600-b18b63647483.jpg" alt="Soldering iron tip centered on a heat insert, pressing it straight down into the part"><figcaption>Center the tip and press gently while it heats. <cite>Photo: BrickCycleAlice.</cite></figcaption></figure>
 </div>
 
-Place each insert above its cavity, straight and centered, with the thinner section going in first. Line the soldering iron tip up with the center of the insert and apply slight pressure while it heats up, about 20 seconds. Once the insert passes the plastic's melt temperature it starts to descend into the part. Push it down straight into the hole, not at an angle.
+Place each insert above its cavity, straight and centered, with the thinner section going in first.
 
-It travels faster as it gets hotter, so keep a steady hand. Larger inserts take longer to heat up before they sink. Keep the iron on the insert until it is flush with the top of the part, and make sure it is square before you remove the heat, or it will not align.
+{% include step.html n="2" title="Heat it in" %}
+
+Set the iron to roughly 200-220C (390-430F) for PLA or PETG parts, or higher for ABS — check your filament's printing temperature as a rough guide. Line the tip up with the center of the insert and apply slight pressure. After about 20 seconds it will reach the plastic's melting point and start to sink into the part on its own. Push it down straight into the hole, not at an angle.
+
+It travels faster as it gets hotter, so keep a steady hand and check it from two sides as it sinks, not just from above. Larger inserts take longer to heat up before they sink. Keep the iron on the insert until it is flush with the top of the part, and straighten it before you remove the heat — once the plastic cools it won't move.
 
 <div class="callout callout-warning">
   <span class="callout-icon" aria-hidden="true">⚠</span>
-  <p>Needle-nose pliers help hold the smaller inserts still. They get hot, so do not use your hands.</p>
+  <p>The iron tip, the insert, and the plastic around it are all hot enough to burn — use needle-nose pliers to hold small inserts steady, never your fingers, and rest the iron in its stand between inserts. Melting plastic gives off fumes, so do this somewhere ventilated, and don't lean over the part while it's heating.</p>
 </div>
+
+{% include step.html n="3" title="Fix a crooked or overheated insert" %}
+
+If it's already crooked or has sunk too far, reheat it, gently pull it back up and straight with pliers while it's still soft, then let it re-set. If the surrounding plastic has visibly melted or bulged, that hole's threads may be weakened; back the insert out, let the part cool fully, and consider reprinting that part if it doesn't hold a screw firmly.
 
 ## Using a heat press
 

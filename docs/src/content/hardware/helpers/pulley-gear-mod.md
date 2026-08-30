@@ -7,13 +7,14 @@ slug: helper-pulley-gear-mod
 kicker: Helpers — Timing pulley
 lede: Remove the top flange from the 20-tooth timing pulley before assembly.
 permalink: /hardware/helpers/pulley-gear-mod/
-authors: [abrianbaker, spencer]
+author: abrianbaker
+contributors: [spencer]
 parts_needed:
   - part: pulley-20t-8mm
 tools_needed: [Bottle opener, Needle-nose pliers]
 ---
 
-The 20-tooth timing pulley needs its top flange removed before it fits into the Interface spur gear.
+The 20-tooth timing pulley needs its top flange removed before it fits into the Interface spur gear. This prep happens before mounting the pulley on the NEMA 23 stepper motor shaft, during [top interface]({{ '/hardware/assembly/distribution/top-interface/' | relative_url }}).
 
 ## Remove the top flange
 
@@ -22,8 +23,11 @@ The 20-tooth timing pulley needs its top flange removed before it fits into the 
   <figure><img src="https://assets.basically.website/sorter-docs/helpers-timing-pulley-after-flange-removal-w1600-fbac3db7df0c.jpg" alt="20-tooth timing pulley after preparation, with the removed top flange beside it"><figcaption>After: top flange removed. <cite>Photo: Abrianbaker.</cite></figcaption></figure>
 </div>
 
-Grip the top flange with needle-nose pliers and pry it upwards. It should pop off cleanly without damaging the pulley.
+Remove only the top flange — leave the lower flange in place.
 
-You can also use a bottle opener together with the pliers to pop the top flange off.
+Grip the top flange with needle-nose pliers and pry it upwards; it should pop off cleanly without damaging the pulley. You can also lever a bottle opener under the flange's edge while the pliers hold the pulley steady, for more leverage. If it resists, work the bottle opener's edge under the flange first and pry a little at a time around the circumference rather than forcing one side.
 
-Remove only the top flange. Leave the lower flange in place.
+<div class="callout callout-warning">
+  <span class="callout-icon" aria-hidden="true">⚠</span>
+  <p>The flange can let go suddenly once it's pried far enough — keep your face clear and pry away from yourself. Set it aside once it's off.</p>
+</div>

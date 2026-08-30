@@ -310,6 +310,8 @@ Slot the Interface NEMA 23 bracket into the Interface upper fixed section and se
 
 Attach the whole assembly to the bottom of the Top plate with {% include fastener.html size="M5" variant="countersunk" length="22" %} screws through holes S2 and S3 into the Interface NEMA 23 bracket.
 
+**Alternative:** whether these need a countersunk head depends on how your Top plate was cut. If the S2/S3 holes have a countersink cut in, use a countersunk head; if they don't, {% include fastener.html size="M5" variant="socket-button" length="20" %} screws work here instead. Builder's call depending on their plate, the same as the I1-I6/O1-O6 screws in step 5.
+
 <div class="img-row">
   <figure>
     <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-top-interface-step2-ribs-upper-fixed-section-w1600-4ebd47453115.jpg" alt="Six grey Interface ribs attached around the circular Interface upper fixed section">

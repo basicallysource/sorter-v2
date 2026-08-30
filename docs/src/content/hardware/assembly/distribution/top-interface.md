@@ -401,7 +401,7 @@ Slide a T-nut just into the end of the extrusion of the limit switch interface b
 
 <div class="callout">
   <span class="callout-icon" aria-hidden="true">💡</span>
-  <p>Keep this loose for now, the bracket also gets fixed through the Top plate in the next step. You can confirm the T-nut is lined up by looking through the Top plate's own screw hole for it, rather than by feel alone. <cite>Tip: BrickCycleAlice.</cite></p>
+  <p>Keep this loose for now, the bracket also gets fixed through the Top plate in the next step. Check by looking straight through the Top plate's own screw hole, not by feel alone. <cite>Tip: BrickCycleAlice.</cite></p>
 </div>
 
 <div class="callout callout-warning">
@@ -420,7 +420,7 @@ Flip the whole assembly and screw all 6 Interface brackets into place with {% in
 
 <div class="callout">
   <span class="callout-icon" aria-hidden="true">💡</span>
-  <p>Go back and fully tighten the M5 × 8 mm screws left loose earlier in this step, now that each bracket is also fixed through the Top plate. <cite>Tip: BrickCycleAlice.</cite></p>
+  <p>Go back and fully tighten the M5 × 8 mm screws left loose earlier in this step, now that each bracket is also bolted through its I/O holes. This is also where a hand-cut Top plate's I/O holes show up as inaccurate, if they do; widen them if a bolt is binding. <cite>Tip: BrickCycleAlice.</cite></p>
 </div>
 
 {% include step.html n="6" title="Prepare the interface chute gear and mount" %}

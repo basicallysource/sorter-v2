@@ -58,12 +58,25 @@ The fasteners and quantities are in the parts list above and are called out inli
 
 **No heat inserts on this assembly.** Every screw threads straight into printed plastic, except the three that go into the stepper's own tapped holes. This was confirmed on a built channel and matches the part STLs: the rotor's six holes are Ø2.8 mm and the stator's are Ø2.4 and Ø2.8 mm, all thread-forming, while the NEMA bracket and the output gear are Ø3.4 mm clearance throughout, with nothing threaded in them. Because you're cutting your own threads in plastic, stop as soon as the screw seats — don't keep tightening.
 
-**Press both bearings into their gears first**, while the parts are loose and you can support them on the bench.
+Press both bearings into their gears first, while the parts are loose and you can support them on the bench. Both are press fits: no screws, no adhesive, no heat.
 
-- **Output gear (130T):** one 6806-2RS, 30 mm bore.
-- **Idler gear (24T):** one 608-2RS.
+<div class="prep-item">
+  <div class="prep-item-body">
+    <p><strong>Output gear (130T):</strong> one 6806-2RS bearing, 30 mm bore.</p>
+  </div>
+  <figure class="prep-item-figure">
+    <div class="img-placeholder">Image coming</div>
+  </figure>
+</div>
 
-Both are press fits. No screws, no adhesive, no heat.
+<div class="prep-item">
+  <div class="prep-item-body">
+    <p><strong>Idler gear (24T):</strong> one 608-2RS bearing.</p>
+  </div>
+  <figure class="prep-item-figure">
+    <div class="img-placeholder">Image coming</div>
+  </figure>
+</div>
 
 {% include step.html n="2" title="Bolt the output gear to the rotor" %}
 

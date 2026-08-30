@@ -17,7 +17,7 @@ author: spencer
 
 Repurposed from a dinner-table lazy Susan. It's installed as part of chute assembly, letting the chute rotate freely on the frame with minimal friction under load. It's rated for at least 50 lb and holds up well over long run times in our testing, with no manufacturing issues seen across the Amazon and AliExpress sources we've used. (Our own inference: actual capacity may be higher than the rated 50 lb, but we haven't tested to failure.) Use the **8" variant**; see it on the [parts catalog](https://parts-calculator.basically.website/hardware?hw=brg-lazy-susan) for current vendor links and pricing.
 
-Mounts through 4 × M4 countersunk screws per side, into heat-set inserts in the printed part it bolts to (the chute mount on one side, the bottom static plate on the other), the same fastener pattern used at the top interface.
+The bearing itself is 20 cm (8") across and 9 mm thick, weighing about 350 g. It mounts through 4 × M4 countersunk screws per side, into heat-set inserts in the printed part it bolts to (the chute mount on one side, the bottom static plate on the other), the same fastener pattern used at the top interface.
 
 <div class="notice">
   <strong>Remove the rubber feet before installing</strong>

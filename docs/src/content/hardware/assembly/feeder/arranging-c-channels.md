@@ -23,6 +23,16 @@ parts_needed:
     qty: 9
 ---
 
+<div class="prep-item">
+  <div class="prep-item-body">
+    <p><strong>Build all four <a href="{{ '/hardware/assembly/feeder/c-channel/' | relative_url }}">C-channels</a> before you start.</strong> They're required components of this page, not optional or covered here — this page arranges and heights four already-built channels, it doesn't build them. Three with the faceted rotor, one with the finned one.</p>
+  </div>
+  <figure class="prep-item-figure">
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-c-channel-stator-and-rotor-fitted-w1600-60758bbee2d5.jpg" alt="A finished C-channel seen from above: the white finned classification rotor sitting inside the grey stator ring, with the stepper motor projecting from the right-hand side">
+    <figcaption>A finished C-channel, from the C-channel page. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+  </figure>
+</div>
+
 Four [C-channels]({{ '/hardware/assembly/feeder/c-channel/' | relative_url }}) are built the same way and then stood at different heights, so a part cascades from one to the next under gravity and arrives at the [interface]({{ '/hardware/assembly/distribution/top-interface/' | relative_url }}) singulated.
 
 The fasteners and quantities in the parts list come from the parts registry and are called out inline at each step.
@@ -55,8 +65,6 @@ Steps below refer to the channels by the names the software uses, in the order a
     <div class="img-placeholder">Image coming</div>
   </figure>
 </div>
-
-Build all four [C-channels]({{ '/hardware/assembly/feeder/c-channel/' | relative_url }}) before starting here, three with the faceted rotor and one with the finned one.
 
 {% include step.html n="2" title="Stand each channel" %}
 

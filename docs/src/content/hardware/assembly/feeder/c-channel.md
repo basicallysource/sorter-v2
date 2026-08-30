@@ -17,41 +17,41 @@ warning: >-
   not been checked against a machine. Correct it as you build.
 parts_needed:
   - part: stator
-    qty: 1
+    qty: 4
   - part: nema-bracket
-    qty: 1
+    qty: 4
   - part: rotor-faceted
-    qty: 1
+    qty: 3
   - part: rotor-finned
     qty: 1
   - part: output-gear
-    qty: 1
+    qty: 4
   - part: idler-gear
-    qty: 1
+    qty: 4
   - part: input-gear
-    qty: 1
+    qty: 4
   - part: motor-nema17
-    qty: 1
+    qty: 4
   - part: brg-6806-2rs
-    qty: 1
+    qty: 4
   - part: brg-608-2rs
-    qty: 1
+    qty: 4
   - part: scr-m3-12-cs
-    qty: 10
+    qty: 40
   - part: scr-m3-16-shcs
-    qty: 3
+    qty: 12
   - part: scr-m3-8-shcs
-    qty: 1
+    qty: 4
 ---
 
 A C-channel is one drive unit: a rotor turning inside a stator, driven through a gear train by a NEMA 17 stepper on a bracket underneath.
 
-The fasteners and quantities are in the parts list above and are called out inline at each step.
+The parts list above is **all four channels' worth** — the count is fixed for every machine, so there's nothing to multiply yourself. The steps below build one channel at a time; repeat each step four times, using the per-step counts as what one repetition uses.
 
 {% include fastener-legend.html %}
 
-- **Build 4 per machine**, three in the feeder and one for the classification channel. It is the same build four times over, and the rotor is the only thing that changes. **The parts list above is one unit's worth**, so multiply it by four for a whole machine, or read the machine totals off the [parts calculator](https://parts-calculator.basically.website/assembly?focus=c-channel).
-- **One rotor per unit, and only one of the two.** The three feeder channels take the Rotor (faceted); the classification channel takes the Rotor (finned), the one with the fins in the photographs below. Both are listed above because either can be the one you need; across a machine it is three faceted and one finned. Colour changes with the rotor too: the feeder parts are charcoal, the classification-channel ones ash grey.
+- **Build 4 per machine**, three in the feeder and one for the classification channel. It is the same build four times over, and the rotor is the only thing that changes.
+- **One rotor per unit, and only one of the two.** The three feeder channels take the Rotor (faceted); the classification channel takes the Rotor (finned), the one with the fins in the photographs below. The list above already splits them the way a real machine needs them: three faceted, one finned. Colour changes with the rotor too: the feeder parts are charcoal, the classification-channel ones ash grey.
 - Two of the four channels also carry a light post, whose screws belong to the light post rather than to the list above.
 
 {% include step.html n="1" title="Preparation" %}

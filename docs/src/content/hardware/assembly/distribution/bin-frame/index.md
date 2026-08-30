@@ -5,7 +5,7 @@ type: landing
 section: hardware
 slug: assembly-bin-frame
 kicker: Distribution — Bin frame
-lede: The stacked layers of bins. Layer count is N (however many bins your machine has); build in this order.
+lede: The stacked layers of bins. Layer count is N (however many bin layers your machine has, not the total number of bins); build in this order.
 permalink: /hardware/assembly/distribution/bin-frame/
 author: spencer
 ---

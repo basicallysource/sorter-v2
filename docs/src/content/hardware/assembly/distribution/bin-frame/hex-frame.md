@@ -28,6 +28,7 @@ parts_needed:
     qty: 8
   - part: tnut-m5-2020
     qty: 24
+tools_needed: [Hex key, Mallet or hammer with a cloth to protect the brackets]
 ---
 
 This guide builds one hexagonal frame: the outer ring of A/G extrusion and External bracket — side, with the six B/H spokes and Frame crossbeams held inside it by the Frame 90° brackets. No fasteners are used from step 2 onward — the spokes, crossbeams and brackets are a friction-and-slide fit, no screws or T-nuts.
@@ -35,6 +36,8 @@ This guide builds one hexagonal frame: the outer ring of A/G extrusion and Exter
 An N-layer machine needs **N + 1 of these**: one per planned layer, plus one for the [bottom interface]({{ '/hardware/assembly/distribution/bin-frame/bottom-interface/' | relative_url }}) and one for the [top interface]({{ '/hardware/assembly/distribution/top-interface/' | relative_url }}).
 
 The aluminum extrusion is cut to length; the [framing cut list](https://parts-calculator.basically.website/framing) has the exact dimensions. Each frame uses 6 A/G (320mm) and 6 B/H (158mm). The 24 T-nuts in the list above aren't used by anything in this guide — they're pre-installed in step 1 while the extrusion ends are still accessible, for the bin retainers a later page attaches to the outer ring.
+
+This frame's fastener total is fixed: 8 M5x16 screws and 24 T-nuts, all installed in step 1 — steps 2 through 8 use none. Regular layers and bottom two layers reuse these same 24 T-nuts for their bin retainers, so don't count them twice.
 
 {% include fastener-legend.html %}
 
@@ -55,6 +58,11 @@ Slide piece A/G (Outer horizontal / Horizontal interface frame, 320mm) of alumin
 
 If you are using slide-in T-nuts rather than drop-in or roll-in T-nuts, insert 4 into the outermost section of the extrusion before connecting the next External bracket — side, as this is the last time the ends of the extrusion are accessible.
 
+<div class="callout callout-warning">
+  <span class="callout-icon" aria-hidden="true">⚠</span>
+  <p>Before you watch: the video below still shows 2 inner T-nuts fitted partway along the extrusion. Skip those, only the 4 outer T-nuts per extrusion are needed, for the bin retainers added on a later page.</p>
+</div>
+
 <figure class="video-figure">
   <div class="video-embed video-embed-wide">
     <iframe
@@ -67,17 +75,12 @@ If you are using slide-in T-nuts rather than drop-in or roll-in T-nuts, insert 4
   <figcaption><cite>Video: zed0.</cite></figcaption>
 </figure>
 
-<div class="callout callout-warning">
-  <span class="callout-icon" aria-hidden="true">⚠</span>
-  <p>Only the 4 outer T-nuts per extrusion are needed, for the bin retainers added on a later page. The video also shows 2 inner T-nuts partway along the extrusion — skip those, they're no longer necessary.</p>
-</div>
-
 <figure class="single-figure">
   <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-regular-layers-extrusion-tnut-holes-w1600-b5863688aeea.png" alt="Side view of an A/G extrusion showing the row of holes where T-nuts sit and the screws pass through">
   <figcaption><cite>Photo: zed0.</cite></figcaption>
 </figure>
 
-Repeat these steps to make two semi-circles of three sections of A/G extrusion (320mm) and three External bracket — sides, then slot the two half-hexagons together into a full hexagon and secure it with 2 more {% include fastener.html size="M5" variant="socket-button" length="16" %} screws. Joining in this manner, rather than working your way around the hexagon, prevents having to force the brackets into awkward angles.
+Repeat these steps to make two semi-circles: each is three sections of A/G extrusion (320mm) joined by three External bracket — side pieces. Slot the two half-hexagons together into a full hexagon and secure the join with 2 more {% include fastener.html size="M5" variant="socket-button" length="16" %} screws. Joining in this manner, rather than working your way around the hexagon, prevents having to force the brackets into awkward angles.
 
 <figure class="single-figure">
   <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-regular-layers-two-half-hexagons-full-5e7c0f80f57f.png" alt="Two three-section half-hexagons laid out before being joined into a full hexagon">
@@ -157,7 +160,7 @@ Slide the final B/H spoke (158mm) in from the top to close the ring, then fit th
 
 {% include step.html n="8" title="Check and snug every joint" %}
 
-Double-check that every Frame 90° bracket is still fully seated in its slot. A light hammer tap on each bracket, from the inside of the ring toward the outside, helps snug all the connections.
+Double-check that every Frame 90° bracket is still fully seated in its slot. A light hammer tap on each bracket, from the inside of the ring toward the outside, helps snug all the connections — use a mallet, or put a cloth between a hammer and the bracket, so you aren't striking the plastic directly.
 
 <figure class="single-figure">
   <img class="doc-figure" src="https://assets.basically.website/sorter-parts/hex-frame-finished-top-down-full-c6abfb4dad6e.jpg" alt="A finished hex frame from above, the alternating grey spoke and teal crossbeam pieces forming the inner ring inside the aluminum outer hexagon">
@@ -168,5 +171,5 @@ A hex frame is now complete. Build as many as your machine needs (see the note a
 
 <div class="callout callout-warning">
   <span class="callout-icon" aria-hidden="true">⚠</span>
-  <p>The fastener counts above are the complete per-frame total: 8 screws and 24 T-nuts, all from step 1 — steps 2-8 use no fasteners at all. Regular layers and bottom two layers reuse these 24 T-nuts for their bin retainers rather than listing their own, so don't double them up in a shopping list. This page still hasn't been reconciled against the parts calculator's assembly groupings, which don't currently line up with hex-frame-first construction — see the open discussion in Discord before treating that side as final.</p>
+  <p>This page still hasn't been reconciled against the parts calculator's assembly groupings, which don't currently line up with hex-frame-first construction — see <a href="https://discord.com/channels/1430279849171222682/1542862600935702619/1542885792177983488">the open discussion in Discord</a> before treating that side as final.</p>
 </div>

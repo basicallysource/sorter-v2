@@ -13,7 +13,7 @@
     },
     {
       "id": "interface",
-      "name": "Interface",
+      "name": "Top interface",
       "scales_with_layers": false
     },
     {
@@ -6175,7 +6175,7 @@
       "id": "interface",
       "uid": "bkgq",
       "version": "2",
-      "name": "Interface",
+      "name": "Top interface",
       "description": "The interface between the feeder and the distribution layers. Its lazy Susan sandwiches the upper fixed section and the chute mount, 4 × [[hw:scr-m4-12-cs]] a side, and the plywood top plate bolts down onto the six brackets' inserts.",
       "docs": "/hardware/assembly/distribution/top-interface/",
       "status": "partial",

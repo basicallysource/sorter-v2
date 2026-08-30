@@ -10,9 +10,11 @@ permalink: /hardware/assembly/distribution/top-interface/
 author: zed0
 contributors: [barthel, brickcyclealice]
 warning: >-
-  **Step 13 reorganized to reference [Build the hex frame]({{ '/hardware/assembly/distribution/bin-frame/hex-frame/' | relative_url }})
-  instead of describing frame construction inline, not yet reviewed by a
-  builder.** The rest of the page is unchanged. Correct it as you build.
+  **Steps 13 and 14 were rewritten to reference [Build the hex frame]({{ '/hardware/assembly/distribution/bin-frame/hex-frame/' | relative_url }})
+  and to describe the interface-to-layer joint from CAD geometry, and neither
+  has been checked against a build yet.** If something doesn't match what you
+  see, treat it as unverified and flag it rather than assuming it's your
+  mistake. The rest of the page is unaffected.
 parts_needed:
   - part: interface-upper-fixed-section
     qty: 1
@@ -122,7 +124,10 @@ parts_needed:
     qty: 6
   - part: nut-m3
     qty: 1
+tools_needed: [Hex key, Soldering iron or heat-set insert press]
 ---
+
+The top interface holds a chute that rotates on a lazy-susan bearing to aim incoming parts at whichever bin layer is currently selected. A NEMA 23 stepper drives the rotation through a small gear train (steps 6 and 9), and a limit switch and hammer (steps 4, 6, 8) give it a fixed reference point to home against, since the stepper alone has no way to know which way it is pointed. Everything on this page bolts onto the Top plate, which then sits on the hex frame built on the bin-frame page.
 
 <div class="prep-item">
   <div class="prep-item-body">
@@ -173,7 +178,7 @@ Several steps below refer to holes in the Top plate by name (S2 and S3 for the s
 
 {% include step.html n="1" title="Preparation" %}
 
-Before assembling anything, press the heat inserts into the parts that take them, while the parts are still loose. Fusing them in afterwards is much harder, for example once the Interface upper fixed section is mounted to the Top plate. See [installing heat inserts]({{ '/hardware/helpers/heat-inserts/' | relative_url }}) for the technique.
+Before assembling anything, press all the heat inserts listed below into their parts while the parts are still loose — this covers every insert used on this page. Fusing them in afterwards is much harder, for example once the Interface upper fixed section is mounted to the Top plate. Later steps repeat each insert count as a reminder only; you don't need to press anything a second time. See [installing heat inserts]({{ '/hardware/helpers/heat-inserts/' | relative_url }}) for the technique.
 
 <div class="prep-item">
   <div class="prep-item-body">
@@ -255,7 +260,7 @@ Before assembling anything, press the heat inserts into the parts that take them
 <div class="prep-item">
   <div class="prep-item-body">
     <p><strong>Interface idler gear:</strong> 4 × M3, around the bearing pocket on the underside</p>
-    <p>Build the bearing sub-assembly now too, while the gear is still loose — it is easier off the bracket than on it. Push a 608 2RS bearing into the pocket, fit the Chute stepper idler gear bearing retainer (inner) over the bearing's bore, then the Chute stepper idler gear bearing retainer (outer) over that, seated flush in the recess with its 4 holes lined up on the gear's 4 inserts. Secure it with 4 × {% include fastener.html size="M3" variant="countersunk" length="8" %} screws, the same screw the Interface spur gear uses a few lines up. See step 9 for how the idler gear then goes onto the bracket.</p>
+    <p>Build the bearing sub-assembly now too, while the gear is still loose — it is easier off the bracket than on it. Push a 608 2RS bearing into the pocket, fit the Chute stepper idler bearing retainer (inner) over the bearing's bore, then the Chute stepper idler bearing retainer (outer) over that, seated flush in the recess with its 4 holes lined up on the gear's 4 inserts. Secure it with 4 × {% include fastener.html size="M3" variant="countersunk" length="8" %} screws, the same M3 x 8 mm countersunk screw used on the Interface spur gear in step 9. See step 9 for how the idler gear then goes onto the bracket.</p>
     <p>The exploded and assembled views below are reconstructions built from the STL geometry, not a CAD export — there is no assembly photo of the retainer caps yet. The photo of the bearing itself is real, from before the caps existed.</p>
   </div>
   <div class="prep-item-figure prep-item-figure-split">
@@ -290,7 +295,7 @@ Before assembling anything, press the heat inserts into the parts that take them
 
 **Heat inserts first:** press the 4 × M4 inserts into the Interface upper fixed section and the 6 × M5 and 1 × M3 inserts into the Interface NEMA 23 bracket before you assemble anything here.
 
-Attach the Interface rib (switch gap) to the Interface upper fixed section, two positions counterclockwise of the notch for the stepper mount. Use two {% include fastener.html size="M5" variant="socket-button" length="16" %} screws, tapping directly into the plastic.
+Attach the Interface rib (switch gap) to the Interface upper fixed section, two positions counterclockwise of the stepper-mount notch when viewed from above (see photo). Use two {% include fastener.html size="M5" variant="socket-button" length="16" %} screws, tapping directly into the plastic.
 
 Attach the remaining 5 Interface ribs to the Interface upper fixed section, two {% include fastener.html size="M5" variant="socket-button" length="16" %} screws each, again tapping into the plastic.
 
@@ -325,6 +330,8 @@ Attach the whole assembly to the bottom of the Top plate with {% include fastene
 
 **Heat inserts first:** each Interface bracket takes 3 × M5 inserts. Press them in before fitting the extrusion.
 
+These six brackets are what the vertical extrusion legs (piece F, step 13) will anchor into once the framing goes on.
+
 Align an Interface bracket with piece E (Interface spoke, long) of aluminum extrusion.
 
 Place T-nuts in the extrusion, lined up with the 4 holes on the side of the Interface bracket.
@@ -349,9 +356,11 @@ Repeat for all 6 Interface brackets.
 
 **Heat inserts first:** the Limit switch housing takes 2 × M3 inserts. Press them in before assembling it.
 
+This switch is the chute's home reference: because the stepper motor that will drive the chute (step 9) has no inherent sense of position, the machine homes against this switch and hammer on startup to know which bin the chute is aimed at.
+
 Push the Printed dowel pin into the Limit switch housing.
 
-Attach a Roller lever limit switch with two {% include fastener.html size="M3" variant="socket-button" length="16" %} screws (into the housing's 2 M3 inserts) so the roller sits next to the dowel pin.
+Attach the Roller lever limit switch (the "endstop-mechanical" part in your kit) with two {% include fastener.html size="M3" variant="socket-button" length="16" %} screws (into the housing's 2 M3 inserts) so the roller sits next to the dowel pin.
 
 Align the switch housing with the extrusion of one of the prepared Interface brackets so the limit switch is on the same face as the sloped side of the bracket. Slide 2 T-nuts into the extrusion and fasten the Limit switch housing to the extrusion with two {% include fastener.html size="M5" variant="socket-button" length="16" %} screws. Slide it as far toward the Interface bracket as possible for now; it gets aligned properly later.
 
@@ -380,7 +389,10 @@ Repeat with the 5 other prepared Interface brackets into the 5 other Interface r
 
 Flip the whole assembly and screw all 6 Interface brackets into place with {% include fastener.html size="M5" variant="countersunk" length="22" %} screws through holes I1 to I6 and O1 to O6.
 
-**Alternative:** the Top plate's laser-cut holes are not countersunk, so a countersunk head does not seat flush. {% include fastener.html size="M5" variant="socket-button" length="20" %} screws work here instead.
+<div class="callout callout-warning">
+  <span class="callout-icon" aria-hidden="true">⚠</span>
+  <p>Alternative: the Top plate's laser-cut holes are not countersunk, so a countersunk head does not seat flush. {% include fastener.html size="M5" variant="socket-button" length="20" %} screws work here instead.</p>
+</div>
 
 {% include step.html n="6" title="Prepare the interface chute gear and mount" %}
 
@@ -443,7 +455,7 @@ Once complete, the free section of the Lazy Susan should rotate freely.
 
 Place the Interface big spacer on the Interface upper fixed section with its 4 holes lined up with the 4 heat inserts.
 
-Rotate the free part of the Lazy Susan on the assembled interface chute so that 3 of its holes line up with the holes in the Top interface chute mount. Place the assembly on top of the Interface big spacer with the 3 holes aligned with 3 of the heat inserts. Screw these together tightly with three {% include fastener.html size="M4" variant="countersunk" length="12" %} screws.
+Rotate the free part of the Lazy Susan on the chute mount assembly from step 6 so that 3 of its holes line up with the holes in the Top interface chute mount. Place the assembly on top of the Interface big spacer with the 3 holes aligned with 3 of the heat inserts. Screw these together tightly with three {% include fastener.html size="M4" variant="countersunk" length="12" %} screws.
 
 Rotate the Top interface chute mount 90 degrees relative to the Interface upper fixed section to reveal the 4th screw hole in the Lazy Susan (it should also line up with a hole in the Interface big spacer and a heat insert). Drive a fourth {% include fastener.html size="M4" variant="countersunk" length="12" %} screw tightly through this hole.
 
@@ -463,7 +475,7 @@ Once done, check that the chute rotates freely relative to the Interface upper f
   <figcaption><cite>Video: zed0.</cite></figcaption>
 </figure>
 
-Loosen the screws attaching the Limit switch housing to the extrusion. Slide the housing so the Limit switch hammer rotates into place between the Roller lever limit switch and the Printed dowel pin in both directions of rotation. The switch clicks when it is being activated correctly. Avoid friction between the Limit switch hammer and the Printed dowel pin. Tighten the screws to keep the housing in this position.
+Loosen the screws attaching the Limit switch housing to the extrusion. Slide the housing so the Limit switch hammer passes between the Roller lever limit switch and the Printed dowel pin in both directions of rotation, without touching the dowel pin. Rotate the chute slowly to each limit by hand: you should feel and hear the switch click just before the hammer would otherwise hit the dowel pin. If the hammer rubs against the dowel pin, slide the housing slightly further away and re-test. Tighten the screws to keep the housing in this position.
 
 {% include step.html n="9" title="Install the chute stepper motor" %}
 
@@ -484,17 +496,19 @@ Loosen the screws attaching the Limit switch housing to the extrusion. Slide the
   <p>This video predates the idler gear's bearing retainer caps. It shows the idler gear built the old way, with a loose washer under the M3 × 35 screw instead of the two printed caps from step 1.</p>
 </div>
 
-Slide the prepared [Timing pulley]({{ '/hardware/helpers/pulley-gear-mod/' | relative_url }}) over the shaft of the NEMA 23 stepper motor and tighten the two worm screws on its side. Slide the Interface spur gear onto the Timing pulley and secure it with five {% include fastener.html size="M3" variant="countersunk" length="8" %} screws, half tapped into the Interface spur gear and half bracing against the Timing pulley.
+The idler gear bridges the gap between the spur gear on the motor shaft and the chute's ring gear (built in step 6), so the motor can sit off to the side of the chute mount rather than driving it directly.
+
+Slide the prepared [Timing pulley]({{ '/hardware/helpers/pulley-gear-mod/' | relative_url }}) over the shaft of the NEMA 23 stepper motor and tighten its two set screws (grub screws). Slide the Interface spur gear onto the Timing pulley and secure it with five {% include fastener.html size="M3" variant="countersunk" length="8" %} screws: three tapped into the Interface spur gear and two bracing against the Timing pulley (exact split may vary — check the hole pattern in the photo).
 
 Push the prepared Interface idler gear — bearing, inner retainer cap, and outer retainer already fitted, see step 1 — onto the Interface NEMA 23 bracket with the bearing facing outwards.
 
 Drive an {% include fastener.html size="M3" variant="flat" length="35" %} screw through the middle of the gear and into the bracket. The inner retainer cap sits between the screw head and the bearing, spanning the 8 mm bore, so the screw head on its own (narrower than the bore) has something to clamp against. Tighten until it's seated, then check that the idler gear still spins freely.
 
-The head has to be a low one here. A socket or button head stands proud enough that the Limit switch hammer can catch on it as the chute sweeps past, so use a flat (pancake) head, or a pan head if that is what you have. It is the same screw as the one on the Cable clamp in step 11, so buy two of the one head type.
+The head has to be low here — countersunk (flat/pancake) is the only head type confirmed to clear the Limit switch hammer as it sweeps past. If you only have a pan head on hand, check clearance by hand-rotating the chute past this screw before closing everything up. It is the same screw as the one on the Cable clamp in step 11, so buy two of the one head type.
 
 Slot the NEMA 23 onto the Interface NEMA 23 bracket and secure it with four {% include fastener.html size="M5" variant="socket-button" length="12" %} screws.
 
-At this point the chute should still rotate, but you will now feel resistance from the stepper motor.
+At this point the chute should still rotate, but you will now feel resistance from the stepper motor. Rotate the chute fully in both directions by hand: it should turn smoothly against that resistance, with no catch or scrape as the idler screw head passes the Limit switch hammer.
 
 <div class="img-row">
   <figure>
@@ -521,11 +535,13 @@ At this point the chute should still rotate, but you will now feel resistance fr
   <figcaption><cite>Video: zed0.</cite></figcaption>
 </figure>
 
+Because the chute above rotates but the wiring below it doesn't, the ribbon cable has to flex through the full range of rotation without catching or fraying; the cable cage (top, bottom, and clamps) is a guided channel that lets it do that safely as the chute sweeps between its limit switches.
+
 **Heat inserts first:** the Cable cage bracket (cable mount) takes 1 × M3 insert. Press it in before assembling.
 
 Slot the Cable cage top over the Top interface chute mount, with the corners of the hexagon aligning with the Interface brackets.
 
-Screw the Cable cage bracket (cable mount), on the Interface bracket opposite the Limit switch housing (this minimises the maximum travel of the cable), securely to the tail end of that Interface bracket with an {% include fastener.html size="M5" variant="socket-button" length="30" %} screw into the M5 heat insert, clamping the Cable cage top firmly in place.
+Screw the Cable cage bracket (cable mount) to the tail end of the Interface bracket opposite the Limit switch housing, using an {% include fastener.html size="M5" variant="socket-button" length="30" %} screw into the M5 heat insert. This clamps the Cable cage top firmly in place. (Mounting it opposite the limit switch minimizes how far the cable has to travel.)
 
 Screw the remaining Cable cage brackets to the other 5 corners of the Cable cage top with {% include fastener.html size="M5" variant="socket-button" length="30" %} screws.
 
@@ -577,7 +593,10 @@ After this step the chute should still rotate to each of its limits.
 
 Insert an extrusion piece F (Interface vertical support) into each of the Interface brackets. Hold each one in place with four {% include fastener.html size="M5" variant="socket-button" length="20" %} screws into four T-nuts.
 
-**Do not push piece F all the way through the bracket.** Leave its end roughly 20 mm short of the far end of the channel: that is far enough in to cover both pairs of T-nut screws, and it leaves enough of the extrusion standing out to reach past the screws at the base of the layer's External bracket — side later in this step. [Step 14]({{ '/hardware/assembly/distribution/top-interface/' | relative_url }}#step-14) shows the whole corner in section.
+<div class="callout callout-warning">
+  <span class="callout-icon" aria-hidden="true">⚠</span>
+  <p>Do not push piece F all the way through the bracket. Leave its end roughly 20 mm short of the far end of the channel: that is far enough in to cover both pairs of T-nut screws, and it leaves enough of the extrusion standing out to reach past the screws at the base of the layer's External bracket — side later in this step. <a href="{{ '/hardware/assembly/distribution/top-interface/' | relative_url }}#step-14">Step 14</a> shows the whole corner in section.</p>
+</div>
 
 <figure>
   <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-top-interface-framing-1-full-b8dacf182230.jpg" alt="Six vertical extrusion supports bolted into the interface brackets, seen from above on the hexagonal top plate">
@@ -598,7 +617,7 @@ Build a [hex frame]({{ '/hardware/assembly/distribution/bin-frame/hex-frame/' | 
   <figcaption><cite>Photo: zed0.</cite></figcaption>
 </figure>
 
-Attach an External bracket cover to each of the External bracket sides, then fasten each one with 2 {% include fastener.html size="M5" variant="socket-button" length="16" %} screws into the holes at the base of the External bracket sides, bracing against the extrusion. These holes run parallel to the extrusion profile, and the screws are self-tapping. See [Assembling External bracket]({{ '/hardware/helpers/external-bracket/' | relative_url }}) for the parts themselves — there is no External bracket — bottom vertical at this joint, see [step 14](#step-14) for what's different here.
+Attach an External bracket cover to each of the External bracket sides, then fasten each one with 2 {% include fastener.html size="M5" variant="socket-button" length="16" %} screws into the holes at the base of the External bracket sides, bracing against the extrusion. These holes run parallel to the extrusion profile, and the screws are self-tapping. See [Assembling External bracket]({{ '/hardware/helpers/external-bracket/' | relative_url }}) for the parts themselves. There is no External bracket — bottom vertical at this joint; see [step 14](#step-14) for what's different here.
 
 {% include step.html n="14" title="How the interface joins the top layer" %}
 
@@ -628,7 +647,7 @@ The numbers on the photo and the drawing:
   <li class="key-screw"><strong>Two {% include fastener.html size="M5" variant="socket-button" length="16" %} screws</strong> at the base of that bracket brace it against the extrusion, the same screws and holes a layer's own vertical gets. Nothing else fastens the interface to the layer.</li>
 </ol>
 
-**Piece F does not reach the top of the Interface bracket, and nowhere near the top plate.** How deep it goes is not stated anywhere in the build, but it is fixed at both ends by what has to be screwed: the lower end has to reach past the two screws at the base of the layer's bracket, and the upper end has to cover the bracket's second pair of T-nut screws, whose bosses sit about 90 mm above the bracket's underside. A 274 mm piece cannot do both and also reach the top of a 120 mm bracket, so it stands about 6 mm past the upper screws and stops roughly 23 mm short of the top of the bracket. That is what the drawing shows.
+**Piece F does not reach the top of the Interface bracket, and it comes nowhere near the top plate.** How deep it goes is not stated anywhere in the build, but it is fixed at both ends by what has to be screwed: the lower end has to reach past the two screws at the base of the layer's bracket, and the upper end has to cover the bracket's second pair of T-nut screws, whose bosses sit about 90 mm above the bracket's underside. A 274 mm piece cannot do both and also reach the top of a 120 mm bracket, so it stands about 6 mm past the upper screws and stops roughly 23 mm short of the top of the bracket. That is what the drawing shows.
 
 <div class="clear-float"></div>
 

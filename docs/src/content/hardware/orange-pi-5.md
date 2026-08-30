@@ -72,6 +72,7 @@ If you order the wrong module for your board variant it will not physically seat
 3. Insert the module into the slot at a shallow angle (roughly 30°), gold contacts first, until it's fully seated.
 4. Press the free end down flat and secure it with the small retention screw the module ships with.
 5. Connect the antenna cable(s) to the module's u.FL connectors.
+6. Power the board back on and confirm the OS sees the adapter, e.g. `ip link` or `nmcli device wifi list` should list it.
 
 <div class="notice">
   <strong>Driver support</strong>

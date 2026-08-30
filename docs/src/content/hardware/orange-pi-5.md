@@ -30,6 +30,8 @@ The core reason Sorter requires the Orange Pi 5 is its **Rockchip RK3588S SoC**,
 - Over **30 fps per camera** for YOLO-based piece detection
 - Over **100 fps total** across all three camera feeds simultaneously
 
+Measured running three sustained NPU inference workers in parallel, one per camera; see [Object Detection Research]({{ '/lab/object-detection/' | relative_url }}) for the full benchmark data.
+
 No other single-board computer at this price point sustains that inference throughput with the NPU required by the detection pipeline.
 
 ## Recommended configuration
@@ -59,18 +61,21 @@ The Orange Pi family uses **two distinct M.2 connector formats** depending on th
 
 If you order the wrong module for your board variant it will not physically seat. Double-check which board you have before purchasing.
 
-> **Note on driver support:** The AP6275P module for the original Orange Pi 5 requires drivers included in the official Orange Pi Ubuntu image. It works on SorterOS (which is based on that image) but may not work on other third-party OS images out of the box.
+<div class="notice">
+  <strong>Driver support</strong>
+  <p>The AP6275P module for the original Orange Pi 5 requires drivers included in the official Orange Pi Ubuntu image. It works on SorterOS (which is based on that image) but may not work on other third-party OS images out of the box.</p>
+</div>
 
 ## USB hubs
 
-Use a **powered USB hub** for webcams, Picos, and other attached USB devices.
+Use a **powered USB hub** for webcams, Raspberry Pi Picos, and other attached USB devices.
 We have seen bus-powered hubs let those devices brown out the Orange Pi 5 under load,
 which can trigger severe system crashes instead of a clean USB disconnect.
 
 ## Cooling
 
 If the Orange Pi 5 is pinned hard, especially when running a detection model on the CPU,
-it can heat up enough to hit thermal emergency shutdown at about 105 C. A small fan is
-recommended.
+it can heat up enough to hit thermal emergency shutdown at about 105 C. A small 5V fan
+(e.g. a 30-40mm USB or GPIO-powered fan) mounted over the SoC is recommended.
 *The intent is to run models on the NPU; if a bug or fallback pushes them onto the CPU,
 this can happen.*

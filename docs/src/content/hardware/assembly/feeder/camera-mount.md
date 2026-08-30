@@ -55,7 +55,7 @@ The parts below by role: **Arm A** and **Arm B** (camera-mount-part-37 and camer
 
 <div class="prep-item">
   <div class="prep-item-body">
-    <p><strong>Printed parts:</strong> no heat inserts recorded. The arm uses 3 M3 nuts rather than inserts, so nothing needs pressing in before assembly.</p>
+    <p><strong>Printed parts:</strong> no heat inserts recorded. The arm uses 3 × {% include fastener.html size="M3" variant="nut" %} rather than inserts, so nothing needs pressing in before assembly.</p>
   </div>
   <figure class="prep-item-figure">
     <div class="img-placeholder">Image coming</div>

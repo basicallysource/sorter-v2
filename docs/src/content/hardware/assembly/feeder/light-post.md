@@ -39,7 +39,7 @@ The fasteners and quantities in the parts list come from the parts registry and 
 
 <div class="prep-item">
   <div class="prep-item-body">
-    <p><strong>Light post:</strong> no heat inserts, front or back — every screw here is self-tapping. The 2 M3 × 20 mm screws that hold it to the NEMA bracket, and the 3 M3 × 12 mm that hold the cap adapter on top (Step 2), all thread straight into the print.</p>
+    <p><strong>Light post:</strong> no heat inserts, front or back — every screw here is self-tapping. The 2 × {% include fastener.html size="M3" variant="countersunk" length="20" %} screws that hold it to the NEMA bracket (Step 4), and the 3 × {% include fastener.html size="M3" variant="countersunk" length="12" %} that hold the cap adapter on top (Step 2), all thread straight into the print.</p>
   </div>
   <figure class="prep-item-figure">
     <div class="img-placeholder">Image coming</div>

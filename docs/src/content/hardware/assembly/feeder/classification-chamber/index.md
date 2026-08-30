@@ -58,7 +58,7 @@ The parts are in the list above. Most fasteners for this stage still aren't reco
 
 <div class="prep-item">
   <div class="prep-item-body">
-    <p><strong>Camera &amp; LED insert:</strong> prints white. Takes the 4 M3 screws into the camera extension's mount ring and sits inside an outer ring of 10 holes to the rest of the chamber.</p>
+    <p><strong>Camera &amp; LED insert:</strong> prints white. Takes 4 × {% include fastener.html size="M3" variant="socket-button" length="12" %} screws into the camera extension's mount ring (Step 3) and sits inside an outer ring of 10 holes to the rest of the chamber.</p>
   </div>
   <figure class="prep-item-figure">
     <div class="img-placeholder">Image coming</div>

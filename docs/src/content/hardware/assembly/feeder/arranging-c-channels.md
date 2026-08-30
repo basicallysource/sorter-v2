@@ -68,7 +68,7 @@ Fit 3 legs, 3 extensions and 3 feet to each of the three feeder channels.
 
 <div class="img-placeholder">Image coming</div>
 
-{% include step.html n="3" title="★ Set the heights and the spacing" %}
+{% include step.html n="3" title="★ Set the heights and the spacing (the numbers that make parts actually cascade)" %}
 
 The numbers this page most needs, and none of them are written down anywhere today. For each handover, record:
 
@@ -90,7 +90,7 @@ One [output guide]({{ '/hardware/assembly/feeder/output-guides/' | relative_url 
 
 <div class="img-placeholder">Image coming</div>
 
-{% include step.html n="6" title="★ Hand over to the classification channel" %}
+{% include step.html n="6" title="★ Hand over to the classification channel (the other unresolved joint)" %}
 
 The other open question: how the classification channel sits relative to C3 and to the [top interface]({{ '/hardware/assembly/distribution/top-interface/' | relative_url }}) below it, and what carries its weight.
 

@@ -56,7 +56,7 @@ The fasteners and quantities are in the parts list above and are called out inli
 
 {% include step.html n="1" title="Preparation" %}
 
-**No heat inserts on this assembly.** Every screw here threads straight into a printed part, except the three that go into the stepper's own tapped holes. That is how one was built, and the part STLs agree: the rotor's six holes are Ø2.8 mm and the stator's are Ø2.4 and Ø2.8 mm, all thread-forming, while the NEMA bracket and the output gear are Ø3.4 mm clearance throughout with nothing threaded in them.
+**No heat inserts on this assembly.** Every screw threads straight into printed plastic, except the three that go into the stepper's own tapped holes. This was confirmed on a built channel and matches the part STLs: the rotor's six holes are Ø2.8 mm and the stator's are Ø2.4 and Ø2.8 mm, all thread-forming, while the NEMA bracket and the output gear are Ø3.4 mm clearance throughout, with nothing threaded in them. Because you're cutting your own threads in plastic, stop as soon as the screw seats — don't keep tightening.
 
 **Press both bearings into their gears first**, while the parts are loose and you can support them on the bench.
 
@@ -67,7 +67,7 @@ Both are press fits. No screws, no adhesive, no heat.
 
 {% include step.html n="2" title="Bolt the output gear to the rotor" %}
 
-Bolt the Output gear onto the underside of the rotor with 6 {% include fastener.html size="M3" variant="countersunk" length="12" %} screws, one at the outer end of each spoke, seated flush in the countersinks. The six holes are 60° apart on a 90 mm bolt circle, so the gear only goes on one way up.
+Bolt the Output gear onto the underside of the rotor with 6 {% include fastener.html size="M3" variant="countersunk" length="12" %} screws, one at the outer end of each spoke, seated flush in the countersinks. The six holes are 60° apart on a 90 mm bolt circle. The pattern is symmetric, so any of the six rotations works, but the gear can only be fitted right-side up.
 
 **Use the 12 mm, not the 8 mm.** The gear is 8 mm thick at the bolt circle, and a countersunk screw's length is measured over its head, so an M3 × 8 seated flush in the countersink finishes level with the top of the gear and never enters the rotor at all. The 12 mm leaves 4 mm of thread in the rotor's 5 mm flange and stops short of breaking through the far side.
 

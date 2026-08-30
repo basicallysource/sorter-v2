@@ -18,9 +18,9 @@ parts_needed:
     qty: 1
 ---
 
-The bulk input is where unsorted parts go in: a bucket held above the first C-channel, feeding parts down onto the rotor as the channel turns.
+The bulk input is where unsorted parts go in: a bucket held above the first C-channel, feeding parts down onto the rotor as the channel turns. Parts dropped here start the feeder cascade: they leave C1's rotor for C2, then C3, and finally the classification channel, each stage spacing them out further before classification.
 
-One per machine, on the first feeder channel (C1). The Bulk cap is the only part of this stage in the catalog today.
+One per machine, on the first of the three feeder channels (called C1 in the software; see [arranging C-channels]({{ '/hardware/assembly/feeder/arranging-c-channels/' | relative_url }}) for the full naming). The Bulk cap is the only part of this stage in the catalog today.
 
 {% include fastener-legend.html %}
 
@@ -37,7 +37,7 @@ One per machine, on the first feeder channel (C1). The Bulk cap is the only part
 
 <div class="prep-item">
   <div class="prep-item-body">
-    <p><strong>Bulk bucket:</strong> not published. It is a separate print, roughly a full bed, and is not in the parts catalog, so there is no file to link and no quantity to give. Ask before printing something in its place.</p>
+    <p><strong>Bulk bucket:</strong> not published. It is a separate print, roughly a full bed, and is not in the parts catalog, so there is no file to link and no quantity to give. Ask in the Discord server before printing a stand-in part; the bulk bucket isn't published yet, so there's no verified file to copy.</p>
   </div>
   <figure class="prep-item-figure">
     <div class="img-placeholder">Image coming</div>

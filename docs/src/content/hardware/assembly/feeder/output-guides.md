@@ -21,7 +21,7 @@ parts_needed:
 
 An output guide bridges the gap where one C-channel hands parts to the next, so a part leaving a rotor lands on the following channel instead of on the floor.
 
-Two per machine. Which channels they sit between is not recorded: three feeder channels give two handovers, C1 to C2 and C2 to C3, so two guides is consistent with one per handover, but that is inference from the count rather than a documented fact.
+Two per machine. Which channels they sit between is not recorded: three feeder channels give two handovers, C1 to C2 and C2 to C3 (see [arranging C-channels]({{ '/hardware/assembly/feeder/arranging-c-channels/' | relative_url }}) for what these names mean), so two guides is consistent with one per handover, but that is inference from the count rather than a documented fact.
 
 {% include fastener-legend.html %}
 
@@ -38,7 +38,7 @@ Two per machine. Which channels they sit between is not recorded: three feeder c
 
 {% include step.html n="2" title="Fit a guide at each handover" %}
 
-Build the channels and stand them first, see [arranging C-Channels]({{ '/hardware/assembly/feeder/arranging-c-channels/' | relative_url }}). The guide goes in once the two channels either side of it are at their final heights.
+Build the channels and stand them first, see [arranging C-channels]({{ '/hardware/assembly/feeder/arranging-c-channels/' | relative_url }}). The guide goes in once the two channels either side of it are at their final heights.
 
 **Not recorded:** what the guide fastens to, with what, and at what angle. <span class="fastener-todo">fastener not recorded</span>
 

@@ -42,9 +42,11 @@ Two arms for three feeder channels is not a mistake. The software's `split_feede
 
 {% include step.html n="1" title="Preparation" %}
 
+The parts below by role: **Arm A** and **Arm B** (camera-mount-part-37 and camera-mount-part-37b) are the two halves of the printed arm, joined by **the A/B connector** (camera-mount-part-6), which is in turn carried by **the two rod mounts** (camera-mount-rod-mount).
+
 <div class="prep-item">
   <div class="prep-item-body">
-    <p><strong>Steel rod:</strong> bought as 4 ft stock and cut down. One length yields all four pieces, roughly 1 ft each. <strong>The exact cut length is not recorded.</strong></p>
+    <p><strong>Steel rod:</strong> bought as ~1200 mm stock and cut down. One length yields all four pieces, roughly 300 mm each. <strong>The exact cut length is not recorded.</strong></p>
   </div>
   <figure class="prep-item-figure">
     <div class="img-placeholder">Image coming</div>
@@ -64,7 +66,7 @@ Colour does not matter on any of these parts.
 
 {% include step.html n="2" title="Clamp the rod mounts to the C-channel" %}
 
-Two Rod-to-C-channel mounts (Part 33) carry the rods on the channel.
+Two rod-to-C-channel mounts (camera-mount-rod-mount in the parts list above) carry the rods on the channel.
 
 **Not recorded:** which holes on the channel they use, what fastens them, and how far apart they sit. <span class="fastener-todo">fastener not recorded</span>
 

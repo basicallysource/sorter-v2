@@ -18,8 +18,6 @@ warning: >-
 parts_needed:
   - part: classification-dome
     qty: 1
-  - part: rotor-finned
-    qty: 1
   - part: camera-led-insert
     qty: 1
   - part: camera-extension
@@ -41,7 +39,7 @@ The parts are in the list above. Most fasteners for this stage still aren't reco
 {% include fastener-legend.html %}
 
 - **One per machine.**
-- The three chamber parts print **white** rather than charcoal, so the chamber bounces light onto the part instead of absorbing it.
+- The Classification dome and the Camera & LED insert print **white** rather than charcoal, so the chamber bounces light onto the part instead of absorbing it. The finned rotor prints white too, but it's part of the classification C-channel build in Step 2, not listed again here.
 - The Classification dome is large, roughly a full print bed.
 - The camera sits on its own extension: a 50 mm extension tube and a clamp ring hold the 4K camera module. The overhead camera mount that hangs off the C-channels is a different part.
 

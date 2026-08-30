@@ -35,7 +35,12 @@ Nothing to press in here. The four inserts the board sits on are pressed into th
 
 {% include step.html n="2" title="Screw the board onto the chute core" %}
 
-Handle the board by its edges and avoid touching the connectors or components directly. Seat it over the four inserts and fasten it with 4 {% include fastener.html size="M3" variant="socket-button" length="6" %} screws. Do not overtighten, the board is standing on printed plastic, not a metal standoff.
+<div class="callout callout-warning">
+  <span class="callout-icon" aria-hidden="true">⚠</span>
+  <p>Static caution: this is a bare board. Touch a grounded metal surface before handling it, and handle it by its edges, avoiding the connectors and components.</p>
+</div>
+
+Seat it over the four inserts and fasten it with 4 {% include fastener.html size="M3" variant="socket-button" length="6" %} screws. Do not overtighten, the board is standing on printed plastic, not a metal standoff.
 
 <div class="img-placeholder">Photo of the layer adapter board seated on its four inserts and screwed to the chute core.</div>
 

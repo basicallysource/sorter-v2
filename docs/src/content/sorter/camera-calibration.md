@@ -9,7 +9,7 @@ slug: sorter-camera-calibration
 kicker: Sorter — Operate
 lede: Set up focus, exposure, and color accuracy for the classification and feeder cameras. Do this once per camera or after swapping hardware.
 permalink: /sorter/camera-calibration/
-last_verified: 2026-04-12
+last_verified: 2026-08-31
 ---
 
 Camera calibration has two stages: **focus** (mechanical, done by hand) and **color** (automated via the Settings UI). Both matter — a soft image kills detection accuracy, and wrong color balance drifts classification.
@@ -37,17 +37,37 @@ For feeder cameras, place the chart on the C-channel belt at the detection point
 
 ## Color calibration
 
-Color calibration uses a **SpyderCheckr 24** color checker and runs automatically from the UI.
+Color calibration uses a **6-color LEGO reference plate**, not a commercial color checker, and runs automatically from the UI.
 
 ### What you need
 
-- SpyderCheckr 24 (or compatible 4 x 6 patch target) placed in the classification chamber, filling most of the frame.
+A 4-column x 6-row plate built from LEGO plates/tiles in six colors, placed in the classification chamber and filling most of the frame. The grid (columns left to right, rows top to bottom):
+
+| | Col 1 | Col 2 | Col 3 | Col 4 |
+|---|---|---|---|---|
+| Row 1 | white | black | white | black |
+| Row 2 | blue | blue | red | red |
+| Row 3 | blue | blue | red | red |
+| Row 4 | green | green | yellow | yellow |
+| Row 5 | green | green | yellow | yellow |
+| Row 6 | black | white | black | white |
+
+Reference colors the pipeline fits against:
+
+| Color | Hex | RGB |
+|---|---|---|
+| White | `#dbeff3` | 219, 239, 243 |
+| Black | `#1b1e25` | 27, 30, 37 |
+| Blue | `#269cdd` | 38, 156, 221 |
+| Red | `#e22b24` | 226, 43, 36 |
+| Green | `#0b9b63` | 11, 155, 99 |
+| Yellow | `#f0d61d` | 240, 214, 29 |
 
 ### Steps
 
 | # | Action |
 |---|--------|
-| 1 | Place the color checker on the tray, angled so all 24 patches are visible in the live feed. |
+| 1 | Place the plate on the tray, angled so the full 4x6 grid is visible in the live feed. |
 | 2 | Go to **Settings** → select the camera → click **Calibrate**. |
 | 3 | The backend runs through exposure bracketing, white balance, and color matrix fitting. Progress appears in the sidebar. |
 | 4 | When done, the color profile is saved automatically and applied to every frame. |
@@ -56,8 +76,8 @@ The calibration pipeline:
 
 1. **Exposure** — bracketed captures estimate the camera response curve, then sets optimal exposure directly.
 2. **Firmware neutralize** — resets white balance, saturation, gamma, contrast to defaults so the software pipeline has a clean input.
-3. **Detect checker** — locates the 24 color patches in the frame.
-4. **Color correction matrix** — least-squares fit of a 3 x 3 affine CCM + per-channel gamma from measured vs. reference patch colors.
+3. **Detect target** — locates the 6-color plate in the frame.
+4. **Color correction matrix** — least-squares fit of a 3 x 3 affine CCM + per-channel gamma from measured vs. reference tile colors.
 
 The resulting profile (CCM, response LUT, gamma curves) is stored in the machine config and applied at runtime with no per-frame overhead beyond a lookup + matrix multiply.
 

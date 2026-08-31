@@ -11,8 +11,8 @@
 		"density_g_cm3": 1.32,
 		"cost_per_kg": 24.99,
 		"commit_base_url": "https://github.com/basicallysource/sorter-v2/commit/",
-		"all_parts_zip": "https://assets.basically.website/sorter-parts/all-parts-3065dd935707.zip",
-		"all_parts_plain_zip": "https://assets.basically.website/sorter-parts/all-parts-plain-8b1c9c7ee9d3.zip"
+		"all_parts_zip": "https://assets.basically.website/sorter-parts/all-parts-4791476a8632.zip",
+		"all_parts_plain_zip": "https://assets.basically.website/sorter-parts/all-parts-plain-81b37b24d484.zip"
 	},
 	"sections": [
 		{
@@ -7004,6 +7004,269 @@
 					],
 					"cap": 3.5,
 					"depth": 0.6
+				}
+			]
+		},
+		{
+			"id": "cage-top-hex-corner",
+			"uid": "o732",
+			"name": "Cable cage hex corner (printed)",
+			"quantities": {},
+			"assembly": "cable-cage",
+			"folder": null,
+			"variant_group": null,
+			"variant_name": null,
+			"description": "One corner segment of the 3D-printed cable cage hexagon. 6 build the bottom plate; 4 plus one cage motor piece build the top plate.",
+			"version": "1",
+			"created_at": "2026-08-24",
+			"updated_at": "2026-08-24",
+			"versions": [
+				{
+					"version": "1",
+					"uid": "o732",
+					"date": "2026-08-24",
+					"message": "Initial version.",
+					"commit": null,
+					"stl": "https://assets.basically.website/sorter-parts/cage-top-hex-corner-92c8342eaa28.stl",
+					"render": "https://assets.basically.website/sorter-parts/cage-top-hex-corner-full-7d131e696c33.png",
+					"grams": 29.01
+				}
+			],
+			"attributes": [],
+			"grams": 29.01,
+			"support_grams": 0,
+			"support_used": false,
+			"support_intentional": false,
+			"print_seconds": 2334,
+			"color": {
+				"role": "frame"
+			},
+			"optional": true,
+			"onshape": null,
+			"info": null,
+			"low_tolerance": false,
+			"low_tolerance_note": null,
+			"layer_scope": "all",
+			"requires": [],
+			"caption": null,
+			"docs_page": null,
+			"conflicts": null,
+			"stl": "https://assets.basically.website/sorter-parts/cage-top-hex-corner-92c8342eaa28.stl",
+			"render": "https://assets.basically.website/sorter-parts/cage-top-hex-corner-full-7d131e696c33.png",
+			"stamped": [
+				{
+					"face": "bottom",
+					"stl": "https://assets.basically.website/sorter-parts/cage-top-hex-corner-o732-stamped-bottom-fe5c140ba3e6.stl",
+					"normal": [
+						0.0,
+						-0.0,
+						-1.0
+					],
+					"center": [
+						100.41,
+						68.36,
+						237.0
+					],
+					"size": [
+						12.33,
+						3.63
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "top",
+					"stl": "https://assets.basically.website/sorter-parts/cage-top-hex-corner-o732-stamped-top-e43d095de58b.stl",
+					"normal": [
+						-0.0,
+						0.0,
+						1.0
+					],
+					"center": [
+						154.96,
+						10.19,
+						240.0
+					],
+					"size": [
+						12.33,
+						3.63
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "top 2",
+					"stl": "https://assets.basically.website/sorter-parts/cage-top-hex-corner-o732-stamped-top-2-765b111edd67.stl",
+					"normal": [
+						-0.0,
+						0.0,
+						1.0
+					],
+					"center": [
+						95.8,
+						-3.81,
+						238.5
+					],
+					"size": [
+						12.33,
+						3.63
+					],
+					"cap": 3.5,
+					"depth": 0.4,
+					"note": "shallow pocket"
+				},
+				{
+					"face": "top 3",
+					"stl": "https://assets.basically.website/sorter-parts/cage-top-hex-corner-o732-stamped-top-3-136bcce2a652.stl",
+					"normal": [
+						0.0,
+						0.0,
+						1.0
+					],
+					"center": [
+						48.51,
+						82.57,
+						238.5
+					],
+					"size": [
+						3.63,
+						12.33
+					],
+					"cap": 3.5,
+					"depth": 0.4,
+					"note": "shallow pocket"
+				}
+			]
+		},
+		{
+			"id": "cage-top-motor-piece",
+			"uid": "64tz",
+			"name": "Cable cage motor piece (printed)",
+			"quantities": {},
+			"assembly": "cable-cage",
+			"folder": null,
+			"variant_group": null,
+			"variant_name": null,
+			"description": "The chute-motor segment of the 3D-printed cable cage top plate. 1 needed, alongside 4 hex corner pieces.",
+			"version": "1",
+			"created_at": "2026-08-24",
+			"updated_at": "2026-08-24",
+			"versions": [
+				{
+					"version": "1",
+					"uid": "64tz",
+					"date": "2026-08-24",
+					"message": "Initial version.",
+					"commit": null,
+					"stl": "https://assets.basically.website/sorter-parts/cage-top-motor-piece-c4d97fa88f75.stl",
+					"render": "https://assets.basically.website/sorter-parts/cage-top-motor-piece-full-8cf0441e55c6.png",
+					"grams": 52.99
+				}
+			],
+			"attributes": [],
+			"grams": 52.99,
+			"support_grams": 0,
+			"support_used": false,
+			"support_intentional": false,
+			"print_seconds": 3798,
+			"color": {
+				"role": "frame"
+			},
+			"optional": true,
+			"onshape": null,
+			"info": null,
+			"low_tolerance": false,
+			"low_tolerance_note": null,
+			"layer_scope": "all",
+			"requires": [],
+			"caption": null,
+			"docs_page": null,
+			"conflicts": null,
+			"stl": "https://assets.basically.website/sorter-parts/cage-top-motor-piece-c4d97fa88f75.stl",
+			"render": "https://assets.basically.website/sorter-parts/cage-top-motor-piece-full-8cf0441e55c6.png",
+			"stamped": [
+				{
+					"face": "bottom",
+					"stl": "https://assets.basically.website/sorter-parts/cage-top-motor-piece-64tz-stamped-bottom-19ce45cc42b1.stl",
+					"normal": [
+						0.0,
+						0.0,
+						-1.0
+					],
+					"center": [
+						-78.84,
+						-135.07,
+						237.0
+					],
+					"size": [
+						12.28,
+						3.56
+					],
+					"cap": 3.5,
+					"depth": 0.4,
+					"note": "shallow pocket"
+				},
+				{
+					"face": "top",
+					"stl": "https://assets.basically.website/sorter-parts/cage-top-motor-piece-64tz-stamped-top-e5877cf18935.stl",
+					"normal": [
+						0.0,
+						-0.0,
+						1.0
+					],
+					"center": [
+						-90.99,
+						-128.07,
+						240.0
+					],
+					"size": [
+						12.28,
+						3.56
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "top 2",
+					"stl": "https://assets.basically.website/sorter-parts/cage-top-motor-piece-64tz-stamped-top-2-c9da98b71c14.stl",
+					"normal": [
+						0.0,
+						0.0,
+						1.0
+					],
+					"center": [
+						-68.65,
+						-120.71,
+						238.5
+					],
+					"size": [
+						3.56,
+						12.28
+					],
+					"cap": 3.5,
+					"depth": 0.4,
+					"note": "shallow pocket"
+				},
+				{
+					"face": "bottom 2",
+					"stl": "https://assets.basically.website/sorter-parts/cage-top-motor-piece-64tz-stamped-bottom-2-03059ab9d2c8.stl",
+					"normal": [
+						0.0,
+						0.0,
+						-1.0
+					],
+					"center": [
+						-48.48,
+						82.54,
+						238.5
+					],
+					"size": [
+						3.56,
+						12.28
+					],
+					"cap": 3.5,
+					"depth": 0.4,
+					"note": "shallow pocket"
 				}
 			]
 		},
@@ -14593,269 +14856,6 @@
 					"cap": 2.5,
 					"depth": 0.6,
 					"note": "smaller text"
-				}
-			]
-		},
-		{
-			"id": "cage-top-hex-corner",
-			"uid": "o732",
-			"name": "Cable cage hex corner (printed)",
-			"quantities": {},
-			"assembly": "cable-cage",
-			"folder": null,
-			"variant_group": null,
-			"variant_name": null,
-			"description": "One corner segment of the 3D-printed cable cage hexagon. 6 build the bottom plate; 4 plus one cage motor piece build the top plate.",
-			"version": "1",
-			"created_at": "2026-08-24",
-			"updated_at": "2026-08-24",
-			"versions": [
-				{
-					"version": "1",
-					"uid": "o732",
-					"date": "2026-08-24",
-					"message": "Initial version.",
-					"commit": null,
-					"stl": "https://assets.basically.website/sorter-parts/cage-top-hex-corner-92c8342eaa28.stl",
-					"render": "https://img.basically.website/parts/render/cage-top-hex-corner-3a346d2e.png",
-					"grams": 29.01
-				}
-			],
-			"attributes": [],
-			"grams": 29.01,
-			"support_grams": 0,
-			"support_used": false,
-			"support_intentional": false,
-			"print_seconds": 2334,
-			"color": {
-				"role": "frame"
-			},
-			"optional": true,
-			"onshape": null,
-			"info": null,
-			"low_tolerance": false,
-			"low_tolerance_note": null,
-			"layer_scope": "all",
-			"requires": [],
-			"caption": null,
-			"docs_page": null,
-			"conflicts": null,
-			"stl": "https://assets.basically.website/sorter-parts/cage-top-hex-corner-92c8342eaa28.stl",
-			"render": "https://img.basically.website/parts/render/cage-top-hex-corner-3a346d2e.png",
-			"stamped": [
-				{
-					"face": "bottom",
-					"stl": "https://img.basically.website/parts/stl/cage-top-hex-corner-o732-stamped-bottom-fcb66f29.stl",
-					"normal": [
-						0.0,
-						-0.0,
-						-1.0
-					],
-					"center": [
-						100.41,
-						68.36,
-						237.0
-					],
-					"size": [
-						12.33,
-						3.63
-					],
-					"cap": 3.5,
-					"depth": 0.6
-				},
-				{
-					"face": "top",
-					"stl": "https://img.basically.website/parts/stl/cage-top-hex-corner-o732-stamped-top-84208af2.stl",
-					"normal": [
-						-0.0,
-						0.0,
-						1.0
-					],
-					"center": [
-						154.96,
-						10.19,
-						240.0
-					],
-					"size": [
-						12.33,
-						3.63
-					],
-					"cap": 3.5,
-					"depth": 0.6
-				},
-				{
-					"face": "top 2",
-					"stl": "https://img.basically.website/parts/stl/cage-top-hex-corner-o732-stamped-top-2-d39f1122.stl",
-					"normal": [
-						-0.0,
-						0.0,
-						1.0
-					],
-					"center": [
-						95.8,
-						-3.81,
-						238.5
-					],
-					"size": [
-						12.33,
-						3.63
-					],
-					"cap": 3.5,
-					"depth": 0.4,
-					"note": "shallow pocket"
-				},
-				{
-					"face": "top 3",
-					"stl": "https://img.basically.website/parts/stl/cage-top-hex-corner-o732-stamped-top-3-5ef81bc5.stl",
-					"normal": [
-						0.0,
-						0.0,
-						1.0
-					],
-					"center": [
-						48.51,
-						82.57,
-						238.5
-					],
-					"size": [
-						3.63,
-						12.33
-					],
-					"cap": 3.5,
-					"depth": 0.4,
-					"note": "shallow pocket"
-				}
-			]
-		},
-		{
-			"id": "cage-top-motor-piece",
-			"uid": "64tz",
-			"name": "Cable cage motor piece (printed)",
-			"quantities": {},
-			"assembly": "cable-cage",
-			"folder": null,
-			"variant_group": null,
-			"variant_name": null,
-			"description": "The chute-motor segment of the 3D-printed cable cage top plate. 1 needed, alongside 4 hex corner pieces.",
-			"version": "1",
-			"created_at": "2026-08-24",
-			"updated_at": "2026-08-24",
-			"versions": [
-				{
-					"version": "1",
-					"uid": "64tz",
-					"date": "2026-08-24",
-					"message": "Initial version.",
-					"commit": null,
-					"stl": "https://assets.basically.website/sorter-parts/cage-top-motor-piece-c4d97fa88f75.stl",
-					"render": "https://img.basically.website/parts/render/cage-top-motor-piece-fe7fc28a.png",
-					"grams": 52.99
-				}
-			],
-			"attributes": [],
-			"grams": 52.99,
-			"support_grams": 0,
-			"support_used": false,
-			"support_intentional": false,
-			"print_seconds": 3798,
-			"color": {
-				"role": "frame"
-			},
-			"optional": true,
-			"onshape": null,
-			"info": null,
-			"low_tolerance": false,
-			"low_tolerance_note": null,
-			"layer_scope": "all",
-			"requires": [],
-			"caption": null,
-			"docs_page": null,
-			"conflicts": null,
-			"stl": "https://assets.basically.website/sorter-parts/cage-top-motor-piece-c4d97fa88f75.stl",
-			"render": "https://img.basically.website/parts/render/cage-top-motor-piece-fe7fc28a.png",
-			"stamped": [
-				{
-					"face": "bottom",
-					"stl": "https://img.basically.website/parts/stl/cage-top-motor-piece-64tz-stamped-bottom-aff68d79.stl",
-					"normal": [
-						0.0,
-						0.0,
-						-1.0
-					],
-					"center": [
-						-78.84,
-						-135.07,
-						237.0
-					],
-					"size": [
-						12.28,
-						3.56
-					],
-					"cap": 3.5,
-					"depth": 0.4,
-					"note": "shallow pocket"
-				},
-				{
-					"face": "top",
-					"stl": "https://img.basically.website/parts/stl/cage-top-motor-piece-64tz-stamped-top-0f01b6da.stl",
-					"normal": [
-						0.0,
-						-0.0,
-						1.0
-					],
-					"center": [
-						-90.99,
-						-128.07,
-						240.0
-					],
-					"size": [
-						12.28,
-						3.56
-					],
-					"cap": 3.5,
-					"depth": 0.6
-				},
-				{
-					"face": "top 2",
-					"stl": "https://img.basically.website/parts/stl/cage-top-motor-piece-64tz-stamped-top-2-468a76f6.stl",
-					"normal": [
-						0.0,
-						0.0,
-						1.0
-					],
-					"center": [
-						-68.65,
-						-120.71,
-						238.5
-					],
-					"size": [
-						3.56,
-						12.28
-					],
-					"cap": 3.5,
-					"depth": 0.4,
-					"note": "shallow pocket"
-				},
-				{
-					"face": "bottom 2",
-					"stl": "https://img.basically.website/parts/stl/cage-top-motor-piece-64tz-stamped-bottom-2-a4896b9d.stl",
-					"normal": [
-						0.0,
-						0.0,
-						-1.0
-					],
-					"center": [
-						-48.48,
-						82.54,
-						238.5
-					],
-					"size": [
-						3.56,
-						12.28
-					],
-					"cap": 3.5,
-					"depth": 0.4,
-					"note": "shallow pocket"
 				}
 			]
 		}

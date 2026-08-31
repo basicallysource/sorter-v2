@@ -99,3 +99,7 @@ class LedController:
     def allOff(self) -> None:
         for output in self._outputs:
             output.pin.setDuty(0)
+
+    def allOn(self) -> None:
+        for output in self._outputs:
+            output.pin.setDuty(DIGITAL_OUTPUT_DUTY_MAX)

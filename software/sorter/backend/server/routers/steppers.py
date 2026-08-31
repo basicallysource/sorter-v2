@@ -203,6 +203,14 @@ def _ensure_no_blocking_fault(action: str) -> None:
 
 
 def _ensure_manual_motion_allowed(action: str) -> None:
+    from subsystems.power_stress import getActivePowerStressRunner
+
+    power_runner = getActivePowerStressRunner()
+    if power_runner is not None and power_runner.isActive():
+        raise HTTPException(
+            status_code=409,
+            detail=f"Cannot {action} while power stress is active.",
+        )
     state = shared_state.hardware_state
     if _hardware_worker_alive() or state in {"homing", "initializing"}:
         raise HTTPException(

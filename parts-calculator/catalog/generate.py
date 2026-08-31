@@ -231,6 +231,10 @@ def render_url_for(stl_abs, hexcolor, out_png, force, prev_url=None):
     # itself. Fall through to the committed data, which does name the picture.
     if memo and not memo.startswith(ASSET_SERVICE + "/"):
         memo = None
+    # The committed data can name the retired store too (a branch generated
+    # before the migration, merged after it). Same rule: not an answer.
+    if prev_url and not prev_url.startswith(ASSET_SERVICE + "/"):
+        prev_url = None
     if not force and memo is None and prev_url:
         memo = prev_url
         os.makedirs(RENDER_META, exist_ok=True)

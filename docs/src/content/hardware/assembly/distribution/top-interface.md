@@ -261,20 +261,28 @@ Before assembling anything, press all the heat inserts listed below into their p
   <div class="prep-item-body">
     <p><strong>Interface idler gear:</strong> 4 × M3, around the bearing pocket on the underside</p>
     <p>Build the bearing sub-assembly now too, while the gear is still loose — it is easier off the bracket than on it. Push a 608 2RS bearing into the pocket, fit the Chute stepper idler bearing retainer (inner) over the bearing's bore, then the Chute stepper idler bearing retainer (outer) over that, seated flush in the recess with its 4 holes lined up on the gear's 4 inserts. Secure it with 4 × {% include fastener.html size="M3" variant="countersunk" length="8" %} screws, the same M3 x 8 mm countersunk screw used on the Interface spur gear in step 9. See step 9 for how the idler gear then goes onto the bracket.</p>
-    <p>The exploded and assembled views below are reconstructions built from the STL geometry, not a CAD export — there is no assembly photo of the retainer caps yet. The photo of the bearing itself is real, from before the caps existed.</p>
+    <p>The exploded and assembled renders below are reconstructions built from the STL geometry, not a CAD export. The three photos are real: the bare gear with all 4 M3 inserts visible, the bearing pressed in before the caps go on, and the retainer caps mounted for real.</p>
   </div>
   <div class="prep-item-figure prep-item-figure-split">
+    <figure>
+      <img class="doc-figure" src="https://assets.basically.website/sorter-parts/assembly-top-interface-prep-idler-gear-inserts-full-82137b8be2a0.jpg" alt="The Interface idler gear alone, showing all 4 brass M3 heat inserts around the bearing pocket">
+      <figcaption>The 4 M3 inserts around the bearing pocket, before the bearing goes in. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+    </figure>
     <figure>
       <img class="doc-figure" src="https://assets.basically.website/sorter-parts/idler-exploded-3color-full-227310630981.png" alt="An exploded view from below of the idler gear stack in build order: the grey gear, the bearing highlighted in blue, and the inner and outer bearing retainer caps highlighted in red">
       <figcaption>Exploded, in build order: gear, bearing, inner cap, outer ring. <cite>Render: Balloon.</cite></figcaption>
     </figure>
     <figure>
-      <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-top-interface-step9-idler-gear-bearing-w1600-2fe924b61150.jpg" alt="608 2RS bearing pressed into the centre of the grey Interface idler gear, from before the bearing retainer caps existed">
-      <figcaption>608 2RS bearing pressed into the pocket. Real photo, predates the retainer caps. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+      <img class="doc-figure" src="https://assets.basically.website/sorter-parts/assembly-top-interface-prep-idler-gear-bearing-inserts-full-974df2574ede.jpg" alt="608 2RS bearing pressed into the centre of the grey Interface idler gear, with the 4 brass M3 heat inserts visible around it, before the bearing retainer caps go on">
+      <figcaption>608 2RS bearing pressed into the pocket, inserts visible, caps not yet on. <cite>Photo: BrickCycleAlice.</cite></figcaption>
     </figure>
     <figure>
       <img class="doc-figure" src="https://assets.basically.website/sorter-parts/idler-assembled-3color-full-7de4573e7301.png" alt="The Interface idler gear seen from below at an angle, assembled, with the bearing highlighted in blue showing through the centre and the outer and inner bearing retainer caps highlighted in red, the outer retainer's four countersunk screw holes visible">
       <figcaption>Assembled: bearing pocket recess with both retainer caps fitted. <cite>Render: Balloon.</cite></figcaption>
+    </figure>
+    <figure>
+      <img class="doc-figure" src="https://assets.basically.website/sorter-parts/assembly-top-interface-prep-idler-gear-caps-mounted-full-ea79c7aa9a44.jpg" alt="The Interface idler gear with the bearing retainer caps mounted for real, the 4 screws seated flush in place of the heat inserts">
+      <figcaption>The retainer caps mounted for real, matching the render above. <cite>Photo: BrickCycleAlice.</cite></figcaption>
     </figure>
   </div>
 </div>

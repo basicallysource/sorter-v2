@@ -15,7 +15,9 @@ uid at the time, so the box as built then reads back part by part.
 The workflow the version system assumes:
   1. Mint a uid (`python catalog/mint_uid.py`), put it on the part, bump
      `version`, and author a new version entry with `"commit": null`
-     (pending). Then publish the new STL (`python scripts/publish_assets.py
+     (pending) and its `breaking` bit (can an old print still be used in its
+     place? -- see VERSIONING.md; check_versioning.py refuses entries
+     without it). Then publish the new STL (`python scripts/publish_assets.py
      --upload part.stl`) and set the printed stl_hash.
   2. Commit ONLY that part's change, with a clear message (the version's
      changelog).

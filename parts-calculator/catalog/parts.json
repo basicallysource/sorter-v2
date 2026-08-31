@@ -502,6 +502,14 @@
       "version": "2",
       "created_at": "2026-06-27",
       "updated_at": "2026-06-27",
+      "versions": [
+        {
+          "version": "2",
+          "date": "2026-06-27",
+          "message": "Initial catalog entry, imported 2026-06-27 at the design's second iteration ('v2' in the source export, 01_c_channel (5).zip). v1 predates the catalog: never published, no uid, no pinned geometry. The commit is where this entry first exists in this repository's history; the import itself predates it.",
+          "commit": "954f181e"
+        }
+      ],
       "quantities": {
         "feeder": 3,
         "classification-channel": 1

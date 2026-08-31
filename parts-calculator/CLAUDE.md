@@ -17,9 +17,13 @@ for where this is heading (unified registry across this repo, the docs, and
 the BOM spreadsheet).
 
 `VERSIONING.md` is the succinct, citable statement of how parts are
-identified, revised, and removed (uids, versions, candidates, retire-in-place).
-When someone asks to delete or change a part, answer from — and link — that
-page.
+identified, revised, and removed (uids, versions, candidates, retire-in-place,
+the `breaking` bit, assembly version stamps). When someone asks to delete or
+change a part — or revises anything — answer from, follow, and link that
+page. In short: every new version entry declares `breaking: true|false`
+("can an old physical instance of this node still be used in its place?"),
+and a structural change to an assembly's lines must be stamped as a new
+assembly version. `scripts/check_versioning.py` enforces both in CI.
 
 ## What this is
 
@@ -37,9 +41,11 @@ build. Two halves:
   profile. So no machine needs OrcaSlicer to change parts data, and a branch
   preview is correct from the first push, because the data rode in with it.
   `.github/workflows/check-parts.yml` guards every PR and push: the generated
-  data must agree with the source pins (`check_generated_pins.py`) and every
-  URL the site ships must serve real bytes (`check_asset_urls.py`). Pure
-  checks, about a minute; nothing commits onto your branch.
+  data must agree with the source pins (`check_generated_pins.py`), every
+  URL the site ships must serve real bytes (`check_asset_urls.py`), and
+  revisions must follow the versioning discipline — breaking bits declared,
+  assembly line changes stamped (`check_versioning.py`, per `VERSIONING.md`).
+  Pure checks, about a minute; nothing commits onto your branch.
 - **`src/`** — the app. Reads generated JSON, does all math in the browser.
   Fully static.
 
@@ -275,6 +281,10 @@ assembly version is an authored structural change; its superseded entries
 snapshot the lines with each member's uid of the day (`stamp_versions.py`),
 and a candidate is an alternative bill of materials under test, optionally
 carrying the `name` the slot takes if it is adopted. Same minting, same
-retention rule. A part that exists only inside a candidate assembly has
+retention rule. A structural change to an assembly's `lines` (member
+removed/replaced, qty changed) MUST be stamped as a new assembly version
+with its `breaking` bit — `check_versioning.py` refuses it otherwise; the
+one exemption is purely additive completion of a `stub`/`partial` assembly.
+See `VERSIONING.md`. A part that exists only inside a candidate assembly has
 empty `quantities`: it is in no section, counts toward nothing, and is left
 out of the all-parts bundle.

@@ -72,10 +72,10 @@ Clip the cover onto the side bracket to close it off. Unlike the flange joint ab
 <div class="img-row">
   <figure>
     <img src="https://assets.basically.website/sorter-docs/assembly-external-bracket-step4-cover-unattached-full-9b93d76f9459.jpg" alt="The unattached cover sitting next to the assembled bracket, at the face where it clips on">
-    <figcaption>The cover (left), not yet attached, next to the face of the assembly it clips onto. The extrusion running through this shot is incidental to how it was photographed, not something this step covers. <cite>Photo: Christoph.</cite></figcaption>
+    <figcaption>The cover (left), not yet attached, next to the face of the assembly it clips onto. The extrusion in this photo is shown for demo only, not part of this step. <cite>Photo: Christoph.</cite></figcaption>
   </figure>
   <figure>
     <img src="https://assets.basically.website/sorter-docs/assembly-external-bracket-step4-cover-clipped-on-full-1fea5b9a357c.jpg" alt="Finished bracket with the cover clipped into place">
-    <figcaption>Cover clipped into place. It sits flush against the side bracket, which is why the seam is subtle in photos. <cite>Photo: Christoph.</cite></figcaption>
+    <figcaption>Cover clipped into place. It sits flush against the side bracket, which is why the seam is subtle in photos. The extrusion in this photo is shown for demo only, not part of this step. <cite>Photo: Christoph.</cite></figcaption>
   </figure>
 </div>

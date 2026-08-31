@@ -697,7 +697,9 @@
 									onclick={toggle}
 									aria-expanded={open}
 								>
-									{viewingOld ? `Viewing v${shownVersion[asm.id]}` : `v${currentVersion(asm)}`} <ChevronDown size={11} />
+									{viewingOld
+									? `Viewing v${shownVersion[asm.id]} (superseded)`
+									: `Viewing v${currentVersion(asm)} (current)`} <ChevronDown size={11} />
 								</button>
 							{/snippet}
 							{#snippet children({ close })}

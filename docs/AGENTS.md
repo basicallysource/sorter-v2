@@ -28,6 +28,35 @@ asset spec, and the rules for adding a site live in
 - **No em dashes (`—`) in copy.** Use commas, periods, or parentheses. (The
   kicker breadcrumb is the one place they still appear, site-wide.)
 - Titles are sentence case. Alt text on every image.
+- **Every photo and video needs a credit in its caption**, not just implied by
+  the page's `author:`/`contributors:` front matter (barthel, 2026-08-26, see
+  [sorter-v2 #434](https://github.com/basicallysource/sorter-v2/pull/434)).
+  Append it to the existing figcaption text (don't replace the description),
+  wrapped in `<cite>` so it renders on its own smaller italic line rather than
+  running into the description (barthel asked for this formatting explicitly,
+  2026-08-26, with a mockup, in the same PR), using whichever of these fits:
+  - Named contributor, real photo: `<cite>Photo: {Name}.</cite>`
+  - CAD/STL render: `<cite>Rendered from the part geometry, not from a build.
+    Render: {who}.</cite>`
+  - Manufacturer/stock photo, not Basically's own: `<cite>Manufacturer photo
+    ({source}).</cite>`
+  - Video with nobody named as filmer: its own line right after the embed,
+    `_Video: {credit, or "Basically's own YouTube channel. Who filmed it
+    isn't recorded."}_` — a video embed is a `<div>`, not a `<figure>`, so
+    there's no figcaption slot to use; markdown italics do the same job here.
+  - Nothing traces: say so plainly, `<cite>Photographer not recorded.</cite>`
+    Don't guess a name from the page's `author:` field unless there's a real
+    reason to believe they took it (e.g. they're the only person ever named
+    for that page's build and nobody else is credited for anything on it).
+  A standalone one-image figure (not `img-row`, not `figure-float-right`) also
+  needs `class="single-figure"` on the `<figure>` tag itself, or the caption
+  renders full-width instead of matching the image (a bare `<figure>` has no
+  width rule of its own). `img-row`/`figure-float-right`/`prep-item-figure`
+  figures already size their captions correctly, they only need the `<cite>`.
+  `python3 scripts/validate_credits.py` checks for one of these phrases near
+  every `<img>` and video embed; it doesn't parse the sentence, so match the
+  wording above rather than paraphrasing. `notes/` pages are exempt (see
+  "Engineering notes" below, they're never edited after publication).
 
 ## Add a new article
 
@@ -58,7 +87,11 @@ asset spec, and the rules for adding a site live in
 3. Add it to the sidebar in `src/liquid/_data/nav.yml` under the right
    section's `pages:` (nest with `children:` — the sidebar renders
    arbitrarily deep).
-4. `python3 scripts/validate_frontmatter.py` must pass.
+4. `python3 scripts/validate_frontmatter.py` must pass, and so must
+   `python3 scripts/validate_credits.py` if the page has any photo or video
+   (see "Writing conventions" above). As of 2026-08-26 `top-interface.md`
+   fails this until its open PR lands and gets credits in a follow-up; that
+   is not yours to fix along the way.
 
 ## Link previews (`og:image`)
 
@@ -107,7 +140,18 @@ pages are rendered through liquidjs at build time. Includes live in
 
 - **Step heading:** `{% include step.html n="1" title="Mount the thing" %}`
   → a small "Step 1" tag over the title.
-- **Figure:** `<img class="doc-figure" src="https://assets.basically.website/sorter-docs/…" alt="…">`
+- **Figure:** a single captioned image wraps in `<figure class="single-figure">`
+  so the caption matches the image's width instead of the full text column
+  (see "Every photo and video needs a credit" above):
+  ```html
+  <figure class="single-figure">
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/…" alt="…">
+    <figcaption>What it shows. <cite>Photo: {Name}.</cite></figcaption>
+  </figure>
+  ```
+  An uncaptioned image, or one that isn't a standalone single figure (inside
+  `img-row`, `figure-float-right`, a `prep-item`), skips the class: just
+  `<img class="doc-figure" src="…" alt="…">`.
 - **Side-by-side images** (share one full-width row, wrap on mobile):
   ```html
   <div class="img-row">

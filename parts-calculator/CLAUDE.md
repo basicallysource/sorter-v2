@@ -80,6 +80,17 @@ OrcaSlicer's own output. Do not compute weight from volume/density.
 /opt/homebrew/opt/python@3.11/libexec/bin/python catalog/generate.py
 ```
 
+## Design rules
+
+**Structural lines are hairlines — one weight, everywhere.** Any line that
+draws structure (a card border, a divider, a tree guide, a table rule) is 1px:
+Tailwind `border`/`border-l`, never a `border-2`/`border-l-2` variant, never a
+`2px solid` in CSS. Emphasis on a structural line comes from color (the tree's
+`?focus=` highlight recolors its 1px guide), never from thickness. The only
+2px lines allowed are non-structural state markers: the active-tab/nav
+underline, the `:focus-visible` outline, and drawing-legend swatches that
+mimic a diagram's stroke. This applies to the docs site the same as here.
+
 ## One detail view per thing
 
 A part, a hardware item and an assembly each have exactly one detail view, and

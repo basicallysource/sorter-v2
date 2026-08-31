@@ -1,6 +1,5 @@
 <script lang="ts">
 	import {
-		BookOpen,
 		ChevronDown,
 		ChevronRight,
 		Download,
@@ -8,7 +7,7 @@
 		ExternalLink,
 		FlaskConical,
 		History,
-		Maximize2,
+		Info,
 		Zap
 	} from 'lucide-svelte';
 	import AlternativeBadge from '$lib/components/AlternativeBadge.svelte';
@@ -391,22 +390,46 @@
 			id="asm-{asm.id}"
 			class="{depth > 0 ? 'ml-1.5 mt-2 sm:ml-4' : ''} py-1 {focus === asm.id ? 'bg-primary/[0.06]' : ''}"
 		>
-			<div class="flex flex-wrap items-center gap-x-2 gap-y-0.5">
-				{#if hasContent}
-					<button
-						type="button"
-						class="-ml-1 flex h-5 w-5 shrink-0 items-center justify-center text-text-muted hover:text-text"
-						onclick={() => toggle(asm.id)}
-						aria-expanded={open}
-						aria-label="{open ? 'Collapse' : 'Expand'} {asm.name}"
-					>
+			<!-- The whole row is the expand/collapse target; anything interactive
+			     inside it (details, guide link, ⋮ menu) is filtered out by the
+			     closest() check so a click on those doesn't also fold the node.
+			     role/tabindex/keydown are all present when hasContent makes it
+			     interactive; the compiler can't see through the conditional. -->
+			<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+			<div
+				class="-mx-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 px-1 py-0.5 {hasContent
+					? 'cursor-pointer hover:bg-primary/[0.04]'
+					: ''}"
+				role={hasContent ? 'button' : undefined}
+				tabindex={hasContent ? 0 : undefined}
+				aria-expanded={hasContent ? open : undefined}
+				aria-label={hasContent ? `${open ? 'Collapse' : 'Expand'} ${asm.name}` : undefined}
+				onclick={(e) => {
+					if (!hasContent || (e.target as Element).closest('a, button')) return;
+					toggle(asm.id);
+				}}
+				onkeydown={(e) => {
+					if (!hasContent || e.target !== e.currentTarget) return;
+					if (e.key === 'Enter' || e.key === ' ') {
+						e.preventDefault();
+						toggle(asm.id);
+					}
+				}}
+			>
+				<span class="flex h-5 w-5 shrink-0 items-center justify-center text-text-muted" aria-hidden="true">
+					{#if hasContent}
 						{#if open}<ChevronDown size={14} />{:else}<ChevronRight size={14} />{/if}
-					</button>
-				{:else}
-					<span class="-ml-1 h-5 w-5 shrink-0"></span>
-				{/if}
-				<button type="button" class="asm-open text-sm font-semibold text-text" onclick={() => openAssembly(asm.id)} title="View {asm.name} on its own">
-					{asm.name}<span class="open-cue" aria-hidden="true"><Maximize2 size={11} /></span>
+					{/if}
+				</span>
+				<span class="text-sm font-medium text-text">{asm.name}</span>
+				<button
+					type="button"
+					class="flex h-5 w-5 items-center justify-center text-text-muted hover:text-primary"
+					onclick={() => openAssembly(asm.id)}
+					title="View {asm.name} details"
+					aria-label="View {asm.name} details"
+				>
+					<Info size={13} />
 				</button>
 				<span class="text-xs tabular-nums text-text-muted">
 					{#if qty === 'per-layer'}×{layers} (1 per layer)
@@ -432,7 +455,7 @@
 							rel="noopener"
 							class="inline-flex items-center gap-1 text-xs font-medium text-primary hover:text-primary-hover"
 						>
-							<BookOpen size={11} /> Assembly guide <ExternalLink size={10} />
+							In Docs <ExternalLink size={10} />
 						</a>
 					{/if}
 					{#if hasContent}
@@ -455,8 +478,8 @@
 				</span>
 			</div>
 			<!-- The description is NOT rendered here on purpose: it lives in the
-			     detail view a node's name opens. Inline it turns the tree into a
-			     wall of prose that restates the line rows below it. -->
+			     detail view the ⓘ opens. Inline it turns the tree into a wall of
+			     prose that restates the line rows below it. -->
 			{#if open}
 			<div class="tree-branch relative pl-2 sm:pl-4">
 				<button type="button" class="tree-line" onclick={() => toggle(asm.id)} aria-label="Collapse {asm.name}"></button>
@@ -565,26 +588,6 @@
 	.asm-thumb:focus-visible {
 		outline: none;
 		box-shadow: 0 0 0 2px var(--color-primary);
-	}
-	/* The node's name opens the assembly's detail view — a modal, not a page,
-	   so it must not read as a link: no blue, no underline. The cue is a small
-	   expand glyph that fades in on hover, same idea as the thumbnail ring. */
-	.asm-open {
-		display: inline-flex;
-		align-items: center;
-		gap: 0.3rem;
-		cursor: pointer;
-		text-align: left;
-	}
-	.asm-open .open-cue {
-		display: inline-flex;
-		color: var(--color-text-muted);
-		opacity: 0;
-		transition: opacity 120ms ease;
-	}
-	.asm-open:hover .open-cue,
-	.asm-open:focus-visible .open-cue {
-		opacity: 1;
 	}
 	/* The guide line under an open node is itself the collapse control: the
 	   whole height is clickable. The visible line stays 1px (see CLAUDE.md

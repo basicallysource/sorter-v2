@@ -100,8 +100,10 @@ parts_needed:
     qty: 6
   - part: scr-m3-16-shcs
     qty: 2
+  - part: scr-m3-20-cs
+    qty: 1
   - part: scr-m3-35-bhcs
-    qty: 2
+    qty: 1
   - part: scr-m4-12-cs
     qty: 8
   - part: scr-m5-8-cs

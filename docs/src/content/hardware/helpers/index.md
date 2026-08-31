@@ -13,4 +13,5 @@ contributors: [barthel]
 
 - **[Preparing the Lazy Susan]({{ '/hardware/helpers/lazy-susan/' | relative_url }})**
 - **[Preparing the 20-tooth timing pulley]({{ '/hardware/helpers/pulley-gear-mod/' | relative_url }})**
+- **[Soldering Pico headers]({{ '/hardware/electronics/installation/pico-headers/' | relative_url }})**
 - **[Installing heat inserts]({{ '/hardware/helpers/heat-inserts/' | relative_url }})**

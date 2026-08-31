@@ -3,10 +3,10 @@ layout: default
 title: Soldering Pico headers
 type: how-to
 section: hardware
-slug: electronics-pico-headers
+slug: helper-pico-headers
 kicker: Helpers — Soldering Pico headers
 lede: Soldering 2.54 mm header pins to the Raspberry Pi Pico so it can seat in the control board.
-permalink: /hardware/electronics/installation/pico-headers/
+permalink: /hardware/helpers/pico-headers/
 author: barthel
 contributors: [spencer]
 warning: >-

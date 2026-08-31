@@ -6110,7 +6110,7 @@
       "version": "1",
       "name": "Pico with headers",
       "description": "The Raspberry Pi Pico with 2.54 mm header pins fitted, so it can seat in the PCB. The board ships bare — the pins are a separate purchase.",
-      "docs": "/hardware/electronics/installation/pico-headers/",
+      "docs": "/hardware/helpers/pico-headers/",
       "status": "partial",
       "joining": [
         {

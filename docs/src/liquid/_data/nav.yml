@@ -100,7 +100,7 @@ sections:
           - title: Prepare timing pulley 20 tooth
             url: /hardware/helpers/pulley-gear-mod/
           - title: Soldering Pico headers
-            url: /hardware/electronics/installation/pico-headers/
+            url: /hardware/helpers/pico-headers/
           - title: Installing heat inserts
             url: /hardware/helpers/heat-inserts/
       - title: Parts

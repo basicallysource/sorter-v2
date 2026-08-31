@@ -46,7 +46,7 @@ The PSU box has three DC outputs, and each one is a short pigtail: two crimp spa
 2. Wire the jack **center-positive**: red to the tip (+24V), black to the sleeve (GND). If your jack came with unlabeled leads, check tip vs sleeve with a multimeter before you trust the colors.
 3. Crimp an insulated spade terminal onto the free end of each wire — one on red, one on black.
 4. At the PSU terminal block, the red terminal lands on a <b>+V</b> screw and the black on the matching <b>−V</b> screw. MEAN WELL numbers the LRS-350-24 block so that <b>4–6 are −V</b> and <b>7–9 are +V</b>: pair <b>7 with 4, 8 with 5, 9 with 6</b>, one pigtail per pair.
-5. Panel-mount the jack into the PSU box.
+5. Panel-mount the jack into the PSU enclosure.
 
 Repeat for all three outputs.
 

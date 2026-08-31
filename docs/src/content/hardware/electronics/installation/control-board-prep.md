@@ -19,7 +19,7 @@ parts_needed:
     qty: 10
 ---
 
-Do this with the board loose, before the [housing]({{ '/hardware/electronics/installation/control-board-housing/' | relative_url }}). Solder the [Pico headers]({{ '/hardware/electronics/installation/pico-headers/' | relative_url }}) first.
+Do this with the board loose, before the [housing]({{ '/hardware/electronics/installation/control-board-housing/' | relative_url }}). Solder the [Pico headers]({{ '/hardware/helpers/pico-headers/' | relative_url }}) first.
 
 <div class="img-row">
   <figure>

@@ -5,7 +5,7 @@ type: landing
 section: hardware
 slug: assembly-chute
 kicker: Distribution — Chute
-lede: The chute that drops each part into the correct bin as the bin ring rotates underneath it.
+lede: The rotating chute that aims parts at the correct bin.
 permalink: /hardware/assembly/distribution/chute/
 author: spencer
 contributors: [alex, brickcyclealice]
@@ -20,7 +20,7 @@ warning: >-
 
 The chute is one per layer. Build the core first, since everything else bolts into its heat inserts.
 
-The chute itself doesn't rotate: it's the bin ring below it that turns on the Lazy Susan. Each chute's door opens for a moment when the correct bin has rotated into position under its funnel, dropping the part in; see [Door module]({{ '/hardware/assembly/distribution/chute/door-module/' | relative_url }}) and [Layer adapter board]({{ '/hardware/assembly/distribution/chute/pcb/' | relative_url }}) for how that opening is driven and timed.
+The whole chute stack rotates as one unit, on the [top interface]({{ '/hardware/assembly/distribution/top-interface/' | relative_url }})'s Lazy Susan, driven by the stepper motor and gear train described there. The bins themselves don't move; each chute's door opens for a moment once it's rotated into position over the correct bin, dropping the part in. See [Door module]({{ '/hardware/assembly/distribution/chute/door-module/' | relative_url }}) and [Layer adapter board]({{ '/hardware/assembly/distribution/chute/pcb/' | relative_url }}) for how that opening is driven and timed.
 
 1. **[Chute core]({{ '/hardware/assembly/distribution/chute/chute-core/' | relative_url }})**. The printed body everything else mounts to, and the 18 heat inserts that hold it all together.
 2. **[Funnel]({{ '/hardware/assembly/distribution/chute/funnel/' | relative_url }})**. The funnel that guides parts into the bin, and the two brackets it hangs from. Its size decides that layer's bin set, so pick it before printing.

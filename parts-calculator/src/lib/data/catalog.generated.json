@@ -1046,7 +1046,7 @@
 				},
 				{
 					"part": "header-pins-254",
-					"qty": 20
+					"qty": 40
 				}
 			]
 		},
@@ -17503,7 +17503,7 @@
 			"updated_at": "2026-07-18",
 			"attributes": [],
 			"sheet_qty": {
-				"per_machine": 20
+				"per_machine": 40
 			},
 			"sheet_qty_text": null,
 			"stock": null,

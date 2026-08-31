@@ -31,7 +31,7 @@ This page is the wiring. Where the PSU, the control board and the Orange Pi phys
   <dt>DC outputs</dt><dd>3 × female DC jack, each a 4 in 18 AWG pigtail with 2 × spade/fork terminals (M3.5, 8 mm wide max, Molex 0191310031 or equivalent). One pigtail per +V/-V screw pair: 7 with 4, 8 with 5, 9 with 6</dd>
   <dt>AC input</dt><dd>Screws 1, 2, 3. Fed by the fused IEC inlet switch's own pre-terminated leads, so there is no cable to make</dd>
   <dt>Loads</dt><dd>basically board v1.3, the USB hub, and the Orange Pi buck converter. One jack each, no spare</dd>
-  <dt>Not on this bus</dt><dd>The cooling fans. They run off the Orange Pi or basically board v1.3 instead — both supply 5V natively (OPi 26-pin header pins 2/4, board v1.3's empty <code>J16</code> socket pin 2), plug-in on either, no soldering. They are still needed: the Pi and the board end up in a box with no airflow but the fan. See <a href="#7--open-items">open items</a></dd>
+  <dt>Not on this bus</dt><dd>The cooling fans. They run off the Orange Pi or basically board v1.3 instead. Both boards supply 5V natively: the OPi's 26-pin header (pins 2 and 4), or board v1.3's empty <code>J16</code> socket (pin 2). Either is a plug-in connection, no soldering needed. They are still needed: the Pi and the board end up in a box with no airflow but the fan. See <a href="#7--open-items">open items</a></dd>
 </dl>
 
 ## 2 &nbsp; Component layout
@@ -143,6 +143,11 @@ Full basically board v1.3 pinout (J23-J40), connector-to-connector mapping, and 
 ### 4.1 &nbsp; PSU assembly (enclosure)
 
 The PSU box is an assembly: the MEAN WELL LRS-350-24, a fused mains inlet switch, and 6 DC output jacks, in a 3D-printed enclosure. These are the wires inside that box. Enclosure CAD: [Onshape](https://cad.onshape.com/documents/ff3546ceb03f5fc907e6ed4c/v/f06d891a27f145d952ee5678/e/b9f80b00e4dd34407e23b560).
+
+<div class="callout callout-warning">
+  <span class="callout-icon" aria-hidden="true">⚠</span>
+  <p>Before making or checking any of these connections, unplug the PSU from the wall. Screws 1-3 on the terminal block carry live mains voltage whenever the unit is plugged in.</p>
+</div>
 
 <table>
   <thead><tr><th>Segment</th><th>From</th><th>To</th><th>Cond.</th><th>Length</th><th>Gauge</th></tr></thead>

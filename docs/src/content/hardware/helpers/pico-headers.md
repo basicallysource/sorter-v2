@@ -19,12 +19,12 @@ parts_needed:
   - part: mcu-rpi-pico
     qty: 1
   - part: header-pins-254
-    qty: 20
+    qty: 40
 ---
 
 The Pico ships bare. The [basically Embedded Control Board]({{ '/hardware/electronics/installation/control-board-prep/' | relative_url }}) expects it on 2.54 mm headers, so the pins are a separate purchase and a soldering job before the board goes on its mount.
 
-One Pico per machine, 20 header pins, two rows of 20 broken off a breakaway strip. It is the only assembly in the parts tree recorded as soldered: every pin goes into the Pico's through-holes, nothing here presses or clips together.
+One Pico per machine, needing 40 header pins total: break a breakaway strip into two rows of 20. It is the only assembly in the parts tree recorded as soldered: every pin goes into the Pico's through-holes, nothing here presses or clips together.
 
 {% include step.html n="1" title="Preparation" %}
 
@@ -34,7 +34,7 @@ Break the header strip into two rows of 20. Nothing here takes a heat insert.
 
 {% include step.html n="2" title="Solder the headers to the Pico" %}
 
-Which face of the Pico the pins go on, and therefore which way up it sits in the board, is not recorded: <span class="fastener-todo">orientation not recorded</span>. Check the board's socket before soldering, because it is difficult to undo.
+Solder the headers so the Pico's USB port ends up facing the edge of the control board once seated (see [preparing the control board]({{ '/hardware/electronics/installation/control-board-prep/' | relative_url }})). Dry-fit the bare Pico against the board's sockets first to confirm which face the pins go on — it's very difficult to desolder and redo.
 
 <div class="img-placeholder">Image coming</div>
 

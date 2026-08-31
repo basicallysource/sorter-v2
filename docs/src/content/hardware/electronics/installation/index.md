@@ -14,11 +14,14 @@ warning: >-
   pages are AI-generated first drafts written from the [parts
   calculator](https://parts-calculator.basically.website/assembly), not from a build: the parts
   are real, the steps are not checked. Gaps are marked in place. Correct them as you build.
+
+  One of these steps (PSU box) involves wiring mains voltage. Read it fully before starting, and
+  keep the unit unplugged while you work on it.
 ---
 
-The [wire harness]({{ '/hardware/electronics/' | relative_url }}) pages cover what connects to what. These cover the other half: where the hardware physically sits and what holds it there.
+The [wire harness]({{ '/hardware/electronics/' | relative_url }}) pages cover what connects to what. These cover the other half: where the hardware physically sits and what holds it there. "The control board" here means basically board v1.3, the basically Embedded Control Board; the three sections below call their own printed enclosure a housing, a box, and a mount, but they're the same kind of part, one per component, bolted to the frame.
 
-The PSU, the control board and the Orange Pi each live in their own printed enclosure, and all three bolt to the machine's 2020 frame with 2 M5 screws each, six in total: {% include fastener.html size="M5" variant="socket-button" length="12" %} for the PSU box and the Orange Pi mount, {% include fastener.html size="M5" variant="socket-button" length="16" %} for the control board housing.
+Each of the three printed enclosures bolts to the 2020 frame with 2 M5 screws (6 total). PSU box: 2x {% include fastener.html size="M5" variant="socket-button" length="12" %}. Orange Pi mount: 2x {% include fastener.html size="M5" variant="socket-button" length="12" %}. Control board housing: 2x {% include fastener.html size="M5" variant="socket-button" length="16" %}.
 
 <figure class="single-figure">
   <img class="doc-figure" src="https://assets.basically.website/sorter-docs/electronics-component-layout-topdown-full-2d38b86c4b2e.jpg" alt="Top-down physical component layout on the machine, with the PSU, Pi, basically board, USB hub, Pico, chute stepper and ribbon run called out">

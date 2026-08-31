@@ -4911,7 +4911,7 @@
       "created_at": "2026-07-18",
       "updated_at": "2026-07-18",
       "sheet_qty": {
-        "per_machine": 20
+        "per_machine": 40
       },
       "image_url": "https://assets.basically.website/sorter-parts/header-pins-254-full-2f61f803bd83.jpg",
       "sourcing": {
@@ -6125,7 +6125,7 @@
         },
         {
           "part": "header-pins-254",
-          "qty": 20
+          "qty": 40
         }
       ]
     },

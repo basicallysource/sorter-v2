@@ -58,7 +58,12 @@ The Pi itself takes no inserts, and neither does anything else on this page.
   <figcaption>The 4 standoffs and their retention screws (blue), drawn as parametric placeholders. <cite>Render: Balloon.</cite></figcaption>
 </figure>
 
-**Heat inserts first:** the mount takes 4 × M3 inserts, one per standoff. Press them in before assembling.
+(Inserts already pressed in step 1.)
+
+<div class="callout callout-warning">
+  <span class="callout-icon" aria-hidden="true">⚠</span>
+  <p>Static caution: the Orange Pi is ESD-sensitive like any other bare board. Touch a grounded metal surface before handling it, and avoid doing this on carpet in dry weather.</p>
+</div>
 
 Screw the 4 M3 standoffs into the inserts. Sit the Pi on them and fasten it down with 4 {% include fastener.html size="M3" variant="socket-button" length="6" %} screws. The 10 mm standoffs are used.
 
@@ -68,12 +73,12 @@ Screw the 4 M3 standoffs into the inserts. Sit the Pi on them and fasten it down
 
 The mount hangs off the 2020 frame on 2 {% include fastener.html size="M5" variant="socket-button" length="12" %} screws.
 
-Which extrusion it goes on, and in which orientation, is not written down. The top-down layout photo on the [installation overview]({{ '/hardware/electronics/installation/' | relative_url }}) is the only record.
+Which extrusion it goes on, and in which orientation: see [what's not recorded yet]({{ '/hardware/electronics/installation/' | relative_url }}#what-is-not-recorded-yet) on the installation overview.
 
 <div class="img-placeholder">Image coming</div>
 
 {% include step.html n="4" title="Plug it in" %}
 
-The Pi is powered by its own 24 V to USB-C adapter off the PSU, not from the control board. That, the USB hub and the cameras are all on the [wire harness]({{ '/hardware/electronics/' | relative_url }}) page.
+The Pi is powered by its own 24 V to USB-C adapter off the PSU, not from the control board. Confirm the buck converter's output is 5V and correctly polarized before connecting it to the Pi for the first time; a wrong connection here can destroy the board. That, the USB hub and the cameras are all on the [wire harness]({{ '/hardware/electronics/' | relative_url }}) page.
 
 The Orange Pi mount is now complete. Flashing and configuring the Pi is [software setup]({{ '/hardware/assembly/software-setup/' | relative_url }}).

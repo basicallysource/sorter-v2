@@ -466,11 +466,56 @@
 	</span>
 {/snippet}
 
-{#snippet snapshotRow(l: AssemblySnapshotLine)}
-	<li class="flex items-center gap-2.5 border border-border bg-surface px-2 py-1.5 text-xs">
-		{@render memberCell(l.part ?? l.assembly ?? '', l.uid, false)}
-		<span class="shrink-0 font-semibold tabular-nums">×{l.qty}</span>
-	</li>
+<!-- A snapshot line rendered in the same style as the live rows, so an old
+     version reads like the assembly did then — down to the archived render
+     and grams of the pinned revision, when they were recorded. -->
+{#snippet snapshotRow(l: AssemblySnapshotLine, mult: number)}
+	{@const id = l.part ?? l.assembly ?? ''}
+	{@const part = getPart(id)}
+	{@const hw = getHardware(id)}
+	{@const qtyN = typeof l.qty === 'number' ? l.qty : null}
+	{@const total = qtyN === null ? null : qtyN * mult}
+	{@const rev = memberRev(id, l.uid)}
+	{@const pv = part?.versions?.find((v) => v.uid === l.uid)}
+	{#if part || getAssembly(id)}
+		<div class="ml-1.5 mt-2 border border-border bg-surface p-2 sm:ml-4 sm:p-3">
+			<div class="flex items-center gap-3">
+				{#if part}
+					<img src={pv?.render ?? part.render} alt={part.name} class="h-12 w-12 shrink-0 object-contain" />
+				{/if}
+				<div class="min-w-0 flex-1">
+					<div class="flex flex-wrap items-baseline gap-x-2">
+						<span class="text-sm font-semibold text-text">{memberName(id)}</span>
+						<span class="border border-border px-1.5 py-px text-[10px] font-semibold uppercase tracking-wider text-text-muted"
+							>{part ? '3D printed' : 'assembly'}</span>
+						{#if l.uid}
+							<span class="font-mono text-xs text-text-muted">{l.uid}{rev ? ` · v${rev}` : ''}</span>
+						{/if}
+					</div>
+					{#if part && typeof (pv?.grams ?? part.grams) === 'number'}
+						<div class="text-xs text-text-muted">{(pv?.grams ?? part.grams).toFixed(0)} g each</div>
+					{/if}
+				</div>
+				<div class="text-right text-xs tabular-nums text-text">
+					<div class="font-semibold">×{l.qty}</div>
+					{#if total !== null && total !== qtyN}<div class="text-text-muted">{total} total</div>{/if}
+				</div>
+			</div>
+		</div>
+	{:else}
+		{@const img = hw ? hardwareImage(hw) : null}
+		<div class="ml-1.5 mt-2 flex items-center gap-3 border border-border bg-[var(--color-bg)] p-2 sm:ml-4">
+			{#if img}<img src={img.src} alt={hw?.name} class="h-8 w-8 shrink-0 object-contain" />{/if}
+			<div class="flex min-w-0 flex-1 items-center gap-1.5 text-xs font-semibold text-text">
+				{#if hw}<HardwareIcon {hw} size={14} />{/if}<span class="truncate">{memberName(id)}</span>
+				{#if l.uid}<span class="font-mono font-normal text-text-muted">{l.uid}</span>{/if}
+			</div>
+			<div class="text-right text-xs tabular-nums text-text">
+				<div class="font-semibold">×{l.qty}</div>
+				{#if total !== null && total !== qtyN}<div class="text-text-muted">{total} total</div>{/if}
+			</div>
+		</div>
+	{/if}
 {/snippet}
 
 <!-- One side of a diff row. Absent = the member doesn't exist in this
@@ -527,11 +572,9 @@
 			</div>
 			{#if entry?.message}<AssemblyDescription text={entry.message} class="mt-1 max-w-2xl text-xs text-text-muted" />{/if}
 			{#if entry?.lines?.length}
-				<ul class="mt-1.5 space-y-1">
-					{#each entry.lines as l, i (`${l.part ?? l.assembly}-${i}`)}
-						{@render snapshotRow(l)}
-					{/each}
-				</ul>
+				{#each entry.lines as l, i (`${l.part ?? l.assembly}-${i}`)}
+					{@render snapshotRow(l, mult)}
+				{/each}
 			{:else if entry?.lines}
 				<p class="mt-1.5 text-xs italic text-text-muted">Nothing was recorded in this version.</p>
 			{:else}
@@ -645,13 +688,16 @@
 						{/if}
 						<DropdownMenu label="{asm.name}: version to display" menuClass="w-52">
 							{#snippet trigger({ toggle, open })}
+								{@const viewingOld = !!shownVersion[asm.id] && shownVersion[asm.id] !== currentVersion(asm)}
 								<button
 									type="button"
-									class="inline-flex items-center gap-1 border border-border bg-surface px-1.5 py-0.5 font-mono text-[11px] text-text hover:border-primary"
+									class="inline-flex items-center gap-1 border px-1.5 py-0.5 font-mono text-[11px] {viewingOld
+										? 'border-warning/50 bg-warning/[0.08] text-warning-dark hover:border-warning'
+										: 'border-border bg-surface text-text hover:border-primary'}"
 									onclick={toggle}
 									aria-expanded={open}
 								>
-									v{shownVersion[asm.id] ?? currentVersion(asm)} <ChevronDown size={11} />
+									{viewingOld ? `Viewing v${shownVersion[asm.id]}` : `v${currentVersion(asm)}`} <ChevronDown size={11} />
 								</button>
 							{/snippet}
 							{#snippet children({ close })}

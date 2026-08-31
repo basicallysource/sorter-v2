@@ -36,7 +36,9 @@
 		lineQty,
 		plainDescription,
 		primaryColorId,
+		type Assembly,
 		type AssemblyLine,
+		type AssemblySnapshotLine,
 		type Hardware,
 		type Joining,
 		type Part,
@@ -216,6 +218,75 @@
 		partial: 'Some of this assembly is recorded, but not all of it. The parts and hardware shown are real; the list is known to be missing pieces, and the data does not say which.'
 	};
 
+	// ---- assembly versions: view any revision, diff any two ------------------
+	// versions[] ends with the current revision; superseded entries carry the
+	// lines as they were, each pinned to the member's uid of the day. Viewing an
+	// old version swaps the node's line rows for that snapshot; picking a diff
+	// base marks what changed between the two.
+	let shownVersion = $state<Record<string, string>>({});
+	let diffBase = $state<Record<string, string>>({});
+
+	const currentVersion = (asm: Assembly) => String(asm.version ?? '1');
+
+	function memberOf(id: string) {
+		return getPart(id) ?? getHardware(id) ?? getLasercut(id) ?? getAssembly(id);
+	}
+	function memberName(id: string): string {
+		return memberOf(id)?.name ?? id;
+	}
+	/** Which revision of the member a pinned uid names: its version number, or
+	 *  null when the uid predates the member's recorded history. */
+	function memberRev(id: string, uid?: string): string | null {
+		if (!uid) return null;
+		const m = getPart(id) ?? getAssembly(id);
+		if (!m) return null;
+		if (m.uid === uid) return String(m.version ?? '1');
+		return m.versions?.find((v) => v.uid === uid)?.version ?? null;
+	}
+
+	/** The line snapshot at one version: the live lines for the current one
+	 *  (pinned to each member's current uid, which is what a snapshot taken now
+	 *  would say), a versions[] entry's snapshot otherwise. */
+	function linesAt(asm: Assembly, v: string): AssemblySnapshotLine[] | null {
+		if (v === currentVersion(asm))
+			return (asm.lines ?? []).map((l) => ({ ...l, uid: memberOf(l.part ?? l.assembly ?? '')?.uid }));
+		return asm.versions?.find((e) => e.version === v)?.lines ?? null;
+	}
+
+	type DiffRow = {
+		id: string;
+		kind: 'same' | 'added' | 'removed' | 'qty' | 'rev';
+		old?: AssemblySnapshotLine;
+		now?: AssemblySnapshotLine;
+	};
+	const sumQty = (a: AssemblyLine['qty'], b: AssemblyLine['qty']) =>
+		typeof a === 'number' && typeof b === 'number' ? a + b : (`${a} + ${b}` as const);
+	/** Line-level diff between two snapshots, keyed by member id. A member
+	 *  listed twice is aggregated first, so it can't diff against itself. */
+	function diffLines(oldL: AssemblySnapshotLine[], newL: AssemblySnapshotLine[]): DiffRow[] {
+		const gather = (ls: AssemblySnapshotLine[]) => {
+			const m = new Map<string, AssemblySnapshotLine>();
+			for (const l of ls) {
+				const k = l.part ?? l.assembly ?? '';
+				const g = m.get(k);
+				m.set(k, g ? { ...g, qty: sumQty(g.qty, l.qty) as AssemblyLine['qty'] } : { ...l });
+			}
+			return m;
+		};
+		const om = gather(oldL);
+		const nm = gather(newL);
+		const rows: DiffRow[] = [];
+		for (const [k, o] of om) {
+			const n = nm.get(k);
+			if (!n) rows.push({ id: k, kind: 'removed', old: o });
+			else if (String(o.qty) !== String(n.qty)) rows.push({ id: k, kind: 'qty', old: o, now: n });
+			else if (o.uid && n.uid && o.uid !== n.uid) rows.push({ id: k, kind: 'rev', old: o, now: n });
+			else rows.push({ id: k, kind: 'same', old: o, now: n });
+		}
+		for (const [k, n] of nm) if (!om.has(k)) rows.push({ id: k, kind: 'added', now: n });
+		return rows;
+	}
+
 	// Clicking a thumbnail in the tree opens the same detail view the other tabs use:
 	// printed parts get the parts-dashboard modal (3D viewer, versions, plates);
 	// off-the-shelf items get the hardware modal (specs, where it goes, sourcing).
@@ -376,6 +447,102 @@
 	{/each}
 {/snippet}
 
+<!-- One member of a version snapshot or diff row: name, kind, pinned uid and
+     the member revision that uid names. -->
+{#snippet memberCell(id: string, uid: string | undefined, struck: boolean)}
+	{@const render = getPart(id)?.render}
+	{#if render}<img src={render} alt="" class="h-7 w-7 shrink-0 object-contain {struck ? 'opacity-50' : ''}" />{/if}
+	<span class="min-w-0 flex-1">
+		<span class="font-semibold text-text {struck ? 'line-through opacity-60' : ''}">{memberName(id)}</span>
+		{#if getAssembly(id)}<span class="ml-1 border border-border px-1 py-px text-[9px] font-semibold uppercase tracking-wider text-text-muted">assembly</span>{/if}
+		{#if uid}
+			<span class="ml-1.5 font-mono text-[11px] text-text-muted">{uid}</span>
+			{#if memberRev(id, uid)}<span class="text-[11px] text-text-muted"> · v{memberRev(id, uid)}</span>{/if}
+		{/if}
+	</span>
+{/snippet}
+
+{#snippet snapshotRow(l: AssemblySnapshotLine)}
+	<li class="flex items-center gap-2.5 border border-border bg-surface px-2 py-1.5 text-xs">
+		{@render memberCell(l.part ?? l.assembly ?? '', l.uid, false)}
+		<span class="shrink-0 font-semibold tabular-nums">×{l.qty}</span>
+	</li>
+{/snippet}
+
+{#snippet diffRow(r: DiffRow)}
+	{@const l = r.now ?? r.old}
+	<li
+		class="flex items-center gap-2.5 border px-2 py-1.5 text-xs {r.kind === 'added'
+			? 'border-primary/60 bg-primary/[0.05]'
+			: r.kind === 'removed'
+				? 'border-border bg-surface opacity-75'
+				: 'border-border bg-surface'}"
+	>
+		<span
+			class="w-8 shrink-0 text-center font-mono text-[10px] font-semibold uppercase {r.kind === 'added'
+				? 'text-primary'
+				: r.kind === 'removed'
+					? 'text-warning-dark'
+					: r.kind === 'same'
+						? 'text-text-muted'
+						: 'text-warning-dark'}"
+			title={r.kind === 'added' ? 'Added in the newer version' : r.kind === 'removed' ? 'Removed in the newer version' : r.kind === 'qty' ? 'Quantity changed' : r.kind === 'rev' ? 'Member revised (new uid)' : 'Unchanged'}
+		>{r.kind === 'added' ? '+' : r.kind === 'removed' ? '−' : r.kind === 'qty' ? 'qty' : r.kind === 'rev' ? 'rev' : '·'}</span>
+		{@render memberCell(r.id, l?.uid, r.kind === 'removed')}
+		<span class="shrink-0 tabular-nums {r.kind === 'same' ? 'text-text-muted' : 'font-semibold'}">
+			{#if r.kind === 'qty'}×{r.old?.qty} → ×{r.now?.qty}
+			{:else if r.kind === 'rev'}<span class="font-mono text-[11px]">{r.old?.uid} → {r.now?.uid}</span>
+			{:else}×{l?.qty}{/if}
+		</span>
+	</li>
+{/snippet}
+
+<!-- A node's line rows, routed by the header's version controls: the live
+     lines, one version's snapshot, or the diff between two versions. -->
+{#snippet versionSwitch(asm: Assembly, mult: number, depth: number)}
+	{@const cur = currentVersion(asm)}
+	{@const shown = filtering ? cur : (shownVersion[asm.id] ?? cur)}
+	{@const base = filtering ? undefined : diffBase[asm.id]}
+	{#if base && base !== shown}
+		{@const [lo, hi] = Number(base) <= Number(shown) ? [base, shown] : [shown, base]}
+		<div class="ml-1.5 mt-2 sm:ml-4">
+			<div class="flex flex-wrap items-center gap-x-2 gap-y-1 border border-warning/50 bg-warning/[0.08] px-2 py-1.5 text-xs text-warning-dark">
+				<History size={11} /> Changes v{lo} → v{hi}
+				<button type="button" class="ml-auto font-medium underline underline-offset-2" onclick={() => delete diffBase[asm.id]}>close diff</button>
+			</div>
+			<ul class="mt-1.5 space-y-1">
+				{#each diffLines(linesAt(asm, lo) ?? [], linesAt(asm, hi) ?? []) as r (r.id)}
+					{@render diffRow(r)}
+				{/each}
+			</ul>
+		</div>
+	{:else if shown !== cur}
+		{@const entry = asm.versions?.find((e) => e.version === shown)}
+		<div class="ml-1.5 mt-2 sm:ml-4">
+			<div class="flex flex-wrap items-center gap-x-2 gap-y-1 border border-warning/50 bg-warning/[0.08] px-2 py-1.5 text-xs text-warning-dark">
+				<History size={11} /> v{shown}, superseded{entry?.date ? ` ${fmtDate(entry.date)}` : ''}
+				{#if entry?.uid}<span class="font-mono">{entry.uid}</span>{/if}
+				<button type="button" class="ml-auto font-medium underline underline-offset-2" onclick={() => delete shownVersion[asm.id]}>back to v{cur}</button>
+			</div>
+			{#if entry?.message}<AssemblyDescription text={entry.message} class="mt-1 max-w-2xl text-xs text-text-muted" />{/if}
+			{#if entry?.lines?.length}
+				<ul class="mt-1.5 space-y-1">
+					{#each entry.lines as l, i (`${l.part ?? l.assembly}-${i}`)}
+						{@render snapshotRow(l)}
+					{/each}
+				</ul>
+			{:else if entry?.lines}
+				<p class="mt-1.5 text-xs italic text-text-muted">Nothing was recorded in this version.</p>
+			{:else}
+				<p class="mt-1.5 text-xs italic text-text-muted">This version's lines were not snapshotted.</p>
+			{/if}
+		</div>
+	{:else}
+		{@render joiningRows(asm.joining)}
+		{@render lines(asm.lines ?? [], mult, depth)}
+	{/if}
+{/snippet}
+
 {#snippet node(id: string, qty: AssemblyLine['qty'], mult: number, depth: number)}
 	{@const asm = getAssembly(id)}
 	{#if asm && (!filtering || keep.assemblies.has(asm.id))}
@@ -436,6 +603,37 @@
 					{:else if qty === 'middle-layers'}×{Math.max(0, layers - 2)} (layers between the interfaces)
 					{:else if qty !== 1}×{qty}{/if}
 				</span>
+				{#if !filtering && (asm.versions?.length ?? 0) > 1}
+					<select
+						class="asm-ver"
+						value={shownVersion[asm.id] ?? currentVersion(asm)}
+						onchange={(e) => (shownVersion[asm.id] = e.currentTarget.value)}
+						aria-label="{asm.name}: version to display"
+					>
+						{#each [...(asm.versions ?? [])].reverse() as v (v.version)}
+							<option value={v.version}>v{v.version}{v.version === currentVersion(asm) ? '' : ' (superseded)'}</option>
+						{/each}
+					</select>
+					<select
+						class="asm-ver"
+						value={diffBase[asm.id] ?? ''}
+						onchange={(e) => {
+							const val = e.currentTarget.value;
+							if (val) diffBase[asm.id] = val;
+							else delete diffBase[asm.id];
+						}}
+						aria-label="{asm.name}: version to diff against"
+					>
+						<option value="">diff…</option>
+						{#each [...(asm.versions ?? [])].reverse() as v (v.version)}
+							{#if v.version !== (shownVersion[asm.id] ?? currentVersion(asm))}
+								<option value={v.version}>vs v{v.version}</option>
+							{/if}
+						{/each}
+					</select>
+				{:else}
+					<span class="font-mono text-[11px] text-text-muted">v{currentVersion(asm)}</span>
+				{/if}
 				{#if asm.status === 'stub'}
 					<span
 						class="cursor-help border border-border px-1.5 py-px text-[10px] font-semibold uppercase tracking-wider text-text-muted"
@@ -484,8 +682,7 @@
 			<div class="tree-branch relative pl-2 sm:pl-4">
 				<button type="button" class="tree-line" onclick={() => toggle(asm.id)} aria-label="Collapse {asm.name}"></button>
 			{#if asm.images?.length}<div class="mt-2"><ImageStrip images={asm.images} /></div>{/if}
-			{@render joiningRows(asm.joining)}
-			{@render lines(asm.lines ?? [], mult, depth)}
+			{@render versionSwitch(asm, mult, depth)}
 			<!-- Alternative bills of materials under test, rendered with the same
 			     line rows. -->
 			{#each (filtering ? [] : (asm.candidates ?? [])) as c (c.uid)}
@@ -505,29 +702,6 @@
 					{@render lines(c.lines, mult, depth)}
 				</div>
 			{/each}
-			<!-- Superseded structures, each line pinned to the member's uid of the day. -->
-			{#if !filtering && (asm.versions?.length ?? 0) > 1}
-				<details class="ml-1.5 mt-3 sm:ml-4">
-					<summary class="inline-flex cursor-pointer items-center gap-1 text-xs font-semibold uppercase tracking-wider text-text-muted hover:text-text"><History size={11} /> Previous revisions · {(asm.versions?.length ?? 1) - 1}</summary>
-					{#each [...(asm.versions ?? [])].slice(0, -1).reverse() as v (v.version)}
-						<div class="mt-2 border border-border bg-surface p-2 text-xs sm:p-3">
-							<div class="flex flex-wrap items-baseline gap-x-2">
-								<b class="text-text">v{v.version}</b>
-								{#if v.uid}<span class="font-mono text-text-muted">{v.uid}</span>{/if}
-								<span class="text-text-muted">· {fmtDate(v.date)}</span>
-							</div>
-							<AssemblyDescription text={v.message} class="mt-0.5 max-w-2xl text-text-muted" />
-							{#if v.images?.length}<div class="mt-2"><ImageStrip images={v.images} /></div>{/if}
-							<ul class="mt-1.5 space-y-0.5 text-text-muted">
-								{#each v.lines ?? [] as l, i (`${l.part ?? l.assembly}-${i}`)}
-									{@const name = (l.part && (getPart(l.part)?.name ?? getHardware(l.part)?.name ?? getLasercut(l.part)?.name)) ?? (l.assembly && getAssembly(l.assembly)?.name) ?? l.part ?? l.assembly}
-									<li><span class="tabular-nums">×{l.qty}</span> {name}{#if l.uid} <span class="font-mono">{l.uid}</span>{/if}</li>
-								{/each}
-							</ul>
-						</div>
-					{/each}
-				</details>
-			{/if}
 			</div>
 			{/if}
 		</div>
@@ -614,5 +788,21 @@
 	.tree-line:hover::before,
 	.tree-line:focus-visible::before {
 		background: var(--color-primary);
+	}
+	/* The version dropdowns in a node's header row. Native selects, sized to
+	   read as chips beside the name. */
+	.asm-ver {
+		border: 1px solid var(--color-border);
+		background: var(--color-surface);
+		color: var(--color-text);
+		font-size: 11px;
+		font-family: var(--font-mono, monospace);
+		padding: 1px 2px;
+		cursor: pointer;
+	}
+	.asm-ver:hover,
+	.asm-ver:focus-visible {
+		outline: none;
+		border-color: var(--color-primary);
 	}
 </style>

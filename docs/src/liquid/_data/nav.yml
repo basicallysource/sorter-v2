@@ -76,8 +76,6 @@ sections:
           - title: Installing the electronics
             url: /hardware/electronics/installation/
             children:
-              - title: Soldering Pico headers
-                url: /hardware/electronics/installation/pico-headers/
               - title: PSU box
                 url: /hardware/electronics/installation/psu-box/
               - title: Preparing the control board
@@ -101,6 +99,8 @@ sections:
             url: /hardware/helpers/lazy-susan/
           - title: Prepare timing pulley 20 tooth
             url: /hardware/helpers/pulley-gear-mod/
+          - title: Soldering Pico headers
+            url: /hardware/electronics/installation/pico-headers/
           - title: Installing heat inserts
             url: /hardware/helpers/heat-inserts/
       - title: Parts

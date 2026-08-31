@@ -27,7 +27,7 @@
 		},
 		{
 			"id": "interface",
-			"name": "Interface",
+			"name": "Top interface",
 			"scales_with_layers": false
 		},
 		{
@@ -1106,7 +1106,7 @@
 			"id": "interface",
 			"uid": "bkgq",
 			"version": "2",
-			"name": "Interface",
+			"name": "Top interface",
 			"description": "The interface between the feeder and the distribution layers. Its lazy Susan sandwiches the upper fixed section and the chute mount, 4 \u00d7 [[hw:scr-m4-12-cs]] a side, and the plywood top plate bolts down onto the six brackets' inserts.",
 			"docs": "/hardware/assembly/distribution/top-interface/",
 			"status": "partial",
@@ -1686,7 +1686,7 @@
 			"uid": "8cjj",
 			"version": "1",
 			"name": "Interface chute gear + mount",
-			"description": "The chute gear screwed down onto the top interface chute mount \u2014 two sections of the split spur gear that become one turning unit.",
+			"description": "The Chute gear screwed onto the Top interface chute mount with five M3x12 countersunk screws (top-interface.md step 6). Despite their ids (inherited from an earlier three-piece gear design), these are two distinct parts fastened together, not two sections of one gear.",
 			"docs": "/hardware/assembly/distribution/top-interface/",
 			"status": "partial",
 			"lines": [
@@ -7154,7 +7154,7 @@
 			"folder": null,
 			"variant_group": null,
 			"variant_name": null,
-			"description": "Section 1 of 3 of the top interface split spur gear (Spur 2M 120T).",
+			"description": "The chute drive gear, screwed onto the Top interface chute mount with five M3x12 countersunk screws (see the Interface chute gear + mount assembly). Turned by the Interface spur gear/idler gear train off the NEMA 23 stepper.",
 			"version": "1",
 			"created_at": "2026-07-03",
 			"updated_at": "2026-07-03",
@@ -7266,7 +7266,7 @@
 			"folder": null,
 			"variant_group": null,
 			"variant_name": null,
-			"description": "Section 2 of 3 of the top interface split spur gear (Spur 2M 120T).",
+			"description": "A washer aligned over the Top interface chute mount's inner heat inserts and clamped in place by the Lazy Susan's inner ring and four M4x12 countersunk screws (top-interface.md step 6).",
 			"version": "1",
 			"created_at": "2026-07-03",
 			"updated_at": "2026-07-03",
@@ -7362,7 +7362,7 @@
 			"folder": null,
 			"variant_group": null,
 			"variant_name": null,
-			"description": "Section 3 of 3 of the top interface split spur gear (Spur 2M 120T).",
+			"description": "The mount that carries the chute's drive gear and the Lazy Susan bearing (top-interface.md steps 6-7); the chute itself bolts to its free ring.",
 			"version": "1",
 			"created_at": "2026-07-03",
 			"updated_at": "2026-07-03",
@@ -15994,10 +15994,10 @@
 			},
 			"name": "M3 \u00d7 15 mm washer",
 			"category": "Washers",
-			"description": "Flat/fender washer, 15 mm outer diameter. Added to the catalog to match the documentation's description of the interface idler gear joint, under the M3 \u00d7 35 screw that holds the gear onto the NEMA 23 bracket. That documentation was wrong: the joint's actual design uses the printed chute stepper idler bearing retainers instead (wired up 2026-08-25), so this part was never correct here. Not used anywhere in the machine.",
-			"note": null,
+			"description": "Flat/fender washer, 15 mm outer diameter. Added to the catalog to match the documentation's description of the interface idler gear joint, under the M3 \u00d7 35 screw that holds the gear onto the NEMA 23 bracket. That documentation was wrong: the joint's actual design uses the printed chute stepper idler bearing retainers instead (wired up 2026-08-25), so this part was never correct here. Not used anywhere in the machine. Kept as an unused entry rather than deleted, since a minted uid has to stay resolvable (see parts-calculator's own CLAUDE.md).",
+			"note": "Unused as of 2026-08-30. Do not add a new joint to this washer \u2014 the idler gear joint it was meant for uses the printed chute stepper idler bearing retainers instead.",
 			"created_at": "2026-08-18",
-			"updated_at": "2026-08-25",
+			"updated_at": "2026-08-30",
 			"attributes": [
 				{
 					"label": "Thread",
@@ -17080,6 +17080,14 @@
 				{
 					"label": "Size",
 					"value": "8\" / 200 mm"
+				},
+				{
+					"label": "Thickness",
+					"value": "9 mm"
+				},
+				{
+					"label": "Weight",
+					"value": "350 g"
 				}
 			],
 			"sheet_qty": {

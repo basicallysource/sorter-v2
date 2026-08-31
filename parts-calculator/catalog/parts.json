@@ -13,7 +13,7 @@
     },
     {
       "id": "interface",
-      "name": "Interface",
+      "name": "Top interface",
       "scales_with_layers": false
     },
     {
@@ -1467,8 +1467,8 @@
       "id": "top-interface-split-spur-gear-1",
       "uid": "1a0l",
       "name": "Chute gear",
-      "description": "Section 1 of 3 of the top interface split spur gear (Spur 2M 120T).",
-      "internal_notes": "Split spur gear for the top interface; the 3 sections print separately and assemble into one gear. Chute-core color.",
+      "description": "The chute drive gear, screwed onto the Top interface chute mount with five M3x12 countersunk screws (see the Interface chute gear + mount assembly). Turned by the Interface spur gear/idler gear train off the NEMA 23 stepper.",
+      "internal_notes": "Chute-core color. Despite the id (\"split spur gear\"), this print stands alone as the Chute gear; it is not joined to -2 or -3. See top-interface.md step 6.",
       "version": "1",
       "created_at": "2026-07-03",
       "updated_at": "2026-07-03",
@@ -1488,8 +1488,8 @@
       "id": "top-interface-split-spur-gear-2",
       "uid": "izz5",
       "name": "Top interface lazy Susan washer",
-      "description": "Section 2 of 3 of the top interface split spur gear (Spur 2M 120T).",
-      "internal_notes": "Split spur gear for the top interface; the 3 sections print separately and assemble into one gear. Chute-core color.",
+      "description": "A washer aligned over the Top interface chute mount's inner heat inserts and clamped in place by the Lazy Susan's inner ring and four M4x12 countersunk screws (top-interface.md step 6).",
+      "internal_notes": "Chute-core color. Despite the id (\"split spur gear\"), this print stands alone as the washer; it is not joined to -1 or -3.",
       "version": "1",
       "created_at": "2026-07-03",
       "updated_at": "2026-07-03",
@@ -1512,8 +1512,8 @@
       "aliases": [
         "chute core mount"
       ],
-      "description": "Section 3 of 3 of the top interface split spur gear (Spur 2M 120T).",
-      "internal_notes": "Split spur gear for the top interface; the 3 sections print separately and assemble into one gear. Chute-core color. Carries 4× M4 inserts, plus 7× M3: 2 for the cable clamp and 5 on the underside that the chute gear screws down into. Counted on the physical part by barthel 2026-08-21 and confirmed against the STL (7 x 4.20 mm bores, ruthex's recommended M3 insert hole, re-measured with the detection thresholds loosened in case any were missed). The previous count of 9 added 2 for the layer connector, which the published model does not have; resolves the docs-merge-2026-08-21 conflict.",
+      "description": "The mount that carries the chute's drive gear and the Lazy Susan bearing (top-interface.md steps 6-7); the chute itself bolts to its free ring.",
+      "internal_notes": "Chute-core color. Despite the id (\"split spur gear\"), this print stands alone as the Top interface chute mount; it is not joined to -1 or -2. Carries 4× M4 inserts, plus 7× M3: 2 for the cable clamp and 5 on the underside that the chute gear screws down into. Counted on the physical part by barthel 2026-08-21 and confirmed against the STL (7 x 4.20 mm bores, ruthex's recommended M3 insert hole, re-measured with the detection thresholds loosened in case any were missed). The previous count of 9 added 2 for the layer connector, which the published model does not have; resolves the docs-merge-2026-08-21 conflict.",
       "version": "1",
       "created_at": "2026-07-03",
       "updated_at": "2026-07-03",
@@ -3639,9 +3639,10 @@
       },
       "name": "M3 × 15 mm washer",
       "category": "Washers",
-      "description": "Flat/fender washer, 15 mm outer diameter. Added to the catalog to match the documentation's description of the interface idler gear joint, under the M3 × 35 screw that holds the gear onto the NEMA 23 bracket. That documentation was wrong: the joint's actual design uses the printed chute stepper idler bearing retainers instead (wired up 2026-08-25), so this part was never correct here. Not used anywhere in the machine.",
+      "description": "Flat/fender washer, 15 mm outer diameter. Added to the catalog to match the documentation's description of the interface idler gear joint, under the M3 × 35 screw that holds the gear onto the NEMA 23 bracket. That documentation was wrong: the joint's actual design uses the printed chute stepper idler bearing retainers instead (wired up 2026-08-25), so this part was never correct here. Not used anywhere in the machine. Kept as an unused entry rather than deleted, since a minted uid has to stay resolvable (see parts-calculator's own CLAUDE.md).",
       "created_at": "2026-08-18",
-      "updated_at": "2026-08-25",
+      "updated_at": "2026-08-30",
+      "note": "Unused as of 2026-08-30. Do not add a new joint to this washer — the idler gear joint it was meant for uses the printed chute stepper idler bearing retainers instead.",
       "attributes": [
         {
           "label": "Thread",
@@ -4579,6 +4580,14 @@
         {
           "label": "Size",
           "value": "8\" / 200 mm"
+        },
+        {
+          "label": "Thickness",
+          "value": "9 mm"
+        },
+        {
+          "label": "Weight",
+          "value": "350 g"
         }
       ],
       "docs_page": "/hardware/parts/lazy-susan/"
@@ -6175,7 +6184,7 @@
       "id": "interface",
       "uid": "bkgq",
       "version": "2",
-      "name": "Interface",
+      "name": "Top interface",
       "description": "The interface between the feeder and the distribution layers. Its lazy Susan sandwiches the upper fixed section and the chute mount, 4 × [[hw:scr-m4-12-cs]] a side, and the plywood top plate bolts down onto the six brackets' inserts.",
       "docs": "/hardware/assembly/distribution/top-interface/",
       "status": "partial",
@@ -6753,7 +6762,7 @@
       "uid": "8cjj",
       "version": "1",
       "name": "Interface chute gear + mount",
-      "description": "The chute gear screwed down onto the top interface chute mount — two sections of the split spur gear that become one turning unit.",
+      "description": "The Chute gear screwed onto the Top interface chute mount with five M3x12 countersunk screws (top-interface.md step 6). Despite their ids (inherited from an earlier three-piece gear design), these are two distinct parts fastened together, not two sections of one gear.",
       "docs": "/hardware/assembly/distribution/top-interface/",
       "status": "partial",
       "lines": [

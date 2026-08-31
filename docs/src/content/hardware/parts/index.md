@@ -11,3 +11,4 @@ author: spencer
 ---
 
 - **[Lazy Susan]({{ '/hardware/parts/lazy-susan/' | relative_url }})**
+- **[Orange Pi 5]({{ '/hardware/orange-pi-5/' | relative_url }})**

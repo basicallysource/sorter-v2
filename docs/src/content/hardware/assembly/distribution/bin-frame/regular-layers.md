@@ -31,6 +31,8 @@ parts_needed:
     qty: 24
 ---
 
+Each layer holds one chute-and-bin pair (built separately) that catches pieces routed to it; a regular layer's job is simply to repeat the same hexagonal ring, vertical supports, and flange joint as the layer below it, so the stack can go as tall as the machine needs.
+
 This guide covers creating a regular layer. It's also the basis for creating the top and bottom layers, so build N−2 of these for an N-layer machine (the [bottom two layers]({{ '/hardware/assembly/distribution/bin-frame/bottom-two-layers/' | relative_url }}) are covered separately).
 
 <div class="prep-item">
@@ -60,7 +62,12 @@ The aluminum extrusion is cut to length; the [framing cut list](https://parts-ca
   </figure>
 </div>
 
-On each corner of your hexagon, slot an External bracket — cover onto the External bracket — side (do this before attaching the extrusion, since it's tricky to get in place afterwards). Slot piece C (Layer vertical support) of aluminum extrusion between the External bracket — cover and the External bracket — side. At typical cut length you can leave this 3 mm short at either end, so try to align it about 3 mm above the bottom. Use 2 {% include fastener.html size="M5" variant="socket-button" length="16" %} screws tapped through the holes near the bottom of the External bracket — side to secure the extrusion.
+<div class="callout callout-warning">
+  <span class="callout-icon" aria-hidden="true">⚠</span>
+  <p>Fit the External bracket — cover onto the External bracket — side now, at each corner of your hexagon. It's difficult to slide on once piece C is in place.</p>
+</div>
+
+Slot piece C (Layer vertical support) of aluminum extrusion between the External bracket — cover and the External bracket — side. At typical cut length, piece C sits about 3 mm short of both the top and bottom of the bracket run. Position it so that 3 mm gap is at the bottom, leaving the extrusion flush (or nearly flush) at the top. Use 2 {% include fastener.html size="M5" variant="socket-button" length="16" %} screws tapped through the holes near the bottom of the External bracket — side to secure the extrusion.
 
 <div class="img-row">
   <figure>
@@ -73,7 +80,7 @@ On each corner of your hexagon, slot an External bracket — cover onto the Exte
   </figure>
 </div>
 
-On each corner, slide an External bracket — bottom vertical onto piece C (Layer vertical support), ensuring the angles of the External bracket — bottom vertical align at the bottom. Secure them with 2 {% include fastener.html size="M5" variant="socket-button" length="16" %} screws through the outer holes on the External bracket — bottom vertical. The extrusion will likely rest a few mm below the top.
+On each corner, slide an External bracket — bottom vertical onto piece C (Layer vertical support), ensuring the angles of the External bracket — bottom vertical align at the bottom. Secure them with 2 {% include fastener.html size="M5" variant="socket-button" length="16" %} screws through the outer holes on the External bracket — bottom vertical. The extrusion will typically sit a few millimeters below the top of the bracket. That's expected and doesn't affect fit. If it's flush or proud of the top, piece C is probably cut long, check it against the [framing cut list](https://parts-calculator.basically.website/framing).
 
 Matching parts from the same print run are embossed with a shared set code (e.g. **"b2"**) on both the External bracket — side and the External bracket — bottom vertical. Keep marked pairs together so brackets don't get mixed across corners.
 
@@ -84,7 +91,7 @@ Matching parts from the same print run are embossed with a shared set code (e.g.
   <figcaption><cite>Photo: zed0.</cite></figcaption>
 </figure>
 
-On each side of the hexagon, attach both the Bin retainer (left) and Bin retainer (right) to the front side of A/G (Outer horizontal / Horizontal interface frame) using 4 {% include fastener.html size="M5" variant="socket-button" length="12" %} screws into the T-nuts your hex frame already has installed there.
+On each side of the hexagon, attach both the Bin retainer (left) and Bin retainer (right) to the front face of A/G (Outer horizontal / Horizontal interface frame) using 4 {% include fastener.html size="M5" variant="socket-button" length="12" %} screws into the T-nuts your hex frame already has installed there.
 
 A regular layer is now complete.
 

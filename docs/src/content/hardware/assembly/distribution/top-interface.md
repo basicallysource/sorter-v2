@@ -84,46 +84,46 @@ parts_needed:
     qty: 1
   - part: cable-idc-2x8-long
     qty: 1
+  - part: hsi-m3
+    qty: 16
   - part: hsi-m4
     qty: 8
   - part: hsi-m5
     qty: 24
-  - part: hsi-m3
-    qty: 16
-  - part: scr-m5-35-fhcs
-    qty: 6
-  - part: scr-m5-30-shcs
-    qty: 6
-  - part: scr-m5-22-cs
-    qty: 15
-  - part: scr-m5-8-cs
-    qty: 6
-  - part: scr-m5-20-shcs
-    qty: 24
-  - part: scr-m5-16-shcs
-    qty: 50
-  - part: scr-m5-12-shcs
-    qty: 4
-  - part: scr-m4-12-cs
-    qty: 8
-  - part: scr-m3-35-bhcs
-    qty: 2
+  - part: scr-m3-6-cs
+    qty: 1
+  - part: scr-m3-8-cs
+    qty: 9
   - part: scr-m3-10-shcs
     qty: 3
   - part: scr-m3-12-cs
     qty: 6
   - part: scr-m3-16-shcs
     qty: 2
-  - part: scr-m3-8-cs
-    qty: 9
-  - part: scr-m3-6-cs
+  - part: scr-m3-35-bhcs
+    qty: 2
+  - part: scr-m4-12-cs
+    qty: 8
+  - part: scr-m5-8-cs
+    qty: 6
+  - part: scr-m5-12-shcs
+    qty: 4
+  - part: scr-m5-16-shcs
+    qty: 50
+  - part: scr-m5-20-shcs
+    qty: 24
+  - part: scr-m5-22-cs
+    qty: 15
+  - part: scr-m5-30-shcs
+    qty: 6
+  - part: scr-m5-35-fhcs
+    qty: 6
+  - part: nut-m3
     qty: 1
   - part: tnut-m5-2020
     qty: 56
   - part: nut-m5
     qty: 6
-  - part: nut-m3
-    qty: 1
 tools_needed: [Hex key, Soldering iron or heat-set insert press]
 ---
 
@@ -261,20 +261,27 @@ Before assembling anything, press all the heat inserts listed below into their p
   <div class="prep-item-body">
     <p><strong>Interface idler gear:</strong> 4 × M3, around the bearing pocket on the underside</p>
     <p>Build the bearing sub-assembly now too, while the gear is still loose — it is easier off the bracket than on it. Push a 608 2RS bearing into the pocket, fit the Chute stepper idler bearing retainer (inner) over the bearing's bore, then the Chute stepper idler bearing retainer (outer) over that, seated flush in the recess with its 4 holes lined up on the gear's 4 inserts. Secure it with 4 × {% include fastener.html size="M3" variant="countersunk" length="8" %} screws, the same M3 x 8 mm countersunk screw used on the Interface spur gear in step 9. See step 9 for how the idler gear then goes onto the bracket.</p>
-    <p>The exploded and assembled views below are reconstructions built from the STL geometry, not a CAD export — there is no assembly photo of the retainer caps yet. The photo of the bearing itself is real, from before the caps existed.</p>
   </div>
   <div class="prep-item-figure prep-item-figure-split">
+    <figure>
+      <img class="doc-figure" src="https://assets.basically.website/sorter-parts/assembly-top-interface-prep-idler-gear-inserts-full-82137b8be2a0.jpg" alt="The Interface idler gear alone, showing all 4 brass M3 heat inserts around the bearing pocket">
+      <figcaption>The 4 M3 inserts around the bearing pocket, before the bearing goes in. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+    </figure>
     <figure>
       <img class="doc-figure" src="https://assets.basically.website/sorter-parts/idler-exploded-3color-full-227310630981.png" alt="An exploded view from below of the idler gear stack in build order: the grey gear, the bearing highlighted in blue, and the inner and outer bearing retainer caps highlighted in red">
       <figcaption>Exploded, in build order: gear, bearing, inner cap, outer ring. <cite>Render: Balloon.</cite></figcaption>
     </figure>
     <figure>
-      <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-top-interface-step9-idler-gear-bearing-w1600-2fe924b61150.jpg" alt="608 2RS bearing pressed into the centre of the grey Interface idler gear, from before the bearing retainer caps existed">
-      <figcaption>608 2RS bearing pressed into the pocket. Real photo, predates the retainer caps. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+      <img class="doc-figure" src="https://assets.basically.website/sorter-parts/assembly-top-interface-prep-idler-gear-bearing-inserts-full-974df2574ede.jpg" alt="608 2RS bearing pressed into the centre of the grey Interface idler gear, with the 4 brass M3 heat inserts visible around it, before the bearing retainer caps go on">
+      <figcaption>608 2RS bearing pressed into the pocket, inserts visible, caps not yet on. <cite>Photo: BrickCycleAlice.</cite></figcaption>
     </figure>
     <figure>
       <img class="doc-figure" src="https://assets.basically.website/sorter-parts/idler-assembled-3color-full-7de4573e7301.png" alt="The Interface idler gear seen from below at an angle, assembled, with the bearing highlighted in blue showing through the centre and the outer and inner bearing retainer caps highlighted in red, the outer retainer's four countersunk screw holes visible">
       <figcaption>Assembled: bearing pocket recess with both retainer caps fitted. <cite>Render: Balloon.</cite></figcaption>
+    </figure>
+    <figure>
+      <img class="doc-figure" src="https://assets.basically.website/sorter-parts/assembly-top-interface-prep-idler-gear-caps-mounted-full-ea79c7aa9a44.jpg" alt="The Interface idler gear with the bearing retainer caps mounted for real, the 4 screws seated flush in place of the heat inserts">
+      <figcaption>The retainer caps mounted for real, matching the render above. <cite>Photo: BrickCycleAlice.</cite></figcaption>
     </figure>
   </div>
 </div>
@@ -500,6 +507,17 @@ The idler gear bridges the gap between the spur gear on the motor shaft and the 
 
 Slide the prepared [Timing pulley]({{ '/hardware/helpers/pulley-gear-mod/' | relative_url }}) over the shaft of the NEMA 23 stepper motor and tighten its two set screws (grub screws). Slide the Interface spur gear onto the Timing pulley and secure it with five {% include fastener.html size="M3" variant="countersunk" length="8" %} screws: three tapped into the Interface spur gear and two bracing against the Timing pulley (exact split may vary — check the hole pattern in the photo).
 
+<div class="img-row">
+  <figure>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-top-interface-step9-timing-pulley-on-motor-w1600-0b0a8e04d17c.jpg" alt="Timing pulley installed on the shaft of a NEMA 23 stepper motor">
+    <figcaption>Timing pulley installed on the NEMA 23 shaft. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+  </figure>
+  <figure>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-top-interface-step9-interface-spur-gear-w1600-7dcec28e692a.jpg" alt="Grey Interface spur gear secured over the timing pulley with five countersunk screws">
+    <figcaption>Interface spur gear secured over the Timing pulley with five M3 × 8 mm screws. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+  </figure>
+</div>
+
 Push the prepared Interface idler gear — bearing, inner retainer cap, and outer retainer already fitted, see step 1 — onto the Interface NEMA 23 bracket with the bearing facing outwards.
 
 Drive an {% include fastener.html size="M3" variant="flat" length="35" %} screw through the middle of the gear and into the bracket. The inner retainer cap sits between the screw head and the bearing, spanning the 8 mm bore, so the screw head on its own (narrower than the bore) has something to clamp against. Tighten until it's seated, then check that the idler gear still spins freely.
@@ -512,12 +530,12 @@ At this point the chute should still rotate, but you will now feel resistance fr
 
 <div class="img-row">
   <figure>
-    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-top-interface-step9-timing-pulley-on-motor-w1600-0b0a8e04d17c.jpg" alt="Timing pulley installed on the shaft of a NEMA 23 stepper motor">
-    <figcaption>Timing pulley installed on the NEMA 23 shaft. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-top-interface-step9-idler-gear-no-motor-w1600-c46506452340.jpg" alt="The Interface idler gear tapped onto the NEMA 23 bracket, meshed with the chute's ring gear, before the stepper motor is fitted">
+    <figcaption>The idler gear on the bracket, before the motor goes on. <cite>Photo: BrickCycleAlice.</cite></figcaption>
   </figure>
   <figure>
-    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-top-interface-step9-interface-spur-gear-w1600-7dcec28e692a.jpg" alt="Grey Interface spur gear secured over the timing pulley with five countersunk screws">
-    <figcaption>Interface spur gear secured over the Timing pulley with five M3 × 8 mm screws. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-top-interface-step9-idler-gear-nema23-meshed-w1600-15fd629cfae4.jpg" alt="The NEMA 23 stepper motor installed, its spur gear meshed with the idler gear and the chute's ring gear">
+    <figcaption>The finished step: stepper, spur gear and idler all meshed. <cite>Photo: BrickCycleAlice.</cite></figcaption>
   </figure>
 </div>
 

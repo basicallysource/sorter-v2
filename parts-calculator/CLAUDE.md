@@ -296,6 +296,21 @@ retention rule. A structural change to an assembly's `lines` (member
 removed/replaced, qty changed) MUST be stamped as a new assembly version
 with its `breaking` bit — `check_versioning.py` refuses it otherwise; the
 one exemption is purely additive completion of a `stub`/`partial` assembly.
-See `VERSIONING.md`. A part that exists only inside a candidate assembly has
+See `VERSIONING.md`.
+
+**An assembly's `connections` are its joints as a graph over its members.**
+One edge per joint: `{from, to, via, qty, method, note?, draft?}`. `from`/`to`
+name the two members held together (`to` is the anchor side — where the
+fastener ends); `via` names the fastener, which must be one of the
+assembly's own hardware lines (omitted for fastenerless joints); `qty` is
+fasteners per assembly instance; `method` is one of `self-tap | thread |
+insert | nut | tnut | press | friction | clip | glue | solder | crimp`.
+`draft: true` marks an edge extracted from prose and not yet confirmed at
+the bench — remove the flag when the assembly is validated.
+`check_connections.py` enforces the shape in CI. Once a joint is an edge,
+take its sentence OUT of the description: joint knowledge lives in
+`connections`, and descriptions state what the assembly is, in a sentence
+or two — never enumerate screws and never argue why a value is what it is
+(that goes in the version message or `internal_notes`). A part that exists only inside a candidate assembly has
 empty `quantities`: it is in no section, counts toward nothing, and is left
 out of the all-parts bundle.

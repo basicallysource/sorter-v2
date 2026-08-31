@@ -16,6 +16,8 @@ name: Check part data
 #  - check_versioning.py      : revisions follow VERSIONING.md -- new version
 #                               entries declare their breaking bit, assembly
 #                               line changes are stamped as assembly versions
+#  - check_connections.py     : connection edges reference real members and
+#                               real fastener lines, methods from the enum
 #
 # Both are pure checks, a minute end to end. regen-parts.yml -- the old
 # CI-canonical slicer that committed back onto PR branches -- is deleted; its
@@ -47,3 +49,4 @@ jobs:
       - run: python parts-calculator/scripts/check_generated_pins.py
       - run: python parts-calculator/scripts/check_asset_urls.py
       - run: python parts-calculator/scripts/check_versioning.py
+      - run: python parts-calculator/scripts/check_connections.py

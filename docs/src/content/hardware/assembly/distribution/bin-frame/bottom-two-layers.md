@@ -72,7 +72,7 @@ The aluminum extrusion is cut to length; the [framing cut list](https://parts-ca
 
 {% include step.html n="1" title="Preparation" %}
 
-No heat inserts on this assembly. Every printed part here takes a self-tapping {% include fastener.html size="M5" variant="socket-button" length="16" %} screw straight into the plastic, the same as [assembling external bracket]({{ '/hardware/helpers/external-bracket/' | relative_url }}).
+No heat inserts on this assembly. Every printed part here takes a self-tapping {% include fastener.html size="M5" variant="socket-button" length="16" %} screw straight into the plastic.
 
 Cut the extrusion first. These two layers use **6 × piece D (Foot extension), 231 mm**, and **no piece C at all** — D stands in for the C that each of these two layers would otherwise have. The [framing cut list](https://parts-calculator.basically.website/framing) has every length; at 1 or 2 layers, C is genuinely absent from that list rather than missing.
 

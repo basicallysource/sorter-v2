@@ -346,6 +346,20 @@
           "scr-m3-shcs-tbd"
         ]
       }
+    },
+    {
+      "id": "review-chute-stepper-support-block-for-deletion",
+      "name": "Chute stepper support block may be deleted to cut part count",
+      "priority": "P4",
+      "description": "Basically wants to use as few parts as possible, and this printed block's own catalog note already flags its quantity as an unconfirmed default. It has no documented install location, orientation, or screw length anywhere, and lives in its own standalone Onshape document rather than the shared Interface Layer one. Someone with CAD/mechanical context needs to confirm the NEMA 23 chute stepper mount works without it before it can actually be dropped from the assembly and deleted. Tracked as sorter-v2 issue #483.",
+      "targets": {
+        "parts": [
+          "chute-stepper-support-block"
+        ],
+        "assemblies": [
+          "interface"
+        ]
+      }
     }
   ],
   "folders": [
@@ -2283,11 +2297,11 @@
       "id": "chute-stepper-support-block",
       "uid": "loc0",
       "name": "Chute stepper support block",
-      "description": "Support block for the chute stepper.",
+      "description": "Support block for the chute stepper. Flagged for possible removal to cut part count; not yet confirmed whether the mount needs it.",
       "internal_notes": "Interface part. Frame colour. Qty 1/machine is a DEFAULT pending confirmation.",
       "version": "1",
       "created_at": "2026-07-03",
-      "updated_at": "2026-07-03",
+      "updated_at": "2026-08-31",
       "quantities": {
         "interface": 1
       },
@@ -2299,7 +2313,8 @@
         "role": "frame"
       },
       "optional": false,
-      "support": false
+      "support": false,
+      "note": "Under review for deletion (sorter-v2#483). Basically wants to minimize part count. Its own qty is already an unconfirmed default, and it is undocumented anywhere on the docs site. Kept in the catalog until someone with CAD context confirms the NEMA 23 mount works without it."
     },
     {
       "id": "funnel-third",

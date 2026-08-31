@@ -1168,10 +1168,6 @@
 					"qty": 1
 				},
 				{
-					"part": "scr-m5-shcs-tbd",
-					"qty": 2
-				},
-				{
 					"assembly": "layer-connector",
 					"qty": 1
 				},
@@ -15951,10 +15947,10 @@
 			},
 			"name": "M5 socket/button head, length TBD",
 			"category": "Screws",
-			"description": "Placeholder for the three electronics mounts that bolt to the frame. The length has not been measured yet.",
-			"note": "Length unknown \u2014 measure one on the machine before ordering. Six are used: PSU box, control board mount, Orange Pi mount.",
+			"description": "Placeholder for an unmeasured M5 joint. Originally the three electronics mounts that bolt to the frame (resolved to scr-m5-12-shcs / scr-m5-16-shcs in PR #428) and, since then, the two screws fastening the Chute stepper support block. Unused as of 2026-08-31: that block was removed from the machine (sorter-v2#489, sorter-v2#483) after Spencer confirmed the NEMA 23 chute stepper mount works without it, so its two screws are gone from the interface assembly too. The length was never measured.",
+			"note": "Unused as of 2026-08-31. Kept as an unused entry rather than deleted, since a minted uid has to stay resolvable (see parts-calculator's own VERSIONING.md). Do not re-add without a new joint to point it at, the chute stepper support block it was last used for is gone.",
 			"created_at": "2026-07-18",
-			"updated_at": "2026-08-18",
+			"updated_at": "2026-08-31",
 			"attributes": [
 				{
 					"label": "Thread",

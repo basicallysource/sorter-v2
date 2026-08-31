@@ -95,6 +95,39 @@ design — no stamp needed. The moment a line is removed or altered, or the
 assembly is no longer partial, the full rule applies. CI enforces both
 halves (`scripts/check_versioning.py`).
 
+## History is derived, not recorded
+
+A node's change log — everything that ever happened at or below it — is
+computed, git-log style, as the union of the `versions[]` entries in its
+subtree. The assembly page's History panel renders it at any level, from one
+bracket up to the whole machine. Version entries are therefore the only
+history anyone writes; there is no separate log to maintain.
+
+Every row of that timeline is a moment the whole tree can be resolved at:
+each assembly's lines are read from its recorded states, so the page can
+render the tree as it was then, diff a moment against the one before it (the
+change itself), or diff it against the current tree. This works because
+stamps snapshot lines: keep stamping and time travel keeps working for free.
+
+Changes older than the stamp rule (2026-08-31) were reconstructed once from
+the git history of `parts.json` into `src/lib/data/changelog.generated.json`
+(`scripts/backfill_changelog.py`), along with the per-assembly line
+timelines that resolve moments inside that era. The file is frozen: it
+covers a closed era, is never regenerated, and is never hand-edited.
+Moments after its horizon resolve from `versions[]` snapshots.
+
+## Tags
+
+A tag blesses a moment of a node's whole subtree: top-level `tags` in
+`parts.json`, each `{name, node, stability, date, commit, message?}`.
+`stable` means the build as of that moment is known good — compatibility
+with it must not be broken silently; `experimental` marks a coherent but
+unproven cut. A tag resolves against history exactly like a timeline point
+and renders highlighted on the timeline.
+
+Tags are appended only by a human decision. No tool, check, or agent ever
+mints one.
+
 ## Removing a part from the machine
 
 The entry never leaves `parts.json` — its **usage** does:

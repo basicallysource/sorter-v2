@@ -1054,6 +1054,7 @@ def main():
         data["families"] = build_families(manifest)
         data["lasercut"] = build_lasercut(manifest)
         data["merges"] = manifest.get("merges", [])
+        data["tags"] = manifest.get("tags", [])
         json.dump(data, open(DATA_OUT, "w"), indent="\t")
         print(f"refreshed authored metadata in {DATA_OUT}")
         return
@@ -1239,6 +1240,7 @@ def main():
         "hardware": hardware,
         "lasercut": build_lasercut(manifest),
         "merges": manifest.get("merges", []),
+        "tags": manifest.get("tags", []),
     }
     json.dump(data, open(DATA_OUT, "w"), indent="\t")
 

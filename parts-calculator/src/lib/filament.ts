@@ -83,6 +83,7 @@ export type AssemblyVersion = {
 	date: string;
 	message: string;
 	commit: string | null;
+	breaking?: boolean; // required on entries since 2026-08-31 (VERSIONING.md)
 	lines?: AssemblySnapshotLine[];
 	images?: CatalogImage[];
 };
@@ -251,6 +252,7 @@ export type PartVersion = {
 	date: string;
 	message: string;
 	commit: string | null;
+	breaking?: boolean; // required on entries since 2026-08-31 (VERSIONING.md)
 	note?: string; // an engineering note's id, if this version has one
 	onshape_doc?: string | null;
 	onshape_version?: string | null;
@@ -379,6 +381,19 @@ export const SECTIONS = raw.sections as Section[];
 export const CHANGES = ((raw as Record<string, unknown>).changes ?? []) as PlannedChange[];
 export const FOLDERS = ((raw as Record<string, unknown>).folders ?? []) as Folder[];
 export const COLOR_ROLES = raw.color_roles as ColorRoleDef[];
+/** A blessed moment of a node's whole subtree — resolved against history like
+ *  a timeline point. 'stable' means compatibility with that build must not be
+ *  broken silently. Appended only by a human decision. */
+export type CatalogTag = {
+	name: string;
+	node: string;
+	stability: 'stable' | 'experimental';
+	date: string;
+	commit?: string | null;
+	message?: string;
+};
+export const TAGS = (((raw as Record<string, unknown>).tags ?? []) as CatalogTag[]);
+
 export const ASSEMBLIES = (raw.assemblies ?? []) as Assembly[];
 export const PARTS = raw.parts as unknown as Part[];
 export const MERGES = ((raw as Record<string, unknown>).merges ?? []) as CatalogMerge[];

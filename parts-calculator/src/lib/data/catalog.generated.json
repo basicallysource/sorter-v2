@@ -18517,5 +18517,6 @@
 			],
 			"note": "Unified the docs parts.yml catalog and this manifest into one source of truth. Conflicts referencing this merge were NOT hashed out at merge time: each records both catalogs' claims and is a TODO to resolve against the physical machine."
 		}
-	]
+	],
+	"tags": []
 }

@@ -28,6 +28,8 @@
 	import { scoreEntry } from '$lib/search';
 	import { colorStore } from '$lib/colors.svelte';
 	import {
+		ASSEMBLIES,
+		commitUrl,
 		docsUrl,
 		fmtDate,
 		getAssembly,
@@ -37,8 +39,12 @@
 		hardwareImage,
 		JOIN_LABELS,
 		lineQty,
+		PARTS,
 		plainDescription,
 		primaryColorId,
+		SETTINGS,
+		TAGS,
+		type CatalogTag,
 		type Assembly,
 		type AssemblyLine,
 		type AssemblySnapshotLine,
@@ -48,6 +54,7 @@
 		type PartVersion
 	} from '$lib/filament';
 	import { layerStore } from '$lib/layers.svelte';
+	import changelog from '$lib/data/changelog.generated.json';
 	import { page } from '$app/state';
 	import { assemblyCsv } from '$lib/parts-csv';
 	import { download, exportSpec, filename } from '$lib/csv';
@@ -237,7 +244,7 @@
 		return getPart(id) ?? getHardware(id) ?? getLasercut(id) ?? getAssembly(id);
 	}
 	function memberName(id: string): string {
-		return memberOf(id)?.name ?? id;
+		return memberOf(id)?.name ?? ghostName(id) ?? id;
 	}
 	/** Which revision of the member a pinned uid names: its version number, or
 	 *  null when the uid predates the member's recorded history. */
@@ -290,6 +297,196 @@
 		}
 		for (const [k, n] of nm) if (!om.has(k)) rows.push({ id: k, kind: 'added', now: n });
 		return rows;
+	}
+
+	// ---- history -------------------------------------------------------------
+	// The rolled-up change log of a subtree, git-log style: a node's history is
+	// every change to anything at or below it, attributed to the node where it
+	// happened. Two sources, merged: versions[] entries (authoritative — written
+	// at stamp time, required since the stamp rule) and changelog.generated.json,
+	// structural changes reconstructed from the git history of parts.json for
+	// the era before the rule. Every row is a MOMENT: click it and the tree
+	// below re-renders at that moment — as the change (diffed against the state
+	// just before), against the current tree, or as a plain snapshot. Stable
+	// tags are rows on the same timeline.
+	type HistoryEvent = {
+		date: string;
+		commit?: string | null;
+		pr?: number | null;
+		seq?: number;
+		node: string;
+		kind: string;
+		version?: string;
+		breaking?: boolean;
+		detail?: string;
+		message?: string;
+		tag?: CatalogTag;
+	};
+	const KIND_LABEL: Record<string, string> = {
+		'part-added': 'added',
+		'assembly-added': 'added',
+		'part-removed': 'removed',
+		'assembly-removed': 'removed',
+		'qty-changed': 'qty'
+	};
+	const prBase = (SETTINGS.commit_base_url ?? '').replace(/commit\/$/, 'pull/');
+	type ChangelogAsm = Record<string, { timeline: { seq: number; date: string; lines: AssemblyLine[] | null }[] }>;
+	const eraAsm = changelog.assemblies as ChangelogAsm;
+	const eraCommits = changelog.commits as Record<string, { seq: number; date: string }>;
+	const eraThrough = changelog.through as string;
+	const ghostName = (id: string) => (changelog.ghosts as Record<string, string>)[id];
+	// Recorded revisions sit after every same-date reconstructed commit; the cap
+	// keeps them below NOW.
+	const VSEQ = 10_000_000;
+	const ALL_EVENTS: HistoryEvent[] = [
+		...(changelog.events as HistoryEvent[]),
+		...[...PARTS, ...ASSEMBLIES].flatMap((item) => {
+			// A single entry means nothing ever changed (the generator writes a
+			// synthetic "Initial version." for every part) — no history to show.
+			const all = item.versions ?? [];
+			if (all.length < 2) return [];
+			return all.map(
+				(v, i): HistoryEvent => ({
+					date: v.date ?? '',
+					commit: v.commit,
+					seq: VSEQ + i,
+					node: item.id,
+					kind: 'revision',
+					version: i > 0 ? `v${all[i - 1].version}→v${v.version}` : `v${v.version}`,
+					breaking: v.breaking,
+					message: v.message
+				})
+			);
+		}),
+		...TAGS.map(
+			(t): HistoryEvent => ({
+				date: t.date,
+				commit: t.commit,
+				node: t.node,
+				kind: 'tag',
+				message: t.message,
+				tag: t
+			})
+		)
+	].sort((a, b) => (b.date || '').localeCompare(a.date || '') || (b.pr ?? 0) - (a.pr ?? 0));
+
+	let historyFor = $state<Record<string, boolean>>({});
+	const subtreeCache = new Map<string, Set<string>>();
+	function subtreeIds(id: string): Set<string> {
+		const hit = subtreeCache.get(id);
+		if (hit) return hit;
+		const set = new Set<string>();
+		const walk = (nid: string) => {
+			if (!nid || set.has(nid)) return;
+			set.add(nid);
+			for (const line of getAssembly(nid)?.lines ?? []) walk(line.part ?? line.assembly ?? '');
+		};
+		walk(id);
+		subtreeCache.set(id, set);
+		return set;
+	}
+	function historyOf(id: string): HistoryEvent[] {
+		const ids = subtreeIds(id);
+		return ALL_EVENTS.filter((e) => ids.has(e.node));
+	}
+	/** A history row's node opens whatever detail view its kind has. */
+	function openNode(id: string) {
+		const p = getPart(id);
+		if (p) return openPart(p);
+		const h = getHardware(id);
+		if (h) return openHardware(h);
+		if (getAssembly(id)) openAssembly(id);
+	}
+
+	// ---- time travel ---------------------------------------------------------
+	// A moment on the timeline is a key (date, seq) — seq orders the same-day
+	// reconstructed commits, VSEQ+ the recorded revisions after them. Any two
+	// keys diff: the tree renders from the union of both states, per-assembly
+	// diffLines marking what moved between them. `a === b` is a plain snapshot.
+	type TKey = { d: string; s: number };
+	const NOW: TKey = { d: '9999-12-31', s: Number.MAX_SAFE_INTEGER };
+	const keyLE = (x: TKey, y: TKey) => x.d < y.d || (x.d === y.d && x.s <= y.s);
+	type TimeMode = 'change' | 'vs-now' | 'tree';
+	let timeView = $state<{ point: TKey; before: TKey; label: string; mode: TimeMode } | null>(null);
+	const viewKeys = $derived(
+		!timeView
+			? null
+			: timeView.mode === 'change'
+				? { a: timeView.before, b: timeView.point }
+				: timeView.mode === 'vs-now'
+					? { a: timeView.point, b: NOW }
+					: { a: timeView.point, b: timeView.point }
+	);
+
+	/** Every recorded state of an assembly's lines, oldest first: the era
+	 *  timeline, then versions[] snapshots dated past the era's horizon (the
+	 *  stamp rule guarantees those exist for every later structural change). */
+	const stateCache = new Map<string, { d: string; s: number; lines: AssemblyLine[] | null }[]>();
+	function statesOf(id: string) {
+		const hit = stateCache.get(id);
+		if (hit) return hit;
+		const st = (eraAsm[id]?.timeline ?? []).map((t) => ({ d: t.date, s: t.seq, lines: t.lines }));
+		const asm = getAssembly(id);
+		const vs = asm?.versions ?? [];
+		vs.forEach((v, i) => {
+			if (v.date && v.date > eraThrough)
+				st.push({ d: v.date, s: VSEQ + i, lines: i === vs.length - 1 ? (asm!.lines ?? []) : (v.lines ?? null) });
+		});
+		stateCache.set(id, st);
+		return st;
+	}
+	/** The assembly's lines at a moment; null = it did not exist then. */
+	function linesAtKey(id: string, k: TKey): AssemblyLine[] | null {
+		if (k.d === NOW.d) return getAssembly(id)?.lines ?? null;
+		const st = statesOf(id);
+		let cur: (typeof st)[number] | null = null;
+		for (const s of st) if (keyLE({ d: s.d, s: s.s }, k)) cur = s;
+		if (cur) return cur.lines;
+		if (st.length) return null;
+		// No recorded change anywhere in history — it has always been what it is.
+		return getAssembly(id)?.lines ?? null;
+	}
+	function timeRows(id: string, a: TKey, b: TKey): DiffRow[] {
+		return diffLines((linesAtKey(id, a) ?? []) as AssemblySnapshotLine[], (linesAtKey(id, b) ?? []) as AssemblySnapshotLine[]);
+	}
+	const isAsmish = (id: string) => !!getAssembly(id) || !!eraAsm[id];
+	/** Did anything at or below this node move between the two moments? Drives
+	 *  the default expansion: changed branches open, quiet ones stay folded. */
+	const changedMemo = new Map<string, boolean>();
+	function subtreeChanged(id: string, a: TKey, b: TKey): boolean {
+		const key = `${id}|${a.d},${a.s}|${b.d},${b.s}`;
+		const hit = changedMemo.get(key);
+		if (hit !== undefined) return hit;
+		changedMemo.set(key, false); // cycle guard; real value written below
+		const rows = timeRows(id, a, b);
+		let changed = rows.some((r) => r.kind !== 'same');
+		if (!changed) changed = rows.some((r) => isAsmish(r.id) && subtreeChanged(r.id, a, b));
+		changedMemo.set(key, changed);
+		return changed;
+	}
+	/** Open the tree at an event's moment. Recorded revisions map onto the era
+	 *  timeline when they fall inside it; otherwise the moment is the end of
+	 *  their day. */
+	function viewEvent(e: HistoryEvent, mode: TimeMode) {
+		if (!e.date) return;
+		let s = e.seq;
+		let exact = s !== undefined && e.kind !== 'tag' && !(e.kind === 'revision' && e.date <= eraThrough);
+		if (!exact) {
+			const hit =
+				(e.commit ? eraCommits[e.commit]?.seq : undefined) ??
+				eraAsm[e.node]?.timeline.find((t) => t.date === e.date)?.seq;
+			if (hit !== undefined) {
+				s = hit;
+				exact = true;
+			} else s = VSEQ - 1; // end of the day; "before" is then its start
+		}
+		const ref = e.tag ? e.tag.name : e.pr ? `#${e.pr}` : (e.version ?? e.commit ?? '');
+		timeView = {
+			point: { d: e.date, s: s! },
+			before: exact ? { d: e.date, s: s! - 1 } : { d: e.date, s: -1 },
+			label: `${memberName(e.node)} ${ref} · ${fmtDate(e.date)}`,
+			mode
+		};
 	}
 
 	// Clicking a thumbnail in the tree opens the same detail view the other tabs use:
@@ -588,6 +785,158 @@
 	{/if}
 {/snippet}
 
+<!-- The subtree's timeline, newest first. One line per moment: when, which
+     node, what happened, the PR it came from. The whole row is a button —
+     clicking it renders the tree below at that moment with the change diffed
+     in; "vs now" diffs that moment against the current tree. Tags are
+     highlighted rows on the same timeline. -->
+{#snippet historyPanel(asm: Assembly)}
+	{@const events = historyOf(asm.id)}
+	<div class="ml-1.5 mt-2 border border-border bg-surface sm:ml-4">
+		<div class="flex items-center gap-1.5 border-b border-border px-2.5 py-1.5 text-xs">
+			<History size={11} class="shrink-0 text-text-muted" />
+			<span class="font-semibold text-text">History</span>
+			<span class="text-text-muted">
+				— {events.length} change{events.length === 1 ? '' : 's'} to anything under this node · click one to see the tree then
+			</span>
+			<button
+				type="button"
+				class="ml-auto flex h-5 w-5 items-center justify-center text-text-muted hover:text-text"
+				onclick={() => delete historyFor[asm.id]}
+				aria-label="Close history"
+			>
+				<X size={12} />
+			</button>
+		</div>
+		{#each events as e, i (i)}
+			{@const clickable = !!e.date}
+			<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+			<div
+				class="flex items-baseline gap-x-2 border-b border-border/60 px-2.5 py-1 text-xs last:border-b-0 {e.kind === 'tag'
+					? 'bg-primary/[0.05]'
+					: ''} {clickable ? 'cursor-pointer hover:bg-primary/[0.04]' : ''}"
+				role={clickable ? 'button' : undefined}
+				tabindex={clickable ? 0 : undefined}
+				onclick={(ev) => {
+					if (!clickable || (ev.target as Element).closest('a, button')) return;
+					viewEvent(e, e.kind === 'tag' ? 'tree' : 'change');
+				}}
+				onkeydown={(ev) => {
+					if (clickable && ev.target === ev.currentTarget && (ev.key === 'Enter' || ev.key === ' ')) {
+						ev.preventDefault();
+						viewEvent(e, e.kind === 'tag' ? 'tree' : 'change');
+					}
+				}}
+			>
+				<span class="w-20 shrink-0 whitespace-nowrap tabular-nums text-text-muted">{e.date ? fmtDate(e.date) : '—'}</span>
+				{#if e.tag}
+					<span class="shrink-0 border px-1 py-px text-[10px] font-semibold uppercase tracking-wider {e.tag.stability === 'stable' ? 'border-success/60 text-success-dark' : 'border-border text-text-muted'}">{e.tag.stability}</span>
+					<span class="shrink-0 font-semibold text-text">{e.tag.name}</span>
+				{/if}
+				{#if memberOf(e.node)}
+					<button type="button" class="shrink-0 font-semibold text-text hover:text-primary" onclick={() => openNode(e.node)}>{memberName(e.node)}</button>
+				{:else}
+					<span class="shrink-0 font-semibold text-text-muted line-through">{memberName(e.node)}</span>
+				{/if}
+				{#if e.version}<span class="shrink-0 font-semibold text-text">{e.version}</span>{/if}
+				{#if KIND_LABEL[e.kind]}<span class="shrink-0 text-text-muted">{KIND_LABEL[e.kind]}</span>{/if}
+				{#if e.breaking}<span class="shrink-0 border border-danger/50 px-1 py-px text-[10px] font-semibold uppercase tracking-wider text-danger">breaking</span>{/if}
+				<span class="min-w-0 flex-1 truncate">
+					{#if e.detail}<span class="text-text">{e.detail}</span>{/if}
+					{#if e.message}<span class="text-text-muted">{e.message}</span>{/if}
+				</span>
+				{#if clickable}
+					<button type="button" class="shrink-0 text-text-muted hover:text-text" onclick={() => viewEvent(e, 'vs-now')}>vs now</button>
+				{/if}
+				{#if e.pr}
+					<a class="shrink-0 text-primary hover:text-primary-hover" href="{prBase}{e.pr}" target="_blank" rel="noopener">#{e.pr}</a>
+				{:else if commitUrl(e.commit)}
+					<a class="shrink-0 font-mono text-[11px] text-primary hover:text-primary-hover" href={commitUrl(e.commit)} target="_blank" rel="noopener">{e.commit}</a>
+				{/if}
+			</div>
+		{/each}
+	</div>
+{/snippet}
+
+<!-- One non-assembly member in the time tree: green when the window added it,
+     red when it removed it, plain otherwise; a qty change shows both counts. -->
+{#snippet timePartRow(r: DiffRow)}
+	<div class="ml-1.5 mt-1 sm:ml-4">
+		{#if r.kind === 'qty'}
+			<div class="flex items-center gap-2 border border-border bg-surface px-2 py-1.5 text-xs">
+				{@render memberCell(r.id, r.now?.uid, false)}
+				<span class="shrink-0 tabular-nums"><span class="font-semibold text-danger-dark">×{r.old?.qty}</span><span class="text-text-muted">→</span><span class="font-semibold text-success-dark">×{r.now?.qty}</span></span>
+			</div>
+		{:else}
+			{@render diffCell(r.now ?? r.old, r.kind === 'added' ? 'success' : r.kind === 'removed' ? 'danger' : 'plain')}
+		{/if}
+	</div>
+{/snippet}
+
+<!-- The tree between two moments. Each assembly renders the diff of its lines
+     at the two keys; an added/removed branch renders plain inside its tint
+     (its own window collapses to the side it exists on). Changed branches
+     start open, quiet ones folded. -->
+{#snippet timeNode(id: string, row: DiffRow | null, depth: number, a: TKey, b: TKey)}
+	{@const kind = row?.kind ?? 'same'}
+	{@const ca = kind === 'added' ? b : a}
+	{@const cb = kind === 'removed' ? a : b}
+	{@const rows = timeRows(id, ca, cb)}
+	{@const nm = memberName(id)}
+	{@const open = rows.length > 0 && (expanded[id] ?? (depth === 0 || subtreeChanged(id, ca, cb)))}
+	<div id="asm-{id}" class="{depth > 0 ? 'ml-1.5 mt-2 sm:ml-4' : ''} py-1">
+		<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+		<div
+			class="-mx-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 px-1 py-0.5 {rows.length
+				? 'cursor-pointer hover:bg-primary/[0.04]'
+				: ''} {kind === 'added' ? 'bg-success/[0.06]' : kind === 'removed' ? 'bg-danger/[0.06]' : ''}"
+			role={rows.length ? 'button' : undefined}
+			tabindex={rows.length ? 0 : undefined}
+			aria-expanded={rows.length ? open : undefined}
+			onclick={(e) => {
+				if (!rows.length || (e.target as Element).closest('a, button')) return;
+				expanded[id] = !open;
+			}}
+			onkeydown={(e) => {
+				if (!rows.length || e.target !== e.currentTarget) return;
+				if (e.key === 'Enter' || e.key === ' ') {
+					e.preventDefault();
+					expanded[id] = !open;
+				}
+			}}
+		>
+			<span class="flex h-5 w-5 shrink-0 items-center justify-center text-text-muted" aria-hidden="true">
+				{#if rows.length}
+					{#if open}<ChevronDown size={14} />{:else}<ChevronRight size={14} />{/if}
+				{/if}
+			</span>
+			<span class="text-sm font-medium {kind === 'removed' ? 'text-danger-dark line-through' : kind === 'added' ? 'text-success-dark' : 'text-text'}">{nm}</span>
+			{#if kind === 'qty'}
+				<span class="text-xs tabular-nums"><span class="font-semibold text-danger-dark">×{row?.old?.qty}</span><span class="text-text-muted">→</span><span class="font-semibold text-success-dark">×{row?.now?.qty}</span></span>
+			{:else if row && row.now?.qty !== 1 && row.now?.qty !== undefined}
+				<span class="text-xs tabular-nums text-text-muted">×{row.now.qty}</span>
+			{:else if row && kind === 'removed' && row.old?.qty !== 1}
+				<span class="text-xs tabular-nums text-text-muted">×{row.old?.qty}</span>
+			{/if}
+			{#if kind === 'added'}<span class="border border-success/60 px-1 py-px text-[10px] font-semibold uppercase tracking-wider text-success-dark">added</span>{/if}
+			{#if kind === 'removed'}<span class="border border-danger/50 px-1 py-px text-[10px] font-semibold uppercase tracking-wider text-danger">removed</span>{/if}
+		</div>
+		{#if historyFor[id]}{@render historyPanel(getAssembly(id) ?? ({ id, name: nm } as Assembly))}{/if}
+		{#if open}
+			<div class="tree-branch relative pl-2 sm:pl-4">
+				<button type="button" class="tree-line" onclick={() => (expanded[id] = false)} aria-label="Collapse {nm}"></button>
+				{#each rows as r (r.id)}
+					{#if isAsmish(r.id)}
+						{@render timeNode(r.id, r, depth + 1, ca, cb)}
+					{:else}
+						{@render timePartRow(r)}
+					{/if}
+				{/each}
+			</div>
+		{/if}
+	</div>
+{/snippet}
+
 {#snippet node(id: string, qty: AssemblyLine['qty'], mult: number, depth: number)}
 	{@const asm = getAssembly(id)}
 	{#if asm && (!filtering || keep.assemblies.has(asm.id))}
@@ -759,6 +1108,15 @@
 							<div class="setup-panel absolute right-0 top-6 z-30 w-40 py-1 text-xs" role="menu">
 								<button type="button" role="menuitem" class="block w-full px-3 py-1.5 text-left text-text hover:bg-primary/[0.06]" onclick={() => setSubtree(asm.id, true)}>Expand all</button>
 								<button type="button" role="menuitem" class="block w-full px-3 py-1.5 text-left text-text hover:bg-primary/[0.06]" onclick={() => setSubtree(asm.id, false)}>Collapse all</button>
+								<button
+									type="button"
+									role="menuitem"
+									class="block w-full px-3 py-1.5 text-left text-text hover:bg-primary/[0.06]"
+									onclick={() => {
+										historyFor[asm.id] = true;
+										expanded[asm.id] = true;
+										menuFor = null;
+									}}>History</button>
 							</div>
 						{/if}
 					{/if}
@@ -771,6 +1129,7 @@
 			<div class="tree-branch relative pl-2 sm:pl-4">
 				<button type="button" class="tree-line" onclick={() => toggle(asm.id)} aria-label="Collapse {asm.name}"></button>
 			{#if asm.images?.length}<div class="mt-2"><ImageStrip images={asm.images} /></div>{/if}
+			{#if historyFor[asm.id] && !filtering}{@render historyPanel(asm)}{/if}
 			{@render versionSwitch(asm, mult, depth)}
 			<!-- Alternative bills of materials under test, rendered with the same
 			     line rows. -->
@@ -831,7 +1190,25 @@
 					catalog without being placed here yet.
 				</p>
 			{/if}
-			{@render node('machine', 1, 1, 0)}
+			{#if timeView && viewKeys && !filtering}
+				<div class="mb-3 flex flex-wrap items-center gap-x-3 gap-y-1 border border-warning/50 bg-warning/[0.08] px-2.5 py-1.5 text-xs text-warning-dark">
+					<History size={11} class="shrink-0" />
+					<span class="font-semibold">{timeView.label}</span>
+					{#each [['change', 'the change'], ['vs-now', 'vs now'], ['tree', 'just the tree']] as [m, lbl] (m)}
+						<button
+							type="button"
+							class={timeView.mode === m ? 'font-semibold underline underline-offset-2' : 'hover:underline'}
+							onclick={() => (timeView = { ...timeView!, mode: m as TimeMode })}
+						>
+							{lbl}
+						</button>
+					{/each}
+					<button type="button" class="ml-auto font-medium underline underline-offset-2" onclick={() => (timeView = null)}>back to now</button>
+				</div>
+				{@render timeNode('machine', null, 0, viewKeys.a, viewKeys.b)}
+			{:else}
+				{@render node('machine', 1, 1, 0)}
+			{/if}
 	</section>
 </div>
 

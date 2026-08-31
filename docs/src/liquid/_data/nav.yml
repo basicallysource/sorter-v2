@@ -105,8 +105,6 @@ sections:
             url: /hardware/electronics/installation/pico-headers/
           - title: Assembling External bracket
             url: /hardware/helpers/external-bracket/
-          - title: Attaching the hexagonal frame's spokes
-            url: /hardware/helpers/hex-frame-spokes/
       - title: Parts
         url: /hardware/parts/
         children:

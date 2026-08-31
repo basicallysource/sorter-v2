@@ -344,12 +344,9 @@
 						title={STATUS_NOTE.partial}>partial</span>
 				{/if}
 			</div>
-			{#if asm.description}
-				<AssemblyDescription
-					text={asm.description}
-					class="mt-0.5 max-w-2xl text-xs text-text-muted"
-				/>
-			{/if}
+			<!-- The description is NOT rendered here on purpose: it lives in the
+			     detail view a node's name opens. Inline it turns the tree into a
+			     wall of prose that restates the line rows below it. -->
 			{#if asm.images?.length}<div class="mt-2"><ImageStrip images={asm.images} /></div>{/if}
 			<!-- The docs site is where the step-by-step build lives; this node is only
 			     the bill of materials for it. Link out when a page exists. -->

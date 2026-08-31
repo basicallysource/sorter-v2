@@ -1,10 +1,9 @@
 <script lang="ts">
-	import { BookOpen, Download, ExternalLink, FlaskConical, History, ShoppingCart, Zap } from 'lucide-svelte';
+	import { BookOpen, Download, ExternalLink, FlaskConical, History, Zap } from 'lucide-svelte';
 	import AlternativeBadge from '$lib/components/AlternativeBadge.svelte';
 	import ConflictBadge from '$lib/components/ConflictBadge.svelte';
 	import AssemblyDescription from '$lib/components/AssemblyDescription.svelte';
 	import Badge from '$lib/components/Badge.svelte';
-	import Callout from '$lib/components/Callout.svelte';
 	import LayerControl from '$lib/components/LayerControl.svelte';
 	import PartDetailModal from '$lib/components/PartDetailModal.svelte';
 	import AssemblyDetailModal from '$lib/components/AssemblyDetailModal.svelte';
@@ -27,7 +26,6 @@
 		lineQty,
 		plainDescription,
 		primaryColorId,
-		resolveHardwareTotals,
 		type AssemblyLine,
 		type Hardware,
 		type Joining,
@@ -162,15 +160,6 @@
 		partial: 'Some of this assembly is recorded, but not all of it. The parts and hardware shown are real; the list is known to be missing pieces, and the data does not say which.'
 	};
 
-	type HardwareTotal = { hw: Hardware; qty: number };
-	const hardwareTotals: HardwareTotal[] = $derived.by(() =>
-		[...resolveHardwareTotals('machine', layers).entries()]
-			.map(([id, qty]) => ({ hw: getHardware(id)!, qty }))
-			.filter((t) => t.hw)
-	);
-
-	const fmtUsd = (n: number) => `$${n.toFixed(2)}`;
-
 	// Clicking a thumbnail in the tree opens the same detail view the other tabs use:
 	// printed parts get the parts-dashboard modal (3D viewer, versions, plates);
 	// off-the-shelf items get the hardware modal (specs, where it goes, sourcing).
@@ -209,10 +198,7 @@
 	}
 </script>
 
-<Seo
-	title="Machine assembly"
-	description="The Sorter V2 machine as a recursive assembly tree — printed parts, sub-assemblies and hardware, layer by layer."
-/>
+<Seo title="Machine assembly" description="The Sorter V2 machine's assembly tree." />
 
 {#snippet requiresRows(partId: string, mult: number)}
 	{@const part = getPart(partId)}
@@ -379,9 +365,8 @@
 			{/if}
 			{@render joiningRows(asm.joining)}
 			{@render lines(asm.lines ?? [], mult, depth)}
-			<!-- Alternative bills of materials under test. Rendered with the same line
-			     rows, but nothing here reaches the totals: resolveHardwareTotals walks
-			     only `lines`. -->
+			<!-- Alternative bills of materials under test, rendered with the same
+			     line rows. -->
 			{#each (filtering ? [] : (asm.candidates ?? [])) as c (c.uid)}
 				{@const retired = !!(c.superseded_by || c.rejected_at)}
 				<div class="ml-1.5 mt-3 border border-dashed p-2 sm:ml-4 sm:p-3 {retired ? 'border-border opacity-60' : 'border-primary/60'}">
@@ -429,24 +414,11 @@
 <div class="mx-auto max-w-6xl px-4 py-8 sm:px-6">
 	<header class="mb-5">
 		<h1 class="text-2xl font-bold text-text">Machine assembly</h1>
-		<p class="mt-1 max-w-3xl text-sm text-text-muted">
-			The whole machine as one assembly tree — printed parts, and the hardware that goes into
-			them, resolved from a single registry. Pick a subtree, get everything it needs.
-		</p>
 	</header>
-
-	<div class="mb-5">
-		<Callout variant="info" title="Experimental">
-			This tab is the first cut of the unified parts system. Most branches are stubs; the chute
-			core is the first part carrying real off-the-shelf hardware. The existing tabs stay
-			authoritative until this fills in.
-		</Callout>
-	</div>
 
 	<div class="mb-6"><LayerControl /></div>
 
-	<div class="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(280px,360px)]">
-		<section class="setup-card-shell min-w-0 border p-2 sm:p-4">
+	<section class="setup-card-shell min-w-0 border p-2 sm:p-4">
 			<div class="mb-3 flex items-center justify-between gap-3">
 				<h2 class="text-xs font-semibold uppercase tracking-wider text-text-muted">
 					Assembly tree
@@ -476,72 +448,7 @@
 				</p>
 			{/if}
 			{@render node('machine', 1, 1, 0)}
-		</section>
-
-		<aside class="setup-card-shell min-w-0 border p-3 sm:p-4">
-			<h2 class="mb-3 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-text-muted">
-				<ShoppingCart size={13} /> Hardware to buy
-			</h2>
-			{#if hardwareTotals.length === 0}
-				<p class="text-sm text-text-muted">Nothing yet.</p>
-			{/if}
-			{#each hardwareTotals as t (t.hw.id)}
-				{@const img = hardwareImage(t.hw)}
-				<div class="border border-border bg-[var(--color-bg)] p-3">
-					<div class="flex items-start gap-3">
-						{#if img}
-							<button type="button" class="asm-thumb shrink-0" title="View {t.hw.name} details" onclick={() => openHardware(t.hw)}>
-								<img src={img.src} alt={t.hw.name} class="h-14 w-14 object-contain" />
-							</button>
-						{/if}
-						<div class="min-w-0">
-							<div class="flex items-center gap-1.5 text-sm font-semibold text-text">
-								<HardwareIcon hw={t.hw} size={16} /><span class="truncate">{t.hw.name}</span>
-								<AlternativeBadge value={t.hw.alternative} size={16} />
-								<ConflictBadge conflicts={t.hw.conflicts} size={16} />
-							</div>
-							<p class="mt-0.5 text-xs text-text-muted">{t.hw.description}</p>
-						</div>
-					</div>
-					{#if t.hw.attributes.length}
-						<dl class="mt-2 grid grid-cols-[auto_1fr] gap-x-4 gap-y-0.5 text-xs text-text-muted">
-							{#each t.hw.attributes as a}
-								<dt>{a.label}</dt>
-								<dd class="text-text">{a.value}</dd>
-							{/each}
-						</dl>
-					{/if}
-					<div class="mt-3 border-t border-border pt-2 text-sm text-text">
-						<span class="font-semibold tabular-nums">{t.qty}</span> needed
-						<span class="text-xs text-text-muted">across every branch below</span>
-					</div>
-					{#each (t.hw.sourcing?.vendors ?? []).filter((v) => v.price != null && v.pack_qty) as v (v.url)}
-						{@const packs = Math.ceil(t.qty / v.pack_qty!)}
-						<div class="mt-2 flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-xs">
-							<a
-								href={v.url}
-								target="_blank"
-								rel="noopener"
-								class="inline-flex items-center gap-1 font-medium text-primary hover:text-primary-hover"
-							>
-								{v.vendor ?? v.region} <ExternalLink size={11} />
-							</a>
-							<span class="tabular-nums text-text-muted">
-								{packs} × {v.pack_qty}-pack = <span class="font-semibold text-text">{fmtUsd(packs * v.price!)}</span>
-								{#if v.note}<span> · {v.note}</span>{/if}
-							</span>
-						</div>
-					{/each}
-					{#if t.hw.sourcing?.vendors?.length && t.hw.sourcing.vendors[0].as_of}
-						<p class="mt-1.5 text-[10px] text-text-muted">
-							Prices as of {t.hw.sourcing.vendors[0].as_of}. Counts cover only the branches that
-							have been filled in — the tree is still mostly partial.
-						</p>
-					{/if}
-				</div>
-			{/each}
-		</aside>
-	</div>
+	</section>
 </div>
 
 <AssemblyDetailModal bind:open={asmOpen} id={asmId} {layers} onPart={openPart} onHardware={openHardware} />

@@ -30,6 +30,16 @@ parts_needed:
     qty: 3
 ---
 
+<div class="prep-item">
+  <div class="prep-item-body">
+    <p><strong>Build a <a href="{{ '/hardware/assembly/feeder/c-channel/' | relative_url }}">C-channel</a> before you start.</strong> It's a required component of this page, not optional or covered here — Step 2 clamps the rod mounts onto one, it doesn't build one.</p>
+  </div>
+  <figure class="prep-item-figure">
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-c-channel-stator-and-rotor-fitted-w1600-60758bbee2d5.jpg" alt="A finished C-channel seen from above: the white finned classification rotor sitting inside the grey stator ring, with the stepper motor projecting from the right-hand side">
+    <figcaption>A finished C-channel, from the C-channel page. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+  </figure>
+</div>
+
 The overhead camera mount is a pair of 3/8 in steel rods clamped to a [C-channel]({{ '/hardware/assembly/feeder/c-channel/' | relative_url }}), carrying a printed arm that holds a detection camera above the channel.
 
 The fasteners and quantities in the parts list come from the parts registry and are called out inline at each step. **The list above is one arm's worth**, and the machine takes 2, so 4 rod mounts and 4 rod pieces in total.
@@ -42,9 +52,11 @@ Two arms for three feeder channels is not a mistake. The software's `split_feede
 
 {% include step.html n="1" title="Preparation" %}
 
+The parts below by role: **Arm A** and **Arm B** (camera-mount-part-37 and camera-mount-part-37b) are the two halves of the printed arm, joined by **the A/B connector** (camera-mount-part-6), which is in turn carried by **the two rod mounts** (camera-mount-rod-mount).
+
 <div class="prep-item">
   <div class="prep-item-body">
-    <p><strong>Steel rod:</strong> bought as 4 ft stock and cut down. One length yields all four pieces, roughly 1 ft each. <strong>The exact cut length is not recorded.</strong></p>
+    <p><strong>Steel rod:</strong> bought as ~1200 mm stock and cut down. One length yields all four pieces, roughly 300 mm each. <strong>The exact cut length is not recorded.</strong></p>
   </div>
   <figure class="prep-item-figure">
     <div class="img-placeholder">Image coming</div>
@@ -53,7 +65,7 @@ Two arms for three feeder channels is not a mistake. The software's `split_feede
 
 <div class="prep-item">
   <div class="prep-item-body">
-    <p><strong>Printed parts:</strong> no heat inserts recorded. The arm uses 3 M3 nuts rather than inserts, so nothing needs pressing in before assembly.</p>
+    <p><strong>Printed parts:</strong> no heat inserts recorded. The arm uses 3 × {% include fastener.html size="M3" variant="nut" %} rather than inserts, so nothing needs pressing in before assembly.</p>
   </div>
   <figure class="prep-item-figure">
     <div class="img-placeholder">Image coming</div>
@@ -64,7 +76,7 @@ Colour does not matter on any of these parts.
 
 {% include step.html n="2" title="Clamp the rod mounts to the C-channel" %}
 
-Two Rod-to-C-channel mounts (Part 33) carry the rods on the channel.
+Two rod-to-C-channel mounts (camera-mount-rod-mount in the parts list above) carry the rods on the channel.
 
 **Not recorded:** which holes on the channel they use, what fastens them, and how far apart they sit. <span class="fastener-todo">fastener not recorded</span>
 

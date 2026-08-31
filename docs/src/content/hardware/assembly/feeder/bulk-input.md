@@ -18,9 +18,19 @@ parts_needed:
     qty: 1
 ---
 
-The bulk input is where unsorted parts go in: a bucket held above the first C-channel, feeding parts down onto the rotor as the channel turns.
+<div class="prep-item">
+  <div class="prep-item-body">
+    <p><strong>Build a <a href="{{ '/hardware/assembly/feeder/c-channel/' | relative_url }}">C-channel</a> before you start.</strong> It's a required component of this page, not optional or covered here — Step 2 slides the Bulk cap onto one, it doesn't build one.</p>
+  </div>
+  <figure class="prep-item-figure">
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-c-channel-stator-and-rotor-fitted-w1600-60758bbee2d5.jpg" alt="A finished C-channel seen from above: the white finned classification rotor sitting inside the grey stator ring, with the stepper motor projecting from the right-hand side">
+    <figcaption>A finished C-channel, from the C-channel page (pictured with the finned rotor; C1 takes the faceted one). <cite>Photo: BrickCycleAlice.</cite></figcaption>
+  </figure>
+</div>
 
-One per machine, on the first feeder channel (C1). The Bulk cap is the only part of this stage in the catalog today.
+The bulk input is where unsorted parts go in: a bucket held above the first C-channel, feeding parts down onto the rotor as the channel turns. Parts dropped here start the feeder cascade: they leave C1's rotor for C2, then C3, and finally the classification channel, each stage spacing them out further before classification.
+
+One per machine, on the first of the three feeder channels (called C1 in the software; see [arranging C-channels]({{ '/hardware/assembly/feeder/arranging-c-channels/' | relative_url }}) for the full naming). The Bulk cap is the only part of this stage in the catalog today.
 
 {% include fastener-legend.html %}
 
@@ -37,7 +47,7 @@ One per machine, on the first feeder channel (C1). The Bulk cap is the only part
 
 <div class="prep-item">
   <div class="prep-item-body">
-    <p><strong>Bulk bucket:</strong> not published. It is a separate print, roughly a full bed, and is not in the parts catalog, so there is no file to link and no quantity to give. Ask before printing something in its place.</p>
+    <p><strong>Bulk bucket:</strong> not published. It is a separate print, roughly a full bed, and is not in the parts catalog, so there is no file to link and no quantity to give. Ask in the Discord server before printing a stand-in part; the bulk bucket isn't published yet, so there's no verified file to copy.</p>
   </div>
   <figure class="prep-item-figure">
     <div class="img-placeholder">Image coming</div>

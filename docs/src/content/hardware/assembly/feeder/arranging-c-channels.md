@@ -1,10 +1,10 @@
 ---
 layout: default
-title: Arranging C-Channels
+title: Arranging C-channels
 type: how-to
 section: hardware
 slug: assembly-arranging-c-channels
-kicker: Feeder — Arranging C-Channels
+kicker: Feeder — Arranging C-channels
 lede: How the four C-channels stand, at what heights, and what passes parts between them.
 permalink: /hardware/assembly/feeder/arranging-c-channels/
 author: barthel
@@ -22,6 +22,16 @@ parts_needed:
   - part: leg-extension
     qty: 9
 ---
+
+<div class="prep-item">
+  <div class="prep-item-body">
+    <p><strong>Build all four <a href="{{ '/hardware/assembly/feeder/c-channel/' | relative_url }}">C-channels</a> before you start.</strong> They're required components of this page, not optional or covered here — this page arranges and heights four already-built channels, it doesn't build them. Three with the faceted rotor, one with the finned one.</p>
+  </div>
+  <figure class="prep-item-figure">
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-c-channel-stator-and-rotor-fitted-w1600-60758bbee2d5.jpg" alt="A finished C-channel seen from above: the white finned classification rotor sitting inside the grey stator ring, with the stepper motor projecting from the right-hand side">
+    <figcaption>A finished C-channel, from the C-channel page. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+  </figure>
+</div>
 
 Four [C-channels]({{ '/hardware/assembly/feeder/c-channel/' | relative_url }}) are built the same way and then stood at different heights, so a part cascades from one to the next under gravity and arrives at the [interface]({{ '/hardware/assembly/distribution/top-interface/' | relative_url }}) singulated.
 
@@ -56,8 +66,6 @@ Steps below refer to the channels by the names the software uses, in the order a
   </figure>
 </div>
 
-Build all four [C-channels]({{ '/hardware/assembly/feeder/c-channel/' | relative_url }}) before starting here, three with the faceted rotor and one with the finned one.
-
 {% include step.html n="2" title="Stand each channel" %}
 
 Fit 3 legs, 3 extensions and 3 feet to each of the three feeder channels.
@@ -68,7 +76,7 @@ Fit 3 legs, 3 extensions and 3 feet to each of the three feeder channels.
 
 <div class="img-placeholder">Image coming</div>
 
-{% include step.html n="3" title="★ Set the heights and the spacing" %}
+{% include step.html n="3" title="★ Set the heights and the spacing (the numbers that make parts actually cascade)" %}
 
 The numbers this page most needs, and none of them are written down anywhere today. For each handover, record:
 
@@ -90,7 +98,7 @@ One [output guide]({{ '/hardware/assembly/feeder/output-guides/' | relative_url 
 
 <div class="img-placeholder">Image coming</div>
 
-{% include step.html n="6" title="★ Hand over to the classification channel" %}
+{% include step.html n="6" title="★ Hand over to the classification channel (the other unresolved joint)" %}
 
 The other open question: how the classification channel sits relative to C3 and to the [top interface]({{ '/hardware/assembly/distribution/top-interface/' | relative_url }}) below it, and what carries its weight.
 

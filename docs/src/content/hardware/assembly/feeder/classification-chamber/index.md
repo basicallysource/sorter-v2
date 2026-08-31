@@ -18,8 +18,6 @@ warning: >-
 parts_needed:
   - part: classification-dome
     qty: 1
-  - part: rotor-finned
-    qty: 1
   - part: camera-led-insert
     qty: 1
   - part: camera-extension
@@ -34,6 +32,16 @@ parts_needed:
     qty: 4
 ---
 
+<div class="prep-item">
+  <div class="prep-item-body">
+    <p><strong>Build a <a href="{{ '/hardware/assembly/feeder/c-channel/' | relative_url }}">classification C-channel</a> before you start.</strong> It's a required component of this page. Step 2 below walks through building it, using the C-channel page's own steps, with the finned rotor rather than faceted, and in ash grey rather than charcoal — Step 3 then bolts the chamber's own parts onto it.</p>
+  </div>
+  <figure class="prep-item-figure">
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-c-channel-stator-and-rotor-fitted-w1600-60758bbee2d5.jpg" alt="A finished C-channel seen from above: the white finned classification rotor sitting inside the grey stator ring, with the stepper motor projecting from the right-hand side">
+    <figcaption>A finished classification C-channel, from the C-channel page. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+  </figure>
+</div>
+
 The classification chamber is where a part is lit and photographed on its way through. It sits on the fourth [C-channel]({{ '/hardware/assembly/feeder/c-channel/' | relative_url }}), the classification-channel one.
 
 The parts are in the list above. Most fasteners for this stage still aren't recorded; what is, is called out in Step 2.
@@ -41,20 +49,63 @@ The parts are in the list above. Most fasteners for this stage still aren't reco
 {% include fastener-legend.html %}
 
 - **One per machine.**
-- The three chamber parts print **white** rather than charcoal, so the chamber bounces light onto the part instead of absorbing it.
+- The Classification dome and the Camera & LED insert print **white** rather than charcoal, so the chamber bounces light onto the part instead of absorbing it. The finned rotor prints white too, but it's part of the classification C-channel build in Step 2, not listed again here.
 - The Classification dome is large, roughly a full print bed.
 - The camera sits on its own extension: a 50 mm extension tube and a clamp ring hold the 4K camera module. The overhead camera mount that hangs off the C-channels is a different part.
 
-{% include step.html n="1" title="Build the classification C-channel" %}
+{% include step.html n="1" title="Preparation" %}
+
+<div class="prep-item">
+  <div class="prep-item-body">
+    <p><strong>Classification dome:</strong> prints white, roughly a full print bed. No screw holes anywhere in its geometry; how it closes onto the chamber is not recorded.</p>
+  </div>
+  <figure class="prep-item-figure">
+    <div class="img-placeholder">Image coming</div>
+  </figure>
+</div>
+
+<div class="prep-item">
+  <div class="prep-item-body">
+    <p><strong>Camera &amp; LED insert:</strong> prints white. Takes 4 × {% include fastener.html size="M3" variant="socket-button" length="12" %} screws into the camera extension's mount ring (Step 3) and sits inside an outer ring of 10 holes to the rest of the chamber.</p>
+  </div>
+  <figure class="prep-item-figure">
+    <div class="img-placeholder">Image coming</div>
+  </figure>
+</div>
+
+<div class="prep-item">
+  <div class="prep-item-body">
+    <p><strong>Camera extension and mount ring:</strong> a 50 mm extension tube and clamp ring that hold the 4K camera module above the insert. No heat inserts recorded.</p>
+  </div>
+  <figure class="prep-item-figure">
+    <div class="img-placeholder">Image coming</div>
+  </figure>
+</div>
+
+<div class="prep-item">
+  <div class="prep-item-body">
+    <p><strong>4K IMX415 camera module:</strong> mounts to the camera extension with 4 × {% include fastener.html size="M2" variant="socket-button" length="8" %} screws, self-tapping into the extension's two posts (Step 3).</p>
+  </div>
+  <figure class="prep-item-figure">
+    <div class="img-placeholder">Image coming</div>
+  </figure>
+</div>
+
+{% include step.html n="2" title="Build the classification C-channel" %}
 
 Build the classification channel as a normal [C-channel]({{ '/hardware/assembly/feeder/c-channel/' | relative_url }}), but with the finned rotor rather than a faceted one, and in ash grey rather than charcoal.
 
-{% include step.html n="2" title="Fit the insert, the camera and the dome" %}
+<figure class="single-figure">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-c-channel-stator-and-rotor-fitted-w1600-60758bbee2d5.jpg" alt="A finished C-channel seen from above: the white finned classification rotor sitting inside the grey stator ring, with the stepper motor projecting from the right-hand side">
+  <figcaption>The classification channel, finned rotor fitted in the stator. Same photo as the C-channel page's step 5, since it's the same build. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+</figure>
+
+{% include step.html n="3" title="Fit the insert, the camera and the dome" %}
 
 Fit the Camera & LED insert, then the camera on its extension tube and mount ring, then close the chamber with the dome.
 
 - **Insert to camera extension's mount ring:** 4 × {% include fastener.html size="M3" variant="socket-button" length="12" %} screws, 46 mm square pattern around the central opening. Measured off the STLs: the mount ring is a plain 6 mm clearance hole, and the insert takes a blind ~9.4 mm deep hole behind it, so 12 mm clears the mount and engages about 6 mm into the insert without bottoming out.
-- **Insert to the rest of the chamber:** an outer ring of 10 larger holes (10 mm). Not recorded what goes through them.
+- **Insert to the rest of the chamber:** an outer ring of 10 holes, each 10 mm across. Not recorded: what fastener goes through them.
 - **Camera board to the camera extension:** 4 × {% include fastener.html size="M2" variant="socket-button" length="8" %}, self-tapping into the extension's two posts.
 - **Classification dome:** no screw holes anywhere. Not recorded how it closes onto the chamber.
 
@@ -71,6 +122,6 @@ Fit the Camera & LED insert, then the camera on its extension tube and mount rin
 
 **Not recorded:** how the extension's bottom pair of posts joins the mount ring. <span class="fastener-todo">fastener not recorded</span>
 
-{% include step.html n="3" title="Light the chamber" %}
+{% include step.html n="4" title="Light the chamber" %}
 
 The chamber is lit by a 24 V white/daylight LED strip, not by the 50 mm COB plate the feeder light posts use. Even, passive light is the point: the camera has to expose every part of the disc the same way. See [electronics]({{ '/hardware/electronics/' | relative_url }}) for how it is driven and for the current-limiting resistor.

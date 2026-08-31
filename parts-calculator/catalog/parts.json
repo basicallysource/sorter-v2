@@ -4151,7 +4151,7 @@
       },
       "name": "OV9732 720p Camera Module",
       "category": "Cameras",
-      "description": "C-Channel and carousel drop plate detection cameras",
+      "description": "C-channel and carousel drop plate detection cameras",
       "created_at": "2026-07-18",
       "updated_at": "2026-07-18",
       "sheet_qty": {
@@ -4317,7 +4317,7 @@
       },
       "name": "NEMA 17 stepper motor",
       "category": "Motors",
-      "description": "C-Channel and carousel drive motors",
+      "description": "C-channel and carousel drive motors",
       "created_at": "2026-07-18",
       "updated_at": "2026-07-18",
       "sheet_qty": {

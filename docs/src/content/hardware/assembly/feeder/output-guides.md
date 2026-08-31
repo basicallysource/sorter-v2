@@ -19,9 +19,19 @@ parts_needed:
     qty: 2
 ---
 
+<div class="prep-item">
+  <div class="prep-item-body">
+    <p><strong>Build and <a href="{{ '/hardware/assembly/feeder/arranging-c-channels/' | relative_url }}">arrange the C-channels</a> before you start.</strong> It's a required stage before this page, not optional or covered here — the guide only goes in once the channels either side of it are standing at their final heights.</p>
+  </div>
+  <figure class="prep-item-figure">
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-c-channel-stator-and-rotor-fitted-w1600-60758bbee2d5.jpg" alt="A finished C-channel seen from above: the white finned classification rotor sitting inside the grey stator ring, with the stepper motor projecting from the right-hand side">
+    <figcaption>A finished C-channel, from the C-channel page. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+  </figure>
+</div>
+
 An output guide bridges the gap where one C-channel hands parts to the next, so a part leaving a rotor lands on the following channel instead of on the floor.
 
-Two per machine. Which channels they sit between is not recorded: three feeder channels give two handovers, C1 to C2 and C2 to C3, so two guides is consistent with one per handover, but that is inference from the count rather than a documented fact.
+Two per machine. Which channels they sit between is not recorded: three feeder channels give two handovers, C1 to C2 and C2 to C3 (see [arranging C-channels]({{ '/hardware/assembly/feeder/arranging-c-channels/' | relative_url }}) for what these names mean), so two guides is consistent with one per handover, but that is inference from the count rather than a documented fact.
 
 {% include fastener-legend.html %}
 
@@ -38,7 +48,7 @@ Two per machine. Which channels they sit between is not recorded: three feeder c
 
 {% include step.html n="2" title="Fit a guide at each handover" %}
 
-Build the channels and stand them first, see [arranging C-Channels]({{ '/hardware/assembly/feeder/arranging-c-channels/' | relative_url }}). The guide goes in once the two channels either side of it are at their final heights.
+The guide goes in once the two channels either side of it are at their final heights.
 
 **Not recorded:** what the guide fastens to, with what, and at what angle. <span class="fastener-todo">fastener not recorded</span>
 

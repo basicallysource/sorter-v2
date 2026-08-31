@@ -507,6 +507,17 @@ The idler gear bridges the gap between the spur gear on the motor shaft and the 
 
 Slide the prepared [Timing pulley]({{ '/hardware/helpers/pulley-gear-mod/' | relative_url }}) over the shaft of the NEMA 23 stepper motor and tighten its two set screws (grub screws). Slide the Interface spur gear onto the Timing pulley and secure it with five {% include fastener.html size="M3" variant="countersunk" length="8" %} screws: three tapped into the Interface spur gear and two bracing against the Timing pulley (exact split may vary — check the hole pattern in the photo).
 
+<div class="img-row">
+  <figure>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-top-interface-step9-timing-pulley-on-motor-w1600-0b0a8e04d17c.jpg" alt="Timing pulley installed on the shaft of a NEMA 23 stepper motor">
+    <figcaption>Timing pulley installed on the NEMA 23 shaft. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+  </figure>
+  <figure>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-top-interface-step9-interface-spur-gear-w1600-7dcec28e692a.jpg" alt="Grey Interface spur gear secured over the timing pulley with five countersunk screws">
+    <figcaption>Interface spur gear secured over the Timing pulley with five M3 × 8 mm screws. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+  </figure>
+</div>
+
 Push the prepared Interface idler gear — bearing, inner retainer cap, and outer retainer already fitted, see step 1 — onto the Interface NEMA 23 bracket with the bearing facing outwards.
 
 Drive an {% include fastener.html size="M3" variant="flat" length="35" %} screw through the middle of the gear and into the bracket. The inner retainer cap sits between the screw head and the bearing, spanning the 8 mm bore, so the screw head on its own (narrower than the bore) has something to clamp against. Tighten until it's seated, then check that the idler gear still spins freely.
@@ -519,12 +530,12 @@ At this point the chute should still rotate, but you will now feel resistance fr
 
 <div class="img-row">
   <figure>
-    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-top-interface-step9-timing-pulley-on-motor-w1600-0b0a8e04d17c.jpg" alt="Timing pulley installed on the shaft of a NEMA 23 stepper motor">
-    <figcaption>Timing pulley installed on the NEMA 23 shaft. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-top-interface-step9-idler-gear-no-motor-w1600-c46506452340.jpg" alt="The Interface idler gear tapped onto the NEMA 23 bracket, meshed with the chute's ring gear, before the stepper motor is fitted">
+    <figcaption>The idler gear on the bracket, before the motor goes on. <cite>Photo: BrickCycleAlice.</cite></figcaption>
   </figure>
   <figure>
-    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-top-interface-step9-interface-spur-gear-w1600-7dcec28e692a.jpg" alt="Grey Interface spur gear secured over the timing pulley with five countersunk screws">
-    <figcaption>Interface spur gear secured over the Timing pulley with five M3 × 8 mm screws. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-top-interface-step9-idler-gear-nema23-meshed-w1600-15fd629cfae4.jpg" alt="The NEMA 23 stepper motor installed, its spur gear meshed with the idler gear and the chute's ring gear">
+    <figcaption>The finished step: stepper, spur gear and idler all meshed. <cite>Photo: BrickCycleAlice.</cite></figcaption>
   </figure>
 </div>
 

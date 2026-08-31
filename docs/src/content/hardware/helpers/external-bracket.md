@@ -17,29 +17,25 @@ parts_needed:
     qty: 1
   - part: ext-bracket-cover
     qty: 1
-  - part: ext-2020-c
-    qty: 1
   - part: scr-m5-16-shcs
-    qty: 4
+    qty: 2
 tools_needed: [Hex key]
 ---
 
-This page builds the bracket as a stand-alone unit before it goes on the machine; for how it's actually installed on the frame — and the one difference at the layer-to-layer joint — see [regular layers, step 1]({{ '/hardware/assembly/distribution/bin-frame/regular-layers/' | relative_url }}#step-1) and [step 3]({{ '/hardware/assembly/distribution/bin-frame/regular-layers/' | relative_url }}#step-3).
+These three printed parts never bolt together into one stand-alone unit anywhere on the machine. A side bracket and cover close off one layer's own corner, clamped directly onto that corner's own vertical extrusion; a bottom-vertical belongs to the layer above and reaches down to that same extrusion, its flange screwing into the side bracket of the layer above it, not the side bracket in its own corner. This page shows those two joints on their own, off the machine, since nowhere else has clean photos of them. For how they actually come together at a real corner, and around the vertical extrusion between them, see [regular layers, step 1]({{ '/hardware/assembly/distribution/bin-frame/regular-layers/' | relative_url }}#step-1) and [step 3]({{ '/hardware/assembly/distribution/bin-frame/regular-layers/' | relative_url }}#step-3).
 
-Three printed parts that bolt together into one external bracket. **You need 6 per layer of the distribution frame, plus one extra set per interface** (side bracket and cover only there, no bottom-vertical leg — see [top interface, step 13]({{ '/hardware/assembly/distribution/top-interface/' | relative_url }}#step-13)).
-
-The fasteners and quantities are in the parts list above and are called out inline at each step.
+Three printed parts. **You need 6 per layer of the distribution frame, plus one extra set per interface** (side bracket and cover only there, no bottom-vertical leg — see [top interface, step 13]({{ '/hardware/assembly/distribution/top-interface/' | relative_url }}#step-13)).
 
 {% include fastener-legend.html %}
 
 - No heat inserts are used on this assembly. Joining is **self-tap**: the {% include fastener.html size="M5" variant="socket-button" length="16" %} screws thread directly into the printed plastic.
 - The most-used M5 in the machine, the same screw used on every external bracket, every bin bracket, every interface rib, and every lazy Susan extrusion mount.
-- Of the four {% include fastener.html size="M5" variant="socket-button" length="16" %} screws: **2** join the bottom-vertical part to the side bracket, and **2** clamp the side bracket against the C-Layer vertical support to hold it in place. The **cover clips on**, it takes no screws.
+- Across the bracket's two real joints, **4** of these screws are used in total: **2** join the bottom-vertical's flange to the side bracket above it, shown in Step 1 below, and **2** clamp the side bracket onto its own corner's vertical extrusion — that clamp joint is covered on whichever page you're installing from, since the extrusion piece and its handling differ by context. The **cover clips on**, it takes no screws.
 - Matching parts from the same print run are embossed with a shared set code (e.g. **"b2"**) on both the side bracket and the bottom-vertical part. Keep marked pairs together so brackets don't get mixed across sets.
 
 <figure class="single-figure">
   <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-external-bracket-parts-laid-out-full-0a59300a73b4.jpg" alt="Side bracket, bottom-vertical leg, cover, an extrusion offcut, and the four M5 × 16 mm screws laid out before assembly">
-  <figcaption>Parts for one bracket, laid out before assembly: side bracket, bottom-vertical leg, C-Layer vertical support, and the four {% include fastener.html size="M5" variant="socket-button" length="16" %} screws. The cover is fitted last, in Step 4. <cite>Photo: Christoph.</cite></figcaption>
+  <figcaption>The three printed parts, with an extrusion offcut for scale and all four {% include fastener.html size="M5" variant="socket-button" length="16" %} screws the bracket uses across both its joints — two for the flange joint below, two for the extrusion clamp covered elsewhere. <cite>Photo: Christoph.</cite></figcaption>
 </figure>
 
 <div class="img-row">
@@ -49,59 +45,29 @@ The fasteners and quantities are in the parts list above and are called out inli
   </figure>
   <figure>
     <img src="https://assets.basically.website/sorter-docs/assembly-external-bracket-bottom-vertical-flange-full-4b9a511aea49.jpg" alt="Close-up of the bottom-vertical part's top flange, showing the holes used to screw it to the side bracket">
-    <figcaption>The bottom-vertical part's top flange, before assembly: the square socket takes the extrusion, and the holes around it are what the two {% include fastener.html size="M5" variant="socket-button" length="16" %} screws in Step 1 go into. <cite>Photo: Christoph.</cite></figcaption>
+    <figcaption>The bottom-vertical part's top flange: the square socket sleeves over the extrusion, and the holes around it are what the two {% include fastener.html size="M5" variant="socket-button" length="16" %} screws in Step 1 go into. <cite>Photo: Christoph.</cite></figcaption>
   </figure>
 </div>
 
-{% include step.html n="1" title="Mount the bottom-vertical leg to the side bracket" %}
+{% include step.html n="1" title="The layer-to-layer joint: bottom-vertical to the side bracket above" %}
 
-Set the bottom-vertical leg's flanged top into the U-shaped opening of the side bracket, with its tubular section pointing down.
+A finished layer's own corner already has its side bracket clamped onto the bottom of its own vertical extrusion, and its bottom-vertical sleeved over that same extrusion's exposed top, foot resting near its own collar. Setting the next layer down brings that bottom-vertical's flange up against the **side bracket of the layer above** — not the side bracket in its own corner — and this is the screw joint that actually pins the two layers together.
 
 <div class="callout callout-warning">
   <span class="callout-icon" aria-hidden="true">⚠</span>
   <p>Drive these tight — self-tapping screws into printed plastic hold best if seated firmly the first time; repeated removal and reinsertion strips the plastic threads.</p>
 </div>
 
-Line up the screw holes shown above and drive two {% include fastener.html size="M5" variant="socket-button" length="16" %} screws down through the flange into the side bracket.
+Line up the screw holes shown above and drive two {% include fastener.html size="M5" variant="socket-button" length="16" %} screws down through the bottom-vertical's flange into the side bracket above it.
 
 <figure class="single-figure">
   <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-external-bracket-step1-screwed-underside-full-d3637471f50a.jpg" alt="Bottom-vertical leg screwed into the underside of the side bracket, seen from above through the square extrusion socket">
-  <figcaption>Two {% include fastener.html size="M5" variant="socket-button" length="16" %} screws join the bottom-vertical leg to the side bracket. Viewed from above, looking down through the square socket that will receive the extrusion. <cite>Photo: Christoph.</cite></figcaption>
+  <figcaption>Two {% include fastener.html size="M5" variant="socket-button" length="16" %} screws join the bottom-vertical's flange to the side bracket above it. Viewed from above, looking down through the square socket the extrusion passes through. <cite>Photo: Christoph.</cite></figcaption>
 </figure>
 
-{% include step.html n="2" title="Insert the C-Layer vertical support" %}
+{% include step.html n="2" title="The cover: clip-fit, no screws" %}
 
-Slide the C-Layer vertical support (the vertical aluminum extrusion) down through the side bracket's U-shaped clamp and into the square socket in the bottom-vertical leg below. The socket is sized to the extrusion's profile, so it can only seat in the correct orientation.
-
-<div class="img-row">
-  <figure>
-    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-external-bracket-step2-extrusion-inserted-full-c56df607b17c.jpg" alt="C-Layer vertical support extrusion inserted down through the side bracket and into the square socket of the bottom-vertical leg">
-    <figcaption>C-Layer vertical support seated through the side bracket and into the bottom-vertical leg's socket. It isn't held in place yet, that's Step 3. <cite>Photo: Christoph.</cite></figcaption>
-  </figure>
-  <figure>
-    <img class="doc-figure" src="https://assets.basically.website/sorter-parts/final4-hires-full-c713a740a66b.png" alt="Vertical cross-section through the side bracket and cover, with the extrusion running through the bore as a hatched strip and a dashed line marking the clamp screw">
-    <figcaption>The collar in section, cut through the centre of the bore. Tan is the side bracket and cover; the hatched strip is the extrusion. The dashed line marks the clamp screw from Step 3. <cite>Drawn from the part geometry, not from a build.</cite></figcaption>
-  </figure>
-</div>
-
-{% include step.html n="3" title="Screw the bracket down onto the extrusion" %}
-
-Two more {% include fastener.html size="M5" variant="socket-button" length="16" %} screws clamp the side bracket against the C-Layer vertical support to hold it firmly in place.
-
-<div class="img-row">
-  <figure>
-    <img src="https://assets.basically.website/sorter-docs/assembly-external-bracket-step3-screw-hole-empty-full-1086433be655.jpg" alt="Retention screw hole empty, before the screw is driven in">
-    <figcaption>Before: retention-screw hole empty. <cite>Photo: Christoph.</cite></figcaption>
-  </figure>
-  <figure>
-    <img src="https://assets.basically.website/sorter-docs/assembly-external-bracket-step3-screw-driven-in-full-259bbc4b6fdb.jpg" alt="Retention screw driven in, seated flush in the hex socket">
-    <figcaption>After: {% include fastener.html size="M5" variant="socket-button" length="16" %} screw driven in, clamping the bracket against the extrusion. Repeat for the second hole on the opposite face. <cite>Photo: Christoph.</cite></figcaption>
-  </figure>
-</div>
-
-{% include step.html n="4" title="Clip on the cover" %}
-
-Clip the cover onto the side bracket to close it off. The cover takes no screws, it's a snap fit.
+Clip the cover onto the side bracket to close it off. Unlike the flange joint above, this one happens within a single corner: the cover clips onto its own corner's side bracket before that corner's vertical extrusion goes in, since it's tricky to fit afterward (see [regular layers, step 1]({{ '/hardware/assembly/distribution/bin-frame/regular-layers/' | relative_url }}#step-1)). The cover takes no screws, it's a snap fit.
 
 <div class="img-row">
   <figure>

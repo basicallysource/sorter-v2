@@ -1,10 +1,10 @@
 ---
 layout: default
-title: PCB
+title: Layer adapter board
 type: how-to
 section: hardware
 slug: assembly-pcb
-kicker: Chute — PCB
+kicker: Chute — Layer adapter board
 lede: The board that drives the servo.
 permalink: /hardware/assembly/distribution/chute/pcb/
 author: spencer
@@ -35,10 +35,15 @@ Nothing to press in here. The four inserts the board sits on are pressed into th
 
 {% include step.html n="2" title="Screw the board onto the chute core" %}
 
-Seat the board over the four inserts and fasten it with 4 {% include fastener.html size="M3" variant="socket-button" length="6" %} screws. Do not overtighten, the board is standing on printed plastic.
+<div class="callout callout-warning">
+  <span class="callout-icon" aria-hidden="true">⚠</span>
+  <p>Static caution: this is a bare board. Touch a grounded metal surface before handling it, and handle it by its edges, avoiding the connectors and components.</p>
+</div>
 
-<div class="img-placeholder">Image coming</div>
+Seat it over the four inserts and fasten it with 4 {% include fastener.html size="M3" variant="socket-button" length="6" %} screws. Do not overtighten, the board is standing on printed plastic, not a metal standoff.
+
+<div class="img-placeholder">Photo of the layer adapter board seated on its four inserts and screwed to the chute core.</div>
 
 {% include step.html n="3" title="Connect the ribbon cable" %}
 
-The board takes the ribbon connection that chains this layer to the control board. How the layers chain is covered under [electronics]({{ '/hardware/electronics/' | relative_url }}) and in the [WireViz drawings]({{ '/hardware/electronics/wireviz/' | relative_url }}).
+Plug the ribbon cable into the board's connector before you install the chute into the frame if the harness is easier to reach on the bench beforehand. Full harness routing is covered under [electronics]({{ '/hardware/electronics/' | relative_url }}) and in the [WireViz drawings]({{ '/hardware/electronics/wireviz/' | relative_url }}).

@@ -49,7 +49,7 @@ sections:
                     url: /hardware/assembly/distribution/chute/door-module/
                   - title: Layer connectors
                     url: /hardware/assembly/distribution/chute/layer-connectors/
-                  - title: PCB
+                  - title: Layer adapter board
                     url: /hardware/assembly/distribution/chute/pcb/
           - title: Feeder
             url: /hardware/assembly/feeder/

@@ -40,7 +40,7 @@ The size is chosen per layer rather than once for the whole machine, and it sets
 - **Funnel (half size):** 12 bins on that layer, six Bin (half, left) and six Bin (half, right).
 - **Funnel (third size):** 18 bins on that layer, six each of Bin (third, left), Bin (third, center) and Bin (third, right-back).
 
-Decide before printing, since it changes both the funnel and the bin set. The [parts calculator](https://parts-calculator.basically.website/) takes a size per layer and totals the print for whatever mix you pick.
+Decide before printing: the funnel and its bin set are a matched pair. A half-size funnel needs the six-and-six half bins, a third-size funnel needs the three-way third bins, and picking one without the other leaves you short on prints or with bins that don't fit under that funnel. The [parts calculator](https://parts-calculator.basically.website/) takes a size per layer and totals the print for whatever mix you pick.
 
 {% include step.html n="2" title="Fit the funnel brackets to the chute core" %}
 
@@ -48,8 +48,8 @@ Every chute carries a Funnel bracket (left) and a Funnel bracket (right), one of
 
 Each bracket takes 2 {% include fastener.html size="M3" variant="countersunk" length="12" %} screws, 4 for the pair. Why 12 mm and not 8 is on the [chute core]({{ '/hardware/assembly/distribution/chute/chute-core/' | relative_url }}) page, along with the rest of the split.
 
-<div class="img-placeholder">Image coming</div>
+<div class="img-placeholder">Photo of both funnel brackets fitted to the chute core.</div>
 
 {% include step.html n="3" title="Hang the funnel" %}
 
-How the funnel itself attaches to the brackets is not recorded yet.
+The funnel's connection to the brackets isn't documented yet. There's no confirmed fastener or clip method. If you get this far, please share how yours attaches so this step can be filled in.

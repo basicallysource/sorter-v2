@@ -214,11 +214,13 @@
 
 	const matchCount = $derived(keep.matched.size);
 
-	// What the badges mean. The tree records that a node is incomplete but not
-	// which pieces are missing, so the tooltip says exactly that much and no more.
+	// What the badge means. The tree records that a node is incomplete but not
+	// which pieces are missing, so the tooltip says exactly that much and no
+	// more. Only stubs get a badge: `partial` is true of nearly every assembly
+	// right now, so a badge for it was wallpaper — the status still shows in
+	// the detail view.
 	const STATUS_NOTE = {
-		stub: 'Placeholder — nothing has been recorded inside this assembly yet. What it actually contains is not captured anywhere in the data.',
-		partial: 'Some of this assembly is recorded, but not all of it. The parts and hardware shown are real; the list is known to be missing pieces, and the data does not say which.'
+		stub: 'Placeholder — nothing has been recorded inside this assembly yet. What it actually contains is not captured anywhere in the data.'
 	};
 
 	// ---- assembly versions: view any revision, diff any two ------------------
@@ -650,10 +652,6 @@
 					<span
 						class="cursor-help border border-border px-1.5 py-px text-[10px] font-semibold uppercase tracking-wider text-text-muted"
 						title={STATUS_NOTE.stub}>stub — not yet detailed</span>
-				{:else if asm.status === 'partial'}
-					<span
-						class="cursor-help border border-warning/50 bg-warning/[0.08] px-1.5 py-px text-[10px] font-semibold uppercase tracking-wider text-warning-dark"
-						title={STATUS_NOTE.partial}>partial</span>
 				{/if}
 				<span class="relative ml-auto flex items-center gap-3" data-asm-menu>
 					<!-- The docs site is where the step-by-step build lives; this node is only

@@ -84,46 +84,46 @@ parts_needed:
     qty: 1
   - part: cable-idc-2x8-long
     qty: 1
+  - part: hsi-m3
+    qty: 16
   - part: hsi-m4
     qty: 8
   - part: hsi-m5
     qty: 24
-  - part: hsi-m3
-    qty: 16
-  - part: scr-m5-35-fhcs
-    qty: 6
-  - part: scr-m5-30-shcs
-    qty: 6
-  - part: scr-m5-22-cs
-    qty: 15
-  - part: scr-m5-8-cs
-    qty: 6
-  - part: scr-m5-20-shcs
-    qty: 24
-  - part: scr-m5-16-shcs
-    qty: 50
-  - part: scr-m5-12-shcs
-    qty: 4
-  - part: scr-m4-12-cs
-    qty: 8
-  - part: scr-m3-35-bhcs
-    qty: 2
+  - part: scr-m3-6-cs
+    qty: 1
+  - part: scr-m3-8-cs
+    qty: 9
   - part: scr-m3-10-shcs
     qty: 3
   - part: scr-m3-12-cs
     qty: 6
   - part: scr-m3-16-shcs
     qty: 2
-  - part: scr-m3-8-cs
-    qty: 9
-  - part: scr-m3-6-cs
+  - part: scr-m3-35-bhcs
+    qty: 2
+  - part: scr-m4-12-cs
+    qty: 8
+  - part: scr-m5-8-cs
+    qty: 6
+  - part: scr-m5-12-shcs
+    qty: 4
+  - part: scr-m5-16-shcs
+    qty: 50
+  - part: scr-m5-20-shcs
+    qty: 24
+  - part: scr-m5-22-cs
+    qty: 15
+  - part: scr-m5-30-shcs
+    qty: 6
+  - part: scr-m5-35-fhcs
+    qty: 6
+  - part: nut-m3
     qty: 1
   - part: tnut-m5-2020
     qty: 56
   - part: nut-m5
     qty: 6
-  - part: nut-m3
-    qty: 1
 tools_needed: [Hex key, Soldering iron or heat-set insert press]
 ---
 
@@ -261,7 +261,6 @@ Before assembling anything, press all the heat inserts listed below into their p
   <div class="prep-item-body">
     <p><strong>Interface idler gear:</strong> 4 × M3, around the bearing pocket on the underside</p>
     <p>Build the bearing sub-assembly now too, while the gear is still loose — it is easier off the bracket than on it. Push a 608 2RS bearing into the pocket, fit the Chute stepper idler bearing retainer (inner) over the bearing's bore, then the Chute stepper idler bearing retainer (outer) over that, seated flush in the recess with its 4 holes lined up on the gear's 4 inserts. Secure it with 4 × {% include fastener.html size="M3" variant="countersunk" length="8" %} screws, the same M3 x 8 mm countersunk screw used on the Interface spur gear in step 9. See step 9 for how the idler gear then goes onto the bracket.</p>
-    <p>The exploded and assembled renders below are reconstructions built from the STL geometry, not a CAD export. The three photos are real: the bare gear with all 4 M3 inserts visible, the bearing pressed in before the caps go on, and the retainer caps mounted for real.</p>
   </div>
   <div class="prep-item-figure prep-item-figure-split">
     <figure>

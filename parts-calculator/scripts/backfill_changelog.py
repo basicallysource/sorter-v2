@@ -6,6 +6,13 @@ check_versioning.py since 2026-08-31) and src/lib/data/changelog.generated.json
 -- structural changes reconstructed from the git history of parts.json for
 the era before the stamp rule existed.
 
+The same file carries the tree timeline that makes time travel work: for
+every assembly the era ever saw, the sequence of line-sets it held (`seq`
+orders same-day commits), plus the last-known names of nodes that have since
+left the catalog (`ghosts`). The assembly page reconstructs the whole tree
+at any recorded moment from it; moments after `through` are reconstructed
+from versions[] snapshots instead, which the stamp rule guarantees exist.
+
 This script wrote that file once. It walks every commit of
 parts-calculator/catalog/parts.json (the file's modern era -- before that
 path the catalog was the old filament-calculator schema with no assembly
@@ -104,13 +111,34 @@ def part_revision_detail(old, new):
     return ", ".join(bits)
 
 
+def bare_lines(asm):
+    """A line stripped to what the tree needs: member and qty."""
+    return [{k: line[k] for k in ("part", "assembly", "qty") if k in line}
+            for line in asm.get("lines") or []]
+
+
 def main():
     events = []
     walk = states()
-    for prev, (sha, date, subj, new) in zip(walk, walk[1:]):
+
+    # The tree timeline: every assembly's initial line-set, then a new entry
+    # at each commit that changed it (None = removed). seq is the commit's
+    # position in the walk, so same-day states stay ordered.
+    timelines = {}
+    names = {}
+    first = walk[0][3]
+    for a in first.get("assemblies") or []:
+        timelines[a["id"]] = [{"seq": 0, "date": walk[0][1],
+                               "lines": bare_lines(a)}]
+    for state in walk:
+        for x in (state[3].get("parts") or []) + (state[3].get("assemblies") or []):
+            names[x["id"]] = x.get("name", x["id"])
+
+    for seq, (prev, (sha, date, subj, new)) in enumerate(zip(walk, walk[1:]),
+                                                         start=1):
         old = prev[3]
         pr = re.search(r"\(#(\d+)\)\s*$", subj)
-        ev = {"date": date, "commit": sha[:8],
+        ev = {"date": date, "commit": sha[:8], "seq": seq,
               "pr": int(pr.group(1)) if pr else None,
               "message": re.sub(r"\s*\(#\d+\)\s*$", "", subj)}
 
@@ -136,13 +164,18 @@ def main():
         for aid in sorted(set(oa) | set(na)):
             if aid not in oa:
                 events.append({**ev, "node": aid, "kind": "assembly-added"})
+                timelines.setdefault(aid, []).append(
+                    {"seq": seq, "date": date, "lines": bare_lines(na[aid])})
             elif aid not in na:
                 events.append({**ev, "node": aid, "kind": "assembly-removed"})
+                timelines[aid].append({"seq": seq, "date": date, "lines": None})
             else:
                 d = diff_lines(lines_map(oa[aid]), lines_map(na[aid]))
                 if d:
                     events.append({**ev, "node": aid, "kind": "lines-changed",
                                    "detail": d})
+                    timelines[aid].append({"seq": seq, "date": date,
+                                           "lines": bare_lines(na[aid])})
 
     # A recorded versions[] entry beats its reconstruction. Match by commit
     # when the entry is pinned, by date when the pin is still null (pending) --
@@ -158,15 +191,27 @@ def main():
             or ((e["node"], e["commit"]) not in recorded
                 and (e["node"], e["date"]) not in recorded)]
 
+    final = walk[-1][3]
+    current = ({p["id"] for p in final.get("parts") or []}
+               | {a["id"] for a in final.get("assemblies") or []})
+    ghosts = {i: n for i, n in sorted(names.items()) if i not in current}
+
     OUT.write_text(json.dumps({
         "note": "Reconstructed from the git history of catalog/parts.json by "
                 "scripts/backfill_changelog.py. Frozen artifact -- covers the "
-                "era before the stamp rule (2026-08-31); recorded versions[] "
-                "entries are the source of truth from then on.",
+                "era up to `through`; recorded versions[] entries are the "
+                "source of truth from then on.",
+        "through": walk[-1][1],
+        "commits": {sha[:8]: {"seq": i, "date": date}
+                    for i, (sha, date, _, _) in enumerate(walk)},
         "events": kept,
+        "assemblies": {i: {"timeline": tl} for i, tl in sorted(timelines.items())},
+        "ghosts": ghosts,
     }, indent=2) + "\n")
     print(f"{len(kept)} events ({len(events) - len(kept)} suppressed by "
-          f"recorded versions) -> {OUT.relative_to(HERE)}")
+          f"recorded versions), {len(timelines)} assembly timelines, "
+          f"{len(ghosts)} ghosts, through {walk[-1][1]} "
+          f"-> {OUT.relative_to(HERE)}")
 
 
 if __name__ == "__main__":

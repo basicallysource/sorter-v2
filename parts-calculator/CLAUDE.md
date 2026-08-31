@@ -27,11 +27,17 @@ assembly version. `scripts/check_versioning.py` enforces both in CI.
 
 The assembly page's History panel (⋮ menu on any node) is the derived view
 of all this: a subtree's change log is the union of the `versions[]` entries
-below it, git-log style — nothing extra is recorded to make it work. Events
-that predate the stamp rule come from `src/lib/data/changelog.generated.json`,
-reconstructed once from git history by `scripts/backfill_changelog.py`. That
-file is a frozen artifact covering a closed era: never hand-edit it and never
-re-run the backfill — new history comes from version stamps.
+below it, git-log style — nothing extra is recorded to make it work. Every
+row is a moment: clicking one re-renders the tree at that moment — diffed
+against the state just before it (the change), against the current tree, or
+plain. Events and tree states that predate the stamp rule come from
+`src/lib/data/changelog.generated.json`, reconstructed once from git history
+by `scripts/backfill_changelog.py`. That file is a frozen artifact covering
+a closed era: never hand-edit it and never re-run the backfill — new history
+comes from version stamps, whose line snapshots are what keep time travel
+working. Top-level `tags` in parts.json bless a moment of a node's subtree
+(stable/experimental) and render highlighted on the timeline; only a human
+decision adds one (VERSIONING.md § Tags).
 
 ## What this is
 

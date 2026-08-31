@@ -1,9 +1,177 @@
 {
-  "note": "Reconstructed from the git history of catalog/parts.json by scripts/backfill_changelog.py. Frozen artifact -- covers the era before the stamp rule (2026-08-31); recorded versions[] entries are the source of truth from then on.",
+  "note": "Reconstructed from the git history of catalog/parts.json by scripts/backfill_changelog.py. Frozen artifact -- covers the era up to `through`; recorded versions[] entries are the source of truth from then on.",
+  "through": "2026-08-31",
+  "commits": {
+    "954f181e": {
+      "seq": 0,
+      "date": "2026-08-21"
+    },
+    "a15b13e6": {
+      "seq": 1,
+      "date": "2026-08-22"
+    },
+    "54965c9d": {
+      "seq": 2,
+      "date": "2026-08-22"
+    },
+    "340f63ad": {
+      "seq": 3,
+      "date": "2026-08-22"
+    },
+    "a48450c5": {
+      "seq": 4,
+      "date": "2026-08-22"
+    },
+    "8d4384aa": {
+      "seq": 5,
+      "date": "2026-08-22"
+    },
+    "d9c57301": {
+      "seq": 6,
+      "date": "2026-08-22"
+    },
+    "8581bcb5": {
+      "seq": 7,
+      "date": "2026-08-22"
+    },
+    "13e7fd75": {
+      "seq": 8,
+      "date": "2026-08-22"
+    },
+    "9e97d442": {
+      "seq": 9,
+      "date": "2026-08-23"
+    },
+    "a02a428e": {
+      "seq": 10,
+      "date": "2026-08-23"
+    },
+    "56ca5a41": {
+      "seq": 11,
+      "date": "2026-08-24"
+    },
+    "627454b9": {
+      "seq": 12,
+      "date": "2026-08-24"
+    },
+    "0a90ee5f": {
+      "seq": 13,
+      "date": "2026-08-24"
+    },
+    "46f7a7d8": {
+      "seq": 14,
+      "date": "2026-08-24"
+    },
+    "9ca437df": {
+      "seq": 15,
+      "date": "2026-08-25"
+    },
+    "03f29857": {
+      "seq": 16,
+      "date": "2026-08-25"
+    },
+    "b7c9f8b5": {
+      "seq": 17,
+      "date": "2026-08-25"
+    },
+    "e67232f5": {
+      "seq": 18,
+      "date": "2026-08-25"
+    },
+    "9b1b1e72": {
+      "seq": 19,
+      "date": "2026-08-25"
+    },
+    "f3ebf902": {
+      "seq": 20,
+      "date": "2026-08-25"
+    },
+    "92e5045d": {
+      "seq": 21,
+      "date": "2026-08-25"
+    },
+    "4ec2f486": {
+      "seq": 22,
+      "date": "2026-08-25"
+    },
+    "58bebf0e": {
+      "seq": 23,
+      "date": "2026-08-27"
+    },
+    "b77e1f3b": {
+      "seq": 24,
+      "date": "2026-08-28"
+    },
+    "ee576961": {
+      "seq": 25,
+      "date": "2026-08-29"
+    },
+    "9d7918c9": {
+      "seq": 26,
+      "date": "2026-08-29"
+    },
+    "a0212701": {
+      "seq": 27,
+      "date": "2026-08-29"
+    },
+    "08835706": {
+      "seq": 28,
+      "date": "2026-08-30"
+    },
+    "83028111": {
+      "seq": 29,
+      "date": "2026-08-30"
+    },
+    "79def88c": {
+      "seq": 30,
+      "date": "2026-08-30"
+    },
+    "47b664c7": {
+      "seq": 31,
+      "date": "2026-08-30"
+    },
+    "8267e9cb": {
+      "seq": 32,
+      "date": "2026-08-31"
+    },
+    "defe8d4a": {
+      "seq": 33,
+      "date": "2026-08-31"
+    },
+    "30ec850f": {
+      "seq": 34,
+      "date": "2026-08-31"
+    },
+    "982de4c0": {
+      "seq": 35,
+      "date": "2026-08-31"
+    },
+    "d3c18dbc": {
+      "seq": 36,
+      "date": "2026-08-31"
+    },
+    "1cba57db": {
+      "seq": 37,
+      "date": "2026-08-31"
+    },
+    "a5ae8c93": {
+      "seq": 38,
+      "date": "2026-08-31"
+    },
+    "61286ddc": {
+      "seq": 39,
+      "date": "2026-08-31"
+    },
+    "aa3a4bac": {
+      "seq": 40,
+      "date": "2026-08-31"
+    }
+  },
   "events": [
     {
       "date": "2026-08-22",
       "commit": "a48450c5",
+      "seq": 4,
       "pr": 375,
       "message": "parts-calculator: candidates for parts and assemblies, images, uid-named downloads",
       "node": "ctrl-board-housing-base",
@@ -12,6 +180,7 @@
     {
       "date": "2026-08-22",
       "commit": "a48450c5",
+      "seq": 4,
       "pr": 375,
       "message": "parts-calculator: candidates for parts and assemblies, images, uid-named downloads",
       "node": "ctrl-board-housing-cover",
@@ -20,6 +189,7 @@
     {
       "date": "2026-08-22",
       "commit": "a48450c5",
+      "seq": 4,
       "pr": 375,
       "message": "parts-calculator: candidates for parts and assemblies, images, uid-named downloads",
       "node": "ctrl-board-housing-plunger",
@@ -28,6 +198,7 @@
     {
       "date": "2026-08-22",
       "commit": "a48450c5",
+      "seq": 4,
       "pr": 375,
       "message": "parts-calculator: candidates for parts and assemblies, images, uid-named downloads",
       "node": "ctrl-board-housing-plunger-retainer",
@@ -36,6 +207,7 @@
     {
       "date": "2026-08-22",
       "commit": "a48450c5",
+      "seq": 4,
       "pr": 375,
       "message": "parts-calculator: candidates for parts and assemblies, images, uid-named downloads",
       "node": "fan-40mm-24v",
@@ -44,6 +216,7 @@
     {
       "date": "2026-08-22",
       "commit": "a48450c5",
+      "seq": 4,
       "pr": 375,
       "message": "parts-calculator: candidates for parts and assemblies, images, uid-named downloads",
       "node": "scr-m3-shcs-tbd",
@@ -52,6 +225,7 @@
     {
       "date": "2026-08-22",
       "commit": "a48450c5",
+      "seq": 4,
       "pr": 375,
       "message": "parts-calculator: candidates for parts and assemblies, images, uid-named downloads",
       "node": "embedded-control-board-housing",
@@ -60,6 +234,7 @@
     {
       "date": "2026-08-22",
       "commit": "a48450c5",
+      "seq": 4,
       "pr": 375,
       "message": "parts-calculator: candidates for parts and assemblies, images, uid-named downloads",
       "node": "orange-pi-5-housing",
@@ -68,6 +243,7 @@
     {
       "date": "2026-08-22",
       "commit": "8d4384aa",
+      "seq": 5,
       "pr": 378,
       "message": "docs: output gear to rotor is M3 \u00d7 12, not M3 \u00d7 8",
       "node": "c-channel",
@@ -77,6 +253,7 @@
     {
       "date": "2026-08-22",
       "commit": "8581bcb5",
+      "seq": 7,
       "pr": 382,
       "message": "parts-calculator: the v1 mounts, a PSU candidate, and printing as a count",
       "node": "ctrl-board-extrusion-mount",
@@ -85,6 +262,7 @@
     {
       "date": "2026-08-22",
       "commit": "8581bcb5",
+      "seq": 7,
       "pr": 382,
       "message": "parts-calculator: the v1 mounts, a PSU candidate, and printing as a count",
       "node": "fan-bracket-40mm",
@@ -93,6 +271,7 @@
     {
       "date": "2026-08-22",
       "commit": "8581bcb5",
+      "seq": 7,
       "pr": 382,
       "message": "parts-calculator: the v1 mounts, a PSU candidate, and printing as a count",
       "node": "meanwell-psu-housing-front-panel",
@@ -101,6 +280,7 @@
     {
       "date": "2026-08-22",
       "commit": "8581bcb5",
+      "seq": 7,
       "pr": 382,
       "message": "parts-calculator: the v1 mounts, a PSU candidate, and printing as a count",
       "node": "meanwell-psu-housing-lid-front",
@@ -109,6 +289,7 @@
     {
       "date": "2026-08-22",
       "commit": "8581bcb5",
+      "seq": 7,
       "pr": 382,
       "message": "parts-calculator: the v1 mounts, a PSU candidate, and printing as a count",
       "node": "meanwell-psu-housing-lid-rear",
@@ -117,6 +298,7 @@
     {
       "date": "2026-08-22",
       "commit": "8581bcb5",
+      "seq": 7,
       "pr": 382,
       "message": "parts-calculator: the v1 mounts, a PSU candidate, and printing as a count",
       "node": "meanwell-psu-housing-shell-front",
@@ -125,6 +307,7 @@
     {
       "date": "2026-08-22",
       "commit": "8581bcb5",
+      "seq": 7,
       "pr": 382,
       "message": "parts-calculator: the v1 mounts, a PSU candidate, and printing as a count",
       "node": "meanwell-psu-housing-shell-rear",
@@ -133,6 +316,7 @@
     {
       "date": "2026-08-22",
       "commit": "8581bcb5",
+      "seq": 7,
       "pr": 382,
       "message": "parts-calculator: the v1 mounts, a PSU candidate, and printing as a count",
       "node": "orange-pi-extrusion-mount",
@@ -141,6 +325,7 @@
     {
       "date": "2026-08-22",
       "commit": "8581bcb5",
+      "seq": 7,
       "pr": 382,
       "message": "parts-calculator: the v1 mounts, a PSU candidate, and printing as a count",
       "node": "camera-extension",
@@ -149,6 +334,7 @@
     {
       "date": "2026-08-22",
       "commit": "8581bcb5",
+      "seq": 7,
       "pr": 382,
       "message": "parts-calculator: the v1 mounts, a PSU candidate, and printing as a count",
       "node": "camera-extension-assembly",
@@ -157,6 +343,7 @@
     {
       "date": "2026-08-22",
       "commit": "8581bcb5",
+      "seq": 7,
       "pr": 382,
       "message": "parts-calculator: the v1 mounts, a PSU candidate, and printing as a count",
       "node": "ctrl-board-mount",
@@ -166,6 +353,7 @@
     {
       "date": "2026-08-22",
       "commit": "8581bcb5",
+      "seq": 7,
       "pr": 382,
       "message": "parts-calculator: the v1 mounts, a PSU candidate, and printing as a count",
       "node": "feeder",
@@ -175,6 +363,7 @@
     {
       "date": "2026-08-22",
       "commit": "8581bcb5",
+      "seq": 7,
       "pr": 382,
       "message": "parts-calculator: the v1 mounts, a PSU candidate, and printing as a count",
       "node": "light-post",
@@ -183,6 +372,7 @@
     {
       "date": "2026-08-22",
       "commit": "8581bcb5",
+      "seq": 7,
       "pr": 382,
       "message": "parts-calculator: the v1 mounts, a PSU candidate, and printing as a count",
       "node": "light-post-assembly",
@@ -191,6 +381,7 @@
     {
       "date": "2026-08-22",
       "commit": "8581bcb5",
+      "seq": 7,
       "pr": 382,
       "message": "parts-calculator: the v1 mounts, a PSU candidate, and printing as a count",
       "node": "orange-pi-mount",
@@ -200,6 +391,7 @@
     {
       "date": "2026-08-22",
       "commit": "13e7fd75",
+      "seq": 8,
       "pr": 384,
       "message": "engineering notes at /n/<id>/, and the tools that made the first one",
       "node": "cable-clamp-inner",
@@ -209,6 +401,7 @@
     {
       "date": "2026-08-23",
       "commit": "9e97d442",
+      "seq": 9,
       "pr": 387,
       "message": "The control board housing becomes the mount, and two docs pages for it",
       "node": "ctrl-board-extrusion-mount",
@@ -218,6 +411,7 @@
     {
       "date": "2026-08-23",
       "commit": "9e97d442",
+      "seq": 9,
       "pr": 387,
       "message": "The control board housing becomes the mount, and two docs pages for it",
       "node": "ctrl-board-housing-base",
@@ -227,6 +421,7 @@
     {
       "date": "2026-08-23",
       "commit": "9e97d442",
+      "seq": 9,
       "pr": 387,
       "message": "The control board housing becomes the mount, and two docs pages for it",
       "node": "ctrl-board-housing-cover",
@@ -236,6 +431,7 @@
     {
       "date": "2026-08-23",
       "commit": "9e97d442",
+      "seq": 9,
       "pr": 387,
       "message": "The control board housing becomes the mount, and two docs pages for it",
       "node": "ctrl-board-housing-plunger",
@@ -245,6 +441,7 @@
     {
       "date": "2026-08-23",
       "commit": "9e97d442",
+      "seq": 9,
       "pr": 387,
       "message": "The control board housing becomes the mount, and two docs pages for it",
       "node": "ctrl-board-housing-plunger-retainer",
@@ -254,6 +451,7 @@
     {
       "date": "2026-08-23",
       "commit": "9e97d442",
+      "seq": 9,
       "pr": 387,
       "message": "The control board housing becomes the mount, and two docs pages for it",
       "node": "fan-bracket-40mm",
@@ -263,6 +461,7 @@
     {
       "date": "2026-08-23",
       "commit": "9e97d442",
+      "seq": 9,
       "pr": 387,
       "message": "The control board housing becomes the mount, and two docs pages for it",
       "node": "jumper-cap-254",
@@ -271,6 +470,7 @@
     {
       "date": "2026-08-25",
       "commit": "9ca437df",
+      "seq": 15,
       "pr": 416,
       "message": "docs: servo adapter screws and the MG995 Servo Horn",
       "node": "mg995-servo-horn",
@@ -279,6 +479,7 @@
     {
       "date": "2026-08-25",
       "commit": "9ca437df",
+      "seq": 15,
       "pr": 416,
       "message": "docs: servo adapter screws and the MG995 Servo Horn",
       "node": "servo-adapter",
@@ -288,6 +489,7 @@
     {
       "date": "2026-08-25",
       "commit": "03f29857",
+      "seq": 16,
       "pr": 417,
       "message": "parts-calculator: add a 3D-printed option for the cable cage",
       "node": "cage-top-hex-corner",
@@ -296,6 +498,7 @@
     {
       "date": "2026-08-25",
       "commit": "03f29857",
+      "seq": 16,
       "pr": 417,
       "message": "parts-calculator: add a 3D-printed option for the cable cage",
       "node": "cage-top-motor-piece",
@@ -304,6 +507,7 @@
     {
       "date": "2026-08-25",
       "commit": "b7c9f8b5",
+      "seq": 17,
       "pr": 420,
       "message": "docs+parts: idler gear bearing retainers replace the loose washer",
       "node": "chute-stepper-gearing",
@@ -313,6 +517,7 @@
     {
       "date": "2026-08-25",
       "commit": "e67232f5",
+      "seq": 18,
       "pr": 422,
       "message": "docs: drop the standalone External bracket page, fix top-interface BOM bug",
       "node": "ext-bracket-bottom-vertical",
@@ -322,6 +527,7 @@
     {
       "date": "2026-08-25",
       "commit": "e67232f5",
+      "seq": 18,
       "pr": 422,
       "message": "docs: drop the standalone External bracket page, fix top-interface BOM bug",
       "node": "interface",
@@ -331,6 +537,7 @@
     {
       "date": "2026-08-25",
       "commit": "9b1b1e72",
+      "seq": 19,
       "pr": 424,
       "message": "fix: chute count is N, not N+2 -- bottom interface doesn't have its own chutes",
       "node": "bottom-interface",
@@ -340,6 +547,7 @@
     {
       "date": "2026-08-25",
       "commit": "f3ebf902",
+      "seq": 20,
       "pr": 425,
       "message": "docs: light-post fastener details measured off the STLs",
       "node": "scr-m2-8-shcs",
@@ -348,6 +556,7 @@
     {
       "date": "2026-08-25",
       "commit": "f3ebf902",
+      "seq": 20,
       "pr": 425,
       "message": "docs: light-post fastener details measured off the STLs",
       "node": "camera-extension-assembly",
@@ -357,6 +566,7 @@
     {
       "date": "2026-08-25",
       "commit": "92e5045d",
+      "seq": 21,
       "pr": 428,
       "message": "docs: real answer for cooling-fan power, from the KiCad and the Orange Pi manual",
       "node": "ctrl-board-mount",
@@ -366,6 +576,7 @@
     {
       "date": "2026-08-25",
       "commit": "92e5045d",
+      "seq": 21,
       "pr": 428,
       "message": "docs: real answer for cooling-fan power, from the KiCad and the Orange Pi manual",
       "node": "electronics",
@@ -375,6 +586,7 @@
     {
       "date": "2026-08-25",
       "commit": "92e5045d",
+      "seq": 21,
       "pr": 428,
       "message": "docs: real answer for cooling-fan power, from the KiCad and the Orange Pi manual",
       "node": "meanwell-psu-box",
@@ -384,6 +596,7 @@
     {
       "date": "2026-08-25",
       "commit": "92e5045d",
+      "seq": 21,
       "pr": 428,
       "message": "docs: real answer for cooling-fan power, from the KiCad and the Orange Pi manual",
       "node": "orange-pi-mount",
@@ -393,6 +606,7 @@
     {
       "date": "2026-08-29",
       "commit": "ee576961",
+      "seq": 25,
       "pr": 452,
       "message": "docs+parts-calculator: retire the classification chamber's M3 screw TBD placeholder",
       "node": "cable-cage",
@@ -402,6 +616,7 @@
     {
       "date": "2026-08-29",
       "commit": "ee576961",
+      "seq": 25,
       "pr": 452,
       "message": "docs+parts-calculator: retire the classification chamber's M3 screw TBD placeholder",
       "node": "camera-extension-assembly",
@@ -411,6 +626,7 @@
     {
       "date": "2026-08-29",
       "commit": "ee576961",
+      "seq": 25,
       "pr": 452,
       "message": "docs+parts-calculator: retire the classification chamber's M3 screw TBD placeholder",
       "node": "orange-pi-mount",
@@ -420,6 +636,7 @@
     {
       "date": "2026-08-29",
       "commit": "9d7918c9",
+      "seq": 26,
       "pr": 449,
       "message": "docs: bin-frame reorg \u2014 hex frame, bottom interface, top interface",
       "node": "hex-frame",
@@ -428,6 +645,7 @@
     {
       "date": "2026-08-31",
       "commit": "30ec850f",
+      "seq": 34,
       "pr": 476,
       "message": "docs: safety, wording and naming fixes on Electronics and Electronics Installation",
       "node": "pico-headers",
@@ -437,6 +655,7 @@
     {
       "date": "2026-08-31",
       "commit": "d3c18dbc",
+      "seq": 36,
       "pr": 489,
       "message": "parts-calculator: remove the chute stepper support block from the machine",
       "node": "chute-stepper-support-block",
@@ -446,6 +665,7 @@
     {
       "date": "2026-08-31",
       "commit": "d3c18dbc",
+      "seq": 36,
       "pr": 489,
       "message": "parts-calculator: remove the chute stepper support block from the machine",
       "node": "interface",
@@ -455,6 +675,7 @@
     {
       "date": "2026-08-31",
       "commit": "1cba57db",
+      "seq": 37,
       "pr": 494,
       "message": "parts-calculator: retire the orphaned M5 TBD screws left after the support block's removal",
       "node": "interface",
@@ -464,6 +685,7 @@
     {
       "date": "2026-08-31",
       "commit": "aa3a4bac",
+      "seq": 40,
       "pr": 500,
       "message": "parts-calculator: connection edges, the rotor units, and versions in the tree",
       "node": "rotor-unit-faceted",
@@ -472,10 +694,2374 @@
     {
       "date": "2026-08-31",
       "commit": "aa3a4bac",
+      "seq": 40,
       "pr": 500,
       "message": "parts-calculator: connection edges, the rotor units, and versions in the tree",
       "node": "rotor-unit-finned",
       "kind": "assembly-added"
     }
-  ]
+  ],
+  "assemblies": {
+    "bottom-interface": {
+      "timeline": [
+        {
+          "seq": 0,
+          "date": "2026-08-21",
+          "lines": [
+            {
+              "assembly": "layer-frame",
+              "qty": 1
+            },
+            {
+              "assembly": "lazy-susan",
+              "qty": 1
+            },
+            {
+              "assembly": "chute",
+              "qty": 2
+            }
+          ]
+        },
+        {
+          "seq": 19,
+          "date": "2026-08-25",
+          "lines": [
+            {
+              "assembly": "layer-frame",
+              "qty": 1
+            },
+            {
+              "assembly": "lazy-susan",
+              "qty": 1
+            },
+            {
+              "assembly": "layer-connector",
+              "qty": 1
+            }
+          ]
+        }
+      ]
+    },
+    "c-channel": {
+      "timeline": [
+        {
+          "seq": 0,
+          "date": "2026-08-21",
+          "lines": [
+            {
+              "part": "stator",
+              "qty": 1
+            },
+            {
+              "part": "nema-bracket",
+              "qty": 1
+            },
+            {
+              "part": "output-gear",
+              "qty": 1
+            },
+            {
+              "part": "idler-gear",
+              "qty": 1
+            },
+            {
+              "part": "input-gear",
+              "qty": 1
+            },
+            {
+              "part": "motor-nema17",
+              "qty": 1
+            },
+            {
+              "part": "scr-m3-16-shcs",
+              "qty": 3
+            },
+            {
+              "part": "scr-m3-12-cs",
+              "qty": 4
+            },
+            {
+              "part": "scr-m3-8-cs",
+              "qty": 6
+            },
+            {
+              "part": "scr-m3-8-shcs",
+              "qty": 1
+            }
+          ]
+        },
+        {
+          "seq": 5,
+          "date": "2026-08-22",
+          "lines": [
+            {
+              "part": "stator",
+              "qty": 1
+            },
+            {
+              "part": "nema-bracket",
+              "qty": 1
+            },
+            {
+              "part": "output-gear",
+              "qty": 1
+            },
+            {
+              "part": "idler-gear",
+              "qty": 1
+            },
+            {
+              "part": "input-gear",
+              "qty": 1
+            },
+            {
+              "part": "motor-nema17",
+              "qty": 1
+            },
+            {
+              "part": "scr-m3-16-shcs",
+              "qty": 3
+            },
+            {
+              "part": "scr-m3-12-cs",
+              "qty": 10
+            },
+            {
+              "part": "scr-m3-8-shcs",
+              "qty": 1
+            }
+          ]
+        },
+        {
+          "seq": 40,
+          "date": "2026-08-31",
+          "lines": [
+            {
+              "part": "stator",
+              "qty": 1
+            },
+            {
+              "part": "nema-bracket",
+              "qty": 1
+            },
+            {
+              "part": "idler-gear",
+              "qty": 1
+            },
+            {
+              "part": "input-gear",
+              "qty": 1
+            },
+            {
+              "part": "motor-nema17",
+              "qty": 1
+            },
+            {
+              "part": "scr-m3-16-shcs",
+              "qty": 3
+            },
+            {
+              "part": "scr-m3-12-cs",
+              "qty": 4
+            },
+            {
+              "part": "scr-m3-8-shcs",
+              "qty": 1
+            }
+          ]
+        }
+      ]
+    },
+    "cable-cage": {
+      "timeline": [
+        {
+          "seq": 0,
+          "date": "2026-08-21",
+          "lines": [
+            {
+              "part": "interface-cage-bracket",
+              "qty": 5
+            },
+            {
+              "part": "interface-cage-bracket-cable",
+              "qty": 1
+            },
+            {
+              "part": "ribbon-cable-clamp",
+              "qty": 1
+            },
+            {
+              "part": "scr-m5-35-fhcs",
+              "qty": 6
+            },
+            {
+              "part": "nut-m5",
+              "qty": 6
+            },
+            {
+              "part": "scr-m3-tbd",
+              "qty": 1
+            }
+          ]
+        },
+        {
+          "seq": 25,
+          "date": "2026-08-29",
+          "lines": [
+            {
+              "part": "interface-cage-bracket",
+              "qty": 5
+            },
+            {
+              "part": "interface-cage-bracket-cable",
+              "qty": 1
+            },
+            {
+              "part": "ribbon-cable-clamp",
+              "qty": 1
+            },
+            {
+              "part": "scr-m5-35-fhcs",
+              "qty": 6
+            },
+            {
+              "part": "nut-m5",
+              "qty": 6
+            },
+            {
+              "part": "scr-m3-10-shcs",
+              "qty": 1
+            }
+          ]
+        }
+      ]
+    },
+    "cable-clamp": {
+      "timeline": [
+        {
+          "seq": 0,
+          "date": "2026-08-21",
+          "lines": [
+            {
+              "part": "cable-clamp-inner",
+              "qty": 1
+            },
+            {
+              "part": "cable-clamp-outer",
+              "qty": 1
+            },
+            {
+              "part": "scr-m3-35-bhcs",
+              "qty": 1
+            },
+            {
+              "part": "nut-m3",
+              "qty": 1
+            }
+          ]
+        }
+      ]
+    },
+    "camera-extension": {
+      "timeline": [
+        {
+          "seq": 0,
+          "date": "2026-08-21",
+          "lines": [
+            {
+              "part": "camera-extension",
+              "qty": 1
+            },
+            {
+              "part": "camera-extension-mount",
+              "qty": 1
+            },
+            {
+              "part": "cam-imx415",
+              "qty": 1
+            },
+            {
+              "part": "scr-m3-tbd",
+              "qty": 8
+            }
+          ]
+        },
+        {
+          "seq": 7,
+          "date": "2026-08-22",
+          "lines": null
+        }
+      ]
+    },
+    "camera-extension-assembly": {
+      "timeline": [
+        {
+          "seq": 7,
+          "date": "2026-08-22",
+          "lines": [
+            {
+              "part": "camera-extension",
+              "qty": 1
+            },
+            {
+              "part": "camera-extension-mount",
+              "qty": 1
+            },
+            {
+              "part": "cam-imx415",
+              "qty": 1
+            },
+            {
+              "part": "scr-m3-tbd",
+              "qty": 8
+            }
+          ]
+        },
+        {
+          "seq": 20,
+          "date": "2026-08-25",
+          "lines": [
+            {
+              "part": "camera-extension",
+              "qty": 1
+            },
+            {
+              "part": "camera-extension-mount",
+              "qty": 1
+            },
+            {
+              "part": "cam-imx415",
+              "qty": 1
+            },
+            {
+              "part": "scr-m2-8-shcs",
+              "qty": 4
+            },
+            {
+              "part": "scr-m3-tbd",
+              "qty": 4
+            }
+          ]
+        },
+        {
+          "seq": 25,
+          "date": "2026-08-29",
+          "lines": [
+            {
+              "part": "camera-extension",
+              "qty": 1
+            },
+            {
+              "part": "camera-extension-mount",
+              "qty": 1
+            },
+            {
+              "part": "cam-imx415",
+              "qty": 1
+            },
+            {
+              "part": "scr-m2-8-shcs",
+              "qty": 4
+            },
+            {
+              "part": "scr-m3-12-bhcs",
+              "qty": 4
+            }
+          ]
+        }
+      ]
+    },
+    "camera-mount": {
+      "timeline": [
+        {
+          "seq": 0,
+          "date": "2026-08-21",
+          "lines": [
+            {
+              "part": "camera-mount-part-6",
+              "qty": 1
+            },
+            {
+              "part": "camera-mount-part-37",
+              "qty": 1
+            },
+            {
+              "part": "camera-mount-part-37b",
+              "qty": 1
+            },
+            {
+              "part": "camera-mount-rod-mount",
+              "qty": 2
+            },
+            {
+              "part": "rod-steel-3-8",
+              "qty": 2
+            },
+            {
+              "part": "scr-m3-12-cs",
+              "qty": 3
+            },
+            {
+              "part": "nut-m3",
+              "qty": 3
+            }
+          ]
+        }
+      ]
+    },
+    "chute": {
+      "timeline": [
+        {
+          "seq": 0,
+          "date": "2026-08-21",
+          "lines": [
+            {
+              "part": "chute-core",
+              "qty": 1
+            },
+            {
+              "assembly": "flap-module",
+              "qty": 1
+            },
+            {
+              "part": "funnel-bracket-left",
+              "qty": 1
+            },
+            {
+              "part": "funnel-bracket-right",
+              "qty": 1
+            },
+            {
+              "assembly": "layer-connector",
+              "qty": 1
+            },
+            {
+              "assembly": "chute-pcb",
+              "qty": 1
+            },
+            {
+              "part": "scr-m3-12-cs",
+              "qty": 6
+            },
+            {
+              "part": "scr-m3-8-cs",
+              "qty": 8
+            }
+          ]
+        }
+      ]
+    },
+    "chute-bearing": {
+      "timeline": [
+        {
+          "seq": 0,
+          "date": "2026-08-21",
+          "lines": [
+            {
+              "part": "bearing-race",
+              "qty": 1
+            },
+            {
+              "part": "bearing-holder-left",
+              "qty": 1
+            },
+            {
+              "part": "bearing-holder-right",
+              "qty": 1
+            },
+            {
+              "part": "bearing-cover-covered",
+              "qty": 1
+            },
+            {
+              "part": "bearing-cover-servo",
+              "qty": 1
+            },
+            {
+              "part": "brg-6704-2rs",
+              "qty": 2
+            },
+            {
+              "part": "scr-m3-8-cs",
+              "qty": 10
+            }
+          ]
+        }
+      ]
+    },
+    "chute-pcb": {
+      "timeline": [
+        {
+          "seq": 0,
+          "date": "2026-08-21",
+          "lines": [
+            {
+              "part": "layer-adapter-board-basically",
+              "qty": 1
+            },
+            {
+              "part": "scr-m3-6-bhcs",
+              "qty": 4
+            }
+          ]
+        }
+      ]
+    },
+    "chute-stepper-gearing": {
+      "timeline": [
+        {
+          "seq": 0,
+          "date": "2026-08-21",
+          "lines": [
+            {
+              "part": "interface-nema23-bracket",
+              "qty": 1
+            },
+            {
+              "part": "interface-spur-gear",
+              "qty": 1
+            },
+            {
+              "part": "interface-idler-gear",
+              "qty": 1
+            },
+            {
+              "part": "scr-m3-35-bhcs",
+              "qty": 1
+            },
+            {
+              "part": "washer-m3-15",
+              "qty": 1
+            },
+            {
+              "part": "chute-stepper-idler-bearing-retainer-outer",
+              "qty": 1
+            },
+            {
+              "part": "chute-stepper-idler-bearing-retainer-inner",
+              "qty": 1
+            }
+          ]
+        },
+        {
+          "seq": 17,
+          "date": "2026-08-25",
+          "lines": [
+            {
+              "part": "interface-nema23-bracket",
+              "qty": 1
+            },
+            {
+              "part": "interface-spur-gear",
+              "qty": 1
+            },
+            {
+              "part": "interface-idler-gear",
+              "qty": 1
+            },
+            {
+              "part": "scr-m3-35-bhcs",
+              "qty": 1
+            },
+            {
+              "part": "chute-stepper-idler-bearing-retainer-outer",
+              "qty": 1
+            },
+            {
+              "part": "chute-stepper-idler-bearing-retainer-inner",
+              "qty": 1
+            },
+            {
+              "part": "scr-m3-8-cs",
+              "qty": 4
+            },
+            {
+              "part": "hsi-m3",
+              "qty": 4
+            }
+          ]
+        }
+      ]
+    },
+    "classification-chamber": {
+      "timeline": [
+        {
+          "seq": 0,
+          "date": "2026-08-21",
+          "lines": []
+        },
+        {
+          "seq": 40,
+          "date": "2026-08-31",
+          "lines": [
+            {
+              "assembly": "rotor-unit-finned",
+              "qty": 1
+            }
+          ]
+        }
+      ]
+    },
+    "ctrl-board-mount": {
+      "timeline": [
+        {
+          "seq": 0,
+          "date": "2026-08-21",
+          "lines": [
+            {
+              "part": "ctrl-board-basically",
+              "qty": 1
+            },
+            {
+              "part": "scr-m3-tbd",
+              "qty": 4
+            },
+            {
+              "part": "hsi-m3",
+              "qty": 4
+            },
+            {
+              "part": "standoff-m3-10mm",
+              "qty": 4
+            }
+          ]
+        },
+        {
+          "seq": 7,
+          "date": "2026-08-22",
+          "lines": [
+            {
+              "part": "ctrl-board-extrusion-mount",
+              "qty": 1
+            },
+            {
+              "part": "ctrl-board-basically",
+              "qty": 1
+            },
+            {
+              "part": "scr-m3-tbd",
+              "qty": 4
+            },
+            {
+              "part": "hsi-m3",
+              "qty": 4
+            },
+            {
+              "part": "standoff-m3-10mm",
+              "qty": 4
+            },
+            {
+              "part": "fan-bracket-40mm",
+              "qty": 1
+            },
+            {
+              "part": "fan-40mm-24v",
+              "qty": 1
+            }
+          ]
+        },
+        {
+          "seq": 9,
+          "date": "2026-08-23",
+          "lines": [
+            {
+              "part": "ctrl-board-housing-base",
+              "qty": 1
+            },
+            {
+              "part": "ctrl-board-basically",
+              "qty": 1
+            },
+            {
+              "part": "scr-m3-6-bhcs",
+              "qty": 4
+            },
+            {
+              "part": "ctrl-board-housing-cover",
+              "qty": 1
+            },
+            {
+              "part": "scr-m3-12-cs",
+              "qty": 4
+            },
+            {
+              "part": "ctrl-board-housing-plunger",
+              "qty": 1
+            },
+            {
+              "part": "ctrl-board-housing-plunger-retainer",
+              "qty": 1
+            },
+            {
+              "part": "scr-m3-8-cs",
+              "qty": 2
+            },
+            {
+              "part": "fan-40mm-24v",
+              "qty": 1
+            },
+            {
+              "part": "scr-m3-12-bhcs",
+              "qty": 4
+            }
+          ]
+        },
+        {
+          "seq": 21,
+          "date": "2026-08-25",
+          "lines": [
+            {
+              "part": "ctrl-board-housing-base",
+              "qty": 1
+            },
+            {
+              "part": "ctrl-board-basically",
+              "qty": 1
+            },
+            {
+              "part": "scr-m3-6-bhcs",
+              "qty": 4
+            },
+            {
+              "part": "ctrl-board-housing-cover",
+              "qty": 1
+            },
+            {
+              "part": "scr-m3-12-cs",
+              "qty": 4
+            },
+            {
+              "part": "ctrl-board-housing-plunger",
+              "qty": 1
+            },
+            {
+              "part": "ctrl-board-housing-plunger-retainer",
+              "qty": 1
+            },
+            {
+              "part": "scr-m3-8-cs",
+              "qty": 2
+            },
+            {
+              "part": "fan-40mm-24v",
+              "qty": 1
+            },
+            {
+              "part": "scr-m3-12-bhcs",
+              "qty": 4
+            },
+            {
+              "part": "scr-m5-16-shcs",
+              "qty": 2
+            }
+          ]
+        }
+      ]
+    },
+    "electronics": {
+      "timeline": [
+        {
+          "seq": 0,
+          "date": "2026-08-21",
+          "lines": [
+            {
+              "assembly": "meanwell-psu-box",
+              "qty": 1
+            },
+            {
+              "assembly": "ctrl-board-mount",
+              "qty": 1
+            },
+            {
+              "assembly": "orange-pi-mount",
+              "qty": 1
+            },
+            {
+              "part": "scr-m5-shcs-tbd",
+              "qty": 6
+            }
+          ]
+        },
+        {
+          "seq": 21,
+          "date": "2026-08-25",
+          "lines": [
+            {
+              "assembly": "meanwell-psu-box",
+              "qty": 1
+            },
+            {
+              "assembly": "ctrl-board-mount",
+              "qty": 1
+            },
+            {
+              "assembly": "orange-pi-mount",
+              "qty": 1
+            }
+          ]
+        }
+      ]
+    },
+    "embedded-control-board-housing": {
+      "timeline": [
+        {
+          "seq": 0,
+          "date": "2026-08-21",
+          "lines": []
+        },
+        {
+          "seq": 4,
+          "date": "2026-08-22",
+          "lines": null
+        }
+      ]
+    },
+    "external-bracket": {
+      "timeline": [
+        {
+          "seq": 0,
+          "date": "2026-08-21",
+          "lines": [
+            {
+              "part": "ext-bracket-left",
+              "qty": 1
+            },
+            {
+              "part": "ext-bracket-bottom-vertical",
+              "qty": 1
+            },
+            {
+              "part": "ext-bracket-cover",
+              "qty": 1
+            },
+            {
+              "part": "scr-m5-16-shcs",
+              "qty": 4
+            }
+          ]
+        }
+      ]
+    },
+    "feeder": {
+      "timeline": [
+        {
+          "seq": 0,
+          "date": "2026-08-21",
+          "lines": [
+            {
+              "assembly": "c-channel",
+              "qty": 4
+            },
+            {
+              "part": "rotor-faceted",
+              "qty": 3
+            },
+            {
+              "assembly": "classification-chamber",
+              "qty": 1
+            },
+            {
+              "assembly": "camera-extension",
+              "qty": 1
+            },
+            {
+              "assembly": "light-post",
+              "qty": 2
+            },
+            {
+              "assembly": "camera-mount",
+              "qty": 2
+            }
+          ]
+        },
+        {
+          "seq": 7,
+          "date": "2026-08-22",
+          "lines": [
+            {
+              "assembly": "c-channel",
+              "qty": 4
+            },
+            {
+              "part": "rotor-faceted",
+              "qty": 3
+            },
+            {
+              "assembly": "classification-chamber",
+              "qty": 1
+            },
+            {
+              "assembly": "camera-extension-assembly",
+              "qty": 1
+            },
+            {
+              "assembly": "light-post-assembly",
+              "qty": 2
+            },
+            {
+              "assembly": "camera-mount",
+              "qty": 2
+            }
+          ]
+        },
+        {
+          "seq": 40,
+          "date": "2026-08-31",
+          "lines": [
+            {
+              "assembly": "c-channel",
+              "qty": 4
+            },
+            {
+              "assembly": "rotor-unit-faceted",
+              "qty": 3
+            },
+            {
+              "assembly": "classification-chamber",
+              "qty": 1
+            },
+            {
+              "assembly": "camera-extension-assembly",
+              "qty": 1
+            },
+            {
+              "assembly": "light-post-assembly",
+              "qty": 2
+            },
+            {
+              "assembly": "camera-mount",
+              "qty": 2
+            }
+          ]
+        }
+      ]
+    },
+    "fixed-upper-section": {
+      "timeline": [
+        {
+          "seq": 0,
+          "date": "2026-08-21",
+          "lines": [
+            {
+              "part": "interface-upper-fixed-section",
+              "qty": 1
+            },
+            {
+              "part": "interface-rib",
+              "qty": 5
+            },
+            {
+              "part": "interface-rib-switch",
+              "qty": 1
+            },
+            {
+              "part": "interface-big-spacer",
+              "qty": 1
+            },
+            {
+              "part": "scr-m5-16-shcs",
+              "qty": 12
+            }
+          ]
+        }
+      ]
+    },
+    "flap-module": {
+      "timeline": [
+        {
+          "seq": 0,
+          "date": "2026-08-21",
+          "lines": [
+            {
+              "part": "chute-door",
+              "qty": 1
+            },
+            {
+              "assembly": "chute-bearing",
+              "qty": 1
+            },
+            {
+              "assembly": "servo-adapter",
+              "qty": 1
+            },
+            {
+              "assembly": "servo-bracket",
+              "qty": 1
+            }
+          ]
+        }
+      ]
+    },
+    "hex-frame": {
+      "timeline": [
+        {
+          "seq": 26,
+          "date": "2026-08-29",
+          "lines": [
+            {
+              "part": "ext-2020-ag",
+              "qty": 6
+            },
+            {
+              "part": "ext-bracket-left",
+              "qty": 6
+            },
+            {
+              "part": "ext-2020-bh",
+              "qty": 6
+            },
+            {
+              "part": "frame-crossbeam",
+              "qty": 6
+            },
+            {
+              "part": "frame-90deg-bracket",
+              "qty": 12
+            },
+            {
+              "part": "scr-m5-16-shcs",
+              "qty": 8
+            },
+            {
+              "part": "tnut-m5-2020",
+              "qty": 24
+            }
+          ]
+        }
+      ]
+    },
+    "interface": {
+      "timeline": [
+        {
+          "seq": 0,
+          "date": "2026-08-21",
+          "lines": [
+            {
+              "assembly": "interface-bracket-mount",
+              "qty": 6
+            },
+            {
+              "assembly": "external-bracket",
+              "qty": 6
+            },
+            {
+              "assembly": "fixed-upper-section",
+              "qty": 1
+            },
+            {
+              "assembly": "cable-cage",
+              "qty": 1
+            },
+            {
+              "part": "scr-m5-30-shcs",
+              "qty": 6
+            },
+            {
+              "assembly": "cable-clamp",
+              "qty": 1
+            },
+            {
+              "part": "scr-m3-12-bhcs",
+              "qty": 2
+            },
+            {
+              "assembly": "limit-switch",
+              "qty": 1
+            },
+            {
+              "part": "scr-m5-20-shcs",
+              "qty": 2
+            },
+            {
+              "part": "tnut-m5-2020",
+              "qty": 8
+            },
+            {
+              "assembly": "chute-stepper-gearing",
+              "qty": 1
+            },
+            {
+              "assembly": "interface-chute-drive",
+              "qty": 1
+            },
+            {
+              "part": "top-interface-split-spur-gear-2",
+              "qty": 1
+            },
+            {
+              "part": "chute-stepper-support-block",
+              "qty": 1
+            },
+            {
+              "part": "scr-m5-shcs-tbd",
+              "qty": 2
+            },
+            {
+              "assembly": "layer-connector",
+              "qty": 1
+            },
+            {
+              "part": "brg-lazy-susan",
+              "qty": 1
+            },
+            {
+              "part": "scr-m4-12-cs",
+              "qty": 8
+            },
+            {
+              "part": "top-plate",
+              "qty": 1
+            },
+            {
+              "part": "scr-m5-35-fhcs",
+              "qty": 6
+            },
+            {
+              "part": "scr-m5-8-cs",
+              "qty": 6
+            }
+          ]
+        },
+        {
+          "seq": 18,
+          "date": "2026-08-25",
+          "lines": [
+            {
+              "assembly": "interface-bracket-mount",
+              "qty": 6
+            },
+            {
+              "part": "ext-bracket-left",
+              "qty": 6
+            },
+            {
+              "part": "ext-bracket-cover",
+              "qty": 6
+            },
+            {
+              "part": "scr-m5-16-shcs",
+              "qty": 12
+            },
+            {
+              "assembly": "fixed-upper-section",
+              "qty": 1
+            },
+            {
+              "assembly": "cable-cage",
+              "qty": 1
+            },
+            {
+              "part": "scr-m5-30-shcs",
+              "qty": 6
+            },
+            {
+              "assembly": "cable-clamp",
+              "qty": 1
+            },
+            {
+              "part": "scr-m3-12-bhcs",
+              "qty": 2
+            },
+            {
+              "assembly": "limit-switch",
+              "qty": 1
+            },
+            {
+              "part": "scr-m5-20-shcs",
+              "qty": 2
+            },
+            {
+              "part": "tnut-m5-2020",
+              "qty": 8
+            },
+            {
+              "assembly": "chute-stepper-gearing",
+              "qty": 1
+            },
+            {
+              "assembly": "interface-chute-drive",
+              "qty": 1
+            },
+            {
+              "part": "top-interface-split-spur-gear-2",
+              "qty": 1
+            },
+            {
+              "part": "chute-stepper-support-block",
+              "qty": 1
+            },
+            {
+              "part": "scr-m5-shcs-tbd",
+              "qty": 2
+            },
+            {
+              "assembly": "layer-connector",
+              "qty": 1
+            },
+            {
+              "part": "brg-lazy-susan",
+              "qty": 1
+            },
+            {
+              "part": "scr-m4-12-cs",
+              "qty": 8
+            },
+            {
+              "part": "top-plate",
+              "qty": 1
+            },
+            {
+              "part": "scr-m5-35-fhcs",
+              "qty": 6
+            },
+            {
+              "part": "scr-m5-8-cs",
+              "qty": 6
+            }
+          ]
+        },
+        {
+          "seq": 26,
+          "date": "2026-08-29",
+          "lines": [
+            {
+              "assembly": "interface-bracket-mount",
+              "qty": 6
+            },
+            {
+              "assembly": "hex-frame",
+              "qty": 1
+            },
+            {
+              "part": "ext-bracket-cover",
+              "qty": 6
+            },
+            {
+              "part": "scr-m5-16-shcs",
+              "qty": 12
+            },
+            {
+              "assembly": "fixed-upper-section",
+              "qty": 1
+            },
+            {
+              "assembly": "cable-cage",
+              "qty": 1
+            },
+            {
+              "part": "scr-m5-30-shcs",
+              "qty": 6
+            },
+            {
+              "assembly": "cable-clamp",
+              "qty": 1
+            },
+            {
+              "part": "scr-m3-12-bhcs",
+              "qty": 2
+            },
+            {
+              "assembly": "limit-switch",
+              "qty": 1
+            },
+            {
+              "part": "scr-m5-20-shcs",
+              "qty": 2
+            },
+            {
+              "assembly": "chute-stepper-gearing",
+              "qty": 1
+            },
+            {
+              "assembly": "interface-chute-drive",
+              "qty": 1
+            },
+            {
+              "part": "top-interface-split-spur-gear-2",
+              "qty": 1
+            },
+            {
+              "part": "chute-stepper-support-block",
+              "qty": 1
+            },
+            {
+              "part": "scr-m5-shcs-tbd",
+              "qty": 2
+            },
+            {
+              "assembly": "layer-connector",
+              "qty": 1
+            },
+            {
+              "part": "brg-lazy-susan",
+              "qty": 1
+            },
+            {
+              "part": "scr-m4-12-cs",
+              "qty": 8
+            },
+            {
+              "part": "top-plate",
+              "qty": 1
+            },
+            {
+              "part": "scr-m5-35-fhcs",
+              "qty": 6
+            },
+            {
+              "part": "scr-m5-8-cs",
+              "qty": 6
+            }
+          ]
+        },
+        {
+          "seq": 36,
+          "date": "2026-08-31",
+          "lines": [
+            {
+              "assembly": "interface-bracket-mount",
+              "qty": 6
+            },
+            {
+              "assembly": "hex-frame",
+              "qty": 1
+            },
+            {
+              "part": "ext-bracket-cover",
+              "qty": 6
+            },
+            {
+              "part": "scr-m5-16-shcs",
+              "qty": 12
+            },
+            {
+              "assembly": "fixed-upper-section",
+              "qty": 1
+            },
+            {
+              "assembly": "cable-cage",
+              "qty": 1
+            },
+            {
+              "part": "scr-m5-30-shcs",
+              "qty": 6
+            },
+            {
+              "assembly": "cable-clamp",
+              "qty": 1
+            },
+            {
+              "part": "scr-m3-12-bhcs",
+              "qty": 2
+            },
+            {
+              "assembly": "limit-switch",
+              "qty": 1
+            },
+            {
+              "part": "scr-m5-20-shcs",
+              "qty": 2
+            },
+            {
+              "assembly": "chute-stepper-gearing",
+              "qty": 1
+            },
+            {
+              "assembly": "interface-chute-drive",
+              "qty": 1
+            },
+            {
+              "part": "top-interface-split-spur-gear-2",
+              "qty": 1
+            },
+            {
+              "part": "scr-m5-shcs-tbd",
+              "qty": 2
+            },
+            {
+              "assembly": "layer-connector",
+              "qty": 1
+            },
+            {
+              "part": "brg-lazy-susan",
+              "qty": 1
+            },
+            {
+              "part": "scr-m4-12-cs",
+              "qty": 8
+            },
+            {
+              "part": "top-plate",
+              "qty": 1
+            },
+            {
+              "part": "scr-m5-35-fhcs",
+              "qty": 6
+            },
+            {
+              "part": "scr-m5-8-cs",
+              "qty": 6
+            }
+          ]
+        },
+        {
+          "seq": 37,
+          "date": "2026-08-31",
+          "lines": [
+            {
+              "assembly": "interface-bracket-mount",
+              "qty": 6
+            },
+            {
+              "assembly": "hex-frame",
+              "qty": 1
+            },
+            {
+              "part": "ext-bracket-cover",
+              "qty": 6
+            },
+            {
+              "part": "scr-m5-16-shcs",
+              "qty": 12
+            },
+            {
+              "assembly": "fixed-upper-section",
+              "qty": 1
+            },
+            {
+              "assembly": "cable-cage",
+              "qty": 1
+            },
+            {
+              "part": "scr-m5-30-shcs",
+              "qty": 6
+            },
+            {
+              "assembly": "cable-clamp",
+              "qty": 1
+            },
+            {
+              "part": "scr-m3-12-bhcs",
+              "qty": 2
+            },
+            {
+              "assembly": "limit-switch",
+              "qty": 1
+            },
+            {
+              "part": "scr-m5-20-shcs",
+              "qty": 2
+            },
+            {
+              "assembly": "chute-stepper-gearing",
+              "qty": 1
+            },
+            {
+              "assembly": "interface-chute-drive",
+              "qty": 1
+            },
+            {
+              "part": "top-interface-split-spur-gear-2",
+              "qty": 1
+            },
+            {
+              "assembly": "layer-connector",
+              "qty": 1
+            },
+            {
+              "part": "brg-lazy-susan",
+              "qty": 1
+            },
+            {
+              "part": "scr-m4-12-cs",
+              "qty": 8
+            },
+            {
+              "part": "top-plate",
+              "qty": 1
+            },
+            {
+              "part": "scr-m5-35-fhcs",
+              "qty": 6
+            },
+            {
+              "part": "scr-m5-8-cs",
+              "qty": 6
+            }
+          ]
+        }
+      ]
+    },
+    "interface-bracket-mount": {
+      "timeline": [
+        {
+          "seq": 0,
+          "date": "2026-08-21",
+          "lines": [
+            {
+              "part": "interface-bracket",
+              "qty": 1
+            },
+            {
+              "part": "interface-spacer",
+              "qty": 1
+            },
+            {
+              "part": "scr-m5-20-shcs",
+              "qty": 4
+            },
+            {
+              "part": "tnut-m5-2020",
+              "qty": 4
+            }
+          ]
+        },
+        {
+          "seq": 26,
+          "date": "2026-08-29",
+          "lines": [
+            {
+              "part": "interface-bracket",
+              "qty": 1
+            },
+            {
+              "part": "interface-spacer",
+              "qty": 1
+            },
+            {
+              "part": "scr-m5-16-shcs",
+              "qty": 4
+            },
+            {
+              "part": "scr-m5-20-shcs",
+              "qty": 4
+            },
+            {
+              "part": "scr-m5-8-cs",
+              "qty": 1
+            },
+            {
+              "part": "tnut-m5-2020",
+              "qty": 9
+            }
+          ]
+        }
+      ]
+    },
+    "interface-chute-drive": {
+      "timeline": [
+        {
+          "seq": 0,
+          "date": "2026-08-21",
+          "lines": [
+            {
+              "part": "top-interface-split-spur-gear-1",
+              "qty": 1
+            },
+            {
+              "part": "top-interface-split-spur-gear-3",
+              "qty": 1
+            },
+            {
+              "part": "scr-m3-12-cs",
+              "qty": 5
+            }
+          ]
+        }
+      ]
+    },
+    "interface-nema23-mount": {
+      "timeline": [
+        {
+          "seq": 0,
+          "date": "2026-08-21",
+          "lines": [
+            {
+              "part": "interface-nema23-bracket",
+              "qty": 1
+            },
+            {
+              "part": "motor-nema23",
+              "qty": 1
+            },
+            {
+              "part": "scr-m5-12-shcs",
+              "qty": 4
+            }
+          ]
+        }
+      ]
+    },
+    "interface-spur-gear-drive": {
+      "timeline": [
+        {
+          "seq": 0,
+          "date": "2026-08-21",
+          "lines": [
+            {
+              "part": "interface-spur-gear",
+              "qty": 1
+            },
+            {
+              "part": "pulley-20t-8mm",
+              "qty": 1
+            },
+            {
+              "part": "scr-m3-8-cs",
+              "qty": 5
+            }
+          ]
+        }
+      ]
+    },
+    "layer": {
+      "timeline": [
+        {
+          "seq": 0,
+          "date": "2026-08-21",
+          "lines": [
+            {
+              "assembly": "layer-frame",
+              "qty": 1
+            },
+            {
+              "assembly": "chute",
+              "qty": 1
+            },
+            {
+              "part": "bin-retainer-left",
+              "qty": 6
+            },
+            {
+              "part": "bin-retainer-right",
+              "qty": 6
+            },
+            {
+              "part": "scr-m5-12-shcs",
+              "qty": 24
+            },
+            {
+              "part": "tnut-m5-2020",
+              "qty": 24
+            }
+          ]
+        },
+        {
+          "seq": 26,
+          "date": "2026-08-29",
+          "lines": [
+            {
+              "assembly": "layer-frame",
+              "qty": 1
+            },
+            {
+              "assembly": "chute",
+              "qty": 1
+            },
+            {
+              "part": "bin-retainer-left",
+              "qty": 6
+            },
+            {
+              "part": "bin-retainer-right",
+              "qty": 6
+            },
+            {
+              "part": "scr-m5-12-shcs",
+              "qty": 24
+            },
+            {
+              "part": "scr-m5-16-shcs",
+              "qty": 12
+            }
+          ]
+        }
+      ]
+    },
+    "layer-connector": {
+      "timeline": [
+        {
+          "seq": 0,
+          "date": "2026-08-21",
+          "lines": [
+            {
+              "part": "layer-connector-1",
+              "qty": 1
+            },
+            {
+              "part": "layer-connector-2",
+              "qty": 1
+            }
+          ]
+        }
+      ]
+    },
+    "layer-frame": {
+      "timeline": [
+        {
+          "seq": 0,
+          "date": "2026-08-21",
+          "lines": [
+            {
+              "assembly": "external-bracket",
+              "qty": 6
+            },
+            {
+              "part": "frame-crossbeam",
+              "qty": 6
+            },
+            {
+              "part": "frame-90deg-bracket",
+              "qty": 12
+            }
+          ]
+        },
+        {
+          "seq": 26,
+          "date": "2026-08-29",
+          "lines": [
+            {
+              "assembly": "hex-frame",
+              "qty": 1
+            },
+            {
+              "part": "ext-bracket-bottom-vertical",
+              "qty": 6
+            },
+            {
+              "part": "ext-bracket-cover",
+              "qty": 6
+            },
+            {
+              "part": "scr-m5-16-shcs",
+              "qty": 24
+            }
+          ]
+        }
+      ]
+    },
+    "lazy-susan": {
+      "timeline": [
+        {
+          "seq": 0,
+          "date": "2026-08-21",
+          "lines": [
+            {
+              "part": "ls-mount-to-chute",
+              "qty": 1
+            },
+            {
+              "part": "ls-bottom-static",
+              "qty": 1
+            },
+            {
+              "part": "ls-washer",
+              "qty": 1
+            },
+            {
+              "part": "ls-mount-to-extrusion",
+              "qty": 3
+            },
+            {
+              "part": "ls-hold-in-place",
+              "qty": 3
+            },
+            {
+              "part": "brg-lazy-susan",
+              "qty": 1
+            },
+            {
+              "part": "scr-m4-12-cs",
+              "qty": 8
+            },
+            {
+              "part": "scr-m5-16-shcs",
+              "qty": 3
+            },
+            {
+              "part": "tnut-m5-2020",
+              "qty": 3
+            }
+          ]
+        },
+        {
+          "seq": 26,
+          "date": "2026-08-29",
+          "lines": [
+            {
+              "part": "ls-mount-to-chute",
+              "qty": 1
+            },
+            {
+              "part": "ls-bottom-static",
+              "qty": 1
+            },
+            {
+              "part": "ls-washer",
+              "qty": 1
+            },
+            {
+              "part": "ls-mount-to-extrusion",
+              "qty": 3
+            },
+            {
+              "part": "ls-hold-in-place",
+              "qty": 3
+            },
+            {
+              "part": "brg-lazy-susan",
+              "qty": 1
+            },
+            {
+              "part": "scr-m4-12-cs",
+              "qty": 8
+            },
+            {
+              "part": "scr-m5-16-shcs",
+              "qty": 9
+            },
+            {
+              "part": "tnut-m5-2020",
+              "qty": 6
+            }
+          ]
+        }
+      ]
+    },
+    "light-post": {
+      "timeline": [
+        {
+          "seq": 0,
+          "date": "2026-08-21",
+          "lines": [
+            {
+              "part": "light-post",
+              "qty": 1
+            },
+            {
+              "part": "light-post-cap",
+              "qty": 1
+            },
+            {
+              "part": "light-post-cap-adapter",
+              "qty": 1
+            },
+            {
+              "part": "scr-m3-12-cs",
+              "qty": 3
+            },
+            {
+              "part": "scr-m3-20-cs",
+              "qty": 2
+            },
+            {
+              "part": "led-cob-50mm-24v",
+              "qty": 1
+            }
+          ]
+        },
+        {
+          "seq": 7,
+          "date": "2026-08-22",
+          "lines": null
+        }
+      ]
+    },
+    "light-post-assembly": {
+      "timeline": [
+        {
+          "seq": 7,
+          "date": "2026-08-22",
+          "lines": [
+            {
+              "part": "light-post",
+              "qty": 1
+            },
+            {
+              "part": "light-post-cap",
+              "qty": 1
+            },
+            {
+              "part": "light-post-cap-adapter",
+              "qty": 1
+            },
+            {
+              "part": "scr-m3-12-cs",
+              "qty": 3
+            },
+            {
+              "part": "scr-m3-20-cs",
+              "qty": 2
+            },
+            {
+              "part": "led-cob-50mm-24v",
+              "qty": 1
+            }
+          ]
+        }
+      ]
+    },
+    "limit-switch": {
+      "timeline": [
+        {
+          "seq": 0,
+          "date": "2026-08-21",
+          "lines": [
+            {
+              "part": "limit-switch-dowel-pin",
+              "qty": 1
+            },
+            {
+              "part": "limit-switch-housing",
+              "qty": 1
+            },
+            {
+              "part": "limit-switch-hammer",
+              "qty": 1
+            },
+            {
+              "part": "endstop-mechanical",
+              "qty": 1
+            },
+            {
+              "part": "scr-m3-12-bhcs",
+              "qty": 2
+            }
+          ]
+        },
+        {
+          "seq": 26,
+          "date": "2026-08-29",
+          "lines": [
+            {
+              "part": "limit-switch-dowel-pin",
+              "qty": 1
+            },
+            {
+              "part": "limit-switch-housing",
+              "qty": 1
+            },
+            {
+              "part": "limit-switch-hammer",
+              "qty": 1
+            },
+            {
+              "part": "endstop-mechanical",
+              "qty": 1
+            },
+            {
+              "part": "scr-m3-12-bhcs",
+              "qty": 2
+            },
+            {
+              "part": "scr-m5-16-shcs",
+              "qty": 2
+            },
+            {
+              "part": "tnut-m5-2020",
+              "qty": 2
+            }
+          ]
+        }
+      ]
+    },
+    "machine": {
+      "timeline": [
+        {
+          "seq": 0,
+          "date": "2026-08-21",
+          "lines": [
+            {
+              "assembly": "feeder",
+              "qty": 1
+            },
+            {
+              "assembly": "interface",
+              "qty": 1
+            },
+            {
+              "assembly": "layer",
+              "qty": "middle-layers"
+            },
+            {
+              "assembly": "bottom-interface",
+              "qty": 1
+            },
+            {
+              "assembly": "electronics",
+              "qty": 1
+            }
+          ]
+        }
+      ]
+    },
+    "meanwell-psu-box": {
+      "timeline": [
+        {
+          "seq": 0,
+          "date": "2026-08-21",
+          "lines": [
+            {
+              "part": "meanwell-psu-back-mount",
+              "qty": 1
+            },
+            {
+              "part": "meanwell-psu-connections",
+              "qty": 1
+            },
+            {
+              "part": "meanwell-psu-cap",
+              "qty": 1
+            },
+            {
+              "part": "psu-24v-350w",
+              "qty": 1
+            },
+            {
+              "part": "scr-m4-6-cs",
+              "qty": 4
+            }
+          ]
+        },
+        {
+          "seq": 21,
+          "date": "2026-08-25",
+          "lines": [
+            {
+              "part": "meanwell-psu-back-mount",
+              "qty": 1
+            },
+            {
+              "part": "meanwell-psu-connections",
+              "qty": 1
+            },
+            {
+              "part": "meanwell-psu-cap",
+              "qty": 1
+            },
+            {
+              "part": "psu-24v-350w",
+              "qty": 1
+            },
+            {
+              "part": "scr-m4-6-cs",
+              "qty": 4
+            },
+            {
+              "part": "scr-m5-12-shcs",
+              "qty": 2
+            }
+          ]
+        }
+      ]
+    },
+    "orange-pi-5-housing": {
+      "timeline": [
+        {
+          "seq": 0,
+          "date": "2026-08-21",
+          "lines": []
+        },
+        {
+          "seq": 4,
+          "date": "2026-08-22",
+          "lines": null
+        }
+      ]
+    },
+    "orange-pi-mount": {
+      "timeline": [
+        {
+          "seq": 0,
+          "date": "2026-08-21",
+          "lines": [
+            {
+              "part": "sbc-orange-pi-5",
+              "qty": 1
+            },
+            {
+              "part": "scr-m3-tbd",
+              "qty": 4
+            },
+            {
+              "part": "hsi-m3",
+              "qty": 4
+            },
+            {
+              "part": "standoff-m3-10mm",
+              "qty": 4
+            }
+          ]
+        },
+        {
+          "seq": 7,
+          "date": "2026-08-22",
+          "lines": [
+            {
+              "part": "orange-pi-extrusion-mount",
+              "qty": 1
+            },
+            {
+              "part": "sbc-orange-pi-5",
+              "qty": 1
+            },
+            {
+              "part": "scr-m3-tbd",
+              "qty": 4
+            },
+            {
+              "part": "hsi-m3",
+              "qty": 4
+            },
+            {
+              "part": "standoff-m3-10mm",
+              "qty": 4
+            },
+            {
+              "part": "fan-bracket-40mm",
+              "qty": 1
+            },
+            {
+              "part": "fan-40mm-24v",
+              "qty": 1
+            }
+          ]
+        },
+        {
+          "seq": 21,
+          "date": "2026-08-25",
+          "lines": [
+            {
+              "part": "orange-pi-extrusion-mount",
+              "qty": 1
+            },
+            {
+              "part": "sbc-orange-pi-5",
+              "qty": 1
+            },
+            {
+              "part": "scr-m3-tbd",
+              "qty": 4
+            },
+            {
+              "part": "hsi-m3",
+              "qty": 4
+            },
+            {
+              "part": "standoff-m3-10mm",
+              "qty": 4
+            },
+            {
+              "part": "fan-bracket-40mm",
+              "qty": 1
+            },
+            {
+              "part": "fan-40mm-24v",
+              "qty": 1
+            },
+            {
+              "part": "scr-m5-12-shcs",
+              "qty": 2
+            }
+          ]
+        },
+        {
+          "seq": 25,
+          "date": "2026-08-29",
+          "lines": [
+            {
+              "part": "orange-pi-extrusion-mount",
+              "qty": 1
+            },
+            {
+              "part": "sbc-orange-pi-5",
+              "qty": 1
+            },
+            {
+              "part": "scr-m3-6-bhcs",
+              "qty": 4
+            },
+            {
+              "part": "hsi-m3",
+              "qty": 4
+            },
+            {
+              "part": "standoff-m3-10mm",
+              "qty": 4
+            },
+            {
+              "part": "fan-bracket-40mm",
+              "qty": 1
+            },
+            {
+              "part": "fan-40mm-24v",
+              "qty": 1
+            },
+            {
+              "part": "scr-m5-12-shcs",
+              "qty": 2
+            }
+          ]
+        }
+      ]
+    },
+    "pico-headers": {
+      "timeline": [
+        {
+          "seq": 0,
+          "date": "2026-08-21",
+          "lines": [
+            {
+              "part": "mcu-rpi-pico",
+              "qty": 1
+            },
+            {
+              "part": "header-pins-254",
+              "qty": 20
+            }
+          ]
+        },
+        {
+          "seq": 34,
+          "date": "2026-08-31",
+          "lines": [
+            {
+              "part": "mcu-rpi-pico",
+              "qty": 1
+            },
+            {
+              "part": "header-pins-254",
+              "qty": 40
+            }
+          ]
+        }
+      ]
+    },
+    "rotor-unit-faceted": {
+      "timeline": [
+        {
+          "seq": 40,
+          "date": "2026-08-31",
+          "lines": [
+            {
+              "part": "rotor-faceted",
+              "qty": 1
+            },
+            {
+              "part": "output-gear",
+              "qty": 1
+            },
+            {
+              "part": "scr-m3-12-cs",
+              "qty": 6
+            }
+          ]
+        }
+      ]
+    },
+    "rotor-unit-finned": {
+      "timeline": [
+        {
+          "seq": 40,
+          "date": "2026-08-31",
+          "lines": [
+            {
+              "part": "rotor-finned",
+              "qty": 1
+            },
+            {
+              "part": "output-gear",
+              "qty": 1
+            },
+            {
+              "part": "scr-m3-12-cs",
+              "qty": 6
+            }
+          ]
+        }
+      ]
+    },
+    "servo-adapter": {
+      "timeline": [
+        {
+          "seq": 0,
+          "date": "2026-08-21",
+          "lines": [
+            {
+              "part": "servo-adapter-servo-side",
+              "qty": 1
+            },
+            {
+              "part": "servo-adapter-flap-side",
+              "qty": 1
+            }
+          ]
+        },
+        {
+          "seq": 15,
+          "date": "2026-08-25",
+          "lines": [
+            {
+              "part": "servo-adapter-servo-side",
+              "qty": 1
+            },
+            {
+              "part": "servo-adapter-flap-side",
+              "qty": 1
+            },
+            {
+              "part": "mg995-servo-horn",
+              "qty": 1
+            },
+            {
+              "part": "scr-m3-8-cs",
+              "qty": 4
+            }
+          ]
+        }
+      ]
+    },
+    "servo-bracket": {
+      "timeline": [
+        {
+          "seq": 0,
+          "date": "2026-08-21",
+          "lines": [
+            {
+              "part": "servo-bracket-lower-arm",
+              "qty": 1
+            },
+            {
+              "part": "servo-bracket-side-arm",
+              "qty": 1
+            },
+            {
+              "part": "servo-bracket-cover",
+              "qty": 1
+            },
+            {
+              "part": "servo-bracket-housing",
+              "qty": 1
+            },
+            {
+              "part": "servo-mg995",
+              "qty": 1
+            },
+            {
+              "part": "scr-m3-12-cs",
+              "qty": 4
+            },
+            {
+              "part": "scr-m3-8-cs",
+              "qty": 2
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "ghosts": {
+    "embedded-control-board-housing": "basically Embedded Control Board Housing",
+    "orange-pi-5-housing": "Orange Pi 5 Housing"
+  }
 }

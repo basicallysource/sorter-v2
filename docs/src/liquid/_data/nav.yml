@@ -99,14 +99,10 @@ sections:
             url: /hardware/helpers/lazy-susan/
           - title: Prepare timing pulley 20 tooth
             url: /hardware/helpers/pulley-gear-mod/
-          - title: Installing heat inserts
-            url: /hardware/helpers/heat-inserts/
           - title: Soldering Pico headers
             url: /hardware/electronics/installation/pico-headers/
-          - title: Assembling External bracket
-            url: /hardware/helpers/external-bracket/
-          - title: Attaching the hexagonal frame's spokes
-            url: /hardware/helpers/hex-frame-spokes/
+          - title: Installing heat inserts
+            url: /hardware/helpers/heat-inserts/
       - title: Parts
         url: /hardware/parts/
         children:

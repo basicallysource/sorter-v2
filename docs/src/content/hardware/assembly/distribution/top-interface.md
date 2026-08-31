@@ -617,7 +617,7 @@ Build a [hex frame]({{ '/hardware/assembly/distribution/bin-frame/hex-frame/' | 
   <figcaption><cite>Photo: zed0.</cite></figcaption>
 </figure>
 
-Attach an External bracket cover to each of the External bracket sides, then fasten each one with 2 {% include fastener.html size="M5" variant="socket-button" length="16" %} screws into the holes at the base of the External bracket sides, bracing against the extrusion. These holes run parallel to the extrusion profile, and the screws are self-tapping. See [Assembling External bracket]({{ '/hardware/helpers/external-bracket/' | relative_url }}) for the parts themselves. There is no External bracket — bottom vertical at this joint; see [step 14](#step-14) for what's different here.
+Attach an External bracket cover to each of the External bracket sides, then fasten each one with 2 {% include fastener.html size="M5" variant="socket-button" length="16" %} screws into the holes at the base of the External bracket sides, bracing against the extrusion. These holes run parallel to the extrusion profile, and the screws are self-tapping. There is no External bracket — bottom vertical at this joint; see [step 14](#step-14) for what's different here.
 
 {% include step.html n="14" title="How the interface joins the top layer" %}
 

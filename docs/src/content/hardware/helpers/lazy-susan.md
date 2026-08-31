@@ -22,7 +22,9 @@ Background on the part — sourcing, load rating, the 8" variant — is on the [
 
 ## Remove the rubber feet
 
-Some variants ship with rubber feet. Pull them off — pliers work well.
+Some variants ship with rubber feet, which stop the bearing sitting flush once it's mounted — this prep happens before installing the Lazy Susan in [bottom interface]({{ '/hardware/assembly/distribution/bin-frame/bottom-interface/' | relative_url }}). If yours has them, pull them off — pliers work well. If yours doesn't have feet, skip this step.
+
+The video below shows removing them: grip each foot near where it meets the bearing housing and pull straight up until it releases, working around the housing until none remain.
 
 <figure class="video-figure">
   <div class="video-embed video-embed-wide">

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import {
+		Check,
 		ChevronDown,
 		ChevronRight,
 		Download,
@@ -8,8 +9,10 @@
 		FlaskConical,
 		History,
 		Info,
+		X,
 		Zap
 	} from 'lucide-svelte';
+	import DropdownMenu from '$lib/components/DropdownMenu.svelte';
 	import AlternativeBadge from '$lib/components/AlternativeBadge.svelte';
 	import ConflictBadge from '$lib/components/ConflictBadge.svelte';
 	import AssemblyDescription from '$lib/components/AssemblyDescription.svelte';
@@ -469,32 +472,23 @@
 	</li>
 {/snippet}
 
-{#snippet diffRow(r: DiffRow)}
-	{@const l = r.now ?? r.old}
-	<li
-		class="flex items-center gap-2.5 border px-2 py-1.5 text-xs {r.kind === 'added'
-			? 'border-primary/60 bg-primary/[0.05]'
-			: r.kind === 'removed'
-				? 'border-border bg-surface opacity-75'
-				: 'border-border bg-surface'}"
-	>
-		<span
-			class="w-8 shrink-0 text-center font-mono text-[10px] font-semibold uppercase {r.kind === 'added'
-				? 'text-primary'
-				: r.kind === 'removed'
-					? 'text-warning-dark'
-					: r.kind === 'same'
-						? 'text-text-muted'
-						: 'text-warning-dark'}"
-			title={r.kind === 'added' ? 'Added in the newer version' : r.kind === 'removed' ? 'Removed in the newer version' : r.kind === 'qty' ? 'Quantity changed' : r.kind === 'rev' ? 'Member revised (new uid)' : 'Unchanged'}
-		>{r.kind === 'added' ? '+' : r.kind === 'removed' ? '−' : r.kind === 'qty' ? 'qty' : r.kind === 'rev' ? 'rev' : '·'}</span>
-		{@render memberCell(r.id, l?.uid, r.kind === 'removed')}
-		<span class="shrink-0 tabular-nums {r.kind === 'same' ? 'text-text-muted' : 'font-semibold'}">
-			{#if r.kind === 'qty'}×{r.old?.qty} → ×{r.now?.qty}
-			{:else if r.kind === 'rev'}<span class="font-mono text-[11px]">{r.old?.uid} → {r.now?.uid}</span>
-			{:else}×{l?.qty}{/if}
-		</span>
-	</li>
+<!-- One side of a diff row. Absent = the member doesn't exist in this
+     version; a dashed placeholder keeps the two columns aligned. -->
+{#snippet diffCell(l: AssemblySnapshotLine | undefined, tone: 'plain' | 'danger' | 'success')}
+	{#if l}
+		<div
+			class="flex items-center gap-2 border px-2 py-1.5 text-xs {tone === 'danger'
+				? 'border-danger/50 bg-danger/[0.06]'
+				: tone === 'success'
+					? 'border-success/50 bg-success/[0.07]'
+					: 'border-border bg-surface'}"
+		>
+			{@render memberCell(l.part ?? l.assembly ?? '', l.uid, false)}
+			<span class="shrink-0 tabular-nums {tone === 'plain' ? 'text-text-muted' : 'font-semibold'} {tone === 'danger' ? 'text-danger-dark' : tone === 'success' ? 'text-success-dark' : ''}">×{l.qty}</span>
+		</div>
+	{:else}
+		<div class="border border-dashed border-border/70"></div>
+	{/if}
 {/snippet}
 
 <!-- A node's line rows, routed by the header's version controls: the live
@@ -505,16 +499,22 @@
 	{@const base = filtering ? undefined : diffBase[asm.id]}
 	{#if base && base !== shown}
 		{@const [lo, hi] = Number(base) <= Number(shown) ? [base, shown] : [shown, base]}
+		{@const loEntry = asm.versions?.find((e) => e.version === lo)}
 		<div class="ml-1.5 mt-2 sm:ml-4">
-			<div class="flex flex-wrap items-center gap-x-2 gap-y-1 border border-warning/50 bg-warning/[0.08] px-2 py-1.5 text-xs text-warning-dark">
-				<History size={11} /> Changes v{lo} → v{hi}
-				<button type="button" class="ml-auto font-medium underline underline-offset-2" onclick={() => delete diffBase[asm.id]}>close diff</button>
-			</div>
-			<ul class="mt-1.5 space-y-1">
+			<div class="grid grid-cols-2 gap-x-1.5 gap-y-1">
+				<div class="flex items-baseline gap-1.5 border-b border-danger/60 px-2 pb-1 text-xs">
+					<span class="font-mono font-semibold text-danger">v{lo}</span>
+					<span class="text-text-muted">{lo === cur ? 'current' : `superseded${loEntry?.date ? ` ${fmtDate(loEntry.date)}` : ''}`}</span>
+				</div>
+				<div class="flex items-baseline gap-1.5 border-b border-success/60 px-2 pb-1 text-xs">
+					<span class="font-mono font-semibold text-success">v{hi}</span>
+					<span class="text-text-muted">{hi === cur ? 'current' : 'superseded'}</span>
+				</div>
 				{#each diffLines(linesAt(asm, lo) ?? [], linesAt(asm, hi) ?? []) as r (r.id)}
-					{@render diffRow(r)}
+					{@render diffCell(r.kind === 'added' ? undefined : r.old, r.kind === 'same' ? 'plain' : 'danger')}
+					{@render diffCell(r.kind === 'removed' ? undefined : r.now, r.kind === 'same' ? 'plain' : 'success')}
 				{/each}
-			</ul>
+			</div>
 		</div>
 	{:else if shown !== cur}
 		{@const entry = asm.versions?.find((e) => e.version === shown)}
@@ -603,37 +603,6 @@
 					{:else if qty === 'middle-layers'}×{Math.max(0, layers - 2)} (layers between the interfaces)
 					{:else if qty !== 1}×{qty}{/if}
 				</span>
-				{#if !filtering && (asm.versions?.length ?? 0) > 1}
-					<select
-						class="asm-ver"
-						value={shownVersion[asm.id] ?? currentVersion(asm)}
-						onchange={(e) => (shownVersion[asm.id] = e.currentTarget.value)}
-						aria-label="{asm.name}: version to display"
-					>
-						{#each [...(asm.versions ?? [])].reverse() as v (v.version)}
-							<option value={v.version}>v{v.version}{v.version === currentVersion(asm) ? '' : ' (superseded)'}</option>
-						{/each}
-					</select>
-					<select
-						class="asm-ver"
-						value={diffBase[asm.id] ?? ''}
-						onchange={(e) => {
-							const val = e.currentTarget.value;
-							if (val) diffBase[asm.id] = val;
-							else delete diffBase[asm.id];
-						}}
-						aria-label="{asm.name}: version to diff against"
-					>
-						<option value="">diff…</option>
-						{#each [...(asm.versions ?? [])].reverse() as v (v.version)}
-							{#if v.version !== (shownVersion[asm.id] ?? currentVersion(asm))}
-								<option value={v.version}>vs v{v.version}</option>
-							{/if}
-						{/each}
-					</select>
-				{:else}
-					<span class="font-mono text-[11px] text-text-muted">v{currentVersion(asm)}</span>
-				{/if}
 				{#if asm.status === 'stub'}
 					<span
 						class="cursor-help border border-border px-1.5 py-px text-[10px] font-semibold uppercase tracking-wider text-text-muted"
@@ -655,6 +624,80 @@
 						>
 							In Docs <ExternalLink size={10} />
 						</a>
+					{/if}
+					{#if !filtering && (asm.versions?.length ?? 0) > 1}
+						{#if diffBase[asm.id]}
+							<button
+								type="button"
+								class="inline-flex items-center gap-1 border border-border bg-surface px-1.5 py-0.5 text-[11px] font-medium text-text hover:border-primary"
+								onclick={() => delete diffBase[asm.id]}
+								title="Close the diff"
+							>
+								diff v{diffBase[asm.id]} <X size={11} />
+							</button>
+						{:else}
+							<DropdownMenu label="{asm.name}: diff against a version" menuClass="w-48">
+								{#snippet trigger({ toggle, open })}
+									<button
+										type="button"
+										class="inline-flex items-center gap-0.5 text-[11px] font-medium text-text-muted hover:text-text"
+										onclick={toggle}
+										aria-expanded={open}
+									>
+										Diff against <ChevronDown size={11} />
+									</button>
+								{/snippet}
+								{#snippet children({ close })}
+									{#each [...(asm.versions ?? [])].reverse() as v (v.version)}
+										{#if v.version !== (shownVersion[asm.id] ?? currentVersion(asm))}
+											<button
+												type="button"
+												class="flex w-full items-center gap-2 px-2.5 py-1.5 text-left text-xs hover:bg-[var(--color-bg)]"
+												onclick={() => {
+													diffBase[asm.id] = v.version;
+													close();
+												}}
+											>
+												<span class="font-mono">v{v.version}</span>
+												<span class="text-text-muted">{v.version === currentVersion(asm) ? 'current' : `superseded${v.date ? ` ${fmtDate(v.date)}` : ''}`}</span>
+											</button>
+										{/if}
+									{/each}
+								{/snippet}
+							</DropdownMenu>
+						{/if}
+						<DropdownMenu label="{asm.name}: version to display" menuClass="w-52">
+							{#snippet trigger({ toggle, open })}
+								<button
+									type="button"
+									class="inline-flex items-center gap-1 border border-border bg-surface px-1.5 py-0.5 font-mono text-[11px] text-text hover:border-primary"
+									onclick={toggle}
+									aria-expanded={open}
+								>
+									v{shownVersion[asm.id] ?? currentVersion(asm)} <ChevronDown size={11} />
+								</button>
+							{/snippet}
+							{#snippet children({ close })}
+								{#each [...(asm.versions ?? [])].reverse() as v (v.version)}
+									{@const active = v.version === (shownVersion[asm.id] ?? currentVersion(asm))}
+									<button
+										type="button"
+										class="flex w-full items-center gap-2 px-2.5 py-1.5 text-left text-xs hover:bg-[var(--color-bg)]"
+										onclick={() => {
+											if (v.version === currentVersion(asm)) delete shownVersion[asm.id];
+											else shownVersion[asm.id] = v.version;
+											close();
+										}}
+									>
+										<span class="font-mono">v{v.version}</span>
+										<span class="text-text-muted">{v.version === currentVersion(asm) ? 'current' : `superseded${v.date ? ` ${fmtDate(v.date)}` : ''}`}</span>
+										{#if active}<Check size={12} class="ml-auto text-primary" />{/if}
+									</button>
+								{/each}
+							{/snippet}
+						</DropdownMenu>
+					{:else}
+						<span class="font-mono text-[11px] text-text-muted">v{currentVersion(asm)}</span>
 					{/if}
 					{#if hasContent}
 						<button
@@ -788,21 +831,5 @@
 	.tree-line:hover::before,
 	.tree-line:focus-visible::before {
 		background: var(--color-primary);
-	}
-	/* The version dropdowns in a node's header row. Native selects, sized to
-	   read as chips beside the name. */
-	.asm-ver {
-		border: 1px solid var(--color-border);
-		background: var(--color-surface);
-		color: var(--color-text);
-		font-size: 11px;
-		font-family: var(--font-mono, monospace);
-		padding: 1px 2px;
-		cursor: pointer;
-	}
-	.asm-ver:hover,
-	.asm-ver:focus-visible {
-		outline: none;
-		border-color: var(--color-primary);
 	}
 </style>

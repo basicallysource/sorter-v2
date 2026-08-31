@@ -488,7 +488,7 @@
 						<span class="border border-border px-1.5 py-px text-[10px] font-semibold uppercase tracking-wider text-text-muted"
 							>{part ? '3D printed' : 'assembly'}</span>
 						{#if l.uid}
-							<span class="font-mono text-xs text-text-muted">{l.uid}{rev ? ` · v${rev}` : ''}</span>
+							<span class="font-mono text-xs text-text-muted">{l.uid}</span>{#if rev}<span class="text-xs text-text-muted">· v{rev}</span>{/if}
 						{/if}
 					</div>
 					{#if part && typeof (pv?.grams ?? part.grams) === 'number'}
@@ -548,11 +548,11 @@
 		<div class="ml-1.5 mt-2 sm:ml-4">
 			<div class="grid grid-cols-2 gap-x-1.5 gap-y-1">
 				<div class="flex items-baseline gap-1.5 border-b border-danger/60 px-2 pb-1 text-xs">
-					<span class="font-mono font-semibold text-danger">v{lo}</span>
+					<span class="font-semibold text-danger">v{lo}</span>
 					<span class="text-text-muted">{lo === cur ? 'current' : `superseded${loEntry?.date ? ` ${fmtDate(loEntry.date)}` : ''}`}</span>
 				</div>
 				<div class="flex items-baseline gap-1.5 border-b border-success/60 px-2 pb-1 text-xs">
-					<span class="font-mono font-semibold text-success">v{hi}</span>
+					<span class="font-semibold text-success">v{hi}</span>
 					<span class="text-text-muted">{hi === cur ? 'current' : 'superseded'}</span>
 				</div>
 				{#each diffLines(linesAt(asm, lo) ?? [], linesAt(asm, hi) ?? []) as r (r.id)}
@@ -672,7 +672,7 @@
 						{#if diffBase[asm.id]}
 							<button
 								type="button"
-								class="inline-flex items-center gap-1 border border-border bg-surface px-1.5 py-0.5 text-[11px] font-medium text-text hover:border-primary"
+								class="inline-flex items-center gap-1 border border-border bg-surface px-1.5 py-0.5 text-xs text-text hover:border-primary"
 								onclick={() => delete diffBase[asm.id]}
 								title="Close the diff"
 							>
@@ -683,7 +683,7 @@
 								{#snippet trigger({ toggle, open })}
 									<button
 										type="button"
-										class="inline-flex items-center gap-0.5 text-[11px] font-medium text-text-muted hover:text-text"
+										class="inline-flex items-center gap-0.5 text-xs text-text-muted hover:text-text"
 										onclick={toggle}
 										aria-expanded={open}
 									>
@@ -701,7 +701,7 @@
 													close();
 												}}
 											>
-												<span class="font-mono">v{v.version}</span>
+												<span>v{v.version}</span>
 												<span class="text-text-muted">{v.version === currentVersion(asm) ? 'current' : `superseded${v.date ? ` ${fmtDate(v.date)}` : ''}`}</span>
 											</button>
 										{/if}
@@ -714,7 +714,7 @@
 								{@const viewingOld = !!shownVersion[asm.id] && shownVersion[asm.id] !== currentVersion(asm)}
 								<button
 									type="button"
-									class="inline-flex items-center gap-1 border px-1.5 py-0.5 font-mono text-[11px] {viewingOld
+									class="inline-flex items-center gap-1 border px-1.5 py-0.5 text-xs {viewingOld
 										? 'border-warning/50 bg-warning/[0.08] text-warning-dark hover:border-warning'
 										: 'border-border bg-surface text-text hover:border-primary'}"
 									onclick={toggle}
@@ -737,7 +737,7 @@
 											close();
 										}}
 									>
-										<span class="font-mono">v{v.version}</span>
+										<span>v{v.version}</span>
 										<span class="text-text-muted">{v.version === currentVersion(asm) ? 'current' : `superseded${v.date ? ` ${fmtDate(v.date)}` : ''}`}</span>
 										{#if active}<Check size={12} class="ml-auto text-primary" />{/if}
 									</button>
@@ -745,7 +745,7 @@
 							{/snippet}
 						</DropdownMenu>
 					{:else}
-						<span class="font-mono text-[11px] text-text-muted">v{currentVersion(asm)}</span>
+						<span class="text-xs text-text-muted">v{currentVersion(asm)}</span>
 					{/if}
 					{#if hasContent}
 						<button

@@ -1,5 +1,16 @@
 <script lang="ts">
-	import { BookOpen, Download, ExternalLink, FlaskConical, History, Zap } from 'lucide-svelte';
+	import {
+		BookOpen,
+		ChevronDown,
+		ChevronRight,
+		Download,
+		EllipsisVertical,
+		ExternalLink,
+		FlaskConical,
+		History,
+		Maximize2,
+		Zap
+	} from 'lucide-svelte';
 	import AlternativeBadge from '$lib/components/AlternativeBadge.svelte';
 	import ConflictBadge from '$lib/components/ConflictBadge.svelte';
 	import AssemblyDescription from '$lib/components/AssemblyDescription.svelte';
@@ -43,6 +54,50 @@
 	// the chute core is the first branch carrying real hardware via `requires`.
 	const layers = $derived(layerStore.sizes.length);
 
+	// ---- collapsing the tree -------------------------------------------------
+	// Every node can fold. The record below is also the authored default-open
+	// set: only the machine itself starts open, so the page opens as a one-line
+	// table of contents instead of the whole bill of materials at once.
+	let expanded = $state<Record<string, boolean>>({ machine: true });
+	const isOpen = (id: string) => (filtering ? true : (expanded[id] ?? false));
+	function toggle(id: string) {
+		expanded[id] = !(expanded[id] ?? false);
+	}
+
+	// The ⋮ menu on a node: expand or collapse its whole subtree, itself
+	// included. One open menu at a time, keyed by assembly id.
+	let menuFor = $state<string | null>(null);
+	function setSubtree(id: string, open: boolean, seen = new Set<string>()) {
+		if (seen.has(id)) return;
+		seen.add(id);
+		expanded[id] = open;
+		for (const line of getAssembly(id)?.lines ?? []) {
+			if (line.assembly) setSubtree(line.assembly, open, seen);
+		}
+		menuFor = null;
+	}
+	function onWindowClick(e: MouseEvent) {
+		if (menuFor && !(e.target as Element)?.closest?.('[data-asm-menu]')) menuFor = null;
+	}
+	function onWindowKey(e: KeyboardEvent) {
+		if (e.key === 'Escape') menuFor = null;
+	}
+
+	// First parent wins for a subtree shared by two branches — good enough for
+	// walking upward from a focus target.
+	const parentOf = new Map<string, string>();
+	{
+		const walk = (id: string) => {
+			for (const line of getAssembly(id)?.lines ?? []) {
+				if (line.assembly && !parentOf.has(line.assembly)) {
+					parentOf.set(line.assembly, id);
+					walk(line.assembly);
+				}
+			}
+		};
+		walk('machine');
+	}
+
 	// ?focus=<assembly id> — the hardware page links here to answer "where does
 	// this screw actually go?". Read in an effect rather than derived: the site is
 	// prerendered, so query params don't exist until the page is in a browser.
@@ -51,6 +106,8 @@
 		const target = page.url.searchParams.get('focus');
 		focus = target;
 		if (!target) return;
+		// A collapsed ancestor would hide the thing being pointed at.
+		for (let cur: string | undefined = target; cur; cur = parentOf.get(cur)) expanded[cur] = true;
 		// Part renders load after first paint and shift everything down, so one
 		// scroll lands short. Re-aim a few times while the layout settles.
 		const aim = () => document.getElementById(`asm-${target}`)?.scrollIntoView({ block: 'center' });
@@ -198,6 +255,8 @@
 	}
 </script>
 
+<svelte:window onclick={onWindowClick} onkeydown={onWindowKey} />
+
 <Seo title="Machine assembly" description="The Sorter V2 machine's assembly tree." />
 
 {#snippet requiresRows(partId: string, mult: number)}
@@ -321,14 +380,34 @@
 {#snippet node(id: string, qty: AssemblyLine['qty'], mult: number, depth: number)}
 	{@const asm = getAssembly(id)}
 	{#if asm && (!filtering || keep.assemblies.has(asm.id))}
+		{@const hasContent =
+			(asm.lines?.length ?? 0) > 0 ||
+			(asm.candidates?.length ?? 0) > 0 ||
+			(asm.versions?.length ?? 1) > 1 ||
+			(asm.joining?.length ?? 0) > 0 ||
+			(asm.images?.length ?? 0) > 0}
+		{@const open = hasContent && isOpen(asm.id)}
 		<div
 			id="asm-{asm.id}"
-			class="border-l-2 {depth > 0 ? 'ml-1.5 pl-2 sm:ml-4 sm:pl-4' : 'pl-2 sm:pl-4'} py-2 {focus === asm.id
-				? 'border-primary bg-primary/[0.06]'
-				: 'border-border'}"
+			class="{depth > 0 ? 'ml-1.5 mt-2 sm:ml-4' : ''} py-1 {focus === asm.id ? 'bg-primary/[0.06]' : ''}"
 		>
-			<div class="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
-				<button type="button" class="asm-open text-sm font-semibold text-text" onclick={() => openAssembly(asm.id)} title="View {asm.name} on its own">{asm.name}</button>
+			<div class="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+				{#if hasContent}
+					<button
+						type="button"
+						class="-ml-1 flex h-5 w-5 shrink-0 items-center justify-center text-text-muted hover:text-text"
+						onclick={() => toggle(asm.id)}
+						aria-expanded={open}
+						aria-label="{open ? 'Collapse' : 'Expand'} {asm.name}"
+					>
+						{#if open}<ChevronDown size={14} />{:else}<ChevronRight size={14} />{/if}
+					</button>
+				{:else}
+					<span class="-ml-1 h-5 w-5 shrink-0"></span>
+				{/if}
+				<button type="button" class="asm-open text-sm font-semibold text-text" onclick={() => openAssembly(asm.id)} title="View {asm.name} on its own">
+					{asm.name}<span class="open-cue" aria-hidden="true"><Maximize2 size={11} /></span>
+				</button>
 				<span class="text-xs tabular-nums text-text-muted">
 					{#if qty === 'per-layer'}×{layers} (1 per layer)
 					{:else if qty === 'middle-layers'}×{Math.max(0, layers - 2)} (layers between the interfaces)
@@ -343,23 +422,45 @@
 						class="cursor-help border border-warning/50 bg-warning/[0.08] px-1.5 py-px text-[10px] font-semibold uppercase tracking-wider text-warning-dark"
 						title={STATUS_NOTE.partial}>partial</span>
 				{/if}
+				<span class="relative ml-auto flex items-center gap-3" data-asm-menu>
+					<!-- The docs site is where the step-by-step build lives; this node is only
+					     the bill of materials for it. Link out when a page exists. -->
+					{#if docsUrl(asm)}
+						<a
+							href={docsUrl(asm)}
+							target="_blank"
+							rel="noopener"
+							class="inline-flex items-center gap-1 text-xs font-medium text-primary hover:text-primary-hover"
+						>
+							<BookOpen size={11} /> Assembly guide <ExternalLink size={10} />
+						</a>
+					{/if}
+					{#if hasContent}
+						<button
+							type="button"
+							class="flex h-5 w-5 items-center justify-center text-text-muted hover:text-text"
+							aria-label="More actions for {asm.name}"
+							aria-expanded={menuFor === asm.id}
+							onclick={() => (menuFor = menuFor === asm.id ? null : asm.id)}
+						>
+							<EllipsisVertical size={14} />
+						</button>
+						{#if menuFor === asm.id}
+							<div class="setup-panel absolute right-0 top-6 z-30 w-40 py-1 text-xs" role="menu">
+								<button type="button" role="menuitem" class="block w-full px-3 py-1.5 text-left text-text hover:bg-primary/[0.06]" onclick={() => setSubtree(asm.id, true)}>Expand all</button>
+								<button type="button" role="menuitem" class="block w-full px-3 py-1.5 text-left text-text hover:bg-primary/[0.06]" onclick={() => setSubtree(asm.id, false)}>Collapse all</button>
+							</div>
+						{/if}
+					{/if}
+				</span>
 			</div>
 			<!-- The description is NOT rendered here on purpose: it lives in the
 			     detail view a node's name opens. Inline it turns the tree into a
 			     wall of prose that restates the line rows below it. -->
+			{#if open}
+			<div class="tree-branch relative pl-2 sm:pl-4">
+				<button type="button" class="tree-line" onclick={() => toggle(asm.id)} aria-label="Collapse {asm.name}"></button>
 			{#if asm.images?.length}<div class="mt-2"><ImageStrip images={asm.images} /></div>{/if}
-			<!-- The docs site is where the step-by-step build lives; this node is only
-			     the bill of materials for it. Link out when a page exists. -->
-			{#if docsUrl(asm)}
-				<a
-					href={docsUrl(asm)}
-					target="_blank"
-					rel="noopener"
-					class="mt-1 inline-flex items-center gap-1 text-xs font-medium text-primary hover:text-primary-hover"
-				>
-					<BookOpen size={11} /> Assembly guide <ExternalLink size={10} />
-				</a>
-			{/if}
 			{@render joiningRows(asm.joining)}
 			{@render lines(asm.lines ?? [], mult, depth)}
 			<!-- Alternative bills of materials under test, rendered with the same
@@ -404,6 +505,8 @@
 					{/each}
 				</details>
 			{/if}
+			</div>
+			{/if}
 		</div>
 	{/if}
 {/snippet}
@@ -415,8 +518,8 @@
 
 	<div class="mb-6"><LayerControl /></div>
 
-	<section class="setup-card-shell min-w-0 border p-2 sm:p-4">
-			<div class="mb-3 flex items-center gap-3">
+	<section class="min-w-0">
+			<div class="mb-4 flex items-center gap-3">
 				<SearchField
 					bind:value={filter}
 					label="Filter the assembly tree"
@@ -463,17 +566,50 @@
 		outline: none;
 		box-shadow: 0 0 0 2px var(--color-primary);
 	}
-	/* The node's name opens the assembly on its own. Underlined on hover rather
-	   than always, so a tree of two hundred names doesn't read as a link farm. */
+	/* The node's name opens the assembly's detail view — a modal, not a page,
+	   so it must not read as a link: no blue, no underline. The cue is a small
+	   expand glyph that fades in on hover, same idea as the thumbnail ring. */
 	.asm-open {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.3rem;
 		cursor: pointer;
 		text-align: left;
-		text-underline-offset: 3px;
 	}
-	.asm-open:hover,
-	.asm-open:focus-visible {
-		outline: none;
-		color: var(--color-primary);
-		text-decoration: underline;
+	.asm-open .open-cue {
+		display: inline-flex;
+		color: var(--color-text-muted);
+		opacity: 0;
+		transition: opacity 120ms ease;
+	}
+	.asm-open:hover .open-cue,
+	.asm-open:focus-visible .open-cue {
+		opacity: 1;
+	}
+	/* The guide line under an open node is itself the collapse control: the
+	   whole height is clickable. The visible line stays 1px (see CLAUDE.md
+	   § Design rules) — hover recolors it instead of thickening it. */
+	.tree-line {
+		position: absolute;
+		top: 2px;
+		bottom: 0;
+		left: 0;
+		width: 14px;
+		padding: 0;
+		cursor: pointer;
+	}
+	.tree-line::before {
+		content: '';
+		position: absolute;
+		top: 0;
+		bottom: 0;
+		left: 50%;
+		width: 1px;
+		margin-left: -0.5px;
+		background: var(--color-border);
+	}
+	.tree-line:hover::before,
+	.tree-line:focus-visible::before {
+		background: var(--color-primary);
 	}
 </style>

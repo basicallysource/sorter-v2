@@ -28,6 +28,11 @@ asset spec, and the rules for adding a site live in
 - **No em dashes (`—`) in copy.** Use commas, periods, or parentheses. (The
   kicker breadcrumb is the one place they still appear, site-wide.)
 - Titles are sentence case. Alt text on every image.
+- **Structural lines are hairlines (1px), one weight everywhere** — borders,
+  dividers, table rules. Emphasis comes from color, never thickness. The
+  active-nav underline and the `:focus-visible` outline are state markers,
+  not structure, and stay 2px. (Same rule as `parts-calculator/CLAUDE.md`
+  § Design rules.)
 - **Every photo and video needs a credit in its caption**, not just implied by
   the page's `author:`/`contributors:` front matter (barthel, 2026-08-26, see
   [sorter-v2 #434](https://github.com/basicallysource/sorter-v2/pull/434)).

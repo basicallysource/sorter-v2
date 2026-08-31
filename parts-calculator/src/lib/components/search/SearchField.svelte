@@ -19,6 +19,7 @@
 		total = null,
 		noun = 'result',
 		nouns = '',
+		wide = false,
 		class: cls = ''
 	}: {
 		value?: string;
@@ -29,6 +30,8 @@
 		noun?: string;
 		/** Plural of `noun`, when adding an s is wrong ("match" → "matches"). */
 		nouns?: string;
+		/** Let the input grow with its container instead of capping at max-w-xs. */
+		wide?: boolean;
 		class?: string;
 	} = $props();
 
@@ -47,7 +50,7 @@
 </script>
 
 <div class="flex flex-wrap items-center gap-x-3 gap-y-1.5 {cls}">
-	<div class="relative min-w-0 flex-1 sm:max-w-xs">
+	<div class="relative min-w-0 flex-1 {wide ? '' : 'sm:max-w-xs'}">
 		<span class="pointer-events-none absolute inset-y-0 left-0 flex w-8 items-center justify-center text-text-muted">
 			<Search size={14} />
 		</span>

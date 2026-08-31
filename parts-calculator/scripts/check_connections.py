@@ -5,12 +5,14 @@ An assembly's `connections` record its joints as a graph over its members:
     { "from": "nema-bracket", "to": "stator", "via": "scr-m3-12-cs",
       "qty": 4, "method": "self-tap", "note": "...", "draft": true }
 
-- `from` / `to`: the two members the joint holds together, by catalog id.
-  `to` is the anchor side when the joint has one -- where the fastener ends
-  (the thread, insert, nut or T-nut). Normally both are direct members of
-  the assembly; a joint whose far side is the parent's member names that
-  part with a note (the C-channel's output gear bolts to the rotor, which
-  is a feeder line because it differs by location).
+- `from` / `to`: the two members the joint holds together. Both MUST be
+  direct members of the assembly (named in its `lines`): a joint belongs to
+  the node where both sides are present, which is also where it is made on
+  the bench. When a joint seems to span levels, the structure is wrong, not
+  the rule -- restructure so both sides share a node (the C-channel's
+  output gear bolted to the rotor became the rotor units). `to` is the
+  anchor side when the joint has one -- where the fastener ends (the
+  thread, insert, nut or T-nut).
 - `via`: the fastener, which must be a hardware line of this assembly.
   Fastenerless joints (press, friction, clip, glue) omit it.
 - `qty`: fasteners in this joint per one instance of the assembly. Across
@@ -48,12 +50,18 @@ def main():
             if line.get("part"):
                 lines[line["part"]] = lines.get(line["part"], 0) + (
                     line["qty"] if isinstance(line["qty"], int) else 0)
+        members = {line.get("part") or line.get("assembly")
+                   for line in a.get("lines") or []}
         used = {}
         for i, c in enumerate(a.get("connections") or []):
             tag = f"{a['id']} connection {i} ({c.get('from')} -> {c.get('to')})"
             for end in ("from", "to"):
                 if c.get(end) not in known:
                     bad.append(f"{tag}: {end} {c.get(end)!r} is not in the catalog")
+                elif c.get(end) not in members:
+                    bad.append(f"{tag}: {end} {c.get(end)!r} is not a member of "
+                               f"{a['id']} -- a joint lives where both sides are "
+                               f"lines; restructure rather than reach across levels")
             method = c.get("method")
             if method not in METHODS:
                 bad.append(f"{tag}: method {method!r} is not one of "

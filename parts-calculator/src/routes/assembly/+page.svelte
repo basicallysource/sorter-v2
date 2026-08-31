@@ -416,12 +416,19 @@
 	<div class="mb-6"><LayerControl /></div>
 
 	<section class="setup-card-shell min-w-0 border p-2 sm:p-4">
-			<div class="mb-3 flex items-center justify-between gap-3">
-				<h2 class="text-xs font-semibold uppercase tracking-wider text-text-muted">
-					Assembly tree
-				</h2>
+			<div class="mb-3 flex items-center gap-3">
+				<SearchField
+					bind:value={filter}
+					label="Filter the assembly tree"
+					placeholder="Find a part, a screw or an assembly in the tree"
+					noun="match"
+					nouns="matches"
+					found={filtering ? matchCount : null}
+					wide
+					class="min-w-0 flex-1"
+				/>
 				<button
-					class="inline-flex items-center gap-1 text-xs font-medium text-primary hover:text-primary-hover"
+					class="inline-flex shrink-0 items-center gap-1 text-xs font-medium text-primary hover:text-primary-hover"
 					onclick={downloadCsv}
 					title="Exports the tree as configured here: {layers} layers, with every quantity multiplied down and STL links included."
 				>
@@ -429,15 +436,6 @@
 					<span class="font-normal text-text-muted">· {layers} layers</span>
 				</button>
 			</div>
-			<SearchField
-				bind:value={filter}
-				label="Filter the assembly tree"
-				placeholder="Find a part, a screw or an assembly in the tree"
-				noun="match"
-				nouns="matches"
-				found={filtering ? matchCount : null}
-				class="mb-3"
-			/>
 			{#if filtering && matchCount === 0}
 				<p class="px-1 py-6 text-center text-sm text-text-muted">
 					Nothing in the tree matches. Most branches are still stubs — the part may be in the

@@ -626,11 +626,34 @@
 		},
 		{
 			"id": "classification-chamber",
-			"uid": "umxp",
-			"version": "1",
+			"uid": "fyqw",
+			"version": "2",
 			"name": "Classification chamber",
 			"description": "The classification chamber: the dome, the finned rotor, and the camera & LED insert. All three print white, so the chamber bounces light onto the part instead of absorbing it.",
-			"docs": "/hardware/assembly/feeder/classification-chamber/"
+			"docs": "/hardware/assembly/feeder/classification-chamber/",
+			"status": "partial",
+			"versions": [
+				{
+					"version": "1",
+					"uid": "umxp",
+					"message": "Original version: a description-only node with no recorded lines.",
+					"lines": []
+				},
+				{
+					"version": "2",
+					"uid": "fyqw",
+					"date": "2026-08-31",
+					"message": "First recorded line: the finned rotor unit (rotor + bolted-on Output gear (130T)). Marked partial \u2014 the dome and the camera & LED insert are still unrecorded.",
+					"breaking": false,
+					"commit": null
+				}
+			],
+			"lines": [
+				{
+					"assembly": "rotor-unit-finned",
+					"qty": 1
+				}
+			]
 		},
 		{
 			"id": "chute-bearing",
@@ -1087,19 +1110,66 @@
 		},
 		{
 			"id": "feeder",
-			"uid": "4swk",
-			"version": "1",
+			"uid": "pye7",
+			"version": "2",
 			"name": "Feeder",
 			"description": "Feeder + classification channel. Everything above the interface.",
 			"docs": "/hardware/assembly/feeder/",
 			"status": "partial",
+			"versions": [
+				{
+					"version": "1",
+					"uid": "4swk",
+					"message": "Original version: carried the 3 faceted rotors as bare parts; their bolted-on output gears were inside the C-channel drive.",
+					"lines": [
+						{
+							"assembly": "c-channel",
+							"qty": 4,
+							"uid": "mttx"
+						},
+						{
+							"part": "rotor-faceted",
+							"qty": 3,
+							"uid": "9v9q"
+						},
+						{
+							"assembly": "classification-chamber",
+							"qty": 1,
+							"uid": "umxp"
+						},
+						{
+							"assembly": "camera-extension-assembly",
+							"qty": 1,
+							"uid": "dc2i"
+						},
+						{
+							"assembly": "light-post-assembly",
+							"qty": 2,
+							"uid": "v06x"
+						},
+						{
+							"assembly": "camera-mount",
+							"qty": 2,
+							"uid": "b3zx"
+						}
+					]
+				},
+				{
+					"version": "2",
+					"uid": "pye7",
+					"date": "2026-08-31",
+					"message": "The 3 faceted rotors become 3 Rotor unit (faceted) \u2014 rotor + bolted-on Output gear (130T) as one bench unit. No physical change.",
+					"breaking": false,
+					"commit": null
+				}
+			],
 			"lines": [
 				{
 					"assembly": "c-channel",
 					"qty": 4
 				},
 				{
-					"part": "rotor-faceted",
+					"assembly": "rotor-unit-faceted",
 					"qty": 3
 				},
 				{
@@ -1557,12 +1627,74 @@
 		},
 		{
 			"id": "c-channel",
-			"uid": "mttx",
-			"version": "1",
+			"uid": "sbwe",
+			"version": "2",
 			"name": "C-channel drive",
-			"description": "One C-channel drive unit: stator, NEMA bracket, output gear, gear train and stepper. 4 per machine \u2014 3 in the feeder plus the classification channel's. Screw joints: 4 \u00d7 [[hw:scr-m3-12-cs]] hold the NEMA bracket to the stator; 3 \u00d7 [[hw:scr-m3-16-shcs]] hold the stepper to the NEMA bracket; 1 \u00d7 [[hw:scr-m3-8-shcs]] clamps the input gear to the motor shaft flat; 6 \u00d7 [[hw:scr-m3-12-cs]] attach the output gear to the rotor, one per spoke \u2014 the gear is 8 mm thick at the bolt circle and a countersunk screw's length is measured over its head, so an M3 \u00d7 8 seated flush reaches nothing (the light post's 2 \u00d7 [[hw:scr-m3-20-cs]] into the NEMA bracket live on the light-post assembly). The rotor differs by location (faceted in the feeder, finned in the classification chamber), so it is not part of this node.",
+			"description": "One C-channel drive unit: stator, NEMA bracket, gear train and stepper. 4 per machine \u2014 3 in the feeder plus the classification channel's. Drives a rotor unit, which differs by location and is not part of this node.",
 			"docs": "/hardware/assembly/feeder/c-channel/",
 			"status": "partial",
+			"versions": [
+				{
+					"version": "1",
+					"uid": "mttx",
+					"message": "Original version: carried the Output gear (130T) and the 6 \u00d7 M3 \u00d7 12 that bolt it to the rotor inline, even though the rotor itself was the parent's line.",
+					"lines": [
+						{
+							"part": "stator",
+							"qty": 1,
+							"uid": "n6bm"
+						},
+						{
+							"part": "nema-bracket",
+							"qty": 1,
+							"uid": "x09t"
+						},
+						{
+							"part": "output-gear",
+							"qty": 1,
+							"uid": "26ek"
+						},
+						{
+							"part": "idler-gear",
+							"qty": 1,
+							"uid": "7bv7"
+						},
+						{
+							"part": "input-gear",
+							"qty": 1,
+							"uid": "70ul"
+						},
+						{
+							"part": "motor-nema17",
+							"qty": 1,
+							"uid": "w7pq"
+						},
+						{
+							"part": "scr-m3-16-shcs",
+							"qty": 3,
+							"uid": "e0ud"
+						},
+						{
+							"part": "scr-m3-12-cs",
+							"qty": 10,
+							"uid": "0a9x"
+						},
+						{
+							"part": "scr-m3-8-shcs",
+							"qty": 1,
+							"uid": "ql35"
+						}
+					]
+				},
+				{
+					"version": "2",
+					"uid": "sbwe",
+					"date": "2026-08-31",
+					"message": "Moved the Output gear (130T) and its 6 \u00d7 M3 \u00d7 12 out to the new rotor units: the gear bolts to the rotor, so the joint and its screws belong to the node that holds both. No physical change.",
+					"breaking": false,
+					"commit": null
+				}
+			],
 			"lines": [
 				{
 					"part": "stator",
@@ -1570,10 +1702,6 @@
 				},
 				{
 					"part": "nema-bracket",
-					"qty": 1
-				},
-				{
-					"part": "output-gear",
 					"qty": 1
 				},
 				{
@@ -1594,11 +1722,101 @@
 				},
 				{
 					"part": "scr-m3-12-cs",
-					"qty": 10
+					"qty": 4
 				},
 				{
 					"part": "scr-m3-8-shcs",
 					"qty": 1
+				}
+			],
+			"connections": [
+				{
+					"from": "nema-bracket",
+					"to": "stator",
+					"via": "scr-m3-12-cs",
+					"qty": 4,
+					"method": "self-tap",
+					"draft": true
+				},
+				{
+					"from": "nema-bracket",
+					"to": "motor-nema17",
+					"via": "scr-m3-16-shcs",
+					"qty": 3,
+					"method": "thread",
+					"note": "Into the NEMA 17's tapped face holes.",
+					"draft": true
+				},
+				{
+					"from": "input-gear",
+					"to": "motor-nema17",
+					"via": "scr-m3-8-shcs",
+					"qty": 1,
+					"method": "self-tap",
+					"note": "Threads through the gear hub and bears on the motor shaft flat.",
+					"draft": true
+				}
+			]
+		},
+		{
+			"id": "rotor-unit-faceted",
+			"uid": "df0i",
+			"version": "1",
+			"name": "Rotor unit (faceted)",
+			"description": "The faceted rotor with the Output gear (130T) bolted on. Assembled once as a unit; a C-channel drive spins it.",
+			"lines": [
+				{
+					"part": "rotor-faceted",
+					"qty": 1
+				},
+				{
+					"part": "output-gear",
+					"qty": 1
+				},
+				{
+					"part": "scr-m3-12-cs",
+					"qty": 6
+				}
+			],
+			"connections": [
+				{
+					"from": "output-gear",
+					"to": "rotor-faceted",
+					"via": "scr-m3-12-cs",
+					"qty": 6,
+					"method": "self-tap",
+					"note": "One per spoke. Needs the 12 mm length: the gear is 8 mm thick at the bolt circle and a countersunk screw's length is measured over its head, so an M3 \u00d7 8 seated flush reaches nothing."
+				}
+			]
+		},
+		{
+			"id": "rotor-unit-finned",
+			"uid": "iau5",
+			"version": "1",
+			"name": "Rotor unit (finned)",
+			"description": "The finned rotor with the Output gear (130T) bolted on. Assembled once as a unit; the classification channel's C-channel drive spins it.",
+			"lines": [
+				{
+					"part": "rotor-finned",
+					"qty": 1
+				},
+				{
+					"part": "output-gear",
+					"qty": 1
+				},
+				{
+					"part": "scr-m3-12-cs",
+					"qty": 6
+				}
+			],
+			"connections": [
+				{
+					"from": "output-gear",
+					"to": "rotor-finned",
+					"via": "scr-m3-12-cs",
+					"qty": 6,
+					"method": "self-tap",
+					"note": "One per spoke. Same joint as the faceted rotor unit."
 				}
 			]
 		},

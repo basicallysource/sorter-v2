@@ -16,6 +16,11 @@ making structural changes to the parts data model — it is the design spec
 for where this is heading (unified registry across this repo, the docs, and
 the BOM spreadsheet).
 
+`VERSIONING.md` is the succinct, citable statement of how parts are
+identified, revised, and removed (uids, versions, candidates, retire-in-place).
+When someone asks to delete or change a part, answer from — and link — that
+page.
+
 ## What this is
 
 A SvelteKit static site that tells you what to print/buy for a Sorter V2

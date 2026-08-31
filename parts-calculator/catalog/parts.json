@@ -346,20 +346,6 @@
           "scr-m3-shcs-tbd"
         ]
       }
-    },
-    {
-      "id": "review-chute-stepper-support-block-for-deletion",
-      "name": "Chute stepper support block may be deleted to cut part count",
-      "priority": "P4",
-      "description": "Basically wants to use as few parts as possible, and this printed block's own catalog note already flags its quantity as an unconfirmed default. It has no documented install location, orientation, or screw length anywhere, and lives in its own standalone Onshape document rather than the shared Interface Layer one. Someone with CAD/mechanical context needs to confirm the NEMA 23 chute stepper mount works without it before it can actually be dropped from the assembly and deleted. Tracked as sorter-v2 issue #483.",
-      "targets": {
-        "parts": [
-          "chute-stepper-support-block"
-        ],
-        "assemblies": [
-          "interface"
-        ]
-      }
     }
   ],
   "folders": [
@@ -2297,14 +2283,12 @@
       "id": "chute-stepper-support-block",
       "uid": "loc0",
       "name": "Chute stepper support block",
-      "description": "Support block for the chute stepper. Flagged for possible removal to cut part count; not yet confirmed whether the mount needs it.",
-      "internal_notes": "Interface part. Frame colour. Qty 1/machine is a DEFAULT pending confirmation.",
+      "description": "Support block for the chute stepper. Removed from the machine 2026-08-31: Spencer confirmed the NEMA 23 chute stepper mount works without it (sorter-v2#483). Retired in place per VERSIONING.md.",
+      "internal_notes": "Retired 2026-08-31. Was an interface part, frame colour, qty 1/machine (a default that was never confirmed).",
       "version": "1",
       "created_at": "2026-07-03",
       "updated_at": "2026-08-31",
-      "quantities": {
-        "interface": 1
-      },
+      "quantities": {},
       "assembly": null,
       "onshape": "https://cad.onshape.com/documents/238eb36f4ee3382c5a50a32b/w/78eed8b37e676b442c6450e1/e/753de7ce802d72cd739d82e2",
       "stl_hash": "106dec95fef16977ebef133766df63d301b98885ac8a4bf9bf718e3eda72ac7f",
@@ -2314,7 +2298,7 @@
       },
       "optional": false,
       "support": false,
-      "note": "Under review for deletion (sorter-v2#483). Basically wants to minimize part count. Its own qty is already an unconfirmed default, and it is undocumented anywhere on the docs site. Kept in the catalog until someone with CAD context confirms the NEMA 23 mount works without it."
+      "note": "Removed 2026-08-31 (sorter-v2#483): the NEMA 23 chute stepper mount works without it. Do not re-add — if a support turns out to be needed, that is a new design with its own uid."
     },
     {
       "id": "funnel-third",
@@ -6258,10 +6242,6 @@
         },
         {
           "part": "top-interface-split-spur-gear-2",
-          "qty": 1
-        },
-        {
-          "part": "chute-stepper-support-block",
           "qty": 1
         },
         {

@@ -360,20 +360,6 @@
 					"scr-m3-shcs-tbd"
 				]
 			}
-		},
-		{
-			"id": "review-chute-stepper-support-block-for-deletion",
-			"name": "Chute stepper support block may be deleted to cut part count",
-			"priority": "P4",
-			"description": "Basically wants to use as few parts as possible, and this printed block's own catalog note already flags its quantity as an unconfirmed default. It has no documented install location, orientation, or screw length anywhere, and lives in its own standalone Onshape document rather than the shared Interface Layer one. Someone with CAD/mechanical context needs to confirm the NEMA 23 chute stepper mount works without it before it can actually be dropped from the assembly and deleted. Tracked as sorter-v2 issue #483.",
-			"targets": {
-				"parts": [
-					"chute-stepper-support-block"
-				],
-				"assemblies": [
-					"interface"
-				]
-			}
 		}
 	],
 	"folders": [
@@ -1179,10 +1165,6 @@
 				},
 				{
 					"part": "top-interface-split-spur-gear-2",
-					"qty": 1
-				},
-				{
-					"part": "chute-stepper-support-block",
 					"qty": 1
 				},
 				{
@@ -11507,14 +11489,12 @@
 			"id": "chute-stepper-support-block",
 			"uid": "loc0",
 			"name": "Chute stepper support block",
-			"quantities": {
-				"interface": 1
-			},
+			"quantities": {},
 			"assembly": null,
 			"folder": null,
 			"variant_group": null,
 			"variant_name": null,
-			"description": "Support block for the chute stepper. Flagged for possible removal to cut part count; not yet confirmed whether the mount needs it.",
+			"description": "Support block for the chute stepper. Removed from the machine 2026-08-31: Spencer confirmed the NEMA 23 chute stepper mount works without it (sorter-v2#483). Retired in place per VERSIONING.md.",
 			"version": "1",
 			"created_at": "2026-07-03",
 			"updated_at": "2026-08-31",
@@ -11525,7 +11505,7 @@
 					"date": "2026-07-03",
 					"message": "Initial version.",
 					"commit": null,
-					"note": "Under review for deletion (sorter-v2#483). Basically wants to minimize part count. Its own qty is already an unconfirmed default, and it is undocumented anywhere on the docs site. Kept in the catalog until someone with CAD context confirms the NEMA 23 mount works without it.",
+					"note": "Removed 2026-08-31 (sorter-v2#483): the NEMA 23 chute stepper mount works without it. Do not re-add \u2014 if a support turns out to be needed, that is a new design with its own uid.",
 					"stl": "https://assets.basically.website/sorter-parts/chute-stepper-support-block-106dec95fef1.stl",
 					"render": "https://assets.basically.website/sorter-parts/chute-stepper-support-block-full-8225afc29021.png",
 					"grams": 26.1

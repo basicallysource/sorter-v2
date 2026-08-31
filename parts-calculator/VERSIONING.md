@@ -95,6 +95,19 @@ design — no stamp needed. The moment a line is removed or altered, or the
 assembly is no longer partial, the full rule applies. CI enforces both
 halves (`scripts/check_versioning.py`).
 
+## History is derived, not recorded
+
+A node's change log — everything that ever happened at or below it — is
+computed, git-log style, as the union of the `versions[]` entries in its
+subtree. The assembly page's History panel renders it at any level, from one
+bracket up to the whole machine. Version entries are therefore the only
+history anyone writes; there is no separate log to maintain.
+
+Changes older than the stamp rule (2026-08-31) were reconstructed once from
+the git history of `parts.json` into `src/lib/data/changelog.generated.json`
+(`scripts/backfill_changelog.py`). That file is frozen: it covers a closed
+era, is never regenerated, and is never hand-edited.
+
 ## Removing a part from the machine
 
 The entry never leaves `parts.json` — its **usage** does:

@@ -1,0 +1,481 @@
+{
+  "note": "Reconstructed from the git history of catalog/parts.json by scripts/backfill_changelog.py. Frozen artifact -- covers the era before the stamp rule (2026-08-31); recorded versions[] entries are the source of truth from then on.",
+  "events": [
+    {
+      "date": "2026-08-22",
+      "commit": "a48450c5",
+      "pr": 375,
+      "message": "parts-calculator: candidates for parts and assemblies, images, uid-named downloads",
+      "node": "ctrl-board-housing-base",
+      "kind": "part-added"
+    },
+    {
+      "date": "2026-08-22",
+      "commit": "a48450c5",
+      "pr": 375,
+      "message": "parts-calculator: candidates for parts and assemblies, images, uid-named downloads",
+      "node": "ctrl-board-housing-cover",
+      "kind": "part-added"
+    },
+    {
+      "date": "2026-08-22",
+      "commit": "a48450c5",
+      "pr": 375,
+      "message": "parts-calculator: candidates for parts and assemblies, images, uid-named downloads",
+      "node": "ctrl-board-housing-plunger",
+      "kind": "part-added"
+    },
+    {
+      "date": "2026-08-22",
+      "commit": "a48450c5",
+      "pr": 375,
+      "message": "parts-calculator: candidates for parts and assemblies, images, uid-named downloads",
+      "node": "ctrl-board-housing-plunger-retainer",
+      "kind": "part-added"
+    },
+    {
+      "date": "2026-08-22",
+      "commit": "a48450c5",
+      "pr": 375,
+      "message": "parts-calculator: candidates for parts and assemblies, images, uid-named downloads",
+      "node": "fan-40mm-24v",
+      "kind": "part-added"
+    },
+    {
+      "date": "2026-08-22",
+      "commit": "a48450c5",
+      "pr": 375,
+      "message": "parts-calculator: candidates for parts and assemblies, images, uid-named downloads",
+      "node": "scr-m3-shcs-tbd",
+      "kind": "part-added"
+    },
+    {
+      "date": "2026-08-22",
+      "commit": "a48450c5",
+      "pr": 375,
+      "message": "parts-calculator: candidates for parts and assemblies, images, uid-named downloads",
+      "node": "embedded-control-board-housing",
+      "kind": "assembly-removed"
+    },
+    {
+      "date": "2026-08-22",
+      "commit": "a48450c5",
+      "pr": 375,
+      "message": "parts-calculator: candidates for parts and assemblies, images, uid-named downloads",
+      "node": "orange-pi-5-housing",
+      "kind": "assembly-removed"
+    },
+    {
+      "date": "2026-08-22",
+      "commit": "8d4384aa",
+      "pr": 378,
+      "message": "docs: output gear to rotor is M3 \u00d7 12, not M3 \u00d7 8",
+      "node": "c-channel",
+      "kind": "lines-changed",
+      "detail": "scr-m3-12-cs \u00d74\u219210, \u2212scr-m3-8-cs \u00d76"
+    },
+    {
+      "date": "2026-08-22",
+      "commit": "8581bcb5",
+      "pr": 382,
+      "message": "parts-calculator: the v1 mounts, a PSU candidate, and printing as a count",
+      "node": "ctrl-board-extrusion-mount",
+      "kind": "part-added"
+    },
+    {
+      "date": "2026-08-22",
+      "commit": "8581bcb5",
+      "pr": 382,
+      "message": "parts-calculator: the v1 mounts, a PSU candidate, and printing as a count",
+      "node": "fan-bracket-40mm",
+      "kind": "part-added"
+    },
+    {
+      "date": "2026-08-22",
+      "commit": "8581bcb5",
+      "pr": 382,
+      "message": "parts-calculator: the v1 mounts, a PSU candidate, and printing as a count",
+      "node": "meanwell-psu-housing-front-panel",
+      "kind": "part-added"
+    },
+    {
+      "date": "2026-08-22",
+      "commit": "8581bcb5",
+      "pr": 382,
+      "message": "parts-calculator: the v1 mounts, a PSU candidate, and printing as a count",
+      "node": "meanwell-psu-housing-lid-front",
+      "kind": "part-added"
+    },
+    {
+      "date": "2026-08-22",
+      "commit": "8581bcb5",
+      "pr": 382,
+      "message": "parts-calculator: the v1 mounts, a PSU candidate, and printing as a count",
+      "node": "meanwell-psu-housing-lid-rear",
+      "kind": "part-added"
+    },
+    {
+      "date": "2026-08-22",
+      "commit": "8581bcb5",
+      "pr": 382,
+      "message": "parts-calculator: the v1 mounts, a PSU candidate, and printing as a count",
+      "node": "meanwell-psu-housing-shell-front",
+      "kind": "part-added"
+    },
+    {
+      "date": "2026-08-22",
+      "commit": "8581bcb5",
+      "pr": 382,
+      "message": "parts-calculator: the v1 mounts, a PSU candidate, and printing as a count",
+      "node": "meanwell-psu-housing-shell-rear",
+      "kind": "part-added"
+    },
+    {
+      "date": "2026-08-22",
+      "commit": "8581bcb5",
+      "pr": 382,
+      "message": "parts-calculator: the v1 mounts, a PSU candidate, and printing as a count",
+      "node": "orange-pi-extrusion-mount",
+      "kind": "part-added"
+    },
+    {
+      "date": "2026-08-22",
+      "commit": "8581bcb5",
+      "pr": 382,
+      "message": "parts-calculator: the v1 mounts, a PSU candidate, and printing as a count",
+      "node": "camera-extension",
+      "kind": "assembly-removed"
+    },
+    {
+      "date": "2026-08-22",
+      "commit": "8581bcb5",
+      "pr": 382,
+      "message": "parts-calculator: the v1 mounts, a PSU candidate, and printing as a count",
+      "node": "camera-extension-assembly",
+      "kind": "assembly-added"
+    },
+    {
+      "date": "2026-08-22",
+      "commit": "8581bcb5",
+      "pr": 382,
+      "message": "parts-calculator: the v1 mounts, a PSU candidate, and printing as a count",
+      "node": "ctrl-board-mount",
+      "kind": "lines-changed",
+      "detail": "+ctrl-board-extrusion-mount \u00d71, +fan-40mm-24v \u00d71, +fan-bracket-40mm \u00d71"
+    },
+    {
+      "date": "2026-08-22",
+      "commit": "8581bcb5",
+      "pr": 382,
+      "message": "parts-calculator: the v1 mounts, a PSU candidate, and printing as a count",
+      "node": "feeder",
+      "kind": "lines-changed",
+      "detail": "\u2212camera-extension \u00d71, +camera-extension-assembly \u00d71, \u2212light-post \u00d72, +light-post-assembly \u00d72"
+    },
+    {
+      "date": "2026-08-22",
+      "commit": "8581bcb5",
+      "pr": 382,
+      "message": "parts-calculator: the v1 mounts, a PSU candidate, and printing as a count",
+      "node": "light-post",
+      "kind": "assembly-removed"
+    },
+    {
+      "date": "2026-08-22",
+      "commit": "8581bcb5",
+      "pr": 382,
+      "message": "parts-calculator: the v1 mounts, a PSU candidate, and printing as a count",
+      "node": "light-post-assembly",
+      "kind": "assembly-added"
+    },
+    {
+      "date": "2026-08-22",
+      "commit": "8581bcb5",
+      "pr": 382,
+      "message": "parts-calculator: the v1 mounts, a PSU candidate, and printing as a count",
+      "node": "orange-pi-mount",
+      "kind": "lines-changed",
+      "detail": "+fan-40mm-24v \u00d71, +fan-bracket-40mm \u00d71, +orange-pi-extrusion-mount \u00d71"
+    },
+    {
+      "date": "2026-08-22",
+      "commit": "13e7fd75",
+      "pr": 384,
+      "message": "engineering notes at /n/<id>/, and the tools that made the first one",
+      "node": "cable-clamp-inner",
+      "kind": "part-revised",
+      "detail": "geometry changed (stl)"
+    },
+    {
+      "date": "2026-08-23",
+      "commit": "9e97d442",
+      "pr": 387,
+      "message": "The control board housing becomes the mount, and two docs pages for it",
+      "node": "ctrl-board-extrusion-mount",
+      "kind": "qty-changed",
+      "detail": "electronics 1\u21920"
+    },
+    {
+      "date": "2026-08-23",
+      "commit": "9e97d442",
+      "pr": 387,
+      "message": "The control board housing becomes the mount, and two docs pages for it",
+      "node": "ctrl-board-housing-base",
+      "kind": "qty-changed",
+      "detail": "electronics 0\u21921"
+    },
+    {
+      "date": "2026-08-23",
+      "commit": "9e97d442",
+      "pr": 387,
+      "message": "The control board housing becomes the mount, and two docs pages for it",
+      "node": "ctrl-board-housing-cover",
+      "kind": "qty-changed",
+      "detail": "electronics 0\u21921"
+    },
+    {
+      "date": "2026-08-23",
+      "commit": "9e97d442",
+      "pr": 387,
+      "message": "The control board housing becomes the mount, and two docs pages for it",
+      "node": "ctrl-board-housing-plunger",
+      "kind": "qty-changed",
+      "detail": "electronics 0\u21921"
+    },
+    {
+      "date": "2026-08-23",
+      "commit": "9e97d442",
+      "pr": 387,
+      "message": "The control board housing becomes the mount, and two docs pages for it",
+      "node": "ctrl-board-housing-plunger-retainer",
+      "kind": "qty-changed",
+      "detail": "electronics 0\u21921"
+    },
+    {
+      "date": "2026-08-23",
+      "commit": "9e97d442",
+      "pr": 387,
+      "message": "The control board housing becomes the mount, and two docs pages for it",
+      "node": "fan-bracket-40mm",
+      "kind": "qty-changed",
+      "detail": "electronics 2\u21921"
+    },
+    {
+      "date": "2026-08-23",
+      "commit": "9e97d442",
+      "pr": 387,
+      "message": "The control board housing becomes the mount, and two docs pages for it",
+      "node": "jumper-cap-254",
+      "kind": "part-added"
+    },
+    {
+      "date": "2026-08-25",
+      "commit": "9ca437df",
+      "pr": 416,
+      "message": "docs: servo adapter screws and the MG995 Servo Horn",
+      "node": "mg995-servo-horn",
+      "kind": "part-added"
+    },
+    {
+      "date": "2026-08-25",
+      "commit": "9ca437df",
+      "pr": 416,
+      "message": "docs: servo adapter screws and the MG995 Servo Horn",
+      "node": "servo-adapter",
+      "kind": "lines-changed",
+      "detail": "+mg995-servo-horn \u00d71, +scr-m3-8-cs \u00d74"
+    },
+    {
+      "date": "2026-08-25",
+      "commit": "03f29857",
+      "pr": 417,
+      "message": "parts-calculator: add a 3D-printed option for the cable cage",
+      "node": "cage-top-hex-corner",
+      "kind": "part-added"
+    },
+    {
+      "date": "2026-08-25",
+      "commit": "03f29857",
+      "pr": 417,
+      "message": "parts-calculator: add a 3D-printed option for the cable cage",
+      "node": "cage-top-motor-piece",
+      "kind": "part-added"
+    },
+    {
+      "date": "2026-08-25",
+      "commit": "b7c9f8b5",
+      "pr": 420,
+      "message": "docs+parts: idler gear bearing retainers replace the loose washer",
+      "node": "chute-stepper-gearing",
+      "kind": "lines-changed",
+      "detail": "+hsi-m3 \u00d74, +scr-m3-8-cs \u00d74, \u2212washer-m3-15 \u00d71"
+    },
+    {
+      "date": "2026-08-25",
+      "commit": "e67232f5",
+      "pr": 422,
+      "message": "docs: drop the standalone External bracket page, fix top-interface BOM bug",
+      "node": "ext-bracket-bottom-vertical",
+      "kind": "qty-changed",
+      "detail": "interface 6\u21920"
+    },
+    {
+      "date": "2026-08-25",
+      "commit": "e67232f5",
+      "pr": 422,
+      "message": "docs: drop the standalone External bracket page, fix top-interface BOM bug",
+      "node": "interface",
+      "kind": "lines-changed",
+      "detail": "+ext-bracket-cover \u00d76, +ext-bracket-left \u00d76, \u2212external-bracket \u00d76, +scr-m5-16-shcs \u00d712"
+    },
+    {
+      "date": "2026-08-25",
+      "commit": "9b1b1e72",
+      "pr": 424,
+      "message": "fix: chute count is N, not N+2 -- bottom interface doesn't have its own chutes",
+      "node": "bottom-interface",
+      "kind": "lines-changed",
+      "detail": "\u2212chute \u00d72, +layer-connector \u00d71"
+    },
+    {
+      "date": "2026-08-25",
+      "commit": "f3ebf902",
+      "pr": 425,
+      "message": "docs: light-post fastener details measured off the STLs",
+      "node": "scr-m2-8-shcs",
+      "kind": "part-added"
+    },
+    {
+      "date": "2026-08-25",
+      "commit": "f3ebf902",
+      "pr": 425,
+      "message": "docs: light-post fastener details measured off the STLs",
+      "node": "camera-extension-assembly",
+      "kind": "lines-changed",
+      "detail": "+scr-m2-8-shcs \u00d74, scr-m3-tbd \u00d78\u21924"
+    },
+    {
+      "date": "2026-08-25",
+      "commit": "92e5045d",
+      "pr": 428,
+      "message": "docs: real answer for cooling-fan power, from the KiCad and the Orange Pi manual",
+      "node": "ctrl-board-mount",
+      "kind": "lines-changed",
+      "detail": "+scr-m5-16-shcs \u00d72"
+    },
+    {
+      "date": "2026-08-25",
+      "commit": "92e5045d",
+      "pr": 428,
+      "message": "docs: real answer for cooling-fan power, from the KiCad and the Orange Pi manual",
+      "node": "electronics",
+      "kind": "lines-changed",
+      "detail": "\u2212scr-m5-shcs-tbd \u00d76"
+    },
+    {
+      "date": "2026-08-25",
+      "commit": "92e5045d",
+      "pr": 428,
+      "message": "docs: real answer for cooling-fan power, from the KiCad and the Orange Pi manual",
+      "node": "meanwell-psu-box",
+      "kind": "lines-changed",
+      "detail": "+scr-m5-12-shcs \u00d72"
+    },
+    {
+      "date": "2026-08-25",
+      "commit": "92e5045d",
+      "pr": 428,
+      "message": "docs: real answer for cooling-fan power, from the KiCad and the Orange Pi manual",
+      "node": "orange-pi-mount",
+      "kind": "lines-changed",
+      "detail": "+scr-m5-12-shcs \u00d72"
+    },
+    {
+      "date": "2026-08-29",
+      "commit": "ee576961",
+      "pr": 452,
+      "message": "docs+parts-calculator: retire the classification chamber's M3 screw TBD placeholder",
+      "node": "cable-cage",
+      "kind": "lines-changed",
+      "detail": "+scr-m3-10-shcs \u00d71, \u2212scr-m3-tbd \u00d71"
+    },
+    {
+      "date": "2026-08-29",
+      "commit": "ee576961",
+      "pr": 452,
+      "message": "docs+parts-calculator: retire the classification chamber's M3 screw TBD placeholder",
+      "node": "camera-extension-assembly",
+      "kind": "lines-changed",
+      "detail": "+scr-m3-12-bhcs \u00d74, \u2212scr-m3-tbd \u00d74"
+    },
+    {
+      "date": "2026-08-29",
+      "commit": "ee576961",
+      "pr": 452,
+      "message": "docs+parts-calculator: retire the classification chamber's M3 screw TBD placeholder",
+      "node": "orange-pi-mount",
+      "kind": "lines-changed",
+      "detail": "+scr-m3-6-bhcs \u00d74, \u2212scr-m3-tbd \u00d74"
+    },
+    {
+      "date": "2026-08-29",
+      "commit": "9d7918c9",
+      "pr": 449,
+      "message": "docs: bin-frame reorg \u2014 hex frame, bottom interface, top interface",
+      "node": "hex-frame",
+      "kind": "assembly-added"
+    },
+    {
+      "date": "2026-08-31",
+      "commit": "30ec850f",
+      "pr": 476,
+      "message": "docs: safety, wording and naming fixes on Electronics and Electronics Installation",
+      "node": "pico-headers",
+      "kind": "lines-changed",
+      "detail": "header-pins-254 \u00d720\u219240"
+    },
+    {
+      "date": "2026-08-31",
+      "commit": "d3c18dbc",
+      "pr": 489,
+      "message": "parts-calculator: remove the chute stepper support block from the machine",
+      "node": "chute-stepper-support-block",
+      "kind": "qty-changed",
+      "detail": "interface 1\u21920"
+    },
+    {
+      "date": "2026-08-31",
+      "commit": "d3c18dbc",
+      "pr": 489,
+      "message": "parts-calculator: remove the chute stepper support block from the machine",
+      "node": "interface",
+      "kind": "lines-changed",
+      "detail": "\u2212chute-stepper-support-block \u00d71"
+    },
+    {
+      "date": "2026-08-31",
+      "commit": "1cba57db",
+      "pr": 494,
+      "message": "parts-calculator: retire the orphaned M5 TBD screws left after the support block's removal",
+      "node": "interface",
+      "kind": "lines-changed",
+      "detail": "\u2212scr-m5-shcs-tbd \u00d72"
+    },
+    {
+      "date": "2026-08-31",
+      "commit": "aa3a4bac",
+      "pr": 500,
+      "message": "parts-calculator: connection edges, the rotor units, and versions in the tree",
+      "node": "rotor-unit-faceted",
+      "kind": "assembly-added"
+    },
+    {
+      "date": "2026-08-31",
+      "commit": "aa3a4bac",
+      "pr": 500,
+      "message": "parts-calculator: connection edges, the rotor units, and versions in the tree",
+      "node": "rotor-unit-finned",
+      "kind": "assembly-added"
+    }
+  ]
+}

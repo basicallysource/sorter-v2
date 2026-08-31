@@ -83,6 +83,7 @@ export type AssemblyVersion = {
 	date: string;
 	message: string;
 	commit: string | null;
+	breaking?: boolean; // required on entries since 2026-08-31 (VERSIONING.md)
 	lines?: AssemblySnapshotLine[];
 	images?: CatalogImage[];
 };
@@ -251,6 +252,7 @@ export type PartVersion = {
 	date: string;
 	message: string;
 	commit: string | null;
+	breaking?: boolean; // required on entries since 2026-08-31 (VERSIONING.md)
 	note?: string; // an engineering note's id, if this version has one
 	onshape_doc?: string | null;
 	onshape_version?: string | null;

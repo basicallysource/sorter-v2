@@ -25,6 +25,14 @@ page. In short: every new version entry declares `breaking: true|false`
 and a structural change to an assembly's lines must be stamped as a new
 assembly version. `scripts/check_versioning.py` enforces both in CI.
 
+The assembly page's History panel (⋮ menu on any node) is the derived view
+of all this: a subtree's change log is the union of the `versions[]` entries
+below it, git-log style — nothing extra is recorded to make it work. Events
+that predate the stamp rule come from `src/lib/data/changelog.generated.json`,
+reconstructed once from git history by `scripts/backfill_changelog.py`. That
+file is a frozen artifact covering a closed era: never hand-edit it and never
+re-run the backfill — new history comes from version stamps.
+
 ## What this is
 
 A SvelteKit static site that tells you what to print/buy for a Sorter V2

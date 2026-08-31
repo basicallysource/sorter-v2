@@ -28,6 +28,8 @@
 	import { scoreEntry } from '$lib/search';
 	import { colorStore } from '$lib/colors.svelte';
 	import {
+		ASSEMBLIES,
+		commitUrl,
 		docsUrl,
 		fmtDate,
 		getAssembly,
@@ -37,8 +39,10 @@
 		hardwareImage,
 		JOIN_LABELS,
 		lineQty,
+		PARTS,
 		plainDescription,
 		primaryColorId,
+		SETTINGS,
 		type Assembly,
 		type AssemblyLine,
 		type AssemblySnapshotLine,
@@ -48,6 +52,7 @@
 		type PartVersion
 	} from '$lib/filament';
 	import { layerStore } from '$lib/layers.svelte';
+	import changelog from '$lib/data/changelog.generated.json';
 	import { page } from '$app/state';
 	import { assemblyCsv } from '$lib/parts-csv';
 	import { download, exportSpec, filename } from '$lib/csv';
@@ -290,6 +295,83 @@
 		}
 		for (const [k, n] of nm) if (!om.has(k)) rows.push({ id: k, kind: 'added', now: n });
 		return rows;
+	}
+
+	// ---- history -------------------------------------------------------------
+	// The rolled-up change log of a subtree, git-log style: a node's history is
+	// every change to anything at or below it, attributed to the node where it
+	// happened. Two sources, merged: versions[] entries (authoritative — written
+	// at stamp time, required since the stamp rule) and changelog.generated.json,
+	// structural changes reconstructed from the git history of parts.json for
+	// the era before the rule. The closure walks the CURRENT tree, so a member
+	// that later left a branch takes its own revision history with it — its
+	// removal still shows on the parent's lines-changed event.
+	type HistoryEvent = {
+		date: string;
+		commit?: string | null;
+		pr?: number | null;
+		node: string;
+		kind: string;
+		version?: string;
+		breaking?: boolean;
+		detail?: string;
+		message?: string;
+	};
+	const KIND_LABEL: Record<string, string> = {
+		'part-added': 'added',
+		'assembly-added': 'added',
+		'part-removed': 'removed',
+		'assembly-removed': 'removed',
+		'qty-changed': 'qty'
+	};
+	const prBase = (SETTINGS.commit_base_url ?? '').replace(/commit\/$/, 'pull/');
+	const ALL_EVENTS: HistoryEvent[] = [
+		...(changelog.events as HistoryEvent[]),
+		...[...PARTS, ...ASSEMBLIES].flatMap((item) => {
+			// A single entry means nothing ever changed (the generator writes a
+			// synthetic "Initial version." for every part) — no history to show.
+			const all = item.versions ?? [];
+			if (all.length < 2) return [];
+			return all.map(
+				(v, i): HistoryEvent => ({
+					date: v.date ?? '',
+					commit: v.commit,
+					node: item.id,
+					kind: 'revision',
+					version: i > 0 ? `v${all[i - 1].version}→v${v.version}` : `v${v.version}`,
+					breaking: v.breaking,
+					message: v.message
+				})
+			);
+		})
+	].sort((a, b) => (b.date || '').localeCompare(a.date || '') || (b.pr ?? 0) - (a.pr ?? 0));
+
+	let historyFor = $state<Record<string, boolean>>({});
+	const subtreeCache = new Map<string, Set<string>>();
+	function subtreeIds(id: string): Set<string> {
+		const hit = subtreeCache.get(id);
+		if (hit) return hit;
+		const set = new Set<string>();
+		const walk = (nid: string) => {
+			if (!nid || set.has(nid)) return;
+			set.add(nid);
+			for (const line of getAssembly(nid)?.lines ?? []) walk(line.part ?? line.assembly ?? '');
+		};
+		walk(id);
+		subtreeCache.set(id, set);
+		return set;
+	}
+	function historyOf(id: string): HistoryEvent[] {
+		const ids = subtreeIds(id);
+		return ALL_EVENTS.filter((e) => ids.has(e.node));
+	}
+	/** A history row's node opens whatever detail view its kind has. */
+	function openNode(id: string) {
+		const p = getPart(id);
+		if (p) return openPart(p);
+		const h = getHardware(id);
+		if (h) return openHardware(h);
+		if (getAssembly(id)) openAssembly(id);
 	}
 
 	// Clicking a thumbnail in the tree opens the same detail view the other tabs use:
@@ -588,6 +670,49 @@
 	{/if}
 {/snippet}
 
+<!-- The subtree's change log, newest first. One row per event: when, which
+     node, what happened, the PR (or commit) it came from. -->
+{#snippet historyPanel(asm: Assembly)}
+	{@const events = historyOf(asm.id)}
+	<div class="ml-1.5 mt-2 border border-border bg-surface sm:ml-4">
+		<div class="flex items-center gap-1.5 border-b border-border px-2.5 py-1.5 text-xs">
+			<History size={11} class="shrink-0 text-text-muted" />
+			<span class="font-semibold text-text">History</span>
+			<span class="text-text-muted">
+				— {events.length} change{events.length === 1 ? '' : 's'} to anything under this node
+			</span>
+			<button
+				type="button"
+				class="ml-auto flex h-5 w-5 items-center justify-center text-text-muted hover:text-text"
+				onclick={() => delete historyFor[asm.id]}
+				aria-label="Close history"
+			>
+				<X size={12} />
+			</button>
+		</div>
+		{#each events as e, i (i)}
+			<div class="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 border-b border-border/60 px-2.5 py-1 text-xs last:border-b-0">
+				<span class="w-20 shrink-0 whitespace-nowrap tabular-nums text-text-muted">{e.date ? fmtDate(e.date) : '—'}</span>
+				{#if memberOf(e.node)}
+					<button type="button" class="font-semibold text-text hover:text-primary" onclick={() => openNode(e.node)}>{memberName(e.node)}</button>
+				{:else}
+					<span class="font-semibold text-text-muted line-through">{memberName(e.node)}</span>
+				{/if}
+				{#if e.version}<span class="font-semibold text-text">{e.version}</span>{/if}
+				{#if KIND_LABEL[e.kind]}<span class="text-text-muted">{KIND_LABEL[e.kind]}</span>{/if}
+				{#if e.breaking}<span class="border border-danger/50 px-1 py-px text-[10px] font-semibold uppercase tracking-wider text-danger">breaking</span>{/if}
+				{#if e.detail}<span class="text-text">{e.detail}</span>{/if}
+				{#if e.message}<span class="text-text-muted">{e.message}</span>{/if}
+				{#if e.pr}
+					<a class="shrink-0 text-primary hover:text-primary-hover" href="{prBase}{e.pr}" target="_blank" rel="noopener">#{e.pr}</a>
+				{:else if commitUrl(e.commit)}
+					<a class="shrink-0 font-mono text-[11px] text-primary hover:text-primary-hover" href={commitUrl(e.commit)} target="_blank" rel="noopener">{e.commit}</a>
+				{/if}
+			</div>
+		{/each}
+	</div>
+{/snippet}
+
 {#snippet node(id: string, qty: AssemblyLine['qty'], mult: number, depth: number)}
 	{@const asm = getAssembly(id)}
 	{#if asm && (!filtering || keep.assemblies.has(asm.id))}
@@ -759,6 +884,15 @@
 							<div class="setup-panel absolute right-0 top-6 z-30 w-40 py-1 text-xs" role="menu">
 								<button type="button" role="menuitem" class="block w-full px-3 py-1.5 text-left text-text hover:bg-primary/[0.06]" onclick={() => setSubtree(asm.id, true)}>Expand all</button>
 								<button type="button" role="menuitem" class="block w-full px-3 py-1.5 text-left text-text hover:bg-primary/[0.06]" onclick={() => setSubtree(asm.id, false)}>Collapse all</button>
+								<button
+									type="button"
+									role="menuitem"
+									class="block w-full px-3 py-1.5 text-left text-text hover:bg-primary/[0.06]"
+									onclick={() => {
+										historyFor[asm.id] = true;
+										expanded[asm.id] = true;
+										menuFor = null;
+									}}>History</button>
 							</div>
 						{/if}
 					{/if}
@@ -771,6 +905,7 @@
 			<div class="tree-branch relative pl-2 sm:pl-4">
 				<button type="button" class="tree-line" onclick={() => toggle(asm.id)} aria-label="Collapse {asm.name}"></button>
 			{#if asm.images?.length}<div class="mt-2"><ImageStrip images={asm.images} /></div>{/if}
+			{#if historyFor[asm.id] && !filtering}{@render historyPanel(asm)}{/if}
 			{@render versionSwitch(asm, mult, depth)}
 			<!-- Alternative bills of materials under test, rendered with the same
 			     line rows. -->

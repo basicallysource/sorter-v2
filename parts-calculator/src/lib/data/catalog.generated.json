@@ -2643,8 +2643,8 @@
 					"version": "2",
 					"uid": "x09t",
 					"date": "2026-06-27",
-					"message": "Initial version.",
-					"commit": null,
+					"message": "Initial catalog entry, imported 2026-06-27 at the design's second iteration ('v2' in the source export, 01_c_channel (5).zip). v1 predates the catalog: never published, no uid, no pinned geometry. The commit is where this entry first exists in this repository's history; the import itself predates it.",
+					"commit": "954f181e",
 					"stl": "https://assets.basically.website/sorter-parts/nema-bracket-8b2bea87360e.stl",
 					"render": "https://assets.basically.website/sorter-parts/nema-bracket-full-91f60f914ef2.png",
 					"grams": 72.45

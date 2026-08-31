@@ -346,6 +346,24 @@
           "scr-m3-shcs-tbd"
         ]
       }
+    },
+    {
+      "id": "unconfirmed-servo-adapter-heat-insert",
+      "name": "Servo adapter's 4x M3S heat inserts are unconfirmed against the current CAD",
+      "priority": "P2",
+      "description": "The catalog carries 4 x hsi-m3s per layer for the servo adapter from the original BOM spreadsheet, but that count was never placed in the assembly tree because the published STLs do not show an insert pocket: servo-adapter-flap-side has four 4.0 mm bores straight through a 5.0 mm wall with a countersink on the back, and servo-adapter-servo-side has four blind 2.8 mm holes only 4.0 mm deep, a self-tap pilot diameter, not ruthex's recommended 4.0 mm insert hole. That reads as a countersunk screw passing through the flap side and self-tapping into the servo side, no insert on either half, matching door-module.md's existing text that the two halves take no inserts. Neither STL has been revised since 2026-06-27. Buy the inserts only if you can confirm a pocket against a physical adapter or newer CAD; otherwise the self-tapping joint above is what the current model builds to.",
+      "targets": {
+        "hardware": [
+          "hsi-m3s"
+        ],
+        "parts": [
+          "servo-adapter-servo-side",
+          "servo-adapter-flap-side"
+        ],
+        "assemblies": [
+          "servo-adapter"
+        ]
+      }
     }
   ],
   "folders": [

@@ -1290,7 +1290,7 @@
 			{#if open}
 			{@const braceGutter =
 				asm.connections?.length && !filtering
-					? 32 + (braceGroups(asm.connections).length - 1) * 16
+					? 44 + (braceGroups(asm.connections).length - 1) * 16
 					: 0}
 			<div
 				class="tree-branch relative pl-2 sm:pl-4"

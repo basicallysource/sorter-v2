@@ -801,6 +801,10 @@
 					"qty": 2
 				},
 				{
+					"part": "cam-ov9732",
+					"qty": 1
+				},
+				{
 					"part": "scr-m3-12-cs",
 					"qty": 3
 				},
@@ -1235,10 +1239,6 @@
 				{
 					"assembly": "classification-chamber",
 					"qty": 1
-				},
-				{
-					"assembly": "camera-mount",
-					"qty": 2
 				}
 			]
 		},
@@ -1414,6 +1414,10 @@
 				{
 					"assembly": "light-post-assembly",
 					"qty": 1
+				},
+				{
+					"assembly": "camera-mount",
+					"qty": 1
 				}
 			],
 			"connections": [
@@ -1452,6 +1456,10 @@
 				},
 				{
 					"assembly": "light-post-assembly",
+					"qty": 1
+				},
+				{
+					"assembly": "camera-mount",
 					"qty": 1
 				}
 			],

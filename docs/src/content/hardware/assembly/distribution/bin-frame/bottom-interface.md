@@ -109,7 +109,7 @@ Press the heat inserts into both printed parts while they are still loose. See [
   </div>
   <div class="prep-item-figure prep-item-figure-split">
     <figure>
-      <img class="doc-figure" src="https://assets.basically.website/sorter-parts/bottom-interface-chute-mount-m3-pocket-render-full-4eb13edc375d.png" alt="Render of the Lazy Susan chute mount seen from one side, with a red circle around a small pocket on a raised tab partway up the side wall">
+      <img class="doc-figure" src="https://assets.basically.website/sorter-parts/bottom-interface-chute-mount-m3-pocket-render2-full-73129c8af447.png" alt="Render of the Lazy Susan chute mount seen from one side, with a red circle around a small pocket on a raised tab partway up the side wall">
       <figcaption>Where it is: the pocket sits on the small raised tab on the side wall. The far side is a mirror of this one. <cite>Render: Balloon.</cite></figcaption>
     </figure>
     <figure>

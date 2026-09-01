@@ -13,7 +13,7 @@
 		X,
 		Zap
 	} from 'lucide-svelte';
-	import ConnectionBraces from '$lib/components/ConnectionBraces.svelte';
+	import ConnectionBraces, { braceGroups } from '$lib/components/ConnectionBraces.svelte';
 	import DropdownMenu from '$lib/components/DropdownMenu.svelte';
 	import AlternativeBadge from '$lib/components/AlternativeBadge.svelte';
 	import ConflictBadge from '$lib/components/ConflictBadge.svelte';
@@ -44,6 +44,7 @@
 		PARTS,
 		plainDescription,
 		primaryColorId,
+		screwTravel,
 		SETTINGS,
 		TAGS,
 		type CatalogTag,
@@ -1289,7 +1290,7 @@
 			{#if open}
 			{@const braceGutter =
 				asm.connections?.length && !filtering
-					? 32 + (new Set(asm.connections.map((c) => c.method)).size - 1) * 16
+					? 32 + (braceGroups(asm.connections).length - 1) * 16
 					: 0}
 			<div
 				class="tree-branch relative pl-2 sm:pl-4"
@@ -1297,7 +1298,7 @@
 			>
 				<button type="button" class="tree-line" onclick={() => toggle(asm.id)} aria-label="Collapse {asm.name}"></button>
 				{#if braceGutter && asm.connections}
-					<ConnectionBraces edges={asm.connections} gutter={braceGutter} labelOf={(m) => CONN_LABELS[m] ?? m} nameOf={memberName} />
+					<ConnectionBraces edges={asm.connections} gutter={braceGutter} labelOf={(m) => CONN_LABELS[m] ?? m} nameOf={memberName} travelOf={(id) => screwTravel(getHardware(id))} />
 				{/if}
 			{#if asm.images?.length}<div class="mt-2"><ImageStrip images={asm.images} /></div>{/if}
 			{#if historyFor[asm.id] && !filtering}{@render historyPanel(asm)}{/if}

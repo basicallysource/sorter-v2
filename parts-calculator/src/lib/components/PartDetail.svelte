@@ -111,9 +111,12 @@
 	{@const onshapeHref = candidate?.onshape_version ?? os.version}
 	{@const noteId = candidate?.note ?? active?.note ?? part.note}
 
+	<!-- In the modal the viewer and the facts sit side by side once there is
+	     room, each pane full height; stacked on narrow screens and on the page. -->
+	<div class={variant === 'modal' ? 'flex min-h-0 flex-1 flex-col overflow-hidden lg:flex-row' : ''}>
 	<!-- the preview, with the id-stamp controls and the colour picker laid over it -->
-	<div class="relative {variant === 'modal' ? 'shrink-0' : ''}">
-		<StlViewer bind:this={viewer} url={activeStl} color={getBambuColor(colorId).hex} mark={stamp} heightClass={variant === 'modal' ? 'h-[56vh]' : 'h-[60vh]'} />
+	<div class="relative {variant === 'modal' ? 'shrink-0 lg:w-[55%]' : ''}">
+		<StlViewer bind:this={viewer} url={activeStl} color={getBambuColor(colorId).hex} mark={stamp} heightClass={variant === 'modal' ? 'h-[45vh] lg:h-[76vh]' : 'h-[60vh]'} />
 		<div class="pointer-events-none absolute inset-x-3 top-3 flex flex-wrap items-start justify-between gap-2">
 			<IdStamp where="viewport" uid={candidate?.uid ?? part.uid} {stamps} bind:on={stampOn} bind:faceIdx onView={() => viewer?.viewMark()} onReset={() => viewer?.resetView()} />
 			<div class="pointer-events-auto ml-auto w-48 border border-border bg-[var(--color-surface)]/95 px-2.5 py-1.5 shadow-sm backdrop-blur"><ColorPicker bind:value={colorId} label="Preview color" /></div>
@@ -122,7 +125,7 @@
 
 	<!-- in the modal the details scroll independently of the pinned viewer (which
 	     owns wheel = zoom); on the page everything just flows -->
-	<div class="{variant === 'modal' ? 'min-h-0 flex-1 overflow-y-auto' : ''} border-t border-border">
+	<div class="{variant === 'modal' ? 'min-h-0 flex-1 overflow-y-auto border-t lg:border-l lg:border-t-0' : 'border-t'} border-border">
 		<div class="px-5 py-4">
 			<div class="flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
 				<div class="min-w-0 flex-1 space-y-2 text-sm">
@@ -256,6 +259,7 @@
 				</div>
 			</div>
 		{/if}
+	</div>
 	</div>
 
 	<Modal bind:open={platesOpen} title="Build plates · {part.name}">

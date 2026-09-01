@@ -16,23 +16,83 @@
 	row; everything re-measures on any size change of the branch, so nested
 	folds and window resizes keep ticks on their rows.
 -->
-<script lang="ts">
+<script lang="ts" module>
 	import type { Connection } from '$lib/filament';
 
+	/** One brace per independent joint: edges of one method split into connected
+	 *  components over shared members, so two unrelated self-tapped joints never
+	 *  merge into a single spine. Exported because the page sizes each branch's
+	 *  gutter off the same grouping. */
+	export function braceGroups(edges: Connection[]) {
+		const byMethod = new Map<string, Connection[]>();
+		for (const e of edges) byMethod.set(e.method, [...(byMethod.get(e.method) ?? []), e]);
+		const out: { key: string; method: string; edges: Connection[]; ids: string[]; draft: boolean }[] = [];
+		for (const [method, es] of byMethod) {
+			const comps: Connection[][] = [];
+			for (const e of es) {
+				const mine = new Set([e.from, e.to, ...(e.via ? [e.via] : [])]);
+				const touching = comps.filter((c) =>
+					c.some((o) => [o.from, o.to, o.via].some((x) => x && mine.has(x)))
+				);
+				for (const t of touching) comps.splice(comps.indexOf(t), 1);
+				comps.push([...touching.flat(), e]);
+			}
+			for (const c of comps) {
+				const ids = [...new Set(c.flatMap((e) => [e.from, e.to, ...(e.via ? [e.via] : [])]))];
+				out.push({
+					key: `${method}:${ids.join('+')}`,
+					method,
+					edges: c,
+					ids,
+					draft: c.every((e) => e.draft)
+				});
+			}
+		}
+		return out;
+	}
+</script>
+
+<script lang="ts">
 	let {
 		edges,
 		gutter,
 		labelOf,
-		nameOf
+		nameOf,
+		travelOf = () => null
 	}: {
 		edges: Connection[];
 		gutter: number;
 		labelOf: (method: string) => string;
 		nameOf: (id: string) => string;
+		/** How far a fastener line reaches through a joint (nominal length,
+		 *  less the head for countersunk — see screwTravel in filament.ts). */
+		travelOf?: (id: string) => number | null;
 	} = $props();
+
+	// A screw needs at least this much thread engagement to count as holding.
+	const MIN_BITE_MM = 2;
+	const mm = (n: number) => (Math.round(n * 100) / 100).toString();
 
 	let host = $state<HTMLElement | null>(null);
 	let open = $state<number | null>(null);
+	// Hovering a brace focuses it: the other braces fade and the rows this one
+	// holds get a hairline ring in its color. An open popover pins the focus.
+	let hover = $state<number | null>(null);
+	const hot = $derived(open ?? hover);
+	$effect(() => {
+		const parent = host?.parentElement;
+		if (!parent || hot === null) return;
+		const g = groups[hot];
+		if (!g) return;
+		const color = colorOf(hot);
+		const els = g.ids
+			.map((id) => parent.querySelector(`:scope > [data-member="${CSS.escape(id)}"]`))
+			.filter((el): el is HTMLElement => el instanceof HTMLElement);
+		for (const el of els) el.style.boxShadow = `inset 0 0 0 1px ${color}`;
+		return () => {
+			for (const el of els) el.style.boxShadow = '';
+		};
+	});
 
 	// One hue per join method, the same everywhere — friction is always
 	// friction-colored. Pure red and the success green stay clear of the
@@ -58,16 +118,7 @@
 	const colorOf = (i: number) => `hsl(${hueOf(i)} 60% 38%)`;
 	const laneX = (i: number) => 12 + i * 16;
 
-	const groups = $derived.by(() => {
-		const m = new Map<string, Connection[]>();
-		for (const e of edges) m.set(e.method, [...(m.get(e.method) ?? []), e]);
-		return [...m.entries()].map(([method, es]) => ({
-			method,
-			edges: es,
-			ids: [...new Set(es.flatMap((e) => [e.from, e.to, ...(e.via ? [e.via] : [])]))],
-			draft: es.every((e) => e.draft)
-		}));
-	});
+	const groups = $derived(braceGroups(edges));
 
 	type Span = { ticks: { y: number; from: number }[]; top: number; bottom: number; labelY: number };
 	let spans = $state<Span[]>([]);
@@ -127,10 +178,13 @@
 			s.labelY = (s.top + s.bottom) / 2;
 		}
 		// Same-ish hue + overlapping spans would read as one brace: shift the
-		// later one around the wheel until they part.
+		// later one around the wheel until they part. Two braces of the SAME
+		// method keep their exact hue — the color is the method's identity, and
+		// their separate lanes and labels already tell them apart.
 		const shifts = next.map(() => 0);
 		for (let i = 0; i < next.length; i++)
 			for (let j = i + 1; j < next.length; j++) {
+				if (groups[i].method === groups[j].method) continue;
 				const a = next[i];
 				const b = next[j];
 				if (!a.ticks.length || !b.ticks.length) continue;
@@ -164,35 +218,39 @@
 
 <div bind:this={host} class="pointer-events-none absolute inset-y-0 right-0" style="width: {gutter}px">
 	<svg class="absolute left-0 top-0 overflow-visible" width={gutter} {height} aria-hidden="true">
-		{#each groups as g, i (g.method)}
+		{#each groups as g, i (g.key)}
 			{@const s = spans[i]}
 			{#if s && s.ticks.length}
 				{@const x = laneX(laneOf[i] ?? i)}
-				<path
-					d="M {x} {s.top} V {s.bottom}"
-					stroke={colorOf(i)}
-					stroke-width="1"
-					fill="none"
-					stroke-dasharray={g.draft ? '3,3' : undefined}
-				/>
-				{#each s.ticks as t (t.y)}
-					<path d="M {t.from} {t.y} H {x}" stroke={colorOf(i)} stroke-width="1" fill="none" />
-				{/each}
+				<g class="transition-opacity duration-150" opacity={hot !== null && hot !== i ? 0.15 : 1}>
+					<path
+						d="M {x} {s.top} V {s.bottom}"
+						stroke={colorOf(i)}
+						stroke-width="1"
+						fill="none"
+						stroke-dasharray={g.draft ? '3,3' : undefined}
+					/>
+					{#each s.ticks as t (t.y)}
+						<path d="M {t.from} {t.y} H {x}" stroke={colorOf(i)} stroke-width="1" fill="none" />
+					{/each}
+				</g>
 			{/if}
 		{/each}
 	</svg>
-	{#each groups as g, i (g.method)}
+	{#each groups as g, i (g.key)}
 		{@const s = spans[i]}
 		{#if s && s.ticks.length}
 			<!-- The method name sits IN the wire: vertical text centered on the
 			     spine, its background masking the line behind it. -->
 			<button
 				type="button"
-				class="pointer-events-auto absolute z-10 whitespace-nowrap bg-surface py-1 text-[10px] font-semibold uppercase tracking-wider {open === i
-					? 'underline'
-					: 'hover:opacity-80'}"
-				style="left: {laneX(laneOf[i] ?? i)}px; top: {s.labelY}px; transform: translate(-50%, -50%); writing-mode: vertical-rl; color: {colorOf(i)};"
+				class="pointer-events-auto absolute z-10 whitespace-nowrap bg-surface py-1 text-[10px] font-semibold uppercase tracking-wider transition-opacity duration-150"
+				style="left: {laneX(laneOf[i] ?? i)}px; top: {s.labelY}px; transform: translate(-50%, -50%); writing-mode: vertical-rl; color: {colorOf(i)}; opacity: {hot !== null && hot !== i ? 0.15 : 1};"
 				aria-expanded={open === i}
+				onmouseenter={() => (hover = i)}
+				onmouseleave={() => (hover = null)}
+				onfocus={() => (hover = i)}
+				onblur={() => (hover = null)}
 				onclick={() => (open = open === i ? null : i)}
 			>
 				{labelOf(g.method)}
@@ -217,6 +275,36 @@
 							<div class="text-text-muted">
 								{#if e.via}{e.qty} × {nameOf(e.via)}{:else}{labelOf(e.method)}{e.qty > 1 ? ` — ${e.qty} places` : ''}{/if}
 							</div>
+							{#if e.through_mm || e.thread_mm}
+								<!-- The screw's journey to scale: pass-through, then the thread
+								     waiting for it, a marker at the actual screw's length. Both
+								     depths known = a computable valid-length range. -->
+								{@const th = e.through_mm ?? 0}
+								{@const tr = e.thread_mm ?? 0}
+								{@const len = e.via ? travelOf(e.via) : null}
+								{@const span = Math.max(th + tr, len ?? 0)}
+								{@const lo = th + MIN_BITE_MM}
+								{@const hi = th + tr}
+								{@const fits = len != null && th > 0 && tr > 0 && len >= lo && len <= hi}
+								<div class="relative mt-1.5 h-3 w-full">
+									{#if th}
+										<div class="absolute inset-y-0 left-0 border border-border bg-[var(--color-bg)]" style="width: {(th / span) * 100}%"></div>
+									{/if}
+									{#if tr}
+										<div
+											class="absolute inset-y-0 border"
+											style="left: {(th / span) * 100}%; width: {(tr / span) * 100}%; border-color: {colorOf(i)}; background: color-mix(in srgb, {colorOf(i)} 22%, transparent)"
+										></div>
+									{/if}
+									{#if len != null}
+										<div class="absolute -inset-y-0.5 w-px bg-text" style="left: {(len / span) * 100}%" title="the screw reaches {mm(len)} mm"></div>
+									{/if}
+								</div>
+								<div class="text-[11px] text-text-muted">
+									{#if th}{mm(th)} mm through{/if}{#if th && tr}{' · '}{/if}{#if tr}{mm(tr)} mm thread{/if}{#if th && tr && hi > lo}{` · fits ${mm(lo)}–${mm(hi)} mm`}{/if}{#if len != null && th && tr}
+										<span class={fits ? 'text-success' : 'text-warning-dark'}>{` · reaches ${mm(len)} mm — ${fits ? 'fits' : 'out of range'}`}</span>{/if}
+								</div>
+							{/if}
 							{#if e.note}<div class="mt-0.5 text-text-muted">{e.note}</div>{/if}
 						</div>
 					{/each}

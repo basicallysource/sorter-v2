@@ -19433,7 +19433,7 @@
 			"widthMm": 672,
 			"heightMm": 770,
 			"qty": 1,
-			"onshape": "https://cad.onshape.com/documents/36d65973fe08f685f790dc8b/v/3b8fafc8cab54b09332e14d2/e/e6605a6f604d25617d91b7bc",
+			"onshape": "https://cad.onshape.com/documents/36d65973fe08f685f790dc8b/v/f845b960415692451f2903b1/e/e6605a6f604d25617d91b7bc",
 			"dxf": "/dxf/top-plate.dxf",
 			"preview": "/dxf-previews/top-plate.svg",
 			"updated": "2026-07-10",
@@ -19442,7 +19442,9 @@
 				"blurb": "This plate is a regular hexagon \u2014 it can be laid out with a tape measure and cut accurately with just a jigsaw and a drill. The five cable slots become single 22 mm (7/8\u2033) drill holes.",
 				"stock": "672.4 \u00d7 776.4 mm rectangle (26 15/32\u2033 \u00d7 30 9/16\u2033)",
 				"tools": "jigsaw \u00b7 drill \u00b7 tape measure"
-			}
+			},
+			"stl_hash": "1f2d0ece017e38c09a6fa4258a407dcd85c07d844537017675a734647e74a067",
+			"stl": "https://assets.basically.website/sorter-parts/top-plate-1f2d0ece017e.stl"
 		}
 	],
 	"merges": [

@@ -7879,6 +7879,22 @@
       "date": "2026-08-31",
       "commit": null,
       "message": "Blessed stable with hex-frame-v2."
+    },
+    {
+      "name": "ext-2020-ag-v1",
+      "node": "ext-2020-ag",
+      "stability": "stable",
+      "date": "2026-08-31",
+      "commit": null,
+      "message": "Blessed stable with hex-frame-v2."
+    },
+    {
+      "name": "ext-2020-bh-v1",
+      "node": "ext-2020-bh",
+      "stability": "stable",
+      "date": "2026-08-31",
+      "commit": null,
+      "message": "Blessed stable with hex-frame-v2."
     }
   ]
 }

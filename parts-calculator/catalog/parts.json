@@ -6058,6 +6058,10 @@
         {
           "part": "scr-m5-12-shcs",
           "qty": 2
+        },
+        {
+          "part": "tnut-m5-2020",
+          "qty": 2
         }
       ],
       "candidates": [
@@ -7485,6 +7489,10 @@
         {
           "part": "scr-m5-16-shcs",
           "qty": 2
+        },
+        {
+          "part": "tnut-m5-2020",
+          "qty": 2
         }
       ],
       "joining": [
@@ -7604,6 +7612,10 @@
         },
         {
           "part": "scr-m5-12-shcs",
+          "qty": 2
+        },
+        {
+          "part": "tnut-m5-2020",
           "qty": 2
         }
       ],

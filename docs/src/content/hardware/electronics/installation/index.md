@@ -21,11 +21,19 @@ warning: >-
 
 The [wire harness]({{ '/hardware/electronics/' | relative_url }}) pages cover what connects to what. These cover the other half: where the hardware physically sits and what holds it there. "The control board" here means basically board v1.3, the basically Embedded Control Board; the three sections below call their own printed enclosure a housing, a box, and a mount, but they're the same kind of part, one per component, bolted to the frame.
 
-Each of the three printed enclosures bolts to the 2020 frame with 2 M5 screws (6 total). PSU box: 2x {% include fastener.html size="M5" variant="socket-button" length="12" %}. Orange Pi mount: 2x {% include fastener.html size="M5" variant="socket-button" length="12" %}. Control board housing: 2x {% include fastener.html size="M5" variant="socket-button" length="16" %}.
+Each of the three printed enclosures bolts to the 2020 frame with 2 M5 screws into 2 {% include fastener.html size="M5" variant="t-nut" text="T-nuts" %}, 6 of each in total. The holes in all three are clearance, so the screw passes through the plastic and pulls down onto the nut. PSU box: 2x {% include fastener.html size="M5" variant="socket-button" length="12" %}. Orange Pi mount: 2x {% include fastener.html size="M5" variant="socket-button" length="12" %}. Control board housing: 2x {% include fastener.html size="M5" variant="socket-button" length="16" %}, longer because its clamp boss is 10 mm deep against the other two at 8 mm.
+
+The six T-nuts go into the hex frame while the top interface is built, at [step 13]({{ '/hardware/assembly/distribution/top-interface/' | relative_url }}#step-13) of that page.
+
+<div class="callout">
+  <p><b>No problem if you forgot them.</b> The {% include fastener.html size="M5" variant="t-nut" text="T-nut" %} this build specifies is the spring-loaded roll-in kind, which drops into the slot anywhere along its length, so it can still go in now without taking the frame apart.</p>
+</div>
+
+All three go on the same plane: the [hex frame]({{ '/hardware/assembly/distribution/bin-frame/hex-frame/' | relative_url }}) that belongs to the top interface, the one lowered onto the interface assembly at [step 13]({{ '/hardware/assembly/distribution/top-interface/' | relative_url }}#step-13) of the top interface build. The render below is that frame seen from above, and the chute stepper is the landmark to place the three enclosures against.
 
 <figure class="single-figure">
   <img class="doc-figure" src="https://assets.basically.website/sorter-docs/electronics-component-layout-topdown-full-2d38b86c4b2e.jpg" alt="Top-down physical component layout on the machine, with the PSU, Pi, basically board, USB hub, Pico, chute stepper and ribbon run called out">
-  <figcaption>Where everything sits, top-down. This render is currently the only record of the placement. <cite>Render: Spencer.</cite></figcaption>
+  <figcaption>Where everything sits, top-down. This render is the record of the placement; the chute stepper is drawn slightly further out than it really sits, to keep the callouts readable. <cite>Render: Spencer.</cite></figcaption>
 </figure>
 
 Solder the [Pico headers]({{ '/hardware/helpers/pico-headers/' | relative_url }}) first, a one-time prep step under [Helpers]({{ '/hardware/helpers/' | relative_url }}); the Pico won't seat in the control board without it. Then:
@@ -41,6 +49,4 @@ Wiring follows on the [wire harness]({{ '/hardware/electronics/' | relative_url 
 
 Collected here rather than left on the individual pages, because these are the things that block finishing them.
 
-- **The Orange Pi's printed mount is not in the parts registry.** No STL, no render, no print settings. The control board's housing is, as of v2.
-- **Where on the frame each enclosure goes.** The photo above is the whole record. Which extrusion, which face, and which way round are not written down.
 - **Cooling the Orange Pi.** The control board's fan is answered: it sits in the housing cover and runs off a GPIO-switched 24 V port on the board itself. How the Pi's fan is powered is still open (open item 1 on the [wire harness]({{ '/hardware/electronics/' | relative_url }}) page).

@@ -340,7 +340,10 @@
 		const auxiliaryRole = setup?.uses_classification_channel
 			? 'classification_channel'
 			: 'carousel';
-		const roles = ['c_channel_2', 'c_channel_3', auxiliaryRole];
+		// The B1 belt topology has no C2 channel, so there is no C2 camera to assign.
+		const roles = setup?.uses_belt_feeder
+			? ['c_channel_3', auxiliaryRole]
+			: ['c_channel_2', 'c_channel_3', auxiliaryRole];
 		if (setup?.uses_classification_chamber ?? true) {
 			roles.push('classification_top', 'classification_bottom');
 		}

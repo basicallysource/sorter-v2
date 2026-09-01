@@ -632,13 +632,22 @@
 		};
 	});
 
+	function handleActivateMenuClickOutside(event: MouseEvent) {
+		if (openActivateId === null) return;
+		const target = event.target;
+		if (target instanceof Element && target.closest('[data-activate-menu]')) return;
+		openActivateId = null;
+	}
+
 	onMount(() => {
 		void (async () => {
 			await loadTargets();
 			await Promise.all([loadInstalled(), loadDownloads(), loadActiveAssignments()]);
 		})();
+		document.addEventListener('click', handleActivateMenuClickOutside);
 		return () => {
 			stopPolling();
+			document.removeEventListener('click', handleActivateMenuClickOutside);
 		};
 	});
 
@@ -1159,10 +1168,10 @@
 												{:else if !isCompatible}
 													<span class="px-3 py-1.5 text-xs text-text-muted"> Cannot activate </span>
 												{:else}
-													<!-- Tap/hover-expand activate: assign this model to a single
+													<!-- Tap-to-open activate menu: assign this model to a single
 											     subsystem at a time, 1:1 with the TOML, no fallback.
-											     The tap toggle makes it reachable on the CM5 touch tablet. -->
-													<div class="group relative">
+											     Tap toggles it, a tap anywhere outside closes it (CM5 touch tablet). -->
+													<div class="relative" data-activate-menu>
 														<button
 															type="button"
 															onclick={() =>
@@ -1183,7 +1192,7 @@
 															<ChevronDown size={13} class="opacity-70" />
 														</button>
 														<div
-															class={`absolute top-full right-0 z-30 mt-px w-[min(16rem,calc(100vw-2rem))] border border-border bg-surface shadow-lg transition-opacity duration-100 group-focus-within:visible group-focus-within:opacity-100 group-hover:visible group-hover:opacity-100 ${
+															class={`absolute top-full right-0 z-30 mt-px w-[min(16rem,calc(100vw-2rem))] border border-border bg-surface shadow-lg transition-opacity duration-100 ${
 																openActivateId === algorithmId
 																	? 'visible opacity-100'
 																	: 'invisible opacity-0'

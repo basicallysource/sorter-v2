@@ -70,7 +70,7 @@ export type WizardSummary = {
 			mode: 'auto_channels' | 'manual_carousel';
 		};
 		machine_setup: {
-			key: 'classification_channel' | 'manual_carousel';
+			key: 'standard_carousel' | 'classification_channel' | 'manual_carousel' | 'belt_feeder';
 			label: string;
 			description: string;
 			feeding_mode: 'auto_channels' | 'manual_carousel';
@@ -78,6 +78,7 @@ export type WizardSummary = {
 			uses_carousel_transport: boolean;
 			uses_classification_chamber: boolean;
 			uses_classification_channel: boolean;
+			uses_belt_feeder: boolean;
 			runs_reverse_pulse_calibration: boolean;
 			homes_carousel: boolean;
 			homes_chute: boolean;

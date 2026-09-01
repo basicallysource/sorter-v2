@@ -143,7 +143,8 @@
 			go_to_angle_rev01: 'Go to Angle',
 			pulse_perception_rev01: 'Simple Pulse',
 			constant_movement_rev01: 'Constant Movement',
-			drop_zone_reactive_rev01: 'Drop Zone Reactive'
+			drop_zone_reactive_rev01: 'Drop Zone Reactive',
+			belt_rev01: 'B1 Belt'
 		};
 		return labels[mode] ?? mode;
 	}

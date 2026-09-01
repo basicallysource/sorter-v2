@@ -12,7 +12,8 @@
 	import {
 		CLASSIFICATION_CHANNEL_STEPPER_LABEL,
 		stepperGearRatioForSetup,
-		triggerStoredStepperPulse
+		triggerStoredStepperPulse,
+		usesClassificationChannel
 	} from '$lib/settings/stepper-control';
 	import { ChevronDown } from 'lucide-svelte';
 	import { onMount } from 'svelte';
@@ -90,7 +91,7 @@
 	}
 
 	function stepperHotkeyLabel(stepperKey: StepperKey): string {
-		if (stepperKey === 'carousel' && machineSetup === 'classification_channel') {
+		if (stepperKey === 'carousel' && usesClassificationChannel(machineSetup)) {
 			return CLASSIFICATION_CHANNEL_STEPPER_LABEL;
 		}
 		return stepperLabels[stepperKey];

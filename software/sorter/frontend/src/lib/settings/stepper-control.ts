@@ -32,13 +32,20 @@ export const CLASSIFICATION_CHANNEL_STEPPER_GEAR_RATIO = STEPPER_GEAR_RATIOS.c_c
 // belt through a 4:1 reduction gearbox instead of the 130:12 rotor gearing.
 export const BELT_STEPPER_GEAR_RATIO = 4;
 
+// The classification C-channel (C4) rides on the carousel stepper port in every
+// setup that has one: the plain classification_channel topology and the B1
+// belt topology (belt + C3 + C4).
+export function usesClassificationChannel(setup: string | null | undefined): boolean {
+	return setup === 'classification_channel' || setup === 'belt_feeder';
+}
+
 export function stepperGearRatioForSetup(
 	stepperKey: StepperKey,
 	machineSetup?: MachineSetupKey
 ): number {
 	if (
 		stepperKey === 'c_channel_4' ||
-		(stepperKey === 'carousel' && machineSetup === 'classification_channel')
+		(stepperKey === 'carousel' && usesClassificationChannel(machineSetup))
 	) {
 		return CLASSIFICATION_CHANNEL_STEPPER_GEAR_RATIO;
 	}
@@ -118,8 +125,7 @@ export async function triggerStoredStepperPulse(
 
 	if (settings.pulseMode === 'degrees') {
 		const gearRatio = options?.gearRatio ?? STEPPER_GEAR_RATIOS[stepperKey] ?? 1;
-		const motorDegrees =
-			settings.pulseDegrees * gearRatio * (direction === 'ccw' ? -1 : 1);
+		const motorDegrees = settings.pulseDegrees * gearRatio * (direction === 'ccw' ? -1 : 1);
 		const params = new URLSearchParams({
 			stepper: stepperKey,
 			degrees: String(motorDegrees),

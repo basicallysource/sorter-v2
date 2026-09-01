@@ -2039,7 +2039,7 @@
 			"uid": "kiag",
 			"version": "1",
 			"name": "External bracket with support",
-			"description": "One corner segment of the outer hex: the side bracket screwed to the bottom vertical, the snap-on cover, and one A/G outer extrusion screwed into the side bracket.",
+			"description": "One corner segment of the outer hex: the side bracket screwed to the bottom vertical, with the snap-on cover.",
 			"lines": [
 				{
 					"part": "ext-bracket-left",
@@ -2054,12 +2054,8 @@
 					"qty": 1
 				},
 				{
-					"part": "ext-2020-ag",
-					"qty": 1
-				},
-				{
 					"part": "scr-m5-16-shcs",
-					"qty": 3
+					"qty": 1
 				}
 			],
 			"connections": [
@@ -2075,14 +2071,6 @@
 					"to": "ext-bracket-left",
 					"qty": 1,
 					"method": "clip"
-				},
-				{
-					"from": "ext-bracket-left",
-					"to": "ext-2020-ag",
-					"via": "scr-m5-16-shcs",
-					"qty": 2,
-					"method": "thread",
-					"note": "Into the extrusion's M5 core -- no T-nuts."
 				}
 			]
 		},
@@ -2091,11 +2079,36 @@
 			"uid": "jvp9",
 			"version": "1",
 			"name": "Outer hex frame",
-			"description": "Six External bracket with support segments closed into the outer hexagon.",
+			"description": "Six External bracket with support corners with six A/G extrusions slid between them, closing the hexagon.",
 			"lines": [
 				{
 					"assembly": "external-bracket-with-support",
 					"qty": 6
+				},
+				{
+					"part": "ext-2020-ag",
+					"qty": 6
+				},
+				{
+					"part": "scr-m5-16-shcs",
+					"qty": 12
+				}
+			],
+			"connections": [
+				{
+					"from": "ext-2020-ag",
+					"to": "external-bracket-with-support",
+					"qty": 12,
+					"method": "friction",
+					"note": "Each extrusion slides onto a bracket segment at either end -- one on either side of each bracket. These 12 fits hold the ring together."
+				},
+				{
+					"from": "external-bracket-with-support",
+					"to": "ext-2020-ag",
+					"via": "scr-m5-16-shcs",
+					"qty": 12,
+					"method": "thread",
+					"note": "Two per bracket, into the extrusions' M5 cores -- no T-nuts."
 				}
 			]
 		},
@@ -2202,7 +2215,7 @@
 					"version": "2",
 					"uid": "l0xa",
 					"date": "2026-08-31",
-					"message": "Restructured into Inner hex frame + Outer hex frame with connection edges. The corner brackets (side, bottom vertical, cover) and each segment's A/G extrusion become External bracket with support units; the 24 T-nuts are dropped -- the bracket screws go into the extrusions' M5 cores, not the slots. No physical change.",
+					"message": "Restructured into Inner hex frame + Outer hex frame with connection edges. The corner brackets (side, bottom vertical, cover) become External bracket with support units; the A/G extrusions slide between them in the outer hex, held by 12 friction fits and secured by screws into their M5 cores; the 24 T-nuts are dropped. No physical change.",
 					"breaking": false,
 					"commit": null
 				}

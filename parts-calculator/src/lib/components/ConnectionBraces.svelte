@@ -67,6 +67,24 @@
 
 	let host = $state<HTMLElement | null>(null);
 	let open = $state<number | null>(null);
+	// Hovering a brace focuses it: the other braces fade and the rows this one
+	// holds get a hairline ring in its color. An open popover pins the focus.
+	let hover = $state<number | null>(null);
+	const hot = $derived(open ?? hover);
+	$effect(() => {
+		const parent = host?.parentElement;
+		if (!parent || hot === null) return;
+		const g = groups[hot];
+		if (!g) return;
+		const color = colorOf(hot);
+		const els = g.ids
+			.map((id) => parent.querySelector(`:scope > [data-member="${CSS.escape(id)}"]`))
+			.filter((el): el is HTMLElement => el instanceof HTMLElement);
+		for (const el of els) el.style.boxShadow = `inset 0 0 0 1px ${color}`;
+		return () => {
+			for (const el of els) el.style.boxShadow = '';
+		};
+	});
 
 	// One hue per join method, the same everywhere — friction is always
 	// friction-colored. Pure red and the success green stay clear of the
@@ -196,16 +214,18 @@
 			{@const s = spans[i]}
 			{#if s && s.ticks.length}
 				{@const x = laneX(laneOf[i] ?? i)}
-				<path
-					d="M {x} {s.top} V {s.bottom}"
-					stroke={colorOf(i)}
-					stroke-width="1"
-					fill="none"
-					stroke-dasharray={g.draft ? '3,3' : undefined}
-				/>
-				{#each s.ticks as t (t.y)}
-					<path d="M {t.from} {t.y} H {x}" stroke={colorOf(i)} stroke-width="1" fill="none" />
-				{/each}
+				<g class="transition-opacity duration-150" opacity={hot !== null && hot !== i ? 0.15 : 1}>
+					<path
+						d="M {x} {s.top} V {s.bottom}"
+						stroke={colorOf(i)}
+						stroke-width="1"
+						fill="none"
+						stroke-dasharray={g.draft ? '3,3' : undefined}
+					/>
+					{#each s.ticks as t (t.y)}
+						<path d="M {t.from} {t.y} H {x}" stroke={colorOf(i)} stroke-width="1" fill="none" />
+					{/each}
+				</g>
 			{/if}
 		{/each}
 	</svg>
@@ -216,11 +236,15 @@
 			     spine, its background masking the line behind it. -->
 			<button
 				type="button"
-				class="pointer-events-auto absolute z-10 whitespace-nowrap bg-surface py-1 text-[10px] font-semibold uppercase tracking-wider {open === i
+				class="pointer-events-auto absolute z-10 whitespace-nowrap bg-surface py-1 text-[10px] font-semibold uppercase tracking-wider transition-opacity duration-150 {open === i
 					? 'underline'
-					: 'hover:opacity-80'}"
-				style="left: {laneX(laneOf[i] ?? i)}px; top: {s.labelY}px; transform: translate(-50%, -50%); writing-mode: vertical-rl; color: {colorOf(i)};"
+					: ''}"
+				style="left: {laneX(laneOf[i] ?? i)}px; top: {s.labelY}px; transform: translate(-50%, -50%); writing-mode: vertical-rl; color: {colorOf(i)}; opacity: {hot !== null && hot !== i ? 0.15 : 1};"
 				aria-expanded={open === i}
+				onmouseenter={() => (hover = i)}
+				onmouseleave={() => (hover = null)}
+				onfocus={() => (hover = i)}
+				onblur={() => (hover = null)}
 				onclick={() => (open = open === i ? null : i)}
 			>
 				{labelOf(g.method)}

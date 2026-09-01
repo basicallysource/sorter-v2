@@ -13,6 +13,7 @@
 		X,
 		Zap
 	} from 'lucide-svelte';
+	import ConnectionBraces from '$lib/components/ConnectionBraces.svelte';
 	import DropdownMenu from '$lib/components/DropdownMenu.svelte';
 	import AlternativeBadge from '$lib/components/AlternativeBadge.svelte';
 	import ConflictBadge from '$lib/components/ConflictBadge.svelte';
@@ -701,7 +702,7 @@
      that belong to the joint rather than to either part it holds together. -->
 {#snippet hardwareRow(hw: Hardware, each: number, total: number)}
 	{@const img = hardwareImage(hw)}
-	<div class="ml-1.5 mt-2 flex items-center gap-3 border border-border bg-[var(--color-bg)] p-2 sm:ml-4">
+	<div data-member={hw.id} class="ml-1.5 mt-2 flex items-center gap-3 border border-border bg-[var(--color-bg)] p-2 sm:ml-4">
 		{#if img}
 			<button type="button" class="asm-thumb shrink-0" title="View {hw.name} details" onclick={() => openHardware(hw)}>
 				<img src={img.src} alt={hw.name} class="h-8 w-8 object-contain" />
@@ -730,29 +731,6 @@
 	{/each}
 {/snippet}
 
-<!-- The assembly's joints, one row per connection edge: what holds what and
-     via which fastener. `to` is the anchor side, so the arrow reads in the
-     direction the fastener goes. A dashed DRAFT chip marks an edge extracted
-     from prose and not yet confirmed at the bench. -->
-{#snippet connectionRows(list: Connection[] | undefined)}
-	{#each list ?? [] as c, i (i)}
-		<div class="mt-1 flex max-w-3xl flex-wrap items-baseline gap-x-2 gap-y-0.5">
-			<Badge variant="warning"><Zap size={10} />{CONN_LABELS[c.method] ?? c.method}</Badge>
-			<button type="button" class="text-xs font-medium text-text hover:text-primary" onclick={() => openNode(c.from)}>{memberName(c.from)}</button>
-			<span class="text-xs text-text-muted" aria-label="into">→</span>
-			<button type="button" class="text-xs font-medium text-text hover:text-primary" onclick={() => openNode(c.to)}>{memberName(c.to)}</button>
-			{#if c.via}
-				<span class="text-xs text-text-muted">· {c.qty} × {memberName(c.via)}</span>
-			{:else if c.qty > 1}
-				<span class="text-xs text-text-muted">· ×{c.qty}</span>
-			{/if}
-			{#if c.draft}
-				<span class="border border-dashed border-warning/60 px-1 py-px text-[10px] font-semibold uppercase tracking-wider text-warning-dark" title="Extracted from prose — not yet confirmed at the bench">draft</span>
-			{/if}
-			{#if c.note}<AssemblyDescription text={c.note} as="span" class="text-xs text-text-muted" />{/if}
-		</div>
-	{/each}
-{/snippet}
 
 <!-- The tags standing on a node's current version, as badges: STABLE (green)
      or EXPERIMENTAL, with a count when several. Hover names the tags. -->
@@ -779,7 +757,7 @@
 			{@render node(line.assembly, line.qty, lineQty(line, layers) * mult, depth + 1)}
 		{:else if line.part && getLasercut(line.part)}
 			{@const lc = getLasercut(line.part)!}
-			<div class="ml-1.5 mt-2 flex items-center gap-3 border border-border bg-surface p-2 sm:ml-4 sm:p-3">
+			<div data-member={line.part} class="ml-1.5 mt-2 flex items-center gap-3 border border-border bg-surface p-2 sm:ml-4 sm:p-3">
 				<img src={lc.preview} alt={lc.name} class="h-12 w-12 shrink-0 object-contain" />
 				<div class="min-w-0 flex-1">
 					<div class="flex flex-wrap items-baseline gap-x-2">
@@ -801,7 +779,7 @@
 			{@const part = getPart(line.part)}
 			{#if part}
 				{@const total = lineQty(line, layers) * mult}
-				<div class="ml-1.5 mt-2 border border-border bg-surface p-2 sm:ml-4 sm:p-3">
+				<div data-member={line.part} class="ml-1.5 mt-2 border border-border bg-surface p-2 sm:ml-4 sm:p-3">
 					<div class="flex items-center gap-3">
 						<button type="button" class="asm-thumb shrink-0" title="View {part.name} details" onclick={() => openPart(part)}>
 							<img src={part.render} alt={part.name} class="h-12 w-12 object-contain" />
@@ -959,7 +937,6 @@
 		</div>
 	{:else}
 		{@render joiningRows(asm.joining)}
-		{@render connectionRows(asm.connections)}
 		{@render lines(asm.lines ?? [], mult, depth)}
 	{/if}
 {/snippet}
@@ -1128,6 +1105,7 @@
 		{@const open = hasContent && isOpen(asm.id)}
 		<div
 			id="asm-{asm.id}"
+			data-member={asm.id}
 			class="{depth > 0 ? 'ml-1.5 mt-2 sm:ml-4' : ''} py-1 {focus === asm.id ? 'bg-primary/[0.06]' : ''}"
 		>
 			<!-- The whole row is the expand/collapse target; anything interactive
@@ -1306,8 +1284,11 @@
 			     detail view the ⓘ opens. Inline it turns the tree into a wall of
 			     prose that restates the line rows below it. -->
 			{#if open}
-			<div class="tree-branch relative pl-2 sm:pl-4">
+			<div class="tree-branch relative pl-2 sm:pl-4 {asm.connections?.length && !filtering ? 'pr-20 sm:pr-28' : ''}">
 				<button type="button" class="tree-line" onclick={() => toggle(asm.id)} aria-label="Collapse {asm.name}"></button>
+				{#if asm.connections?.length && !filtering}
+					<ConnectionBraces edges={asm.connections} labelOf={(m) => CONN_LABELS[m] ?? m} nameOf={memberName} />
+				{/if}
 			{#if asm.images?.length}<div class="mt-2"><ImageStrip images={asm.images} /></div>{/if}
 			{#if historyFor[asm.id] && !filtering}{@render historyPanel(asm)}{/if}
 			{@render versionSwitch(asm, mult, depth)}

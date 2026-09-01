@@ -1196,7 +1196,7 @@
 					"version": "2",
 					"uid": "dlmn",
 					"date": "2026-09-01",
-					"message": "The machine splits into what it physically is: the feeder, the superstructure it mounts onto \u2014 top interface, distribution layers, bottom interface \u2014 and the electronics. No physical change.",
+					"message": "The machine splits into what it physically is: the feeder, the superstructure it mounts onto \u2014 top plate, top interface, distribution layers, bottom interface \u2014 and the electronics. No physical change.",
 					"breaking": false,
 					"commit": null
 				}
@@ -1207,9 +1207,13 @@
 			"uid": "ywb3",
 			"version": "1",
 			"name": "Superstructure",
-			"description": "What the feeder and the electronics mount onto: the top interface, the distribution layers between the interfaces, and the bottom interface.",
+			"description": "What the feeder and the electronics mount onto: the top plate, the top interface, the distribution layers between the interfaces, and the bottom interface.",
 			"status": "partial",
 			"lines": [
+				{
+					"part": "top-plate",
+					"qty": 1
+				},
 				{
 					"assembly": "interface",
 					"qty": 1
@@ -1603,8 +1607,8 @@
 		},
 		{
 			"id": "interface",
-			"uid": "uelo",
-			"version": "3",
+			"uid": "vhrk",
+			"version": "4",
 			"name": "Top interface",
 			"description": "The interface between the feeder and the distribution layers. Its lazy Susan sandwiches the upper fixed section and the chute mount, 4 \u00d7 [[hw:scr-m4-12-cs]] a side, and the plywood top plate bolts down onto the six brackets' inserts.",
 			"docs": "/hardware/assembly/distribution/top-interface/",
@@ -1669,10 +1673,6 @@
 				{
 					"part": "scr-m4-12-cs",
 					"qty": 8
-				},
-				{
-					"part": "top-plate",
-					"qty": 1
 				},
 				{
 					"part": "scr-m5-35-fhcs",
@@ -1937,9 +1937,109 @@
 				},
 				{
 					"version": "3",
-					"uid": "uelo",
 					"date": "2026-08-31",
 					"message": "The six External bracket covers and 12 bracket screws move inside the hex frame's new External bracket with support segments. No physical change.",
+					"breaking": false,
+					"commit": null,
+					"uid": "uelo",
+					"lines": [
+						{
+							"assembly": "interface-bracket-mount",
+							"qty": 6,
+							"uid": "pnl9"
+						},
+						{
+							"assembly": "hex-frame",
+							"qty": 1,
+							"uid": "l0xa"
+						},
+						{
+							"assembly": "fixed-upper-section",
+							"qty": 1,
+							"uid": "99af"
+						},
+						{
+							"assembly": "cable-cage",
+							"qty": 1,
+							"uid": "nam6"
+						},
+						{
+							"part": "scr-m5-30-shcs",
+							"qty": 6,
+							"uid": "92kv"
+						},
+						{
+							"assembly": "cable-clamp",
+							"qty": 1,
+							"uid": "e0p9"
+						},
+						{
+							"part": "scr-m3-12-bhcs",
+							"qty": 2,
+							"uid": "izrb"
+						},
+						{
+							"assembly": "limit-switch",
+							"qty": 1,
+							"uid": "xzje"
+						},
+						{
+							"part": "scr-m5-20-shcs",
+							"qty": 2,
+							"uid": "e4hi"
+						},
+						{
+							"assembly": "chute-stepper-gearing",
+							"qty": 1,
+							"uid": "cwji"
+						},
+						{
+							"assembly": "interface-chute-drive",
+							"qty": 1,
+							"uid": "8cjj"
+						},
+						{
+							"part": "top-interface-split-spur-gear-2",
+							"qty": 1,
+							"uid": "izz5"
+						},
+						{
+							"assembly": "layer-connector",
+							"qty": 1,
+							"uid": "6m38"
+						},
+						{
+							"part": "brg-lazy-susan",
+							"qty": 1,
+							"uid": "wrxu"
+						},
+						{
+							"part": "scr-m4-12-cs",
+							"qty": 8,
+							"uid": "h8h4"
+						},
+						{
+							"part": "top-plate",
+							"qty": 1,
+							"uid": "1g22"
+						},
+						{
+							"part": "scr-m5-35-fhcs",
+							"qty": 6,
+							"uid": "xkl4"
+						},
+						{
+							"part": "scr-m5-8-cs",
+							"qty": 6,
+							"uid": "mqh4"
+						}
+					]
+				},
+				{
+					"version": "4",
+					"uid": "vhrk",
+					"date": "2026-09-01",
+					"message": "The top plate moved up to the superstructure: it sits on top of the machine at this assembly's level, not inside it. No physical change.",
 					"breaking": false,
 					"commit": null
 				}

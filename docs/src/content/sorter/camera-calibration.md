@@ -65,7 +65,7 @@ Reference colors the pipeline fits against, with the closest standard LEGO color
 
 <div class="callout callout-warning">
   <span class="callout-icon" aria-hidden="true">⚠</span>
-  <p><b>No official physical size or bill of parts exists for this plate yet, for any camera.</b> The detector fits an affine transform to whatever it finds, so any size works as long as it fills most of the frame. The suggestion below is sized for a tighter camera view (2x2 studs per grid cell); it has not been checked against any specific camera, chamber or C-channel, and there's no documented field of view for either to check it against. For what it's worth, the commercial SpyderCheckr 24 this page used to name (before the code was found to only support this plate) is 140 x 200mm open, on the larger side of what a 2x2-stud build comes to. Hold whatever you build up to each camera's live preview in Settings before committing to a size, that's the cheapest way to confirm it fills the frame without clipping.</p>
+  <p><b>No official size exists for this plate.</b> Any size works, so check the build below against each camera's live preview in Settings before committing to it.</p>
 </div>
 
 <figure class="single-figure">

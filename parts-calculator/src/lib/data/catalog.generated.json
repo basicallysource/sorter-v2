@@ -1225,9 +1225,25 @@
 				{
 					"assembly": "bottom-interface",
 					"qty": 1
+				},
+				{
+					"part": "scr-m5-16-shcs",
+					"qty": 6
 				}
 			],
-			"connections": []
+			"connections": [
+				{
+					"from": "top-plate",
+					"to": "interface",
+					"via": "scr-m5-16-shcs",
+					"qty": 6,
+					"method": "insert",
+					"through_mm": 9,
+					"thread_mm": 9,
+					"note": "Through the plate into the top interface's M5 heat-set inserts. The 16 mm length is assumed, not yet confirmed.",
+					"draft": true
+				}
+			]
 		},
 		{
 			"id": "feeder",

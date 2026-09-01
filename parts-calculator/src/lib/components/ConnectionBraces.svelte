@@ -69,8 +69,13 @@
 		travelOf?: (id: string) => number | null;
 	} = $props();
 
-	// A screw needs at least this much thread engagement to count as holding.
+	// A screw needs about this much thread engagement to count as holding. The
+	// recorded depths are caliper measurements on printed parts and the
+	// countersunk deduction uses the ISO maximum head height, so the computed
+	// minimum gets a quarter-mm allowance — the bench-proven M3×12s in the NEMA
+	// bracket's 8.45 mm stator holes engage 1.85 mm and do hold.
 	const MIN_BITE_MM = 2;
+	const MEASURE_TOL_MM = 0.25;
 	const mm = (n: number) => (Math.round(n * 100) / 100).toString();
 
 	let host = $state<HTMLElement | null>(null);
@@ -285,7 +290,7 @@
 								{@const tr = e.thread_mm ?? 0}
 								{@const len = e.via ? travelOf(e.via) : null}
 								{@const span = Math.max(th + tr, len ?? 0)}
-								{@const lo = th + MIN_BITE_MM}
+								{@const lo = th + MIN_BITE_MM - MEASURE_TOL_MM}
 								{@const hi = th + tr}
 								{@const fits = len != null && th > 0 && tr > 0 && len >= lo && len <= hi}
 								<div class="relative mt-1.5 h-3 w-full">

@@ -52,16 +52,16 @@ A 4-column x 6-row plate built from LEGO plates/tiles in six colors, placed in t
 | Row 5 | green | green | yellow | yellow |
 | Row 6 | black | white | black | white |
 
-Reference colors the pipeline fits against:
+Reference colors the pipeline fits against, with the closest standard LEGO color name and ID in each cataloging system (these are the six basic colors LEGO has used since 1949, not exact hex matches to the photographed reference swatch below, which is measured under specific lighting, not a pigment spec):
 
-| Color | Hex | RGB |
-|---|---|---|
-| White | `#dbeff3` | 219, 239, 243 |
-| Black | `#1b1e25` | 27, 30, 37 |
-| Blue | `#269cdd` | 38, 156, 221 |
-| Red | `#e22b24` | 226, 43, 36 |
-| Green | `#0b9b63` | 11, 155, 99 |
-| Yellow | `#f0d61d` | 240, 214, 29 |
+| Color | Hex | RGB | LEGO name (ID) | BrickLink name (ID) | Rebrickable name (ID) |
+|---|---|---|---|---|---|
+| White | `#dbeff3` | 219, 239, 243 | White (1) | White (1) | White (15) |
+| Black | `#1b1e25` | 27, 30, 37 | Black (26) | Black (11) | Black (0) |
+| Blue | `#269cdd` | 38, 156, 221 | Bright Blue (23) | Blue (7) | Blue (1) |
+| Red | `#e22b24` | 226, 43, 36 | Bright Red (21) | Red (5) | Red (4) |
+| Green | `#0b9b63` | 11, 155, 99 | Dark Green (28) | Green (6) | Green (2) |
+| Yellow | `#f0d61d` | 240, 214, 29 | Bright Yellow (24) | Yellow (3) | Yellow (14) |
 
 <div class="callout callout-warning">
   <span class="callout-icon" aria-hidden="true">⚠</span>

@@ -41,7 +41,7 @@ Color calibration uses a **6-color LEGO reference plate**, not a commercial colo
 
 ### What you need
 
-A 4-column x 6-row plate built from LEGO plates/tiles in six colors, placed in the classification chamber and filling most of the frame. The grid (columns left to right, rows top to bottom):
+A 4-column x 6-row plate built from LEGO plates/tiles in six colors, placed in front of the camera being calibrated and filling most of its frame. This isn't only for the classification chamber: the same calibration flow runs per camera role (`classification_top`, `classification_bottom`, `classification_channel`, `c_channel_2`, `c_channel_3`, `carousel`), so the same plate design needs to work in front of each of those, not only the chamber. The grid (columns left to right, rows top to bottom):
 
 | | Col 1 | Col 2 | Col 3 | Col 4 |
 |---|---|---|---|---|
@@ -65,12 +65,12 @@ Reference colors the pipeline fits against, with the closest standard LEGO color
 
 <div class="callout callout-warning">
   <span class="callout-icon" aria-hidden="true">⚠</span>
-  <p><b>No official physical size or bill of parts exists for this plate yet.</b> The detector fits an affine transform to whatever it finds, so any size works as long as it fills most of the frame; the suggestion below is not a confirmed spec.</p>
+  <p><b>No official physical size or bill of parts exists for this plate yet, for any camera.</b> The detector fits an affine transform to whatever it finds, so any size works as long as it fills most of the frame. The 128 x 192mm suggestion below was only sized loosely against the classification chamber (roughly the scale of the Siemens Star chart already used there); it has not been checked against the C-channel or carousel cameras, which sit closer to the belt with a narrower field of view and may need a smaller build. There's no documented width for those either. Hold whatever you build up to each camera's live preview in Settings before committing to a size, that's the cheapest way to confirm it fills the frame without clipping.</p>
 </div>
 
 <figure class="single-figure">
   <img class="doc-figure" src="https://assets.basically.website/sorter-docs/camera-calibration-suggested-plate-full-8df4a78df6e2.png" alt="4 by 6 grid diagram of the calibration plate pattern, drawn as LEGO plates with studs, in the six reference colors">
-  <figcaption>One way to build it: one 4x4-stud LEGO plate or tile per cell (32mm), 128 x 192mm overall. The four 2x2 color blocks (blue/red/green/yellow) can each be a single 8x8 plate instead of four 4x4s; the alternating top and bottom rows need individual 4x4 plates/tiles. <cite>Rendered from the pattern above, not a photo. Render: Balloon.</cite></figcaption>
+  <figcaption>One way to build it, sized for the classification chamber: one 4x4-stud LEGO plate or tile per cell (32mm), 128 x 192mm overall. The four 2x2 color blocks (blue/red/green/yellow) can each be a single 8x8 plate instead of four 4x4s; the alternating top and bottom rows need individual 4x4 plates/tiles. For a tighter camera view, halve the cell to 2x2 studs (16mm) for a 64 x 96mm plate, same pattern. <cite>Rendered from the pattern above, not a photo. Render: Balloon.</cite></figcaption>
 </figure>
 
 ### Steps

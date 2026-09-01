@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Siemens Star focus chart, print at 8 x 8 cm</title>
+<style>
+  @page { margin: 1.5cm; }
+  html, body { margin: 0; padding: 0; background: #fff; }
+  body {
+    font-family: system-ui, -apple-system, sans-serif;
+    color: #111;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 1.5cm 1cm 1cm;
+  }
+  .instructions {
+    max-width: 14cm;
+    text-align: center;
+    font-size: 0.85rem;
+    line-height: 1.4;
+    margin: 0 0 1.2cm;
+  }
+  .chart-wrap {
+    position: relative;
+    width: 8cm;
+    height: 8cm;
+    margin: 0.7cm;
+  }
+  .chart-wrap img {
+    display: block;
+    width: 8cm;
+    height: 8cm;
+  }
+  /* Crop marks: an L at each corner, offset 0.2cm outside the true 8x8cm edge. */
+  .crop { position: absolute; background: #000; }
+  .crop.h { width: 0.5cm; height: 1px; }
+  .crop.v { width: 1px; height: 0.5cm; }
+  .crop.tl-h { top: -0.2cm; left: -0.7cm; }
+  .crop.tl-v { top: -0.7cm; left: -0.2cm; }
+  .crop.tr-h { top: -0.2cm; right: -0.7cm; }
+  .crop.tr-v { top: -0.7cm; right: -0.2cm; }
+  .crop.bl-h { bottom: -0.2cm; left: -0.7cm; }
+  .crop.bl-v { bottom: -0.7cm; left: -0.2cm; }
+  .crop.br-h { bottom: -0.2cm; right: -0.7cm; }
+  .crop.br-v { bottom: -0.7cm; right: -0.2cm; }
+  button {
+    font: inherit;
+    padding: 0.4em 1.2em;
+    margin-top: 0.4cm;
+    cursor: pointer;
+  }
+  @media print {
+    .instructions, button { display: none; }
+    .chart-wrap { margin: 0; }
+  }
+</style>
+</head>
+<body>
+  <p class="instructions">Print at <strong>100% scale</strong> ("Actual size", not "Fit to page"). The image inside the crop marks is exactly 8 x 8 cm. Cut along the marks.</p>
+  <div class="chart-wrap">
+    <img src="/assets/png-transparent-siemens-star-focus-camera-optics-charts-angle-lens-triangle.png" alt="Siemens Star focus chart, 8 x 8 cm">
+    <div class="crop h tl-h"></div>
+    <div class="crop v tl-v"></div>
+    <div class="crop h tr-h"></div>
+    <div class="crop v tr-v"></div>
+    <div class="crop h bl-h"></div>
+    <div class="crop v bl-v"></div>
+    <div class="crop h br-h"></div>
+    <div class="crop v br-v"></div>
+  </div>
+  <button onclick="window.print()">Print</button>
+</body>
+</html>

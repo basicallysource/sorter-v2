@@ -112,6 +112,8 @@ sorter/backend/servo_states.json
 sorter/backend/local_state.sqlite
 sorter/backend/local_state.sqlite-shm
 sorter/backend/local_state.sqlite-wal
+# ad-hoc backups of the state DB (local_state.sqlite.backup-*, .bak-*)
+sorter/backend/local_state.sqlite.*
 sorter/backend/piece_images/
 sorter/backend/.secret_seed
 

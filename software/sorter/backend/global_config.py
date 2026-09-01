@@ -111,6 +111,9 @@ class GlobalConfig:
         # main.py after camera startup. Not an env-toggle: the mode config
         # determines whether this is non-None.
         self.perception_service = None
+        # B1 belt feeder live status: one dict BeltFeeding updates in place,
+        # read by the tuning router. None until a BELT_REV01 feeder has run.
+        self.belt_feeder_status: "dict | None" = None
 
         # Standalone training-image grabber. Runs regardless of machine mode;
         # set in main.py after camera startup. See sample_collector.py.

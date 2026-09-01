@@ -41,6 +41,7 @@ from server import shared_state
 from server.classification_training import getClassificationTrainingManager
 from server.machine_naming import display_name_from_hostname, random_display_name
 from server.routers.tailscale import current_hostname
+from subsystems.feeder.incidents import BELT_FEEDER_STALLED_INCIDENT_KIND
 from vision.detection_registry import (
     detection_algorithm_definition,
     detection_algorithm_options,
@@ -2416,6 +2417,19 @@ def feeder_bulk_feed_incident_clear(
 
     runtime_stats.clearActiveIncident(kind=BULK_FEEDER_STALLED_INCIDENT_KIND, resolved_by="operator")
     return {"ok": True, "cleared": True, "channel": "c1"}
+
+
+@router.post("/api/feeder/belt-feed-incident/clear")
+def feeder_belt_feed_incident_clear() -> Dict[str, Any]:
+    """B1 topology: the operator checked the boat / belt and wants to resume."""
+    runtime_stats = _runtime_stats_or_503()
+    active = runtime_stats.activeIncident() if hasattr(runtime_stats, "activeIncident") else None
+    if not isinstance(active, dict) or active.get("kind") != BELT_FEEDER_STALLED_INCIDENT_KIND:
+        runtime_stats.clearActiveIncident(kind=BELT_FEEDER_STALLED_INCIDENT_KIND)
+        return {"ok": True, "cleared": False, "reason": "no_active_incident"}
+
+    runtime_stats.clearActiveIncident(kind=BELT_FEEDER_STALLED_INCIDENT_KIND, resolved_by="operator")
+    return {"ok": True, "cleared": True, "channel": "b1"}
 
 
 @router.post("/api/feeder/detection-incident/clear")

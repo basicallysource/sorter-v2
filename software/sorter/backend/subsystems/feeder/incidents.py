@@ -13,6 +13,7 @@ from typing import Any
 # raise THIS operator-facing incident.
 FEEDER_JAM_INCIDENT_KIND = "feeder_jam"
 FEEDER_JAM_SOURCE_KIND = "feeder_stuck_watchdog"
+BELT_FEEDER_STALLED_INCIDENT_KIND = "belt_feeder_stalled"
 
 
 def feeder_jam_incident_active(gc: Any, *, channel_label: str | None = None) -> bool:
@@ -172,3 +173,48 @@ def _incident_handling_off(kind: str) -> bool:
         return bool(incidentHandlingOff(kind))
     except Exception:
         return False
+
+
+def publish_belt_feeder_stalled_incident(
+    gc: Any,
+    *,
+    stalled_ms: int,
+    belt_speed_usteps_per_s: int,
+    jam_timeout_s: float,
+) -> bool:
+    """B1 belt topology: the belt ran for the whole jam window without a single
+    new piece arriving in C3 — the boat is empty or the belt is jammed."""
+    if _incident_handling_off(BELT_FEEDER_STALLED_INCIDENT_KIND):
+        return False
+    runtime_stats = getattr(gc, "runtime_stats", None)
+    if runtime_stats is None or not hasattr(runtime_stats, "setActiveIncident"):
+        return False
+
+    active = None
+    if hasattr(runtime_stats, "activeIncident"):
+        try:
+            active = runtime_stats.activeIncident()
+        except Exception:
+            active = None
+    if isinstance(active, dict):
+        return active.get("kind") == BELT_FEEDER_STALLED_INCIDENT_KIND
+
+    runtime_stats.setActiveIncident(
+        {
+            "kind": BELT_FEEDER_STALLED_INCIDENT_KIND,
+            "severity": "warning",
+            "status": "waiting_for_operator",
+            "awaiting_operator": True,
+            "scope": "feeder",
+            "channel": "b1",
+            "role": "belt_feeder",
+            "channel_label": "B1 Belt Feeder",
+            "triggered_at": time.time(),
+            "stalled_ms": int(stalled_ms),
+            "belt_speed_usteps_per_s": int(belt_speed_usteps_per_s),
+            "jam_timeout_s": float(jam_timeout_s),
+            "rule": "belt_ran_without_new_c3_piece_for_timeout",
+            "resolution": "operator_check_boat_or_belt_then_clear_incident",
+        }
+    )
+    return True

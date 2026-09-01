@@ -8,11 +8,11 @@ from .constants import C4_TRAVEL_SIGN, LOG_TAG
 
 
 class MovingToPrecise(Rev01BaseState):
-    """Reverse closed-loop converge the piece to the PRECISE staging zone.
+    """Forward-only closed-loop converge of the piece to the PRECISE staging zone.
 
-    Drives the leading piece's COM toward the centre of the precise arc with
-    repeated bounded moves (issued REVERSE — negative output degrees — via
-    ``C4_TRAVEL_SIGN``). The Brickognize request spawned at the end of CAPTURING
+    Drives the leading piece's COM toward the precise arc with repeated bounded
+    moves in the platter's travel direction (``C4_TRAVEL_SIGN``); it never
+    backs up. The Brickognize request spawned at the end of CAPTURING
     runs concurrently; we do not block on it here. When the COM is parked in the
     precise band we hand off to AWAITING_DISTRIBUTION, which collects the result
     and waits for the chute. The piece is held short of the fall-off so it cannot
@@ -49,6 +49,17 @@ class MovingToPrecise(Rev01BaseState):
             return ClassificationChannelState.REV01_AWAITING_DISTRIBUTION
 
         gap = state.exit_com_forward_to_precise_deg
+        if gap is not None:
+            lead_to_exit = state.exit_com_forward_deg
+            # comForwardToPreciseEntryDeg wraps to (-180, 180]: a piece far up
+            # the drop zone reads as a small/negative gap when it is really most
+            # of a turn short. Un-wrap when the leading gap-to-exit says so.
+            if (
+                gap <= float(cfg.precise_center_tolerance_deg)
+                and lead_to_exit is not None
+                and lead_to_exit > 180.0
+            ):
+                gap += 360.0
         # Walled-platter rule: the sectors hold the piece, so any position AT or
         # PAST the precise entry (gap <= tolerance, including negative/overshot)
         # counts as parked. C4 never reverses — backing up would carry the

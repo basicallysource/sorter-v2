@@ -351,6 +351,26 @@ def getBeltFeederConfig() -> dict[str, Any]:
     return defaults
 
 
+def getPerceptionConfThresholds() -> dict[int, float]:
+    """Per-channel detector confidence overrides, read at backend start:
+
+    [perception.conf_thresholds]
+    4 = 0.25
+    """
+    section = _read_toml().get("perception")
+    raw = section.get("conf_thresholds") if isinstance(section, dict) else None
+    result: dict[int, float] = {}
+    if isinstance(raw, dict):
+        for key, value in raw.items():
+            try:
+                channel, conf = int(key), float(value)
+            except (TypeError, ValueError):
+                continue
+            if 0.0 < conf <= 1.0:
+                result[channel] = conf
+    return result
+
+
 def setBeltFeederConfig(updates: dict[str, Any]) -> dict[str, Any]:
     from subsystems.feeder.belt.config import BeltFeederConfig, configToDict
     defaults = configToDict(BeltFeederConfig())
@@ -495,9 +515,12 @@ _INCIDENT_KIND_ALIASES: dict[str, str] = {
 # classification fallbacks, ...) get no policy row: their publishers never run
 # on the default setup.
 _INCIDENT_FEEDER_JAM = "feeder_jam"
+# B1 belt topology only (BELT_REV01 feeder); the publisher honours "off".
+_INCIDENT_BELT_FEEDER_STALLED = "belt_feeder_stalled"
 _INCIDENT_HANDLING_DEFAULTS: dict[str, str] = {
     _INCIDENT_EXIT_STUCK: _INCIDENT_MODE_AUTOMATIC,
     _INCIDENT_FEEDER_JAM: _INCIDENT_MODE_AUTOMATIC,
+    _INCIDENT_BELT_FEEDER_STALLED: _INCIDENT_MODE_MANUAL,
     "distribution_chute_jam": _INCIDENT_MODE_MANUAL,
     "distribution_servo_bus_offline": _INCIDENT_MODE_MANUAL,
     "distribution_no_bin_available": _INCIDENT_MODE_MANUAL,
@@ -522,6 +545,16 @@ _INCIDENT_DEFINITIONS: tuple[dict[str, Any], ...] = (
         "manual_label": "Call the operator as soon as a channel is stuck",
         "automatic_label": "Nudge the upstream channel to free it, then call the operator",
         "automatic_supported": True,
+    },
+    {
+        "kind": _INCIDENT_BELT_FEEDER_STALLED,
+        "label": "Belt Feed Stalled",
+        "scope": "B1",
+        "description": "The belt ran for the whole jam window without a new piece arriving in C3 — the boat is empty or the belt is jammed.",
+        "off_label": "Do not raise belt-stalled incidents",
+        "manual_label": "Operator checks the boat or belt, then clears",
+        "automatic_label": "Not available",
+        "automatic_supported": False,
     },
     {
         "kind": "distribution_chute_jam",

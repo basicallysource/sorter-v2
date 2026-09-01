@@ -153,3 +153,18 @@ c_channel_3 = 4
 
 [stepper_direction_inverts]
 carousel = true
+
+# B1 belt feeder (machine_setup = "belt_feeder" pairs [feeder] mode = "belt_rev01").
+# Every key is tunable live under Settings > Tuning > B1 Belt Feeder.
+# [feeder_belt]
+# belt_speed_usteps_per_s = 2000   # base speed while C3 wants pieces
+# forward_direction_sign = 1       # -1 if the belt motor is wired the other way
+# c3_full_speed_pieces = 1         # at/below this many pieces in C3: full speed
+# c3_stop_pieces = 3               # at/above: belt stops (linear ramp in between)
+# speed_update_interval_ms = 250
+# jam_timeout_s = 45.0             # no new C3 piece for this long -> incident; 0 = off
+# enable_belt = true
+
+# Per-channel detector confidence overrides (read once at backend start).
+# [perception.conf_thresholds]
+# 4 = 0.25

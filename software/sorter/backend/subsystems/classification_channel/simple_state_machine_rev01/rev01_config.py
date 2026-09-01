@@ -14,7 +14,7 @@ class Rev01Config:
     # afterwards which frames are worth sending. The piece does not rotate, so
     # the views are near-identical.
     capture_at_rest_ms: float = 350.0
-    # Reverse converge to the precise staging zone (MOVING_TO_PRECISE). Slower
+    # Forward-only converge to the precise staging zone (MOVING_TO_PRECISE). Slower
     # than the discharge converge so the approach into the narrow precise band is
     # gentle; tolerance is the |gap-to-precise-centre| at which we call it parked.
     precise_converge_speed_usteps_per_s: int = 5000

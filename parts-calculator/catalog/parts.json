@@ -364,6 +364,25 @@
           "servo-adapter"
         ]
       }
+    },
+    {
+      "id": "tap-electronics-frame-holes",
+      "name": "Electronics frame-mount holes are M5 clearance, not self-tapping",
+      "priority": "P2",
+      "condition": "broken",
+      "description": "The holes that bolt the three electronics enclosures to the 2020 frame are plain M5 clearance holes: Ø5.40 through 10.0 mm on the Control Board Housing base, Ø5.50 through 8.0 mm on the Orange Pi Extrusion Mount and the Meanwell PSU connections plate. A clearance hole gives an M5 thread nothing to cut, so the screws hold nothing unless a T-nut is fitted, and none of the three assemblies lists one. Every other bracket that clamps onto the extrusion is drawn at Ø4.30 to 4.40 (External bracket - side, External bracket - bottom vertical). These six should become Ø4.4 so the screw cuts its own thread through the printed boss and braces on the extrusion, which is also what makes the listed M5 x 16 the right length. Tracked as sorter-v2 issue #513.",
+      "targets": {
+        "parts": [
+          "ctrl-board-housing-base",
+          "orange-pi-extrusion-mount",
+          "meanwell-psu-connections"
+        ],
+        "assemblies": [
+          "ctrl-board-mount",
+          "orange-pi-mount",
+          "meanwell-psu-box"
+        ]
+      }
     }
   ],
   "folders": [

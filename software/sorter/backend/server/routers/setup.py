@@ -199,7 +199,7 @@ def _persist_machine_setup(config: Dict[str, Any], setup_key: str) -> Dict[str, 
     if definition.uses_belt_feeder:
         config["feeder"] = {**feeder, "mode": FeederMode.BELT_REV01.value}
     elif feeder.get("mode") == FeederMode.BELT_REV01.value:
-        config["feeder"] = {**feeder, "mode": FeederMode.GO_TO_ANGLE_REV01.value}
+        config["feeder"] = {**feeder, "mode": FeederMode.PULSE_PERCEPTION_REV01.value}
     return config
 
 
@@ -212,13 +212,16 @@ def _current_stepper_direction_payload() -> list[dict[str, Any]]:
     active_irl = shared_state.getActiveIRL()
     entries: list[dict[str, Any]] = []
     logical_names = list(LOGICAL_STEPPER_BINDING_BASES.keys())
-    if get_machine_setup_definition(
-        _machine_setup_key_from_config(config)
-    ).uses_classification_channel:
+    definition = get_machine_setup_definition(_machine_setup_key_from_config(config))
+    if definition.uses_classification_channel:
         logical_names = [
             C4_LOGICAL_STEPPER if name == C4_BACKING_STEPPER else name
             for name in logical_names
         ]
+    labels = dict(STEPPER_LABELS)
+    if definition.uses_belt_feeder:
+        # The belt motor plugs into the freed C1 rotor port.
+        labels["c_channel_1"] = "B1 Belt"
 
     for logical_name in logical_names:
         attr_base = _stepper_attr_base(logical_name)
@@ -233,7 +236,7 @@ def _current_stepper_direction_payload() -> list[dict[str, Any]]:
         entries.append(
             {
                 "name": logical_name,
-                "label": STEPPER_LABELS.get(logical_name, logical_name),
+                "label": labels.get(logical_name, logical_name),
                 "inverted": bool(inverts.get(config_key, False)),
                 "live_inverted": live_inverted,
                 "available": stepper is not None,

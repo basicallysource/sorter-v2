@@ -1,6 +1,6 @@
 import time
-from dataclasses import replace
-from typing import Optional, TYPE_CHECKING
+from dataclasses import replace, dataclass
+from typing import Any, Callable, Optional, TYPE_CHECKING
 
 from states.base_state import BaseState
 from subsystems.shared_variables import SharedVariables
@@ -76,6 +76,19 @@ def _wants_advance(action) -> bool:
     from perception.cascade import Action
 
     return action in (Action.ADVANCE, Action.PRECISE)
+
+
+@dataclass(frozen=True)
+class C3Upstream:
+    """Who feeds C3, for the stuck watchdog: the label used in the jam
+    incident, the rotor to nudge (or a topology-specific ``nudge`` callable),
+    and whether nudging is possible at all."""
+
+    label: str
+    channel_id: int
+    stepper: Any
+    enabled: bool
+    nudge: Optional[Callable[[], bool]] = None
 
 
 class PulsePerceptionFeeding(BaseState):
@@ -203,6 +216,16 @@ class PulsePerceptionFeeding(BaseState):
             return replace(state, in_drop=True)
         return state
 
+    def _c3_upstream(self, cfg: PulsePerceptionConfig) -> C3Upstream:
+        """C2 feeds C3 in the C-channel topology. The belt topology overrides
+        this with the belt (there is no C2 to blame or to nudge)."""
+        return C3Upstream(
+            label="C2",
+            channel_id=2,
+            stepper=getattr(self.irl, "c_channel_2_rotor_stepper", None),
+            enabled=bool(cfg.enable_ch2),
+        )
+
     def step(self) -> Optional[FeederState]:
         cfg = self._cfg()
 
@@ -222,7 +245,6 @@ class PulsePerceptionFeeding(BaseState):
         states = perception_service.read_states()
         c2 = states.get(2, EMPTY_STATE)
         c3 = states.get(3, EMPTY_STATE)
-        c4 = states.get(4, EMPTY_STATE)
 
         now_mono = time.monotonic()
         # Hold C2/C3 drop-zone occupancy across brief detector dropouts so the
@@ -247,13 +269,15 @@ class PulsePerceptionFeeding(BaseState):
             )
             # C3 hung at the C2->C3 hand-off: keep C3 from hammering a piece it
             # can't move; nudge C2 (its upstream) to free it, escalate on failure.
+            upstream = self._c3_upstream(cfg)
             self._stuck_watchdog.observe(
                 channel_id=3,
                 channel_label="C3",
-                upstream_label="C2",
-                upstream_channel_id=2,
-                upstream_stepper=self.irl.c_channel_2_rotor_stepper,
-                upstream_enabled=bool(cfg.enable_ch2),
+                upstream_label=upstream.label,
+                upstream_channel_id=upstream.channel_id,
+                upstream_stepper=upstream.stepper,
+                upstream_enabled=upstream.enabled,
+                nudge=upstream.nudge,
                 leading_pos_deg=_leading_com(c3),
                 wants_advance=_wants_advance(action),
                 cfg=cfg,

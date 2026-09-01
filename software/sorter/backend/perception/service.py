@@ -83,31 +83,16 @@ _DEFAULT_CONF_THRESHOLDS: dict[int, float] = {
 
 
 def _conf_thresholds_from_toml() -> dict[int, float]:
-    """Per-channel detector confidence overrides from machine TOML:
-
-    [perception.conf_thresholds]
-    4 = 0.25
+    """Per-channel detector confidence overrides from machine TOML
+    (``[perception.conf_thresholds]``, see toml_config.getPerceptionConfThresholds).
 
     A too-low threshold on an empty channel makes the detector flicker on
     platter texture, which the C4 state machine then chases as a phantom
     piece (capture cycle -> MOVING_TO_PRECISE timeout loop)."""
     try:
-        from toml_config import _read_toml
+        from toml_config import getPerceptionConfThresholds
 
-        section = _read_toml().get("perception")
-        raw = section.get("conf_thresholds") if isinstance(section, dict) else None
-        if not isinstance(raw, dict):
-            return {}
-        result: dict[int, float] = {}
-        for key, value in raw.items():
-            try:
-                channel = int(key)
-                conf = float(value)
-            except (TypeError, ValueError):
-                continue
-            if 0.0 < conf <= 1.0:
-                result[channel] = conf
-        return result
+        return getPerceptionConfThresholds()
     except Exception:
         return {}
 

@@ -1,30 +1,62 @@
 <!--
 	The line diagram for an assembly's connection edges: one brace per join
-	method, drawn in the right gutter of the open node, spanning the rows of
-	every member that method touches. The brace carries one word — the method —
-	and clicking it opens a panel with the specifics (from → to, fastener and
-	count, note, draft state). All-draft braces draw dashed.
+	method, drawn in a tight gutter just right of the node's own rows, spanning
+	the rows of every member that method touches. Each tick runs from the row's
+	actual right edge to the spine, so the brace visibly holds those rows. Each
+	lane gets its own hue, and a tick that crosses another brace's spine hops
+	over it, circuit-diagram style, so shared rows stay legible. The brace
+	carries one word — the method — and clicking it opens a panel with the
+	specifics (from → to, fastener and count, note, draft state). All-draft
+	braces draw dashed.
 
 	Renders as an absolutely-positioned overlay inside the node's branch
-	container (its parent element), which reserves right padding for it. Rows
+	container (its parent element), which reserves `gutter` px of right padding
+	for it — the page computes that number and passes the same value here. Rows
 	are found by the data-member attribute the tree sets on each direct line
-	row; positions re-measure on any size change of the branch.
+	row; everything re-measures on any size change of the branch, so nested
+	folds and window resizes keep ticks on their rows.
 -->
 <script lang="ts">
 	import type { Connection } from '$lib/filament';
 
 	let {
 		edges,
+		gutter,
 		labelOf,
 		nameOf
 	}: {
 		edges: Connection[];
+		gutter: number;
 		labelOf: (method: string) => string;
 		nameOf: (id: string) => string;
 	} = $props();
 
 	let host = $state<HTMLElement | null>(null);
 	let open = $state<number | null>(null);
+
+	// One hue per join method, the same everywhere — friction is always
+	// friction-colored. Pure red and the success green stay clear of the
+	// palette; the diff views own those. When two braces in one gutter land
+	// on close hues AND overlap vertically, the later one hue-shifts (below).
+	const METHOD_HUE: Record<string, number> = {
+		'self-tap': 35, // amber
+		thread: 215, // blue
+		friction: 170, // teal
+		clip: 260, // purple
+		gravity: 315, // magenta
+		press: 55, // olive
+		insert: 190, // cyan
+		nut: 240, // indigo
+		tnut: 285, // violet
+		glue: 20, // rust
+		solder: 100, // moss
+		crimp: 335 // pink
+	};
+	let hueShift = $state<number[]>([]);
+	const hueOf = (i: number) =>
+		((METHOD_HUE[groups[i]?.method] ?? 0) + (hueShift[i] ?? 0)) % 360;
+	const colorOf = (i: number) => `hsl(${hueOf(i)} 60% 38%)`;
+	const laneX = (i: number) => 12 + i * 16;
 
 	const groups = $derived.by(() => {
 		const m = new Map<string, Connection[]>();
@@ -37,25 +69,84 @@
 		}));
 	});
 
-	let spans = $state<{ ys: number[] }[]>([]);
+	type Span = { ticks: { y: number; from: number }[]; top: number; bottom: number; labelY: number };
+	let spans = $state<Span[]>([]);
+	let laneOf = $state<number[]>([]);
+	let height = $state(0);
+
 	function measure() {
 		const parent = host?.parentElement;
 		if (!parent) return;
 		const pr = parent.getBoundingClientRect();
-		spans = groups.map((g) => {
-			const ys: number[] = [];
+		height = pr.height;
+		const hostLeft = pr.right - gutter;
+		const next: Span[] = groups.map((g) => {
+			const ticks: { y: number; from: number }[] = [];
 			for (const id of g.ids) {
 				const el = parent.querySelector(`:scope > [data-member="${CSS.escape(id)}"]`);
 				if (el) {
 					const r = el.getBoundingClientRect();
-					ys.push(r.top - pr.top + r.height / 2);
+					ticks.push({ y: r.top - pr.top + r.height / 2, from: r.right - hostLeft });
 				}
 			}
-			return { ys: ys.sort((a, b) => a - b) };
+			return { ticks, top: 0, bottom: 0, labelY: 0 };
 		});
+		// The brace spanning the fewest rows sits closest to them, so a wide
+		// brace never has to thread through a narrow one.
+		const heightOf = (s: Span) =>
+			s.ticks.length ? Math.max(...s.ticks.map((t) => t.y)) - Math.min(...s.ticks.map((t) => t.y)) : 0;
+		const rank = next
+			.map((s, i) => ({ h: heightOf(s), i }))
+			.sort((a, b) => a.h - b.h)
+			.map(({ i }) => i);
+		const lanes = next.map((_, i) => rank.indexOf(i));
+		// Braces ticking the same row must not overlap there: nudge each shared
+		// tick a few px toward the side the rest of its own brace lies on, so
+		// one brace visibly ends where the other begins.
+		const clusters = new Map<number, { t: { y: number; from: number }; s: Span }[]>();
+		for (const s of next)
+			for (const t of s.ticks) {
+				const key = Math.round(t.y);
+				clusters.set(key, [...(clusters.get(key) ?? []), { t, s }]);
+			}
+		for (const c of clusters.values()) {
+			if (c.length < 2) continue;
+			const side = (e: (typeof c)[number]) => {
+				const others = e.s.ticks.filter((o) => o !== e.t);
+				if (!others.length) return 0;
+				const mean = others.reduce((a, o) => a + o.y, 0) / others.length;
+				return Math.sign(mean - e.t.y);
+			};
+			c.sort((a, b) => side(a) - side(b));
+			c.forEach((e, k) => (e.t.y += (k - (c.length - 1) / 2) * 5));
+		}
+		for (const s of next) {
+			s.ticks.sort((a, b) => a.y - b.y);
+			s.top = s.ticks.length ? s.ticks[0].y : 0;
+			s.bottom = s.ticks.length ? s.ticks[s.ticks.length - 1].y : 0;
+			s.labelY = (s.top + s.bottom) / 2;
+		}
+		// Same-ish hue + overlapping spans would read as one brace: shift the
+		// later one around the wheel until they part.
+		const shifts = next.map(() => 0);
+		for (let i = 0; i < next.length; i++)
+			for (let j = i + 1; j < next.length; j++) {
+				const a = next[i];
+				const b = next[j];
+				if (!a.ticks.length || !b.ticks.length) continue;
+				if (a.bottom < b.top || b.bottom < a.top) continue;
+				const ha = (METHOD_HUE[groups[i].method] ?? 0) + shifts[i];
+				const hb = (METHOD_HUE[groups[j].method] ?? 0) + shifts[j];
+				const d = Math.abs(((ha - hb + 540) % 360) - 180);
+				if (d < 30) shifts[j] += 45;
+			}
+		hueShift = shifts;
+		laneOf = lanes;
+		spans = next;
 	}
 	$effect(() => {
 		void groups;
+		void gutter;
 		measure();
 		const parent = host?.parentElement;
 		if (!parent) return;
@@ -63,6 +154,7 @@
 		ro.observe(parent);
 		return () => ro.disconnect();
 	});
+
 	function onWinClick(e: MouseEvent) {
 		if (open !== null && !host?.contains(e.target as Node)) open = null;
 	}
@@ -70,27 +162,36 @@
 
 <svelte:window onclick={onWinClick} onkeydown={(e) => e.key === 'Escape' && (open = null)} />
 
-<div bind:this={host} class="pointer-events-none absolute inset-y-0 right-0 w-0">
+<div bind:this={host} class="pointer-events-none absolute inset-y-0 right-0" style="width: {gutter}px">
+	<svg class="absolute left-0 top-0 overflow-visible" width={gutter} {height} aria-hidden="true">
+		{#each groups as g, i (g.method)}
+			{@const s = spans[i]}
+			{#if s && s.ticks.length}
+				{@const x = laneX(laneOf[i] ?? i)}
+				<path
+					d="M {x} {s.top} V {s.bottom}"
+					stroke={colorOf(i)}
+					stroke-width="1"
+					fill="none"
+					stroke-dasharray={g.draft ? '3,3' : undefined}
+				/>
+				{#each s.ticks as t (t.y)}
+					<path d="M {t.from} {t.y} H {x}" stroke={colorOf(i)} stroke-width="1" fill="none" />
+				{/each}
+			{/if}
+		{/each}
+	</svg>
 	{#each groups as g, i (g.method)}
 		{@const s = spans[i]}
-		{#if s && s.ys.length >= 1}
-			{@const x = 14 + i * 12}
-			{@const top = s.ys[0]}
-			{@const bottom = s.ys[s.ys.length - 1]}
-			<!-- the spine (1px, per the hairline rule; dashed when all-draft) -->
-			<div
-				class="absolute {g.draft ? 'border-l border-dashed border-warning' : 'bg-warning'}"
-				style="right: {x}px; top: {top}px; height: {Math.max(1, bottom - top)}px; width: 1px;"
-			></div>
-			{#each s.ys as y (y)}
-				<div class="absolute bg-warning" style="right: {x}px; top: {y}px; width: 9px; height: 1px;"></div>
-			{/each}
+		{#if s && s.ticks.length}
+			<!-- The method name sits IN the wire: vertical text centered on the
+			     spine, its background masking the line behind it. -->
 			<button
 				type="button"
-				class="pointer-events-auto absolute z-10 -translate-y-1/2 border bg-surface px-1 py-px text-[10px] font-semibold uppercase tracking-wider {open === i
-					? 'border-warning text-warning-dark'
-					: 'border-warning/60 text-warning-dark hover:border-warning'}"
-				style="right: {x - 5}px; top: {(top + bottom) / 2}px;"
+				class="pointer-events-auto absolute z-10 whitespace-nowrap bg-surface py-1 text-[10px] font-semibold uppercase tracking-wider {open === i
+					? 'underline'
+					: 'hover:opacity-80'}"
+				style="left: {laneX(laneOf[i] ?? i)}px; top: {s.labelY}px; transform: translate(-50%, -50%); writing-mode: vertical-rl; color: {colorOf(i)};"
 				aria-expanded={open === i}
 				onclick={() => (open = open === i ? null : i)}
 			>
@@ -98,11 +199,11 @@
 			</button>
 			{#if open === i}
 				<div
-					class="setup-panel pointer-events-auto absolute z-30 w-72 p-2.5 text-xs"
-					style="right: {x + 8}px; top: {(top + bottom) / 2}px;"
+					class="setup-panel pointer-events-auto absolute right-0 z-30 w-72 p-2.5 text-xs"
+					style="top: {s.labelY + 12}px;"
 				>
 					{#each g.edges as e, j (j)}
-						<div class="{j > 0 ? 'mt-1.5 border-t border-border/60 pt-1.5' : ''}">
+						<div class={j > 0 ? 'mt-1.5 border-t border-border/60 pt-1.5' : ''}>
 							<div class="flex flex-wrap items-baseline gap-x-1.5">
 								<span class="font-semibold text-text">{nameOf(e.from)}</span>
 								<span class="text-text-muted">→</span>

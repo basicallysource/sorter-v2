@@ -2042,15 +2042,15 @@
 			"description": "One corner segment of the outer hex: the side bracket screwed to the bottom vertical, with the snap-on cover.",
 			"lines": [
 				{
+					"part": "ext-bracket-cover",
+					"qty": 1
+				},
+				{
 					"part": "ext-bracket-left",
 					"qty": 1
 				},
 				{
 					"part": "ext-bracket-bottom-vertical",
-					"qty": 1
-				},
-				{
-					"part": "ext-bracket-cover",
 					"qty": 1
 				},
 				{

@@ -9,6 +9,7 @@
 		FlaskConical,
 		History,
 		Info,
+		SlidersHorizontal,
 		X,
 		Zap
 	} from 'lucide-svelte';
@@ -56,6 +57,7 @@
 	import { layerStore } from '$lib/layers.svelte';
 	import changelog from '$lib/data/changelog.generated.json';
 	import { page } from '$app/state';
+	import { replaceState } from '$app/navigation';
 	import { assemblyCsv } from '$lib/parts-csv';
 	import { download, exportSpec, filename } from '$lib/csv';
 
@@ -133,11 +135,31 @@
 	// matches or when anything beneath it does, and the path down to a match stays
 	// on screen. An assembly that matches by its own name keeps its whole subtree
 	// — you asked for the chute core, you want what is in it.
+	// Text search and the menu's predicate filters (stable-tagged) AND together;
+	// both use the same keep machinery. Order re-sorts each assembly's lines in
+	// place. Both menu choices live in the URL (?stable=1&order=name).
 	let filter = $state('');
-	const filtering = $derived(filter.trim().length > 0);
+	let onlyStable = $state(false);
+	let order = $state<'authored' | 'name'>('authored');
+	const textActive = $derived(filter.trim().length > 0);
+	const filtering = $derived(textActive || onlyStable);
+
+	/** The tags standing on a node's CURRENT version: a tag blesses a moment,
+	 *  so a revision after its date leaves it behind on the old version. */
+	function tagsFor(id: string): CatalogTag[] {
+		return TAGS.filter((t) => {
+			if (t.node !== id) return false;
+			const m = getPart(id) ?? getAssembly(id);
+			const last = m?.versions?.[m.versions.length - 1];
+			return !last?.date || last.date <= t.date;
+		});
+	}
+	const stableOk = (id: string) => !onlyStable || tagsFor(id).some((t) => t.stability === 'stable');
 
 	/** Does this member — printed part, bought part or laser-cut sheet — match? */
 	function memberMatches(id: string): boolean {
+		if (!stableOk(id)) return false;
+		if (!textActive) return true;
 		const p = getPart(id);
 		if (p) return !!scoreEntry(filter, { name: p.name, uid: p.uid, id: p.id, keywords: p.aliases, text: p.description });
 		const h = getHardware(id);
@@ -184,12 +206,15 @@
 			seen.set(id, false);
 			const asm = getAssembly(id);
 			if (!asm) return false;
-			let hit = !!scoreEntry(filter, {
-				name: asm.name,
-				uid: asm.uid,
-				id: asm.id,
-				text: plainDescription(asm.description)
-			});
+			let hit =
+				stableOk(id) &&
+				(!textActive ||
+					!!scoreEntry(filter, {
+						name: asm.name,
+						uid: asm.uid,
+						id: asm.id,
+						text: plainDescription(asm.description)
+					}));
 			if (hit) {
 				matched.add(id);
 				includeAll(id);
@@ -220,6 +245,35 @@
 		(line.assembly ? keep.assemblies.has(line.assembly) : !!line.part && keep.members.has(line.part));
 
 	const matchCount = $derived(keep.matched.size);
+
+	// The menu's choices are shareable state, so they live in the URL. Read once
+	// when the page is in a browser (it is prerendered), write back on change.
+	let urlReady = false;
+	$effect(() => {
+		if (urlReady) return;
+		urlReady = true;
+		const sp = new URL(location.href).searchParams;
+		onlyStable = sp.get('stable') === '1';
+		if (sp.get('order') === 'name') order = 'name';
+	});
+	$effect(() => {
+		const stable = onlyStable ? '1' : null;
+		const ord = order !== 'authored' ? order : null;
+		if (!urlReady) return;
+		const u = new URL(location.href);
+		// No-op when the URL already says this — which also keeps the mount run
+		// from calling replaceState before the router is initialized.
+		if (u.searchParams.get('stable') === stable && u.searchParams.get('order') === ord) return;
+		if (stable) u.searchParams.set('stable', stable);
+		else u.searchParams.delete('stable');
+		if (ord) u.searchParams.set('order', ord);
+		else u.searchParams.delete('order');
+		try {
+			replaceState(u.pathname + u.search + u.hash, {});
+		} catch {
+			history.replaceState(history.state, '', u);
+		}
+	});
 
 	// What the badge means. The tree records that a node is incomplete but not
 	// which pieces are missing, so the tooltip says exactly that much and no
@@ -593,6 +647,7 @@
 			<HardwareIcon {hw} size={14} /><span class="truncate">{hw.name}</span>
 			<AlternativeBadge value={hw.alternative} size={14} />
 						<ConflictBadge conflicts={hw.conflicts} size={14} />
+			{@render tagChips(hw.id)}
 		</div>
 		<div class="text-right text-xs tabular-nums text-text">
 			<div class="font-semibold">×{each}</div>
@@ -611,11 +666,25 @@
 	{/each}
 {/snippet}
 
+<!-- The tags standing on a node's current version, as badges: STABLE (green)
+     or EXPERIMENTAL, with a count when several. Hover names the tags. -->
+{#snippet tagChips(id: string)}
+	{@const tags = tagsFor(id)}
+	{#each [['stable', 'border-success/60 text-success-dark'], ['experimental', 'border-border text-text-muted']] as [st, cls] (st)}
+		{@const n = tags.filter((t) => t.stability === st)}
+		{#if n.length}
+			<span
+				class="border px-1 py-px text-[10px] font-semibold uppercase tracking-wider {cls}"
+				title={n.map((t) => t.name).join(', ')}>{st}{n.length > 1 ? ` ×${n.length}` : ''}</span>
+		{/if}
+	{/each}
+{/snippet}
+
 {#snippet lines(list: AssemblyLine[], mult: number, depth: number)}
 	<!-- Keyed by position as well as id: two lines can legitimately name the
 	     same part, and a bare id key makes that a duplicate-key error that
 	     blanks the whole page on hydration. -->
-	{#each list as line, i (`${line.part ?? line.assembly}-${i}`)}
+	{#each order === 'name' ? [...list].sort((a, b) => memberName(a.part ?? a.assembly ?? '').localeCompare(memberName(b.part ?? b.assembly ?? ''))) : list as line, i (`${line.part ?? line.assembly}-${i}`)}
 		{#if !lineShown(line)}
 			<!-- filtered out -->
 		{:else if line.assembly}
@@ -654,6 +723,7 @@
 								<span class="text-sm font-semibold text-text">{part.name}</span>
 								<span class="border border-border px-1.5 py-px text-[10px] font-semibold uppercase tracking-wider text-text-muted"
 									>3D printed</span>
+								{#if line.part}{@render tagChips(line.part)}{/if}
 							</div>
 							<div class="text-xs text-text-muted">{part.grams.toFixed(0)} g each</div>
 						</div>
@@ -1017,6 +1087,7 @@
 					{:else if qty === 'middle-layers'}×{Math.max(0, layers - 2)} (layers between the interfaces)
 					{:else if qty !== 1}×{qty}{/if}
 				</span>
+				{@render tagChips(asm.id)}
 				{#if asm.status === 'stub'}
 					<span
 						class="cursor-help border border-border px-1.5 py-px text-[10px] font-semibold uppercase tracking-wider text-text-muted"
@@ -1195,6 +1266,43 @@
 					wide
 					class="min-w-0 flex-1"
 				/>
+				<DropdownMenu label="Filter and order the tree" menuClass="w-52">
+					{#snippet trigger({ toggle, open })}
+						<button
+							type="button"
+							class="flex h-8 w-8 shrink-0 items-center justify-center border bg-surface {onlyStable || order !== 'authored'
+								? 'border-primary text-primary'
+								: 'border-border text-text-muted'} hover:border-primary hover:text-primary"
+							onclick={toggle}
+							aria-expanded={open}
+							title="Filter and order"
+						>
+							<SlidersHorizontal size={14} />
+						</button>
+					{/snippet}
+					{#snippet children({ close: _close })}
+						<div class="px-2.5 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-wider text-text-muted">Filter</div>
+						<button
+							type="button"
+							class="flex w-full items-center gap-2 px-2.5 py-1.5 text-left text-xs text-text hover:bg-[var(--color-bg)]"
+							onclick={() => (onlyStable = !onlyStable)}
+						>
+							<span>Stable only</span>
+							{#if onlyStable}<Check size={12} class="ml-auto text-primary" />{/if}
+						</button>
+						<div class="px-2.5 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-wider text-text-muted">Order</div>
+						{#each [['authored', 'As authored'], ['name', 'By name']] as [o, lbl] (o)}
+							<button
+								type="button"
+								class="flex w-full items-center gap-2 px-2.5 py-1.5 text-left text-xs text-text hover:bg-[var(--color-bg)]"
+								onclick={() => (order = o as typeof order)}
+							>
+								<span>{lbl}</span>
+								{#if order === o}<Check size={12} class="ml-auto text-primary" />{/if}
+							</button>
+						{/each}
+					{/snippet}
+				</DropdownMenu>
 				<button
 					class="inline-flex shrink-0 items-center gap-1 text-xs font-medium text-primary hover:text-primary-hover"
 					onclick={downloadCsv}

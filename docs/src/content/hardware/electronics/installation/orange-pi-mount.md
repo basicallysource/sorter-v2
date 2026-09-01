@@ -71,7 +71,7 @@ Screw the 4 M3 standoffs into the inserts. Sit the Pi on them and fasten it down
 
 {% include step.html n="3" title="Bolt the mount to the frame" %}
 
-The mount hangs off the 2020 frame on 2 {% include fastener.html size="M5" variant="socket-button" length="16" %} screws, self-tapping, with no {% include fastener.html size="M5" variant="t-nut" text="T-nut" %}. It goes on the [hex frame]({{ '/hardware/assembly/distribution/bin-frame/hex-frame/' | relative_url }}) belonging to the top interface; the [layout render]({{ '/hardware/electronics/installation/' | relative_url }}) on the installation overview shows where it sits relative to the chute stepper.
+The mount hangs off the 2020 frame on 2 {% include fastener.html size="M5" variant="socket-button" length="16" %} screws, self-tapping, with no {% include fastener.html size="M5" variant="t-nut" text="T-nut" %} in the joint. It goes on the [hex frame]({{ '/hardware/assembly/distribution/bin-frame/hex-frame/' | relative_url }}) belonging to the top interface; the [layout render]({{ '/hardware/electronics/installation/' | relative_url }}) on the installation overview shows where it sits relative to the chute stepper.
 
 <div class="img-placeholder">Image coming</div>
 

@@ -158,7 +158,7 @@ Press the plunger on the lid. You should hear the button click.
 
 {% include step.html n="8" title="Bolt it to the frame" %}
 
-The two clamp bosses go onto the 2020 extrusion on 2 {% include fastener.html size="M5" variant="socket-button" length="16" %} screws, self-tapping, with no {% include fastener.html size="M5" variant="t-nut" text="T-nut" %}. It goes on the [hex frame]({{ '/hardware/assembly/distribution/bin-frame/hex-frame/' | relative_url }}) belonging to the top interface; the [layout render]({{ '/hardware/electronics/installation/' | relative_url }}) on the installation overview shows where it sits relative to the chute stepper.
+The two clamp bosses go onto the 2020 extrusion on 2 {% include fastener.html size="M5" variant="socket-button" length="16" %} screws, self-tapping, with no {% include fastener.html size="M5" variant="t-nut" text="T-nut" %} in the joint. It goes on the [hex frame]({{ '/hardware/assembly/distribution/bin-frame/hex-frame/' | relative_url }}) belonging to the top interface; the [layout render]({{ '/hardware/electronics/installation/' | relative_url }}) on the installation overview shows where it sits relative to the chute stepper.
 
 <div class="img-row">
   <figure>

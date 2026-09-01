@@ -13,6 +13,7 @@
 		X,
 		Zap
 	} from 'lucide-svelte';
+	import ConnectionBraces from '$lib/components/ConnectionBraces.svelte';
 	import DropdownMenu from '$lib/components/DropdownMenu.svelte';
 	import AlternativeBadge from '$lib/components/AlternativeBadge.svelte';
 	import ConflictBadge from '$lib/components/ConflictBadge.svelte';
@@ -49,6 +50,7 @@
 		type Assembly,
 		type AssemblyLine,
 		type AssemblySnapshotLine,
+		type Connection,
 		type Hardware,
 		type Joining,
 		type Part,
@@ -62,6 +64,17 @@
 	import { onMount } from 'svelte';
 	import { assemblyCsv } from '$lib/parts-csv';
 	import { download, exportSpec, filename } from '$lib/csv';
+
+	// The connection methods extend JoinMethod with the anchor kinds
+	// (check_connections.py is the authority on the enum).
+	const CONN_LABELS: Record<string, string> = {
+		...JOIN_LABELS,
+		thread: 'threaded',
+		insert: 'heat-set insert',
+		nut: 'nut',
+		tnut: 'T-nut',
+		gravity: 'gravity'
+	};
 
 	// Experimental view of the unified parts system (notes/UNIFIED-PARTS-SYSTEM.md):
 	// the machine as a recursive assembly tree whose lines reference printed parts,
@@ -689,7 +702,7 @@
      that belong to the joint rather than to either part it holds together. -->
 {#snippet hardwareRow(hw: Hardware, each: number, total: number)}
 	{@const img = hardwareImage(hw)}
-	<div class="ml-1.5 mt-2 flex items-center gap-3 border border-border bg-[var(--color-bg)] p-2 sm:ml-4">
+	<div data-member={hw.id} class="ml-1.5 mt-2 flex items-center gap-3 border border-border bg-[var(--color-bg)] p-2 sm:ml-4">
 		{#if img}
 			<button type="button" class="asm-thumb shrink-0" title="View {hw.name} details" onclick={() => openHardware(hw)}>
 				<img src={img.src} alt={hw.name} class="h-8 w-8 object-contain" />
@@ -718,6 +731,7 @@
 	{/each}
 {/snippet}
 
+
 <!-- The tags standing on a node's current version, as badges: STABLE (green)
      or EXPERIMENTAL, with a count when several. Hover names the tags. -->
 {#snippet tagChips(id: string)}
@@ -732,7 +746,7 @@
 	{/each}
 {/snippet}
 
-{#snippet lines(list: AssemblyLine[], mult: number, depth: number)}
+{#snippet lines(list: AssemblyLine[], mult: number, depth: number, endpoints: Set<string> | null = null)}
 	<!-- Keyed by position as well as id: two lines can legitimately name the
 	     same part, and a bare id key makes that a duplicate-key error that
 	     blanks the whole page on hydration. -->
@@ -740,10 +754,10 @@
 		{#if !lineShown(line)}
 			<!-- filtered out -->
 		{:else if line.assembly}
-			{@render node(line.assembly, line.qty, lineQty(line, layers) * mult, depth + 1)}
+			{@render node(line.assembly, line.qty, lineQty(line, layers) * mult, depth + 1, endpoints?.has(line.assembly) ?? false)}
 		{:else if line.part && getLasercut(line.part)}
 			{@const lc = getLasercut(line.part)!}
-			<div class="ml-1.5 mt-2 flex items-center gap-3 border border-border bg-surface p-2 sm:ml-4 sm:p-3">
+			<div data-member={line.part} class="ml-1.5 mt-2 flex items-center gap-3 border border-border bg-surface p-2 sm:ml-4 sm:p-3">
 				<img src={lc.preview} alt={lc.name} class="h-12 w-12 shrink-0 object-contain" />
 				<div class="min-w-0 flex-1">
 					<div class="flex flex-wrap items-baseline gap-x-2">
@@ -765,7 +779,7 @@
 			{@const part = getPart(line.part)}
 			{#if part}
 				{@const total = lineQty(line, layers) * mult}
-				<div class="ml-1.5 mt-2 border border-border bg-surface p-2 sm:ml-4 sm:p-3">
+				<div data-member={line.part} class="ml-1.5 mt-2 border border-border bg-surface p-2 sm:ml-4 sm:p-3">
 					<div class="flex items-center gap-3">
 						<button type="button" class="asm-thumb shrink-0" title="View {part.name} details" onclick={() => openPart(part)}>
 							<img src={part.render} alt={part.name} class="h-12 w-12 object-contain" />
@@ -923,7 +937,10 @@
 		</div>
 	{:else}
 		{@render joiningRows(asm.joining)}
-		{@render lines(asm.lines ?? [], mult, depth)}
+		<!-- assemblies a brace wires into get a box, so the tick lands on a
+		     visible container instead of ending in space -->
+		{@const eps = asm.connections?.length ? new Set(asm.connections.flatMap((c) => [c.from, c.to])) : null}
+		{@render lines(asm.lines ?? [], mult, depth, eps)}
 	{/if}
 {/snippet}
 
@@ -1079,7 +1096,7 @@
 	</div>
 {/snippet}
 
-{#snippet node(id: string, qty: AssemblyLine['qty'], mult: number, depth: number)}
+{#snippet node(id: string, qty: AssemblyLine['qty'], mult: number, depth: number, boxed: boolean = false)}
 	{@const asm = getAssembly(id)}
 	{#if asm && (!filtering || keep.assemblies.has(asm.id))}
 		{@const hasContent =
@@ -1091,7 +1108,8 @@
 		{@const open = hasContent && isOpen(asm.id)}
 		<div
 			id="asm-{asm.id}"
-			class="{depth > 0 ? 'ml-1.5 mt-2 sm:ml-4' : ''} py-1 {focus === asm.id ? 'bg-primary/[0.06]' : ''}"
+			data-member={asm.id}
+			class="{depth > 0 ? 'ml-1.5 mt-2 sm:ml-4' : ''} py-1 {boxed ? 'border border-border px-1.5' : ''} {focus === asm.id ? 'bg-primary/[0.06]' : ''}"
 		>
 			<!-- The whole row is the expand/collapse target; anything interactive
 			     inside it (details, guide link, ⋮ menu) is filtered out by the
@@ -1269,8 +1287,18 @@
 			     detail view the ⓘ opens. Inline it turns the tree into a wall of
 			     prose that restates the line rows below it. -->
 			{#if open}
-			<div class="tree-branch relative pl-2 sm:pl-4">
+			{@const braceGutter =
+				asm.connections?.length && !filtering
+					? 32 + (new Set(asm.connections.map((c) => c.method)).size - 1) * 16
+					: 0}
+			<div
+				class="tree-branch relative pl-2 sm:pl-4"
+				style={braceGutter ? `padding-right: ${braceGutter}px` : undefined}
+			>
 				<button type="button" class="tree-line" onclick={() => toggle(asm.id)} aria-label="Collapse {asm.name}"></button>
+				{#if braceGutter && asm.connections}
+					<ConnectionBraces edges={asm.connections} gutter={braceGutter} labelOf={(m) => CONN_LABELS[m] ?? m} nameOf={memberName} />
+				{/if}
 			{#if asm.images?.length}<div class="mt-2"><ImageStrip images={asm.images} /></div>{/if}
 			{#if historyFor[asm.id] && !filtering}{@render historyPanel(asm)}{/if}
 			{@render versionSwitch(asm, mult, depth)}
@@ -1299,7 +1327,9 @@
 	{/if}
 {/snippet}
 
-<div class="mx-auto max-w-6xl px-4 py-8 sm:px-6">
+<!-- Wider than the other tabs on purpose: nested nodes each reserve a right
+     gutter for their connection braces, and the rows need the room back. -->
+<div class="mx-auto max-w-screen-2xl px-4 py-8 sm:px-6">
 	<header class="mb-5">
 		<h1 class="text-2xl font-bold text-text">Machine assembly</h1>
 	</header>

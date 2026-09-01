@@ -1,4 +1,4 @@
-from typing import TypedDict, List
+from typing import TypedDict, List, NotRequired
 
 
 class BrickognizeExternalSite(TypedDict):
@@ -24,12 +24,20 @@ class BrickognizeItem(TypedDict):
     category: str
     type: str
     score: float
+    # Zero-based position of this item in Brickognize's UNFILTERED response,
+    # injected by _classifyImages before category filtering. This is the
+    # ``item_rank`` the Brickognize feedback API expects, so it must reflect the
+    # original ordering even after we drop primo/duplo items.
+    rank: NotRequired[int]
 
 
 class BrickognizeColor(TypedDict):
     id: str
     name: str
     score: float
+    # Zero-based position of this color in the response, injected by
+    # _classifyImages. This is the ``color_rank`` the color-feedback API expects.
+    rank: NotRequired[int]
 
 
 class BrickognizeResponse(TypedDict):

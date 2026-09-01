@@ -161,6 +161,10 @@ class RuntimeStatsCollector:
         self._servo_bus_offline_since_ts: float | None = None
         self._bus_provider: Any | None = None
         self._active_incident: dict[str, Any] | None = None
+        # Row id of the durable incident_records row backing the current
+        # active incident, if persistence succeeded. None whenever there is
+        # no active incident or the DB write failed (never blocks the machine).
+        self._active_incident_row_id: int | None = None
         self._perf_ms_samples: dict[str, list[float]] = {}
         # Uncapped cumulative call-count per metric key. The sample lists above
         # are ring buffers (their length saturates), so these are the only
@@ -363,13 +367,55 @@ class RuntimeStatsCollector:
         Every incident is stamped with a ``source`` identifying the code that
         raised it (``<module>.<function>``), unless the publisher set one
         explicitly (e.g. ``stall_watchdog``). Re-publishes that carry a payload
-        from an already-active incident keep that incident's original source."""
+        from an already-active incident keep that incident's original source.
+
+        This is also the single choke point for durable incident persistence
+        (see incident_records.py): every publisher in the codebase funnels
+        through here, so a DB row is opened for every incident regardless of
+        which subsystem raised it. A call whose (kind, piece_uuid, channel,
+        track_id) identity matches the currently active incident is treated as
+        an in-place status update on the same occurrence; a different identity
+        opens a fresh row and — since this is a single-slot design — resolves
+        the stomped one as "superseded" rather than leaving it dangling."""
         payload = dict(incident)
         payload["updated_at"] = float(time.time())
         if not payload.get("source"):
             payload["source"] = self._deriveIncidentSource()
+
+        previous = self._active_incident
+        same_occurrence = (
+            previous is not None
+            and self._incidentIdentity(previous) == self._incidentIdentity(payload)
+        )
+
         self._active_incident = payload
         self._last_updated_at = payload["updated_at"]
+
+        try:
+            import incident_records
+
+            if same_occurrence:
+                if self._active_incident_row_id is not None:
+                    incident_records.updateIncident(self._active_incident_row_id, payload)
+            else:
+                if previous is not None and self._active_incident_row_id is not None:
+                    incident_records.resolveIncident(
+                        self._active_incident_row_id, resolved_by="superseded"
+                    )
+                self._active_incident_row_id = incident_records.openIncident(payload)
+        except Exception:
+            pass
+
+    @staticmethod
+    def _incidentIdentity(payload: dict[str, Any] | None) -> tuple[Any, Any, Any, Any]:
+        if not payload:
+            return (None, None, None, None)
+        return (
+            payload.get("kind"),
+            payload.get("piece_uuid"),
+            payload.get("channel"),
+            payload.get("track_id", payload.get("global_id")),
+        )
 
     @staticmethod
     def _deriveIncidentSource() -> str:
@@ -394,6 +440,7 @@ class RuntimeStatsCollector:
         *,
         kind: str | None = None,
         piece_uuid: str | None = None,
+        resolved_by: str = "system",
     ) -> None:
         if self._active_incident is None:
             return
@@ -401,8 +448,55 @@ class RuntimeStatsCollector:
             return
         if piece_uuid is not None and self._active_incident.get("piece_uuid") != piece_uuid:
             return
+        row_id = self._active_incident_row_id
         self._active_incident = None
+        self._active_incident_row_id = None
         self._last_updated_at = time.time()
+        if row_id is not None:
+            try:
+                import incident_records
+
+                incident_records.resolveIncident(row_id, resolved_by=resolved_by)
+            except Exception:
+                pass
+
+    def recordAutoResolvedIncident(
+        self,
+        incident: dict[str, Any],
+        *,
+        resolved_by: str = "auto",
+    ) -> None:
+        """Durably log an incident the machine detected and cleared itself before
+        it ever needed the operator, so it never occupied the single active slot.
+
+        The active-incident slot is the one operator-facing hold blocking flow
+        right now; auto-recovered incidents (a C4 stall the watchdog rotated
+        clear, a feeder jam an upstream nudge freed) come and go without ever
+        landing there, so the slot-coupled openIncident path never saw them.
+        This opens and immediately resolves a row in the same durable log the
+        dashboard reads — recording that the incident happened and how it
+        resolved — without touching the active slot.
+        ``triggered_at``/``resolved_at`` in the payload drive the recorded
+        duration; both default to now (zero duration) when the publisher does
+        not supply the episode's real span."""
+        payload = dict(incident)
+        now = float(time.time())
+        payload["updated_at"] = now
+        payload.setdefault("triggered_at", now)
+        if not payload.get("source"):
+            payload["source"] = self._deriveIncidentSource()
+        resolved_at = payload.get("resolved_at")
+        resolved_at = float(resolved_at) if isinstance(resolved_at, (int, float)) else now
+        self._last_updated_at = now
+        try:
+            import incident_records
+
+            row_id = incident_records.openIncident(payload)
+            incident_records.resolveIncident(
+                row_id, resolved_by=resolved_by, resolved_at=resolved_at
+            )
+        except Exception:
+            pass
 
     def observeHandoffGhostReject(self, **_meta: Any) -> None:
         """Increment the cumulative cross-camera ghost-reject counter.

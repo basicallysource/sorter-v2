@@ -1,0 +1,15 @@
+{%- comment -%}
+Product link with the project's Amazon affiliate tag. Renders the link plus an
+asterisk that jumps to a footnote at the bottom of the page listing the same
+listings without the tag. Pages using this must end with
+{% include affiliate-footnotes.html %}.
+Usage: {% include affiliate-link.html url="https://www.amazon.com/dp/XXXX" text="heat-set insert press" %}
+{%- endcomment -%}
+{%- if include.url contains "?" -%}
+  {%- assign affiliate_url = include.url | append: "&tag=sorterv2-20" -%}
+{%- else -%}
+  {%- assign affiliate_url = include.url | append: "?tag=sorterv2-20" -%}
+{%- endif -%}
+{%- capture affiliate_note_entry -%}<li><a href="{{ include.url }}" target="_blank" rel="noopener">{{ include.text }}</a></li>{%- endcapture -%}
+{%- assign affiliate_notes = affiliate_notes | append: affiliate_note_entry -%}
+<span class="affiliate-link"><a href="{{ affiliate_url }}" target="_blank" rel="noopener">{{ include.text }}</a><sup class="affiliate-star"><a href="#affiliate-notes" title="Affiliate link — non-affiliate version at the bottom of the page">*</a></sup></span>{%- comment -%}{%- endcomment -%}

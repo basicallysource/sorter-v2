@@ -17,11 +17,17 @@
 		id: string;
 		slug: string;
 		version: number;
+		// Hive's human-friendly handle ("Ember") plus the swatch color it renders
+		// alongside it. Null for models published before codenames existed.
+		codename?: string | null;
+		codename_color?: string | null;
 		name: string;
 		description: string | null;
+		purpose?: string;
 		model_family: string;
 		scopes: string[] | null;
 		is_public: boolean;
+		experimental?: boolean;
 		published_at: string;
 		updated_at: string;
 		variant_runtimes: string[];
@@ -48,7 +54,14 @@
 		local_id: string;
 		target_id: string | null;
 		model_id: string;
+		// Recorded in run.json at download time; absent for bundled models and
+		// for installs that predate the field.
+		codename?: string | null;
+		codename_color?: string | null;
 		variant_runtime: string;
+		purpose?: string;
+		// Installed correctly, but nothing on this machine consumes it yet.
+		inert?: boolean;
 		sha256: string;
 		name: string;
 		model_family: string;
@@ -86,6 +99,40 @@
 	const RUNTIME_OPTIONS = ['', 'onnx', 'ncnn', 'hailo', 'rknn', 'pytorch'] as const;
 	const PAGE_SIZE = 20;
 
+	// Hive publishes models for several purposes into one catalog. Detection
+	// models drive the pipeline; piece-link matchers download and install fine
+	// but nothing consumes them on the machine yet, so they're shown inert.
+	const PURPOSE_OPTIONS = [
+		{ value: '', label: 'All purposes' },
+		{ value: 'detection', label: 'Detection' },
+		{ value: 'piece_link', label: 'Piece link (experimental)' }
+	] as const;
+	const INERT_PURPOSES = new Set(['piece_link']);
+	const PURPOSE_LABELS: Record<string, string> = {
+		detection: 'Detection',
+		piece_link: 'Piece link'
+	};
+
+	function purposeOf(item: { purpose?: string }): string {
+		return item.purpose || 'detection';
+	}
+
+	function isInert(item: { purpose?: string; inert?: boolean }): boolean {
+		return item.inert === true || INERT_PURPOSES.has(purposeOf(item));
+	}
+
+	// Hive identifies a model by its codename ("Ember") and a color swatch, with
+	// the long descriptive name as the subtitle. Mirror that here so a model
+	// reads the same on both sites. Anything without a codename — bundled
+	// models, pre-codename publishes — keeps the descriptive name as its title.
+	function titleOf(item: { codename?: string | null; name: string }): string {
+		return item.codename || item.name;
+	}
+
+	function subtitleOf(item: { codename?: string | null; name: string }): string | null {
+		return item.codename ? item.name : null;
+	}
+
 	let targets = $state<HiveTarget[]>([]);
 	// selectedTargetId is no longer used for browsing — the Browse Hive view
 	// aggregates across every configured target and each row carries its own
@@ -103,6 +150,8 @@
 	let scopeFilter = $state('');
 	let runtimeFilter = $state('');
 	let familyFilter = $state('');
+	let purposeFilter = $state('');
+	let includeExperimental = $state(false);
 
 	let page = $state(1);
 	let models = $state<ModelSummary[]>([]);
@@ -233,6 +282,13 @@
 			if (scopeFilter.trim()) params.set('scope', scopeFilter.trim());
 			if (runtimeFilter) params.set('runtime', runtimeFilter);
 			if (familyFilter.trim()) params.set('family', familyFilter.trim());
+			if (purposeFilter) params.set('purpose', purposeFilter);
+			// Every piece-link matcher is published experimental, so asking for
+			// that purpose implies you want experimental rows — otherwise the
+			// filter would always come back empty.
+			if (includeExperimental || INERT_PURPOSES.has(purposeFilter)) {
+				params.set('include_experimental', 'true');
+			}
 			params.set('page', String(page));
 			params.set('page_size', String(PAGE_SIZE));
 			const res = await fetch(`${getBackendHttpBase()}/api/hive/models?${params.toString()}`);
@@ -365,6 +421,8 @@
 		scopeFilter = '';
 		runtimeFilter = '';
 		familyFilter = '';
+		purposeFilter = '';
+		includeExperimental = false;
 		page = 1;
 	}
 
@@ -450,7 +508,12 @@
 		// nobody uses them.
 		const candidates = installed.filter(
 			(entry) =>
-				!entry.bundled && (entry.compatible === false || activeLabelsFor(entry).length === 0)
+				!entry.bundled &&
+				// An inert model has no scope to be active against, so "no active
+				// assignment" doesn't mean unused — it means not wired up yet.
+				// Sweeping those would delete a model the operator just fetched.
+				!isInert(entry) &&
+				(entry.compatible === false || activeLabelsFor(entry).length === 0)
 		);
 		if (candidates.length === 0) {
 			// No-op — the unused-count badge in the header already tells
@@ -541,6 +604,8 @@
 			void scopeFilter;
 			void runtimeFilter;
 			void familyFilter;
+			void purposeFilter;
+			void includeExperimental;
 			void page;
 			void loadModels();
 		}
@@ -701,6 +766,16 @@
 									class="w-full border border-border bg-surface py-2 pr-3 pl-9 text-sm text-text focus:border-primary focus:outline-none"
 								/>
 							</div>
+							<select
+								bind:value={purposeFilter}
+								onchange={onFilterChange}
+								class="border border-border bg-surface px-3 py-2 text-sm text-text"
+								aria-label="Model purpose"
+							>
+								{#each PURPOSE_OPTIONS as opt}
+									<option value={opt.value}>{opt.label}</option>
+								{/each}
+							</select>
 							<details class="group">
 								<summary
 									class="cursor-pointer list-none border border-border bg-surface px-3 py-2 text-sm text-text-muted transition-colors hover:bg-bg"
@@ -735,6 +810,15 @@
 										class="border border-border bg-surface px-3 py-2 text-sm text-text"
 									/>
 								</div>
+								<label class="mt-2 flex items-center gap-2 text-sm text-text-muted">
+									<input
+										type="checkbox"
+										bind:checked={includeExperimental}
+										onchange={onFilterChange}
+										class="border border-border"
+									/>
+									Include experimental models
+								</label>
 							</details>
 						</div>
 
@@ -748,7 +832,7 @@
 										: ''}
 								{/if}
 							</span>
-							{#if query || scopeFilter || runtimeFilter || familyFilter}
+							{#if query || scopeFilter || runtimeFilter || familyFilter || purposeFilter || includeExperimental}
 								<button
 									type="button"
 									onclick={resetFilters}
@@ -779,6 +863,13 @@
 									>
 										<div class="min-w-0 flex-1">
 											<div class="flex flex-wrap items-center gap-2">
+												{#if model.codename_color}
+													<span
+														class="h-3 w-3 shrink-0 border border-border"
+														style={`background-color: ${model.codename_color}`}
+														aria-hidden="true"
+													></span>
+												{/if}
 												{#if browseHref}
 													<a
 														href={browseHref}
@@ -787,10 +878,12 @@
 														class="font-mono text-sm font-medium text-text hover:text-primary hover:underline"
 														title={`Open in source Hive: ${browseHref}`}
 													>
-														{model.name}
+														{titleOf(model)}
 													</a>
 												{:else}
-													<span class="font-mono text-sm font-medium text-text">{model.name}</span>
+													<span class="font-mono text-sm font-medium text-text"
+														>{titleOf(model)}</span
+													>
 												{/if}
 												{#if model.installed}
 													<span
@@ -800,10 +893,33 @@
 														Installed
 													</span>
 												{/if}
+												{#if model.experimental}
+													<span
+														class="inline-flex items-center gap-1 bg-warning/20 px-2 py-0.5 text-xs font-semibold tracking-wider text-warning-dark uppercase dark:text-warning"
+													>
+														Experimental
+													</span>
+												{/if}
+												{#if isInert(model)}
+													<span
+														class="inline-flex items-center gap-1 border border-border px-2 py-0.5 text-xs font-semibold tracking-wider text-text-muted uppercase"
+													>
+														{PURPOSE_LABELS[purposeOf(model)] ?? purposeOf(model)}
+													</span>
+												{/if}
 											</div>
+											{#if isInert(model)}
+												<p class="mt-1 text-sm text-text-muted">
+													Downloads and installs, but nothing on this machine uses it yet.
+												</p>
+											{/if}
 											<div
 												class="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-text-muted"
 											>
+												{#if subtitleOf(model)}
+													<span class="font-mono text-text">{subtitleOf(model)}</span>
+													<span aria-hidden="true">·</span>
+												{/if}
 												<span>{model.model_family}</span>
 												<span aria-hidden="true">·</span>
 												<span>v{model.version}</span>
@@ -944,6 +1060,13 @@
 										<div class="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
 											<div class="min-w-0 flex-1">
 												<div class="flex flex-wrap items-center gap-2">
+													{#if entry.codename_color}
+														<span
+															class="h-3 w-3 shrink-0 border border-border"
+															style={`background-color: ${entry.codename_color}`}
+															aria-hidden="true"
+														></span>
+													{/if}
 													{#if detailHref}
 														<a
 															href={detailHref}
@@ -952,11 +1075,11 @@
 															class="font-mono text-sm font-medium text-text hover:text-primary hover:underline"
 															title={`Open in source Hive: ${detailHref}`}
 														>
-															{entry.name}
+															{titleOf(entry)}
 														</a>
 													{:else}
 														<span class="font-mono text-sm font-medium text-text">
-															{entry.name}
+															{titleOf(entry)}
 														</span>
 													{/if}
 													{#if entry.bundled}
@@ -966,7 +1089,13 @@
 															Bundled
 														</span>
 													{/if}
-													{#if !isCompatible}
+													{#if isInert(entry)}
+														<span
+															class="inline-flex items-center bg-warning/20 px-2 py-0.5 text-xs font-semibold tracking-wider text-warning-dark uppercase dark:text-warning"
+														>
+															{PURPOSE_LABELS[purposeOf(entry)] ?? purposeOf(entry)}
+														</span>
+													{:else if !isCompatible}
 														<Tooltip
 															text={`Variant runtime "${entry.variant_runtime}" cannot be loaded by the sorter — only ONNX, NCNN, Hailo and RKNN are deployable.`}
 														>
@@ -978,9 +1107,19 @@
 														</Tooltip>
 													{/if}
 												</div>
+												{#if isInert(entry)}
+													<p class="mt-1 text-sm text-text-muted">
+														Installed and inert — no part of the sorting pipeline reads this model
+														yet.
+													</p>
+												{/if}
 												<div
 													class="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-text-muted"
 												>
+													{#if subtitleOf(entry)}
+														<span class="font-mono text-text">{subtitleOf(entry)}</span>
+														<span aria-hidden="true">·</span>
+													{/if}
 													<span>{entry.model_family}</span>
 													<span aria-hidden="true">·</span>
 													<span>{entry.variant_runtime}</span>
@@ -1013,7 +1152,11 @@
 											</div>
 
 											<div class="flex flex-wrap items-center gap-2">
-												{#if !isCompatible}
+												{#if isInert(entry)}
+													<span class="px-3 py-1.5 text-xs text-text-muted">
+														Not wired up yet
+													</span>
+												{:else if !isCompatible}
 													<span class="px-3 py-1.5 text-xs text-text-muted"> Cannot activate </span>
 												{:else}
 													<!-- Tap/hover-expand activate: assign this model to a single

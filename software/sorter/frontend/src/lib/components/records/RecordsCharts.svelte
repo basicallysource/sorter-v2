@@ -119,14 +119,14 @@
 			Could not load chart data.
 		</div>
 	{:else}
-		<div class="grid grid-cols-1 gap-3 lg:grid-cols-2">
-			{#each Array(4) as _, i (i)}
+		<div class="grid grid-cols-1 gap-3 md:grid-cols-2 2xl:grid-cols-3">
+			{#each Array(6) as _, i (i)}
 				<Skeleton class="h-48 w-full" />
 			{/each}
 		</div>
 	{/if}
 {:else}
-	<div class="grid grid-cols-1 gap-3 lg:grid-cols-2">
+	<div class="grid grid-cols-1 gap-3 md:grid-cols-2 2xl:grid-cols-3">
 		{#snippet piecesPerDay()}
 			<SeriesChart
 				points={(aggregates?.per_day ?? []).map((p) => ({ date: p.date, value: p.count }))}

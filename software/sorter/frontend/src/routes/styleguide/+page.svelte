@@ -3,7 +3,8 @@
 	import SectionCard from '$lib/components/settings/SectionCard.svelte';
 	import StatusBanner from '$lib/components/StatusBanner.svelte';
 	import { Alert, Button, Input, Tooltip } from '$lib/components/primitives';
-	import { Check, CheckCircle2, ChevronRight, HelpCircle, Loader2, RefreshCcw } from 'lucide-svelte';
+	import Spinner from '$lib/components/Spinner.svelte';
+	import { Check, CheckCircle2, ChevronRight, HelpCircle, RefreshCcw } from 'lucide-svelte';
 
 	let primitiveInputText = $state('');
 	let primitiveInputNumber = $state(0);
@@ -566,21 +567,57 @@
 
 		<SectionCard
 			title="Loading states"
-			description="Spinner row used when fetching async data inside a step or panel."
+			description="One canonical loading indicator: the Spinner component. Four squares, one lit at a time, snapping clockwise — discrete and sharp-cornered to match the industrial style."
 		>
-			<div class="flex flex-col gap-3">
-				<div
-					class="setup-panel flex items-center gap-2 px-4 py-3 text-sm text-text-muted"
-				>
-					<Loader2 size={14} class="animate-spin" />
+			<div class="flex flex-col gap-4">
+				<Alert variant="info">
+					<div class="text-[11px] font-semibold tracking-wider text-primary-dark uppercase dark:text-sky-200">
+						Use the Spinner component — nothing else
+					</div>
+					<div class="mt-1 text-xs leading-relaxed text-text">
+						This is the single loading animation for the whole app. Do not hand-roll a
+						<code>border-current</code> ring or spin a lucide <code>Loader2</code> — import
+						<code>Spinner</code> and pass a <code>size</code>. It inherits color via
+						<code>currentColor</code>, so a wrapping <code>text-*</code> class tints it. When
+						building another surface on this design scheme, copy this component and its CSS
+						verbatim.
+					</div>
+				</Alert>
+
+				<div class="flex flex-wrap items-center gap-6">
+					<div class="flex flex-col items-center gap-2">
+						<Spinner size={14} />
+						<span class="font-mono text-xs text-text-muted">size 14 — inline / buttons</span>
+					</div>
+					<div class="flex flex-col items-center gap-2">
+						<Spinner size={24} />
+						<span class="font-mono text-xs text-text-muted">size 24 — panels</span>
+					</div>
+					<div class="flex flex-col items-center gap-2">
+						<Spinner size={40} />
+						<span class="font-mono text-xs text-text-muted">size 40 — full-panel</span>
+					</div>
+					<div class="flex flex-col items-center gap-2">
+						<span class="text-primary"><Spinner size={24} /></span>
+						<span class="font-mono text-xs text-text-muted">tinted via text-primary</span>
+					</div>
+				</div>
+
+				<div class="setup-panel flex items-center gap-2 px-4 py-3 text-sm text-text-muted">
+					<Spinner size={14} />
 					Checking current Hive configuration…
 				</div>
 				<pre
-					class="setup-panel overflow-x-auto px-3 py-2 text-[11px] font-mono leading-relaxed text-text">{`<div class="setup-panel flex items-center gap-2
+					class="setup-panel overflow-x-auto px-3 py-2 text-[11px] font-mono leading-relaxed text-text">{`import Spinner from '$lib/components/Spinner.svelte';
+
+<div class="setup-panel flex items-center gap-2
             px-4 py-3 text-sm text-text-muted">
-  <Loader2 size={14} class="animate-spin" />
+  <Spinner size={14} />
   Checking current Hive configuration…
-</div>`}</pre>
+</div>
+
+<!-- tint by wrapping in a text-* color -->
+<span class="text-primary"><Spinner size={24} /></span>`}</pre>
 			</div>
 		</SectionCard>
 

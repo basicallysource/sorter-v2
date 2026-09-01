@@ -2,7 +2,7 @@ fastapi
 uvicorn
 websockets
 pyright
-pydantic-to-typescript
+pydantic-to-typescript==2.0.0
 requests
 requests-oauthlib
 pillow

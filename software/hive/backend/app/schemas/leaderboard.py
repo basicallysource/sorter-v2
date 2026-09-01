@@ -13,6 +13,9 @@ class LeaderboardEntry(BaseModel):
     total_reviews: int
     accepts: int
     rejects: int
+    piece_color_labels: int = 0
+    piece_crop_links: int = 0
+    total_contributions: int = 0
     last_review_at: datetime | None = None
 
 
@@ -39,6 +42,9 @@ class ReviewerProfileResponse(BaseModel):
     total_reviews: int
     accepts: int
     rejects: int
+    piece_color_labels: int = 0
+    piece_crop_links: int = 0
+    total_contributions: int = 0
     agreement_rate: float | None = None  # 0..1
     machines_covered: int
     current_streak_days: int

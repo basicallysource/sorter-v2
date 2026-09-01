@@ -267,17 +267,23 @@ def list_models(
     scope: str | None = Query(default=None),
     runtime: str | None = Query(default=None),
     family: str | None = Query(default=None),
+    purpose: str | None = Query(default=None),
     q: str | None = Query(default=None),
+    include_experimental: bool = Query(default=False),
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=30, ge=1, le=200),
 ) -> dict:
     filters: dict[str, Any] = {"page": page, "page_size": page_size}
+    if include_experimental:
+        filters["include_experimental"] = True
     if scope:
         filters["scope"] = scope
     if runtime:
         filters["runtime"] = runtime
     if family:
         filters["family"] = family
+    if purpose:
+        filters["purpose"] = purpose
     if q:
         filters["q"] = q
 

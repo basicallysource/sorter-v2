@@ -80,7 +80,7 @@
 		{#if loading}
 			<div class="text-sm text-text-muted">Loading…</div>
 		{:else}
-			<div class="flex flex-col gap-4">
+			<div class="flex flex-col gap-2">
 				{#each fields as field}
 					<TuningParamRow {field} bind:values />
 				{/each}

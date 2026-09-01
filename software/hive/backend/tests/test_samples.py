@@ -62,7 +62,9 @@ class TestListSamples:
         _upload_sample(client, machine_token, "sess-list", "s1")
         _upload_sample(client, machine_token, "sess-list", "s2")
 
-        resp = client.get("/api/samples", headers=auth_headers)
+        # /api/samples defaults to annotated="teacher" (only teacher-validated
+        # samples); these raw uploads only show under annotated=all.
+        resp = client.get("/api/samples", params={"annotated": "all"}, headers=auth_headers)
         assert resp.status_code == 200
         data = resp.json()
         items = data if isinstance(data, list) else data.get("items", [])
@@ -93,10 +95,11 @@ class TestListSamples:
             capture_reason="channel_move_complete",
         )
 
+        # annotated=all so the raw uploads aren't hidden by the teacher default.
         # Filter by source_role
         resp = client.get(
             "/api/samples",
-            params={"source_role": "classification_chamber"},
+            params={"source_role": "classification_chamber", "annotated": "all"},
             headers=auth_headers,
         )
         assert resp.status_code == 200
@@ -107,7 +110,7 @@ class TestListSamples:
         # Filter by capture_reason
         resp_capture = client.get(
             "/api/samples",
-            params={"capture_reason": "channel_move_complete"},
+            params={"capture_reason": "channel_move_complete", "annotated": "all"},
             headers=auth_headers,
         )
         assert resp_capture.status_code == 200
@@ -119,7 +122,7 @@ class TestListSamples:
         # Filter by review_status
         resp2 = client.get(
             "/api/samples",
-            params={"review_status": "unreviewed"},
+            params={"review_status": "unreviewed", "annotated": "all"},
             headers=auth_headers,
         )
         assert resp2.status_code == 200
@@ -333,7 +336,7 @@ class TestSampleAssets:
 
 
 class TestSampleAuthorization:
-    def test_member_sees_other_users_samples_by_default(
+    def test_member_cannot_see_other_users_samples(
         self,
         client: TestClient,
         test_user: dict,
@@ -341,10 +344,9 @@ class TestSampleAuthorization:
         machine_token: str,
         upload_dir: str,
     ) -> None:
-        """Default scope is public — any signed-in member can read any sample.
-
-        Writes (annotations, deletes) still require ownership or reviewer/admin role; that
-        constraint is asserted further down.
+        """Members only ever see their own machines' samples — other owners'
+        data is invisible to them (reads 404 so they can't probe existence).
+        Reviewers/admins see everything; that's asserted in the next test.
         """
         sample = _upload_sample(client, machine_token, "sess-auth", "s1")
         sample_id = sample["id"]
@@ -353,21 +355,17 @@ class TestSampleAuthorization:
         _login_user(client, "other@test.com", "Password123!")
         other_headers = _auth_headers(client)
 
-        listing = client.get("/api/samples", headers=other_headers)
+        # annotated=all opts out of the default teacher-pass filter so the
+        # exclusion below is down to ownership, not annotation state.
+        listing = client.get("/api/samples?annotated=all", headers=other_headers)
         assert listing.status_code == 200
-        items = listing.json().get("items", [])
-        assert any(item["id"] == sample_id for item in items)
-
-        mine_only = client.get("/api/samples?scope=mine", headers=other_headers)
-        assert mine_only.status_code == 200
-        assert all(item["id"] != sample_id for item in mine_only.json().get("items", []))
+        assert all(item["id"] != sample_id for item in listing.json().get("items", []))
 
         detail = client.get(f"/api/samples/{sample_id}", headers=other_headers)
-        assert detail.status_code == 200
-        assert detail.json()["id"] == sample_id
+        assert detail.status_code == 404
 
         asset = client.get(f"/api/samples/{sample_id}/assets/image", headers=other_headers)
-        assert asset.status_code == 200
+        assert asset.status_code == 404
 
         annotations = client.put(
             f"/api/samples/{sample_id}/annotations",
@@ -375,6 +373,25 @@ class TestSampleAuthorization:
             json={"annotations": []},
         )
         assert annotations.status_code == 403
+
+    def test_member_sees_own_samples(
+        self,
+        client: TestClient,
+        test_user: dict,
+        auth_headers: dict,
+        machine_token: str,
+        upload_dir: str,
+    ) -> None:
+        sample = _upload_sample(client, machine_token, "sess-own", "s1")
+        sample_id = sample["id"]
+
+        listing = client.get("/api/samples?annotated=all", headers=auth_headers)
+        assert listing.status_code == 200
+        assert any(item["id"] == sample_id for item in listing.json().get("items", []))
+
+        detail = client.get(f"/api/samples/{sample_id}", headers=auth_headers)
+        assert detail.status_code == 200
+        assert detail.json()["id"] == sample_id
 
     def test_reviewer_can_access_other_users_samples(
         self,

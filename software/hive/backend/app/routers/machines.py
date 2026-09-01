@@ -1,12 +1,14 @@
 from datetime import datetime, timezone
 from typing import Any
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, Query, Request
 from pydantic import BaseModel, Field
 from slowapi import Limiter
 from slowapi.util import get_remote_address
-from sqlalchemy import func
+from sqlalchemy import delete, func, select, text, tuple_
+from sqlalchemy.dialects.postgresql import insert as pg_insert
+from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.orm import Session, joinedload
 
 from app.deps import get_current_machine, get_current_user, get_db, require_role, verify_csrf
@@ -14,6 +16,7 @@ from app.errors import APIError
 from app.models.machine import Machine
 from app.models.machine_piece import MachinePiece
 from app.models.machine_piece_image import MachinePieceImage
+from app.models.machine_channel_crop import MachineChannelCrop
 from app.models.user import User
 from app.schemas.machine import (
     MachineCreate,
@@ -172,7 +175,7 @@ def admin_machine_stats(
     """Per-machine lifetime metrics (pieces, PPM, on-time %) across ALL machines.
 
     Served from the machine_stats_cache table, refreshed hourly by the
-    MachineStatsWorker (see app.services.machine_stats). Cold-start fallback:
+    machine-stats worker (see app.services.machine_stats). Cold-start fallback:
     if the cache has never been populated, compute it once here so the first
     admin load isn't blank.
     """
@@ -196,7 +199,7 @@ def admin_refresh_machine_stats(
     _csrf: None = Depends(verify_csrf),
 ):
     """Force an immediate recompute of every machine's cached stats."""
-    count = machine_stats.refresh_cache(db)
+    count = machine_stats.refresh_all(db)
     return {"ok": True, "refreshed": count, "worker": get_machine_stats_worker().status()}
 
 
@@ -266,6 +269,7 @@ def _serialize_machine_piece(piece: MachinePiece, images: list[MachinePieceImage
         "color_name": piece.color_name,
         "category_id": piece.category_id,
         "confidence": piece.confidence,
+        "color_confidence": piece.color_confidence,
         "bin": {"x": piece.bin_x, "y": piece.bin_y, "z": piece.bin_z},
         "dead": piece.dead,
         "brickognize_preview_url": piece.brickognize_preview_url,
@@ -374,6 +378,97 @@ def get_machine_piece_image(
         raise APIError(404, "Image not found", "IMAGE_NOT_FOUND")
 
     return serve_stored_file(image.image_key, headers={"Cache-Control": PIECE_IMAGE_CACHE_CONTROL})
+
+
+def _serialize_channel_crop(crop: MachineChannelCrop) -> dict[str, Any]:
+    return {
+        "local_id": crop.local_id,
+        "channel": crop.channel,
+        "ts": crop.ts.isoformat() if crop.ts else None,
+        "captured_at": crop.captured_at.isoformat() if crop.captured_at else None,
+        "track_id": crop.track_id,
+        "com_forward_to_exit_deg": crop.com_forward_to_exit_deg,
+        "com_section": crop.com_section,
+        "zone_code": crop.zone_code,
+        "sharpness": crop.sharpness,
+        "bbox": [crop.bbox_x1, crop.bbox_y1, crop.bbox_x2, crop.bbox_y2],
+        "bytes": crop.bytes,
+        # image_key is NULL once the crop was evicted from the machine's local
+        # store before syncing — the row rides up regardless.
+        "available": crop.image_key is not None,
+        "evicted_locally": crop.evicted_locally,
+    }
+
+
+@router.get("/machines/{machine_id}/channel-crops")
+def list_machine_channel_crops(
+    machine_id: UUID,
+    limit: int = Query(120, ge=1, le=500),
+    cursor: int | None = Query(None),
+    channel: int | None = Query(None),
+    zone_code: int | None = Query(None),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Unlabeled C2/C3 bbox crops synced from one machine, newest first.
+    Keyset-paginated on the machine's local crop id. Optional channel / zone_code
+    filters. Accessible to the machine's owner or any admin."""
+    machine = _machine_for_viewer(db, machine_id, current_user)
+
+    query = db.query(MachineChannelCrop).filter(MachineChannelCrop.machine_id == machine_id)
+    if channel is not None:
+        query = query.filter(MachineChannelCrop.channel == channel)
+    if zone_code is not None:
+        query = query.filter(MachineChannelCrop.zone_code == zone_code)
+    if cursor is not None:
+        query = query.filter(MachineChannelCrop.local_id < cursor)
+    crops = query.order_by(MachineChannelCrop.local_id.desc()).limit(limit + 1).all()
+
+    has_more = len(crops) > limit
+    crops = crops[:limit]
+    next_cursor = crops[-1].local_id if (has_more and crops) else None
+
+    total = (
+        db.query(func.count(MachineChannelCrop.id))
+        .filter(MachineChannelCrop.machine_id == machine_id)
+        .scalar()
+        or 0
+    )
+
+    return {
+        "machine": {
+            "id": str(machine.id),
+            "name": machine.name,
+            "owner_email": machine.owner.email if machine.owner else None,
+        },
+        "items": [_serialize_channel_crop(c) for c in crops],
+        "next_cursor": next_cursor,
+        "total": total,
+    }
+
+
+@router.get("/machines/{machine_id}/channel-crops/{local_id}/image")
+def get_machine_channel_crop_image(
+    machine_id: UUID,
+    local_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Stream one synced channel crop's bytes. Cookie-session auth (owner or
+    admin) is enough for an <img> tag on a same-origin page."""
+    _machine_for_viewer(db, machine_id, current_user)
+    crop = (
+        db.query(MachineChannelCrop)
+        .filter(
+            MachineChannelCrop.machine_id == machine_id,
+            MachineChannelCrop.local_id == local_id,
+        )
+        .first()
+    )
+    if crop is None or not crop.image_key:
+        raise APIError(404, "Image not found", "IMAGE_NOT_FOUND")
+
+    return serve_stored_file(crop.image_key, headers={"Cache-Control": PIECE_IMAGE_CACHE_CONTROL})
 
 
 @router.post("/machines", response_model=MachineWithTokenResponse)
@@ -501,7 +596,14 @@ def heartbeat(
         machine.last_seen_ip = client_ip
     if data is not None:
         if "hardware_info" in data.model_fields_set:
-            machine.hardware_info = data.hardware_info
+            if isinstance(data.hardware_info, dict) and data.hardware_info.get("schema_version") is not None:
+                # A machine-specs snapshot: summarize for the dashboard + append
+                # the full snapshot to the spec history.
+                from app.machine_hardware import record_hardware_report
+
+                record_hardware_report(db, machine, data.hardware_info)
+            else:
+                machine.hardware_info = data.hardware_info
         local_ui_port = data.local_ui_port if "local_ui_port" in data.model_fields_set else None
         if local_ui_port is None and isinstance(data.hardware_info, dict) and "hardware_info" in data.model_fields_set:
             raw_port = data.hardware_info.get("local_ui_port")
@@ -610,6 +712,28 @@ def report_machine_set_progress(
     if not assignment:
         raise APIError(404, "No profile assignment found", "NO_ASSIGNMENT")
 
+    # One report per assignment at a time. Without this, a retry of a
+    # still-running report joins the row-lock queue behind it — waiting up to
+    # the 60s statement timeout while holding its own locks and pinning its
+    # whole parsed payload — and under a retry storm those waiters convoy
+    # (2026-08-20, the second half of the OOM loop: the convoy persisted even
+    # after the write path itself got fast). The advisory lock is
+    # transaction-scoped, so it releases on commit or rollback no matter how
+    # the request dies; a bounced retry just comes back once the in-flight
+    # report lands, and then usually no-ops. Postgres-only: sqlite (tests) is
+    # single-writer anyway.
+    if db.bind.dialect.name == "postgresql":
+        got_lock = db.execute(
+            text("SELECT pg_try_advisory_xact_lock(hashtext(:aid))"),
+            {"aid": str(assignment.id)},
+        ).scalar()
+        if not got_lock:
+            raise APIError(
+                429,
+                "A set-progress report for this machine is already being processed",
+                "SET_PROGRESS_BUSY",
+            )
+
     expected_version = assignment.active_version or assignment.desired_version
     expected_version_id = expected_version.id if expected_version is not None else None
     if expected_version_id is None:
@@ -683,41 +807,70 @@ def report_machine_set_progress(
 
     normalized_items = list(normalized_by_key.values())
 
-    existing_rows = db.query(MachineSetProgress).filter(
-        MachineSetProgress.assignment_id == assignment.id
-    ).all()
-    existing_by_key = {
-        (row.set_num, row.part_num, row.color_id): row
-        for row in existing_rows
+    # Set-based write. The previous path loaded every row as an ORM object,
+    # mutated all of them (touching updated_at even when nothing changed) and
+    # flushed an 8.5k-parameter executemany — slower than the sorter's 15s
+    # client timeout, and under contention slower than the 60s statement
+    # timeout. Every retry then queued behind the previous attempt's row locks,
+    # and the pile of abandoned threadpool workers (each pinning its parsed
+    # payload, ORM session and artifact index) is what OOM-cycled hive-prod on
+    # 2026-08-20. The upsert's WHERE makes an unchanged row a no-op, so the
+    # steady state (machine re-reports a mostly-identical snapshot) writes
+    # almost nothing and leaves no dead tuples behind.
+    progress = MachineSetProgress.__table__
+    existing_keys = {
+        (row.set_num, row.part_num, row.color_id)
+        for row in db.execute(
+            select(progress.c.set_num, progress.c.part_num, progress.c.color_id).where(
+                progress.c.assignment_id == assignment.id
+            )
+        )
     }
 
     deleted = 0
-    for key, row in existing_by_key.items():
-        if key not in incoming_keys:
-            db.delete(row)
-            deleted += 1
-
-    for item in normalized_items:
-        key = (item["set_num"], item["part_num"], item["color_id"])
-        existing = existing_by_key.get(key)
-        if existing is not None:
-            existing.quantity_found = item["quantity_found"]
-            existing.quantity_needed = item["quantity_needed"]
-            existing.updated_at = now
-            continue
-
-        db.add(
-            MachineSetProgress(
-                machine_id=machine.id,
-                assignment_id=assignment.id,
-                set_num=item["set_num"],
-                part_num=item["part_num"],
-                color_id=item["color_id"],
-                quantity_needed=item["quantity_needed"],
-                quantity_found=item["quantity_found"],
-                updated_at=now,
+    stale_keys = existing_keys - incoming_keys  # non-empty only right after the profile changed
+    if stale_keys:
+        deleted = db.execute(
+            delete(progress).where(
+                progress.c.assignment_id == assignment.id,
+                tuple_(progress.c.set_num, progress.c.part_num, progress.c.color_id).in_(stale_keys),
             )
+        ).rowcount
+
+    # Chunked: the full snapshot is ~8.5k rows x 9 columns, past both
+    # postgres's and sqlite's bind-parameter caps in one statement.
+    insert_fn = pg_insert if db.bind.dialect.name == "postgresql" else sqlite_insert
+    for start in range(0, len(normalized_items), 1000):
+        chunk = normalized_items[start : start + 1000]
+        stmt = insert_fn(progress).values(
+            [
+                {
+                    "id": uuid4(),
+                    "machine_id": machine.id,
+                    "assignment_id": assignment.id,
+                    "set_num": item["set_num"],
+                    "part_num": item["part_num"],
+                    "color_id": item["color_id"],
+                    "quantity_needed": item["quantity_needed"],
+                    "quantity_found": item["quantity_found"],
+                    "updated_at": now,
+                }
+                for item in chunk
+            ]
         )
+        stmt = stmt.on_conflict_do_update(
+            index_elements=["assignment_id", "set_num", "part_num", "color_id"],
+            set_={
+                "quantity_needed": stmt.excluded.quantity_needed,
+                "quantity_found": stmt.excluded.quantity_found,
+                "updated_at": stmt.excluded.updated_at,
+            },
+            where=(
+                (progress.c.quantity_needed != stmt.excluded.quantity_needed)
+                | (progress.c.quantity_found != stmt.excluded.quantity_found)
+            ),
+        )
+        db.execute(stmt)
 
     db.commit()
     return {"ok": True, "updated": len(normalized_items), "deleted": deleted}

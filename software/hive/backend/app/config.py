@@ -14,6 +14,16 @@ class Settings(BaseSettings):
     DATABASE_URL: str = "postgresql://hive:hive_dev@localhost:5432/hive"
     JWT_SECRET: str | None = None
     UPLOAD_DIR: str = "data/uploads"
+    # Local dir scanned for color-classifier models (`.onnx`). One row per file is
+    # reconciled into the color_models table; the active one serves piece-color
+    # predictions. Model bytes are uploaded here out of band (not through the API).
+    COLOR_MODEL_DIR: str = "data/color_models"
+    # Local dir scanned for piece_link matcher models. Each model is a pair of
+    # ONNX graphs (`*.encoder.onnx` + `*.head.onnx`, grouped by their baked
+    # `hive.name`); one row per pair is reconciled into the link_models table.
+    # The active one scores "same physical piece" upstream crops in the labeling
+    # view in place of the time/angle heuristic. Uploaded here out of band.
+    LINK_MODEL_DIR: str = "data/link_models"
     STORAGE_BACKEND: str = "local"
     S3_BUCKET: str = ""
     S3_ENDPOINT_URL: str = ""
@@ -42,8 +52,11 @@ class Settings(BaseSettings):
     GITHUB_CLIENT_SECRET: str | None = None
     GITHUB_REDIRECT_URI: str | None = None
     GITHUB_OAUTH_STATE_EXPIRE_MINUTES: int = 10
+    DISCORD_CLIENT_ID: str | None = None
+    DISCORD_CLIENT_SECRET: str | None = None
+    DISCORD_REDIRECT_URI: str | None = None
     REBRICKABLE_API_KEY: str = ""
-    BL_AFFILIATE_API_KEY: str = ""
+    BLA_API_KEY: str = ""
     SORTING_PROFILE_PARTS_DB_PATH: str = "data/profile_builder/parts.db"
     SORTING_PROFILE_BRICKSTORE_DB_PATH: str = "~/Library/Caches/BrickStore/database-v12"
     SORTING_PROFILE_LDRAW_LIBRARY_DIR: str = "ldraw_lib"
@@ -69,11 +82,22 @@ class Settings(BaseSettings):
     # How often the background worker recomputes per-machine dashboard stats
     # (machine_stats_cache). Clamped to a 60s floor in the worker.
     MACHINE_STATS_REFRESH_INTERVAL_MINUTES: int = 60
-    DEFAULT_AI_MODEL: str = "anthropic/claude-sonnet-4.6"
+    # How often the background worker walks the object store for the admin
+    # server-health page (server_storage_cache). The walk lists every S3 key so
+    # it's slow; a few hours is plenty. Clamped to a 5min floor in the worker.
+    SERVER_STORAGE_REFRESH_INTERVAL_MINUTES: int = 180
+    # Best intelligence-per-dollar on OpenRouter as of 2026-07 (~$0.7/M in,
+    # ~$2.2/M out). Frontend settings page mirrors this in aiModelGroups.
+    DEFAULT_AI_MODEL: str = "z-ai/glm-5.2"
     PROFILE_AI_PROMPT_CACHE_ENABLED: bool = True
     PROFILE_AI_PROMPT_CACHE_TTL: str | None = None
     SECRET_ENCRYPTION_KEY: str | None = None
     DEV_SECRET_DIR: str = "data/dev-secrets"
+    # Shared secret for the service-to-service aggregate-stats API
+    # (app.routers.public_stats). A caller presenting this key gets the same
+    # aggregate analytics an admin sees on the all-machines page. Empty disables
+    # the endpoint (503).
+    PUBLIC_STATS_API_KEY: str = ""
     MAX_MODEL_FILE_SIZE: int = 2 * 1024 * 1024 * 1024
     ALLOWED_MODEL_RUNTIMES: tuple[str, ...] = ("onnx", "ncnn", "hailo", "pytorch", "rknn")
 
@@ -90,6 +114,16 @@ class Settings(BaseSettings):
     @property
     def github_oauth_enabled(self) -> bool:
         return bool(self.GITHUB_CLIENT_ID and self.GITHUB_CLIENT_SECRET)
+
+    @property
+    def discord_redirect_uri(self) -> str:
+        if self.DISCORD_REDIRECT_URI:
+            return self.DISCORD_REDIRECT_URI
+        return f"{self.public_app_url}/api/auth/discord/callback"
+
+    @property
+    def discord_oauth_enabled(self) -> bool:
+        return bool(self.DISCORD_CLIENT_ID and self.DISCORD_CLIENT_SECRET)
 
     @property
     def environment(self) -> str:

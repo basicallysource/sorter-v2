@@ -1,0 +1,42 @@
+metadata:
+  title: PSU output pigtail
+  description: "One PSU output pigtail, x3 per PSU build. The buildable sub-\nharness for PJ1-PJ3 on the 24V power distribution drawing.\nScrew numbers are MeanWell's own (LRS-350-SPEC): 4-6 are DC\nOUTPUT -V, 7-9 are DC OUTPUT +V. From the PSU reference\ndrawing (2026-08-08)."
+
+connectors:
+  F1:
+    style: simple
+    type: Spade terminal (fork/split ring)
+    subtype: 18 AWG, M3.5, 8mm MAX
+    manufacturer: Molex
+    mpn: "0191310031\nOr Equivalent"
+    notes: "To +V: screw 7, 8 or 9"
+    color: RD
+  F2:
+    style: simple
+    type: Spade terminal (fork/split ring)
+    subtype: 18 AWG, M3.5, 8mm MAX
+    manufacturer: Molex
+    mpn: "0191310031\nOr Equivalent"
+    notes: "To -V: screw 4, 5, 6"
+    color: BK
+  J1:
+    type: DC jack 5.5x2.1 female, panel-mount
+    pinlabels: [+24V (tip), GND (sleeve)]
+    notes: "Panel-mount into the PSU enclosure."
+
+cables:
+  PJ1:
+    gauge: 18 AWG
+    length: 4 in
+    colors: [RD, BK]
+    notes: "Usually comes attached to the jack already,\nso buy the jacks with leads rather than\nhaving this made"
+
+connections:
+  -
+    - F1: [1]
+    - PJ1: [1]
+    - J1: [1]
+  -
+    - F2: [1]
+    - PJ1: [2]
+    - J1: [2]

@@ -10,7 +10,13 @@ from global_config import GlobalConfig
 from vision import VisionManager
 
 from ..states import FeederState
-from .config import PulsePerceptionConfig
+from .config import (
+    PulsePerceptionConfig,
+    channelMaxMoveOutputDeg,
+    channelMoveSpeed,
+)
+from .stuck_watchdog import FeederStuckWatchdog
+from subsystems.feeder.incidents import feeder_jam_incident_active
 
 # A deliberately simple pulsing state machine on the new perception stack.
 #
@@ -37,6 +43,14 @@ if TYPE_CHECKING:
 # requires this many motor degrees. Matches the go-to-angle flow's constant.
 CHANNEL_OUTPUT_GEAR_RATIO = 130.0 / 12.0
 
+# Minimum stepper speed floor for pulse moves. MUST stay > 0: a min_speed of 0
+# wedges the firmware on a distance move — braking clamps _current_speed to 0
+# before the step target is reached, the move never transitions back to STOPPED,
+# and every subsequent move_steps is rejected (motor frozen until a manual UI
+# move re-stops it). 16 matches the firmware default and the exit-pulse path in
+# detection.py.
+MIN_MOVE_SPEED_USTEPS_PER_S = 16
+
 # Re-read the tuning config from disk at most this often so the tuning page
 # takes effect live without a restart, without hammering the filesystem.
 _CONFIG_TTL_S = 1.0
@@ -44,6 +58,24 @@ _CONFIG_TTL_S = 1.0
 # After a C3 exit dispense, keep C3 blocked this long so the in-flight piece
 # can register downstream before we consider another move.
 CLASSIFICATION_PENDING_ADMISSION_MS = 1500
+
+
+def _leading_com(state) -> Optional[float]:
+    # Leading (most-forward) on-channel piece's travel position toward the exit.
+    # None when the channel reports no piece this frame. The jam watchdog treats
+    # this as the channel's progress signal.
+    pieces = getattr(state, "pieces", ())
+    if pieces:
+        return float(pieces[0].com_forward_to_exit_deg)
+    return None
+
+
+def _wants_advance(action) -> bool:
+    # The channel is actively trying to move THIS piece (ADVANCE/PRECISE), vs.
+    # intentionally holding for a busy downstream (FREEZE) or empty (IDLE).
+    from perception.cascade import Action
+
+    return action in (Action.ADVANCE, Action.PRECISE)
 
 
 class PulsePerceptionFeeding(BaseState):
@@ -60,6 +92,7 @@ class PulsePerceptionFeeding(BaseState):
         self.shared = shared
         self.vision = vision
         self._busy_until: dict[str, float] = {}
+        self._stuck_watchdog = FeederStuckWatchdog(gc)
         self._config: PulsePerceptionConfig = PulsePerceptionConfig()
         self._config_loaded_at: float = 0.0
         self._classification_pending_until: float = 0.0
@@ -91,6 +124,7 @@ class PulsePerceptionFeeding(BaseState):
     def _move(
         self,
         label: str,
+        channel: int,
         stepper: "StepperMotor",
         output_deg: float,
         pause_ms: int,
@@ -99,18 +133,18 @@ class PulsePerceptionFeeding(BaseState):
     ) -> bool:
         if self._busy(stepper):
             return False
-        speed = int(cfg.move_speed_usteps_per_s)
+        speed = channelMoveSpeed(cfg, channel)
         output_deg = abs(output_deg)
         if enforce_min:
             output_deg = max(cfg.min_move_output_deg, output_deg)
-        output_deg = min(cfg.max_move_output_deg, output_deg)
+        output_deg = min(channelMaxMoveOutputDeg(cfg, channel), output_deg)
         sign = 1 if cfg.forward_direction_sign >= 0 else -1
         motor_deg = sign * output_deg * CHANNEL_OUTPUT_GEAR_RATIO
         # Set the move speed and tell the motor to move to the angle — that's it.
         # We NEVER set acceleration here; the motor keeps whatever acceleration it
         # already has.
         try:
-            stepper.set_speed_limits(0, speed)
+            stepper.set_speed_limits(MIN_MOVE_SPEED_USTEPS_PER_S, speed)
         except Exception as exc:
             self.gc.logger.warning(f"PulsePerception: {label} speed set failed: {exc}")
         success = stepper.move_degrees(motor_deg)
@@ -118,12 +152,18 @@ class PulsePerceptionFeeding(BaseState):
         cooldown_ms = (max(0, exec_ms) + max(0, pause_ms)) if success else 500
         self._busy_until[stepper._name] = time.monotonic() + cooldown_ms / 1000.0
         self.gc.logger.info(
-            f"PulsePerception: {label} pulse output={output_deg:.1f}° motor={motor_deg:.1f}° "
+            f"PulsePerception: {label} pulse ch={channel} speed={speed} "
+            f"output={output_deg:.1f}° motor={motor_deg:.1f}° "
             f"success={success} exec_ms={exec_ms} pause_ms={pause_ms}"
         )
         return success
 
     def _on_ch3_dispense(self) -> None:
+        try:
+            from .autotune import noteDispense
+            noteDispense()
+        except Exception:
+            pass
         if hasattr(self.shared, "publish_piece_delivered"):
             try:
                 self.shared.publish_piece_delivered(
@@ -205,9 +245,24 @@ class PulsePerceptionFeeding(BaseState):
             action = feederChannelAction(
                 c3, downstream_clear=c3_downstream_ready, greedy=cfg.ch3_greedy_enabled
             )
-            self._apply_action(
-                "ch3", action, self.irl.c_channel_3_rotor_stepper, c3, cfg
+            # C3 hung at the C2->C3 hand-off: keep C3 from hammering a piece it
+            # can't move; nudge C2 (its upstream) to free it, escalate on failure.
+            self._stuck_watchdog.observe(
+                channel_id=3,
+                channel_label="C3",
+                upstream_label="C2",
+                upstream_channel_id=2,
+                upstream_stepper=self.irl.c_channel_2_rotor_stepper,
+                upstream_enabled=bool(cfg.enable_ch2),
+                leading_pos_deg=_leading_com(c3),
+                wants_advance=_wants_advance(action),
+                cfg=cfg,
+                now=now_mono,
             )
+            if not feeder_jam_incident_active(self.gc, channel_label="C3"):
+                self._apply_action(
+                    "ch3", 3, action, self.irl.c_channel_3_rotor_stepper, c3, cfg
+                )
             # A piece counts as delivered the moment it clears C3's exit zone
             # (the precise pulses stop on their own once perception no longer
             # sees it there). Fire the downstream notification + admission window
@@ -223,9 +278,24 @@ class PulsePerceptionFeeding(BaseState):
             action = feederChannelAction(
                 c2, downstream_clear=not c3.in_drop, greedy=cfg.ch2_greedy_enabled
             )
-            self._apply_action(
-                "ch2", action, self.irl.c_channel_2_rotor_stepper, c2, cfg
+            # C2 hung at the C1->C2 hand-off: nudge C1 (its upstream) to free the
+            # piece, escalate to the operator jam incident if that keeps failing.
+            self._stuck_watchdog.observe(
+                channel_id=2,
+                channel_label="C2",
+                upstream_label="C1",
+                upstream_channel_id=1,
+                upstream_stepper=self.irl.c_channel_1_rotor_stepper,
+                upstream_enabled=bool(cfg.enable_ch1),
+                leading_pos_deg=_leading_com(c2),
+                wants_advance=_wants_advance(action),
+                cfg=cfg,
+                now=now_mono,
             )
+            if not feeder_jam_incident_active(self.gc, channel_label="C2"):
+                self._apply_action(
+                    "ch2", 2, action, self.irl.c_channel_2_rotor_stepper, c2, cfg
+                )
 
         if cfg.enable_ch1:
             # C1 has no exit zone of its own; it just advances unless C2's drop
@@ -234,6 +304,7 @@ class PulsePerceptionFeeding(BaseState):
             if c1Action(c2) == Action.ADVANCE and not self._busy(stepper):
                 self._move(
                     "ch1",
+                    1,
                     stepper,
                     cfg.ch1_pulse_output_deg,
                     cfg.ch1_pulse_pause_ms,
@@ -245,6 +316,7 @@ class PulsePerceptionFeeding(BaseState):
     def _apply_action(
         self,
         label: str,
+        channel: int,
         action,
         stepper: "StepperMotor",
         state,
@@ -278,6 +350,7 @@ class PulsePerceptionFeeding(BaseState):
                 enforce_min = False
             self._move(
                 move_label,
+                channel,
                 stepper,
                 output_deg,
                 pause_ms,
@@ -287,6 +360,7 @@ class PulsePerceptionFeeding(BaseState):
         elif action == Action.PRECISE:
             self._move(
                 f"{label}_exit",
+                channel,
                 stepper,
                 cfg.exit_pulse_output_deg,
                 cfg.exit_pulse_pause_ms,

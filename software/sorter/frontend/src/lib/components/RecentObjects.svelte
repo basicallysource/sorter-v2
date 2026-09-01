@@ -1,16 +1,23 @@
 <script lang="ts">
 	import { getMachineContext } from '$lib/machines/context';
+	import { untrack } from 'svelte';
+	import { Wand2 } from 'lucide-svelte';
 	import type { KnownObjectData } from '$lib/api/events';
 	import Spinner from './Spinner.svelte';
+	import Modal from './Modal.svelte';
+	import PieceCorrection from './PieceCorrection.svelte';
 	import PieceStatusBadge from './PieceStatusBadge.svelte';
+	import { fetchPieceImageState, type DisplayImage } from './records/piece-images';
 	import { sortingProfileStore } from '$lib/stores/sortingProfile.svelte';
 	import { getBackendHttpBase, machineHttpBaseUrlFromWsUrl } from '$lib/backend';
 	import { LEGO_COLORS, type LegoColor } from '$lib/lego-colors';
 	import {
 		pieceStore,
 		pieceToKnownObjectView,
+		pieceToSummary,
 		isTerminalPiece,
 		type Piece,
+		type PieceSummary,
 		type PiecesListResponse
 	} from '$lib/pieces';
 
@@ -51,6 +58,60 @@
 
 	const machineId = $derived(ctx.machine?.identity?.machine_id ?? null);
 	const storePieces = $derived(pieceStore.entriesFor(machineId));
+
+	// --- Brickognize correction modal -------------------------------------
+	// The recent-piece cards are links to the detail page; opening the correction
+	// UI must not navigate. A small wand button on correctable cards opens the
+	// shared PieceCorrection component in a modal. The summary is derived live
+	// from the store so a correction updates in place.
+	let correctingUuid = $state<string | null>(null);
+	const correctingPiece = $derived.by<Piece | null>(() => {
+		if (!correctingUuid) return null;
+		return storePieces.find((x) => x.uuid === correctingUuid) ?? null;
+	});
+	const correctingSummary = $derived(correctingPiece ? pieceToSummary(correctingPiece) : null);
+	const correctionOpen = $derived(correctingSummary !== null);
+
+	function openCorrection(uuid: string, event: MouseEvent) {
+		event.preventDefault();
+		event.stopPropagation();
+		correctingUuid = uuid;
+	}
+
+	function onCorrectionUpdated(summary: PieceSummary) {
+		if (machineId) pieceStore.upsertFromRest(machineId, [summary]);
+	}
+
+	// The C4 burst crops we captured for the piece being corrected — shown in the
+	// modal alongside the Brickognize prediction. Fetched once per opened piece.
+	// `correctingUuid` is the ONLY thing this effect should react to; everything
+	// else the body touches (correctingSummary, effectiveBase() -> ctx.machine)
+	// must stay inside `untrack` or the effect re-fires — and resets/reloads the
+	// gallery — every time that unrelated reactive state changes (e.g. the
+	// machine context ticking on a heartbeat), not just when the piece changes.
+	let modalBurstImages = $state<DisplayImage[]>([]);
+	let modalImagesLoading = $state(false);
+	let modalImagesRequestId = 0;
+	$effect(() => {
+		const uuid = correctingUuid;
+		untrack(() => {
+			if (!uuid) {
+				modalBurstImages = [];
+				modalImagesLoading = false;
+				return;
+			}
+			const seen_at = correctingSummary?.seen_at ?? null;
+			const base = effectiveBase();
+			const requestId = ++modalImagesRequestId;
+			modalBurstImages = [];
+			modalImagesLoading = true;
+			void fetchPieceImageState(base, uuid, seen_at).then((state) => {
+				if (requestId !== modalImagesRequestId) return;
+				modalBurstImages = state.images.filter((img) => img.source === 'c4_burst');
+				modalImagesLoading = false;
+			});
+		});
+	});
 
 	// Initial fill: the backend no longer replays recent pieces on WS connect —
 	// the durable records API is the source for "what happened before this
@@ -278,17 +339,15 @@
 
 	// --- Recognition-view cycling -----------------------------------------
 	// The live piece entries carry only `latest_captured_crop`. The full set of
-	// captured crops (every C4 burst frame + the upstream C2/C3 matches) is
+	// captured crops (every C4 burst frame) is
 	// persisted to disk by piece_image_store and served as individual JPEGs via
 	// GET /api/pieces/{uuid}/images{,/<id>} — durable across eviction/restart and
 	// browser-cached (immutable), so hover works even for pieces that have
 	// already left the machine. While a piece is still being recognized we poll
 	// that endpoint and flash through every view it has so far, so the
-	// operator sees the burst frames (and, once classification runs, the
-	// fused-in upstream matches) animate in place instead of a single frozen
-	// crop. When the result lands we keep flashing for one full pass — long
-	// enough to pick up the upstream crops that only appear at classification —
-	// before settling on the reference/stock photo. The classification TEXT
+	// operator sees the burst frames animate in place instead of a single frozen
+	// crop. When the result lands we keep flashing for one full pass before
+	// settling on the reference/stock photo. The classification TEXT
 	// updates independently and immediately off the socket; only the image well
 	// waits for the pass to finish.
 	const CYCLE_MS = 300;
@@ -330,9 +389,31 @@
 			};
 			const imgs = (env.images ?? [])
 				.filter((r) => r.available_locally !== false)
-				.map((r): CycleImage => ({
-					src: `${base}/api/pieces/${encodeURIComponent(uuid)}/images/${r.id}`
-				}));
+				.map(
+					(r): CycleImage => ({
+						src: `${base}/api/pieces/${encodeURIComponent(uuid)}/images/${r.id}`
+					})
+				);
+			// Plus the piece-link model's USED picks (fused into the applied
+			// request) — the confident upstream views of this same piece. The
+			// rest of its guesses stay off the hover.
+			try {
+				const linkRes = await fetch(`${base}/api/pieces/${encodeURIComponent(uuid)}/link-images`);
+				if (linkRes.ok) {
+					const linkEnv = (await linkRes.json()) as {
+						images?: { id: number; used?: boolean; available_locally?: boolean }[];
+					};
+					for (const r of linkEnv.images ?? []) {
+						if (r.used && r.available_locally !== false) {
+							imgs.push({
+								src: `${base}/api/pieces/${encodeURIComponent(uuid)}/link-images/${r.id}`
+							});
+						}
+					}
+				}
+			} catch {
+				// burst-only hover is fine
+			}
 			if (imgs.length > 0) imagesByUuid = { ...imagesByUuid, [uuid]: imgs };
 		} catch {
 			// Silent — the card just keeps showing the captured crop.
@@ -449,7 +530,7 @@
 		return 'text-danger';
 	}
 
-	// BrickLink moving-average price (USD) from the local parts.db. Sub-dollar
+	// BrickLink moving-average price (USD) from Hive. Sub-dollar
 	// pieces (most bricks) get an extra decimal so they don't all collapse to
 	// "$0.00"; a dollar and up reads as plain currency.
 	function formatPrice(price: number): string {
@@ -481,6 +562,45 @@
 	// BrickLink both use slug-ish ids (e.g. "white", "light-bluish-gray"), and
 	// `color_name` is the canonical display name. Try id first, fall back to
 	// name match (case-insensitive).
+	// --- Multi-drop grouping ----------------------------------------------
+	// A multi drop rejects every piece involved, and each one used to get its own
+	// full-size red card — a wall of alarm for what is physically ONE event. Runs
+	// of adjacent multi-drop pieces (the list is already time-ordered, so a run is
+	// one drop) collapse into a single subdued card with the crops stacked.
+	type Row = { kind: 'piece'; piece: Piece } | { kind: 'multi_drop'; pieces: Piece[] };
+
+	const MULTI_DROP_STACK_MAX = 4;
+
+	function isMultiDropPiece(p: Piece): boolean {
+		return pieceToKnownObjectView(p).classification_status === 'multi_drop_fail';
+	}
+
+	function groupRows(pieces: Piece[]): Row[] {
+		const rows: Row[] = [];
+		for (const p of pieces) {
+			if (!isMultiDropPiece(p)) {
+				rows.push({ kind: 'piece', piece: p });
+				continue;
+			}
+			const last = rows[rows.length - 1];
+			if (last && last.kind === 'multi_drop') last.pieces.push(p);
+			else rows.push({ kind: 'multi_drop', pieces: [p] });
+		}
+		return rows;
+	}
+
+	const activeRows = $derived(groupRows(activeOnC4));
+	const deliveredRows = $derived(groupRows(deliveredHistory));
+
+	function rowKey(row: Row): string {
+		return row.kind === 'piece' ? row.piece.uuid : `md:${row.pieces[0].uuid}`;
+	}
+
+	function multiDropThumb(p: Piece): string | null {
+		const obj = pieceToKnownObjectView(p);
+		return capturedCropUrl(obj, lifecyclePhase(obj));
+	}
+
 	function lookupLegoColor(
 		color_id: string | null | undefined,
 		color_name: string | null | undefined
@@ -496,7 +616,6 @@
 		}
 		return null;
 	}
-
 </script>
 
 {#snippet pieceCard(p: Piece)}
@@ -507,10 +626,8 @@
 	{@const reference_src = preview}
 	{@const cat_name = obj.category_id ? sortingProfileStore.getCategoryName(obj.category_id) : null}
 	{@const is_unknown =
-		obj.classification_status === 'unknown' ||
-		obj.classification_status === 'not_found'}
-	{@const is_failed =
-		obj.classification_status === 'failed' || Boolean(obj.request_failed)}
+		obj.classification_status === 'unknown' || obj.classification_status === 'not_found'}
+	{@const is_failed = obj.classification_status === 'failed' || Boolean(obj.request_failed)}
 	{@const is_multi_drop = obj.classification_status === 'multi_drop_fail'}
 	{@const is_too_big = Boolean(obj.too_big) || Boolean(obj.too_big_for_layer)}
 	{@const too_big_label = obj.too_big_for_layer ? 'Too big for layer' : 'Too big'}
@@ -541,14 +658,11 @@
 				: has_name
 					? resolved_name!
 					: (obj.part_id ?? obj.uuid.slice(0, 8))}
-	{@const primary_class = is_multi_drop || is_failed
-		? 'text-danger'
-		: is_unknown
-			? 'text-text-muted'
-			: 'text-text'}
+	{@const primary_class =
+		is_multi_drop || is_failed ? 'text-danger' : is_unknown ? 'text-text-muted' : 'text-text'}
 
 	{@const base_src = is_classified_ok ? reference_src : captured}
-	<!-- Flash through every recognition view (burst frames + upstream matches)
+	<!-- Flash through every recognition view (burst frames)
 	     while the piece is being recognized and during the finish pass; hover
 	     scrubs the same views. -->
 	{@const view = viewFor(obj, phase, base_src)}
@@ -602,15 +716,34 @@
 					<span class="truncate text-sm font-semibold {primary_class}">
 						{primary_text}
 					</span>
-					{#if typeof obj.confidence === 'number' && !is_unknown && !is_multi_drop}
-						<span
-							class="flex-shrink-0 text-sm font-semibold tabular-nums {confidenceClass(
-								obj.confidence
-							)}"
-						>
-							{(obj.confidence * 100).toFixed(0)}%
-						</span>
-					{/if}
+					<div class="flex flex-shrink-0 items-center gap-2">
+						{#if typeof obj.confidence === 'number' && !is_unknown && !is_multi_drop}
+							<span class="text-sm font-semibold tabular-nums {confidenceClass(obj.confidence)}">
+								{(obj.confidence * 100).toFixed(0)}%
+							</span>
+						{/if}
+						{#if p.correctable}
+							{@const submittedCount =
+								(p.part_feedback_submitted ? 1 : 0) + (p.color_feedback_submitted ? 1 : 0)}
+							<button
+								type="button"
+								onclick={(e) => openCorrection(obj.uuid, e)}
+								class="inline-flex items-center transition-colors {submittedCount === 2
+									? 'text-success'
+									: submittedCount === 1
+										? 'text-warning'
+										: 'text-text-muted hover:text-primary'}"
+								title={submittedCount === 2
+									? 'Correction sent to Brickognize (2/2)'
+									: submittedCount === 1
+										? 'Correction sent to Brickognize (1/2) — click to finish'
+										: 'Correct this Brickognize prediction'}
+								aria-label="Correct prediction"
+							>
+								<Wand2 size={14} />
+							</button>
+						{/if}
+					</div>
 				</div>
 
 				{#if has_name && obj.part_id}
@@ -618,11 +751,11 @@
 						<span class="truncate font-mono text-xs text-text-muted">{obj.part_id}</span>
 						{#if typeof obj.moving_avg_price === 'number'}
 							<span
-								class="flex-shrink-0 text-sm font-semibold tabular-nums text-success"
+								class="flex-shrink-0 text-sm font-semibold text-success tabular-nums"
 								title={(obj.piece_metadata as Record<string, unknown> | null | undefined)
 									?.price_from_base_mold
 									? `Approximate — base mold ${(obj.piece_metadata as Record<string, unknown>).price_from_base_mold} price (no data for this exact print)`
-									: 'BrickLink moving-average price (local catalog)'}
+									: 'BrickLink moving-average price (Hive catalog)'}
 							>
 								{(obj.piece_metadata as Record<string, unknown> | null | undefined)
 									?.price_from_base_mold
@@ -649,7 +782,7 @@
 					{:else}
 						{@const chip = phaseChip(phase)}
 						<span
-							class="inline-flex items-center border px-1.5 py-0.5 text-xs font-semibold uppercase tracking-wider {chip.cls}"
+							class="inline-flex items-center border px-1.5 py-0.5 text-xs font-semibold tracking-wider uppercase {chip.cls}"
 						>
 							{chip.label}
 						</span>
@@ -672,7 +805,7 @@
 					<!-- High-value chip — piece rerouted by the profile's price override -->
 					{#if obj.high_value_routed}
 						<span
-							class="inline-flex items-center border border-success/60 bg-success/[0.12] px-1.5 py-0.5 text-xs font-semibold uppercase tracking-wider text-success"
+							class="inline-flex items-center border border-success/60 bg-success/[0.12] px-1.5 py-0.5 text-xs font-semibold tracking-wider text-success uppercase"
 							title="Moving-average price cleared the profile's high-value threshold — rerouted to the high-value bin"
 						>
 							High value
@@ -682,7 +815,7 @@
 					<!-- Not-in-inventory badge — part+color absent from the active .bsx -->
 					{#if obj.not_in_inventory === true}
 						<span
-							class="inline-flex items-center border border-warning/60 bg-warning/[0.12] px-1.5 py-0.5 text-xs font-semibold uppercase tracking-wider text-warning"
+							class="inline-flex items-center border border-warning/60 bg-warning/[0.12] px-1.5 py-0.5 text-xs font-semibold tracking-wider text-warning uppercase"
 							title="This part+color is not in the active BrickLink inventory (.bsx)"
 						>
 							Not in inventory
@@ -692,7 +825,7 @@
 					<!-- Year badge — first-release year -->
 					{#if yearOf(obj) !== null}
 						<span
-							class="inline-flex items-center border border-border bg-surface px-1.5 py-0.5 text-xs font-semibold tabular-nums text-text-muted"
+							class="inline-flex items-center border border-border bg-surface px-1.5 py-0.5 text-xs font-semibold text-text-muted tabular-nums"
 							title="First-release year"
 						>
 							{yearOf(obj)}
@@ -743,6 +876,70 @@
 	</a>
 {/snippet}
 
+{#snippet multiDropCard(pieces: Piece[])}
+	{@const first = pieces[0]}
+	{@const obj = pieceToKnownObjectView(first)}
+	{@const phase = lifecyclePhase(obj)}
+	{@const thumbs = pieces.map(multiDropThumb).filter((s) => s !== null) as string[]}
+	{@const shown = thumbs.slice(0, MULTI_DROP_STACK_MAX)}
+	{@const extra = pieces.length - shown.length}
+
+	<a
+		href={`/tracked/${obj.uuid}`}
+		class="block border border-border bg-bg transition-colors hover:border-primary/70"
+	>
+		<div class="flex items-center gap-3 p-2">
+			<!-- Crops from the drop, overlapped into one horizontal stack so the
+			     whole event reads as a single object rather than N alarming cards. -->
+			<div class="flex flex-shrink-0 items-center">
+				{#if shown.length > 0}
+					{#each shown as src, i}
+						<div
+							class="relative h-14 w-14 flex-shrink-0 border border-border bg-white {i > 0
+								? '-ml-9'
+								: ''}"
+							style:z-index={shown.length - i}
+						>
+							<img {src} alt="rejected piece" class="h-full w-full object-contain" />
+						</div>
+					{/each}
+				{:else}
+					<div
+						class="flex h-14 w-14 flex-shrink-0 items-center justify-center border border-border bg-white text-xs text-text-muted"
+					>
+						no image
+					</div>
+				{/if}
+				{#if extra > 0}
+					<span class="ml-1 text-xs text-text-muted tabular-nums">+{extra}</span>
+				{/if}
+			</div>
+
+			<div class="flex min-w-0 flex-1 items-center gap-2">
+				<div class="flex min-w-0 flex-col gap-0.5">
+					<span class="truncate text-sm text-text-muted">
+						Multi drop{pieces.length > 1 ? ` — ${pieces.length} pieces` : ''}
+					</span>
+					<span
+						class="inline-flex w-fit items-center border border-border bg-surface px-1.5 py-0.5 text-xs font-semibold tracking-wider text-text-muted uppercase"
+						title="Pieces overlapped on the classification channel and were rejected without identification"
+					>
+						rejected
+					</span>
+				</div>
+
+				{#if phase === 'distributed'}
+					<span
+						class="ml-auto flex-shrink-0 border border-border bg-surface px-1.5 py-0.5 font-mono text-xs text-text-muted"
+					>
+						discard bin
+					</span>
+				{/if}
+			</div>
+		</div>
+	</a>
+{/snippet}
+
 <div class="setup-card-shell flex h-full flex-col border">
 	<div class="setup-card-header px-3 py-2 text-sm font-medium text-text">Recent Pieces</div>
 	<div class="flex-1 overflow-y-auto">
@@ -751,8 +948,12 @@
 		{:else}
 			<div class="flex flex-col gap-1 p-1">
 				<!-- Active C4 pieces: farthest from exit at top, nearest exit above line. -->
-				{#each activeOnC4 as p (p.uuid)}
-					{@render pieceCard(p)}
+				{#each activeRows as row (rowKey(row))}
+					{#if row.kind === 'multi_drop'}
+						{@render multiDropCard(row.pieces)}
+					{:else}
+						{@render pieceCard(row.piece)}
+					{/if}
 				{/each}
 
 				<!-- Exit divider -->
@@ -765,10 +966,89 @@
 				</div>
 
 				<!-- Delivered/rejected history: newest-first directly under the line. -->
-				{#each deliveredHistory as p (p.uuid)}
-					{@render pieceCard(p)}
+				{#each deliveredRows as row (rowKey(row))}
+					{#if row.kind === 'multi_drop'}
+						{@render multiDropCard(row.pieces)}
+					{:else}
+						{@render pieceCard(row.piece)}
+					{/if}
 				{/each}
 			</div>
 		{/if}
 	</div>
 </div>
+
+<Modal open={correctionOpen} title="Correct prediction" on:close={() => (correctingUuid = null)}>
+	{#if correctingSummary}
+		{@const capturedSrc =
+			dataImageUrl(correctingPiece?.ws?.thumbnail ?? correctingPiece?.ws?.latest_captured_crop) ??
+			correctingSummary.preview_url}
+		{@const legoColor = lookupLegoColor(correctingSummary.color_id, correctingSummary.color_name)}
+		<div class="mb-3 flex items-center gap-3 border-b border-border pb-3">
+			{#if capturedSrc}
+				<img
+					src={capturedSrc}
+					alt=""
+					class="h-16 w-16 flex-shrink-0 border border-border object-contain"
+				/>
+			{/if}
+			<div class="flex min-w-0 flex-col gap-1">
+				<span class="truncate text-sm font-semibold text-text">
+					{correctingSummary.part_name ?? correctingSummary.part_id ?? 'Unknown part'}
+				</span>
+				{#if correctingSummary.part_id && correctingSummary.part_name}
+					<span class="font-mono text-xs text-text-muted">{correctingSummary.part_id}</span>
+				{/if}
+				<span class="inline-flex items-center gap-1.5 text-sm text-text">
+					{#if legoColor}
+						<span
+							class="inline-block h-3.5 w-3.5 flex-shrink-0 border border-border"
+							style:background-color={legoColor.hex}
+						></span>
+					{/if}
+					<span>{correctingSummary.color_name ?? '—'}</span>
+				</span>
+			</div>
+			{#if correctingSummary.preview_url}
+				<img
+					src={correctingSummary.preview_url}
+					alt="Brickognize reference"
+					title="Brickognize reference image"
+					class="ml-auto h-16 w-16 flex-shrink-0 border border-border bg-surface object-contain"
+				/>
+			{/if}
+		</div>
+
+		<!-- The C4 burst crops we captured — never cropped (object-contain), square
+		     boxes letterboxed with a transparent bar rather than a solid fill. -->
+		{#if modalImagesLoading}
+			<div class="mb-3 flex items-center gap-2 text-sm text-text-muted">
+				<Spinner size={14} /> Loading captured photos…
+			</div>
+		{:else if modalBurstImages.length > 0}
+			<div class="mb-3 flex flex-col gap-1.5">
+				<span class="text-xs font-semibold tracking-wider text-text-muted uppercase">
+					Captured photos
+				</span>
+				<div class="flex flex-wrap gap-1.5">
+					{#each modalBurstImages as img (img.src)}
+						<div class="h-16 w-16 flex-shrink-0 border border-border">
+							<img
+								src={img.src}
+								alt="captured crop"
+								class="h-full w-full object-contain"
+								loading="lazy"
+							/>
+						</div>
+					{/each}
+				</div>
+			</div>
+		{/if}
+
+		<PieceCorrection
+			piece={correctingSummary}
+			endpointBase={effectiveBase()}
+			onUpdated={onCorrectionUpdated}
+		/>
+	{/if}
+</Modal>

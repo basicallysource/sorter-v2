@@ -3,8 +3,11 @@ Description=Sorter UI
 Documentation=https://basicallysource.github.io/sorter-v2/sorter/installation/
 After=network-online.target sorter-backend.service
 Wants=network-online.target
-StartLimitBurst=3
-StartLimitIntervalSec=60
+# No start-rate limit: field machines get power-cut and must keep retrying
+# instead of giving up forever after 3 fast failures (see sorter-ui-dev).
+# (No cache wipe here: preview serves the built app from .svelte-kit/output,
+# which is NOT regenerable at startup — a corrupt build needs a rebuild.)
+StartLimitIntervalSec=0
 
 [Service]
 Type=simple

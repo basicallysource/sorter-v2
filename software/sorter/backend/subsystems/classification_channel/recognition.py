@@ -9,6 +9,7 @@ from typing import Optional
 import cv2
 import numpy as np
 
+import basically_services
 from classification.brickognize import (
     ANY_COLOR,
     ANY_COLOR_NAME,
@@ -16,6 +17,8 @@ from classification.brickognize import (
     _pickBestColor,
     _pickBestItem,
 )
+from classification.providers import COLOR_PROVIDER_HIVE_BASICALLY
+from toml_config import getClassificationProviders
 from defs.known_object import ClassificationStatus
 from subsystems.classification_channel.incidents import (
     publish_classification_fallback_incident,
@@ -47,6 +50,13 @@ FREEFALL_QUOTA_RATIO = 0.0
 # than burning a Brickognize call on blurry evidence. Tuned empirically: focused
 # carousel crops land in the 80-400 range; motion-blurred ones rarely exceed 25.
 MIN_SHARPNESS_LAPLACIAN_VAR = 5.0
+
+# When the hosted color provider is selected, its request runs in parallel with
+# Brickognize and we wait at most this long (measured from request start) for
+# its answer before falling back to Brickognize's color. Slightly under the
+# 12 s classification guard so the color join can never be what times a piece
+# out.
+HIVE_COLOR_JOIN_BUDGET_S = 10.0
 
 # Border (as a fraction of the smaller crop edge) added via reflection padding
 # before each crop ships to Brickognize. The model prefers a little breathing
@@ -436,6 +446,10 @@ class ClassificationChannelRecognizer:
         selected_images = [
             self._padCropForBrickognize(image) for image, _role, _ts in selected
         ]
+        # The hosted color provider (if selected) runs in parallel with the
+        # Brickognize call(s); its answer overrides the color fields of
+        # whichever candidate wins, with Brickognize's color as the fallback.
+        hive_color = self._maybeStartHiveColorPredict(selected, selected_images, piece_uuid)
         primary_result = _classifyImages(
             self.gc,
             selected_images,
@@ -447,7 +461,7 @@ class ClassificationChannelRecognizer:
             source_view="tracked_multi",
         )
         if candidate[0] is not None:
-            return candidate
+            return self._applyHiveColorResult(candidate, hive_color)
 
         best_single = candidate
         for fallback_idx, crop in enumerate(selected_images[:SINGLE_CROP_FALLBACK_COUNT]):
@@ -465,7 +479,74 @@ class ClassificationChannelRecognizer:
                 continue
             if best_single[0] is None or (single_candidate[3] or 0.0) > (best_single[3] or 0.0):
                 best_single = single_candidate
-        return best_single  # type: ignore[return-value]
+        return self._applyHiveColorResult(best_single, hive_color)  # type: ignore[return-value]
+
+    @staticmethod
+    def _channelForRole(role: str) -> int:
+        if role == "c_channel_2":
+            return 2
+        if role == "c_channel_3":
+            return 3
+        # carousel / carousel_freefall crops come from the C4 camera.
+        return 4
+
+    def _maybeStartHiveColorPredict(
+        self,
+        selected: list[CropEntry],
+        selected_images: list[np.ndarray],
+        piece_uuid: Optional[str],
+    ) -> Optional[dict]:
+        if getClassificationProviders()["color_provider"] != COLOR_PROVIDER_HIVE_BASICALLY:
+            return None
+        holder: dict = {"started_at": time.monotonic()}
+
+        def run() -> None:
+            blobs: list[bytes] = []
+            channels: list[int] = []
+            for (image, role, _ts), padded in zip(selected, selected_images):
+                ok, buf = cv2.imencode(".jpg", padded)
+                if not ok:
+                    continue
+                blobs.append(buf.tobytes())
+                channels.append(self._channelForRole(role))
+            result = basically_services.predictColor(
+                self.gc,
+                blobs,
+                channels,
+                client_info={"piece_uuid": piece_uuid} if piece_uuid else None,
+            )
+            if result is not None:
+                holder["result"] = result
+
+        thread = threading.Thread(target=run, daemon=True, name="hive-color-predict")
+        holder["thread"] = thread
+        thread.start()
+        return holder
+
+    def _applyHiveColorResult(self, candidate: tuple, hive_color: Optional[dict]) -> tuple:
+        if hive_color is None:
+            return candidate
+        remaining = max(0.0, HIVE_COLOR_JOIN_BUDGET_S - (time.monotonic() - hive_color["started_at"]))
+        hive_color["thread"].join(remaining)
+        result = hive_color.get("result")
+        color_id = result.get("color_id") if isinstance(result, dict) else None
+        color_name = result.get("color_name") if isinstance(result, dict) else None
+        if color_id is None or not color_name:
+            self._bumpRecognizerCounter("color_provider_hive_fallback")
+            return candidate
+        self._bumpRecognizerCounter("color_provider_hive_used")
+        # Hive returns BrickLink color ids as ints; the sorting profile (and
+        # Brickognize) key on the same ids as strings.
+        return (
+            candidate[0],
+            str(color_id),
+            str(color_name),
+            candidate[3],
+            candidate[4],
+            candidate[5],
+            candidate[6],
+            candidate[7],
+        )
 
     @staticmethod
     def _selectCropsWithSourceQuota(

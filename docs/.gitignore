@@ -1,0 +1,7 @@
+node_modules
+.svelte-kit
+build
+vite.config.ts.timestamp-*
+_site/
+.jekyll.log
+.jekyll.pid

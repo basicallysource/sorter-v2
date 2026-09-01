@@ -84,6 +84,61 @@ export interface FleetMachineStats {
 	ontime_pct: number;
 }
 
+export interface ControlDataBucket {
+	segments: number;
+	records: number;
+	bytes: number;
+	hours: number;
+	with_file: number;
+	evicted: number;
+	autotune_session: number;
+	autotune_background: number;
+	plain: number;
+	first_started_at: string | null;
+	last_ended_at: string | null;
+	machine_setups: string[];
+	feeder_modes: string[];
+	classification_modes: string[];
+}
+
+export interface ControlDataMachineRow extends ControlDataBucket {
+	machine_id: string;
+	name: string;
+	owner_email: string | null;
+}
+
+export interface ControlDataDimensionRow {
+	value: string | null;
+	segments: number;
+	records: number;
+	bytes: number;
+	hours: number;
+	machines: number;
+}
+
+export interface ControlDataRecentSegment {
+	machine_id: string;
+	machine_name: string;
+	local_id: number;
+	started_at: string | null;
+	ended_at: string | null;
+	duration_s: number;
+	records: number;
+	bytes: number;
+	machine_setup: string | null;
+	feeder_mode: string | null;
+	autotune_mode: string | null;
+	has_file: boolean;
+	created_at: string | null;
+}
+
+export interface ControlDataSummary {
+	totals: ControlDataBucket & { machines: number };
+	machines: ControlDataMachineRow[];
+	dimensions: Record<string, ControlDataDimensionRow[]>;
+	recent: ControlDataRecentSegment[];
+}
+
 export interface MachineOverviewStats {
 	pieces_seen: number;
 	distributed: number;
@@ -105,6 +160,60 @@ export interface MachineOverviewStats {
 	computed_at: string | null;
 }
 
+export interface MachineCameraColorProfileSpec {
+	globally_enabled?: boolean | null;
+	calibrated?: boolean | null;
+	enabled?: boolean | null;
+	applied?: boolean | null;
+	matrix?: number[][] | null;
+	bias?: number[] | null;
+	has_response_lut?: boolean | null;
+	has_gamma?: boolean | null;
+}
+
+export interface MachineCameraCalibrationSpec {
+	color_profile?: MachineCameraColorProfileSpec | null;
+	device_settings?: Record<string, number | boolean> | null;
+	picture_settings?: Record<string, number | boolean> | null;
+	capture_mode?: Record<string, number | string> | null;
+}
+
+export interface MachineCameraSpec {
+	model?: string | null;
+	width?: number | null;
+	height?: number | null;
+	fps?: number | null;
+	fourcc?: string | null;
+	calibration?: MachineCameraCalibrationSpec | null;
+}
+
+export interface MachineControllerBoardSpec {
+	family?: string | null;
+	role?: string | null;
+	device_name?: string | null;
+	port?: string | null;
+}
+
+export interface MachineHardwareSpecs {
+	schema_version?: number | null;
+	booted_at?: string | null;
+	captured_at?: string | null;
+	platform?: {
+		model?: string | null;
+		arch?: string | null;
+		os?: { name?: string | null; sorter_os_version?: string | null } | null;
+	} | null;
+	software?: { version?: string | null; channel?: string | null; commit?: string | null } | null;
+	system?: { ram_bytes?: number | null; disk_total_bytes?: number | null; cpu_count?: number | null } | null;
+	config?: {
+		machine_setup?: string | null;
+		feeder_mode?: string | null;
+		classification_channel_mode?: string | null;
+	} | null;
+	cameras?: Record<string, MachineCameraSpec> | null;
+	controller_boards?: Record<string, MachineControllerBoardSpec> | null;
+}
+
 export interface MachineOverview {
 	machine: {
 		id: string;
@@ -117,7 +226,7 @@ export interface MachineOverview {
 		local_ui_port: string | null;
 		created_at: string | null;
 		token_prefix: string;
-		hardware_info: Record<string, unknown> | null;
+		hardware_info: MachineHardwareSpecs | null;
 		owner: { display_name: string | null; email: string | null };
 	};
 	stats: MachineOverviewStats;
@@ -137,8 +246,8 @@ export interface ServerHealth {
 		model_files: StorageBucket;
 		total_bytes: number;
 		total_files: number;
-		computed_at: number;
-		cached: boolean;
+		computed_at: number | null;
+		pending: boolean;
 	};
 	database: {
 		total_bytes: number | null;
@@ -225,7 +334,10 @@ export interface MachinePieceRecord {
 	color_id: string | null;
 	color_name: string | null;
 	category_id: string | null;
+	// Mold score and the applied color's own score. Separate providers can
+	// produce them, so they are never the same number.
 	confidence: number | null;
+	color_confidence: number | null;
 	bin: { x: number | null; y: number | null; z: number | null };
 	dead: boolean;
 	brickognize_preview_url: string | null;
@@ -235,6 +347,29 @@ export interface MachinePieceRecord {
 export interface MachinePiecesPage {
 	machine: { id: string; name: string; owner_email: string | null };
 	items: MachinePieceRecord[];
+	next_cursor: number | null;
+	total: number;
+}
+
+export interface MachineChannelCropInfo {
+	local_id: number;
+	channel: number | null;
+	ts: string | null;
+	captured_at: string | null;
+	track_id: number | null;
+	com_forward_to_exit_deg: number | null;
+	com_section: number | null;
+	zone_code: number | null;
+	sharpness: number | null;
+	bbox: (number | null)[];
+	bytes: number | null;
+	available: boolean;
+	evicted_locally: boolean;
+}
+
+export interface MachineChannelCropsPage {
+	machine: { id: string; name: string; owner_email: string | null };
+	items: MachineChannelCropInfo[];
 	next_cursor: number | null;
 	total: number;
 }
@@ -291,6 +426,7 @@ export interface SampleMachineSummary {
 export interface SampleDetail extends Sample {
 	has_full_frame: boolean;
 	has_overlay: boolean;
+	has_channel_geometry: boolean;
 	machine: SampleMachineSummary | null;
 }
 
@@ -423,8 +559,18 @@ export interface StatsOverview {
 	total_machines: number;
 }
 
+export type OAuthProviderName = 'github' | 'discord';
+
+export interface UserIdentitySummary {
+	provider: OAuthProviderName;
+	provider_login: string | null;
+	avatar_url: string | null;
+	created_at: string;
+}
+
 export interface AuthOptions {
 	github_enabled: boolean;
+	discord_enabled: boolean;
 }
 
 export interface ProfileOwner {
@@ -657,6 +803,47 @@ export interface ProfileCatalogStatus {
 	types: Record<string, CatalogSyncTypeState>;
 }
 
+export interface AiModelOption {
+	id: string;
+	name: string;
+	input_per_million: number | null;
+	output_per_million: number | null;
+	// Blended price relative to the baseline model; null when OpenRouter didn't
+	// price the model (e.g. the catalog fetch failed and nothing was cached).
+	cost_factor: number | null;
+	cost_factor_label: string | null;
+	context_length: number | null;
+}
+
+export interface AiModelGroup {
+	label: string;
+	models: AiModelOption[];
+}
+
+export interface AiModelCatalog {
+	default_model: string;
+	baseline_model: string;
+	pricing_available: boolean;
+	groups: AiModelGroup[];
+}
+
+export interface AiUsageTotals {
+	cost_usd: number;
+	prompt_tokens: number;
+	completion_tokens: number;
+	total_tokens: number;
+	call_count: number;
+	message_count: number;
+}
+
+export interface AiUsageSummary {
+	week: AiUsageTotals;
+	month: AiUsageTotals;
+	year: AiUsageTotals;
+	all_time: AiUsageTotals;
+	since: string | null;
+}
+
 export interface ProfileCatalogSearchResult {
 	part_num: string;
 	name: string;
@@ -676,6 +863,13 @@ export interface ProfileCatalogColor {
 	name: string;
 	rgb: string | null;
 	is_trans: boolean;
+}
+
+export interface ProfileCatalogCategory {
+	id: number;
+	name: string;
+	part_count: number | null;
+	actual_part_count: number | null;
 }
 
 export interface BrickLinkCsvImportResult {
@@ -714,6 +908,19 @@ function resolveApiPath(path: string): string {
 	if (/^https?:\/\//.test(path)) return path;
 	const base = getApiBaseUrl();
 	return `${base}${path}`;
+}
+
+// Stored-image endpoints briefly shipped a 1-year `immutable` Cache-Control that
+// (in S3 redirect mode) landed on the 307 redirect, poisoning browser caches
+// with presigned URLs that expire in an hour — thumbnails then 403'd forever
+// and a reload couldn't evict an `immutable` entry. Bump this to change the URL
+// and force a one-time re-fetch past those poisoned entries. Only needs bumping
+// again if a stale long-lived cache header ever ships anew.
+const IMAGE_CACHE_BUST = '2';
+
+function resolveImagePath(path: string): string {
+	const sep = path.includes('?') ? '&' : '?';
+	return resolveApiPath(`${path}${sep}cb=${IMAGE_CACHE_BUST}`);
 }
 
 function getCsrfToken(): string | null {
@@ -923,6 +1130,342 @@ export interface PartsDbCategory {
 	actual_part_count: number;
 }
 
+export interface BrickLinkColor {
+	id: number;
+	name: string;
+	rgb: string | null;
+	is_trans: boolean;
+}
+
+export interface ColorLabelStats {
+	total_labelable: number;
+	labeled_by_me: number;
+	total_labels: number;
+	crop_links_by_me: number;
+	total_color_labels: number;
+	total_crop_links: number;
+	color_labeled_pieces: number;
+	crop_linked_pieces: number;
+	labeler_histogram: { '0': number; '1': number; '2': number; '3+': number };
+}
+
+export interface ColorCoverageEntry {
+	id: number;
+	name: string;
+	rgb: string | null;
+	is_trans: boolean;
+	pieces: number;
+	labels: number;
+}
+
+export interface ColorCoverageResponse {
+	colors: ColorCoverageEntry[];
+	total_colors: number;
+	covered_colors: number;
+}
+
+export type ColorLabelSort =
+	| 'priority'
+	| 'recent'
+	| 'oldest'
+	| 'least_color'
+	| 'most_color'
+	| 'least_crop'
+	| 'most_crop'
+	| 'rare_color'
+	| 'needs_me';
+
+export interface ColorLabelPieceCard {
+	machine_id: string;
+	machine_name: string | null;
+	piece_uuid: string;
+	part: { part_id: string | null; part_name: string | null };
+	recorded_at: string | null;
+	seen_at: string | null;
+	color_label_count: number;
+	crop_link_count: number;
+	my_color: boolean;
+	my_crop: boolean;
+	has_candidates: boolean;
+	thumb_seq: number | null;
+}
+
+export interface ColorLabelPiecesPage {
+	items: ColorLabelPieceCard[];
+	has_more: boolean;
+	offset: number;
+	sort: ColorLabelSort;
+}
+
+export interface MachineLabeledPiece {
+	piece_uuid: string;
+	thumb_seq: number | null;
+	color_id: number;
+	color_name: string;
+	rgb: string | null;
+	is_trans: boolean;
+	label_count: number;
+}
+
+export interface MachineLabeledPiecesResponse {
+	items: MachineLabeledPiece[];
+	total: number;
+}
+
+export interface PartBrickLinkColor {
+	color_id: number;
+	color_name: string;
+	rgb: string | null;
+	is_trans: boolean;
+	qty: number;
+	qty_new: number;
+	qty_used: number;
+	lots: number;
+	share: number;
+}
+
+export interface PartBrickLinkColorsResponse {
+	part_id: string;
+	item_no: string | null;
+	updated_at: string | null;
+	source: 'live' | 'cache';
+	total_qty: number;
+	items: PartBrickLinkColor[];
+}
+
+export interface ColorLabelPrediction {
+	color_id: string | null;
+	color_name: string | null;
+}
+
+export interface ColorModelPrediction {
+	method: string;
+	model_name: string;
+	color_id: number;
+	color_name: string | null;
+	rgb: string | null;
+	confidence: number;
+	sample_count: number;
+}
+
+export interface ColorLabelCorrection {
+	correctable: boolean;
+	part_correct: boolean | null;
+	color_corrected_id: string | null;
+	part_feedback_submitted: boolean;
+	color_feedback_submitted: boolean;
+	// Sample attributes the machine operator flagged (no_piece / multiple_pieces /
+	// not_lego / assembly / pieces_entangled / blurry) — same codes as
+	// PieceRejection.reasons, but this is the machine's own verdict, not a
+	// labeler's. Present on the piece-detail envelope; absent from the
+	// brickognize-feedback response.
+	rejection_reasons?: string[];
+}
+
+export interface BrickognizeFeedbackResponse {
+	ok: boolean;
+	part_submitted: boolean;
+	color_submitted: boolean;
+	submit_error: string | null;
+	correction: ColorLabelCorrection;
+}
+
+/** A catalog part resolved for display — what the part picker renders. */
+export interface PartSummary {
+	part_num: string;
+	name: string | null;
+	part_cat_id: number | null;
+	category_name: string | null;
+	part_img_url: string | null;
+}
+
+export interface PiecePartLabel {
+	part_num: string | null;
+	cant_tell: boolean;
+	notes: string | null;
+	part: PartSummary | null;
+}
+
+export interface ColorLabelPieceDetail {
+	machine_id: string;
+	machine_name: string | null;
+	piece_uuid: string;
+	part: { part_id: string | null; part_name: string | null };
+	recorded_at: string | null;
+	seen_at: string | null;
+	pixel_guess: ColorLabelPixelGuess | null;
+	model_prediction: ColorModelPrediction | null;
+	images: ColorLabelQueueImage[];
+	my_label: { color_id: number | null; cant_tell: boolean; notes: string | null } | null;
+	my_rejection: { reasons: string[] } | null;
+	my_part_label: PiecePartLabel | null;
+	predicted_part: PartSummary | null;
+	prediction: ColorLabelPrediction;
+	correction: ColorLabelCorrection;
+}
+
+export type RejectReason =
+	| 'no_piece'
+	| 'multiple_pieces'
+	| 'not_lego'
+	| 'assembly'
+	| 'pieces_entangled';
+
+export interface ColorLabelPixelGuess {
+	method: string;
+	rgb: string;
+	sample_count: number;
+	color_id: number;
+	color_name: string;
+	match_rgb: string | null;
+}
+
+// Per-image, per-labeler quality flags: a "high quality" star plus "not good
+// enough for classification" reasons. Recorded on individual crops (see
+// submitImageQuality) so we can later filter e.g. every motion-blurred crop.
+export interface ImageQualityFlags {
+	high_quality: boolean;
+	low_resolution: boolean;
+	motion_blur: boolean;
+	not_contained: boolean;
+	no_piece_in_frame: boolean;
+	other_bad: boolean;
+}
+
+export type ImageQualityReason = Exclude<keyof ImageQualityFlags, 'high_quality'>;
+
+export const IMAGE_QUALITY_REASONS: { code: ImageQualityReason; label: string }[] = [
+	{ code: 'low_resolution', label: 'Too low resolution' },
+	{ code: 'motion_blur', label: 'Motion blur' },
+	{ code: 'not_contained', label: 'Piece not fully in frame' },
+	{ code: 'no_piece_in_frame', label: 'No piece in this frame' },
+	{ code: 'other_bad', label: 'Not good enough (other)' }
+];
+
+export interface ColorLabelQueueImage extends ImageQualityFlags {
+	seq: number;
+	source: string | null;
+	used: boolean;
+	score: number | null;
+}
+
+export interface ColorLabelQueueItem {
+	machine_id: string;
+	machine_name: string | null;
+	piece_uuid: string;
+	recorded_at: string | null;
+	seen_at: string | null;
+	part: { part_id: string | null; part_name: string | null };
+	pixel_guess: ColorLabelPixelGuess | null;
+	images: ColorLabelQueueImage[];
+	my_label: { color_id: number | null; notes: string | null } | null;
+}
+
+export interface ColorLabelQueue {
+	items: ColorLabelQueueItem[];
+	has_more: boolean;
+}
+
+export interface ColorModel {
+	id: string;
+	filename: string;
+	name: string;
+	description: string | null;
+	kind: string;
+	sha256: string;
+	class_count: number;
+	input_size: number;
+	file_size: number;
+	is_active: boolean;
+	updated_at: string | null;
+}
+
+export interface ColorModelsResponse {
+	models: ColorModel[];
+	model_dir: string;
+}
+
+// A piece_link matcher model: a pair of ONNX graphs (encoder + head) grouped by
+// name. The active one scores same-piece upstream crops in the labeling view.
+export interface LinkModel {
+	id: string;
+	name: string;
+	description: string | null;
+	kind: string;
+	encoder_filename: string;
+	head_filename: string;
+	sha256: string;
+	input_size: number;
+	embed_dim: number;
+	meta_dim: number;
+	file_size: number;
+	is_active: boolean;
+	updated_at: string | null;
+}
+
+export interface LinkModelsResponse {
+	models: LinkModel[];
+	model_dir: string;
+}
+
+// A "possibly the same piece" upstream C2/C3 crop candidate. `score` +
+// `predicted` are the shared time/angle heuristic's confidence and default
+// selection (kept untouched — they feed the was_predicted training signal).
+// `ai_same` = a stored vision-model (VLM) verdict; `model_same`/`model_score` =
+// the active link matcher model's pick and probability (null when not scored /
+// no model active). The UI pre-selects, in precedence order, `ai_same` →
+// `model_same` → `predicted`, per `prediction_source`.
+export interface PossibleCropCandidate extends ImageQualityFlags {
+	local_id: number;
+	channel: number | null;
+	ts: string | null;
+	dt: number | null;
+	zone_code: number | null;
+	com_forward_to_exit_deg: number | null;
+	sharpness: number | null;
+	score: number;
+	predicted: boolean;
+	ai_same: boolean | null;
+	model_same: boolean | null;
+	model_score: number | null;
+	available: boolean;
+}
+
+export interface PieceCropLinkMember {
+	local_id: number;
+	is_same: boolean;
+	was_predicted: boolean;
+}
+
+export interface PossibleCropsResult {
+	arrival_ts: string | null;
+	candidates: PossibleCropCandidate[];
+	my_link: PieceCropLinkMember[];
+	prediction_source: 'ai' | 'model' | 'heuristic';
+	ai_model: string | null;
+	ai_reasoning: string | null;
+	// Name of the active link matcher model when prediction_source === 'model'.
+	link_model: string | null;
+	// Present only on the ai-predict POST response.
+	ai_cost_usd?: number | null;
+	ai_elapsed_ms?: number | null;
+}
+
+export interface AccessWindow {
+	role: string;
+	entity: string;
+	anchor: 'oldest' | 'newest';
+	size: number;
+	offset: number;
+	source: 'override' | 'default';
+	updated_at: string | null;
+}
+
+export interface AccessWindowsResponse {
+	admin: string;
+	windows: AccessWindow[];
+}
+
 export const api = {
 	// Auth
 	register(email: string, password: string, display_name: string) {
@@ -940,9 +1483,19 @@ export const api = {
 	authOptions() {
 		return request<AuthOptions>('GET', '/api/auth/options');
 	},
-	githubLoginUrl(next?: string) {
-		if (!next) return resolveApiPath('/api/auth/github');
-		return resolveApiPath(`/api/auth/github?${new URLSearchParams({ next }).toString()}`);
+	oauthLoginUrl(provider: OAuthProviderName, next?: string) {
+		if (!next) return resolveApiPath(`/api/auth/${provider}`);
+		return resolveApiPath(`/api/auth/${provider}?${new URLSearchParams({ next }).toString()}`);
+	},
+	oauthLinkUrl(provider: OAuthProviderName, next?: string) {
+		if (!next) return resolveApiPath(`/api/auth/${provider}/link`);
+		return resolveApiPath(`/api/auth/${provider}/link?${new URLSearchParams({ next }).toString()}`);
+	},
+	listIdentities() {
+		return request<UserIdentitySummary[]>('GET', '/api/auth/identities');
+	},
+	unlinkIdentity(provider: OAuthProviderName) {
+		return request<{ ok: boolean }>('DELETE', `/api/auth/identities/${provider}`);
 	},
 	deleteAccount() {
 		return request<void>('DELETE', '/api/auth/me');
@@ -980,6 +1533,9 @@ export const api = {
 	getAllMachineStats() {
 		return request<Record<string, FleetMachineStats>>('GET', '/api/admin/machines/stats');
 	},
+	getControlDataSummary() {
+		return request<ControlDataSummary>('GET', '/api/admin/control-data/summary');
+	},
 	getMachinePieces(machineId: string, opts: { limit?: number; cursor?: number | null } = {}) {
 		const params = new URLSearchParams();
 		if (opts.limit) params.set('limit', String(opts.limit));
@@ -991,8 +1547,257 @@ export const api = {
 		);
 	},
 	machinePieceImageUrl(machineId: string, pieceUuid: string, seq: number) {
-		return resolveApiPath(
+		return resolveImagePath(
 			`/api/machines/${machineId}/pieces/${encodeURIComponent(pieceUuid)}/images/${seq}`
+		);
+	},
+	getMachineChannelCrops(
+		machineId: string,
+		opts: { limit?: number; cursor?: number | null; channel?: number | null; zoneCode?: number | null } = {}
+	) {
+		const params = new URLSearchParams();
+		if (opts.limit) params.set('limit', String(opts.limit));
+		if (opts.cursor != null) params.set('cursor', String(opts.cursor));
+		if (opts.channel != null) params.set('channel', String(opts.channel));
+		if (opts.zoneCode != null) params.set('zone_code', String(opts.zoneCode));
+		const qs = params.toString();
+		return request<MachineChannelCropsPage>(
+			'GET',
+			`/api/machines/${machineId}/channel-crops${qs ? `?${qs}` : ''}`
+		);
+	},
+	machineChannelCropImageUrl(machineId: string, localId: number) {
+		return resolveImagePath(`/api/machines/${machineId}/channel-crops/${localId}/image`);
+	},
+
+	// Color labeling
+	colorLabelColors() {
+		return request<{ results: BrickLinkColor[] }>('GET', '/api/labeling/colors');
+	},
+	colorLabelStats(opts: { machineId?: string | null } = {}) {
+		const qs = opts.machineId ? `?machine_id=${opts.machineId}` : '';
+		return request<ColorLabelStats>('GET', `/api/labeling/stats${qs}`);
+	},
+	colorCoverage(opts: { machineId?: string | null } = {}) {
+		const qs = opts.machineId ? `?machine_id=${opts.machineId}` : '';
+		return request<ColorCoverageResponse>('GET', `/api/labeling/color-coverage${qs}`);
+	},
+	colorLabelQueue(opts: { onlyUnlabeled?: boolean; limit?: number; offset?: number } = {}) {
+		const params = new URLSearchParams();
+		if (opts.onlyUnlabeled === false) params.set('only_unlabeled', 'false');
+		if (opts.limit) params.set('limit', String(opts.limit));
+		if (opts.offset) params.set('offset', String(opts.offset));
+		const qs = params.toString();
+		return request<ColorLabelQueue>('GET', `/api/labeling/queue${qs ? `?${qs}` : ''}`);
+	},
+	colorLabelPieces(
+		opts: {
+			sort?: ColorLabelSort;
+			limit?: number;
+			offset?: number;
+			machineId?: string | null;
+			withCandidates?: boolean;
+		} = {}
+	) {
+		const params = new URLSearchParams();
+		if (opts.sort) params.set('sort', opts.sort);
+		if (opts.limit) params.set('limit', String(opts.limit));
+		if (opts.offset) params.set('offset', String(opts.offset));
+		if (opts.machineId) params.set('machine_id', opts.machineId);
+		if (opts.withCandidates) params.set('with_candidates', 'true');
+		const qs = params.toString();
+		return request<ColorLabelPiecesPage>('GET', `/api/labeling/pieces${qs ? `?${qs}` : ''}`);
+	},
+	colorLabelPieceDetail(machineId: string, pieceUuid: string) {
+		return request<ColorLabelPieceDetail>(
+			'GET',
+			`/api/labeling/piece/${machineId}/${encodeURIComponent(pieceUuid)}`
+		);
+	},
+	submitColorLabel(body: {
+		machine_id: string;
+		piece_uuid: string;
+		color_id?: number | null;
+		cant_tell?: boolean;
+		notes?: string | null;
+	}) {
+		return request<{ ok: boolean; created: boolean; labeled_by_me: number }>(
+			'POST',
+			'/api/labeling',
+			body
+		);
+	},
+	deleteColorLabel(machineId: string, pieceUuid: string) {
+		return request<{ ok: boolean }>(
+			'DELETE',
+			`/api/labeling/${machineId}/${encodeURIComponent(pieceUuid)}`
+		);
+	},
+
+	// Part (mold) correction — the part sibling of the color label. Stored per
+	// labeler, so several people can correct the same piece independently.
+	submitPartLabel(body: {
+		machine_id: string;
+		piece_uuid: string;
+		part_num?: string | null;
+		cant_tell?: boolean;
+		notes?: string | null;
+	}) {
+		return request<{
+			ok: boolean;
+			created: boolean;
+			part: PartSummary | null;
+			part_labeled_by_me: number;
+		}>('POST', '/api/labeling/piece-part-label', body);
+	},
+	deletePartLabel(machineId: string, pieceUuid: string) {
+		return request<{ ok: boolean }>(
+			'DELETE',
+			`/api/labeling/piece-part-label/${machineId}/${encodeURIComponent(pieceUuid)}`
+		);
+	},
+	submitBrickognizeFeedback(
+		machineId: string,
+		pieceUuid: string,
+		body: { part_correct?: boolean | null; color_corrected_id?: number | null }
+	) {
+		return request<BrickognizeFeedbackResponse>(
+			'POST',
+			`/api/labeling/piece/${machineId}/${encodeURIComponent(pieceUuid)}/brickognize-feedback`,
+			body
+		);
+	},
+	colorLabelImageUrl(machineId: string, pieceUuid: string, seq: number) {
+		return resolveImagePath(
+			`/api/labeling/pieces/${machineId}/${encodeURIComponent(pieceUuid)}/images/${seq}`
+		);
+	},
+
+	// Same-piece-across-channels labeling (layered on the color-label page)
+	possibleCrops(machineId: string, pieceUuid: string) {
+		return request<PossibleCropsResult>(
+			'GET',
+			`/api/labeling/possible-crops/${machineId}/${encodeURIComponent(pieceUuid)}`
+		);
+	},
+	runAiPredict(machineId: string, pieceUuid: string, model?: string) {
+		return request<PossibleCropsResult>(
+			'POST',
+			`/api/labeling/possible-crops/${machineId}/${encodeURIComponent(pieceUuid)}/ai-predict`,
+			model ? { model } : {}
+		);
+	},
+	channelCropLabelImageUrl(machineId: string, localId: number) {
+		return resolveImagePath(`/api/labeling/channel-crops/${machineId}/${localId}/image`);
+	},
+
+	// Same-machine labeled reference pieces (color-range calibration column)
+	machineLabeledPieces(
+		machineId: string,
+		opts: { anchorPiece: string; excludePiece?: string | null; limit?: number }
+	) {
+		const params = new URLSearchParams({ anchor_piece: opts.anchorPiece });
+		if (opts.excludePiece) params.set('exclude_piece', opts.excludePiece);
+		if (opts.limit) params.set('limit', String(opts.limit));
+		return request<MachineLabeledPiecesResponse>(
+			'GET',
+			`/api/labeling/machine/${machineId}/labeled-pieces?${params.toString()}`
+		);
+	},
+	// BrickLink for-sale color mix for a part (labeling prior column)
+	partBrickLinkColors(partId: string, limit?: number) {
+		const qs = limit ? `?limit=${limit}` : '';
+		return request<PartBrickLinkColorsResponse>(
+			'GET',
+			`/api/labeling/part/${encodeURIComponent(partId)}/bricklink-colors${qs}`
+		);
+	},
+	machineLabeledPieceImageUrl(machineId: string, pieceUuid: string, seq: number) {
+		return resolveImagePath(
+			`/api/labeling/machine/${machineId}/labeled-pieces/${encodeURIComponent(pieceUuid)}/image?seq=${seq}`
+		);
+	},
+	savePieceCropLink(body: {
+		machine_id: string;
+		piece_uuid: string;
+		arrival_ts?: number | null;
+		members: PieceCropLinkMember[];
+	}) {
+		return request<{ ok: boolean; created: boolean; same_count: number; member_count: number }>(
+			'POST',
+			'/api/labeling/piece-crop-link',
+			body
+		);
+	},
+	savePieceRejection(body: { machine_id: string; piece_uuid: string; reasons: string[] }) {
+		return request<{ ok: boolean; created: boolean; reasons: string[] }>(
+			'POST',
+			'/api/labeling/piece-rejection',
+			body
+		);
+	},
+	deletePieceRejection(machineId: string, pieceUuid: string) {
+		return request<{ ok: boolean }>(
+			'DELETE',
+			`/api/labeling/piece-rejection/${machineId}/${encodeURIComponent(pieceUuid)}`
+		);
+	},
+	// Per-image quality flags for one crop. Post the whole flag set each time;
+	// an all-false set clears (deletes) the row server-side.
+	submitImageQuality(
+		body: {
+			machine_id: string;
+			crop_kind: 'piece_image' | 'channel_crop';
+			piece_uuid?: string;
+			seq?: number;
+			crop_local_id?: number;
+		} & Partial<ImageQualityFlags>
+	) {
+		return request<{ ok: boolean; created?: boolean; deleted?: boolean }>(
+			'POST',
+			'/api/labeling/image-quality',
+			body
+		);
+	},
+	deletePieceCropLink(machineId: string, pieceUuid: string) {
+		return request<{ ok: boolean }>(
+			'DELETE',
+			`/api/labeling/piece-crop-link/${machineId}/${encodeURIComponent(pieceUuid)}`
+		);
+	},
+
+	// Color models (admin): scan/list the models on disk and pick the active one.
+	listColorModels() {
+		return request<ColorModelsResponse>('GET', '/api/color-models');
+	},
+	activateColorModel(modelId: string) {
+		return request<{ ok: boolean; model: ColorModel }>(
+			'POST',
+			`/api/color-models/${modelId}/activate`
+		);
+	},
+	deactivateColorModel(modelId: string) {
+		return request<{ ok: boolean; model: ColorModel }>(
+			'POST',
+			`/api/color-models/${modelId}/deactivate`
+		);
+	},
+
+	// Link models (admin): scan/list the piece_link matcher pairs on disk and
+	// pick the active one that scores same-piece crops in the labeling view.
+	listLinkModels() {
+		return request<LinkModelsResponse>('GET', '/api/link-models');
+	},
+	activateLinkModel(modelId: string) {
+		return request<{ ok: boolean; model: LinkModel }>(
+			'POST',
+			`/api/link-models/${modelId}/activate`
+		);
+	},
+	deactivateLinkModel(modelId: string) {
+		return request<{ ok: boolean; model: LinkModel }>(
+			'POST',
+			`/api/link-models/${modelId}/deactivate`
 		);
 	},
 	createMachine(name: string, description?: string) {
@@ -1149,6 +1954,9 @@ export const api = {
 	sampleOverlayUrl(id: string) {
 		return resolveApiPath(`/api/samples/${id}/assets/overlay`);
 	},
+	sampleChannelCropUrl(id: string, mask = true) {
+		return resolveApiPath(`/api/samples/${id}/assets/channel-crop?mask=${mask}`);
+	},
 
 	// Review
 	getNextReview(
@@ -1216,6 +2024,15 @@ export const api = {
 		return request<User>('PATCH', '/api/auth/me', data);
 	},
 
+	// AI models
+	listAiModels(refresh = false) {
+		return request<AiModelCatalog>('GET', `/api/ai/models${refresh ? '?refresh=true' : ''}`);
+	},
+
+	getAiUsage() {
+		return request<AiUsageSummary>('GET', '/api/ai/usage');
+	},
+
 	// Profile Catalog
 	getProfileCatalogStatus() {
 		return request<ProfileCatalogStatus>('GET', '/api/profile-catalog/status');
@@ -1247,6 +2064,10 @@ export const api = {
 			'GET',
 			`/api/profile-catalog/search-parts${qs ? '?' + qs : ''}`
 		);
+	},
+
+	profileCatalogCategories() {
+		return request<{ results: ProfileCatalogCategory[] }>('GET', '/api/profile-catalog/categories');
 	},
 
 	searchProfileCatalogSets(query: string, params: { min_year?: number; max_year?: number } = {}) {
@@ -1414,6 +2235,14 @@ export const api = {
 		return request<void>('DELETE', `/api/admin/users/${id}`);
 	},
 
+	// Admin: access windows (how much of the piece-bbox dataset each role can see)
+	getAccessWindows() {
+		return request<AccessWindowsResponse>('GET', '/api/admin/access-windows');
+	},
+	updateAccessWindow(role: string, entity: string, data: { anchor: string; size: number; offset: number }) {
+		return request<AccessWindowsResponse>('PUT', `/api/admin/access-windows/${role}/${entity}`, data);
+	},
+
 	// Admin: parts catalog DB browser
 	getPartsDbOverview() {
 		return request<PartsDbOverview>('GET', '/api/admin/parts-db/overview');
@@ -1445,8 +2274,13 @@ export const api = {
 	listApiKeys() {
 		return request<ApiKeySummary[]>('GET', '/api/auth/api-keys');
 	},
-	createApiKey(name: string, scopes?: string[]) {
-		return request<ApiKeyCreateResponse>('POST', '/api/auth/api-keys', { name, scopes });
+	createApiKey(name: string, scopes: string[], expiresInDays?: number, machineIds?: string[]) {
+		return request<ApiKeyCreateResponse>('POST', '/api/auth/api-keys', {
+			name,
+			scopes,
+			expires_in_days: expiresInDays,
+			machine_ids: machineIds
+		});
 	},
 	revokeApiKey(id: string) {
 		return request<{ ok: boolean }>('DELETE', `/api/auth/api-keys/${id}`);
@@ -1473,6 +2307,9 @@ export const api = {
 	},
 	getModel(id: string) {
 		return request<DetectionModelDetail>('GET', `/api/models/${id}`);
+	},
+	getModelDatasetMachines(id: string) {
+		return request<ModelDatasetMachinesResponse>('GET', `/api/models/${id}/dataset-machines`);
 	},
 	modelVariantDownloadUrl(modelId: string, variantId: string) {
 		return resolveApiPath(`/api/models/${modelId}/variants/${variantId}/download`);
@@ -1547,6 +2384,9 @@ export interface LeaderboardEntry {
 	total_reviews: number;
 	accepts: number;
 	rejects: number;
+	piece_color_labels: number;
+	piece_crop_links: number;
+	total_contributions: number;
 	last_review_at: string | null;
 }
 
@@ -1573,6 +2413,9 @@ export interface ReviewerProfile {
 	total_reviews: number;
 	accepts: number;
 	rejects: number;
+	piece_color_labels: number;
+	piece_crop_links: number;
+	total_contributions: number;
 	agreement_rate: number | null;
 	machines_covered: number;
 	current_streak_days: number;
@@ -1618,13 +2461,29 @@ export interface DetectionModelDetail extends DetectionModelSummary {
 	variants: DetectionModelVariant[];
 }
 
+export interface ModelDatasetMachine {
+	machine_id: string;
+	machine_name: string;
+	train_samples: number;
+	val_samples: number;
+	total: number;
+	share: number;
+}
+
+export interface ModelDatasetMachinesResponse {
+	machines: ModelDatasetMachine[];
+	total_recorded: number;
+}
+
 export interface ApiKeySummary {
 	id: string;
 	name: string;
 	token_prefix: string;
 	scopes: string[] | null;
+	machine_ids: string[] | null;
 	created_at: string;
 	last_used_at: string | null;
+	expires_at: string | null;
 	revoked_at: string | null;
 }
 

@@ -1,0 +1,192 @@
+# Top-level navigation structure for the Sorter V2 documentation site.
+#
+# Each section listed here renders as a top-nav item. Pages within a section
+# render as left-sidebar items when the user is inside that section. A section
+# may optionally carry `groups`, which render as labeled sub-sections in the
+# sidebar — use this when a section holds more than one research area or
+# contributor reference that should stay visually separated.
+#
+# Pages opt into a section by setting `section: <id>` in their frontmatter.
+#
+# Single source of truth — both the top nav and the per-section sidebar
+# in _layouts/default.html read from this file.
+
+sections:
+  - id: hardware
+    title: Hardware
+    url: /hardware/
+    description: The physical machine — mechanics, electronics, BOM, assembly.
+    pages:
+      - title: Overview
+        url: /hardware/
+      - title: Assembly
+        url: /hardware/assembly/
+        children:
+          - title: Distribution
+            url: /hardware/assembly/distribution/
+            children:
+              - title: Bin frame
+                url: /hardware/assembly/distribution/bin-frame/
+                children:
+                  - title: Build the hex frame
+                    url: /hardware/assembly/distribution/bin-frame/hex-frame/
+                  - title: Bottom interface
+                    url: /hardware/assembly/distribution/bin-frame/bottom-interface/
+                  - title: Bottom two layers
+                    url: /hardware/assembly/distribution/bin-frame/bottom-two-layers/
+                  - title: Regular layers
+                    url: /hardware/assembly/distribution/bin-frame/regular-layers/
+              - title: Top interface
+                url: /hardware/assembly/distribution/top-interface/
+              - title: Chute
+                url: /hardware/assembly/distribution/chute/
+                children:
+                  - title: Chute core
+                    url: /hardware/assembly/distribution/chute/chute-core/
+                  - title: Funnel
+                    url: /hardware/assembly/distribution/chute/funnel/
+                  - title: Door module
+                    url: /hardware/assembly/distribution/chute/door-module/
+                  - title: Layer connectors
+                    url: /hardware/assembly/distribution/chute/layer-connectors/
+                  - title: Layer adapter board
+                    url: /hardware/assembly/distribution/chute/pcb/
+          - title: Feeder
+            url: /hardware/assembly/feeder/
+            children:
+              - title: C-channel
+                url: /hardware/assembly/feeder/c-channel/
+              - title: Classification chamber
+                url: /hardware/assembly/feeder/classification-chamber/
+              - title: Light post
+                url: /hardware/assembly/feeder/light-post/
+              - title: Overhead camera mount
+                url: /hardware/assembly/feeder/camera-mount/
+              - title: Bulk input
+                url: /hardware/assembly/feeder/bulk-input/
+              - title: Output guides
+                url: /hardware/assembly/feeder/output-guides/
+              - title: Arranging C-channels
+                url: /hardware/assembly/feeder/arranging-c-channels/
+          - title: Software setup
+            url: /hardware/assembly/software-setup/
+      - title: Electronics
+        url: /hardware/electronics/
+        children:
+          - title: Installing the electronics
+            url: /hardware/electronics/installation/
+            children:
+              - title: PSU box
+                url: /hardware/electronics/installation/psu-box/
+              - title: Preparing the control board
+                url: /hardware/electronics/installation/control-board-prep/
+              - title: Control board housing
+                url: /hardware/electronics/installation/control-board-housing/
+              - title: Orange Pi mount
+                url: /hardware/electronics/installation/orange-pi-mount/
+          - title: Stepper connectors
+            url: /hardware/electronics/steppers/
+          - title: Order spec
+            url: /hardware/electronics/order/
+          - title: WireViz drawings
+            url: /hardware/electronics/wireviz/
+          - title: Make your own PSU pigtail
+            url: /hardware/electronics/psu-pigtail/
+      - title: Helpers
+        url: /hardware/helpers/
+        children:
+          - title: Preparing Lazy Susan
+            url: /hardware/helpers/lazy-susan/
+          - title: Prepare timing pulley 20 tooth
+            url: /hardware/helpers/pulley-gear-mod/
+          - title: Soldering Pico headers
+            url: /hardware/helpers/pico-headers/
+          - title: Installing heat inserts
+            url: /hardware/helpers/heat-inserts/
+      - title: Parts
+        url: /hardware/parts/
+        children:
+          - title: Lazy Susan
+            url: /hardware/parts/lazy-susan/
+          - title: Orange Pi 5
+            url: /hardware/orange-pi-5/
+
+  - id: sorter
+    title: Sorter
+    url: /sorter/
+    description: The local software running on the machine — Python backend and SvelteKit UI.
+    pages:
+      - title: Overview
+        url: /sorter/
+    groups:
+      - title: Install
+        pages:
+          - title: Installation
+            url: /sorter/installation/
+          - title: SorterOS
+            url: /sorter/installation/sorter-os/
+          - title: Linux (generic)
+            url: /sorter/installation/linux-generic/
+          - title: By hand
+            url: /sorter/installation/by-hand/
+      - title: Operate
+        pages:
+          - title: Your first sort run
+            url: /sorter/tutorials/first-sort-run/
+          - title: Camera calibration
+            url: /sorter/camera-calibration/
+          - title: Shutting down the machine
+            url: /sorter/safe-shutdown/
+          - title: Troubleshooting
+            url: /sorter/troubleshooting/
+      - title: Under the hood
+        pages:
+          - title: Dev flow
+            url: /sorter/dev-flow/
+          - title: Sorting profile reference
+            url: /sorter/profile-reference/
+          - title: What leaves the machine
+            url: /sorter/what-leaves-the-machine/
+
+  - id: hive
+    title: Hive
+    url: /hive/
+    description: The community platform for shared profiles, samples, and verification.
+    pages:
+      - title: Overview
+        url: /hive/
+
+  - id: lab
+    title: Lab
+    url: /lab/
+    description: Research, experiments, and contributor references — model performance, deployment paths, hardware benchmarks, shared visual language.
+    pages:
+      - title: Overview
+        url: /lab/
+    groups:
+      - title: Object Detection Research
+        pages:
+          - title: Overview
+            url: /lab/object-detection/
+          - title: How the Models Are Built
+            url: /lab/object-detection/how-models-are-built/
+          - title: Benchmarking Workflow
+            url: /lab/object-detection/device-benchmarking/
+          - title: Hailo HEF Workflow
+            url: /lab/object-detection/hailo-hef-workflow/
+      - title: Styleguide
+        pages:
+          - title: Overview
+            url: /lab/styleguide/
+          - title: Design Principles
+            url: /lab/styleguide/#design-principles
+          - title: Colors
+            url: /lab/styleguide/#colors
+          - title: Typography
+            url: /lab/styleguide/#typography
+          - title: Notifications
+            url: /lab/styleguide/#notifications
+          - title: Components
+            url: /lab/styleguide/#components
+          - title: Primary Color
+            url: /lab/styleguide/#primary-color

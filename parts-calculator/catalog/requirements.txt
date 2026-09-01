@@ -1,0 +1,15 @@
+# Python deps for slicer/filament.py + the catalog generator.
+# Pinned to match Spencer's machine so CI renders/output stay comparable.
+numpy==2.2.6
+matplotlib==3.11.1
+trimesh==4.8.3
+# the uid stamp (catalog/engrave.py): face outlines and the text, and the
+# boolean that recesses it -- the same versions everywhere or the stamped
+# bytes, and so their content-addressed URLs, drift between machines
+shapely==2.1.2
+manifold3d==3.5.2
+scipy==1.17.1
+# scripts/mesh_report.py and mesh_repair.py: finding the places an export is not
+# a closed solid, and drawing them (meshfig.py rasterises with numpy + Pillow,
+# since a build box has no GL context)
+pillow==12.3.0

@@ -1,64 +1,47 @@
-# Documentation Site
+# docs — the documentation site
 
-This directory is the canonical source for the project documentation site that is intended to publish to GitHub Pages.
+The Sorter V2 documentation site: SvelteKit + Tailwind v4, fully prerendered
+to static HTML (`@sveltejs/adapter-static`), with client-side navigation and
+hover preloading between pages. It replaced the previous Jekyll site; the
+content carried over unchanged.
 
-## What lives here
-
-- durable detector benchmark conclusions
-- model and artifact documentation
-- target conversion workflows
-- the Pages site layout and styling
-
-## Publishing
-
-The GitHub Pages workflow lives in:
-
-- `../.github/workflows/documentation-pages.yml`
-
-It builds from `docs/`.
-
-## Local preview
-
-If you want to preview locally:
+## Run it
 
 ```bash
-cd docs
-bundle install
-bundle exec jekyll serve
+npm install
+npm run dev        # dev server with HMR
+npm run build      # static site → build/
+npm run preview    # serve the built site
 ```
 
-If local Ruby gets in the way, use the Docker-based workflow described below. The GitHub Pages workflow is the authoritative CI build path.
+## How content works
 
-## Local Docker build
+Content is authored the same way it was under Jekyll:
 
-The most reliable local test path is a disposable Ruby 3.1 container:
+- **Markdown + frontmatter** in `src/content/`. Same fields (`title`, `type`,
+  `section`, `kicker`, `lede`, `author`, `parts_needed`, `tools_needed`, …).
+  Per-section frontmatter defaults (formerly `_config.yml`) live in
+  `src/lib/server/content.ts`.
+- **Liquid still works.** Pages render through liquidjs at build time with
+  `site.data.*`, `relative_url`, and the includes in `src/liquid/_includes/`
+  (`step.html`, `harness/pin-swap.html`, …). Affiliate links and kramdown
+  `{#heading-id}` attributes are expanded by small transforms in
+  `content.ts`.
+- **Data files** (`nav.yml`, `parts.yml`, `authors.yml`, `harness.yml`) live
+  in `src/liquid/_data/` and drive the nav, parts cards, bylines, and the
+  WireViz page.
 
-```bash
-./local-jekyll.sh build
-```
+Everything renders once at build time; the browser never fetches or parses
+markdown. `src/routes/[...path]/+page.server.ts` prerenders one page per
+content file (URLs match the old site's pretty permalinks).
 
-This gives you a real local build check without needing GitHub Pages to be enabled yet.
+See `AGENTS.md` for the authoring playbook (adding articles, images, parts,
+authors).
 
-For a local preview server on `http://127.0.0.1:4000`:
+## Styling
 
-```bash
-./local-jekyll.sh serve
-```
-
-## Images
-
-Keep full-resolution originals in `docs/_img-src/`, mirroring the path they'll be
-served at under `docs/assets/img/`. Originals live in Git LFS and are never
-deployed (Jekyll ignores underscore-prefixed dirs).
-
-Regenerate the web-friendly versions before pushing whenever `_img-src` changes:
-
-```bash
-python3 docs/scripts/optimize_images.py
-```
-
-It downscales each original (long side ≤ 1600px) and writes a progressive JPEG
-(opaque images) or optimized PNG (transparent images) to the matching path under
-`docs/assets/img/`. Pages reference those `assets/img/...` paths — `.jpg` for
-photos, `.png` for transparent renders. Commit both the original and the
-generated web version.
+`src/routes/layout.css` — Tailwind v4 `@theme` tokens using the same naming
+scheme as `software/sorter/frontend/src/routes/layout.css`, and the design
+rules from that app's CLAUDE.md apply here too: sharp edges (no `rounded-*`),
+flat 1px borders on callouts (no left-accent stripes), body copy ≥ 14px, no
+raw hex in components. The docs keep LEGO red as `--color-primary`.

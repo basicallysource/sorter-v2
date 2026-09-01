@@ -190,8 +190,8 @@ class SyncManager:
         with self._lock:
             if self.running:
                 return False
-            if not gc.bl_affiliate_api_key:
-                self.error = "BL_AFFILIATE_API_KEY not set"
+            if not gc.bla_api_key:
+                self.error = "BLA_API_KEY not set"
                 return False
             self.running = True
             self.stop_requested = False
@@ -441,7 +441,7 @@ class SyncManager:
         try:
             result = syncBricklinkPrices(
                 conn,
-                gc.bl_affiliate_api_key,
+                gc.bla_api_key,
                 should_stop_fn=self._shouldStop,
                 progress_fn=self._updateProgress,
             )

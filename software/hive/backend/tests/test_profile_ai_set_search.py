@@ -685,7 +685,10 @@ def test_generate_profile_ai_proposal_enables_prompt_cache_for_claude(
     monkeypatch.setattr(profile_ai, "run_openrouter_chat", fake_chat)
     monkeypatch.setattr(profile_ai, "get_user_openrouter_key", lambda user: "or-key")
 
-    user = SimpleNamespace(preferred_ai_model=None, openrouter_api_key_encrypted=None)
+    user = SimpleNamespace(
+        preferred_ai_model="anthropic/claude-sonnet-5",
+        openrouter_api_key_encrypted=None,
+    )
     catalog = SimpleNamespace(
         parts_data=SimpleNamespace(
             parts={"3001": {"name": "Brick 2 x 4"}},

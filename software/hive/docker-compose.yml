@@ -1,6 +1,8 @@
 services:
   postgres:
     image: postgres:16-alpine
+    # Match prod: Docker's default 64MB /dev/shm starves parallel workers.
+    shm_size: 1gb
     environment:
       POSTGRES_USER: hive
       POSTGRES_PASSWORD: hive_dev

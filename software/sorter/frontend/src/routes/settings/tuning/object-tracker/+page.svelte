@@ -221,7 +221,7 @@
 		<SectionCard title="Parameters" description="Parameters for the selected tracker.">
 			<div class="flex flex-col gap-8">
 				{#each sections as section}
-					<div class="flex flex-col gap-4">
+					<div class="flex flex-col gap-2">
 						<div class="text-xs font-semibold tracking-wider text-text-muted uppercase">
 							{section.name}
 						</div>

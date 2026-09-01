@@ -66,7 +66,7 @@
 	</div>
 
 	{#if loading}
-		<Spinner />
+		<div class="flex justify-center p-8"><Spinner size={32} /></div>
 	{:else if error}
 		<div class="border border-danger bg-danger/10 px-3 py-2 text-sm text-danger">{error}</div>
 	{:else if profile}
@@ -95,16 +95,30 @@
 				</div>
 			</div>
 
-			<!-- Metric pills -->
-			<div class="grid grid-cols-2 gap-px border-t border-border bg-border sm:grid-cols-4">
+			<!-- Contributions breakdown: samples vs pieces (kept separate) -->
+			<div class="grid grid-cols-2 gap-px border-t border-border bg-border sm:grid-cols-3">
 				<div class="bg-surface px-4 py-3">
-					<div class="text-[10px] font-semibold uppercase tracking-wider text-text-muted">Total reviews</div>
+					<div class="text-[10px] font-semibold uppercase tracking-wider text-text-muted">Total contributions</div>
+					<div class="text-2xl font-bold text-text">{profile.total_contributions.toLocaleString()}</div>
+					<div class="text-[11px] text-text-muted">reviews + piece labels</div>
+				</div>
+				<div class="bg-surface px-4 py-3">
+					<div class="text-[10px] font-semibold uppercase tracking-wider text-text-muted">Sample reviews</div>
 					<div class="text-2xl font-bold text-text">{profile.total_reviews.toLocaleString()}</div>
 					<div class="text-[11px] text-text-muted">
 						<span class="text-success">{profile.accepts}</span> ✓ ·
 						<span class="text-primary">{profile.rejects}</span> ✗
 					</div>
 				</div>
+				<div class="bg-surface px-4 py-3">
+					<div class="text-[10px] font-semibold uppercase tracking-wider text-text-muted">Piece labels</div>
+					<div class="text-2xl font-bold text-text">{(profile.piece_color_labels + profile.piece_crop_links).toLocaleString()}</div>
+					<div class="text-[11px] text-text-muted">{profile.piece_color_labels} color · {profile.piece_crop_links} same-piece</div>
+				</div>
+			</div>
+
+			<!-- Review quality metrics -->
+			<div class="grid grid-cols-2 gap-px border-t border-border bg-border sm:grid-cols-3">
 				<div class="bg-surface px-4 py-3">
 					<div class="text-[10px] font-semibold uppercase tracking-wider text-text-muted">Agreement</div>
 					<div class="text-2xl font-bold text-text">{pct(profile.agreement_rate)}</div>
@@ -132,8 +146,8 @@
 						</span>
 					</div>
 					<svg viewBox="0 0 {14 * (profile.daily_counts.length - 1 || 1)} 30" class="block h-10 w-full" preserveAspectRatio="none">
-						<path d={spark(profile.daily_counts)} fill="rgba(208,16,18,0.10)" />
-						<path d={sparkLine(profile.daily_counts)} fill="none" stroke="#D01012" stroke-width="1.5" />
+						<path d={spark(profile.daily_counts)} class="fill-primary/10" />
+						<path d={sparkLine(profile.daily_counts)} fill="none" class="stroke-primary" stroke-width="1.5" />
 					</svg>
 				</div>
 			{/if}
@@ -155,7 +169,7 @@
 							<div class="flex items-center gap-2">
 								<span class="text-sm font-semibold text-text">{a.name}</span>
 								<span class="border px-1 py-0.5 text-[9px] uppercase tracking-wider {
-									a.tier === 'gold' ? 'border-warning/30 bg-warning/10 text-[#A16207]'
+									a.tier === 'gold' ? 'border-warning/30 bg-warning/10 text-warning-strong'
 									: a.tier === 'silver' ? 'border-border bg-bg text-text-muted'
 									: 'border-border bg-bg text-text-muted'
 								}">{a.tier}</span>

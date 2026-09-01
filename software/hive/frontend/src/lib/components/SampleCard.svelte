@@ -12,11 +12,14 @@
 	let imgNaturalWidth = $state(0);
 	let imgNaturalHeight = $state(0);
 
+	// These pills sit on top of the sample photo, not on a themed surface, so the
+	// status hues stay put in both themes — but they come from the tokens rather
+	// than repeating the hex values.
 	const statusConfig: Record<string, { label: string; color: string; bg: string }> = {
-		accepted: { label: 'Accepted', color: '#00852B', bg: 'rgba(0,133,43,0.12)' },
-		rejected: { label: 'Rejected', color: '#D01012', bg: 'rgba(208,16,18,0.10)' },
-		in_review: { label: 'Needs more reviews', color: '#0055BF', bg: 'rgba(0,85,191,0.10)' },
-		conflict: { label: 'Conflict', color: '#FFD500', bg: 'rgba(255,213,0,0.15)' },
+		accepted: { label: 'Accepted', color: 'var(--color-success)', bg: 'color-mix(in srgb, var(--color-success) 12%, transparent)' },
+		rejected: { label: 'Rejected', color: 'var(--color-primary)', bg: 'color-mix(in srgb, var(--color-primary) 10%, transparent)' },
+		in_review: { label: 'Needs more reviews', color: 'var(--color-info)', bg: 'color-mix(in srgb, var(--color-info) 10%, transparent)' },
+		conflict: { label: 'Conflict', color: 'var(--color-warning)', bg: 'color-mix(in srgb, var(--color-warning) 15%, transparent)' },
 		unreviewed: { label: 'Unreviewed', color: '#FFFFFF', bg: 'rgba(0,0,0,0.45)' }
 	};
 
@@ -104,7 +107,7 @@
 						width={bbox[2] - bbox[0]}
 						height={bbox[3] - bbox[1]}
 						fill="none"
-						stroke="#00852B"
+						class="stroke-success"
 						stroke-width={Math.max(2, Math.round(imgNaturalWidth / 300))}
 						opacity="0.8"
 					/>
@@ -122,8 +125,7 @@
 		     see at a glance whether you've already voted on this sample. -->
 		{#if sample.my_review_decision}
 			<span
-				class="absolute top-1.5 left-1.5 mt-5 flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider"
-				style="color: #FFFFFF; background: {sample.my_review_decision === 'accept' ? 'rgba(0,133,43,0.85)' : 'rgba(208,16,18,0.85)'}; backdrop-filter: blur(4px);"
+				class="absolute top-1.5 left-1.5 mt-5 flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-white backdrop-blur-sm {sample.my_review_decision === 'accept' ? 'bg-success/85' : 'bg-primary/85'}"
 				title={sample.my_review_decision === 'accept' ? 'You accepted this' : 'You rejected this'}
 			>
 				You: {sample.my_review_decision === 'accept' ? '✓' : '✗'}
@@ -138,8 +140,7 @@
 		<!-- "Raw" marker — no teacher pass yet, boxes are likely incomplete. -->
 		{#if isRaw}
 			<span
-				class="absolute bottom-1.5 left-1.5 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-[#A16207]"
-				style="background: rgba(255,213,0,0.85); backdrop-filter: blur(4px);"
+				class="absolute bottom-1.5 left-1.5 bg-warning/85 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-warning-ink backdrop-blur-sm"
 				title="No teacher pass yet — boxes may be incomplete. Consider waiting before reviewing."
 			>
 				Raw
@@ -148,8 +149,7 @@
 		<!-- Exposure badge — bottom right so it doesn't collide with Raw. -->
 		{#if exposureLabel}
 			<span
-				class="absolute bottom-1.5 right-1.5 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-white"
-				style="background: {exposureLabel === 'underexposed' ? 'rgba(30,30,60,0.85)' : 'rgba(208,16,18,0.85)'}; backdrop-filter: blur(4px);"
+				class="absolute bottom-1.5 right-1.5 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-white backdrop-blur-sm {exposureLabel === 'underexposed' ? 'bg-canvas/85' : 'bg-primary/85'}"
 				title={exposureLabel === 'underexposed'
 					? `Underexposed (mean ${sample.luminance_mean?.toFixed(0)}). Likely a lights-off frame.`
 					: `Overexposed (mean ${sample.luminance_mean?.toFixed(0)}). Likely sensor saturation.`}

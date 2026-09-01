@@ -1,0 +1,2547 @@
+@import 'tailwindcss';
+
+/* Design tokens — same naming scheme as software/sorter/frontend
+   (src/routes/layout.css). Docs keep LEGO red as the primary; flip
+   --color-primary to #0055bf to match the sorter UI's blue. */
+@theme {
+	--color-bg: #f7f6f3;
+	--color-surface: #ffffff;
+	--color-border: #e2e0db;
+	--color-text: #1a1a1a;
+	--color-text-muted: #7a7770;
+	--color-primary: #d01012;
+	--color-primary-hover: #b00e10;
+	--color-primary-dark: #5c0708;
+	--color-primary-contrast: #ffffff;
+	--color-danger: #d01012;
+	--color-danger-hover: #b00e10;
+	--color-danger-dark: #5c0708;
+	--color-success: #00852b;
+	--color-success-dark: #003d14;
+	--color-warning: #f2a900;
+	--color-warning-dark: #4a3300;
+	--color-info: #0055bf;
+	--color-info-dark: #003a8c;
+	--font-sans: 'IBM Plex Sans', system-ui, sans-serif;
+	--font-mono: 'IBM Plex Mono', monospace;
+}
+
+/* Legacy variable names used by inline SVG diagrams inside the content
+   markdown (e.g. _includes/harness/pin-swap.html). Keep aliased to tokens. */
+:root {
+	color-scheme: light;
+	--bg: var(--color-bg);
+	--surface: var(--color-surface);
+	--surface-strong: var(--color-surface);
+	--ink: var(--color-text);
+	--muted: var(--color-text-muted);
+	--line: var(--color-border);
+	--primary: var(--color-primary);
+	--primary-hover: var(--color-primary-hover);
+	--primary-tint: rgba(208, 16, 18, 0.06);
+	--ok: var(--color-success);
+	--warn: var(--color-warning-dark);
+	--warn-bg: rgba(255, 213, 0, 0.1);
+	--warn-border: rgba(255, 213, 0, 0.5);
+	--info: var(--color-info-dark);
+	--info-bg: rgba(0, 85, 191, 0.06);
+	--info-border: rgba(0, 85, 191, 0.4);
+	--error: var(--color-danger-dark);
+	--error-bg: rgba(208, 16, 18, 0.06);
+	--error-border: rgba(208, 16, 18, 0.4);
+}
+
+html {
+	scroll-behavior: smooth;
+}
+
+body {
+	margin: 0;
+	font-family: var(--font-sans);
+	color: var(--ink);
+	background: var(--bg);
+	-webkit-font-smoothing: antialiased;
+}
+
+*:focus-visible {
+	outline: 2px solid var(--muted);
+	outline-offset: 2px;
+}
+
+/* ── Shell ─────────────────────────────────────────────────────────────── */
+
+.shell {
+	/* Measured into place by +layout.svelte; this is the pre-hydration guess. */
+	--header-height: 48px;
+	max-width: 1180px;
+	margin: 0 auto;
+	padding: 24px 20px 48px;
+	min-height: 100vh;
+	display: flex;
+	flex-direction: column;
+}
+
+.site-header {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 18px;
+	margin-bottom: 24px;
+}
+
+.site-header > .site-nav {
+	margin-left: auto;
+}
+
+.brand {
+	display: inline-flex;
+	align-items: center;
+	gap: 12px;
+	text-decoration: none;
+	color: inherit;
+}
+
+.brand-logo {
+	display: block;
+	height: 24px;
+	width: auto;
+}
+
+.brand strong,
+.brand small {
+	display: block;
+}
+
+.brand strong {
+	font-size: 1rem;
+	font-weight: 700;
+}
+
+.brand small {
+	color: var(--muted);
+	font-size: 0.74rem;
+	text-transform: uppercase;
+	letter-spacing: 0.1em;
+	margin-top: 2px;
+}
+
+.site-nav {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 2px;
+}
+
+.site-nav a {
+	padding: 8px 14px;
+	text-decoration: none;
+	color: var(--muted);
+	border: 1px solid transparent;
+	background: transparent;
+	font-size: 0.88rem;
+	font-weight: 500;
+	transition:
+		color 0.12s ease,
+		background 0.12s ease;
+}
+
+.site-nav a:hover {
+	color: var(--ink);
+	background: var(--surface);
+}
+
+.site-nav a[aria-current='page'] {
+	color: var(--primary);
+	border-bottom: 2px solid var(--primary);
+	background: transparent;
+}
+
+/* ── Construction banner + modal ───────────────────────────────────────── */
+
+.construction-banner {
+	display: inline-flex;
+	align-items: center;
+	gap: 10px;
+	padding: 6px 12px;
+	font: inherit;
+	text-align: left;
+	color: var(--ink);
+	background: color-mix(in srgb, var(--color-warning) 8%, var(--surface));
+	border: 1px solid color-mix(in srgb, var(--color-warning) 40%, transparent);
+	cursor: pointer;
+	transition:
+		background 0.12s ease,
+		border-color 0.12s ease;
+}
+
+.construction-banner:hover {
+	background: color-mix(in srgb, var(--color-warning) 16%, var(--surface));
+	border-color: color-mix(in srgb, var(--color-warning) 60%, transparent);
+}
+
+.construction-banner-icon {
+	font-size: 1rem;
+	line-height: 1;
+}
+
+.construction-banner-text {
+	display: flex;
+	flex-direction: column;
+	min-width: 0;
+}
+
+.construction-banner-text strong {
+	font-size: 0.8rem;
+	font-weight: 700;
+}
+
+.construction-banner-text small {
+	font-size: 0.72rem;
+	line-height: 1.3;
+	white-space: nowrap;
+	color: var(--muted);
+}
+
+.construction-banner-chevron {
+	margin-left: auto;
+	padding-left: 4px;
+	font-size: 0.8rem;
+	color: var(--muted);
+}
+
+.construction-modal {
+	max-width: 480px;
+	width: calc(100% - 32px);
+	padding: 0;
+	color: var(--ink);
+	background: var(--surface);
+	border: 1px solid color-mix(in srgb, var(--color-warning) 40%, transparent);
+	margin: auto;
+}
+
+.construction-modal::backdrop {
+	background: rgba(0, 0, 0, 0.42);
+}
+
+.construction-modal-inner {
+	padding: 22px 24px 24px;
+}
+
+.construction-modal-head {
+	display: flex;
+	align-items: flex-start;
+	justify-content: space-between;
+	gap: 16px;
+	margin-bottom: 12px;
+}
+
+.construction-modal-head h2 {
+	margin: 0;
+	font-size: 1.2rem;
+}
+
+.construction-modal-close {
+	padding: 4px;
+	font: inherit;
+	line-height: 1;
+	color: var(--muted);
+	background: none;
+	border: none;
+	cursor: pointer;
+}
+
+.construction-modal-close:hover {
+	color: var(--ink);
+}
+
+.construction-modal p {
+	margin: 0 0 12px;
+	font-size: 0.9rem;
+	line-height: 1.55;
+}
+
+.construction-modal-discord {
+	margin-bottom: 0;
+}
+
+.construction-modal-discord a {
+	color: var(--primary);
+	font-weight: 600;
+	text-decoration: none;
+}
+
+.construction-modal-discord a:hover {
+	text-decoration: underline;
+}
+
+/* ── Sidebar ───────────────────────────────────────────────────────────── */
+
+.layout-with-sidebar {
+	display: grid;
+	grid-template-columns: 220px minmax(0, 1fr);
+	gap: 20px;
+	align-items: stretch;
+	flex: 1;
+}
+
+.section-sidebar {
+	background: var(--surface);
+	border: 1px solid var(--line);
+	padding: 16px 14px 18px;
+	position: sticky;
+	top: 16px;
+	align-self: start;
+	display: flex;
+	flex-direction: column;
+	/* Its top edge sits below the header (24px shell padding + header + 24px
+	   header margin), so the viewport-height cap has to subtract all of that or
+	   it overhangs the bottom of the screen until you scroll. 16px to spare. */
+	max-height: calc(100vh - var(--header-height) - 64px);
+	max-height: calc(100dvh - var(--header-height) - 64px);
+}
+
+.section-sidebar-kicker {
+	margin: 0 0 10px;
+	padding: 0 4px;
+	font-size: 0.66rem;
+	font-weight: 700;
+	letter-spacing: 0.12em;
+	text-transform: uppercase;
+	color: var(--muted);
+}
+
+.section-sidebar-toggle {
+	display: none;
+}
+
+.section-sidebar nav {
+	display: flex;
+	flex-direction: column;
+	/* The tree is taller than the viewport in some sections (Hardware), so it
+	   scrolls on its own instead of dragging the page with it. */
+	min-height: 0;
+	overflow-y: auto;
+	overscroll-behavior: contain;
+	scrollbar-width: thin;
+}
+
+.section-sidebar-group {
+	margin: 14px 0 4px;
+	padding: 12px 10px 0;
+	font-size: 0.64rem;
+	font-weight: 700;
+	letter-spacing: 0.1em;
+	text-transform: uppercase;
+	color: var(--muted);
+	border-top: 1px solid var(--line);
+}
+
+.section-sidebar nav > .section-sidebar-group:first-child {
+	margin-top: 0;
+	border-top: 0;
+	padding-top: 0;
+}
+
+.section-sidebar nav a {
+	display: block;
+	padding: 7px 10px;
+	font-size: 0.875rem;
+	color: var(--muted);
+	text-decoration: none;
+	transition:
+		color 0.12s ease,
+		background 0.12s ease;
+}
+
+.section-sidebar nav a:hover {
+	color: var(--ink);
+	background: var(--bg);
+}
+
+.section-sidebar nav a[aria-current='page'] {
+	color: var(--primary);
+	background: var(--primary-tint);
+	font-weight: 600;
+}
+
+.section-sidebar nav ul.nav-tree {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+	display: flex;
+	flex-direction: column;
+}
+.section-sidebar nav ul.nav-tree ul.nav-tree {
+	margin-left: 11px;
+	border-left: 1px solid var(--line);
+}
+.section-sidebar nav ul.nav-tree ul.nav-tree a {
+	padding-left: 12px;
+	font-size: 0.85rem;
+}
+
+/* ── Content card ──────────────────────────────────────────────────────── */
+
+.content {
+	background: var(--surface);
+	border: 1px solid var(--line);
+	padding: 28px 30px 32px;
+	min-width: 0;
+	display: flex;
+	flex-direction: column;
+}
+
+.shell > .content {
+	flex: 1;
+}
+
+.kicker {
+	margin: 0 0 12px;
+	font-size: 0.68rem;
+	letter-spacing: 0.1em;
+	text-transform: uppercase;
+	color: var(--muted);
+	font-weight: 600;
+}
+
+.page-credits {
+	margin: -6px 0 20px;
+	display: grid;
+	gap: 4px;
+}
+
+.page-author {
+	margin: 0;
+	font-size: 0.875rem;
+	color: var(--ink);
+	font-weight: 500;
+}
+
+.page-author-label {
+	font-size: 0.62rem;
+	font-weight: 700;
+	letter-spacing: 0.1em;
+	text-transform: uppercase;
+	color: var(--muted);
+	margin-right: 10px;
+}
+
+.page-author a {
+	color: var(--primary);
+	text-decoration: none;
+}
+
+.page-author a:hover {
+	text-decoration: underline;
+}
+
+.page-title-row {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 14px;
+	margin: 0 0 14px;
+}
+
+.page-title-row h1 {
+	margin: 0;
+}
+
+.page-type-badge {
+	display: inline-block;
+	padding: 4px 10px;
+	font-size: 0.66rem;
+	font-weight: 700;
+	letter-spacing: 0.1em;
+	text-transform: uppercase;
+	color: var(--muted);
+	background: var(--bg);
+	border: 1px solid var(--line);
+	white-space: nowrap;
+}
+
+.page-meta {
+	margin: 2.4rem 0 0;
+	border: 1px solid var(--line);
+	background: var(--bg);
+	padding: 16px 18px 18px;
+}
+
+.content > .page-meta {
+	margin-top: auto;
+}
+
+.page-meta dl {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+	gap: 14px 24px;
+	margin: 0;
+}
+
+.page-meta div {
+	display: flex;
+	flex-direction: column;
+}
+
+.page-meta dt {
+	font-size: 0.62rem;
+	font-weight: 700;
+	letter-spacing: 0.1em;
+	text-transform: uppercase;
+	color: var(--muted);
+	margin: 0 0 4px;
+}
+
+.page-meta dd {
+	margin: 0;
+	font-size: 0.875rem;
+	color: var(--ink);
+	font-weight: 500;
+}
+
+/* ── Requirements (parts / tools) ──────────────────────────────────────── */
+
+.requirements {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 20px 40px;
+	margin: 0 0 1.8rem;
+	padding: 16px 18px;
+	border: 1px solid var(--line);
+	background: var(--bg);
+}
+
+.requirements-title {
+	margin: 0 0 10px;
+	font-size: 0.66rem;
+	font-weight: 700;
+	letter-spacing: 0.12em;
+	text-transform: uppercase;
+	color: var(--muted);
+}
+
+.parts-list {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 12px;
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+.parts-category {
+	margin: 12px 0 6px;
+	font-size: 0.6rem;
+	font-weight: 700;
+	letter-spacing: 0.1em;
+	text-transform: uppercase;
+	color: var(--muted);
+}
+
+.part-card {
+	display: flex;
+	flex-direction: column;
+	width: 108px;
+}
+
+.part-card-media {
+	position: relative;
+	width: 108px;
+	height: 108px;
+}
+
+/* The card image is a button: clicking it opens the part's detail modal (the
+   3D model, the print facts, the download, the way through to the parts
+   calculator). The corner badges sit above it as siblings so their popovers
+   stay reachable. */
+.part-card-open {
+	display: block;
+	width: 108px;
+	height: 108px;
+	padding: 0;
+	margin: 0;
+	background: none;
+	border: none;
+	cursor: pointer;
+}
+
+.part-card-open:disabled {
+	cursor: default;
+}
+
+.part-card-open:hover:not(:disabled) .part-card-img,
+.part-card-open:focus-visible .part-card-img {
+	border-color: var(--primary);
+	outline: none;
+}
+
+.part-card-img {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 108px;
+	height: 108px;
+	object-fit: contain;
+	background: var(--surface);
+	border: 1px solid var(--line);
+}
+
+.part-card-noimg {
+	font-size: 0.7rem;
+	color: var(--muted);
+}
+
+.part-card-qty {
+	position: absolute;
+	z-index: 2;
+	top: 0;
+	left: 0;
+	padding: 2px 7px;
+	font-size: 0.72rem;
+	font-weight: 700;
+	color: var(--surface);
+	background: var(--ink);
+}
+
+/* Screw length, stamped on the corner of the card image the way the parts
+   calculator's hardware list does it. One photo stands in for a whole family
+   of screws (every M5 socket head is the same picture), so the length is the
+   one thing the image cannot tell you apart by. */
+.part-card-len {
+	position: absolute;
+	z-index: 2;
+	right: 0;
+	bottom: 0;
+	padding: 1px 5px;
+	font-size: 0.7rem;
+	font-weight: 600;
+	line-height: 1.35;
+	font-variant-numeric: tabular-nums;
+	color: var(--ink);
+	background: var(--bg);
+	border: 1px solid var(--line);
+}
+
+/* Instant popover behind every corner badge: no tooltip delay, keyboard and
+   touch reachable (badges are focusable), right-aligned so it stays inside
+   the page. */
+.part-badge {
+	cursor: help;
+}
+
+.part-badge:focus {
+	outline: none;
+}
+
+.part-badge-pop {
+	display: none;
+	position: absolute;
+	top: calc(100% + 4px);
+	right: 0;
+	z-index: 30;
+	min-width: 200px;
+	max-width: 260px;
+	padding: 8px 10px;
+	font-size: 0.75rem;
+	font-weight: 400;
+	line-height: 1.45;
+	text-align: left;
+	white-space: normal;
+	color: var(--ink);
+	background: var(--bg);
+	border: 1px solid var(--line);
+	box-shadow: 0 4px 14px rgb(0 0 0 / 0.12);
+}
+
+.part-badge:hover .part-badge-pop,
+.part-badge:focus .part-badge-pop,
+.part-badge:focus-within .part-badge-pop {
+	display: block;
+}
+
+.part-badge-pop-wide {
+	min-width: 240px;
+	max-width: 300px;
+}
+
+.part-badge-pop-rule {
+	display: block;
+	margin-top: 6px;
+	padding-top: 6px;
+	border-top: 1px solid var(--line);
+}
+
+.part-card-conflict svg {
+	width: 12px;
+	height: 12px;
+}
+
+/* Marker for an unresolved catalog conflict: the docs and the parts
+   calculator disagreed about this part when their catalogs were merged
+   (2026-08-21) and nobody has settled it against the machine yet. */
+.part-card-conflict {
+	position: absolute;
+	z-index: 2;
+	top: 0;
+	right: 0;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	min-width: 18px;
+	height: 18px;
+	padding: 0 4px;
+	font-size: 0.78rem;
+	font-weight: 700;
+	line-height: 1;
+	color: var(--color-warning-dark);
+	background: var(--color-warning);
+	cursor: help;
+}
+
+.parts-warn-legend .part-card-conflict {
+	position: static;
+	margin-right: 5px;
+}
+
+.parts-warn-legend {
+	margin: 10px 0 0;
+	font-size: 0.8rem;
+	color: var(--muted);
+}
+
+/* Marker for a part that has an interchangeable alternative (e.g. socket vs
+   button head). Same footprint as the "!" but green, "A" for alternative. */
+.part-card-alt {
+	position: absolute;
+	z-index: 2;
+	top: 0;
+	right: 0;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	min-width: 18px;
+	height: 18px;
+	padding: 0 4px;
+	font-size: 0.78rem;
+	font-weight: 700;
+	line-height: 1;
+	color: var(--color-primary-contrast);
+	background: var(--color-success);
+	cursor: help;
+}
+
+/* if a card carries both markers, sit the "A" left of the "?" */
+.part-card-conflict + .part-card-alt {
+	right: 20px;
+}
+
+.parts-warn-legend .part-card-alt {
+	position: static;
+	margin-right: 5px;
+}
+
+.parts-notes {
+	margin: 14px 0 0;
+	padding-left: 1.1rem;
+	font-size: 0.875rem;
+	line-height: 1.5;
+	color: var(--muted);
+}
+
+.parts-notes strong {
+	color: var(--ink);
+	font-weight: 600;
+}
+
+.part-card-name {
+	margin-top: 6px;
+	font-size: 0.8rem;
+	line-height: 1.3;
+	color: var(--ink);
+}
+
+.part-card-name a {
+	color: var(--primary);
+	text-decoration: none;
+}
+
+.part-card-name a:hover {
+	text-decoration: underline;
+}
+
+/* The name opens the same modal the image does. It reads as the card's text,
+   not as a control, until you point at it. */
+.part-card-name-button {
+	padding: 0;
+	font: inherit;
+	color: var(--ink);
+	text-align: left;
+	background: none;
+	border: none;
+	cursor: pointer;
+}
+
+.part-card-name-button:hover:not(:disabled),
+.part-card-name-button:focus-visible {
+	color: var(--primary);
+	text-decoration: underline;
+}
+
+.part-card-name-button:disabled {
+	cursor: default;
+}
+
+.part-card-caption {
+	margin-top: 3px;
+	font-size: 0.72rem;
+	line-height: 1.35;
+	color: var(--muted);
+}
+
+.fastener-todo {
+	display: inline-block;
+	padding: 0 6px;
+	font-size: 0.82em;
+	font-weight: 600;
+	color: var(--ink);
+	background: color-mix(in srgb, var(--color-warning) 16%, var(--surface));
+	border: 1px solid color-mix(in srgb, var(--color-warning) 45%, transparent);
+}
+
+/* Inline fastener reference: parts-calculator icon (head-shape silhouette in
+   thread-size colour) + the part-list name. See _includes/fastener.html. */
+.fastener {
+	display: inline-flex;
+	align-items: baseline;
+	gap: 0.25em;
+	white-space: nowrap;
+}
+
+.fastener-icon {
+	align-self: center;
+	vertical-align: -0.18em;
+	flex-shrink: 0;
+}
+
+.fastener-name {
+	white-space: normal;
+}
+
+/* One-line key for the icons above, mirrors the parts-calculator legend. */
+.fastener-legend {
+	margin: 0 0 1rem;
+	font-size: 0.82rem;
+	line-height: 1.5;
+	color: var(--muted);
+}
+
+.fastener-legend-lead {
+	margin-right: 0.35em;
+}
+
+.fastener-legend-swatch {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.3em;
+	margin-right: 0.5em;
+	font-weight: 600;
+	color: var(--ink);
+}
+
+.fastener-legend-swatch::before {
+	content: '';
+	width: 0.7em;
+	height: 0.7em;
+	border-radius: 2px;
+	background: var(--sw);
+}
+
+/* Grouped part + insert-photo rows in the Preparation step */
+.prep-item {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 8px 24px;
+	margin: 1.1rem 0;
+	padding-bottom: 1.1rem;
+	border-bottom: 1px solid var(--line);
+}
+.prep-item:last-of-type {
+	border-bottom: none;
+}
+.prep-item-body {
+	flex: 1 1 220px;
+	min-width: 200px;
+}
+.prep-item-body p {
+	margin: 0;
+}
+.prep-item-figure {
+	flex: 0 1 360px;
+	margin: 0;
+}
+.prep-item-figure img {
+	width: 100%;
+	display: block;
+}
+.prep-item-figure img + img {
+	margin-top: 8px;
+}
+/* Stacked photos that each carry their own caption directly beneath them */
+.prep-item-figure-split {
+	display: flex;
+	flex-direction: column;
+	gap: 16px;
+}
+.prep-item-figure-split > figure {
+	margin: 0;
+}
+.prep-item-figure-split img.doc-figure {
+	margin-bottom: 0;
+}
+.prep-item-figure-split figcaption {
+	margin-top: 6px;
+	font-size: 0.875rem;
+	line-height: 1.4;
+	color: var(--muted);
+}
+
+.part-card-missing {
+	color: var(--muted);
+	font-family: var(--font-mono);
+}
+
+.tools-list {
+	margin: 0;
+	padding-left: 1.1rem;
+	font-size: 0.9rem;
+	line-height: 1.6;
+}
+
+/* ── Step headings ─────────────────────────────────────────────────────── */
+
+.step-heading {
+	clear: both;
+	display: flex;
+	flex-direction: column;
+	gap: 3px;
+	margin: 2.2rem 0 1rem;
+}
+
+.step-tag {
+	font-size: 0.64rem;
+	font-weight: 700;
+	letter-spacing: 0.14em;
+	text-transform: uppercase;
+	color: var(--muted);
+}
+
+.step-title {
+	font-size: 1.35rem;
+	font-weight: 700;
+	line-height: 1.2;
+	color: var(--ink);
+}
+
+/* ── Callouts / notices (flat 1px borders on all four sides) ───────────── */
+
+.callout {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	margin: 1.4rem 0;
+	padding: 12px 14px;
+	border: 1px solid var(--line);
+	background: var(--bg);
+	font-size: 0.9rem;
+	line-height: 1.55;
+}
+
+.callout-icon {
+	flex: none;
+	font-size: 1rem;
+	line-height: 1.5;
+}
+
+.callout p {
+	margin: 0;
+}
+
+.page-warning {
+	margin-top: 1.6rem;
+}
+
+/* Multi-paragraph warnings keep the callout's tight paragraph spacing. */
+.page-warning-body p + p {
+	margin-top: 0.5rem;
+}
+
+.callout-warning {
+	border-color: color-mix(in srgb, var(--color-warning) 40%, transparent);
+	background: color-mix(in srgb, var(--color-warning) 6%, var(--surface));
+}
+
+.notice {
+	padding: 14px 18px;
+	border: 1px solid var(--info-border);
+	background: var(--info-bg);
+	color: var(--info);
+	margin: 1.4rem 0;
+}
+
+.notice.notice-warn {
+	border-color: var(--warn-border);
+	background: var(--warn-bg);
+	color: var(--warn);
+}
+
+.notice strong {
+	display: block;
+	font-size: 0.72rem;
+	font-weight: 700;
+	letter-spacing: 0.09em;
+	text-transform: uppercase;
+	margin-bottom: 6px;
+}
+
+.notice p {
+	margin: 0;
+	font-size: 0.92rem;
+	line-height: 1.55;
+	color: inherit;
+}
+
+.notice a {
+	color: inherit;
+}
+
+.callout-grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+	gap: 12px;
+	margin: 1.3rem 0 1.7rem;
+}
+
+.callout-grid .callout {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+	padding: 16px 18px;
+	border: 1px solid var(--line);
+	background: var(--surface);
+	transition: border-color 0.15s ease;
+}
+
+.callout-grid .callout:hover {
+	border-color: var(--muted);
+}
+
+.callout-grid .callout strong {
+	display: block;
+	font-size: 0.98rem;
+	line-height: 1.3;
+}
+
+.callout-grid .callout strong a {
+	text-decoration: none;
+}
+
+.callout-grid .callout p {
+	margin: 8px 0 0;
+	font-size: 0.875rem;
+	color: var(--muted);
+	line-height: 1.55;
+}
+
+/* ── Media ─────────────────────────────────────────────────────────────── */
+
+/* A bare <figure><figcaption> (not in an .img-row or a floated figure, both
+   of which set their own) had no caption styling at all, so it rendered
+   exactly like the body text that followed it. This is the fallback so any
+   figcaption reads as a caption tied to its image. */
+figure > figcaption {
+	max-width: min(100%, 440px);
+	margin: 6px auto 0;
+	font-size: 0.875rem;
+	line-height: 1.4;
+	text-align: center;
+	color: var(--muted);
+}
+
+.img-row {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 12px;
+	margin: 1.4rem 0;
+}
+
+.img-row figure {
+	flex: 1 1 0;
+	min-width: 180px;
+	margin: 0;
+}
+
+/* Capped by height, not width. A single figure in a row gets the full column,
+   which is right for a wide shot and absurd for a portrait one: at 838px wide
+   a 3:4 photo is over 1100px tall and takes the whole screen. Bounding the
+   height instead lets a wide image fill the column while a tall one shrinks to
+   fit and centres, so both read as one picture in a page rather than a wall.
+   (A click-to-enlarge wrapper is the eventual answer; this is the floor.) */
+.img-row img {
+	display: block;
+	width: auto;
+	max-width: 100%;
+	max-height: 460px;
+	height: auto;
+	margin: 0 auto;
+	border: 1px solid var(--line);
+}
+
+.img-row figcaption {
+	margin-top: 6px;
+	font-size: 0.875rem;
+	line-height: 1.4;
+	text-align: center;
+	color: var(--muted);
+}
+
+/* An attribution line inside a figcaption, kept visually apart from the
+   description above it rather than folded into the same sentence. */
+.photo-credit {
+	display: block;
+	margin-top: 2px;
+	font-size: 0.85em;
+	font-style: italic;
+	color: var(--muted);
+}
+
+.img-placeholder {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 100%;
+	aspect-ratio: 16 / 9;
+	margin: 1.4rem 0;
+	border: 1px dashed var(--line);
+	background: var(--bg);
+	color: var(--muted);
+	font-size: 0.875rem;
+}
+
+.img-row .img-placeholder {
+	margin: 0;
+}
+
+.doc-figure {
+	display: block;
+	width: auto;
+	max-width: min(100%, 440px);
+	max-height: 460px;
+	height: auto;
+	margin: 0 auto 1.4rem;
+	border: 1px solid var(--line);
+}
+
+/* A standalone figure (one doc-figure image, one caption): shrink-wraps to the
+   image's own rendered width and centers, so the caption underneath wraps at
+   that width too instead of stretching across the whole text column. Without
+   this a <figure> is a plain block and its <figcaption> just reads as a
+   full-width paragraph, indistinguishable from body copy. Opt in with
+   class="single-figure" on the <figure> rather than making this the default,
+   since img-row/figure-float-right/harness-figure figures each need their own
+   sizing and already have it. */
+.single-figure {
+	display: table;
+	margin: 0 auto 1.4rem;
+}
+
+.single-figure .doc-figure {
+	margin-bottom: 0;
+}
+
+.single-figure figcaption {
+	margin-top: 6px;
+	font-size: 0.875rem;
+	line-height: 1.4;
+	text-align: center;
+	color: var(--muted);
+}
+
+/* The credit clause of any caption, marked up as <cite>: its own line, a touch
+   smaller and italic, so a reader can tell "what this shows" from "who made
+   it" at a glance instead of one run-on sentence. Deliberately not scoped to
+   .single-figure — the same markup works inside img-row, prep-item and video
+   captions too. */
+figcaption cite {
+	display: block;
+	margin-top: 4px;
+	font-size: 0.8125rem;
+	font-style: italic;
+}
+
+/* A figure floated into the right margin, with the step text running beside it.
+   Falls back to a normal centred figure on narrow screens. */
+.figure-float-right {
+	float: right;
+	width: 240px;
+	max-width: 45%;
+	margin: 0 0 1rem 1.6rem;
+}
+
+.figure-float-right img {
+	display: block;
+	width: 100%;
+	height: auto;
+	border: 1px solid var(--line);
+}
+
+.figure-float-right figcaption {
+	margin-top: 6px;
+	font-size: 0.8125rem;
+	line-height: 1.4;
+	color: var(--muted);
+}
+
+/* Ends a floated figure, so what follows starts below it rather than beside. */
+.clear-float {
+	clear: both;
+}
+
+/* An ordered procedure inside a step: the site's lists carry no markers, so a
+   list whose order matters draws plain numbers. */
+.numbered-steps {
+	list-style: decimal;
+	padding-left: 1.6rem;
+	margin: 0 0 1.4rem;
+}
+
+.numbered-steps li {
+	margin-bottom: 0.5rem;
+}
+
+/* Numbered key for a keyed drawing: the site's lists render without markers, so
+   a list whose items are referred to by number draws its own. The badges match
+   the numbered markers on the drawing, including their colour. */
+.keyed-list {
+	list-style: none;
+	counter-reset: keyed;
+	padding-left: 0;
+	margin: 0 0 1.4rem;
+}
+
+.keyed-list li {
+	counter-increment: keyed;
+	position: relative;
+	padding-left: 2.1rem;
+	margin-bottom: 0.6rem;
+}
+
+.keyed-list li::before {
+	content: counter(keyed);
+	position: absolute;
+	left: 0;
+	top: 0.1em;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 1.4rem;
+	height: 1.4rem;
+	border-radius: 50%;
+	background: #1a6eb0;
+	color: #fff;
+	font-size: 0.78rem;
+	font-weight: 700;
+	line-height: 1;
+}
+
+.keyed-list li.key-screw::before {
+	background: #c4322c;
+}
+
+.keyed-list li.key-note::before {
+	background: #262c36;
+}
+
+@media (max-width: 740px) {
+	.figure-float-right {
+		float: none;
+		width: 100%;
+		max-width: 440px;
+		margin: 1.4rem auto;
+	}
+}
+
+.video-embed-portrait {
+	max-width: 300px;
+	aspect-ratio: 9 / 16;
+	margin: 1.4rem auto;
+}
+
+.video-embed-wide {
+	aspect-ratio: 16 / 9;
+	margin: 1.4rem 0;
+}
+
+.video-embed-portrait iframe,
+.video-embed-wide iframe,
+.video-embed-portrait video,
+.video-embed-wide video {
+	display: block;
+	width: 100%;
+	height: 100%;
+	border: 1px solid var(--line);
+}
+
+/* A self-hosted clip from the asset service, which returns its own aspect
+   ratio rather than YouTube's 16:9 frame. Sized by the video, capped so a
+   portrait phone clip does not run the length of the page. */
+.video-embed-self {
+	margin: 1.4rem 0;
+}
+.video-embed-self video {
+	display: block;
+	width: auto;
+	max-width: min(100%, 440px);
+	max-height: 460px;
+	height: auto;
+	margin: 0 auto;
+	border: 1px solid var(--line);
+	background: var(--line);
+}
+
+/* Wraps a video-embed/video-embed-self div so its credit reads the same as a
+   photo's: a <figcaption><cite> line under the player, not a floating
+   markdown paragraph. The inner div keeps sizing the player; this just adds
+   the caption and absorbs the margin the div used to carry on its own. */
+.video-figure {
+	margin: 0 0 1.4rem;
+}
+
+.video-figure .video-embed-portrait,
+.video-figure .video-embed-wide,
+.video-figure .video-embed-self {
+	margin: 0;
+}
+
+.video-figure figcaption {
+	margin-top: 6px;
+	font-size: 0.875rem;
+	line-height: 1.4;
+	text-align: center;
+	color: var(--muted);
+}
+
+.photo-grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+	gap: 16px;
+	margin: 1.4rem 0;
+}
+.photo-grid figure {
+	margin: 0;
+}
+.photo-grid img {
+	display: block;
+	width: 100%;
+	height: auto;
+	border: 1px solid var(--line);
+}
+.photo-grid figcaption {
+	margin-top: 6px;
+	font-size: 0.875rem;
+	line-height: 1.4;
+	color: var(--muted);
+}
+
+/* ── Affiliate links ───────────────────────────────────────────────────── */
+
+.affiliate-star a {
+	color: var(--muted);
+	text-decoration: none;
+}
+
+.affiliate-star a:hover {
+	color: var(--ink);
+}
+
+.affiliate-notes {
+	margin-top: 2.4rem;
+	padding-top: 0.8rem;
+	border-top: 1px solid var(--line);
+	font-size: 0.875rem;
+	color: var(--muted);
+}
+
+.affiliate-notes p {
+	margin: 0 0 0.4rem;
+}
+
+.affiliate-notes ul {
+	margin: 0;
+	padding-left: 1.4rem;
+}
+
+/* ── Typography ────────────────────────────────────────────────────────── */
+
+.lede {
+	max-width: 72ch;
+	font-size: 1.02rem;
+	color: var(--muted);
+	line-height: 1.6;
+	margin: 0 0 1rem;
+}
+
+h1,
+h2,
+h3 {
+	line-height: 1.2;
+	color: var(--ink);
+}
+
+h1 {
+	font-size: clamp(1.7rem, 3.4vw, 2.4rem);
+	margin: 0 0 14px;
+	font-weight: 700;
+	letter-spacing: -0.01em;
+}
+
+h2 {
+	margin-top: 2.2rem;
+	margin-bottom: 0.8rem;
+	font-size: 1.35rem;
+	font-weight: 600;
+}
+
+h3 {
+	margin-top: 1.6rem;
+	margin-bottom: 0.5rem;
+	font-size: 1.05rem;
+	font-weight: 600;
+}
+
+p,
+li {
+	line-height: 1.65;
+	font-size: 0.95rem;
+}
+
+.md-content a,
+.lede a,
+.page-warning-body a,
+.page-meta a {
+	color: var(--primary);
+	text-decoration: underline;
+	text-decoration-thickness: 1px;
+	text-underline-offset: 2px;
+}
+
+.md-content a:hover,
+.lede a:hover,
+.page-warning-body a:hover,
+.page-meta a:hover {
+	color: var(--primary-hover);
+}
+
+code,
+pre {
+	font-family: var(--font-mono);
+}
+
+code {
+	background: rgba(26, 26, 26, 0.06);
+	padding: 0.08rem 0.32rem;
+	font-size: 0.86em;
+}
+
+pre {
+	background: #1a1a1a;
+	color: #f5f4f1;
+	padding: 14px 16px;
+	overflow-x: auto;
+	border: 1px solid var(--line);
+	font-size: 0.85rem;
+	line-height: 1.55;
+	margin: 1rem 0;
+}
+
+pre code {
+	background: transparent;
+	padding: 0;
+	color: inherit;
+	font-size: inherit;
+}
+
+.code-block {
+	position: relative;
+}
+
+.copy-code-button {
+	position: absolute;
+	top: 6px;
+	right: 6px;
+	z-index: 2;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 28px;
+	height: 28px;
+	padding: 0;
+	color: #cbcac6;
+	background: rgba(245, 244, 241, 0.08);
+	border: 1px solid rgba(245, 244, 241, 0.22);
+	cursor: pointer;
+	opacity: 0.55;
+	transition:
+		opacity 0.12s ease,
+		color 0.12s ease,
+		background 0.12s ease,
+		border-color 0.12s ease;
+}
+
+.copy-code-button svg {
+	display: block;
+}
+
+.code-block:hover .copy-code-button,
+.copy-code-button:focus-visible {
+	opacity: 1;
+}
+
+.copy-code-button:hover {
+	color: #ffffff;
+	background: rgba(245, 244, 241, 0.16);
+	border-color: rgba(245, 244, 241, 0.45);
+}
+
+.copy-code-button.is-copied {
+	opacity: 1;
+	color: #ffffff;
+	background: rgba(0, 133, 43, 0.85);
+	border-color: rgba(0, 133, 43, 0.9);
+}
+
+/* The copy-link button beside article headings. A chain link, not the copy
+   glyph .copy-code-button uses, because copying a code block and linking to a
+   section are different actions. It shares the copied-state flash and nothing
+   else. Faint until the heading is hovered or the button takes focus, so a page
+   of headings does not read as a column of icons. */
+.heading-link-button {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 24px;
+	height: 24px;
+	margin-left: 8px;
+	padding: 0;
+	vertical-align: middle;
+	color: var(--muted);
+	background: transparent;
+	border: 1px solid transparent;
+	cursor: pointer;
+	opacity: 0.4;
+	transition:
+		opacity 0.12s ease,
+		color 0.12s ease,
+		background 0.12s ease,
+		border-color 0.12s ease;
+}
+
+.heading-link-button svg {
+	display: block;
+}
+
+h2:hover .heading-link-button,
+h3:hover .heading-link-button,
+h4:hover .heading-link-button,
+.heading-link-button:focus-visible {
+	opacity: 1;
+}
+
+.heading-link-button:hover {
+	color: var(--ink);
+	background: var(--bg);
+	border-color: var(--line);
+}
+
+.heading-link-button.is-copied {
+	opacity: 1;
+	color: #ffffff;
+	background: var(--ok);
+	border-color: var(--ok);
+}
+
+@media print {
+	.heading-link-button {
+		display: none;
+	}
+}
+
+blockquote {
+	margin: 1.2rem 0;
+	padding: 12px 16px;
+	border: 1px solid var(--line);
+	background: var(--surface);
+	color: var(--muted);
+}
+
+.md-content table {
+	width: 100%;
+	border-collapse: collapse;
+	margin: 1.2rem 0;
+	background: var(--surface);
+	border: 1px solid var(--line);
+	display: block;
+	overflow-x: auto;
+}
+
+.md-content thead {
+	background: #f1efe9;
+}
+
+.md-content th,
+.md-content td {
+	text-align: left;
+	padding: 10px 14px;
+	border-bottom: 1px solid var(--line);
+	min-width: 140px;
+	font-size: 0.9rem;
+}
+
+.md-content th {
+	font-weight: 600;
+	font-size: 0.76rem;
+	letter-spacing: 0.06em;
+	text-transform: uppercase;
+	color: var(--muted);
+}
+
+.md-content tr:last-child td {
+	border-bottom: 0;
+}
+
+/* ── Footer ────────────────────────────────────────────────────────────── */
+
+.site-footer {
+	margin-top: 24px;
+	padding: 14px 4px 0;
+	border-top: 1px solid var(--line);
+	color: var(--muted);
+	font-size: 0.78rem;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 8px;
+	text-align: center;
+}
+
+.site-footer-links {
+	display: flex;
+	flex-wrap: wrap;
+	justify-content: center;
+	gap: 6px 18px;
+}
+
+.site-footer-links a {
+	color: var(--muted);
+	text-decoration: none;
+	transition: color 0.12s ease;
+}
+
+.site-footer-links a:hover {
+	color: var(--ink);
+}
+
+.site-footer-links code {
+	font-size: 0.9em;
+}
+
+.site-footer-legal {
+	margin: 0;
+	max-width: 78ch;
+	font-size: 0.72rem;
+	line-height: 1.5;
+	color: var(--muted);
+	opacity: 0.8;
+}
+
+/* ── Style guide swatches (lab/styleguide) ─────────────────────────────── */
+
+.sg-swatch-grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+	gap: 12px;
+	margin: 1rem 0 1.6rem;
+}
+
+.sg-swatch {
+	border: 1px solid var(--line);
+	background: var(--surface);
+	padding: 12px 14px;
+}
+
+.sg-swatch-chip {
+	display: block;
+	width: 100%;
+	height: 48px;
+	border: 1px solid var(--line);
+	margin-bottom: 10px;
+}
+
+.sg-swatch-label {
+	font-size: 0.82rem;
+	font-weight: 600;
+	color: var(--ink);
+}
+
+.sg-swatch-value {
+	font-family: var(--font-mono);
+	font-size: 0.74rem;
+	color: var(--muted);
+	margin-top: 2px;
+}
+
+.sg-swatch-usage {
+	font-size: 0.74rem;
+	color: var(--muted);
+	margin-top: 6px;
+	line-height: 1.45;
+}
+
+/* Sorter-UI facsimile panels used on the styleguide page. */
+.setup-panel {
+	border: 1px solid var(--color-border);
+	background: var(--color-surface);
+	box-shadow:
+		inset 0 1px 0 rgba(255, 255, 255, 0.9),
+		0 1px 2px rgba(32, 28, 20, 0.04);
+}
+
+.setup-control {
+	min-height: 2.75rem;
+	border: 1px solid #d6d3cb;
+	background: var(--color-surface);
+	color: var(--color-text);
+	box-shadow:
+		inset 0 1px 0 rgba(255, 255, 255, 0.9),
+		0 1px 2px rgba(32, 28, 20, 0.02);
+}
+
+/* ── Electronics pages ─────────────────────────────────────────────────── */
+
+.spec-list {
+	display: grid;
+	grid-template-columns: max-content 1fr;
+	gap: 6px 18px;
+	margin: 1.2rem 0;
+	font-size: 0.9rem;
+	line-height: 1.55;
+}
+.spec-list dt {
+	font-weight: 600;
+	color: var(--muted);
+}
+.spec-list dd {
+	margin: 0;
+}
+
+.wire-id {
+	font-family: var(--font-mono);
+	font-size: 0.84rem;
+	font-weight: 600;
+	white-space: nowrap;
+}
+
+.flagged {
+	color: var(--primary);
+	font-style: italic;
+	font-size: 0.84rem;
+	white-space: nowrap;
+}
+
+.harness-figure {
+	margin: 1.4rem 0;
+}
+.harness-figure img {
+	display: block;
+	width: 100%;
+	height: auto;
+	border: 1px solid var(--line);
+	background: var(--surface);
+}
+.harness-figure figcaption {
+	margin-top: 8px;
+	font-size: 0.875rem;
+	line-height: 1.5;
+	color: var(--muted);
+}
+
+.diagram {
+	margin: 0;
+	background: var(--surface);
+}
+.diagram svg {
+	display: block;
+	max-width: 100%;
+	height: auto;
+}
+.diagram-wide {
+	overflow-x: auto;
+	border: 1px solid var(--line);
+	padding: 10px;
+}
+.diagram-wide svg {
+	min-width: 720px;
+}
+.diagram-inline {
+	margin: 1.2rem 0;
+}
+.diagram-inline figcaption {
+	margin-top: 4px;
+	font-size: 0.78rem;
+	color: var(--muted);
+}
+
+.download-line {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: baseline;
+	gap: 6px;
+	margin: 0.9rem 0 1.6rem;
+	font-size: 0.875rem;
+}
+.download-line span {
+	color: var(--muted);
+}
+
+/* Bills of materials, fetched from the assets bucket at read time. */
+.bom {
+	margin: 0 0 1.6rem;
+}
+.bom table {
+	width: 100%;
+	border-collapse: collapse;
+	background: var(--surface);
+	border: 1px solid var(--line);
+	display: block;
+	overflow-x: auto;
+	font-size: 0.82rem;
+}
+.bom thead {
+	background: #f1efe9;
+}
+.bom th,
+.bom td {
+	text-align: left;
+	padding: 7px 10px;
+	border-bottom: 1px solid var(--line);
+	min-width: 0;
+	white-space: nowrap;
+}
+.bom th:nth-child(2),
+.bom td:nth-child(2) {
+	white-space: normal;
+	min-width: 220px;
+}
+.bom th {
+	font-weight: 600;
+}
+.bom tr:last-child td {
+	border-bottom: 0;
+}
+.bom-status {
+	margin: 0;
+	font-size: 0.82rem;
+	color: var(--muted);
+}
+
+/* ── Responsive ────────────────────────────────────────────────────────── */
+
+@media (max-width: 880px) {
+	.layout-with-sidebar {
+		grid-template-columns: 1fr;
+	}
+
+	.section-sidebar {
+		position: static;
+		padding: 0;
+		max-height: none;
+	}
+
+	.section-sidebar-kicker {
+		display: none;
+	}
+
+	.section-sidebar-toggle {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		width: 100%;
+		padding: 12px 14px;
+		font: inherit;
+		font-size: 0.66rem;
+		font-weight: 700;
+		letter-spacing: 0.12em;
+		text-transform: uppercase;
+		color: var(--muted);
+		background: none;
+		border: none;
+		cursor: pointer;
+	}
+
+	.section-sidebar-toggle-icon {
+		font-size: 0.9rem;
+		letter-spacing: 0;
+		transition: transform 0.15s ease;
+	}
+
+	.section-sidebar-toggle[aria-expanded='true'] .section-sidebar-toggle-icon {
+		transform: rotate(180deg);
+	}
+
+	.section-sidebar > nav {
+		display: none;
+		padding: 0 10px 12px;
+		overflow-y: visible;
+	}
+
+	.section-sidebar.nav-open > nav {
+		display: flex;
+	}
+}
+
+@media (max-width: 740px) {
+	.content {
+		padding: 22px 18px 26px;
+	}
+
+	.site-header > .site-nav {
+		margin-left: 0;
+	}
+
+	.construction-banner-text small {
+		white-space: normal;
+	}
+
+	.spec-list {
+		grid-template-columns: 1fr;
+		gap: 2px 0;
+	}
+
+	.spec-list dd {
+		margin-bottom: 10px;
+	}
+}
+
+/* ── Search nav button ─────────────────────────────────────────────────── */
+
+.search-nav-btn {
+	display: inline-flex;
+	align-items: center;
+	gap: 7px;
+	padding: 6px 10px 6px 10px;
+	font: inherit;
+	font-size: 0.88rem;
+	font-weight: 500;
+	color: var(--muted);
+	background: transparent;
+	border: 1px solid transparent;
+	cursor: pointer;
+	transition:
+		color 0.12s ease,
+		background 0.12s ease;
+}
+
+.search-nav-btn:hover {
+	color: var(--ink);
+	background: var(--surface);
+}
+
+.search-nav-label {
+	/* Hide label on very small screens if needed — icon is enough */
+}
+
+.search-nav-hint {
+	display: inline-block;
+	padding: 1px 5px;
+	font: 0.72rem/1.4 var(--font-mono);
+	color: var(--muted);
+	background: var(--bg);
+	border: 1px solid var(--line);
+	border-radius: 3px;
+	pointer-events: none;
+}
+
+/* ── Search dialog ─────────────────────────────────────────────────────── */
+
+.search-dialog {
+	position: fixed;
+	inset: 0;
+	width: 100%;
+	height: 100%;
+	max-width: 100%;
+	max-height: 100%;
+	padding: 0;
+	background: transparent;
+	border: none;
+	align-items: flex-start;
+	justify-content: center;
+	padding-top: clamp(60px, 12vh, 140px);
+}
+
+.search-dialog:not([open]) {
+	display: none;
+}
+
+.search-dialog[open] {
+	display: flex;
+}
+
+.search-dialog::backdrop {
+	background: rgba(0, 0, 0, 0.46);
+}
+
+.search-panel {
+	width: min(560px, calc(100vw - 32px));
+	background: var(--surface);
+	border: 1px solid var(--line);
+	box-shadow:
+		0 4px 6px -1px rgba(0, 0, 0, 0.1),
+		0 16px 48px -8px rgba(0, 0, 0, 0.18);
+	display: flex;
+	flex-direction: column;
+	overflow: hidden;
+}
+
+.search-input-row {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	padding: 12px 14px;
+	border-bottom: 1px solid var(--line);
+}
+
+.search-icon {
+	flex-shrink: 0;
+	width: 18px;
+	height: 18px;
+	color: var(--muted);
+}
+
+.search-input {
+	flex: 1;
+	font: 1rem var(--font-sans);
+	color: var(--ink);
+	background: transparent;
+	border: none;
+	outline: none;
+	min-width: 0;
+}
+
+.search-input::placeholder {
+	color: var(--muted);
+}
+
+/* Remove default browser search clear button */
+.search-input::-webkit-search-cancel-button { display: none; }
+
+.search-esc-hint {
+	font: 0.72rem/1.4 var(--font-mono);
+	color: var(--muted);
+	background: var(--bg);
+	border: 1px solid var(--line);
+	border-radius: 3px;
+	padding: 1px 5px;
+	cursor: pointer;
+	flex-shrink: 0;
+}
+
+.search-results {
+	list-style: none;
+	margin: 0;
+	padding: 6px 0;
+	max-height: 360px;
+	overflow-y: auto;
+}
+
+.search-result {
+	margin: 0;
+}
+
+.search-result-link {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	padding: 8px 14px;
+	text-decoration: none;
+	color: inherit;
+}
+
+.search-result--selected .search-result-link,
+.search-result-link:hover {
+	background: color-mix(in srgb, var(--primary) 6%, var(--surface));
+}
+
+.search-result--selected .search-result-link {
+	background: color-mix(in srgb, var(--primary) 8%, var(--surface));
+}
+
+.search-result-row {
+	display: flex;
+	align-items: baseline;
+	gap: 10px;
+}
+
+.search-result-title {
+	font-size: 0.92rem;
+	font-weight: 500;
+	color: var(--ink);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	min-width: 0;
+}
+
+.search-result--selected .search-result-title {
+	color: var(--primary);
+}
+
+.search-result-crumb {
+	flex-shrink: 0;
+	font-size: 0.78rem;
+	color: var(--muted);
+	margin-left: auto;
+	white-space: nowrap;
+}
+
+.search-result-lede {
+	font-size: 0.78rem;
+	color: var(--muted);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.search-empty {
+	margin: 0;
+	padding: 18px 14px;
+	font-size: 0.9rem;
+	color: var(--muted);
+	text-align: center;
+}
+
+.search-footer {
+	display: flex;
+	gap: 14px;
+	padding: 8px 14px;
+	border-top: 1px solid var(--line);
+	font-size: 0.74rem;
+	color: var(--muted);
+}
+
+.search-footer kbd {
+	display: inline-block;
+	padding: 0 4px;
+	font: 0.7rem/1.5 var(--font-mono);
+	color: var(--muted);
+	background: var(--bg);
+	border: 1px solid var(--line);
+	border-radius: 3px;
+	margin-right: 2px;
+}
+
+/* ── Back to top ───────────────────────────────────────────────────────── */
+
+/* Fixed bottom right on every page. Hidden until BackToTop.svelte decides
+   otherwise (an upward scroll, once you are a screenful down), and hidden in
+   the prerendered HTML because `visible` starts false. */
+.back-to-top {
+	position: fixed;
+	right: max(20px, env(safe-area-inset-right));
+	bottom: max(20px, env(safe-area-inset-bottom));
+	z-index: 40;
+	display: inline-flex;
+	align-items: center;
+	gap: 7px;
+	padding: 9px 12px;
+	font: inherit;
+	font-size: 0.82rem;
+	font-weight: 500;
+	color: var(--muted);
+	background: var(--surface);
+	border: 1px solid var(--line);
+	box-shadow: 0 2px 10px -2px rgba(0, 0, 0, 0.14);
+	cursor: pointer;
+	opacity: 0;
+	visibility: hidden;
+	transform: translateY(6px);
+	transition:
+		opacity 0.16s ease,
+		transform 0.16s ease,
+		visibility 0.16s ease,
+		color 0.12s ease,
+		border-color 0.12s ease;
+}
+
+.back-to-top.is-visible {
+	opacity: 1;
+	visibility: visible;
+	transform: translateY(0);
+}
+
+.back-to-top:hover {
+	color: var(--ink);
+	border-color: var(--muted);
+}
+
+@media (max-width: 740px) {
+	.back-to-top {
+		right: max(12px, env(safe-area-inset-right));
+		bottom: max(12px, env(safe-area-inset-bottom));
+		padding: 9px 10px;
+	}
+
+	/* Icon only where the page is narrow enough for the label to crowd the
+	   copy underneath it. */
+	.back-to-top span {
+		display: none;
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.back-to-top {
+		transition: none;
+		transform: none;
+	}
+}
+
+/* ── Modal ─────────────────────────────────────────────────────────────── */
+/* The generic panel (Modal.svelte). A native <dialog>, so the backdrop,
+   Escape and focus trapping come from the browser. The part detail is its
+   only caller today. */
+
+.modal {
+	position: fixed;
+	inset: 0;
+	width: 100%;
+	height: 100%;
+	max-width: 100%;
+	max-height: 100%;
+	padding: clamp(12px, 4vh, 48px) 16px;
+	background: transparent;
+	border: none;
+	align-items: flex-start;
+	justify-content: center;
+}
+
+.modal:not([open]) {
+	display: none;
+}
+
+.modal[open] {
+	display: flex;
+}
+
+.modal::backdrop {
+	background: rgba(0, 0, 0, 0.46);
+}
+
+.modal-panel {
+	display: flex;
+	flex-direction: column;
+	width: min(900px, 100%);
+	max-height: 100%;
+	background: var(--surface);
+	border: 1px solid var(--line);
+	box-shadow:
+		0 4px 6px -1px rgba(0, 0, 0, 0.1),
+		0 16px 48px -8px rgba(0, 0, 0, 0.18);
+	overflow: hidden;
+}
+
+.modal-header {
+	display: flex;
+	align-items: flex-start;
+	gap: 12px;
+	padding: 12px 14px;
+	border-bottom: 1px solid var(--line);
+}
+
+.modal-heading {
+	min-width: 0;
+	flex: 1;
+}
+
+.modal-title {
+	margin: 0;
+	font-size: 1rem;
+	font-weight: 600;
+	line-height: 1.3;
+	color: var(--ink);
+}
+
+.modal-subtitle {
+	margin: 2px 0 0;
+	font: 0.72rem/1.4 var(--font-mono);
+	color: var(--muted);
+}
+
+.modal-close {
+	flex-shrink: 0;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 28px;
+	height: 28px;
+	padding: 0;
+	color: var(--muted);
+	background: var(--bg);
+	border: 1px solid var(--line);
+	cursor: pointer;
+}
+
+.modal-close:hover {
+	color: var(--ink);
+	border-color: var(--muted);
+}
+
+.modal-close svg {
+	width: 16px;
+	height: 16px;
+}
+
+.modal-body {
+	min-height: 0;
+	overflow-y: auto;
+}
+
+/* ── Part detail modal ─────────────────────────────────────────────────── */
+
+.part-modal-media {
+	border-bottom: 1px solid var(--line);
+	background: var(--bg);
+}
+
+.part-modal-img {
+	display: block;
+	width: 100%;
+	max-height: 46vh;
+	object-fit: contain;
+	background: var(--surface);
+}
+
+.part-modal-noimg {
+	margin: 0;
+	padding: 40px 0;
+	font-size: 0.85rem;
+	color: var(--muted);
+	text-align: center;
+}
+
+.part-modal-detail {
+	padding: 14px 16px 18px;
+}
+
+.part-modal-change {
+	margin: 0 0 12px;
+}
+
+.part-modal-desc {
+	margin: 0 0 8px;
+	font-size: 0.92rem;
+	line-height: 1.55;
+	color: var(--ink);
+}
+
+.part-modal-note {
+	margin: 0 0 8px;
+	font-size: 0.84rem;
+	line-height: 1.5;
+	color: var(--muted);
+}
+
+.part-modal-attrs {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px;
+	margin: 10px 0;
+	padding: 0;
+	list-style: none;
+}
+
+.part-modal-attrs li {
+	padding: 2px 7px;
+	font-size: 0.76rem;
+	color: var(--ink);
+	background: var(--bg);
+	border: 1px solid var(--line);
+}
+
+.part-modal-attrs span {
+	color: var(--muted);
+}
+
+.part-modal-facts {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+	gap: 8px;
+	margin: 12px 0;
+}
+
+.part-modal-facts dt {
+	font-size: 0.6rem;
+	font-weight: 700;
+	letter-spacing: 0.1em;
+	text-transform: uppercase;
+	color: var(--muted);
+}
+
+.part-modal-facts dd {
+	margin: 2px 0 0;
+	font-size: 0.88rem;
+	font-weight: 500;
+	color: var(--ink);
+}
+
+.part-modal-facts > div {
+	padding: 7px 9px;
+	background: var(--bg);
+	border: 1px solid var(--line);
+}
+
+.part-modal-block {
+	margin-top: 14px;
+}
+
+.part-modal-block h3 {
+	margin: 0 0 5px;
+	font-size: 0.6rem;
+	font-weight: 700;
+	letter-spacing: 0.1em;
+	text-transform: uppercase;
+	color: var(--muted);
+}
+
+.part-modal-list {
+	margin: 0;
+	padding-left: 1.1rem;
+	font-size: 0.85rem;
+	line-height: 1.6;
+	color: var(--ink);
+}
+
+.part-modal-region {
+	color: var(--muted);
+	font-size: 0.78rem;
+}
+
+.part-modal-actions {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 10px 16px;
+	margin-top: 16px;
+	padding-top: 14px;
+	border-top: 1px solid var(--line);
+}
+
+.part-modal-button {
+	padding: 7px 14px;
+	font-size: 0.85rem;
+	font-weight: 600;
+	color: var(--color-primary-contrast);
+	background: var(--primary);
+	border: 1px solid var(--primary);
+	text-decoration: none;
+}
+
+.part-modal-button:hover {
+	background: var(--primary-hover);
+	border-color: var(--primary-hover);
+}
+
+.part-modal-link {
+	font-size: 0.85rem;
+	color: var(--primary);
+	text-decoration: none;
+}
+
+.part-modal-link:hover {
+	text-decoration: underline;
+}
+
+/* ── STL viewer ────────────────────────────────────────────────────────── */
+
+.stl-viewer {
+	position: relative;
+	width: 100%;
+	height: min(46vh, 420px);
+	background: var(--bg);
+}
+
+/* a soft grey ground: light enough for dark parts, grey enough that a white
+   part has an edge against it */
+.stl-viewer--cad {
+	background: linear-gradient(180deg, #e6e9ee 0%, #cdd3db 100%);
+}
+
+.stl-canvas {
+	width: 100%;
+	height: 100%;
+}
+
+.stl-poster {
+	position: absolute;
+	inset: 0;
+	width: 100%;
+	height: 100%;
+	object-fit: contain;
+	opacity: 0.35;
+}
+
+.stl-status {
+	position: absolute;
+	inset: 0;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	margin: 0;
+	font-size: 0.85rem;
+	color: var(--muted);
+}
+
+.stl-hint {
+	position: absolute;
+	left: 12px;
+	bottom: 8px;
+	margin: 0;
+	font-size: 0.72rem;
+	color: var(--muted);
+	pointer-events: none;
+}
+
+.stl-controls {
+	position: absolute;
+	right: 12px;
+	bottom: 8px;
+	display: inline-flex;
+	background: var(--surface);
+	border: 1px solid var(--line);
+}
+
+.stl-controls button {
+	padding: 2px 8px;
+	font: 0.72rem var(--font-sans);
+	color: var(--muted);
+	background: none;
+	border: none;
+	cursor: pointer;
+}
+
+.stl-controls button:hover {
+	color: var(--ink);
+}
+
+.stl-controls button.stl-mode--on {
+	color: var(--surface);
+	background: var(--ink);
+}

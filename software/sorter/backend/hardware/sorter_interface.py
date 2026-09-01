@@ -8,6 +8,7 @@
 import os
 import time
 import json
+from typing import Protocol
 from .bus import MCUDevice, BaseCommandCode
 import struct
 from global_config import GlobalConfig
@@ -44,6 +45,7 @@ class InterfaceCommandCode(BaseCommandCode):
     # Digital I/O commands
     DIGITAL_READ = 0x30
     DIGITAL_WRITE = 0x31
+    DIGITAL_WRITE_PWM = 0x32  # payload: uint16 duty (0 = off, 65535 = full on)
     # Servo commands
     SERVO_MOVE_TO = 0x40
     SERVO_SET_SPEED_LIMITS = 0x41
@@ -71,28 +73,89 @@ class DigitalInputPin:
     def channel(self):
         return self._channel
     
+# Duty is a uint16 on the wire. The firmware wraps its PWM counter at 65534 so
+# that 0 is genuinely always-low and DIGITAL_OUTPUT_DUTY_MAX always-high.
+DIGITAL_OUTPUT_DUTY_MAX = 65535
+
+
+class DigitalOutputDevice(Protocol):
+    # The whole surface a digital output needs from its board. Narrower than
+    # MCUDevice because writes never inspect the response.
+    def send_command(self, command: int, channel: int, payload: bytes) -> object: ...
+
+
 class DigitalOutputPin:
-    def __init__(self, device: MCUDevice, channel: int, gc: GlobalConfig):
+    def __init__(self, device: DigitalOutputDevice, channel: int, gc: GlobalConfig):
         self._dev = device
         self._channel = channel
         self._value = False
+        self._duty = 0
         self._enabled = True
+        self._pwm_armed = False
         self._gc = gc
 
     @property
     def value(self):
         return self._value
-    
+
     @value.setter
     def value(self, value: bool):
         self._value = bool(value)
+        self._duty = DIGITAL_OUTPUT_DUTY_MAX if self._value else 0
         self._gc.logger.info(f"DigitalOutput ch{self._channel}: set value={self._value}")
         payload = struct.pack("<?", self._value) # 1 byte, boolean
         self._dev.send_command(InterfaceCommandCode.DIGITAL_WRITE, self._channel, payload)
-    
+        # The firmware hands the pad back to SIO on a plain write, so the next
+        # duty write has to re-arm PWM mode.
+        self._pwm_armed = False
+
+    @property
+    def duty(self) -> int:
+        return self._duty
+
+    def setDuty(self, duty: int) -> None:
+        clamped = max(0, min(DIGITAL_OUTPUT_DUTY_MAX, int(duty)))
+        if not self._pwm_armed:
+            # The board only routes the pad to its PWM block on the first duty
+            # write after a plain one, and it tracks that with a flag that its
+            # INIT command does not clear. INIT is what board discovery sends on
+            # every host start, and it drives the pad low via SIO — so a board
+            # that was left in PWM mode by a previous host process comes back
+            # dark with its flag still saying "already PWM", and every later duty
+            # write lands on a pad the PWM block no longer drives. Older firmware
+            # is out in the field with that bug, so open each process's first duty
+            # write with a plain one: it clears the flag on both sides.
+            self._dev.send_command(
+                InterfaceCommandCode.DIGITAL_WRITE, self._channel, struct.pack("<?", False)
+            )
+            self._pwm_armed = True
+        payload = struct.pack("<H", clamped)
+        self._dev.send_command(
+            InterfaceCommandCode.DIGITAL_WRITE_PWM, self._channel, payload
+        )
+        self._duty = clamped
+        self._value = clamped > 0
+        self._gc.logger.info(f"DigitalOutput ch{self._channel}: set duty={clamped}")
+
     @property
     def channel(self):
         return self._channel
+
+def _controlDataRecordCommand(payload: dict) -> None:
+    # Feeder-dynamics capture: every motor command is half of a (state, action)
+    # transition. No-op unless a capture segment is open (machine sorting).
+    try:
+        import time as _time
+
+        import control_data_store
+
+        payload["type"] = "cmd"
+        payload["t"] = _time.time()
+        payload["mono"] = _time.monotonic()
+        control_data_store.record(payload)
+    except Exception:
+        pass
+
 
 class StepperMotor:
     def __init__(self, device: MCUDevice, channel: int, gc: GlobalConfig):
@@ -167,6 +230,16 @@ class StepperMotor:
             self._current_position_steps += steps
         else:
             self._gc.logger.error(f"Stepper '{self._name}' ch{self._channel}: move_steps({steps}) FAILED")
+        _controlDataRecordCommand(
+            {
+                "cmd": "move_steps",
+                "stepper": self._name,
+                "steps": steps,
+                "deg": round(self.degrees_for_microsteps(steps), 3),
+                "accel": self._applied_acceleration,
+                "success": success,
+            }
+        )
         return success
     
     def move_at_speed(self, speed: int, *, acceleration: int | None = None, force: bool = False) -> bool:
@@ -192,6 +265,15 @@ class StepperMotor:
         success = bool(res.payload[0])
         if not success:
             self._gc.logger.error(f"Stepper '{self._name}' ch{self._channel}: move_at_speed({speed}) FAILED")
+        _controlDataRecordCommand(
+            {
+                "cmd": "move_at_speed",
+                "stepper": self._name,
+                "speed": speed,
+                "accel": self._applied_acceleration,
+                "success": success,
+            }
+        )
         return success
 
     def jitter(self, amplitude_steps: int, cycles: int, speed: int, acceleration: int, *, force: bool = False) -> bool:
@@ -217,6 +299,17 @@ class StepperMotor:
         success = len(res.payload) > 0 and bool(res.payload[0])
         if not success:
             self._gc.logger.error(f"Stepper '{self._name}' ch{self._channel}: jitter was not acknowledged")
+        _controlDataRecordCommand(
+            {
+                "cmd": "jitter",
+                "stepper": self._name,
+                "amplitude_steps": amplitude,
+                "cycles": int(cycles),
+                "speed": int(speed),
+                "accel": int(acceleration),
+                "success": success,
+            }
+        )
         return success
 
     def jitter_degrees(self, amplitude_degrees: float, cycles: int, speed: int, acceleration: int, *, force: bool = False) -> bool:
@@ -237,6 +330,14 @@ class StepperMotor:
         self._gc.logger.info(f"Stepper '{self._name}' ch{self._channel}: set_speed_limits min={min_speed} max={max_speed} µsteps/s")
         payload = struct.pack("<II", min_speed, max_speed) # 8 bytes, two little-endian unsigned integers
         self._dev.send_command(InterfaceCommandCode.STEPPER_SET_SPEED_LIMITS, self._channel, payload)
+        _controlDataRecordCommand(
+            {
+                "cmd": "set_speed_limits",
+                "stepper": self._name,
+                "min_speed": min_speed,
+                "max_speed": max_speed,
+            }
+        )
 
     def set_acceleration(self, acceleration: int) -> None:
         """Set the acceleration for the stepper in microsteps per second squared."""
@@ -244,6 +345,9 @@ class StepperMotor:
         payload = struct.pack("<I", acceleration)  # 4 bytes, little-endian unsigned integer
         self._dev.send_command(InterfaceCommandCode.STEPPER_SET_ACCELERATION, self._channel, payload)
         self._applied_acceleration = int(acceleration)
+        _controlDataRecordCommand(
+            {"cmd": "set_acceleration", "stepper": self._name, "accel": int(acceleration)}
+        )
 
     def set_default_acceleration(self, acceleration: int) -> None:
         """Store the per-stepper default acceleration (µsteps/s²) that every move

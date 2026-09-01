@@ -11,7 +11,7 @@
 <div class="border border-border bg-surface p-4">
 	<div class="mb-3 flex items-center justify-between">
 		<h2 class="text-sm font-semibold text-text">Annotator</h2>
-		<span class="text-xs font-medium {annotatorApi.isDirty ? 'text-[#A16207]' : annotatorApi.hasSavedBaseline ? 'text-success' : 'text-text-muted'}">
+		<span class="text-xs font-medium {annotatorApi.isDirty ? 'text-warning-strong' : annotatorApi.hasSavedBaseline ? 'text-success' : 'text-text-muted'}">
 			{#if annotatorApi.isDirty}
 				Unsaved
 			{:else if annotatorApi.hasSavedBaseline}
@@ -37,21 +37,21 @@
 		>
 			Delete
 		</button>
-		<button onclick={() => annotatorApi.clearAll()} class="border border-warning/30 px-2 py-2 text-[11px] text-[#A16207] hover:bg-warning/[0.1]">Clear</button>
+		<button onclick={() => annotatorApi.clearAll()} class="border border-warning/30 px-2 py-2 text-[11px] text-warning-strong hover:bg-warning/[0.1]">Clear</button>
 	</div>
 
 	<div class="mt-3 inline-flex border border-border bg-bg p-1">
 		<button
 			type="button"
 			onclick={() => { annotatorApi.activeTool = 'rectangle'; }}
-			class="px-3 py-1.5 text-xs font-medium transition-colors {annotatorApi.activeTool === 'rectangle' ? 'bg-text text-white' : 'text-text-muted hover:bg-surface'}"
+			class="px-3 py-1.5 text-xs font-medium transition-colors {annotatorApi.activeTool === 'rectangle' ? 'bg-text text-surface' : 'text-text-muted hover:bg-surface'}"
 		>
 			Rectangle
 		</button>
 		<button
 			type="button"
 			onclick={() => { annotatorApi.activeTool = 'polygon'; }}
-			class="px-3 py-1.5 text-xs font-medium transition-colors {annotatorApi.activeTool === 'polygon' ? 'bg-text text-white' : 'text-text-muted hover:bg-surface'}"
+			class="px-3 py-1.5 text-xs font-medium transition-colors {annotatorApi.activeTool === 'polygon' ? 'bg-text text-surface' : 'text-text-muted hover:bg-surface'}"
 		>
 			Polygon
 		</button>

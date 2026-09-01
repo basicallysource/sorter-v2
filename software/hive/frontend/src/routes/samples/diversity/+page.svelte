@@ -86,8 +86,8 @@
 	<title>Diversity - Hive</title>
 </svelte:head>
 
-<div class="mb-6 flex items-center justify-between gap-4">
-	<div>
+<div class="mb-6 flex flex-wrap items-center justify-between gap-4">
+	<div class="min-w-0">
 		<div class="mb-1 text-xs text-text-muted">
 			<a href="/samples" class="hover:underline">Samples</a>
 			<span class="mx-1">/</span>
@@ -127,7 +127,7 @@
 </div>
 
 {#if loading && !data}
-	<Spinner />
+	<div class="flex justify-center p-8"><Spinner size={32} /></div>
 {:else if error && !data}
 	<div class="border border-border bg-surface px-6 py-12 text-center text-sm text-text-muted">
 		{error}
@@ -164,7 +164,7 @@
 					</div>
 					<Sparkline values={group.coverage_trend} height={72} />
 				</div>
-				<div class="mt-2 flex items-center justify-between gap-2 text-[11px] text-text-muted">
+				<div class="mt-2 flex flex-wrap items-center justify-between gap-x-2 gap-y-0.5 text-[11px] text-text-muted">
 					<span>
 						{group.by_source_role.length} source{group.by_source_role.length === 1 ? '' : 's'}
 					</span>

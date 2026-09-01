@@ -97,7 +97,7 @@
 			case 'done':
 				return 'bg-success text-white';
 			case 'error':
-				return 'bg-warning-strong text-white';
+				return 'bg-warning-strong text-bg';
 			case 'skipped':
 				return 'bg-border text-text';
 			case 'pending':
@@ -111,7 +111,7 @@
 
 	function formatDate(iso: string | null): string {
 		if (!iso) return '—';
-		return new Date(iso).toLocaleString('de-DE', {
+		return new Date(iso).toLocaleString('en-US', {
 			day: '2-digit',
 			month: '2-digit',
 			year: 'numeric',
@@ -184,7 +184,7 @@
 </div>
 
 {#if loading && !job}
-	<Spinner />
+	<div class="flex justify-center p-8"><Spinner size={32} /></div>
 {:else if error && !job}
 	<div class="border border-border bg-surface px-6 py-12 text-center text-sm text-text-muted">
 		{error}
@@ -277,13 +277,13 @@
 
 		{#if job.items_pages > 1}
 			{@const j = job}
-			<div class="mt-4 flex items-center justify-between border border-border bg-surface px-4 py-2.5 text-xs">
+			<div class="mt-4 flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border border-border bg-surface px-4 py-2.5 text-xs">
 				<span class="text-text-muted">
 					Page {j.items_page} of {j.items_pages} · showing
 					{(j.items_page - 1) * j.items_page_size + 1}–{Math.min(j.items_page * j.items_page_size, j.items_total)}
 					of {j.items_total.toLocaleString()}
 				</span>
-				<div class="flex items-center gap-1">
+				<div class="flex flex-wrap items-center gap-1">
 					<button
 						type="button"
 						onclick={() => goToPage(j.items_page - 1)}

@@ -188,7 +188,7 @@
 					<button
 						type="button"
 						class="border px-2.5 py-1 text-[11px] font-medium {flags[chip.value]
-							? 'border-text bg-text text-white'
+							? 'border-text bg-text text-surface'
 							: 'border-border bg-surface text-text-muted hover:border-text'}"
 						onclick={() => toggleFlag(chip.value)}
 					>

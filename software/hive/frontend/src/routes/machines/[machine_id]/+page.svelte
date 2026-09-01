@@ -4,7 +4,8 @@
 		api,
 		type MachineOverview,
 		type MachineConfigBackupSummary,
-		type MachineConfigBackupDetail
+		type MachineConfigBackupDetail,
+		type MachineCameraSpec
 	} from '$lib/api';
 	import Badge from '$lib/components/Badge.svelte';
 	import Spinner from '$lib/components/Spinner.svelte';
@@ -26,6 +27,9 @@
 	const machine = $derived(overview?.machine ?? null);
 	const stats = $derived(overview?.stats ?? null);
 	const isOwner = $derived(overview?.is_owner ?? false);
+	const specs = $derived(machine?.hardware_info ?? null);
+	const cameraSpecs = $derived(Object.entries(specs?.cameras ?? {}));
+	const boardSpecs = $derived(Object.entries(specs?.controller_boards ?? {}));
 	const isOnline = $derived(
 		!!machine?.last_seen_at && Date.now() - new Date(machine.last_seen_at).getTime() < 5 * 60 * 1000
 	);
@@ -37,7 +41,7 @@
 
 	function formatDate(iso: string | null): string {
 		if (!iso) return '—';
-		return new Date(iso).toLocaleString('de-DE', {
+		return new Date(iso).toLocaleString('en-US', {
 			year: 'numeric',
 			month: 'short',
 			day: 'numeric',
@@ -60,6 +64,60 @@
 		const h = seconds / 3600;
 		if (h >= 1) return `${h.toFixed(1)}h`;
 		return `${Math.round(seconds / 60)}m`;
+	}
+
+	function prettyRole(role: string): string {
+		return role.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+	}
+
+	function bytesToGb(n: number | null | undefined): string {
+		if (!n || n <= 0) return '—';
+		const gb = n / 1e9;
+		return `${gb >= 100 ? Math.round(gb) : gb.toFixed(1)} GB`;
+	}
+
+	function resolution(cam: { width?: number | null; height?: number | null; fps?: number | null }): string {
+		const res = cam.width && cam.height ? `${cam.width}×${cam.height}` : null;
+		const fps = cam.fps ? `${cam.fps} fps` : null;
+		return [res, fps].filter(Boolean).join(' · ') || '—';
+	}
+
+	// Color correction is a build-time kill switch on the machine, so a profile
+	// can be calibrated and switched on locally yet still never touch a frame.
+	// Report what actually happens, then what was configured.
+	function colorCorrectionLabel(cam: MachineCameraSpec): string {
+		const profile = cam.calibration?.color_profile;
+		if (!profile) return 'Color: —';
+		if (profile.applied) return 'Color: corrected';
+		if (profile.globally_enabled === false) {
+			return profile.calibrated
+				? 'Color: off in build (calibrated)'
+				: 'Color: off in build';
+		}
+		if (profile.calibrated) {
+			return profile.enabled ? 'Color: corrected' : 'Color: off (calibrated)';
+		}
+		return 'Color: not calibrated';
+	}
+
+	function calibrationDetail(cam: MachineCameraSpec): string {
+		const calibration = cam.calibration;
+		if (!calibration) return '';
+		const parts: string[] = [];
+		const settings = calibration.device_settings;
+		if (settings && Object.keys(settings).length > 0) {
+			parts.push(`${Object.keys(settings).length} device settings`);
+		}
+		const picture = calibration.picture_settings;
+		if (picture && Object.keys(picture).length > 0) parts.push('orientation set');
+		return parts.join(' · ');
+	}
+
+	function boardLabel(board: {
+		family?: string | null;
+		device_name?: string | null;
+	}): string {
+		return [board.device_name, board.family].filter(Boolean).join(' · ') || '—';
 	}
 
 	function triggerVariant(trigger: string): 'success' | 'neutral' | 'warning' {
@@ -139,11 +197,13 @@
 	<title>{machine ? `${machine.name} — Overview` : 'Machine'} · Hive</title>
 </svelte:head>
 
-<div class="mx-auto max-w-5xl px-4 py-8">
+<!-- No horizontal padding at mobile: the app shell already pads by 4, and a
+     second px-4 here costs 64px of a 390px screen. -->
+<div class="mx-auto max-w-5xl py-8 sm:px-4">
 	<a href={backLink.href} class="text-sm text-text-muted hover:text-primary hover:underline">{backLink.label}</a>
 
 	{#if loading}
-		<div class="mt-8 flex justify-center"><Spinner /></div>
+		<div class="mt-8 flex justify-center"><Spinner size={32} /></div>
 	{:else if error}
 		<div class="mt-6"><Alert variant="danger">{error}</Alert></div>
 	{:else if overview && machine}
@@ -210,12 +270,18 @@
 
 		<!-- Piece stats -->
 		<section class="mt-6">
-			<div class="flex items-baseline justify-between">
+			<div class="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
 				<h2 class="text-lg font-semibold text-text">Sorting</h2>
-				<a
-					href={`/machines/${machine.id}/pieces`}
-					class="text-sm text-primary hover:underline">View pieces →</a
-				>
+				<div class="flex flex-wrap items-baseline gap-4">
+					<a
+						href={`/machines/${machine.id}/channel-crops`}
+						class="text-sm text-primary hover:underline">Channel crops →</a
+					>
+					<a
+						href={`/machines/${machine.id}/pieces`}
+						class="text-sm text-primary hover:underline">View pieces →</a
+					>
+				</div>
 			</div>
 			<div class="mt-3 grid grid-cols-2 gap-px border border-border bg-border sm:grid-cols-4">
 				{#each [
@@ -315,18 +381,18 @@
 								<button
 									type="button"
 									onclick={() => toggle(backup.version)}
-									class="flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-bg"
+									class="flex w-full flex-wrap items-center gap-x-3 gap-y-1 px-4 py-3 text-left hover:bg-bg"
 								>
 									<span class="font-mono text-sm font-semibold text-text">v{backup.version}</span>
 									<Badge text={backup.trigger} variant={triggerVariant(backup.trigger)} />
-									<span class="text-sm text-text-muted">{formatDate(backup.created_at)}</span>
+									<span class="min-w-0 truncate text-sm text-text-muted">{formatDate(backup.created_at)}</span>
 									<span class="ml-auto font-mono text-xs text-text-muted">{backup.content_hash.slice(0, 12)}</span>
 									<span class="text-text-muted">{expanded === backup.version ? '▾' : '▸'}</span>
 								</button>
 								{#if expanded === backup.version}
 									<div class="border-t border-border bg-bg px-4 py-3">
 										{#if detailLoading}
-											<div class="flex justify-center py-4"><Spinner /></div>
+											<div class="flex justify-center py-4"><Spinner size={24} /></div>
 										{:else if detail}
 											<div class="mb-2 text-xs font-semibold tracking-wider text-text-muted uppercase">
 												local_state
@@ -364,6 +430,96 @@
 						{/each}
 					</div>
 				{/if}
+			</section>
+		{/if}
+
+		<!-- Machine specs (owner + admins only; the page itself is already owner/admin-gated) -->
+		{#if specs && (isOwner || overview.viewer_is_admin)}
+			<section class="mt-8">
+				<h2 class="text-lg font-semibold text-text">Machine specs</h2>
+				<div class="mt-3 border border-border bg-surface p-5">
+					<dl class="grid grid-cols-2 gap-x-6 gap-y-3 text-sm sm:grid-cols-3">
+						<div>
+							<dt class="text-text-muted">Platform</dt>
+							<dd class="text-text">{specs.platform?.model || '—'}</dd>
+						</div>
+						<div>
+							<dt class="text-text-muted">Operating system</dt>
+							<dd class="text-text">
+								{specs.platform?.os?.name || '—'}
+								{#if specs.platform?.os?.sorter_os_version}
+									<span class="text-text-muted"> · {specs.platform.os.sorter_os_version}</span>
+								{/if}
+							</dd>
+						</div>
+						<div>
+							<dt class="text-text-muted">Software</dt>
+							<dd class="text-text">
+								{specs.software?.version || '—'}
+								{#if specs.software?.channel}
+									<span class="text-text-muted"> · {specs.software.channel}</span>
+								{/if}
+							</dd>
+						</div>
+						{#if specs.system?.ram_bytes}
+							<div>
+								<dt class="text-text-muted">Memory</dt>
+								<dd class="text-text">{bytesToGb(specs.system.ram_bytes)}</dd>
+							</div>
+						{/if}
+						{#if specs.system?.disk_total_bytes}
+							<div>
+								<dt class="text-text-muted">Storage</dt>
+								<dd class="text-text">{bytesToGb(specs.system.disk_total_bytes)}</dd>
+							</div>
+						{/if}
+						{#if specs.config?.machine_setup}
+							<div>
+								<dt class="text-text-muted">Setup</dt>
+								<dd class="text-text">{specs.config.machine_setup}</dd>
+							</div>
+						{/if}
+					</dl>
+
+					{#if cameraSpecs.length > 0}
+						<div class="mt-5 border-t border-border pt-4">
+							<h3 class="text-xs font-medium uppercase tracking-wider text-text-muted">Cameras</h3>
+							<dl class="mt-2 grid grid-cols-2 gap-x-6 gap-y-2 text-sm sm:grid-cols-3">
+								{#each cameraSpecs as [role, cam] (role)}
+									<div>
+										<dt class="text-text">{prettyRole(role)}</dt>
+										<dd class="text-text-muted">
+											{cam.model || 'Camera'}
+											<span class="block tabular-nums">{resolution(cam)}</span>
+											<span class="block">{colorCorrectionLabel(cam)}</span>
+											{#if calibrationDetail(cam)}
+												<span class="block">{calibrationDetail(cam)}</span>
+											{/if}
+										</dd>
+									</div>
+								{/each}
+							</dl>
+						</div>
+					{/if}
+
+					{#if boardSpecs.length > 0}
+						<div class="mt-5 border-t border-border pt-4">
+							<h3 class="text-xs font-medium uppercase tracking-wider text-text-muted">Controller boards</h3>
+							<dl class="mt-2 grid grid-cols-2 gap-x-6 gap-y-2 text-sm sm:grid-cols-3">
+								{#each boardSpecs as [key, board] (key)}
+									<div>
+										<dt class="text-text">{prettyRole(board.role || key)}</dt>
+										<dd class="text-text-muted">{boardLabel(board)}</dd>
+									</div>
+								{/each}
+							</dl>
+						</div>
+					{/if}
+
+					{#if specs.captured_at}
+						<p class="mt-4 text-xs text-text-muted">As of {formatDate(specs.captured_at)}.</p>
+					{/if}
+				</div>
 			</section>
 		{/if}
 	{/if}

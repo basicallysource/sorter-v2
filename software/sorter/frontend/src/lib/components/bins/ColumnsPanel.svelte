@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { ToggleSwitch } from '$lib/components/primitives';
-	import { Crosshair, Loader2 } from 'lucide-svelte';
+	import { Crosshair } from 'lucide-svelte';
+	import Spinner from '$lib/components/Spinner.svelte';
 
 	let {
 		sectionCount,
@@ -59,13 +60,13 @@
 					title="Point chute at section {sectionIndex + 1}"
 				>
 					{#if pointingKey === `point-${sectionIndex}`}
-						<Loader2 size={14} class="animate-spin" />
+						<Spinner size={14} />
 					{:else}
 						<Crosshair size={14} />
 					{/if}
 				</button>
 				{#if colBusy}
-					<Loader2 size={14} class="animate-spin text-primary" />
+					<Spinner size={14} class="text-primary" />
 				{/if}
 			</div>
 		{/each}

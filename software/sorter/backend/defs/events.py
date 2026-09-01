@@ -77,28 +77,26 @@ class RecognitionImage(BaseModel):
     # that lost (a different request scored higher) and was thrown out (distinct
     # from used=False, which means "never sent").
     excluded_from_result: bool = False
-    # Physical channel: 4 for a C4 burst capture, 2 or 3 for an upstream match
-    # crop. None when unknown (older records).
+    # Physical channel: 4 for a C4 burst capture. None when unknown (older
+    # records).
     channel: Optional[int] = None
     # Wall-clock capture time (epoch seconds). The UI ages each pic against the
     # owning KnownObject.created_at. None for older records.
     created_at: Optional[float] = None
     # Motion-blur / focus measure: variance of the image's Laplacian (higher =
-    # sharper). Set for C4 burst crops at capture; None for upstream crops and
-    # older records. Lets consumers judge image validity without redecoding.
+    # sharper). Set for C4 burst crops at capture; None for older records. Lets
+    # consumers judge image validity without redecoding.
     sharpness: Optional[float] = None
 
 
 class ClassificationAttemptStrategy(str, Enum):
     combined = "combined"
     single_burst = "single_burst"
-    single_upstream = "single_upstream"
 
 
 class ClassificationAttempt(BaseModel):
     strategy: ClassificationAttemptStrategy
     n_burst: int
-    n_upstream: int
     found: bool
     label: Optional[str] = None
     applied: bool = False
@@ -133,11 +131,16 @@ class KnownObjectData(BaseModel):
     color_id: str = "any_color"
     color_name: str = "Any Color"
     category_id: Optional[str] = None
+    # Mold and color are scored independently and can come from different
+    # providers — ``confidence`` is Brickognize's top-item (mold) score,
+    # ``color_confidence`` the applied color's own score.
     confidence: Optional[float] = None
+    color_confidence: Optional[float] = None
     max_dimension_mm: Optional[float] = None
-    # Headline BrickLink moving-average price (USD) from the local parts.db, plus
-    # the full local-DB metadata blob. moving_avg_price is what the Recent Pieces
-    # card renders; piece_metadata carries the rest for the detail view.
+    # Headline BrickLink moving-average price (USD) from Hive, plus the full
+    # metadata blob. moving_avg_price is what the Recent Pieces card renders;
+    # piece_metadata carries the rest (BrickLink item, price buckets, dimensions)
+    # for the detail view.
     moving_avg_price: Optional[float] = None
     piece_metadata: Optional[Dict[str, Any]] = None
     # True when the profile's high_value_routing override rerouted this piece into
@@ -164,13 +167,30 @@ class KnownObjectData(BaseModel):
     drop_snapshot: Optional[str] = None
     brickognize_preview_url: Optional[str] = None
     brickognize_source_view: Optional[str] = None
-    # C4 burst captures + any upstream (C2/C3) match crops, each flagged with
+    # Correction provenance from the applied request. brickognize_listing_id being
+    # set is what makes a piece "correctable" in the UI (the client can only submit
+    # a correction when we captured the listing). Carried on the live payload so a
+    # freshly classified piece is correctable immediately, before it's recorded.
+    brickognize_listing_id: Optional[str] = None
+    brickognize_item_rank: Optional[int] = None
+    brickognize_item_type: Optional[str] = None
+    brickognize_color_rank: Optional[int] = None
+    # Which service actually produced the applied color / mold. Reflects what
+    # answered, not what was configured — a hosted color provider that times out
+    # leaves this as "brickognize".
+    color_provider: Optional[str] = None
+    mold_provider: Optional[str] = None
+    # C4 burst captures, each flagged with
     # whether it was actually submitted to Brickognize.
     recognition_image_set: List["RecognitionImage"] = Field(default_factory=list)
+    # Piece-link model guesses (C2/C3 crops scored as the same piece). Kept
+    # separate from recognition_image_set so ground-truth burst images and model
+    # guesses can never mix in storage, sync, or training data.
+    link_match_image_set: List["RecognitionImage"] = Field(default_factory=list)
     # Per-request Brickognize record; the requests fan out in parallel (combined +
     # single-image calls), not as retries. The applied one is flagged.
     # ``classification_strategy`` is which request won (``combined`` = the fused
-    # set; ``single_burst`` / ``single_upstream`` = a lone image beat it).
+    # set; ``single_burst`` = a lone image beat it).
     classification_attempts: List["ClassificationAttempt"] = Field(default_factory=list)
     classification_strategy: Optional[ClassificationAttemptStrategy] = None
     # Captured timestamps of crops shipped to Brickognize for this piece.

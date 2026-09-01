@@ -88,7 +88,7 @@
 	<title>Manage Users - Hive</title>
 </svelte:head>
 
-<div class="mb-6 flex items-center justify-between">
+<div class="mb-6 flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
 	<h1 class="text-2xl font-bold text-text">Manage Users</h1>
 	<span class="text-sm text-text-muted">{users.length} users total</span>
 </div>
@@ -99,10 +99,10 @@
 
 {#if loading}
 	<div class="flex justify-center py-12">
-		<Spinner />
+		<Spinner size={32} />
 	</div>
 {:else}
-	<div class="overflow-hidden border border-border bg-surface">
+	<div class="overflow-x-auto border border-border bg-surface">
 		<table class="min-w-full divide-y divide-border">
 			<thead class="bg-bg">
 				<tr>
@@ -140,7 +140,7 @@
 							<div class="flex items-center justify-end gap-2">
 								<button
 									onclick={() => toggleActive(user)}
-									class="text-xs font-medium {user.is_active ? 'text-[#A16207] hover:text-[#A16207]' : 'text-success hover:text-success'}"
+									class="text-xs font-medium {user.is_active ? 'text-warning-strong hover:text-warning-strong' : 'text-success hover:text-success'}"
 									title={user.is_active ? 'Deactivate' : 'Activate'}
 								>
 									{user.is_active ? 'Deactivate' : 'Activate'}

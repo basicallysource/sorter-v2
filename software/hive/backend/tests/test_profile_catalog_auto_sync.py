@@ -69,7 +69,7 @@ def _build_service(tmp_path: Path, sync_manager: _IdleSyncManager | None = None,
     db_path = tmp_path / "parts.db"
     service._config = SimpleNamespace(
         rebrickable_api_key=rebrickable_api_key,
-        bl_affiliate_api_key="",
+        bla_api_key="",
         db_path=str(db_path),
         brickstore_db_path="",
     )

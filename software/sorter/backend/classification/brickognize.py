@@ -176,6 +176,15 @@ def _classifyImages(
     response.raise_for_status()
     result = cast(BrickognizeResponse, response.json())
 
+    # Stamp each item/color with its position in the UNFILTERED response before
+    # we drop primo/duplo items. Brickognize's feedback API keys on these ranks
+    # (item_rank / color_rank), so they must survive category filtering — the
+    # applied item carries its original rank even if items ahead of it are cut.
+    for rank, item in enumerate(result.get("items", []) or []):
+        item["rank"] = rank
+    for rank, color in enumerate(result.get("colors", []) or []):
+        color["rank"] = rank
+
     result["items"] = [
         item
         for item in result["items"]

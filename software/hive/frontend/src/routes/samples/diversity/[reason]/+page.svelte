@@ -106,8 +106,8 @@
 	<title>{prettifyToken(captureReason)} - Diversity - Hive</title>
 </svelte:head>
 
-<div class="mb-6 flex items-center justify-between">
-	<div>
+<div class="mb-6 flex flex-wrap items-center justify-between gap-4">
+	<div class="min-w-0">
 		<div class="mb-1 text-xs text-text-muted">
 			<a href="/samples" class="hover:underline">Samples</a>
 			<span class="mx-1">/</span>
@@ -131,7 +131,7 @@
 </div>
 
 {#if loading && !data}
-	<Spinner />
+	<div class="flex justify-center p-8"><Spinner size={32} /></div>
 {:else if error && !data}
 	<div class="border border-border bg-surface px-6 py-12 text-center text-sm text-text-muted">
 		{error}
@@ -143,7 +143,7 @@
 {:else}
 	<section class="mb-4 border border-border bg-surface p-4">
 		<div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-			<div class="flex items-center gap-4">
+			<div class="flex flex-wrap items-center gap-4">
 				<DiversityDonut
 					bucketFills={group.bucket_fills}
 					bucketKeys={data.bucket_keys}
@@ -202,7 +202,7 @@
 					</div>
 					<Sparkline values={role.coverage_trend} height={72} />
 				</div>
-				<div class="mt-2 flex items-center justify-between gap-2 text-[11px] text-text-muted">
+				<div class="mt-2 flex flex-wrap items-center justify-between gap-x-2 gap-y-0.5 text-[11px] text-text-muted">
 					<span class={role.machine_factor < 1 ? 'text-warning-strong' : ''} title={`coverage × ${role.machine_factor.toFixed(2)}`}>
 						{role.machine_count}/{role.machine_target} machines
 					</span>

@@ -23,6 +23,7 @@ from blob_manager import (
     getClassificationDetectionConfig,
     getFeederDetectionConfig,
     getHiveConfig,
+    getMachineNickname,
     setApiKeys,
     setCarouselDetectionConfig,
     setClassificationDetectionConfig,
@@ -38,6 +39,8 @@ from hive_telemetry import (
 from perception.overlay import drawChannelZones
 from server import shared_state
 from server.classification_training import getClassificationTrainingManager
+from server.machine_naming import display_name_from_hostname, random_display_name
+from server.routers.tailscale import current_hostname
 from vision.detection_registry import (
     detection_algorithm_definition,
     detection_algorithm_options,
@@ -248,6 +251,7 @@ CHANNEL_DROPZONE_STUCK_INCIDENT_KIND = "channel_dropzone_stuck"
 C2_SEPARATION_INCIDENT_KIND = "c2_separation_needed"
 BULK_FEEDER_STALLED_INCIDENT_KIND = "bulk_feeder_stalled"
 FEEDER_DETECTION_UNAVAILABLE_INCIDENT_KIND = "feeder_detection_unavailable"
+FEEDER_JAM_INCIDENT_KIND = "feeder_jam"
 DISTRIBUTION_CHUTE_JAM_INCIDENT_KIND = "distribution_chute_jam"
 DISTRIBUTION_SERVO_BUS_OFFLINE_INCIDENT_KIND = "distribution_servo_bus_offline"
 DISTRIBUTION_NO_BIN_AVAILABLE_INCIDENT_KIND = "distribution_no_bin_available"
@@ -881,6 +885,34 @@ def hive_link(payload: HiveLinkPayload) -> Dict[str, Any]:
         "machine_name": payload.machine_name,
         "token_prefix": payload.token_prefix or api_token[:8],
     }
+
+
+@router.get("/api/settings/hive/suggested-machine-name")
+def hive_suggested_machine_name(roll: bool = False) -> Dict[str, Any]:
+    """The name to hand Hive when the user has not typed one on the link page.
+
+    A sorter usually already has an identity: the nickname from setup, or the
+    words in the Tailscale device name it picked at firstboot. Reuse that so the
+    same machine reads the same everywhere, and only roll a fresh name when
+    there is nothing to reuse — anything is better than every machine in every
+    fleet arriving as "Lego Sorter".
+
+    ``roll=1`` skips straight to a fresh name: that is someone pressing the
+    shuffle button because they want a different one, and handing back the name
+    they are trying to get away from would make the button look broken.
+    """
+    if roll:
+        return {"ok": True, "name": random_display_name(), "source": "generated"}
+
+    nickname = (getMachineNickname() or "").strip()
+    if nickname:
+        return {"ok": True, "name": nickname, "source": "nickname"}
+
+    from_hostname = display_name_from_hostname(current_hostname())
+    if from_hostname:
+        return {"ok": True, "name": from_hostname, "source": "tailscale"}
+
+    return {"ok": True, "name": random_display_name(), "source": "generated"}
 
 
 @router.post("/api/settings/hive/backfill")
@@ -1869,7 +1901,7 @@ def classification_channel_exit_incident_clear(
         and active.get("kind") == EXIT_STUCK_INCIDENT_KIND
         and active.get("source_kind") == C4_STALL_WATCHDOG_SOURCE_KIND
     ):
-        runtime_stats.clearActiveIncident(kind=EXIT_STUCK_INCIDENT_KIND)
+        runtime_stats.clearActiveIncident(kind=EXIT_STUCK_INCIDENT_KIND, resolved_by="operator")
         return {"ok": True, "cleared": True, "kind": EXIT_STUCK_INCIDENT_KIND, "channel": "c4"}
     running = _classification_channel_running_state()
     try:
@@ -1917,6 +1949,7 @@ def classification_channel_fallback_incident_clear(
             if isinstance(active.get("piece_uuid"), str)
             else None
         ),
+        resolved_by="operator",
     )
     return {
         "ok": True,
@@ -2278,8 +2311,29 @@ def feeder_channel_exit_incident_clear(
     if requested_channel is not None and requested_channel != active_channel:
         raise HTTPException(status_code=400, detail="The active exit incident belongs to another channel.")
 
-    runtime_stats.clearActiveIncident(kind=str(active.get("kind") or CHANNEL_EXIT_STUCK_INCIDENT_KIND))
+    runtime_stats.clearActiveIncident(
+        kind=str(active.get("kind") or CHANNEL_EXIT_STUCK_INCIDENT_KIND),
+        resolved_by="operator",
+    )
     return {"ok": True, "cleared": True, "channel": active_channel}
+
+
+@router.post("/api/feeder/jam-incident/clear")
+def feeder_jam_incident_clear(
+    payload: ChannelExitIncidentActionPayload | None = None,
+) -> Dict[str, Any]:
+    runtime_stats = _runtime_stats_or_503()
+    active = runtime_stats.activeIncident() if hasattr(runtime_stats, "activeIncident") else None
+    if not isinstance(active, dict) or active.get("kind") != FEEDER_JAM_INCIDENT_KIND:
+        runtime_stats.clearActiveIncident(kind=FEEDER_JAM_INCIDENT_KIND)
+        return {"ok": True, "cleared": False, "reason": "no_active_incident"}
+
+    requested = None if payload is None else payload.channel
+    if requested is not None and str(requested).lower() != str(active.get("channel") or "").lower():
+        raise HTTPException(status_code=400, detail="The active feeder jam belongs to another channel.")
+
+    runtime_stats.clearActiveIncident(kind=FEEDER_JAM_INCIDENT_KIND, resolved_by="operator")
+    return {"ok": True, "cleared": True, "kind": FEEDER_JAM_INCIDENT_KIND, "channel": active.get("channel")}
 
 
 @router.post("/api/feeder/channel-dropzone-incident/acknowledge")
@@ -2342,7 +2396,7 @@ def feeder_ch2_separation_incident_clear(
     if requested_channel is not None and requested_channel != "c2":
         raise HTTPException(status_code=400, detail="The active separation incident belongs to C2.")
 
-    runtime_stats.clearActiveIncident(kind=C2_SEPARATION_INCIDENT_KIND)
+    runtime_stats.clearActiveIncident(kind=C2_SEPARATION_INCIDENT_KIND, resolved_by="operator")
     return {"ok": True, "cleared": True, "channel": "c2"}
 
 
@@ -2360,7 +2414,7 @@ def feeder_bulk_feed_incident_clear(
     if requested_channel is not None and requested_channel not in {"c1", "ch1", "bulk_feeder"}:
         raise HTTPException(status_code=400, detail="The active bulk-feed incident belongs to C1.")
 
-    runtime_stats.clearActiveIncident(kind=BULK_FEEDER_STALLED_INCIDENT_KIND)
+    runtime_stats.clearActiveIncident(kind=BULK_FEEDER_STALLED_INCIDENT_KIND, resolved_by="operator")
     return {"ok": True, "cleared": True, "channel": "c1"}
 
 
@@ -2372,7 +2426,9 @@ def feeder_detection_incident_clear() -> Dict[str, Any]:
         runtime_stats.clearActiveIncident(kind=FEEDER_DETECTION_UNAVAILABLE_INCIDENT_KIND)
         return {"ok": True, "cleared": False, "reason": "no_active_incident"}
 
-    runtime_stats.clearActiveIncident(kind=FEEDER_DETECTION_UNAVAILABLE_INCIDENT_KIND)
+    runtime_stats.clearActiveIncident(
+        kind=FEEDER_DETECTION_UNAVAILABLE_INCIDENT_KIND, resolved_by="operator"
+    )
     return {"ok": True, "cleared": True, "channel": "feeder"}
 
 
@@ -2398,7 +2454,7 @@ def distribution_incident_clear() -> Dict[str, Any]:
                 approver(active.get("piece_uuid") if isinstance(active.get("piece_uuid"), str) else None)
             except Exception:
                 pass
-    runtime_stats.clearActiveIncident(kind=kind)
+    runtime_stats.clearActiveIncident(kind=kind, resolved_by="operator")
     return {"ok": True, "cleared": True, "kind": kind, "channel": "distribution"}
 
 

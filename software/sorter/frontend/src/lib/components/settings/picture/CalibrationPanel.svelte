@@ -216,6 +216,7 @@
 	let {
 		calibrationMethod = $bindable(),
 		calibrationApplyColorProfile = $bindable(true),
+		colorCorrectionGloballyEnabled = true,
 		calibrating,
 		saving,
 		hasCamera,
@@ -230,6 +231,7 @@
 	}: {
 		calibrationMethod: CameraCalibrationMethod;
 		calibrationApplyColorProfile?: boolean;
+		colorCorrectionGloballyEnabled?: boolean;
 		calibrating: boolean;
 		saving: boolean;
 		hasCamera: boolean;
@@ -369,18 +371,30 @@
 </label>
 
 {#if calibrationMethod === 'llm_guided'}
-	<label class="flex items-start gap-2 border border-border bg-surface px-3 py-2 text-sm text-text">
+	<label
+		class={`flex items-start gap-2 border border-border bg-surface px-3 py-2 text-sm text-text ${
+			colorCorrectionGloballyEnabled ? '' : 'opacity-60'
+		}`}
+		title={colorCorrectionGloballyEnabled
+			? undefined
+			: 'Color correction is disabled in the software build.'}
+	>
 		<input
 			type="checkbox"
 			class="mt-0.5"
 			bind:checked={calibrationApplyColorProfile}
-			disabled={calibrating || saving}
+			disabled={calibrating || saving || !colorCorrectionGloballyEnabled}
 		/>
 		<span class="flex flex-col gap-0.5">
 			<span class="font-medium">Apply final color correction</span>
 			<span class="text-sm leading-6 text-text-muted">
-				Generate and save a color profile from the target plate after the advisor finishes.
-				Uncheck to tune device settings only and keep the live feed uncorrected.
+				{#if colorCorrectionGloballyEnabled}
+					Generate and save a color profile from the target plate after the advisor finishes.
+					Uncheck to tune device settings only and keep the live feed uncorrected.
+				{:else}
+					Color correction is turned off in this software build, so no generated profile would
+					be applied. Calibration still tunes device settings.
+				{/if}
 			</span>
 		</span>
 	</label>

@@ -19,7 +19,10 @@ def get_overview(
     # the active fleet, not retired hardware. Admins can re-archive/un-archive via
     # the machine endpoints if a rig comes back.
     machine_query = db.query(Machine).filter(Machine.archived_at.is_(None))
-    if scope == "mine":
+    # Members only ever get counts over their OWN machines — otherwise the overview
+    # leaks the whole corpus's size/composition to any registrant. Reviewers and
+    # admins see fleet-wide totals (respecting an explicit scope=mine).
+    if scope == "mine" or current_user.role not in ("admin", "reviewer"):
         machine_query = machine_query.filter(Machine.owner_id == current_user.id)
     sample_query = db.query(Sample).filter(Sample.machine_id.in_(machine_query.with_entities(Machine.id)))
 

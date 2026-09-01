@@ -64,6 +64,7 @@
 		loading = false,
 		removing = false,
 		toggling = false,
+		globallyEnabled = true,
 		onReset,
 		onToggleEnabled
 	}: {
@@ -71,13 +72,16 @@
 		loading?: boolean;
 		removing?: boolean;
 		toggling?: boolean;
+		globallyEnabled?: boolean;
 		onReset: () => void;
 		onToggleEnabled: (enabled: boolean) => void;
 	} = $props();
 
 	const ROW_LABELS = ['R', 'G', 'B'] as const;
 
-	const enabled = $derived(profile?.enabled ?? false);
+	// The per-camera toggle is meaningless while the system-wide kill switch is
+	// off — nothing is applied regardless of what this profile says.
+	const enabled = $derived(globallyEnabled && (profile?.enabled ?? false));
 	const hasData = $derived(hasCalibrationData(profile));
 
 	function formatCell(value: number): string {
@@ -85,7 +89,7 @@
 	}
 </script>
 
-<div class="grid gap-2 border-t border-border pt-3">
+<div class={`grid gap-2 border-t border-border pt-3 ${globallyEnabled ? '' : 'opacity-60'}`}>
 	<div class="flex items-center justify-between gap-3">
 		<div class="flex items-center gap-2">
 			<Palette size={14} class="text-text-muted" />
@@ -95,7 +99,8 @@
 		</div>
 		<button
 			onclick={() => onToggleEnabled(!enabled)}
-			disabled={loading || toggling}
+			disabled={loading || toggling || !globallyEnabled}
+			title={globallyEnabled ? undefined : 'Color correction is disabled in the software build.'}
 			class={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center border transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
 				enabled ? 'border-success bg-success' : 'border-border bg-surface'
 			}`}
@@ -112,7 +117,14 @@
 		</button>
 	</div>
 
-	{#if enabled}
+	{#if !globallyEnabled}
+		<p class="text-sm leading-6 text-text-muted">
+			Color correction is turned off in this software build, so no frames are corrected on any
+			camera. {hasData
+				? 'This camera still has a saved calibration — it is kept as-is and will apply again if color correction is turned back on.'
+				: 'This camera has no saved calibration.'}
+		</p>
+	{:else if enabled}
 		<p class="text-sm text-text-muted">
 			Color correction applies a per-pixel matrix transform to every frame on every camera. This can
 			be taxing on low-powered CPUs — only enable it if you need accurate color reproduction.

@@ -65,6 +65,9 @@ _STATE_KEY_BIN_LAYOUT = "bin_layout"
 _STATE_KEY_SERVO_CHANNEL_CALIBRATION = "servo_channel_calibration"
 _STATE_KEY_TAILSCALE_HOSTNAME = "tailscale_hostname"
 _STATE_KEY_SAMPLE_COLLECTION = "sample_collection"
+_STATE_KEY_TELEMETRY_INSTALL = "telemetry_install"
+_STATE_KEY_LEDS = "leds"
+_STATE_KEY_BASICALLY_SERVICES = "basically_services"
 
 _META_KEY_ACTIVE_SORTING_SESSION_ID = "active_sorting_session_id"
 _META_KEY_OPEN_BIN_SNAPSHOT_ID = "open_bin_snapshot_id"
@@ -638,6 +641,37 @@ def initialize_local_state() -> None:
                 ")"
             )
             conn.execute(
+                "CREATE TABLE IF NOT EXISTS power_stress_runs ("
+                "id TEXT PRIMARY KEY, "
+                "started_at REAL NOT NULL, "
+                "ended_at REAL, "
+                "duration_target_s REAL NOT NULL, "
+                "stepper_speed_microsteps_per_sec INTEGER NOT NULL, "
+                "chute_speed_microsteps_per_sec INTEGER NOT NULL, "
+                "chute_max_deg REAL NOT NULL, "
+                "status TEXT NOT NULL, "
+                "current_phase TEXT, "
+                "total_time_s REAL NOT NULL DEFAULT 0, "
+                "config_json TEXT NOT NULL, "
+                "error TEXT"
+                ")"
+            )
+            conn.execute(
+                "CREATE TABLE IF NOT EXISTS power_stress_events ("
+                "id INTEGER PRIMARY KEY AUTOINCREMENT, "
+                "run_id TEXT NOT NULL, "
+                "created_at REAL NOT NULL, "
+                "event_type TEXT NOT NULL, "
+                "phase TEXT, "
+                "details_json TEXT NOT NULL, "
+                "FOREIGN KEY(run_id) REFERENCES power_stress_runs(id) ON DELETE CASCADE"
+                ")"
+            )
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_power_stress_events_run "
+                "ON power_stress_events(run_id, created_at)"
+            )
+            conn.execute(
                 "CREATE TABLE IF NOT EXISTS chute_calibrations ("
                 "id TEXT PRIMARY KEY, "
                 "created_at REAL NOT NULL, "
@@ -661,6 +695,60 @@ def initialize_local_state() -> None:
                 "updated_at REAL NOT NULL, "
                 "is_active INTEGER NOT NULL DEFAULT 0"
                 ")"
+            )
+            # Write-through cache of per-piece metadata + pricing fetched from
+            # Hive (hive_metadata.py). Keyed by (part_num, color_id); payload_json
+            # is the full flattened metadata dict (NULL for price-only rows filled
+            # by the batch price path). cached_at lets us serve offline and
+            # optionally refresh stale entries. Disposable — safe to wipe.
+            conn.execute(
+                "CREATE TABLE IF NOT EXISTS hive_part_metadata_cache ("
+                "part_num TEXT NOT NULL, "
+                "color_id TEXT NOT NULL, "
+                "payload_json TEXT, "
+                "moving_avg_price REAL, "
+                "cached_at REAL NOT NULL, "
+                "PRIMARY KEY(part_num, color_id)"
+                ")"
+            )
+            conn.execute(
+                "CREATE TABLE IF NOT EXISTS feeder_autotune_runs ("
+                "id TEXT PRIMARY KEY, "
+                "started_at REAL NOT NULL, "
+                "ended_at REAL, "
+                "status TEXT NOT NULL, "
+                "baseline_config TEXT NOT NULL, "
+                "settings_json TEXT NOT NULL, "
+                "best_trial_id INTEGER, "
+                "notes TEXT"
+                ")"
+            )
+            conn.execute(
+                "CREATE TABLE IF NOT EXISTS feeder_autotune_trials ("
+                "id INTEGER PRIMARY KEY AUTOINCREMENT, "
+                "run_id TEXT NOT NULL, "
+                "trial_index INTEGER NOT NULL, "
+                "kind TEXT NOT NULL, "
+                "params_json TEXT NOT NULL, "
+                "started_at REAL NOT NULL, "
+                "ended_at REAL, "
+                "status TEXT NOT NULL, "
+                "measured_s REAL NOT NULL DEFAULT 0, "
+                "pieces_delivered INTEGER NOT NULL DEFAULT 0, "
+                "incidents INTEGER NOT NULL DEFAULT 0, "
+                "double_drops INTEGER NOT NULL DEFAULT 0, "
+                "pieces_per_min REAL, "
+                "double_drop_rate REAL, "
+                "feasible INTEGER, "
+                "score REAL, "
+                "FOREIGN KEY(run_id) REFERENCES feeder_autotune_runs(id) ON DELETE CASCADE"
+                ")"
+            )
+            _ensure_column(conn, "feeder_autotune_trials", "double_drop_rate", "REAL")
+            _ensure_column(conn, "feeder_autotune_trials", "feasible", "INTEGER")
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_feeder_autotune_trials_run "
+                "ON feeder_autotune_trials(run_id, trial_index)"
             )
             schema_version = _get_meta(conn, "schema_version")
             if schema_version != str(_SCHEMA_VERSION):
@@ -757,6 +845,43 @@ def set_machine_id(machine_id: str) -> None:
     if not normalized:
         raise ValueError("machine_id must be a non-empty string")
     _write_state(_STATE_KEY_MACHINE_ID, normalized)
+
+
+# The anonymous install identity for the status ping (status_ping.py). Kept
+# deliberately SEPARATE from machine_id: machine_id is sent to Hive at account
+# registration and is therefore account-linked, whereas this id is random,
+# never joined to an account, and is the only handle carried by the anonymous
+# ping. Keeping the two apart is what lets an operator wipe their anonymous
+# footprint (the Hive "forget" form) without touching registered machine data.
+# created_at is stamped once, the first time the id is generated, so the server
+# learns when this install first came online even if we only hear from it later.
+def get_or_create_telemetry_install() -> dict[str, Any]:
+    existing = _read_state(_STATE_KEY_TELEMETRY_INSTALL)
+    if isinstance(existing, dict):
+        install_id = existing.get("install_id")
+        created_at = existing.get("created_at")
+        if isinstance(install_id, str) and install_id.strip():
+            return {
+                "install_id": install_id,
+                "created_at": float(created_at) if isinstance(created_at, (int, float)) else None,
+            }
+    record = {"install_id": str(uuid.uuid4()), "created_at": time.time()}
+    _write_state(_STATE_KEY_TELEMETRY_INSTALL, record)
+    return record
+
+
+# Hosted-services enrollment on the main hive (basically_services.py). Separate
+# from both the Hive account targets (an account object) and the anonymous
+# telemetry install id (which must stay unlinkable). device_key is the stable
+# secret that lets a re-enroll find the same server-side device row; token is
+# the bearer credential the enroll call returned.
+def get_basically_services_state() -> dict[str, Any]:
+    value = _read_state(_STATE_KEY_BASICALLY_SERVICES)
+    return dict(value) if isinstance(value, dict) else {}
+
+
+def set_basically_services_state(record: dict[str, Any]) -> None:
+    _write_state(_STATE_KEY_BASICALLY_SERVICES, record)
 
 
 def get_stepper_positions() -> dict[str, int]:
@@ -969,6 +1094,39 @@ def set_set_progress_state(state: dict[str, Any] | None) -> None:
     _write_state(_STATE_KEY_SET_PROGRESS, normalized)
 
 
+# The three channels that can have a light of their own. "assignments" maps one
+# to the id of the board output driving it; "brightness" is keyed by output id,
+# not by channel, so channels sharing a pin cannot disagree about its duty.
+LED_CHANNEL_KEYS = ("c_channel_2", "c_channel_3", "classification_channel")
+LED_DEFAULT_BRIGHTNESS_PERCENT = 100
+
+
+def _normalize_leds(raw: Any) -> dict[str, Any]:
+    raw = raw if isinstance(raw, dict) else {}
+    assignments_raw = raw.get("assignments") if isinstance(raw.get("assignments"), dict) else {}
+    brightness_raw = raw.get("brightness") if isinstance(raw.get("brightness"), dict) else {}
+    assignments = {
+        key: assignments_raw.get(key) if isinstance(assignments_raw.get(key), str) else None
+        for key in LED_CHANNEL_KEYS
+    }
+    brightness = {
+        str(output_id): max(0, min(100, int(round(percent))))
+        for output_id, percent in brightness_raw.items()
+        if isinstance(percent, (int, float)) and not isinstance(percent, bool)
+    }
+    return {"assignments": assignments, "brightness": brightness}
+
+
+def get_led_state() -> dict[str, Any]:
+    return _normalize_leds(_read_state(_STATE_KEY_LEDS))
+
+
+def set_led_state(state: dict[str, Any]) -> dict[str, Any]:
+    normalized = _normalize_leds(state)
+    _write_state(_STATE_KEY_LEDS, normalized)
+    return normalized
+
+
 def get_ui_theme_color_id() -> str | None:
     value = _read_state(_STATE_KEY_UI_THEME_COLOR_ID)
     if isinstance(value, str) and value.strip():
@@ -1081,6 +1239,121 @@ def set_checklist_part_state(
         "user_state": user_state,
         "updated_at": now,
     }
+
+
+def _normalize_cache_color_id(color_id: Any) -> str:
+    if color_id is None:
+        return "any_color"
+    text = str(color_id).strip()
+    return text if text and text != "any_color" else "any_color"
+
+
+def get_cached_part_metadata(
+    part_num: str, color_id: Any
+) -> tuple[dict[str, Any] | None, float | None, float | None]:
+    """Return (payload, moving_avg_price, cached_at) for a (part, color) from the
+    Hive metadata cache. payload is None when only a price-only row exists (or on
+    a full miss); cached_at is None only on a full miss."""
+    if not part_num:
+        return None, None, None
+    initialize_local_state()
+    with _connection() as conn:
+        row = conn.execute(
+            "SELECT payload_json, moving_avg_price, cached_at "
+            "FROM hive_part_metadata_cache WHERE part_num = ? AND color_id = ?",
+            (part_num, _normalize_cache_color_id(color_id)),
+        ).fetchone()
+    if row is None:
+        return None, None, None
+    payload = None
+    if row["payload_json"]:
+        try:
+            payload = json.loads(str(row["payload_json"]))
+        except (TypeError, ValueError):
+            payload = None
+    moving_avg = row["moving_avg_price"]
+    return payload, (float(moving_avg) if isinstance(moving_avg, (int, float)) else None), float(row["cached_at"])
+
+
+def put_cached_part_metadata(
+    part_num: str, color_id: Any, payload: dict[str, Any] | None, moving_avg_price: float | None
+) -> None:
+    if not part_num:
+        return
+    initialize_local_state()
+    with _connection() as conn:
+        conn.execute(
+            "INSERT INTO hive_part_metadata_cache"
+            "(part_num, color_id, payload_json, moving_avg_price, cached_at) "
+            "VALUES(?, ?, ?, ?, ?) "
+            "ON CONFLICT(part_num, color_id) DO UPDATE SET "
+            "payload_json = excluded.payload_json, "
+            "moving_avg_price = excluded.moving_avg_price, "
+            "cached_at = excluded.cached_at",
+            (
+                part_num,
+                _normalize_cache_color_id(color_id),
+                json.dumps(payload) if payload is not None else None,
+                float(moving_avg_price) if isinstance(moving_avg_price, (int, float)) else None,
+                time.time(),
+            ),
+        )
+        conn.commit()
+
+
+def get_cached_part_prices(
+    pairs: list[tuple[str | None, Any]]
+) -> dict[tuple[str, str], tuple[float | None, float]]:
+    """Bulk-read moving-average prices for many (part_num, color_id) pairs.
+    Returns {(part_num, normalized_color_id): (moving_avg_price, cached_at)} for
+    the pairs present in the cache."""
+    initialize_local_state()
+    out: dict[tuple[str, str], tuple[float | None, float]] = {}
+    with _connection() as conn:
+        for part_num, color_id in pairs:
+            if not part_num:
+                continue
+            norm = _normalize_cache_color_id(color_id)
+            row = conn.execute(
+                "SELECT moving_avg_price, cached_at FROM hive_part_metadata_cache "
+                "WHERE part_num = ? AND color_id = ?",
+                (part_num, norm),
+            ).fetchone()
+            if row is None:
+                continue
+            mv = row["moving_avg_price"]
+            out[(part_num, norm)] = (
+                float(mv) if isinstance(mv, (int, float)) else None,
+                float(row["cached_at"]),
+            )
+    return out
+
+
+def put_cached_part_prices(rows: list[tuple[str | None, Any, float | None]]) -> None:
+    """Bulk write-through of price-only cache rows (payload_json left untouched on
+    an existing full entry)."""
+    valid = [r for r in rows if r[0]]
+    if not valid:
+        return
+    now = time.time()
+    initialize_local_state()
+    with _connection() as conn:
+        for part_num, color_id, moving_avg_price in valid:
+            conn.execute(
+                "INSERT INTO hive_part_metadata_cache"
+                "(part_num, color_id, payload_json, moving_avg_price, cached_at) "
+                "VALUES(?, ?, NULL, ?, ?) "
+                "ON CONFLICT(part_num, color_id) DO UPDATE SET "
+                "moving_avg_price = excluded.moving_avg_price, "
+                "cached_at = excluded.cached_at",
+                (
+                    part_num,
+                    _normalize_cache_color_id(color_id),
+                    float(moving_avg_price) if isinstance(moving_avg_price, (int, float)) else None,
+                    now,
+                ),
+            )
+        conn.commit()
 
 
 def _current_sync_state_from_conn(conn: sqlite3.Connection) -> dict[str, Any]:
@@ -2175,6 +2448,179 @@ def getChuteStressRun(run_id: str) -> dict[str, Any] | None:
     return _chuteStressRowToDict(row)
 
 
+def _powerStressRowToDict(row: sqlite3.Row | None) -> dict[str, Any] | None:
+    if row is None:
+        return None
+    try:
+        config = json.loads(row["config_json"])
+    except (TypeError, json.JSONDecodeError):
+        config = {}
+    return {
+        "id": row["id"],
+        "started_at": row["started_at"],
+        "ended_at": row["ended_at"],
+        "duration_target_s": row["duration_target_s"],
+        "stepper_speed_microsteps_per_sec": row["stepper_speed_microsteps_per_sec"],
+        "chute_speed_microsteps_per_sec": row["chute_speed_microsteps_per_sec"],
+        "chute_max_deg": row["chute_max_deg"],
+        "status": row["status"],
+        "current_phase": row["current_phase"],
+        "total_time_s": row["total_time_s"],
+        "config": config,
+        "error": row["error"],
+    }
+
+
+def recordPowerStressRunStart(
+    *,
+    run_id: str,
+    started_at: float,
+    duration_target_s: float,
+    stepper_speed_microsteps_per_sec: int,
+    chute_speed_microsteps_per_sec: int,
+    chute_max_deg: float,
+    config: dict[str, Any],
+) -> None:
+    initialize_local_state()
+    with _connection() as conn:
+        conn.execute(
+            "INSERT INTO power_stress_runs("
+            "id, started_at, duration_target_s, stepper_speed_microsteps_per_sec, "
+            "chute_speed_microsteps_per_sec, chute_max_deg, status, config_json"
+            ") VALUES(?, ?, ?, ?, ?, ?, 'running', ?)",
+            (
+                run_id,
+                float(started_at),
+                float(duration_target_s),
+                int(stepper_speed_microsteps_per_sec),
+                int(chute_speed_microsteps_per_sec),
+                float(chute_max_deg),
+                json.dumps(config, sort_keys=True),
+            ),
+        )
+        conn.commit()
+
+
+def updatePowerStressRunProgress(
+    *, run_id: str, current_phase: str | None, total_time_s: float
+) -> None:
+    initialize_local_state()
+    with _connection() as conn:
+        conn.execute(
+            "UPDATE power_stress_runs SET current_phase = ?, total_time_s = ? WHERE id = ?",
+            (current_phase, float(total_time_s), run_id),
+        )
+        conn.commit()
+
+
+def finalizePowerStressRun(
+    *,
+    run_id: str,
+    ended_at: float,
+    status: str,
+    total_time_s: float,
+    error: str | None,
+) -> None:
+    initialize_local_state()
+    with _connection() as conn:
+        conn.execute(
+            "UPDATE power_stress_runs SET ended_at = ?, status = ?, "
+            "total_time_s = ?, error = ? WHERE id = ?",
+            (float(ended_at), status, float(total_time_s), error, run_id),
+        )
+        conn.commit()
+
+
+def recordPowerStressEvent(
+    *,
+    run_id: str,
+    created_at: float,
+    event_type: str,
+    phase: str | None,
+    details: dict[str, Any],
+) -> dict[str, Any]:
+    initialize_local_state()
+    with _connection() as conn:
+        cursor = conn.execute(
+            "INSERT INTO power_stress_events("
+            "run_id, created_at, event_type, phase, details_json"
+            ") VALUES(?, ?, ?, ?, ?)",
+            (
+                run_id,
+                float(created_at),
+                event_type,
+                phase,
+                json.dumps(details, sort_keys=True),
+            ),
+        )
+        conn.commit()
+        event_id = cursor.lastrowid
+    return {
+        "id": event_id,
+        "run_id": run_id,
+        "created_at": float(created_at),
+        "event_type": event_type,
+        "phase": phase,
+        "details": details,
+    }
+
+
+def listPowerStressEvents(run_id: str) -> list[dict[str, Any]]:
+    initialize_local_state()
+    with _connection() as conn:
+        rows = conn.execute(
+            "SELECT id, run_id, created_at, event_type, phase, details_json "
+            "FROM power_stress_events WHERE run_id = ? ORDER BY created_at, id",
+            (run_id,),
+        ).fetchall()
+    events: list[dict[str, Any]] = []
+    for row in rows:
+        try:
+            details = json.loads(row["details_json"])
+        except (TypeError, json.JSONDecodeError):
+            details = {}
+        events.append(
+            {
+                "id": row["id"],
+                "run_id": row["run_id"],
+                "created_at": row["created_at"],
+                "event_type": row["event_type"],
+                "phase": row["phase"],
+                "details": details,
+            }
+        )
+    return events
+
+
+def listPowerStressRuns(limit: int = 100) -> list[dict[str, Any]]:
+    initialize_local_state()
+    with _connection() as conn:
+        rows = conn.execute(
+            "SELECT id, started_at, ended_at, duration_target_s, "
+            "stepper_speed_microsteps_per_sec, chute_speed_microsteps_per_sec, "
+            "chute_max_deg, status, current_phase, total_time_s, config_json, error "
+            "FROM power_stress_runs ORDER BY started_at DESC LIMIT ?",
+            (int(limit),),
+        ).fetchall()
+    return [d for d in (_powerStressRowToDict(row) for row in rows) if d is not None]
+
+
+def getPowerStressRun(run_id: str) -> dict[str, Any] | None:
+    initialize_local_state()
+    with _connection() as conn:
+        row = conn.execute(
+            "SELECT id, started_at, ended_at, duration_target_s, "
+            "stepper_speed_microsteps_per_sec, chute_speed_microsteps_per_sec, "
+            "chute_max_deg, status, current_phase, total_time_s, config_json, error "
+            "FROM power_stress_runs WHERE id = ?",
+            (run_id,),
+        ).fetchone()
+    run = _powerStressRowToDict(row)
+    if run is not None:
+        run["events"] = listPowerStressEvents(run_id)
+    return run
+
+
 # ---------------------------------------------------------------------------
 # Chute calibration instances (history + active lock-in)
 # ---------------------------------------------------------------------------
@@ -2288,3 +2734,240 @@ def deleteChuteCalibrationInstance(calibration_id: str) -> bool:
         )
         conn.commit()
         return cur.rowcount > 0
+
+
+# ---------------------------------------------------------------------------
+# Feeder pulse-perception auto-tune runs + trials
+# ---------------------------------------------------------------------------
+
+
+_FEEDER_AUTOTUNE_RUN_COLUMNS = (
+    "id, started_at, ended_at, status, baseline_config, settings_json, "
+    "best_trial_id, notes"
+)
+
+_FEEDER_AUTOTUNE_TRIAL_COLUMNS = (
+    "id, run_id, trial_index, kind, params_json, started_at, ended_at, status, "
+    "measured_s, pieces_delivered, incidents, double_drops, pieces_per_min, "
+    "double_drop_rate, feasible, score"
+)
+
+_STATE_KEY_FEEDER_AUTOTUNE_BACKGROUND = "feeder_autotune_background"
+
+
+def getFeederAutotuneBackground() -> dict[str, Any] | None:
+    value = _read_state(_STATE_KEY_FEEDER_AUTOTUNE_BACKGROUND)
+    return value if isinstance(value, dict) else None
+
+
+def setFeederAutotuneBackground(record: dict[str, Any] | None) -> None:
+    _write_state(
+        _STATE_KEY_FEEDER_AUTOTUNE_BACKGROUND,
+        dict(record) if isinstance(record, dict) else None,
+    )
+
+
+def _feederAutotuneRunRowToDict(row: sqlite3.Row | None) -> dict[str, Any] | None:
+    if row is None:
+        return None
+    out = {key: row[key] for key in row.keys()}
+    for json_key in ("baseline_config", "settings_json"):
+        raw = out.get(json_key)
+        try:
+            out[json_key] = json.loads(raw) if isinstance(raw, str) and raw else None
+        except json.JSONDecodeError:
+            out[json_key] = None
+    return out
+
+
+def _feederAutotuneTrialRowToDict(row: sqlite3.Row | None) -> dict[str, Any] | None:
+    if row is None:
+        return None
+    out = {key: row[key] for key in row.keys()}
+    raw = out.get("params_json")
+    try:
+        out["params_json"] = json.loads(raw) if isinstance(raw, str) and raw else {}
+    except json.JSONDecodeError:
+        out["params_json"] = {}
+    feasible = out.get("feasible")
+    out["feasible"] = bool(feasible) if feasible is not None else None
+    return out
+
+
+def createFeederAutotuneRun(
+    baseline_config: dict[str, Any], settings: dict[str, Any]
+) -> dict[str, Any] | None:
+    run_id = str(uuid.uuid4())
+    initialize_local_state()
+    with _connection() as conn:
+        conn.execute(
+            f"INSERT INTO feeder_autotune_runs({_FEEDER_AUTOTUNE_RUN_COLUMNS}) "
+            "VALUES(?, ?, NULL, 'active', ?, ?, NULL, NULL)",
+            (
+                run_id,
+                time.time(),
+                json.dumps(baseline_config, sort_keys=True),
+                json.dumps(settings, sort_keys=True),
+            ),
+        )
+        conn.commit()
+    return getFeederAutotuneRun(run_id)
+
+
+def getFeederAutotuneRun(run_id: str) -> dict[str, Any] | None:
+    initialize_local_state()
+    with _connection() as conn:
+        row = conn.execute(
+            f"SELECT {_FEEDER_AUTOTUNE_RUN_COLUMNS} FROM feeder_autotune_runs "
+            "WHERE id = ?",
+            (run_id,),
+        ).fetchone()
+    return _feederAutotuneRunRowToDict(row)
+
+
+def listFeederAutotuneRuns(limit: int = 50) -> list[dict[str, Any]]:
+    initialize_local_state()
+    with _connection() as conn:
+        rows = conn.execute(
+            f"SELECT {_FEEDER_AUTOTUNE_RUN_COLUMNS} FROM feeder_autotune_runs "
+            "ORDER BY started_at DESC LIMIT ?",
+            (int(limit),),
+        ).fetchall()
+    return [d for d in (_feederAutotuneRunRowToDict(r) for r in rows) if d is not None]
+
+
+def finishFeederAutotuneRun(run_id: str, status: str) -> None:
+    initialize_local_state()
+    with _connection() as conn:
+        conn.execute(
+            "UPDATE feeder_autotune_runs SET status = ?, ended_at = ? "
+            "WHERE id = ? AND status = 'active'",
+            (status, time.time(), run_id),
+        )
+        conn.commit()
+
+
+def setFeederAutotuneBestTrial(run_id: str, trial_id: int) -> None:
+    initialize_local_state()
+    with _connection() as conn:
+        conn.execute(
+            "UPDATE feeder_autotune_runs SET best_trial_id = ? WHERE id = ?",
+            (int(trial_id), run_id),
+        )
+        conn.commit()
+
+
+def interruptActiveFeederAutotuneRuns() -> list[dict[str, Any]]:
+    initialize_local_state()
+    with _connection() as conn:
+        rows = conn.execute(
+            f"SELECT {_FEEDER_AUTOTUNE_RUN_COLUMNS} FROM feeder_autotune_runs "
+            "WHERE status = 'active'"
+        ).fetchall()
+        interrupted = [
+            d for d in (_feederAutotuneRunRowToDict(r) for r in rows) if d is not None
+        ]
+        if interrupted:
+            now = time.time()
+            conn.execute(
+                "UPDATE feeder_autotune_runs SET status = 'interrupted', ended_at = ? "
+                "WHERE status = 'active'",
+                (now,),
+            )
+            conn.execute(
+                "UPDATE feeder_autotune_trials SET status = 'aborted', ended_at = ? "
+                "WHERE status = 'running'",
+                (now,),
+            )
+            conn.commit()
+    return interrupted
+
+
+def insertFeederAutotuneTrial(
+    run_id: str, trial_index: int, kind: str, params: dict[str, Any]
+) -> int:
+    initialize_local_state()
+    with _connection() as conn:
+        cur = conn.execute(
+            "INSERT INTO feeder_autotune_trials"
+            "(run_id, trial_index, kind, params_json, started_at, status) "
+            "VALUES(?, ?, ?, ?, ?, 'running')",
+            (run_id, int(trial_index), kind, json.dumps(params, sort_keys=True), time.time()),
+        )
+        conn.commit()
+        return int(cur.lastrowid)
+
+
+def finalizeFeederAutotuneTrial(
+    trial_id: int,
+    *,
+    status: str,
+    measured_s: float,
+    pieces_delivered: int,
+    incidents: int,
+    double_drops: int,
+    pieces_per_min: float | None,
+    double_drop_rate: float | None = None,
+    feasible: bool | None = None,
+    score: float | None,
+) -> None:
+    initialize_local_state()
+    with _connection() as conn:
+        conn.execute(
+            "UPDATE feeder_autotune_trials SET status = ?, ended_at = ?, "
+            "measured_s = ?, pieces_delivered = ?, incidents = ?, double_drops = ?, "
+            "pieces_per_min = ?, double_drop_rate = ?, feasible = ?, score = ? "
+            "WHERE id = ?",
+            (
+                status,
+                time.time(),
+                float(measured_s),
+                int(pieces_delivered),
+                int(incidents),
+                int(double_drops),
+                pieces_per_min,
+                double_drop_rate,
+                None if feasible is None else int(feasible),
+                score,
+                int(trial_id),
+            ),
+        )
+        conn.commit()
+
+
+def getFeederAutotuneTrial(trial_id: int) -> dict[str, Any] | None:
+    initialize_local_state()
+    with _connection() as conn:
+        row = conn.execute(
+            f"SELECT {_FEEDER_AUTOTUNE_TRIAL_COLUMNS} FROM feeder_autotune_trials "
+            "WHERE id = ?",
+            (int(trial_id),),
+        ).fetchone()
+    return _feederAutotuneTrialRowToDict(row)
+
+
+def listFeederAutotuneTrials(run_id: str, limit: int = 500) -> list[dict[str, Any]]:
+    initialize_local_state()
+    with _connection() as conn:
+        rows = conn.execute(
+            f"SELECT {_FEEDER_AUTOTUNE_TRIAL_COLUMNS} FROM feeder_autotune_trials "
+            "WHERE run_id = ? ORDER BY trial_index DESC LIMIT ?",
+            (run_id, int(limit)),
+        ).fetchall()
+    return [
+        d for d in (_feederAutotuneTrialRowToDict(r) for r in rows) if d is not None
+    ]
+
+
+def listFeederAutotuneDataset(limit: int = 5000) -> list[dict[str, Any]]:
+    """All completed trials across every run — the accumulated tuning dataset."""
+    initialize_local_state()
+    with _connection() as conn:
+        rows = conn.execute(
+            f"SELECT {_FEEDER_AUTOTUNE_TRIAL_COLUMNS} FROM feeder_autotune_trials "
+            "WHERE status = 'done' ORDER BY started_at DESC LIMIT ?",
+            (int(limit),),
+        ).fetchall()
+    return [
+        d for d in (_feederAutotuneTrialRowToDict(r) for r in rows) if d is not None
+    ]

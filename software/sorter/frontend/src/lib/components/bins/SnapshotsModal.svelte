@@ -1,6 +1,7 @@
 <script lang="ts">
 	import Modal from '$lib/components/Modal.svelte';
-	import { ArrowLeft, Download, Loader2 } from 'lucide-svelte';
+	import { ArrowLeft, Download } from 'lucide-svelte';
+	import Spinner from '$lib/components/Spinner.svelte';
 	import { formatCategoryName, formatLastSeen } from './pieces';
 	import type { SnapshotDetail, SnapshotLayer, SnapshotSummary } from './types';
 
@@ -146,7 +147,7 @@
 		</div>
 	{:else if detailLoading || snapshotsLoading}
 		<div class="flex items-center justify-center gap-2 py-10 text-sm text-text-muted">
-			<Loader2 size={16} class="animate-spin" />
+			<Spinner size={16} />
 			Loading…
 		</div>
 	{:else if snapshots.length === 0}

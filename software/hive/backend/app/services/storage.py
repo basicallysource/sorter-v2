@@ -1,4 +1,5 @@
 import hashlib
+import io
 import os
 import re
 import tempfile
@@ -57,6 +58,70 @@ def save_piece_image_file(
     )
     file.file.seek(0)
     get_backend().write_stream(key, file.file, content_type=file.content_type)
+    return key
+
+
+def save_channel_crop_file(
+    machine_id: str, local_id: int, channel: int | None, file: UploadFile, suffix: str
+) -> str:
+    # Deterministic key keyed on the machine's crop id so a re-send overwrites
+    # in place. Unlabeled crops group under channel_crops/ch{n}/.
+    channel_part = f"ch{int(channel)}" if channel is not None else "chx"
+    key = _join_key(
+        _safe_path_component(machine_id, "machine id"),
+        "channel_crops",
+        channel_part,
+        f"{int(local_id)}{suffix}",
+    )
+    file.file.seek(0)
+    get_backend().write_stream(key, file.file, content_type=file.content_type)
+    return key
+
+
+def save_control_data_file(machine_id: str, local_id: int, file: UploadFile) -> str:
+    # Deterministic key keyed on the machine's segment id so a re-send
+    # overwrites in place. Feeder-dynamics capture segments (gzipped JSONL).
+    key = _join_key(
+        _safe_path_component(machine_id, "machine id"),
+        "control_data",
+        f"{int(local_id)}.jsonl.gz",
+    )
+    file.file.seek(0)
+    get_backend().write_stream(key, file.file, content_type="application/gzip")
+    return key
+
+
+GZIP_MAGIC = b"\x1f\x8b"
+MAX_CONTROL_DATA_FILE_SIZE = 100 * 1024 * 1024
+
+
+def validate_gzip(file: UploadFile, max_size: int = MAX_CONTROL_DATA_FILE_SIZE) -> None:
+    header = file.file.read(2)
+    file.file.seek(0)
+    if header != GZIP_MAGIC:
+        raise HTTPException(status_code=400, detail="Invalid file format. Only gzip is allowed.")
+    file.file.seek(0, 2)
+    size = file.file.tell()
+    file.file.seek(0)
+    if size > max_size:
+        raise HTTPException(status_code=400, detail="File too large.")
+
+
+def save_color_predict_bytes(
+    device_id: str, prediction_id: str, seq: int, channel: int | None, data: bytes, suffix: str
+) -> str:
+    # Hosted-services images live under a devices/ root, NOT under a bare
+    # machine-id prefix — device data must never mix into an account machine's
+    # namespace (delete_machine_files wipes by machine-id prefix).
+    channel_part = f"ch{int(channel)}" if channel is not None else "chx"
+    key = _join_key(
+        "devices",
+        _safe_path_component(device_id, "device id"),
+        "color_predict",
+        _safe_path_component(prediction_id, "prediction id"),
+        f"{int(seq):02d}_{channel_part}{suffix}",
+    )
+    get_backend().write_stream(key, io.BytesIO(data), content_type="image/jpeg" if suffix == ".jpg" else "image/png")
     return key
 
 

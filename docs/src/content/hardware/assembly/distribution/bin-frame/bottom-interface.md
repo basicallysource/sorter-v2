@@ -105,16 +105,16 @@ Press the heat inserts into both printed parts while they are still loose. See [
 
 <div class="prep-item">
   <div class="prep-item-body">
-    <p><strong>Lazy Susan chute mount:</strong> 2 × M3, one on each of the two side faces, about halfway up. These are easy to miss because they are on a different face from the four M4 above, and they are what the <a href="{{ '/hardware/assembly/distribution/chute/layer-connectors/' | relative_url }}">layer connectors</a> screw into when the chute goes on top. The pockets are measured off the published model rather than off a built machine, so if your print has nothing there, correct this page.</p>
+    <p><strong>Lazy Susan chute mount:</strong> 2 × M3 for the <a href="{{ '/hardware/assembly/distribution/chute/layer-connectors/' | relative_url }}">layer connectors</a>, one on each side face, on the small raised tab about halfway up.</p>
   </div>
   <div class="prep-item-figure prep-item-figure-split">
     <figure>
       <img class="doc-figure" src="https://assets.basically.website/sorter-parts/bottom-interface-chute-mount-m3-pocket-render3-full-bf44835e1437.png" alt="Render of the Lazy Susan chute mount seen from one side, with a red circle around a small pocket on a raised tab partway up the side wall">
-      <figcaption>Where it is: the pocket sits on the small raised tab on the side wall. The far side is a mirror of this one. <cite>Render: Balloon.</cite></figcaption>
+      <figcaption>The pocket on the near side face. The far side is a mirror of it. <cite>Render: Balloon.</cite></figcaption>
     </figure>
     <figure>
       <img class="doc-figure" src="https://assets.basically.website/sorter-parts/bottom-interface-chute-mount-m3-pocket-photo-full-ea22d619b316.png" alt="Close photo of the same raised tab on a printed chute mount, with a red circle around the empty pocket in it">
-      <figcaption>The same tab on a printed part, circled. No insert is in it here. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+      <figcaption>The same pocket on a printed part, empty. <cite>Photo: BrickCycleAlice.</cite></figcaption>
     </figure>
   </div>
 </div>

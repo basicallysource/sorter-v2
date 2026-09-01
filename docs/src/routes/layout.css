@@ -1520,6 +1520,62 @@ pre code {
 	border-color: rgba(0, 133, 43, 0.9);
 }
 
+/* The copy-link button beside article headings. A chain link, not the copy
+   glyph .copy-code-button uses, because copying a code block and linking to a
+   section are different actions. It shares the copied-state flash and nothing
+   else. Faint until the heading is hovered or the button takes focus, so a page
+   of headings does not read as a column of icons. */
+.heading-link-button {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 24px;
+	height: 24px;
+	margin-left: 8px;
+	padding: 0;
+	vertical-align: middle;
+	color: var(--muted);
+	background: transparent;
+	border: 1px solid transparent;
+	cursor: pointer;
+	opacity: 0.4;
+	transition:
+		opacity 0.12s ease,
+		color 0.12s ease,
+		background 0.12s ease,
+		border-color 0.12s ease;
+}
+
+.heading-link-button svg {
+	display: block;
+}
+
+h2:hover .heading-link-button,
+h3:hover .heading-link-button,
+h4:hover .heading-link-button,
+.heading-link-button:focus-visible {
+	opacity: 1;
+}
+
+.heading-link-button:hover {
+	color: var(--ink);
+	background: var(--bg);
+	border-color: var(--line);
+}
+
+.heading-link-button.is-copied {
+	opacity: 1;
+	color: #ffffff;
+	background: var(--ok);
+	border-color: var(--ok);
+}
+
+@media print {
+	.heading-link-button {
+		display: none;
+	}
+}
+
 blockquote {
 	margin: 1.2rem 0;
 	padding: 12px 16px;

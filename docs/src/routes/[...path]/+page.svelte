@@ -24,6 +24,17 @@
 
 	let contentEl: HTMLElement | undefined = $state();
 
+	// One copy glyph for the whole article: the code-block button and the
+	// heading link button below are the same action, so they are the same icon.
+	const COPY_ICON =
+		'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" aria-hidden="true"><rect x="9" y="9" width="12" height="12"></rect><path d="M5 15H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1"></path></svg>';
+
+	// Copied-state feedback, shared by both buttons.
+	function flashCopied(btn: HTMLElement) {
+		btn.classList.add('is-copied');
+		setTimeout(() => btn.classList.remove('is-copied'), 1500);
+	}
+
 	// Copy buttons on code blocks (port of docs/assets/copy-code.js).
 	$effect(() => {
 		p.url; // rerun per page — {@html} replaces the DOM on navigation
@@ -38,14 +49,52 @@
 			btn.type = 'button';
 			btn.className = 'copy-code-button';
 			btn.setAttribute('aria-label', 'Copy code');
-			btn.innerHTML =
-				'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square"><rect x="9" y="9" width="12" height="12"></rect><path d="M5 15H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1"></path></svg>';
+			btn.innerHTML = COPY_ICON;
 			btn.addEventListener('click', async () => {
 				await navigator.clipboard.writeText(pre.innerText.replace(/\n$/, ''));
-				btn.classList.add('is-copied');
-				setTimeout(() => btn.classList.remove('is-copied'), 1500);
+				flashCopied(btn);
 			});
 			wrap.appendChild(btn);
+		}
+	});
+
+	// Copy-link buttons beside article headings, so a section can be linked to
+	// directly instead of "scroll down to the bit about heat inserts". Every
+	// heading already carries an id (rehype-slug, in src/lib/server/content.ts),
+	// so the id is the anchor, not something invented here.
+	$effect(() => {
+		p.url; // rerun per page — {@html} replaces the DOM on navigation
+		if (!contentEl) return;
+		for (const h of contentEl.querySelectorAll<HTMLElement>('h2[id], h3[id], h4[id]')) {
+			if (h.dataset.headingLink) continue;
+			h.dataset.headingLink = '1';
+			const btn = document.createElement('button');
+			btn.type = 'button';
+			btn.className = 'heading-link-button';
+			// A step heading (`{% include step.html %}`) is a column flex of "Step N"
+			// over the title, so the button goes inside the title span; appending it
+			// to the heading itself would stack it underneath as a third row.
+			const target = h.querySelector<HTMLElement>('.step-title') ?? h;
+			const label = target.textContent?.replace(/\s+/g, ' ').trim() ?? '';
+			btn.setAttribute('aria-label', label ? `Copy link to "${label}"` : 'Copy link to this section');
+			btn.title = 'Copy link to this section';
+			btn.innerHTML = COPY_ICON;
+			btn.addEventListener('click', async () => {
+				// Absolute, and built from the current page rather than the address
+				// bar as it stands, so a link copied off a page you arrived at via
+				// another anchor still points at this heading and nothing else.
+				const url = `${location.origin}${location.pathname}#${h.id}`;
+				try {
+					await navigator.clipboard.writeText(url);
+				} catch {
+					// No clipboard (insecure context, or the user refused): put the
+					// anchor in the address bar instead so it can still be copied.
+					location.hash = h.id;
+					return;
+				}
+				flashCopied(btn);
+			});
+			target.appendChild(btn);
 		}
 	});
 

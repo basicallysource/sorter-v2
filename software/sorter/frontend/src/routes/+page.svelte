@@ -24,160 +24,12 @@
 	const SIDEBAR_DEFAULT = 420;
 	const EXIT_RELEASE_TUNING_STORAGE_KEY = 'sorter:c4-exit-release-tuning:v1';
 	const EXIT_STUCK_INCIDENT_KIND = 'exit_stuck';
-	const INCIDENT_KIND_ALIASES: Record<string, string> = {
-		classification_exit_release: EXIT_STUCK_INCIDENT_KIND,
-		channel_exit_stuck: EXIT_STUCK_INCIDENT_KIND
-	};
 	const EXIT_RELEASE_DEFAULTS = {
 		outputDeg: 1.0,
 		speed: 16000,
 		acceleration: 40000,
 		cycles: 3
 	};
-	type IncidentHandlingMode = 'off' | 'manual' | 'automatic';
-	type IncidentDefinition = {
-		kind: string;
-		label: string;
-		scope: string;
-		description: string;
-		off_label: string;
-		manual_label: string;
-		automatic_label: string;
-		automatic_supported: boolean;
-	};
-	const INCIDENT_FALLBACK_DEFINITIONS: IncidentDefinition[] = [
-		{
-			kind: EXIT_STUCK_INCIDENT_KIND,
-			label: 'Exit Stuck',
-			scope: 'C2/C3/C4',
-			description: 'A piece is not falling off the channel.',
-			off_label: 'Do not raise exit-stuck incidents',
-			manual_label: 'Operator tunes release wiggle',
-			automatic_label: 'Run release wiggle automatically',
-			automatic_supported: true
-		},
-		{
-			kind: 'channel_dropzone_stuck',
-			label: 'Dropzone Stuck',
-			scope: 'C2/C3/C4',
-			description: 'A piece is not moving as expected.',
-			off_label: 'Leave normal backpressure unchanged',
-			manual_label: 'Operator acknowledges ignore',
-			automatic_label: 'Ignore stuck track automatically',
-			automatic_supported: true
-		},
-		{
-			kind: 'c2_separation_needed',
-			label: 'Slip-Stick Separation',
-			scope: 'C2',
-			description: 'Pieces are not spreading out as expected.',
-			off_label: 'Do not raise separation incident',
-			manual_label: 'Operator reviews separation',
-			automatic_label: 'Automatic slip-stick separation',
-			automatic_supported: false
-		},
-		{
-			kind: 'bulk_feeder_stalled',
-			label: 'Bulk Feed Stalled',
-			scope: 'C1',
-			description: 'No pieces are reaching the next channel.',
-			off_label: 'Keep legacy bulk-feeder recovery hidden',
-			manual_label: 'Operator checks the bulk feeder',
-			automatic_label: 'Automatic bulk-feeder recovery',
-			automatic_supported: false
-		},
-		{
-			kind: 'feeder_detection_unavailable',
-			label: 'Detection Unavailable',
-			scope: 'C2/C3/C4',
-			description: 'Feeder camera detection is not reliable.',
-			off_label: 'Use hardware alert only',
-			manual_label: 'Operator restores detection',
-			automatic_label: 'Automatic camera recovery',
-			automatic_supported: false
-		},
-		{
-			kind: 'distribution_chute_jam',
-			label: 'Chute Jam',
-			scope: 'Distribution',
-			description: 'The distribution chute did not finish moving.',
-			off_label: 'Use hardware alert only',
-			manual_label: 'Operator clears the chute',
-			automatic_label: 'Automatic chute recovery',
-			automatic_supported: false
-		},
-		{
-			kind: 'distribution_servo_bus_offline',
-			label: 'Servo Bus Offline',
-			scope: 'Distribution',
-			description: 'The distribution servo bus is not responding.',
-			off_label: 'Use hardware alert only',
-			manual_label: 'Operator restores the servo bus',
-			automatic_label: 'Automatic servo bus recovery',
-			automatic_supported: false
-		},
-		{
-			kind: 'distribution_no_bin_available',
-			label: 'No Bin Available',
-			scope: 'Distribution',
-			description: 'No matching bin is available for the piece.',
-			off_label: 'Allow bottom-tray passthrough',
-			manual_label: 'Operator assigns capacity or approves passthrough',
-			automatic_label: 'Automatic no-bin passthrough',
-			automatic_supported: false
-		},
-		{
-			kind: 'classification_unresolved',
-			label: 'Classification Unresolved',
-			scope: 'C4',
-			description: 'A piece reached the drop point without a resolved classification.',
-			off_label: 'Keep unknown fallback hidden',
-			manual_label: 'Operator reviews unresolved classifications',
-			automatic_label: 'Automatic unresolved-classification handling',
-			automatic_supported: false
-		},
-		{
-			kind: 'classification_multi_drop_collision',
-			label: 'Multi-Drop Collision',
-			scope: 'C4',
-			description: 'Multiple pieces reached the drop point together.',
-			off_label: 'Keep multi-drop fallback hidden',
-			manual_label: 'Operator reviews multi-drop collisions',
-			automatic_label: 'Automatic multi-drop handling',
-			automatic_supported: false
-		},
-		{
-			kind: 'classification_intake_request_timeout',
-			label: 'Intake Request Timeout',
-			scope: 'C4',
-			description: 'C4 requested a piece, but no handoff arrived.',
-			off_label: 'Retry C4 intake requests silently',
-			manual_label: 'Operator checks C3 to C4 handoff',
-			automatic_label: 'Automatic C4 handoff recovery',
-			automatic_supported: false
-		},
-		{
-			kind: 'classification_track_lost',
-			label: 'Track Lost',
-			scope: 'C4',
-			description: 'A tracked piece disappeared before the expected drop flow completed.',
-			off_label: 'Treat stale C4 tracks as diagnostics',
-			manual_label: 'Operator reviews lost C4 tracks',
-			automatic_label: 'Automatic track-loss handling',
-			automatic_supported: false
-		},
-		{
-			kind: 'classification_exit_stuck',
-			label: 'C4 Piece Stuck',
-			scope: 'C4',
-			description:
-				'A piece on the classification channel could not be discharged. Remove it, then resolve to resume.',
-			off_label: 'Do not raise C4 stuck incidents',
-			manual_label: 'Operator removes the stuck piece',
-			automatic_label: 'Advance the channel forward until the piece is gone',
-			automatic_supported: true
-		}
-	];
 	const machine = getMachineContext();
 	const manager = getMachinesContext();
 
@@ -201,10 +53,6 @@
 	let exitReleaseSpeed = $state(EXIT_RELEASE_DEFAULTS.speed);
 	let exitReleaseAcceleration = $state(EXIT_RELEASE_DEFAULTS.acceleration);
 	let exitReleaseCycles = $state(EXIT_RELEASE_DEFAULTS.cycles);
-	let incidentDefinitions = $state<IncidentDefinition[]>(INCIDENT_FALLBACK_DEFINITIONS);
-	let incidentHandling = $state<Record<string, IncidentHandlingMode>>({});
-	let incidentPolicySaving = $state<string | null>(null);
-	let incidentPolicyError = $state<string | null>(null);
 
 	function currentBackendBaseUrl(): string {
 		return machineHttpBaseUrlFromWsUrl(machine.machine?.url) ?? getBackendHttpBase();
@@ -340,7 +188,10 @@
 		if (stallIncidentActionPending) return;
 		stallIncidentActionPending = true;
 		stallIncidentActionError = null;
-		stallIncidentActionError = await postStallAction('/stall-incident/clear', 'Could not clear stall');
+		stallIncidentActionError = await postStallAction(
+			'/stall-incident/clear',
+			'Could not clear stall'
+		);
 		stallIncidentActionPending = false;
 	}
 
@@ -372,6 +223,7 @@
 			incident.kind === 'channel_dropzone_stuck' ||
 			incident.kind === 'c2_separation_needed' ||
 			incident.kind === 'bulk_feeder_stalled' ||
+			incident.kind === 'belt_feeder_stalled' ||
 			incident.kind === 'feeder_detection_unavailable' ||
 			incident.kind === 'feeder_jam' ||
 			incident.kind === 'distribution_chute_jam' ||
@@ -383,11 +235,6 @@
 			incident.kind === 'classification_track_lost'
 			? incident
 			: null;
-	}
-
-	function canonicalIncidentKind(kind: unknown): string | null {
-		if (typeof kind !== 'string' || kind.length === 0) return null;
-		return INCIDENT_KIND_ALIASES[kind] ?? kind;
 	}
 
 	function incidentString(
@@ -446,52 +293,6 @@
 		return value === null ? '-' : `${value.toFixed(digits)}${suffix}`;
 	}
 
-	function normalizeIncidentMode(value: unknown): IncidentHandlingMode {
-		if (value === 'automatic') return 'automatic';
-		if (value === 'off') return 'off';
-		return 'manual';
-	}
-
-	function normalizeIncidentDefinitions(value: unknown): IncidentDefinition[] {
-		if (!Array.isArray(value)) return INCIDENT_FALLBACK_DEFINITIONS;
-		const normalized = value
-			.map((entry) => {
-				if (!entry || typeof entry !== 'object') return null;
-				const raw = entry as Record<string, unknown>;
-				if (typeof raw.kind !== 'string' || typeof raw.label !== 'string') return null;
-				const kind = canonicalIncidentKind(raw.kind) ?? raw.kind;
-				return {
-					kind,
-					label: raw.label,
-					scope: typeof raw.scope === 'string' ? raw.scope : '',
-					description:
-						typeof raw.description === 'string' ? raw.description : 'Operator review required.',
-					off_label: typeof raw.off_label === 'string' ? raw.off_label : 'Disabled',
-					manual_label:
-						typeof raw.manual_label === 'string' ? raw.manual_label : 'Operator reviews',
-					automatic_label:
-						typeof raw.automatic_label === 'string' ? raw.automatic_label : 'Automatic',
-					automatic_supported: raw.automatic_supported === true
-				} satisfies IncidentDefinition;
-			})
-			.filter((entry): entry is IncidentDefinition => entry !== null);
-		const seen = new Set<string>();
-		const deduped = normalized.filter((entry) => {
-			if (seen.has(entry.kind)) return false;
-			seen.add(entry.kind);
-			return true;
-		});
-		return deduped.length > 0 ? deduped : INCIDENT_FALLBACK_DEFINITIONS;
-	}
-
-	function incidentMode(kind: string): IncidentHandlingMode {
-		return normalizeIncidentMode(incidentHandling[canonicalIncidentKind(kind) ?? kind]);
-	}
-
-	function incidentDefinitionActive(definition: IncidentDefinition): boolean {
-		return canonicalIncidentKind(exitIncident?.kind) === definition.kind;
-	}
-
 	function exitIncidentSourceKind(incident: Record<string, unknown> | null): string {
 		const sourceKind = incidentString(incident, 'source_kind');
 		if (sourceKind) return sourceKind;
@@ -516,64 +317,6 @@
 
 	function isC4StallWatchdogIncident(incident: Record<string, unknown> | null): boolean {
 		return exitIncidentSourceKind(incident) === 'c4_stall_watchdog';
-	}
-
-	function incidentHandlingValue(
-		handling: Record<string, unknown>,
-		definitionKind: string
-	): unknown {
-		if (handling[definitionKind] !== undefined) return handling[definitionKind];
-		for (const [alias, canonical] of Object.entries(INCIDENT_KIND_ALIASES)) {
-			if (canonical === definitionKind && handling[alias] !== undefined) return handling[alias];
-		}
-		return undefined;
-	}
-
-	function incidentModeButtonClass(active: boolean, disabled = false): string {
-		const base =
-			'min-h-10 px-2.5 text-xs font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-40';
-		if (active)
-			return `${base} bg-primary text-white shadow-[inset_0_0_0_1px_var(--color-primary)]`;
-		if (disabled)
-			return `${base} bg-bg text-text-muted shadow-[inset_0_0_0_1px_var(--color-border)]`;
-		return `${base} bg-bg text-text-muted shadow-[inset_0_0_0_1px_var(--color-border)] hover:bg-surface hover:text-text`;
-	}
-
-	async function saveIncidentMode(kind: string, mode: IncidentHandlingMode) {
-		if (incidentPolicySaving) return;
-		const previous = incidentMode(kind);
-		if (previous === mode) return;
-		incidentPolicySaving = kind;
-		incidentPolicyError = null;
-		incidentHandling = { ...incidentHandling, [kind]: mode };
-		try {
-			const response = await fetch(`${currentBackendBaseUrl()}/api/system/dashboard-config`, {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ incident_handling: { [kind]: mode } })
-			});
-			const payload = (await response.json().catch(() => null)) as Record<string, unknown> | null;
-			if (!response.ok || payload?.ok === false) {
-				throw new Error(
-					typeof payload?.detail === 'string' ? payload.detail : 'Could not save incident mode'
-				);
-			}
-			const handling = payload?.incident_handling;
-			if (handling && typeof handling === 'object') {
-				const next: Record<string, IncidentHandlingMode> = {};
-				for (const definition of incidentDefinitions) {
-					next[definition.kind] = normalizeIncidentMode(
-						incidentHandlingValue(handling as Record<string, unknown>, definition.kind)
-					);
-				}
-				incidentHandling = next;
-			}
-		} catch (e: any) {
-			incidentHandling = { ...incidentHandling, [kind]: previous };
-			incidentPolicyError = e?.message ?? 'Could not save incident mode';
-		} finally {
-			incidentPolicySaving = null;
-		}
 	}
 
 	function exitIncidentStatusLabel(incident: Record<string, unknown> | null): string {
@@ -611,6 +354,9 @@
 		if (incident.kind === 'bulk_feeder_stalled') {
 			return `${currentBackendBaseUrl()}/api/feeder/bulk-feed-incident`;
 		}
+		if (incident.kind === 'belt_feeder_stalled') {
+			return `${currentBackendBaseUrl()}/api/feeder/belt-feed-incident`;
+		}
 		if (incident.kind === 'feeder_detection_unavailable') {
 			return `${currentBackendBaseUrl()}/api/feeder/detection-incident`;
 		}
@@ -643,6 +389,7 @@
 			incident.kind === 'channel_dropzone_stuck' ||
 			incident.kind === 'c2_separation_needed' ||
 			incident.kind === 'bulk_feeder_stalled' ||
+			incident.kind === 'belt_feeder_stalled' ||
 			incident.kind === 'feeder_detection_unavailable' ||
 			incident.kind === 'feeder_jam' ||
 			incident.kind === 'distribution_chute_jam' ||
@@ -672,6 +419,9 @@
 		}
 		if (incident?.kind === 'bulk_feeder_stalled') {
 			return 'Bulk Feed Stalled';
+		}
+		if (incident?.kind === 'belt_feeder_stalled') {
+			return 'Belt Feed Stalled';
 		}
 		if (incident?.kind === 'feeder_detection_unavailable') {
 			return 'Detection Unavailable';
@@ -709,6 +459,7 @@
 		if (role === 'c_channel_2' || channel === 'c2') return 'C2';
 		if (role === 'c_channel_3' || channel === 'c3') return 'C3';
 		if (role === 'bulk_feeder' || channel === 'c1') return 'C1';
+		if (role === 'belt_feeder' || channel === 'b1') return 'B1';
 		if (role === 'feeder_detection' || channel === 'feeder') return 'Feeder';
 		if (channel === 'distribution' || role.startsWith('distribution_')) return 'Distribution';
 		if (isClassificationExitStuckIncident(incident) || role === 'carousel' || channel === 'c4')
@@ -728,6 +479,9 @@
 		}
 		if (incident?.kind === 'bulk_feeder_stalled') {
 			return 'No pieces are reaching the next channel.';
+		}
+		if (incident?.kind === 'belt_feeder_stalled') {
+			return 'The belt ran for the whole jam window without a new piece reaching C3. Check the boat and the belt, then clear.';
 		}
 		if (incident?.kind === 'feeder_detection_unavailable') {
 			return 'Feeder camera detection is not reliable.';
@@ -777,6 +531,7 @@
 			return 'Status';
 		if (incident?.kind === 'c2_separation_needed') return 'Tracks';
 		if (incident?.kind === 'bulk_feeder_stalled') return 'Stall';
+		if (incident?.kind === 'belt_feeder_stalled') return 'Stall';
 		if (incident?.kind === 'feeder_detection_unavailable') return 'Unavailable';
 		if (incident?.kind === 'feeder_jam') return 'Stalled';
 		if (incident?.kind === 'distribution_chute_jam') return 'Elapsed';
@@ -803,6 +558,10 @@
 		if (incident?.kind === 'bulk_feeder_stalled') {
 			const stalled = incidentNumber(incident, 'stalled_ms');
 			return stalled === null ? '-' : `${stalled.toFixed(0)} ms`;
+		}
+		if (incident?.kind === 'belt_feeder_stalled') {
+			const stalled = incidentNumber(incident, 'stalled_ms');
+			return stalled === null ? '-' : `${(stalled / 1000).toFixed(1)} s`;
 		}
 		if (incident?.kind === 'feeder_detection_unavailable') {
 			const unavailable = incidentNumber(incident, 'unavailable_ms');
@@ -855,6 +614,7 @@
 		)
 			return 'Reason';
 		if (incident?.kind === 'bulk_feeder_stalled') return 'Pulses';
+		if (incident?.kind === 'belt_feeder_stalled') return 'Timeout';
 		if (incident?.kind === 'feeder_detection_unavailable') return 'Detail';
 		if (
 			incident?.kind === 'distribution_chute_jam' ||
@@ -868,6 +628,10 @@
 	function exitIncidentSecondaryMetricValue(incident: Record<string, unknown> | null): string {
 		if (incident?.kind === 'c2_separation_needed') {
 			return incident.automated_motion_enabled === true ? 'Enabled' : 'Disabled';
+		}
+		if (incident?.kind === 'belt_feeder_stalled') {
+			const timeout = incidentNumber(incident, 'jam_timeout_s');
+			return timeout === null ? '-' : `${timeout.toFixed(0)} s`;
 		}
 		if (incident?.kind === 'bulk_feeder_stalled') {
 			const pulses = incidentNumber(incident, 'pulses_since_activity');
@@ -1010,6 +774,7 @@
 			(isChannelExitStuckIncident(incident) ||
 				incident.kind === 'c2_separation_needed' ||
 				incident.kind === 'bulk_feeder_stalled' ||
+				incident.kind === 'belt_feeder_stalled' ||
 				incident.kind === 'feeder_detection_unavailable' ||
 				incident.kind === 'distribution_chute_jam' ||
 				incident.kind === 'distribution_servo_bus_offline') &&
@@ -1071,29 +836,6 @@
 		}
 	}
 
-	async function loadDashboardConfig(baseUrl: string) {
-		try {
-			const res = await fetch(`${baseUrl}/api/system/dashboard-config`);
-			if (!res.ok) return;
-			const payload = await res.json();
-			const definitions = normalizeIncidentDefinitions(payload?.incident_definitions);
-			incidentDefinitions = definitions;
-			const handling =
-				payload?.incident_handling && typeof payload.incident_handling === 'object'
-					? (payload.incident_handling as Record<string, unknown>)
-					: {};
-			const nextHandling: Record<string, IncidentHandlingMode> = {};
-			for (const definition of definitions) {
-				nextHandling[definition.kind] = normalizeIncidentMode(
-					incidentHandlingValue(handling, definition.kind)
-				);
-			}
-			incidentHandling = nextHandling;
-		} catch {
-			// ignore transient shell fetch issues
-		}
-	}
-
 	async function fetchDashboardCrops(baseUrl: string) {
 		try {
 			const res = await fetch(`${baseUrl}/api/polygons`);
@@ -1136,7 +878,6 @@
 		if (cropBaseUrl === baseUrl) return;
 		cropBaseUrl = baseUrl;
 		void fetchDashboardCrops(baseUrl);
-		void loadDashboardConfig(baseUrl);
 		void loadMachineSetup(baseUrl);
 	});
 
@@ -1168,7 +909,6 @@
 		if (machine.machine) {
 			const baseUrl = currentBackendBaseUrl();
 			void fetchDashboardCrops(baseUrl);
-			void loadDashboardConfig(baseUrl);
 			void loadMachineSetup(baseUrl);
 		}
 	});
@@ -1190,13 +930,14 @@
 						has_cls_top,
 						has_cls_bottom
 					)}
-					{@const stacked = machineSetup === 'belt_feeder'}
-					<!-- B1 belt topology has no C2 channel — only C3 + C4 remain, and two
-					     streams read better stacked than side by side. -->
+					{@const has_c2 = machineSetup !== 'belt_feeder'}
+					<!-- Two rows: C2 + C3 above C4 (+ chamber). The B1 belt topology has no
+					     C2 channel, so there it collapses to C3 stacked over C4. Below lg the
+					     dashboard has no fixed height, so every tile sizes itself 16:9. -->
 					<div class="flex min-h-0 min-w-0 flex-1 flex-col gap-3">
-						<div class="flex min-h-0 flex-1 gap-3">
-							{#if !stacked}
-								<div class="min-w-0 flex-1">
+						<div class="flex min-h-0 flex-1 flex-col gap-3 md:flex-row">
+							{#if has_c2}
+								<div class="min-w-0 flex-1 max-lg:aspect-video lg:aspect-auto">
 									<CameraFeed
 										camera="c_channel_2"
 										label={cameraLabel('c_channel_2')}
@@ -1209,7 +950,7 @@
 									</CameraFeed>
 								</div>
 							{/if}
-							<div class="min-w-0 flex-1">
+							<div class="min-w-0 flex-1 max-lg:aspect-video lg:aspect-auto">
 								<CameraFeed
 									camera="c_channel_3"
 									label={cameraLabel('c_channel_3')}
@@ -1222,8 +963,8 @@
 								</CameraFeed>
 							</div>
 						</div>
-						<div class="contents">
-							<div class="min-h-0 min-w-0 flex-1 {stacked ? '' : 'max-lg:aspect-video lg:aspect-auto'}">
+						<div class="flex min-h-0 flex-1 flex-col gap-3 md:flex-row">
+							<div class="min-w-0 flex-1 max-lg:aspect-video lg:aspect-auto">
 								<CameraFeed
 									camera={c4CameraRole}
 									label={cameraLabel(c4CameraRole)}
@@ -1691,12 +1432,12 @@
 										</div>
 										<div class="mt-1 text-xs text-text-muted">
 											{#if stallIncident.requires_rehome}
-												A stepper stalled and the machine paused. The chute lost its home
-												position, so it must be re-homed before sorting can resume. Clear
-												the jam, then re-home — or clear the stall now and re-home later.
+												A stepper stalled and the machine paused. The chute lost its home position,
+												so it must be re-homed before sorting can resume. Clear the jam, then
+												re-home — or clear the stall now and re-home later.
 											{:else}
-												A stepper stalled and the machine paused. Clear the jam, then clear
-												the stall; resume from the header once it's cleared.
+												A stepper stalled and the machine paused. Clear the jam, then clear the
+												stall; resume from the header once it's cleared.
 											{/if}
 										</div>
 										{#if incidentString(stallIncident, 'operator_message')}
@@ -1753,130 +1494,64 @@
 							{/if}
 						</div>
 					{/if}
-{#if needsHomingIncident}
-	<div class="shrink-0 border border-danger/50 bg-danger/10 px-4 py-3">
-		<div class="flex items-start justify-between gap-3">
-			<div class="flex min-w-0 items-start gap-2">
-				<AlertTriangle size={17} class="mt-0.5 shrink-0 text-danger" />
-				<div class="min-w-0">
-					<div class="flex flex-wrap items-center gap-2">
-						<div class="text-sm font-semibold text-text">Needs Homing</div>
-						<div
-							class="bg-danger px-1.5 py-0.5 text-[10px] font-semibold text-white uppercase"
-						>
-							Halted
-						</div>
-					</div>
-					<div class="mt-1 text-xs text-text-muted">
-						The chute lost its home position after a stall, so its location can't
-						be trusted. Re-home the chute to resume sorting.
-					</div>
-					{#if incidentString(needsHomingIncident, 'operator_message')}
-						<div class="mt-2 bg-danger/10 px-2 py-1.5 text-xs text-danger">
-							{incidentString(needsHomingIncident, 'operator_message')}
+					{#if needsHomingIncident}
+						<div class="shrink-0 border border-danger/50 bg-danger/10 px-4 py-3">
+							<div class="flex items-start justify-between gap-3">
+								<div class="flex min-w-0 items-start gap-2">
+									<AlertTriangle size={17} class="mt-0.5 shrink-0 text-danger" />
+									<div class="min-w-0">
+										<div class="flex flex-wrap items-center gap-2">
+											<div class="text-sm font-semibold text-text">Needs Homing</div>
+											<div
+												class="bg-danger px-1.5 py-0.5 text-[10px] font-semibold text-white uppercase"
+											>
+												Halted
+											</div>
+										</div>
+										<div class="mt-1 text-xs text-text-muted">
+											The chute lost its home position after a stall, so its location can't be
+											trusted. Re-home the chute to resume sorting.
+										</div>
+										{#if incidentString(needsHomingIncident, 'operator_message')}
+											<div class="mt-2 bg-danger/10 px-2 py-1.5 text-xs text-danger">
+												{incidentString(needsHomingIncident, 'operator_message')}
+											</div>
+										{/if}
+									</div>
+								</div>
+							</div>
+							<div class="mt-3 flex flex-wrap items-center gap-2">
+								<button
+									type="button"
+									onclick={rehomeChute}
+									disabled={rehomeIncidentActionPending}
+									class="inline-flex min-h-10 items-center gap-1.5 bg-bg px-3 py-1.5 text-xs font-medium text-text shadow-[inset_0_0_0_1px_var(--color-border)] transition-transform hover:bg-surface active:scale-[0.96] disabled:cursor-not-allowed disabled:opacity-50"
+								>
+									<RotateCcw size={13} />
+									Re-home Chute
+								</button>
+								<button
+									type="button"
+									onclick={() => openIncidentDetails(needsHomingIncident, 'Needs Homing')}
+									title="Incident details"
+									class="ml-auto inline-flex min-h-10 items-center gap-1.5 px-2 py-1.5 text-xs font-medium text-text-muted transition-colors hover:bg-bg/70 hover:text-text"
+								>
+									<Info size={14} />
+									Details
+								</button>
+							</div>
+							{#if rehomeIncidentActionError}
+								<div class="mt-2 text-xs text-danger">{rehomeIncidentActionError}</div>
+							{/if}
 						</div>
 					{/if}
-				</div>
-			</div>
-		</div>
-		<div class="mt-3 flex flex-wrap items-center gap-2">
-			<button
-				type="button"
-				onclick={rehomeChute}
-				disabled={rehomeIncidentActionPending}
-				class="inline-flex min-h-10 items-center gap-1.5 bg-bg px-3 py-1.5 text-xs font-medium text-text shadow-[inset_0_0_0_1px_var(--color-border)] transition-transform hover:bg-surface active:scale-[0.96] disabled:cursor-not-allowed disabled:opacity-50"
-			>
-				<RotateCcw size={13} />
-				Re-home Chute
-			</button>
-			<button
-				type="button"
-				onclick={() => openIncidentDetails(needsHomingIncident, 'Needs Homing')}
-				title="Incident details"
-				class="ml-auto inline-flex min-h-10 items-center gap-1.5 px-2 py-1.5 text-xs font-medium text-text-muted transition-colors hover:bg-bg/70 hover:text-text"
-			>
-				<Info size={14} />
-				Details
-			</button>
-		</div>
-		{#if rehomeIncidentActionError}
-			<div class="mt-2 text-xs text-danger">{rehomeIncidentActionError}</div>
-		{/if}
-	</div>
-{/if}
-<CollapsibleSection title="Incidents" storageKey="incidents" class="max-lg:order-last">
-	<div class="flex flex-col gap-2">
-		{#each incidentDefinitions as definition (definition.kind)}
-			{@const mode = incidentMode(definition.kind)}
-			{@const active = incidentDefinitionActive(definition)}
-			<div class="border border-border bg-bg px-3 py-2">
-				<div class="flex items-start justify-between gap-3">
-					<div class="min-w-0">
-						<div class="flex flex-wrap items-center gap-2">
-							<div class="text-xs font-semibold text-text">{definition.label}</div>
-							{#if definition.scope}
-								<div class="bg-surface px-1.5 py-0.5 text-[10px] text-text-muted">
-									{definition.scope}
-								</div>
-							{/if}
-							{#if active}
-								<div
-									class="bg-warning px-1.5 py-0.5 text-[10px] font-semibold text-warning-dark uppercase"
-								>
-									Active
-								</div>
-							{/if}
-						</div>
-						<div class="mt-1 text-sm text-text-muted">{definition.description}</div>
-					</div>
-					<div class="flex shrink-0 overflow-hidden">
-						<button
-							type="button"
-							onclick={() => void saveIncidentMode(definition.kind, 'off')}
-							disabled={incidentPolicySaving === definition.kind}
-							class={incidentModeButtonClass(mode === 'off')}
-						>
-							Off
-						</button>
-						<button
-							type="button"
-							onclick={() => void saveIncidentMode(definition.kind, 'manual')}
-							disabled={incidentPolicySaving === definition.kind}
-							class={incidentModeButtonClass(mode === 'manual')}
-						>
-							Manual
-						</button>
-						<button
-							type="button"
-							onclick={() => void saveIncidentMode(definition.kind, 'automatic')}
-							disabled={!definition.automatic_supported ||
-								incidentPolicySaving === definition.kind}
-							class={incidentModeButtonClass(
-								mode === 'automatic',
-								!definition.automatic_supported
-							)}
-							title={definition.automatic_supported
-								? definition.automatic_label
-								: 'Manual only'}
-						>
-							Auto
-						</button>
-					</div>
-				</div>
-			</div>
-		{/each}
-		{#if incidentPolicyError}
-			<div class="text-xs text-danger">{incidentPolicyError}</div>
-		{/if}
-	</div>
-</CollapsibleSection>
-<CollapsibleSection
-	title="Recent Pieces"
-	storageKey="recent"
-	grow
-	class="max-lg:order-first"
->
-<RecentObjects />
+					<CollapsibleSection
+						title="Recent Pieces"
+						storageKey="recent"
+						grow
+						class="max-lg:order-first"
+					>
+						<RecentObjects />
 					</CollapsibleSection>
 					<CollapsibleSection title="Runtime" storageKey="runtimeTabs">
 						<SidebarBottomTabs />

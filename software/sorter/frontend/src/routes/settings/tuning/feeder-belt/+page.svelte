@@ -1,9 +1,16 @@
 <script lang="ts">
 	import { getBackendHttpBase } from '$lib/backend';
-	import { Button, Alert } from '$lib/components/primitives';
+	import { Alert } from '$lib/components/primitives';
 	import SectionCard from '$lib/components/settings/SectionCard.svelte';
+	import SettingsSaveBar from '$lib/components/settings/SettingsSaveBar.svelte';
 	import TuningParamRow from '$lib/components/settings/TuningParamRow.svelte';
-	import { groupTuningSections, type TuningFieldMeta, type TuningValues } from '$lib/settings/tuning';
+	import UnsavedChangesDialog from '$lib/components/settings/UnsavedChangesDialog.svelte';
+	import { createUnsavedGuard } from '$lib/settings/unsavedChanges.svelte';
+	import {
+		groupTuningSections,
+		type TuningFieldMeta,
+		type TuningValues
+	} from '$lib/settings/tuning';
 
 	type BeltStatus = {
 		ts: number;
@@ -28,12 +35,25 @@
 	let saved = $state(false);
 	let beltStatus = $state<BeltStatus | null>(null);
 	let beltStatusAvailable = $state(false);
+	// False while the status poll fails. Without it the derived below never
+	// re-runs (nothing changes) and the last snapshot would stay "fresh" forever.
+	let pollOk = $state(true);
 
 	let sections = $derived(groupTuningSections(fields));
+
+	// Guards navigation while the form differs from what is stored on the machine.
+	// Armed only once load() has taken a snapshot, so it never fires on a page
+	// that is still fetching.
+	const guard = createUnsavedGuard({
+		current: () => values,
+		save,
+		ready: () => !loading && !saving
+	});
+
 	// Status older than ~3 s means the belt flow is not ticking (feeder idle,
 	// different feeder mode, or backend restart) — show it greyed out.
 	let statusFresh = $derived(
-		beltStatus !== null && Date.now() / 1000 - beltStatus.ts < 3
+		pollOk && beltStatus !== null && Date.now() / 1000 - beltStatus.ts < 3
 	);
 
 	const REASON_LABELS: Record<string, string> = {
@@ -43,6 +63,8 @@
 		disabled: 'Stopped — belt disabled in config',
 		no_perception: 'Stopped — no C3 perception state yet',
 		no_belt_stepper: 'Stopped — no belt stepper bound',
+		held: 'Held — incident or manual feed',
+		chute_move: 'Paused — chute is moving',
 		idle: 'Idle — feeder not in FEEDING state'
 	};
 
@@ -55,12 +77,17 @@
 	async function pollStatus() {
 		try {
 			const res = await fetch(`${getBackendHttpBase()}/api/tuning/feeder-belt/status`);
-			if (!res.ok) return;
+			if (!res.ok) {
+				pollOk = false;
+				return;
+			}
 			const data = await res.json();
 			beltStatusAvailable = Boolean(data.available);
 			beltStatus = data.status ?? null;
+			pollOk = true;
 		} catch {
-			// Transient fetch errors just keep the last snapshot.
+			// Keep the last snapshot on screen, greyed out as stale.
+			pollOk = false;
 		}
 	}
 
@@ -73,6 +100,7 @@
 			const data = await res.json();
 			fields = data.fields;
 			values = { ...data.config };
+			guard.markSaved();
 		} catch (e: any) {
 			error = e.message ?? 'Failed to load config';
 		} finally {
@@ -96,6 +124,7 @@
 			}
 			const data = await res.json();
 			values = { ...data.config };
+			guard.markSaved();
 			saved = true;
 			setTimeout(() => (saved = false), 3000);
 		} catch (e: any) {
@@ -113,6 +142,8 @@
 	});
 </script>
 
+<svelte:head><title>Sorter - B1 Belt Feeder Tuning</title></svelte:head>
+
 <div class="flex flex-col gap-6 p-6">
 	<div>
 		<div class="text-lg font-semibold text-text">B1 Belt Feeder Tuning</div>
@@ -123,6 +154,10 @@
 			Pulse page. Changes take effect within ~1 second (no restart needed).
 		</div>
 	</div>
+
+	{#if !loading}
+		<SettingsSaveBar {save} reset={load} {saving} dirty={guard.isDirty} />
+	{/if}
 
 	{#if error}
 		<Alert variant="danger">{error}</Alert>
@@ -170,8 +205,8 @@
 							C3 pieces
 						</div>
 						<div class="text-sm text-text tabular-nums">
-							{beltStatus.c3_pieces ?? '—'} (full ≤{beltStatus.c3_full_speed_pieces ?? '—'}, stop
-							≥{beltStatus.c3_stop_pieces ?? '—'})
+							{beltStatus.c3_pieces ?? '—'} (full ≤{beltStatus.c3_full_speed_pieces ?? '—'}, stop ≥{beltStatus.c3_stop_pieces ??
+								'—'})
 						</div>
 					</div>
 					<div>
@@ -227,10 +262,11 @@
 				{/each}
 			</div>
 
-			<div class="mt-6 flex gap-3">
-				<Button variant="primary" onclick={save} loading={saving}>Save</Button>
-				<Button variant="secondary" onclick={load} disabled={saving}>Reset to saved</Button>
+			<div class="mt-6">
+				<SettingsSaveBar {save} reset={load} {saving} dirty={guard.isDirty} />
 			</div>
 		{/if}
 	</SectionCard>
+
+	<UnsavedChangesDialog {guard} />
 </div>

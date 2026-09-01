@@ -38,7 +38,6 @@
 		{ href: '/bins', label: 'Bins' },
 		{ href: '/profiles', label: 'Profiles' },
 		{ href: '/records', label: 'Records' },
-		{ href: '/logs', label: 'Logs' },
 		{ href: '/settings', label: 'Settings' }
 	];
 

@@ -20,12 +20,16 @@ Camera calibration has two stages: **focus** (mechanical, done by hand) and **co
 
 - A printed **Siemens Star** focus chart, roughly 8 x 8 cm. Any high-contrast radial spoke pattern works.
 
-<figure class="single-figure">
+<figure class="figure-float-right">
   <a href="{{ '/assets/siemens-star-print.html' | relative_url }}" target="_blank" rel="noopener">
-    <img class="doc-figure" src="{{ '/assets/png-transparent-siemens-star-focus-camera-optics-charts-angle-lens-triangle.png' | relative_url }}" alt="Siemens Star focus chart" style="width: 8cm; height: 8cm;">
+    <img src="{{ '/assets/png-transparent-siemens-star-focus-camera-optics-charts-angle-lens-triangle.png' | relative_url }}" alt="Siemens Star focus chart">
   </a>
-  <figcaption>Sized to print at 8 x 8 cm. Click to open the print page, sized the same with crop marks, then print at 100% scale, not "fit to page", or it won't come out to size.</figcaption>
+  <figcaption>Click to open the print page.</figcaption>
 </figure>
+
+This preview isn't sized to print, it's just scaled to fit the column. Click it to open a print-ready page, sized exactly 8 x 8 cm with crop marks, and print that at 100% scale, not "fit to page", or it won't come out to size.
+
+<div class="clear-float"></div>
 
 ### Steps
 

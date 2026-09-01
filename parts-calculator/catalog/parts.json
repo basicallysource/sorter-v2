@@ -4156,9 +4156,9 @@
       },
       "name": "IMX415 4K camera module",
       "category": "Cameras",
-      "description": "Classification top camera",
+      "description": "Classification top camera — the ENOMAKER IMX415 4K USB module.",
       "created_at": "2026-07-18",
-      "updated_at": "2026-07-18",
+      "updated_at": "2026-09-01",
       "sheet_qty": {
         "per_machine": 1
       },
@@ -5769,7 +5769,19 @@
       ],
       "lines": [
         {
+          "assembly": "c-channel",
+          "qty": 1
+        },
+        {
           "assembly": "rotor-unit-finned",
+          "qty": 1
+        },
+        {
+          "part": "classification-dome",
+          "qty": 1
+        },
+        {
+          "assembly": "camera-led-insert-assembly",
           "qty": 1
         }
       ]
@@ -6232,10 +6244,10 @@
     },
     {
       "id": "feeder",
-      "uid": "pye7",
-      "version": "2",
+      "uid": "y5ws",
+      "version": "3",
       "name": "Feeder",
-      "description": "Feeder + classification channel. Everything above the interface.",
+      "description": "Everything above the top interface: the bulk bucket, C-channels 2 and 3, and the classification chamber.",
       "docs": "/hardware/assembly/feeder/",
       "status": "partial",
       "versions": [
@@ -6281,35 +6293,313 @@
           "date": "2026-08-31",
           "message": "The 3 faceted rotors become 3 Rotor unit (faceted) — rotor + bolted-on Output gear (130T) as one bench unit. No physical change.",
           "breaking": false,
+          "commit": null,
+          "uid": "pye7",
+          "lines": [
+            {
+              "assembly": "c-channel",
+              "qty": 4,
+              "uid": "4tvc"
+            },
+            {
+              "assembly": "rotor-unit-faceted",
+              "qty": 3,
+              "uid": "ylvv"
+            },
+            {
+              "assembly": "classification-chamber",
+              "qty": 1,
+              "uid": "fyqw"
+            },
+            {
+              "assembly": "camera-extension-assembly",
+              "qty": 1,
+              "uid": "dc2i"
+            },
+            {
+              "assembly": "light-post-assembly",
+              "qty": 2,
+              "uid": "v06x"
+            },
+            {
+              "assembly": "camera-mount",
+              "qty": 2,
+              "uid": "b3zx"
+            }
+          ]
+        },
+        {
+          "version": "3",
+          "date": "2026-09-01",
+          "message": "Restructured into the four physical units — the bulk bucket, C-channels 2 and 3, and the classification chamber — each carrying its own C-channel drive, rotor, supports, guide or cap, and lighting. No physical change.",
+          "breaking": false,
           "commit": null
         }
       ],
       "lines": [
         {
-          "assembly": "c-channel",
-          "qty": 4
+          "assembly": "bulk-bucket",
+          "qty": 1
         },
         {
-          "assembly": "rotor-unit-faceted",
-          "qty": 3
+          "assembly": "channel-two",
+          "qty": 1
+        },
+        {
+          "assembly": "channel-three",
+          "qty": 1
         },
         {
           "assembly": "classification-chamber",
           "qty": 1
         },
         {
-          "assembly": "camera-extension-assembly",
-          "qty": 1
-        },
-        {
-          "assembly": "light-post-assembly",
-          "qty": 2
-        },
-        {
           "assembly": "camera-mount",
           "qty": 2
         }
       ]
+    },
+    {
+      "id": "channel-three-support",
+      "uid": "r6ar",
+      "version": "1",
+      "name": "Channel 3 support",
+      "description": "One of C-channel 3's three standoffs: a foot and the leg the channel dovetails onto.",
+      "status": "partial",
+      "lines": [
+        {
+          "part": "foot",
+          "qty": 1
+        },
+        {
+          "part": "leg",
+          "qty": 1
+        }
+      ],
+      "connections": [
+        {
+          "from": "foot",
+          "to": "leg",
+          "qty": 1,
+          "method": "friction",
+          "note": "Dovetail: the male tail on top of the lower part slides into the female slot under the upper."
+        }
+      ]
+    },
+    {
+      "id": "channel-two-support",
+      "uid": "dp63",
+      "version": "1",
+      "name": "Channel 2 support",
+      "description": "One of C-channel 2's three standoffs: a foot, one leg extension, and the leg the channel dovetails onto.",
+      "status": "partial",
+      "lines": [
+        {
+          "part": "foot",
+          "qty": 1
+        },
+        {
+          "part": "leg-extension",
+          "qty": 1
+        },
+        {
+          "part": "leg",
+          "qty": 1
+        }
+      ],
+      "connections": [
+        {
+          "from": "foot",
+          "to": "leg-extension",
+          "qty": 1,
+          "method": "friction",
+          "note": "Dovetail: the male tail on top of the lower part slides into the female slot under the upper."
+        },
+        {
+          "from": "leg-extension",
+          "to": "leg",
+          "qty": 1,
+          "method": "friction",
+          "note": "Dovetail: the male tail on top of the lower part slides into the female slot under the upper."
+        }
+      ]
+    },
+    {
+      "id": "bulk-bucket-support",
+      "uid": "xo6j",
+      "version": "1",
+      "name": "Bulk bucket support",
+      "description": "One of the bulk bucket's three standoffs — the tallest stack: a foot, two leg extensions, and the leg.",
+      "status": "partial",
+      "lines": [
+        {
+          "part": "foot",
+          "qty": 1
+        },
+        {
+          "part": "leg-extension",
+          "qty": 2
+        },
+        {
+          "part": "leg",
+          "qty": 1
+        }
+      ],
+      "connections": [
+        {
+          "from": "foot",
+          "to": "leg-extension",
+          "qty": 1,
+          "method": "friction",
+          "note": "Dovetail: the male tail on top of the lower part slides into the female slot under the upper."
+        },
+        {
+          "from": "leg-extension",
+          "to": "leg-extension",
+          "qty": 1,
+          "method": "friction",
+          "note": "The two extensions stack tail-into-slot. Dovetail: the male tail on top of the lower part slides into the female slot under the upper."
+        },
+        {
+          "from": "leg-extension",
+          "to": "leg",
+          "qty": 1,
+          "method": "friction",
+          "note": "Dovetail: the male tail on top of the lower part slides into the female slot under the upper."
+        }
+      ]
+    },
+    {
+      "id": "bulk-bucket",
+      "uid": "1sej",
+      "version": "1",
+      "name": "Bulk bucket C-channel",
+      "description": "The top feeder unit: a C-channel drive with a white faceted rotor, capped by the Bulk cap instead of an output guide and with no light post, standing on the tallest supports.",
+      "status": "partial",
+      "lines": [
+        {
+          "assembly": "bulk-bucket-support",
+          "qty": 3
+        },
+        {
+          "assembly": "c-channel",
+          "qty": 1
+        },
+        {
+          "assembly": "rotor-unit-faceted",
+          "qty": 1
+        },
+        {
+          "part": "bulk-cap",
+          "qty": 1
+        }
+      ],
+      "connections": [
+        {
+          "from": "bulk-bucket-support",
+          "to": "c-channel",
+          "qty": 3,
+          "method": "friction",
+          "note": "Dovetail: each support's leg slides into the C-channel drive from below."
+        }
+      ]
+    },
+    {
+      "id": "channel-two",
+      "uid": "hi96",
+      "version": "1",
+      "name": "C-channel 2",
+      "description": "The middle feeder channel: a C-channel drive with a white faceted rotor, an output guide and a light post, standing on three supports with one leg extension each.",
+      "status": "partial",
+      "lines": [
+        {
+          "assembly": "channel-two-support",
+          "qty": 3
+        },
+        {
+          "assembly": "c-channel",
+          "qty": 1
+        },
+        {
+          "assembly": "rotor-unit-faceted",
+          "qty": 1
+        },
+        {
+          "part": "output-guide",
+          "qty": 1
+        },
+        {
+          "assembly": "light-post-assembly",
+          "qty": 1
+        }
+      ],
+      "connections": [
+        {
+          "from": "channel-two-support",
+          "to": "c-channel",
+          "qty": 3,
+          "method": "friction",
+          "note": "Dovetail: each support's leg slides into the C-channel drive from below."
+        }
+      ]
+    },
+    {
+      "id": "channel-three",
+      "uid": "xlak",
+      "version": "1",
+      "name": "C-channel 3",
+      "description": "The lowest feeder channel, just above the classification chamber: a C-channel drive with the gray faceted rotor, an output guide and a light post, on three foot-and-leg supports.",
+      "status": "partial",
+      "lines": [
+        {
+          "assembly": "channel-three-support",
+          "qty": 3
+        },
+        {
+          "assembly": "c-channel",
+          "qty": 1
+        },
+        {
+          "assembly": "rotor-unit-faceted",
+          "qty": 1
+        },
+        {
+          "part": "output-guide",
+          "qty": 1
+        },
+        {
+          "assembly": "light-post-assembly",
+          "qty": 1
+        }
+      ],
+      "connections": [
+        {
+          "from": "channel-three-support",
+          "to": "c-channel",
+          "qty": 3,
+          "method": "friction",
+          "note": "Dovetail: each support's leg slides into the C-channel drive from below."
+        }
+      ]
+    },
+    {
+      "id": "camera-led-insert-assembly",
+      "uid": "434r",
+      "version": "1",
+      "name": "Camera & LED insert assembly",
+      "description": "The Camera & LED insert print with the camera extension assembled into it; the loaded insert drops into the classification dome.",
+      "status": "partial",
+      "lines": [
+        {
+          "part": "camera-led-insert",
+          "qty": 1
+        },
+        {
+          "assembly": "camera-extension-assembly",
+          "qty": 1
+        }
+      ],
+      "connections": []
     },
     {
       "id": "interface",

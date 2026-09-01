@@ -1520,10 +1520,11 @@ pre code {
 	border-color: rgba(0, 133, 43, 0.9);
 }
 
-/* The copy-link button beside article headings. Same glyph and same copied
-   flash as .copy-code-button above, sized down and recoloured for the light
-   article background. Faint until the heading is hovered or the button takes
-   focus, so a page of headings does not read as a column of icons. */
+/* The copy-link button beside article headings. A chain link, not the copy
+   glyph .copy-code-button uses, because copying a code block and linking to a
+   section are different actions. It shares the copied-state flash and nothing
+   else. Faint until the heading is hovered or the button takes focus, so a page
+   of headings does not read as a column of icons. */
 .heading-link-button {
 	display: inline-flex;
 	align-items: center;

@@ -24,10 +24,12 @@
 
 	let contentEl: HTMLElement | undefined = $state();
 
-	// One copy glyph for the whole article: the code-block button and the
-	// heading link button below are the same action, so they are the same icon.
-	const COPY_ICON =
-		'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" aria-hidden="true"><rect x="9" y="9" width="12" height="12"></rect><path d="M5 15H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1"></path></svg>';
+	// A chain link, the conventional icon for "a link to this heading". Not the
+	// two-rectangle copy glyph the code blocks use: that one means "copy this
+	// text", which is a different thing, and zed0 said so when the first version
+	// of this reused it.
+	const LINK_ICON =
+		'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>';
 
 	// Copied-state feedback, shared by both buttons.
 	function flashCopied(btn: HTMLElement) {
@@ -49,7 +51,8 @@
 			btn.type = 'button';
 			btn.className = 'copy-code-button';
 			btn.setAttribute('aria-label', 'Copy code');
-			btn.innerHTML = COPY_ICON;
+			btn.innerHTML =
+				'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square"><rect x="9" y="9" width="12" height="12"></rect><path d="M5 15H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1"></path></svg>';
 			btn.addEventListener('click', async () => {
 				await navigator.clipboard.writeText(pre.innerText.replace(/\n$/, ''));
 				flashCopied(btn);
@@ -78,7 +81,7 @@
 			const label = target.textContent?.replace(/\s+/g, ' ').trim() ?? '';
 			btn.setAttribute('aria-label', label ? `Copy link to "${label}"` : 'Copy link to this section');
 			btn.title = 'Copy link to this section';
-			btn.innerHTML = COPY_ICON;
+			btn.innerHTML = LINK_ICON;
 			btn.addEventListener('click', async () => {
 				// Absolute, and built from the current page rather than the address
 				// bar as it stands, so a link copied off a page you arrived at via

@@ -18811,26 +18811,26 @@
 		{
 			"name": "ext-bracket-left-v1",
 			"node": "ext-bracket-left",
-			"stability": "stable",
+			"stability": "golden",
 			"date": "2026-08-31",
 			"commit": null,
-			"message": "Blessed stable with hex-frame-v2."
+			"message": "Golden with hex-frame-v2: future revisions must stay compatible with this part."
 		},
 		{
 			"name": "ext-bracket-bottom-vertical-v1",
 			"node": "ext-bracket-bottom-vertical",
-			"stability": "stable",
+			"stability": "golden",
 			"date": "2026-08-31",
 			"commit": null,
-			"message": "Blessed stable with hex-frame-v2."
+			"message": "Golden with hex-frame-v2: future revisions must stay compatible with this part."
 		},
 		{
 			"name": "ext-bracket-cover-v1",
 			"node": "ext-bracket-cover",
-			"stability": "stable",
+			"stability": "golden",
 			"date": "2026-08-31",
 			"commit": null,
-			"message": "Blessed stable with hex-frame-v2."
+			"message": "Golden with hex-frame-v2: future revisions must stay compatible with this part."
 		},
 		{
 			"name": "frame-crossbeam-v1",
@@ -18851,18 +18851,18 @@
 		{
 			"name": "ext-2020-ag-v1",
 			"node": "ext-2020-ag",
-			"stability": "stable",
+			"stability": "golden",
 			"date": "2026-08-31",
 			"commit": null,
-			"message": "Blessed stable with hex-frame-v2."
+			"message": "Golden with hex-frame-v2: future revisions must stay compatible with this part."
 		},
 		{
 			"name": "ext-2020-bh-v1",
 			"node": "ext-2020-bh",
-			"stability": "stable",
+			"stability": "golden",
 			"date": "2026-08-31",
 			"commit": null,
-			"message": "Blessed stable with hex-frame-v2."
+			"message": "Golden with hex-frame-v2: future revisions must stay compatible with this part."
 		}
 	]
 }

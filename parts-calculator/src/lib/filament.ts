@@ -382,12 +382,13 @@ export const CHANGES = ((raw as Record<string, unknown>).changes ?? []) as Plann
 export const FOLDERS = ((raw as Record<string, unknown>).folders ?? []) as Folder[];
 export const COLOR_ROLES = raw.color_roles as ColorRoleDef[];
 /** A blessed moment of a node's whole subtree — resolved against history like
- *  a timeline point. 'stable' means compatibility with that build must not be
- *  broken silently. Appended only by a human decision. */
+ *  a timeline point. 'stable' means the build as of that moment is known good;
+ *  'golden' adds the forward promise that future revisions must stay
+ *  compatible with it. Appended only by a human decision. */
 export type CatalogTag = {
 	name: string;
 	node: string;
-	stability: 'stable' | 'experimental';
+	stability: 'golden' | 'stable' | 'experimental';
 	date: string;
 	commit?: string | null;
 	message?: string;

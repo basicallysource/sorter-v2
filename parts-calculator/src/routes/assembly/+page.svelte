@@ -184,10 +184,11 @@
 	// both use the same keep machinery. Order re-sorts each assembly's lines in
 	// place. Both menu choices live in the URL (?stable=1&order=name).
 	let filter = $state('');
-	let onlyStable = $state(false);
+	let fGolden = $state(false);
+	let fStable = $state(false);
 	let order = $state<'authored' | 'name'>('authored');
 	const textActive = $derived(filter.trim().length > 0);
-	const filtering = $derived(textActive || onlyStable);
+	const filtering = $derived(textActive || fGolden || fStable);
 
 	/** The tags standing on a node's CURRENT version: a tag blesses a moment,
 	 *  so a revision after its date leaves it behind on the old version. */
@@ -199,7 +200,16 @@
 			return !last?.date || last.date <= t.date;
 		});
 	}
-	const stableOk = (id: string) => !onlyStable || tagsFor(id).some((t) => t.stability === 'stable');
+	/** Stability filter: checked levels union — golden alone, stable alone, or
+	 *  both at once. Nothing checked means no stability filtering at all. */
+	const stableOk = (id: string) => {
+		if (!fGolden && !fStable) return true;
+		const ts = tagsFor(id);
+		return (
+			(fGolden && ts.some((t) => t.stability === 'golden')) ||
+			(fStable && ts.some((t) => t.stability === 'stable'))
+		);
+	};
 
 	/** Does this member — printed part, bought part or laser-cut sheet — match? */
 	function memberMatches(id: string): boolean {
@@ -296,19 +306,23 @@
 	// writers start from the current search, so neither strips the other's keys.
 	onMount(() => {
 		const sp = page.url.searchParams;
-		onlyStable = sp.get('stable') === '1';
+		fGolden = sp.get('golden') === '1';
+		fStable = sp.get('stable') === '1';
 		if (sp.get('order') === 'name') order = 'name';
 	});
 	$effect(() => {
-		const stable = onlyStable ? '1' : null;
-		const ord = order !== 'authored' ? order : null;
+		const want: [string, string | null][] = [
+			['golden', fGolden ? '1' : null],
+			['stable', fStable ? '1' : null],
+			['order', order !== 'authored' ? order : null]
+		];
 		if (!browser || !urlReady) return;
 		const params = new URLSearchParams(location.search);
-		if (params.get('stable') === stable && params.get('order') === ord) return;
-		if (stable) params.set('stable', stable);
-		else params.delete('stable');
-		if (ord) params.set('order', ord);
-		else params.delete('order');
+		if (want.every(([k, v]) => params.get(k) === v)) return;
+		for (const [k, v] of want) {
+			if (v) params.set(k, v);
+			else params.delete(k);
+		}
 		const qs = params.toString().replaceAll('%2C', ',');
 		replaceState(qs ? `${location.pathname}?${qs}` : location.pathname, {});
 	});
@@ -708,7 +722,7 @@
      or EXPERIMENTAL, with a count when several. Hover names the tags. -->
 {#snippet tagChips(id: string)}
 	{@const tags = tagsFor(id)}
-	{#each [['stable', 'border-success/60 text-success-dark'], ['experimental', 'border-border text-text-muted']] as [st, cls] (st)}
+	{#each [['golden', 'border-warning/70 text-warning-dark'], ['stable', 'border-success/60 text-success-dark'], ['experimental', 'border-border text-text-muted']] as [st, cls] (st)}
 		{@const n = tags.filter((t) => t.stability === st)}
 		{#if n.length}
 			<span
@@ -1306,7 +1320,7 @@
 				/>
 				<DropdownMenu label="Filter and order the tree" menuClass="w-52">
 					{#snippet trigger({ toggle, open })}
-						{@const active = onlyStable || order !== 'authored'}
+						{@const active = fGolden || fStable || order !== 'authored'}
 						<span class="flex shrink-0">
 							<button
 								type="button"
@@ -1324,7 +1338,8 @@
 									type="button"
 									class="-ml-px flex h-8 w-6 items-center justify-center border border-primary bg-surface text-primary hover:bg-primary/[0.06]"
 									onclick={() => {
-										onlyStable = false;
+										fGolden = false;
+										fStable = false;
 										order = 'authored';
 									}}
 									title="Clear filter and order"
@@ -1336,15 +1351,23 @@
 						</span>
 					{/snippet}
 					{#snippet children({ close })}
-						{@const active = onlyStable || order !== 'authored'}
+						{@const active = fGolden || fStable || order !== 'authored'}
 						<div class="px-2.5 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-wider text-text-muted">Filter</div>
 						<button
 							type="button"
 							class="flex w-full items-center gap-2 px-2.5 py-1.5 text-left text-xs text-text hover:bg-[var(--color-bg)]"
-							onclick={() => (onlyStable = !onlyStable)}
+							onclick={() => (fGolden = !fGolden)}
 						>
-							<span>Stable only</span>
-							{#if onlyStable}<Check size={12} class="ml-auto text-primary" />{/if}
+							<span>Golden</span>
+							{#if fGolden}<Check size={12} class="ml-auto text-primary" />{/if}
+						</button>
+						<button
+							type="button"
+							class="flex w-full items-center gap-2 px-2.5 py-1.5 text-left text-xs text-text hover:bg-[var(--color-bg)]"
+							onclick={() => (fStable = !fStable)}
+						>
+							<span>Stable</span>
+							{#if fStable}<Check size={12} class="ml-auto text-primary" />{/if}
 						</button>
 						<div class="px-2.5 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-wider text-text-muted">Order</div>
 						{#each [['authored', 'As authored'], ['name', 'By name']] as [o, lbl] (o)}
@@ -1365,7 +1388,8 @@
 									: 'cursor-default text-text-muted/50'}"
 								disabled={!active}
 								onclick={() => {
-									onlyStable = false;
+									fGolden = false;
+									fStable = false;
 									order = 'authored';
 									close();
 								}}

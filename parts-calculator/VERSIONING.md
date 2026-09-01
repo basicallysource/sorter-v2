@@ -120,10 +120,11 @@ Moments after its horizon resolve from `versions[]` snapshots.
 
 A tag blesses a moment of a node's whole subtree: top-level `tags` in
 `parts.json`, each `{name, node, stability, date, commit, message?}`.
-`stable` means the build as of that moment is known good — compatibility
-with it must not be broken silently; `experimental` marks a coherent but
-unproven cut. A tag resolves against history exactly like a timeline point
-and renders highlighted on the timeline.
+`stable` means the build as of that moment is known good; `golden` adds the
+forward promise — future revisions of a golden-tagged node must not be
+breaking, so anything built against it keeps working; `experimental` marks
+a coherent but unproven cut. A tag resolves against history exactly like a
+timeline point and renders highlighted on the timeline.
 
 Tags are appended only by a human decision. No tool, check, or agent ever
 mints one.

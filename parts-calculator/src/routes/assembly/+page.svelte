@@ -57,7 +57,9 @@
 	import { layerStore } from '$lib/layers.svelte';
 	import changelog from '$lib/data/changelog.generated.json';
 	import { page } from '$app/state';
-	import { replaceState } from '$app/navigation';
+	import { browser } from '$app/environment';
+	import { afterNavigate, replaceState } from '$app/navigation';
+	import { onMount } from 'svelte';
 	import { assemblyCsv } from '$lib/parts-csv';
 	import { download, exportSpec, filename } from '$lib/csv';
 
@@ -97,13 +99,17 @@
 	}
 
 	// First parent wins for a subtree shared by two branches — good enough for
-	// walking upward from a focus target.
+	// walking upward from a focus target. `treeOrder` is the same walk recorded
+	// as a list, so the ids written to the URL come out parents-first instead of
+	// in whatever order they happened to be unfolded.
 	const parentOf = new Map<string, string>();
+	const treeOrder: string[] = ['machine'];
 	{
 		const walk = (id: string) => {
 			for (const line of getAssembly(id)?.lines ?? []) {
 				if (line.assembly && !parentOf.has(line.assembly)) {
 					parentOf.set(line.assembly, id);
+					treeOrder.push(line.assembly);
 					walk(line.assembly);
 				}
 			}
@@ -111,12 +117,29 @@
 		walk('machine');
 	}
 
-	// ?focus=<assembly id> — the hardware page links here to answer "where does
-	// this screw actually go?". Read in an effect rather than derived: the site is
-	// prerendered, so query params don't exist until the page is in a browser.
+	// ---- the open tree in the URL --------------------------------------------
+	// Which nodes are unfolded IS the view on this page, so it belongs in the
+	// address bar: the link you paste reopens the branch you were talking about.
+	// `open` lists the unfolded assemblies; `open=` with nothing after it means
+	// everything is folded, which is a different thing from no param at all (that
+	// one means "the authored default"), and `open=all` is the whole tree, spelled
+	// out because the id list for that runs past 500 characters. Query params only
+	// exist in the browser — the site is prerendered — so the URL is read on mount,
+	// once, and written back from an effect afterwards.
 	let focus = $state<string | null>(null);
-	$effect(() => {
-		const target = page.url.searchParams.get('focus');
+	let urlReady = $state(false);
+	onMount(() => {
+		const sp = page.url.searchParams;
+		const openParam = sp.get('open');
+		if (openParam !== null) {
+			expanded = {};
+			const ids = openParam === 'all' ? treeOrder : openParam.split(',');
+			for (const id of ids) if (getAssembly(id)) expanded[id] = true;
+		}
+
+		// ?focus=<assembly id> — the hardware page links here to answer "where does
+		// this screw actually go?".
+		const target = sp.get('focus');
 		focus = target;
 		if (!target) return;
 		// A collapsed ancestor would hide the thing being pointed at.
@@ -126,6 +149,28 @@
 		const aim = () => document.getElementById(`asm-${target}`)?.scrollIntoView({ block: 'center' });
 		const timers = [0, 120, 400, 900].map((t) => setTimeout(aim, t));
 		return () => timers.forEach(clearTimeout);
+	});
+
+	// Not onMount: on a cold load the router is still initialising then, and
+	// replaceState throws if it is called before that finishes. afterNavigate
+	// runs once the first navigation has landed, which is exactly late enough.
+	afterNavigate(() => (urlReady = true));
+
+	$effect(() => {
+		if (!browser || !urlReady) return;
+		const open = treeOrder.filter((id) => expanded[id]);
+		// location, not page.url: replaceState does not update the page store,
+		// so reading it here would resurrect params another writer removed.
+		const params = new URLSearchParams(location.search);
+		// The default view writes no param, so the bare page keeps a bare URL.
+		if (open.length === 1 && open[0] === 'machine') params.delete('open');
+		else if (open.length === treeOrder.length) params.set('open', 'all');
+		else params.set('open', open.join(','));
+		// A comma is legal in a query string, and a list of ids is worth reading
+		// in the address bar; URLSearchParams escapes it anyway, so undo that.
+		const qs = params.toString().replaceAll('%2C', ',');
+		const target = qs ? `${location.pathname}?${qs}` : location.pathname;
+		if (target !== location.pathname + location.search) replaceState(target, {});
 	});
 
 	// ---- filtering the tree --------------------------------------------------
@@ -246,33 +291,26 @@
 
 	const matchCount = $derived(keep.matched.size);
 
-	// The menu's choices are shareable state, so they live in the URL. Read once
-	// when the page is in a browser (it is prerendered), write back on change.
-	let urlReady = false;
-	$effect(() => {
-		if (urlReady) return;
-		urlReady = true;
-		const sp = new URL(location.href).searchParams;
+	// The filter menu's choices are shareable state too: read in the same mount
+	// pass as ?open/?focus, written back through the same urlReady gate. Both
+	// writers start from the current search, so neither strips the other's keys.
+	onMount(() => {
+		const sp = page.url.searchParams;
 		onlyStable = sp.get('stable') === '1';
 		if (sp.get('order') === 'name') order = 'name';
 	});
 	$effect(() => {
 		const stable = onlyStable ? '1' : null;
 		const ord = order !== 'authored' ? order : null;
-		if (!urlReady) return;
-		const u = new URL(location.href);
-		// No-op when the URL already says this — which also keeps the mount run
-		// from calling replaceState before the router is initialized.
-		if (u.searchParams.get('stable') === stable && u.searchParams.get('order') === ord) return;
-		if (stable) u.searchParams.set('stable', stable);
-		else u.searchParams.delete('stable');
-		if (ord) u.searchParams.set('order', ord);
-		else u.searchParams.delete('order');
-		try {
-			replaceState(u.pathname + u.search + u.hash, {});
-		} catch {
-			history.replaceState(history.state, '', u);
-		}
+		if (!browser || !urlReady) return;
+		const params = new URLSearchParams(location.search);
+		if (params.get('stable') === stable && params.get('order') === ord) return;
+		if (stable) params.set('stable', stable);
+		else params.delete('stable');
+		if (ord) params.set('order', ord);
+		else params.delete('order');
+		const qs = params.toString().replaceAll('%2C', ',');
+		replaceState(qs ? `${location.pathname}?${qs}` : location.pathname, {});
 	});
 
 	// What the badge means. The tree records that a node is incomplete but not

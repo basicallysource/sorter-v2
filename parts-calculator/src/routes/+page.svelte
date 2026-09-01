@@ -57,7 +57,7 @@
 	import MissingImage from '$lib/components/MissingImage.svelte';
 	import { Download, Package, ZoomIn, Loader, Info, Plus, X, RotateCcw, Clock, Layers3, ExternalLink, AlertTriangle, History, ChevronRight, ChevronDown, ArrowUpRight, FlaskConical } from 'lucide-svelte';
 	import { page } from '$app/state';
-	import { replaceState } from '$app/navigation';
+	import { afterNavigate, replaceState } from '$app/navigation';
 	import { browser } from '$app/environment';
 
 	// ---- defaults (also used by "reset to default") -----------------------------
@@ -157,8 +157,18 @@
 		}
 		const aid = sp.get('assembly');
 		if (aid && getAssembly(aid)) openAssembly(aid);
-		urlReady = true;
+		// Which tab is showing is part of the view being shared, same as the open
+		// part is: a link to the build plates should arrive on the build plates.
+		if (sp.get('tab') === 'plates') activeTab = 'plates';
+		if (sp.get('view') === 'unique') listView = 'unique';
 	});
+
+	// The gate opens here rather than at the end of onMount: on a cold load the
+	// router is still initialising then, and a URL that needs tidying on arrival
+	// (`?tab=parts`, a colour that matches the default) would call replaceState
+	// before the router can take it, which throws. afterNavigate runs once the
+	// first navigation has landed, which is exactly late enough.
+	afterNavigate(() => (urlReady = true));
 
 	// Mirror the open part + its preview colour/version into the URL so the current
 	// view is a shareable link. Colour and version are only written when they differ
@@ -182,6 +192,11 @@
 		}
 		if (asmOpen && asmId) params.set('assembly', asmId);
 		else params.delete('assembly');
+		// Only the non-default tab is written, so the plain page keeps a bare URL.
+		if (activeTab === 'plates') params.set('tab', 'plates');
+		else params.delete('tab');
+		if (listView === 'unique') params.set('view', 'unique');
+		else params.delete('view');
 		const qs = params.toString();
 		const target = qs ? `${location.pathname}?${qs}` : location.pathname;
 		if (target !== location.pathname + location.search) replaceState(target, {});
@@ -228,8 +243,9 @@
 	// open; the modal binds and writes back to these.
 	let viewerColor = $state('ash-gray');
 	let viewerVersion = $state<PartVersion | null>(null);
-	// gate URL writes until the initial deep-link read has run (see onMount), so we
-	// never clobber ?part=… before we've had a chance to open it
+	// gate URL writes until the initial deep-link read has run and the router is up
+	// (see onMount and afterNavigate), so we never clobber ?part=… before we've had
+	// a chance to open it
 	let urlReady = $state(false);
 
 	// the per-layer size drives both the funnel and the bin set for that layer

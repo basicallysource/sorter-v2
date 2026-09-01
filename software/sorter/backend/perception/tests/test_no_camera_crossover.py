@@ -189,7 +189,10 @@ def test_three_workers_do_not_cross_outputs_when_run_concurrently() -> None:
         rad = math.radians(angle_deg)
         cx = 50.0 + 30.0 * math.cos(rad)
         cy = 50.0 + 30.0 * math.sin(rad)
-        return (int(cx - 5), int(cy - 5), int(cx + 5), int(cy + 5))
+        # The worker infers on the polygon's bounding-rect crop and offsets the
+        # runtime's bboxes back by the crop origin (outer radius 40 -> (10, 10)).
+        ox, oy = 50 - 40, 50 - 40
+        return (int(cx - 5) - ox, int(cy - 5) - oy, int(cx + 5) - ox, int(cy + 5) - oy)
 
     runtimes = {
         2: (bbox_at(90.0),),    # in drop arc

@@ -1006,7 +1006,8 @@
       "stl_hash": "313397afb08fc1943f045905b96131f73f1dc70c05d59fd2583c77da38318c36",
       "source": "1_printed_crossbeams - bottom_vertical_bracket.stl",
       "quantities": {
-        "layer": 6
+        "layer": 6,
+        "interface": 6
       },
       "assembly": "external-bracket",
       "color": {
@@ -6275,8 +6276,8 @@
     },
     {
       "id": "interface",
-      "uid": "bkgq",
-      "version": "2",
+      "uid": "uelo",
+      "version": "3",
       "name": "Top interface",
       "description": "The interface between the feeder and the distribution layers. Its lazy Susan sandwiches the upper fixed section and the chute mount, 4 × [[hw:scr-m4-12-cs]] a side, and the plywood top plate bolts down onto the six brackets' inserts.",
       "docs": "/hardware/assembly/distribution/top-interface/",
@@ -6289,14 +6290,6 @@
         {
           "assembly": "hex-frame",
           "qty": 1
-        },
-        {
-          "part": "ext-bracket-cover",
-          "qty": 6
-        },
-        {
-          "part": "scr-m5-16-shcs",
-          "qty": 12
         },
         {
           "assembly": "fixed-upper-section",
@@ -6510,7 +6503,117 @@
           "version": "2",
           "date": "2026-08-29",
           "message": "Consumes the new hex-frame assembly instead of duplicating its ext-bracket-left/ext-2020-ag/ext-2020-bh/frame-90deg-bracket/frame-crossbeam lines inline. Dropped the stray top-level tnut-m5-2020 qty 8, now superseded by interface-bracket-mount's and limit-switch's own per-step T-nut lines.",
-          "commit": "a2c66436"
+          "commit": "a2c66436",
+          "uid": "bkgq",
+          "lines": [
+            {
+              "assembly": "interface-bracket-mount",
+              "qty": 6,
+              "uid": "pnl9"
+            },
+            {
+              "assembly": "hex-frame",
+              "qty": 1,
+              "uid": "l0xa"
+            },
+            {
+              "part": "ext-bracket-cover",
+              "qty": 6,
+              "uid": "1r5i"
+            },
+            {
+              "part": "scr-m5-16-shcs",
+              "qty": 12,
+              "uid": "2e0s"
+            },
+            {
+              "assembly": "fixed-upper-section",
+              "qty": 1,
+              "uid": "99af"
+            },
+            {
+              "assembly": "cable-cage",
+              "qty": 1,
+              "uid": "nam6"
+            },
+            {
+              "part": "scr-m5-30-shcs",
+              "qty": 6,
+              "uid": "92kv"
+            },
+            {
+              "assembly": "cable-clamp",
+              "qty": 1,
+              "uid": "e0p9"
+            },
+            {
+              "part": "scr-m3-12-bhcs",
+              "qty": 2,
+              "uid": "izrb"
+            },
+            {
+              "assembly": "limit-switch",
+              "qty": 1,
+              "uid": "xzje"
+            },
+            {
+              "part": "scr-m5-20-shcs",
+              "qty": 2,
+              "uid": "e4hi"
+            },
+            {
+              "assembly": "chute-stepper-gearing",
+              "qty": 1,
+              "uid": "cwji"
+            },
+            {
+              "assembly": "interface-chute-drive",
+              "qty": 1,
+              "uid": "8cjj"
+            },
+            {
+              "part": "top-interface-split-spur-gear-2",
+              "qty": 1,
+              "uid": "izz5"
+            },
+            {
+              "assembly": "layer-connector",
+              "qty": 1,
+              "uid": "6m38"
+            },
+            {
+              "part": "brg-lazy-susan",
+              "qty": 1,
+              "uid": "wrxu"
+            },
+            {
+              "part": "scr-m4-12-cs",
+              "qty": 8,
+              "uid": "h8h4"
+            },
+            {
+              "part": "top-plate",
+              "qty": 1,
+              "uid": "1g22"
+            },
+            {
+              "part": "scr-m5-35-fhcs",
+              "qty": 6,
+              "uid": "xkl4"
+            },
+            {
+              "part": "scr-m5-8-cs",
+              "qty": 6,
+              "uid": "mqh4"
+            }
+          ]
+        },
+        {
+          "version": "3",
+          "date": "2026-08-31",
+          "message": "The six External bracket covers and 12 bracket screws move inside the hex frame's new External bracket with support segments. No physical change.",
+          "breaking": false,
+          "commit": null
         }
       ]
     },
@@ -7013,28 +7116,90 @@
       ]
     },
     {
-      "id": "hex-frame",
-      "uid": "8z0e",
+      "id": "external-bracket-with-support",
+      "uid": "kiag",
       "version": "1",
-      "name": "Hex frame",
-      "description": "The hexagonal aluminum-and-bracket ring shared by every layer, the bottom interface and the top interface. Six A/G outer-ring sections joined by six External bracket — side, with six B/H spokes and Frame crossbeams held inside by the Frame 90° brackets, friction-fit with no hardware. The 24 T-nuts are pre-installed in the A/G extrusion for the bin retainers a layer attaches later; the top interface's own hex frame pre-installs the same 24 without using them, since it has no bin retainers.",
-      "docs": "/hardware/assembly/distribution/bin-frame/hex-frame/",
-      "status": "partial",
-      "joining": [
+      "name": "External bracket with support",
+      "description": "One corner segment of the outer hex: the side bracket screwed to the bottom vertical, with the snap-on cover.",
+      "lines": [
         {
-          "method": "friction",
-          "note": "The Frame 90° bracket and Frame crossbeam take no hardware at all -- they hold in place by friction against alignment nubs in the extrusion. Confirmed by Spencer 2026-08-26, see the docs' Build the hex frame page."
+          "part": "ext-bracket-left",
+          "qty": 1
+        },
+        {
+          "part": "ext-bracket-bottom-vertical",
+          "qty": 1
+        },
+        {
+          "part": "ext-bracket-cover",
+          "qty": 1
+        },
+        {
+          "part": "scr-m5-16-shcs",
+          "qty": 1
         }
       ],
+      "connections": [
+        {
+          "from": "ext-bracket-left",
+          "to": "ext-bracket-bottom-vertical",
+          "via": "scr-m5-16-shcs",
+          "qty": 1,
+          "method": "self-tap"
+        },
+        {
+          "from": "ext-bracket-cover",
+          "to": "ext-bracket-left",
+          "qty": 1,
+          "method": "clip"
+        }
+      ]
+    },
+    {
+      "id": "outer-hex-frame",
+      "uid": "jvp9",
+      "version": "1",
+      "name": "Outer hex frame",
+      "description": "Six External bracket with support corners with six A/G extrusions slid between them, closing the hexagon.",
       "lines": [
+        {
+          "assembly": "external-bracket-with-support",
+          "qty": 6
+        },
         {
           "part": "ext-2020-ag",
           "qty": 6
         },
         {
-          "part": "ext-bracket-left",
-          "qty": 6
+          "part": "scr-m5-16-shcs",
+          "qty": 12
+        }
+      ],
+      "connections": [
+        {
+          "from": "ext-2020-ag",
+          "to": "external-bracket-with-support",
+          "qty": 12,
+          "method": "friction",
+          "note": "Each extrusion slides onto a bracket segment at either end -- one on either side of each bracket. These 12 fits hold the ring together."
         },
+        {
+          "from": "external-bracket-with-support",
+          "to": "ext-2020-ag",
+          "via": "scr-m5-16-shcs",
+          "qty": 12,
+          "method": "self-tap",
+          "note": "Two per bracket: self-taps through the bracket print and the tip rams against the extrusion, jamming the fit. No T-nuts."
+        }
+      ]
+    },
+    {
+      "id": "inner-hex-frame",
+      "uid": "ltdo",
+      "version": "1",
+      "name": "Inner hex frame",
+      "description": "The inner hexagon: six B/H spokes with six crossbeams and twelve 90-degree brackets.",
+      "lines": [
         {
           "part": "ext-2020-bh",
           "qty": 6
@@ -7046,41 +7211,117 @@
         {
           "part": "frame-90deg-bracket",
           "qty": 12
+        }
+      ],
+      "connections": [
+        {
+          "from": "frame-crossbeam",
+          "to": "ext-2020-bh",
+          "qty": 6,
+          "method": "friction",
+          "note": "No hardware -- held by friction against alignment nubs in the extrusion. Confirmed by Spencer 2026-08-26, see the docs' Build the hex frame page."
         },
         {
-          "part": "scr-m5-16-shcs",
-          "qty": 8
+          "from": "frame-90deg-bracket",
+          "to": "ext-2020-bh",
+          "qty": 12,
+          "method": "friction",
+          "note": "Two per spoke, same friction fit."
+        }
+      ]
+    },
+    {
+      "id": "hex-frame",
+      "uid": "l0xa",
+      "version": "2",
+      "name": "Hex frame",
+      "description": "The hexagonal frame shared by every layer and both interfaces: the inner hex seated in the outer hex.",
+      "docs": "/hardware/assembly/distribution/bin-frame/hex-frame/",
+      "lines": [
+        {
+          "assembly": "inner-hex-frame",
+          "qty": 1
         },
         {
-          "part": "tnut-m5-2020",
-          "qty": 24
+          "assembly": "outer-hex-frame",
+          "qty": 1
+        }
+      ],
+      "versions": [
+        {
+          "version": "1",
+          "uid": "8z0e",
+          "date": "2026-08-29",
+          "commit": "a2c66436",
+          "message": "Original version: one flat parts list -- brackets, extrusions, spokes, crossbeams, screws and 24 T-nuts inline, with no sub-structure and no joints recorded.",
+          "lines": [
+            {
+              "part": "ext-2020-ag",
+              "qty": 6,
+              "uid": "lnvw"
+            },
+            {
+              "part": "ext-bracket-left",
+              "qty": 6,
+              "uid": "0b4g"
+            },
+            {
+              "part": "ext-2020-bh",
+              "qty": 6,
+              "uid": "tuer"
+            },
+            {
+              "part": "frame-crossbeam",
+              "qty": 6,
+              "uid": "cdeg"
+            },
+            {
+              "part": "frame-90deg-bracket",
+              "qty": 12,
+              "uid": "3l20"
+            },
+            {
+              "part": "scr-m5-16-shcs",
+              "qty": 8,
+              "uid": "2e0s"
+            },
+            {
+              "part": "tnut-m5-2020",
+              "qty": 24,
+              "uid": "bpwm"
+            }
+          ]
+        },
+        {
+          "version": "2",
+          "date": "2026-08-31",
+          "message": "Restructured into Inner hex frame + Outer hex frame with connection edges. The corner brackets (side, bottom vertical, cover) become External bracket with support units; the A/G extrusions slide between them in the outer hex, held by 12 friction fits and jammed by screws that self-tap through the brackets and ram against the extrusions; the 24 T-nuts are dropped. No physical change.",
+          "breaking": false,
+          "commit": null
+        }
+      ],
+      "connections": [
+        {
+          "from": "inner-hex-frame",
+          "to": "outer-hex-frame",
+          "qty": 1,
+          "method": "gravity",
+          "note": "The inner hex sits in the outer ring under its own weight."
         }
       ]
     },
     {
       "id": "layer-frame",
-      "uid": "22ck",
-      "version": "2",
+      "uid": "yq92",
+      "version": "3",
       "name": "Distribution frame",
-      "description": "The frame of one distribution layer: a hex frame plus the External bracket — cover and — bottom vertical that turn its side brackets into full collars for piece C. The aluminum extrusion it is built on is sized on the framing tab, not listed here.",
+      "description": "The frame of one distribution layer: one hex frame, whose bracket segments form the collars for piece C.",
       "docs": "/hardware/assembly/distribution/bin-frame/regular-layers/",
       "status": "partial",
       "lines": [
         {
           "assembly": "hex-frame",
           "qty": 1
-        },
-        {
-          "part": "ext-bracket-bottom-vertical",
-          "qty": 6
-        },
-        {
-          "part": "ext-bracket-cover",
-          "qty": 6
-        },
-        {
-          "part": "scr-m5-16-shcs",
-          "qty": 24
         }
       ],
       "versions": [
@@ -7110,7 +7351,37 @@
           "version": "2",
           "date": "2026-08-29",
           "message": "Split the hex frame (outer ring, spokes, crossbeams, 90° brackets) out into its own hex-frame assembly, reused by layer, bottom-interface and interface, instead of duplicating it. This assembly is now just the collar delta on top of one hex frame.",
-          "commit": "a2c66436"
+          "commit": "a2c66436",
+          "uid": "22ck",
+          "lines": [
+            {
+              "assembly": "hex-frame",
+              "qty": 1,
+              "uid": "l0xa"
+            },
+            {
+              "part": "ext-bracket-bottom-vertical",
+              "qty": 6,
+              "uid": "xgzj"
+            },
+            {
+              "part": "ext-bracket-cover",
+              "qty": 6,
+              "uid": "1r5i"
+            },
+            {
+              "part": "scr-m5-16-shcs",
+              "qty": 24,
+              "uid": "2e0s"
+            }
+          ]
+        },
+        {
+          "version": "3",
+          "date": "2026-08-31",
+          "message": "The bottom verticals, covers and their 24 screws move inside the hex frame's External bracket with support segments. No physical change.",
+          "breaking": false,
+          "commit": null
         }
       ]
     },
@@ -7560,5 +7831,70 @@
       "note": "Unified the docs parts.yml catalog and this manifest into one source of truth. Conflicts referencing this merge were NOT hashed out at merge time: each records both catalogs' claims and is a TODO to resolve against the physical machine."
     }
   ],
-  "tags": []
+  "tags": [
+    {
+      "name": "hex-frame-v2",
+      "node": "hex-frame",
+      "stability": "stable",
+      "date": "2026-08-31",
+      "commit": null,
+      "message": "First stable tag: the hex frame restructured into inner and outer hexes with connection edges. Friction fits bench-confirmed 2026-08-26."
+    },
+    {
+      "name": "ext-bracket-left-v1",
+      "node": "ext-bracket-left",
+      "stability": "stable",
+      "date": "2026-08-31",
+      "commit": null,
+      "message": "Blessed stable with hex-frame-v2."
+    },
+    {
+      "name": "ext-bracket-bottom-vertical-v1",
+      "node": "ext-bracket-bottom-vertical",
+      "stability": "stable",
+      "date": "2026-08-31",
+      "commit": null,
+      "message": "Blessed stable with hex-frame-v2."
+    },
+    {
+      "name": "ext-bracket-cover-v1",
+      "node": "ext-bracket-cover",
+      "stability": "stable",
+      "date": "2026-08-31",
+      "commit": null,
+      "message": "Blessed stable with hex-frame-v2."
+    },
+    {
+      "name": "frame-crossbeam-v1",
+      "node": "frame-crossbeam",
+      "stability": "stable",
+      "date": "2026-08-31",
+      "commit": null,
+      "message": "Blessed stable with hex-frame-v2."
+    },
+    {
+      "name": "frame-90deg-bracket-v1",
+      "node": "frame-90deg-bracket",
+      "stability": "stable",
+      "date": "2026-08-31",
+      "commit": null,
+      "message": "Blessed stable with hex-frame-v2."
+    },
+    {
+      "name": "ext-2020-ag-v1",
+      "node": "ext-2020-ag",
+      "stability": "stable",
+      "date": "2026-08-31",
+      "commit": null,
+      "message": "Blessed stable with hex-frame-v2."
+    },
+    {
+      "name": "ext-2020-bh-v1",
+      "node": "ext-2020-bh",
+      "stability": "stable",
+      "date": "2026-08-31",
+      "commit": null,
+      "message": "Blessed stable with hex-frame-v2."
+    }
+  ]
 }

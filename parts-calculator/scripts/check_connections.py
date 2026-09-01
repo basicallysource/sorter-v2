@@ -20,7 +20,8 @@ An assembly's `connections` record its joints as a graph over its members:
 - `method`: how the joint holds. Extends the JoinMethod enum with the
   anchor kinds: `insert` is a heat-set insert in the `to` part (pairs with
   its `requires`), `thread` a machine thread in the `to` member, `tnut` an
-  extrusion T-nut, `nut` a through-bolt with a nut.
+  extrusion T-nut, `nut` a through-bolt with a nut. `gravity` is a part
+  that just sits in place under its own weight.
 - `draft: true`: extracted from prose, not yet confirmed at the bench.
   Removed when the assembly is validated.
 
@@ -35,8 +36,8 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent.parent
 
 METHODS = {"self-tap", "thread", "insert", "nut", "tnut",
-           "press", "friction", "clip", "glue", "solder", "crimp"}
-FASTENERLESS = {"press", "friction", "clip", "glue", "solder", "crimp"}
+           "press", "friction", "clip", "glue", "solder", "crimp", "gravity"}
+FASTENERLESS = {"press", "friction", "clip", "glue", "solder", "crimp", "gravity"}
 
 
 def main():

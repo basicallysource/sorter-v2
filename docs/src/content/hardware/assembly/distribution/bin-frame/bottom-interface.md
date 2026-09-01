@@ -108,7 +108,7 @@ Press the heat inserts into both printed parts while they are still loose. See [
     <p><strong>Lazy Susan chute mount:</strong> 2 × M3, one on each of the two side faces, about halfway up. These are easy to miss because they are on a different face from the four M4 above, and they are what the <a href="{{ '/hardware/assembly/distribution/chute/layer-connectors/' | relative_url }}">layer connectors</a> screw into when the chute goes on top. The pockets are measured off the published model rather than off a built machine, so if your print has nothing there, correct this page.</p>
   </div>
   <figure class="prep-item-figure">
-    <img class="doc-figure" src="https://assets.basically.website/sorter-parts/bottom-interface-prep-chute-mount-m3-inserts-full-0822332eee5c.png" alt="Two views of the Lazy Susan chute mount: the whole part with a red circle around a small pocket partway up the near side wall, and a close-up of that pocket highlighted in red">
+    <img class="doc-figure" src="https://assets.basically.website/sorter-parts/bottom-interface-prep-chute-mount-m3-pocket-full-912ab394cb68.png" alt="Two stacked views of the Lazy Susan chute mount: the whole part with a red circle around a small pocket partway up the near side wall, and below it a close-up of that pocket highlighted in red">
     <figcaption>The M3 pocket on the near side face, and a close-up. The far side is a mirror of it. <cite>Render: Balloon.</cite></figcaption>
   </figure>
 </div>

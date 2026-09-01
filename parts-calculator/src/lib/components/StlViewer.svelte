@@ -143,7 +143,11 @@
 		gazeBlend = null;
 	}
 	function homePose() {
-		const dist = (radius / Math.sin((camera.fov * Math.PI) / 360)) * 1.05;
+		// Fit the bounding sphere in BOTH directions: in a tall, narrow pane the
+		// horizontal fov is the binding constraint, not the vertical one.
+		const vHalf = (camera.fov * Math.PI) / 360;
+		const hHalf = Math.atan(Math.tan(vHalf) * camera.aspect);
+		const dist = (radius / Math.sin(Math.min(vHalf, hHalf))) * 1.05;
 		return new THREE.Vector3(1, 0.8, 1.3).normalize().multiplyScalar(dist);
 	}
 

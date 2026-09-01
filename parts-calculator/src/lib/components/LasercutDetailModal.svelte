@@ -14,7 +14,7 @@
 	} = $props();
 </script>
 
-<Modal bind:open title={part?.name} maxW="max-w-4xl">
+<Modal bind:open title={part?.name} bodyScroll={false} maxW="max-w-[96rem]">
 	{#if part}
 		<LasercutDetail {part} />
 	{/if}

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import DetailPanes from '$lib/components/DetailPanes.svelte';
 	import StlViewer from '$lib/components/StlViewer.svelte';
 	import DownloadButton from '$lib/components/DownloadButton.svelte';
 	import ChangeStatus from '$lib/components/ChangeStatus.svelte';
@@ -18,11 +19,12 @@
 	});
 </script>
 
-<div class="relative border-b border-border bg-[var(--color-bg)]">
+<DetailPanes>
+	{#snippet visual()}
 	{#if part.stl && view3d}
-		<StlViewer url={part.stl} color="#b08d57" heightClass="h-[48vh]" />
+		<StlViewer url={part.stl} color="#b08d57" heightClass="h-[45vh] lg:h-[76vh]" />
 	{:else}
-		<div class="flex h-[48vh] items-center justify-center p-6">
+		<div class="flex h-[45vh] items-center justify-center bg-[var(--color-bg)] p-6 lg:h-[76vh]">
 			<img src={part.preview} alt="{part.name} outline" class="max-h-full w-auto max-w-full" />
 		</div>
 	{/if}
@@ -35,9 +37,10 @@
 			{view3d ? 'Outline' : '3D'}
 		</button>
 	{/if}
-</div>
+	{/snippet}
 
-<div class="px-5 py-4">
+	{#snippet facts()}
+	<div class="px-5 py-4">
 	<div class="flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
 		<div class="min-w-0 flex-1 space-y-2 text-sm">
 			<p class="text-text">{part.description}</p>
@@ -76,4 +79,6 @@
 			<a class="text-primary hover:text-primary-hover" href="/lasercut#laser-{part.id}">Laser cut parts</a> page.
 		</p>
 	{/if}
-</div>
+	</div>
+	{/snippet}
+</DetailPanes>

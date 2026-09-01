@@ -817,9 +817,18 @@ def build_hardware(manifest):
 def build_lasercut(manifest):
     """Laser-cut sheet parts (kind: 'lasercut'): passed through verbatim -- the
     fields ARE the app's LaserCutPart shape, and the docs site reads the same
-    generated records."""
-    return [{k: v for k, v in p.items() if k != "kind"}
-            for p in manifest["parts"] if p.get("kind") == "lasercut"]
+    generated records. One derived field: an entry pinning an `stl_hash` (a
+    published solid model of the cut part -- never printed or sliced, just
+    viewable) gets its served `stl` URL from the pin, like every upload."""
+    out = []
+    for p in manifest["parts"]:
+        if p.get("kind") != "lasercut":
+            continue
+        e = {k: v for k, v in p.items() if k != "kind"}
+        if e.get("stl_hash"):
+            e["stl"] = stl_url(e["id"], e["stl_hash"])
+        out.append(e)
+    return out
 
 
 def build_families(manifest):

@@ -360,8 +360,8 @@ async function loadAssignmentProfile(profileId: string) {
 	<title>Machines - Hive</title>
 </svelte:head>
 
-<div class="mb-6 flex items-center justify-between">
-	<div>
+<div class="mb-6 flex flex-wrap items-center justify-between gap-3">
+	<div class="min-w-0">
 		<h1 class="text-2xl font-bold text-text">Machines</h1>
 		<p class="mt-1 text-sm text-text-muted">
 			Manage machine tokens and decide which sorting profile version each machine should pull.
@@ -369,7 +369,7 @@ async function loadAssignmentProfile(profileId: string) {
 	</div>
 	<button
 		onclick={() => { showAddModal = true; }}
-		class="bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary-hover"
+		class="shrink-0 bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary-hover"
 	>
 		Add Machine
 	</button>
@@ -380,7 +380,7 @@ async function loadAssignmentProfile(profileId: string) {
 {/if}
 
 {#if loading}
-	<Spinner />
+	<div class="flex justify-center p-8"><Spinner size={32} /></div>
 {:else if machines.length === 0}
 	<p class="text-text-muted">No machines yet. Add one to get started.</p>
 {:else}
@@ -509,7 +509,7 @@ async function loadAssignmentProfile(profileId: string) {
 
 				<!-- Footer -->
 				<div class="mt-auto border-t border-border bg-bg px-4 py-2">
-					<div class="flex items-center justify-between text-[10px] text-text-muted">
+					<div class="flex flex-wrap items-center justify-between gap-x-3 gap-y-0.5 text-[10px] text-text-muted">
 						<span>Registered {formatUptime(machine.created_at)} ago</span>
 						{#if machine.last_seen_at}
 							<span>{isOnline ? 'Online now' : `Last seen ${new Date(machine.last_seen_at).toLocaleString()}`}</span>
@@ -563,7 +563,7 @@ async function loadAssignmentProfile(profileId: string) {
 
 <Modal open={showTokenModal} title="API Token" onclose={() => { showTokenModal = false; }}>
 	<div class="space-y-4">
-		<div class="bg-warning/12 p-3 text-sm text-[#A16207]">
+		<div class="bg-warning/12 p-3 text-sm text-warning-strong">
 			Save this token now. It will not be shown again.
 		</div>
 		<div class="flex items-center gap-2">
@@ -663,7 +663,7 @@ async function loadAssignmentProfile(profileId: string) {
 >
 	<div class="space-y-4">
 		{#if assignmentLoading}
-			<Spinner />
+			<div class="flex justify-center p-8"><Spinner size={32} /></div>
 		{:else if accessibleProfiles.length === 0}
 			<p class="text-sm text-text-muted">
 				No profiles are available yet. Create one or save a public profile to your library first.

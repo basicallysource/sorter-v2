@@ -22,4 +22,11 @@ dependencies = [
     "imagehash>=4.3",
     "numpy>=2.0",
     "scipy>=1.14",
+    "onnxruntime>=1.20",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3",
+    "httpx>=0.28",
 ]

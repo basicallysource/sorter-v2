@@ -3,6 +3,8 @@
 	import { auth } from '$lib/auth.svelte';
 	import { goto } from '$app/navigation';
 	import SetSearch from '$lib/components/profile/SetSearch.svelte';
+	import Spinner from '$lib/components/Spinner.svelte';
+	import { uuid } from '$lib/uuid';
 
 	type SetResult = {
 		set_num: string;
@@ -34,7 +36,7 @@
 
 	function makeSetRule(set: SetResult): SortingProfileRule {
 		return {
-			id: crypto.randomUUID(),
+			id: uuid(),
 			rule_type: 'set',
 			name: set.name,
 			match_mode: 'all',
@@ -115,7 +117,7 @@
 		<!-- Profile Type Toggle -->
 		<div>
 			<div class="mb-2 text-sm font-medium text-text">Profile Type</div>
-			<div class="flex gap-2">
+			<div class="flex flex-col gap-2 sm:flex-row">
 				<button
 					type="button"
 					class="flex-1 border px-4 py-3 text-sm font-medium transition-colors {profileType === 'rule'
@@ -155,10 +157,10 @@
 
 		{#if profileType === 'rule'}
 			{#if !hasOpenRouter}
-				<div class="border border-warning/30 bg-warning/[0.1] p-4 text-sm text-[#A16207]">
+				<div class="border border-warning/30 bg-warning/[0.1] p-4 text-sm text-warning-strong">
 					<strong>AI Assistant requires an OpenRouter API key.</strong>
 					You can still create a profile and edit rules manually, or
-					<a href="/settings" class="font-medium underline hover:text-[#A16207]">configure your API key</a> first.
+					<a href="/settings" class="font-medium underline hover:text-warning-strong">configure your API key</a> first.
 				</div>
 			{/if}
 		{:else}
@@ -217,10 +219,7 @@
 		>
 			{#if creating}
 				<span class="flex items-center justify-center gap-2">
-					<svg class="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
-						<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-						<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
-					</svg>
+					<Spinner size={16} />
 					Creating...
 				</span>
 			{:else if profileType === 'set'}

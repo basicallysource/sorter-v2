@@ -166,7 +166,7 @@
 				<div class="px-4 py-2.5">
 					<div class="flex items-center justify-between">
 						<div class="flex items-center gap-2">
-							<div class="flex h-5 w-5 items-center justify-center text-[10px] font-bold {review.decision === 'accept' ? 'bg-[#F0F9F5] text-success' : 'bg-primary-light text-primary'}">
+							<div class="flex h-5 w-5 items-center justify-center text-[10px] font-bold {review.decision === 'accept' ? 'bg-success/[0.08] text-success' : 'bg-primary-light text-primary'}">
 								{review.decision === 'accept' ? '✓' : '✗'}
 							</div>
 							<span class="text-xs font-medium text-text">{review.reviewer_display_name ?? 'Unknown'}</span>

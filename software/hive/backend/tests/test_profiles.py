@@ -314,12 +314,35 @@ class TestProfileCatalogPermissions:
         assert response.status_code == 403
         assert service.started is None
 
-    def test_reviewer_can_start_catalog_sync(
+    def test_reviewer_cannot_start_catalog_sync(
         self,
         client: TestClient,
         test_reviewer: dict,
         monkeypatch,
     ) -> None:
+        # Catalog sync routes are admin-only (locked down in #148 along with
+        # the admin-gated /settings/catalog-sync page).
+        service = _CatalogRouteService()
+        monkeypatch.setattr(profiles_router, "get_profile_catalog_service", lambda: service)
+
+        response = client.post(
+            "/api/profile-catalog/sync/categories",
+            headers=_auth_headers(client),
+        )
+        assert response.status_code == 403
+        assert service.started is None
+
+    def test_admin_can_start_catalog_sync(
+        self,
+        client: TestClient,
+        db: Session,
+        test_user: dict,
+        monkeypatch,
+    ) -> None:
+        user = db.query(User).filter(User.email == test_user["email"]).first()
+        user.role = "admin"
+        db.commit()
+
         service = _CatalogRouteService()
         monkeypatch.setattr(profiles_router, "get_profile_catalog_service", lambda: service)
 

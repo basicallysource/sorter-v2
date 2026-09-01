@@ -56,6 +56,14 @@ def _hardwareWorkerAlive() -> bool:
 
 
 def _ensureManualMotionAllowed() -> None:
+    from subsystems.power_stress import getActivePowerStressRunner
+
+    power_runner = getActivePowerStressRunner()
+    if power_runner is not None and power_runner.isActive():
+        raise HTTPException(
+            status_code=409,
+            detail="Cannot run a separate chute stress test while power stress is active.",
+        )
     state = shared_state.hardware_state
     if _hardwareWorkerAlive() or state in {"homing", "initializing"}:
         raise HTTPException(

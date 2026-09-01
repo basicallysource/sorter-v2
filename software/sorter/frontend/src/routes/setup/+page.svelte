@@ -181,6 +181,9 @@
 	let wizardError = $state<string | null>(null);
 
 	let nicknameDraft = $state('');
+	// The saved name as of the last wizard load, so an edited field is
+	// recognisable and left alone.
+	let loadedNickname = $state('');
 	let savingName = $state(false);
 	let nameError = $state<string | null>(null);
 	let nameStatus = $state('');
@@ -617,7 +620,13 @@
 			hardwareState = payload.hardware.state;
 			hardwareError = payload.hardware.error;
 			homingStep = payload.hardware.homing_step;
-			nicknameDraft = payload.machine.nickname ?? '';
+			// The wizard reloads on its own (hardware state changes, machine
+			// switches), and it used to overwrite the name field every time —
+			// so a name typed or rolled on this step could vanish mid-edit.
+			// Follow the saved name only while the field still matches it.
+			const savedNickname = payload.machine.nickname ?? '';
+			if (nicknameDraft === loadedNickname) nicknameDraft = savedNickname;
+			loadedNickname = savedNickname;
 			const configuredLayout = payload.config.camera_assignments.layout;
 			selectedLayout =
 				configuredLayout === 'split_feeder'
@@ -672,10 +681,9 @@
 		hiveConnecting = true;
 		hiveError = null;
 		hiveStatus = null;
-		const machineName =
-			(wizard?.machine.nickname ?? '').trim() ||
-			nicknameDraft.trim() ||
-			(wizard?.machine.machine_id ?? '');
+		// No name yet means no suggestion: Hive rolls one rather than showing
+		// the machine id, which reads as a serial number in a machine list.
+		const machineName = (wizard?.machine.nickname ?? '').trim() || nicknameDraft.trim();
 		try {
 			beginHiveLink({
 				hiveUrl: url,
@@ -1034,6 +1042,7 @@
 							bind:nicknameDraft
 							{nameError}
 							{nameStatus}
+							backendBaseUrl={currentBackendBaseUrl()}
 						/>
 					{:else if activeStepId === 'theme'}
 						<ThemeStep />

@@ -1,0 +1,39 @@
+{%- comment -%}
+Renders page authors and contributors directly below the page header. Moved
+out of the bottom page-meta box so attribution shows at the top of the page.
+
+Reads page.authors or page.author plus page.contributors, resolved against
+_data/authors.yml (falling back to the raw id when a person is not cataloged).
+{%- endcomment -%}
+{% if page.authors or page.author or page.contributors %}
+<div class="page-credits">
+{% if page.authors %}
+<p class="page-author">
+  <span class="page-author-label">{% if page.authors.size == 1 %}Author{% else %}Authors{% endif %}</span>
+  {% for author_id in page.authors %}
+    {% assign author = site.data.authors[author_id] %}
+    {% if author %}{% if author.url %}<a href="{{ author.url }}" target="_blank" rel="noopener">{{ author.name }}</a>{% else %}{{ author.name }}{% endif %}{% else %}{{ author_id }}{% endif %}{% unless forloop.last %}{% if forloop.rindex == 2 %} and {% else %}, {% endif %}{% endunless %}
+  {% endfor %}
+</p>
+{% elsif page.author %}
+{% assign author = site.data.authors[page.author] %}
+<p class="page-author">
+  <span class="page-author-label">Author</span>
+  {% if author %}
+    {% if author.url %}<a href="{{ author.url }}" target="_blank" rel="noopener">{{ author.name }}</a>{% else %}{{ author.name }}{% endif %}
+  {% else %}
+    {{ page.author }}
+  {% endif %}
+</p>
+{% endif %}
+{% if page.contributors %}
+<p class="page-author">
+  <span class="page-author-label">{% if page.contributors.size == 1 %}Contributor{% else %}Contributors{% endif %}</span>
+  {% for contributor_id in page.contributors %}
+    {% assign contributor = site.data.authors[contributor_id] %}
+    {% if contributor %}{% if contributor.url %}<a href="{{ contributor.url }}" target="_blank" rel="noopener">{{ contributor.name }}</a>{% else %}{{ contributor.name }}{% endif %}{% else %}{{ contributor_id }}{% endif %}{% unless forloop.last %}{% if forloop.rindex == 2 %} and {% else %}, {% endif %}{% endunless %}
+  {% endfor %}
+</p>
+{% endif %}
+</div>
+{% endif %}

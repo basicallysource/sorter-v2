@@ -1,0 +1,76 @@
+RFQ - custom wire harness
+=============================================================
+STATUS: DRAFT - NOT VALIDATED. Values marked GUESS in the
+drawings are engineering guesses, not measurements. Do not
+start production without a confirmed revision.
+=============================================================
+
+1. WHAT THIS IS
+Custom cable assemblies for one machine.
+3 drawing sets are attached (PDF/PNG/SVG/HTML, generated with
+WireViz), each with its own BOM (TSV):
+  - power     : PSU pigtails PJ1-PJ3, load cables W1-W3
+  - steppers  : channel stepper crossover cable S (x4), chute cable CH
+  - leds      : LED feeds L1-L3, pigtails L1P-L3P, limit switch LIM
+
+2. QUANTITY
+2 full sets (i.e. every cable in the drawings x2).
+Per set: 3x PJ, 1x W1, 1x W2, 1x W3, 3x LED feed,
+3x LED pigtail, 1x LIM, 4x S, 1x CH  = 18 cables.
+Quote 2 sets and price breaks at 10 / 50 sets.
+
+3. WIRE SPEC
+- UL1007 stranded tinned copper, 300V, or RoHS equivalent.
+- Gauges per drawing: 18 AWG (PJ, W1), 22 AWG (W2, W3, L, LIM),
+  24 AWG (S, CH).
+- Colors per drawing (red=+24V, black=GND on power pairs;
+  steppers BU/GN/RD/BK as drawn).
+- Cable S is a 4-wire bundle in PVC sleeving.
+- No UL certification / no IPC-A-620 class required. Hobby-grade
+  quality is acceptable; continuity test each cable.
+
+4. CONNECTORS
+- JST VHR-2 + SVH-21T-P1.1 (board 24V in), JST PHR-4 and
+  PHR-6 + SPH-002T-P0.5S (steppers). Clone equivalents
+  acceptable.
+- DC barrel 5.5 x 2.1 mm, center-positive: male moulded plugs,
+  female inline jacks, female panel-mount jacks (>=5A).
+  2.1 mm pin, NOT 2.5 mm. The two do not mate.
+- Dupont = generic 2.54 mm female socket housing + crimps.
+  LIM board end is a 3-position housing with only positions 1
+  and 2 populated, so it cannot be fitted backwards.
+- LIM switch end: fully insulated female quick-connect
+  receptacle, #187 series (4.75 x 0.5 mm / .187 x .020 in tab),
+  22 AWG. Mates the Omron V-155-1C25 limit switch. No
+  soldering. Fully insulated because the switch is SPDT and one
+  of its three tabs is left unused.
+- Spade/fork terminals (PSU end): 18 AWG, M3.5 stud, 8 mm wide
+  MAX so they fit the MeanWell LRS-350-24 terminal block. That
+  block is 9 screws, numbered per the MeanWell spec sheet:
+  1 AC/L, 2 AC/N, 3 FG, 4-6 DC OUTPUT -V, 7-9 DC OUTPUT +V.
+  Each pigtail takes one +V/-V pair (7 with 4, 8 with 5,
+  9 with 6). Screws 1-3 are not part of this harness.
+- Ends marked "bare tinned": strip 5 mm and tin, no connector.
+
+5. IMPORTANT - CROSSOVER CABLE
+Cable S (steppers drawing) is NOT straight-through. The motor
+end is a 6-position housing with only 4 positions populated:
+board 1 -> motor 1, board 2 -> motor 4, board 3 -> motor 3,
+board 4 -> motor 6. Motor positions 2 and 5 stay empty.
+See the drawing.
+All other cables are straight-through pin 1 -> pin 1.
+
+6. TOLERANCES, LABELS, PACKAGING
+- Length tolerance +/-10 mm (+/-25 mm acceptable on >=36 in).
+- Label each cable near end A with its ID (W1, S, CH, ...).
+  Label S1-S4 at BOTH ends: four identical cables land within
+  inches of each other at both the board and the motors, and
+  they are unrecoverable once unplugged. Printed wrap-around
+  laser labels or printed heat-shrink are both fine.
+- Bag per cable type. No other packaging requirement.
+
+7. QUESTIONS WE EXPECT / PRE-ANSWERED
+- Samples first? Yes - treat the 2 sets as the sample run.
+- Brand of wire/connector? Any RoHS clone is fine.
+- Drawings in DWG/PDF? PDF attached; no DWG exists.
+- Test requirement? 100% continuity; no hipot needed.

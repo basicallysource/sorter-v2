@@ -592,7 +592,7 @@
 	<!-- Canvas-only mode: external controls are rendered by the parent -->
 	<!-- svelte-ignore a11y_no_static_element_interactions -->
 	<div
-		class="overflow-hidden border border-border bg-slate-950/95"
+		class="overflow-hidden border border-border bg-canvas/95"
 		onpointerup={() => { requestAnimationFrame(() => syncAnnotations()); }}
 	>
 		<div class="flex min-h-[50vh] items-center justify-center p-2">
@@ -619,10 +619,10 @@
 		<div class="flex flex-wrap items-center gap-2">
 			<div class="inline-flex border border-border bg-bg p-1">
 				<button type="button" onclick={() => { activeTool = 'rectangle'; }}
-					class="px-3 py-1.5 text-xs font-medium transition-colors {activeTool === 'rectangle' ? 'bg-text text-white' : 'text-text-muted hover:bg-surface'}"
+					class="px-3 py-1.5 text-xs font-medium transition-colors {activeTool === 'rectangle' ? 'bg-text text-surface' : 'text-text-muted hover:bg-surface'}"
 				>Rectangle</button>
 				<button type="button" onclick={() => { activeTool = 'polygon'; }}
-					class="px-3 py-1.5 text-xs font-medium transition-colors {activeTool === 'polygon' ? 'bg-text text-white' : 'text-text-muted hover:bg-surface'}"
+					class="px-3 py-1.5 text-xs font-medium transition-colors {activeTool === 'polygon' ? 'bg-text text-surface' : 'text-text-muted hover:bg-surface'}"
 				>Polygon</button>
 			</div>
 			<button type="button" onclick={() => { void saveAnnotations(); }} disabled={saving || !isDirty}
@@ -637,7 +637,7 @@
 			{#if seedBoxes.length > 0}
 				<button type="button" onclick={loadSorterBoxes} class="border border-border px-3 py-1.5 text-xs font-medium text-text hover:bg-bg">Load Sorter Boxes</button>
 			{/if}
-			<button type="button" onclick={clearAll} class="border border-warning/30 px-3 py-1.5 text-xs font-medium text-[#A16207] hover:bg-warning/[0.1]">Clear</button>
+			<button type="button" onclick={clearAll} class="border border-warning/30 px-3 py-1.5 text-xs font-medium text-warning-strong hover:bg-warning/[0.1]">Clear</button>
 		</div>
 
 		<div class="flex flex-wrap items-center gap-x-4 gap-y-2 border border-border bg-bg px-3 py-2 text-xs text-text-muted">
@@ -647,12 +647,12 @@
 			<span>{annotationStats.rectangles} rectangles</span>
 			<span>{annotationStats.polygons} polygons</span>
 			<span>{selectedAnnotationIds.length} selected</span>
-			<span class="ml-auto font-medium {isDirty ? 'text-[#A16207]' : 'text-success'}">
+			<span class="ml-auto font-medium {isDirty ? 'text-warning-strong' : 'text-success'}">
 				{#if isDirty}Unsaved changes{:else if hasSavedBaseline}Saved{:else}Not saved yet{/if}
 			</span>
 		</div>
 
-		<div class="border border-info/10 bg-[#F0F7FF] px-3 py-2 text-xs text-info">
+		<div class="border border-info/10 bg-info/[0.06] px-3 py-2 text-xs text-info">
 			Click a box to edit it. Press `Delete` or `Backspace` to remove the selected box, or use `Ctrl/Cmd + S` to save.
 		</div>
 
@@ -664,7 +664,7 @@
 
 		<!-- svelte-ignore a11y_no_static_element_interactions -->
 		<div
-			class="overflow-auto border border-border bg-slate-950/95 p-4"
+			class="overflow-auto border border-border bg-canvas/95 p-4"
 			onpointerup={() => { requestAnimationFrame(() => syncAnnotations()); }}
 		>
 			<div class="flex min-h-[28rem] items-center justify-center">

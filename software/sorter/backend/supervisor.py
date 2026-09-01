@@ -3,11 +3,13 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import shutil
 import signal
 import subprocess
 import sys
 import threading
 import time
+from collections import deque
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
@@ -32,6 +34,10 @@ DEFAULT_HEALTH_INTERVAL_S = float(os.getenv("BACKEND_SUPERVISOR_HEALTH_INTERVAL_
 DEFAULT_HEALTH_TIMEOUT_S = float(os.getenv("BACKEND_SUPERVISOR_HEALTH_TIMEOUT_S", "1.5"))
 DEFAULT_RESTART_BACKOFF_S = float(os.getenv("BACKEND_SUPERVISOR_RESTART_BACKOFF_S", "0.2"))
 DEFAULT_STOP_TIMEOUT_S = float(os.getenv("BACKEND_SUPERVISOR_STOP_TIMEOUT_S", "5.0"))
+DEFAULT_FAST_CRASH_WINDOW_S = float(os.getenv("BACKEND_SUPERVISOR_FAST_CRASH_WINDOW_S", "30.0"))
+CACHE_CLEAR_CRASH_THRESHOLD = 3
+CRASH_OUTPUT_MAX_LINES = 60
+CRASH_OUTPUT_MAX_CHARS = 4000
 
 
 def _timestamp() -> float:
@@ -50,6 +56,7 @@ class BackendSupervisor:
         health_timeout_s: float,
         restart_backoff_s: float,
         stop_timeout_s: float,
+        fast_crash_window_s: float = DEFAULT_FAST_CRASH_WINDOW_S,
     ) -> None:
         self._command = list(command)
         self._cwd = cwd
@@ -59,6 +66,7 @@ class BackendSupervisor:
         self._health_timeout_s = health_timeout_s
         self._restart_backoff_s = restart_backoff_s
         self._stop_timeout_s = stop_timeout_s
+        self._fast_crash_window_s = fast_crash_window_s
 
         self._lock = threading.RLock()
         self._shutdown = threading.Event()
@@ -73,6 +81,10 @@ class BackendSupervisor:
         self._last_health_error: str | None = None
         self._last_health_ok_at: float | None = None
         self._health_failures = 0
+        self._consecutive_fast_crashes = 0
+        self._cache_cleared_for_streak = False
+        self._pycache_cleared_at: float | None = None
+        self._last_crash_output: str | None = None
         self._state = "stopped"
 
         self._health_thread = threading.Thread(
@@ -108,6 +120,10 @@ class BackendSupervisor:
                 "last_exit_at": self._last_exit_at,
                 "last_exit_reason": self._last_exit_reason,
                 "restart_requested": self._restart_requested,
+                "consecutive_fast_crashes": self._consecutive_fast_crashes,
+                "crash_looping": self._consecutive_fast_crashes >= CACHE_CLEAR_CRASH_THRESHOLD,
+                "last_crash_output": self._last_crash_output,
+                "pycache_cleared_at": self._pycache_cleared_at,
                 "command": list(self._command),
             }
 
@@ -163,6 +179,8 @@ class BackendSupervisor:
                     self._last_health_ok_at = _timestamp()
                     self._last_health_error = None
                     self._health_failures = 0
+                    self._consecutive_fast_crashes = 0
+                    self._cache_cleared_for_streak = False
             except Exception as exc:
                 with self._lock:
                     self._last_health_error = str(exc)
@@ -180,6 +198,7 @@ class BackendSupervisor:
                 cwd=str(self._cwd),
                 env=self._environment,
                 start_new_session=True,
+                stderr=subprocess.PIPE,
             )
             self._process = child
             self._process_group_pid = child.pid
@@ -191,17 +210,72 @@ class BackendSupervisor:
             self._health_failures = 0
             self._state = "running"
 
+        stderr_tail: deque[str] = deque(maxlen=CRASH_OUTPUT_MAX_LINES)
+        stderr_thread = threading.Thread(
+            target=self._pump_stderr,
+            args=(child, stderr_tail),
+            daemon=True,
+            name="supervisor-stderr",
+        )
+        stderr_thread.start()
+
         threading.Thread(
             target=self._watch_process,
-            args=(child,),
+            args=(child, stderr_tail, stderr_thread),
             daemon=True,
         ).start()
 
-    def _watch_process(self, child: subprocess.Popen[bytes]) -> None:
+    def _pump_stderr(self, child: subprocess.Popen[bytes], tail: deque[str]) -> None:
+        stream = child.stderr
+        if stream is None:
+            return
+        try:
+            for raw_line in iter(stream.readline, b""):
+                sys.stderr.buffer.write(raw_line)
+                sys.stderr.buffer.flush()
+                tail.append(raw_line.decode("utf-8", errors="replace"))
+        except (OSError, ValueError):
+            pass
+        finally:
+            try:
+                stream.close()
+            except OSError:
+                pass
+
+    def _clear_bytecode_caches(self) -> int:
+        cleared = 0
+        cache_prefix = self._environment.get("PYTHONPYCACHEPREFIX")
+        if cache_prefix and Path(cache_prefix).is_dir():
+            try:
+                shutil.rmtree(cache_prefix)
+                cleared += 1
+            except OSError:
+                pass
+        for root, dirs, _files in os.walk(self._cwd):
+            dirs[:] = [d for d in dirs if d not in (".venv", "node_modules", ".git")]
+            if "__pycache__" in dirs:
+                dirs.remove("__pycache__")
+                try:
+                    shutil.rmtree(Path(root) / "__pycache__")
+                    cleared += 1
+                except OSError:
+                    pass
+        return cleared
+
+    def _watch_process(
+        self,
+        child: subprocess.Popen[bytes],
+        stderr_tail: deque[str] | None = None,
+        stderr_thread: threading.Thread | None = None,
+    ) -> None:
         return_code = child.wait()
+        if stderr_thread is not None:
+            stderr_thread.join(timeout=2.0)
+        clear_cache = False
         with self._lock:
             if self._process is not child:
                 return
+            started_at = self._process_started_at
             self._process = None
             self._process_group_pid = None
             self._last_exit_code = return_code
@@ -221,6 +295,35 @@ class BackendSupervisor:
                 return
             self._state = "crashed"
             self._last_exit_reason = "backend exited unexpectedly"
+            if stderr_tail:
+                self._last_crash_output = "".join(stderr_tail)[-CRASH_OUTPUT_MAX_CHARS:]
+            fast = (
+                started_at is not None
+                and self._last_exit_at - started_at < self._fast_crash_window_s
+            )
+            if fast:
+                self._consecutive_fast_crashes += 1
+            else:
+                self._consecutive_fast_crashes = 0
+                self._cache_cleared_for_streak = False
+            clear_cache = (
+                self._consecutive_fast_crashes >= CACHE_CLEAR_CRASH_THRESHOLD
+                and not self._cache_cleared_for_streak
+            )
+
+        if clear_cache:
+            # A corrupt .pyc never self-heals: Python trusts the cache header while the
+            # body is garbage, so the backend crash-loops forever. Clearing the caches
+            # once per streak is free and lets the next start recompile from source.
+            cleared = self._clear_bytecode_caches()
+            with self._lock:
+                self._cache_cleared_for_streak = True
+                self._pycache_cleared_at = _timestamp()
+            print(
+                f"[supervisor] crash loop detected ({self._consecutive_fast_crashes} fast exits); "
+                f"cleared {cleared} __pycache__ dirs before restarting",
+                flush=True,
+            )
 
         time.sleep(self._restart_backoff_s)
         if not self._shutdown.is_set():

@@ -39,6 +39,24 @@ TELEMETRY_FIELDS: tuple[dict[str, Any], ...] = (
         "description": "Classification results per piece (part, color, confidence, bin, timestamps) and set sorting progress.",
         "default": True,
     },
+    {
+        "key": "upstream_channel_crops",
+        "label": "Channel crops (C2/C3)",
+        "description": "Unlabeled bbox crops of pieces on the upstream feeder channels, tagged with position for same-piece lookup. High volume.",
+        "default": True,
+    },
+    {
+        "key": "feeder_dynamics",
+        "label": "Feeder dynamics (control data)",
+        "description": "Compressed logs of piece positions (from the vision model) and motor commands while sorting, stamped with the machine's settings at capture time. No images. Used to improve feeder control.",
+        "default": True,
+    },
+    {
+        "key": "machine_specs",
+        "label": "Machine specs",
+        "description": "Basic hardware and software details — camera, controller board, platform, operating system, and per-camera calibration state — shown on the machine's dashboard and used for compatibility and support.",
+        "default": True,
+    },
 )
 
 _TELEMETRY_FIELD_KEYS = tuple(field["key"] for field in TELEMETRY_FIELDS)
@@ -157,6 +175,16 @@ class HiveTelemetryClient:
         )
         return int(response.json()["max_local_id"])
 
+    def pushPieceCorrections(self, records: list[dict[str, Any]]) -> int:
+        response = self._request(
+            "POST",
+            "/api/machine/sync/piece-corrections",
+            fields=("piece_metadata",),
+            json={"records": records},
+            timeout=60,
+        )
+        return int(response.json()["max_local_id"])
+
     def pushPieceImage(self, meta: dict[str, Any], file_path: Path | None) -> int:
         files = None
         if file_path is not None and file_path.is_file():
@@ -169,6 +197,36 @@ class HiveTelemetryClient:
             data={"metadata": json.dumps(meta)},
             files=files,
             timeout=60,
+        )
+        return int(response.json()["max_local_id"])
+
+    def pushChannelCrop(self, meta: dict[str, Any], file_path: Path | None) -> int:
+        files = None
+        if file_path is not None and file_path.is_file():
+            with open(file_path, "rb") as handle:
+                files = {"image": (file_path.name, handle.read(), "image/jpeg")}
+        response = self._request(
+            "POST",
+            "/api/machine/sync/channel-crop",
+            fields=("upstream_channel_crops",),
+            data={"metadata": json.dumps(meta)},
+            files=files,
+            timeout=60,
+        )
+        return int(response.json()["max_local_id"])
+
+    def pushControlDataSegment(self, meta: dict[str, Any], file_path: Path | None) -> int:
+        files = None
+        if file_path is not None and file_path.is_file():
+            with open(file_path, "rb") as handle:
+                files = {"data": (file_path.name, handle.read(), "application/gzip")}
+        response = self._request(
+            "POST",
+            "/api/machine/sync/control-data-segment",
+            fields=("feeder_dynamics",),
+            data={"metadata": json.dumps(meta)},
+            files=files,
+            timeout=120,
         )
         return int(response.json()["max_local_id"])
 
@@ -201,6 +259,7 @@ class HiveTelemetryClient:
         detection_score: float | None = None,
         sample_payload: dict[str, Any] | None = None,
         extra_metadata: dict[str, Any] | None = None,
+        channel_geometry: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         # A sample IS a detection image plus its detection metadata, so the
         # whole request rides on detection_images; full-frame attachments are
@@ -226,6 +285,7 @@ class HiveTelemetryClient:
             ("detection_count", detection_count),
             ("detection_score", detection_score),
             ("sample_payload", sample_payload),
+            ("channel_geometry", channel_geometry),
         ]:
             if value is not None:
                 metadata[key] = value
@@ -281,12 +341,17 @@ class HiveTelemetryClient:
             **kwargs,
         )
 
-    def heartbeat(self) -> bool:
-        # Empty keep-alive so target reachability shows in the UI; carries no
-        # machine data. A future status upload must add a registry field and
-        # be gated on it.
+    def heartbeat(self, machine_specs: dict[str, Any] | None = None) -> bool:
+        # Keep-alive so target reachability shows in the UI. It also carries the
+        # machine-specs snapshot when one is supplied and the "machine_specs"
+        # field is enabled for this target; reachability still works when the
+        # field is off (the body is simply omitted), so toggling specs off never
+        # makes the machine look offline.
+        body: dict[str, Any] | None = None
+        if machine_specs is not None and getTargetTelemetrySettings(self._target_id).get("machine_specs", False):
+            body = {"hardware_info": machine_specs}
         try:
-            response = self._session.post(f"{self._url}/api/machine/heartbeat", timeout=10)
+            response = self._session.post(f"{self._url}/api/machine/heartbeat", json=body, timeout=10)
             return response.status_code < 500
         except requests.RequestException:
             return False

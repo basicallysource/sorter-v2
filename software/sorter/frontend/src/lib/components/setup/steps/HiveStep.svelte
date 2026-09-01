@@ -1,5 +1,6 @@
 <script lang="ts">
-	import { Check, ExternalLink, Loader2 } from 'lucide-svelte';
+	import { Check, ExternalLink } from 'lucide-svelte';
+	import Spinner from '$lib/components/Spinner.svelte';
 
 	type HiveSetupTarget = {
 		id: string;
@@ -37,7 +38,7 @@
 <div class="flex flex-col gap-4">
 	{#if hiveLoading}
 		<div class="setup-panel flex items-center gap-2 px-4 py-3 text-sm text-text-muted">
-			<Loader2 size={14} class="animate-spin" />
+			<Spinner size={14} />
 			Checking current Hive configuration…
 		</div>
 	{:else if officialHiveTarget}
@@ -115,7 +116,7 @@
 				class="inline-flex items-center gap-2 border border-success bg-success px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-success/90 disabled:cursor-not-allowed disabled:opacity-60"
 			>
 				{#if hiveConnecting}
-					<Loader2 size={14} class="animate-spin" />
+					<Spinner size={14} />
 					Opening Hive…
 				{:else}
 					<ExternalLink size={14} />

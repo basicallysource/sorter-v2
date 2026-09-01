@@ -73,6 +73,17 @@ HIVE_SENTINEL_KEY = "hive"
 # ``compatible: False`` in the installed list so the UI can disable Activate.
 DEPLOYABLE_RUNTIMES: frozenset[str] = frozenset({"onnx", "ncnn", "hailo", "rknn"})
 
+# What a model is FOR. Hive publishes this per model; the download/install path
+# is identical across purposes and only the consumer differs. Models installed
+# before Hive grew the field predate any non-detection purpose, so absence reads
+# as ``detection``.
+PURPOSE_DETECTION = "detection"
+PURPOSE_PIECE_LINK = "piece_link"
+DEFAULT_PURPOSE = PURPOSE_DETECTION
+# Purposes nothing on the machine consumes yet. They install and sit inert; the
+# UI greys them out rather than offering an Activate that would do nothing.
+INERT_PURPOSES: frozenset[str] = frozenset({PURPOSE_PIECE_LINK})
+
 
 def set_local_models_dir(path: Path) -> None:
     """Test hook: override the installation directory at runtime.
@@ -275,9 +286,14 @@ def _scan_models_dir(root: Path, *, bundled: bool) -> list[dict]:
         )
 
         variant_runtime = hive_meta.get("variant_runtime")
+        raw_purpose = hive_meta.get("purpose")
+        purpose = raw_purpose if isinstance(raw_purpose, str) and raw_purpose else DEFAULT_PURPOSE
         compatible = (
             isinstance(variant_runtime, str)
             and variant_runtime.lower() in DEPLOYABLE_RUNTIMES
+            # An inert-purpose model is installed correctly but has no consumer
+            # on the machine yet, so it can't be activated against a scope.
+            and purpose not in INERT_PURPOSES
         )
 
         results.append(
@@ -285,7 +301,16 @@ def _scan_models_dir(root: Path, *, bundled: bool) -> list[dict]:
                 "local_id": child.name,
                 "target_id": hive_meta.get("target_id"),
                 "model_id": hive_meta.get("model_id"),
+                # Hive's human-friendly handle ("Ember") and its swatch color,
+                # captured at download time so the installed list can identify a
+                # model the same way Hive does without going back to the network.
+                # Absent for repo-bundled models and for installs that predate
+                # this field — see ``_backfill_codenames``.
+                "codename": hive_meta.get("codename"),
+                "codename_color": hive_meta.get("codename_color"),
                 "variant_runtime": variant_runtime,
+                "purpose": purpose,
+                "inert": purpose in INERT_PURPOSES,
                 "sha256": hive_meta.get("sha256"),
                 "downloaded_at": hive_meta.get("downloaded_at"),
                 "trained_at": trained_at if isinstance(trained_at, str) else None,
@@ -322,25 +347,76 @@ def _installed_index() -> set[tuple[str, str]]:
     return index
 
 
+def _backfill_codenames(target_id: str, items: list[dict], entries: list[dict]) -> None:
+    """Write codenames into run.json for installs that predate the field.
+
+    Downloads have carried ``codename`` / ``codename_color`` in their run.json
+    since those became part of the Hive payload, but anything installed before
+    then knows only its model id. Rather than spend a network call on the
+    Installed tab — which otherwise works with no Hive reachable — we top those
+    entries up opportunistically while browsing the catalog, where the answer is
+    already in hand. Best-effort: a run.json we cannot rewrite is left alone and
+    retried on the next browse.
+    """
+    stale = [
+        entry
+        for entry in entries
+        if not entry.get("codename")
+        and not entry.get("bundled")
+        and entry.get("target_id") == target_id
+    ]
+    if not stale:
+        return
+
+    by_model_id = {
+        item["id"]: item
+        for item in items
+        if isinstance(item.get("id"), str) and isinstance(item.get("codename"), str)
+    }
+    for entry in stale:
+        remote = by_model_id.get(entry.get("model_id"))
+        if remote is None:
+            continue
+        run_path = Path(entry["path"]) / "run.json"
+        payload = _read_run_json(run_path)
+        if payload is None or not isinstance(payload.get(HIVE_SENTINEL_KEY), dict):
+            continue
+        payload[HIVE_SENTINEL_KEY]["codename"] = remote.get("codename")
+        payload[HIVE_SENTINEL_KEY]["codename_color"] = remote.get("codename_color")
+        try:
+            tmp_path = run_path.with_suffix(".json.tmp")
+            tmp_path.write_text(json.dumps(payload, indent=2, sort_keys=True))
+            os.replace(tmp_path, run_path)
+        except OSError:
+            log.debug("codename backfill failed for %s", run_path, exc_info=True)
+
+
 def list_remote_models(target_id: str, **filters: Any) -> dict:
     """Fetch the remote model catalog for ``target_id`` and tag installs."""
     client, target = _get_client_for_target(target_id)
     page = client.list_models(**filters)
 
-    installed = _installed_index()
+    # One scan feeds both the installed tagging and the codename backfill —
+    # walking the model dirs means stat'ing every weight file, so don't do it
+    # twice per browse.
+    entries = list_installed_models()
+    installed = {
+        (entry["target_id"], entry["model_id"])
+        for entry in entries
+        if isinstance(entry.get("target_id"), str) and isinstance(entry.get("model_id"), str)
+    }
     items = page.get("items") if isinstance(page, dict) else None
     if isinstance(items, list):
-        for item in items:
-            if not isinstance(item, dict):
-                continue
+        dicts = [item for item in items if isinstance(item, dict)]
+        for item in dicts:
             model_id = item.get("id")
-            if isinstance(model_id, str):
-                item["installed"] = (target_id, model_id) in installed
-            else:
-                item["installed"] = False
+            item["installed"] = (
+                isinstance(model_id, str) and (target_id, model_id) in installed
+            )
             item["target_id"] = target_id
             item["target_url"] = target.get("url")
             item["target_name"] = target.get("name")
+        _backfill_codenames(target_id, dicts, entries)
     return page
 
 
@@ -364,7 +440,7 @@ def list_remote_models_all(**filters: Any) -> dict:
     for target in resolve_targets():
         try:
             target_page = list_remote_models(target["id"], **per_target_filters)
-        except (HiveError, ValueError) as exc:
+        except Exception as exc:
             errors.append({"target_id": target["id"], "target_url": target.get("url") or "", "error": str(exc)})
             continue
         items = target_page.get("items") if isinstance(target_page, dict) else None
@@ -719,15 +795,18 @@ class DownloadJobManager:
             self._update(job_id, status="failed", error=str(exc))
             return
 
-        # Post-processing: extract ncnn tarballs so the model is usable in-place.
-        if runtime == "ncnn" and self._looks_like_tarball(dest_path):
+        # Post-processing: extract tarballs so the model is usable in-place.
+        # ncnn always ships this way; a piece_link model ships its encoder+head
+        # pair as one onnx-runtime tarball. Gate on the file, not the runtime —
+        # a plain single-file artifact is never a tarball.
+        if self._looks_like_tarball(dest_path):
             try:
                 self._safe_extract_tarball(dest_path, exports_dir)
             except Exception as exc:
                 self._update(
                     job_id,
                     status="failed",
-                    error=f"ncnn extraction failed: {exc}",
+                    error=f"{runtime} extraction failed: {exc}",
                 )
                 return
 
@@ -740,6 +819,7 @@ class DownloadJobManager:
                 sha256=digest,
                 detail=detail,
                 variant=variant,
+                purpose=detail.get("purpose") if isinstance(detail, dict) else None,
             )
         except Exception as exc:
             self._update(job_id, status="failed", error=f"run.json write failed: {exc}")
@@ -792,6 +872,7 @@ class DownloadJobManager:
         sha256: str,
         detail: dict,
         variant: dict | None = None,
+        purpose: str | None = None,
     ) -> None:
         run_path = dest_dir / "run.json"
         # Merge with existing run.json if one was included inside a tarball.
@@ -824,12 +905,22 @@ class DownloadJobManager:
         if variant_runtime and "runtime" not in base:
             base["runtime"] = variant_runtime
 
+        codename = detail.get("codename") if isinstance(detail, dict) else None
+        codename_color = detail.get("codename_color") if isinstance(detail, dict) else None
+
         base[HIVE_SENTINEL_KEY] = {
             "target_id": target_id,
             "model_id": model_id,
             "variant_runtime": variant_runtime,
+            "purpose": purpose or DEFAULT_PURPOSE,
             "sha256": sha256,
             "downloaded_at": _now_iso(),
+            # Carried over so the installed list can show the same identity Hive
+            # does (codename + color swatch) with no network round-trip.
+            "codename": codename if isinstance(codename, str) and codename else None,
+            "codename_color": (
+                codename_color if isinstance(codename_color, str) and codename_color else None
+            ),
         }
 
         dest_dir.mkdir(parents=True, exist_ok=True)

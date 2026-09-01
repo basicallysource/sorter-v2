@@ -1,0 +1,99 @@
+name: Harness drawings
+
+# Renders the WireViz harness from electronics/wire_harness/*.yml and publishes
+# it to the asset service (assets.basically.website, namespace sorter-harness).
+# Every object is content-addressed, so publishing only ever adds. Nothing
+# rendered is ever committed to git, and nothing is ever committed back to the
+# branch.
+#
+# The path filter is safe here because this job's inputs are completely
+# enumerable: the sources, the build script (in the same directory), and the
+# toolchain pins, which live in THIS file.
+#
+# Both tool versions are pinned because they are part of the rendered output:
+# WireViz stamps its version into every .gv and .html, and graphviz shifts
+# glyph positions between versions. CI is the canonical renderer; a local
+# render on a different graphviz looks slightly different, and the next CI run
+# for that ref quietly normalizes it. Bump the pins deliberately, never by
+# drift.
+#
+# Fork PRs: GitHub withholds secrets, so the upload step is skipped and the
+# fork gets a render-only check (proof the YAML builds). A maintainer's next
+# push to the merged result publishes for real.
+#
+# ASSET_SERVICE_TOKEN is a key scoped to the sorter-harness namespace only.
+# Worst case if it leaks is somebody adding objects there: revoke the key
+# (asset-service keys revoke sorter-harness-ci), mint another, update this
+# secret. Nothing can be overwritten or deleted with it.
+
+on:
+  pull_request:
+    paths:
+      - 'electronics/wire_harness/**'
+      - '.github/workflows/harness.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'electronics/wire_harness/**'
+      - '.github/workflows/harness.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: harness-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  render:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - run: pip install wireviz==0.4.1
+
+      # Asserted on the PACKAGE version, not `dot -V`: Ubuntu's graphviz
+      # 2.42.2-9ubuntu0.1 self-reports "2.43.0 (0)" (upstream bumped version.h
+      # mid-cycle), so the binary's own string can't tell pinned from drifted.
+      # The assert makes a future package change a loud failure and a
+      # deliberate one-line bump, never drift.
+      #
+      # faketime is not pinned because it contributes nothing to the rendered
+      # bytes; it only stops dot stamping wall-clock time into the PDFs, which
+      # otherwise gives an unchanged harness a new hash on every run. It is
+      # required, not optional: build-harness.sh warns and carries on without
+      # it, and the URLs that came out would be unpasteable.
+      - run: |
+          sudo apt-get update
+          sudo apt-get install -y graphviz=2.42.2-9ubuntu0.1 faketime
+          dot -V
+          dpkg-query -W -f='${Version}\n' graphviz
+          [ "$(dpkg-query -W -f='${Version}' graphviz)" = "2.42.2-9ubuntu0.1" ] || { echo '::error::graphviz package is not the pinned 2.42.2-9ubuntu0.1'; exit 1; }
+
+      - run: ./electronics/wire_harness/build-harness.sh
+
+      # Uploading on every run is safe: the service names objects after their
+      # own bytes, so this can only ever add, never replace one somebody is
+      # already serving. A re-render of an unchanged drawing is a no-op.
+      #
+      # Same-repo refs only: fork PRs have no secrets, so they stop at the
+      # render (which is the actual correctness check anyway).
+      - name: Publish to the asset service
+        if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+        env:
+          ASSET_SERVICE_TOKEN: ${{ secrets.ASSET_SERVICE_TOKEN }}
+        run: python3 electronics/wire_harness/upload-harness.py
+
+      # The URLs the docs serve are literal strings in the data file, pasted by
+      # whoever changed the drawing, exactly like every other asset. This is
+      # what keeps that honest: change a drawing without pasting its new URLs
+      # and the job fails with the block to paste. It also means the objects
+      # are published before any commit names them.
+      - name: Check the docs point at this render
+        if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+        run: python3 electronics/wire_harness/upload-harness.py --check docs/src/liquid/_data/harness.yml

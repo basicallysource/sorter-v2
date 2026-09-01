@@ -1,19 +1,21 @@
 #!/usr/bin/env python3
-"""Validate front matter on every documentation page under docs/.
+"""Validate front matter on every documentation page under docs/src/content/.
 
-Walks docs/ and verifies that each .md file has the required front matter
-fields, that `type` is one of the allowed Diátaxis-based values, and that
-`last_verified` is a valid ISO date. Honors per-section defaults declared in
-docs/_config.yml so authors only need to set page-specific overrides.
+Walks the content tree and verifies that each .md file has the required front
+matter fields, that `type` is one of the allowed Diátaxis-based values, and
+that `last_verified` is a valid ISO date. Honors the per-section defaults so
+authors only need to set page-specific overrides; the defaults here must stay
+in sync with FM_DEFAULTS in docs/src/lib/server/content.ts (the renderer's
+copy is the one the site actually uses).
 
 Exit codes:
     0  every page passed
     1  one or more pages failed validation
-    2  the script could not run (missing docs/, malformed _config.yml, ...)
+    2  the script could not run (missing content root, ...)
 
 Usage:
     python3 docs/scripts/validate_frontmatter.py
-    python3 docs/scripts/validate_frontmatter.py --root /path/to/docs
+    python3 docs/scripts/validate_frontmatter.py --root /path/to/docs/src/content
 """
 
 from __future__ import annotations
@@ -37,14 +39,26 @@ ALLOWED_TYPES = (
     "landing",
 )
 
-EXCLUDED_DIRS = {"_site", "vendor", ".bundle", "scripts", "_includes", "_layouts", "_data", "assets"}
-EXCLUDED_FILES = {"README.md", "AGENTS.md", "ux-concept-sorting-profiles.md"}
+EXCLUDED_DIRS: set[str] = set()
+EXCLUDED_FILES = {"README.md", "AGENTS.md"}
+CREDIT_REQUIRED_PREFIXES = ("hardware/",)
+
+# Per-section frontmatter defaults, matched by path prefix (later, more
+# specific matches win). Mirrors FM_DEFAULTS in docs/src/lib/server/content.ts.
+SECTION_DEFAULTS: list[tuple[str, dict[str, str]]] = [
+    ("", {"owner": "docs", "audience": "all readers", "applies_to": "site", "last_verified": "2026-04-08"}),
+    ("hardware", {"section": "hardware", "owner": "hardware", "audience": "self-builder", "applies_to": "hardware-v2"}),
+    ("installation", {"section": "installation", "owner": "docs", "audience": "self-hosting operator", "applies_to": "sorter 2.x"}),
+    ("sorter", {"section": "sorter", "owner": "sorter", "audience": "self-hosting operator", "applies_to": "sorter 2.x"}),
+    ("hive", {"section": "hive", "owner": "hive", "audience": "operator linking a Sorter to Hive", "applies_to": "hive 0.x"}),
+    ("lab", {"section": "lab", "owner": "lab", "audience": "contributor", "applies_to": "2026-04-06 measurement set"}),
+]
 
 FRONT_MATTER_RE = re.compile(r"^---\s*\n(.*?)\n---\s*\n", re.DOTALL)
 
 
 def parse_front_matter(text: str) -> dict[str, str] | None:
-    """Extract a flat key/value mapping from a Jekyll front matter block.
+    """Extract a flat key/value mapping from a front matter block.
 
     Only top-level scalar keys are returned. Nested structures are ignored
     intentionally — every required field is a scalar string.
@@ -73,75 +87,13 @@ def parse_front_matter(text: str) -> dict[str, str] | None:
     return out
 
 
-def parse_config_defaults(config_path: Path) -> list[tuple[str, dict[str, str]]]:
-    """Parse the per-section defaults block out of _config.yml.
-
-    Returns a list of (path_prefix, values_dict). Order matches _config.yml.
-    Pure-stdlib parser — does not depend on PyYAML so the validator can run
-    in any environment without extra installs.
-    """
-    if not config_path.exists():
-        return []
-
-    text = config_path.read_text()
-    defaults: list[tuple[str, dict[str, str]]] = []
-
-    in_defaults = False
-    current_path: str | None = None
-    in_values = False
-    current_values: dict[str, str] = {}
-
-    for raw_line in text.splitlines():
-        line = raw_line.rstrip()
-        if not line or line.lstrip().startswith("#"):
-            continue
-        if line == "defaults:":
-            in_defaults = True
-            continue
-        if not in_defaults:
-            continue
-        if not line.startswith(" "):
-            # Left the defaults block.
-            if current_path is not None:
-                defaults.append((current_path, current_values))
-                current_path = None
-                current_values = {}
-            in_defaults = False
-            continue
-        stripped = line.strip()
-        if stripped.startswith("- scope:"):
-            if current_path is not None:
-                defaults.append((current_path, current_values))
-            current_path = ""
-            current_values = {}
-            in_values = False
-            continue
-        if stripped.startswith("path:"):
-            value = stripped.split(":", 1)[1].strip().strip('"').strip("'")
-            current_path = value
-            continue
-        if stripped == "values:":
-            in_values = True
-            continue
-        if in_values and ":" in stripped:
-            key, _, value = stripped.partition(":")
-            key = key.strip()
-            value = value.strip().strip('"').strip("'")
-            current_values[key] = value
-
-    if current_path is not None:
-        defaults.append((current_path, current_values))
-
-    return defaults
-
-
 def effective_field(
     field: str,
     page_meta: dict[str, str],
     relative_path: str,
     defaults: list[tuple[str, dict[str, str]]],
 ) -> str | None:
-    """Return the effective value of a field, applying _config.yml defaults.
+    """Return the effective value of a field, applying SECTION_DEFAULTS.
 
     Defaults are matched by prefix; later (more specific) matches win.
     """
@@ -194,6 +146,14 @@ def validate_page(
                 errors.append(
                     f"{relative_path}: last_verified '{value}' is not a valid YYYY-MM-DD date"
                 )
+
+    if relative_path.startswith(CREDIT_REQUIRED_PREFIXES):
+        author = page_meta.get("author")
+        authors = page_meta.get("authors")
+        if not author and not authors:
+            errors.append(
+                f"{relative_path}: hardware page must list 'author' or 'authors'"
+            )
     return errors
 
 
@@ -202,18 +162,17 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--root",
         type=Path,
-        default=Path(__file__).resolve().parent.parent,
-        help="Path to the docs/ root (default: parent of this script)",
+        default=Path(__file__).resolve().parent.parent / "src" / "content",
+        help="Path to the content root (default: docs/src/content)",
     )
     args = parser.parse_args(argv)
 
     root: Path = args.root
     if not root.exists():
-        print(f"docs root not found: {root}", file=sys.stderr)
+        print(f"content root not found: {root}", file=sys.stderr)
         return 2
 
-    config_path = root / "_config.yml"
-    defaults = parse_config_defaults(config_path)
+    defaults = SECTION_DEFAULTS
 
     errors: list[str] = []
     page_count = 0

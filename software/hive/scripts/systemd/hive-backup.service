@@ -1,0 +1,18 @@
+[Unit]
+Description=hive-backup - nightly verified Postgres dump
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+User=root
+EnvironmentFile=-/etc/hive-release.env
+ExecStart=/usr/bin/python3 /usr/local/lib/hive/hive_release_agent.py backup --reason nightly
+TimeoutStartSec=3600
+
+NoNewPrivileges=true
+LockPersonality=true
+SystemCallArchitectures=native
+
+[Install]
+WantedBy=multi-user.target

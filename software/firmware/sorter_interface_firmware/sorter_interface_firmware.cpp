@@ -21,6 +21,7 @@
  * SOFTWARE.
  */
 
+#include "hardware/pwm.h"
 #include "hardware/timer.h"
 #include "pico/multicore.h"
 #include "pico/stdlib.h"
@@ -112,6 +113,7 @@ const struct CommandTable stepperDrvCmdTable = {
 
 void CMDH_digital_read(const BusMessage *msg, BusMessage *resp);
 void CMDH_digital_write(const BusMessage *msg, BusMessage *resp);
+void CMDH_digital_write_pwm(const BusMessage *msg, BusMessage *resp);
 bool VAL_digital_out_channel(uint8_t channel);
 bool VAL_digital_in_channel(uint8_t channel);
 
@@ -120,6 +122,7 @@ const struct CommandTable digitalIoCmdTable = { //
     .commands = {{
         {"READ", "", "?", 0, VAL_digital_in_channel, CMDH_digital_read},
         {"WRITE", "?", "", 1, VAL_digital_out_channel, CMDH_digital_write},
+        {"WRITE_PWM", "H", "", 2, VAL_digital_out_channel, CMDH_digital_write_pwm},
     }}};
 
 void CMDH_servo_move_to(const BusMessage *msg, BusMessage *resp);
@@ -251,6 +254,12 @@ static bool stepper_hw_enabled[STEPPER_COUNT] = {};
 // turn, endstop never fires). Starts true to match enableDriver(true) in setup().
 static bool stepper_drv_current_on[STEPPER_COUNT];
 
+// Tracks which digital outputs currently have their pad routed to the PWM block
+// rather than SIO. Declared up here because initialize_hardware() has to clear
+// it: it puts every output pad back on SIO, and a stale "already PWM" flag would
+// make later duty writes land on a pad the PWM block no longer drives.
+static bool digital_output_pwm_active[DIGITAL_OUTPUT_COUNT];
+
 static void ensure_stepper_hw_enabled(int i) {
     if (!stepper_hw_enabled[i]) {
         gpio_put(STEPPER_nEN_PINS[i], 0);
@@ -315,12 +324,21 @@ int dump_observability(char *buf, size_t buf_size) {
     char diag_pins_buf[128];
     int diag_pins_len = append_stepper_diag_pins_json(diag_pins_buf, sizeof(diag_pins_buf));
 
+    char led_gpios_buf[64];
+    int led_len = snprintf(led_gpios_buf, sizeof(led_gpios_buf), "[");
+    for (int i = 0; i < LED_OUTPUT_COUNT && led_len > 0; i++) {
+        led_len += snprintf(led_gpios_buf + led_len, sizeof(led_gpios_buf) - led_len,
+                            "%s%d", i == 0 ? "" : ",", digital_output_pins[i]);
+    }
+    snprintf(led_gpios_buf + led_len, sizeof(led_gpios_buf) - led_len, "]");
+
     int n_bytes = snprintf(
         buf,
         buf_size,
-        "{\"hw\":\"%s\",\"diag_pins\":%s}",
+        "{\"hw\":\"%s\",\"diag_pins\":%s,\"led_gpios\":%s}",
         HW_ID,
-        diag_pins_len > 0 ? diag_pins_buf : "[]");
+        diag_pins_len > 0 ? diag_pins_buf : "[]",
+        led_gpios_buf);
 
     if (n_bytes >= 0 && (size_t)n_bytes < buf_size) {
         return n_bytes;
@@ -490,11 +508,16 @@ void initialize_hardware() {
         gpio_set_dir(digital_input_pins[i], GPIO_IN);
         gpio_pull_up(digital_input_pins[i]);
     }
-    // Initialize digital outputs
+    // Initialize digital outputs. gpio_init routes the pad back to SIO, so any
+    // channel that was driving PWM is no longer in PWM mode — clear the flag to
+    // match, or the next duty write skips re-arming the pad and silently does
+    // nothing. INIT arrives on every host start, so a host restart without a
+    // board reset used to leave the LEDs dark and unlightable.
     for (int i = 0; i < DIGITAL_OUTPUT_COUNT; i++) {
         gpio_init(digital_output_pins[i]);
         gpio_set_dir(digital_output_pins[i], GPIO_OUT);
         gpio_put(digital_output_pins[i], 0);
+        digital_output_pwm_active[i] = false;
     }
     // Turn on FAN0 permanently for cooling on boards that expose it.
     if (FAN0_OUTPUT_CHANNEL >= 0 && FAN0_OUTPUT_CHANNEL < DIGITAL_OUTPUT_COUNT) {
@@ -583,10 +606,49 @@ void CMDH_digital_read(const BusMessage *msg, BusMessage *resp) {
     resp->payload_length = 1;
 }
 
+// Counter wraps at 65534, so it takes 65535 values (0..65534) and a duty of
+// 65535 is genuinely always-high rather than 65535/65536 of the time. Duty 0 is
+// likewise always-low, so the full u16 range maps to real 0%..100%.
+static const uint16_t PWM_OUTPUT_WRAP = 65534;
+
+static bool pwm_slice_configured[NUM_PWM_SLICES];
+
+static void digital_output_set_plain(int pin, uint8_t channel, bool value) {
+    if (digital_output_pwm_active[channel]) {
+        // Hand the pad back to SIO. Never disable the slice: on some boards two
+        // outputs share one slice, and disabling it would freeze the other pin.
+        gpio_set_function(pin, GPIO_FUNC_SIO);
+        gpio_set_dir(pin, GPIO_OUT);
+        digital_output_pwm_active[channel] = false;
+    }
+    gpio_put(pin, value ? 1 : 0);
+}
+
 void CMDH_digital_write(const BusMessage *msg, BusMessage *resp) {
     int pin = digital_output_pins[msg->channel];
     bool value = msg->payload[0] != 0;
-    gpio_put(pin, value ? 1 : 0);
+    digital_output_set_plain(pin, msg->channel, value);
+    resp->payload_length = 0;
+}
+
+void CMDH_digital_write_pwm(const BusMessage *msg, BusMessage *resp) {
+    uint16_t duty;
+    memcpy(&duty, msg->payload, sizeof(duty));
+    int pin = digital_output_pins[msg->channel];
+
+    uint slice = pwm_gpio_to_slice_num(pin);
+    if (!pwm_slice_configured[slice]) {
+        pwm_config config = pwm_get_default_config();
+        pwm_config_set_wrap(&config, PWM_OUTPUT_WRAP);
+        pwm_init(slice, &config, false);
+        pwm_slice_configured[slice] = true;
+    }
+    pwm_set_chan_level(slice, pwm_gpio_to_channel(pin), duty);
+    pwm_set_enabled(slice, true);
+    if (!digital_output_pwm_active[msg->channel]) {
+        gpio_set_function(pin, GPIO_FUNC_PWM);
+        digital_output_pwm_active[msg->channel] = true;
+    }
     resp->payload_length = 0;
 }
 

@@ -14,8 +14,6 @@ class User(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     email = Column(String, unique=True, nullable=False, index=True)
     password_hash = Column(String, nullable=True)
-    github_id = Column(String, unique=True, nullable=True, index=True)
-    github_login = Column(String, nullable=True)
     avatar_url = Column(String, nullable=True)
     display_name = Column(String, nullable=True)
     openrouter_api_key_encrypted = Column(String, nullable=True)
@@ -28,6 +26,7 @@ class User(Base):
     updated_at = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
     refresh_tokens = relationship("RefreshToken", back_populates="user", cascade="all, delete-orphan")
+    identities = relationship("UserIdentity", back_populates="user", cascade="all, delete-orphan")
     machines = relationship("Machine", back_populates="owner", cascade="all, delete-orphan")
     reviews = relationship("SampleReview", back_populates="reviewer", cascade="all, delete-orphan")
     sorting_profiles = relationship(
@@ -59,6 +58,16 @@ class User(Base):
     @property
     def has_password(self) -> bool:
         return bool(self.password_hash)
+
+    def identity_for(self, provider: str):
+        return next((i for i in self.identities if i.provider == provider), None)
+
+    @property
+    def github_login(self) -> str | None:
+        """Compatibility shim: github_login moved to user_identities but is
+        still part of the user/profile API responses."""
+        identity = self.identity_for("github")
+        return identity.provider_login if identity else None
 
     @property
     def openrouter_configured(self) -> bool:

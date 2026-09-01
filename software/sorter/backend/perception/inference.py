@@ -202,6 +202,13 @@ class InferenceWorker:
         # frame they were computed against without triggering a new inference.
         self._latest_raw: Optional[tuple] = None
 
+        # Latest ``(pieces, PerceptionFrame)`` written together in the hot loop so
+        # a consumer (the channel-crop capture collector) gets a per-piece
+        # PieceObservation list — bbox + angle + zone + track id — consistent with
+        # the exact frame it was computed against. GIL-atomic tuple ref, same
+        # pattern as ``latest_raw``; off the state-machine read path.
+        self._latest_pieces_frame: Optional[tuple] = None
+
         # Richer record for the perception-debug overlay only: raw (pre-filter)
         # bboxes, the on-channel subset, the crop rect, the frame, and timing.
         # GIL-atomic dict ref; never read on the hot path.
@@ -257,6 +264,13 @@ class InferenceWorker:
         """Latest ``(bboxes, PerceptionFrame)`` pair from the last successful
         inference. GIL-atomic read — no lock required."""
         return self._latest_raw
+
+    @property
+    def latest_pieces_frame(self) -> Optional[tuple]:
+        """Latest ``(pieces, PerceptionFrame)`` from the last successful
+        inference — per-piece PieceObservations (bbox + angle + zone + track id)
+        with the frame they were computed against. GIL-atomic read."""
+        return self._latest_pieces_frame
 
     @property
     def latest_debug(self) -> Optional[dict]:
@@ -674,6 +688,7 @@ class InferenceWorker:
                 )
                 self._slot.write(state)
                 self._latest_raw = (list(bboxes), frame)
+                self._latest_pieces_frame = (pieces, frame)
                 # Tag ALL in-crop detections (not just on-channel) with zone
                 # provenance so the overlay can show foreign-zone hits and future
                 # consumers can ask which zone a piece is in. Off the hot read

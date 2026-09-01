@@ -1,0 +1,9 @@
+# Cloudflare Pages reads this from the build output root.
+#
+# The /api/*.json endpoints are prerendered to plain files, so the Response
+# headers set in each +server.ts are discarded at build time — CORS for the
+# deployed site has to be declared here. The data is already public (the
+# repository is), and without this a browser on any other origin cannot read a
+# file the CDN will serve to curl without complaint.
+/api/*
+  Access-Control-Allow-Origin: *

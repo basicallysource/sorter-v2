@@ -1,0 +1,35 @@
+# Known authors, keyed by the id used in a page's `author:` front matter.
+#
+# A page (or, later, a section) sets `author: <id>` and the byline resolves
+# from here — so updating a name or link once updates it everywhere on the site.
+# Add new contributors as new keys.
+
+spencer:
+  name: Spencer
+  url: https://github.com/spencerhhubert
+
+abrianbaker:
+  name: Abrianbaker
+
+zed0:
+  name: zed0
+
+christoph:
+  name: Christoph
+
+barthel:
+  name: barthel
+
+brickcyclealice:
+  name: BrickCycleAlice
+
+effreek:
+  name: Jon
+  url: https://github.com/effreek
+
+jgadling:
+  name: Jessica Gadling
+  url: https://github.com/jgadling
+
+alex:
+  name: alex

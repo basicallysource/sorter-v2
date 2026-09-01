@@ -3,6 +3,7 @@
 	import ImageInfoBadge from '$lib/components/ImageInfoBadge.svelte';
 	import PieceStatusBadge from '$lib/components/PieceStatusBadge.svelte';
 	import ReclassifyPanel from '$lib/components/ReclassifyPanel.svelte';
+	import PieceCorrection from '$lib/components/PieceCorrection.svelte';
 	import { Skeleton } from '$lib/components/primitives';
 	import { LEGO_COLORS, type LegoColor } from '$lib/lego-colors';
 	import type { ClassificationAttempt, ClassificationAttemptStrategy } from '$lib/api/events';
@@ -15,6 +16,7 @@
 		endpointBase,
 		reclassifyOpen = false,
 		onToggleReclassify,
+		onPieceCorrected,
 		liveCrop = null
 	}: {
 		piece: PieceSummary;
@@ -22,6 +24,9 @@
 		endpointBase: string;
 		reclassifyOpen?: boolean;
 		onToggleReclassify?: () => void;
+		// Called with the fresh summary after a correction so the parent can
+		// update its list in place without a refetch.
+		onPieceCorrected?: (summary: PieceSummary) => void;
 		// Newest captured crop off the live socket — shown for in-flight pieces
 		// that haven't been hydrated from the detail endpoint yet.
 		liveCrop?: string | null;
@@ -80,15 +85,27 @@
 		return null;
 	}
 
+	// Corner badge for an image's channel. An unrecorded channel reads as
+	// unknown rather than defaulting to C4 — a link-match crop from C2/C3
+	// labelled "C4 burst" is a lie about where the pixels came from.
 	function sourceBadge(img: DisplayImage): { label: string; cls: string } {
 		const ch = img.channel;
-		if (img.source === 'upstream') {
-			// Upstream crops come from C2 or C3; fall back to "C2/3" for older
-			// records captured before the channel was recorded.
-			const label = ch === 2 || ch === 3 ? `C${ch}` : 'C2/3';
-			return { label, cls: 'border-warning/60 bg-warning/[0.12] text-warning' };
+		if (img.source === 'c4_burst') {
+			return { label: 'C4', cls: 'border-border bg-surface text-text-muted' };
 		}
-		return { label: 'C4', cls: 'border-border bg-surface text-text-muted' };
+		const label = ch === 2 || ch === 3 ? `C${ch}` : '—';
+		return { label, cls: 'border-warning/60 bg-warning/[0.12] text-warning-dark' };
+	}
+
+	function sourceLabel(source: string | null | undefined, channel?: number | null): string {
+		if (source === 'c4_burst') return 'C4 burst';
+		if (source === 'link_match') {
+			return channel === 2 || channel === 3 ? `Link match · C${channel}` : 'Link match';
+		}
+		if (source === 'upstream') {
+			return channel === 2 || channel === 3 ? `Upstream · C${channel}` : 'Upstream';
+		}
+		return source || 'unknown';
 	}
 
 	// Badge shown on the result header when classification needed a retry. null
@@ -99,7 +116,6 @@
 	): { label: string } | null {
 		if (!strategy || strategy === 'combined') return null;
 		if (strategy === 'single_burst') return { label: 'WON · BURST ALONE' };
-		if (strategy === 'single_upstream') return { label: 'WON · UPSTREAM ALONE' };
 		return { label: `WON · ${strategy}` };
 	}
 
@@ -126,28 +142,13 @@
 		return 'unsent';
 	}
 
-	// C4 burst frames first, then upstream matches — read left-to-right as
-	// "what the camera saw" followed by "what we pulled from upstream".
+	// Chronological — read left-to-right as what the camera saw.
 	function sortImages(images: DisplayImage[]): DisplayImage[] {
-		return [...images].sort((a, b) => {
-			if (a.source !== b.source) return a.source === 'c4_burst' ? -1 : 1;
-			return (a.ts ?? 0) - (b.ts ?? 0);
-		});
-	}
-
-	function imageCounts(images: DisplayImage[]): { c4: number; upstream: number } {
-		let c4 = 0;
-		let upstream = 0;
-		for (const img of images) {
-			if (img.source === 'upstream') upstream += 1;
-			else c4 += 1;
-		}
-		return { c4, upstream };
+		return [...images].sort((a, b) => (a.ts ?? 0) - (b.ts ?? 0));
 	}
 
 	// Age of a pic in seconds relative to when the owning KnownObject was created.
-	// Upstream crops are captured before the piece reaches C4 (object creation),
-	// so they read "before"; C4 burst frames are snapped just after creation.
+	// C4 burst frames are snapped just after creation.
 	function imageAgeLabel(img: DisplayImage, objCreatedAt: number | null): string | null {
 		if (typeof img.created_at !== 'number' || objCreatedAt === null) return null;
 		const delta = objCreatedAt - img.created_at;
@@ -166,12 +167,9 @@
 				? 'Sent, lost to a higher-scoring request'
 				: 'No';
 		const rows: { label: string; value: string }[] = [
-			{ label: 'Source', value: img.source === 'upstream' ? 'Upstream (C2/C3)' : 'C4 burst' },
+			{ label: 'Source', value: sourceLabel(img.source, img.channel) },
 			{ label: 'Shipped', value: shipped }
 		];
-		if (img.source === 'upstream' && typeof img.score === 'number') {
-			rows.push({ label: 'Similarity', value: `${(img.score * 100).toFixed(0)}%` });
-		}
 		const age = imageAgeLabel(img, objCreatedAt);
 		if (age !== null) {
 			rows.push({ label: 'Age', value: age });
@@ -180,7 +178,12 @@
 	}
 
 	const sorted = $derived(imgState?.status === 'ok' ? sortImages(imgState.images) : []);
-	const counts = $derived(imageCounts(sorted));
+	// The records list is a compact scan of many pieces, so it shows only the
+	// images that actually produced the result. Everything else the piece
+	// carries -- unshipped burst frames, link-match candidates from C2/C3 --
+	// belongs on the detail page, not here; showing all of them turned each row
+	// into 40+ thumbnails of unrelated pieces.
+	const shown = $derived(sorted.filter((img) => img.used));
 	const objCreatedAt = $derived(imgState?.createdAt ?? null);
 	const lego_color = $derived(lookupLegoColor(piece.color_id, piece.color_name));
 	const est_value_text = $derived(formatEstValue(piece.est_value));
@@ -207,7 +210,7 @@
 		{#if est_value_text}
 			<span
 				class="text-sm font-semibold tabular-nums text-success"
-				title="BrickLink moving-average price (local catalog)"
+				title="BrickLink moving-average price (Hive catalog)"
 			>
 				{est_value_text}
 			</span>
@@ -243,7 +246,9 @@
 
 		<span class="ml-auto flex items-center gap-3 text-xs text-text-muted">
 			{#if imgState?.status === 'ok' && sorted.length > 0}
-				<span class="tabular-nums">{counts.c4} C4 · {counts.upstream} upstream</span>
+				<span class="tabular-nums" title="Images that produced the result, of all stored for this piece">
+					{shown.length} of {sorted.length} used
+				</span>
 			{/if}
 			<span class="font-mono">{formatBin(piece.bin)}</span>
 			<span class="tabular-nums">{formatTimestamp(piece.seen_at)}</span>
@@ -305,14 +310,14 @@
 					<Skeleton class="h-28 w-28" />
 				{/each}
 			</div>
-		{:else if imgState.status === 'missing' || (sorted.length === 0 && !imgState.stockUrl)}
+		{:else if imgState.status === 'missing' || (shown.length === 0 && !imgState.stockUrl)}
 			<div class="text-sm text-text-muted">
 				No stored images for this piece (recorded before image capture existed, or none taken).
 			</div>
 		{:else}
 			<div class="flex items-start gap-4">
 				<div class="flex flex-1 flex-wrap gap-2">
-					{#each sorted as img, i (i)}
+					{#each shown as img, i (i)}
 						{@const badge = sourceBadge(img)}
 						{@const src = img.src}
 						{@const state = imageState(img)}
@@ -328,7 +333,7 @@
 									? 'Sent in a parallel request that lost — thrown out'
 									: 'Captured, not shipped'}
 						>
-							<div class="h-28 w-28 bg-white {state === 'dropped' ? 'opacity-50' : ''}">
+							<div class="h-16 w-16 bg-white {state === 'dropped' ? 'opacity-50' : ''}">
 								{#if src}
 									<img {src} alt={img.source} class="h-full w-full object-contain" loading="lazy" />
 								{/if}
@@ -349,10 +354,6 @@
 										class="inline-flex items-center border border-danger/60 bg-danger/[0.12] px-1 py-0.5 text-xs font-semibold uppercase tracking-wider text-danger"
 									>
 										Dropped
-									</span>
-								{:else if img.source === 'upstream' && typeof img.score === 'number'}
-									<span class="text-xs tabular-nums text-text-muted">
-										{(img.score * 100).toFixed(0)}%
 									</span>
 								{/if}
 							</div>
@@ -382,6 +383,12 @@
 		{/if}
 	</div>
 
+	{#if piece.correctable}
+		<div class="border-t border-border bg-bg p-3">
+			<PieceCorrection {piece} {endpointBase} onUpdated={onPieceCorrected} />
+		</div>
+	{/if}
+
 	{#if reclassifyOpen && imgState?.status === 'ok' && imgState.origin === 'memory'}
 		<div class="border-t border-border p-3">
 			<ReclassifyPanel
@@ -390,7 +397,7 @@
 					.filter((img) => typeof img.b64 === 'string')
 					.map((img) => ({
 						image: img.b64 as string,
-						label: img.source === 'upstream' ? 'Upstream' : 'C4 burst',
+						label: sourceLabel(img.source, img.channel),
 						used: img.used,
 						score: img.score
 					}))}

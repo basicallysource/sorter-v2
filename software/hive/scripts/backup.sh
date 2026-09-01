@@ -10,7 +10,7 @@
 # Keeps the most recent 14 DB dumps locally and prunes older ones.
 set -euo pipefail
 
-HOST="${HIVE_HOST:-root@45.55.232.164}"
+HOST="${HIVE_HOST:-root@100.116.70.1}"
 REPO="${HIVE_REPO:-/basically/sorter/sorter-v2}"
 KEEP="${HIVE_BACKUP_KEEP:-14}"
 

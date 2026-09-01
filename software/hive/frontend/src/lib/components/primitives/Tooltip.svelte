@@ -40,7 +40,7 @@
 	{#if visible}
 		<span
 			role="tooltip"
-			class="pointer-events-none absolute z-50 whitespace-nowrap bg-text px-2 py-1 text-xs text-surface shadow-md {PLACEMENTS[placement]}"
+			class="pointer-events-none absolute z-50 w-max max-w-[min(16rem,80vw)] bg-text px-2 py-1 text-xs text-surface shadow-md {PLACEMENTS[placement]}"
 		>
 			{text}
 		</span>

@@ -1,0 +1,36 @@
+{%- comment -%}
+The board-to-motor position map for cable S: a 4-position PHR-4 at the board
+and a 6-position PHR-6 at the motor, with motor positions 2 and 5 empty. Used
+on both the wire harness page and the stepper connectors page, which is why it
+is an include rather than inline SVG.
+{%- endcomment -%}
+<figure class="diagram diagram-inline">
+  <svg viewBox="0 0 340 140" width="320" height="132" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Diagram: the four board positions 1, 2, 3, 4 land on motor positions 1, 4, 3 and 6. Motor positions 2 and 5 are left empty.">
+    <text x="10" y="16" font-size="11" fill="var(--muted)">basically board v1.3 - PHR-4</text>
+    <g stroke="var(--ink)" stroke-width="1.5">
+      <line x1="40" y1="51" x2="40" y2="84" />
+      <line x1="90" y1="51" x2="190" y2="84" />
+      <line x1="140" y1="51" x2="140" y2="84" />
+      <line x1="190" y1="51" x2="290" y2="84" />
+    </g>
+    <g fill="var(--surface)" stroke="var(--ink)" stroke-width="1.4">
+      <circle cx="40" cy="40" r="11" /><circle cx="90" cy="40" r="11" />
+      <circle cx="140" cy="40" r="11" /><circle cx="190" cy="40" r="11" />
+    </g>
+    <g fill="var(--surface)" stroke="var(--ink)" stroke-width="1.4">
+      <circle cx="40" cy="95" r="11" /><circle cx="140" cy="95" r="11" />
+      <circle cx="190" cy="95" r="11" /><circle cx="290" cy="95" r="11" />
+    </g>
+    <g fill="var(--bg)" stroke="var(--muted)" stroke-width="1.2" stroke-dasharray="3 2">
+      <circle cx="90" cy="95" r="11" /><circle cx="240" cy="95" r="11" />
+    </g>
+    <g font-size="11" fill="var(--ink)" text-anchor="middle" font-weight="700">
+      <text x="40" y="44">1</text><text x="90" y="44">2</text><text x="140" y="44">3</text><text x="190" y="44">4</text>
+      <text x="40" y="99">1</text><text x="140" y="99">3</text><text x="190" y="99">4</text><text x="290" y="99">6</text>
+    </g>
+    <g font-size="11" fill="var(--muted)" text-anchor="middle">
+      <text x="90" y="99">2</text><text x="240" y="99">5</text>
+    </g>
+    <text x="10" y="134" font-size="11" fill="var(--muted)">NEMA 17 - PHR-6, positions 2 and 5 empty</text>
+  </svg>
+</figure>

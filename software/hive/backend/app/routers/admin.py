@@ -1,13 +1,22 @@
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
-from app.deps import get_db, require_role, verify_csrf
+from app.deps import (
+    API_KEY_SCOPE_SERVER_HEALTH_READ,
+    get_db,
+    require_api_key_scopes,
+    require_role,
+    require_role_flex,
+    verify_csrf,
+)
 from app.errors import APIError
 from app.models.user import User
 from app.schemas.auth import AdminUpdateUserRequest, UserResponse
-from app.services.server_health import get_server_health
+from app.services import access_window
+from app.services.server_health import get_server_health, get_storage_stats_worker
 from app.services.storage import delete_machine_files
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
@@ -17,13 +26,24 @@ router = APIRouter(prefix="/api/admin", tags=["admin"])
 def server_health(
     refresh_storage: bool = Query(False),
     db: Session = Depends(get_db),
-    _admin: User = Depends(require_role("admin")),
+    _admin: User = Depends(require_role_flex("admin")),
+    _scope_guard: User = Depends(require_api_key_scopes(API_KEY_SCOPE_SERVER_HEALTH_READ)),
 ):
     """Storage usage (sample vs piece images vs models), DB size, and memory.
 
-    Storage figures are cached for a few minutes since they require walking the
-    whole object store; pass refresh_storage=true to force a fresh walk."""
-    return get_server_health(db, refresh_storage=refresh_storage)
+    Storage figures come from a cache a background worker walks on a slow
+    cadence — reading them is instant. refresh_storage=true just nudges that
+    worker to walk again soon and returns the current cache immediately (the
+    walk itself is far too slow to run inside the request).
+
+    The only admin route reachable by API key, so that monitoring can watch the
+    box over days without a human holding a browser session open. Still
+    admin-only: `require_role_flex` authenticates a key, `require_api_key_scopes`
+    is what actually authorizes it, and a key needs both the role and
+    `server_health:read`."""
+    if refresh_storage:
+        get_storage_stats_worker().wake()
+    return get_server_health(db)
 
 
 @router.get("/users", response_model=list[UserResponse])
@@ -83,3 +103,41 @@ def delete_user(
     db.delete(user)
     db.commit()
     return {"ok": True}
+
+
+class AccessWindowUpdate(BaseModel):
+    anchor: str
+    size: int = Field(ge=0)
+    offset: int = Field(ge=0)
+
+
+@router.get("/access-windows")
+def get_access_windows(
+    db: Session = Depends(get_db),
+    _admin: User = Depends(require_role("admin")),
+):
+    """Effective piece-bbox visibility windows per (role, entity), with whether
+    each value is a live override or the code default. Admins are unrestricted."""
+    return access_window.list_effective_windows(db)
+
+
+@router.put("/access-windows/{role}/{entity}")
+def put_access_window(
+    role: str,
+    entity: str,
+    data: AccessWindowUpdate,
+    db: Session = Depends(get_db),
+    _admin: User = Depends(require_role("admin")),
+    _csrf: None = Depends(verify_csrf),
+):
+    """Set (upsert) the visibility window for a windowed role + entity. 'admin' is
+    unrestricted and cannot be given a window."""
+    if role not in access_window.WINDOWED_ROLES:
+        raise APIError(400, f"Role must be one of {access_window.WINDOWED_ROLES}", "INVALID_ROLE")
+    if entity not in access_window.ENTITIES:
+        raise APIError(400, f"Entity must be one of {access_window.ENTITIES}", "INVALID_ENTITY")
+    if data.anchor not in access_window.ANCHORS:
+        raise APIError(400, f"Anchor must be one of {access_window.ANCHORS}", "INVALID_ANCHOR")
+
+    access_window.set_window(db, role, entity, data.anchor, data.size, data.offset)
+    return access_window.list_effective_windows(db)

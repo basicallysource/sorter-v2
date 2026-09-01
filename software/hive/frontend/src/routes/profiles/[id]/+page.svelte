@@ -161,7 +161,7 @@
 <svelte:head><title>{profile ? `${profile.name} - Hive` : 'Sorting Profile - Hive'}</title></svelte:head>
 
 {#if loading}
-	<Spinner />
+	<div class="flex justify-center p-8"><Spinner size={32} /></div>
 {:else if !profile}
 	<div class="border border-primary/20 bg-primary-light p-4 text-sm text-primary">{error ?? 'Profile not found.'}</div>
 {:else}
@@ -196,7 +196,7 @@
 		</div>
 
 		{#if error}<div class="border border-primary/20 bg-primary-light p-3 text-sm text-primary">{error}</div>{/if}
-		{#if success}<div class="border border-success/20 bg-[#F0F9F5] p-3 text-sm text-success">{success}</div>{/if}
+		{#if success}<div class="border border-success/20 bg-success/[0.08] p-3 text-sm text-success">{success}</div>{/if}
 
 		<!-- Action Buttons -->
 		<div class="flex flex-wrap gap-2">
@@ -224,9 +224,9 @@
 				<div class="space-y-2">
 					{#each sortedCategories as cat}
 						<div class="flex items-center gap-3">
-							<div class="w-40 truncate text-sm text-text">{cat.name}{#if cat.isFallback} <span class="text-xs text-text-muted">(fallback)</span>{/if}</div>
+							<div class="w-24 truncate text-sm text-text sm:w-40">{cat.name}{#if cat.isFallback} <span class="text-xs text-text-muted">(fallback)</span>{/if}</div>
 							<div class="flex-1"><div class="h-5 bg-primary-light" style="width: {cat.pct}%"><div class="h-full bg-info" style="width: 100%"></div></div></div>
-							<div class="w-20 text-right text-sm text-text-muted">{cat.parts} parts</div>
+							<div class="w-16 shrink-0 text-right text-sm text-text-muted sm:w-20">{cat.parts} parts</div>
 						</div>
 					{/each}
 				</div>
@@ -332,7 +332,7 @@
 								<div>
 									<div class="flex flex-wrap items-center gap-2">
 										<span class="text-sm font-semibold text-text">v{v.version_number}</span>
-										{#if v.is_published}<span class="border border-success/20 bg-[#F0F9F5] px-2 py-0.5 text-xs font-medium text-success">Published</span>{/if}
+										{#if v.is_published}<span class="border border-success/20 bg-success/[0.08] px-2 py-0.5 text-xs font-medium text-success">Published</span>{/if}
 										{#if v.label}<span class="border border-border bg-bg px-2 py-0.5 text-xs font-medium text-text-muted">{v.label}</span>{/if}
 									</div>
 									{#if v.change_note}<p class="mt-1 text-sm text-text-muted">{v.change_note}</p>{/if}

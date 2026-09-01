@@ -56,17 +56,31 @@ The login session is designed as a short-lived access token plus a rotating refr
 
 For a server deployment behind Traefik, use `docker-compose.prod.yml`.
 
+**Deploying our prod host is not a manual `docker compose` — see
+[scripts/README.md](scripts/README.md). It ships by pushing a `hive/vX.Y.Z` tag;
+prod pulls the CI-built images itself.** The instructions below are for standing
+up a *new* host.
+
 1. Copy `.env.prod.example` to `.env.prod`
 2. Set strong values for:
    - `POSTGRES_PASSWORD`
    - `JWT_SECRET`
    - `ADMIN_PASSWORD`
 3. Optionally add GitHub OAuth production credentials
-4. Start the stack:
+4. Point the stack at images and data. `docker-compose.prod.yml` has no `build:`
+   stanza — the images come from GHCR, built by
+   `.github/workflows/hive-release.yml`:
 
 ```bash
-docker compose --env-file .env.prod -f docker-compose.prod.yml up -d --build
+export HIVE_BACKEND_IMAGE=ghcr.io/basicallysource/hive-backend:v0.1.0
+export HIVE_FRONTEND_IMAGE=ghcr.io/basicallysource/hive-frontend:v0.1.0
+# HIVE_DATA_DIR in .env.prod chooses where the bind mounts live (default ./data)
+docker compose --env-file .env.prod -f docker-compose.prod.yml up -d
 ```
+
+then hand the host over to the release agent. How that was done for the current
+prod box is recorded in [scripts/CUTOVER.md](scripts/CUTOVER.md) — that file is
+a historical record, not a runbook to re-run.
 
 The production stack expects:
 - Traefik running on the external Docker network `web`

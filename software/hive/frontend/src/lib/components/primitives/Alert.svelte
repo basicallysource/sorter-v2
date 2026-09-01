@@ -19,7 +19,9 @@
 	};
 </script>
 
-<div class="border px-3 py-2 text-sm {VARIANTS[variant]}">
+<!-- break-words: alerts routinely carry raw API errors with a URL in them, and an
+     unbreakable URL is enough to make the whole page scroll sideways. -->
+<div class="border px-3 py-2 text-sm break-words {VARIANTS[variant]}">
 	{#if title}
 		<div class="font-semibold">{title}</div>
 	{/if}

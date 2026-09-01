@@ -882,6 +882,14 @@ class ClassificationTrainingManager:
             include_overlay=False,
         )
 
+        source_role_for_geometry = metadata_payload.get("source_role")
+        if isinstance(source_role_for_geometry, str) and source_role_for_geometry:
+            from channel_geometry_payload import buildChannelGeometryForRole
+
+            channel_geometry = buildChannelGeometryForRole(source_role_for_geometry)
+            if channel_geometry is not None:
+                metadata_payload["channel_geometry"] = channel_geometry
+
         metadata_path = metadata_dir / f"{sample_id}.json"
         metadata_path.write_text(json.dumps(metadata_payload, indent=2))
 

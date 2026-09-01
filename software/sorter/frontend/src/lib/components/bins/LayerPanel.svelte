@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { ToggleSwitch } from '$lib/components/primitives';
-	import { ArchiveX, FolderOutput, Loader2 } from 'lucide-svelte';
+	import { ArchiveX, FolderOutput } from 'lucide-svelte';
+	import Spinner from '$lib/components/Spinner.svelte';
 	import BinCard from './BinCard.svelte';
 	import SectionGroup from './SectionGroup.svelte';
 	import type { BinContents, BinInfo, LayerInfo, SetMeta, SetProgressSummary } from './types';
@@ -101,7 +102,7 @@
 	{#if layerBusy}
 		<div class="absolute inset-0 z-20 flex items-center justify-center bg-surface/78 backdrop-blur-[1px]">
 			<div class="flex items-center gap-3 border border-border bg-surface px-4 py-3 shadow-sm">
-				<Loader2 size={16} class="animate-spin text-primary" />
+				<Spinner size={16} class="text-primary" />
 				<div class="text-sm font-medium text-text">{layerClearingLabel}</div>
 			</div>
 		</div>

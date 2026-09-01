@@ -119,13 +119,13 @@
 	<a href={`/machines/${machineId}`} class="text-sm text-text-muted hover:text-text">← Machine overview</a>
 </div>
 
-<div class="mb-6 flex items-end justify-between">
-	<div>
+<div class="mb-6 flex flex-wrap items-end justify-between gap-x-4 gap-y-1">
+	<div class="min-w-0">
 		<h1 class="text-2xl font-bold text-text">{machineName || 'Machine'}</h1>
 		<p class="text-sm text-text-muted">Pieces synced from this machine</p>
 	</div>
 	{#if !loading}
-		<span class="text-sm text-text-muted">
+		<span class="shrink-0 text-sm text-text-muted">
 			{pieces.length.toLocaleString()} of {total.toLocaleString()} loaded
 		</span>
 	{/if}
@@ -137,7 +137,7 @@
 
 {#if loading}
 	<div class="flex justify-center py-12">
-		<Spinner />
+		<Spinner size={32} />
 	</div>
 {:else if pieces.length === 0}
 	<div class="border border-border bg-surface p-8 text-center text-sm text-text-muted">
@@ -147,9 +147,10 @@
 	<div class="flex flex-col gap-2">
 		{#each pieces as piece (piece.piece_uuid)}
 			{@const bin = binLabel(piece.bin)}
-			<div class="flex gap-4 border border-border bg-surface p-3">
-				<!-- Left: crops from the machine -->
-				<div class="flex shrink-0 flex-wrap items-start gap-1.5" style="max-width: 15rem">
+			<div class="flex flex-col gap-4 border border-border bg-surface p-3 sm:flex-row">
+				<!-- Left: crops from the machine. The 15rem cap only applies once
+				     there is a second column beside it. -->
+				<div class="flex flex-wrap items-start gap-1.5 sm:max-w-60 sm:shrink-0">
 					{#if piece.images.length === 0}
 						<div class="flex h-16 w-16 items-center justify-center border border-border bg-bg text-[10px] text-text-muted">
 							no images
@@ -197,12 +198,15 @@
 
 					<div class="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-text-muted">
 						<span>Color: <span class="text-text">{piece.color_name || piece.color_id || '—'}</span></span>
-						<span>Conf: <span class="text-text tabular-nums">{conf(piece.confidence)}</span></span>
+						<!-- Mold and color are scored by separate providers; a single "Conf"
+						     read as covering both, which it never did. -->
+						<span>Mold conf: <span class="text-text tabular-nums">{conf(piece.confidence)}</span></span>
+						<span>Color conf: <span class="text-text tabular-nums">{conf(piece.color_confidence)}</span></span>
 						{#if bin}
 							<span>Bin: <span class="text-text tabular-nums">{bin}</span></span>
 						{/if}
 						{#if piece.run_id}
-							<span class="truncate">Run: <span class="text-text">{piece.run_id}</span></span>
+							<span class="min-w-0 truncate">Run: <span class="text-text">{piece.run_id}</span></span>
 						{/if}
 					</div>
 
@@ -232,7 +236,7 @@
 
 	<div class="flex justify-center py-6">
 		{#if loadingMore}
-			<Spinner />
+			<Spinner size={24} />
 		{:else if nextCursor != null}
 			<Button variant="secondary" size="sm" onclick={loadMore}>Load more</Button>
 		{:else}

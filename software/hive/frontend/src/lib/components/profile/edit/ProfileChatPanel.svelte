@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { renderMarkdown } from '$lib/markdown';
+	import Spinner from '$lib/components/Spinner.svelte';
 	import type { SortingProfileAiMessage, SortingProfileDetail, SortingProfileVersion, AiToolTraceItem } from '$lib/api';
 
 	type ToolResultListItem = {
@@ -248,7 +249,7 @@
 																		<div class="mt-2 space-y-1.5">
 																			{#each visibleToolResultItems(resultView, resultKey) as item (item.id)}
 																				<div class="flex items-start gap-2 border border-success/15 bg-surface/70 px-2 py-1.5">
-																					<div class="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-[#2F6B42]"></div>
+																					<div class="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-success"></div>
 																					<div class="min-w-0">
 																						<div class="truncate font-medium text-success">{item.primary}</div>
 																						{#if item.secondary}
@@ -319,14 +320,11 @@
 							<div class="mb-2 space-y-2" aria-live="polite">
 								{#each visibleAiProgressCards as card (card.id)}
 									{@const resultView = getExpandableToolResult(card.tool, card.output)}
-									<div class="px-3 py-2.5 text-xs {card.status === 'active' ? 'border border-[#E7D7AA] bg-[#FFF9E8]' : 'border border-[#CDE5D5] bg-[#F2FAF5]'}">
+									<div class="px-3 py-2.5 text-xs {card.status === 'active' ? 'border border-warning/40 bg-warning/[0.08]' : 'border border-success/25 bg-success/[0.06]'}">
 										<div class="flex items-start gap-2">
-											<div class="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center {card.status === 'active' ? 'text-[#8A6D1F]' : 'text-success'}">
+											<div class="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center {card.status === 'active' ? 'text-warning-strong' : 'text-success'}">
 												{#if card.status === 'active'}
-													<svg class="h-3.5 w-3.5 animate-spin" viewBox="0 0 24 24" fill="none">
-														<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-														<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
-													</svg>
+													<Spinner size={14} />
 												{:else}
 													<svg class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
 														<path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clip-rule="evenodd" />
@@ -335,32 +333,32 @@
 											</div>
 											<div class="min-w-0 flex-1">
 												<div class="flex items-center justify-between gap-2">
-													<div class="font-medium {card.status === 'active' ? 'text-[#6B571C]' : 'text-success'}">{card.title}</div>
+													<div class="font-medium {card.status === 'active' ? 'text-warning-strong' : 'text-success'}">{card.title}</div>
 													{#if formatDuration(card.durationMs ?? null)}
-														<div class="shrink-0 text-[11px] font-medium {card.status === 'active' ? 'text-[#8A6D1F]/70' : 'text-success/60'}">{formatDuration(card.durationMs ?? null)}</div>
+														<div class="shrink-0 text-[11px] font-medium {card.status === 'active' ? 'text-warning-strong/70' : 'text-success/60'}">{formatDuration(card.durationMs ?? null)}</div>
 													{/if}
 												</div>
 												{#if resultView}
-													<div class="mt-1 {card.status === 'active' ? 'text-[#7D6C3B]' : 'text-success/70'}">
-														<div class="text-[11px] font-medium uppercase tracking-[0.08em] {card.status === 'active' ? 'text-[#8A6D1F]' : 'text-success/60'}">
+													<div class="mt-1 {card.status === 'active' ? 'text-warning-strong/70' : 'text-success/70'}">
+														<div class="text-[11px] font-medium uppercase tracking-[0.08em] {card.status === 'active' ? 'text-warning-strong' : 'text-success/60'}">
 															{getToolResultSummaryLine(resultView)}
 														</div>
 														{#if resultView.items.length > 0}
 															{#if resultView.layout === 'media-grid'}
 																<div class="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-3">
 																	{#each visibleToolResultItems(resultView, card.id) as item (item.id)}
-																		<div class="overflow-hidden border {card.status === 'active' ? 'border-[#E7D7AA] bg-surface/70' : 'border-success/15 bg-surface/80'}">
-																			<div class="relative aspect-[4/3] border-b {card.status === 'active' ? 'border-[#F0E2BD] bg-[#FFFDF5]' : 'border-success/10 bg-success/5'}">
+																		<div class="overflow-hidden border {card.status === 'active' ? 'border-warning/40 bg-surface/70' : 'border-success/15 bg-surface/80'}">
+																			<div class="relative aspect-[4/3] border-b {card.status === 'active' ? 'border-warning/25 bg-warning/[0.04]' : 'border-success/10 bg-success/5'}">
 																				{#if item.imageUrl}
 																					<img src={item.imageUrl} alt={item.primary} class="h-full w-full object-contain p-2" loading="lazy" />
 																				{:else}
-																					<div class="flex h-full items-center justify-center text-[11px] font-medium uppercase tracking-[0.12em] {card.status === 'active' ? 'text-[#CCBC8C]' : 'text-success/40'}">No image</div>
+																					<div class="flex h-full items-center justify-center text-[11px] font-medium uppercase tracking-[0.12em] {card.status === 'active' ? 'text-warning-strong/40' : 'text-success/40'}">No image</div>
 																				{/if}
 																			</div>
 																			<div class="px-2.5 py-2">
-																				<div class="line-clamp-2 font-medium {card.status === 'active' ? 'text-[#6B571C]' : 'text-success'}">{item.primary}</div>
+																				<div class="line-clamp-2 font-medium {card.status === 'active' ? 'text-warning-strong' : 'text-success'}">{item.primary}</div>
 																				{#if item.secondary}
-																					<div class="mt-1 line-clamp-2 {card.status === 'active' ? 'text-[#7D6C3B]' : 'text-success/60'}">{item.secondary}</div>
+																					<div class="mt-1 line-clamp-2 {card.status === 'active' ? 'text-warning-strong/70' : 'text-success/60'}">{item.secondary}</div>
 																				{/if}
 																			</div>
 																		</div>
@@ -369,12 +367,12 @@
 															{:else}
 																<div class="mt-2 space-y-1.5">
 																	{#each visibleToolResultItems(resultView, card.id) as item (item.id)}
-																		<div class="flex items-start gap-2 border px-2 py-1.5 {card.status === 'active' ? 'border-[#E7D7AA] bg-surface/60' : 'border-success/15 bg-surface/70'}">
-																			<div class="mt-1 h-1.5 w-1.5 shrink-0 rounded-full {card.status === 'active' ? 'bg-[#8A6D1F]' : 'bg-[#2F6B42]'}"></div>
+																		<div class="flex items-start gap-2 border px-2 py-1.5 {card.status === 'active' ? 'border-warning/40 bg-surface/60' : 'border-success/15 bg-surface/70'}">
+																			<div class="mt-1 h-1.5 w-1.5 shrink-0 rounded-full {card.status === 'active' ? 'bg-warning-strong' : 'bg-success'}"></div>
 																			<div class="min-w-0">
-																				<div class="truncate font-medium {card.status === 'active' ? 'text-[#6B571C]' : 'text-success'}">{item.primary}</div>
+																				<div class="truncate font-medium {card.status === 'active' ? 'text-warning-strong' : 'text-success'}">{item.primary}</div>
 																				{#if item.secondary}
-																					<div class="truncate {card.status === 'active' ? 'text-[#7D6C3B]' : 'text-success/60'}">{item.secondary}</div>
+																					<div class="truncate {card.status === 'active' ? 'text-warning-strong/70' : 'text-success/60'}">{item.secondary}</div>
 																				{/if}
 																			</div>
 																		</div>
@@ -383,7 +381,7 @@
 															{/if}
 															{#if canExpandToolResult(resultView)}
 																<button onclick={() => onToggleToolResult(card.id)}
-																	class="mt-2 text-[11px] font-medium {card.status === 'active' ? 'text-[#8A6D1F]' : 'text-success'} hover:underline">
+																	class="mt-2 text-[11px] font-medium {card.status === 'active' ? 'text-warning-strong' : 'text-success'} hover:underline">
 																	{#if isToolResultExpanded(card.id)}
 																		Show less
 																	{:else}
@@ -394,7 +392,7 @@
 														{/if}
 													</div>
 												{:else if card.detail}
-													<div class="markdown-body markdown-compact mt-0.5 {card.status === 'active' ? 'text-[#7D6C3B]' : 'text-success/70'}">
+													<div class="markdown-body markdown-compact mt-0.5 {card.status === 'active' ? 'text-warning-strong/70' : 'text-success/70'}">
 														{@html renderMarkdown(card.detail)}
 													</div>
 												{/if}

@@ -2,6 +2,7 @@
 	import { getBackendHttpBase } from '$lib/backend';
 	import CameraSourcePreview from '$lib/components/CameraSourcePreview.svelte';
 	import Modal from '$lib/components/Modal.svelte';
+	import ChannelLedSection from '$lib/components/settings/ChannelLedSection.svelte';
 	import ClassificationBaselineSection from '$lib/components/settings/ClassificationBaselineSection.svelte';
 	import PictureSettingsSidebar from '$lib/components/settings/PictureSettingsSidebar.svelte';
 	import StepperSidebar from '$lib/components/settings/StepperSidebar.svelte';
@@ -17,6 +18,7 @@
 		Camera,
 		Check,
 		FlipHorizontal,
+		Lightbulb,
 		Pencil,
 		Plus,
 		RefreshCw,
@@ -155,7 +157,7 @@
 	};
 	type CalibrationHighlight = [number, number, number, number];
 	type DetectionHighlight = [number, number, number, number];
-	type SidePanel = 'picture' | 'zone' | 'classification' | null;
+	type SidePanel = 'picture' | 'zone' | 'classification' | 'led' | null;
 	type DragState =
 		| {
 				kind: 'polygon-shape';
@@ -238,6 +240,9 @@
 		'class_top',
 		'class_bottom'
 	];
+	// The channels with a lighting hood of their own; their camera role doubles as
+	// the backend LED channel key.
+	const LED_CHANNELS: Channel[] = ['second', 'third', 'classification_channel'];
 	const ALL_CHANNELS: Channel[] = [...TRANSPORT_CHANNELS, ...CLASSIFICATION_CHANNELS];
 	const HANDLE_HIT_RADIUS = 22;
 	const HANDLE_DRAW_RADIUS = 9;
@@ -582,6 +587,10 @@
 
 	function supportsDetectionSidebar(ch: Channel): ch is (typeof DETECTION_CHANNELS)[number] {
 		return DETECTION_CHANNELS.includes(ch as (typeof DETECTION_CHANNELS)[number]);
+	}
+
+	function supportsLedSidebar(ch: Channel): ch is (typeof LED_CHANNELS)[number] {
+		return LED_CHANNELS.includes(ch as (typeof LED_CHANNELS)[number]);
 	}
 
 	function detectionScopeForChannel(channel: Channel): 'classification' | 'feeder' | 'carousel' {
@@ -1104,11 +1113,30 @@
 		activeSidebar = 'classification';
 	}
 
+	function toggleLedSidebar() {
+		if (!supportsLedSidebar(currentChannel)) return;
+		if (activeSidebar === 'picture') {
+			clearPicturePreview(currentRole());
+			setCalibrationHighlight(currentRole(), null);
+		}
+		if (activeSidebar === 'classification') {
+			setDetectionHighlights(currentRole(), null);
+		}
+		if (activeSidebar === 'led') {
+			activeSidebar = null;
+			return;
+		}
+		activeSidebar = 'led';
+	}
+
 	function selectChannel(channel: Channel) {
 		if (activeSidebar === 'picture') {
 			clearPicturePreview(currentRole());
 		}
 		if (activeSidebar === 'classification' && !supportsDetectionSidebar(channel)) {
+			activeSidebar = null;
+		}
+		if (activeSidebar === 'led' && !supportsLedSidebar(channel)) {
 			activeSidebar = null;
 		}
 		currentChannel = channel;
@@ -4040,6 +4068,21 @@
 					</button>
 				{/if}
 
+				{#if supportsLedSidebar(currentChannel)}
+					<button
+						onclick={toggleLedSidebar}
+						disabled={editingZone}
+						class={`inline-flex cursor-pointer items-center gap-2 border px-3 py-1.5 text-sm transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+							activeSidebar === 'led'
+								? 'border-sky-500 bg-sky-500/15 text-sky-700 hover:bg-sky-500/25 dark:text-sky-300'
+								: 'border-border bg-bg text-text hover:bg-bg/80'
+						}`}
+					>
+						<Lightbulb size={15} />
+						<span>{activeSidebar === 'led' ? 'Hide LED' : 'LED'}</span>
+					</button>
+				{/if}
+
 				{#if editingZone}
 					{#if isArcChannel(currentChannel)}
 						<button
@@ -4404,6 +4447,35 @@
 						}}
 					/>
 				{/key}
+			{/if}
+
+			{#if activeSidebar === 'led' && supportsLedSidebar(currentChannel)}
+				<aside class="flex h-full min-w-0 flex-col border border-border bg-bg xl:min-h-[32rem]">
+					<div class="border-b border-border bg-surface px-4 py-3">
+						<div class="flex items-start justify-between gap-3">
+							<div class="min-w-0">
+								<div class="flex items-center gap-2 text-sm font-semibold text-text">
+									<Lightbulb size={16} />
+									<span>LED</span>
+								</div>
+								<p class="mt-1 text-sm leading-5 text-text-muted">
+									The light in {CHANNEL_LABELS[currentChannel]}'s hood.
+								</p>
+							</div>
+							<button
+								onclick={() => (activeSidebar = null)}
+								class="inline-flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center text-text-muted transition-colors hover:text-text"
+								aria-label="Close LED settings"
+							>
+								<X size={15} />
+							</button>
+						</div>
+					</div>
+
+					<div class="flex flex-1 flex-col px-4 py-4">
+						<ChannelLedSection channelKey={currentRole()} />
+					</div>
+				</aside>
 			{/if}
 
 			{#if !wizardMode && !activeSidebar && hasStepper && stepperKey}

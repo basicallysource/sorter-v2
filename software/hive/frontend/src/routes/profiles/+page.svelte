@@ -83,7 +83,7 @@
 {/if}
 
 {#if loading}
-	<Spinner />
+	<div class="flex justify-center p-8"><Spinner size={32} /></div>
 {:else if profiles.length === 0}
 	<div class="border border-border bg-surface p-6 text-sm text-text-muted">You have not created any profiles yet.</div>
 {:else}
@@ -111,7 +111,7 @@
 						</div>
 						<div class="flex shrink-0 items-center gap-1.5">
 							{#if profile.source}
-								<span class="border border-warning/30 bg-warning/[0.1] px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-[#A16207]">Fork</span>
+								<span class="border border-warning/30 bg-warning/[0.1] px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-warning-strong">Fork</span>
 							{/if}
 							<span class="border border-border bg-bg px-1.5 py-0.5 text-[10px] font-medium text-text-muted">v{profile.latest_version_number}</span>
 						</div>
@@ -200,7 +200,7 @@
 	<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onkeydown={(e) => { if (e.key === 'Escape') deleteTarget = null; }} onclick={() => deleteTarget = null}>
 		<!-- svelte-ignore a11y_no_static_element_interactions -->
 		<div
-			class="w-full max-w-md bg-surface p-6"
+			class="mx-4 w-full max-w-md bg-surface p-4 sm:p-6"
 			role="dialog"
 			aria-modal="true"
 			tabindex="-1"
@@ -223,7 +223,7 @@
 				<button
 					onclick={confirmDelete}
 					disabled={deleting}
-					class="bg-danger px-4 py-2 text-sm font-medium text-white hover:bg-[#7A1517] disabled:opacity-50"
+					class="bg-danger px-4 py-2 text-sm font-medium text-white hover:bg-primary-hover disabled:opacity-50"
 				>{deleting ? 'Deleting...' : 'Delete'}</button>
 			</div>
 		</div>

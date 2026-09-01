@@ -37,6 +37,9 @@
 		type ToolResultListItem
 	} from '$lib/components/profile/edit/chat-helpers';
 	import { renderMarkdown } from '$lib/markdown';
+	import { uuid } from '$lib/uuid';
+	import ArrowLeft from 'lucide-svelte/icons/arrow-left';
+	import Pencil from 'lucide-svelte/icons/pencil';
 
 	const ANY_COLOR_ID = -1;
 
@@ -248,6 +251,28 @@
 		}
 	});
 
+	let nameDraft = $state('');
+	let nameInput: HTMLInputElement | undefined = $state(undefined);
+
+	async function renameProfile() {
+		if (!profile) return;
+		const newName = nameDraft.trim();
+		if (!newName) {
+			nameDraft = profile.name;
+			return;
+		}
+		if (newName === profile.name) {
+			nameDraft = newName;
+			return;
+		}
+		try {
+			profile = await api.updateSortingProfile(profile.id, { name: newName });
+			nameDraft = profile.name;
+		} catch {
+			nameDraft = profile.name;
+		}
+	}
+
 	async function loadProfile() {
 		if (!profileId) return;
 		loading = true;
@@ -255,6 +280,7 @@
 		try {
 			const detail = await api.getSortingProfile(profileId);
 			profile = detail;
+			nameDraft = detail.name;
 			hydrateWorkingState(detail);
 			void ensureCatalogColorsLoaded();
 			if (detail.is_owner) {
@@ -471,7 +497,7 @@
 
 	function makeRule(name = 'New Category'): SortingProfileRule {
 		return {
-			id: crypto.randomUUID(),
+			id: uuid(),
 			name,
 			match_mode: 'all',
 			conditions: [],
@@ -482,7 +508,7 @@
 
 	function makeCustomSetRule(name = 'Custom Set'): SortingProfileRule {
 		const rule: SortingProfileRule = {
-			id: crypto.randomUUID(),
+			id: uuid(),
 			rule_type: 'set',
 			set_source: 'custom',
 			name,
@@ -525,7 +551,7 @@
 
 	function addSetRule(set: { set_num: string; name: string; year: number; num_parts: number; img_url: string | null }) {
 		const newRule: SortingProfileRule = {
-			id: crypto.randomUUID(),
+			id: uuid(),
 			rule_type: 'set',
 			set_source: 'rebrickable',
 			name: set.name,
@@ -728,7 +754,7 @@
 	function addCondition(ruleId: string) {
 		withRules((rules) => {
 			updateRuleList(rules, ruleId, (rule) => {
-				rule.conditions.push({ id: crypto.randomUUID(), field: 'part_num', op: 'eq', value: '' });
+				rule.conditions.push({ id: uuid(), field: 'part_num', op: 'eq', value: '' });
 			});
 		});
 	}
@@ -935,8 +961,8 @@
 
 	function formatDate(iso: string): string {
 		const d = new Date(iso);
-		return d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: '2-digit' })
-			+ ' ' + d.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+		return d.toLocaleDateString('en-US', { day: '2-digit', month: '2-digit', year: '2-digit' })
+			+ ' ' + d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
 	}
 
 	// --- AI ---
@@ -947,7 +973,7 @@
 
 		// Show user message immediately
 		const tempUserMsg: SortingProfileAiMessage = {
-			id: crypto.randomUUID(),
+			id: uuid(),
 			role: 'user',
 			content: userMsg,
 			model: null,
@@ -1074,37 +1100,44 @@
 </svelte:head>
 
 {#if loading}
-	<Spinner />
+	<div class="flex justify-center p-8"><Spinner size={32} /></div>
 {:else if !profile}
 	<Alert variant="danger">Profile not found.</Alert>
 {:else if !profile.current_version}
 	<Alert variant="danger">No version available.</Alert>
 {:else}
 	<!-- Header -->
-	<div class="mb-4 flex items-center justify-between">
-		<div class="flex items-center gap-3">
-			<a href={`/profiles/${profile.id}`} class="text-text-muted hover:text-text" title="Back to profile">
-				<svg class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-					<path fill-rule="evenodd" d="M17 10a.75.75 0 01-.75.75H5.612l4.158 3.96a.75.75 0 11-1.04 1.08l-5.5-5.25a.75.75 0 010-1.08l5.5-5.25a.75.75 0 111.04 1.08L5.612 9.25H16.25A.75.75 0 0117 10z" clip-rule="evenodd" />
-				</svg>
+	<div class="mb-4 flex flex-wrap items-center justify-between gap-3">
+		<div class="flex min-w-0 items-center gap-3">
+			<a href={`/profiles/${profile.id}`} class="shrink-0 text-text-muted hover:text-text" title="Back to profile">
+				<ArrowLeft size={20} />
 			</a>
-			<div>
-				<input
-					type="text"
-					value={profile.name}
-					onblur={async (e) => {
-						const newName = (e.currentTarget as HTMLInputElement).value.trim();
-						if (newName && newName !== profile!.name) {
-							try {
-								const updated = await api.updateSortingProfile(profile!.id, { name: newName });
-								profile = updated;
-							} catch { /* ignore */ }
-						}
-					}}
-					onkeydown={(e) => { if (e.key === 'Enter') (e.currentTarget as HTMLInputElement).blur(); }}
-					class="border-0 bg-transparent text-xl font-bold text-text outline-none focus:border-b-2 focus:border-primary w-full"
-				/>
-				<span class="text-xs text-text-muted">v{profile.current_version.version_number}</span>
+			<div class="min-w-0">
+				<div class="group flex min-w-0 items-center gap-1.5">
+					<!-- the hidden span sizes the grid cell so the input hugs the name and the pencil sits right after it -->
+					<div class="inline-grid min-w-0 max-w-full items-center overflow-hidden">
+						<span aria-hidden="true" class="invisible col-start-1 row-start-1 whitespace-pre border-b-2 border-transparent px-1 text-xl font-bold">{nameDraft || 'Untitled Profile'}</span>
+						<input
+							type="text"
+							bind:this={nameInput}
+							bind:value={nameDraft}
+							title="Click to rename"
+							onblur={renameProfile}
+							onkeydown={(e) => { if (e.key === 'Enter') (e.currentTarget as HTMLInputElement).blur(); }}
+							class="col-start-1 row-start-1 w-full min-w-0 border-0 border-b-2 border-transparent bg-transparent px-1 text-xl font-bold text-text outline-none group-hover:border-border focus:border-primary"
+						/>
+					</div>
+					<button
+						type="button"
+						title="Rename profile"
+						aria-label="Rename profile"
+						class="text-text-muted opacity-50 transition hover:text-text group-hover:opacity-100"
+						onclick={() => { nameInput?.focus(); nameInput?.select(); }}
+					>
+						<Pencil size={16} />
+					</button>
+				</div>
+				<span class="ml-1 text-xs text-text-muted">v{profile.current_version.version_number}</span>
 			</div>
 		</div>
 		<div class="relative">
@@ -1121,7 +1154,7 @@
 							onkeydown={(e) => { if (e.key === 'Enter') void saveVersion(); }} />
 						{#if suggestingNote}
 							<div class="absolute right-2.5 top-1/2 -translate-y-1/2">
-								<div class="h-3.5 w-3.5 animate-spin border-2 border-border border-t-[#7A7770]" style="border-radius: 50%"></div>
+								<Spinner size={14} class="text-text-muted" />
 							</div>
 						{/if}
 					</div>
@@ -1151,14 +1184,16 @@
 	{/if}
 
 	<!-- Main 2-column layout: Rules (left, wider) | Chat (right) -->
-	<div class="grid min-h-0 grid-cols-1 gap-4 overflow-hidden xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]" style="height: calc(100vh - 200px);">
+	<!-- The viewport-locked height only makes sense once the two panels sit side
+	     by side; stacked, it would split one screen between them. -->
+	<div class="grid min-h-0 grid-cols-1 gap-4 xl:h-[calc(100vh-200px)] xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] xl:overflow-hidden">
 
 		<!-- LEFT: Rules (accordion) -->
-		<div class="flex min-h-0 min-w-0 flex-col border border-border bg-surface">
-			<div class="flex items-center justify-between border-b border-border px-4 py-2">
+		<div class="flex min-h-[60vh] min-w-0 flex-col border border-border bg-surface xl:min-h-0">
+			<div class="flex flex-wrap items-center justify-between gap-2 border-b border-border px-4 py-2">
 				<h2 class="text-sm font-semibold text-text">Rules</h2>
 				{#if !isPreview}
-					<div class="flex items-center gap-1.5">
+					<div class="flex flex-wrap items-center gap-1.5">
 						<button onclick={() => addRule()}
 							class="border border-border bg-surface px-2.5 py-1 text-[11px] font-medium text-text-muted hover:bg-bg hover:text-text">
 							+ Rule
@@ -1175,8 +1210,8 @@
 				{/if}
 			</div>
 			{#if isPreview}
-				<div class="flex items-center justify-between border-b border-warning/30 bg-warning/[0.1] px-4 py-2">
-					<span class="text-xs font-medium text-[#A16207]">
+				<div class="flex flex-wrap items-center justify-between gap-2 border-b border-warning/30 bg-warning/[0.1] px-4 py-2">
+					<span class="min-w-0 text-xs font-medium text-warning-strong">
 						Viewing v{previewVersion?.version_number}
 						{#if previewVersion?.change_note}
 							— {previewVersion.change_note}
@@ -1197,7 +1232,7 @@
 			{/if}
 			<div class="flex-1 overflow-y-auto">
 				{#if previewLoading}
-					<div class="flex items-center justify-center p-8"><Spinner /></div>
+					<div class="flex items-center justify-center p-8"><Spinner size={32} /></div>
 				{:else if displayRules.length === 0}
 					<div class="p-4 text-center text-sm text-text-muted">
 						No rules yet. Use chat to generate categories, or add one manually.
@@ -1309,7 +1344,7 @@
 	<!-- Sticky bottom bar -->
 	{#if hasUnsavedChanges}
 		<div class="fixed bottom-0 left-0 right-0 z-30 border-t border-border bg-surface px-4 py-3">
-			<div class="mx-auto flex max-w-7xl items-center justify-between">
+			<div class="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-2">
 				<div class="flex items-center gap-2 text-sm text-text-muted">
 					<span class="inline-block h-2 w-2 bg-warning"></span>
 					Unsaved changes

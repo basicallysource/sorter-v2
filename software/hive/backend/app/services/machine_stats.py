@@ -1,23 +1,28 @@
-"""Per-machine dashboard stats: computation, persistent cache, refresh worker.
+"""Per-machine stats: computation, persistent cache, refresh worker.
 
-Two families of metrics per machine:
+**This module owns the only fleet-scale aggregation in the app.** Nothing on a
+request path may scan machine_pieces; `services/analytics.py` folds the rows
+this writes, and every stats surface reads that fold. See `analytics` for why.
+
+Three families of metrics per machine:
   * piece-derived  — pieces_seen, distributed, PPM, on-time %, unique parts/colors
     (from machine_pieces; active sorting time inferred from piece-timestamp density)
   * sample-derived — total/accepted samples, sessions, set-progress parts
     (from samples / upload_sessions / machine_set_progress)
+  * distributions  — the whole per-machine part / color / status maps, which are
+    what let an arbitrary set of machines be answered without touching pieces.
 
 Recomputing these over the whole fleet on every request was the load source on
-the admin machines page. Instead a daemon thread refreshes one row per machine
-into machine_stats_cache hourly; the API reads those rows. Single-machine
-overviews lazily compute + cache on a miss so a brand-new machine isn't blank
-until the next scheduled pass.
+the admin machines page, and later on the public one. Instead a daemon thread
+refreshes one row per machine into machine_stats_cache hourly; the API reads
+those rows. Single-machine overviews lazily compute + cache on a miss so a
+brand-new machine isn't blank until the next scheduled pass.
 """
 
 from __future__ import annotations
 
 import logging
 import threading
-import time
 import uuid as uuid_mod
 from datetime import datetime, timezone
 from typing import Any
@@ -30,6 +35,7 @@ from app.database import SessionLocal
 from app.models.machine import Machine
 from app.models.machine_piece import MachinePiece
 from app.models.machine_stats_cache import MachineStatsCache
+from app.services.periodic import PeriodicWorker
 
 logger = logging.getLogger(__name__)
 
@@ -58,6 +64,10 @@ _NUMERIC_FIELDS = (
 _DATE_FIELDS = ("first_seen", "last_seen", "first_capture", "last_capture")
 
 
+def _empty_distributions() -> dict[str, Any]:
+    return {"status": {}, "parts": {}, "colors": {}}
+
+
 def _empty_stats() -> dict[str, Any]:
     stats: dict[str, Any] = {f: 0 for f in _NUMERIC_FIELDS}
     stats["active_seconds"] = 0.0
@@ -65,6 +75,7 @@ def _empty_stats() -> dict[str, Any]:
     stats["ontime_pct"] = 0.0
     for f in _DATE_FIELDS:
         stats[f] = None
+    stats["distributions"] = _empty_distributions()
     return stats
 
 
@@ -161,6 +172,45 @@ def _compute_piece_stats(db: Session, machine_ids: list[Any] | None = None) -> d
     return result
 
 
+def _compute_distributions(db: Session, machine_ids: list[Any] | None = None) -> dict[str, dict[str, Any]]:
+    """Whole per-machine distribution maps: status, parts, colors.
+
+    Three grouped passes per refresh, in place of the same three group-bys run
+    on every analytics request. Kept WHOLE (no top-N) because the fold that
+    builds a fleet-wide answer needs every key: a top-15 per machine cannot be
+    folded into a correct top-15 for the fleet, and `unique_parts` for a set is
+    the size of the union of these keys.
+    """
+
+    def _scoped(query):
+        return query.filter(MachinePiece.machine_id.in_(machine_ids)) if machine_ids is not None else query
+
+    out: dict[str, dict[str, Any]] = {}
+
+    def _bucket(mid: Any, key: str) -> dict[str, Any]:
+        return out.setdefault(str(mid), {"status": {}, "parts": {}, "colors": {}})[key]
+
+    for mid, status, count in _scoped(
+        db.query(MachinePiece.machine_id, MachinePiece.classification_status, func.count())
+    ).group_by(MachinePiece.machine_id, MachinePiece.classification_status).all():
+        _bucket(mid, "status")[status or "unknown"] = int(count)
+
+    for column, name_column, key in (
+        (MachinePiece.part_id, MachinePiece.part_name, "parts"),
+        (MachinePiece.color_id, MachinePiece.color_name, "colors"),
+    ):
+        rows = (
+            _scoped(db.query(MachinePiece.machine_id, column, func.max(name_column), func.count()))
+            .filter(column.isnot(None))
+            .group_by(MachinePiece.machine_id, column)
+            .all()
+        )
+        for mid, value, name, count in rows:
+            _bucket(mid, key)[str(value)] = [int(count), name]
+
+    return out
+
+
 def _compute_sample_stats(db: Session, machine_ids: list[Any] | None = None) -> dict[str, dict[str, Any]]:
     from app.models.sample import Sample
     from app.models.upload_session import UploadSession
@@ -227,6 +277,7 @@ def compute_stats(db: Session, machine_ids: list[Any] | None = None) -> dict[str
 
     piece_stats = _compute_piece_stats(db, ids)
     sample_stats = _compute_sample_stats(db, ids)
+    distributions = _compute_distributions(db, ids)
 
     merged: dict[str, dict[str, Any]] = {}
     for mid in ids:
@@ -234,6 +285,7 @@ def compute_stats(db: Session, machine_ids: list[Any] | None = None) -> dict[str
         stats = _empty_stats()
         stats.update(piece_stats.get(mid_str, {}))
         stats.update(sample_stats.get(mid_str, {}))
+        stats["distributions"] = distributions.get(mid_str, _empty_distributions())
         merged[mid_str] = stats
     return merged
 
@@ -257,6 +309,7 @@ def refresh_cache(db: Session, machine_ids: list[Any] | None = None) -> int:
             db.add(row)
         for field in _NUMERIC_FIELDS + _DATE_FIELDS:
             setattr(row, field, values[field])
+        row.distributions = values.get("distributions") or _empty_distributions()
         row.computed_at = now
     db.commit()
     return len(stats)
@@ -316,116 +369,59 @@ def get_machine_stats(db: Session, machine_id: Any) -> dict[str, Any]:
     return _serialize(_empty_stats(), None)
 
 
-class MachineStatsWorker:
-    """Daemon thread that refreshes machine_stats_cache on a fixed cadence."""
+def refresh_all(db: Session) -> int:
+    """One full pass over a session: per-machine cache, then the daily table.
 
-    def __init__(self) -> None:
-        self._thread: threading.Thread | None = None
-        self._stop_event = threading.Event()
-        self._wake_event = threading.Event()
-        self._start_lock = threading.Lock()
-        self._state_lock = threading.Lock()
-        self._state: dict[str, Any] = {
-            "running": False,
-            "last_run_at": None,
-            "last_run_machines": 0,
-            "last_run_duration_s": None,
-            "last_error": None,
-            "total_runs": 0,
-        }
+    This is the ONLY place in the app that aggregates over machine_pieces at
+    fleet scale. Everything served to a request is a fold over what this
+    writes, so anything that wants fresh numbers — the worker, a test, an admin
+    forcing a rebuild — calls this rather than growing its own copy.
+    """
+    count = refresh_cache(db)
+    # Same pass also maintains the per-day analytics substrate.
+    from app.services import analytics
 
-    def start(self) -> None:
-        with self._start_lock:
-            if self._thread is not None and self._thread.is_alive():
-                return
-            self._stop_event.clear()
-            self._thread = threading.Thread(target=self._loop, daemon=True, name="machine-stats-worker")
-            self._thread.start()
-        self._update_state(running=True)
-
-    def stop(self) -> None:
-        self._stop_event.set()
-        self._wake_event.set()
-        self._update_state(running=False)
-
-    def wake(self) -> None:
-        """Ask the loop to run a refresh pass as soon as possible."""
-        self._wake_event.set()
-
-    def status(self) -> dict[str, Any]:
-        with self._state_lock:
-            snapshot = dict(self._state)
-        snapshot["interval_s"] = self._interval_s()
-        return snapshot
-
-    def _interval_s(self) -> float:
-        return max(60.0, float(settings.MACHINE_STATS_REFRESH_INTERVAL_MINUTES) * 60.0)
-
-    def _loop(self) -> None:
-        logger.info("MachineStatsWorker: started")
-        # Prime the cache on boot so the first dashboard load is already warm.
-        self._run_one_pass()
-        while not self._stop_event.is_set():
-            self._wake_event.wait(timeout=self._interval_s())
-            self._wake_event.clear()
-            if self._stop_event.is_set():
-                break
-            self._run_one_pass()
-        self._update_state(running=False)
-        logger.info("MachineStatsWorker: stopped")
-
-    def _run_one_pass(self) -> None:
-        started = time.monotonic()
-        db = SessionLocal()
-        try:
-            count = refresh_cache(db)
-            # Same pass also maintains the per-day analytics substrate.
-            from app.services import analytics
-
-            analytics.refresh_daily_stats(db)
-            self._update_state(
-                last_run_at=datetime.now(timezone.utc).isoformat(),
-                last_run_machines=count,
-                last_run_duration_s=round(time.monotonic() - started, 3),
-                last_error=None,
-                increment_runs=1,
-            )
-            logger.info("MachineStatsWorker: refreshed %d machines in %.2fs", count, time.monotonic() - started)
-        except Exception as exc:
-            logger.exception("MachineStatsWorker pass crashed: %s", exc)
-            db.rollback()
-            self._update_state(last_error=str(exc))
-        finally:
-            db.close()
-
-    def _update_state(self, **kwargs: Any) -> None:
-        with self._state_lock:
-            if "running" in kwargs:
-                self._state["running"] = bool(kwargs.pop("running"))
-            if "increment_runs" in kwargs:
-                self._state["total_runs"] += int(kwargs.pop("increment_runs"))
-            for key, value in kwargs.items():
-                self._state[key] = value
+    analytics.refresh_daily_stats(db)
+    return count
 
 
-_INSTANCE: MachineStatsWorker | None = None
+def _refresh_pass() -> dict[str, Any]:
+    db = SessionLocal()
+    try:
+        return {"last_run_machines": refresh_all(db)}
+    except Exception:
+        db.rollback()
+        raise
+    finally:
+        db.close()
+
+
+_INSTANCE: PeriodicWorker | None = None
 _INSTANCE_LOCK = threading.Lock()
 
 
-def get_machine_stats_worker() -> MachineStatsWorker:
+def get_machine_stats_worker() -> PeriodicWorker:
     global _INSTANCE
     if _INSTANCE is None:
         with _INSTANCE_LOCK:
             if _INSTANCE is None:
-                _INSTANCE = MachineStatsWorker()
+                _INSTANCE = PeriodicWorker(
+                    "machine-stats-worker",
+                    _refresh_pass,
+                    # Read per pass, not once at startup, so changing the
+                    # setting takes effect without a restart.
+                    lambda: max(60.0, float(settings.MACHINE_STATS_REFRESH_INTERVAL_MINUTES) * 60.0),
+                    # Prime the cache on boot so the first dashboard load is warm.
+                    run_at_start=True,
+                )
     return _INSTANCE
 
 
 __all__ = [
     "compute_stats",
     "refresh_cache",
+    "refresh_all",
     "get_fleet_stats",
     "get_machine_stats",
-    "MachineStatsWorker",
     "get_machine_stats_worker",
 ]

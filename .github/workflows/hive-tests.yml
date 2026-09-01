@@ -1,0 +1,34 @@
+name: Hive tests
+
+# The backend suite, run in the two places a regression can slip through: on
+# every PR that touches the backend, and (via workflow_call) as the gate the
+# release workflow requires before it publishes anything prod can install.
+
+on:
+  pull_request:
+    paths:
+      - 'software/hive/backend/**'
+      - '.github/workflows/hive-tests.yml'
+  workflow_call:
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: software/hive/backend
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: software/hive/backend/uv.lock
+
+      - name: Install dependencies
+        run: uv sync --frozen
+
+      - name: Run tests
+        run: uv run pytest -q

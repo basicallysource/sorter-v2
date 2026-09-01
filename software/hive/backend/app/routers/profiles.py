@@ -54,9 +54,11 @@ from app.services.profile_ai import (
     generate_profile_ai_proposal,
     generate_profile_ai_proposal_streaming,
 )
+from app.services.ai_usage import record_ai_usage
 from app.services.secrets import decrypt_secret
 from app.services.machine_set_progress import summarize_machine_set_progress
 from app.services.profile_catalog import PROFILE_CATALOG_SYNC_TYPES, get_profile_catalog_service
+from app.services.rate_limit import rate_limit
 
 router = APIRouter(prefix="/api", tags=["profiles"])
 logger = logging.getLogger("uvicorn.error").getChild("profiles")
@@ -82,6 +84,28 @@ def _build_ai_usage_payload(proposal_result: AiProposalResult) -> dict[str, obje
     if performance:
         usage_with_trace["performance"] = performance
     return usage_with_trace or None
+
+
+def _record_chat_usage(
+    db: Session,
+    current_user: User,
+    profile: SortingProfile,
+    assistant_message: SortingProfileAiMessage,
+    proposal_result: AiProposalResult,
+) -> None:
+    performance = getattr(proposal_result, "performance", None) or {}
+    generation_ids = performance.get("generation_ids") or None
+    record_ai_usage(
+        db,
+        user_id=current_user.id,
+        profile_id=profile.id,
+        message_id=assistant_message.id,
+        purpose="profile_chat",
+        model=proposal_result.model,
+        usage=proposal_result.usage,
+        generation_ids=generation_ids if isinstance(generation_ids, list) else None,
+        call_count=int(performance.get("round_count") or 1),
+    )
 
 
 @router.get("/profile-catalog/status")
@@ -125,8 +149,17 @@ def search_profile_catalog_parts(
     limit: int = 100,
     offset: int = 0,
     _current_user: User = Depends(get_current_user),
+    _rl: None = Depends(rate_limit("catalog_search")),
 ):
     return get_profile_catalog_service().search_parts(q, cat_id, limit, offset)
+
+
+@router.get("/profile-catalog/categories")
+def list_profile_catalog_categories(_current_user: User = Depends(get_current_user)):
+    """The Rebrickable part categories, for narrowing a part search. Served to any
+    signed-in user — the admin parts-db route is the same list behind a role gate,
+    and the part-correction picker needs it without making labelers admins."""
+    return {"results": get_profile_catalog_service().admin_list_categories()}
 
 
 @router.get("/profile-catalog/search-sets")
@@ -483,11 +516,22 @@ def suggest_change_note(
     if not api_key:
         raise APIError(400, "OpenRouter API key required", "OPENROUTER_KEY_MISSING")
     try:
-        note = generate_change_note_from_diff(
+        result = generate_change_note_from_diff(
             api_key=api_key,
             old_rules=payload.old_rules,
             new_rules=payload.new_rules,
         )
+        note = result.text
+        record_ai_usage(
+            db,
+            user_id=current_user.id,
+            profile_id=profile.id,
+            purpose="change_note",
+            model=result.model,
+            usage=result.usage,
+            generation_ids=[result.generation_id] if result.generation_id else None,
+        )
+        db.commit()
     except APIError:
         raise
     except Exception:
@@ -624,6 +668,8 @@ def create_profile_ai_message(
             proposal_json=proposal_result.proposal,
         )
         db.add(assistant_message)
+        db.flush()
+        _record_chat_usage(db, current_user, profile, assistant_message, proposal_result)
         db.commit()
         db.refresh(assistant_message)
 
@@ -730,6 +776,8 @@ def create_profile_ai_message_stream(
                 proposal_json=proposal_result.proposal,
             )
             db.add(assistant_message)
+            db.flush()
+            _record_chat_usage(db, current_user, profile, assistant_message, proposal_result)
             db.commit()
             db.refresh(assistant_message)
 
@@ -843,10 +891,21 @@ def apply_profile_ai_message(
         try:
             from app.services.profile_ai import get_user_openrouter_key
             api_key = get_user_openrouter_key(current_user)
-            change_note = generate_change_note(
+            note_result = generate_change_note(
                 api_key=api_key,
                 user_message=user_text,
                 proposal=message.proposal_json,
+            )
+            change_note = note_result.text
+            record_ai_usage(
+                db,
+                user_id=current_user.id,
+                profile_id=profile.id,
+                message_id=message.id,
+                purpose="change_note",
+                model=note_result.model,
+                usage=note_result.usage,
+                generation_ids=[note_result.generation_id] if note_result.generation_id else None,
             )
         except Exception as exc:
             import logging

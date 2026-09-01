@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 from sqlalchemy import case, distinct, func
 from sqlalchemy.orm import Session
 
@@ -34,7 +34,10 @@ from app.schemas.sample import (
     SaveSampleClassificationRequest,
     SaveSampleClassificationResponse,
 )
+from app.services.access_window import apply_sample_access, sample_access_visible
+from app.services.channel_crop_render import render_channel_crop
 from app.services.storage import delete_sample_files, serve_stored_file
+from app.services.storage_backend import get_backend
 from app.services.sample_payloads import (
     is_classification_payload,
     set_manual_annotations,
@@ -86,6 +89,10 @@ def _visible_sample_query(
         query = query.filter(Sample.archived_at.is_(None))
     if scope == "mine":
         query = query.filter(Sample.machine.has(owner_id=current_user.id))
+    # Access rule: members only ever see their own machines' samples (regardless
+    # of scope=all); reviewers and admins see everything. Prevents a random
+    # registrant from enumerating the whole corpus.
+    query = apply_sample_access(db, query, current_user)
     return query
 
 
@@ -171,14 +178,16 @@ def apply_annotated_filter(query, annotated: str | None):
       - 'teacher' — has a teacher_rerun audit entry (training-ready)
       - 'raw'     — no teacher_rerun yet (likely still needs a pass)
       - anything else / None — no filter
-
-    Uses PostgreSQL JSONB containment (``?`` operator). Live + dev both
-    run postgres; this isn't tested on SQLite.
     """
 
     if annotated not in {"teacher", "raw"}:
         return query
-    has_teacher = Sample.extra_metadata.op("?")("teacher_rerun")
+    # `col["teacher_rerun"] IS NOT NULL` is the portable key-exists check: it
+    # renders `->` on Postgres JSONB and `json_extract` on SQLite. (The raw JSONB
+    # `?` operator would be tighter but collides with the SQLite bind-parameter
+    # placeholder, breaking the test dialect.) teacher_rerun's value is always a
+    # non-null audit dict, so key-exists and value-not-null coincide here.
+    has_teacher = Sample.extra_metadata["teacher_rerun"].isnot(None)
     if annotated == "teacher":
         return query.filter(has_teacher)
     return query.filter(~has_teacher | Sample.extra_metadata.is_(None))
@@ -249,6 +258,15 @@ def attach_my_reviews(items: list, db: Session, viewer_id) -> None:
 def _get_sample_for_read(db: Session, sample_id: UUID) -> Sample:
     sample = db.query(Sample).filter(Sample.id == sample_id).first()
     if not sample:
+        raise APIError(404, "Sample not found", "SAMPLE_NOT_FOUND")
+    return sample
+
+
+def _get_sample_for_read_scoped(db: Session, sample_id: UUID, current_user: User) -> Sample:
+    """Single-sample read gated by access: members only their own machines'
+    samples (404 otherwise, so they can't probe existence); reviewers/admins any."""
+    sample = _get_sample_for_read(db, sample_id)
+    if not sample_access_visible(db, current_user, sample):
         raise APIError(404, "Sample not found", "SAMPLE_NOT_FOUND")
     return sample
 
@@ -780,7 +798,7 @@ def get_similar_samples(
     from sqlalchemy import text
 
     target = db.query(Sample).filter(Sample.id == sample_id).first()
-    if target is None:
+    if target is None or not sample_access_visible(db, current_user, target):
         raise APIError(404, "Sample not found", "SAMPLE_NOT_FOUND")
     if target.phash is None:
         # No hash to compare against. Return an empty list rather than
@@ -792,14 +810,18 @@ def get_similar_samples(
     # bits. We rank by distance, drop self + archived rows + nulls, and
     # cap by ``max_distance`` so a wildly different image doesn't surface.
     bit_distance = text("bit_count(samples.phash # :target_phash)")
-    rows = (
+    similar_q = (
         db.query(Sample, bit_distance.label("distance"))
         .filter(Sample.machine.has(Machine.archived_at.is_(None)))
         .filter(Sample.archived_at.is_(None))
         .filter(Sample.phash.isnot(None))
         .filter(Sample.id != target.id)
         .filter(bit_distance <= int(max_distance))
-        .order_by(text("distance"))
+    )
+    # Members only get similar hits among their own machines' samples.
+    similar_q = apply_sample_access(db, similar_q, current_user)
+    rows = (
+        similar_q.order_by(text("distance"))
         .params(target_phash=int(target.phash))
         .limit(limit)
         .all()
@@ -822,12 +844,17 @@ def get_sample(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_api_key_scopes(API_KEY_SCOPE_SAMPLES_READ)),
 ):
-    sample = _get_sample_for_read(db, sample_id)
+    sample = _get_sample_for_read_scoped(db, sample_id, current_user)
     attach_my_reviews([sample], db, current_user.id)
 
     data = SampleDetailResponse.model_validate(sample)
     data.has_full_frame = sample.full_frame_path is not None
     data.has_overlay = sample.overlay_path is not None
+    data.has_channel_geometry = bool(
+        sample.full_frame_path is not None
+        and sample.channel_geometry is not None
+        and sample.channel_geometry.polygon_x
+    )
     return data
 
 
@@ -1169,7 +1196,7 @@ def get_sample_image(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_api_key_scopes(API_KEY_SCOPE_SAMPLES_READ)),
 ):
-    sample = _get_sample_for_read(db, sample_id)
+    sample = _get_sample_for_read_scoped(db, sample_id, current_user)
 
     return serve_stored_file(sample.image_path, headers={"Cache-Control": ASSET_CACHE_CONTROL})
 
@@ -1180,7 +1207,7 @@ def get_sample_full_frame(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_api_key_scopes(API_KEY_SCOPE_SAMPLES_READ)),
 ):
-    sample = _get_sample_for_read(db, sample_id)
+    sample = _get_sample_for_read_scoped(db, sample_id, current_user)
     if not sample.full_frame_path:
         raise APIError(404, "Full frame not found", "ASSET_NOT_FOUND")
 
@@ -1193,8 +1220,37 @@ def get_sample_overlay(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_api_key_scopes(API_KEY_SCOPE_SAMPLES_READ)),
 ):
-    sample = _get_sample_for_read(db, sample_id)
+    sample = _get_sample_for_read_scoped(db, sample_id, current_user)
     if not sample.overlay_path:
         raise APIError(404, "Overlay not found", "ASSET_NOT_FOUND")
 
     return serve_stored_file(sample.overlay_path, headers={"Cache-Control": ASSET_CACHE_CONTROL})
+
+
+@router.get("/{sample_id}/assets/channel-crop")
+def get_sample_channel_crop(
+    sample_id: UUID,
+    mask: bool = Query(default=True),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_api_key_scopes(API_KEY_SCOPE_SAMPLES_READ)),
+):
+    # Derived on demand from the retained full frame + the sample's channel
+    # geometry. mask=true white-fills outside the channel polygon (distillation
+    # view); mask=false keeps the raw crop rectangle.
+    sample = _get_sample_for_read_scoped(db, sample_id, current_user)
+    if not sample.full_frame_path:
+        raise APIError(404, "Full frame not found", "ASSET_NOT_FOUND")
+    geom = sample.channel_geometry
+    if geom is None or not geom.polygon_x:
+        raise APIError(404, "No channel geometry for this sample", "GEOMETRY_NOT_FOUND")
+
+    raw = get_backend().read_bytes(sample.full_frame_path)
+    rendered = render_channel_crop(raw, geom, mask_outside=mask)
+    if rendered is None:
+        raise APIError(422, "Could not render channel crop from geometry", "RENDER_FAILED")
+
+    return Response(
+        content=rendered,
+        media_type="image/jpeg",
+        headers={"Cache-Control": ASSET_CACHE_CONTROL},
+    )

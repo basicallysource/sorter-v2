@@ -14,7 +14,8 @@
 		type BinLayoutRecord
 	} from '$lib/api/bin-layouts';
 	import { onMount } from 'svelte';
-	import { Check, ChevronDown, Loader2, Pencil, Trash2 } from 'lucide-svelte';
+	import { Check, ChevronDown, Pencil, Trash2 } from 'lucide-svelte';
+	import Spinner from '$lib/components/Spinner.svelte';
 
 	let {
 		baseUrl,
@@ -180,7 +181,7 @@
 					onclick={() => (dropdownOpen = !dropdownOpen)}
 					class="flex max-w-[260px] items-center gap-2 border border-border bg-surface px-3 py-1.5 text-sm text-text transition-colors hover:bg-bg"
 				>
-					{#if restarting}<Loader2 size={14} class="shrink-0 animate-spin" />{/if}
+					{#if restarting}<Spinner size={14} class="shrink-0" />{/if}
 					<span class="truncate font-medium">{active?.name ?? 'No layout'}</span>
 					{#if isDirty}<span class="shrink-0 text-xs text-warning">unsaved</span>{/if}
 					<ChevronDown size={14} class="shrink-0 opacity-60" />

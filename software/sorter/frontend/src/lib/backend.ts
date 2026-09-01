@@ -79,6 +79,8 @@ export type BackendConnectionProbeResult = {
 	backendRunning: boolean;
 	backendHealthy: boolean;
 	restartRequested: boolean;
+	crashLooping: boolean;
+	lastCrashOutput: string | null;
 };
 
 export async function requestBackendRestart(
@@ -136,7 +138,9 @@ export async function probeBackendConnection(
 				supervisorState: null,
 				backendRunning: true,
 				backendHealthy: true,
-				restartRequested: false
+				restartRequested: false,
+				crashLooping: false,
+				lastCrashOutput: null
 			};
 		}
 		console.warn(`[backend] /health probe returned non-ok status ${response.status} for ${backendBaseUrl}/health`);
@@ -160,7 +164,10 @@ export async function probeBackendConnection(
 						typeof data?.supervisor_state === 'string' ? data.supervisor_state : null,
 					backendRunning: Boolean(data?.backend_running),
 					backendHealthy: Boolean(data?.backend_healthy),
-					restartRequested: Boolean(data?.restart_requested)
+					restartRequested: Boolean(data?.restart_requested),
+					crashLooping: Boolean(data?.crash_looping),
+					lastCrashOutput:
+						typeof data?.last_crash_output === 'string' ? data.last_crash_output : null
 				};
 			}
 		} catch (err) {
@@ -175,7 +182,9 @@ export async function probeBackendConnection(
 		supervisorState: null,
 		backendRunning: false,
 		backendHealthy: false,
-		restartRequested: false
+		restartRequested: false,
+		crashLooping: false,
+		lastCrashOutput: null
 	};
 }
 

@@ -3,12 +3,20 @@ services:
     image: postgres:16-alpine
     container_name: hive-postgres
     restart: unless-stopped
+    # Docker's default 64MB /dev/shm starves Postgres parallel workers on big
+    # scans (psycopg2 DiskFull: "could not resize shared memory segment") —
+    # took the labeling endpoints down on 2026-07-16.
+    shm_size: 1gb
     environment:
       POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     volumes:
-      - ./data/postgres:/var/lib/postgresql/data
+      # Required, and must be ABSOLUTE. A relative path would resolve against
+      # whichever directory this compose file happens to sit in, which for a
+      # release-installed copy is not where the live data is — postgres would
+      # come up on a brand new empty cluster and look fine. Set in .env.prod.
+      - ${HIVE_DATA_DIR:?see scripts/CUTOVER.md}/postgres:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 10s
@@ -16,15 +24,50 @@ services:
       retries: 5
 
   backend:
-    build:
-      context: .
-      dockerfile: Dockerfile.backend
+    # Set by the release agent to the digest pinned in hive-release.json. There
+    # is deliberately no `build:` stanza — prod never compiles anything. Images
+    # come from GHCR, built by .github/workflows/hive-release.yml.
+    image: ${HIVE_BACKEND_IMAGE:?HIVE_BACKEND_IMAGE not set - deploy via hive_release_agent.py}
     container_name: hive-backend
     restart: unless-stopped
+    # This process leaks. On 2026-08-20 it reached 2.2 GB, pushed the 3.9 GB box
+    # 2 GB into swap, and served 502/524s for six hours until someone restarted
+    # it by hand. Nothing self-healed because the healthcheck answered normally
+    # the entire time — a thrashing process is still a live one, so there was no
+    # unhealthy state for Docker to act on. The ceiling is the backstop.
+    #
+    # memswap_limit is the half that actually matters, and it only works pinned
+    # to the same value as mem_limit (that is how Docker spells "no swap for
+    # this container"). Swapping IS the failure: with swap available the kernel
+    # never kills anything, it just slows the whole box down, which is how one
+    # leaking service took Postgres and the frontend with it. Denied swap, the
+    # container is OOM-killed at the ceiling and `restart: unless-stopped`
+    # brings it back in seconds.
+    #
+    # 1800m is ~40% above the ~1.3 GB this settles at once its caches and the
+    # onnxruntime arenas fill, so ordinary bursts don't trip it and a recycle
+    # lands roughly every day and a half at the observed leak rate. Override
+    # HIVE_BACKEND_MEM_LIMIT in .env.prod if real work needs more headroom; that
+    # is a container recreate, not a release.
+    mem_limit: ${HIVE_BACKEND_MEM_LIMIT:-1800m}
+    memswap_limit: ${HIVE_BACKEND_MEM_LIMIT:-1800m}
     depends_on:
       postgres:
         condition: service_healthy
     environment:
+      # Half the resident set is glibc, not Python. This process runs ~15
+      # threads (uvicorn plus five background daemons and the teacher pool) on a
+      # 2-core box, and glibc lets a threaded program open 8 arenas per core, so
+      # it had spread 625 MB across 14 per-thread arenas — memory Python has
+      # already freed but glibc will not hand back, because a single live
+      # allocation anywhere in a 64 MB arena pins the whole arena.
+      #
+      # Two arenas means allocation contends a little and stays compact instead.
+      # Measured on prod 2026-08-20: 14 arenas, 625 MB of a 1288 MB anon total.
+      # This bounds fragmentation, which is not the same thing as fixing the
+      # leak — whatever keeps allocating is still doing it. Expect a lower
+      # floor and a slower climb, not a flat line.
+      MALLOC_ARENA_MAX: "2"
       ENVIRONMENT: ${ENVIRONMENT}
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
       JWT_SECRET: ${JWT_SECRET}
@@ -47,13 +90,24 @@ services:
       GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID}
       GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET}
       GITHUB_REDIRECT_URI: ${GITHUB_REDIRECT_URI}
+      DISCORD_CLIENT_ID: ${DISCORD_CLIENT_ID}
+      DISCORD_CLIENT_SECRET: ${DISCORD_CLIENT_SECRET}
+      DISCORD_REDIRECT_URI: ${DISCORD_REDIRECT_URI}
       REBRICKABLE_API_KEY: ${REBRICKABLE_API_KEY}
+      PUBLIC_STATS_API_KEY: ${PUBLIC_STATS_API_KEY}
+      BLA_API_KEY: ${BLA_API_KEY}
     volumes:
-      - ./data/uploads:${UPLOAD_DIR}
+      - ${HIVE_DATA_DIR:?see scripts/CUTOVER.md}/uploads:${UPLOAD_DIR}
       # Rebrickable parts catalog SQLite db (parts/categories/colors). Persisted
       # so it survives container recreates — otherwise every redeploy wipes it
       # and forces a full multi-hour re-sync from Rebrickable.
-      - ./data/profile_builder:/app/data/profile_builder
+      - ${HIVE_DATA_DIR:?see scripts/CUTOVER.md}/profile_builder:/app/data/profile_builder
+      # Color-classifier ONNX models, uploaded out of band (scp) and scanned
+      # into the color_models table. Bind-mounted so they survive recreates.
+      - ${HIVE_DATA_DIR:?see scripts/CUTOVER.md}/color_models:/app/data/color_models
+      # piece_link matcher models (encoder+head ONNX pairs), uploaded out of band
+      # (scp) and scanned into the link_models table. Bind-mounted to survive recreates.
+      - ${HIVE_DATA_DIR:?see scripts/CUTOVER.md}/link_models:/app/data/link_models
     networks:
       - default
       - web
@@ -73,9 +127,7 @@ services:
       retries: 5
 
   frontend:
-    build:
-      context: .
-      dockerfile: Dockerfile.frontend
+    image: ${HIVE_FRONTEND_IMAGE:?HIVE_FRONTEND_IMAGE not set - deploy via hive_release_agent.py}
     container_name: hive-frontend
     restart: unless-stopped
     environment:

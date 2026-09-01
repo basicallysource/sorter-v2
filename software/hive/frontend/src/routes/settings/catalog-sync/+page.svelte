@@ -28,7 +28,7 @@
 		parts: 'Full part catalog from Rebrickable (largest sync — paginated, resumable).',
 		categories: 'Rebrickable part categories.',
 		colors: 'Rebrickable color list.',
-		prices: 'BrickLink affiliate price guide (requires BL_AFFILIATE_API_KEY).',
+		prices: 'BrickLink price guide (requires BLA_API_KEY).',
 		brickstore: 'Import from a local BrickStore database file.',
 		geometry: 'True part dimensions in mm from the LDraw library (downloads ~135MB on first run).'
 	};
@@ -154,7 +154,7 @@
 	{/if}
 
 	{#if loading && !status}
-		<Spinner />
+		<div class="flex justify-center p-8"><Spinner size={32} /></div>
 	{:else if status}
 		<div class="mb-6 border border-border bg-bg p-4 text-sm text-text-muted">
 			<div class="flex flex-wrap gap-x-6 gap-y-1">
@@ -223,7 +223,7 @@
 					{/if}
 
 					{#if state.last_message}
-						<p class="mt-3 text-sm text-text">{state.last_message}</p>
+						<p class="mt-3 break-words text-sm text-text">{state.last_message}</p>
 					{/if}
 
 					{#if state.error && state.status !== 'running'}

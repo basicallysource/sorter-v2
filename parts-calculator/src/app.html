@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<meta name="text-scale" content="scale" />
+		<link rel="preconnect" href="https://fonts.googleapis.com" />
+		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+		<link
+			href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap"
+			rel="stylesheet"
+		/>
+		<!-- No page title here: every route sets its own through the Seo component,
+		     so a hard-coded one in this shell would just be a duplicate. -->
+
+		<!-- Google tag (gtag.js). Lives here rather than in a component because
+		     app.html is the shell every route renders through, so it loads once
+		     per visit instead of per navigation. -->
+		<script async src="https://www.googletagmanager.com/gtag/js?id=G-F9JH1HYGWG"></script>
+		<script>
+			window.dataLayer = window.dataLayer || [];
+			function gtag() {
+				dataLayer.push(arguments);
+			}
+			gtag('js', new Date());
+
+			gtag('config', 'G-F9JH1HYGWG');
+		</script>
+		%sveltekit.head%
+	</head>
+	<body data-sveltekit-preload-data="hover">
+		<div style="display: contents">%sveltekit.body%</div>
+		<!-- Cloudflare Web Analytics -->
+		<script type="module" src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token":"df2a1b10310d44ea9882afe71b7ea8be"}'></script>
+		<!-- End Cloudflare Web Analytics -->
+	</body>
+</html>

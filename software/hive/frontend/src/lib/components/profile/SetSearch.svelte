@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { api } from '$lib/api';
+	import Spinner from '$lib/components/Spinner.svelte';
 
 	type SetResult = {
 		set_num: string;
@@ -72,7 +73,7 @@
 	</div>
 
 	{#if loading}
-		<div class="py-4 text-center text-xs text-text-muted">Searching...</div>
+		<div class="flex items-center justify-center gap-1.5 py-4 text-xs text-text-muted"><Spinner size={12} /> Searching...</div>
 	{:else if searched && results.length === 0}
 		<div class="py-4 text-center text-xs text-text-muted">No sets found</div>
 	{:else if results.length > 0}

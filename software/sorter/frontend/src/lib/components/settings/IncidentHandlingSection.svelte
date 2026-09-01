@@ -34,6 +34,17 @@
 			automatic_supported: true
 		},
 		{
+			kind: 'feeder_jam',
+			label: 'Feeder Jam',
+			scope: 'Feeder',
+			description:
+				"A feeder channel keeps trying to advance a piece that will not move — it is hung at the previous channel's hand-off.",
+			off_label: 'Do not detect feeder hand-off jams',
+			manual_label: 'Call the operator as soon as a channel is stuck',
+			automatic_label: 'Nudge the upstream channel to free it, then call the operator',
+			automatic_supported: true
+		},
+		{
 			kind: 'distribution_chute_jam',
 			label: 'Chute Jam',
 			scope: 'Distribution',

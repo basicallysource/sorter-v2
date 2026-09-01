@@ -29,11 +29,12 @@ def _create_api_key(
     headers: dict[str, str],
     *,
     name: str,
-    scopes: list[str] | None = None,
+    scopes: list[str],
+    expires_in_days: int | None = None,
 ) -> str:
-    payload: dict[str, object] = {"name": name}
-    if scopes is not None:
-        payload["scopes"] = scopes
+    payload: dict[str, object] = {"name": name, "scopes": scopes}
+    if expires_in_days is not None:
+        payload["expires_in_days"] = expires_in_days
     response = client.post("/api/auth/api-keys", json=payload, headers=headers)
     assert response.status_code == 200, response.text
     return response.json()["raw_token"]
@@ -130,18 +131,268 @@ class TestApiKeyScopes:
         assert annotate_response.status_code == 403
         assert "samples:write" in annotate_response.json()["error"]
 
-    def test_unscoped_api_key_remains_full_access_for_existing_clients(
+    def test_create_requires_at_least_one_scope(
         self,
         client: TestClient,
         db: Session,
     ) -> None:
         admin_headers = _login_admin(client, db)
-        token = _create_api_key(client, admin_headers, name="legacy-full-access")
-        key_headers = {"Authorization": f"Bearer {token}"}
+        response = client.post(
+            "/api/auth/api-keys",
+            json={"name": "no-scopes"},
+            headers=admin_headers,
+        )
+        assert response.status_code == 422
 
         response = client.post(
+            "/api/auth/api-keys",
+            json={"name": "empty-scopes", "scopes": []},
+            headers=admin_headers,
+        )
+        assert response.status_code == 422
+
+    def test_legacy_scopeless_key_grants_nothing(
+        self,
+        client: TestClient,
+        db: Session,
+    ) -> None:
+        import hashlib
+
+        from app.models.user_api_key import UserApiKey
+
+        admin_headers = _login_admin(client, db)
+        user = db.query(User).filter(User.email == "admin-scopes@test.com").first()
+        assert user is not None
+        raw_token = "hv_legacy-scopeless-token"
+        db.add(
+            UserApiKey(
+                user_id=user.id,
+                name="legacy",
+                token_prefix=raw_token[:9],
+                token_hash=hashlib.sha256(raw_token.encode()).hexdigest(),
+                scopes=None,
+            )
+        )
+        db.commit()
+
+        response = client.get(
             "/api/models",
-            json={"slug": "legacy-key-model", "name": "Legacy Key", "model_family": "yolo"},
+            headers={"Authorization": f"Bearer {raw_token}"},
+        )
+        assert response.status_code == 403
+        assert "models:read" in response.json()["error"]
+
+    def test_expired_key_is_rejected(
+        self,
+        client: TestClient,
+        db: Session,
+    ) -> None:
+        from datetime import datetime, timedelta, timezone
+
+        from app.models.user_api_key import UserApiKey
+
+        admin_headers = _login_admin(client, db)
+        token = _create_api_key(
+            client,
+            admin_headers,
+            name="short-lived",
+            scopes=["models:read"],
+            expires_in_days=1,
+        )
+        key_headers = {"Authorization": f"Bearer {token}"}
+        assert client.get("/api/models", headers=key_headers).status_code == 200
+
+        key = db.query(UserApiKey).filter(UserApiKey.name == "short-lived").first()
+        assert key is not None
+        assert key.expires_at is not None
+        key.expires_at = datetime.now(timezone.utc) - timedelta(seconds=1)
+        db.commit()
+
+        response = client.get("/api/models", headers=key_headers)
+        assert response.status_code == 401
+        assert "expired" in response.json()["error"].lower()
+
+    def test_keys_manage_scope_lets_bots_mint_and_revoke_keys(
+        self,
+        client: TestClient,
+        db: Session,
+    ) -> None:
+        admin_headers = _login_admin(client, db)
+        bot_token = _create_api_key(
+            client,
+            admin_headers,
+            name="key-minter",
+            scopes=["keys:manage"],
+        )
+        bot_headers = {"Authorization": f"Bearer {bot_token}"}
+
+        create_response = client.post(
+            "/api/auth/api-keys",
+            json={"name": "minted-by-bot", "scopes": ["models:read"]},
+            headers=bot_headers,
+        )
+        assert create_response.status_code == 200, create_response.text
+        minted_id = create_response.json()["summary"]["id"]
+
+        list_response = client.get("/api/auth/api-keys", headers=bot_headers)
+        assert list_response.status_code == 200
+        assert any(item["id"] == minted_id for item in list_response.json())
+
+        revoke_response = client.delete(f"/api/auth/api-keys/{minted_id}", headers=bot_headers)
+        assert revoke_response.status_code == 200
+        list_after = client.get("/api/auth/api-keys", headers=bot_headers)
+        minted = next(item for item in list_after.json() if item["id"] == minted_id)
+        assert minted["revoked_at"] is not None
+
+    def test_machine_scoped_key_only_sees_that_machines_samples(
+        self,
+        client: TestClient,
+        db: Session,
+        test_machine: dict,
+        machine_token: str,
+        upload_dir: str,
+    ) -> None:
+        sample_id = _upload_sample(client, machine_token, "scoped-s1")
+        admin_headers = _login_admin(client, db)
+
+        # Admin's key scoped to a machine the admin does NOT own: the constraint
+        # caps even an admin credential, so the other owner's sample is invisible.
+        other_machine_resp = client.post(
+            "/api/machines",
+            json={"name": "Admin Sorter", "description": "admin's own"},
+            headers=admin_headers,
+        )
+        assert other_machine_resp.status_code in (200, 201)
+        own_machine_id = other_machine_resp.json()["id"]
+
+        response = client.post(
+            "/api/auth/api-keys",
+            json={"name": "one-machine", "scopes": ["samples:read"], "machine_ids": [own_machine_id]},
+            headers=admin_headers,
+        )
+        assert response.status_code == 200, response.text
+        key_headers = {"Authorization": f"Bearer {response.json()['raw_token']}"}
+
+        listing = client.get("/api/samples?annotated=all", headers=key_headers)
+        assert listing.status_code == 200
+        assert all(item["id"] != sample_id for item in listing.json().get("items", []))
+
+        detail = client.get(f"/api/samples/{sample_id}", headers=key_headers)
+        assert detail.status_code == 404
+
+        # Same admin via cookie session still sees everything — the cap is on
+        # the credential, not the account.
+        cookie_detail = client.get(f"/api/samples/{sample_id}", headers=admin_headers)
+        assert cookie_detail.status_code == 200
+
+    def test_unconstrained_admin_key_still_sees_all(
+        self,
+        client: TestClient,
+        db: Session,
+        machine_token: str,
+        upload_dir: str,
+    ) -> None:
+        sample_id = _upload_sample(client, machine_token, "scoped-s2")
+        admin_headers = _login_admin(client, db)
+        token = _create_api_key(client, admin_headers, name="all-machines", scopes=["samples:read"])
+        key_headers = {"Authorization": f"Bearer {token}"}
+        detail = client.get(f"/api/samples/{sample_id}", headers=key_headers)
+        assert detail.status_code == 200
+
+    def test_key_creation_rejects_unowned_machines(
+        self,
+        client: TestClient,
+        db: Session,
+        test_machine: dict,
+    ) -> None:
+        # test_machine belongs to test_user; the admin does not own it.
+        admin_headers = _login_admin(client, db)
+        response = client.post(
+            "/api/auth/api-keys",
+            json={
+                "name": "sneaky-machine-scope",
+                "scopes": ["samples:read"],
+                "machine_ids": [test_machine["id"]],
+            },
+            headers=admin_headers,
+        )
+        assert response.status_code == 400
+        assert response.json()["code"] == "API_KEY_MACHINES_NOT_OWNED"
+
+    def test_key_without_keys_manage_cannot_touch_keys_api(
+        self,
+        client: TestClient,
+        db: Session,
+    ) -> None:
+        admin_headers = _login_admin(client, db)
+        token = _create_api_key(
+            client,
+            admin_headers,
+            name="models-only",
+            scopes=["models:read"],
+        )
+        key_headers = {"Authorization": f"Bearer {token}"}
+
+        assert client.get("/api/auth/api-keys", headers=key_headers).status_code == 403
+        response = client.post(
+            "/api/auth/api-keys",
+            json={"name": "sneaky", "scopes": ["models:read"]},
             headers=key_headers,
         )
+        assert response.status_code == 403
+
+
+class TestServerHealthScope:
+    """`server_health:read` is the one /api/admin route a key can reach.
+
+    Both guards have to hold: the key's owner must be an admin AND the key must
+    carry the scope. Dropping either would widen the route, so both are pinned
+    here rather than only the happy path.
+    """
+
+    def test_scoped_admin_key_reads_server_health(self, client: TestClient, db: Session) -> None:
+        admin_headers = _login_admin(client, db)
+        token = _create_api_key(
+            client, admin_headers, name="monitoring", scopes=["server_health:read"]
+        )
+        response = client.get(
+            "/api/admin/server-health", headers={"Authorization": f"Bearer {token}"}
+        )
+        assert response.status_code == 200, response.text
+        memory = response.json()["memory"]
+        # The counters this scope exists to expose.
+        assert "python_allocated_blocks" in memory
+        assert "glibc" in memory
+
+    def test_key_without_the_scope_is_refused(self, client: TestClient, db: Session) -> None:
+        admin_headers = _login_admin(client, db)
+        token = _create_api_key(
+            client, admin_headers, name="models-only", scopes=["models:read"]
+        )
+        response = client.get(
+            "/api/admin/server-health", headers={"Authorization": f"Bearer {token}"}
+        )
+        assert response.status_code == 403, response.text
+
+    def test_non_admin_key_is_refused_even_with_the_scope(
+        self, client: TestClient, db: Session
+    ) -> None:
+        # Minting needs admin, so mint as admin and then demote the owner. What
+        # is under test is the role check at read time, not who may mint: a key
+        # keeps its scopes when its owner loses the role, and the scope alone
+        # must not be enough.
+        admin_headers = _login_admin(client, db)
+        token = _create_api_key(
+            client, admin_headers, name="soon-demoted", scopes=["server_health:read"]
+        )
+        _promote(db, "admin-scopes@test.com", "member")
+        response = client.get(
+            "/api/admin/server-health", headers={"Authorization": f"Bearer {token}"}
+        )
+        assert response.status_code == 403, response.text
+
+    def test_cookie_admin_still_works(self, client: TestClient, db: Session) -> None:
+        # require_role_flex replaced require_role; the browser path must be intact.
+        admin_headers = _login_admin(client, db)
+        response = client.get("/api/admin/server-health", headers=admin_headers)
         assert response.status_code == 200, response.text

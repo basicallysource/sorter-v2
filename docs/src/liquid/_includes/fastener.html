@@ -1,0 +1,48 @@
+{%- comment -%}
+Inline fastener reference: the same icon the parts calculator uses (head-shape
+silhouette, thread-size colour) followed by the part-list name, so a screw reads
+the same here as it does on parts-calculator.basically.website/hardware.
+
+Usage:
+  {% include fastener.html size="M5" variant="socket" length="20" %}  -> M5 × 20 mm socket head
+  {% include fastener.html size="M4" variant="countersunk" length="12" %}
+  {% include fastener.html size="M5" variant="t-nut" %}               -> M5 T-nut
+  {% include fastener.html size="M3" variant="nut" %}                 -> M3 nut
+
+Params:
+  size     M3 | M4 | M5 | M6            colour of the icon (thread size)
+  variant  socket | button | countersunk | flat | nut | t-nut | heat-insert
+  length   screw length in mm           omit for nuts / inserts
+  text     optional label override      when the auto-built name is not wanted
+
+Keep the whole rendered span on one line: it sits inline in prose, and a blank
+line inside it would end the HTML block for the markdown parser.
+{%- endcomment -%}
+{%- case include.size -%}
+  {%- when "M3" -%}{%- assign fill = "#2f6fd0" -%}
+  {%- when "M4" -%}{%- assign fill = "#b8791b" -%}
+  {%- when "M5" -%}{%- assign fill = "#7a4ec2" -%}
+  {%- when "M6" -%}{%- assign fill = "#2c8a6b" -%}
+  {%- else -%}{%- assign fill = "#7a7770" -%}
+{%- endcase -%}
+{%- assign hollow = false -%}
+{%- assign recess = "" -%}
+{%- case include.variant -%}
+  {%- when "socket" -%}{%- assign profile = "M7.5 3 h9 v7 h-9 z" -%}{%- assign word = "socket head" -%}{%- assign recess = '<circle cx="12" cy="6.6" r="1.9" fill="var(--bg)"/>' -%}
+  {%- when "socket-button" -%}{%- assign profile = "M7.5 3 h9 v7 h-9 z" -%}{%- assign word = "socket / button head" -%}{%- assign recess = '<circle cx="12" cy="6.6" r="1.9" fill="var(--bg)"/>' -%}
+  {%- when "button" -%}{%- assign profile = "M5 10 a7.6 7.6 0 0 1 14 0 z" -%}{%- assign word = "button head" -%}{%- assign recess = '<circle cx="12" cy="6.6" r="1.9" fill="var(--bg)"/>' -%}
+  {%- when "flat" -%}{%- assign profile = "M4 4.5 h16 v4 h-16 z" -%}{%- assign word = "flat head" -%}{%- assign recess = '<circle cx="12" cy="6.5" r="1.9" fill="var(--bg)"/>' -%}
+  {%- when "countersunk" -%}{%- assign profile = "M4 3 h16 v2.2 l-6.5 5.3 h-3 L4 5.2 z" -%}{%- assign word = "countersunk" -%}{%- assign recess = '<circle cx="12" cy="5.4" r="1.9" fill="var(--bg)"/>' -%}
+  {%- when "nut" -%}{%- assign profile = "M12 3 L20.4 7.8 v9.4 L12 22 L3.6 17.2 V7.8 z" -%}{%- assign word = "nut" -%}{%- assign hollow = true -%}{%- assign recess = '<circle cx="12" cy="12.5" r="3.6" fill="var(--bg)"/>' -%}
+  {%- when "t-nut" -%}{%- assign profile = "M4 5 h16 v5 h-5.5 v9 h-5 v-9 H4 z" -%}{%- assign word = "T-nut" -%}{%- assign hollow = true -%}
+  {%- when "heat-insert" -%}{%- assign profile = "M6.5 4 h11 v16 h-11 z" -%}{%- assign word = "heat-set insert" -%}{%- assign hollow = true -%}{%- assign recess = '<rect x="9.5" y="4" width="5" height="16" fill="var(--bg)"/>' -%}
+  {%- else -%}{%- assign profile = "" -%}{%- assign word = include.variant -%}
+{%- endcase -%}
+{%- if include.text -%}
+  {%- assign label = include.text -%}
+{%- elsif include.length -%}
+  {%- assign label = include.size | append: " × " | append: include.length | append: " mm " | append: word -%}
+{%- else -%}
+  {%- assign label = include.size | append: " " | append: word -%}
+{%- endif -%}
+<span class="fastener" title="{{ label }}"><svg class="fastener-icon" viewBox="0 0 24 24" width="15" height="15" fill="{{ fill }}" role="img" aria-label="{{ label }} icon"><path d="{{ profile }}"/>{%- unless hollow -%}<path d="M10.5 9 h3 v13 h-3 z"/>{%- endunless -%}{{ recess }}</svg><span class="fastener-name">{{ label }}</span></span>

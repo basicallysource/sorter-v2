@@ -136,12 +136,6 @@ EOF
     ok ".env written"
 fi
 
-UI_ENV="$SOFTWARE_DIR/sorter/frontend/.env"
-if [[ ! -f "$UI_ENV" ]]; then
-    cp "$SOFTWARE_DIR/sorter/frontend/.env.example" "$UI_ENV"
-    ok "sorter/frontend/.env written"
-fi
-
 # ─────────────────────────────────────────────────────────────────────────────
 # 6. Python dependencies (slow on first run — uv fetches Python 3.13)
 # ─────────────────────────────────────────────────────────────────────────────

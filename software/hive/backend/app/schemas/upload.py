@@ -14,6 +14,10 @@ class UploadMetadata(BaseModel):
     detection_score: float | None = None
     sample_payload: dict | None = None
     extra_metadata: dict | None = None
+    # The machine's channel-region geometry for THIS sample's frame (mask polygon
+    # + annulus/arc model for the sample's source_role). Parsed into the typed
+    # sample_channel_geometry table, never stored as a blob.
+    channel_geometry: dict | None = None
 
     model_config = {"extra": "allow"}
 

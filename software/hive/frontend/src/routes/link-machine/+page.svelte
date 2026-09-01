@@ -10,10 +10,13 @@
 		type MachineWithToken
 	} from '$lib/api';
 	import { auth } from '$lib/auth.svelte';
+	import Spinner from '$lib/components/Spinner.svelte';
+	import { randomMachineName } from '$lib/machineName';
+	import Shuffle from 'lucide-svelte/icons/shuffle';
 
 	type LinkMode = 'existing' | 'new';
 
-	let machineName = $state(page.url.searchParams.get('suggested_machine_name') || 'Lego Sorter');
+	let machineName = $state(page.url.searchParams.get('suggested_machine_name') || randomMachineName());
 	let description = $state('');
 	let error = $state<string | null>(null);
 	let submitting = $state(false);
@@ -187,7 +190,7 @@
 </svelte:head>
 
 <div class="mx-auto grid min-h-[70vh] max-w-2xl place-items-center">
-	<div class="w-full border border-border bg-surface p-6 shadow-sm dark:bg-[var(--color-surface)]">
+	<div class="w-full border border-border bg-surface p-6 shadow-sm">
 		<div class="flex items-start gap-3">
 			<div class="flex h-10 w-10 shrink-0 items-center justify-center bg-primary-light text-primary">
 				<svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
@@ -224,12 +227,12 @@
 				</div>
 				<div class="grid gap-1">
 					<span class="text-xs font-semibold tracking-wider text-text-muted uppercase">Return target</span>
-					<span class="font-mono text-text">{destinationLabel()}</span>
+					<span class="break-all font-mono text-text">{destinationLabel()}</span>
 				</div>
 				{#if sorterOrigin()}
 					<div class="grid gap-1">
 						<span class="text-xs font-semibold tracking-wider text-text-muted uppercase">Started from</span>
-						<span class="font-mono text-text">{sorterOrigin()}</span>
+						<span class="break-all font-mono text-text">{sorterOrigin()}</span>
 					</div>
 				{/if}
 			</div>
@@ -290,7 +293,7 @@
 								<select
 									bind:value={selectedMachineId}
 									disabled={submitting}
-									class="border border-border bg-surface px-3 py-2 text-sm text-text focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none disabled:opacity-60 dark:bg-[var(--color-bg)]"
+									class="border border-border bg-surface px-3 py-2 text-sm text-text focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none disabled:opacity-60 dark:bg-bg"
 								>
 									{#each machines as machine}
 										<option value={machine.id}>
@@ -307,16 +310,28 @@
 				</div>
 
 				{#if linkMode === 'new'}
-					<label class="grid gap-1">
-						<span class="text-sm font-medium text-text">Machine name in Hive</span>
-						<input
-							bind:value={machineName}
-							type="text"
-							required
-							disabled={submitting}
-							class="border border-border bg-surface px-3 py-2 text-sm text-text focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none disabled:opacity-60 dark:bg-[var(--color-bg)]"
-						/>
-					</label>
+					<div class="grid gap-1">
+						<label for="machine-name" class="text-sm font-medium text-text">Machine name in Hive</label>
+						<div class="flex items-stretch gap-2">
+							<input
+								id="machine-name"
+								bind:value={machineName}
+								type="text"
+								required
+								disabled={submitting}
+								class="min-w-0 flex-1 border border-border bg-surface px-3 py-2 text-sm text-text focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none disabled:opacity-60 dark:bg-bg"
+							/>
+							<button
+								type="button"
+								onclick={() => { machineName = randomMachineName(); }}
+								disabled={submitting}
+								class="flex shrink-0 items-center gap-2 border border-border bg-surface px-3 text-sm whitespace-nowrap text-text-muted transition-colors hover:bg-bg hover:text-text disabled:opacity-60 dark:bg-bg dark:hover:bg-surface"
+							>
+								<Shuffle class="h-4 w-4" />
+								Generate New Name
+							</button>
+						</div>
+					</div>
 
 					<label class="grid gap-1">
 						<span class="text-sm font-medium text-text">Description <span class="text-text-muted">(optional)</span></span>
@@ -325,7 +340,7 @@
 							rows="3"
 							disabled={submitting}
 							placeholder="Where this sorter lives, who maintains it, or what it is used for."
-							class="resize-y border border-border bg-surface px-3 py-2 text-sm text-text focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none disabled:opacity-60 dark:bg-[var(--color-bg)]"
+							class="resize-y border border-border bg-surface px-3 py-2 text-sm text-text focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none disabled:opacity-60 dark:bg-bg"
 						></textarea>
 					</label>
 				{/if}
@@ -338,7 +353,7 @@
 
 				<div class="flex flex-wrap items-center justify-between gap-3">
 					<p class="text-xs leading-relaxed text-text-muted">
-						Only confirm this if you trust <span class="font-mono text-text">{destinationLabel()}</span>.
+						Only confirm this if you trust <span class="break-all font-mono text-text">{destinationLabel()}</span>.
 					</p>
 					<button
 						type="submit"
@@ -346,7 +361,7 @@
 						class="inline-flex min-h-10 items-center justify-center gap-2 bg-primary px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-60"
 					>
 						{#if submitting}
-							<span class="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/40 border-t-white"></span>
+							<Spinner size={14} />
 							Linking...
 						{:else}
 							<svg class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">

@@ -9,6 +9,7 @@
 		type ValueStats
 	} from '$lib/components/records/RecordsStats.svelte';
 	import RecordsCharts from '$lib/components/records/RecordsCharts.svelte';
+	import IncidentsReport from '$lib/components/records/IncidentsReport.svelte';
 	import DailyTable from '$lib/components/records/DailyTable.svelte';
 	import PieceCard from '$lib/components/records/PieceCard.svelte';
 	import { fetchPieceImageState, type ImageState } from '$lib/components/records/piece-images';
@@ -49,6 +50,14 @@
 		if (next.has(uuid)) next.delete(uuid);
 		else next.add(uuid);
 		expandedReclassify = next;
+	}
+
+	// A correction returns the fresh summary. Update the rest-loaded page list in
+	// place and feed the store so live rows (and RecentObjects) reflect it too.
+	function onPieceCorrected(summary: PieceSummary) {
+		items = items.map((it) => (it.uuid === summary.uuid ? { ...it, ...summary } : it));
+		const mid = ctx.machine?.identity?.machine_id ?? null;
+		if (mid) pieceStore.upsertFromRest(mid, [summary]);
 	}
 
 	let pageNum = $derived(pageIndex + 1);
@@ -173,8 +182,20 @@
 		}
 		for (const item of items) {
 			const s = storeByUuid.get(item.uuid);
+			// A live-seen piece keeps its store view (fresh crop/status), but the
+			// correction state is DB-authoritative — take it from the REST item so a
+			// live WS event (which carries no verdict) can't blank it out.
 			rows.push({
-				piece: s?.ws ? pieceToSummary(s) : item,
+				piece: s?.ws
+					? {
+							...pieceToSummary(s),
+							correctable: item.correctable,
+							part_correct: item.part_correct,
+							color_corrected_id: item.color_corrected_id,
+							part_feedback_submitted: item.part_feedback_submitted,
+							color_feedback_submitted: item.color_feedback_submitted
+						}
+					: item,
 				live: false,
 				liveCrop: null
 			});
@@ -312,6 +333,8 @@
 
 		<RecordsCharts endpointBase={effectiveBase()} />
 
+		<IncidentsReport endpointBase={effectiveBase()} />
+
 		<DailyTable
 			daily={lifetime?.daily ?? []}
 			exportUrl={`${effectiveBase()}/api/pieces/lifetime/export.csv`}
@@ -347,6 +370,7 @@
 						liveCrop={row.liveCrop}
 						reclassifyOpen={expandedReclassify.has(row.piece.uuid)}
 						onToggleReclassify={() => toggleReclassify(row.piece.uuid)}
+						{onPieceCorrected}
 					/>
 				{/each}
 			</div>

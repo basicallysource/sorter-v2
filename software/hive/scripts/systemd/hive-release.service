@@ -1,0 +1,24 @@
+[Unit]
+Description=hive-release - install the newest published Hive release
+After=network-online.target docker.service
+Wants=network-online.target
+Requires=docker.service
+
+[Service]
+Type=oneshot
+User=root
+EnvironmentFile=-/etc/hive-release.env
+ExecStart=/usr/bin/python3 /usr/local/lib/hive/hive_release_agent.py poll
+
+# A poll that wedges (a hung pull, a health check that never settles) must not
+# hold the agent's flock forever and silently stop every later release.
+TimeoutStartSec=1800
+
+NoNewPrivileges=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+LockPersonality=true
+SystemCallArchitectures=native
+
+[Install]
+WantedBy=multi-user.target

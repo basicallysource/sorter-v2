@@ -24,6 +24,13 @@ BOOTLOADER_MOUNT_TIMEOUT_S = 30.0
 BOOTLOADER_UNMOUNT_TIMEOUT_S = 20.0
 SERIAL_REAPPEAR_TIMEOUT_S = 15.0
 COPY_CHUNK_SIZE = 64 * 1024
+# The bus default (100ms) is tuned for the hot control loop, where a late reply
+# is better dropped than waited on. Flashing runs inside the same busy backend
+# process, and the flash thread can lose the GIL to vision work for longer than
+# that — long enough to read a frame back in pieces and report a perfectly
+# healthy board as "blank or wedged". Identification happens a handful of times
+# per flash, so buy the headroom.
+IDENTIFY_READ_TIMEOUT_S = 1.0
 
 ProgressFn = Callable[[float], None]
 
@@ -57,7 +64,7 @@ def validateUf2(data: bytes) -> str | None:
 def identifyBoard(gc: GlobalConfig, port: str) -> dict | None:
     bus: MCUBus | None = None
     try:
-        bus = MCUBus(port=port)
+        bus = MCUBus(port=port, timeout=IDENTIFY_READ_TIMEOUT_S)
         dev = MCUDevice(bus, 0)
         info = dev.detect()
         try:

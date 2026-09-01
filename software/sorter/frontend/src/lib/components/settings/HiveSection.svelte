@@ -9,6 +9,7 @@
 		defaultHiveTargetName
 	} from '$lib/hive/link-flow';
 	import { Cloud, Link2, Pencil, Plus, RefreshCw, Shield, Star, Trash2, Upload } from 'lucide-svelte';
+	import MachineNameField from '$lib/components/MachineNameField.svelte';
 	import Modal from '$lib/components/Modal.svelte';
 
 	const machine = getMachineContext();
@@ -949,11 +950,10 @@
 				</label>
 				<label class="flex flex-col gap-1 text-sm text-text">
 					Suggested machine name (optional)
-					<input
+					<MachineNameField
 						bind:value={pairMachineName}
-						type="text"
-						placeholder="Lego Sorter"
-						class="border border-border bg-bg px-2 py-1.5 text-sm text-text"
+						backendBaseUrl={currentBackendBaseUrl()}
+						placeholder="Hive names this machine if you leave it blank"
 					/>
 				</label>
 				<div class="flex justify-end gap-2">
@@ -1003,11 +1003,10 @@
 					placeholder="Account password"
 					class="border border-border bg-bg px-2 py-1.5 text-sm text-text"
 				/>
-				<input
+				<MachineNameField
 					bind:value={regMachineName}
-					type="text"
+					backendBaseUrl={currentBackendBaseUrl()}
 					placeholder="Machine name"
-					class="border border-border bg-bg px-2 py-1.5 text-sm text-text"
 				/>
 				<input
 					bind:value={regMachineDescription}

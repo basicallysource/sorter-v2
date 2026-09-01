@@ -56,6 +56,12 @@ class Sample(Base):
     machine = relationship("Machine", back_populates="samples")
     upload_session = relationship("UploadSession", back_populates="samples")
     reviews = relationship("SampleReview", back_populates="sample", cascade="all, delete-orphan")
+    channel_geometry = relationship(
+        "SampleChannelGeometry",
+        back_populates="sample",
+        uselist=False,
+        cascade="all, delete-orphan",
+    )
 
     __table_args__ = (
         CheckConstraint(

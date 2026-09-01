@@ -40,24 +40,14 @@ def test_rev01_select_recognition_crops_keeps_even_spread() -> None:
     assert selected_ids == [0, 2, 3, 5, 6, 8, 9, 11]
 
 
-def test_rev01_select_recognition_crops_reserves_slots_for_upstream() -> None:
-    # 3 injected upstream matches leave 5 burst slots (8-image Brickognize cap).
+def test_rev01_select_recognition_crops_caps_at_brickognize_limit() -> None:
+    # max_captures above the 8-image Brickognize cap must still yield 8.
     crops = [np.full((2, 2, 3), idx, dtype=np.uint8) for idx in range(12)]
 
     capturing = Capturing.__new__(Capturing)
-    capturing.ctx = type("Ctx", (), {"config": Rev01Config(max_captures=8)})()
-    selected = capturing.selectRecognitionCrops(crops, max_images=8 - 3)
+    capturing.ctx = type("Ctx", (), {"config": Rev01Config(max_captures=12)})()
 
-    assert len(selected) == 5
-
-
-def test_rev01_select_recognition_crops_handles_zero_budget() -> None:
-    crops = [np.full((2, 2, 3), idx, dtype=np.uint8) for idx in range(12)]
-
-    capturing = Capturing.__new__(Capturing)
-    capturing.ctx = type("Ctx", (), {"config": Rev01Config(max_captures=8)})()
-
-    assert capturing.selectRecognitionCrops(crops, max_images=0) == []
+    assert len(capturing.selectRecognitionCrops(crops)) == 8
 
 
 def test_rev01_config_parses_capture_sweep_output_deg() -> None:

@@ -25,16 +25,53 @@ class MachinePiece(Base):
     color_id = Column(String, nullable=True)
     color_name = Column(String, nullable=True)
     category_id = Column(String, nullable=True)
+    # Two independent scores. `confidence` is the MOLD score (Brickognize's top
+    # item); `color_confidence` is the applied color's own score, which may come
+    # from a different provider entirely (see color_provider/mold_provider). They
+    # must stay separate for provider accuracy to mean anything — scoring the
+    # color model against a Brickognize mold score compares nothing. NULL on rows
+    # synced before the split.
     confidence = Column(Float, nullable=True)
+    color_confidence = Column(Float, nullable=True)
     bin_x = Column(Integer, nullable=True)
     bin_y = Column(Integer, nullable=True)
     bin_z = Column(Integer, nullable=True)
     dead = Column(Boolean, nullable=False, default=False)
     brickognize_preview_url = Column(String, nullable=True)
+    # Correction provenance from the applied Brickognize request, synced from the
+    # machine alongside the prediction. Needed to address a correction to
+    # Brickognize's feedback API (which keys on the listing id + result rank).
+    brickognize_listing_id = Column(String, nullable=True)
+    brickognize_item_rank = Column(Integer, nullable=True)
+    brickognize_item_type = Column(String, nullable=True)
+    brickognize_color_rank = Column(Integer, nullable=True)
+    # Which service actually produced the applied color / mold on the machine
+    # (see the sorter's classification.providers). Records what ANSWERED, not
+    # what was configured, so provider accuracy can be scored against the
+    # corrections below. NULL on rows synced before providers were selectable.
+    color_provider = Column(String, nullable=True)
+    mold_provider = Column(String, nullable=True)
+    # User correction, synced from the machine (piece_corrections stream) and/or
+    # set here on Hive. part_correct is NULL (unreviewed) / true / false;
+    # color_corrected_id is the picked true BrickLink color id; the *_submitted
+    # flags record whether the correction was sent to Brickognize.
+    part_correct = Column(Boolean, nullable=True)
+    color_corrected_id = Column(String, nullable=True)
+    part_feedback_submitted = Column(Boolean, nullable=False, default=False)
+    color_feedback_submitted = Column(Boolean, nullable=False, default=False)
+    correction_updated_at = Column(DateTime(timezone=True), nullable=True)
+    # Operator-flagged capture issues live in machine_piece_rejection_reasons,
+    # one row per (piece, reason) — see MachinePieceRejectionReason.
     created_at = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc))
 
     __table_args__ = (
         UniqueConstraint("machine_id", "piece_uuid", name="uq_machine_pieces_machine_piece"),
         Index("ix_machine_pieces_machine_local_id", "machine_id", "local_id"),
         Index("ix_machine_pieces_machine_seen_at", "machine_id", "seen_at"),
+        # Rows by when HIVE learned of them, which is what the analytics cache
+        # counts forward from between refreshes. Deliberately not seen_at: a
+        # machine that was offline uploads a backlog whose seen_at is days old,
+        # and those pieces have to show up in the live counter when they land,
+        # not whenever the next hourly pass happens to run.
+        Index("ix_machine_pieces_machine_created_at", "machine_id", "created_at"),
     )

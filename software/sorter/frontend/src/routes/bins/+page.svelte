@@ -17,7 +17,7 @@
 	import { bricklinkParts } from '$lib/stores/bricklinkParts.svelte';
 	import { sortingProfileStore } from '$lib/stores/sortingProfile.svelte';
 	import { onMount } from 'svelte';
-	import { Loader2 } from 'lucide-svelte';
+	import Spinner from '$lib/components/Spinner.svelte';
 
 	const manager = getMachinesContext();
 	// Active profile (id/name) — bin layouts are scoped to it. Local profiles carry a
@@ -733,7 +733,7 @@
 			<div class="w-full max-w-md border border-border bg-surface p-6 shadow-xl">
 				<div class="flex items-start gap-4">
 					<div class="flex h-10 w-10 items-center justify-center border border-border bg-bg">
-						<Loader2 size={18} class="animate-spin text-primary" />
+						<Spinner size={18} class="text-primary" />
 					</div>
 					<div class="space-y-2">
 						<h3 class="text-lg font-semibold text-text">{globalClearingTitle()}</h3>

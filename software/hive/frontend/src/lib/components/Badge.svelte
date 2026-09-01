@@ -8,7 +8,7 @@
 
 	const colors: Record<string, string> = {
 		success: 'border border-success/30 bg-success/10 text-success',
-		warning: 'border border-warning/30 bg-warning/15 text-[#A16207]',
+		warning: 'border border-warning/30 bg-warning/15 text-warning-strong',
 		danger: 'border border-primary/30 bg-primary/8 text-primary',
 		info: 'border border-info/30 bg-info/8 text-info',
 		neutral: 'border border-border bg-bg text-text-muted'

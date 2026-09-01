@@ -1,5 +1,6 @@
 <script lang="ts">
-	import { Check, Loader2, RotateCcw } from 'lucide-svelte';
+	import { Check, RotateCcw } from 'lucide-svelte';
+	import Spinner from '$lib/components/Spinner.svelte';
 
 	type StepperDirectionEntry = {
 		name: string;
@@ -125,7 +126,7 @@
 		<div
 			class="flex items-center gap-3 border border-warning bg-warning/10 px-4 py-3 text-sm text-warning-dark"
 		>
-			<Loader2 size={18} class="animate-spin" />
+			<Spinner size={18} />
 			<div class="flex flex-col">
 				<span class="font-medium">Powering on steppers…</span>
 				<span class="text-xs text-warning-dark/80">

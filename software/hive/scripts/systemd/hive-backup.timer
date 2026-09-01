@@ -1,0 +1,12 @@
+[Unit]
+Description=nightly Hive database backup
+
+[Timer]
+OnCalendar=*-*-* 03:15:00
+# Persistent, because the cron line this replaces was never installed at all and
+# a missed nightly must run on the next boot rather than just not happening.
+Persistent=true
+RandomizedDelaySec=5m
+
+[Install]
+WantedBy=timers.target

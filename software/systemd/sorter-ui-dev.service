@@ -3,14 +3,21 @@ Description=Sorter UI (dev — Vite HMR)
 After=network-online.target sorter-backend-dev.service
 Wants=network-online.target
 Conflicts=sorter-ui.service
-StartLimitBurst=3
-StartLimitIntervalSec=60
+# No start-rate limit: machines in the field get power-cut, and a corrupted
+# generated file used to make vite fail instantly 3x, after which systemd gave
+# up forever — leaving the UI dead until someone SSHed in (bbs-01, 2026-08-03).
+# Keep retrying; ExecStartPre wipes the poison so the next attempt succeeds.
+StartLimitIntervalSec=0
 
 [Service]
 Type=simple
 User=__USER__
 WorkingDirectory=__SOFTWARE_DIR__/sorter/frontend
 Environment=PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+# .svelte-kit and node_modules/.vite are generated caches rewritten by vite on
+# startup — exactly the files a power cut catches mid-write. Corrupt contents
+# make vite exit before binding the port, so never trust them across a start.
+ExecStartPre=/bin/rm -rf __SOFTWARE_DIR__/sorter/frontend/.svelte-kit __SOFTWARE_DIR__/sorter/frontend/node_modules/.vite
 # `vite dev` gives sub-second HMR for .svelte / .ts edits scp'd from the Mac.
 # `--host 0.0.0.0` makes it reachable on the LAN; `--strictPort` makes it fail
 # loudly if the port is busy instead of silently picking another port.
@@ -18,7 +25,7 @@ Environment=PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 # binding is enabled via /etc/sysctl.d/99-sorter-unprivileged-ports.conf.
 ExecStart=__PNPM_BIN__ dev --host 0.0.0.0 --port 80 --strictPort
 Restart=on-failure
-RestartSec=2
+RestartSec=5
 StandardOutput=journal
 StandardError=journal
 

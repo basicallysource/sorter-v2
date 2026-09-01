@@ -341,7 +341,7 @@
 					type="button"
 					onclick={clearForm}
 					disabled={saving || (!formPartId && !formItemName)}
-					class="flex-1 border border-warning/30 px-3 py-2 text-xs font-medium text-[#A16207] transition-colors hover:bg-warning/[0.1] disabled:cursor-not-allowed disabled:border-border disabled:text-border"
+					class="flex-1 border border-warning/30 px-3 py-2 text-xs font-medium text-warning-strong transition-colors hover:bg-warning/[0.1] disabled:cursor-not-allowed disabled:border-border disabled:text-border"
 				>
 					Clear
 				</button>

@@ -1,0 +1,33 @@
+metadata:
+  title: 24V to controller board v1.3
+  description: "The board's 24V feed. The buildable sub-harness for W1 on\nthe 24V power distribution drawing. From the\ncontroller-board reference drawing (2026-08-08)."
+
+connectors:
+  P1:
+    type: DC plug 5.5x2.1 male
+    pinlabels: [+24V (tip), GND (sleeve)]
+    notes: "Usually comes as a pigtail on 18 AWG wire."
+  BOARD_PWR:
+    type: JST VH 2-pin (VHR-2)
+    subtype: female
+    pinlabels: [+24V, GND]
+    notes: "controller board v1.3 24V input\nPin 1 = +24V, pin 2 = GND"
+    additional_components:
+      - type: Terminal - SVH-21T-P1.1
+        qty: 1
+        qty_multiplier: populated
+        manufacturer: JST
+        mpn: SVH-21T-P1.1
+
+cables:
+  W1:
+    gauge: 18 AWG
+    length: 36 in
+    colors: [RD, BK]
+    notes: "Board 24V in. Length deliberately long."
+
+connections:
+  -
+    - P1: [1-2]
+    - W1: [1-2]
+    - BOARD_PWR: [1-2]

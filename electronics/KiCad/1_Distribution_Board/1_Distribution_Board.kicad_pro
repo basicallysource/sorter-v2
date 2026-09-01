@@ -3,6 +3,8 @@
     "3dviewports": [],
     "design_settings": {
       "defaults": {
+        "apply_defaults_to_fp_barcodes": false,
+        "apply_defaults_to_fp_dimensions": false,
         "apply_defaults_to_fp_fields": false,
         "apply_defaults_to_fp_shapes": false,
         "apply_defaults_to_fp_text": false,
@@ -58,7 +60,28 @@
           "width": 0.0
         }
       ],
-      "drc_exclusions": [],
+      "drc_exclusions": [
+        [
+          "clearance|35911100|54135000|81c4411f-65df-4b0d-982e-d61dbecc9cde|57933b97-aede-4a4c-ae4e-40f08cf845a5",
+          "This is a Solder Jumper location, its going to be tight. "
+        ],
+        [
+          "clearance|35943100|43388000|5a2c6c6f-7b91-435d-8501-9a50e4791710|b11fff8f-8313-49d5-8b52-6f5a093f58b6",
+          "This is a Solder Jumper location, its going to be tight. "
+        ],
+        [
+          "clearance|57161100|54035000|d67db092-65c0-438b-8591-0a5d6a4f95fe|170a00c0-b986-4bc6-b313-b75e01c6c23f",
+          "This is a Solder Jumper location, its going to be tight. "
+        ],
+        [
+          "clearance|57411100|43104000|ae23e8f7-0f40-49a1-949d-ecd60431e047|4cef77cb-8eb7-4440-8d55-78dbfa2be5b1",
+          "This is a Solder Jumper location, its going to be tight. "
+        ],
+        [
+          "starved_thermal|66490000|97200000|446ab205-8072-4653-83cf-247eff39f2e3|727ca9a3-7df9-4086-bcf8-6918dd497201|F.Cu",
+          "Trace covers this"
+        ]
+      ],
       "meta": {
         "version": 2
       },
@@ -68,7 +91,7 @@
         "connection_width": "warning",
         "copper_edge_clearance": "error",
         "copper_sliver": "warning",
-        "courtyards_overlap": "error",
+        "courtyards_overlap": "warning",
         "creepage": "error",
         "diff_pair_gap_out_of_range": "error",
         "diff_pair_uncoupled_length_too_long": "error",
@@ -77,6 +100,7 @@
         "extra_footprint": "warning",
         "footprint": "error",
         "footprint_filters_mismatch": "ignore",
+        "footprint_symbol_field_mismatch": "warning",
         "footprint_symbol_mismatch": "warning",
         "footprint_type_mismatch": "ignore",
         "hole_clearance": "error",
@@ -94,6 +118,7 @@
         "mirrored_text_on_front_layer": "warning",
         "missing_courtyard": "ignore",
         "missing_footprint": "warning",
+        "missing_tuning_profile": "warning",
         "net_conflict": "warning",
         "nonmirrored_text_on_back_layer": "warning",
         "npth_inside_courtyard": "ignore",
@@ -113,9 +138,12 @@
         "too_many_vias": "error",
         "track_angle": "error",
         "track_dangling": "warning",
+        "track_not_centered_on_via": "ignore",
+        "track_on_post_machined_layer": "error",
         "track_segment_length": "error",
         "track_width": "error",
         "tracks_crossing": "error",
+        "tuning_profile_track_geometries": "ignore",
         "unconnected_items": "error",
         "unresolved_variable": "error",
         "via_dangling": "warning",
@@ -139,7 +167,7 @@
         "min_track_width": 0.0,
         "min_via_annular_width": 0.1,
         "min_via_diameter": 0.5,
-        "solder_mask_to_copper_clearance": 0.0,
+        "solder_mask_to_copper_clearance": 0.005,
         "use_height_for_length_calcs": true
       },
       "teardrop_options": [
@@ -239,17 +267,28 @@
       "zones_allow_external_fillets": false
     },
     "ipc2581": {
+      "bom_rev": "",
       "dist": "",
       "distpn": "",
       "internal_id": "",
       "mfg": "",
-      "mpn": ""
+      "mpn": "",
+      "sch_revision": ""
     },
     "layer_pairs": [],
     "layer_presets": [],
     "viewports": []
   },
   "boards": [],
+  "component_class_settings": {
+    "assignments": [],
+    "meta": {
+      "version": 0
+    },
+    "sheet_component_classes": {
+      "enabled": false
+    }
+  },
   "cvpcb": {
     "equivalence_files": []
   },
@@ -515,7 +554,7 @@
       "gencad": "",
       "idf": "",
       "netlist": "",
-      "plot": "1_Distribution_Board_Outputs/GerbersV0.3/",
+      "plot": "1_Distribution_Board_Outputs/GerbersV1.1/",
       "pos_files": "1_Distribution_Board_Outputs/Pick-Place/",
       "specctra_dsn": "",
       "step": "1_Distribution_Board.step",
@@ -597,6 +636,7 @@
       "sort_asc": true,
       "sort_field": "Reference"
     },
+    "bus_aliases": {},
     "connection_grid_size": 50.0,
     "drawing": {
       "dashed_lines_dash_length_ratio": 12.0,
@@ -635,24 +675,19 @@
     "spice_save_all_dissipations": false,
     "spice_save_all_voltages": false,
     "subpart_first_id": 65,
-    "subpart_id_separator": 0
+    "subpart_id_separator": 0,
+    "top_level_sheets": [
+      {
+        "filename": "1_Distribution_Board.kicad_sch",
+        "name": "1_Distribution_Board",
+        "uuid": "00000000-0000-0000-0000-000000000000"
+      }
+    ]
   },
   "sheets": [
     [
       "d53c8c01-e754-4310-8a73-7d7c95e64cd3",
       "Root"
-    ],
-    [
-      "02dc68e7-469d-4169-b9e6-1742ced64b14",
-      "Stepper Module"
-    ],
-    [
-      "6afb3c5f-c712-4230-bfac-30dcc87f4845",
-      "DC Motor Control_0"
-    ],
-    [
-      "406ed9e9-c014-4ad1-b5c7-3c59cc994d52",
-      "DC Motor Control_1"
     ],
     [
       "2a814bde-fdd3-4544-8ef3-93abf8dc02be",
@@ -661,6 +696,14 @@
     [
       "aa124a9b-4ca6-4e8b-864b-f6c7e5891937",
       "Hall_Switch_LED"
+    ],
+    [
+      "4f60e607-b8a0-4b26-ada7-74dd2d095020",
+      "PCA9685 Module"
+    ],
+    [
+      "02dc68e7-469d-4169-b9e6-1742ced64b14",
+      "Stepper Module"
     ],
     [
       "7a480abb-9b9a-47ac-a44b-24d5185d46e0",
@@ -675,9 +718,15 @@
       "Stepper Module3"
     ],
     [
-      "4f60e607-b8a0-4b26-ada7-74dd2d095020",
-      "PCA9685 Module"
+      "22523adc-9142-4362-af29-41502b0f3187",
+      "Stepper Module4"
     ]
   ],
-  "text_variables": {}
+  "text_variables": {},
+  "tuning_profiles": {
+    "meta": {
+      "version": 0
+    },
+    "tuning_profiles_impedance_geometric": []
+  }
 }

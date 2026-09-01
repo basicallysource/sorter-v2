@@ -1,0 +1,27 @@
+{
+  "name": "r4 C-Channel YOLO11s 320 SiLU",
+  "model_family": "yolo",
+  "imgsz": 320,
+  "scopes": [
+    "c_channel"
+  ],
+  "zone": "c_channel",
+  "hive": {
+    "variant_runtime": "rknn"
+  },
+  "best_metrics": {
+    "precision": 0.9668,
+    "recall": 0.9561,
+    "mAP50": 0.9813,
+    "mAP50_95": 0.8909
+  },
+  "trained_at": "2026-05-23T11:24:08.163907+00:00",
+  "source_provider": "lambda",
+  "lambda_gpu": "NVIDIA A100-SXM4-40GB",
+  "epochs": 300,
+  "dataset": "r4_c_channel_2026_05_23",
+  "target_platform": "rk3588",
+  "quantization": "i8",
+  "head_stripped": true,
+  "activation": "silu"
+}

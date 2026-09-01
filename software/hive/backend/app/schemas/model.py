@@ -26,6 +26,7 @@ class DetectionModelSummary(BaseModel):
     codename_color: str | None = None  # hex, derived from codename via codenames.color_for
     name: str
     description: str | None = None
+    purpose: str = "detection"
     model_family: str
     scopes: list[str] | None = None
     is_public: bool
@@ -65,6 +66,10 @@ class DetectionModelCreateRequest(BaseModel):
     slug: str = Field(..., min_length=1, max_length=120)
     name: str = Field(..., min_length=1, max_length=200)
     description: str | None = None
+    purpose: str = Field(
+        default="detection",
+        description="What the model is for: 'detection' or 'piece_link'.",
+    )
     model_family: str = Field(..., min_length=1, max_length=50)
     scopes: list[str] | None = None
     training_metadata: dict[str, Any] | None = None
@@ -99,3 +104,37 @@ class DetectionModelVariantUploadResponse(BaseModel):
     file_name: str
     file_size: int
     sha256: str
+
+
+class DatasetSampleRef(BaseModel):
+    sample_id: UUID
+    split: str = Field(..., pattern="^(train|val)$")
+
+
+class ModelDatasetSamplesAttachRequest(BaseModel):
+    """Bulk-record which Hive samples a model's dataset was built from."""
+    samples: list[DatasetSampleRef] = Field(..., min_length=1, max_length=20000)
+    replace: bool = Field(
+        default=False,
+        description="Drop any previously recorded samples for this model first.",
+    )
+
+
+class ModelDatasetSamplesAttachResponse(BaseModel):
+    attached: int
+    skipped_unknown: int  # sample IDs not present in this Hive (e.g. deleted since training)
+    total_recorded: int
+
+
+class ModelDatasetMachine(BaseModel):
+    machine_id: UUID
+    machine_name: str
+    train_samples: int
+    val_samples: int
+    total: int
+    share: float  # fraction of the model's recorded samples
+
+
+class ModelDatasetMachinesResponse(BaseModel):
+    machines: list[ModelDatasetMachine]
+    total_recorded: int

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
+	import Spinner from '$lib/components/Spinner.svelte';
 
 	type Variant = 'primary' | 'secondary' | 'danger' | 'ghost';
 	type Size = 'sm' | 'md';
@@ -48,7 +49,7 @@
 	class="inline-flex items-center justify-center gap-2 font-medium transition-colors disabled:cursor-not-allowed {VARIANTS[variant]} {SIZES[size]} {extra}"
 >
 	{#if loading}
-		<span class="inline-block h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent"></span>
+		<Spinner size={12} />
 	{/if}
 	{@render children()}
 </button>

@@ -21,6 +21,7 @@ from subsystems.classification_channel.state_machine import (
 class FakeRuntimeStats:
     def __init__(self) -> None:
         self._active = None
+        self.auto_resolved: list[dict] = []
 
     def setActiveIncident(self, incident: dict) -> None:
         self._active = dict(incident)
@@ -28,12 +29,15 @@ class FakeRuntimeStats:
     def activeIncident(self):
         return dict(self._active) if self._active else None
 
-    def clearActiveIncident(self, *, kind=None, piece_uuid=None) -> None:
+    def clearActiveIncident(self, *, kind=None, piece_uuid=None, resolved_by="system") -> None:
         if self._active is None:
             return
         if kind is not None and self._active.get("kind") != kind:
             return
         self._active = None
+
+    def recordAutoResolvedIncident(self, incident: dict, *, resolved_by="auto") -> None:
+        self.auto_resolved.append({**incident, "resolved_by": resolved_by})
 
 
 class FakePerception:
@@ -189,6 +193,31 @@ def test_automatic_mode_clears_channel_without_incident(machine_params_env) -> N
     assert sm._two_piece.auto_clear_calls == 1
     assert sm.gc.runtime_stats.activeIncident() is None
     assert not sm._stall_incident_raised
+
+
+def test_automatic_clear_is_recorded_as_auto_resolved(machine_params_env) -> None:
+    setExitStuckMode("automatic")
+    sm = mkWatchdogSm(n_pieces=1)
+    sm._two_piece.auto_clear_result = SimpleNamespace(
+        cleared=True, occupied_at_start=True, output_deg_moved=144.0, reason="cleared"
+    )
+    stallOut(sm)
+
+    sm._checkStall(time.monotonic())
+
+    # Never became an operator-facing hold, but it must still be logged.
+    assert sm.gc.runtime_stats.activeIncident() is None
+    recorded = sm.gc.runtime_stats.auto_resolved
+    assert len(recorded) == 1
+    row = recorded[0]
+    assert row["kind"] == C4_EXIT_STUCK_INCIDENT_KIND
+    assert row["source_kind"] == C4_STALL_WATCHDOG_SOURCE_KIND
+    assert row["status"] == "auto_resolved"
+    assert row["auto_clear_failed"] is False
+    assert row["auto_clear_moved_deg"] == 144.0
+    assert row["resolved_by"] == "auto"
+    # Real stall span recorded (triggered before now, resolved at now).
+    assert row["resolved_at"] > row["triggered_at"]
 
 
 def test_automatic_mode_falls_back_to_incident_when_clear_fails(machine_params_env) -> None:

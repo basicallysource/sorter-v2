@@ -17,12 +17,30 @@ export type PieceSummary = {
 	color_id?: string | null;
 	color_name?: string | null;
 	category_id?: string | null;
+	// Mold score (Brickognize's top item) and the applied color's own score.
+	// They come from independently selectable providers, so they are never the
+	// same number and must not be shown as one "confidence".
 	confidence?: number | null;
+	color_confidence?: number | null;
 	bin?: BinRef | null;
 	dead?: boolean;
 	has_images?: boolean;
 	preview_url?: string | null;
 	est_value?: number | null;
+	// Brickognize correction fields. `correctable` is only true when a listing
+	// was captured for this piece — the correction UI is gated on it.
+	correctable?: boolean;
+	part_correct?: boolean | null;
+	color_corrected_id?: string | null;
+	part_feedback_submitted?: boolean;
+	color_feedback_submitted?: boolean;
+	// Which service actually produced this piece's color / mold. Null on rows
+	// recorded before the providers were selectable.
+	color_provider?: string | null;
+	mold_provider?: string | null;
+	// Operator-flagged capture issues — reason codes matching Hive's
+	// piece_rejections vocabulary ("no_piece" / "multiple_pieces" / "not_lego").
+	rejection_reasons?: string[] | null;
 };
 
 // GET /api/pieces/{uuid} — tiered envelope. `detail` is the full KnownObject
@@ -56,11 +74,20 @@ export type Piece = {
 	color_name: string | null;
 	category_id: string | null;
 	confidence: number | null;
+	color_confidence: number | null;
 	bin: BinRef | null;
 	dead: boolean;
 	has_images: boolean;
 	preview_url: string | null;
 	est_value: number | null;
+	// Brickognize correction state — only meaningful for rest-origin summaries;
+	// live WS events don't carry it, so it's backfilled from REST.
+	correctable: boolean;
+	part_correct: boolean | null;
+	color_corrected_id: string | null;
+	part_feedback_submitted: boolean;
+	color_feedback_submitted: boolean;
+	rejection_reasons: string[];
 	ws: KnownObjectData | null;
 };
 
@@ -104,11 +131,18 @@ function pieceFromSummary(s: PieceSummary): Piece {
 		color_name: s.color_name ?? null,
 		category_id: s.category_id ?? null,
 		confidence: s.confidence ?? null,
+		color_confidence: s.color_confidence ?? null,
 		bin: s.bin ?? null,
 		dead: Boolean(s.dead),
 		has_images: Boolean(s.has_images),
 		preview_url: s.preview_url ?? null,
 		est_value: s.est_value ?? null,
+		correctable: Boolean(s.correctable),
+		part_correct: s.part_correct ?? null,
+		color_corrected_id: s.color_corrected_id ?? null,
+		part_feedback_submitted: Boolean(s.part_feedback_submitted),
+		color_feedback_submitted: Boolean(s.color_feedback_submitted),
+		rejection_reasons: s.rejection_reasons ?? [],
 		ws: null
 	};
 }
@@ -127,6 +161,7 @@ function pieceFromKnownObject(obj: KnownObjectData): Piece {
 		color_name: obj.color_name ?? null,
 		category_id: obj.category_id ?? null,
 		confidence: obj.confidence ?? null,
+		color_confidence: obj.color_confidence ?? null,
 		bin: binFromDestination(obj.destination_bin),
 		dead: Boolean(obj.dead),
 		has_images: Boolean(
@@ -134,6 +169,14 @@ function pieceFromKnownObject(obj: KnownObjectData): Piece {
 		),
 		preview_url: obj.brickognize_preview_url ?? null,
 		est_value: obj.moving_avg_price ?? null,
+		// A live piece is correctable the moment a Brickognize listing is captured.
+		// The verdict/submitted state is DB-only and backfilled from REST.
+		correctable: Boolean(obj.brickognize_listing_id),
+		part_correct: null,
+		color_corrected_id: null,
+		part_feedback_submitted: false,
+		color_feedback_submitted: false,
+		rejection_reasons: [],
 		ws: obj
 	};
 }
@@ -151,11 +194,18 @@ export function pieceToSummary(p: Piece): PieceSummary {
 		color_name: p.color_name,
 		category_id: p.category_id,
 		confidence: p.confidence,
+		color_confidence: p.color_confidence,
 		bin: p.bin,
 		dead: p.dead,
 		has_images: p.has_images,
 		preview_url: p.preview_url,
-		est_value: p.est_value
+		est_value: p.est_value,
+		correctable: p.correctable,
+		part_correct: p.part_correct,
+		color_corrected_id: p.color_corrected_id,
+		part_feedback_submitted: p.part_feedback_submitted,
+		color_feedback_submitted: p.color_feedback_submitted,
+		rejection_reasons: p.rejection_reasons
 	};
 }
 
@@ -185,6 +235,7 @@ export function pieceToKnownObjectView(p: Piece): KnownObjectData {
 		color_name: p.color_name ?? undefined,
 		category_id: p.category_id,
 		confidence: p.confidence,
+		color_confidence: p.color_confidence,
 		moving_avg_price: p.est_value,
 		destination_bin: p.bin ? [p.bin.x, p.bin.y, p.bin.z] : null,
 		brickognize_preview_url: p.preview_url,
@@ -303,6 +354,13 @@ class PieceStore {
 			merged.est_value = merged.est_value ?? existing.est_value;
 			merged.preview_url = merged.preview_url ?? existing.preview_url;
 			merged.has_images = merged.has_images || existing.has_images;
+			// Correction state only comes from REST; a live event mustn't wipe it.
+			merged.correctable = merged.correctable || existing.correctable;
+			merged.part_correct = existing.part_correct;
+			merged.color_corrected_id = existing.color_corrected_id;
+			merged.part_feedback_submitted = existing.part_feedback_submitted;
+			merged.color_feedback_submitted = existing.color_feedback_submitted;
+			merged.rejection_reasons = existing.rejection_reasons;
 		}
 		let next: Piece[];
 		if (idx >= 0) {
@@ -335,7 +393,15 @@ class PieceStore {
 					recorded_at: existing.recorded_at ?? s.recorded_at ?? null,
 					est_value: existing.est_value ?? s.est_value ?? null,
 					preview_url: existing.preview_url ?? s.preview_url ?? null,
-					has_images: existing.has_images || Boolean(s.has_images)
+					has_images: existing.has_images || Boolean(s.has_images),
+					correctable: existing.correctable || Boolean(s.correctable),
+					part_correct: s.part_correct ?? existing.part_correct,
+					color_corrected_id: s.color_corrected_id ?? existing.color_corrected_id,
+					part_feedback_submitted:
+						existing.part_feedback_submitted || Boolean(s.part_feedback_submitted),
+					color_feedback_submitted:
+						existing.color_feedback_submitted || Boolean(s.color_feedback_submitted),
+					rejection_reasons: s.rejection_reasons ?? existing.rejection_reasons
 				};
 			} else {
 				next[idx] = pieceFromSummary(s);

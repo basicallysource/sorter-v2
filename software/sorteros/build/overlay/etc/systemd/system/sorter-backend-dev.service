@@ -3,13 +3,19 @@ Description=Sorter Backend (dev)
 After=network-online.target
 Wants=network-online.target
 Conflicts=sorter-backend.service
-StartLimitBurst=3
-StartLimitIntervalSec=60
+# No start-rate limit: field machines get power-cut and must keep retrying
+# instead of giving up forever after 3 fast failures (see sorter-ui-dev).
+StartLimitIntervalSec=0
 
 [Service]
 Type=simple
 User=__USER__
 WorkingDirectory=__SOFTWARE_DIR__/sorter/backend
+# Bytecode caches on tmpfs: a power cut once corrupted an on-disk .pyc whose
+# header still validated, crash-looping the backend forever (bbs-01,
+# 2026-08-01). /tmp is RAM-backed, so caches regenerate fresh every boot and
+# can never carry corruption across one.
+Environment=PYTHONPYCACHEPREFIX=/tmp/sorter-pycache
 # Dev mode notes:
 #   - Same supervisor + main.py as prod so hardware/coordinator behavior matches.
 #   - For fast iteration on a code edit, prefer a soft restart of main.py via the

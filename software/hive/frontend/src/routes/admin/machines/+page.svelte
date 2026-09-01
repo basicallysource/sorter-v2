@@ -86,7 +86,7 @@
 
 {#if loading}
 	<div class="flex justify-center py-12">
-		<Spinner />
+		<Spinner size={32} />
 	</div>
 {:else if machines.length === 0}
 	<div class="border border-border bg-surface p-8 text-center text-sm text-text-muted">

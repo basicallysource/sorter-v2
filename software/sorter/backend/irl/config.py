@@ -4,6 +4,18 @@ import time
 from dataclasses import dataclass
 
 
+# Master kill switch for the per-camera color correction pipeline (CCM +
+# response LUT + gamma). Deliberately a hardcoded constant — not an env var and
+# not a machine.toml key — so no deployed machine can silently be running the
+# correction. Suspected cause of the wildly off-color images some machines
+# report; flip to True in the source and redeploy to re-enable it everywhere.
+#
+# Disabling only gates *application* of the profile. Calibrated profiles stay
+# persisted in [camera_color_profiles] untouched, so turning this back on
+# restores every machine's existing calibration as-is.
+COLOR_CORRECTION_ENABLED = False
+
+
 class ClassificationChannelMode(enum.Enum):
     CLASSIC_CAROUSEL = "classic_carousel"
     DYNAMIC = "dynamic"
@@ -67,7 +79,7 @@ if TYPE_CHECKING:
     from machine_platform.control_board import ControlBoard
     from machine_platform.machine_profile import MachineProfile
     from machine_platform.servo_controller import ServoController
-    from hardware.sorter_interface import StepperMotor, ServoMotor, DigitalInputPin, DigitalOutputPin
+    from hardware.sorter_interface import StepperMotor, ServoMotor, DigitalInputPin
     from subsystems.classification.carousel_hardware import CarouselHardware
     from subsystems.distribution.chute import Chute
 
@@ -92,12 +104,12 @@ from .parse_user_toml import (
     loadCarouselCalibrationConfig,
     loadChuteCalibrationConfig,
     loadCameraLayoutConfig,
-    loadGpioLedsConfig,
     applyStepperCurrentOverride,
     applyStepperStallguard,
 )
+from .leds import LedController, discoverLedOutputs
 from blob_manager import getBinCategories
-from local_state import get_servo_states, set_servo_states
+from local_state import get_led_state, get_servo_states, set_servo_states
 
 HARDWARE_INIT_COMMAND_ATTEMPTS = 4
 HARDWARE_INIT_RETRY_DELAY_S = 0.2
@@ -641,14 +653,14 @@ class IRLInterface:
     control_boards: dict[str, "ControlBoard"]
     servo_controller: "ServoController | None"
     machine_profile: "MachineProfile | None"
-    gpio_led_pins: "list[DigitalOutputPin]"
+    led_controller: "LedController | None"
 
     def __init__(self):
         self.interfaces: dict[str, SorterInterface] = {}
         self.control_boards = {}
         self.servo_controller = None
         self.machine_profile = None
-        self.gpio_led_pins = []
+        self.led_controller = None
 
     def enableSteppers(self) -> None:
         for stepper_name in [
@@ -685,11 +697,8 @@ class IRLInterface:
                 stepper.enabled = False
 
     def shutdown(self) -> None:
-        for pin in self.gpio_led_pins:
-            try:
-                pin.value = False
-            except Exception:
-                pass
+        if self.led_controller is not None:
+            self.led_controller.allOff()
         if self.servo_controller is not None and hasattr(self.servo_controller, "shutdown"):
             try:
                 self.servo_controller.shutdown()
@@ -1289,44 +1298,6 @@ HARDWARE_DISCOVERY_ATTEMPTS = 8
 HARDWARE_DISCOVERY_RETRY_DELAY_S = 0.75
 
 
-def _applyGpioLeds(
-    control_boards: list,
-    led_configs: list,
-    gc: GlobalConfig,
-) -> list:
-    from hardware.sorter_interface import DigitalOutputPin
-    from .parse_user_toml import GpioLedConfig
-
-    active: list[DigitalOutputPin] = []
-    for cfg in led_configs:
-        cfg: GpioLedConfig
-        matched = [
-            b for b in control_boards
-            if cfg.board == "any" or b.identity.role == cfg.board
-        ]
-        for board in matched:
-            outputs = board.interface.digital_outputs
-            if cfg.pin >= len(outputs):
-                gc.logger.warning(
-                    f"gpio_leds: board {board.identity.role} ({board.identity.device_name}) "
-                    f"has no digital output at pin {cfg.pin} (only {len(outputs)} outputs). Skipping."
-                )
-                continue
-            pin = outputs[cfg.pin]
-            try:
-                pin.value = True
-                gc.logger.info(
-                    f"gpio_leds: turned on pin {cfg.pin} on {board.identity.role} board "
-                    f"({board.identity.device_name})"
-                )
-                active.append(pin)
-            except Exception as exc:
-                gc.logger.warning(
-                    f"gpio_leds: failed to set pin {cfg.pin} on {board.identity.role} board: {exc}"
-                )
-    return active
-
-
 def _requiredCanonicalStepperNames(
     machine_setup: MachineSetupDefinition,
     stepper_binding_overrides: dict[str, str],
@@ -1401,8 +1372,8 @@ def mkIRLInterface(config: IRLConfig, gc: GlobalConfig) -> IRLInterface:
         board.board_key: board for board in control_boards
     }
 
-    gpio_led_configs = loadGpioLedsConfig(gc, machine_specific_params)
-    irl_interface.gpio_led_pins = _applyGpioLeds(control_boards, gpio_led_configs, gc)
+    irl_interface.led_controller = LedController(gc, discoverLedOutputs(gc, control_boards))
+    irl_interface.led_controller.apply(get_led_state())
 
     stepper_entries: list[tuple[str, str, "StepperMotor", "ControlBoard"]] = []
     feeder_board: "ControlBoard | None" = None

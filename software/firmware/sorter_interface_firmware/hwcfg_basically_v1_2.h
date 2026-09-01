@@ -56,6 +56,10 @@ const int digital_input_pins[] = {3, 2};
 const uint8_t DIGITAL_OUTPUT_COUNT = 2;
 const int digital_output_pins[] = {1, 6};
 const int FAN0_OUTPUT_CHANNEL = -1;
+// The first LED_OUTPUT_COUNT digital outputs are the PWM LED drivers this board
+// offers the host. Boards with none declare 0; a board that grows non-LED
+// outputs keeps its LED channels first in digital_output_pins.
+const uint8_t LED_OUTPUT_COUNT = 2;
 
 i2c_inst_t* const I2C_PORT = i2c1;
 const int I2C_SDA_PIN = 10;

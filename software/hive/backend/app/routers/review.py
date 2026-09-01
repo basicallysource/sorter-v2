@@ -31,6 +31,7 @@ from app.routers.samples import (
     apply_kind_filter,
     attach_my_reviews,
 )
+from app.services.access_window import apply_sample_access, sample_access_visible
 from app.services.condition_analysis import (
     COMPOSITION_VALUES,
     CONDITION_VALUES,
@@ -87,6 +88,10 @@ def get_next_review(
         Sample.archived_at.is_(None),
         Sample.machine.has(Machine.archived_at.is_(None)),
     )
+    # Members only ever get their own machines' samples in the queue; reviewers
+    # and admins get everything. Without this a random member could pull other
+    # people's samples one 'next' at a time.
+    query = apply_sample_access(db, query, current_user)
 
     if not override_mode:
         # Default: hide samples the viewer already reviewed + ones past
@@ -144,11 +149,14 @@ def get_next_review(
     # property involved, just bit dispersion.
     from sqlalchemy import text as sa_text
 
-    sample = (
-        query.order_by(sa_text("md5(samples.id::text || :viewer_seed)"))
-        .params(viewer_seed=str(current_user.id))
-        .first()
-    )
+    # md5(id::text || seed) is Postgres-only (md5(), ::text cast). On SQLite
+    # (tests) fall back to a plain deterministic per-user order — the shuffle
+    # quality only matters in prod, which is always Postgres.
+    if db.get_bind().dialect.name == "postgresql":
+        order_expr = sa_text("md5(samples.id::text || :viewer_seed)")
+    else:
+        order_expr = sa_text("samples.id || :viewer_seed")
+    sample = query.order_by(order_expr).params(viewer_seed=str(current_user.id)).first()
 
     if not sample:
         return None
@@ -165,11 +173,15 @@ def create_or_update_review(
     current_user: User = Depends(get_current_user),
     _csrf: None = Depends(verify_csrf),
 ):
+    # Reviewing is a reviewer/admin action — a plain member (even a machine's
+    # own owner) doesn't get to vote on sample labels.
+    if current_user.role not in ("admin", "reviewer"):
+        raise APIError(403, "Only reviewers can review samples", "REVIEW_FORBIDDEN")
     if data.decision not in ("accept", "reject"):
         raise APIError(400, "Decision must be 'accept' or 'reject'", "INVALID_DECISION")
 
     sample = db.query(Sample).filter(Sample.id == sample_id).first()
-    if not sample:
+    if not sample or not sample_access_visible(db, current_user, sample):
         raise APIError(404, "Sample not found", "SAMPLE_NOT_FOUND")
 
     # Upsert review
@@ -237,7 +249,7 @@ def tag_condition_sample(
         )
 
     sample = db.query(Sample).filter(Sample.id == sample_id).first()
-    if not sample:
+    if not sample or not sample_access_visible(db, current_user, sample):
         raise APIError(404, "Sample not found", "SAMPLE_NOT_FOUND")
 
     # Drop unknown flag keys silently — the writer also filters, but doing
@@ -277,7 +289,7 @@ def get_review_history(
     current_user: User = Depends(get_current_user),
 ):
     sample = db.query(Sample).filter(Sample.id == sample_id).first()
-    if not sample:
+    if not sample or not sample_access_visible(db, current_user, sample):
         raise APIError(404, "Sample not found", "SAMPLE_NOT_FOUND")
 
     reviews = (

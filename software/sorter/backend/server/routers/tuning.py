@@ -1,12 +1,10 @@
 """Tuning endpoints for runtime-adjustable parameters."""
 from __future__ import annotations
 
-import time
 from typing import Any
 
 from fastapi import APIRouter, HTTPException
 
-from server import shared_state
 from toml_config import (
     getClassificationChannelRev01Config,
     setClassificationChannelRev01Config,
@@ -22,21 +20,18 @@ from toml_config import (
     setBeltFeederConfig,
     getConstantMovementConfig,
     setConstantMovementConfig,
-    getUpstreamMatchConfig,
-    setUpstreamMatchConfig,
+    getClassificationProviders,
+    setClassificationProviders,
+    getLinkMatchingConfig,
+    setLinkMatchingConfig,
 )
+from classification.providers import COLOR_PROVIDER_SPECS, MOLD_PROVIDER_SPECS
 from subsystems.classification_channel.simple_state_machine_rev01.rev01_config import FIELD_META
 from subsystems.feeder.go_to_angle.config import FIELD_META as GO_TO_ANGLE_FIELD_META
 from subsystems.feeder.pulse_perception.config import FIELD_META as PULSE_PERCEPTION_FIELD_META
 from subsystems.feeder.belt.config import FIELD_META as BELT_FEEDER_FIELD_META
 from subsystems.feeder.constant_movement.config import FIELD_META as CONSTANT_MOVEMENT_FIELD_META
 from perception.tracker_config import TRACKER_SPECS
-from perception.upstream_capture import (
-    EMBED_MODEL,
-    FIELD_META as UPSTREAM_MATCH_FIELD_META,
-    anchorImageB64s,
-    configFromDict as upstreamConfigFromDict,
-)
 
 router = APIRouter()
 
@@ -120,6 +115,103 @@ def get_belt_feeder_status() -> dict[str, Any]:
         return {"available": False, "status": None}
     return {"available": True, "status": dict(status)}
 
+@router.get("/api/tuning/feeder-pulse-perception/autotune")
+def get_pulse_perception_autotune_status() -> dict[str, Any]:
+    from subsystems.feeder.pulse_perception.autotune import getAutoTuner
+
+    try:
+        return getAutoTuner().status()
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc))
+
+
+@router.post("/api/tuning/feeder-pulse-perception/autotune/start")
+def start_pulse_perception_autotune(body: dict[str, Any] | None = None) -> dict[str, Any]:
+    from subsystems.feeder.pulse_perception.autotune import getAutoTuner
+
+    try:
+        return getAutoTuner().start(body or {})
+    except RuntimeError as exc:
+        raise HTTPException(status_code=409, detail=str(exc))
+
+
+@router.post("/api/tuning/feeder-pulse-perception/autotune/stop")
+def stop_pulse_perception_autotune(body: dict[str, Any] | None = None) -> dict[str, Any]:
+    from subsystems.feeder.pulse_perception.autotune import getAutoTuner
+
+    apply = (body or {}).get("apply", "baseline")
+    if apply not in ("baseline", "best", "keep"):
+        raise HTTPException(status_code=400, detail="apply must be baseline, best, or keep")
+    try:
+        return getAutoTuner().stop(apply)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc))
+
+
+@router.post("/api/tuning/feeder-pulse-perception/autotune/background")
+def set_pulse_perception_autotune_background(body: dict[str, Any] | None = None) -> dict[str, Any]:
+    from subsystems.feeder.pulse_perception.autotune import getAutoTuner
+
+    body = body or {}
+    enabled = bool(body.get("enabled"))
+    try:
+        tuner = getAutoTuner()
+        if enabled:
+            return tuner.enableBackground(body)
+        apply = body.get("apply", "baseline")
+        if apply not in ("baseline", "best", "keep"):
+            raise HTTPException(status_code=400, detail="apply must be baseline, best, or keep")
+        return tuner.disableBackground(apply)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=409, detail=str(exc))
+
+
+@router.get("/api/tuning/feeder-pulse-perception/autotune/dataset")
+def get_pulse_perception_autotune_dataset(limit: int = 5000) -> dict[str, Any]:
+    import local_state
+
+    return {"trials": local_state.listFeederAutotuneDataset(limit=limit)}
+
+
+@router.get("/api/tuning/feeder-pulse-perception/autotune/runs")
+def list_pulse_perception_autotune_runs(limit: int = 50) -> dict[str, Any]:
+    import local_state
+
+    return {"runs": local_state.listFeederAutotuneRuns(limit=limit)}
+
+
+@router.get("/api/tuning/feeder-pulse-perception/autotune/runs/{run_id}")
+def get_pulse_perception_autotune_run(run_id: str) -> dict[str, Any]:
+    import local_state
+
+    run = local_state.getFeederAutotuneRun(run_id)
+    if run is None:
+        raise HTTPException(status_code=404, detail="run not found")
+    return {"run": run, "trials": local_state.listFeederAutotuneTrials(run_id)}
+
+
+@router.post("/api/tuning/feeder-pulse-perception/autotune/apply-best")
+def apply_pulse_perception_autotune_best(body: dict[str, Any] | None = None) -> dict[str, Any]:
+    import local_state
+
+    run_id = (body or {}).get("run_id")
+    if not isinstance(run_id, str) or not run_id:
+        runs = local_state.listFeederAutotuneRuns(limit=1)
+        if not runs:
+            raise HTTPException(status_code=404, detail="no auto-tune runs found")
+        run_id = runs[0]["id"]
+    run = local_state.getFeederAutotuneRun(run_id)
+    if run is None:
+        raise HTTPException(status_code=404, detail="run not found")
+    best_trial_id = run.get("best_trial_id")
+    if best_trial_id is None:
+        raise HTTPException(status_code=404, detail="run has no best trial yet")
+    trial = local_state.getFeederAutotuneTrial(int(best_trial_id))
+    if trial is None or not trial.get("params_json"):
+        raise HTTPException(status_code=404, detail="best trial not found")
+    updated = setPulsePerceptionConfig(trial["params_json"])
+    return {"config": updated, "applied_trial": trial}
+
 
 @router.get("/api/tuning/feeder-constant-movement")
 def get_constant_movement_config() -> dict[str, Any]:
@@ -136,6 +228,37 @@ def set_constant_movement_config(body: dict[str, Any]) -> dict[str, Any]:
     except Exception as exc:
         raise HTTPException(status_code=400, detail=str(exc))
     return {"config": updated}
+
+
+@router.get("/api/tuning/classification-providers")
+def get_classification_providers() -> dict[str, Any]:
+    active = getClassificationProviders()
+    return {
+        "active": active,
+        "color_providers": [
+            {"id": s.id, "label": s.label, "description": s.description}
+            for s in COLOR_PROVIDER_SPECS.values()
+        ],
+        "mold_providers": [
+            {"id": s.id, "label": s.label, "description": s.description}
+            for s in MOLD_PROVIDER_SPECS.values()
+        ],
+    }
+
+
+@router.post("/api/tuning/classification-providers")
+def set_classification_providers(body: dict[str, Any]) -> dict[str, Any]:
+    try:
+        if "color_provider" in body and body["color_provider"] not in COLOR_PROVIDER_SPECS:
+            raise ValueError(f"unknown color provider: {body['color_provider']}")
+        if "mold_provider" in body and body["mold_provider"] not in MOLD_PROVIDER_SPECS:
+            raise ValueError(f"unknown mold provider: {body['mold_provider']}")
+        setClassificationProviders(body)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    return get_classification_providers()
 
 
 @router.get("/api/tuning/object-tracker")
@@ -178,89 +301,37 @@ def set_object_tracker_config(body: dict[str, Any]) -> dict[str, Any]:
     return get_object_tracker_config()
 
 
-def _upstreamStore():
-    gc = shared_state.gc_ref
-    service = getattr(gc, "perception_service", None) if gc is not None else None
-    return getattr(service, "upstream_store", None) if service is not None else None
+@router.get("/api/tuning/link-matching")
+def get_link_matching() -> dict[str, Any]:
+    import link_matcher
+    import server.hive_models as hive_models
 
-
-@router.get("/api/tuning/upstream-match")
-def get_upstream_match_config() -> dict[str, Any]:
-    store = _upstreamStore()
+    installed = [
+        {
+            "local_id": e.get("local_id"),
+            "name": e.get("name"),
+            "model_id": e.get("model_id"),
+            "downloaded_at": e.get("downloaded_at"),
+        }
+        for e in hive_models.list_installed_models()
+        if e.get("purpose") == hive_models.PURPOSE_PIECE_LINK
+    ]
     return {
-        "config": getUpstreamMatchConfig(),
-        "fields": UPSTREAM_MATCH_FIELD_META,
-        "stats": store.stats() if store is not None else None,
+        "config": getLinkMatchingConfig(),
+        "installed": installed,
+        "meta_features": link_matcher.META_FEATURES,
     }
 
 
-@router.post("/api/tuning/upstream-match")
-def set_upstream_match_config(body: dict[str, Any]) -> dict[str, Any]:
+@router.post("/api/tuning/link-matching")
+def set_link_matching(body: dict[str, Any]) -> dict[str, Any]:
+    import link_matcher
+
     try:
-        updated = setUpstreamMatchConfig(body)
+        updated = setLinkMatchingConfig(body)
     except Exception as exc:
         raise HTTPException(status_code=400, detail=str(exc))
-    store = _upstreamStore()
-    if store is not None:
-        store.configure(upstreamConfigFromDict(updated))
+    # Drop cached sessions so switching models (or re-enabling after a failed
+    # load) takes effect without a restart.
+    link_matcher.invalidateCache()
     return {"config": updated}
-
-
-@router.get("/api/tuning/upstream-match/crops")
-def list_upstream_crops(offset: int = 0, limit: int = 60, channel: int | None = None) -> dict[str, Any]:
-    store = _upstreamStore()
-    if store is None:
-        raise HTTPException(status_code=503, detail="upstream store not running (perception inactive?)")
-    limit = max(1, min(int(limit), 200))
-    offset = max(0, int(offset))
-    ch = channel if channel in (2, 3) else None
-    return store.listCrops(offset=offset, limit=limit, channel=ch)
-
-
-@router.post("/api/tuning/upstream-match/search")
-def search_upstream_match(body: dict[str, Any]) -> dict[str, Any]:
-    uuid = body.get("uuid")
-    if not isinstance(uuid, str) or not uuid.strip():
-        raise HTTPException(status_code=400, detail="uuid is required")
-    uuid = uuid.strip()
-    store = _upstreamStore()
-    if store is None:
-        raise HTTPException(status_code=503, detail="upstream store not running (perception inactive?)")
-    gc = shared_state.gc_ref
-    runtime_stats = getattr(gc, "runtime_stats", None) if gc is not None else None
-    payload = runtime_stats.lookupKnownObject(uuid) if runtime_stats is not None else None
-    if payload is None:
-        raise HTTPException(status_code=404, detail="piece not found (aged out of lookup?)")
-
-    # Persisted defaults overlaid with any live overrides from the tuning form,
-    # so the operator can sweep params without saving.
-    cfg_dict = {**getUpstreamMatchConfig()}
-    for k, v in body.items():
-        if k != "uuid":
-            cfg_dict[k] = v
-    cfg = upstreamConfigFromDict(cfg_dict)
-
-    b64s = anchorImageB64s(payload)
-    ref_ts = (
-        payload.get("first_carousel_seen_ts")
-        or payload.get("created_at")
-        or time.time()
-    )
-    result = store.search(b64s, float(ref_ts), cfg)
-    return {
-        "anchor": {
-            "uuid": uuid,
-            "ref_ts": float(ref_ts),
-            "part_id": payload.get("part_id"),
-            "part_name": payload.get("part_name"),
-            "color_name": payload.get("color_name"),
-            "confidence": payload.get("confidence"),
-            "n_embeddings": result.get("n_anchor_embedded", 0),
-            "embedding_method": EMBED_MODEL,
-            "images": b64s[:8],
-        },
-        "candidates": result.get("candidates", []),
-        "error": result.get("error"),
-        "stats": store.stats(),
-        "config": cfg_dict,
-    }

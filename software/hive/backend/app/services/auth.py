@@ -74,31 +74,18 @@ def sanitize_redirect_target(target: str | None) -> str:
     return target
 
 
-def set_github_oauth_cookies(response: Response, state: str, next_path: str | None) -> None:
+def set_oauth_cookies(response: Response, provider: str, state: str, next_path: str | None, intent: str = "login") -> None:
     max_age = settings.GITHUB_OAUTH_STATE_EXPIRE_MINUTES * 60
-    response.set_cookie(
-        key="github_oauth_state",
-        value=state,
-        httponly=True,
-        samesite="lax",
-        secure=settings.COOKIE_SECURE,
-        path="/api/auth",
-        max_age=max_age,
-    )
-    response.set_cookie(
-        key="github_oauth_next",
-        value=sanitize_redirect_target(next_path),
-        httponly=True,
-        samesite="lax",
-        secure=settings.COOKIE_SECURE,
-        path="/api/auth",
-        max_age=max_age,
-    )
+    common = {"httponly": True, "samesite": "lax", "secure": settings.COOKIE_SECURE, "path": "/api/auth", "max_age": max_age}
+    response.set_cookie(key=f"{provider}_oauth_state", value=state, **common)
+    response.set_cookie(key=f"{provider}_oauth_next", value=sanitize_redirect_target(next_path), **common)
+    response.set_cookie(key=f"{provider}_oauth_intent", value=intent, **common)
 
 
-def clear_github_oauth_cookies(response: Response) -> None:
-    response.delete_cookie(key="github_oauth_state", path="/api/auth")
-    response.delete_cookie(key="github_oauth_next", path="/api/auth")
+def clear_oauth_cookies(response: Response, provider: str) -> None:
+    response.delete_cookie(key=f"{provider}_oauth_state", path="/api/auth")
+    response.delete_cookie(key=f"{provider}_oauth_next", path="/api/auth")
+    response.delete_cookie(key=f"{provider}_oauth_intent", path="/api/auth")
 
 
 def build_github_authorize_url(state: str) -> str:

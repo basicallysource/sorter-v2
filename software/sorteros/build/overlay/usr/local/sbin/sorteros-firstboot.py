@@ -30,6 +30,8 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Callable
 
+# Keep these lists in sync with the Sorter backend's server/machine_naming.py,
+# which draws Hive machine names from the same vocabulary.
 LEGO_COLORS = [
     "aqua", "azure", "black", "blue", "bright-green", "bright-pink",
     "brown", "coral", "dark-azure", "dark-blue", "dark-brown", "dark-gray",
@@ -43,9 +45,12 @@ LEGO_COLORS = [
 ]
 
 LEGO_PIECES = [
-    "arch", "axle", "beam", "bracket", "brick", "clip", "cone", "cylinder",
-    "dome", "gear", "hinge", "panel", "pin", "plate", "rail", "slope",
-    "stud", "technic", "tile", "turntable", "wedge",
+    "antenna", "arch", "axle", "baseplate", "beam", "bracket", "brick",
+    "bushing", "clip", "cone", "cylinder", "dish", "dome", "door", "fence",
+    "flag", "gear", "grille", "hinge", "hose", "jumper", "ladder", "lever",
+    "minifig", "panel", "pin", "plate", "propeller", "rail", "ramp", "rod",
+    "roof", "slope", "sprocket", "stud", "technic", "tile", "tube",
+    "turntable", "wedge", "wheel", "windscreen", "wing",
 ]
 
 # tomllib is stdlib on Python 3.11+; Ubuntu Jammy ships 3.10 so we fall

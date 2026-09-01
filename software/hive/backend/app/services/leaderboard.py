@@ -21,6 +21,8 @@ from uuid import UUID
 from sqlalchemy import and_, case, func, literal, select, text
 from sqlalchemy.orm import Session
 
+from app.models.piece_color_label import PieceColorLabel
+from app.models.piece_crop_link import PieceCropLink
 from app.models.sample import Sample
 from app.models.sample_review import SampleReview
 from app.models.user import User
@@ -55,51 +57,102 @@ class LeaderboardRow:
     total_reviews: int
     accepts: int
     rejects: int
-    last_review_at: datetime | None
+    piece_color_labels: int
+    piece_crop_links: int
+    total_contributions: int  # reviews + color labels + same-piece links
+    last_review_at: datetime | None  # last activity across all sources
+
+
+def _max_dt(*values: datetime | None) -> datetime | None:
+    present = [v for v in values if v is not None]
+    return max(present) if present else None
 
 
 def get_leaderboard(db: Session, *, period: str, limit: int = 100) -> list[LeaderboardRow]:
-    """Aggregate sample_reviews into a ranked list of reviewers.
+    """Ranked contributor list across all labeling work: sample reviews plus
+    piece color labels and same-piece crop links.
 
-    Includes anyone who has at least one review in the period; ordered by
-    total review count desc, then by display_name asc for ties.
+    Includes anyone with at least one contribution in the period; ordered by
+    total contributions desc, then display_name asc for ties.
     """
 
     cutoff = _cutoff(period)
-    q = db.query(
-        User.id.label("user_id"),
-        User.display_name,
-        User.avatar_url,
-        User.role,
+
+    review_q = db.query(
+        SampleReview.reviewer_id.label("uid"),
         func.count(SampleReview.id).label("total"),
         func.sum(case((SampleReview.decision == "accept", 1), else_=0)).label("accepts"),
         func.sum(case((SampleReview.decision == "reject", 1), else_=0)).label("rejects"),
         func.max(SampleReview.created_at).label("last_at"),
-    ).join(SampleReview, SampleReview.reviewer_id == User.id)
-    # WHERE-clause must be applied before group/order/limit — SQLAlchemy
-    # raises InvalidRequestError if you call .filter() after .limit().
-    if cutoff is not None:
-        q = q.filter(SampleReview.created_at >= cutoff)
-    q = (
-        q.group_by(User.id, User.display_name, User.avatar_url, User.role)
-        .order_by(func.count(SampleReview.id).desc(), User.display_name.asc())
-        .limit(limit)
     )
+    color_q = db.query(
+        PieceColorLabel.labeler_id.label("uid"),
+        func.count(PieceColorLabel.id).label("cnt"),
+        func.max(PieceColorLabel.created_at).label("last_at"),
+    )
+    crop_q = db.query(
+        PieceCropLink.labeler_id.label("uid"),
+        func.count(PieceCropLink.id).label("cnt"),
+        func.max(PieceCropLink.created_at).label("last_at"),
+    )
+    if cutoff is not None:
+        review_q = review_q.filter(SampleReview.created_at >= cutoff)
+        color_q = color_q.filter(PieceColorLabel.created_at >= cutoff)
+        crop_q = crop_q.filter(PieceCropLink.created_at >= cutoff)
+    review_rows = review_q.group_by(SampleReview.reviewer_id).all()
+    color_rows = color_q.group_by(PieceColorLabel.labeler_id).all()
+    crop_rows = crop_q.group_by(PieceCropLink.labeler_id).all()
 
-    rows = q.all()
-    return [
-        LeaderboardRow(
-            user_id=r.user_id,
-            display_name=r.display_name,
-            avatar_url=r.avatar_url,
-            role=r.role,
-            total_reviews=int(r.total or 0),
-            accepts=int(r.accepts or 0),
-            rejects=int(r.rejects or 0),
-            last_review_at=r.last_at,
+    agg: dict[UUID, dict[str, Any]] = {}
+
+    def _slot(uid: UUID) -> dict[str, Any]:
+        return agg.setdefault(
+            uid,
+            {"total": 0, "accepts": 0, "rejects": 0, "color": 0, "crop": 0, "last_at": None},
         )
-        for r in rows
+
+    for r in review_rows:
+        s = _slot(r.uid)
+        s["total"] = int(r.total or 0)
+        s["accepts"] = int(r.accepts or 0)
+        s["rejects"] = int(r.rejects or 0)
+        s["last_at"] = _max_dt(s["last_at"], r.last_at)
+    for r in color_rows:
+        s = _slot(r.uid)
+        s["color"] = int(r.cnt or 0)
+        s["last_at"] = _max_dt(s["last_at"], r.last_at)
+    for r in crop_rows:
+        s = _slot(r.uid)
+        s["crop"] = int(r.cnt or 0)
+        s["last_at"] = _max_dt(s["last_at"], r.last_at)
+
+    if not agg:
+        return []
+
+    users = {
+        u.id: u
+        for u in db.query(User.id, User.display_name, User.avatar_url, User.role).filter(User.id.in_(agg.keys())).all()
+    }
+
+    rows = [
+        LeaderboardRow(
+            user_id=uid,
+            display_name=users[uid].display_name if uid in users else None,
+            avatar_url=users[uid].avatar_url if uid in users else None,
+            role=users[uid].role if uid in users else "member",
+            total_reviews=s["total"],
+            accepts=s["accepts"],
+            rejects=s["rejects"],
+            piece_color_labels=s["color"],
+            piece_crop_links=s["crop"],
+            total_contributions=s["total"] + s["color"] + s["crop"],
+            last_review_at=s["last_at"],
+        )
+        for uid, s in agg.items()
+        if uid in users
     ]
+    rows.sort(key=lambda r: (-r.total_contributions, (r.display_name or "").lower()))
+    return rows[:limit]
 
 
 # ----------------------------------------------------------------------- profile
@@ -114,6 +167,9 @@ class ReviewerProfile:
     total_reviews: int
     accepts: int
     rejects: int
+    piece_color_labels: int
+    piece_crop_links: int
+    total_contributions: int  # reviews + color labels + same-piece links
     agreement_rate: float | None  # 0..1 (None if no conclusive samples reviewed)
     machines_covered: int
     current_streak_days: int
@@ -384,6 +440,11 @@ def get_reviewer_profile(db: Session, user_id: UUID) -> ReviewerProfile | None:
     accepts = int(totals.accepts or 0) if totals else 0
     rejects = int(totals.rejects or 0) if totals else 0
 
+    color_labels = (
+        db.query(func.count(PieceColorLabel.id)).filter(PieceColorLabel.labeler_id == user_id).scalar() or 0
+    )
+    crop_links = db.query(func.count(PieceCropLink.id)).filter(PieceCropLink.labeler_id == user_id).scalar() or 0
+
     agreement = _agreement_rate(db, user_id)
     machines = _machines_covered(db, user_id)
     current_streak, longest_streak = _streak_days(db, user_id)
@@ -409,6 +470,9 @@ def get_reviewer_profile(db: Session, user_id: UUID) -> ReviewerProfile | None:
         total_reviews=total,
         accepts=accepts,
         rejects=rejects,
+        piece_color_labels=int(color_labels),
+        piece_crop_links=int(crop_links),
+        total_contributions=total + int(color_labels) + int(crop_links),
         agreement_rate=agreement,
         machines_covered=machines,
         current_streak_days=current_streak,

@@ -82,6 +82,23 @@ vercel --prod             # ship to setup.basically.website
 Spencer has the Vercel project and domain set up. CI hookup is TBD; for
 now, deploy by hand.
 
+The Vercel project's Root Directory is `software/sorteros/sorteros-setup`,
+but its Git integration fires on *every* push to the monorepo. So
+`vercel.json` carries an `ignoreCommand` that exits 0 (= skip the build)
+when the pushed commit touched nothing under this directory. The pathspec
+is anchored with `:/` so it resolves from the repo root no matter which
+directory the ignore step runs in.
+
+Two things the ignore step does *not* fix:
+
+- Vercel still creates a deployment record per push and marks it
+  `Canceled`; only the build is skipped. Those records count against the
+  Hobby plan's 100-deployments-per-day limit.
+- On a branch that predates this directory, Vercel fails on `The
+  specified Root Directory ... does not exist` before it ever runs the
+  ignore step, and posts a red **Error** into the PR. Rebasing the branch
+  onto `main` is the only cure.
+
 ## Files in this scaffold
 
 - `README.md` — this file.

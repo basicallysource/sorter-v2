@@ -65,12 +65,29 @@ class PieceSummary(BaseModel):
     color_id: Optional[str] = None
     color_name: Optional[str] = None
     category_id: Optional[str] = None
+    # Mold score (Brickognize's top item) and the applied color's own score,
+    # which can come from a different provider — see color_provider below.
     confidence: Optional[float] = None
+    color_confidence: Optional[float] = None
     bin: Optional[BinRef] = None
     dead: bool = False
     has_images: bool = False
     preview_url: Optional[str] = None
     est_value: Optional[float] = None
+    # Brickognize-correction state. correctable is True only when a listing id
+    # was captured for this piece (a prerequisite for submitting any correction).
+    correctable: bool = False
+    part_correct: Optional[bool] = None
+    color_corrected_id: Optional[str] = None
+    part_feedback_submitted: bool = False
+    color_feedback_submitted: bool = False
+    # Which service actually produced this piece's color / mold. None on rows
+    # recorded before the providers were selectable.
+    color_provider: Optional[str] = None
+    mold_provider: Optional[str] = None
+    # Operator-flagged capture issues — reason codes matching Hive's
+    # piece_rejections vocabulary ("no_piece" / "multiple_pieces" / "not_lego").
+    rejection_reasons: List[str] = []
 
 
 class PiecesListResponse(BaseModel):
@@ -219,6 +236,30 @@ def getPiecesAggregates(days: int = 365) -> Dict[str, Any]:
     return piece_records.getAggregates(shared_state.gc_ref, days=days)
 
 
+class ColorOption(BaseModel):
+    id: int
+    name: str
+    rgb: Optional[str] = None
+    is_trans: bool = False
+
+
+class ColorsResponse(BaseModel):
+    results: List[ColorOption]
+
+
+@router.get("/api/pieces/colors", response_model=ColorsResponse)
+def getPieceColors() -> ColorsResponse:
+    # BrickLink color palette for the correction dropdown (searchable list of all
+    # LEGO colors). Fetched from Hive; empty when Hive is unavailable.
+    import hive_metadata
+
+    gc = shared_state.gc_ref
+    if gc is None:
+        return ColorsResponse(results=[])
+    colors = hive_metadata.listBrickLinkColors(gc)
+    return ColorsResponse(results=[ColorOption(**c) for c in colors])
+
+
 _CSV_COLUMNS = [
     "uuid",
     "run_id",
@@ -230,7 +271,8 @@ _CSV_COLUMNS = [
     "color_id",
     "color_name",
     "category_id",
-    "confidence",
+    "mold_confidence",
+    "color_confidence",
     "bin_x",
     "bin_y",
     "bin_z",
@@ -300,6 +342,11 @@ def exportPiecesCsv(
                     s.get("color_name") or "",
                     s.get("category_id") or "",
                     s.get("confidence") if s.get("confidence") is not None else "",
+                    (
+                        s.get("color_confidence")
+                        if s.get("color_confidence") is not None
+                        else ""
+                    ),
                     bin_ref.get("x", ""),
                     bin_ref.get("y", ""),
                     bin_ref.get("z", ""),
@@ -352,11 +399,178 @@ def listPieces(
     )
 
 
+class CorrectionRequest(BaseModel):
+    # Fields present in the request body are applied; absent fields are left
+    # unchanged (so the part check/x, the color dropdown, and the capture-issue
+    # flags can be saved independently). part_correct null clears the piece back
+    # to unreviewed.
+    part_correct: Optional[bool] = None
+    color_corrected_id: Optional[str] = None
+    # Operator-flagged capture issues ("no_piece" / "multiple_pieces" /
+    # "not_lego"); an empty list clears all flags. Never sent to Brickognize —
+    # recorded locally and synced to Hive alongside the other correction fields.
+    rejection_reasons: Optional[List[str]] = None
+    # When true (default), any pending (verdict recorded, not yet submitted)
+    # correction is sent to Brickognize now. The verdict is always recorded.
+    submit: bool = True
+
+
+class CorrectionResponse(BaseModel):
+    summary: PieceSummary
+    part_submitted: bool = False
+    color_submitted: bool = False
+    submit_error: Optional[str] = None
+
+
+def _ensurePieceRecorded(gc: Any, uuid: str) -> None:
+    # A piece is correctable the instant it's classified (the live payload
+    # carries the Brickognize listing), which is BEFORE it's written to
+    # piece_records at distribution. If a correction lands in that window,
+    # persist the piece straight from the in-memory KnownObject so the correction
+    # has a row to attach to. recordPiece upserts, so the later distribution write
+    # still fills in the bin.
+    import piece_records
+
+    if gc is None or getattr(gc, "runtime_stats", None) is None:
+        return
+    payload = gc.runtime_stats.lookupKnownObject(uuid)
+    if payload is None:
+        return
+    status = payload.get("classification_status")
+    if isinstance(status, Enum):
+        status = status.value
+    piece_records.recordPiece(
+        {
+            "uuid": uuid,
+            "created_at": payload.get("created_at"),
+            "distributed_at": payload.get("distributed_at"),
+            "classification_status": status,
+            "part_id": payload.get("part_id"),
+            "part_name": payload.get("part_name"),
+            "color_id": payload.get("color_id"),
+            "color_name": payload.get("color_name"),
+            "category_id": payload.get("category_id"),
+            "confidence": payload.get("confidence"),
+            "color_confidence": payload.get("color_confidence"),
+            "destination_bin": payload.get("destination_bin"),
+            "dead": payload.get("dead"),
+            "brickognize_preview_url": payload.get("brickognize_preview_url"),
+            "brickognize_listing_id": payload.get("brickognize_listing_id"),
+            "brickognize_item_rank": payload.get("brickognize_item_rank"),
+            "brickognize_item_type": payload.get("brickognize_item_type"),
+            "brickognize_color_rank": payload.get("brickognize_color_rank"),
+            "color_provider": payload.get("color_provider"),
+            "mold_provider": payload.get("mold_provider"),
+        },
+        run_id=getattr(gc, "run_id", None),
+        machine_id=getattr(gc, "machine_id", None),
+    )
+
+
+@router.post("/api/pieces/{uuid}/correction", response_model=CorrectionResponse)
+def submitPieceCorrection(uuid: str, body: CorrectionRequest) -> CorrectionResponse:
+    import piece_records
+    from classification.brickognize_feedback import (
+        submitColorFeedback,
+        submitPartFeedback,
+    )
+
+    gc = shared_state.gc_ref
+    ctx = piece_records.getCorrectionContext(uuid)
+    if ctx is None:
+        # Not recorded yet — persist it from memory, then retry.
+        _ensurePieceRecorded(gc, uuid)
+        ctx = piece_records.getCorrectionContext(uuid)
+    if ctx is None:
+        raise HTTPException(status_code=404, detail="not found")
+
+    fields = body.model_fields_set
+    set_part = "part_correct" in fields
+    set_color = "color_corrected_id" in fields
+    set_rejection_reasons = "rejection_reasons" in fields
+    if set_part or set_color or set_rejection_reasons:
+        piece_records.setPieceCorrection(
+            uuid,
+            set_part=set_part,
+            part_correct=body.part_correct,
+            set_color=set_color,
+            color_corrected_id=body.color_corrected_id,
+            set_rejection_reasons=set_rejection_reasons,
+            rejection_reasons=body.rejection_reasons,
+        )
+        ctx = piece_records.getCorrectionContext(uuid) or ctx
+
+    part_submitted = False
+    color_submitted = False
+    submit_error: Optional[str] = None
+
+    if body.submit:
+        listing_id = ctx.get("brickognize_listing_id")
+        # Part feedback: needs a listing, the applied item's rank, a part id, and
+        # a recorded verdict that hasn't already been sent.
+        if (
+            listing_id
+            and ctx.get("part_correct") is not None
+            and not ctx.get("part_feedback_submitted")
+            and ctx.get("brickognize_item_rank") is not None
+            and ctx.get("part_id")
+        ):
+            try:
+                submitPartFeedback(
+                    listing_id=str(listing_id),
+                    item_id=str(ctx["part_id"]),
+                    item_rank=int(ctx["brickognize_item_rank"]),
+                    item_type=ctx.get("brickognize_item_type"),
+                    is_correct=bool(ctx["part_correct"]),
+                )
+                piece_records.markFeedbackSubmitted(uuid, part=True)
+                part_submitted = True
+            except Exception as e:
+                submit_error = f"part: {e}"
+                if gc is not None:
+                    gc.logger.warning(f"Brickognize part feedback failed for {uuid}: {e}")
+        # Color feedback: a corrected color equal to the prediction confirms it; a
+        # different one rejects the prediction (Brickognize only accepts/rejects
+        # its own ranked color, so it can't be told the actual true color).
+        if (
+            listing_id
+            and ctx.get("color_corrected_id") is not None
+            and not ctx.get("color_feedback_submitted")
+            and ctx.get("brickognize_color_rank") is not None
+            and ctx.get("color_id")
+        ):
+            try:
+                is_correct = str(ctx["color_corrected_id"]) == str(ctx["color_id"])
+                submitColorFeedback(
+                    listing_id=str(listing_id),
+                    color_id=str(ctx["color_id"]),
+                    color_rank=int(ctx["brickognize_color_rank"]),
+                    is_correct=is_correct,
+                )
+                piece_records.markFeedbackSubmitted(uuid, color=True)
+                color_submitted = True
+            except Exception as e:
+                prev = submit_error + "; " if submit_error else ""
+                submit_error = f"{prev}color: {e}"
+                if gc is not None:
+                    gc.logger.warning(f"Brickognize color feedback failed for {uuid}: {e}")
+
+    summary = piece_records.getPieceSummaryByUuid(gc, uuid)
+    if summary is None:
+        raise HTTPException(status_code=404, detail="not found")
+    return CorrectionResponse(
+        summary=PieceSummary(**summary),
+        part_submitted=part_submitted,
+        color_submitted=color_submitted,
+        submit_error=submit_error,
+    )
+
+
 def _summaryFromMemory(gc: Any, payload: Dict[str, Any]) -> PieceSummary:
     # HOT PATH: RecentObjects polls this per active piece every 600ms during
     # sorting. Everything here must come from the in-memory payload / process
     # state — zero sqlite. est_value uses the dict-hit-only price peek; a cache
-    # miss stays null rather than touching parts.db.
+    # miss stays null rather than hitting Hive.
     from piece_records import peekCachedPrice
 
     part_id = payload.get("part_id")
@@ -382,11 +596,18 @@ def _summaryFromMemory(gc: Any, payload: Dict[str, Any]) -> PieceSummary:
         color_name=payload.get("color_name"),
         category_id=payload.get("category_id"),
         confidence=payload.get("confidence"),
+        color_confidence=payload.get("color_confidence"),
         bin=bin_ref,
         dead=bool(payload.get("dead")),
         has_images=bool(payload.get("recognition_image_set")),
         preview_url=payload.get("brickognize_preview_url"),
         est_value=est_value,
+        # A freshly classified piece can be corrected the moment it appears in
+        # the recent list — the correction state itself lives only in the DB, so
+        # it defaults to unreviewed here.
+        correctable=payload.get("brickognize_listing_id") is not None,
+        color_provider=payload.get("color_provider"),
+        mold_provider=payload.get("mold_provider"),
     )
 
 

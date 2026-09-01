@@ -47,6 +47,31 @@ This project uses the **command‑line wire harness generator** used by *LumenPn
 - Generates wiring diagrams from YAML files
 - Produces PDF, PNG, and interactive outputs
 
+### How it runs here
+The sources are `wire_harness/*.yml`. **They are the only thing you edit, and
+the only thing in git.** Everything rendered from them (PNG, SVG, PDF, HTML,
+per-cable BOM, and the supplier RFQ zip) is published by CI to the assets
+bucket under the branch name, and the docs site links it at
+[/hardware/electronics/wireviz/](https://docs.basically.website/hardware/electronics/wireviz/).
+
+Edit the YAML, push, open a PR. That's the whole workflow: no toolchain, no
+credentials, no publish step to remember. The PR's docs preview shows the PR's
+own drawings about 90 seconds after each push.
+
+To look at a drawing before pushing, render it yourself:
+
+```bash
+pip install wireviz==0.4.1 && brew install graphviz   # once
+./wire_harness/build-harness.sh
+```
+
+Everything lands in `wire_harness/out/`, which is gitignored: a local render
+can never end up committed, even by accident. CI's render is still the
+canonical one (its graphviz is pinned; yours probably differs by a pixel or
+two, and the next CI run quietly normalizes the published copy).
+
+Details and how to add a drawing: `wire_harness/AGENTS.md`.
+
 ---
 
 ##  Repository Structure

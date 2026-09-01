@@ -77,7 +77,7 @@
 	});
 </script>
 
-<svelte:head><link rel="icon" type="image/x-icon" href="/favicon.ico" /></svelte:head>
+<!-- Favicon links live in src/app.html, alongside the rest of the icon set. -->
 
 <MachinesProvider>
 	<MachineTitle />

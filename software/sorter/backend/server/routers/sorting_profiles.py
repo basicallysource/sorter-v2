@@ -86,6 +86,41 @@ def _safe_json(response: requests.Response) -> dict[str, Any]:
         return {"error": response.text}
 
 
+def _target_meta(target: dict[str, Any]) -> dict[str, Any]:
+    # Metadata only — no network. Shaped like a full library entry with empty
+    # profiles so the UI can render target cards/skeletons before the Hive
+    # fetch lands.
+    return {
+        "id": target.get("id"),
+        "name": target.get("name") or target.get("url"),
+        "url": target.get("url"),
+        "enabled": bool(target.get("enabled", False)),
+        "machine_id": target.get("machine_id"),
+        "profiles": [],
+        "assignment": None,
+        "error": None,
+    }
+
+
+def _fetch_target_library(target: dict[str, Any]) -> dict[str, Any]:
+    payload = _target_meta(target)
+    if not payload["enabled"]:
+        return payload
+    try:
+        session = _target_session(target)
+        response = session.get(f"{_target_base_url(target)}/api/machine/profiles/library", timeout=20)
+        if not response.ok:
+            body = _safe_json(response)
+            message = body.get("error") or body.get("detail") or f"HTTP {response.status_code}"
+            raise RuntimeError(str(message))
+        body = response.json()
+        payload["profiles"] = body.get("profiles", []) if isinstance(body, dict) else []
+        payload["assignment"] = body.get("assignment") if isinstance(body, dict) else None
+    except Exception as exc:
+        payload["error"] = str(exc)
+    return payload
+
+
 def _preassign_bins_from_rules(artifact: dict[str, Any]) -> int:
     """Seed bin category assignments from the artifact's rule order.
 
@@ -190,6 +225,65 @@ def _unique_local_path(base: str) -> Path:
     return candidate
 
 
+# Sorting-profile JSON files carry the full compiled part map and routinely run
+# tens of MB, so json.load costs ~1-2s (worse under CPU contention). Cache the
+# small metadata we surface, keyed by (mtime, size), so repeated reads — the 10s
+# poll, re-renders, the bundled /library — don't re-parse.
+_profile_meta_cache: dict[str, tuple[float, int, dict[str, Any]]] = {}
+
+
+def _profile_file_meta(path: Path) -> dict[str, Any]:
+    stat = path.stat()
+    key = str(path)
+    cached = _profile_meta_cache.get(key)
+    if cached is not None and cached[0] == stat.st_mtime and cached[1] == stat.st_size:
+        return cached[2]
+    with open(path, "r") as handle:
+        data = json.load(handle)
+    if not isinstance(data, dict):
+        raise ValueError("profile file is not a JSON object")
+    meta: dict[str, Any] = {
+        "name": data.get("name"),
+        "description": data.get("description"),
+        "profile_type": data.get("profile_type"),
+        "default_category_id": data.get("default_category_id"),
+        "artifact_hash": data.get("artifact_hash"),
+        "updated_at": data.get("updated_at"),
+        "rule_count": len(data.get("rules", []) or []),
+        "category_count": len(data.get("categories", {}) or {}),
+        "part_count": len(data.get("part_to_category", {}) or {}),
+    }
+    _profile_meta_cache[key] = (stat.st_mtime, stat.st_size, meta)
+    return meta
+
+
+def _mtime_iso(path: Path) -> str | None:
+    try:
+        return datetime.fromtimestamp(path.stat().st_mtime, tz=timezone.utc).isoformat()
+    except OSError:
+        return None
+
+
+def _local_profile_entry_light(path: Path, active_filename: str | None) -> dict[str, Any]:
+    # No parse — filename/stem/mtime only. Counts and the real name are filled
+    # in lazily by GET /local/{filename}/meta so first paint never touches the
+    # multi-MB file.
+    return {
+        "filename": path.name,
+        "id": path.stem,
+        "name": None,
+        "description": None,
+        "profile_type": None,
+        "rule_count": None,
+        "category_count": None,
+        "part_count": None,
+        "artifact_hash": None,
+        "updated_at": _mtime_iso(path),
+        "is_active": bool(active_filename and path.name == active_filename),
+        "error": None,
+    }
+
+
 def _local_profile_entry(
     path: Path, active_hash: str | None, active_filename: str | None
 ) -> dict[str, Any]:
@@ -208,32 +302,23 @@ def _local_profile_entry(
         "error": None,
     }
     try:
-        with open(path, "r") as handle:
-            data = json.load(handle)
+        meta = _profile_file_meta(path)
     except Exception as exc:
         entry["error"] = str(exc)
         return entry
-    if not isinstance(data, dict):
-        entry["error"] = "profile file is not a JSON object"
-        return entry
-    artifact_hash = data.get("artifact_hash")
+    artifact_hash = meta["artifact_hash"]
     entry.update(
         {
-            "name": data.get("name") or path.stem,
-            "description": data.get("description"),
-            "profile_type": data.get("profile_type"),
-            "rule_count": len(data.get("rules", []) or []),
-            "category_count": len(data.get("categories", {}) or {}),
-            "part_count": len(data.get("part_to_category", {}) or {}),
+            "name": meta["name"] or path.stem,
+            "description": meta["description"],
+            "profile_type": meta["profile_type"],
+            "rule_count": meta["rule_count"],
+            "category_count": meta["category_count"],
+            "part_count": meta["part_count"],
             "artifact_hash": artifact_hash,
         }
     )
-    try:
-        entry["updated_at"] = datetime.fromtimestamp(
-            path.stat().st_mtime, tz=timezone.utc
-        ).isoformat()
-    except OSError:
-        pass
+    entry["updated_at"] = _mtime_iso(path)
     if active_filename and path.name == active_filename:
         entry["is_active"] = True
     elif artifact_hash and active_hash and artifact_hash == active_hash:
@@ -253,23 +338,26 @@ def _list_local_profiles() -> list[dict[str, Any]]:
     ]
 
 
+def _active_profile_path() -> str | None:
+    return shared_state.gc_ref.sorting_profile_path if shared_state.gc_ref is not None else None
+
+
 def _current_local_profile_status() -> dict[str, Any]:
     sync_state = getSortingProfileSyncState() or {}
-    path = shared_state.gc_ref.sorting_profile_path if shared_state.gc_ref is not None else None
+    path = _active_profile_path()
     metadata: dict[str, Any] = {}
     if path and os.path.exists(path):
         try:
-            with open(path, "r") as handle:
-                data = json.load(handle)
+            meta = _profile_file_meta(Path(path))
             metadata = {
                 "path": path,
-                "name": data.get("name"),
-                "description": data.get("description"),
-                "artifact_hash": data.get("artifact_hash"),
-                "default_category_id": data.get("default_category_id"),
-                "category_count": len(data.get("categories", {}) or {}),
-                "rule_count": len(data.get("rules", []) or []),
-                "updated_at": data.get("updated_at"),
+                "name": meta["name"],
+                "description": meta["description"],
+                "artifact_hash": meta["artifact_hash"],
+                "default_category_id": meta["default_category_id"],
+                "category_count": meta["category_count"],
+                "rule_count": meta["rule_count"],
+                "updated_at": meta["updated_at"],
             }
         except Exception as exc:
             metadata = {"path": path, "error": str(exc)}
@@ -277,6 +365,36 @@ def _current_local_profile_status() -> dict[str, Any]:
         "sync_state": sync_state,
         "local_profile": metadata,
     }
+
+
+def _current_local_profile_status_light() -> dict[str, Any]:
+    # No parse: name comes from sync_state; counts are omitted (the /profiles
+    # page only needs the active name here, and even that is a rare fallback).
+    sync_state = getSortingProfileSyncState() or {}
+    path = _active_profile_path()
+    metadata: dict[str, Any] = {}
+    if path and os.path.exists(path):
+        metadata = {
+            "path": path,
+            "name": sync_state.get("profile_name"),
+            "artifact_hash": sync_state.get("artifact_hash"),
+            "updated_at": _mtime_iso(Path(path)),
+        }
+    return {
+        "sync_state": sync_state,
+        "local_profile": metadata,
+    }
+
+
+def _list_local_profiles_light() -> list[dict[str, Any]]:
+    sync_state = getSortingProfileSyncState() or {}
+    active_filename = (
+        sync_state.get("local_filename") if sync_state.get("source") == "local" else None
+    )
+    return [
+        _local_profile_entry_light(path, active_filename)
+        for path in sorted(_local_profiles_dir().glob("*.json"))
+    ]
 
 
 def _reload_runtime_profile() -> bool:
@@ -300,40 +418,58 @@ def get_sorting_profile_status() -> dict[str, Any]:
 
 @router.get("/api/sorting-profiles/library")
 def get_sorting_profile_library() -> dict[str, Any]:
-    target_payloads: list[dict[str, Any]] = []
-    for target in _load_targets():
-        enabled = bool(target.get("enabled", False))
-        payload: dict[str, Any] = {
-            "id": target.get("id"),
-            "name": target.get("name") or target.get("url"),
-            "url": target.get("url"),
-            "enabled": enabled,
-            "machine_id": target.get("machine_id"),
-            "profiles": [],
-            "assignment": None,
-            "error": None,
-        }
-        if not enabled:
-            target_payloads.append(payload)
-            continue
-        try:
-            session = _target_session(target)
-            response = session.get(f"{_target_base_url(target)}/api/machine/profiles/library", timeout=20)
-            if not response.ok:
-                body = _safe_json(response)
-                message = body.get("error") or body.get("detail") or f"HTTP {response.status_code}"
-                raise RuntimeError(str(message))
-            body = response.json()
-            payload["profiles"] = body.get("profiles", []) if isinstance(body, dict) else []
-            payload["assignment"] = body.get("assignment") if isinstance(body, dict) else None
-        except Exception as exc:
-            payload["error"] = str(exc)
-        target_payloads.append(payload)
+    # Bundled view (local + every target's Hive fetch, sequentially). Kept for
+    # the sorting-profile dropdown. The /profiles page uses the split
+    # /local + /targets/{id}/library endpoints so fast local data renders
+    # before the slow per-target Hive calls resolve.
     return {
-        "targets": target_payloads,
+        "targets": [_fetch_target_library(target) for target in _load_targets()],
         "local_profiles": _list_local_profiles(),
         **_current_local_profile_status(),
     }
+
+
+@router.get("/api/sorting-profiles/local")
+def get_sorting_profile_local() -> dict[str, Any]:
+    # Fast tier: target metadata, active sync state, and local-profile
+    # filenames. No Hive network AND no multi-MB JSON parse — counts/names for
+    # local profiles are filled in lazily via /local/{filename}/meta so this
+    # returns in milliseconds and the page can skeleton everything at once.
+    return {
+        "targets": [_target_meta(target) for target in _load_targets()],
+        "local_profiles": _list_local_profiles_light(),
+        **_current_local_profile_status_light(),
+    }
+
+
+@router.get("/api/sorting-profiles/local/{filename}/meta")
+def get_local_profile_meta(filename: str) -> dict[str, Any]:
+    # Lazy per-card metadata (name, counts) for a local profile. Parses the file
+    # once and caches by mtime, so the 10s poll and re-renders are free.
+    path = _safe_local_path(filename)
+    if not path.exists():
+        raise HTTPException(status_code=404, detail="Local profile not found.")
+    try:
+        meta = _profile_file_meta(path)
+    except Exception as exc:
+        return {"filename": path.name, "error": str(exc)}
+    return {
+        "filename": path.name,
+        "name": meta["name"] or path.stem,
+        "description": meta["description"],
+        "profile_type": meta["profile_type"],
+        "rule_count": meta["rule_count"],
+        "category_count": meta["category_count"],
+        "part_count": meta["part_count"],
+        "artifact_hash": meta["artifact_hash"],
+    }
+
+
+@router.get("/api/sorting-profiles/targets/{target_id}/library")
+def get_sorting_profile_target_library(target_id: str) -> dict[str, Any]:
+    # Single target's Hive fetch. The page calls one of these per enabled
+    # target in parallel so a slow/erroring target doesn't block the others.
+    return _fetch_target_library(_get_target_or_404(target_id))
 
 
 @router.get("/api/sorting-profiles/targets/{target_id}/profiles/{profile_id}")

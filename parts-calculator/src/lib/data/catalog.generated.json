@@ -934,8 +934,8 @@
 		},
 		{
 			"id": "meanwell-psu-box",
-			"uid": "skg6",
-			"version": "1",
+			"uid": "ei2p",
+			"version": "2",
 			"name": "Meanwell 24V PSU box",
 			"description": "Enclosure for the Meanwell 24V power supply: back mount, connections plate, and cap, screwed to the supply's own case.",
 			"docs": "/hardware/electronics/installation/psu-box/",
@@ -962,7 +962,7 @@
 					"qty": 4
 				},
 				{
-					"part": "scr-m5-12-shcs",
+					"part": "scr-m5-16-shcs",
 					"qty": 2
 				}
 			],
@@ -1019,6 +1019,27 @@
 							"qty": 8
 						}
 					]
+				}
+			],
+			"versions": [
+				{
+					"version": "1",
+					"uid": "skg6",
+					"message": "Original version, with the frame screws recorded as M5 x 12."
+				},
+				{
+					"version": "2",
+					"uid": "ei2p",
+					"date": "2026-09-01",
+					"message": "The two screws that bolt the box to the 2020 frame are M5 x 16 self-tapping, not the M5 x 12 recorded here: uwe_barthel confirmed from the built machine that all three electronics enclosures fasten to the extrusion with M5 x 16 and no T-nuts.",
+					"breaking": false,
+					"commit": null
+				}
+			],
+			"joining": [
+				{
+					"method": "self-tap",
+					"note": "The two [[hw:scr-m5-16-shcs]] that hold it to the 2020 frame cut their own thread; there is no [[hw:tnut-m5-2020]] at this joint."
 				}
 			]
 		},
@@ -2404,6 +2425,10 @@
 				{
 					"method": "self-tap",
 					"note": "The fan's four [[hw:scr-m3-12-bhcs]] cut their own threads in the cover; no inserts there."
+				},
+				{
+					"method": "self-tap",
+					"note": "The two [[hw:scr-m5-16-shcs]] that hold the housing to the 2020 frame cut their own thread; there is no [[hw:tnut-m5-2020]] at this joint."
 				}
 			],
 			"images": [
@@ -2480,8 +2505,8 @@
 		},
 		{
 			"id": "orange-pi-mount",
-			"uid": "5vat",
-			"version": "1",
+			"uid": "mna0",
+			"version": "2",
 			"name": "Orange Pi mount",
 			"description": "The Orange Pi 5 standing off its bracket, which bolts to the 2020 extrusion, with a 40 mm fan on a bracket cantilevered over it.",
 			"section": "electronics",
@@ -2517,7 +2542,7 @@
 					"qty": 1
 				},
 				{
-					"part": "scr-m5-12-shcs",
+					"part": "scr-m5-16-shcs",
 					"qty": 2
 				}
 			],
@@ -2526,6 +2551,27 @@
 					"url": "https://assets.basically.website/sorter-parts/orange-pi-mount-v1-render-full-d5893e241c96.png",
 					"alt": "Onshape render of the Orange Pi's v1 extrusion mount and fan bracket",
 					"caption": "The v1 mounting, from Onshape: the board's plate (blue) and the shared fan bracket (grey)."
+				}
+			],
+			"versions": [
+				{
+					"version": "1",
+					"uid": "5vat",
+					"message": "Original version, with the frame screws recorded as M5 x 12."
+				},
+				{
+					"version": "2",
+					"uid": "mna0",
+					"date": "2026-09-01",
+					"message": "The two screws that bolt the mount to the 2020 frame are M5 x 16 self-tapping, not the M5 x 12 recorded here: uwe_barthel confirmed from the built machine that all three electronics enclosures fasten to the extrusion with M5 x 16 and no T-nuts.",
+					"breaking": false,
+					"commit": null
+				}
+			],
+			"joining": [
+				{
+					"method": "self-tap",
+					"note": "The two [[hw:scr-m5-16-shcs]] that hold it to the 2020 frame cut their own thread; there is no [[hw:tnut-m5-2020]] at this joint."
 				}
 			]
 		},

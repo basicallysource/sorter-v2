@@ -26,7 +26,7 @@ parts_needed:
     qty: 1
   - part: scr-m4-6-cs
     qty: 4
-  - part: scr-m5-12-shcs
+  - part: scr-m5-16-shcs
     qty: 2
 ---
 
@@ -86,9 +86,7 @@ Fit the cap. It carries no screws of its own — its STL has no case-screw holes
 
 {% include step.html n="5" title="Bolt the box to the frame" %}
 
-The box hangs off the 2020 frame on 2 {% include fastener.html size="M5" variant="socket-button" length="12" %} screws.
-
-Which extrusion it goes on, and in which orientation: see [what's not recorded yet]({{ '/hardware/electronics/installation/' | relative_url }}#what-is-not-recorded-yet) on the installation overview.
+The box hangs off the 2020 frame on 2 {% include fastener.html size="M5" variant="socket-button" length="16" %} screws, self-tapping, with no {% include fastener.html size="M5" variant="t-nut" text="T-nut" %}. It goes on the [hex frame]({{ '/hardware/assembly/distribution/bin-frame/hex-frame/' | relative_url }}) belonging to the top interface; the [layout render]({{ '/hardware/electronics/installation/' | relative_url }}) on the installation overview shows where it sits relative to the chute stepper.
 
 <div class="img-placeholder">Image coming</div>
 

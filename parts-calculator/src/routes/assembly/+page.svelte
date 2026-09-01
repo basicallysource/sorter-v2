@@ -336,8 +336,10 @@
 	const eraThrough = changelog.through as string;
 	const ghostName = (id: string) => (changelog.ghosts as Record<string, string>)[id];
 	// Recorded revisions sit after every same-date reconstructed commit; the cap
-	// keeps them below NOW.
+	// keeps them below NOW. DAY_END is later still: the moment after everything
+	// recorded on a date, used when an event can't be placed more precisely.
 	const VSEQ = 10_000_000;
+	const DAY_END = VSEQ * 2;
 	const ALL_EVENTS: HistoryEvent[] = [
 		...(changelog.events as HistoryEvent[]),
 		...[...PARTS, ...ASSEMBLIES].flatMap((item) => {
@@ -429,7 +431,10 @@
 		const asm = getAssembly(id);
 		const vs = asm?.versions ?? [];
 		vs.forEach((v, i) => {
-			if (v.date && v.date > eraThrough)
+			// >= : a stamp dated the era's own horizon (same-day) must still
+			// resolve. When the era already recorded that change, the extra
+			// state carries identical lines, so resolution is unaffected.
+			if (v.date && v.date >= eraThrough)
 				st.push({ d: v.date, s: VSEQ + i, lines: i === vs.length - 1 ? (asm!.lines ?? []) : (v.lines ?? null) });
 		});
 		stateCache.set(id, st);
@@ -469,21 +474,36 @@
 	 *  their day. */
 	function viewEvent(e: HistoryEvent, mode: TimeMode) {
 		if (!e.date) return;
-		let s = e.seq;
-		let exact = s !== undefined && e.kind !== 'tag' && !(e.kind === 'revision' && e.date <= eraThrough);
-		if (!exact) {
+		let s: number;
+		let exact = true;
+		const sig = (ls: AssemblyLine[] | null | undefined) =>
+			JSON.stringify((ls ?? []).map((l) => `${l.part ?? l.assembly}|${l.qty}`).sort());
+		if (e.seq !== undefined && e.kind !== 'revision' && e.kind !== 'tag') {
+			s = e.seq; // reconstructed events carry their commit's seq
+		} else if (e.kind === 'revision' && e.seq !== undefined && e.date >= eraThrough) {
+			// The entry's state is in statesOf at its own seq. If the era's last
+			// recorded state for this node is the SAME state — the stamp merged
+			// before the artifact froze — stand at the era commit instead, so
+			// "before" lands just ahead of the change rather than after it.
+			s = e.seq;
+			const tl = eraAsm[e.node]?.timeline ?? [];
+			const last = tl[tl.length - 1];
+			if (last?.date === e.date && sig(last.lines) === sig(linesAtKey(e.node, { d: e.date, s }))) s = last.seq;
+		} else {
+			// A recorded revision from inside the era, or a tag: find its commit.
 			const hit =
 				(e.commit ? eraCommits[e.commit]?.seq : undefined) ??
 				eraAsm[e.node]?.timeline.find((t) => t.date === e.date)?.seq;
-			if (hit !== undefined) {
-				s = hit;
-				exact = true;
-			} else s = VSEQ - 1; // end of the day; "before" is then its start
+			if (hit !== undefined) s = hit;
+			else {
+				s = DAY_END; // end of the day; "before" is then its start
+				exact = false;
+			}
 		}
 		const ref = e.tag ? e.tag.name : e.pr ? `#${e.pr}` : (e.version ?? e.commit ?? '');
 		timeView = {
-			point: { d: e.date, s: s! },
-			before: exact ? { d: e.date, s: s! - 1 } : { d: e.date, s: -1 },
+			point: { d: e.date, s },
+			before: exact ? { d: e.date, s: s - 1 } : { d: e.date, s: -1 },
 			label: `${memberName(e.node)} ${ref} · ${fmtDate(e.date)}`,
 			mode
 		};

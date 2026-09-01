@@ -3158,7 +3158,7 @@
 			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 7209,
+			"print_seconds": 7210,
 			"color": {
 				"by_section": {
 					"feeder": {
@@ -4192,7 +4192,7 @@
 			"support_grams": 9.29,
 			"support_used": true,
 			"support_intentional": false,
-			"print_seconds": 23973,
+			"print_seconds": 23959,
 			"color": {
 				"role": "chute-core"
 			},
@@ -5154,7 +5154,7 @@
 			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 7438,
+			"print_seconds": 7443,
 			"color": {
 				"role": "frame"
 			},
@@ -7538,7 +7538,7 @@
 			],
 			"attributes": [],
 			"grams": 29.01,
-			"support_grams": 0,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 2334,
@@ -7669,7 +7669,7 @@
 			],
 			"attributes": [],
 			"grams": 52.99,
-			"support_grams": 0,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 3798,
@@ -10101,10 +10101,10 @@
 			],
 			"attributes": [],
 			"grams": 13.96,
-			"support_grams": 5.52,
+			"support_grams": 5.55,
 			"support_used": true,
 			"support_intentional": false,
-			"print_seconds": 2724,
+			"print_seconds": 2727,
 			"color": {
 				"role": "chute-core"
 			},
@@ -14066,7 +14066,7 @@
 			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 15132,
+			"print_seconds": 15131,
 			"color": {
 				"role": "frame"
 			},
@@ -17332,6 +17332,15 @@
 						"pack_qty": 1,
 						"as_of": "2026-04-16",
 						"affiliate_url": "https://www.amazon.com/dp/B091C37FJ2?tag=sorterv2-20"
+					},
+					{
+						"region": "US",
+						"vendor": "StepperOnline",
+						"url": "https://www.omc-stepperonline.com/nema-23-stepper-motor-2-4nm-339-79oz-in-4a-57x57x82mm-8mm-shaft-4-wires-23hs32-4004s",
+						"price": 18.92,
+						"pack_qty": 1,
+						"as_of": "2026-08-31",
+						"note": "23HS32-4004S: 2.4 Nm, 4 A, 82 mm body, 8 mm shaft \u2014 the bore the 20T timing pulley wants. Ships from StepperOnline's US warehouse; pick United States at checkout."
 					},
 					{
 						"region": "EU",

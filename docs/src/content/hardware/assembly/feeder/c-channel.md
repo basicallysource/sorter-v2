@@ -38,9 +38,9 @@ parts_needed:
     qty: 4
   - part: scr-m3-12-cs
     qty: 40
-  - part: scr-m3-16-shcs
+  - part: scr-m3-16-cs
     qty: 12
-  - part: scr-m3-8-shcs
+  - part: scr-m3-8-cs
     qty: 4
 ---
 
@@ -91,7 +91,7 @@ Bolt the Output gear onto the underside of the rotor with 6 {% include fastener.
 
 {% include step.html n="3" title="Fit the input gear to the motor shaft" %}
 
-The Input gear (12T, screw) has a hole through its boss, parallel to the shaft, for the {% include fastener.html size="M3" variant="socket-button" length="8" %} screw that clamps it on. The bore is plain and round, so there is nothing to key it: turn the gear until that screw lines up with the flat on the NEMA 17's shaft, push the gear all the way on, then tighten the screw down onto the flat.
+The Input gear (12T, screw) has a hole through its boss, parallel to the shaft, for the {% include fastener.html size="M3" variant="countersunk" length="8" %} screw that clamps it on. The bore is plain and round, so there is nothing to key it: turn the gear until that screw lines up with the flat on the NEMA 17's shaft, push the gear all the way on, then tighten the screw down onto the flat.
 
 The head drops into a counterbore in the boss. Tighten until the head is seated and the gear does not turn on the shaft, and no further, it is threading into plastic.
 
@@ -104,7 +104,7 @@ The head drops into a counterbore in the boss. Tighten until the head is seated 
 
 Drop the Idler gear (24T) onto its post on the NEMA bracket **with the bearing facing up**.
 
-Then fasten the NEMA 17 to the bracket with 3 {% include fastener.html size="M3" variant="socket-button" length="16" %} screws. Three, not four: one corner of the motor face is left free. The input gear meshes with the idler as the motor goes down.
+Then fasten the NEMA 17 to the bracket with 3 {% include fastener.html size="M3" variant="countersunk" length="16" %} screws. Three, not four: one corner of the motor face is left free. The input gear meshes with the idler as the motor goes down.
 
 <figure class="single-figure">
   <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-c-channel-idler-gear-and-motor-on-nema-bracket-w1600-dfefb06e2166.jpg" alt="The three-armed grey NEMA bracket seen from above, with the 24-tooth idler gear sitting on its post with the 608 bearing uppermost, the stepper motor bolted to the outer end of the bracket, and the raised hub at the centre of the bracket">

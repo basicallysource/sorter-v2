@@ -16467,8 +16467,8 @@
 			},
 			"name": "M3 \u00d7 16 mm socket/button head",
 			"category": "Screws",
-			"description": "Retired, no longer used anywhere. Was recorded as the C-channel stepper screw, but those are countersunk (scr-m3-16-cs).",
-			"note": "Unused as of 2026-09-01. Do not re-add: the C-channel calls for the countersunk M3 \u00d7 16.",
+			"description": "No longer the C-channel stepper screw \u2014 those are countersunk (scr-m3-16-cs). The top-interface docs call for 2 to mount the roller-lever limit switch into its housing's inserts, though the limit-switch assembly records M3 \u00d7 12 button heads for that joint \u2014 one of the two is wrong; settle it at the bench.",
+			"note": null,
 			"created_at": "2026-07-18",
 			"updated_at": "2026-09-01",
 			"attributes": [

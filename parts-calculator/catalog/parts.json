@@ -3185,7 +3185,7 @@
       "category": "Screws",
       "alternative": "Socket or button head",
       "image_url": "https://assets.basically.website/sorter-parts/scr-m3-16-shcs-full-26e52d7d5bcd.png",
-      "description": "Retired, no longer used anywhere. Was recorded as the C-channel stepper screw, but those are countersunk (scr-m3-16-cs).",
+      "description": "No longer the C-channel stepper screw — those are countersunk (scr-m3-16-cs). The top-interface docs call for 2 to mount the roller-lever limit switch into its housing's inserts, though the limit-switch assembly records M3 × 12 button heads for that joint — one of the two is wrong; settle it at the bench.",
       "created_at": "2026-07-18",
       "updated_at": "2026-09-01",
       "attributes": [
@@ -3201,8 +3201,7 @@
           "label": "Head",
           "value": "Socket or button head, interchangeable (both flat-bottomed, so either just clamps; socket is the default)"
         }
-      ],
-      "note": "Unused as of 2026-09-01. Do not re-add: the C-channel calls for the countersunk M3 × 16."
+      ]
     },
     {
       "id": "scr-m3-16-cs",

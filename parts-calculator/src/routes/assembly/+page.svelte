@@ -49,6 +49,7 @@
 		type Assembly,
 		type AssemblyLine,
 		type AssemblySnapshotLine,
+		type Connection,
 		type Hardware,
 		type Joining,
 		type Part,
@@ -62,6 +63,17 @@
 	import { onMount } from 'svelte';
 	import { assemblyCsv } from '$lib/parts-csv';
 	import { download, exportSpec, filename } from '$lib/csv';
+
+	// The connection methods extend JoinMethod with the anchor kinds
+	// (check_connections.py is the authority on the enum).
+	const CONN_LABELS: Record<string, string> = {
+		...JOIN_LABELS,
+		thread: 'threaded',
+		insert: 'heat-set insert',
+		nut: 'nut',
+		tnut: 'T-nut',
+		gravity: 'gravity'
+	};
 
 	// Experimental view of the unified parts system (notes/UNIFIED-PARTS-SYSTEM.md):
 	// the machine as a recursive assembly tree whose lines reference printed parts,
@@ -718,6 +730,30 @@
 	{/each}
 {/snippet}
 
+<!-- The assembly's joints, one row per connection edge: what holds what and
+     via which fastener. `to` is the anchor side, so the arrow reads in the
+     direction the fastener goes. A dashed DRAFT chip marks an edge extracted
+     from prose and not yet confirmed at the bench. -->
+{#snippet connectionRows(list: Connection[] | undefined)}
+	{#each list ?? [] as c, i (i)}
+		<div class="mt-1 flex max-w-3xl flex-wrap items-baseline gap-x-2 gap-y-0.5">
+			<Badge variant="warning"><Zap size={10} />{CONN_LABELS[c.method] ?? c.method}</Badge>
+			<button type="button" class="text-xs font-medium text-text hover:text-primary" onclick={() => openNode(c.from)}>{memberName(c.from)}</button>
+			<span class="text-xs text-text-muted" aria-label="into">→</span>
+			<button type="button" class="text-xs font-medium text-text hover:text-primary" onclick={() => openNode(c.to)}>{memberName(c.to)}</button>
+			{#if c.via}
+				<span class="text-xs text-text-muted">· {c.qty} × {memberName(c.via)}</span>
+			{:else if c.qty > 1}
+				<span class="text-xs text-text-muted">· ×{c.qty}</span>
+			{/if}
+			{#if c.draft}
+				<span class="border border-dashed border-warning/60 px-1 py-px text-[10px] font-semibold uppercase tracking-wider text-warning-dark" title="Extracted from prose — not yet confirmed at the bench">draft</span>
+			{/if}
+			{#if c.note}<AssemblyDescription text={c.note} as="span" class="text-xs text-text-muted" />{/if}
+		</div>
+	{/each}
+{/snippet}
+
 <!-- The tags standing on a node's current version, as badges: STABLE (green)
      or EXPERIMENTAL, with a count when several. Hover names the tags. -->
 {#snippet tagChips(id: string)}
@@ -923,6 +959,7 @@
 		</div>
 	{:else}
 		{@render joiningRows(asm.joining)}
+		{@render connectionRows(asm.connections)}
 		{@render lines(asm.lines ?? [], mult, depth)}
 	{/if}
 {/snippet}

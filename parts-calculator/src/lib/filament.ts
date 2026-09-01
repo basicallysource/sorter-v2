@@ -120,7 +120,29 @@ export type Assembly = {
 	status?: 'stub' | 'partial';
 	joining?: Joining[]; // work needed to make these lines into one unit
 	lines?: AssemblyLine[];
+	connections?: Connection[]; // the joints, as edges over this assembly's lines
 	images?: CatalogImage[]; // beyond the members' renders: a photo of it built, a section view
+};
+
+/** A joint recorded as an edge over the assembly's own lines. `to` is the
+ *  anchor side — where the fastener ends; `via` names the fastener line and
+ *  is absent for fastenerless methods; `draft` marks an edge extracted from
+ *  prose and not yet confirmed at the bench (scripts/check_connections.py). */
+export type ConnectionMethod =
+	| JoinMethod
+	| 'thread'
+	| 'insert'
+	| 'nut'
+	| 'tnut'
+	| 'gravity';
+export type Connection = {
+	from: string;
+	to: string;
+	via?: string;
+	qty: number;
+	method: ConnectionMethod;
+	note?: string;
+	draft?: boolean;
 };
 
 /** The documentation site. An assembly's `docs` is a path on it, never a full

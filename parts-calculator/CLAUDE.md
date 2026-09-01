@@ -313,14 +313,21 @@ one exemption is purely additive completion of a `stub`/`partial` assembly.
 See `VERSIONING.md`.
 
 **An assembly's `connections` are its joints as a graph over its members.**
-One edge per joint: `{from, to, via, qty, method, note?, draft?}`. `from`/`to`
+One edge per joint: `{from, to, via, qty, method, through_mm?, thread_mm?,
+note?, draft?}`. `from`/`to`
 name the two members held together (`to` is the anchor side — where the
 fastener ends); `via` names the fastener, which must be one of the
 assembly's own hardware lines (omitted for fastenerless joints); `qty` is
 fasteners per assembly instance; `method` is one of `self-tap | thread |
 insert | nut | tnut | press | friction | clip | glue | solder | crimp`.
 `draft: true` marks an edge extracted from prose and not yet confirmed at
-the bench — remove the flag when the assembly is validated.
+the bench — remove the flag when the assembly is validated. `through_mm` /
+`thread_mm` record measured screw-length geometry — the fastener's travel
+through the `from` side, and the thread length in the anchor — so
+compatible screw lengths are computed, not remembered. A component that
+installs into a part (a press-fit bearing) is a member and a `press` edge,
+never `requires`; `requires` is only for fastener anchors that become part
+of the print (heat-set inserts).
 `check_connections.py` enforces the shape in CI. Once a joint is an edge,
 take its sentence OUT of the description: joint knowledge lives in
 `connections`, and descriptions state what the assembly is, in a sentence

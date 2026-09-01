@@ -22,6 +22,12 @@ An assembly's `connections` record its joints as a graph over its members:
   its `requires`), `thread` a machine thread in the `to` member, `tnut` an
   extrusion T-nut, `nut` a through-bolt with a nut. `gravity` is a part
   that just sits in place under its own weight.
+- `through_mm` / `thread_mm`: measured screw-length geometry. `through_mm`
+  is the fastener's travel through the `from` side before it reaches the
+  anchor; `thread_mm` is the thread length waiting on the `to` side
+  (tapped plastic, insert, nut). Both optional, positive numbers -- record
+  them and compatible screw lengths become computable instead of
+  remembered.
 - `draft: true`: extracted from prose, not yet confirmed at the bench.
   Removed when the assembly is validated.
 
@@ -79,6 +85,11 @@ def main():
             if not isinstance(c.get("qty"), int) or c["qty"] < 1:
                 bad.append(f"{tag}: qty must be a positive integer, "
                            f"got {c.get('qty')!r}")
+            for k in ("through_mm", "thread_mm"):
+                if k in c and not (isinstance(c[k], (int, float))
+                                   and not isinstance(c[k], bool) and c[k] > 0):
+                    bad.append(f"{tag}: {k} must be a positive number, "
+                               f"got {c[k]!r}")
         for via, n in used.items():
             if lines.get(via, 0) and n > lines[via]:
                 bad.append(f"{a['id']}: connections use {n} x {via} but the "

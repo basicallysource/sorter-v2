@@ -16,9 +16,43 @@
 	row; everything re-measures on any size change of the branch, so nested
 	folds and window resizes keep ticks on their rows.
 -->
-<script lang="ts">
+<script lang="ts" module>
 	import type { Connection } from '$lib/filament';
 
+	/** One brace per independent joint: edges of one method split into connected
+	 *  components over shared members, so two unrelated self-tapped joints never
+	 *  merge into a single spine. Exported because the page sizes each branch's
+	 *  gutter off the same grouping. */
+	export function braceGroups(edges: Connection[]) {
+		const byMethod = new Map<string, Connection[]>();
+		for (const e of edges) byMethod.set(e.method, [...(byMethod.get(e.method) ?? []), e]);
+		const out: { key: string; method: string; edges: Connection[]; ids: string[]; draft: boolean }[] = [];
+		for (const [method, es] of byMethod) {
+			const comps: Connection[][] = [];
+			for (const e of es) {
+				const mine = new Set([e.from, e.to, ...(e.via ? [e.via] : [])]);
+				const touching = comps.filter((c) =>
+					c.some((o) => [o.from, o.to, o.via].some((x) => x && mine.has(x)))
+				);
+				for (const t of touching) comps.splice(comps.indexOf(t), 1);
+				comps.push([...touching.flat(), e]);
+			}
+			for (const c of comps) {
+				const ids = [...new Set(c.flatMap((e) => [e.from, e.to, ...(e.via ? [e.via] : [])]))];
+				out.push({
+					key: `${method}:${ids.join('+')}`,
+					method,
+					edges: c,
+					ids,
+					draft: c.every((e) => e.draft)
+				});
+			}
+		}
+		return out;
+	}
+</script>
+
+<script lang="ts">
 	let {
 		edges,
 		gutter,
@@ -58,16 +92,7 @@
 	const colorOf = (i: number) => `hsl(${hueOf(i)} 60% 38%)`;
 	const laneX = (i: number) => 12 + i * 16;
 
-	const groups = $derived.by(() => {
-		const m = new Map<string, Connection[]>();
-		for (const e of edges) m.set(e.method, [...(m.get(e.method) ?? []), e]);
-		return [...m.entries()].map(([method, es]) => ({
-			method,
-			edges: es,
-			ids: [...new Set(es.flatMap((e) => [e.from, e.to, ...(e.via ? [e.via] : [])]))],
-			draft: es.every((e) => e.draft)
-		}));
-	});
+	const groups = $derived(braceGroups(edges));
 
 	type Span = { ticks: { y: number; from: number }[]; top: number; bottom: number; labelY: number };
 	let spans = $state<Span[]>([]);
@@ -127,10 +152,13 @@
 			s.labelY = (s.top + s.bottom) / 2;
 		}
 		// Same-ish hue + overlapping spans would read as one brace: shift the
-		// later one around the wheel until they part.
+		// later one around the wheel until they part. Two braces of the SAME
+		// method keep their exact hue — the color is the method's identity, and
+		// their separate lanes and labels already tell them apart.
 		const shifts = next.map(() => 0);
 		for (let i = 0; i < next.length; i++)
 			for (let j = i + 1; j < next.length; j++) {
+				if (groups[i].method === groups[j].method) continue;
 				const a = next[i];
 				const b = next[j];
 				if (!a.ticks.length || !b.ticks.length) continue;
@@ -164,7 +192,7 @@
 
 <div bind:this={host} class="pointer-events-none absolute inset-y-0 right-0" style="width: {gutter}px">
 	<svg class="absolute left-0 top-0 overflow-visible" width={gutter} {height} aria-hidden="true">
-		{#each groups as g, i (g.method)}
+		{#each groups as g, i (g.key)}
 			{@const s = spans[i]}
 			{#if s && s.ticks.length}
 				{@const x = laneX(laneOf[i] ?? i)}
@@ -181,7 +209,7 @@
 			{/if}
 		{/each}
 	</svg>
-	{#each groups as g, i (g.method)}
+	{#each groups as g, i (g.key)}
 		{@const s = spans[i]}
 		{#if s && s.ticks.length}
 			<!-- The method name sits IN the wire: vertical text centered on the
@@ -217,6 +245,13 @@
 							<div class="text-text-muted">
 								{#if e.via}{e.qty} × {nameOf(e.via)}{:else}{labelOf(e.method)}{e.qty > 1 ? ` — ${e.qty} places` : ''}{/if}
 							</div>
+							{#if e.through_mm || e.thread_mm}
+								<div class="text-text-muted">
+									{#if e.through_mm}{e.through_mm} mm through{/if}{#if e.through_mm && e.thread_mm}
+										·
+									{/if}{#if e.thread_mm}{e.thread_mm} mm of thread{/if}
+								</div>
+							{/if}
 							{#if e.note}<div class="mt-0.5 text-text-muted">{e.note}</div>{/if}
 						</div>
 					{/each}

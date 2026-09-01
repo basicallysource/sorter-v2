@@ -141,6 +141,11 @@ export type Connection = {
 	via?: string;
 	qty: number;
 	method: ConnectionMethod;
+	/** The fastener's travel through the `from` side before it reaches the
+	 *  anchor, and the thread length waiting on the `to` side — measured, so
+	 *  compatible screw lengths are computable instead of remembered. */
+	through_mm?: number;
+	thread_mm?: number;
 	note?: string;
 	draft?: boolean;
 };
@@ -164,8 +169,11 @@ export function docsUrl(a: Assembly): string | null {
 	return a.docs ? DOCS_BASE + a.docs : null;
 }
 
-/** Hardware committed to a single physical part (heat inserts, press-fit
- *  bearings). Scales automatically with the part count. */
+/** Fastener anchors committed to a single physical part before it joins
+ *  anything — heat-set inserts, which a later joint's `insert` edge threads
+ *  into. Scales automatically with the part count. Components that merely
+ *  install into a part (a press-fit bearing) are NOT this: they are members
+ *  of the assembly where the joint happens, connected by a `press` edge. */
 export type Requirement = { part: string; qty: number };
 
 export type Vendor = {

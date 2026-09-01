@@ -13,7 +13,7 @@
 		X,
 		Zap
 	} from 'lucide-svelte';
-	import ConnectionBraces from '$lib/components/ConnectionBraces.svelte';
+	import ConnectionBraces, { braceGroups } from '$lib/components/ConnectionBraces.svelte';
 	import DropdownMenu from '$lib/components/DropdownMenu.svelte';
 	import AlternativeBadge from '$lib/components/AlternativeBadge.svelte';
 	import ConflictBadge from '$lib/components/ConflictBadge.svelte';
@@ -1289,7 +1289,7 @@
 			{#if open}
 			{@const braceGutter =
 				asm.connections?.length && !filtering
-					? 32 + (new Set(asm.connections.map((c) => c.method)).size - 1) * 16
+					? 32 + (braceGroups(asm.connections).length - 1) * 16
 					: 0}
 			<div
 				class="tree-branch relative pl-2 sm:pl-4"

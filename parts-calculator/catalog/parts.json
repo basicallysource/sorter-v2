@@ -1678,7 +1678,7 @@
       "internal_notes": "Idler gear (24 teeth). 1 per C-channel => 4. Feeder color. Takes a standard 608 skateboard bearing.",
       "version": "1",
       "created_at": "2026-06-27",
-      "updated_at": "2026-06-27",
+      "updated_at": "2026-09-01",
       "quantities": {
         "feeder": 4
       },
@@ -1688,13 +1688,7 @@
         "role": "feeder"
       },
       "optional": false,
-      "support": false,
-      "requires": [
-        {
-          "part": "brg-608-2rs",
-          "qty": 1
-        }
-      ]
+      "support": false
     },
     {
       "id": "input-gear",
@@ -3063,9 +3057,9 @@
       "name": "M3 × 8 mm socket/button head",
       "category": "Screws",
       "alternative": "Socket or button head",
-      "description": "Clamps the C-channel input gear (12T) to the flat of the NEMA 17 shaft. 1 per C-channel.",
+      "description": "Retired, no longer used anywhere. Was recorded as the screw clamping the C-channel input gear (12T) to the NEMA 17 shaft flat, but that screw is countersunk (scr-m3-8-cs).",
       "created_at": "2026-08-21",
-      "updated_at": "2026-08-21",
+      "updated_at": "2026-09-01",
       "attributes": [
         {
           "label": "Thread",
@@ -3080,7 +3074,7 @@
           "value": "Socket or button head, interchangeable (both bottom on the counterbore floor, so either just clamps)"
         }
       ],
-      "note": "Head type and length measured off the input-gear STL: the boss carries a Ø2.80 mm hole parallel to the shaft, 3.61 mm off the axis, opening into the Ø4.87 mm bore; the head sits in a round Ø6.40 mm × 2.7 mm counterbore with a 90° cone at the bottom, which is a flat-bottomed head seat rather than a countersink. A socket cap head (Ø5.5 × 3.0) bottoms on that floor and stands about 0.3 mm proud; a button head (Ø5.7 × 1.65) bottoms on the same floor about 1 mm below flush, so either clamps. At 8 mm the head seats and about 6 mm of thread is left in the plastic."
+      "note": "Head type and length measured off the input-gear STL: the boss carries a Ø2.80 mm hole parallel to the shaft, 3.61 mm off the axis, opening into the Ø4.87 mm bore; the head sits in a round Ø6.40 mm × 2.7 mm counterbore with a 90° cone at the bottom, which is a flat-bottomed head seat rather than a countersink. A socket cap head (Ø5.5 × 3.0) bottoms on that floor and stands about 0.3 mm proud; a button head (Ø5.7 × 1.65) bottoms on the same floor about 1 mm below flush, so either clamps. At 8 mm the head seats and about 6 mm of thread is left in the plastic. Unused as of 2026-09-01: the screw is the countersunk M3 × 8 (scr-m3-8-cs)."
     },
     {
       "id": "scr-m3-12-cs",
@@ -3193,9 +3187,9 @@
       "category": "Screws",
       "alternative": "Socket or button head",
       "image_url": "https://assets.basically.website/sorter-parts/scr-m3-16-shcs-full-26e52d7d5bcd.png",
-      "description": "Bolts the NEMA 17 stepper to the NEMA bracket. 3 per C-channel.",
+      "description": "Retired, no longer used anywhere. Was recorded as the C-channel stepper screw, but those are countersunk — and 4, not 3 (scr-m3-16-cs).",
       "created_at": "2026-07-18",
-      "updated_at": "2026-08-18",
+      "updated_at": "2026-09-01",
       "attributes": [
         {
           "label": "Thread",
@@ -3209,7 +3203,39 @@
           "label": "Head",
           "value": "Socket or button head, interchangeable (both flat-bottomed, so either just clamps; socket is the default)"
         }
-      ]
+      ],
+      "note": "Unused as of 2026-09-01. Do not re-add: the C-channel calls for the countersunk M3 × 16."
+    },
+    {
+      "id": "scr-m3-16-cs",
+      "uid": "bdi4",
+      "kind": "cots",
+      "cots": {
+        "type": "screw",
+        "size": "M3",
+        "variant": "countersunk",
+        "length_mm": 16
+      },
+      "name": "M3 × 16 mm countersunk",
+      "category": "Screws",
+      "description": "Bolts the NEMA 17 stepper to the NEMA bracket, into the stepper's tapped face holes. 4 per C-channel.",
+      "created_at": "2026-09-01",
+      "updated_at": "2026-09-01",
+      "attributes": [
+        {
+          "label": "Thread",
+          "value": "M3"
+        },
+        {
+          "label": "Length",
+          "value": "16 mm"
+        },
+        {
+          "label": "Head",
+          "value": "Countersunk (flat) socket"
+        }
+      ],
+      "image_url": "https://assets.basically.website/sorter-parts/hardware-screws-countersunk-full-faf0edbe3324.jpg"
     },
     {
       "id": "scr-m3-6-bhcs",
@@ -6825,7 +6851,7 @@
     {
       "id": "c-channel",
       "uid": "sbwe",
-      "version": "2",
+      "version": "3",
       "name": "C-channel drive",
       "description": "One C-channel drive unit: stator, NEMA bracket, gear train and stepper. 4 per machine — 3 in the feeder plus the classification channel's. Drives a rotor unit, which differs by location and is not part of this node.",
       "docs": "/hardware/assembly/feeder/c-channel/",
@@ -6889,11 +6915,22 @@
           "message": "Moved the Output gear (130T) and its 6 × M3 × 12 out to the new rotor units: the gear bolts to the rotor, so the joint and its screws belong to the node that holds both. No physical change.",
           "breaking": false,
           "commit": null
+        },
+        {
+          "version": "3",
+          "date": "2026-09-01",
+          "message": "The screws are all countersunk — socket/button was recorded wrong — and the stepper takes 4, not 3. The idler's 608 bearing moved from the gear's requires to a line of its own, with its press fit as a connection. Connections bench-confirmed and listed in assembly order.",
+          "breaking": false,
+          "commit": null
         }
       ],
       "lines": [
         {
-          "part": "stator",
+          "part": "idler-gear",
+          "qty": 1
+        },
+        {
+          "part": "brg-608-2rs",
           "qty": 1
         },
         {
@@ -6901,7 +6938,7 @@
           "qty": 1
         },
         {
-          "part": "idler-gear",
+          "part": "motor-nema17",
           "qty": 1
         },
         {
@@ -6909,48 +6946,51 @@
           "qty": 1
         },
         {
-          "part": "motor-nema17",
+          "part": "stator",
           "qty": 1
         },
         {
-          "part": "scr-m3-16-shcs",
-          "qty": 3
+          "part": "scr-m3-16-cs",
+          "qty": 4
+        },
+        {
+          "part": "scr-m3-8-cs",
+          "qty": 1
         },
         {
           "part": "scr-m3-12-cs",
           "qty": 4
-        },
-        {
-          "part": "scr-m3-8-shcs",
-          "qty": 1
         }
       ],
       "connections": [
+        {
+          "from": "brg-608-2rs",
+          "to": "idler-gear",
+          "qty": 1,
+          "method": "press"
+        },
+        {
+          "from": "nema-bracket",
+          "to": "motor-nema17",
+          "via": "scr-m3-16-cs",
+          "qty": 4,
+          "method": "thread",
+          "note": "Into the NEMA 17's tapped face holes."
+        },
+        {
+          "from": "input-gear",
+          "to": "motor-nema17",
+          "via": "scr-m3-8-cs",
+          "qty": 1,
+          "method": "self-tap",
+          "note": "Threads through the gear hub and bears on the motor shaft flat."
+        },
         {
           "from": "nema-bracket",
           "to": "stator",
           "via": "scr-m3-12-cs",
           "qty": 4,
-          "method": "self-tap",
-          "draft": true
-        },
-        {
-          "from": "nema-bracket",
-          "to": "motor-nema17",
-          "via": "scr-m3-16-shcs",
-          "qty": 3,
-          "method": "thread",
-          "note": "Into the NEMA 17's tapped face holes.",
-          "draft": true
-        },
-        {
-          "from": "input-gear",
-          "to": "motor-nema17",
-          "via": "scr-m3-8-shcs",
-          "qty": 1,
-          "method": "self-tap",
-          "note": "Threads through the gear hub and bears on the motor shaft flat.",
-          "draft": true
+          "method": "self-tap"
         }
       ]
     },

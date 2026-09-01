@@ -69,8 +69,10 @@ Reference colors the pipeline fits against, with the closest standard LEGO color
 </div>
 
 <figure class="single-figure">
-  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/camera-calibration-suggested-plate-2x2-full-91ad046adc71.png" alt="4 by 6 grid diagram of the calibration plate pattern, drawn as LEGO plates with studs, in the six reference colors, 2 studs per cell">
-  <figcaption>One way to build it: 2x2 studs per grid cell, 8 studs wide x 12 studs tall overall. The four 2x2-cell color blocks (blue/red/green/yellow) are each 4x4 studs, so one plate or tile per color instead of four 2x2s; the alternating top and bottom rows need individual 2x2 plates/tiles, they don't form contiguous blocks. <cite>Rendered from the pattern above, not a photo. Render: Balloon.</cite></figcaption>
+  <a href="https://assets.basically.website/sorter-docs/camera-calibration-suggested-plate-2x2-full-91ad046adc71.png" target="_blank" rel="noopener">
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/camera-calibration-suggested-plate-2x2-full-91ad046adc71.png" alt="4 by 6 grid diagram of the calibration plate pattern, drawn as LEGO plates with studs, in the six reference colors, 2 studs per cell">
+  </a>
+  <figcaption>One way to build it: 2x2 studs per grid cell, 8 studs wide x 12 studs tall overall. The four 2x2-cell color blocks (blue/red/green/yellow) are each 4x4 studs, so one plate or tile per color instead of four 2x2s; the alternating top and bottom rows need individual 2x2 plates/tiles, they don't form contiguous blocks. Click to enlarge. <cite>Rendered from the pattern above, not a photo. Render: Balloon.</cite></figcaption>
 </figure>
 
 ### Steps

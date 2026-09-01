@@ -6254,8 +6254,8 @@
     },
     {
       "id": "machine",
-      "uid": "e4k9",
-      "version": "1",
+      "uid": "dlmn",
+      "version": "2",
       "name": "Sorter V2",
       "description": "The whole machine: feeder on top, interface, the distribution layers between the interfaces, and the bottom interface.",
       "docs": "/hardware/assembly/",
@@ -6265,6 +6265,66 @@
           "assembly": "feeder",
           "qty": 1
         },
+        {
+          "assembly": "superstructure",
+          "qty": 1
+        },
+        {
+          "assembly": "electronics",
+          "qty": 1
+        }
+      ],
+      "versions": [
+        {
+          "version": "1",
+          "uid": "e4k9",
+          "commit": null,
+          "message": "Original recording: the interfaces, layers, feeder and electronics all sat flat at the root.",
+          "lines": [
+            {
+              "assembly": "feeder",
+              "qty": 1,
+              "uid": "y5ws"
+            },
+            {
+              "assembly": "interface",
+              "qty": 1,
+              "uid": "uelo"
+            },
+            {
+              "assembly": "layer",
+              "qty": "middle-layers",
+              "uid": "jog7"
+            },
+            {
+              "assembly": "bottom-interface",
+              "qty": 1,
+              "uid": "67uq"
+            },
+            {
+              "assembly": "electronics",
+              "qty": 1,
+              "uid": "lbrp"
+            }
+          ]
+        },
+        {
+          "version": "2",
+          "date": "2026-09-01",
+          "message": "The machine splits into what it physically is: the feeder, the superstructure it mounts onto — top interface, distribution layers, bottom interface — and the electronics. No physical change.",
+          "breaking": false,
+          "commit": null
+        }
+      ]
+    },
+    {
+      "id": "superstructure",
+      "uid": "ywb3",
+      "version": "1",
+      "name": "Superstructure",
+      "description": "What the feeder and the electronics mount onto: the top interface, the distribution layers between the interfaces, and the bottom interface.",
+      "status": "partial",
+      "lines": [
         {
           "assembly": "interface",
           "qty": 1
@@ -6276,12 +6336,9 @@
         {
           "assembly": "bottom-interface",
           "qty": 1
-        },
-        {
-          "assembly": "electronics",
-          "qty": 1
         }
-      ]
+      ],
+      "connections": []
     },
     {
       "id": "feeder",

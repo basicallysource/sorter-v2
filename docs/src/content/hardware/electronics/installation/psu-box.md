@@ -88,6 +88,11 @@ Fit the cap. It carries no screws of its own — its STL has no case-screw holes
 
 The box hangs off the 2020 frame on 2 {% include fastener.html size="M5" variant="socket-button" length="16" %} screws, self-tapping, with no {% include fastener.html size="M5" variant="t-nut" text="T-nut" %} in the joint. It goes on the [hex frame]({{ '/hardware/assembly/distribution/bin-frame/hex-frame/' | relative_url }}) belonging to the top interface; the [layout render]({{ '/hardware/electronics/installation/' | relative_url }}) on the installation overview shows where it sits relative to the chute stepper.
 
+<div class="callout callout-warning">
+  <span class="callout-icon" aria-hidden="true">⚠</span>
+  <p><b>This joint is not confirmed.</b> The two holes here are Ø5.5 mm, wider than an M5 screw's own 5 mm thread, so the screw passes through the plastic without cutting into it and has nothing to hold it. The rest of the machine puts an {% include fastener.html size="M5" variant="t-nut" text="T-nut" %} in the slot behind a screw like this, and that is what these holes are drawn for. Until a designer settles which it should be, fit one if the screw will not pull tight. Tracked as <a href="https://github.com/basicallysource/sorter-v2/issues/513">sorter-v2 #513</a>.</p>
+</div>
+
 <div class="img-placeholder">Image coming</div>
 
 The PSU box is now complete. Everything that plugs into it is on the [wire harness]({{ '/hardware/electronics/' | relative_url }}) page.

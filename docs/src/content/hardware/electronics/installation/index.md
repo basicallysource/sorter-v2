@@ -23,6 +23,11 @@ The [wire harness]({{ '/hardware/electronics/' | relative_url }}) pages cover wh
 
 Each of the three printed enclosures bolts to the 2020 frame with 2 {% include fastener.html size="M5" variant="socket-button" length="16" %} screws (6 total). They are self-tapping: there are no {% include fastener.html size="M5" variant="t-nut" text="T-nuts" %} at any of these six points.
 
+<div class="callout callout-warning">
+  <span class="callout-icon" aria-hidden="true">⚠</span>
+  <p><b>This joint is not confirmed.</b> All six holes are Ø5.4 to 5.5 mm, wider than an M5 screw's own 5 mm thread, so the screw passes through the plastic without cutting into it and has nothing to hold it. The rest of the machine puts an {% include fastener.html size="M5" variant="t-nut" text="T-nut" %} in the slot behind a screw like this, and that is what these holes are drawn for. Until a designer settles which it should be, fit one if the screw will not pull tight. Tracked as <a href="https://github.com/basicallysource/sorter-v2/issues/513">sorter-v2 #513</a>.</p>
+</div>
+
 All three go on the same plane: the [hex frame]({{ '/hardware/assembly/distribution/bin-frame/hex-frame/' | relative_url }}) that belongs to the top interface, the one lowered onto the interface assembly at [step 13]({{ '/hardware/assembly/distribution/top-interface/' | relative_url }}#step-13) of the top interface build. The render below is that frame seen from above, and the chute stepper is the landmark to place the three enclosures against.
 
 <figure class="single-figure">

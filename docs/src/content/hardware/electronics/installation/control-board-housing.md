@@ -160,6 +160,11 @@ Press the plunger on the lid. You should hear the button click.
 
 The two clamp bosses go onto the 2020 extrusion on 2 {% include fastener.html size="M5" variant="socket-button" length="16" %} screws, self-tapping, with no {% include fastener.html size="M5" variant="t-nut" text="T-nut" %} in the joint. It goes on the [hex frame]({{ '/hardware/assembly/distribution/bin-frame/hex-frame/' | relative_url }}) belonging to the top interface; the [layout render]({{ '/hardware/electronics/installation/' | relative_url }}) on the installation overview shows where it sits relative to the chute stepper.
 
+<div class="callout callout-warning">
+  <span class="callout-icon" aria-hidden="true">⚠</span>
+  <p><b>This joint is not confirmed.</b> The two holes here are Ø5.4 mm, wider than an M5 screw's own 5 mm thread, so the screw passes through the plastic without cutting into it and has nothing to hold it. The rest of the machine puts an {% include fastener.html size="M5" variant="t-nut" text="T-nut" %} in the slot behind a screw like this, and that is what these holes are drawn for. Until a designer settles which it should be, fit one if the screw will not pull tight. Tracked as <a href="https://github.com/basicallysource/sorter-v2/issues/513">sorter-v2 #513</a>.</p>
+</div>
+
 <div class="img-row">
   <figure>
     <img src="https://assets.basically.website/sorter-docs/assembly-control-board-housing-on-the-extrusion-w1600-813fbb56a0d6.jpg" alt="The finished housing bolted down onto a 2020 aluminium extrusion under the machine's frame, with two socket head screws through its clamp bosses">

@@ -3281,9 +3281,9 @@
       "category": "Screws",
       "alternative": "Socket or button head",
       "image_url": "https://assets.basically.website/sorter-parts/scr-m3-12-bhcs-full-26e52d7d5bcd.png",
-      "description": "Mounts the cable clamp to the interface, and the limit switch to its housing.",
+      "description": "Mounts the cable clamp to the interface, the limit switch to its housing, and fastens the camera extension into the Camera & LED insert.",
       "created_at": "2026-07-18",
-      "updated_at": "2026-08-18",
+      "updated_at": "2026-09-01",
       "attributes": [
         {
           "label": "Thread",
@@ -6162,8 +6162,8 @@
     },
     {
       "id": "camera-extension-assembly",
-      "uid": "dc2i",
-      "version": "1",
+      "uid": "q2re",
+      "version": "2",
       "name": "Camera extension",
       "description": "Classification-channel camera extension for the 4K camera module: the 50 mm extension tube, its mount, and the camera. 1 per machine.",
       "status": "partial",
@@ -6183,10 +6183,48 @@
         {
           "part": "scr-m2-8-shcs",
           "qty": 4
+        }
+      ],
+      "versions": [
+        {
+          "version": "1",
+          "uid": "dc2i",
+          "commit": null,
+          "message": "Original version: carried the 4 × M3 × 12 that fasten this assembly into the Camera & LED insert, even though the insert is the parent's line.",
+          "lines": [
+            {
+              "part": "camera-extension",
+              "qty": 1,
+              "uid": "v684"
+            },
+            {
+              "part": "camera-extension-mount",
+              "qty": 1,
+              "uid": "wt9t"
+            },
+            {
+              "part": "cam-imx415",
+              "qty": 1,
+              "uid": "1lze"
+            },
+            {
+              "part": "scr-m2-8-shcs",
+              "qty": 4,
+              "uid": "iwk6"
+            },
+            {
+              "part": "scr-m3-12-bhcs",
+              "qty": 4,
+              "uid": "izrb"
+            }
+          ]
         },
         {
-          "part": "scr-m3-12-bhcs",
-          "qty": 4
+          "version": "2",
+          "date": "2026-09-01",
+          "message": "The 4 × M3 × 12 moved out to the Camera & LED insert assembly: they fasten this whole assembly into the insert, so the joint and its screws belong to the node that holds both. No physical change.",
+          "breaking": false,
+          "commit": null
         }
       ]
     },
@@ -6605,9 +6643,21 @@
         {
           "assembly": "camera-extension-assembly",
           "qty": 1
+        },
+        {
+          "part": "scr-m3-12-bhcs",
+          "qty": 4
         }
       ],
-      "connections": []
+      "connections": [
+        {
+          "from": "camera-extension-assembly",
+          "to": "camera-led-insert",
+          "via": "scr-m3-12-bhcs",
+          "qty": 4,
+          "method": "self-tap"
+        }
+      ]
     },
     {
       "id": "interface",

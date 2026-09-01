@@ -63,6 +63,16 @@ Reference colors the pipeline fits against:
 | Green | `#0b9b63` | 11, 155, 99 |
 | Yellow | `#f0d61d` | 240, 214, 29 |
 
+<div class="callout callout-warning">
+  <span class="callout-icon" aria-hidden="true">⚠</span>
+  <p><b>No official physical size or bill of parts exists for this plate yet.</b> The detector fits an affine transform to whatever it finds, so any size works as long as it fills most of the frame; the suggestion below is not a confirmed spec.</p>
+</div>
+
+<figure class="single-figure">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/camera-calibration-suggested-plate-full-8df4a78df6e2.png" alt="4 by 6 grid diagram of the calibration plate pattern, drawn as LEGO plates with studs, in the six reference colors">
+  <figcaption>One way to build it: one 4x4-stud LEGO plate or tile per cell (32mm), 128 x 192mm overall. The four 2x2 color blocks (blue/red/green/yellow) can each be a single 8x8 plate instead of four 4x4s; the alternating top and bottom rows need individual 4x4 plates/tiles. <cite>Rendered from the pattern above, not a photo. Render: Balloon.</cite></figcaption>
+</figure>
+
 ### Steps
 
 | # | Action |

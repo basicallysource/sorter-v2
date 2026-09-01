@@ -23,6 +23,8 @@
 	import PartDetailModal from '$lib/components/PartDetailModal.svelte';
 	import AssemblyDetailModal from '$lib/components/AssemblyDetailModal.svelte';
 	import HardwareDetailModal from '$lib/components/HardwareDetailModal.svelte';
+	import LasercutDetailModal from '$lib/components/LasercutDetailModal.svelte';
+	import type { LaserCutPart } from '$lib/lasercut';
 	import HardwareIcon from '$lib/components/HardwareIcon.svelte';
 	import ImageStrip from '$lib/components/ImageStrip.svelte';
 	import SearchField from '$lib/components/search/SearchField.svelte';
@@ -517,6 +519,8 @@
 		if (p) return openPart(p);
 		const h = getHardware(id);
 		if (h) return openHardware(h);
+		const lc = getLasercut(id);
+		if (lc) return openLasercut(lc);
 		if (getAssembly(id)) openAssembly(id);
 	}
 
@@ -649,6 +653,12 @@
 		hwModal = h;
 		hwOpen = true;
 	}
+	let lcOpen = $state(false);
+	let lcModal = $state<LaserCutPart | null>(null);
+	function openLasercut(lc: LaserCutPart) {
+		lcModal = lc;
+		lcOpen = true;
+	}
 	// A node's name pulls it out of the tree into the same one-box view the parts
 	// dashboard opens, which is the point of having the view at all: on this page
 	// an assembly is a branch among hundreds, and sometimes you want just the box.
@@ -759,10 +769,12 @@
 		{:else if line.part && getLasercut(line.part)}
 			{@const lc = getLasercut(line.part)!}
 			<div data-member={line.part} class="ml-1.5 mt-2 flex items-center gap-3 border border-border bg-surface p-2 sm:ml-4 sm:p-3">
-				<img src={lc.preview} alt={lc.name} class="h-12 w-12 shrink-0 object-contain" />
+				<button type="button" class="asm-thumb shrink-0" title="View {lc.name} details" onclick={() => openLasercut(lc)}>
+					<img src={lc.preview} alt={lc.name} class="h-12 w-12 object-contain" />
+				</button>
 				<div class="min-w-0 flex-1">
 					<div class="flex flex-wrap items-baseline gap-x-2">
-						<span class="text-sm font-semibold text-text">{lc.name}</span>
+						<button type="button" class="text-sm font-semibold text-text hover:text-primary" onclick={() => openLasercut(lc)}>{lc.name}</button>
 						<span class="border border-border px-1.5 py-px text-[10px] font-semibold uppercase tracking-wider text-text-muted"
 							>laser cut</span>
 					</div>
@@ -1290,7 +1302,7 @@
 			{#if open}
 			{@const braceGutter =
 				asm.connections?.length && !filtering
-					? 32 + (braceGroups(asm.connections).length - 1) * 16
+					? 44 + (braceGroups(asm.connections).length - 1) * 16
 					: 0}
 			<div
 				class="tree-branch relative pl-2 sm:pl-4"
@@ -1471,6 +1483,7 @@
 <AssemblyDetailModal bind:open={asmOpen} id={asmId} {layers} onPart={openPart} onHardware={openHardware} />
 <PartDetailModal bind:open={partOpen} part={partModal} bind:colorId={partColor} bind:version={partVersion} />
 <HardwareDetailModal bind:open={hwOpen} hardware={hwModal} {layers} />
+<LasercutDetailModal bind:open={lcOpen} part={lcModal} />
 
 <style>
 	/* Tree thumbnails open a detail view on click, so they carry the same click cue

@@ -116,7 +116,9 @@
 	const hueOf = (i: number) =>
 		((METHOD_HUE[groups[i]?.method] ?? 0) + (hueShift[i] ?? 0)) % 360;
 	const colorOf = (i: number) => `hsl(${hueOf(i)} 60% 38%)`;
-	const laneX = (i: number) => 12 + i * 16;
+	// The innermost lane keeps a real distance from the rows so every tick has
+	// a visible run — a 12px nub against a box border reads as no line at all.
+	const laneX = (i: number) => 24 + i * 16;
 
 	const groups = $derived(braceGroups(edges));
 

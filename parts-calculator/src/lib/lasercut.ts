@@ -28,6 +28,10 @@ export type LaserCutPart = {
 	onshape: string; // pinned OnShape version this DXF was exported from
 	dxf: string; // download path
 	preview: string; // SVG outline preview path
+	// published solid model of the cut part — never printed or sliced, just a
+	// 3D view. Source pins `stl_hash`; the generator derives the served URL.
+	stl_hash?: string;
+	stl?: string;
 	updated: string; // date of the DXF export (ISO)
 	// optional "by hand" (jigsaw + drill) route for people without a laser
 	handcut?: {

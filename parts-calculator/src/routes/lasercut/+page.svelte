@@ -7,6 +7,7 @@
 	import HandCutCageGuide from '$lib/components/HandCutCageGuide.svelte';
 	import ChangeStatus from '$lib/components/ChangeStatus.svelte';
 	import PartDetailModal from '$lib/components/PartDetailModal.svelte';
+	import StlViewer from '$lib/components/StlViewer.svelte';
 	import { LASER_CUT_PARTS, type LaserCutPart } from '$lib/lasercut';
 	import { fmtDate, PARTS, primaryColorId, type Part, type PartVersion } from '$lib/filament';
 	import { colorStore } from '$lib/colors.svelte';
@@ -34,6 +35,8 @@
 	let mode = $state<Record<string, Mode>>(
 		Object.fromEntries(LASER_CUT_PARTS.map((p) => [p.id, 'laser' as Mode]))
 	);
+	// cards with a published solid model can swap the outline for a 3D view
+	let view3d = $state<Record<string, boolean>>({});
 	let guidePart = $state<LaserCutPart | null>(null);
 	let guideOpen = $state(false);
 	function openGuide(p: LaserCutPart) {
@@ -124,8 +127,21 @@
 			<div class="grid gap-4 sm:grid-cols-2">
 				{#each group.parts as p (p.id)}
 					<div class="setup-card-shell flex scroll-mt-6 flex-col border" id="laser-{p.id}">
-						<div class="relative flex items-center justify-center border-b border-border bg-[var(--color-bg)] p-4">
-							<img src={p.preview} alt="{p.name} outline" class="h-48 w-auto max-w-full" />
+						<div class="relative border-b border-border bg-[var(--color-bg)] {view3d[p.id] ? '' : 'flex items-center justify-center p-4'}">
+							{#if p.stl && view3d[p.id]}
+								<StlViewer url={p.stl} color="#b08d57" heightClass="h-[224px]" />
+							{:else}
+								<img src={p.preview} alt="{p.name} outline" class="h-48 w-auto max-w-full" />
+							{/if}
+							{#if p.stl}
+								<button
+									type="button"
+									class="absolute left-2 top-2 border border-border bg-surface px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-text-muted hover:text-text"
+									onclick={() => (view3d[p.id] = !view3d[p.id])}
+								>
+									{view3d[p.id] ? 'Outline' : '3D'}
+								</button>
+							{/if}
 							<ChangeStatus kind="lasercut" id={p.id} name={p.name} variant="marker" />
 						</div>
 						<div class="flex gap-1 border-b border-border px-2">
@@ -182,6 +198,7 @@
 								</dl>
 								<div class="mt-auto flex flex-wrap items-center gap-3 pt-1">
 									<DownloadButton href={p.dxf} size="md" label="Download DXF" />
+									{#if p.stl}<DownloadButton href={p.stl} size="sm" label="STL" title="The solid model — for viewing or CAM, not for printing" />{/if}
 									<a
 										href={p.onshape}
 										target="_blank"

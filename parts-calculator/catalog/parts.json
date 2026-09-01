@@ -7188,8 +7188,8 @@
           "to": "ext-2020-ag",
           "via": "scr-m5-16-shcs",
           "qty": 12,
-          "method": "thread",
-          "note": "Two per bracket, into the extrusions' M5 cores -- no T-nuts."
+          "method": "self-tap",
+          "note": "Two per bracket: self-taps through the bracket print and the tip rams against the extrusion, jamming the fit. No T-nuts."
         }
       ]
     },
@@ -7295,7 +7295,7 @@
         {
           "version": "2",
           "date": "2026-08-31",
-          "message": "Restructured into Inner hex frame + Outer hex frame with connection edges. The corner brackets (side, bottom vertical, cover) become External bracket with support units; the A/G extrusions slide between them in the outer hex, held by 12 friction fits and secured by screws into their M5 cores; the 24 T-nuts are dropped. No physical change.",
+          "message": "Restructured into Inner hex frame + Outer hex frame with connection edges. The corner brackets (side, bottom vertical, cover) become External bracket with support units; the A/G extrusions slide between them in the outer hex, held by 12 friction fits and jammed by screws that self-tap through the brackets and ram against the extrusions; the 24 T-nuts are dropped. No physical change.",
           "breaking": false,
           "commit": null
         }

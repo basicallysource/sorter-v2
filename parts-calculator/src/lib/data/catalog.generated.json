@@ -2108,6 +2108,10 @@
 					"qty": 1
 				},
 				{
+					"part": "brg-608-2rs",
+					"qty": 1
+				},
+				{
 					"part": "scr-m3-35-bhcs",
 					"qty": 1
 				},
@@ -2126,6 +2130,14 @@
 				{
 					"part": "hsi-m3",
 					"qty": 4
+				}
+			],
+			"connections": [
+				{
+					"from": "brg-608-2rs",
+					"to": "interface-idler-gear",
+					"qty": 1,
+					"method": "press"
 				}
 			]
 		},
@@ -7139,7 +7151,7 @@
 			"description": "Idler gear for the chute stepper, 2M 25T. 1 needed.",
 			"version": "1",
 			"created_at": "2026-06-27",
-			"updated_at": "2026-06-27",
+			"updated_at": "2026-09-01",
 			"versions": [
 				{
 					"version": "1",
@@ -7167,12 +7179,7 @@
 			"low_tolerance": false,
 			"low_tolerance_note": null,
 			"layer_scope": "all",
-			"requires": [
-				{
-					"part": "brg-608-2rs",
-					"qty": 1
-				}
-			],
+			"requires": [],
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,

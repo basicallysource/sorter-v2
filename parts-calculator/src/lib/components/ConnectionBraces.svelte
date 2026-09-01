@@ -58,14 +58,15 @@
 		gutter,
 		labelOf,
 		nameOf,
-		lengthOf = () => null
+		travelOf = () => null
 	}: {
 		edges: Connection[];
 		gutter: number;
 		labelOf: (method: string) => string;
 		nameOf: (id: string) => string;
-		/** Nominal length of a fastener line, for the screw-fit bar. */
-		lengthOf?: (id: string) => number | null;
+		/** How far a fastener line reaches through a joint (nominal length,
+		 *  less the head for countersunk — see screwTravel in filament.ts). */
+		travelOf?: (id: string) => number | null;
 	} = $props();
 
 	// A screw needs at least this much thread engagement to count as holding.
@@ -280,7 +281,7 @@
 								     depths known = a computable valid-length range. -->
 								{@const th = e.through_mm ?? 0}
 								{@const tr = e.thread_mm ?? 0}
-								{@const len = e.via ? lengthOf(e.via) : null}
+								{@const len = e.via ? travelOf(e.via) : null}
 								{@const span = Math.max(th + tr, len ?? 0)}
 								{@const lo = th + MIN_BITE_MM}
 								{@const hi = th + tr}
@@ -296,12 +297,12 @@
 										></div>
 									{/if}
 									{#if len != null}
-										<div class="absolute -inset-y-0.5 w-px bg-text" style="left: {(len / span) * 100}%" title="{mm(len)} mm screw"></div>
+										<div class="absolute -inset-y-0.5 w-px bg-text" style="left: {(len / span) * 100}%" title="the screw reaches {mm(len)} mm"></div>
 									{/if}
 								</div>
 								<div class="text-[11px] text-text-muted">
 									{#if th}{mm(th)} mm through{/if}{#if th && tr}{' · '}{/if}{#if tr}{mm(tr)} mm thread{/if}{#if th && tr && hi > lo}{` · fits ${mm(lo)}–${mm(hi)} mm`}{/if}{#if len != null && th && tr}
-										<span class={fits ? 'text-success' : 'text-warning-dark'}>{` · ${mm(len)} mm ${fits ? 'fits' : 'out of range'}`}</span>{/if}
+										<span class={fits ? 'text-success' : 'text-warning-dark'}>{` · reaches ${mm(len)} mm — ${fits ? 'fits' : 'out of range'}`}</span>{/if}
 								</div>
 							{/if}
 							{#if e.note}<div class="mt-0.5 text-text-muted">{e.note}</div>{/if}

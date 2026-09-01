@@ -135,6 +135,19 @@ export type ConnectionMethod =
 	| 'nut'
 	| 'tnut'
 	| 'gravity';
+/** ISO 10642 countersunk head heights by thread size. A countersunk screw's
+ *  nominal length is measured over the head, and the head rides inside the
+ *  countersink — so only nominal minus head actually travels the joint. */
+const CSK_HEAD_MM: Record<string, number> = { M3: 1.7, M4: 2.3, M5: 2.8, M6: 3.3 };
+
+/** How far a screw reaches through a joint: nominal length, less the head for
+ *  countersunk screws. Null when the length isn't recorded. */
+export function screwTravel(h: Hardware | null | undefined): number | null {
+	const len = h?.cots?.length_mm;
+	if (len == null) return null;
+	return h?.cots?.variant === 'countersunk' ? len - (CSK_HEAD_MM[h.cots.size ?? ''] ?? 0) : len;
+}
+
 export type Connection = {
 	from: string;
 	to: string;

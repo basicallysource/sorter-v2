@@ -2036,8 +2036,8 @@
 		},
 		{
 			"id": "external-bracket-with-support",
-			"uid": "kiag",
-			"version": "1",
+			"uid": "5wdt",
+			"version": "2",
 			"name": "External bracket with support",
 			"description": "One corner segment of the outer hex: the side bracket screwed to the bottom vertical, with the snap-on cover.",
 			"lines": [
@@ -2055,15 +2055,15 @@
 				},
 				{
 					"part": "scr-m5-16-shcs",
-					"qty": 1
+					"qty": 2
 				}
 			],
 			"connections": [
 				{
-					"from": "ext-bracket-left",
-					"to": "ext-bracket-bottom-vertical",
+					"from": "ext-bracket-bottom-vertical",
+					"to": "ext-bracket-left",
 					"via": "scr-m5-16-shcs",
-					"qty": 1,
+					"qty": 2,
 					"method": "self-tap"
 				},
 				{
@@ -2071,6 +2071,45 @@
 					"to": "ext-bracket-left",
 					"qty": 1,
 					"method": "clip"
+				}
+			],
+			"versions": [
+				{
+					"version": "1",
+					"uid": "kiag",
+					"date": "2026-08-31",
+					"commit": null,
+					"message": "Original recording: one screw for the side-to-bottom-vertical joint.",
+					"lines": [
+						{
+							"part": "ext-bracket-left",
+							"qty": 1,
+							"uid": "0b4g"
+						},
+						{
+							"part": "ext-bracket-bottom-vertical",
+							"qty": 1,
+							"uid": "xgzj"
+						},
+						{
+							"part": "ext-bracket-cover",
+							"qty": 1,
+							"uid": "1r5i"
+						},
+						{
+							"part": "scr-m5-16-shcs",
+							"qty": 1,
+							"uid": "2e0s"
+						}
+					]
+				},
+				{
+					"version": "2",
+					"uid": "5wdt",
+					"date": "2026-08-31",
+					"message": "Recording correction: the bottom vertical is screwed into the side bracket with 2 x M5 x 16, not 1, and the screws run from the bottom vertical into the side. No physical change.",
+					"breaking": false,
+					"commit": null
 				}
 			]
 		},
@@ -18811,26 +18850,26 @@
 		{
 			"name": "ext-bracket-left-v1",
 			"node": "ext-bracket-left",
-			"stability": "stable",
+			"stability": "golden",
 			"date": "2026-08-31",
 			"commit": null,
-			"message": "Blessed stable with hex-frame-v2."
+			"message": "Golden with hex-frame-v2: future revisions must stay compatible with this part."
 		},
 		{
 			"name": "ext-bracket-bottom-vertical-v1",
 			"node": "ext-bracket-bottom-vertical",
-			"stability": "stable",
+			"stability": "golden",
 			"date": "2026-08-31",
 			"commit": null,
-			"message": "Blessed stable with hex-frame-v2."
+			"message": "Golden with hex-frame-v2: future revisions must stay compatible with this part."
 		},
 		{
 			"name": "ext-bracket-cover-v1",
 			"node": "ext-bracket-cover",
-			"stability": "stable",
+			"stability": "golden",
 			"date": "2026-08-31",
 			"commit": null,
-			"message": "Blessed stable with hex-frame-v2."
+			"message": "Golden with hex-frame-v2: future revisions must stay compatible with this part."
 		},
 		{
 			"name": "frame-crossbeam-v1",
@@ -18851,18 +18890,18 @@
 		{
 			"name": "ext-2020-ag-v1",
 			"node": "ext-2020-ag",
-			"stability": "stable",
+			"stability": "golden",
 			"date": "2026-08-31",
 			"commit": null,
-			"message": "Blessed stable with hex-frame-v2."
+			"message": "Golden with hex-frame-v2: future revisions must stay compatible with this part."
 		},
 		{
 			"name": "ext-2020-bh-v1",
 			"node": "ext-2020-bh",
-			"stability": "stable",
+			"stability": "golden",
 			"date": "2026-08-31",
 			"commit": null,
-			"message": "Blessed stable with hex-frame-v2."
+			"message": "Golden with hex-frame-v2: future revisions must stay compatible with this part."
 		}
 	]
 }

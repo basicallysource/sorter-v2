@@ -1306,19 +1306,37 @@
 				/>
 				<DropdownMenu label="Filter and order the tree" menuClass="w-52">
 					{#snippet trigger({ toggle, open })}
-						<button
-							type="button"
-							class="flex h-8 w-8 shrink-0 items-center justify-center border bg-surface {onlyStable || order !== 'authored'
-								? 'border-primary text-primary'
-								: 'border-border text-text-muted'} hover:border-primary hover:text-primary"
-							onclick={toggle}
-							aria-expanded={open}
-							title="Filter and order"
-						>
-							<SlidersHorizontal size={14} />
-						</button>
+						{@const active = onlyStable || order !== 'authored'}
+						<span class="flex shrink-0">
+							<button
+								type="button"
+								class="flex h-8 w-8 items-center justify-center border bg-surface {active
+									? 'border-primary text-primary'
+									: 'border-border text-text-muted'} hover:border-primary hover:text-primary"
+								onclick={toggle}
+								aria-expanded={open}
+								title="Filter and order"
+							>
+								<SlidersHorizontal size={14} />
+							</button>
+							{#if active}
+								<button
+									type="button"
+									class="-ml-px flex h-8 w-6 items-center justify-center border border-primary bg-surface text-primary hover:bg-primary/[0.06]"
+									onclick={() => {
+										onlyStable = false;
+										order = 'authored';
+									}}
+									title="Clear filter and order"
+									aria-label="Clear filter and order"
+								>
+									<X size={12} />
+								</button>
+							{/if}
+						</span>
 					{/snippet}
-					{#snippet children({ close: _close })}
+					{#snippet children({ close })}
+						{@const active = onlyStable || order !== 'authored'}
 						<div class="px-2.5 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-wider text-text-muted">Filter</div>
 						<button
 							type="button"
@@ -1339,6 +1357,23 @@
 								{#if order === o}<Check size={12} class="ml-auto text-primary" />{/if}
 							</button>
 						{/each}
+						<div class="mt-1 border-t border-border">
+							<button
+								type="button"
+								class="flex w-full items-center gap-2 px-2.5 py-1.5 text-left text-xs {active
+									? 'text-text hover:bg-[var(--color-bg)]'
+									: 'cursor-default text-text-muted/50'}"
+								disabled={!active}
+								onclick={() => {
+									onlyStable = false;
+									order = 'authored';
+									close();
+								}}
+							>
+								<X size={12} />
+								<span>Reset</span>
+							</button>
+						</div>
 					{/snippet}
 				</DropdownMenu>
 				<button

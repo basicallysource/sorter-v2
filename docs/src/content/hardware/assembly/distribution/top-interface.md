@@ -630,6 +630,12 @@ Slide an Interface spacer onto each piece of extrusion, with the lip at the top 
 
 Build a [hex frame]({{ '/hardware/assembly/distribution/bin-frame/hex-frame/' | relative_url }}), then place it onto the interface assembly.
 
+Roll 6 {% include fastener.html size="M5" variant="t-nut" text="T-nuts" %} into this hex frame's own extrusions while you are here, 2 each for the PSU box, the control board housing and the Orange Pi mount. All three bolt onto this frame later, and the layout render on [installing the electronics]({{ '/hardware/electronics/installation/' | relative_url }}) shows where each one sits. Their screws and the rest of their hardware are listed on those pages, not here.
+
+<div class="callout">
+  <p><b>No problem if you forget them.</b> The {% include fastener.html size="M5" variant="t-nut" text="T-nut" %} this build specifies is the spring-loaded roll-in kind, which drops into the slot anywhere along its length, so these six can still go in later without taking the frame apart.</p>
+</div>
+
 <figure>
   <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-top-interface-framing-3-full-b9ae16940954.jpg" alt="A hex frame lowered onto the interface assembly">
   <figcaption><cite>Photo: zed0.</cite></figcaption>

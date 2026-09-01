@@ -25,7 +25,9 @@ parts_needed:
     qty: 4
   - part: scr-m3-6-bhcs
     qty: 4
-  - part: scr-m5-16-shcs
+  - part: scr-m5-12-shcs
+    qty: 2
+  - part: tnut-m5-2020
     qty: 2
 ---
 
@@ -71,11 +73,10 @@ Screw the 4 M3 standoffs into the inserts. Sit the Pi on them and fasten it down
 
 {% include step.html n="3" title="Bolt the mount to the frame" %}
 
-The mount hangs off the 2020 frame on 2 {% include fastener.html size="M5" variant="socket-button" length="16" %} screws, self-tapping, with no {% include fastener.html size="M5" variant="t-nut" text="T-nut" %} in the joint. It goes on the [hex frame]({{ '/hardware/assembly/distribution/bin-frame/hex-frame/' | relative_url }}) belonging to the top interface; the [layout render]({{ '/hardware/electronics/installation/' | relative_url }}) on the installation overview shows where it sits relative to the chute stepper.
+The mount hangs off the 2020 frame on 2 {% include fastener.html size="M5" variant="socket-button" length="12" %} screws into 2 {% include fastener.html size="M5" variant="t-nut" text="T-nuts" %} in the extrusion slot. It goes on the [hex frame]({{ '/hardware/assembly/distribution/bin-frame/hex-frame/' | relative_url }}) belonging to the top interface; the [layout render]({{ '/hardware/electronics/installation/' | relative_url }}) on the installation overview shows where it sits relative to the chute stepper.
 
-<div class="callout callout-warning">
-  <span class="callout-icon" aria-hidden="true">⚠</span>
-  <p><b>This joint is not confirmed.</b> The two holes here are Ø5.5 mm, wider than an M5 screw's own 5 mm thread, so the screw passes through the plastic without cutting into it and has nothing to hold it. The rest of the machine puts an {% include fastener.html size="M5" variant="t-nut" text="T-nut" %} in the slot behind a screw like this, and that is what these holes are drawn for. Until a designer settles which it should be, fit one if the screw will not pull tight. Tracked as <a href="https://github.com/basicallysource/sorter-v2/issues/513">sorter-v2 #513</a>.</p>
+<div class="callout">
+  <p><b>No problem if you forgot them.</b> The {% include fastener.html size="M5" variant="t-nut" text="T-nut" %} this build specifies is the spring-loaded roll-in kind, which drops into the slot anywhere along its length, so it can still go in now without taking the frame apart.</p>
 </div>
 
 <div class="img-placeholder">Image coming</div>

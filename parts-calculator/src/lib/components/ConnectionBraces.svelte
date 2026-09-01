@@ -57,13 +57,20 @@
 		edges,
 		gutter,
 		labelOf,
-		nameOf
+		nameOf,
+		lengthOf = () => null
 	}: {
 		edges: Connection[];
 		gutter: number;
 		labelOf: (method: string) => string;
 		nameOf: (id: string) => string;
+		/** Nominal length of a fastener line, for the screw-fit bar. */
+		lengthOf?: (id: string) => number | null;
 	} = $props();
+
+	// A screw needs at least this much thread engagement to count as holding.
+	const MIN_BITE_MM = 2;
+	const mm = (n: number) => (Math.round(n * 100) / 100).toString();
 
 	let host = $state<HTMLElement | null>(null);
 	let open = $state<number | null>(null);
@@ -236,9 +243,7 @@
 			     spine, its background masking the line behind it. -->
 			<button
 				type="button"
-				class="pointer-events-auto absolute z-10 whitespace-nowrap bg-surface py-1 text-[10px] font-semibold uppercase tracking-wider transition-opacity duration-150 {open === i
-					? 'underline'
-					: ''}"
+				class="pointer-events-auto absolute z-10 whitespace-nowrap bg-surface py-1 text-[10px] font-semibold uppercase tracking-wider transition-opacity duration-150"
 				style="left: {laneX(laneOf[i] ?? i)}px; top: {s.labelY}px; transform: translate(-50%, -50%); writing-mode: vertical-rl; color: {colorOf(i)}; opacity: {hot !== null && hot !== i ? 0.15 : 1};"
 				aria-expanded={open === i}
 				onmouseenter={() => (hover = i)}
@@ -270,10 +275,33 @@
 								{#if e.via}{e.qty} × {nameOf(e.via)}{:else}{labelOf(e.method)}{e.qty > 1 ? ` — ${e.qty} places` : ''}{/if}
 							</div>
 							{#if e.through_mm || e.thread_mm}
-								<div class="text-text-muted">
-									{#if e.through_mm}{e.through_mm} mm through{/if}{#if e.through_mm && e.thread_mm}
-										·
-									{/if}{#if e.thread_mm}{e.thread_mm} mm of thread{/if}
+								<!-- The screw's journey to scale: pass-through, then the thread
+								     waiting for it, a marker at the actual screw's length. Both
+								     depths known = a computable valid-length range. -->
+								{@const th = e.through_mm ?? 0}
+								{@const tr = e.thread_mm ?? 0}
+								{@const len = e.via ? lengthOf(e.via) : null}
+								{@const span = Math.max(th + tr, len ?? 0)}
+								{@const lo = th + MIN_BITE_MM}
+								{@const hi = th + tr}
+								{@const fits = len != null && th > 0 && tr > 0 && len >= lo && len <= hi}
+								<div class="relative mt-1.5 h-3 w-full">
+									{#if th}
+										<div class="absolute inset-y-0 left-0 border border-border bg-[var(--color-bg)]" style="width: {(th / span) * 100}%"></div>
+									{/if}
+									{#if tr}
+										<div
+											class="absolute inset-y-0 border"
+											style="left: {(th / span) * 100}%; width: {(tr / span) * 100}%; border-color: {colorOf(i)}; background: color-mix(in srgb, {colorOf(i)} 22%, transparent)"
+										></div>
+									{/if}
+									{#if len != null}
+										<div class="absolute -inset-y-0.5 w-px bg-text" style="left: {(len / span) * 100}%" title="{mm(len)} mm screw"></div>
+									{/if}
+								</div>
+								<div class="text-[11px] text-text-muted">
+									{#if th}{mm(th)} mm through{/if}{#if th && tr}{' · '}{/if}{#if tr}{mm(tr)} mm thread{/if}{#if th && tr && hi > lo}{` · fits ${mm(lo)}–${mm(hi)} mm`}{/if}{#if len != null && th && tr}
+										<span class={fits ? 'text-success' : 'text-warning-dark'}>{` · ${mm(len)} mm ${fits ? 'fits' : 'out of range'}`}</span>{/if}
 								</div>
 							{/if}
 							{#if e.note}<div class="mt-0.5 text-text-muted">{e.note}</div>{/if}

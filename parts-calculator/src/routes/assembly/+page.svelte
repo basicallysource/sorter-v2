@@ -1297,7 +1297,7 @@
 			>
 				<button type="button" class="tree-line" onclick={() => toggle(asm.id)} aria-label="Collapse {asm.name}"></button>
 				{#if braceGutter && asm.connections}
-					<ConnectionBraces edges={asm.connections} gutter={braceGutter} labelOf={(m) => CONN_LABELS[m] ?? m} nameOf={memberName} />
+					<ConnectionBraces edges={asm.connections} gutter={braceGutter} labelOf={(m) => CONN_LABELS[m] ?? m} nameOf={memberName} lengthOf={(id) => getHardware(id)?.cots?.length_mm ?? null} />
 				{/if}
 			{#if asm.images?.length}<div class="mt-2"><ImageStrip images={asm.images} /></div>{/if}
 			{#if historyFor[asm.id] && !filtering}{@render historyPanel(asm)}{/if}

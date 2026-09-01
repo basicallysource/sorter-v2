@@ -1733,7 +1733,7 @@
 		},
 		{
 			"id": "c-channel",
-			"uid": "sbwe",
+			"uid": "4tvc",
 			"version": "3",
 			"name": "C-channel drive",
 			"description": "One C-channel drive unit: stator, NEMA bracket, gear train and stepper. 4 per machine \u2014 3 in the feeder plus the classification channel's. Drives a rotor unit, which differs by location and is not part of this node.",
@@ -1797,13 +1797,56 @@
 					"date": "2026-08-31",
 					"message": "Moved the Output gear (130T) and its 6 \u00d7 M3 \u00d7 12 out to the new rotor units: the gear bolts to the rotor, so the joint and its screws belong to the node that holds both. No physical change.",
 					"breaking": false,
-					"commit": null
+					"commit": null,
+					"uid": "sbwe",
+					"lines": [
+						{
+							"part": "stator",
+							"qty": 1,
+							"uid": "n6bm"
+						},
+						{
+							"part": "nema-bracket",
+							"qty": 1,
+							"uid": "x09t"
+						},
+						{
+							"part": "idler-gear",
+							"qty": 1,
+							"uid": "7bv7"
+						},
+						{
+							"part": "input-gear",
+							"qty": 1,
+							"uid": "70ul"
+						},
+						{
+							"part": "motor-nema17",
+							"qty": 1,
+							"uid": "w7pq"
+						},
+						{
+							"part": "scr-m3-16-shcs",
+							"qty": 3,
+							"uid": "e0ud"
+						},
+						{
+							"part": "scr-m3-12-cs",
+							"qty": 4,
+							"uid": "0a9x"
+						},
+						{
+							"part": "scr-m3-8-shcs",
+							"qty": 1,
+							"uid": "ql35"
+						}
+					]
 				},
 				{
 					"version": "3",
-					"uid": "sbwe",
+					"uid": "4tvc",
 					"date": "2026-09-01",
-					"message": "The screws are all countersunk \u2014 socket/button was recorded wrong \u2014 and the stepper takes 4, not 3. The idler's 608 bearing moved from the gear's requires to a line of its own, with its press fit as a connection. Connections bench-confirmed and listed in assembly order.",
+					"message": "The screws are all countersunk \u2014 socket/button was recorded wrong. The idler's 608 bearing is a line of its own with its press fit as a connection, and the screw joints carry measured pass-through and thread depths. Connections bench-confirmed and listed in assembly order.",
 					"breaking": false,
 					"commit": null
 				}
@@ -1835,7 +1878,7 @@
 				},
 				{
 					"part": "scr-m3-16-cs",
-					"qty": 4
+					"qty": 3
 				},
 				{
 					"part": "scr-m3-8-cs",
@@ -1857,9 +1900,10 @@
 					"from": "nema-bracket",
 					"to": "motor-nema17",
 					"via": "scr-m3-16-cs",
-					"qty": 4,
+					"qty": 3,
 					"method": "thread",
-					"note": "Into the NEMA 17's tapped face holes."
+					"through_mm": 10.45,
+					"note": "Into the NEMA 17's tapped face holes; tapped depth not yet measured."
 				},
 				{
 					"from": "input-gear",
@@ -1873,15 +1917,27 @@
 					"from": "nema-bracket",
 					"to": "stator",
 					"via": "scr-m3-12-cs",
-					"qty": 4,
-					"method": "self-tap"
+					"qty": 2,
+					"method": "self-tap",
+					"through_mm": 6.45,
+					"thread_mm": 10
+				},
+				{
+					"from": "nema-bracket",
+					"to": "stator",
+					"via": "scr-m3-12-cs",
+					"qty": 2,
+					"method": "self-tap",
+					"through_mm": 8.45,
+					"thread_mm": 10,
+					"note": "The bracket's four stator holes come in two depths: two at 6.45 mm, two at 8.45 mm."
 				}
 			]
 		},
 		{
 			"id": "rotor-unit-faceted",
-			"uid": "df0i",
-			"version": "1",
+			"uid": "ylvv",
+			"version": "2",
 			"name": "Rotor unit (faceted)",
 			"description": "The faceted rotor with the Output gear (130T) bolted on. Assembled once as a unit; a C-channel drive spins it.",
 			"lines": [
@@ -1894,25 +1950,71 @@
 					"qty": 1
 				},
 				{
+					"part": "brg-6806-2rs",
+					"qty": 1
+				},
+				{
 					"part": "scr-m3-12-cs",
 					"qty": 6
 				}
 			],
 			"connections": [
 				{
+					"from": "brg-6806-2rs",
+					"to": "output-gear",
+					"qty": 1,
+					"method": "press"
+				},
+				{
 					"from": "output-gear",
 					"to": "rotor-faceted",
 					"via": "scr-m3-12-cs",
 					"qty": 6,
 					"method": "self-tap",
-					"note": "One per spoke. Needs the 12 mm length: the gear is 8 mm thick at the bolt circle and a countersunk screw's length is measured over its head, so an M3 \u00d7 8 seated flush reaches nothing."
+					"note": "One per spoke. Needs the 12 mm length: the gear is 8 mm thick at the bolt circle and a countersunk screw's length is measured over its head, so an M3 \u00d7 8 seated flush reaches nothing.",
+					"through_mm": 6.45,
+					"thread_mm": 5
+				}
+			],
+			"versions": [
+				{
+					"version": "1",
+					"uid": "df0i",
+					"date": "2026-08-31",
+					"commit": null,
+					"message": "Original recording: the 6806 bearing rode along as the output gear's requires rather than a line.",
+					"lines": [
+						{
+							"part": "rotor-faceted",
+							"qty": 1,
+							"uid": "9v9q"
+						},
+						{
+							"part": "output-gear",
+							"qty": 1,
+							"uid": "26ek"
+						},
+						{
+							"part": "scr-m3-12-cs",
+							"qty": 6,
+							"uid": "0a9x"
+						}
+					]
+				},
+				{
+					"version": "2",
+					"uid": "ylvv",
+					"date": "2026-09-01",
+					"message": "The output gear's 6806 bearing is a line of its own with its press fit as a connection (was the gear's requires).",
+					"breaking": false,
+					"commit": null
 				}
 			]
 		},
 		{
 			"id": "rotor-unit-finned",
-			"uid": "iau5",
-			"version": "1",
+			"uid": "7ol7",
+			"version": "2",
 			"name": "Rotor unit (finned)",
 			"description": "The finned rotor with the Output gear (130T) bolted on. Assembled once as a unit; the classification channel's C-channel drive spins it.",
 			"lines": [
@@ -1925,11 +2027,21 @@
 					"qty": 1
 				},
 				{
+					"part": "brg-6806-2rs",
+					"qty": 1
+				},
+				{
 					"part": "scr-m3-12-cs",
 					"qty": 6
 				}
 			],
 			"connections": [
+				{
+					"from": "brg-6806-2rs",
+					"to": "output-gear",
+					"qty": 1,
+					"method": "press"
+				},
 				{
 					"from": "output-gear",
 					"to": "rotor-finned",
@@ -1937,6 +2049,40 @@
 					"qty": 6,
 					"method": "self-tap",
 					"note": "One per spoke. Same joint as the faceted rotor unit."
+				}
+			],
+			"versions": [
+				{
+					"version": "1",
+					"uid": "iau5",
+					"date": "2026-08-31",
+					"commit": null,
+					"message": "Original recording: the 6806 bearing rode along as the output gear's requires rather than a line.",
+					"lines": [
+						{
+							"part": "rotor-finned",
+							"qty": 1,
+							"uid": "brsr"
+						},
+						{
+							"part": "output-gear",
+							"qty": 1,
+							"uid": "26ek"
+						},
+						{
+							"part": "scr-m3-12-cs",
+							"qty": 6,
+							"uid": "0a9x"
+						}
+					]
+				},
+				{
+					"version": "2",
+					"uid": "7ol7",
+					"date": "2026-09-01",
+					"message": "The output gear's 6806 bearing is a line of its own with its press fit as a connection (was the gear's requires).",
+					"breaking": false,
+					"commit": null
 				}
 			]
 		},
@@ -2780,8 +2926,9 @@
 					"version": "1",
 					"uid": "n6bm",
 					"date": "2026-06-27",
-					"message": "Initial version.",
+					"message": "Initial catalog entry, imported 2026-06-27.",
 					"commit": null,
+					"onshape_version": "https://cad.onshape.com/documents/60aa51fc61d18f2155b99910/v/b76489d0ca46a1169a2a6081/e/66109ce96b305bf318354f93",
 					"stl": "https://assets.basically.website/sorter-parts/stator-323b2d1f94a5.stl",
 					"render": "https://assets.basically.website/sorter-parts/stator-full-8b6222d89d98.png",
 					"grams": 175.52
@@ -3068,7 +3215,7 @@
 			"description": "Output gear, 130 teeth. One per C-channel (4 total).",
 			"version": "1",
 			"created_at": "2026-06-27",
-			"updated_at": "2026-06-27",
+			"updated_at": "2026-09-01",
 			"versions": [
 				{
 					"version": "1",
@@ -3096,12 +3243,7 @@
 			"low_tolerance": false,
 			"low_tolerance_note": null,
 			"layer_scope": "all",
-			"requires": [
-				{
-					"part": "brg-6806-2rs",
-					"qty": 1
-				}
-			],
+			"requires": [],
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
@@ -3213,6 +3355,7 @@
 					"date": "2026-06-27",
 					"message": "Initial catalog entry, imported 2026-06-27 at the design's second iteration ('v2' in the source export, 01_c_channel (5).zip). v1 predates the catalog: never published, no uid, no pinned geometry. The commit is where this entry first exists in this repository's history; the import itself predates it.",
 					"commit": "954f181e",
+					"onshape_version": "https://cad.onshape.com/documents/60aa51fc61d18f2155b99910/v/b76489d0ca46a1169a2a6081/e/66109ce96b305bf318354f93",
 					"stl": "https://assets.basically.website/sorter-parts/nema-bracket-8b2bea87360e.stl",
 					"render": "https://assets.basically.website/sorter-parts/nema-bracket-full-91f60f914ef2.png",
 					"grams": 72.45
@@ -15968,7 +16111,7 @@
 			},
 			"name": "M3 \u00d7 16 mm socket/button head",
 			"category": "Screws",
-			"description": "Retired, no longer used anywhere. Was recorded as the C-channel stepper screw, but those are countersunk \u2014 and 4, not 3 (scr-m3-16-cs).",
+			"description": "Retired, no longer used anywhere. Was recorded as the C-channel stepper screw, but those are countersunk (scr-m3-16-cs).",
 			"note": "Unused as of 2026-09-01. Do not re-add: the C-channel calls for the countersunk M3 \u00d7 16.",
 			"created_at": "2026-07-18",
 			"updated_at": "2026-09-01",
@@ -16008,7 +16151,7 @@
 			},
 			"name": "M3 \u00d7 16 mm countersunk",
 			"category": "Screws",
-			"description": "Bolts the NEMA 17 stepper to the NEMA bracket, into the stepper's tapped face holes. 4 per C-channel.",
+			"description": "Bolts the NEMA 17 stepper to the NEMA bracket, into the stepper's tapped face holes. 3 per C-channel.",
 			"note": null,
 			"created_at": "2026-09-01",
 			"updated_at": "2026-09-01",

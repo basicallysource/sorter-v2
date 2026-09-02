@@ -95,6 +95,17 @@ There is no "just filling in what was always there" exemption: the lines
 are the record, and every change to them is a moment someone may need to
 flip back to. CI enforces this (`scripts/check_versioning.py`).
 
+**A version is a commit of everything below the node.** When
+`stamp_versions.py` stamps an assembly's version it writes the entry's
+`tree`: every assembly under the node as it stood at that commit —
+description, photos, joints, and every line pinned to the member's uid of
+the day, sub-assemblies included, all the way down. Flipping a node to one
+of its versions ("Viewing vN" on the assembly page) renders from that tree
+alone, so it shows exactly what was there then, whatever has changed since:
+the old prints at their archived geometry, the old screws at their old
+counts, the old photos. A node may be stamped with its own list unchanged
+purely to take that commit before an overhaul — the feeder's v4 is one.
+
 ## History is derived, not recorded
 
 A node's change log — everything that ever happened at or below it — is
@@ -126,13 +137,9 @@ breaking, so anything built against it keeps working; `experimental` marks
 a coherent but unproven cut. A tag resolves against history exactly like a
 timeline point and renders highlighted on the timeline.
 
-A tag is the lock on a whole subtree. A version stamp records one node's
-own list and nothing below it; the tag names a moment, and at that moment
-every assembly under the node resolves to the lines it had then and every
-part to the revision it was then (both from the dates on their version
-entries). "Flip back to the feeder as it was" is: open History on the
-feeder, click the tag's row. A tag resolves at the end of its date, so a
-change that must fall outside it is stamped with a later date.
+A tag resolves exactly like a version flip — the whole subtree as of the
+end of its date — but adds a stability claim about that build. Locking a
+subtree needs no tag: stamp a version (previous section).
 
 Tags are appended only by a human decision. No tool, check, or agent ever
 mints one.

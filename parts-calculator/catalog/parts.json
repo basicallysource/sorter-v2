@@ -6425,8 +6425,8 @@
     },
     {
       "id": "feeder",
-      "uid": "y5ws",
-      "version": "3",
+      "uid": "i4f8",
+      "version": "4",
       "name": "Feeder",
       "description": "Everything above the top interface: the bulk bucket, C-channels 2 and 3, and the classification chamber.",
       "docs": "/hardware/assembly/feeder/",
@@ -6510,10 +6510,738 @@
         },
         {
           "version": "3",
+          "uid": "y5ws",
           "date": "2026-09-01",
           "message": "Restructured into the four physical units — the bulk bucket, C-channels 2 and 3, and the classification chamber — each carrying its own C-channel drive, rotor, supports, guide or cap, and lighting. No physical change.",
           "breaking": false,
-          "commit": "e47151a1"
+          "commit": "e47151a1",
+          "lines": [
+            {
+              "assembly": "bulk-bucket",
+              "qty": 1,
+              "uid": "1sej"
+            },
+            {
+              "assembly": "channel-two",
+              "qty": 1,
+              "uid": "7sut"
+            },
+            {
+              "assembly": "channel-three",
+              "qty": 1,
+              "uid": "p55u"
+            },
+            {
+              "assembly": "classification-chamber",
+              "qty": 1,
+              "uid": "fyqw"
+            }
+          ]
+        },
+        {
+          "version": "4",
+          "date": "2026-09-02",
+          "message": "Stamped to lock the feeder before the C-channel overhaul: flip to v4 for every unit, part revision and screw count as they stood this day. The feeder's own list is unchanged.",
+          "breaking": false,
+          "commit": "30279a44",
+          "tree": {
+            "feeder": {
+              "uid": "i4f8",
+              "name": "Feeder",
+              "description": "Everything above the top interface: the bulk bucket, C-channels 2 and 3, and the classification chamber.",
+              "docs": "/hardware/assembly/feeder/",
+              "lines": [
+                {
+                  "assembly": "bulk-bucket",
+                  "qty": 1,
+                  "uid": "1sej"
+                },
+                {
+                  "assembly": "channel-two",
+                  "qty": 1,
+                  "uid": "7sut"
+                },
+                {
+                  "assembly": "channel-three",
+                  "qty": 1,
+                  "uid": "p55u"
+                },
+                {
+                  "assembly": "classification-chamber",
+                  "qty": 1,
+                  "uid": "fyqw"
+                }
+              ]
+            },
+            "bulk-bucket": {
+              "uid": "1sej",
+              "name": "Bulk bucket C-channel",
+              "description": "The top feeder unit: a C-channel drive with a white faceted rotor, capped by the Bulk cap instead of an output guide and with no light post, standing on the tallest supports.",
+              "connections": [
+                {
+                  "from": "bulk-bucket-support",
+                  "to": "c-channel",
+                  "qty": 3,
+                  "method": "friction",
+                  "note": "Dovetail: each support's leg slides into the C-channel drive from below."
+                }
+              ],
+              "lines": [
+                {
+                  "assembly": "bulk-bucket-support",
+                  "qty": 3,
+                  "uid": "xo6j"
+                },
+                {
+                  "assembly": "c-channel",
+                  "qty": 1,
+                  "uid": "4tvc"
+                },
+                {
+                  "assembly": "rotor-unit-faceted",
+                  "qty": 1,
+                  "uid": "ylvv"
+                },
+                {
+                  "part": "bulk-cap",
+                  "qty": 1,
+                  "uid": "737f"
+                }
+              ]
+            },
+            "channel-two": {
+              "uid": "7sut",
+              "name": "C-channel 2",
+              "description": "The middle feeder channel: a C-channel drive with a white faceted rotor, an output guide and a light post, standing on three supports with one leg extension each.",
+              "connections": [
+                {
+                  "from": "channel-two-support",
+                  "to": "c-channel",
+                  "qty": 3,
+                  "method": "friction",
+                  "note": "Dovetail: each support's leg slides into the C-channel drive from below."
+                },
+                {
+                  "from": "c-channel",
+                  "to": "light-post-assembly",
+                  "via": "scr-m3-20-cs",
+                  "qty": 2,
+                  "method": "self-tap",
+                  "note": "Through the NEMA bracket, threading straight into the printed post — no insert, no nut."
+                },
+                {
+                  "from": "output-guide",
+                  "to": "c-channel",
+                  "qty": 1,
+                  "method": "friction",
+                  "note": "The guide pushes onto the C-channel drive and is held by the fit alone."
+                }
+              ],
+              "lines": [
+                {
+                  "assembly": "channel-two-support",
+                  "qty": 3,
+                  "uid": "dp63"
+                },
+                {
+                  "assembly": "c-channel",
+                  "qty": 1,
+                  "uid": "4tvc"
+                },
+                {
+                  "assembly": "rotor-unit-faceted",
+                  "qty": 1,
+                  "uid": "ylvv"
+                },
+                {
+                  "part": "output-guide",
+                  "qty": 1,
+                  "uid": "8j3e"
+                },
+                {
+                  "assembly": "light-post-assembly",
+                  "qty": 1,
+                  "uid": "lxof"
+                },
+                {
+                  "assembly": "camera-mount",
+                  "qty": 1,
+                  "uid": "b3zx"
+                },
+                {
+                  "part": "scr-m3-20-cs",
+                  "qty": 2,
+                  "uid": "60g4"
+                }
+              ]
+            },
+            "channel-three": {
+              "uid": "p55u",
+              "name": "C-channel 3",
+              "description": "The lowest feeder channel, just above the classification chamber: a C-channel drive with the gray faceted rotor, an output guide and a light post, on three foot-and-leg supports.",
+              "connections": [
+                {
+                  "from": "channel-three-support",
+                  "to": "c-channel",
+                  "qty": 3,
+                  "method": "friction",
+                  "note": "Dovetail: each support's leg slides into the C-channel drive from below."
+                },
+                {
+                  "from": "c-channel",
+                  "to": "light-post-assembly",
+                  "via": "scr-m3-20-cs",
+                  "qty": 2,
+                  "method": "self-tap",
+                  "note": "Through the NEMA bracket, threading straight into the printed post — no insert, no nut."
+                },
+                {
+                  "from": "output-guide",
+                  "to": "c-channel",
+                  "qty": 1,
+                  "method": "friction",
+                  "note": "The guide pushes onto the C-channel drive and is held by the fit alone."
+                }
+              ],
+              "lines": [
+                {
+                  "assembly": "channel-three-support",
+                  "qty": 3,
+                  "uid": "r6ar"
+                },
+                {
+                  "assembly": "c-channel",
+                  "qty": 1,
+                  "uid": "4tvc"
+                },
+                {
+                  "assembly": "rotor-unit-faceted",
+                  "qty": 1,
+                  "uid": "ylvv"
+                },
+                {
+                  "part": "output-guide",
+                  "qty": 1,
+                  "uid": "8j3e"
+                },
+                {
+                  "assembly": "light-post-assembly",
+                  "qty": 1,
+                  "uid": "lxof"
+                },
+                {
+                  "assembly": "camera-mount",
+                  "qty": 1,
+                  "uid": "b3zx"
+                },
+                {
+                  "part": "scr-m3-20-cs",
+                  "qty": 2,
+                  "uid": "60g4"
+                }
+              ]
+            },
+            "classification-chamber": {
+              "uid": "fyqw",
+              "name": "Classification chamber",
+              "description": "The classification chamber: the dome, the finned rotor, and the camera & LED insert. All three print white, so the chamber bounces light onto the part instead of absorbing it.",
+              "docs": "/hardware/assembly/feeder/classification-chamber/",
+              "lines": [
+                {
+                  "assembly": "c-channel",
+                  "qty": 1,
+                  "uid": "4tvc"
+                },
+                {
+                  "assembly": "rotor-unit-finned",
+                  "qty": 1,
+                  "uid": "7ol7"
+                },
+                {
+                  "part": "classification-dome",
+                  "qty": 1,
+                  "uid": "fheh"
+                },
+                {
+                  "assembly": "camera-led-insert-assembly",
+                  "qty": 1,
+                  "uid": "434r"
+                }
+              ]
+            },
+            "bulk-bucket-support": {
+              "uid": "xo6j",
+              "name": "Bulk bucket support",
+              "description": "One of the bulk bucket's three standoffs — the tallest stack: a foot, two leg extensions, and the leg.",
+              "connections": [
+                {
+                  "from": "foot",
+                  "to": "leg-extension",
+                  "qty": 1,
+                  "method": "friction",
+                  "note": "Dovetail: the male tail on top of the lower part slides into the female slot under the upper."
+                },
+                {
+                  "from": "leg-extension",
+                  "to": "leg-extension",
+                  "qty": 1,
+                  "method": "friction",
+                  "note": "The two extensions stack tail-into-slot. Dovetail: the male tail on top of the lower part slides into the female slot under the upper."
+                },
+                {
+                  "from": "leg-extension",
+                  "to": "leg",
+                  "qty": 1,
+                  "method": "friction",
+                  "note": "Dovetail: the male tail on top of the lower part slides into the female slot under the upper."
+                }
+              ],
+              "lines": [
+                {
+                  "part": "foot",
+                  "qty": 1,
+                  "uid": "jqdx"
+                },
+                {
+                  "part": "leg-extension",
+                  "qty": 2,
+                  "uid": "jewq"
+                },
+                {
+                  "part": "leg",
+                  "qty": 1,
+                  "uid": "xse1"
+                }
+              ]
+            },
+            "c-channel": {
+              "uid": "4tvc",
+              "name": "C-channel drive",
+              "description": "One C-channel drive unit: stator, NEMA bracket, gear train and stepper. 4 per machine — 3 in the feeder plus the classification channel's. Drives a rotor unit, which differs by location and is not part of this node.",
+              "docs": "/hardware/assembly/feeder/c-channel/",
+              "connections": [
+                {
+                  "from": "brg-608-2rs",
+                  "to": "idler-gear",
+                  "qty": 1,
+                  "method": "press"
+                },
+                {
+                  "from": "nema-bracket",
+                  "to": "motor-nema17",
+                  "via": "scr-m3-16-cs",
+                  "qty": 3,
+                  "method": "thread",
+                  "through_mm": 10.45,
+                  "note": "Into the NEMA 17's tapped face holes; tapped depth not yet measured."
+                },
+                {
+                  "from": "input-gear",
+                  "to": "motor-nema17",
+                  "via": "scr-m3-8-cs",
+                  "qty": 1,
+                  "method": "self-tap",
+                  "note": "Threads through the gear hub and bears on the motor shaft flat."
+                },
+                {
+                  "from": "nema-bracket",
+                  "to": "stator",
+                  "via": "scr-m3-12-cs",
+                  "qty": 2,
+                  "method": "self-tap",
+                  "through_mm": 6.45,
+                  "thread_mm": 10
+                },
+                {
+                  "from": "nema-bracket",
+                  "to": "stator",
+                  "via": "scr-m3-12-cs",
+                  "qty": 2,
+                  "method": "self-tap",
+                  "through_mm": 8.45,
+                  "thread_mm": 10,
+                  "note": "The bracket's four stator holes come in two depths: two at 6.45 mm, two at 8.45 mm."
+                }
+              ],
+              "lines": [
+                {
+                  "part": "idler-gear",
+                  "qty": 1,
+                  "uid": "7bv7"
+                },
+                {
+                  "part": "brg-608-2rs",
+                  "qty": 1,
+                  "uid": "mi1l"
+                },
+                {
+                  "part": "nema-bracket",
+                  "qty": 1,
+                  "uid": "x09t"
+                },
+                {
+                  "part": "motor-nema17",
+                  "qty": 1,
+                  "uid": "w7pq"
+                },
+                {
+                  "part": "input-gear",
+                  "qty": 1,
+                  "uid": "70ul"
+                },
+                {
+                  "part": "stator",
+                  "qty": 1,
+                  "uid": "n6bm"
+                },
+                {
+                  "part": "scr-m3-16-cs",
+                  "qty": 3,
+                  "uid": "bdi4"
+                },
+                {
+                  "part": "scr-m3-8-cs",
+                  "qty": 1,
+                  "uid": "l6br"
+                },
+                {
+                  "part": "scr-m3-12-cs",
+                  "qty": 4,
+                  "uid": "0a9x"
+                }
+              ]
+            },
+            "rotor-unit-faceted": {
+              "uid": "ylvv",
+              "name": "Rotor unit (faceted)",
+              "description": "The faceted rotor with the Output gear (130T) bolted on. Assembled once as a unit; a C-channel drive spins it.",
+              "connections": [
+                {
+                  "from": "brg-6806-2rs",
+                  "to": "output-gear",
+                  "qty": 1,
+                  "method": "press"
+                },
+                {
+                  "from": "output-gear",
+                  "to": "rotor-faceted",
+                  "via": "scr-m3-12-cs",
+                  "qty": 6,
+                  "method": "self-tap",
+                  "note": "One per spoke. Needs the 12 mm length: the gear is 8 mm thick at the bolt circle and a countersunk screw's length is measured over its head, so an M3 × 8 seated flush reaches nothing.",
+                  "through_mm": 6.45,
+                  "thread_mm": 5
+                }
+              ],
+              "lines": [
+                {
+                  "part": "rotor-faceted",
+                  "qty": 1,
+                  "uid": "9v9q"
+                },
+                {
+                  "part": "output-gear",
+                  "qty": 1,
+                  "uid": "26ek"
+                },
+                {
+                  "part": "brg-6806-2rs",
+                  "qty": 1,
+                  "uid": "elxe"
+                },
+                {
+                  "part": "scr-m3-12-cs",
+                  "qty": 6,
+                  "uid": "0a9x"
+                }
+              ]
+            },
+            "channel-two-support": {
+              "uid": "dp63",
+              "name": "Channel 2 support",
+              "description": "One of C-channel 2's three standoffs: a foot, one leg extension, and the leg the channel dovetails onto.",
+              "connections": [
+                {
+                  "from": "foot",
+                  "to": "leg-extension",
+                  "qty": 1,
+                  "method": "friction",
+                  "note": "Dovetail: the male tail on top of the lower part slides into the female slot under the upper."
+                },
+                {
+                  "from": "leg-extension",
+                  "to": "leg",
+                  "qty": 1,
+                  "method": "friction",
+                  "note": "Dovetail: the male tail on top of the lower part slides into the female slot under the upper."
+                }
+              ],
+              "lines": [
+                {
+                  "part": "foot",
+                  "qty": 1,
+                  "uid": "jqdx"
+                },
+                {
+                  "part": "leg-extension",
+                  "qty": 1,
+                  "uid": "jewq"
+                },
+                {
+                  "part": "leg",
+                  "qty": 1,
+                  "uid": "xse1"
+                }
+              ]
+            },
+            "light-post-assembly": {
+              "uid": "lxof",
+              "name": "Light post",
+              "description": "The feeder light post: the post, the 50 mm COB plate on its end lighting down the channel, and the cap adapter and cap over it. 2 per machine, one each on C-channels 2 and 3, bolted to the C-channel drive's NEMA bracket.",
+              "docs": "/hardware/assembly/feeder/light-post/",
+              "connections": [
+                {
+                  "from": "light-post-cap-adapter",
+                  "to": "light-post",
+                  "via": "scr-m3-12-cs",
+                  "qty": 3,
+                  "method": "self-tap",
+                  "note": "Down through the adapter's three clearance holes and the COB plate clamped under it, threading into the pilot holes in the post's end."
+                },
+                {
+                  "from": "light-post-cap",
+                  "to": "light-post-cap-adapter",
+                  "qty": 1,
+                  "method": "gravity",
+                  "note": "The cap just sits on the adapter."
+                }
+              ],
+              "images": [
+                {
+                  "url": "https://assets.basically.website/sorter-parts/light-post-assembled-full-2b59e7e84bdb.jpg",
+                  "alt": "A finished light post on the bench: the black printed post with the 50 mm COB plate on its end, and the red and black leads running out of the post to a DC barrel plug",
+                  "caption": "The light post, assembled."
+                },
+                {
+                  "url": "https://assets.basically.website/sorter-parts/light-post-top-cap-off-full-d076a7bff4a1.jpg",
+                  "alt": "The end of the post with the cap off: the aluminium back of the COB plate with the black cap adapter on it, three countersunk screws going down through both into the post, and the leads coming up through the centre hole",
+                  "caption": "Cap off: the adapter and its three M3 × 12 through the plate into the post."
+                },
+                {
+                  "url": "https://assets.basically.website/sorter-parts/light-post-led-side-full-428b89ff9243.jpg",
+                  "alt": "The LED side of the COB plate, close up: the post's forked end holds the plate at its centre, with the leads passing through the centre hole",
+                  "caption": "LED side: the post's forked end at the plate's centre."
+                },
+                {
+                  "url": "https://assets.basically.website/sorter-parts/light-post-led-side-centre-full-b25b6589047d.jpg",
+                  "alt": "The LED side of the COB plate straight on: the post's forked end at the centre with the leads leaving through it",
+                  "caption": "LED side, straight on."
+                }
+              ],
+              "lines": [
+                {
+                  "part": "light-post",
+                  "qty": 1,
+                  "uid": "oac5"
+                },
+                {
+                  "part": "led-cob-50mm-24v",
+                  "qty": 1,
+                  "uid": "s34o"
+                },
+                {
+                  "part": "light-post-cap-adapter",
+                  "qty": 1,
+                  "uid": "jcnt"
+                },
+                {
+                  "part": "scr-m3-12-cs",
+                  "qty": 3,
+                  "uid": "0a9x"
+                },
+                {
+                  "part": "light-post-cap",
+                  "qty": 1,
+                  "uid": "7a8e"
+                }
+              ]
+            },
+            "camera-mount": {
+              "uid": "b3zx",
+              "name": "Overhead camera mount",
+              "description": "Camera mount for the C-channels. 2 per machine, each hanging off two ~1 ft steel rods.",
+              "docs": "/hardware/assembly/feeder/camera-mount/",
+              "lines": [
+                {
+                  "part": "camera-mount-part-6",
+                  "qty": 1,
+                  "uid": "v9dv"
+                },
+                {
+                  "part": "camera-mount-part-37",
+                  "qty": 1,
+                  "uid": "8bqo"
+                },
+                {
+                  "part": "camera-mount-part-37b",
+                  "qty": 1,
+                  "uid": "gut5"
+                },
+                {
+                  "part": "camera-mount-rod-mount",
+                  "qty": 2,
+                  "uid": "twuu"
+                },
+                {
+                  "part": "rod-steel-3-8",
+                  "qty": 2,
+                  "uid": "1o92"
+                },
+                {
+                  "part": "cam-ov9732",
+                  "qty": 1,
+                  "uid": "6g79"
+                },
+                {
+                  "part": "scr-m3-12-cs",
+                  "qty": 3,
+                  "uid": "0a9x"
+                },
+                {
+                  "part": "nut-m3",
+                  "qty": 3,
+                  "uid": "sc1c"
+                }
+              ]
+            },
+            "channel-three-support": {
+              "uid": "r6ar",
+              "name": "Channel 3 support",
+              "description": "One of C-channel 3's three standoffs: a foot and the leg the channel dovetails onto.",
+              "connections": [
+                {
+                  "from": "foot",
+                  "to": "leg",
+                  "qty": 1,
+                  "method": "friction",
+                  "note": "Dovetail: the male tail on top of the lower part slides into the female slot under the upper."
+                }
+              ],
+              "lines": [
+                {
+                  "part": "foot",
+                  "qty": 1,
+                  "uid": "jqdx"
+                },
+                {
+                  "part": "leg",
+                  "qty": 1,
+                  "uid": "xse1"
+                }
+              ]
+            },
+            "rotor-unit-finned": {
+              "uid": "7ol7",
+              "name": "Rotor unit (finned)",
+              "description": "The finned rotor with the Output gear (130T) bolted on. Assembled once as a unit; the classification channel's C-channel drive spins it.",
+              "connections": [
+                {
+                  "from": "brg-6806-2rs",
+                  "to": "output-gear",
+                  "qty": 1,
+                  "method": "press"
+                },
+                {
+                  "from": "output-gear",
+                  "to": "rotor-finned",
+                  "via": "scr-m3-12-cs",
+                  "qty": 6,
+                  "method": "self-tap",
+                  "note": "One per spoke. Same joint as the faceted rotor unit."
+                }
+              ],
+              "lines": [
+                {
+                  "part": "rotor-finned",
+                  "qty": 1,
+                  "uid": "brsr"
+                },
+                {
+                  "part": "output-gear",
+                  "qty": 1,
+                  "uid": "26ek"
+                },
+                {
+                  "part": "brg-6806-2rs",
+                  "qty": 1,
+                  "uid": "elxe"
+                },
+                {
+                  "part": "scr-m3-12-cs",
+                  "qty": 6,
+                  "uid": "0a9x"
+                }
+              ]
+            },
+            "camera-led-insert-assembly": {
+              "uid": "434r",
+              "name": "Camera & LED insert assembly",
+              "description": "The Camera & LED insert print with the camera extension assembled into it; the loaded insert drops into the classification dome.",
+              "connections": [
+                {
+                  "from": "camera-extension-assembly",
+                  "to": "camera-led-insert",
+                  "via": "scr-m3-12-bhcs",
+                  "qty": 4,
+                  "method": "self-tap"
+                }
+              ],
+              "lines": [
+                {
+                  "part": "camera-led-insert",
+                  "qty": 1,
+                  "uid": "b2v9"
+                },
+                {
+                  "assembly": "camera-extension-assembly",
+                  "qty": 1,
+                  "uid": "q2re"
+                },
+                {
+                  "part": "scr-m3-12-bhcs",
+                  "qty": 4,
+                  "uid": "izrb"
+                }
+              ]
+            },
+            "camera-extension-assembly": {
+              "uid": "q2re",
+              "name": "Camera extension",
+              "description": "Classification-channel camera extension for the 4K camera module: the 50 mm extension tube, its mount, and the camera. 1 per machine.",
+              "lines": [
+                {
+                  "part": "camera-extension",
+                  "qty": 1,
+                  "uid": "v684"
+                },
+                {
+                  "part": "camera-extension-mount",
+                  "qty": 1,
+                  "uid": "wt9t"
+                },
+                {
+                  "part": "cam-imx415",
+                  "qty": 1,
+                  "uid": "1lze"
+                },
+                {
+                  "part": "scr-m2-8-shcs",
+                  "qty": 4,
+                  "uid": "iwk6"
+                }
+              ]
+            }
+          }
         }
       ],
       "lines": [
@@ -8834,14 +9562,6 @@
       "date": "2026-08-31",
       "commit": null,
       "message": "Golden with hex-frame-v2: future revisions must stay compatible with this part."
-    },
-    {
-      "name": "feeder-2026-09-02",
-      "node": "feeder",
-      "stability": "stable",
-      "date": "2026-09-02",
-      "commit": null,
-      "message": "Locked before the C-channel overhaul: every unit, part and screw count under the feeder as it stood this day."
     }
   ]
 }

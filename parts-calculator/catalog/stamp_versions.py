@@ -10,7 +10,10 @@ re-export of the same design and is not a version.
 
 Assemblies version the same way, and what gets carried onto the superseded
 entry is a snapshot of the lines as they were, each pinned to the member's
-uid at the time, so the box as built then reads back part by part.
+uid at the time, so the box as built then reads back part by part. An
+assembly's new version also gets its `tree`: every assembly below it as of
+the stamping commit, lines pinned to member uids -- the commit of the whole
+subtree, which is what flipping the page to that version renders.
 
 The workflow the version system assumes:
   1. Mint a uid (`python catalog/mint_uid.py`), put it on the part, bump
@@ -51,17 +54,67 @@ def manifest_commits():
     return [h for h in out.splitlines() if h.strip()]
 
 
+_manifests = {}
+
+
+def manifest_at(commit):
+    """parts.json as of `commit`, or None if unreadable there."""
+    if commit in _manifests:
+        return _manifests[commit]
+    r = subprocess.run(["git", "-C", HERE, "show", f"{commit}:./parts.json"],
+                       capture_output=True)
+    d = None
+    if r.returncode == 0 and r.stdout:
+        try:
+            d = json.loads(r.stdout, object_pairs_hook=collections.OrderedDict)
+        except ValueError:
+            d = None
+    _manifests[commit] = d
+    return d
+
+
+def freeze_subtree(d, root):
+    """Every assembly under `root` (root first) as it stood in manifest `d`,
+    each line pinned to the member's uid of the day. This is a version's
+    `tree`: the commit of everything below the node -- sub-assemblies, prints,
+    screws, photos -- from which the page renders that version exactly,
+    whatever has changed since. Parts and hardware are pinned by uid; their
+    own records (archived geometry, renders, weights) resolve from there."""
+    member_uid = {p["id"]: p.get("uid") for p in d.get("parts", [])}
+    asms = {a["id"]: a for a in d.get("assemblies", [])}
+    member_uid.update({k: a.get("uid") for k, a in asms.items()})
+    keep = ("uid", "name", "description", "docs", "joining", "connections", "images")
+    tree = collections.OrderedDict()
+    todo = [root]
+    while todo:
+        aid = todo.pop(0)
+        a = asms.get(aid)
+        if a is None or aid in tree:
+            continue
+        rec = collections.OrderedDict()
+        for k in keep:
+            if k in a:
+                rec[k] = a[k]
+        lines = []
+        for line in a.get("lines") or []:
+            snap = collections.OrderedDict(line)
+            uid = member_uid.get(line.get("part") or line.get("assembly"))
+            if uid:
+                snap["uid"] = uid
+            lines.append(snap)
+            if line.get("assembly"):
+                todo.append(line["assembly"])
+        rec["lines"] = lines
+        tree[aid] = rec
+    return tree
+
+
 def pins_at(commit):
     """As of `commit`: {"parts": {id: (uid, stl_hash)}, "assemblies": {id: (uid,
     lines)}} with each line pinned to its member's uid then, or None if
     parts.json is unreadable there."""
-    r = subprocess.run(["git", "-C", HERE, "show", f"{commit}:./parts.json"],
-                       capture_output=True)
-    if r.returncode != 0 or not r.stdout:
-        return None
-    try:
-        d = json.loads(r.stdout)
-    except ValueError:
+    d = manifest_at(commit)
+    if d is None:
         return None
     member_uid = {p["id"]: p.get("uid") for p in d.get("parts", [])}
     member_uid.update({a["id"]: a.get("uid") for a in d.get("assemblies", [])})
@@ -122,6 +175,9 @@ def main():
             continue
         commit, (replaced_uid, replaced_pin) = found
         versions[-1]["commit"] = commit
+        if kind == "assemblies":
+            # the version's tree: everything below the node as of this commit
+            versions[-1]["tree"] = freeze_subtree(manifest_at(commit), p["id"])
         stamped.append((p["id"], versions[-1].get("version"), commit))
         pin_key = "stl_hash" if kind == "parts" else "lines"
         newest_ver = str(versions[-1].get("version"))

@@ -10809,7 +10809,7 @@
           "date": "2026-09-02",
           "message": "The C-channel overhaul below: the four channels renamed and consolidated, the Camera lamp replacing the light posts, overhead camera mounts, dome and camera & LED insert. The feeder itself still holds the same four unit lines. v4 stays the pre-overhaul lock.",
           "breaking": false,
-          "commit": null
+          "commit": "d9615615"
         }
       ],
       "lines": [

@@ -23,15 +23,15 @@
 	 *  components over shared members, so two unrelated self-tapped joints never
 	 *  merge into a single spine. Exported because the page sizes each branch's
 	 *  gutter off the same grouping. */
-	// One brace per joint. A joint is the two members and the fastener between
-	// them; it may be recorded as several edges (the same screws into holes of
-	// two depths), which draw as one brace. Two joints that merely share a
-	// member — the supports and the output guide both friction-fit to the
-	// drive — are two braces.
+	// One brace per fastener: every joint made with the same screws draws as a
+	// single spine spanning all the rows those screws touch, the screw row
+	// included — the per-pair breakdown lives in the click panel. A
+	// fastenerless joint (press, friction, clip…) is its own brace; two of
+	// those that merely share a member stay separate.
 	export function braceGroups(edges: Connection[]) {
 		const joints = new Map<string, Connection[]>();
 		for (const e of edges) {
-			const key = `${e.method}:${e.from}>${e.to}:${e.via ?? ''}`;
+			const key = e.via ? `${e.method}:via:${e.via}` : `${e.method}:${e.from}>${e.to}`;
 			joints.set(key, [...(joints.get(key) ?? []), e]);
 		}
 		return [...joints].map(([key, es]) => ({
@@ -43,45 +43,18 @@
 		}));
 	}
 
-	/** How a node's joints should render, decided from the row order: drawn
-	 *  braces read well up to two overlapping lanes; past that the diagram is
-	 *  spaghetti and the joints render as a compact list instead. Returns the
-	 *  gutter the page must reserve (0 for the list). */
-	export function braceLayout(
-		edges: Connection[],
-		order: string[]
-	): { mode: 'braces' | 'list'; gutter: number } {
-		const groups = braceGroups(edges);
-		if (!groups.length) return { mode: 'braces', gutter: 0 };
-		const idx = new Map(order.map((id, i) => [id, i]));
-		const spans = groups.map((g) => {
-			const xs = g.ids.map((id) => idx.get(id)).filter((n): n is number => n !== undefined);
-			return xs.length ? ([Math.min(...xs), Math.max(...xs)] as const) : null;
-		});
-		let list = groups.length > 4;
-		for (let r = 0; r < order.length && !list; r++) {
-			let depth = 0;
-			for (const s of spans) if (s && s[0] <= r && r <= s[1]) depth++;
-			if (depth > 2) list = true;
-		}
-		return { mode: list ? 'list' : 'braces', gutter: list ? 0 : 44 + (groups.length - 1) * 16 };
-	}
 </script>
 
 <script lang="ts">
 	let {
 		edges,
 		gutter,
-		mode = 'braces',
 		labelOf,
 		nameOf,
 		travelOf = () => null
 	}: {
 		edges: Connection[];
 		gutter: number;
-		/** 'braces' draws the gutter diagram; 'list' renders the joints as
-		 *  compact rows instead (the page decides via braceLayout). */
-		mode?: 'braces' | 'list';
 		labelOf: (method: string) => string;
 		nameOf: (id: string) => string;
 		/** How far a fastener line reaches through a joint (nominal length,
@@ -223,7 +196,6 @@
 	$effect(() => {
 		void groups;
 		void gutter;
-		if (mode === 'list') return;
 		measure();
 		const parent = host?.parentElement;
 		if (!parent) return;
@@ -290,46 +262,6 @@
 	{/each}
 {/snippet}
 
-{#if mode === 'list'}
-	<!-- The same joints as compact rows: past two overlapping lanes the drawn
-	     braces stop reading, so each joint gets one line — hover highlights
-	     its members, click opens the same detail panel. -->
-	<div bind:this={host} class="ml-1.5 mt-2 flex flex-col sm:ml-4">
-		{#each groups as g, i (g.key)}
-			<div class="relative">
-				<button
-					type="button"
-					class="flex w-full flex-wrap items-baseline gap-x-1.5 px-1 py-0.5 text-left text-xs transition-opacity duration-150 hover:bg-primary/[0.04]"
-					style="opacity: {hot !== null && hot !== i ? 0.35 : 1}"
-					aria-expanded={open === i}
-					onmouseenter={() => (hover = i)}
-					onmouseleave={() => (hover = null)}
-					onfocus={() => (hover = i)}
-					onblur={() => (hover = null)}
-					onclick={() => (open = open === i ? null : i)}
-				>
-					<span
-						class="text-[10px] font-semibold uppercase tracking-wider"
-						style="color: {colorOf(i)}; {g.draft ? 'opacity:.7' : ''}">{labelOf(g.method)}</span>
-					<span class="font-medium text-text">{nameOf(g.edges[0].from)}</span>
-					<span class="text-text-muted">⟷</span>
-					<span class="font-medium text-text">{nameOf(g.edges[0].to)}</span>
-					{#if g.edges[0].via}
-						<span class="text-text-muted">· {g.edges.reduce((a, e) => a + e.qty, 0)} × {nameOf(g.edges[0].via ?? '')}</span>
-					{:else if g.edges[0].qty > 1}
-						<span class="text-text-muted">· {g.edges[0].qty} places</span>
-					{/if}
-					{#if g.draft}<span class="border border-dashed border-warning/60 px-1 py-px text-[10px] font-semibold uppercase tracking-wider text-warning-dark">draft</span>{/if}
-				</button>
-				{#if open === i}
-					<div class="setup-panel absolute left-0 top-full z-30 w-72 p-2.5 text-xs">
-						{@render jointDetails(g, i)}
-					</div>
-				{/if}
-			</div>
-		{/each}
-	</div>
-{:else}
 <div bind:this={host} class="pointer-events-none absolute inset-y-0 right-0" style="width: {gutter}px">
 	<svg class="absolute left-0 top-0 overflow-visible" width={gutter} {height} aria-hidden="true">
 		{#each groups as g, i (g.key)}
@@ -380,4 +312,3 @@
 		{/if}
 	{/each}
 </div>
-{/if}

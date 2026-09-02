@@ -13,7 +13,7 @@
 		X,
 		Zap
 	} from 'lucide-svelte';
-	import ConnectionBraces, { braceLayout } from '$lib/components/ConnectionBraces.svelte';
+	import ConnectionBraces, { braceGroups } from '$lib/components/ConnectionBraces.svelte';
 	import AssemblyStlZip from '$lib/components/AssemblyStlZip.svelte';
 	import DropdownMenu from '$lib/components/DropdownMenu.svelte';
 	import AlternativeBadge from '$lib/components/AlternativeBadge.svelte';
@@ -424,25 +424,32 @@
 		if (!edges.length) return list;
 		const idOf = (l: AssemblyLine) => l.part ?? l.assembly ?? '';
 		const byId = new Map(list.map((l) => [idOf(l), l]));
-		const ordered = [...edges].sort((a, b) => (a.via ? 1 : 0) - (b.via ? 1 : 0));
-		const out: AssemblyLine[] = [];
+		const vias = new Set(edges.map((e) => e.via).filter((v): v is string => !!v));
+		// members first, chained so joined things sit together...
+		const members: string[] = [];
 		const placed = new Set<string>();
 		const place = (id: string) => {
-			const l = byId.get(id);
-			if (!l || placed.has(id)) return;
+			if (!byId.has(id) || placed.has(id) || vias.has(id)) return;
 			placed.add(id);
-			out.push(l);
-			for (const e of ordered) {
-				if (e.from === id || e.to === id) {
-					if (e.via) place(e.via);
-					place(e.from === id ? e.to : e.from);
-				} else if (e.via === id) {
-					place(e.from);
-					place(e.to);
-				}
-			}
+			members.push(id);
+			for (const e of edges) if (e.from === id || e.to === id) place(e.from === id ? e.to : e.from);
 		};
 		for (const l of list) place(idOf(l));
+		// ...then each fastener row goes under the LAST member its screws touch,
+		// so the joint reads top-to-bottom and ends on what holds it together
+		const viaAt = new Map<number, string[]>();
+		for (const via of vias) {
+			if (!byId.has(via)) continue;
+			let last = -1;
+			for (const e of edges)
+				if (e.via === via) last = Math.max(last, members.indexOf(e.from), members.indexOf(e.to));
+			viaAt.set(last, [...(viaAt.get(last) ?? []), via]);
+		}
+		const out: AssemblyLine[] = [];
+		members.forEach((id, i) => {
+			out.push(byId.get(id)!);
+			for (const v of viaAt.get(i) ?? []) out.push(byId.get(v)!);
+		});
 		// a duplicated id (two lines naming one part) keeps its extra rows
 		for (const l of list) if (!out.includes(l)) out.push(l);
 		return out;
@@ -1084,9 +1091,7 @@
 	{@const rec = snap.assemblies[id]}
 	{#if rec}
 		{@const open = eraOpen[id] ?? true}
-		{@const eraLines = jointOrder(concreteLines(rec, rec.lines ?? [], instArgs), rec.connections ?? [])}
-		{@const eraLayout = rec.connections?.length ? braceLayout(rec.connections, eraLines.map((l) => l.part ?? l.assembly ?? '')) : null}
-		{@const fGutter = eraLayout?.gutter ?? 0}
+		{@const fGutter = rec.connections?.length ? 44 + (braceGroups(rec.connections).length - 1) * 16 : 0}
 		<div class="{root ? '' : 'ml-1.5 mt-2 border border-border bg-surface p-2 sm:ml-4 sm:p-3'}">
 			{#if !root}
 				<div
@@ -1128,8 +1133,8 @@
 				{#if rec.images?.length}<div class="mt-2"><ImageStrip images={rec.images} /></div>{/if}
 				{@render joiningRows(rec.joining)}
 				<div class="relative" style={fGutter ? `padding-right: ${fGutter}px` : undefined}>
-					{#if eraLayout && rec.connections}
-						<ConnectionBraces edges={rec.connections} gutter={fGutter} mode={eraLayout.mode} labelOf={(m) => CONN_LABELS[m] ?? m} nameOf={(mid) => snap.assemblies[mid]?.name ?? snap.parts[mid]?.name ?? snap.hardware[mid]?.name ?? mid} travelOf={(hid) => screwTravel(snap.hardware[hid])} />
+					{#if fGutter && rec.connections}
+						<ConnectionBraces edges={rec.connections} gutter={fGutter} labelOf={(m) => CONN_LABELS[m] ?? m} nameOf={(mid) => snap.assemblies[mid]?.name ?? snap.parts[mid]?.name ?? snap.hardware[mid]?.name ?? mid} travelOf={(hid) => screwTravel(snap.hardware[hid])} />
 					{/if}
 					{#each jointOrder(concreteLines(rec, rec.lines ?? [], instArgs), rec.connections ?? []) as l, i (`${l.part ?? l.assembly}-${i}`)}
 						<div data-member={l.part ?? l.assembly ?? ''}>
@@ -1546,21 +1551,17 @@
 			     detail view the ⓘ opens. Inline it turns the tree into a wall of
 			     prose that restates the line rows below it. -->
 			{#if open}
-			{@const liveLayout =
+			{@const braceGutter =
 				asm.connections?.length && !filtering
-					? braceLayout(
-							asm.connections,
-							jointOrder(concreteLines(asm, asm.lines ?? [], instArgs), asm.connections).map((l) => l.part ?? l.assembly ?? '')
-						)
-					: null}
-			{@const braceGutter = liveLayout?.gutter ?? 0}
+					? 44 + (braceGroups(asm.connections).length - 1) * 16
+					: 0}
 			<div
 				class="tree-branch relative pl-2 sm:pl-4"
 				style={braceGutter ? `padding-right: ${braceGutter}px` : undefined}
 			>
 				<button type="button" class="tree-line" onclick={() => toggle(asm.id)} aria-label="Collapse {asm.name}"></button>
-				{#if liveLayout && asm.connections}
-					<ConnectionBraces edges={asm.connections} gutter={braceGutter} mode={liveLayout.mode} labelOf={(m) => CONN_LABELS[m] ?? m} nameOf={memberName} travelOf={(id) => screwTravel(getHardware(id))} />
+				{#if braceGutter && asm.connections}
+					<ConnectionBraces edges={asm.connections} gutter={braceGutter} labelOf={(m) => CONN_LABELS[m] ?? m} nameOf={memberName} travelOf={(id) => screwTravel(getHardware(id))} />
 				{/if}
 			{#if asm.images?.length}<div class="mt-2"><ImageStrip images={asm.images} /></div>{/if}
 			{#if historyFor[asm.id] && !filtering}{@render historyPanel(asm)}{/if}

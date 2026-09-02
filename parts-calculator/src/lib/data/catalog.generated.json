@@ -1354,13 +1354,13 @@
 		{
 			"id": "feeder",
 			"uid": "82k8",
-			"version": "5",
+			"version": "2",
 			"name": "Feeder",
 			"description": "Everything above the top interface: C-channels 1 (bulk bucket) through 4 (classification).",
 			"docs": "/hardware/assembly/feeder/",
 			"versions": [
 				{
-					"version": "1",
+					"version": "0.1",
 					"uid": "4swk",
 					"message": "Original version: carried the 3 faceted rotors as bare parts; their bolted-on output gears were inside the C-channel drive.",
 					"lines": [
@@ -1397,7 +1397,7 @@
 					]
 				},
 				{
-					"version": "2",
+					"version": "0.2",
 					"date": "2026-08-31",
 					"message": "The 3 faceted rotors become 3 Rotor unit (faceted) \u2014 rotor + bolted-on Output gear (130T) as one bench unit. No physical change.",
 					"breaking": false,
@@ -1437,7 +1437,7 @@
 					]
 				},
 				{
-					"version": "3",
+					"version": "0.3",
 					"uid": "y5ws",
 					"date": "2026-09-01",
 					"message": "Restructured into the four physical units \u2014 the bulk bucket, C-channels 2 and 3, and the classification chamber \u2014 each carrying its own C-channel drive, rotor, supports, guide or cap, and lighting. No physical change.",
@@ -1467,11 +1467,10 @@
 					]
 				},
 				{
-					"version": "4",
+					"version": "1",
 					"uid": "i4f8",
 					"date": "2026-09-02",
-					"message": "Stamped to lock the feeder before the C-channel overhaul: flip to v4 for every unit, part revision and screw count as they stood this day. The feeder's own list is unchanged.",
-					"breaking": false,
+					"message": "The completed feeder before the C-channel overhaul: the bulk bucket, C-channels 2 and 3, and the classification chamber, with the light posts and overhead cameras \u2014 as built and running. Flip here for every part, revision and screw count of that machine. The 0.x entries below it are the development states of the record on the way here.",
 					"commit": "30279a44",
 					"lines": [
 						{
@@ -1498,10 +1497,10 @@
 					"snapshot_at": "30279a44"
 				},
 				{
-					"version": "5",
+					"version": "2",
 					"uid": "82k8",
 					"date": "2026-09-02",
-					"message": "The C-channel overhaul below: the four channels renamed and consolidated, the Camera lamp replacing the light posts, overhead camera mounts, dome and camera & LED insert. The feeder itself still holds the same four unit lines. v4 stays the pre-overhaul lock.",
+					"message": "The C-channel overhaul, in progress: the four channels renamed and consolidated, the Camera lamp replacing the light posts, overhead camera mounts, dome and camera & LED insert. When the overhaul is complete this version's moment gets pinned to the completion commit.",
 					"breaking": false,
 					"commit": "d9615615"
 				}

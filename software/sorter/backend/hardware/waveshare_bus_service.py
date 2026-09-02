@@ -1,13 +1,18 @@
 from __future__ import annotations
 
 import logging
+import os
 import threading
 import time
-from typing import Any, Callable, TypeVar
+from typing import Any, Callable, Sequence, TypeVar
 
 from hardware.waveshare_servo import ScServoBus, calibrate_servo as calibrate_servo_impl
 
 T = TypeVar("T")
+
+# Single source of truth for the serial read timeout on every shared bus —
+# divergent timeouts on the same physical port caused mid-packet truncation.
+BUS_READ_TIMEOUT_S = 0.05
 
 # After this many consecutive failed bus operations the service attempts a
 # soft recovery — close the serial port, wait briefly, reopen, ping. Most
@@ -15,18 +20,24 @@ T = TypeVar("T")
 # half-cycled Waveshare dongle) come back after a clean close+reopen.
 _SOFT_RECOVERY_FAILURE_THRESHOLD = 3
 _SOFT_RECOVERY_REOPEN_DELAY_S = 0.4
+# A failed recovery must not re-fire on every subsequent op: each attempt
+# costs ~0.4s under the bus lock, so a genuinely dead bus would otherwise
+# stall every caller indefinitely.
+_SOFT_RECOVERY_COOLDOWN_S = 5.0
+_DEFAULT_RECOVERY_PROBE_IDS = (1, 2, 3, 4, 5)
 
 
 class WaveshareBusService:
-    def __init__(self, port: str, *, baudrate: int = 1_000_000, timeout: float = 0.05):
+    def __init__(self, port: str, *, baudrate: int = 1_000_000):
         self._port = port
         self._baudrate = baudrate
-        self._timeout = timeout
         self._lock = threading.RLock()
         self._bus: ScServoBus | None = None
         self._persistent_users = 0
         self._consecutive_failures = 0
         self._recovery_attempts = 0
+        self._last_recovery_at = 0.0
+        self._recovery_probe_ids: tuple[int, ...] = _DEFAULT_RECOVERY_PROBE_IDS
         self._logger = logging.getLogger("waveshare_bus")
 
     @property
@@ -83,12 +94,15 @@ class WaveshareBusService:
         return self._execute(lambda bus: bus.set_pid(servo_id, p, d, i))
 
     def set_torque(self, servo_id: int, enable: bool) -> bool:
-        return self._execute(lambda bus: bus.set_torque(servo_id, enable))
+        return self._execute(lambda bus: bus.set_torque(servo_id, enable), none_is_failure=True)
 
     def move_to(self, servo_id: int, position: int, time_ms: int = 500) -> bool:
-        return self._execute(lambda bus: bus.move_to(servo_id, position, time_ms))
+        return self._execute(lambda bus: bus.move_to(servo_id, position, time_ms), none_is_failure=True)
 
     def read_position(self, servo_id: int) -> int | None:
+        # Plain read, not none_is_failure: the UI polls feedback for every
+        # layer, including servos that are legitimately offline — a single
+        # dead servo must not drive the whole port into soft recovery.
         return self._execute(lambda bus: bus.read_position(servo_id))
 
     def read_load(self, servo_id: int) -> int | None:
@@ -116,34 +130,61 @@ class WaveshareBusService:
     def recovery_attempts(self) -> int:
         return self._recovery_attempts
 
-    def _execute(self, operation: Callable[[ScServoBus], T]) -> T:
+    def _execute(self, operation: Callable[[ScServoBus], T], *, none_is_failure: bool = False) -> T:
         with self._lock:
             bus = self._ensure_open_locked()
             try:
                 result = operation(bus)
             except Exception as exc:
-                self._consecutive_failures += 1
-                self._logger.warning(
-                    "waveshare bus op failed on %s (consecutive=%d): %s",
-                    self._port,
-                    self._consecutive_failures,
-                    exc,
-                )
-                if self._consecutive_failures >= _SOFT_RECOVERY_FAILURE_THRESHOLD:
-                    self._soft_recover_locked(reason=f"{self._consecutive_failures} failures")
+                self._register_failure_locked(str(exc))
                 raise
             else:
-                # Success — reset the failure counter so a single fluke
-                # doesn't accumulate toward a recovery trigger.
-                self._consecutive_failures = 0
+                if none_is_failure and (result is None or result is False):
+                    # The op returned "no answer" — count it toward soft
+                    # recovery, but hand the falsy result back unchanged.
+                    self._register_failure_locked("operation returned no result")
+                else:
+                    # Success — reset the failure counter so a single fluke
+                    # doesn't accumulate toward a recovery trigger.
+                    self._consecutive_failures = 0
                 return result
             finally:
                 if self._persistent_users == 0:
                     self._close_locked()
 
+    def set_recovery_probe_ids(self, servo_ids: Sequence[int]) -> None:
+        """Tell recovery which servo ids actually live on this bus.
+
+        The default probe sweep (ids 1-5) proves nothing on a bus whose
+        servos are addressed higher, so the servo controller hands over the
+        assigned ids after bring-up.
+        """
+        ids = tuple(int(servo_id) for servo_id in servo_ids if 1 <= int(servo_id) <= 253)
+        if ids:
+            with self._lock:
+                self._recovery_probe_ids = ids
+
+    def _register_failure_locked(self, reason: str) -> None:
+        self._consecutive_failures += 1
+        self._logger.warning(
+            "waveshare bus op failed on %s (consecutive=%d): %s",
+            self._port,
+            self._consecutive_failures,
+            reason,
+        )
+        if self._consecutive_failures < _SOFT_RECOVERY_FAILURE_THRESHOLD:
+            return
+        if time.monotonic() - self._last_recovery_at < _SOFT_RECOVERY_COOLDOWN_S:
+            return
+        self._soft_recover_locked(reason=f"{self._consecutive_failures} failures")
+        # Count fresh failures from here regardless of the outcome — the
+        # cooldown gates how often a dead bus can stall callers, and the
+        # counter must reflect the state after the reopen, not before.
+        self._consecutive_failures = 0
+
     def _ensure_open_locked(self) -> ScServoBus:
         if self._bus is None:
-            self._bus = ScServoBus(self._port, baudrate=self._baudrate, timeout=self._timeout)
+            self._bus = ScServoBus(self._port, baudrate=self._baudrate, timeout=BUS_READ_TIMEOUT_S)
         return self._bus
 
     def _close_locked(self) -> None:
@@ -159,6 +200,7 @@ class WaveshareBusService:
         talk to the bus. Caller must hold ``self._lock``.
         """
         self._recovery_attempts += 1
+        self._last_recovery_at = time.monotonic()
         self._logger.warning(
             "waveshare bus soft-recovery on %s (attempt=%d, reason=%s)",
             self._port,
@@ -177,8 +219,8 @@ class WaveshareBusService:
             return False
         try:
             alive = False
-            # Try a small range; the first responding id is proof the bus works.
-            for servo_id in (1, 2, 3, 4, 5):
+            # The first responding id is proof the bus works.
+            for servo_id in self._recovery_probe_ids:
                 try:
                     if bus.ping(servo_id):
                         alive = True
@@ -202,19 +244,25 @@ class WaveshareBusService:
 
 
 class WaveshareBusRegistry:
+    """One service per physical device: keys are resolved via realpath so a
+    /dev/serial/by-id symlink and its /dev/ttyACM target share a service.
+    The service itself opens the path it was first given.
+    """
+
     def __init__(self):
         self._lock = threading.RLock()
         self._services: dict[str, WaveshareBusService] = {}
 
-    def get_service(self, port: str, *, baudrate: int = 1_000_000, timeout: float = 0.05) -> WaveshareBusService:
+    def get_service(self, port: str, *, baudrate: int = 1_000_000) -> WaveshareBusService:
         normalized = port.strip()
         if not normalized:
             raise ValueError("Waveshare service requires a non-empty port.")
+        key = os.path.realpath(normalized)
         with self._lock:
-            service = self._services.get(normalized)
+            service = self._services.get(key)
             if service is None:
-                service = WaveshareBusService(normalized, baudrate=baudrate, timeout=timeout)
-                self._services[normalized] = service
+                service = WaveshareBusService(normalized, baudrate=baudrate)
+                self._services[key] = service
             return service
 
     def close_service(self, port: str) -> None:
@@ -222,7 +270,7 @@ class WaveshareBusRegistry:
         if not normalized:
             return
         with self._lock:
-            service = self._services.pop(normalized, None)
+            service = self._services.pop(os.path.realpath(normalized), None)
         if service is not None:
             service.close()
 
@@ -237,8 +285,8 @@ class WaveshareBusRegistry:
 _REGISTRY = WaveshareBusRegistry()
 
 
-def get_waveshare_bus_service(port: str, *, baudrate: int = 1_000_000, timeout: float = 0.05) -> WaveshareBusService:
-    return _REGISTRY.get_service(port, baudrate=baudrate, timeout=timeout)
+def get_waveshare_bus_service(port: str, *, baudrate: int = 1_000_000) -> WaveshareBusService:
+    return _REGISTRY.get_service(port, baudrate=baudrate)
 
 
 def close_waveshare_bus_service(port: str) -> None:

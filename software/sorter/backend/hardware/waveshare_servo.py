@@ -19,7 +19,7 @@ import logging
 import struct
 import threading
 import time
-from typing import Any, Dict
+from typing import Any, Dict, Protocol
 
 import serial
 
@@ -54,6 +54,11 @@ _REG_PRESENT_TEMPERATURE = 63
 _REG_MOVING = 66
 _REG_PRESENT_CURRENT_L = 69
 
+# Bounded retries for communication failures (short read, wrong responder id,
+# checksum mismatch). A nonzero status byte is NOT a comm failure.
+_SEND_ATTEMPTS = 3
+_SEND_RETRY_DELAY_S = 0.005
+
 
 def _checksum(data: bytes) -> int:
     return (~sum(data)) & 0xFF
@@ -63,8 +68,13 @@ class ScServoBus:
     """Low-level half-duplex serial bus for SC servos."""
 
     def __init__(self, port: str, baudrate: int = 1_000_000, timeout: float = 0.05):
-        self._serial = serial.Serial(port, baudrate=baudrate, timeout=timeout)
+        # exclusive=True prevents two processes from interleaving packets on
+        # the half-duplex bus; write_timeout bounds a wedged USB dongle.
+        self._serial = serial.Serial(
+            port, baudrate=baudrate, timeout=timeout, write_timeout=0.1, exclusive=True
+        )
         self._lock = threading.Lock()
+        self._last_status: dict[int, int] = {}
 
     def close(self):
         self._serial.close()
@@ -104,44 +114,68 @@ class ScServoBus:
 
         return b"\xFF\xFF" + meta + tail
 
-    def _send(self, servo_id: int, instruction: int, params: bytes = b"") -> bytes | None:
+    def _send(
+        self,
+        servo_id: int,
+        instruction: int,
+        params: bytes = b"",
+        *,
+        attempts: int = _SEND_ATTEMPTS,
+    ) -> bytes | None:
         with self._lock:
             length = len(params) + 2
             pkt = bytes([0xFF, 0xFF, servo_id, length, instruction]) + params
             pkt += bytes([_checksum(pkt[2:])])
 
-            self._serial.reset_input_buffer()
-            self._serial.write(pkt)
-            self._serial.flush()
+            for attempt in range(attempts):
+                if attempt > 0:
+                    time.sleep(_SEND_RETRY_DELAY_S)
+                payload = self._transact(servo_id, pkt)
+                if payload is not None:
+                    return payload
+            return None
 
+    def _transact(self, servo_id: int, pkt: bytes) -> bytes | None:
+        """One write + response cycle. Returns the payload, or None on a
+        communication failure (short read, wrong responder id, bad checksum).
+        """
+        self._serial.reset_input_buffer()
+        self._serial.write(pkt)
+        self._serial.flush()
+
+        packet = self._read_packet()
+        if packet == pkt:  # half-duplex adapters echo the request
             packet = self._read_packet()
-            if packet == pkt:
-                packet = self._read_packet()
-            if packet is None or len(packet) < 6:
-                return None
+        if packet is None or len(packet) < 6:
+            return None
 
-            response_id = packet[2]
-            resp_length = packet[3]
-            if resp_length < 2:
-                return None
-            error = packet[4]
-            if response_id != servo_id:
-                return None
+        if packet[2] != servo_id or packet[3] < 2:
+            return None
+        if packet[-1] != _checksum(packet[2:-1]):
+            return None
 
-            payload = packet[5:-1]
-            checksum = packet[-1]
-            expected_checksum = _checksum(packet[2:-1])
-            if checksum != expected_checksum:
-                return None
-            if error != 0:
-                return None
+        # packet[4] carries the servo's hardware status flags (overload,
+        # overheat, voltage, angle-limit). The servo answered, so the
+        # transaction succeeded — record the flags, don't fail the call.
+        self._record_status(servo_id, packet[4])
+        return packet[5:-1]
 
-            return payload
+    def _record_status(self, servo_id: int, status: int) -> None:
+        if self._last_status.get(servo_id, 0) == status:
+            return
+        self._last_status[servo_id] = status
+        if status:
+            logger.warning(f"Servo {servo_id}: hardware status flags 0x{status:02X}")
+        else:
+            logger.info(f"Servo {servo_id}: hardware status flags cleared")
+
+    def last_status_flags(self, servo_id: int) -> int:
+        return self._last_status.get(servo_id, 0)
 
     # -- helpers ------------------------------------------------------------
 
-    def ping(self, servo_id: int) -> bool:
-        return self._send(servo_id, _INST_PING) is not None
+    def ping(self, servo_id: int, *, attempts: int = _SEND_ATTEMPTS) -> bool:
+        return self._send(servo_id, _INST_PING, attempts=attempts) is not None
 
     def read_bytes(self, servo_id: int, address: int, count: int) -> bytes | None:
         resp = self._send(servo_id, _INST_READ, bytes([address, count]))
@@ -169,7 +203,9 @@ class ScServoBus:
     def scan(self, start: int = 1, end: int = 20) -> list[int]:
         found = []
         for sid in range(start, end + 1):
-            if self.ping(sid):
+            # Absent IDs are expected during a sweep; retrying their timeouts
+            # would triple the scan's bus-lock hold time for nothing.
+            if self.ping(sid, attempts=1):
                 found.append(sid)
             time.sleep(0.002)
         return found
@@ -280,7 +316,7 @@ class ScServoBus:
             elif model in (60, 0x3C00):
                 model_name = "SC60"
 
-        return {
+        info = {
             "id": servo_id,
             "model": model,
             "model_name": model_name,
@@ -293,6 +329,26 @@ class ScServoBus:
             "current": current,
             "pid": pid,
         }
+        status_flags = self.last_status_flags(servo_id)
+        if status_flags:
+            info["status_flags"] = status_flags
+        return info
+
+
+class ServoBus(Protocol):
+    """Servo bus operations needed by the motor and calibration.
+
+    Satisfied by both `ScServoBus` and `WaveshareBusService` (the production
+    path — servo_controller hands the motor the shared bus service).
+    """
+
+    def set_torque(self, servo_id: int, enable: bool) -> bool: ...
+    def move_to(self, servo_id: int, position: int, time_ms: int = 500) -> bool: ...
+    def read_position(self, servo_id: int) -> int | None: ...
+    def read_load(self, servo_id: int) -> int | None: ...
+    def read_angle_limits(self, servo_id: int) -> tuple[int, int] | None: ...
+    def set_angle_limits(self, servo_id: int, min_val: int, max_val: int) -> bool: ...
+    def set_pid(self, servo_id: int, p: int, d: int, i: int) -> bool: ...
 
 
 # ---------------------------------------------------------------------------
@@ -307,7 +363,7 @@ _CAL_STALL_CHECKS = 3
 _CAL_MARGIN = 5
 
 
-def calibrate_servo(bus: ScServoBus, servo_id: int) -> tuple[int, int]:
+def calibrate_servo(bus: ServoBus, servo_id: int) -> tuple[int, int]:
     """Find the physical min/max of a servo by stepping until stall.
 
     Returns (safe_min, safe_max) with a small safety margin applied.
@@ -417,7 +473,11 @@ class WaveshareServoMotor:
     If `invert` is True these are swapped.
     """
 
-    def __init__(self, bus: ScServoBus, servo_id: int, invert: bool = False):
+    # Consecutive failed bus operations before `available` flips to False.
+    # Hysteresis: single flukes must not toggle layer usability.
+    _OFFLINE_THRESHOLD = 3
+
+    def __init__(self, bus: ServoBus, servo_id: int, invert: bool = False):
         self._bus = bus
         self._servo_id = servo_id
         self._invert = invert
@@ -430,6 +490,7 @@ class WaveshareServoMotor:
         self._closed_position: int = 1023
         self._move_started_at: float = 0.0
         self._move_duration: float = 0.0
+        self._consecutive_failures = 0
 
     def initialize(self) -> None:
         """Read or auto-calibrate limits and apply good PID settings."""
@@ -497,13 +558,7 @@ class WaveshareServoMotor:
 
     def move_to(self, angle: int) -> bool:
         """Move to angle (0-180). Maps linearly to calibrated range."""
-        if not self._enabled:
-            self.enabled = True
-        position = self._angle_to_position(angle)
-        self._move_duration = 0.3
-        self._move_started_at = time.monotonic()
-        self._current_position = position
-        return self._bus.move_to(self._servo_id, position, 300)
+        return self._command_move(self._angle_to_position(angle), f"move_to({angle})")
 
     def move_to_and_release(self, angle: int) -> bool:
         """Move to angle then disable torque."""
@@ -514,6 +569,7 @@ class WaveshareServoMotor:
     @property
     def position(self) -> int:
         pos = self._bus.read_position(self._servo_id)
+        self._record_result(pos is not None)
         return pos if pos is not None else self._current_position
 
     def stop(self):
@@ -536,24 +592,14 @@ class WaveshareServoMotor:
 
     @property
     def available(self) -> bool:
-        return True
+        return self._consecutive_failures < self._OFFLINE_THRESHOLD
 
     def open(self, open_angle: int | None = None) -> None:
-        if not self._enabled:
-            self.enabled = True
-        self._move_duration = 0.3
-        self._move_started_at = time.monotonic()
-        self._current_position = self._open_position
-        self._bus.move_to(self._servo_id, self._open_position, 300)
+        self._command_move(self._open_position, "open")
         self._enabled = False  # release after move
 
     def close(self, closed_angle: int | None = None) -> None:
-        if not self._enabled:
-            self.enabled = True
-        self._move_duration = 0.3
-        self._move_started_at = time.monotonic()
-        self._current_position = self._closed_position
-        self._bus.move_to(self._servo_id, self._closed_position, 300)
+        self._command_move(self._closed_position, "close")
         self._enabled = False  # release after move
 
     def toggle(self) -> None:
@@ -596,6 +642,7 @@ class WaveshareServoMotor:
     def feedback(self) -> Dict[str, Any]:
         position = self.position
         return {
+            "available": self.available,
             "channel": self._servo_id,
             "position": position,
             "angle": self._position_to_angle(position),
@@ -608,6 +655,32 @@ class WaveshareServoMotor:
         }
 
     # -- internal -----------------------------------------------------------
+
+    def _command_move(self, position: int, label: str) -> bool:
+        if not self._enabled:
+            self.enabled = True
+        ok = bool(self._bus.move_to(self._servo_id, position, 300))
+        self._record_result(ok)
+        if ok:
+            self._move_duration = 0.3
+            self._move_started_at = time.monotonic()
+            self._current_position = position
+        else:
+            logger.warning(
+                f"Servo {self._servo_id}: {label} command failed "
+                f"(consecutive failures: {self._consecutive_failures})"
+            )
+            # No move was started, so the `stopped` poll that normally
+            # releases torque after a move never will — release it here,
+            # best-effort, instead of leaving the coil energized.
+            self._bus.set_torque(self._servo_id, False)
+        return ok
+
+    def _record_result(self, success: bool) -> None:
+        if success:
+            self._consecutive_failures = 0
+        else:
+            self._consecutive_failures += 1
 
     def _angle_to_position(self, angle: int) -> int:
         """Map 0-180 degrees to calibrated min-max range."""

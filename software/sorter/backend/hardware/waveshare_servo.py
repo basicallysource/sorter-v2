@@ -352,41 +352,40 @@ class ServoBus(Protocol):
 
 
 # ---------------------------------------------------------------------------
-# Calibration — find the door's free travel, never its crushed end stops
+# Calibration — find the door's end stops without leaving the servo on them
 # ---------------------------------------------------------------------------
 #
-# The door mechanics hold the gate on their own. A limit that sits on the
-# compressed end stop makes every open/close drive the horn into the stop at
-# full duty (measured on the B1 machine: limit 69, resting at 64 with 20-57 %
-# duty, servo at 74 °C). So the procedure is:
-#   1. probe outward in fixed steps until the servo stalls (high duty while
-#      ending short of the target, or no progress twice in a row),
-#   2. back off in small steps until the duty drops to free-running and take
-#      THAT commanded position as the raw end of travel,
-#   3. keep a margin of at least _CAL_MARGIN_MIN counts (or 4 % of the span),
-#   4. verify by holding each end for a second — the duty must stay low —
-#      widening the margin if it does not.
-# On any failure the previous EEPROM limits are restored and torque is
-# released. Nothing calibrates implicitly: initialize() refuses an
+# What the B1 doors taught us (2026-09-02, hardware/waveshare_servo probe):
+#   - the mechanics have ~10 counts of stiction: a 3- or 10-count command
+#     leaves the horn where it is while the duty climbs to 500, then it jumps.
+#     Small probes therefore look like a stop, and "duty at rest" says nothing
+#     about being free — the P-controller holds 100-250 duty against friction
+#     anywhere in the travel. Probes must be bigger than the stiction band and
+#     a stop means NO progress twice in a row, not a high duty reading.
+#   - a limit on the pressed stop made every open/close drive the horn into
+#     it at full duty (limit 69, resting at 64, 74 °C). The limits therefore
+#     keep a margin from the pressed position, and the runtime releases torque
+#     after each move (WaveshareServoMotor._release_after_move).
+# Procedure: probe outward in 30-count moves until two consecutive probes make
+# no progress, take the pressed position as the raw stop, check the door can
+# leave it again (one 20-count retreat must be followed), keep a margin of at
+# least 10 counts (4 % of the span), verify both ends with full swings, save.
+# Every EEPROM write is read back. Any failure restores the previous limits and
+# releases torque. Nothing calibrates implicitly: initialize() refuses an
 # uncalibrated servo instead of moving a door at machine start.
 
-_CAL_PROBE_STEP = 20  # counts per outward probe (~6°)
-_CAL_PROBE_TIME_MS = 250
-_CAL_PROBE_SETTLE_S = 0.2
-_CAL_STOP_DUTY = 250  # |load| (PWM duty, 0..1000) that means "pushing"...
-_CAL_STOP_SHORT = 8  # ...while ending at least this many counts short of target
-_CAL_MIN_PROGRESS = 3  # counts; less than this twice in a row = stalled
-_CAL_BACKOFF_STEP = 3
-_CAL_FREE_DUTY = 60  # backing off: below this the servo runs free
+_CAL_PROBE_STEP = 30  # counts per outward probe (~9°), well above the stiction band
+_CAL_PROBE_TIME_MS = 400
+_CAL_PROBE_SETTLE_S = 0.3
+_CAL_STOP_SHORT = 15  # a stalled probe ends at least this far short of its target
+_CAL_MIN_PROGRESS = 5  # counts; less than this = no progress
+_CAL_STALLED_PROBES = 2  # consecutive no-progress probes that make a stop
+_CAL_RETREAT = 20  # counts; the door must be able to leave the stop by this much
+_CAL_FOLLOW_TOL = 10  # counts; a followed command ends within this of its target
 _CAL_MARGIN_MIN = 10
 _CAL_MARGIN_FRACTION = 0.04
-_CAL_VERIFY_HOLD_S = 1.0
-_CAL_VERIFY_DUTY = 100
-_CAL_VERIFY_ATTEMPTS = 3  # widen the margin by _CAL_VERIFY_WIDEN per retry
-_CAL_VERIFY_WIDEN = 5
 _CAL_MIN_SPAN = 40  # counts (~12°); below this the door is not usable
-_CAL_MAX_PROBES = 60  # per direction; 60 × 20 covers the whole 0..1023 range
-_CAL_MAX_BACKOFF = 40
+_CAL_MAX_PROBES = 40  # per direction; 40 × 30 covers the whole 0..1023 range
 _CAL_MAX_TEMPERATURE_C = 60
 _CAL_TELEMETRY_RETRIES = 3
 _CAL_BOUNDARY_SLACK = 8  # a limit within this of 0/1023 = software boundary hit
@@ -445,8 +444,10 @@ def _check_temperature(bus: ServoBus, servo_id: int, stage: str) -> None:
         )
 
 
-def _move(bus: ServoBus, servo_id: int, target: int, time_ms: int) -> None:
+def _move_and_settle(bus: ServoBus, servo_id: int, target: int, time_ms: int) -> tuple[int, int]:
     _require(bus.move_to(servo_id, target, time_ms), f"move to {target}", servo_id)
+    _sleep(time_ms / 1000.0 + _CAL_PROBE_SETTLE_S)
+    return _read_pos_load(bus, servo_id)
 
 
 def _write_limits_verified(bus: ServoBus, servo_id: int, lo: int, hi: int) -> None:
@@ -457,36 +458,15 @@ def _write_limits_verified(bus: ServoBus, servo_id: int, lo: int, hi: int) -> No
         raise CalibrationError(f"Servo {servo_id}: limits read back as {back}, expected {(lo, hi)}")
 
 
-def _back_off(bus: ServoBus, servo_id: int, stop_pos: int, direction: int) -> int:
-    """Retreat from the stop until the servo runs free; return that commanded position."""
-    pos = stop_pos
-    for _ in range(_CAL_MAX_BACKOFF):
-        pos = _clamp(pos - direction * _CAL_BACKOFF_STEP)
-        _move(bus, servo_id, pos, 150)
-        _sleep(0.15 + _CAL_PROBE_SETTLE_S)
-        loads = []
-        for _ in range(3):
-            _, load = _read_pos_load(bus, servo_id)
-            loads.append(abs(load))
-            _sleep(_CAL_POLL_S)
-        if max(loads) < _CAL_FREE_DUTY:
-            return pos
-    raise CalibrationError(
-        f"Servo {servo_id}: still loaded {_CAL_MAX_BACKOFF * _CAL_BACKOFF_STEP} counts away "
-        f"from the stop — is the mechanism binding?"
-    )
-
-
-def _find_travel_end(bus: ServoBus, servo_id: int, direction: int) -> int:
-    """direction -1 = toward min, +1 = toward max. Returns the free-running end
-    of travel in that direction (already backed off the stop). Torque stays on;
-    the caller releases it."""
+def _find_stop(bus: ServoBus, servo_id: int, direction: int) -> int:
+    """direction -1 = toward min, +1 = toward max. Returns the pressed stop
+    position. Torque stays on; the caller releases it."""
     _require(bus.set_torque(servo_id, True), "torque enable", servo_id)
     _sleep(0.02)
     pos, _ = _read_pos_load(bus, servo_id)
     target = pos
-    last_pos = pos
-    slow_probes = 0
+    extreme = pos
+    stalled = 0
     for probe in range(_CAL_MAX_PROBES):
         next_target = _clamp(target + direction * _CAL_PROBE_STEP)
         if next_target == target:
@@ -495,41 +475,48 @@ def _find_travel_end(bus: ServoBus, servo_id: int, direction: int) -> int:
                 f"finding a stop — is the horn free-spinning?"
             )
         target = next_target
-        _move(bus, servo_id, target, _CAL_PROBE_TIME_MS)
-        _sleep(_CAL_PROBE_TIME_MS / 1000.0 + _CAL_PROBE_SETTLE_S)
-        pos, load = _read_pos_load(bus, servo_id)
+        last_pos = pos
+        pos, load = _move_and_settle(bus, servo_id, target, _CAL_PROBE_TIME_MS)
+        if (pos - extreme) * direction > 0:
+            extreme = pos
         progressed = (pos - last_pos) * direction
         short = (target - pos) * direction
-        last_pos = pos
-        pushing = abs(load) >= _CAL_STOP_DUTY and short >= _CAL_STOP_SHORT
-        slow_probes = slow_probes + 1 if progressed < _CAL_MIN_PROGRESS else 0
-        if pushing or slow_probes >= 2:
+        stalled = stalled + 1 if (progressed < _CAL_MIN_PROGRESS and short >= _CAL_STOP_SHORT) else 0
+        if stalled >= _CAL_STALLED_PROBES:
             logger.info(
-                f"  Servo {servo_id}: stop at {pos} going {'down' if direction < 0 else 'up'} "
-                f"(load={load}, {'pushing' if pushing else 'no progress'})"
+                f"  Servo {servo_id}: stop at {extreme} going {'down' if direction < 0 else 'up'} "
+                f"(load={load})"
             )
-            return _back_off(bus, servo_id, pos, direction)
+            return extreme
         if probe % 10 == 9:
             _check_temperature(bus, servo_id, "probing")
     raise CalibrationError(f"Servo {servo_id}: no stop found within {_CAL_MAX_PROBES} probes")
 
 
-def _holds_free(bus: ServoBus, servo_id: int, target: int) -> bool:
-    """Park at ``target`` and make sure the servo is not fighting anything there."""
-    _move(bus, servo_id, target, 300)
-    _sleep(0.3 + _CAL_PROBE_SETTLE_S)
-    deadline = time.monotonic() + _CAL_VERIFY_HOLD_S
-    while True:
-        _, load = _read_pos_load(bus, servo_id)
-        if abs(load) >= _CAL_VERIFY_DUTY:
-            return False
-        if time.monotonic() >= deadline:
-            return True
-        _sleep(0.1)
+def _check_retreat(bus: ServoBus, servo_id: int, stop: int, direction: int) -> None:
+    """The door must be able to leave the stop: one retreat command has to be followed."""
+    target = _clamp(stop - direction * _CAL_RETREAT)
+    pos, load = _move_and_settle(bus, servo_id, target, _CAL_PROBE_TIME_MS)
+    if abs(pos - target) > _CAL_FOLLOW_TOL:
+        raise CalibrationError(
+            f"Servo {servo_id}: cannot leave the stop at {stop} (commanded {target}, "
+            f"sits at {pos}, load {load}) — is the mechanism binding?"
+        )
+
+
+def _verify_swing(bus: ServoBus, servo_id: int, start: int, target: int) -> None:
+    """A full swing, as the runtime does it, must end near the target."""
+    _move_and_settle(bus, servo_id, start, 400)
+    pos, load = _move_and_settle(bus, servo_id, target, 300)
+    if abs(pos - target) > _CAL_FOLLOW_TOL + 5:
+        raise CalibrationError(
+            f"Servo {servo_id}: swing to {target} ended at {pos} (load {load}); "
+            f"the calibrated range is not usable"
+        )
 
 
 def calibrate_servo(bus: ServoBus, servo_id: int) -> tuple[int, int]:
-    """Measure the door's free travel and store safe limits in EEPROM.
+    """Measure the door's travel and store safe limits in EEPROM.
 
     Returns (safe_min, safe_max). Raises CalibrationError with the previous
     limits restored and torque released.
@@ -540,45 +527,38 @@ def calibrate_servo(bus: ServoBus, servo_id: int) -> tuple[int, int]:
     saved = False
     try:
         _write_limits_verified(bus, servo_id, *_SERVO_RANGE)
-        try:
-            raw_min = _find_travel_end(bus, servo_id, -1)
-        finally:
-            bus.set_torque(servo_id, False)
-        _sleep(0.1)
-        try:
-            raw_max = _find_travel_end(bus, servo_id, +1)
-        finally:
-            bus.set_torque(servo_id, False)
+        stops: dict[int, int] = {}
+        for direction in (-1, +1):
+            try:
+                stop = _find_stop(bus, servo_id, direction)
+                _check_retreat(bus, servo_id, stop, direction)
+            finally:
+                bus.set_torque(servo_id, False)
+            stops[direction] = stop
+            _sleep(0.1)
+        raw_min, raw_max = stops[-1], stops[+1]
         span = raw_max - raw_min
-        logger.info(f"  Servo {servo_id}: free travel {raw_min}-{raw_max} ({span} counts)")
+        logger.info(f"  Servo {servo_id}: stops at {raw_min} and {raw_max} ({span} counts)")
         if span < _CAL_MIN_SPAN:
             raise CalibrationError(
-                f"Servo {servo_id}: free travel {raw_min}-{raw_max} is only {span} counts "
+                f"Servo {servo_id}: travel {raw_min}-{raw_max} is only {span} counts "
                 f"(minimum {_CAL_MIN_SPAN})"
             )
         margin = max(_CAL_MARGIN_MIN, int(round(span * _CAL_MARGIN_FRACTION)))
+        safe_min, safe_max = raw_min + margin, raw_max - margin
+        if safe_max - safe_min < _CAL_MIN_SPAN:
+            raise CalibrationError(f"Servo {servo_id}: a {margin}-count margin leaves no usable travel")
         _require(bus.set_torque(servo_id, True), "torque enable", servo_id)
         try:
-            for _ in range(_CAL_VERIFY_ATTEMPTS):
-                safe_min, safe_max = raw_min + margin, raw_max - margin
-                if safe_max - safe_min < _CAL_MIN_SPAN:
-                    raise CalibrationError(
-                        f"Servo {servo_id}: a {margin}-count margin leaves no usable travel"
-                    )
-                if _holds_free(bus, servo_id, safe_min) and _holds_free(bus, servo_id, safe_max):
-                    break
-                logger.info(f"  Servo {servo_id}: still loaded at an end with margin {margin}, widening")
-                margin += _CAL_VERIFY_WIDEN
-            else:
-                raise CalibrationError(
-                    f"Servo {servo_id}: the door stays loaded at its ends even {margin} counts "
-                    f"off the stops — is the mechanism binding?"
-                )
+            _verify_swing(bus, servo_id, safe_min, safe_max)
+            _verify_swing(bus, servo_id, safe_max, safe_min)
             _write_limits_verified(bus, servo_id, safe_min, safe_max)
             saved = True
-            logger.info(f"  Servo {servo_id}: calibrated range {safe_min}-{safe_max} (saved to EEPROM)")
-            _move(bus, servo_id, (safe_min + safe_max) // 2, 400)
-            _sleep(0.5)
+            logger.info(
+                f"  Servo {servo_id}: calibrated range {safe_min}-{safe_max} "
+                f"(margin {margin} from the stops, saved to EEPROM)"
+            )
+            _move_and_settle(bus, servo_id, (safe_min + safe_max) // 2, 400)
         finally:
             bus.set_torque(servo_id, False)
         return safe_min, safe_max

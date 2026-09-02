@@ -1,3 +1,4 @@
+import time
 import os
 import tempfile
 import unittest
@@ -121,8 +122,10 @@ class _FakeBus:
     def __init__(self):
         self.move_results: list[bool] = []
         self.moves: list[int] = []
+        self.torque_calls: list[tuple[int, bool]] = []
 
     def set_torque(self, servo_id: int, enable: bool) -> bool:
+        self.torque_calls.append((servo_id, enable))
         return True
 
     def move_to(self, servo_id: int, position: int, time_ms: int = 500) -> bool:
@@ -146,6 +149,38 @@ class _FakeBus:
 
 
 class WaveshareServoMotorTests(unittest.TestCase):
+    def test_open_releases_torque_after_the_move_without_a_stopped_poll(self) -> None:
+        bus = _FakeBus()
+        motor = WaveshareServoMotor(bus, 1)
+        motor.initialize()
+        motor.open()
+        self.assertEqual(bus.torque_calls[-1], (1, True))
+        time.sleep(0.6)
+        self.assertEqual(bus.torque_calls[-1], (1, False))
+        self.assertTrue(motor.stopped)
+        # The poll after the timer must not release a second time.
+        self.assertEqual(bus.torque_calls.count((1, False)), 1)
+
+    def test_back_to_back_moves_release_once_after_the_last_one(self) -> None:
+        bus = _FakeBus()
+        motor = WaveshareServoMotor(bus, 1)
+        motor.initialize()
+        motor.open()
+        motor.close()
+        time.sleep(0.6)
+        self.assertEqual(bus.moves, [100, 900])
+        self.assertEqual(bus.torque_calls.count((1, False)), 1)
+        self.assertEqual(bus.torque_calls[-1], (1, False))
+
+    def test_explicit_hold_cancels_the_pending_release(self) -> None:
+        bus = _FakeBus()
+        motor = WaveshareServoMotor(bus, 1)
+        motor.initialize()
+        motor.open()
+        motor.enabled = True
+        time.sleep(0.6)
+        self.assertNotIn((1, False), bus.torque_calls)
+
     def test_available_flips_after_consecutive_failures_and_recovers(self) -> None:
         bus = _FakeBus()
         motor = WaveshareServoMotor(bus, 1)

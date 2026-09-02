@@ -95,6 +95,12 @@ class BackendSupervisor:
         self._start_backend(reason="initial start")
         self._health_thread.start()
 
+    def begin_shutdown(self) -> None:
+        """Mark the shutdown before the backend exits: systemd's SIGTERM hits
+        the whole control group, so the child dies on its own and
+        ``_watch_process`` must not mistake that for a crash and respawn it."""
+        self._shutdown.set()
+
     def shutdown(self) -> None:
         self._shutdown.set()
         self._stop_backend(reason="supervisor shutdown")
@@ -555,7 +561,11 @@ def main() -> None:
     server = ThreadingHTTPServer((str(args.host), int(args.control_port)), _handler_factory(supervisor))
 
     def _shutdown(*_args: Any) -> None:
-        server.shutdown()
+        supervisor.begin_shutdown()
+        # serve_forever() runs on this thread; calling server.shutdown() from
+        # the same thread deadlocks (the handler never returns, the child gets
+        # respawned as "crashed", and systemd SIGKILLs the unit 90 s later).
+        threading.Thread(target=server.shutdown, name="supervisor-shutdown", daemon=True).start()
 
     signal.signal(signal.SIGINT, _shutdown)
     signal.signal(signal.SIGTERM, _shutdown)

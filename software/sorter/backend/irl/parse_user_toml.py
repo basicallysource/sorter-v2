@@ -173,6 +173,10 @@ class MachineConfig:
     # canonical stepper name -> acceleration in µsteps/s². From
     # [stepper_acceleration_overrides]; motors not listed keep the code default.
     stepper_acceleration_overrides: dict[str, int] = field(default_factory=dict)
+    # canonical stepper name -> (enabled, sign, counts_per_rev, tolerance_fullsteps).
+    # From [stepper_encoder.*]; an AS5600 on the motor's rear shaft, applied by
+    # applyStepperEncoder at stepper init.
+    stepper_encoders: dict[str, tuple[bool, int, int, float]] = field(default_factory=dict)
     # canonical stepper name -> (sgthrs, tcoolthrs, enabled). From
     # [stepper_stallguard.*]; consumed by applyStepperStallguard + the stall monitor.
     stepper_stallguard: dict[str, tuple[int, int, bool]] = field(default_factory=dict)
@@ -238,6 +242,68 @@ def _parseStepperAccelerationOverrides(
             continue
         overrides[str(stepper_name)] = value
     return overrides
+
+
+def _parseStepperEncoders(
+    gc: GlobalConfig,
+    raw: dict[str, object],
+) -> dict[str, tuple[bool, int, int, float]]:
+    table: object = raw.get("stepper_encoder")
+    if table is None:
+        return {}
+    if not isinstance(table, dict):
+        gc.logger.warning("stepper_encoder must be a table of [stepper_encoder.<stepper>] entries. Ignoring.")
+        return {}
+    out: dict[str, tuple[bool, int, int, float]] = {}
+    for name, value in table.items():
+        if not isinstance(value, dict):
+            gc.logger.warning(f"Ignoring stepper_encoder.{name}: expected a table.")
+            continue
+        enabled = value.get("enabled", True)
+        sign = value.get("sign", 1)
+        counts_per_rev = value.get("counts_per_rev", 4096)
+        tolerance = value.get("tolerance_fullsteps", 4)
+        if (
+            not isinstance(enabled, bool)
+            or sign not in (1, -1)
+            or not isinstance(counts_per_rev, int) or isinstance(counts_per_rev, bool) or counts_per_rev <= 0
+            or not isinstance(tolerance, (int, float)) or isinstance(tolerance, bool) or tolerance <= 0
+        ):
+            gc.logger.warning(
+                f"Ignoring stepper_encoder.{name}: expected enabled (bool), sign (1/-1), "
+                f"counts_per_rev (>0), tolerance_fullsteps (>0)."
+            )
+            continue
+        out[str(name)] = (enabled, int(sign), int(counts_per_rev), float(tolerance))
+    return out
+
+
+def applyStepperEncoder(
+    stepper: "StepperMotor",
+    stepper_name: str,
+    encoders: dict[str, tuple[bool, int, int, float]],
+    microsteps: int,
+    gc: GlobalConfig,
+) -> None:
+    """Arm the shaft-encoder position check for steppers with a
+    [stepper_encoder.<name>] entry. Counts per microstep follow from the
+    encoder resolution and the motor's 200 full steps at the configured
+    microstepping."""
+    config = encoders.get(stepper_name)
+    if config is None:
+        return
+    enabled, sign, counts_per_rev, tolerance_fullsteps = config
+    microsteps = max(1, int(microsteps))
+    counts_per_microstep = counts_per_rev / (200 * microsteps)
+    try:
+        stepper.configure_encoder(
+            enable=enabled,
+            sign=sign,
+            counts_per_microstep=counts_per_microstep,
+            tolerance_microsteps=int(round(tolerance_fullsteps * microsteps)),
+        )
+    except (MCUBusError, OSError, DecodeError) as e:
+        gc.logger.warning(f"Failed to configure encoder for '{stepper_name}': {e}. Continuing.")
 
 
 def _parseStepperCurrentOverrides(
@@ -530,6 +596,7 @@ def loadMachineConfig(
 
     config.stepper_current_overrides = _parseStepperCurrentOverrides(gc, raw)
     config.stepper_acceleration_overrides = _parseStepperAccelerationOverrides(gc, raw)
+    config.stepper_encoders = _parseStepperEncoders(gc, raw)
     config.stepper_stallguard = _parseStepperStallguard(gc, raw)
 
     return config

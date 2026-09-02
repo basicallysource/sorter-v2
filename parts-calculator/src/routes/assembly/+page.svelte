@@ -352,7 +352,7 @@
 	let shownVersion = $state<Record<string, string>>({});
 	let diffBase = $state<Record<string, string>>({});
 	// expand state of nodes inside a flipped version's snapshot
-	let frozenOpen = $state<Record<string, boolean>>({});
+	let eraOpen = $state<Record<string, boolean>>({});
 
 	// ---- version snapshots: the site as it was, straight out of git ---------
 	// Flipping to a superseded version fetches its snapshot — the era's own
@@ -1001,10 +1001,6 @@
 	{/if}
 {/snippet}
 
-<!-- One assembly of a version's frozen tree, recursively: its record as it
-     stood at the stamp — description, photos, every line at the member's uid
-     of the day — with sub-assemblies nested the same way. Nothing here reads
-     the live catalog except to resolve a pinned uid to its archived render. -->
 <!-- One member row inside a version snapshot: rendered from the era's own
      record — its name, render, weight and download URLs of the day. -->
 {#snippet eraPartRow(snap: VersionSnapshot, l: AssemblyLine, mult: number)}
@@ -1059,7 +1055,7 @@
 {#snippet eraNode(snap: VersionSnapshot, id: string, mult: number, root: boolean, instArgs: Record<string, string> | undefined = undefined)}
 	{@const rec = snap.assemblies[id]}
 	{#if rec}
-		{@const open = frozenOpen[id] ?? true}
+		{@const open = eraOpen[id] ?? true}
 		{@const fGutter = rec.connections?.length ? 44 + (braceGroups(rec.connections).length - 1) * 16 : 0}
 		<div class="{root ? '' : 'ml-1.5 mt-2 border border-border bg-surface p-2 sm:ml-4 sm:p-3'}">
 			{#if !root}
@@ -1070,12 +1066,12 @@
 					aria-expanded={open}
 					onclick={(e) => {
 						if ((e.target as Element).closest('a, button')) return;
-						frozenOpen[id] = !open;
+						eraOpen[id] = !open;
 					}}
 					onkeydown={(e) => {
 						if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) {
 							e.preventDefault();
-							frozenOpen[id] = !open;
+							eraOpen[id] = !open;
 						}
 					}}
 				>

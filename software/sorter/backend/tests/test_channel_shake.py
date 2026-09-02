@@ -50,9 +50,12 @@ def _gc(counts):
 
 
 def _irl_config(stages):
+    # Mirrors IRLConfig: the ladder hangs off classification_channel_config.
     return SimpleNamespace(
-        exit_release_shimmy_stages=tuple(stages),
-        exit_release_shimmy_stepper_per_output_deg=10.0,
+        classification_channel_config=SimpleNamespace(
+            exit_release_shimmy_stages=tuple(stages),
+            exit_release_shimmy_stepper_per_output_deg=10.0,
+        )
     )
 
 

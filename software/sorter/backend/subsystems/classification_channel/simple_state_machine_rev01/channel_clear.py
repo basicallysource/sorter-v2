@@ -187,8 +187,11 @@ def shakeChannelClear(
     stepper = _carouselStepper(irl)
     if stepper is None:
         return ChannelClearResult(False, bool(occupied), 0.0, "no_stepper")
-    stages = tuple(getattr(irl_config, "exit_release_shimmy_stages", None) or ())
-    ratio = float(getattr(irl_config, "exit_release_shimmy_stepper_per_output_deg", 0.0) or 0.0)
+    # The ladder lives on the classification-channel config; accept the bare
+    # channel config too (tests, legacy callers).
+    cc = getattr(irl_config, "classification_channel_config", None) or irl_config
+    stages = tuple(getattr(cc, "exit_release_shimmy_stages", None) or ())
+    ratio = float(getattr(cc, "exit_release_shimmy_stepper_per_output_deg", 0.0) or 0.0)
     if not stages or ratio <= 0.0:
         return ChannelClearResult(False, True, 0.0, "no_shimmy_config")
     jitter = getattr(stepper, "jitter_degrees", None)

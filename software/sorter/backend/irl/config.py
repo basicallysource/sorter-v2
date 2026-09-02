@@ -973,8 +973,11 @@ def cameraDeviceSettingsToDict(
 def mkStepperConfig(
     default_steps_per_second: int = 2000,
     microsteps: int = 8,
+    acceleration_microsteps_per_second_sq: int = FIRMWARE_DEFAULT_ACCELERATION_MICROSTEPS_PER_SECOND_SQ,
 ) -> StepperConfig:
-    return StepperConfig(default_steps_per_second, microsteps)
+    return StepperConfig(
+        default_steps_per_second, microsteps, acceleration_microsteps_per_second_sq
+    )
 
 
 def mkIRLConfig(machine_params: dict[str, object] | None = None) -> IRLConfig:
@@ -1285,7 +1288,22 @@ def mkIRLConfig(machine_params: dict[str, object] | None = None) -> IRLConfig:
         microsteps=carousel_microsteps,
     )
     irl_config.c_channel_4_rotor_stepper = irl_config.carousel_stepper
-    irl_config.chute_stepper = mkStepperConfig(default_steps_per_second=3000, microsteps=8)
+    # [chute] acceleration_microsteps_per_second_sq: the chute carries a long
+    # arm; the firmware default of 10000 rips it. Speed comes from
+    # operating_speed_microsteps_per_second (see parseChuteCalibration).
+    chute_params = machine_params.get("chute") if isinstance(machine_params, dict) else None
+    chute_accel = (
+        chute_params.get("acceleration_microsteps_per_second_sq")
+        if isinstance(chute_params, dict)
+        else None
+    )
+    if not isinstance(chute_accel, int) or isinstance(chute_accel, bool) or chute_accel <= 0:
+        chute_accel = FIRMWARE_DEFAULT_ACCELERATION_MICROSTEPS_PER_SECOND_SQ
+    irl_config.chute_stepper = mkStepperConfig(
+        default_steps_per_second=3000,
+        microsteps=8,
+        acceleration_microsteps_per_second_sq=chute_accel,
+    )
     irl_config.c_channel_1_rotor_stepper = mkStepperConfig(default_steps_per_second=4000, microsteps=8)
     irl_config.c_channel_2_rotor_stepper = mkStepperConfig(default_steps_per_second=4000, microsteps=8)
     irl_config.c_channel_3_rotor_stepper = mkStepperConfig(default_steps_per_second=4000, microsteps=8)

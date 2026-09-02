@@ -436,7 +436,7 @@ function buildIndex(): SearchItem[] {
 			kind: 'assembly',
 			scope: 'assemblies',
 			label: 'Assembly',
-			note: a.version ? `v${a.version}` : a.status === 'stub' ? 'stub' : undefined,
+			note: a.version ? `v${a.version}` : undefined,
 			name: a.name,
 			uid: a.uid,
 			id: a.id,

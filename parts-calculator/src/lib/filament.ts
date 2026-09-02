@@ -104,9 +104,7 @@ export type AssemblyCandidate = {
 };
 
 /** Assemblies double as (a) legacy flat groupings the parts list rolls up under
- *  and (b) nodes of the experimental machine tree (when they carry `lines`).
- *  status: 'stub' = placeholder with nothing inside yet, 'partial' = some lines
- *  filled in but not everything the real assembly contains. */
+ *  and (b) nodes of the experimental machine tree (when they carry `lines`). */
 export type Assembly = {
 	id: string;
 	uid: string; // the current structure's id, minted like a part's
@@ -116,8 +114,6 @@ export type Assembly = {
 	name: string;
 	description: string;
 	docs?: string; // path on the docs site to the full assembly guide, e.g. /hardware/assembly/...
-	section?: string; // places an empty/stub assembly in the legacy section list
-	status?: 'stub' | 'partial';
 	joining?: Joining[]; // work needed to make these lines into one unit
 	lines?: AssemblyLine[];
 	connections?: Connection[]; // the joints, as edges over this assembly's lines

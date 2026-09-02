@@ -13,14 +13,12 @@ previous main commit on a push, the base branch on a PR's merge ref):
    experiment, not a revision; the bit belongs to the version minted if it
    is adopted). Revisions predating adoption are exempt, not failed.
 
-2. **The stamp rule.** A structural change to an assembly's `lines` — a
-   member removed, replaced, or a quantity changed — must be stamped: the
+2. **The stamp rule.** Any change to an assembly's `lines` — a member
+   added, removed, replaced, or a quantity changed — must be stamped: the
    assembly's `version` bumped and a new versions[] entry authored with a
-   date, a message, and its breaking bit. Exception: purely ADDING lines to
-   a `stub`/`partial` assembly is completing the record of what was always
-   physically there, not changing the design, and needs no stamp. A part
-   whose `uid` changed is a new revision by definition and must bump its
-   `version` with a new entry the same way.
+   date, a message, and its breaking bit. A part whose `uid` changed is a
+   new revision by definition and must bump its `version` with a new entry
+   the same way.
 
     python scripts/check_versioning.py [--base <ref>]
 
@@ -129,12 +127,6 @@ def check_change_stamps(manifest, prev):
         cur = [json.dumps(line, sort_keys=True) for line in a.get("lines") or []]
         old = [json.dumps(line, sort_keys=True) for line in q.get("lines") or []]
         if collections.Counter(cur) == collections.Counter(old):
-            continue
-        # Filling in a stub/partial assembly -- only adding lines, every old
-        # line untouched -- records what was always physically there and is
-        # not a design change. Anything removed or altered is one.
-        additive = not (collections.Counter(old) - collections.Counter(cur))
-        if additive and q.get("status") in ("stub", "partial"):
             continue
         bad += [f"assembly {b}" for b in stamp_missing(a, q, "lines changed")]
     return bad

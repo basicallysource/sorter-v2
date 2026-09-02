@@ -306,11 +306,10 @@ assembly version is an authored structural change; its superseded entries
 snapshot the lines with each member's uid of the day (`stamp_versions.py`),
 and a candidate is an alternative bill of materials under test, optionally
 carrying the `name` the slot takes if it is adopted. Same minting, same
-retention rule. A structural change to an assembly's `lines` (member
-removed/replaced, qty changed) MUST be stamped as a new assembly version
-with its `breaking` bit — `check_versioning.py` refuses it otherwise; the
-one exemption is purely additive completion of a `stub`/`partial` assembly.
-See `VERSIONING.md`.
+retention rule. Any change to an assembly's `lines` (member
+added/removed/replaced, qty changed) MUST be stamped as a new assembly
+version with its `breaking` bit — `check_versioning.py` refuses it
+otherwise. See `VERSIONING.md`.
 
 **An assembly's `connections` are its joints as a graph over its members.**
 One edge per joint: `{from, to, via, qty, method, through_mm?, thread_mm?,

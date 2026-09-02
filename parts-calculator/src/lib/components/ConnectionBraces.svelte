@@ -25,13 +25,36 @@
 	 *  gutter off the same grouping. */
 	// One brace per fastener: every joint made with the same screws draws as a
 	// single spine spanning all the rows those screws touch, the screw row
-	// included — the per-pair breakdown lives in the click panel. A
-	// fastenerless joint (press, friction, clip…) is its own brace; two of
-	// those that merely share a member stay separate.
-	export function braceGroups(edges: Connection[]) {
+	// included — the per-pair breakdown lives in the click panel. Fastenerless
+	// joints (press, friction, clip…): a same-method chain between plain parts
+	// is one pressed-together stack and draws as one spine too, while a joint
+	// that touches a sub-assembly is its own discrete step — so a stack of
+	// foot, extensions and leg is one line, but two things that merely
+	// friction-fit the same unit stay two.
+	export function braceGroups(edges: Connection[], isAssembly: (id: string) => boolean = () => false) {
+		const keyOf = new Map<Connection, string>();
+		for (const e of edges) {
+			if (e.via) keyOf.set(e, `${e.method}:via:${e.via}`);
+			else if (isAssembly(e.from) || isAssembly(e.to)) keyOf.set(e, `${e.method}:${e.from}>${e.to}`);
+		}
+		// part-to-part fastenerless chains: merge per method over shared members
+		const chains = edges.filter((e) => !keyOf.has(e));
+		const comps: Connection[][] = [];
+		for (const e of chains) {
+			const mine = new Set([e.from, e.to]);
+			const touching = comps.filter(
+				(c) => c[0].method === e.method && c.some((o) => mine.has(o.from) || mine.has(o.to))
+			);
+			for (const t of touching) comps.splice(comps.indexOf(t), 1);
+			comps.push([...touching.flat(), e]);
+		}
+		for (const c of comps) {
+			const members = [...new Set(c.flatMap((e) => [e.from, e.to]))].sort();
+			for (const e of c) keyOf.set(e, `${e.method}:run:${members.join('+')}`);
+		}
 		const joints = new Map<string, Connection[]>();
 		for (const e of edges) {
-			const key = e.via ? `${e.method}:via:${e.via}` : `${e.method}:${e.from}>${e.to}`;
+			const key = keyOf.get(e)!;
 			joints.set(key, [...(joints.get(key) ?? []), e]);
 		}
 		return [...joints].map(([key, es]) => ({
@@ -49,12 +72,15 @@
 	let {
 		edges,
 		gutter,
+		isAssembly = () => false,
 		labelOf,
 		nameOf,
 		travelOf = () => null
 	}: {
 		edges: Connection[];
 		gutter: number;
+		/** Which member ids are sub-assemblies — steers fastenerless grouping. */
+		isAssembly?: (id: string) => boolean;
 		labelOf: (method: string) => string;
 		nameOf: (id: string) => string;
 		/** How far a fastener line reaches through a joint (nominal length,
@@ -113,7 +139,7 @@
 	// a visible run — a 12px nub against a box border reads as no line at all.
 	const laneX = (i: number) => 24 + i * 16;
 
-	const groups = $derived(braceGroups(edges));
+	const groups = $derived(braceGroups(edges, isAssembly));
 
 	type Span = { ticks: { y: number; from: number }[]; top: number; bottom: number; labelY: number };
 	let spans = $state<Span[]>([]);

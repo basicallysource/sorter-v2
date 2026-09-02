@@ -1091,7 +1091,7 @@
 	{@const rec = snap.assemblies[id]}
 	{#if rec}
 		{@const open = eraOpen[id] ?? true}
-		{@const fGutter = rec.connections?.length ? 44 + (braceGroups(rec.connections).length - 1) * 16 : 0}
+		{@const fGutter = rec.connections?.length ? 44 + (braceGroups(rec.connections, (mid) => !!snap.assemblies[mid]).length - 1) * 16 : 0}
 		<div class="{root ? '' : 'ml-1.5 mt-2 border border-border bg-surface p-2 sm:ml-4 sm:p-3'}">
 			{#if !root}
 				<div
@@ -1134,7 +1134,7 @@
 				{@render joiningRows(rec.joining)}
 				<div class="relative" style={fGutter ? `padding-right: ${fGutter}px` : undefined}>
 					{#if fGutter && rec.connections}
-						<ConnectionBraces edges={rec.connections} gutter={fGutter} labelOf={(m) => CONN_LABELS[m] ?? m} nameOf={(mid) => snap.assemblies[mid]?.name ?? snap.parts[mid]?.name ?? snap.hardware[mid]?.name ?? mid} travelOf={(hid) => screwTravel(snap.hardware[hid])} />
+						<ConnectionBraces edges={rec.connections} gutter={fGutter} isAssembly={(mid) => !!snap.assemblies[mid]} labelOf={(m) => CONN_LABELS[m] ?? m} nameOf={(mid) => snap.assemblies[mid]?.name ?? snap.parts[mid]?.name ?? snap.hardware[mid]?.name ?? mid} travelOf={(hid) => screwTravel(snap.hardware[hid])} />
 					{/if}
 					{#each jointOrder(concreteLines(rec, rec.lines ?? [], instArgs), rec.connections ?? []) as l, i (`${l.part ?? l.assembly}-${i}`)}
 						<div data-member={l.part ?? l.assembly ?? ''}>
@@ -1553,7 +1553,7 @@
 			{#if open}
 			{@const braceGutter =
 				asm.connections?.length && !filtering
-					? 44 + (braceGroups(asm.connections).length - 1) * 16
+					? 44 + (braceGroups(asm.connections, (mid) => !!getAssembly(mid)).length - 1) * 16
 					: 0}
 			<div
 				class="tree-branch relative pl-2 sm:pl-4"
@@ -1561,7 +1561,7 @@
 			>
 				<button type="button" class="tree-line" onclick={() => toggle(asm.id)} aria-label="Collapse {asm.name}"></button>
 				{#if braceGutter && asm.connections}
-					<ConnectionBraces edges={asm.connections} gutter={braceGutter} labelOf={(m) => CONN_LABELS[m] ?? m} nameOf={memberName} travelOf={(id) => screwTravel(getHardware(id))} />
+					<ConnectionBraces edges={asm.connections} gutter={braceGutter} isAssembly={(mid) => !!getAssembly(mid)} labelOf={(m) => CONN_LABELS[m] ?? m} nameOf={memberName} travelOf={(id) => screwTravel(getHardware(id))} />
 				{/if}
 			{#if asm.images?.length}<div class="mt-2"><ImageStrip images={asm.images} /></div>{/if}
 			{#if historyFor[asm.id] && !filtering}{@render historyPanel(asm)}{/if}

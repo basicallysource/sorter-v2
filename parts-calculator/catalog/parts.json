@@ -493,7 +493,7 @@
           "date": "2026-09-02",
           "message": "Filled center hole. Used in C-channels 1-3; C-channel 4 keeps the finned rotor.",
           "breaking": false,
-          "commit": null,
+          "commit": "e22fce30",
           "onshape_version": "https://cad.onshape.com/documents/60aa51fc61d18f2155b99910/v/45a8c24919bf95a5560da0f8/e/c80eef32af2d52545be564fe"
         }
       ]
@@ -1761,7 +1761,7 @@
           "date": "2026-09-02",
           "message": "Short and angled, so large in-spec pieces clear the C-channel exit. Iterates on candidate 6sk3; now on all four channels.",
           "breaking": false,
-          "commit": null,
+          "commit": "e22fce30",
           "onshape_version": "https://cad.onshape.com/documents/60aa51fc61d18f2155b99910/v/47cbbc66cc43c4d940d03b1f/e/66109ce96b305bf318354f93"
         }
       ]
@@ -6049,7 +6049,447 @@
           "date": "2026-09-02",
           "message": "Renamed from Classification chamber and consolidated with the other channels: the dome and the Camera & LED insert give way to the Camera lamp with the IMX415 4K camera, and it gains the output guide. Same drive, same finned rotor.",
           "breaking": false,
-          "commit": null
+          "commit": "e22fce30",
+          "tree": {
+            "classification-chamber": {
+              "uid": "5tvh",
+              "name": "C-channel 4 - Classification",
+              "description": "The lowest channel, where classification happens: a C-channel drive with the finned rotor, the Short and Angled Output Guide, and a Camera lamp carrying the IMX415 4K camera.",
+              "docs": "/hardware/assembly/feeder/classification-chamber/",
+              "connections": [
+                {
+                  "from": "output-guide",
+                  "to": "c-channel",
+                  "qty": 1,
+                  "method": "friction",
+                  "note": "The guide pushes onto the C-channel drive and is held by the fit alone."
+                }
+              ],
+              "lines": [
+                {
+                  "assembly": "c-channel",
+                  "qty": 1,
+                  "uid": "4tvc"
+                },
+                {
+                  "assembly": "rotor-unit-finned",
+                  "qty": 1,
+                  "uid": "7ol7"
+                },
+                {
+                  "part": "output-guide",
+                  "qty": 1,
+                  "uid": "z9yd"
+                },
+                {
+                  "assembly": "camera-lamp",
+                  "qty": 1,
+                  "args": {
+                    "camera": "cam-imx415"
+                  },
+                  "uid": "u4si"
+                }
+              ]
+            },
+            "c-channel": {
+              "uid": "4tvc",
+              "name": "C-channel drive",
+              "description": "One C-channel drive unit: stator, NEMA bracket, gear train and stepper. 4 per machine — 3 in the feeder plus the classification channel's. Drives a rotor unit, which differs by location and is not part of this node.",
+              "docs": "/hardware/assembly/feeder/c-channel/",
+              "connections": [
+                {
+                  "from": "brg-608-2rs",
+                  "to": "idler-gear",
+                  "qty": 1,
+                  "method": "press"
+                },
+                {
+                  "from": "nema-bracket",
+                  "to": "motor-nema17",
+                  "via": "scr-m3-16-cs",
+                  "qty": 3,
+                  "method": "thread",
+                  "through_mm": 10.45,
+                  "note": "Into the NEMA 17's tapped face holes; tapped depth not yet measured."
+                },
+                {
+                  "from": "input-gear",
+                  "to": "motor-nema17",
+                  "via": "scr-m3-8-cs",
+                  "qty": 1,
+                  "method": "self-tap",
+                  "note": "Threads through the gear hub and bears on the motor shaft flat."
+                },
+                {
+                  "from": "nema-bracket",
+                  "to": "stator",
+                  "via": "scr-m3-12-cs",
+                  "qty": 2,
+                  "method": "self-tap",
+                  "through_mm": 6.45,
+                  "thread_mm": 10
+                },
+                {
+                  "from": "nema-bracket",
+                  "to": "stator",
+                  "via": "scr-m3-12-cs",
+                  "qty": 2,
+                  "method": "self-tap",
+                  "through_mm": 8.45,
+                  "thread_mm": 10,
+                  "note": "The bracket's four stator holes come in two depths: two at 6.45 mm, two at 8.45 mm."
+                }
+              ],
+              "lines": [
+                {
+                  "part": "idler-gear",
+                  "qty": 1,
+                  "uid": "7bv7"
+                },
+                {
+                  "part": "brg-608-2rs",
+                  "qty": 1,
+                  "uid": "mi1l"
+                },
+                {
+                  "part": "nema-bracket",
+                  "qty": 1,
+                  "uid": "x09t"
+                },
+                {
+                  "part": "motor-nema17",
+                  "qty": 1,
+                  "uid": "w7pq"
+                },
+                {
+                  "part": "input-gear",
+                  "qty": 1,
+                  "uid": "70ul"
+                },
+                {
+                  "part": "stator",
+                  "qty": 1,
+                  "uid": "n6bm"
+                },
+                {
+                  "part": "scr-m3-16-cs",
+                  "qty": 3,
+                  "uid": "bdi4"
+                },
+                {
+                  "part": "scr-m3-8-cs",
+                  "qty": 1,
+                  "uid": "l6br"
+                },
+                {
+                  "part": "scr-m3-12-cs",
+                  "qty": 4,
+                  "uid": "0a9x"
+                }
+              ]
+            },
+            "rotor-unit-finned": {
+              "uid": "7ol7",
+              "name": "Rotor unit (finned)",
+              "description": "The finned rotor with the Output gear (130T) bolted on. Assembled once as a unit; the classification channel's C-channel drive spins it.",
+              "connections": [
+                {
+                  "from": "brg-6806-2rs",
+                  "to": "output-gear",
+                  "qty": 1,
+                  "method": "press"
+                },
+                {
+                  "from": "output-gear",
+                  "to": "rotor-finned",
+                  "via": "scr-m3-12-cs",
+                  "qty": 6,
+                  "method": "self-tap",
+                  "note": "One per spoke. Same joint as the faceted rotor unit."
+                }
+              ],
+              "lines": [
+                {
+                  "part": "rotor-finned",
+                  "qty": 1,
+                  "uid": "brsr"
+                },
+                {
+                  "part": "output-gear",
+                  "qty": 1,
+                  "uid": "26ek"
+                },
+                {
+                  "part": "brg-6806-2rs",
+                  "qty": 1,
+                  "uid": "elxe"
+                },
+                {
+                  "part": "scr-m3-12-cs",
+                  "qty": 6,
+                  "uid": "0a9x"
+                }
+              ]
+            },
+            "camera-lamp": {
+              "uid": "u4si",
+              "name": "Camera lamp",
+              "description": "The per-channel camera and light: the arm with its ring, the adapted camera module snapped in, and the shaded lamp over the top. One per C-channel; which camera it carries is a parameter.",
+              "params": {
+                "camera": {
+                  "default": "cam-ov9732",
+                  "note": "Forwarded to the Adapted camera module."
+                }
+              },
+              "connections": [
+                {
+                  "from": "adapted-camera-module",
+                  "to": "camera-lamp-arm-assembly",
+                  "qty": 1,
+                  "method": "clip",
+                  "note": "The camera module snaps into the arm."
+                },
+                {
+                  "from": "shaded-lamp",
+                  "to": "camera-lamp-arm-assembly",
+                  "qty": 1,
+                  "method": "gravity",
+                  "note": "The lamp sits over the top of the arm."
+                }
+              ],
+              "images": [
+                {
+                  "url": "https://assets.basically.website/sorter-parts/pub-img-camera-lamp-on-channel-full-fb1aaa6d8462.jpg",
+                  "alt": "A camera lamp mounted over a C-channel: the gray shaded lamp on its arm above the channel, with the white funnel of the rotor beside it",
+                  "caption": "On the machine, over a C-channel."
+                },
+                {
+                  "url": "https://assets.basically.website/sorter-parts/pub-img-camera-lamp-lit-full-590dd8686f25.jpg",
+                  "alt": "The lamp lit, seen from below: the LED strips ring the white inner reflector under the gray cover, with the arm silhouetted through the centre opening",
+                  "caption": "Lit: the LED strips around the reflector."
+                },
+                {
+                  "url": "https://assets.basically.website/sorter-parts/pub-img-camera-lamp-mounted-wide-full-0e2a50c0e1e5.jpg",
+                  "alt": "A wider view of the camera lamp on its arm over the channel, leads cable-tied along the arm down to the drive",
+                  "caption": "The arm carries the leads down to the channel."
+                },
+                {
+                  "url": "https://assets.basically.website/sorter-parts/pub-img-camera-lamp-camera-seated-full-a6fff6fecc23.jpg",
+                  "alt": "The top of the shaded lamp with the camera board seated in its clasp recess at the centre, lead plugged in",
+                  "caption": "The camera board seated in the clasp, from above."
+                },
+                {
+                  "url": "https://assets.basically.website/sorter-parts/pub-img-camera-lamp-render-top-full-edc4616e7088.png",
+                  "alt": "Onshape render of the assembled camera lamp from above: the cover with the camera opening, on the arm and brackets",
+                  "caption": "Render, from above."
+                },
+                {
+                  "url": "https://assets.basically.website/sorter-parts/pub-img-camera-lamp-render-side-full-2a681306f3a9.png",
+                  "alt": "Onshape render of the camera lamp in profile: the lamp overhanging on the angled arm, brackets along the joints",
+                  "caption": "Render, in profile."
+                },
+                {
+                  "url": "https://assets.basically.website/sorter-parts/pub-img-camera-lamp-render-underside-full-0e2b1e5a0fb9.png",
+                  "alt": "Onshape render of the camera lamp from below: the reflector and ring inside the cover, the hooks around the rim, the arm reaching up",
+                  "caption": "Render, the underside."
+                }
+              ],
+              "lines": [
+                {
+                  "assembly": "camera-lamp-arm-assembly",
+                  "qty": 1,
+                  "uid": "fcj4"
+                },
+                {
+                  "assembly": "adapted-camera-module",
+                  "qty": 1,
+                  "args": {
+                    "camera": "$camera"
+                  },
+                  "uid": "pdmk"
+                },
+                {
+                  "assembly": "shaded-lamp",
+                  "qty": 1,
+                  "uid": "k2fg"
+                }
+              ]
+            },
+            "camera-lamp-arm-assembly": {
+              "uid": "fcj4",
+              "name": "Camera lamp arm",
+              "description": "The arm that hangs the camera and lamp over a C-channel: the C-channel arm mount, the arm, brackets A and B tying them together, and the camera lamp ring.",
+              "connections": [
+                {
+                  "from": "arm-bracket-a",
+                  "to": "c-channel-arm-mount",
+                  "via": "scr-m3-12-cs",
+                  "qty": 2,
+                  "method": "self-tap",
+                  "note": "Two of bracket A's four through holes, into the mount."
+                },
+                {
+                  "from": "arm-bracket-a",
+                  "to": "camera-lamp-arm",
+                  "via": "scr-m3-12-cs",
+                  "qty": 2,
+                  "method": "self-tap",
+                  "note": "Bracket A's other two through holes, into the arm."
+                },
+                {
+                  "from": "arm-bracket-b",
+                  "to": "c-channel-arm-mount",
+                  "via": "scr-m3-12-cs",
+                  "qty": 2,
+                  "method": "self-tap",
+                  "note": "Two of bracket B's four through holes, into the mount."
+                },
+                {
+                  "from": "arm-bracket-b",
+                  "to": "camera-lamp-arm",
+                  "via": "scr-m3-12-cs",
+                  "qty": 2,
+                  "method": "self-tap",
+                  "note": "Bracket B's other two through holes, into the arm."
+                },
+                {
+                  "from": "camera-lamp-ring",
+                  "to": "camera-lamp-arm",
+                  "via": "scr-m3-12-cs",
+                  "qty": 4,
+                  "method": "self-tap",
+                  "note": "The ring's four through holes into self-tapping holes in the arm."
+                }
+              ],
+              "lines": [
+                {
+                  "part": "c-channel-arm-mount",
+                  "qty": 1,
+                  "uid": "yswm"
+                },
+                {
+                  "part": "camera-lamp-arm",
+                  "qty": 1,
+                  "uid": "4ata"
+                },
+                {
+                  "part": "arm-bracket-a",
+                  "qty": 1,
+                  "uid": "ntbe"
+                },
+                {
+                  "part": "arm-bracket-b",
+                  "qty": 1,
+                  "uid": "g2mu"
+                },
+                {
+                  "part": "camera-lamp-ring",
+                  "qty": 1,
+                  "uid": "sb0m"
+                },
+                {
+                  "part": "scr-m3-12-cs",
+                  "qty": 12,
+                  "uid": "0a9x"
+                }
+              ]
+            },
+            "adapted-camera-module": {
+              "uid": "pdmk",
+              "name": "Adapted camera module",
+              "description": "A camera board clasped between the printed top and bottom halves, ready to snap into the Camera lamp arm.",
+              "params": {
+                "camera": {
+                  "default": "cam-ov9732",
+                  "note": "Which camera board the clasp holds: the OV9732 on C-channels 1-3, the IMX415 4K on C-channel 4."
+                }
+              },
+              "connections": [
+                {
+                  "from": "camera-clasp-top",
+                  "to": "camera-clasp-bottom",
+                  "via": "scr-m3-8-cs",
+                  "qty": 4,
+                  "method": "self-tap",
+                  "draft": true,
+                  "note": "Clasp the camera board between the halves; the screw count is not yet confirmed at the bench."
+                }
+              ],
+              "lines": [
+                {
+                  "part": "camera-clasp-bottom",
+                  "qty": 1,
+                  "uid": "zub8"
+                },
+                {
+                  "param": "camera",
+                  "qty": 1
+                },
+                {
+                  "part": "camera-clasp-top",
+                  "qty": 1,
+                  "uid": "u816"
+                },
+                {
+                  "part": "scr-m3-8-cs",
+                  "qty": 4,
+                  "uid": "l6br"
+                }
+              ]
+            },
+            "shaded-lamp": {
+              "uid": "k2fg",
+              "name": "Shaded lamp",
+              "description": "The channel lamp: the reflector with its LED hooks, under the outer cover.",
+              "connections": [
+                {
+                  "from": "lamp-outer-cover",
+                  "to": "reflector-with-led-hooks",
+                  "qty": 1,
+                  "method": "friction",
+                  "note": "The outer cover friction-fits over the reflector."
+                }
+              ],
+              "lines": [
+                {
+                  "assembly": "reflector-with-led-hooks",
+                  "qty": 1,
+                  "uid": "awve"
+                },
+                {
+                  "part": "lamp-outer-cover",
+                  "qty": 1,
+                  "uid": "8zqy"
+                }
+              ]
+            },
+            "reflector-with-led-hooks": {
+              "uid": "awve",
+              "name": "Reflector with LED hooks",
+              "description": "The white inner reflector with its six LED hooks friction-fitted on.",
+              "connections": [
+                {
+                  "from": "inner-reflector-led-hook",
+                  "to": "lamp-inner-reflector",
+                  "qty": 6,
+                  "method": "friction",
+                  "note": "Each hook friction-fits onto the reflector and retains an LED strip."
+                }
+              ],
+              "lines": [
+                {
+                  "part": "lamp-inner-reflector",
+                  "qty": 1,
+                  "uid": "4vio"
+                },
+                {
+                  "part": "inner-reflector-led-hook",
+                  "qty": 6,
+                  "uid": "l5qn"
+                }
+              ]
+            }
+          }
         }
       ],
       "lines": [
@@ -7667,7 +8107,500 @@
           "date": "2026-09-02",
           "message": "Renamed from Bulk bucket C-channel and consolidated with the other channels: gains the Short and Angled Output Guide and a Camera lamp. The supports and mounting are unchanged for now and will be revisited; the Bulk cap stays.",
           "breaking": false,
-          "commit": null
+          "commit": "e22fce30",
+          "tree": {
+            "bulk-bucket": {
+              "uid": "vf8g",
+              "name": "C-channel 1 - Bulk bucket",
+              "description": "The top channel, where bulk is dumped in: a C-channel drive with the faceted rotor, the Short and Angled Output Guide, a Camera lamp, and the Bulk cap, standing on the tallest supports.",
+              "connections": [
+                {
+                  "from": "output-guide",
+                  "to": "c-channel",
+                  "qty": 1,
+                  "method": "friction",
+                  "note": "The guide pushes onto the C-channel drive and is held by the fit alone."
+                }
+              ],
+              "lines": [
+                {
+                  "assembly": "bulk-bucket-support",
+                  "qty": 3,
+                  "uid": "xo6j"
+                },
+                {
+                  "assembly": "c-channel",
+                  "qty": 1,
+                  "uid": "4tvc"
+                },
+                {
+                  "assembly": "rotor-unit-faceted",
+                  "qty": 1,
+                  "uid": "ylvv"
+                },
+                {
+                  "part": "output-guide",
+                  "qty": 1,
+                  "uid": "z9yd"
+                },
+                {
+                  "assembly": "camera-lamp",
+                  "qty": 1,
+                  "uid": "u4si"
+                },
+                {
+                  "part": "bulk-cap",
+                  "qty": 1,
+                  "uid": "737f"
+                }
+              ]
+            },
+            "bulk-bucket-support": {
+              "uid": "xo6j",
+              "name": "Bulk bucket support",
+              "description": "One of the bulk bucket's three standoffs — the tallest stack: a foot, two leg extensions, and the leg.",
+              "connections": [
+                {
+                  "from": "foot",
+                  "to": "leg-extension",
+                  "qty": 1,
+                  "method": "friction",
+                  "note": "Dovetail: the male tail on top of the lower part slides into the female slot under the upper."
+                },
+                {
+                  "from": "leg-extension",
+                  "to": "leg-extension",
+                  "qty": 1,
+                  "method": "friction",
+                  "note": "The two extensions stack tail-into-slot. Dovetail: the male tail on top of the lower part slides into the female slot under the upper."
+                },
+                {
+                  "from": "leg-extension",
+                  "to": "leg",
+                  "qty": 1,
+                  "method": "friction",
+                  "note": "Dovetail: the male tail on top of the lower part slides into the female slot under the upper."
+                }
+              ],
+              "lines": [
+                {
+                  "part": "foot",
+                  "qty": 1,
+                  "uid": "jqdx"
+                },
+                {
+                  "part": "leg-extension",
+                  "qty": 2,
+                  "uid": "jewq"
+                },
+                {
+                  "part": "leg",
+                  "qty": 1,
+                  "uid": "xse1"
+                }
+              ]
+            },
+            "c-channel": {
+              "uid": "4tvc",
+              "name": "C-channel drive",
+              "description": "One C-channel drive unit: stator, NEMA bracket, gear train and stepper. 4 per machine — 3 in the feeder plus the classification channel's. Drives a rotor unit, which differs by location and is not part of this node.",
+              "docs": "/hardware/assembly/feeder/c-channel/",
+              "connections": [
+                {
+                  "from": "brg-608-2rs",
+                  "to": "idler-gear",
+                  "qty": 1,
+                  "method": "press"
+                },
+                {
+                  "from": "nema-bracket",
+                  "to": "motor-nema17",
+                  "via": "scr-m3-16-cs",
+                  "qty": 3,
+                  "method": "thread",
+                  "through_mm": 10.45,
+                  "note": "Into the NEMA 17's tapped face holes; tapped depth not yet measured."
+                },
+                {
+                  "from": "input-gear",
+                  "to": "motor-nema17",
+                  "via": "scr-m3-8-cs",
+                  "qty": 1,
+                  "method": "self-tap",
+                  "note": "Threads through the gear hub and bears on the motor shaft flat."
+                },
+                {
+                  "from": "nema-bracket",
+                  "to": "stator",
+                  "via": "scr-m3-12-cs",
+                  "qty": 2,
+                  "method": "self-tap",
+                  "through_mm": 6.45,
+                  "thread_mm": 10
+                },
+                {
+                  "from": "nema-bracket",
+                  "to": "stator",
+                  "via": "scr-m3-12-cs",
+                  "qty": 2,
+                  "method": "self-tap",
+                  "through_mm": 8.45,
+                  "thread_mm": 10,
+                  "note": "The bracket's four stator holes come in two depths: two at 6.45 mm, two at 8.45 mm."
+                }
+              ],
+              "lines": [
+                {
+                  "part": "idler-gear",
+                  "qty": 1,
+                  "uid": "7bv7"
+                },
+                {
+                  "part": "brg-608-2rs",
+                  "qty": 1,
+                  "uid": "mi1l"
+                },
+                {
+                  "part": "nema-bracket",
+                  "qty": 1,
+                  "uid": "x09t"
+                },
+                {
+                  "part": "motor-nema17",
+                  "qty": 1,
+                  "uid": "w7pq"
+                },
+                {
+                  "part": "input-gear",
+                  "qty": 1,
+                  "uid": "70ul"
+                },
+                {
+                  "part": "stator",
+                  "qty": 1,
+                  "uid": "n6bm"
+                },
+                {
+                  "part": "scr-m3-16-cs",
+                  "qty": 3,
+                  "uid": "bdi4"
+                },
+                {
+                  "part": "scr-m3-8-cs",
+                  "qty": 1,
+                  "uid": "l6br"
+                },
+                {
+                  "part": "scr-m3-12-cs",
+                  "qty": 4,
+                  "uid": "0a9x"
+                }
+              ]
+            },
+            "rotor-unit-faceted": {
+              "uid": "ylvv",
+              "name": "Rotor unit (faceted)",
+              "description": "The faceted rotor with the Output gear (130T) bolted on. Assembled once as a unit; a C-channel drive spins it.",
+              "connections": [
+                {
+                  "from": "brg-6806-2rs",
+                  "to": "output-gear",
+                  "qty": 1,
+                  "method": "press"
+                },
+                {
+                  "from": "output-gear",
+                  "to": "rotor-faceted",
+                  "via": "scr-m3-12-cs",
+                  "qty": 6,
+                  "method": "self-tap",
+                  "note": "One per spoke. Needs the 12 mm length: the gear is 8 mm thick at the bolt circle and a countersunk screw's length is measured over its head, so an M3 × 8 seated flush reaches nothing.",
+                  "through_mm": 6.45,
+                  "thread_mm": 5
+                }
+              ],
+              "lines": [
+                {
+                  "part": "rotor-faceted",
+                  "qty": 1,
+                  "uid": "n20h"
+                },
+                {
+                  "part": "output-gear",
+                  "qty": 1,
+                  "uid": "26ek"
+                },
+                {
+                  "part": "brg-6806-2rs",
+                  "qty": 1,
+                  "uid": "elxe"
+                },
+                {
+                  "part": "scr-m3-12-cs",
+                  "qty": 6,
+                  "uid": "0a9x"
+                }
+              ]
+            },
+            "camera-lamp": {
+              "uid": "u4si",
+              "name": "Camera lamp",
+              "description": "The per-channel camera and light: the arm with its ring, the adapted camera module snapped in, and the shaded lamp over the top. One per C-channel; which camera it carries is a parameter.",
+              "params": {
+                "camera": {
+                  "default": "cam-ov9732",
+                  "note": "Forwarded to the Adapted camera module."
+                }
+              },
+              "connections": [
+                {
+                  "from": "adapted-camera-module",
+                  "to": "camera-lamp-arm-assembly",
+                  "qty": 1,
+                  "method": "clip",
+                  "note": "The camera module snaps into the arm."
+                },
+                {
+                  "from": "shaded-lamp",
+                  "to": "camera-lamp-arm-assembly",
+                  "qty": 1,
+                  "method": "gravity",
+                  "note": "The lamp sits over the top of the arm."
+                }
+              ],
+              "images": [
+                {
+                  "url": "https://assets.basically.website/sorter-parts/pub-img-camera-lamp-on-channel-full-fb1aaa6d8462.jpg",
+                  "alt": "A camera lamp mounted over a C-channel: the gray shaded lamp on its arm above the channel, with the white funnel of the rotor beside it",
+                  "caption": "On the machine, over a C-channel."
+                },
+                {
+                  "url": "https://assets.basically.website/sorter-parts/pub-img-camera-lamp-lit-full-590dd8686f25.jpg",
+                  "alt": "The lamp lit, seen from below: the LED strips ring the white inner reflector under the gray cover, with the arm silhouetted through the centre opening",
+                  "caption": "Lit: the LED strips around the reflector."
+                },
+                {
+                  "url": "https://assets.basically.website/sorter-parts/pub-img-camera-lamp-mounted-wide-full-0e2a50c0e1e5.jpg",
+                  "alt": "A wider view of the camera lamp on its arm over the channel, leads cable-tied along the arm down to the drive",
+                  "caption": "The arm carries the leads down to the channel."
+                },
+                {
+                  "url": "https://assets.basically.website/sorter-parts/pub-img-camera-lamp-camera-seated-full-a6fff6fecc23.jpg",
+                  "alt": "The top of the shaded lamp with the camera board seated in its clasp recess at the centre, lead plugged in",
+                  "caption": "The camera board seated in the clasp, from above."
+                },
+                {
+                  "url": "https://assets.basically.website/sorter-parts/pub-img-camera-lamp-render-top-full-edc4616e7088.png",
+                  "alt": "Onshape render of the assembled camera lamp from above: the cover with the camera opening, on the arm and brackets",
+                  "caption": "Render, from above."
+                },
+                {
+                  "url": "https://assets.basically.website/sorter-parts/pub-img-camera-lamp-render-side-full-2a681306f3a9.png",
+                  "alt": "Onshape render of the camera lamp in profile: the lamp overhanging on the angled arm, brackets along the joints",
+                  "caption": "Render, in profile."
+                },
+                {
+                  "url": "https://assets.basically.website/sorter-parts/pub-img-camera-lamp-render-underside-full-0e2b1e5a0fb9.png",
+                  "alt": "Onshape render of the camera lamp from below: the reflector and ring inside the cover, the hooks around the rim, the arm reaching up",
+                  "caption": "Render, the underside."
+                }
+              ],
+              "lines": [
+                {
+                  "assembly": "camera-lamp-arm-assembly",
+                  "qty": 1,
+                  "uid": "fcj4"
+                },
+                {
+                  "assembly": "adapted-camera-module",
+                  "qty": 1,
+                  "args": {
+                    "camera": "$camera"
+                  },
+                  "uid": "pdmk"
+                },
+                {
+                  "assembly": "shaded-lamp",
+                  "qty": 1,
+                  "uid": "k2fg"
+                }
+              ]
+            },
+            "camera-lamp-arm-assembly": {
+              "uid": "fcj4",
+              "name": "Camera lamp arm",
+              "description": "The arm that hangs the camera and lamp over a C-channel: the C-channel arm mount, the arm, brackets A and B tying them together, and the camera lamp ring.",
+              "connections": [
+                {
+                  "from": "arm-bracket-a",
+                  "to": "c-channel-arm-mount",
+                  "via": "scr-m3-12-cs",
+                  "qty": 2,
+                  "method": "self-tap",
+                  "note": "Two of bracket A's four through holes, into the mount."
+                },
+                {
+                  "from": "arm-bracket-a",
+                  "to": "camera-lamp-arm",
+                  "via": "scr-m3-12-cs",
+                  "qty": 2,
+                  "method": "self-tap",
+                  "note": "Bracket A's other two through holes, into the arm."
+                },
+                {
+                  "from": "arm-bracket-b",
+                  "to": "c-channel-arm-mount",
+                  "via": "scr-m3-12-cs",
+                  "qty": 2,
+                  "method": "self-tap",
+                  "note": "Two of bracket B's four through holes, into the mount."
+                },
+                {
+                  "from": "arm-bracket-b",
+                  "to": "camera-lamp-arm",
+                  "via": "scr-m3-12-cs",
+                  "qty": 2,
+                  "method": "self-tap",
+                  "note": "Bracket B's other two through holes, into the arm."
+                },
+                {
+                  "from": "camera-lamp-ring",
+                  "to": "camera-lamp-arm",
+                  "via": "scr-m3-12-cs",
+                  "qty": 4,
+                  "method": "self-tap",
+                  "note": "The ring's four through holes into self-tapping holes in the arm."
+                }
+              ],
+              "lines": [
+                {
+                  "part": "c-channel-arm-mount",
+                  "qty": 1,
+                  "uid": "yswm"
+                },
+                {
+                  "part": "camera-lamp-arm",
+                  "qty": 1,
+                  "uid": "4ata"
+                },
+                {
+                  "part": "arm-bracket-a",
+                  "qty": 1,
+                  "uid": "ntbe"
+                },
+                {
+                  "part": "arm-bracket-b",
+                  "qty": 1,
+                  "uid": "g2mu"
+                },
+                {
+                  "part": "camera-lamp-ring",
+                  "qty": 1,
+                  "uid": "sb0m"
+                },
+                {
+                  "part": "scr-m3-12-cs",
+                  "qty": 12,
+                  "uid": "0a9x"
+                }
+              ]
+            },
+            "adapted-camera-module": {
+              "uid": "pdmk",
+              "name": "Adapted camera module",
+              "description": "A camera board clasped between the printed top and bottom halves, ready to snap into the Camera lamp arm.",
+              "params": {
+                "camera": {
+                  "default": "cam-ov9732",
+                  "note": "Which camera board the clasp holds: the OV9732 on C-channels 1-3, the IMX415 4K on C-channel 4."
+                }
+              },
+              "connections": [
+                {
+                  "from": "camera-clasp-top",
+                  "to": "camera-clasp-bottom",
+                  "via": "scr-m3-8-cs",
+                  "qty": 4,
+                  "method": "self-tap",
+                  "draft": true,
+                  "note": "Clasp the camera board between the halves; the screw count is not yet confirmed at the bench."
+                }
+              ],
+              "lines": [
+                {
+                  "part": "camera-clasp-bottom",
+                  "qty": 1,
+                  "uid": "zub8"
+                },
+                {
+                  "param": "camera",
+                  "qty": 1
+                },
+                {
+                  "part": "camera-clasp-top",
+                  "qty": 1,
+                  "uid": "u816"
+                },
+                {
+                  "part": "scr-m3-8-cs",
+                  "qty": 4,
+                  "uid": "l6br"
+                }
+              ]
+            },
+            "shaded-lamp": {
+              "uid": "k2fg",
+              "name": "Shaded lamp",
+              "description": "The channel lamp: the reflector with its LED hooks, under the outer cover.",
+              "connections": [
+                {
+                  "from": "lamp-outer-cover",
+                  "to": "reflector-with-led-hooks",
+                  "qty": 1,
+                  "method": "friction",
+                  "note": "The outer cover friction-fits over the reflector."
+                }
+              ],
+              "lines": [
+                {
+                  "assembly": "reflector-with-led-hooks",
+                  "qty": 1,
+                  "uid": "awve"
+                },
+                {
+                  "part": "lamp-outer-cover",
+                  "qty": 1,
+                  "uid": "8zqy"
+                }
+              ]
+            },
+            "reflector-with-led-hooks": {
+              "uid": "awve",
+              "name": "Reflector with LED hooks",
+              "description": "The white inner reflector with its six LED hooks friction-fitted on.",
+              "connections": [
+                {
+                  "from": "inner-reflector-led-hook",
+                  "to": "lamp-inner-reflector",
+                  "qty": 6,
+                  "method": "friction",
+                  "note": "Each hook friction-fits onto the reflector and retains an LED strip."
+                }
+              ],
+              "lines": [
+                {
+                  "part": "lamp-inner-reflector",
+                  "qty": 1,
+                  "uid": "4vio"
+                },
+                {
+                  "part": "inner-reflector-led-hook",
+                  "qty": 6,
+                  "uid": "l5qn"
+                }
+              ]
+            }
+          }
         }
       ]
     },
@@ -7803,7 +8736,495 @@
           "date": "2026-09-02",
           "message": "The light post and overhead camera mount give way to the Camera lamp: one arm carrying the camera and the shaded lamp. Their M3 x 20 bolts leave with them.",
           "breaking": false,
-          "commit": null
+          "commit": "e22fce30",
+          "tree": {
+            "channel-two": {
+              "uid": "qsom",
+              "name": "C-channel 2",
+              "description": "A feeder channel: a C-channel drive with the faceted rotor, the Short and Angled Output Guide and a Camera lamp, standing on three supports.",
+              "connections": [
+                {
+                  "from": "channel-two-support",
+                  "to": "c-channel",
+                  "qty": 3,
+                  "method": "friction",
+                  "note": "Dovetail: each support's leg slides into the C-channel drive from below."
+                },
+                {
+                  "from": "output-guide",
+                  "to": "c-channel",
+                  "qty": 1,
+                  "method": "friction",
+                  "note": "The guide pushes onto the C-channel drive and is held by the fit alone."
+                }
+              ],
+              "lines": [
+                {
+                  "assembly": "channel-two-support",
+                  "qty": 3,
+                  "uid": "dp63"
+                },
+                {
+                  "assembly": "c-channel",
+                  "qty": 1,
+                  "uid": "4tvc"
+                },
+                {
+                  "assembly": "rotor-unit-faceted",
+                  "qty": 1,
+                  "uid": "ylvv"
+                },
+                {
+                  "part": "output-guide",
+                  "qty": 1,
+                  "uid": "z9yd"
+                },
+                {
+                  "assembly": "camera-lamp",
+                  "qty": 1,
+                  "uid": "u4si"
+                }
+              ]
+            },
+            "channel-two-support": {
+              "uid": "dp63",
+              "name": "Channel 2 support",
+              "description": "One of C-channel 2's three standoffs: a foot, one leg extension, and the leg the channel dovetails onto.",
+              "connections": [
+                {
+                  "from": "foot",
+                  "to": "leg-extension",
+                  "qty": 1,
+                  "method": "friction",
+                  "note": "Dovetail: the male tail on top of the lower part slides into the female slot under the upper."
+                },
+                {
+                  "from": "leg-extension",
+                  "to": "leg",
+                  "qty": 1,
+                  "method": "friction",
+                  "note": "Dovetail: the male tail on top of the lower part slides into the female slot under the upper."
+                }
+              ],
+              "lines": [
+                {
+                  "part": "foot",
+                  "qty": 1,
+                  "uid": "jqdx"
+                },
+                {
+                  "part": "leg-extension",
+                  "qty": 1,
+                  "uid": "jewq"
+                },
+                {
+                  "part": "leg",
+                  "qty": 1,
+                  "uid": "xse1"
+                }
+              ]
+            },
+            "c-channel": {
+              "uid": "4tvc",
+              "name": "C-channel drive",
+              "description": "One C-channel drive unit: stator, NEMA bracket, gear train and stepper. 4 per machine — 3 in the feeder plus the classification channel's. Drives a rotor unit, which differs by location and is not part of this node.",
+              "docs": "/hardware/assembly/feeder/c-channel/",
+              "connections": [
+                {
+                  "from": "brg-608-2rs",
+                  "to": "idler-gear",
+                  "qty": 1,
+                  "method": "press"
+                },
+                {
+                  "from": "nema-bracket",
+                  "to": "motor-nema17",
+                  "via": "scr-m3-16-cs",
+                  "qty": 3,
+                  "method": "thread",
+                  "through_mm": 10.45,
+                  "note": "Into the NEMA 17's tapped face holes; tapped depth not yet measured."
+                },
+                {
+                  "from": "input-gear",
+                  "to": "motor-nema17",
+                  "via": "scr-m3-8-cs",
+                  "qty": 1,
+                  "method": "self-tap",
+                  "note": "Threads through the gear hub and bears on the motor shaft flat."
+                },
+                {
+                  "from": "nema-bracket",
+                  "to": "stator",
+                  "via": "scr-m3-12-cs",
+                  "qty": 2,
+                  "method": "self-tap",
+                  "through_mm": 6.45,
+                  "thread_mm": 10
+                },
+                {
+                  "from": "nema-bracket",
+                  "to": "stator",
+                  "via": "scr-m3-12-cs",
+                  "qty": 2,
+                  "method": "self-tap",
+                  "through_mm": 8.45,
+                  "thread_mm": 10,
+                  "note": "The bracket's four stator holes come in two depths: two at 6.45 mm, two at 8.45 mm."
+                }
+              ],
+              "lines": [
+                {
+                  "part": "idler-gear",
+                  "qty": 1,
+                  "uid": "7bv7"
+                },
+                {
+                  "part": "brg-608-2rs",
+                  "qty": 1,
+                  "uid": "mi1l"
+                },
+                {
+                  "part": "nema-bracket",
+                  "qty": 1,
+                  "uid": "x09t"
+                },
+                {
+                  "part": "motor-nema17",
+                  "qty": 1,
+                  "uid": "w7pq"
+                },
+                {
+                  "part": "input-gear",
+                  "qty": 1,
+                  "uid": "70ul"
+                },
+                {
+                  "part": "stator",
+                  "qty": 1,
+                  "uid": "n6bm"
+                },
+                {
+                  "part": "scr-m3-16-cs",
+                  "qty": 3,
+                  "uid": "bdi4"
+                },
+                {
+                  "part": "scr-m3-8-cs",
+                  "qty": 1,
+                  "uid": "l6br"
+                },
+                {
+                  "part": "scr-m3-12-cs",
+                  "qty": 4,
+                  "uid": "0a9x"
+                }
+              ]
+            },
+            "rotor-unit-faceted": {
+              "uid": "ylvv",
+              "name": "Rotor unit (faceted)",
+              "description": "The faceted rotor with the Output gear (130T) bolted on. Assembled once as a unit; a C-channel drive spins it.",
+              "connections": [
+                {
+                  "from": "brg-6806-2rs",
+                  "to": "output-gear",
+                  "qty": 1,
+                  "method": "press"
+                },
+                {
+                  "from": "output-gear",
+                  "to": "rotor-faceted",
+                  "via": "scr-m3-12-cs",
+                  "qty": 6,
+                  "method": "self-tap",
+                  "note": "One per spoke. Needs the 12 mm length: the gear is 8 mm thick at the bolt circle and a countersunk screw's length is measured over its head, so an M3 × 8 seated flush reaches nothing.",
+                  "through_mm": 6.45,
+                  "thread_mm": 5
+                }
+              ],
+              "lines": [
+                {
+                  "part": "rotor-faceted",
+                  "qty": 1,
+                  "uid": "n20h"
+                },
+                {
+                  "part": "output-gear",
+                  "qty": 1,
+                  "uid": "26ek"
+                },
+                {
+                  "part": "brg-6806-2rs",
+                  "qty": 1,
+                  "uid": "elxe"
+                },
+                {
+                  "part": "scr-m3-12-cs",
+                  "qty": 6,
+                  "uid": "0a9x"
+                }
+              ]
+            },
+            "camera-lamp": {
+              "uid": "u4si",
+              "name": "Camera lamp",
+              "description": "The per-channel camera and light: the arm with its ring, the adapted camera module snapped in, and the shaded lamp over the top. One per C-channel; which camera it carries is a parameter.",
+              "params": {
+                "camera": {
+                  "default": "cam-ov9732",
+                  "note": "Forwarded to the Adapted camera module."
+                }
+              },
+              "connections": [
+                {
+                  "from": "adapted-camera-module",
+                  "to": "camera-lamp-arm-assembly",
+                  "qty": 1,
+                  "method": "clip",
+                  "note": "The camera module snaps into the arm."
+                },
+                {
+                  "from": "shaded-lamp",
+                  "to": "camera-lamp-arm-assembly",
+                  "qty": 1,
+                  "method": "gravity",
+                  "note": "The lamp sits over the top of the arm."
+                }
+              ],
+              "images": [
+                {
+                  "url": "https://assets.basically.website/sorter-parts/pub-img-camera-lamp-on-channel-full-fb1aaa6d8462.jpg",
+                  "alt": "A camera lamp mounted over a C-channel: the gray shaded lamp on its arm above the channel, with the white funnel of the rotor beside it",
+                  "caption": "On the machine, over a C-channel."
+                },
+                {
+                  "url": "https://assets.basically.website/sorter-parts/pub-img-camera-lamp-lit-full-590dd8686f25.jpg",
+                  "alt": "The lamp lit, seen from below: the LED strips ring the white inner reflector under the gray cover, with the arm silhouetted through the centre opening",
+                  "caption": "Lit: the LED strips around the reflector."
+                },
+                {
+                  "url": "https://assets.basically.website/sorter-parts/pub-img-camera-lamp-mounted-wide-full-0e2a50c0e1e5.jpg",
+                  "alt": "A wider view of the camera lamp on its arm over the channel, leads cable-tied along the arm down to the drive",
+                  "caption": "The arm carries the leads down to the channel."
+                },
+                {
+                  "url": "https://assets.basically.website/sorter-parts/pub-img-camera-lamp-camera-seated-full-a6fff6fecc23.jpg",
+                  "alt": "The top of the shaded lamp with the camera board seated in its clasp recess at the centre, lead plugged in",
+                  "caption": "The camera board seated in the clasp, from above."
+                },
+                {
+                  "url": "https://assets.basically.website/sorter-parts/pub-img-camera-lamp-render-top-full-edc4616e7088.png",
+                  "alt": "Onshape render of the assembled camera lamp from above: the cover with the camera opening, on the arm and brackets",
+                  "caption": "Render, from above."
+                },
+                {
+                  "url": "https://assets.basically.website/sorter-parts/pub-img-camera-lamp-render-side-full-2a681306f3a9.png",
+                  "alt": "Onshape render of the camera lamp in profile: the lamp overhanging on the angled arm, brackets along the joints",
+                  "caption": "Render, in profile."
+                },
+                {
+                  "url": "https://assets.basically.website/sorter-parts/pub-img-camera-lamp-render-underside-full-0e2b1e5a0fb9.png",
+                  "alt": "Onshape render of the camera lamp from below: the reflector and ring inside the cover, the hooks around the rim, the arm reaching up",
+                  "caption": "Render, the underside."
+                }
+              ],
+              "lines": [
+                {
+                  "assembly": "camera-lamp-arm-assembly",
+                  "qty": 1,
+                  "uid": "fcj4"
+                },
+                {
+                  "assembly": "adapted-camera-module",
+                  "qty": 1,
+                  "args": {
+                    "camera": "$camera"
+                  },
+                  "uid": "pdmk"
+                },
+                {
+                  "assembly": "shaded-lamp",
+                  "qty": 1,
+                  "uid": "k2fg"
+                }
+              ]
+            },
+            "camera-lamp-arm-assembly": {
+              "uid": "fcj4",
+              "name": "Camera lamp arm",
+              "description": "The arm that hangs the camera and lamp over a C-channel: the C-channel arm mount, the arm, brackets A and B tying them together, and the camera lamp ring.",
+              "connections": [
+                {
+                  "from": "arm-bracket-a",
+                  "to": "c-channel-arm-mount",
+                  "via": "scr-m3-12-cs",
+                  "qty": 2,
+                  "method": "self-tap",
+                  "note": "Two of bracket A's four through holes, into the mount."
+                },
+                {
+                  "from": "arm-bracket-a",
+                  "to": "camera-lamp-arm",
+                  "via": "scr-m3-12-cs",
+                  "qty": 2,
+                  "method": "self-tap",
+                  "note": "Bracket A's other two through holes, into the arm."
+                },
+                {
+                  "from": "arm-bracket-b",
+                  "to": "c-channel-arm-mount",
+                  "via": "scr-m3-12-cs",
+                  "qty": 2,
+                  "method": "self-tap",
+                  "note": "Two of bracket B's four through holes, into the mount."
+                },
+                {
+                  "from": "arm-bracket-b",
+                  "to": "camera-lamp-arm",
+                  "via": "scr-m3-12-cs",
+                  "qty": 2,
+                  "method": "self-tap",
+                  "note": "Bracket B's other two through holes, into the arm."
+                },
+                {
+                  "from": "camera-lamp-ring",
+                  "to": "camera-lamp-arm",
+                  "via": "scr-m3-12-cs",
+                  "qty": 4,
+                  "method": "self-tap",
+                  "note": "The ring's four through holes into self-tapping holes in the arm."
+                }
+              ],
+              "lines": [
+                {
+                  "part": "c-channel-arm-mount",
+                  "qty": 1,
+                  "uid": "yswm"
+                },
+                {
+                  "part": "camera-lamp-arm",
+                  "qty": 1,
+                  "uid": "4ata"
+                },
+                {
+                  "part": "arm-bracket-a",
+                  "qty": 1,
+                  "uid": "ntbe"
+                },
+                {
+                  "part": "arm-bracket-b",
+                  "qty": 1,
+                  "uid": "g2mu"
+                },
+                {
+                  "part": "camera-lamp-ring",
+                  "qty": 1,
+                  "uid": "sb0m"
+                },
+                {
+                  "part": "scr-m3-12-cs",
+                  "qty": 12,
+                  "uid": "0a9x"
+                }
+              ]
+            },
+            "adapted-camera-module": {
+              "uid": "pdmk",
+              "name": "Adapted camera module",
+              "description": "A camera board clasped between the printed top and bottom halves, ready to snap into the Camera lamp arm.",
+              "params": {
+                "camera": {
+                  "default": "cam-ov9732",
+                  "note": "Which camera board the clasp holds: the OV9732 on C-channels 1-3, the IMX415 4K on C-channel 4."
+                }
+              },
+              "connections": [
+                {
+                  "from": "camera-clasp-top",
+                  "to": "camera-clasp-bottom",
+                  "via": "scr-m3-8-cs",
+                  "qty": 4,
+                  "method": "self-tap",
+                  "draft": true,
+                  "note": "Clasp the camera board between the halves; the screw count is not yet confirmed at the bench."
+                }
+              ],
+              "lines": [
+                {
+                  "part": "camera-clasp-bottom",
+                  "qty": 1,
+                  "uid": "zub8"
+                },
+                {
+                  "param": "camera",
+                  "qty": 1
+                },
+                {
+                  "part": "camera-clasp-top",
+                  "qty": 1,
+                  "uid": "u816"
+                },
+                {
+                  "part": "scr-m3-8-cs",
+                  "qty": 4,
+                  "uid": "l6br"
+                }
+              ]
+            },
+            "shaded-lamp": {
+              "uid": "k2fg",
+              "name": "Shaded lamp",
+              "description": "The channel lamp: the reflector with its LED hooks, under the outer cover.",
+              "connections": [
+                {
+                  "from": "lamp-outer-cover",
+                  "to": "reflector-with-led-hooks",
+                  "qty": 1,
+                  "method": "friction",
+                  "note": "The outer cover friction-fits over the reflector."
+                }
+              ],
+              "lines": [
+                {
+                  "assembly": "reflector-with-led-hooks",
+                  "qty": 1,
+                  "uid": "awve"
+                },
+                {
+                  "part": "lamp-outer-cover",
+                  "qty": 1,
+                  "uid": "8zqy"
+                }
+              ]
+            },
+            "reflector-with-led-hooks": {
+              "uid": "awve",
+              "name": "Reflector with LED hooks",
+              "description": "The white inner reflector with its six LED hooks friction-fitted on.",
+              "connections": [
+                {
+                  "from": "inner-reflector-led-hook",
+                  "to": "lamp-inner-reflector",
+                  "qty": 6,
+                  "method": "friction",
+                  "note": "Each hook friction-fits onto the reflector and retains an LED strip."
+                }
+              ],
+              "lines": [
+                {
+                  "part": "lamp-inner-reflector",
+                  "qty": 1,
+                  "uid": "4vio"
+                },
+                {
+                  "part": "inner-reflector-led-hook",
+                  "qty": 6,
+                  "uid": "l5qn"
+                }
+              ]
+            }
+          }
         }
       ]
     },
@@ -7939,7 +9360,483 @@
           "date": "2026-09-02",
           "message": "The light post and overhead camera mount give way to the Camera lamp: one arm carrying the camera and the shaded lamp. Their M3 x 20 bolts leave with them.",
           "breaking": false,
-          "commit": null
+          "commit": "e22fce30",
+          "tree": {
+            "channel-three": {
+              "uid": "6hxd",
+              "name": "C-channel 3",
+              "description": "A feeder channel: a C-channel drive with the faceted rotor, the Short and Angled Output Guide and a Camera lamp, standing on three supports.",
+              "connections": [
+                {
+                  "from": "channel-three-support",
+                  "to": "c-channel",
+                  "qty": 3,
+                  "method": "friction",
+                  "note": "Dovetail: each support's leg slides into the C-channel drive from below."
+                },
+                {
+                  "from": "output-guide",
+                  "to": "c-channel",
+                  "qty": 1,
+                  "method": "friction",
+                  "note": "The guide pushes onto the C-channel drive and is held by the fit alone."
+                }
+              ],
+              "lines": [
+                {
+                  "assembly": "channel-three-support",
+                  "qty": 3,
+                  "uid": "r6ar"
+                },
+                {
+                  "assembly": "c-channel",
+                  "qty": 1,
+                  "uid": "4tvc"
+                },
+                {
+                  "assembly": "rotor-unit-faceted",
+                  "qty": 1,
+                  "uid": "ylvv"
+                },
+                {
+                  "part": "output-guide",
+                  "qty": 1,
+                  "uid": "z9yd"
+                },
+                {
+                  "assembly": "camera-lamp",
+                  "qty": 1,
+                  "uid": "u4si"
+                }
+              ]
+            },
+            "channel-three-support": {
+              "uid": "r6ar",
+              "name": "Channel 3 support",
+              "description": "One of C-channel 3's three standoffs: a foot and the leg the channel dovetails onto.",
+              "connections": [
+                {
+                  "from": "foot",
+                  "to": "leg",
+                  "qty": 1,
+                  "method": "friction",
+                  "note": "Dovetail: the male tail on top of the lower part slides into the female slot under the upper."
+                }
+              ],
+              "lines": [
+                {
+                  "part": "foot",
+                  "qty": 1,
+                  "uid": "jqdx"
+                },
+                {
+                  "part": "leg",
+                  "qty": 1,
+                  "uid": "xse1"
+                }
+              ]
+            },
+            "c-channel": {
+              "uid": "4tvc",
+              "name": "C-channel drive",
+              "description": "One C-channel drive unit: stator, NEMA bracket, gear train and stepper. 4 per machine — 3 in the feeder plus the classification channel's. Drives a rotor unit, which differs by location and is not part of this node.",
+              "docs": "/hardware/assembly/feeder/c-channel/",
+              "connections": [
+                {
+                  "from": "brg-608-2rs",
+                  "to": "idler-gear",
+                  "qty": 1,
+                  "method": "press"
+                },
+                {
+                  "from": "nema-bracket",
+                  "to": "motor-nema17",
+                  "via": "scr-m3-16-cs",
+                  "qty": 3,
+                  "method": "thread",
+                  "through_mm": 10.45,
+                  "note": "Into the NEMA 17's tapped face holes; tapped depth not yet measured."
+                },
+                {
+                  "from": "input-gear",
+                  "to": "motor-nema17",
+                  "via": "scr-m3-8-cs",
+                  "qty": 1,
+                  "method": "self-tap",
+                  "note": "Threads through the gear hub and bears on the motor shaft flat."
+                },
+                {
+                  "from": "nema-bracket",
+                  "to": "stator",
+                  "via": "scr-m3-12-cs",
+                  "qty": 2,
+                  "method": "self-tap",
+                  "through_mm": 6.45,
+                  "thread_mm": 10
+                },
+                {
+                  "from": "nema-bracket",
+                  "to": "stator",
+                  "via": "scr-m3-12-cs",
+                  "qty": 2,
+                  "method": "self-tap",
+                  "through_mm": 8.45,
+                  "thread_mm": 10,
+                  "note": "The bracket's four stator holes come in two depths: two at 6.45 mm, two at 8.45 mm."
+                }
+              ],
+              "lines": [
+                {
+                  "part": "idler-gear",
+                  "qty": 1,
+                  "uid": "7bv7"
+                },
+                {
+                  "part": "brg-608-2rs",
+                  "qty": 1,
+                  "uid": "mi1l"
+                },
+                {
+                  "part": "nema-bracket",
+                  "qty": 1,
+                  "uid": "x09t"
+                },
+                {
+                  "part": "motor-nema17",
+                  "qty": 1,
+                  "uid": "w7pq"
+                },
+                {
+                  "part": "input-gear",
+                  "qty": 1,
+                  "uid": "70ul"
+                },
+                {
+                  "part": "stator",
+                  "qty": 1,
+                  "uid": "n6bm"
+                },
+                {
+                  "part": "scr-m3-16-cs",
+                  "qty": 3,
+                  "uid": "bdi4"
+                },
+                {
+                  "part": "scr-m3-8-cs",
+                  "qty": 1,
+                  "uid": "l6br"
+                },
+                {
+                  "part": "scr-m3-12-cs",
+                  "qty": 4,
+                  "uid": "0a9x"
+                }
+              ]
+            },
+            "rotor-unit-faceted": {
+              "uid": "ylvv",
+              "name": "Rotor unit (faceted)",
+              "description": "The faceted rotor with the Output gear (130T) bolted on. Assembled once as a unit; a C-channel drive spins it.",
+              "connections": [
+                {
+                  "from": "brg-6806-2rs",
+                  "to": "output-gear",
+                  "qty": 1,
+                  "method": "press"
+                },
+                {
+                  "from": "output-gear",
+                  "to": "rotor-faceted",
+                  "via": "scr-m3-12-cs",
+                  "qty": 6,
+                  "method": "self-tap",
+                  "note": "One per spoke. Needs the 12 mm length: the gear is 8 mm thick at the bolt circle and a countersunk screw's length is measured over its head, so an M3 × 8 seated flush reaches nothing.",
+                  "through_mm": 6.45,
+                  "thread_mm": 5
+                }
+              ],
+              "lines": [
+                {
+                  "part": "rotor-faceted",
+                  "qty": 1,
+                  "uid": "n20h"
+                },
+                {
+                  "part": "output-gear",
+                  "qty": 1,
+                  "uid": "26ek"
+                },
+                {
+                  "part": "brg-6806-2rs",
+                  "qty": 1,
+                  "uid": "elxe"
+                },
+                {
+                  "part": "scr-m3-12-cs",
+                  "qty": 6,
+                  "uid": "0a9x"
+                }
+              ]
+            },
+            "camera-lamp": {
+              "uid": "u4si",
+              "name": "Camera lamp",
+              "description": "The per-channel camera and light: the arm with its ring, the adapted camera module snapped in, and the shaded lamp over the top. One per C-channel; which camera it carries is a parameter.",
+              "params": {
+                "camera": {
+                  "default": "cam-ov9732",
+                  "note": "Forwarded to the Adapted camera module."
+                }
+              },
+              "connections": [
+                {
+                  "from": "adapted-camera-module",
+                  "to": "camera-lamp-arm-assembly",
+                  "qty": 1,
+                  "method": "clip",
+                  "note": "The camera module snaps into the arm."
+                },
+                {
+                  "from": "shaded-lamp",
+                  "to": "camera-lamp-arm-assembly",
+                  "qty": 1,
+                  "method": "gravity",
+                  "note": "The lamp sits over the top of the arm."
+                }
+              ],
+              "images": [
+                {
+                  "url": "https://assets.basically.website/sorter-parts/pub-img-camera-lamp-on-channel-full-fb1aaa6d8462.jpg",
+                  "alt": "A camera lamp mounted over a C-channel: the gray shaded lamp on its arm above the channel, with the white funnel of the rotor beside it",
+                  "caption": "On the machine, over a C-channel."
+                },
+                {
+                  "url": "https://assets.basically.website/sorter-parts/pub-img-camera-lamp-lit-full-590dd8686f25.jpg",
+                  "alt": "The lamp lit, seen from below: the LED strips ring the white inner reflector under the gray cover, with the arm silhouetted through the centre opening",
+                  "caption": "Lit: the LED strips around the reflector."
+                },
+                {
+                  "url": "https://assets.basically.website/sorter-parts/pub-img-camera-lamp-mounted-wide-full-0e2a50c0e1e5.jpg",
+                  "alt": "A wider view of the camera lamp on its arm over the channel, leads cable-tied along the arm down to the drive",
+                  "caption": "The arm carries the leads down to the channel."
+                },
+                {
+                  "url": "https://assets.basically.website/sorter-parts/pub-img-camera-lamp-camera-seated-full-a6fff6fecc23.jpg",
+                  "alt": "The top of the shaded lamp with the camera board seated in its clasp recess at the centre, lead plugged in",
+                  "caption": "The camera board seated in the clasp, from above."
+                },
+                {
+                  "url": "https://assets.basically.website/sorter-parts/pub-img-camera-lamp-render-top-full-edc4616e7088.png",
+                  "alt": "Onshape render of the assembled camera lamp from above: the cover with the camera opening, on the arm and brackets",
+                  "caption": "Render, from above."
+                },
+                {
+                  "url": "https://assets.basically.website/sorter-parts/pub-img-camera-lamp-render-side-full-2a681306f3a9.png",
+                  "alt": "Onshape render of the camera lamp in profile: the lamp overhanging on the angled arm, brackets along the joints",
+                  "caption": "Render, in profile."
+                },
+                {
+                  "url": "https://assets.basically.website/sorter-parts/pub-img-camera-lamp-render-underside-full-0e2b1e5a0fb9.png",
+                  "alt": "Onshape render of the camera lamp from below: the reflector and ring inside the cover, the hooks around the rim, the arm reaching up",
+                  "caption": "Render, the underside."
+                }
+              ],
+              "lines": [
+                {
+                  "assembly": "camera-lamp-arm-assembly",
+                  "qty": 1,
+                  "uid": "fcj4"
+                },
+                {
+                  "assembly": "adapted-camera-module",
+                  "qty": 1,
+                  "args": {
+                    "camera": "$camera"
+                  },
+                  "uid": "pdmk"
+                },
+                {
+                  "assembly": "shaded-lamp",
+                  "qty": 1,
+                  "uid": "k2fg"
+                }
+              ]
+            },
+            "camera-lamp-arm-assembly": {
+              "uid": "fcj4",
+              "name": "Camera lamp arm",
+              "description": "The arm that hangs the camera and lamp over a C-channel: the C-channel arm mount, the arm, brackets A and B tying them together, and the camera lamp ring.",
+              "connections": [
+                {
+                  "from": "arm-bracket-a",
+                  "to": "c-channel-arm-mount",
+                  "via": "scr-m3-12-cs",
+                  "qty": 2,
+                  "method": "self-tap",
+                  "note": "Two of bracket A's four through holes, into the mount."
+                },
+                {
+                  "from": "arm-bracket-a",
+                  "to": "camera-lamp-arm",
+                  "via": "scr-m3-12-cs",
+                  "qty": 2,
+                  "method": "self-tap",
+                  "note": "Bracket A's other two through holes, into the arm."
+                },
+                {
+                  "from": "arm-bracket-b",
+                  "to": "c-channel-arm-mount",
+                  "via": "scr-m3-12-cs",
+                  "qty": 2,
+                  "method": "self-tap",
+                  "note": "Two of bracket B's four through holes, into the mount."
+                },
+                {
+                  "from": "arm-bracket-b",
+                  "to": "camera-lamp-arm",
+                  "via": "scr-m3-12-cs",
+                  "qty": 2,
+                  "method": "self-tap",
+                  "note": "Bracket B's other two through holes, into the arm."
+                },
+                {
+                  "from": "camera-lamp-ring",
+                  "to": "camera-lamp-arm",
+                  "via": "scr-m3-12-cs",
+                  "qty": 4,
+                  "method": "self-tap",
+                  "note": "The ring's four through holes into self-tapping holes in the arm."
+                }
+              ],
+              "lines": [
+                {
+                  "part": "c-channel-arm-mount",
+                  "qty": 1,
+                  "uid": "yswm"
+                },
+                {
+                  "part": "camera-lamp-arm",
+                  "qty": 1,
+                  "uid": "4ata"
+                },
+                {
+                  "part": "arm-bracket-a",
+                  "qty": 1,
+                  "uid": "ntbe"
+                },
+                {
+                  "part": "arm-bracket-b",
+                  "qty": 1,
+                  "uid": "g2mu"
+                },
+                {
+                  "part": "camera-lamp-ring",
+                  "qty": 1,
+                  "uid": "sb0m"
+                },
+                {
+                  "part": "scr-m3-12-cs",
+                  "qty": 12,
+                  "uid": "0a9x"
+                }
+              ]
+            },
+            "adapted-camera-module": {
+              "uid": "pdmk",
+              "name": "Adapted camera module",
+              "description": "A camera board clasped between the printed top and bottom halves, ready to snap into the Camera lamp arm.",
+              "params": {
+                "camera": {
+                  "default": "cam-ov9732",
+                  "note": "Which camera board the clasp holds: the OV9732 on C-channels 1-3, the IMX415 4K on C-channel 4."
+                }
+              },
+              "connections": [
+                {
+                  "from": "camera-clasp-top",
+                  "to": "camera-clasp-bottom",
+                  "via": "scr-m3-8-cs",
+                  "qty": 4,
+                  "method": "self-tap",
+                  "draft": true,
+                  "note": "Clasp the camera board between the halves; the screw count is not yet confirmed at the bench."
+                }
+              ],
+              "lines": [
+                {
+                  "part": "camera-clasp-bottom",
+                  "qty": 1,
+                  "uid": "zub8"
+                },
+                {
+                  "param": "camera",
+                  "qty": 1
+                },
+                {
+                  "part": "camera-clasp-top",
+                  "qty": 1,
+                  "uid": "u816"
+                },
+                {
+                  "part": "scr-m3-8-cs",
+                  "qty": 4,
+                  "uid": "l6br"
+                }
+              ]
+            },
+            "shaded-lamp": {
+              "uid": "k2fg",
+              "name": "Shaded lamp",
+              "description": "The channel lamp: the reflector with its LED hooks, under the outer cover.",
+              "connections": [
+                {
+                  "from": "lamp-outer-cover",
+                  "to": "reflector-with-led-hooks",
+                  "qty": 1,
+                  "method": "friction",
+                  "note": "The outer cover friction-fits over the reflector."
+                }
+              ],
+              "lines": [
+                {
+                  "assembly": "reflector-with-led-hooks",
+                  "qty": 1,
+                  "uid": "awve"
+                },
+                {
+                  "part": "lamp-outer-cover",
+                  "qty": 1,
+                  "uid": "8zqy"
+                }
+              ]
+            },
+            "reflector-with-led-hooks": {
+              "uid": "awve",
+              "name": "Reflector with LED hooks",
+              "description": "The white inner reflector with its six LED hooks friction-fitted on.",
+              "connections": [
+                {
+                  "from": "inner-reflector-led-hook",
+                  "to": "lamp-inner-reflector",
+                  "qty": 6,
+                  "method": "friction",
+                  "note": "Each hook friction-fits onto the reflector and retains an LED strip."
+                }
+              ],
+              "lines": [
+                {
+                  "part": "lamp-inner-reflector",
+                  "qty": 1,
+                  "uid": "4vio"
+                },
+                {
+                  "part": "inner-reflector-led-hook",
+                  "qty": 6,
+                  "uid": "l5qn"
+                }
+              ]
+            }
+          }
         }
       ]
     },

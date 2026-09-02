@@ -3,6 +3,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Protocol
 
 from global_config import GlobalConfig
+from hardware.bus import MCUBusError
 from hardware.sorter_interface import DIGITAL_OUTPUT_DUTY_MAX
 from local_state import LED_DEFAULT_BRIGHTNESS_PERCENT, get_led_state, set_led_state
 from machine_platform.control_board import BoardIdentity
@@ -48,8 +49,18 @@ def discoverLedOutputs(
     # board, so led_gpios[i] is the GPIO behind digital output channel i.
     outputs: list[LedOutput] = []
     for board in control_boards:
-        gpios = board.interface.get_observability_info().get("led_gpios") or []
         role = board.identity.role
+        try:
+            gpios = board.interface.get_observability_info().get("led_gpios") or []
+        except MCUBusError as exc:
+            # Firmware predating GET_OBSERVABILITY NACKs the query. LEDs are an
+            # optional convenience; an old board must not take the whole
+            # hardware bring-up down with it.
+            gc.logger.warning(
+                f"LED outputs unavailable on {role} board (firmware does not report "
+                f"observability info, update it to use LEDs): {exc}"
+            )
+            continue
         for channel, gpio in enumerate(gpios):
             outputs.append(
                 LedOutput(

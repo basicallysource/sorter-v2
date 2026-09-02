@@ -236,6 +236,24 @@ static std::array<TMC2209, STEPPER_COUNT> make_tmc_array(std::index_sequence<I..
 
 static auto tmc_drivers = make_tmc_array(std::make_index_sequence<STEPPER_COUNT>{});
 
+// Software StallGuard (boards whose TMC DIAG lines are not wired to the MCU,
+// e.g. the SKR Pico config). The backend configures SGTHRS/TCOOLTHRS over UART
+// exactly as for the DIAG path; we remember the last written values and, while
+// an armed stepper runs, poll TSTEP and SG_RESULT on core0 and latch a stall
+// under the same rule the driver applies to DIAG: SG_RESULT <= 2*SGTHRS while
+// TSTEP <= TCOOLTHRS (i.e. above the velocity floor). Two consecutive hits are
+// required so a single noisy read cannot stop a motor.
+#define TMC_REG_TSTEP 0x12
+#define TMC_REG_TCOOLTHRS 0x14
+#define TMC_REG_SGTHRS 0x40
+#define TMC_REG_SG_RESULT 0x41
+#define SOFT_SG_POLL_INTERVAL_US 5000
+#define SOFT_SG_HITS_TO_LATCH 2
+static uint32_t soft_sg_sgthrs[STEPPER_COUNT] = {0};
+static uint32_t soft_sg_tcoolthrs[STEPPER_COUNT] = {0};
+static uint8_t soft_sg_hits[STEPPER_COUNT] = {0};
+
+
 template <size_t... I>
 static std::array<Stepper, STEPPER_COUNT> make_stepper_array(std::index_sequence<I...>) {
     return {Stepper(STEPPER_STEP_PINS[I], STEPPER_DIR_PINS[I])...};
@@ -802,16 +820,15 @@ void CMDH_stepper_drv_write_register(const BusMessage *msg, BusMessage *resp) {
     memcpy(&value, msg->payload + 1, sizeof(value));
     tmc_drivers[msg->channel].writeRegister(reg, value);
     resp->payload_length = 0;
+    if (reg == TMC_REG_SGTHRS) soft_sg_sgthrs[msg->channel] = value;
+    if (reg == TMC_REG_TCOOLTHRS) soft_sg_tcoolthrs[msg->channel] = value;
 }
 
 void CMDH_stepper_enable_stall_detection(const BusMessage *msg, BusMessage *resp) {
     bool enable = msg->payload[0] != 0;
-    if (enable && STEPPER_DIAG_PINS[msg->channel] < 0) {
-        resp->command = msg->command | 0x80; // Set error bit
-        resp->payload_length =
-            snprintf((char *)resp->payload, MAX_PAYLOAD_SIZE, "No DIAG pin for channel %u", msg->channel);
-        return;
-    }
+    // Without a DIAG pin the software poll (core0, UART) takes over; it needs
+    // SGTHRS/TCOOLTHRS to have been written first, which the backend does.
+    soft_sg_hits[msg->channel] = 0;
     steppers[msg->channel].enableStallDetection(enable);
     resp->payload_length = 0;
 }
@@ -957,6 +974,38 @@ void core1_entry() {
     }
 }
 
+static void software_stallguard_poll() {
+    static uint64_t next_poll_us = 0;
+    static uint8_t next_channel = 0;
+    uint64_t now = time_us_64();
+    if (now < next_poll_us) return;
+    next_poll_us = now + SOFT_SG_POLL_INTERVAL_US;
+    uint8_t i = next_channel;
+    next_channel = (uint8_t)((next_channel + 1) % STEPPER_COUNT);
+    Stepper &stepper = steppers[i];
+    if (stepper.hasStallPin() || !stepper.stallDetectionEnabled() || soft_sg_sgthrs[i] == 0 ||
+        !stepper.isRunningForStallCheck()) {
+        soft_sg_hits[i] = 0;
+        return;
+    }
+    uint32_t tstep = 0;
+    if (tmc_drivers[i].readRegister(TMC_REG_TSTEP, &tstep) != 0) return; // UART hiccup: skip this round
+    if ((tstep & 0xFFFFF) > soft_sg_tcoolthrs[i]) {
+        soft_sg_hits[i] = 0; // below the velocity floor DIAG would be inactive too
+        return;
+    }
+    uint32_t sg_result = 0;
+    if (tmc_drivers[i].readRegister(TMC_REG_SG_RESULT, &sg_result) != 0) return;
+    if ((sg_result & 0x3FF) <= 2 * soft_sg_sgthrs[i]) {
+        if (++soft_sg_hits[i] >= SOFT_SG_HITS_TO_LATCH) {
+            soft_sg_hits[i] = 0;
+            stepper.latchStall();
+        }
+    } else {
+        soft_sg_hits[i] = 0;
+    }
+}
+
 int main() {
     stdio_init_all();
     initialize_hardware();
@@ -976,5 +1025,6 @@ int main() {
             msg_processor.processIncomingData((char)c);
             msg_processor.processQueuedMessage();
         }
+        software_stallguard_poll();
     }
 }

@@ -36,6 +36,8 @@ class InterfaceCommandCode(BaseCommandCode):
     STEPPER_ENABLE_STALL_DETECTION = 0x1A
     STEPPER_GET_STALL_STATUS = 0x1B  # channel ignored; returns a per-board stall bitmask
     STEPPER_CLEAR_STALL = 0x1C
+    STEPPER_ENCODER_CONFIG = 0x1D  # sign, counts per 1000 µsteps, tolerance counts, enable
+    STEPPER_ENCODER_STATUS = 0x1E  # raw angle, deviation, AS5600 status, AGC, latches
     # Stepper driver commands
     STEPPER_DRV_SET_ENABLED = 0x20
     STEPPER_DRV_SET_MICROSTEPS = 0x21
@@ -509,6 +511,39 @@ class StepperMotor:
         if DISABLE_STALLGUARD:
             return
         self._dev.send_command(InterfaceCommandCode.STEPPER_CLEAR_STALL, self._channel, b'')
+
+    def configure_encoder(
+        self,
+        *,
+        enable: bool,
+        sign: int = 1,
+        counts_per_microstep: float = 4096 / 1600,
+        tolerance_microsteps: int = 32,
+    ) -> None:
+        """Arm the firmware's shaft-encoder position check (AS5600 on the motor's
+        rear shaft). Deviations beyond the tolerance latch the same stall flag as
+        StallGuard, so the stall monitor / incident path is shared."""
+        counts_per_kusteps = max(1, int(round(counts_per_microstep * 1000)))
+        tolerance_counts = max(1, min(65535, int(round(tolerance_microsteps * counts_per_microstep))))
+        payload = struct.pack("<bIH?", 1 if sign >= 0 else -1, counts_per_kusteps, tolerance_counts, bool(enable))
+        self._gc.logger.info(
+            f"Stepper '{self._name}' ch{self._channel}: encoder {'armed' if enable else 'disabled'} "
+            f"(sign={sign:+d}, counts/1000µsteps={counts_per_kusteps}, tolerance={tolerance_counts} counts)"
+        )
+        self._dev.send_command(InterfaceCommandCode.STEPPER_ENCODER_CONFIG, self._channel, payload)
+
+    def read_encoder_status(self) -> dict:
+        res = self._dev.send_command(InterfaceCommandCode.STEPPER_ENCODER_STATUS, self._channel, b"")
+        raw, deviation, status, agc, latches = struct.unpack("<HiBBH", bytes(res.payload[:10]))
+        return {
+            "raw_angle": raw,
+            "deviation_counts": deviation,
+            "magnet_detected": bool(status & 0x20),
+            "magnet_too_weak": bool(status & 0x10),
+            "magnet_too_strong": bool(status & 0x08),
+            "agc": agc,
+            "latches": latches,
+        }
 
     def read_stall_latched(self) -> bool:
         """True iff the firmware currently latches a StallGuard/DIAG stall on this

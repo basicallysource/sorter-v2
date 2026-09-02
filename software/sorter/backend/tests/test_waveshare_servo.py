@@ -377,18 +377,18 @@ class _SimServo:
 
 class CalibrationTests(unittest.TestCase):
     def setUp(self) -> None:
-        for p in (
-            mock.patch.object(waveshare_servo, "_sleep", lambda s: None),
-            mock.patch.object(waveshare_servo, "_CAL_VERIFY_HOLD_S", 0.0),
-        ):
-            p.start()
-            self.addCleanup(p.stop)
+        p = mock.patch.object(waveshare_servo, "_sleep", lambda s: None)
+        p.start()
+        self.addCleanup(p.stop)
 
     def test_limits_sit_inside_the_free_travel_with_margin(self) -> None:
         sim = _SimServo(stop_min=64, stop_max=321)
         safe_min, safe_max = waveshare_servo.calibrate_servo(sim, 2)
-        self.assertGreaterEqual(safe_min, sim.stop_min + waveshare_servo._CAL_MARGIN_MIN)
-        self.assertLessEqual(safe_max, sim.stop_max - waveshare_servo._CAL_MARGIN_MIN)
+        # margin counts from the pressed position (stop ∓ compression)
+        self.assertGreaterEqual(safe_min, sim.stop_min - sim.compression + waveshare_servo._CAL_MARGIN_MIN)
+        self.assertLessEqual(safe_max, sim.stop_max + sim.compression - waveshare_servo._CAL_MARGIN_MIN)
+        self.assertGreater(safe_min, sim.stop_min)
+        self.assertLess(safe_max, sim.stop_max)
         self.assertEqual(sim.limits, (safe_min, safe_max))
         self.assertFalse(sim.torque_calls[-1])
         # Parked at the calibrated ends the door is unloaded.

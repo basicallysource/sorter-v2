@@ -54,6 +54,8 @@
       "id": "replace-c-channel-supports",
       "name": "Replace prototype C-channel supports",
       "priority": "P2",
+      "status": "complete",
+      "completed_at": "2026-09-02",
       "description": "Replace the current C-channel legs, feet, and leg extensions. These prototype parts work, but they are unstable and will be replaced with improved designs.",
       "targets": {
         "parts": [
@@ -2020,14 +2022,12 @@
       "id": "leg",
       "uid": "xse1",
       "name": "Leg",
-      "description": "C-channel leg. 9 in the feeder.",
+      "description": "C-channel leg. 9 in the feeder. Unused since 2026-09-02: the layout guide, support legs and dovetail adapters replaced the prototype foot/leg/leg-extension supports. Do not re-add from old docs or photos.",
       "internal_notes": "9 per feeder. Plain 'Leg.stl' (135mm) - replaces the earlier mismapped 'Classification Leg'. Feeder color.",
       "version": "1",
       "created_at": "2026-06-27",
       "updated_at": "2026-06-27",
-      "quantities": {
-        "feeder": 9
-      },
+      "quantities": {},
       "assembly": null,
       "stl_hash": "6621b702d3ada3422d7e3eb72f86cc7fec8a86b842539f858b7784e4e4587592",
       "color": {
@@ -2040,14 +2040,12 @@
       "id": "foot",
       "uid": "jqdx",
       "name": "Foot",
-      "description": "C-channel foot. 9 in the feeder.",
+      "description": "C-channel foot. 9 in the feeder. Unused since 2026-09-02: the layout guide, support legs and dovetail adapters replaced the prototype foot/leg/leg-extension supports. Do not re-add from old docs or photos.",
       "internal_notes": "9 per feeder. 'Foot.stl'. Feeder color.",
       "version": "1",
       "created_at": "2026-06-27",
       "updated_at": "2026-06-27",
-      "quantities": {
-        "feeder": 9
-      },
+      "quantities": {},
       "assembly": null,
       "stl_hash": "8c70fc095a1495e9a75f2e88803a9de5cac2d6cc0351d977fd684bed5546ba7e",
       "color": {
@@ -2080,14 +2078,12 @@
       "id": "leg-extension",
       "uid": "jewq",
       "name": "Leg extension",
-      "description": "C-channel leg extension. 9 in the feeder.",
+      "description": "C-channel leg extension. 9 in the feeder. Unused since 2026-09-02: the layout guide, support legs and dovetail adapters replaced the prototype foot/leg/leg-extension supports. Do not re-add from old docs or photos.",
       "internal_notes": "9 per feeder. C-channel (feeder) color.",
       "version": "1",
       "created_at": "2026-06-27",
       "updated_at": "2026-06-27",
-      "quantities": {
-        "feeder": 9
-      },
+      "quantities": {},
       "assembly": null,
       "stl_hash": "a6f22135b92ac953c3c83073064cc2531fe40277339dc3cd0cf0327f73813d50",
       "color": {
@@ -5788,6 +5784,85 @@
       },
       "stl_hash": "a35c2789239bcb4235fc36a1fff10d1533f9b811a8a9ac1b5a20a577916b6176",
       "onshape_version": "https://cad.onshape.com/documents/60aa51fc61d18f2155b99910/v/45a8c24919bf95a5560da0f8/e/5bf04274a6c68015096bd757"
+    },
+    {
+      "id": "layout-guide",
+      "uid": "wwbb",
+      "name": "Layout guide",
+      "version": "1",
+      "created_at": "2026-09-02",
+      "description": "The base plate a C-channel's three support legs stand in; one per channel, the same part on C-channels 1-3.",
+      "quantities": {
+        "feeder": 3
+      },
+      "color": {
+        "role": "channel"
+      },
+      "stl_hash": "78f720e9b2f9be361a260c27669661a0c89bdad7647a6393c1f258451c421cf5",
+      "onshape_version": "https://cad.onshape.com/documents/60aa51fc61d18f2155b99910/v/45a8c24919bf95a5560da0f8/e/7f9499df9d10e70a5d51b6a1"
+    },
+    {
+      "id": "support-dovetail-adapter",
+      "uid": "2ikc",
+      "name": "Support dovetail adapter",
+      "version": "1",
+      "created_at": "2026-09-02",
+      "description": "Tops a support leg and dovetails into the C-channel drive; three per channel, the same part on C-channels 1-3.",
+      "quantities": {
+        "feeder": 9
+      },
+      "color": {
+        "role": "channel"
+      },
+      "stl_hash": "48e56b8b5283aed5f8a05c2dc8b413ae059ecae3638fd45524880523f0bf8f80",
+      "onshape_version": "https://cad.onshape.com/documents/60aa51fc61d18f2155b99910/v/45a8c24919bf95a5560da0f8/e/7f9499df9d10e70a5d51b6a1"
+    },
+    {
+      "id": "channel-two-support-leg",
+      "uid": "bk8x",
+      "name": "C-channel 2 support leg",
+      "version": "1",
+      "created_at": "2026-09-02",
+      "description": "C-channel 2's leg, between the layout guide and a dovetail adapter. Three per channel.",
+      "quantities": {
+        "feeder": 3
+      },
+      "color": {
+        "role": "channel"
+      },
+      "stl_hash": "636858a616f948625581cefd1b0355f06bc7c3ee8174d0012b33bce26407f401",
+      "onshape_version": "https://cad.onshape.com/documents/60aa51fc61d18f2155b99910/v/45a8c24919bf95a5560da0f8/e/7f9499df9d10e70a5d51b6a1"
+    },
+    {
+      "id": "channel-three-support-leg",
+      "uid": "q5p4",
+      "name": "C-channel 3 support leg",
+      "version": "1",
+      "created_at": "2026-09-02",
+      "description": "C-channel 3's leg, between the layout guide and a dovetail adapter. Three per channel.",
+      "quantities": {
+        "feeder": 3
+      },
+      "color": {
+        "role": "channel"
+      },
+      "stl_hash": "b7b2900b99628ee40a848bb36d6ac169b752532e7e837ec9b086c9ed56ffe082",
+      "onshape_version": "https://cad.onshape.com/documents/60aa51fc61d18f2155b99910/v/45a8c24919bf95a5560da0f8/e/7f9499df9d10e70a5d51b6a1"
+    },
+    {
+      "id": "ext-2020-c1",
+      "uid": "n11o",
+      "kind": "cots",
+      "cots": {
+        "type": "extrusion-2020",
+        "length_mm": 228
+      },
+      "name": "C-channel 1 support legs (228 mm)",
+      "category": "Aluminum extrusion (2020)",
+      "description": "2020 aluminum extrusion, cut to 228 mm — C-channel 1's three support legs.",
+      "created_at": "2026-09-02",
+      "image_url": "https://assets.basically.website/sorter-parts/extrusion-extrusion-2020-full-01bd50e7eac0.png",
+      "caption": "2020 aluminum extrusion, cut to 228 mm."
     }
   ],
   "assemblies": [
@@ -6823,7 +6898,7 @@
       "uid": "r6ar",
       "version": "1",
       "name": "Channel 3 support",
-      "description": "One of C-channel 3's three standoffs: a foot and the leg the channel dovetails onto.",
+      "description": "One of C-channel 3's three standoffs: a foot and the leg the channel dovetails onto. Unused since 2026-09-02: the layout guide, support legs and dovetail adapters replaced the prototype foot/leg/leg-extension supports. Do not re-add from old docs or photos.",
       "lines": [
         {
           "part": "foot",
@@ -6849,7 +6924,7 @@
       "uid": "dp63",
       "version": "1",
       "name": "Channel 2 support",
-      "description": "One of C-channel 2's three standoffs: a foot, one leg extension, and the leg the channel dovetails onto.",
+      "description": "One of C-channel 2's three standoffs: a foot, one leg extension, and the leg the channel dovetails onto. Unused since 2026-09-02: the layout guide, support legs and dovetail adapters replaced the prototype foot/leg/leg-extension supports. Do not re-add from old docs or photos.",
       "lines": [
         {
           "part": "foot",
@@ -6886,7 +6961,7 @@
       "uid": "xo6j",
       "version": "1",
       "name": "Bulk bucket support",
-      "description": "One of the bulk bucket's three standoffs — the tallest stack: a foot, two leg extensions, and the leg.",
+      "description": "One of the bulk bucket's three standoffs — the tallest stack: a foot, two leg extensions, and the leg. Unused since 2026-09-02: the layout guide, support legs and dovetail adapters replaced the prototype foot/leg/leg-extension supports. Do not re-add from old docs or photos.",
       "lines": [
         {
           "part": "foot",
@@ -6927,14 +7002,14 @@
     },
     {
       "id": "bulk-bucket",
-      "uid": "vf8g",
-      "version": "2",
+      "uid": "jnwt",
+      "version": "3",
       "name": "C-channel 1 - Bulk bucket",
       "description": "The top channel, where bulk is dumped in: a C-channel drive with the faceted rotor, the Short and Angled Output Guide, a Camera lamp, and the Bulk cap, standing on the tallest supports.",
       "lines": [
         {
-          "assembly": "bulk-bucket-support",
-          "qty": 3
+          "assembly": "channel-one-support-structure",
+          "qty": 1
         },
         {
           "assembly": "c-channel",
@@ -6964,6 +7039,13 @@
           "qty": 1,
           "method": "friction",
           "note": "The guide pushes onto the C-channel drive and is held by the fit alone."
+        },
+        {
+          "from": "channel-one-support-structure",
+          "to": "c-channel",
+          "qty": 3,
+          "method": "friction",
+          "note": "The three dovetail adapters slide into the C-channel drive from below."
         }
       ],
       "versions": [
@@ -6996,23 +7078,63 @@
         },
         {
           "version": "2",
+          "uid": "vf8g",
           "date": "2026-09-02",
           "message": "Renamed from Bulk bucket C-channel and consolidated with the other channels: gains the Short and Angled Output Guide and a Camera lamp. The supports and mounting are unchanged for now and will be revisited; the Bulk cap stays.",
           "breaking": false,
-          "commit": "e22fce30"
+          "commit": "e22fce30",
+          "lines": [
+            {
+              "assembly": "bulk-bucket-support",
+              "qty": 3,
+              "uid": "xo6j"
+            },
+            {
+              "assembly": "c-channel",
+              "qty": 1,
+              "uid": "4tvc"
+            },
+            {
+              "assembly": "rotor-unit-faceted",
+              "qty": 1,
+              "uid": "ylvv"
+            },
+            {
+              "part": "output-guide",
+              "qty": 1,
+              "uid": "z9yd"
+            },
+            {
+              "assembly": "camera-lamp",
+              "qty": 1,
+              "uid": "u4si"
+            },
+            {
+              "part": "bulk-cap",
+              "qty": 1,
+              "uid": "737f"
+            }
+          ]
+        },
+        {
+          "version": "3",
+          "date": "2026-09-02",
+          "message": "The prototype supports give way to the new support structure: the shared layout guide and dovetail adapters with this channel's own legs. An old assembled channel stands on the old feet and does not fit the new layout.",
+          "breaking": true,
+          "commit": null
         }
       ]
     },
     {
       "id": "channel-two",
-      "uid": "qsom",
-      "version": "3",
+      "uid": "d60t",
+      "version": "4",
       "name": "C-channel 2",
       "description": "A feeder channel: a C-channel drive with the faceted rotor, the Short and Angled Output Guide and a Camera lamp, standing on three supports.",
       "lines": [
         {
-          "assembly": "channel-two-support",
-          "qty": 3
+          "assembly": "channel-two-support-structure",
+          "qty": 1
         },
         {
           "assembly": "c-channel",
@@ -7033,18 +7155,18 @@
       ],
       "connections": [
         {
-          "from": "channel-two-support",
-          "to": "c-channel",
-          "qty": 3,
-          "method": "friction",
-          "note": "Dovetail: each support's leg slides into the C-channel drive from below."
-        },
-        {
           "from": "output-guide",
           "to": "c-channel",
           "qty": 1,
           "method": "friction",
           "note": "The guide pushes onto the C-channel drive and is held by the fit alone."
+        },
+        {
+          "from": "channel-two-support-structure",
+          "to": "c-channel",
+          "qty": 3,
+          "method": "friction",
+          "note": "The three dovetail adapters slide into the C-channel drive from below."
         }
       ],
       "versions": [
@@ -7132,23 +7254,58 @@
         },
         {
           "version": "3",
+          "uid": "qsom",
           "date": "2026-09-02",
           "message": "The light post and overhead camera mount give way to the Camera lamp: one arm carrying the camera and the shaded lamp. Their M3 x 20 bolts leave with them.",
           "breaking": false,
-          "commit": "e22fce30"
+          "commit": "e22fce30",
+          "lines": [
+            {
+              "assembly": "channel-two-support",
+              "qty": 3,
+              "uid": "dp63"
+            },
+            {
+              "assembly": "c-channel",
+              "qty": 1,
+              "uid": "4tvc"
+            },
+            {
+              "assembly": "rotor-unit-faceted",
+              "qty": 1,
+              "uid": "ylvv"
+            },
+            {
+              "part": "output-guide",
+              "qty": 1,
+              "uid": "z9yd"
+            },
+            {
+              "assembly": "camera-lamp",
+              "qty": 1,
+              "uid": "u4si"
+            }
+          ]
+        },
+        {
+          "version": "4",
+          "date": "2026-09-02",
+          "message": "The prototype supports give way to the new support structure: the shared layout guide and dovetail adapters with this channel's own legs. An old assembled channel stands on the old feet and does not fit the new layout.",
+          "breaking": true,
+          "commit": null
         }
       ]
     },
     {
       "id": "channel-three",
-      "uid": "6hxd",
-      "version": "3",
+      "uid": "wlwr",
+      "version": "4",
       "name": "C-channel 3",
       "description": "A feeder channel: a C-channel drive with the faceted rotor, the Short and Angled Output Guide and a Camera lamp, standing on three supports.",
       "lines": [
         {
-          "assembly": "channel-three-support",
-          "qty": 3
+          "assembly": "channel-three-support-structure",
+          "qty": 1
         },
         {
           "assembly": "c-channel",
@@ -7169,18 +7326,18 @@
       ],
       "connections": [
         {
-          "from": "channel-three-support",
-          "to": "c-channel",
-          "qty": 3,
-          "method": "friction",
-          "note": "Dovetail: each support's leg slides into the C-channel drive from below."
-        },
-        {
           "from": "output-guide",
           "to": "c-channel",
           "qty": 1,
           "method": "friction",
           "note": "The guide pushes onto the C-channel drive and is held by the fit alone."
+        },
+        {
+          "from": "channel-three-support-structure",
+          "to": "c-channel",
+          "qty": 3,
+          "method": "friction",
+          "note": "The three dovetail adapters slide into the C-channel drive from below."
         }
       ],
       "versions": [
@@ -7268,10 +7425,45 @@
         },
         {
           "version": "3",
+          "uid": "6hxd",
           "date": "2026-09-02",
           "message": "The light post and overhead camera mount give way to the Camera lamp: one arm carrying the camera and the shaded lamp. Their M3 x 20 bolts leave with them.",
           "breaking": false,
-          "commit": "e22fce30"
+          "commit": "e22fce30",
+          "lines": [
+            {
+              "assembly": "channel-three-support",
+              "qty": 3,
+              "uid": "r6ar"
+            },
+            {
+              "assembly": "c-channel",
+              "qty": 1,
+              "uid": "4tvc"
+            },
+            {
+              "assembly": "rotor-unit-faceted",
+              "qty": 1,
+              "uid": "ylvv"
+            },
+            {
+              "part": "output-guide",
+              "qty": 1,
+              "uid": "z9yd"
+            },
+            {
+              "assembly": "camera-lamp",
+              "qty": 1,
+              "uid": "u4si"
+            }
+          ]
+        },
+        {
+          "version": "4",
+          "date": "2026-09-02",
+          "message": "The prototype supports give way to the new support structure: the shared layout guide and dovetail adapters with this channel's own legs. An old assembled channel stands on the old feet and does not fit the new layout.",
+          "breaking": true,
+          "commit": null
         }
       ]
     },
@@ -9341,6 +9533,123 @@
           "url": "https://assets.basically.website/sorter-parts/pub-img-camera-lamp-render-underside-full-0e2b1e5a0fb9.png",
           "alt": "Onshape render of the camera lamp from below: the reflector and ring inside the cover, the hooks around the rim, the arm reaching up",
           "caption": "Render, the underside."
+        }
+      ]
+    },
+    {
+      "id": "channel-one-support-structure",
+      "uid": "z6fs",
+      "version": "1",
+      "name": "Channel 1 support structure",
+      "description": "Channel 1 support: the layout guide its three legs stand in, and a dovetail adapter on each leg.",
+      "lines": [
+        {
+          "part": "layout-guide",
+          "qty": 1
+        },
+        {
+          "part": "ext-2020-c1",
+          "qty": 3
+        },
+        {
+          "part": "support-dovetail-adapter",
+          "qty": 3
+        }
+      ],
+      "connections": [
+        {
+          "from": "ext-2020-c1",
+          "to": "layout-guide",
+          "qty": 3,
+          "method": "friction",
+          "draft": true,
+          "note": "Each 228 mm extrusion leg stands in the layout guide; the fit method is assumed and not yet confirmed at the bench."
+        },
+        {
+          "from": "support-dovetail-adapter",
+          "to": "ext-2020-c1",
+          "qty": 3,
+          "method": "friction",
+          "draft": true,
+          "note": "An adapter tops each leg; the fit method is assumed and not yet confirmed at the bench."
+        }
+      ]
+    },
+    {
+      "id": "channel-two-support-structure",
+      "uid": "bwvu",
+      "version": "1",
+      "name": "Channel 2 support structure",
+      "description": "Channel 2 support: the layout guide its three legs stand in, and a dovetail adapter on each leg.",
+      "lines": [
+        {
+          "part": "layout-guide",
+          "qty": 1
+        },
+        {
+          "part": "channel-two-support-leg",
+          "qty": 3
+        },
+        {
+          "part": "support-dovetail-adapter",
+          "qty": 3
+        }
+      ],
+      "connections": [
+        {
+          "from": "channel-two-support-leg",
+          "to": "layout-guide",
+          "qty": 3,
+          "method": "friction",
+          "draft": true,
+          "note": "Each leg stands in the layout guide; the fit method is assumed and not yet confirmed at the bench."
+        },
+        {
+          "from": "support-dovetail-adapter",
+          "to": "channel-two-support-leg",
+          "qty": 3,
+          "method": "friction",
+          "draft": true,
+          "note": "An adapter tops each leg; the fit method is assumed and not yet confirmed at the bench."
+        }
+      ]
+    },
+    {
+      "id": "channel-three-support-structure",
+      "uid": "nwst",
+      "version": "1",
+      "name": "Channel 3 support structure",
+      "description": "Channel 3 support: the layout guide its three legs stand in, and a dovetail adapter on each leg.",
+      "lines": [
+        {
+          "part": "layout-guide",
+          "qty": 1
+        },
+        {
+          "part": "channel-three-support-leg",
+          "qty": 3
+        },
+        {
+          "part": "support-dovetail-adapter",
+          "qty": 3
+        }
+      ],
+      "connections": [
+        {
+          "from": "channel-three-support-leg",
+          "to": "layout-guide",
+          "qty": 3,
+          "method": "friction",
+          "draft": true,
+          "note": "Each leg stands in the layout guide; the fit method is assumed and not yet confirmed at the bench."
+        },
+        {
+          "from": "support-dovetail-adapter",
+          "to": "channel-three-support-leg",
+          "qty": 3,
+          "method": "friction",
+          "draft": true,
+          "note": "An adapter tops each leg; the fit method is assumed and not yet confirmed at the bench."
         }
       ]
     }

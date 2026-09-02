@@ -11,8 +11,8 @@
 		"density_g_cm3": 1.32,
 		"cost_per_kg": 24.99,
 		"commit_base_url": "https://github.com/basicallysource/sorter-v2/commit/",
-		"all_parts_zip": "https://assets.basically.website/sorter-parts/all-parts-4f7ff0361144.zip",
-		"all_parts_plain_zip": "https://assets.basically.website/sorter-parts/all-parts-plain-8579bc03f644.zip"
+		"all_parts_zip": "https://assets.basically.website/sorter-parts/all-parts-b9de86b7d2b1.zip",
+		"all_parts_plain_zip": "https://assets.basically.website/sorter-parts/all-parts-plain-3a0441932286.zip"
 	},
 	"sections": [
 		{
@@ -68,6 +68,8 @@
 			"id": "replace-c-channel-supports",
 			"name": "Replace prototype C-channel supports",
 			"priority": "P2",
+			"status": "complete",
+			"completed_at": "2026-09-02",
 			"description": "Replace the current C-channel legs, feet, and leg extensions. These prototype parts work, but they are unstable and will be replaced with improved designs.",
 			"targets": {
 				"parts": [
@@ -1529,7 +1531,7 @@
 			"uid": "r6ar",
 			"version": "1",
 			"name": "Channel 3 support",
-			"description": "One of C-channel 3's three standoffs: a foot and the leg the channel dovetails onto.",
+			"description": "One of C-channel 3's three standoffs: a foot and the leg the channel dovetails onto. Unused since 2026-09-02: the layout guide, support legs and dovetail adapters replaced the prototype foot/leg/leg-extension supports. Do not re-add from old docs or photos.",
 			"lines": [
 				{
 					"part": "foot",
@@ -1555,7 +1557,7 @@
 			"uid": "dp63",
 			"version": "1",
 			"name": "Channel 2 support",
-			"description": "One of C-channel 2's three standoffs: a foot, one leg extension, and the leg the channel dovetails onto.",
+			"description": "One of C-channel 2's three standoffs: a foot, one leg extension, and the leg the channel dovetails onto. Unused since 2026-09-02: the layout guide, support legs and dovetail adapters replaced the prototype foot/leg/leg-extension supports. Do not re-add from old docs or photos.",
 			"lines": [
 				{
 					"part": "foot",
@@ -1592,7 +1594,7 @@
 			"uid": "xo6j",
 			"version": "1",
 			"name": "Bulk bucket support",
-			"description": "One of the bulk bucket's three standoffs \u2014 the tallest stack: a foot, two leg extensions, and the leg.",
+			"description": "One of the bulk bucket's three standoffs \u2014 the tallest stack: a foot, two leg extensions, and the leg. Unused since 2026-09-02: the layout guide, support legs and dovetail adapters replaced the prototype foot/leg/leg-extension supports. Do not re-add from old docs or photos.",
 			"lines": [
 				{
 					"part": "foot",
@@ -1633,14 +1635,14 @@
 		},
 		{
 			"id": "bulk-bucket",
-			"uid": "vf8g",
-			"version": "2",
+			"uid": "jnwt",
+			"version": "3",
 			"name": "C-channel 1 - Bulk bucket",
 			"description": "The top channel, where bulk is dumped in: a C-channel drive with the faceted rotor, the Short and Angled Output Guide, a Camera lamp, and the Bulk cap, standing on the tallest supports.",
 			"lines": [
 				{
-					"assembly": "bulk-bucket-support",
-					"qty": 3
+					"assembly": "channel-one-support-structure",
+					"qty": 1
 				},
 				{
 					"assembly": "c-channel",
@@ -1670,6 +1672,13 @@
 					"qty": 1,
 					"method": "friction",
 					"note": "The guide pushes onto the C-channel drive and is held by the fit alone."
+				},
+				{
+					"from": "channel-one-support-structure",
+					"to": "c-channel",
+					"qty": 3,
+					"method": "friction",
+					"note": "The three dovetail adapters slide into the C-channel drive from below."
 				}
 			],
 			"versions": [
@@ -1706,20 +1715,60 @@
 					"date": "2026-09-02",
 					"message": "Renamed from Bulk bucket C-channel and consolidated with the other channels: gains the Short and Angled Output Guide and a Camera lamp. The supports and mounting are unchanged for now and will be revisited; the Bulk cap stays.",
 					"breaking": false,
-					"commit": "e22fce30"
+					"commit": "e22fce30",
+					"lines": [
+						{
+							"assembly": "bulk-bucket-support",
+							"qty": 3,
+							"uid": "xo6j"
+						},
+						{
+							"assembly": "c-channel",
+							"qty": 1,
+							"uid": "4tvc"
+						},
+						{
+							"assembly": "rotor-unit-faceted",
+							"qty": 1,
+							"uid": "ylvv"
+						},
+						{
+							"part": "output-guide",
+							"qty": 1,
+							"uid": "z9yd"
+						},
+						{
+							"assembly": "camera-lamp",
+							"qty": 1,
+							"uid": "u4si"
+						},
+						{
+							"part": "bulk-cap",
+							"qty": 1,
+							"uid": "737f"
+						}
+					]
+				},
+				{
+					"version": "3",
+					"uid": "jnwt",
+					"date": "2026-09-02",
+					"message": "The prototype supports give way to the new support structure: the shared layout guide and dovetail adapters with this channel's own legs. An old assembled channel stands on the old feet and does not fit the new layout.",
+					"breaking": true,
+					"commit": null
 				}
 			]
 		},
 		{
 			"id": "channel-two",
-			"uid": "qsom",
-			"version": "3",
+			"uid": "d60t",
+			"version": "4",
 			"name": "C-channel 2",
 			"description": "A feeder channel: a C-channel drive with the faceted rotor, the Short and Angled Output Guide and a Camera lamp, standing on three supports.",
 			"lines": [
 				{
-					"assembly": "channel-two-support",
-					"qty": 3
+					"assembly": "channel-two-support-structure",
+					"qty": 1
 				},
 				{
 					"assembly": "c-channel",
@@ -1740,18 +1789,18 @@
 			],
 			"connections": [
 				{
-					"from": "channel-two-support",
-					"to": "c-channel",
-					"qty": 3,
-					"method": "friction",
-					"note": "Dovetail: each support's leg slides into the C-channel drive from below."
-				},
-				{
 					"from": "output-guide",
 					"to": "c-channel",
 					"qty": 1,
 					"method": "friction",
 					"note": "The guide pushes onto the C-channel drive and is held by the fit alone."
+				},
+				{
+					"from": "channel-two-support-structure",
+					"to": "c-channel",
+					"qty": 3,
+					"method": "friction",
+					"note": "The three dovetail adapters slide into the C-channel drive from below."
 				}
 			],
 			"versions": [
@@ -1843,20 +1892,55 @@
 					"date": "2026-09-02",
 					"message": "The light post and overhead camera mount give way to the Camera lamp: one arm carrying the camera and the shaded lamp. Their M3 x 20 bolts leave with them.",
 					"breaking": false,
-					"commit": "e22fce30"
+					"commit": "e22fce30",
+					"lines": [
+						{
+							"assembly": "channel-two-support",
+							"qty": 3,
+							"uid": "dp63"
+						},
+						{
+							"assembly": "c-channel",
+							"qty": 1,
+							"uid": "4tvc"
+						},
+						{
+							"assembly": "rotor-unit-faceted",
+							"qty": 1,
+							"uid": "ylvv"
+						},
+						{
+							"part": "output-guide",
+							"qty": 1,
+							"uid": "z9yd"
+						},
+						{
+							"assembly": "camera-lamp",
+							"qty": 1,
+							"uid": "u4si"
+						}
+					]
+				},
+				{
+					"version": "4",
+					"uid": "d60t",
+					"date": "2026-09-02",
+					"message": "The prototype supports give way to the new support structure: the shared layout guide and dovetail adapters with this channel's own legs. An old assembled channel stands on the old feet and does not fit the new layout.",
+					"breaking": true,
+					"commit": null
 				}
 			]
 		},
 		{
 			"id": "channel-three",
-			"uid": "6hxd",
-			"version": "3",
+			"uid": "wlwr",
+			"version": "4",
 			"name": "C-channel 3",
 			"description": "A feeder channel: a C-channel drive with the faceted rotor, the Short and Angled Output Guide and a Camera lamp, standing on three supports.",
 			"lines": [
 				{
-					"assembly": "channel-three-support",
-					"qty": 3
+					"assembly": "channel-three-support-structure",
+					"qty": 1
 				},
 				{
 					"assembly": "c-channel",
@@ -1877,18 +1961,18 @@
 			],
 			"connections": [
 				{
-					"from": "channel-three-support",
-					"to": "c-channel",
-					"qty": 3,
-					"method": "friction",
-					"note": "Dovetail: each support's leg slides into the C-channel drive from below."
-				},
-				{
 					"from": "output-guide",
 					"to": "c-channel",
 					"qty": 1,
 					"method": "friction",
 					"note": "The guide pushes onto the C-channel drive and is held by the fit alone."
+				},
+				{
+					"from": "channel-three-support-structure",
+					"to": "c-channel",
+					"qty": 3,
+					"method": "friction",
+					"note": "The three dovetail adapters slide into the C-channel drive from below."
 				}
 			],
 			"versions": [
@@ -1980,7 +2064,42 @@
 					"date": "2026-09-02",
 					"message": "The light post and overhead camera mount give way to the Camera lamp: one arm carrying the camera and the shaded lamp. Their M3 x 20 bolts leave with them.",
 					"breaking": false,
-					"commit": "e22fce30"
+					"commit": "e22fce30",
+					"lines": [
+						{
+							"assembly": "channel-three-support",
+							"qty": 3,
+							"uid": "r6ar"
+						},
+						{
+							"assembly": "c-channel",
+							"qty": 1,
+							"uid": "4tvc"
+						},
+						{
+							"assembly": "rotor-unit-faceted",
+							"qty": 1,
+							"uid": "ylvv"
+						},
+						{
+							"part": "output-guide",
+							"qty": 1,
+							"uid": "z9yd"
+						},
+						{
+							"assembly": "camera-lamp",
+							"qty": 1,
+							"uid": "u4si"
+						}
+					]
+				},
+				{
+					"version": "4",
+					"uid": "wlwr",
+					"date": "2026-09-02",
+					"message": "The prototype supports give way to the new support structure: the shared layout guide and dovetail adapters with this channel's own legs. An old assembled channel stands on the old feet and does not fit the new layout.",
+					"breaking": true,
+					"commit": null
 				}
 			]
 		},
@@ -4061,6 +4180,123 @@
 					"url": "https://assets.basically.website/sorter-parts/pub-img-camera-lamp-render-underside-full-0e2b1e5a0fb9.png",
 					"alt": "Onshape render of the camera lamp from below: the reflector and ring inside the cover, the hooks around the rim, the arm reaching up",
 					"caption": "Render, the underside."
+				}
+			]
+		},
+		{
+			"id": "channel-one-support-structure",
+			"uid": "z6fs",
+			"version": "1",
+			"name": "Channel 1 support structure",
+			"description": "Channel 1 support: the layout guide its three legs stand in, and a dovetail adapter on each leg.",
+			"lines": [
+				{
+					"part": "layout-guide",
+					"qty": 1
+				},
+				{
+					"part": "ext-2020-c1",
+					"qty": 3
+				},
+				{
+					"part": "support-dovetail-adapter",
+					"qty": 3
+				}
+			],
+			"connections": [
+				{
+					"from": "ext-2020-c1",
+					"to": "layout-guide",
+					"qty": 3,
+					"method": "friction",
+					"draft": true,
+					"note": "Each 228 mm extrusion leg stands in the layout guide; the fit method is assumed and not yet confirmed at the bench."
+				},
+				{
+					"from": "support-dovetail-adapter",
+					"to": "ext-2020-c1",
+					"qty": 3,
+					"method": "friction",
+					"draft": true,
+					"note": "An adapter tops each leg; the fit method is assumed and not yet confirmed at the bench."
+				}
+			]
+		},
+		{
+			"id": "channel-two-support-structure",
+			"uid": "bwvu",
+			"version": "1",
+			"name": "Channel 2 support structure",
+			"description": "Channel 2 support: the layout guide its three legs stand in, and a dovetail adapter on each leg.",
+			"lines": [
+				{
+					"part": "layout-guide",
+					"qty": 1
+				},
+				{
+					"part": "channel-two-support-leg",
+					"qty": 3
+				},
+				{
+					"part": "support-dovetail-adapter",
+					"qty": 3
+				}
+			],
+			"connections": [
+				{
+					"from": "channel-two-support-leg",
+					"to": "layout-guide",
+					"qty": 3,
+					"method": "friction",
+					"draft": true,
+					"note": "Each leg stands in the layout guide; the fit method is assumed and not yet confirmed at the bench."
+				},
+				{
+					"from": "support-dovetail-adapter",
+					"to": "channel-two-support-leg",
+					"qty": 3,
+					"method": "friction",
+					"draft": true,
+					"note": "An adapter tops each leg; the fit method is assumed and not yet confirmed at the bench."
+				}
+			]
+		},
+		{
+			"id": "channel-three-support-structure",
+			"uid": "nwst",
+			"version": "1",
+			"name": "Channel 3 support structure",
+			"description": "Channel 3 support: the layout guide its three legs stand in, and a dovetail adapter on each leg.",
+			"lines": [
+				{
+					"part": "layout-guide",
+					"qty": 1
+				},
+				{
+					"part": "channel-three-support-leg",
+					"qty": 3
+				},
+				{
+					"part": "support-dovetail-adapter",
+					"qty": 3
+				}
+			],
+			"connections": [
+				{
+					"from": "channel-three-support-leg",
+					"to": "layout-guide",
+					"qty": 3,
+					"method": "friction",
+					"draft": true,
+					"note": "Each leg stands in the layout guide; the fit method is assumed and not yet confirmed at the bench."
+				},
+				{
+					"from": "support-dovetail-adapter",
+					"to": "channel-three-support-leg",
+					"qty": 3,
+					"method": "friction",
+					"draft": true,
+					"note": "An adapter tops each leg; the fit method is assumed and not yet confirmed at the bench."
 				}
 			]
 		}
@@ -11980,14 +12216,12 @@
 			"id": "leg",
 			"uid": "xse1",
 			"name": "Leg",
-			"quantities": {
-				"feeder": 9
-			},
+			"quantities": {},
 			"assembly": null,
 			"folder": null,
 			"variant_group": null,
 			"variant_name": null,
-			"description": "C-channel leg. 9 in the feeder.",
+			"description": "C-channel leg. 9 in the feeder. Unused since 2026-09-02: the layout guide, support legs and dovetail adapters replaced the prototype foot/leg/leg-extension supports. Do not re-add from old docs or photos.",
 			"version": "1",
 			"created_at": "2026-06-27",
 			"updated_at": "2026-06-27",
@@ -12111,14 +12345,12 @@
 			"id": "foot",
 			"uid": "jqdx",
 			"name": "Foot",
-			"quantities": {
-				"feeder": 9
-			},
+			"quantities": {},
 			"assembly": null,
 			"folder": null,
 			"variant_group": null,
 			"variant_name": null,
-			"description": "C-channel foot. 9 in the feeder.",
+			"description": "C-channel foot. 9 in the feeder. Unused since 2026-09-02: the layout guide, support legs and dovetail adapters replaced the prototype foot/leg/leg-extension supports. Do not re-add from old docs or photos.",
 			"version": "1",
 			"created_at": "2026-06-27",
 			"updated_at": "2026-06-27",
@@ -12375,14 +12607,12 @@
 			"id": "leg-extension",
 			"uid": "jewq",
 			"name": "Leg extension",
-			"quantities": {
-				"feeder": 9
-			},
+			"quantities": {},
 			"assembly": null,
 			"folder": null,
 			"variant_group": null,
 			"variant_name": null,
-			"description": "C-channel leg extension. 9 in the feeder.",
+			"description": "C-channel leg extension. 9 in the feeder. Unused since 2026-09-02: the layout guide, support legs and dovetail adapters replaced the prototype foot/leg/leg-extension supports. Do not re-add from old docs or photos.",
 			"version": "1",
 			"created_at": "2026-06-27",
 			"updated_at": "2026-06-27",
@@ -18033,6 +18263,534 @@
 					"note": "shallow pocket"
 				}
 			]
+		},
+		{
+			"id": "layout-guide",
+			"uid": "wwbb",
+			"name": "Layout guide",
+			"quantities": {
+				"feeder": 3
+			},
+			"assembly": null,
+			"folder": null,
+			"variant_group": null,
+			"variant_name": null,
+			"description": "The base plate a C-channel's three support legs stand in; one per channel, the same part on C-channels 1-3.",
+			"version": "1",
+			"created_at": "2026-09-02",
+			"updated_at": "2026-09-02",
+			"versions": [
+				{
+					"version": "1",
+					"uid": "wwbb",
+					"date": "2026-09-02",
+					"message": "Initial version.",
+					"commit": null,
+					"onshape_version": "https://cad.onshape.com/documents/60aa51fc61d18f2155b99910/v/45a8c24919bf95a5560da0f8/e/7f9499df9d10e70a5d51b6a1",
+					"stl": "https://assets.basically.website/sorter-parts/layout-guide-78f720e9b2f9.stl",
+					"render": "https://assets.basically.website/sorter-parts/layout-guide-full-205921cfbb0f.png",
+					"grams": 93.35
+				}
+			],
+			"attributes": [],
+			"grams": 93.35,
+			"support_grams": 0.0,
+			"support_used": false,
+			"support_intentional": false,
+			"print_seconds": 8959,
+			"color": {
+				"role": "channel"
+			},
+			"optional": false,
+			"onshape": null,
+			"info": null,
+			"low_tolerance": false,
+			"low_tolerance_note": null,
+			"layer_scope": "all",
+			"requires": [],
+			"caption": null,
+			"docs_page": null,
+			"conflicts": null,
+			"stl": "https://assets.basically.website/sorter-parts/layout-guide-78f720e9b2f9.stl",
+			"render": "https://assets.basically.website/sorter-parts/layout-guide-full-205921cfbb0f.png",
+			"stamped": [
+				{
+					"face": "bottom",
+					"stl": "https://assets.basically.website/sorter-parts/layout-guide-wwbb-stamped-bottom-b5036cbffc0c.stl",
+					"normal": [
+						0.0,
+						0.0,
+						-1.0
+					],
+					"center": [
+						-225.6,
+						-345.76,
+						0.0
+					],
+					"size": [
+						12.66,
+						3.5
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "top",
+					"stl": "https://assets.basically.website/sorter-parts/layout-guide-wwbb-stamped-top-11c6c3a38e9f.stl",
+					"normal": [
+						0.0,
+						0.0,
+						1.0
+					],
+					"center": [
+						-231.28,
+						-314.07,
+						8.0
+					],
+					"size": [
+						12.66,
+						3.5
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "top 2",
+					"stl": "https://assets.basically.website/sorter-parts/layout-guide-wwbb-stamped-top-2-c64cc5de5316.stl",
+					"normal": [
+						-0.0,
+						-0.0,
+						1.0
+					],
+					"center": [
+						-257.88,
+						-334.17,
+						8.0
+					],
+					"size": [
+						12.66,
+						3.5
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "top 3",
+					"stl": "https://assets.basically.website/sorter-parts/layout-guide-wwbb-stamped-top-3-2b963cdc840a.stl",
+					"normal": [
+						0.0,
+						-0.0,
+						1.0
+					],
+					"center": [
+						-209.12,
+						-338.74,
+						8.0
+					],
+					"size": [
+						12.66,
+						3.5
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				}
+			]
+		},
+		{
+			"id": "support-dovetail-adapter",
+			"uid": "2ikc",
+			"name": "Support dovetail adapter",
+			"quantities": {
+				"feeder": 9
+			},
+			"assembly": null,
+			"folder": null,
+			"variant_group": null,
+			"variant_name": null,
+			"description": "Tops a support leg and dovetails into the C-channel drive; three per channel, the same part on C-channels 1-3.",
+			"version": "1",
+			"created_at": "2026-09-02",
+			"updated_at": "2026-09-02",
+			"versions": [
+				{
+					"version": "1",
+					"uid": "2ikc",
+					"date": "2026-09-02",
+					"message": "Initial version.",
+					"commit": null,
+					"onshape_version": "https://cad.onshape.com/documents/60aa51fc61d18f2155b99910/v/45a8c24919bf95a5560da0f8/e/7f9499df9d10e70a5d51b6a1",
+					"stl": "https://assets.basically.website/sorter-parts/support-dovetail-adapter-48e56b8b5283.stl",
+					"render": "https://assets.basically.website/sorter-parts/support-dovetail-adapter-full-98691d30f71e.png",
+					"grams": 9.01
+				}
+			],
+			"attributes": [],
+			"grams": 9.01,
+			"support_grams": 0.0,
+			"support_used": false,
+			"support_intentional": false,
+			"print_seconds": 2282,
+			"color": {
+				"role": "channel"
+			},
+			"optional": false,
+			"onshape": null,
+			"info": null,
+			"low_tolerance": false,
+			"low_tolerance_note": null,
+			"layer_scope": "all",
+			"requires": [],
+			"caption": null,
+			"docs_page": null,
+			"conflicts": null,
+			"stl": "https://assets.basically.website/sorter-parts/support-dovetail-adapter-48e56b8b5283.stl",
+			"render": "https://assets.basically.website/sorter-parts/support-dovetail-adapter-full-98691d30f71e.png",
+			"stamped": [
+				{
+					"face": "angled face",
+					"stl": "https://assets.basically.website/sorter-parts/support-dovetail-adapter-2ikc-stamped-angled-face-43bcd126b635.stl",
+					"normal": [
+						0.4004,
+						-0.9163,
+						0.0
+					],
+					"center": [
+						-154.13,
+						-143.02,
+						63.19
+					],
+					"size": [
+						12.45,
+						3.63
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "top",
+					"stl": "https://assets.basically.website/sorter-parts/support-dovetail-adapter-2ikc-stamped-top-e3e75462012e.stl",
+					"normal": [
+						0.0,
+						-0.0,
+						1.0
+					],
+					"center": [
+						-163.01,
+						-126.54,
+						80.0
+					],
+					"size": [
+						12.45,
+						3.63
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "angled face 2",
+					"stl": "https://assets.basically.website/sorter-parts/support-dovetail-adapter-2ikc-stamped-angled-face-2-50b395e961db.stl",
+					"normal": [
+						-0.9163,
+						-0.4004,
+						-0.0
+					],
+					"center": [
+						-171.9,
+						-126.33,
+						76.81
+					],
+					"size": [
+						12.45,
+						3.63
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "angled face 3",
+					"stl": "https://assets.basically.website/sorter-parts/support-dovetail-adapter-2ikc-stamped-angled-face-3-5923e0e69e17.stl",
+					"normal": [
+						0.9163,
+						0.4004,
+						0.0
+					],
+					"center": [
+						-137.45,
+						-125.26,
+						76.81
+					],
+					"size": [
+						12.45,
+						3.63
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				}
+			]
+		},
+		{
+			"id": "channel-two-support-leg",
+			"uid": "bk8x",
+			"name": "C-channel 2 support leg",
+			"quantities": {
+				"feeder": 3
+			},
+			"assembly": null,
+			"folder": null,
+			"variant_group": null,
+			"variant_name": null,
+			"description": "C-channel 2's leg, between the layout guide and a dovetail adapter. Three per channel.",
+			"version": "1",
+			"created_at": "2026-09-02",
+			"updated_at": "2026-09-02",
+			"versions": [
+				{
+					"version": "1",
+					"uid": "bk8x",
+					"date": "2026-09-02",
+					"message": "Initial version.",
+					"commit": null,
+					"onshape_version": "https://cad.onshape.com/documents/60aa51fc61d18f2155b99910/v/45a8c24919bf95a5560da0f8/e/7f9499df9d10e70a5d51b6a1",
+					"stl": "https://assets.basically.website/sorter-parts/channel-two-support-leg-636858a616f9.stl",
+					"render": "https://assets.basically.website/sorter-parts/channel-two-support-leg-full-a9a7b96374f6.png",
+					"grams": 32.78
+				}
+			],
+			"attributes": [],
+			"grams": 32.78,
+			"support_grams": 0.0,
+			"support_used": false,
+			"support_intentional": false,
+			"print_seconds": 6332,
+			"color": {
+				"role": "channel"
+			},
+			"optional": false,
+			"onshape": null,
+			"info": null,
+			"low_tolerance": false,
+			"low_tolerance_note": null,
+			"layer_scope": "all",
+			"requires": [],
+			"caption": null,
+			"docs_page": null,
+			"conflicts": null,
+			"stl": "https://assets.basically.website/sorter-parts/channel-two-support-leg-636858a616f9.stl",
+			"render": "https://assets.basically.website/sorter-parts/channel-two-support-leg-full-a9a7b96374f6.png",
+			"stamped": [
+				{
+					"face": "bottom",
+					"stl": "https://assets.basically.website/sorter-parts/channel-two-support-leg-bk8x-stamped-bottom-651d566636a8.stl",
+					"normal": [
+						-0.0,
+						0.0,
+						-1.0
+					],
+					"center": [
+						-154.67,
+						-125.8,
+						10.0
+					],
+					"size": [
+						12.39,
+						3.56
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "angled face",
+					"stl": "https://assets.basically.website/sorter-parts/channel-two-support-leg-bk8x-stamped-angled-face-02fe461718fa.stl",
+					"normal": [
+						-0.4004,
+						0.9163,
+						0.0
+					],
+					"center": [
+						-158.67,
+						-116.63,
+						84.0
+					],
+					"size": [
+						12.39,
+						3.56
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "angled face 2",
+					"stl": "https://assets.basically.website/sorter-parts/channel-two-support-leg-bk8x-stamped-angled-face-2-a55422792c2e.stl",
+					"normal": [
+						0.4004,
+						-0.9163,
+						0.0
+					],
+					"center": [
+						-154.16,
+						-143.03,
+						31.66
+					],
+					"size": [
+						12.39,
+						3.56
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "angled face 3",
+					"stl": "https://assets.basically.website/sorter-parts/channel-two-support-leg-bk8x-stamped-angled-face-3-d83d81b240c6.stl",
+					"normal": [
+						-0.9163,
+						-0.4004,
+						-0.0
+					],
+					"center": [
+						-169.5,
+						-131.81,
+						31.66
+					],
+					"size": [
+						12.39,
+						3.56
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				}
+			]
+		},
+		{
+			"id": "channel-three-support-leg",
+			"uid": "q5p4",
+			"name": "C-channel 3 support leg",
+			"quantities": {
+				"feeder": 3
+			},
+			"assembly": null,
+			"folder": null,
+			"variant_group": null,
+			"variant_name": null,
+			"description": "C-channel 3's leg, between the layout guide and a dovetail adapter. Three per channel.",
+			"version": "1",
+			"created_at": "2026-09-02",
+			"updated_at": "2026-09-02",
+			"versions": [
+				{
+					"version": "1",
+					"uid": "q5p4",
+					"date": "2026-09-02",
+					"message": "Initial version.",
+					"commit": null,
+					"onshape_version": "https://cad.onshape.com/documents/60aa51fc61d18f2155b99910/v/45a8c24919bf95a5560da0f8/e/7f9499df9d10e70a5d51b6a1",
+					"stl": "https://assets.basically.website/sorter-parts/channel-three-support-leg-b7b2900b9962.stl",
+					"render": "https://assets.basically.website/sorter-parts/channel-three-support-leg-full-df0c11ffb05c.png",
+					"grams": 14.19
+				}
+			],
+			"attributes": [],
+			"grams": 14.19,
+			"support_grams": 0.0,
+			"support_used": false,
+			"support_intentional": false,
+			"print_seconds": 3184,
+			"color": {
+				"role": "channel"
+			},
+			"optional": false,
+			"onshape": null,
+			"info": null,
+			"low_tolerance": false,
+			"low_tolerance_note": null,
+			"layer_scope": "all",
+			"requires": [],
+			"caption": null,
+			"docs_page": null,
+			"conflicts": null,
+			"stl": "https://assets.basically.website/sorter-parts/channel-three-support-leg-b7b2900b9962.stl",
+			"render": "https://assets.basically.website/sorter-parts/channel-three-support-leg-full-df0c11ffb05c.png",
+			"stamped": [
+				{
+					"face": "bottom",
+					"stl": "https://assets.basically.website/sorter-parts/channel-three-support-leg-q5p4-stamped-bottom-1f83952ffccf.stl",
+					"normal": [
+						-0.0,
+						0.0,
+						-1.0
+					],
+					"center": [
+						-154.67,
+						-125.8,
+						10.0
+					],
+					"size": [
+						12.45,
+						4.52
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "angled face",
+					"stl": "https://assets.basically.website/sorter-parts/channel-three-support-leg-q5p4-stamped-angled-face-606856953c01.stl",
+					"normal": [
+						-0.4004,
+						0.9163,
+						0.0
+					],
+					"center": [
+						-158.67,
+						-116.63,
+						44.0
+					],
+					"size": [
+						12.45,
+						4.52
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "angled face 2",
+					"stl": "https://assets.basically.website/sorter-parts/channel-three-support-leg-q5p4-stamped-angled-face-2-d8118b0e2ff0.stl",
+					"normal": [
+						0.4004,
+						-0.9163,
+						0.0
+					],
+					"center": [
+						-154.13,
+						-143.02,
+						32.13
+					],
+					"size": [
+						12.45,
+						4.52
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "angled face 3",
+					"stl": "https://assets.basically.website/sorter-parts/channel-three-support-leg-q5p4-stamped-angled-face-3-e0274c25e258.stl",
+					"normal": [
+						0.9163,
+						0.4004,
+						-0.0
+					],
+					"center": [
+						-137.45,
+						-125.25,
+						32.13
+					],
+					"size": [
+						12.45,
+						4.52
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				}
+			]
 		}
 	],
 	"plates": [
@@ -21404,6 +22162,31 @@
 			"docs_page": null,
 			"conflicts": null,
 			"image": "https://assets.basically.website/sorter-parts/top-interface-extrusion-f-full-ed5f291c6635.png"
+		},
+		{
+			"id": "ext-2020-c1",
+			"uid": "n11o",
+			"kind": "cots",
+			"cots": {
+				"type": "extrusion-2020",
+				"length_mm": 228
+			},
+			"name": "C-channel 1 support legs (228 mm)",
+			"category": "Aluminum extrusion (2020)",
+			"description": "2020 aluminum extrusion, cut to 228 mm \u2014 C-channel 1's three support legs.",
+			"note": null,
+			"created_at": "2026-09-02",
+			"updated_at": "2026-09-02",
+			"attributes": [],
+			"sheet_qty": null,
+			"sheet_qty_text": null,
+			"stock": null,
+			"sourcing": null,
+			"alternative": null,
+			"caption": "2020 aluminum extrusion, cut to 228 mm.",
+			"docs_page": null,
+			"conflicts": null,
+			"image": "https://assets.basically.website/sorter-parts/extrusion-extrusion-2020-full-01bd50e7eac0.png"
 		}
 	],
 	"lasercut": [

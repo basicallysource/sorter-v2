@@ -42,18 +42,46 @@
 			draft: es.every((e) => e.draft)
 		}));
 	}
+
+	/** How a node's joints should render, decided from the row order: drawn
+	 *  braces read well up to two overlapping lanes; past that the diagram is
+	 *  spaghetti and the joints render as a compact list instead. Returns the
+	 *  gutter the page must reserve (0 for the list). */
+	export function braceLayout(
+		edges: Connection[],
+		order: string[]
+	): { mode: 'braces' | 'list'; gutter: number } {
+		const groups = braceGroups(edges);
+		if (!groups.length) return { mode: 'braces', gutter: 0 };
+		const idx = new Map(order.map((id, i) => [id, i]));
+		const spans = groups.map((g) => {
+			const xs = g.ids.map((id) => idx.get(id)).filter((n): n is number => n !== undefined);
+			return xs.length ? ([Math.min(...xs), Math.max(...xs)] as const) : null;
+		});
+		let list = groups.length > 4;
+		for (let r = 0; r < order.length && !list; r++) {
+			let depth = 0;
+			for (const s of spans) if (s && s[0] <= r && r <= s[1]) depth++;
+			if (depth > 2) list = true;
+		}
+		return { mode: list ? 'list' : 'braces', gutter: list ? 0 : 44 + (groups.length - 1) * 16 };
+	}
 </script>
 
 <script lang="ts">
 	let {
 		edges,
 		gutter,
+		mode = 'braces',
 		labelOf,
 		nameOf,
 		travelOf = () => null
 	}: {
 		edges: Connection[];
 		gutter: number;
+		/** 'braces' draws the gutter diagram; 'list' renders the joints as
+		 *  compact rows instead (the page decides via braceLayout). */
+		mode?: 'braces' | 'list';
 		labelOf: (method: string) => string;
 		nameOf: (id: string) => string;
 		/** How far a fastener line reaches through a joint (nominal length,
@@ -195,6 +223,7 @@
 	$effect(() => {
 		void groups;
 		void gutter;
+		if (mode === 'list') return;
 		measure();
 		const parent = host?.parentElement;
 		if (!parent) return;
@@ -210,6 +239,97 @@
 
 <svelte:window onclick={onWinClick} onkeydown={(e) => e.key === 'Escape' && (open = null)} />
 
+{#snippet jointDetails(g: ReturnType<typeof braceGroups>[number], i: number)}
+	{#each g.edges as e, j (j)}
+		<div class={j > 0 ? 'mt-1.5 border-t border-border/60 pt-1.5' : ''}>
+			<div class="flex flex-wrap items-baseline gap-x-1.5">
+				<span class="font-semibold text-text">{nameOf(e.from)}</span>
+				<span class="text-text-muted">→</span>
+				<span class="font-semibold text-text">{nameOf(e.to)}</span>
+				{#if e.draft}
+					<span
+						class="border border-dashed border-warning/60 px-1 py-px text-[10px] font-semibold uppercase tracking-wider text-warning-dark"
+						title="Extracted from prose — not yet confirmed at the bench">draft</span>
+				{/if}
+			</div>
+			<div class="text-text-muted">
+				{#if e.via}{e.qty} × {nameOf(e.via)}{:else}{labelOf(e.method)}{e.qty > 1 ? ` — ${e.qty} places` : ''}{/if}
+			</div>
+			{#if e.through_mm || e.thread_mm}
+				<!-- The screw's journey to scale: pass-through, then the thread
+				     waiting for it, a marker at the actual screw's length. Both
+				     depths known = a computable valid-length range. -->
+				{@const th = e.through_mm ?? 0}
+				{@const tr = e.thread_mm ?? 0}
+				{@const len = e.via ? travelOf(e.via) : null}
+				{@const span = Math.max(th + tr, len ?? 0)}
+				{@const lo = th + MIN_BITE_MM}
+				{@const hi = th + tr}
+				{@const fits = len != null && th > 0 && tr > 0 && len >= lo && len <= hi}
+				<div class="relative mt-1.5 h-3 w-full">
+					{#if th}
+						<div class="absolute inset-y-0 left-0 border border-border bg-[var(--color-bg)]" style="width: {(th / span) * 100}%"></div>
+					{/if}
+					{#if tr}
+						<div
+							class="absolute inset-y-0 border"
+							style="left: {(th / span) * 100}%; width: {(tr / span) * 100}%; border-color: {colorOf(i)}; background: color-mix(in srgb, {colorOf(i)} 22%, transparent)"
+						></div>
+					{/if}
+					{#if len != null}
+						<div class="absolute -inset-y-0.5 w-px bg-text" style="left: {(len / span) * 100}%" title="the screw reaches {mm(len)} mm"></div>
+					{/if}
+				</div>
+				<div class="text-[11px] text-text-muted">
+					{#if th}{mm(th)} mm through{/if}{#if th && tr}{' · '}{/if}{#if tr}{mm(tr)} mm thread{/if}{#if th && tr && hi > lo}{` · fits ${mm(lo)}–${mm(hi)} mm`}{/if}{#if len != null && th && tr}
+						<span class={fits ? 'text-success' : 'text-warning-dark'}>{` · reaches ${mm(len)} mm — ${fits ? 'fits' : 'out of range'}`}</span>{/if}
+				</div>
+			{/if}
+			{#if e.note}<div class="mt-0.5 text-text-muted">{e.note}</div>{/if}
+		</div>
+	{/each}
+{/snippet}
+
+{#if mode === 'list'}
+	<!-- The same joints as compact rows: past two overlapping lanes the drawn
+	     braces stop reading, so each joint gets one line — hover highlights
+	     its members, click opens the same detail panel. -->
+	<div bind:this={host} class="ml-1.5 mt-2 flex flex-col sm:ml-4">
+		{#each groups as g, i (g.key)}
+			<div class="relative">
+				<button
+					type="button"
+					class="flex w-full flex-wrap items-baseline gap-x-1.5 px-1 py-0.5 text-left text-xs transition-opacity duration-150 hover:bg-primary/[0.04]"
+					style="opacity: {hot !== null && hot !== i ? 0.35 : 1}"
+					aria-expanded={open === i}
+					onmouseenter={() => (hover = i)}
+					onmouseleave={() => (hover = null)}
+					onfocus={() => (hover = i)}
+					onblur={() => (hover = null)}
+					onclick={() => (open = open === i ? null : i)}
+				>
+					<span
+						class="text-[10px] font-semibold uppercase tracking-wider"
+						style="color: {colorOf(i)}; {g.draft ? 'opacity:.7' : ''}">{labelOf(g.method)}</span>
+					<span class="font-medium text-text">{nameOf(g.edges[0].from)}</span>
+					<span class="text-text-muted">⟷</span>
+					<span class="font-medium text-text">{nameOf(g.edges[0].to)}</span>
+					{#if g.edges[0].via}
+						<span class="text-text-muted">· {g.edges.reduce((a, e) => a + e.qty, 0)} × {nameOf(g.edges[0].via ?? '')}</span>
+					{:else if g.edges[0].qty > 1}
+						<span class="text-text-muted">· {g.edges[0].qty} places</span>
+					{/if}
+					{#if g.draft}<span class="border border-dashed border-warning/60 px-1 py-px text-[10px] font-semibold uppercase tracking-wider text-warning-dark">draft</span>{/if}
+				</button>
+				{#if open === i}
+					<div class="setup-panel absolute left-0 top-full z-30 w-72 p-2.5 text-xs">
+						{@render jointDetails(g, i)}
+					</div>
+				{/if}
+			</div>
+		{/each}
+	</div>
+{:else}
 <div bind:this={host} class="pointer-events-none absolute inset-y-0 right-0" style="width: {gutter}px">
 	<svg class="absolute left-0 top-0 overflow-visible" width={gutter} {height} aria-hidden="true">
 		{#each groups as g, i (g.key)}
@@ -254,56 +374,10 @@
 					class="setup-panel pointer-events-auto absolute right-0 z-30 w-72 p-2.5 text-xs"
 					style="top: {s.labelY + 12}px;"
 				>
-					{#each g.edges as e, j (j)}
-						<div class={j > 0 ? 'mt-1.5 border-t border-border/60 pt-1.5' : ''}>
-							<div class="flex flex-wrap items-baseline gap-x-1.5">
-								<span class="font-semibold text-text">{nameOf(e.from)}</span>
-								<span class="text-text-muted">→</span>
-								<span class="font-semibold text-text">{nameOf(e.to)}</span>
-								{#if e.draft}
-									<span
-										class="border border-dashed border-warning/60 px-1 py-px text-[10px] font-semibold uppercase tracking-wider text-warning-dark"
-										title="Extracted from prose — not yet confirmed at the bench">draft</span>
-								{/if}
-							</div>
-							<div class="text-text-muted">
-								{#if e.via}{e.qty} × {nameOf(e.via)}{:else}{labelOf(e.method)}{e.qty > 1 ? ` — ${e.qty} places` : ''}{/if}
-							</div>
-							{#if e.through_mm || e.thread_mm}
-								<!-- The screw's journey to scale: pass-through, then the thread
-								     waiting for it, a marker at the actual screw's length. Both
-								     depths known = a computable valid-length range. -->
-								{@const th = e.through_mm ?? 0}
-								{@const tr = e.thread_mm ?? 0}
-								{@const len = e.via ? travelOf(e.via) : null}
-								{@const span = Math.max(th + tr, len ?? 0)}
-								{@const lo = th + MIN_BITE_MM}
-								{@const hi = th + tr}
-								{@const fits = len != null && th > 0 && tr > 0 && len >= lo && len <= hi}
-								<div class="relative mt-1.5 h-3 w-full">
-									{#if th}
-										<div class="absolute inset-y-0 left-0 border border-border bg-[var(--color-bg)]" style="width: {(th / span) * 100}%"></div>
-									{/if}
-									{#if tr}
-										<div
-											class="absolute inset-y-0 border"
-											style="left: {(th / span) * 100}%; width: {(tr / span) * 100}%; border-color: {colorOf(i)}; background: color-mix(in srgb, {colorOf(i)} 22%, transparent)"
-										></div>
-									{/if}
-									{#if len != null}
-										<div class="absolute -inset-y-0.5 w-px bg-text" style="left: {(len / span) * 100}%" title="the screw reaches {mm(len)} mm"></div>
-									{/if}
-								</div>
-								<div class="text-[11px] text-text-muted">
-									{#if th}{mm(th)} mm through{/if}{#if th && tr}{' · '}{/if}{#if tr}{mm(tr)} mm thread{/if}{#if th && tr && hi > lo}{` · fits ${mm(lo)}–${mm(hi)} mm`}{/if}{#if len != null && th && tr}
-										<span class={fits ? 'text-success' : 'text-warning-dark'}>{` · reaches ${mm(len)} mm — ${fits ? 'fits' : 'out of range'}`}</span>{/if}
-								</div>
-							{/if}
-							{#if e.note}<div class="mt-0.5 text-text-muted">{e.note}</div>{/if}
-						</div>
-					{/each}
+					{@render jointDetails(g, i)}
 				</div>
 			{/if}
 		{/if}
 	{/each}
 </div>
+{/if}

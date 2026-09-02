@@ -13,7 +13,7 @@
 		X,
 		Zap
 	} from 'lucide-svelte';
-	import ConnectionBraces, { braceGroups } from '$lib/components/ConnectionBraces.svelte';
+	import ConnectionBraces, { braceLayout } from '$lib/components/ConnectionBraces.svelte';
 	import AssemblyStlZip from '$lib/components/AssemblyStlZip.svelte';
 	import DropdownMenu from '$lib/components/DropdownMenu.svelte';
 	import AlternativeBadge from '$lib/components/AlternativeBadge.svelte';
@@ -185,7 +185,7 @@
 		else params.set('open', open.join(','));
 		// A comma is legal in a query string, and a list of ids is worth reading
 		// in the address bar; URLSearchParams escapes it anyway, so undo that.
-		const qs = params.toString().replaceAll('%2C', ',');
+		const qs = params.toString().replaceAll('%2C', ',').replaceAll('%40', '@');
 		const target = qs ? `${location.pathname}?${qs}` : location.pathname;
 		if (target !== location.pathname + location.search) replaceState(target, {});
 	});
@@ -326,12 +326,40 @@
 		fGolden = sp.get('golden') === '1';
 		fStable = sp.get('stable') === '1';
 		if (sp.get('order') === 'name') order = 'name';
+		// ?v=feeder@4,c-channel@2 — which nodes are flipped to which version,
+		// so a flipped view is shareable and survives reload. The path down to
+		// each flipped node opens, or the restored view would sit folded away.
+		const openPathTo = (target: string) => {
+			const walk = (id: string, trail: string[]): boolean => {
+				if (id === target) {
+					for (const t of [...trail, id]) expanded[t] = true;
+					return true;
+				}
+				return (getAssembly(id)?.lines ?? []).some(
+					(l) => l.assembly && walk(l.assembly, [...trail, id])
+				);
+			};
+			walk('machine', []);
+		};
+		for (const pair of (sp.get('v') ?? '').split(',')) {
+			const [aid, ver] = pair.split('@');
+			if (aid && ver && getAssembly(aid)?.versions?.some((x) => x.version === ver)) {
+				shownVersion[aid] = ver;
+				ensureSnapshot(aid, ver);
+				openPathTo(aid);
+			}
+		}
 	});
 	$effect(() => {
+		const flips = Object.entries(shownVersion)
+			.map(([aid, ver]) => `${aid}@${ver}`)
+			.sort()
+			.join(',');
 		const want: [string, string | null][] = [
 			['golden', fGolden ? '1' : null],
 			['stable', fStable ? '1' : null],
-			['order', order !== 'authored' ? order : null]
+			['order', order !== 'authored' ? order : null],
+			['v', flips || null]
 		];
 		if (!browser || !urlReady) return;
 		const params = new URLSearchParams(location.search);
@@ -340,7 +368,7 @@
 			if (v) params.set(k, v);
 			else params.delete(k);
 		}
-		const qs = params.toString().replaceAll('%2C', ',');
+		const qs = params.toString().replaceAll('%2C', ',').replaceAll('%40', '@');
 		replaceState(qs ? `${location.pathname}?${qs}` : location.pathname, {});
 	});
 
@@ -1056,7 +1084,9 @@
 	{@const rec = snap.assemblies[id]}
 	{#if rec}
 		{@const open = eraOpen[id] ?? true}
-		{@const fGutter = rec.connections?.length ? 44 + (braceGroups(rec.connections).length - 1) * 16 : 0}
+		{@const eraLines = jointOrder(concreteLines(rec, rec.lines ?? [], instArgs), rec.connections ?? [])}
+		{@const eraLayout = rec.connections?.length ? braceLayout(rec.connections, eraLines.map((l) => l.part ?? l.assembly ?? '')) : null}
+		{@const fGutter = eraLayout?.gutter ?? 0}
 		<div class="{root ? '' : 'ml-1.5 mt-2 border border-border bg-surface p-2 sm:ml-4 sm:p-3'}">
 			{#if !root}
 				<div
@@ -1098,8 +1128,8 @@
 				{#if rec.images?.length}<div class="mt-2"><ImageStrip images={rec.images} /></div>{/if}
 				{@render joiningRows(rec.joining)}
 				<div class="relative" style={fGutter ? `padding-right: ${fGutter}px` : undefined}>
-					{#if fGutter && rec.connections}
-						<ConnectionBraces edges={rec.connections} gutter={fGutter} labelOf={(m) => CONN_LABELS[m] ?? m} nameOf={(mid) => snap.assemblies[mid]?.name ?? snap.parts[mid]?.name ?? snap.hardware[mid]?.name ?? mid} travelOf={(hid) => screwTravel(snap.hardware[hid])} />
+					{#if eraLayout && rec.connections}
+						<ConnectionBraces edges={rec.connections} gutter={fGutter} mode={eraLayout.mode} labelOf={(m) => CONN_LABELS[m] ?? m} nameOf={(mid) => snap.assemblies[mid]?.name ?? snap.parts[mid]?.name ?? snap.hardware[mid]?.name ?? mid} travelOf={(hid) => screwTravel(snap.hardware[hid])} />
 					{/if}
 					{#each jointOrder(concreteLines(rec, rec.lines ?? [], instArgs), rec.connections ?? []) as l, i (`${l.part ?? l.assembly}-${i}`)}
 						<div data-member={l.part ?? l.assembly ?? ''}>
@@ -1516,17 +1546,21 @@
 			     detail view the ⓘ opens. Inline it turns the tree into a wall of
 			     prose that restates the line rows below it. -->
 			{#if open}
-			{@const braceGutter =
+			{@const liveLayout =
 				asm.connections?.length && !filtering
-					? 44 + (braceGroups(asm.connections).length - 1) * 16
-					: 0}
+					? braceLayout(
+							asm.connections,
+							jointOrder(concreteLines(asm, asm.lines ?? [], instArgs), asm.connections).map((l) => l.part ?? l.assembly ?? '')
+						)
+					: null}
+			{@const braceGutter = liveLayout?.gutter ?? 0}
 			<div
 				class="tree-branch relative pl-2 sm:pl-4"
 				style={braceGutter ? `padding-right: ${braceGutter}px` : undefined}
 			>
 				<button type="button" class="tree-line" onclick={() => toggle(asm.id)} aria-label="Collapse {asm.name}"></button>
-				{#if braceGutter && asm.connections}
-					<ConnectionBraces edges={asm.connections} gutter={braceGutter} labelOf={(m) => CONN_LABELS[m] ?? m} nameOf={memberName} travelOf={(id) => screwTravel(getHardware(id))} />
+				{#if liveLayout && asm.connections}
+					<ConnectionBraces edges={asm.connections} gutter={braceGutter} mode={liveLayout.mode} labelOf={(m) => CONN_LABELS[m] ?? m} nameOf={memberName} travelOf={(id) => screwTravel(getHardware(id))} />
 				{/if}
 			{#if asm.images?.length}<div class="mt-2"><ImageStrip images={asm.images} /></div>{/if}
 			{#if historyFor[asm.id] && !filtering}{@render historyPanel(asm)}{/if}

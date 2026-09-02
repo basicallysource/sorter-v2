@@ -189,31 +189,31 @@ def _deferredRestart() -> None:
     threading.Thread(target=_exit, daemon=True).start()
 
 
+# Self-service updates are switched off on this release branch. Machines on it
+# stay on a pinned, known version until a fix is deliberately rolled to them;
+# an "Update available" button pointing at main is exactly what we don't want
+# an operator clicking. Both the button and the toast key off `available`, so
+# returning none of them removes both, and the update endpoint refuses outright
+# in case anything calls it directly.
+UPDATES_DISABLED_MESSAGE = "Software updates are disabled on this machine's release branch."
+
+
 @router.get("/api/system/versions")
 def get_versions(refresh: bool = False) -> Dict[str, Any]:
-    fetch_error: Optional[str] = None
-    if refresh:
-        result = _git(
-            "fetch", "--tags", "--prune", "--prune-tags", "--force", "origin",
-            timeout=GIT_FETCH_TIMEOUT_S,
-        )
-        if result.returncode != 0:
-            fetch_error = result.stderr.strip() or "git fetch failed"
-
-    current = _currentInfo()
-    available = _branchEntries(current) + _channelEntries(current)
     return {
         "ok": True,
-        "current": current,
-        "available": available,
-        "fetch_error": fetch_error,
+        "current": _currentInfo(),
+        "available": [],
+        "fetch_error": None,
         "update_in_progress": _update_target,
+        "updates_disabled": True,
     }
 
 
 @router.post("/api/system/update")
 def update_version(req: UpdateRequest) -> Dict[str, Any]:
     global _update_target
+    return {"ok": False, "message": UPDATES_DISABLED_MESSAGE}
 
     if req.kind not in ("branch", "tag"):
         return {"ok": False, "message": f"Unknown ref kind: {req.kind}"}

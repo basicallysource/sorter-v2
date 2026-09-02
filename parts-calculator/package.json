@@ -4,7 +4,10 @@
 	"version": "0.1.0",
 	"type": "module",
 	"scripts": {
+		"snapshots": "node scripts/version-snapshots.mjs",
+		"predev": "npm run snapshots",
 		"dev": "vite dev",
+		"prebuild": "npm run snapshots",
 		"build": "vite build",
 		"preview": "vite preview",
 		"prepare": "svelte-kit sync || echo ''",

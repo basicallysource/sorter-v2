@@ -56,7 +56,6 @@
 		type AssemblyLine,
 		type AssemblySnapshotLine,
 		type Connection,
-		type FrozenAssembly,
 		type Hardware,
 		type Joining,
 		type Part,
@@ -352,8 +351,32 @@
 	// base marks what changed between the two.
 	let shownVersion = $state<Record<string, string>>({});
 	let diffBase = $state<Record<string, string>>({});
-	// expand state of nodes inside a flipped version's frozen tree
+	// expand state of nodes inside a flipped version's snapshot
 	let frozenOpen = $state<Record<string, boolean>>({});
+
+	// ---- version snapshots: the site as it was, straight out of git ---------
+	// Flipping to a superseded version fetches its snapshot — the era's own
+	// generated records, subsetted per version from the commit's data by
+	// scripts/version_snapshots.py — and renders ONLY from it. Names, renders,
+	// weights, photos, joints, plain and engraved download URLs are all the
+	// era's; nothing in the flipped view is resolved against today's catalog.
+	type VersionSnapshot = {
+		commit: string;
+		assemblies: Record<string, Assembly>;
+		parts: Record<string, Part>;
+		hardware: Record<string, Hardware>;
+	};
+	let snapshots = $state<Record<string, VersionSnapshot | 'loading' | 'missing'>>({});
+	const snapKey = (asmId: string, ver: string) => `${asmId}-v${ver}`;
+	function ensureSnapshot(asmId: string, ver: string) {
+		const key = snapKey(asmId, ver);
+		if (snapshots[key]) return;
+		snapshots[key] = 'loading';
+		fetch(`/versions/${key}.json`)
+			.then((r) => (r.ok ? r.json() : Promise.reject(r.status)))
+			.then((s) => (snapshots[key] = s))
+			.catch(() => (snapshots[key] = 'missing'));
+	}
 
 	const currentVersion = (asm: Assembly) => String(asm.version ?? '1');
 
@@ -982,8 +1005,59 @@
      stood at the stamp — description, photos, every line at the member's uid
      of the day — with sub-assemblies nested the same way. Nothing here reads
      the live catalog except to resolve a pinned uid to its archived render. -->
-{#snippet frozenNode(tree: Record<string, FrozenAssembly>, id: string, mult: number, root: boolean, instArgs: Record<string, string> | undefined = undefined)}
-	{@const rec = tree[id]}
+<!-- One member row inside a version snapshot: rendered from the era's own
+     record — its name, render, weight and download URLs of the day. -->
+{#snippet eraPartRow(snap: VersionSnapshot, l: AssemblyLine, mult: number)}
+	{@const id = l.part ?? ''}
+	{@const p = snap.parts[id]}
+	{@const hw = snap.hardware[id]}
+	{@const qtyN = typeof l.qty === 'number' ? l.qty : null}
+	{@const total = qtyN === null ? null : qtyN * mult}
+	{#if p}
+		<div class="ml-1.5 mt-2 border border-border bg-surface p-2 sm:ml-4 sm:p-3">
+			<div class="flex items-center gap-3">
+				{#if p.render}<img src={p.render} alt={p.name} class="h-12 w-12 shrink-0 object-contain" />{/if}
+				<div class="min-w-0 flex-1">
+					<div class="flex flex-wrap items-baseline gap-x-2">
+						<span class="text-sm font-semibold text-text">{p.name}</span>
+						<span class="border border-border px-1.5 py-px text-[10px] font-semibold uppercase tracking-wider text-text-muted">3D printed</span>
+						<span class="font-mono text-xs text-text-muted">{p.uid}</span>
+						{#if p.version}<span class="text-xs text-text-muted">· v{p.version}</span>{/if}
+					</div>
+					{#if typeof p.grams === 'number'}
+						<div class="text-xs text-text-muted">{p.grams.toFixed(0)} g each</div>
+					{/if}
+				</div>
+				{#if p.stl}
+					<a href={p.stl} class="inline-flex shrink-0 items-center gap-1 text-xs font-medium text-primary hover:text-primary-hover" title="This revision's STL">
+						<Download size={11} /> STL
+					</a>
+				{/if}
+				<div class="text-right text-xs tabular-nums text-text">
+					<div class="font-semibold">×{l.qty}</div>
+					{#if total !== null && total !== qtyN}<div class="text-text-muted">{total} total</div>{/if}
+				</div>
+			</div>
+		</div>
+	{:else}
+		<div class="ml-1.5 mt-2 flex items-center gap-3 border border-border bg-[var(--color-bg)] p-2 sm:ml-4">
+			{#if hw?.image}<img src={hw.image} alt={hw.name} class="h-8 w-8 shrink-0 object-contain" />{/if}
+			<div class="flex min-w-0 flex-1 items-center gap-1.5 text-xs font-semibold text-text">
+				{#if hw}<HardwareIcon {hw} size={14} />{/if}<span class="truncate">{hw?.name ?? memberName(id)}</span>
+			</div>
+			<div class="text-right text-xs tabular-nums text-text">
+				<div class="font-semibold">×{l.qty}</div>
+				{#if total !== null && total !== qtyN}<div class="text-text-muted">{total} total</div>{/if}
+			</div>
+		</div>
+	{/if}
+{/snippet}
+
+<!-- One assembly of a version snapshot, recursively: the era's own record,
+     expandable like the live tree. Everything on screen comes from the
+     snapshot; the live catalog is never consulted. -->
+{#snippet eraNode(snap: VersionSnapshot, id: string, mult: number, root: boolean, instArgs: Record<string, string> | undefined = undefined)}
+	{@const rec = snap.assemblies[id]}
 	{#if rec}
 		{@const open = frozenOpen[id] ?? true}
 		{@const fGutter = rec.connections?.length ? 44 + (braceGroups(rec.connections).length - 1) * 16 : 0}
@@ -1011,16 +1085,16 @@
 					<span class="text-sm font-semibold text-text">{rec.name}</span>
 					<span class="border border-border px-1.5 py-px text-[10px] font-semibold uppercase tracking-wider text-text-muted">assembly</span>
 					<span class="font-mono text-xs text-text-muted">{rec.uid}</span>
-					{#if memberRev(id, rec.uid)}<span class="text-xs text-text-muted">· v{memberRev(id, rec.uid)}</span>{/if}
+					{#if rec.version}<span class="text-xs text-text-muted">· v{rec.version}</span>{/if}
 					{#if mult !== 1}<span class="text-xs tabular-nums text-text-muted">×{mult}</span>{/if}
 					<span class="ml-auto">
-						<AssemblyStlZip {id} name={rec.name} {layers} {tree} treeArgs={instArgs} />
+						<AssemblyStlZip {id} name={rec.name} {layers} {snap} snapArgs={instArgs} />
 					</span>
 				</div>
 			{:else}
 				<div class="flex items-center gap-2">
-					<span class="text-xs text-text-muted">Everything below, exactly as this version last had it — pinned revisions, their STLs included.</span>
-					<span class="ml-auto"><AssemblyStlZip {id} name={rec.name} {layers} {tree} treeArgs={instArgs} /></span>
+					<span class="text-xs text-text-muted">The site's own record of this version, straight from its commit — names, pictures, weights and downloads all as they were.</span>
+					<span class="ml-auto"><AssemblyStlZip {id} name={rec.name} {layers} {snap} snapArgs={instArgs} /></span>
 				</div>
 			{/if}
 			{#if root || open}
@@ -1029,14 +1103,14 @@
 				{@render joiningRows(rec.joining)}
 				<div class="relative" style={fGutter ? `padding-right: ${fGutter}px` : undefined}>
 					{#if fGutter && rec.connections}
-						<ConnectionBraces edges={rec.connections} gutter={fGutter} labelOf={(m) => CONN_LABELS[m] ?? m} nameOf={(mid) => tree[mid]?.name ?? memberName(mid)} travelOf={(hid) => screwTravel(getHardware(hid))} />
+						<ConnectionBraces edges={rec.connections} gutter={fGutter} labelOf={(m) => CONN_LABELS[m] ?? m} nameOf={(mid) => snap.assemblies[mid]?.name ?? snap.parts[mid]?.name ?? snap.hardware[mid]?.name ?? mid} travelOf={(hid) => screwTravel(snap.hardware[hid])} />
 					{/if}
-					{#each concreteLines(rec, rec.lines, instArgs) as l, i (`${l.part ?? l.assembly}-${i}`)}
+					{#each jointOrder(concreteLines(rec, rec.lines ?? [], instArgs), rec.connections ?? []) as l, i (`${l.part ?? l.assembly}-${i}`)}
 						<div data-member={l.part ?? l.assembly ?? ''}>
-							{#if l.assembly && tree[l.assembly]}
-								{@render frozenNode(tree, l.assembly, lineQty(l, layers) * mult, false, l.args)}
+							{#if l.assembly && snap.assemblies[l.assembly]}
+								{@render eraNode(snap, l.assembly, lineQty(l, layers) * mult, false, l.args)}
 							{:else}
-								{@render snapshotRow(l, mult)}
+								{@render eraPartRow(snap, l, mult)}
 							{/if}
 						</div>
 					{/each}
@@ -1073,6 +1147,7 @@
 		</div>
 	{:else if shown !== cur}
 		{@const entry = asm.versions?.find((e) => e.version === shown)}
+		{@const snap = snapshots[snapKey(asm.id, shown)]}
 		<div class="ml-1.5 mt-2 sm:ml-4">
 			<div class="flex flex-wrap items-center gap-x-2 gap-y-1 border border-warning/50 bg-warning/[0.08] px-2 py-1.5 text-xs text-warning-dark">
 				<History size={11} /> v{shown}, superseded{entry?.date ? ` ${fmtDate(entry.date)}` : ''}
@@ -1080,10 +1155,10 @@
 				<button type="button" class="ml-auto font-medium underline underline-offset-2" onclick={() => delete shownVersion[asm.id]}>back to v{cur}</button>
 			</div>
 			{#if entry?.message}<AssemblyDescription text={entry.message} class="mt-1 max-w-2xl text-xs text-text-muted" />{/if}
-			{#if entry?.tree?.[asm.id]}
-				<!-- the version's commit of its whole subtree: rendered from the
-				     frozen tree alone, so what you see is what was there then -->
-				{@render frozenNode(entry.tree, asm.id, mult, true)}
+			{#if typeof snap === 'object' && snap.assemblies[asm.id]}
+				{@render eraNode(snap, asm.id, mult, true, instArgs)}
+			{:else if snap === 'loading'}
+				<p class="mt-1.5 text-xs italic text-text-muted">Fetching this version's record…</p>
 			{:else if entry?.lines?.length}
 				{#each entry.lines as l, i (`${l.part ?? l.assembly}-${i}`)}
 					{@render snapshotRow(l, mult)}
@@ -1395,7 +1470,10 @@
 										class="flex w-full items-center gap-2 px-2.5 py-1.5 text-left text-xs hover:bg-[var(--color-bg)]"
 										onclick={() => {
 											if (v.version === currentVersion(asm)) delete shownVersion[asm.id];
-											else shownVersion[asm.id] = v.version;
+											else {
+												shownVersion[asm.id] = v.version;
+												ensureSnapshot(asm.id, v.version);
+											}
 											close();
 										}}
 									>

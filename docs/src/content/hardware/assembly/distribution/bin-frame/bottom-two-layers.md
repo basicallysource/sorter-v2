@@ -64,7 +64,7 @@ The aluminum extrusion is cut to length; the [framing cut list](https://parts-ca
   </div>
   <figure class="prep-item-figure">
     <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-bottom-interface-mounted-in-frame-full-476d171d148e.png" alt="The bottom interface assembly mounted into the aluminum extrusion machine frame">
-    <figcaption>The bottom interface, mounted into a frame.</figcaption>
+    <figcaption>The bottom interface, mounted into a frame. The corners in this render are out of date: they show a bottom vertical and cover where a build has the External bracket — foot cover and piece D running through to the caster, which is steps 2 to 4 below.</figcaption>
   </figure>
 </div>
 

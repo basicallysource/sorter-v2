@@ -83,8 +83,13 @@ Once assembled, it mounts into the machine frame:
 <div class="img-row">
   <figure>
     <img src="https://assets.basically.website/sorter-docs/assembly-bottom-interface-mounted-in-frame-full-476d171d148e.png" alt="The bottom interface assembly mounted into the aluminum extrusion machine frame">
-    <figcaption><cite>Diagram pictures courtesy of Adrianbaker in the basically Discord.</cite></figcaption>
+    <figcaption>Look at the middle of this one, not the corners. <cite>Diagram pictures courtesy of Adrianbaker in the basically Discord.</cite></figcaption>
   </figure>
+</div>
+
+<div class="callout callout-warning">
+  <span class="callout-icon" aria-hidden="true">⚠</span>
+  <p><strong>The corners in that render are out of date.</strong> It shows an ordinary bottom vertical and cover at floor level with the caster under it. On a build, each bottom corner takes the <strong>External bracket — foot cover</strong>, and the extrusion is piece D, running down through the corner to the foot connector the caster screws into. See <a href="{{ '/hardware/assembly/distribution/bin-frame/bottom-two-layers/' | relative_url }}#step-2">bottom two layers, steps 2 to 4</a>. The Lazy Susan mounting in the middle of the render is right.</p>
 </div>
 
 {% include step.html n="1" title="Preparation" %}

@@ -81,8 +81,7 @@
 
 	// Experimental view of the unified parts system (notes/UNIFIED-PARTS-SYSTEM.md):
 	// the machine as a recursive assembly tree whose lines reference printed parts,
-	// sub-assemblies, and (eventually) all the COTS hardware. Most nodes are stubs;
-	// the chute core is the first branch carrying real hardware via `requires`.
+	// sub-assemblies, and (eventually) all the COTS hardware.
 	const layers = $derived(layerStore.sizes.length);
 
 	// ---- collapsing the tree -------------------------------------------------
@@ -342,15 +341,6 @@
 		const qs = params.toString().replaceAll('%2C', ',');
 		replaceState(qs ? `${location.pathname}?${qs}` : location.pathname, {});
 	});
-
-	// What the badge means. The tree records that a node is incomplete but not
-	// which pieces are missing, so the tooltip says exactly that much and no
-	// more. Only stubs get a badge: `partial` is true of nearly every assembly
-	// right now, so a badge for it was wallpaper — the status still shows in
-	// the detail view.
-	const STATUS_NOTE = {
-		stub: 'Placeholder — nothing has been recorded inside this assembly yet. What it actually contains is not captured anywhere in the data.'
-	};
 
 	// ---- assembly versions: view any revision, diff any two ------------------
 	// versions[] ends with the current revision; superseded entries carry the
@@ -1171,11 +1161,6 @@
 					{:else if qty !== 1}×{qty}{/if}
 				</span>
 				{@render tagChips(asm.id)}
-				{#if asm.status === 'stub'}
-					<span
-						class="cursor-help border border-border px-1.5 py-px text-[10px] font-semibold uppercase tracking-wider text-text-muted"
-						title={STATUS_NOTE.stub}>stub — not yet detailed</span>
-				{/if}
 				<span class="relative ml-auto flex items-center gap-3" data-asm-menu>
 					<!-- The docs site is where the step-by-step build lives; this node is only
 					     the bill of materials for it. Link out when a page exists. -->
@@ -1454,8 +1439,8 @@
 			</div>
 			{#if filtering && matchCount === 0}
 				<p class="px-1 py-6 text-center text-sm text-text-muted">
-					Nothing in the tree matches. Most branches are still stubs — the part may be in the
-					catalog without being placed here yet.
+					Nothing in the tree matches — the part may be in the catalog without being placed
+					here yet.
 				</p>
 			{/if}
 			{#if timeView && viewKeys && !filtering}

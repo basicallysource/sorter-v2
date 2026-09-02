@@ -78,7 +78,7 @@ the chain of bits — never reconstructed from memory or CAD archaeology.
 
 ## Revising an assembly
 
-A structural change to an assembly's `lines` — a member removed or replaced,
+Any change to an assembly's `lines` — a member added, removed or replaced,
 a quantity changed — is a revision and must be **stamped** in the same
 change:
 
@@ -89,11 +89,9 @@ change:
    its commit and snapshots the superseded lines with each member's uid of
    the day, so the box as built then reads back part by part.
 
-One exemption: purely *adding* lines to a `stub`/`partial` assembly is
-completing the record of what was always physically there, not changing the
-design — no stamp needed. The moment a line is removed or altered, or the
-assembly is no longer partial, the full rule applies. CI enforces both
-halves (`scripts/check_versioning.py`).
+There is no "just filling in what was always there" exemption: the lines
+are the record, and every change to them is a moment someone may need to
+flip back to. CI enforces this (`scripts/check_versioning.py`).
 
 ## History is derived, not recorded
 
@@ -154,9 +152,9 @@ Worked example: `washer-m3-15`, retired in
   the same design is a new hash under the same uid).
 - Deleting or overwriting an asset (the service cannot).
 - Hand-editing `src/lib/data/catalog.generated.json` (it is an output).
-- A new revision without its `breaking` bit, or a structural change to an
-  assembly's lines without a version stamp (CI refuses both, from
-  2026-08-31; `scripts/check_versioning.py`).
+- A new revision without its `breaking` bit, or a change to an assembly's
+  lines without a version stamp (CI refuses both, from 2026-08-31;
+  `scripts/check_versioning.py`).
 - Compatibility claims between arbitrary version pairs. Compatibility is
   computed from the chain of `breaking` bits; anything the chain can't
   derive is honestly unknown.

@@ -120,7 +120,6 @@ const TREE_COLUMNS = [
 	'name',
 	'qty_each',
 	'qty_total',
-	'status',
 	'joining',
 	'grams_each',
 	'download_url',
@@ -146,7 +145,6 @@ export function assemblyCsv(root: string, spec: ExportSpec): string {
 			asm.name,
 			'',
 			mult,
-			asm.status ?? 'complete',
 			(asm.joining ?? []).map((j) => j.method).join('; '),
 			'',
 			'',
@@ -173,7 +171,6 @@ export function assemblyCsv(root: string, spec: ExportSpec): string {
 				each,
 				total,
 				'',
-				'',
 				part ? +part.grams.toFixed(1) : '',
 				part?.stl ?? (lc ? absolute(lc.dxf) : ''),
 				hw?.description ?? part?.description ?? lc?.description ?? ''
@@ -192,7 +189,6 @@ export function assemblyCsv(root: string, spec: ExportSpec): string {
 					'',
 					'',
 					'',
-					'',
 					`Committed to the ${name}`
 				]);
 			}
@@ -201,8 +197,7 @@ export function assemblyCsv(root: string, spec: ExportSpec): string {
 	walk(root, [], 1, 0);
 	return (
 		preamble(spec, 'machine assembly tree', [
-			`# Rows: ${rows.length}. qty_each is per parent; qty_total is per machine.`,
-			'# Branches marked stub/partial are known to be incomplete.'
+			`# Rows: ${rows.length}. qty_each is per parent; qty_total is per machine.`
 		]) + csvText(TREE_COLUMNS, rows)
 	);
 }

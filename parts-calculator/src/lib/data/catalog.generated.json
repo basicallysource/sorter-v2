@@ -492,7 +492,6 @@
 			"version": "1",
 			"name": "Light post",
 			"description": "The feeder light post: post, cap, and cap adapter. 2 per machine. Bolts to a C-channel NEMA bracket.",
-			"status": "partial",
 			"docs": "/hardware/assembly/feeder/light-post/",
 			"joining": [
 				{
@@ -534,7 +533,6 @@
 			"name": "External distribution-frame bracket",
 			"description": "Three parts that bolt together into one external bracket. 6 per distribution frame (per layer). The cover clips on and takes no screws. The top interface uses only the side and cover from this set, no bottom vertical, see the interface assembly.",
 			"docs": "/hardware/helpers/external-bracket/",
-			"status": "partial",
 			"joining": [
 				{
 					"method": "self-tap",
@@ -567,7 +565,6 @@
 			"name": "Fixed upper section",
 			"description": "The interface's fixed upper section: the upper-fixed-section plate, its ribs (5 plain + 1 with the limit-switch gap), and the big spacer. 1 per interface. Each rib takes 2 \u00d7 [[hw:scr-m5-16-shcs]] into the plate; the screw that ties it to its bracket's extrusion belongs to the interface above.",
 			"docs": "/hardware/assembly/distribution/top-interface/",
-			"status": "partial",
 			"joining": [
 				{
 					"method": "self-tap",
@@ -604,7 +601,6 @@
 			"name": "Cable clamp",
 			"description": "Inner + outer ribbon cable clamp; the two halves clamp together around the cable and the pair bolts to the top interface chute mount.",
 			"docs": "/hardware/assembly/distribution/top-interface/",
-			"status": "partial",
 			"lines": [
 				{
 					"part": "cable-clamp-inner",
@@ -631,7 +627,6 @@
 			"name": "Classification chamber",
 			"description": "The classification chamber: the dome, the finned rotor, and the camera & LED insert. All three print white, so the chamber bounces light onto the part instead of absorbing it.",
 			"docs": "/hardware/assembly/feeder/classification-chamber/",
-			"status": "partial",
 			"versions": [
 				{
 					"version": "1",
@@ -643,7 +638,7 @@
 					"version": "2",
 					"uid": "fyqw",
 					"date": "2026-08-31",
-					"message": "First recorded line: the finned rotor unit (rotor + bolted-on Output gear (130T)). Marked partial \u2014 the dome and the camera & LED insert are still unrecorded.",
+					"message": "First recorded line: the finned rotor unit (rotor + bolted-on Output gear (130T)); the dome and the camera & LED insert were still unrecorded.",
 					"breaking": false,
 					"commit": null
 				}
@@ -673,7 +668,6 @@
 			"version": "1",
 			"name": "Chute bearing assembly",
 			"description": "The flap's bearing assembly: left + right bearing holders, the race between them, and the covers. Carries 10 M3 inserts and the two flap bearings, one screw per insert: 6 M3 \u00d7 8 hold the covers to the holders (3 each), 4 hold the holders to the race (2 each).",
-			"status": "partial",
 			"lines": [
 				{
 					"part": "bearing-race",
@@ -712,7 +706,6 @@
 			"name": "Servo adapter (MG995)",
 			"description": "MG995 servo adapter: servo side + flap side, clamping the MG995 Servo Horn (comes with the servo) between them. 4 M3 x 8 countersunk hold the two halves together, no heat inserts.",
 			"docs": "/hardware/assembly/distribution/chute/door-module/",
-			"status": "partial",
 			"lines": [
 				{
 					"part": "servo-adapter-servo-side",
@@ -739,7 +732,6 @@
 			"name": "Servo assembly (MG995)",
 			"description": "The MG995 servo in its bracket: lower arm, side arm, cover, housing. Bolts to the chute core's two arm inserts as a unit.",
 			"docs": "/hardware/assembly/distribution/chute/mg995-servo/servo-mount/",
-			"status": "partial",
 			"lines": [
 				{
 					"part": "servo-bracket-lower-arm",
@@ -777,7 +769,6 @@
 			"version": "1",
 			"name": "Overhead camera mount",
 			"description": "Camera mount for the C-channels. 2 per machine, each hanging off two ~1 ft steel rods.",
-			"status": "partial",
 			"docs": "/hardware/assembly/feeder/camera-mount/",
 			"lines": [
 				{
@@ -821,7 +812,6 @@
 			"name": "Layer connector",
 			"description": "Pair of connectors. 1 of each per layer + 1 of each per bottom interface.",
 			"docs": "/hardware/assembly/distribution/chute/layer-connectors/",
-			"status": "partial",
 			"lines": [
 				{
 					"part": "layer-connector-1",
@@ -840,7 +830,6 @@
 			"name": "Chute limit switch",
 			"description": "Interface limit switch: printed dowel pin, housing, hammer, and the switch itself. Bolts to the interface frame as a unit.",
 			"docs": "/hardware/assembly/distribution/top-interface/",
-			"status": "partial",
 			"lines": [
 				{
 					"part": "limit-switch-dowel-pin",
@@ -920,7 +909,6 @@
 			"name": "Cable cage",
 			"description": "Six cable cage brackets (5 regular + 1 cable mount) stacked with the ribbon cable clamp. Also sandwiches the laser-cut cage top and bottom plates, which are not in the parts registry yet.",
 			"docs": "/hardware/assembly/distribution/top-interface/",
-			"status": "partial",
 			"lines": [
 				{
 					"part": "interface-cage-bracket",
@@ -955,7 +943,6 @@
 			"name": "Meanwell 24V PSU box",
 			"description": "Enclosure for the Meanwell 24V power supply: back mount, connections plate, and cap, screwed to the supply's own case.",
 			"docs": "/hardware/electronics/installation/psu-box/",
-			"status": "partial",
 			"lines": [
 				{
 					"part": "meanwell-psu-back-mount",
@@ -1048,7 +1035,6 @@
 			"version": "2",
 			"name": "Camera extension",
 			"description": "Classification-channel camera extension for the 4K camera module: the 50 mm extension tube, its mount, and the camera. 1 per machine.",
-			"status": "partial",
 			"lines": [
 				{
 					"part": "camera-extension",
@@ -1118,7 +1104,6 @@
 			"name": "Pico with headers",
 			"description": "The Raspberry Pi Pico with 2.54 mm header pins fitted, so it can seat in the PCB. The board ships bare \u2014 the pins are a separate purchase.",
 			"docs": "/hardware/helpers/pico-headers/",
-			"status": "partial",
 			"joining": [
 				{
 					"method": "solder",
@@ -1143,7 +1128,6 @@
 			"name": "Sorter V2",
 			"description": "The whole machine: feeder on top, interface, the distribution layers between the interfaces, and the bottom interface.",
 			"docs": "/hardware/assembly/",
-			"status": "partial",
 			"lines": [
 				{
 					"assembly": "feeder",
@@ -1208,7 +1192,6 @@
 			"version": "1",
 			"name": "Superstructure",
 			"description": "What the feeder and the electronics mount onto: the top plate, the top interface, the distribution layers between the interfaces, and the bottom interface.",
-			"status": "partial",
 			"lines": [
 				{
 					"part": "top-plate",
@@ -1252,7 +1235,6 @@
 			"name": "Feeder",
 			"description": "Everything above the top interface: the bulk bucket, C-channels 2 and 3, and the classification chamber.",
 			"docs": "/hardware/assembly/feeder/",
-			"status": "partial",
 			"versions": [
 				{
 					"version": "1",
@@ -1365,7 +1347,6 @@
 			"version": "1",
 			"name": "Channel 3 support",
 			"description": "One of C-channel 3's three standoffs: a foot and the leg the channel dovetails onto.",
-			"status": "partial",
 			"lines": [
 				{
 					"part": "foot",
@@ -1392,7 +1373,6 @@
 			"version": "1",
 			"name": "Channel 2 support",
 			"description": "One of C-channel 2's three standoffs: a foot, one leg extension, and the leg the channel dovetails onto.",
-			"status": "partial",
 			"lines": [
 				{
 					"part": "foot",
@@ -1430,7 +1410,6 @@
 			"version": "1",
 			"name": "Bulk bucket support",
 			"description": "One of the bulk bucket's three standoffs \u2014 the tallest stack: a foot, two leg extensions, and the leg.",
-			"status": "partial",
 			"lines": [
 				{
 					"part": "foot",
@@ -1475,7 +1454,6 @@
 			"version": "1",
 			"name": "Bulk bucket C-channel",
 			"description": "The top feeder unit: a C-channel drive with a white faceted rotor, capped by the Bulk cap instead of an output guide and with no light post, standing on the tallest supports.",
-			"status": "partial",
 			"lines": [
 				{
 					"assembly": "bulk-bucket-support",
@@ -1510,7 +1488,6 @@
 			"version": "1",
 			"name": "C-channel 2",
 			"description": "The middle feeder channel: a C-channel drive with a white faceted rotor, an output guide and a light post, standing on three supports with one leg extension each.",
-			"status": "partial",
 			"lines": [
 				{
 					"assembly": "channel-two-support",
@@ -1553,7 +1530,6 @@
 			"version": "1",
 			"name": "C-channel 3",
 			"description": "The lowest feeder channel, just above the classification chamber: a C-channel drive with the gray faceted rotor, an output guide and a light post, on three foot-and-leg supports.",
-			"status": "partial",
 			"lines": [
 				{
 					"assembly": "channel-three-support",
@@ -1596,7 +1572,6 @@
 			"version": "1",
 			"name": "Camera & LED insert assembly",
 			"description": "The Camera & LED insert print with the camera extension assembled into it; the loaded insert drops into the classification dome.",
-			"status": "partial",
 			"lines": [
 				{
 					"part": "camera-led-insert",
@@ -1628,7 +1603,6 @@
 			"name": "Top interface",
 			"description": "The interface between the feeder and the distribution layers. Its lazy Susan sandwiches the upper fixed section and the chute mount, 4 \u00d7 [[hw:scr-m4-12-cs]] a side, and the plywood top plate bolts down onto the six brackets' inserts.",
 			"docs": "/hardware/assembly/distribution/top-interface/",
-			"status": "partial",
 			"lines": [
 				{
 					"assembly": "interface-bracket-mount",
@@ -2068,7 +2042,6 @@
 			"name": "Distribution layer",
 			"description": "One distribution layer between the interfaces: frame, chute, bin retainers, funnels, bins. Each bin retainer takes 2 \u00d7 [[hw:scr-m5-12-shcs]] into a [[hw:tnut-m5-2020]].",
 			"docs": "/hardware/assembly/distribution/bin-frame/regular-layers/",
-			"status": "partial",
 			"lines": [
 				{
 					"assembly": "layer-frame",
@@ -2149,7 +2122,6 @@
 			"name": "Bottom interface",
 			"description": "The bottom interface / lazy Susan level. The chute above it is one of the machine's N regular chutes, already counted there; this assembly only adds the layer connector that bridges down to it.",
 			"docs": "/hardware/assembly/distribution/bin-frame/bottom-interface/",
-			"status": "partial",
 			"lines": [
 				{
 					"assembly": "layer-frame",
@@ -2172,7 +2144,6 @@
 			"name": "Chute",
 			"description": "One chute: the core plus its door module, funnel brackets, connectors, and PCB. Every screw here lands in one of the chute core's 18 M3 inserts.",
 			"docs": "/hardware/assembly/distribution/chute/chute-core/",
-			"status": "partial",
 			"lines": [
 				{
 					"part": "chute-core",
@@ -2215,7 +2186,6 @@
 			"name": "Flap module",
 			"description": "The chute's flap: the door itself, the bearing assembly it swings on, and the servo that drives it.",
 			"docs": "/hardware/assembly/distribution/chute/door-module/",
-			"status": "partial",
 			"lines": [
 				{
 					"part": "chute-door",
@@ -2242,7 +2212,6 @@
 			"name": "Chute PCB",
 			"description": "The layer adapter board, screwed onto the chute core's four PCB inserts.",
 			"docs": "/hardware/assembly/distribution/chute/pcb/",
-			"status": "partial",
 			"lines": [
 				{
 					"part": "layer-adapter-board-basically",
@@ -2261,7 +2230,6 @@
 			"name": "C-channel drive",
 			"description": "One C-channel drive unit: stator, NEMA bracket, gear train and stepper. 4 per machine \u2014 3 in the feeder plus the classification channel's. Drives a rotor unit, which differs by location and is not part of this node.",
 			"docs": "/hardware/assembly/feeder/c-channel/",
-			"status": "partial",
 			"versions": [
 				{
 					"version": "1",
@@ -2616,7 +2584,6 @@
 			"name": "Chute Stepper Gearing",
 			"description": "The printed drive and idler gearing that transfers motion from the NEMA 23 chute stepper. The idler gear's 608 2RS bearing is retained by two printed caps: [[hw:chute-stepper-idler-bearing-retainer-outer]] bolts over the bearing pocket on 4 \u00d7 [[hw:scr-m3-8-cs]] into the gear's own heat inserts (the same screw the Interface spur gear uses two lines up), and [[hw:chute-stepper-idler-bearing-retainer-inner]] caps the bore where 1 \u00d7 [[hw:scr-m3-35-bhcs]] still runs through into the bracket. The low head on the M3\u00d735 keeps it clear of the limit switch hammer.",
 			"docs": "/hardware/assembly/distribution/top-interface/",
-			"status": "partial",
 			"lines": [
 				{
 					"part": "interface-nema23-bracket",
@@ -2671,7 +2638,6 @@
 			"name": "Chute stepper NEMA 23 mount",
 			"description": "The NEMA 23 stepper on its interface bracket. 1 per interface.",
 			"docs": "/hardware/assembly/distribution/top-interface/",
-			"status": "partial",
 			"lines": [
 				{
 					"part": "interface-nema23-bracket",
@@ -2694,7 +2660,6 @@
 			"name": "Chute stepper drive gear",
 			"description": "The chute stepper drive gear with its 8 mm bore timing pulley. 1 per interface.",
 			"docs": "/hardware/assembly/distribution/top-interface/",
-			"status": "partial",
 			"lines": [
 				{
 					"part": "interface-spur-gear",
@@ -2717,7 +2682,6 @@
 			"name": "Interface chute gear + mount",
 			"description": "The Chute gear screwed onto the Top interface chute mount with five M3x12 countersunk screws (top-interface.md step 6). Despite their ids (inherited from an earlier three-piece gear design), these are two distinct parts fastened together, not two sections of one gear.",
 			"docs": "/hardware/assembly/distribution/top-interface/",
-			"status": "partial",
 			"lines": [
 				{
 					"part": "top-interface-split-spur-gear-1",
@@ -2975,7 +2939,6 @@
 			"name": "Distribution frame",
 			"description": "The frame of one distribution layer: one hex frame, whose bracket segments form the collars for piece C.",
 			"docs": "/hardware/assembly/distribution/bin-frame/regular-layers/",
-			"status": "partial",
 			"lines": [
 				{
 					"assembly": "hex-frame",
@@ -3050,9 +3013,7 @@
 			"version": "2",
 			"name": "basically Embedded Control Board Housing",
 			"description": "The basically Embedded Control Board closed into a two-part printed housing that bolts to the 2020 extrusion. The board screws straight to the base \u2014 no bracket, no standoffs \u2014 and the cover carries a 40 mm 24 V fan and a plunger that reaches the board's reset button from outside.",
-			"section": "electronics",
 			"docs": "/hardware/electronics/installation/control-board-housing/",
-			"status": "partial",
 			"lines": [
 				{
 					"part": "ctrl-board-housing-base",
@@ -3187,9 +3148,7 @@
 			"version": "1",
 			"name": "Orange Pi mount",
 			"description": "The Orange Pi 5 standing off its bracket, which bolts to the 2020 extrusion, with a 40 mm fan on a bracket cantilevered over it.",
-			"section": "electronics",
 			"docs": "/hardware/electronics/installation/orange-pi-mount/",
-			"status": "partial",
 			"lines": [
 				{
 					"part": "orange-pi-extrusion-mount",
@@ -3243,7 +3202,6 @@
 			"name": "Electronics",
 			"description": "The three boxes that bolt to the frame: the PSU, the control board, and the Orange Pi.",
 			"docs": "/hardware/electronics/installation/",
-			"status": "partial",
 			"lines": [
 				{
 					"assembly": "meanwell-psu-box",
@@ -3266,7 +3224,6 @@
 			"name": "Interface bracket",
 			"description": "One interface bracket with its spacer, bolted onto its vertical extrusion (piece F) and its spoke extrusion (piece E). 6 per interface.",
 			"docs": "/hardware/assembly/distribution/top-interface/",
-			"status": "partial",
 			"lines": [
 				{
 					"part": "interface-bracket",
@@ -3337,7 +3294,6 @@
 			"name": "Bottom lazy Susan",
 			"description": "The bottom interface's lazy Susan: the static half, the chute mount that spins on it, the extrusion mounts, and the bearing itself. Bolted through 4 \u00d7 [[hw:scr-m4-12-cs]] a side, same as the top interface's.",
 			"docs": "/hardware/assembly/distribution/bin-frame/bottom-interface/",
-			"status": "partial",
 			"lines": [
 				{
 					"part": "ls-mount-to-chute",

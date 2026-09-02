@@ -26,6 +26,8 @@ parts_needed:
     qty: 3
   - part: ls-hold-in-place
     qty: 3
+  - part: hsi-m3
+    qty: 2
   - part: hsi-m4
     qty: 8
   - part: scr-m4-12-cs
@@ -99,6 +101,22 @@ Press the heat inserts into both printed parts while they are still loose. See [
     <img class="doc-figure" src="https://assets.basically.website/sorter-parts/bottom-interface-prep-chute-mount-inserts-1-full-70bcf9a84302.jpg" alt="Looking into the Lazy Susan chute mount's circular face: four brass M4 heat inserts around the rim, with the raised square socket for the chute in the middle and the pass-through hole between two of the inserts">
     <figcaption>All four M4 inserts, with the pass-through hole. <cite>Photo: BrickCycleAlice.</cite></figcaption>
   </figure>
+</div>
+
+<div class="prep-item">
+  <div class="prep-item-body">
+    <p><strong>Lazy Susan chute mount:</strong> 2 × M3 for the <a href="{{ '/hardware/assembly/distribution/chute/layer-connectors/' | relative_url }}">layer connectors</a>, one on each side face, on the small raised tab about halfway up.</p>
+  </div>
+  <div class="prep-item-figure prep-item-figure-split">
+    <figure>
+      <img class="doc-figure" src="https://assets.basically.website/sorter-parts/bottom-interface-chute-mount-m3-pocket-render4-full-1fb455668c8e.png" alt="Render of the Lazy Susan chute mount's side face, with a red circle around the small pocket on the raised tab partway up the wall">
+      <figcaption>The pocket on the near side face. The far side is a mirror of it. <cite>Render: Balloon.</cite></figcaption>
+    </figure>
+    <figure>
+      <img class="doc-figure" src="https://assets.basically.website/sorter-parts/bottom-interface-chute-mount-m3-pocket-photo-full-ea22d619b316.png" alt="Close photo of the same raised tab on a printed chute mount, with a red circle around the empty pocket in it">
+      <figcaption>The same pocket on a printed part, empty. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+    </figure>
+  </div>
 </div>
 
 <div class="prep-item">

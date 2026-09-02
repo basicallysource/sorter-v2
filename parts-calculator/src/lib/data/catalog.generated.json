@@ -5620,6 +5620,10 @@
 				{
 					"part": "hsi-m4",
 					"qty": 4
+				},
+				{
+					"part": "hsi-m3",
+					"qty": 2
 				}
 			],
 			"caption": null,

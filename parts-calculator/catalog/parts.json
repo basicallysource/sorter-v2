@@ -859,7 +859,7 @@
         "bottom interface chute mount"
       ],
       "description": "Bottom lazy Susan adapter that connects to the chute. White.",
-      "internal_notes": "The adapter/connector that mounts to the chute. White. The rest of the lazy Susan is frame color. 4 M4 inserts; the other half of the bottom lazy Susan sandwich.",
+      "internal_notes": "The adapter/connector that mounts to the chute. White. The rest of the lazy Susan is frame color. 4 M4 inserts (the other half of the bottom lazy Susan sandwich), plus 2 M3 on the side faces for the layer connector. The M3 pair was measured off the STL 2026-09-01: blind 4.20 x 5.70 mm pockets at (13.22, +-69.15, 11.42), opening outward on a face at y = +-72.0, the same x/y as the chute core's own layer-connector pockets. Screws are the chute's, 2 of its 8 scr-m3-8-cs.",
       "version": "1",
       "created_at": "2026-06-27",
       "updated_at": "2026-06-27",
@@ -877,6 +877,10 @@
         {
           "part": "hsi-m4",
           "qty": 4
+        },
+        {
+          "part": "hsi-m3",
+          "qty": 2
         }
       ]
     },

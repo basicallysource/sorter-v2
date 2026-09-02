@@ -77,6 +77,19 @@ export const JOIN_LABELS: Record<JoinMethod, string> = {
  *  pinned to the uid it had then, so the box as built at that time reads back
  *  part by part. Written by stamp_versions.py at supersession. */
 export type AssemblySnapshotLine = AssemblyLine & { uid?: string };
+/** One assembly inside a version's frozen tree: its record as it stood when
+ *  the version was stamped, lines pinned to member uids. */
+export type FrozenAssembly = {
+	uid: string;
+	name: string;
+	description?: string;
+	docs?: string;
+	joining?: Joining[];
+	connections?: Connection[];
+	images?: CatalogImage[];
+	lines: AssemblySnapshotLine[];
+};
+
 export type AssemblyVersion = {
 	version: string;
 	uid?: string;
@@ -85,6 +98,7 @@ export type AssemblyVersion = {
 	commit: string | null;
 	breaking?: boolean; // required on entries since 2026-08-31 (VERSIONING.md)
 	lines?: AssemblySnapshotLine[];
+	tree?: Record<string, FrozenAssembly>; // the whole subtree as of the stamp, root first
 	images?: CatalogImage[];
 };
 

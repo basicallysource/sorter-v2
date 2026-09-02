@@ -6425,8 +6425,8 @@
     },
     {
       "id": "feeder",
-      "uid": "y5ws",
-      "version": "3",
+      "uid": "i4f8",
+      "version": "4",
       "name": "Feeder",
       "description": "Everything above the top interface: the bulk bucket, C-channels 2 and 3, and the classification chamber.",
       "docs": "/hardware/assembly/feeder/",
@@ -6514,6 +6514,13 @@
           "message": "Restructured into the four physical units — the bulk bucket, C-channels 2 and 3, and the classification chamber — each carrying its own C-channel drive, rotor, supports, guide or cap, and lighting. No physical change.",
           "breaking": false,
           "commit": "e47151a1"
+        },
+        {
+          "version": "4",
+          "date": "2026-09-02",
+          "message": "Stamped to lock the feeder before the C-channel overhaul: flip to v4 for every unit, part revision and screw count as they stood this day. The feeder's own list is unchanged.",
+          "breaking": false,
+          "commit": null
         }
       ],
       "lines": [
@@ -8834,14 +8841,6 @@
       "date": "2026-08-31",
       "commit": null,
       "message": "Golden with hex-frame-v2: future revisions must stay compatible with this part."
-    },
-    {
-      "name": "feeder-2026-09-02",
-      "node": "feeder",
-      "stability": "stable",
-      "date": "2026-09-02",
-      "commit": null,
-      "message": "Locked before the C-channel overhaul: every unit, part and screw count under the feeder as it stood this day."
     }
   ]
 }

@@ -54,6 +54,7 @@
 		type AssemblyLine,
 		type AssemblySnapshotLine,
 		type Connection,
+		type FrozenAssembly,
 		type Hardware,
 		type Joining,
 		type Part,
@@ -959,6 +960,36 @@
 	{/if}
 {/snippet}
 
+<!-- One assembly of a version's frozen tree, recursively: its record as it
+     stood at the stamp — description, photos, every line at the member's uid
+     of the day — with sub-assemblies nested the same way. Nothing here reads
+     the live catalog except to resolve a pinned uid to its archived render. -->
+{#snippet frozenNode(tree: Record<string, FrozenAssembly>, id: string, mult: number, root: boolean)}
+	{@const rec = tree[id]}
+	{#if rec}
+		<div class="{root ? '' : 'ml-1.5 mt-2 border border-border bg-surface p-2 sm:ml-4 sm:p-3'}">
+			{#if !root}
+				<div class="flex flex-wrap items-baseline gap-x-2">
+					<span class="text-sm font-semibold text-text">{rec.name}</span>
+					<span class="border border-border px-1.5 py-px text-[10px] font-semibold uppercase tracking-wider text-text-muted">assembly</span>
+					<span class="font-mono text-xs text-text-muted">{rec.uid}</span>
+					{#if memberRev(id, rec.uid)}<span class="text-xs text-text-muted">· v{memberRev(id, rec.uid)}</span>{/if}
+				</div>
+			{/if}
+			{#if rec.description}<AssemblyDescription text={rec.description} class="mt-1 max-w-2xl text-xs text-text-muted" />{/if}
+			{#if rec.images?.length}<div class="mt-2"><ImageStrip images={rec.images} /></div>{/if}
+			{@render joiningRows(rec.joining)}
+			{#each rec.lines as l, i (`${l.part ?? l.assembly}-${i}`)}
+				{#if l.assembly && tree[l.assembly]}
+					{@render frozenNode(tree, l.assembly, lineQty(l, layers) * mult, false)}
+				{:else}
+					{@render snapshotRow(l, mult)}
+				{/if}
+			{/each}
+		</div>
+	{/if}
+{/snippet}
+
 <!-- A node's line rows, routed by the header's version controls: the live
      lines, one version's snapshot, or the diff between two versions. -->
 {#snippet versionSwitch(asm: Assembly, mult: number, depth: number)}
@@ -993,7 +1024,11 @@
 				<button type="button" class="ml-auto font-medium underline underline-offset-2" onclick={() => delete shownVersion[asm.id]}>back to v{cur}</button>
 			</div>
 			{#if entry?.message}<AssemblyDescription text={entry.message} class="mt-1 max-w-2xl text-xs text-text-muted" />{/if}
-			{#if entry?.lines?.length}
+			{#if entry?.tree?.[asm.id]}
+				<!-- the version's commit of its whole subtree: rendered from the
+				     frozen tree alone, so what you see is what was there then -->
+				{@render frozenNode(entry.tree, asm.id, mult, true)}
+			{:else if entry?.lines?.length}
 				{#each entry.lines as l, i (`${l.part ?? l.assembly}-${i}`)}
 					{@render snapshotRow(l, mult)}
 				{/each}

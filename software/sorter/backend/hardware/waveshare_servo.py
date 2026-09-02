@@ -374,6 +374,11 @@ class ServoBus(Protocol):
 # releases torque. Nothing calibrates implicitly: initialize() refuses an
 # uncalibrated servo instead of moving a door at machine start.
 
+# Door open/close move time. 300 ms tripped the overload protection (status
+# 0x20) of the stickier B1 door mid-swing at full duty; at 400-500 ms the same
+# door passes. The calibration verifies with the same timing the runtime uses.
+DOOR_MOVE_TIME_MS = 500
+
 _CAL_PROBE_STEP = 30  # counts per outward probe (~9°), well above the stiction band
 _CAL_PROBE_TIME_MS = 400
 _CAL_PROBE_SETTLE_S = 0.3
@@ -509,8 +514,8 @@ def _find_stop(bus: ServoBus, servo_id: int, direction: int) -> int:
 
 def _verify_swing(bus: ServoBus, servo_id: int, start: int, target: int) -> None:
     """A full swing, as the runtime does it, must end near the target."""
-    _move_and_settle(bus, servo_id, start, 400)
-    pos, load = _move_and_settle(bus, servo_id, target, 300)
+    _move_and_settle(bus, servo_id, start, DOOR_MOVE_TIME_MS)
+    pos, load = _move_and_settle(bus, servo_id, target, DOOR_MOVE_TIME_MS)
     if abs(pos - target) > _CAL_SWING_TOL:
         raise CalibrationError(
             f"Servo {servo_id}: swing to {target} ended at {pos} (load {load}); "
@@ -826,10 +831,10 @@ class WaveshareServoMotor:
     def _command_move(self, position: int, label: str) -> bool:
         if not self._enabled:
             self.enabled = True
-        ok = bool(self._bus.move_to(self._servo_id, position, 300))
+        ok = bool(self._bus.move_to(self._servo_id, position, DOOR_MOVE_TIME_MS))
         self._record_result(ok)
         if ok:
-            self._move_duration = 0.3
+            self._move_duration = DOOR_MOVE_TIME_MS / 1000.0
             self._move_started_at = time.monotonic()
             self._current_position = position
         else:

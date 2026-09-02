@@ -157,7 +157,7 @@ class WaveshareServoMotorTests(unittest.TestCase):
         motor.initialize()
         motor.open()
         self.assertEqual(bus.torque_calls[-1], (1, True))
-        time.sleep(0.6)
+        time.sleep(0.8)
         self.assertEqual(bus.torque_calls[-1], (1, False))
         self.assertTrue(motor.stopped)
         # The poll after the timer must not release a second time.
@@ -169,7 +169,7 @@ class WaveshareServoMotorTests(unittest.TestCase):
         motor.initialize()
         motor.open()
         motor.close()
-        time.sleep(0.6)
+        time.sleep(0.8)
         self.assertEqual(bus.moves, [100, 900])
         self.assertEqual(bus.torque_calls.count((1, False)), 1)
         self.assertEqual(bus.torque_calls[-1], (1, False))
@@ -180,7 +180,7 @@ class WaveshareServoMotorTests(unittest.TestCase):
         motor.initialize()
         motor.open()
         motor.enabled = True
-        time.sleep(0.6)
+        time.sleep(0.8)
         self.assertNotIn((1, False), bus.torque_calls)
 
     def test_available_flips_after_consecutive_failures_and_recovers(self) -> None:

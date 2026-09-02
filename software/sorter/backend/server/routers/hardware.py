@@ -1860,8 +1860,13 @@ def move_waveshare_servo(servo_id: int, payload: ServoMovePayload) -> Dict[str, 
 
         service.set_torque(servo_id, True)
         time.sleep(0.01)
-        if not service.move_to(servo_id, position, 400):
-            raise HTTPException(status_code=500, detail="move_to command failed.")
+        try:
+            if not service.move_to(servo_id, position, 400):
+                raise HTTPException(status_code=500, detail="move_to command failed.")
+            time.sleep(0.45)
+        finally:
+            # Never leave a setup move energized against the end stop.
+            service.set_torque(servo_id, False)
         try:
             get_waveshare_inventory_manager().trigger_refresh()
         except Exception:
@@ -1912,8 +1917,12 @@ def nudge_waveshare_servo(servo_id: int, payload: ServoNudgePayload) -> Dict[str
 
         service.set_torque(servo_id, True)
         time.sleep(0.01)
-        if not service.move_to(servo_id, new_pos, 200):
-            raise HTTPException(status_code=500, detail="move_to command failed.")
+        try:
+            if not service.move_to(servo_id, new_pos, 200):
+                raise HTTPException(status_code=500, detail="move_to command failed.")
+            time.sleep(0.25)
+        finally:
+            service.set_torque(servo_id, False)
         try:
             get_waveshare_inventory_manager().trigger_refresh()
         except Exception:

@@ -292,7 +292,7 @@ class WaveshareServoController(ServoController):
             try:
                 servo.initialize()
             except Exception as exc:
-                error = f"Cannot communicate with servo {assignment.id}: {exc}"
+                error = f"Servo {assignment.id} unavailable: {exc}"
                 self._gc.logger.warning(
                     f"Waveshare servo layer {index + 1} id={assignment.id} unavailable: {exc}"
                 )

@@ -10,10 +10,12 @@ re-export of the same design and is not a version.
 
 Assemblies version the same way, and what gets carried onto the superseded
 entry is a snapshot of the lines as they were, each pinned to the member's
-uid at the time, so the box as built then reads back part by part. An
-assembly's new version also gets its `tree`: every assembly below it as of
-the stamping commit, lines pinned to member uids -- the commit of the whole
-subtree, which is what flipping the page to that version renders.
+uid at the time, so the box as built then reads back part by part -- plus
+its `tree`: every assembly below it as the site last showed it while that
+version was current (the manifest just before the superseding commit),
+lines pinned to member uids. Flipping the page to a superseded version
+renders from that tree. An entry that already carries a tree -- a
+deliberate lock of an earlier moment -- keeps it.
 
 The workflow the version system assumes:
   1. Mint a uid (`python catalog/mint_uid.py`), put it on the part, bump
@@ -169,15 +171,12 @@ def main():
             cur_uid = (cur[kind].get(p["id"]) or (None, None))[0]
             prev_pin = ((prev or {kind: {}})[kind].get(p["id"]) or (None, None))
             if cur_uid and cur_uid != prev_pin[0]:
-                found = (c, prev_pin)
+                found = (c, commits[i + 1] if i + 1 < len(commits) else None, prev_pin)
                 break
         if not found:
             continue
-        commit, (replaced_uid, replaced_pin) = found
+        commit, prev_commit, (replaced_uid, replaced_pin) = found
         versions[-1]["commit"] = commit
-        if kind == "assemblies":
-            # the version's tree: everything below the node as of this commit
-            versions[-1]["tree"] = freeze_subtree(manifest_at(commit), p["id"])
         stamped.append((p["id"], versions[-1].get("version"), commit))
         pin_key = "stl_hash" if kind == "parts" else "lines"
         newest_ver = str(versions[-1].get("version"))
@@ -201,6 +200,15 @@ def main():
             else:
                 print(f"  ! {p['id']}: nothing to carry from {commit}~; "
                       f"v{versions[-2].get('version')} stays unpinned")
+        # The superseded version's tree: the whole subtree as the site last
+        # showed it while that version was current -- the manifest just before
+        # the commit that superseded it. An entry that already carries a tree
+        # (a deliberate lock of an earlier moment) keeps it.
+        if kind == "assemblies" and len(versions) > 1 and not versions[-2].get("tree"):
+            prev_manifest = manifest_at(prev_commit) if prev_commit else None
+            if prev_manifest and any(a["id"] == p["id"]
+                                     for a in prev_manifest.get("assemblies", [])):
+                versions[-2]["tree"] = freeze_subtree(prev_manifest, p["id"])
 
     if not stamped:
         print("nothing to stamp — no pin changes found for the pending versions.")

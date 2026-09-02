@@ -352,6 +352,8 @@
 	// base marks what changed between the two.
 	let shownVersion = $state<Record<string, string>>({});
 	let diffBase = $state<Record<string, string>>({});
+	// expand state of nodes inside a flipped version's frozen tree
+	let frozenOpen = $state<Record<string, boolean>>({});
 
 	const currentVersion = (asm: Assembly) => String(asm.version ?? '1');
 
@@ -905,10 +907,13 @@
 	{@const rev = memberRev(id, l.uid)}
 	{@const pv = part?.versions?.find((v) => v.uid === l.uid)}
 	{#if part || getAssembly(id)}
+		{@const stl = part ? (l.uid && l.uid !== part.uid ? (pv?.stl ?? part.stl) : part.stl) : null}
 		<div class="ml-1.5 mt-2 border border-border bg-surface p-2 sm:ml-4 sm:p-3">
 			<div class="flex items-center gap-3">
 				{#if part}
-					<img src={pv?.render ?? part.render} alt={part.name} class="h-12 w-12 shrink-0 object-contain" />
+					<button type="button" class="shrink-0" onclick={() => openPart(part)} title="Open {part.name}">
+						<img src={pv?.render ?? part.render} alt={part.name} class="h-12 w-12 object-contain" />
+					</button>
 				{/if}
 				<div class="min-w-0 flex-1">
 					<div class="flex flex-wrap items-baseline gap-x-2">
@@ -923,6 +928,15 @@
 						<div class="text-xs text-text-muted">{(pv?.grams ?? part.grams).toFixed(0)} g each</div>
 					{/if}
 				</div>
+				{#if stl}
+					<a
+						href={stl}
+						class="inline-flex shrink-0 items-center gap-1 text-xs font-medium text-primary hover:text-primary-hover"
+						title="Download this revision's STL"
+					>
+						<Download size={11} /> STL
+					</a>
+				{/if}
 				<div class="text-right text-xs tabular-nums text-text">
 					<div class="font-semibold">×{l.qty}</div>
 					{#if total !== null && total !== qtyN}<div class="text-text-muted">{total} total</div>{/if}
@@ -971,25 +985,63 @@
 {#snippet frozenNode(tree: Record<string, FrozenAssembly>, id: string, mult: number, root: boolean, instArgs: Record<string, string> | undefined = undefined)}
 	{@const rec = tree[id]}
 	{#if rec}
+		{@const open = frozenOpen[id] ?? true}
+		{@const fGutter = rec.connections?.length ? 44 + (braceGroups(rec.connections).length - 1) * 16 : 0}
 		<div class="{root ? '' : 'ml-1.5 mt-2 border border-border bg-surface p-2 sm:ml-4 sm:p-3'}">
 			{#if !root}
-				<div class="flex flex-wrap items-baseline gap-x-2">
+				<div
+					class="-mx-1 flex cursor-pointer flex-wrap items-center gap-x-2 px-1 hover:bg-primary/[0.04]"
+					role="button"
+					tabindex="0"
+					aria-expanded={open}
+					onclick={(e) => {
+						if ((e.target as Element).closest('a, button')) return;
+						frozenOpen[id] = !open;
+					}}
+					onkeydown={(e) => {
+						if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) {
+							e.preventDefault();
+							frozenOpen[id] = !open;
+						}
+					}}
+				>
+					<span class="flex h-5 w-5 shrink-0 items-center justify-center text-text-muted" aria-hidden="true">
+						{#if open}<ChevronDown size={14} />{:else}<ChevronRight size={14} />{/if}
+					</span>
 					<span class="text-sm font-semibold text-text">{rec.name}</span>
 					<span class="border border-border px-1.5 py-px text-[10px] font-semibold uppercase tracking-wider text-text-muted">assembly</span>
 					<span class="font-mono text-xs text-text-muted">{rec.uid}</span>
 					{#if memberRev(id, rec.uid)}<span class="text-xs text-text-muted">· v{memberRev(id, rec.uid)}</span>{/if}
+					{#if mult !== 1}<span class="text-xs tabular-nums text-text-muted">×{mult}</span>{/if}
+					<span class="ml-auto">
+						<AssemblyStlZip {id} name={rec.name} {layers} {tree} treeArgs={instArgs} />
+					</span>
+				</div>
+			{:else}
+				<div class="flex items-center gap-2">
+					<span class="text-xs text-text-muted">Everything below, exactly as this version last had it — pinned revisions, their STLs included.</span>
+					<span class="ml-auto"><AssemblyStlZip {id} name={rec.name} {layers} {tree} treeArgs={instArgs} /></span>
 				</div>
 			{/if}
-			{#if rec.description}<AssemblyDescription text={rec.description} class="mt-1 max-w-2xl text-xs text-text-muted" />{/if}
-			{#if rec.images?.length}<div class="mt-2"><ImageStrip images={rec.images} /></div>{/if}
-			{@render joiningRows(rec.joining)}
-			{#each concreteLines(rec, rec.lines, instArgs) as l, i (`${l.part ?? l.assembly}-${i}`)}
-				{#if l.assembly && tree[l.assembly]}
-					{@render frozenNode(tree, l.assembly, lineQty(l, layers) * mult, false, l.args)}
-				{:else}
-					{@render snapshotRow(l, mult)}
-				{/if}
-			{/each}
+			{#if root || open}
+				{#if rec.description}<AssemblyDescription text={rec.description} class="mt-1 max-w-2xl text-xs text-text-muted" />{/if}
+				{#if rec.images?.length}<div class="mt-2"><ImageStrip images={rec.images} /></div>{/if}
+				{@render joiningRows(rec.joining)}
+				<div class="relative" style={fGutter ? `padding-right: ${fGutter}px` : undefined}>
+					{#if fGutter && rec.connections}
+						<ConnectionBraces edges={rec.connections} gutter={fGutter} labelOf={(m) => CONN_LABELS[m] ?? m} nameOf={(mid) => tree[mid]?.name ?? memberName(mid)} travelOf={(hid) => screwTravel(getHardware(hid))} />
+					{/if}
+					{#each concreteLines(rec, rec.lines, instArgs) as l, i (`${l.part ?? l.assembly}-${i}`)}
+						<div data-member={l.part ?? l.assembly ?? ''}>
+							{#if l.assembly && tree[l.assembly]}
+								{@render frozenNode(tree, l.assembly, lineQty(l, layers) * mult, false, l.args)}
+							{:else}
+								{@render snapshotRow(l, mult)}
+							{/if}
+						</div>
+					{/each}
+				</div>
+			{/if}
 		</div>
 	{/if}
 {/snippet}

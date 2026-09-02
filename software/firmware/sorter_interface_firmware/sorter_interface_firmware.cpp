@@ -252,6 +252,12 @@ static auto tmc_drivers = make_tmc_array(std::make_index_sequence<STEPPER_COUNT>
 static uint32_t soft_sg_sgthrs[STEPPER_COUNT] = {0};
 static uint32_t soft_sg_tcoolthrs[STEPPER_COUNT] = {0};
 static uint8_t soft_sg_hits[STEPPER_COUNT] = {0};
+// Debug view of the software poll, exported in GET_OBSERVABILITY.
+static uint32_t soft_sg_polls[STEPPER_COUNT] = {0};     // polls that passed the gating
+static uint32_t soft_sg_latches[STEPPER_COUNT] = {0};
+static uint32_t soft_sg_last_tstep[STEPPER_COUNT] = {0};
+static uint32_t soft_sg_last_sg[STEPPER_COUNT] = {0};
+static uint8_t soft_sg_gate[STEPPER_COUNT] = {0};       // why the last poll returned early
 
 
 template <size_t... I>
@@ -350,13 +356,30 @@ int dump_observability(char *buf, size_t buf_size) {
     }
     snprintf(led_gpios_buf + led_len, sizeof(led_gpios_buf) - led_len, "]");
 
+    // p=polls past the gating, l=latches, t/s=last TSTEP/SG_RESULT, g=last early-return reason
+    char soft_sg_buf[200];
+    int sg_len = snprintf(soft_sg_buf, sizeof(soft_sg_buf), "[");
+    for (int i = 0; i < STEPPER_COUNT && sg_len > 0 && (size_t)sg_len < sizeof(soft_sg_buf); i++) {
+        sg_len += snprintf(soft_sg_buf + sg_len, sizeof(soft_sg_buf) - sg_len,
+                           "%s{\"p\":%lu,\"l\":%lu,\"t\":%lu,\"s\":%lu,\"g\":%u}",
+                           i == 0 ? "" : ",", (unsigned long)soft_sg_polls[i],
+                           (unsigned long)soft_sg_latches[i], (unsigned long)soft_sg_last_tstep[i],
+                           (unsigned long)soft_sg_last_sg[i], (unsigned)soft_sg_gate[i]);
+    }
+    if (sg_len > 0 && (size_t)sg_len < sizeof(soft_sg_buf) - 1) {
+        snprintf(soft_sg_buf + sg_len, sizeof(soft_sg_buf) - sg_len, "]");
+    } else {
+        snprintf(soft_sg_buf, sizeof(soft_sg_buf), "[]");
+    }
+
     int n_bytes = snprintf(
         buf,
         buf_size,
-        "{\"hw\":\"%s\",\"diag_pins\":%s,\"led_gpios\":%s}",
+        "{\"hw\":\"%s\",\"diag_pins\":%s,\"led_gpios\":%s,\"soft_sg\":%s}",
         HW_ID,
         diag_pins_len > 0 ? diag_pins_buf : "[]",
-        led_gpios_buf);
+        led_gpios_buf,
+        soft_sg_buf);
 
     if (n_bytes >= 0 && (size_t)n_bytes < buf_size) {
         return n_bytes;
@@ -983,22 +1006,27 @@ static void software_stallguard_poll() {
     uint8_t i = next_channel;
     next_channel = (uint8_t)((next_channel + 1) % STEPPER_COUNT);
     Stepper &stepper = steppers[i];
-    if (stepper.hasStallPin() || !stepper.stallDetectionEnabled() || soft_sg_sgthrs[i] == 0 ||
-        !stepper.isRunningForStallCheck()) {
+    if (stepper.hasStallPin()) { soft_sg_gate[i] = 1; soft_sg_hits[i] = 0; return; }
+    if (!stepper.stallDetectionEnabled()) { soft_sg_gate[i] = 2; soft_sg_hits[i] = 0; return; }
+    if (soft_sg_sgthrs[i] == 0) { soft_sg_gate[i] = 3; soft_sg_hits[i] = 0; return; }
+    if (!stepper.isRunningForStallCheck()) { soft_sg_gate[i] = 4; soft_sg_hits[i] = 0; return; }
+    soft_sg_polls[i]++;
+    uint32_t tstep = 0;
+    if (tmc_drivers[i].readRegister(TMC_REG_TSTEP, &tstep) != 0) { soft_sg_gate[i] = 5; return; }
+    soft_sg_last_tstep[i] = tstep & 0xFFFFF;
+    if ((tstep & 0xFFFFF) > soft_sg_tcoolthrs[i]) {
+        soft_sg_gate[i] = 6; // below the velocity floor DIAG would be inactive too
         soft_sg_hits[i] = 0;
         return;
     }
-    uint32_t tstep = 0;
-    if (tmc_drivers[i].readRegister(TMC_REG_TSTEP, &tstep) != 0) return; // UART hiccup: skip this round
-    if ((tstep & 0xFFFFF) > soft_sg_tcoolthrs[i]) {
-        soft_sg_hits[i] = 0; // below the velocity floor DIAG would be inactive too
-        return;
-    }
     uint32_t sg_result = 0;
-    if (tmc_drivers[i].readRegister(TMC_REG_SG_RESULT, &sg_result) != 0) return;
+    if (tmc_drivers[i].readRegister(TMC_REG_SG_RESULT, &sg_result) != 0) { soft_sg_gate[i] = 7; return; }
+    soft_sg_last_sg[i] = sg_result & 0x3FF;
+    soft_sg_gate[i] = 0;
     if ((sg_result & 0x3FF) <= 2 * soft_sg_sgthrs[i]) {
         if (++soft_sg_hits[i] >= SOFT_SG_HITS_TO_LATCH) {
             soft_sg_hits[i] = 0;
+            soft_sg_latches[i]++;
             stepper.latchStall();
         }
     } else {

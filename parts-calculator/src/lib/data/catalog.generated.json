@@ -1755,7 +1755,7 @@
 					"date": "2026-09-02",
 					"message": "The prototype supports give way to the new support structure: the shared layout guide and dovetail adapters with this channel's own legs. An old assembled channel stands on the old feet and does not fit the new layout.",
 					"breaking": true,
-					"commit": null
+					"commit": "3bbea57f"
 				}
 			]
 		},
@@ -1927,7 +1927,7 @@
 					"date": "2026-09-02",
 					"message": "The prototype supports give way to the new support structure: the shared layout guide and dovetail adapters with this channel's own legs. An old assembled channel stands on the old feet and does not fit the new layout.",
 					"breaking": true,
-					"commit": null
+					"commit": "3bbea57f"
 				}
 			]
 		},
@@ -2099,7 +2099,7 @@
 					"date": "2026-09-02",
 					"message": "The prototype supports give way to the new support structure: the shared layout guide and dovetail adapters with this channel's own legs. An old assembled channel stands on the old feet and does not fit the new layout.",
 					"breaking": true,
-					"commit": null
+					"commit": "3bbea57f"
 				}
 			]
 		},

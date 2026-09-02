@@ -458,7 +458,7 @@
           "version": "1",
           "date": "2026-06-27",
           "message": "Initial catalog entry, imported 2026-06-27.",
-          "commit": null,
+          "commit": "340f63ad",
           "onshape_version": "https://cad.onshape.com/documents/60aa51fc61d18f2155b99910/v/b76489d0ca46a1169a2a6081/e/66109ce96b305bf318354f93"
         }
       ]
@@ -5763,7 +5763,7 @@
           "date": "2026-08-31",
           "message": "First recorded line: the finned rotor unit (rotor + bolted-on Output gear (130T)); the dome and the camera & LED insert were still unrecorded.",
           "breaking": false,
-          "commit": null
+          "commit": "aa3a4bac"
         }
       ],
       "lines": [
@@ -6214,7 +6214,7 @@
           "date": "2026-09-01",
           "message": "The 4 × M3 × 12 moved out to the Camera & LED insert assembly: they fasten this whole assembly into the insert, so the joint and its screws belong to the node that holds both. No physical change.",
           "breaking": false,
-          "commit": null
+          "commit": "e47151a1"
         }
       ]
     },
@@ -6302,7 +6302,7 @@
           "date": "2026-09-01",
           "message": "The machine splits into what it physically is: the feeder, the superstructure it mounts onto — top plate, top interface, distribution layers, bottom interface — and the electronics. No physical change.",
           "breaking": false,
-          "commit": null
+          "commit": "e47151a1"
         }
       ]
     },
@@ -6438,7 +6438,7 @@
           "date": "2026-09-01",
           "message": "Restructured into the four physical units — the bulk bucket, C-channels 2 and 3, and the classification chamber — each carrying its own C-channel drive, rotor, supports, guide or cap, and lighting. No physical change.",
           "breaking": false,
-          "commit": null
+          "commit": "e47151a1"
         }
       ],
       "lines": [
@@ -7149,7 +7149,7 @@
           "date": "2026-09-01",
           "message": "The top plate moved up to the superstructure: it sits on top of the machine at this assembly's level, not inside it. No physical change.",
           "breaking": false,
-          "commit": null
+          "commit": "e47151a1"
         }
       ]
     },
@@ -7455,7 +7455,7 @@
           "date": "2026-09-01",
           "message": "The screws are all countersunk — socket/button was recorded wrong. The idler's 608 bearing is a line of its own with its press fit as a connection, and the screw joints carry measured pass-through and thread depths. Connections bench-confirmed and listed in assembly order.",
           "breaking": false,
-          "commit": null
+          "commit": "441d9114"
         }
       ],
       "lines": [
@@ -7613,7 +7613,7 @@
           "date": "2026-09-01",
           "message": "The output gear's 6806 bearing is a line of its own with its press fit as a connection (was the gear's requires).",
           "breaking": false,
-          "commit": null
+          "commit": "441d9114"
         }
       ]
     },
@@ -7687,7 +7687,7 @@
           "date": "2026-09-01",
           "message": "The output gear's 6806 bearing is a line of its own with its press fit as a connection (was the gear's requires).",
           "breaking": false,
-          "commit": null
+          "commit": "441d9114"
         }
       ]
     },
@@ -7885,7 +7885,7 @@
           "date": "2026-08-31",
           "message": "Recording correction: the bottom vertical is screwed into the side bracket with 2 x M5 x 16, not 1, and the screws run from the bottom vertical into the side. No physical change.",
           "breaking": false,
-          "commit": null
+          "commit": "937a96e5"
         }
       ]
     },
@@ -8031,7 +8031,7 @@
           "date": "2026-08-31",
           "message": "Restructured into Inner hex frame + Outer hex frame with connection edges. The corner brackets (side, bottom vertical, cover) become External bracket with support units; the A/G extrusions slide between them in the outer hex, held by 12 friction fits and jammed by screws that self-tap through the brackets and ram against the extrusions; the 24 T-nuts are dropped. No physical change.",
           "breaking": false,
-          "commit": null
+          "commit": "6573b255"
         }
       ],
       "connections": [
@@ -8114,7 +8114,7 @@
           "date": "2026-08-31",
           "message": "The bottom verticals, covers and their 24 screws move inside the hex frame's External bracket with support segments. No physical change.",
           "breaking": false,
-          "commit": null
+          "commit": "6573b255"
         }
       ]
     },

@@ -24,6 +24,9 @@ The workflow the version system assumes:
   3. Run this script. It stamps the pending version with the commit that
      changed the uid, and writes the REPLACED uid + stl_hash onto the version
      it superseded -- which is how old geometry stays retrievable forever.
+     The first stamp on a node has no superseded entry to write onto, so the
+     script adds one (undated: the state from before anything was dated),
+     and the moment before the change still resolves on the timeline.
   4. Commit the resulting parts.json (+ re-run generate.py) as a small "stamp"
      commit.
 
@@ -120,12 +123,21 @@ def main():
         commit, (replaced_uid, replaced_pin) = found
         versions[-1]["commit"] = commit
         stamped.append((p["id"], versions[-1].get("version"), commit))
+        pin_key = "stl_hash" if kind == "parts" else "lines"
+        newest_ver = str(versions[-1].get("version"))
+        if len(versions) == 1 and newest_ver != "1" and replaced_uid and replaced_pin:
+            # the node's first stamp: nothing recorded the state it just left
+            prev_ver = str(int(newest_ver) - 1) if newest_ver.isdigit() else "1"
+            versions.insert(0, collections.OrderedDict([
+                ("version", prev_ver), ("uid", replaced_uid),
+                ("message", "As recorded before the first stamped change."),
+                (pin_key, replaced_pin)]))
+            print(f"  + {p['id']}: wrote v{prev_ver} ({replaced_uid}), the state it superseded")
         if len(versions) > 1 and not versions[-2].get("uid"):
             if replaced_uid and replaced_pin:
                 old = versions[-2]
                 # a part pins its geometry (stl_hash); an assembly its lines,
                 # each carrying the member's uid of the day
-                pin_key = "stl_hash" if kind == "parts" else "lines"
                 versions[-2] = collections.OrderedDict(
                     [("version", old.get("version")), ("uid", replaced_uid)]
                     + [(k, v) for k, v in old.items() if k != "version"]

@@ -2,9 +2,11 @@ import time
 import os
 import tempfile
 import unittest
+from unittest import mock
 from unittest.mock import patch
 
 from hardware.waveshare_bus_service import WaveshareBusRegistry, WaveshareBusService
+from hardware import waveshare_servo
 from hardware.waveshare_servo import ScServoBus, WaveshareServoMotor, _checksum
 
 
@@ -314,3 +316,131 @@ class WaveshareBusServiceTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class _SimServo:
+    """Hard-stop door model for calibration tests.
+
+    Free travel between ``stop_min`` and ``stop_max``. A command beyond a stop
+    parks the horn a few counts past the free position (compression, as the
+    real doors read 64 with a 69 limit) at high duty; inside the range the duty
+    is ~0. Angle limits clamp every goal like the real EEPROM limits do.
+    """
+
+    def __init__(self, stop_min=64, stop_max=321, compression=4, start=200, limits=(0, 1023)):
+        self.stop_min, self.stop_max, self.compression = stop_min, stop_max, compression
+        self.limits = tuple(limits)
+        self.pos = start
+        self.duty = 0
+        self.torque_calls: list[bool] = []
+        self.limit_writes: list[tuple[int, int]] = []
+        self.moves: list[int] = []
+        self.fail_reads_after: int | None = None
+        self.reads = 0
+
+    def set_torque(self, servo_id, enable):
+        self.torque_calls.append(bool(enable))
+        return True
+
+    def move_to(self, servo_id, position, time_ms=500):
+        target = max(self.limits[0], min(self.limits[1], int(position)))
+        self.moves.append(target)
+        if target < self.stop_min:
+            self.pos, self.duty = self.stop_min - self.compression, -300
+        elif target > self.stop_max:
+            self.pos, self.duty = self.stop_max + self.compression, 300
+        else:
+            self.pos, self.duty = target, 0
+        return True
+
+    def _read_ok(self):
+        self.reads += 1
+        return self.fail_reads_after is None or self.reads <= self.fail_reads_after
+
+    def read_position(self, servo_id):
+        return self.pos if self._read_ok() else None
+
+    def read_load(self, servo_id):
+        return self.duty if self._read_ok() else None
+
+    def read_angle_limits(self, servo_id):
+        return self.limits
+
+    def set_angle_limits(self, servo_id, min_val, max_val):
+        self.limits = (int(min_val), int(max_val))
+        self.limit_writes.append(self.limits)
+        return True
+
+    def set_pid(self, servo_id, p, d, i):
+        return True
+
+
+class CalibrationTests(unittest.TestCase):
+    def setUp(self) -> None:
+        for p in (
+            mock.patch.object(waveshare_servo, "_sleep", lambda s: None),
+            mock.patch.object(waveshare_servo, "_CAL_VERIFY_HOLD_S", 0.0),
+        ):
+            p.start()
+            self.addCleanup(p.stop)
+
+    def test_limits_sit_inside_the_free_travel_with_margin(self) -> None:
+        sim = _SimServo(stop_min=64, stop_max=321)
+        safe_min, safe_max = waveshare_servo.calibrate_servo(sim, 2)
+        self.assertGreaterEqual(safe_min, sim.stop_min + waveshare_servo._CAL_MARGIN_MIN)
+        self.assertLessEqual(safe_max, sim.stop_max - waveshare_servo._CAL_MARGIN_MIN)
+        self.assertEqual(sim.limits, (safe_min, safe_max))
+        self.assertFalse(sim.torque_calls[-1])
+        # Parked at the calibrated ends the door is unloaded.
+        sim.move_to(2, safe_min)
+        self.assertEqual(sim.duty, 0)
+        sim.move_to(2, safe_max)
+        self.assertEqual(sim.duty, 0)
+
+    def test_telemetry_loss_restores_the_previous_limits_and_releases(self) -> None:
+        sim = _SimServo(limits=(100, 900))
+        sim.fail_reads_after = 12
+        with self.assertRaises(waveshare_servo.CalibrationError):
+            waveshare_servo.calibrate_servo(sim, 2)
+        self.assertEqual(sim.limits, (100, 900))
+        self.assertFalse(sim.torque_calls[-1])
+
+    def test_free_spinning_horn_is_rejected(self) -> None:
+        sim = _SimServo(stop_min=-5000, stop_max=5000, limits=(100, 900))
+        with self.assertRaises(waveshare_servo.CalibrationError) as ctx:
+            waveshare_servo.calibrate_servo(sim, 2)
+        self.assertIn("boundary", str(ctx.exception))
+        self.assertEqual(sim.limits, (100, 900))
+
+    def test_travel_too_small_is_rejected(self) -> None:
+        sim = _SimServo(stop_min=200, stop_max=225, start=210, limits=(100, 900))
+        with self.assertRaises(waveshare_servo.CalibrationError):
+            waveshare_servo.calibrate_servo(sim, 2)
+        self.assertEqual(sim.limits, (100, 900))
+
+    def test_initialize_refuses_an_uncalibrated_servo_without_moving(self) -> None:
+        sim = _SimServo()
+        motor = WaveshareServoMotor(sim, 2)
+        with self.assertRaises(RuntimeError) as ctx:
+            motor.initialize()
+        self.assertIn("not calibrated", str(ctx.exception))
+        self.assertEqual(sim.moves, [])
+
+    def test_initialize_accepts_calibrated_limits(self) -> None:
+        sim = _SimServo(limits=(76, 309))
+        motor = WaveshareServoMotor(sim, 2)
+        motor.initialize()
+        self.assertEqual((motor._open_position, motor._closed_position), (76, 309))
+
+    def test_recalibrate_returns_the_new_limits(self) -> None:
+        sim = _SimServo(limits=(76, 309))
+        motor = WaveshareServoMotor(sim, 2)
+        motor.initialize()
+        self.assertEqual(motor.recalibrate(), sim.limits)
+
+    def test_limits_look_uncalibrated(self) -> None:
+        self.assertTrue(waveshare_servo.limits_look_uncalibrated(0, 1023))
+        self.assertTrue(waveshare_servo.limits_look_uncalibrated(5, 1018))
+        self.assertTrue(waveshare_servo.limits_look_uncalibrated(200, 225))
+        self.assertFalse(waveshare_servo.limits_look_uncalibrated(69, 316))
+        self.assertFalse(waveshare_servo.limits_look_uncalibrated(430, 705))

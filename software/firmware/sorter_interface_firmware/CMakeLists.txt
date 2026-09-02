@@ -98,6 +98,7 @@ add_executable(sorter_interface_firmware
     crc.c 
     message.cpp 
     PCA9685.cpp
+    AS5600.cpp
     Servo.cpp
 )
 

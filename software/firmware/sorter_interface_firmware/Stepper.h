@@ -77,6 +77,20 @@ public:
     }
     bool wasStalled() { return _stalled.load(); }
     void clearStall() { _stalled.store(false); }
+    // Software StallGuard for boards without a wired DIAG pin (SKR Pico): core0
+    // polls SG_RESULT/TSTEP over UART while the motor runs and calls
+    // latchStall() when the driver reports the condition that would raise DIAG.
+    bool stallDetectionEnabled() { return _stall_enabled.load(); }
+    bool hasStallPin() { return _stall_pin >= 0; }
+    bool isRunningForStallCheck() {
+        return _state.load() != STEPPER_STOPPED && !_jitter_active.load();
+    }
+    void latchStall() {
+        _stalled.store(true);
+        _state.store(STEPPER_STOPPED);
+        _current_speed.store(0);
+        _current_speed_frac.store(0);
+    }
 
 private:
     void beginJitterStroke();

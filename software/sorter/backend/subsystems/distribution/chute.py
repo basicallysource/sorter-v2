@@ -42,6 +42,11 @@ DEFAULT_FIRST_SECTION_OFFSET_DEG = 8.25
 
 HOME_SPEED_MICROSTEPS_PER_SEC = -1000
 HOME_TIMEOUT_MS = 15000
+# The endstop flag is wide (>45° chute on the B1). Homing must start outside
+# it, otherwise the firmware sees the sensor active on its first tick and
+# zeroes the position wherever the chute happens to stand inside the flag.
+HOME_BACKOUT_STEP_STEPPER_DEG = 108.0  # 22.5° chute per probe
+HOME_BACKOUT_MAX_PROBES = 12
 
 
 @dataclass
@@ -290,8 +295,31 @@ class Chute:
             self.logger.error(f"Chute: backoff to bin 1 failed: {exc}")
             return False
 
+    def _backOutOfEndstop(self) -> bool:
+        """Move away from the endstop until it releases so the sensor search
+        below starts outside the flag and stops on its true edge."""
+        if not self.endstop_triggered:
+            return True
+        self.logger.info("Chute: endstop already active before homing — backing out")
+        for probe in range(1, HOME_BACKOUT_MAX_PROBES + 1):
+            self.stepper.move_degrees_blocking(HOME_BACKOUT_STEP_STEPPER_DEG, timeout_ms=3000)
+            if not self.endstop_triggered:
+                self.logger.info(
+                    f"Chute: endstop released after {probe} probe(s) "
+                    f"({probe * HOME_BACKOUT_STEP_STEPPER_DEG / GEAR_RATIO:.1f}° chute)"
+                )
+                return True
+        self.logger.error(
+            f"Chute: endstop still active after backing out "
+            f"{HOME_BACKOUT_MAX_PROBES * HOME_BACKOUT_STEP_STEPPER_DEG / GEAR_RATIO:.1f}° chute — "
+            "sensor stuck or wired wrong?"
+        )
+        return False
+
     def home(self) -> bool:
         self.logger.info("Chute: homing via sensor")
+        if not self._backOutOfEndstop():
+            return False
         pos_before = self.current_angle
         raw_before = self.raw_endstop_active
         self.stepper.home(

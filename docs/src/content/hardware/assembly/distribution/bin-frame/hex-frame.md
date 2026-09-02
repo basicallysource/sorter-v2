@@ -5,7 +5,7 @@ type: how-to
 section: hardware
 slug: assembly-hex-frame
 kicker: Bin frame — Build the hex frame
-lede: The hexagonal aluminum-and-bracket ring shared by every layer. Build one per planned layer, plus one for the bottom interface and one for the top interface.
+lede: The hexagonal aluminum-and-bracket ring shared by every layer. Build one per planned layer, plus one for the top interface.
 permalink: /hardware/assembly/distribution/bin-frame/hex-frame/
 author: barthel
 contributors: [brickcyclealice, zed0]
@@ -33,7 +33,7 @@ tools_needed: [Hex key, Mallet or hammer with a cloth to protect the brackets]
 
 This guide builds one hexagonal frame: the outer ring of A/G extrusion and External bracket — side, with the six B/H spokes and Frame crossbeams held inside it by the Frame 90° brackets. No fasteners are used from step 2 onward — the spokes, crossbeams and brackets are a friction-and-slide fit, no screws or T-nuts.
 
-An N-layer machine needs **N + 1 of these**: one per planned layer, plus one for the [bottom interface]({{ '/hardware/assembly/distribution/bin-frame/bottom-interface/' | relative_url }}) and one for the [top interface]({{ '/hardware/assembly/distribution/top-interface/' | relative_url }}).
+An N-layer machine needs **N + 1 of these**: one per planned layer, plus one for the [top interface]({{ '/hardware/assembly/distribution/top-interface/' | relative_url }}). The [bottom interface]({{ '/hardware/assembly/distribution/bin-frame/bottom-interface/' | relative_url }}) does not get a frame of its own — it hangs underneath the bottom layer's frame, off the same six spokes.
 
 The aluminum extrusion is cut to length; the [framing cut list](https://parts-calculator.basically.website/framing) has the exact dimensions. Each frame uses 6 A/G (320mm) and 6 B/H (158mm). The 24 T-nuts in the list above aren't used by anything in this guide — they're pre-installed in step 1 while the extrusion ends are still accessible, for the bin retainers a later page attaches to the outer ring.
 
@@ -113,7 +113,7 @@ Repeat step 2 around the hexagon until you have used **6 Frame crossbeams and 5 
 
 <div class="callout callout-warning">
   <span class="callout-icon" aria-hidden="true">⚠</span>
-  <p>Building this frame for the <a href="{{ '/hardware/assembly/distribution/bin-frame/bottom-interface/' | relative_url }}">bottom interface</a>? Its three Lazy Susan extrusion mounts each bolt into a T-nut in a B/H spoke, on 3 of the 6 spokes alternating around the ring. If you're using slide-in T-nuts, slide 2 into each of those 3 spokes as you build them here in steps 2-3, since this is the last time their ends are open; drop-in or roll-in T-nuts can go in any time before the ring closes in step 7. An ordinary hex frame for a layer needs none of this.</p>
+  <p>Building the <strong>bottom layer's</strong> frame? The <a href="{{ '/hardware/assembly/distribution/bin-frame/bottom-interface/' | relative_url }}">bottom interface</a> hangs off it, and its three Lazy Susan extrusion mounts each bolt into a T-nut in a B/H spoke, on 3 of the 6 spokes alternating around the ring. If you're using slide-in T-nuts, slide 2 into each of those 3 spokes as you build them here in steps 2-3, since this is the last time their ends are open; drop-in or roll-in T-nuts can go in any time before the ring closes in step 7. Every other layer's frame needs none of this.</p>
 </div>
 
 {% include step.html n="4" title="Fit 10 of the 12 Frame 90° brackets" %}

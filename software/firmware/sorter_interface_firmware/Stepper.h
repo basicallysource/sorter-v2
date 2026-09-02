@@ -82,8 +82,12 @@ public:
     // latchStall() when the driver reports the condition that would raise DIAG.
     bool stallDetectionEnabled() { return _stall_enabled.load(); }
     bool hasStallPin() { return _stall_pin >= 0; }
-    bool isRunningForStallCheck() {
-        return _state.load() != STEPPER_STOPPED && !_jitter_active.load();
+    // Software StallGuard only samples the cruise phase: SG_RESULT reads near
+    // zero while a stepper ramps (measured 4 on the B1 chute at 10000 µsteps/s²),
+    // which would look like a stall. Homing cruises too, but below the
+    // TCOOLTHRS velocity floor, so the poll skips it by TSTEP.
+    bool isCruisingForStallCheck() {
+        return _state.load() == STEPPER_CRUISING && !_jitter_active.load();
     }
     void latchStall() {
         _stalled.store(true);

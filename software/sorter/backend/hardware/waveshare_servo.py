@@ -378,11 +378,12 @@ _CAL_PROBE_STEP = 30  # counts per outward probe (~9°), well above the stiction
 _CAL_PROBE_TIME_MS = 400
 _CAL_PROBE_SETTLE_S = 0.3
 _CAL_STOP_SHORT = 15  # a stalled probe ends at least this far short of its target
-_CAL_MIN_PROGRESS = 5  # counts; less than this = no progress
+_CAL_MIN_PROGRESS = 10  # counts; a free probe moves ~30, a pressed door creeps < 10
 _CAL_STALLED_PROBES = 2  # consecutive no-progress probes that make a stop
 _CAL_SWING_TOL = 20  # counts; a full swing must end within this of its target
-_CAL_MARGIN_MIN = 10
-_CAL_MARGIN_FRACTION = 0.04
+_CAL_MARGIN_MIN = 15  # counts; absorbs the compression seen while pressing (~5)
+_CAL_MARGIN_FRACTION = 0.05
+_CAL_SETTLE_MAX_S = 1.5  # keep polling until the position stops creeping
 _CAL_MIN_SPAN = 40  # counts (~12°); below this the door is not usable
 _CAL_MAX_PROBES = 40  # per direction; 40 × 30 covers the whole 0..1023 range
 _CAL_MAX_TEMPERATURE_C = 60
@@ -444,9 +445,19 @@ def _check_temperature(bus: ServoBus, servo_id: int, stage: str) -> None:
 
 
 def _move_and_settle(bus: ServoBus, servo_id: int, target: int, time_ms: int) -> tuple[int, int]:
+    """Command a move, then read position/load once the horn has stopped
+    creeping (a pressed or sticky door keeps moving well after ``time_ms``)."""
     _require(bus.move_to(servo_id, target, time_ms), f"move to {target}", servo_id)
     _sleep(time_ms / 1000.0 + _CAL_PROBE_SETTLE_S)
-    return _read_pos_load(bus, servo_id)
+    pos, load = _read_pos_load(bus, servo_id)
+    deadline = time.monotonic() + _CAL_SETTLE_MAX_S
+    while time.monotonic() < deadline:
+        _sleep(0.1)
+        new_pos, load = _read_pos_load(bus, servo_id)
+        if abs(new_pos - pos) <= 2:
+            return new_pos, load
+        pos = new_pos
+    return pos, load
 
 
 def _write_limits_verified(bus: ServoBus, servo_id: int, lo: int, hi: int) -> None:
@@ -466,9 +477,13 @@ def _find_stop(bus: ServoBus, servo_id: int, direction: int) -> int:
     target = pos
     extreme = pos
     stalled = 0
+    short = 0
     for probe in range(_CAL_MAX_PROBES):
         next_target = _clamp(target + direction * _CAL_PROBE_STEP)
         if next_target == target:
+            if short >= _CAL_STOP_SHORT:
+                # Pressed against something right at the software boundary.
+                return extreme
             raise CalibrationError(
                 f"Servo {servo_id}: reached the software boundary at {target} without "
                 f"finding a stop — is the horn free-spinning?"

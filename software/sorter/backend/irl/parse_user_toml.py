@@ -170,6 +170,9 @@ class MachineConfig:
     servo_close_speed: int | None = None
     servo_homing_speed: int | None = None
     stepper_current_overrides: dict[str, tuple[int, int, int]] = field(default_factory=dict)
+    # canonical stepper name -> acceleration in µsteps/s². From
+    # [stepper_acceleration_overrides]; motors not listed keep the code default.
+    stepper_acceleration_overrides: dict[str, int] = field(default_factory=dict)
     # canonical stepper name -> (sgthrs, tcoolthrs, enabled). From
     # [stepper_stallguard.*]; consumed by applyStepperStallguard + the stall monitor.
     stepper_stallguard: dict[str, tuple[int, int, bool]] = field(default_factory=dict)
@@ -214,6 +217,27 @@ def loadMachineSpecificParams(gc: GlobalConfig) -> dict[str, object]:
         return {}
 
     return raw
+
+
+def _parseStepperAccelerationOverrides(
+    gc: GlobalConfig,
+    raw: dict[str, object],
+) -> dict[str, int]:
+    table: object = raw.get("stepper_acceleration_overrides")
+    if table is None:
+        return {}
+    if not isinstance(table, dict):
+        gc.logger.warning("stepper_acceleration_overrides must be a table of <stepper> = <µsteps/s²>. Ignoring.")
+        return {}
+    overrides: dict[str, int] = {}
+    for stepper_name, value in table.items():
+        if not isinstance(value, int) or isinstance(value, bool) or value <= 0:
+            gc.logger.warning(
+                f"Ignoring stepper_acceleration_overrides.{stepper_name}={value!r}: expected a positive integer (µsteps/s²)."
+            )
+            continue
+        overrides[str(stepper_name)] = value
+    return overrides
 
 
 def _parseStepperCurrentOverrides(
@@ -505,6 +529,7 @@ def loadMachineConfig(
         gc.logger.warning("Ignoring invalid servo config: expected object.")
 
     config.stepper_current_overrides = _parseStepperCurrentOverrides(gc, raw)
+    config.stepper_acceleration_overrides = _parseStepperAccelerationOverrides(gc, raw)
     config.stepper_stallguard = _parseStepperStallguard(gc, raw)
 
     return config

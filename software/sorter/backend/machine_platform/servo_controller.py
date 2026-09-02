@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Any, Sequence
@@ -7,8 +8,11 @@ from typing import Any, Sequence
 import serial.tools.list_ports
 
 from global_config import GlobalConfig
+from hardware.serial_identity import canonical_port_path, stable_port_path
 from irl.parse_user_toml import ServoChannelConfig, WaveshareServoConfig
 from machine_platform.control_board import ControlBoard
+
+_RPI_PICO_VID = 0x2E8A  # Feeder / Distribution MCUs — never a servo bus
 
 
 @dataclass(frozen=True)
@@ -216,6 +220,14 @@ class Pca9685ServoController(ServoController):
 
 
 class WaveshareServoController(ServoController):
+    """Layer servos on a Waveshare SC bus.
+
+    Port binding contract: the bus is always addressed via its stable
+    /dev/serial/by-id symlink when one exists — both for a configured port and
+    for auto-detection — so kernel re-numbering of /dev/ttyACM* across
+    replug/reboot cannot rebind the controller to a different device.
+    """
+
     backend_name = "waveshare"
     supports_feedback = True
     supports_calibration = True
@@ -292,6 +304,13 @@ class WaveshareServoController(ServoController):
                 f"Initialized Waveshare servo 'layer_{index}_servo' id={assignment.id}, "
                 f"invert={assignment.invert}"
             )
+        assigned_ids = [
+            assignment.id
+            for _, assignment in self._iter_layer_assignments(distribution_layout)
+            if assignment.id is not None
+        ]
+        if assigned_ids:
+            service.set_recovery_probe_ids(assigned_ids)
         return layer_servos
 
     def shutdown(self) -> None:
@@ -339,13 +358,30 @@ class WaveshareServoController(ServoController):
 
     def _resolve_port(self) -> str | None:
         if self._port is not None:
-            return self._port
+            port = stable_port_path(self._port)
+            if not os.path.exists(port):
+                self._gc.logger.info(
+                    f"Configured Waveshare servo port {port} does not currently exist."
+                )
+            return port
 
-        mcu_ports = set(self._mcu_ports)
-        for port in serial.tools.list_ports.comports():
-            if port.device not in mcu_ports and port.vid is not None:
-                return port.device
-        return None
+        mcu_ports = {canonical_port_path(port) for port in self._mcu_ports}
+        candidates = sorted(
+            stable_port_path(entry.device)
+            for entry in serial.tools.list_ports.comports()
+            if entry.vid is not None
+            and entry.vid != _RPI_PICO_VID
+            and canonical_port_path(entry.device) not in mcu_ports
+        )
+        if not candidates:
+            return None
+        chosen = candidates[0]
+        if len(candidates) > 1:
+            self._gc.logger.warning(
+                f"Multiple Waveshare servo bus candidates {candidates}; using {chosen}. "
+                "Set servo.port in config to pin one."
+            )
+        return chosen
 
 
 def build_servo_controller(

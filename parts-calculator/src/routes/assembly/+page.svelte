@@ -358,6 +358,39 @@
 	function memberName(id: string): string {
 		return memberOf(id)?.name ?? ghostName(id) ?? id;
 	}
+	/** Rows in joint order: the authored order, except that once a member is
+	 *  placed, whatever it is joined to follows it straight away — fastener
+	 *  first, then the other side — so a brace spans neighbours more often
+	 *  than not. A member in several joints pulls all of them in after it,
+	 *  fastenerless ones first: a two-row brace stays tight, and the screwed
+	 *  joint's three rows follow as a block. */
+	function jointOrder(list: AssemblyLine[], edges: Connection[]): AssemblyLine[] {
+		if (!edges.length) return list;
+		const idOf = (l: AssemblyLine) => l.part ?? l.assembly ?? '';
+		const byId = new Map(list.map((l) => [idOf(l), l]));
+		const ordered = [...edges].sort((a, b) => (a.via ? 1 : 0) - (b.via ? 1 : 0));
+		const out: AssemblyLine[] = [];
+		const placed = new Set<string>();
+		const place = (id: string) => {
+			const l = byId.get(id);
+			if (!l || placed.has(id)) return;
+			placed.add(id);
+			out.push(l);
+			for (const e of ordered) {
+				if (e.from === id || e.to === id) {
+					if (e.via) place(e.via);
+					place(e.from === id ? e.to : e.from);
+				} else if (e.via === id) {
+					place(e.from);
+					place(e.to);
+				}
+			}
+		};
+		for (const l of list) place(idOf(l));
+		// a duplicated id (two lines naming one part) keeps its extra rows
+		for (const l of list) if (!out.includes(l)) out.push(l);
+		return out;
+	}
 	/** Which revision of the member a pinned uid names: its version number, or
 	 *  null when the uid predates the member's recorded history. */
 	function memberRev(id: string, uid?: string): string | null {
@@ -975,7 +1008,7 @@
 		<!-- assemblies a brace wires into get a box, so the tick lands on a
 		     visible container instead of ending in space -->
 		{@const eps = asm.connections?.length ? new Set(asm.connections.flatMap((c) => [c.from, c.to])) : null}
-		{@render lines(asm.lines ?? [], mult, depth, eps)}
+		{@render lines(jointOrder(asm.lines ?? [], asm.connections ?? []), mult, depth, eps)}
 	{/if}
 {/snippet}
 
@@ -1430,7 +1463,7 @@
 							{#if fStable}<Check size={12} class="ml-auto text-primary" />{/if}
 						</button>
 						<div class="px-2.5 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-wider text-text-muted">Order</div>
-						{#each [['authored', 'As authored'], ['name', 'By name']] as [o, lbl] (o)}
+						{#each [['authored', 'Joints together'], ['name', 'By name']] as [o, lbl] (o)}
 							<button
 								type="button"
 								class="flex w-full items-center gap-2 px-2.5 py-1.5 text-left text-xs text-text hover:bg-[var(--color-bg)]"

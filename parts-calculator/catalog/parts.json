@@ -9561,17 +9561,15 @@
           "from": "ext-2020-c1",
           "to": "layout-guide",
           "qty": 3,
-          "method": "friction",
-          "draft": true,
-          "note": "Each 228 mm extrusion leg stands in the layout guide; the fit method is assumed and not yet confirmed at the bench."
+          "method": "gravity",
+          "note": "Each leg stands in the layout guide under its own weight."
         },
         {
           "from": "support-dovetail-adapter",
           "to": "ext-2020-c1",
           "qty": 3,
-          "method": "friction",
-          "draft": true,
-          "note": "An adapter tops each leg; the fit method is assumed and not yet confirmed at the bench."
+          "method": "gravity",
+          "note": "An adapter sits on top of each leg under its own weight."
         }
       ]
     },
@@ -9600,17 +9598,15 @@
           "from": "channel-two-support-leg",
           "to": "layout-guide",
           "qty": 3,
-          "method": "friction",
-          "draft": true,
-          "note": "Each leg stands in the layout guide; the fit method is assumed and not yet confirmed at the bench."
+          "method": "gravity",
+          "note": "Each leg stands in the layout guide under its own weight."
         },
         {
           "from": "support-dovetail-adapter",
           "to": "channel-two-support-leg",
           "qty": 3,
-          "method": "friction",
-          "draft": true,
-          "note": "An adapter tops each leg; the fit method is assumed and not yet confirmed at the bench."
+          "method": "gravity",
+          "note": "An adapter sits on top of each leg under its own weight."
         }
       ]
     },
@@ -9639,17 +9635,15 @@
           "from": "channel-three-support-leg",
           "to": "layout-guide",
           "qty": 3,
-          "method": "friction",
-          "draft": true,
-          "note": "Each leg stands in the layout guide; the fit method is assumed and not yet confirmed at the bench."
+          "method": "gravity",
+          "note": "Each leg stands in the layout guide under its own weight."
         },
         {
           "from": "support-dovetail-adapter",
           "to": "channel-three-support-leg",
           "qty": 3,
-          "method": "friction",
-          "draft": true,
-          "note": "An adapter tops each leg; the fit method is assumed and not yet confirmed at the bench."
+          "method": "gravity",
+          "note": "An adapter sits on top of each leg under its own weight."
         }
       ]
     }

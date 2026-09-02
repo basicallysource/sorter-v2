@@ -3117,12 +3117,9 @@ def assign_bin_categories(
         category_id = category_id.strip()
         if not category_id or category_id in cleaned:
             continue
-        # MISC is the virtual discard passthrough, never a physical bin.
-        if category_id == MISC_CATEGORY:
-            raise HTTPException(
-                status_code=400,
-                detail="Misc is the discard passthrough and cannot be assigned to a bin.",
-            )
+        # MISC may be routed into a bin only by this explicit assignment; the
+        # positioner never claims a bin for it on its own (without one, misc
+        # passes through to the discard bucket).
         cleaned.append(category_id)
 
     # A category lives in exactly one bin. Drop these category_ids from every

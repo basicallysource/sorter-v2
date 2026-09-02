@@ -150,6 +150,22 @@ class Chute:
     def setOperatingSpeed(self, operating_speed_microsteps_per_second: int) -> None:
         self.operating_speed_microsteps_per_second = max(1, int(operating_speed_microsteps_per_second))
 
+    def _applyOperatingSpeed(self) -> None:
+        """Push the operating speed to the stepper's speed limit before a move.
+        The stepper is initialised with its config default (3000); without
+        this the [chute] operating speed only shaped the time estimate while
+        every move ran at the default."""
+        # Not cached on purpose: the stepper API endpoints (move-degrees,
+        # pulse) set their own limits, so re-assert ours on every move.
+        speed = self.operating_speed_microsteps_per_second
+        setter = getattr(self.stepper, "set_speed_limits", None)
+        if not callable(setter):
+            return
+        try:
+            setter(16, speed)
+        except Exception as exc:
+            self.logger.warning(f"Chute: could not apply operating speed {speed}: {exc}")
+
     @property
     def raw_endstop_active(self) -> bool:
         return bool(self.home_pin.value)
@@ -234,6 +250,7 @@ class Chute:
         self.logger.info(
             f"Chute: moving from {current:.1f}° to {target:.1f}° (delta_stepper_deg={delta_stepper_angle:.2f}, est_ms={estimated_ms})"
         )
+        self._applyOperatingSpeed()
         self.stepper.move_degrees(delta_stepper_angle)
         return estimated_ms
 
@@ -271,6 +288,7 @@ class Chute:
         self.logger.info(
             f"Chute: moving(blocking) from {current:.1f}° to {target:.1f}° (delta_stepper_deg={delta_stepper_angle:.2f}, est_ms={estimated_ms}, timeout_ms={timeout_ms})"
         )
+        self._applyOperatingSpeed()
         self.stepper.move_degrees_blocking(delta_stepper_angle, timeout_ms=timeout_ms)
         return estimated_ms
 

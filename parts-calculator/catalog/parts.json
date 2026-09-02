@@ -5673,11 +5673,48 @@
       ],
       "versions": [
         {
+          "version": "1",
+          "uid": "v06x",
+          "message": "As recorded before the first stamped change.",
+          "lines": [
+            {
+              "part": "light-post",
+              "qty": 1,
+              "uid": "oac5"
+            },
+            {
+              "part": "light-post-cap",
+              "qty": 1,
+              "uid": "7a8e"
+            },
+            {
+              "part": "light-post-cap-adapter",
+              "qty": 1,
+              "uid": "jcnt"
+            },
+            {
+              "part": "scr-m3-12-cs",
+              "qty": 3,
+              "uid": "0a9x"
+            },
+            {
+              "part": "scr-m3-20-cs",
+              "qty": 2,
+              "uid": "60g4"
+            },
+            {
+              "part": "led-cob-50mm-24v",
+              "qty": 1,
+              "uid": "s34o"
+            }
+          ]
+        },
+        {
           "version": "2",
           "date": "2026-09-02",
           "message": "The two M3 × 20 that bolt the post to the C-channel drive's NEMA bracket moved out to C-channels 2 and 3: the joint belongs to the node that holds both sides. The COB plate, the adapter and the three M3 × 12 that clamp them to the post are now a recorded joint. No physical change.",
           "breaking": false,
-          "commit": null
+          "commit": "271ea214"
         }
       ]
     },
@@ -6687,11 +6724,48 @@
       ],
       "versions": [
         {
+          "version": "1",
+          "uid": "hi96",
+          "message": "As recorded before the first stamped change.",
+          "lines": [
+            {
+              "assembly": "channel-two-support",
+              "qty": 3,
+              "uid": "dp63"
+            },
+            {
+              "assembly": "c-channel",
+              "qty": 1,
+              "uid": "4tvc"
+            },
+            {
+              "assembly": "rotor-unit-faceted",
+              "qty": 1,
+              "uid": "ylvv"
+            },
+            {
+              "part": "output-guide",
+              "qty": 1,
+              "uid": "8j3e"
+            },
+            {
+              "assembly": "light-post-assembly",
+              "qty": 1,
+              "uid": "v06x"
+            },
+            {
+              "assembly": "camera-mount",
+              "qty": 1,
+              "uid": "b3zx"
+            }
+          ]
+        },
+        {
           "version": "2",
           "date": "2026-09-02",
           "message": "Took in the two M3 × 20 that bolt the light post to the C-channel drive's NEMA bracket; they were recorded inside the light post. No physical change.",
           "breaking": false,
-          "commit": null
+          "commit": "271ea214"
         }
       ]
     },
@@ -6750,11 +6824,48 @@
       ],
       "versions": [
         {
+          "version": "1",
+          "uid": "xlak",
+          "message": "As recorded before the first stamped change.",
+          "lines": [
+            {
+              "assembly": "channel-three-support",
+              "qty": 3,
+              "uid": "r6ar"
+            },
+            {
+              "assembly": "c-channel",
+              "qty": 1,
+              "uid": "4tvc"
+            },
+            {
+              "assembly": "rotor-unit-faceted",
+              "qty": 1,
+              "uid": "ylvv"
+            },
+            {
+              "part": "output-guide",
+              "qty": 1,
+              "uid": "8j3e"
+            },
+            {
+              "assembly": "light-post-assembly",
+              "qty": 1,
+              "uid": "v06x"
+            },
+            {
+              "assembly": "camera-mount",
+              "qty": 1,
+              "uid": "b3zx"
+            }
+          ]
+        },
+        {
           "version": "2",
           "date": "2026-09-02",
           "message": "Took in the two M3 × 20 that bolt the light post to the C-channel drive's NEMA bracket; they were recorded inside the light post. No physical change.",
           "breaking": false,
-          "commit": null
+          "commit": "271ea214"
         }
       ]
     },

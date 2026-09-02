@@ -5647,6 +5647,13 @@
           "qty": 3,
           "method": "self-tap",
           "note": "Down through the adapter's three clearance holes and the COB plate clamped under it, threading into the pilot holes in the post's end."
+        },
+        {
+          "from": "light-post-cap",
+          "to": "light-post-cap-adapter",
+          "qty": 1,
+          "method": "gravity",
+          "note": "The cap just sits on the adapter."
         }
       ],
       "images": [
@@ -6720,6 +6727,13 @@
           "qty": 2,
           "method": "self-tap",
           "note": "Through the NEMA bracket, threading straight into the printed post — no insert, no nut."
+        },
+        {
+          "from": "output-guide",
+          "to": "c-channel",
+          "qty": 1,
+          "method": "friction",
+          "note": "The guide pushes onto the C-channel drive and is held by the fit alone."
         }
       ],
       "versions": [
@@ -6820,6 +6834,13 @@
           "qty": 2,
           "method": "self-tap",
           "note": "Through the NEMA bracket, threading straight into the printed post — no insert, no nut."
+        },
+        {
+          "from": "output-guide",
+          "to": "c-channel",
+          "qty": 1,
+          "method": "friction",
+          "note": "The guide pushes onto the C-channel drive and is held by the fit alone."
         }
       ],
       "versions": [

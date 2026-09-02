@@ -8834,6 +8834,14 @@
       "date": "2026-08-31",
       "commit": null,
       "message": "Golden with hex-frame-v2: future revisions must stay compatible with this part."
+    },
+    {
+      "name": "feeder-2026-09-02",
+      "node": "feeder",
+      "stability": "stable",
+      "date": "2026-09-02",
+      "commit": null,
+      "message": "Locked before the C-channel overhaul: every unit, part and screw count under the feeder as it stood this day."
     }
   ]
 }

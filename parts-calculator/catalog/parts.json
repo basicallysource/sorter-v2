@@ -1,5 +1,5 @@
 {
-  "_comment": "Source-of-truth manifest. filament.py slices each STL once and writes ../src/lib/data/parts.generated.json + thumbnails + STL copies. Per part: id, uid (see UID below), name, category, description (short, shown in app), internal_notes (extended, agent-only, NOT emitted to the app), version, created_at, updated_at, stl_hash (sha256 pin of the master STL; publish with scripts/publish_assets.py --upload), quantity (per ONE instance of its category), color, optional. attributes (optional list of {label,value} shown in the app), versions (optional archetype history: list of {version,date,message,commit}; commit ties to a real git commit, null = pending an upcoming clean commit). low_tolerance (optional bool: part has little tolerance for dimensional error - a tight/precise fit - so a test print is worth doing) + low_tolerance_note (the specifics, shown in the app). color is one of {\"role\":\"<roleid>\"} (user-picked), {\"fixed\":\"<lego-id>\"}, {\"split\":[{\"color\":\"<lego-id>\",\"qty\":N},...]} (sums to quantity), or {\"any\":true}, or {\"by_section\":{\"<sectionid>\":<colorspec>,...}} (per-section color when a part lives in multiple sections). Machine = 1 of each non-scaling category + N of each scaling category. See ../notes/TERMINOLOGY.md. SCHEMA V2 (unified parts system, see ../notes/UNIFIED-PARTS-SYSTEM.md, incremental): a part may carry kind ('printed' when absent | 'cots'); cots parts have cots {type,size?,variant?}, category (display grouping on the hardware tab), note (builder-critical caveat from the BOM sheet), image (slicer-relative path, published by publish_assets.py and served from the asset service) OR image_url (an already-published content-addressed URL; BOM product images never touch git), sourcing {vendors:[{region,vendor,url,affiliate_url?,price,currency?,pack_qty?,as_of?,note?}]} (url is always the plain listing; affiliate_url is the same listing carrying the project's Amazon tag, mirroring the BOM sheet's 'US Source 1 with Affiliate' column — both are kept so a builder can choose) (price is USD unless currency says otherwise), and no stl/color/quantities. sheet_qty {per_machine|per_layer} / sheet_qty_text are TRANSITIONAL hand counts carried over from the BOM sheet; they die once these parts are placed as requires/lines in the tree. A printed part may carry requires [{part,qty}] = hardware committed to that single physical part (heat inserts, press-fit bearings); qty scales with the part automatically. An assembly may carry lines [{part|assembly, qty}] (qty is a number, or 'per-layer' = multiplied by the total layer count, or 'middle-layers' = layer count minus 2, the layers that sit between the top and bottom interfaces) — these form the experimental machine tree rooted at the 'machine' assembly. A line may also reference a laser-cut part by id (e.g. 'top-plate'); those still live in src/lib/lasercut.ts and are resolved from there until §5.5 folds them into this manifest. Line ids are unique within an assembly: two joints that use the same screw are one merged line. Screws and other hardware that JOIN parts are lines of the assembly that makes the joint, never requires of either member (requires is only for hardware committed to one physical part). joining [{method,note}] records how the lines become one unit — 'solder'|'crimp'|'glue'|'press'|'self-tap' (screw cuts its own thread in printed plastic, no insert or nut) |'friction' (held by clamping force alone, e.g. jammed in an extrusion slot). A cots part that is cut from a bought length carries stock {unit_length_mm, cut_length_mm, pieces_per_unit, unit_label, piece_label}; its lines count PIECES and the app divides to get lengths to buy. MERGES/CONFLICTS (2026-08-21, docs catalog folded in): top-level merges [{id,date,sources,note}] records source-of-truth merger events. A part may carry conflicts [{merge,field,claims:[{source,value},...],note}] = an unresolved factual disagreement between the merged catalogs, kept as data on purpose and rendered as a badge on BOTH sites (docs parts-needed cards + calculator detail views); resolving one means fixing the disputed field against the physical machine and DELETING the conflict entry (git is the history). A part may also carry caption (small text under its docs parts-needed card) and docs_page (its docs detail page path; lets either site cross-link). The docs site renders its parts data from parts.generated.json -- docs/src/liquid/_data/parts.yml is deleted; this manifest is the only parts catalog. LASERCUT (2026-08-21, §5.5 partly done): parts with kind 'lasercut' are the flat sheet parts, passed through to the generated JSON verbatim (fields match the app's LaserCutPart type in src/lib/lasercut.ts, which now reads the generated data instead of hardcoding it; the docs site reads the same JSON). dxf/preview are app-static paths; photo is a published URL. UID (2026-08-22): every part, whatever its kind, carries uid -- a minted 4-char id (catalog/mint_uid.py) naming its CURRENT VERSION: the exact thing in your hand, and what a print gets engraved with. A human bumping `version` mints a new uid; a re-export of the same design is new bytes (a new stl_hash) under the same uid, not a new version. A superseded version entry carries the uid it had (stamp_versions.py writes it beside the superseded stl_hash). Mint BEFORE the STL exists: the entry holds the uid, and the engraved downloads generate.py cuts are named for it. FILENAMES (2026-08-23, the asset service is the only store): a key is the name the file was published under plus a hash of its own bytes, in the sorter-parts namespace. A master STL, and every archived version and candidate of it, is published under the part's id -- sorter-parts/<part-id>-<hash12>.stl -- so the hash is what tells the versions apart, and it is the stl_hash pinned right here: grep a downloaded file's hash fragment in this file and you have the exact version. An engraved download carries the uid as well, sorter-parts/<part-id>-<uid>-stamped-<face>-<hash12>.stl, because that is the string recessed into the plastic. An image is published as a copy with the camera's metadata stripped, so its URL is read off the service, never derived. CANDIDATES (2026-08-22): a printed part may carry candidates [{uid, name?, stl_hash, created_at, message, onshape_version?, images?, support?, superseded_by?, superseded_at?, rejected_at?}] -- design revisions under test for that part's slot. Each is minted its own uid and pinned by hash (publish with publish_assets.py --upload <part-id>.stl), gets sliced and rendered and is downloadable from the part's page, counts toward nothing, and has NO version number: numbers are handed out in adoption order. Promotion = the candidate's uid + stl_hash become the part's current, version bumps, a versions entry is added, the candidate line is removed (its uid lives on at part level). A candidate that is iterated on or dropped is NEVER deleted: mark it superseded_by/superseded_at or rejected_at and leave its pin, so the uid engraved on a test print always resolves here. check_generated_pins.py fails any change that makes a uid disappear from this file. ASSEMBLIES (2026-08-22): every assembly carries uid and version exactly like a part. A new version is an authored STRUCTURAL change (a line added or removed, a qty changed) -- a member part revving is that part's own history, not the assembly's. versions [{version, uid, date, message, commit, lines}] is written like a part's: author the new entry with commit null, and stamp_versions.py carries the superseded uid plus a snapshot of the lines as they were, each line pinned to the member's uid at the time, so a box as built then can be read back part by part. candidates [{uid, name?, created_at, message, lines, joining?, images?, superseded_by?, superseded_at?, rejected_at?}] is a whole alternative bill of materials under test (new parts enter with empty quantities so they count toward nothing); promotion = the candidate's lines and uid become the assembly's, version bumps, a versions entry is added, the candidate line is removed. Same retention rule: a candidate is marked, never deleted. A candidate may carry name: what the slot is called if it is adopted (the housing candidate on ctrl-board-mount renames it on promotion). IMAGES (2026-08-22): any part (printed or cots), assembly, candidate or version may carry images [{url, alt, caption?}] -- extra pictures beyond the render or product photo: an Onshape screenshot, a section view, a photo of it built. url is a pinned published URL exactly like image_url (publish_assets.py --upload <file>.png prints it; never a repo path) and alt says what the picture shows; generate.py refuses anything else and check_asset_urls.py fetches every one. The site shows them as a zoomable strip on the part, hardware and assembly views. TAGS (2026-08-31): top-level tags [{name, node, stability: 'golden'|'stable'|'experimental' ('golden' adds the forward promise: revisions under a golden-tagged node must not be breaking), date, commit, message?}] -- a blessed moment of a node's whole subtree, resolved against history exactly like a timeline point (see VERSIONING.md, History is derived). 'stable' means the build as of that moment is known good and compatibility with it must not be broken silently. Tags are only ever appended by a human decision; nothing mints them.",
+  "_comment": "Source-of-truth manifest. filament.py slices each STL once and writes ../src/lib/data/parts.generated.json + thumbnails + STL copies. Per part: id, uid (see UID below), name, category, description (short, shown in app), internal_notes (extended, agent-only, NOT emitted to the app), version, created_at, updated_at, stl_hash (sha256 pin of the master STL; publish with scripts/publish_assets.py --upload), quantity (per ONE instance of its category), color, optional. attributes (optional list of {label,value} shown in the app), versions (optional archetype history: list of {version,date,message,commit}; commit ties to a real git commit, null = pending an upcoming clean commit). low_tolerance (optional bool: part has little tolerance for dimensional error - a tight/precise fit - so a test print is worth doing) + low_tolerance_note (the specifics, shown in the app). color is one of {\"role\":\"<roleid>\"} (user-picked), {\"fixed\":\"<lego-id>\"}, {\"split\":[{\"color\":\"<lego-id>\",\"qty\":N},...]} (sums to quantity), or {\"any\":true}, or {\"by_section\":{\"<sectionid>\":<colorspec>,...}} (per-section color when a part lives in multiple sections). Machine = 1 of each non-scaling category + N of each scaling category. See ../notes/TERMINOLOGY.md. SCHEMA V2 (unified parts system, see ../notes/UNIFIED-PARTS-SYSTEM.md, incremental): a part may carry kind ('printed' when absent | 'cots'); cots parts have cots {type,size?,variant?}, category (display grouping on the hardware tab), note (builder-critical caveat from the BOM sheet), image (slicer-relative path, published by publish_assets.py and served from the asset service) OR image_url (an already-published content-addressed URL; BOM product images never touch git), sourcing {vendors:[{region,vendor,url,affiliate_url?,price,currency?,pack_qty?,as_of?,note?}]} (url is always the plain listing; affiliate_url is the same listing carrying the project's Amazon tag, mirroring the BOM sheet's 'US Source 1 with Affiliate' column — both are kept so a builder can choose) (price is USD unless currency says otherwise), and no stl/color/quantities. sheet_qty {per_machine|per_layer} / sheet_qty_text are TRANSITIONAL hand counts carried over from the BOM sheet; they die once these parts are placed as requires/lines in the tree. A printed part may carry requires [{part,qty}] = hardware committed to that single physical part (heat inserts, press-fit bearings); qty scales with the part automatically. An assembly may carry lines [{part|assembly, qty}] (qty is a number, or 'per-layer' = multiplied by the total layer count, or 'middle-layers' = layer count minus 2, the layers that sit between the top and bottom interfaces) — these form the experimental machine tree rooted at the 'machine' assembly. A line may also reference a laser-cut part by id (e.g. 'top-plate'); those still live in src/lib/lasercut.ts and are resolved from there until §5.5 folds them into this manifest. Line ids are unique within an assembly: two joints that use the same screw are one merged line. Screws and other hardware that JOIN parts are lines of the assembly that makes the joint, never requires of either member (requires is only for hardware committed to one physical part). joining [{method,note}] records how the lines become one unit — 'solder'|'crimp'|'glue'|'press'|'self-tap' (screw cuts its own thread in printed plastic, no insert or nut) |'friction' (held by clamping force alone, e.g. jammed in an extrusion slot). A cots part that is cut from a bought length carries stock {unit_length_mm, cut_length_mm, pieces_per_unit, unit_label, piece_label}; its lines count PIECES and the app divides to get lengths to buy. MERGES/CONFLICTS (2026-08-21, docs catalog folded in): top-level merges [{id,date,sources,note}] records source-of-truth merger events. A part may carry conflicts [{merge,field,claims:[{source,value},...],note}] = an unresolved factual disagreement between the merged catalogs, kept as data on purpose and rendered as a badge on BOTH sites (docs parts-needed cards + calculator detail views); resolving one means fixing the disputed field against the physical machine and DELETING the conflict entry (git is the history). A part may also carry caption (small text under its docs parts-needed card) and docs_page (its docs detail page path; lets either site cross-link). The docs site renders its parts data from parts.generated.json -- docs/src/liquid/_data/parts.yml is deleted; this manifest is the only parts catalog. LASERCUT (2026-08-21, §5.5 partly done): parts with kind 'lasercut' are the flat sheet parts, passed through to the generated JSON verbatim (fields match the app's LaserCutPart type in src/lib/lasercut.ts, which now reads the generated data instead of hardcoding it; the docs site reads the same JSON). dxf/preview are app-static paths; photo is a published URL. UID (2026-08-22): every part, whatever its kind, carries uid -- a minted 4-char id (catalog/mint_uid.py) naming its CURRENT VERSION: the exact thing in your hand, and what a print gets engraved with. A human bumping `version` mints a new uid; a re-export of the same design is new bytes (a new stl_hash) under the same uid, not a new version. A superseded version entry carries the uid it had (stamp_versions.py writes it beside the superseded stl_hash). Mint BEFORE the STL exists: the entry holds the uid, and the engraved downloads generate.py cuts are named for it. FILENAMES (2026-08-23, the asset service is the only store): a key is the name the file was published under plus a hash of its own bytes, in the sorter-parts namespace. A master STL, and every archived version and candidate of it, is published under the part's id -- sorter-parts/<part-id>-<hash12>.stl -- so the hash is what tells the versions apart, and it is the stl_hash pinned right here: grep a downloaded file's hash fragment in this file and you have the exact version. An engraved download carries the uid as well, sorter-parts/<part-id>-<uid>-stamped-<face>-<hash12>.stl, because that is the string recessed into the plastic. An image is published as a copy with the camera's metadata stripped, so its URL is read off the service, never derived. CANDIDATES (2026-08-22): a printed part may carry candidates [{uid, name?, stl_hash, created_at, message, onshape_version?, images?, support?, superseded_by?, superseded_at?, rejected_at?}] -- design revisions under test for that part's slot. Each is minted its own uid and pinned by hash (publish with publish_assets.py --upload <part-id>.stl), gets sliced and rendered and is downloadable from the part's page, counts toward nothing, and has NO version number: numbers are handed out in adoption order. Promotion = the candidate's uid + stl_hash become the part's current, version bumps, a versions entry is added, the candidate line is removed (its uid lives on at part level). A candidate that is iterated on or dropped is NEVER deleted: mark it superseded_by/superseded_at or rejected_at and leave its pin, so the uid engraved on a test print always resolves here. check_generated_pins.py fails any change that makes a uid disappear from this file. ASSEMBLIES (2026-08-22): every assembly carries uid and version exactly like a part. A new version is an authored STRUCTURAL change (a line added or removed, a qty changed) -- a member part revving is that part's own history, not the assembly's. versions [{version, uid, date, message, commit, lines}] is written like a part's: author the new entry with commit null, and stamp_versions.py carries the superseded uid plus a snapshot of the lines as they were, each line pinned to the member's uid at the time, so a box as built then can be read back part by part. candidates [{uid, name?, created_at, message, lines, joining?, images?, superseded_by?, superseded_at?, rejected_at?}] is a whole alternative bill of materials under test (new parts enter with empty quantities so they count toward nothing); promotion = the candidate's lines and uid become the assembly's, version bumps, a versions entry is added, the candidate line is removed. Same retention rule: a candidate is marked, never deleted. A candidate may carry name: what the slot is called if it is adopted (the housing candidate on ctrl-board-mount renames it on promotion). IMAGES (2026-08-22): any part (printed or cots), assembly, candidate or version may carry images [{url, alt, caption?}] -- extra pictures beyond the render or product photo: an Onshape screenshot, a section view, a photo of it built. On an assembly the first image is its main picture, shown large on its detail view. url is a pinned published URL exactly like image_url (publish_assets.py --upload <file>.png prints it; never a repo path) and alt says what the picture shows; generate.py refuses anything else and check_asset_urls.py fetches every one. The site shows them as a zoomable strip on the part, hardware and assembly views. TAGS (2026-08-31): top-level tags [{name, node, stability: 'golden'|'stable'|'experimental' ('golden' adds the forward promise: revisions under a golden-tagged node must not be breaking), date, commit, message?}] -- a blessed moment of a node's whole subtree, resolved against history exactly like a timeline point (see VERSIONING.md, History is derived). 'stable' means the build as of that moment is known good and compatibility with it must not be broken silently. Tags are only ever appended by a human decision; nothing mints them.",
   "sections": [
     {
       "id": "feeder",
@@ -5612,24 +5612,18 @@
   "assemblies": [
     {
       "id": "light-post-assembly",
-      "uid": "v06x",
-      "version": "1",
+      "uid": "lxof",
+      "version": "2",
       "name": "Light post",
-      "description": "The feeder light post: post, cap, and cap adapter. 2 per machine. Bolts to a C-channel NEMA bracket.",
+      "description": "The feeder light post: the post, the 50 mm COB plate on its end lighting down the channel, and the cap adapter and cap over it. 2 per machine, one each on C-channels 2 and 3, bolted to the C-channel drive's NEMA bracket.",
       "docs": "/hardware/assembly/feeder/light-post/",
-      "joining": [
-        {
-          "method": "self-tap",
-          "note": "The two [[hw:scr-m3-20-cs]] screws that join the post to the NEMA bracket thread straight into the printed post — no insert, no nut."
-        }
-      ],
       "lines": [
         {
           "part": "light-post",
           "qty": 1
         },
         {
-          "part": "light-post-cap",
+          "part": "led-cob-50mm-24v",
           "qty": 1
         },
         {
@@ -5641,12 +5635,49 @@
           "qty": 3
         },
         {
-          "part": "scr-m3-20-cs",
-          "qty": 2
+          "part": "light-post-cap",
+          "qty": 1
+        }
+      ],
+      "connections": [
+        {
+          "from": "light-post-cap-adapter",
+          "to": "light-post",
+          "via": "scr-m3-12-cs",
+          "qty": 3,
+          "method": "self-tap",
+          "note": "Down through the adapter's three clearance holes and the COB plate clamped under it, threading into the pilot holes in the post's end."
+        }
+      ],
+      "images": [
+        {
+          "url": "https://assets.basically.website/sorter-parts/light-post-assembled-full-2b59e7e84bdb.jpg",
+          "alt": "A finished light post on the bench: the black printed post with the 50 mm COB plate on its end, and the red and black leads running out of the post to a DC barrel plug",
+          "caption": "The light post, assembled."
         },
         {
-          "part": "led-cob-50mm-24v",
-          "qty": 1
+          "url": "https://assets.basically.website/sorter-parts/light-post-top-cap-off-full-d076a7bff4a1.jpg",
+          "alt": "The end of the post with the cap off: the aluminium back of the COB plate with the black cap adapter on it, three countersunk screws going down through both into the post, and the leads coming up through the centre hole",
+          "caption": "Cap off: the adapter and its three M3 × 12 through the plate into the post."
+        },
+        {
+          "url": "https://assets.basically.website/sorter-parts/light-post-led-side-full-428b89ff9243.jpg",
+          "alt": "The LED side of the COB plate, close up: the post's forked end holds the plate at its centre, with the leads passing through the centre hole",
+          "caption": "LED side: the post's forked end at the plate's centre."
+        },
+        {
+          "url": "https://assets.basically.website/sorter-parts/light-post-led-side-centre-full-b25b6589047d.jpg",
+          "alt": "The LED side of the COB plate straight on: the post's forked end at the centre with the leads leaving through it",
+          "caption": "LED side, straight on."
+        }
+      ],
+      "versions": [
+        {
+          "version": "2",
+          "date": "2026-09-02",
+          "message": "The two M3 × 20 that bolt the post to the C-channel drive's NEMA bracket moved out to C-channels 2 and 3: the joint belongs to the node that holds both sides. The COB plate, the adapter and the three M3 × 12 that clamp them to the post are now a recorded joint. No physical change.",
+          "breaking": false,
+          "commit": null
         }
       ]
     },
@@ -6603,8 +6634,8 @@
     },
     {
       "id": "channel-two",
-      "uid": "hi96",
-      "version": "1",
+      "uid": "7sut",
+      "version": "2",
       "name": "C-channel 2",
       "description": "The middle feeder channel: a C-channel drive with a white faceted rotor, an output guide and a light post, standing on three supports with one leg extension each.",
       "lines": [
@@ -6631,6 +6662,10 @@
         {
           "assembly": "camera-mount",
           "qty": 1
+        },
+        {
+          "part": "scr-m3-20-cs",
+          "qty": 2
         }
       ],
       "connections": [
@@ -6640,13 +6675,30 @@
           "qty": 3,
           "method": "friction",
           "note": "Dovetail: each support's leg slides into the C-channel drive from below."
+        },
+        {
+          "from": "c-channel",
+          "to": "light-post-assembly",
+          "via": "scr-m3-20-cs",
+          "qty": 2,
+          "method": "self-tap",
+          "note": "Through the NEMA bracket, threading straight into the printed post — no insert, no nut."
+        }
+      ],
+      "versions": [
+        {
+          "version": "2",
+          "date": "2026-09-02",
+          "message": "Took in the two M3 × 20 that bolt the light post to the C-channel drive's NEMA bracket; they were recorded inside the light post. No physical change.",
+          "breaking": false,
+          "commit": null
         }
       ]
     },
     {
       "id": "channel-three",
-      "uid": "xlak",
-      "version": "1",
+      "uid": "p55u",
+      "version": "2",
       "name": "C-channel 3",
       "description": "The lowest feeder channel, just above the classification chamber: a C-channel drive with the gray faceted rotor, an output guide and a light post, on three foot-and-leg supports.",
       "lines": [
@@ -6673,6 +6725,10 @@
         {
           "assembly": "camera-mount",
           "qty": 1
+        },
+        {
+          "part": "scr-m3-20-cs",
+          "qty": 2
         }
       ],
       "connections": [
@@ -6682,6 +6738,23 @@
           "qty": 3,
           "method": "friction",
           "note": "Dovetail: each support's leg slides into the C-channel drive from below."
+        },
+        {
+          "from": "c-channel",
+          "to": "light-post-assembly",
+          "via": "scr-m3-20-cs",
+          "qty": 2,
+          "method": "self-tap",
+          "note": "Through the NEMA bracket, threading straight into the printed post — no insert, no nut."
+        }
+      ],
+      "versions": [
+        {
+          "version": "2",
+          "date": "2026-09-02",
+          "message": "Took in the two M3 × 20 that bolt the light post to the C-channel drive's NEMA bracket; they were recorded inside the light post. No physical change.",
+          "breaking": false,
+          "commit": null
         }
       ]
     },

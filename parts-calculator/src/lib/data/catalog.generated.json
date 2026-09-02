@@ -488,24 +488,18 @@
 	"assemblies": [
 		{
 			"id": "light-post-assembly",
-			"uid": "v06x",
-			"version": "1",
+			"uid": "lxof",
+			"version": "2",
 			"name": "Light post",
-			"description": "The feeder light post: post, cap, and cap adapter. 2 per machine. Bolts to a C-channel NEMA bracket.",
+			"description": "The feeder light post: the post, the 50 mm COB plate on its end lighting down the channel, and the cap adapter and cap over it. 2 per machine, one each on C-channels 2 and 3, bolted to the C-channel drive's NEMA bracket.",
 			"docs": "/hardware/assembly/feeder/light-post/",
-			"joining": [
-				{
-					"method": "self-tap",
-					"note": "The two [[hw:scr-m3-20-cs]] screws that join the post to the NEMA bracket thread straight into the printed post \u2014 no insert, no nut."
-				}
-			],
 			"lines": [
 				{
 					"part": "light-post",
 					"qty": 1
 				},
 				{
-					"part": "light-post-cap",
+					"part": "led-cob-50mm-24v",
 					"qty": 1
 				},
 				{
@@ -517,12 +511,50 @@
 					"qty": 3
 				},
 				{
-					"part": "scr-m3-20-cs",
-					"qty": 2
+					"part": "light-post-cap",
+					"qty": 1
+				}
+			],
+			"connections": [
+				{
+					"from": "light-post-cap-adapter",
+					"to": "light-post",
+					"via": "scr-m3-12-cs",
+					"qty": 3,
+					"method": "self-tap",
+					"note": "Down through the adapter's three clearance holes and the COB plate clamped under it, threading into the pilot holes in the post's end."
+				}
+			],
+			"images": [
+				{
+					"url": "https://assets.basically.website/sorter-parts/light-post-assembled-full-2b59e7e84bdb.jpg",
+					"alt": "A finished light post on the bench: the black printed post with the 50 mm COB plate on its end, and the red and black leads running out of the post to a DC barrel plug",
+					"caption": "The light post, assembled."
 				},
 				{
-					"part": "led-cob-50mm-24v",
-					"qty": 1
+					"url": "https://assets.basically.website/sorter-parts/light-post-top-cap-off-full-d076a7bff4a1.jpg",
+					"alt": "The end of the post with the cap off: the aluminium back of the COB plate with the black cap adapter on it, three countersunk screws going down through both into the post, and the leads coming up through the centre hole",
+					"caption": "Cap off: the adapter and its three M3 \u00d7 12 through the plate into the post."
+				},
+				{
+					"url": "https://assets.basically.website/sorter-parts/light-post-led-side-full-428b89ff9243.jpg",
+					"alt": "The LED side of the COB plate, close up: the post's forked end holds the plate at its centre, with the leads passing through the centre hole",
+					"caption": "LED side: the post's forked end at the plate's centre."
+				},
+				{
+					"url": "https://assets.basically.website/sorter-parts/light-post-led-side-centre-full-b25b6589047d.jpg",
+					"alt": "The LED side of the COB plate straight on: the post's forked end at the centre with the leads leaving through it",
+					"caption": "LED side, straight on."
+				}
+			],
+			"versions": [
+				{
+					"version": "2",
+					"uid": "lxof",
+					"date": "2026-09-02",
+					"message": "The two M3 \u00d7 20 that bolt the post to the C-channel drive's NEMA bracket moved out to C-channels 2 and 3: the joint belongs to the node that holds both sides. The COB plate, the adapter and the three M3 \u00d7 12 that clamp them to the post are now a recorded joint. No physical change.",
+					"breaking": false,
+					"commit": null
 				}
 			]
 		},
@@ -1484,8 +1516,8 @@
 		},
 		{
 			"id": "channel-two",
-			"uid": "hi96",
-			"version": "1",
+			"uid": "7sut",
+			"version": "2",
 			"name": "C-channel 2",
 			"description": "The middle feeder channel: a C-channel drive with a white faceted rotor, an output guide and a light post, standing on three supports with one leg extension each.",
 			"lines": [
@@ -1512,6 +1544,10 @@
 				{
 					"assembly": "camera-mount",
 					"qty": 1
+				},
+				{
+					"part": "scr-m3-20-cs",
+					"qty": 2
 				}
 			],
 			"connections": [
@@ -1521,13 +1557,31 @@
 					"qty": 3,
 					"method": "friction",
 					"note": "Dovetail: each support's leg slides into the C-channel drive from below."
+				},
+				{
+					"from": "c-channel",
+					"to": "light-post-assembly",
+					"via": "scr-m3-20-cs",
+					"qty": 2,
+					"method": "self-tap",
+					"note": "Through the NEMA bracket, threading straight into the printed post \u2014 no insert, no nut."
+				}
+			],
+			"versions": [
+				{
+					"version": "2",
+					"uid": "7sut",
+					"date": "2026-09-02",
+					"message": "Took in the two M3 \u00d7 20 that bolt the light post to the C-channel drive's NEMA bracket; they were recorded inside the light post. No physical change.",
+					"breaking": false,
+					"commit": null
 				}
 			]
 		},
 		{
 			"id": "channel-three",
-			"uid": "xlak",
-			"version": "1",
+			"uid": "p55u",
+			"version": "2",
 			"name": "C-channel 3",
 			"description": "The lowest feeder channel, just above the classification chamber: a C-channel drive with the gray faceted rotor, an output guide and a light post, on three foot-and-leg supports.",
 			"lines": [
@@ -1554,6 +1608,10 @@
 				{
 					"assembly": "camera-mount",
 					"qty": 1
+				},
+				{
+					"part": "scr-m3-20-cs",
+					"qty": 2
 				}
 			],
 			"connections": [
@@ -1563,6 +1621,24 @@
 					"qty": 3,
 					"method": "friction",
 					"note": "Dovetail: each support's leg slides into the C-channel drive from below."
+				},
+				{
+					"from": "c-channel",
+					"to": "light-post-assembly",
+					"via": "scr-m3-20-cs",
+					"qty": 2,
+					"method": "self-tap",
+					"note": "Through the NEMA bracket, threading straight into the printed post \u2014 no insert, no nut."
+				}
+			],
+			"versions": [
+				{
+					"version": "2",
+					"uid": "p55u",
+					"date": "2026-09-02",
+					"message": "Took in the two M3 \u00d7 20 that bolt the light post to the C-channel drive's NEMA bracket; they were recorded inside the light post. No physical change.",
+					"breaking": false,
+					"commit": null
 				}
 			]
 		},

@@ -117,7 +117,7 @@ export type Assembly = {
 	joining?: Joining[]; // work needed to make these lines into one unit
 	lines?: AssemblyLine[];
 	connections?: Connection[]; // the joints, as edges over this assembly's lines
-	images?: CatalogImage[]; // beyond the members' renders: a photo of it built, a section view
+	images?: CatalogImage[]; // photos of it built, section views; the first is its main picture
 };
 
 /** A joint recorded as an edge over the assembly's own lines. `to` is the

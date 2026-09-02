@@ -14,6 +14,7 @@
 		Zap
 	} from 'lucide-svelte';
 	import ConnectionBraces, { braceGroups } from '$lib/components/ConnectionBraces.svelte';
+	import AssemblyStlZip from '$lib/components/AssemblyStlZip.svelte';
 	import DropdownMenu from '$lib/components/DropdownMenu.svelte';
 	import AlternativeBadge from '$lib/components/AlternativeBadge.svelte';
 	import ConflictBadge from '$lib/components/ConflictBadge.svelte';
@@ -42,6 +43,7 @@
 		getPart,
 		hardwareImage,
 		JOIN_LABELS,
+		concreteLines,
 		lineQty,
 		PARTS,
 		plainDescription,
@@ -425,7 +427,7 @@
 		const gather = (ls: AssemblySnapshotLine[]) => {
 			const m = new Map<string, AssemblySnapshotLine>();
 			for (const l of ls) {
-				const k = l.part ?? l.assembly ?? '';
+				const k = l.part ?? l.assembly ?? (l.param ? `$${l.param}` : '');
 				const g = m.get(k);
 				m.set(k, g ? { ...g, qty: sumQty(g.qty, l.qty) as AssemblyLine['qty'] } : { ...l });
 			}
@@ -813,6 +815,8 @@
 {/snippet}
 
 {#snippet lines(list: AssemblyLine[], mult: number, depth: number, endpoints: Set<string> | null = null)}
+	<!-- `list` is already concrete: param slots resolved to part lines, and any
+	     args on sub-assembly lines resolved to literal ids (concreteLines). -->
 	<!-- Keyed by position as well as id: two lines can legitimately name the
 	     same part, and a bare id key makes that a duplicate-key error that
 	     blanks the whole page on hydration. -->
@@ -820,7 +824,7 @@
 		{#if !lineShown(line)}
 			<!-- filtered out -->
 		{:else if line.assembly}
-			{@render node(line.assembly, line.qty, lineQty(line, layers) * mult, depth + 1, endpoints?.has(line.assembly) ?? false)}
+			{@render node(line.assembly, line.qty, lineQty(line, layers) * mult, depth + 1, endpoints?.has(line.assembly) ?? false, line.args)}
 		{:else if line.part && getLasercut(line.part)}
 			{@const lc = getLasercut(line.part)!}
 			<div data-member={line.part} class="ml-1.5 mt-2 flex items-center gap-3 border border-border bg-surface p-2 sm:ml-4 sm:p-3">
@@ -964,7 +968,7 @@
      stood at the stamp — description, photos, every line at the member's uid
      of the day — with sub-assemblies nested the same way. Nothing here reads
      the live catalog except to resolve a pinned uid to its archived render. -->
-{#snippet frozenNode(tree: Record<string, FrozenAssembly>, id: string, mult: number, root: boolean)}
+{#snippet frozenNode(tree: Record<string, FrozenAssembly>, id: string, mult: number, root: boolean, instArgs: Record<string, string> | undefined = undefined)}
 	{@const rec = tree[id]}
 	{#if rec}
 		<div class="{root ? '' : 'ml-1.5 mt-2 border border-border bg-surface p-2 sm:ml-4 sm:p-3'}">
@@ -979,9 +983,9 @@
 			{#if rec.description}<AssemblyDescription text={rec.description} class="mt-1 max-w-2xl text-xs text-text-muted" />{/if}
 			{#if rec.images?.length}<div class="mt-2"><ImageStrip images={rec.images} /></div>{/if}
 			{@render joiningRows(rec.joining)}
-			{#each rec.lines as l, i (`${l.part ?? l.assembly}-${i}`)}
+			{#each concreteLines(rec, rec.lines, instArgs) as l, i (`${l.part ?? l.assembly}-${i}`)}
 				{#if l.assembly && tree[l.assembly]}
-					{@render frozenNode(tree, l.assembly, lineQty(l, layers) * mult, false)}
+					{@render frozenNode(tree, l.assembly, lineQty(l, layers) * mult, false, l.args)}
 				{:else}
 					{@render snapshotRow(l, mult)}
 				{/if}
@@ -992,7 +996,7 @@
 
 <!-- A node's line rows, routed by the header's version controls: the live
      lines, one version's snapshot, or the diff between two versions. -->
-{#snippet versionSwitch(asm: Assembly, mult: number, depth: number)}
+{#snippet versionSwitch(asm: Assembly, mult: number, depth: number, instArgs: Record<string, string> | undefined = undefined)}
 	{@const cur = currentVersion(asm)}
 	{@const shown = filtering ? cur : (shownVersion[asm.id] ?? cur)}
 	{@const base = filtering ? undefined : diffBase[asm.id]}
@@ -1043,7 +1047,7 @@
 		<!-- assemblies a brace wires into get a box, so the tick lands on a
 		     visible container instead of ending in space -->
 		{@const eps = asm.connections?.length ? new Set(asm.connections.flatMap((c) => [c.from, c.to])) : null}
-		{@render lines(jointOrder(asm.lines ?? [], asm.connections ?? []), mult, depth, eps)}
+		{@render lines(jointOrder(concreteLines(asm, asm.lines ?? [], instArgs), asm.connections ?? []), mult, depth, eps)}
 	{/if}
 {/snippet}
 
@@ -1199,7 +1203,7 @@
 	</div>
 {/snippet}
 
-{#snippet node(id: string, qty: AssemblyLine['qty'], mult: number, depth: number, boxed: boolean = false)}
+{#snippet node(id: string, qty: AssemblyLine['qty'], mult: number, depth: number, boxed: boolean = false, instArgs: Record<string, string> | undefined = undefined)}
 	{@const asm = getAssembly(id)}
 	{#if asm && (!filtering || keep.assemblies.has(asm.id))}
 		{@const hasContent =
@@ -1354,6 +1358,7 @@
 						<span class="text-xs text-text-muted">v{currentVersion(asm)}</span>
 					{/if}
 					{#if hasContent}
+						<AssemblyStlZip id={asm.id} name={asm.name} {layers} />
 						<button
 							type="button"
 							class="flex h-5 w-5 items-center justify-center text-text-muted hover:text-text"
@@ -1399,7 +1404,7 @@
 				{/if}
 			{#if asm.images?.length}<div class="mt-2"><ImageStrip images={asm.images} /></div>{/if}
 			{#if historyFor[asm.id] && !filtering}{@render historyPanel(asm)}{/if}
-			{@render versionSwitch(asm, mult, depth)}
+			{@render versionSwitch(asm, mult, depth, instArgs)}
 			<!-- Alternative bills of materials under test, rendered with the same
 			     line rows. -->
 			{#each (filtering ? [] : (asm.candidates ?? [])) as c (c.uid)}

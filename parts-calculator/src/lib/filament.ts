@@ -51,8 +51,14 @@ export type Folder = { id: string; name: string; description?: string };
 export type AssemblyLine = {
 	part?: string;
 	assembly?: string;
+	param?: string; // a slot: filled by the instantiation's args, else the param's default
+	args?: Record<string, string>; // passed to a sub-assembly; '$x' forwards this assembly's own param
 	qty: number | 'per-layer' | 'middle-layers';
 };
+
+/** A parameterized slot an assembly declares: instantiations may pass a
+ *  different part id for it via `args` on the referencing line. */
+export type AssemblyParam = { default: string; note?: string };
 
 /** How an assembly's lines are physically joined. This belongs to the joint —
  *  the assembly — not to either member, the same rule the screws follow: a Pico
@@ -87,6 +93,7 @@ export type FrozenAssembly = {
 	joining?: Joining[];
 	connections?: Connection[];
 	images?: CatalogImage[];
+	params?: Record<string, AssemblyParam>;
 	lines: AssemblySnapshotLine[];
 };
 
@@ -128,6 +135,7 @@ export type Assembly = {
 	name: string;
 	description: string;
 	docs?: string; // path on the docs site to the full assembly guide, e.g. /hardware/assembly/...
+	params?: Record<string, AssemblyParam>; // slots an instantiation may fill via a line's `args`
 	joining?: Joining[]; // work needed to make these lines into one unit
 	lines?: AssemblyLine[];
 	connections?: Connection[]; // the joints, as edges over this assembly's lines
@@ -477,7 +485,7 @@ const lasercutById = new Map(LASER_CUT_PARTS.map((p) => [p.id, p]));
 // the machine tree yet, but they already know what they go together with.
 const assembliesByMember = new Map<string, Assembly[]>();
 for (const a of ASSEMBLIES) {
-	for (const line of a.lines ?? []) {
+	for (const line of concreteLines(a, a.lines ?? [])) {
 		if (!line.part) continue;
 		const list = assembliesByMember.get(line.part);
 		if (list) list.push(a);
@@ -530,13 +538,13 @@ export type UsagePath = { steps: TreeStep[]; via: Part | null; qty: number };
  *  bounded by the tree (cycle-checked at author time), so this stays cheap. */
 export function usagePaths(hardwareId: string, layers: number): UsagePath[] {
 	const found: UsagePath[] = [];
-	const walk = (id: string, trail: TreeStep[], mult: number) => {
+	const walk = (id: string, trail: TreeStep[], mult: number, args?: Record<string, string>) => {
 		const asm = assemblyById.get(id);
 		if (!asm) return;
-		for (const line of asm.lines ?? []) {
+		for (const line of concreteLines(asm, asm.lines ?? [], args)) {
 			const q = lineQty(line, layers) * mult;
 			if (line.assembly) {
-				walk(line.assembly, [...trail, { assembly: asm, qty: mult }], q);
+				walk(line.assembly, [...trail, { assembly: asm, qty: mult }], q, line.args);
 			} else if (line.part === hardwareId) {
 				found.push({ steps: [...trail, { assembly: asm, qty: mult }], via: null, qty: q });
 			} else if (line.part) {
@@ -607,6 +615,41 @@ export function getHardware(id: string): Hardware | undefined {
 	return hardwareById.get(id);
 }
 
+/** The part id filling a param slot for one instantiation: the args value if
+ *  the instantiation passed one, else the param's declared default. */
+export function paramValue(
+	holder: { params?: Record<string, AssemblyParam> },
+	name: string,
+	args?: Record<string, string>
+): string {
+	return args?.[name] ?? holder.params?.[name]?.default ?? '';
+}
+
+/** An assembly's lines made concrete for one instantiation: param slots become
+ *  part lines, and '$x' args forwarded to sub-assemblies become literal ids.
+ *  With no args, params resolve to their defaults — the assembly as shown
+ *  anywhere it isn't instantiated from a parent. */
+export function concreteLines(
+	holder: { params?: Record<string, AssemblyParam> },
+	lines: AssemblyLine[],
+	args?: Record<string, string>
+): AssemblyLine[] {
+	return lines.map((l) => {
+		if (l.param) {
+			const { param, ...rest } = l;
+			void param;
+			return { ...rest, part: paramValue(holder, l.param, args) };
+		}
+		if (l.args) {
+			const resolved: Record<string, string> = {};
+			for (const [k, v] of Object.entries(l.args))
+				resolved[k] = v.startsWith('$') ? paramValue(holder, v.slice(1), args) : v;
+			return { ...l, args: resolved };
+		}
+		return l;
+	});
+}
+
 /** Resolve an assembly line's quantity. Total layer count n includes the top
  *  and bottom interface levels; 'middle-layers' is the n−2 between them. */
 export function lineQty(line: AssemblyLine, layers: number): number {
@@ -622,10 +665,11 @@ export function lineQty(line: AssemblyLine, layers: number): number {
  *  Returns hardware id -> total count. */
 export function resolveHardwareTotals(root: string, layers: number): Map<string, number> {
 	const acc = new Map<string, number>();
-	const walk = (id: string, mult: number) => {
-		for (const line of assemblyById.get(id)?.lines ?? []) {
+	const walk = (id: string, mult: number, args?: Record<string, string>) => {
+		const asm = assemblyById.get(id);
+		for (const line of concreteLines(asm ?? {}, asm?.lines ?? [], args)) {
 			const q = lineQty(line, layers) * mult;
-			if (line.assembly) walk(line.assembly, q);
+			if (line.assembly) walk(line.assembly, q, line.args);
 			else if (line.part) {
 				if (hardwareById.has(line.part)) {
 					acc.set(line.part, (acc.get(line.part) ?? 0) + q);

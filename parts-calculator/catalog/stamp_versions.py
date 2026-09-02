@@ -83,7 +83,7 @@ def freeze_subtree(d, root):
     member_uid = {p["id"]: p.get("uid") for p in d.get("parts", [])}
     asms = {a["id"]: a for a in d.get("assemblies", [])}
     member_uid.update({k: a.get("uid") for k, a in asms.items()})
-    keep = ("uid", "name", "description", "docs", "joining", "connections", "images")
+    keep = ("uid", "name", "description", "docs", "params", "joining", "connections", "images")
     tree = collections.OrderedDict()
     todo = [root]
     while todo:

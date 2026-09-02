@@ -311,6 +311,17 @@ added/removed/replaced, qty changed) MUST be stamped as a new assembly
 version with its `breaking` bit — `check_versioning.py` refuses it
 otherwise. See `VERSIONING.md`.
 
+**An assembly can be parameterized.** It may declare `params` — named slots,
+each with a `default` part id — and reference a slot as a line
+`{param: "camera", qty: 1}`. A line instantiating a sub-assembly may pass
+`args {name: <part-id> | "$own-param"}`; `"$x"` forwards the instantiating
+assembly's own param x, which is how an arg reaches a slot nested levels
+down. Resolution is args value, else default (`concreteLines` in
+`filament.ts`; every tree walk, rollup and export resolves through it).
+This is why one Camera lamp serves all four C-channels with two different
+cameras. Connections still name concrete member ids. `check_connections.py`
+validates slots, defaults and args.
+
 **An assembly's `connections` are its joints as a graph over its members.**
 One edge per joint: `{from, to, via, qty, method, through_mm?, thread_mm?,
 note?, draft?}`. `from`/`to`

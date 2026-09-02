@@ -8,6 +8,7 @@
 	import HardwareIcon from '$lib/components/HardwareIcon.svelte';
 	import ImageStrip from '$lib/components/ImageStrip.svelte';
 	import {
+		concreteLines,
 		docsUrl,
 		fmtDate,
 		getAssembly,
@@ -53,7 +54,8 @@
 	 *  no cycles, and a `seen` set would undercount a part used in two branches. */
 	function partsUnder(id: string, mult = 1, acc = new Map<string, number>(), depth = 0) {
 		if (depth > 8) return acc;
-		for (const line of getAssembly(id)?.lines ?? []) {
+		const asm = getAssembly(id);
+		for (const line of concreteLines(asm ?? {}, asm?.lines ?? [])) {
 			const q = lineQty(line, layers) * mult;
 			if (line.assembly) partsUnder(line.assembly, q, acc, depth + 1);
 			else if (line.part && getPart(line.part)) acc.set(line.part, (acc.get(line.part) ?? 0) + q);
@@ -200,7 +202,9 @@
 			{/if}
 		</h3>
 		{#if assembly.lines?.length}
-			{#each assembly.lines as line, i (`${line.part ?? line.assembly}-${i}`)}
+			<!-- param slots resolve to their defaults here: this view shows the
+			     assembly itself, not one parent's instantiation of it -->
+			{#each concreteLines(assembly, assembly.lines) as line, i (`${line.part ?? line.assembly}-${i}`)}
 				{@render lineRow(line)}
 			{/each}
 		{:else}

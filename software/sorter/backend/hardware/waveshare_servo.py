@@ -491,6 +491,8 @@ class WaveshareServoMotor:
         self._move_started_at: float = 0.0
         self._move_duration: float = 0.0
         self._consecutive_failures = 0
+        # Pending post-move torque release (open/close/move_to_and_release).
+        self._release_timer: threading.Timer | None = None
 
     def initialize(self) -> None:
         """Read or auto-calibrate limits and apply good PID settings."""
@@ -554,6 +556,9 @@ class WaveshareServoMotor:
     @enabled.setter
     def enabled(self, value: bool):
         self._enabled = bool(value)
+        if self._enabled:
+            # An explicit hold must survive a release scheduled by an earlier move.
+            self._cancel_release()
         self._bus.set_torque(self._servo_id, self._enabled)
 
     def move_to(self, angle: int) -> bool:
@@ -563,8 +568,39 @@ class WaveshareServoMotor:
     def move_to_and_release(self, angle: int) -> bool:
         """Move to angle then disable torque."""
         result = self.move_to(angle)
-        self._enabled = False  # will release after move
+        self._release_after_move()
         return result
+
+    def _release_after_move(self) -> None:
+        """Drop torque once the move in flight has finished.
+
+        The door mechanics hold the gate on their own, and a servo left
+        energized against its end stop draws stall current until it overheats
+        (seen at 74 °C on the B1 machine) and trips its protection — which the
+        old driver then reported as "unreachable". Nothing on the distribution
+        path polls ``stopped``, so the release cannot depend on it.
+        """
+        self._enabled = False
+        self._cancel_release()
+        if self._move_started_at == 0:
+            return  # no move in flight: the failed command already released
+        timer = threading.Timer(self._move_duration + 0.1, self._release_if_pending)
+        timer.daemon = True
+        self._release_timer = timer
+        timer.start()
+
+    def _release_if_pending(self) -> None:
+        if self._enabled:
+            return
+        self._move_started_at = 0.0
+        self._release_timer = None
+        self._bus.set_torque(self._servo_id, False)
+
+    def _cancel_release(self) -> None:
+        timer = self._release_timer
+        if timer is not None:
+            timer.cancel()
+            self._release_timer = None
 
     @property
     def position(self) -> int:
@@ -573,6 +609,8 @@ class WaveshareServoMotor:
         return pos if pos is not None else self._current_position
 
     def stop(self):
+        self._cancel_release()
+        self._move_started_at = 0.0
         self._bus.set_torque(self._servo_id, False)
         self._enabled = False
 
@@ -583,8 +621,10 @@ class WaveshareServoMotor:
             return True
         elapsed = time.monotonic() - self._move_started_at
         if elapsed >= self._move_duration + 0.1:
-            # Auto-release torque if move_to_and_release was used
+            # The timer normally releases; a poll that gets here first does it
+            # instead (and cancels the timer so the coil isn't released twice).
             if not self._enabled:
+                self._cancel_release()
                 self._bus.set_torque(self._servo_id, False)
             self._move_started_at = 0
             return True
@@ -596,11 +636,11 @@ class WaveshareServoMotor:
 
     def open(self, open_angle: int | None = None) -> None:
         self._command_move(self._open_position, "open")
-        self._enabled = False  # release after move
+        self._release_after_move()
 
     def close(self, closed_angle: int | None = None) -> None:
         self._command_move(self._closed_position, "close")
-        self._enabled = False  # release after move
+        self._release_after_move()
 
     def toggle(self) -> None:
         if self.isOpen():

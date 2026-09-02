@@ -159,7 +159,7 @@
 <div class="ad">
 	<header class="ad-head">
 		{#if assembly.images?.length}
-			<ImageStrip images={assembly.images} />
+			<ImageStrip images={assembly.images} hero />
 		{:else if fan.length}
 			<div class="ad-fan ad-fan-lg">
 				{#each fan as p, i (p.id)}

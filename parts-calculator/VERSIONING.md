@@ -87,7 +87,9 @@ change:
    `breaking` bit, `"commit": null` (pending).
 3. After committing, run `catalog/stamp_versions.py`: it ties the entry to
    its commit and snapshots the superseded lines with each member's uid of
-   the day, so the box as built then reads back part by part.
+   the day, so the box as built then reads back part by part. On a node's
+   first stamp it also writes the entry for the state being left behind, so
+   there is always a snapshot to flip back to.
 
 There is no "just filling in what was always there" exemption: the lines
 are the record, and every change to them is a moment someone may need to
@@ -123,6 +125,14 @@ forward promise — future revisions of a golden-tagged node must not be
 breaking, so anything built against it keeps working; `experimental` marks
 a coherent but unproven cut. A tag resolves against history exactly like a
 timeline point and renders highlighted on the timeline.
+
+A tag is the lock on a whole subtree. A version stamp records one node's
+own list and nothing below it; the tag names a moment, and at that moment
+every assembly under the node resolves to the lines it had then and every
+part to the revision it was then (both from the dates on their version
+entries). "Flip back to the feeder as it was" is: open History on the
+feeder, click the tag's row. A tag resolves at the end of its date, so a
+change that must fall outside it is stamped with a later date.
 
 Tags are appended only by a human decision. No tool, check, or agent ever
 mints one.

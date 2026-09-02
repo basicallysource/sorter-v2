@@ -358,6 +358,39 @@
 	function memberName(id: string): string {
 		return memberOf(id)?.name ?? ghostName(id) ?? id;
 	}
+	/** Rows in joint order: the authored order, except that once a member is
+	 *  placed, whatever it is joined to follows it straight away — fastener
+	 *  first, then the other side — so a brace spans neighbours more often
+	 *  than not. A member in several joints pulls all of them in after it,
+	 *  fastenerless ones first: a two-row brace stays tight, and the screwed
+	 *  joint's three rows follow as a block. */
+	function jointOrder(list: AssemblyLine[], edges: Connection[]): AssemblyLine[] {
+		if (!edges.length) return list;
+		const idOf = (l: AssemblyLine) => l.part ?? l.assembly ?? '';
+		const byId = new Map(list.map((l) => [idOf(l), l]));
+		const ordered = [...edges].sort((a, b) => (a.via ? 1 : 0) - (b.via ? 1 : 0));
+		const out: AssemblyLine[] = [];
+		const placed = new Set<string>();
+		const place = (id: string) => {
+			const l = byId.get(id);
+			if (!l || placed.has(id)) return;
+			placed.add(id);
+			out.push(l);
+			for (const e of ordered) {
+				if (e.from === id || e.to === id) {
+					if (e.via) place(e.via);
+					place(e.from === id ? e.to : e.from);
+				} else if (e.via === id) {
+					place(e.from);
+					place(e.to);
+				}
+			}
+		};
+		for (const l of list) place(idOf(l));
+		// a duplicated id (two lines naming one part) keeps its extra rows
+		for (const l of list) if (!out.includes(l)) out.push(l);
+		return out;
+	}
 	/** Which revision of the member a pinned uid names: its version number, or
 	 *  null when the uid predates the member's recorded history. */
 	function memberRev(id: string, uid?: string): string | null {
@@ -536,21 +569,34 @@
 
 	/** Every recorded state of an assembly's lines, oldest first: the era
 	 *  timeline, then versions[] snapshots dated past the era's horizon (the
-	 *  stamp rule guarantees those exist for every later structural change). */
-	const stateCache = new Map<string, { d: string; s: number; lines: AssemblyLine[] | null }[]>();
+	 *  stamp rule guarantees those exist for every later change). A superseded
+	 *  entry that carries a snapshot but no date is the state from before
+	 *  anything was dated — the first stamp on a node records what it held
+	 *  until then. */
+	type LineState = { d: string; s: number; lines: AssemblyLine[] | null };
+	const stateCache = new Map<string, LineState[]>();
 	function statesOf(id: string) {
 		const hit = stateCache.get(id);
 		if (hit) return hit;
-		const st = (eraAsm[id]?.timeline ?? []).map((t) => ({ d: t.date, s: t.seq, lines: t.lines }));
+		const era = eraAsm[id]?.timeline ?? [];
+		const undated: LineState[] = [];
+		const dated: LineState[] = [];
 		const asm = getAssembly(id);
 		const vs = asm?.versions ?? [];
 		vs.forEach((v, i) => {
+			const current = i === vs.length - 1;
+			if (!v.date) {
+				if (!current && v.lines) undated.push({ d: '', s: i, lines: v.lines });
+				return;
+			}
 			// >= : a stamp dated the era's own horizon (same-day) must still
 			// resolve. When the era already recorded that change, the extra
-			// state carries identical lines, so resolution is unaffected.
-			if (v.date && v.date >= eraThrough)
-				st.push({ d: v.date, s: VSEQ + i, lines: i === vs.length - 1 ? (asm!.lines ?? []) : (v.lines ?? null) });
+			// state carries identical lines, so resolution is unaffected. A node
+			// the era never saw keeps every dated entry.
+			if (v.date >= eraThrough || !era.length)
+				dated.push({ d: v.date, s: VSEQ + i, lines: current ? (asm!.lines ?? []) : (v.lines ?? null) });
 		});
+		const st = [...undated, ...era.map((t) => ({ d: t.date, s: t.seq, lines: t.lines })), ...dated];
 		stateCache.set(id, st);
 		return st;
 	}
@@ -565,8 +611,26 @@
 		// No recorded change anywhere in history — it has always been what it is.
 		return getAssembly(id)?.lines ?? null;
 	}
+	/** The uid a member carried at a moment, from the dates on its versions[]:
+	 *  the newest entry dated on or before the moment, else the earliest
+	 *  recorded one (it existed before anything was dated). */
+	function uidAt(id: string, k: TKey): string | undefined {
+		const m = memberOf(id) as { uid?: string; versions?: { uid?: string; date?: string }[] } | undefined;
+		if (!m) return undefined;
+		if (k.d === NOW.d) return m.uid;
+		const vs = m.versions ?? [];
+		let hit: { uid?: string } | undefined;
+		for (const v of vs) if (v.date && v.date <= k.d) hit = v;
+		return (hit ?? vs[0])?.uid ?? m.uid;
+	}
+	/** An assembly's lines at a moment, each pinned to the uid its member
+	 *  carried then — so a part revised after the lines were snapshotted, or
+	 *  never snapshotted at all, still reads back as the revision of the day. */
+	function snapshotAtKey(id: string, k: TKey): AssemblySnapshotLine[] {
+		return (linesAtKey(id, k) ?? []).map((l) => ({ ...l, uid: uidAt(l.part ?? l.assembly ?? '', k) }));
+	}
 	function timeRows(id: string, a: TKey, b: TKey): DiffRow[] {
-		return diffLines((linesAtKey(id, a) ?? []) as AssemblySnapshotLine[], (linesAtKey(id, b) ?? []) as AssemblySnapshotLine[]);
+		return diffLines(snapshotAtKey(id, a), snapshotAtKey(id, b));
 	}
 	const isAsmish = (id: string) => !!getAssembly(id) || !!eraAsm[id];
 	/** Did anything at or below this node move between the two moments? Drives
@@ -811,7 +875,8 @@
 <!-- One member of a version snapshot or diff row: name, kind, pinned uid and
      the member revision that uid names. -->
 {#snippet memberCell(id: string, uid: string | undefined, struck: boolean)}
-	{@const render = getPart(id)?.render}
+	{@const part = getPart(id)}
+	{@const render = part?.versions?.find((v) => v.uid === uid)?.render ?? part?.render}
 	{#if render}<img src={render} alt="" class="h-7 w-7 shrink-0 object-contain {struck ? 'opacity-50' : ''}" />{/if}
 	<span class="min-w-0 flex-1">
 		<span class="font-semibold text-text {struck ? 'line-through opacity-60' : ''}">{memberName(id)}</span>
@@ -943,7 +1008,7 @@
 		<!-- assemblies a brace wires into get a box, so the tick lands on a
 		     visible container instead of ending in space -->
 		{@const eps = asm.connections?.length ? new Set(asm.connections.flatMap((c) => [c.from, c.to])) : null}
-		{@render lines(asm.lines ?? [], mult, depth, eps)}
+		{@render lines(jointOrder(asm.lines ?? [], asm.connections ?? []), mult, depth, eps)}
 	{/if}
 {/snippet}
 
@@ -1398,7 +1463,7 @@
 							{#if fStable}<Check size={12} class="ml-auto text-primary" />{/if}
 						</button>
 						<div class="px-2.5 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-wider text-text-muted">Order</div>
-						{#each [['authored', 'As authored'], ['name', 'By name']] as [o, lbl] (o)}
+						{#each [['authored', 'Joints together'], ['name', 'By name']] as [o, lbl] (o)}
 							<button
 								type="button"
 								class="flex w-full items-center gap-2 px-2.5 py-1.5 text-left text-xs text-text hover:bg-[var(--color-bg)]"

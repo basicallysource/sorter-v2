@@ -23,32 +23,24 @@
 	 *  components over shared members, so two unrelated self-tapped joints never
 	 *  merge into a single spine. Exported because the page sizes each branch's
 	 *  gutter off the same grouping. */
+	// One brace per joint. A joint is the two members and the fastener between
+	// them; it may be recorded as several edges (the same screws into holes of
+	// two depths), which draw as one brace. Two joints that merely share a
+	// member — the supports and the output guide both friction-fit to the
+	// drive — are two braces.
 	export function braceGroups(edges: Connection[]) {
-		const byMethod = new Map<string, Connection[]>();
-		for (const e of edges) byMethod.set(e.method, [...(byMethod.get(e.method) ?? []), e]);
-		const out: { key: string; method: string; edges: Connection[]; ids: string[]; draft: boolean }[] = [];
-		for (const [method, es] of byMethod) {
-			const comps: Connection[][] = [];
-			for (const e of es) {
-				const mine = new Set([e.from, e.to, ...(e.via ? [e.via] : [])]);
-				const touching = comps.filter((c) =>
-					c.some((o) => [o.from, o.to, o.via].some((x) => x && mine.has(x)))
-				);
-				for (const t of touching) comps.splice(comps.indexOf(t), 1);
-				comps.push([...touching.flat(), e]);
-			}
-			for (const c of comps) {
-				const ids = [...new Set(c.flatMap((e) => [e.from, e.to, ...(e.via ? [e.via] : [])]))];
-				out.push({
-					key: `${method}:${ids.join('+')}`,
-					method,
-					edges: c,
-					ids,
-					draft: c.every((e) => e.draft)
-				});
-			}
+		const joints = new Map<string, Connection[]>();
+		for (const e of edges) {
+			const key = `${e.method}:${e.from}>${e.to}:${e.via ?? ''}`;
+			joints.set(key, [...(joints.get(key) ?? []), e]);
 		}
-		return out;
+		return [...joints].map(([key, es]) => ({
+			key,
+			method: es[0].method,
+			edges: es,
+			ids: [...new Set(es.flatMap((e) => [e.from, e.to, ...(e.via ? [e.via] : [])]))],
+			draft: es.every((e) => e.draft)
+		}));
 	}
 </script>
 

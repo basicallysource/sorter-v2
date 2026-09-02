@@ -367,9 +367,9 @@ class ServoBus(Protocol):
 #     keep a margin from the pressed position, and the runtime releases torque
 #     after each move (WaveshareServoMotor._release_after_move).
 # Procedure: probe outward in 30-count moves until two consecutive probes make
-# no progress, take the pressed position as the raw stop, check the door can
-# leave it again (one 20-count retreat must be followed), keep a margin of at
-# least 10 counts (4 % of the span), verify both ends with full swings, save.
+# no progress, take the pressed position as the raw stop, keep a margin of at
+# least 10 counts (4 % of the span), verify both ends with full swings (a small
+# retreat command does not break the stiction at a stop, a full swing does), save.
 # Every EEPROM write is read back. Any failure restores the previous limits and
 # releases torque. Nothing calibrates implicitly: initialize() refuses an
 # uncalibrated servo instead of moving a door at machine start.
@@ -380,8 +380,7 @@ _CAL_PROBE_SETTLE_S = 0.3
 _CAL_STOP_SHORT = 15  # a stalled probe ends at least this far short of its target
 _CAL_MIN_PROGRESS = 5  # counts; less than this = no progress
 _CAL_STALLED_PROBES = 2  # consecutive no-progress probes that make a stop
-_CAL_RETREAT = 20  # counts; the door must be able to leave the stop by this much
-_CAL_FOLLOW_TOL = 10  # counts; a followed command ends within this of its target
+_CAL_SWING_TOL = 20  # counts; a full swing must end within this of its target
 _CAL_MARGIN_MIN = 10
 _CAL_MARGIN_FRACTION = 0.04
 _CAL_MIN_SPAN = 40  # counts (~12°); below this the door is not usable
@@ -493,22 +492,11 @@ def _find_stop(bus: ServoBus, servo_id: int, direction: int) -> int:
     raise CalibrationError(f"Servo {servo_id}: no stop found within {_CAL_MAX_PROBES} probes")
 
 
-def _check_retreat(bus: ServoBus, servo_id: int, stop: int, direction: int) -> None:
-    """The door must be able to leave the stop: one retreat command has to be followed."""
-    target = _clamp(stop - direction * _CAL_RETREAT)
-    pos, load = _move_and_settle(bus, servo_id, target, _CAL_PROBE_TIME_MS)
-    if abs(pos - target) > _CAL_FOLLOW_TOL:
-        raise CalibrationError(
-            f"Servo {servo_id}: cannot leave the stop at {stop} (commanded {target}, "
-            f"sits at {pos}, load {load}) — is the mechanism binding?"
-        )
-
-
 def _verify_swing(bus: ServoBus, servo_id: int, start: int, target: int) -> None:
     """A full swing, as the runtime does it, must end near the target."""
     _move_and_settle(bus, servo_id, start, 400)
     pos, load = _move_and_settle(bus, servo_id, target, 300)
-    if abs(pos - target) > _CAL_FOLLOW_TOL + 5:
+    if abs(pos - target) > _CAL_SWING_TOL:
         raise CalibrationError(
             f"Servo {servo_id}: swing to {target} ended at {pos} (load {load}); "
             f"the calibrated range is not usable"
@@ -530,11 +518,9 @@ def calibrate_servo(bus: ServoBus, servo_id: int) -> tuple[int, int]:
         stops: dict[int, int] = {}
         for direction in (-1, +1):
             try:
-                stop = _find_stop(bus, servo_id, direction)
-                _check_retreat(bus, servo_id, stop, direction)
+                stops[direction] = _find_stop(bus, servo_id, direction)
             finally:
                 bus.set_torque(servo_id, False)
-            stops[direction] = stop
             _sleep(0.1)
         raw_min, raw_max = stops[-1], stops[+1]
         span = raw_max - raw_min

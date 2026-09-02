@@ -105,6 +105,7 @@ from .parse_user_toml import (
     loadChuteCalibrationConfig,
     loadCameraLayoutConfig,
     applyStepperCurrentOverride,
+    applyStepperEncoder,
     applyStepperStallguard,
 )
 from .leds import LedController, discoverLedOutputs
@@ -1496,6 +1497,13 @@ def mkIRLInterface(config: IRLConfig, gc: GlobalConfig) -> IRLInterface:
 
         applyStepperCurrentOverride(stepper, canonical_name, stepper_current_overrides, gc)
         applyStepperStallguard(stepper, canonical_name, machine_config.stepper_stallguard, gc)
+        applyStepperEncoder(
+            stepper,
+            canonical_name,
+            machine_config.stepper_encoders,
+            stepper_config.microsteps if stepper_config is not None else 8,
+            gc,
+        )
         logical_name = logical_name_for_attr_base.get(attr_base)
         stepper.set_direction_inverted(
             stepper_direction_inverts.get(logical_name, False) if logical_name is not None else False

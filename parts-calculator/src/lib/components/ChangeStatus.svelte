@@ -53,10 +53,10 @@
 			: allRetired
 				? `${name} is being removed from the catalog`
 				: allNiceToHave
-				? `Possible improvement for ${name}`
-				: anyBroken
-					? `Broken feature on ${name}`
-					: `Why ${name} is subject to change`
+					? `Possible improvement for ${name}`
+					: anyBroken
+						? `Broken feature on ${name}`
+						: `Why ${name} is subject to change`
 	);
 	const headline = $derived(
 		anyBroken
@@ -64,8 +64,8 @@
 			: allRetired
 				? 'This item is no longer used anywhere and is waiting to be deleted from the catalog.'
 				: allNiceToHave
-				? 'The current design is usable; these improvements would be nice to have.'
-				: 'Works now, but is intended to be replaced shortly with an improvement.'
+					? 'The current design is usable; these improvements would be nice to have.'
+					: 'Works now, but is intended to be replaced shortly with an improvement.'
 	);
 </script>
 
@@ -75,7 +75,14 @@
 	     sits in the narrow thumbnail cell at the very left — so a right-aligned
 	     panel runs 20rem off the edge of the table and loses its first half.
 	     Opening rightwards into the table body always has room. -->
-	<Popover width="w-80" {align} {label}>
+	<Popover
+		width="w-80"
+		{align}
+		{label}
+		class={variant === 'marker'
+			? 'absolute -bottom-px -left-px z-10 inline-flex'
+			: 'relative inline-flex align-middle'}
+	>
 		{#snippet trigger({ toggle, open })}
 			{#if variant === 'marker'}
 				<button
@@ -164,12 +171,11 @@
 
 <style>
 	/* Deliberately quiet: a builder scanning a list of renders should notice it
-	   without reading it as a stop sign. The panel is where the alarm lives. */
+	   without reading it as a stop sign. The panel is where the alarm lives.
+	   Positioning belongs to the Popover root (this button is inside it), which
+	   is what puts the mark in the tile's bottom-left corner, mirroring the
+	   length stamp the hardware page puts in the bottom-right. */
 	.change-marker {
-		position: absolute;
-		top: 1px;
-		right: 1px;
-		z-index: 10;
 		display: inline-flex;
 		align-items: center;
 		gap: 0.0625rem;
@@ -184,13 +190,14 @@
 	:global(.dark) .change-marker {
 		color: var(--color-warning);
 	}
-	/* Removal is not an alarm: the mark stays quiet and the trash can carries the
-	   meaning, the same way the warning triangle does for everything else. */
+	/* Red, at barthel's request: on a page of pictures the trash can is the whole
+	   signal, and a muted one was missed entirely. */
 	.change-marker.is-retired {
-		color: var(--color-text-muted);
+		border-color: color-mix(in srgb, var(--color-danger) 50%, transparent);
+		color: var(--color-danger);
 	}
 	:global(.dark) .change-marker.is-retired {
-		color: var(--color-text-muted);
+		color: #ff6b6c;
 	}
 	.retired-badge {
 		display: inline-flex;

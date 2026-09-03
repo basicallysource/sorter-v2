@@ -52,9 +52,10 @@
 	}
 
 	// The menu's two choices. Engraving defaults on — a print that carries its
-	// version id is the whole point of the stamps. Per-piece defaults off.
+	// version id is the whole point of the stamps. Unique-only defaults on;
+	// unticking it writes one numbered file per physical piece.
 	let engrave = $state(true);
-	let perPiece = $state(false);
+	let uniqueOnly = $state(true);
 
 	async function download() {
 		if (zipping) return;
@@ -78,7 +79,7 @@
 				if (!res.ok) throw new Error(`${pid}: HTTP ${res.status}`);
 				const bytes = new Uint8Array(await res.arrayBuffer());
 				const file = url.slice(url.lastIndexOf('/') + 1);
-				if (perPiece) {
+				if (!uniqueOnly) {
 					// one file per physical piece — <part>-1.stl, <part>-2.stl … —
 					// so importing the zip gives the slicer the exact plate count
 					for (let i = 1; i <= qty; i++) files[`${pid}-${i}.stl`] = bytes;
@@ -93,7 +94,7 @@
 			const zipped = zipSync(files, { level: 6 });
 			const a = document.createElement('a');
 			a.href = URL.createObjectURL(new Blob([zipped as BlobPart], { type: 'application/zip' }));
-			a.download = `${id}-stls${engrave ? '-engraved' : ''}${perPiece ? '-pieces' : ''}.zip`;
+			a.download = `${id}-stls${engrave ? '-engraved' : ''}${uniqueOnly ? '' : '-pieces'}.zip`;
 			a.click();
 			// revoking immediately can abort a large blob's save mid-flight;
 			// give the browser a minute to finish reading it
@@ -124,8 +125,8 @@
 			Engrave version ids
 		</label>
 		<label class="flex cursor-pointer items-center gap-2 px-3 py-1.5 text-xs text-text hover:bg-primary/[0.06]">
-			<input type="checkbox" bind:checked={perPiece} class="accent-[var(--color-primary)]" />
-			One file per piece
+			<input type="checkbox" bind:checked={uniqueOnly} class="accent-[var(--color-primary)]" />
+			Only download unique files
 		</label>
 		<div class="border-t border-border/60 px-3 py-1.5">
 			<button

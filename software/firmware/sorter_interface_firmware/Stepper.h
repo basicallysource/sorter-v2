@@ -61,7 +61,10 @@ public:
     // still in progress" and the gate that refuses overlapping jitter requests.
     bool isJittering() { return _jitter_active.load(); }
     int32_t getPosition() { return _absolute_position; }
-    void setPosition(int32_t position) { _absolute_position = position; }
+    void setPosition(int32_t position) { _absolute_position = position; _position_reset.store(true); }
+    // True once after the counter was assigned instead of stepped (setPosition,
+    // homing zero); the shaft-encoder check re-captures its offset on it.
+    bool consumePositionReset() { return _position_reset.exchange(false); }
     void home(int32_t home_speed, int home_pin, bool home_pin_polarity);
 
     // StallGuard / DIAG. The TMC2209 drives its DIAG output high when SG_RESULT
@@ -116,6 +119,7 @@ private:
     std::atomic<int32_t> _mc_dir; // 1 = forward, -1 = reverse
     std::atomic<int32_t> _mc_home_pin; // Home switch pin, -1 if not homing
     std::atomic<bool> _mc_home_pin_polarity; // Home switch polarity, true if active high, false if active low
+    std::atomic<bool> _position_reset{false}; // _absolute_position was assigned, not stepped
 
     // Internal state
     std::atomic<int32_t> _steps_moved, _steps_frac; // How many steps have we moved in the current move, counted towards the _move_direction (if moving backwards we go negative)

@@ -169,6 +169,63 @@ def _waitJitterDone(stepper: Any, timeout_s: float) -> None:
         time.sleep(0.05)
 
 
+def shakeChannelStage(
+    gc: Any,
+    irl: Any,
+    *,
+    vision: Any = None,
+    label: str = LOG_TAG,
+    name: str,
+    amplitude_output_deg: float,
+    cycles: int,
+    microsteps_per_second: int,
+    acceleration_microsteps_per_second_sq: int,
+    settle_ms: int,
+    stepper_per_output_deg: float,
+) -> ChannelClearResult:
+    """One rock of the platter around its current position, then an occupancy
+    check. Reason is "still_occupied" when the piece did not move on; the ladder
+    and the operator's Test Wiggle both build on this. Blocking; coordinator
+    thread only."""
+    stepper = _carouselStepper(irl)
+    if stepper is None:
+        return ChannelClearResult(False, True, 0.0, "no_stepper")
+    jitter = getattr(stepper, "jitter_degrees", None)
+    if not callable(jitter):
+        return ChannelClearResult(False, True, 0.0, "no_jitter")
+    gc.logger.info(
+        f"{label} channel shake: stage '{name}' "
+        f"{amplitude_output_deg:.2f}° x{cycles} @ {microsteps_per_second} µsteps/s"
+    )
+    try:
+        ok = bool(jitter(
+            float(amplitude_output_deg) * float(stepper_per_output_deg),
+            int(cycles),
+            int(microsteps_per_second),
+            int(acceleration_microsteps_per_second_sq),
+            force=True,
+        ))
+    except Exception as exc:
+        gc.logger.warning(f"{label} channel shake: jitter failed at '{name}': {exc}")
+        return ChannelClearResult(False, True, 0.0, "jitter_failed")
+    if not ok:
+        return ChannelClearResult(False, True, 0.0, "jitter_failed")
+    _waitJitterDone(stepper, _SHAKE_JITTER_TIMEOUT_S)
+    time.sleep(max(0, int(settle_ms)) / 1000.0)
+    if channelOccupied(gc, vision) is False:
+        gc.logger.info(f"{label} channel shake: channel empty after stage '{name}'")
+        return ChannelClearResult(True, True, 0.0, "shaken_clear")
+    return ChannelClearResult(False, True, 0.0, "still_occupied")
+
+
+def shimmyStepperPerOutputDeg(irl_config: Any) -> float:
+    """Stepper degrees per output degree for the exit shimmy, 0 when unconfigured.
+    The ladder lives on the classification-channel config; the bare channel
+    config is accepted too (tests, legacy callers)."""
+    cc = getattr(irl_config, "classification_channel_config", None) or irl_config
+    return float(getattr(cc, "exit_release_shimmy_stepper_per_output_deg", 0.0) or 0.0)
+
+
 def shakeChannelClear(
     gc: Any,
     irl: Any,
@@ -184,43 +241,27 @@ def shakeChannelClear(
     occupied = channelOccupied(gc, vision)
     if occupied is False:
         return ChannelClearResult(True, False, 0.0, "already_clear")
-    stepper = _carouselStepper(irl)
-    if stepper is None:
-        return ChannelClearResult(False, bool(occupied), 0.0, "no_stepper")
-    # The ladder lives on the classification-channel config; accept the bare
-    # channel config too (tests, legacy callers).
     cc = getattr(irl_config, "classification_channel_config", None) or irl_config
     stages = tuple(getattr(cc, "exit_release_shimmy_stages", None) or ())
-    ratio = float(getattr(cc, "exit_release_shimmy_stepper_per_output_deg", 0.0) or 0.0)
+    ratio = shimmyStepperPerOutputDeg(irl_config)
     if not stages or ratio <= 0.0:
         return ChannelClearResult(False, True, 0.0, "no_shimmy_config")
-    jitter = getattr(stepper, "jitter_degrees", None)
-    if not callable(jitter):
-        return ChannelClearResult(False, True, 0.0, "no_jitter")
 
     for stage in stages:
-        amplitude_stepper_deg = float(stage.amplitude_output_deg) * ratio
-        gc.logger.info(
-            f"{label} channel shake: stage '{stage.name}' "
-            f"{stage.amplitude_output_deg:.2f}° x{stage.cycles} @ {stage.microsteps_per_second} µsteps/s"
+        result = shakeChannelStage(
+            gc,
+            irl,
+            vision=vision,
+            label=label,
+            name=stage.name,
+            amplitude_output_deg=stage.amplitude_output_deg,
+            cycles=stage.cycles,
+            microsteps_per_second=stage.microsteps_per_second,
+            acceleration_microsteps_per_second_sq=stage.acceleration_microsteps_per_second_sq,
+            settle_ms=stage.settle_ms,
+            stepper_per_output_deg=ratio,
         )
-        try:
-            ok = bool(jitter(
-                amplitude_stepper_deg,
-                int(stage.cycles),
-                int(stage.microsteps_per_second),
-                int(stage.acceleration_microsteps_per_second_sq),
-                force=True,
-            ))
-        except Exception as exc:
-            gc.logger.warning(f"{label} channel shake: jitter failed at '{stage.name}': {exc}")
-            return ChannelClearResult(False, True, 0.0, "jitter_failed")
-        if not ok:
-            return ChannelClearResult(False, True, 0.0, "jitter_failed")
-        _waitJitterDone(stepper, _SHAKE_JITTER_TIMEOUT_S)
-        time.sleep(max(0, int(stage.settle_ms)) / 1000.0)
-        if channelOccupied(gc, vision) is False:
-            gc.logger.info(f"{label} channel shake: channel empty after stage '{stage.name}'")
-            return ChannelClearResult(True, True, 0.0, "shaken_clear")
+        if result.reason != "still_occupied":
+            return result
     gc.logger.warning(f"{label} channel shake: still occupied after {len(stages)} stages")
     return ChannelClearResult(False, True, 0.0, "shake_exhausted")

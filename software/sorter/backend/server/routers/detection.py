@@ -1837,6 +1837,12 @@ def classification_channel_exit_incident() -> Dict[str, Any]:
     }
 
 
+def _c4_state_machine() -> Any:
+    controller = shared_state.controller_ref
+    coordinator = getattr(controller, "coordinator", None) if controller is not None else None
+    return getattr(coordinator, "classification", None) if coordinator is not None else None
+
+
 @router.post("/api/classification-channel/exit-incident/continue")
 def classification_channel_exit_incident_continue(
     payload: ClassificationExitIncidentActionPayload | None = None,
@@ -1857,6 +1863,26 @@ def classification_channel_exit_incident_continue(
 def classification_channel_exit_incident_test_release(
     payload: ClassificationExitIncidentTestReleasePayload,
 ) -> Dict[str, Any]:
+    # The stall watchdog's incident has no exit-release review behind it; its
+    # Test Wiggle is one shimmy stage run by the coordinator thread.
+    stall_shake = getattr(_c4_state_machine(), "requestStallShake", None)
+    if callable(stall_shake):
+        try:
+            amplitude, speed, cycles, acceleration = exitReleaseTestParams(
+                payload.amplitude_output_deg,
+                payload.microsteps_per_second,
+                payload.cycles,
+                payload.acceleration_microsteps_per_second_sq,
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        if stall_shake(
+            amplitude_output_deg=amplitude,
+            cycles=cycles,
+            microsteps_per_second=speed,
+            acceleration_microsteps_per_second_sq=acceleration,
+        ):
+            return {"ok": True, "accepted": True}
     running = _classification_channel_running_state()
     try:
         result = running.testExitReleaseIncident(
@@ -1875,10 +1901,7 @@ def classification_channel_exit_incident_test_release(
 
 @router.post("/api/classification-channel/exit-incident/auto-resolve")
 def classification_channel_exit_incident_auto_resolve() -> Dict[str, Any]:
-    controller = shared_state.controller_ref
-    coordinator = getattr(controller, "coordinator", None) if controller is not None else None
-    classification = getattr(coordinator, "classification", None) if coordinator is not None else None
-    request = getattr(classification, "requestStallAutoResolve", None)
+    request = getattr(_c4_state_machine(), "requestStallAutoResolve", None)
     if not callable(request):
         raise HTTPException(status_code=503, detail="Classification channel is not running.")
     if not bool(request()):

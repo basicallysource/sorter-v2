@@ -89,6 +89,35 @@ class _ExitReleaseReview:
     approved: bool = False
 
 
+def exitReleaseTestParams(
+    amplitude_output_deg: float,
+    microsteps_per_second: int,
+    cycles: int = 1,
+    acceleration_microsteps_per_second_sq: int | None = None,
+) -> tuple[float, int, int, int]:
+    """Range-check the operator's exit-release test parameters (shared by the
+    exit-release review and the stall-watchdog Test Wiggle). Returns
+    (amplitude_output_deg, microsteps_per_second, cycles, acceleration)."""
+    amplitude_output = float(amplitude_output_deg)
+    if amplitude_output < 0.1 or amplitude_output > 12.0:
+        raise ValueError("amplitude_output_deg must be between 0.1 and 12.0.")
+    speed = int(microsteps_per_second)
+    if speed < 100 or speed > 16000:
+        raise ValueError("microsteps_per_second must be between 100 and 16000.")
+    cycle_count = int(cycles)
+    if cycle_count < 1 or cycle_count > 20:
+        raise ValueError("cycles must be between 1 and 20.")
+    if acceleration_microsteps_per_second_sq is None:
+        acceleration = max(1000, min(48000, int(round(speed * 3.0))))
+    else:
+        acceleration = int(acceleration_microsteps_per_second_sq)
+        if acceleration < 1000 or acceleration > 48000:
+            raise ValueError(
+                "acceleration_microsteps_per_second_sq must be between 1000 and 48000."
+            )
+    return amplitude_output, speed, cycle_count, acceleration
+
+
 DEFAULT_EXIT_RELEASE_STAGES: tuple[_ExitReleaseStage, ...] = (
     _ExitReleaseStage("contact-break-micro", 0.25, 2, 700, 1800, 300),
     _ExitReleaseStage("low-rock", 0.50, 2, 950, 2600, 300),
@@ -1660,23 +1689,9 @@ class Running(BaseState):
         if not self.irl.carousel_stepper.stopped:
             raise RuntimeError("The classification-channel stepper is still moving.")
 
-        amplitude_output = float(amplitude_output_deg)
-        if amplitude_output < 0.1 or amplitude_output > 12.0:
-            raise ValueError("amplitude_output_deg must be between 0.1 and 12.0.")
-        speed = int(microsteps_per_second)
-        if speed < 100 or speed > 16000:
-            raise ValueError("microsteps_per_second must be between 100 and 16000.")
-        cycle_count = int(cycles)
-        if cycle_count < 1 or cycle_count > 20:
-            raise ValueError("cycles must be between 1 and 20.")
-        if acceleration_microsteps_per_second_sq is None:
-            acceleration = max(1000, min(48000, int(round(speed * 3.0))))
-        else:
-            acceleration = int(acceleration_microsteps_per_second_sq)
-            if acceleration < 1000 or acceleration > 48000:
-                raise ValueError(
-                    "acceleration_microsteps_per_second_sq must be between 1000 and 48000."
-                )
+        amplitude_output, speed, cycle_count, acceleration = exitReleaseTestParams(
+            amplitude_output_deg, microsteps_per_second, cycles, acceleration_microsteps_per_second_sq
+        )
 
         stepper_per_output = getattr(
             self._config,

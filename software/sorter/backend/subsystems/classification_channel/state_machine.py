@@ -155,6 +155,7 @@ class ClassificationChannelStateMachine(BaseSubsystem):
         # step() runs the same rotate-to-clear routine the automatic policy
         # uses, on the coordinator thread (never from the HTTP handler).
         self._stall_resolve_requested = False
+        self._stall_shake_request: dict | None = None
 
     def step(self) -> None:
         # While OUR stall incident is active the flow is frozen: only the
@@ -164,6 +165,9 @@ class ClassificationChannelStateMachine(BaseSubsystem):
         stall_hold = self._stall_incident_raised and c4_stall_incident_active(self.gc)
         if stall_hold and self._stall_resolve_requested:
             self._runRequestedStallResolve()
+            stall_hold = self._stall_incident_raised and c4_stall_incident_active(self.gc)
+        if stall_hold and self._stall_shake_request is not None:
+            self._runRequestedStallShake()
             stall_hold = self._stall_incident_raised and c4_stall_incident_active(self.gc)
         if self._two_piece is not None:
             if not stall_hold:
@@ -409,6 +413,75 @@ class ClassificationChannelStateMachine(BaseSubsystem):
             "Auto resolve rotated the channel "
             f"{result.output_deg_moved:.0f}° and it is still occupied. Remove the "
             "piece (or clear the jam) to continue."
+        )
+        runtime_stats.setActiveIncident(failed)
+
+    def requestStallShake(
+        self,
+        *,
+        amplitude_output_deg: float,
+        cycles: int,
+        microsteps_per_second: int,
+        acceleration_microsteps_per_second_sq: int,
+    ) -> bool:
+        """Operator's Test Wiggle on an active stall incident: one shimmy stage
+        with the given parameters. Only sets the request — the coordinator
+        thread performs the motion on its next step()."""
+        if not c4_stall_incident_active(self.gc):
+            return False
+        self._stall_shake_request = {
+            "amplitude_output_deg": float(amplitude_output_deg),
+            "cycles": int(cycles),
+            "microsteps_per_second": int(microsteps_per_second),
+            "acceleration_microsteps_per_second_sq": int(acceleration_microsteps_per_second_sq),
+        }
+        return True
+
+    def _runRequestedStallShake(self) -> None:
+        request = self._stall_shake_request
+        self._stall_shake_request = None
+        runtime_stats = getattr(self.gc, "runtime_stats", None)
+        if request is None or runtime_stats is None or not hasattr(runtime_stats, "activeIncident"):
+            return
+        active = runtime_stats.activeIncident()
+        if not isinstance(active, dict) or active.get("kind") != C4_EXIT_STUCK_INCIDENT_KIND:
+            return
+        running = dict(active)
+        running["status"] = "manual_test_running"
+        running["awaiting_operator"] = False
+        runtime_stats.setActiveIncident(running)
+        from subsystems.classification_channel.simple_state_machine_rev01.channel_clear import (
+            ChannelClearResult,
+            shakeChannelStage,
+            shimmyStepperPerOutputDeg,
+        )
+
+        ratio = shimmyStepperPerOutputDeg(self.irl_config)
+        if ratio <= 0.0:
+            result = ChannelClearResult(False, True, 0.0, "no_shimmy_config")
+        else:
+            result = shakeChannelStage(
+                self.gc,
+                self.irl,
+                vision=self.vision,
+                name="operator-test",
+                settle_ms=400,
+                stepper_per_output_deg=ratio,
+                **request,
+            )
+        if result.cleared:
+            self.logger.info("ClassificationChannel: operator test wiggle freed the piece — resuming")
+            clear_c4_exit_stuck_incident(self.gc)
+            self._stall_incident_raised = False
+            self._rearmProgress(time.monotonic())
+            return
+        failed = dict(running)
+        failed["status"] = "waiting_for_operator"
+        failed["awaiting_operator"] = True
+        failed["operator_message"] = (
+            f"Test wiggle {request['amplitude_output_deg']:.2f}° x{request['cycles']} at "
+            f"{request['microsteps_per_second']} µsteps/s did not free the piece "
+            f"({result.reason}). Try a firmer setting or remove the piece."
         )
         runtime_stats.setActiveIncident(failed)
 

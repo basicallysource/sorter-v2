@@ -23,6 +23,7 @@
 		serial: string | null;
 		confirmed?: boolean;
 		servo_count?: number;
+		scan_skipped?: string | null; // "active_runtime": the running machine owns the bus
 	};
 
 	type BusServo = {
@@ -88,6 +89,7 @@
 	let port = $state('');
 	let availableServoIds = $state<number[]>([]);
 	let availablePorts = $state<WavesharePort[]>([]);
+	const busInUse = $derived(availablePorts.some((p) => p.scan_skipped === 'active_runtime'));
 	let busServos = $state<BusServo[]>([]);
 	let suggestedNextId = $state<number | null>(null);
 	let highestSeenId = $state<number>(0);
@@ -762,6 +764,7 @@
 
 		<ServoInventoryList
 			{busServos}
+			{busInUse}
 			{highestSeenId}
 			{suggestedNextId}
 			bind:selectedServoId

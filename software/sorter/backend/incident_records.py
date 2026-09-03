@@ -86,6 +86,17 @@ def _ensureInitialized() -> None:
             )
             conn.execute("CREATE INDEX IF NOT EXISTS idx_incidents_kind ON incidents(kind)")
             conn.execute("CREATE INDEX IF NOT EXISTS idx_incidents_status ON incidents(status)")
+            # This runs once per backend process, i.e. at (re)start. Any row
+            # still 'active' belongs to a previous process whose in-memory
+            # incident slot is gone, so nothing could ever resolve it; close it
+            # here instead of letting phantom actives pile up in the log.
+            now = time.time()
+            conn.execute(
+                "UPDATE incidents SET status = 'resolved', resolved_at = ?, "
+                "resolved_by = 'backend_restart', updated_at = ?, "
+                "duration_s = MAX(0, ? - triggered_at) WHERE status = 'active'",
+                (now, now, now),
+            )
             conn.commit()
             _initialized = True
         finally:

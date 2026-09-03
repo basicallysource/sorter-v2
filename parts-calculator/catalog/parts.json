@@ -7007,7 +7007,7 @@
       "uid": "jnwt",
       "version": "3",
       "name": "C-channel 1 - Bulk bucket",
-      "description": "The top channel, where bulk is dumped in: a C-channel drive with the faceted rotor, the Short and Angled Output Guide, a Camera lamp, and the Bulk cap, standing on the tallest supports.",
+      "description": "The top channel, where bulk is dumped in: a C-channel drive with the faceted rotor, the Short and Angled Output Guide, a Camera lamp, and the Bulk cap, on its support structure with the 228 mm extrusion legs.",
       "lines": [
         {
           "assembly": "channel-one-support-structure",

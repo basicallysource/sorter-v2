@@ -97,6 +97,8 @@
 			"id": "improve-camera-extension",
 			"name": "Make the camera extension official",
 			"priority": "P2",
+			"status": "complete",
+			"completed_at": "2026-09-02",
 			"description": "The camera extension was a prototype and needs to be made official. The finished design should also force the camera into the correct orientation.",
 			"targets": {
 				"parts": [
@@ -113,6 +115,8 @@
 			"id": "retain-camera-led-strips",
 			"name": "Mechanically retain the camera LED strips",
 			"priority": "P2",
+			"status": "complete",
+			"completed_at": "2026-09-02",
 			"description": "Update the Camera & LED insert so the LED strips are mechanically retained instead of depending on their adhesive. Integrated clips would be a good approach.",
 			"targets": {
 				"parts": [

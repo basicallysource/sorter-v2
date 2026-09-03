@@ -24,6 +24,7 @@
 		snapArgs?: Record<string, string>;
 	} = $props();
 	let zipping = $state(false);
+	let failed = $state<string | null>(null);
 
 	const partOf = (pid: string): Part | undefined => (snap ? snap.parts[pid] : getPart(pid));
 	const asmOf = (aid: string): Assembly | undefined => (snap ? snap.assemblies[aid] : getAssembly(aid));
@@ -58,6 +59,7 @@
 	async function download() {
 		if (zipping) return;
 		zipping = true;
+		failed = null;
 		try {
 			const counts = printedUnder(id, 1, snapArgs);
 			if (!counts.size) return;
@@ -93,7 +95,11 @@
 			a.href = URL.createObjectURL(new Blob([zipped as BlobPart], { type: 'application/zip' }));
 			a.download = `${id}-stls${engrave ? '-engraved' : ''}${perPiece ? '-pieces' : ''}.zip`;
 			a.click();
-			URL.revokeObjectURL(a.href);
+			// revoking immediately can abort a large blob's save mid-flight;
+			// give the browser a minute to finish reading it
+			setTimeout(() => URL.revokeObjectURL(a.href), 60_000);
+		} catch (e) {
+			failed = e instanceof Error ? e.message : String(e);
 		} finally {
 			zipping = false;
 		}
@@ -125,10 +131,11 @@
 			<button
 				type="button"
 				class="inline-flex w-full items-center justify-center gap-1.5 border border-border bg-surface px-2 py-1 text-xs font-medium text-text hover:border-primary"
-				onclick={() => {
-					close();
-					download();
-				}}><Download size={11} /> Download zip</button>
+				onclick={async () => {
+					await download();
+					if (!failed) close();
+				}}>{#if zipping}<Loader size={11} class="animate-spin" />{:else}<Download size={11} />{/if} Download zip</button>
+			{#if failed}<p class="mt-1 text-[11px] text-danger">Download failed: {failed}</p>{/if}
 		</div>
 	{/snippet}
 </DropdownMenu>

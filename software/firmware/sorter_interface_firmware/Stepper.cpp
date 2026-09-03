@@ -225,6 +225,7 @@ void Stepper::stepgen_tick() {
             _state = STEPPER_STOPPED;
             _current_speed = 0;
             _absolute_position = 0;
+            _position_reset.store(true);
             _mc_home_pin.store(-1);
             return;
         }
@@ -333,6 +334,7 @@ void Stepper::motion_update_tick() {
                     _state = STEPPER_STOPPED;
                     _current_speed = 0;
                     _absolute_position = 0;
+                    _position_reset.store(true);
                     _mc_home_pin.store(-1); // Homing done
                     break;
                 }

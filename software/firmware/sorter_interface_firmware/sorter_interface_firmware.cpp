@@ -282,13 +282,12 @@ static uint8_t soft_sg_gate[STEPPER_COUNT] = {0};       // why the last poll ret
 // deviation beyond the tolerance on ENC_HITS_TO_LATCH consecutive polls
 // latches the same stall flag StallGuard uses, so the backend's incident
 // path (pause, re-home) is shared. Unlike StallGuard this works on ramps and
-// at the target. A position jump larger than any real move between two polls
-// (SET_POSITION / homing zeroed the counter) re-captures the offset.
+// at the target. When the stepper reports that its counter was assigned from
+// outside (SET_POSITION, homing zero) the offset is re-captured.
 #include "AS5600.h"
 #define ENC_POLL_INTERVAL_US 5000
 #define ENC_HITS_TO_LATCH 3
 #define ENC_STATUS_EVERY_N_POLLS 20
-#define ENC_RESET_JUMP_USTEPS 2000
 static AS5600 shaft_encoder(I2C_PORT);
 struct EncoderCheck {
     bool enabled = false;
@@ -299,7 +298,6 @@ struct EncoderCheck {
     uint16_t last_raw = 0;
     int32_t unwrapped = 0;
     int32_t offset = 0;
-    int32_t last_position = 0;
     int32_t deviation = 0;
     uint8_t hits = 0;
     uint8_t status = 0;                 // AS5600 STATUS register (MD/ML/MH)
@@ -1174,10 +1172,10 @@ static void encoder_position_poll() {
         shaft_encoder.readAgc(&e.agc);
     }
     int32_t position = stepper.getPosition();
+    if (stepper.consumePositionReset()) e.synced = false; // homing zero / SET_POSITION
     if (!e.synced) {
         e.last_raw = raw;
         e.unwrapped = raw;
-        e.last_position = position;
         e.offset = e.unwrapped - (int32_t)(((int64_t)e.sign * position * (int64_t)e.counts_per_kusteps) / 1000);
         e.deviation = 0;
         e.hits = 0;
@@ -1189,13 +1187,6 @@ static void encoder_position_poll() {
     if (delta < -(int32_t)AS5600::COUNTS_PER_REV / 2) delta += AS5600::COUNTS_PER_REV;
     e.unwrapped += delta;
     e.last_raw = raw;
-    int32_t moved = position - e.last_position;
-    e.last_position = position;
-    if (moved > ENC_RESET_JUMP_USTEPS || moved < -ENC_RESET_JUMP_USTEPS) {
-        // The counter was set from outside (homing, SET_POSITION): re-sync.
-        e.synced = false;
-        return;
-    }
     if (stepper.isJittering()) { e.hits = 0; return; }
     e.deviation = e.unwrapped - enc_expected_counts(e, position);
     int32_t magnitude = e.deviation < 0 ? -e.deviation : e.deviation;

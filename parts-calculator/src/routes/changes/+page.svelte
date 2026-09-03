@@ -92,7 +92,9 @@
 							{:else}
 								<PriorityBadge priority={change.priority} />
 								{#if change.condition === 'broken'}<div class="mt-1 text-[10px] font-semibold uppercase leading-tight tracking-wide text-danger">Broken feature</div>{/if}
-								{#if change.condition === 'retired'}<div class="mt-1 inline-flex items-center gap-1 text-[10px] font-semibold uppercase leading-tight tracking-wide text-text"><Trash2 size={10} /> To be removed</div>{/if}
+								<!-- One line, never wrapped: at 10px beside a label broken over two
+								     lines the icon read as a smudge rather than a trash can. -->
+								{#if change.condition === 'retired'}<div class="mt-1 inline-flex items-center gap-1 whitespace-nowrap text-[10px] font-semibold uppercase leading-tight tracking-wide text-text"><Trash2 size={13} class="shrink-0" /> To be removed</div>{/if}
 							{/if}
 						</td>
 						<td class="px-3 py-3">

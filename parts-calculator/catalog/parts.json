@@ -5177,7 +5177,7 @@
       },
       "name": "White/daylight LED strip - 24v",
       "category": "Wire harness",
-      "description": "Lighting for classification chamber",
+      "description": "White 24 V LED strip; cut into 90 cm lengths, one ring per camera lamp. One bought strip covers the machine. Bought length not recorded — at least the four cuts.",
       "created_at": "2026-07-18",
       "updated_at": "2026-07-18",
       "image_url": "https://assets.basically.website/sorter-parts/led-strip-24v-full-961391ece43d.jpg",
@@ -5195,6 +5195,13 @@
       },
       "sheet_qty": {
         "per_machine": 1
+      },
+      "stock": {
+        "unit_length_mm": 3600,
+        "cut_length_mm": 900,
+        "pieces_per_unit": 4,
+        "unit_label": "1 bought strip (length not recorded; yields the four cuts)",
+        "piece_label": "90 cm cut"
       }
     },
     {
@@ -6161,6 +6168,13 @@
           "qty": 1,
           "method": "friction",
           "note": "The guide pushes onto the C-channel drive and is held by the fit alone."
+        },
+        {
+          "from": "camera-lamp",
+          "to": "c-channel",
+          "qty": 1,
+          "method": "friction",
+          "note": "The C-channel arm mount friction-fits onto the drive."
         }
       ]
     },
@@ -7052,6 +7066,13 @@
           "qty": 3,
           "method": "friction",
           "note": "The three dovetail adapters slide into the C-channel drive from below."
+        },
+        {
+          "from": "camera-lamp",
+          "to": "c-channel",
+          "qty": 1,
+          "method": "friction",
+          "note": "The C-channel arm mount friction-fits onto the drive."
         }
       ],
       "versions": [
@@ -7173,6 +7194,13 @@
           "qty": 3,
           "method": "friction",
           "note": "The three dovetail adapters slide into the C-channel drive from below."
+        },
+        {
+          "from": "camera-lamp",
+          "to": "c-channel",
+          "qty": 1,
+          "method": "friction",
+          "note": "The C-channel arm mount friction-fits onto the drive."
         }
       ],
       "versions": [
@@ -7344,6 +7372,13 @@
           "qty": 3,
           "method": "friction",
           "note": "The three dovetail adapters slide into the C-channel drive from below."
+        },
+        {
+          "from": "camera-lamp",
+          "to": "c-channel",
+          "qty": 1,
+          "method": "friction",
+          "note": "The C-channel arm mount friction-fits onto the drive."
         }
       ],
       "versions": [
@@ -9443,8 +9478,8 @@
     },
     {
       "id": "reflector-with-led-hooks",
-      "uid": "awve",
-      "version": "1",
+      "uid": "qd9f",
+      "version": "2",
       "name": "Reflector with LED hooks",
       "description": "The white inner reflector with its six LED hooks friction-fitted on.",
       "lines": [
@@ -9455,6 +9490,10 @@
         {
           "part": "inner-reflector-led-hook",
           "qty": 6
+        },
+        {
+          "part": "led-strip-24v",
+          "qty": 1
         }
       ],
       "connections": [
@@ -9464,6 +9503,39 @@
           "qty": 6,
           "method": "friction",
           "note": "Each hook friction-fits onto the reflector and retains an LED strip."
+        },
+        {
+          "from": "led-strip-24v",
+          "to": "inner-reflector-led-hook",
+          "qty": 1,
+          "method": "clip",
+          "note": "The six hooks clip the 90 cm strip around the reflector."
+        }
+      ],
+      "versions": [
+        {
+          "version": "1",
+          "uid": "awve",
+          "message": "As recorded before the first stamped change.",
+          "lines": [
+            {
+              "part": "lamp-inner-reflector",
+              "qty": 1,
+              "uid": "4vio"
+            },
+            {
+              "part": "inner-reflector-led-hook",
+              "qty": 6,
+              "uid": "l5qn"
+            }
+          ]
+        },
+        {
+          "version": "2",
+          "date": "2026-09-02",
+          "message": "The 90 cm LED strip is a member: one ring per lamp, clipped on by the six hooks, cut from the one bought strip. Record completion, no physical change.",
+          "breaking": false,
+          "commit": null
         }
       ]
     },

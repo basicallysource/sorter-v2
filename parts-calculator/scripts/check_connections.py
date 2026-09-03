@@ -52,8 +52,42 @@ def main():
     d = json.loads((HERE / "catalog" / "parts.json").read_text())
     known = {p["id"] for p in d["parts"]} | {a["id"] for a in d.get("assemblies", [])}
 
+    asm_params = {a["id"]: a.get("params") or {} for a in d.get("assemblies", [])}
+
     bad = []
     for a in d.get("assemblies", []):
+        # params: each slot's default must be a real part, each {param} line a
+        # declared slot, and each line's args must fill slots the target
+        # assembly declares — with real ids, or '$x' forwarding this
+        # assembly's own param x.
+        params = a.get("params") or {}
+        for name, spec in params.items():
+            if (spec or {}).get("default") not in known:
+                bad.append(f"{a['id']} param {name}: default "
+                           f"{(spec or {}).get('default')!r} is not in the catalog")
+        for line in a.get("lines") or []:
+            if line.get("param") is not None:
+                if line.get("part") or line.get("assembly"):
+                    bad.append(f"{a['id']}: a line is a part, an assembly OR a "
+                               f"param slot -- not several at once: {line!r}")
+                if line["param"] not in params:
+                    bad.append(f"{a['id']}: line references param "
+                               f"{line['param']!r}, which this assembly does "
+                               f"not declare")
+            for k, v in (line.get("args") or {}).items():
+                target = line.get("assembly")
+                if target is None:
+                    bad.append(f"{a['id']}: args only make sense on a line "
+                               f"referencing a sub-assembly: {line!r}")
+                elif k not in asm_params.get(target, {}):
+                    bad.append(f"{a['id']}: passes arg {k!r} to {target}, "
+                               f"which declares no such param")
+                if isinstance(v, str) and v.startswith("$"):
+                    if v[1:] not in params:
+                        bad.append(f"{a['id']}: arg {k}={v!r} forwards a param "
+                                   f"this assembly does not declare")
+                elif v not in known:
+                    bad.append(f"{a['id']}: arg {k}={v!r} is not in the catalog")
         lines = {}
         for line in a.get("lines") or []:
             if line.get("part"):

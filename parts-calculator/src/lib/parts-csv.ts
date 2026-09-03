@@ -6,6 +6,7 @@
  */
 import { csvText, preamble, SITE_URL, type ExportSpec } from '$lib/csv';
 import {
+	concreteLines,
 	getAssembly,
 	getHardware,
 	getLasercut,
@@ -133,7 +134,7 @@ type TreeRow = unknown[];
  *  file survives being sorted or filtered. */
 export function assemblyCsv(root: string, spec: ExportSpec): string {
 	const rows: TreeRow[] = [];
-	const walk = (id: string, trail: string[], mult: number, depth: number) => {
+	const walk = (id: string, trail: string[], mult: number, depth: number, args?: Record<string, string>) => {
 		const asm = getAssembly(id);
 		if (!asm) return;
 		const path = [...trail, asm.name];
@@ -150,11 +151,11 @@ export function assemblyCsv(root: string, spec: ExportSpec): string {
 			'',
 			plainDescription(asm.description)
 		]);
-		for (const line of asm.lines ?? []) {
+		for (const line of concreteLines(asm, asm.lines ?? [], args)) {
 			const each = lineQty(line, spec.layers);
 			const total = each * mult;
 			if (line.assembly) {
-				walk(line.assembly, path, total, depth + 1);
+				walk(line.assembly, path, total, depth + 1, line.args);
 				continue;
 			}
 			if (!line.part) continue;

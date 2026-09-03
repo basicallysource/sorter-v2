@@ -52,9 +52,15 @@ def frontmatter_refs(md: Path):
 def used_ids(d):
     used = set()
     for a in d.get("assemblies", []):
+        for p in (a.get("params") or {}).values():
+            if p.get("default"):
+                used.add(p["default"])
         for line in a.get("lines") or []:
             if line.get("part"):
                 used.add(line["part"])
+            for v in (line.get("args") or {}).values():
+                if isinstance(v, str) and not v.startswith("$"):
+                    used.add(v)
         for c in a.get("connections") or []:
             if c.get("via"):
                 used.add(c["via"])

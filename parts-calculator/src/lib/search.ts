@@ -34,6 +34,7 @@ import {
 	HARDWARE,
 	PARTS,
 	SECTIONS,
+	concreteLines,
 	fmtDate,
 	getAssembly,
 	getFolder,
@@ -335,7 +336,7 @@ function hardwareKeywords(h: Hardware): string[] {
 /** An assembly's members by name — searching "stator" should surface the
  *  C-channel drive it belongs to, not only the stator itself. */
 function assemblyKeywords(a: Assembly): string[] {
-	return (a.lines ?? [])
+	return concreteLines(a, a.lines ?? [])
 		.map((l) => (l.part ? l.part : l.assembly ? (getAssembly(l.assembly)?.name ?? '') : ''))
 		.filter(Boolean);
 }

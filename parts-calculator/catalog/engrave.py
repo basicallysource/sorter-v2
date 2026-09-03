@@ -646,11 +646,22 @@ def stamp(stl_path: str, text: str, out_dir: str, name: str) -> list[dict]:
     dropped), best first; an empty list when nothing fits. Raises NotAVolume
     for a mesh a boolean cannot work on."""
     mesh = load(stl_path)
+    if not mesh.is_volume:
+        raise ValueError(f"{name}: not a closed volume; repair the export "
+                         f"(scripts/mesh_repair.py) or fix the feature that "
+                         f"tessellates badly")
     out, seen = [], set()
     os.makedirs(out_dir, exist_ok=True)
     for var in variants(mesh, text):
         path = os.path.join(out_dir, f"{name}-stamped-{slug(var['face'])}.stl")
-        cut(mesh, var).export(path)
+        try:
+            cut(mesh, var).export(path)
+        except (ValueError, RuntimeError) as e:
+            # The part is a volume (checked above), so this is the variant's
+            # own cutter degenerating — text bent onto a wall the boolean
+            # cannot take. That face simply doesn't fit; the others still can.
+            print(f"    ! no stamp on {var['face']!r}: {e}")
+            continue
         # two faces can come out as one cut (a face the mesh lists twice, say);
         # the second would be a duplicate download under a second name
         digest = _sha256(path)

@@ -95,16 +95,22 @@ There is no "just filling in what was always there" exemption: the lines
 are the record, and every change to them is a moment someone may need to
 flip back to. CI enforces this (`scripts/check_versioning.py`).
 
-**A version is a commit of everything below the node.** When
-`stamp_versions.py` stamps an assembly's version it writes the entry's
-`tree`: every assembly under the node as it stood at that commit —
-description, photos, joints, and every line pinned to the member's uid of
-the day, sub-assemblies included, all the way down. Flipping a node to one
-of its versions ("Viewing vN" on the assembly page) renders from that tree
-alone, so it shows exactly what was there then, whatever has changed since:
-the old prints at their archived geometry, the old screws at their old
-counts, the old photos. A node may be stamped with its own list unchanged
-purely to take that commit before an overhaul — the feeder's v4 is one.
+**Flipping to a version shows the site as it was, straight out of git.**
+The site of any stamped moment already exists, verbatim: the generated
+catalog committed alongside the change. Nothing about old versions is
+copied into today's data. At build time (`npm run build`, and dev),
+`scripts/version-snapshots.mjs` subsets that data per superseded version —
+the era's own records for every assembly, part and hardware item under the
+node — into `static/versions/<assembly>-v<version>.json` (gitignored,
+derived). Flipping "Viewing vN" fetches that file and renders only from
+it: the era's names, descriptions, photos, renders, weights, joints, and
+the era's plain and uid-engraved STL downloads, all at permanent
+content-addressed URLs published when that version was current. A
+version's moment is the last commit of its reign (the parent of the commit
+that superseded it); an entry may pin a different moment with
+`snapshot_at` — the feeder's v4, stamped purely to lock the machine before
+the C-channel overhaul, points at its own commit. Structurally, a flipped
+view cannot show anything from today: it never reads today's catalog.
 
 ## History is derived, not recorded
 

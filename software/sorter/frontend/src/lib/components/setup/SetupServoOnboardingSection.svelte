@@ -49,14 +49,21 @@
 
 	type ServoSource = 'waveshare' | 'pca';
 
+	function servoBackendFrom(source: unknown): ServoBackend {
+		return source === 'waveshare' ? 'waveshare' : 'pca9685';
+	}
+
+	// servoSource pins the backend (the setup wizard passes its discovery/choice);
+	// without it the section follows the saved servo config, which is what the
+	// settings page wants.
 	let {
-		servoSource = 'pca',
+		servoSource = null,
 		discoveredServoSource = 'pca',
 		discoveredWaveshareServos = 0,
 		onSaved = null,
 		onSourceChange = null
 	}: {
-		servoSource?: ServoSource;
+		servoSource?: ServoSource | null;
 		discoveredServoSource?: ServoSource;
 		discoveredWaveshareServos?: number;
 		onSaved?: (() => void | Promise<void>) | null;
@@ -198,7 +205,7 @@
 		const storageLayersRaw = Array.isArray(storage?.layers) ? storage.layers : [];
 		const servoChannels = Array.isArray(servo?.channels) ? servo.channels : [];
 
-		backend = servoSource === 'waveshare' ? 'waveshare' : 'pca9685';
+		backend = servoBackendFrom(servoSource ?? servo.backend);
 		openAngle = Number(servo.open_angle ?? 10);
 		closedAngle = Number(servo.closed_angle ?? 83);
 		port = typeof servo.port === 'string' ? servo.port : '';
@@ -639,7 +646,8 @@
 	});
 
 	$effect(() => {
-		const desired = servoSource === 'waveshare' ? 'waveshare' : 'pca9685';
+		if (servoSource === null) return;
+		const desired = servoBackendFrom(servoSource);
 		if (backend === desired) return;
 		backend = desired;
 		if (desired === 'waveshare') {
@@ -712,7 +720,7 @@
 		<div class="flex items-start justify-between gap-3">
 			<div class="min-w-0">
 				<div class="text-sm font-semibold text-text">Servo backend</div>
-				{#if servoSource === 'waveshare'}
+				{#if backend === 'waveshare'}
 					<div class="mt-1 text-sm text-text-muted">
 						{#if discoveredServoSource === 'waveshare'}
 							Waveshare SC serial bus auto-detected from discovery
@@ -731,7 +739,7 @@
 					</div>
 				{/if}
 			</div>
-			{#if discoveredServoSource !== servoSource && onSourceChange}
+			{#if servoSource !== null && discoveredServoSource !== servoSource && onSourceChange}
 				<button
 					type="button"
 					onclick={() => onSourceChange(discoveredServoSource)}
@@ -743,7 +751,7 @@
 		</div>
 	</div>
 
-	{#if servoSource === 'waveshare'}
+	{#if backend === 'waveshare'}
 		<SerialPortPanel
 			bind:port
 			{availablePorts}

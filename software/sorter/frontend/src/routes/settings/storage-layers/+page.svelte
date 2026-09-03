@@ -1,5 +1,5 @@
 <script lang="ts">
-	import ServoLayerCalibrator from '$lib/components/servo/ServoLayerCalibrator.svelte';
+	import SetupServoOnboardingSection from '$lib/components/setup/SetupServoOnboardingSection.svelte';
 </script>
 
 <svelte:head>
@@ -10,9 +10,11 @@
 	<header>
 		<h1 class="text-xl font-semibold text-text">Storage Layers</h1>
 		<p class="mt-1 text-sm text-text-muted">
-			Configure each layer's servo, calibrate its open/closed angles, and set bin counts.
+			Configure each layer's servo, calibrate its open/closed angles, and set bin counts. The
+			section follows the machine's servo backend (PCA9685 or Waveshare bus); it is the same one
+			the setup wizard uses.
 		</p>
 	</header>
 
-	<ServoLayerCalibrator />
+	<SetupServoOnboardingSection />
 </div>

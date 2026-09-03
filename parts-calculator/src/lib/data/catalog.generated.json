@@ -4006,7 +4006,7 @@
 					"date": "2026-09-02",
 					"message": "The clasp takes two M3 x 8, not four \u2014 the four was assumed at recording; two is the bench count. Record correction, no physical change.",
 					"breaking": false,
-					"commit": null
+					"commit": "2ec571be"
 				}
 			]
 		},

@@ -84,6 +84,8 @@
 			"name": "Widen the C-channel output guide",
 			"priority": "P0",
 			"condition": "broken",
+			"status": "complete",
+			"completed_at": "2026-09-02",
 			"description": "Update the output guide so large pieces that are still within specification can pass through the C-channel exit.",
 			"targets": {
 				"parts": [
@@ -18282,7 +18284,7 @@
 					"commit": null,
 					"onshape_version": "https://cad.onshape.com/documents/60aa51fc61d18f2155b99910/v/45a8c24919bf95a5560da0f8/e/7f9499df9d10e70a5d51b6a1",
 					"stl": "https://assets.basically.website/sorter-parts/layout-guide-78f720e9b2f9.stl",
-					"render": "https://assets.basically.website/sorter-parts/layout-guide-full-205921cfbb0f.png",
+					"render": "https://assets.basically.website/sorter-parts/layout-guide-full-2483935b9dfb.png",
 					"grams": 93.35
 				}
 			],
@@ -18293,7 +18295,7 @@
 			"support_intentional": false,
 			"print_seconds": 8959,
 			"color": {
-				"role": "channel"
+				"fixed": "charcoal"
 			},
 			"optional": false,
 			"onshape": null,
@@ -18306,7 +18308,7 @@
 			"docs_page": null,
 			"conflicts": null,
 			"stl": "https://assets.basically.website/sorter-parts/layout-guide-78f720e9b2f9.stl",
-			"render": "https://assets.basically.website/sorter-parts/layout-guide-full-205921cfbb0f.png",
+			"render": "https://assets.basically.website/sorter-parts/layout-guide-full-2483935b9dfb.png",
 			"stamped": [
 				{
 					"face": "bottom",
@@ -18414,7 +18416,7 @@
 					"commit": null,
 					"onshape_version": "https://cad.onshape.com/documents/60aa51fc61d18f2155b99910/v/45a8c24919bf95a5560da0f8/e/7f9499df9d10e70a5d51b6a1",
 					"stl": "https://assets.basically.website/sorter-parts/support-dovetail-adapter-48e56b8b5283.stl",
-					"render": "https://assets.basically.website/sorter-parts/support-dovetail-adapter-full-98691d30f71e.png",
+					"render": "https://assets.basically.website/sorter-parts/support-dovetail-adapter-full-6be9e5a8a882.png",
 					"grams": 9.01
 				}
 			],
@@ -18425,7 +18427,7 @@
 			"support_intentional": false,
 			"print_seconds": 2282,
 			"color": {
-				"role": "channel"
+				"fixed": "charcoal"
 			},
 			"optional": false,
 			"onshape": null,
@@ -18438,7 +18440,7 @@
 			"docs_page": null,
 			"conflicts": null,
 			"stl": "https://assets.basically.website/sorter-parts/support-dovetail-adapter-48e56b8b5283.stl",
-			"render": "https://assets.basically.website/sorter-parts/support-dovetail-adapter-full-98691d30f71e.png",
+			"render": "https://assets.basically.website/sorter-parts/support-dovetail-adapter-full-6be9e5a8a882.png",
 			"stamped": [
 				{
 					"face": "angled face",
@@ -18546,7 +18548,7 @@
 					"commit": null,
 					"onshape_version": "https://cad.onshape.com/documents/60aa51fc61d18f2155b99910/v/45a8c24919bf95a5560da0f8/e/7f9499df9d10e70a5d51b6a1",
 					"stl": "https://assets.basically.website/sorter-parts/channel-two-support-leg-636858a616f9.stl",
-					"render": "https://assets.basically.website/sorter-parts/channel-two-support-leg-full-a9a7b96374f6.png",
+					"render": "https://assets.basically.website/sorter-parts/channel-two-support-leg-full-5c3e3f5e26c1.png",
 					"grams": 32.78
 				}
 			],
@@ -18557,7 +18559,7 @@
 			"support_intentional": false,
 			"print_seconds": 6332,
 			"color": {
-				"role": "channel"
+				"fixed": "charcoal"
 			},
 			"optional": false,
 			"onshape": null,
@@ -18570,7 +18572,7 @@
 			"docs_page": null,
 			"conflicts": null,
 			"stl": "https://assets.basically.website/sorter-parts/channel-two-support-leg-636858a616f9.stl",
-			"render": "https://assets.basically.website/sorter-parts/channel-two-support-leg-full-a9a7b96374f6.png",
+			"render": "https://assets.basically.website/sorter-parts/channel-two-support-leg-full-5c3e3f5e26c1.png",
 			"stamped": [
 				{
 					"face": "bottom",
@@ -18678,7 +18680,7 @@
 					"commit": null,
 					"onshape_version": "https://cad.onshape.com/documents/60aa51fc61d18f2155b99910/v/45a8c24919bf95a5560da0f8/e/7f9499df9d10e70a5d51b6a1",
 					"stl": "https://assets.basically.website/sorter-parts/channel-three-support-leg-b7b2900b9962.stl",
-					"render": "https://assets.basically.website/sorter-parts/channel-three-support-leg-full-df0c11ffb05c.png",
+					"render": "https://assets.basically.website/sorter-parts/channel-three-support-leg-full-0fd2e2fccc3c.png",
 					"grams": 14.19
 				}
 			],
@@ -18689,7 +18691,7 @@
 			"support_intentional": false,
 			"print_seconds": 3184,
 			"color": {
-				"role": "channel"
+				"fixed": "charcoal"
 			},
 			"optional": false,
 			"onshape": null,
@@ -18702,7 +18704,7 @@
 			"docs_page": null,
 			"conflicts": null,
 			"stl": "https://assets.basically.website/sorter-parts/channel-three-support-leg-b7b2900b9962.stl",
-			"render": "https://assets.basically.website/sorter-parts/channel-three-support-leg-full-df0c11ffb05c.png",
+			"render": "https://assets.basically.website/sorter-parts/channel-three-support-leg-full-0fd2e2fccc3c.png",
 			"stamped": [
 				{
 					"face": "bottom",

@@ -70,6 +70,8 @@
       "name": "Widen the C-channel output guide",
       "priority": "P0",
       "condition": "broken",
+      "status": "complete",
+      "completed_at": "2026-09-02",
       "description": "Update the output guide so large pieces that are still within specification can pass through the C-channel exit.",
       "targets": {
         "parts": [
@@ -5796,7 +5798,7 @@
         "feeder": 3
       },
       "color": {
-        "role": "channel"
+        "fixed": "charcoal"
       },
       "stl_hash": "78f720e9b2f9be361a260c27669661a0c89bdad7647a6393c1f258451c421cf5",
       "onshape_version": "https://cad.onshape.com/documents/60aa51fc61d18f2155b99910/v/45a8c24919bf95a5560da0f8/e/7f9499df9d10e70a5d51b6a1"
@@ -5812,7 +5814,7 @@
         "feeder": 9
       },
       "color": {
-        "role": "channel"
+        "fixed": "charcoal"
       },
       "stl_hash": "48e56b8b5283aed5f8a05c2dc8b413ae059ecae3638fd45524880523f0bf8f80",
       "onshape_version": "https://cad.onshape.com/documents/60aa51fc61d18f2155b99910/v/45a8c24919bf95a5560da0f8/e/7f9499df9d10e70a5d51b6a1"
@@ -5828,7 +5830,7 @@
         "feeder": 3
       },
       "color": {
-        "role": "channel"
+        "fixed": "charcoal"
       },
       "stl_hash": "636858a616f948625581cefd1b0355f06bc7c3ee8174d0012b33bce26407f401",
       "onshape_version": "https://cad.onshape.com/documents/60aa51fc61d18f2155b99910/v/45a8c24919bf95a5560da0f8/e/7f9499df9d10e70a5d51b6a1"
@@ -5844,7 +5846,7 @@
         "feeder": 3
       },
       "color": {
-        "role": "channel"
+        "fixed": "charcoal"
       },
       "stl_hash": "b7b2900b99628ee40a848bb36d6ac169b752532e7e837ec9b086c9ed56ffe082",
       "onshape_version": "https://cad.onshape.com/documents/60aa51fc61d18f2155b99910/v/45a8c24919bf95a5560da0f8/e/7f9499df9d10e70a5d51b6a1"

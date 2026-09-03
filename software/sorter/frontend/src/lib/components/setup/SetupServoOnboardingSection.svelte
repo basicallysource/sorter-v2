@@ -96,7 +96,9 @@
 	let servoIssues = $state<HardwareIssue[]>([]);
 
 	let layerCount = $state<number>(0);
-	let storageLayers = $state<Array<{ bin_count: number; enabled: boolean }>>([]);
+	type StorageLayerDraft = { bin_count: number; enabled: boolean; max_pieces_per_bin: number | null };
+	let storageLayers = $state<StorageLayerDraft[]>([]);
+	let allowedBinCounts = $state<number[]>([6, 12, 18, 30]);
 	// servoId → layer index (1-based). For PCA, channelId → layer index.
 	let layerByAssignment = $state<Record<number, number>>({});
 	// per-layer invert (1-based layer index → invert)
@@ -230,7 +232,11 @@
 		storageLayers = storageLayersRaw.map((sl: any) => ({
 			bin_count: Number(sl?.bin_count ?? 12),
 			enabled: sl?.enabled !== false,
+			max_pieces_per_bin: typeof sl?.max_pieces_per_bin === 'number' ? sl.max_pieces_per_bin : null,
 		}));
+		if (Array.isArray(storage?.allowed_bin_counts)) {
+			allowedBinCounts = storage.allowed_bin_counts.filter((v: unknown): v is number => typeof v === 'number');
+		}
 
 		const newAssignments: Record<number, number> = {};
 		const newInverts: Record<number, boolean> = {};
@@ -580,8 +586,18 @@
 		return channels;
 	}
 
+	function updateLayer(index: number, patch: Partial<StorageLayerDraft>) {
+		const current = storageLayers[index] ?? { bin_count: 12, enabled: true, max_pieces_per_bin: null };
+		storageLayers[index] = { ...current, ...patch };
+	}
+
+	function assignedServoLabel(layer: number): string {
+		const entry = Object.entries(layerByAssignment).find(([, assigned]) => assigned === layer);
+		return entry ? `Servo ${entry[0]}` : 'no servo assigned';
+	}
+
 	function buildStorageLayersForSave() {
-		const result: Array<{ bin_count: number; enabled: boolean; servo_open_angle: number | null; servo_closed_angle: number | null }> = [];
+		const result: Array<StorageLayerDraft & { servo_open_angle: number | null; servo_closed_angle: number | null }> = [];
 		for (let i = 0; i < layerCount; i++) {
 			const sl = storageLayers[i];
 			const openStr = openAngleByLayer[i + 1] ?? '';
@@ -591,6 +607,7 @@
 			result.push({
 				bin_count: sl?.bin_count ?? 12,
 				enabled: sl?.enabled ?? true,
+				max_pieces_per_bin: sl?.max_pieces_per_bin ?? null,
 				servo_open_angle: openVal !== null && Number.isFinite(openVal) ? openVal : null,
 				servo_closed_angle: closedVal !== null && Number.isFinite(closedVal) ? closedVal : null,
 			});
@@ -784,6 +801,44 @@
 			onToggleInvert={toggleInvertForLayer}
 			onNudge={(servoId, degrees) => void nudgeServo(servoId, degrees)}
 		/>
+
+		<div class="setup-panel p-4">
+			<div class="text-sm font-semibold text-text">Layers</div>
+			<div class="mt-1 text-sm text-text-muted">
+				Bins per layer and whether the layer takes pieces. Servos are assigned to layers in the list above.
+			</div>
+			<div class="mt-3 grid gap-2">
+				{#each Array.from({ length: Math.max(layerCount, effectiveLayerCount) }, (_, index) => index) as index (index)}
+					{@const layer = storageLayers[index]}
+					<div class="flex flex-wrap items-center gap-4 text-sm">
+						<span class="w-16 font-medium text-text">Layer {index + 1}</span>
+						<span class="w-36 text-text-muted">{assignedServoLabel(index + 1)}</span>
+						<label class="inline-flex items-center gap-1 text-text-muted">
+							Bins
+							<select
+								value={String(layer?.bin_count ?? 12)}
+								onchange={(event) => updateLayer(index, { bin_count: Number(event.currentTarget.value) })}
+								disabled={saving}
+								class="setup-control w-16 px-1 py-1 text-text"
+							>
+								{#each allowedBinCounts as count (count)}
+									<option value={String(count)}>{count}</option>
+								{/each}
+							</select>
+						</label>
+						<label class="inline-flex items-center gap-1 text-text-muted">
+							<input
+								type="checkbox"
+								checked={layer?.enabled ?? true}
+								onchange={(event) => updateLayer(index, { enabled: event.currentTarget.checked })}
+								disabled={saving}
+							/>
+							Enabled
+						</label>
+					</div>
+				{/each}
+			</div>
+		</div>
 	{:else}
 		<ServoLayerCalibrator showDirections />
 	{/if}

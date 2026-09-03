@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { ArrowLeft, Box, Boxes, CheckCircle2, Layers3 } from 'lucide-svelte';
+	import { ArrowLeft, Box, Boxes, CheckCircle2, Layers3, Trash2 } from 'lucide-svelte';
 	import Badge from '$lib/components/Badge.svelte';
 	import PriorityBadge from '$lib/components/PriorityBadge.svelte';
 	import Modal from '$lib/components/Modal.svelte';
@@ -92,6 +92,7 @@
 							{:else}
 								<PriorityBadge priority={change.priority} />
 								{#if change.condition === 'broken'}<div class="mt-1 text-[10px] font-semibold uppercase leading-tight tracking-wide text-danger">Broken feature</div>{/if}
+								{#if change.condition === 'retired'}<div class="mt-1 inline-flex items-center gap-1 text-[10px] font-semibold uppercase leading-tight tracking-wide text-text"><Trash2 size={10} /> To be removed</div>{/if}
 							{/if}
 						</td>
 						<td class="px-3 py-3">
@@ -151,7 +152,7 @@
 	<a href="/" class="mb-5 inline-flex items-center gap-1 text-sm font-semibold text-primary hover:text-primary-hover"><ArrowLeft size={15} /> Printed parts</a>
 	<div class="mb-6">
 		<h1 class="text-3xl font-bold tracking-tight text-text">Intended Changes</h1>
-		<p class="mt-2 max-w-3xl text-sm text-text-muted">Known fixes and planned improvements. P0 is reserved for broken features; higher numbers are progressively lower priority, with P4 used for nice-to-have improvements. Click any part thumbnail to inspect its current interactive 3D model.</p>
+		<p class="mt-2 max-w-3xl text-sm text-text-muted">Known fixes and planned improvements. P0 is reserved for broken features; higher numbers are progressively lower priority, with P4 used for nice-to-have improvements. Entries marked <b>To be removed</b> are catalog entries nothing uses any more, waiting to be deleted. Click any part thumbnail to inspect its current interactive 3D model.</p>
 	</div>
 
 	{@render changeTable(plannedChanges, false)}

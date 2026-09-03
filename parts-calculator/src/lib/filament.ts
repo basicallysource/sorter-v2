@@ -36,7 +36,11 @@ export type PlannedChange = {
 	name: string;
 	priority: ChangePriority;
 	description: string;
-	condition?: 'working' | 'broken';
+	// 'broken' = does not work as built. 'retired' = the item itself is on its way
+	// out of the catalog (unused everywhere, waiting on a deletion nobody can do
+	// from a branch), which is a different thing from a fix or an improvement and
+	// is badged as its own state rather than hiding behind a low priority number.
+	condition?: 'working' | 'broken' | 'retired';
 	status?: 'planned' | 'complete';
 	completed_at?: string;
 	images?: CatalogImage[];

@@ -27,6 +27,7 @@
 
 	let {
 		busServos,
+		busInUse = false,
 		highestSeenId,
 		suggestedNextId,
 		selectedServoId = $bindable(),
@@ -47,6 +48,7 @@
 		onNudge
 	}: {
 		busServos: BusServo[];
+		busInUse?: boolean; // the running machine owns the bus, so it is not scanned
 		highestSeenId: number;
 		suggestedNextId: number | null;
 		selectedServoId: number | null;
@@ -81,7 +83,12 @@
 
 	{#if busServos.length === 0}
 		<div class="mt-4 border border-dashed border-border px-4 py-6 text-center text-sm text-text-muted">
-			No servos found yet. Connect your first servo — the bus auto-scans every few seconds.
+			{#if busInUse}
+				The servo bus belongs to the running machine, so it is not scanned. Put the hardware into
+				standby (system controls → Reset) to discover, calibrate, or assign servos.
+			{:else}
+				No servos found yet. Connect your first servo — the bus auto-scans every few seconds.
+			{/if}
 		</div>
 	{:else}
 		<div class="mt-4 grid gap-3">

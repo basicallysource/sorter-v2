@@ -3935,8 +3935,8 @@
 		},
 		{
 			"id": "adapted-camera-module",
-			"uid": "pdmk",
-			"version": "1",
+			"uid": "z5sx",
+			"version": "2",
 			"name": "Adapted camera module",
 			"description": "A camera board clasped between the printed top and bottom halves, ready to snap into the Camera lamp arm.",
 			"params": {
@@ -3960,7 +3960,7 @@
 				},
 				{
 					"part": "scr-m3-8-cs",
-					"qty": 4
+					"qty": 2
 				}
 			],
 			"connections": [
@@ -3968,10 +3968,45 @@
 					"from": "camera-clasp-top",
 					"to": "camera-clasp-bottom",
 					"via": "scr-m3-8-cs",
-					"qty": 4,
+					"qty": 2,
 					"method": "self-tap",
-					"draft": true,
-					"note": "Clasp the camera board between the halves; the screw count is not yet confirmed at the bench."
+					"note": "Two screws hold the clasp halves to each other around the camera board."
+				}
+			],
+			"versions": [
+				{
+					"version": "1",
+					"uid": "pdmk",
+					"message": "As recorded before the first stamped change.",
+					"lines": [
+						{
+							"part": "camera-clasp-bottom",
+							"qty": 1,
+							"uid": "zub8"
+						},
+						{
+							"param": "camera",
+							"qty": 1
+						},
+						{
+							"part": "camera-clasp-top",
+							"qty": 1,
+							"uid": "u816"
+						},
+						{
+							"part": "scr-m3-8-cs",
+							"qty": 4,
+							"uid": "l6br"
+						}
+					]
+				},
+				{
+					"version": "2",
+					"uid": "z5sx",
+					"date": "2026-09-02",
+					"message": "The clasp takes two M3 x 8, not four \u2014 the four was assumed at recording; two is the bench count. Record correction, no physical change.",
+					"breaking": false,
+					"commit": null
 				}
 			]
 		},

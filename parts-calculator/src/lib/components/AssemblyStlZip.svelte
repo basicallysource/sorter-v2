@@ -50,7 +50,12 @@
 		return acc;
 	}
 
-	async function download(engraved: boolean) {
+	// The menu's two choices. Engraving defaults on — a print that carries its
+	// version id is the whole point of the stamps. Per-piece defaults off.
+	let engrave = $state(true);
+	let perPiece = $state(false);
+
+	async function download() {
 		if (zipping) return;
 		zipping = true;
 		try {
@@ -59,26 +64,34 @@
 			const files: Record<string, Uint8Array> = {};
 			const manifest: string[] = [
 				`${name} — printed parts for one assembly` +
-					(engraved ? ' (uid-engraved where a face fits)' : '') +
+					(engrave ? ' (uid-engraved where a face fits)' : '') +
 					(snap ? ', as this version had them' : ''),
 				''
 			];
 			for (const [pid, qty] of counts) {
 				const p = partOf(pid)!;
-				const url = engraved ? (p.stamped?.[0]?.stl ?? p.stl) : p.stl;
+				const url = engrave ? (p.stamped?.[0]?.stl ?? p.stl) : p.stl;
 				if (!url) continue;
 				const res = await fetch(url);
 				if (!res.ok) throw new Error(`${pid}: HTTP ${res.status}`);
+				const bytes = new Uint8Array(await res.arrayBuffer());
 				const file = url.slice(url.lastIndexOf('/') + 1);
-				files[file] = new Uint8Array(await res.arrayBuffer());
-				manifest.push(`x${qty}  ${p.name}  (${file})`);
+				if (perPiece) {
+					// one file per physical piece — <part>-1.stl, <part>-2.stl … —
+					// so importing the zip gives the slicer the exact plate count
+					for (let i = 1; i <= qty; i++) files[`${pid}-${i}.stl`] = bytes;
+					manifest.push(`x${qty}  ${p.name}  (${pid}-1..${qty}.stl, from ${file})`);
+				} else {
+					files[file] = bytes;
+					manifest.push(`x${qty}  ${p.name}  (${file})`);
+				}
 			}
 			// hash-named files say nothing about how many of each to run
 			files['print-manifest.txt'] = new TextEncoder().encode(manifest.join('\n') + '\n');
 			const zipped = zipSync(files, { level: 6 });
 			const a = document.createElement('a');
 			a.href = URL.createObjectURL(new Blob([zipped as BlobPart], { type: 'application/zip' }));
-			a.download = `${id}-stls${engraved ? '-engraved' : ''}.zip`;
+			a.download = `${id}-stls${engrave ? '-engraved' : ''}${perPiece ? '-pieces' : ''}.zip`;
 			a.click();
 			URL.revokeObjectURL(a.href);
 		} finally {
@@ -100,21 +113,22 @@
 		</button>
 	{/snippet}
 	{#snippet children({ close })}
-		<button
-			type="button"
-			role="menuitem"
-			class="block w-full px-3 py-1.5 text-left text-xs text-text hover:bg-primary/[0.06]"
-			onclick={() => {
-				close();
-				download(true);
-			}}>All STLs, version ids engraved (zip)</button>
-		<button
-			type="button"
-			role="menuitem"
-			class="block w-full px-3 py-1.5 text-left text-xs text-text hover:bg-primary/[0.06]"
-			onclick={() => {
-				close();
-				download(false);
-			}}>All STLs, plain (zip)</button>
+		<label class="flex cursor-pointer items-center gap-2 px-3 py-1.5 text-xs text-text hover:bg-primary/[0.06]">
+			<input type="checkbox" bind:checked={engrave} class="accent-[var(--color-primary)]" />
+			Engrave version ids
+		</label>
+		<label class="flex cursor-pointer items-center gap-2 px-3 py-1.5 text-xs text-text hover:bg-primary/[0.06]">
+			<input type="checkbox" bind:checked={perPiece} class="accent-[var(--color-primary)]" />
+			One file per piece
+		</label>
+		<div class="border-t border-border/60 px-3 py-1.5">
+			<button
+				type="button"
+				class="inline-flex w-full items-center justify-center gap-1.5 border border-border bg-surface px-2 py-1 text-xs font-medium text-text hover:border-primary"
+				onclick={() => {
+					close();
+					download();
+				}}><Download size={11} /> Download zip</button>
+		</div>
 	{/snippet}
 </DropdownMenu>

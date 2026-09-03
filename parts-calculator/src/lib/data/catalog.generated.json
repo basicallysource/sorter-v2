@@ -377,6 +377,17 @@
 			}
 		},
 		{
+			"id": "delete-unused-m3-15-washer",
+			"name": "Delete the unused M3 x 15 mm washer",
+			"priority": "P4",
+			"description": "This washer is not used anywhere in the machine. It was added to match the documentation's description of the interface idler gear joint, under the M3 x 35 screw holding the gear onto the NEMA 23 bracket, and that description was wrong: the joint uses the printed chute stepper idler bearing retainers instead, so the washer was never correct there and its last assembly line was dropped on 2026-08-25. It should be deleted outright, but a minted part id has to stay resolvable once it exists, and the catalog's own consistency check refuses a change that removes one, so deleting it needs that check overridden by someone who can make that call, not an edit from here. Tracked as sorter-v2 issue #478.",
+			"targets": {
+				"hardware": [
+					"washer-m3-15"
+				]
+			}
+		},
+		{
 			"id": "unconfirmed-servo-adapter-heat-insert",
 			"name": "Servo adapter's 4x M3S heat inserts are unconfirmed against the current CAD",
 			"priority": "P2",
@@ -19969,10 +19980,10 @@
 			},
 			"name": "M3 \u00d7 15 mm washer",
 			"category": "Washers",
-			"description": "Flat/fender washer, 15 mm outer diameter. Added to the catalog to match the documentation's description of the interface idler gear joint, under the M3 \u00d7 35 screw that holds the gear onto the NEMA 23 bracket. That documentation was wrong: the joint's actual design uses the printed chute stepper idler bearing retainers instead (wired up 2026-08-25), so this part was never correct here. Not used anywhere in the machine. Kept as an unused entry rather than deleted, since a minted uid has to stay resolvable (see parts-calculator's own CLAUDE.md).",
+			"description": "Flat/fender washer, 15 mm outer diameter. Added to the catalog to match the documentation's description of the interface idler gear joint, under the M3 \u00d7 35 screw that holds the gear onto the NEMA 23 bracket. That documentation was wrong: the joint's actual design uses the printed chute stepper idler bearing retainers instead (wired up 2026-08-25), so this part was never correct here. Not used anywhere in the machine. Kept as an unused entry rather than deleted, since a minted uid has to stay resolvable (see parts-calculator's own CLAUDE.md). Deletion is tracked as sorter-v2 issue #478.",
 			"note": "Unused as of 2026-08-30. Do not add a new joint to this washer \u2014 the idler gear joint it was meant for uses the printed chute stepper idler bearing retainers instead.",
 			"created_at": "2026-08-18",
-			"updated_at": "2026-08-30",
+			"updated_at": "2026-09-03",
 			"attributes": [
 				{
 					"label": "Thread",

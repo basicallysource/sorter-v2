@@ -338,7 +338,11 @@
 	}
 
 	function exitIncidentCanTestRelease(incident: Record<string, unknown> | null): boolean {
-		return isClassificationExitStuckIncident(incident) || isChannelExitStuckIncident(incident);
+		return (
+			isClassificationExitStuckIncident(incident) ||
+			isChannelExitStuckIncident(incident) ||
+			isC4StallWatchdogIncident(incident)
+		);
 	}
 
 	function exitIncidentApiBase(incident: Record<string, unknown>): string {
@@ -1251,7 +1255,7 @@
 											{exitIncidentSecondaryMetricValue(exitIncident)}
 										</div>
 									</div>
-									{#if exitIncidentCanTestRelease(exitIncident)}
+									{#if exitIncidentCanTestRelease(exitIncident) && !isC4StallWatchdogIncident(exitIncident)}
 										<div class="col-span-2 bg-bg/70 px-2 py-1.5">
 											<div class="text-text-muted">Suggested Release</div>
 											<div class="text-text">{exitIncidentStageLabel(exitIncident)}</div>

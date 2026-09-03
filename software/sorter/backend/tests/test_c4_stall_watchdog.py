@@ -97,6 +97,7 @@ def mkWatchdogSm(n_pieces: int = 1) -> ClassificationChannelStateMachine:
     sm._last_progress_at = time.monotonic()
     sm._stall_incident_raised = False
     sm._stall_resolve_requested = False
+    sm._stall_shake_request = None
     return sm
 
 
@@ -325,3 +326,69 @@ def test_does_not_stomp_other_active_incident(machine_params_env) -> None:
     assert active is not None
     assert active["kind"] == "distribution_chute_jam"
     assert not sm._stall_incident_raised
+
+
+def _armShakeTest(sm: ClassificationChannelStateMachine, monkeypatch, *, cleared: bool) -> list[dict]:
+    from subsystems.classification_channel.simple_state_machine_rev01 import channel_clear
+
+    calls: list[dict] = []
+
+    def fakeStage(gc, irl, **kwargs):
+        calls.append(kwargs)
+        return channel_clear.ChannelClearResult(cleared, True, 0.0, "shaken_clear" if cleared else "still_occupied")
+
+    monkeypatch.setattr(channel_clear, "shakeChannelStage", fakeStage)
+    monkeypatch.setattr(channel_clear, "shimmyStepperPerOutputDeg", lambda cfg: 10.0)
+    sm.irl = None
+    sm.irl_config = None
+    sm.vision = None
+    return calls
+
+
+def test_requested_test_wiggle_runs_one_stage_and_reports_failure(machine_params_env, monkeypatch) -> None:
+    setExitStuckMode("manual")
+    sm = mkWatchdogSm(n_pieces=1)
+    stallOut(sm)
+    sm._checkStall(time.monotonic())
+    calls = _armShakeTest(sm, monkeypatch, cleared=False)
+
+    assert sm.requestStallShake(
+        amplitude_output_deg=2.5, cycles=3, microsteps_per_second=1800, acceleration_microsteps_per_second_sq=6000
+    ) is True
+    sm.step()
+
+    assert len(calls) == 1
+    assert calls[0]["amplitude_output_deg"] == 2.5
+    assert calls[0]["cycles"] == 3
+    assert calls[0]["stepper_per_output_deg"] == 10.0
+    active = sm.gc.runtime_stats.activeIncident()
+    assert active is not None and active["kind"] == C4_EXIT_STUCK_INCIDENT_KIND
+    assert active["status"] == "waiting_for_operator"
+    assert "Test wiggle 2.50° x3" in active["operator_message"]
+    assert sm._stall_shake_request is None
+    assert sm._two_piece.step_calls == 0
+
+
+def test_requested_test_wiggle_that_frees_the_piece_drops_incident(machine_params_env, monkeypatch) -> None:
+    setExitStuckMode("manual")
+    sm = mkWatchdogSm(n_pieces=1)
+    stallOut(sm)
+    sm._checkStall(time.monotonic())
+    _armShakeTest(sm, monkeypatch, cleared=True)
+
+    assert sm.requestStallShake(
+        amplitude_output_deg=1.0, cycles=2, microsteps_per_second=1200, acceleration_microsteps_per_second_sq=3600
+    ) is True
+    sm.step()
+
+    assert sm.gc.runtime_stats.activeIncident() is None
+    assert sm._stall_incident_raised is False
+
+
+def test_request_test_wiggle_rejected_without_incident(machine_params_env) -> None:
+    setExitStuckMode("manual")
+    sm = mkWatchdogSm(n_pieces=1)
+    assert sm.requestStallShake(
+        amplitude_output_deg=1.0, cycles=1, microsteps_per_second=1000, acceleration_microsteps_per_second_sq=3000
+    ) is False
+    assert sm._stall_shake_request is None

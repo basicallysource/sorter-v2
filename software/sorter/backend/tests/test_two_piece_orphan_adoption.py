@@ -50,6 +50,8 @@ def _piece(tid: int, *, zone: int, capture_done: bool, last_seen: float) -> _Tra
     tp.placed = capture_done
     tp.ejected = False
     tp.last_seen = last_seen
+    tp.still_since = last_seen
+    tp.bbox = (0, 0, 0, 0)
     tp.worker = _Worker()
     return tp
 

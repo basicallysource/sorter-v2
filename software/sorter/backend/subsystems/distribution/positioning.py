@@ -13,7 +13,7 @@ from global_config import GlobalConfig
 from sorting_profile import SortingProfile, MISC_CATEGORY
 from blob_manager import setBinCategories
 from defs.events import PauseCommandData, PauseCommandEvent
-from defs.known_object import PieceStage
+from defs.known_object import ClassificationStatus, PieceStage
 from utils.event import knownObjectToEvent
 
 
@@ -154,7 +154,10 @@ class Positioning(BaseState):
                 self._setOccupancyState("positioning.passthrough_too_big")
                 return DistributionState.READY
 
-            if piece.part_id is not None:
+            if (
+                piece.part_id is not None
+                and piece.classification_status != ClassificationStatus.low_confidence
+            ):
                 category_id = self.sorting_profile.getCategoryIdForPart(piece.part_id, piece.color_id)
             else:
                 category_id = MISC_CATEGORY

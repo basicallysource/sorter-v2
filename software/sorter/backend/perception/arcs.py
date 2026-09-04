@@ -430,11 +430,20 @@ _AREA_GRID_N = 12  # 12x12 = 144 sample points per bbox; ample for area majority
 # Per-channel cached region lookup: section_id → 0=none 1=drop 2=exit_only 3=precise.
 # Keyed by channel_id; built once on first call and reused. The section sets are
 # immutable after ChannelDef construction so this never goes stale.
-_region_lookup_cache: dict[int, np.ndarray] = {}
+# Keyed by the zone section sets, not the channel id: a live zone edit
+# rebuilds the ChannelDef with new sections under the same id, and a table
+# cached per id kept classifying pieces by the previous layout.
+_RegionKey = tuple[frozenset[int], frozenset[int], frozenset[int]]
+_region_lookup_cache: dict[_RegionKey, np.ndarray] = {}
 
 
 def _region_lookup(channel: ChannelDef) -> np.ndarray:
-    cached = _region_lookup_cache.get(channel.channel_id)
+    key: _RegionKey = (
+        frozenset(channel.drop_sections),
+        frozenset(channel.exit_sections),
+        frozenset(channel.precise_sections),
+    )
+    cached = _region_lookup_cache.get(key)
     if cached is not None:
         return cached
     exit_only = channel.exit_sections - channel.precise_sections
@@ -445,7 +454,7 @@ def _region_lookup(channel: ChannelDef) -> np.ndarray:
         lut[int(s) % SECTION_COUNT] = 2
     for s in channel.precise_sections:
         lut[int(s) % SECTION_COUNT] = 3
-    _region_lookup_cache[channel.channel_id] = lut
+    _region_lookup_cache[key] = lut
     return lut
 
 

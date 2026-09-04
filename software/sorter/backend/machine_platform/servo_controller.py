@@ -239,9 +239,11 @@ class WaveshareServoController(ServoController):
         port: str | None,
         assignments: Sequence[LayerServoAssignment],
         mcu_ports: Sequence[str],
+        move_time_ms: int = 500,
     ):
         self._gc = gc
         self._port = port
+        self._move_time_ms = int(move_time_ms)
         self._assignments = tuple(assignments)
         self._mcu_ports = tuple(mcu_ports)
         self._bus_service = None
@@ -288,7 +290,9 @@ class WaveshareServoController(ServoController):
                     servo.set_name(f"layer_{index}_servo")
                     layer_servos.append(servo)
                 continue
-            servo = WaveshareServoMotor(service, assignment.id, invert=assignment.invert)
+            servo = WaveshareServoMotor(
+                service, assignment.id, invert=assignment.invert, move_time_ms=self._move_time_ms
+            )
             try:
                 servo.initialize()
             except Exception as exc:
@@ -403,6 +407,7 @@ def build_servo_controller(
             port=waveshare_config.port,
             assignments=assignments,
             mcu_ports=mcu_ports,
+            move_time_ms=waveshare_config.move_time_ms,
         )
 
     servo_source = _select_pca_servo_source(control_boards)

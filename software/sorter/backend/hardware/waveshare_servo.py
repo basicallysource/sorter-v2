@@ -605,10 +605,13 @@ class WaveshareServoMotor:
     # Hysteresis: single flukes must not toggle layer usability.
     _OFFLINE_THRESHOLD = 3
 
-    def __init__(self, bus: ServoBus, servo_id: int, invert: bool = False):
+    def __init__(
+        self, bus: ServoBus, servo_id: int, invert: bool = False, move_time_ms: int = DOOR_MOVE_TIME_MS
+    ):
         self._bus = bus
         self._servo_id = servo_id
         self._invert = invert
+        self._move_time_ms = int(move_time_ms)
         self._name = f"waveshare_servo_{servo_id}"
         self._enabled = False
         self._current_position: int = 0  # raw SC position 0-1023
@@ -831,10 +834,10 @@ class WaveshareServoMotor:
     def _command_move(self, position: int, label: str) -> bool:
         if not self._enabled:
             self.enabled = True
-        ok = bool(self._bus.move_to(self._servo_id, position, DOOR_MOVE_TIME_MS))
+        ok = bool(self._bus.move_to(self._servo_id, position, self._move_time_ms))
         self._record_result(ok)
         if ok:
-            self._move_duration = DOOR_MOVE_TIME_MS / 1000.0
+            self._move_duration = self._move_time_ms / 1000.0
             self._move_started_at = time.monotonic()
             self._current_position = position
         else:

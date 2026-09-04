@@ -612,6 +612,9 @@ class ServoChannelConfig:
 class WaveshareServoConfig:
     port: str | None  # None = auto-detect
     channels: list[ServoChannelConfig]
+    # Time the servo is given for a door move (SC goal-time). A stiff door
+    # that stalls at 500 ms may follow a slower profile reliably.
+    move_time_ms: int = 500
 
 
 @dataclass
@@ -721,9 +724,20 @@ def loadWaveshareServoConfig(
         gc.logger.warning(f"Invalid servo.port={port!r}; expected string. Will auto-detect.")
         port = None
 
+    move_time_ms = 500
+    if "move_time_ms" in servo_params:
+        raw_time = servo_params.get("move_time_ms")
+        if isinstance(raw_time, int) and not isinstance(raw_time, bool) and 100 <= raw_time <= 5000:
+            move_time_ms = raw_time
+        else:
+            gc.logger.warning(
+                f"Invalid servo.move_time_ms={raw_time!r}; expected int 100-5000 (ms). Using {move_time_ms}."
+            )
+
     return WaveshareServoConfig(
         port=port,
         channels=loadServoChannelConfig(gc, raw, backend="waveshare"),
+        move_time_ms=move_time_ms,
     )
 
 

@@ -50,3 +50,16 @@ def test_id_gone_and_exit_arc_empty_commits() -> None:
     h, tp = _handler()
     h._ejecting(_state(exit_only=False), stopped=True, now=100.0 + _EJECT_GONE_CONFIRM_S + 0.1)
     assert h.advanced == 1 and tp.ejected is True and h.phases == [_Phase.STAGING]
+
+
+def test_staging_without_a_target_returns_to_waiting_without_rotating() -> None:
+    h, _tp = _handler()
+    h._phase = _Phase.STAGING
+    h._stage_target = None
+    h._pieces = {}
+    moves = []
+    h.startOutputMove = lambda *a, **k: moves.append(a)
+    state = SimpleNamespace(pieces=[], in_drop=True, exit_com_forward_to_precise_deg=90.0, exit_com_forward_deg=200.0)
+    h._staging(state, stopped=True, now=101.0)
+    assert h.phases == [_Phase.WAITING]
+    assert moves == []

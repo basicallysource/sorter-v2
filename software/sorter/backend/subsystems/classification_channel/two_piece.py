@@ -582,6 +582,16 @@ class TwoPieceClassificationChannel(Rev01BaseState):
         if tp is None or tp.placed:
             return
         if not tp.result_applied:
+            # An uncaptured head with an orphan waiting is that orphan under a
+            # second id (two boxes on one piece from the first frame): take over
+            # its capture, result and chute aim instead of starting a stray.
+            if tp.worker.ctx.classify_started_at == 0.0 and self._orphans:
+                adopted = self._adoptOrphan(tp.track_id, now)
+                if adopted is not None:
+                    adopted.zone = tp.zone
+                    adopted.bbox = tp.bbox
+                    adopted.gap_to_exit = tp.gap_to_exit
+                    return
             # A forward piece that was never even captured (stray / churn leftover /
             # a multi-drop sibling that skipped the drop zone) would otherwise sit
             # as an un-shippable head forever. After a grace period, send it to misc

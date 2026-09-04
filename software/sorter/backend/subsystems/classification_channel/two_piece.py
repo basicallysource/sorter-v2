@@ -384,8 +384,10 @@ class TwoPieceClassificationChannel(Rev01BaseState):
             if (now - tp.last_seen) > _TRACK_GONE_RETIRE_S
         ]:
             tp = self._pieces.pop(tid)
-            if tp.capture_done and not tp.ejected and tp.zone != _ZONE_DROP:
-                # Carries a result and has not been committed: keep it adoptable.
+            if tp.capture_done and not tp.ejected:
+                # Carries a capture/result and has not been committed: keep it
+                # adoptable. Includes a piece still coded DROP — its id can
+                # vanish while the platter pushes it into the holding band.
                 self._orphans.append((tp, now))
                 self.logger.info(f"{LOG_TAG} track={tid} gone — kept as orphan for re-identification")
                 continue

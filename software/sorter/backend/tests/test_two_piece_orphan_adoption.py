@@ -103,3 +103,13 @@ def test_uncaptured_or_ejected_pieces_retire_normally() -> None:
     h._retireGonePieces(now=_TRACK_GONE_RETIRE_S + 0.1)
     assert h._pieces == {} and h._orphans == []
     assert fresh.worker.abandoned and done.worker.abandoned
+
+
+def test_captured_drop_piece_lost_mid_staging_is_kept_as_orphan() -> None:
+    h = _handler()
+    staged = _piece(1, zone=_ZONE_DROP, capture_done=True, last_seen=0.0)
+    h._pieces = {1: staged}
+    h._retireGonePieces(now=_TRACK_GONE_RETIRE_S + 0.1)
+    assert h._pieces == {} and len(h._orphans) == 1
+    h._observe(_observation(3, _ZONE_NONE), now=2.0)
+    assert h._pieces[3] is staged and staged.track_id == 3

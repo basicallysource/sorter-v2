@@ -38,6 +38,12 @@
 				cls: 'border-warning/60 bg-warning/10 text-warning-dark',
 				title: 'Identification returned no usable match for this piece'
 			};
+		if (s === 'low_confidence')
+			return {
+				label: 'Low confidence',
+				cls: 'border-warning/60 bg-warning/10 text-warning-dark',
+				title: 'Recognized below the minimum part confidence — routed to misc, not to a bin'
+			};
 		if (s === 'multi_drop_fail')
 			return {
 				label: 'Multi drop',

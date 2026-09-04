@@ -100,8 +100,10 @@ parts_needed:
     qty: 6
   - part: scr-m3-16-shcs
     qty: 2
+  - part: scr-m3-20-cs
+    qty: 1
   - part: scr-m3-35-bhcs
-    qty: 2
+    qty: 1
   - part: scr-m4-12-cs
     qty: 8
   - part: scr-m5-8-cs
@@ -310,6 +312,15 @@ Slot the Interface NEMA 23 bracket into the Interface upper fixed section and se
 
 Attach the whole assembly to the bottom of the Top plate with {% include fastener.html size="M5" variant="countersunk" length="22" %} screws through holes S2 and S3 into the Interface NEMA 23 bracket.
 
+**Alternative:** whether these need a countersunk head depends on how your Top plate was cut. If the S2/S3 holes have a countersink cut in, use a countersunk head; if they don't, {% include fastener.html size="M5" variant="socket-button" length="20" %} screws work here instead. Builder's call depending on their plate, the same as the I1-I6/O1-O6 screws in step 5.
+
+<div class="img-row">
+  <figure>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-parts/img-4305-full-931aaff1af40.jpg" alt="Close-up of a hand-cut plywood Top plate showing a countersunk screw hole near the S3 hole position">
+    <figcaption>A hand-cut Top plate with the S2/S3 holes countersunk. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+  </figure>
+</div>
+
 <div class="img-row">
   <figure>
     <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-top-interface-step2-ribs-upper-fixed-section-w1600-4ebd47453115.jpg" alt="Six grey Interface ribs attached around the circular Interface upper fixed section">
@@ -345,6 +356,18 @@ Place T-nuts in the extrusion, lined up with the 4 holes on the side of the Inte
 
 Slide the extrusion into the Interface bracket, careful not to dislodge the T-nuts, and drive four {% include fastener.html size="M5" variant="socket-button" length="16" %} screws into them.
 
+<div class="callout">
+  <span class="callout-icon" aria-hidden="true">💡</span>
+  <p>Thread the four screws a couple of turns into the T-nuts before sliding the extrusion in, so they hang in place instead of sitting loose in the channel. Easier than aligning four free T-nuts by feel. <cite>Tip: BrickCycleAlice.</cite></p>
+</div>
+
+<div class="img-row">
+  <figure>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-parts/img-4293-full-d11cce819ba3.jpg" alt="Four M5 screws threaded a few turns into T-nuts hanging in the Interface bracket's channel before the extrusion is slid in">
+    <figcaption>Screws threaded into the T-nuts first, ready for the extrusion. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+  </figure>
+</div>
+
 Repeat for all 6 Interface brackets.
 
 {% include step.html n="4" title="Prepare the limit switch interface bracket" %}
@@ -371,6 +394,18 @@ Attach the Roller lever limit switch (the "endstop-mechanical" part in your kit)
 
 Align the switch housing with the extrusion of one of the prepared Interface brackets so the limit switch is on the same face as the sloped side of the bracket. Slide 2 T-nuts into the extrusion and fasten the Limit switch housing to the extrusion with two {% include fastener.html size="M5" variant="socket-button" length="16" %} screws. Slide it as far toward the Interface bracket as possible for now; it gets aligned properly later.
 
+<div class="callout">
+  <span class="callout-icon" aria-hidden="true">💡</span>
+  <p>Same trick as the Interface brackets above: thread the two screws into the T-nuts first, then slide the extrusion in with them already hanging in place. <cite>Tip: BrickCycleAlice.</cite></p>
+</div>
+
+<div class="img-row">
+  <figure>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-parts/img-4301-full-9ca956feeb74.jpg" alt="Two T-nuts threaded onto their screws on the Limit switch housing's mounting face, ready for the extrusion">
+    <figcaption>T-nuts threaded on before the extrusion goes in. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+  </figure>
+</div>
+
 {% include step.html n="5" title="Install the brackets" %}
 
 <figure class="video-figure">
@@ -387,6 +422,18 @@ Align the switch housing with the extrusion of one of the prepared Interface bra
 
 Slide a T-nut just into the end of the extrusion of the limit switch interface bracket. Slide the extrusion into the Interface rib (switch gap) and Interface upper fixed section, securing it loosely with an {% include fastener.html size="M5" variant="countersunk" length="8" %} screw. Slide the extrusion slightly in and out to align the holes on the Interface bracket with the holes on the Top plate, then tighten the screw.
 
+<div class="callout">
+  <span class="callout-icon" aria-hidden="true">💡</span>
+  <p>Keep this loose for now, the bracket also gets fixed through the Top plate in the next step. Check by looking straight through the Top plate's own screw hole, not by feel alone. <cite>Tip: BrickCycleAlice.</cite></p>
+</div>
+
+<div class="img-row">
+  <figure>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-parts/img-4311-full-f9e44da3df95.jpg" alt="Looking down through one of the Top plate's screw holes, with light visible through it into the extrusion channel below">
+    <figcaption>What a clear sightline through the hole looks like. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+  </figure>
+</div>
+
 <div class="callout callout-warning">
   <span class="callout-icon" aria-hidden="true">⚠</span>
   <p>The M5 × 8 mm is a snug fit here, it barely reaches the T-nut. Opening the countersink a little and tightening firmly gets the head to sit flush.</p>
@@ -399,6 +446,11 @@ Flip the whole assembly and screw all 6 Interface brackets into place with {% in
 <div class="callout callout-warning">
   <span class="callout-icon" aria-hidden="true">⚠</span>
   <p>Alternative: the Top plate's laser-cut holes are not countersunk, so a countersunk head does not seat flush. {% include fastener.html size="M5" variant="socket-button" length="20" %} screws work here instead.</p>
+</div>
+
+<div class="callout">
+  <span class="callout-icon" aria-hidden="true">💡</span>
+  <p>Go back and fully tighten the M5 × 8 mm screws left loose earlier in this step, now that each bracket is also bolted through its I/O holes. This is also where a hand-cut Top plate's I/O holes show up as inaccurate, if they do; widen them if a bolt is binding. <cite>Tip: BrickCycleAlice.</cite></p>
 </div>
 
 {% include step.html n="6" title="Prepare the interface chute gear and mount" %}
@@ -520,9 +572,16 @@ Slide the prepared [Timing pulley]({{ '/hardware/helpers/pulley-gear-mod/' | rel
 
 Push the prepared Interface idler gear — bearing, inner retainer cap, and outer retainer already fitted, see step 1 — onto the Interface NEMA 23 bracket with the bearing facing outwards.
 
-Drive an {% include fastener.html size="M3" variant="flat" length="35" %} screw through the middle of the gear and into the bracket. The inner retainer cap sits between the screw head and the bearing, spanning the 8 mm bore, so the screw head on its own (narrower than the bore) has something to clamp against. Tighten until it's seated, then check that the idler gear still spins freely.
+Drive an {% include fastener.html size="M3" variant="countersunk" length="20" %} screw through the middle of the gear and into the bracket. The inner retainer cap sits between the screw head and the bearing, spanning the 8 mm bore, so the screw head on its own (narrower than the bore) has something to clamp against. Tighten until it's seated, then check that the idler gear still spins freely.
 
-The head has to be low here — countersunk (flat/pancake) is the only head type confirmed to clear the Limit switch hammer as it sweeps past. If you only have a pan head on hand, check clearance by hand-rotating the chute past this screw before closing everything up. It is the same screw as the one on the Cable clamp in step 11, so buy two of the one head type.
+The head has to be low here — countersunk (flat/pancake) is the only head type confirmed to clear the Limit switch hammer as it sweeps past. If you only have a pan head on hand, check clearance by hand-rotating the chute past this screw before closing everything up. The screw self-taps straight into the printed NEMA 23 bracket; it does not reach through to the plywood Top plate underneath, which is why 20 mm is enough.
+
+<div class="img-row">
+  <figure>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-parts/img-4329-full-5511485c850a.jpg" alt="The Interface idler gear seated on the NEMA 23 bracket with an M3 countersunk screw driven flush through its centre">
+    <figcaption>The M3 × 20 mm countersunk screw seated flush. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+  </figure>
+</div>
 
 Slot the NEMA 23 onto the Interface NEMA 23 bracket and secure it with four {% include fastener.html size="M5" variant="socket-button" length="12" %} screws.
 

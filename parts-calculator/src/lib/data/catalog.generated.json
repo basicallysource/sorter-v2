@@ -3118,10 +3118,10 @@
 		},
 		{
 			"id": "chute-stepper-gearing",
-			"uid": "cwji",
-			"version": "1",
+			"uid": "1cfd",
+			"version": "2",
 			"name": "Chute Stepper Gearing",
-			"description": "The printed drive and idler gearing that transfers motion from the NEMA 23 chute stepper. The idler gear's 608 2RS bearing is retained by two printed caps: [[hw:chute-stepper-idler-bearing-retainer-outer]] bolts over the bearing pocket on 4 \u00d7 [[hw:scr-m3-8-cs]] into the gear's own heat inserts (the same screw the Interface spur gear uses two lines up), and [[hw:chute-stepper-idler-bearing-retainer-inner]] caps the bore where 1 \u00d7 [[hw:scr-m3-35-bhcs]] still runs through into the bracket. The low head on the M3\u00d735 keeps it clear of the limit switch hammer.",
+			"description": "The printed drive and idler gearing that transfers motion from the NEMA 23 chute stepper. The idler gear's 608 2RS bearing is retained by two printed caps: [[hw:chute-stepper-idler-bearing-retainer-outer]] bolts over the bearing pocket on 4 \u00d7 [[hw:scr-m3-8-cs]] into the gear's own heat inserts (the same screw the Interface spur gear uses two lines up), and [[hw:chute-stepper-idler-bearing-retainer-inner]] caps the bore where 1 \u00d7 [[hw:scr-m3-20-cs]] runs through into the bracket, self-tapping straight into the printed NEMA 23 bracket rather than reaching all the way to the plywood Top plate.",
 			"docs": "/hardware/assembly/distribution/top-interface/",
 			"lines": [
 				{
@@ -3141,7 +3141,7 @@
 					"qty": 1
 				},
 				{
-					"part": "scr-m3-35-bhcs",
+					"part": "scr-m3-20-cs",
 					"qty": 1
 				},
 				{
@@ -3167,6 +3167,70 @@
 					"to": "interface-idler-gear",
 					"qty": 1,
 					"method": "press"
+				}
+			],
+			"versions": [
+				{
+					"version": "1",
+					"uid": "cwji",
+					"date": "2026-08-30",
+					"commit": null,
+					"message": "Original recording: the idler gear's axle screw was listed as 1 x M3 x 35 flat head, the same screw as the cable clamp's.",
+					"lines": [
+						{
+							"part": "interface-nema23-bracket",
+							"qty": 1,
+							"uid": "if4v"
+						},
+						{
+							"part": "interface-spur-gear",
+							"qty": 1,
+							"uid": "ywxy"
+						},
+						{
+							"part": "interface-idler-gear",
+							"qty": 1,
+							"uid": "ptl7"
+						},
+						{
+							"part": "brg-608-2rs",
+							"qty": 1,
+							"uid": "mi1l"
+						},
+						{
+							"part": "scr-m3-35-bhcs",
+							"qty": 1,
+							"uid": "38vn"
+						},
+						{
+							"part": "chute-stepper-idler-bearing-retainer-outer",
+							"qty": 1,
+							"uid": "wgsc"
+						},
+						{
+							"part": "chute-stepper-idler-bearing-retainer-inner",
+							"qty": 1,
+							"uid": "zzql"
+						},
+						{
+							"part": "scr-m3-8-cs",
+							"qty": 4,
+							"uid": "l6br"
+						},
+						{
+							"part": "hsi-m3",
+							"qty": 4,
+							"uid": "ksut"
+						}
+					]
+				},
+				{
+					"version": "2",
+					"uid": "1cfd",
+					"date": "2026-09-01",
+					"message": "Recording correction: the idler gear's axle screw is 1 x M3 x 20 countersunk, not M3 x 35. It self-taps into the printed NEMA 23 bracket and never reaches the plywood Top plate, measured on BrickCycleAlice's build (sorter-v2#458). No physical change.",
+					"breaking": false,
+					"commit": null
 				}
 			]
 		},
@@ -19493,10 +19557,10 @@
 			},
 			"name": "M3 \u00d7 35 mm flat head",
 			"category": "Screws",
-			"description": "The two long M3s on the top interface: one clamps the two cable-clamp halves together, one retains the idler gear on the NEMA 23 bracket. Same screw for both. The head has to stay low because of the idler joint: a socket or button head stands proud enough for the limit switch hammer to catch on it as the chute sweeps past.",
+			"description": "The long M3 that clamps the two cable-clamp halves together at the top interface, threading into an M3 nut in the bottom of the Cable clamp (outer).",
 			"note": null,
 			"created_at": "2026-07-18",
-			"updated_at": "2026-08-21",
+			"updated_at": "2026-08-30",
 			"attributes": [
 				{
 					"label": "Thread",
@@ -19508,7 +19572,7 @@
 				},
 				{
 					"label": "Head",
-					"value": "Flat (pancake) head, hex socket. Pan head works too; both are flat-bottomed and low enough to clear the limit switch hammer, which a socket or button head is not."
+					"value": "Flat (pancake) head, hex socket. Pan head works too."
 				}
 			],
 			"sheet_qty": null,

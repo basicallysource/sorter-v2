@@ -124,6 +124,7 @@ DEFAULT_EXIT_RELEASE_STAGES: tuple[_ExitReleaseStage, ...] = (
     _ExitReleaseStage("medium-rock", 0.85, 3, 1250, 3600, 350),
     _ExitReleaseStage("firm-rock", 1.25, 3, 1600, 4800, 400),
     _ExitReleaseStage("last-resort-small-kick", 1.75, 2, 1900, 6000, 450),
+    _ExitReleaseStage("operator-proven-kick", 3.0, 3, 16000, 150000, 500),
 )
 
 

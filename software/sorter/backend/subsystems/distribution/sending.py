@@ -43,6 +43,7 @@ class Sending(BaseState):
         self._committed: bool = False
         self._exit_wait_incident_piece_uuid: str | None = None
         self._held_door: object | None = None
+        self._door_hold_done = False
 
     def _setOccupancyState(self, state_name: str) -> None:
         if self._occupancy_state == state_name:
@@ -82,7 +83,7 @@ class Sending(BaseState):
                     return DistributionState.IDLE
                 return None
 
-        if self.piece is not None and self._held_door is None:
+        if self.piece is not None and self._held_door is None and not self._door_hold_done:
             self._holdTargetDoor()
         elapsed_ms = (now - self.start_time) * 1000
         settle_ms = self._settleMs()
@@ -146,6 +147,9 @@ class Sending(BaseState):
         """Keep the target door energized from the drop until the settle
         elapsed: the piece must meet a powered flap, not one that was released
         seconds ago and yields to the impact."""
+        self._door_hold_done = True
+        if bool(getattr(self.gc, "disable_servos", False)):
+            return
         door = self._targetDoor()
         if door is None:
             return
@@ -287,6 +291,7 @@ class Sending(BaseState):
 
     def cleanup(self) -> None:
         self._releaseHeldDoor()
+        self._door_hold_done = False
         super().cleanup()
         self.piece = None
         self.start_time = 0.0

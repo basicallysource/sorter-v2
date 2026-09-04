@@ -658,6 +658,10 @@ class WaveshareServoMotor:
         self._invert = invert
         self._move_time_ms = int(move_time_ms)
         self._max_torque_permille = None if max_torque_permille is None else int(max_torque_permille)
+        # What the last move asked for, and whether the bus accepted it —
+        # distinct from _current_position, which only follows accepted moves.
+        self._requested_position: int | None = None
+        self._last_command_ok = True
         self._name = f"waveshare_servo_{servo_id}"
         self._enabled = False
         self._current_position: int = 0  # raw SC position 0-1023
@@ -831,13 +835,18 @@ class WaveshareServoMotor:
             self.open()
 
     def target_reached(self, tolerance: int = 15) -> bool | None:
-        """Compare the servo's reported position with the last commanded
-        target. None when the bus gave no reading."""
+        """Did the servo arrive where the last move asked it to go? False when
+        the bus rejected that move (the flap then sits wherever it was), None
+        when nothing was commanded yet or the bus gave no reading."""
+        if self._requested_position is None:
+            return None
+        if not self._last_command_ok:
+            return False
         pos = self._bus.read_position(self._servo_id)
         self._record_result(pos is not None)
         if pos is None:
             return None
-        return abs(int(pos) - int(self._current_position)) <= int(tolerance)
+        return abs(int(pos) - int(self._requested_position)) <= int(tolerance)
 
     def hold(self) -> None:
         """Re-energize at the current target while a piece is on its way to
@@ -908,7 +917,9 @@ class WaveshareServoMotor:
     def _command_move(self, position: int, label: str) -> bool:
         if not self._enabled:
             self.enabled = True
+        self._requested_position = int(position)
         ok = bool(self._bus.move_to(self._servo_id, position, self._move_time_ms))
+        self._last_command_ok = ok
         self._record_result(ok)
         if ok:
             self._move_duration = self._move_time_ms / 1000.0

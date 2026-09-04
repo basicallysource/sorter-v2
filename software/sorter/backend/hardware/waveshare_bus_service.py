@@ -93,6 +93,12 @@ class WaveshareBusService:
     def set_pid(self, servo_id: int, p: int, d: int, i: int) -> bool:
         return self._execute(lambda bus: bus.set_pid(servo_id, p, d, i))
 
+    def read_max_torque(self, servo_id: int) -> int | None:
+        return self._execute(lambda bus: bus.read_max_torque(servo_id))
+
+    def set_max_torque(self, servo_id: int, permille: int) -> bool:
+        return self._execute(lambda bus: bus.set_max_torque(servo_id, permille))
+
     def set_torque(self, servo_id: int, enable: bool) -> bool:
         return self._execute(lambda bus: bus.set_torque(servo_id, enable), none_is_failure=True)
 

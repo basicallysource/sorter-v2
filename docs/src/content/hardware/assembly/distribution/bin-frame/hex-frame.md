@@ -54,7 +54,7 @@ This frame's fastener total is fixed: 8 M5x16 screws and 24 T-nuts, all installe
   </figure>
 </div>
 
-Slide piece A/G (Outer horizontal / Horizontal interface frame, 320mm) of aluminum extrusion into an External bracket — side. Use an {% include fastener.html size="M5" variant="socket-button" length="16" %} screw to tap directly through the outer of the two adjacent holes on the External bracket — side, bracing it against the extrusion. If you would rather not tap and brace, place T-nuts in the extrusion and use the inner holes to fasten into them instead.
+Slide piece A/G (Outer horizontal / Horizontal interface frame, 320mm) of aluminum extrusion into an External bracket — side. Use an {% include fastener.html size="M5" variant="socket-button" length="16" %} screw to tap directly through the outer of the two adjacent holes on the External bracket — side (the smaller of the pair), bracing it against the extrusion.
 
 If you are using slide-in T-nuts rather than drop-in or roll-in T-nuts, insert 4 into the outermost section of the extrusion before connecting the next External bracket — side, as this is the last time the ends of the extrusion are accessible.
 

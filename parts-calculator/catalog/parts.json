@@ -51,6 +51,29 @@
   ],
   "changes": [
     {
+      "id": "c1-bulk-cap-output-guide-interference",
+      "name": "Bulk cap and output guide interfere on C1",
+      "priority": "P0",
+      "condition": "broken",
+      "description": "C-channel 1 carries both the Bulk cap and the Short and Angled Output Guide, and the two overlap by 0.315 cm3. Measured off the pinned STLs, which share one assembly frame: the clash is at r 113.45 to 116.78 mm, azimuth -45.10 to -40.00 deg, z 40.0 to 50.0 mm, a 32.2 mm2 cross-section running from z 42 up to the guide's top face. The cap already has a relief cut for the guide, azimuth -84.0 to -45.5, which is 38.5 deg wide against the guide's 23.3 deg, but the guide sits 5.5 deg past the cut's -45.5 edge and its outer top corner buries itself in the cap's inner wall. The cap clears the stator completely (groove r 116.7 to 120.3 over a stator wall of r 117.0 to 120.0). The model should either clock the guide back into the relief or extend the relief past -40; which is right depends on where pieces leave the rotor and is a CAD decision. New since 2026-09-02: C1 had no output guide before e22fce30, and the previous straight guide clashed with the same cap by 39.7 cm3. Tracked as sorter-v2 issue #541.",
+      "images": [
+        {
+          "url": "https://assets.basically.website/sorter-parts/c1-bulk-cap-output-guide-clash-full-4bda026498a4.png",
+          "alt": "Top-down section at z = 45 mm showing the bulk cap's two concentric walls, the stator ring between them, the output guide lying in the cap's relief cut, and the interference at the guide's outer end marked in red",
+          "caption": "Section at z = 45 mm. The guide overshoots the cap's relief cut by 5.5 deg."
+        }
+      ],
+      "targets": {
+        "parts": [
+          "bulk-cap",
+          "output-guide"
+        ],
+        "assemblies": [
+          "bulk-bucket"
+        ]
+      }
+    },
+    {
       "id": "replace-c-channel-supports",
       "name": "Replace prototype C-channel supports",
       "priority": "P2",

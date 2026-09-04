@@ -25,7 +25,7 @@ parts_needed:
   - part: frame-90deg-bracket
     qty: 12
   - part: scr-m5-16-shcs
-    qty: 8
+    qty: 12
   - part: tnut-m5-2020
     qty: 24
 tools_needed: [Hex key, Mallet or hammer with a cloth to protect the brackets]
@@ -37,7 +37,7 @@ An N-layer machine needs **N + 1 of these**: one per planned layer, plus one for
 
 The aluminum extrusion is cut to length; the [framing cut list](https://parts-calculator.basically.website/framing) has the exact dimensions. Each frame uses 6 A/G (320mm) and 6 B/H (158mm). The 24 T-nuts in the list above aren't used by anything in this guide — they're pre-installed in step 1 while the extrusion ends are still accessible, for the bin retainers a later page attaches to the outer ring.
 
-This frame's fastener total is fixed: 8 M5x16 screws and 24 T-nuts, all installed in step 1 — steps 2 through 8 use none. Regular layers and bottom two layers reuse these same 24 T-nuts for their bin retainers, so don't count them twice.
+This frame's fastener total is fixed: 12 M5x16 screws (one per extrusion end, so two per bracket) and 24 T-nuts, all installed in step 1. Steps 2 through 8 use none. Regular layers and bottom two layers reuse these same 24 T-nuts for their bin retainers, so don't count them twice.
 
 {% include fastener-legend.html %}
 
@@ -54,7 +54,7 @@ This frame's fastener total is fixed: 8 M5x16 screws and 24 T-nuts, all installe
   </figure>
 </div>
 
-Slide piece A/G (Outer horizontal / Horizontal interface frame, 320mm) of aluminum extrusion into an External bracket — side. Use an {% include fastener.html size="M5" variant="socket-button" length="16" %} screw to tap directly through the outer of the two adjacent holes on the External bracket — side (the smaller of the pair), bracing it against the extrusion.
+Slide piece A/G (Outer horizontal / Horizontal interface frame, 320mm) of aluminum extrusion into an External bracket — side. Use an {% include fastener.html size="M5" variant="socket-button" length="16" %} screw to tap directly through the outer of the two adjacent holes on the External bracket — side (the smaller of the pair), bracing it against the extrusion. That is the standard fix. As an option, if you would rather not tap and brace, place T-nuts in the extrusion and fasten through the inner holes (the larger of the pair) instead; those need T-nuts of their own, the 24 in the parts list are spoken for by the bin retainers.
 
 If you are using slide-in T-nuts rather than drop-in or roll-in T-nuts, insert 4 into the outermost section of the extrusion before connecting the next External bracket — side, as this is the last time the ends of the extrusion are accessible.
 

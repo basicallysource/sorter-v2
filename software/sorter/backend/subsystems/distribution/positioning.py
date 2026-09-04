@@ -453,14 +453,21 @@ class Positioning(BaseState):
         check = getattr(servo, "target_reached", None)
         if not callable(check):
             return True
-        try:
-            reached = check()
-        except Exception as exc:
-            self.logger.warning(f"Positioning: door position check failed: {exc}")
+        reached = None
+        for attempt in range(3):
+            try:
+                reached = check()
+            except Exception as exc:
+                self.logger.warning(f"Positioning: door position check failed: {exc}")
+                reached = None
+            if reached is not None:
+                break
+            time.sleep(0.05)
+        if reached is True:
             return True
-        if reached is not False:
-            return True
-        position = getattr(servo, "position", None)
+        # False: the flap is not where it should be. None: three reads gave no
+        # position, and a door we cannot see is not a door we may dispense on.
+        position = getattr(servo, "position", None) if reached is False else "unknown"
         if self._door_retries < 1:
             self._door_retries += 1
             self.logger.warning(

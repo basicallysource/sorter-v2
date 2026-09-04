@@ -742,7 +742,7 @@ def _chute_settings_from_config(config: Dict[str, Any]) -> Dict[str, Any]:
         "endstop_active_high": endstop_active_high,
         "operating_speed_microsteps_per_second": operating_speed_microsteps_per_second,
         "home_pin_channel": home_pin_channel,
-        "max_angle_deg": CHUTE_MAX_ANGLE,
+        "max_angle_deg": _coerce_float(chute.get("max_angle_deg"), CHUTE_MAX_ANGLE),
     }
 
 
@@ -2117,11 +2117,23 @@ def _virtual_bin_angle(
     return first_section_offset_deg + section_index * (360.0 / n) + (bin_index + 0.5) * slot
 
 
+def _configured_chute_max_angle() -> float:
+    """The machine's mechanical travel limit ([chute] max_angle_deg), falling
+    back to the code default when unset."""
+    try:
+        _, config = _read_machine_params_config()
+        chute = config.get("chute", {}) if isinstance(config, dict) else {}
+        return _coerce_float(chute.get("max_angle_deg"), CHUTE_MAX_ANGLE)
+    except Exception:
+        return float(CHUTE_MAX_ANGLE)
+
+
 def _chute_reachability(
     num_sections: int, section_width_deg: float, first_section_offset_deg: float
 ) -> Dict[str, Any]:
     # For the active (or default) layout, report whether every bin's center
-    # angle lands inside the chute's reachable arc [0, CHUTE_MAX_ANGLE].
+    # angle lands inside the chute's reachable arc [0, max_angle_deg].
+    max_angle = _configured_chute_max_angle()
     layout = getBinLayout()
     unreachable: List[Dict[str, Any]] = []
     total = 0
@@ -2138,7 +2150,7 @@ def _chute_reachability(
                     section_width_deg,
                     first_section_offset_deg,
                 )
-                if angle < 0 or angle > CHUTE_MAX_ANGLE:
+                if angle < 0 or angle > max_angle:
                     unreachable.append(
                         {
                             "layer_index": layer_index,
@@ -2361,10 +2373,15 @@ def move_chute_to_angle(payload: ChuteMoveToAnglePayload) -> Dict[str, Any]:
     if not getattr(chute, "homed", False):
         raise HTTPException(status_code=409, detail="Home the chute first.")
     angle = float(payload.angle)
-    if angle < 0 or angle > 360:
-        raise HTTPException(status_code=400, detail="angle must be between 0 and 360°.")
+    limit = float(getattr(chute, "max_angle_deg", CHUTE_MAX_ANGLE))
+    if angle < 0 or angle > limit:
+        raise HTTPException(
+            status_code=400, detail=f"angle must be between 0 and {limit:.1f}° (the chute's travel limit)."
+        )
     try:
         estimated_ms = chute.moveToAngle(angle)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Chute move failed: {e}")
     return {

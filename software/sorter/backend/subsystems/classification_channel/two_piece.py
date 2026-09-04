@@ -54,6 +54,12 @@ _STAGE_STEP_DEG = 25.0
 
 # Safety ceilings so a move that never resolves can't wedge the machine forever.
 _EJECT_TIMEOUT_S = 15.0
+# A head that is classified and aimed but has no successor in the drop zone
+# is ejected on its own after this grace. Short enough that a sparse feed
+# (last piece of a batch, a slow C3) does not park the piece until the 30 s
+# stall watchdog commits it; long enough that a paired eject+stage rotation,
+# which keeps the flow overlapped, still wins under a continuous feed.
+_LONE_HEAD_EJECT_S = 5.0
 _STAGE_TIMEOUT_S = 15.0
 
 # Stall-watchdog progress signal: a tracked piece's gap-to-exit must change by
@@ -96,6 +102,7 @@ class _TrackedPiece:
         self.result_applied = False
         # Handed to distribution (chute is aiming / aimed for it).
         self.placed = False
+        self.placed_at = 0.0
         # Two+ pieces landed in the drop zone at once -> can't classify reliably,
         # route to the misc bin. multi_drop_group ties the clump's distinct track
         # ids together as one logical multi-drop (None when not a multi-drop).
@@ -265,7 +272,7 @@ class TwoPieceClassificationChannel(Rev01BaseState):
             if stopped:
                 self._captureDropPieces(perception_service, now)
                 self._aimChuteForHead(now)
-                self._maybeStartRotation()
+                self._maybeStartRotation(now)
         elif self._phase == _Phase.EJECTING:
             self._ejecting(state, stopped, now)
         elif self._phase == _Phase.STAGING:
@@ -508,6 +515,7 @@ class TwoPieceClassificationChannel(Rev01BaseState):
             obj.classification_status = ClassificationStatus.unknown
         self.transport.placePieceForDistribution(obj)
         tp.placed = True
+        tp.placed_at = now
         self.noteProgress()
         self.logger.info(
             f"{LOG_TAG} aiming chute for head track={tp.track_id} "
@@ -526,17 +534,27 @@ class TwoPieceClassificationChannel(Rev01BaseState):
 
     # ----------------------------------------------------------------- movement
 
-    def _maybeStartRotation(self) -> None:
-        # The ONLY two rotation triggers, both requiring a captured drop piece to
-        # bring into the channel:
+    def _maybeStartRotation(self, now: float) -> None:
+        # Rotation triggers:
         #   1. no head on the channel       -> stage the drop piece (no eject)
         #   2. head ready to ship           -> eject it AND stage the drop piece
+        #   3. head ready, nothing captured in the drop zone for a grace period
+        #                                   -> eject the head on its own
         # If a head exists but is not ready yet, we wait (don't rotate a not-ready
         # piece toward the fall-off).
         drop = self._dropPiece()
-        if drop is None or not drop.capture_done:
-            return
         head = self._headPiece()
+        if drop is None or not drop.capture_done:
+            if (
+                head is not None
+                and self._headReady(head)
+                and (now - head.placed_at) >= _LONE_HEAD_EJECT_S
+            ):
+                self._stage_target = None
+                self._eject_target = head
+                self._enterPhase(_Phase.EJECTING)
+                self.logger.info(f"{LOG_TAG} ROTATE: eject track={head.track_id} (no successor)")
+            return
         if head is None:
             self._stage_target = drop
             self._eject_target = None

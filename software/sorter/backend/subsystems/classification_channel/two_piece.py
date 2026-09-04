@@ -29,6 +29,7 @@ LOG_TAG = "[C4-2PIECE]"
 # between them) is "forward" and part of the processing queue.
 _ZONE_NONE = 0
 _ZONE_DROP = 1
+_ZONE_EXIT_ONLY = 2
 # (2 = exit / the fall-off, 3 = precise / the holding region; we only branch on
 # DROP vs not-DROP — "left the drop zone" is what matters for the queue.)
 
@@ -625,9 +626,16 @@ class TwoPieceClassificationChannel(Rev01BaseState):
             return
         gone_for = now - target.last_seen
         timed_out = (now - self._phase_started_at) > _EJECT_TIMEOUT_S
-        if gone_for >= _EJECT_GONE_CONFIRM_S or timed_out:
-            # Track id gone (debounced) == the piece dropped off the fall-off ==
-            # ejected. Commit it to distribution; the chute was already aimed.
+        # Track id gone (debounced) AND nothing left in the exit-only arc == the
+        # piece dropped off the fall-off. The id alone is not enough: a tracker
+        # blink at the lip re-issues the id on a piece that never fell, and a
+        # committed phantom then puts the real piece into the next target bin.
+        exit_arc_empty = not any(
+            int(getattr(po, "zone_code", 0)) == _ZONE_EXIT_ONLY
+            for po in getattr(state, "pieces", ())
+        )
+        if (gone_for >= _EJECT_GONE_CONFIRM_S and exit_arc_empty) or timed_out:
+            # Commit it to distribution; the chute was already aimed.
             self.transport.advanceTransport()
             target.ejected = True
             if timed_out and gone_for < _EJECT_GONE_CONFIRM_S:

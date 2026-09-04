@@ -54,7 +54,13 @@ This frame's fastener total is fixed: 12 M5x16 screws (one per extrusion end, so
   </figure>
 </div>
 
-Slide piece A/G (Outer horizontal / Horizontal interface frame, 320mm) of aluminum extrusion into an External bracket — side. Use an {% include fastener.html size="M5" variant="socket-button" length="16" %} screw to tap directly through the outer of the two adjacent holes on the External bracket — side (the smaller of the pair), bracing it against the extrusion. That is the standard fix. As an option, if you would rather not tap and brace, place T-nuts in the extrusion and fasten through the inner holes (the larger of the pair) instead; those need T-nuts of their own, the 24 in the parts list are spoken for by the bin retainers.
+Slide piece A/G (Outer horizontal / Horizontal interface frame, 320mm) of aluminum extrusion into an External bracket — side. Where the extrusion goes in, the bracket has two holes next to each other, and you use one of them.
+
+**Standard:** use an {% include fastener.html size="M5" variant="socket-button" length="16" %} screw to tap directly through the outer of the two adjacent holes on the External bracket — side (the smaller of the pair), bracing it against the extrusion.
+
+**Option:** if you would rather not tap and brace, place T-nuts in the extrusion and use the inner holes (the larger of the pair) to fasten into them instead. These need T-nuts of their own; the 24 in the parts list are for the bin retainers.
+
+The bracket carries other holes that neither method uses, including one on its inward-facing side further along the extrusion. Leave those empty.
 
 If you are using slide-in T-nuts rather than drop-in or roll-in T-nuts, insert 4 into the outermost section of the extrusion before connecting the next External bracket — side, as this is the last time the ends of the extrusion are accessible.
 

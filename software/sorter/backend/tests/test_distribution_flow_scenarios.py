@@ -65,6 +65,9 @@ class _Service:
     def attach_persistent(self):
         self.attached += 1
 
+    def set_recovery_probe_ids(self, ids):
+        self.probe_ids = list(ids)
+
     def __getattr__(self, name):
         return getattr(self._bus, name)
 

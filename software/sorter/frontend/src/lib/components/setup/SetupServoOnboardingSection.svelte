@@ -113,7 +113,7 @@
 
 	// per-servo UI state
 	let busyByServoId = $state<Record<number, string>>({}); // 'calibrating' | 'moving' | 'promoting'
-	let lastMoveByServoId = $state<Record<number, 'open' | 'close' | 'center'>>({});
+	let lastMoveByServoId = $state<Record<number, 'open' | 'close' | 'center' | 'install'>>({});
 	// Track servo ids we've already auto-promoted this session so we don't loop.
 	let autoPromotedIds = $state<Set<number>>(new Set());
 
@@ -392,7 +392,7 @@
 		}
 	}
 
-	async function moveServo(servoId: number, position: 'open' | 'close' | 'center') {
+	async function moveServo(servoId: number, position: 'open' | 'close' | 'center' | 'install') {
 		setBusy(servoId, 'moving');
 		errorMsg = null;
 		statusMsg = '';
@@ -797,6 +797,7 @@
 			onAssignLayer={assignLayer}
 			onPromote={(servoId) => promoteServoId(servoId, suggestedNextId!)}
 			onCalibrate={calibrateServo}
+			onInstallPosition={(servoId) => void moveServo(servoId, 'install')}
 			onToggleOpenClose={toggleOpenClose}
 			onToggleInvert={toggleInvertForLayer}
 			onNudge={(servoId, degrees) => void nudgeServo(servoId, degrees)}

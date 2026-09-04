@@ -1826,16 +1826,17 @@ def calibrate_waveshare_servo(servo_id: int) -> Dict[str, Any]:
 
 @router.post("/api/hardware-config/waveshare/servos/{servo_id}/move")
 def move_waveshare_servo(servo_id: int, payload: ServoMovePayload) -> Dict[str, Any]:
-    """Move a single servo to its open/close/center position based on EEPROM limits."""
+    """Move a single servo to its open/close/center position based on EEPROM limits,
+    or to the servo's mechanical mid-travel ("install") for fitting the horn."""
     _ensure_not_homing("move a Waveshare servo")
     if servo_id < 1 or servo_id > 253:
         raise HTTPException(status_code=400, detail="Servo ID must be between 1 and 253.")
 
     target = (payload.position or "").lower().strip()
-    if target not in {"open", "close", "center"}:
+    if target not in {"open", "close", "center", "install"}:
         raise HTTPException(
             status_code=400,
-            detail="position must be one of: open, close, center.",
+            detail="position must be one of: open, close, center, install.",
         )
 
     service = _get_waveshare_service()
@@ -1850,13 +1851,24 @@ def move_waveshare_servo(servo_id: int, payload: ServoMovePayload) -> Dict[str, 
         if limits is None:
             raise HTTPException(status_code=500, detail="Could not read servo angle limits.")
         min_lim, max_lim = limits
-        if max_lim - min_lim < 20:
+        if target == "install":
+            # Mid travel of the servo itself, so a door hanging at its open stop
+            # can be fitted with room to close either way. Calibration comes
+            # after fitting, so the old limits may not even contain 512.
+            position = 512
+            if not (min_lim <= position <= max_lim):
+                if not service.set_angle_limits(servo_id, 0, 1023):
+                    raise HTTPException(status_code=500, detail="Could not reset servo angle limits.")
+                min_lim, max_lim = 0, 1023
+        elif max_lim - min_lim < 20:
             raise HTTPException(
                 status_code=409,
                 detail="Servo has no calibrated range. Run auto-calibration first.",
             )
 
-        if target == "open":
+        if target == "install":
+            pass
+        elif target == "open":
             position = min_lim
         elif target == "close":
             position = max_lim
@@ -1866,9 +1878,10 @@ def move_waveshare_servo(servo_id: int, payload: ServoMovePayload) -> Dict[str, 
         service.set_torque(servo_id, True)
         time.sleep(0.01)
         try:
-            if not service.move_to(servo_id, position, 400):
+            move_ms = 1500 if target == "install" else 400
+            if not service.move_to(servo_id, position, move_ms):
                 raise HTTPException(status_code=500, detail="move_to command failed.")
-            time.sleep(0.45)
+            time.sleep(move_ms / 1000 + 0.05)
         finally:
             # Never leave a setup move energized against the end stop.
             service.set_torque(servo_id, False)

@@ -67,12 +67,29 @@ _LONE_HEAD_EJECT_S = 5.0
 # and aimed as track 7, back as track 8 four seconds later); the new id
 # adopts the orphan instead of starting over as an unclassified stray.
 _ORPHAN_ADOPT_S = 10.0
+# A new track id whose box overlaps this much with a piece seen within
+# ``_ALIAS_RECENT_S`` is the same physical piece under a second id (the
+# tracker flips between two ids on one piece) — it is aliased, not created.
+_ALIAS_IOU = 0.5
+_ALIAS_RECENT_S = 1.0
 _STAGE_TIMEOUT_S = 15.0
 
 # Stall-watchdog progress signal: a tracked piece's gap-to-exit must change by
 # more than this (output deg) to count as the piece actually moving. Well above
 # per-frame detection jitter on a stationary piece, well below any real nudge.
 _PROGRESS_MOVE_DEG = 5.0
+
+
+def _bboxIou(a: tuple[int, int, int, int], b: tuple[int, int, int, int]) -> float:
+    ix1, iy1 = max(a[0], b[0]), max(a[1], b[1])
+    ix2, iy2 = min(a[2], b[2]), min(a[3], b[3])
+    inter = max(0, ix2 - ix1) * max(0, iy2 - iy1)
+    if inter <= 0:
+        return 0.0
+    area_a = max(0, a[2] - a[0]) * max(0, a[3] - a[1])
+    area_b = max(0, b[2] - b[0]) * max(0, b[3] - b[1])
+    union = area_a + area_b - inter
+    return float(inter) / float(union) if union > 0 else 0.0
 
 
 class _Phase(Enum):
@@ -180,6 +197,8 @@ class TwoPieceClassificationChannel(Rev01BaseState):
         self._pieces: dict[int, _TrackedPiece] = {}
         # Forward pieces with a result whose id vanished, newest last: (piece, when).
         self._orphans: list[tuple[_TrackedPiece, float]] = []
+        # Second ids the tracker issued for an already tracked piece -> its piece.
+        self._aliases: dict[int, _TrackedPiece] = {}
         self._phase = _Phase.WAITING
         self._eject_target: Optional[_TrackedPiece] = None
         self._stage_target: Optional[_TrackedPiece] = None
@@ -301,16 +320,21 @@ class TwoPieceClassificationChannel(Rev01BaseState):
             tid = po.sv_bt_track_id
             if tid is None:
                 continue  # untracked box — counts for zone occupancy, not identity
-            seen.add(tid)
-            tp = self._pieces.get(tid)
+            b = po.bbox
+            bbox = (int(b[0]), int(b[1]), int(b[2]), int(b[3]))
+            tp = self._pieces.get(tid) or self._aliases.get(tid)
+            if tp is None:
+                tp = self._aliasOverlappingPiece(tid, bbox, now)
             if tp is None:
                 zone = int(po.zone_code)
                 tp = self._adoptOrphan(tid, now) if zone != _ZONE_DROP else None
                 if tp is None:
                     tp = self._createPiece(tid, now)
+            if tid in seen:
+                continue  # the same piece reported twice in one frame
+            seen.add(tp.track_id)
             tp.zone = int(po.zone_code)
-            b = po.bbox
-            tp.bbox = (int(b[0]), int(b[1]), int(b[2]), int(b[3]))
+            tp.bbox = bbox
             tp.gap_to_exit = po.com_forward_to_exit_deg
             tp.last_seen = now
             # Watchdog progress: the piece physically moved a substantial amount.
@@ -349,6 +373,25 @@ class TwoPieceClassificationChannel(Rev01BaseState):
         tp.worker.emitKnownObject()
         self.logger.info(f"{LOG_TAG} new piece track={tp.track_id}")
 
+    def _aliasOverlappingPiece(
+        self, tid: int, bbox: tuple[int, int, int, int], now: float
+    ) -> Optional[_TrackedPiece]:
+        best: Optional[_TrackedPiece] = None
+        best_iou = _ALIAS_IOU
+        for tp in self._pieces.values():
+            if (now - tp.last_seen) > _ALIAS_RECENT_S or tp.ejected:
+                continue
+            iou = _bboxIou(bbox, tp.bbox)
+            if iou > best_iou:
+                best, best_iou = tp, iou
+        if best is None:
+            return None
+        self._aliases[tid] = best
+        self.logger.info(
+            f"{LOG_TAG} track={tid} overlaps track={best.track_id} (iou={best_iou:.2f}) — same piece"
+        )
+        return best
+
     def _adoptOrphan(self, tid: int, now: float) -> Optional[_TrackedPiece]:
         # A new id that first shows up FORWARD (not in the drop zone) is not an
         # arrival — arrivals land in the drop zone. Bind it to the most recent
@@ -385,6 +428,7 @@ class TwoPieceClassificationChannel(Rev01BaseState):
             if (now - tp.last_seen) > _TRACK_GONE_RETIRE_S
         ]:
             tp = self._pieces.pop(tid)
+            self._aliases = {a: t for a, t in self._aliases.items() if t is not tp}
             if tp.capture_done and not tp.ejected:
                 # Carries a capture/result and has not been committed: keep it
                 # adoptable. Includes a piece still coded DROP — its id can
@@ -760,6 +804,7 @@ class TwoPieceClassificationChannel(Rev01BaseState):
                 pass
         self._pieces = {}
         self._orphans = []
+        self._aliases = {}
         self._phase = _Phase.WAITING
         self._eject_target = None
         self._stage_target = None

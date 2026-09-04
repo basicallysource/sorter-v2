@@ -1,0 +1,68 @@
+"""A second track id on the same box is the same piece.
+
+Regression (2026-09-05 00:50): the tracker flipped between ids 5 and 6 on one
+piece; id 5 became an uncaptured 'stray' head sent to misc while the
+classified twin (6) was aimed for its bin.
+"""
+import logging
+from types import SimpleNamespace
+
+from subsystems.classification_channel.two_piece import (
+    TwoPieceClassificationChannel,
+    _TrackedPiece,
+    _ZONE_DROP,
+    _ZONE_NONE,
+    _bboxIou,
+)
+
+
+def _handler():
+    h = object.__new__(TwoPieceClassificationChannel)
+    h._pieces = {}
+    h._orphans = []
+    h._aliases = {}
+    h.logger = logging.getLogger("test")
+    h._multi_drop_streak = 0
+    h._multi_drop_last_ts = -1.0
+    h._multi_drop_seq = 0
+    h.ctx = SimpleNamespace(config=SimpleNamespace(multi_feed_confirm_reads=3))
+    h.noteProgress = lambda: None
+    h.created = []
+    def create(tid, now):
+        tp = object.__new__(_TrackedPiece)
+        tp.track_id = tid; tp.zone = _ZONE_NONE; tp.bbox = (0, 0, 0, 0); tp.gap_to_exit = None
+        tp.progress_gap = None; tp.created_at = now; tp.last_seen = now
+        tp.capture_done = tp.result_applied = tp.placed = tp.double_feed = tp.ejected = False
+        tp.multi_drop_group = None; tp.worker = SimpleNamespace(abandonInFlightObject=lambda r: None)
+        h._pieces[tid] = tp; h.created.append(tid); return tp
+    h._createPiece = create
+    return h
+
+
+def _obs(ts, *items):
+    return SimpleNamespace(ts=ts, pieces=[SimpleNamespace(sv_bt_track_id=t, zone_code=z, bbox=b, com_forward_to_exit_deg=None) for t, z, b in items])
+
+
+def test_second_id_on_overlapping_box_is_aliased_not_created() -> None:
+    h = _handler()
+    h._observe(_obs(1.0, (6, _ZONE_DROP, (600, 800, 700, 900))), now=1.0)
+    h._observe(_obs(1.2, (5, _ZONE_DROP, (605, 805, 705, 905))), now=1.2)
+    assert h.created == [6]
+    assert 5 in h._aliases and h._aliases[5] is h._pieces[6]
+    assert len(h._pieces) == 1
+    # later frames under the alias keep updating the same piece
+    h._observe(_obs(1.5, (5, _ZONE_NONE, (1400, 500, 1500, 600))), now=1.5)
+    assert h._pieces[6].zone == _ZONE_NONE and h._pieces[6].last_seen == 1.5
+
+
+def test_distinct_boxes_are_distinct_pieces() -> None:
+    h = _handler()
+    h._observe(_obs(1.0, (1, _ZONE_DROP, (600, 800, 700, 900))), now=1.0)
+    h._observe(_obs(1.2, (2, _ZONE_DROP, (900, 800, 1000, 900))), now=1.2)
+    assert h.created == [1, 2]
+
+
+def test_iou() -> None:
+    assert _bboxIou((0, 0, 10, 10), (0, 0, 10, 10)) == 1.0
+    assert _bboxIou((0, 0, 10, 10), (20, 20, 30, 30)) == 0.0
+    assert 0.3 < _bboxIou((0, 0, 10, 10), (5, 0, 15, 10)) < 0.35

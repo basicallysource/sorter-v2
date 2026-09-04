@@ -44,6 +44,7 @@ from irl.parse_user_toml import (
     DEFAULT_CHUTE_OPERATING_SPEED_MICROSTEPS_PER_SEC,
     DEFAULT_CHUTE_PILLAR_WIDTH_DEG,
     DEFAULT_CHUTE_SECTION_WIDTH_DEG,
+    loadWaveshareServoConfig,
 )
 from local_state import (
     clear_current_session_bins,
@@ -1792,8 +1793,12 @@ def calibrate_waveshare_servo(servo_id: int) -> Dict[str, Any]:
         if not service.ping(servo_id):
             raise HTTPException(status_code=404, detail=f"No servo with ID {servo_id} found on the bus.")
 
+        waveshare_config = loadWaveshareServoConfig(shared_state.gc_ref)
+        torque_permille = (
+            waveshare_config.max_torque_percent * 10 if waveshare_config is not None else None
+        )
         try:
-            safe_min, safe_max = service.calibrate_servo(servo_id)
+            safe_min, safe_max = service.calibrate_servo(servo_id, torque_permille)
         except Exception as exc:
             raise HTTPException(status_code=500, detail=f"Calibration failed: {exc}")
 

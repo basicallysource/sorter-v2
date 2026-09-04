@@ -39,6 +39,7 @@ _REG_MODEL_L = 3
 _REG_ID = 5
 _REG_MIN_ANGLE_L = 9
 _REG_MAX_ANGLE_L = 11
+_REG_MAX_TORQUE_L = 16  # permille of the servo's stall torque, EEPROM
 _REG_P_COEF = 21
 _REG_D_COEF = 22
 _REG_I_COEF = 23
@@ -261,6 +262,20 @@ class ScServoBus:
         self.write_byte(servo_id, _REG_LOCK, 1)  # lock EEPROM
         return result
 
+    def read_max_torque(self, servo_id: int) -> int | None:
+        return self.read_word(servo_id, _REG_MAX_TORQUE_L)
+
+    def set_max_torque(self, servo_id: int, permille: int) -> bool:
+        """Cap the servo's output torque (0-1000 permille of stall). A strong
+        servo on a printed flap needs this so the door, not the servo, wins."""
+        permille = max(0, min(1000, int(permille)))
+        self.write_byte(servo_id, _REG_LOCK, 0)  # unlock EEPROM
+        time.sleep(0.01)
+        result = self.write_word(servo_id, _REG_MAX_TORQUE_L, permille)
+        time.sleep(0.01)
+        self.write_byte(servo_id, _REG_LOCK, 1)
+        return result
+
     def set_pid(self, servo_id: int, p: int, d: int, i: int) -> bool:
         self.write_byte(servo_id, _REG_LOCK, 0)
         time.sleep(0.01)
@@ -349,6 +364,8 @@ class ServoBus(Protocol):
     def read_angle_limits(self, servo_id: int) -> tuple[int, int] | None: ...
     def set_angle_limits(self, servo_id: int, min_val: int, max_val: int) -> bool: ...
     def set_pid(self, servo_id: int, p: int, d: int, i: int) -> bool: ...
+    def read_max_torque(self, servo_id: int) -> int | None: ...
+    def set_max_torque(self, servo_id: int, permille: int) -> bool: ...
 
 
 # ---------------------------------------------------------------------------
@@ -523,14 +540,37 @@ def _verify_swing(bus: ServoBus, servo_id: int, start: int, target: int) -> None
         )
 
 
-def calibrate_servo(bus: ServoBus, servo_id: int) -> tuple[int, int]:
+def apply_max_torque(bus: ServoBus, servo_id: int, permille: int | None) -> int | None:
+    """Write the torque cap only when it differs (EEPROM). Returns the value
+    that was in effect before, or None when nothing was changed."""
+    if permille is None:
+        return None
+    reader = getattr(bus, "read_max_torque", None)
+    writer = getattr(bus, "set_max_torque", None)
+    if not callable(reader) or not callable(writer):
+        return None
+    current = reader(servo_id)
+    if current is not None and int(current) == int(permille):
+        return None
+    if not writer(servo_id, int(permille)):
+        raise CalibrationError(f"Servo {servo_id}: could not set the torque cap")
+    logger.info(f"Servo {servo_id}: torque cap {current} -> {permille} permille")
+    return current
+
+
+def calibrate_servo(
+    bus: ServoBus, servo_id: int, max_torque_permille: int | None = None
+) -> tuple[int, int]:
     """Measure the door's travel and store safe limits in EEPROM.
 
-    Returns (safe_min, safe_max). Raises CalibrationError with the previous
-    limits restored and torque released.
+    The stop search presses the door against its mechanical stops; with
+    ``max_torque_permille`` the servo does that with capped force, so a strong
+    servo cannot wreck a printed flap. Returns (safe_min, safe_max). Raises
+    CalibrationError with the previous limits restored and torque released.
     """
     logger.info(f"Calibrating servo {servo_id}...")
     _check_temperature(bus, servo_id, "preflight")
+    apply_max_torque(bus, servo_id, max_torque_permille)
     previous = bus.read_angle_limits(servo_id)
     saved = False
     try:
@@ -606,12 +646,18 @@ class WaveshareServoMotor:
     _OFFLINE_THRESHOLD = 3
 
     def __init__(
-        self, bus: ServoBus, servo_id: int, invert: bool = False, move_time_ms: int = DOOR_MOVE_TIME_MS
+        self,
+        bus: ServoBus,
+        servo_id: int,
+        invert: bool = False,
+        move_time_ms: int = DOOR_MOVE_TIME_MS,
+        max_torque_permille: int | None = None,
     ):
         self._bus = bus
         self._servo_id = servo_id
         self._invert = invert
         self._move_time_ms = int(move_time_ms)
+        self._max_torque_permille = None if max_torque_permille is None else int(max_torque_permille)
         self._name = f"waveshare_servo_{servo_id}"
         self._enabled = False
         self._current_position: int = 0  # raw SC position 0-1023
@@ -633,6 +679,7 @@ class WaveshareServoMotor:
         message) until the operator calibrates it from the servo setup."""
         # Set PID to avoid undershooting (factory default I=0 causes issues)
         self._bus.set_pid(self._servo_id, 32, 32, 20)
+        apply_max_torque(self._bus, self._servo_id, self._max_torque_permille)
 
         limits = self._bus.read_angle_limits(self._servo_id)
         if limits is None:

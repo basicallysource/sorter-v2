@@ -187,6 +187,13 @@
 		return `${role}::${typeof source === 'string' ? source : source === null ? 'none' : source}`;
 	}
 
+	// While the operator's draft differs from what is saved, the live camera
+	// deliberately carries preview values; the drift check must not nag then.
+	const deviceDraftDirty = $derived(
+		JSON.stringify(draftUsbSettings) !== JSON.stringify(savedUsbSettings) ||
+			JSON.stringify(draftAndroidSettings) !== JSON.stringify(savedAndroidSettings)
+	);
+
 	let devicePreviewAbortController: AbortController | null = null;
 	let devicePreviewTimeout: ReturnType<typeof setTimeout> | null = null;
 
@@ -1038,6 +1045,7 @@
 					<CaptureModePanel {role} />
 					<DriftDetection
 						{role}
+						paused={deviceDraftDirty}
 						onAction={() => {
 							void loadDeviceSettings();
 						}}

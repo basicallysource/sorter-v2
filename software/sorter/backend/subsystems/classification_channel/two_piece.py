@@ -663,6 +663,12 @@ class TwoPieceClassificationChannel(Rev01BaseState):
         # area). Keying on "drop clear" rather than "one chosen piece reached
         # precise" is what moves a clump through together instead of stranding the
         # trailing piece.
+        if self._stage_target is None:
+            # Nothing was staged (a lone-head eject). Do not sweep a piece that
+            # has just landed in the drop zone forward uncaptured — WAITING
+            # photographs it first.
+            self._enterPhase(_Phase.WAITING)
+            return
         if (now - self._phase_started_at) > _STAGE_TIMEOUT_S:
             self.logger.warning(f"{LOG_TAG} STAGE timeout — giving up")
             self._stage_target = None

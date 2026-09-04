@@ -51,8 +51,9 @@ The parts list above is **all four channels' worth** — the count is fixed for 
 {% include fastener-legend.html %}
 
 - **Build 4 per machine**, three in the feeder and one for the classification channel. It is the same build four times over, and the rotor is the only thing that changes.
-- **One rotor per unit, and only one of the two.** The three feeder channels take the Rotor (faceted); the classification channel takes the Rotor (finned), the one with the fins in the photographs below. The list above already splits them the way a real machine needs them: three faceted, one finned. Colour changes with the rotor too: the feeder parts are charcoal, the classification-channel ones ash grey.
+- **One rotor per unit, and only one of the two.** The three feeder channels take the Rotor (faceted); the classification channel takes the Rotor (finned), the one with the fins in the photographs below. The list above already splits them the way a real machine needs them: three faceted, one finned. Colour does not change with the rotor: both print ash grey, as do the stator and the output guide, on all four channels.
 - Every channel also carries a [camera lamp]({{ '/hardware/assembly/feeder/camera-lamp/' | relative_url }}), whose parts and screws belong to that page rather than to the list above.
+- **The charcoal parts are the gear train and one bracket.** The output, idler and input gears follow the feeder colour, which is charcoal by default and yours to change on the [parts calculator](https://parts-calculator.basically.website/assembly?focus=c-channel). Of the four NEMA brackets, C1's is charcoal and C2 to C4's are ash grey.
 
 {% include step.html n="1" title="Preparation" %}
 

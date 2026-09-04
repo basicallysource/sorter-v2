@@ -34,7 +34,7 @@ parts_needed:
 
 <div class="prep-item">
   <div class="prep-item-body">
-    <p><strong>Build a <a href="{{ '/hardware/assembly/feeder/c-channel/' | relative_url }}">classification C-channel</a> before you start.</strong> It's a required component of this page. Step 2 below walks through building it, using the C-channel page's own steps, with the finned rotor rather than faceted, and in ash grey rather than charcoal — Step 3 then bolts the chamber's own parts onto it.</p>
+    <p><strong>Build a <a href="{{ '/hardware/assembly/feeder/c-channel/' | relative_url }}">classification C-channel</a> before you start.</strong> It's a required component of this page. Step 2 below walks through building it, using the C-channel page's own steps, with the finned rotor rather than faceted — Step 3 then bolts the chamber's own parts onto it.</p>
   </div>
   <figure class="prep-item-figure">
     <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-c-channel-stator-and-rotor-fitted-w1600-60758bbee2d5.jpg" alt="A finished C-channel seen from above: the white finned classification rotor sitting inside the grey stator ring, with the stepper motor projecting from the right-hand side">
@@ -49,7 +49,7 @@ The parts are in the list above. Most fasteners for this stage still aren't reco
 {% include fastener-legend.html %}
 
 - **One per machine.**
-- The Classification dome and the Camera & LED insert print **white** rather than charcoal, so the chamber bounces light onto the part instead of absorbing it. The finned rotor prints white too, but it's part of the classification C-channel build in Step 2, not listed again here.
+- The Classification dome and the Camera & LED insert print **white**, so the chamber bounces light onto the part instead of absorbing it. The finned rotor is ash grey like the rest of the channel, and it's part of the classification C-channel build in Step 2, not listed again here.
 - The Classification dome is large, roughly a full print bed.
 - The camera sits on its own extension: a 50 mm extension tube and a clamp ring hold the 4K camera module. The overhead camera mount that hangs off the C-channels is a different part.
 
@@ -93,7 +93,7 @@ The parts are in the list above. Most fasteners for this stage still aren't reco
 
 {% include step.html n="2" title="Build the classification C-channel" %}
 
-Build the classification channel as a normal [C-channel]({{ '/hardware/assembly/feeder/c-channel/' | relative_url }}), but with the finned rotor rather than a faceted one, and in ash grey rather than charcoal.
+Build the classification channel as a normal [C-channel]({{ '/hardware/assembly/feeder/c-channel/' | relative_url }}), but with the finned rotor rather than a faceted one. Nothing else about it differs, colour included.
 
 <figure class="single-figure">
   <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-c-channel-stator-and-rotor-fitted-w1600-60758bbee2d5.jpg" alt="A finished C-channel seen from above: the white finned classification rotor sitting inside the grey stator ring, with the stepper motor projecting from the right-hand side">

@@ -43,6 +43,7 @@
 		onAssignLayer,
 		onPromote,
 		onCalibrate,
+		onInstallPosition,
 		onToggleOpenClose,
 		onToggleInvert,
 		onNudge
@@ -53,7 +54,7 @@
 		suggestedNextId: number | null;
 		selectedServoId: number | null;
 		busyByServoId: Record<number, string>;
-		lastMoveByServoId: Record<number, 'open' | 'close' | 'center'>;
+		lastMoveByServoId: Record<number, 'open' | 'close' | 'center' | 'install'>;
 		openAngle: number;
 		closedAngle: number;
 		openAngleByLayer: Record<number, string>;
@@ -64,6 +65,7 @@
 		onAssignLayer: (servoId: number, layer: number) => void;
 		onPromote: (servoId: number) => void;
 		onCalibrate: (servoId: number) => void;
+		onInstallPosition: (servoId: number) => void;
 		onToggleOpenClose: (servoId: number) => void;
 		onToggleInvert: (layer: number) => void;
 		onNudge: (servoId: number, degrees: number) => void;
@@ -113,6 +115,7 @@
 					onAssignLayer={(layerIdx) => onAssignLayer(servo.id, layerIdx)}
 					onPromote={() => onPromote(servo.id)}
 					onCalibrate={() => onCalibrate(servo.id)}
+					onInstallPosition={() => onInstallPosition(servo.id)}
 					onToggleOpenClose={() => onToggleOpenClose(servo.id)}
 					onToggleInvert={() => onToggleInvert(setup.layer)}
 					onNudge={(degrees) => onNudge(servo.id, degrees)}

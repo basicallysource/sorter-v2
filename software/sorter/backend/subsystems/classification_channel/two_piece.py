@@ -103,6 +103,9 @@ class _TrackedPiece:
         # Handed to distribution (chute is aiming / aimed for it).
         self.placed = False
         self.placed_at = 0.0
+        # Committed to distribution as ejected; its track id may linger for the
+        # retire window, but it is no longer a head to aim or eject.
+        self.ejected = False
         # Two+ pieces landed in the drop zone at once -> can't classify reliably,
         # route to the misc bin. multi_drop_group ties the clump's distinct track
         # ids together as one logical multi-drop (None when not a multi-drop).
@@ -412,7 +415,7 @@ class TwoPieceClassificationChannel(Rev01BaseState):
         # precise). This is the piece we classify-aim and eject next. Including the
         # gap (zone NONE) is what keeps a clump piece that overshot precise, or a
         # stray that landed mid-channel, from being stranded.
-        fwd = [tp for tp in self._pieces.values() if tp.zone != _ZONE_DROP]
+        fwd = [tp for tp in self._pieces.values() if tp.zone != _ZONE_DROP and not tp.ejected]
         if not fwd:
             return None
         return min(fwd, key=lambda tp: tp.gap_to_exit if tp.gap_to_exit is not None else 1e9)
@@ -579,6 +582,7 @@ class TwoPieceClassificationChannel(Rev01BaseState):
             # Track id gone (debounced) == the piece dropped off the fall-off ==
             # ejected. Commit it to distribution; the chute was already aimed.
             self.transport.advanceTransport()
+            target.ejected = True
             if timed_out and gone_for < _EJECT_GONE_CONFIRM_S:
                 self.logger.warning(
                     f"{LOG_TAG} EJECT timeout track={target.track_id} — committing anyway"

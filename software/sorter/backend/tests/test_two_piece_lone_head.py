@@ -38,6 +38,7 @@ def _ready_head(placed_at: float) -> _TrackedPiece:
     tp.gap_to_exit = 40.0
     tp.placed = True
     tp.placed_at = placed_at
+    tp.ejected = False
     tp.worker = SimpleNamespace(ctx=SimpleNamespace(known_object=SimpleNamespace(stage=PieceStage.distributing)))
     return tp
 
@@ -60,3 +61,16 @@ def test_head_not_yet_aimed_keeps_waiting() -> None:
     h._pieces = {7: head}
     h._maybeStartRotation(now=1000.0)
     assert h.phases == []
+
+
+def test_ejected_head_is_not_ejected_again_while_its_id_lingers() -> None:
+    # After the commit the track id can survive up to the retire window; the
+    # lone-head path fired every tick on it (7 "ejects" of one piece, each
+    # shifting the transport slots) until the id was gone.
+    h = _handler()
+    head = _ready_head(placed_at=0.0)
+    head.ejected = True
+    h._pieces = {7: head}
+    h._maybeStartRotation(now=1000.0)
+    assert h.phases == []
+    assert h._headPiece() is None

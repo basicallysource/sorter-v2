@@ -172,7 +172,7 @@ class TwoPieceClassificationChannel(Rev01BaseState):
         # new track ids appearing, churn tracks retiring, and motor moves whose
         # piece never moved — those are exactly the wedges the watchdog must catch.
         self.last_progress_at = time.monotonic()
-        # Multi-feed debounce: consecutive distinct frames showing >1 drop-zone id.
+        # Multi-feed debounce: consecutive distinct frames detecting >1 drop-zone id.
         self._multi_drop_streak = 0
         self._multi_drop_last_ts = -1.0
         # Monotonic counter for multi_drop_group ids; advanced once per new clump.
@@ -277,10 +277,12 @@ class TwoPieceClassificationChannel(Rev01BaseState):
         """Match this frame's observations to tracked pieces by track id, create
         pieces for new ids, retire pieces whose id has been gone too long, and
         flag double feeds."""
+        seen: set[int] = set()
         for po in getattr(state, "pieces", ()):
             tid = po.sv_bt_track_id
             if tid is None:
                 continue  # untracked box — counts for zone occupancy, not identity
+            seen.add(tid)
             tp = self._pieces.get(tid)
             if tp is None:
                 tp = self._createPiece(tid, now)
@@ -299,7 +301,7 @@ class TwoPieceClassificationChannel(Rev01BaseState):
                     self.noteProgress()
 
         self._retireGonePieces(now)
-        self._flagDoubleFeeds(state)
+        self._flagDoubleFeeds(state, seen)
 
     def _createPiece(self, track_id: int, now: float) -> _TrackedPiece:
         # Track the id for position immediately, but DEFER the KnownObject: it's
@@ -344,8 +346,16 @@ class TwoPieceClassificationChannel(Rev01BaseState):
                 self.noteProgress()
             self.logger.info(f"{LOG_TAG} retired piece track={tid}")
 
-    def _flagDoubleFeeds(self, state) -> None:
-        drop = [tp for tp in self._pieces.values() if tp.zone == _ZONE_DROP]
+    def _flagDoubleFeeds(self, state, seen: set[int]) -> None:
+        # Only ids detected in THIS frame count. A track that vanished but is
+        # still inside its retire window (e.g. a piece first glimpsed as a sliver
+        # at the frame edge, re-identified once fully visible) must not pair up
+        # with its successor and fake a two-piece drop.
+        drop = [
+            tp
+            for tid, tp in self._pieces.items()
+            if tid in seen and tp.zone == _ZONE_DROP
+        ]
         frame_ts = float(getattr(state, "ts", 0.0))
         if frame_ts != self._multi_drop_last_ts:
             self._multi_drop_last_ts = frame_ts

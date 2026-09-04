@@ -541,7 +541,14 @@ def orderedPieceObservations(
             gap = (entry_angle - relative) % 360.0
         if sec in exit_only and gap > 180.0:
             gap -= 360.0
-        out.append((gap, sec, int(lut[sec]), (int(bbox[0]), int(bbox[1]), int(bbox[2]), int(bbox[3]))))
+        # Zone by AREA, in line with the ``in_drop`` gate (any overlap with the
+        # drop arc): a piece resting across the drop arc's rear edge has its
+        # centre one section outside, and coding it by the centre alone left
+        # the flow deadlocked — gate closed (drop occupied), handler waiting
+        # for a drop piece that, to it, never existed.
+        n_drop, _n_exit_only, _n_precise, _n_on = _bboxRegionCounts(bbox, channel)
+        code = 1 if n_drop > 0 else int(lut[sec])
+        out.append((gap, sec, code, (int(bbox[0]), int(bbox[1]), int(bbox[2]), int(bbox[3]))))
     out.sort(key=lambda t: t[0])
     return out
 

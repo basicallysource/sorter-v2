@@ -707,14 +707,14 @@
 					parsed.speed ?? parsed.microsteps_per_second,
 					EXIT_RELEASE_DEFAULTS.speed,
 					100,
-					16000
+					24000
 				),
 				acceleration: Math.round(
 					clampNumber(
 						parsed.acceleration ?? parsed.acceleration_microsteps_per_second_sq,
 						EXIT_RELEASE_DEFAULTS.acceleration,
 						1000,
-						48000
+						200000
 					)
 				),
 				cycles: Math.round(clampNumber(parsed.cycles, EXIT_RELEASE_DEFAULTS.cycles, 1, 20))
@@ -746,13 +746,13 @@
 	}
 
 	function setExitReleaseSpeed(value: number) {
-		exitReleaseSpeed = Math.round(clampNumber(value, EXIT_RELEASE_DEFAULTS.speed, 100, 16000));
+		exitReleaseSpeed = Math.round(clampNumber(value, EXIT_RELEASE_DEFAULTS.speed, 100, 24000));
 		writeExitReleaseTuning();
 	}
 
 	function setExitReleaseAcceleration(value: number) {
 		exitReleaseAcceleration = Math.round(
-			clampNumber(value, EXIT_RELEASE_DEFAULTS.acceleration, 1000, 48000)
+			clampNumber(value, EXIT_RELEASE_DEFAULTS.acceleration, 1000, 200000)
 		);
 		writeExitReleaseTuning();
 	}
@@ -1310,7 +1310,7 @@
 										id="exit-release-speed"
 										type="range"
 										min="100"
-										max="16000"
+										max="24000"
 										step="100"
 										value={exitReleaseSpeed}
 										oninput={(event) =>
@@ -1329,8 +1329,8 @@
 										id="exit-release-acceleration"
 										type="range"
 										min="1000"
-										max="48000"
-										step="500"
+										max="200000"
+										step="2000"
 										value={exitReleaseAcceleration}
 										oninput={(event) =>
 											setExitReleaseAcceleration(

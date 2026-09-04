@@ -2131,24 +2131,15 @@ def _channel_exit_stepper(channel: str) -> tuple[str, Any]:
 def _validate_channel_exit_release_payload(
     payload: ChannelExitIncidentTestReleasePayload,
 ) -> dict[str, Any]:
-    amplitude_output = float(payload.amplitude_output_deg)
-    if amplitude_output < 0.1 or amplitude_output > 12.0:
-        raise HTTPException(status_code=400, detail="amplitude_output_deg must be between 0.1 and 12.0.")
-    speed = int(payload.microsteps_per_second)
-    if speed < 100 or speed > 16000:
-        raise HTTPException(status_code=400, detail="microsteps_per_second must be between 100 and 16000.")
-    cycles = int(payload.cycles)
-    if cycles < 1 or cycles > 20:
-        raise HTTPException(status_code=400, detail="cycles must be between 1 and 20.")
-    if payload.acceleration_microsteps_per_second_sq is None:
-        acceleration = max(1000, min(48000, int(round(speed * 3.0))))
-    else:
-        acceleration = int(payload.acceleration_microsteps_per_second_sq)
-        if acceleration < 1000 or acceleration > 48000:
-            raise HTTPException(
-                status_code=400,
-                detail="acceleration_microsteps_per_second_sq must be between 1000 and 48000.",
-            )
+    try:
+        amplitude_output, speed, cycles, acceleration = exitReleaseTestParams(
+            payload.amplitude_output_deg,
+            payload.microsteps_per_second,
+            payload.cycles,
+            payload.acceleration_microsteps_per_second_sq,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     return {
         "amplitude_output_deg": amplitude_output,
         "microsteps_per_second": speed,

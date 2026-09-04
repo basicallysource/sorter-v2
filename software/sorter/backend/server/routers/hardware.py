@@ -1853,13 +1853,13 @@ def move_waveshare_servo(servo_id: int, payload: ServoMovePayload) -> Dict[str, 
         min_lim, max_lim = limits
         if target == "install":
             # Mid travel of the servo itself, so a door hanging at its open stop
-            # can be fitted with room to close either way. Calibration comes
-            # after fitting, so the old limits may not even contain 512.
+            # can be fitted with room to close either way. Fitting invalidates
+            # any earlier calibration, so the limits are reset outright and the
+            # servo reads as uncalibrated until it is calibrated in place.
             position = 512
-            if not (min_lim <= position <= max_lim):
-                if not service.set_angle_limits(servo_id, 0, 1023):
-                    raise HTTPException(status_code=500, detail="Could not reset servo angle limits.")
-                min_lim, max_lim = 0, 1023
+            if not service.set_angle_limits(servo_id, 0, 1023):
+                raise HTTPException(status_code=500, detail="Could not reset servo angle limits.")
+            min_lim, max_lim = 0, 1023
         elif max_lim - min_lim < 20:
             raise HTTPException(
                 status_code=409,

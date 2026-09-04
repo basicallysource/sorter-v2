@@ -60,6 +60,12 @@ _EJECT_TIMEOUT_S = 15.0
 # stall watchdog commits it; long enough that a paired eject+stage rotation,
 # which keeps the flow overlapped, still wins under a continuous feed.
 _LONE_HEAD_EJECT_S = 5.0
+# A forward piece that already carries a capture/result and whose track id
+# vanished is kept as an orphan for this long. The tracker re-issues ids on
+# a piece that was pushed into the holding band (seen 2026-09-05: classified
+# and aimed as track 7, back as track 8 four seconds later); the new id
+# adopts the orphan instead of starting over as an unclassified stray.
+_ORPHAN_ADOPT_S = 10.0
 _STAGE_TIMEOUT_S = 15.0
 
 # Stall-watchdog progress signal: a tracked piece's gap-to-exit must change by
@@ -171,6 +177,8 @@ class TwoPieceClassificationChannel(Rev01BaseState):
         )
         self._deps = (irl, irl_config, gc, shared, transport, vision, event_queue)
         self._pieces: dict[int, _TrackedPiece] = {}
+        # Forward pieces with a result whose id vanished, newest last: (piece, when).
+        self._orphans: list[tuple[_TrackedPiece, float]] = []
         self._phase = _Phase.WAITING
         self._eject_target: Optional[_TrackedPiece] = None
         self._stage_target: Optional[_TrackedPiece] = None
@@ -295,7 +303,10 @@ class TwoPieceClassificationChannel(Rev01BaseState):
             seen.add(tid)
             tp = self._pieces.get(tid)
             if tp is None:
-                tp = self._createPiece(tid, now)
+                zone = int(po.zone_code)
+                tp = self._adoptOrphan(tid, now) if zone != _ZONE_DROP else None
+                if tp is None:
+                    tp = self._createPiece(tid, now)
             tp.zone = int(po.zone_code)
             b = po.bbox
             tp.bbox = (int(b[0]), int(b[1]), int(b[2]), int(b[3]))
@@ -337,13 +348,47 @@ class TwoPieceClassificationChannel(Rev01BaseState):
         tp.worker.emitKnownObject()
         self.logger.info(f"{LOG_TAG} new piece track={tp.track_id}")
 
+    def _adoptOrphan(self, tid: int, now: float) -> Optional[_TrackedPiece]:
+        # A new id that first shows up FORWARD (not in the drop zone) is not an
+        # arrival — arrivals land in the drop zone. Bind it to the most recent
+        # orphan so its capture, result and chute aim carry over.
+        while self._orphans:
+            tp, orphaned_at = self._orphans.pop()
+            if (now - orphaned_at) > _ORPHAN_ADOPT_S:
+                self._orphans.append((tp, orphaned_at))
+                return None
+            self.logger.info(f"{LOG_TAG} re-identified track={tp.track_id} as track={tid}")
+            tp.track_id = tid
+            tp.last_seen = now
+            self._pieces[tid] = tp
+            return tp
+        return None
+
+    def _expireOrphans(self, now: float) -> None:
+        keep: list[tuple[_TrackedPiece, float]] = []
+        for tp, orphaned_at in self._orphans:
+            if (now - orphaned_at) <= _ORPHAN_ADOPT_S:
+                keep.append((tp, orphaned_at))
+                continue
+            tp.worker.abandonInFlightObject("track id gone (left channel)")
+            if tp.known_object is not None:
+                self.noteProgress()
+            self.logger.info(f"{LOG_TAG} retired piece track={tp.track_id} (orphan expired)")
+        self._orphans = keep
+
     def _retireGonePieces(self, now: float) -> None:
+        self._expireOrphans(now)
         for tid in [
             tid
             for tid, tp in self._pieces.items()
             if (now - tp.last_seen) > _TRACK_GONE_RETIRE_S
         ]:
             tp = self._pieces.pop(tid)
+            if tp.capture_done and not tp.ejected and tp.zone != _ZONE_DROP:
+                # Carries a result and has not been committed: keep it adoptable.
+                self._orphans.append((tp, now))
+                self.logger.info(f"{LOG_TAG} track={tid} gone — kept as orphan for re-identification")
+                continue
             # A piece already handed to distribution has a terminal status, so
             # abandonInFlightObject is a no-op for it. Only an in-flight piece
             # (photographed but never classified/distributed) is dropped from the
@@ -692,12 +737,13 @@ class TwoPieceClassificationChannel(Rev01BaseState):
             worker.emitKnownObject()
 
     def cleanup(self) -> None:
-        for tp in self._pieces.values():
+        for tp in list(self._pieces.values()) + [tp for tp, _ in self._orphans]:
             try:
                 tp.worker.abandonInFlightObject("two-piece classification channel teardown")
             except Exception:
                 pass
         self._pieces = {}
+        self._orphans = []
         self._phase = _Phase.WAITING
         self._eject_target = None
         self._stage_target = None

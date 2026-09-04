@@ -114,3 +114,20 @@ def test_captured_drop_piece_lost_mid_staging_is_kept_as_orphan() -> None:
     assert h._pieces == {} and len(h._orphans) == 1
     h._observe(_observation(3, _ZONE_NONE), now=2.0)
     assert h._pieces[3] is staged and staged.track_id == 3
+
+
+def test_uncaptured_head_takes_over_a_waiting_orphan() -> None:
+    h = _handler()
+    twin = _piece(4, zone=_ZONE_NONE, capture_done=False, last_seen=5.0)
+    twin.worker.ctx = SimpleNamespace(classify_started_at=0.0, known_object=None)
+    twin.created_at = 0.0
+    twin.gap_to_exit = 30.0
+    twin.bbox = (1, 2, 3, 4)
+    orphan = _piece(3, zone=_ZONE_NONE, capture_done=True, last_seen=4.0)
+    h._pieces = {4: twin}
+    h._orphans = [(orphan, 4.5)]
+    h.shared = SimpleNamespace(distribution_ready=True)
+    h._aimChuteForHead(now=5.0)
+    assert h._pieces[4] is orphan and orphan.track_id == 4
+    assert orphan.placed and orphan.result_applied
+    assert h._orphans == []

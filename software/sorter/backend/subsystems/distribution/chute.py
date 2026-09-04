@@ -68,8 +68,13 @@ class Chute:
         first_section_offset_deg: float = DEFAULT_FIRST_SECTION_OFFSET_DEG,
         endstop_active_high: bool = True,
         operating_speed_microsteps_per_second: int = DEFAULT_CHUTE_OPERATING_SPEED_MICROSTEPS_PER_SEC,
+        max_angle_deg: float = CHUTE_MAX_ANGLE,
     ):
         self.gc = gc
+        # Mechanical travel limit of this machine's chute ([chute] max_angle_deg).
+        # The B1 tower has a hard stop just past 316°; the code default only
+        # says where the home wedge begins.
+        self.max_angle_deg = float(max_angle_deg)
         self.logger = gc.logger
         self.stepper = stepper
         self.home_pin = home_pin
@@ -220,7 +225,7 @@ class Chute:
         # section that home cut through still serve the bins sitting just
         # clockwise of home — reached the long way round, never across the stop.
         norm = angle % 360.0
-        if norm > CHUTE_MAX_ANGLE:
+        if norm > self.max_angle_deg:
             return None
         return norm
 
@@ -230,8 +235,18 @@ class Chute:
             address.section_index, address.bin_index, num_bins
         )
 
+    def _checkTarget(self, target: float) -> float:
+        """Every target move goes through here: beyond the mechanical limit the
+        chute would ram its stop, so refuse instead of clamping silently."""
+        target = float(target)
+        if target < 0.0 or target > self.max_angle_deg:
+            raise ValueError(
+                f"Chute target {target:.1f}° is outside the travel limit 0-{self.max_angle_deg:.1f}°"
+            )
+        return target
+
     def moveToAngle(self, target: float) -> int:
-        target = max(0.0, min(360.0, target))
+        target = self._checkTarget(target)
         current = self.current_angle
         target_stepper_angle = target * GEAR_RATIO
         current_stepper_angle = current * GEAR_RATIO
@@ -268,7 +283,7 @@ class Chute:
         return self.moveToAngle(target)
 
     def moveToAngleBlocking(self, target: float, timeout_buffer_ms: int = 0) -> int:
-        target = max(0.0, min(360.0, target))
+        target = self._checkTarget(target)
         current = self.current_angle
         target_stepper_angle = target * GEAR_RATIO
         current_stepper_angle = current * GEAR_RATIO

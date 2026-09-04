@@ -651,6 +651,8 @@ class ChuteCalibrationConfig:
     pillar_width_deg: float = DEFAULT_CHUTE_PILLAR_WIDTH_DEG
     endstop_active_high: bool = True
     operating_speed_microsteps_per_second: int = DEFAULT_CHUTE_OPERATING_SPEED_MICROSTEPS_PER_SEC
+    # Mechanical travel limit; targets beyond it are refused. 350 = code default.
+    max_angle_deg: float = 350.0
 
 
 def loadServoChannelConfig(
@@ -917,6 +919,13 @@ def loadChuteCalibrationConfig(
     else:
         first_section_offset_deg = first_bin_center
 
+    max_angle_deg = 350.0
+    raw_max_angle = chute_params.get("max_angle_deg")
+    if raw_max_angle is not None:
+        if isinstance(raw_max_angle, (int, float)) and not isinstance(raw_max_angle, bool) and 10.0 <= float(raw_max_angle) <= 360.0:
+            max_angle_deg = float(raw_max_angle)
+        else:
+            gc.logger.warning(f"Invalid chute.max_angle_deg={raw_max_angle!r}; expected 10-360. Using {max_angle_deg}.")
     return ChuteCalibrationConfig(
         home_pin_channel=home_pin_channel,
         num_sections=num_sections,
@@ -926,6 +935,7 @@ def loadChuteCalibrationConfig(
         pillar_width_deg=pillar_width_deg,
         endstop_active_high=endstop_active_high,
         operating_speed_microsteps_per_second=operating_speed_microsteps_per_second,
+        max_angle_deg=max_angle_deg,
     )
 
 

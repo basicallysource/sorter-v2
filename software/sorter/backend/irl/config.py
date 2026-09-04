@@ -1660,6 +1660,7 @@ def mkIRLInterface(config: IRLConfig, gc: GlobalConfig) -> IRLInterface:
         first_section_offset_deg=chute_calibration.first_section_offset_deg,
         endstop_active_high=chute_calibration.endstop_active_high,
         operating_speed_microsteps_per_second=chute_calibration.operating_speed_microsteps_per_second,
+        max_angle_deg=chute_calibration.max_angle_deg,
     )
 
     return irl_interface

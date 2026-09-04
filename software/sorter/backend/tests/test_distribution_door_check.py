@@ -33,9 +33,10 @@ def _positioning(door) -> Positioning:
 
 
 class DoorArrivalCheckTests(unittest.TestCase):
-    def test_reached_or_unknown_passes(self):
+    def test_reached_passes_and_unknown_does_not(self):
         self.assertTrue(_positioning(_Door(True))._targetDoorArrived(10.0))
-        self.assertTrue(_positioning(_Door(None))._targetDoorArrived(10.0))
+        unknown = _positioning(_Door(None))
+        self.assertFalse(unknown._targetDoorArrived(10.0), "no reading is not a pass")
 
     def test_missed_door_is_reclosed_once_then_alerts(self):
         door = _Door(False)

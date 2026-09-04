@@ -330,7 +330,7 @@ class TwoPieceClassificationChannel(Rev01BaseState):
                 tp = self._adoptOrphan(tid, now) if zone != _ZONE_DROP else None
                 if tp is None:
                     tp = self._createPiece(tid, now)
-            if tid in seen:
+            if tp.track_id in seen:
                 continue  # the same piece reported twice in one frame
             seen.add(tp.track_id)
             tp.zone = int(po.zone_code)

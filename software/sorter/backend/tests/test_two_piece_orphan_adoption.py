@@ -30,6 +30,7 @@ def _handler() -> TwoPieceClassificationChannel:
     h = object.__new__(TwoPieceClassificationChannel)
     h._pieces = {}
     h._orphans = []
+    h._aliases = {}
     h.logger = logging.getLogger("test")
     h._multi_drop_streak = 0
     h._multi_drop_last_ts = -1.0

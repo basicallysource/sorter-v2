@@ -41,6 +41,7 @@ from server import shared_state
 from server.classification_training import getClassificationTrainingManager
 from server.machine_naming import display_name_from_hostname, random_display_name
 from server.routers.tailscale import current_hostname
+from subsystems.classification_channel.running import exitReleaseTestParams
 from subsystems.feeder.incidents import BELT_FEEDER_STALLED_INCIDENT_KIND
 from vision.detection_registry import (
     detection_algorithm_definition,

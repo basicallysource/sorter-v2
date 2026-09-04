@@ -1,6 +1,8 @@
 import logging
 from types import SimpleNamespace
 
+import irl  # noqa: F401  (breaks the irl <-> machine_platform import cycle)
+
 from machine_platform.stepper_safety import stopAllSteppers, stopStepper
 
 

@@ -102,18 +102,18 @@ def exitReleaseTestParams(
     if amplitude_output < 0.1 or amplitude_output > 12.0:
         raise ValueError("amplitude_output_deg must be between 0.1 and 12.0.")
     speed = int(microsteps_per_second)
-    if speed < 100 or speed > 16000:
-        raise ValueError("microsteps_per_second must be between 100 and 16000.")
+    if speed < 100 or speed > 24000:
+        raise ValueError("microsteps_per_second must be between 100 and 24000.")
     cycle_count = int(cycles)
     if cycle_count < 1 or cycle_count > 20:
         raise ValueError("cycles must be between 1 and 20.")
     if acceleration_microsteps_per_second_sq is None:
-        acceleration = max(1000, min(48000, int(round(speed * 3.0))))
+        acceleration = max(1000, min(200000, int(round(speed * 3.0))))
     else:
         acceleration = int(acceleration_microsteps_per_second_sq)
-        if acceleration < 1000 or acceleration > 48000:
+        if acceleration < 1000 or acceleration > 200000:
             raise ValueError(
-                "acceleration_microsteps_per_second_sq must be between 1000 and 48000."
+                "acceleration_microsteps_per_second_sq must be between 1000 and 200000."
             )
     return amplitude_output, speed, cycle_count, acceleration
 

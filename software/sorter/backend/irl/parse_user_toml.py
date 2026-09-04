@@ -166,6 +166,8 @@ def loadFeedingModeConfig(
 
 @dataclass
 class MachineConfig:
+    # [distribution] chute_settle_ms: hold doors/chute this long after a drop.
+    chute_settle_ms: int | None = None
     servo_open_speed: int | None = None
     servo_close_speed: int | None = None
     servo_homing_speed: int | None = None
@@ -576,6 +578,16 @@ def loadMachineConfig(
 
     if not isinstance(raw, dict):
         return config
+
+    distribution_params = raw.get("distribution")
+    if isinstance(distribution_params, dict) and "chute_settle_ms" in distribution_params:
+        raw_settle = distribution_params.get("chute_settle_ms")
+        if isinstance(raw_settle, int) and not isinstance(raw_settle, bool) and 200 <= raw_settle <= 10000:
+            config.chute_settle_ms = raw_settle
+        else:
+            gc.logger.warning(
+                f"Invalid distribution.chute_settle_ms={raw_settle!r}; expected int 200-10000 (ms). Using the default."
+            )
 
     servo_params = raw.get("servo")
     if isinstance(servo_params, dict):

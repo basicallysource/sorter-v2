@@ -24,6 +24,7 @@ class DistributionStateMachine(BaseSubsystem):
         *,
         vision=None,
         post_distribute_cooldown_s: float = 0.0,
+        chute_settle_ms: int | None = None,
     ):
         super().__init__()
         self.irl = irl
@@ -48,6 +49,7 @@ class DistributionStateMachine(BaseSubsystem):
                 event_queue,
                 vision=vision,
                 post_distribute_cooldown_s=post_distribute_cooldown_s,
+                **({} if chute_settle_ms is None else {"chute_settle_ms": int(chute_settle_ms)}),
             ),
         }
         self.gc.profiler.enterState("distribution", self.current_state.value)

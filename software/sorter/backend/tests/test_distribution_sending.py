@@ -115,6 +115,7 @@ def _mkSending(
     shared: SharedVariables,
     event_queue: queue.Queue,
     gc: _GlobalConfig,
+    chute_settle_ms: int | None = None,
 ) -> Sending:
     # ``irl`` is only read for attribute access that Sending/BaseState don't
     # actually touch — a simple stub with a bool chute placeholder is
@@ -129,7 +130,19 @@ def _mkSending(
         event_queue,
         vision=vision,
         post_distribute_cooldown_s=cooldown_s,
+        **({} if chute_settle_ms is None else {"chute_settle_ms": chute_settle_ms}),
     )
+
+
+class SendingSettleConfigTests(unittest.TestCase):
+    def test_configured_settle_replaces_the_default(self) -> None:
+        shared = SharedVariables()
+        default = _mkSending(vision=None, cooldown_s=0.0, shared=shared, event_queue=queue.Queue(), gc=_GlobalConfig())
+        self.assertEqual(CHUTE_SETTLE_MS, default._settleMs())
+        slow = _mkSending(vision=None, cooldown_s=0.0, shared=shared, event_queue=queue.Queue(), gc=_GlobalConfig(), chute_settle_ms=3500)
+        self.assertEqual(3500, slow._settleMs())
+        shared.sample_collection_mode = True
+        self.assertEqual(SAMPLE_COLLECTION_CHUTE_SETTLE_MS, slow._settleMs())
 
 
 class SendingChuteReopenGateTests(unittest.TestCase):

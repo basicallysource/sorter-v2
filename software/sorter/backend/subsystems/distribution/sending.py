@@ -29,12 +29,14 @@ class Sending(BaseState):
         *,
         vision=None,
         post_distribute_cooldown_s: float = 0.0,
+        chute_settle_ms: int = CHUTE_SETTLE_MS,
     ):
         super().__init__(irl, gc)
         self.shared = shared
         self.event_queue = event_queue
         self.vision = vision
         self._cooldown_s = max(0.0, float(post_distribute_cooldown_s))
+        self._settle_ms = max(0, int(chute_settle_ms))
         self.piece = None
         self.start_time: float = 0.0
         self._occupancy_state: str | None = None
@@ -244,7 +246,7 @@ class Sending(BaseState):
     def _settleMs(self) -> int:
         if bool(getattr(self.shared, "sample_collection_mode", False)):
             return SAMPLE_COLLECTION_CHUTE_SETTLE_MS
-        return CHUTE_SETTLE_MS
+        return self._settle_ms
 
     def cleanup(self) -> None:
         super().cleanup()

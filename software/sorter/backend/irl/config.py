@@ -632,6 +632,10 @@ class IRLConfig:
         self.classification_channel_config = ClassificationChannelConfig()
         self.feeding_mode = "auto_channels"
         self.machine_setup = get_machine_setup_definition(DEFAULT_MACHINE_SETUP)
+        # How long the distribution holds chute and doors after a piece was
+        # dropped, so it clears the flaps before the next positioning starts.
+        # [distribution] chute_settle_ms in machine.toml overrides it.
+        self.distribution_chute_settle_ms = 1500
 
 
 class IRLInterface:
@@ -1353,6 +1357,8 @@ def mkIRLInterface(config: IRLConfig, gc: GlobalConfig) -> IRLInterface:
     machine_config = loadMachineConfig(gc, machine_specific_params)
     stepper_binding_overrides = loadStepperBindingOverrides(gc, machine_specific_params)
     stepper_current_overrides = machine_config.stepper_current_overrides
+    if machine_config.chute_settle_ms is not None:
+        config.distribution_chute_settle_ms = int(machine_config.chute_settle_ms)
     stepper_direction_inverts = loadStepperDirectionInverts(gc, machine_specific_params)
     servo_channel_config = loadServoChannelConfig(gc, machine_specific_params)
     mcu_ports = MCUBus.enumerate_buses()

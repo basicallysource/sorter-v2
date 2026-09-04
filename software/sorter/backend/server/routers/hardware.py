@@ -46,6 +46,7 @@ from irl.parse_user_toml import (
     DEFAULT_CHUTE_SECTION_WIDTH_DEG,
     loadWaveshareServoConfig,
 )
+from hardware.waveshare_servo import limits_look_uncalibrated
 from local_state import (
     clear_current_session_bins,
     get_bin_snapshot,
@@ -1860,7 +1861,7 @@ def move_waveshare_servo(servo_id: int, payload: ServoMovePayload) -> Dict[str, 
             if not service.set_angle_limits(servo_id, 0, 1023):
                 raise HTTPException(status_code=500, detail="Could not reset servo angle limits.")
             min_lim, max_lim = 0, 1023
-        elif max_lim - min_lim < 20:
+        elif max_lim - min_lim < 20 or limits_look_uncalibrated(min_lim, max_lim):
             raise HTTPException(
                 status_code=409,
                 detail="Servo has no calibrated range. Run auto-calibration first.",

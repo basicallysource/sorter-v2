@@ -20,6 +20,7 @@ export type ClassificationStatus =
   | "classified"
   | "unknown"
   | "not_found"
+  | "low_confidence"
   | "multi_drop_fail"
   | "failed";
 

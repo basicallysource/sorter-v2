@@ -51,25 +51,35 @@
   ],
   "changes": [
     {
-      "id": "c1-bulk-cap-output-guide-interference",
-      "name": "Bulk cap and output guide interfere on C1",
+      "id": "output-guide-clocking",
+      "name": "The output guide is clocked wrong: it overlaps the stator, and the bulk cap on C1",
       "priority": "P0",
       "condition": "broken",
-      "description": "C-channel 1 carries both the Bulk cap and the Short and Angled Output Guide, and the two overlap by 0.315 cm3. Measured off the pinned STLs, which share one assembly frame: the clash is at r 113.45 to 116.78 mm, azimuth -45.10 to -40.00 deg, z 40.0 to 50.0 mm, a 32.2 mm2 cross-section running from z 42 up to the guide's top face. The cap already has a relief cut for the guide, azimuth -84.0 to -45.5, which is 38.5 deg wide against the guide's 23.3 deg, but the guide sits 5.5 deg past the cut's -45.5 edge and its outer top corner buries itself in the cap's inner wall. The cap clears the stator completely (groove r 116.7 to 120.3 over a stator wall of r 117.0 to 120.0). The model should either clock the guide back into the relief or extend the relief past -40; which is right depends on where pieces leave the rotor and is a CAD decision. New since 2026-09-02: C1 had no output guide before e22fce30, and the previous straight guide clashed with the same cap by 39.7 cm3. Tracked as sorter-v2 issue #541.",
+      "description": "The Short and Angled Output Guide, as pinned, overlaps the stator it mounts to by 3.014 cm3 (r 102.99 to 119.99 mm, azimuth -45.05 to -40.00 deg, over the full height z -19 to 50). That is on all four channels, because one guide STL serves all of them. On C1 it additionally overlaps the Bulk cap by 0.315 cm3 at r 113.45 to 116.78, z 40 to 50, which is how it was spotted. The stator's exit opening is 45.0 deg at the wall (az -90.1 to -45.1) and 42.0 deg at the base flange; the cap's relief cut is 38.5 deg (-84.0 to -45.5); the guide is 23.3 deg wide and sits at -63.3 to -40.0, hard against one end and lapping past it. Rotating the guide -5.1 to -18.3 deg clears both the stator and the cap, but that does not settle it: the stator's base flange indexes on a 25.714 deg notch grid (14 positions, notch width 4.8 to 5.0 mm of arc), the guide's base lobe pair sits at -43.5 deg which is not on that grid, and the nearest grid position inside the opening (-64.2) needs -20.7 deg, 2.4 deg outside the clear window. So the exported clocking is not the assembled clocking and where the guide is meant to index has to come from the CAD. Reported by ReveryX. Tracked as sorter-v2 issue #541.",
       "images": [
+        {
+          "url": "https://assets.basically.website/sorter-parts/c1-output-guide-clear-window-full-b764d42da838.png",
+          "alt": "Two top-down sections. At z = 45 mm the stator wall, the bulk cap's two concentric walls, the guide as exported overlapping both, and the guide rotated -11.7 degrees clear of them. At z = -12 mm the stator's base flange with its ring of index notches, and the guide's base lobes buried in solid flange.",
+          "caption": "Sections at z = 45 and z = -12. The guide as exported (yellow) against the clear position (green)."
+        },
         {
           "url": "https://assets.basically.website/sorter-parts/c1-bulk-cap-output-guide-clash-full-4bda026498a4.png",
           "alt": "Top-down section at z = 45 mm showing the bulk cap's two concentric walls, the stator ring between them, the output guide lying in the cap's relief cut, and the interference at the guide's outer end marked in red",
-          "caption": "Section at z = 45 mm. The guide overshoots the cap's relief cut by 5.5 deg."
+          "caption": "The bulk cap overlap on C1 alone, section at z = 45 mm."
         }
       ],
       "targets": {
         "parts": [
-          "bulk-cap",
-          "output-guide"
+          "output-guide",
+          "stator",
+          "bulk-cap"
         ],
         "assemblies": [
-          "bulk-bucket"
+          "bulk-bucket",
+          "c-channel",
+          "channel-two",
+          "channel-three",
+          "classification-chamber"
         ]
       }
     },

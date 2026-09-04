@@ -20,6 +20,7 @@ from __future__ import annotations
 import queue
 import time
 import unittest
+from types import SimpleNamespace
 from unittest.mock import patch
 
 from defs.known_object import KnownObject
@@ -116,15 +117,19 @@ def _mkSending(
     event_queue: queue.Queue,
     gc: _GlobalConfig,
     chute_settle_ms: int | None = None,
+    servos: list | None = None,
 ) -> Sending:
-    # ``irl`` is only read for attribute access that Sending/BaseState don't
-    # actually touch — a simple stub with a bool chute placeholder is
-    # enough for unit-level behavior.
+    # ``irl`` is only read for the door servos (and attribute access that
+    # Sending/BaseState don't actually touch), so a stub is enough.
     class _IRL:
         pass
 
+    irl = _IRL()
+    if servos is not None:
+        irl.servos = servos
+
     return Sending(
-        _IRL(),  # type: ignore[arg-type]
+        irl,  # type: ignore[arg-type]
         gc,  # type: ignore[arg-type]
         shared,
         event_queue,
@@ -132,6 +137,57 @@ def _mkSending(
         post_distribute_cooldown_s=cooldown_s,
         **({} if chute_settle_ms is None else {"chute_settle_ms": chute_settle_ms}),
     )
+
+
+class _FakeDoor:
+    def __init__(self) -> None:
+        self.calls: list[str] = []
+
+    def hold(self) -> None:
+        self.calls.append("hold")
+
+    def release(self) -> None:
+        self.calls.append("release")
+
+
+class SendingDoorHoldTests(unittest.TestCase):
+    def test_target_door_is_held_from_drop_until_settle(self) -> None:
+        transport = SendingChuteReopenGateTests._mkTransportWithDrop(SendingChuteReopenGateTests(), tracked_global_id=7)
+        shared = SendingChuteReopenGateTests._mkSharedWithTransport(SendingChuteReopenGateTests(), transport)
+        upper, lower = _FakeDoor(), _FakeDoor()
+        shared.set_chute_motion(False, target_bin=SimpleNamespace(layer_index=0))
+        sending = _mkSending(
+            vision=_FakeVision(live_ids_by_role={"carousel": set()}),
+            cooldown_s=0.0,
+            shared=shared,
+            event_queue=queue.Queue(),
+            gc=_GlobalConfig(),
+            servos=[upper, lower],
+        )
+        self.assertIsNone(sending.step())
+        self.assertEqual(["hold"], upper.calls)
+        self.assertEqual([], lower.calls)
+        self.assertIsNone(sending.step())
+        self.assertEqual(["hold"], upper.calls, "held once, not on every tick")
+
+        sending.start_time = time.time() - (CHUTE_SETTLE_MS / 1000.0) - 5.0
+        self.assertEqual(DistributionState.IDLE, sending.step())
+        self.assertEqual(["hold", "release"], upper.calls)
+
+    def test_no_door_without_a_target_or_hold_support(self) -> None:
+        transport = SendingChuteReopenGateTests._mkTransportWithDrop(SendingChuteReopenGateTests(), tracked_global_id=8)
+        shared = SendingChuteReopenGateTests._mkSharedWithTransport(SendingChuteReopenGateTests(), transport)
+        sending = _mkSending(
+            vision=_FakeVision(live_ids_by_role={"carousel": set()}),
+            cooldown_s=0.0,
+            shared=shared,
+            event_queue=queue.Queue(),
+            gc=_GlobalConfig(),
+            servos=[object()],
+        )
+        self.assertIsNone(sending.step())
+        sending.start_time = time.time() - (CHUTE_SETTLE_MS / 1000.0) - 5.0
+        self.assertEqual(DistributionState.IDLE, sending.step())
 
 
 class SendingSettleConfigTests(unittest.TestCase):

@@ -67,6 +67,12 @@ class SharedVariables:
     def chute_move_in_progress(self) -> bool:
         return self.get_chute_move_in_progress()
 
+    @property
+    def chute_target_bin(self) -> object | None:
+        """The bin the chute was last aimed at (set by positioning), so the
+        sending state knows which door the falling piece will meet."""
+        return getattr(self, "_chute_target_bin", None)
+
     @chute_move_in_progress.setter
     def chute_move_in_progress(self, value: bool) -> None:
         self.set_chute_motion(bool(value), target_bin=None)
@@ -128,6 +134,8 @@ class SharedVariables:
         target_bin: object | None,
     ) -> None:
         next_value = bool(in_progress)
+        if target_bin is not None:
+            self._chute_target_bin = target_bin
         if self._chute_move_in_progress == next_value and not self._bus_enabled():
             return
         self._chute_move_in_progress = next_value

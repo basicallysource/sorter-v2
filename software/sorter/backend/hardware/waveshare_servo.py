@@ -783,6 +783,24 @@ class WaveshareServoMotor:
         else:
             self.open()
 
+    def hold(self) -> None:
+        """Re-energize at the current target while a piece is on its way to
+        the door. The post-move release leaves the flap unpowered, and a piece
+        landing on an unpowered upper flap can push it open into the lower
+        row; holding only for the drop window keeps the servo cool."""
+        self._cancel_release()
+        self._enabled = True
+        ok = bool(self._bus.set_torque(self._servo_id, True))
+        ok = bool(self._bus.move_to(self._servo_id, self._current_position, self._move_time_ms)) and ok
+        self._record_result(ok)
+
+    def release(self) -> None:
+        """Drop torque again once the piece has cleared the door."""
+        self._cancel_release()
+        self._enabled = False
+        self._move_started_at = 0.0
+        self._record_result(bool(self._bus.set_torque(self._servo_id, False)))
+
     def isOpen(self) -> bool:
         return abs(self._current_position - self._open_position) < abs(self._current_position - self._closed_position)
 

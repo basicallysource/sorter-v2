@@ -627,6 +627,9 @@ class WaveshareServoConfig:
     # Time the servo is given for a door move (SC goal-time). A stiff door
     # that stalls at 500 ms may follow a slower profile reliably.
     move_time_ms: int = 500
+    # Cap on the servos' output torque in percent of stall (EEPROM register);
+    # 100 = factory. A 15 kg·cm servo on a printed flap wants ~30-50.
+    max_torque_percent: int = 100
 
 
 @dataclass
@@ -746,10 +749,21 @@ def loadWaveshareServoConfig(
                 f"Invalid servo.move_time_ms={raw_time!r}; expected int 100-5000 (ms). Using {move_time_ms}."
             )
 
+    max_torque_percent = 100
+    if "max_torque_percent" in servo_params:
+        raw_torque = servo_params.get("max_torque_percent")
+        if isinstance(raw_torque, int) and not isinstance(raw_torque, bool) and 10 <= raw_torque <= 100:
+            max_torque_percent = raw_torque
+        else:
+            gc.logger.warning(
+                f"Invalid servo.max_torque_percent={raw_torque!r}; expected int 10-100. Using {max_torque_percent}."
+            )
+
     return WaveshareServoConfig(
         port=port,
         channels=loadServoChannelConfig(gc, raw, backend="waveshare"),
         move_time_ms=move_time_ms,
+        max_torque_percent=max_torque_percent,
     )
 
 

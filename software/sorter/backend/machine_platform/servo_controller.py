@@ -240,10 +240,12 @@ class WaveshareServoController(ServoController):
         assignments: Sequence[LayerServoAssignment],
         mcu_ports: Sequence[str],
         move_time_ms: int = 500,
+        max_torque_percent: int = 100,
     ):
         self._gc = gc
         self._port = port
         self._move_time_ms = int(move_time_ms)
+        self._max_torque_percent = int(max_torque_percent)
         self._assignments = tuple(assignments)
         self._mcu_ports = tuple(mcu_ports)
         self._bus_service = None
@@ -291,7 +293,11 @@ class WaveshareServoController(ServoController):
                     layer_servos.append(servo)
                 continue
             servo = WaveshareServoMotor(
-                service, assignment.id, invert=assignment.invert, move_time_ms=self._move_time_ms
+                service,
+                assignment.id,
+                invert=assignment.invert,
+                move_time_ms=self._move_time_ms,
+                max_torque_permille=self._max_torque_percent * 10,
             )
             try:
                 servo.initialize()
@@ -408,6 +414,7 @@ def build_servo_controller(
             assignments=assignments,
             mcu_ports=mcu_ports,
             move_time_ms=waveshare_config.move_time_ms,
+            max_torque_percent=waveshare_config.max_torque_percent,
         )
 
     servo_source = _select_pca_servo_source(control_boards)

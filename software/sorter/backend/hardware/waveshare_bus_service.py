@@ -111,8 +111,8 @@ class WaveshareBusService:
     def set_id(self, old_id: int, new_id: int) -> bool:
         return self._execute(lambda bus: bus.set_id(old_id, new_id))
 
-    def calibrate_servo(self, servo_id: int) -> tuple[int, int]:
-        return self._execute(lambda bus: calibrate_servo_impl(bus, servo_id))
+    def calibrate_servo(self, servo_id: int, max_torque_permille: int | None = None) -> tuple[int, int]:
+        return self._execute(lambda bus: calibrate_servo_impl(bus, servo_id, max_torque_permille))
 
     def soft_reset(self) -> bool:
         """Force a close + reopen of the underlying serial port and ping a

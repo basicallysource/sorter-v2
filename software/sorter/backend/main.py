@@ -54,6 +54,7 @@ from hardware.waveshare_bus_service import close_all_waveshare_bus_services
 from server.waveshare_inventory import get_waveshare_inventory_manager
 import uvicorn
 import threading
+import traceback
 import queue
 import time
 import asyncio
@@ -1080,6 +1081,12 @@ def main() -> None:
             time.sleep(gc.timeouts.main_loop_sleep_ms / 1000.0)
     except KeyboardInterrupt:
         shutdown_reason["value"] = "KeyboardInterrupt"
+    except Exception:
+        # Log it here: the shutdown reaper exits the process before the
+        # interpreter would print this traceback.
+        shutdown_reason["value"] = "main loop exception"
+        gc.logger.error(f"Main loop crashed:\n{traceback.format_exc()}")
+        raise
     finally:
         _shutdown_runtime(shutdown_reason["value"])
 

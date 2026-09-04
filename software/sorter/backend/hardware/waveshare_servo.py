@@ -783,6 +783,15 @@ class WaveshareServoMotor:
         else:
             self.open()
 
+    def target_reached(self, tolerance: int = 15) -> bool | None:
+        """Compare the servo's reported position with the last commanded
+        target. None when the bus gave no reading."""
+        pos = self._bus.read_position(self._servo_id)
+        self._record_result(pos is not None)
+        if pos is None:
+            return None
+        return abs(int(pos) - int(self._current_position)) <= int(tolerance)
+
     def hold(self) -> None:
         """Re-energize at the current target while a piece is on its way to
         the door. The post-move release leaves the flap unpowered, and a piece

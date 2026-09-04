@@ -5,23 +5,23 @@ type: how-to
 section: hardware
 slug: assembly-output-guides
 kicker: Feeder — Output guides
-lede: The printed guides that carry parts from one C-channel to the next.
+lede: The printed guide on each channel's exit that stops parts riding round instead of dropping off.
 permalink: /hardware/assembly/feeder/output-guides/
 author: barthel
 warning: >-
   **AI-generated first draft.** Written from the machine assembly tree in the [parts
   calculator](https://parts-calculator.basically.website/assembly), not from an actual build.
-  The Output guide is in the parts catalog with a quantity and a colour and nothing else: it is
-  in no assembly there, and where it mounts is not recorded anywhere. This page exists to be
-  filled in, not to be followed.
+  The tree records which channels take a guide and that it is held by friction, but not where on
+  the channel it sits, at what angle, or how far it projects. This page exists to be filled in,
+  not to be followed.
 parts_needed:
   - part: output-guide
-    qty: 2
+    qty: 4
 ---
 
 <div class="prep-item">
   <div class="prep-item-body">
-    <p><strong>Build and <a href="{{ '/hardware/assembly/feeder/arranging-c-channels/' | relative_url }}">arrange the C-channels</a> before you start.</strong> It's a required stage before this page, not optional or covered here — the guide only goes in once the channels either side of it are standing at their final heights.</p>
+    <p><strong>Build and <a href="{{ '/hardware/assembly/feeder/arranging-c-channels/' | relative_url }}">arrange the C-channels</a> before you start.</strong> It's a required stage before this page, not optional or covered here — a guide only goes in once its channel and the one below it are standing at their final heights.</p>
   </div>
   <figure class="prep-item-figure">
     <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-c-channel-stator-and-rotor-fitted-w1600-60758bbee2d5.jpg" alt="A finished C-channel seen from above: the white finned classification rotor sitting inside the grey stator ring, with the stepper motor projecting from the right-hand side">
@@ -29,9 +29,9 @@ parts_needed:
   </figure>
 </div>
 
-An output guide bridges the gap where one C-channel hands parts to the next, so a part leaving a rotor lands on the following channel instead of on the floor.
+An output guide sits on one channel's exit and stops a part riding round past it. Without one a piece that doesn't drop off at the exit carries on round the rotor instead, so the guide is a wall that forces it off.
 
-Two per machine. Which channels they sit between is not recorded: three feeder channels give two handovers, C1 to C2 and C2 to C3 (see [arranging C-channels]({{ '/hardware/assembly/feeder/arranging-c-channels/' | relative_url }}) for what these names mean), so two guides is consistent with one per handover, but that is inference from the count rather than a documented fact.
+**Four per machine, one on every channel**, C1 and the classification channel included (see [arranging C-channels]({{ '/hardware/assembly/feeder/arranging-c-channels/' | relative_url }}) for what these names mean). It belongs to the channel it's mounted on rather than to the gap between two, which is why the count is four and not three.
 
 {% include fastener-legend.html %}
 
@@ -46,11 +46,11 @@ Two per machine. Which channels they sit between is not recorded: three feeder c
   </figure>
 </div>
 
-{% include step.html n="2" title="Fit a guide at each handover" %}
+{% include step.html n="2" title="Fit a guide on each channel" %}
 
-The guide goes in once the two channels either side of it are at their final heights.
+The guide pushes onto the C-channel drive and is held by the fit alone: no screws, no inserts, nothing to tighten. Fit it once its channel is at its final height.
 
-**Not recorded:** what the guide fastens to, with what, and at what angle. <span class="fastener-todo">fastener not recorded</span>
+**Not recorded:** where on the drive it seats, at what angle, and how far it projects over the exit.
 
 <div class="img-placeholder">Image coming</div>
 

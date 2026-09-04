@@ -1216,7 +1216,17 @@ def save_servo_hardware_config(
     params_path, config = _read_machine_params_config()
     previous = _servo_settings_from_config(config)
 
-    servo_table: Dict[str, Any] = {"backend": backend, "channels": channels}
+    # This form owns backend/port/speeds/channels. Keys it does not own
+    # (move_time_ms, max_torque_percent, highest_seen_id, ...) are kept as
+    # they are: dropping max_torque_percent once silently put the SC15 back
+    # to full torque against a printed flap.
+    existing_servo_table = config.get("servo", {})
+    servo_table: Dict[str, Any] = (
+        dict(existing_servo_table) if isinstance(existing_servo_table, dict) else {}
+    )
+    for key in ("open_speed", "close_speed", "homing_speed", "port"):
+        servo_table.pop(key, None)
+    servo_table.update({"backend": backend, "channels": channels})
     if backend == "pca9685":
         if open_speed is not None:
             servo_table["open_speed"] = open_speed
@@ -1224,21 +1234,8 @@ def save_servo_hardware_config(
             servo_table["close_speed"] = close_speed
         if homing_speed is not None:
             servo_table["homing_speed"] = homing_speed
-    if backend == "waveshare":
-        if port is not None:
-            servo_table["port"] = port
-        existing_servo_table = config.get("servo", {})
-        previous_highest_seen = (
-            existing_servo_table.get("highest_seen_id")
-            if isinstance(existing_servo_table, dict)
-            else None
-        )
-        if (
-            isinstance(previous_highest_seen, int)
-            and not isinstance(previous_highest_seen, bool)
-            and previous_highest_seen > 0
-        ):
-            servo_table["highest_seen_id"] = previous_highest_seen
+    if backend == "waveshare" and port is not None:
+        servo_table["port"] = port
 
     config["servo"] = servo_table
 

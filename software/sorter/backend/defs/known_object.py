@@ -17,6 +17,9 @@ class ClassificationStatus(str, Enum):
     classified = "classified"
     unknown = "unknown"
     not_found = "not_found"
+    # Recognized, but below the operator's minimum part confidence: the part
+    # fields are kept for the UI, the piece is routed to misc, never to a bin.
+    low_confidence = "low_confidence"
     multi_drop_fail = "multi_drop_fail"
     # The identification request itself failed (Brickognize timeout / DNS /
     # connection error) — distinct from not_found (service answered, no match)

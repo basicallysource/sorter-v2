@@ -60,6 +60,19 @@ class _ClassifyRequest:
     images: list[_SendImage]
 
 
+def classificationStatusForScore(score: object, min_part_confidence: float) -> ClassificationStatus:
+    """A recognized part is only ``classified`` (bin-sortable) at or above the
+    operator's minimum score; below it the piece keeps its part fields but is
+    ``low_confidence`` and routed to misc. A missing score counts as low."""
+    try:
+        value = float(score) if score is not None else None
+    except (TypeError, ValueError):
+        value = None
+    if value is None or value < float(min_part_confidence):
+        return ClassificationStatus.low_confidence
+    return ClassificationStatus.classified
+
+
 class Rev01BaseState(BaseState):
     def __init__(
         self,
@@ -745,7 +758,9 @@ class Rev01BaseState(BaseState):
                 obj.brickognize_preview_url = best.get("img_url")
                 obj.brickognize_item_rank = best.get("rank")
                 obj.brickognize_item_type = best.get("type")
-                obj.classification_status = ClassificationStatus.classified
+                obj.classification_status = classificationStatusForScore(
+                    best.get("score"), self.ctx.config.min_part_confidence
+                )
             else:
                 obj.classification_status = ClassificationStatus.not_found
             if colors:

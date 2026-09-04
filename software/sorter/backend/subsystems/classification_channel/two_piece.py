@@ -80,6 +80,18 @@ _STAGE_TIMEOUT_S = 15.0
 _PROGRESS_MOVE_DEG = 5.0
 
 
+# A box centre moving more than this between observations is real movement.
+_STILL_MAX_SHIFT_PX = 8.0
+
+
+def _bboxCenterShift(a: tuple[int, int, int, int], b: tuple[int, int, int, int]) -> float:
+    if a == (0, 0, 0, 0):
+        return 0.0
+    ax, ay = (a[0] + a[2]) / 2.0, (a[1] + a[3]) / 2.0
+    bx, by = (b[0] + b[2]) / 2.0, (b[1] + b[3]) / 2.0
+    return max(abs(ax - bx), abs(ay - by))
+
+
 def _bboxIou(a: tuple[int, int, int, int], b: tuple[int, int, int, int]) -> float:
     ix1, iy1 = max(a[0], b[0]), max(a[1], b[1])
     ix2, iy2 = min(a[2], b[2]), min(a[3], b[3])
@@ -119,6 +131,8 @@ class _TrackedPiece:
         self.progress_gap: Optional[float] = None
         self.created_at = now
         self.last_seen = now
+        # Since when the box has held still (re-armed on any real movement).
+        self.still_since = now
         # Burst capture (drop zone only) has finished -> safe to rotate the piece
         # out of the drop zone.
         self.capture_done = False
@@ -334,6 +348,8 @@ class TwoPieceClassificationChannel(Rev01BaseState):
                 continue  # the same piece reported twice in one frame
             seen.add(tp.track_id)
             tp.zone = int(po.zone_code)
+            if _bboxCenterShift(tp.bbox, bbox) > _STILL_MAX_SHIFT_PX:
+                tp.still_since = now
             tp.bbox = bbox
             tp.gap_to_exit = po.com_forward_to_exit_deg
             tp.last_seen = now
@@ -525,9 +541,12 @@ class TwoPieceClassificationChannel(Rev01BaseState):
         # user's rule). Each piece is cropped from its OWN tracked bbox, so two
         # pieces never cross-contaminate each other's burst.
         raw = None
+        settle_s = float(self.ctx.config.capture_settle_ms) / 1000.0
         for tp in list(self._pieces.values()):
             if tp.zone != _ZONE_DROP or tp.capture_done or tp.double_feed:
                 continue
+            if (now - tp.still_since) < settle_s:
+                continue  # still tumbling after landing — no blurred burst
             if raw is None:
                 raw = perception_service.read_bboxes_and_frame(4)
                 if raw is None:

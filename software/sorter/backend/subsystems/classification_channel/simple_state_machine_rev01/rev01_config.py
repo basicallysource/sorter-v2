@@ -97,6 +97,12 @@ class Rev01Config:
     # spurious second box; a single such frame used to mis-flag a multi-drop.
     # Mirror the clear-confirm debounce so one noisy frame can't trip it.
     multi_feed_confirm_reads: int = 3
+    # Below this Brickognize part score the piece is not sorted into a bin
+    # (status low_confidence → misc). A wrong bin costs more than a passthrough.
+    min_part_confidence: float = 0.6
+    # The at-rest burst starts only after the piece's box has held still this
+    # long; a piece is photographed while it still tumbles otherwise.
+    capture_settle_ms: float = 200.0
 
     # Jitter unstick: the ONLY trigger. If a piece sits in the FALL-OFF region
     # (the exit-only sub-arc, NOT the precise staging band — perception's
@@ -145,6 +151,8 @@ FIELD_META: list[dict] = [
     {"key": "discharge_total_timeout_ms", "label": "Discharge: total budget before give-up (ms)", "type": "int", "default": _DEFAULTS.discharge_total_timeout_ms, "description": "One overall time budget for discharging a piece-set (not per move). If it runs out with the channel still occupied, the stuck-piece handling kicks in."},
     {"key": "discharge_clear_confirm_ms", "label": "Discharge: continuous-clear window to confirm drop (ms)", "type": "int", "default": _DEFAULTS.discharge_clear_confirm_ms, "description": "How long the exit must read clear WITHOUT interruption before the piece counts as dropped. A single non-clear frame resets the window, so one-frame detector blinks can't fake a drop."},
     {"key": "discharge_giveup_settle_ms", "label": "Discharge: settle delay before auto-crediting on give-up (ms)", "type": "int", "default": _DEFAULTS.discharge_giveup_settle_ms, "description": "When discharge exhausts its attempts without a confirmed clear (usually the piece actually dropped and a newcomer is holding the count up), wait this long for the channel to settle, then credit the piece and return to IDLE."},
+    {"key": "min_part_confidence", "label": "Minimum part confidence to sort into a bin", "type": "float", "default": _DEFAULTS.min_part_confidence, "description": "Brickognize part score below which the piece is routed to misc (status low_confidence) instead of a category bin. A wrong bin costs more than a passthrough."},
+    {"key": "capture_settle_ms", "label": "Settle time before the burst (ms)", "type": "float", "default": _DEFAULTS.capture_settle_ms, "description": "The at-rest burst starts only after the piece's box has held still this long, so a piece is not photographed while it still tumbles after landing."},
     {"key": "multi_feed_confirm_reads", "label": "Multi-feed: frames of >=2 pieces to confirm", "type": "int", "default": _DEFAULTS.multi_feed_confirm_reads, "description": "Consecutive distinct frames showing 2+ pieces on the channel before latching a multi-feed (which sends the whole cycle to MISC). Stops a one-frame split detection from mis-flagging."},
     {"key": "discharge_jitter_dwell_ms", "label": "Discharge: dwell in fall-off region before jitter (ms)", "type": "int", "default": _DEFAULTS.discharge_jitter_dwell_ms, "description": "If a piece sits continuously in the fall-off region this long, it's parked — shake it loose with a jitter. A piece dropping normally is only there for a frame or two, so it never triggers this."},
     {"key": "verify_discharge_wait_ms", "label": "Verify-discharge: settle wait before re-check (ms)", "type": "int", "default": _DEFAULTS.verify_discharge_wait_ms, "description": "After a discharge move settles, wait this long before the first exit-zone re-check."},

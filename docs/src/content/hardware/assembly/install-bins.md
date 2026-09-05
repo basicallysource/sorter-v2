@@ -45,12 +45,14 @@ The list above is per layer, and a layer takes **one** of the two sets, not both
 
 You made this choice per layer when you printed the funnels: each layer is either half size or third size, a machine can mix them, and the funnel and the bin set are a matched pair. So a layer takes whichever set matches the funnel already on it.
 
-- **A half-size layer** takes **12 bins**: 6 Bin (half, left) and 6 Bin (half, right).
-- **A third-size layer** takes **18 bins**: 6 each of Bin (third, left), Bin (third, center) and Bin (third, right-back).
+- **A half-size layer** takes **12 bins**: 6 Bin (half, left) and 6 Bin (half, right). Its funnel mouth is the wider of the two, so this is the layer that takes the biggest pieces the machine can sort. The cost is twelve destinations rather than eighteen.
+- **A third-size layer** takes **18 bins**: 6 each of Bin (third, left), Bin (third, center) and Bin (third, right-back). Half again as many destinations, which is what the small parts that make up most of a pile need. The cost is a narrower mouth, and the mouth is what limits the piece size that layer can take.
 
-Either way it is one set per bay, six bays around the hexagon.
+Either way it is one set per bay, six bays around the hexagon, and the two work out about the same to print.
 
-Switching a layer to the other size at this point means printing a new funnel as well as new bins, so it is worth knowing what the choice was about: 12 wider bins against 18 narrower ones, and the funnel mouth is what limits the piece size that layer can take. The full comparison, and what to pick if you are still deciding, is on [Funnel]({{ '/hardware/assembly/distribution/chute/funnel/' | relative_url }}).
+**If you are still deciding:** two third-size layers and one half-size is what the [parts calculator](https://parts-calculator.basically.website/) starts a fresh machine at, and it is a sensible default. Most LEGO is small, so most of your destinations should be, but you want at least one layer that can take the big pieces. Nothing ties a size to a particular height, so which level carries the half-size layer is yours to choose.
+
+Switching a layer to the other size at this point means printing a new funnel as well as new bins. [Funnel]({{ '/hardware/assembly/distribution/chute/funnel/' | relative_url }}) is where that choice is made, and has the same comparison in full.
 
 {% include step.html n="2" title="Get the bins: print them or cut them" %}
 

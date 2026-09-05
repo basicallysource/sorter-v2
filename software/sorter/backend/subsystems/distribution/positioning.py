@@ -79,6 +79,7 @@ class Positioning(BaseState):
         self._jam_pause_enqueued: bool = False
         self._servo_bus_pause_enqueued: bool = False
         self._bin_full_hold: bool = False
+        self._planned_passthrough: bool = False
         self._chute_move_estimated_ms: int = 0
 
     def _setOccupancyState(self, state_name: str) -> None:
@@ -198,9 +199,11 @@ class Positioning(BaseState):
             if address is None:
                 # MISC is the intentional reject/default category. It should
                 # pass through to the bottom tray without claiming a real bin
-                # and without raising the operator no-bin incident.
+                # and without raising the operator no-bin incident. The same
+                # goes for a rule the operator left out of the run plan.
                 if (
                     category_id != MISC_CATEGORY
+                    and not self._planned_passthrough
                     and not self._consumeNoBinPassthroughApproval(piece)
                     and self._raiseNoBinAvailableIncident(piece, category_id)
                 ):
@@ -755,6 +758,11 @@ class Positioning(BaseState):
         )
         return True
 
+    def _isPlannedPassthrough(self, category_id: str) -> bool:
+        from local_state import get_run_plan
+
+        return self.sorting_profile.ruleRole(category_id) is not None and get_run_plan() is not None
+
     def _findOrAssignBinForCategory(
         self, category_id: str, not_in_inventory: bool = False
     ) -> tuple[Optional[BinAddress], bool]:
@@ -765,6 +773,7 @@ class Positioning(BaseState):
         # always allowed as the last resort ("if we run out, overlap them").
         from local_state import get_current_bin_piece_counts
 
+        self._planned_passthrough = False
         piece_counts = get_current_bin_piece_counts()
         # A category may be assigned to more than one bin (the same category_id
         # appears in several bins' category_ids). When that happens we spread the
@@ -883,7 +892,12 @@ class Positioning(BaseState):
         # MISC must never claim or use a real bin. The discard bucket below
         # the chute (rendered in the UI as the virtual Discard Bin) is what
         # catches misc passthrough; treating MISC as a physical bin category
-        # silently swaps that behavior.
+        # silently swaps that behavior. Under a run plan the bins are fixed:
+        # a rule without a bin was deliberately left out and passes through
+        # instead of claiming a free slot.
+        self._planned_passthrough = self._isPlannedPassthrough(category_id)
+        if self._planned_passthrough:
+            return None, False
         if first_unassigned is not None and category_id != MISC_CATEGORY:
             address, b = first_unassigned
             b.category_ids = [category_id]

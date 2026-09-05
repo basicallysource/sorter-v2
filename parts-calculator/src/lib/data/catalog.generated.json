@@ -382,6 +382,21 @@
 					"servo-adapter"
 				]
 			}
+		},
+		{
+			"id": "camera-clasp-screw-count",
+			"name": "Adapted camera module: the clasp takes 2 screws, not 4",
+			"priority": "P3",
+			"description": "The Adapted camera module lists 4x M3 x 8 countersunk and marks the count as not confirmed at the bench. The published STLs have only two screw positions: the Camera clasp bottom has two 3.50 mm clearance holes with a countersink on its underside, the Camera clasp top has the two matching 2.80 mm self-tapping pilots 5.00 mm deep, and the pair sits on the diagonal 43.2 mm apart. There is no third or fourth hole in either half. Changing the line is an assembly revision and has to be stamped as a new version, so the count is left as authored until somebody does that with a build in front of them. Note also that an M3 x 8 countersunk only reaches about 2 mm into the top half through the 6 mm bottom half, so the length is worth checking at the same time. Measured 2026-09-05 while writing the camera lamp assembly docs page.",
+			"targets": {
+				"assemblies": [
+					"adapted-camera-module"
+				],
+				"parts": [
+					"camera-clasp-top",
+					"camera-clasp-bottom"
+				]
+			}
 		}
 	],
 	"folders": [

@@ -41,6 +41,11 @@ Each connector takes 2 {% include fastener.html size="M3" variant="countersunk" 
 
 The strap is countersunk 90° on its outer face, so the head sits flush. It is 3.78 mm thick, so an 8 mm screw reaches 4.22 mm into the core's blind 5.70 mm insert and stops 1.5 mm short of the bottom, while a 12 mm one would bottom out before the head seated.
 
+<figure>
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-core-layer-connectors-full-2092b04f9864.png" alt="Render of one long side of the chute core with the two heat inserts a layer connector screws into circled in red">
+  <figcaption>The two inserts one layer connector screws into, one near each end of a long side of the chute core. The other long side carries the mirror pair for the second connector. <cite>Render: Balloon.</cite></figcaption>
+</figure>
+
 <div class="img-placeholder">Photo of both layer connectors screwed to the chute core.</div>
 
 {% include step.html n="2" title="Check the alignment against the layer below" %}

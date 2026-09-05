@@ -36,8 +36,8 @@ The list above is per layer, and a layer takes **one** of the two sets, not both
     <figcaption>Printed bins, two layers of a tower. <cite>Photo: Daddy-O's Bricks - Bill.</cite></figcaption>
   </figure>
   <figure>
-    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/install-bins-cardboard-bins-machine-full-2d117575836e.jpg" alt="A whole machine on castors, five layers of folded cardboard bins in the tower with sorted LEGO in them">
-    <figcaption>Laser cut cardboard bins, five layers of a machine. <cite>Photo: Basically.</cite></figcaption>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/install-bins-cardboard-bins-tower-full-97d68e720775.jpg" alt="A bin tower on castors under its plywood deck, five layers of folded cardboard bins with sorted LEGO in them">
+    <figcaption>Laser cut cardboard bins, five layers of a tower. <cite>Photo: Basically.</cite></figcaption>
   </figure>
 </div>
 

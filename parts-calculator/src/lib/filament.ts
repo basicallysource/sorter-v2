@@ -47,13 +47,15 @@ export type Folder = { id: string; name: string; description?: string };
 
 /** One BOM line of an assembly: a child part or sub-assembly with a quantity.
  *  qty 'per-layer' multiplies by the total configured layer count;
- *  'middle-layers' by (count − 2) — the layers between the two interfaces. */
+ *  'non-bottom-layers' by (count − 1) — every bin layer but the lowest, which
+ *  is built differently; 'middle-layers' by (count − 2). The first two mirror
+ *  the 'all' / 'non-bottom' halves of a part's `layer_scope`. */
 export type AssemblyLine = {
 	part?: string;
 	assembly?: string;
 	param?: string; // a slot: filled by the instantiation's args, else the param's default
 	args?: Record<string, string>; // passed to a sub-assembly; '$x' forwards this assembly's own param
-	qty: number | 'per-layer' | 'middle-layers';
+	qty: number | 'per-layer' | 'non-bottom-layers' | 'middle-layers';
 };
 
 /** A parameterized slot an assembly declares: instantiations may pass a
@@ -637,9 +639,11 @@ export function concreteLines(
 }
 
 /** Resolve an assembly line's quantity. Total layer count n includes the top
- *  and bottom interface levels; 'middle-layers' is the n−2 between them. */
+ *  and bottom interface levels; 'non-bottom-layers' is every bin layer but the
+ *  lowest one, and 'middle-layers' is the n−2 between them. */
 export function lineQty(line: AssemblyLine, layers: number): number {
 	if (line.qty === 'per-layer') return layers;
+	if (line.qty === 'non-bottom-layers') return Math.max(0, layers - 1);
 	if (line.qty === 'middle-layers') return Math.max(0, layers - 2);
 	return line.qty;
 }

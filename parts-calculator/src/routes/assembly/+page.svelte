@@ -1419,6 +1419,7 @@
 				</button>
 				<span class="text-xs tabular-nums text-text-muted">
 					{#if qty === 'per-layer'}×{layers} (1 per layer)
+					{:else if qty === 'non-bottom-layers'}×{Math.max(0, layers - 1)} (every bin layer but the lowest)
 					{:else if qty === 'middle-layers'}×{Math.max(0, layers - 2)} (layers between the interfaces)
 					{:else if qty !== 1}×{qty}{/if}
 				</span>

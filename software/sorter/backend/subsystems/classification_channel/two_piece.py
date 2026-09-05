@@ -821,8 +821,10 @@ class TwoPieceClassificationChannel(Rev01BaseState):
         # piece dropped off the fall-off. The id alone is not enough: a tracker
         # blink at the lip re-issues the id on a piece that never fell, and a
         # committed phantom then puts the real piece into the next target bin.
+        # Exit-only OR the unnamed gap past it: a piece resting on the lip
+        # beyond the exit arc is coded NONE and is still very much on board.
         exit_arc_empty = not any(
-            int(getattr(po, "zone_code", 0)) == _ZONE_EXIT_ONLY
+            int(getattr(po, "zone_code", 0)) in (_ZONE_EXIT_ONLY, _ZONE_NONE)
             for po in getattr(state, "pieces", ())
         )
         if (gone_for >= _EJECT_GONE_CONFIRM_S and exit_arc_empty) or timed_out:

@@ -16,7 +16,7 @@ Wire IDs match the schedule tables. Open items are in section 7.
 
 <div class="callout callout-warning">
   <span class="callout-icon" aria-hidden="true">⚠</span>
-  <p><b>These electronics pages are working notes right now, not finished documentation.</b> The harness is actively being specced, so parts of this change week to week and some of it contradicts what a machine already built looks like. Anything still undecided is written down as an open item in section 7 rather than smoothed over. Started from what Spencer had on July 12th 2026; treat it as the current thinking, not the final state.</p>
+  <p><b>These electronics pages are working notes right now, not finished documentation.</b> The harness is actively being specced, so parts of this change week to week and some of it contradicts what a machine already built looks like. Anything still undecided is written down as an open item in section 7 rather than smoothed over. Started from Basically's own working notes as of July 12th 2026; treat it as the current thinking, not the final state.</p>
 </div>
 
 This page is the wiring. Where the PSU, the control board and the Orange Pi physically mount is [Installing the electronics]({{ '/hardware/electronics/installation/' | relative_url }}).
@@ -199,12 +199,12 @@ Each LED drop is two segments: a 2x1 dupont feed from the board to a female DC j
 </div>
 
 <dl class="spec-list">
-  <dt>Fit your own</dt><dd><b>220&#8486;</b>, <b>1/4 W</b>, in series, one per COB board. That is what Spencer settled on for the C-channel plates and the classification chamber, and what Jon recommends. <b>200&#8486;</b> is the ballpark given to people whose lights are overheating</dd>
+  <dt>Fit your own</dt><dd><b>220&#8486;</b>, <b>1/4 W</b>, in series, one per COB board. That is what Basically settled on for the C-channel plates and the classification chamber, and what Jon recommends. <b>200&#8486;</b> is the ballpark given to people whose lights are overheating</dd>
   <dt>On basically board v1.3</dt><dd>Already fitted, so a COB board fed from the board needs nothing added. <b>180&#8486;</b>, 1206, 250 mW, 1% (LCSC C17924) in series with the +24V feed to each of the four LED headers: R21 on J8, R22 on J9, R27 on J10, R28 on J11. Each has a solder jumper next to it (JP1-JP4) that bridges the resistor out. On the strip channel the resistor is not strictly required, and brightness can be trimmed with PWM instead (Jon, 2026-08-19)</dd>
   <dt>Effect</dt><dd>Draw drops from ~0.5A to ~0.1A. Still bright enough for the camera, per the C-channel testing in Feb 2026</dd>
 </dl>
 
-<p>Sources, since this has been asked several times: Spencer in #c-channels 2026-02-13 (&ldquo;went for 220ohm resistor&rdquo;), in the classification chamber thread 2026-03-22 (&ldquo;220 ohm&rdquo;), and in #machine-setup-help 2026-05-13 (&ldquo;They need resistor. Ballpark of 200ohm is good&rdquo;, in series, 1/4 W) after a builder's C-channel COB mount started melting after a minute; Jon in #electronics 2026-08-17 and 2026-08-19.</p>
+<p>Sources, since this has been asked several times: #c-channels 2026-02-13 (&ldquo;went for 220ohm resistor&rdquo;), the classification chamber thread 2026-03-22 (&ldquo;220 ohm&rdquo;), and #machine-setup-help 2026-05-13 (&ldquo;They need resistor. Ballpark of 200ohm is good&rdquo;, in series, 1/4 W) after a builder's C-channel COB mount started melting after a minute; Jon in #electronics 2026-08-17 and 2026-08-19.</p>
 
 ### 4.4 &nbsp; Sensors and steppers (from basically board v1.3)
 

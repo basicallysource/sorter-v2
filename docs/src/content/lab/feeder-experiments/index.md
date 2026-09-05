@@ -54,7 +54,7 @@ Linear vibratory feeders with compression springs (ISO 10243 die springs from 3D
 
 ## Chute drop tests
 
-Spencer tested piece drop accuracy at three heights to validate the bin distribution system.
+Piece drop accuracy was tested at three heights to validate the bin distribution system.
 
 | Height | Success rate | Failures | Primary failure modes |
 |--------|-------------|----------|----------------------|

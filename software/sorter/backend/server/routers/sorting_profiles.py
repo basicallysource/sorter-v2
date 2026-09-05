@@ -15,7 +15,16 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from blob_manager import getHiveConfig, getSortingProfileSyncState, setSortingProfileSyncState
-from local_state import start_new_sorting_session
+from irl.bin_layout import getBinLayout
+from local_state import get_run_plan, set_run_plan, start_new_sorting_session
+from run_plan import (
+    activeRules,
+    binAddresses,
+    defaultPrimarySelection,
+    planCategories,
+    roleCapacity,
+    rulesByRole,
+)
 from server import shared_state
 from server.routers.hardware import (
     clear_bin_category_assignments,
@@ -37,8 +46,8 @@ class ApplySortingProfilePayload(BaseModel):
     # carries richer semantics ("empty" vs. "rules").
     reset_bin_categories: bool = False
     # "empty"  → clear all bin category assignments (dynamic assignment).
-    # "rules"  → walk the profile's rules in order and seed bin i with
-    #            rule i's id.
+    # "rules"  → plan the run: the first N primary rules and every secondary
+    #            rule get bins by layer role (see run_plan.py).
     # ``None`` → do nothing to bin assignments.
     preassign_mode: str | None = None
 
@@ -121,47 +130,89 @@ def _fetch_target_library(target: dict[str, Any]) -> dict[str, Any]:
     return payload
 
 
-def _preassign_bins_from_rules(artifact: dict[str, Any]) -> int:
-    """Seed bin category assignments from the artifact's rule order.
+def _apply_run_plan(artifact: dict[str, Any], selected_primary_ids: list[str]) -> int:
+    """Assign bins by layer role for the chosen primary rules plus every
+    secondary rule, persist the plan, and return the number of assigned bins.
+    No MISC reservation: unmatched pieces pass through to the bottom tray."""
+    rules = activeRules(artifact)
+    config = getBinLayout()
+    categories = planCategories(config, rules, selected_primary_ids)
+    _apply_and_persist_bin_categories(categories)
+    set_run_plan({
+        "primary_rule_ids": list(selected_primary_ids),
+        "artifact_hash": artifact.get("artifact_hash"),
+        "applied_at": datetime.now(timezone.utc).isoformat(),
+    })
+    return len(binAddresses(categories))
 
-    Walks top-level non-disabled rules in order; each rule's id gets
-    written to the next available bin (layer → section → bin). Rules
-    keep their ordering from the artifact so the operator can plan
-    physical placement ahead of time. Returns the number of bins that
-    received an assignment.
-    """
-    rules = artifact.get("rules") if isinstance(artifact, dict) else None
-    if not isinstance(rules, list):
-        return 0
-    rule_ids: list[str] = []
-    for rule in rules:
-        if not isinstance(rule, dict):
-            continue
-        if rule.get("disabled"):
-            continue
-        rid = rule.get("id")
-        if isinstance(rid, str) and rid:
-            rule_ids.append(rid)
-    if not rule_ids:
-        return 0
 
-    categories = _current_bin_categories()
-    assigned = 0
-    for layer in categories:
-        for section in layer:
-            for bin_categories in section:
-                if assigned >= len(rule_ids):
-                    continue
-                bin_categories.clear()
-                bin_categories.append(rule_ids[assigned])
-                assigned += 1
-    # No MISC auto-reservation here — unmatched pieces fall through to the
-    # bottom tray via distribution's passthrough branch, which the UI now
-    # renders as a virtual bin. Reserving a real bin for MISC wastes a
-    # physical slot.
-    if assigned > 0:
-        _apply_and_persist_bin_categories(categories)
-    return assigned
+def _plan_profile_run(artifact: dict[str, Any]) -> int:
+    return _apply_run_plan(artifact, defaultPrimarySelection(activeRules(artifact), getBinLayout()))
+
+
+def _rule_summary(rule: dict[str, Any], bin_address: dict[str, int] | None) -> dict[str, Any]:
+    return {
+        "id": rule["id"],
+        "name": rule.get("name") or rule["id"],
+        "rule_type": rule.get("rule_type"),
+        "set_source": rule.get("set_source"),
+        "set_num": rule.get("set_num"),
+        "set_meta": rule.get("set_meta") if isinstance(rule.get("set_meta"), dict) else None,
+        "set_instance_id": rule.get("set_instance_id"),
+        "bin": bin_address,
+    }
+
+
+def _run_plan_view() -> dict[str, Any]:
+    path = _active_profile_path()
+    rules: list[dict[str, Any]] = []
+    if path and os.path.exists(path):
+        rules = activeRules({"rules": _profile_file_meta(Path(path))["rules"]})
+    grouped = rulesByRole(rules)
+    plan = get_run_plan()
+    addresses = binAddresses(_current_bin_categories())
+    # With a plan the selection is the plan; without one (dynamic mode) a
+    # primary rule counts as selected when it already holds a bin.
+    planned_ids = set(plan.get("primary_rule_ids") or []) if plan else None
+    primary = []
+    for rule in grouped["primary"]:
+        entry = _rule_summary(rule, addresses.get(rule["id"]))
+        entry["selected"] = rule["id"] in planned_ids if planned_ids is not None else entry["bin"] is not None
+        primary.append(entry)
+    return {
+        "ok": True,
+        "planned": plan is not None,
+        "capacity": roleCapacity(getBinLayout()),
+        "primary": primary,
+        "secondary": [_rule_summary(rule, addresses.get(rule["id"])) for rule in grouped["secondary"]],
+    }
+
+
+class RunPlanPayload(BaseModel):
+    primary_rule_ids: list[str]
+
+
+@router.get("/api/sorting-profiles/run-plan")
+def get_run_plan_view() -> dict[str, Any]:
+    return _run_plan_view()
+
+
+@router.post("/api/sorting-profiles/run-plan")
+def apply_run_plan_selection(payload: RunPlanPayload) -> dict[str, Any]:
+    path = _active_profile_path()
+    if not path or not os.path.exists(path):
+        raise HTTPException(status_code=404, detail="No active sorting profile.")
+    artifact = _load_local_artifact(Path(path))
+    primary_ids = {rule["id"] for rule in rulesByRole(activeRules(artifact))["primary"]}
+    selected = list(dict.fromkeys(payload.primary_rule_ids))
+    unknown = [rule_id for rule_id in selected if rule_id not in primary_ids]
+    if unknown:
+        raise HTTPException(status_code=400, detail=f"Not a primary rule of the active profile: {', '.join(unknown)}")
+    capacity = roleCapacity(getBinLayout())["primary"]
+    if len(selected) > capacity:
+        raise HTTPException(status_code=400, detail=f"Only {capacity} primary bins available, {len(selected)} targets selected.")
+    assigned = _apply_run_plan(artifact, selected)
+    return {**_run_plan_view(), "assigned_count": assigned}
 
 
 def _atomic_write_json(path: str, data: dict[str, Any]) -> None:
@@ -250,6 +301,7 @@ def _profile_file_meta(path: Path) -> dict[str, Any]:
         "artifact_hash": data.get("artifact_hash"),
         "updated_at": data.get("updated_at"),
         "rule_count": len(data.get("rules", []) or []),
+        "rules": data.get("rules") if isinstance(data.get("rules"), list) else [],
         "category_count": len(data.get("categories", {}) or {}),
         "part_count": len(data.get("part_to_category", {}) or {}),
     }
@@ -553,7 +605,7 @@ def apply_sorting_profile(payload: ApplySortingProfilePayload) -> dict[str, Any]
 
     preassigned_count = 0
     if mode == "rules":
-        preassigned_count = _preassign_bins_from_rules(artifact)
+        preassigned_count = _plan_profile_run(artifact)
 
     sync_state = {
         "source": "hive",
@@ -664,7 +716,7 @@ def apply_local_sorting_profile(payload: ApplyLocalSortingProfilePayload) -> dic
 
     preassigned_count = 0
     if mode == "rules":
-        preassigned_count = _preassign_bins_from_rules(artifact)
+        preassigned_count = _plan_profile_run(artifact)
 
     name = str(artifact.get("name") or path.stem)
     now = datetime.now(timezone.utc).isoformat()

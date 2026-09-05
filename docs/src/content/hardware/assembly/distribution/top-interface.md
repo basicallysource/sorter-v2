@@ -9,12 +9,6 @@ lede: The interface between the feeder and the bin tower.
 permalink: /hardware/assembly/distribution/top-interface/
 author: zed0
 contributors: [barthel, brickcyclealice]
-warning: >-
-  **Steps 13 and 14 were rewritten to reference [Build the hex frame]({{ '/hardware/assembly/distribution/bin-frame/hex-frame/' | relative_url }})
-  and to describe the interface-to-layer joint from CAD geometry, and neither
-  has been checked against a build yet.** If something doesn't match what you
-  see, treat it as unverified and flag it rather than assuming it's your
-  mistake. The rest of the page is unaffected.
 parts_needed:
   - part: interface-upper-fixed-section
     qty: 1
@@ -670,7 +664,7 @@ Insert an extrusion piece F (Interface vertical support) into each of the Interf
 
 <div class="callout callout-warning">
   <span class="callout-icon" aria-hidden="true">⚠</span>
-  <p>Do not push piece F all the way through the bracket. Leave its end roughly 20 mm short of the far end of the channel: that is far enough in to cover both pairs of T-nut screws, and it leaves enough of the extrusion standing out to reach past the screws at the base of the layer's External bracket — side later in this step. <a href="{{ '/hardware/assembly/distribution/top-interface/' | relative_url }}#step-14">Step 14</a> shows the whole corner in section.</p>
+  <p>Do not push piece F all the way through the bracket. Leave its end about 11 mm short of the far end of the channel: that is far enough in to cover both pairs of T-nut screws, and it leaves enough of the extrusion standing out to reach past the screws at the base of the layer's External bracket — side later in this step. <b>165 mm of the extrusion should stand out of the bracket</b>, measured from the edge of the bracket where the extrusion exits to the free end of the piece. <a href="{{ '/hardware/assembly/distribution/top-interface/' | relative_url }}#step-14">Step 14</a> shows the whole corner in section.</p>
 </div>
 
 <figure>
@@ -728,7 +722,7 @@ The numbers on the photo and the drawing:
   <li class="key-screw"><strong>Two {% include fastener.html size="M5" variant="socket-button" length="16" %} screws</strong> at the base of that bracket brace it against the extrusion, the same screws and holes a layer's own vertical gets. Nothing else fastens the interface to the layer.</li>
 </ol>
 
-**Piece F does not reach the top of the Interface bracket, and it comes nowhere near the top plate.** How deep it goes is not stated anywhere in the build, but it is fixed at both ends by what has to be screwed: the lower end has to reach past the two screws at the base of the layer's bracket, and the upper end has to cover the bracket's second pair of T-nut screws, whose bosses sit about 90 mm above the bracket's underside. A 274 mm piece cannot do both and also reach the top of a 120 mm bracket, so it stands about 6 mm past the upper screws and stops roughly 23 mm short of the top of the bracket. That is what the drawing shows.
+**Piece F does not reach the top of the Interface bracket, and it comes nowhere near the top plate.** How deep it goes is not stated anywhere in the build, but it is fixed at both ends by what has to be screwed: the lower end has to reach past the two screws at the base of the layer's bracket, and the upper end has to cover the bracket's second pair of T-nut screws, whose bosses sit about 90 mm above the bracket's underside. A 274 mm piece cannot do both and also reach the top of a 120 mm bracket. On a built machine it stands about 20 mm past the upper screws and stops about 11 mm short of the top of the bracket. The drawing is made from the part geometry rather than from a build, and its inferred heights seat the extrusion around 12 mm shallower than that.
 
 <div class="clear-float"></div>
 

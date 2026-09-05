@@ -75,9 +75,75 @@ def create_instance(
         for (part_num, color_id), quantity in _needed_by_key(parts).items()
     ]
     db.add(instance)
-    db.commit()
-    db.refresh(instance)
+    db.flush()
     return instance
+
+
+def instance_for_set(db: Session, user: User, catalog: Any, *, set_num: str, include_spares: bool) -> SetInstance:
+    """The user's oldest open copy of a set; created when there is none.
+
+    What a set rule binds to when nobody picked an instance explicitly (the AI
+    chat): one open copy per set is the common case, and a fresh copy is what a
+    new rule for a set nobody is extracting means.
+    """
+    existing = db.scalars(
+        select(SetInstance)
+        .where(SetInstance.user_id == user.id, SetInstance.set_num == set_num, SetInstance.status == "open")
+        .order_by(SetInstance.created_at)
+    ).first()
+    if existing is not None:
+        return existing
+    return create_instance(db, user, catalog, set_num=set_num, label=None, include_spares=include_spares, notes=None)
+
+
+def open_instances_summary(db: Session, user: User) -> list[dict[str, Any]]:
+    """What the profile AI gets told about the user's copies: enough to answer "do I have that set"."""
+    rows = db.scalars(
+        select(SetInstance)
+        .where(SetInstance.user_id == user.id, SetInstance.status != "archived")
+        .order_by(SetInstance.created_at)
+    )
+    return [{"set_num": row.set_num, "label": row.label, "status": row.status} for row in rows]
+
+
+def _walk_rules(rules: Iterable[Any]) -> Iterable[dict[str, Any]]:
+    for rule in rules:
+        if not isinstance(rule, dict):
+            continue
+        yield rule
+        yield from _walk_rules(rule.get("children") or [])
+
+
+def validate_rule_bindings(db: Session, owner_id: UUID, rules: list[dict[str, Any]]) -> None:
+    """Every set_instance_id in a rule tree names an instance of the same set owned by the profile owner."""
+    bound = [rule for rule in _walk_rules(rules) if rule.get("set_instance_id")]
+    if not bound:
+        return
+    ids: dict[str, UUID] = {}
+    for rule in bound:
+        if rule.get("rule_type") != "set":
+            raise APIError(400, f"Rule '{rule.get('name')}' is not a set rule and cannot bind a set instance", "PROFILE_RULE_INSTANCE_INVALID")
+        try:
+            ids[str(rule["set_instance_id"])] = UUID(str(rule["set_instance_id"]))
+        except ValueError as exc:
+            raise APIError(400, f"Rule '{rule.get('name')}' has an invalid set_instance_id", "PROFILE_RULE_INSTANCE_INVALID") from exc
+    owned = {
+        instance.id: instance
+        for instance in db.scalars(select(SetInstance).where(SetInstance.id.in_(ids.values()), SetInstance.user_id == owner_id))
+    }
+    for rule in bound:
+        instance = owned.get(ids[str(rule["set_instance_id"])])
+        if instance is None:
+            raise APIError(400, f"Set instance for rule '{rule.get('name')}' does not belong to the profile owner", "PROFILE_RULE_INSTANCE_UNKNOWN")
+        if instance.set_num != str(rule.get("set_num") or ""):
+            raise APIError(400, f"Set instance for rule '{rule.get('name')}' is a copy of {instance.set_num}, not {rule.get('set_num')}", "PROFILE_RULE_INSTANCE_SET_MISMATCH")
+
+
+def unbind_rules(rules: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Rules without instance bindings: a fork belongs to another user, whose copies these are not."""
+    for rule in _walk_rules(rules):
+        rule.pop("set_instance_id", None)
+    return rules
 
 
 def list_instances(db: Session, user: User, *, include_archived: bool) -> list[tuple[SetInstance, dict[str, Any]]]:

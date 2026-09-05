@@ -44,7 +44,9 @@ from app.schemas.profile import (
     SortingProfileVersionCreateRequest,
     SortingProfileVersionResponse,
     SortingProfileVersionSummaryResponse,
+    rule_role,
 )
+from app.services import set_instances as set_instance_service
 from app.services.profile_ai import (
     AiProgressEvent,
     AiProposalResult,
@@ -463,6 +465,9 @@ def fork_profile(
     db.add(fork)
     db.flush()
 
+    rules = copy.deepcopy(source_version.rules_json or [])
+    if source_profile.owner_id != current_user.id:
+        set_instance_service.unbind_rules(rules)
     version = _create_version(
         db=db,
         profile=fork,
@@ -471,7 +476,7 @@ def fork_profile(
             name=source_version.name,
             description=source_version.description,
             default_category_id=source_version.default_category_id,
-            rules=source_version.rules_json or [],
+            rules=rules,
             fallback_mode=source_version.fallback_mode_json or {},
             change_note=f"Forked from {source_profile.name} v{source_version.version_number}",
             label=payload.name,
@@ -643,6 +648,7 @@ def create_profile_ai_message(
             user=current_user,
             catalog=get_profile_catalog_service(),
             document=_document_from_version(version),
+            owned_sets=set_instance_service.open_instances_summary(db, current_user),
             message=payload.message,
             conversation_history=conversation_history,
             selected_rule_id=payload.selected_rule_id,
@@ -723,6 +729,7 @@ def create_profile_ai_message_stream(
         profile_id=profile.id,
         user_id=current_user.id,
     )
+    owned_sets = set_instance_service.open_instances_summary(db, current_user)
 
     user_message = SortingProfileAiMessage(
         profile_id=profile.id,
@@ -742,6 +749,7 @@ def create_profile_ai_message_stream(
                 user=current_user,
                 catalog=get_profile_catalog_service(),
                 document=_document_from_version(version),
+                owned_sets=owned_sets,
                 message=payload.message,
                 conversation_history=conversation_history,
                 selected_rule_id=payload.selected_rule_id,
@@ -859,10 +867,17 @@ def apply_profile_ai_message(
     if base_version is None:
         raise APIError(404, "Base version not found", "PROFILE_VERSION_NOT_FOUND")
 
+    catalog = get_profile_catalog_service()
+
+    def bind_set_instance(set_num: str, include_spares: bool) -> str:
+        instance = set_instance_service.instance_for_set(db, current_user, catalog, set_num=set_num, include_spares=include_spares)
+        return str(instance.id)
+
     next_rules = apply_profile_ai_proposal(
         rules=base_version.rules_json or [],
         selected_rule_id=message.selected_rule_id,
         proposal=copy.deepcopy(message.proposal_json),
+        bind_set_instance=bind_set_instance,
     )
 
     # Generate a concise change note via Haiku
@@ -1268,6 +1283,8 @@ def _create_version(
     current_user: User,
     payload: SortingProfileVersionCreateRequest,
 ) -> SortingProfileVersion:
+    rules = [rule.model_dump() for rule in payload.rules]
+    set_instance_service.validate_rule_bindings(db, profile.owner_id, rules)
     catalog = get_profile_catalog_service()
     compiled = catalog.compile_document(payload.model_dump())
     next_version_number = int(profile.latest_version_number or 0) + 1
@@ -1280,8 +1297,8 @@ def _create_version(
         name=payload.name.strip() or profile.name,
         description=(payload.description or "").strip() or None,
         default_category_id=payload.default_category_id.strip() or "misc",
-        rules_json=[rule.model_dump() if hasattr(rule, "model_dump") else rule for rule in payload.rules],
-        fallback_mode_json=payload.fallback_mode.model_dump() if hasattr(payload.fallback_mode, "model_dump") else payload.fallback_mode,
+        rules_json=rules,
+        fallback_mode_json=payload.fallback_mode.model_dump(),
         compiled_artifact_json=compiled["artifact"],
         compiled_stats_json=compiled["stats"],
         compiled_hash=compiled["artifact_hash"],
@@ -1425,8 +1442,10 @@ def _serialize_version_summary(version: SortingProfileVersion | None) -> Sorting
         rules_summary.append({
             "name": rule.get("name", "Untitled"),
             "rule_type": rule.get("rule_type", "filter"),
+            "role": rule_role(rule),
             "set_source": rule.get("set_source"),
             "set_num": rule.get("set_num"),
+            "set_instance_id": rule.get("set_instance_id"),
             "set_meta": rule.get("set_meta"),
             "disabled": rule.get("disabled", False),
             "condition_count": len(rule.get("conditions", [])),

@@ -86,6 +86,7 @@ def create_set_instance(
         include_spares=payload.include_spares,
         notes=payload.notes,
     )
+    db.commit()
     return _detail(catalog, instance)
 
 

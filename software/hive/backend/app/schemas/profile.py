@@ -1,10 +1,17 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any
+from typing import Any, Literal
 from uuid import UUID
 
 from pydantic import BaseModel, Field
+
+RuleRole = Literal["primary", "secondary"]
+
+
+def rule_role(rule: dict[str, Any]) -> str:
+    """A rule's bin role; absent means set rules are run targets and everything else side sorting."""
+    return rule.get("role") or ("primary" if rule.get("rule_type") == "set" else "secondary")
 
 
 class ProfileOwnerResponse(BaseModel):
@@ -29,6 +36,9 @@ class SortingProfileRuleResponse(BaseModel):
     conditions: list[SortingProfileConditionResponse] = Field(default_factory=list)
     children: list["SortingProfileRuleResponse"] = Field(default_factory=list)
     disabled: bool = False
+    # primary = a target of the run (core bins), secondary = side sorting (side
+    # bins). Kept verbatim; readers apply rule_role() when it is absent.
+    role: RuleRole | None = None
     # Set-specific fields (only used when rule_type == "set")
     set_source: str | None = None
     set_num: str | None = None
@@ -56,8 +66,10 @@ class SortingProfileRuleSummaryResponse(BaseModel):
     """Compact rule representation for profile list cards."""
     name: str
     rule_type: str = "filter"
+    role: str
     set_source: str | None = None
     set_num: str | None = None
+    set_instance_id: str | None = None
     set_meta: dict[str, Any] | None = None
     disabled: bool = False
     condition_count: int = 0

@@ -6,6 +6,7 @@
 	import CompletenessBar from '$lib/components/sets/CompletenessBar.svelte';
 	import { Alert, Button } from '$lib/components/primitives';
 	import Archive from 'lucide-svelte/icons/archive';
+	import ArchiveRestore from 'lucide-svelte/icons/archive-restore';
 	import Download from 'lucide-svelte/icons/download';
 	import Minus from 'lucide-svelte/icons/minus';
 	import Pencil from 'lucide-svelte/icons/pencil';
@@ -99,6 +100,20 @@
 		}
 	}
 
+	async function restore() {
+		if (!instance) return;
+		archiving = true;
+		error = null;
+		try {
+			const updated = await api.restoreSetInstance(instance.id);
+			instance = { ...instance, ...updated };
+		} catch (e: any) {
+			error = e.error || 'Failed to restore';
+		} finally {
+			archiving = false;
+		}
+	}
+
 	async function setFound(part: SetInstancePart, quantity: number) {
 		if (!instance) return;
 		const clamped = Math.max(0, Math.min(part.quantity_needed, Math.round(quantity)));
@@ -160,7 +175,7 @@
 					{:else}
 						<div class="flex items-center gap-2">
 							<h1 class="truncate text-xl font-semibold text-text">{instance.label}</h1>
-							<span class="text-[10px] font-medium uppercase tracking-wider {instance.status === 'complete' ? 'text-success' : 'text-text-muted'}">{instance.status}</span>
+							<span class="text-[10px] font-medium uppercase tracking-wider {instance.status === 'complete' ? 'text-success' : instance.status === 'archived' ? 'text-warning-strong' : 'text-text-muted'}">{instance.status}</span>
 							<button type="button" class="p-1 text-text-muted hover:text-primary" onclick={startEdit} aria-label="Edit label and notes"><Pencil size={14} /></button>
 						</div>
 						<p class="mt-1 text-sm text-text-muted">
@@ -182,15 +197,15 @@
 						class="flex items-center gap-1.5 border border-border bg-surface px-2.5 py-1 text-xs text-text hover:bg-bg">
 						<Download size={14} /> Wanted list (BrickLink XML)
 					</a>
-					{#if instance.status !== 'archived'}
-						{#if confirmArchive}
-							<div class="flex gap-1">
-								<Button size="sm" variant="danger" onclick={archive} loading={archiving}>Archive</Button>
-								<Button size="sm" variant="secondary" onclick={() => (confirmArchive = false)}>Keep</Button>
-							</div>
-						{:else}
-							<Button size="sm" variant="secondary" onclick={() => (confirmArchive = true)}><Archive size={14} /> Archive</Button>
-						{/if}
+					{#if instance.status === 'archived'}
+						<Button size="sm" variant="secondary" onclick={restore} loading={archiving}><ArchiveRestore size={14} /> Restore</Button>
+					{:else if confirmArchive}
+						<div class="flex gap-1">
+							<Button size="sm" variant="danger" onclick={archive} loading={archiving}>Archive</Button>
+							<Button size="sm" variant="secondary" onclick={() => (confirmArchive = false)}>Keep</Button>
+						</div>
+					{:else}
+						<Button size="sm" variant="secondary" onclick={() => (confirmArchive = true)}><Archive size={14} /> Archive</Button>
 					{/if}
 				</div>
 			</div>

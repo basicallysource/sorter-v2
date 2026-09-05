@@ -9,10 +9,6 @@ lede: The hexagonal aluminum-and-bracket ring shared by every layer. Build one p
 permalink: /hardware/assembly/distribution/bin-frame/hex-frame/
 author: barthel
 contributors: [brickcyclealice, zed0]
-warning: >-
-  **Reorganized from a Discord build walkthrough, not yet reviewed by a
-  builder.** This page has not been checked step-by-step against a build.
-  Correct it as you go.
 parts_needed:
   - part: ext-2020-ag
     qty: 6
@@ -179,8 +175,3 @@ Double-check that every Frame 90° bracket is still fully seated in its slot. A 
 </figure>
 
 A hex frame is now complete. Build as many as your machine needs (see the note at the top of this page), then move on to [Bottom interface]({{ '/hardware/assembly/distribution/bin-frame/bottom-interface/' | relative_url }}), [Bottom two layers]({{ '/hardware/assembly/distribution/bin-frame/bottom-two-layers/' | relative_url }}), [Regular layers]({{ '/hardware/assembly/distribution/bin-frame/regular-layers/' | relative_url }}) or [Top interface]({{ '/hardware/assembly/distribution/top-interface/' | relative_url }}) to turn one into the layer you need.
-
-<div class="callout callout-warning">
-  <span class="callout-icon" aria-hidden="true">⚠</span>
-  <p>This page still hasn't been reconciled against the parts calculator's assembly groupings, which don't currently line up with hex-frame-first construction — see <a href="https://discord.com/channels/1430279849171222682/1542862600935702619/1542885792177983488">the open discussion in Discord</a> before treating that side as final.</p>
-</div>

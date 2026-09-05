@@ -366,7 +366,7 @@ class TwoPieceClassificationChannel(Rev01BaseState):
         A placed head is committed only after the channel is confirmed clear.
         Everything else on the channel falls wherever the chute
         happens to point; their in-flight objects are abandoned."""
-        placed = next((tp for tp in self._pieces.values() if tp.placed and not tp.ejected), None)
+        placed = self._placedPiece()
         result = clearChannelByAdvancing(
             self.gc,
             self.irl,
@@ -693,6 +693,12 @@ class TwoPieceClassificationChannel(Rev01BaseState):
             return None
         return min(fwd, key=lambda tp: tp.gap_to_exit if tp.gap_to_exit is not None else 1e9)
 
+    def _placedPiece(self) -> Optional[_TrackedPiece]:
+        # Distribution has a single slot; placing a second piece would silently
+        # replace the first and strand it (23:19: two ids on one piece, both
+        # placed, the platter waited 30 s for a head that could never be ready).
+        return next((tp for tp in self._pieces.values() if tp.placed and not tp.ejected), None)
+
     def _dropPiece(self) -> Optional[_TrackedPiece]:
         drop = [tp for tp in self._pieces.values() if tp.zone == _ZONE_DROP]
         if not drop:
@@ -792,8 +798,10 @@ class TwoPieceClassificationChannel(Rev01BaseState):
         # captured (the throughput overlap). Distribution has a single slot, so
         # only ever place the head; the next piece is placed after this one ejects
         # and frees the slot.
+        if self._placedPiece() is not None:
+            return  # the slot is taken until that piece has ejected
         tp = self._headPiece()
-        if tp is None or tp.placed:
+        if tp is None:
             return
         if not tp.result_applied:
             if tp.retry_started and not tp.retry_done:
@@ -954,7 +962,10 @@ class TwoPieceClassificationChannel(Rev01BaseState):
         # If a head exists but is not ready yet, we wait (don't rotate a not-ready
         # piece toward the fall-off).
         drop = self._dropPiece()
-        head = self._headPiece()
+        # The piece holding the distribution slot is what the chute is aimed
+        # for, so it is what gets ejected — even when a second id on the same
+        # piece (or a re-identified orphan) now ranks as the forward-most one.
+        head = self._placedPiece() or self._headPiece()
         if drop is None or not drop.capture_done:
             if (
                 head is not None

@@ -669,6 +669,8 @@ class TwoPieceClassificationChannel(Rev01BaseState):
         if tp is None or tp.placed:
             return
         if not tp.result_applied:
+            if tp.retry_started and not tp.retry_done:
+                return  # second burst in flight — neither a stray nor an orphan case
             # An uncaptured head with an orphan waiting is that orphan under a
             # second id (two boxes on one piece from the first frame): take over
             # its capture, result and chute aim instead of starting a stray.

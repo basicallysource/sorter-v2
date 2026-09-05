@@ -21,3 +21,8 @@ def test_large_pulse_in_the_approach_band_small_pulse_once_a_piece_is_at_the_lip
 def test_disabled_approach_or_unknown_state_keeps_the_tip_over_pulse() -> None:
     assert exitPulseOutputDeg(_cfg(approach=0.0), _state(3)) == 2.0
     assert exitPulseOutputDeg(_cfg(), SimpleNamespace()) == 2.0
+
+
+def test_tip_over_hold_constant_covers_the_admission_window_gap() -> None:
+    from subsystems.feeder.pulse_perception.flow import TIP_OVER_HOLD_S
+    assert 1.0 <= TIP_OVER_HOLD_S <= 2.0

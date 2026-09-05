@@ -72,6 +72,16 @@ def _exitPieceCount(state) -> int:
     )
 
 
+def exitPulseOutputDeg(cfg, state) -> float:
+    """Approach pulse while the leading piece has not reached the precise
+    sub-arc at the lip; the small tip-over pulse once it has."""
+    in_precise = bool(getattr(state, "in_precise", True))
+    approach = float(getattr(cfg, "exit_approach_output_deg", 0.0) or 0.0)
+    if not in_precise and approach > 0.0:
+        return max(approach, float(cfg.exit_pulse_output_deg))
+    return float(cfg.exit_pulse_output_deg)
+
+
 class ExitDepartureDetector:
     """Reports when the number of pieces in a channel's exit arc drops.
 
@@ -436,7 +446,7 @@ class PulsePerceptionFeeding(BaseState):
                 f"{label}_exit",
                 channel,
                 stepper,
-                cfg.exit_pulse_output_deg,
+                exitPulseOutputDeg(cfg, state),
                 cfg.exit_pulse_pause_ms,
                 cfg,
                 enforce_min=False,

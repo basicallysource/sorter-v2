@@ -341,7 +341,10 @@ class TwoPieceClassificationChannel(Rev01BaseState):
                 tp = self._aliasOverlappingPiece(tid, bbox, now)
             if tp is None:
                 zone = int(po.zone_code)
-                tp = self._adoptOrphan(tid, now) if zone != _ZONE_DROP else None
+                if zone != _ZONE_DROP:
+                    # Pieces arrive in the drop zone, never forward: a new
+                    # forward id is a re-identification or a twin box.
+                    tp = self._adoptOrphan(tid, now) or self._aliasNearestForwardPiece(tid, bbox, now)
                 if tp is None:
                     tp = self._createPiece(tid, now)
             if tp.track_id in seen:
@@ -405,6 +408,26 @@ class TwoPieceClassificationChannel(Rev01BaseState):
         self._aliases[tid] = best
         self.logger.info(
             f"{LOG_TAG} track={tid} overlaps track={best.track_id} (iou={best_iou:.2f}) — same piece"
+        )
+        return best
+
+    def _aliasNearestForwardPiece(
+        self, tid: int, bbox: tuple[int, int, int, int], now: float
+    ) -> Optional[_TrackedPiece]:
+        best: Optional[_TrackedPiece] = None
+        best_shift = float("inf")
+        for tp in self._pieces.values():
+            if tp.zone == _ZONE_DROP or tp.ejected or (now - tp.last_seen) > _ALIAS_RECENT_S:
+                continue
+            shift = _bboxCenterShift(tp.bbox, bbox)
+            if shift < best_shift:
+                best, best_shift = tp, shift
+        if best is None:
+            return None
+        self._aliases[tid] = best
+        self.logger.info(
+            f"{LOG_TAG} track={tid} appeared forward next to track={best.track_id} "
+            f"(shift={best_shift:.0f}px) — same piece"
         )
         return best
 

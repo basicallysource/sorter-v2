@@ -50,9 +50,9 @@ parts_needed:
   - part: hsi-m3
     qty: 16
   - part: scr-m3-12-cs
-    qty: 4
+    qty: 6
   - part: scr-m3-8-cs
-    qty: 16
+    qty: 20
 ---
 
 The door module is the moving half of the chute. Build it on the bench as one unit, then bolt it to the [chute core]({{ '/hardware/assembly/distribution/chute/chute-core/' | relative_url }}). One per chute, so one per layer.
@@ -77,7 +77,7 @@ Four things make it up:
 - **Bearing assembly, its own:** 10 {% include fastener.html size="M3" variant="heat-insert" %} (4 in the race, 3 in each holder) and 10 {% include fastener.html size="M3" variant="countersunk" length="8" %}. Six hold the covers to the holders, 3 each, and 4 hold the holders to the race, 2 each. The two 6704-2RS bearings are sealed on both sides (that's what "2RS" means), so they're symmetric: there's no wrong way round to seat them. The covers are thin printed plastic, so snug their screws down evenly rather than fully tightening one before the others.
 - **Servo adapter, its own:** 4 {% include fastener.html size="M3" variant="countersunk" length="8" %}, no heat inserts. They hold the servo-side and flap-side halves together with the MG995 Servo Horn clasped between them.
 - **Servo bracket, its own:** 6 {% include fastener.html size="M3" variant="heat-insert" %} in the housing, 4 {% include fastener.html size="M3" variant="countersunk" length="12" %} for the arms, and 2 {% include fastener.html size="M3" variant="countersunk" length="8" %} through the servo's mounting ears.
-- **Holding the finished module to the chute core:** not in the list above at all. Those screws come out of the [chute core]({{ '/hardware/assembly/distribution/chute/chute-core/' | relative_url }})'s own set and are counted on that page.
+- **Holding the finished module to the chute core:** 4 {% include fastener.html size="M3" variant="countersunk" length="8" %} through the two bearing covers and 2 {% include fastener.html size="M3" variant="countersunk" length="12" %} through the servo bracket arms, step 4. They go into the core's own heat inserts, so there is nothing to press in here for them.
 
 {% include step.html n="1" title="Preparation" %}
 
@@ -163,12 +163,12 @@ Fit the lower arm and the side arm to the housing and fasten them with the 4 {% 
 
 {% include step.html n="4" title="Fit the module to the chute core" %}
 
-Six of the core's 18 inserts are for this module, and the screws come out of the core's own set rather than being extra:
+Six of the core's 18 inserts are for this module, and the screws for them are in the list above:
 
-- **2 bearing covers**, 4 {% include fastener.html size="M3" variant="countersunk" length="8" %} in total, 2 per cover.
+- **2 bearing covers**, 4 {% include fastener.html size="M3" variant="countersunk" length="8" %} in total, 2 per cover, into 5.00 mm of wall.
 - **Servo bracket arms**, 2 {% include fastener.html size="M3" variant="countersunk" length="12" %}.
 
-The full split across the core's 14 countersunk screws is on the [chute core]({{ '/hardware/assembly/distribution/chute/chute-core/' | relative_url }}) page, which is the one place it is written down.
+The cover screws are 8 mm because that reaches 3.00 mm into the core's blind 5.70 mm insert, measured off the STLs. The arms' 12 mm is inferred by elimination rather than measured, since no STL exists for that joint, so check the fit before committing.
 
 The servo output then couples to the door through the two-piece servo adapter, servo side and flap side.
 

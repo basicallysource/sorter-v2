@@ -12,6 +12,9 @@ in [`agent-docs/`](agent-docs/):
 - [`agent-docs/auth.md`](agent-docs/auth.md) — the auth & permissions
   system: every credential type, how scoping works, and the design
   philosophy behind it.
+- [`agent-docs/set-instances.md`](agent-docs/set-instances.md) — set
+  instances: physical set copies, where progress lives, the machine sync
+  routing and the BrickLink wanted-list export.
 
 > **⚠️ These docs are only useful if they match the code.**
 > If you change anything the docs describe — auth flows, credential types,

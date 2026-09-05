@@ -721,6 +721,44 @@ export interface SortingProfileSetProgressResponse {
 	machines: SortingProfileSetProgressMachine[];
 }
 
+// Set instances: one physical copy of a set the user is extracting. Progress
+// (needed vs found per BrickLink part/colour) belongs to the instance.
+export type SetInstanceStatus = 'open' | 'complete' | 'archived';
+
+export interface SetInstanceSummary {
+	id: string;
+	set_source: string;
+	set_num: string;
+	label: string;
+	status: SetInstanceStatus;
+	include_spares: boolean;
+	notes: string | null;
+	created_at: string;
+	updated_at: string;
+	set_meta: { name: string | null; year: number | null; num_parts: number | null; img_url: string | null };
+	part_count: number;
+	total_needed: number;
+	total_found: number;
+	pct: number;
+	progress_updated_at: string | null;
+}
+
+export interface SetInstancePart {
+	part_num: string;
+	color_id: number;
+	part_name: string | null;
+	color_name: string | null;
+	img_url: string | null;
+	quantity_needed: number;
+	quantity_found: number;
+	quantity_missing: number;
+	updated_at: string | null;
+}
+
+export interface SetInstanceDetail extends SetInstanceSummary {
+	parts: SetInstancePart[];
+}
+
 export interface AiToolTraceItem {
 	tool: string;
 	input: Record<string, unknown>;
@@ -2097,6 +2135,31 @@ export const api = {
 	},
 	getSortingProfileSetProgress(id: string) {
 		return request<SortingProfileSetProgressResponse>('GET', `/api/profiles/${id}/set-progress`);
+	},
+
+	// Set instances
+	getSetInstances(includeArchived = false) {
+		return request<SetInstanceSummary[]>('GET', `/api/set-instances${includeArchived ? '?include_archived=true' : ''}`);
+	},
+	createSetInstance(data: { set_num: string; label?: string | null; include_spares?: boolean; notes?: string | null }) {
+		return request<SetInstanceDetail>('POST', '/api/set-instances', data);
+	},
+	getSetInstance(id: string) {
+		return request<SetInstanceDetail>('GET', `/api/set-instances/${id}`);
+	},
+	updateSetInstance(id: string, data: { label?: string; notes?: string; status?: 'open' | 'complete' }) {
+		return request<SetInstanceSummary>('PATCH', `/api/set-instances/${id}`, data);
+	},
+	archiveSetInstance(id: string) {
+		return request<SetInstanceSummary>('POST', `/api/set-instances/${id}/archive`);
+	},
+	adjustSetInstancePart(id: string, partNum: string, colorId: number, quantityFound: number) {
+		return request<SetInstancePart>('PUT', `/api/set-instances/${id}/parts/${encodeURIComponent(partNum)}/${colorId}`, {
+			quantity_found: quantityFound
+		});
+	},
+	setInstanceWantedListUrl(id: string) {
+		return resolveApiPath(`/api/set-instances/${id}/wanted-list.xml`);
 	},
 	updateSortingProfile(id: string, data: { name?: string; description?: string | null; visibility?: 'private' | 'unlisted' | 'public'; tags?: string[] }) {
 		return request<SortingProfileDetail>('PATCH', `/api/profiles/${id}`, data);

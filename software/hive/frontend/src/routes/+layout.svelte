@@ -39,12 +39,13 @@
 	// SorterOS onboarding flow — a fresh sorter has no Hive account yet.
 	const publicRoutes = ['/login', '/register', '/machine-ip-lookup', '/forget'];
 
-	// The seven primary destinations. Kept as data so the desktop bar and the
+	// The eight primary destinations. Kept as data so the desktop bar and the
 	// mobile drawer can't drift apart.
 	const navLinks: { href: string; label: string; match: (path: string) => boolean }[] = [
 		{ href: '/', label: 'Dashboard', match: (p) => p === '/' },
 		{ href: '/machines', label: 'My Machines', match: (p) => p === '/machines' || p.startsWith('/machines/') },
 		{ href: '/profiles', label: 'Profiles', match: (p) => p.startsWith('/profiles') },
+		{ href: '/sets', label: 'My Sets', match: (p) => p.startsWith('/sets') },
 		{ href: '/samples', label: 'Channel Samples', match: (p) => p.startsWith('/samples') || p === '/review' },
 		{ href: '/piece-bboxes', label: 'Piece Samples', match: (p) => p.startsWith('/piece-bboxes') },
 		{ href: '/models', label: 'Models', match: (p) => p.startsWith('/models') },

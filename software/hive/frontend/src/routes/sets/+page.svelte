@@ -113,13 +113,13 @@
 {:else}
 	<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
 		{#each instances as instance (instance.id)}
-			<a href={`/sets/${instance.id}`} class="flex gap-4 border border-border bg-surface p-4 transition-colors hover:border-text-muted">
+			<a href={`/sets/${instance.id}`} class="flex flex-col border border-border bg-surface transition-colors hover:border-text-muted">
 				{#if instance.set_meta.img_url}
-					<img src={instance.set_meta.img_url} alt="" class="h-20 w-20 shrink-0 object-contain" />
+					<img src={instance.set_meta.img_url} alt="" class="aspect-[4/3] w-full bg-white object-contain p-3" />
 				{:else}
-					<div class="flex h-20 w-20 shrink-0 items-center justify-center bg-bg text-xs text-text-muted">N/A</div>
+					<div class="flex aspect-[4/3] w-full items-center justify-center bg-bg text-xs text-text-muted">N/A</div>
 				{/if}
-				<div class="min-w-0 flex-1">
+				<div class="border-t border-border p-4">
 					<div class="flex items-start justify-between gap-2">
 						<h2 class="truncate text-sm font-semibold text-text">{instance.label}</h2>
 						<span class="shrink-0 text-[10px] font-medium uppercase tracking-wide {STATUS_CLASS[instance.status]}">{instance.status}</span>

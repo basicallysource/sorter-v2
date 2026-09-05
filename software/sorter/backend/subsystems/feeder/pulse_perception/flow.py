@@ -79,6 +79,8 @@ _ZONE_EXIT_ONLY = 2
 # departure detector confirms; keep pulsing small this long so a neighbour is
 # not flung after the piece that just left.
 TIP_OVER_HOLD_S = 1.5
+# The approach pulse stops this far short of the exit-only entry edge.
+APPROACH_MARGIN_DEG = 2.0
 
 
 def exitPulseOutputDeg(cfg, state) -> float:
@@ -86,14 +88,27 @@ def exitPulseOutputDeg(cfg, state) -> float:
     exit-only (the lip). The large approach pulse applies only while NO piece
     is in the exit-only band; once one is at the lip every pulse is the small
     tip-over pulse, whatever else is behind it."""
+    tip = float(cfg.exit_pulse_output_deg)
     approach = float(getattr(cfg, "exit_approach_output_deg", 0.0) or 0.0)
     pieces = getattr(state, "pieces", None)
     if approach <= 0.0 or pieces is None:
-        return float(cfg.exit_pulse_output_deg)
+        return tip
     at_lip = any(int(getattr(po, "zone_code", 0)) == _ZONE_EXIT_ONLY for po in pieces)
     if at_lip:
-        return float(cfg.exit_pulse_output_deg)
-    return max(approach, float(cfg.exit_pulse_output_deg))
+        return tip
+    # Never carry the leading piece INTO the exit-only band with an approach
+    # pulse (two adjacent pieces went over together that way): stop
+    # APPROACH_MARGIN_DEG short of the entry edge and let the tip-over pulse
+    # take it from there.
+    gaps = [
+        float(g)
+        for g in (getattr(po, "com_forward_to_exit_deg", None) for po in pieces)
+        if g is not None and float(g) > 0.0
+    ]
+    output = max(approach, tip)
+    if gaps:
+        output = min(output, max(tip, min(gaps) - APPROACH_MARGIN_DEG))
+    return output
 
 
 def exitPulsePauseMs(cfg, output_deg: float) -> int:

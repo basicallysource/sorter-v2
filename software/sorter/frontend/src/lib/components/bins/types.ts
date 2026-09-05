@@ -15,6 +15,7 @@ export type LayerInfo = {
 	section_enabled?: boolean[];
 	bin_count: number;
 	max_pieces_per_bin: number | null;
+	role?: 'primary' | 'secondary';
 	bins: BinInfo[];
 };
 

@@ -112,7 +112,7 @@
 			<h3 class="text-base font-semibold text-text">
 				Layer {layer.layer_index + 1}
 				<span class="ml-2 text-sm font-normal text-text-muted">
-					{layer.section_count} sections · {layer.bin_count} bins
+					{layer.section_count} sections · {layer.bin_count} bins · {layer.role ?? 'primary'}
 				</span>
 			</h3>
 		</div>

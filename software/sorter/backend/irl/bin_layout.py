@@ -25,8 +25,12 @@ class LayerConfig:
     # servo_closed_angle above are DEPRECATED (kept only for the one-time
     # migration that seeds the per-channel store) and are no longer the source.
     servo_channel_id: int | None = None
+    # Run-planning role: "primary" layers hold the run's set targets, "secondary"
+    # layers the special-category side sorting. See run_plan.py.
+    role: str = "primary"
 
     def __post_init__(self) -> None:
+        self.role = parseLayerRole(self.role)
         n = len(self.sections)
         if self.section_enabled is None:
             self.section_enabled = [True] * n
@@ -57,6 +61,13 @@ def defaultMaxDimensionForBinCount(bin_count: int) -> float | None:
 
 def _binCountOf(sections: List[List[str]]) -> int:
     return sum(len(section) for section in sections)
+
+
+LAYER_ROLES = ("primary", "secondary")
+
+
+def parseLayerRole(raw: object) -> str:
+    return raw if raw in LAYER_ROLES else LAYER_ROLES[0]
 
 
 _MISSING = object()
@@ -105,6 +116,7 @@ class Layer:
     enabled: bool = True
     max_pieces_per_bin: int | None = None
     max_dimension_mm: float | None = None
+    role: str = "primary"
 
 
 @dataclass
@@ -215,6 +227,7 @@ def _parseLayersDict(data: dict) -> BinLayoutConfig | None:
             max_pieces_per_bin=max_per_bin if isinstance(max_per_bin, int) and max_per_bin > 0 else None,
             max_dimension_mm=max_dimension,
             section_enabled=section_enabled,
+            role=layer_data.get("role"),
         ))
     return BinLayoutConfig(layers=layers) if layers else None
 
@@ -314,6 +327,7 @@ def saveBinLayout(config: BinLayoutConfig) -> None:
                 "max_pieces_per_bin": layer.max_pieces_per_bin,
                 "max_dimension_mm": layer.max_dimension_mm,
                 "section_enabled": layer.section_enabled,
+                "role": layer.role,
             }
             for layer in config.layers
         ]
@@ -362,6 +376,7 @@ def snapshotLayout(config: "BinLayoutConfig", bin_categories=None, not_in_invent
                 "max_pieces_per_bin": layer.max_pieces_per_bin,
                 "max_dimension_mm": layer.max_dimension_mm,
                 "section_enabled": layer.section_enabled,
+                "role": layer.role,
             }
             for layer in config.layers
         ],
@@ -387,6 +402,7 @@ def mkLayoutFromConfig(config: BinLayoutConfig) -> DistributionLayout:
             enabled=layer_config.enabled,
             max_pieces_per_bin=layer_config.max_pieces_per_bin,
             max_dimension_mm=layer_config.max_dimension_mm,
+            role=layer_config.role,
         ))
     return DistributionLayout(layers=layers)
 

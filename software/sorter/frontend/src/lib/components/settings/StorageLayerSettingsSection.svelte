@@ -34,6 +34,7 @@
 		invert: boolean;
 		maxPiecesPerBin: string;
 		maxDimensionMm: string;
+		role: 'primary' | 'secondary';
 		liveOpen: boolean | null;
 		telemetry: LayerTelemetry;
 		testing: boolean;
@@ -97,7 +98,8 @@
 				servoId: l.servoId.trim(),
 				invert: l.invert,
 				maxPiecesPerBin: l.maxPiecesPerBin.trim(),
-				maxDimensionMm: l.maxDimensionMm.trim()
+				maxDimensionMm: l.maxDimensionMm.trim(),
+				role: l.role
 			}))
 		})
 	);
@@ -305,6 +307,7 @@
 				typeof layer?.max_dimension_mm === 'number' && layer.max_dimension_mm > 0
 					? String(layer.max_dimension_mm)
 					: '',
+			role: layer?.role === 'secondary' ? 'secondary' : 'primary',
 			liveOpen: previousStates.get(Number(layer?.index ?? index + 1))?.liveOpen ?? null,
 			telemetry:
 				previousStates.get(Number(layer?.index ?? index + 1))?.telemetry ?? emptyTelemetry(),
@@ -512,7 +515,8 @@
 					bin_count: binCount,
 					enabled: draft?.enabled ?? true,
 					max_pieces_per_bin: maxPiecesPerBin,
-					max_dimension_mm: maxDimensionMm
+					max_dimension_mm: maxDimensionMm,
+					role: draft?.role ?? 'primary'
 				};
 			});
 			const channels = parsedServoChannels();
@@ -676,6 +680,7 @@
 				invert: false,
 				maxPiecesPerBin: '',
 				maxDimensionMm: defaultMaxDimensionFor('12'),
+				role: 'primary',
 				liveOpen: null,
 				telemetry: emptyTelemetry(),
 				testing: false,
@@ -688,6 +693,10 @@
 		layers = layers.map((layer, layerIndex) =>
 			layerIndex === index ? { ...layer, maxPiecesPerBin: value } : layer
 		);
+	}
+
+	function updateLayerRole(index: number, role: 'primary' | 'secondary') {
+		layers = layers.map((layer, layerIndex) => (layerIndex === index ? { ...layer, role } : layer));
 	}
 
 	function defaultMaxDimensionFor(binCount: string): string {
@@ -900,6 +909,7 @@
 			onUpdateInvert={(index, value) => void updateLayerInvert(index, value)}
 			onUpdateMaxPieces={updateLayerMaxPieces}
 			onUpdateMaxDimension={updateLayerMaxDimension}
+			onUpdateRole={updateLayerRole}
 			onToggle={toggleLayerServo}
 			onCalibrate={calibrateLayerServo}
 		/>

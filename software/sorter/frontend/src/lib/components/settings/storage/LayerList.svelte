@@ -2,6 +2,7 @@
 	import { Plus, Trash2 } from 'lucide-svelte';
 
 	type ServoBackend = 'pca9685' | 'waveshare';
+	type LayerRole = 'primary' | 'secondary';
 	type LayerTelemetry = {
 		available: boolean;
 		position: number | null;
@@ -21,6 +22,7 @@
 		invert: boolean;
 		maxPiecesPerBin: string;
 		maxDimensionMm: string;
+		role: LayerRole;
 		liveOpen: boolean | null;
 		telemetry: LayerTelemetry;
 		testing: boolean;
@@ -43,6 +45,7 @@
 		onUpdateInvert,
 		onUpdateMaxPieces,
 		onUpdateMaxDimension,
+		onUpdateRole,
 		onToggle,
 		onCalibrate
 	}: {
@@ -61,6 +64,7 @@
 		onUpdateInvert: (index: number, value: boolean) => void;
 		onUpdateMaxPieces: (index: number, value: string) => void;
 		onUpdateMaxDimension: (index: number, value: string) => void;
+		onUpdateRole: (index: number, value: LayerRole) => void;
 		onToggle: (index: number) => void;
 		onCalibrate: (index: number) => void;
 	} = $props();
@@ -84,7 +88,7 @@
 			<div class="text-sm font-semibold text-text">Layers</div>
 			<div class="mt-1 text-sm text-text-muted">
 				{layers.length} layer{layers.length !== 1 ? 's' : ''} · bin count, servo mapping, fill
-				limit per layer.
+				limit and run role per layer.
 			</div>
 		</div>
 		<button
@@ -111,6 +115,12 @@
 						<th class="px-3 py-2 font-medium">Bins</th>
 						<th class="px-3 py-2 font-medium" title="Max pieces per bin. Empty = unlimited.">
 							Max/Bin
+						</th>
+						<th
+							class="px-3 py-2 font-medium"
+							title="Run role: primary layers take the run's set targets, secondary layers the side-sorting rules."
+						>
+							Role
 						</th>
 						<th
 							class="px-3 py-2 font-medium"
@@ -169,6 +179,18 @@
 									class="setup-control w-24 px-2 py-1.5 text-text"
 									title="Max pieces per bin. Empty = unlimited."
 								/>
+							</td>
+							<td class="px-3 py-2">
+								<select
+									value={layer.role}
+									onchange={(event) => onUpdateRole(index, event.currentTarget.value as LayerRole)}
+									disabled={loading || saving}
+									class="setup-control w-28 px-2 py-1.5 text-text"
+									title="Run role of this layer."
+								>
+									<option value="primary">primary</option>
+									<option value="secondary">secondary</option>
+								</select>
 							</td>
 							<td class="px-3 py-2">
 								<input

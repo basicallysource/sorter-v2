@@ -9,12 +9,13 @@ lede: The per-layer door mechanism that releases parts into a bin.
 permalink: /hardware/assembly/distribution/chute/door-module/
 author: spencer
 contributors: [barthel]
+last_verified: 2026-09-05
 warning: >-
-  **AI-generated first draft, apart from the servo.** Written from the machine assembly tree in
-  the [parts
+  **AI-generated first draft, apart from the servo bracket.** Written from the machine assembly
+  tree in the [parts
   calculator](https://parts-calculator.basically.website/assembly?focus=flap-module), not from
-  an actual build. The servo steps and the video below came from an earlier page and are the
-  only part of this that has been through a real build. The door, the bearing assembly and the
+  an actual build. Steps 2 and 3 are a builder's account, corrected against a real machine on
+  2026-09-05, and the video below is Basically's own. The door, the bearing assembly and the
   servo adapter have no assembly steps written yet. Correct it as you build.
 parts_needed:
   - part: chute-door
@@ -50,14 +51,19 @@ parts_needed:
   - part: hsi-m3
     qty: 16
   - part: scr-m3-12-cs
-    qty: 6
+    qty: 5
   - part: scr-m3-8-cs
-    qty: 20
+    qty: 21
 ---
 
 The door module is the moving half of the chute. Build it on the bench as one unit, then bolt it to the [chute core]({{ '/hardware/assembly/distribution/chute/chute-core/' | relative_url }}). One per chute, so one per layer.
 
 The door pivots on two bearings held in the bearing assembly. The MG995 servo, coupled through the two-piece servo adapter, swings it between its open and closed positions, and the layer's [layer adapter board]({{ '/hardware/assembly/distribution/chute/pcb/' | relative_url }}) controls when it opens, releasing the part only once the chute stack has rotated the funnel into position over the right bin.
+
+<figure>
+  <img class="doc-figure" src="https://assets.basically.website/sorter-parts/door-module-overview-full-9fb10a1573e7.png" alt="Render of the door module: the chute door on the left with its pivot shaft, the two servo adapter halves stacked on the end of that shaft, and the servo bracket on the right">
+  <figcaption>How the module sits together, left to right: the chute door and its pivot shaft, the two servo adapter halves on the end of the shaft, and the servo in its bracket. The bearing assembly, which goes on the shaft between the door and the adapter, is not shown. <cite>Rendered from the part geometry in assembly position, not from a build. Render: Balloon.</cite></figcaption>
+</figure>
 
 Three of the four sub-assemblies below have no assembly steps written yet: the door, the bearing assembly and the servo adapter. Only the servo bracket (steps 2 and 3) comes from a real build. Build the other three from the parts themselves, and correct this page as you go. The fastener counts below are accurate even though the order of operations for those three isn't written down.
 
@@ -70,14 +76,14 @@ Four things make it up:
 1. **Chute door**. The flap itself, one printed part.
 2. **Bearing assembly**. What the door swings on: the bearing race, a bearing holder (left) and a bearing holder (right), a bearing cover (covered side) and a bearing cover (servo side), and two 6704-2RS bearings.
 3. **Servo adapter**. Two printed parts, a servo side and a flap side, that couple the servo's output to the door. The MG995 Servo Horn that comes with the servo is clasped between the two halves, then the halves are screwed together around it: 4 {% include fastener.html size="M3" variant="countersunk" length="8" %} screws, driven through the flap side (it's the half with the visible screw holes) into the servo side. No heat inserts, the screws thread directly into the printed plastic.
-4. **MG995 servo** in its four-part bracket: a housing, a lower arm, a side arm and a cover. Built on the bench, in the steps below.
+4. **MG995 servo** in its four-part bracket: a housing, a lower arm, a side arm and a cover. Built on the bench, in the steps below. **The servo itself is not screwed to anything.** It slides into the housing and the cover goes on over it, and the cover's two screws clamp the servo's mounting tabs in place.
 
 **What each fastener is for.** The list above gives totals for the whole module; this is the split:
 
 - **Bearing assembly, its own:** 10 {% include fastener.html size="M3" variant="heat-insert" %} (4 in the race, 3 in each holder) and 10 {% include fastener.html size="M3" variant="countersunk" length="8" %}. Six hold the covers to the holders, 3 each, and 4 hold the holders to the race, 2 each. The two 6704-2RS bearings are sealed on both sides (that's what "2RS" means), so they're symmetric: there's no wrong way round to seat them. The covers are thin printed plastic, so snug their screws down evenly rather than fully tightening one before the others.
 - **Servo adapter, its own:** 4 {% include fastener.html size="M3" variant="countersunk" length="8" %}, no heat inserts. They hold the servo-side and flap-side halves together with the MG995 Servo Horn clasped between them.
-- **Servo bracket, its own:** 6 {% include fastener.html size="M3" variant="heat-insert" %} in the housing, 4 {% include fastener.html size="M3" variant="countersunk" length="12" %} for the arms, and 2 {% include fastener.html size="M3" variant="countersunk" length="8" %} through the servo's mounting ears.
-- **Holding the finished module to the chute core:** 4 {% include fastener.html size="M3" variant="countersunk" length="8" %} through the two bearing covers and 2 {% include fastener.html size="M3" variant="countersunk" length="12" %} through the servo bracket arms, step 4. They go into the core's own heat inserts, so there is nothing to press in here for them.
+- **Servo bracket, its own:** 6 {% include fastener.html size="M3" variant="heat-insert" %} in the housing, two on each of three faces, and one screw per insert. 2 {% include fastener.html size="M3" variant="countersunk" length="8" %} hold the lower arm on, 2 {% include fastener.html size="M3" variant="countersunk" length="12" %} hold the side arm on, and 2 {% include fastener.html size="M3" variant="countersunk" length="12" %} hold the cover on. None of them goes through the servo.
+- **Holding the finished module to the chute core:** 4 {% include fastener.html size="M3" variant="countersunk" length="8" %} through the two bearing covers, plus one screw through each bracket arm's mounting ear, step 4. The two arms are not the same thickness there, so they do not take the same screw: the lower arm's ear is 8.40 mm and takes a {% include fastener.html size="M3" variant="countersunk" length="12" %}, the side arm's is 5.00 mm and takes a {% include fastener.html size="M3" variant="countersunk" length="8" %}. All six go into the core's own heat inserts, so there is nothing to press in here for them.
 
 {% include step.html n="1" title="Preparation" %}
 
@@ -97,11 +103,11 @@ The servo adapter takes no inserts, but assemble it here anyway, before the brac
       <figcaption>The MG995 Servo Horn. Clasped between the two adapter halves before they're screwed together. <cite>Reference photo of the stock part, not from a build. Photographer not recorded.</cite></figcaption>
     </figure>
     <figure>
-      <img class="doc-figure" src="https://assets.basically.website/sorter-parts/servo-adapter-servo-side-recess-white-full-32262f257d09.png" alt="The servo-side adapter half, rotated to show the recess that the MG995 Servo Horn seats into, with the four screw pilot holes around it">
+      <img class="doc-figure" src="https://assets.basically.website/sorter-parts/servo-adapter-servo-side-recess-full-e4d5c312826a.png" alt="The servo-side adapter half, rotated to show the recess that the MG995 Servo Horn seats into, with the four screw pilot holes around it">
       <figcaption>Servo-side half. The recess the horn seats into, plus the 4 pilot holes the screws thread into. <cite>Rendered from the part geometry, not from a build.</cite></figcaption>
     </figure>
     <figure>
-      <img class="doc-figure" src="https://assets.basically.website/sorter-parts/servo-adapter-flap-side-door-face-full-ec3b4136d249.png" alt="The flap-side adapter half, rotated 180 degrees from the screw side to show the hexagonal boss and keyed bore that the chute door's shaft inserts into">
+      <img class="doc-figure" src="https://assets.basically.website/sorter-parts/servo-adapter-flap-side-door-face-full-871c96a5ad23.png" alt="The flap-side adapter half, rotated 180 degrees from the screw side to show the hexagonal boss and keyed bore that the chute door's shaft inserts into">
       <figcaption>Flap-side half, other face. The hex boss the chute door's shaft inserts into. <cite>Rendered from the part geometry, not from a build.</cite></figcaption>
     </figure>
   </div>
@@ -109,7 +115,7 @@ The servo adapter takes no inserts, but assemble it here anyway, before the brac
 
 <div class="prep-item">
   <div class="prep-item-body">
-    <p><strong>Servo bracket (housing):</strong> 6 × M3, on three different faces. 4 of them take the arms and 2 take the servo's own mounting ears.</p>
+    <p><strong>Servo bracket (housing):</strong> 6 × M3, two on each of three faces. 2 take the lower arm, 2 take the side arm and 2 take the cover. The servo does not screw to the housing at all, so none of these is for it.</p>
   </div>
   <figure class="prep-item-figure">
     <img class="doc-figure" src="https://assets.basically.website/sorter-parts/door-module-inserts-servo-bracket-housing-full-7545917fe3d9.png" alt="Render of the servo bracket housing at an angle, with its six heat-insert pockets circled in red, two on each of three faces">
@@ -149,28 +155,47 @@ The servo adapter takes no inserts, but assemble it here anyway, before the brac
 
 The views are rendered from each part's STL, turned slightly off the face so the pockets shade as holes, and circle only the pockets visible from that angle. The counts match what the [parts calculator](https://parts-calculator.basically.website/assembly?focus=flap-module) asks for: 6 + 4 + 3 + 3.
 
-{% include step.html n="2" title="Seat the servo in its bracket housing" %}
+{% include step.html n="2" title="Slide the servo into the housing and close it with the cover" %}
 
-Drop the MG995 into the housing and fasten it with 2 {% include fastener.html size="M3" variant="countersunk" length="8" %} screws through the servo's own mounting ears.
+**The servo is not screwed down.** Slide the MG995 into the housing's pocket, then lay the cover over the open face and drive its 2 {% include fastener.html size="M3" variant="countersunk" length="12" %} screws into the housing's inserts. Tightening those two is what holds the servo: the cover traps the servo's mounting tabs between itself and the housing.
 
-Clock the horn before you commit to a position: center the servo (or let it settle at its power-on default), fit the horn at roughly the middle of the door's swing, then fine-tune once the module is mounted and you can check both open and closed by eye. The servo only rotates 180° and the door has to reach both of its positions inside that range; the video at the end of this page shows how it is set.
+The cover is 6.65 mm thick at the screw, so a 12 mm screw reaches 5.35 mm into the housing's blind 5.70 mm insert and an 8 mm one would reach only 1.35 mm. Snug both down evenly rather than pulling one home first, so the cover seats flat on the tabs.
 
-<div class="img-placeholder">Photo of the MG995 seated in the bracket housing, held by its two mounting-ear screws, with the horn already clocked to a known position before the arms go on</div>
+<figure>
+  <img class="doc-figure" src="https://assets.basically.website/sorter-parts/housing-cover-open-full-eb4bde91c9c0.png" alt="Render of the servo bracket housing with the cover pulled off it, showing the open pocket the servo slides into and the two screw lugs that line up between the cover and the housing">
+  <figcaption>The cover pulled off the housing. The servo goes into the open pocket, and the two lugs the cover screws through are the only fasteners holding it. <cite>Rendered from the part geometry, not from a build. Render: Balloon.</cite></figcaption>
+</figure>
 
-{% include step.html n="3" title="Add the bracket arms and the cover" %}
+{% include step.html n="3" title="Add the bracket arms" %}
 
-Fit the lower arm and the side arm to the housing and fasten them with the 4 {% include fastener.html size="M3" variant="countersunk" length="12" %} screws into the housing's inserts. Clip the cover on last; it takes no screws.
+The two arms land on two other faces of the housing, so they are independent of the servo and can go on before or after it.
+
+- **Lower arm:** 2 {% include fastener.html size="M3" variant="countersunk" length="8" %}. It is 4.25 mm thick at the screws, so an 8 mm one reaches 3.75 mm into the insert.
+- **Side arm:** 2 {% include fastener.html size="M3" variant="countersunk" length="12" %}. It is 8.40 mm thick at the screws, so an 8 mm one would not reach the insert at all.
+
+Each arm has one further hole, in the ear at its far end. Those two are not driven here; they are what bolts the finished bracket to the chute core in step 4, so leave them empty.
+
+<figure>
+  <img class="doc-figure" src="https://assets.basically.website/sorter-parts/servo-bracket-assembled-full-2c6c3cddb48f.png" alt="Render of the assembled servo bracket seen from the cover side: the cover with its two screw lugs and the window the servo sits behind, the side arm to the right and the lower arm below, each with the single mounting ear that bolts to the chute core">
+  <figcaption>The bracket assembled, seen from the cover side. The two ears sticking out at bottom and right, one on each arm, are the pair that bolt to the chute core. <cite>Rendered from the part geometry in assembly position, not from a build. Render: Balloon.</cite></figcaption>
+</figure>
 
 {% include step.html n="4" title="Fit the module to the chute core" %}
 
 Six of the core's 18 inserts are for this module, and the screws for them are in the list above:
 
 - **2 bearing covers**, 4 {% include fastener.html size="M3" variant="countersunk" length="8" %} in total, 2 per cover, into 5.00 mm of wall.
-- **Servo bracket arms**, 2 {% include fastener.html size="M3" variant="countersunk" length="12" %}.
+- **Servo bracket lower arm**, 1 {% include fastener.html size="M3" variant="countersunk" length="12" %} through its ear.
+- **Servo bracket side arm**, 1 {% include fastener.html size="M3" variant="countersunk" length="8" %} through its ear.
 
-The cover screws are 8 mm because that reaches 3.00 mm into the core's blind 5.70 mm insert, measured off the STLs. The arms' 12 mm is inferred by elimination rather than measured, since no STL exists for that joint, so check the fit before committing.
+Every one of those is 8 mm except the lower arm's, and the reason is the wall it goes through. The bearing covers and the side arm's ear are both 5.00 mm, so an 8 mm screw reaches 3.00 mm into the core's blind 5.70 mm insert. The lower arm's ear is 8.40 mm, so an 8 mm screw would not reach the insert at all and it takes a 12, which reaches 3.60 mm. All measured off the STLs.
 
-The servo output then couples to the door through the two-piece servo adapter, servo side and flap side.
+The servo output then couples to the door through the two-piece servo adapter, servo side and flap side. Push the adapter onto the servo's splined output and clock it before you commit: centre the servo (or let it settle at its power-on default), fit it at roughly the middle of the door's swing, then fine-tune once you can check both open and closed by eye. The video below shows how it is set.
+
+<figure>
+  <img class="doc-figure" src="https://assets.basically.website/sorter-parts/door-module-servo-video-frame-full-1f27d2aaa634.jpg" alt="Photograph of a real door module part-way through assembly: a hand holds the assembled servo adapter, a white disc with a hexagonal boss in the middle and four countersunk screws around it, in front of the MG995 in its printed bracket">
+  <figcaption>The same job on a real machine. The disc in frame is the servo adapter from step 1, screwed together with its four countersunk screws, with the hexagonal boss that takes the door's shaft facing the camera; the MG995 sits in its bracket behind it. <cite>Frame from the video below, on Basically's own YouTube channel. Who filmed it isn't recorded.</cite></figcaption>
+</figure>
 
 <div class="callout callout-warning">
   <span class="callout-icon" aria-hidden="true">⚠</span>

@@ -170,8 +170,8 @@ The cover is 6.65 mm thick at the screw, so a 12 mm screw reaches 5.35 mm into t
 
 The two arms land on two other faces of the housing, so they are independent of the servo and can go on before or after it.
 
-- **Lower arm:** 2 {% include fastener.html size="M3" variant="countersunk" length="8" %}. It is 4.25 mm thick at the screws, so an 8 mm one reaches 3.75 mm into the insert.
-- **Side arm:** 2 {% include fastener.html size="M3" variant="countersunk" length="12" %}. It is 8.40 mm thick at the screws, so an 8 mm one would not reach the insert at all.
+- **Lower arm:** 2 {% include fastener.html size="M3" variant="countersunk" length="8" %} into the housing's inserts. The arm is 4.25 mm thick at the screws, so an 8 mm one reaches 3.75 mm in.
+- **Side arm:** 2 {% include fastener.html size="M3" variant="countersunk" length="12" %} into the housing's inserts. This arm is 8.40 mm thick at the screws, so an 8 mm one would not reach them at all.
 
 Each arm has one further hole, in the ear at its far end. Those two are not driven here; they are what bolts the finished bracket to the chute core in step 4, so leave them empty.
 

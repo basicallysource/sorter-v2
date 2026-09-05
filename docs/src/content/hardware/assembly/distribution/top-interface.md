@@ -350,7 +350,7 @@ These six brackets are what the vertical extrusion legs (piece F, step 13) will 
 
 Align an Interface bracket with piece E (Interface spoke, long) of aluminum extrusion.
 
-Place T-nuts in the extrusion, lined up with the 4 holes on the side of the Interface bracket.
+Place T-nuts in the extrusion, lined up with the 4 holes on the side of the Interface bracket. See [Fitting T-nuts]({{ '/hardware/helpers/t-nuts/' | relative_url }}) for how they go in.
 
 Slide the extrusion into the Interface bracket, careful not to dislodge the T-nuts, and drive four {% include fastener.html size="M5" variant="socket-button" length="16" %} screws into them.
 

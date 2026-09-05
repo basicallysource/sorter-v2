@@ -1,13 +1,17 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any, Iterable
-from uuid import uuid4
+from typing import Any, Iterable, NamedTuple
+from uuid import UUID, uuid4
 
-from sqlalchemy import Table
+from sqlalchemy import Table, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.orm import Session
+
+from app.models.machine_profile_assignment import MachineProfileAssignment
+from app.models.machine_set_progress import MachineSetProgress
+from app.models.set_instance import SetInstance, SetInstanceProgress
 
 
 def upsert_progress_snapshot(
@@ -41,6 +45,52 @@ def upsert_progress_snapshot(
             ),
         )
         db.execute(stmt)
+
+
+class ProgressRow(NamedTuple):
+    set_num: str
+    part_num: str
+    color_id: int
+    quantity_needed: int
+    quantity_found: int
+    updated_at: datetime | None
+
+
+def instance_bound_sets(compiled_artifact: dict[str, Any] | None) -> dict[str, UUID]:
+    """set_num -> set_instance_id for every set rule in the artifact that names an instance."""
+    bound: dict[str, UUID] = {}
+    stack = list(compiled_artifact.get("rules") or []) if isinstance(compiled_artifact, dict) else []
+    while stack:
+        rule = stack.pop()
+        if not isinstance(rule, dict):
+            continue
+        stack.extend(rule.get("children") or [])
+        if rule.get("rule_type") != "set" or not rule.get("set_num") or not rule.get("set_instance_id"):
+            continue
+        try:
+            bound[str(rule["set_num"])] = UUID(str(rule["set_instance_id"]))
+        except ValueError:
+            continue
+    return bound
+
+
+def load_assignment_progress_rows(
+    db: Session,
+    assignment: MachineProfileAssignment,
+    compiled_artifact: dict[str, Any] | None,
+) -> list[Any]:
+    """Progress rows for an assignment: the legacy assignment-keyed ones, then the rows of every
+    set instance the artifact binds (owned by the machine's owner), which win on overlap."""
+    rows: list[Any] = list(db.scalars(select(MachineSetProgress).where(MachineSetProgress.assignment_id == assignment.id)))
+    for set_num, instance_id in instance_bound_sets(compiled_artifact).items():
+        instance = db.get(SetInstance, instance_id)
+        if instance is None or instance.user_id != assignment.machine.owner_id:
+            continue
+        rows.extend(
+            ProgressRow(set_num, row.part_num, row.color_id, row.quantity_needed, row.quantity_found, row.updated_at)
+            for row in db.scalars(select(SetInstanceProgress).where(SetInstanceProgress.set_instance_id == instance.id))
+        )
+    return rows
 
 
 def _safe_int(value: Any) -> int | None:

@@ -29,6 +29,7 @@ from app.services import machine_stats, set_instances
 from app.services.auth import generate_machine_token, verify_password
 from app.services.machine_set_progress import (
     build_set_progress_inventory_index,
+    load_assignment_progress_rows,
     summarize_machine_set_progress,
     upsert_progress_snapshot,
 )
@@ -664,7 +665,6 @@ def get_machine_set_progress(
     current_user: User = Depends(get_current_user),
 ):
     """Get set-based sorting progress for a machine."""
-    from app.models.machine_set_progress import MachineSetProgress
     from app.models.machine_profile_assignment import MachineProfileAssignment
 
     machine = db.query(Machine).filter(Machine.id == machine_id, Machine.owner_id == current_user.id).first()
@@ -678,14 +678,8 @@ def get_machine_set_progress(
         return {"progress": [], "assignment_id": None}
 
     version = assignment.active_version or assignment.desired_version
-    rows = db.query(MachineSetProgress).filter(
-        MachineSetProgress.assignment_id == assignment.id
-    ).all()
-
-    summary = summarize_machine_set_progress(
-        version.compiled_artifact_json if version is not None else {},
-        rows,
-    )
+    artifact = version.compiled_artifact_json if version is not None else {}
+    summary = summarize_machine_set_progress(artifact, load_assignment_progress_rows(db, assignment, artifact))
     progress = [
         {
             "set_num": item["set_num"],
@@ -827,7 +821,7 @@ def report_machine_set_progress(
         instance = db.get(SetInstance, instance_id)
         if instance is None or instance.user_id != machine.owner_id:
             raise APIError(400, f"Set instance {instance_id} is not owned by this machine's owner", "SET_PROGRESS_INSTANCE_UNKNOWN")
-        instance_updated += set_instances.apply_machine_progress(db, instance, by_part.values(), now=now)
+        instance_updated += set_instances.apply_machine_progress(db, instance, machine.id, by_part.values(), now=now)
 
     normalized_items = list(normalized_by_key.values())
 

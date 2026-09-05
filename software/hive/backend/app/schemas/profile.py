@@ -32,6 +32,9 @@ class SortingProfileRuleResponse(BaseModel):
     # Set-specific fields (only used when rule_type == "set")
     set_source: str | None = None
     set_num: str | None = None
+    # The owner's set instance this rule extracts for; progress the machine
+    # reports for the rule's set is written to that instance, not the assignment.
+    set_instance_id: str | None = None
     include_spares: bool = False
     set_meta: dict[str, Any] | None = None
     custom_parts: list[dict[str, Any]] = Field(default_factory=list)

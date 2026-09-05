@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Literal
 from uuid import UUID
 
 from pydantic import BaseModel, Field
@@ -17,7 +16,6 @@ class SetInstanceCreateRequest(BaseModel):
 class SetInstanceUpdateRequest(BaseModel):
     label: str | None = None
     notes: str | None = None
-    status: Literal["open", "complete"] | None = None
 
 
 class SetInstancePartAdjustRequest(BaseModel):

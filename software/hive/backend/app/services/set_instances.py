@@ -14,13 +14,12 @@ from uuid import UUID
 from xml.etree import ElementTree as ET
 
 import requests
-from sqlalchemy import select
-from sqlalchemy.orm import Session, selectinload
+from sqlalchemy import func, select
+from sqlalchemy.orm import Session
 
 from app.errors import APIError
-from app.models.set_instance import SetInstance, SetInstanceProgress
+from app.models.set_instance import SetInstance, SetInstanceMachineCount, SetInstanceProgress
 from app.models.user import User
-from app.services.machine_set_progress import upsert_progress_snapshot
 
 ProgressKey = tuple[str, int]
 
@@ -37,6 +36,8 @@ def expand_set(catalog: Any, set_num: str, *, include_spares: bool) -> tuple[dic
     except requests.RequestException as exc:
         raise APIError(502, "Rebrickable request failed", "SET_INVENTORY_UNAVAILABLE") from exc
     if not set_info:
+        if not catalog.rebrickable_configured:
+            raise APIError(503, "Rebrickable is not configured on this server (REBRICKABLE_API_KEY)", "REBRICKABLE_NOT_CONFIGURED")
         raise APIError(404, f"Set '{set_num}' not found", "SET_NOT_FOUND")
     return set_info, parts
 
@@ -79,11 +80,31 @@ def create_instance(
     return instance
 
 
-def list_instances(db: Session, user: User, *, include_archived: bool) -> list[SetInstance]:
-    stmt = select(SetInstance).where(SetInstance.user_id == user.id).options(selectinload(SetInstance.progress))
+def list_instances(db: Session, user: User, *, include_archived: bool) -> list[tuple[SetInstance, dict[str, Any]]]:
+    """Instances with their progress totals, aggregated in SQL: one row per instance, not per part."""
+    totals = (
+        select(
+            SetInstanceProgress.set_instance_id.label("instance_id"),
+            func.count().label("part_count"),
+            func.sum(SetInstanceProgress.quantity_needed).label("total_needed"),
+            func.sum(SetInstanceProgress.quantity_found).label("total_found"),
+            func.max(SetInstanceProgress.updated_at).label("updated_at"),
+        )
+        .group_by(SetInstanceProgress.set_instance_id)
+        .subquery()
+    )
+    stmt = (
+        select(SetInstance, totals.c.part_count, totals.c.total_needed, totals.c.total_found, totals.c.updated_at)
+        .outerjoin(totals, totals.c.instance_id == SetInstance.id)
+        .where(SetInstance.user_id == user.id)
+        .order_by(SetInstance.created_at.desc())
+    )
     if not include_archived:
         stmt = stmt.where(SetInstance.status != "archived")
-    return list(db.scalars(stmt.order_by(SetInstance.created_at.desc())))
+    return [
+        (instance, _totals(part_count or 0, needed or 0, found or 0, _as_utc(updated_at)))
+        for instance, part_count, needed, found, updated_at in db.execute(stmt)
+    ]
 
 
 def get_owned_instance(db: Session, user: User, instance_id: UUID) -> SetInstance:
@@ -93,7 +114,8 @@ def get_owned_instance(db: Session, user: User, instance_id: UUID) -> SetInstanc
     return instance
 
 
-def update_instance(db: Session, instance: SetInstance, *, label: str | None, notes: str | None, status: str | None) -> SetInstance:
+def update_instance(db: Session, instance: SetInstance, *, label: str | None, notes: str | None) -> SetInstance:
+    """Label and notes only; open/complete follow the counts and archived has its own endpoints."""
     if label is not None:
         cleaned = label.strip()
         if not cleaned:
@@ -101,8 +123,6 @@ def update_instance(db: Session, instance: SetInstance, *, label: str | None, no
         instance.label = cleaned
     if notes is not None:
         instance.notes = notes.strip() or None
-    if status is not None:
-        instance.status = status
     db.commit()
     db.refresh(instance)
     return instance
@@ -115,6 +135,15 @@ def archive_instance(db: Session, instance: SetInstance) -> SetInstance:
     return instance
 
 
+def restore_instance(db: Session, instance: SetInstance) -> SetInstance:
+    """Back from archived to whatever the counts say."""
+    instance.status = "open"
+    _refresh_status(instance)
+    db.commit()
+    db.refresh(instance)
+    return instance
+
+
 def _as_utc(value: datetime | None) -> datetime | None:
     # sqlite hands back naive timestamps; a row touched in this session holds an aware one.
     if value is not None and value.tzinfo is None:
@@ -122,10 +151,20 @@ def _as_utc(value: datetime | None) -> datetime | None:
     return value
 
 
+def _totals(part_count: int, needed: int, found: int, updated_at: datetime | None) -> dict[str, Any]:
+    return {
+        "part_count": part_count,
+        "total_needed": needed,
+        "total_found": found,
+        "pct": round(found / needed * 100, 1) if needed else 0.0,
+        "updated_at": updated_at,
+    }
+
+
 def progress_totals(rows: Iterable[SetInstanceProgress]) -> dict[str, Any]:
-    needed = found = 0
+    """Totals over already loaded rows (detail views); list_instances aggregates in SQL instead."""
+    needed = found = count = 0
     updated_at: datetime | None = None
-    count = 0
     for row in rows:
         count += 1
         needed += row.quantity_needed
@@ -133,13 +172,7 @@ def progress_totals(rows: Iterable[SetInstanceProgress]) -> dict[str, Any]:
         row_updated_at = _as_utc(row.updated_at)
         if row_updated_at is not None and (updated_at is None or row_updated_at > updated_at):
             updated_at = row_updated_at
-    return {
-        "part_count": count,
-        "total_needed": needed,
-        "total_found": found,
-        "pct": round(found / needed * 100, 1) if needed else 0.0,
-        "updated_at": updated_at,
-    }
+    return _totals(count, needed, found, updated_at)
 
 
 def _refresh_status(instance: SetInstance) -> None:
@@ -166,48 +199,66 @@ def set_part_found(db: Session, instance: SetInstance, *, part_num: str, color_i
 def apply_machine_progress(
     db: Session,
     instance: SetInstance,
+    machine_id: UUID,
     items: Iterable[dict[str, Any]],
     *,
     now: datetime,
 ) -> int:
-    """Absolute quantity_found values from a machine report; unknown parts are rejected.
+    """Merge a machine's report into the instance; unknown parts are rejected.
 
-    The caller owns the transaction (the sync endpoint writes several
-    instances and the legacy table in one commit).
+    A sorter counts from zero per tracker session (it starts over after a
+    profile edit or a reset) and reports absolute counts. The instance keeps
+    the count each machine last reported per part and adds only the difference,
+    so manual adjustments, other machines' contributions and a machine that
+    restarted at zero all survive. A count below the previous one means the
+    machine restarted: the whole new count is its contribution. The caller
+    owns the transaction (the sync endpoint writes several instances and the
+    legacy table in one commit).
     """
-    needed_by_key = {
-        (row.part_num, row.color_id): row.quantity_needed
-        for row in db.scalars(select(SetInstanceProgress).where(SetInstanceProgress.set_instance_id == instance.id))
+    rows_by_key = {(row.part_num, row.color_id): row for row in instance.progress}
+    counts_by_key = {
+        (count.part_num, count.color_id): count
+        for count in db.scalars(
+            select(SetInstanceMachineCount).where(
+                SetInstanceMachineCount.set_instance_id == instance.id,
+                SetInstanceMachineCount.machine_id == machine_id,
+            )
+        )
     }
-    rows: list[dict[str, Any]] = []
+    applied = 0
     for item in items:
         key = (item["part_num"], item["color_id"])
-        needed = needed_by_key.get(key)
-        if needed is None:
+        row = rows_by_key.get(key)
+        if row is None:
             raise APIError(
                 400,
                 f"Progress item {item['part_num']}/{item['color_id']} is not part of set instance {instance.id}",
                 "SET_PROGRESS_ITEM_UNKNOWN",
             )
-        rows.append(
-            {
-                "set_instance_id": instance.id,
-                "part_num": item["part_num"],
-                "color_id": item["color_id"],
-                "quantity_needed": needed,
-                "quantity_found": max(0, min(int(item["quantity_found"]), needed)),
-                "updated_at": now,
-            }
-        )
-    upsert_progress_snapshot(
-        db,
-        SetInstanceProgress.__table__,
-        rows,
-        conflict_columns=("set_instance_id", "part_num", "color_id"),
-    )
-    db.expire(instance, ["progress"])
+        reported = max(0, int(item["quantity_found"]))
+        count = counts_by_key.get(key)
+        previous = count.quantity_reported if count is not None else 0
+        delta = reported - previous if reported >= previous else reported
+        if delta:
+            row.quantity_found = max(0, min(row.quantity_found + delta, row.quantity_needed))
+            row.updated_at = now
+        if count is None:
+            db.add(
+                SetInstanceMachineCount(
+                    set_instance_id=instance.id,
+                    machine_id=machine_id,
+                    part_num=row.part_num,
+                    color_id=row.color_id,
+                    quantity_reported=reported,
+                    updated_at=now,
+                )
+            )
+        elif count.quantity_reported != reported:
+            count.quantity_reported = reported
+            count.updated_at = now
+        applied += 1
     _refresh_status(instance)
-    return len(rows)
+    return applied
 
 
 def part_details(catalog: Any, instance: SetInstance) -> list[dict[str, Any]]:

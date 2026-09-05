@@ -19,14 +19,10 @@ parts_needed:
     qty: 6
   - part: ext-bracket-bottom-vertical
     qty: 6
-  - part: bin-retainer-left
-    qty: 6
-  - part: bin-retainer-right
-    qty: 6
   - part: ext-2020-c
     qty: 6
   - part: scr-m5-16-shcs
-    qty: 60
+    qty: 36
 ---
 
 Each layer holds one chute-and-bin pair (built separately) that catches pieces routed to it; a regular layer's job is simply to repeat the same hexagonal ring, vertical supports, and flange joint as the layer below it, so the stack can go as tall as the machine needs.
@@ -43,7 +39,7 @@ This guide covers creating a regular layer. It's also the basis for creating the
   </figure>
 </div>
 
-The aluminum extrusion is cut to length; the [framing cut list](https://parts-calculator.basically.website/framing) has the exact dimensions for piece C. This page needs no {% include fastener.html size="M5" variant="t-nut" text="M5 T-nuts" %} of its own: the bin retainers in step 2 use the 4 T-nuts per A/G extrusion that [Build the hex frame]({{ '/hardware/assembly/distribution/bin-frame/hex-frame/' | relative_url }}) already pre-installs for exactly this purpose.
+The aluminum extrusion is cut to length; the [framing cut list](https://parts-calculator.basically.website/framing) has the exact dimensions for piece C. The bin retainers in step 2 are the only thing on this layer that takes {% include fastener.html size="M5" variant="t-nut" text="M5 T-nuts" %}, and they carry their own parts on their own page, so neither the retainers nor their fasteners are in the list above.
 
 {% include fastener-legend.html %}
 
@@ -89,9 +85,7 @@ Matching parts from the same print run are embossed with a shared set code (e.g.
   <figcaption><cite>Photo: zed0.</cite></figcaption>
 </figure>
 
-On each side of the hexagon, attach both the Bin retainer (left) and Bin retainer (right) to the front face of A/G (Outer horizontal / Horizontal interface frame) using 4 {% include fastener.html size="M5" variant="socket-button" length="16" %} screws into the T-nuts your hex frame already has installed there.
-
-Each retainer's bore is 12.8 mm deep, so a shorter M5 reaches the extrusion face with nothing left to bite in the T-nut. Use a socket head rather than a button head here: the flat the head lands on stops 4.1 mm below the hole, which a button head overhangs, and a washer will not sit flat on it at all.
+Twelve retainers go on each layer, six pairs, one pair per face of the hexagon. They are the same on every bin layer, so the step is on its own page: **[Bin retainers]({{ '/hardware/assembly/distribution/bin-frame/bin-retainers/' | relative_url }})**, including the T-nuts they fasten into. Do it now, with the covers on and before the layer goes onto the stack, so you are still working on a frame you can turn around.
 
 A regular layer is now complete.
 

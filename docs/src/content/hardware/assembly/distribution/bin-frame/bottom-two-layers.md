@@ -20,10 +20,6 @@ parts_needed:
     qty: 6
   - part: ext-bracket-foot-cover
     qty: 6
-  - part: bin-retainer-left
-    qty: 12
-  - part: bin-retainer-right
-    qty: 12
   - part: ext-2020-d
     qty: 6
   - part: foot-connector-2020-m6
@@ -31,7 +27,7 @@ parts_needed:
   - part: caster-wheel-m6
     qty: 6
   - part: scr-m5-16-shcs
-    qty: 96
+    qty: 48
 tools_needed: [Hex key, Tape measure]
 ---
 
@@ -83,7 +79,8 @@ Here's where the {% include fastener.html size="M5" variant="socket-button" leng
 - **24** for the foot extensions, 4 per corner (step 2 below), two into each layer
 - **12** for the second layer's External bracket — bottom verticals, 2 per corner (step 3 below)
 - **12** for the bottom layer's External bracket — foot covers, 2 per corner (step 3 below), the same as the bottom vertical it replaces
-- **48** for the bin retainers (step 5 below), 24 per layer, so 48 across both
+
+The bin retainers in step 5 are not in that count: they and their fasteners are listed on their own page.
 
 You should already have two [hex frames]({{ '/hardware/assembly/distribution/bin-frame/hex-frame/' | relative_url }}) built, one for each layer. The verticals are the part that differs here, and they are step 2 below.
 
@@ -169,7 +166,7 @@ Screw a **swivel stem caster (M6 × 15 mm)** into the connector's M6 thread. The
 
 {% include step.html n="5" title="Add the bin retainers" %}
 
-Both layers take bin retainers, exactly as in [regular layers]({{ '/hardware/assembly/distribution/bin-frame/regular-layers/' | relative_url }}) step 2: on each side of each hexagon, a Bin retainer (left) and a Bin retainer (right) on the front face of the A/G extrusion, 4 {% include fastener.html size="M5" variant="socket-button" length="16" %} screws into T-nuts.
+Both layers take a full set of retainers, so do **[Bin retainers]({{ '/hardware/assembly/distribution/bin-frame/bin-retainers/' | relative_url }}) twice**, once for each hexagon. That page's parts list is per layer; double every quantity on it here.
 
 {% include step.html n="6" title="Attach the bottom interface" %}
 

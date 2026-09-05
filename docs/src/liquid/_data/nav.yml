@@ -36,6 +36,8 @@ sections:
                     url: /hardware/assembly/distribution/bin-frame/bottom-two-layers/
                   - title: Regular layers
                     url: /hardware/assembly/distribution/bin-frame/regular-layers/
+                  - title: Bin retainers
+                    url: /hardware/assembly/distribution/bin-frame/bin-retainers/
               - title: Top interface
                 url: /hardware/assembly/distribution/top-interface/
               - title: Chute
@@ -103,6 +105,8 @@ sections:
             url: /hardware/helpers/pico-headers/
           - title: Installing heat inserts
             url: /hardware/helpers/heat-inserts/
+          - title: Fitting T-nuts
+            url: /hardware/helpers/t-nuts/
       - title: Parts
         url: /hardware/parts/
         children:

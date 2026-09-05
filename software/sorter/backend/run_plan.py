@@ -66,6 +66,14 @@ def planCategories(
         "primary": [rule["id"] for rule in grouped["primary"] if rule["id"] in selected],
         "secondary": [rule["id"] for rule in grouped["secondary"]],
     }
+    # A layout with bins of only one role has nothing to separate: the other
+    # role's rules queue up behind that role's own rules instead of losing
+    # their bins (a filter-only profile on an all-primary tower still sorts).
+    capacity = roleCapacity(config)
+    for role, other in (("secondary", "primary"), ("primary", "secondary")):
+        if capacity[role] == 0 and capacity[other] > 0:
+            queues[other] += queues[role]
+            queues[role] = []
     categories: Categories = []
     for layer in config.layers:
         queue = queues[layer.role]

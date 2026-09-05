@@ -56,6 +56,18 @@ CONFIG = BinLayoutConfig(layers=[
 ])
 
 
+class SingleRoleLayoutTests(unittest.TestCase):
+    def test_all_primary_tower_takes_secondary_rules_behind_the_targets(self) -> None:
+        config = BinLayoutConfig(layers=[LayerConfig(sections=[["medium", "medium"], ["medium", "medium"]])])
+        categories = planCategories(config, activeRules({"rules": RULES}), ["set_a"])
+        self.assertEqual([[["set_a"], ["printed"]], [["minifig"], ["side_set"]]], categories[0])
+
+    def test_all_secondary_tower_takes_selected_targets_behind_the_side_rules(self) -> None:
+        config = BinLayoutConfig(layers=[LayerConfig(sections=[["medium", "medium", "medium", "medium"]], role="secondary")])
+        categories = planCategories(config, activeRules({"rules": RULES}), ["set_c"])
+        self.assertEqual([[["printed"], ["minifig"], ["side_set"], ["set_c"]]], categories[0])
+
+
 class RuleRoleTests(unittest.TestCase):
     def test_default_role_follows_rule_type_and_explicit_role_wins(self) -> None:
         self.assertEqual("primary", ruleRole(_rule("x", "set")))

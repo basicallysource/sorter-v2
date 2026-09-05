@@ -165,10 +165,10 @@ Fit the lower arm and the side arm to the housing and fasten them with the 4 {% 
 
 Six of the core's 18 inserts are for this module, and the screws for them are in the list above:
 
-- **2 bearing covers**, 4 {% include fastener.html size="M3" variant="countersunk" length="8" %} in total, 2 per cover.
+- **2 bearing covers**, 4 {% include fastener.html size="M3" variant="countersunk" length="8" %} in total, 2 per cover, into 5.00 mm of wall.
 - **Servo bracket arms**, 2 {% include fastener.html size="M3" variant="countersunk" length="12" %}.
 
-Why each of these is the length it is, measured off the STLs, is on the [chute core]({{ '/hardware/assembly/distribution/chute/chute-core/' | relative_url }}) page, which is the one place it is written down. The 12 mm figure for the arms is inferred rather than measured, so check the fit before committing.
+The cover screws are 8 mm because that reaches 3.00 mm into the core's blind 5.70 mm insert, measured off the STLs. The arms' 12 mm is inferred by elimination rather than measured, since no STL exists for that joint, so check the fit before committing.
 
 The servo output then couples to the door through the two-piece servo adapter, servo side and flap side.
 

@@ -59,7 +59,7 @@ The calculator takes a size per layer and totals the print for whatever mix you 
 
 Every chute carries a Funnel bracket (left) and a Funnel bracket (right), one of each. They screw into the [chute core]({{ '/hardware/assembly/distribution/chute/chute-core/' | relative_url }})'s M3 heat inserts, which are pressed in on that page.
 
-Each bracket takes 2 {% include fastener.html size="M3" variant="countersunk" length="12" %} screws, 4 for the pair. Why 12 mm and not 8 is on the [chute core]({{ '/hardware/assembly/distribution/chute/chute-core/' | relative_url }}) page, along with the rest of the split.
+Each bracket takes 2 {% include fastener.html size="M3" variant="countersunk" length="12" %} screws, 4 for the pair. The bracket is 8.16 mm thick at the screw, so a 12 mm screw reaches 3.84 mm into the core's blind 5.70 mm insert and an 8 mm one would not reach it at all.
 
 <div class="img-placeholder">Photo of both funnel brackets fitted to the chute core.</div>
 

@@ -15,3 +15,4 @@ contributors: [barthel]
 - **[Preparing the 20-tooth timing pulley]({{ '/hardware/helpers/pulley-gear-mod/' | relative_url }})**
 - **[Soldering Pico headers]({{ '/hardware/helpers/pico-headers/' | relative_url }})**
 - **[Installing heat inserts]({{ '/hardware/helpers/heat-inserts/' | relative_url }})**
+- **[Fitting T-nuts]({{ '/hardware/helpers/t-nuts/' | relative_url }})**

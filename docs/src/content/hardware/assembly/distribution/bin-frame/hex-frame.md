@@ -5,18 +5,16 @@ type: how-to
 section: hardware
 slug: assembly-hex-frame
 kicker: Bin frame — Build the hex frame
-lede: The hexagonal aluminum-and-bracket ring shared by every layer. Build one per planned layer, plus one for the bottom interface and one for the top interface.
+lede: The hexagonal aluminum-and-bracket ring shared by every layer. Build one per planned layer, plus one for the top interface.
 permalink: /hardware/assembly/distribution/bin-frame/hex-frame/
 author: barthel
 contributors: [brickcyclealice, zed0]
-warning: >-
-  **Reorganized from a Discord build walkthrough, not yet reviewed by a
-  builder.** This page has not been checked step-by-step against a build.
-  Correct it as you go.
 parts_needed:
   - part: ext-2020-ag
     qty: 6
   - part: ext-bracket-left
+    qty: 6
+  - part: ext-bracket-cover
     qty: 6
   - part: ext-2020-bh
     qty: 6
@@ -25,19 +23,17 @@ parts_needed:
   - part: frame-90deg-bracket
     qty: 12
   - part: scr-m5-16-shcs
-    qty: 8
-  - part: tnut-m5-2020
-    qty: 24
+    qty: 12
 tools_needed: [Hex key, Mallet or hammer with a cloth to protect the brackets]
 ---
 
 This guide builds one hexagonal frame: the outer ring of A/G extrusion and External bracket — side, with the six B/H spokes and Frame crossbeams held inside it by the Frame 90° brackets. No fasteners are used from step 2 onward — the spokes, crossbeams and brackets are a friction-and-slide fit, no screws or T-nuts.
 
-An N-layer machine needs **N + 1 of these**: one per planned layer, plus one for the [bottom interface]({{ '/hardware/assembly/distribution/bin-frame/bottom-interface/' | relative_url }}) and one for the [top interface]({{ '/hardware/assembly/distribution/top-interface/' | relative_url }}).
+An N-layer machine needs **N + 1 of these**: one per planned layer, plus one for the [top interface]({{ '/hardware/assembly/distribution/top-interface/' | relative_url }}). The [bottom interface]({{ '/hardware/assembly/distribution/bin-frame/bottom-interface/' | relative_url }}) does not get a frame of its own — it hangs underneath the bottom layer's frame, off the same six spokes.
 
-The aluminum extrusion is cut to length; the [framing cut list](https://parts-calculator.basically.website/framing) has the exact dimensions. Each frame uses 6 A/G (320mm) and 6 B/H (158mm). The 24 T-nuts in the list above aren't used by anything in this guide — they're pre-installed in step 1 while the extrusion ends are still accessible, for the bin retainers a later page attaches to the outer ring.
+The aluminum extrusion is cut to length; the [framing cut list](https://parts-calculator.basically.website/framing) has the exact dimensions. Each frame uses 6 A/G (320mm) and 6 B/H (158mm).
 
-This frame's fastener total is fixed: 8 M5x16 screws and 24 T-nuts, all installed in step 1 — steps 2 through 8 use none. Regular layers and bottom two layers reuse these same 24 T-nuts for their bin retainers, so don't count them twice.
+This frame's fastener total is fixed: 12 M5x16 screws, one per extrusion end and so two per bracket, all driven in step 1. Steps 2 through 8 use none, and the frame needs no T-nuts of its own. The bin retainers that later bolt to this ring do use T-nuts, but with the roll-in T-nuts this machine specifies those go into the slot on the [Bin retainers]({{ '/hardware/assembly/distribution/bin-frame/bin-retainers/' | relative_url }}) page, at the step that uses them.
 
 {% include fastener-legend.html %}
 
@@ -54,14 +50,15 @@ This frame's fastener total is fixed: 8 M5x16 screws and 24 T-nuts, all installe
   </figure>
 </div>
 
-Slide piece A/G (Outer horizontal / Horizontal interface frame, 320mm) of aluminum extrusion into an External bracket — side. Use an {% include fastener.html size="M5" variant="socket-button" length="16" %} screw to tap directly through the outer of the two adjacent holes on the External bracket — side, bracing it against the extrusion. If you would rather not tap and brace, place T-nuts in the extrusion and use the inner holes to fasten into them instead.
+Slide piece A/G (Outer horizontal / Horizontal interface frame, 320mm) of aluminum extrusion into an External bracket — side. Where the extrusion goes in, the bracket has two holes next to each other, and you use one of them.
 
-If you are using slide-in T-nuts rather than drop-in or roll-in T-nuts, insert 4 into the outermost section of the extrusion before connecting the next External bracket — side, as this is the last time the ends of the extrusion are accessible.
+**Standard:** use an {% include fastener.html size="M5" variant="socket-button" length="16" %} screw to tap directly through the outer of the two adjacent holes on the External bracket — side (the smaller of the pair), bracing it against the extrusion.
 
-<div class="callout callout-warning">
-  <span class="callout-icon" aria-hidden="true">⚠</span>
-  <p>Before you watch: the video below still shows 2 inner T-nuts fitted partway along the extrusion. Skip those, only the 4 outer T-nuts per extrusion are needed, for the bin retainers added on a later page.</p>
-</div>
+**Option:** if you would rather not tap and brace, place T-nuts in the extrusion and use the inner holes (the larger of the pair) to fasten into them instead. That is 12 more {% include fastener.html size="M5" variant="t-nut" text="M5 T-nuts" %} per frame, on top of the parts list above.
+
+The bracket carries other holes that neither method uses, including one on its inward-facing side further along the extrusion. Leave those empty.
+
+If you are using slide-in T-nuts rather than the roll-in ones this machine specifies, insert 4 into the outermost section of the extrusion before connecting the next External bracket — side, as this is the last time the ends of the extrusion are accessible. Those 4 are for the [bin retainers]({{ '/hardware/assembly/distribution/bin-frame/bin-retainers/' | relative_url }}), and [Fitting T-nuts]({{ '/hardware/helpers/t-nuts/' | relative_url }}) lists every other place the same applies. With roll-in T-nuts there is nothing to do here.
 
 <figure class="video-figure">
   <div class="video-embed video-embed-wide">
@@ -111,9 +108,8 @@ Slide a B/H spoke (158mm) and a Frame crossbeam together. For easy assembly, sta
 
 Repeat step 2 around the hexagon until you have used **6 Frame crossbeams and 5 B/H spokes (158mm)**. Deliberately hold the 6th spoke back — it closes the loop later, in step 7.
 
-<div class="callout callout-warning">
-  <span class="callout-icon" aria-hidden="true">⚠</span>
-  <p>Building this frame for the <a href="{{ '/hardware/assembly/distribution/bin-frame/bottom-interface/' | relative_url }}">bottom interface</a>? Its three Lazy Susan extrusion mounts each bolt into a T-nut in a B/H spoke, on 3 of the 6 spokes alternating around the ring. If you're using slide-in T-nuts, slide 2 into each of those 3 spokes as you build them here in steps 2-3, since this is the last time their ends are open; drop-in or roll-in T-nuts can go in any time before the ring closes in step 7. An ordinary hex frame for a layer needs none of this.</p>
+<div class="callout">
+  <p>Building the <strong>bottom layer's</strong> frame? The <a href="{{ '/hardware/assembly/distribution/bin-frame/bottom-interface/' | relative_url }}">bottom interface</a> hangs off it, and its three Lazy Susan extrusion mounts each bolt into a T-nut in a B/H spoke, on 3 of the 6 spokes alternating around the ring. If you're using slide-in T-nuts, slide 2 into each of those 3 spokes as you build them here in steps 2-3, since this is the last time their ends are open; drop-in or roll-in T-nuts can go in any time before the ring closes in step 7. Every other layer's frame needs none of this.</p>
 </div>
 
 {% include step.html n="4" title="Fit 10 of the 12 Frame 90° brackets" %}
@@ -172,9 +168,14 @@ Double-check that every Frame 90° bracket is still fully seated in its slot. A 
   <figcaption><cite>Photo: BrickCycleAlice.</cite></figcaption>
 </figure>
 
-A hex frame is now complete. Build as many as your machine needs (see the note at the top of this page), then move on to [Bottom interface]({{ '/hardware/assembly/distribution/bin-frame/bottom-interface/' | relative_url }}), [Bottom two layers]({{ '/hardware/assembly/distribution/bin-frame/bottom-two-layers/' | relative_url }}), [Regular layers]({{ '/hardware/assembly/distribution/bin-frame/regular-layers/' | relative_url }}) or [Top interface]({{ '/hardware/assembly/distribution/top-interface/' | relative_url }}) to turn one into the layer you need.
+{% include step.html n="9" title="Fit the External bracket — covers" %}
 
-<div class="callout callout-warning">
-  <span class="callout-icon" aria-hidden="true">⚠</span>
-  <p>This page still hasn't been reconciled against the parts calculator's assembly groupings, which don't currently line up with hex-frame-first construction — see <a href="https://discord.com/channels/1430279849171222682/1542862600935702619/1542885792177983488">the open discussion in Discord</a> before treating that side as final.</p>
+Push an External bracket — cover onto each of the six External bracket — sides. It takes no fasteners of its own, it is held by the fit; the side and the cover together form the collar that a layer's vertical extrusion later stands in.
+
+This is the easy moment to do it. Once a vertical extrusion is standing in a collar, the cover is difficult to slide on past it.
+
+<div class="callout">
+  <p><strong>Building the bottom layer's frame?</strong> That one takes no External bracket — covers. <a href="{{ '/hardware/assembly/distribution/bin-frame/bottom-two-layers/' | relative_url }}">Bottom two layers</a> fits it with External bracket — foot covers instead, one printed part in place of the cover and the External bracket — bottom vertical together. Every other frame takes all six, the top interface's included.</p>
 </div>
+
+A hex frame is now complete. Build as many as your machine needs (see the note at the top of this page), then move on to [Bottom interface]({{ '/hardware/assembly/distribution/bin-frame/bottom-interface/' | relative_url }}), [Bottom two layers]({{ '/hardware/assembly/distribution/bin-frame/bottom-two-layers/' | relative_url }}), [Regular layers]({{ '/hardware/assembly/distribution/bin-frame/regular-layers/' | relative_url }}) or [Top interface]({{ '/hardware/assembly/distribution/top-interface/' | relative_url }}) to turn one into the layer you need.

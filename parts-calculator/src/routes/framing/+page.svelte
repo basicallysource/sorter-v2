@@ -66,7 +66,14 @@
 					<b class="text-text">D stands in for C at the bottom.</b> Every layer above the bottom two
 					gets 6 layer supports (<b class="text-text">C</b>, {lenC} mm). The bottom two share 6 foot
 					extensions (<b class="text-text">D</b>, {lenD} mm), one spanning both, in place of a C on
-					each. So a 1 or 2 layer build has no C in the list at all, and that is not a missing piece.
+					each. So a 1 layer build has no C in the list at all, and that is not a missing piece.
+				</li>
+				<li>
+					<b class="text-text">The top layer needs a C too.</b> The interface frame, the hex frame the
+					electronics bolt onto, is its own ring above the top bin layer, so there is a run of
+					<b class="text-text">C</b> between the two. Piece <b class="text-text">F</b> only spans from
+					that frame up into the Interface brackets. That is why C comes out at 6 × (layers − 1)
+					rather than one set per layer.
 				</li>
 				<li>
 					Pieces that share a cut length stack together at the saw — mark and cut the top bar, the rest

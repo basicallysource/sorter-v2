@@ -29,6 +29,11 @@ parts_needed:
     qty: 2
 ---
 
+<div class="callout callout-warning">
+  <span class="callout-icon" aria-hidden="true">&#9888;</span>
+  <p><b>This part is retired.</b> It was replaced on 2026-09-02 by the <a href="{{ '/hardware/assembly/feeder/camera-lamp/' | relative_url }}">camera lamp</a>, one per channel, which carries both the light and the camera. This page is kept for machines already built this way. Do not print or buy these parts for a new build.</p>
+</div>
+
 <div class="prep-item">
   <div class="prep-item-body">
     <p><strong>Build a <a href="{{ '/hardware/assembly/feeder/c-channel/' | relative_url }}">C-channel</a> before you start.</strong> It's a required component of this page, not optional or covered here — Step 4 bolts the post onto one's NEMA bracket, it doesn't build one.</p>

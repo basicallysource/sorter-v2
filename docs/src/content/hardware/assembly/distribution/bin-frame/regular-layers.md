@@ -15,20 +15,12 @@ warning: >-
   builder.** The old steps 1-2 (outer ring, spokes) are gone; build a hex
   frame on that page first. Correct it as you build.
 parts_needed:
-  - part: ext-bracket-cover
-    qty: 6
   - part: ext-bracket-bottom-vertical
-    qty: 6
-  - part: bin-retainer-left
-    qty: 6
-  - part: bin-retainer-right
     qty: 6
   - part: ext-2020-c
     qty: 6
   - part: scr-m5-16-shcs
     qty: 36
-  - part: scr-m5-12-shcs
-    qty: 24
 ---
 
 Each layer holds one chute-and-bin pair (built separately) that catches pieces routed to it; a regular layer's job is simply to repeat the same hexagonal ring, vertical supports, and flange joint as the layer below it, so the stack can go as tall as the machine needs.
@@ -45,7 +37,15 @@ This guide covers creating a regular layer. It's also the basis for creating the
   </figure>
 </div>
 
-The aluminum extrusion is cut to length; the [framing cut list](https://parts-calculator.basically.website/framing) has the exact dimensions for piece C. This page needs no {% include fastener.html size="M5" variant="t-nut" text="M5 T-nuts" %} of its own: the bin retainers in step 2 use the 4 T-nuts per A/G extrusion that [Build the hex frame]({{ '/hardware/assembly/distribution/bin-frame/hex-frame/' | relative_url }}) already pre-installs for exactly this purpose.
+The aluminum extrusion is cut to length; the [framing cut list](https://parts-calculator.basically.website/framing) has the exact dimensions for piece C. The bin retainers in step 2 are the only thing on this layer that takes {% include fastener.html size="M5" variant="t-nut" text="M5 T-nuts" %}, and they carry their own parts on their own page, so neither the retainers nor their fasteners are in the list above. [Fitting T-nuts]({{ '/hardware/helpers/t-nuts/' | relative_url }}) covers the nuts themselves.
+
+The 36 {% include fastener.html size="M5" variant="socket-button" length="16" %} in the list above are three pairs at each of the six corners, and nothing else on this page takes a screw:
+
+- **12** clamping the External bracket — side onto piece C, 2 per corner (step 1)
+- **12** through the External bracket — bottom vertical's outer holes onto the same extrusion, 2 per corner (step 1)
+- **12** up through that flange into the layer above, 2 per corner (step 3)
+
+The hex frame's own 12 are on [its page]({{ '/hardware/assembly/distribution/bin-frame/hex-frame/' | relative_url }}), and the bin retainers' 24 are on [theirs]({{ '/hardware/assembly/distribution/bin-frame/bin-retainers/' | relative_url }}), so a complete layer is 72.
 
 {% include fastener-legend.html %}
 
@@ -62,9 +62,8 @@ The aluminum extrusion is cut to length; the [framing cut list](https://parts-ca
   </figure>
 </div>
 
-<div class="callout callout-warning">
-  <span class="callout-icon" aria-hidden="true">⚠</span>
-  <p>Fit the External bracket — cover onto the External bracket — side now, at each corner of your hexagon. It's difficult to slide on once piece C is in place.</p>
+<div class="callout">
+  <p>The External bracket — covers are already on, fitted in <a href="{{ '/hardware/assembly/distribution/bin-frame/hex-frame/' | relative_url }}#step-9">Build the hex frame, step 9</a>. If a corner is missing one, put it on before you stand piece C in it, because it is difficult to slide on afterwards.</p>
 </div>
 
 Slot piece C (Layer vertical support) of aluminum extrusion between the External bracket — cover and the External bracket — side. At typical cut length, piece C sits about 3 mm short of both the top and bottom of the bracket run. Position it so that 3 mm gap is at the bottom, leaving the extrusion flush (or nearly flush) at the top. Use 2 {% include fastener.html size="M5" variant="socket-button" length="16" %} screws tapped through the holes near the bottom of the External bracket — side to secure the extrusion.
@@ -91,7 +90,7 @@ Matching parts from the same print run are embossed with a shared set code (e.g.
   <figcaption><cite>Photo: zed0.</cite></figcaption>
 </figure>
 
-On each side of the hexagon, attach both the Bin retainer (left) and Bin retainer (right) to the front face of A/G (Outer horizontal / Horizontal interface frame) using 4 {% include fastener.html size="M5" variant="socket-button" length="12" %} screws into the T-nuts your hex frame already has installed there.
+Twelve retainers go on each layer, six pairs, one pair per face of the hexagon. They are the same on every bin layer, so the step is on its own page: **[Bin retainers]({{ '/hardware/assembly/distribution/bin-frame/bin-retainers/' | relative_url }})**, including the T-nuts they fasten into. Do it now, with the covers on and before the layer goes onto the stack, so you are still working on a frame you can turn around.
 
 A regular layer is now complete.
 

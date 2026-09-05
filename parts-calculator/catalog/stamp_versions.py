@@ -10,7 +10,11 @@ re-export of the same design and is not a version.
 
 Assemblies version the same way, and what gets carried onto the superseded
 entry is a snapshot of the lines as they were, each pinned to the member's
-uid at the time, so the box as built then reads back part by part.
+uid at the time, so the box as built then reads back part by part. What the
+site SHOWS when flipping to a superseded version comes from git itself:
+run scripts/version_snapshots.py after this script and it materializes each
+newly superseded version's snapshot -- the era's own generated records,
+subsetted from its commit -- into static/versions/.
 
 The workflow the version system assumes:
   1. Mint a uid (`python catalog/mint_uid.py`), put it on the part, bump
@@ -24,8 +28,12 @@ The workflow the version system assumes:
   3. Run this script. It stamps the pending version with the commit that
      changed the uid, and writes the REPLACED uid + stl_hash onto the version
      it superseded -- which is how old geometry stays retrievable forever.
-  4. Commit the resulting parts.json (+ re-run generate.py) as a small "stamp"
-     commit.
+     The first stamp on a node has no superseded entry to write onto, so the
+     script adds one (undated: the state from before anything was dated),
+     and the moment before the change still resolves on the timeline.
+  4. Run scripts/version_snapshots.py so the newly superseded version's
+     static snapshot exists, then commit the resulting parts.json + snapshot
+     (+ re-run generate.py) as a small "stamp" commit.
 
 Unchanged parts are left alone, so this is safe to run repeatedly. Run:
   /opt/homebrew/opt/python@3.11/libexec/bin/python stamp_versions.py [--dry-run]
@@ -48,17 +56,31 @@ def manifest_commits():
     return [h for h in out.splitlines() if h.strip()]
 
 
+_manifests = {}
+
+
+def manifest_at(commit):
+    """parts.json as of `commit`, or None if unreadable there."""
+    if commit in _manifests:
+        return _manifests[commit]
+    r = subprocess.run(["git", "-C", HERE, "show", f"{commit}:./parts.json"],
+                       capture_output=True)
+    d = None
+    if r.returncode == 0 and r.stdout:
+        try:
+            d = json.loads(r.stdout, object_pairs_hook=collections.OrderedDict)
+        except ValueError:
+            d = None
+    _manifests[commit] = d
+    return d
+
+
 def pins_at(commit):
     """As of `commit`: {"parts": {id: (uid, stl_hash)}, "assemblies": {id: (uid,
     lines)}} with each line pinned to its member's uid then, or None if
     parts.json is unreadable there."""
-    r = subprocess.run(["git", "-C", HERE, "show", f"{commit}:./parts.json"],
-                       capture_output=True)
-    if r.returncode != 0 or not r.stdout:
-        return None
-    try:
-        d = json.loads(r.stdout)
-    except ValueError:
+    d = manifest_at(commit)
+    if d is None:
         return None
     member_uid = {p["id"]: p.get("uid") for p in d.get("parts", [])}
     member_uid.update({a["id"]: a.get("uid") for a in d.get("assemblies", [])})
@@ -120,12 +142,21 @@ def main():
         commit, (replaced_uid, replaced_pin) = found
         versions[-1]["commit"] = commit
         stamped.append((p["id"], versions[-1].get("version"), commit))
+        pin_key = "stl_hash" if kind == "parts" else "lines"
+        newest_ver = str(versions[-1].get("version"))
+        if len(versions) == 1 and newest_ver != "1" and replaced_uid and replaced_pin:
+            # the node's first stamp: nothing recorded the state it just left
+            prev_ver = str(int(newest_ver) - 1) if newest_ver.isdigit() else "1"
+            versions.insert(0, collections.OrderedDict([
+                ("version", prev_ver), ("uid", replaced_uid),
+                ("message", "As recorded before the first stamped change."),
+                (pin_key, replaced_pin)]))
+            print(f"  + {p['id']}: wrote v{prev_ver} ({replaced_uid}), the state it superseded")
         if len(versions) > 1 and not versions[-2].get("uid"):
             if replaced_uid and replaced_pin:
                 old = versions[-2]
                 # a part pins its geometry (stl_hash); an assembly its lines,
                 # each carrying the member's uid of the day
-                pin_key = "stl_hash" if kind == "parts" else "lines"
                 versions[-2] = collections.OrderedDict(
                     [("version", old.get("version")), ("uid", replaced_uid)]
                     + [(k, v) for k, v in old.items() if k != "version"]

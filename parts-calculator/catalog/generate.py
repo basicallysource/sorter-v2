@@ -588,13 +588,14 @@ def service_render(stl_abs):
 
 
 # ---------------------------------------------------------------- slicing
-def slice_part(stl_abs, profiles, support=False, force=False):
+def slice_part(stl_abs, profiles, support=False, force=False, orient=False):
     if profiles is None:
         return slice_remote(stl_abs, support=support, force=force)
     machine_path, process_off, process_on, filament_path = profiles
     process_path = process_on if support else process_off
     stl_bytes = open(stl_abs, "rb").read()
-    sig = settings_signature() + ("|support" if support else "|nosupport")
+    sig = (settings_signature() + ("|support" if support else "|nosupport")
+           + ("|orient" if orient else ""))
     key = hashlib.sha1(stl_bytes + sig.encode()).hexdigest()[:16]
     cdir = os.path.join(CACHE, key)
     info_path = os.path.join(cdir, "info.json")
@@ -623,7 +624,7 @@ def slice_part(stl_abs, profiles, support=False, force=False):
     cmd = [ORCA,
            "--load-settings", f"{machine_path};{process_path}",
            "--load-filaments", filament_path,
-           "--orient", "0", "--arrange", "1", "--slice", "0",
+           "--orient", "1" if orient else "0", "--arrange", "1", "--slice", "0",
            "--export-3mf", "out.3mf", "--outputdir", cdir, prepared]
     with open(os.path.join(cdir, "slice.log"), "w") as log:
         rc = subprocess.run(cmd, stdout=log, stderr=subprocess.STDOUT).returncode
@@ -876,9 +877,19 @@ def check_assemblies(manifest, part_ids):
         line_sets += [(f"v{v.get('version')}", v.get("lines") or []) for v in asm.get("versions") or []]
         for where, lines in line_sets:
             for line in lines:
+                if line.get("param") is not None:
+                    # a param slot; the name must be declared on the assembly
+                    if line["param"] not in (asm.get("params") or {}):
+                        bad.append(f"{asm['id']} {where}: param {line['param']!r} "
+                                   f"is not declared in this assembly's params")
+                    continue
                 ref = line.get("part") or line.get("assembly")
                 if ref not in known:
                     bad.append(f"{asm['id']} {where}: {ref!r} is not a part or assembly")
+        for name, spec in (asm.get("params") or {}).items():
+            if (spec or {}).get("default") not in known:
+                bad.append(f"{asm['id']} param {name}: default "
+                           f"{(spec or {}).get('default')!r} is not a part")
         for c in asm.get("candidates") or []:
             if not (re.fullmatch(r"[a-z0-9]{4}", str(c.get("uid", ""))) and c.get("lines")):
                 bad.append(f"{asm['id']}: a candidate needs a 4-char uid and lines")
@@ -1095,6 +1106,7 @@ def main():
     plain_members = []    # the same parts unstamped, for whoever unticks "engrave"
     failed = []
     forced_support = []
+    forced_orient = []
     printed = [p for p in manifest["parts"] if p.get("kind", "printed") == "printed"]
     for i, p in enumerate(printed, 1):
         if not p.get("stl_hash"):
@@ -1109,6 +1121,14 @@ def main():
             info = slice_part(stl_abs, profiles, support=True, force=args.force)
             if info is not None:
                 forced_support.append(p["id"])
+        if info is None:
+            # Some geometry cannot be sliced in its modeled orientation at
+            # all (the camera lamp arm). Let Orca auto-orient it: grams
+            # barely depend on orientation, which is all this number is for.
+            info = slice_part(stl_abs, profiles, support=True, force=args.force,
+                              orient=True)
+            if info is not None:
+                forced_orient.append(p["id"])
         if info is None:
             failed.append(p["id"])
             continue
@@ -1262,6 +1282,9 @@ def main():
     if forced_support:
         print(f"  ~ {len(forced_support)} part(s) needed support to slice (floating regions "
               f"in modeled orientation); sliced WITH support: {', '.join(forced_support)}")
+    if forced_orient:
+        print(f"  ~ {len(forced_orient)} part(s) could not slice in modeled orientation at "
+              f"all; auto-oriented WITH support for the weight: {', '.join(forced_orient)}")
     if failed:
         print(f"  ! {len(failed)} part(s) FAILED to slice: {', '.join(failed)}")
 

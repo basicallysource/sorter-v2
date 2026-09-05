@@ -11,8 +11,8 @@
 		"density_g_cm3": 1.32,
 		"cost_per_kg": 24.99,
 		"commit_base_url": "https://github.com/basicallysource/sorter-v2/commit/",
-		"all_parts_zip": "https://assets.basically.website/sorter-parts/all-parts-4791476a8632.zip",
-		"all_parts_plain_zip": "https://assets.basically.website/sorter-parts/all-parts-plain-81b37b24d484.zip"
+		"all_parts_zip": "https://assets.basically.website/sorter-parts/all-parts-b9de86b7d2b1.zip",
+		"all_parts_plain_zip": "https://assets.basically.website/sorter-parts/all-parts-plain-3a0441932286.zip"
 	},
 	"sections": [
 		{
@@ -68,6 +68,8 @@
 			"id": "replace-c-channel-supports",
 			"name": "Replace prototype C-channel supports",
 			"priority": "P2",
+			"status": "complete",
+			"completed_at": "2026-09-02",
 			"description": "Replace the current C-channel legs, feet, and leg extensions. These prototype parts work, but they are unstable and will be replaced with improved designs.",
 			"targets": {
 				"parts": [
@@ -82,6 +84,8 @@
 			"name": "Widen the C-channel output guide",
 			"priority": "P0",
 			"condition": "broken",
+			"status": "complete",
+			"completed_at": "2026-09-02",
 			"description": "Update the output guide so large pieces that are still within specification can pass through the C-channel exit.",
 			"targets": {
 				"parts": [
@@ -343,6 +347,7 @@
 			"id": "delete-unused-m3-tbd-placeholder",
 			"name": "Delete the unused M3 screw placeholder",
 			"priority": "P4",
+			"condition": "retired",
 			"description": "This placeholder screw is not used anywhere in the machine any more \u2014 every joint that carried it (the cable-mount cage bracket, the camera extension, the Orange Pi mount) turned out to already have a specific screw recorded, and those catalog lines have been updated to point at the real ones. It should be deleted outright, but a minted part id has to stay resolvable once it exists, and the catalog's own consistency check refuses a change that removes one, so deleting it needs that check overridden by someone who can make that call, not an edit from here. Tracked as sorter-v2 issue #453.",
 			"targets": {
 				"hardware": [
@@ -354,10 +359,35 @@
 			"id": "delete-unused-m3-shcs-tbd-placeholder",
 			"name": "Delete the unused M3 socket/button head length-TBD placeholder",
 			"priority": "P4",
+			"condition": "retired",
 			"description": "This placeholder screw is not used anywhere in the machine \u2014 it stood in for the basically Embedded Control Board's screws before they were measured as M3 x 6 mm button head (scr-m3-6-bhcs), and nothing has called for it since. It should be deleted outright, but a minted part id has to stay resolvable once it exists, and the catalog's own consistency check refuses a change that removes one, so deleting it needs that check overridden by someone who can make that call, not an edit from here. Tracked as sorter-v2 issue #454.",
 			"targets": {
 				"hardware": [
 					"scr-m3-shcs-tbd"
+				]
+			}
+		},
+		{
+			"id": "delete-unused-m3-8-shcs-screw",
+			"name": "Delete the unused M3 x 8 mm socket/button head screw",
+			"priority": "P4",
+			"condition": "retired",
+			"description": "This screw is not used anywhere in the machine any more. It was added as the clamp screw holding the C-channel input gear (12T) onto the NEMA 17 shaft flat; the C-channel overhaul established that the screws on that assembly are countersunk, so the joint carries the M3 x 8 mm countersunk (scr-m3-8-cs) instead, and this row has no quantity anywhere. It should be deleted outright, but a minted part id has to stay resolvable once it exists, and the catalog's own consistency check refuses a change that removes one, so deleting it needs that check overridden by someone who can make that call, not an edit from here. Tracked as sorter-v2 issue #536.",
+			"targets": {
+				"hardware": [
+					"scr-m3-8-shcs"
+				]
+			}
+		},
+		{
+			"id": "delete-unused-m3-15-washer",
+			"name": "Delete the unused M3 x 15 mm washer",
+			"priority": "P4",
+			"condition": "retired",
+			"description": "This washer is not used anywhere in the machine. It was added to match the documentation's description of the interface idler gear joint, under the M3 x 35 screw holding the gear onto the NEMA 23 bracket, and that description was wrong: the joint uses the printed chute stepper idler bearing retainers instead, so the washer was never correct there and its last assembly line was dropped on 2026-08-25. It should be deleted outright, but a minted part id has to stay resolvable once it exists, and the catalog's own consistency check refuses a change that removes one, so deleting it needs that check overridden by someone who can make that call, not an edit from here. Tracked as sorter-v2 issue #478.",
+			"targets": {
+				"hardware": [
+					"washer-m3-15"
 				]
 			}
 		},
@@ -376,6 +406,21 @@
 				],
 				"assemblies": [
 					"servo-adapter"
+				]
+			}
+		},
+		{
+			"id": "camera-clasp-screw-count",
+			"name": "Adapted camera module: the clasp takes 2 screws, not 4",
+			"priority": "P3",
+			"description": "The Adapted camera module lists 4x M3 x 8 countersunk and marks the count as not confirmed at the bench. The published STLs have only two screw positions: the Camera clasp bottom has two 3.50 mm clearance holes with a countersink on its underside, the Camera clasp top has the two matching 2.80 mm self-tapping pilots 5.00 mm deep, and the pair sits on the diagonal 43.2 mm apart. There is no third or fourth hole in either half. Changing the line is an assembly revision and has to be stamped as a new version, so the count is left as authored until somebody does that with a build in front of them. Note also that an M3 x 8 countersunk only reaches about 2 mm into the top half through the 6 mm bottom half, so the length is worth checking at the same time. Measured 2026-09-05 while writing the camera lamp assembly docs page.",
+			"targets": {
+				"assemblies": [
+					"adapted-camera-module"
+				],
+				"parts": [
+					"camera-clasp-top",
+					"camera-clasp-bottom"
 				]
 			}
 		}
@@ -437,6 +482,11 @@
 			"id": "bin",
 			"name": "Bins",
 			"default": "ivory-white"
+		},
+		{
+			"id": "channel",
+			"name": "C-channels",
+			"default": "ash-gray"
 		}
 	],
 	"families": [
@@ -488,25 +538,18 @@
 	"assemblies": [
 		{
 			"id": "light-post-assembly",
-			"uid": "v06x",
-			"version": "1",
+			"uid": "lxof",
+			"version": "2",
 			"name": "Light post",
-			"description": "The feeder light post: post, cap, and cap adapter. 2 per machine. Bolts to a C-channel NEMA bracket.",
-			"status": "partial",
+			"description": "The feeder light post: the post, the 50 mm COB plate on its end lighting down the channel, and the cap adapter and cap over it. 2 per machine, one each on C-channels 2 and 3, bolted to the C-channel drive's NEMA bracket. Unused since 2026-09-02: the Camera lamp replaced the light post, the overhead camera mount, the classification dome and the camera & LED insert. Do not re-add from old docs or photos.",
 			"docs": "/hardware/assembly/feeder/light-post/",
-			"joining": [
-				{
-					"method": "self-tap",
-					"note": "The two [[hw:scr-m3-20-cs]] screws that join the post to the NEMA bracket thread straight into the printed post \u2014 no insert, no nut."
-				}
-			],
 			"lines": [
 				{
 					"part": "light-post",
 					"qty": 1
 				},
 				{
-					"part": "light-post-cap",
+					"part": "led-cob-50mm-24v",
 					"qty": 1
 				},
 				{
@@ -518,12 +561,94 @@
 					"qty": 3
 				},
 				{
-					"part": "scr-m3-20-cs",
-					"qty": 2
+					"part": "light-post-cap",
+					"qty": 1
+				}
+			],
+			"connections": [
+				{
+					"from": "light-post-cap-adapter",
+					"to": "light-post",
+					"via": "scr-m3-12-cs",
+					"qty": 3,
+					"method": "self-tap",
+					"note": "Down through the adapter's three clearance holes and the COB plate clamped under it, threading into the pilot holes in the post's end."
 				},
 				{
-					"part": "led-cob-50mm-24v",
-					"qty": 1
+					"from": "light-post-cap",
+					"to": "light-post-cap-adapter",
+					"qty": 1,
+					"method": "gravity",
+					"note": "The cap just sits on the adapter."
+				}
+			],
+			"images": [
+				{
+					"url": "https://assets.basically.website/sorter-parts/light-post-assembled-full-2b59e7e84bdb.jpg",
+					"alt": "A finished light post on the bench: the black printed post with the 50 mm COB plate on its end, and the red and black leads running out of the post to a DC barrel plug",
+					"caption": "The light post, assembled."
+				},
+				{
+					"url": "https://assets.basically.website/sorter-parts/light-post-top-cap-off-full-d076a7bff4a1.jpg",
+					"alt": "The end of the post with the cap off: the aluminium back of the COB plate with the black cap adapter on it, three countersunk screws going down through both into the post, and the leads coming up through the centre hole",
+					"caption": "Cap off: the adapter and its three M3 \u00d7 12 through the plate into the post."
+				},
+				{
+					"url": "https://assets.basically.website/sorter-parts/light-post-led-side-full-428b89ff9243.jpg",
+					"alt": "The LED side of the COB plate, close up: the post's forked end holds the plate at its centre, with the leads passing through the centre hole",
+					"caption": "LED side: the post's forked end at the plate's centre."
+				},
+				{
+					"url": "https://assets.basically.website/sorter-parts/light-post-led-side-centre-full-b25b6589047d.jpg",
+					"alt": "The LED side of the COB plate straight on: the post's forked end at the centre with the leads leaving through it",
+					"caption": "LED side, straight on."
+				}
+			],
+			"versions": [
+				{
+					"version": "1",
+					"uid": "v06x",
+					"message": "As recorded before the first stamped change.",
+					"lines": [
+						{
+							"part": "light-post",
+							"qty": 1,
+							"uid": "oac5"
+						},
+						{
+							"part": "light-post-cap",
+							"qty": 1,
+							"uid": "7a8e"
+						},
+						{
+							"part": "light-post-cap-adapter",
+							"qty": 1,
+							"uid": "jcnt"
+						},
+						{
+							"part": "scr-m3-12-cs",
+							"qty": 3,
+							"uid": "0a9x"
+						},
+						{
+							"part": "scr-m3-20-cs",
+							"qty": 2,
+							"uid": "60g4"
+						},
+						{
+							"part": "led-cob-50mm-24v",
+							"qty": 1,
+							"uid": "s34o"
+						}
+					]
+				},
+				{
+					"version": "2",
+					"uid": "lxof",
+					"date": "2026-09-02",
+					"message": "The two M3 \u00d7 20 that bolt the post to the C-channel drive's NEMA bracket moved out to C-channels 2 and 3: the joint belongs to the node that holds both sides. The COB plate, the adapter and the three M3 \u00d7 12 that clamp them to the post are now a recorded joint. No physical change.",
+					"breaking": false,
+					"commit": "271ea214"
 				}
 			]
 		},
@@ -534,7 +659,6 @@
 			"name": "External distribution-frame bracket",
 			"description": "Three parts that bolt together into one external bracket. 6 per distribution frame (per layer). The cover clips on and takes no screws. The top interface uses only the side and cover from this set, no bottom vertical, see the interface assembly.",
 			"docs": "/hardware/helpers/external-bracket/",
-			"status": "partial",
 			"joining": [
 				{
 					"method": "self-tap",
@@ -567,7 +691,6 @@
 			"name": "Fixed upper section",
 			"description": "The interface's fixed upper section: the upper-fixed-section plate, its ribs (5 plain + 1 with the limit-switch gap), and the big spacer. 1 per interface. Each rib takes 2 \u00d7 [[hw:scr-m5-16-shcs]] into the plate; the screw that ties it to its bracket's extrusion belongs to the interface above.",
 			"docs": "/hardware/assembly/distribution/top-interface/",
-			"status": "partial",
 			"joining": [
 				{
 					"method": "self-tap",
@@ -604,7 +727,6 @@
 			"name": "Cable clamp",
 			"description": "Inner + outer ribbon cable clamp; the two halves clamp together around the cable and the pair bolts to the top interface chute mount.",
 			"docs": "/hardware/assembly/distribution/top-interface/",
-			"status": "partial",
 			"lines": [
 				{
 					"part": "cable-clamp-inner",
@@ -626,12 +748,11 @@
 		},
 		{
 			"id": "classification-chamber",
-			"uid": "fyqw",
-			"version": "2",
-			"name": "Classification chamber",
-			"description": "The classification chamber: the dome, the finned rotor, and the camera & LED insert. All three print white, so the chamber bounces light onto the part instead of absorbing it.",
+			"uid": "5tvh",
+			"version": "3",
+			"name": "C-channel 4 - Classification",
+			"description": "The lowest channel, where classification happens: a C-channel drive with the finned rotor, the Short and Angled Output Guide, and a Camera lamp carrying the IMX415 4K camera.",
 			"docs": "/hardware/assembly/feeder/classification-chamber/",
-			"status": "partial",
 			"versions": [
 				{
 					"version": "1",
@@ -643,9 +764,39 @@
 					"version": "2",
 					"uid": "fyqw",
 					"date": "2026-08-31",
-					"message": "First recorded line: the finned rotor unit (rotor + bolted-on Output gear (130T)). Marked partial \u2014 the dome and the camera & LED insert are still unrecorded.",
+					"message": "First recorded line: the finned rotor unit (rotor + bolted-on Output gear (130T)); the dome and the camera & LED insert were still unrecorded.",
 					"breaking": false,
-					"commit": null
+					"commit": "aa3a4bac",
+					"lines": [
+						{
+							"assembly": "c-channel",
+							"qty": 1,
+							"uid": "4tvc"
+						},
+						{
+							"assembly": "rotor-unit-finned",
+							"qty": 1,
+							"uid": "7ol7"
+						},
+						{
+							"part": "classification-dome",
+							"qty": 1,
+							"uid": "fheh"
+						},
+						{
+							"assembly": "camera-led-insert-assembly",
+							"qty": 1,
+							"uid": "434r"
+						}
+					]
+				},
+				{
+					"version": "3",
+					"uid": "5tvh",
+					"date": "2026-09-02",
+					"message": "Renamed from Classification chamber and consolidated with the other channels: the dome and the Camera & LED insert give way to the Camera lamp with the IMX415 4K camera, and it gains the output guide. Same drive, same finned rotor.",
+					"breaking": false,
+					"commit": "e22fce30"
 				}
 			],
 			"lines": [
@@ -658,12 +809,24 @@
 					"qty": 1
 				},
 				{
-					"part": "classification-dome",
+					"part": "output-guide",
 					"qty": 1
 				},
 				{
-					"assembly": "camera-led-insert-assembly",
-					"qty": 1
+					"assembly": "camera-lamp",
+					"qty": 1,
+					"args": {
+						"camera": "cam-imx415"
+					}
+				}
+			],
+			"connections": [
+				{
+					"from": "output-guide",
+					"to": "c-channel",
+					"qty": 1,
+					"method": "friction",
+					"note": "The guide pushes onto the C-channel drive and is held by the fit alone."
 				}
 			]
 		},
@@ -673,7 +836,6 @@
 			"version": "1",
 			"name": "Chute bearing assembly",
 			"description": "The flap's bearing assembly: left + right bearing holders, the race between them, and the covers. Carries 10 M3 inserts and the two flap bearings, one screw per insert: 6 M3 \u00d7 8 hold the covers to the holders (3 each), 4 hold the holders to the race (2 each).",
-			"status": "partial",
 			"lines": [
 				{
 					"part": "bearing-race",
@@ -712,7 +874,6 @@
 			"name": "Servo adapter (MG995)",
 			"description": "MG995 servo adapter: servo side + flap side, clamping the MG995 Servo Horn (comes with the servo) between them. 4 M3 x 8 countersunk hold the two halves together, no heat inserts.",
 			"docs": "/hardware/assembly/distribution/chute/door-module/",
-			"status": "partial",
 			"lines": [
 				{
 					"part": "servo-adapter-servo-side",
@@ -739,7 +900,6 @@
 			"name": "Servo assembly (MG995)",
 			"description": "The MG995 servo in its bracket: lower arm, side arm, cover, housing. Bolts to the chute core's two arm inserts as a unit.",
 			"docs": "/hardware/assembly/distribution/chute/mg995-servo/servo-mount/",
-			"status": "partial",
 			"lines": [
 				{
 					"part": "servo-bracket-lower-arm",
@@ -776,8 +936,7 @@
 			"uid": "b3zx",
 			"version": "1",
 			"name": "Overhead camera mount",
-			"description": "Camera mount for the C-channels. 2 per machine, each hanging off two ~1 ft steel rods.",
-			"status": "partial",
+			"description": "Camera mount for the C-channels. 2 per machine, each hanging off two ~1 ft steel rods. Unused since 2026-09-02: the Camera lamp replaced the light post, the overhead camera mount, the classification dome and the camera & LED insert. Do not re-add from old docs or photos.",
 			"docs": "/hardware/assembly/feeder/camera-mount/",
 			"lines": [
 				{
@@ -821,7 +980,6 @@
 			"name": "Layer connector",
 			"description": "Pair of connectors. 1 of each per layer + 1 of each per bottom interface.",
 			"docs": "/hardware/assembly/distribution/chute/layer-connectors/",
-			"status": "partial",
 			"lines": [
 				{
 					"part": "layer-connector-1",
@@ -840,7 +998,6 @@
 			"name": "Chute limit switch",
 			"description": "Interface limit switch: printed dowel pin, housing, hammer, and the switch itself. Bolts to the interface frame as a unit.",
 			"docs": "/hardware/assembly/distribution/top-interface/",
-			"status": "partial",
 			"lines": [
 				{
 					"part": "limit-switch-dowel-pin",
@@ -920,7 +1077,6 @@
 			"name": "Cable cage",
 			"description": "Six cable cage brackets (5 regular + 1 cable mount) stacked with the ribbon cable clamp. Also sandwiches the laser-cut cage top and bottom plates, which are not in the parts registry yet.",
 			"docs": "/hardware/assembly/distribution/top-interface/",
-			"status": "partial",
 			"lines": [
 				{
 					"part": "interface-cage-bracket",
@@ -955,7 +1111,6 @@
 			"name": "Meanwell 24V PSU box",
 			"description": "Enclosure for the Meanwell 24V power supply: back mount, connections plate, and cap, screwed to the supply's own case.",
 			"docs": "/hardware/electronics/installation/psu-box/",
-			"status": "partial",
 			"lines": [
 				{
 					"part": "meanwell-psu-back-mount",
@@ -1047,8 +1202,7 @@
 			"uid": "q2re",
 			"version": "2",
 			"name": "Camera extension",
-			"description": "Classification-channel camera extension for the 4K camera module: the 50 mm extension tube, its mount, and the camera. 1 per machine.",
-			"status": "partial",
+			"description": "Classification-channel camera extension for the 4K camera module: the 50 mm extension tube, its mount, and the camera. 1 per machine. Unused since 2026-09-02: the Camera lamp replaced the light post, the overhead camera mount, the classification dome and the camera & LED insert. Do not re-add from old docs or photos.",
 			"lines": [
 				{
 					"part": "camera-extension",
@@ -1107,7 +1261,7 @@
 					"date": "2026-09-01",
 					"message": "The 4 \u00d7 M3 \u00d7 12 moved out to the Camera & LED insert assembly: they fasten this whole assembly into the insert, so the joint and its screws belong to the node that holds both. No physical change.",
 					"breaking": false,
-					"commit": null
+					"commit": "e47151a1"
 				}
 			]
 		},
@@ -1118,7 +1272,6 @@
 			"name": "Pico with headers",
 			"description": "The Raspberry Pi Pico with 2.54 mm header pins fitted, so it can seat in the PCB. The board ships bare \u2014 the pins are a separate purchase.",
 			"docs": "/hardware/helpers/pico-headers/",
-			"status": "partial",
 			"joining": [
 				{
 					"method": "solder",
@@ -1143,7 +1296,6 @@
 			"name": "Sorter V2",
 			"description": "The whole machine: feeder on top, interface, the distribution layers between the interfaces, and the bottom interface.",
 			"docs": "/hardware/assembly/",
-			"status": "partial",
 			"lines": [
 				{
 					"assembly": "feeder",
@@ -1198,17 +1350,16 @@
 					"date": "2026-09-01",
 					"message": "The machine splits into what it physically is: the feeder, the superstructure it mounts onto \u2014 top plate, top interface, distribution layers, bottom interface \u2014 and the electronics. No physical change.",
 					"breaking": false,
-					"commit": null
+					"commit": "e47151a1"
 				}
 			]
 		},
 		{
 			"id": "superstructure",
-			"uid": "ywb3",
-			"version": "1",
+			"uid": "t2t9",
+			"version": "2",
 			"name": "Superstructure",
 			"description": "What the feeder and the electronics mount onto: the top plate, the top interface, the distribution layers between the interfaces, and the bottom interface.",
-			"status": "partial",
 			"lines": [
 				{
 					"part": "top-plate",
@@ -1220,7 +1371,11 @@
 				},
 				{
 					"assembly": "layer",
-					"qty": "middle-layers"
+					"qty": "non-bottom-layers"
+				},
+				{
+					"assembly": "bottom-layer",
+					"qty": 1
 				},
 				{
 					"assembly": "bottom-interface",
@@ -1243,19 +1398,60 @@
 					"note": "Through the plate into the top interface's M5 heat-set inserts. The 16 mm length is assumed, not yet confirmed.",
 					"draft": true
 				}
+			],
+			"versions": [
+				{
+					"version": "1",
+					"uid": "ywb3",
+					"message": "As recorded before the first stamped change.",
+					"lines": [
+						{
+							"part": "top-plate",
+							"qty": 1,
+							"uid": "1g22"
+						},
+						{
+							"assembly": "interface",
+							"qty": 1,
+							"uid": "vhrk"
+						},
+						{
+							"assembly": "layer",
+							"qty": "middle-layers",
+							"uid": "mnpn"
+						},
+						{
+							"assembly": "bottom-interface",
+							"qty": 1,
+							"uid": "67uq"
+						},
+						{
+							"part": "scr-m5-16-shcs",
+							"qty": 6,
+							"uid": "2e0s"
+						}
+					]
+				},
+				{
+					"version": "2",
+					"uid": "t2t9",
+					"date": "2026-09-05",
+					"breaking": false,
+					"message": "The stack is n bin layers plus one top interface, not n - 2 layers between two interfaces. The layer node now runs non-bottom-layers (n - 1) and the new bottom-layer node runs once, because the lowest layer carries foot covers instead of bracket covers and bottom verticals. Brings the tree onto the same counts the 3D-parts and framing models already used: n + 1 hexagons, 12n bin retainers, 6 foot covers. No physical change.",
+					"commit": "36826f49"
+				}
 			]
 		},
 		{
 			"id": "feeder",
-			"uid": "y5ws",
-			"version": "3",
+			"uid": "82k8",
+			"version": "2",
 			"name": "Feeder",
-			"description": "Everything above the top interface: the bulk bucket, C-channels 2 and 3, and the classification chamber.",
+			"description": "Everything above the top interface: C-channels 1 (bulk bucket) through 4 (classification).",
 			"docs": "/hardware/assembly/feeder/",
-			"status": "partial",
 			"versions": [
 				{
-					"version": "1",
+					"version": "0.1",
 					"uid": "4swk",
 					"message": "Original version: carried the 3 faceted rotors as bare parts; their bolted-on output gears were inside the C-channel drive.",
 					"lines": [
@@ -1292,7 +1488,7 @@
 					]
 				},
 				{
-					"version": "2",
+					"version": "0.2",
 					"date": "2026-08-31",
 					"message": "The 3 faceted rotors become 3 Rotor unit (faceted) \u2014 rotor + bolted-on Output gear (130T) as one bench unit. No physical change.",
 					"breaking": false,
@@ -1332,12 +1528,72 @@
 					]
 				},
 				{
-					"version": "3",
+					"version": "0.3",
 					"uid": "y5ws",
 					"date": "2026-09-01",
 					"message": "Restructured into the four physical units \u2014 the bulk bucket, C-channels 2 and 3, and the classification chamber \u2014 each carrying its own C-channel drive, rotor, supports, guide or cap, and lighting. No physical change.",
 					"breaking": false,
-					"commit": null
+					"commit": "e47151a1",
+					"lines": [
+						{
+							"assembly": "bulk-bucket",
+							"qty": 1,
+							"uid": "1sej"
+						},
+						{
+							"assembly": "channel-two",
+							"qty": 1,
+							"uid": "7sut"
+						},
+						{
+							"assembly": "channel-three",
+							"qty": 1,
+							"uid": "p55u"
+						},
+						{
+							"assembly": "classification-chamber",
+							"qty": 1,
+							"uid": "fyqw"
+						}
+					]
+				},
+				{
+					"version": "1",
+					"uid": "i4f8",
+					"date": "2026-09-02",
+					"message": "The completed feeder before the C-channel overhaul: the bulk bucket, C-channels 2 and 3, and the classification chamber, with the light posts and overhead cameras \u2014 as built and running. Flip here for every part, revision and screw count of that machine. The 0.x entries below it are the development states of the record on the way here.",
+					"commit": "30279a44",
+					"lines": [
+						{
+							"assembly": "bulk-bucket",
+							"qty": 1,
+							"uid": "1sej"
+						},
+						{
+							"assembly": "channel-two",
+							"qty": 1,
+							"uid": "7sut"
+						},
+						{
+							"assembly": "channel-three",
+							"qty": 1,
+							"uid": "p55u"
+						},
+						{
+							"assembly": "classification-chamber",
+							"qty": 1,
+							"uid": "fyqw"
+						}
+					],
+					"snapshot_at": "30279a44"
+				},
+				{
+					"version": "2",
+					"uid": "82k8",
+					"date": "2026-09-02",
+					"message": "The C-channel overhaul, in progress: the four channels renamed and consolidated, the Camera lamp replacing the light posts, overhead camera mounts, dome and camera & LED insert. When the overhaul is complete this version's moment gets pinned to the completion commit.",
+					"breaking": false,
+					"commit": "d9615615"
 				}
 			],
 			"lines": [
@@ -1364,8 +1620,7 @@
 			"uid": "r6ar",
 			"version": "1",
 			"name": "Channel 3 support",
-			"description": "One of C-channel 3's three standoffs: a foot and the leg the channel dovetails onto.",
-			"status": "partial",
+			"description": "One of C-channel 3's three standoffs: a foot and the leg the channel dovetails onto. Unused since 2026-09-02: the layout guide, support legs and dovetail adapters replaced the prototype foot/leg/leg-extension supports. Do not re-add from old docs or photos.",
 			"lines": [
 				{
 					"part": "foot",
@@ -1391,8 +1646,7 @@
 			"uid": "dp63",
 			"version": "1",
 			"name": "Channel 2 support",
-			"description": "One of C-channel 2's three standoffs: a foot, one leg extension, and the leg the channel dovetails onto.",
-			"status": "partial",
+			"description": "One of C-channel 2's three standoffs: a foot, one leg extension, and the leg the channel dovetails onto. Unused since 2026-09-02: the layout guide, support legs and dovetail adapters replaced the prototype foot/leg/leg-extension supports. Do not re-add from old docs or photos.",
 			"lines": [
 				{
 					"part": "foot",
@@ -1429,8 +1683,7 @@
 			"uid": "xo6j",
 			"version": "1",
 			"name": "Bulk bucket support",
-			"description": "One of the bulk bucket's three standoffs \u2014 the tallest stack: a foot, two leg extensions, and the leg.",
-			"status": "partial",
+			"description": "One of the bulk bucket's three standoffs \u2014 the tallest stack: a foot, two leg extensions, and the leg. Unused since 2026-09-02: the layout guide, support legs and dovetail adapters replaced the prototype foot/leg/leg-extension supports. Do not re-add from old docs or photos.",
 			"lines": [
 				{
 					"part": "foot",
@@ -1471,15 +1724,14 @@
 		},
 		{
 			"id": "bulk-bucket",
-			"uid": "1sej",
-			"version": "1",
-			"name": "Bulk bucket C-channel",
-			"description": "The top feeder unit: a C-channel drive with a white faceted rotor, capped by the Bulk cap instead of an output guide and with no light post, standing on the tallest supports.",
-			"status": "partial",
+			"uid": "jnwt",
+			"version": "3",
+			"name": "C-channel 1 - Bulk bucket",
+			"description": "The top channel, where bulk is dumped in: a C-channel drive with the faceted rotor, the Short and Angled Output Guide, a Camera lamp, and the Bulk cap, standing on the tallest supports.",
 			"lines": [
 				{
-					"assembly": "bulk-bucket-support",
-					"qty": 3
+					"assembly": "channel-one-support-structure",
+					"qty": 1
 				},
 				{
 					"assembly": "c-channel",
@@ -1487,6 +1739,14 @@
 				},
 				{
 					"assembly": "rotor-unit-faceted",
+					"qty": 1
+				},
+				{
+					"part": "output-guide",
+					"qty": 1
+				},
+				{
+					"assembly": "camera-lamp",
 					"qty": 1
 				},
 				{
@@ -1496,25 +1756,108 @@
 			],
 			"connections": [
 				{
-					"from": "bulk-bucket-support",
+					"from": "output-guide",
+					"to": "c-channel",
+					"qty": 1,
+					"method": "friction",
+					"note": "The guide pushes onto the C-channel drive and is held by the fit alone."
+				},
+				{
+					"from": "channel-one-support-structure",
 					"to": "c-channel",
 					"qty": 3,
 					"method": "friction",
-					"note": "Dovetail: each support's leg slides into the C-channel drive from below."
+					"note": "The three dovetail adapters slide into the C-channel drive from below."
+				}
+			],
+			"versions": [
+				{
+					"version": "1",
+					"uid": "1sej",
+					"message": "As recorded before the first stamped change.",
+					"lines": [
+						{
+							"assembly": "bulk-bucket-support",
+							"qty": 3,
+							"uid": "xo6j"
+						},
+						{
+							"assembly": "c-channel",
+							"qty": 1,
+							"uid": "4tvc"
+						},
+						{
+							"assembly": "rotor-unit-faceted",
+							"qty": 1,
+							"uid": "ylvv"
+						},
+						{
+							"part": "bulk-cap",
+							"qty": 1,
+							"uid": "737f"
+						}
+					]
+				},
+				{
+					"version": "2",
+					"uid": "vf8g",
+					"date": "2026-09-02",
+					"message": "Renamed from Bulk bucket C-channel and consolidated with the other channels: gains the Short and Angled Output Guide and a Camera lamp. The supports and mounting are unchanged for now and will be revisited; the Bulk cap stays.",
+					"breaking": false,
+					"commit": "e22fce30",
+					"lines": [
+						{
+							"assembly": "bulk-bucket-support",
+							"qty": 3,
+							"uid": "xo6j"
+						},
+						{
+							"assembly": "c-channel",
+							"qty": 1,
+							"uid": "4tvc"
+						},
+						{
+							"assembly": "rotor-unit-faceted",
+							"qty": 1,
+							"uid": "ylvv"
+						},
+						{
+							"part": "output-guide",
+							"qty": 1,
+							"uid": "z9yd"
+						},
+						{
+							"assembly": "camera-lamp",
+							"qty": 1,
+							"uid": "u4si"
+						},
+						{
+							"part": "bulk-cap",
+							"qty": 1,
+							"uid": "737f"
+						}
+					]
+				},
+				{
+					"version": "3",
+					"uid": "jnwt",
+					"date": "2026-09-02",
+					"message": "The prototype supports give way to the new support structure: the shared layout guide and dovetail adapters with this channel's own legs. An old assembled channel stands on the old feet and does not fit the new layout.",
+					"breaking": true,
+					"commit": "3bbea57f"
 				}
 			]
 		},
 		{
 			"id": "channel-two",
-			"uid": "hi96",
-			"version": "1",
+			"uid": "d60t",
+			"version": "4",
 			"name": "C-channel 2",
-			"description": "The middle feeder channel: a C-channel drive with a white faceted rotor, an output guide and a light post, standing on three supports with one leg extension each.",
-			"status": "partial",
+			"description": "A feeder channel: a C-channel drive with the faceted rotor, the Short and Angled Output Guide and a Camera lamp, standing on three supports.",
 			"lines": [
 				{
-					"assembly": "channel-two-support",
-					"qty": 3
+					"assembly": "channel-two-support-structure",
+					"qty": 1
 				},
 				{
 					"assembly": "c-channel",
@@ -1529,35 +1872,164 @@
 					"qty": 1
 				},
 				{
-					"assembly": "light-post-assembly",
-					"qty": 1
-				},
-				{
-					"assembly": "camera-mount",
+					"assembly": "camera-lamp",
 					"qty": 1
 				}
 			],
 			"connections": [
 				{
-					"from": "channel-two-support",
+					"from": "output-guide",
+					"to": "c-channel",
+					"qty": 1,
+					"method": "friction",
+					"note": "The guide pushes onto the C-channel drive and is held by the fit alone."
+				},
+				{
+					"from": "channel-two-support-structure",
 					"to": "c-channel",
 					"qty": 3,
 					"method": "friction",
-					"note": "Dovetail: each support's leg slides into the C-channel drive from below."
+					"note": "The three dovetail adapters slide into the C-channel drive from below."
+				}
+			],
+			"versions": [
+				{
+					"version": "1",
+					"uid": "hi96",
+					"message": "As recorded before the first stamped change.",
+					"lines": [
+						{
+							"assembly": "channel-two-support",
+							"qty": 3,
+							"uid": "dp63"
+						},
+						{
+							"assembly": "c-channel",
+							"qty": 1,
+							"uid": "4tvc"
+						},
+						{
+							"assembly": "rotor-unit-faceted",
+							"qty": 1,
+							"uid": "ylvv"
+						},
+						{
+							"part": "output-guide",
+							"qty": 1,
+							"uid": "8j3e"
+						},
+						{
+							"assembly": "light-post-assembly",
+							"qty": 1,
+							"uid": "v06x"
+						},
+						{
+							"assembly": "camera-mount",
+							"qty": 1,
+							"uid": "b3zx"
+						}
+					]
+				},
+				{
+					"version": "2",
+					"uid": "7sut",
+					"date": "2026-09-02",
+					"message": "Took in the two M3 \u00d7 20 that bolt the light post to the C-channel drive's NEMA bracket; they were recorded inside the light post. No physical change.",
+					"breaking": false,
+					"commit": "271ea214",
+					"lines": [
+						{
+							"assembly": "channel-two-support",
+							"qty": 3,
+							"uid": "dp63"
+						},
+						{
+							"assembly": "c-channel",
+							"qty": 1,
+							"uid": "4tvc"
+						},
+						{
+							"assembly": "rotor-unit-faceted",
+							"qty": 1,
+							"uid": "ylvv"
+						},
+						{
+							"part": "output-guide",
+							"qty": 1,
+							"uid": "8j3e"
+						},
+						{
+							"assembly": "light-post-assembly",
+							"qty": 1,
+							"uid": "lxof"
+						},
+						{
+							"assembly": "camera-mount",
+							"qty": 1,
+							"uid": "b3zx"
+						},
+						{
+							"part": "scr-m3-20-cs",
+							"qty": 2,
+							"uid": "60g4"
+						}
+					]
+				},
+				{
+					"version": "3",
+					"uid": "qsom",
+					"date": "2026-09-02",
+					"message": "The light post and overhead camera mount give way to the Camera lamp: one arm carrying the camera and the shaded lamp. Their M3 x 20 bolts leave with them.",
+					"breaking": false,
+					"commit": "e22fce30",
+					"lines": [
+						{
+							"assembly": "channel-two-support",
+							"qty": 3,
+							"uid": "dp63"
+						},
+						{
+							"assembly": "c-channel",
+							"qty": 1,
+							"uid": "4tvc"
+						},
+						{
+							"assembly": "rotor-unit-faceted",
+							"qty": 1,
+							"uid": "ylvv"
+						},
+						{
+							"part": "output-guide",
+							"qty": 1,
+							"uid": "z9yd"
+						},
+						{
+							"assembly": "camera-lamp",
+							"qty": 1,
+							"uid": "u4si"
+						}
+					]
+				},
+				{
+					"version": "4",
+					"uid": "d60t",
+					"date": "2026-09-02",
+					"message": "The prototype supports give way to the new support structure: the shared layout guide and dovetail adapters with this channel's own legs. An old assembled channel stands on the old feet and does not fit the new layout.",
+					"breaking": true,
+					"commit": "3bbea57f"
 				}
 			]
 		},
 		{
 			"id": "channel-three",
-			"uid": "xlak",
-			"version": "1",
+			"uid": "wlwr",
+			"version": "4",
 			"name": "C-channel 3",
-			"description": "The lowest feeder channel, just above the classification chamber: a C-channel drive with the gray faceted rotor, an output guide and a light post, on three foot-and-leg supports.",
-			"status": "partial",
+			"description": "A feeder channel: a C-channel drive with the faceted rotor, the Short and Angled Output Guide and a Camera lamp, standing on three supports.",
 			"lines": [
 				{
-					"assembly": "channel-three-support",
-					"qty": 3
+					"assembly": "channel-three-support-structure",
+					"qty": 1
 				},
 				{
 					"assembly": "c-channel",
@@ -1572,21 +2044,151 @@
 					"qty": 1
 				},
 				{
-					"assembly": "light-post-assembly",
-					"qty": 1
-				},
-				{
-					"assembly": "camera-mount",
+					"assembly": "camera-lamp",
 					"qty": 1
 				}
 			],
 			"connections": [
 				{
-					"from": "channel-three-support",
+					"from": "output-guide",
+					"to": "c-channel",
+					"qty": 1,
+					"method": "friction",
+					"note": "The guide pushes onto the C-channel drive and is held by the fit alone."
+				},
+				{
+					"from": "channel-three-support-structure",
 					"to": "c-channel",
 					"qty": 3,
 					"method": "friction",
-					"note": "Dovetail: each support's leg slides into the C-channel drive from below."
+					"note": "The three dovetail adapters slide into the C-channel drive from below."
+				}
+			],
+			"versions": [
+				{
+					"version": "1",
+					"uid": "xlak",
+					"message": "As recorded before the first stamped change.",
+					"lines": [
+						{
+							"assembly": "channel-three-support",
+							"qty": 3,
+							"uid": "r6ar"
+						},
+						{
+							"assembly": "c-channel",
+							"qty": 1,
+							"uid": "4tvc"
+						},
+						{
+							"assembly": "rotor-unit-faceted",
+							"qty": 1,
+							"uid": "ylvv"
+						},
+						{
+							"part": "output-guide",
+							"qty": 1,
+							"uid": "8j3e"
+						},
+						{
+							"assembly": "light-post-assembly",
+							"qty": 1,
+							"uid": "v06x"
+						},
+						{
+							"assembly": "camera-mount",
+							"qty": 1,
+							"uid": "b3zx"
+						}
+					]
+				},
+				{
+					"version": "2",
+					"uid": "p55u",
+					"date": "2026-09-02",
+					"message": "Took in the two M3 \u00d7 20 that bolt the light post to the C-channel drive's NEMA bracket; they were recorded inside the light post. No physical change.",
+					"breaking": false,
+					"commit": "271ea214",
+					"lines": [
+						{
+							"assembly": "channel-three-support",
+							"qty": 3,
+							"uid": "r6ar"
+						},
+						{
+							"assembly": "c-channel",
+							"qty": 1,
+							"uid": "4tvc"
+						},
+						{
+							"assembly": "rotor-unit-faceted",
+							"qty": 1,
+							"uid": "ylvv"
+						},
+						{
+							"part": "output-guide",
+							"qty": 1,
+							"uid": "8j3e"
+						},
+						{
+							"assembly": "light-post-assembly",
+							"qty": 1,
+							"uid": "lxof"
+						},
+						{
+							"assembly": "camera-mount",
+							"qty": 1,
+							"uid": "b3zx"
+						},
+						{
+							"part": "scr-m3-20-cs",
+							"qty": 2,
+							"uid": "60g4"
+						}
+					]
+				},
+				{
+					"version": "3",
+					"uid": "6hxd",
+					"date": "2026-09-02",
+					"message": "The light post and overhead camera mount give way to the Camera lamp: one arm carrying the camera and the shaded lamp. Their M3 x 20 bolts leave with them.",
+					"breaking": false,
+					"commit": "e22fce30",
+					"lines": [
+						{
+							"assembly": "channel-three-support",
+							"qty": 3,
+							"uid": "r6ar"
+						},
+						{
+							"assembly": "c-channel",
+							"qty": 1,
+							"uid": "4tvc"
+						},
+						{
+							"assembly": "rotor-unit-faceted",
+							"qty": 1,
+							"uid": "ylvv"
+						},
+						{
+							"part": "output-guide",
+							"qty": 1,
+							"uid": "z9yd"
+						},
+						{
+							"assembly": "camera-lamp",
+							"qty": 1,
+							"uid": "u4si"
+						}
+					]
+				},
+				{
+					"version": "4",
+					"uid": "wlwr",
+					"date": "2026-09-02",
+					"message": "The prototype supports give way to the new support structure: the shared layout guide and dovetail adapters with this channel's own legs. An old assembled channel stands on the old feet and does not fit the new layout.",
+					"breaking": true,
+					"commit": "3bbea57f"
 				}
 			]
 		},
@@ -1595,8 +2197,7 @@
 			"uid": "434r",
 			"version": "1",
 			"name": "Camera & LED insert assembly",
-			"description": "The Camera & LED insert print with the camera extension assembled into it; the loaded insert drops into the classification dome.",
-			"status": "partial",
+			"description": "The Camera & LED insert print with the camera extension assembled into it; the loaded insert drops into the classification dome. Unused since 2026-09-02: the Camera lamp replaced the light post, the overhead camera mount, the classification dome and the camera & LED insert. Do not re-add from old docs or photos.",
 			"lines": [
 				{
 					"part": "camera-led-insert",
@@ -1628,7 +2229,6 @@
 			"name": "Top interface",
 			"description": "The interface between the feeder and the distribution layers. Its lazy Susan sandwiches the upper fixed section and the chute mount, 4 \u00d7 [[hw:scr-m4-12-cs]] a side, and the plywood top plate bolts down onto the six brackets' inserts.",
 			"docs": "/hardware/assembly/distribution/top-interface/",
-			"status": "partial",
 			"lines": [
 				{
 					"assembly": "interface-bracket-mount",
@@ -2057,18 +2657,154 @@
 					"date": "2026-09-01",
 					"message": "The top plate moved up to the superstructure: it sits on top of the machine at this assembly's level, not inside it. No physical change.",
 					"breaking": false,
-					"commit": null
+					"commit": "e47151a1"
+				}
+			]
+		},
+		{
+			"id": "external-bracket-with-foot",
+			"uid": "hynq",
+			"version": "1",
+			"name": "External bracket with foot cover",
+			"description": "The bottom bin layer's corner segment: the side bracket with the foot cover, which stands in for the cover and the bottom vertical the other frames use.",
+			"lines": [
+				{
+					"part": "ext-bracket-left",
+					"qty": 1
+				},
+				{
+					"part": "ext-bracket-foot-cover",
+					"qty": 1
+				},
+				{
+					"part": "scr-m5-16-shcs",
+					"qty": 2
+				}
+			],
+			"connections": [
+				{
+					"from": "ext-bracket-foot-cover",
+					"to": "ext-bracket-left",
+					"via": "scr-m5-16-shcs",
+					"qty": 2,
+					"method": "self-tap",
+					"note": "Through the foot cover's outer holes into the side bracket, the same two screws and the same holes the bottom vertical uses on every other frame."
+				}
+			]
+		},
+		{
+			"id": "outer-hex-frame-bottom",
+			"uid": "r3v6",
+			"version": "1",
+			"name": "Outer hex frame (bottom layer)",
+			"description": "The outer hexagon of the lowest bin layer: six foot-cover corners with six A/G extrusions slid between them.",
+			"lines": [
+				{
+					"assembly": "external-bracket-with-foot",
+					"qty": 6
+				},
+				{
+					"part": "ext-2020-ag",
+					"qty": 6
+				},
+				{
+					"part": "scr-m5-16-shcs",
+					"qty": 12
+				}
+			],
+			"connections": [
+				{
+					"from": "ext-2020-ag",
+					"to": "external-bracket-with-foot",
+					"qty": 12,
+					"method": "friction",
+					"note": "Each extrusion slides onto a bracket segment at either end -- one on either side of each bracket. These 12 fits hold the ring together."
+				},
+				{
+					"from": "external-bracket-with-foot",
+					"to": "ext-2020-ag",
+					"via": "scr-m5-16-shcs",
+					"qty": 12,
+					"method": "self-tap",
+					"note": "Two per bracket: self-taps through the bracket print and the tip rams against the extrusion, jamming the fit. No T-nuts."
+				}
+			]
+		},
+		{
+			"id": "hex-frame-bottom",
+			"uid": "5l36",
+			"version": "1",
+			"name": "Hex frame (bottom layer)",
+			"description": "The lowest bin layer's hexagonal frame: the same inner hex, seated in the outer hex built from foot-cover corners.",
+			"docs": "/hardware/assembly/distribution/bin-frame/bottom-two-layers/",
+			"lines": [
+				{
+					"assembly": "inner-hex-frame",
+					"qty": 1
+				},
+				{
+					"assembly": "outer-hex-frame-bottom",
+					"qty": 1
+				}
+			]
+		},
+		{
+			"id": "bottom-layer",
+			"uid": "sqsi",
+			"version": "1",
+			"name": "Bottom distribution layer",
+			"description": "The lowest bin layer. Identical to a distribution layer except that its frame carries foot covers instead of bracket covers and bottom verticals, and the bottom interface hangs underneath it.",
+			"docs": "/hardware/assembly/distribution/bin-frame/bottom-two-layers/",
+			"lines": [
+				{
+					"assembly": "hex-frame-bottom",
+					"qty": 1
+				},
+				{
+					"assembly": "chute",
+					"qty": 1
+				},
+				{
+					"part": "bin-retainer-left",
+					"qty": 6
+				},
+				{
+					"part": "bin-retainer-right",
+					"qty": 6
+				},
+				{
+					"part": "scr-m5-16-shcs",
+					"qty": 36
+				}
+			],
+			"connections": [
+				{
+					"from": "bin-retainer-left",
+					"to": "hex-frame-bottom",
+					"via": "scr-m5-16-shcs",
+					"qty": 12,
+					"method": "tnut",
+					"through_mm": 12.8,
+					"note": "Two per retainer, into the 4 T-nuts per A/G extrusion the hex frame pre-installs. Same joint as on a regular distribution layer."
+				},
+				{
+					"from": "bin-retainer-right",
+					"to": "hex-frame-bottom",
+					"via": "scr-m5-16-shcs",
+					"qty": 12,
+					"method": "tnut",
+					"through_mm": 12.8,
+					"note": "Mirror of the left retainer's joint, same bore and same screw."
 				}
 			]
 		},
 		{
 			"id": "layer",
-			"uid": "jog7",
-			"version": "2",
+			"uid": "mnpn",
+			"version": "4",
 			"name": "Distribution layer",
-			"description": "One distribution layer between the interfaces: frame, chute, bin retainers, funnels, bins. Each bin retainer takes 2 \u00d7 [[hw:scr-m5-12-shcs]] into a [[hw:tnut-m5-2020]].",
+			"description": "One distribution layer between the interfaces: frame, chute, bin retainers, funnels, bins.",
 			"docs": "/hardware/assembly/distribution/bin-frame/regular-layers/",
-			"status": "partial",
 			"lines": [
 				{
 					"assembly": "layer-frame",
@@ -2087,12 +2823,32 @@
 					"qty": 6
 				},
 				{
-					"part": "scr-m5-12-shcs",
-					"qty": 24
+					"part": "scr-m5-16-shcs",
+					"qty": 36
 				},
 				{
-					"part": "scr-m5-16-shcs",
-					"qty": 12
+					"part": "tnut-m5-2020",
+					"qty": 24
+				}
+			],
+			"connections": [
+				{
+					"from": "bin-retainer-left",
+					"to": "layer-frame",
+					"via": "scr-m5-16-shcs",
+					"qty": 12,
+					"method": "tnut",
+					"through_mm": 12.8,
+					"note": "Two per retainer, into the 4 T-nuts per A/G extrusion, which go into the slot at this step. Measured off the STL: 12.00 mm of plastic between the head face and the face that sits on the extrusion, plus a 0.8 mm locating rib that drops into the slot, so the bore the screw crosses is 12.8 mm. An M5 x 12 stops level with the extrusion face with no thread in the nut; an M5 x 20 stands 8 mm into a slot about 5.9 mm deep and bottoms out before it clamps."
+				},
+				{
+					"from": "bin-retainer-right",
+					"to": "layer-frame",
+					"via": "scr-m5-16-shcs",
+					"qty": 12,
+					"method": "tnut",
+					"through_mm": 12.8,
+					"note": "Mirror of the left retainer's joint, same bore and same screw."
 				}
 			],
 			"versions": [
@@ -2138,30 +2894,99 @@
 					"uid": "jog7",
 					"date": "2026-08-29",
 					"message": "Dropped tnut-m5-2020 qty 24 -- those are the hex frame's own pre-installed T-nuts (bin retainers reuse them, not new ones), same double-count barthel already caught on bottom two layers. Added the 12 scr-m5-16-shcs that join this layer's flange up to the layer above, previously missing.",
-					"commit": "a2c66436"
+					"commit": "a2c66436",
+					"lines": [
+						{
+							"assembly": "layer-frame",
+							"qty": 1,
+							"uid": "yq92"
+						},
+						{
+							"assembly": "chute",
+							"qty": 1,
+							"uid": "axlb"
+						},
+						{
+							"part": "bin-retainer-left",
+							"qty": 6,
+							"uid": "hqz0"
+						},
+						{
+							"part": "bin-retainer-right",
+							"qty": 6,
+							"uid": "ybpv"
+						},
+						{
+							"part": "scr-m5-12-shcs",
+							"qty": 24,
+							"uid": "kmah"
+						},
+						{
+							"part": "scr-m5-16-shcs",
+							"qty": 12,
+							"uid": "2e0s"
+						}
+					]
+				},
+				{
+					"version": "3",
+					"date": "2026-09-05",
+					"breaking": false,
+					"message": "The 24 bin-retainer screws are M5 x 16, not M5 x 12: the retainer's bore is 12.8 mm, so an M5 x 12 reaches the extrusion face with nothing left for the T-nut. Reported by BrickCycleAlice, who tried them on a build; confirmed by measuring the STL. Merged into the existing scr-m5-16-shcs line, 12 + 24 = 36, and the joint recorded in connections with its measured through_mm.",
+					"commit": "1ce549ec"
+				},
+				{
+					"version": "4",
+					"uid": "mnpn",
+					"date": "2026-09-05",
+					"message": "Restored tnut-m5-2020 qty 24 for the bin retainers. v2 dropped them here as \"the hex frame's own pre-installed T-nuts\", and hex-frame v2 then dropped the same 24 on 2026-08-31 as part of the Inner/Outer restructure, so they fell out of the machine entirely and no hardware list has carried them since. They belong on this node, alongside the 24 scr-m5-16-shcs that go through them. No physical change.",
+					"breaking": false
 				}
 			]
 		},
 		{
 			"id": "bottom-interface",
-			"uid": "67uq",
-			"version": "1",
+			"uid": "oob0",
+			"version": "2",
 			"name": "Bottom interface",
-			"description": "The bottom interface / lazy Susan level. The chute above it is one of the machine's N regular chutes, already counted there; this assembly only adds the layer connector that bridges down to it.",
+			"description": "The bottom interface / lazy Susan level. It hangs underneath the lowest bin layer and has no hexagonal frame of its own.",
 			"docs": "/hardware/assembly/distribution/bin-frame/bottom-interface/",
-			"status": "partial",
 			"lines": [
-				{
-					"assembly": "layer-frame",
-					"qty": 1
-				},
 				{
 					"assembly": "lazy-susan",
 					"qty": 1
+				}
+			],
+			"versions": [
+				{
+					"version": "1",
+					"uid": "67uq",
+					"message": "As recorded before the first stamped change.",
+					"lines": [
+						{
+							"assembly": "layer-frame",
+							"qty": 1,
+							"uid": "yq92"
+						},
+						{
+							"assembly": "lazy-susan",
+							"qty": 1,
+							"uid": "v6ss"
+						},
+						{
+							"assembly": "layer-connector",
+							"qty": 1,
+							"uid": "6m38"
+						}
+					]
 				},
 				{
-					"assembly": "layer-connector",
-					"qty": 1
+					"version": "2",
+					"uid": "oob0",
+					"date": "2026-09-05",
+					"breaking": false,
+					"message": "Dropped the layer-frame: the bottom interface hangs under the lowest bin layer's frame and does not get a hexagon of its own (bottom two layers, step 6). Dropped the layer connector too: the spare one belongs to the top interface, which slides onto the external bracket on that hex ring. No physical change.",
+					"commit": "36826f49"
 				}
 			]
 		},
@@ -2172,7 +2997,6 @@
 			"name": "Chute",
 			"description": "One chute: the core plus its door module, funnel brackets, connectors, and PCB. Every screw here lands in one of the chute core's 18 M3 inserts.",
 			"docs": "/hardware/assembly/distribution/chute/chute-core/",
-			"status": "partial",
 			"lines": [
 				{
 					"part": "chute-core",
@@ -2215,7 +3039,6 @@
 			"name": "Flap module",
 			"description": "The chute's flap: the door itself, the bearing assembly it swings on, and the servo that drives it.",
 			"docs": "/hardware/assembly/distribution/chute/door-module/",
-			"status": "partial",
 			"lines": [
 				{
 					"part": "chute-door",
@@ -2242,7 +3065,6 @@
 			"name": "Chute PCB",
 			"description": "The layer adapter board, screwed onto the chute core's four PCB inserts.",
 			"docs": "/hardware/assembly/distribution/chute/pcb/",
-			"status": "partial",
 			"lines": [
 				{
 					"part": "layer-adapter-board-basically",
@@ -2261,7 +3083,6 @@
 			"name": "C-channel drive",
 			"description": "One C-channel drive unit: stator, NEMA bracket, gear train and stepper. 4 per machine \u2014 3 in the feeder plus the classification channel's. Drives a rotor unit, which differs by location and is not part of this node.",
 			"docs": "/hardware/assembly/feeder/c-channel/",
-			"status": "partial",
 			"versions": [
 				{
 					"version": "1",
@@ -2371,7 +3192,7 @@
 					"date": "2026-09-01",
 					"message": "The screws are all countersunk \u2014 socket/button was recorded wrong. The idler's 608 bearing is a line of its own with its press fit as a connection, and the screw joints carry measured pass-through and thread depths. Connections bench-confirmed and listed in assembly order.",
 					"breaking": false,
-					"commit": null
+					"commit": "441d9114"
 				}
 			],
 			"lines": [
@@ -2530,7 +3351,7 @@
 					"date": "2026-09-01",
 					"message": "The output gear's 6806 bearing is a line of its own with its press fit as a connection (was the gear's requires).",
 					"breaking": false,
-					"commit": null
+					"commit": "441d9114"
 				}
 			]
 		},
@@ -2605,18 +3426,17 @@
 					"date": "2026-09-01",
 					"message": "The output gear's 6806 bearing is a line of its own with its press fit as a connection (was the gear's requires).",
 					"breaking": false,
-					"commit": null
+					"commit": "441d9114"
 				}
 			]
 		},
 		{
 			"id": "chute-stepper-gearing",
-			"uid": "cwji",
-			"version": "1",
+			"uid": "1cfd",
+			"version": "2",
 			"name": "Chute Stepper Gearing",
-			"description": "The printed drive and idler gearing that transfers motion from the NEMA 23 chute stepper. The idler gear's 608 2RS bearing is retained by two printed caps: [[hw:chute-stepper-idler-bearing-retainer-outer]] bolts over the bearing pocket on 4 \u00d7 [[hw:scr-m3-8-cs]] into the gear's own heat inserts (the same screw the Interface spur gear uses two lines up), and [[hw:chute-stepper-idler-bearing-retainer-inner]] caps the bore where 1 \u00d7 [[hw:scr-m3-35-bhcs]] still runs through into the bracket. The low head on the M3\u00d735 keeps it clear of the limit switch hammer.",
+			"description": "The printed drive and idler gearing that transfers motion from the NEMA 23 chute stepper. The idler gear's 608 2RS bearing is retained by two printed caps: [[hw:chute-stepper-idler-bearing-retainer-outer]] bolts over the bearing pocket on 4 \u00d7 [[hw:scr-m3-8-cs]] into the gear's own heat inserts (the same screw the Interface spur gear uses two lines up), and [[hw:chute-stepper-idler-bearing-retainer-inner]] caps the bore where 1 \u00d7 [[hw:scr-m3-20-cs]] runs through into the bracket, self-tapping straight into the printed NEMA 23 bracket rather than reaching all the way to the plywood Top plate.",
 			"docs": "/hardware/assembly/distribution/top-interface/",
-			"status": "partial",
 			"lines": [
 				{
 					"part": "interface-nema23-bracket",
@@ -2635,7 +3455,7 @@
 					"qty": 1
 				},
 				{
-					"part": "scr-m3-35-bhcs",
+					"part": "scr-m3-20-cs",
 					"qty": 1
 				},
 				{
@@ -2662,6 +3482,70 @@
 					"qty": 1,
 					"method": "press"
 				}
+			],
+			"versions": [
+				{
+					"version": "1",
+					"uid": "cwji",
+					"date": "2026-08-30",
+					"commit": null,
+					"message": "Original recording: the idler gear's axle screw was listed as 1 x M3 x 35 flat head, the same screw as the cable clamp's.",
+					"lines": [
+						{
+							"part": "interface-nema23-bracket",
+							"qty": 1,
+							"uid": "if4v"
+						},
+						{
+							"part": "interface-spur-gear",
+							"qty": 1,
+							"uid": "ywxy"
+						},
+						{
+							"part": "interface-idler-gear",
+							"qty": 1,
+							"uid": "ptl7"
+						},
+						{
+							"part": "brg-608-2rs",
+							"qty": 1,
+							"uid": "mi1l"
+						},
+						{
+							"part": "scr-m3-35-bhcs",
+							"qty": 1,
+							"uid": "38vn"
+						},
+						{
+							"part": "chute-stepper-idler-bearing-retainer-outer",
+							"qty": 1,
+							"uid": "wgsc"
+						},
+						{
+							"part": "chute-stepper-idler-bearing-retainer-inner",
+							"qty": 1,
+							"uid": "zzql"
+						},
+						{
+							"part": "scr-m3-8-cs",
+							"qty": 4,
+							"uid": "l6br"
+						},
+						{
+							"part": "hsi-m3",
+							"qty": 4,
+							"uid": "ksut"
+						}
+					]
+				},
+				{
+					"version": "2",
+					"uid": "1cfd",
+					"date": "2026-09-01",
+					"message": "Recording correction: the idler gear's axle screw is 1 x M3 x 20 countersunk, not M3 x 35. It self-taps into the printed NEMA 23 bracket and never reaches the plywood Top plate, measured on BrickCycleAlice's build (sorter-v2#458). No physical change.",
+					"breaking": false,
+					"commit": null
+				}
 			]
 		},
 		{
@@ -2671,7 +3555,6 @@
 			"name": "Chute stepper NEMA 23 mount",
 			"description": "The NEMA 23 stepper on its interface bracket. 1 per interface.",
 			"docs": "/hardware/assembly/distribution/top-interface/",
-			"status": "partial",
 			"lines": [
 				{
 					"part": "interface-nema23-bracket",
@@ -2694,7 +3577,6 @@
 			"name": "Chute stepper drive gear",
 			"description": "The chute stepper drive gear with its 8 mm bore timing pulley. 1 per interface.",
 			"docs": "/hardware/assembly/distribution/top-interface/",
-			"status": "partial",
 			"lines": [
 				{
 					"part": "interface-spur-gear",
@@ -2717,7 +3599,6 @@
 			"name": "Interface chute gear + mount",
 			"description": "The Chute gear screwed onto the Top interface chute mount with five M3x12 countersunk screws (top-interface.md step 6). Despite their ids (inherited from an earlier three-piece gear design), these are two distinct parts fastened together, not two sections of one gear.",
 			"docs": "/hardware/assembly/distribution/top-interface/",
-			"status": "partial",
 			"lines": [
 				{
 					"part": "top-interface-split-spur-gear-1",
@@ -2808,7 +3689,7 @@
 					"date": "2026-08-31",
 					"message": "Recording correction: the bottom vertical is screwed into the side bracket with 2 x M5 x 16, not 1, and the screws run from the bottom vertical into the side. No physical change.",
 					"breaking": false,
-					"commit": null
+					"commit": "937a96e5"
 				}
 			]
 		},
@@ -2955,7 +3836,7 @@
 					"date": "2026-08-31",
 					"message": "Restructured into Inner hex frame + Outer hex frame with connection edges. The corner brackets (side, bottom vertical, cover) become External bracket with support units; the A/G extrusions slide between them in the outer hex, held by 12 friction fits and jammed by screws that self-tap through the brackets and ram against the extrusions; the 24 T-nuts are dropped. No physical change.",
 					"breaking": false,
-					"commit": null
+					"commit": "6573b255"
 				}
 			],
 			"connections": [
@@ -2975,7 +3856,6 @@
 			"name": "Distribution frame",
 			"description": "The frame of one distribution layer: one hex frame, whose bracket segments form the collars for piece C.",
 			"docs": "/hardware/assembly/distribution/bin-frame/regular-layers/",
-			"status": "partial",
 			"lines": [
 				{
 					"assembly": "hex-frame",
@@ -3040,7 +3920,7 @@
 					"date": "2026-08-31",
 					"message": "The bottom verticals, covers and their 24 screws move inside the hex frame's External bracket with support segments. No physical change.",
 					"breaking": false,
-					"commit": null
+					"commit": "6573b255"
 				}
 			]
 		},
@@ -3050,9 +3930,7 @@
 			"version": "2",
 			"name": "basically Embedded Control Board Housing",
 			"description": "The basically Embedded Control Board closed into a two-part printed housing that bolts to the 2020 extrusion. The board screws straight to the base \u2014 no bracket, no standoffs \u2014 and the cover carries a 40 mm 24 V fan and a plunger that reaches the board's reset button from outside.",
-			"section": "electronics",
 			"docs": "/hardware/electronics/installation/control-board-housing/",
-			"status": "partial",
 			"lines": [
 				{
 					"part": "ctrl-board-housing-base",
@@ -3187,9 +4065,7 @@
 			"version": "1",
 			"name": "Orange Pi mount",
 			"description": "The Orange Pi 5 standing off its bracket, which bolts to the 2020 extrusion, with a 40 mm fan on a bracket cantilevered over it.",
-			"section": "electronics",
 			"docs": "/hardware/electronics/installation/orange-pi-mount/",
-			"status": "partial",
 			"lines": [
 				{
 					"part": "orange-pi-extrusion-mount",
@@ -3243,7 +4119,6 @@
 			"name": "Electronics",
 			"description": "The three boxes that bolt to the frame: the PSU, the control board, and the Orange Pi.",
 			"docs": "/hardware/electronics/installation/",
-			"status": "partial",
 			"lines": [
 				{
 					"assembly": "meanwell-psu-box",
@@ -3266,7 +4141,6 @@
 			"name": "Interface bracket",
 			"description": "One interface bracket with its spacer, bolted onto its vertical extrusion (piece F) and its spoke extrusion (piece E). 6 per interface.",
 			"docs": "/hardware/assembly/distribution/top-interface/",
-			"status": "partial",
 			"lines": [
 				{
 					"part": "interface-bracket",
@@ -3337,7 +4211,6 @@
 			"name": "Bottom lazy Susan",
 			"description": "The bottom interface's lazy Susan: the static half, the chute mount that spins on it, the extrusion mounts, and the bearing itself. Bolted through 4 \u00d7 [[hw:scr-m4-12-cs]] a side, same as the top interface's.",
 			"docs": "/hardware/assembly/distribution/bin-frame/bottom-interface/",
-			"status": "partial",
 			"lines": [
 				{
 					"part": "ls-mount-to-chute",
@@ -3437,6 +4310,369 @@
 					"commit": "9708a416"
 				}
 			]
+		},
+		{
+			"id": "adapted-camera-module",
+			"uid": "pdmk",
+			"version": "1",
+			"name": "Adapted camera module",
+			"description": "A camera board clasped between the printed top and bottom halves, ready to snap into the Camera lamp arm.",
+			"params": {
+				"camera": {
+					"default": "cam-ov9732",
+					"note": "Which camera board the clasp holds: the OV9732 on C-channels 1-3, the IMX415 4K on C-channel 4."
+				}
+			},
+			"lines": [
+				{
+					"part": "camera-clasp-bottom",
+					"qty": 1
+				},
+				{
+					"param": "camera",
+					"qty": 1
+				},
+				{
+					"part": "camera-clasp-top",
+					"qty": 1
+				},
+				{
+					"part": "scr-m3-8-cs",
+					"qty": 4
+				}
+			],
+			"connections": [
+				{
+					"from": "camera-clasp-top",
+					"to": "camera-clasp-bottom",
+					"via": "scr-m3-8-cs",
+					"qty": 4,
+					"method": "self-tap",
+					"draft": true,
+					"note": "Clasp the camera board between the halves; the screw count is not yet confirmed at the bench."
+				}
+			]
+		},
+		{
+			"id": "camera-lamp-arm-assembly",
+			"uid": "fcj4",
+			"version": "1",
+			"name": "Camera lamp arm",
+			"description": "The arm that hangs the camera and lamp over a C-channel: the C-channel arm mount, the arm, brackets A and B tying them together, and the camera lamp ring.",
+			"lines": [
+				{
+					"part": "c-channel-arm-mount",
+					"qty": 1
+				},
+				{
+					"part": "camera-lamp-arm",
+					"qty": 1
+				},
+				{
+					"part": "arm-bracket-a",
+					"qty": 1
+				},
+				{
+					"part": "arm-bracket-b",
+					"qty": 1
+				},
+				{
+					"part": "camera-lamp-ring",
+					"qty": 1
+				},
+				{
+					"part": "scr-m3-12-cs",
+					"qty": 12
+				}
+			],
+			"connections": [
+				{
+					"from": "arm-bracket-a",
+					"to": "c-channel-arm-mount",
+					"via": "scr-m3-12-cs",
+					"qty": 2,
+					"method": "self-tap",
+					"note": "Two of bracket A's four through holes, into the mount."
+				},
+				{
+					"from": "arm-bracket-a",
+					"to": "camera-lamp-arm",
+					"via": "scr-m3-12-cs",
+					"qty": 2,
+					"method": "self-tap",
+					"note": "Bracket A's other two through holes, into the arm."
+				},
+				{
+					"from": "arm-bracket-b",
+					"to": "c-channel-arm-mount",
+					"via": "scr-m3-12-cs",
+					"qty": 2,
+					"method": "self-tap",
+					"note": "Two of bracket B's four through holes, into the mount."
+				},
+				{
+					"from": "arm-bracket-b",
+					"to": "camera-lamp-arm",
+					"via": "scr-m3-12-cs",
+					"qty": 2,
+					"method": "self-tap",
+					"note": "Bracket B's other two through holes, into the arm."
+				},
+				{
+					"from": "camera-lamp-ring",
+					"to": "camera-lamp-arm",
+					"via": "scr-m3-12-cs",
+					"qty": 4,
+					"method": "self-tap",
+					"note": "The ring's four through holes into self-tapping holes in the arm."
+				}
+			]
+		},
+		{
+			"id": "reflector-with-led-hooks",
+			"uid": "awve",
+			"version": "1",
+			"name": "Reflector with LED hooks",
+			"description": "The white inner reflector with its six LED hooks friction-fitted on.",
+			"lines": [
+				{
+					"part": "lamp-inner-reflector",
+					"qty": 1
+				},
+				{
+					"part": "inner-reflector-led-hook",
+					"qty": 6
+				}
+			],
+			"connections": [
+				{
+					"from": "inner-reflector-led-hook",
+					"to": "lamp-inner-reflector",
+					"qty": 6,
+					"method": "friction",
+					"note": "Each hook friction-fits onto the reflector and retains an LED strip."
+				}
+			]
+		},
+		{
+			"id": "shaded-lamp",
+			"uid": "k2fg",
+			"version": "1",
+			"name": "Shaded lamp",
+			"description": "The channel lamp: the reflector with its LED hooks, under the outer cover.",
+			"lines": [
+				{
+					"assembly": "reflector-with-led-hooks",
+					"qty": 1
+				},
+				{
+					"part": "lamp-outer-cover",
+					"qty": 1
+				}
+			],
+			"connections": [
+				{
+					"from": "lamp-outer-cover",
+					"to": "reflector-with-led-hooks",
+					"qty": 1,
+					"method": "friction",
+					"note": "The outer cover friction-fits over the reflector."
+				}
+			]
+		},
+		{
+			"id": "camera-lamp",
+			"uid": "u4si",
+			"version": "1",
+			"name": "Camera lamp",
+			"description": "The per-channel camera and light: the arm with its ring, the adapted camera module snapped in, and the shaded lamp over the top. One per C-channel; which camera it carries is a parameter.",
+			"params": {
+				"camera": {
+					"default": "cam-ov9732",
+					"note": "Forwarded to the Adapted camera module."
+				}
+			},
+			"lines": [
+				{
+					"assembly": "camera-lamp-arm-assembly",
+					"qty": 1
+				},
+				{
+					"assembly": "adapted-camera-module",
+					"qty": 1,
+					"args": {
+						"camera": "$camera"
+					}
+				},
+				{
+					"assembly": "shaded-lamp",
+					"qty": 1
+				}
+			],
+			"connections": [
+				{
+					"from": "adapted-camera-module",
+					"to": "camera-lamp-arm-assembly",
+					"qty": 1,
+					"method": "clip",
+					"note": "The camera module snaps into the arm."
+				},
+				{
+					"from": "shaded-lamp",
+					"to": "camera-lamp-arm-assembly",
+					"qty": 1,
+					"method": "gravity",
+					"note": "The lamp sits over the top of the arm."
+				}
+			],
+			"images": [
+				{
+					"url": "https://assets.basically.website/sorter-parts/pub-img-camera-lamp-on-channel-full-fb1aaa6d8462.jpg",
+					"alt": "A camera lamp mounted over a C-channel: the gray shaded lamp on its arm above the channel, with the white funnel of the rotor beside it",
+					"caption": "On the machine, over a C-channel."
+				},
+				{
+					"url": "https://assets.basically.website/sorter-parts/pub-img-camera-lamp-lit-full-590dd8686f25.jpg",
+					"alt": "The lamp lit, seen from below: the LED strips ring the white inner reflector under the gray cover, with the arm silhouetted through the centre opening",
+					"caption": "Lit: the LED strips around the reflector."
+				},
+				{
+					"url": "https://assets.basically.website/sorter-parts/pub-img-camera-lamp-mounted-wide-full-0e2a50c0e1e5.jpg",
+					"alt": "A wider view of the camera lamp on its arm over the channel, leads cable-tied along the arm down to the drive",
+					"caption": "The arm carries the leads down to the channel."
+				},
+				{
+					"url": "https://assets.basically.website/sorter-parts/pub-img-camera-lamp-camera-seated-full-a6fff6fecc23.jpg",
+					"alt": "The top of the shaded lamp with the camera board seated in its clasp recess at the centre, lead plugged in",
+					"caption": "The camera board seated in the clasp, from above."
+				},
+				{
+					"url": "https://assets.basically.website/sorter-parts/pub-img-camera-lamp-render-top-full-edc4616e7088.png",
+					"alt": "Onshape render of the assembled camera lamp from above: the cover with the camera opening, on the arm and brackets",
+					"caption": "Render, from above."
+				},
+				{
+					"url": "https://assets.basically.website/sorter-parts/pub-img-camera-lamp-render-side-full-2a681306f3a9.png",
+					"alt": "Onshape render of the camera lamp in profile: the lamp overhanging on the angled arm, brackets along the joints",
+					"caption": "Render, in profile."
+				},
+				{
+					"url": "https://assets.basically.website/sorter-parts/pub-img-camera-lamp-render-underside-full-0e2b1e5a0fb9.png",
+					"alt": "Onshape render of the camera lamp from below: the reflector and ring inside the cover, the hooks around the rim, the arm reaching up",
+					"caption": "Render, the underside."
+				}
+			]
+		},
+		{
+			"id": "channel-one-support-structure",
+			"uid": "z6fs",
+			"version": "1",
+			"name": "Channel 1 support structure",
+			"description": "Channel 1 support: the layout guide its three legs stand in, and a dovetail adapter on each leg.",
+			"lines": [
+				{
+					"part": "layout-guide",
+					"qty": 1
+				},
+				{
+					"part": "ext-2020-c1",
+					"qty": 3
+				},
+				{
+					"part": "support-dovetail-adapter",
+					"qty": 3
+				}
+			],
+			"connections": [
+				{
+					"from": "ext-2020-c1",
+					"to": "layout-guide",
+					"qty": 3,
+					"method": "gravity",
+					"note": "Each leg stands in the layout guide under its own weight."
+				},
+				{
+					"from": "support-dovetail-adapter",
+					"to": "ext-2020-c1",
+					"qty": 3,
+					"method": "gravity",
+					"note": "An adapter sits on top of each leg under its own weight."
+				}
+			]
+		},
+		{
+			"id": "channel-two-support-structure",
+			"uid": "bwvu",
+			"version": "1",
+			"name": "Channel 2 support structure",
+			"description": "Channel 2 support: the layout guide its three legs stand in, and a dovetail adapter on each leg.",
+			"lines": [
+				{
+					"part": "layout-guide",
+					"qty": 1
+				},
+				{
+					"part": "channel-two-support-leg",
+					"qty": 3
+				},
+				{
+					"part": "support-dovetail-adapter",
+					"qty": 3
+				}
+			],
+			"connections": [
+				{
+					"from": "channel-two-support-leg",
+					"to": "layout-guide",
+					"qty": 3,
+					"method": "gravity",
+					"note": "Each leg stands in the layout guide under its own weight."
+				},
+				{
+					"from": "support-dovetail-adapter",
+					"to": "channel-two-support-leg",
+					"qty": 3,
+					"method": "gravity",
+					"note": "An adapter sits on top of each leg under its own weight."
+				}
+			]
+		},
+		{
+			"id": "channel-three-support-structure",
+			"uid": "nwst",
+			"version": "1",
+			"name": "Channel 3 support structure",
+			"description": "Channel 3 support: the layout guide its three legs stand in, and a dovetail adapter on each leg.",
+			"lines": [
+				{
+					"part": "layout-guide",
+					"qty": 1
+				},
+				{
+					"part": "channel-three-support-leg",
+					"qty": 3
+				},
+				{
+					"part": "support-dovetail-adapter",
+					"qty": 3
+				}
+			],
+			"connections": [
+				{
+					"from": "channel-three-support-leg",
+					"to": "layout-guide",
+					"qty": 3,
+					"method": "gravity",
+					"note": "Each leg stands in the layout guide under its own weight."
+				},
+				{
+					"from": "support-dovetail-adapter",
+					"to": "channel-three-support-leg",
+					"qty": 3,
+					"method": "gravity",
+					"note": "An adapter sits on top of each leg under its own weight."
+				}
+			]
 		}
 	],
 	"parts": [
@@ -3462,28 +4698,21 @@
 					"uid": "n6bm",
 					"date": "2026-06-27",
 					"message": "Initial catalog entry, imported 2026-06-27.",
-					"commit": null,
+					"commit": "340f63ad",
 					"onshape_version": "https://cad.onshape.com/documents/60aa51fc61d18f2155b99910/v/b76489d0ca46a1169a2a6081/e/66109ce96b305bf318354f93",
 					"stl": "https://assets.basically.website/sorter-parts/stator-323b2d1f94a5.stl",
-					"render": "https://assets.basically.website/sorter-parts/stator-full-8b6222d89d98.png",
-					"grams": 175.52
+					"render": "https://assets.basically.website/sorter-parts/stator-full-66aa6b9db56a.png",
+					"grams": 175.75
 				}
 			],
 			"attributes": [],
-			"grams": 175.52,
-			"support_grams": 23.42,
+			"grams": 175.75,
+			"support_grams": 23.06,
 			"support_used": true,
 			"support_intentional": true,
-			"print_seconds": 16012,
+			"print_seconds": 16022,
 			"color": {
-				"by_section": {
-					"feeder": {
-						"fixed": "charcoal"
-					},
-					"classification-channel": {
-						"fixed": "ash-gray"
-					}
-				}
+				"fixed": "ash-gray"
 			},
 			"optional": false,
 			"onshape": null,
@@ -3496,7 +4725,7 @@
 			"docs_page": null,
 			"conflicts": null,
 			"stl": "https://assets.basically.website/sorter-parts/stator-323b2d1f94a5.stl",
-			"render": "https://assets.basically.website/sorter-parts/stator-full-8b6222d89d98.png",
+			"render": "https://assets.basically.website/sorter-parts/stator-full-66aa6b9db56a.png",
 			"stamped": [
 				{
 					"face": "bottom",
@@ -3597,7 +4826,7 @@
 		},
 		{
 			"id": "rotor-faceted",
-			"uid": "9v9q",
+			"uid": "n20h",
 			"name": "Rotor (faceted)",
 			"quantities": {
 				"feeder": 3
@@ -3607,38 +4836,40 @@
 			"variant_group": null,
 			"variant_name": null,
 			"description": "Faceted rotor. 3 required: 2 white + 1 gray.",
-			"version": "1",
+			"version": "2",
 			"created_at": "2026-06-27",
 			"updated_at": "2026-06-27",
 			"versions": [
 				{
 					"version": "1",
 					"uid": "9v9q",
-					"date": "2026-06-27",
-					"message": "Initial version.",
-					"commit": null,
+					"message": "Open center hole, as recorded before the first stamped change.",
+					"stl_hash": "350de3f8e27e7d0bb1f00d2c070c7f255da73987c9b2d86f639664c5db81bfd6",
+					"render": "https://assets.basically.website/sorter-parts/rotor-faceted-v1-full-52fba49e5abb.png",
 					"stl": "https://assets.basically.website/sorter-parts/rotor-faceted-350de3f8e27e.stl",
-					"render": "https://assets.basically.website/sorter-parts/rotor-faceted-full-ec91401c0ed9.png",
 					"grams": 166.5
+				},
+				{
+					"version": "2",
+					"uid": "n20h",
+					"date": "2026-09-02",
+					"message": "Filled center hole. Used in C-channels 1-3; C-channel 4 keeps the finned rotor.",
+					"breaking": false,
+					"commit": "e22fce30",
+					"onshape_version": "https://cad.onshape.com/documents/60aa51fc61d18f2155b99910/v/45a8c24919bf95a5560da0f8/e/c80eef32af2d52545be564fe",
+					"stl": "https://assets.basically.website/sorter-parts/rotor-faceted-9885150edbe4.stl",
+					"render": "https://assets.basically.website/sorter-parts/rotor-faceted-full-724b1b3dc323.png",
+					"grams": 165.58
 				}
 			],
 			"attributes": [],
-			"grams": 166.5,
+			"grams": 165.58,
 			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 11084,
+			"print_seconds": 10670,
 			"color": {
-				"split": [
-					{
-						"color": "ivory-white",
-						"qty": 2
-					},
-					{
-						"color": "ash-gray",
-						"qty": 1
-					}
-				]
+				"fixed": "ash-gray"
 			},
 			"optional": false,
 			"onshape": null,
@@ -3650,32 +4881,32 @@
 			"caption": "The feeder channels' rotor.",
 			"docs_page": null,
 			"conflicts": null,
-			"stl": "https://assets.basically.website/sorter-parts/rotor-faceted-350de3f8e27e.stl",
-			"render": "https://assets.basically.website/sorter-parts/rotor-faceted-full-ec91401c0ed9.png",
+			"stl": "https://assets.basically.website/sorter-parts/rotor-faceted-9885150edbe4.stl",
+			"render": "https://assets.basically.website/sorter-parts/rotor-faceted-full-724b1b3dc323.png",
 			"stamped": [
 				{
 					"face": "bottom",
-					"stl": "https://assets.basically.website/sorter-parts/rotor-faceted-9v9q-stamped-bottom-2a76190b0957.stl",
+					"stl": "https://assets.basically.website/sorter-parts/rotor-faceted-n20h-stamped-bottom-4682d37679c3.stl",
 					"normal": [
 						0.0,
 						0.0,
 						-1.0
 					],
 					"center": [
-						3.37,
-						-98.36,
+						0.0,
+						0.0,
 						-3.0
 					],
 					"size": [
-						12.51,
-						4.52
+						12.18,
+						3.56
 					],
 					"cap": 3.5,
 					"depth": 0.6
 				},
 				{
 					"face": "angled face",
-					"stl": "https://assets.basically.website/sorter-parts/rotor-faceted-9v9q-stamped-angled-face-090c5d5820a3.stl",
+					"stl": "https://assets.basically.website/sorter-parts/rotor-faceted-n20h-stamped-angled-face-f55c160d4003.stl",
 					"normal": [
 						0.4045,
 						0.2939,
@@ -3687,15 +4918,15 @@
 						24.18
 					],
 					"size": [
-						12.51,
-						4.52
+						12.18,
+						3.56
 					],
 					"cap": 3.5,
 					"depth": 0.6
 				},
 				{
 					"face": "angled face 2",
-					"stl": "https://assets.basically.website/sorter-parts/rotor-faceted-9v9q-stamped-angled-face-2-45c573deee4d.stl",
+					"stl": "https://assets.basically.website/sorter-parts/rotor-faceted-n20h-stamped-angled-face-2-1d61fb00b07e.stl",
 					"normal": [
 						-0.4045,
 						-0.2939,
@@ -3707,15 +4938,15 @@
 						24.18
 					],
 					"size": [
-						12.51,
-						4.52
+						12.18,
+						3.56
 					],
 					"cap": 3.5,
 					"depth": 0.6
 				},
 				{
 					"face": "angled face 3",
-					"stl": "https://assets.basically.website/sorter-parts/rotor-faceted-9v9q-stamped-angled-face-3-57244ea17971.stl",
+					"stl": "https://assets.basically.website/sorter-parts/rotor-faceted-n20h-stamped-angled-face-3-dd31d47e4647.stl",
 					"normal": [
 						0.4045,
 						-0.2939,
@@ -3727,8 +4958,8 @@
 						24.18
 					],
 					"size": [
-						12.51,
-						4.52
+						12.18,
+						3.56
 					],
 					"cap": 3.5,
 					"depth": 0.6
@@ -3901,11 +5132,20 @@
 			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 7209,
+			"print_seconds": 7210,
 			"color": {
 				"by_section": {
 					"feeder": {
-						"fixed": "charcoal"
+						"split": [
+							{
+								"color": "charcoal",
+								"qty": 1
+							},
+							{
+								"color": "ash-gray",
+								"qty": 2
+							}
+						]
 					},
 					"classification-channel": {
 						"fixed": "ash-gray"
@@ -4011,14 +5251,12 @@
 			"id": "light-post",
 			"uid": "oac5",
 			"name": "Light post",
-			"quantities": {
-				"feeder": 2
-			},
+			"quantities": {},
 			"assembly": "light-post-assembly",
 			"folder": null,
 			"variant_group": null,
 			"variant_name": null,
-			"description": "Light post on the C-channel feeder. 2 total.",
+			"description": "Light post on the C-channel feeder. 2 total. Unused since 2026-09-02: the Camera lamp replaced the light post, the overhead camera mount, the classification dome and the camera & LED insert. Do not re-add from old docs or photos.",
 			"version": "1",
 			"created_at": "2026-07-01",
 			"updated_at": "2026-07-01",
@@ -4097,14 +5335,12 @@
 			"id": "light-post-cap",
 			"uid": "7a8e",
 			"name": "Light post cap",
-			"quantities": {
-				"feeder": 2
-			},
+			"quantities": {},
 			"assembly": "light-post-assembly",
 			"folder": null,
 			"variant_group": null,
 			"variant_name": null,
-			"description": "Light post cap. 2 total (C-channels 2 & 3). White.",
+			"description": "Light post cap. 2 total (C-channels 2 & 3). White. Unused since 2026-09-02: the Camera lamp replaced the light post, the overhead camera mount, the classification dome and the camera & LED insert. Do not re-add from old docs or photos.",
 			"version": "1",
 			"created_at": "2026-06-27",
 			"updated_at": "2026-06-27",
@@ -4223,14 +5459,12 @@
 			"id": "light-post-cap-adapter",
 			"uid": "jcnt",
 			"name": "Light post cap adapter",
-			"quantities": {
-				"feeder": 2
-			},
+			"quantities": {},
 			"assembly": "light-post-assembly",
 			"folder": null,
 			"variant_group": null,
 			"variant_name": null,
-			"description": "Adapts the light post cap to the C-channel. 2 per machine.",
+			"description": "Adapts the light post cap to the C-channel. 2 per machine. Unused since 2026-09-02: the Camera lamp replaced the light post, the overhead camera mount, the classification dome and the camera & LED insert. Do not re-add from old docs or photos.",
 			"version": "1",
 			"created_at": "2026-07-03",
 			"updated_at": "2026-07-03",
@@ -4452,14 +5686,12 @@
 			"id": "classification-dome",
 			"uid": "fheh",
 			"name": "Classification dome",
-			"quantities": {
-				"classification-channel": 1
-			},
+			"quantities": {},
 			"assembly": "classification-chamber",
 			"folder": null,
 			"variant_group": null,
 			"variant_name": null,
-			"description": "Large classification-channel dome (~full bed). White.",
+			"description": "Large classification-channel dome (~full bed). White. Unused since 2026-09-02: the Camera lamp replaced the light post, the overhead camera mount, the classification dome and the camera & LED insert. Do not re-add from old docs or photos.",
 			"version": "1",
 			"created_at": "2026-06-27",
 			"updated_at": "2026-06-27",
@@ -4935,7 +6167,7 @@
 			"support_grams": 9.29,
 			"support_used": true,
 			"support_intentional": false,
-			"print_seconds": 23973,
+			"print_seconds": 23980,
 			"color": {
 				"role": "chute-core"
 			},
@@ -5620,6 +6852,10 @@
 				{
 					"part": "hsi-m4",
 					"qty": 4
+				},
+				{
+					"part": "hsi-m3",
+					"qty": 2
 				}
 			],
 			"caption": null,
@@ -5897,7 +7133,7 @@
 			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 7438,
+			"print_seconds": 7497,
 			"color": {
 				"role": "frame"
 			},
@@ -8276,7 +9512,7 @@
 			],
 			"attributes": [],
 			"grams": 29.01,
-			"support_grams": 0,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 2334,
@@ -8407,7 +9643,7 @@
 			],
 			"attributes": [],
 			"grams": 52.99,
-			"support_grams": 0,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 3798,
@@ -9318,7 +10554,7 @@
 					"message": "Initial version.",
 					"commit": null,
 					"stl": "https://assets.basically.website/sorter-parts/rotor-finned-b8986ea64a9d.stl",
-					"render": "https://assets.basically.website/sorter-parts/rotor-finned-full-2866c36275e1.png",
+					"render": "https://assets.basically.website/sorter-parts/rotor-finned-full-dbcbfa0d8f31.png",
 					"grams": 178.76
 				}
 			],
@@ -9329,7 +10565,7 @@
 			"support_intentional": false,
 			"print_seconds": 12914,
 			"color": {
-				"fixed": "ivory-white"
+				"fixed": "ash-gray"
 			},
 			"optional": false,
 			"onshape": null,
@@ -9342,7 +10578,7 @@
 			"docs_page": null,
 			"conflicts": null,
 			"stl": "https://assets.basically.website/sorter-parts/rotor-finned-b8986ea64a9d.stl",
-			"render": "https://assets.basically.website/sorter-parts/rotor-finned-full-2866c36275e1.png",
+			"render": "https://assets.basically.website/sorter-parts/rotor-finned-full-dbcbfa0d8f31.png",
 			"stamped": [
 				{
 					"face": "bottom",
@@ -9628,39 +10864,51 @@
 		},
 		{
 			"id": "output-guide",
-			"uid": "8j3e",
-			"name": "Output guide",
+			"uid": "z9yd",
+			"name": "Short and Angled Output Guide",
 			"quantities": {
-				"feeder": 2
+				"feeder": 3,
+				"classification-channel": 1
 			},
 			"assembly": null,
 			"folder": null,
 			"variant_group": null,
 			"variant_name": null,
 			"description": "Output guide. 2 needed. Black.",
-			"version": "1",
+			"version": "2",
 			"created_at": "2026-06-27",
 			"updated_at": "2026-06-27",
 			"versions": [
 				{
 					"version": "1",
 					"uid": "8j3e",
-					"date": "2026-06-27",
-					"message": "Initial version.",
-					"commit": null,
+					"message": "The original straight guide, as recorded before the first stamped change.",
+					"stl_hash": "8115840b817f57467725c99b987ca4a036df1fe8b98a0991c438bea84ebbe549",
+					"render": "https://assets.basically.website/sorter-parts/output-guide-v1-full-b7caaf367e17.png",
 					"stl": "https://assets.basically.website/sorter-parts/output-guide-8115840b817f.stl",
-					"render": "https://assets.basically.website/sorter-parts/output-guide-full-e833d7f45db4.png",
 					"grams": 20.99
+				},
+				{
+					"version": "2",
+					"uid": "z9yd",
+					"date": "2026-09-02",
+					"message": "Short and angled, so large in-spec pieces clear the C-channel exit. Iterates on candidate 6sk3; now on all four channels.",
+					"breaking": false,
+					"commit": "e22fce30",
+					"onshape_version": "https://cad.onshape.com/documents/60aa51fc61d18f2155b99910/v/47cbbc66cc43c4d940d03b1f/e/66109ce96b305bf318354f93",
+					"stl": "https://assets.basically.website/sorter-parts/output-guide-d53a04f1715d.stl",
+					"render": "https://assets.basically.website/sorter-parts/output-guide-full-d3f14cbc5fb7.png",
+					"grams": 11.93
 				}
 			],
 			"attributes": [],
-			"grams": 20.99,
+			"grams": 11.93,
 			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 3689,
+			"print_seconds": 3180,
 			"color": {
-				"role": "feeder"
+				"fixed": "ash-gray"
 			},
 			"optional": false,
 			"onshape": null,
@@ -9672,65 +10920,44 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"stl": "https://assets.basically.website/sorter-parts/output-guide-8115840b817f.stl",
-			"render": "https://assets.basically.website/sorter-parts/output-guide-full-e833d7f45db4.png",
+			"stl": "https://assets.basically.website/sorter-parts/output-guide-d53a04f1715d.stl",
+			"render": "https://assets.basically.website/sorter-parts/output-guide-full-d3f14cbc5fb7.png",
 			"stamped": [
 				{
-					"face": "bottom",
-					"stl": "https://assets.basically.website/sorter-parts/output-guide-8j3e-stamped-bottom-9c89b003defd.stl",
+					"face": "+y side",
+					"stl": "https://assets.basically.website/sorter-parts/output-guide-z9yd-stamped-plus-y-side-cb8ea171c929.stl",
 					"normal": [
-						0.0,
-						0.0,
-						-1.0
-					],
-					"center": [
-						7.99,
-						-111.51,
-						-19.0
-					],
-					"size": [
-						2.55,
-						8.72
-					],
-					"cap": 2.5,
-					"depth": 0.6,
-					"note": "smaller text"
-				},
-				{
-					"face": "+x side",
-					"stl": "https://assets.basically.website/sorter-parts/output-guide-8j3e-stamped-plus-x-side-e739ef3cadfe.stl",
-					"normal": [
-						0.9992,
-						-0.0397,
+						0.3006,
+						0.9538,
 						-0.0
 					],
 					"center": [
-						10.55,
-						-112.1,
-						-15.84
+						79.15,
+						-70.66,
+						46.84
 					],
 					"size": [
-						12.2,
+						12.39,
 						3.56
 					],
 					"cap": 3.5,
 					"depth": 0.6
 				},
 				{
-					"face": "angled face",
-					"stl": "https://assets.basically.website/sorter-parts/output-guide-8j3e-stamped-angled-face-2b570434822d.stl",
+					"face": "-y side",
+					"stl": "https://assets.basically.website/sorter-parts/output-guide-z9yd-stamped-minus-y-side-e0e0f32b3787.stl",
 					"normal": [
-						-0.939,
-						0.0373,
-						0.342
+						-0.3005,
+						-0.9538,
+						0.0
 					],
 					"center": [
-						-14.98,
-						-98.68,
-						7.55
+						42.83,
+						-69.7,
+						46.84
 					],
 					"size": [
-						12.2,
+						12.39,
 						3.56
 					],
 					"cap": 3.5,
@@ -9738,20 +10965,40 @@
 				},
 				{
 					"face": "top",
-					"stl": "https://assets.basically.website/sorter-parts/output-guide-8j3e-stamped-top-5446c819d79d.stl",
+					"stl": "https://assets.basically.website/sorter-parts/output-guide-z9yd-stamped-top-bbbe52250e4b.stl",
 					"normal": [
 						0.0,
-						-0.0,
+						0.0,
 						1.0
 					],
 					"center": [
-						5.57,
-						-66.27,
+						60.96,
+						-70.17,
 						50.0
 					],
 					"size": [
+						12.39,
+						3.56
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "angled face",
+					"stl": "https://assets.basically.website/sorter-parts/output-guide-z9yd-stamped-angled-face-910f3304f8b8.stl",
+					"normal": [
+						-0.7334,
+						-0.6796,
+						-0.0175
+					],
+					"center": [
+						83.07,
+						-75.35,
+						-7.38
+					],
+					"size": [
 						3.56,
-						12.2
+						12.39
 					],
 					"cap": 3.5,
 					"depth": 0.6
@@ -9764,7 +11011,9 @@
 					"created_at": "2026-08-22",
 					"message": "Shortened and angled so large pieces that are still within specification clear the C-channel exit. Being test-printed; may become the next version.",
 					"onshape_version": "https://cad.onshape.com/documents/60aa51fc61d18f2155b99910/v/e7fde51c3fa45104d5722ecd/e/66109ce96b305bf318354f93",
-					"render": "https://assets.basically.website/sorter-parts/output-guide-6sk3-full-d0501aff2fde.png",
+					"superseded_by": "z9yd",
+					"superseded_at": "2026-09-02",
+					"render": "https://assets.basically.website/sorter-parts/output-guide-6sk3-full-faa0d753b1ac.png",
 					"stl": "https://assets.basically.website/sorter-parts/output-guide-c03ecb616255.stl",
 					"grams": 11.31,
 					"print_seconds": 3145,
@@ -10834,10 +12083,10 @@
 			],
 			"attributes": [],
 			"grams": 13.96,
-			"support_grams": 5.52,
+			"support_grams": 5.55,
 			"support_used": true,
 			"support_intentional": false,
-			"print_seconds": 2724,
+			"print_seconds": 2727,
 			"color": {
 				"role": "chute-core"
 			},
@@ -11341,14 +12590,12 @@
 			"id": "leg",
 			"uid": "xse1",
 			"name": "Leg",
-			"quantities": {
-				"feeder": 9
-			},
+			"quantities": {},
 			"assembly": null,
 			"folder": null,
 			"variant_group": null,
 			"variant_name": null,
-			"description": "C-channel leg. 9 in the feeder.",
+			"description": "C-channel leg. 9 in the feeder. Unused since 2026-09-02: the layout guide, support legs and dovetail adapters replaced the prototype foot/leg/leg-extension supports. Do not re-add from old docs or photos.",
 			"version": "1",
 			"created_at": "2026-06-27",
 			"updated_at": "2026-06-27",
@@ -11472,14 +12719,12 @@
 			"id": "foot",
 			"uid": "jqdx",
 			"name": "Foot",
-			"quantities": {
-				"feeder": 9
-			},
+			"quantities": {},
 			"assembly": null,
 			"folder": null,
 			"variant_group": null,
 			"variant_name": null,
-			"description": "C-channel foot. 9 in the feeder.",
+			"description": "C-channel foot. 9 in the feeder. Unused since 2026-09-02: the layout guide, support legs and dovetail adapters replaced the prototype foot/leg/leg-extension supports. Do not re-add from old docs or photos.",
 			"version": "1",
 			"created_at": "2026-06-27",
 			"updated_at": "2026-06-27",
@@ -11736,14 +12981,12 @@
 			"id": "leg-extension",
 			"uid": "jewq",
 			"name": "Leg extension",
-			"quantities": {
-				"feeder": 9
-			},
+			"quantities": {},
 			"assembly": null,
 			"folder": null,
 			"variant_group": null,
 			"variant_name": null,
-			"description": "C-channel leg extension. 9 in the feeder.",
+			"description": "C-channel leg extension. 9 in the feeder. Unused since 2026-09-02: the layout guide, support legs and dovetail adapters replaced the prototype foot/leg/leg-extension supports. Do not re-add from old docs or photos.",
 			"version": "1",
 			"created_at": "2026-06-27",
 			"updated_at": "2026-06-27",
@@ -11867,14 +13110,12 @@
 			"id": "camera-mount-part-6",
 			"uid": "v9dv",
 			"name": "Overhead camera mount \u2014 A/B connector",
-			"quantities": {
-				"feeder": 2
-			},
+			"quantities": {},
 			"assembly": "camera-mount",
 			"folder": null,
 			"variant_group": null,
 			"variant_name": null,
-			"description": "Camera mount part 6. 2 per machine.",
+			"description": "Camera mount part 6. 2 per machine. Unused since 2026-09-02: the Camera lamp replaced the light post, the overhead camera mount, the classification dome and the camera & LED insert. Do not re-add from old docs or photos.",
 			"version": "1",
 			"created_at": "2026-06-27",
 			"updated_at": "2026-06-27",
@@ -11917,14 +13158,12 @@
 			"id": "camera-mount-part-37",
 			"uid": "8bqo",
 			"name": "Overhead camera mount A",
-			"quantities": {
-				"feeder": 2
-			},
+			"quantities": {},
 			"assembly": "camera-mount",
 			"folder": null,
 			"variant_group": null,
 			"variant_name": null,
-			"description": "Camera mount part 37. 2 per machine.",
+			"description": "Camera mount part 37. 2 per machine. Unused since 2026-09-02: the Camera lamp replaced the light post, the overhead camera mount, the classification dome and the camera & LED insert. Do not re-add from old docs or photos.",
 			"version": "1",
 			"created_at": "2026-06-27",
 			"updated_at": "2026-06-27",
@@ -12048,14 +13287,12 @@
 			"id": "camera-mount-part-37b",
 			"uid": "gut5",
 			"name": "Overhead camera mount B",
-			"quantities": {
-				"feeder": 2
-			},
+			"quantities": {},
 			"assembly": "camera-mount",
 			"folder": null,
 			"variant_group": null,
 			"variant_name": null,
-			"description": "Camera mount part 37 (second). 2 per machine.",
+			"description": "Camera mount part 37 (second). 2 per machine. Unused since 2026-09-02: the Camera lamp replaced the light post, the overhead camera mount, the classification dome and the camera & LED insert. Do not re-add from old docs or photos.",
 			"version": "1",
 			"created_at": "2026-06-27",
 			"updated_at": "2026-06-27",
@@ -12179,14 +13416,12 @@
 			"id": "camera-mount-rod-mount",
 			"uid": "twuu",
 			"name": "Camera mount \u2014 rod-to-C-channel mount",
-			"quantities": {
-				"feeder": 4
-			},
+			"quantities": {},
 			"assembly": "camera-mount",
 			"folder": null,
 			"variant_group": null,
 			"variant_name": null,
-			"description": "Rod-to-C-channel mount (Part 33). 2 per camera mount, 4 total.",
+			"description": "Rod-to-C-channel mount (Part 33). 2 per camera mount, 4 total. Unused since 2026-09-02: the Camera lamp replaced the light post, the overhead camera mount, the classification dome and the camera & LED insert. Do not re-add from old docs or photos.",
 			"version": "1",
 			"created_at": "2026-06-27",
 			"updated_at": "2026-06-27",
@@ -12312,14 +13547,12 @@
 			"id": "camera-led-insert",
 			"uid": "b2v9",
 			"name": "Camera & LED insert",
-			"quantities": {
-				"classification-channel": 1
-			},
+			"quantities": {},
 			"assembly": "classification-chamber",
 			"folder": null,
 			"variant_group": null,
 			"variant_name": null,
-			"description": "C-channel camera & LED light insert. White.",
+			"description": "C-channel camera & LED light insert. White. Unused since 2026-09-02: the Camera lamp replaced the light post, the overhead camera mount, the classification dome and the camera & LED insert. Do not re-add from old docs or photos.",
 			"version": "1",
 			"created_at": "2026-06-27",
 			"updated_at": "2026-06-27",
@@ -12423,14 +13656,12 @@
 			"id": "camera-extension",
 			"uid": "v684",
 			"name": "Camera extension",
-			"quantities": {
-				"classification-channel": 1
-			},
+			"quantities": {},
 			"assembly": "camera-extension-assembly",
 			"folder": null,
 			"variant_group": null,
 			"variant_name": null,
-			"description": "Camera extension tube for the classification channel. 1 needed.",
+			"description": "Camera extension tube for the classification channel. 1 needed. Unused since 2026-09-02: the Camera lamp replaced the light post, the overhead camera mount, the classification dome and the camera & LED insert. Do not re-add from old docs or photos.",
 			"version": "2",
 			"created_at": "2026-07-08",
 			"updated_at": "2026-08-22",
@@ -12579,14 +13810,12 @@
 			"id": "camera-extension-mount",
 			"uid": "wt9t",
 			"name": "Camera extension mount",
-			"quantities": {
-				"classification-channel": 1
-			},
+			"quantities": {},
 			"assembly": "camera-extension-assembly",
 			"folder": null,
 			"variant_group": null,
 			"variant_name": null,
-			"description": "Clamp/mount ring that fixes the camera to the extension. 1 needed.",
+			"description": "Clamp/mount ring that fixes the camera to the extension. 1 needed. Unused since 2026-09-02: the Camera lamp replaced the light post, the overhead camera mount, the classification dome and the camera & LED insert. Do not re-add from old docs or photos.",
 			"version": "1",
 			"created_at": "2026-07-08",
 			"updated_at": "2026-07-08",
@@ -12731,7 +13960,7 @@
 			"folder": "layer-connectors",
 			"variant_group": null,
 			"variant_name": null,
-			"description": "Layer connector. 1 per layer + 1 per bottom interface.",
+			"description": "Layer connector. 1 per layer + 1 for the top interface, which slides onto the external bracket on that hex ring.",
 			"version": "1",
 			"created_at": "2026-06-27",
 			"updated_at": "2026-06-27",
@@ -12864,7 +14093,7 @@
 			"folder": "layer-connectors",
 			"variant_group": null,
 			"variant_name": null,
-			"description": "Layer connector. 1 per layer + 1 per bottom interface.",
+			"description": "Layer connector. 1 per layer + 1 for the top interface, which slides onto the external bracket on that hex ring.",
 			"version": "1",
 			"created_at": "2026-06-27",
 			"updated_at": "2026-06-27",
@@ -14799,7 +16028,7 @@
 			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 15132,
+			"print_seconds": 15131,
 			"color": {
 				"role": "frame"
 			},
@@ -16095,6 +17324,1847 @@
 					"note": "smaller text"
 				}
 			]
+		},
+		{
+			"id": "camera-clasp-top",
+			"uid": "u816",
+			"name": "Camera clasp top",
+			"quantities": {
+				"feeder": 3,
+				"classification-channel": 1
+			},
+			"assembly": null,
+			"folder": null,
+			"variant_group": null,
+			"variant_name": null,
+			"description": "Top half of the clasp that holds a camera board inside the Camera lamp.",
+			"version": "1",
+			"created_at": "2026-09-02",
+			"updated_at": "2026-09-02",
+			"versions": [
+				{
+					"version": "1",
+					"uid": "u816",
+					"date": "2026-09-02",
+					"message": "Initial version.",
+					"commit": null,
+					"onshape_version": "https://cad.onshape.com/documents/60aa51fc61d18f2155b99910/v/45a8c24919bf95a5560da0f8/e/5bf04274a6c68015096bd757",
+					"stl": "https://assets.basically.website/sorter-parts/camera-clasp-top-905c486b0df5.stl",
+					"render": "https://assets.basically.website/sorter-parts/camera-clasp-top-full-29db295e20a0.png",
+					"grams": 5.98
+				}
+			],
+			"attributes": [],
+			"grams": 5.98,
+			"support_grams": 0.0,
+			"support_used": false,
+			"support_intentional": false,
+			"print_seconds": 1122,
+			"color": {
+				"role": "channel"
+			},
+			"optional": false,
+			"onshape": null,
+			"info": null,
+			"low_tolerance": false,
+			"low_tolerance_note": null,
+			"layer_scope": "all",
+			"requires": [],
+			"caption": null,
+			"docs_page": null,
+			"conflicts": null,
+			"stl": "https://assets.basically.website/sorter-parts/camera-clasp-top-905c486b0df5.stl",
+			"render": "https://assets.basically.website/sorter-parts/camera-clasp-top-full-29db295e20a0.png",
+			"stamped": [
+				{
+					"face": "bottom",
+					"stl": "https://assets.basically.website/sorter-parts/camera-clasp-top-u816-stamped-bottom-092ed8eabff2.stl",
+					"normal": [
+						0.0,
+						0.0,
+						-1.0
+					],
+					"center": [
+						-209.99,
+						-18.33,
+						178.41
+					],
+					"size": [
+						8.75,
+						2.55
+					],
+					"cap": 2.5,
+					"depth": 0.6,
+					"note": "smaller text"
+				},
+				{
+					"face": "top",
+					"stl": "https://assets.basically.website/sorter-parts/camera-clasp-top-u816-stamped-top-70d2f6f99549.stl",
+					"normal": [
+						-0.0,
+						0.0,
+						1.0
+					],
+					"center": [
+						-202.06,
+						-23.53,
+						184.41
+					],
+					"size": [
+						12.24,
+						3.56
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "angled face",
+					"stl": "https://assets.basically.website/sorter-parts/camera-clasp-top-u816-stamped-angled-face-b649b10f869f.stl",
+					"normal": [
+						-0.612,
+						-0.7908,
+						0.0
+					],
+					"center": [
+						-186.77,
+						25.84,
+						180.81
+					],
+					"size": [
+						8.75,
+						2.55
+					],
+					"cap": 2.5,
+					"depth": 0.6,
+					"note": "smaller text"
+				}
+			]
+		},
+		{
+			"id": "camera-clasp-bottom",
+			"uid": "zub8",
+			"name": "Camera clasp bottom",
+			"quantities": {
+				"feeder": 3,
+				"classification-channel": 1
+			},
+			"assembly": null,
+			"folder": null,
+			"variant_group": null,
+			"variant_name": null,
+			"description": "Bottom half of the clasp that holds a camera board inside the Camera lamp.",
+			"version": "1",
+			"created_at": "2026-09-02",
+			"updated_at": "2026-09-02",
+			"versions": [
+				{
+					"version": "1",
+					"uid": "zub8",
+					"date": "2026-09-02",
+					"message": "Initial version.",
+					"commit": null,
+					"onshape_version": "https://cad.onshape.com/documents/60aa51fc61d18f2155b99910/v/45a8c24919bf95a5560da0f8/e/5bf04274a6c68015096bd757",
+					"stl": "https://assets.basically.website/sorter-parts/camera-clasp-bottom-938683ceb872.stl",
+					"render": "https://assets.basically.website/sorter-parts/camera-clasp-bottom-full-af076f5dade0.png",
+					"grams": 4.96
+				}
+			],
+			"attributes": [],
+			"grams": 4.96,
+			"support_grams": 0.0,
+			"support_used": false,
+			"support_intentional": false,
+			"print_seconds": 1043,
+			"color": {
+				"role": "channel"
+			},
+			"optional": false,
+			"onshape": null,
+			"info": null,
+			"low_tolerance": false,
+			"low_tolerance_note": null,
+			"layer_scope": "all",
+			"requires": [],
+			"caption": null,
+			"docs_page": null,
+			"conflicts": null,
+			"stl": "https://assets.basically.website/sorter-parts/camera-clasp-bottom-938683ceb872.stl",
+			"render": "https://assets.basically.website/sorter-parts/camera-clasp-bottom-full-af076f5dade0.png",
+			"stamped": [
+				{
+					"face": "top",
+					"stl": "https://assets.basically.website/sorter-parts/camera-clasp-bottom-zub8-stamped-top-7a0b9194e95b.stl",
+					"normal": [
+						-0.0,
+						0.0,
+						1.0
+					],
+					"center": [
+						-201.59,
+						-21.33,
+						178.41
+					],
+					"size": [
+						8.76,
+						2.55
+					],
+					"cap": 2.5,
+					"depth": 0.6,
+					"note": "smaller text"
+				},
+				{
+					"face": "angled face",
+					"stl": "https://assets.basically.website/sorter-parts/camera-clasp-bottom-zub8-stamped-angled-face-9e3796ae5958.stl",
+					"normal": [
+						0.7908,
+						-0.612,
+						0.0
+					],
+					"center": [
+						-219.93,
+						9.13,
+						174.81
+					],
+					"size": [
+						8.76,
+						2.55
+					],
+					"cap": 2.5,
+					"depth": 0.6,
+					"note": "smaller text"
+				},
+				{
+					"face": "angled face 2",
+					"stl": "https://assets.basically.website/sorter-parts/camera-clasp-bottom-zub8-stamped-angled-face-2-f90397090b77.stl",
+					"normal": [
+						-0.7908,
+						0.612,
+						0.0
+					],
+					"center": [
+						-181.67,
+						1.02,
+						174.81
+					],
+					"size": [
+						8.76,
+						2.55
+					],
+					"cap": 2.5,
+					"depth": 0.6,
+					"note": "smaller text"
+				},
+				{
+					"face": "angled face 3",
+					"stl": "https://assets.basically.website/sorter-parts/camera-clasp-bottom-zub8-stamped-angled-face-3-c656cca1a4f9.stl",
+					"normal": [
+						-0.612,
+						-0.7908,
+						-0.0
+					],
+					"center": [
+						-194.79,
+						24.46,
+						174.81
+					],
+					"size": [
+						8.76,
+						2.55
+					],
+					"cap": 2.5,
+					"depth": 0.6,
+					"note": "smaller text"
+				}
+			]
+		},
+		{
+			"id": "c-channel-arm-mount",
+			"uid": "yswm",
+			"name": "C-channel arm mount",
+			"quantities": {
+				"feeder": 3,
+				"classification-channel": 1
+			},
+			"assembly": null,
+			"folder": null,
+			"variant_group": null,
+			"variant_name": null,
+			"description": "Mounts the Camera lamp arm onto a C-channel.",
+			"version": "1",
+			"created_at": "2026-09-02",
+			"updated_at": "2026-09-02",
+			"versions": [
+				{
+					"version": "1",
+					"uid": "yswm",
+					"date": "2026-09-02",
+					"message": "Initial version.",
+					"commit": null,
+					"onshape_version": "https://cad.onshape.com/documents/60aa51fc61d18f2155b99910/v/45a8c24919bf95a5560da0f8/e/5bf04274a6c68015096bd757",
+					"stl": "https://assets.basically.website/sorter-parts/c-channel-arm-mount-e60bca73a8ef.stl",
+					"render": "https://assets.basically.website/sorter-parts/c-channel-arm-mount-full-257e429fe4fe.png",
+					"grams": 11.74
+				}
+			],
+			"attributes": [],
+			"grams": 11.74,
+			"support_grams": 0.0,
+			"support_used": false,
+			"support_intentional": false,
+			"print_seconds": 3588,
+			"color": {
+				"role": "channel"
+			},
+			"optional": false,
+			"onshape": null,
+			"info": null,
+			"low_tolerance": false,
+			"low_tolerance_note": null,
+			"layer_scope": "all",
+			"requires": [],
+			"caption": null,
+			"docs_page": null,
+			"conflicts": null,
+			"stl": "https://assets.basically.website/sorter-parts/c-channel-arm-mount-e60bca73a8ef.stl",
+			"render": "https://assets.basically.website/sorter-parts/c-channel-arm-mount-full-257e429fe4fe.png",
+			"stamped": [
+				{
+					"face": "bottom",
+					"stl": "https://assets.basically.website/sorter-parts/c-channel-arm-mount-yswm-stamped-bottom-f52507cfaf1b.stl",
+					"normal": [
+						-0.0,
+						0.0,
+						-1.0
+					],
+					"center": [
+						-146.28,
+						116.08,
+						-20.59
+					],
+					"size": [
+						12.49,
+						3.63
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "angled face",
+					"stl": "https://assets.basically.website/sorter-parts/c-channel-arm-mount-yswm-stamped-angled-face-b083765ccf69.stl",
+					"normal": [
+						0.4333,
+						0.9012,
+						-0.0
+					],
+					"center": [
+						-143.6,
+						124.04,
+						20.91
+					],
+					"size": [
+						12.49,
+						3.63
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "angled face 2",
+					"stl": "https://assets.basically.website/sorter-parts/c-channel-arm-mount-yswm-stamped-angled-face-2-8ded34f1c034.stl",
+					"normal": [
+						0.9012,
+						-0.4333,
+						0.0
+					],
+					"center": [
+						-138.46,
+						111.89,
+						37.58
+					],
+					"size": [
+						3.63,
+						12.49
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "angled face 3",
+					"stl": "https://assets.basically.website/sorter-parts/c-channel-arm-mount-yswm-stamped-angled-face-3-2c188b73c8a2.stl",
+					"normal": [
+						-0.9012,
+						0.4333,
+						0.0
+					],
+					"center": [
+						-153.9,
+						125.46,
+						37.58
+					],
+					"size": [
+						3.63,
+						12.49
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				}
+			]
+		},
+		{
+			"id": "camera-lamp-arm",
+			"uid": "4ata",
+			"name": "Camera lamp arm",
+			"quantities": {
+				"feeder": 3,
+				"classification-channel": 1
+			},
+			"assembly": null,
+			"folder": null,
+			"variant_group": null,
+			"variant_name": null,
+			"description": "The arm that hangs the camera and the shaded lamp over a C-channel.",
+			"version": "1",
+			"created_at": "2026-09-02",
+			"updated_at": "2026-09-02",
+			"versions": [
+				{
+					"version": "1",
+					"uid": "4ata",
+					"date": "2026-09-02",
+					"message": "Initial version.",
+					"commit": null,
+					"onshape_version": "https://cad.onshape.com/documents/60aa51fc61d18f2155b99910/v/45a8c24919bf95a5560da0f8/e/5bf04274a6c68015096bd757",
+					"stl": "https://assets.basically.website/sorter-parts/camera-lamp-arm-b3a1db17cfed.stl",
+					"render": "https://assets.basically.website/sorter-parts/camera-lamp-arm-full-a623dac3ae71.png",
+					"grams": 17.8
+				}
+			],
+			"attributes": [],
+			"grams": 17.8,
+			"support_grams": 0.0,
+			"support_used": true,
+			"support_intentional": false,
+			"print_seconds": 2059,
+			"color": {
+				"role": "channel"
+			},
+			"optional": false,
+			"onshape": null,
+			"info": null,
+			"low_tolerance": false,
+			"low_tolerance_note": null,
+			"layer_scope": "all",
+			"requires": [],
+			"caption": null,
+			"docs_page": null,
+			"conflicts": null,
+			"stl": "https://assets.basically.website/sorter-parts/camera-lamp-arm-b3a1db17cfed.stl",
+			"render": "https://assets.basically.website/sorter-parts/camera-lamp-arm-full-a623dac3ae71.png",
+			"stamped": [
+				{
+					"face": "angled face",
+					"stl": "https://assets.basically.website/sorter-parts/camera-lamp-arm-4ata-stamped-angled-face-67984b5448b8.stl",
+					"normal": [
+						0.3433,
+						0.7139,
+						0.6104
+					],
+					"center": [
+						-163.96,
+						81.68,
+						123.41
+					],
+					"size": [
+						12.65,
+						3.5
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "angled face 2",
+					"stl": "https://assets.basically.website/sorter-parts/camera-lamp-arm-4ata-stamped-angled-face-2-b3a13a46ce2c.stl",
+					"normal": [
+						-0.9012,
+						0.4333,
+						0.0
+					],
+					"center": [
+						-156.05,
+						120.99,
+						62.76
+					],
+					"size": [
+						9.03,
+						2.5
+					],
+					"cap": 2.5,
+					"depth": 0.6,
+					"note": "smaller text"
+				},
+				{
+					"face": "angled face 3",
+					"stl": "https://assets.basically.website/sorter-parts/camera-lamp-arm-4ata-stamped-angled-face-3-b76b49c70360.stl",
+					"normal": [
+						0.9012,
+						-0.4333,
+						-0.0
+					],
+					"center": [
+						-138.26,
+						112.3,
+						62.76
+					],
+					"size": [
+						9.03,
+						2.5
+					],
+					"cap": 2.5,
+					"depth": 0.6,
+					"note": "smaller text"
+				},
+				{
+					"face": "angled face 4",
+					"stl": "https://assets.basically.website/sorter-parts/camera-lamp-arm-4ata-stamped-angled-face-4-343ed3974ff9.stl",
+					"normal": [
+						-0.9012,
+						0.4333,
+						0.0
+					],
+					"center": [
+						-181.83,
+						67.38,
+						140.29
+					],
+					"size": [
+						9.03,
+						2.5
+					],
+					"cap": 2.5,
+					"depth": 0.6,
+					"note": "smaller text"
+				}
+			]
+		},
+		{
+			"id": "arm-bracket-a",
+			"uid": "ntbe",
+			"name": "Arm bracket A",
+			"quantities": {
+				"feeder": 3,
+				"classification-channel": 1
+			},
+			"assembly": null,
+			"folder": null,
+			"variant_group": null,
+			"variant_name": null,
+			"description": "Ties the arm to the C-channel arm mount: four through holes, two into each.",
+			"version": "1",
+			"created_at": "2026-09-02",
+			"updated_at": "2026-09-02",
+			"versions": [
+				{
+					"version": "1",
+					"uid": "ntbe",
+					"date": "2026-09-02",
+					"message": "Initial version.",
+					"commit": null,
+					"onshape_version": "https://cad.onshape.com/documents/60aa51fc61d18f2155b99910/v/45a8c24919bf95a5560da0f8/e/5bf04274a6c68015096bd757",
+					"stl": "https://assets.basically.website/sorter-parts/arm-bracket-a-338d3b2b50d1.stl",
+					"render": "https://assets.basically.website/sorter-parts/arm-bracket-a-full-58312afd5808.png",
+					"grams": 4.65
+				}
+			],
+			"attributes": [],
+			"grams": 4.65,
+			"support_grams": 0.0,
+			"support_used": false,
+			"support_intentional": false,
+			"print_seconds": 3484,
+			"color": {
+				"role": "channel"
+			},
+			"optional": false,
+			"onshape": null,
+			"info": null,
+			"low_tolerance": false,
+			"low_tolerance_note": null,
+			"layer_scope": "all",
+			"requires": [],
+			"caption": null,
+			"docs_page": null,
+			"conflicts": null,
+			"stl": "https://assets.basically.website/sorter-parts/arm-bracket-a-338d3b2b50d1.stl",
+			"render": "https://assets.basically.website/sorter-parts/arm-bracket-a-full-58312afd5808.png",
+			"stamped": [
+				{
+					"face": "angled face",
+					"stl": "https://assets.basically.website/sorter-parts/arm-bracket-a-ntbe-stamped-angled-face-83d4bc691a9d.stl",
+					"normal": [
+						0.9012,
+						-0.4333,
+						-0.0
+					],
+					"center": [
+						-156.8,
+						119.65,
+						37.52
+					],
+					"size": [
+						3.5,
+						12.17
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "angled face 2",
+					"stl": "https://assets.basically.website/sorter-parts/arm-bracket-a-ntbe-stamped-angled-face-2-5fdf46672aa0.stl",
+					"normal": [
+						-0.9012,
+						0.4333,
+						-0.0
+					],
+					"center": [
+						-160.67,
+						125.46,
+						59.52
+					],
+					"size": [
+						3.5,
+						12.17
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "angled face 3",
+					"stl": "https://assets.basically.website/sorter-parts/arm-bracket-a-ntbe-stamped-angled-face-3-866123a1c31e.stl",
+					"normal": [
+						0.3433,
+						0.7139,
+						0.6104
+					],
+					"center": [
+						-156.47,
+						125.83,
+						67.55
+					],
+					"size": [
+						2.5,
+						8.7
+					],
+					"cap": 2.5,
+					"depth": 0.6,
+					"note": "smaller text"
+				},
+				{
+					"face": "angled face 4",
+					"stl": "https://assets.basically.website/sorter-parts/arm-bracket-a-ntbe-stamped-angled-face-4-f147b5014820.stl",
+					"normal": [
+						0.4333,
+						0.9012,
+						0.0
+					],
+					"center": [
+						-154.75,
+						129.41,
+						27.03
+					],
+					"size": [
+						2.5,
+						8.7
+					],
+					"cap": 2.5,
+					"depth": 0.6,
+					"note": "smaller text"
+				}
+			]
+		},
+		{
+			"id": "arm-bracket-b",
+			"uid": "g2mu",
+			"name": "Arm bracket B",
+			"quantities": {
+				"feeder": 3,
+				"classification-channel": 1
+			},
+			"assembly": null,
+			"folder": null,
+			"variant_group": null,
+			"variant_name": null,
+			"description": "Ties the arm to the C-channel arm mount: four through holes, two into each.",
+			"version": "1",
+			"created_at": "2026-09-02",
+			"updated_at": "2026-09-02",
+			"versions": [
+				{
+					"version": "1",
+					"uid": "g2mu",
+					"date": "2026-09-02",
+					"message": "Initial version.",
+					"commit": null,
+					"onshape_version": "https://cad.onshape.com/documents/60aa51fc61d18f2155b99910/v/45a8c24919bf95a5560da0f8/e/5bf04274a6c68015096bd757",
+					"stl": "https://assets.basically.website/sorter-parts/arm-bracket-b-3b46d31ce7e4.stl",
+					"render": "https://assets.basically.website/sorter-parts/arm-bracket-b-full-589efea6fd10.png",
+					"grams": 4.8
+				}
+			],
+			"attributes": [],
+			"grams": 4.8,
+			"support_grams": 0.0,
+			"support_used": false,
+			"support_intentional": false,
+			"print_seconds": 3485,
+			"color": {
+				"role": "channel"
+			},
+			"optional": false,
+			"onshape": null,
+			"info": null,
+			"low_tolerance": false,
+			"low_tolerance_note": null,
+			"layer_scope": "all",
+			"requires": [],
+			"caption": null,
+			"docs_page": null,
+			"conflicts": null,
+			"stl": "https://assets.basically.website/sorter-parts/arm-bracket-b-3b46d31ce7e4.stl",
+			"render": "https://assets.basically.website/sorter-parts/arm-bracket-b-full-589efea6fd10.png",
+			"stamped": [
+				{
+					"face": "angled face",
+					"stl": "https://assets.basically.website/sorter-parts/arm-bracket-b-g2mu-stamped-angled-face-4098c591b796.stl",
+					"normal": [
+						-0.9012,
+						0.4333,
+						0.0
+					],
+					"center": [
+						-135.96,
+						116.84,
+						37.58
+					],
+					"size": [
+						3.63,
+						12.3
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "angled face 2",
+					"stl": "https://assets.basically.website/sorter-parts/arm-bracket-b-g2mu-stamped-angled-face-2-d4254ef3a1c8.stl",
+					"normal": [
+						0.9012,
+						-0.4333,
+						0.0
+					],
+					"center": [
+						-133.34,
+						108.44,
+						59.58
+					],
+					"size": [
+						3.63,
+						12.3
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "angled face 3",
+					"stl": "https://assets.basically.website/sorter-parts/arm-bracket-b-g2mu-stamped-angled-face-3-4475505f7669.stl",
+					"normal": [
+						0.3433,
+						0.7139,
+						0.6104
+					],
+					"center": [
+						-133.09,
+						114.56,
+						67.59
+					],
+					"size": [
+						2.59,
+						8.79
+					],
+					"cap": 2.5,
+					"depth": 0.6,
+					"note": "smaller text"
+				},
+				{
+					"face": "angled face 4",
+					"stl": "https://assets.basically.website/sorter-parts/arm-bracket-b-g2mu-stamped-angled-face-4-d6050ea2846b.stl",
+					"normal": [
+						0.4333,
+						0.9012,
+						-0.0
+					],
+					"center": [
+						-131.36,
+						118.16,
+						27.08
+					],
+					"size": [
+						2.59,
+						8.79
+					],
+					"cap": 2.5,
+					"depth": 0.6,
+					"note": "smaller text"
+				}
+			]
+		},
+		{
+			"id": "camera-lamp-ring",
+			"uid": "sb0m",
+			"name": "Camera lamp ring",
+			"quantities": {
+				"feeder": 3,
+				"classification-channel": 1
+			},
+			"assembly": null,
+			"folder": null,
+			"variant_group": null,
+			"variant_name": null,
+			"description": "The ring on the end of the Camera lamp arm; four through holes into the arm.",
+			"version": "1",
+			"created_at": "2026-09-02",
+			"updated_at": "2026-09-02",
+			"versions": [
+				{
+					"version": "1",
+					"uid": "sb0m",
+					"date": "2026-09-02",
+					"message": "Initial version.",
+					"commit": null,
+					"onshape_version": "https://cad.onshape.com/documents/60aa51fc61d18f2155b99910/v/45a8c24919bf95a5560da0f8/e/5bf04274a6c68015096bd757",
+					"stl": "https://assets.basically.website/sorter-parts/camera-lamp-ring-8b617c795d40.stl",
+					"render": "https://assets.basically.website/sorter-parts/camera-lamp-ring-full-78b8adf2ec94.png",
+					"grams": 14.66
+				}
+			],
+			"attributes": [],
+			"grams": 14.66,
+			"support_grams": 0.0,
+			"support_used": false,
+			"support_intentional": false,
+			"print_seconds": 3096,
+			"color": {
+				"role": "channel"
+			},
+			"optional": false,
+			"onshape": null,
+			"info": null,
+			"low_tolerance": false,
+			"low_tolerance_note": null,
+			"layer_scope": "all",
+			"requires": [],
+			"caption": null,
+			"docs_page": null,
+			"conflicts": null,
+			"stl": "https://assets.basically.website/sorter-parts/camera-lamp-ring-8b617c795d40.stl",
+			"render": "https://assets.basically.website/sorter-parts/camera-lamp-ring-full-78b8adf2ec94.png",
+			"stamped": [
+				{
+					"face": "angled face",
+					"stl": "https://assets.basically.website/sorter-parts/camera-lamp-ring-sb0m-stamped-angled-face-b8143064d924.stl",
+					"normal": [
+						0.9012,
+						-0.4333,
+						-0.0
+					],
+					"center": [
+						-161.99,
+						48.86,
+						150.43
+					],
+					"size": [
+						8.79,
+						2.59
+					],
+					"cap": 2.5,
+					"depth": 0.6,
+					"note": "smaller text"
+				},
+				{
+					"face": "angled face 2",
+					"stl": "https://assets.basically.website/sorter-parts/camera-lamp-ring-sb0m-stamped-angled-face-2-615254c0ac17.stl",
+					"normal": [
+						-0.9012,
+						0.4333,
+						0.0
+					],
+					"center": [
+						-195.55,
+						52.92,
+						165.93
+					],
+					"size": [
+						8.79,
+						2.59
+					],
+					"cap": 2.5,
+					"depth": 0.6,
+					"note": "smaller text"
+				},
+				{
+					"face": "angled face 3",
+					"stl": "https://assets.basically.website/sorter-parts/camera-lamp-ring-sb0m-stamped-angled-face-3-09129685475e.stl",
+					"normal": [
+						-0.9012,
+						0.4333,
+						0.0
+					],
+					"center": [
+						-166.48,
+						53.37,
+						148.93
+					],
+					"size": [
+						8.79,
+						2.59
+					],
+					"cap": 2.5,
+					"depth": 0.6,
+					"note": "smaller text"
+				},
+				{
+					"face": "angled face 4",
+					"stl": "https://assets.basically.website/sorter-parts/camera-lamp-ring-sb0m-stamped-angled-face-4-d3dd4cee1ea6.stl",
+					"normal": [
+						0.9012,
+						-0.4333,
+						-0.0
+					],
+					"center": [
+						-185.09,
+						60.82,
+						148.93
+					],
+					"size": [
+						8.79,
+						2.59
+					],
+					"cap": 2.5,
+					"depth": 0.6,
+					"note": "smaller text"
+				}
+			]
+		},
+		{
+			"id": "lamp-inner-reflector",
+			"uid": "4vio",
+			"name": "Lamp inner reflector",
+			"quantities": {
+				"feeder": 3,
+				"classification-channel": 1
+			},
+			"assembly": null,
+			"folder": null,
+			"variant_group": null,
+			"variant_name": null,
+			"description": "The white reflector that bounces the LED light down onto the channel.",
+			"version": "1",
+			"created_at": "2026-09-02",
+			"updated_at": "2026-09-02",
+			"versions": [
+				{
+					"version": "1",
+					"uid": "4vio",
+					"date": "2026-09-02",
+					"message": "Initial version.",
+					"commit": null,
+					"onshape_version": "https://cad.onshape.com/documents/60aa51fc61d18f2155b99910/v/45a8c24919bf95a5560da0f8/e/5bf04274a6c68015096bd757",
+					"stl": "https://assets.basically.website/sorter-parts/lamp-inner-reflector-0028a095152f.stl",
+					"render": "https://assets.basically.website/sorter-parts/lamp-inner-reflector-full-918fa7fd9c8b.png",
+					"grams": 76.42
+				}
+			],
+			"attributes": [],
+			"grams": 76.42,
+			"support_grams": 0.0,
+			"support_used": false,
+			"support_intentional": false,
+			"print_seconds": 6824,
+			"color": {
+				"fixed": "ivory-white"
+			},
+			"optional": false,
+			"onshape": null,
+			"info": null,
+			"low_tolerance": false,
+			"low_tolerance_note": null,
+			"layer_scope": "all",
+			"requires": [],
+			"caption": null,
+			"docs_page": null,
+			"conflicts": null,
+			"stl": "https://assets.basically.website/sorter-parts/lamp-inner-reflector-0028a095152f.stl",
+			"render": "https://assets.basically.website/sorter-parts/lamp-inner-reflector-full-918fa7fd9c8b.png",
+			"stamped": [
+				{
+					"face": "top",
+					"stl": "https://assets.basically.website/sorter-parts/lamp-inner-reflector-4vio-stamped-top-ae5d8e4ecce9.stl",
+					"normal": [
+						0.0,
+						0.0,
+						1.0
+					],
+					"center": [
+						-202.44,
+						-59.5,
+						185.91
+					],
+					"size": [
+						12.49,
+						3.63
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "outer wall",
+					"stl": "https://assets.basically.website/sorter-parts/lamp-inner-reflector-4vio-stamped-outer-wall-21a20529da4d.stl",
+					"normal": [
+						0.0337,
+						0.7065,
+						0.707
+					],
+					"center": [
+						-197.34,
+						77.42,
+						181.73
+					],
+					"size": [
+						12.49,
+						3.63
+					],
+					"cap": 3.5,
+					"depth": 0.4,
+					"note": "shallow pocket",
+					"surface": {
+						"axis": [
+							-0.0,
+							0.0,
+							1.0
+						],
+						"point": [
+							-200.798,
+							5.077,
+							182.488
+						],
+						"r0": 71.669,
+						"slope": -0.99958,
+						"sign": 1
+					}
+				},
+				{
+					"face": "outer wall 2",
+					"stl": "https://assets.basically.website/sorter-parts/lamp-inner-reflector-4vio-stamped-outer-wall-2-1823c3286fdb.stl",
+					"normal": [
+						0.9988,
+						-0.0494,
+						0.0
+					],
+					"center": [
+						-125.91,
+						1.38,
+						161.6
+					],
+					"size": [
+						12.49,
+						3.63
+					],
+					"cap": 3.5,
+					"depth": 0.4,
+					"note": "shallow pocket",
+					"surface": {
+						"axis": [
+							-0.0,
+							-0.0,
+							1.0
+						],
+						"point": [
+							-200.798,
+							5.077,
+							168.862
+						],
+						"r0": 74.979,
+						"slope": 0.0,
+						"sign": 1
+					}
+				},
+				{
+					"face": "angled face",
+					"stl": "https://assets.basically.website/sorter-parts/lamp-inner-reflector-4vio-stamped-angled-face-a847dcc128a3.stl",
+					"normal": [
+						-0.519,
+						0.8548,
+						0.0
+					],
+					"center": [
+						-163.59,
+						27.67,
+						177.14
+					],
+					"size": [
+						8.92,
+						2.59
+					],
+					"cap": 2.5,
+					"depth": 0.6,
+					"note": "smaller text"
+				}
+			]
+		},
+		{
+			"id": "inner-reflector-led-hook",
+			"uid": "l5qn",
+			"name": "Inner reflector LED hook",
+			"quantities": {
+				"feeder": 18,
+				"classification-channel": 6
+			},
+			"assembly": null,
+			"folder": null,
+			"variant_group": null,
+			"variant_name": null,
+			"description": "Friction-fits onto the inner reflector and retains an LED strip. Six per lamp.",
+			"version": "1",
+			"created_at": "2026-09-02",
+			"updated_at": "2026-09-02",
+			"versions": [
+				{
+					"version": "1",
+					"uid": "l5qn",
+					"date": "2026-09-02",
+					"message": "Initial version.",
+					"commit": null,
+					"onshape_version": "https://cad.onshape.com/documents/60aa51fc61d18f2155b99910/v/45a8c24919bf95a5560da0f8/e/5bf04274a6c68015096bd757",
+					"stl": "https://assets.basically.website/sorter-parts/inner-reflector-led-hook-7a6989efa962.stl",
+					"render": "https://assets.basically.website/sorter-parts/inner-reflector-led-hook-full-313dd1b163bc.png",
+					"grams": 0.59
+				}
+			],
+			"attributes": [],
+			"grams": 0.59,
+			"support_grams": 0.0,
+			"support_used": false,
+			"support_intentional": false,
+			"print_seconds": 1018,
+			"color": {
+				"fixed": "ivory-white"
+			},
+			"optional": false,
+			"onshape": null,
+			"info": null,
+			"low_tolerance": false,
+			"low_tolerance_note": null,
+			"layer_scope": "all",
+			"requires": [],
+			"caption": null,
+			"docs_page": null,
+			"conflicts": null,
+			"stl": "https://assets.basically.website/sorter-parts/inner-reflector-led-hook-7a6989efa962.stl",
+			"render": "https://assets.basically.website/sorter-parts/inner-reflector-led-hook-full-313dd1b163bc.png",
+			"stamped": []
+		},
+		{
+			"id": "lamp-outer-cover",
+			"uid": "8zqy",
+			"name": "Lamp outer cover",
+			"quantities": {
+				"feeder": 3,
+				"classification-channel": 1
+			},
+			"assembly": null,
+			"folder": null,
+			"variant_group": null,
+			"variant_name": null,
+			"description": "The cover that goes over the reflector; the outside of the shaded lamp.",
+			"version": "1",
+			"created_at": "2026-09-02",
+			"updated_at": "2026-09-02",
+			"versions": [
+				{
+					"version": "1",
+					"uid": "8zqy",
+					"date": "2026-09-02",
+					"message": "Initial version.",
+					"commit": null,
+					"onshape_version": "https://cad.onshape.com/documents/60aa51fc61d18f2155b99910/v/45a8c24919bf95a5560da0f8/e/5bf04274a6c68015096bd757",
+					"stl": "https://assets.basically.website/sorter-parts/lamp-outer-cover-a35c2789239b.stl",
+					"render": "https://assets.basically.website/sorter-parts/lamp-outer-cover-full-2373d8aa6a82.png",
+					"grams": 47.02
+				}
+			],
+			"attributes": [],
+			"grams": 47.02,
+			"support_grams": 0.0,
+			"support_used": false,
+			"support_intentional": false,
+			"print_seconds": 4248,
+			"color": {
+				"fixed": "ash-gray"
+			},
+			"optional": false,
+			"onshape": null,
+			"info": null,
+			"low_tolerance": false,
+			"low_tolerance_note": null,
+			"layer_scope": "all",
+			"requires": [],
+			"caption": null,
+			"docs_page": null,
+			"conflicts": null,
+			"stl": "https://assets.basically.website/sorter-parts/lamp-outer-cover-a35c2789239b.stl",
+			"render": "https://assets.basically.website/sorter-parts/lamp-outer-cover-full-2373d8aa6a82.png",
+			"stamped": [
+				{
+					"face": "top",
+					"stl": "https://assets.basically.website/sorter-parts/lamp-outer-cover-8zqy-stamped-top-0ea76b758a79.stl",
+					"normal": [
+						0.0,
+						0.0,
+						1.0
+					],
+					"center": [
+						-202.57,
+						-59.17,
+						187.41
+					],
+					"size": [
+						12.47,
+						4.52
+					],
+					"cap": 3.5,
+					"depth": 0.4,
+					"note": "shallow pocket"
+				},
+				{
+					"face": "outer wall",
+					"stl": "https://assets.basically.website/sorter-parts/lamp-outer-cover-8zqy-stamped-outer-wall-892175848330.stl",
+					"normal": [
+						0.0218,
+						0.9998,
+						0.0
+					],
+					"center": [
+						-199.13,
+						81.54,
+						168.35
+					],
+					"size": [
+						12.47,
+						4.52
+					],
+					"cap": 3.5,
+					"depth": 0.4,
+					"note": "shallow pocket",
+					"surface": {
+						"axis": [
+							0.0,
+							0.0,
+							1.0
+						],
+						"point": [
+							-200.798,
+							5.077,
+							168.351
+						],
+						"r0": 76.484,
+						"slope": 0.0,
+						"sign": 1
+					}
+				},
+				{
+					"face": "outer wall 2",
+					"stl": "https://assets.basically.website/sorter-parts/lamp-outer-cover-8zqy-stamped-outer-wall-2-8f59c1f9d168.stl",
+					"normal": [
+						0.0346,
+						0.7064,
+						0.707
+					],
+					"center": [
+						-197.21,
+						78.25,
+						183.02
+					],
+					"size": [
+						12.47,
+						4.52
+					],
+					"cap": 3.5,
+					"depth": 0.4,
+					"note": "shallow pocket",
+					"surface": {
+						"axis": [
+							-0.0,
+							-0.0,
+							1.0
+						],
+						"point": [
+							-200.798,
+							5.077,
+							183.546
+						],
+						"r0": 72.732,
+						"slope": -0.99957,
+						"sign": 1
+					}
+				},
+				{
+					"face": "bottom",
+					"stl": "https://assets.basically.website/sorter-parts/lamp-outer-cover-8zqy-stamped-bottom-ddfa23d5e48e.stl",
+					"normal": [
+						0.0,
+						0.0,
+						-1.0
+					],
+					"center": [
+						-199.08,
+						-59.11,
+						186.06
+					],
+					"size": [
+						12.47,
+						4.52
+					],
+					"cap": 3.5,
+					"depth": 0.4,
+					"note": "shallow pocket"
+				}
+			]
+		},
+		{
+			"id": "layout-guide",
+			"uid": "wwbb",
+			"name": "Layout guide",
+			"quantities": {
+				"feeder": 3
+			},
+			"assembly": null,
+			"folder": null,
+			"variant_group": null,
+			"variant_name": null,
+			"description": "The base plate a C-channel's three support legs stand in; one per channel, the same part on C-channels 1-3.",
+			"version": "1",
+			"created_at": "2026-09-02",
+			"updated_at": "2026-09-02",
+			"versions": [
+				{
+					"version": "1",
+					"uid": "wwbb",
+					"date": "2026-09-02",
+					"message": "Initial version.",
+					"commit": null,
+					"onshape_version": "https://cad.onshape.com/documents/60aa51fc61d18f2155b99910/v/45a8c24919bf95a5560da0f8/e/7f9499df9d10e70a5d51b6a1",
+					"stl": "https://assets.basically.website/sorter-parts/layout-guide-78f720e9b2f9.stl",
+					"render": "https://assets.basically.website/sorter-parts/layout-guide-full-2483935b9dfb.png",
+					"grams": 93.35
+				}
+			],
+			"attributes": [],
+			"grams": 93.35,
+			"support_grams": 0.0,
+			"support_used": false,
+			"support_intentional": false,
+			"print_seconds": 8959,
+			"color": {
+				"fixed": "charcoal"
+			},
+			"optional": false,
+			"onshape": null,
+			"info": null,
+			"low_tolerance": false,
+			"low_tolerance_note": null,
+			"layer_scope": "all",
+			"requires": [],
+			"caption": null,
+			"docs_page": null,
+			"conflicts": null,
+			"stl": "https://assets.basically.website/sorter-parts/layout-guide-78f720e9b2f9.stl",
+			"render": "https://assets.basically.website/sorter-parts/layout-guide-full-2483935b9dfb.png",
+			"stamped": [
+				{
+					"face": "bottom",
+					"stl": "https://assets.basically.website/sorter-parts/layout-guide-wwbb-stamped-bottom-b5036cbffc0c.stl",
+					"normal": [
+						0.0,
+						0.0,
+						-1.0
+					],
+					"center": [
+						-225.6,
+						-345.76,
+						0.0
+					],
+					"size": [
+						12.66,
+						3.5
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "top",
+					"stl": "https://assets.basically.website/sorter-parts/layout-guide-wwbb-stamped-top-11c6c3a38e9f.stl",
+					"normal": [
+						0.0,
+						0.0,
+						1.0
+					],
+					"center": [
+						-231.28,
+						-314.07,
+						8.0
+					],
+					"size": [
+						12.66,
+						3.5
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "top 2",
+					"stl": "https://assets.basically.website/sorter-parts/layout-guide-wwbb-stamped-top-2-c64cc5de5316.stl",
+					"normal": [
+						-0.0,
+						-0.0,
+						1.0
+					],
+					"center": [
+						-257.88,
+						-334.17,
+						8.0
+					],
+					"size": [
+						12.66,
+						3.5
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "top 3",
+					"stl": "https://assets.basically.website/sorter-parts/layout-guide-wwbb-stamped-top-3-2b963cdc840a.stl",
+					"normal": [
+						0.0,
+						-0.0,
+						1.0
+					],
+					"center": [
+						-209.12,
+						-338.74,
+						8.0
+					],
+					"size": [
+						12.66,
+						3.5
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				}
+			]
+		},
+		{
+			"id": "support-dovetail-adapter",
+			"uid": "2ikc",
+			"name": "Support dovetail adapter",
+			"quantities": {
+				"feeder": 9
+			},
+			"assembly": null,
+			"folder": null,
+			"variant_group": null,
+			"variant_name": null,
+			"description": "Tops a support leg and dovetails into the C-channel drive; three per channel, the same part on C-channels 1-3.",
+			"version": "1",
+			"created_at": "2026-09-02",
+			"updated_at": "2026-09-02",
+			"versions": [
+				{
+					"version": "1",
+					"uid": "2ikc",
+					"date": "2026-09-02",
+					"message": "Initial version.",
+					"commit": null,
+					"onshape_version": "https://cad.onshape.com/documents/60aa51fc61d18f2155b99910/v/45a8c24919bf95a5560da0f8/e/7f9499df9d10e70a5d51b6a1",
+					"stl": "https://assets.basically.website/sorter-parts/support-dovetail-adapter-48e56b8b5283.stl",
+					"render": "https://assets.basically.website/sorter-parts/support-dovetail-adapter-full-6be9e5a8a882.png",
+					"grams": 9.01
+				}
+			],
+			"attributes": [],
+			"grams": 9.01,
+			"support_grams": 0.0,
+			"support_used": false,
+			"support_intentional": false,
+			"print_seconds": 2282,
+			"color": {
+				"fixed": "charcoal"
+			},
+			"optional": false,
+			"onshape": null,
+			"info": null,
+			"low_tolerance": false,
+			"low_tolerance_note": null,
+			"layer_scope": "all",
+			"requires": [],
+			"caption": null,
+			"docs_page": null,
+			"conflicts": null,
+			"stl": "https://assets.basically.website/sorter-parts/support-dovetail-adapter-48e56b8b5283.stl",
+			"render": "https://assets.basically.website/sorter-parts/support-dovetail-adapter-full-6be9e5a8a882.png",
+			"stamped": [
+				{
+					"face": "angled face",
+					"stl": "https://assets.basically.website/sorter-parts/support-dovetail-adapter-2ikc-stamped-angled-face-43bcd126b635.stl",
+					"normal": [
+						0.4004,
+						-0.9163,
+						0.0
+					],
+					"center": [
+						-154.13,
+						-143.02,
+						63.19
+					],
+					"size": [
+						12.45,
+						3.63
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "top",
+					"stl": "https://assets.basically.website/sorter-parts/support-dovetail-adapter-2ikc-stamped-top-e3e75462012e.stl",
+					"normal": [
+						0.0,
+						-0.0,
+						1.0
+					],
+					"center": [
+						-163.01,
+						-126.54,
+						80.0
+					],
+					"size": [
+						12.45,
+						3.63
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "angled face 2",
+					"stl": "https://assets.basically.website/sorter-parts/support-dovetail-adapter-2ikc-stamped-angled-face-2-50b395e961db.stl",
+					"normal": [
+						-0.9163,
+						-0.4004,
+						-0.0
+					],
+					"center": [
+						-171.9,
+						-126.33,
+						76.81
+					],
+					"size": [
+						12.45,
+						3.63
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "angled face 3",
+					"stl": "https://assets.basically.website/sorter-parts/support-dovetail-adapter-2ikc-stamped-angled-face-3-5923e0e69e17.stl",
+					"normal": [
+						0.9163,
+						0.4004,
+						0.0
+					],
+					"center": [
+						-137.45,
+						-125.26,
+						76.81
+					],
+					"size": [
+						12.45,
+						3.63
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				}
+			]
+		},
+		{
+			"id": "channel-two-support-leg",
+			"uid": "bk8x",
+			"name": "C-channel 2 support leg",
+			"quantities": {
+				"feeder": 3
+			},
+			"assembly": null,
+			"folder": null,
+			"variant_group": null,
+			"variant_name": null,
+			"description": "C-channel 2's leg, between the layout guide and a dovetail adapter. Three per channel.",
+			"version": "1",
+			"created_at": "2026-09-02",
+			"updated_at": "2026-09-02",
+			"versions": [
+				{
+					"version": "1",
+					"uid": "bk8x",
+					"date": "2026-09-02",
+					"message": "Initial version.",
+					"commit": null,
+					"onshape_version": "https://cad.onshape.com/documents/60aa51fc61d18f2155b99910/v/45a8c24919bf95a5560da0f8/e/7f9499df9d10e70a5d51b6a1",
+					"stl": "https://assets.basically.website/sorter-parts/channel-two-support-leg-636858a616f9.stl",
+					"render": "https://assets.basically.website/sorter-parts/channel-two-support-leg-full-5c3e3f5e26c1.png",
+					"grams": 32.78
+				}
+			],
+			"attributes": [],
+			"grams": 32.78,
+			"support_grams": 0.0,
+			"support_used": false,
+			"support_intentional": false,
+			"print_seconds": 6332,
+			"color": {
+				"fixed": "charcoal"
+			},
+			"optional": false,
+			"onshape": null,
+			"info": null,
+			"low_tolerance": false,
+			"low_tolerance_note": null,
+			"layer_scope": "all",
+			"requires": [],
+			"caption": null,
+			"docs_page": null,
+			"conflicts": null,
+			"stl": "https://assets.basically.website/sorter-parts/channel-two-support-leg-636858a616f9.stl",
+			"render": "https://assets.basically.website/sorter-parts/channel-two-support-leg-full-5c3e3f5e26c1.png",
+			"stamped": [
+				{
+					"face": "bottom",
+					"stl": "https://assets.basically.website/sorter-parts/channel-two-support-leg-bk8x-stamped-bottom-651d566636a8.stl",
+					"normal": [
+						-0.0,
+						0.0,
+						-1.0
+					],
+					"center": [
+						-154.67,
+						-125.8,
+						10.0
+					],
+					"size": [
+						12.39,
+						3.56
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "angled face",
+					"stl": "https://assets.basically.website/sorter-parts/channel-two-support-leg-bk8x-stamped-angled-face-02fe461718fa.stl",
+					"normal": [
+						-0.4004,
+						0.9163,
+						0.0
+					],
+					"center": [
+						-158.67,
+						-116.63,
+						84.0
+					],
+					"size": [
+						12.39,
+						3.56
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "angled face 2",
+					"stl": "https://assets.basically.website/sorter-parts/channel-two-support-leg-bk8x-stamped-angled-face-2-a55422792c2e.stl",
+					"normal": [
+						0.4004,
+						-0.9163,
+						0.0
+					],
+					"center": [
+						-154.16,
+						-143.03,
+						31.66
+					],
+					"size": [
+						12.39,
+						3.56
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "angled face 3",
+					"stl": "https://assets.basically.website/sorter-parts/channel-two-support-leg-bk8x-stamped-angled-face-3-d83d81b240c6.stl",
+					"normal": [
+						-0.9163,
+						-0.4004,
+						-0.0
+					],
+					"center": [
+						-169.5,
+						-131.81,
+						31.66
+					],
+					"size": [
+						12.39,
+						3.56
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				}
+			]
+		},
+		{
+			"id": "channel-three-support-leg",
+			"uid": "q5p4",
+			"name": "C-channel 3 support leg",
+			"quantities": {
+				"feeder": 3
+			},
+			"assembly": null,
+			"folder": null,
+			"variant_group": null,
+			"variant_name": null,
+			"description": "C-channel 3's leg, between the layout guide and a dovetail adapter. Three per channel.",
+			"version": "1",
+			"created_at": "2026-09-02",
+			"updated_at": "2026-09-02",
+			"versions": [
+				{
+					"version": "1",
+					"uid": "q5p4",
+					"date": "2026-09-02",
+					"message": "Initial version.",
+					"commit": null,
+					"onshape_version": "https://cad.onshape.com/documents/60aa51fc61d18f2155b99910/v/45a8c24919bf95a5560da0f8/e/7f9499df9d10e70a5d51b6a1",
+					"stl": "https://assets.basically.website/sorter-parts/channel-three-support-leg-b7b2900b9962.stl",
+					"render": "https://assets.basically.website/sorter-parts/channel-three-support-leg-full-0fd2e2fccc3c.png",
+					"grams": 14.19
+				}
+			],
+			"attributes": [],
+			"grams": 14.19,
+			"support_grams": 0.0,
+			"support_used": false,
+			"support_intentional": false,
+			"print_seconds": 3184,
+			"color": {
+				"fixed": "charcoal"
+			},
+			"optional": false,
+			"onshape": null,
+			"info": null,
+			"low_tolerance": false,
+			"low_tolerance_note": null,
+			"layer_scope": "all",
+			"requires": [],
+			"caption": null,
+			"docs_page": null,
+			"conflicts": null,
+			"stl": "https://assets.basically.website/sorter-parts/channel-three-support-leg-b7b2900b9962.stl",
+			"render": "https://assets.basically.website/sorter-parts/channel-three-support-leg-full-0fd2e2fccc3c.png",
+			"stamped": [
+				{
+					"face": "bottom",
+					"stl": "https://assets.basically.website/sorter-parts/channel-three-support-leg-q5p4-stamped-bottom-1f83952ffccf.stl",
+					"normal": [
+						-0.0,
+						0.0,
+						-1.0
+					],
+					"center": [
+						-154.67,
+						-125.8,
+						10.0
+					],
+					"size": [
+						12.45,
+						4.52
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "angled face",
+					"stl": "https://assets.basically.website/sorter-parts/channel-three-support-leg-q5p4-stamped-angled-face-606856953c01.stl",
+					"normal": [
+						-0.4004,
+						0.9163,
+						0.0
+					],
+					"center": [
+						-158.67,
+						-116.63,
+						44.0
+					],
+					"size": [
+						12.45,
+						4.52
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "angled face 2",
+					"stl": "https://assets.basically.website/sorter-parts/channel-three-support-leg-q5p4-stamped-angled-face-2-d8118b0e2ff0.stl",
+					"normal": [
+						0.4004,
+						-0.9163,
+						0.0
+					],
+					"center": [
+						-154.13,
+						-143.02,
+						32.13
+					],
+					"size": [
+						12.45,
+						4.52
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "angled face 3",
+					"stl": "https://assets.basically.website/sorter-parts/channel-three-support-leg-q5p4-stamped-angled-face-3-e0274c25e258.stl",
+					"normal": [
+						0.9163,
+						0.4004,
+						-0.0
+					],
+					"center": [
+						-137.45,
+						-125.25,
+						32.13
+					],
+					"size": [
+						12.45,
+						4.52
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				}
+			]
 		}
 	],
 	"plates": [
@@ -16488,10 +19558,10 @@
 			},
 			"name": "M3 \u00d7 8 mm socket/button head",
 			"category": "Screws",
-			"description": "Retired, no longer used anywhere. Was recorded as the screw clamping the C-channel input gear (12T) to the NEMA 17 shaft flat, but that screw is countersunk (scr-m3-8-cs).",
-			"note": "Head type and length measured off the input-gear STL: the boss carries a \u00d82.80 mm hole parallel to the shaft, 3.61 mm off the axis, opening into the \u00d84.87 mm bore; the head sits in a round \u00d86.40 mm \u00d7 2.7 mm counterbore with a 90\u00b0 cone at the bottom, which is a flat-bottomed head seat rather than a countersink. A socket cap head (\u00d85.5 \u00d7 3.0) bottoms on that floor and stands about 0.3 mm proud; a button head (\u00d85.7 \u00d7 1.65) bottoms on the same floor about 1 mm below flush, so either clamps. At 8 mm the head seats and about 6 mm of thread is left in the plastic. Unused as of 2026-09-01: the screw is the countersunk M3 \u00d7 8 (scr-m3-8-cs).",
+			"description": "Retired, no longer used anywhere. Was recorded as the screw clamping the C-channel input gear (12T) to the NEMA 17 shaft flat, but that screw is countersunk (scr-m3-8-cs). Kept as an unused entry rather than deleted, since a minted uid has to stay resolvable (see parts-calculator's own CLAUDE.md); deletion is tracked as sorter-v2 issue #536.",
+			"note": "Head type and length measured off the input-gear STL: the boss carries a \u00d82.80 mm hole parallel to the shaft, 3.61 mm off the axis, opening into the \u00d84.87 mm bore; the head sits in a round \u00d86.40 mm \u00d7 2.7 mm counterbore with a 90\u00b0 cone at the bottom, which is a flat-bottomed head seat rather than a countersink. A socket cap head (\u00d85.5 \u00d7 3.0) bottoms on that floor and stands about 0.3 mm proud; a button head (\u00d85.7 \u00d7 1.65) bottoms on the same floor about 1 mm below flush, so either clamps. At 8 mm the head seats and about 6 mm of thread is left in the plastic. Unused as of 2026-09-01: the screw is the countersunk M3 \u00d7 8 (scr-m3-8-cs). Do not add a new joint to this entry. Measure the real screw and use a live catalog part instead.",
 			"created_at": "2026-08-21",
-			"updated_at": "2026-09-01",
+			"updated_at": "2026-09-03",
 			"attributes": [
 				{
 					"label": "Thread",
@@ -16801,10 +19871,10 @@
 			},
 			"name": "M3 \u00d7 35 mm flat head",
 			"category": "Screws",
-			"description": "The two long M3s on the top interface: one clamps the two cable-clamp halves together, one retains the idler gear on the NEMA 23 bracket. Same screw for both. The head has to stay low because of the idler joint: a socket or button head stands proud enough for the limit switch hammer to catch on it as the chute sweeps past.",
+			"description": "The long M3 that clamps the two cable-clamp halves together at the top interface, threading into an M3 nut in the bottom of the Cable clamp (outer).",
 			"note": null,
 			"created_at": "2026-07-18",
-			"updated_at": "2026-08-21",
+			"updated_at": "2026-08-30",
 			"attributes": [
 				{
 					"label": "Thread",
@@ -16816,7 +19886,7 @@
 				},
 				{
 					"label": "Head",
-					"value": "Flat (pancake) head, hex socket. Pan head works too; both are flat-bottomed and low enough to clear the limit switch hammer, which a socket or button head is not."
+					"value": "Flat (pancake) head, hex socket. Pan head works too."
 				}
 			],
 			"sheet_qty": null,
@@ -17266,10 +20336,10 @@
 			},
 			"name": "M3 \u00d7 15 mm washer",
 			"category": "Washers",
-			"description": "Flat/fender washer, 15 mm outer diameter. Added to the catalog to match the documentation's description of the interface idler gear joint, under the M3 \u00d7 35 screw that holds the gear onto the NEMA 23 bracket. That documentation was wrong: the joint's actual design uses the printed chute stepper idler bearing retainers instead (wired up 2026-08-25), so this part was never correct here. Not used anywhere in the machine. Kept as an unused entry rather than deleted, since a minted uid has to stay resolvable (see parts-calculator's own CLAUDE.md).",
+			"description": "Flat/fender washer, 15 mm outer diameter. Added to the catalog to match the documentation's description of the interface idler gear joint, under the M3 \u00d7 35 screw that holds the gear onto the NEMA 23 bracket. That documentation was wrong: the joint's actual design uses the printed chute stepper idler bearing retainers instead (wired up 2026-08-25), so this part was never correct here. Not used anywhere in the machine. Kept as an unused entry rather than deleted, since a minted uid has to stay resolvable (see parts-calculator's own CLAUDE.md). Deletion is tracked as sorter-v2 issue #478.",
 			"note": "Unused as of 2026-08-30. Do not add a new joint to this washer \u2014 the idler gear joint it was meant for uses the printed chute stepper idler bearing retainers instead.",
 			"created_at": "2026-08-18",
-			"updated_at": "2026-08-30",
+			"updated_at": "2026-09-03",
 			"attributes": [
 				{
 					"label": "Thread",
@@ -19466,6 +22536,31 @@
 			"docs_page": null,
 			"conflicts": null,
 			"image": "https://assets.basically.website/sorter-parts/top-interface-extrusion-f-full-ed5f291c6635.png"
+		},
+		{
+			"id": "ext-2020-c1",
+			"uid": "n11o",
+			"kind": "cots",
+			"cots": {
+				"type": "extrusion-2020",
+				"length_mm": 228
+			},
+			"name": "C-channel 1 support legs (228 mm)",
+			"category": "Aluminum extrusion (2020)",
+			"description": "2020 aluminum extrusion, cut to 228 mm \u2014 C-channel 1's three support legs.",
+			"note": null,
+			"created_at": "2026-09-02",
+			"updated_at": "2026-09-02",
+			"attributes": [],
+			"sheet_qty": null,
+			"sheet_qty_text": null,
+			"stock": null,
+			"sourcing": null,
+			"alternative": null,
+			"caption": "2020 aluminum extrusion, cut to 228 mm.",
+			"docs_page": null,
+			"conflicts": null,
+			"image": "https://assets.basically.website/sorter-parts/extrusion-extrusion-2020-full-01bd50e7eac0.png"
 		}
 	],
 	"lasercut": [

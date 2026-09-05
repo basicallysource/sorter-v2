@@ -29,18 +29,29 @@ The fasteners and quantities are in the parts list above and are called out inli
 
 {% include fastener-legend.html %}
 
-- **One funnel per layer**, in one of two sizes. Print the size that matches that layer's bins.
+- **One funnel per layer**, in one of two sizes, and it is your choice which. Step 1 is that decision.
 - The brackets screw into the [chute core]({{ '/hardware/assembly/distribution/chute/chute-core/' | relative_url }})'s M3 heat inserts, so there is nothing to tap.
 - The 4 {% include fastener.html size="M3" variant="countersunk" length="12" %} they take come out of the core's set of 6 and are not extra, so they are on that page's parts list rather than this one.
 
 {% include step.html n="1" title="Pick the funnel size for the layer" %}
 
-The size is chosen per layer rather than once for the whole machine, and it sets that layer's bins with it:
+**This is a builder's decision, taken once per layer.** What you are choosing is how finely that layer divides its ring: into 12 bins or into 18. The funnel and the bin set are a matched pair, so the size you pick decides both at once, and a machine can mix sizes from layer to layer. Decide before you print either part.
 
-- **Funnel (half size):** 12 bins on that layer, six Bin (half, left) and six Bin (half, right).
-- **Funnel (third size):** 18 bins on that layer, six each of Bin (third, left), Bin (third, center) and Bin (third, right-back).
+**Half size: 12 bins on that layer**, six Bin (half, left) and six Bin (half, right).
 
-Decide before printing: the funnel and its bin set are a matched pair. A half-size funnel needs the six-and-six half bins, a third-size funnel needs the three-way third bins, and picking one without the other leaves you short on prints or with bins that don't fit under that funnel. The [parts calculator](https://parts-calculator.basically.website/) takes a size per layer and totals the print for whatever mix you pick.
+- Wider funnel mouth, so this layer takes the biggest pieces the machine can sort.
+- Twelve destinations instead of eighteen, so fewer categories land on this layer.
+
+**Third size: 18 bins on that layer**, six each of Bin (third, left), Bin (third, center) and Bin (third, right-back).
+
+- Half again as many destinations, which is what you want for the small parts that make up most of a pile.
+- Narrower mouth. The opening is what limits piece size on a layer, so anything too big for it has to be routed to a half-size layer instead.
+
+Neither is cheaper to build: a layer's bins come to roughly 2.1 kg of filament and 55 to 60 hours of printing either way, and total capacity per layer works out much the same, since the extra walls of the three-way split take room out of each bin rather than out of the layer.
+
+**If you have no reason to prefer one:** the [parts calculator](https://parts-calculator.basically.website/) starts a fresh machine at two third-size layers and one half-size, which is a sensible default. Most LEGO is small, so most of your destinations should be, but you want at least one layer that can take the big pieces. Nothing in the machine or the software ties a size to a particular height, so which level carries the half-size layer is yours to choose too.
+
+The calculator takes a size per layer and totals the print for whatever mix you pick.
 
 {% include step.html n="2" title="Fit the funnel brackets to the chute core" %}
 

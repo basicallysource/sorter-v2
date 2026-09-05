@@ -39,7 +39,7 @@ Two per machine. Which channels they sit between is not recorded: three feeder c
 
 <div class="prep-item">
   <div class="prep-item-body">
-    <p><strong>Output guide:</strong> no heat inserts recorded and no fasteners of its own. Prints in the feeder colour.</p>
+    <p><strong>Output guide:</strong> no heat inserts recorded and no fasteners of its own. Prints ash grey.</p>
   </div>
   <figure class="prep-item-figure">
     <div class="img-placeholder">Image coming</div>

@@ -47,7 +47,7 @@ Both are real options and the machine holds them identically. Printed bins are i
 
 **Printed.** The five parts above, on the [parts calculator](https://parts-calculator.basically.website/), STLs and all. Budget for them: a half set is about 2.1 kg of filament and 55 hours of printing per layer, a third set about 2.1 kg and 60 hours, so a five layer machine is roughly 10 kg and ten days of printer time in bins alone. That is the single biggest print on the machine.
 
-**Laser cut cardboard.** The bins were designed to be cut flat and folded, for cost and because pre-made boxes in the sizes needed ship mostly air. Cut them with [the bin generator](https://bin-gen.basically.website/), which turns a bin into a foldable flat pattern for LightBurn:
+**Laser cut cardboard.** The bins were designed to be cut flat and folded, for cost and because pre-made boxes in the sizes needed ship mostly air. Cut them with the [laser cut bin generator](https://bin-gen.basically.website/), which turns a bin into a foldable flat pattern for LightBurn:
 
 - It ships **built-in bins**, so you do not need a CAD file to use it. Drag in your own `.step` only if you have modified a bin.
 - Set **thickness** to your stock. 1/8 inch cardboard is 3.175 mm, which is the default.

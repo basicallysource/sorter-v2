@@ -229,6 +229,7 @@
 			incident.kind === 'distribution_chute_jam' ||
 			incident.kind === 'distribution_servo_bus_offline' ||
 			incident.kind === 'distribution_no_bin_available' ||
+			incident.kind === 'distribution_bin_full' ||
 			incident.kind === 'classification_unresolved' ||
 			incident.kind === 'classification_multi_drop_collision' ||
 			incident.kind === 'classification_intake_request_timeout' ||
@@ -374,6 +375,9 @@
 		) {
 			return `${currentBackendBaseUrl()}/api/distribution/incident`;
 		}
+		if (incident.kind === 'distribution_bin_full') {
+			return `${currentBackendBaseUrl()}/api/bins`;
+		}
 		if (
 			incident.kind === 'classification_unresolved' ||
 			incident.kind === 'classification_multi_drop_collision' ||
@@ -388,6 +392,13 @@
 	function exitIncidentActionBody(
 		incident: Record<string, unknown>
 	): Record<string, string | number> {
+		if (incident.kind === 'distribution_bin_full') {
+			return {
+				layer_index: incidentNumber(incident, 'layer_index') ?? 0,
+				section_index: incidentNumber(incident, 'section_index') ?? 0,
+				bin_index: incidentNumber(incident, 'bin_index') ?? 0
+			};
+		}
 		if (
 			isChannelExitStuckIncident(incident) ||
 			incident.kind === 'channel_dropzone_stuck' ||
@@ -438,6 +449,9 @@
 		}
 		if (incident?.kind === 'distribution_no_bin_available') {
 			return 'No Bin Available';
+		}
+		if (incident?.kind === 'distribution_bin_full') {
+			return 'Bin Full';
 		}
 		if (incident?.kind === 'classification_unresolved') {
 			return 'Classification Unresolved';
@@ -506,6 +520,9 @@
 		if (incident?.kind === 'distribution_no_bin_available') {
 			return 'No matching bin is available for the piece.';
 		}
+		if (incident?.kind === 'distribution_bin_full') {
+			return 'A bin reached its piece limit. Empty it, then mark it as emptied to continue.';
+		}
 		if (incident?.kind === 'classification_unresolved') {
 			return 'A piece reached the drop point without a resolved classification.';
 		}
@@ -526,6 +543,7 @@
 
 	function exitIncidentPrimaryMetricLabel(incident: Record<string, unknown> | null): string {
 		if (incident?.kind === 'distribution_no_bin_available') return 'Category';
+		if (incident?.kind === 'distribution_bin_full') return 'Bin';
 		if (incident?.kind === 'classification_intake_request_timeout') return 'Timeout';
 		if (incident?.kind === 'classification_track_lost') return 'Track';
 		if (
@@ -586,6 +604,9 @@
 		if (incident?.kind === 'distribution_no_bin_available') {
 			return incidentString(incident, 'category_id', '-');
 		}
+		if (incident?.kind === 'distribution_bin_full') {
+			return incidentString(incident, 'bin_label', '-');
+		}
 		if (incident?.kind === 'classification_intake_request_timeout') {
 			const timeout = incidentNumber(incident, 'timeout_ms');
 			return timeout === null ? '-' : `${timeout.toFixed(0)} ms`;
@@ -610,6 +631,7 @@
 
 	function exitIncidentSecondaryMetricLabel(incident: Record<string, unknown> | null): string {
 		if (incident?.kind === 'distribution_no_bin_available') return 'Piece';
+		if (incident?.kind === 'distribution_bin_full') return 'Category';
 		if (incident?.kind === 'classification_intake_request_timeout') return 'Detail';
 		if (incident?.kind === 'classification_track_lost') return 'Piece';
 		if (
@@ -656,6 +678,12 @@
 		}
 		if (incident?.kind === 'distribution_no_bin_available') {
 			return incidentString(incident, 'piece_short', '-');
+		}
+		if (incident?.kind === 'distribution_bin_full') {
+			const label = incidentString(incident, 'category_label', incidentString(incident, 'category_id', '-'));
+			const count = incidentNumber(incident, 'piece_count');
+			const limit = incidentNumber(incident, 'max_pieces_per_bin');
+			return count === null || limit === null ? label : `${label} · ${count} / ${limit}`;
 		}
 		if (incident?.kind === 'classification_intake_request_timeout') {
 			return incidentString(incident, 'detail', incidentString(incident, 'rule', '-'));
@@ -763,11 +791,12 @@
 	}
 
 	async function postExitIncidentAction(
-		action: 'continue' | 'acknowledge' | 'clear' | 'auto-resolve'
+		action: 'continue' | 'acknowledge' | 'clear' | 'auto-resolve' | 'emptied'
 	) {
 		const incident = exitIncident;
 		if (!incident || exitIncidentActionPending) return;
 		if (action === 'auto-resolve' && !isC4StallWatchdogIncident(incident)) return;
+		if ((incident.kind === 'distribution_bin_full') !== (action === 'emptied')) return;
 		if (
 			incident.kind === 'channel_dropzone_stuck' &&
 			action !== 'acknowledge' &&
@@ -1393,15 +1422,27 @@
 										Auto Resolve
 									</button>
 								{/if}
-								<button
-									type="button"
-									onclick={() => postExitIncidentAction('clear')}
-									disabled={exitIncidentActionPending || exitIncidentMotionBusy(exitIncident)}
-									class="inline-flex min-h-10 items-center gap-1.5 bg-bg px-3 py-1.5 text-xs font-medium text-text shadow-[inset_0_0_0_1px_var(--color-border)] transition-transform hover:bg-surface active:scale-[0.96] disabled:cursor-not-allowed disabled:opacity-50"
-								>
-									<X size={13} />
-									Incident Solved
-								</button>
+								{#if exitIncident.kind === 'distribution_bin_full'}
+									<button
+										type="button"
+										onclick={() => postExitIncidentAction('emptied')}
+										disabled={exitIncidentActionPending}
+										class="inline-flex min-h-10 items-center gap-1.5 bg-warning px-3 py-1.5 text-xs font-semibold text-warning-dark transition-transform hover:bg-warning/90 active:scale-[0.96] disabled:cursor-not-allowed disabled:opacity-50"
+									>
+										<Check size={13} />
+										Bin Emptied
+									</button>
+								{:else}
+									<button
+										type="button"
+										onclick={() => postExitIncidentAction('clear')}
+										disabled={exitIncidentActionPending || exitIncidentMotionBusy(exitIncident)}
+										class="inline-flex min-h-10 items-center gap-1.5 bg-bg px-3 py-1.5 text-xs font-medium text-text shadow-[inset_0_0_0_1px_var(--color-border)] transition-transform hover:bg-surface active:scale-[0.96] disabled:cursor-not-allowed disabled:opacity-50"
+									>
+										<X size={13} />
+										Incident Solved
+									</button>
+								{/if}
 								<button
 									type="button"
 									onclick={() => openIncidentDetails(exitIncident, exitIncidentTitle(exitIncident))}

@@ -157,6 +157,18 @@
 				{fillCount} / {maxPiecesPerBin}
 			</div>
 		</div>
+		{#if isFull}
+			<button
+				type="button"
+				onclick={onEmpty}
+				disabled={clearDisabled}
+				class="flex w-full items-center justify-center gap-1.5 border-b border-danger/40 bg-danger/10 px-3 py-1.5 text-sm font-semibold text-danger transition-colors hover:bg-danger/20 disabled:cursor-not-allowed disabled:opacity-50"
+				title="The bin reached its limit. Empty it, then mark it as emptied to resume sorting."
+			>
+				<FolderOutput size={13} />
+				Full · mark as emptied
+			</button>
+		{/if}
 	{/if}
 	<button
 		onclick={onOpenDetails}

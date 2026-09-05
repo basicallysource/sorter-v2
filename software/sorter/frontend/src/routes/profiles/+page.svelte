@@ -7,6 +7,7 @@
 	import ProfileCardSkeleton from '$lib/components/profiles/ProfileCardSkeleton.svelte';
 	import ProfileDetailsModal from '$lib/components/profiles/ProfileDetailsModal.svelte';
 	import ProfilePagination from '$lib/components/profiles/ProfilePagination.svelte';
+	import RunPlanSection from '$lib/components/profiles/RunPlanSection.svelte';
 	import Skeleton from '$lib/components/primitives/Skeleton.svelte';
 	import StatusBanner from '$lib/components/StatusBanner.svelte';
 	import { getMachinesContext } from '$lib/machines/context';
@@ -71,6 +72,8 @@
 	let deletingFilename = $state<string | null>(null);
 	let pendingDelete = $state<LocalSortingProfile | null>(null);
 	let localDeleteOpen = $state(false);
+	// Bumped after every profile activation so the run plan panel reloads.
+	let runPlanRefresh = $state(0);
 
 	function baseUrl(): string {
 		return (
@@ -322,12 +325,14 @@
 		warning = null;
 		try {
 			const payload = await applyProfile(baseUrl(), applyRequest);
+			const planned = `Run planned with ${payload.preassigned_count ?? 0} bins.`;
 			if (payload.activation_error) {
-				success = `Using ${applyRequest.profile_name} locally. Bin assignments were reset.`;
+				success = `Using ${applyRequest.profile_name} locally. ${planned}`;
 				warning = `Hive activation could not be confirmed: ${payload.activation_error}`;
 			} else {
-				success = `Using ${applyRequest.profile_name} on this machine. Bin assignments were reset.`;
+				success = `Using ${applyRequest.profile_name} on this machine. ${planned}`;
 			}
+			runPlanRefresh += 1;
 			await sortingProfileStore.reload(baseUrl());
 			await loadLibrary();
 		} catch (e: unknown) {
@@ -392,10 +397,11 @@
 			const label = profile.name || profile.filename;
 			const preassigned = payload?.preassigned_count as number | undefined;
 			if (mode === 'rules' && preassigned) {
-				success = `Using ${label}. Pre-assigned ${preassigned} bin${preassigned === 1 ? '' : 's'}.`;
+				success = `Using ${label}. Run planned with ${preassigned} bin${preassigned === 1 ? '' : 's'}.`;
 			} else {
 				success = `Using ${label} on this machine. Bin assignments were reset.`;
 			}
+			runPlanRefresh += 1;
 			await sortingProfileStore.reload(baseUrl());
 			await loadLibrary();
 		} catch (e: unknown) {
@@ -746,6 +752,9 @@
 		/>
 
 		<div class="mb-6">
+			<RunPlanSection baseUrl={baseUrl()} refreshKey={runPlanRefresh} />
+		</div>
+		<div class="mb-6">
 			<BsxSection baseUrl={baseUrl()} />
 		</div>
 		<div class="mb-6">
@@ -969,8 +978,8 @@
 						assigned as pieces arrive.
 					</div>
 					<div>
-						<span class="font-medium text-text">Pre-assign (rule order)</span> — seed bins in the order
-						of the profile's rules.
+						<span class="font-medium text-text">Plan run (rule order)</span> — the first primary targets
+						and the secondary rules get bins by layer role; adjust in "Lauf planen".
 					</div>
 				</div>
 				<div class="flex flex-wrap items-center justify-end gap-2 border-t border-border pt-3">
@@ -993,7 +1002,7 @@
 						onclick={() => void confirmApplyLocal('rules')}
 						class="border border-primary bg-primary/10 px-3 py-1.5 text-sm font-medium text-primary hover:bg-primary/20"
 					>
-						Pre-assign from rules
+						Plan run from rules
 					</button>
 				</div>
 			</div>

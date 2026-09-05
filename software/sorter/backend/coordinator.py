@@ -123,6 +123,7 @@ class Coordinator:
             self.gc.set_progress_tracker = SetProgressTracker(
                 self.sorting_profile.set_inventories,
                 self.sorting_profile.artifact_hash,
+                set_instance_ids=getattr(self.sorting_profile, "set_instance_ids", None),
             )
 
         try:

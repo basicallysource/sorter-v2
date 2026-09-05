@@ -524,6 +524,7 @@ _INCIDENT_HANDLING_DEFAULTS: dict[str, str] = {
     "distribution_chute_jam": _INCIDENT_MODE_MANUAL,
     "distribution_servo_bus_offline": _INCIDENT_MODE_MANUAL,
     "distribution_no_bin_available": _INCIDENT_MODE_MANUAL,
+    "distribution_bin_full": _INCIDENT_MODE_MANUAL,
 }
 _INCIDENT_DEFINITIONS: tuple[dict[str, Any], ...] = (
     {
@@ -584,6 +585,16 @@ _INCIDENT_DEFINITIONS: tuple[dict[str, Any], ...] = (
         "off_label": "Allow bottom-tray passthrough",
         "manual_label": "Operator assigns capacity or approves passthrough",
         "automatic_label": "Automatic no-bin passthrough",
+        "automatic_supported": False,
+    },
+    {
+        "kind": "distribution_bin_full",
+        "label": "Bin Full",
+        "scope": "Distribution",
+        "description": "A bin reached its layer's piece limit; the machine pauses until the bin is marked emptied.",
+        "off_label": "Skip full bins and keep sorting",
+        "manual_label": "Operator empties the bin and marks it emptied",
+        "automatic_label": "Automatic bin handling",
         "automatic_supported": False,
     },
 )

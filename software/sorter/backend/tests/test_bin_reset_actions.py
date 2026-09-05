@@ -130,6 +130,7 @@ class BinResetActionTests(unittest.TestCase):
         with (
             patch("server.routers.hardware._runtime_distribution_layout", return_value=layout),
             patch("server.routers.hardware.setBinCategories") as set_categories_mock,
+            patch("server.routers.hardware.set_run_plan") as run_plan_mock,
             patch(
                 "server.routers.hardware.clear_current_session_bins",
                 return_value={"ok": True, "cleared_bins": 2},
@@ -141,6 +142,7 @@ class BinResetActionTests(unittest.TestCase):
         self.assertEqual([], layout.layers[0].sections[0].bins[0].category_ids)
         self.assertEqual([], layout.layers[0].sections[0].bins[1].category_ids)
         set_categories_mock.assert_called_once_with([[[[], []]]])
+        run_plan_mock.assert_called_once_with(None)
         clear_mock.assert_called_once_with(scope="all", bin_categories=[[[["rule-1"], ["rule-2"]]]])
         runtime_stats.clearBinContents.assert_called_once_with(
             scope="all",

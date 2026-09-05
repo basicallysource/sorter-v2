@@ -20,10 +20,9 @@ from defs.known_object import ClassificationStatus, PieceStage
 # cap; a wrong door (the failure this guards) is a whole limit away.
 DOOR_POSITION_TOLERANCE = 20
 from utils.event import knownObjectToEvent
+from .incidents import publish_bin_full_incident
 
 
-BINS_FULL_ALERT_PREFIX = "No bin available"
-MISC_PASSTHROUGH_ALERT_PREFIX = "Misc passthrough"
 CHUTE_JAM_ALERT_PREFIX = "Chute jam"
 SERVO_BUS_ALERT_PREFIX = "Servo bus offline"
 DISTRIBUTION_CHUTE_JAM_INCIDENT_KIND = "distribution_chute_jam"
@@ -85,6 +84,8 @@ class Positioning(BaseState):
         self._servo_offline_layers: set[int] = set()
         self._jam_pause_enqueued: bool = False
         self._servo_bus_pause_enqueued: bool = False
+        self._bin_full_hold: bool = False
+        self._planned_passthrough: bool = False
         self._chute_move_estimated_ms: int = 0
 
     def _setOccupancyState(self, state_name: str) -> None:
@@ -123,7 +124,6 @@ class Positioning(BaseState):
                 self.logger.info(
                     "Positioning: sample collection mode — opening all layer doors for discard passthrough"
                 )
-                self._clearBinsFullAlertIfOwned()
                 self._clearChuteJamAlertIfOwned()
                 self._openAllDoorsForPassthrough()
                 piece.stage = PieceStage.distributing
@@ -145,7 +145,6 @@ class Positioning(BaseState):
                     f"Positioning: piece {piece.uuid} is too big "
                     f"({piece.max_dimension_mm}mm) — passthrough to misc bottom bin"
                 )
-                self._clearBinsFullAlertIfOwned()
                 self._clearChuteJamAlertIfOwned()
                 self._openAllDoorsForPassthrough()
                 piece.stage = PieceStage.distributing
@@ -199,12 +198,21 @@ class Positioning(BaseState):
                 # through to the passthrough path, which would silently
                 # send this piece to the discard bucket.
                 return DistributionState.IDLE
+            if address is None and self._bin_full_hold:
+                # The category's bin is full and the bin-full incident is
+                # up (pause enqueued). The piece waits until the operator
+                # marks the bin emptied; it must not spill elsewhere.
+                self._bin_full_hold = False
+                self._setOccupancyState("positioning.bin_full_incident")
+                return DistributionState.IDLE
             if address is None:
                 # MISC is the intentional reject/default category. It should
                 # pass through to the bottom tray without claiming a real bin
-                # and without raising the operator no-bin incident.
+                # and without raising the operator no-bin incident. The same
+                # goes for a rule the operator left out of the run plan.
                 if (
                     category_id != MISC_CATEGORY
+                    and not self._planned_passthrough
                     and not self._consumeNoBinPassthroughApproval(piece)
                     and self._raiseNoBinAvailableIncident(piece, category_id)
                 ):
@@ -217,7 +225,6 @@ class Positioning(BaseState):
                 self.logger.warning(
                     f"Positioning: no bin for category {category_id} — passthrough to bottom"
                 )
-                self._raiseBinsFullAlert(category_id)
                 self._openAllDoorsForPassthrough()
                 piece.stage = PieceStage.distributing
                 piece.distributing_at = time.time()
@@ -239,7 +246,6 @@ class Positioning(BaseState):
                     f"Positioning: piece {piece.uuid} ({piece.max_dimension_mm}mm) exceeds "
                     f"layer {address.layer_index} limit ({layer_max}mm) — passthrough to misc bottom bin"
                 )
-                self._clearBinsFullAlertIfOwned()
                 self._clearChuteJamAlertIfOwned()
                 self._openAllDoorsForPassthrough()
                 piece.stage = PieceStage.distributing
@@ -255,7 +261,6 @@ class Positioning(BaseState):
                 self._setOccupancyState("positioning.passthrough_too_big_for_layer")
                 return DistributionState.READY
 
-            self._clearBinsFullAlertIfOwned()
             self._clearChuteJamAlertIfOwned()
             self.logger.info(
                 f"Positioning: moving to bin at layer={address.layer_index}, section={address.section_index}, bin={address.bin_index}"
@@ -505,9 +510,6 @@ class Positioning(BaseState):
             )
             return True
 
-    def _raiseBinsFullAlert(self, category_id: str) -> None:
-        return
-
     def _consumeNoBinPassthroughApproval(self, piece) -> bool:
         consumer = getattr(shared_state, "consumeDistributionNoBinPassthrough", None)
         if not callable(consumer):
@@ -740,18 +742,6 @@ class Positioning(BaseState):
         self._jam_pause_enqueued = False
         self._clearDistributionIncident(DISTRIBUTION_CHUTE_JAM_INCIDENT_KIND)
 
-    def _clearBinsFullAlertIfOwned(self) -> None:
-        try:
-            with shared_state.hardware_lifecycle_lock:
-                err = shared_state.hardware_error
-                if isinstance(err, str) and (
-                    err.startswith(BINS_FULL_ALERT_PREFIX)
-                    or err.startswith(MISC_PASSTHROUGH_ALERT_PREFIX)
-                ):
-                    shared_state.setHardwareStatus(clear_error=True)
-        except Exception:
-            pass
-
     def _openAllDoorsForPassthrough(self) -> None:
         """Open every usable layer door so a piece with no assigned bin
         falls straight through to the bottom tray. A follow-up
@@ -825,6 +815,11 @@ class Positioning(BaseState):
         )
         return True
 
+    def _isPlannedPassthrough(self, category_id: str) -> bool:
+        from local_state import get_run_plan
+
+        return self.sorting_profile.ruleRole(category_id) is not None and get_run_plan() is not None
+
     def _findOrAssignBinForCategory(
         self, category_id: str, not_in_inventory: bool = False
     ) -> tuple[Optional[BinAddress], bool]:
@@ -835,6 +830,7 @@ class Positioning(BaseState):
         # always allowed as the last resort ("if we run out, overlap them").
         from local_state import get_current_bin_piece_counts
 
+        self._planned_passthrough = False
         piece_counts = get_current_bin_piece_counts()
         # A category may be assigned to more than one bin (the same category_id
         # appears in several bins' category_ids). When that happens we spread the
@@ -842,6 +838,11 @@ class Positioning(BaseState):
         # holding it — so N bins each take ~1/N of the pieces. Collected across
         # the whole scan; the pick happens after the loop.
         matching_candidates: list[BinAddress] = []
+        # First bin holding this category that is at its layer's limit:
+        # (address, piece_count, max_pieces_per_bin). With no non-full
+        # candidate left, this raises the bin-full incident instead of
+        # spilling the category into another bin.
+        full_matching: Optional[tuple[BinAddress, int, int]] = None
         first_unassigned: Optional[tuple[BinAddress, "Bin"]] = None
         # Least-loaded shared-bin candidate, used only when every bin is
         # already assigned and multi-category bins are enabled: (num_categories,
@@ -883,9 +884,12 @@ class Positioning(BaseState):
                         continue
                     count = piece_counts.get((layer_idx, section_idx, bin_idx), 0)
                     is_full = max_per_bin is not None and count >= max_per_bin
-                    if category_id in b.category_ids and not is_full:
-                        matching_candidates.append(address)
-                        continue
+                    if category_id in b.category_ids:
+                        if not is_full:
+                            matching_candidates.append(address)
+                            continue
+                        if full_matching is None:
+                            full_matching = (address, count, int(max_per_bin))
                     if b.category_ids:
                         bins_with_cats += 1
                     if is_full:
@@ -924,9 +928,32 @@ class Positioning(BaseState):
         if matching_candidates:
             return random.choice(matching_candidates), False
 
+        # The category's only bin(s) are full: hold the piece behind the
+        # bin-full incident. When that incident kind is switched off the
+        # legacy behaviour below (spill into a fresh/shared bin) applies.
+        if full_matching is not None:
+            address, count, limit = full_matching
+            if publish_bin_full_incident(
+                self.gc,
+                layer_index=address.layer_index,
+                section_index=address.section_index,
+                bin_index=address.bin_index,
+                category_id=category_id,
+                category_label=self.sorting_profile.categoryLabel(category_id),
+                piece_count=count,
+                max_pieces_per_bin=limit,
+            ):
+                self._bin_full_hold = True
+                return None, False
+
         # MISC never claims a bin on its own: unless the operator assigned a
         # bin to it explicitly (matched above), misc passes through to the
-        # discard bucket below the chute (the UI's virtual Discard Bin).
+        # discard bucket below the chute (the UI's virtual Discard Bin). Under
+        # a run plan the bins are fixed: a rule without a bin was deliberately
+        # left out and passes through instead of claiming a free slot.
+        self._planned_passthrough = self._isPlannedPassthrough(category_id)
+        if self._planned_passthrough:
+            return None, False
         if first_unassigned is not None and category_id != MISC_CATEGORY:
             address, b = first_unassigned
             b.category_ids = [category_id]

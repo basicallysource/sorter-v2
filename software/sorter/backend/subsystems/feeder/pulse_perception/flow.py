@@ -59,6 +59,45 @@ _CONFIG_TTL_S = 1.0
 # can register downstream before we consider another move.
 CLASSIFICATION_PENDING_ADMISSION_MS = 1500
 
+# PieceObservation.zone_code values that lie in the exit arc (exit-only and
+# the precise sub-arc); see perception.arcs._region_lookup.
+_EXIT_ZONE_CODES = (2, 3)
+
+
+def _exitPieceCount(state) -> int:
+    return sum(
+        1
+        for po in getattr(state, "pieces", ())
+        if int(getattr(po, "zone_code", 0)) in _EXIT_ZONE_CODES
+    )
+
+
+class ExitDepartureDetector:
+    """Reports when the number of pieces in a channel's exit arc drops.
+
+    A decrease counts only once the lower count has been seen on two
+    consecutive reads, so a one-frame detector dropout does not open the
+    admission window for nothing."""
+
+    def __init__(self) -> None:
+        self._stable: int | None = None
+        self._candidate: int | None = None
+
+    def observe(self, count: int) -> bool:
+        if self._stable is None:
+            self._stable = count
+            self._candidate = count
+            return False
+        if count == self._stable:
+            self._candidate = count
+            return False
+        if count != self._candidate:
+            self._candidate = count  # first sighting of a new value: wait
+            return False
+        departed = count < self._stable
+        self._stable = count
+        return departed
+
 
 def _leading_com(state) -> Optional[float]:
     # Leading (most-forward) on-channel piece's travel position toward the exit.
@@ -110,6 +149,7 @@ class PulsePerceptionFeeding(BaseState):
         self._config_loaded_at: float = 0.0
         self._classification_pending_until: float = 0.0
         self._ch3_was_at_exit: bool = False
+        self._ch3_departures = ExitDepartureDetector()
         # Per-channel monotonic timestamp of the last frame that reported a piece
         # in the drop zone. Drives the C2/C3 drop-zone occupancy latch.
         self._drop_seen_at: dict[int, float] = {}
@@ -291,8 +331,13 @@ class PulsePerceptionFeeding(BaseState):
             # (the precise pulses stop on their own once perception no longer
             # sees it there). Fire the downstream notification + admission window
             # once on that falling edge, not on every micro-pulse.
+            # …and equally the moment ONE of several pieces at the lip leaves:
+            # the zone stays occupied, the edge never falls, and without the
+            # admission window the next pulse sends the neighbour after it
+            # before C4's gate can close (triple feed, 2026-09-05 10:31).
             ch3_at_exit_now = c3.in_exit
-            if self._ch3_was_at_exit and not ch3_at_exit_now:
+            departed = self._ch3_departures.observe(_exitPieceCount(c3))
+            if departed or (self._ch3_was_at_exit and not ch3_at_exit_now):
                 self._on_ch3_dispense()
             self._ch3_was_at_exit = ch3_at_exit_now
 

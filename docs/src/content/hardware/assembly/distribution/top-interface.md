@@ -670,7 +670,7 @@ Insert an extrusion piece F (Interface vertical support) into each of the Interf
 
 <div class="callout callout-warning">
   <span class="callout-icon" aria-hidden="true">⚠</span>
-  <p>Do not push piece F all the way through the bracket. Leave its end roughly 20 mm short of the far end of the channel: that is far enough in to cover both pairs of T-nut screws, and it leaves enough of the extrusion standing out to reach past the screws at the base of the layer's External bracket — side later in this step. <a href="{{ '/hardware/assembly/distribution/top-interface/' | relative_url }}#step-14">Step 14</a> shows the whole corner in section.</p>
+  <p>Do not push piece F all the way through the bracket. Leave its end roughly 20 mm short of the far end of the channel: that is far enough in to cover both pairs of T-nut screws, and it leaves enough of the extrusion standing out to reach past the screws at the base of the layer's External bracket — side later in this step. <b>166 mm of the extrusion should stand out of the bracket</b>, measured from the edge of the bracket where the extrusion exits to the free end of the piece. <a href="{{ '/hardware/assembly/distribution/top-interface/' | relative_url }}#step-14">Step 14</a> shows the whole corner in section.</p>
 </div>
 
 <figure>

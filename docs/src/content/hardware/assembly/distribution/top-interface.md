@@ -66,8 +66,6 @@ parts_needed:
     qty: 1
   - part: ribbon-cable-clamp
     qty: 1
-  - part: ext-bracket-cover
-    qty: 6
   - part: extrusion-e
     qty: 6
   - part: extrusion-f

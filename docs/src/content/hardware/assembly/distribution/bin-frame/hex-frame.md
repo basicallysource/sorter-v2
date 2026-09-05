@@ -14,6 +14,8 @@ parts_needed:
     qty: 6
   - part: ext-bracket-left
     qty: 6
+  - part: ext-bracket-cover
+    qty: 6
   - part: ext-2020-bh
     qty: 6
   - part: frame-crossbeam
@@ -170,5 +172,15 @@ Double-check that every Frame 90° bracket is still fully seated in its slot. A 
   <img class="doc-figure" src="https://assets.basically.website/sorter-parts/hex-frame-finished-top-down-full-c6abfb4dad6e.jpg" alt="A finished hex frame from above, the alternating grey spoke and teal crossbeam pieces forming the inner ring inside the aluminum outer hexagon">
   <figcaption><cite>Photo: BrickCycleAlice.</cite></figcaption>
 </figure>
+
+{% include step.html n="9" title="Fit the External bracket — covers" %}
+
+Push an External bracket — cover onto each of the six External bracket — sides. It takes no fasteners of its own, it is held by the fit; the side and the cover together form the collar that a layer's vertical extrusion later stands in.
+
+This is the easy moment to do it. Once a vertical extrusion is standing in a collar, the cover is difficult to slide on past it.
+
+<div class="callout">
+  <p><strong>Building the bottom layer's frame?</strong> That one takes no covers. <a href="{{ '/hardware/assembly/distribution/bin-frame/bottom-two-layers/' | relative_url }}">Bottom two layers</a> fits it with External bracket — foot covers instead, one printed part in place of the cover and the External bracket — bottom vertical together. Every other frame takes all six, the top interface's included.</p>
+</div>
 
 A hex frame is now complete. Build as many as your machine needs (see the note at the top of this page), then move on to [Bottom interface]({{ '/hardware/assembly/distribution/bin-frame/bottom-interface/' | relative_url }}), [Bottom two layers]({{ '/hardware/assembly/distribution/bin-frame/bottom-two-layers/' | relative_url }}), [Regular layers]({{ '/hardware/assembly/distribution/bin-frame/regular-layers/' | relative_url }}) or [Top interface]({{ '/hardware/assembly/distribution/top-interface/' | relative_url }}) to turn one into the layer you need.

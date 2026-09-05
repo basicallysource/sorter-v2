@@ -14,8 +14,6 @@ warning: >-
   Daddy-O's Bricks - Bill; no other step here has been checked against a
   machine. Correct it as you build.
 parts_needed:
-  - part: ext-bracket-cover
-    qty: 6
   - part: ext-bracket-bottom-vertical
     qty: 6
   - part: ext-bracket-foot-cover
@@ -101,7 +99,7 @@ The corner itself is the same as on any layer. Only the vertical changes: one pi
 On each of the six corners, working on the second layer first:
 
 <ol class="numbered-steps">
-  <li>Slot an External bracket — cover onto the second layer's External bracket — side, and the External bracket — foot cover onto the bottom layer's, before either extrusion goes in. Both take 2 {% include fastener.html size="M5" variant="socket-button" length="16" %} screws and are awkward to fit afterwards.</li>
+  <li>The second layer's External bracket — cover is already on, fitted with its <a href="{{ '/hardware/assembly/distribution/bin-frame/hex-frame/' | relative_url }}#step-9">hex frame</a>, and it takes no screws. Slot an External bracket — foot cover onto the bottom layer's External bracket — side now, before either extrusion goes in: it does take 2 {% include fastener.html size="M5" variant="socket-button" length="16" %} screws, and it is awkward to fit afterwards.</li>
   <li>Partially thread the 2 {% include fastener.html size="M5" variant="socket-button" length="16" %} screws that will clamp each collar onto piece D, at both the second layer's bracket and the bottom layer's, so they are started but not yet tight.</li>
   <li>Slide a piece D down through the second layer's bracket and on down through the matching corner of the bottom layer, so one piece passes through both.</li>
   <li>Measure from the bottom before tightening anything, to check how far the exposed end will stand proud once the corner is clamped.</li>
@@ -149,7 +147,7 @@ The two layers are now one rigid unit and their spacing is set by the bracket po
 
 The bottom layer does not get an External bracket — bottom vertical or an External bracket — cover. It gets an **External bracket — foot cover** instead, one per corner, which is the single printed part that replaces both of them. It is shorter than the pair it replaces, on purpose, so the extrusion stands out past it far enough for the foot connector in step 4.
 
-The foot cover fastens the same way the bottom vertical it replaces would: 2 {% include fastener.html size="M5" variant="socket-button" length="16" %} screws through its outer holes into the External bracket — side. Mount it before the extrusion goes in, at the same point as the second layer's cover in step 2.
+The foot cover fastens the same way the bottom vertical it replaces would: 2 {% include fastener.html size="M5" variant="socket-button" length="16" %} screws through its outer holes into the External bracket — side. Mount it before the extrusion goes in, at the point in step 2 where the corner is still open.
 
 The second layer's corners are ordinary, exactly as in [regular layers]({{ '/hardware/assembly/distribution/bin-frame/regular-layers/' | relative_url }}) step 1: an External bracket — bottom vertical slid onto piece D with its angles aligned at the bottom, 2 {% include fastener.html size="M5" variant="socket-button" length="16" %} screws through its outer holes.
 

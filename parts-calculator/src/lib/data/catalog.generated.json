@@ -2618,7 +2618,7 @@
 		{
 			"id": "layer",
 			"uid": "mnpn",
-			"version": "3",
+			"version": "4",
 			"name": "Distribution layer",
 			"description": "One distribution layer between the interfaces: frame, chute, bin retainers, funnels, bins.",
 			"docs": "/hardware/assembly/distribution/bin-frame/regular-layers/",
@@ -2642,6 +2642,10 @@
 				{
 					"part": "scr-m5-16-shcs",
 					"qty": 36
+				},
+				{
+					"part": "tnut-m5-2020",
+					"qty": 24
 				}
 			],
 			"connections": [
@@ -2652,7 +2656,7 @@
 					"qty": 12,
 					"method": "tnut",
 					"through_mm": 12.8,
-					"note": "Two per retainer, into the 4 T-nuts per A/G extrusion the hex frame pre-installs. Measured off the STL: 12.00 mm of plastic between the head face and the face that sits on the extrusion, plus a 0.8 mm locating rib that drops into the slot, so the bore the screw crosses is 12.8 mm. An M5 x 12 stops level with the extrusion face with no thread in the nut; an M5 x 20 stands 8 mm into a slot about 5.9 mm deep and bottoms out before it clamps."
+					"note": "Two per retainer, into the 4 T-nuts per A/G extrusion, which go into the slot at this step. Measured off the STL: 12.00 mm of plastic between the head face and the face that sits on the extrusion, plus a 0.8 mm locating rib that drops into the slot, so the bore the screw crosses is 12.8 mm. An M5 x 12 stops level with the extrusion face with no thread in the nut; an M5 x 20 stands 8 mm into a slot about 5.9 mm deep and bottoms out before it clamps."
 				},
 				{
 					"from": "bin-retainer-right",
@@ -2743,11 +2747,17 @@
 				},
 				{
 					"version": "3",
-					"uid": "mnpn",
 					"date": "2026-09-05",
 					"breaking": false,
 					"message": "The 24 bin-retainer screws are M5 x 16, not M5 x 12: the retainer's bore is 12.8 mm, so an M5 x 12 reaches the extrusion face with nothing left for the T-nut. Reported by BrickCycleAlice, who tried them on a build; confirmed by measuring the STL. Merged into the existing scr-m5-16-shcs line, 12 + 24 = 36, and the joint recorded in connections with its measured through_mm.",
 					"commit": "1ce549ec"
+				},
+				{
+					"version": "4",
+					"uid": "mnpn",
+					"date": "2026-09-05",
+					"message": "Restored tnut-m5-2020 qty 24 for the bin retainers. v2 dropped them here as \"the hex frame's own pre-installed T-nuts\", and hex-frame v2 then dropped the same 24 on 2026-08-31 as part of the Inner/Outer restructure, so they fell out of the machine entirely and no hardware list has carried them since. They belong on this node, alongside the 24 scr-m5-16-shcs that go through them. No physical change.",
+					"breaking": false
 				}
 			]
 		},

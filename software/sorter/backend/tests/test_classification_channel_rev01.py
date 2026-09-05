@@ -1,4 +1,5 @@
 from types import SimpleNamespace
+from subsystems.classification_channel.simple_state_machine_rev01.constants import C4_TRAVEL_SIGN
 
 import numpy as np
 
@@ -145,4 +146,4 @@ def test_rev01_discharging_legacy_fallback_fixed_kick_then_idle() -> None:
     # (200 steps/rev * 8 microsteps * 130/12 gear ratio = 17333.33 µsteps/output_rev),
     # -180°/360 * 17333.33 ≈ -8667 microsteps.
     assert next_state == ClassificationChannelState.IDLE
-    assert stepper.moves == [-8667]
+    assert stepper.moves == [int(round(C4_TRAVEL_SIGN * 8667))]

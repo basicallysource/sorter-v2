@@ -26,9 +26,7 @@ parts_needed:
   - part: ext-2020-c
     qty: 6
   - part: scr-m5-16-shcs
-    qty: 36
-  - part: scr-m5-12-shcs
-    qty: 24
+    qty: 60
 ---
 
 Each layer holds one chute-and-bin pair (built separately) that catches pieces routed to it; a regular layer's job is simply to repeat the same hexagonal ring, vertical supports, and flange joint as the layer below it, so the stack can go as tall as the machine needs.
@@ -91,7 +89,9 @@ Matching parts from the same print run are embossed with a shared set code (e.g.
   <figcaption><cite>Photo: zed0.</cite></figcaption>
 </figure>
 
-On each side of the hexagon, attach both the Bin retainer (left) and Bin retainer (right) to the front face of A/G (Outer horizontal / Horizontal interface frame) using 4 {% include fastener.html size="M5" variant="socket-button" length="12" %} screws into the T-nuts your hex frame already has installed there.
+On each side of the hexagon, attach both the Bin retainer (left) and Bin retainer (right) to the front face of A/G (Outer horizontal / Horizontal interface frame) using 4 {% include fastener.html size="M5" variant="socket-button" length="16" %} screws into the T-nuts your hex frame already has installed there.
+
+Each retainer's bore is 12.8 mm deep, so a shorter M5 reaches the extrusion face with nothing left to bite in the T-nut. Use a socket head rather than a button head here: the flat the head lands on stops 4.1 mm below the hole, which a button head overhangs, and a washer will not sit flat on it at all.
 
 A regular layer is now complete.
 

@@ -750,6 +750,10 @@ class ProfileCatalogService:
             set_inventories[rule_id] = inventory
         return set_mappings, set_inventories
 
+    @property
+    def rebrickable_configured(self) -> bool:
+        return bool(self._config.rebrickable_api_key)
+
     def cached_set(self, set_num: str) -> dict[str, Any] | None:
         return get_cached_set(self._conn, set_num)
 

@@ -68,3 +68,28 @@ class SetInstanceProgress(Base):
         UniqueConstraint("set_instance_id", "part_num", "color_id", name="uq_set_instance_progress_part"),
         Index("ix_set_instance_progress_set_instance_id", "set_instance_id"),
     )
+
+
+class SetInstanceMachineCount(Base):
+    """The count a machine last reported for one part of one set instance.
+
+    A sorter counts from zero per tracker session and reports absolute counts;
+    the difference to the previous report is what it contributed since. Keeping
+    that cursor per machine lets several machines, manual adjustments and a
+    tracker restart all add up on the instance instead of overwriting it.
+    """
+
+    __tablename__ = "set_instance_machine_counts"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    set_instance_id = Column(UUID(as_uuid=True), ForeignKey("set_instances.id", ondelete="CASCADE"), nullable=False)
+    machine_id = Column(UUID(as_uuid=True), ForeignKey("machines.id", ondelete="CASCADE"), nullable=False)
+    part_num = Column(String, nullable=False)
+    color_id = Column(Integer, nullable=False)
+    quantity_reported = Column(Integer, nullable=False, default=0)
+    updated_at = Column(DateTime(timezone=True), nullable=False, default=_now, onupdate=_now)
+
+    __table_args__ = (
+        UniqueConstraint("set_instance_id", "machine_id", "part_num", "color_id", name="uq_set_instance_machine_counts_part"),
+        Index("ix_set_instance_machine_counts_set_instance_id", "set_instance_id"),
+    )

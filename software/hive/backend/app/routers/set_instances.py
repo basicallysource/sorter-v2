@@ -24,9 +24,10 @@ from app.services.profile_catalog import get_profile_catalog_service
 router = APIRouter(prefix="/api/set-instances", tags=["set-instances"])
 
 
-def _summary(catalog: Any, instance: SetInstance) -> dict[str, Any]:
+def _summary(catalog: Any, instance: SetInstance, totals: dict[str, Any] | None = None) -> dict[str, Any]:
     cached = catalog.cached_set(instance.set_num) or {}
-    totals = service.progress_totals(instance.progress)
+    if totals is None:
+        totals = service.progress_totals(instance.progress)
     return {
         "id": instance.id,
         "set_source": instance.set_source,
@@ -62,7 +63,10 @@ def list_set_instances(
     current_user: User = Depends(get_current_user),
 ):
     catalog = get_profile_catalog_service()
-    return [_summary(catalog, instance) for instance in service.list_instances(db, current_user, include_archived=include_archived)]
+    return [
+        _summary(catalog, instance, totals)
+        for instance, totals in service.list_instances(db, current_user, include_archived=include_archived)
+    ]
 
 
 @router.post("", response_model=SetInstanceDetailResponse, status_code=201)
@@ -104,7 +108,7 @@ def update_set_instance(
     _csrf: None = Depends(verify_csrf),
 ):
     instance = service.get_owned_instance(db, current_user, instance_id)
-    instance = service.update_instance(db, instance, label=payload.label, notes=payload.notes, status=payload.status)
+    instance = service.update_instance(db, instance, label=payload.label, notes=payload.notes)
     return _summary(get_profile_catalog_service(), instance)
 
 
@@ -117,6 +121,17 @@ def archive_set_instance(
 ):
     instance = service.get_owned_instance(db, current_user, instance_id)
     return _summary(get_profile_catalog_service(), service.archive_instance(db, instance))
+
+
+@router.delete("/{instance_id}/archive", response_model=SetInstanceSummaryResponse)
+def restore_set_instance(
+    instance_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    _csrf: None = Depends(verify_csrf),
+):
+    instance = service.get_owned_instance(db, current_user, instance_id)
+    return _summary(get_profile_catalog_service(), service.restore_instance(db, instance))
 
 
 @router.put("/{instance_id}/parts/{part_num}/{color_id}", response_model=SetInstancePartResponse)

@@ -56,7 +56,7 @@ from app.services.profile_ai import (
 )
 from app.services.ai_usage import record_ai_usage
 from app.services.secrets import decrypt_secret
-from app.services.machine_set_progress import summarize_machine_set_progress
+from app.services.machine_set_progress import load_assignment_progress_rows, summarize_machine_set_progress
 from app.services.profile_catalog import PROFILE_CATALOG_SYNC_TYPES, get_profile_catalog_service
 from app.services.rate_limit import rate_limit
 
@@ -298,8 +298,6 @@ def get_profile_set_progress(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    from app.models.machine_set_progress import MachineSetProgress
-
     profile = _get_profile_or_404(db, profile_id)
     _require_profile_view_access(profile, current_user)
 
@@ -317,12 +315,7 @@ def get_profile_set_progress(
     for assignment in assignments:
         version = assignment.active_version or assignment.desired_version
         artifact = version.compiled_artifact_json if version is not None else {}
-        rows = (
-            db.query(MachineSetProgress)
-            .filter(MachineSetProgress.assignment_id == assignment.id)
-            .all()
-        )
-        summary = summarize_machine_set_progress(artifact, rows)
+        summary = summarize_machine_set_progress(artifact, load_assignment_progress_rows(db, assignment, artifact))
         if not summary["sets"] and _profile_type_for_version(version) != "set":
             continue
         machines.append(

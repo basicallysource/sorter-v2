@@ -31,6 +31,7 @@ def _handler() -> TwoPieceClassificationChannel:
     h._pieces = {}
     h._orphans = []
     h._aliases = {}
+    h._reid_explained = set()
     h.logger = logging.getLogger("test")
     h._multi_drop_streak = 0
     h._multi_drop_last_ts = -1.0
@@ -54,6 +55,7 @@ def _piece(tid: int, *, zone: int, capture_done: bool, last_seen: float) -> _Tra
     tp.last_seen = last_seen
     tp.still_since = last_seen
     tp.bbox = (0, 0, 10, 10)
+    tp.expected_gap = None
     tp.worker = _Worker()
     return tp
 
@@ -155,3 +157,60 @@ def test_orphan_without_spatial_evidence_is_not_adopted() -> None:
     old.bbox = (0, 0, 0, 0)
     assert h._adoptOrphan(3, (1, 1, 11, 11), now=2.0) is None
     assert h._orphans == [(old, 1.1)]
+
+
+def test_orphan_is_adopted_where_the_platter_should_have_carried_it() -> None:
+    # Seen at rest 200° before the exit, then a 170° stage move: the same
+    # piece now sits ~30° before the exit, far away in pixels and in a new pose.
+    h = _handler()
+    old = _piece(1, zone=_ZONE_NONE, capture_done=True, last_seen=1.0)
+    old.bbox = (100, 100, 200, 180)
+    old.expected_gap = 200.0 - 170.0
+    h._orphans = [(old, 1.1)]
+    assert h._adoptOrphan(3, (1500, 900, 1560, 1050), now=2.0, gap=35.0) is old
+    assert old.track_id == 3 and h._pieces[3] is old and h._orphans == []
+
+
+def test_angle_alone_does_not_adopt_when_the_platter_did_not_move() -> None:
+    h = _handler()
+    old = _piece(1, zone=_ZONE_NONE, capture_done=True, last_seen=1.0)
+    old.bbox = (100, 100, 200, 180)
+    old.expected_gap = 200.0
+    h._orphans = [(old, 1.1)]
+    assert h._adoptOrphan(3, (1500, 900, 1560, 1050), now=2.0, gap=35.0) is None
+
+
+def test_two_orphans_at_similar_expected_angles_are_ambiguous() -> None:
+    h = _handler()
+    a = _piece(1, zone=_ZONE_NONE, capture_done=True, last_seen=1.0)
+    b = _piece(2, zone=_ZONE_NONE, capture_done=True, last_seen=1.0)
+    a.bbox = b.bbox = (100, 100, 200, 180)
+    a.expected_gap, b.expected_gap = 30.0, 38.0
+    h._orphans = [(a, 1.1), (b, 1.1)]
+    assert h._adoptOrphan(3, (1500, 900, 1560, 1050), now=2.0, gap=35.0) is None
+
+
+def test_output_move_advances_every_expected_gap(monkeypatch) -> None:
+    from subsystems.classification_channel.simple_state_machine_rev01.base import Rev01BaseState
+
+    monkeypatch.setattr(Rev01BaseState, "startOutputMove", lambda self, deg, speed: True)
+    h = _handler()
+    on_board = _piece(1, zone=_ZONE_NONE, capture_done=True, last_seen=1.0)
+    on_board.expected_gap = 200.0
+    orphan = _piece(2, zone=_ZONE_NONE, capture_done=True, last_seen=1.0)
+    orphan.expected_gap = 90.0
+    unseen = _piece(4, zone=_ZONE_DROP, capture_done=False, last_seen=1.0)
+    h._pieces = {1: on_board, 4: unseen}
+    h._orphans = [(orphan, 1.1)]
+    assert h.startOutputMove(-170.0, 5000) is True
+    assert on_board.expected_gap == 30.0 and orphan.expected_gap == -80.0 and unseen.expected_gap is None
+
+
+def test_rejection_is_explained_once_per_track_id(caplog) -> None:
+    h = _handler()
+    old = _piece(1, zone=_ZONE_NONE, capture_done=True, last_seen=1.0)
+    h._orphans = [(old, 1.1)]
+    with caplog.at_level(logging.INFO, logger="test"):
+        for _ in range(3):
+            assert h._adoptOrphan(3, (1000, 1000, 1010, 1010), now=2.0) is None
+    assert sum("orphan adoption rejected" in r.message for r in caplog.records) == 1

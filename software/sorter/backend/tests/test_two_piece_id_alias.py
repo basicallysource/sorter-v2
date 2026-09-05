@@ -21,6 +21,7 @@ def _handler():
     h._pieces = {}
     h._orphans = []
     h._aliases = {}
+    h._reid_explained = set()
     h.logger = logging.getLogger("test")
     h._multi_drop_streak = 0
     h._multi_drop_last_ts = -1.0
@@ -33,7 +34,7 @@ def _handler():
         tp.track_id = tid; tp.zone = _ZONE_NONE; tp.bbox = (0, 0, 0, 0); tp.gap_to_exit = None
         tp.progress_gap = None; tp.created_at = now; tp.last_seen = now
         tp.capture_done = tp.result_applied = tp.placed = tp.double_feed = tp.ejected = False
-        tp.multi_drop_group = None; tp.worker = SimpleNamespace(abandonInFlightObject=lambda r: None)
+        tp.multi_drop_group = None; tp.expected_gap = None; tp.worker = SimpleNamespace(abandonInFlightObject=lambda r: None)
         h._pieces[tid] = tp; h.created.append(tid); return tp
     h._createPiece = create
     return h

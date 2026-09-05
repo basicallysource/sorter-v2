@@ -93,6 +93,15 @@ _STILL_MAX_SHIFT_PX = 8.0
 # arrival swept into the gap behind the holding band has a large gap.
 _EXIT_GAP_NEAR_DEG = 10.0
 
+# Re-identification of a new track id as a known piece. By place: same spot,
+# similar box (a tracker blink on a resting piece). By angle: the box sits
+# where the platter should have carried the piece since it was last seen —
+# the id is routinely lost while the platter turns, and pixels say nothing
+# about a piece that moved 170° with it.
+_REID_PIXEL_BOXES = 1.5
+_REID_GAP_TOL_DEG = 20.0
+_REID_AMBIGUOUS = 0.34
+
 
 def _exitArcOccupied(state) -> bool:
     for po in getattr(state, "pieces", ()):
@@ -146,53 +155,58 @@ def _bboxIou(a: tuple[int, int, int, int], b: tuple[int, int, int, int]) -> floa
     return float(inter) / float(union) if union > 0 else 0.0
 
 
-def _reidentificationCandidate(candidates, bbox):
-    """Require nearby, similarly sized boxes and an unambiguous match.
+def _wrapDeg(deg: float) -> float:
+    return ((deg + 180.0) % 360.0) - 180.0
 
-    This deliberately refuses recovery after a large unobserved move. Until
-    motion prediction is available, losing a result is preferable to assigning
-    that result (and its bin) to a different physical piece.
-    """
+
+def _reidentificationScores(candidates, bbox, gap):
+    """Per candidate ``(score, note, tp)``; score <= 1 means the candidate
+    qualifies (by place or by angle), lower is closer."""
     width, height = bbox[2] - bbox[0], bbox[3] - bbox[1]
     if width <= 0 or height <= 0:
-        return None
-    ranked = []
+        return []
+    scored = []
     for tp in candidates:
         old = tp.bbox
         ow, oh = old[2] - old[0], old[3] - old[1]
         if ow <= 0 or oh <= 0:
-            continue
-        if not (0.5 <= width / ow <= 2.0 and 0.5 <= height / oh <= 2.0):
-            continue
-        distance = _bboxCenterShift(old, bbox) / max(width, height, ow, oh)
-        if distance <= 1.5:
-            ranked.append((distance, tp))
-    ranked.sort(key=lambda item: item[0])
-    if not ranked or (len(ranked) > 1 and ranked[1][0] - ranked[0][0] < 0.5):
-        return None
-    return ranked[0][1]
-
-
-def _reidentificationRejection(candidates, bbox) -> str:
-    """Why _reidentificationCandidate returned None — for the log only."""
-    width, height = bbox[2] - bbox[0], bbox[3] - bbox[1]
-    if width <= 0 or height <= 0:
-        return "new box has no area"
-    notes = []
-    for tp in candidates:
-        old = tp.bbox
-        ow, oh = old[2] - old[0], old[3] - old[1]
-        if ow <= 0 or oh <= 0:
-            notes.append(f"track={tp.track_id}: no stored box")
             continue
         rw, rh = width / ow, height / oh
-        distance = _bboxCenterShift(old, bbox) / max(width, height, ow, oh)
-        notes.append(
-            f"track={tp.track_id}: size ratio w={rw:.2f} h={rh:.2f} distance={distance:.2f} boxes"
+        pixel = _bboxCenterShift(old, bbox) / max(width, height, ow, oh) / _REID_PIXEL_BOXES
+        angular = None
+        if gap is not None and tp.expected_gap is not None:
+            angular = abs(_wrapDeg(float(gap) - tp.expected_gap)) / _REID_GAP_TOL_DEG
+        by_place = 0.5 <= rw <= 2.0 and 0.5 <= rh <= 2.0 and pixel <= 1.0
+        # The box changes with the pose the piece lands in after a turn.
+        by_angle = angular is not None and angular <= 1.0 and 0.33 <= rw <= 3.0 and 0.33 <= rh <= 3.0
+        score = min(pixel if by_place else float("inf"), angular if by_angle else float("inf"))
+        note = (
+            f"track={tp.track_id}: size w={rw:.2f} h={rh:.2f} shift={pixel * _REID_PIXEL_BOXES:.2f} boxes"
+            + (f" angle off={angular * _REID_GAP_TOL_DEG:.0f}°" if angular is not None else " angle n/a")
         )
-    if not notes:
+        scored.append((score, note, tp))
+    scored.sort(key=lambda item: item[0])
+    return scored
+
+
+def _reidentificationCandidate(candidates, bbox, gap):
+    """Unambiguous re-identification by place or by expected platter angle,
+    with a clear margin over the next candidate."""
+    ranked = [item for item in _reidentificationScores(candidates, bbox, gap) if item[0] <= 1.0]
+    if not ranked or (len(ranked) > 1 and ranked[1][0] - ranked[0][0] < _REID_AMBIGUOUS):
+        return None
+    return ranked[0][2]
+
+
+def _reidentificationRejection(candidates, bbox, gap) -> str:
+    """Why _reidentificationCandidate returned None — for the log only."""
+    scored = _reidentificationScores(candidates, bbox, gap)
+    if not scored:
         return "no candidates"
-    return "; ".join(notes) + " — rule: 0.5<=ratio<=2, distance<=1.5, unambiguous by 0.5"
+    return "; ".join(note for _, note, _ in scored) + (
+        f" — rule: shift<={_REID_PIXEL_BOXES} boxes at 0.5..2 size, or angle off<={_REID_GAP_TOL_DEG:.0f}°"
+        f" at 0.33..3 size, unambiguous"
+    )
 
 
 class _Phase(Enum):
@@ -217,6 +231,9 @@ class _TrackedPiece:
         self.zone = _ZONE_NONE
         self.bbox: tuple[int, int, int, int] = (0, 0, 0, 0)
         self.gap_to_exit: Optional[float] = None
+        # Where the platter should have carried the piece: the gap seen while
+        # stopped, minus every commanded move since (see startOutputMove).
+        self.expected_gap: Optional[float] = None
         # Gap at the last time this piece was credited with real movement (the
         # stall watchdog's "has it moved substantially" reference point).
         self.progress_gap: Optional[float] = None
@@ -314,6 +331,8 @@ class TwoPieceClassificationChannel(Rev01BaseState):
         self._orphans: list[tuple[_TrackedPiece, float]] = []
         # Second ids the tracker issued for an already tracked piece -> its piece.
         self._aliases: dict[int, _TrackedPiece] = {}
+        # Track ids whose failed re-identification was already explained in the log.
+        self._reid_explained: set[int] = set()
         self._phase = _Phase.WAITING
         self._eject_target: Optional[_TrackedPiece] = None
         self._stage_target: Optional[_TrackedPiece] = None
@@ -399,7 +418,7 @@ class TwoPieceClassificationChannel(Rev01BaseState):
         stopped = bool(getattr(stepper, "stopped", True))
         now = time.monotonic()
 
-        self._observe(state, now)
+        self._observe(state, now, stopped)
 
         # The classification channel OWNS the feeder admission gate. Ready only
         # when we are idle between cycles (not mid-rotation) AND the drop zone is
@@ -428,7 +447,7 @@ class TwoPieceClassificationChannel(Rev01BaseState):
 
     # ------------------------------------------------- perception reconciliation
 
-    def _observe(self, state, now: float) -> None:
+    def _observe(self, state, now: float, stopped: bool = True) -> None:
         """Match this frame's observations to tracked pieces by track id, create
         pieces for new ids, retire pieces whose id has been gone too long, and
         flag double feeds."""
@@ -446,6 +465,7 @@ class TwoPieceClassificationChannel(Rev01BaseState):
                 continue  # untracked box — counts for zone occupancy, not identity
             b = po.bbox
             bbox = (int(b[0]), int(b[1]), int(b[2]), int(b[3]))
+            gap = po.com_forward_to_exit_deg
             tp = self._pieces.get(tid) or self._aliases.get(tid)
             if tp is None:
                 tp = self._aliasOverlappingPiece(tid, bbox, now)
@@ -454,7 +474,9 @@ class TwoPieceClassificationChannel(Rev01BaseState):
                 if zone != _ZONE_DROP:
                     # Pieces arrive in the drop zone, never forward: a new
                     # forward id is a re-identification or a twin box.
-                    tp = self._adoptOrphan(tid, bbox, now) or self._aliasNearestForwardPiece(tid, bbox, now, visible)
+                    tp = self._adoptOrphan(tid, bbox, now, gap) or self._aliasNearestForwardPiece(
+                        tid, bbox, now, visible, gap
+                    )
                 if tp is None:
                     tp = self._createPiece(tid, now)
             if tp.track_id in seen:
@@ -465,7 +487,9 @@ class TwoPieceClassificationChannel(Rev01BaseState):
             if _bboxCenterShift(tp.bbox, bbox) > _STILL_MAX_SHIFT_PX:
                 tp.still_since = now
             tp.bbox = bbox
-            tp.gap_to_exit = po.com_forward_to_exit_deg
+            tp.gap_to_exit = gap
+            if stopped and gap is not None:
+                tp.expected_gap = float(gap)
             tp.last_seen = now
             # Watchdog progress: the piece physically moved a substantial amount.
             if tp.gap_to_exit is not None:
@@ -522,19 +546,25 @@ class TwoPieceClassificationChannel(Rev01BaseState):
         )
         return best
 
+    def _explainRejection(self, tid: int, what: str, candidates, bbox, gap) -> None:
+        if not candidates or tid in self._reid_explained:
+            return
+        if len(self._reid_explained) > 256:
+            self._reid_explained.clear()
+        self._reid_explained.add(tid)
+        self.logger.info(
+            f"{LOG_TAG} track={tid}: {what} rejected: {_reidentificationRejection(candidates, bbox, gap)}"
+        )
+
     def _aliasNearestForwardPiece(
-        self, tid: int, bbox: tuple[int, int, int, int], now: float, visible: set[int]
+        self, tid: int, bbox: tuple[int, int, int, int], now: float, visible: set[int], gap=None
     ) -> Optional[_TrackedPiece]:
         candidates = [tp for tp in self._pieces.values()
                       if tp.zone != _ZONE_DROP and not tp.ejected
                       and id(tp) not in visible and (now - tp.last_seen) <= _ALIAS_RECENT_S]
-        best = _reidentificationCandidate(candidates, bbox)
+        best = _reidentificationCandidate(candidates, bbox, gap)
         if best is None:
-            if candidates:
-                self.logger.info(
-                    f"{LOG_TAG} track={tid} appeared forward, alias rejected: "
-                    f"{_reidentificationRejection(candidates, bbox)}"
-                )
+            self._explainRejection(tid, "forward alias", candidates, bbox, gap)
             return None
         self._aliases[tid] = best
         self.logger.info(
@@ -543,16 +573,14 @@ class TwoPieceClassificationChannel(Rev01BaseState):
         )
         return best
 
-    def _adoptOrphan(self, tid: int, bbox: tuple[int, int, int, int], now: float) -> Optional[_TrackedPiece]:
+    def _adoptOrphan(
+        self, tid: int, bbox: tuple[int, int, int, int], now: float, gap=None
+    ) -> Optional[_TrackedPiece]:
         candidates = [piece for piece, lost_at in self._orphans
                       if now - lost_at <= _ORPHAN_ADOPT_S and not piece.ejected]
-        tp = _reidentificationCandidate(candidates, bbox)
+        tp = _reidentificationCandidate(candidates, bbox, gap)
         if tp is None:
-            if candidates:
-                self.logger.info(
-                    f"{LOG_TAG} track={tid}: orphan adoption rejected: "
-                    f"{_reidentificationRejection(candidates, bbox)}"
-                )
+            self._explainRejection(tid, "orphan adoption", candidates, bbox, gap)
             return None
         self._orphans = [(piece, lost_at) for piece, lost_at in self._orphans if piece is not tp]
         self.logger.info(f"{LOG_TAG} re-identified track={tp.track_id} as track={tid}")
@@ -779,7 +807,7 @@ class TwoPieceClassificationChannel(Rev01BaseState):
                 # second id (two boxes on one piece from the first frame): take
                 # over its capture, result and chute aim instead of starting a stray.
                 if self._orphans:
-                    adopted = self._adoptOrphan(tp.track_id, tp.bbox, now)
+                    adopted = self._adoptOrphan(tp.track_id, tp.bbox, now, tp.gap_to_exit)
                     if adopted is not None:
                         adopted.zone = tp.zone
                         adopted.bbox = tp.bbox
@@ -1042,6 +1070,16 @@ class TwoPieceClassificationChannel(Rev01BaseState):
         self.startOutputMove(
             C4_TRAVEL_SIGN * move, self.ctx.config.precise_converge_speed_usteps_per_s
         )
+
+    def startOutputMove(self, output_degrees: float, speed_usteps_per_s: int) -> bool:
+        ok = super().startOutputMove(output_degrees, speed_usteps_per_s)
+        if ok:
+            # Every piece on board rides along; its gap to the exit shrinks by
+            # the move. Keeps orphans re-identifiable after a turn.
+            for tp in list(self._pieces.values()) + [piece for piece, _ in self._orphans]:
+                if tp.expected_gap is not None:
+                    tp.expected_gap -= abs(float(output_degrees))
+        return ok
 
     def _enterPhase(self, phase: _Phase) -> None:
         # Deliberately NOT a watchdog progress credit: the eject/stage timeouts

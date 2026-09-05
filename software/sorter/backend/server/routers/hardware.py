@@ -3407,11 +3407,16 @@ def move_to_bin(payload: MoveToBinPayload) -> Dict[str, Any]:
     if target_angle is None:
         raise HTTPException(status_code=400, detail="Bin is unreachable (angle out of range).")
 
-    # Close all servos first, then open the target layer
+    # Production door semantics: the TARGET layer's door is CLOSED (it
+    # deflects the piece into that row), every other door is parked OPEN so
+    # the piece passes through to the target.
     for i, servo in enumerate(servos):
         try:
-            if hasattr(servo, "isOpen") and servo.isOpen():
-                servo.close()
+            if i == payload.layer_index:
+                if hasattr(servo, "close"):
+                    servo.close()
+            elif hasattr(servo, "open"):
+                servo.open()
         except Exception:
             pass
 
@@ -3419,14 +3424,6 @@ def move_to_bin(payload: MoveToBinPayload) -> Dict[str, Any]:
         estimated_ms = chute.moveToBin(address)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Chute move failed: {e}")
-
-    # Open the target layer servo
-    target_servo = servos[payload.layer_index]
-    try:
-        if hasattr(target_servo, "open"):
-            target_servo.open()
-    except Exception:
-        pass
 
     return {
         "ok": True,

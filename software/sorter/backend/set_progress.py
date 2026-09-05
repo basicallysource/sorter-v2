@@ -1,5 +1,5 @@
 import time
-from typing import Any
+from typing import Any, Optional
 
 from local_state import get_set_progress_state, set_set_progress_state
 AUTO_SAVE_INTERVAL_SEC = 5.0
@@ -121,6 +121,25 @@ class SetProgressTracker:
 
         entry["quantity_needed"] += int(part["quantity"])
         return entry
+
+    def isSetCategory(self, category_id: str) -> bool:
+        return category_id in self._set_info
+
+    def categoryNeeding(self, part_id: str, color_id: str, allowed=None) -> Optional[str]:
+        """The first tracked set (rule order) that still needs this part in this
+        colour and passes ``allowed`` (e.g. has a bin in this run); None when
+        every set that lists the part already has enough of it."""
+        exact_key = f"{str(color_id)}-{str(part_id)}"
+        wildcard_key = f"{ANY_COLOR_ID}-{str(part_id)}"
+        entries = [*self._part_lookup.get(exact_key, [])]
+        if wildcard_key != exact_key:
+            entries.extend(self._part_lookup.get(wildcard_key, []))
+        order = {category_id: index for index, category_id in enumerate(self._set_info)}
+        for entry in sorted(entries, key=lambda e: order.get(e["category_id"], len(order))):
+            category_id = entry["category_id"]
+            if entry["quantity_found"] < entry["quantity_needed"] and (allowed is None or allowed(category_id)):
+                return category_id
+        return None
 
     def record(self, part_id: str, color_id: str, category_id: str) -> None:
         """Record a sorted piece when it belongs to one of the tracked set rules."""

@@ -236,6 +236,37 @@ static std::array<TMC2209, STEPPER_COUNT> make_tmc_array(std::index_sequence<I..
 
 static auto tmc_drivers = make_tmc_array(std::make_index_sequence<STEPPER_COUNT>{});
 
+// Software StallGuard (boards whose TMC DIAG lines are not wired to the MCU,
+// e.g. the SKR Pico config). The backend configures SGTHRS/TCOOLTHRS over UART
+// exactly as for the DIAG path; we remember the last written values and, while
+// an armed stepper cruises, poll TSTEP and SG_RESULT on core0 and latch a stall
+// under the same rule the driver applies to DIAG: SG_RESULT <= 2*SGTHRS while
+// TSTEP <= TCOOLTHRS (i.e. above the velocity floor). Two consecutive hits are
+// required so a single noisy read cannot stop a motor.
+//
+// Each poll tick issues exactly one UART read per channel: TSTEP on one tick,
+// SG_RESULT on the next. Two reads back to back fail: the TMC2209 needs the
+// bus idle after its reply before it accepts the next sync byte, and the
+// second read then times out (measured on the B1 chute: TSTEP fine, SG_RESULT
+// failing on ~40 of 44 polls).
+#define TMC_REG_TSTEP 0x12
+#define TMC_REG_TCOOLTHRS 0x14
+#define TMC_REG_SGTHRS 0x40
+#define TMC_REG_SG_RESULT 0x41
+#define SOFT_SG_POLL_INTERVAL_US 2500
+#define SOFT_SG_HITS_TO_LATCH 2
+static uint32_t soft_sg_sgthrs[STEPPER_COUNT] = {0};
+static uint32_t soft_sg_tcoolthrs[STEPPER_COUNT] = {0};
+static uint8_t soft_sg_hits[STEPPER_COUNT] = {0};
+static bool soft_sg_read_sg_next[STEPPER_COUNT] = {false}; // false = TSTEP next, true = SG_RESULT next
+// Debug view of the software poll, exported in GET_OBSERVABILITY.
+static uint16_t soft_sg_polls[STEPPER_COUNT] = {0};     // polls that passed the gating (wraps)
+static uint16_t soft_sg_latches[STEPPER_COUNT] = {0};
+static uint32_t soft_sg_last_tstep[STEPPER_COUNT] = {0};
+static uint32_t soft_sg_last_sg[STEPPER_COUNT] = {0};
+static uint8_t soft_sg_gate[STEPPER_COUNT] = {0};       // why the last poll returned early
+
+
 template <size_t... I>
 static std::array<Stepper, STEPPER_COUNT> make_stepper_array(std::index_sequence<I...>) {
     return {Stepper(STEPPER_STEP_PINS[I], STEPPER_DIR_PINS[I])...};
@@ -332,13 +363,34 @@ int dump_observability(char *buf, size_t buf_size) {
     }
     snprintf(led_gpios_buf + led_len, sizeof(led_gpios_buf) - led_len, "]");
 
+    // Armed channels only (the payload is capped at MAX_PAYLOAD_SIZE): c=channel,
+    // p=polls past the gating, l=latches, t/s=last TSTEP/SG_RESULT, g=last early-return reason
+    char soft_sg_buf[200];
+    int sg_len = snprintf(soft_sg_buf, sizeof(soft_sg_buf), "[");
+    bool first = true;
+    for (int i = 0; i < STEPPER_COUNT && sg_len > 0 && (size_t)sg_len < sizeof(soft_sg_buf); i++) {
+        if (!steppers[i].stallDetectionEnabled()) continue;
+        sg_len += snprintf(soft_sg_buf + sg_len, sizeof(soft_sg_buf) - sg_len,
+                           "%s{\"c\":%d,\"p\":%u,\"l\":%u,\"t\":%lu,\"s\":%lu,\"g\":%u}",
+                           first ? "" : ",", i, (unsigned)soft_sg_polls[i],
+                           (unsigned)soft_sg_latches[i], (unsigned long)soft_sg_last_tstep[i],
+                           (unsigned long)soft_sg_last_sg[i], (unsigned)soft_sg_gate[i]);
+        first = false;
+    }
+    if (sg_len > 0 && (size_t)sg_len < sizeof(soft_sg_buf) - 1) {
+        snprintf(soft_sg_buf + sg_len, sizeof(soft_sg_buf) - sg_len, "]");
+    } else {
+        snprintf(soft_sg_buf, sizeof(soft_sg_buf), "[]");
+    }
+
     int n_bytes = snprintf(
         buf,
         buf_size,
-        "{\"hw\":\"%s\",\"diag_pins\":%s,\"led_gpios\":%s}",
+        "{\"hw\":\"%s\",\"diag_pins\":%s,\"led_gpios\":%s,\"soft_sg\":%s}",
         HW_ID,
         diag_pins_len > 0 ? diag_pins_buf : "[]",
-        led_gpios_buf);
+        led_gpios_buf,
+        soft_sg_buf);
 
     if (n_bytes >= 0 && (size_t)n_bytes < buf_size) {
         return n_bytes;
@@ -802,16 +854,15 @@ void CMDH_stepper_drv_write_register(const BusMessage *msg, BusMessage *resp) {
     memcpy(&value, msg->payload + 1, sizeof(value));
     tmc_drivers[msg->channel].writeRegister(reg, value);
     resp->payload_length = 0;
+    if (reg == TMC_REG_SGTHRS) soft_sg_sgthrs[msg->channel] = value;
+    if (reg == TMC_REG_TCOOLTHRS) soft_sg_tcoolthrs[msg->channel] = value;
 }
 
 void CMDH_stepper_enable_stall_detection(const BusMessage *msg, BusMessage *resp) {
     bool enable = msg->payload[0] != 0;
-    if (enable && STEPPER_DIAG_PINS[msg->channel] < 0) {
-        resp->command = msg->command | 0x80; // Set error bit
-        resp->payload_length =
-            snprintf((char *)resp->payload, MAX_PAYLOAD_SIZE, "No DIAG pin for channel %u", msg->channel);
-        return;
-    }
+    // Without a DIAG pin the software poll (core0, UART) takes over; it needs
+    // SGTHRS/TCOOLTHRS to have been written first, which the backend does.
+    soft_sg_hits[msg->channel] = 0;
     steppers[msg->channel].enableStallDetection(enable);
     resp->payload_length = 0;
 }
@@ -957,6 +1008,56 @@ void core1_entry() {
     }
 }
 
+static void software_stallguard_poll() {
+    static uint64_t next_poll_us = 0;
+    static uint8_t next_channel = 0;
+    uint64_t now = time_us_64();
+    if (now < next_poll_us) return;
+    next_poll_us = now + SOFT_SG_POLL_INTERVAL_US;
+    uint8_t i = next_channel;
+    next_channel = (uint8_t)((next_channel + 1) % STEPPER_COUNT);
+    Stepper &stepper = steppers[i];
+    if (stepper.hasStallPin()) { soft_sg_gate[i] = 1; soft_sg_hits[i] = 0; return; }
+    if (!stepper.stallDetectionEnabled()) { soft_sg_gate[i] = 2; soft_sg_hits[i] = 0; return; }
+    if (soft_sg_sgthrs[i] == 0) { soft_sg_gate[i] = 3; soft_sg_hits[i] = 0; return; }
+    if (!stepper.isCruisingForStallCheck()) {
+        soft_sg_gate[i] = 4;
+        soft_sg_hits[i] = 0;
+        soft_sg_read_sg_next[i] = false;
+        return;
+    }
+    soft_sg_polls[i]++;
+    // Gate codes 5x/7x carry the UART result: x1 = timeout, x2 = CRC error.
+    if (!soft_sg_read_sg_next[i]) {
+        uint32_t tstep = 0;
+        int rc = tmc_drivers[i].readRegister(TMC_REG_TSTEP, &tstep);
+        if (rc != 0) { soft_sg_gate[i] = (uint8_t)(50 - rc); return; }
+        soft_sg_last_tstep[i] = tstep & 0xFFFFF;
+        if ((tstep & 0xFFFFF) > soft_sg_tcoolthrs[i]) {
+            soft_sg_gate[i] = 6; // below the velocity floor DIAG would be inactive too
+            soft_sg_hits[i] = 0;
+            return;
+        }
+        soft_sg_read_sg_next[i] = true;
+        return;
+    }
+    soft_sg_read_sg_next[i] = false;
+    uint32_t sg_result = 0;
+    int rc = tmc_drivers[i].readRegister(TMC_REG_SG_RESULT, &sg_result);
+    if (rc != 0) { soft_sg_gate[i] = (uint8_t)(70 - rc); return; }
+    soft_sg_last_sg[i] = sg_result & 0x3FF;
+    soft_sg_gate[i] = 0;
+    if ((sg_result & 0x3FF) <= 2 * soft_sg_sgthrs[i]) {
+        if (++soft_sg_hits[i] >= SOFT_SG_HITS_TO_LATCH) {
+            soft_sg_hits[i] = 0;
+            soft_sg_latches[i]++;
+            stepper.latchStall();
+        }
+    } else {
+        soft_sg_hits[i] = 0;
+    }
+}
+
 int main() {
     stdio_init_all();
     initialize_hardware();
@@ -976,5 +1077,6 @@ int main() {
             msg_processor.processIncomingData((char)c);
             msg_processor.processQueuedMessage();
         }
+        software_stallguard_poll();
     }
 }

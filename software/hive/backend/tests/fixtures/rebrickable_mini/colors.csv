@@ -1,0 +1,5 @@
+id,name,rgb,is_trans,num_parts,num_sets,y1,y2
+0,Black,05131D,False,10,3,1957,2027
+15,White,FFFFFF,False,10,3,1957,2027
+47,Trans-Clear,FCFCFC,True,2,1,1957,2027
+383,Chrome Silver,E0E0E0,False,1,1,1990,2027

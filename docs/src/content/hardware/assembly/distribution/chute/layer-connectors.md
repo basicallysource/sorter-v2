@@ -39,7 +39,7 @@ Both connectors fasten to the [chute core]({{ '/hardware/assembly/distribution/c
 
 Each connector takes 2 {% include fastener.html size="M3" variant="countersunk" length="8" %} screws through the flat strap between its two end blocks, but don't fully tighten them yet: step 2 covers checking the alignment first.
 
-The strap is countersunk 90° on its outer face, so the head sits flush. Why 8 mm and not 12 is on the [chute core]({{ '/hardware/assembly/distribution/chute/chute-core/' | relative_url }}) page with the rest of the split.
+The strap is countersunk 90° on its outer face, so the head sits flush. It is 3.78 mm thick, so an 8 mm screw reaches 4.22 mm into the core's blind 5.70 mm insert and stops 1.5 mm short of the bottom, while a 12 mm one would bottom out before the head seated.
 
 <div class="img-placeholder">Photo of both layer connectors screwed to the chute core.</div>
 

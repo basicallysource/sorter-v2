@@ -74,3 +74,34 @@ def test_ejected_head_is_not_ejected_again_while_its_id_lingers() -> None:
     h._maybeStartRotation(now=1000.0)
     assert h.phases == []
     assert h._headPiece() is None
+
+
+def _forward_piece(track_id: int, gap: float, placed: bool) -> _TrackedPiece:
+    tp = _ready_head(placed_at=0.0)
+    tp.track_id = track_id
+    tp.gap_to_exit = gap
+    tp.placed = placed
+    tp.result_applied = True
+    tp.retry_started = False
+    tp.retry_done = False
+    tp.stray = False
+    return tp
+
+
+def test_the_placed_piece_is_ejected_even_when_another_id_ranks_ahead() -> None:
+    # Two ids on one piece (or a re-identified orphan) — the chute is aimed for
+    # the placed one, so that is the eject target, not the forward-most id.
+    h = _handler()
+    h._pieces = {7: _forward_piece(7, gap=40.0, placed=True), 8: _forward_piece(8, gap=10.0, placed=False)}
+    h._maybeStartRotation(now=100.0)
+    assert h.phases == [_Phase.EJECTING]
+    assert h._eject_target.track_id == 7
+
+
+def test_no_second_placement_while_the_slot_is_taken() -> None:
+    h = _handler()
+    h._orphans = []
+    h.transport = SimpleNamespace(placePieceForDistribution=lambda obj: (_ for _ in ()).throw(AssertionError("placed twice")))
+    h._pieces = {7: _forward_piece(7, gap=40.0, placed=True), 8: _forward_piece(8, gap=10.0, placed=False)}
+    h._aimChuteForHead(now=100.0)
+    assert not h._pieces[8].placed

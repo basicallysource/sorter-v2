@@ -15,8 +15,6 @@ warning: >-
   builder.** The old steps 1-2 (outer ring, spokes) are gone; build a hex
   frame on that page first. Correct it as you build.
 parts_needed:
-  - part: ext-bracket-cover
-    qty: 6
   - part: ext-bracket-bottom-vertical
     qty: 6
   - part: ext-2020-c
@@ -56,9 +54,8 @@ The aluminum extrusion is cut to length; the [framing cut list](https://parts-ca
   </figure>
 </div>
 
-<div class="callout callout-warning">
-  <span class="callout-icon" aria-hidden="true">⚠</span>
-  <p>Fit the External bracket — cover onto the External bracket — side now, at each corner of your hexagon. It's difficult to slide on once piece C is in place.</p>
+<div class="callout">
+  <p>The External bracket — covers are already on, fitted in <a href="{{ '/hardware/assembly/distribution/bin-frame/hex-frame/' | relative_url }}#step-9">Build the hex frame, step 9</a>. If a corner is missing one, put it on before you stand piece C in it, because it is difficult to slide on afterwards.</p>
 </div>
 
 Slot piece C (Layer vertical support) of aluminum extrusion between the External bracket — cover and the External bracket — side. At typical cut length, piece C sits about 3 mm short of both the top and bottom of the bracket run. Position it so that 3 mm gap is at the bottom, leaving the extrusion flush (or nearly flush) at the top. Use 2 {% include fastener.html size="M5" variant="socket-button" length="16" %} screws tapped through the holes near the bottom of the External bracket — side to secure the extrusion.

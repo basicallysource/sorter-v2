@@ -162,7 +162,9 @@ class Positioning(BaseState):
                 piece.part_id is not None
                 and piece.classification_status == ClassificationStatus.classified
             ):
-                category_id = self.sorting_profile.getCategoryIdForPart(piece.part_id, piece.color_id)
+                category_id = self._routeByNeed(
+                    piece, self.sorting_profile.getCategoryIdForPart(piece.part_id, piece.color_id)
+                )
             else:
                 category_id = MISC_CATEGORY
             # High-value override: a piece whose Hive moving-average price
@@ -814,6 +816,31 @@ class Positioning(BaseState):
             f"opened parked layers {opened_layers}"
         )
         return True
+
+    def _routeByNeed(self, piece, category_id: str) -> str:
+        """Set extraction routes by remaining need. The profile maps a part to
+        the first set that lists it, so a common part would flood that set's
+        bin while every other set starves. Instead the first set (rule order,
+        with a bin in this run) that still needs this part in this colour takes
+        it, and a set part nobody needs any more passes through."""
+        tracker = getattr(self.gc, "set_progress_tracker", None)
+        if tracker is None or not tracker.isSetCategory(category_id):
+            return category_id
+        with_bins = {
+            cid for layer in extractCategories(self.layout) for section in layer for ids in section for cid in ids
+        }
+        needing = tracker.categoryNeeding(piece.part_id, piece.color_id, lambda cid: cid in with_bins)
+        if needing is None:
+            self.logger.info(
+                f"Positioning: {piece.part_id}/{piece.color_id} — every set has enough, passthrough"
+            )
+            return MISC_CATEGORY
+        if needing != category_id:
+            self.logger.info(
+                f"Positioning: {piece.part_id}/{piece.color_id} -> {self.sorting_profile.categoryLabel(needing)} "
+                f"(still needed there; {self.sorting_profile.categoryLabel(category_id)} has enough)"
+            )
+        return needing
 
     def _isPlannedPassthrough(self, category_id: str) -> bool:
         from local_state import get_run_plan

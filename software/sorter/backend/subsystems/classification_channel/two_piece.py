@@ -84,6 +84,26 @@ _PROGRESS_MOVE_DEG = 5.0
 _STILL_MAX_SHIFT_PX = 8.0
 
 
+def _topScore(result: object) -> Optional[float]:
+    if not isinstance(result, dict):
+        return None
+    items = result.get("items") or []
+    if not items or not isinstance(items[0], dict):
+        return None
+    score = items[0].get("score")
+    try:
+        return float(score) if score is not None else None
+    except (TypeError, ValueError):
+        return None
+
+
+def retryImproves(new_score: Optional[float], first_score: Optional[float]) -> bool:
+    """The second result replaces the first only when it scores higher."""
+    if new_score is None:
+        return False
+    return first_score is None or new_score > first_score
+
+
 def _bboxCenterShift(a: tuple[int, int, int, int], b: tuple[int, int, int, int]) -> float:
     if a == (0, 0, 0, 0):
         return 0.0
@@ -141,6 +161,10 @@ class _TrackedPiece:
         # Handed to distribution (chute is aiming / aimed for it).
         self.placed = False
         self.placed_at = 0.0
+        # Second burst at rest for a low-confidence result (see _retryHeadAtRest).
+        self.retry_started = False
+        self.retry_done = False
+        self.first_score: Optional[float] = None
         # Committed to distribution as ejected; its track id may linger for the
         # retire window, but it is no longer a head to aim or eject.
         self.ejected = False
@@ -316,6 +340,7 @@ class TwoPieceClassificationChannel(Rev01BaseState):
         if self._phase == _Phase.WAITING:
             if stopped:
                 self._captureDropPieces(perception_service, now)
+                self._captureRetryHead(perception_service, now)
                 self._aimChuteForHead(now)
                 self._maybeStartRotation(now)
         elif self._phase == _Phase.EJECTING:
@@ -606,6 +631,23 @@ class TwoPieceClassificationChannel(Rev01BaseState):
                 result = ctx.classification_result
                 error = ctx.classification_error
             if result is not None or error is not None:
+                if tp.retry_started and not tp.retry_done:
+                    tp.retry_done = True
+                    tp.result_applied = True
+                    new_score = _topScore(result)
+                    if error is None and retryImproves(new_score, tp.first_score):
+                        tp.worker.updateKnownObjectWithResult(result, error)
+                        self.logger.info(
+                            f"{LOG_TAG} retry at rest track={tp.track_id}: "
+                            f"{tp.first_score} -> {new_score:.2f}, applied"
+                        )
+                    else:
+                        self.logger.info(
+                            f"{LOG_TAG} retry at rest track={tp.track_id}: "
+                            f"{tp.first_score} -> {new_score}, kept the first result"
+                        )
+                    self.noteProgress()
+                    continue
                 tp.worker.updateKnownObjectWithResult(result, error)
                 tp.result_applied = True
                 self.noteProgress()
@@ -655,6 +697,8 @@ class TwoPieceClassificationChannel(Rev01BaseState):
         obj = tp.known_object
         if obj is None:
             return
+        if self._retryHeadAtRest(tp, obj):
+            return  # second burst in progress — aim only once it is in
         if obj.part_id is None and obj.classification_status in (
             ClassificationStatus.pending,
             ClassificationStatus.classifying,
@@ -668,6 +712,57 @@ class TwoPieceClassificationChannel(Rev01BaseState):
             f"{LOG_TAG} aiming chute for head track={tp.track_id} "
             f"(status={obj.classification_status})"
         )
+
+    def _retryHeadAtRest(self, tp: _TrackedPiece, obj) -> bool:
+        """Start (or keep waiting for) the second burst of a low-confidence
+        head. Returns True while the aim must wait for it."""
+        if tp.retry_done or not bool(getattr(self.ctx.config, "low_confidence_retry", True)):
+            return False
+        if obj.classification_status != ClassificationStatus.low_confidence:
+            return False
+        if not tp.retry_started:
+            ctx = tp.worker.ctx
+            tp.first_score = float(obj.confidence) if obj.confidence is not None else None
+            tp.retry_started = True
+            tp.capture_done = False
+            tp.result_applied = False
+            ctx.captured_crops = []
+            ctx.captured_crop_timestamps = []
+            ctx.captured_crop_sharpness = []
+            ctx.captured_crop_quality = []
+            ctx.capturing_started_at = 0.0
+            ctx.classify_started_at = 0.0
+            ctx.classification_result = None
+            ctx.classification_error = None
+            self.logger.info(
+                f"{LOG_TAG} retry at rest track={tp.track_id}: first score {tp.first_score} — second burst"
+            )
+        return True
+
+    def _captureRetryHead(self, perception_service, now: float) -> None:
+        tp = self._headPiece()
+        if tp is None or not tp.retry_started or tp.retry_done or tp.capture_done:
+            return
+        raw = perception_service.read_bboxes_and_frame(4)
+        if raw is None:
+            return
+        _bboxes, perc_frame = raw
+        ctx = tp.worker.ctx
+        if ctx.capturing_started_at == 0.0:
+            ctx.capturing_started_at = now
+        self._cropBurstFrame(tp.worker, tp.bbox, perc_frame)
+        done, reason = tp.worker.burstCaptureComplete(ctx, now)
+        if done:
+            tp.capture_done = True
+            ctx.classify_started_at = now
+            caps = list(ctx.captured_crops)
+            if caps:
+                tp.worker.spawnClassifyThread(caps)
+            else:
+                ctx.classification_error = "no_captures"
+            self.logger.info(
+                f"{LOG_TAG} retry burst track={tp.track_id} ({len(caps)} crops, stop={reason}); classifying"
+            )
 
     def _headReady(self, tp: _TrackedPiece) -> bool:
         # Classified AND the chute is physically aimed for this piece.

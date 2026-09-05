@@ -608,6 +608,8 @@ export interface SortingProfileRule {
 	// Set-specific fields
 	set_source?: 'rebrickable' | 'custom';
 	set_num?: string;
+	// The owner's set instance this set rule extracts for.
+	set_instance_id?: string | null;
 	include_spares?: boolean;
 	set_meta?: {
 		name: string;
@@ -2147,11 +2149,14 @@ export const api = {
 	getSetInstance(id: string) {
 		return request<SetInstanceDetail>('GET', `/api/set-instances/${id}`);
 	},
-	updateSetInstance(id: string, data: { label?: string; notes?: string; status?: 'open' | 'complete' }) {
+	updateSetInstance(id: string, data: { label?: string; notes?: string }) {
 		return request<SetInstanceSummary>('PATCH', `/api/set-instances/${id}`, data);
 	},
 	archiveSetInstance(id: string) {
 		return request<SetInstanceSummary>('POST', `/api/set-instances/${id}/archive`);
+	},
+	restoreSetInstance(id: string) {
+		return request<SetInstanceSummary>('DELETE', `/api/set-instances/${id}/archive`);
 	},
 	adjustSetInstancePart(id: string, partNum: string, colorId: number, quantityFound: number) {
 		return request<SetInstancePart>('PUT', `/api/set-instances/${id}/parts/${encodeURIComponent(partNum)}/${colorId}`, {

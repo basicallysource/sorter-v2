@@ -164,6 +164,7 @@
 			status === 'failed' ||
 			status === 'unknown' ||
 			status === 'not_found' ||
+			status === 'low_confidence' ||
 			status === 'multi_drop_fail'
 		);
 	}
@@ -193,6 +194,7 @@
 			obj.classification_status === 'failed' ||
 			obj.classification_status === 'unknown' ||
 			obj.classification_status === 'not_found' ||
+			obj.classification_status === 'low_confidence' ||
 			obj.classification_status === 'multi_drop_fail'
 		);
 	}

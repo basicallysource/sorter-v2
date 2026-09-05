@@ -72,14 +72,24 @@ def _exitPieceCount(state) -> int:
     )
 
 
+# PieceObservation.zone_code of the exit-only band — the lip, where a piece
+# tips over on the next pulse (perception.arcs._region_lookup: 2).
+_ZONE_EXIT_ONLY = 2
+
+
 def exitPulseOutputDeg(cfg, state) -> float:
-    """Approach pulse while the leading piece has not reached the precise
-    sub-arc at the lip; the small tip-over pulse once it has."""
-    in_precise = bool(getattr(state, "in_precise", True))
+    """Zone order in travel direction: drop -> precise (approach band) ->
+    exit-only (the lip). The large approach pulse applies only while NO piece
+    is in the exit-only band; once one is at the lip every pulse is the small
+    tip-over pulse, whatever else is behind it."""
     approach = float(getattr(cfg, "exit_approach_output_deg", 0.0) or 0.0)
-    if not in_precise and approach > 0.0:
-        return max(approach, float(cfg.exit_pulse_output_deg))
-    return float(cfg.exit_pulse_output_deg)
+    pieces = getattr(state, "pieces", None)
+    if approach <= 0.0 or pieces is None:
+        return float(cfg.exit_pulse_output_deg)
+    at_lip = any(int(getattr(po, "zone_code", 0)) == _ZONE_EXIT_ONLY for po in pieces)
+    if at_lip:
+        return float(cfg.exit_pulse_output_deg)
+    return max(approach, float(cfg.exit_pulse_output_deg))
 
 
 class ExitDepartureDetector:

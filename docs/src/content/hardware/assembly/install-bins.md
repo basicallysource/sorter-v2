@@ -36,8 +36,8 @@ The list above is per layer, and a layer takes **one** of the two sets, not both
     <figcaption>Printed bins, two layers of a tower. <cite>Photo: Daddy-O's Bricks - Bill.</cite></figcaption>
   </figure>
   <figure>
-    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/install-bins-cardboard-bins-in-frame-w1600-e85d2a93cc70.jpg" alt="A layer seen from floor level, filled with folded cardboard bins radiating out from the chute in the middle">
-    <figcaption>Laser cut cardboard bins, one layer. Photographed on an early build, so the frame around them is an older revision. <cite>Photo: Spencer.</cite></figcaption>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/install-bins-cardboard-bins-machine-full-2d117575836e.jpg" alt="A whole machine on castors, five layers of folded cardboard bins in the tower with sorted LEGO in them">
+    <figcaption>Laser cut cardboard bins, five layers of a machine. <cite>Photo: Basically.</cite></figcaption>
   </figure>
 </div>
 
@@ -71,6 +71,11 @@ Both are real options and the machine holds them identically. Printed bins are i
 </div>
 
 {% include step.html n="3" title="Drop them in" %}
+
+<figure class="single-figure">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/install-bins-cardboard-bins-in-frame-w1600-e85d2a93cc70.jpg" alt="A layer seen from floor level, filled with folded cardboard bins radiating out from the chute in the middle">
+  <figcaption>A finished layer, seen from below. Photographed on an early build, so the frame around the bins is an older revision. <cite>Photo: Spencer.</cite></figcaption>
+</figure>
 
 Work around one layer at a time. Each bin sits in its bay with the wide open mouth facing outward and the narrow end toward the middle of the machine, resting on the frame, with its front edge behind the Bin retainer (left) and Bin retainer (right) on the front face of that bay's A/G extrusion. The retainers bolt to the frame and not to the bin, which is why cardboard and printed bins are held the same way and why swapping one for the other later costs nothing.
 

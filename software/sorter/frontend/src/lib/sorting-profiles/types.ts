@@ -195,3 +195,26 @@ export type SortingProfileCardEntry = {
 	target: HiveTargetLibrary;
 	profile: SortingProfileSummary;
 };
+
+export type RunPlanBin = { layer_index: number; section_index: number; bin_index: number };
+
+export type RunPlanRule = {
+	id: string;
+	name: string;
+	rule_type?: string | null;
+	set_source?: string | null;
+	set_num?: string | null;
+	set_meta?: { name?: string | null; year?: number | null; img_url?: string | null } | null;
+	set_instance_id?: string | null;
+	bin: RunPlanBin | null;
+	// Primary rules only: part of the current run.
+	selected?: boolean;
+};
+
+export type RunPlan = {
+	planned: boolean;
+	capacity: { primary: number; secondary: number };
+	primary: RunPlanRule[];
+	secondary: RunPlanRule[];
+	assigned_count?: number;
+};

@@ -71,3 +71,27 @@ def test_piece_in_the_gap_past_the_exit_arc_blocks_the_commit() -> None:
     state = SimpleNamespace(pieces=[SimpleNamespace(zone_code=_ZONE_NONE, sv_bt_track_id=14)], exit_com_forward_to_center_deg=None)
     h._ejecting(state, stopped=True, now=100.0 + _EJECT_GONE_CONFIRM_S + 0.1)
     assert h.advanced == 0 and tp.ejected is False
+
+
+def test_gap_piece_blocks_only_when_at_or_past_the_exit() -> None:
+    from subsystems.classification_channel.two_piece import _exitArcOccupied
+    lip = SimpleNamespace(pieces=[SimpleNamespace(zone_code=_ZONE_NONE, com_forward_to_exit_deg=-3.0)])
+    upstream = SimpleNamespace(pieces=[SimpleNamespace(zone_code=_ZONE_NONE, com_forward_to_exit_deg=140.0)])
+    unknown = SimpleNamespace(pieces=[SimpleNamespace(zone_code=_ZONE_NONE, com_forward_to_exit_deg=None)])
+    assert _exitArcOccupied(lip) is True
+    assert _exitArcOccupied(upstream) is False
+    assert _exitArcOccupied(unknown) is True
+
+
+def test_no_rotation_step_while_a_drop_burst_is_in_progress() -> None:
+    h, tp = _handler()
+    late = object.__new__(_TrackedPiece)
+    late.zone = 1; late.capture_done = False; late.double_feed = False
+    late.worker = SimpleNamespace(ctx=SimpleNamespace(capturing_started_at=99.0))
+    h._pieces = {5: late}
+    tp.last_seen = 100.5  # target still seen: no commit, just no rotation step
+    moves = []
+    h.startOutputMove = lambda *a, **k: moves.append(a)
+    state = SimpleNamespace(pieces=[], exit_com_forward_to_center_deg=40.0)
+    h._ejecting(state, stopped=True, now=100.5)
+    assert moves == [] and tp.ejected is False

@@ -46,7 +46,7 @@ Python 3.12+, Node.js 20+, pnpm. The install script handles dependencies on Debi
 
 ## Pick a contribution track
 
-- **Mechanical / CAD** — The project uses [Onshape](https://www.onshape.com/) (free, web-based, collaborative). DM Spencer your email for document access. Start by browsing the V2 CAD and checking open bounties for mechanical tasks.
+- **Mechanical / CAD** — The project uses [Onshape](https://www.onshape.com/) (free, web-based, collaborative). Every V2 document is public and listed in the repo's `mechanical/README.md`; the folder holding them is private, so ask in the [Discord](https://discord.gg/6PZtqkwtaS) to be added to it. Start by browsing the V2 CAD and checking open bounties for mechanical tasks.
 - **Electronics** — PCB schematics are in KiCad. Active work on feeder and distribution board reviews. Background in EE or PCB layout is valuable.
 - **Software** — Python backend + SvelteKit frontend. See the [Sorter install guide]({{ '/sorter/installation/' | relative_url }}).
 - **ML / Vision** — Classification research, training data collection, model optimization. See [Classification research]({{ '/lab/classification-research/' | relative_url }}) and [Object detection research]({{ '/lab/object-detection/' | relative_url }}).
@@ -67,5 +67,5 @@ Python 3.12+, Node.js 20+, pnpm. The install script handles dependencies on Debi
 - **Contributions** go through pull requests on GitHub. Branch protection is enabled on main.
 - **Bounties** are posted on the Discord bounty board for discrete, high-priority tasks. Claim one if you can deliver within the posted timeline.
 - **Communication** happens on Discord. Engineering sync calls happen periodically and are recorded for async viewing.
-- **CAD collaboration** uses Onshape shared documents. Request access by DMing Spencer your Onshape email.
+- **CAD collaboration** uses Onshape shared documents. The individual documents are public; for the shared folder, ask in the Discord with your Onshape email.
 - **Design reviews** are scheduled for electronics and mechanical changes before merging.

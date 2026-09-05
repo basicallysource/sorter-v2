@@ -39,6 +39,14 @@ This guide covers creating a regular layer. It's also the basis for creating the
 
 The aluminum extrusion is cut to length; the [framing cut list](https://parts-calculator.basically.website/framing) has the exact dimensions for piece C. The bin retainers in step 2 are the only thing on this layer that takes {% include fastener.html size="M5" variant="t-nut" text="M5 T-nuts" %}, and they carry their own parts on their own page, so neither the retainers nor their fasteners are in the list above. [Fitting T-nuts]({{ '/hardware/helpers/t-nuts/' | relative_url }}) covers the nuts themselves.
 
+The 36 {% include fastener.html size="M5" variant="socket-button" length="16" %} in the list above are three pairs at each of the six corners, and nothing else on this page takes a screw:
+
+- **12** clamping the External bracket — side onto piece C, 2 per corner (step 1)
+- **12** through the External bracket — bottom vertical's outer holes onto the same extrusion, 2 per corner (step 1)
+- **12** up through that flange into the layer above, 2 per corner (step 3)
+
+The hex frame's own 12 are on [its page]({{ '/hardware/assembly/distribution/bin-frame/hex-frame/' | relative_url }}), and the bin retainers' 24 are on [theirs]({{ '/hardware/assembly/distribution/bin-frame/bin-retainers/' | relative_url }}), so a complete layer is 72.
+
 {% include fastener-legend.html %}
 
 {% include step.html n="1" title="Install the verticals" %}

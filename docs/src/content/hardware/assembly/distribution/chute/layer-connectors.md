@@ -19,6 +19,8 @@ parts_needed:
     qty: 1
   - part: layer-connector-2
     qty: 1
+  - part: scr-m3-8-cs
+    qty: 4
 ---
 
 The layer connectors are a pair of printed parts, Layer connector A and Layer connector B, that join one layer's chute to the next one down so parts pass from chute to chute without a gap.
@@ -28,7 +30,7 @@ The fasteners and quantities are in the parts list above and are called out inli
 {% include fastener-legend.html %}
 
 - **How many:** 1 of each per distribution layer, plus 1 of each for the [top interface]({{ '/hardware/assembly/distribution/top-interface/' | relative_url }}) and 1 of each for the [bottom interface]({{ '/hardware/assembly/distribution/bin-frame/bottom-interface/' | relative_url }}). For an N-layer machine, that's N + 2 pairs total.
-- **Screws:** 2 {% include fastener.html size="M3" variant="countersunk" length="8" %} per connector, 4 for the pair. They come out of the [chute core]({{ '/hardware/assembly/distribution/chute/chute-core/' | relative_url }})'s set of 8 and are not extra, so they are on that page's parts list rather than this one.
+- **Screws:** 2 {% include fastener.html size="M3" variant="countersunk" length="8" %} per connector, 4 for the pair, in the list above. They go into the core's inserts rather than into anything on this page.
 - Both connectors go into the chute core's M3 heat inserts.
 
 {% include step.html n="1" title="Fit the connectors to the chute core" %}

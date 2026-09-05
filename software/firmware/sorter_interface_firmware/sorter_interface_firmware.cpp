@@ -73,6 +73,8 @@ void CMDH_stepper_drv_write_register(const BusMessage *msg, BusMessage *resp);
 void CMDH_stepper_enable_stall_detection(const BusMessage *msg, BusMessage *resp);
 void CMDH_stepper_get_stall_status(const BusMessage *msg, BusMessage *resp);
 void CMDH_stepper_clear_stall(const BusMessage *msg, BusMessage *resp);
+void CMDH_stepper_encoder_config(const BusMessage *msg, BusMessage *resp);
+void CMDH_stepper_encoder_status(const BusMessage *msg, BusMessage *resp);
 bool VAL_stepper_channel(uint8_t channel);
 
 const struct CommandTable stepperCmdTable = {
@@ -94,6 +96,12 @@ const struct CommandTable stepperCmdTable = {
         {"ENABLE_STALL_DETECTION", "?", "", 1, VAL_stepper_channel, CMDH_stepper_enable_stall_detection},
         {"GET_STALL_STATUS", "", "B", 0, VAL_stepper_channel, CMDH_stepper_get_stall_status},
         {"CLEAR_STALL", "", "", 0, VAL_stepper_channel, CMDH_stepper_clear_stall},
+        // Position encoder (AS5600 on the motor shaft, I2C). ENCODER_CONFIG:
+        // sign (+1/-1), encoder counts per 1000 microsteps, tolerance in counts,
+        // enable. ENCODER_STATUS: raw angle, deviation (counts), AS5600 status,
+        // AGC, latch count.
+        {"ENCODER_CONFIG", "bIH?", "", 8, VAL_stepper_channel, CMDH_stepper_encoder_config},
+        {"ENCODER_STATUS", "", "HiBBH", 0, VAL_stepper_channel, CMDH_stepper_encoder_status},
     }}};
 
 const struct CommandTable stepperDrvCmdTable = {
@@ -236,6 +244,77 @@ static std::array<TMC2209, STEPPER_COUNT> make_tmc_array(std::index_sequence<I..
 
 static auto tmc_drivers = make_tmc_array(std::make_index_sequence<STEPPER_COUNT>{});
 
+// Software StallGuard (boards whose TMC DIAG lines are not wired to the MCU,
+// e.g. the SKR Pico config). The backend configures SGTHRS/TCOOLTHRS over UART
+// exactly as for the DIAG path; we remember the last written values and, while
+// an armed stepper cruises, poll TSTEP and SG_RESULT on core0 and latch a stall
+// under the same rule the driver applies to DIAG: SG_RESULT <= 2*SGTHRS while
+// TSTEP <= TCOOLTHRS (i.e. above the velocity floor). Two consecutive hits are
+// required so a single noisy read cannot stop a motor.
+//
+// Each poll tick issues exactly one UART read per channel: TSTEP on one tick,
+// SG_RESULT on the next. Two reads back to back fail: the TMC2209 needs the
+// bus idle after its reply before it accepts the next sync byte, and the
+// second read then times out (measured on the B1 chute: TSTEP fine, SG_RESULT
+// failing on ~40 of 44 polls).
+#define TMC_REG_TSTEP 0x12
+#define TMC_REG_TCOOLTHRS 0x14
+#define TMC_REG_SGTHRS 0x40
+#define TMC_REG_SG_RESULT 0x41
+#define SOFT_SG_POLL_INTERVAL_US 2500
+#define SOFT_SG_HITS_TO_LATCH 2
+static uint32_t soft_sg_sgthrs[STEPPER_COUNT] = {0};
+static uint32_t soft_sg_tcoolthrs[STEPPER_COUNT] = {0};
+static uint8_t soft_sg_hits[STEPPER_COUNT] = {0};
+static bool soft_sg_read_sg_next[STEPPER_COUNT] = {false}; // false = TSTEP next, true = SG_RESULT next
+// Debug view of the software poll, exported in GET_OBSERVABILITY.
+static uint16_t soft_sg_latches[STEPPER_COUNT] = {0};
+static uint32_t soft_sg_last_tstep[STEPPER_COUNT] = {0};
+static uint32_t soft_sg_last_sg[STEPPER_COUNT] = {0};
+static uint8_t soft_sg_gate[STEPPER_COUNT] = {0};       // why the last poll returned early
+
+// ---------------------------------------------------------------------------
+// Shaft encoder position check. One AS5600 per board (fixed I2C address) on
+// the motor's rear shaft; the backend tells us which channel it belongs to.
+// Every ENC_POLL_INTERVAL_US the poll reads the angle, unwraps it into a
+// running count and compares it with the stepper's commanded position
+// (counts = offset + sign * position * counts_per_1000_usteps / 1000). A
+// deviation beyond the tolerance on ENC_HITS_TO_LATCH consecutive polls
+// latches the same stall flag StallGuard uses, so the backend's incident
+// path (pause, re-home) is shared. Unlike StallGuard this works on ramps and
+// at the target. A position jump larger than any real move between two polls
+// (SET_POSITION / homing zeroed the counter) re-captures the offset.
+#include "AS5600.h"
+#define ENC_POLL_INTERVAL_US 5000
+#define ENC_HITS_TO_LATCH 3
+#define ENC_STATUS_EVERY_N_POLLS 20
+#define ENC_RESET_JUMP_USTEPS 2000
+static AS5600 shaft_encoder(I2C_PORT);
+struct EncoderCheck {
+    bool enabled = false;
+    int8_t sign = 1;
+    uint32_t counts_per_kusteps = 2560; // 4096 counts / 1600 microsteps * 1000
+    uint16_t tolerance_counts = 82;     // 4 full steps at 8 microsteps
+    bool synced = false;                // offset captured
+    uint16_t last_raw = 0;
+    int32_t unwrapped = 0;
+    int32_t offset = 0;
+    int32_t last_position = 0;
+    int32_t deviation = 0;
+    uint8_t hits = 0;
+    uint8_t status = 0;                 // AS5600 STATUS register (MD/ML/MH)
+    uint8_t agc = 0;
+    uint16_t latches = 0;
+    uint8_t i2c_errors = 0;             // saturating
+};
+static EncoderCheck enc[STEPPER_COUNT];
+static int8_t enc_channel = -1;         // the one channel with the encoder, -1 = none
+
+static int32_t enc_expected_counts(const EncoderCheck &e, int32_t position) {
+    return e.offset + (int32_t)(((int64_t)e.sign * position * (int64_t)e.counts_per_kusteps) / 1000);
+}
+
+
 template <size_t... I>
 static std::array<Stepper, STEPPER_COUNT> make_stepper_array(std::index_sequence<I...>) {
     return {Stepper(STEPPER_STEP_PINS[I], STEPPER_DIR_PINS[I])...};
@@ -332,13 +411,47 @@ int dump_observability(char *buf, size_t buf_size) {
     }
     snprintf(led_gpios_buf + led_len, sizeof(led_gpios_buf) - led_len, "]");
 
+    // Armed channels only (the payload is capped at MAX_PAYLOAD_SIZE): c=channel,
+    // l=latches, t/s=last TSTEP/SG_RESULT, g=last early-return reason
+    char soft_sg_buf[200];
+    int sg_len = snprintf(soft_sg_buf, sizeof(soft_sg_buf), "[");
+    bool first = true;
+    for (int i = 0; i < STEPPER_COUNT && sg_len > 0 && (size_t)sg_len < sizeof(soft_sg_buf); i++) {
+        if (!steppers[i].stallDetectionEnabled()) continue;
+        sg_len += snprintf(soft_sg_buf + sg_len, sizeof(soft_sg_buf) - sg_len,
+                           "%s{\"c\":%d,\"l\":%u,\"t\":%lu,\"s\":%lu,\"g\":%u}",
+                           first ? "" : ",", i,
+                           (unsigned)soft_sg_latches[i], (unsigned long)soft_sg_last_tstep[i],
+                           (unsigned long)soft_sg_last_sg[i], (unsigned)soft_sg_gate[i]);
+        first = false;
+    }
+    if (sg_len > 0 && (size_t)sg_len < sizeof(soft_sg_buf) - 1) {
+        snprintf(soft_sg_buf + sg_len, sizeof(soft_sg_buf) - sg_len, "]");
+    } else {
+        snprintf(soft_sg_buf, sizeof(soft_sg_buf), "[]");
+    }
+
+    // enc: c=channel, st=AS5600 STATUS (0x20 magnet ok, 0x10 weak, 0x08 strong;
+    // 0 = never read, i.e. no sensor answering), agc, dev=last deviation in
+    // counts, l=latches. Worst case with two armed soft_sg channels stays
+    // under MAX_PAYLOAD_SIZE (measured 237 of 246 bytes).
+    char enc_buf[64] = "null";
+    if (enc_channel >= 0) {
+        const EncoderCheck &e = enc[enc_channel];
+        snprintf(enc_buf, sizeof(enc_buf), "{\"c\":%d,\"st\":%u,\"agc\":%u,\"dev\":%ld,\"l\":%u}",
+                 (int)enc_channel, (unsigned)e.status, (unsigned)e.agc, (long)e.deviation,
+                 (unsigned)e.latches);
+    }
+
     int n_bytes = snprintf(
         buf,
         buf_size,
-        "{\"hw\":\"%s\",\"diag_pins\":%s,\"led_gpios\":%s}",
+        "{\"hw\":\"%s\",\"diag_pins\":%s,\"led_gpios\":%s,\"soft_sg\":%s,\"enc\":%s}",
         HW_ID,
         diag_pins_len > 0 ? diag_pins_buf : "[]",
-        led_gpios_buf);
+        led_gpios_buf,
+        soft_sg_buf,
+        enc_buf);
 
     if (n_bytes >= 0 && (size_t)n_bytes < buf_size) {
         return n_bytes;
@@ -802,18 +915,53 @@ void CMDH_stepper_drv_write_register(const BusMessage *msg, BusMessage *resp) {
     memcpy(&value, msg->payload + 1, sizeof(value));
     tmc_drivers[msg->channel].writeRegister(reg, value);
     resp->payload_length = 0;
+    if (reg == TMC_REG_SGTHRS) soft_sg_sgthrs[msg->channel] = value;
+    if (reg == TMC_REG_TCOOLTHRS) soft_sg_tcoolthrs[msg->channel] = value;
 }
 
 void CMDH_stepper_enable_stall_detection(const BusMessage *msg, BusMessage *resp) {
     bool enable = msg->payload[0] != 0;
-    if (enable && STEPPER_DIAG_PINS[msg->channel] < 0) {
-        resp->command = msg->command | 0x80; // Set error bit
-        resp->payload_length =
-            snprintf((char *)resp->payload, MAX_PAYLOAD_SIZE, "No DIAG pin for channel %u", msg->channel);
-        return;
-    }
+    // Without a DIAG pin the software poll (core0, UART) takes over; it needs
+    // SGTHRS/TCOOLTHRS to have been written first, which the backend does.
+    soft_sg_hits[msg->channel] = 0;
     steppers[msg->channel].enableStallDetection(enable);
     resp->payload_length = 0;
+}
+
+void CMDH_stepper_encoder_config(const BusMessage *msg, BusMessage *resp) {
+    EncoderCheck &e = enc[msg->channel];
+    int8_t sign = (int8_t)msg->payload[0];
+    uint32_t counts_per_kusteps;
+    uint16_t tolerance;
+    memcpy(&counts_per_kusteps, msg->payload + 1, sizeof(counts_per_kusteps));
+    memcpy(&tolerance, msg->payload + 5, sizeof(tolerance));
+    bool enable = msg->payload[7] != 0;
+    if (enable && (counts_per_kusteps == 0 || tolerance == 0 || (sign != 1 && sign != -1))) {
+        resp->command = msg->command | 0x80;
+        resp->payload_length = snprintf((char *)resp->payload, MAX_PAYLOAD_SIZE, "Invalid encoder config");
+        return;
+    }
+    for (int i = 0; i < STEPPER_COUNT; i++) enc[i].enabled = false; // one encoder per board
+    e.sign = sign;
+    e.counts_per_kusteps = counts_per_kusteps;
+    e.tolerance_counts = tolerance;
+    e.synced = false;
+    e.hits = 0;
+    e.enabled = enable;
+    enc_channel = enable ? (int8_t)msg->channel : -1;
+    resp->payload_length = 0;
+}
+
+void CMDH_stepper_encoder_status(const BusMessage *msg, BusMessage *resp) {
+    const EncoderCheck &e = enc[msg->channel];
+    uint16_t raw = e.last_raw;
+    int32_t deviation = e.deviation;
+    memcpy(resp->payload, &raw, 2);
+    memcpy(resp->payload + 2, &deviation, 4);
+    resp->payload[6] = e.status;
+    resp->payload[7] = e.agc;
+    memcpy(resp->payload + 8, &e.latches, 2);
+    resp->payload_length = 10;
 }
 
 void CMDH_stepper_get_stall_status(const BusMessage *msg, BusMessage *resp) {
@@ -957,6 +1105,112 @@ void core1_entry() {
     }
 }
 
+static void software_stallguard_poll() {
+    static uint64_t next_poll_us = 0;
+    static uint8_t next_channel = 0;
+    uint64_t now = time_us_64();
+    if (now < next_poll_us) return;
+    next_poll_us = now + SOFT_SG_POLL_INTERVAL_US;
+    uint8_t i = next_channel;
+    next_channel = (uint8_t)((next_channel + 1) % STEPPER_COUNT);
+    Stepper &stepper = steppers[i];
+    if (stepper.hasStallPin()) { soft_sg_gate[i] = 1; soft_sg_hits[i] = 0; return; }
+    if (!stepper.stallDetectionEnabled()) { soft_sg_gate[i] = 2; soft_sg_hits[i] = 0; return; }
+    if (soft_sg_sgthrs[i] == 0) { soft_sg_gate[i] = 3; soft_sg_hits[i] = 0; return; }
+    if (!stepper.isCruisingForStallCheck()) {
+        soft_sg_gate[i] = 4;
+        soft_sg_hits[i] = 0;
+        soft_sg_read_sg_next[i] = false;
+        return;
+    }
+    // Gate codes 5x/7x carry the UART result: x1 = timeout, x2 = CRC error.
+    if (!soft_sg_read_sg_next[i]) {
+        uint32_t tstep = 0;
+        int rc = tmc_drivers[i].readRegister(TMC_REG_TSTEP, &tstep);
+        if (rc != 0) { soft_sg_gate[i] = (uint8_t)(50 - rc); return; }
+        soft_sg_last_tstep[i] = tstep & 0xFFFFF;
+        if ((tstep & 0xFFFFF) > soft_sg_tcoolthrs[i]) {
+            soft_sg_gate[i] = 6; // below the velocity floor DIAG would be inactive too
+            soft_sg_hits[i] = 0;
+            return;
+        }
+        soft_sg_read_sg_next[i] = true;
+        return;
+    }
+    soft_sg_read_sg_next[i] = false;
+    uint32_t sg_result = 0;
+    int rc = tmc_drivers[i].readRegister(TMC_REG_SG_RESULT, &sg_result);
+    if (rc != 0) { soft_sg_gate[i] = (uint8_t)(70 - rc); return; }
+    soft_sg_last_sg[i] = sg_result & 0x3FF;
+    soft_sg_gate[i] = 0;
+    if ((sg_result & 0x3FF) <= 2 * soft_sg_sgthrs[i]) {
+        if (++soft_sg_hits[i] >= SOFT_SG_HITS_TO_LATCH) {
+            soft_sg_hits[i] = 0;
+            soft_sg_latches[i]++;
+            stepper.latchStall();
+        }
+    } else {
+        soft_sg_hits[i] = 0;
+    }
+}
+
+static void encoder_position_poll() {
+    static uint64_t next_poll_us = 0;
+    static uint32_t polls = 0;
+    if (enc_channel < 0) return;
+    uint64_t now = time_us_64();
+    if (now < next_poll_us) return;
+    next_poll_us = now + ENC_POLL_INTERVAL_US;
+    EncoderCheck &e = enc[enc_channel];
+    Stepper &stepper = steppers[enc_channel];
+    polls++;
+    uint16_t raw = 0;
+    if (!shaft_encoder.readRawAngle(&raw)) {
+        if (e.i2c_errors < 255) e.i2c_errors++;
+        return;
+    }
+    if ((polls % ENC_STATUS_EVERY_N_POLLS) == 0) {
+        shaft_encoder.readStatus(&e.status);
+        shaft_encoder.readAgc(&e.agc);
+    }
+    int32_t position = stepper.getPosition();
+    if (!e.synced) {
+        e.last_raw = raw;
+        e.unwrapped = raw;
+        e.last_position = position;
+        e.offset = e.unwrapped - (int32_t)(((int64_t)e.sign * position * (int64_t)e.counts_per_kusteps) / 1000);
+        e.deviation = 0;
+        e.hits = 0;
+        e.synced = true;
+        return;
+    }
+    int32_t delta = (int32_t)raw - (int32_t)e.last_raw;
+    if (delta > (int32_t)AS5600::COUNTS_PER_REV / 2) delta -= AS5600::COUNTS_PER_REV;
+    if (delta < -(int32_t)AS5600::COUNTS_PER_REV / 2) delta += AS5600::COUNTS_PER_REV;
+    e.unwrapped += delta;
+    e.last_raw = raw;
+    int32_t moved = position - e.last_position;
+    e.last_position = position;
+    if (moved > ENC_RESET_JUMP_USTEPS || moved < -ENC_RESET_JUMP_USTEPS) {
+        // The counter was set from outside (homing, SET_POSITION): re-sync.
+        e.synced = false;
+        return;
+    }
+    if (stepper.isJittering()) { e.hits = 0; return; }
+    e.deviation = e.unwrapped - enc_expected_counts(e, position);
+    int32_t magnitude = e.deviation < 0 ? -e.deviation : e.deviation;
+    if (magnitude > (int32_t)e.tolerance_counts) {
+        if (++e.hits >= ENC_HITS_TO_LATCH) {
+            e.hits = 0;
+            e.latches++;
+            stepper.latchStall();
+            e.synced = false; // measure the next move from wherever the shaft really is
+        }
+    } else {
+        e.hits = 0;
+    }
+}
+
 int main() {
     stdio_init_all();
     initialize_hardware();
@@ -976,5 +1230,7 @@ int main() {
             msg_processor.processIncomingData((char)c);
             msg_processor.processQueuedMessage();
         }
+        software_stallguard_poll();
+        encoder_position_poll();
     }
 }

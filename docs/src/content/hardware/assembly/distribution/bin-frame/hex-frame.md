@@ -60,11 +60,6 @@ The bracket carries other holes that neither method uses, including one on its i
 
 If you are using slide-in T-nuts rather than the roll-in ones this machine specifies, insert 4 into the outermost section of the extrusion before connecting the next External bracket — side, as this is the last time the ends of the extrusion are accessible. Those 4 are for the [bin retainers]({{ '/hardware/assembly/distribution/bin-frame/bin-retainers/' | relative_url }}), and [Fitting T-nuts]({{ '/hardware/helpers/t-nuts/' | relative_url }}) lists every other place the same applies. With roll-in T-nuts there is nothing to do here.
 
-<div class="callout callout-warning">
-  <span class="callout-icon" aria-hidden="true">⚠</span>
-  <p>Before you watch: the video fits T-nuts into the extrusion, and none of them belong to this page. The 4 outer ones per extrusion are for the <a href="{{ '/hardware/assembly/distribution/bin-frame/bin-retainers/' | relative_url }}">bin retainers</a>, fitted on that page unless you are using slide-in T-nuts; the 2 inner ones partway along the extrusion are not needed at all.</p>
-</div>
-
 <figure class="video-figure">
   <div class="video-embed video-embed-wide">
     <iframe

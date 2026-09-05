@@ -80,7 +80,7 @@ _ZONE_EXIT_ONLY = 2
 # not flung after the piece that just left.
 TIP_OVER_HOLD_S = 1.5
 # The approach pulse stops this far short of the exit-only entry edge.
-APPROACH_MARGIN_DEG = 6.0
+APPROACH_MARGIN_DEG = 14.0
 
 
 def exitPulseOutputDeg(cfg, state) -> float:

@@ -8352,8 +8352,17 @@
     },
     {
       "id": "chute",
-      "uid": "axlb",
-      "version": "1",
+      "uid": "re1n",
+      "version": "2",
+      "versions": [
+        {
+          "version": "2",
+          "date": "2026-09-05",
+          "message": "The screw through the servo bracket's side arm into the chute core is an M3 \u00d7 8, not an M3 \u00d7 12. Measured off the STL: that ear is 5.00 mm thick, the same as the bearing covers', so an 8 reaches 3.00 mm into the core's blind 5.70 mm insert and a 12 bottoms out in it. The lower arm's ear is 8.40 mm and keeps its 12. One screw moves from the 12 column to the 8; no part changed.",
+          "breaking": false,
+          "commit": null
+        }
+      ],
       "name": "Chute",
       "description": "One chute: the core plus its door module, funnel brackets, connectors, and PCB. Every screw here lands in one of the chute core's 18 M3 inserts.",
       "docs": "/hardware/assembly/distribution/chute/chute-core/",
@@ -8384,11 +8393,11 @@
         },
         {
           "part": "scr-m3-12-cs",
-          "qty": 6
+          "qty": 5
         },
         {
           "part": "scr-m3-8-cs",
-          "qty": 8
+          "qty": 9
         }
       ]
     },

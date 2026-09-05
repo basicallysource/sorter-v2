@@ -28,12 +28,18 @@ class SortingProfile(ABC):
     def notInInventoryCategoryId(self, in_inventory: Optional[bool]) -> Optional[str]:
         return None
 
+    # Human-readable name for a category id (operator-facing incidents, logs).
+    # Base impl = the id itself.
+    def categoryLabel(self, category_id: str) -> str:
+        return category_id
+
 
 class JsonSortingProfile(SortingProfile):
     def __init__(self, gc: GlobalConfig):
         self._gc = gc
         self._sorting_profile_path = gc.sorting_profile_path
         self.part_to_category: dict[str, str] = {}
+        self.category_names: dict[str, str] = {}
         self.default_category_id = MISC_CATEGORY
         self.set_inventories: dict[str, dict[str, Any]] | None = None
         self.artifact_hash: str = ""
@@ -76,6 +82,12 @@ class JsonSortingProfile(SortingProfile):
         part_to_category = data.get("part_to_category", {})
         for part_id, category_id in part_to_category.items():
             self.part_to_category[str(part_id)] = str(category_id)
+        raw_categories = data.get("categories")
+        self.category_names = {
+            str(category_id): str(meta["name"])
+            for category_id, meta in (raw_categories.items() if isinstance(raw_categories, dict) else ())
+            if isinstance(meta, dict) and meta.get("name")
+        }
         raw_set_inventories = data.get("set_inventories")
         self.set_inventories = raw_set_inventories if isinstance(raw_set_inventories, dict) else None
         self.artifact_hash = data.get("artifact_hash", "")
@@ -94,6 +106,9 @@ class JsonSortingProfile(SortingProfile):
             return self.part_to_category[color_key]
         any_key = f"any_color-{part_id}"
         return self.part_to_category.get(any_key, self.default_category_id)
+
+    def categoryLabel(self, category_id: str) -> str:
+        return self.category_names.get(category_id, category_id)
 
     def highValueCategoryId(self, price: Optional[float]) -> Optional[str]:
         cfg = self.high_value_routing

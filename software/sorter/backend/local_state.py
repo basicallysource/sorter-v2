@@ -1524,25 +1524,28 @@ def _ensure_bin_state_row_conn(
     return int(row["bin_epoch"]) if row is not None else 0
 
 
-def record_piece_distribution(piece: dict[str, Any]) -> None:
+def record_piece_distribution(piece: dict[str, Any]) -> int | None:
+    """Persist one distributed piece into its bin. Returns the bin's piece
+    count after the insert, or ``None`` when nothing was recorded (piece not
+    routed to a physical bin, or already recorded)."""
     if not isinstance(piece, dict):
-        return
+        return None
     piece_uuid = piece.get("uuid")
     destination_bin = piece.get("destination_bin")
     distributed_at = piece.get("distributed_at")
     if not isinstance(piece_uuid, str) or not piece_uuid.strip():
-        return
+        return None
     if not isinstance(destination_bin, (list, tuple)) or len(destination_bin) != 3:
-        return
+        return None
     if not isinstance(distributed_at, (int, float)):
-        return
+        return None
 
     try:
         layer_index = int(destination_bin[0])
         section_index = int(destination_bin[1])
         bin_index = int(destination_bin[2])
     except (TypeError, ValueError):
-        return
+        return None
 
     initialize_local_state()
     with _connection() as conn:
@@ -1591,7 +1594,7 @@ def record_piece_distribution(piece: dict[str, Any]) -> None:
         )
         if cursor.rowcount == 0:
             conn.commit()
-            return
+            return None
 
         conn.execute(
             "INSERT INTO bin_item_aggregates(session_id, layer_index, section_index, bin_index, item_key, part_id, color_id, color_name, category_id, classification_status, count, last_distributed_at, thumbnail, top_image, bottom_image, brickognize_preview_url) "
@@ -1631,7 +1634,12 @@ def record_piece_distribution(piece: dict[str, Any]) -> None:
             "UPDATE bin_state_current SET piece_count = piece_count + 1, unique_item_count = ?, last_distributed_at = ?, updated_at = ? WHERE session_id = ? AND layer_index = ? AND section_index = ? AND bin_index = ?",
             (unique_count, float(distributed_at), time.time(), session_id, layer_index, section_index, bin_index),
         )
+        count_row = conn.execute(
+            "SELECT piece_count FROM bin_state_current WHERE session_id = ? AND layer_index = ? AND section_index = ? AND bin_index = ?",
+            (session_id, layer_index, section_index, bin_index),
+        ).fetchone()
         conn.commit()
+        return int(count_row["piece_count"]) if count_row is not None else None
 
 
 def _get_or_create_open_bin_snapshot_conn(conn: sqlite3.Connection, now: float) -> str:

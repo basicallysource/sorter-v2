@@ -46,6 +46,8 @@ class DistributionStateMachine(BaseSubsystem):
                 gc,
                 shared,
                 event_queue,
+                layout=layout,
+                sorting_profile=sorting_profile,
                 vision=vision,
                 post_distribute_cooldown_s=post_distribute_cooldown_s,
             ),

@@ -14,6 +14,11 @@ from sorting_profile import SortingProfile, MISC_CATEGORY
 from blob_manager import setBinCategories
 from defs.events import PauseCommandData, PauseCommandEvent
 from defs.known_object import ClassificationStatus, PieceStage
+
+# Counts a flap may stop short of its calibrated limit and still count as
+# arrived. Both SC15 flaps settle 16-17 counts short under the 60 % torque
+# cap; a wrong door (the failure this guards) is a whole limit away.
+DOOR_POSITION_TOLERANCE = 20
 from utils.event import knownObjectToEvent
 
 
@@ -459,7 +464,7 @@ class Positioning(BaseState):
         reached = None
         for attempt in range(3):
             try:
-                reached = check()
+                reached = check(tolerance=DOOR_POSITION_TOLERANCE)
             except Exception as exc:
                 self.logger.warning(f"Positioning: door position check failed: {exc}")
                 reached = None

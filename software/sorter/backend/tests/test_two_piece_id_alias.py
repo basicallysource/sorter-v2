@@ -66,3 +66,20 @@ def test_iou() -> None:
     assert _bboxIou((0, 0, 10, 10), (0, 0, 10, 10)) == 1.0
     assert _bboxIou((0, 0, 10, 10), (20, 20, 30, 30)) == 0.0
     assert 0.3 < _bboxIou((0, 0, 10, 10), (5, 0, 15, 10)) < 0.35
+
+
+def test_new_forward_id_without_overlap_binds_to_the_nearest_forward_piece() -> None:
+    h = _handler()
+    h._observe(_obs(1.0, (6, _ZONE_NONE, (1400, 500, 1500, 600))), now=1.0)
+    h._pieces[6].capture_done = True
+    # twin box next to it, no overlap, appears forward
+    h._observe(_obs(1.3, (5, _ZONE_NONE, (1510, 505, 1600, 590))), now=1.3)
+    assert h.created == [6]
+    assert h._aliases[5] is h._pieces[6]
+
+
+def test_new_id_in_drop_never_binds_by_proximity() -> None:
+    h = _handler()
+    h._observe(_obs(1.0, (1, _ZONE_DROP, (600, 800, 700, 900))), now=1.0)
+    h._observe(_obs(1.3, (2, _ZONE_DROP, (720, 800, 820, 900))), now=1.3)
+    assert h.created == [1, 2]

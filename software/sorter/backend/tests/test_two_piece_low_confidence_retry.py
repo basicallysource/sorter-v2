@@ -79,3 +79,23 @@ def test_not_found_head_is_retried_too() -> None:
     assert h._retryHeadAtRest(tp, obj) is True
     assert tp.retry_started and tp.first_score is None
     assert retryImproves(0.42, None)
+
+
+def test_head_with_retry_in_flight_is_not_a_stray() -> None:
+    h = _handler()
+    h._orphans = []
+    h._pieces = {}
+    tp, obj = _piece(ClassificationStatus.low_confidence, 0.5)
+    h._retryHeadAtRest(tp, obj)               # retry started: classify_started_at reset
+    tp.created_at = -100.0                    # far older than the stray grace
+    tp.worker.ctx.classify_started_at = 0.0
+    tp.zone = 0
+    tp.placed = False
+    tp.gap_to_exit = 10.0
+    h._headPiece = lambda: tp
+    h._ensureKnownObject = lambda t: None
+    logged = []
+    h.logger = SimpleNamespace(info=lambda m: logged.append(m), warning=lambda m: logged.append("WARN " + m))
+    h._aimChuteForHead(now=1000.0)
+    assert not any("stray head" in m for m in logged)
+    assert tp.result_applied is False and tp.retry_started

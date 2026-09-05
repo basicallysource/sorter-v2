@@ -6728,11 +6728,43 @@
       ],
       "versions": [
         {
+          "version": "1",
+          "uid": "ywb3",
+          "message": "As recorded before the first stamped change.",
+          "lines": [
+            {
+              "part": "top-plate",
+              "qty": 1,
+              "uid": "1g22"
+            },
+            {
+              "assembly": "interface",
+              "qty": 1,
+              "uid": "vhrk"
+            },
+            {
+              "assembly": "layer",
+              "qty": "middle-layers",
+              "uid": "mnpn"
+            },
+            {
+              "assembly": "bottom-interface",
+              "qty": 1,
+              "uid": "67uq"
+            },
+            {
+              "part": "scr-m5-16-shcs",
+              "qty": 6,
+              "uid": "2e0s"
+            }
+          ]
+        },
+        {
           "version": "2",
           "date": "2026-09-05",
           "breaking": false,
           "message": "The stack is n bin layers plus one top interface, not n - 2 layers between two interfaces. The layer node now runs non-bottom-layers (n - 1) and the new bottom-layer node runs once, because the lowest layer carries foot covers instead of bracket covers and bottom verticals. Brings the tree onto the same counts the 3D-parts and framing models already used: n + 1 hexagons, 12n bin retainers, 6 foot covers. No physical change.",
-          "commit": null
+          "commit": "36826f49"
         }
       ]
     },
@@ -8237,11 +8269,33 @@
       ],
       "versions": [
         {
+          "version": "1",
+          "uid": "67uq",
+          "message": "As recorded before the first stamped change.",
+          "lines": [
+            {
+              "assembly": "layer-frame",
+              "qty": 1,
+              "uid": "yq92"
+            },
+            {
+              "assembly": "lazy-susan",
+              "qty": 1,
+              "uid": "v6ss"
+            },
+            {
+              "assembly": "layer-connector",
+              "qty": 1,
+              "uid": "6m38"
+            }
+          ]
+        },
+        {
           "version": "2",
           "date": "2026-09-05",
           "breaking": false,
           "message": "Dropped the layer-frame: the bottom interface hangs under the lowest bin layer's frame and does not get a hexagon of its own (bottom two layers, step 6). Dropped the layer connector too: the spare one belongs to the top interface, which slides onto the external bracket on that hex ring. No physical change.",
-          "commit": null
+          "commit": "36826f49"
         }
       ]
     },

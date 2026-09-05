@@ -83,7 +83,7 @@ It replaces the [light post]({{ '/hardware/assembly/feeder/light-post/' | relati
     <p><strong>Colours.</strong> The <strong>Lamp inner reflector</strong> and its six <strong>LED hooks</strong> print ivory white, and that is not cosmetic: they are the reflector. The <strong>Lamp outer cover</strong> is ash grey. The arm, the mount, both brackets, the ring and both clasp halves follow the channel colour like the rest of that channel's parts.</p>
   </div>
   <figure class="prep-item-figure">
-    <img class="doc-figure" src="https://assets.basically.website/sorter-parts/pub-img-camera-lamp-render-side-full-2a681306f3a9.png" alt="CAD render of the camera lamp in profile: the disc-shaped lamp overhanging at the top, carried on an arm that steps down at an angle to the C-channel arm mount, with a bracket along each joint">
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/camera-lamp-render-side-full-2a681306f3a9.png" alt="CAD render of the camera lamp in profile: the disc-shaped lamp overhanging at the top, carried on an arm that steps down at an angle to the C-channel arm mount, with a bracket along each joint">
     <figcaption>The whole thing in profile. <cite>Rendered from the part geometry, not from a build. Render: Spencer.</cite></figcaption>
   </figure>
 </div>
@@ -150,7 +150,7 @@ Six **Inner reflector LED hooks** friction-fit into the rim of the **Lamp inner 
 The **Lamp outer cover** friction-fits down over the reflector, and that is the whole joint: it has no screw hole anywhere in its geometry. The reflector is 150 mm across, the cover 153 mm, and the cover stands about 1.5 mm proud of the reflector at the top so the camera clasp sits recessed in the opening at its centre.
 
 <figure class="single-figure">
-  <img class="doc-figure" src="https://assets.basically.website/sorter-parts/pub-img-camera-lamp-render-underside-full-0e2b1e5a0fb9.png" alt="CAD render of the camera lamp seen from below: the inside of the cover with the reflector dome, the LED hooks spaced around the rim, the camera at the centre, and the arm reaching up into it">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/camera-lamp-render-underside-full-0e2b1e5a0fb9.png" alt="CAD render of the camera lamp seen from below: the inside of the cover with the reflector dome, the LED hooks spaced around the rim, the camera at the centre, and the arm reaching up into it">
   <figcaption>From below, with the reflector inside the cover and the hooks around the rim. <cite>Rendered from the part geometry, not from a build. Render: Spencer.</cite></figcaption>
 </figure>
 
@@ -161,7 +161,7 @@ Plug the clasped camera into the ring, then set the lamp on top. **The lamp is n
 Order matters here in one place only: the camera has to be in the clasp and the clasp in the ring before the cover goes over the top, because the cover closes around the clasp.
 
 <figure class="single-figure">
-  <img class="doc-figure" src="https://assets.basically.website/sorter-parts/pub-img-camera-lamp-render-top-full-edc4616e7088.png" alt="CAD render of the assembled camera lamp from above: the grey cover with the camera clasp and board in the central opening, a slot near the rim, and the arm coming in from the lower left">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/camera-lamp-render-top-full-edc4616e7088.png" alt="CAD render of the assembled camera lamp from above: the grey cover with the camera clasp and board in the central opening, a slot near the rim, and the arm coming in from the lower left">
   <figcaption>Assembled, from above. <cite>Rendered from the part geometry, not from a build. Render: Spencer.</cite></figcaption>
 </figure>
 

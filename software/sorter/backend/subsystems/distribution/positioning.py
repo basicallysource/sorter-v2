@@ -18,8 +18,6 @@ from utils.event import knownObjectToEvent
 from .incidents import publish_bin_full_incident
 
 
-BINS_FULL_ALERT_PREFIX = "No bin available"
-MISC_PASSTHROUGH_ALERT_PREFIX = "Misc passthrough"
 CHUTE_JAM_ALERT_PREFIX = "Chute jam"
 SERVO_BUS_ALERT_PREFIX = "Servo bus offline"
 DISTRIBUTION_CHUTE_JAM_INCIDENT_KIND = "distribution_chute_jam"
@@ -119,7 +117,6 @@ class Positioning(BaseState):
                 self.logger.info(
                     "Positioning: sample collection mode — opening all layer doors for discard passthrough"
                 )
-                self._clearBinsFullAlertIfOwned()
                 self._clearChuteJamAlertIfOwned()
                 self._openAllDoorsForPassthrough()
                 piece.stage = PieceStage.distributing
@@ -141,7 +138,6 @@ class Positioning(BaseState):
                     f"Positioning: piece {piece.uuid} is too big "
                     f"({piece.max_dimension_mm}mm) — passthrough to misc bottom bin"
                 )
-                self._clearBinsFullAlertIfOwned()
                 self._clearChuteJamAlertIfOwned()
                 self._openAllDoorsForPassthrough()
                 piece.stage = PieceStage.distributing
@@ -238,7 +234,6 @@ class Positioning(BaseState):
                     f"Positioning: piece {piece.uuid} ({piece.max_dimension_mm}mm) exceeds "
                     f"layer {address.layer_index} limit ({layer_max}mm) — passthrough to misc bottom bin"
                 )
-                self._clearBinsFullAlertIfOwned()
                 self._clearChuteJamAlertIfOwned()
                 self._openAllDoorsForPassthrough()
                 piece.stage = PieceStage.distributing
@@ -254,7 +249,6 @@ class Positioning(BaseState):
                 self._setOccupancyState("positioning.passthrough_too_big_for_layer")
                 return DistributionState.READY
 
-            self._clearBinsFullAlertIfOwned()
             self._clearChuteJamAlertIfOwned()
             self.logger.info(
                 f"Positioning: moving to bin at layer={address.layer_index}, section={address.section_index}, bin={address.bin_index}"
@@ -687,18 +681,6 @@ class Positioning(BaseState):
             pass
         self._jam_pause_enqueued = False
         self._clearDistributionIncident(DISTRIBUTION_CHUTE_JAM_INCIDENT_KIND)
-
-    def _clearBinsFullAlertIfOwned(self) -> None:
-        try:
-            with shared_state.hardware_lifecycle_lock:
-                err = shared_state.hardware_error
-                if isinstance(err, str) and (
-                    err.startswith(BINS_FULL_ALERT_PREFIX)
-                    or err.startswith(MISC_PASSTHROUGH_ALERT_PREFIX)
-                ):
-                    shared_state.setHardwareStatus(clear_error=True)
-        except Exception:
-            pass
 
     def _openAllDoorsForPassthrough(self) -> None:
         """Open every usable layer door so a piece with no assigned bin

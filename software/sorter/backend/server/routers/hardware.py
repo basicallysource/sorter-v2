@@ -233,8 +233,10 @@ def _clear_runtime_bin_contents(
     bin_index: int | None = None,
 ) -> bool:
     """Drop the in-memory contents of the emptied bins and resolve a bin-full
-    incident whose bin lies inside the emptied scope. Returns whether such an
-    incident was resolved."""
+    incident whose bin lies inside the emptied scope. Call this only after the
+    persisted counts are zeroed: the coordinator re-reads them as soon as the
+    incident slot is free and would raise the incident again otherwise.
+    Returns whether such an incident was resolved."""
     collector = getattr(shared_state.gc_ref, "runtime_stats", None) if shared_state.gc_ref is not None else None
     if collector is None or not hasattr(collector, "clearBinContents"):
         return False
@@ -2988,29 +2990,6 @@ def auto_assign_bins(*, overlap: bool, window_days: float = 7.0) -> dict[str, An
     }
 
 
-def _clear_passthrough_alert_if_owned() -> None:
-    """Clear the bins-full / misc-passthrough banner when the operator
-    explicitly resets or empties bins. Otherwise the alert sticks around
-    (it only auto-clears on the next successful bin assignment)."""
-    try:
-        from subsystems.distribution.positioning import (
-            BINS_FULL_ALERT_PREFIX,
-            MISC_PASSTHROUGH_ALERT_PREFIX,
-        )
-    except Exception:
-        return
-    try:
-        with shared_state.hardware_lifecycle_lock:
-            err = shared_state.hardware_error
-            if isinstance(err, str) and (
-                err.startswith(BINS_FULL_ALERT_PREFIX)
-                or err.startswith(MISC_PASSTHROUGH_ALERT_PREFIX)
-            ):
-                shared_state.setHardwareStatus(clear_error=True)
-    except Exception:
-        pass
-
-
 def clear_bin_category_assignments(
     *,
     scope: str,
@@ -3032,8 +3011,8 @@ def clear_bin_category_assignments(
                         cleared_bins += 1
                     category_ids.clear()
         _apply_and_persist_bin_categories(categories)
-        _clear_runtime_bin_contents(scope=scope)
         clear_current_session_bins(scope=scope, bin_categories=categories_before)
+        _clear_runtime_bin_contents(scope=scope)
         return {
             "ok": True,
             "scope": scope,
@@ -3052,8 +3031,8 @@ def clear_bin_category_assignments(
                     cleared_bins += 1
                 category_ids.clear()
         _apply_and_persist_bin_categories(categories)
-        _clear_runtime_bin_contents(scope=scope, layer_index=layer_index)
         clear_current_session_bins(scope=scope, layer_index=layer_index, bin_categories=categories_before)
+        _clear_runtime_bin_contents(scope=scope, layer_index=layer_index)
         return {
             "ok": True,
             "scope": scope,
@@ -3073,18 +3052,18 @@ def clear_bin_category_assignments(
     had_categories = bool(categories[layer_index][section_index][bin_index])
     categories[layer_index][section_index][bin_index] = []
     _apply_and_persist_bin_categories(categories)
-    _clear_runtime_bin_contents(
-        scope=scope,
-        layer_index=layer_index,
-        section_index=section_index,
-        bin_index=bin_index,
-    )
     clear_current_session_bins(
         scope=scope,
         layer_index=layer_index,
         section_index=section_index,
         bin_index=bin_index,
         bin_categories=categories_before,
+    )
+    _clear_runtime_bin_contents(
+        scope=scope,
+        layer_index=layer_index,
+        section_index=section_index,
+        bin_index=bin_index,
     )
     return {
         "ok": True,
@@ -3143,7 +3122,6 @@ def assign_bin_categories(
 
     categories[layer_index][section_index][bin_index] = cleaned
     _apply_and_persist_bin_categories(categories)
-    _clear_passthrough_alert_if_owned()
     return {
         "ok": True,
         "layer_index": layer_index,
@@ -3165,8 +3143,8 @@ def clear_bin_contents(
     bin_index: int | None = None,
 ) -> dict[str, Any]:
     if scope == "all":
-        _clear_runtime_bin_contents(scope=scope)
         cleared = clear_current_session_bins(scope=scope, bin_categories=_current_bin_categories())
+        _clear_runtime_bin_contents(scope=scope)
         return {
             "ok": True,
             "scope": scope,
@@ -3180,8 +3158,8 @@ def clear_bin_contents(
         raise HTTPException(status_code=400, detail="Invalid layer index.")
 
     if scope == "layer":
-        _clear_runtime_bin_contents(scope=scope, layer_index=layer_index)
         cleared = clear_current_session_bins(scope=scope, layer_index=layer_index, bin_categories=categories)
+        _clear_runtime_bin_contents(scope=scope, layer_index=layer_index)
         return {
             "ok": True,
             "scope": scope,

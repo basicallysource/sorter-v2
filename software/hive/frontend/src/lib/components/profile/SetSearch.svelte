@@ -82,9 +82,9 @@
 				<button onclick={() => onSelect(set)}
 					class="flex w-full items-center gap-3 border border-border p-2 text-left hover:bg-bg">
 					{#if set.img_url}
-						<img src={set.img_url} alt={set.name} class="h-12 w-12 shrink-0 object-contain" />
+						<img src={set.img_url} alt={set.name} class="h-24 w-24 shrink-0 object-contain" />
 					{:else}
-						<div class="flex h-12 w-12 shrink-0 items-center justify-center bg-bg text-xs text-text-muted">N/A</div>
+						<div class="flex h-24 w-24 shrink-0 items-center justify-center bg-bg text-xs text-text-muted">N/A</div>
 					{/if}
 					<div class="min-w-0 flex-1">
 						<div class="truncate text-sm font-medium text-text">{set.name}</div>

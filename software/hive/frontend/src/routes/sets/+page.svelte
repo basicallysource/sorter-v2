@@ -144,7 +144,7 @@
 	{:else}
 		<div class="flex items-center gap-3 border border-border p-2">
 			{#if picked.img_url}
-				<img src={picked.img_url} alt="" class="h-12 w-12 shrink-0 object-contain" />
+				<img src={picked.img_url} alt="" class="h-24 w-24 shrink-0 object-contain" />
 			{/if}
 			<div class="min-w-0 flex-1">
 				<div class="truncate text-sm font-medium text-text">{picked.name}</div>

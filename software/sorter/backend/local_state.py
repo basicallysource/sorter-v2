@@ -58,6 +58,7 @@ _STATE_KEY_SORTING_PROFILE_SYNC = "sorting_profile_sync"
 _STATE_KEY_API_KEYS = "api_keys"
 _STATE_KEY_SERVO_STATES = "servo_states"
 _STATE_KEY_SET_PROGRESS = "set_progress"
+_STATE_KEY_RUN_PLAN = "run_plan"
 _STATE_KEY_UI_THEME_COLOR_ID = "ui_theme_color_id"
 _STATE_KEY_BIN_LAYOUT = "bin_layout"
 # Per-PWM-channel servo calibration ({channel_id: {"open": int, "closed": int}}).
@@ -1092,6 +1093,18 @@ def get_set_progress_state() -> dict[str, Any] | None:
 def set_set_progress_state(state: dict[str, Any] | None) -> None:
     normalized = dict(state) if isinstance(state, dict) else None
     _write_state(_STATE_KEY_SET_PROGRESS, normalized)
+
+
+# The active run plan: which primary rules the operator picked for this run.
+# Present = bins were planned by role and unplanned rule categories pass
+# through; absent = dynamic assignment (categories claim bins as pieces arrive).
+def get_run_plan() -> dict[str, Any] | None:
+    value = _read_state(_STATE_KEY_RUN_PLAN)
+    return value if isinstance(value, dict) else None
+
+
+def set_run_plan(plan: dict[str, Any] | None) -> None:
+    _write_state(_STATE_KEY_RUN_PLAN, dict(plan) if isinstance(plan, dict) else None)
 
 
 # The three channels that can have a light of their own. "assignments" maps one

@@ -5,6 +5,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 import local_state as ls
+from irl.bin_layout import parseLayerRole
 
 router = APIRouter()
 
@@ -13,8 +14,7 @@ router = APIRouter()
 # layer->channel ref + bin categories + not-in-inventory flags) — NO servo angles
 # (those are per-channel/machine-level). Built from RAW local_state so it matches
 # the migration-seeded record exactly (else the active record reads as dirty).
-def _snapshot_from_state() -> dict[str, Any]:
-    bin_layout = ls.get_bin_layout() or {}
+def _snapshot_layers(bin_layout: dict[str, Any]) -> list[dict[str, Any]]:
     layers = []
     for layer in bin_layout.get("layers", []):
         if not isinstance(layer, dict):
@@ -26,9 +26,14 @@ def _snapshot_from_state() -> dict[str, Any]:
             "max_pieces_per_bin": layer.get("max_pieces_per_bin"),
             "max_dimension_mm": layer.get("max_dimension_mm"),
             "section_enabled": layer.get("section_enabled"),
+            "role": parseLayerRole(layer.get("role")),
         })
+    return layers
+
+
+def _snapshot_from_state() -> dict[str, Any]:
     return {
-        "layers": layers,
+        "layers": _snapshot_layers(ls.get_bin_layout() or {}),
         "bin_categories": ls.get_bin_categories(),
         "not_in_inventory_bins": ls.get_not_in_inventory_bins(),
     }
@@ -39,7 +44,11 @@ def _norm(snapshot: Any) -> str:
 
 
 def _is_dirty(record: dict[str, Any]) -> bool:
-    return _norm(record.get("layout")) != _norm(_snapshot_from_state())
+    # Records saved before a layer key existed (e.g. ``role``) are projected
+    # through the same defaults as the live state so they compare clean.
+    saved = dict(record.get("layout") or {})
+    saved["layers"] = _snapshot_layers(saved)
+    return _norm(saved) != _norm(_snapshot_from_state())
 
 
 def _record_out(record: dict[str, Any], dirty: Optional[bool] = None) -> dict[str, Any]:

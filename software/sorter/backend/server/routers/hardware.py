@@ -32,6 +32,8 @@ from irl.bin_layout import (
     applyNotInInventory,
     notInInventoryMatchesLayout,
     defaultMaxDimensionForBinCount,
+    parseLayerRole,
+    LAYER_ROLES,
     _LAYER_MAX_DIMENSION_DEFAULTS_MM,
 )
 from subsystems.distribution.chute import BinAddress, CHUTE_MAX_ANGLE
@@ -51,6 +53,7 @@ from irl.parse_user_toml import (
 )
 from local_state import (
     clear_current_session_bins,
+    set_run_plan,
     get_bin_snapshot,
     get_bin_snapshot_pieces,
     get_current_bin_contents_snapshot,
@@ -414,6 +417,8 @@ class StorageLayerPayload(BaseModel):
     servo_closed_angle: Optional[int] = None
     max_pieces_per_bin: Optional[int] = None
     max_dimension_mm: Optional[float] = None
+    # "primary" | "secondary"; omitted keeps the layer's current role.
+    role: Optional[str] = None
 
 
 class StorageLayerSettingsPayload(BaseModel):
@@ -848,6 +853,7 @@ def _storage_layer_settings_from_layout(layout: Any) -> Dict[str, Any]:
             if isinstance(max_dimension, (int, float)) and not isinstance(max_dimension, bool) and max_dimension > 0
             else None
         )
+        layer_entry["role"] = parseLayerRole(getattr(layer, "role", None))
         layers.append(layer_entry)
 
     return {
@@ -902,6 +908,7 @@ def _apply_live_storage_layer_enabled(layers: List[Dict[str, Any]]) -> bool:
             if isinstance(max_dimension, (int, float)) and not isinstance(max_dimension, bool) and max_dimension > 0
             else None,
         )
+        setattr(runtime_layer, "role", parseLayerRole(layer.get("role")))
     return True
 
 
@@ -2645,6 +2652,7 @@ def save_storage_layer_hardware_config(
                 "servo_closed_angle": layer.servo_closed_angle,
                 "max_pieces_per_bin": layer.max_pieces_per_bin,
                 "max_dimension_mm": layer.max_dimension_mm,
+                "role": layer.role,
             }
             for layer in requested_layers
         ]
@@ -2657,6 +2665,7 @@ def save_storage_layer_hardware_config(
                 "servo_closed_angle": layer.get("servo_closed_angle"),
                 "max_pieces_per_bin": layer.get("max_pieces_per_bin"),
                 "max_dimension_mm": layer.get("max_dimension_mm"),
+                "role": layer.get("role"),
             }
             for count, layer in zip(payload.layer_bin_counts, current["layers"])
         ]
@@ -2710,6 +2719,12 @@ def save_storage_layer_hardware_config(
             if isinstance(max_dim, (int, float)) and not isinstance(max_dim, bool) and max_dim > 0
             else None
         )
+        role = layer_update.get("role")
+        if role is None:
+            role = prior_layer.role if prior_layer else None
+        elif role not in LAYER_ROLES:
+            raise HTTPException(status_code=400, detail=f"Layer role must be one of {list(LAYER_ROLES)}.")
+        role = parseLayerRole(role)
 
         # Section count is preserved across this rebuild, so carry the existing
         # per-section on/off flags through rather than resetting them to all-on.
@@ -2727,6 +2742,7 @@ def save_storage_layer_hardware_config(
             max_pieces_per_bin=max_per_bin_value,
             max_dimension_mm=max_dim_value,
             section_enabled=prior_section_enabled,
+            role=role,
         ))
         if cur_layer:
             layout_changed = layout_changed or count != int(cur_layer["bin_count"])
@@ -2734,6 +2750,8 @@ def save_storage_layer_hardware_config(
             if max_per_bin_value != cur_layer.get("max_pieces_per_bin"):
                 enabled_changed = True
             if max_dim_value != cur_layer.get("max_dimension_mm"):
+                enabled_changed = True
+            if role != cur_layer.get("role"):
                 enabled_changed = True
         else:
             layout_changed = True
@@ -3011,6 +3029,7 @@ def clear_bin_category_assignments(
                         cleared_bins += 1
                     category_ids.clear()
         _apply_and_persist_bin_categories(categories)
+        set_run_plan(None)
         clear_current_session_bins(scope=scope, bin_categories=categories_before)
         _clear_runtime_bin_contents(scope=scope)
         return {
@@ -3246,6 +3265,7 @@ def get_bins_layout() -> Dict[str, Any]:
                 if isinstance(max_dimension, (int, float)) and not isinstance(max_dimension, bool) and max_dimension > 0
                 else None
             ),
+            "role": layer.role,
             "bins": bins_flat,
         })
 

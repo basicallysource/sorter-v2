@@ -572,6 +572,37 @@
 		}
 	}
 
+	async function updateLayerRole(layerIndex: number, role: 'primary' | 'secondary') {
+		if (movingTo || homing || hasAnyClearing() || togglingLayerKey !== null) return;
+		togglingLayerKey = layerIndex;
+		statusMsg = '';
+		error = null;
+		try {
+			const payloadLayers = layers.map((layer) => ({
+				bin_count: layer.bin_count,
+				enabled: layer.enabled,
+				max_pieces_per_bin: layer.max_pieces_per_bin,
+				role: layer.layer_index === layerIndex ? role : (layer.role ?? 'primary')
+			}));
+			const res = await fetch(`${baseUrl()}/api/hardware-config/storage-layers`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ layers: payloadLayers })
+			});
+			if (!res.ok) {
+				const detail = await res.json().catch(() => null);
+				throw new Error(detail?.detail ?? `HTTP ${res.status}`);
+			}
+			const data = await res.json();
+			statusMsg = data?.message ?? `Layer ${layerIndex + 1} is now ${role}.`;
+			await loadLayout();
+		} catch (e: unknown) {
+			error = e instanceof Error ? e.message : 'Failed to update layer role';
+		} finally {
+			togglingLayerKey = null;
+		}
+	}
+
 	function sectionEnabled(layer: LayerInfo, sectionIndex: number): boolean {
 		return layer.section_enabled?.[sectionIndex] ?? true;
 	}
@@ -914,6 +945,7 @@
 						{searchActive}
 						searchMatch={(bin) => binMatchesSearch(layer.layer_index, bin)}
 						onToggleEnabled={(enabled) => void toggleLayerEnabled(layer.layer_index, enabled)}
+						onUpdateRole={(role) => void updateLayerRole(layer.layer_index, role)}
 						onEmptyLayer={() =>
 							void runBinAction(
 								'contents/clear',

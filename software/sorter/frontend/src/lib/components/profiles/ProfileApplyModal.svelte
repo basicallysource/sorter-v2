@@ -18,8 +18,9 @@
 			<div class="border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-text">
 				<div class="font-medium text-text">Please empty all physical bins first.</div>
 				<div class="mt-2 text-text-muted">
-					Activating a different sorting profile will reset all learned bin assignments on this
-					machine. After that, bins will be assigned again as parts are sorted.
+					Activating a profile resets all bin assignments on this machine and plans the run: the
+					first primary targets and the secondary rules get bins by layer role. Adjust the
+					selection in "Lauf planen" afterwards.
 				</div>
 			</div>
 
@@ -48,7 +49,7 @@
 					onclick={onConfirm}
 					class="border border-primary bg-primary px-3 py-2 text-sm font-medium text-primary-contrast transition-colors hover:bg-primary-hover"
 				>
-					Empty Bins and Activate
+					Empty Bins, Activate and Plan Run
 				</button>
 			</div>
 		</div>

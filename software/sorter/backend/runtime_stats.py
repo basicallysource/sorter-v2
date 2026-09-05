@@ -269,14 +269,6 @@ class RuntimeStatsCollector:
         self._piece_by_uuid[obj_uuid] = current
         self._last_updated_at = time.time()
 
-        if current.get("distributed_at") is not None and current.get("destination_bin") is not None:
-            try:
-                from local_state import record_piece_distribution
-
-                record_piece_distribution(current)
-            except Exception:
-                pass
-
     def lookupKnownObject(self, obj_uuid: str) -> dict[str, Any] | None:
         """Return the last observed KnownObject payload for ``obj_uuid``.
 

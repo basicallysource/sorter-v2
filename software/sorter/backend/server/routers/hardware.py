@@ -32,9 +32,15 @@ from irl.bin_layout import (
     applyNotInInventory,
     notInInventoryMatchesLayout,
     defaultMaxDimensionForBinCount,
+    parseLayerRole,
+    LAYER_ROLES,
     _LAYER_MAX_DIMENSION_DEFAULTS_MM,
 )
 from subsystems.distribution.chute import BinAddress, CHUTE_MAX_ANGLE
+from subsystems.distribution.incidents import (
+    DISTRIBUTION_BIN_FULL_INCIDENT_KIND,
+    bin_full_incident_covers_bin,
+)
 from irl.parse_user_toml import (
     DEFAULT_CAROUSEL_HOME_PIN_CHANNEL,
     DEFAULT_CHUTE_FIRST_BIN_CENTER,
@@ -49,6 +55,7 @@ from irl.parse_user_toml import (
 from hardware.waveshare_servo import limits_look_uncalibrated
 from local_state import (
     clear_current_session_bins,
+    set_run_plan,
     get_bin_snapshot,
     get_bin_snapshot_pieces,
     get_current_bin_contents_snapshot,
@@ -229,16 +236,32 @@ def _clear_runtime_bin_contents(
     layer_index: int | None = None,
     section_index: int | None = None,
     bin_index: int | None = None,
-) -> None:
+) -> bool:
+    """Drop the in-memory contents of the emptied bins and resolve a bin-full
+    incident whose bin lies inside the emptied scope. Call this only after the
+    persisted counts are zeroed: the coordinator re-reads them as soon as the
+    incident slot is free and would raise the incident again otherwise.
+    Returns whether such an incident was resolved."""
     collector = getattr(shared_state.gc_ref, "runtime_stats", None) if shared_state.gc_ref is not None else None
     if collector is None or not hasattr(collector, "clearBinContents"):
-        return
+        return False
     collector.clearBinContents(
         scope=scope,
         layer_index=layer_index,
         section_index=section_index,
         bin_index=bin_index,
     )
+    active = collector.activeIncident() if hasattr(collector, "activeIncident") else None
+    if not bin_full_incident_covers_bin(
+        active,
+        scope=scope,
+        layer_index=layer_index,
+        section_index=section_index,
+        bin_index=bin_index,
+    ):
+        return False
+    collector.clearActiveIncident(kind=DISTRIBUTION_BIN_FULL_INCIDENT_KIND, resolved_by="operator")
+    return True
 
 # ---------------------------------------------------------------------------
 # Pydantic models
@@ -366,6 +389,12 @@ class ClearBinContentsPayload(BinScopePayload):
     pass
 
 
+class BinEmptiedPayload(BaseModel):
+    layer_index: int
+    section_index: int
+    bin_index: int
+
+
 class AssignBinCategoriesPayload(BaseModel):
     layer_index: int
     section_index: int
@@ -390,6 +419,8 @@ class StorageLayerPayload(BaseModel):
     servo_closed_angle: Optional[int] = None
     max_pieces_per_bin: Optional[int] = None
     max_dimension_mm: Optional[float] = None
+    # "primary" | "secondary"; omitted keeps the layer's current role.
+    role: Optional[str] = None
 
 
 class StorageLayerSettingsPayload(BaseModel):
@@ -824,6 +855,7 @@ def _storage_layer_settings_from_layout(layout: Any) -> Dict[str, Any]:
             if isinstance(max_dimension, (int, float)) and not isinstance(max_dimension, bool) and max_dimension > 0
             else None
         )
+        layer_entry["role"] = parseLayerRole(getattr(layer, "role", None))
         layers.append(layer_entry)
 
     return {
@@ -878,6 +910,7 @@ def _apply_live_storage_layer_enabled(layers: List[Dict[str, Any]]) -> bool:
             if isinstance(max_dimension, (int, float)) and not isinstance(max_dimension, bool) and max_dimension > 0
             else None,
         )
+        setattr(runtime_layer, "role", parseLayerRole(layer.get("role")))
     return True
 
 
@@ -2671,6 +2704,7 @@ def save_storage_layer_hardware_config(
                 "servo_closed_angle": layer.servo_closed_angle,
                 "max_pieces_per_bin": layer.max_pieces_per_bin,
                 "max_dimension_mm": layer.max_dimension_mm,
+                "role": layer.role,
             }
             for layer in requested_layers
         ]
@@ -2683,6 +2717,7 @@ def save_storage_layer_hardware_config(
                 "servo_closed_angle": layer.get("servo_closed_angle"),
                 "max_pieces_per_bin": layer.get("max_pieces_per_bin"),
                 "max_dimension_mm": layer.get("max_dimension_mm"),
+                "role": layer.get("role"),
             }
             for count, layer in zip(payload.layer_bin_counts, current["layers"])
         ]
@@ -2736,6 +2771,12 @@ def save_storage_layer_hardware_config(
             if isinstance(max_dim, (int, float)) and not isinstance(max_dim, bool) and max_dim > 0
             else None
         )
+        role = layer_update.get("role")
+        if role is None:
+            role = prior_layer.role if prior_layer else None
+        elif role not in LAYER_ROLES:
+            raise HTTPException(status_code=400, detail=f"Layer role must be one of {list(LAYER_ROLES)}.")
+        role = parseLayerRole(role)
 
         # Section count is preserved across this rebuild, so carry the existing
         # per-section on/off flags through rather than resetting them to all-on.
@@ -2753,6 +2794,7 @@ def save_storage_layer_hardware_config(
             max_pieces_per_bin=max_per_bin_value,
             max_dimension_mm=max_dim_value,
             section_enabled=prior_section_enabled,
+            role=role,
         ))
         if cur_layer:
             layout_changed = layout_changed or count != int(cur_layer["bin_count"])
@@ -2760,6 +2802,8 @@ def save_storage_layer_hardware_config(
             if max_per_bin_value != cur_layer.get("max_pieces_per_bin"):
                 enabled_changed = True
             if max_dim_value != cur_layer.get("max_dimension_mm"):
+                enabled_changed = True
+            if role != cur_layer.get("role"):
                 enabled_changed = True
         else:
             layout_changed = True
@@ -3016,29 +3060,6 @@ def auto_assign_bins(*, overlap: bool, window_days: float = 7.0) -> dict[str, An
     }
 
 
-def _clear_passthrough_alert_if_owned() -> None:
-    """Clear the bins-full / misc-passthrough banner when the operator
-    explicitly resets or empties bins. Otherwise the alert sticks around
-    (it only auto-clears on the next successful bin assignment)."""
-    try:
-        from subsystems.distribution.positioning import (
-            BINS_FULL_ALERT_PREFIX,
-            MISC_PASSTHROUGH_ALERT_PREFIX,
-        )
-    except Exception:
-        return
-    try:
-        with shared_state.hardware_lifecycle_lock:
-            err = shared_state.hardware_error
-            if isinstance(err, str) and (
-                err.startswith(BINS_FULL_ALERT_PREFIX)
-                or err.startswith(MISC_PASSTHROUGH_ALERT_PREFIX)
-            ):
-                shared_state.setHardwareStatus(clear_error=True)
-    except Exception:
-        pass
-
-
 def clear_bin_category_assignments(
     *,
     scope: str,
@@ -3060,8 +3081,9 @@ def clear_bin_category_assignments(
                         cleared_bins += 1
                     category_ids.clear()
         _apply_and_persist_bin_categories(categories)
-        _clear_runtime_bin_contents(scope=scope)
+        set_run_plan(None)
         clear_current_session_bins(scope=scope, bin_categories=categories_before)
+        _clear_runtime_bin_contents(scope=scope)
         return {
             "ok": True,
             "scope": scope,
@@ -3080,8 +3102,8 @@ def clear_bin_category_assignments(
                     cleared_bins += 1
                 category_ids.clear()
         _apply_and_persist_bin_categories(categories)
-        _clear_runtime_bin_contents(scope=scope, layer_index=layer_index)
         clear_current_session_bins(scope=scope, layer_index=layer_index, bin_categories=categories_before)
+        _clear_runtime_bin_contents(scope=scope, layer_index=layer_index)
         return {
             "ok": True,
             "scope": scope,
@@ -3101,18 +3123,18 @@ def clear_bin_category_assignments(
     had_categories = bool(categories[layer_index][section_index][bin_index])
     categories[layer_index][section_index][bin_index] = []
     _apply_and_persist_bin_categories(categories)
-    _clear_runtime_bin_contents(
-        scope=scope,
-        layer_index=layer_index,
-        section_index=section_index,
-        bin_index=bin_index,
-    )
     clear_current_session_bins(
         scope=scope,
         layer_index=layer_index,
         section_index=section_index,
         bin_index=bin_index,
         bin_categories=categories_before,
+    )
+    _clear_runtime_bin_contents(
+        scope=scope,
+        layer_index=layer_index,
+        section_index=section_index,
+        bin_index=bin_index,
     )
     return {
         "ok": True,
@@ -3168,7 +3190,6 @@ def assign_bin_categories(
 
     categories[layer_index][section_index][bin_index] = cleaned
     _apply_and_persist_bin_categories(categories)
-    _clear_passthrough_alert_if_owned()
     return {
         "ok": True,
         "layer_index": layer_index,
@@ -3190,8 +3211,8 @@ def clear_bin_contents(
     bin_index: int | None = None,
 ) -> dict[str, Any]:
     if scope == "all":
-        _clear_runtime_bin_contents(scope=scope)
         cleared = clear_current_session_bins(scope=scope, bin_categories=_current_bin_categories())
+        _clear_runtime_bin_contents(scope=scope)
         return {
             "ok": True,
             "scope": scope,
@@ -3205,8 +3226,8 @@ def clear_bin_contents(
         raise HTTPException(status_code=400, detail="Invalid layer index.")
 
     if scope == "layer":
-        _clear_runtime_bin_contents(scope=scope, layer_index=layer_index)
         cleared = clear_current_session_bins(scope=scope, layer_index=layer_index, bin_categories=categories)
+        _clear_runtime_bin_contents(scope=scope, layer_index=layer_index)
         return {
             "ok": True,
             "scope": scope,
@@ -3230,7 +3251,7 @@ def clear_bin_contents(
         bin_index=bin_index,
         bin_categories=categories,
     )
-    _clear_runtime_bin_contents(
+    incident_resolved = _clear_runtime_bin_contents(
         scope=scope,
         layer_index=layer_index,
         section_index=section_index,
@@ -3243,6 +3264,7 @@ def clear_bin_contents(
         "section_index": section_index,
         "bin_index": bin_index,
         "cleared_bins": int(cleared.get("cleared_bins", 0)),
+        "incident_resolved": incident_resolved,
         "message": f"Emptied bin {bin_index + 1} on layer {layer_index + 1} without changing its assignment.",
     }
 
@@ -3292,6 +3314,7 @@ def get_bins_layout() -> Dict[str, Any]:
                 if isinstance(max_dimension, (int, float)) and not isinstance(max_dimension, bool) and max_dimension > 0
                 else None
             ),
+            "role": layer.role,
             "bins": bins_flat,
         })
 
@@ -3557,6 +3580,19 @@ def set_bins_not_in_inventory(payload: NotInInventoryModePayload) -> Dict[str, A
 def clear_bins_contents(payload: ClearBinContentsPayload) -> Dict[str, Any]:
     return clear_bin_contents(
         scope=payload.scope,
+        layer_index=payload.layer_index,
+        section_index=payload.section_index,
+        bin_index=payload.bin_index,
+    )
+
+
+@router.post("/api/bins/emptied")
+def mark_bin_emptied(payload: BinEmptiedPayload) -> Dict[str, Any]:
+    # The operator physically emptied one bin: zero its count (keeping the
+    # assignment) and resolve the bin-full incident raised for it. This is the
+    # only way that incident resolves.
+    return clear_bin_contents(
+        scope="bin",
         layer_index=payload.layer_index,
         section_index=payload.section_index,
         bin_index=payload.bin_index,

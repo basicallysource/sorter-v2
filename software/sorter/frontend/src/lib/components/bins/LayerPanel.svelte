@@ -33,6 +33,7 @@
 		searchActive = false,
 		searchMatch = () => true,
 		onToggleEnabled,
+		onUpdateRole,
 		onEmptyLayer,
 		onResetLayer,
 		onToggleNii,
@@ -69,6 +70,7 @@
 		searchActive?: boolean;
 		searchMatch?: (bin: BinInfo) => boolean;
 		onToggleEnabled: (enabled: boolean) => void;
+		onUpdateRole: (role: 'primary' | 'secondary') => void;
 		onEmptyLayer: () => void;
 		onResetLayer: () => void;
 		onToggleNii: (enabled: boolean) => void;
@@ -115,6 +117,16 @@
 					{layer.section_count} sections · {layer.bin_count} bins
 				</span>
 			</h3>
+			<select
+				value={layer.role ?? 'primary'}
+				onchange={(event) => onUpdateRole(event.currentTarget.value as 'primary' | 'secondary')}
+				disabled={controlsDisabled}
+				class="border border-border bg-surface px-2 py-1 text-xs text-text"
+				title="Run role: primary layers take the run's set targets, secondary layers the side-sorting rules."
+			>
+				<option value="primary">primary</option>
+				<option value="secondary">secondary</option>
+			</select>
 		</div>
 		<div class="flex items-center gap-3">
 			{#if isActive}

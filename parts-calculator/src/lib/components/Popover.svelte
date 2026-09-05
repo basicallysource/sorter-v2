@@ -5,11 +5,16 @@
 	// Generic click-to-open context popover. Reuse anywhere you need an inline
 	// explanation. Provide content via the `text` prop or a `children` snippet,
 	// and (optionally) a custom trigger via the `trigger` snippet.
+	// `class` replaces the root's own positioning classes, for a trigger that has
+	// to sit somewhere specific (a corner mark on an image tile). The root is the
+	// panel's containing block, so anything that moves the trigger has to move
+	// this element, not just the button inside it.
 	let {
 		text = '',
 		label = 'More information',
 		align = 'left',
 		width = 'w-64',
+		class: cls = 'relative inline-flex align-middle',
 		children,
 		trigger
 	}: {
@@ -17,6 +22,7 @@
 		label?: string;
 		align?: 'left' | 'right';
 		width?: string;
+		class?: string;
 		children?: Snippet;
 		trigger?: Snippet<[{ toggle: () => void; open: boolean }]>;
 	} = $props();
@@ -44,7 +50,7 @@
 
 <span
 	bind:this={root}
-	class="relative inline-flex align-middle"
+	class={cls}
 	onmouseenter={() => (hovered = true)}
 	onmouseleave={() => (hovered = false)}
 	onfocusin={() => (hovered = true)}

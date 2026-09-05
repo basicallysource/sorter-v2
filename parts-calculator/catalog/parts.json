@@ -333,6 +333,7 @@
       "id": "delete-unused-m3-tbd-placeholder",
       "name": "Delete the unused M3 screw placeholder",
       "priority": "P4",
+      "condition": "retired",
       "description": "This placeholder screw is not used anywhere in the machine any more — every joint that carried it (the cable-mount cage bracket, the camera extension, the Orange Pi mount) turned out to already have a specific screw recorded, and those catalog lines have been updated to point at the real ones. It should be deleted outright, but a minted part id has to stay resolvable once it exists, and the catalog's own consistency check refuses a change that removes one, so deleting it needs that check overridden by someone who can make that call, not an edit from here. Tracked as sorter-v2 issue #453.",
       "targets": {
         "hardware": [
@@ -344,10 +345,35 @@
       "id": "delete-unused-m3-shcs-tbd-placeholder",
       "name": "Delete the unused M3 socket/button head length-TBD placeholder",
       "priority": "P4",
+      "condition": "retired",
       "description": "This placeholder screw is not used anywhere in the machine — it stood in for the basically Embedded Control Board's screws before they were measured as M3 x 6 mm button head (scr-m3-6-bhcs), and nothing has called for it since. It should be deleted outright, but a minted part id has to stay resolvable once it exists, and the catalog's own consistency check refuses a change that removes one, so deleting it needs that check overridden by someone who can make that call, not an edit from here. Tracked as sorter-v2 issue #454.",
       "targets": {
         "hardware": [
           "scr-m3-shcs-tbd"
+        ]
+      }
+    },
+    {
+      "id": "delete-unused-m3-8-shcs-screw",
+      "name": "Delete the unused M3 x 8 mm socket/button head screw",
+      "priority": "P4",
+      "condition": "retired",
+      "description": "This screw is not used anywhere in the machine any more. It was added as the clamp screw holding the C-channel input gear (12T) onto the NEMA 17 shaft flat; the C-channel overhaul established that the screws on that assembly are countersunk, so the joint carries the M3 x 8 mm countersunk (scr-m3-8-cs) instead, and this row has no quantity anywhere. It should be deleted outright, but a minted part id has to stay resolvable once it exists, and the catalog's own consistency check refuses a change that removes one, so deleting it needs that check overridden by someone who can make that call, not an edit from here. Tracked as sorter-v2 issue #536.",
+      "targets": {
+        "hardware": [
+          "scr-m3-8-shcs"
+        ]
+      }
+    },
+    {
+      "id": "delete-unused-m3-15-washer",
+      "name": "Delete the unused M3 x 15 mm washer",
+      "priority": "P4",
+      "condition": "retired",
+      "description": "This washer is not used anywhere in the machine. It was added to match the documentation's description of the interface idler gear joint, under the M3 x 35 screw holding the gear onto the NEMA 23 bracket, and that description was wrong: the joint uses the printed chute stepper idler bearing retainers instead, so the washer was never correct there and its last assembly line was dropped on 2026-08-25. It should be deleted outright, but a minted part id has to stay resolvable once it exists, and the catalog's own consistency check refuses a change that removes one, so deleting it needs that check overridden by someone who can make that call, not an edit from here. Tracked as sorter-v2 issue #478.",
+      "targets": {
+        "hardware": [
+          "washer-m3-15"
         ]
       }
     },
@@ -3068,9 +3094,9 @@
       "name": "M3 × 8 mm socket/button head",
       "category": "Screws",
       "alternative": "Socket or button head",
-      "description": "Retired, no longer used anywhere. Was recorded as the screw clamping the C-channel input gear (12T) to the NEMA 17 shaft flat, but that screw is countersunk (scr-m3-8-cs).",
+      "description": "Retired, no longer used anywhere. Was recorded as the screw clamping the C-channel input gear (12T) to the NEMA 17 shaft flat, but that screw is countersunk (scr-m3-8-cs). Kept as an unused entry rather than deleted, since a minted uid has to stay resolvable (see parts-calculator's own CLAUDE.md); deletion is tracked as sorter-v2 issue #536.",
       "created_at": "2026-08-21",
-      "updated_at": "2026-09-01",
+      "updated_at": "2026-09-03",
       "attributes": [
         {
           "label": "Thread",
@@ -3085,7 +3111,7 @@
           "value": "Socket or button head, interchangeable (both bottom on the counterbore floor, so either just clamps)"
         }
       ],
-      "note": "Head type and length measured off the input-gear STL: the boss carries a Ø2.80 mm hole parallel to the shaft, 3.61 mm off the axis, opening into the Ø4.87 mm bore; the head sits in a round Ø6.40 mm × 2.7 mm counterbore with a 90° cone at the bottom, which is a flat-bottomed head seat rather than a countersink. A socket cap head (Ø5.5 × 3.0) bottoms on that floor and stands about 0.3 mm proud; a button head (Ø5.7 × 1.65) bottoms on the same floor about 1 mm below flush, so either clamps. At 8 mm the head seats and about 6 mm of thread is left in the plastic. Unused as of 2026-09-01: the screw is the countersunk M3 × 8 (scr-m3-8-cs)."
+      "note": "Head type and length measured off the input-gear STL: the boss carries a Ø2.80 mm hole parallel to the shaft, 3.61 mm off the axis, opening into the Ø4.87 mm bore; the head sits in a round Ø6.40 mm × 2.7 mm counterbore with a 90° cone at the bottom, which is a flat-bottomed head seat rather than a countersink. A socket cap head (Ø5.5 × 3.0) bottoms on that floor and stands about 0.3 mm proud; a button head (Ø5.7 × 1.65) bottoms on the same floor about 1 mm below flush, so either clamps. At 8 mm the head seats and about 6 mm of thread is left in the plastic. Unused as of 2026-09-01: the screw is the countersunk M3 × 8 (scr-m3-8-cs). Do not add a new joint to this entry. Measure the real screw and use a live catalog part instead."
     },
     {
       "id": "scr-m3-12-cs",
@@ -3701,9 +3727,9 @@
       },
       "name": "M3 × 15 mm washer",
       "category": "Washers",
-      "description": "Flat/fender washer, 15 mm outer diameter. Added to the catalog to match the documentation's description of the interface idler gear joint, under the M3 × 35 screw that holds the gear onto the NEMA 23 bracket. That documentation was wrong: the joint's actual design uses the printed chute stepper idler bearing retainers instead (wired up 2026-08-25), so this part was never correct here. Not used anywhere in the machine. Kept as an unused entry rather than deleted, since a minted uid has to stay resolvable (see parts-calculator's own CLAUDE.md).",
+      "description": "Flat/fender washer, 15 mm outer diameter. Added to the catalog to match the documentation's description of the interface idler gear joint, under the M3 × 35 screw that holds the gear onto the NEMA 23 bracket. That documentation was wrong: the joint's actual design uses the printed chute stepper idler bearing retainers instead (wired up 2026-08-25), so this part was never correct here. Not used anywhere in the machine. Kept as an unused entry rather than deleted, since a minted uid has to stay resolvable (see parts-calculator's own CLAUDE.md). Deletion is tracked as sorter-v2 issue #478.",
       "created_at": "2026-08-18",
-      "updated_at": "2026-08-30",
+      "updated_at": "2026-09-03",
       "note": "Unused as of 2026-08-30. Do not add a new joint to this washer — the idler gear joint it was meant for uses the printed chute stepper idler bearing retainers instead.",
       "attributes": [
         {

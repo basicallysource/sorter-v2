@@ -2,6 +2,45 @@ from __future__ import annotations
 
 from datetime import datetime
 from typing import Any, Iterable
+from uuid import uuid4
+
+from sqlalchemy import Table
+from sqlalchemy.dialects.postgresql import insert as pg_insert
+from sqlalchemy.dialects.sqlite import insert as sqlite_insert
+from sqlalchemy.orm import Session
+
+
+def upsert_progress_snapshot(
+    db: Session,
+    table: Table,
+    rows: list[dict[str, Any]],
+    *,
+    conflict_columns: tuple[str, ...],
+) -> None:
+    """Chunked INSERT ... ON CONFLICT DO UPDATE for progress rows, no-op when nothing changed.
+
+    Every row must carry quantity_needed, quantity_found and updated_at; ids
+    are minted here. The WHERE keeps a re-reported identical snapshot from
+    touching updated_at or leaving dead tuples behind; the chunking keeps a
+    full-set snapshot (~8.5k rows x 9 columns) under both postgres's and
+    sqlite's bind-parameter caps.
+    """
+    insert_fn = pg_insert if db.bind.dialect.name == "postgresql" else sqlite_insert
+    for start in range(0, len(rows), 1000):
+        stmt = insert_fn(table).values([{"id": uuid4(), **row} for row in rows[start : start + 1000]])
+        stmt = stmt.on_conflict_do_update(
+            index_elements=list(conflict_columns),
+            set_={
+                "quantity_needed": stmt.excluded.quantity_needed,
+                "quantity_found": stmt.excluded.quantity_found,
+                "updated_at": stmt.excluded.updated_at,
+            },
+            where=(
+                (table.c.quantity_needed != stmt.excluded.quantity_needed)
+                | (table.c.quantity_found != stmt.excluded.quantity_found)
+            ),
+        )
+        db.execute(stmt)
 
 
 def _safe_int(value: Any) -> int | None:

@@ -1,14 +1,12 @@
 from datetime import datetime, timezone
 from typing import Any
-from uuid import UUID, uuid4
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, Request
 from pydantic import BaseModel, Field
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 from sqlalchemy import delete, func, select, text, tuple_
-from sqlalchemy.dialects.postgresql import insert as pg_insert
-from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.orm import Session, joinedload
 
 from app.deps import get_current_machine, get_current_user, get_db, require_role, verify_csrf
@@ -17,6 +15,7 @@ from app.models.machine import Machine
 from app.models.machine_piece import MachinePiece
 from app.models.machine_piece_image import MachinePieceImage
 from app.models.machine_channel_crop import MachineChannelCrop
+from app.models.set_instance import SetInstance
 from app.models.user import User
 from app.schemas.machine import (
     MachineCreate,
@@ -26,9 +25,13 @@ from app.schemas.machine import (
     MachineUpdate,
     MachineWithTokenResponse,
 )
-from app.services import machine_stats
+from app.services import machine_stats, set_instances
 from app.services.auth import generate_machine_token, verify_password
-from app.services.machine_set_progress import build_set_progress_inventory_index, summarize_machine_set_progress
+from app.services.machine_set_progress import (
+    build_set_progress_inventory_index,
+    summarize_machine_set_progress,
+    upsert_progress_snapshot,
+)
 from app.services.machine_stats import get_machine_stats_worker
 from app.services.storage import delete_machine_files, serve_stored_file
 
@@ -40,6 +43,9 @@ class MachineSetProgressItemPayload(BaseModel):
     category_id: str | None = None
     set_num: str
     name: str | None = None
+    # Set when the profile's set rule targets a set instance: the item is then
+    # written to that instance's progress instead of the assignment-keyed table.
+    set_instance_id: UUID | None = None
     part_num: str
     color_id: int | str
     quantity_needed: int = 0
@@ -749,11 +755,14 @@ def report_machine_set_progress(
 
     compiled_artifact = expected_version.compiled_artifact_json if expected_version is not None else {}
     valid_progress_items = build_set_progress_inventory_index(compiled_artifact)
-    expected_keys = set(valid_progress_items.keys())
     if not valid_progress_items and payload.items:
         raise APIError(400, "Non-set profiles must report an empty progress snapshot", "SET_PROGRESS_NOT_SET_BASED")
 
     now = datetime.now(timezone.utc)
+    # Items tagged with a set instance go to that instance; a set reported
+    # that way is not expected in the assignment-keyed snapshot below.
+    instance_items: dict[UUID, dict[tuple[str, int], dict[str, Any]]] = {}
+    instance_set_nums: set[str] = set()
     normalized_by_key: dict[tuple[str, str, int], dict[str, Any]] = {}
     for item in payload.items:
         try:
@@ -766,6 +775,18 @@ def report_machine_set_progress(
         if not set_num or not part_num:
             raise APIError(400, "set_num and part_num are required", "SET_PROGRESS_ITEM_INVALID")
 
+        try:
+            quantity_found = max(0, int(item.quantity_found))
+        except (TypeError, ValueError):
+            raise APIError(400, f"Invalid quantity_found '{item.quantity_found}'", "SET_PROGRESS_QUANTITY_INVALID")
+
+        if item.set_instance_id is not None:
+            instance_set_nums.add(set_num)
+            by_part = instance_items.setdefault(item.set_instance_id, {})
+            entry = by_part.setdefault((part_num, color_id), {"part_num": part_num, "color_id": color_id, "quantity_found": 0})
+            entry["quantity_found"] += quantity_found
+            continue
+
         key = (set_num, part_num, color_id)
         expected_item = valid_progress_items.get(key)
         if expected_item is None:
@@ -774,11 +795,6 @@ def report_machine_set_progress(
                 f"Progress item {set_num}/{part_num}/{color_id} is not part of the assigned artifact",
                 "SET_PROGRESS_ITEM_UNKNOWN",
             )
-
-        try:
-            quantity_found = max(0, int(item.quantity_found))
-        except (TypeError, ValueError):
-            raise APIError(400, f"Invalid quantity_found '{item.quantity_found}'", "SET_PROGRESS_QUANTITY_INVALID")
 
         normalized = normalized_by_key.setdefault(
             key,
@@ -795,6 +811,7 @@ def report_machine_set_progress(
             normalized["quantity_found"] + quantity_found,
         )
 
+    expected_keys = {key for key in valid_progress_items if key[0] not in instance_set_nums}
     incoming_keys = set(normalized_by_key.keys())
     if expected_keys != incoming_keys:
         missing_count = len(expected_keys - incoming_keys)
@@ -804,6 +821,13 @@ def report_machine_set_progress(
             f"Progress snapshot is incomplete for the assigned artifact (missing={missing_count}, extra={extra_count})",
             "SET_PROGRESS_SNAPSHOT_INCOMPLETE",
         )
+
+    instance_updated = 0
+    for instance_id, by_part in instance_items.items():
+        instance = db.get(SetInstance, instance_id)
+        if instance is None or instance.user_id != machine.owner_id:
+            raise APIError(400, f"Set instance {instance_id} is not owned by this machine's owner", "SET_PROGRESS_INSTANCE_UNKNOWN")
+        instance_updated += set_instances.apply_machine_progress(db, instance, by_part.values(), now=now)
 
     normalized_items = list(normalized_by_key.values())
 
@@ -837,43 +861,15 @@ def report_machine_set_progress(
             )
         ).rowcount
 
-    # Chunked: the full snapshot is ~8.5k rows x 9 columns, past both
-    # postgres's and sqlite's bind-parameter caps in one statement.
-    insert_fn = pg_insert if db.bind.dialect.name == "postgresql" else sqlite_insert
-    for start in range(0, len(normalized_items), 1000):
-        chunk = normalized_items[start : start + 1000]
-        stmt = insert_fn(progress).values(
-            [
-                {
-                    "id": uuid4(),
-                    "machine_id": machine.id,
-                    "assignment_id": assignment.id,
-                    "set_num": item["set_num"],
-                    "part_num": item["part_num"],
-                    "color_id": item["color_id"],
-                    "quantity_needed": item["quantity_needed"],
-                    "quantity_found": item["quantity_found"],
-                    "updated_at": now,
-                }
-                for item in chunk
-            ]
-        )
-        stmt = stmt.on_conflict_do_update(
-            index_elements=["assignment_id", "set_num", "part_num", "color_id"],
-            set_={
-                "quantity_needed": stmt.excluded.quantity_needed,
-                "quantity_found": stmt.excluded.quantity_found,
-                "updated_at": stmt.excluded.updated_at,
-            },
-            where=(
-                (progress.c.quantity_needed != stmt.excluded.quantity_needed)
-                | (progress.c.quantity_found != stmt.excluded.quantity_found)
-            ),
-        )
-        db.execute(stmt)
+    upsert_progress_snapshot(
+        db,
+        progress,
+        [{"machine_id": machine.id, "assignment_id": assignment.id, "updated_at": now, **item} for item in normalized_items],
+        conflict_columns=("assignment_id", "set_num", "part_num", "color_id"),
+    )
 
     db.commit()
-    return {"ok": True, "updated": len(normalized_items), "deleted": deleted}
+    return {"ok": True, "updated": len(normalized_items) + instance_updated, "deleted": deleted}
 
 @router.post("/machines/{machine_id}/archive", response_model=MachineResponse)
 def archive_machine(

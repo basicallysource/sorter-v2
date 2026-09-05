@@ -27,6 +27,7 @@ from app.models.sorting_profile_library_entry import SortingProfileLibraryEntry 
 from app.models.sorting_profile_ai_message import SortingProfileAiMessage  # noqa: E402, F401
 from app.models.machine_profile_assignment import MachineProfileAssignment  # noqa: E402, F401
 from app.models.machine_set_progress import MachineSetProgress  # noqa: E402, F401
+from app.models.set_instance import SetInstance, SetInstanceProgress  # noqa: E402, F401
 from app.models.machine_config_backup import MachineConfigBackup  # noqa: E402, F401
 from app.models.machine_hardware_report import MachineHardwareReport  # noqa: E402, F401
 from app.models.detection_model import DetectionModel, DetectionModelVariant  # noqa: E402, F401

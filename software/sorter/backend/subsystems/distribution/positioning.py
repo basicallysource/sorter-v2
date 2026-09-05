@@ -15,6 +15,7 @@ from blob_manager import setBinCategories
 from defs.events import PauseCommandData, PauseCommandEvent
 from defs.known_object import PieceStage
 from utils.event import knownObjectToEvent
+from .incidents import publish_bin_full_incident
 
 
 BINS_FULL_ALERT_PREFIX = "No bin available"
@@ -79,6 +80,7 @@ class Positioning(BaseState):
         self._servo_offline_layers: set[int] = set()
         self._jam_pause_enqueued: bool = False
         self._servo_bus_pause_enqueued: bool = False
+        self._bin_full_hold: bool = False
         self._chute_move_estimated_ms: int = 0
 
     def _setOccupancyState(self, state_name: str) -> None:
@@ -190,6 +192,13 @@ class Positioning(BaseState):
                 # through to the passthrough path, which would silently
                 # send this piece to the discard bucket.
                 return DistributionState.IDLE
+            if address is None and self._bin_full_hold:
+                # The category's bin is full and the bin-full incident is
+                # up (pause enqueued). The piece waits until the operator
+                # marks the bin emptied; it must not spill elsewhere.
+                self._bin_full_hold = False
+                self._setOccupancyState("positioning.bin_full_incident")
+                return DistributionState.IDLE
             if address is None:
                 # MISC is the intentional reject/default category. It should
                 # pass through to the bottom tray without claiming a real bin
@@ -208,7 +217,6 @@ class Positioning(BaseState):
                 self.logger.warning(
                     f"Positioning: no bin for category {category_id} — passthrough to bottom"
                 )
-                self._raiseBinsFullAlert(category_id)
                 self._openAllDoorsForPassthrough()
                 piece.stage = PieceStage.distributing
                 piece.distributing_at = time.time()
@@ -447,9 +455,6 @@ class Positioning(BaseState):
                 f"servo stop check failed: {exc}",
             )
             return True
-
-    def _raiseBinsFullAlert(self, category_id: str) -> None:
-        return
 
     def _consumeNoBinPassthroughApproval(self, piece) -> bool:
         consumer = getattr(shared_state, "consumeDistributionNoBinPassthrough", None)
@@ -785,6 +790,11 @@ class Positioning(BaseState):
         # holding it — so N bins each take ~1/N of the pieces. Collected across
         # the whole scan; the pick happens after the loop.
         matching_candidates: list[BinAddress] = []
+        # First bin holding this category that is at its layer's limit:
+        # (address, piece_count, max_pieces_per_bin). With no non-full
+        # candidate left, this raises the bin-full incident instead of
+        # spilling the category into another bin.
+        full_matching: Optional[tuple[BinAddress, int, int]] = None
         first_unassigned: Optional[tuple[BinAddress, "Bin"]] = None
         # Least-loaded shared-bin candidate, used only when every bin is
         # already assigned and multi-category bins are enabled: (num_categories,
@@ -826,13 +836,12 @@ class Positioning(BaseState):
                         continue
                     count = piece_counts.get((layer_idx, section_idx, bin_idx), 0)
                     is_full = max_per_bin is not None and count >= max_per_bin
-                    if (
-                        category_id != MISC_CATEGORY
-                        and category_id in b.category_ids
-                        and not is_full
-                    ):
-                        matching_candidates.append(address)
-                        continue
+                    if category_id != MISC_CATEGORY and category_id in b.category_ids:
+                        if not is_full:
+                            matching_candidates.append(address)
+                            continue
+                        if full_matching is None:
+                            full_matching = (address, count, int(max_per_bin))
                     if b.category_ids:
                         bins_with_cats += 1
                     if is_full:
@@ -870,6 +879,24 @@ class Positioning(BaseState):
         # choice, so a category spanning N bins fills them at an even ~1/N rate.
         if matching_candidates:
             return random.choice(matching_candidates), False
+
+        # The category's only bin(s) are full: hold the piece behind the
+        # bin-full incident. When that incident kind is switched off the
+        # legacy behaviour below (spill into a fresh/shared bin) applies.
+        if full_matching is not None:
+            address, count, limit = full_matching
+            if publish_bin_full_incident(
+                self.gc,
+                layer_index=address.layer_index,
+                section_index=address.section_index,
+                bin_index=address.bin_index,
+                category_id=category_id,
+                category_label=self.sorting_profile.categoryLabel(category_id),
+                piece_count=count,
+                max_pieces_per_bin=limit,
+            ):
+                self._bin_full_hold = True
+                return None, False
 
         # MISC must never claim or use a real bin. The discard bucket below
         # the chute (rendered in the UI as the virtual Discard Bin) is what

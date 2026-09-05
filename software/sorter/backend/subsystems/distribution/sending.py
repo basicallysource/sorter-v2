@@ -8,10 +8,14 @@ from irl.config import IRLInterface
 from global_config import GlobalConfig
 from utils.event import knownObjectToEvent
 from defs.known_object import PieceStage
+from irl.bin_layout import DistributionLayout
+from local_state import record_piece_distribution
+from sorting_profile import SortingProfile
 from subsystems.classification_channel.incidents import (
     CLASSIFICATION_TRACK_LOST_INCIDENT_KIND,
     publish_classification_track_lost_incident,
 )
+from .incidents import publish_bin_full_incident
 
 CHUTE_SETTLE_MS = 1500
 SAMPLE_COLLECTION_CHUTE_SETTLE_MS = 400
@@ -27,12 +31,16 @@ class Sending(BaseState):
         shared: SharedVariables,
         event_queue: queue.Queue,
         *,
+        layout: DistributionLayout | None = None,
+        sorting_profile: SortingProfile | None = None,
         vision=None,
         post_distribute_cooldown_s: float = 0.0,
     ):
         super().__init__(irl, gc)
         self.shared = shared
         self.event_queue = event_queue
+        self.layout = layout
+        self.sorting_profile = sorting_profile
         self.vision = vision
         self._cooldown_s = max(0.0, float(post_distribute_cooldown_s))
         self.piece = None
@@ -50,6 +58,40 @@ class Sending(BaseState):
             "distribution.occupancy",
             prev_state,
             state_name,
+        )
+
+    def _persistDistribution(self, piece: dict) -> None:
+        """Count the committed piece into its physical bin (survives restarts)
+        and, when that bin just reached its layer's ``max_pieces_per_bin``,
+        raise the bin-full incident which pauses the machine."""
+        try:
+            count = record_piece_distribution(piece)
+        except Exception as exc:
+            self.logger.warning(f"Sending: could not persist bin contents: {exc}")
+            return
+        destination = piece.get("destination_bin")
+        if count is None or self.layout is None or destination is None:
+            return
+        layer_index, section_index, bin_index = (int(v) for v in destination)
+        if layer_index >= len(self.layout.layers):
+            return
+        limit = self.layout.layers[layer_index].max_pieces_per_bin
+        if limit is None or count < limit:
+            return
+        category_id = str(piece.get("category_id") or "")
+        publish_bin_full_incident(
+            self.gc,
+            layer_index=layer_index,
+            section_index=section_index,
+            bin_index=bin_index,
+            category_id=category_id,
+            category_label=(
+                self.sorting_profile.categoryLabel(category_id)
+                if self.sorting_profile is not None
+                else category_id
+            ),
+            piece_count=count,
+            max_pieces_per_bin=int(limit),
         )
 
     def step(self) -> Optional[DistributionState]:
@@ -94,7 +136,9 @@ class Sending(BaseState):
                 self.piece.stage = PieceStage.distributed
                 self.piece.distributed_at = time.time()
                 self.piece.updated_at = time.time()
-                self.event_queue.put(knownObjectToEvent(self.piece))
+                event = knownObjectToEvent(self.piece)
+                self.event_queue.put(event)
+                self._persistDistribution(event.data.model_dump())
                 self.gc.run_recorder.recordPiece(self.piece)
                 tracker = getattr(self.gc, 'set_progress_tracker', None)
                 if tracker is not None:

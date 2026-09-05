@@ -35,6 +35,10 @@ from irl.bin_layout import (
     _LAYER_MAX_DIMENSION_DEFAULTS_MM,
 )
 from subsystems.distribution.chute import BinAddress, CHUTE_MAX_ANGLE
+from subsystems.distribution.incidents import (
+    DISTRIBUTION_BIN_FULL_INCIDENT_KIND,
+    bin_full_incident_covers_bin,
+)
 from irl.parse_user_toml import (
     DEFAULT_CAROUSEL_HOME_PIN_CHANNEL,
     DEFAULT_CHUTE_FIRST_BIN_CENTER,
@@ -227,16 +231,29 @@ def _clear_runtime_bin_contents(
     layer_index: int | None = None,
     section_index: int | None = None,
     bin_index: int | None = None,
-) -> None:
+) -> bool:
+    """Drop the in-memory contents of the emptied bins and resolve a bin-full
+    incident whose bin lies inside the emptied scope. Returns whether such an
+    incident was resolved."""
     collector = getattr(shared_state.gc_ref, "runtime_stats", None) if shared_state.gc_ref is not None else None
     if collector is None or not hasattr(collector, "clearBinContents"):
-        return
+        return False
     collector.clearBinContents(
         scope=scope,
         layer_index=layer_index,
         section_index=section_index,
         bin_index=bin_index,
     )
+    if not bin_full_incident_covers_bin(
+        collector.activeIncident(),
+        scope=scope,
+        layer_index=layer_index,
+        section_index=section_index,
+        bin_index=bin_index,
+    ):
+        return False
+    collector.clearActiveIncident(kind=DISTRIBUTION_BIN_FULL_INCIDENT_KIND, resolved_by="operator")
+    return True
 
 # ---------------------------------------------------------------------------
 # Pydantic models
@@ -362,6 +379,12 @@ class ClearBinCategoriesPayload(BinScopePayload):
 
 class ClearBinContentsPayload(BinScopePayload):
     pass
+
+
+class BinEmptiedPayload(BaseModel):
+    layer_index: int
+    section_index: int
+    bin_index: int
 
 
 class AssignBinCategoriesPayload(BaseModel):
@@ -3181,7 +3204,7 @@ def clear_bin_contents(
         bin_index=bin_index,
         bin_categories=categories,
     )
-    _clear_runtime_bin_contents(
+    incident_resolved = _clear_runtime_bin_contents(
         scope=scope,
         layer_index=layer_index,
         section_index=section_index,
@@ -3194,6 +3217,7 @@ def clear_bin_contents(
         "section_index": section_index,
         "bin_index": bin_index,
         "cleared_bins": int(cleared.get("cleared_bins", 0)),
+        "incident_resolved": incident_resolved,
         "message": f"Emptied bin {bin_index + 1} on layer {layer_index + 1} without changing its assignment.",
     }
 
@@ -3511,6 +3535,19 @@ def set_bins_not_in_inventory(payload: NotInInventoryModePayload) -> Dict[str, A
 def clear_bins_contents(payload: ClearBinContentsPayload) -> Dict[str, Any]:
     return clear_bin_contents(
         scope=payload.scope,
+        layer_index=payload.layer_index,
+        section_index=payload.section_index,
+        bin_index=payload.bin_index,
+    )
+
+
+@router.post("/api/bins/emptied")
+def mark_bin_emptied(payload: BinEmptiedPayload) -> Dict[str, Any]:
+    # The operator physically emptied one bin: zero its count (keeping the
+    # assignment) and resolve the bin-full incident raised for it. This is the
+    # only way that incident resolves.
+    return clear_bin_contents(
+        scope="bin",
         layer_index=payload.layer_index,
         section_index=payload.section_index,
         bin_index=payload.bin_index,

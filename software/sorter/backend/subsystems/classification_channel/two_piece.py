@@ -169,6 +169,28 @@ def _reidentificationCandidate(candidates, bbox):
     return ranked[0][1]
 
 
+def _reidentificationRejection(candidates, bbox) -> str:
+    """Why _reidentificationCandidate returned None — for the log only."""
+    width, height = bbox[2] - bbox[0], bbox[3] - bbox[1]
+    if width <= 0 or height <= 0:
+        return "new box has no area"
+    notes = []
+    for tp in candidates:
+        old = tp.bbox
+        ow, oh = old[2] - old[0], old[3] - old[1]
+        if ow <= 0 or oh <= 0:
+            notes.append(f"track={tp.track_id}: no stored box")
+            continue
+        rw, rh = width / ow, height / oh
+        distance = _bboxCenterShift(old, bbox) / max(width, height, ow, oh)
+        notes.append(
+            f"track={tp.track_id}: size ratio w={rw:.2f} h={rh:.2f} distance={distance:.2f} boxes"
+        )
+    if not notes:
+        return "no candidates"
+    return "; ".join(notes) + " — rule: 0.5<=ratio<=2, distance<=1.5, unambiguous by 0.5"
+
+
 class _Phase(Enum):
     # Platter STOPPED. Observe, photograph the drop-zone piece, classify, and aim
     # the chute for the head piece. The only place we accept a new piece.
@@ -496,13 +518,16 @@ class TwoPieceClassificationChannel(Rev01BaseState):
     def _aliasNearestForwardPiece(
         self, tid: int, bbox: tuple[int, int, int, int], now: float, visible: set[int]
     ) -> Optional[_TrackedPiece]:
-        best = _reidentificationCandidate(
-            [tp for tp in self._pieces.values()
-             if tp.zone != _ZONE_DROP and not tp.ejected
-             and id(tp) not in visible and (now - tp.last_seen) <= _ALIAS_RECENT_S],
-            bbox,
-        )
+        candidates = [tp for tp in self._pieces.values()
+                      if tp.zone != _ZONE_DROP and not tp.ejected
+                      and id(tp) not in visible and (now - tp.last_seen) <= _ALIAS_RECENT_S]
+        best = _reidentificationCandidate(candidates, bbox)
         if best is None:
+            if candidates:
+                self.logger.info(
+                    f"{LOG_TAG} track={tid} appeared forward, alias rejected: "
+                    f"{_reidentificationRejection(candidates, bbox)}"
+                )
             return None
         self._aliases[tid] = best
         self.logger.info(
@@ -512,11 +537,15 @@ class TwoPieceClassificationChannel(Rev01BaseState):
         return best
 
     def _adoptOrphan(self, tid: int, bbox: tuple[int, int, int, int], now: float) -> Optional[_TrackedPiece]:
-        tp = _reidentificationCandidate(
-            [piece for piece, lost_at in self._orphans
-             if now - lost_at <= _ORPHAN_ADOPT_S and not piece.ejected], bbox,
-        )
+        candidates = [piece for piece, lost_at in self._orphans
+                      if now - lost_at <= _ORPHAN_ADOPT_S and not piece.ejected]
+        tp = _reidentificationCandidate(candidates, bbox)
         if tp is None:
+            if candidates:
+                self.logger.info(
+                    f"{LOG_TAG} track={tid}: orphan adoption rejected: "
+                    f"{_reidentificationRejection(candidates, bbox)}"
+                )
             return None
         self._orphans = [(piece, lost_at) for piece, lost_at in self._orphans if piece is not tp]
         self.logger.info(f"{LOG_TAG} re-identified track={tp.track_id} as track={tid}")

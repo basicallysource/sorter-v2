@@ -22,6 +22,7 @@ def _handler():
     h = object.__new__(TwoPieceClassificationChannel)
     h._phase = _Phase.EJECTING
     h._phase_started_at = 100.0
+    h._orphans = []
     h.logger = logging.getLogger("test")
     h.advanced = 0
     h.transport = SimpleNamespace(advanceTransport=lambda: setattr(h, "advanced", h.advanced + 1))
@@ -76,6 +77,7 @@ def test_staging_without_a_target_returns_to_waiting_without_rotating() -> None:
     h._phase = _Phase.STAGING
     h._stage_target = None
     h._pieces = {}
+    h._orphans = []
     moves = []
     h.startOutputMove = lambda *a, **k: moves.append(a)
     state = SimpleNamespace(pieces=[], in_drop=True, exit_com_forward_to_precise_deg=90.0, exit_com_forward_deg=200.0)

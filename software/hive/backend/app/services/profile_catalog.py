@@ -750,25 +750,27 @@ class ProfileCatalogService:
             set_inventories[rule_id] = inventory
         return set_mappings, set_inventories
 
-    def _compile_rebrickable_set_rule(self, rule: dict[str, Any]) -> tuple[dict[str, str], dict[str, Any] | None]:
-        set_num = str(rule.get("set_num") or "").strip()
-        if not set_num:
-            return {}, None
+    @property
+    def rebrickable_configured(self) -> bool:
+        return bool(self._config.rebrickable_api_key)
 
-        rule_id = str(rule["id"])
-        include_spares = bool(rule.get("include_spares", False))
+    def cached_set(self, set_num: str) -> dict[str, Any] | None:
+        return get_cached_set(self._conn, set_num)
 
-        cached = get_cached_set(self._conn, set_num)
-        if cached is None:
+    def set_inventory_parts(self, set_num: str, *, include_spares: bool) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+        """A Rebrickable set as BrickLink-keyed inventory parts, fetching on a cache miss.
+
+        Returns (set metadata, parts). Parts carry both id systems (see
+        _compile_inventory_part); ``part_num``/``color_id`` are the BrickLink
+        ones, which is what the sorter, the progress tables and the BrickLink
+        wanted list all key on.
+        """
+        if get_cached_set(self._conn, set_num) is None:
             fetch_set_inventory(self._conn, self._config.rebrickable_api_key, set_num)
-
-        inventory = get_cached_inventory(self._conn, set_num)
-        mapping: dict[str, str] = {}
         set_info = get_cached_set(self._conn, set_num) or {}
-        set_meta = rule.get("set_meta") if isinstance(rule.get("set_meta"), dict) else {}
-        parts: list[dict[str, Any]] = []
 
-        for inv_part in inventory:
+        parts: list[dict[str, Any]] = []
+        for inv_part in get_cached_inventory(self._conn, set_num):
             if not include_spares and inv_part.get("is_spare"):
                 continue
             compiled_part = self._compile_inventory_part(
@@ -783,12 +785,23 @@ class ProfileCatalogService:
                 require_known_part=False,
                 require_known_color=False,
             )
-            if compiled_part is None:
-                continue
-            bl_key = self._inventory_part_to_bl_key(compiled_part)
-            if bl_key not in mapping:
-                mapping[bl_key] = rule_id
-            parts.append(compiled_part)
+            if compiled_part is not None:
+                parts.append(compiled_part)
+        return set_info, parts
+
+    def _compile_rebrickable_set_rule(self, rule: dict[str, Any]) -> tuple[dict[str, str], dict[str, Any] | None]:
+        set_num = str(rule.get("set_num") or "").strip()
+        if not set_num:
+            return {}, None
+
+        rule_id = str(rule["id"])
+        include_spares = bool(rule.get("include_spares", False))
+        set_info, parts = self.set_inventory_parts(set_num, include_spares=include_spares)
+        set_meta = rule.get("set_meta") if isinstance(rule.get("set_meta"), dict) else {}
+
+        mapping: dict[str, str] = {}
+        for compiled_part in parts:
+            mapping.setdefault(self._inventory_part_to_bl_key(compiled_part), rule_id)
 
         return mapping, {
             "rule_id": rule_id,

@@ -75,6 +75,10 @@ def _exitPieceCount(state) -> int:
 # PieceObservation.zone_code of the exit-only band — the lip, where a piece
 # tips over on the next pulse (perception.arcs._region_lookup: 2).
 _ZONE_EXIT_ONLY = 2
+# After a tip-over pulse the exit-only band can look empty before the
+# departure detector confirms; keep pulsing small this long so a neighbour is
+# not flung after the piece that just left.
+TIP_OVER_HOLD_S = 1.5
 
 
 def exitPulseOutputDeg(cfg, state) -> float:
@@ -175,6 +179,7 @@ class PulsePerceptionFeeding(BaseState):
         self._classification_pending_until: float = 0.0
         self._ch3_was_at_exit: bool = False
         self._ch3_departures = ExitDepartureDetector()
+        self._ch3_last_tip_pulse_at: float = -1e9
         # Per-channel monotonic timestamp of the last frame that reported a piece
         # in the drop zone. Drives the C2/C3 drop-zone occupancy latch.
         self._drop_seen_at: dict[int, float] = {}
@@ -452,15 +457,22 @@ class PulsePerceptionFeeding(BaseState):
                 enforce_min=enforce_min,
             )
         elif action == Action.PRECISE:
-            self._move(
+            now = time.monotonic()
+            output = exitPulseOutputDeg(cfg, state)
+            tip = float(cfg.exit_pulse_output_deg)
+            if channel == 3 and output > tip and (now - self._ch3_last_tip_pulse_at) < TIP_OVER_HOLD_S:
+                output = tip  # the piece that just tipped over is on its way to C4
+            moved = self._move(
                 f"{label}_exit",
                 channel,
                 stepper,
-                exitPulseOutputDeg(cfg, state),
+                output,
                 cfg.exit_pulse_pause_ms,
                 cfg,
                 enforce_min=False,
             )
+            if moved and channel == 3 and output <= tip:
+                self._ch3_last_tip_pulse_at = now
         # IDLE / FREEZE: no move.
 
     def cleanup(self) -> None:

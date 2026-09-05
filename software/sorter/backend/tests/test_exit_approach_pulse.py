@@ -26,3 +26,12 @@ def test_disabled_approach_or_unknown_state_keeps_the_tip_over_pulse() -> None:
 def test_tip_over_hold_constant_covers_the_admission_window_gap() -> None:
     from subsystems.feeder.pulse_perception.flow import TIP_OVER_HOLD_S
     assert 1.0 <= TIP_OVER_HOLD_S <= 2.0
+
+
+def test_tip_over_pulses_pace_slower_than_approach_pulses() -> None:
+    from subsystems.feeder.pulse_perception.flow import exitPulsePauseMs
+    cfg = SimpleNamespace(exit_pulse_output_deg=2.0, exit_pulse_pause_ms=600, tip_over_pause_ms=1200)
+    assert exitPulsePauseMs(cfg, 2.0) == 1200
+    assert exitPulsePauseMs(cfg, 8.0) == 600
+    cfg.tip_over_pause_ms = 100  # never below the base pause
+    assert exitPulsePauseMs(cfg, 2.0) == 600

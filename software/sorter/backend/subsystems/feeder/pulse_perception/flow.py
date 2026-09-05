@@ -96,6 +96,15 @@ def exitPulseOutputDeg(cfg, state) -> float:
     return max(approach, float(cfg.exit_pulse_output_deg))
 
 
+def exitPulsePauseMs(cfg, output_deg: float) -> int:
+    """Tip-over pulses (the small one, a piece at the lip) pace at
+    tip_over_pause_ms; approach pulses at the shorter exit pause."""
+    base = int(cfg.exit_pulse_pause_ms)
+    if float(output_deg) <= float(cfg.exit_pulse_output_deg):
+        return max(base, int(getattr(cfg, "tip_over_pause_ms", base) or base))
+    return base
+
+
 class ExitDepartureDetector:
     """Reports when the number of pieces in a channel's exit arc drops.
 
@@ -462,12 +471,13 @@ class PulsePerceptionFeeding(BaseState):
             tip = float(cfg.exit_pulse_output_deg)
             if channel == 3 and output > tip and (now - self._ch3_last_tip_pulse_at) < TIP_OVER_HOLD_S:
                 output = tip  # the piece that just tipped over is on its way to C4
+            pause_ms = exitPulsePauseMs(cfg, output)
             moved = self._move(
                 f"{label}_exit",
                 channel,
                 stepper,
                 output,
-                cfg.exit_pulse_pause_ms,
+                pause_ms,
                 cfg,
                 enforce_min=False,
             )

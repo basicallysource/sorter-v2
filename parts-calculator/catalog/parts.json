@@ -8026,16 +8026,49 @@
         },
         {
           "version": "2",
+          "uid": "jog7",
           "date": "2026-08-29",
           "message": "Dropped tnut-m5-2020 qty 24 -- those are the hex frame's own pre-installed T-nuts (bin retainers reuse them, not new ones), same double-count barthel already caught on bottom two layers. Added the 12 scr-m5-16-shcs that join this layer's flange up to the layer above, previously missing.",
-          "commit": "a2c66436"
+          "commit": "a2c66436",
+          "lines": [
+            {
+              "assembly": "layer-frame",
+              "qty": 1,
+              "uid": "yq92"
+            },
+            {
+              "assembly": "chute",
+              "qty": 1,
+              "uid": "axlb"
+            },
+            {
+              "part": "bin-retainer-left",
+              "qty": 6,
+              "uid": "hqz0"
+            },
+            {
+              "part": "bin-retainer-right",
+              "qty": 6,
+              "uid": "ybpv"
+            },
+            {
+              "part": "scr-m5-12-shcs",
+              "qty": 24,
+              "uid": "kmah"
+            },
+            {
+              "part": "scr-m5-16-shcs",
+              "qty": 12,
+              "uid": "2e0s"
+            }
+          ]
         },
         {
           "version": "3",
           "date": "2026-09-05",
           "breaking": false,
           "message": "The 24 bin-retainer screws are M5 x 16, not M5 x 12: the retainer's bore is 12.8 mm, so an M5 x 12 reaches the extrusion face with nothing left for the T-nut. Reported by BrickCycleAlice, who tried them on a build; confirmed by measuring the STL. Merged into the existing scr-m5-16-shcs line, 12 + 24 = 36, and the joint recorded in connections with its measured through_mm.",
-          "commit": null
+          "commit": "1ce549ec"
         }
       ]
     },

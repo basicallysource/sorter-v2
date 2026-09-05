@@ -13,6 +13,7 @@ from subsystems.classification_channel.two_piece import (
     _Phase,
     _TrackedPiece,
     _ZONE_EXIT_ONLY,
+    _ZONE_NONE,
 )
 
 
@@ -63,3 +64,10 @@ def test_staging_without_a_target_returns_to_waiting_without_rotating() -> None:
     h._staging(state, stopped=True, now=101.0)
     assert h.phases == [_Phase.WAITING]
     assert moves == []
+
+
+def test_piece_in_the_gap_past_the_exit_arc_blocks_the_commit() -> None:
+    h, tp = _handler()
+    state = SimpleNamespace(pieces=[SimpleNamespace(zone_code=_ZONE_NONE, sv_bt_track_id=14)], exit_com_forward_to_center_deg=None)
+    h._ejecting(state, stopped=True, now=100.0 + _EJECT_GONE_CONFIRM_S + 0.1)
+    assert h.advanced == 0 and tp.ejected is False

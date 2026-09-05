@@ -8,7 +8,7 @@ kicker: Bin frame — Build the hex frame
 lede: The hexagonal aluminum-and-bracket ring shared by every layer. Build one per planned layer, plus one for the top interface.
 permalink: /hardware/assembly/distribution/bin-frame/hex-frame/
 author: barthel
-contributors: [brickcyclealice, zed0]
+contributors: [brickcyclealice, zed0, christoph]
 parts_needed:
   - part: ext-2020-ag
     qty: 6
@@ -169,6 +169,17 @@ Double-check that every Frame 90° bracket is still fully seated in its slot. A 
 </figure>
 
 {% include step.html n="9" title="Fit the External bracket — covers" %}
+
+<div class="img-row">
+  <figure>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-external-bracket-step4-cover-unattached-full-9b93d76f9459.jpg" alt="The External bracket — cover lying loose beside an External bracket — side, at the open face of the collar it clips onto">
+    <figcaption>The cover before it goes on, beside the open face of the collar it clips onto. Both photos are of one bracket off the frame, which is the clearest view of the part; the tube below it and the extrusion through it are fitted later, on the layer pages. <cite>Photo: Christoph.</cite></figcaption>
+  </figure>
+  <figure>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-external-bracket-step4-cover-clipped-on-full-1fea5b9a357c.jpg" alt="The same bracket with the External bracket — cover pushed on, closing the collar around the extrusion">
+    <figcaption>Cover pushed on, closing the collar. It sits flush against the side bracket, so the seam is subtle. <cite>Photo: Christoph.</cite></figcaption>
+  </figure>
+</div>
 
 Push an External bracket — cover onto each of the six External bracket — sides. It takes no fasteners of its own, it is held by the fit; the side and the cover together form the collar that a layer's vertical extrusion later stands in.
 

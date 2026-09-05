@@ -73,6 +73,17 @@
 			manual_label: 'Operator assigns capacity or approves passthrough',
 			automatic_label: 'Automatic no-bin passthrough',
 			automatic_supported: false
+		},
+		{
+			kind: 'distribution_bin_full',
+			label: 'Bin Full',
+			scope: 'Distribution',
+			description:
+				"A bin reached its layer's piece limit; the machine pauses until the bin is marked emptied.",
+			off_label: 'Skip full bins and keep sorting',
+			manual_label: 'Operator empties the bin and marks it emptied',
+			automatic_label: 'Automatic bin handling',
+			automatic_supported: false
 		}
 	];
 

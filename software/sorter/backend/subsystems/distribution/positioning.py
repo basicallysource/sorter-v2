@@ -826,11 +826,7 @@ class Positioning(BaseState):
                         continue
                     count = piece_counts.get((layer_idx, section_idx, bin_idx), 0)
                     is_full = max_per_bin is not None and count >= max_per_bin
-                    if (
-                        category_id != MISC_CATEGORY
-                        and category_id in b.category_ids
-                        and not is_full
-                    ):
+                    if category_id in b.category_ids and not is_full:
                         matching_candidates.append(address)
                         continue
                     if b.category_ids:
@@ -871,10 +867,9 @@ class Positioning(BaseState):
         if matching_candidates:
             return random.choice(matching_candidates), False
 
-        # MISC must never claim or use a real bin. The discard bucket below
-        # the chute (rendered in the UI as the virtual Discard Bin) is what
-        # catches misc passthrough; treating MISC as a physical bin category
-        # silently swaps that behavior.
+        # MISC never claims a bin on its own: unless the operator assigned a
+        # bin to it explicitly (matched above), misc passes through to the
+        # discard bucket below the chute (the UI's virtual Discard Bin).
         if first_unassigned is not None and category_id != MISC_CATEGORY:
             address, b = first_unassigned
             b.category_ids = [category_id]
@@ -906,10 +901,10 @@ class Positioning(BaseState):
 
         if category_id != MISC_CATEGORY and not not_in_inventory:
             # No bin slot available for this category; fall back to MISC,
-            # which will only succeed if the operator pre-assigned a bin
-            # to MISC. Otherwise it returns None and the piece passes
-            # through to the discard bucket. Not-in-inventory pieces never fall
-            # back to a normal MISC bin — they stay in their pool or pass through.
+            # which only lands in a bin the operator assigned to misc.
+            # Otherwise it returns None and the piece passes through to the
+            # discard bucket. Not-in-inventory pieces never fall back to a
+            # misc bin — they stay in their pool or pass through.
             return self._findOrAssignBinForCategory(MISC_CATEGORY)
 
         self.logger.info(

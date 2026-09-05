@@ -80,7 +80,7 @@ _ZONE_EXIT_ONLY = 2
 # not flung after the piece that just left.
 TIP_OVER_HOLD_S = 1.5
 # The approach pulse stops this far short of the exit-only entry edge.
-APPROACH_MARGIN_DEG = 2.0
+APPROACH_MARGIN_DEG = 6.0
 
 
 def exitPulseOutputDeg(cfg, state) -> float:
@@ -107,8 +107,11 @@ def exitPulseOutputDeg(cfg, state) -> float:
     ]
     output = max(approach, tip)
     if gaps:
-        output = min(output, max(tip, min(gaps) - APPROACH_MARGIN_DEG))
-    return output
+        lead = min(gaps)
+        if lead <= APPROACH_MARGIN_DEG + tip:
+            return tip  # too close to the fall-off for anything but the tip-over pulse
+        output = min(output, lead - APPROACH_MARGIN_DEG)
+    return max(output, tip)
 
 
 def exitPulsePauseMs(cfg, output_deg: float) -> int:

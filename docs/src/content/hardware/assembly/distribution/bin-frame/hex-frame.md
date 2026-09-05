@@ -60,23 +60,6 @@ The bracket carries other holes that neither method uses, including one on its i
 
 If you are using slide-in T-nuts rather than the roll-in ones this machine specifies, insert 4 into the outermost section of the extrusion before connecting the next External bracket — side, as this is the last time the ends of the extrusion are accessible. Those 4 are for the [bin retainers]({{ '/hardware/assembly/distribution/bin-frame/bin-retainers/' | relative_url }}), and [Fitting T-nuts]({{ '/hardware/helpers/t-nuts/' | relative_url }}) lists every other place the same applies. With roll-in T-nuts there is nothing to do here.
 
-<figure class="video-figure">
-  <div class="video-embed video-embed-wide">
-    <iframe
-      src="https://www.youtube.com/embed/LWruBv-fMz4"
-      title="Assembling the frame brackets"
-      allow="encrypted-media; picture-in-picture; web-share"
-      allowfullscreen
-      loading="lazy"></iframe>
-  </div>
-  <figcaption><cite>Video: zed0.</cite></figcaption>
-</figure>
-
-<figure class="single-figure">
-  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-regular-layers-extrusion-tnut-holes-w1600-b5863688aeea.png" alt="Side view of an A/G extrusion showing the row of holes where T-nuts sit and the screws pass through">
-  <figcaption><cite>Photo: zed0.</cite></figcaption>
-</figure>
-
 Repeat these steps to make two semi-circles: each is three sections of A/G extrusion (320mm) joined by three External bracket — side pieces. Slot the two half-hexagons together into a full hexagon and secure the join with 2 more {% include fastener.html size="M5" variant="socket-button" length="16" %} screws. Joining in this manner, rather than working your way around the hexagon, prevents having to force the brackets into awkward angles.
 
 <figure class="single-figure">

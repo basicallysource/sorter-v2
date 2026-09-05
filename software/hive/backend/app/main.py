@@ -42,6 +42,7 @@ from app.routers import (
     review,
     samples,
     sets,
+    set_instances,
     stats,
     teacher,
     upload,
@@ -136,6 +137,7 @@ app.include_router(upload.router)
 app.include_router(samples.router)
 app.include_router(review.router)
 app.include_router(sets.router)
+app.include_router(set_instances.router)
 app.include_router(stats.router)
 app.include_router(models_router.router)
 app.include_router(machine_models.router)

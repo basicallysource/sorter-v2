@@ -9,11 +9,6 @@ lede: The repeating bin layers above the base. Build N−2 for an N-layer machin
 permalink: /hardware/assembly/distribution/bin-frame/regular-layers/
 author: zed0
 contributors: [brickcyclealice, barthel]
-warning: >-
-  **Reorganized to reference [Build the hex frame]({{ '/hardware/assembly/distribution/bin-frame/hex-frame/' | relative_url }})
-  instead of describing frame construction inline, not yet reviewed by a
-  builder.** The old steps 1-2 (outer ring, spokes) are gone; build a hex
-  frame on that page first. Correct it as you build.
 parts_needed:
   - part: ext-bracket-bottom-vertical
     qty: 6

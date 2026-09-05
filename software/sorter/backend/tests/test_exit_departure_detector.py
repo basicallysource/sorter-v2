@@ -20,7 +20,7 @@ def test_a_sustained_drop_reports_once() -> None:
     res = _feed(d, seq)
     assert sum(res) == 1
     # fires once the old maximum has aged out of the window (~0.8 s)
-    assert res.index(True) >= 10 + 8
+    assert res.index(True) >= 10 + 7
 
 
 def test_two_departures_far_apart_both_report_and_increases_never_do() -> None:

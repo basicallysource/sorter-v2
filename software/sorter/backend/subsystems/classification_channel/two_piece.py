@@ -84,6 +84,24 @@ _PROGRESS_MOVE_DEG = 5.0
 _STILL_MAX_SHIFT_PX = 8.0
 
 
+# A piece in the unnamed gap counts as "still at the exit" only when its
+# centre is this close to (or past) the exit-only entry edge; an upstream
+# arrival swept into the gap behind the holding band has a large gap.
+_EXIT_GAP_NEAR_DEG = 10.0
+
+
+def _exitArcOccupied(state) -> bool:
+    for po in getattr(state, "pieces", ()):
+        zone = int(getattr(po, "zone_code", 0))
+        if zone == _ZONE_EXIT_ONLY:
+            return True
+        if zone == _ZONE_NONE:
+            gap = getattr(po, "com_forward_to_exit_deg", None)
+            if gap is None or float(gap) <= _EXIT_GAP_NEAR_DEG:
+                return True
+    return False
+
+
 def _topScore(result: object) -> Optional[float]:
     if not isinstance(result, dict):
         return None
@@ -347,8 +365,12 @@ class TwoPieceClassificationChannel(Rev01BaseState):
                 self._aimChuteForHead(now)
                 self._maybeStartRotation(now)
         elif self._phase == _Phase.EJECTING:
+            if stopped:
+                self._captureDropPieces(perception_service, now)  # a late arrival
             self._ejecting(state, stopped, now)
         elif self._phase == _Phase.STAGING:
+            if stopped:
+                self._captureDropPieces(perception_service, now)
             self._staging(state, stopped, now)
 
     # ------------------------------------------------- perception reconciliation
@@ -778,6 +800,14 @@ class TwoPieceClassificationChannel(Rev01BaseState):
                 f"{len(caps)} crops total, stop={reason}); classifying"
             )
 
+    def _dropBurstInProgress(self) -> bool:
+        for tp in self._pieces.values():
+            if tp.zone != _ZONE_DROP or tp.capture_done or tp.double_feed:
+                continue
+            if tp.worker.ctx.capturing_started_at > 0.0:
+                return True
+        return False
+
     def _headReady(self, tp: _TrackedPiece) -> bool:
         # Classified AND the chute is physically aimed for this piece.
         obj = tp.known_object
@@ -837,10 +867,7 @@ class TwoPieceClassificationChannel(Rev01BaseState):
         # committed phantom then puts the real piece into the next target bin.
         # Exit-only OR the unnamed gap past it: a piece resting on the lip
         # beyond the exit arc is coded NONE and is still very much on board.
-        exit_arc_empty = not any(
-            int(getattr(po, "zone_code", 0)) in (_ZONE_EXIT_ONLY, _ZONE_NONE)
-            for po in getattr(state, "pieces", ())
-        )
+        exit_arc_empty = not _exitArcOccupied(state)
         if (gone_for >= _EJECT_GONE_CONFIRM_S and exit_arc_empty) or timed_out:
             # Commit it to distribution; the chute was already aimed.
             self.transport.advanceTransport()
@@ -856,6 +883,8 @@ class TwoPieceClassificationChannel(Rev01BaseState):
             return
         if gone_for > 0.0:
             return  # id missing (likely just dropped) — stop pushing, let it confirm
+        if self._dropBurstInProgress():
+            return  # a late arrival is being photographed — no rotation yet
         if stopped:
             gap = state.exit_com_forward_to_center_deg
             if gap is not None and gap > self.ctx.config.discharge_center_tolerance_deg:
@@ -883,6 +912,8 @@ class TwoPieceClassificationChannel(Rev01BaseState):
             return
         if not stopped:
             return
+        if self._dropBurstInProgress():
+            return  # finish the burst of a piece that landed mid-stage first
         drop_clear = (not state.in_drop) and not any(
             tp.zone == _ZONE_DROP for tp in self._pieces.values()
         )

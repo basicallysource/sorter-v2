@@ -100,6 +100,10 @@ class Rev01Config:
     # Below this Brickognize part score the piece is not sorted into a bin
     # (status low_confidence → misc). A wrong bin costs more than a passthrough.
     min_part_confidence: float = 0.6
+    # A head below min_part_confidence gets a second burst at rest in the
+    # holding position and a re-classification before the chute is aimed;
+    # the better of the two results is kept.
+    low_confidence_retry: bool = True
     # Optional delay before the burst starts, measured from the last real
     # movement of the piece's box. 0 = start on first sight (the design: the
     # burst deliberately catches the piece tumbling so several sides are seen;
@@ -154,6 +158,7 @@ FIELD_META: list[dict] = [
     {"key": "discharge_clear_confirm_ms", "label": "Discharge: continuous-clear window to confirm drop (ms)", "type": "int", "default": _DEFAULTS.discharge_clear_confirm_ms, "description": "How long the exit must read clear WITHOUT interruption before the piece counts as dropped. A single non-clear frame resets the window, so one-frame detector blinks can't fake a drop."},
     {"key": "discharge_giveup_settle_ms", "label": "Discharge: settle delay before auto-crediting on give-up (ms)", "type": "int", "default": _DEFAULTS.discharge_giveup_settle_ms, "description": "When discharge exhausts its attempts without a confirmed clear (usually the piece actually dropped and a newcomer is holding the count up), wait this long for the channel to settle, then credit the piece and return to IDLE."},
     {"key": "min_part_confidence", "label": "Minimum part confidence to sort into a bin", "type": "float", "default": _DEFAULTS.min_part_confidence, "description": "Brickognize part score below which the piece is routed to misc (status low_confidence) instead of a category bin. A wrong bin costs more than a passthrough."},
+    {"key": "low_confidence_retry", "label": "Retry a low-confidence piece at rest", "type": "bool", "default": _DEFAULTS.low_confidence_retry, "description": "A head below the minimum part confidence is photographed again at rest in the holding position and re-classified before the chute is aimed; the better result wins."},
     {"key": "capture_settle_ms", "label": "Settle time before the burst (ms)", "type": "float", "default": _DEFAULTS.capture_settle_ms, "description": "Optional delay before the burst, measured from the last movement of the piece's box. 0 = start on first sight so the burst catches the tumbling piece from several sides (the default); use a short exposure against motion blur rather than this."},
     {"key": "multi_feed_confirm_reads", "label": "Multi-feed: frames of >=2 pieces to confirm", "type": "int", "default": _DEFAULTS.multi_feed_confirm_reads, "description": "Consecutive distinct frames showing 2+ pieces on the channel before latching a multi-feed (which sends the whole cycle to MISC). Stops a one-frame split detection from mis-flagging."},
     {"key": "discharge_jitter_dwell_ms", "label": "Discharge: dwell in fall-off region before jitter (ms)", "type": "int", "default": _DEFAULTS.discharge_jitter_dwell_ms, "description": "If a piece sits continuously in the fall-off region this long, it's parked — shake it loose with a jitter. A piece dropping normally is only there for a frame or two, so it never triggers this."},

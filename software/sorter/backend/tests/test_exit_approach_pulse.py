@@ -40,8 +40,8 @@ def test_tip_over_pulses_pace_slower_than_approach_pulses() -> None:
 def test_approach_pulse_is_bounded_by_the_gap_to_the_exit_only_band() -> None:
     cfg = _cfg(approach=8.0, tip=2.0)
     far = SimpleNamespace(pieces=[SimpleNamespace(zone_code=3, com_forward_to_exit_deg=20.0)])
-    near = SimpleNamespace(pieces=[SimpleNamespace(zone_code=3, com_forward_to_exit_deg=5.0)])
-    touching = SimpleNamespace(pieces=[SimpleNamespace(zone_code=3, com_forward_to_exit_deg=1.0)])
+    mid = SimpleNamespace(pieces=[SimpleNamespace(zone_code=3, com_forward_to_exit_deg=11.0)])
+    near = SimpleNamespace(pieces=[SimpleNamespace(zone_code=3, com_forward_to_exit_deg=7.0)])
     assert exitPulseOutputDeg(cfg, far) == 8.0
-    assert exitPulseOutputDeg(cfg, near) == 3.0      # 5 - 2 margin
-    assert exitPulseOutputDeg(cfg, touching) == 2.0  # never below the tip-over pulse
+    assert exitPulseOutputDeg(cfg, mid) == 5.0       # 11 - 6 margin
+    assert exitPulseOutputDeg(cfg, near) == 2.0      # within margin + tip: tip-over only

@@ -9,11 +9,7 @@ lede: The funnel that guides parts through the door.
 permalink: /hardware/assembly/distribution/chute/funnel/
 author: spencer
 contributors: [barthel]
-warning: >-
-  **Step 3 comes from a builder's report**, how the funnel snaps into its brackets. The rest is
-  an **AI-generated first draft**, written from the machine assembly tree and parts registry in
-  the [parts calculator](https://parts-calculator.basically.website/assembly?focus=chute), not
-  from an actual build, and has not been checked against a machine. Correct it as you build.
+last_verified: 2026-09-05
 parts_needed:
   - part: funnel-half
   - part: funnel-third

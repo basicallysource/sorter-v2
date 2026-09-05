@@ -49,6 +49,8 @@ def _piece(tid: int, *, zone: int, capture_done: bool, last_seen: float) -> _Tra
     tp.result_applied = capture_done
     tp.placed = capture_done
     tp.ejected = False
+    tp.retry_started = False
+    tp.retry_done = False
     tp.last_seen = last_seen
     tp.still_since = last_seen
     tp.bbox = (0, 0, 0, 0)

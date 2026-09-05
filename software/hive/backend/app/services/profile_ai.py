@@ -6,7 +6,7 @@ import logging
 import re
 from time import perf_counter
 import uuid
-from collections.abc import Generator
+from collections.abc import Callable, Generator
 from dataclasses import dataclass
 from types import SimpleNamespace
 from typing import Any
@@ -276,6 +276,7 @@ def generate_profile_ai_proposal(
     catalog: ProfileCatalogService,
     document: dict[str, Any],
     message: str,
+    owned_sets: list[dict[str, Any]] | None = None,
     conversation_history: list[dict[str, str]] | None = None,
     selected_rule_id: str | None = None,
     ai_request_id: str | None = None,
@@ -321,7 +322,7 @@ def generate_profile_ai_proposal(
         tools = CATALOG_TOOLS if has_parts else SET_ONLY_TOOLS
         cache_control = _profile_ai_cache_control(model)
 
-        system_prompt = _build_system_prompt(catalog, document, selected_rule_id)
+        system_prompt = _build_system_prompt(catalog, document, selected_rule_id, owned_sets)
         messages: list[dict[str, Any]] = [{"role": "system", "content": system_prompt}]
         if custom_set_request:
             messages.append({"role": "system", "content": _custom_set_intent_note()})
@@ -509,6 +510,7 @@ def generate_profile_ai_proposal_streaming(
     catalog: ProfileCatalogService,
     document: dict[str, Any],
     message: str,
+    owned_sets: list[dict[str, Any]] | None = None,
     conversation_history: list[dict[str, str]] | None = None,
     selected_rule_id: str | None = None,
     ai_request_id: str | None = None,
@@ -557,7 +559,7 @@ def generate_profile_ai_proposal_streaming(
         tools = CATALOG_TOOLS if has_parts else SET_ONLY_TOOLS
         cache_control = _profile_ai_cache_control(model)
 
-        system_prompt = _build_system_prompt(catalog, document, selected_rule_id)
+        system_prompt = _build_system_prompt(catalog, document, selected_rule_id, owned_sets)
         messages: list[dict[str, Any]] = [{"role": "system", "content": system_prompt}]
         if custom_set_request:
             messages.append({"role": "system", "content": _custom_set_intent_note()})
@@ -1278,7 +1280,14 @@ def apply_profile_ai_proposal(
     rules: list[dict[str, Any]],
     selected_rule_id: str | None,
     proposal: dict[str, Any],
+    bind_set_instance: Callable[[str, bool], str] | None = None,
 ) -> list[dict[str, Any]]:
+    """The rule tree after the proposal.
+
+    ``bind_set_instance(set_num, include_spares)`` returns the id of the set
+    instance a new set rule extracts for (the user's open copy of that set, or
+    a freshly created one); without it set rules stay unbound.
+    """
     next_rules = copy.deepcopy(rules)
     profile_sorting_profile._migrateRules(next_rules)
     profile_like = SimpleNamespace(rules=next_rules)
@@ -1308,6 +1317,8 @@ def apply_profile_ai_proposal(
             )
             if created_rule_id is None:
                 raise APIError(400, "AI proposal references an unknown parent rule", "AI_INVALID_PARENT")
+            if item.get("role"):
+                profile_sorting_profile.getRule(profile_like, created_rule_id)["role"] = item["role"]
             continue
 
         if action == "create_set":
@@ -1320,9 +1331,11 @@ def apply_profile_ai_proposal(
             new_rule = {
                 "id": str(uuid.uuid4()),
                 "rule_type": "set",
+                "role": item.get("role") or "primary",
                 "set_source": "rebrickable",
                 "name": set_name,
                 "set_num": set_num,
+                "set_instance_id": bind_set_instance(set_num, include_spares) if bind_set_instance else None,
                 "include_spares": include_spares,
                 "set_meta": set_meta,
                 "match_mode": "all",
@@ -1347,6 +1360,7 @@ def apply_profile_ai_proposal(
             new_rule = {
                 "id": str(uuid.uuid4()),
                 "rule_type": "set",
+                "role": item.get("role") or "primary",
                 "set_source": "custom",
                 "name": set_name,
                 "set_num": f"custom:{uuid.uuid4()}",
@@ -1387,6 +1401,8 @@ def apply_profile_ai_proposal(
         target_rule["name"] = item.get("name") or target_rule.get("name") or "Unnamed Rule"
         target_rule["match_mode"] = item.get("match_mode", "all")
         target_rule["conditions"] = _normalize_conditions(item.get("conditions", []))
+        if item.get("role"):
+            target_rule["role"] = item["role"]
 
         if parent_id is not None or position is not None:
             moved_rule = copy.deepcopy(target_rule)
@@ -1601,6 +1617,8 @@ def _validate_proposal(proposal: dict[str, Any]) -> None:
         action = item.get("action")
         if action not in {"edit", "create", "create_set", "create_custom_set", "move", "delete"}:
             raise APIError(502, f"AI proposal action '{action}' is invalid", "AI_ACTION_INVALID")
+        if item.get("role") not in (None, "primary", "secondary"):
+            raise APIError(502, f"AI proposal used invalid role '{item.get('role')}'", "AI_ROLE_INVALID")
         if action in {"edit", "create"}:
             if item.get("match_mode") not in {"all", "any"}:
                 raise APIError(502, "AI proposal contained an invalid match_mode", "AI_MATCH_MODE_INVALID")
@@ -1625,7 +1643,12 @@ def _validate_proposal(proposal: dict[str, Any]) -> None:
                 raise APIError(502, "AI create_custom_set proposal missing custom_parts", "AI_CUSTOM_SET_PARTS_MISSING")
 
 
-def _build_system_prompt(catalog: ProfileCatalogService, document: dict[str, Any], selected_rule_id: str | None) -> str:
+def _build_system_prompt(
+    catalog: ProfileCatalogService,
+    document: dict[str, Any],
+    selected_rule_id: str | None,
+    owned_sets: list[dict[str, Any]] | None = None,
+) -> str:
     payload_rules = copy.deepcopy(document.get("rules") or [])
     profile_sorting_profile._migrateRules(payload_rules)
     selected_rule = _find_rule(payload_rules, selected_rule_id) if selected_rule_id else None
@@ -1656,6 +1679,7 @@ def _build_system_prompt(catalog: ProfileCatalogService, document: dict[str, Any
         catalog_section += f"\nColors:\n{color_list}\n"
 
     has_parts = bool(catalog.parts_data.parts)
+    owned_sets_json = json.dumps(owned_sets or [], ensure_ascii=False)
 
     if has_parts:
         tool_section = """
@@ -1689,6 +1713,7 @@ You MUST always respond with JSON matching this schema:
       "parent_id": "parent-rule-id-or-null",
       "position": 0,
       "name": "Rule name",
+      "role": "primary" | "secondary",
       "match_mode": "all" | "any",
       "conditions": [{{"field": "name", "op": "contains", "value": "brick"}}],
       "set_num": "10283-1",
@@ -1703,12 +1728,17 @@ You MUST always respond with JSON matching this schema:
 - For "create_set" action: you MUST first call search_sets to find the set, then provide set_num (Rebrickable set number like "10283-1"), name, and set_meta with {{name, year, num_parts, img_url}} from the search_sets results. Do NOT include conditions or match_mode for set rules. Set rules are always top-level — do not nest them as children.
 - For "create_custom_set" action: you MUST first call search_parts to verify each distinct part you want to include, then provide name and custom_parts. Each custom_parts entry must include {{part_num, color_id, quantity}} and may include color_name. Use Rebrickable part numbers from search_parts. If the user did not specify a color, use color_id -1 and color_name "Any color". Do NOT include conditions or match_mode for custom set rules. Custom set rules are always top-level.
 - For "create" and "edit" actions: provide name, match_mode, and conditions. Do NOT use create_set fields (set_num, set_meta).
+- "role" is optional. "primary" rules are the targets of a sorting run and get the machine's core bins; "secondary" rules are side sorting into the machine's side bins. Set rules default to primary, filter rules to secondary; only set role when the user asks for it (e.g. "sort minifigs into a main bin" means role primary on that filter rule).
+- Every official set the user extracts is one of their set copies ("set instances"). A create_set rule is bound to the user's open copy of that set automatically when the proposal is applied, and a new copy is created when they have none. You never provide set_instance_id yourself.
 
 Current rules:
 {json.dumps(prompt_rules, indent=2, ensure_ascii=False)}
 
 Selected rule:
 {json.dumps(prompt_selected_rule, indent=2, ensure_ascii=False) if prompt_selected_rule else "null"}
+
+The user's set copies (set_num, label, status):
+{owned_sets_json}
 
 Allowed fields: {sorted(VALID_FIELDS)}
 Allowed operators by field:
@@ -1874,6 +1904,8 @@ def _prompt_rule_snapshot(rule: dict[str, Any] | None, *, expand_custom_parts: b
     }
     if rule.get("disabled"):
         snapshot["disabled"] = True
+    if rule.get("role"):
+        snapshot["role"] = rule["role"]
 
     rule_type = str(rule.get("rule_type") or "filter")
     if rule_type == "set":
@@ -1881,6 +1913,8 @@ def _prompt_rule_snapshot(rule: dict[str, Any] | None, *, expand_custom_parts: b
         snapshot["rule_type"] = "set"
         snapshot["set_source"] = set_source
         snapshot["set_num"] = str(rule.get("set_num") or "")
+        if rule.get("set_instance_id"):
+            snapshot["bound_to_set_copy"] = True
         if rule.get("include_spares"):
             snapshot["include_spares"] = True
         set_meta = rule.get("set_meta")

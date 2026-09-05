@@ -84,7 +84,7 @@ You should already have two [hex frames]({{ '/hardware/assembly/distribution/bin
 
 <div class="callout callout-warning">
   <span class="callout-icon" aria-hidden="true">⚠</span>
-  <p><strong>Get the bottom interface's 6 T-nuts into the bottom layer's spokes before the ring closes.</strong> Two each into 3 of the 6 B/H spokes, alternating around the ring. <a href="{{ '/hardware/assembly/distribution/bin-frame/bottom-interface/' | relative_url }}#step-4">Bottom interface, step 4</a> bolts its Lazy Susan extrusion mounts up into them from underneath, so they go in this frame's extrusion, not a frame of its own. Roll-in T-nuts can go in later; slide-in ones cannot.</p>
+  <p><strong>Get the bottom interface's 6 T-nuts into the bottom layer's spokes before the ring closes.</strong> Two each into 3 of the 6 B/H spokes, alternating around the ring. <a href="{{ '/hardware/assembly/distribution/bin-frame/bottom-interface/' | relative_url }}#step-4">Bottom interface, step 4</a> bolts its Lazy Susan extrusion mounts up into them from underneath, so they go in this frame's extrusion, not a frame of its own. Roll-in T-nuts can go in later; slide-in ones cannot, see <a href="{{ '/hardware/helpers/t-nuts/' | relative_url }}">Fitting T-nuts</a>.</p>
 </div>
 
 {% include step.html n="2" title="Run the foot extensions through both layers" %}

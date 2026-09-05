@@ -35,7 +35,9 @@
 	const classified_n = $derived(counts.classified ?? 0);
 	const distributed_n = $derived(counts.distributed ?? 0);
 	const multi_drop_n = $derived(counts.multi_drop_fail ?? 0);
-	const unknown_n = $derived((counts.unknown ?? 0) + (counts.not_found ?? 0));
+	const unknown_n = $derived(
+		(counts.unknown ?? 0) + (counts.not_found ?? 0) + (counts.low_confidence ?? 0)
+	);
 
 	// Classified-and-distributed rate — the goal-line KPI: pieces that
 	// passed Brickognize as Single (not Unknown / Not-Found / Multi-Drop

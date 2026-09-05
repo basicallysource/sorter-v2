@@ -1075,6 +1075,7 @@ class RuntimeStatsCollector:
             "unknown": 0,
             "not_found": 0,
             "multi_drop_fail": 0,
+            "low_confidence": 0,
             "distributed": 0,
             "stage_created": 0,
             "stage_distributing": 0,
@@ -1132,6 +1133,8 @@ class RuntimeStatsCollector:
                 counts["not_found"] += 1
             elif status == "multi_drop_fail":
                 counts["multi_drop_fail"] += 1
+            elif status == "low_confidence":
+                counts["low_confidence"] += 1
             if stage == "created":
                 counts["stage_created"] += 1
             elif stage == "distributing":
@@ -1278,6 +1281,7 @@ class RuntimeStatsCollector:
             "unknown": [],
             "multi_drop_fail": [],
             "not_found": [],
+            "low_confidence": [],
         }
         for piece in all_pieces:
             status = getattr(piece.get("classification_status"), "value", piece.get("classification_status"))
@@ -1296,6 +1300,8 @@ class RuntimeStatsCollector:
                 classification_outcome_timestamps["multi_drop_fail"].append(float(classified_at))
             if status == "not_found" and isinstance(classified_at, (int, float)):
                 classification_outcome_timestamps["not_found"].append(float(classified_at))
+            if status == "low_confidence" and isinstance(classified_at, (int, float)):
+                classification_outcome_timestamps["low_confidence"].append(float(classified_at))
 
         channel_throughput: dict[str, Any] = {}
         for channel, exit_count in channel_exit_counts.items():

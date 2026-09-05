@@ -27,13 +27,13 @@ Two things follow, and they are why the machine specifies this style:
 <figure class="video-figure">
   <div class="video-embed video-embed-wide">
     <iframe
-      src="https://www.youtube.com/embed/bGmanrPj7s0?start=73"
+      src="https://www.youtube.com/embed/bGmanrPj7s0?start=68"
       title="How roll-in T-nuts go into extrusion"
       allow="encrypted-media; picture-in-picture; web-share"
       allowfullscreen
       loading="lazy"></iframe>
   </div>
-  <figcaption>How the nut rolls in and locks. <cite>Video linked by Marc.</cite></figcaption>
+  <figcaption>Starts at 1:08, where the roll-in T-nut comes up. The four variants it then shows (set screw, flex handle, ball spring, spring leaf) are all roll-in; this machine's is a spring one. <cite>Video: 80/20, linked by Marc.</cite></figcaption>
 </figure>
 
 ## If you have a different style

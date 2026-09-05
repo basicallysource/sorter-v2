@@ -9,12 +9,6 @@ lede: The interface between the feeder and the bin tower.
 permalink: /hardware/assembly/distribution/top-interface/
 author: zed0
 contributors: [barthel, brickcyclealice]
-warning: >-
-  **Steps 13 and 14 were rewritten to reference [Build the hex frame]({{ '/hardware/assembly/distribution/bin-frame/hex-frame/' | relative_url }})
-  and to describe the interface-to-layer joint from CAD geometry, and neither
-  has been checked against a build yet.** If something doesn't match what you
-  see, treat it as unverified and flag it rather than assuming it's your
-  mistake. The rest of the page is unaffected.
 parts_needed:
   - part: interface-upper-fixed-section
     qty: 1

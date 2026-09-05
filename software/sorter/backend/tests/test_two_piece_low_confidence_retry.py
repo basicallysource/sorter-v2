@@ -34,6 +34,7 @@ def _piece(status, confidence):
     tp.retry_started = False
     tp.retry_done = False
     tp.first_score = None
+    tp.retry_base = 0
     tp.capture_done = True
     tp.result_applied = True
     ctx = SimpleNamespace(captured_crops=[1], captured_crop_timestamps=[1], captured_crop_sharpness=[1],
@@ -50,7 +51,8 @@ def test_low_confidence_head_starts_a_second_burst_and_holds_the_aim() -> None:
     assert h._retryHeadAtRest(tp, obj) is True
     assert tp.retry_started and not tp.capture_done and not tp.result_applied
     assert tp.first_score == 0.55
-    assert tp.worker.ctx.captured_crops == [] and tp.worker.ctx.classify_started_at == 0.0
+    assert tp.worker.ctx.captured_crops == [1] and tp.retry_base == 1  # in-flight frames kept
+    assert tp.worker.ctx.classify_started_at == 0.0
     # still waiting while the retry runs
     assert h._retryHeadAtRest(tp, obj) is True
     tp.retry_done = True

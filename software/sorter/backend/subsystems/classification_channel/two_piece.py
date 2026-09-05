@@ -165,6 +165,9 @@ class _TrackedPiece:
         self.retry_started = False
         self.retry_done = False
         self.first_score: Optional[float] = None
+        # Crops already captured when the retry burst started (kept for the
+        # combined request; the retry adds its own frames on top).
+        self.retry_base = 0
         # Committed to distribution as ejected; its track id may linger for the
         # retire window, but it is no longer a head to aim or eject.
         self.ejected = False
@@ -729,10 +732,9 @@ class TwoPieceClassificationChannel(Rev01BaseState):
             tp.retry_started = True
             tp.capture_done = False
             tp.result_applied = False
-            ctx.captured_crops = []
-            ctx.captured_crop_timestamps = []
-            ctx.captured_crop_sharpness = []
-            ctx.captured_crop_quality = []
+            # Keep the in-flight frames: the retry ADDS at-rest views and the
+            # quality selection picks the best of both sets.
+            tp.retry_base = len(ctx.captured_crops)
             ctx.capturing_started_at = 0.0
             ctx.classify_started_at = 0.0
             ctx.classification_result = None
@@ -754,7 +756,13 @@ class TwoPieceClassificationChannel(Rev01BaseState):
         if ctx.capturing_started_at == 0.0:
             ctx.capturing_started_at = now
         self._cropBurstFrame(tp.worker, tp.bbox, perc_frame)
-        done, reason = tp.worker.burstCaptureComplete(ctx, now)
+        cfg = ctx.config
+        new_frames = len(ctx.captured_crops) - tp.retry_base
+        elapsed_ms = (now - ctx.capturing_started_at) * 1000.0
+        done = new_frames >= int(cfg.max_captures) or (
+            new_frames > 0 and elapsed_ms >= float(cfg.capture_at_rest_ms)
+        )
+        reason = "frame_cap" if new_frames >= int(cfg.max_captures) else "window"
         if done:
             tp.capture_done = True
             ctx.classify_started_at = now
@@ -764,7 +772,8 @@ class TwoPieceClassificationChannel(Rev01BaseState):
             else:
                 ctx.classification_error = "no_captures"
             self.logger.info(
-                f"{LOG_TAG} retry burst track={tp.track_id} ({len(caps)} crops, stop={reason}); classifying"
+                f"{LOG_TAG} retry burst track={tp.track_id} (+{new_frames} at rest, "
+                f"{len(caps)} crops total, stop={reason}); classifying"
             )
 
     def _headReady(self, tp: _TrackedPiece) -> bool:

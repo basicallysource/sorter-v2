@@ -7,8 +7,16 @@ ANY_COLOR_ID = "-1"
 
 
 class SetProgressTracker:
-    def __init__(self, set_inventories: dict[str, dict[str, Any]], artifact_hash: str):
+    def __init__(
+        self,
+        set_inventories: dict[str, dict[str, Any]],
+        artifact_hash: str,
+        set_instance_ids: dict[str, str] | None = None,
+    ):
         self._artifact_hash = artifact_hash
+        # category id -> Hive set instance id; Hive books progress reported
+        # with an instance id on that instance instead of the assignment.
+        self._set_instance_ids = dict(set_instance_ids or {})
         self._dirty = False
         self._last_saved_at = 0.0
         self._state_token = 0
@@ -145,6 +153,7 @@ class SetProgressTracker:
             pct = (found / needed * 100) if needed > 0 else 0
             sets.append({
                 "id": category_id,
+                "set_instance_id": self._set_instance_ids.get(category_id),
                 "set_num": info["set_num"],
                 "name": info["name"],
                 "img_url": info["img_url"],
@@ -188,6 +197,7 @@ class SetProgressTracker:
             for entry in entries:
                 items.append({
                     "category_id": category_id,
+                    "set_instance_id": self._set_instance_ids.get(category_id),
                     "set_num": entry["set_num"],
                     "name": entry["name"],
                     "part_num": entry["part_num"],

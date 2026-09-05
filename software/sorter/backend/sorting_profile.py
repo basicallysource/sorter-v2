@@ -5,6 +5,17 @@ from typing import Any, Optional
 from global_config import GlobalConfig
 
 MISC_CATEGORY = "misc"
+RULE_ROLES = ("primary", "secondary")
+
+
+def ruleRole(rule: dict) -> str:
+    """Run-planning role of a profile rule. Explicit ``role`` wins; without it
+    set rules are the run's primary targets and every other rule is secondary
+    (side sorting)."""
+    role = rule.get("role")
+    if role in RULE_ROLES:
+        return role
+    return "primary" if rule.get("rule_type") == "set" else "secondary"
 
 
 class SortingProfile(ABC):
@@ -33,6 +44,11 @@ class SortingProfile(ABC):
     def categoryLabel(self, category_id: str) -> str:
         return category_id
 
+    # Run-planning role of the rule behind a category id, None when the
+    # category is not a rule (fallback categories, misc). Base impl = none.
+    def ruleRole(self, category_id: str) -> Optional[str]:
+        return None
+
 
 class JsonSortingProfile(SortingProfile):
     def __init__(self, gc: GlobalConfig):
@@ -40,6 +56,10 @@ class JsonSortingProfile(SortingProfile):
         self._sorting_profile_path = gc.sorting_profile_path
         self.part_to_category: dict[str, str] = {}
         self.category_names: dict[str, str] = {}
+        # Per top-level rule id: planning role and (set rules only) the Hive
+        # set instance whose progress this rule feeds.
+        self.rule_roles: dict[str, str] = {}
+        self.set_instance_ids: dict[str, str] = {}
         self.default_category_id = MISC_CATEGORY
         self.set_inventories: dict[str, dict[str, Any]] | None = None
         self.artifact_hash: str = ""
@@ -88,6 +108,14 @@ class JsonSortingProfile(SortingProfile):
             for category_id, meta in (raw_categories.items() if isinstance(raw_categories, dict) else ())
             if isinstance(meta, dict) and meta.get("name")
         }
+        self.rule_roles = {}
+        self.set_instance_ids = {}
+        for rule in data.get("rules") or []:
+            if not isinstance(rule, dict) or not isinstance(rule.get("id"), str):
+                continue
+            self.rule_roles[rule["id"]] = ruleRole(rule)
+            if isinstance(rule.get("set_instance_id"), str) and rule["set_instance_id"]:
+                self.set_instance_ids[rule["id"]] = rule["set_instance_id"]
         raw_set_inventories = data.get("set_inventories")
         self.set_inventories = raw_set_inventories if isinstance(raw_set_inventories, dict) else None
         self.artifact_hash = data.get("artifact_hash", "")
@@ -109,6 +137,9 @@ class JsonSortingProfile(SortingProfile):
 
     def categoryLabel(self, category_id: str) -> str:
         return self.category_names.get(category_id, category_id)
+
+    def ruleRole(self, category_id: str) -> Optional[str]:
+        return self.rule_roles.get(category_id)
 
     def highValueCategoryId(self, price: Optional[float]) -> Optional[str]:
         cfg = self.high_value_routing

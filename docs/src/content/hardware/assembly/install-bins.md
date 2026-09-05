@@ -8,7 +8,7 @@ kicker: Assembly — Install the bins
 lede: The bins that catch what the chutes drop, and the two ways to get them.
 permalink: /hardware/assembly/install-bins/
 author: spencer
-contributors: [brickcyclealice]
+contributors: [brickcyclealice, daddyosbricksbill]
 warning: >-
   **AI-generated first draft.** Written from the parts catalog, the bin generator and
   what builders have posted, not from an actual build. No step here has been checked
@@ -30,7 +30,16 @@ Bins go in last, once the tower is standing, the chutes are in and the feeder is
 
 The list above is per layer, and a layer takes **one** of the two sets, not both. Which one is decided by that layer's funnel, in step 1.
 
-<div class="img-placeholder">A finished machine with all bins installed.</div>
+<div class="img-row">
+  <figure>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/install-bins-printed-bins-in-frame-full-8c3d3cc8736c.jpg" alt="Two layers of a bin tower filled with blue 3D printed bins, each sitting behind the black retainer rail on the front of the frame">
+    <figcaption>Printed bins, two layers of a tower. <cite>Photo: Daddy-O's Bricks - Bill.</cite></figcaption>
+  </figure>
+  <figure>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/install-bins-cardboard-bins-in-frame-w1600-e85d2a93cc70.jpg" alt="A layer seen from floor level, filled with folded cardboard bins radiating out from the chute in the middle">
+    <figcaption>Laser cut cardboard bins, one layer. Photographed on an early build, so the frame around them is an older revision. <cite>Photo: Spencer.</cite></figcaption>
+  </figure>
+</div>
 
 {% include step.html n="1" title="Match the bin size to the layer's funnel" %}
 

@@ -22,7 +22,7 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 from defs.events import PauseCommandEvent
-from defs.known_object import KnownObject
+from defs.known_object import ClassificationStatus, KnownObject
 from irl.bin_layout import Bin, BinSection, BinSize, DistributionLayout, Layer
 from runtime_stats import RuntimeStatsCollector
 from server import shared_state
@@ -98,7 +98,7 @@ def _mk_layout(num_layers: int = 2) -> DistributionLayout:
 
 
 def _mk_piece() -> KnownObject:
-    return KnownObject(part_id="3001", color_id="5")
+    return KnownObject(part_id="3001", color_id="5", classification_status=ClassificationStatus.classified)
 
 
 class ServoBusFatalTests(unittest.TestCase):

@@ -94,7 +94,7 @@ class ClassificationChannelStateMachine(BaseSubsystem):
                 vision=vision,
                 event_queue=event_queue,
             )
-        elif self._mode == ClassificationChannelMode.TWO_PIECE_STATE_MACHINE_REV01:
+        elif self._mode in (ClassificationChannelMode.TWO_PIECE_STATE_MACHINE_REV01, ClassificationChannelMode.INDEXED_BUFFER_REV01):
             from subsystems.classification_channel.two_piece import (
                 TwoPieceClassificationChannel,
             )
@@ -102,7 +102,11 @@ class ClassificationChannelStateMachine(BaseSubsystem):
                 SimpleStateMachineRev01Context,
             )
             self.states_map = {}
-            self._two_piece = TwoPieceClassificationChannel(
+            controller = TwoPieceClassificationChannel
+            if self._mode == ClassificationChannelMode.INDEXED_BUFFER_REV01:
+                from .indexed_buffer import IndexedBufferClassificationChannel
+                controller = IndexedBufferClassificationChannel
+            self._two_piece = controller(
                 irl,
                 irl_config,
                 gc,
@@ -246,6 +250,7 @@ class ClassificationChannelStateMachine(BaseSubsystem):
         if self._mode not in (
             ClassificationChannelMode.SIMPLE_STATE_MACHINE_REV01,
             ClassificationChannelMode.TWO_PIECE_STATE_MACHINE_REV01,
+            ClassificationChannelMode.INDEXED_BUFFER_REV01,
         ):
             return
 
@@ -264,6 +269,9 @@ class ClassificationChannelStateMachine(BaseSubsystem):
                 occupied = int(perception_service.read_state(4).n_pieces) > 0
             except Exception:
                 occupied = False
+
+        if self._mode == ClassificationChannelMode.INDEXED_BUFFER_REV01:
+            occupied |= self._two_piece.hasReservations()
 
         if not occupied:
             # Channel clear -> not stuck. Re-arm and drop any raised incident
@@ -428,6 +436,8 @@ class ClassificationChannelStateMachine(BaseSubsystem):
         with the given parameters. Only sets the request — the coordinator
         thread performs the motion on its next step()."""
         if not c4_stall_incident_active(self.gc):
+            return False
+        if self._mode == ClassificationChannelMode.INDEXED_BUFFER_REV01:
             return False
         self._stall_shake_request = {
             "amplitude_output_deg": float(amplitude_output_deg),

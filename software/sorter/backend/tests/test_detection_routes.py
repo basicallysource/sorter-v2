@@ -11,6 +11,39 @@ from server import shared_state
 from server.routers import detection
 
 
+def test_wall_phase_route_uses_scaled_saved_camera_geometry(monkeypatch):
+    from pathlib import Path
+    image = cv2.imread(str(Path(__file__).parent / "fixtures/c4_wall_phase/empty_rotor.jpg"))
+    monkeypatch.setattr(detection, "_classification_channel_live_frame", lambda: SimpleNamespace(raw=image))
+    monkeypatch.setattr("blob_manager.getChannelPolygons", lambda: {"arc_params": {
+        "classification_channel": {"center": [1005, 514], "resolution": [1920, 1080], "outer_radius": 560}}})
+    payload = detection.classification_channel_wall_phase()
+    assert payload["ok"] and payload["wall_count"] == 5
+    assert payload["center_xy"] == [502.5, 257]
+    assert payload["geometry_source"] == "calibration"
+
+
+def test_sector_occupancy_does_not_use_center_without_valid_dividers(monkeypatch):
+    frame = np.full((720, 720, 3), 180, np.uint8)
+    def detect(**kwargs):
+        raise AssertionError("No part assignment without a valid divider phase")
+    monkeypatch.setattr(shared_state, "vision_manager", SimpleNamespace(getClassificationChannelDetectionCandidates=detect))
+    monkeypatch.setattr(detection, "_classification_channel_live_frame", lambda: SimpleNamespace(raw=frame))
+    monkeypatch.setattr("blob_manager.getChannelPolygons", lambda: {"arc_params": {
+        "classification_channel": {"center": [360, 360], "resolution": [720, 720], "outer_radius": 330}}})
+    payload = detection.classification_channel_sector_occupancy()
+    assert not payload["ok"] and payload["sectors"] == []
+
+
+def test_wall_phase_route_rejects_wrong_camera_aspect_ratio(monkeypatch):
+    import pytest
+    monkeypatch.setattr("blob_manager.getChannelPolygons", lambda: {"arc_params": {
+        "classification_channel": {"center": [500, 250], "resolution": [960, 540], "outer_radius": 280}}})
+    with pytest.raises(HTTPException) as exc:
+        detection._c4_wall_geometry(np.zeros((720, 720, 3), np.uint8))
+    assert exc.value.status_code == 409
+
+
 class _FakeVisionManager:
     def __init__(self) -> None:
         self.calls: list[tuple[str, bool]] = []
@@ -143,6 +176,7 @@ class DetectionRouteTests(unittest.TestCase):
             saved["detection_candidate_bboxes"],
         )
 
+    @patch("vision.c4_wall_phase.calibrated_c4_wall_geometry", new=lambda shape: {})
     def test_classification_channel_wall_phase_uses_live_frame(self) -> None:
         class FakeVision:
             def getCaptureThreadForRole(self, role: str):
@@ -162,6 +196,7 @@ class DetectionRouteTests(unittest.TestCase):
         self.assertGreater(payload["frame_luma"]["mean"], 100.0)
         self.assertGreater(payload["frame_luma"]["nonblack_gt25_ratio"], 0.5)
 
+    @patch("vision.c4_wall_phase.calibrated_c4_wall_geometry", new=lambda shape: {})
     def test_classification_channel_sector_occupancy_rolls_candidates_into_sectors(self) -> None:
         frame = _synthetic_rotor_frame(phase_deg=22.0)
         center = (360.0, 360.0)
@@ -232,6 +267,7 @@ class DetectionRouteTests(unittest.TestCase):
         self.assertFalse(fake_vision.calls[0][0])
         self.assertIs(fake_vision.calls[0][1].raw, frame)
 
+    @patch("vision.c4_wall_phase.calibrated_c4_wall_geometry", new=lambda shape: {})
     def test_classification_channel_sector_occupancy_reports_dark_frame_diagnostics(self) -> None:
         frame = np.zeros((720, 720, 3), dtype=np.uint8)
 
@@ -256,6 +292,7 @@ class DetectionRouteTests(unittest.TestCase):
         self.assertEqual([], payload["candidate_bboxes"])
         self.assertEqual([], payload["detections"])
 
+    @patch("vision.c4_wall_phase.calibrated_c4_wall_geometry", new=lambda shape: {})
     def test_classification_channel_sector_occupancy_endpoint_reports_dark_frame_diagnostics(self) -> None:
         frame = np.zeros((720, 720, 3), dtype=np.uint8)
 

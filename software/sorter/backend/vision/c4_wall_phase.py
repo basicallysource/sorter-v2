@@ -58,6 +58,8 @@ class C4WallPhaseResult:
     elapsed_ms: float
     message: str
     lines: tuple[WallLine, ...] = ()
+    geometry_source: str = "image"
+    max_residual_deg: float | None = None
 
     def as_dict(self, *, include_lines: bool = True) -> dict[str, Any]:
         payload: dict[str, Any] = {
@@ -77,6 +79,8 @@ class C4WallPhaseResult:
             "raw_line_count": self.raw_line_count,
             "elapsed_ms": self.elapsed_ms,
             "message": self.message,
+            "geometry_source": self.geometry_source,
+            "max_residual_deg": self.max_residual_deg,
         }
         if include_lines:
             payload["lines"] = [line.as_dict() for line in self.lines]
@@ -119,10 +123,39 @@ def fit_disc_circle(image_bgr: np.ndarray) -> tuple[float, float, float]:
     if not contours:
         raise ValueError("no non-black platter contour found")
     contour = max(contours, key=cv2.contourArea)
+    h, w = gray.shape
+    bx, by, bw, bh = cv2.boundingRect(contour)
+    if bx <= 0 or by <= 0 or bx+bw >= w or by+bh >= h:
+        raise ValueError("bright background or clipped disc: calibrated geometry required")
     (x, y), radius = cv2.minEnclosingCircle(contour)
     if radius <= 0.0:
         raise ValueError("invalid platter radius")
     return float(x), float(y), float(radius)
+
+
+def wall_geometry_from_arc(arc: dict, image_shape) -> dict:
+    """Scale persisted arc geometry into this frame; never use a crop origin.
+
+    Angles/pitches require uniform scaling. A stretched preview is not a valid
+    substitute for the calibrated camera frame.
+    """
+    cx, cy = map(float, arc["center"])
+    width, height = map(float, arc["resolution"])
+    radius = float(arc["outer_radius"])
+    if not all(math.isfinite(v) and v > 0 for v in (width, height, radius)):
+        raise ValueError("invalid arc dimensions")
+    sx, sy = image_shape[1]/width, image_shape[0]/height
+    if not math.isclose(sx, sy, rel_tol=0.01):
+        raise ValueError("camera aspect ratio differs from calibration")
+    return {"center_xy": (cx*sx, cy*sy), "radius_px": radius*sx}
+
+
+def calibrated_c4_wall_geometry(image_shape) -> dict:
+    from blob_manager import getChannelPolygons
+    blob = getChannelPolygons() or {}
+    arcs = blob.get("arc_params") or {}
+    arc = arcs.get("classification_channel") or arcs.get("classification")
+    return wall_geometry_from_arc(arc, image_shape) if arc else {}
 
 
 def _line_distance_to_point(
@@ -208,27 +241,27 @@ def _fit_sector_phase(
     *,
     sector_count: int,
     step_deg: float = 0.25,
-    bandwidth_deg: float = 8.0,
+    bandwidth_deg: float = 2.0,
 ) -> float | None:
     if sector_count <= 0 or not candidates:
         return None
     sector_size = 360.0 / float(sector_count)
-    best_phase: float | None = None
-    best_score = -float("inf")
     steps = max(1, int(round(sector_size / step_deg)))
-    for idx in range(steps):
-        phase = idx * sector_size / float(steps)
-        score = 0.0
-        for line in candidates:
-            dist = _nearest_phase_axis_distance(line.angle_deg, phase, sector_count)
-            if dist > bandwidth_deg * 2.0:
-                continue
-            weight = math.exp(-0.5 * (dist / bandwidth_deg) ** 2)
-            score += max(1.0, line.score) * weight
-        if score > best_score:
-            best_score = score
-            best_phase = phase
-    return best_phase
+    phases = np.arange(steps)*sector_size/steps
+    angles = np.array([line.angle_deg for line in candidates])
+    weights = np.array([max(1.0, line.score) for line in candidates])
+    scores = np.zeros(steps)
+    # Each physical wall gets one vote. Hough fragments or both sides of one
+    # thick wall must not outweigh several independent walls.
+    for slot in range(sector_count):
+        distance = np.abs((angles[None, :]-phases[:, None]-slot*sector_size+180) % 360-180)
+        scores += np.max(weights[None, :]*np.exp(-0.5*(distance/bandwidth_deg)**2), axis=1)
+    best = int(np.argmax(scores))
+    separation = np.abs((phases-phases[best]+sector_size/2) % sector_size-sector_size/2)
+    rivals = scores[separation >= 8.0]
+    if rivals.size and float(np.max(rivals)) >= 0.85*float(scores[best]):
+        return None  # two plausible grids: do not silently choose one
+    return float(phases[best])
 
 
 def _select_axes_for_phase(
@@ -236,7 +269,7 @@ def _select_axes_for_phase(
     *,
     phase_deg: float,
     sector_count: int,
-    max_distance_deg: float = 14.0,
+    max_distance_deg: float = 5.0,
 ) -> list[WallLine]:
     if sector_count <= 0:
         return []
@@ -290,19 +323,24 @@ def detect_c4_wall_phase(
     image_bgr: np.ndarray,
     *,
     sector_count: int = DEFAULT_SECTOR_COUNT,
-    downscale: float = 0.4,
+    downscale: float = 1.0,
     max_axes: int | None = None,
+    center_xy: tuple[float, float] | None = None,
+    radius_px: float | None = None,
 ) -> C4WallPhaseResult:
     started = time.perf_counter()
     if image_bgr is None or not hasattr(image_bgr, "shape"):
         raise ValueError("image_bgr must be an OpenCV image")
     height, width = int(image_bgr.shape[0]), int(image_bgr.shape[1])
     sector_count = int(sector_count)
+    if sector_count < 3:
+        raise ValueError("sector_count must be at least three")
     sector_size = 360.0 / float(sector_count) if sector_count > 0 else 0.0
     max_axes = int(max_axes if max_axes is not None else max(1, sector_count))
-    scale = float(downscale)
-    if not math.isfinite(scale) or scale <= 0.0:
-        scale = 1.0
+    requested_scale = float(downscale)
+    if not math.isfinite(requested_scale) or requested_scale <= 0:
+        raise ValueError("downscale must be finite and positive")
+    scale = min(requested_scale, 960.0/max(height, width), 1.0)
     if scale < 0.999:
         work = cv2.resize(
             image_bgr,
@@ -316,7 +354,17 @@ def detect_c4_wall_phase(
         scale = 1.0
 
     try:
-        cx, cy, radius = fit_disc_circle(work)
+        if center_xy is None and radius_px is None:
+            cx, cy, radius = fit_disc_circle(work)
+        else:
+            if center_xy is None or radius_px is None:
+                raise ValueError("center and radius must be supplied together")
+            cx, cy = (float(v)*scale for v in center_xy)
+            radius = float(radius_px)*scale
+            if not all(math.isfinite(v) for v in (cx, cy, radius)) or radius <= 0:
+                raise ValueError("invalid calibrated geometry")
+            if not (0 <= cx < work.shape[1] and 0 <= cy < work.shape[0]):
+                raise ValueError("calibrated center outside image")
     except Exception as exc:
         elapsed_ms = (time.perf_counter() - started) * 1000.0
         return C4WallPhaseResult(
@@ -333,13 +381,14 @@ def detect_c4_wall_phase(
             raw_line_count=0,
             elapsed_ms=elapsed_ms,
             message=f"disc fit failed: {exc}",
+            geometry_source="calibration" if center_xy is not None else "image",
         )
 
     gray = cv2.cvtColor(work, cv2.COLOR_BGR2GRAY)
     h, w = int(work.shape[0]), int(work.shape[1])
     yy, xx = np.mgrid[:h, :w]
     rr = np.sqrt((xx - cx) ** 2 + (yy - cy) ** 2)
-    annulus = ((rr > radius * 0.20) & (rr < radius * 0.83) & (gray > 35)).astype(np.uint8) * 255
+    annulus = ((rr > radius * 0.25) & (rr < radius * 0.90) & (gray > 35)).astype(np.uint8) * 255
     equalized = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8)).apply(gray)
     blur = cv2.GaussianBlur(equalized, (3, 3), 0)
     edges = cv2.Canny(blur, 45, 115)
@@ -363,15 +412,19 @@ def detect_c4_wall_phase(
             if length < radius * 0.14:
                 continue
             distance = _line_distance_to_point(x1, y1, x2, y2, cx, cy)
-            if distance > radius * 0.075:
+            if distance > radius * 0.05:
                 continue
             r_min, r_max = _radius_range(x1, y1, x2, y2, cx, cy)
             if r_max < radius * 0.38 or r_min > radius * 0.78:
                 continue
             line_orientation = _line_orientation_180(x1, y1, x2, y2)
             radial_angle = _midpoint_angle_360(x1, y1, x2, y2, cx, cy)
-            if _angle_diff_180(line_orientation, radial_angle % 180.0) > 14.0:
+            if _angle_diff_180(line_orientation, radial_angle % 180.0) > 8.0:
                 continue
+            # Use edge direction, not the angle to its midpoint. The latter
+            # changes with wall thickness, fragment position and center error.
+            direction = min((line_orientation, line_orientation+180),
+                            key=lambda a: _angle_diff_360(a, radial_angle))
             score = length - distance * 2.0 + (r_max - r_min) * 0.3
             candidates.append(
                 WallLine(
@@ -379,7 +432,7 @@ def detect_c4_wall_phase(
                     y1=y1 / scale,
                     x2=x2 / scale,
                     y2=y2 / scale,
-                    angle_deg=radial_angle,
+                    angle_deg=direction,
                     score=score / scale,
                     distance_to_center_px=distance / scale,
                     radius_min_px=r_min / scale,
@@ -389,23 +442,22 @@ def detect_c4_wall_phase(
 
     fitted_phase = _fit_sector_phase(candidates, sector_count=sector_count)
     if fitted_phase is None:
-        axes = _group_wall_axes(candidates, max_axes=max_axes)
+        axes = []
     else:
         axes = _select_axes_for_phase(
             candidates,
             phase_deg=fitted_phase,
             sector_count=sector_count,
-        )
-        if not axes:
-            axes = _group_wall_axes(candidates, max_axes=max_axes)
+        )[:max_axes]
     angles = [line.angle_deg for line in axes]
-    phase = fitted_phase if fitted_phase is not None else _phase_from_wall_angles(angles, sector_count)
+    phase = _phase_from_wall_angles(angles, sector_count)
+    residual = max((_nearest_phase_axis_distance(a, phase, sector_count) for a in angles), default=None) if phase is not None else None
     elapsed_ms = (time.perf_counter() - started) * 1000.0
-    ok = phase is not None and len(axes) >= max(2, min(sector_count, 3))
+    ok = phase is not None and len(axes) >= 3 and residual <= 3.0
     message = (
         f"detected {len(axes)} wall axis candidate(s)"
         if ok
-        else f"insufficient wall axes: {len(axes)}"
+        else f"ambiguous or inconsistent wall axes: {len(axes)}, residual={residual}"
     )
     return C4WallPhaseResult(
         ok=ok,
@@ -422,6 +474,8 @@ def detect_c4_wall_phase(
         elapsed_ms=elapsed_ms,
         message=message,
         lines=tuple(axes),
+        geometry_source="calibration" if center_xy is not None else "image",
+        max_residual_deg=residual,
     )
 
 

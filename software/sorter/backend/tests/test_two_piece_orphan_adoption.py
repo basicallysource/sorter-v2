@@ -53,7 +53,7 @@ def _piece(tid: int, *, zone: int, capture_done: bool, last_seen: float) -> _Tra
     tp.retry_done = False
     tp.last_seen = last_seen
     tp.still_since = last_seen
-    tp.bbox = (0, 0, 0, 0)
+    tp.bbox = (0, 0, 10, 10)
     tp.worker = _Worker()
     return tp
 
@@ -126,7 +126,7 @@ def test_uncaptured_head_takes_over_a_waiting_orphan() -> None:
     twin.worker.ctx = SimpleNamespace(classify_started_at=0.0, known_object=None)
     twin.created_at = 0.0
     twin.gap_to_exit = 30.0
-    twin.bbox = (1, 2, 3, 4)
+    twin.bbox = (1, 2, 11, 12)
     orphan = _piece(3, zone=_ZONE_NONE, capture_done=True, last_seen=4.0)
     h._pieces = {4: twin}
     h._orphans = [(orphan, 4.5)]
@@ -135,3 +135,23 @@ def test_uncaptured_head_takes_over_a_waiting_orphan() -> None:
     assert h._pieces[4] is orphan and orphan.track_id == 4
     assert orphan.placed and orphan.result_applied
     assert h._orphans == []
+
+
+def test_orphan_adoption_uses_position_not_most_recent_loss() -> None:
+    h = _handler()
+    near = _piece(1, zone=_ZONE_NONE, capture_done=True, last_seen=1.0)
+    far = _piece(2, zone=_ZONE_NONE, capture_done=True, last_seen=1.0)
+    far.bbox = (100, 100, 110, 110)
+    h._orphans = [(near, 1.1), (far, 1.2)]
+    assert h._adoptOrphan(3, (1, 1, 11, 11), now=2.0) is near
+    assert h._orphans == [(far, 1.2)]
+
+
+def test_orphan_without_spatial_evidence_is_not_adopted() -> None:
+    h = _handler()
+    old = _piece(1, zone=_ZONE_NONE, capture_done=True, last_seen=1.0)
+    h._orphans = [(old, 1.1)]
+    assert h._adoptOrphan(3, (1000, 1000, 1010, 1010), now=2.0) is None
+    old.bbox = (0, 0, 0, 0)
+    assert h._adoptOrphan(3, (1, 1, 11, 11), now=2.0) is None
+    assert h._orphans == [(old, 1.1)]

@@ -17,6 +17,7 @@ COLOR_CORRECTION_ENABLED = False
 
 
 class ClassificationChannelMode(enum.Enum):
+    INDEXED_BUFFER_REV01 = "indexed_buffer_rev01"
     CLASSIC_CAROUSEL = "classic_carousel"
     DYNAMIC = "dynamic"
     SIMPLE_STATE_MACHINE_REV01 = "simple_state_machine_rev01"

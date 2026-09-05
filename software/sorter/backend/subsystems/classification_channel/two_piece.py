@@ -142,6 +142,33 @@ def _bboxIou(a: tuple[int, int, int, int], b: tuple[int, int, int, int]) -> floa
     return float(inter) / float(union) if union > 0 else 0.0
 
 
+def _reidentificationCandidate(candidates, bbox):
+    """Require nearby, similarly sized boxes and an unambiguous match.
+
+    This deliberately refuses recovery after a large unobserved move. Until
+    motion prediction is available, losing a result is preferable to assigning
+    that result (and its bin) to a different physical piece.
+    """
+    width, height = bbox[2] - bbox[0], bbox[3] - bbox[1]
+    if width <= 0 or height <= 0:
+        return None
+    ranked = []
+    for tp in candidates:
+        old = tp.bbox
+        ow, oh = old[2] - old[0], old[3] - old[1]
+        if ow <= 0 or oh <= 0:
+            continue
+        if not (0.5 <= width / ow <= 2.0 and 0.5 <= height / oh <= 2.0):
+            continue
+        distance = _bboxCenterShift(old, bbox) / max(width, height, ow, oh)
+        if distance <= 1.5:
+            ranked.append((distance, tp))
+    ranked.sort(key=lambda item: item[0])
+    if not ranked or (len(ranked) > 1 and ranked[1][0] - ranked[0][0] < 0.5):
+        return None
+    return ranked[0][1]
+
+
 class _Phase(Enum):
     # Platter STOPPED. Observe, photograph the drop-zone piece, classify, and aim
     # the chute for the head piece. The only place we accept a new piece.
@@ -288,19 +315,10 @@ class TwoPieceClassificationChannel(Rev01BaseState):
     def attemptStallAutoClear(self, *, max_output_deg: float) -> ChannelClearResult:
         """Forced recovery for a wedged channel: rotate forward (occupancy-checked,
         blocking) until perception sees the channel empty or the budget runs out.
-        A placed head is committed to distribution first — the chute is already
-        aimed for it, so the forced rotation drops it exactly where the normal
-        eject would have. Everything else on the channel falls wherever the chute
+        A placed head is committed only after the channel is confirmed clear.
+        Everything else on the channel falls wherever the chute
         happens to point; their in-flight objects are abandoned."""
-        placed = next((tp for tp in self._pieces.values() if tp.placed), None)
-        if placed is not None:
-            obj = placed.known_object
-            if obj is not None and obj.stage == PieceStage.distributing:
-                self.transport.advanceTransport()
-                self.logger.info(
-                    f"{LOG_TAG} stall auto-clear: committed placed head "
-                    f"track={placed.track_id} to distribution"
-                )
+        placed = next((tp for tp in self._pieces.values() if tp.placed and not tp.ejected), None)
         result = clearChannelByAdvancing(
             self.gc,
             self.irl,
@@ -320,6 +338,12 @@ class TwoPieceClassificationChannel(Rev01BaseState):
                 shaken.cleared, result.occupied_at_start, result.output_deg_moved, shaken.reason
             )
         if result.cleared:
+            if placed is not None:
+                obj = placed.known_object
+                if obj is not None and obj.stage == PieceStage.distributing:
+                    self.transport.advanceTransport()
+                    placed.ejected = True
+                    self.logger.info(f"{LOG_TAG} stall auto-clear: confirmed placed head track={placed.track_id} left")
             for tp in self._pieces.values():
                 try:
                     tp.worker.abandonInFlightObject(
@@ -380,6 +404,13 @@ class TwoPieceClassificationChannel(Rev01BaseState):
         pieces for new ids, retire pieces whose id has been gone too long, and
         flag double feeds."""
         seen: set[int] = set()
+        # Determine this before iterating: matching must not depend on detector
+        # ordering. A separately visible piece is not a lost track to recover.
+        visible = {
+            id(tp)
+            for po in getattr(state, "pieces", ())
+            if (tp := self._pieces.get(po.sv_bt_track_id) or self._aliases.get(po.sv_bt_track_id)) is not None
+        }
         for po in getattr(state, "pieces", ()):
             tid = po.sv_bt_track_id
             if tid is None:
@@ -394,12 +425,13 @@ class TwoPieceClassificationChannel(Rev01BaseState):
                 if zone != _ZONE_DROP:
                     # Pieces arrive in the drop zone, never forward: a new
                     # forward id is a re-identification or a twin box.
-                    tp = self._adoptOrphan(tid, now) or self._aliasNearestForwardPiece(tid, bbox, now)
+                    tp = self._adoptOrphan(tid, bbox, now) or self._aliasNearestForwardPiece(tid, bbox, now, visible)
                 if tp is None:
                     tp = self._createPiece(tid, now)
             if tp.track_id in seen:
                 continue  # the same piece reported twice in one frame
             seen.add(tp.track_id)
+            visible.add(id(tp))
             tp.zone = int(po.zone_code)
             if _bboxCenterShift(tp.bbox, bbox) > _STILL_MAX_SHIFT_PX:
                 tp.still_since = now
@@ -462,40 +494,36 @@ class TwoPieceClassificationChannel(Rev01BaseState):
         return best
 
     def _aliasNearestForwardPiece(
-        self, tid: int, bbox: tuple[int, int, int, int], now: float
+        self, tid: int, bbox: tuple[int, int, int, int], now: float, visible: set[int]
     ) -> Optional[_TrackedPiece]:
-        best: Optional[_TrackedPiece] = None
-        best_shift = float("inf")
-        for tp in self._pieces.values():
-            if tp.zone == _ZONE_DROP or tp.ejected or (now - tp.last_seen) > _ALIAS_RECENT_S:
-                continue
-            shift = _bboxCenterShift(tp.bbox, bbox)
-            if shift < best_shift:
-                best, best_shift = tp, shift
+        best = _reidentificationCandidate(
+            [tp for tp in self._pieces.values()
+             if tp.zone != _ZONE_DROP and not tp.ejected
+             and id(tp) not in visible and (now - tp.last_seen) <= _ALIAS_RECENT_S],
+            bbox,
+        )
         if best is None:
             return None
         self._aliases[tid] = best
         self.logger.info(
             f"{LOG_TAG} track={tid} appeared forward next to track={best.track_id} "
-            f"(shift={best_shift:.0f}px) — same piece"
+            f"(shift={_bboxCenterShift(best.bbox, bbox):.0f}px) — same piece"
         )
         return best
 
-    def _adoptOrphan(self, tid: int, now: float) -> Optional[_TrackedPiece]:
-        # A new id that first shows up FORWARD (not in the drop zone) is not an
-        # arrival — arrivals land in the drop zone. Bind it to the most recent
-        # orphan so its capture, result and chute aim carry over.
-        while self._orphans:
-            tp, orphaned_at = self._orphans.pop()
-            if (now - orphaned_at) > _ORPHAN_ADOPT_S:
-                self._orphans.append((tp, orphaned_at))
-                return None
-            self.logger.info(f"{LOG_TAG} re-identified track={tp.track_id} as track={tid}")
-            tp.track_id = tid
-            tp.last_seen = now
-            self._pieces[tid] = tp
-            return tp
-        return None
+    def _adoptOrphan(self, tid: int, bbox: tuple[int, int, int, int], now: float) -> Optional[_TrackedPiece]:
+        tp = _reidentificationCandidate(
+            [piece for piece, lost_at in self._orphans
+             if now - lost_at <= _ORPHAN_ADOPT_S and not piece.ejected], bbox,
+        )
+        if tp is None:
+            return None
+        self._orphans = [(piece, lost_at) for piece, lost_at in self._orphans if piece is not tp]
+        self.logger.info(f"{LOG_TAG} re-identified track={tp.track_id} as track={tid}")
+        tp.track_id = tid
+        tp.last_seen = now
+        self._pieces[tid] = tp
+        return tp
 
     def _expireOrphans(self, now: float) -> None:
         keep: list[tuple[_TrackedPiece, float]] = []
@@ -677,6 +705,12 @@ class TwoPieceClassificationChannel(Rev01BaseState):
                 tp.result_applied = True
                 self.noteProgress()
             elif (now - ctx.classify_started_at) > ctx.config.classify_timeout_s:
+                if tp.retry_started and not tp.retry_done:
+                    tp.retry_done = True
+                    tp.result_applied = True
+                    self.logger.warning(f"{LOG_TAG} retry timeout track={tp.track_id}; keeping first result")
+                    self.noteProgress()
+                    continue
                 self.logger.error(f"{LOG_TAG} classify timeout track={tp.track_id} -> unknown")
                 tp.worker.updateKnownObjectWithResult(None, "timeout")
                 tp.result_applied = True
@@ -697,7 +731,7 @@ class TwoPieceClassificationChannel(Rev01BaseState):
             # second id (two boxes on one piece from the first frame): take over
             # its capture, result and chute aim instead of starting a stray.
             if tp.worker.ctx.classify_started_at == 0.0 and self._orphans:
-                adopted = self._adoptOrphan(tp.track_id, now)
+                adopted = self._adoptOrphan(tp.track_id, tp.bbox, now)
                 if adopted is not None:
                     adopted.zone = tp.zone
                     adopted.bbox = tp.bbox
@@ -868,18 +902,21 @@ class TwoPieceClassificationChannel(Rev01BaseState):
         # Exit-only OR the unnamed gap past it: a piece resting on the lip
         # beyond the exit arc is coded NONE and is still very much on board.
         exit_arc_empty = not _exitArcOccupied(state)
-        if (gone_for >= _EJECT_GONE_CONFIRM_S and exit_arc_empty) or timed_out:
+        if gone_for >= _EJECT_GONE_CONFIRM_S and exit_arc_empty:
             # Commit it to distribution; the chute was already aimed.
             self.transport.advanceTransport()
             target.ejected = True
-            if timed_out and gone_for < _EJECT_GONE_CONFIRM_S:
-                self.logger.warning(
-                    f"{LOG_TAG} EJECT timeout track={target.track_id} — committing anyway"
-                )
-            else:
-                self.logger.info(f"{LOG_TAG} ejected track={target.track_id} (id gone)")
+            self.logger.info(f"{LOG_TAG} ejected track={target.track_id} (id gone, exit clear)")
             self._eject_target = None
             self._enterPhase(_Phase.STAGING)
+            return
+        if timed_out:
+            # Retain ownership of the head and its target bin. The existing
+            # no-progress watchdog performs recovery; a timer is not an exit
+            # sensor and must never commit an occupied output.
+            if not getattr(self, "_eject_timeout_logged", False):
+                self.logger.warning(f"{LOG_TAG} EJECT timeout track={target.track_id}; waiting for confirmed exit or recovery")
+                self._eject_timeout_logged = True
             return
         if gone_for > 0.0:
             return  # id missing (likely just dropped) — stop pushing, let it confirm
@@ -950,6 +987,7 @@ class TwoPieceClassificationChannel(Rev01BaseState):
         # progress is credited where pieces demonstrably move or complete a
         # milestone instead.
         self._phase = phase
+        self._eject_timeout_logged = False
         self._phase_started_at = time.monotonic()
 
     # ------------------------------------------------------------------ helpers

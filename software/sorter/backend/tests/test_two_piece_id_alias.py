@@ -83,3 +83,31 @@ def test_new_id_in_drop_never_binds_by_proximity() -> None:
     h._observe(_obs(1.0, (1, _ZONE_DROP, (600, 800, 700, 900))), now=1.0)
     h._observe(_obs(1.3, (2, _ZONE_DROP, (720, 800, 820, 900))), now=1.3)
     assert h.created == [1, 2]
+
+
+def test_far_forward_detection_is_not_the_previous_piece() -> None:
+    h = _handler()
+    h._observe(_obs(1.0, (1, _ZONE_NONE, (100, 100, 150, 150))), now=1.0)
+    h._observe(_obs(1.1, (2, _ZONE_NONE, (1500, 800, 1550, 850))), now=1.1)
+    assert h.created == [1, 2]
+
+
+def test_separately_visible_neighbour_is_not_aliased_in_either_order() -> None:
+    for reverse in (False, True):
+        h = _handler()
+        old = (1, _ZONE_NONE, (100, 100, 150, 150))
+        other = (2, _ZONE_NONE, (155, 100, 205, 150))
+        h._observe(_obs(1.0, old), now=1.0)
+        h._observe(_obs(1.1, *((other, old) if reverse else (old, other))), now=1.1)
+        assert h.created == [1, 2]
+
+
+def test_ambiguous_reidentification_does_not_choose_a_bin_identity() -> None:
+    h = _handler()
+    # Create in DROP, where distinct boxes never bind by proximity.
+    h._observe(_obs(1.0, (1, _ZONE_DROP, (100, 100, 150, 150)),
+                   (2, _ZONE_DROP, (200, 100, 250, 150))), now=1.0)
+    for tp in h._pieces.values():
+        tp.zone = _ZONE_NONE
+    h._observe(_obs(1.1, (3, _ZONE_NONE, (150, 100, 200, 150))), now=1.1)
+    assert h.created == [1, 2, 3]

@@ -5,6 +5,7 @@ lip, the eject was committed, and the piece came back as track 30 — an
 unclassified stray to misc, while distribution had already advanced.
 """
 import logging
+import pytest
 from types import SimpleNamespace
 
 from subsystems.classification_channel.two_piece import (
@@ -53,6 +54,23 @@ def test_id_gone_and_exit_arc_empty_commits() -> None:
     assert h.advanced == 1 and tp.ejected is True and h.phases == [_Phase.STAGING]
 
 
+def test_timeout_never_commits_an_occupied_exit_and_later_confirmation_can_finish() -> None:
+    h, tp = _handler()
+    for now in (116.0, 117.0):
+        tp.last_seen = now
+        h._ejecting(_state(exit_only=True), stopped=True, now=now)
+        assert h.advanced == 0 and not tp.ejected and h._eject_target is tp
+        assert h.phases == []
+    h._ejecting(_state(exit_only=False), stopped=True, now=118.0)
+    assert h.advanced == 1 and tp.ejected
+
+
+def test_timeout_with_missing_id_but_occupied_arc_keeps_bin_reserved() -> None:
+    h, tp = _handler()
+    h._ejecting(_state(exit_only=True), stopped=True, now=116.0)
+    assert h.advanced == 0 and not tp.ejected and h._eject_target is tp
+
+
 def test_staging_without_a_target_returns_to_waiting_without_rotating() -> None:
     h, _tp = _handler()
     h._phase = _Phase.STAGING
@@ -95,3 +113,28 @@ def test_no_rotation_step_while_a_drop_burst_is_in_progress() -> None:
     state = SimpleNamespace(pieces=[], exit_com_forward_to_center_deg=40.0)
     h._ejecting(state, stopped=True, now=100.5)
     assert moves == [] and tp.ejected is False
+
+
+@pytest.mark.parametrize("cleared", [False, True])
+def test_recovery_commits_only_after_successful_clear(monkeypatch, cleared) -> None:
+    from defs.known_object import PieceStage
+    from subsystems.classification_channel.simple_state_machine_rev01.channel_clear import ChannelClearResult
+
+    h, tp = _handler()
+    tp.placed = True
+    tp.worker = SimpleNamespace(
+        ctx=SimpleNamespace(known_object=SimpleNamespace(stage=PieceStage.distributing)),
+        abandonInFlightObject=lambda reason: None,
+    )
+    h._pieces = {tp.track_id: tp}
+    h.gc = SimpleNamespace()
+    h.irl = h.irl_config = SimpleNamespace()
+    h.cv = SimpleNamespace(_vision=None)
+    def clear(*args, **kwargs):
+        assert h.advanced == 0, "the physical clear must precede the commit"
+        return ChannelClearResult(cleared, True, 10.0, "cleared" if cleared else "move_failed")
+    monkeypatch.setattr("subsystems.classification_channel.two_piece.clearChannelByAdvancing", clear)
+    h.attemptStallAutoClear(max_output_deg=90.0)
+    assert h.advanced == int(cleared)
+    if not cleared:
+        assert h._pieces[tp.track_id] is tp and not tp.ejected

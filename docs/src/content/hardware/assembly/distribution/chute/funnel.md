@@ -61,6 +61,11 @@ Every chute carries a Funnel bracket (left) and a Funnel bracket (right), one of
 
 Each bracket takes 2 {% include fastener.html size="M3" variant="countersunk" length="12" %} screws, 4 for the pair. The bracket is 8.16 mm thick at the screw, so a 12 mm screw reaches 3.84 mm into the core's blind 5.70 mm insert and an 8 mm one would not reach it at all.
 
+<figure>
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-core-funnel-brackets-full-36040ab587fd.png" alt="Render of one long side of the chute core with the two heat inserts a funnel bracket screws into circled in red">
+  <figcaption>The two inserts one funnel bracket screws into, at the lower end of one long side of the chute core. The other long side carries the mirror pair for the second bracket. <cite>Render: Balloon.</cite></figcaption>
+</figure>
+
 <div class="img-placeholder">Photo of both funnel brackets fitted to the chute core.</div>
 
 {% include step.html n="3" title="Hang the funnel" %}

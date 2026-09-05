@@ -31,8 +31,8 @@ class Sending(BaseState):
         shared: SharedVariables,
         event_queue: queue.Queue,
         *,
-        layout: DistributionLayout | None = None,
-        sorting_profile: SortingProfile | None = None,
+        layout: DistributionLayout,
+        sorting_profile: SortingProfile,
         vision=None,
         post_distribute_cooldown_s: float = 0.0,
     ):
@@ -70,7 +70,7 @@ class Sending(BaseState):
             self.logger.warning(f"Sending: could not persist bin contents: {exc}")
             return
         destination = piece.get("destination_bin")
-        if count is None or self.layout is None or destination is None:
+        if count is None or destination is None:
             return
         layer_index, section_index, bin_index = (int(v) for v in destination)
         if layer_index >= len(self.layout.layers):
@@ -85,14 +85,35 @@ class Sending(BaseState):
             section_index=section_index,
             bin_index=bin_index,
             category_id=category_id,
-            category_label=(
-                self.sorting_profile.categoryLabel(category_id)
-                if self.sorting_profile is not None
-                else category_id
-            ),
+            category_label=self.sorting_profile.categoryLabel(category_id),
             piece_count=count,
             max_pieces_per_bin=int(limit),
         )
+
+    def _commitPiece(self) -> None:
+        """Record the dropped piece as distributed (event, bin count, recorder,
+        set progress). Idempotent per piece: the flag survives until cleanup."""
+        piece = self.piece
+        self._committed = True
+        if piece is None:
+            return
+        piece.stage = PieceStage.distributed
+        piece.distributed_at = time.time()
+        piece.updated_at = time.time()
+        event = knownObjectToEvent(piece)
+        self.event_queue.put(event)
+        self._persistDistribution(event.data.model_dump())
+        self.gc.run_recorder.recordPiece(piece)
+        tracker = getattr(self.gc, "set_progress_tracker", None)
+        if tracker is None:
+            return
+        tracker.record(piece.part_id, piece.color_id, piece.category_id)
+        try:
+            from server.set_progress_sync import getSetProgressSyncWorker
+
+            getSetProgressSyncWorker().notify()
+        except Exception:
+            pass
 
     def step(self) -> Optional[DistributionState]:
         now = time.time()
@@ -132,28 +153,7 @@ class Sending(BaseState):
         if not self._committed:
             self.logger.info(f"Sending: settle complete ({elapsed_ms:.0f}ms)")
             self._setOccupancyState("sending.commit_piece")
-            if self.piece:
-                self.piece.stage = PieceStage.distributed
-                self.piece.distributed_at = time.time()
-                self.piece.updated_at = time.time()
-                event = knownObjectToEvent(self.piece)
-                self.event_queue.put(event)
-                self._persistDistribution(event.data.model_dump())
-                self.gc.run_recorder.recordPiece(self.piece)
-                tracker = getattr(self.gc, 'set_progress_tracker', None)
-                if tracker is not None:
-                    tracker.record(
-                        self.piece.part_id,
-                        self.piece.color_id,
-                        self.piece.category_id,
-                    )
-                    try:
-                        from server.set_progress_sync import getSetProgressSyncWorker
-
-                        getSetProgressSyncWorker().notify()
-                    except Exception:
-                        pass
-            self._committed = True
+            self._commitPiece()
 
         # Chute-settle timer elapsed and the piece has been committed. Now
         # gate the downstream reopen on either:
@@ -292,6 +292,10 @@ class Sending(BaseState):
 
     def cleanup(self) -> None:
         super().cleanup()
+        # A piece picked up here has physically left the chute; a pause/stop
+        # during the settle window must still count it exactly once.
+        if not self._committed:
+            self._commitPiece()
         self.piece = None
         self.start_time = 0.0
         self._committed = False

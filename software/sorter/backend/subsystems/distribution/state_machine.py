@@ -83,3 +83,14 @@ class DistributionStateMachine(BaseSubsystem):
     def cleanup(self) -> None:
         self.gc.profiler.exitState("distribution")
         self.states_map[self.current_state].cleanup()
+        # Back to IDLE so a resume re-reads the transport instead of replaying
+        # the interrupted state: SENDING would otherwise pick up the same
+        # exit piece again and commit it a second time.
+        prev_state = self.current_state
+        if prev_state == DistributionState.IDLE:
+            return
+        self.current_state = DistributionState.IDLE
+        if hasattr(self.gc, "runtime_stats"):
+            self.gc.runtime_stats.observeStateTransition(
+                "distribution", prev_state.value, self.current_state.value
+            )

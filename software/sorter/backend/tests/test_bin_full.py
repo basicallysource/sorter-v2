@@ -5,6 +5,7 @@ reset-bins flow) resolves it."""
 
 from __future__ import annotations
 
+import contextlib
 import os
 import queue
 import tempfile
@@ -36,6 +37,7 @@ from subsystems.distribution.incidents import (
 )
 from subsystems.distribution.positioning import Positioning
 from subsystems.distribution.sending import CHUTE_SETTLE_MS, Sending
+from subsystems.distribution.state_machine import DistributionStateMachine
 from subsystems.distribution.states import DistributionState
 from subsystems.shared_variables import SharedVariables
 
@@ -54,6 +56,11 @@ class _Logger:
 class _Profiler:
     def hit(self, *args, **kwargs) -> None:
         pass
+
+    enterState = exitState = hit
+
+    def timer(self, *args, **kwargs):
+        return contextlib.nullcontext()
 
 
 class _Profile(SortingProfile):
@@ -129,7 +136,7 @@ class BinFullTests(unittest.TestCase):
 
     # -- threshold -> incident + pause ----------------------------------------
 
-    def _commit_piece(self, uuid: str, *, layout: DistributionLayout) -> None:
+    def _shared_with_dropped_piece(self, uuid: str) -> SharedVariables:
         transport = ClassificationChannelTransport()
         piece = KnownObject(tracked_global_id=7, part_id="3001", color_id="5")
         piece.uuid = uuid
@@ -139,16 +146,23 @@ class BinFullTests(unittest.TestCase):
         shared = SharedVariables(gc=self.gc, bus=TickBus())
         shared.transport = transport
         shared.set_distribution_gate(False, reason="test")
-        vision = SimpleNamespace(getFeederTrackerLiveGlobalIds=lambda role: set(), forceKillCarouselTrack=lambda gid: True)
-        sending = Sending(
+        return shared
+
+    _vision = SimpleNamespace(getFeederTrackerLiveGlobalIds=lambda role: set(), forceKillCarouselTrack=lambda gid: True)
+
+    def _sending(self, shared: SharedVariables, *, layout: DistributionLayout) -> Sending:
+        return Sending(
             SimpleNamespace(),  # type: ignore[arg-type]
             self.gc,  # type: ignore[arg-type]
             shared,
             queue.Queue(),
             layout=layout,
             sorting_profile=_Profile(),
-            vision=vision,
+            vision=self._vision,
         )
+
+    def _commit_piece(self, uuid: str, *, layout: DistributionLayout) -> None:
+        sending = self._sending(self._shared_with_dropped_piece(uuid), layout=layout)
         self.assertIsNone(sending.step())
         sending.start_time = time.time() - CHUTE_SETTLE_MS / 1000.0 - 5.0
         sending.step()
@@ -179,6 +193,54 @@ class BinFullTests(unittest.TestCase):
         self.assertIsNone(self.runtime_stats.activeIncident())
         self.assertTrue(self.cmd_queue.empty())
         self.assertEqual({(0, 0, 0): 3}, get_current_bin_piece_counts())
+
+    def test_pause_after_bin_full_does_not_commit_the_piece_again(self) -> None:
+        # The bin-full pause fires right after commit while the transport still
+        # holds the exit piece; the pause tears the machine down and a resume
+        # must start from IDLE instead of replaying SENDING on the same piece.
+        recorded: list[str] = []
+        self.gc.run_recorder = SimpleNamespace(recordPiece=lambda piece: recorded.append(piece.uuid))
+        shared = self._shared_with_dropped_piece("p1")
+        # The carousel tracker still sees the piece, so SENDING holds the gate
+        # (wait_piece_exit) and is the state the pause interrupts.
+        vision = SimpleNamespace(getFeederTrackerLiveGlobalIds=lambda role: {7}, forceKillCarouselTrack=lambda gid: True)
+        machine = DistributionStateMachine(
+            SimpleNamespace(chute=MagicMock(spec=Chute), servos=[]),  # type: ignore[arg-type]
+            self.gc,  # type: ignore[arg-type]
+            shared,
+            _Profile(),
+            _layout(max_pieces_per_bin=1),
+            queue.Queue(),
+            vision=vision,
+        )
+        machine.current_state = DistributionState.SENDING
+        machine.step()
+        machine.states_map[DistributionState.SENDING].start_time = time.time() - CHUTE_SETTLE_MS / 1000.0 - 5.0
+        machine.step()
+        self.assertEqual(DistributionState.SENDING, machine.current_state)
+        self.assertEqual(DISTRIBUTION_BIN_FULL_INCIDENT_KIND, self.runtime_stats.activeIncident()["kind"])
+        self.assertIsInstance(self.cmd_queue.get_nowait(), PauseCommandEvent)
+
+        machine.cleanup()  # SorterController.pause()
+        self.assertEqual(DistributionState.IDLE, machine.current_state)
+        # Operator presses Play; the exit slot still holds p1 and a replayed
+        # SENDING would commit it again once its settle timer elapsed.
+        machine.step()
+        machine.states_map[DistributionState.SENDING].start_time = time.time() - CHUTE_SETTLE_MS / 1000.0 - 5.0
+        machine.step()
+        self.assertEqual(["p1"], recorded)
+        self.assertEqual({(0, 0, 0): 1}, get_current_bin_piece_counts())
+        self.assertTrue(self.cmd_queue.empty())
+
+    def test_teardown_commits_a_dropped_but_unsettled_piece(self) -> None:
+        recorded: list[str] = []
+        self.gc.run_recorder = SimpleNamespace(recordPiece=lambda piece: recorded.append(piece.uuid))
+        sending = self._sending(self._shared_with_dropped_piece("p1"), layout=_layout(max_pieces_per_bin=None))
+        self.assertIsNone(sending.step())  # dropped, settle timer running
+        sending.cleanup()
+        sending.cleanup()
+        self.assertEqual(["p1"], recorded)
+        self.assertEqual({(0, 0, 0): 1}, get_current_bin_piece_counts())
 
     def test_positioning_holds_piece_when_its_bin_is_already_full(self) -> None:
         # E.g. after a restart with a full bin: the next piece for that
@@ -259,6 +321,32 @@ class BinFullTests(unittest.TestCase):
         hardware.clear_bin_category_assignments(scope="all")
         self.assertIsNone(self.runtime_stats.activeIncident())
         self.assertEqual({0}, set(get_current_bin_piece_counts().values()))
+
+    def test_reset_flows_zero_counts_before_resolving_incident(self) -> None:
+        # The coordinator re-reads the counts the moment the incident slot is
+        # free; resolving first would let it re-raise the incident mid-reset.
+        flows = [
+            lambda: hardware.clear_bin_category_assignments(scope="all"),
+            lambda: hardware.clear_bin_category_assignments(scope="layer", layer_index=0),
+            lambda: hardware.clear_bin_category_assignments(scope="bin", layer_index=0, section_index=0, bin_index=0),
+            lambda: hardware.clear_bin_contents(scope="all"),
+            lambda: hardware.clear_bin_contents(scope="layer", layer_index=0),
+            lambda: hardware.clear_bin_contents(scope="bin", layer_index=0, section_index=0, bin_index=0),
+        ]
+        original = hardware.clear_current_session_bins
+        for flow in flows:
+            self._raise_full()
+            seen: list[dict | None] = []
+
+            def zero_counts(*args, **kwargs):
+                seen.append(self.runtime_stats.activeIncident())
+                return original(*args, **kwargs)
+
+            with patch.object(hardware, "clear_current_session_bins", side_effect=zero_counts):
+                flow()
+            self.assertEqual([DISTRIBUTION_BIN_FULL_INCIDENT_KIND], [i and i["kind"] for i in seen])
+            self.assertIsNone(self.runtime_stats.activeIncident())
+            self.assertEqual(0, get_current_bin_piece_counts().get((0, 0, 0), 0))
 
 
 if __name__ == "__main__":

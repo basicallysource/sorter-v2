@@ -20,9 +20,11 @@ from __future__ import annotations
 import queue
 import time
 import unittest
+from types import SimpleNamespace
 from unittest.mock import patch
 
 from defs.known_object import KnownObject
+from irl.bin_layout import DistributionLayout
 from piece_transport import ClassificationChannelTransport
 from runtime_stats import RuntimeStatsCollector
 from subsystems.bus import TickBus
@@ -127,6 +129,8 @@ def _mkSending(
         gc,  # type: ignore[arg-type]
         shared,
         event_queue,
+        layout=DistributionLayout(layers=[]),
+        sorting_profile=SimpleNamespace(categoryLabel=lambda category_id: category_id),  # type: ignore[arg-type]
         vision=vision,
         post_distribute_cooldown_s=cooldown_s,
     )

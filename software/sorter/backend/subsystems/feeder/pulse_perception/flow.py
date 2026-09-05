@@ -75,27 +75,32 @@ def _exitPieceCount(state) -> int:
 class ExitDepartureDetector:
     """Reports when the number of pieces in a channel's exit arc drops.
 
-    A decrease counts only once the lower count has been seen on two
-    consecutive reads, so a one-frame detector dropout does not open the
-    admission window for nothing."""
+    Uses the rolling MAXIMUM of the count over the last ``hold_s`` seconds: a
+    piece at the detection threshold flickers the count (3<->4 every second
+    on 2026-09-05) and a two-read confirmation turned every dip into a
+    'departure' that starved C3. Flicker keeps the maximum up; only a drop
+    that lasts the whole window is a departure, reported at most once per
+    ``min_interval_s``."""
 
-    def __init__(self) -> None:
-        self._stable: int | None = None
-        self._candidate: int | None = None
+    def __init__(self, hold_s: float = 0.8, min_interval_s: float = 1.0) -> None:
+        self._hold_s = float(hold_s)
+        self._min_interval_s = float(min_interval_s)
+        self._samples: list[tuple[float, int]] = []
+        self._last_max: int | None = None
+        self._last_fired_at: float = -1e9
 
-    def observe(self, count: int) -> bool:
-        if self._stable is None:
-            self._stable = count
-            self._candidate = count
+    def observe(self, count: int, now: float | None = None) -> bool:
+        t = time.monotonic() if now is None else float(now)
+        self._samples.append((t, int(count)))
+        self._samples = [(ts, c) for ts, c in self._samples if t - ts <= self._hold_s]
+        rolling_max = max(c for _, c in self._samples)
+        if self._last_max is None:
+            self._last_max = rolling_max
             return False
-        if count == self._stable:
-            self._candidate = count
-            return False
-        if count != self._candidate:
-            self._candidate = count  # first sighting of a new value: wait
-            return False
-        departed = count < self._stable
-        self._stable = count
+        departed = rolling_max < self._last_max and (t - self._last_fired_at) >= self._min_interval_s
+        self._last_max = rolling_max
+        if departed:
+            self._last_fired_at = t
         return departed
 
 

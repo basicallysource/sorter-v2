@@ -39,8 +39,8 @@ class PulsePerceptionConfig:
     # push again. When downstream is NOT ready the channel holds still.
     exit_pulse_output_deg: float = 2.0
     exit_pulse_pause_ms: int = 100
-    # While the leading piece is in the exit arc but not yet in the precise
-    # sub-arc (the lip), approach with this larger pulse; the small
+    # While pieces are in the exit arc but none has reached the exit-only
+    # band (the lip), approach with this larger pulse; the small
     # exit_pulse_output_deg is only for the final tip-over.
     exit_approach_output_deg: float = 8.0
     # C1 (bulk feeder) has no vision zones: pulse it forward a fixed amount
@@ -114,7 +114,7 @@ FIELD_META: list[dict] = [
     {"section": "Motion", "key": "min_move_output_deg", "label": "Min move (output deg)", "type": "float", "default": _DEFAULTS.min_move_output_deg, "description": "Moves smaller than this are treated as noise and skipped."},
     {"section": "Drop-zone pulse", "key": "drop_pulse_output_deg", "label": "Drop-zone pulse distance (output deg)", "type": "float", "default": _DEFAULTS.drop_pulse_output_deg, "description": "How far a piece is nudged per pulse while it is still back in the drop zone (not yet at the exit edge)."},
     {"section": "Drop-zone pulse", "key": "drop_pulse_pause_ms", "label": "Drop-zone pause between pulses (ms)", "type": "int", "default": _DEFAULTS.drop_pulse_pause_ms, "description": "Pause after each drop-zone pulse so vision can re-read the piece before the next nudge."},
-    {"section": "Exit pulse", "key": "exit_approach_output_deg", "label": "Exit approach pulse (output deg)", "type": "float", "default": _DEFAULTS.exit_approach_output_deg, "description": "Pulse size while the leading piece is inside the exit arc but not yet in the precise sub-arc at the lip. The small exit pulse takes over for the final tip-over."},
+    {"section": "Exit pulse", "key": "exit_approach_output_deg", "label": "Exit approach pulse (output deg)", "type": "float", "default": _DEFAULTS.exit_approach_output_deg, "description": "Pulse size while pieces are in the exit arc but none has reached the exit-only band at the lip. The small exit pulse takes over for the final tip-over."},
     {"section": "Exit pulse", "key": "exit_pulse_output_deg", "label": "Exit pulse distance (output deg)", "type": "float", "default": _DEFAULTS.exit_pulse_output_deg, "description": "How far a piece is nudged per pulse once it reaches the exit edge and is being metered into the next channel. Smaller is gentler and less likely to push two pieces through at once. Use the speed presets above to set this."},
     {"section": "Exit pulse", "key": "exit_pulse_pause_ms", "label": "Exit pause between pulses (ms)", "type": "int", "default": _DEFAULTS.exit_pulse_pause_ms, "description": "Pause after each exit pulse so the downstream channel registers the piece before another nudge."},
     {"section": "C1 (bulk)", "key": "ch1_pulse_output_deg", "label": "C1 bulk pulse distance (output deg)", "type": "float", "default": _DEFAULTS.ch1_pulse_output_deg, "description": "C1 (bulk) has no camera — it just pulses forward this far whenever C2's drop zone is clear."},

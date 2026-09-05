@@ -104,7 +104,9 @@ The arm and the mount butt together end to end, and brackets A and B hold the jo
 
 **The two brackets share their screw holes.** The mount and the arm each carry two 2.8 mm pilot holes that run 19.8 mm straight through the joint, so bracket A's screw enters one end and bracket B's the other, and eight screws go into four holes. Both pairs are 20 mm apart along the joint.
 
-Drive all 8 {% include fastener.html size="M3" variant="countersunk" length="12" %} screws, four per bracket, seated flush in the countersinks. A 12 mm countersunk leaves about 7.5 mm of thread inside a 19.8 mm hole, so two screws coming from opposite ends stop roughly 5 mm short of each other. Stop as soon as each head seats: you are cutting a thread in plastic, and the far half of the hole is somebody else's screw.
+Drive all 8 {% include fastener.html size="M3" variant="countersunk" length="12" %} screws, four per bracket, seated flush in the countersinks. Stop as soon as each head seats: you are cutting a thread in plastic, and the far half of the hole is somebody else's screw.
+
+**12 mm is the length, and it is the only one that fits.** A countersunk screw's length is measured over its head, so 12 mm through a 4.5 mm bracket leaves about 7.5 mm of thread in the 19.8 mm hole and two screws coming from opposite ends stop roughly 5 mm short of each other. A 16 would put 11.5 mm in from each end, 23 mm of screw in a 19.8 mm hole, and the two would meet before either seated. ReveryX confirmed the M3 × 12 on an assembled arm, 2026-09-05.
 
 <figure class="single-figure">
   <img class="doc-figure" src="https://assets.basically.website/sorter-docs/camera-lamp-mounted-wide-w1600-247fb837f4f8.jpg" alt="A wider view of a camera lamp on the machine, showing the full length of the arm from the lamp down to the C-channel, with a bracket screwed along the joint and the LED leads cable-tied along the arm">
@@ -125,7 +127,7 @@ The two {% include fastener.html size="M3" variant="countersunk" length="8" %} s
 
 <div class="callout callout-warning">
   <span class="callout-icon" aria-hidden="true">⚠</span>
-  <p><b>Two screws, not four.</b> The parts calculator lists 4 × M3 × 8 here and flags the count as unconfirmed. There are only two screw positions in either STL. An M3 × 8 countersunk gets about 2 mm of thread into the top half, which is not much, so do not overtighten and check the halves close flush on the board.</p>
+  <p><b>Two screws, not four, and the length is the one thing here still worth checking.</b> The parts calculator lists 4 × M3 × 8 and flags the count as unconfirmed; there are only two screw positions in either STL. On the lengths: the bottom half is 6 mm thick, so an M3 × 8 countersunk reaches about 2 mm into the top half's 5 mm pilot, and an M3 × 10 would give 4 mm and still stop 2 mm short of the top face. Nobody has confirmed either against a build. Do not overtighten, and check the halves close flush on the board.</p>
 </div>
 
 The clasp is what carries the camera into the lamp: its two halves form a 4 mm spigot on the diagonal, which plugs into a 4.2 mm socket in the camera lamp ring. The ring has two of those sockets at the same radius; which one is intended, and whether the module is meant to come out again, is not recorded. <span class="fastener-todo">fastener not recorded</span>

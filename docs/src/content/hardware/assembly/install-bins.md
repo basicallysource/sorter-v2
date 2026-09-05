@@ -28,7 +28,7 @@ parts_needed:
 
 Bins go in last, once the tower is standing, the chutes are in and the feeder is on. Nothing here is fastened: each bin drops into its bay and is held by the [bin retainers]({{ '/hardware/assembly/distribution/bin-frame/regular-layers/' | relative_url }}) that are already bolted to the frame.
 
-The list above is per layer, and a layer takes **one** of the two sets, not both. Which one is decided by that layer's funnel, in step 1.
+The list above is per layer, and a layer takes **one** of the two sets, not both. Which set depends on the size you chose for that layer, which is step 1.
 
 <div class="img-row">
   <figure>
@@ -41,14 +41,16 @@ The list above is per layer, and a layer takes **one** of the two sets, not both
   </figure>
 </div>
 
-{% include step.html n="1" title="Match the bin size to the layer's funnel" %}
+{% include step.html n="1" title="Check which set each layer takes" %}
 
-The funnel and the bin set are a matched pair, chosen per layer rather than once for the whole machine, so a five layer machine can mix them. See [Funnel]({{ '/hardware/assembly/distribution/chute/funnel/' | relative_url }}), which is where the choice is made before printing.
+You made this choice per layer when you printed the funnels: each layer is either half size or third size, a machine can mix them, and the funnel and the bin set are a matched pair. So a layer takes whichever set matches the funnel already on it.
 
-- **Funnel (half size)** → **12 bins** on that layer: 6 Bin (half, left) and 6 Bin (half, right).
-- **Funnel (third size)** → **18 bins** on that layer: 6 each of Bin (third, left), Bin (third, center) and Bin (third, right-back).
+- **A half-size layer** takes **12 bins**: 6 Bin (half, left) and 6 Bin (half, right).
+- **A third-size layer** takes **18 bins**: 6 each of Bin (third, left), Bin (third, center) and Bin (third, right-back).
 
-Either way it is one set per bay, six bays around the hexagon. A layer built with third bins gives you more, smaller destinations; the tradeoff is that the funnel opening is smaller too, which limits the size of piece that layer can take.
+Either way it is one set per bay, six bays around the hexagon.
+
+Changing a layer's mind at this point means a new funnel as well as new bins, so it is worth knowing what the choice was about: 12 wider bins against 18 narrower ones, and the funnel mouth is what limits the piece size that layer can take. The full comparison, and what to pick if you are still deciding, is on [Funnel]({{ '/hardware/assembly/distribution/chute/funnel/' | relative_url }}).
 
 {% include step.html n="2" title="Get the bins: print them or cut them" %}
 

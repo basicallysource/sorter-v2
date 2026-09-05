@@ -111,6 +111,29 @@ def stallOut(sm: ClassificationChannelStateMachine) -> None:
     sm._two_piece.last_progress_at = time.monotonic() - (_STALL_INCIDENT_MS / 1000.0) - 1.0
 
 
+def test_indexed_missing_reservation_still_trips_watchdog(machine_params_env):
+    setExitStuckMode("manual")
+    sm = mkWatchdogSm(n_pieces=0)
+    sm._mode = ClassificationChannelMode.INDEXED_BUFFER_REV01
+    sm._two_piece.hasReservations = lambda: True
+    stallOut(sm)
+    sm._checkStall(time.monotonic())
+    assert sm.gc.runtime_stats.activeIncident() is not None
+
+
+def test_indexed_mode_refuses_unbounded_manual_wiggle(machine_params_env):
+    setExitStuckMode("manual")
+    sm = mkWatchdogSm(n_pieces=1)
+    sm._mode = ClassificationChannelMode.INDEXED_BUFFER_REV01
+    sm._two_piece.hasReservations = lambda: True
+    stallOut(sm)
+    sm._checkStall(time.monotonic())
+    assert not sm.requestStallShake(amplitude_output_deg=8, cycles=3,
+                                   microsteps_per_second=4000,
+                                   acceleration_microsteps_per_second_sq=80000)
+    assert sm._stall_shake_request is None
+
+
 def test_no_incident_while_progress_is_fresh(machine_params_env) -> None:
     setExitStuckMode("manual")
     sm = mkWatchdogSm(n_pieces=1)

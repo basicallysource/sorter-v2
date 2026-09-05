@@ -161,7 +161,7 @@ class Positioning(BaseState):
 
             if (
                 piece.part_id is not None
-                and piece.classification_status != ClassificationStatus.low_confidence
+                and piece.classification_status == ClassificationStatus.classified
             ):
                 category_id = self.sorting_profile.getCategoryIdForPart(piece.part_id, piece.color_id)
             else:
@@ -171,7 +171,7 @@ class Positioning(BaseState):
             # the configured category (e.g. Yellow/Orange Tiles), so it lands in
             # that category's bin regardless of its normal classification.
             high_value_category = self.sorting_profile.highValueCategoryId(piece.moving_avg_price)
-            if high_value_category is not None:
+            if high_value_category is not None and piece.classification_status == ClassificationStatus.classified:
                 self.logger.info(
                     f"Positioning: piece {piece.uuid} ({piece.part_id}) moving-avg "
                     f"${piece.moving_avg_price} clears high-value threshold — routing to "

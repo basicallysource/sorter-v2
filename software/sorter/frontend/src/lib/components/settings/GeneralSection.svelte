@@ -130,6 +130,7 @@
 
 	function classificationModeLabel(mode: string): string {
 		const labels: Record<string, string> = {
+			indexed_buffer_rev01: 'Five-pocket buffer (experimental)',
 			simple_state_machine_rev01: 'Simple State Machine',
 			two_piece_state_machine_rev01: 'Two Piece',
 			classic_carousel: 'Classic Carousel',
@@ -433,7 +434,7 @@
 					<div>
 						<div class="mb-1.5 text-xs font-medium text-text">Classification Channel Mode</div>
 						<div class="flex flex-wrap gap-2">
-							{#each ['two_piece_state_machine_rev01', 'simple_state_machine_rev01', 'classic_carousel', 'dynamic'] as mode}
+							{#each ['indexed_buffer_rev01', 'two_piece_state_machine_rev01', 'simple_state_machine_rev01', 'classic_carousel', 'dynamic'] as mode}
 								<button
 									onclick={() => saveClassificationMode(mode)}
 									disabled={savingClassificationMode}
@@ -458,6 +459,11 @@
 							<div class="mt-1 text-xs text-danger">{classificationModeError}</div>
 						{:else if classificationModeStatus}
 							<div class="mt-1 text-xs text-text-muted">{classificationModeStatus}</div>
+						{/if}
+						{#if classificationMode === 'indexed_buffer_rev01'}
+							<p class="mt-1 text-xs text-text-muted">
+								Experimental: start with an empty, aligned platter. Uncertain pocket occupancy stops feeding.
+							</p>
 						{/if}
 					</div>
 

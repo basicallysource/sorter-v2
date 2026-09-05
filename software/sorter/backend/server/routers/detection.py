@@ -1844,6 +1844,13 @@ def _c4_state_machine() -> Any:
     return getattr(coordinator, "classification", None) if coordinator is not None else None
 
 
+@router.get("/api/classification-channel/buffer-status")
+def classification_channel_buffer_status() -> Dict[str, Any]:
+    controller = getattr(_c4_state_machine(), "_two_piece", None)
+    snapshot = getattr(controller, "status_snapshot", None)
+    return {"active": snapshot is not None, "buffer": snapshot}
+
+
 @router.post("/api/classification-channel/exit-incident/continue")
 def classification_channel_exit_incident_continue(
     payload: ClassificationExitIncidentActionPayload | None = None,
@@ -2495,12 +2502,20 @@ def classification_channel_wall_phase(
 
     from vision.c4_wall_phase import detect_c4_wall_phase
 
-    result = detect_c4_wall_phase(frame.raw)
+    result = detect_c4_wall_phase(frame.raw, **_c4_wall_geometry(frame.raw))
     return {
         "ok": True,
         "frame_luma": _frame_luma_payload(frame.raw),
         **result.as_dict(include_lines=include_lines),
     }
+
+
+def _c4_wall_geometry(frame_bgr: Any) -> Dict[str, Any]:
+    from vision.c4_wall_phase import calibrated_c4_wall_geometry
+    try:
+        return calibrated_c4_wall_geometry(frame_bgr.shape)
+    except (ValueError, KeyError, TypeError) as exc:
+        raise HTTPException(status_code=409, detail=f"Invalid C4 camera geometry: {exc}") from exc
 
 
 def _frame_luma_payload(frame_bgr: Any) -> Dict[str, Any]:
@@ -2557,12 +2572,12 @@ def classification_channel_sector_occupancy(
         C4SectorDetection,
     )
 
-    phase = detect_c4_wall_phase(frame.raw)
+    phase = detect_c4_wall_phase(frame.raw, **_c4_wall_geometry(frame.raw))
     irl_config = _active_irl_config()
     platter = C4FiveSectorPlatter.from_irl_config(irl_config)
     phase_offset = phase.sector_offset_deg if phase.sector_offset_deg is not None else 0.0
 
-    if phase.center_x is None or phase.center_y is None:
+    if not phase.ok or phase.center_x is None or phase.center_y is None:
         return {
             "ok": False,
             "message": phase.message,

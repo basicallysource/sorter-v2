@@ -142,6 +142,7 @@ def _perceptionModeActive(irl_config) -> bool:
         in (
             ClassificationChannelMode.SIMPLE_STATE_MACHINE_REV01,
             ClassificationChannelMode.TWO_PIECE_STATE_MACHINE_REV01,
+            ClassificationChannelMode.INDEXED_BUFFER_REV01,
         )
     )
 

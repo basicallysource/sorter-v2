@@ -5,6 +5,7 @@
 # Licensed under the MIT License. See LICENSE file in the project root for full license information.
 
 
+import math
 import os
 import time
 import json
@@ -189,6 +190,10 @@ class StepperMotor:
         # Last acceleration we sent to the firmware; lets _ensure_move_acceleration
         # skip the UART write when the value is already correct.
         self._applied_acceleration: int | None = None
+        # Last speed limits sent to the firmware; the move-time estimate needs
+        # the ramp start speed and the real ceiling.
+        self._applied_min_speed: int | None = None
+        self._applied_max_speed: int | None = None
 
     def _logical_to_physical_steps(self, value: int) -> int:
         return -value if self._direction_inverted else value
@@ -330,6 +335,8 @@ class StepperMotor:
         self._gc.logger.info(f"Stepper '{self._name}' ch{self._channel}: set_speed_limits min={min_speed} max={max_speed} µsteps/s")
         payload = struct.pack("<II", min_speed, max_speed) # 8 bytes, two little-endian unsigned integers
         self._dev.send_command(InterfaceCommandCode.STEPPER_SET_SPEED_LIMITS, self._channel, payload)
+        self._applied_min_speed = int(min_speed)
+        self._applied_max_speed = int(max_speed)
         _controlDataRecordCommand(
             {
                 "cmd": "set_speed_limits",
@@ -603,13 +610,41 @@ class StepperMotor:
         steps = self.microsteps_for_degrees(degrees)
         return self.move_steps_blocking(steps, timeout_ms=timeout_ms)
 
+    # Firmware defaults (Stepper.cpp constructor / set_speed_limits floor).
+    _FIRMWARE_DEFAULT_ACCELERATION = 10000
+    _FIRMWARE_DEFAULT_MIN_SPEED = 16
+
     def estimateMoveStepsMs(self, steps: int, max_speed: int = 5000) -> int:
-        """Estimate the time (in milliseconds) it will take to move a given number of steps."""
+        """Time a firmware distance move takes, ramps included.
+
+        The firmware starts at the min speed, accelerates at the applied
+        acceleration to the ceiling, cruises and brakes symmetrically — and it
+        rejects any new move until the previous one has fully stopped. The old
+        steps/speed estimate ignored the ramps, so the pulse feeder re-issued
+        moves too early and the firmware dropped them (B1 machine: a 96-step
+        exit pulse takes ~200 ms, not 48 ms; a 325° drop pulse ~920 ms, not
+        722 ms). Includes a safety margin for the firmware's update quantization.
+        """
         if steps == 0:
             return 0
         steps = abs(steps)
-        estimated_seconds = steps / max_speed
-        return max(1, int(estimated_seconds * 1000))
+        ceiling = self._applied_max_speed or int(max_speed)
+        v_max = max(1, min(int(max_speed), ceiling))
+        v0 = min(self._applied_min_speed or self._FIRMWARE_DEFAULT_MIN_SPEED, v_max)
+        accel = max(
+            1,
+            self._applied_acceleration
+            or self._default_acceleration
+            or self._FIRMWARE_DEFAULT_ACCELERATION,
+        )
+        ramp_steps = (v_max * v_max - v0 * v0) / (2.0 * accel)
+        if 2.0 * ramp_steps >= steps:
+            # Never reaches the ceiling: accelerate to a peak, brake straight away.
+            v_peak = math.sqrt(v0 * v0 + accel * steps)
+            seconds = 2.0 * (v_peak - v0) / accel
+        else:
+            seconds = 2.0 * (v_max - v0) / accel + (steps - 2.0 * ramp_steps) / v_max
+        return max(1, int(seconds * 1000 * 1.15) + 30)
 
     def estimateMoveDegreesMs(self, degrees: float, max_speed: int = 5000) -> int:
         """Estimate movement time for a move specified in degrees."""

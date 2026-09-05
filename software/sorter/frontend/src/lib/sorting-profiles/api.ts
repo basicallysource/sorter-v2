@@ -1,6 +1,7 @@
 import type {
 	HiveTargetLibrary,
 	PendingProfileApply,
+	RunPlan,
 	SortingProfileDetail,
 	SortingProfileLibraryResponse,
 	SortingProfileSummary
@@ -98,10 +99,26 @@ export async function applyProfile(
 			version_id: request.version_id,
 			version_number: request.version_number,
 			version_label: request.version_label,
-			reset_bin_categories: true
+			// Plan the run: the first N primary targets and the secondary rules
+			// get bins by layer role; adjust in the run plan panel afterwards.
+			preassign_mode: 'rules'
 		})
 	});
 	return unwrap<ApplyProfileResponse>(res);
+}
+
+export async function fetchRunPlan(baseUrl: string): Promise<RunPlan> {
+	const res = await fetch(`${baseUrl}/api/sorting-profiles/run-plan`);
+	return unwrap<RunPlan>(res);
+}
+
+export async function applyRunPlan(baseUrl: string, primaryRuleIds: string[]): Promise<RunPlan> {
+	const res = await fetch(`${baseUrl}/api/sorting-profiles/run-plan`, {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify({ primary_rule_ids: primaryRuleIds })
+	});
+	return unwrap<RunPlan>(res);
 }
 
 export async function applyLocalProfile(

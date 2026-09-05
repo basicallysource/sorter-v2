@@ -50,7 +50,7 @@ You made this choice per layer when you printed the funnels: each layer is eithe
 
 Either way it is one set per bay, six bays around the hexagon.
 
-Changing a layer's mind at this point means a new funnel as well as new bins, so it is worth knowing what the choice was about: 12 wider bins against 18 narrower ones, and the funnel mouth is what limits the piece size that layer can take. The full comparison, and what to pick if you are still deciding, is on [Funnel]({{ '/hardware/assembly/distribution/chute/funnel/' | relative_url }}).
+Switching a layer to the other size at this point means printing a new funnel as well as new bins, so it is worth knowing what the choice was about: 12 wider bins against 18 narrower ones, and the funnel mouth is what limits the piece size that layer can take. The full comparison, and what to pick if you are still deciding, is on [Funnel]({{ '/hardware/assembly/distribution/chute/funnel/' | relative_url }}).
 
 {% include step.html n="2" title="Get the bins: print them or cut them" %}
 

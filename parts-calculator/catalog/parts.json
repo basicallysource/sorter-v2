@@ -2312,7 +2312,7 @@
       "id": "layer-connector-1",
       "uid": "iwzg",
       "name": "Layer connector A",
-      "description": "Layer connector. 1 per layer + 1 per bottom interface.",
+      "description": "Layer connector. 1 per layer + 1 for the top interface, which slides onto the external bracket on that hex ring.",
       "internal_notes": "Chute-core concept: A and B go on the chute core (1 each) + one set on the bottom interface (interface category). Chute-core color. NOT per-layer.",
       "version": "1",
       "created_at": "2026-06-27",
@@ -2334,7 +2334,7 @@
       "id": "layer-connector-2",
       "uid": "3wrh",
       "name": "Layer connector B",
-      "description": "Layer connector. 1 per layer + 1 per bottom interface.",
+      "description": "Layer connector. 1 per layer + 1 for the top interface, which slides onto the external bracket on that hex ring.",
       "internal_notes": "Chute-core concept: A and B go on the chute core (1 each) + one set on the bottom interface (interface category). Chute-core color. NOT per-layer.",
       "version": "1",
       "created_at": "2026-06-27",
@@ -6724,8 +6724,8 @@
     },
     {
       "id": "superstructure",
-      "uid": "ywb3",
-      "version": "1",
+      "uid": "t2t9",
+      "version": "2",
       "name": "Superstructure",
       "description": "What the feeder and the electronics mount onto: the top plate, the top interface, the distribution layers between the interfaces, and the bottom interface.",
       "lines": [
@@ -6739,7 +6739,11 @@
         },
         {
           "assembly": "layer",
-          "qty": "middle-layers"
+          "qty": "non-bottom-layers"
+        },
+        {
+          "assembly": "bottom-layer",
+          "qty": 1
         },
         {
           "assembly": "bottom-interface",
@@ -6761,6 +6765,47 @@
           "thread_mm": 9,
           "note": "Through the plate into the top interface's M5 heat-set inserts. The 16 mm length is assumed, not yet confirmed.",
           "draft": true
+        }
+      ],
+      "versions": [
+        {
+          "version": "1",
+          "uid": "ywb3",
+          "message": "As recorded before the first stamped change.",
+          "lines": [
+            {
+              "part": "top-plate",
+              "qty": 1,
+              "uid": "1g22"
+            },
+            {
+              "assembly": "interface",
+              "qty": 1,
+              "uid": "vhrk"
+            },
+            {
+              "assembly": "layer",
+              "qty": "middle-layers",
+              "uid": "mnpn"
+            },
+            {
+              "assembly": "bottom-interface",
+              "qty": 1,
+              "uid": "67uq"
+            },
+            {
+              "part": "scr-m5-16-shcs",
+              "qty": 6,
+              "uid": "2e0s"
+            }
+          ]
+        },
+        {
+          "version": "2",
+          "date": "2026-09-05",
+          "breaking": false,
+          "message": "The stack is n bin layers plus one top interface, not n - 2 layers between two interfaces. The layer node now runs non-bottom-layers (n - 1) and the new bottom-layer node runs once, because the lowest layer carries foot covers instead of bracket covers and bottom verticals. Brings the tree onto the same counts the 3D-parts and framing models already used: n + 1 hexagons, 12n bin retainers, 6 foot covers. No physical change.",
+          "commit": "36826f49"
         }
       ]
     },
@@ -7979,6 +8024,143 @@
       ]
     },
     {
+      "id": "external-bracket-with-foot",
+      "uid": "hynq",
+      "version": "1",
+      "name": "External bracket with foot cover",
+      "description": "The bottom bin layer's corner segment: the side bracket with the foot cover, which stands in for the cover and the bottom vertical the other frames use.",
+      "lines": [
+        {
+          "part": "ext-bracket-left",
+          "qty": 1
+        },
+        {
+          "part": "ext-bracket-foot-cover",
+          "qty": 1
+        },
+        {
+          "part": "scr-m5-16-shcs",
+          "qty": 2
+        }
+      ],
+      "connections": [
+        {
+          "from": "ext-bracket-foot-cover",
+          "to": "ext-bracket-left",
+          "via": "scr-m5-16-shcs",
+          "qty": 2,
+          "method": "self-tap",
+          "note": "Through the foot cover's outer holes into the side bracket, the same two screws and the same holes the bottom vertical uses on every other frame."
+        }
+      ]
+    },
+    {
+      "id": "outer-hex-frame-bottom",
+      "uid": "r3v6",
+      "version": "1",
+      "name": "Outer hex frame (bottom layer)",
+      "description": "The outer hexagon of the lowest bin layer: six foot-cover corners with six A/G extrusions slid between them.",
+      "lines": [
+        {
+          "assembly": "external-bracket-with-foot",
+          "qty": 6
+        },
+        {
+          "part": "ext-2020-ag",
+          "qty": 6
+        },
+        {
+          "part": "scr-m5-16-shcs",
+          "qty": 12
+        }
+      ],
+      "connections": [
+        {
+          "from": "ext-2020-ag",
+          "to": "external-bracket-with-foot",
+          "qty": 12,
+          "method": "friction",
+          "note": "Each extrusion slides onto a bracket segment at either end -- one on either side of each bracket. These 12 fits hold the ring together."
+        },
+        {
+          "from": "external-bracket-with-foot",
+          "to": "ext-2020-ag",
+          "via": "scr-m5-16-shcs",
+          "qty": 12,
+          "method": "self-tap",
+          "note": "Two per bracket: self-taps through the bracket print and the tip rams against the extrusion, jamming the fit. No T-nuts."
+        }
+      ]
+    },
+    {
+      "id": "hex-frame-bottom",
+      "uid": "5l36",
+      "version": "1",
+      "name": "Hex frame (bottom layer)",
+      "description": "The lowest bin layer's hexagonal frame: the same inner hex, seated in the outer hex built from foot-cover corners.",
+      "docs": "/hardware/assembly/distribution/bin-frame/bottom-two-layers/",
+      "lines": [
+        {
+          "assembly": "inner-hex-frame",
+          "qty": 1
+        },
+        {
+          "assembly": "outer-hex-frame-bottom",
+          "qty": 1
+        }
+      ]
+    },
+    {
+      "id": "bottom-layer",
+      "uid": "sqsi",
+      "version": "1",
+      "name": "Bottom distribution layer",
+      "description": "The lowest bin layer. Identical to a distribution layer except that its frame carries foot covers instead of bracket covers and bottom verticals, and the bottom interface hangs underneath it.",
+      "docs": "/hardware/assembly/distribution/bin-frame/bottom-two-layers/",
+      "lines": [
+        {
+          "assembly": "hex-frame-bottom",
+          "qty": 1
+        },
+        {
+          "assembly": "chute",
+          "qty": 1
+        },
+        {
+          "part": "bin-retainer-left",
+          "qty": 6
+        },
+        {
+          "part": "bin-retainer-right",
+          "qty": 6
+        },
+        {
+          "part": "scr-m5-16-shcs",
+          "qty": 36
+        }
+      ],
+      "connections": [
+        {
+          "from": "bin-retainer-left",
+          "to": "hex-frame-bottom",
+          "via": "scr-m5-16-shcs",
+          "qty": 12,
+          "method": "tnut",
+          "through_mm": 12.8,
+          "note": "Two per retainer, into the 4 T-nuts per A/G extrusion the hex frame pre-installs. Same joint as on a regular distribution layer."
+        },
+        {
+          "from": "bin-retainer-right",
+          "to": "hex-frame-bottom",
+          "via": "scr-m5-16-shcs",
+          "qty": 12,
+          "method": "tnut",
+          "through_mm": 12.8,
+          "note": "Mirror of the left retainer's joint, same bore and same screw."
+        }
+      ]
+    },
+    {
       "id": "layer",
       "uid": "mnpn",
       "version": "4",
@@ -8125,23 +8307,46 @@
     },
     {
       "id": "bottom-interface",
-      "uid": "67uq",
-      "version": "1",
+      "uid": "oob0",
+      "version": "2",
       "name": "Bottom interface",
-      "description": "The bottom interface / lazy Susan level. The chute above it is one of the machine's N regular chutes, already counted there; this assembly only adds the layer connector that bridges down to it.",
+      "description": "The bottom interface / lazy Susan level. It hangs underneath the lowest bin layer and has no hexagonal frame of its own.",
       "docs": "/hardware/assembly/distribution/bin-frame/bottom-interface/",
       "lines": [
         {
-          "assembly": "layer-frame",
-          "qty": 1
-        },
-        {
           "assembly": "lazy-susan",
           "qty": 1
+        }
+      ],
+      "versions": [
+        {
+          "version": "1",
+          "uid": "67uq",
+          "message": "As recorded before the first stamped change.",
+          "lines": [
+            {
+              "assembly": "layer-frame",
+              "qty": 1,
+              "uid": "yq92"
+            },
+            {
+              "assembly": "lazy-susan",
+              "qty": 1,
+              "uid": "v6ss"
+            },
+            {
+              "assembly": "layer-connector",
+              "qty": 1,
+              "uid": "6m38"
+            }
+          ]
         },
         {
-          "assembly": "layer-connector",
-          "qty": 1
+          "version": "2",
+          "date": "2026-09-05",
+          "breaking": false,
+          "message": "Dropped the layer-frame: the bottom interface hangs under the lowest bin layer's frame and does not get a hexagon of its own (bottom two layers, step 6). Dropped the layer connector too: the spare one belongs to the top interface, which slides onto the external bracket on that hex ring. No physical change.",
+          "commit": "36826f49"
         }
       ]
     },

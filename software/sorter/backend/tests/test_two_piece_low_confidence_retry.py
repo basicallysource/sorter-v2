@@ -38,6 +38,7 @@ def _piece(status, confidence):
     tp.retry_done = False
     tp.first_score = None
     tp.retry_base = 0
+    tp.stray = False
     tp.capture_done = True
     tp.result_applied = True
     ctx = SimpleNamespace(captured_crops=[1], captured_crop_timestamps=[1], captured_crop_sharpness=[1],

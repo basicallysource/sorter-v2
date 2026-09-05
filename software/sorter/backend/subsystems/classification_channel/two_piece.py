@@ -47,7 +47,11 @@ _EJECT_GONE_CONFIRM_S = 0.35
 # — a stray, a detector-churn leftover, or the trailing piece of a multi-drop
 # that skipped the drop zone — is routed to misc after this long so it can be
 # ejected instead of deadlocking as an un-shippable head.
-_STRAY_MISC_S = 4.0
+# A head that was never photographed in the drop zone (it appeared forward)
+# waits this long for orphan adoption, then gets a burst at rest; if no at-rest
+# frame arrives by _STRAY_MISC_S it drains to misc unclassified.
+_STRAY_CAPTURE_S = 4.0
+_STRAY_MISC_S = 12.0
 # Fixed forward nudge (output deg) used while STAGING once the leading piece has
 # already reached/passed precise but the drop zone still isn't clear — keeps
 # pushing the clump out of the drop zone without a gap to size against.
@@ -243,6 +247,9 @@ class _TrackedPiece:
         # ids together as one logical multi-drop (None when not a multi-drop).
         self.double_feed = False
         self.multi_drop_group: Optional[int] = None
+        # Appeared forward of the drop zone, never photographed in flight: its
+        # only burst is the at-rest one (see _startStrayCapture).
+        self.stray = False
 
     @property
     def known_object(self) -> Optional[KnownObject]:
@@ -717,7 +724,14 @@ class TwoPieceClassificationChannel(Rev01BaseState):
                     tp.retry_done = True
                     tp.result_applied = True
                     new_score = _topScore(result)
-                    if error is None and retryImproves(new_score, tp.first_score):
+                    if tp.stray:
+                        # There is no first result to fall back on: take
+                        # whatever the at-rest burst produced, error included.
+                        tp.worker.updateKnownObjectWithResult(result, error)
+                        self.logger.info(
+                            f"{LOG_TAG} stray track={tp.track_id} classified at rest: score {new_score}"
+                        )
+                    elif error is None and retryImproves(new_score, tp.first_score):
                         tp.worker.updateKnownObjectWithResult(result, error)
                         self.logger.info(
                             f"{LOG_TAG} retry at rest track={tp.track_id}: "
@@ -755,33 +769,29 @@ class TwoPieceClassificationChannel(Rev01BaseState):
             return
         if not tp.result_applied:
             if tp.retry_started and not tp.retry_done:
-                return  # second burst in flight — neither a stray nor an orphan case
-            # An uncaptured head with an orphan waiting is that orphan under a
-            # second id (two boxes on one piece from the first frame): take over
-            # its capture, result and chute aim instead of starting a stray.
-            if tp.worker.ctx.classify_started_at == 0.0 and self._orphans:
-                adopted = self._adoptOrphan(tp.track_id, tp.bbox, now)
-                if adopted is not None:
-                    adopted.zone = tp.zone
-                    adopted.bbox = tp.bbox
-                    adopted.gap_to_exit = tp.gap_to_exit
-                    return
-            # A forward piece that was never even captured (stray / churn leftover /
-            # a multi-drop sibling that skipped the drop zone) would otherwise sit
-            # as an un-shippable head forever. After a grace period, send it to misc
-            # so it can be ejected and the queue drains.
-            if tp.worker.ctx.classify_started_at == 0.0 and (now - tp.created_at) > _STRAY_MISC_S:
-                self._ensureKnownObject(tp)
-                obj0 = tp.known_object
-                if obj0 is not None:
-                    obj0.classification_status = ClassificationStatus.unknown
-                    obj0.part_id = None
-                    tp.worker.emitKnownObject()
-                tp.result_applied = True
-                self.logger.warning(
-                    f"{LOG_TAG} stray head track={tp.track_id} never classified -> misc"
-                )
+                if not (tp.stray and not tp.capture_done and (now - tp.created_at) > _STRAY_MISC_S):
+                    return  # burst in flight — neither a stray nor an orphan case
+                self._strayToMisc(tp)  # no at-rest frame ever came — drain the queue
+            elif tp.worker.ctx.classify_started_at != 0.0:
+                return  # first result still pending
             else:
+                # An uncaptured head with an orphan waiting is that orphan under a
+                # second id (two boxes on one piece from the first frame): take
+                # over its capture, result and chute aim instead of starting a stray.
+                if self._orphans:
+                    adopted = self._adoptOrphan(tp.track_id, tp.bbox, now)
+                    if adopted is not None:
+                        adopted.zone = tp.zone
+                        adopted.bbox = tp.bbox
+                        adopted.gap_to_exit = tp.gap_to_exit
+                        return
+                # A forward piece that was never even captured (stray / churn
+                # leftover / a multi-drop sibling that skipped the drop zone / a
+                # piece the camera only saw once the platter turned) would
+                # otherwise sit as an un-shippable head forever. After a grace
+                # period, photograph it at rest instead of sending it to misc blind.
+                if (now - tp.created_at) > _STRAY_CAPTURE_S:
+                    self._startStrayCapture(tp)
                 return
         self._ensureKnownObject(tp)
         obj = tp.known_object
@@ -801,6 +811,30 @@ class TwoPieceClassificationChannel(Rev01BaseState):
         self.logger.info(
             f"{LOG_TAG} aiming chute for head track={tp.track_id} "
             f"(status={obj.classification_status})"
+        )
+
+    def _startStrayCapture(self, tp: _TrackedPiece) -> None:
+        """Give a never-photographed head the at-rest burst; the retry
+        machinery captures, classifies and applies the result."""
+        self._ensureKnownObject(tp)
+        tp.stray = True
+        tp.retry_started = True
+        tp.retry_base = len(tp.worker.ctx.captured_crops)
+        self.logger.warning(
+            f"{LOG_TAG} stray head track={tp.track_id} never captured -> burst at rest"
+        )
+
+    def _strayToMisc(self, tp: _TrackedPiece) -> None:
+        self._ensureKnownObject(tp)
+        tp.retry_done = True
+        tp.result_applied = True
+        obj = tp.known_object
+        if obj is not None:
+            obj.classification_status = ClassificationStatus.unknown
+            obj.part_id = None
+            tp.worker.emitKnownObject()
+        self.logger.warning(
+            f"{LOG_TAG} stray head track={tp.track_id} never classified -> misc"
         )
 
     def _retryHeadAtRest(self, tp: _TrackedPiece, obj) -> bool:

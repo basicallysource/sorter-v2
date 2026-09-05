@@ -244,8 +244,9 @@ def _clear_runtime_bin_contents(
         section_index=section_index,
         bin_index=bin_index,
     )
+    active = collector.activeIncident() if hasattr(collector, "activeIncident") else None
     if not bin_full_incident_covers_bin(
-        collector.activeIncident(),
+        active,
         scope=scope,
         layer_index=layer_index,
         section_index=section_index,

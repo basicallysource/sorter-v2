@@ -34,6 +34,7 @@ class DashboardConfigTests(unittest.TestCase):
         self.assertEqual("manual", config["incident_handling"]["distribution_chute_jam"])
         self.assertEqual("manual", config["incident_handling"]["distribution_servo_bus_offline"])
         self.assertEqual("manual", config["incident_handling"]["distribution_no_bin_available"])
+        self.assertEqual("manual", config["incident_handling"]["distribution_bin_full"])
         definition_kinds = [item["kind"] for item in config["incident_definitions"]]
         self.assertEqual(
             [
@@ -42,6 +43,7 @@ class DashboardConfigTests(unittest.TestCase):
                 "distribution_chute_jam",
                 "distribution_servo_bus_offline",
                 "distribution_no_bin_available",
+                "distribution_bin_full",
             ],
             definition_kinds,
         )

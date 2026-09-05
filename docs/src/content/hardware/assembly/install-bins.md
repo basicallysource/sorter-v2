@@ -43,7 +43,7 @@ Either way it is one set per bay, six bays around the hexagon. A layer built wit
 
 {% include step.html n="2" title="Get the bins: print them or cut them" %}
 
-Both are real options and the machine holds them identically. Printed bins are in the parts catalog and need nothing but a printer and time; cut bins are cardboard, need a laser, and are what Spencer runs.
+Both are real options and the machine holds them identically. Printed bins are in the parts catalog and need nothing but a printer and time; cut bins are cardboard, need a laser, and are what the machine was designed around.
 
 **Printed.** The five parts above, on the [parts calculator](https://parts-calculator.basically.website/), STLs and all. Budget for them: a half set is about 2.1 kg of filament and 55 hours of printing per layer, a third set about 2.1 kg and 60 hours, so a five layer machine is roughly 10 kg and ten days of printer time in bins alone. That is the single biggest print on the machine.
 
@@ -56,7 +56,7 @@ Both are real options and the machine holds them identically. Printed bins are i
 
 <div class="callout callout-warning">
   <span class="callout-icon" aria-hidden="true">⚠</span>
-  <p>Glue the corners of a cardboard bin. The folded finger joints on their own do not hold in corrugated stock: most of the volume is air, so a finger usually lands on two paper walls with nothing between them. Hot glue is what Spencer uses.</p>
+  <p>Glue the corners of a cardboard bin. The folded finger joints on their own do not hold in corrugated stock: most of the volume is air, so a finger usually lands on two paper walls with nothing between them. Hot glue is what the bins at Basically are held together with.</p>
 </div>
 
 {% include step.html n="3" title="Drop them in" %}

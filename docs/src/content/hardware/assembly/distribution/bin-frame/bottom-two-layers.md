@@ -31,9 +31,7 @@ parts_needed:
   - part: caster-wheel-m6
     qty: 6
   - part: scr-m5-16-shcs
-    qty: 48
-  - part: scr-m5-12-shcs
-    qty: 48
+    qty: 96
 tools_needed: [Hex key, Tape measure]
 ---
 
@@ -85,8 +83,7 @@ Here's where the {% include fastener.html size="M5" variant="socket-button" leng
 - **24** for the foot extensions, 4 per corner (step 2 below), two into each layer
 - **12** for the second layer's External bracket — bottom verticals, 2 per corner (step 3 below)
 - **12** for the bottom layer's External bracket — foot covers, 2 per corner (step 3 below), the same as the bottom vertical it replaces
-
-The {% include fastener.html size="M5" variant="socket-button" length="12" %} count is the same arithmetic: **24** per layer for the bin retainers, so **48** across both.
+- **48** for the bin retainers (step 5 below), 24 per layer, so 48 across both
 
 You should already have two [hex frames]({{ '/hardware/assembly/distribution/bin-frame/hex-frame/' | relative_url }}) built, one for each layer. The verticals are the part that differs here, and they are step 2 below.
 
@@ -172,7 +169,7 @@ Screw a **swivel stem caster (M6 × 15 mm)** into the connector's M6 thread. The
 
 {% include step.html n="5" title="Add the bin retainers" %}
 
-Both layers take bin retainers, exactly as in [regular layers]({{ '/hardware/assembly/distribution/bin-frame/regular-layers/' | relative_url }}) step 2: on each side of each hexagon, a Bin retainer (left) and a Bin retainer (right) on the front face of the A/G extrusion, 4 {% include fastener.html size="M5" variant="socket-button" length="12" %} screws into T-nuts.
+Both layers take bin retainers, exactly as in [regular layers]({{ '/hardware/assembly/distribution/bin-frame/regular-layers/' | relative_url }}) step 2: on each side of each hexagon, a Bin retainer (left) and a Bin retainer (right) on the front face of the A/G extrusion, 4 {% include fastener.html size="M5" variant="socket-button" length="16" %} screws into T-nuts.
 
 {% include step.html n="6" title="Attach the bottom interface" %}
 

@@ -20,6 +20,7 @@ from subsystems.classification_channel.two_piece import (
 def _handler() -> TwoPieceClassificationChannel:
     h = object.__new__(TwoPieceClassificationChannel)
     h._pieces = {}
+    h._orphans = []
     h._phase = _Phase.WAITING
     h._phase_started_at = 0.0
     h._eject_target = None
@@ -105,3 +106,14 @@ def test_no_second_placement_while_the_slot_is_taken() -> None:
     h._pieces = {7: _forward_piece(7, gap=40.0, placed=True), 8: _forward_piece(8, gap=10.0, placed=False)}
     h._aimChuteForHead(now=100.0)
     assert not h._pieces[8].placed
+
+
+def test_a_placed_orphan_keeps_the_slot() -> None:
+    h = _handler()
+    h.transport = SimpleNamespace(placePieceForDistribution=lambda obj: (_ for _ in ()).throw(AssertionError("placed twice")))
+    lost = _forward_piece(6, gap=30.0, placed=True)
+    h._orphans = [(lost, 100.0)]
+    h._pieces = {8: _forward_piece(8, gap=10.0, placed=False)}
+    h._aimChuteForHead(now=101.0)
+    assert not h._pieces[8].placed
+    assert h._placedPiece() is lost

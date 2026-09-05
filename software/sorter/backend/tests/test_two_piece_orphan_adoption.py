@@ -165,7 +165,7 @@ def test_orphan_is_adopted_where_the_platter_should_have_carried_it() -> None:
     h = _handler()
     old = _piece(1, zone=_ZONE_NONE, capture_done=True, last_seen=1.0)
     old.bbox = (100, 100, 200, 180)
-    old.expected_gap = 200.0 - 170.0
+    old.expected_gap = 200.0 - 170.0 - 30.0  # the platter carries a piece ~30° past the commanded move
     h._orphans = [(old, 1.1)]
     assert h._adoptOrphan(3, (1500, 900, 1560, 1050), now=2.0, gap=35.0) is old
     assert old.track_id == 3 and h._pieces[3] is old and h._orphans == []

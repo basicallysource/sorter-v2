@@ -99,7 +99,7 @@ _EXIT_GAP_NEAR_DEG = 10.0
 # the id is routinely lost while the platter turns, and pixels say nothing
 # about a piece that moved 170° with it.
 _REID_PIXEL_BOXES = 1.5
-_REID_GAP_TOL_DEG = 20.0
+_REID_GAP_TOL_DEG = 45.0
 _REID_AMBIGUOUS = 0.34
 
 
@@ -697,7 +697,13 @@ class TwoPieceClassificationChannel(Rev01BaseState):
         # Distribution has a single slot; placing a second piece would silently
         # replace the first and strand it (23:19: two ids on one piece, both
         # placed, the platter waited 30 s for a head that could never be ready).
-        return next((tp for tp in self._pieces.values() if tp.placed and not tp.ejected), None)
+        # A placed piece whose id is lost (00:01: aimed, gone, and the next
+        # piece took its slot) still owns the slot while it is adoptable.
+        return next(
+            (tp for tp in [*self._pieces.values(), *(piece for piece, _ in self._orphans)]
+             if tp.placed and not tp.ejected),
+            None,
+        )
 
     def _dropPiece(self) -> Optional[_TrackedPiece]:
         drop = [tp for tp in self._pieces.values() if tp.zone == _ZONE_DROP]
@@ -798,10 +804,8 @@ class TwoPieceClassificationChannel(Rev01BaseState):
         # captured (the throughput overlap). Distribution has a single slot, so
         # only ever place the head; the next piece is placed after this one ejects
         # and frees the slot.
-        if self._placedPiece() is not None:
-            return  # the slot is taken until that piece has ejected
         tp = self._headPiece()
-        if tp is None:
+        if tp is None or tp.placed:
             return
         if not tp.result_applied:
             if tp.retry_started and not tp.retry_done:
@@ -829,6 +833,8 @@ class TwoPieceClassificationChannel(Rev01BaseState):
                 if (now - tp.created_at) > _STRAY_CAPTURE_S:
                     self._startStrayCapture(tp)
                 return
+        if self._placedPiece() is not None:
+            return  # the slot is taken until that piece has ejected
         self._ensureKnownObject(tp)
         obj = tp.known_object
         if obj is None:

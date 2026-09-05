@@ -14,8 +14,9 @@ warning: >-
   **AI-generated first draft, and the order of operations is a guess.** The parts, the
   joints and Spencer's photographs are real, from the [parts
   calculator](https://parts-calculator.basically.website/assembly?focus=camera-lamp); every
-  hole diameter and screw count below is measured off the published STLs. What is missing is
-  a build: nobody has written down how the arm mount attaches to the C-channel, which LED
+  hole diameter and screw count below is measured off the published STLs, and the 12 screws
+  into 6 holes in Steps 2 and 3 are confirmed by ReveryX, who has the parts. What is missing
+  is a build: nobody has written down how the arm mount attaches to the C-channel, which LED
   strip goes on the hooks, or how any of it is wired. Fill those in as you build.
 parts_needed:
   - part: c-channel-arm-mount
@@ -114,7 +115,7 @@ Drive all 8 {% include fastener.html size="M3" variant="countersunk" length="12"
 
 The ring goes on the far end of the arm and is what the lamp and the camera hang from. It works the same way as the joint below it: four 3.5 mm clearance holes in the ring, two 2.8 mm pilot holes through the end of the arm, so the remaining 4 {% include fastener.html size="M3" variant="countersunk" length="12" %} screws go two per side into the same two holes. The ring straddles the arm.
 
-That is all 12 of the M3 × 12 in the parts list: 8 at the mount joint, 4 here.
+That is all 12 of the M3 × 12 in the parts list: 8 at the mount joint, 4 here. **Six holes, a screw into each end of every one of them.** ReveryX confirmed that count against the parts on 2026-09-05; everything else about these two steps is off the STLs.
 
 {% include step.html n="4" title="Clasp the camera between the two halves" %}
 

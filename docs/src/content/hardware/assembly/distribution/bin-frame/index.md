@@ -16,4 +16,5 @@ The bin frame is the stack of hexagonal layers that makes up the body of the mac
 2. **[Bottom interface]({{ '/hardware/assembly/distribution/bin-frame/bottom-interface/' | relative_url }})** — the Lazy Susan stage, slung under the bottom layer's spokes.
 3. **[Bottom two layers]({{ '/hardware/assembly/distribution/bin-frame/bottom-two-layers/' | relative_url }})** — the paired base layers on the long vertical extrusions.
 4. **[Regular layers]({{ '/hardware/assembly/distribution/bin-frame/regular-layers/' | relative_url }})** — build N−2 of these, one per remaining layer.
-5. **[Top interface]({{ '/hardware/assembly/distribution/top-interface/' | relative_url }})** — outside this section, but takes one of the hex frames from step 1 and caps the stack.
+5. **[Bin retainers]({{ '/hardware/assembly/distribution/bin-frame/bin-retainers/' | relative_url }})** — the same twelve rails on every bin layer. Steps 3 and 4 both send you here, once per layer.
+6. **[Top interface]({{ '/hardware/assembly/distribution/top-interface/' | relative_url }})** — outside this section, but takes one of the hex frames from step 1 and caps the stack.

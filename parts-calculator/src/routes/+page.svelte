@@ -2,7 +2,6 @@
 	import {
 		PARTS,
 		SECTIONS,
-		ASSEMBLIES,
 		CHANGES,
 		COLOR_ROLES,
 		SETTINGS,
@@ -420,7 +419,6 @@
 		| { kind: 'group'; groupKind: 'assembly' | 'folder'; id: string; parts: Part[] };
 	function groupBlocks(parts: Part[], sectionId: string): Block[] {
 		const blocks: Block[] = [];
-		const represented = new Set<string>();
 		// The assembly comes from the machine tree (which assembly LISTS this part),
 		// never from a field on the part: one part is used in several assemblies and
 		// a single field cannot say so. Members of a group need not be adjacent in
@@ -435,7 +433,6 @@
 				blocks.push({ kind: 'part', part: p });
 				continue;
 			}
-			if (groupKind === 'assembly') represented.add(groupId);
 			const key = `${groupKind}:${groupId}`;
 			let g = byGroup.get(key);
 			if (!g) {
@@ -445,14 +442,6 @@
 			}
 			g.parts.push(p);
 		}
-		// Stubs are placeholders for assemblies with nothing in them yet. They match
-		// nothing, so while a filter is on they are noise around the thing you asked for.
-		if (!filtering)
-			for (const assembly of ASSEMBLIES) {
-				if (assembly.section === sectionId && assembly.status === 'stub' && !represented.has(assembly.id)) {
-					blocks.push({ kind: 'group', groupKind: 'assembly', id: assembly.id, parts: [] });
-				}
-			}
 		return blocks;
 	}
 	// Assemblies collapse to a single rollup row carrying the part count and the
@@ -967,7 +956,6 @@
 												<span class="pl-name">
 													{group?.name}
 													<Badge variant={block.groupKind === 'folder' ? 'neutral' : 'info'}>{block.groupKind === 'folder' ? 'Folder' : 'Assembly'}</Badge>
-													{#if block.groupKind === 'assembly' && a?.status === 'stub'}<Badge variant="neutral">Coming soon</Badge>{/if}
 													{#if a?.candidates?.some((c) => !c.superseded_by && !c.rejected_at)}<Badge variant="info"><FlaskConical size={11} /> Candidate</Badge>{/if}
 													{#if block.groupKind === 'assembly' && a}<ChangeStatus kind="assemblies" id={a.id} name={a.name} />{/if}
 												</span>

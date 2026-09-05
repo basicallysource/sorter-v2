@@ -46,11 +46,15 @@ export const FRAMING_PIECES: FramingPiece[] = [
 		cadLen: 160,
 		len: 160 - CLEARANCE_MM,
 		category: 'per-layer',
-		from: '6 per layer, above the bottom 2',
+		from: '6 per layer above the bottom 2, plus 6 up to the interface frame',
 		badge: '#ffffff',
 		zeroNote:
-			'The bottom two layers do not use C. One foot extension (D) spans both of them in place of a C on each, so C is only cut from 3 layers up.',
-		qtyFor: (n) => 6 * Math.max(0, n - 2)
+			'The bottom two layers do not use C. One foot extension (D) spans both of them in place of a C on each, so the only C on a 2-layer build is the run up to the interface frame.',
+		// One run of C per gap between rings, less the bottom gap that D takes.
+		// The rings are the N bin layers plus the interface frame above the top
+		// one, so that is N gaps, N - 1 of them C. The interface frame's own run
+		// up into the Interface brackets is F, not C.
+		qtyFor: (n) => 6 * Math.max(0, n - 1)
 	},
 	// ---- interface (one set per machine) ----
 	{ letter: 'E', name: 'Interface spoke (long)', cadLen: 244, len: 244 - CLEARANCE_MM, category: 'interface', from: 'per machine', badge: '#1c1c1c', qtyFor: () => 6 },

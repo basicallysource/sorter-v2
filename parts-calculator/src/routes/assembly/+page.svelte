@@ -14,6 +14,7 @@
 		Zap
 	} from 'lucide-svelte';
 	import ConnectionBraces, { braceGroups } from '$lib/components/ConnectionBraces.svelte';
+	import AssemblyStlZip from '$lib/components/AssemblyStlZip.svelte';
 	import DropdownMenu from '$lib/components/DropdownMenu.svelte';
 	import AlternativeBadge from '$lib/components/AlternativeBadge.svelte';
 	import ConflictBadge from '$lib/components/ConflictBadge.svelte';
@@ -42,6 +43,7 @@
 		getPart,
 		hardwareImage,
 		JOIN_LABELS,
+		concreteLines,
 		lineQty,
 		PARTS,
 		plainDescription,
@@ -81,8 +83,7 @@
 
 	// Experimental view of the unified parts system (notes/UNIFIED-PARTS-SYSTEM.md):
 	// the machine as a recursive assembly tree whose lines reference printed parts,
-	// sub-assemblies, and (eventually) all the COTS hardware. Most nodes are stubs;
-	// the chute core is the first branch carrying real hardware via `requires`.
+	// sub-assemblies, and (eventually) all the COTS hardware.
 	const layers = $derived(layerStore.sizes.length);
 
 	// ---- collapsing the tree -------------------------------------------------
@@ -184,7 +185,7 @@
 		else params.set('open', open.join(','));
 		// A comma is legal in a query string, and a list of ids is worth reading
 		// in the address bar; URLSearchParams escapes it anyway, so undo that.
-		const qs = params.toString().replaceAll('%2C', ',');
+		const qs = params.toString().replaceAll('%2C', ',').replaceAll('%40', '@');
 		const target = qs ? `${location.pathname}?${qs}` : location.pathname;
 		if (target !== location.pathname + location.search) replaceState(target, {});
 	});
@@ -325,12 +326,40 @@
 		fGolden = sp.get('golden') === '1';
 		fStable = sp.get('stable') === '1';
 		if (sp.get('order') === 'name') order = 'name';
+		// ?v=feeder@4,c-channel@2 — which nodes are flipped to which version,
+		// so a flipped view is shareable and survives reload. The path down to
+		// each flipped node opens, or the restored view would sit folded away.
+		const openPathTo = (target: string) => {
+			const walk = (id: string, trail: string[]): boolean => {
+				if (id === target) {
+					for (const t of [...trail, id]) expanded[t] = true;
+					return true;
+				}
+				return (getAssembly(id)?.lines ?? []).some(
+					(l) => l.assembly && walk(l.assembly, [...trail, id])
+				);
+			};
+			walk('machine', []);
+		};
+		for (const pair of (sp.get('v') ?? '').split(',')) {
+			const [aid, ver] = pair.split('@');
+			if (aid && ver && getAssembly(aid)?.versions?.some((x) => x.version === ver)) {
+				shownVersion[aid] = ver;
+				ensureSnapshot(aid, ver);
+				openPathTo(aid);
+			}
+		}
 	});
 	$effect(() => {
+		const flips = Object.entries(shownVersion)
+			.map(([aid, ver]) => `${aid}@${ver}`)
+			.sort()
+			.join(',');
 		const want: [string, string | null][] = [
 			['golden', fGolden ? '1' : null],
 			['stable', fStable ? '1' : null],
-			['order', order !== 'authored' ? order : null]
+			['order', order !== 'authored' ? order : null],
+			['v', flips || null]
 		];
 		if (!browser || !urlReady) return;
 		const params = new URLSearchParams(location.search);
@@ -339,18 +368,9 @@
 			if (v) params.set(k, v);
 			else params.delete(k);
 		}
-		const qs = params.toString().replaceAll('%2C', ',');
+		const qs = params.toString().replaceAll('%2C', ',').replaceAll('%40', '@');
 		replaceState(qs ? `${location.pathname}?${qs}` : location.pathname, {});
 	});
-
-	// What the badge means. The tree records that a node is incomplete but not
-	// which pieces are missing, so the tooltip says exactly that much and no
-	// more. Only stubs get a badge: `partial` is true of nearly every assembly
-	// right now, so a badge for it was wallpaper — the status still shows in
-	// the detail view.
-	const STATUS_NOTE = {
-		stub: 'Placeholder — nothing has been recorded inside this assembly yet. What it actually contains is not captured anywhere in the data.'
-	};
 
 	// ---- assembly versions: view any revision, diff any two ------------------
 	// versions[] ends with the current revision; superseded entries carry the
@@ -359,6 +379,32 @@
 	// base marks what changed between the two.
 	let shownVersion = $state<Record<string, string>>({});
 	let diffBase = $state<Record<string, string>>({});
+	// expand state of nodes inside a flipped version's snapshot
+	let eraOpen = $state<Record<string, boolean>>({});
+
+	// ---- version snapshots: the site as it was, straight out of git ---------
+	// Flipping to a superseded version fetches its snapshot — the era's own
+	// generated records, subsetted per version from the commit's data by
+	// scripts/version_snapshots.py — and renders ONLY from it. Names, renders,
+	// weights, photos, joints, plain and engraved download URLs are all the
+	// era's; nothing in the flipped view is resolved against today's catalog.
+	type VersionSnapshot = {
+		commit: string;
+		assemblies: Record<string, Assembly>;
+		parts: Record<string, Part>;
+		hardware: Record<string, Hardware>;
+	};
+	let snapshots = $state<Record<string, VersionSnapshot | 'loading' | 'missing'>>({});
+	const snapKey = (asmId: string, ver: string) => `${asmId}-v${ver}`;
+	function ensureSnapshot(asmId: string, ver: string) {
+		const key = snapKey(asmId, ver);
+		if (snapshots[key]) return;
+		snapshots[key] = 'loading';
+		fetch(`/versions/${key}.json`)
+			.then((r) => (r.ok ? r.json() : Promise.reject(r.status)))
+			.then((s) => (snapshots[key] = s))
+			.catch(() => (snapshots[key] = 'missing'));
+	}
 
 	const currentVersion = (asm: Assembly) => String(asm.version ?? '1');
 
@@ -367,6 +413,46 @@
 	}
 	function memberName(id: string): string {
 		return memberOf(id)?.name ?? ghostName(id) ?? id;
+	}
+	/** Rows in joint order: the authored order, except that once a member is
+	 *  placed, whatever it is joined to follows it straight away — fastener
+	 *  first, then the other side — so a brace spans neighbours more often
+	 *  than not. A member in several joints pulls all of them in after it,
+	 *  fastenerless ones first: a two-row brace stays tight, and the screwed
+	 *  joint's three rows follow as a block. */
+	function jointOrder(list: AssemblyLine[], edges: Connection[]): AssemblyLine[] {
+		if (!edges.length) return list;
+		const idOf = (l: AssemblyLine) => l.part ?? l.assembly ?? '';
+		const byId = new Map(list.map((l) => [idOf(l), l]));
+		const vias = new Set(edges.map((e) => e.via).filter((v): v is string => !!v));
+		// members first, chained so joined things sit together...
+		const members: string[] = [];
+		const placed = new Set<string>();
+		const place = (id: string) => {
+			if (!byId.has(id) || placed.has(id) || vias.has(id)) return;
+			placed.add(id);
+			members.push(id);
+			for (const e of edges) if (e.from === id || e.to === id) place(e.from === id ? e.to : e.from);
+		};
+		for (const l of list) place(idOf(l));
+		// ...then each fastener row goes under the LAST member its screws touch,
+		// so the joint reads top-to-bottom and ends on what holds it together
+		const viaAt = new Map<number, string[]>();
+		for (const via of vias) {
+			if (!byId.has(via)) continue;
+			let last = -1;
+			for (const e of edges)
+				if (e.via === via) last = Math.max(last, members.indexOf(e.from), members.indexOf(e.to));
+			viaAt.set(last, [...(viaAt.get(last) ?? []), via]);
+		}
+		const out: AssemblyLine[] = [];
+		members.forEach((id, i) => {
+			out.push(byId.get(id)!);
+			for (const v of viaAt.get(i) ?? []) out.push(byId.get(v)!);
+		});
+		// a duplicated id (two lines naming one part) keeps its extra rows
+		for (const l of list) if (!out.includes(l)) out.push(l);
+		return out;
 	}
 	/** Which revision of the member a pinned uid names: its version number, or
 	 *  null when the uid predates the member's recorded history. */
@@ -401,7 +487,7 @@
 		const gather = (ls: AssemblySnapshotLine[]) => {
 			const m = new Map<string, AssemblySnapshotLine>();
 			for (const l of ls) {
-				const k = l.part ?? l.assembly ?? '';
+				const k = l.part ?? l.assembly ?? (l.param ? `$${l.param}` : '');
 				const g = m.get(k);
 				m.set(k, g ? { ...g, qty: sumQty(g.qty, l.qty) as AssemblyLine['qty'] } : { ...l });
 			}
@@ -546,21 +632,34 @@
 
 	/** Every recorded state of an assembly's lines, oldest first: the era
 	 *  timeline, then versions[] snapshots dated past the era's horizon (the
-	 *  stamp rule guarantees those exist for every later structural change). */
-	const stateCache = new Map<string, { d: string; s: number; lines: AssemblyLine[] | null }[]>();
+	 *  stamp rule guarantees those exist for every later change). A superseded
+	 *  entry that carries a snapshot but no date is the state from before
+	 *  anything was dated — the first stamp on a node records what it held
+	 *  until then. */
+	type LineState = { d: string; s: number; lines: AssemblyLine[] | null };
+	const stateCache = new Map<string, LineState[]>();
 	function statesOf(id: string) {
 		const hit = stateCache.get(id);
 		if (hit) return hit;
-		const st = (eraAsm[id]?.timeline ?? []).map((t) => ({ d: t.date, s: t.seq, lines: t.lines }));
+		const era = eraAsm[id]?.timeline ?? [];
+		const undated: LineState[] = [];
+		const dated: LineState[] = [];
 		const asm = getAssembly(id);
 		const vs = asm?.versions ?? [];
 		vs.forEach((v, i) => {
+			const current = i === vs.length - 1;
+			if (!v.date) {
+				if (!current && v.lines) undated.push({ d: '', s: i, lines: v.lines });
+				return;
+			}
 			// >= : a stamp dated the era's own horizon (same-day) must still
 			// resolve. When the era already recorded that change, the extra
-			// state carries identical lines, so resolution is unaffected.
-			if (v.date && v.date >= eraThrough)
-				st.push({ d: v.date, s: VSEQ + i, lines: i === vs.length - 1 ? (asm!.lines ?? []) : (v.lines ?? null) });
+			// state carries identical lines, so resolution is unaffected. A node
+			// the era never saw keeps every dated entry.
+			if (v.date >= eraThrough || !era.length)
+				dated.push({ d: v.date, s: VSEQ + i, lines: current ? (asm!.lines ?? []) : (v.lines ?? null) });
 		});
+		const st = [...undated, ...era.map((t) => ({ d: t.date, s: t.seq, lines: t.lines })), ...dated];
 		stateCache.set(id, st);
 		return st;
 	}
@@ -575,8 +674,26 @@
 		// No recorded change anywhere in history — it has always been what it is.
 		return getAssembly(id)?.lines ?? null;
 	}
+	/** The uid a member carried at a moment, from the dates on its versions[]:
+	 *  the newest entry dated on or before the moment, else the earliest
+	 *  recorded one (it existed before anything was dated). */
+	function uidAt(id: string, k: TKey): string | undefined {
+		const m = memberOf(id) as { uid?: string; versions?: { uid?: string; date?: string }[] } | undefined;
+		if (!m) return undefined;
+		if (k.d === NOW.d) return m.uid;
+		const vs = m.versions ?? [];
+		let hit: { uid?: string } | undefined;
+		for (const v of vs) if (v.date && v.date <= k.d) hit = v;
+		return (hit ?? vs[0])?.uid ?? m.uid;
+	}
+	/** An assembly's lines at a moment, each pinned to the uid its member
+	 *  carried then — so a part revised after the lines were snapshotted, or
+	 *  never snapshotted at all, still reads back as the revision of the day. */
+	function snapshotAtKey(id: string, k: TKey): AssemblySnapshotLine[] {
+		return (linesAtKey(id, k) ?? []).map((l) => ({ ...l, uid: uidAt(l.part ?? l.assembly ?? '', k) }));
+	}
 	function timeRows(id: string, a: TKey, b: TKey): DiffRow[] {
-		return diffLines((linesAtKey(id, a) ?? []) as AssemblySnapshotLine[], (linesAtKey(id, b) ?? []) as AssemblySnapshotLine[]);
+		return diffLines(snapshotAtKey(id, a), snapshotAtKey(id, b));
 	}
 	const isAsmish = (id: string) => !!getAssembly(id) || !!eraAsm[id];
 	/** Did anything at or below this node move between the two moments? Drives
@@ -758,6 +875,8 @@
 {/snippet}
 
 {#snippet lines(list: AssemblyLine[], mult: number, depth: number, endpoints: Set<string> | null = null)}
+	<!-- `list` is already concrete: param slots resolved to part lines, and any
+	     args on sub-assembly lines resolved to literal ids (concreteLines). -->
 	<!-- Keyed by position as well as id: two lines can legitimately name the
 	     same part, and a bare id key makes that a duplicate-key error that
 	     blanks the whole page on hydration. -->
@@ -765,7 +884,7 @@
 		{#if !lineShown(line)}
 			<!-- filtered out -->
 		{:else if line.assembly}
-			{@render node(line.assembly, line.qty, lineQty(line, layers) * mult, depth + 1, endpoints?.has(line.assembly) ?? false)}
+			{@render node(line.assembly, line.qty, lineQty(line, layers) * mult, depth + 1, endpoints?.has(line.assembly) ?? false, line.args)}
 		{:else if line.part && getLasercut(line.part)}
 			{@const lc = getLasercut(line.part)!}
 			<div data-member={line.part} class="ml-1.5 mt-2 flex items-center gap-3 border border-border bg-surface p-2 sm:ml-4 sm:p-3">
@@ -821,7 +940,8 @@
 <!-- One member of a version snapshot or diff row: name, kind, pinned uid and
      the member revision that uid names. -->
 {#snippet memberCell(id: string, uid: string | undefined, struck: boolean)}
-	{@const render = getPart(id)?.render}
+	{@const part = getPart(id)}
+	{@const render = part?.versions?.find((v) => v.uid === uid)?.render ?? part?.render}
 	{#if render}<img src={render} alt="" class="h-7 w-7 shrink-0 object-contain {struck ? 'opacity-50' : ''}" />{/if}
 	<span class="min-w-0 flex-1">
 		<span class="font-semibold text-text {struck ? 'line-through opacity-60' : ''}">{memberName(id)}</span>
@@ -845,10 +965,13 @@
 	{@const rev = memberRev(id, l.uid)}
 	{@const pv = part?.versions?.find((v) => v.uid === l.uid)}
 	{#if part || getAssembly(id)}
+		{@const stl = part ? (l.uid && l.uid !== part.uid ? (pv?.stl ?? part.stl) : part.stl) : null}
 		<div class="ml-1.5 mt-2 border border-border bg-surface p-2 sm:ml-4 sm:p-3">
 			<div class="flex items-center gap-3">
 				{#if part}
-					<img src={pv?.render ?? part.render} alt={part.name} class="h-12 w-12 shrink-0 object-contain" />
+					<button type="button" class="shrink-0" onclick={() => openPart(part)} title="Open {part.name}">
+						<img src={pv?.render ?? part.render} alt={part.name} class="h-12 w-12 object-contain" />
+					</button>
 				{/if}
 				<div class="min-w-0 flex-1">
 					<div class="flex flex-wrap items-baseline gap-x-2">
@@ -863,6 +986,15 @@
 						<div class="text-xs text-text-muted">{(pv?.grams ?? part.grams).toFixed(0)} g each</div>
 					{/if}
 				</div>
+				{#if stl}
+					<a
+						href={stl}
+						class="inline-flex shrink-0 items-center gap-1 text-xs font-medium text-primary hover:text-primary-hover"
+						title="Download this revision's STL"
+					>
+						<Download size={11} /> STL
+					</a>
+				{/if}
 				<div class="text-right text-xs tabular-nums text-text">
 					<div class="font-semibold">×{l.qty}</div>
 					{#if total !== null && total !== qtyN}<div class="text-text-muted">{total} total</div>{/if}
@@ -904,9 +1036,124 @@
 	{/if}
 {/snippet}
 
+<!-- One member row inside a version snapshot: rendered from the era's own
+     record — its name, render, weight and download URLs of the day. -->
+{#snippet eraPartRow(snap: VersionSnapshot, l: AssemblyLine, mult: number)}
+	{@const id = l.part ?? ''}
+	{@const p = snap.parts[id]}
+	{@const hw = snap.hardware[id]}
+	{@const qtyN = typeof l.qty === 'number' ? l.qty : null}
+	{@const total = qtyN === null ? null : qtyN * mult}
+	{#if p}
+		<div class="ml-1.5 mt-2 border border-border bg-surface p-2 sm:ml-4 sm:p-3">
+			<div class="flex items-center gap-3">
+				{#if p.render}<img src={p.render} alt={p.name} class="h-12 w-12 shrink-0 object-contain" />{/if}
+				<div class="min-w-0 flex-1">
+					<div class="flex flex-wrap items-baseline gap-x-2">
+						<span class="text-sm font-semibold text-text">{p.name}</span>
+						<span class="border border-border px-1.5 py-px text-[10px] font-semibold uppercase tracking-wider text-text-muted">3D printed</span>
+						<span class="font-mono text-xs text-text-muted">{p.uid}</span>
+						{#if p.version}<span class="text-xs text-text-muted">· v{p.version}</span>{/if}
+					</div>
+					{#if typeof p.grams === 'number'}
+						<div class="text-xs text-text-muted">{p.grams.toFixed(0)} g each</div>
+					{/if}
+				</div>
+				{#if p.stl}
+					<a href={p.stl} class="inline-flex shrink-0 items-center gap-1 text-xs font-medium text-primary hover:text-primary-hover" title="This revision's STL">
+						<Download size={11} /> STL
+					</a>
+				{/if}
+				<div class="text-right text-xs tabular-nums text-text">
+					<div class="font-semibold">×{l.qty}</div>
+					{#if total !== null && total !== qtyN}<div class="text-text-muted">{total} total</div>{/if}
+				</div>
+			</div>
+		</div>
+	{:else}
+		<div class="ml-1.5 mt-2 flex items-center gap-3 border border-border bg-[var(--color-bg)] p-2 sm:ml-4">
+			{#if hw?.image}<img src={hw.image} alt={hw.name} class="h-8 w-8 shrink-0 object-contain" />{/if}
+			<div class="flex min-w-0 flex-1 items-center gap-1.5 text-xs font-semibold text-text">
+				{#if hw}<HardwareIcon {hw} size={14} />{/if}<span class="truncate">{hw?.name ?? memberName(id)}</span>
+			</div>
+			<div class="text-right text-xs tabular-nums text-text">
+				<div class="font-semibold">×{l.qty}</div>
+				{#if total !== null && total !== qtyN}<div class="text-text-muted">{total} total</div>{/if}
+			</div>
+		</div>
+	{/if}
+{/snippet}
+
+<!-- One assembly of a version snapshot, recursively: the era's own record,
+     expandable like the live tree. Everything on screen comes from the
+     snapshot; the live catalog is never consulted. -->
+{#snippet eraNode(snap: VersionSnapshot, id: string, mult: number, root: boolean, instArgs: Record<string, string> | undefined = undefined)}
+	{@const rec = snap.assemblies[id]}
+	{#if rec}
+		{@const open = eraOpen[id] ?? true}
+		{@const fGutter = rec.connections?.length ? 44 + (braceGroups(rec.connections, (mid) => !!snap.assemblies[mid]).length - 1) * 16 : 0}
+		<div class="{root ? '' : 'ml-1.5 mt-2 border border-border bg-surface p-2 sm:ml-4 sm:p-3'}">
+			{#if !root}
+				<div
+					class="-mx-1 flex cursor-pointer flex-wrap items-center gap-x-2 px-1 hover:bg-primary/[0.04]"
+					role="button"
+					tabindex="0"
+					aria-expanded={open}
+					onclick={(e) => {
+						if ((e.target as Element).closest('a, button')) return;
+						eraOpen[id] = !open;
+					}}
+					onkeydown={(e) => {
+						if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) {
+							e.preventDefault();
+							eraOpen[id] = !open;
+						}
+					}}
+				>
+					<span class="flex h-5 w-5 shrink-0 items-center justify-center text-text-muted" aria-hidden="true">
+						{#if open}<ChevronDown size={14} />{:else}<ChevronRight size={14} />{/if}
+					</span>
+					<span class="text-sm font-semibold text-text">{rec.name}</span>
+					<span class="border border-border px-1.5 py-px text-[10px] font-semibold uppercase tracking-wider text-text-muted">assembly</span>
+					<span class="font-mono text-xs text-text-muted">{rec.uid}</span>
+					{#if rec.version}<span class="text-xs text-text-muted">· v{rec.version}</span>{/if}
+					{#if mult !== 1}<span class="text-xs tabular-nums text-text-muted">×{mult}</span>{/if}
+					<span class="ml-auto">
+						<AssemblyStlZip {id} name={rec.name} {layers} {snap} snapArgs={instArgs} />
+					</span>
+				</div>
+			{:else}
+				<div class="flex items-center gap-2">
+					<span class="text-xs text-text-muted">The site's own record of this version, straight from its commit — names, pictures, weights and downloads all as they were.</span>
+					<span class="ml-auto"><AssemblyStlZip {id} name={rec.name} {layers} {snap} snapArgs={instArgs} /></span>
+				</div>
+			{/if}
+			{#if root || open}
+				{#if rec.description}<AssemblyDescription text={rec.description} class="mt-1 max-w-2xl text-xs text-text-muted" />{/if}
+				{#if rec.images?.length}<div class="mt-2"><ImageStrip images={rec.images} /></div>{/if}
+				{@render joiningRows(rec.joining)}
+				<div class="relative" style={fGutter ? `padding-right: ${fGutter}px` : undefined}>
+					{#if fGutter && rec.connections}
+						<ConnectionBraces edges={rec.connections} gutter={fGutter} isAssembly={(mid) => !!snap.assemblies[mid]} labelOf={(m) => CONN_LABELS[m] ?? m} nameOf={(mid) => snap.assemblies[mid]?.name ?? snap.parts[mid]?.name ?? snap.hardware[mid]?.name ?? mid} travelOf={(hid) => screwTravel(snap.hardware[hid])} />
+					{/if}
+					{#each jointOrder(concreteLines(rec, rec.lines ?? [], instArgs), rec.connections ?? []) as l, i (`${l.part ?? l.assembly}-${i}`)}
+						<div data-member={l.part ?? l.assembly ?? ''}>
+							{#if l.assembly && snap.assemblies[l.assembly]}
+								{@render eraNode(snap, l.assembly, lineQty(l, layers) * mult, false, l.args)}
+							{:else}
+								{@render eraPartRow(snap, l, mult)}
+							{/if}
+						</div>
+					{/each}
+				</div>
+			{/if}
+		</div>
+	{/if}
+{/snippet}
+
 <!-- A node's line rows, routed by the header's version controls: the live
      lines, one version's snapshot, or the diff between two versions. -->
-{#snippet versionSwitch(asm: Assembly, mult: number, depth: number)}
+{#snippet versionSwitch(asm: Assembly, mult: number, depth: number, instArgs: Record<string, string> | undefined = undefined)}
 	{@const cur = currentVersion(asm)}
 	{@const shown = filtering ? cur : (shownVersion[asm.id] ?? cur)}
 	{@const base = filtering ? undefined : diffBase[asm.id]}
@@ -931,6 +1178,7 @@
 		</div>
 	{:else if shown !== cur}
 		{@const entry = asm.versions?.find((e) => e.version === shown)}
+		{@const snap = snapshots[snapKey(asm.id, shown)]}
 		<div class="ml-1.5 mt-2 sm:ml-4">
 			<div class="flex flex-wrap items-center gap-x-2 gap-y-1 border border-warning/50 bg-warning/[0.08] px-2 py-1.5 text-xs text-warning-dark">
 				<History size={11} /> v{shown}, superseded{entry?.date ? ` ${fmtDate(entry.date)}` : ''}
@@ -938,7 +1186,11 @@
 				<button type="button" class="ml-auto font-medium underline underline-offset-2" onclick={() => delete shownVersion[asm.id]}>back to v{cur}</button>
 			</div>
 			{#if entry?.message}<AssemblyDescription text={entry.message} class="mt-1 max-w-2xl text-xs text-text-muted" />{/if}
-			{#if entry?.lines?.length}
+			{#if typeof snap === 'object' && snap.assemblies[asm.id]}
+				{@render eraNode(snap, asm.id, mult, true, instArgs)}
+			{:else if snap === 'loading'}
+				<p class="mt-1.5 text-xs italic text-text-muted">Fetching this version's record…</p>
+			{:else if entry?.lines?.length}
 				{#each entry.lines as l, i (`${l.part ?? l.assembly}-${i}`)}
 					{@render snapshotRow(l, mult)}
 				{/each}
@@ -953,7 +1205,7 @@
 		<!-- assemblies a brace wires into get a box, so the tick lands on a
 		     visible container instead of ending in space -->
 		{@const eps = asm.connections?.length ? new Set(asm.connections.flatMap((c) => [c.from, c.to])) : null}
-		{@render lines(asm.lines ?? [], mult, depth, eps)}
+		{@render lines(jointOrder(concreteLines(asm, asm.lines ?? [], instArgs), asm.connections ?? []), mult, depth, eps)}
 	{/if}
 {/snippet}
 
@@ -1109,7 +1361,7 @@
 	</div>
 {/snippet}
 
-{#snippet node(id: string, qty: AssemblyLine['qty'], mult: number, depth: number, boxed: boolean = false)}
+{#snippet node(id: string, qty: AssemblyLine['qty'], mult: number, depth: number, boxed: boolean = false, instArgs: Record<string, string> | undefined = undefined)}
 	{@const asm = getAssembly(id)}
 	{#if asm && (!filtering || keep.assemblies.has(asm.id))}
 		{@const hasContent =
@@ -1167,15 +1419,11 @@
 				</button>
 				<span class="text-xs tabular-nums text-text-muted">
 					{#if qty === 'per-layer'}×{layers} (1 per layer)
+					{:else if qty === 'non-bottom-layers'}×{Math.max(0, layers - 1)} (every bin layer but the lowest)
 					{:else if qty === 'middle-layers'}×{Math.max(0, layers - 2)} (layers between the interfaces)
 					{:else if qty !== 1}×{qty}{/if}
 				</span>
 				{@render tagChips(asm.id)}
-				{#if asm.status === 'stub'}
-					<span
-						class="cursor-help border border-border px-1.5 py-px text-[10px] font-semibold uppercase tracking-wider text-text-muted"
-						title={STATUS_NOTE.stub}>stub — not yet detailed</span>
-				{/if}
 				<span class="relative ml-auto flex items-center gap-3" data-asm-menu>
 					<!-- The docs site is where the step-by-step build lives; this node is only
 					     the bill of materials for it. Link out when a page exists. -->
@@ -1254,7 +1502,10 @@
 										class="flex w-full items-center gap-2 px-2.5 py-1.5 text-left text-xs hover:bg-[var(--color-bg)]"
 										onclick={() => {
 											if (v.version === currentVersion(asm)) delete shownVersion[asm.id];
-											else shownVersion[asm.id] = v.version;
+											else {
+												shownVersion[asm.id] = v.version;
+												ensureSnapshot(asm.id, v.version);
+											}
 											close();
 										}}
 									>
@@ -1269,6 +1520,7 @@
 						<span class="text-xs text-text-muted">v{currentVersion(asm)}</span>
 					{/if}
 					{#if hasContent}
+						<AssemblyStlZip id={asm.id} name={asm.name} {layers} />
 						<button
 							type="button"
 							class="flex h-5 w-5 items-center justify-center text-text-muted hover:text-text"
@@ -1302,7 +1554,7 @@
 			{#if open}
 			{@const braceGutter =
 				asm.connections?.length && !filtering
-					? 44 + (braceGroups(asm.connections).length - 1) * 16
+					? 44 + (braceGroups(asm.connections, (mid) => !!getAssembly(mid)).length - 1) * 16
 					: 0}
 			<div
 				class="tree-branch relative pl-2 sm:pl-4"
@@ -1310,11 +1562,11 @@
 			>
 				<button type="button" class="tree-line" onclick={() => toggle(asm.id)} aria-label="Collapse {asm.name}"></button>
 				{#if braceGutter && asm.connections}
-					<ConnectionBraces edges={asm.connections} gutter={braceGutter} labelOf={(m) => CONN_LABELS[m] ?? m} nameOf={memberName} travelOf={(id) => screwTravel(getHardware(id))} />
+					<ConnectionBraces edges={asm.connections} gutter={braceGutter} isAssembly={(mid) => !!getAssembly(mid)} labelOf={(m) => CONN_LABELS[m] ?? m} nameOf={memberName} travelOf={(id) => screwTravel(getHardware(id))} />
 				{/if}
 			{#if asm.images?.length}<div class="mt-2"><ImageStrip images={asm.images} /></div>{/if}
 			{#if historyFor[asm.id] && !filtering}{@render historyPanel(asm)}{/if}
-			{@render versionSwitch(asm, mult, depth)}
+			{@render versionSwitch(asm, mult, depth, instArgs)}
 			<!-- Alternative bills of materials under test, rendered with the same
 			     line rows. -->
 			{#each (filtering ? [] : (asm.candidates ?? [])) as c (c.uid)}
@@ -1413,7 +1665,7 @@
 							{#if fStable}<Check size={12} class="ml-auto text-primary" />{/if}
 						</button>
 						<div class="px-2.5 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-wider text-text-muted">Order</div>
-						{#each [['authored', 'As authored'], ['name', 'By name']] as [o, lbl] (o)}
+						{#each [['authored', 'Joints together'], ['name', 'By name']] as [o, lbl] (o)}
 							<button
 								type="button"
 								class="flex w-full items-center gap-2 px-2.5 py-1.5 text-left text-xs text-text hover:bg-[var(--color-bg)]"
@@ -1454,8 +1706,8 @@
 			</div>
 			{#if filtering && matchCount === 0}
 				<p class="px-1 py-6 text-center text-sm text-text-muted">
-					Nothing in the tree matches. Most branches are still stubs — the part may be in the
-					catalog without being placed here yet.
+					Nothing in the tree matches — the part may be in the catalog without being placed
+					here yet.
 				</p>
 			{/if}
 			{#if timeView && viewKeys && !filtering}

@@ -11,7 +11,7 @@ author: spencer
 contributors: [barthel, brickcyclealice, christoph]
 warning: >-
   **Steps 1 to 5 come from a build**, the order of operations and the photographs are
-  BrickCycleAlice's. Step 6, the light post, is still an AI-generated first draft written
+  BrickCycleAlice's. Step 6, the camera lamp, is still an AI-generated first draft written
   from the machine assembly tree in the [parts
   calculator](https://parts-calculator.basically.website/assembly?focus=c-channel) and has
   not been checked against a machine. Correct it as you build.
@@ -52,7 +52,7 @@ The parts list above is **all four channels' worth** — the count is fixed for 
 
 - **Build 4 per machine**, three in the feeder and one for the classification channel. It is the same build four times over, and the rotor is the only thing that changes.
 - **One rotor per unit, and only one of the two.** The three feeder channels take the Rotor (faceted); the classification channel takes the Rotor (finned), the one with the fins in the photographs below. The list above already splits them the way a real machine needs them: three faceted, one finned. Colour changes with the rotor too: the feeder parts are charcoal, the classification-channel ones ash grey.
-- Two of the four channels also carry a light post, whose screws belong to the light post rather than to the list above.
+- Every channel also carries a [camera lamp]({{ '/hardware/assembly/feeder/camera-lamp/' | relative_url }}), whose parts and screws belong to that page rather than to the list above.
 
 {% include step.html n="1" title="Preparation" %}
 
@@ -124,15 +124,10 @@ Turn the stage by hand before wiring it. The train should run without a tight sp
   <figcaption>The finished stage, here the classification one with the finned rotor. <cite>Photo: BrickCycleAlice.</cite></figcaption>
 </figure>
 
-{% include step.html n="6" title="Fit the light post, on the channels that take one" %}
+{% include step.html n="6" title="Hang the camera lamp over the channel" %}
 
-Two of the C-channels carry a light post, which bolts to this unit's NEMA bracket with 2 {% include fastener.html size="M3" variant="countersunk" length="20" %} screws that thread straight into the printed post.
+Every channel carries a camera lamp: an arm mounted to the channel, a shaded lamp on the end of it and a camera looking down through the middle. It has its own page, [camera lamp]({{ '/hardware/assembly/feeder/camera-lamp/' | relative_url }}), and none of its screws are in the list above.
 
-The post, its cap, the cap adapter and the COB plate have their own page: [light post]({{ '/hardware/assembly/feeder/light-post/' | relative_url }}).
-
-<div class="callout callout-warning">
-  <span class="callout-icon" aria-hidden="true">⚠</span>
-  <p><b>The C-channel COB light boards need a current-limiting resistor.</b> <b>220&#8486;, 1/4 W, in series, one per board.</b> Wired straight to 24V a 50 mm COB plate pulls about 0.5A and melts its printed mount. A board fed from a basically board v1.3 LED header already has one on the board. Full detail: <a href="{{ '/hardware/electronics/#43--leds-from-basically-board-v13' | relative_url }}">LEDs, on the wire harness page</a>.</p>
-</div>
+The light post and the overhead camera mount that used to do this job were retired on 2026-09-02. Their pages are still up for machines already built that way.
 
 Once all four are built, see [arranging C-channels]({{ '/hardware/assembly/feeder/arranging-c-channels/' | relative_url }}) for how they sit together.

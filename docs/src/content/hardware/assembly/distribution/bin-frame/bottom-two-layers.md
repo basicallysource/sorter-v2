@@ -8,23 +8,16 @@ kicker: Bin frame — Bottom two layers
 lede: The paired base layers. Built together on the foot extensions the casters mount to.
 permalink: /hardware/assembly/distribution/bin-frame/bottom-two-layers/
 author: spencer
-contributors: [brickcyclealice, christoph]
+contributors: [brickcyclealice, christoph, daddyosbricksbill]
 warning: >-
-  **AI-generated first draft, reorganized to reference [Build the hex
-  frame]({{ '/hardware/assembly/distribution/bin-frame/hex-frame/' | relative_url }})
-  instead of Regular layers' old steps 1-2.** No step here has been checked
-  against a machine. Correct it as you build.
+  **AI-generated first draft.** Step 6 was written from a build by
+  Daddy-O's Bricks - Bill; no other step here has been checked against a
+  machine. Correct it as you build.
 parts_needed:
-  - part: ext-bracket-cover
-    qty: 6
   - part: ext-bracket-bottom-vertical
     qty: 6
   - part: ext-bracket-foot-cover
     qty: 6
-  - part: bin-retainer-left
-    qty: 12
-  - part: bin-retainer-right
-    qty: 12
   - part: ext-2020-d
     qty: 6
   - part: foot-connector-2020-m6
@@ -32,8 +25,6 @@ parts_needed:
   - part: caster-wheel-m6
     qty: 6
   - part: scr-m5-16-shcs
-    qty: 48
-  - part: scr-m5-12-shcs
     qty: 48
 tools_needed: [Hex key, Tape measure]
 ---
@@ -61,11 +52,11 @@ The aluminum extrusion is cut to length; the [framing cut list](https://parts-ca
 
 <div class="prep-item">
   <div class="prep-item-body">
-    <p><strong>Build the <a href="{{ '/hardware/assembly/distribution/bin-frame/bottom-interface/' | relative_url }}">bottom interface</a> before you start.</strong> Its three Lazy Susan extrusion mounts bolt onto its own hex frame's spokes as part of that page, not onto this frame's extrusion, so there's no T-nut work to do here on their account. How the finished bottom interface then joins onto this frame is step 6 below.</p>
+    <p><strong>Build the <a href="{{ '/hardware/assembly/distribution/bin-frame/bottom-interface/' | relative_url }}">bottom interface</a> before you start.</strong> It has no frame of its own: its three Lazy Susan extrusion mounts bolt up under the bottom layer's spokes, which is step 6 below. Get its 6 T-nuts into 3 of that layer's B/H spokes while you are building the frame, before the ring closes.</p>
   </div>
   <figure class="prep-item-figure">
     <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-bottom-interface-mounted-in-frame-full-476d171d148e.png" alt="The bottom interface assembly mounted into the aluminum extrusion machine frame">
-    <figcaption>The bottom interface, mounted into a frame.</figcaption>
+    <figcaption>The bottom interface, mounted into a frame. The corners in this render are out of date: they show a bottom vertical and cover where a build has the External bracket — foot cover and piece D running through to the caster, which is steps 2 to 4 below.</figcaption>
   </figure>
 </div>
 
@@ -87,13 +78,13 @@ Here's where the {% include fastener.html size="M5" variant="socket-button" leng
 - **12** for the second layer's External bracket — bottom verticals, 2 per corner (step 3 below)
 - **12** for the bottom layer's External bracket — foot covers, 2 per corner (step 3 below), the same as the bottom vertical it replaces
 
-The {% include fastener.html size="M5" variant="socket-button" length="12" %} count is the same arithmetic: **24** per layer for the bin retainers, so **48** across both.
+The bin retainers in step 5 are not in that count: they and their fasteners are listed on their own page.
 
 You should already have two [hex frames]({{ '/hardware/assembly/distribution/bin-frame/hex-frame/' | relative_url }}) built, one for each layer. The verticals are the part that differs here, and they are step 2 below.
 
 <div class="callout callout-warning">
   <span class="callout-icon" aria-hidden="true">⚠</span>
-  <p>This callout predated the hex frame reorg and used to say to put the <a href="{{ '/hardware/assembly/distribution/bin-frame/bottom-interface/' | relative_url }}">bottom interface</a>'s three T-nuts into this frame's extrusion before it closes up. That's resolved now: <a href="{{ '/hardware/assembly/distribution/bin-frame/bottom-interface/' | relative_url }}#step-4">bottom interface, step 4</a> bolts its three Lazy Susan extrusion mounts onto <em>its own</em> hex frame's spokes, with their own T-nuts, as part of building that page — nothing to do here on their account. What's still unconfirmed is how the finished bottom interface then physically joins onto this frame; see step 6 below.</p>
+  <p><strong>Get the bottom interface's 6 T-nuts into the bottom layer's spokes before the ring closes.</strong> Two each into 3 of the 6 B/H spokes, alternating around the ring. <a href="{{ '/hardware/assembly/distribution/bin-frame/bottom-interface/' | relative_url }}#step-4">Bottom interface, step 4</a> bolts its Lazy Susan extrusion mounts up into them from underneath, so they go in this frame's extrusion, not a frame of its own. Roll-in T-nuts can go in later; slide-in ones cannot, see <a href="{{ '/hardware/helpers/t-nuts/' | relative_url }}">Fitting T-nuts</a>.</p>
 </div>
 
 {% include step.html n="2" title="Run the foot extensions through both layers" %}
@@ -108,7 +99,7 @@ The corner itself is the same as on any layer. Only the vertical changes: one pi
 On each of the six corners, working on the second layer first:
 
 <ol class="numbered-steps">
-  <li>Slot an External bracket — cover onto the second layer's External bracket — side, and the External bracket — foot cover onto the bottom layer's, before either extrusion goes in. Both take 2 {% include fastener.html size="M5" variant="socket-button" length="16" %} screws and are awkward to fit afterwards.</li>
+  <li>The second layer's External bracket — cover is already on, fitted with its <a href="{{ '/hardware/assembly/distribution/bin-frame/hex-frame/' | relative_url }}#step-9">hex frame</a>, and it takes no screws. Slot an External bracket — foot cover onto the bottom layer's External bracket — side now, before either extrusion goes in: it does take 2 {% include fastener.html size="M5" variant="socket-button" length="16" %} screws, and it is awkward to fit afterwards.</li>
   <li>Partially thread the 2 {% include fastener.html size="M5" variant="socket-button" length="16" %} screws that will clamp each collar onto piece D, at both the second layer's bracket and the bottom layer's, so they are started but not yet tight.</li>
   <li>Slide a piece D down through the second layer's bracket and on down through the matching corner of the bottom layer, so one piece passes through both.</li>
   <li>Measure from the bottom before tightening anything, to check how far the exposed end will stand proud once the corner is clamped.</li>
@@ -156,7 +147,7 @@ The two layers are now one rigid unit and their spacing is set by the bracket po
 
 The bottom layer does not get an External bracket — bottom vertical or an External bracket — cover. It gets an **External bracket — foot cover** instead, one per corner, which is the single printed part that replaces both of them. It is shorter than the pair it replaces, on purpose, so the extrusion stands out past it far enough for the foot connector in step 4.
 
-The foot cover fastens the same way the bottom vertical it replaces would: 2 {% include fastener.html size="M5" variant="socket-button" length="16" %} screws through its outer holes into the External bracket — side. Mount it before the extrusion goes in, at the same point as the second layer's cover in step 2.
+The foot cover fastens the same way the bottom vertical it replaces would: 2 {% include fastener.html size="M5" variant="socket-button" length="16" %} screws through its outer holes into the External bracket — side. Mount it before the extrusion goes in, at the point in step 2 where the corner is still open.
 
 The second layer's corners are ordinary, exactly as in [regular layers]({{ '/hardware/assembly/distribution/bin-frame/regular-layers/' | relative_url }}) step 1: an External bracket — bottom vertical slid onto piece D with its angles aligned at the bottom, 2 {% include fastener.html size="M5" variant="socket-button" length="16" %} screws through its outer holes.
 
@@ -173,13 +164,16 @@ Screw a **swivel stem caster (M6 × 15 mm)** into the connector's M6 thread. The
 
 {% include step.html n="5" title="Add the bin retainers" %}
 
-Both layers take bin retainers, exactly as in [regular layers]({{ '/hardware/assembly/distribution/bin-frame/regular-layers/' | relative_url }}) step 2: on each side of each hexagon, a Bin retainer (left) and a Bin retainer (right) on the front face of the A/G extrusion, 4 {% include fastener.html size="M5" variant="socket-button" length="12" %} screws into T-nuts.
+Both layers take a full set of retainers, so do **[Bin retainers]({{ '/hardware/assembly/distribution/bin-frame/bin-retainers/' | relative_url }}) twice**, once for each hexagon. That page's parts list is per layer; double every quantity on it here.
 
 {% include step.html n="6" title="Attach the bottom interface" %}
 
-<div class="callout callout-warning">
-  <span class="callout-icon" aria-hidden="true">⚠</span>
-  <p><strong>Not written yet — this step is a placeholder.</strong> Build the <a href="{{ '/hardware/assembly/distribution/bin-frame/bottom-interface/' | relative_url }}">bottom interface</a> separately, then it joins the bottom of this frame here, but the physical mechanism isn't confirmed: whether it shares piece D's legs with this stack or connects some other way. Needs a builder to confirm before this step can be written for real.</p>
+The [bottom interface]({{ '/hardware/assembly/distribution/bin-frame/bottom-interface/' | relative_url }}) hangs underneath the **bottom layer's** frame. It does not share piece D's legs and it does not get a hex frame of its own.
+
+Working from under the bottom layer, bolt each of its three Lazy Susan extrusion mount pairs up into the underside of a B/H spoke, on 3 of the 6 spokes alternating around the ring, 2 {% include fastener.html size="M5" variant="socket-button" length="16" %} screws per mount into the T-nuts you put in earlier. Those 6 screws are on the bottom interface's own parts list, not this page's, so they aren't in the count above. The bearing then sits on the three mounts, and the chute mount faces up into the machine.
+
+<div class="callout">
+  <p>The height that comes out of this is right when a <a href="{{ '/hardware/assembly/distribution/chute/chute-core/' | relative_url }}">chute core</a> with a funnel on it, fitted onto the chute mount, puts the funnel level with the bin entrances.</p>
 </div>
 
 <div class="img-placeholder">Image coming</div>

@@ -19,4 +19,5 @@ A few names recur across these sections and are worth fixing here, once: the fee
 1. **[Distribution]({{ '/hardware/assembly/distribution/' | relative_url }})** — bin frame, top interface, and chute. The interface layer is built as part of distribution.
 2. **[Feeder]({{ '/hardware/assembly/feeder/' | relative_url }})** — the C-channel stages that meter parts in.
 3. **[Electronics]({{ '/hardware/electronics/' | relative_url }})** — boards, wiring, and steppers.
-4. **[Software setup]({{ '/hardware/assembly/software-setup/' | relative_url }})** — flash and configure. Hands off to the [Sorter]({{ '/sorter/' | relative_url }}) section.
+4. **[Install the bins]({{ '/hardware/assembly/install-bins/' | relative_url }})** — printed or laser cut, dropped into the finished tower.
+5. **[Software setup]({{ '/hardware/assembly/software-setup/' | relative_url }})** — flash and configure. Hands off to the [Sorter]({{ '/sorter/' | relative_url }}) section.

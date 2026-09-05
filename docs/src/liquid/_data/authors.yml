@@ -23,6 +23,9 @@ barthel:
 brickcyclealice:
   name: BrickCycleAlice
 
+daddyosbricksbill:
+  name: Daddy-O's Bricks - Bill
+
 effreek:
   name: Jon
   url: https://github.com/effreek
@@ -33,3 +36,6 @@ jgadling:
 
 alex:
   name: alex
+
+reveryx:
+  name: ReveryX

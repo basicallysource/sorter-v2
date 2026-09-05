@@ -8,11 +8,11 @@ kicker: Bin frame — Bottom interface
 lede: The component the chute rests on top of.
 permalink: /hardware/assembly/distribution/bin-frame/bottom-interface/
 author: spencer
-contributors: [abrianbaker, brickcyclealice, barthel]
+contributors: [abrianbaker, brickcyclealice, barthel, daddyosbricksbill]
 warning: >-
-  **Reorganized to reference [Build the hex frame]({{ '/hardware/assembly/distribution/bin-frame/hex-frame/' | relative_url }})
-  instead of describing frame construction inline, not yet reviewed by a
-  builder.** Correct it as you build.
+  **Steps 1-3 have not been checked against a machine.** Step 4, where this
+  assembly mounts, was corrected from a build by Daddy-O's Bricks - Bill.
+  Correct the rest as you go.
 parts_needed:
   - part: brg-lazy-susan
     qty: 1
@@ -26,6 +26,8 @@ parts_needed:
     qty: 3
   - part: ls-hold-in-place
     qty: 3
+  - part: hsi-m3
+    qty: 2
   - part: hsi-m4
     qty: 8
   - part: scr-m4-12-cs
@@ -37,11 +39,11 @@ parts_needed:
 tools_needed: [Hex key, Drill or electric screwdriver]
 ---
 
-The bottom interface is the Lazy Susan bearing assembly the chute rests and spins on, sitting between the chute and the bottom two layers of the frame.
+The bottom interface is the Lazy Susan bearing assembly the chute rests and spins on, slung underneath the bottom layer's frame.
 
 <div class="prep-item">
   <div class="prep-item-body">
-    <p><strong>Build a <a href="{{ '/hardware/assembly/distribution/bin-frame/hex-frame/' | relative_url }}">hex frame</a> before you start.</strong> It's a required component of this page, not optional or covered here — step 4 bolts onto one, it doesn't build one.</p>
+    <p><strong>This assembly has no frame of its own.</strong> It hangs under the <strong>bottom layer's</strong> <a href="{{ '/hardware/assembly/distribution/bin-frame/hex-frame/' | relative_url }}">hex frame</a>, built on <a href="{{ '/hardware/assembly/distribution/bin-frame/bottom-two-layers/' | relative_url }}">bottom two layers</a>, so you don't need an extra one. Step 4 bolts onto that frame's spokes from underneath.</p>
   </div>
   <figure class="prep-item-figure">
     <img class="doc-figure" src="https://assets.basically.website/sorter-parts/hex-frame-finished-top-down-full-c6abfb4dad6e.jpg" alt="A finished hex frame from above, the alternating grey spoke and teal crossbeam pieces forming the inner ring inside the aluminum outer hexagon">
@@ -49,7 +51,7 @@ The bottom interface is the Lazy Susan bearing assembly the chute rests and spin
   </figure>
 </div>
 
-The parts list above is only the Lazy Susan bearing stack and the extrusion mounts added in step 4; the hex frame itself is [Build the hex frame]({{ '/hardware/assembly/distribution/bin-frame/hex-frame/' | relative_url }})'s own parts list, built ordinary and unmodified. The fasteners and quantities below are called out inline at each step.
+The parts list above is only the Lazy Susan bearing stack and the extrusion mounts added in step 4. The fasteners and quantities below are called out inline at each step.
 
 {% include fastener-legend.html %}
 
@@ -83,8 +85,13 @@ Once assembled, it mounts into the machine frame:
 <div class="img-row">
   <figure>
     <img src="https://assets.basically.website/sorter-docs/assembly-bottom-interface-mounted-in-frame-full-476d171d148e.png" alt="The bottom interface assembly mounted into the aluminum extrusion machine frame">
-    <figcaption><cite>Diagram pictures courtesy of Adrianbaker in the basically Discord.</cite></figcaption>
+    <figcaption>Look at the middle of this one, not the corners. <cite>Diagram pictures courtesy of Adrianbaker in the basically Discord.</cite></figcaption>
   </figure>
+</div>
+
+<div class="callout callout-warning">
+  <span class="callout-icon" aria-hidden="true">⚠</span>
+  <p><strong>The corners in that render are out of date.</strong> It shows an ordinary bottom vertical and cover at floor level with the caster under it. On a build, each bottom corner takes the <strong>External bracket — foot cover</strong>, and the extrusion is piece D, running down through the corner to the foot connector the caster screws into. See <a href="{{ '/hardware/assembly/distribution/bin-frame/bottom-two-layers/' | relative_url }}#step-2">bottom two layers, steps 2 to 4</a>. The Lazy Susan mounting in the middle of the render is right.</p>
 </div>
 
 {% include step.html n="1" title="Preparation" %}
@@ -99,6 +106,22 @@ Press the heat inserts into both printed parts while they are still loose. See [
     <img class="doc-figure" src="https://assets.basically.website/sorter-parts/bottom-interface-prep-chute-mount-inserts-1-full-70bcf9a84302.jpg" alt="Looking into the Lazy Susan chute mount's circular face: four brass M4 heat inserts around the rim, with the raised square socket for the chute in the middle and the pass-through hole between two of the inserts">
     <figcaption>All four M4 inserts, with the pass-through hole. <cite>Photo: BrickCycleAlice.</cite></figcaption>
   </figure>
+</div>
+
+<div class="prep-item">
+  <div class="prep-item-body">
+    <p><strong>Lazy Susan chute mount:</strong> 2 × M3 for the <a href="{{ '/hardware/assembly/distribution/chute/layer-connectors/' | relative_url }}">layer connectors</a>, one on each side face, on the small raised tab about halfway up.</p>
+  </div>
+  <div class="prep-item-figure prep-item-figure-split">
+    <figure>
+      <img class="doc-figure" src="https://assets.basically.website/sorter-parts/bottom-interface-chute-mount-m3-pocket-render4-full-1fb455668c8e.png" alt="Render of the Lazy Susan chute mount's side face, with a red circle around the small pocket on the raised tab partway up the wall">
+      <figcaption>The pocket on the near side face. The far side is a mirror of it. <cite>Render: Balloon.</cite></figcaption>
+    </figure>
+    <figure>
+      <img class="doc-figure" src="https://assets.basically.website/sorter-parts/bottom-interface-chute-mount-m3-pocket-photo-full-ea22d619b316.png" alt="Close photo of the same raised tab on a printed chute mount, with a red circle around the empty pocket in it">
+      <figcaption>The same pocket on a printed part, empty. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+    </figure>
+  </div>
 </div>
 
 <div class="prep-item">
@@ -208,9 +231,9 @@ The bearing stack is now complete:
   <figcaption><cite>Photo: Spencer.</cite></figcaption>
 </figure>
 
-{% include step.html n="4" title="Prepare the frame" %}
+{% include step.html n="4" title="Hang it under the bottom layer" %}
 
-The bottom interface's frame is an ordinary [hex frame]({{ '/hardware/assembly/distribution/bin-frame/hex-frame/' | relative_url }}), built exactly as that page describes, with one addition: that page's step 3 has a note on getting this page's 6 T-nuts into 3 of its spokes while they're still open. Once it's built, a Lazy Susan extrusion mount pair bolts directly onto those 3 spokes, alternating around the ring, on top of the spoke's existing Frame 90° bracket and crossbeam rather than replacing anything.
+There is no separate frame here. The three Lazy Susan extrusion mounts bolt to the **underside of the bottom layer's B/H spokes**, alternating around the ring, and the bearing sits on them. Nothing already on the spoke is moved or replaced. [Build the hex frame]({{ '/hardware/assembly/distribution/bin-frame/hex-frame/' | relative_url }}) step 3 has a note on getting this page's 6 T-nuts into those 3 spokes while their ends are still open.
 
 Three Lazy Susan extrusion mounts carry the bearing assembly's weight; a hold in place bolts to each one first, as a pair, before either touches the extrusion. **They don't fix the chute itself**, that's attached up at the [top interface]({{ '/hardware/assembly/distribution/top-interface/' | relative_url }}).
 
@@ -221,14 +244,14 @@ Three Lazy Susan extrusion mounts carry the bearing assembly's weight; a hold in
 
 The screw between the extrusion mount and the hold in place is an {% include fastener.html size="M5" variant="socket-button" length="16" %}.
 
-Each mount then bolts directly onto the B/H spoke (158mm) already in place in the hex frame, through two more 5.5 mm M5 clearance holes, 30 mm apart, into a T-nut in the extrusion.
+Each mount then bolts up into the B/H spoke (158mm) already in place in the bottom layer's frame, through two more 5.5 mm M5 clearance holes, 30 mm apart, into a T-nut in the extrusion. See [Fitting T-nuts]({{ '/hardware/helpers/t-nuts/' | relative_url }}) if you are not sure which style you have.
 
 That's two {% include fastener.html size="M5" variant="socket-button" length="16" %} screws per mount, 6 more on top of the 3 between mount and hold in place.
 
 <div class="img-row">
   <figure>
     <img src="https://assets.basically.website/sorter-parts/bottom-interface-step4-hex-frame-overview-full-bab24577ff64.jpg" alt="Top-down view of the assembled hexagonal layer frame with three Lazy Susan extrusion mounts fitted at alternating spokes">
-    <figcaption>All three mounts, fitted around the ring. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+    <figcaption>All three mounts, fitted around the ring. The frame is off the machine here, not in its built orientation. <cite>Photo: BrickCycleAlice.</cite></figcaption>
   </figure>
   <figure>
     <img src="https://assets.basically.website/sorter-parts/bottom-interface-step4-hex-frame-corner-full-1a86a71db08d.jpg" alt="Closer view of one Lazy Susan extrusion mount fitted at a corner of the hexagonal layer frame">
@@ -236,4 +259,4 @@ That's two {% include fastener.html size="M5" variant="socket-button" length="16
   </figure>
 </div>
 
-You end this step with two pieces: the bearing stack from steps 1-3, and the hex frame with its three Lazy Susan extrusion mounts now bolted onto alternating spokes. The frame goes on in [bottom two layers]({{ '/hardware/assembly/distribution/bin-frame/bottom-two-layers/' | relative_url }}); the bearing stack takes the [chute core]({{ '/hardware/assembly/distribution/chute/chute-core/' | relative_url }}).
+You end this step with the bearing stack from steps 1-3 sitting on three mounts under the bottom layer's spokes. The bearing stack takes the [chute core]({{ '/hardware/assembly/distribution/chute/chute-core/' | relative_url }}); with a funnel fitted on the chute mount, it lands level with the bin entrances.

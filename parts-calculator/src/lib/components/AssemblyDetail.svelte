@@ -8,6 +8,7 @@
 	import HardwareIcon from '$lib/components/HardwareIcon.svelte';
 	import ImageStrip from '$lib/components/ImageStrip.svelte';
 	import {
+		concreteLines,
 		docsUrl,
 		fmtDate,
 		getAssembly,
@@ -48,20 +49,13 @@
 		onAssembly?: (id: string) => void;
 	} = $props();
 
-	// Same wording as the tree: the data records that a node is incomplete, never
-	// which pieces are missing, so the tooltip claims nothing more than that.
-	const STATUS_NOTE = {
-		stub: 'Placeholder — nothing has been recorded inside this assembly yet. What it actually contains is not captured anywhere in the data.',
-		partial:
-			'Some of this assembly is recorded, but not all of it. The parts and hardware shown are real; the list is known to be missing pieces, and the data does not say which.'
-	};
-
 	/** Printed parts reachable below an assembly, id -> count, quantities
 	 *  multiplied down. Depth-capped rather than cycle-checked: authored data has
 	 *  no cycles, and a `seen` set would undercount a part used in two branches. */
 	function partsUnder(id: string, mult = 1, acc = new Map<string, number>(), depth = 0) {
 		if (depth > 8) return acc;
-		for (const line of getAssembly(id)?.lines ?? []) {
+		const asm = getAssembly(id);
+		for (const line of concreteLines(asm ?? {}, asm?.lines ?? [])) {
 			const q = lineQty(line, layers) * mult;
 			if (line.assembly) partsUnder(line.assembly, q, acc, depth + 1);
 			else if (line.part && getPart(line.part)) acc.set(line.part, (acc.get(line.part) ?? 0) + q);
@@ -167,7 +161,7 @@
 <div class="ad">
 	<header class="ad-head">
 		{#if assembly.images?.length}
-			<ImageStrip images={assembly.images} />
+			<ImageStrip images={assembly.images} hero />
 		{:else if fan.length}
 			<div class="ad-fan ad-fan-lg">
 				{#each fan as p, i (p.id)}
@@ -180,15 +174,6 @@
 		<div class="mt-2 flex flex-wrap items-center gap-2">
 			<span class="font-mono text-xs text-text">{assembly.uid}</span>
 			{#if assembly.version}<span class="text-xs text-text-muted">v{assembly.version}</span>{/if}
-			{#if assembly.status === 'stub'}
-				<span
-					class="cursor-help border border-border px-1.5 py-px text-[10px] font-semibold uppercase tracking-wider text-text-muted"
-					title={STATUS_NOTE.stub}>stub — not yet detailed</span>
-			{:else if assembly.status === 'partial'}
-				<span
-					class="cursor-help border border-warning/50 bg-warning/[0.08] px-1.5 py-px text-[10px] font-semibold uppercase tracking-wider text-warning-dark"
-					title={STATUS_NOTE.partial}>partial</span>
-			{/if}
 			<ChangeStatus kind="assemblies" id={assembly.id} name={assembly.name} />
 		</div>
 
@@ -217,7 +202,9 @@
 			{/if}
 		</h3>
 		{#if assembly.lines?.length}
-			{#each assembly.lines as line, i (`${line.part ?? line.assembly}-${i}`)}
+			<!-- param slots resolve to their defaults here: this view shows the
+			     assembly itself, not one parent's instantiation of it -->
+			{#each concreteLines(assembly, assembly.lines) as line, i (`${line.part ?? line.assembly}-${i}`)}
 				{@render lineRow(line)}
 			{/each}
 		{:else}

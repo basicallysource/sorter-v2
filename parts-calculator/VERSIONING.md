@@ -78,7 +78,7 @@ the chain of bits — never reconstructed from memory or CAD archaeology.
 
 ## Revising an assembly
 
-A structural change to an assembly's `lines` — a member removed or replaced,
+Any change to an assembly's `lines` — a member added, removed or replaced,
 a quantity changed — is a revision and must be **stamped** in the same
 change:
 
@@ -87,13 +87,30 @@ change:
    `breaking` bit, `"commit": null` (pending).
 3. After committing, run `catalog/stamp_versions.py`: it ties the entry to
    its commit and snapshots the superseded lines with each member's uid of
-   the day, so the box as built then reads back part by part.
+   the day, so the box as built then reads back part by part. On a node's
+   first stamp it also writes the entry for the state being left behind, so
+   there is always a snapshot to flip back to.
 
-One exemption: purely *adding* lines to a `stub`/`partial` assembly is
-completing the record of what was always physically there, not changing the
-design — no stamp needed. The moment a line is removed or altered, or the
-assembly is no longer partial, the full rule applies. CI enforces both
-halves (`scripts/check_versioning.py`).
+There is no "just filling in what was always there" exemption: the lines
+are the record, and every change to them is a moment someone may need to
+flip back to. CI enforces this (`scripts/check_versioning.py`).
+
+**Flipping to a version shows the site as it was, straight out of git.**
+The site of any stamped moment already exists, verbatim: the generated
+catalog committed alongside the change. Nothing about old versions is
+copied into today's data. At build time (`npm run build`, and dev),
+`scripts/version-snapshots.mjs` subsets that data per superseded version —
+the era's own records for every assembly, part and hardware item under the
+node — into `static/versions/<assembly>-v<version>.json` (gitignored,
+derived). Flipping "Viewing vN" fetches that file and renders only from
+it: the era's names, descriptions, photos, renders, weights, joints, and
+the era's plain and uid-engraved STL downloads, all at permanent
+content-addressed URLs published when that version was current. A
+version's moment is the last commit of its reign (the parent of the commit
+that superseded it); an entry may pin a different moment with
+`snapshot_at` — the feeder's v4, stamped purely to lock the machine before
+the C-channel overhaul, points at its own commit. Structurally, a flipped
+view cannot show anything from today: it never reads today's catalog.
 
 ## History is derived, not recorded
 
@@ -126,6 +143,10 @@ breaking, so anything built against it keeps working; `experimental` marks
 a coherent but unproven cut. A tag resolves against history exactly like a
 timeline point and renders highlighted on the timeline.
 
+A tag resolves exactly like a version flip — the whole subtree as of the
+end of its date — but adds a stability claim about that build. Locking a
+subtree needs no tag: stamp a version (previous section).
+
 Tags are appended only by a human decision. No tool, check, or agent ever
 mints one.
 
@@ -154,9 +175,9 @@ Worked example: `washer-m3-15`, retired in
   the same design is a new hash under the same uid).
 - Deleting or overwriting an asset (the service cannot).
 - Hand-editing `src/lib/data/catalog.generated.json` (it is an output).
-- A new revision without its `breaking` bit, or a structural change to an
-  assembly's lines without a version stamp (CI refuses both, from
-  2026-08-31; `scripts/check_versioning.py`).
+- A new revision without its `breaking` bit, or a change to an assembly's
+  lines without a version stamp (CI refuses both, from 2026-08-31;
+  `scripts/check_versioning.py`).
 - Compatibility claims between arbitrary version pairs. Compatibility is
   computed from the chain of `breaking` bits; anything the chain can't
   derive is honestly unknown.

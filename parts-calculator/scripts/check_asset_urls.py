@@ -59,7 +59,8 @@ LFS_POINTER = b"version https://git-lfs"
 # Where a URL could hide. Everything else under parts-calculator/ is either
 # generated from these or not shipped.
 SCANNED = ("*.py", "*.json", "*.svelte", "*.ts", "*.js", "*.md", "*.html", "*.yml")
-SKIP_DIRS = {"node_modules", "build", ".svelte-kit", ".git"}
+SKIP_DIRS = {"node_modules", "build", ".svelte-kit", ".git",
+             "versions"}  # static/versions: era data derived from git at build time
 
 
 def collect_urls() -> dict[str, str]:

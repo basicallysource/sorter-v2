@@ -51,6 +51,62 @@
   ],
   "changes": [
     {
+      "id": "output-guide-finned-rotor-clash",
+      "name": "The output guide and the C4 finned rotor cannot both be fitted",
+      "priority": "P0",
+      "condition": "broken",
+      "description": "C-channel 4 carries both the finned rotor unit and the Short and Angled Output Guide, and the two occupy the same space. The guide's inner face sits at r 67.82 mm; the finned rotor's body at that height is r 64.6, so the body clears it by about 3 mm, but the rotor's five fins reach out to r 85.4 and sweep through the guide. Rotated against the guide at 5 degree steps through a full turn, the finned rotor interferes at 24 of 72 positions, up to 0.504 cm3, in the region r 69.3 to 96.6 mm, azimuth -56.6 to -51.2 deg, z 2.5 to 27.4 mm; the fin sweep is up to 21.2 mm past the guide's inner face over the band z 8 to 29. The faceted rotor used on C1 to C3 interferes at none of the 72 positions and clears the guide by 1.5 to 1.8 mm along its whole height, which is the clearance the guide is dimensioned to. This is not the clocking error in output-guide-clocking: a rotor covers every azimuth, so no rotation of the guide changes it. C4 had no guide in the tree until e22fce30 (#534, 2026-09-02) consolidated all four channels onto one shape. Which way it is fixed, a C4-specific guide, shorter fins, or no guide on C4, is a CAD decision. Reported by Extremetaz. Tracked as sorter-v2 issue #543.",
+      "images": [
+        {
+          "url": "https://assets.basically.website/sorter-parts/c4-guide-finned-rotor-full-5c7e8f36a2e3.png",
+          "alt": "Two drawings. Left, a plan section at z = 20 mm looking down the C-channel axis: the finned rotor's five fins reaching out to r 85.4, the output guide beyond them, and the wedge the fin sweeps through the guide marked in red. Right, an elevation of radius against height showing the finned rotor's fin tips outside the guide's inner face from z 8 to z 29, and the faceted rotor's cone staying inside it.",
+          "caption": "The fin sweep against the guide, in plan at z = 20 and in elevation. The faceted rotor clears; the finned one does not."
+        }
+      ],
+      "targets": {
+        "parts": [
+          "output-guide",
+          "rotor-finned"
+        ],
+        "assemblies": [
+          "classification-chamber"
+        ]
+      }
+    },
+    {
+      "id": "output-guide-clocking",
+      "name": "The output guide is clocked wrong: it overlaps the stator, and the bulk cap on C1",
+      "priority": "P0",
+      "condition": "broken",
+      "description": "The Short and Angled Output Guide, as pinned, overlaps the stator it mounts to by 3.014 cm3 (r 102.99 to 119.99 mm, azimuth -45.05 to -40.00 deg, over the full height z -19 to 50). That is on all four channels, because one guide STL serves all of them. On C1 it additionally overlaps the Bulk cap by 0.315 cm3 at r 113.45 to 116.78, z 40 to 50, which is how it was spotted. The stator's exit opening is 45.0 deg at the wall (az -90.1 to -45.1) and 42.0 deg at the base flange; the cap's relief cut is 38.5 deg (-84.0 to -45.5); the guide is 23.3 deg wide and sits at -63.3 to -40.0, hard against one end and lapping past it. Rotating the guide -5.1 to -18.3 deg clears both the stator and the cap, but that does not settle it: the stator's base flange indexes on a 25.714 deg notch grid (14 positions, notch width 4.8 to 5.0 mm of arc), the guide's base lobe pair sits at -43.5 deg which is not on that grid, and the nearest grid position inside the opening (-64.2) needs -20.7 deg, 2.4 deg outside the clear window. So the exported clocking is not the assembled clocking and where the guide is meant to index has to come from the CAD. Reported by ReveryX. Tracked as sorter-v2 issue #541.",
+      "images": [
+        {
+          "url": "https://assets.basically.website/sorter-parts/c1-output-guide-clear-window-full-b764d42da838.png",
+          "alt": "Two top-down sections. At z = 45 mm the stator wall, the bulk cap's two concentric walls, the guide as exported overlapping both, and the guide rotated -11.7 degrees clear of them. At z = -12 mm the stator's base flange with its ring of index notches, and the guide's base lobes buried in solid flange.",
+          "caption": "Sections at z = 45 and z = -12. The guide as exported (yellow) against the clear position (green)."
+        },
+        {
+          "url": "https://assets.basically.website/sorter-parts/c1-bulk-cap-output-guide-clash-full-4bda026498a4.png",
+          "alt": "Top-down section at z = 45 mm showing the bulk cap's two concentric walls, the stator ring between them, the output guide lying in the cap's relief cut, and the interference at the guide's outer end marked in red",
+          "caption": "The bulk cap overlap on C1 alone, section at z = 45 mm."
+        }
+      ],
+      "targets": {
+        "parts": [
+          "output-guide",
+          "stator",
+          "bulk-cap"
+        ],
+        "assemblies": [
+          "bulk-bucket",
+          "c-channel",
+          "channel-two",
+          "channel-three",
+          "classification-chamber"
+        ]
+      }
+    },
+    {
       "id": "replace-c-channel-supports",
       "name": "Replace prototype C-channel supports",
       "priority": "P2",

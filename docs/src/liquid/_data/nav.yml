@@ -68,6 +68,8 @@ sections:
                 url: /hardware/assembly/feeder/output-guides/
               - title: Arranging C-channels
                 url: /hardware/assembly/feeder/arranging-c-channels/
+          - title: Install the bins
+            url: /hardware/assembly/install-bins/
           - title: Software setup
             url: /hardware/assembly/software-setup/
       - title: Electronics

@@ -1,0 +1,14 @@
+RefDes,X,Y,Rotation,Side,Component
+C1,81.082,71.85,0,Top,100uF CAP-SMD_BD6.3
+C2,81.5,62.45,0,Top,1uF C_0603
+C3,81.5,65.7,0,Top,100nF C_0603
+J1,91.0,57.0,0,Top,JST XA 10-pin THT
+J2,91.0,93.0,0,Top,JST XA 10-pin THT
+J3,93.38,68.09,90.0,Top,IDC Header 2x08 THT
+J4,93.32,84.14,90.0,Top,IDC Header 2x08 THT
+J5,81.25,83.345,180.0,Top,PinHeader 1x03 horizontal THT
+J6,76.5,57.0,0,Top,JST XA 4-pin THT
+J7,76.5,93.0,0,Top,JST XA 4-pin THT
+JP1,118.85,86.95,0,Top,Solder Jumper SMD
+R1,85.05,83.35,180.0,Top,0Ω R_0603
+R3,87.05,81.4,90.0,Top,10kΩ R_0603

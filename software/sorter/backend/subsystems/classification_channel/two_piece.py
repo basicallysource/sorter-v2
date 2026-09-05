@@ -60,7 +60,7 @@ _EJECT_TIMEOUT_S = 15.0
 # (last piece of a batch, a slow C3) does not park the piece until the 30 s
 # stall watchdog commits it; long enough that a paired eject+stage rotation,
 # which keeps the flow overlapped, still wins under a continuous feed.
-_LONE_HEAD_EJECT_S = 5.0
+_LONE_HEAD_EJECT_S = 3.0
 # A forward piece that already carries a capture/result and whose track id
 # vanished is kept as an orphan for this long. The tracker re-issues ids on
 # a piece that was pushed into the holding band (seen 2026-09-05: classified

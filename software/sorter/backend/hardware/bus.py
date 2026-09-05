@@ -89,13 +89,15 @@ class MCUBusError(Exception):
 class MCUBus:
     """Class for communicating with the MCU over a serial bus using a custom protocol."""
 
-    def __init__(self, port: str, baudrate: int = 576000, timeout: float = 0.1):
+    def __init__(self, port: str, baudrate: int = 576000, timeout: float = 0.25):
         """Initialize the MCUBus with the given serial port parameters.
 
         Args:
             port: The serial port to use (e.g. "/dev/ttyUSB0")
             baudrate: The baud rate for the serial communication (default 576000)
-            timeout: The read timeout in seconds (default 0.01s = 10ms)
+            timeout: The read timeout in seconds (default 0.25 s — a reply
+                that has started may stall while the board steps a pulse;
+                100 ms cut GET_STALL_STATUS replies mid-frame ~100x/hour).
         """
 
         self._serial = serial.Serial(port, baudrate=baudrate, timeout=timeout)

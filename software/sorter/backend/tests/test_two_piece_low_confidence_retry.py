@@ -69,3 +69,11 @@ def test_retry_disabled_by_config() -> None:
     h.ctx.config.low_confidence_retry = False
     tp, obj = _piece(ClassificationStatus.low_confidence, 0.55)
     assert h._retryHeadAtRest(tp, obj) is False
+
+
+def test_not_found_head_is_retried_too() -> None:
+    h = _handler()
+    tp, obj = _piece(ClassificationStatus.not_found, None)
+    assert h._retryHeadAtRest(tp, obj) is True
+    assert tp.retry_started and tp.first_score is None
+    assert retryImproves(0.42, None)

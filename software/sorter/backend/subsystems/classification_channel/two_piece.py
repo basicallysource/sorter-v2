@@ -718,7 +718,10 @@ class TwoPieceClassificationChannel(Rev01BaseState):
         head. Returns True while the aim must wait for it."""
         if tp.retry_done or not bool(getattr(self.ctx.config, "low_confidence_retry", True)):
             return False
-        if obj.classification_status != ClassificationStatus.low_confidence:
+        if obj.classification_status not in (
+            ClassificationStatus.low_confidence,
+            ClassificationStatus.not_found,
+        ):
             return False
         if not tp.retry_started:
             ctx = tp.worker.ctx

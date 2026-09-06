@@ -102,6 +102,15 @@ _REID_PIXEL_BOXES = 1.5
 _REID_GAP_TOL_DEG = 45.0
 _REID_AMBIGUOUS = 0.34
 
+# A detection inside the drop zone that does not ride along when the platter
+# turns is not on the platter: a piece hanging on C3's exit lip (which projects
+# into C4's drop zone from above), or one resting on the housing rim. Treating
+# it as a drop piece deadlocks the chain — C4 waits for it to stage, C3 waits
+# for C4 to open. After a turn of at least this size, a centre shift below the
+# threshold flags the detection as off-platter; moving again clears the flag.
+_OFF_PLATTER_MIN_TURN_DEG = 20.0
+_OFF_PLATTER_MAX_SHIFT_PX = 40.0
+
 
 def _exitArcOccupied(state) -> bool:
     for po in getattr(state, "pieces", ()):
@@ -224,6 +233,13 @@ class _TrackedPiece:
     """One physical piece on the channel, keyed by its perception track id. Owns
     a private capture/classify worker (its own KnownObject + burst context) so two
     pieces never share classification state."""
+
+    # Off-platter bookkeeping (class defaults so partially built test doubles
+    # behave): the box before the last commanded turn, the turn accumulated
+    # since, and whether the detection failed to ride along.
+    bbox_before_move: Optional[tuple[int, int, int, int]] = None
+    moved_deg_since_check: float = 0.0
+    off_platter: bool = False
 
     def __init__(self, track_id: int, worker: Rev01BaseState, now: float) -> None:
         self.track_id = track_id
@@ -423,7 +439,7 @@ class TwoPieceClassificationChannel(Rev01BaseState):
         # The classification channel OWNS the feeder admission gate. Ready only
         # when we are idle between cycles (not mid-rotation) AND the drop zone is
         # clear AND the platter has settled — i.e. "rotation complete, drop empty".
-        ready = self._phase == _Phase.WAITING and (not state.in_drop) and stopped
+        ready = self._phase == _Phase.WAITING and not self._dropOccupied(state) and stopped
         self.setClassificationReady(ready, "waiting + drop clear + stopped")
 
         # Classification results arrive on background threads — apply them every
@@ -486,7 +502,20 @@ class TwoPieceClassificationChannel(Rev01BaseState):
             tp.zone = int(po.zone_code)
             if _bboxCenterShift(tp.bbox, bbox) > _STILL_MAX_SHIFT_PX:
                 tp.still_since = now
+                if tp.off_platter:
+                    tp.off_platter = False
+                    self.logger.info(f"{LOG_TAG} track={tp.track_id} moved — back on board")
             tp.bbox = bbox
+            if stopped and tp.bbox_before_move is not None and tp.moved_deg_since_check >= _OFF_PLATTER_MIN_TURN_DEG:
+                rode_along = _bboxCenterShift(tp.bbox_before_move, bbox) > _OFF_PLATTER_MAX_SHIFT_PX
+                if not rode_along and not tp.off_platter:
+                    tp.off_platter = True
+                    self.logger.warning(
+                        f"{LOG_TAG} track={tp.track_id} did not move through a "
+                        f"{tp.moved_deg_since_check:.0f}° turn — not on the platter (C3 lip or rim), ignoring it"
+                    )
+                tp.bbox_before_move = None
+                tp.moved_deg_since_check = 0.0
             tp.gap_to_exit = gap
             if stopped and gap is not None:
                 tp.expected_gap = float(gap)
@@ -637,7 +666,7 @@ class TwoPieceClassificationChannel(Rev01BaseState):
         drop = [
             tp
             for tid, tp in self._pieces.items()
-            if tid in seen and tp.zone == _ZONE_DROP
+            if tid in seen and tp.zone == _ZONE_DROP and not tp.off_platter
         ]
         frame_ts = float(getattr(state, "ts", 0.0))
         if frame_ts != self._multi_drop_last_ts:
@@ -688,7 +717,7 @@ class TwoPieceClassificationChannel(Rev01BaseState):
         # precise). This is the piece we classify-aim and eject next. Including the
         # gap (zone NONE) is what keeps a clump piece that overshot precise, or a
         # stray that landed mid-channel, from being stranded.
-        fwd = [tp for tp in self._pieces.values() if tp.zone != _ZONE_DROP and not tp.ejected]
+        fwd = [tp for tp in self._pieces.values() if tp.zone != _ZONE_DROP and not tp.ejected and not tp.off_platter]
         if not fwd:
             return None
         return min(fwd, key=lambda tp: tp.gap_to_exit if tp.gap_to_exit is not None else 1e9)
@@ -705,8 +734,20 @@ class TwoPieceClassificationChannel(Rev01BaseState):
             None,
         )
 
+    def _dropOccupied(self, state) -> bool:
+        """Perception's in_drop minus detections known not to be on the platter.
+        An untracked box still counts: it has not had the chance to prove itself."""
+        for po in getattr(state, "pieces", ()):
+            if int(getattr(po, "zone_code", 0)) != _ZONE_DROP:
+                continue
+            tid = getattr(po, "sv_bt_track_id", None)
+            tp = self._pieces.get(tid) or self._aliases.get(tid)
+            if tp is None or not tp.off_platter:
+                return True
+        return False
+
     def _dropPiece(self) -> Optional[_TrackedPiece]:
-        drop = [tp for tp in self._pieces.values() if tp.zone == _ZONE_DROP]
+        drop = [tp for tp in self._pieces.values() if tp.zone == _ZONE_DROP and not tp.off_platter]
         if not drop:
             return None
         return min(drop, key=lambda tp: tp.gap_to_exit if tp.gap_to_exit is not None else 1e9)
@@ -720,7 +761,7 @@ class TwoPieceClassificationChannel(Rev01BaseState):
         raw = None
         settle_s = float(self.ctx.config.capture_settle_ms) / 1000.0
         for tp in list(self._pieces.values()):
-            if tp.zone != _ZONE_DROP or tp.capture_done or tp.double_feed:
+            if tp.zone != _ZONE_DROP or tp.capture_done or tp.double_feed or tp.off_platter:
                 continue
             if (now - tp.still_since) < settle_s:
                 continue  # still tumbling after landing — no blurred burst
@@ -1059,8 +1100,8 @@ class TwoPieceClassificationChannel(Rev01BaseState):
             return
         if self._dropBurstInProgress():
             return  # finish the burst of a piece that landed mid-stage first
-        drop_clear = (not state.in_drop) and not any(
-            tp.zone == _ZONE_DROP for tp in self._pieces.values()
+        drop_clear = not self._dropOccupied(state) and not any(
+            tp.zone == _ZONE_DROP and not tp.off_platter for tp in self._pieces.values()
         )
         if drop_clear:
             self.logger.info(f"{LOG_TAG} staged -> holding (drop clear)")
@@ -1096,6 +1137,12 @@ class TwoPieceClassificationChannel(Rev01BaseState):
             for tp in list(self._pieces.values()) + [piece for piece, _ in self._orphans]:
                 if tp.expected_gap is not None:
                     tp.expected_gap -= abs(float(output_degrees))
+            # ...and a detection that does not is not on the platter (checked
+            # once the platter stands still again, see _observe).
+            for tp in self._pieces.values():
+                if tp.bbox_before_move is None:
+                    tp.bbox_before_move = tp.bbox
+                tp.moved_deg_since_check += abs(float(output_degrees))
         return ok
 
     def _enterPhase(self, phase: _Phase) -> None:

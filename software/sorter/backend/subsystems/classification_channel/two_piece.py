@@ -128,6 +128,10 @@ _ALIGN_BACK_LIMIT_DEG = 170.0
 _ALIGN_ATTEMPTS = 2
 _ALIGN_MIN_RESIDUAL_WALLS = 3
 _ALIGN_MAX_RESIDUAL_DEG = 3.0
+# After an alignment turn: wait this long, and for a frame taken after it,
+# before measuring again (the first deploy measured the same stale frame
+# twice and stacked two turns).
+_ALIGN_SETTLE_S = 1.0
 
 
 def _exitArcOccupied(state) -> bool:
@@ -394,6 +398,7 @@ class TwoPieceClassificationChannel(Rev01BaseState):
         self._align_checked = False
         self._align_attempts = 0
         self._align_target_deg: Optional[float] = None
+        self._align_move_wall_time = 0.0  # time.time() of the last alignment turn (frames carry wall time)
         self._phase = _Phase.WAITING
         self._eject_target: Optional[_TrackedPiece] = None
         self._stage_target: Optional[_TrackedPiece] = None
@@ -1227,9 +1232,12 @@ class TwoPieceClassificationChannel(Rev01BaseState):
         cfg = self.ctx.config
         if not bool(getattr(cfg, "wall_align_enabled", False)) or self._align_checked:
             return False
-        self._align_checked = True  # one look per platter move
         if self._align_attempts >= _ALIGN_ATTEMPTS:
+            self._align_checked = True
             return False
+        wall_now = time.time()
+        if wall_now - self._align_move_wall_time < _ALIGN_SETTLE_S:
+            return False  # the last turn may still be running; look again later
         try:
             from vision.c4_wall_phase import calibrated_c4_wall_geometry, detect_c4_wall_phase
 
@@ -1237,6 +1245,9 @@ class TwoPieceClassificationChannel(Rev01BaseState):
             if raw is None:
                 return False
             frame = raw[1]
+            if float(getattr(frame, "timestamp", wall_now)) < self._align_move_wall_time + _ALIGN_SETTLE_S / 2:
+                return False  # frame predates the last turn
+            self._align_checked = True  # one look per platter move
             if self._align_target_deg is None:
                 from blob_manager import getChannelPolygons
 
@@ -1265,6 +1276,7 @@ class TwoPieceClassificationChannel(Rev01BaseState):
         if move is None:
             return False
         self._align_attempts += 1
+        self._align_move_wall_time = wall_now
         self.logger.info(
             f"{LOG_TAG} wall align: walls at {phase.sector_offset_deg:.1f}° (mod 72), drop edge at "
             f"{self._align_target_deg:.1f}° -> turning {move:+.1f}° ({self._align_attempts}/{_ALIGN_ATTEMPTS})"

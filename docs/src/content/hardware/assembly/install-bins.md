@@ -26,14 +26,14 @@ parts_needed:
     qty: 6
 ---
 
-Bins go in last, once the tower is standing, the chutes are in and the feeder is on. Nothing here is fastened: each bin drops into its bay and is held by the [bin retainers]({{ '/hardware/assembly/distribution/bin-frame/regular-layers/' | relative_url }}) that are already bolted to the frame.
+Bins go in last, once the tower is standing, the chutes are in and the feeder is on. Nothing here is fastened: each bin drops into its bay and is held by the [bin retainers]({{ '/hardware/assembly/distribution/bin-frame/bin-retainers/' | relative_url }}) that are already bolted to the frame.
 
 The list above is per layer, and a layer takes **one** of the two sets, not both. Which set depends on the size you chose for that layer, which is step 1.
 
 <div class="img-row">
   <figure>
-    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/install-bins-printed-bins-in-frame-full-8c3d3cc8736c.jpg" alt="Two layers of a bin tower filled with blue 3D printed bins, each sitting behind the black retainer rail on the front of the frame">
-    <figcaption>Printed bins, two layers of a tower. <cite>Photo: Daddy-O's Bricks - Bill.</cite></figcaption>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/install-bins-printed-bins-loaded-stack-w1600-bf2746b86680.jpg" alt="A five layer distribution stack on casters, every bay filled with blue 3D printed bins: three across on the top two layers, two across on the bottom three">
+    <figcaption>Printed bins, a whole five layer stack. The top two layers are third size and the bottom three are half size, which is what a mixed machine looks like. <cite>Photo: Daddy-O's Bricks - Bill.</cite></figcaption>
   </figure>
   <figure>
     <img class="doc-figure" src="https://assets.basically.website/sorter-docs/install-bins-cardboard-bins-tower-full-97d68e720775.jpg" alt="A bin tower on castors under its plywood deck, five layers of folded cardboard bins with sorted LEGO in them">
@@ -49,6 +49,8 @@ You made this choice per layer when you printed the funnels: each layer is eithe
 - **A third-size layer** takes **18 bins**: 6 each of Bin (third, left), Bin (third, center) and Bin (third, right-back). Half again as many destinations, which is what the small parts that make up most of a pile need. The cost is a narrower mouth, and the mouth is what limits the piece size that layer can take.
 
 Either way it is one set per bay, six bays around the hexagon, and the two work out about the same to print.
+
+The photo at the top of this page is a machine that mixes them: three bins across each bay on the top two layers, two across on the bottom three. Nothing about the frame changes between the two, so the sizes can go in any order up the stack.
 
 **If you are still deciding:** two third-size layers and one half-size is what the [parts calculator](https://parts-calculator.basically.website/) starts a fresh machine at, and it is a sensible default. Most LEGO is small, so most of your destinations should be, but you want at least one layer that can take the big pieces. Nothing ties a size to a particular height, so which level carries the half-size layer is yours to choose.
 
@@ -81,10 +83,22 @@ Both are real options and the machine holds them identically. Printed bins are i
 
 Work around one layer at a time. Each bin sits in its bay with the wide open mouth facing outward and the narrow end toward the middle of the machine, resting on the frame, with its front edge behind the Bin retainer (left) and Bin retainer (right) on the front face of that bay's A/G extrusion. The retainers bolt to the frame and not to the bin, which is why cardboard and printed bins are held the same way and why swapping one for the other later costs nothing.
 
-If the retainers are not on the frame yet, they go on first: 6 of each per layer, 2 {% include fastener.html size="M5" variant="socket-button" length="16" %} each, into T-nuts the hex frame already carries. That step is on [Regular layers]({{ '/hardware/assembly/distribution/bin-frame/regular-layers/' | relative_url }}).
+**A bin does not just sit behind the rail, it keys into it.** The inner face of a retainer carries seven teeth just below its top edge, and the lower front edge of a printed bin is castellated to match, so a bin dropped into its bay lands with its notches over those teeth and is located along the rail rather than free to slide. Push each bin fully back until it seats; if it stands proud, it is sitting on a tooth rather than over one.
+
+<figure class="single-figure">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/install-bins-bin-retainer-teeth-w1600-0ee7c319295d.jpg" alt="Close-up of two bin retainer rails: the upper bin is seated with its castellated front edge meshed into the rail, the lower bin is lifted clear so the rail's own teeth are visible">
+  <figcaption>The joint, seen at one corner. The upper bin is seated and its castellations are over the rail's teeth; the lower bin is lifted clear so the teeth show. <cite>Photo: Daddy-O's Bricks - Bill.</cite></figcaption>
+</figure>
+
+If the retainers are not on the frame yet, they go on first: 6 of each per layer, 2 {% include fastener.html size="M5" variant="socket-button" length="16" %} each, into T-nuts fitted at that step. That step is on [Bin retainers]({{ '/hardware/assembly/distribution/bin-frame/bin-retainers/' | relative_url }}).
 
 {% include step.html n="4" title="Check the funnel clears every bin" %}
 
 The funnel lands right at the bin entrances by design, so there is very little gap for a piece to escape through, and very little room for a bin that is sitting proud of its bay. Before running the machine, turn the chute stack by hand through a full revolution and watch that nothing touches. A bin that is not pushed fully back is the one the funnel will hit.
+
+<figure class="single-figure">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/install-bins-printed-bins-from-above-w1600-3edc30bd133f.jpg" alt="A loaded distribution stack seen from above and to one side, five layers of blue printed bins radiating out around the corner column, casters on the floor below">
+  <figcaption>The finished result: every bay on every layer loaded. <cite>Photo: Daddy-O's Bricks - Bill.</cite></figcaption>
+</figure>
 
 With the bins in, the hardware is finished. Continue to [Software setup]({{ '/hardware/assembly/software-setup/' | relative_url }}), which is where the machine is told how many bins each layer has and where they are.

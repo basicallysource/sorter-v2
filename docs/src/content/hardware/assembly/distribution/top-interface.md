@@ -699,10 +699,10 @@ Attach an External bracket cover to each of the External bracket sides, then fas
 </figure>
 
 <figure class="figure-float-right">
-  <a href="https://assets.basically.website/sorter-docs/assembly-top-interface-joint-section-v3-full-aa3072441bcb.png" target="_blank" rel="noopener">
-    <img src="https://assets.basically.website/sorter-docs/assembly-top-interface-joint-section-v3-full-aa3072441bcb.png" alt="Vertical cross-section through one interface corner, drawn the right way up with the top plate across the top">
+  <a href="https://assets.basically.website/sorter-docs/assembly-top-interface-joint-section-v4-full-61893a48b612.png" target="_blank" rel="noopener">
+    <img src="https://assets.basically.website/sorter-docs/assembly-top-interface-joint-section-v4-full-61893a48b612.png" alt="Vertical cross-section through one interface corner, drawn the right way up with the top plate across the top">
   </a>
-  <figcaption>Cut through the centre of the profile. On the build the assembly is upside down at this stage. Purple is the interface, blue the top layer's bracket, grey the extrusion. The pale band is how far the Interface bracket really reaches, in outline because its arms run at right angles to this cut. Part lengths are measured; heights come from seating each part on the one below. Click to enlarge. <cite>Drawn from the part geometry rather than from a build, by Balloon.</cite></figcaption>
+  <figcaption>Cut through the centre of the profile. On the build the assembly is upside down at this stage. Purple is the interface, blue the top layer's bracket, grey the extrusion. The pale band is how far the Interface bracket really reaches and how it slopes out as it rises to the plate, in outline because its arms run at right angles to this cut. Part lengths are measured; heights come from seating each part on the one below. Click to enlarge. <cite>Drawn from the part geometry rather than from a build, by Balloon.</cite></figcaption>
 </figure>
 
 This joint is not the same as the one between two layers, so it is worth naming what is different. There is **no External bracket — bottom vertical and no flange here**, and therefore none of the vertical screws that hold one layer to the next. Piece F is instead gripped at the interface end and clamped at the layer end, and it is sleeved the whole way between them, so no extrusion shows on a finished machine.

@@ -31,6 +31,34 @@ if TYPE_CHECKING:
     from hardware.sorter_interface import StepperMotor
 
 
+class BeltLoadMonitor:
+    """Blocked-belt detector on the driver's StallGuard result: below the
+    threshold for ``samples`` consecutive reads means blocked. A threshold of 0
+    only records values (watch mode)."""
+
+    def __init__(self, threshold: int, samples: int) -> None:
+        self.threshold = int(threshold)
+        self.samples = max(1, int(samples))
+        self.last_sg: int | None = None
+        self.low_streak = 0
+
+    def observe(self, sg_result: int | None) -> bool:
+        if sg_result is None:
+            return False
+        self.last_sg = int(sg_result)
+        if self.threshold <= 0:
+            self.low_streak = 0
+            return False
+        if self.last_sg < self.threshold:
+            self.low_streak += 1
+        else:
+            self.low_streak = 0
+        return self.low_streak >= self.samples
+
+    def reset(self) -> None:
+        self.low_streak = 0
+
+
 class BeltFeeding(PulsePerceptionFeeding):
     def __init__(
         self,
@@ -61,6 +89,10 @@ class BeltFeeding(PulsePerceptionFeeding):
         self._status: dict = {"reason": "idle", "ts": 0.0}
         self._last_blocked_reason: str | None = None
         gc.belt_feeder_status = self._status
+        # Load watch (see BeltLoadMonitor); polled only while the belt runs.
+        self._load = BeltLoadMonitor(self._belt_config.load_block_sg_threshold, self._belt_config.load_block_samples)
+        self._load_next_poll_at: float = 0.0
+        self._load_last_log_at: float = 0.0
 
     def _cfg(self):
         # The C1/C2 rotors don't exist in the belt topology; the inherited C3
@@ -137,6 +169,15 @@ class BeltFeeding(PulsePerceptionFeeding):
             self._last_arrival_at = now
         self._last_c3_pieces = c3_pieces
 
+        if getattr(stepper, "stalled", False):
+            # DIAG latch from the stall monitor: never keep driving.
+            self._stop_belt("stall latch")
+            self._publish_status(cfg, 0, c3_pieces, "stalled")
+            return
+        if self._check_load(stepper, cfg, now):
+            self._publish_status(cfg, 0, c3_pieces, "blocked")
+            return
+
         target = self._target_speed(cfg, c3_pieces)
         self._command_belt_speed(stepper, target, cfg, now)
         self._check_jam(cfg, now)
@@ -179,6 +220,8 @@ class BeltFeeding(PulsePerceptionFeeding):
                     round(now - self._last_arrival_at, 1) if self._last_arrival_at else None
                 ),
                 "jam_timeout_s": cfg.jam_timeout_s if cfg else None,
+                "sg_result": self._load.last_sg,
+                "load_block_sg_threshold": cfg.load_block_sg_threshold if cfg else None,
                 "jam_countdown_s": (
                     round(max(0.0, cfg.jam_timeout_s - (now - quiet_since)), 1)
                     if cfg and cfg.jam_timeout_s > 0 and self._belt_running_since is not None
@@ -257,6 +300,45 @@ class BeltFeeding(PulsePerceptionFeeding):
             self._belt_running_since = None
         elif was_stopped:
             self._belt_running_since = now
+
+    def _check_load(self, stepper: "StepperMotor", cfg: BeltFeederConfig, now: float) -> bool:
+        """Read the driver's StallGuard result while the belt runs; stop and
+        raise the incident once it reads blocked. Returns True when blocked."""
+        self._load.threshold = int(cfg.load_block_sg_threshold)
+        self._load.samples = max(1, int(cfg.load_block_samples))
+        if self._belt_cmd_speed == 0 or self._belt_running_since is None:
+            self._load.reset()
+            return False
+        if now - self._belt_running_since < 0.5 or now < self._load_next_poll_at:
+            return False  # SG_RESULT is meaningless below cruise speed / during spin-up
+        self._load_next_poll_at = now + max(100, int(cfg.load_poll_interval_ms)) / 1000.0
+        from tmc_telemetry import REG_SG_RESULT, safeReadRegister
+
+        sg = safeReadRegister(stepper, REG_SG_RESULT)
+        blocked = self._load.observe(sg)
+        if sg is not None and now - self._load_last_log_at >= 10.0:
+            self._load_last_log_at = now
+            self.gc.logger.info(
+                f"BeltFeeding: SG_RESULT={sg} at {abs(self._belt_cmd_speed)} µsteps/s"
+                + (f" (block threshold {self._load.threshold})" if self._load.threshold > 0 else " (watch only)")
+            )
+        if not blocked:
+            return False
+        self.gc.logger.warning(
+            f"BeltFeeding: SG_RESULT {self._load.last_sg} below {self._load.threshold} for "
+            f"{self._load.low_streak} reads — belt blocked, stopping"
+        )
+        self._stop_belt("blocked")
+        from ..incidents import publish_belt_feeder_stalled_incident
+
+        publish_belt_feeder_stalled_incident(
+            self.gc,
+            stalled_ms=int((now - (self._belt_running_since or now)) * 1000),
+            belt_speed_usteps_per_s=abs(int(cfg.belt_speed_usteps_per_s)),
+            jam_timeout_s=cfg.jam_timeout_s,
+        )
+        self._load.reset()
+        return True
 
     def _check_jam(self, cfg: BeltFeederConfig, now: float) -> None:
         if cfg.jam_timeout_s <= 0 or self._belt_running_since is None:

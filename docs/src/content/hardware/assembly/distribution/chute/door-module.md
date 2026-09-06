@@ -130,21 +130,22 @@ The servo adapter takes no inserts, but assemble it here anyway, before the brac
 
 <div class="prep-item">
   <div class="prep-item-body">
-    <p><strong>Bearing holder (left):</strong> 3 × M3, on the outboard face, around the bearing bore. The cover screws onto these three.</p>
+    <p><strong>Bearing holders (left and right):</strong> 3 × M3 each, 6 between them, on the outboard face around the bearing bore. The cover screws onto those three. The two holders are mirror images of each other, so the job is identical on both and one view covers it. <strong>They are handed, though</strong>: print one of each, not two of the same.</p>
   </div>
   <figure class="prep-item-figure">
     <img class="doc-figure" src="https://assets.basically.website/sorter-parts/door-module-inserts-bearing-holder-left-full-20b5c1bf8883.png" alt="Render of the left bearing holder at an angle, with its three heat-insert pockets circled in red around the bearing bore">
-    <figcaption>Three around the bore on the outboard face. <cite>Render: Balloon.</cite></figcaption>
+    <figcaption>Three around the bore on the outboard face. The left holder is shown; the right one is its mirror and takes the same three. <cite>Render: Balloon.</cite></figcaption>
   </figure>
 </div>
 
 <div class="prep-item">
   <div class="prep-item-body">
-    <p><strong>Bearing holder (right):</strong> 3 × M3, the mirror of the left one.</p>
+    <p><strong>The two 6704-2RS bearings</strong> go into the holders here, one each, and they take no inserts. The holder's bore is a Ø27.3 mm pocket 9.00 mm deep that steps down to Ø24.4 mm and then to a Ø21.0 mm hole for the door's shaft. The bearing is Ø27 × 4 mm, so it is a slip fit rather than a press fit: push it in square and it lands on the Ø24.4 step, which catches the outer race and clears the inner one so the bearing still turns. It is sealed on both sides (that is what "2RS" means), so there is no wrong way round.</p>
+    <p>That leaves 5.00 mm of pocket above it, which is what the bearing cover's raised ring is for: the cover goes into the same pocket on top of the bearing, and its screws clamp the stack. If the bearing sits proud of the face, it has not gone all the way down.</p>
   </div>
   <figure class="prep-item-figure">
-    <img class="doc-figure" src="https://assets.basically.website/sorter-parts/door-module-inserts-bearing-holder-right-full-91e140ed31b4.png" alt="Render of the right bearing holder at an angle, with its three heat-insert pockets circled in red around the bearing bore, mirroring the left holder">
-    <figcaption>The same three, mirrored. <cite>Render: Balloon.</cite></figcaption>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-parts/bearing-into-holder-full-bc67bf630cc5.png" alt="Two renders of the left bearing holder side by side: on the left a 6704-2RS bearing lined up with the mouth of the holder's bore, on the right the same bearing pushed down to the bottom of the pocket">
+    <figcaption>Lined up with the bore, then seated on the step at the bottom of it. <cite>Rendered from the holder's own geometry, with the bearing drawn to its 27 × 20 × 4 mm catalogue size. Not from a build. Render: Balloon.</cite></figcaption>
   </figure>
 </div>
 

@@ -131,7 +131,10 @@ _ALIGN_MAX_RESIDUAL_DEG = 3.0
 # After an alignment turn: wait this long, and for a frame taken after it,
 # before measuring again (the first deploy measured the same stale frame
 # twice and stacked two turns).
-_ALIGN_SETTLE_S = 1.0
+_ALIGN_SETTLE_S = 2.0
+# The stepper's stopped flag lags the command; keep the admission gate shut
+# this long after an alignment turn so C3 does not tip onto a turning platter.
+_ALIGN_GATE_HOLD_S = 0.6
 
 
 def _exitArcOccupied(state) -> bool:
@@ -489,8 +492,8 @@ class TwoPieceClassificationChannel(Rev01BaseState):
         # The classification channel OWNS the feeder admission gate. Ready only
         # when we are idle between cycles (not mid-rotation) AND the drop zone is
         # clear AND the platter has settled — i.e. "rotation complete, drop empty".
-        aligning = False
-        if self._phase == _Phase.WAITING and stopped and not self._dropOccupied(state):
+        aligning = (time.time() - self._align_move_wall_time) < _ALIGN_GATE_HOLD_S
+        if self._phase == _Phase.WAITING and stopped and not aligning and not self._dropOccupied(state):
             aligning = self._maybeAlignWalls(perception_service, now)
         ready = self._phase == _Phase.WAITING and not self._dropOccupied(state) and stopped and not aligning
         self.setClassificationReady(ready, "waiting + drop clear + stopped")
@@ -1245,8 +1248,8 @@ class TwoPieceClassificationChannel(Rev01BaseState):
             if raw is None:
                 return False
             frame = raw[1]
-            if float(getattr(frame, "timestamp", wall_now)) < self._align_move_wall_time + _ALIGN_SETTLE_S / 2:
-                return False  # frame predates the last turn
+            if float(getattr(frame, "timestamp", wall_now)) < self._align_move_wall_time + _ALIGN_SETTLE_S:
+                return False  # frame predates the end of the last turn
             self._align_checked = True  # one look per platter move
             if self._align_target_deg is None:
                 from blob_manager import getChannelPolygons

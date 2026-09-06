@@ -188,16 +188,10 @@ Working from under the bottom layer, bolt each of its three Lazy Susan extrusion
 
 Both hexagons closed, six casters on, and the two layers held together as one unit by the foot extensions running through them.
 
-<div class="img-row">
-  <figure>
-    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-bottom-two-layers-dov2000-top-down-w1600-f1adb1d66dac.jpg" alt="The finished bottom two layers seen from directly above, the second layer's hexagon sitting over the bottom layer's, with the spokes and crossbeams of both rings visible inside them">
-    <figcaption>The same pair from above. The second layer's ring sits over the bottom layer's, and the spokes and crossbeams of both are visible through the middle. <cite>Photo: Dov2000.</cite></figcaption>
-  </figure>
-  <figure>
-    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-bottom-two-layers-dov2000-foot-corner-w1600-b007e08b8628.jpg" alt="Close-up of one foot: a black printed sleeve running down the corner over the extrusion to a bracket and a swivel caster on a wooden floor">
-    <figcaption>One foot at floor level. Dov2000 modified the printed part above the wheel to run down over the extrusion, which the stock foot cover in step 3 leaves exposed, while still leaving the corner bolts and the caster's leveling reachable. <cite>Photo: Dov2000.</cite></figcaption>
-  </figure>
-</div>
+<figure class="single-figure">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-bottom-two-layers-dov2000-top-down-w1600-f1adb1d66dac.jpg" alt="The finished bottom two layers seen from directly above, the second layer's hexagon sitting over the bottom layer's, with the spokes and crossbeams of both rings visible inside them">
+  <figcaption>The same pair from above. The second layer's ring sits over the bottom layer's, and the spokes and crossbeams of both are visible through the middle. <cite>Photo: Dov2000.</cite></figcaption>
+</figure>
 
 ## What comes next
 

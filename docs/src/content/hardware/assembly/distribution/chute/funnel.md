@@ -1,11 +1,11 @@
 ---
 layout: default
-title: Funnel
+title: Funnel brackets
 type: how-to
 section: hardware
 slug: assembly-funnel
-kicker: Chute — Funnel
-lede: The funnel that guides parts through the door.
+kicker: Chute — Funnel brackets
+lede: The two brackets that hang off the chute core, and the funnel that snaps into them.
 permalink: /hardware/assembly/distribution/chute/funnel/
 author: spencer
 contributors: [barthel]

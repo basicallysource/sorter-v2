@@ -8,7 +8,7 @@ kicker: Bin frame — Bottom two layers
 lede: The paired base layers. Built together on the foot extensions the casters mount to.
 permalink: /hardware/assembly/distribution/bin-frame/bottom-two-layers/
 author: spencer
-contributors: [brickcyclealice, christoph, daddyosbricksbill]
+contributors: [brickcyclealice, christoph, daddyosbricksbill, dov2000]
 warning: >-
   **AI-generated first draft.** Step 6 was written from a build by
   Daddy-O's Bricks - Bill; no other step here has been checked against a
@@ -31,9 +31,9 @@ tools_needed: [Hex key, Tape measure]
 
 The bottom two layers are two ordinary bin layers built at the same time, because the vertical extrusion between them is one continuous piece per corner instead of one per layer. That piece is the machine's leg: the caster screws into the bottom of it, so running it up through the bottom layer and into the second gives the wheel something much stiffer to push against than a single layer's worth of extrusion would.
 
-<figure>
-  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-bottom-two-layers-frame-on-casters-w1600-6454aa70d746.jpg" alt="The bottom of a built machine: two bin-frame layers on six swivel casters, with the extrusion legs running up past the bottom frame into the second, and the start of a third layer's hexagon ring above them">
-  <figcaption>The bottom two layers on their casters. The hexagon ring at the top is the next layer starting, not part of these two, so this is about two and a half layers of machine. <span class="photo-credit">Photo courtesy of Christoph in the basically Discord.</span></figcaption>
+<figure class="single-figure">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-bottom-two-layers-dov2000-three-quarter-w1600-18a2620a5963.jpg" alt="A finished pair of bottom bin-frame layers standing on six swivel casters, two hexagons of anodized 2020 extrusion tied together by black printed corner brackets, with spokes and crossbeams inside each ring">
+  <figcaption>The two layers finished and standing on their casters, which is what this page builds. Both hexagons are closed and one foot extension runs from each of the second layer's corners down to a wheel. <cite>Photo: Dov2000.</cite></figcaption>
 </figure>
 
 Everything else about these two layers is the same as any other. Build each one with the [regular layers]({{ '/hardware/assembly/distribution/bin-frame/regular-layers/' | relative_url }}) guide and come back here for the parts that differ, which are only the verticals, the corners at floor level, and the feet.
@@ -162,6 +162,11 @@ Bolt a **2020 M6 foot connector** into the open bottom end of each piece D. The 
 
 Screw a **swivel stem caster (M6 × 15 mm)** into the connector's M6 thread. The casters have brakes; leave them on while you build.
 
+<figure class="single-figure">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-bottom-two-layers-frame-on-casters-w1600-6454aa70d746.jpg" alt="The bottom of a built machine: two bin-frame layers on six swivel casters, with the extrusion legs running up past the bottom frame into the second, and the start of a third layer's hexagon ring above them">
+  <figcaption>All six casters on, on another build. The hexagon ring at the top is the next layer starting, not part of these two, so this is about two and a half layers of machine. <cite>Photo courtesy of Christoph in the basically Discord.</cite></figcaption>
+</figure>
+
 {% include step.html n="5" title="Add the bin retainers" %}
 
 Both layers take a full set of retainers, so do **[Bin retainers]({{ '/hardware/assembly/distribution/bin-frame/bin-retainers/' | relative_url }}) twice**, once for each hexagon. That page's parts list is per layer; double every quantity on it here.
@@ -177,6 +182,21 @@ Working from under the bottom layer, bolt each of its three Lazy Susan extrusion
 </div>
 
 <div class="img-placeholder">Image coming</div>
+
+## The finished result
+
+Both hexagons closed, six casters on, and the two layers held together as one unit by the foot extensions running through them.
+
+<div class="img-row">
+  <figure>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-bottom-two-layers-dov2000-top-down-w1600-f1adb1d66dac.jpg" alt="The finished bottom two layers seen from directly above, the second layer's hexagon sitting over the bottom layer's, with the spokes and crossbeams of both rings visible inside them">
+    <figcaption>The same pair from above. The second layer's ring sits over the bottom layer's, and the spokes and crossbeams of both are visible through the middle. <cite>Photo: Dov2000.</cite></figcaption>
+  </figure>
+  <figure>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-bottom-two-layers-dov2000-foot-corner-w1600-b007e08b8628.jpg" alt="Close-up of one foot: a black printed sleeve running down the corner over the extrusion to a bracket and a swivel caster on a wooden floor">
+    <figcaption>One foot at floor level. Dov2000 modified the printed part above the wheel to run down over the extrusion, which the stock foot cover in step 3 leaves exposed, while still leaving the corner bolts and the caster's leveling reachable. <cite>Photo: Dov2000.</cite></figcaption>
+  </figure>
+</div>
 
 ## What comes next
 

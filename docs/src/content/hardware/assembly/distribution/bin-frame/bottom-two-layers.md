@@ -55,8 +55,8 @@ The aluminum extrusion is cut to length; the [framing cut list](https://parts-ca
     <p><strong>Build the <a href="{{ '/hardware/assembly/distribution/bin-frame/bottom-interface/' | relative_url }}">bottom interface</a> before you start.</strong> It has no frame of its own: its three Lazy Susan extrusion mounts bolt up under the bottom layer's spokes, which is step 6 below. Get its 6 T-nuts into 3 of that layer's B/H spokes while you are building the frame, before the ring closes.</p>
   </div>
   <figure class="prep-item-figure">
-    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-bottom-two-layers-lazy-susan-extrusion-mount-full-0b3eab019aee.jpg" alt="A printed Lazy Susan extrusion mount on a bench: a grey wedge with a triangular window through its web, a rounded boss on top, and two counterbored slots along its bottom face">
-    <figcaption>A Lazy Susan extrusion mount. Three of them bolt up into the bottom layer's spokes in step 6, one per spoke on 3 of the 6. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-lazy-susan-extrusion-mount-three-views-w1600-581de80090b8.jpg" alt="Three views of the same printed part on a white background: the Lazy Susan extrusion mount with its hold in place bolted under it, a grey wedge with a triangular window through its web and counterbored slots along its bottom face">
+    <figcaption>A Lazy Susan extrusion mount with its hold in place, from three angles. Three of these pairs bolt up into the bottom layer's spokes in step 6, one per spoke on 3 of the 6. <cite>Photo: BrickCycleAlice.</cite></figcaption>
   </figure>
 </div>
 

@@ -726,10 +726,15 @@ class TwoPieceClassificationChannel(Rev01BaseState):
         # still inside its retire window (e.g. a piece first glimpsed as a sliver
         # at the frame edge, re-identified once fully visible) must not pair up
         # with its successor and fake a two-piece drop.
+        # A piece whose burst already finished landed before the newcomer: that
+        # is a sequential arrival (C3 tipped the follower while the leader was
+        # still being staged out), not a simultaneous drop. Five of six
+        # 'double feeds' on 2026-09-06 were exactly that and lost a good
+        # classification to misc.
         drop = [
             tp
             for tid, tp in self._pieces.items()
-            if tid in seen and tp.zone == _ZONE_DROP and not tp.off_platter
+            if tid in seen and tp.zone == _ZONE_DROP and not tp.off_platter and not tp.capture_done
         ]
         frame_ts = float(getattr(state, "ts", 0.0))
         if frame_ts != self._multi_drop_last_ts:

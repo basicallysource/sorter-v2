@@ -34,6 +34,7 @@ def _piece(tid: int) -> _TrackedPiece:
     tp.zone = _ZONE_DROP
     tp.double_feed = False
     tp.multi_drop_group = None
+    tp.capture_done = False
     return tp
 
 
@@ -81,3 +82,21 @@ def test_repeated_frame_timestamp_counts_once() -> None:
     assert h.flagged == []
     _frame(h, 1.0, {1, 2})
     assert len(h.flagged) == 2
+
+
+def test_a_newcomer_beside_an_already_captured_piece_is_a_sequential_arrival() -> None:
+    h = _handler(confirm_reads=2)
+    first, second = _piece(1), _piece(2)
+    first.capture_done = True  # its burst finished before the second landed
+    h._pieces = {1: first, 2: second}
+    for ts in (1.0, 2.0, 3.0):
+        _frame(h, ts, {1, 2})
+    assert h.flagged == []
+
+
+def test_two_uncaptured_pieces_are_still_a_double_feed() -> None:
+    h = _handler(confirm_reads=2)
+    h._pieces = {1: _piece(1), 2: _piece(2)}
+    for ts in (1.0, 2.0):
+        _frame(h, ts, {1, 2})
+    assert sorted(tid for tid, _ in h.flagged) == [1, 2]

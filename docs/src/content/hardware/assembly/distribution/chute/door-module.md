@@ -177,7 +177,7 @@ Each arm has one further hole, in the ear at its far end. Those two are not driv
 
 <figure>
   <img class="doc-figure" src="https://assets.basically.website/sorter-parts/servo-bracket-built-full-d4b253675de4.jpg" alt="Photograph of a finished MG995 servo bracket lying on a bench: the printed housing with its cover and both arms fitted, the black servo body visible through the gap between them, the servo lead running off to the right, and the round servo adapter already fitted on the servo's output">
-  <figcaption>The same thing on a real machine, from the other side: housing, cover and both arms, with the MG995 inside and its lead running off to the right. The servo adapter is already on the output here; on this page that does not happen until step 6. <cite>Frame at 0:01 of the video in step 6, on Basically's own YouTube channel; screenshot by barthel. Who filmed it isn't recorded.</cite></figcaption>
+  <figcaption>The same thing on a real machine, from the other side: housing, cover and both arms, with the MG995 inside and its lead running off to the right. The servo adapter is already on the output here; on this page that does not happen until step 6. <cite>Frame at 0:01 of the video in step 6, screenshot by barthel. Video: Spencer.</cite></figcaption>
 </figure>
 
 {% include step.html n="4" title="Hang the door on its bearings and the race" %}
@@ -226,7 +226,7 @@ Snug all four down before tightening any of them, then cycle the door by hand th
 
 <figure>
   <img class="doc-figure" src="https://assets.basically.website/sorter-parts/chute-core-flap-fitted-full-3988a30ff4a4.jpg" alt="Photograph of a printed chute core lying face up with the flap assembly already bolted to it: the round bearing cover, its six screw heads and central hex boss, sits on the core's long side, and the brass heads of the core's other heat inserts are visible across the face">
-  <figcaption>What you should have at the end of this step: the flap assembly on the core, held by the bearing cover you can see on the right. The servo bracket has not gone on yet. <cite>Frame at 0:01 of the video in step 6, on Basically's own YouTube channel; screenshot by barthel. Who filmed it isn't recorded.</cite></figcaption>
+  <figcaption>What you should have at the end of this step: the flap assembly on the core, held by the bearing cover you can see on the right. The servo bracket has not gone on yet. <cite>Frame at 0:01 of the video in step 6, screenshot by barthel. Video: Spencer.</cite></figcaption>
 </figure>
 
 {% include step.html n="6" title="Bolt the servo bracket on and couple it to the door" %}
@@ -242,7 +242,7 @@ Clock it before you commit: centre the servo (or let it settle at its power-on d
 
 <figure>
   <img class="doc-figure" src="https://assets.basically.website/sorter-parts/door-module-servo-video-frame-full-1f27d2aaa634.jpg" alt="Photograph of a real door module part-way through assembly: a hand holds the assembled servo adapter, a white disc with a hexagonal boss in the middle and four countersunk screws around it, in front of the MG995 in its printed bracket">
-  <figcaption>The same job on a real machine. The disc in frame is the servo adapter from step 1, screwed together with its four countersunk screws, with the hexagonal socket that takes the door's shaft facing the camera; the MG995 sits in its bracket behind it. <cite>Frame from the video below, on Basically's own YouTube channel. Who filmed it isn't recorded.</cite></figcaption>
+  <figcaption>The same job on a real machine. The disc in frame is the servo adapter from step 1, screwed together with its four countersunk screws, with the hexagonal socket that takes the door's shaft facing the camera; the MG995 sits in its bracket behind it. <cite>Frame from the video below. Video: Spencer.</cite></figcaption>
 </figure>
 
 <div class="callout callout-warning">
@@ -259,5 +259,5 @@ Clock it before you commit: centre the servo (or let it settle at its power-on d
       allowfullscreen
       loading="lazy"></iframe>
   </div>
-  <figcaption><cite>Video: Basically's own YouTube channel. Who filmed it isn't recorded.</cite></figcaption>
+  <figcaption><cite>Video: Spencer.</cite></figcaption>
 </figure>

@@ -224,8 +224,8 @@ Snug all four down before tightening any of them, then cycle the door by hand th
 
 The bracket goes on the same long side as the servo-side bearing cover, into the other two inserts in the first render above. The two arms do not take the same screw, because their mounting ears are not the same thickness:
 
-- **Lower arm**, 1 {% include fastener.html size="M3" variant="countersunk" length="12" %}. Its ear is 8.40 mm, so an 8 mm screw would not reach the insert at all; a 12 reaches 3.60 mm.
-- **Side arm**, 1 {% include fastener.html size="M3" variant="countersunk" length="8" %}. Its ear is 5.00 mm, the same as the bearing covers', so an 8 reaches 3.00 mm. A 12 would bottom out.
+- **Lower arm**, 1 {% include fastener.html size="M3" variant="countersunk" length="12" %} through an ear 8.40 mm thick. An 8 mm screw would not reach the insert at all; the 12 reaches 3.60 mm into it.
+- **Side arm**, 1 {% include fastener.html size="M3" variant="countersunk" length="8" %} through an ear 5.00 mm thick, the same as the bearing covers'. The 8 reaches 3.00 mm in; a 12 would bottom out in the pocket.
 
 Then couple the servo to the door through the two-piece adapter you built in step 1. Its servo side goes onto the servo's splined output, through the horn clasped inside it, and its flap side has a hexagonal socket 12.4 mm across the flats that takes **the hex end of the door's shaft** — the end step 4 told you to point at the servo. The spigot is 12.0 mm across the flats, so it is a slip fit with about 0.4 mm to spare.
 

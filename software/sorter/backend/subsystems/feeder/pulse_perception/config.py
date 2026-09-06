@@ -48,18 +48,12 @@ class PulsePerceptionConfig:
     # act before the next pulse can send the neighbour after it.
     tip_over_pause_ms: int = 1200
     # Arm the lip while the downstream channel is busy: keep walking the
-    # leading piece until its COM is this many output degrees short of the
-    # exit-only entry edge, then hold. Pieces have never been seen dropping at
-    # a gap >= +8° (departure histogram 2026-09-06: most leave at 0..-10°), so
-    # the release when the gate opens is one sized pulse instead of ~10 tips
-    # from the approach band (12 s median wait on 2026-09-06). 0 = off (hold
-    # at the approach band as before).
-    exit_arm_gap_deg: float = 10.0
-    # Release pulse: carry the armed lead to this depth past the entry edge in
-    # one move (clamped to exit_release_max_output_deg); a crowded lip keeps the
-    # gentle ladder instead.
-    exit_release_depth_deg: float = 4.0
-    exit_release_max_output_deg: float = 12.0
+    # leading piece to APPROACH_MARGIN_DEG (14°) short of the exit-only entry
+    # edge and hold there, so the release when C4 opens starts from the arm
+    # band instead of from the far end of the approach arc (12 s median wait on
+    # 2026-09-06). Release is a bounded fast move to +8° (never seen a piece
+    # drop there), then the normal tips. See flow.c3ExitMotionPlan.
+    exit_arm_enabled: bool = True
     # Two or more pieces in the exit-only band at once (small Technic parts
     # bunch up at the lip): tip with an even smaller, slower pulse so only the
     # leading piece goes over. 53 multi-drops in the night of 2026-09-05/06
@@ -139,9 +133,7 @@ FIELD_META: list[dict] = [
     {"section": "Drop-zone pulse", "key": "drop_pulse_pause_ms", "label": "Drop-zone pause between pulses (ms)", "type": "int", "default": _DEFAULTS.drop_pulse_pause_ms, "description": "Pause after each drop-zone pulse so vision can re-read the piece before the next nudge."},
     {"section": "Exit pulse", "key": "exit_approach_output_deg", "label": "Exit approach pulse (output deg)", "type": "float", "default": _DEFAULTS.exit_approach_output_deg, "description": "Pulse size while pieces are in the exit arc but none has reached the exit-only band at the lip. The small exit pulse takes over for the final tip-over."},
     {"section": "Exit pulse", "key": "tip_over_pause_ms", "label": "Pause after a tip-over pulse (ms)", "type": "int", "default": _DEFAULTS.tip_over_pause_ms, "description": "Pause after a pulse issued while a piece is at the lip. Long enough for the departure to be confirmed and the C4 admission window to hold the channel; approach pulses use the shorter exit pause."},
-    {"section": "Exit pulse", "key": "exit_arm_gap_deg", "label": "Arm the lip: hold gap (output deg)", "type": "float", "default": _DEFAULTS.exit_arm_gap_deg, "description": "While C4 is busy, C3 keeps walking the leading piece until it is this far short of the exit-only entry edge, then holds. When C4 opens, one sized release pulse sends it over instead of a dozen tips from the approach band. 0 = off."},
-    {"section": "Exit pulse", "key": "exit_release_depth_deg", "label": "Release pulse: target depth past the edge (output deg)", "type": "float", "default": _DEFAULTS.exit_release_depth_deg, "description": "How far past the exit-only entry edge the release pulse carries an armed piece in one move."},
-    {"section": "Exit pulse", "key": "exit_release_max_output_deg", "label": "Release pulse: maximum (output deg)", "type": "float", "default": _DEFAULTS.exit_release_max_output_deg, "description": "Upper bound for the release pulse."},
+    {"section": "Exit pulse", "key": "exit_arm_enabled", "label": "Arm the lip while C4 is busy", "type": "bool", "default": _DEFAULTS.exit_arm_enabled, "description": "While C4 is busy, C3 keeps walking the leading piece to 14° short of the exit-only entry edge and holds. When C4 opens, a bounded fast move takes it to 8° before the edge, then the normal tips. Off = hold at the approach band as before."},
     {"section": "Exit pulse", "key": "crowded_tip_output_deg", "label": "Crowded tip pulse (output deg)", "type": "float", "default": _DEFAULTS.crowded_tip_output_deg, "description": "Tip-over pulse when two or more pieces sit in the exit-only band at once. Smaller than the normal tip so only the leading piece goes over."},
     {"section": "Exit pulse", "key": "crowded_tip_speed_usteps_per_s", "label": "Crowded tip speed (µsteps/s)", "type": "int", "default": _DEFAULTS.crowded_tip_speed_usteps_per_s, "description": "Move speed for the crowded tip pulse; slower means less of a jolt for the piece behind the leader."},
     {"section": "Exit pulse", "key": "exit_pulse_output_deg", "label": "Exit pulse distance (output deg)", "type": "float", "default": _DEFAULTS.exit_pulse_output_deg, "description": "How far a piece is nudged per pulse once it reaches the exit edge and is being metered into the next channel. Smaller is gentler and less likely to push two pieces through at once. Use the speed presets above to set this."},

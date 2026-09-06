@@ -33,7 +33,7 @@ The bottom two layers are two ordinary bin layers built at the same time, becaus
 
 <figure class="single-figure">
   <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-bottom-two-layers-dov2000-three-quarter-w1600-18a2620a5963.jpg" alt="A finished pair of bottom bin-frame layers standing on six swivel casters, two hexagons of anodized 2020 extrusion tied together by black printed corner brackets, with spokes and crossbeams inside each ring">
-  <figcaption>The two layers finished and standing on their casters, which is what this page builds. Both hexagons are closed and one foot extension runs from each of the second layer's corners down to a wheel. <cite>Photo: Dov2000.</cite></figcaption>
+  <figcaption>The two layers standing on their casters, which is what this page builds. The bottom interface is not fitted in this photo; its Lazy Susan extrusion mounts go under the bottom layer's spokes in step 6. <cite>Photo: Dov2000.</cite></figcaption>
 </figure>
 
 Everything else about these two layers is the same as any other. Build each one with the [regular layers]({{ '/hardware/assembly/distribution/bin-frame/regular-layers/' | relative_url }}) guide and come back here for the parts that differ, which are only the verticals, the corners at floor level, and the feet.
@@ -161,6 +161,11 @@ The second layer's corners are ordinary, exactly as in [regular layers]({{ '/har
 Bolt a **2020 M6 foot connector** into the open bottom end of each piece D. The connector is an aluminum bracket made for the end of 2020 extrusion and comes with its own bolts and nuts.
 
 Screw a **swivel stem caster (M6 × 15 mm)** into the connector's M6 thread. The casters have brakes; leave them on while you build.
+
+<figure class="single-figure">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-bottom-two-layers-dov2000-three-quarter-w1600-18a2620a5963.jpg" alt="A pair of bottom bin-frame layers standing on six swivel casters, two hexagons of anodized 2020 extrusion tied together by black printed corner brackets, with the middle of the bottom layer still open">
+  <figcaption>All six casters on, one under each corner. Nothing is fitted under the bottom layer here: the bottom interface's Lazy Susan extrusion mounts come later, in step 6. <cite>Photo: Dov2000.</cite></figcaption>
+</figure>
 
 {% include step.html n="5" title="Add the bin retainers" %}
 

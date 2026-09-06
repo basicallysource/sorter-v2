@@ -5549,15 +5549,12 @@
       "category": "Aluminum extrusion (2020)",
       "description": "2020 aluminum extrusion, cut to 231 mm (piece D). Replaces piece C on the bottom two layers: one D per corner runs from the caster up through the bottom layer to the second, so 6 per machine.",
       "created_at": "2026-08-21",
-      "updated_at": "2026-08-21",
-      "sheet_qty": {
-        "per_machine": 6
-      },
+      "updated_at": "2026-09-06",
       "image_url": "https://assets.basically.website/sorter-parts/extrusion-extrusion-2020-full-01bd50e7eac0.png",
       "caption": "2020 aluminum extrusion, cut to 231 mm (piece D)."
     },
     {
-      "id": "extrusion-e",
+      "id": "ext-2020-e",
       "uid": "rwuw",
       "kind": "cots",
       "cots": {
@@ -5566,14 +5563,14 @@
       },
       "name": "Interface spoke, long (E)",
       "category": "Aluminum extrusion (2020)",
-      "description": "2020 aluminum extrusion, cut to 238 mm (piece E).",
+      "description": "2020 aluminum extrusion, cut to 238 mm (piece E). Renamed from `extrusion-e` on 2026-09-06 so every 2020 piece shares the `ext-2020-*` prefix; the design is unchanged and its permanent link is /u/rwuw.",
       "created_at": "2026-08-21",
-      "updated_at": "2026-08-21",
+      "updated_at": "2026-09-06",
       "image_url": "https://assets.basically.website/sorter-parts/top-interface-extrusion-e-full-d8fdcc54b309.png",
       "caption": "2020 aluminum extrusion, cut to 238 mm (piece E)."
     },
     {
-      "id": "extrusion-f",
+      "id": "ext-2020-f",
       "uid": "dfbb",
       "kind": "cots",
       "cots": {
@@ -5582,9 +5579,9 @@
       },
       "name": "Interface vertical support (F)",
       "category": "Aluminum extrusion (2020)",
-      "description": "2020 aluminum extrusion, cut to 274 mm (piece F).",
+      "description": "2020 aluminum extrusion, cut to 274 mm (piece F). Renamed from `extrusion-f` on 2026-09-06 so every 2020 piece shares the `ext-2020-*` prefix; the design is unchanged and its permanent link is /u/dfbb.",
       "created_at": "2026-08-21",
-      "updated_at": "2026-08-21",
+      "updated_at": "2026-09-06",
       "image_url": "https://assets.basically.website/sorter-parts/top-interface-extrusion-f-full-ed5f291c6635.png",
       "caption": "2020 aluminum extrusion, cut to 274 mm (piece F)."
     },
@@ -8137,8 +8134,8 @@
     },
     {
       "id": "bottom-layer",
-      "uid": "sqsi",
-      "version": "1",
+      "uid": "rfl2",
+      "version": "2",
       "name": "Bottom distribution layer",
       "description": "The lowest bin layer. Identical to a distribution layer except that its frame carries foot covers instead of bracket covers and bottom verticals, and the bottom interface hangs underneath it.",
       "docs": "/hardware/assembly/distribution/bin-frame/bottom-two-layers/",
@@ -8160,8 +8157,16 @@
           "qty": 6
         },
         {
+          "part": "ext-2020-d",
+          "qty": 6
+        },
+        {
           "part": "scr-m5-16-shcs",
           "qty": 36
+        },
+        {
+          "part": "tnut-m5-2020",
+          "qty": 24
         }
       ],
       "connections": [
@@ -8183,12 +8188,22 @@
           "through_mm": 12.8,
           "note": "Mirror of the left retainer's joint, same bore and same screw."
         }
+      ],
+      "versions": [
+        {
+          "version": "2",
+          "uid": "rfl2",
+          "date": "2026-09-06",
+          "message": "The 24 bin retainer T-nuts and the 6 piece D foot extensions this layer was created without. The T-nuts are the same 24 the layer node carries, one per retainer screw; this node was added after them and never got a line, so the machine read 164 T-nuts where it should read 188 at 5 layers. Piece D replaces this layer's piece C and was reaching the Hardware tab from an old BOM-sheet hand count rather than from the tree. No physical change.",
+          "breaking": false,
+          "commit": null
+        }
       ]
     },
     {
       "id": "layer",
-      "uid": "mnpn",
-      "version": "4",
+      "uid": "su1o",
+      "version": "5",
       "name": "Distribution layer",
       "description": "One distribution layer between the interfaces: frame, chute, bin retainers, funnels, bins.",
       "docs": "/hardware/assembly/distribution/bin-frame/regular-layers/",
@@ -8207,6 +8222,10 @@
         },
         {
           "part": "bin-retainer-right",
+          "qty": 6
+        },
+        {
+          "part": "ext-2020-c",
           "qty": 6
         },
         {
@@ -8327,6 +8346,14 @@
           "date": "2026-09-05",
           "message": "Restored tnut-m5-2020 qty 24 for the bin retainers. v2 dropped them here as \"the hex frame's own pre-installed T-nuts\", and hex-frame v2 then dropped the same 24 on 2026-08-31 as part of the Inner/Outer restructure, so they fell out of the machine entirely and no hardware list has carried them since. They belong on this node, alongside the 24 scr-m5-16-shcs that go through them. No physical change.",
           "breaking": false
+        },
+        {
+          "version": "5",
+          "uid": "su1o",
+          "date": "2026-09-06",
+          "message": "Piece C (Layer vertical support), 6 per layer. The layer carries the extrusion that spans up to the ring above it, so 6 on a node that runs non-bottom-layers times is the framing cut list's 6(n-1) exactly. It was in no assembly, so the Hardware tab had nothing to count it from and rendered qty TBD. No physical change.",
+          "breaking": false,
+          "commit": null
         }
       ]
     },
@@ -9569,8 +9596,8 @@
     },
     {
       "id": "interface-bracket-mount",
-      "uid": "pnl9",
-      "version": "2",
+      "uid": "so5r",
+      "version": "3",
       "name": "Interface bracket",
       "description": "One interface bracket with its spacer, bolted onto its vertical extrusion (piece F) and its spoke extrusion (piece E). 6 per interface.",
       "docs": "/hardware/assembly/distribution/top-interface/",
@@ -9581,6 +9608,14 @@
         },
         {
           "part": "interface-spacer",
+          "qty": 1
+        },
+        {
+          "part": "ext-2020-e",
+          "qty": 1
+        },
+        {
+          "part": "ext-2020-f",
           "qty": 1
         },
         {
@@ -9633,6 +9668,14 @@
           "date": "2026-08-29",
           "message": "Added the piece-E attachment (4 scr-m5-16-shcs into 4 tnut-m5-2020, step 3) and the rib-securing tnut-m5-2020 (step 5), neither previously modeled -- only step 13's piece-F mount (scr-m5-20-shcs + 4 T-nuts) was here before.",
           "commit": "a2c66436"
+        },
+        {
+          "version": "3",
+          "uid": "so5r",
+          "date": "2026-09-06",
+          "message": "Pieces E and F, the interface spoke and the interface vertical support this bracket is bolted onto, 1 each. The node's own description already named both; neither was in any assembly, so both read qty TBD on the Hardware tab while the framing cut list knew them. 6 of each per machine, which is what framing.ts says. No physical change.",
+          "breaking": false,
+          "commit": null
         }
       ]
     },

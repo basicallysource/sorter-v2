@@ -60,9 +60,9 @@ parts_needed:
     qty: 1
   - part: ribbon-cable-clamp
     qty: 1
-  - part: extrusion-e
+  - part: ext-2020-e
     qty: 6
-  - part: extrusion-f
+  - part: ext-2020-f
     qty: 6
   - part: brg-lazy-susan
     qty: 1

@@ -119,9 +119,35 @@ def exitPulseOutputDeg(cfg, state) -> float:
     return max(output, tip)
 
 
+# A follower this close behind the lip (gap to the exit-only entry edge, in
+# output degrees) goes over with the leader on a normal tip: the night's
+# pairs sat 12–25° apart.
+CROWDED_FOLLOWER_GAP_DEG = 20.0
+
+
 def exitOnlyCount(state) -> int:
-    """Pieces in the exit-only band (the lip) this frame."""
-    return sum(1 for po in getattr(state, "pieces", ()) or () if int(getattr(po, "zone_code", 0)) == _ZONE_EXIT_ONLY)
+    """Pieces at the lip this frame: in the exit-only band, plus followers
+    within CROWDED_FOLLOWER_GAP_DEG of its entry edge."""
+    pieces = getattr(state, "pieces", ()) or ()
+    at_lip = sum(1 for po in pieces if int(getattr(po, "zone_code", 0)) == _ZONE_EXIT_ONLY)
+    if at_lip == 0:
+        return 0
+    close = 0
+    for po in pieces:
+        gap = getattr(po, "com_forward_to_exit_deg", None)
+        if int(getattr(po, "zone_code", 0)) != _ZONE_EXIT_ONLY and gap is not None and 0.0 < float(gap) <= CROWDED_FOLLOWER_GAP_DEG:
+            close += 1
+    return at_lip + close
+
+
+def exitPieceLayout(state) -> str:
+    """(zone, gap) per piece for the pulse log, leading first."""
+    rows = []
+    for po in getattr(state, "pieces", ()) or ():
+        gap = getattr(po, "com_forward_to_exit_deg", None)
+        rows.append((999.0 if gap is None else float(gap), int(getattr(po, "zone_code", 0))))
+    rows.sort()
+    return " ".join(f"z{z}@{g:.0f}" if g != 999.0 else f"z{z}@?" for g, z in rows)
 
 
 def exitPulseSpeed(cfg, channel: int, state) -> int:
@@ -512,6 +538,7 @@ class PulsePerceptionFeeding(BaseState):
             if channel == 3 and output > tip and (now - self._ch3_last_tip_pulse_at) < TIP_OVER_HOLD_S:
                 output = tip  # the piece that just tipped over is on its way to C4
             pause_ms = exitPulsePauseMs(cfg, output)
+            speed = exitPulseSpeed(cfg, channel, state)
             moved = self._move(
                 f"{label}_exit",
                 channel,
@@ -520,8 +547,12 @@ class PulsePerceptionFeeding(BaseState):
                 pause_ms,
                 cfg,
                 enforce_min=False,
-                speed=exitPulseSpeed(cfg, channel, state),
+                speed=speed,
             )
+            if moved and channel == 3 and output <= tip:
+                self.gc.logger.info(
+                    f"PulsePerception: ch3 tip {output:.1f}° @ {speed} with {exitOnlyCount(state)} at the lip [{exitPieceLayout(state)}]"
+                )
             if moved and channel == 3 and output <= tip:
                 self._ch3_last_tip_pulse_at = now
         # IDLE / FREEZE: no move.

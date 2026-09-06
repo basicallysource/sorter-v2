@@ -78,7 +78,7 @@ Four things make it up:
 - **Bearing assembly, its own:** 10 {% include fastener.html size="M3" variant="heat-insert" %} (4 in the race, 3 in each holder) and 10 {% include fastener.html size="M3" variant="countersunk" length="8" %}. Six hold the covers to the holders, 3 each, and 4 hold the holders to the race, 2 each; all ten are driven in step 4. The two 6704-2RS bearings go into the holders in step 1. The covers are thin at the rim, so snug their screws down evenly rather than fully tightening one before the others.
 - **Servo adapter, its own:** 4 {% include fastener.html size="M3" variant="countersunk" length="8" %}, no heat inserts. They hold the servo-side and flap-side halves together with the MG995 Servo Horn clasped between them.
 - **Servo bracket, its own:** 6 {% include fastener.html size="M3" variant="heat-insert" %} in the housing, two on each of three faces, and one screw per insert. 2 {% include fastener.html size="M3" variant="countersunk" length="8" %} hold the lower arm on, 2 {% include fastener.html size="M3" variant="countersunk" length="12" %} hold the side arm on, and 2 {% include fastener.html size="M3" variant="countersunk" length="12" %} hold the cover on. None of them goes through the servo.
-- **Holding the finished module to the chute core:** 4 {% include fastener.html size="M3" variant="countersunk" length="8" %} through the two bearing covers, plus one screw through each bracket arm's mounting ear, step 5. The two arms are not the same thickness there, so they do not take the same screw: the lower arm's ear is 8.40 mm and takes a {% include fastener.html size="M3" variant="countersunk" length="12" %}, the side arm's is 5.00 mm and takes a {% include fastener.html size="M3" variant="countersunk" length="8" %}. All six go into the core's own heat inserts, so there is nothing to press in here for them.
+- **Holding the finished module to the chute core:** 4 {% include fastener.html size="M3" variant="countersunk" length="8" %} through the two bearing covers, plus one screw through each bracket arm's mounting ear, step 6. The two arms are not the same thickness there, so they do not take the same screw: the lower arm's ear is 8.40 mm and takes a {% include fastener.html size="M3" variant="countersunk" length="12" %}, the side arm's is 5.00 mm and takes a {% include fastener.html size="M3" variant="countersunk" length="8" %}. All six go into the core's own heat inserts, so there is nothing to press in here for them.
 
 {% include step.html n="1" title="Preparation" %}
 
@@ -169,7 +169,7 @@ The two arms land on two other faces of the housing, so they are independent of 
 - **Lower arm:** 2 {% include fastener.html size="M3" variant="countersunk" length="8" %} into the housing's inserts. The arm is 4.25 mm thick at the screws, so an 8 mm one reaches 3.75 mm in.
 - **Side arm:** 2 {% include fastener.html size="M3" variant="countersunk" length="12" %} into the housing's inserts. This arm is 8.40 mm thick at the screws, so an 8 mm one would not reach them at all.
 
-Each arm has one further hole, in the ear at its far end. Those two are not driven here; they are what bolts the finished bracket to the chute core in step 5, so leave them empty.
+Each arm has one further hole, in the ear at its far end. Those two are not driven here; they are what bolts the finished bracket to the chute core in step 6, so leave them empty.
 
 <figure>
   <img class="doc-figure" src="https://assets.basically.website/sorter-parts/servo-bracket-assembled-full-2c6c3cddb48f.png" alt="Render of the assembled servo bracket seen from the cover side: the cover with its two screw lugs and the window the servo sits behind, the side arm to the right and the lower arm below, each with the single mounting ear that bolts to the chute core">
@@ -180,11 +180,11 @@ Each arm has one further hole, in the ear at its far end. Those two are not driv
 
 The shaft is captured at both ends once this is together, so there is only one order it goes in: the holders have to go onto the shaft before anything is bolted down.
 
-**Check which way round the door goes first.** The shaft runs the length of the door's top edge and is Ø19.8 mm, but one end finishes in a hexagonal spigot about 12 mm across the flats. That hex end is the servo side — it is what the servo adapter's flap-side half slides onto in step 5. The other end is plain round.
+**Check which way round the door goes first.** The shaft runs the length of the door's top edge and is Ø19.8 mm, but one end finishes in a hexagonal spigot 12.0 mm across the flats. That hex end is the servo side — it is what the servo adapter's flap-side half slides onto in step 6. The other end is plain round.
 
 1. **Slide a holder onto each end of the shaft**, bearings already seated. The bearing's Ø20 bore takes the Ø19.8 shaft, and the holder's own Ø21.0 mm hole clears the shaft by 0.6 mm all round, so neither should need forcing.
 2. **Lay the race along the back of the shaft**, on the opposite side from the flap, and bolt each holder down onto its end of it: 2 {% include fastener.html size="M3" variant="countersunk" length="8" %} per holder, 4 in total, into the race's four inserts. The holder seats flat against the race's end. The race arches over the shaft with about 0.5 mm of clearance and never touches it; if it does touch, something is not seated.
-3. **Put a cover on each holder**, 3 {% include fastener.html size="M3" variant="countersunk" length="8" %} each, 6 in total, into the three inserts pressed in step 1. Those are what trap the bearings in their pockets. Each cover has **two further holes that stay empty here** — they take the screws that hold the whole module to the chute core in step 5.
+3. **Put a cover on each holder**, 3 {% include fastener.html size="M3" variant="countersunk" length="8" %} each, 6 in total, into the three inserts pressed in step 1. Those are what trap the bearings in their pockets. Each cover has **two further holes that stay empty here** — they take the screws that hold the flap assembly to the chute core in step 5.
 
 <figure>
   <img class="doc-figure" src="https://assets.basically.website/sorter-parts/bearing-assembly-full-86bac1380e09.png" alt="Two renders, one above the other: on top the chute door with its shaft, the bearing race over the shaft, and the two bearing holders drawn out along the shaft with a bearing in each; below, the same parts pushed together so the holders sit on the ends of the race">
@@ -196,15 +196,12 @@ The shaft is captured at both ends once this is together, so there is only one o
   <p>This order is derived from the parts rather than from a build: the bores, the shaft and the race line up in the CAD and only fit together one way. The fits quoted are measured off the STLs. Nobody has reported building it, so correct this step if it does not go together as described.</p>
 </div>
 
-{% include step.html n="5" title="Fit the module to the chute core" %}
+{% include step.html n="5" title="Bolt the flap assembly to the chute core" %}
 
-Six of the core's 18 inserts are for this module, and the screws for them are in the list above:
+Six of the core's 18 inserts belong to this module. Four are used here, two in step 6:
 
-- **2 bearing covers**, 4 {% include fastener.html size="M3" variant="countersunk" length="8" %} in total, 2 per cover, into 5.00 mm of wall.
-- **Servo bracket lower arm**, 1 {% include fastener.html size="M3" variant="countersunk" length="12" %} through its ear.
-- **Servo bracket side arm**, 1 {% include fastener.html size="M3" variant="countersunk" length="8" %} through its ear.
-
-Every one of those is 8 mm except the lower arm's, and the reason is the wall it goes through. The bearing covers and the side arm's ear are both 5.00 mm, so an 8 mm screw reaches 3.00 mm into the core's blind 5.70 mm insert. The lower arm's ear is 8.40 mm, so an 8 mm screw would not reach the insert at all and it takes a 12, which reaches 3.60 mm. All measured off the STLs.
+- **2 bearing covers**, 4 {% include fastener.html size="M3" variant="countersunk" length="8" %} in total, 2 per cover, into 5.00 mm of wall. These are the two holes left empty in each cover in step 4.
+- **Servo bracket lower arm**, 1 {% include fastener.html size="M3" variant="countersunk" length="12" %}, and **side arm**, 1 {% include fastener.html size="M3" variant="countersunk" length="8" %} — step 6.
 
 <div class="img-row">
   <figure>
@@ -217,11 +214,26 @@ Every one of those is 8 mm except the lower arm's, and the reason is the wall it
   </figure>
 </div>
 
-The servo output then couples to the door through the two-piece servo adapter, servo side and flap side. Push the adapter onto the servo's splined output and clock it before you commit: centre the servo (or let it settle at its power-on default), fit it at roughly the middle of the door's swing, then fine-tune once you can check both open and closed by eye. The video below shows how it is set.
+**The covers are what hold the flap on.** Nothing else in the bearing assembly touches the core: the race and the holders are carried by the two covers, which are already screwed to the holders from step 4. Offer the whole assembly up so a cover lands on each long side of the core, and drive 2 screws per cover into the inserts above.
+
+8 mm is the right length because the cover is 5.00 mm at those holes, so the screw reaches 3.00 mm into the core's blind 5.70 mm insert. Measured off the STLs.
+
+Snug all four down before tightening any of them, then cycle the door by hand through its full swing. It should turn freely on the bearings and not touch the core anywhere; if it binds, slacken off and let the assembly settle square before tightening again.
+
+{% include step.html n="6" title="Bolt the servo bracket on and couple it to the door" %}
+
+The bracket goes on the same long side as the servo-side bearing cover, into the other two inserts in the first render above. The two arms do not take the same screw, because their mounting ears are not the same thickness:
+
+- **Lower arm**, 1 {% include fastener.html size="M3" variant="countersunk" length="12" %}. Its ear is 8.40 mm, so an 8 mm screw would not reach the insert at all; a 12 reaches 3.60 mm.
+- **Side arm**, 1 {% include fastener.html size="M3" variant="countersunk" length="8" %}. Its ear is 5.00 mm, the same as the bearing covers', so an 8 reaches 3.00 mm. A 12 would bottom out.
+
+Then couple the servo to the door through the two-piece adapter you built in step 1. Its servo side goes onto the servo's splined output, through the horn clasped inside it, and its flap side has a hexagonal socket 12.4 mm across the flats that takes **the hex end of the door's shaft** — the end step 4 told you to point at the servo. The spigot is 12.0 mm across the flats, so it is a slip fit with about 0.4 mm to spare.
+
+Clock it before you commit: centre the servo (or let it settle at its power-on default), fit the adapter at roughly the middle of the door's swing, then fine-tune once you can check both open and closed by eye. The video below shows how it is set.
 
 <figure>
   <img class="doc-figure" src="https://assets.basically.website/sorter-parts/door-module-servo-video-frame-full-1f27d2aaa634.jpg" alt="Photograph of a real door module part-way through assembly: a hand holds the assembled servo adapter, a white disc with a hexagonal boss in the middle and four countersunk screws around it, in front of the MG995 in its printed bracket">
-  <figcaption>The same job on a real machine. The disc in frame is the servo adapter from step 1, screwed together with its four countersunk screws, with the hexagonal boss that takes the door's shaft facing the camera; the MG995 sits in its bracket behind it. <cite>Frame from the video below, on Basically's own YouTube channel. Who filmed it isn't recorded.</cite></figcaption>
+  <figcaption>The same job on a real machine. The disc in frame is the servo adapter from step 1, screwed together with its four countersunk screws, with the hexagonal socket that takes the door's shaft facing the camera; the MG995 sits in its bracket behind it. <cite>Frame from the video below, on Basically's own YouTube channel. Who filmed it isn't recorded.</cite></figcaption>
 </figure>
 
 <div class="callout callout-warning">

@@ -122,20 +122,16 @@ Two sub-assemblies go together here as well, before the steps that use them. Nei
 
 <div class="prep-item">
   <div class="prep-item-body">
-    <p><strong>Servo adapter:</strong> the servo-side and flap-side plates clamp the MG995 Servo Horn between them. The horn ships with the servo, it isn't printed. Drop the horn into the slot in the servo-side half, bring the flap-side half down over it, and drive 4 {% include fastener.html size="M3" variant="countersunk" length="8" %} screws through the flap side (it's the half with the visible screw holes) into the servo side. The screws cut their own thread in the printed plastic.</p>
+    <p><strong>Servo adapter:</strong> the servo-side and flap-side plates clamp the MG995 Servo Horn between them. The horn ships with the servo, it isn't printed. Drop the horn into the servo-side half <strong>splined sleeve first</strong>: the sleeve sits in the hole in the middle of that half and the two arms lie in the slot around it. It does not fit any other way. Bring the flap-side half down over it and drive 4 {% include fastener.html size="M3" variant="countersunk" length="8" %} screws through the flap side (it's the half with the visible screw holes) into the servo side. The screws cut their own thread in the printed plastic.</p>
   </div>
   <div class="prep-item-figure prep-item-figure-split">
     <figure>
-      <img class="doc-figure" src="https://assets.basically.website/sorter-parts/mg995-servo-horn-square-full-150991b8cde4.png" alt="The MG995 Servo Horn, a two-arm splined servo arm that ships with the MG995 servo">
-      <figcaption>The MG995 Servo Horn. Clasped between the two adapter halves before they're screwed together. <cite>Reference photo of the stock part, not from a build. Photographer not recorded.</cite></figcaption>
+      <img class="doc-figure" src="https://assets.basically.website/sorter-parts/mg995-servo-horn-sleeve-right-full-7518b1e88254.png" alt="The MG995 Servo Horn, a two-arm splined servo arm that ships with the servo, with its splined sleeve facing to the right">
+      <figcaption>The MG995 Servo Horn. The splined sleeve, facing right here, is what goes into the servo-side (tan) half in the next picture; on the machine it is also what slides onto the servo's output shaft. <cite>Reference photo of the stock part, not from a build. Photographer not recorded.</cite></figcaption>
     </figure>
     <figure>
       <img class="doc-figure" src="https://assets.basically.website/sorter-parts/servo-adapter-exploded-full-57d2c57e666b.png" alt="Exploded render of the two servo adapter halves facing each other: the flap-side half in blue on the left showing its hexagonal socket and four countersunk holes, the servo-side half in tan on the right showing the long slot the two-arm horn seats in and its four pilot holes">
-      <figcaption>Exploded, in build order. The horn drops into the slot in the servo-side half (tan), then the flap-side half (blue) goes over it. <cite>Rendered from the part geometry in assembly position, not from a build. Render: Balloon.</cite></figcaption>
-    </figure>
-    <figure>
-      <img class="doc-figure" src="https://assets.basically.website/sorter-parts/servo-adapter-assembled-full-8f39f4102e1a.png" alt="Render of the two servo adapter halves closed together, seen from the flap side: the blue half's four countersunk holes and the hexagonal socket in the middle, with the tan servo-side half just visible behind it">
-      <figcaption>Assembled, from the flap side. The 4 screws go in from this face, and the hex socket in the middle is what the door's shaft ends up in. <cite>Rendered from the part geometry in assembly position, not from a build. Render: Balloon.</cite></figcaption>
+      <figcaption>Exploded, in build order. The horn goes into the servo-side half (tan), sleeve into the middle hole and arms in the slot, then the flap-side half (blue) goes over it and takes the 4 screws. The hex socket in the flap side is what the door's shaft ends up in. <cite>Rendered from the part geometry in assembly position, not from a build. Render: Balloon.</cite></figcaption>
     </figure>
   </div>
 </div>

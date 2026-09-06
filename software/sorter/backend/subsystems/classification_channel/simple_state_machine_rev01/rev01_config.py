@@ -96,7 +96,7 @@ class Rev01Config:
     # detector regularly splits one piece into two boxes or emits a one-frame
     # spurious second box; a single such frame used to mis-flag a multi-drop.
     # Mirror the clear-confirm debounce so one noisy frame can't trip it.
-    multi_feed_confirm_reads: int = 3
+    multi_feed_confirm_reads: int = 8
     # Below this Brickognize part score the piece is not sorted into a bin
     # (status low_confidence → misc). A wrong bin costs more than a passthrough.
     min_part_confidence: float = 0.6

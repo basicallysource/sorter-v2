@@ -144,7 +144,7 @@ The servo adapter takes no inserts, but assemble it here anyway, before the brac
     <p>That leaves 5.00 mm of pocket above it, which is what the bearing cover's raised ring is for: the cover goes into the same pocket on top of the bearing, and its screws clamp the stack. If the bearing sits proud of the face, it has not gone all the way down.</p>
   </div>
   <figure class="prep-item-figure">
-    <img class="doc-figure" src="https://assets.basically.website/sorter-parts/bearing-into-holder-full-bc67bf630cc5.png" alt="Two renders of the left bearing holder side by side: on the left a 6704-2RS bearing lined up with the mouth of the holder's bore, on the right the same bearing pushed down to the bottom of the pocket">
+    <img class="doc-figure" src="https://assets.basically.website/sorter-parts/bearing-into-holder-v-full-3bfe04d180fe.png" alt="Two renders of the left bearing holder, one above the other: on top a 6704-2RS bearing lined up with the mouth of the holder's bore, below it the same bearing pushed down to the bottom of the pocket">
     <figcaption>Lined up with the bore, then seated on the step at the bottom of it. <cite>Rendered from the holder's own geometry, with the bearing drawn to its 27 × 20 × 4 mm catalogue size. Not from a build. Render: Balloon.</cite></figcaption>
   </figure>
 </div>

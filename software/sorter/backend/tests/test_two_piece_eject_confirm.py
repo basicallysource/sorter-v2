@@ -140,3 +140,36 @@ def test_recovery_commits_only_after_successful_clear(monkeypatch, cleared) -> N
     assert h.advanced == int(cleared)
     if not cleared:
         assert h._pieces[tp.track_id] is tp and not tp.ejected
+
+
+def test_piece_resting_past_the_exit_centre_gets_bounded_nudges() -> None:
+    from subsystems.classification_channel.two_piece import _EJECT_NUDGE_AFTER_S, _EJECT_NUDGE_MAX
+    h, tp = _handler()
+    moves = []
+    h.startOutputMove = lambda deg, speed: moves.append(deg)
+    h._dropBurstInProgress = lambda: False
+    past_centre = SimpleNamespace(pieces=[SimpleNamespace(zone_code=_ZONE_EXIT_ONLY, sv_bt_track_id=29)], exit_com_forward_to_center_deg=0.0)
+    tp.last_seen = 100.0 + _EJECT_NUDGE_AFTER_S - 0.5
+    h._ejecting(past_centre, stopped=True, now=100.0 + _EJECT_NUDGE_AFTER_S - 0.5)
+    assert moves == []                                   # not yet: it may still be falling
+    for i in range(12):
+        now = 100.0 + _EJECT_NUDGE_AFTER_S + i * 0.5
+        tp.last_seen = now
+        h._ejecting(past_centre, stopped=True, now=now)
+    assert len(moves) == _EJECT_NUDGE_MAX                # one per second, then the ladder is spent
+    assert all(abs(m) == 8.0 for m in moves)
+    assert h.advanced == 0 and not tp.ejected
+
+
+def test_a_new_eject_target_gets_a_fresh_ladder() -> None:
+    from subsystems.classification_channel.two_piece import _EJECT_NUDGE_AFTER_S, _EJECT_NUDGE_MAX
+    h, tp = _handler()
+    h._eject_nudges = _EJECT_NUDGE_MAX
+    h._eject_nudge_target = object()                     # a previous head
+    moves = []
+    h.startOutputMove = lambda deg, speed: moves.append(deg)
+    h._dropBurstInProgress = lambda: False
+    now = 100.0 + _EJECT_NUDGE_AFTER_S + 1
+    tp.last_seen = now
+    h._ejecting(SimpleNamespace(pieces=[], exit_com_forward_to_center_deg=0.0), stopped=True, now=now)
+    assert len(moves) == 1

@@ -59,6 +59,14 @@ _STAGE_STEP_DEG = 25.0
 
 # Safety ceilings so a move that never resolves can't wedge the machine forever.
 _EJECT_TIMEOUT_S = 15.0
+# A head that the eject pushes carried past the exit centre but that still
+# sits there (a long beam bridging the lip, a plate riding the rim) gets
+# bounded forward nudges before the 30 s stall clear has to do the same with
+# 72° steps: six of the night's stalls were exactly this.
+_EJECT_NUDGE_AFTER_S = 3.0
+_EJECT_NUDGE_EVERY_S = 1.0
+_EJECT_NUDGE_DEG = 8.0
+_EJECT_NUDGE_MAX = 6
 # A head that is classified and aimed but has no successor in the drop zone
 # is ejected on its own after this grace. Short enough that a sparse feed
 # (last piece of a batch, a slow C3) does not park the piece until the 30 s
@@ -1037,11 +1045,20 @@ class TwoPieceClassificationChannel(Rev01BaseState):
                 f"{LOG_TAG} ROTATE: eject track={head.track_id} + stage track={drop.track_id}"
             )
 
+    # Nudge ladder bookkeeping (class defaults so partial test doubles work).
+    _eject_nudge_target: Optional[_TrackedPiece] = None
+    _eject_nudges: int = 0
+    _eject_last_nudge_at: float = 0.0
+
     def _ejecting(self, state, stopped: bool, now: float) -> None:
         target = self._eject_target
         if target is None:
             self._enterPhase(_Phase.STAGING)
             return
+        if target is not self._eject_nudge_target:
+            self._eject_nudge_target = target
+            self._eject_nudges = 0
+            self._eject_last_nudge_at = 0.0
         gone_for = now - target.last_seen
         timed_out = (now - self._phase_started_at) > _EJECT_TIMEOUT_S
         # Track id gone (debounced) AND nothing left in the exit-only arc == the
@@ -1077,6 +1094,23 @@ class TwoPieceClassificationChannel(Rev01BaseState):
                 move = min(self.ctx.config.discharge_max_move_output_deg, gap)
                 self.startOutputMove(
                     C4_TRAVEL_SIGN * move, self.ctx.config.discharge_speed_usteps_per_s
+                )
+                return
+            # At or past the exit centre and still here: bounded nudges until it
+            # drops; after the ladder the stall clear owns it.
+            if (
+                (now - self._phase_started_at) >= _EJECT_NUDGE_AFTER_S
+                and (now - self._eject_last_nudge_at) >= _EJECT_NUDGE_EVERY_S
+                and self._eject_nudges < _EJECT_NUDGE_MAX
+            ):
+                self._eject_nudges += 1
+                self._eject_last_nudge_at = now
+                self.logger.info(
+                    f"{LOG_TAG} eject nudge {self._eject_nudges}/{_EJECT_NUDGE_MAX} for track={target.track_id}: "
+                    f"{_EJECT_NUDGE_DEG:.0f}° (still on the lip)"
+                )
+                self.startOutputMove(
+                    C4_TRAVEL_SIGN * _EJECT_NUDGE_DEG, self.ctx.config.discharge_speed_usteps_per_s
                 )
 
     def _staging(self, state, stopped: bool, now: float) -> None:

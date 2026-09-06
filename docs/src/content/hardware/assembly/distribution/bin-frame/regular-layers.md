@@ -69,6 +69,10 @@ Slot piece C (Layer vertical support) of aluminum extrusion between the External
     <figcaption>Piece C sitting about 3 mm below the top of the bracket, which is what it should look like. <cite>Photo: BrickCycleAlice.</cite></figcaption>
   </figure>
   <figure>
+    <img src="https://assets.basically.website/sorter-docs/assembly-regular-layers-corner-underside-w1600-a5f70eb168c7.jpg" alt="A layer corner seen from underneath: the end of piece C sitting below the rim of the collar, with the bracket's screws in their holes and the External bracket — bottom vertical tube below">
+    <figcaption>The same thing from underneath, with the bracket's screws in place. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+  </figure>
+  <figure>
     <img src="https://assets.basically.website/sorter-docs/assembly-regular-layers-verticals-top-w1600-400576ddb1b6.png" alt="Top view of the layer with vertical supports and bottom brackets at every corner">
     <figcaption><cite>Photo: zed0.</cite></figcaption>
   </figure>

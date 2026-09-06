@@ -444,6 +444,63 @@
           "chute"
         ]
       }
+    },
+    {
+      "id": "delete-unused-m5-shcs-tbd-placeholder",
+      "name": "Delete the unused M5 socket/button head length-TBD placeholder",
+      "priority": "P4",
+      "condition": "retired",
+      "description": "This placeholder screw is not used anywhere in the machine. It stood in for an unmeasured M5 joint -- first the three electronics mounts that bolt to the frame (resolved to scr-m5-12-shcs and scr-m5-16-shcs in PR #428), then the two screws fastening the Chute stepper support block, which was removed from the machine on 2026-08-31 (sorter-v2#489, sorter-v2#483) once the NEMA 23 chute stepper mount was confirmed to work without it. Its length was never measured. It should be deleted outright, but a minted part id has to stay resolvable once it exists, and the catalog's own consistency check refuses a change that removes one, so deleting it needs that check overridden by someone who can make that call, not an edit from here. Tracked as sorter-v2 issue #565, and it belongs with #453 and #454.",
+      "targets": {
+        "hardware": [
+          "scr-m5-shcs-tbd"
+        ]
+      }
+    },
+    {
+      "id": "delete-unused-m2-8-shcs-screw",
+      "name": "Delete the unused M2 x 8 mm socket/button head screw",
+      "priority": "P4",
+      "condition": "retired",
+      "description": "This screw reaches no bill of materials. Its only reference is the Camera extension assembly, which has been unused since 2026-09-02, when the Camera lamp replaced the light post, the overhead camera mount, the classification dome and the camera & LED insert. It self-tapped the IMX415 classification camera board onto the camera extension's printed post, 4 per module. Note the assembly goes with the screw: deleting the screw on its own would leave a listed assembly asking for a part that no longer exists. It should be deleted outright, but a minted part id has to stay resolvable once it exists, and the catalog's own consistency check refuses a change that removes one, so deleting it needs that check overridden by someone who can make that call, not an edit from here. Tracked as sorter-v2 issue #566.",
+      "targets": {
+        "hardware": [
+          "scr-m2-8-shcs"
+        ],
+        "assemblies": [
+          "camera-extension-assembly"
+        ]
+      }
+    },
+    {
+      "id": "delete-unused-led-cob-50mm",
+      "name": "Delete the unused 50 mm LED COB",
+      "priority": "P4",
+      "condition": "retired",
+      "description": "This COB reaches no bill of materials. Its only reference is the Light post assembly, which has been unused since 2026-09-02, when the Camera lamp replaced it: the lamp carries its own shaded lamp over each C-channel, so there is no post and no COB plate on the current machine. Note the assembly goes with the part. It should be deleted outright, but a minted part id has to stay resolvable once it exists, and the catalog's own consistency check refuses a change that removes one, so deleting it needs that check overridden by someone who can make that call, not an edit from here. Tracked as sorter-v2 issue #567.",
+      "targets": {
+        "hardware": [
+          "led-cob-50mm-24v"
+        ],
+        "assemblies": [
+          "light-post-assembly"
+        ]
+      }
+    },
+    {
+      "id": "delete-unused-steel-rod",
+      "name": "Delete the unused 3/8 in steel rod stock",
+      "priority": "P4",
+      "condition": "retired",
+      "description": "This rod reaches no bill of materials. Its only reference is the Overhead camera mount, which has been unused since 2026-09-02, when the Camera lamp replaced it. Two per mount, bought as a 4 ft length and cut into the four roughly 1 ft pieces the two camera arms hung from. It is the only stock-material row in the catalog, so it is also the only reason that section appears on the Hardware tab. Note the assembly goes with the part. It should be deleted outright, but a minted part id has to stay resolvable once it exists, and the catalog's own consistency check refuses a change that removes one, so deleting it needs that check overridden by someone who can make that call, not an edit from here. Tracked as sorter-v2 issue #568.",
+      "targets": {
+        "hardware": [
+          "rod-steel-3-8"
+        ],
+        "assemblies": [
+          "camera-mount"
+        ]
+      }
     }
   ],
   "folders": [
@@ -3125,9 +3182,9 @@
       "name": "M2 × 8 mm socket/button head",
       "category": "Screws",
       "alternative": "Socket or button head",
-      "description": "Self-taps the IMX415 classification camera board to the camera extension's printed post. 4 per module, no insert. May also fit the OV9732 overhead camera mount once that gets a real bracket (sorter-v2#426), not confirmed.",
+      "description": "Self-taps the IMX415 classification camera board to the camera extension's printed post. 4 per module, no insert. May also fit the OV9732 overhead camera mount once that gets a real bracket (sorter-v2#426), not confirmed. Unused as of 2026-09-02: its only assembly, the Camera extension, was retired when the Camera lamp replaced that whole path. Do not add a new joint to this entry; deletion is tracked as sorter-v2 issue #566.",
       "created_at": "2026-08-25",
-      "updated_at": "2026-08-25",
+      "updated_at": "2026-09-06",
       "attributes": [
         {
           "label": "Thread",
@@ -3762,7 +3819,7 @@
       "image_url": "https://assets.basically.website/sorter-parts/scr-m5-shcs-tbd-full-26e52d7d5bcd.png",
       "description": "Placeholder for an unmeasured M5 joint. Originally the three electronics mounts that bolt to the frame (resolved to scr-m5-12-shcs / scr-m5-16-shcs in PR #428) and, since then, the two screws fastening the Chute stepper support block. Unused as of 2026-08-31: that block was removed from the machine (sorter-v2#489, sorter-v2#483) after Spencer confirmed the NEMA 23 chute stepper mount works without it, so its two screws are gone from the interface assembly too. The length was never measured.",
       "created_at": "2026-07-18",
-      "updated_at": "2026-08-31",
+      "updated_at": "2026-09-06",
       "attributes": [
         {
           "label": "Thread",
@@ -3777,7 +3834,7 @@
           "value": "Socket or button head, interchangeable (both flat-bottomed, so either just clamps; socket is the default)"
         }
       ],
-      "note": "Unused as of 2026-08-31. Kept as an unused entry rather than deleted, since a minted uid has to stay resolvable (see parts-calculator's own VERSIONING.md). Do not re-add without a new joint to point it at, the chute stepper support block it was last used for is gone."
+      "note": "Unused as of 2026-08-31. Kept as an unused entry rather than deleted, since a minted uid has to stay resolvable (see parts-calculator's own VERSIONING.md). Do not re-add without a new joint to point it at, the chute stepper support block it was last used for is gone. Deletion is tracked as sorter-v2 issue #565."
     },
     {
       "id": "washer-m3-15",
@@ -3893,9 +3950,9 @@
       },
       "name": "Steel rod, 3/8 in — 4 ft stock",
       "category": "Stock material",
-      "description": "Bought as a length and cut down. One 4 ft rod yields all four ~1 ft pieces the two overhead camera arms hang from.",
+      "description": "Bought as a length and cut down. One 4 ft rod yields all four ~1 ft pieces the two overhead camera arms hang from. Unused as of 2026-09-02: its only assembly, the Overhead camera mount, was retired when the Camera lamp replaced it. Do not add a new joint to this entry; deletion is tracked as sorter-v2 issue #568.",
       "created_at": "2026-07-18",
-      "updated_at": "2026-07-18",
+      "updated_at": "2026-09-06",
       "stock": {
         "unit_length_mm": 1220,
         "cut_length_mm": 305,
@@ -5234,9 +5291,9 @@
       },
       "name": "50mm LED COB - 24v",
       "category": "Wire harness",
-      "description": "Lights the feeder C-channels. One per light post.",
+      "description": "Lights the feeder C-channels. One per light post. Unused as of 2026-09-02: its only assembly, the Light post, was retired when the Camera lamp replaced it. Do not add a new joint to this entry; deletion is tracked as sorter-v2 issue #567.",
       "created_at": "2026-07-18",
-      "updated_at": "2026-07-18",
+      "updated_at": "2026-09-06",
       "image_url": "https://assets.basically.website/sorter-parts/led-cob-50mm-24v-full-f772d260f547.jpg",
       "sourcing": {
         "vendors": [

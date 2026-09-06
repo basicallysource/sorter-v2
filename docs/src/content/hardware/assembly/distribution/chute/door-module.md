@@ -130,22 +130,21 @@ The servo adapter takes no inserts, but assemble it here anyway, before the brac
 
 <div class="prep-item">
   <div class="prep-item-body">
-    <p><strong>Bearing holders (left and right):</strong> 3 × M3 each, 6 between them, on the outboard face around the bearing bore. The cover screws onto those three. The two holders are mirror images of each other, so the job is identical on both and one view covers it. <strong>They are handed, though</strong>: print one of each, not two of the same.</p>
+    <p><strong>Bearing holder (left) and bearing holder (right):</strong> 3 × M3 each, 6 between them, on the outboard face around the bearing bore.</p>
   </div>
   <figure class="prep-item-figure">
     <img class="doc-figure" src="https://assets.basically.website/sorter-parts/door-module-inserts-bearing-holder-left-full-20b5c1bf8883.png" alt="Render of the left bearing holder at an angle, with its three heat-insert pockets circled in red around the bearing bore">
-    <figcaption>Three around the bore on the outboard face. The left holder is shown; the right one is its mirror and takes the same three. <cite>Render: Balloon.</cite></figcaption>
+    <figcaption>Three around the bore on the outboard face. The left holder is shown; the right one takes the same three. <cite>Render: Balloon.</cite></figcaption>
   </figure>
 </div>
 
 <div class="prep-item">
   <div class="prep-item-body">
-    <p><strong>The two 6704-2RS bearings</strong> go in here, one into the <strong>bearing holder (left)</strong> and one into the <strong>bearing holder (right)</strong>, and they take no inserts. The two holders are mirrored, so the bearing goes in the same way in both and one view covers it. The bore is a Ø27.3 mm pocket 9.00 mm deep that steps down to Ø24.4 mm and then to a Ø21.0 mm hole for the door's shaft. The bearing is Ø27 × 4 mm, so it is a slip fit rather than a press fit: push it in square and it lands on the Ø24.4 step, which catches the outer race and clears the inner one so the bearing still turns. It is sealed on both sides (that is what "2RS" means), so there is no wrong way round.</p>
-    <p>That leaves 5.00 mm of pocket above it, and the bearing cover's raised rim is 5.00 mm tall and Ø24.6 to Ø26.6 across. So the rim drops into the same pocket on top of the bearing, narrow enough to clear the pocket wall and wide enough to land on the outer race rather than the inner one, and the cover's screws clamp the stack. If the bearing sits proud of the face, it has not gone all the way down and the cover will not pull flat.</p>
+    <p><strong>The two 6704-2RS bearings:</strong> one into the <strong>bearing holder (left)</strong>, one into the <strong>bearing holder (right)</strong>. They take no inserts and there is no wrong way round. Push each one square to the bottom of the bore.</p>
   </div>
   <figure class="prep-item-figure">
     <img class="doc-figure" src="https://assets.basically.website/sorter-parts/bearing-into-holder-blue-full-8cb4f2b8771b.png" alt="Two renders of the left bearing holder, one above the other: on top a 6704-2RS bearing, coloured blue, lined up with the mouth of the holder's bore, below it the same blue bearing pushed down to the bottom of the pocket">
-    <figcaption>Lined up with the bore, then seated on the step at the bottom of it. The left holder is shown; the right one takes its bearing exactly the same way. <cite>The bearing is coloured blue to pick it out. Rendered from the holder's own geometry, with the bearing drawn to its 27 × 20 × 4 mm catalogue size. Not from a build. Render: Balloon.</cite></figcaption>
+    <figcaption>Lined up with the bore, then seated at the bottom of it. The left holder is shown; the right one takes its bearing the same way. <cite>The bearing is coloured blue to pick it out. Rendered from the holder's own geometry, not from a build. Render: Balloon.</cite></figcaption>
   </figure>
 </div>
 
@@ -184,7 +183,7 @@ The shaft is captured at both ends once this is together, so there is only one o
 
 1. **Slide a holder onto each end of the shaft**, bearings already seated. The bearing's Ø20 bore takes the Ø19.8 shaft, and the holder's own Ø21.0 mm hole clears the shaft by 0.6 mm all round, so neither should need forcing.
 2. **Lay the race along the back of the shaft**, on the opposite side from the flap, and bolt each holder down onto its end of it: 2 {% include fastener.html size="M3" variant="countersunk" length="8" %} per holder, 4 in total, into the race's four inserts. The holder seats flat against the race's end. The race arches over the shaft with about 0.5 mm of clearance and never touches it; if it does touch, something is not seated.
-3. **Put a cover on each holder**, 3 {% include fastener.html size="M3" variant="countersunk" length="8" %} each, 6 in total, into the three inserts pressed in step 1. Those are what trap the bearings in their pockets. Each cover has **two further holes that stay empty here** — they take the screws that hold the flap assembly to the chute core in step 5.
+3. **Put a cover on each holder**, 3 {% include fastener.html size="M3" variant="countersunk" length="8" %} each, 6 in total, into the three inserts pressed in step 1. The cover's raised rim, 5.00 mm tall, drops into the pocket on top of the bearing and clamps it against the step: if a bearing is not all the way down, its cover will not pull flat. Each cover has **two further holes that stay empty here** — they take the screws that hold the flap assembly to the chute core in step 5.
 
 <figure>
   <img class="doc-figure" src="https://assets.basically.website/sorter-parts/bearing-assembly-blue-full-1cb33257bd5a.png" alt="Two renders, one above the other: on top the chute door with its shaft, the bearing race over the shaft, and the two bearing holders drawn out along the shaft with a blue bearing in each; below, the same parts pushed together so the holders sit on the ends of the race">

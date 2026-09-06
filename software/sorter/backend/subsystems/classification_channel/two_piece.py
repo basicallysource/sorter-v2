@@ -135,6 +135,11 @@ _ALIGN_SETTLE_S = 2.0
 # The stepper's stopped flag lags the command; keep the admission gate shut
 # this long after an alignment turn so C3 does not tip onto a turning platter.
 _ALIGN_GATE_HOLD_S = 0.6
+# Reversing the platter first takes up the gear train's play: backward
+# alignment turns came out 8–9° short (09:49: -17.7° -> -9.6°, -20.1° ->
+# -11.8°) while forward turns were exact. Every normal move is forward, so
+# a backward turn always starts against the backlash.
+_ALIGN_BACKLASH_DEG = 8.0
 
 
 def _exitArcOccupied(state) -> bool:
@@ -1281,6 +1286,12 @@ class TwoPieceClassificationChannel(Rev01BaseState):
         move = wallAlignmentMove(
             phase.sector_offset_deg, self._align_target_deg, holding, float(getattr(cfg, "wall_align_tolerance_deg", 3.0))
         )
+        if move is not None and move < 0:
+            compensated = move - _ALIGN_BACKLASH_DEG
+            if all(g - compensated <= _ALIGN_BACK_LIMIT_DEG for g in holding):
+                move = compensated
+            else:
+                move = None  # the backlash-compensated turn would reach into the drop zone
         walls = ", ".join(f"{a:.0f}" for a in phase.wall_angles_deg)
         if move is None:
             self.logger.info(

@@ -61,7 +61,7 @@ The hex frame's own 12 are on [its page]({{ '/hardware/assembly/distribution/bin
   <p>The External bracket — covers are already on, fitted in <a href="{{ '/hardware/assembly/distribution/bin-frame/hex-frame/' | relative_url }}#step-9">Build the hex frame, step 9</a>. If a corner is missing one, put it on before you stand piece C in it, because it is difficult to slide on afterwards.</p>
 </div>
 
-Slot a **piece C (Layer vertical support), 154 mm** of aluminum extrusion between the External bracket — cover and the External bracket — side. At typical cut length, piece C sits about 3 mm short of both the top and bottom of the bracket run. Position it so that 3 mm gap is at the bottom, leaving the extrusion flush (or nearly flush) at the top. Use 2 {% include fastener.html size="M5" variant="socket-button" length="16" %} screws tapped through the holes near the bottom of the External bracket — side to secure the extrusion.
+Slot a length of aluminum extrusion, **piece C (Layer vertical support), 154 mm**, between the External bracket — cover and the External bracket — side. At typical cut length, piece C sits about 3 mm short of both the top and bottom of the bracket run. Position it so that 3 mm gap is at the bottom, leaving the extrusion flush (or nearly flush) at the top. Use 2 {% include fastener.html size="M5" variant="socket-button" length="16" %} screws tapped through the holes near the bottom of the External bracket — side to secure the extrusion.
 
 <div class="img-row">
   <figure>

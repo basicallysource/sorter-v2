@@ -342,7 +342,7 @@ Attach the whole assembly to the bottom of the Top plate with {% include fastene
 
 These six brackets are what the vertical extrusion legs (piece F, step 13) will anchor into once the framing goes on.
 
-Align an Interface bracket with a **piece E (Interface spoke, long), 238 mm** of aluminum extrusion.
+Align an Interface bracket with a length of aluminum extrusion, **piece E (Interface spoke, long), 238 mm**.
 
 Place T-nuts in the extrusion, lined up with the 4 holes on the side of the Interface bracket. See [Fitting T-nuts]({{ '/hardware/helpers/t-nuts/' | relative_url }}) for how they go in.
 
@@ -660,7 +660,7 @@ After this step the chute should still rotate to each of its limits.
 
 {% include step.html n="13" title="Attach the framing" %}
 
-Install four T-nuts and their {% include fastener.html size="M5" variant="socket-button" length="20" %} screws in each Interface bracket, then fit an extrusion **piece F (Interface vertical support), 274 mm** in. The [framing cut list](https://parts-calculator.basically.website/framing) has every length on this page. Leave **165 mm of the extrusion standing out of the bracket**, measured from the edge where it exits to the free end. <a href="{{ '/hardware/assembly/distribution/top-interface/' | relative_url }}#step-14">Step 14</a> shows the corner in section.
+Install four T-nuts and their {% include fastener.html size="M5" variant="socket-button" length="20" %} screws in each Interface bracket, then fit in an extrusion **piece F (Interface vertical support), 274 mm**. The [framing cut list](https://parts-calculator.basically.website/framing) has every length on this page. Leave **165 mm of the extrusion standing out of the bracket**, measured from the edge where it exits to the free end. <a href="{{ '/hardware/assembly/distribution/top-interface/' | relative_url }}#step-14">Step 14</a> shows the corner in section.
 
 <figure>
   <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-top-interface-framing-1-full-b8dacf182230.jpg" alt="Six vertical extrusion supports bolted into the interface brackets, seen from above on the hexagonal top plate">

@@ -60,11 +60,6 @@ The door module is the moving half of the chute. Build it on the bench as one un
 
 The door pivots on two bearings held in the bearing assembly. The MG995 servo, coupled through the two-piece servo adapter, swings it between its open and closed positions, and the layer's [layer adapter board]({{ '/hardware/assembly/distribution/chute/pcb/' | relative_url }}) controls when it opens, releasing the part only once the chute stack has rotated the funnel into position over the right bin.
 
-<figure>
-  <img class="doc-figure" src="https://assets.basically.website/sorter-parts/door-module-overview-full-9fb10a1573e7.png" alt="Render of the door module: the chute door on the left with its pivot shaft, the two servo adapter halves stacked on the end of that shaft, and the servo bracket on the right">
-  <figcaption>How the module sits together, left to right: the chute door and its pivot shaft, the two servo adapter halves on the end of the shaft, and the servo in its bracket. The bearing assembly, which goes on the shaft between the door and the adapter, is not shown. <cite>Rendered from the part geometry in assembly position, not from a build. Render: Balloon.</cite></figcaption>
-</figure>
-
 Three of the four sub-assemblies below have no assembly steps written yet: the door, the bearing assembly and the servo adapter. Only the servo bracket (steps 2 and 3) comes from a real build. Build the other three from the parts themselves, and correct this page as you go. The fastener counts below are accurate even though the order of operations for those three isn't written down.
 
 The fasteners and quantities are in the parts list above and are called out inline at each step.

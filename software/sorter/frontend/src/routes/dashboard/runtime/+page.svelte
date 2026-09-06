@@ -2,6 +2,7 @@
 	import { onMount } from 'svelte';
 	import { getMachinesContext, getMachineContext } from '$lib/machines/context';
 	import MachineDropdown from '$lib/components/MachineDropdown.svelte';
+	import DeadTimePanel from '$lib/components/DeadTimePanel.svelte';
 	import { getBackendHttpBase, getBackendWsBase } from '$lib/backend';
 	import { settings } from '$lib/stores/settings';
 	import { ArrowLeft } from 'lucide-svelte';
@@ -626,6 +627,10 @@
 				</div>
 			</div>
 		</div>
+
+		{#if selected_record_id === 'live'}
+			<div class="mt-4"><DeadTimePanel /></div>
+		{/if}
 
 		<div class="mt-4 border border-border bg-surface p-3">
 			<div class="mb-2 text-sm font-medium text-text">

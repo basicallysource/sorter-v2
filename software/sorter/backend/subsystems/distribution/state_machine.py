@@ -59,6 +59,7 @@ class DistributionStateMachine(BaseSubsystem):
             self.gc.runtime_stats.observeStateTransition(
                 "distribution", None, self.current_state.value
             )
+            self.gc.runtime_stats.observeStation("distribution", self.current_state.value)
 
     def step(self) -> None:
         self.gc.profiler.hit("distribution.state_machine.step.calls")
@@ -80,6 +81,7 @@ class DistributionStateMachine(BaseSubsystem):
                 self.gc.runtime_stats.observeStateTransition(
                     "distribution", prev_state.value, next_state.value
                 )
+                self.gc.runtime_stats.observeStation("distribution", next_state.value)
             self.gc.profiler.enterState("distribution", self.current_state.value)
 
     def cleanup(self) -> None:
@@ -96,3 +98,4 @@ class DistributionStateMachine(BaseSubsystem):
             self.gc.runtime_stats.observeStateTransition(
                 "distribution", prev_state.value, self.current_state.value
             )
+            self.gc.runtime_stats.observeStation("distribution", self.current_state.value)

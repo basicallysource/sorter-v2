@@ -45,3 +45,17 @@ def test_approach_pulse_is_bounded_by_the_gap_to_the_exit_only_band() -> None:
     assert exitPulseOutputDeg(cfg, far) == 8.0
     assert exitPulseOutputDeg(cfg, mid) == 6.0       # 20 - 14 margin
     assert exitPulseOutputDeg(cfg, near) == 2.0      # within margin + tip: tip-over only
+
+
+def test_two_pieces_at_the_lip_get_the_crowded_tip() -> None:
+    from subsystems.feeder.pulse_perception.flow import exitPulseSpeed
+    cfg = SimpleNamespace(exit_pulse_output_deg=2.0, exit_approach_output_deg=8.0,
+                          crowded_tip_output_deg=1.0, crowded_tip_speed_usteps_per_s=1500,
+                          ch3_move_speed_usteps_per_s=3000, ch2_move_speed_usteps_per_s=3000, ch1_move_speed_usteps_per_s=3000)
+    assert exitPulseOutputDeg(cfg, _state(2)) == 2.0          # one at the lip: normal tip
+    assert exitPulseOutputDeg(cfg, _state(2, 2)) == 1.0       # two at the lip: crowded tip
+    assert exitPulseOutputDeg(cfg, _state(2, 2, 3)) == 1.0
+    assert exitPulseSpeed(cfg, 3, _state(2)) == 3000
+    assert exitPulseSpeed(cfg, 3, _state(2, 2)) == 1500
+    cfg.crowded_tip_output_deg = 0.0                          # disabled: behaves as before
+    assert exitPulseOutputDeg(cfg, _state(2, 2)) == 2.0

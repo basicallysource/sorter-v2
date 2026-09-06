@@ -91,10 +91,15 @@ def exitPulseOutputDeg(cfg, state) -> float:
     tip = float(cfg.exit_pulse_output_deg)
     approach = float(getattr(cfg, "exit_approach_output_deg", 0.0) or 0.0)
     pieces = getattr(state, "pieces", None)
-    if approach <= 0.0 or pieces is None:
+    if pieces is None:
         return tip
-    at_lip = any(int(getattr(po, "zone_code", 0)) == _ZONE_EXIT_ONLY for po in pieces)
-    if at_lip:
+    at_lip = exitOnlyCount(state)
+    if at_lip >= 2:
+        # Bunched at the lip: the smallest pulse there is, so the leader goes
+        # over alone (the speed drops too, see exitPulseSpeed).
+        crowded = float(getattr(cfg, "crowded_tip_output_deg", 0.0) or 0.0)
+        return min(tip, crowded) if crowded > 0.0 else tip
+    if approach <= 0.0 or at_lip:
         return tip
     # Never carry the leading piece INTO the exit-only band with an approach
     # pulse (two adjacent pieces went over together that way): stop
@@ -112,6 +117,21 @@ def exitPulseOutputDeg(cfg, state) -> float:
             return tip  # too close to the fall-off for anything but the tip-over pulse
         output = min(output, lead - APPROACH_MARGIN_DEG)
     return max(output, tip)
+
+
+def exitOnlyCount(state) -> int:
+    """Pieces in the exit-only band (the lip) this frame."""
+    return sum(1 for po in getattr(state, "pieces", ()) or () if int(getattr(po, "zone_code", 0)) == _ZONE_EXIT_ONLY)
+
+
+def exitPulseSpeed(cfg, channel: int, state) -> int:
+    """Move speed for an exit pulse: the channel's speed, or the slower crowded
+    tip speed when two or more pieces sit at the lip."""
+    speed = channelMoveSpeed(cfg, channel)
+    crowded = int(getattr(cfg, "crowded_tip_speed_usteps_per_s", 0) or 0)
+    if crowded > 0 and exitOnlyCount(state) >= 2:
+        return min(speed, crowded)
+    return speed
 
 
 def exitPulsePauseMs(cfg, output_deg: float) -> int:
@@ -240,10 +260,12 @@ class PulsePerceptionFeeding(BaseState):
         pause_ms: int,
         cfg: PulsePerceptionConfig,
         enforce_min: bool = True,
+        speed: int | None = None,
     ) -> bool:
         if self._busy(stepper):
             return False
-        speed = channelMoveSpeed(cfg, channel)
+        if speed is None:
+            speed = channelMoveSpeed(cfg, channel)
         output_deg = abs(output_deg)
         if enforce_min:
             output_deg = max(cfg.min_move_output_deg, output_deg)
@@ -498,6 +520,7 @@ class PulsePerceptionFeeding(BaseState):
                 pause_ms,
                 cfg,
                 enforce_min=False,
+                speed=exitPulseSpeed(cfg, channel, state),
             )
             if moved and channel == 3 and output <= tip:
                 self._ch3_last_tip_pulse_at = now

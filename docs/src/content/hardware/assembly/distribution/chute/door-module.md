@@ -141,7 +141,7 @@ The servo adapter takes no inserts, but assemble it here anyway, before the brac
 <div class="prep-item">
   <div class="prep-item-body">
     <p><strong>The two 6704-2RS bearings</strong> go into the holders here, one each, and they take no inserts. The holder's bore is a Ø27.3 mm pocket 9.00 mm deep that steps down to Ø24.4 mm and then to a Ø21.0 mm hole for the door's shaft. The bearing is Ø27 × 4 mm, so it is a slip fit rather than a press fit: push it in square and it lands on the Ø24.4 step, which catches the outer race and clears the inner one so the bearing still turns. It is sealed on both sides (that is what "2RS" means), so there is no wrong way round.</p>
-    <p>That leaves 5.00 mm of pocket above it, which is what the bearing cover's raised ring is for: the cover goes into the same pocket on top of the bearing, and its screws clamp the stack. If the bearing sits proud of the face, it has not gone all the way down.</p>
+    <p>That leaves 5.00 mm of pocket above it, and the bearing cover's raised rim is 5.00 mm tall and Ø24.6 to Ø26.6 across. So the rim drops into the same pocket on top of the bearing, narrow enough to clear the pocket wall and wide enough to land on the outer race rather than the inner one, and the cover's screws clamp the stack. If the bearing sits proud of the face, it has not gone all the way down and the cover will not pull flat.</p>
   </div>
   <figure class="prep-item-figure">
     <img class="doc-figure" src="https://assets.basically.website/sorter-parts/bearing-into-holder-v-full-3bfe04d180fe.png" alt="Two renders of the left bearing holder, one above the other: on top a 6704-2RS bearing lined up with the mouth of the holder's bore, below it the same bearing pushed down to the bottom of the pocket">

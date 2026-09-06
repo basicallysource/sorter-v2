@@ -34,7 +34,7 @@ class FeederActions(NamedTuple):
 
 
 def feederChannelAction(
-    state: ChannelState, downstream_clear: bool, greedy: bool = False
+    state: ChannelState, downstream_clear: bool, greedy: bool = False, arm_gap_deg: float | None = None
 ) -> Action:
     """The rule for C2 and C3 (channels with their own drop+exit zones).
 
@@ -47,7 +47,14 @@ def feederChannelAction(
     to the exit edge by the caller (advance_clearance_deg) and exit hand-off
     stays downstream-gated, so the usual protections hold."""
     if state.in_exit:
-        return Action.PRECISE if downstream_clear else Action.FREEZE
+        if downstream_clear:
+            return Action.PRECISE
+        # Downstream busy: arm the lip — keep walking the lead until it is
+        # arm_gap_deg short of the exit-only entry edge, then hold there.
+        lead = getattr(state, "exit_com_forward_deg", None)
+        if arm_gap_deg is not None and arm_gap_deg > 0 and lead is not None and lead > arm_gap_deg:
+            return Action.PRECISE
+        return Action.FREEZE
     if state.in_drop:
         return Action.ADVANCE
     if greedy and state.n_pieces > 0:

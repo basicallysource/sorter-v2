@@ -83,22 +83,37 @@ TIP_OVER_HOLD_S = 1.5
 APPROACH_MARGIN_DEG = 14.0
 
 
-def exitPulseOutputDeg(cfg, state) -> float:
+def exitPulseOutputDeg(cfg, state, downstream_ready: bool = True) -> float:
     """Zone order in travel direction: drop -> precise (approach band) ->
     exit-only (the lip). The large approach pulse applies only while NO piece
     is in the exit-only band; once one is at the lip every pulse is the small
-    tip-over pulse, whatever else is behind it."""
+    tip-over pulse, whatever else is behind it.
+
+    ``downstream_ready`` False = arming: pulses stop the lead at
+    exit_arm_gap_deg short of the entry edge and never tip. True with an armed
+    lead = release: one sized pulse to exit_release_depth_deg past the edge."""
     tip = float(cfg.exit_pulse_output_deg)
     approach = float(getattr(cfg, "exit_approach_output_deg", 0.0) or 0.0)
     pieces = getattr(state, "pieces", None)
     if pieces is None:
         return tip
+    arm_gap = float(getattr(cfg, "exit_arm_gap_deg", 0.0) or 0.0)
+    lead = getattr(state, "exit_com_forward_deg", None)
+    if not downstream_ready:
+        if arm_gap <= 0.0 or lead is None or float(lead) <= arm_gap:
+            return 0.0  # hold
+        return max(0.0, min(max(approach, tip), float(lead) - arm_gap))
     at_lip = exitOnlyCount(state)
     if at_lip >= 2:
         # Bunched at the lip: the smallest pulse there is, so the leader goes
         # over alone (the speed drops too, see exitPulseSpeed).
         crowded = float(getattr(cfg, "crowded_tip_output_deg", 0.0) or 0.0)
         return min(tip, crowded) if crowded > 0.0 else tip
+    if arm_gap > 0.0 and lead is not None and 0.0 < float(lead) <= arm_gap + 2.0 and at_lip == 0:
+        # Armed and alone at the lip: one sized release pulse.
+        depth = float(getattr(cfg, "exit_release_depth_deg", 4.0) or 4.0)
+        release_max = float(getattr(cfg, "exit_release_max_output_deg", 12.0) or 12.0)
+        return max(tip, min(release_max, float(lead) + depth))
     if approach <= 0.0 or at_lip:
         return tip
     # Never carry the leading piece INTO the exit-only band with an approach
@@ -410,7 +425,10 @@ class PulsePerceptionFeeding(BaseState):
                 and self._classification_ready(cfg)
             )
             action = feederChannelAction(
-                c3, downstream_clear=c3_downstream_ready, greedy=cfg.ch3_greedy_enabled
+                c3,
+                downstream_clear=c3_downstream_ready,
+                greedy=cfg.ch3_greedy_enabled,
+                arm_gap_deg=float(getattr(cfg, "exit_arm_gap_deg", 0.0) or 0.0) or None,
             )
             # C3 hung at the C2->C3 hand-off: keep C3 from hammering a piece it
             # can't move; nudge C2 (its upstream) to free it, escalate on failure.
@@ -430,7 +448,8 @@ class PulsePerceptionFeeding(BaseState):
             )
             if not feeder_jam_incident_active(self.gc, channel_label="C3"):
                 self._apply_action(
-                    "ch3", 3, action, self.irl.c_channel_3_rotor_stepper, c3, cfg
+                    "ch3", 3, action, self.irl.c_channel_3_rotor_stepper, c3, cfg,
+                    downstream_ready=c3_downstream_ready,
                 )
             # A piece counts as delivered the moment it clears C3's exit zone
             # (the precise pulses stop on their own once perception no longer
@@ -495,6 +514,7 @@ class PulsePerceptionFeeding(BaseState):
         stepper: "StepperMotor",
         state,
         cfg: PulsePerceptionConfig,
+        downstream_ready: bool = True,
     ) -> None:
         from perception.cascade import Action
 
@@ -533,11 +553,14 @@ class PulsePerceptionFeeding(BaseState):
             )
         elif action == Action.PRECISE:
             now = time.monotonic()
-            output = exitPulseOutputDeg(cfg, state)
+            output = exitPulseOutputDeg(cfg, state, downstream_ready)
+            if output <= 0.0:
+                return  # armed: holding at the lip
             tip = float(cfg.exit_pulse_output_deg)
             if channel == 3 and output > tip and (now - self._ch3_last_tip_pulse_at) < TIP_OVER_HOLD_S:
                 output = tip  # the piece that just tipped over is on its way to C4
-            pause_ms = exitPulsePauseMs(cfg, output)
+            # Arming pulses move nothing off the channel: pace them like approach pulses.
+            pause_ms = exitPulsePauseMs(cfg, output) if downstream_ready else int(cfg.exit_pulse_pause_ms)
             speed = exitPulseSpeed(cfg, channel, state)
             moved = self._move(
                 f"{label}_exit",

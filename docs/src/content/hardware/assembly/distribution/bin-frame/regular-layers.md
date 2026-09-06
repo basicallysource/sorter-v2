@@ -27,7 +27,7 @@ This guide covers creating a regular layer. It's also the basis for creating the
     <p><strong>Build a <a href="{{ '/hardware/assembly/distribution/bin-frame/hex-frame/' | relative_url }}">hex frame</a> before you start.</strong> It's a required component of this page, not covered here.</p>
   </div>
   <figure class="prep-item-figure">
-    <img class="doc-figure" src="https://assets.basically.website/sorter-parts/hex-frame-finished-top-down-full-c6abfb4dad6e.jpg" alt="A finished hex frame from above, the alternating grey spoke and teal crossbeam pieces forming the inner ring inside the aluminum outer hexagon">
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-hex-frame-finished-top-down-w1600-a62a42d595ca.jpg" alt="A finished hex frame from above: six printed B/H spokes and their crossbeams forming the inner ring inside the aluminum outer hexagon, with a printed corner bracket at each of the six vertices">
     <figcaption>A finished hex frame. <cite>Photo: BrickCycleAlice.</cite></figcaption>
   </figure>
 </div>
@@ -61,12 +61,16 @@ The hex frame's own 12 are on [its page]({{ '/hardware/assembly/distribution/bin
   <p>The External bracket — covers are already on, fitted in <a href="{{ '/hardware/assembly/distribution/bin-frame/hex-frame/' | relative_url }}#step-9">Build the hex frame, step 9</a>. If a corner is missing one, put it on before you stand piece C in it, because it is difficult to slide on afterwards.</p>
 </div>
 
-Slot piece C (Layer vertical support) of aluminum extrusion between the External bracket — cover and the External bracket — side. At typical cut length, piece C sits about 3 mm short of both the top and bottom of the bracket run. Position it so that 3 mm gap is at the bottom, leaving the extrusion flush (or nearly flush) at the top. Use 2 {% include fastener.html size="M5" variant="socket-button" length="16" %} screws tapped through the holes near the bottom of the External bracket — side to secure the extrusion.
+Slot a length of aluminum extrusion, **piece C (Layer vertical support), 154 mm**, between the External bracket — cover and the External bracket — side. At typical cut length, piece C sits about 3 mm short of both the top and bottom of the bracket run. Position it so that 3 mm gap is at the bottom, leaving the extrusion flush (or nearly flush) at the top. Use 2 {% include fastener.html size="M5" variant="socket-button" length="16" %} screws tapped through the holes near the bottom of the External bracket — side to secure the extrusion.
 
 <div class="img-row">
   <figure>
-    <img src="https://assets.basically.website/sorter-docs/assembly-regular-layers-vertical-bottom-bracket-w1600-a45e5b572247.png" alt="Close-up of an External bracket — bottom vertical at the base of a corner vertical extrusion">
-    <figcaption><cite>Photo: zed0.</cite></figcaption>
+    <img src="https://assets.basically.website/sorter-docs/assembly-regular-layers-extrusion-below-bracket-top-w1600-d4f8bd1028e9.jpg" alt="Looking down onto the top of an External bracket — bottom vertical, with the end of piece C visible in the square socket sitting a few millimetres below the bracket's top face">
+    <figcaption>Piece C sitting about 3 mm below the top of the bracket, which is what it should look like. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+  </figure>
+  <figure>
+    <img src="https://assets.basically.website/sorter-docs/assembly-regular-layers-corner-underside-w1600-a5f70eb168c7.jpg" alt="A layer corner seen from underneath: the end of piece C sitting below the rim of the collar, with the bracket's screws in their holes and the External bracket — bottom vertical tube below">
+    <figcaption>The same thing from underneath, with the bracket's screws in place. <cite>Photo: BrickCycleAlice.</cite></figcaption>
   </figure>
   <figure>
     <img src="https://assets.basically.website/sorter-docs/assembly-regular-layers-verticals-top-w1600-400576ddb1b6.png" alt="Top view of the layer with vertical supports and bottom brackets at every corner">

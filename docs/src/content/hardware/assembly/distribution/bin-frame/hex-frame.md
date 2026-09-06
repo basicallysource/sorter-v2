@@ -147,7 +147,7 @@ Slide the final B/H spoke (158mm) in from the top to close the ring, then fit th
 Double-check that every Frame 90° bracket is still fully seated in its slot. A light hammer tap on each bracket, from the inside of the ring toward the outside, helps snug all the connections — use a mallet, or put a cloth between a hammer and the bracket, so you aren't striking the plastic directly.
 
 <figure class="single-figure">
-  <img class="doc-figure" src="https://assets.basically.website/sorter-parts/hex-frame-finished-top-down-full-c6abfb4dad6e.jpg" alt="A finished hex frame from above, the alternating grey spoke and teal crossbeam pieces forming the inner ring inside the aluminum outer hexagon">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-hex-frame-finished-top-down-w1600-a62a42d595ca.jpg" alt="A finished hex frame from above: six printed B/H spokes and their crossbeams forming the inner ring inside the aluminum outer hexagon, with a printed corner bracket at each of the six vertices">
   <figcaption><cite>Photo: BrickCycleAlice.</cite></figcaption>
 </figure>
 
@@ -157,8 +157,13 @@ Push an External bracket — cover onto each of the six External bracket — sid
 
 This is the easy moment to do it. Once a vertical extrusion is standing in a collar, the cover is difficult to slide on past it.
 
+<figure class="single-figure">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-hex-frame-cover-fitted-on-collar-w1600-3fea0fa812e7.jpg" alt="A hex frame corner with the cover pushed onto the External bracket side, the two closing into a round collar whose square socket is empty, no vertical extrusion standing in it">
+  <figcaption>The collar closed, cover pushed on. The square socket stays empty at this stage; a vertical extrusion stands in it later, on whichever page turns this frame into a layer. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+</figure>
+
 <div class="callout">
   <p><strong>Building the bottom layer's frame?</strong> That one takes no External bracket — covers. <a href="{{ '/hardware/assembly/distribution/bin-frame/bottom-two-layers/' | relative_url }}">Bottom two layers</a> fits it with External bracket — foot covers instead, one printed part in place of the cover and the External bracket — bottom vertical together. Every other frame takes all six, the top interface's included.</p>
 </div>
 
-A hex frame is now complete. Build as many as your machine needs (see the note at the top of this page), then move on to [Bottom interface]({{ '/hardware/assembly/distribution/bin-frame/bottom-interface/' | relative_url }}), [Bottom two layers]({{ '/hardware/assembly/distribution/bin-frame/bottom-two-layers/' | relative_url }}), [Regular layers]({{ '/hardware/assembly/distribution/bin-frame/regular-layers/' | relative_url }}) or [Top interface]({{ '/hardware/assembly/distribution/top-interface/' | relative_url }}) to turn one into the layer you need.
+A hex frame is now complete. Build as many as your machine needs (see the note at the top of this page), then move on to [Bottom two layers]({{ '/hardware/assembly/distribution/bin-frame/bottom-two-layers/' | relative_url }}), [Regular layers]({{ '/hardware/assembly/distribution/bin-frame/regular-layers/' | relative_url }}), [Bottom interface]({{ '/hardware/assembly/distribution/bin-frame/bottom-interface/' | relative_url }}) or [Top interface]({{ '/hardware/assembly/distribution/top-interface/' | relative_url }}) to turn one into the layer you need.

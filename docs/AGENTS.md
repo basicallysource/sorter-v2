@@ -33,6 +33,13 @@ asset spec, and the rules for adding a site live in
   active-nav underline and the `:focus-visible` outline are state markers,
   not structure, and stay 2px. (Same rule as `parts-calculator/CLAUDE.md`
   § Design rules.)
+- **No photos of out-of-spec builds.** If a build photo shows a part somebody
+  modified, reprinted differently, or otherwise deviated from what the catalog
+  and the steps describe, it does not go on the page, however good the photo is
+  (BrickCycleAlice, 2026-09-06, on `bottom-two-layers.md`: "we aren't including
+  images of out of spec designs"). Captioning the deviation is not a way around
+  this; leave the photo out and ask for one of a stock build. A CAD drawing of
+  the documented geometry is fine, that is the spec.
 - **Every photo and video needs a credit in its caption**, not just implied by
   the page's `author:`/`contributors:` front matter (barthel, 2026-08-26, see
   [sorter-v2 #434](https://github.com/basicallysource/sorter-v2/pull/434)).

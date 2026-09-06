@@ -128,7 +128,7 @@ The top interface holds a chute that rotates on a lazy-susan bearing to aim inco
     <p><strong>Have a <a href="{{ '/hardware/assembly/distribution/bin-frame/hex-frame/' | relative_url }}">hex frame</a> ready by step 13.</strong> It's a required component of this page — step 13 places one onto the assembly, it doesn't build one. The rest of this page (steps 1-12, 14+) doesn't need it.</p>
   </div>
   <figure class="prep-item-figure">
-    <img class="doc-figure" src="https://assets.basically.website/sorter-parts/hex-frame-finished-top-down-full-c6abfb4dad6e.jpg" alt="A finished hex frame from above, the alternating grey spoke and teal crossbeam pieces forming the inner ring inside the aluminum outer hexagon">
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-hex-frame-finished-top-down-w1600-a62a42d595ca.jpg" alt="A finished hex frame from above: six printed B/H spokes and their crossbeams forming the inner ring inside the aluminum outer hexagon, with a printed corner bracket at each of the six vertices">
     <figcaption>A finished hex frame. <cite>Photo: BrickCycleAlice.</cite></figcaption>
   </figure>
 </div>
@@ -342,7 +342,7 @@ Attach the whole assembly to the bottom of the Top plate with {% include fastene
 
 These six brackets are what the vertical extrusion legs (piece F, step 13) will anchor into once the framing goes on.
 
-Align an Interface bracket with piece E (Interface spoke, long) of aluminum extrusion.
+Align an Interface bracket with a length of aluminum extrusion, **piece E (Interface spoke, long), 238 mm**.
 
 Place T-nuts in the extrusion, lined up with the 4 holes on the side of the Interface bracket. See [Fitting T-nuts]({{ '/hardware/helpers/t-nuts/' | relative_url }}) for how they go in.
 
@@ -564,16 +564,16 @@ Slide the prepared [Timing pulley]({{ '/hardware/helpers/pulley-gear-mod/' | rel
 
 Push the prepared Interface idler gear — bearing, inner retainer cap, and outer retainer already fitted, see step 1 — onto the Interface NEMA 23 bracket with the bearing facing outwards.
 
+<div class="img-row">
+  <figure>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-top-interface-step9-idler-gear-no-motor-w1600-c46506452340.jpg" alt="The Interface idler gear pushed onto the NEMA 23 bracket and meshed with the chute's ring gear, its bearing bore still open with no screw through it">
+    <figcaption>The idler gear pushed onto the bracket, bearing facing out, before the screw goes in. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+  </figure>
+</div>
+
 Drive an {% include fastener.html size="M3" variant="countersunk" length="20" %} screw through the middle of the gear and into the bracket. The inner retainer cap sits between the screw head and the bearing, spanning the 8 mm bore, so the screw head on its own (narrower than the bore) has something to clamp against. Tighten until it's seated, then check that the idler gear still spins freely.
 
 The head has to be low here — countersunk (flat/pancake) is the only head type confirmed to clear the Limit switch hammer as it sweeps past. If you only have a pan head on hand, check clearance by hand-rotating the chute past this screw before closing everything up. The screw self-taps straight into the printed NEMA 23 bracket; it does not reach through to the plywood Top plate underneath, which is why 20 mm is enough.
-
-<div class="img-row">
-  <figure>
-    <img class="doc-figure" src="https://assets.basically.website/sorter-parts/img-4329-full-5511485c850a.jpg" alt="The Interface idler gear seated on the NEMA 23 bracket with an M3 countersunk screw driven flush through its centre">
-    <figcaption>The M3 × 20 mm countersunk screw seated flush. <cite>Photo: BrickCycleAlice.</cite></figcaption>
-  </figure>
-</div>
 
 Slot the NEMA 23 onto the Interface NEMA 23 bracket and secure it with four {% include fastener.html size="M5" variant="socket-button" length="12" %} screws.
 
@@ -581,8 +581,8 @@ At this point the chute should still rotate, but you will now feel resistance fr
 
 <div class="img-row">
   <figure>
-    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-top-interface-step9-idler-gear-no-motor-w1600-c46506452340.jpg" alt="The Interface idler gear tapped onto the NEMA 23 bracket, meshed with the chute's ring gear, before the stepper motor is fitted">
-    <figcaption>The idler gear on the bracket, before the motor goes on. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-parts/img-4329-full-5511485c850a.jpg" alt="The Interface idler gear on the NEMA 23 bracket with the outer retainer over its bearing and a countersunk screw driven flush through the middle of it">
+    <figcaption>Screw seated flush through the outer retainer. This is the last state before the motor goes on. <cite>Photo: BrickCycleAlice.</cite></figcaption>
   </figure>
   <figure>
     <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-top-interface-step9-idler-gear-nema23-meshed-w1600-15fd629cfae4.jpg" alt="The NEMA 23 stepper motor installed, its spur gear meshed with the idler gear and the chute's ring gear">
@@ -660,12 +660,7 @@ After this step the chute should still rotate to each of its limits.
 
 {% include step.html n="13" title="Attach the framing" %}
 
-Insert an extrusion piece F (Interface vertical support) into each of the Interface brackets. Hold each one in place with four {% include fastener.html size="M5" variant="socket-button" length="20" %} screws into four T-nuts.
-
-<div class="callout callout-warning">
-  <span class="callout-icon" aria-hidden="true">⚠</span>
-  <p>Do not push piece F all the way through the bracket. Leave its end about 11 mm short of the far end of the channel: that is far enough in to cover both pairs of T-nut screws, and it leaves enough of the extrusion standing out to reach past the screws at the base of the layer's External bracket — side later in this step. <b>165 mm of the extrusion should stand out of the bracket</b>, measured from the edge of the bracket where the extrusion exits to the free end of the piece. <a href="{{ '/hardware/assembly/distribution/top-interface/' | relative_url }}#step-14">Step 14</a> shows the whole corner in section.</p>
-</div>
+Install four T-nuts and their {% include fastener.html size="M5" variant="socket-button" length="20" %} screws in each Interface bracket, then fit in an extrusion **piece F (Interface vertical support), 274 mm**. The [framing cut list](https://parts-calculator.basically.website/framing) has every length on this page. Leave **165 mm of the extrusion standing out of the bracket**, measured from the edge where it exits to the free end. <a href="{{ '/hardware/assembly/distribution/top-interface/' | relative_url }}#step-14">Step 14</a> shows the corner in section.
 
 <figure>
   <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-top-interface-framing-1-full-b8dacf182230.jpg" alt="Six vertical extrusion supports bolted into the interface brackets, seen from above on the hexagonal top plate">
@@ -704,10 +699,10 @@ Attach an External bracket cover to each of the External bracket sides, then fas
 </figure>
 
 <figure class="figure-float-right">
-  <a href="https://assets.basically.website/sorter-docs/assembly-top-interface-joint-section-full-e96f8eb4493c.png" target="_blank" rel="noopener">
-    <img src="https://assets.basically.website/sorter-docs/assembly-top-interface-joint-section-full-e96f8eb4493c.png" alt="Vertical cross-section through one interface corner, showing the interface bracket and spacer in purple, piece F in grey running down into the top layer's bracket in blue">
+  <a href="https://assets.basically.website/sorter-docs/assembly-top-interface-joint-section-v4-full-61893a48b612.png" target="_blank" rel="noopener">
+    <img src="https://assets.basically.website/sorter-docs/assembly-top-interface-joint-section-v4-full-61893a48b612.png" alt="Vertical cross-section through one interface corner, drawn the right way up with the top plate across the top">
   </a>
-  <figcaption>The same corner in section, cut through the centre of the profile. Purple is the interface, blue the top layer's bracket, grey the extrusion. Click to enlarge. The interface parts are not exported in a shared frame with the layer parts, so the part lengths are measured but their heights come from seating each one on the part below it. <cite>Drawn from the part geometry rather than from a build, by Balloon.</cite></figcaption>
+  <figcaption>Cut through the centre of the profile. On the build the assembly is upside down at this stage. Purple is the interface, blue the top layer's bracket, grey the extrusion. The pale band is how far the Interface bracket really reaches and how it slopes out as it rises to the plate, in outline because its arms run at right angles to this cut. Part lengths are measured; heights come from seating each part on the one below. Click to enlarge. <cite>Drawn from the part geometry rather than from a build, by Balloon.</cite></figcaption>
 </figure>
 
 This joint is not the same as the one between two layers, so it is worth naming what is different. There is **no External bracket — bottom vertical and no flange here**, and therefore none of the vertical screws that hold one layer to the next. Piece F is instead gripped at the interface end and clamped at the layer end, and it is sleeved the whole way between them, so no extrusion shows on a finished machine.
@@ -722,7 +717,7 @@ The numbers on the photo and the drawing:
   <li class="key-screw"><strong>Two {% include fastener.html size="M5" variant="socket-button" length="16" %} screws</strong> at the base of that bracket brace it against the extrusion, the same screws and holes a layer's own vertical gets. Nothing else fastens the interface to the layer.</li>
 </ol>
 
-**Piece F does not reach the top of the Interface bracket, and it comes nowhere near the top plate.** How deep it goes is not stated anywhere in the build, but it is fixed at both ends by what has to be screwed: the lower end has to reach past the two screws at the base of the layer's bracket, and the upper end has to cover the bracket's second pair of T-nut screws, whose bosses sit about 90 mm above the bracket's underside. A 274 mm piece cannot do both and also reach the top of a 120 mm bracket. On a built machine it stands about 20 mm past the upper screws and stops about 11 mm short of the top of the bracket. The drawing is made from the part geometry rather than from a build, and its inferred heights seat the extrusion around 12 mm shallower than that.
+**Piece F does not reach the top of the Interface bracket, and it comes nowhere near the top plate.** How deep it goes is not stated anywhere in the build, but it is fixed at both ends by what has to be screwed: the lower end has to reach past the two screws at the base of the layer's bracket, and the upper end has to cover the bracket's second pair of T-nut screws, whose bosses sit about 90 mm above the bracket's underside. A 274 mm piece cannot do both and also reach the top of a 120 mm bracket. On a built machine it stands about 20 mm past the upper screws and stops about 11 mm short of the top of the bracket. The drawing is made from the part geometry rather than from a build, and its inferred heights seat the extrusion around 25 mm shallower than that.
 
 <div class="clear-float"></div>
 

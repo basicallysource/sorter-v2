@@ -422,6 +422,28 @@
           "bearing-holder-right"
         ]
       }
+    },
+    {
+      "id": "count-bins-and-funnels-in-the-tree",
+      "name": "Count the bins and funnels in the machine tree",
+      "priority": "P3",
+      "description": "The five bin parts and the two funnels are in no assembly, so the machine tree rolls them up as 0 and the Machine assembly page shows a machine with no bins in it. The 3D printed parts tab counts them correctly from their own quantities, so nothing anybody prints or buys is wrong, and neither part takes a fastener, so no hardware total is affected. The fix is not a data edit. Both are variant_group parts chosen per layer (third or half), and a tree line resolves its quantity from lineQty(line, layers), which knows the layer count and nothing else. Placing them needs a way for a line to express a per-layer variant, and a decision about what a mixed stack of third and half layers means to a node that is instantiated per layer. Found 2026-09-05 while reconciling the tree against the printed-parts and framing models, and deliberately left out of #545 and #561.",
+      "targets": {
+        "parts": [
+          "bin-half-left",
+          "bin-half-right",
+          "bin-third-left",
+          "bin-third-center",
+          "bin-third-rightback",
+          "funnel-half",
+          "funnel-third"
+        ],
+        "assemblies": [
+          "layer",
+          "bottom-layer",
+          "chute"
+        ]
+      }
     }
   ],
   "folders": [

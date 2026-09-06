@@ -564,16 +564,16 @@ Slide the prepared [Timing pulley]({{ '/hardware/helpers/pulley-gear-mod/' | rel
 
 Push the prepared Interface idler gear — bearing, inner retainer cap, and outer retainer already fitted, see step 1 — onto the Interface NEMA 23 bracket with the bearing facing outwards.
 
+<div class="img-row">
+  <figure>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-top-interface-step9-idler-gear-no-motor-w1600-c46506452340.jpg" alt="The Interface idler gear pushed onto the NEMA 23 bracket and meshed with the chute's ring gear, its bearing bore still open with no screw through it">
+    <figcaption>The idler gear pushed onto the bracket, bearing facing out, before the screw goes in. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+  </figure>
+</div>
+
 Drive an {% include fastener.html size="M3" variant="countersunk" length="20" %} screw through the middle of the gear and into the bracket. The inner retainer cap sits between the screw head and the bearing, spanning the 8 mm bore, so the screw head on its own (narrower than the bore) has something to clamp against. Tighten until it's seated, then check that the idler gear still spins freely.
 
 The head has to be low here — countersunk (flat/pancake) is the only head type confirmed to clear the Limit switch hammer as it sweeps past. If you only have a pan head on hand, check clearance by hand-rotating the chute past this screw before closing everything up. The screw self-taps straight into the printed NEMA 23 bracket; it does not reach through to the plywood Top plate underneath, which is why 20 mm is enough.
-
-<div class="img-row">
-  <figure>
-    <img class="doc-figure" src="https://assets.basically.website/sorter-parts/img-4329-full-5511485c850a.jpg" alt="The Interface idler gear seated on the NEMA 23 bracket with an M3 countersunk screw driven flush through its centre">
-    <figcaption>The M3 × 20 mm countersunk screw seated flush. <cite>Photo: BrickCycleAlice.</cite></figcaption>
-  </figure>
-</div>
 
 Slot the NEMA 23 onto the Interface NEMA 23 bracket and secure it with four {% include fastener.html size="M5" variant="socket-button" length="12" %} screws.
 
@@ -581,8 +581,8 @@ At this point the chute should still rotate, but you will now feel resistance fr
 
 <div class="img-row">
   <figure>
-    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-top-interface-step9-idler-gear-no-motor-w1600-c46506452340.jpg" alt="The Interface idler gear tapped onto the NEMA 23 bracket, meshed with the chute's ring gear, before the stepper motor is fitted">
-    <figcaption>The idler gear on the bracket, before the motor goes on. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-parts/img-4329-full-5511485c850a.jpg" alt="The Interface idler gear on the NEMA 23 bracket with the outer retainer over its bearing and a countersunk screw driven flush through the middle of it">
+    <figcaption>Screw seated flush through the outer retainer. This is the last state before the motor goes on. <cite>Photo: BrickCycleAlice.</cite></figcaption>
   </figure>
   <figure>
     <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-top-interface-step9-idler-gear-nema23-meshed-w1600-15fd629cfae4.jpg" alt="The NEMA 23 stepper motor installed, its spur gear meshed with the idler gear and the chute's ring gear">

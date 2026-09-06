@@ -182,7 +182,16 @@ Working from under the bottom layer, bolt each of its three Lazy Susan extrusion
   <p>The height that comes out of this is right when a <a href="{{ '/hardware/assembly/distribution/chute/chute-core/' | relative_url }}">chute core</a> with a funnel on it, fitted onto the chute mount, puts the funnel level with the bin entrances.</p>
 </div>
 
-<div class="img-placeholder">Image coming</div>
+<div class="img-row">
+  <figure>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-bottom-two-layers-ls-mount-on-spoke-w1600-f2dd3fc8fe63.jpg" alt="Close-up of a Lazy Susan extrusion mount bolted onto a B/H spoke, the printed wedge with its triangular window sitting against the spoke's extrusion at a hex frame corner">
+    <figcaption>One Lazy Susan extrusion mount bolted onto a B/H spoke. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+  </figure>
+  <figure>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-bottom-two-layers-ls-mounts-three-on-ring-w1600-2d730f64193b.jpg" alt="A hex frame seen from above with three Lazy Susan extrusion mounts fitted, one on each of three spokes spaced alternately around the ring">
+    <figcaption>All three on, alternating around the ring so they land on 3 of the 6 spokes. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+  </figure>
+</div>
 
 ## The finished result
 

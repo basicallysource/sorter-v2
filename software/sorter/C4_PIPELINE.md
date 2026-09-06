@@ -131,3 +131,37 @@ small parts, large parts, sparse feed and interrupted/restarted runs.
   selection requires `classified` status.
 - Retain the destination after an eject timeout; commit forced recovery only
   after the channel-clear operation succeeds.
+
+## Commissioning notes from B1 (2026-09-06)
+
+Measured on the running two-piece controller, C4 camera 3840×2160, platter
+centre ≈ (2006, 1027) px, outer radius ≈ 1120 px, image angles y-down with
+0° = +x, increasing clockwise on screen (the saved-arc convention).
+
+- **Landing footprint** (first detection after an empty frame, 128 landings):
+  p2 106°, p5 116°, median 132°, p95 136°, p98 146°; radius p5–p95 899–1108 px.
+  The drop zone is 82°–205° (123°) because it also covers the burst-capture
+  sweep; the footprint that matters for a pocket is ~104°–148°. Set
+  `landing_arc_start_deg = 104`, `landing_arc_end_deg = 148` in the rev01
+  config (tuning page, "Landing arc"); with 0/0 the buffer uses the whole drop
+  zone and can never admit.
+- **Alignment.** With the arc configured, an empty referenced platter whose
+  dividers straddle the arc turns forward by the smallest angle that puts the
+  arc inside one pocket with the 5° margin (`landing_alignment_move`). Forward
+  only: on this drive forward turns land within a degree of the command,
+  backward turns right after a forward move come out ~8° short (gear play),
+  which would corrupt the dead-reckoned phase.
+- **Divider phase detector** (`vision/c4_wall_phase.py`): on fresh frames the
+  phase is repeatable to <1° and the five walls are found; do not test it on
+  `/api/perception/debug/fullframe/4`, that endpoint returns the overlay
+  drawing, not a raw frame.
+- **What the two-piece controller learned today that the buffer inherits** via
+  `TwoPieceClassificationChannel`: a drop-zone detection that does not ride
+  along with the platter is off-platter (C3's exit lip projects into C4's drop
+  zone from above); one piece in the distribution slot at a time; a newcomer
+  beside an already captured piece is a sequential arrival, not a double feed.
+- **Checklist before switching the mode:** empty platter, walls visible,
+  `landing_arc_*` set, C3 arming (`exit_arm_gap_deg`) on; run a counted batch
+  of 20 mixed parts at two occupied pockets, compare correct-bin arrivals per
+  minute, wrong bins, rejects and interventions against the two-piece run of
+  the same batch; then raise capacity.

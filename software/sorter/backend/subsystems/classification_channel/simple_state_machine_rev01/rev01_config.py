@@ -114,6 +114,15 @@ class Rev01Config:
     # edge towards the exit: a piece that bounces on landing hits the wall
     # instead of skipping straight into the exit arc (Marc, 2026-09-06).
     wall_align_enabled: bool = True
+    # Landing footprint for the five-pocket buffer (image degrees, same
+    # convention as the saved arcs: y-down, 0° = +x, counted clockwise on
+    # screen). Where C3's pieces actually come to rest on the platter — much
+    # narrower than the drop zone, which also covers the burst-capture sweep.
+    # 0/0 = not measured: the buffer falls back to the whole drop zone (and
+    # cannot admit, since 123° never fits one 72° pocket). B1 2026-09-06,
+    # 128 landings: p2 106°, median 132°, p98 146°.
+    landing_arc_start_deg: float = 0.0
+    landing_arc_end_deg: float = 0.0
     wall_align_tolerance_deg: float = 8.0
 
     # Jitter unstick: the ONLY trigger. If a piece sits in the FALL-OFF region
@@ -165,6 +174,8 @@ FIELD_META: list[dict] = [
     {"key": "discharge_giveup_settle_ms", "label": "Discharge: settle delay before auto-crediting on give-up (ms)", "type": "int", "default": _DEFAULTS.discharge_giveup_settle_ms, "description": "When discharge exhausts its attempts without a confirmed clear (usually the piece actually dropped and a newcomer is holding the count up), wait this long for the channel to settle, then credit the piece and return to IDLE."},
     {"key": "min_part_confidence", "label": "Minimum part confidence to sort into a bin", "type": "float", "default": _DEFAULTS.min_part_confidence, "description": "Brickognize part score below which the piece is routed to misc (status low_confidence) instead of a category bin. A wrong bin costs more than a passthrough."},
     {"key": "low_confidence_retry", "label": "Retry a low-confidence piece at rest", "type": "bool", "default": _DEFAULTS.low_confidence_retry, "description": "A head below the minimum part confidence, or not recognized at all, is photographed again at rest in the holding position and re-classified before the chute is aimed; the better result wins."},
+    {"key": "landing_arc_start_deg", "label": "Landing arc start (image deg)", "type": "float", "default": _DEFAULTS.landing_arc_start_deg, "description": "Five-pocket buffer: start of the arc where pieces from C3 actually come to rest (image degrees, same convention as the saved zones). Measured from the run, narrower than the drop zone. 0/0 = unmeasured, the buffer cannot admit."},
+    {"key": "landing_arc_end_deg", "label": "Landing arc end (image deg)", "type": "float", "default": _DEFAULTS.landing_arc_end_deg, "description": "Five-pocket buffer: end of the landing arc."},
     {"key": "wall_align_enabled", "label": "Align a platter wall to the drop edge", "type": "bool", "default": _DEFAULTS.wall_align_enabled, "description": "Before waiting for the next drop, turn the platter the shorter way (at most 36°) so one of the five walls stands on the drop zone's edge towards the exit. A piece that bounces on landing hits the wall instead of skipping into the exit arc. Skipped when the turn would push the head over the lip or a holding piece back into the drop zone."},
     {"key": "wall_align_tolerance_deg", "label": "Wall alignment tolerance (deg)", "type": "float", "default": _DEFAULTS.wall_align_tolerance_deg, "description": "No alignment turn when a wall is already this close to the drop edge."},
     {"key": "capture_settle_ms", "label": "Settle time before the burst (ms)", "type": "float", "default": _DEFAULTS.capture_settle_ms, "description": "Optional delay before the burst, measured from the last movement of the piece's box. 0 = start on first sight so the burst catches the tumbling piece from several sides (the default); use a short exposure against motion blur rather than this."},

@@ -55,6 +55,34 @@ class PocketGeometry:
         return float(observation.com_forward_to_exit_deg) - to_wall - MARGIN
 
 
+def landing_angles(channel, cfg):
+    """Image angles (1° apart) of the landing footprint: the measured landing
+    arc from the config when set, else the whole drop zone."""
+    start = float(getattr(cfg, "landing_arc_start_deg", 0.0) or 0.0)
+    end = float(getattr(cfg, "landing_arc_end_deg", 0.0) or 0.0)
+    if start or end:
+        span = (end - start) % 360.0
+        return [(start + i) % 360.0 for i in range(int(span) + 1)]
+    if channel is None or not channel.drop_sections:
+        return []
+    return [channel.radius1_angle_image + s for s in channel.drop_sections]
+
+
+def landing_alignment_move(geometry, angles):
+    """Smallest forward turn (1..71°) after which every landing angle lies in
+    one pocket with MARGIN to both dividers; 0 when already so; None when the
+    arc is too wide for a pocket."""
+    if not angles:
+        return None
+    for move in range(0, int(PITCH)):
+        phase = geometry.phase + geometry.direction * move
+        offsets = [(a - phase) % PITCH for a in angles]
+        pockets = {int(((a - phase) % 360.0) // PITCH) for a in angles}
+        if len(pockets) == 1 and all(MARGIN <= o <= PITCH - MARGIN for o in offsets):
+            return float(move)
+    return None
+
+
 def bounded_move(requested, geometry, observations, released_id=None):
     """Protect the *whole* swept pocket, including an unobserved trailing edge."""
     limit = min(PITCH, max(0.0, requested))
@@ -229,9 +257,9 @@ class IndexedBufferClassificationChannel(TwoPieceClassificationChannel):
 
     def _landingPocket(self, service):
         channel = service.channels().get(4)
-        if channel is None or not channel.drop_sections:
+        angles = landing_angles(channel, self.ctx.config)
+        if not angles:
             return None
-        angles = [channel.radius1_angle_image+s for s in channel.drop_sections]
         pockets = {self._geometry.pocket(a) for a in angles}
         if len(pockets) != 1:
             return None
@@ -356,7 +384,17 @@ class IndexedBufferClassificationChannel(TwoPieceClassificationChannel):
         head = self._headPiece()
         if head is None:
             self._gate(ready, now)
-            if not ready:
+            if not ready and landing is None and not self._reservations and state.n_pieces == 0:
+                # Empty, referenced platter with a divider in the landing arc:
+                # turn forward (phase stays dead-reckoned, forward moves are
+                # exact on this drive) until the arc sits inside one pocket.
+                move = landing_alignment_move(self._geometry, landing_angles(service.channels().get(4), self.ctx.config))
+                if move is None:
+                    self._blocked = "landing arc wider than a pocket: measure landing_arc_start/end_deg"
+                elif move >= 1.0:
+                    self._blocked = f"aligning empty platter: landing arc crosses a divider, turning {move:.0f}°"
+                    self._startMove(move, now)
+            elif not ready:
                 self._blocked = "align empty platter: landing arc crosses a divider"
             return
         # Fill an available pocket while classification/aiming runs. Drain a

@@ -504,7 +504,9 @@ class PulsePerceptionFeeding(BaseState):
                 cfg=cfg,
                 now=now_mono,
             )
-            if not feeder_jam_incident_active(self.gc, channel_label="C3"):
+            c3_held = feeder_jam_incident_active(self.gc, channel_label="C3")
+            self._reportC3Station(action, c3, cfg, c3_downstream_ready, c3_held)
+            if not c3_held:
                 self._apply_action(
                     "ch3", 3, action, self.irl.c_channel_3_rotor_stepper, c3, cfg,
                     downstream_ready=c3_downstream_ready,
@@ -645,6 +647,31 @@ class PulsePerceptionFeeding(BaseState):
                         f"[{exitPieceLayout(state)}]"
                     )
         # IDLE / FREEZE: no move.
+
+    def _reportC3Station(self, action, state, cfg, downstream_ready: bool, held: bool) -> None:
+        """What C3 is doing this tick, for the dead-time timeline: moving a
+        piece, arming it at the lip, holding it for a busy C4, or empty."""
+        stats = getattr(self.gc, "runtime_stats", None)
+        if stats is None:
+            return
+        from perception.cascade import Action
+
+        pieces = len(getattr(state, "pieces", None) or ())
+        if held:
+            activity = "held_incident"
+        elif action == Action.ADVANCE:
+            activity = "advance"
+        elif action == Action.PRECISE:
+            plan = c3ExitMotionPlan(cfg, state, downstream_ready)
+            if plan.output_deg > 0.0:
+                activity = plan.kind
+            else:
+                activity = "armed_hold" if not downstream_ready else "hold"
+        elif action == Action.FREEZE:
+            activity = "waiting_c4"
+        else:
+            activity = "empty" if pieces == 0 else "idle"
+        stats.observeStation("c3", activity, f"{pieces} on channel, {_exitPieceCount(state)} at the lip")
 
     def cleanup(self) -> None:
         super().cleanup()

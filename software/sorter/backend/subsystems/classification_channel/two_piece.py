@@ -523,6 +523,42 @@ class TwoPieceClassificationChannel(Rev01BaseState):
             if stopped:
                 self._captureDropPieces(perception_service, now)
             self._staging(state, stopped, now)
+        self._reportStation(state, stopped, aligning)
+
+    def _stationActivity(self, state, stopped: bool, aligning: bool) -> tuple[str, str]:
+        """What the platter is doing right now, for the dead-time timeline."""
+        if self._phase == _Phase.EJECTING:
+            return "ejecting", ""
+        if self._phase == _Phase.STAGING:
+            return "staging", ""
+        if not stopped:
+            return "settling", ""
+        if aligning:
+            return "aligning", ""
+        drop = self._dropPiece()
+        head = self._placedPiece() or self._headPiece()
+        if drop is not None and not drop.capture_done:
+            return "capturing", f"track={drop.track_id}"
+        if head is None:
+            if drop is not None:
+                return "ready", "drop captured, no head"
+            if self._dropOccupied(state):
+                return "drop_blocked", "untracked box in the drop zone"
+            return "waiting_drop", ""
+        if not head.result_applied:
+            return "classifying", f"track={head.track_id}"
+        if not self._headReady(head):
+            return "aiming", f"track={head.track_id}"
+        if drop is None:
+            return "waiting_successor", f"track={head.track_id}"
+        return "ready", ""
+
+    def _reportStation(self, state, stopped: bool, aligning: bool) -> None:
+        stats = getattr(self.gc, "runtime_stats", None)
+        if stats is None:
+            return
+        activity, detail = self._stationActivity(state, stopped, aligning)
+        stats.observeStation("c4", activity, detail)
 
     # ------------------------------------------------- perception reconciliation
 

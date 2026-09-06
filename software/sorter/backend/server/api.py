@@ -892,6 +892,29 @@ def getPerfHistory(window_s: float = 300.0) -> PerfHistoryResponse:
     )
 
 
+class DeadTimeResponse(BaseModel):
+    window_s: float
+    now: float
+    stations: Dict[str, Any]
+    opportunities: List[Dict[str, Any]]
+
+
+@app.get("/runtime-stats/dead-time", response_model=DeadTimeResponse)
+def getDeadTime(minutes: float = 15.0) -> DeadTimeResponse:
+    """Where one station waited while another could have kept working, over
+    the last ``minutes`` of the run."""
+    import time as _time
+    import dead_time
+
+    stats = getattr(shared_state.gc_ref, "runtime_stats", None) if shared_state.gc_ref else None
+    now = _time.time()
+    window_s = max(60.0, min(float(minutes) * 60.0, 6.0 * 3600.0))
+    if stats is None:
+        return DeadTimeResponse(window_s=window_s, now=now, stations={}, opportunities=[])
+    segments = stats.stations.segments(window_s, now)
+    return DeadTimeResponse(**dead_time.analyze(segments, window_s, now))
+
+
 @app.get("/runtime-stats/records", response_model=RuntimeStatsRecordsResponse)
 def listRuntimeStatsRecords() -> RuntimeStatsRecordsResponse:
     import runtime_stat_records

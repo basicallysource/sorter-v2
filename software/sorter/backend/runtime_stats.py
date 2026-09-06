@@ -5,6 +5,8 @@ from collections import OrderedDict
 from dataclasses import dataclass
 from typing import Any
 
+from dead_time import StationTimeline
+
 MAX_TIMING_SAMPLES = 5000
 MAX_STATE_TIMELINE_EVENTS = 5000
 MAX_FEEDER_SIGNAL_TIMELINE_EVENTS = 10000
@@ -133,6 +135,9 @@ class RuntimeStatsCollector:
         self._feeder_blocker_combo_entered_at_monotonic: float | None = None
         self._feeder_blocker_combo_totals_s: dict[str, float] = {}
         self._feeder_blocker_combo_timeline: list[dict[str, Any]] = []
+        # What each station (belt, c3, c4, distribution) is doing and why;
+        # the dead-time analysis lays these side by side.
+        self.stations = StationTimeline()
         self._channel_exit_events: list[dict[str, Any]] = []
         self._recognizer_counts: dict[str, int] = {
             "recognize_fired_total": 0,
@@ -208,6 +213,7 @@ class RuntimeStatsCollector:
             return
 
         was_running = self._is_running
+        self.stations.foldOpen(was_running, now_monotonic)
         self._lifecycle_state = lifecycle_state
         self._is_running = lifecycle_state == "running"
         self._last_updated_at = now_wall
@@ -841,6 +847,11 @@ class RuntimeStatsCollector:
     def _bumpSkip(self, reason: str) -> None:
         self._skip_counts[reason] = self._skip_counts.get(reason, 0) + 1
 
+    def observeStation(self, station: str, activity: str, detail: str = "") -> None:
+        """Record what a station is doing this tick; segments only cut on a
+        change of activity, so calling this every tick is cheap."""
+        self.stations.observe(station, activity, detail, counting=self._is_running)
+
     def observeBlockedReason(self, machine: str, reason: str) -> None:
         if not self._is_running:
             return
@@ -1370,6 +1381,7 @@ class RuntimeStatsCollector:
                 "blocker_combo_timeline_recent": list(self._feeder_blocker_combo_timeline),
             },
             "state_machines": state_machines,
+            "stations": self.stations.snapshot(self._is_running),
             "timeline_recent": list(self._state_timeline),
             "bus_recent": (
                 list(self._bus_provider.recent())

@@ -200,6 +200,9 @@ class BeltFeeding(PulsePerceptionFeeding):
         reason: str,
     ) -> None:
         now = time.monotonic()
+        stats = getattr(self.gc, "runtime_stats", None)
+        if stats is not None:
+            stats.observeStation("belt", reason, f"target {target}, c3 {c3_pieces}")
         quiet_since = max(self._belt_running_since or 0.0, self._last_arrival_at)
         self._status.update(
             {

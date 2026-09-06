@@ -8,7 +8,7 @@ def _cfg(approach=8.0, tip=2.0):
 
 
 def _state(*codes):
-    return SimpleNamespace(pieces=[SimpleNamespace(zone_code=c) for c in codes])
+    return SimpleNamespace(pieces=[SimpleNamespace(zone_code=c, com_forward_to_exit_deg=None) for c in codes])
 
 
 def test_large_pulse_in_the_approach_band_small_pulse_once_a_piece_is_at_the_lip() -> None:
@@ -59,3 +59,17 @@ def test_two_pieces_at_the_lip_get_the_crowded_tip() -> None:
     assert exitPulseSpeed(cfg, 3, _state(2, 2)) == 1500
     cfg.crowded_tip_output_deg = 0.0                          # disabled: behaves as before
     assert exitPulseOutputDeg(cfg, _state(2, 2)) == 2.0
+
+
+def test_a_follower_close_behind_the_lip_counts_as_crowded() -> None:
+    from subsystems.feeder.pulse_perception.flow import exitOnlyCount
+    def st(*items):
+        return SimpleNamespace(pieces=[SimpleNamespace(zone_code=z, com_forward_to_exit_deg=g) for z, g in items])
+    assert exitOnlyCount(st((2, -3.0))) == 1
+    assert exitOnlyCount(st((2, -3.0), (3, 12.0))) == 2      # follower 12° behind the entry edge
+    assert exitOnlyCount(st((2, -3.0), (3, 30.0))) == 1      # far enough behind
+    assert exitOnlyCount(st((3, 12.0))) == 0                 # nobody at the lip: not crowded
+    cfg = SimpleNamespace(exit_pulse_output_deg=2.0, exit_approach_output_deg=8.0, crowded_tip_output_deg=1.0,
+                          crowded_tip_speed_usteps_per_s=1500, ch3_move_speed_usteps_per_s=3000,
+                          ch2_move_speed_usteps_per_s=3000, ch1_move_speed_usteps_per_s=3000)
+    assert exitPulseOutputDeg(cfg, st((2, -3.0), (3, 12.0))) == 1.0

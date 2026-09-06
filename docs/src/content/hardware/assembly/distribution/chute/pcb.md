@@ -42,6 +42,11 @@ Nothing to press in here. The four inserts the board sits on are pressed into th
 
 Seat it over the four inserts and fasten it with 4 {% include fastener.html size="M3" variant="socket-button" length="6" %} screws. Do not overtighten, the board is standing on printed plastic, not a metal standoff.
 
+<figure>
+  <img class="doc-figure" src="https://assets.basically.website/sorter-parts/chute-core-inserts-v3-rear-full-ad4c2cc7869c.png" alt="Close render of the rear end of the chute core with the four heat inserts the layer adapter board screws into circled in red">
+  <figcaption>The four inserts the board sits on, all on the panel at the top end of the chute core's rear face. <cite>Render: Balloon.</cite></figcaption>
+</figure>
+
 <div class="img-placeholder">Photo of the layer adapter board seated on its four inserts and screwed to the chute core.</div>
 
 {% include step.html n="3" title="Connect the ribbon cable" %}

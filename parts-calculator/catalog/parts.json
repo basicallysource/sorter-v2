@@ -409,6 +409,19 @@
           "camera-clasp-bottom"
         ]
       }
+    },
+    {
+      "id": "merge-bearing-holders",
+      "name": "Merge the two chute bearing holders into one part",
+      "priority": "P1",
+      "condition": "broken",
+      "description": "The chute door module asks for two different printed parts, a left bearing holder and a right one, where one part printed twice does the whole job. They are the same geometry. Measured off the two master STLs: a proper rotation of exactly 180.000 degrees about the flange face normal (0, 0.906, 0.423) maps one onto the other with a maximum deviation of 0.065 mm and a mean of 0.004 mm, and the transform's determinant is +1, so no handedness is involved. The only asymmetry in either part is 0.05 mm, between two of the three M3 insert pockets, at 17.35 mm and 17.40 mm from the bore centre. The machine should carry one holder and print it twice, which drops the printed part count by one. Nothing about the assembly changes: the two bearing seats face outward either way. The two ids are interchangeable as they stand. Which id survives, and what a single holder should be called, are open questions. Tracked as sorter-v2 issue #569, with the catalog side in #570.",
+      "targets": {
+        "parts": [
+          "bearing-holder-left",
+          "bearing-holder-right"
+        ]
+      }
     }
   ],
   "folders": [
@@ -1887,8 +1900,8 @@
       "id": "bearing-holder-left",
       "uid": "gybh",
       "name": "Bearing holder (left)",
-      "description": "Bearing holder, left.",
-      "internal_notes": "Chute-core assembly part. COLOR UNSPECIFIED by Spencer - defaulted to the chute-core role (ivory white); confirm.",
+      "description": "Bearing holder, left. The same part as the right holder, turned 180 degrees about its flange face.",
+      "internal_notes": "Chute-core assembly part. COLOR UNSPECIFIED by Spencer - defaulted to the chute-core role (ivory white); confirm. Same geometry as bearing-holder-right: a proper rotation of exactly 180.000 degrees about the flange face normal (0, 0.906, 0.423) maps one onto the other, max deviation 0.065 mm, mean 0.004 mm, determinant +1 rather than -1, so it is a rotation and not a reflection. NOT a handed pair; earlier notes that said so came from testing only axis-aligned rotations, which cannot answer the question. See sorter-v2#569.",
       "version": "1",
       "created_at": "2026-06-27",
       "updated_at": "2026-06-27",
@@ -1907,14 +1920,20 @@
           "part": "hsi-m3",
           "qty": 3
         }
+      ],
+      "attributes": [
+        {
+          "label": "Interchangeable with",
+          "value": "Bearing holder (right)"
+        }
       ]
     },
     {
       "id": "bearing-holder-right",
       "uid": "rnog",
       "name": "Bearing holder (right)",
-      "description": "Bearing holder, right.",
-      "internal_notes": "Chute-core assembly part. COLOR UNSPECIFIED by Spencer - defaulted to the chute-core role (ivory white); confirm.",
+      "description": "Bearing holder, right. The same part as the left holder, turned 180 degrees about its flange face.",
+      "internal_notes": "Chute-core assembly part. COLOR UNSPECIFIED by Spencer - defaulted to the chute-core role (ivory white); confirm. Same geometry as bearing-holder-left: a proper rotation of exactly 180.000 degrees about the flange face normal (0, 0.906, 0.423) maps one onto the other, max deviation 0.065 mm, mean 0.004 mm, determinant +1 rather than -1, so it is a rotation and not a reflection. NOT a handed pair; earlier notes that said so came from testing only axis-aligned rotations, which cannot answer the question. See sorter-v2#569.",
       "version": "1",
       "created_at": "2026-06-27",
       "updated_at": "2026-06-27",
@@ -1932,6 +1951,12 @@
         {
           "part": "hsi-m3",
           "qty": 3
+        }
+      ],
+      "attributes": [
+        {
+          "label": "Interchangeable with",
+          "value": "Bearing holder (left)"
         }
       ]
     },
@@ -8352,8 +8377,64 @@
     },
     {
       "id": "chute",
-      "uid": "axlb",
-      "version": "1",
+      "uid": "re1n",
+      "version": "2",
+      "versions": [
+        {
+          "version": "1",
+          "uid": "axlb",
+          "message": "As recorded before the first stamped change.",
+          "lines": [
+            {
+              "part": "chute-core",
+              "qty": 1,
+              "uid": "mu36"
+            },
+            {
+              "assembly": "flap-module",
+              "qty": 1,
+              "uid": "9tm6"
+            },
+            {
+              "part": "funnel-bracket-left",
+              "qty": 1,
+              "uid": "4oyp"
+            },
+            {
+              "part": "funnel-bracket-right",
+              "qty": 1,
+              "uid": "b9vt"
+            },
+            {
+              "assembly": "layer-connector",
+              "qty": 1,
+              "uid": "6m38"
+            },
+            {
+              "assembly": "chute-pcb",
+              "qty": 1,
+              "uid": "f3s0"
+            },
+            {
+              "part": "scr-m3-12-cs",
+              "qty": 6,
+              "uid": "0a9x"
+            },
+            {
+              "part": "scr-m3-8-cs",
+              "qty": 8,
+              "uid": "l6br"
+            }
+          ]
+        },
+        {
+          "version": "2",
+          "date": "2026-09-05",
+          "message": "The screw through the servo bracket's side arm into the chute core is an M3 × 8, not an M3 × 12. Measured off the STL: that ear is 5.00 mm thick, the same as the bearing covers', so an 8 reaches 3.00 mm into the core's blind 5.70 mm insert and a 12 bottoms out in it. The lower arm's ear is 8.40 mm and keeps its 12. One screw moves from the 12 column to the 8; no part changed.",
+          "breaking": false,
+          "commit": null
+        }
+      ],
       "name": "Chute",
       "description": "One chute: the core plus its door module, funnel brackets, connectors, and PCB. Every screw here lands in one of the chute core's 18 M3 inserts.",
       "docs": "/hardware/assembly/distribution/chute/chute-core/",
@@ -8384,11 +8465,11 @@
         },
         {
           "part": "scr-m3-12-cs",
-          "qty": 6
+          "qty": 5
         },
         {
           "part": "scr-m3-8-cs",
-          "qty": 8
+          "qty": 9
         }
       ]
     },

@@ -54,7 +54,7 @@ The photo at the top of this page is a machine that mixes them: three bins acros
 
 **If you are still deciding:** two third-size layers and one half-size is what the [parts calculator](https://parts-calculator.basically.website/) starts a fresh machine at, and it is a sensible default. Most LEGO is small, so most of your destinations should be, but you want at least one layer that can take the big pieces. Nothing ties a size to a particular height, so which level carries the half-size layer is yours to choose.
 
-Switching a layer to the other size at this point means printing a new funnel as well as new bins. [Funnel]({{ '/hardware/assembly/distribution/chute/funnel/' | relative_url }}) is where that choice is made, and has the same comparison in full.
+Switching a layer to the other size at this point means printing a new funnel as well as new bins. [Funnel brackets]({{ '/hardware/assembly/distribution/chute/funnel/' | relative_url }}) is where that choice is made, and has the same comparison in full.
 
 {% include step.html n="2" title="Get the bins: print them or cut them" %}
 

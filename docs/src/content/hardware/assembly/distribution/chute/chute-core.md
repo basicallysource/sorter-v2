@@ -29,19 +29,19 @@ The heat inserts are in the parts list above. The screws that hold the four sub-
 One chute is the chute core plus four things that bolt onto it:
 
 - **Door module**, one per chute: the door, the bearing assembly, the servo adapter and the servo in its bracket, built as a unit. See [Door module]({{ '/hardware/assembly/distribution/chute/door-module/' | relative_url }}).
-- **Funnel bracket (left)** and **Funnel bracket (right)**, one of each. See [Funnel]({{ '/hardware/assembly/distribution/chute/funnel/' | relative_url }}).
 - **Layer connector A** and **Layer connector B**, one of each. See [Layer connectors]({{ '/hardware/assembly/distribution/chute/layer-connectors/' | relative_url }}).
 - **Layer adapter board**, one per chute. See [Layer adapter board]({{ '/hardware/assembly/distribution/chute/pcb/' | relative_url }}).
+- **Funnel bracket (left)** and **Funnel bracket (right)**, one of each. See [Funnel brackets]({{ '/hardware/assembly/distribution/chute/funnel/' | relative_url }}).
 
 Every screw that fastens one of them to the core lands in one of the core's own M3 heat inserts. Nothing on the chute taps into bare plastic.
 
 {% include step.html n="1" title="Preparation" %}
 
-Press the heat inserts into the chute core before you mount anything else onto it. Once the funnel brackets and the door module are on, several of the insert positions are hard to reach with an iron. See [installing heat inserts]({{ '/hardware/helpers/heat-inserts/' | relative_url }}) for the technique.
+Press the heat inserts into the chute core before you mount anything else onto it. Once the door module and the funnel brackets are on, several of the insert positions are hard to reach with an iron. See [installing heat inserts]({{ '/hardware/helpers/heat-inserts/' | relative_url }}) for the technique.
 
 <div class="prep-item">
   <div class="prep-item-body">
-    <p><strong>Chute core:</strong> 18 × M3, which is every insert on this page: 4 for the funnel brackets, 6 for the door module (4 for its two bearing covers, 2 for the servo bracket arms), 4 for the layer connectors, and 4 for the layer adapter board. This is separate from the bearing assembly's own 10 inserts, which live in the bearing race and holders themselves.</p>
+    <p><strong>Chute core:</strong> 18 × M3, which is every insert on this page: 6 for the door module (4 for its two bearing covers, 2 for the servo bracket arms), 4 for the layer connectors, 4 for the layer adapter board, and 4 for the funnel brackets. This is separate from the bearing assembly's own 10 inserts, which live in the bearing race and holders themselves.</p>
     <p>All 18 are the same pocket, Ø4.2 mm and blind, 5.7 mm deep, split <strong>8 + 6 + 4</strong> across three faces. The views are rendered from the chute core STL, turned slightly off each face so the pockets shade as holes, and circle only the pockets visible in that view.</p>
   </div>
   <div class="prep-item-figure prep-item-figure-split">
@@ -64,13 +64,13 @@ Press the heat inserts into the chute core before you mount anything else onto i
 
 Fit them in this order, each on its own page, and each with its own screws in its own parts list:
 
-- **[Funnel brackets]({{ '/hardware/assembly/distribution/chute/funnel/' | relative_url }})**, left and right
 - **[Door module]({{ '/hardware/assembly/distribution/chute/door-module/' | relative_url }})**, bolted on as a unit
 - **[Layer connectors]({{ '/hardware/assembly/distribution/chute/layer-connectors/' | relative_url }})** A and B
 - **[Layer adapter board]({{ '/hardware/assembly/distribution/chute/pcb/' | relative_url }})**
+- **[Funnel brackets]({{ '/hardware/assembly/distribution/chute/funnel/' | relative_url }})**, left and right
 
 Every insert you pressed in at step 1 takes a screw from one of those four pages. That is why the inserts are listed here and the screws are not.
 
-<div class="img-placeholder">Photo of a finished chute core with all four sub-assemblies bolted on: funnel brackets, door module, layer connectors and layer adapter board.</div>
+<div class="img-placeholder">Photo of a finished chute core with all four sub-assemblies bolted on: door module, layer connectors, layer adapter board and funnel brackets.</div>
 
 The chute is complete when all four are on. Repeat for every layer.

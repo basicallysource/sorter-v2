@@ -409,6 +409,18 @@
           "camera-clasp-bottom"
         ]
       }
+    },
+    {
+      "id": "merge-bearing-holders",
+      "name": "Merge the two chute bearing holders into one part",
+      "priority": "P3",
+      "description": "The chute door module's two bearing holders are the same geometry, so the machine can print one part twice instead of two parts once each. Measured off the two master STLs: a proper rotation of exactly 180.000 degrees about the flange face normal (0, 0.906, 0.423) maps one onto the other with a maximum deviation of 0.065 mm and a mean of 0.004 mm, and the transform's determinant is +1, so no handedness is involved. The only asymmetry in either part is 0.05 mm, between two of the three M3 insert pockets, at 17.35 mm and 17.40 mm from the bore centre. The two ids are interchangeable as they stand and nothing about the assembly changes. Which id survives, and what a single holder should be called, are open questions. Tracked as sorter-v2 issue #569, with the catalog side in #570.",
+      "targets": {
+        "parts": [
+          "bearing-holder-left",
+          "bearing-holder-right"
+        ]
+      }
     }
   ],
   "folders": [
@@ -1887,8 +1899,8 @@
       "id": "bearing-holder-left",
       "uid": "gybh",
       "name": "Bearing holder (left)",
-      "description": "Bearing holder, left.",
-      "internal_notes": "Chute-core assembly part. COLOR UNSPECIFIED by Spencer - defaulted to the chute-core role (ivory white); confirm.",
+      "description": "Bearing holder, left. The same part as the right holder, turned 180 degrees about its flange face.",
+      "internal_notes": "Chute-core assembly part. COLOR UNSPECIFIED by Spencer - defaulted to the chute-core role (ivory white); confirm. Same geometry as bearing-holder-right: a proper rotation of exactly 180.000 degrees about the flange face normal (0, 0.906, 0.423) maps one onto the other, max deviation 0.065 mm, mean 0.004 mm, determinant +1 rather than -1, so it is a rotation and not a reflection. NOT a handed pair; earlier notes that said so came from testing only axis-aligned rotations, which cannot answer the question. See sorter-v2#569.",
       "version": "1",
       "created_at": "2026-06-27",
       "updated_at": "2026-06-27",
@@ -1907,14 +1919,20 @@
           "part": "hsi-m3",
           "qty": 3
         }
+      ],
+      "attributes": [
+        {
+          "label": "Interchangeable with",
+          "value": "Bearing holder (right)"
+        }
       ]
     },
     {
       "id": "bearing-holder-right",
       "uid": "rnog",
       "name": "Bearing holder (right)",
-      "description": "Bearing holder, right.",
-      "internal_notes": "Chute-core assembly part. COLOR UNSPECIFIED by Spencer - defaulted to the chute-core role (ivory white); confirm.",
+      "description": "Bearing holder, right. The same part as the left holder, turned 180 degrees about its flange face.",
+      "internal_notes": "Chute-core assembly part. COLOR UNSPECIFIED by Spencer - defaulted to the chute-core role (ivory white); confirm. Same geometry as bearing-holder-left: a proper rotation of exactly 180.000 degrees about the flange face normal (0, 0.906, 0.423) maps one onto the other, max deviation 0.065 mm, mean 0.004 mm, determinant +1 rather than -1, so it is a rotation and not a reflection. NOT a handed pair; earlier notes that said so came from testing only axis-aligned rotations, which cannot answer the question. See sorter-v2#569.",
       "version": "1",
       "created_at": "2026-06-27",
       "updated_at": "2026-06-27",
@@ -1932,6 +1950,12 @@
         {
           "part": "hsi-m3",
           "qty": 3
+        }
+      ],
+      "attributes": [
+        {
+          "label": "Interchangeable with",
+          "value": "Bearing holder (left)"
         }
       ]
     },

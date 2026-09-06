@@ -33,7 +33,7 @@ The bottom two layers are two ordinary bin layers built at the same time, becaus
 
 <figure class="single-figure">
   <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-bottom-two-layers-dov2000-three-quarter-w1600-18a2620a5963.jpg" alt="A finished pair of bottom bin-frame layers standing on six swivel casters, two hexagons of anodized 2020 extrusion tied together by black printed corner brackets, with spokes and crossbeams inside each ring">
-  <figcaption>The two layers standing on their casters, which is what this page builds. The bottom interface is not fitted in this photo; its Lazy Susan extrusion mounts go under the bottom layer's spokes in step 6. <cite>Photo: Dov2000.</cite></figcaption>
+  <figcaption>The two layers standing on their casters, which is what this page builds. The bottom interface is not fitted in this photo; it goes under the bottom layer's spokes afterwards, on its own page. <cite>Photo: Dov2000.</cite></figcaption>
 </figure>
 
 Everything else about these two layers is the same as any other. Build each one with the [regular layers]({{ '/hardware/assembly/distribution/bin-frame/regular-layers/' | relative_url }}) guide and come back here for the parts that differ, which are only the verticals, the corners at floor level, and the feet.
@@ -49,16 +49,6 @@ Everything else about these two layers is the same as any other. Build each one 
 </div>
 
 The aluminum extrusion is cut to length; the [framing cut list](https://parts-calculator.basically.website/framing) has the exact dimensions for piece D.
-
-<div class="prep-item">
-  <div class="prep-item-body">
-    <p><strong>Build the <a href="{{ '/hardware/assembly/distribution/bin-frame/bottom-interface/' | relative_url }}">bottom interface</a> before you start.</strong> It has no frame of its own: its three Lazy Susan extrusion mounts bolt up under the bottom layer's spokes, which is step 6 below. Get its 6 T-nuts into 3 of that layer's B/H spokes while you are building the frame, before the ring closes.</p>
-  </div>
-  <figure class="prep-item-figure">
-    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-lazy-susan-extrusion-mount-three-views-w1600-581de80090b8.jpg" alt="Three views of the same printed part on a white background: the Lazy Susan extrusion mount with its hold in place bolted under it, a grey wedge with a triangular window through its web and counterbored slots along its bottom face">
-    <figcaption>A Lazy Susan extrusion mount with its hold in place, from three angles. Three of these pairs bolt up into the bottom layer's spokes in step 6, one per spoke on 3 of the 6. <cite>Photo: BrickCycleAlice.</cite></figcaption>
-  </figure>
-</div>
 
 {% include fastener-legend.html %}
 
@@ -81,11 +71,6 @@ Here's where the {% include fastener.html size="M5" variant="socket-button" leng
 The bin retainers in step 5 are not in that count: they and their fasteners are listed on their own page.
 
 You should already have two [hex frames]({{ '/hardware/assembly/distribution/bin-frame/hex-frame/' | relative_url }}) built, one for each layer. The verticals are the part that differs here, and they are step 2 below.
-
-<div class="callout callout-warning">
-  <span class="callout-icon" aria-hidden="true">⚠</span>
-  <p><strong>Get the bottom interface's 6 T-nuts into the bottom layer's spokes before the ring closes.</strong> Two each into 3 of the 6 B/H spokes, alternating around the ring. <a href="{{ '/hardware/assembly/distribution/bin-frame/bottom-interface/' | relative_url }}#step-4">Bottom interface, step 4</a> bolts its Lazy Susan extrusion mounts up into them from underneath, so they go in this frame's extrusion, not a frame of its own. Roll-in T-nuts can go in later; slide-in ones cannot, see <a href="{{ '/hardware/helpers/t-nuts/' | relative_url }}">Fitting T-nuts</a>.</p>
-</div>
 
 {% include step.html n="2" title="Run the foot extensions through both layers" %}
 
@@ -165,32 +150,35 @@ Screw a **swivel stem caster (M6 × 15 mm)** into the connector's M6 thread. The
 
 <figure class="single-figure">
   <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-bottom-two-layers-dov2000-three-quarter-w1600-18a2620a5963.jpg" alt="A pair of bottom bin-frame layers standing on six swivel casters, two hexagons of anodized 2020 extrusion tied together by black printed corner brackets, with the middle of the bottom layer still open">
-  <figcaption>All six casters on, one under each corner. Nothing is fitted under the bottom layer here: the bottom interface's Lazy Susan extrusion mounts come later, in step 6. <cite>Photo: Dov2000.</cite></figcaption>
+  <figcaption>All six casters on, one under each corner. Nothing is fitted under the bottom layer here: the bottom interface's Lazy Susan extrusion mounts go on after these layers are standing. <cite>Photo: Dov2000.</cite></figcaption>
 </figure>
 
 {% include step.html n="5" title="Add the bin retainers" %}
 
 Both layers take a full set of retainers, so do **[Bin retainers]({{ '/hardware/assembly/distribution/bin-frame/bin-retainers/' | relative_url }}) twice**, once for each hexagon. That page's parts list is per layer; double every quantity on it here.
 
-{% include step.html n="6" title="Attach the bottom interface" %}
+{% include step.html n="6" title="The bottom interface comes next" %}
 
-The [bottom interface]({{ '/hardware/assembly/distribution/bin-frame/bottom-interface/' | relative_url }}) hangs underneath the **bottom layer's** frame. It does not share piece D's legs and it does not get a hex frame of its own.
+Nothing further is fastened to these two layers here. The [bottom interface]({{ '/hardware/assembly/distribution/bin-frame/bottom-interface/' | relative_url }}) hangs underneath the **bottom layer's** frame, and it is built and fitted on its own page: three Lazy Susan extrusion mount pairs bolt up into 3 of the 6 B/H spokes, alternating around the ring, and the bearing sits on them. Its screws and T-nuts are on that page's parts list, not this one's, which is why they are not in the count above.
 
-Working from under the bottom layer, bolt each of its three Lazy Susan extrusion mount pairs up into the underside of a B/H spoke, on 3 of the 6 spokes alternating around the ring, 2 {% include fastener.html size="M5" variant="socket-button" length="16" %} screws per mount into the T-nuts you put in earlier. Those 6 screws are on the bottom interface's own parts list, not this page's, so they aren't in the count above. The bearing then sits on the three mounts, and the chute mount faces up into the machine.
-
-<div class="callout">
-  <p>The height that comes out of this is right when a <a href="{{ '/hardware/assembly/distribution/chute/chute-core/' | relative_url }}">chute core</a> with a funnel on it, fitted onto the chute mount, puts the funnel level with the bin entrances.</p>
-</div>
+<figure class="single-figure">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-lazy-susan-extrusion-mount-three-views-w1600-581de80090b8.jpg" alt="Three views of the same printed part on a white background: the Lazy Susan extrusion mount with its hold in place bolted under it, a grey wedge with a triangular window through its web and counterbored slots along its bottom face">
+  <figcaption>A Lazy Susan extrusion mount with its hold in place, from three angles. Three of these pairs go under the bottom layer. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+</figure>
 
 <div class="img-row">
   <figure>
     <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-bottom-two-layers-ls-mount-on-spoke-w1600-f2dd3fc8fe63.jpg" alt="Close-up of a Lazy Susan extrusion mount bolted onto a B/H spoke, the printed wedge with its triangular window sitting against the spoke's extrusion at a hex frame corner">
-    <figcaption>One Lazy Susan extrusion mount bolted onto a B/H spoke. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+    <figcaption>One mount bolted onto a B/H spoke. <cite>Photo: BrickCycleAlice.</cite></figcaption>
   </figure>
   <figure>
     <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-bottom-two-layers-ls-mounts-three-on-ring-w1600-2d730f64193b.jpg" alt="A hex frame seen from above with three Lazy Susan extrusion mounts fitted, one on each of three spokes spaced alternately around the ring">
     <figcaption>All three on, alternating around the ring so they land on 3 of the 6 spokes. <cite>Photo: BrickCycleAlice.</cite></figcaption>
   </figure>
+</div>
+
+<div class="callout">
+  <p>The height that comes out of this is right when a <a href="{{ '/hardware/assembly/distribution/chute/chute-core/' | relative_url }}">chute core</a> with a funnel on it, fitted onto the chute mount, puts the funnel level with the bin entrances.</p>
 </div>
 
 ## The finished result
@@ -209,6 +197,7 @@ These two layers are the bottom of the bin frame, not a finished assembly on the
 <ol class="numbered-steps">
   <li><strong>Stack the remaining layers on top.</strong> Build N−2 <a href="{{ '/hardware/assembly/distribution/bin-frame/regular-layers/' | relative_url }}">regular layers</a> for an N-layer machine and join each one down onto the layer below it. <a href="{{ '/hardware/assembly/distribution/bin-frame/regular-layers/' | relative_url }}#step-3">Regular layers, step 3</a> is that joint, and it is the same joint every time, including where the first regular layer lands on the second of these two.</li>
   <li><strong>Cap the stack with the <a href="{{ '/hardware/assembly/distribution/top-interface/' | relative_url }}">top interface</a></strong>, which takes one of the hex frames you built at the start. <a href="{{ '/hardware/assembly/distribution/top-interface/' | relative_url }}#step-14">Top interface, step 14</a> is how it lands on the top layer.</li>
+  <li><strong>Sling the <a href="{{ '/hardware/assembly/distribution/bin-frame/bottom-interface/' | relative_url }}">bottom interface</a> underneath</strong>, bolted up into 3 of the bottom layer's 6 B/H spokes.</li>
   <li><strong>Hang a <a href="{{ '/hardware/assembly/distribution/chute/' | relative_url }}">chute</a> in every layer</strong>, these two included.</li>
 </ol>
 

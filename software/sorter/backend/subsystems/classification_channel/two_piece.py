@@ -408,6 +408,7 @@ class TwoPieceClassificationChannel(Rev01BaseState):
         self._align_target_deg: Optional[float] = None
         self._align_move_wall_time = 0.0  # time.time() of the last alignment turn
         self._align_frame_ts = 0.0  # timestamp (frame clock) of the frame behind the last measurement
+        self._last_move_forward: Optional[bool] = None  # direction of the last platter move (None after homing)
         self._phase = _Phase.WAITING
         self._eject_target: Optional[_TrackedPiece] = None
         self._stage_target: Optional[_TrackedPiece] = None
@@ -1223,6 +1224,7 @@ class TwoPieceClassificationChannel(Rev01BaseState):
             # Every piece on board rides along; its gap to the exit shrinks by
             # the move. Keeps orphans re-identifiable after a turn.
             forward = float(output_degrees) * C4_TRAVEL_SIGN  # positive = towards the exit
+            self._last_move_forward = forward > 0
             for tp in list(self._pieces.values()) + [piece for piece, _ in self._orphans]:
                 if tp.expected_gap is not None:
                     tp.expected_gap -= forward
@@ -1286,7 +1288,8 @@ class TwoPieceClassificationChannel(Rev01BaseState):
         move = wallAlignmentMove(
             phase.sector_offset_deg, self._align_target_deg, holding, float(getattr(cfg, "wall_align_tolerance_deg", 3.0))
         )
-        if move is not None and move < 0:
+        if move is not None and move < 0 and self._last_move_forward is True:
+            # Reversal after a forward move: the first degrees only take up the play.
             compensated = move - _ALIGN_BACKLASH_DEG
             if all(g - compensated <= _ALIGN_BACK_LIMIT_DEG for g in holding):
                 move = compensated

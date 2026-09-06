@@ -109,6 +109,12 @@ class Rev01Config:
     # burst deliberately catches the piece tumbling so several sides are seen;
     # motion blur is handled by a short exposure, not by waiting).
     capture_settle_ms: float = 0.0
+    # Before the channel waits for the next drop, turn the platter (shorter
+    # way, at most 36°) so one of the five walls stands on the drop zone's
+    # edge towards the exit: a piece that bounces on landing hits the wall
+    # instead of skipping straight into the exit arc (Marc, 2026-09-06).
+    wall_align_enabled: bool = True
+    wall_align_tolerance_deg: float = 3.0
 
     # Jitter unstick: the ONLY trigger. If a piece sits in the FALL-OFF region
     # (the exit-only sub-arc, NOT the precise staging band — perception's
@@ -159,6 +165,8 @@ FIELD_META: list[dict] = [
     {"key": "discharge_giveup_settle_ms", "label": "Discharge: settle delay before auto-crediting on give-up (ms)", "type": "int", "default": _DEFAULTS.discharge_giveup_settle_ms, "description": "When discharge exhausts its attempts without a confirmed clear (usually the piece actually dropped and a newcomer is holding the count up), wait this long for the channel to settle, then credit the piece and return to IDLE."},
     {"key": "min_part_confidence", "label": "Minimum part confidence to sort into a bin", "type": "float", "default": _DEFAULTS.min_part_confidence, "description": "Brickognize part score below which the piece is routed to misc (status low_confidence) instead of a category bin. A wrong bin costs more than a passthrough."},
     {"key": "low_confidence_retry", "label": "Retry a low-confidence piece at rest", "type": "bool", "default": _DEFAULTS.low_confidence_retry, "description": "A head below the minimum part confidence, or not recognized at all, is photographed again at rest in the holding position and re-classified before the chute is aimed; the better result wins."},
+    {"key": "wall_align_enabled", "label": "Align a platter wall to the drop edge", "type": "bool", "default": _DEFAULTS.wall_align_enabled, "description": "Before waiting for the next drop, turn the platter the shorter way (at most 36°) so one of the five walls stands on the drop zone's edge towards the exit. A piece that bounces on landing hits the wall instead of skipping into the exit arc. Skipped when the turn would push the head over the lip or a holding piece back into the drop zone."},
+    {"key": "wall_align_tolerance_deg", "label": "Wall alignment tolerance (deg)", "type": "float", "default": _DEFAULTS.wall_align_tolerance_deg, "description": "No alignment turn when a wall is already this close to the drop edge."},
     {"key": "capture_settle_ms", "label": "Settle time before the burst (ms)", "type": "float", "default": _DEFAULTS.capture_settle_ms, "description": "Optional delay before the burst, measured from the last movement of the piece's box. 0 = start on first sight so the burst catches the tumbling piece from several sides (the default); use a short exposure against motion blur rather than this."},
     {"key": "multi_feed_confirm_reads", "label": "Multi-feed: frames of >=2 pieces to confirm", "type": "int", "default": _DEFAULTS.multi_feed_confirm_reads, "description": "Consecutive distinct frames showing 2+ pieces on the channel before latching a multi-feed (which sends the whole cycle to MISC). Stops a one-frame split detection from mis-flagging."},
     {"key": "discharge_jitter_dwell_ms", "label": "Discharge: dwell in fall-off region before jitter (ms)", "type": "int", "default": _DEFAULTS.discharge_jitter_dwell_ms, "description": "If a piece sits continuously in the fall-off region this long, it's parked — shake it loose with a jitter. A piece dropping normally is only there for a frame or two, so it never triggers this."},

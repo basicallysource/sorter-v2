@@ -202,8 +202,11 @@ def test_output_move_advances_every_expected_gap(monkeypatch) -> None:
     unseen = _piece(4, zone=_ZONE_DROP, capture_done=False, last_seen=1.0)
     h._pieces = {1: on_board, 4: unseen}
     h._orphans = [(orphan, 1.1)]
-    assert h.startOutputMove(-170.0, 5000) is True
+    from subsystems.classification_channel.two_piece import C4_TRAVEL_SIGN
+    assert h.startOutputMove(C4_TRAVEL_SIGN * 170.0, 5000) is True      # towards the exit
     assert on_board.expected_gap == 30.0 and orphan.expected_gap == -80.0 and unseen.expected_gap is None
+    assert h.startOutputMove(C4_TRAVEL_SIGN * -20.0, 5000) is True      # a backward alignment turn
+    assert on_board.expected_gap == 50.0
 
 
 def test_rejection_is_explained_once_per_track_id(caplog) -> None:

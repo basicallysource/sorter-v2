@@ -119,6 +119,16 @@ _REID_AMBIGUOUS = 0.34
 _OFF_PLATTER_MIN_TURN_DEG = 20.0
 _OFF_PLATTER_MAX_SHIFT_PX = 40.0
 
+# Wall alignment: a forward turn must keep every holding piece this far
+# short of the exit-only band; a backward turn must not carry a holding
+# piece back into the drop zone (the band from drop edge to exit entry is
+# ~194° on this platter; stay well inside it). Two attempts per cycle.
+_ALIGN_HEAD_MARGIN_DEG = 15.0
+_ALIGN_BACK_LIMIT_DEG = 170.0
+_ALIGN_ATTEMPTS = 2
+_ALIGN_MIN_RESIDUAL_WALLS = 3
+_ALIGN_MAX_RESIDUAL_DEG = 3.0
+
 
 def _exitArcOccupied(state) -> bool:
     for po in getattr(state, "pieces", ()):
@@ -170,6 +180,29 @@ def _bboxIou(a: tuple[int, int, int, int], b: tuple[int, int, int, int]) -> floa
     area_b = max(0, b[2] - b[0]) * max(0, b[3] - b[1])
     union = area_a + area_b - inter
     return float(inter) / float(union) if union > 0 else 0.0
+
+
+def wallAlignmentMove(
+    phase_offset_deg: float,
+    target_deg: float,
+    holding_gaps: list[float],
+    tolerance_deg: float,
+    *,
+    pitch_deg: float = 72.0,
+) -> Optional[float]:
+    """Image-angle turn (positive = travel direction) that puts a wall on the
+    target angle without pushing the head over the lip or a holding piece back
+    into the drop zone; None when already aligned or no direction is safe."""
+    delta = (float(target_deg) - float(phase_offset_deg) + pitch_deg / 2.0) % pitch_deg - pitch_deg / 2.0
+    if abs(delta) <= float(tolerance_deg):
+        return None
+    options = sorted((delta, delta - pitch_deg if delta > 0 else delta + pitch_deg), key=abs)
+    for move in options:
+        if move > 0 and all(g - move >= _ALIGN_HEAD_MARGIN_DEG for g in holding_gaps):
+            return move
+        if move < 0 and all(g - move <= _ALIGN_BACK_LIMIT_DEG for g in holding_gaps):
+            return move
+    return None
 
 
 def _wrapDeg(deg: float) -> float:
@@ -357,6 +390,10 @@ class TwoPieceClassificationChannel(Rev01BaseState):
         self._aliases: dict[int, _TrackedPiece] = {}
         # Track ids whose failed re-identification was already explained in the log.
         self._reid_explained: set[int] = set()
+        # Wall alignment: one look per platter move, at most _ALIGN_ATTEMPTS turns per cycle.
+        self._align_checked = False
+        self._align_attempts = 0
+        self._align_target_deg: Optional[float] = None
         self._phase = _Phase.WAITING
         self._eject_target: Optional[_TrackedPiece] = None
         self._stage_target: Optional[_TrackedPiece] = None
@@ -447,7 +484,10 @@ class TwoPieceClassificationChannel(Rev01BaseState):
         # The classification channel OWNS the feeder admission gate. Ready only
         # when we are idle between cycles (not mid-rotation) AND the drop zone is
         # clear AND the platter has settled — i.e. "rotation complete, drop empty".
-        ready = self._phase == _Phase.WAITING and not self._dropOccupied(state) and stopped
+        aligning = False
+        if self._phase == _Phase.WAITING and stopped and not self._dropOccupied(state):
+            aligning = self._maybeAlignWalls(perception_service, now)
+        ready = self._phase == _Phase.WAITING and not self._dropOccupied(state) and stopped and not aligning
         self.setClassificationReady(ready, "waiting + drop clear + stopped")
 
         # Classification results arrive on background threads — apply them every
@@ -1168,9 +1208,11 @@ class TwoPieceClassificationChannel(Rev01BaseState):
         if ok:
             # Every piece on board rides along; its gap to the exit shrinks by
             # the move. Keeps orphans re-identifiable after a turn.
+            forward = float(output_degrees) * C4_TRAVEL_SIGN  # positive = towards the exit
             for tp in list(self._pieces.values()) + [piece for piece, _ in self._orphans]:
                 if tp.expected_gap is not None:
-                    tp.expected_gap -= abs(float(output_degrees))
+                    tp.expected_gap -= forward
+            self._align_checked = False
             # ...and a detection that does not is not on the platter (checked
             # once the platter stands still again, see _observe).
             for tp in self._pieces.values():
@@ -1179,12 +1221,64 @@ class TwoPieceClassificationChannel(Rev01BaseState):
                 tp.moved_deg_since_check += abs(float(output_degrees))
         return ok
 
+    def _maybeAlignWalls(self, perception_service, now: float) -> bool:
+        """Turn the platter so a wall stands on the drop edge before the next
+        drop is admitted. Returns True while an alignment turn was just issued."""
+        cfg = self.ctx.config
+        if not bool(getattr(cfg, "wall_align_enabled", False)) or self._align_checked:
+            return False
+        self._align_checked = True  # one look per platter move
+        if self._align_attempts >= _ALIGN_ATTEMPTS:
+            return False
+        try:
+            from vision.c4_wall_phase import calibrated_c4_wall_geometry, detect_c4_wall_phase
+
+            raw = perception_service.read_bboxes_and_frame(4)
+            if raw is None:
+                return False
+            frame = raw[1]
+            if self._align_target_deg is None:
+                from blob_manager import getChannelPolygons
+
+                arc = ((getChannelPolygons() or {}).get("arc_params") or {}).get("classification_channel") or {}
+                self._align_target_deg = float(arc["drop_zone"]["start_angle"])
+            phase = detect_c4_wall_phase(frame.bgr, **calibrated_c4_wall_geometry(frame.bgr.shape))
+        except Exception as exc:  # optics are a convenience, never a reason to stall
+            self.logger.info(f"{LOG_TAG} wall align skipped: {exc}")
+            return False
+        if (
+            not phase.ok
+            or phase.sector_offset_deg is None
+            or len(phase.wall_angles_deg) < _ALIGN_MIN_RESIDUAL_WALLS
+            or (phase.max_residual_deg is not None and phase.max_residual_deg > _ALIGN_MAX_RESIDUAL_DEG)
+        ):
+            self.logger.info(f"{LOG_TAG} wall align skipped: {phase.message or 'unreliable phase'}")
+            return False
+        holding = [
+            float(tp.gap_to_exit)
+            for tp in self._pieces.values()
+            if tp.zone != _ZONE_DROP and not tp.ejected and not tp.off_platter and tp.gap_to_exit is not None
+        ]
+        move = wallAlignmentMove(
+            phase.sector_offset_deg, self._align_target_deg, holding, float(getattr(cfg, "wall_align_tolerance_deg", 3.0))
+        )
+        if move is None:
+            return False
+        self._align_attempts += 1
+        self.logger.info(
+            f"{LOG_TAG} wall align: walls at {phase.sector_offset_deg:.1f}° (mod 72), drop edge at "
+            f"{self._align_target_deg:.1f}° -> turning {move:+.1f}° ({self._align_attempts}/{_ALIGN_ATTEMPTS})"
+        )
+        return self.startOutputMove(C4_TRAVEL_SIGN * move, cfg.precise_converge_speed_usteps_per_s)
+
     def _enterPhase(self, phase: _Phase) -> None:
         # Deliberately NOT a watchdog progress credit: the eject/stage timeouts
         # re-enter phases every _*_TIMEOUT_S, so a wedged piece would ping-pong
         # STAGING <-> WAITING forever and never trip the stall incident. Real
         # progress is credited where pieces demonstrably move or complete a
         # milestone instead.
+        if phase == _Phase.WAITING:
+            self._align_attempts = 0
         self._phase = phase
         self._eject_timeout_logged = False
         self._phase_started_at = time.monotonic()

@@ -30,12 +30,12 @@ sections:
                 children:
                   - title: Build the hex frame
                     url: /hardware/assembly/distribution/bin-frame/hex-frame/
-                  - title: Bottom interface
-                    url: /hardware/assembly/distribution/bin-frame/bottom-interface/
                   - title: Bottom two layers
                     url: /hardware/assembly/distribution/bin-frame/bottom-two-layers/
                   - title: Regular layers
                     url: /hardware/assembly/distribution/bin-frame/regular-layers/
+                  - title: Bottom interface
+                    url: /hardware/assembly/distribution/bin-frame/bottom-interface/
                   - title: Bin retainers
                     url: /hardware/assembly/distribution/bin-frame/bin-retainers/
               - title: Top interface

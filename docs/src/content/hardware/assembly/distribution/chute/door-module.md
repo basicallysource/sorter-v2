@@ -90,7 +90,7 @@ The servo adapter takes no inserts, but assemble it here anyway, before the brac
 
 <div class="prep-item">
   <div class="prep-item-body">
-    <p><strong>Servo adapter:</strong> the servo-side and flap-side plates clamp the MG995 Servo Horn between them. The horn ships with the servo, it isn't printed. Lay it against the servo-side half, bring the flap-side half down over it, and drive 4 {% include fastener.html size="M3" variant="countersunk" length="8" %} screws through the flap side (it's the half with the visible screw holes) into the servo side. No heat inserts, the screws cut their own thread in the printed plastic.</p>
+    <p><strong>Servo adapter:</strong> the servo-side and flap-side plates clamp the MG995 Servo Horn between them. The horn ships with the servo, it isn't printed. Drop the horn into the slot in the servo-side half, bring the flap-side half down over it, and drive 4 {% include fastener.html size="M3" variant="countersunk" length="8" %} screws through the flap side (it's the half with the visible screw holes) into the servo side. No heat inserts, the screws cut their own thread in the printed plastic.</p>
   </div>
   <div class="prep-item-figure prep-item-figure-split">
     <figure>
@@ -98,12 +98,12 @@ The servo adapter takes no inserts, but assemble it here anyway, before the brac
       <figcaption>The MG995 Servo Horn. Clasped between the two adapter halves before they're screwed together. <cite>Reference photo of the stock part, not from a build. Photographer not recorded.</cite></figcaption>
     </figure>
     <figure>
-      <img class="doc-figure" src="https://assets.basically.website/sorter-parts/servo-adapter-servo-side-recess-full-e4d5c312826a.png" alt="The servo-side adapter half, rotated to show the recess that the MG995 Servo Horn seats into, with the four screw pilot holes around it">
-      <figcaption>Servo-side half. The recess the horn seats into, plus the 4 pilot holes the screws thread into. <cite>Rendered from the part geometry, not from a build.</cite></figcaption>
+      <img class="doc-figure" src="https://assets.basically.website/sorter-parts/servo-adapter-exploded-full-57d2c57e666b.png" alt="Exploded render of the two servo adapter halves facing each other: the flap-side half in blue on the left showing its hexagonal socket and four countersunk holes, the servo-side half in tan on the right showing the long slot the two-arm horn seats in and its four pilot holes">
+      <figcaption>Exploded, in build order. The horn drops into the slot in the servo-side half (tan), then the flap-side half (blue) goes over it. <cite>Rendered from the part geometry in assembly position, not from a build. Render: Balloon.</cite></figcaption>
     </figure>
     <figure>
-      <img class="doc-figure" src="https://assets.basically.website/sorter-parts/servo-adapter-flap-side-door-face-full-871c96a5ad23.png" alt="The flap-side adapter half, rotated 180 degrees from the screw side to show the hexagonal boss and keyed bore that the chute door's shaft inserts into">
-      <figcaption>Flap-side half, other face. The hex boss the chute door's shaft inserts into. <cite>Rendered from the part geometry, not from a build.</cite></figcaption>
+      <img class="doc-figure" src="https://assets.basically.website/sorter-parts/servo-adapter-assembled-full-8f39f4102e1a.png" alt="Render of the two servo adapter halves closed together, seen from the flap side: the blue half's four countersunk holes and the hexagonal socket in the middle, with the tan servo-side half just visible behind it">
+      <figcaption>Assembled, from the flap side. The 4 screws go in from this face, and the hex socket in the middle is what the door's shaft ends up in. <cite>Rendered from the part geometry in assembly position, not from a build. Render: Balloon.</cite></figcaption>
     </figure>
   </div>
 </div>

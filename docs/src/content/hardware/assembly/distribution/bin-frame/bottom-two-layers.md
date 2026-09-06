@@ -89,9 +89,9 @@ You should already have two [hex frames]({{ '/hardware/assembly/distribution/bin
 
 {% include step.html n="2" title="Run the foot extensions through both layers" %}
 
-<figure>
-  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-bottom-two-layers-c-and-d-extrusion-w1600-71a8f20c58c5.jpg" alt="The bottom corner of a built machine, with the C layer vertical support marked between the second and third frames and the longer D foot extension marked running from the caster up past the bottom frame to the second">
-  <figcaption>C between the layers above; D from the caster, past the bottom layer's corner, to the second layer. <span class="photo-credit">Photo courtesy of Christoph in the basically Discord.</span></figcaption>
+<figure class="single-figure">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-bottom-two-layers-c-and-d-extrusion-corner-full-58d89d80131f.jpg" alt="One corner of a built machine close up, with the C layer vertical support marked by an arrow between the two frames above and the longer D foot extension marked by an arrow running from the caster up past the bottom frame to the second">
+  <figcaption>One corner, close up. C between the layers above; D from the caster, past the bottom layer's corner, to the second layer. <cite>Photo courtesy of Christoph in the basically Discord.</cite></figcaption>
 </figure>
 
 The corner itself is the same as on any layer. Only the vertical changes: one piece D takes the place of the C that each of these two layers would otherwise have, and it stands proud at the bottom instead of being capped.
@@ -107,10 +107,6 @@ On each of the six corners, working on the second layer first:
 </ol>
 
 <div class="img-row">
-  <figure>
-    <img class="doc-figure" src="https://assets.basically.website/sorter-parts/img-4215-crop1-full-d1ae19d41e44.jpg" alt="Close-up of the foot cover bolted to the External bracket — side, with the two foot-cover screws and the extrusion mounting screws visible">
-    <figcaption>The foot cover to External bracket connection. <span class="photo-credit">Photo courtesy of BrickCycleAlice.</span></figcaption>
-  </figure>
   <figure>
     <img class="doc-figure" src="https://assets.basically.website/sorter-parts/img-4207-full-ccd9635abfe0.jpg" alt="Piece D held against the bracket with a tape measure alongside, measuring from the bottom before the collar screws are tightened">
     <figcaption>Measuring piece D from the bottom before the collar screws are tightened down. <span class="photo-credit">Photo courtesy of BrickCycleAlice.</span></figcaption>
@@ -148,6 +144,11 @@ The two layers are now one rigid unit and their spacing is set by the bracket po
 The bottom layer does not get an External bracket — bottom vertical or an External bracket — cover. It gets an **External bracket — foot cover** instead, one per corner, which is the single printed part that replaces both of them. It is shorter than the pair it replaces, on purpose, so the extrusion stands out past it far enough for the foot connector in step 4.
 
 The foot cover fastens the same way the bottom vertical it replaces would: 2 {% include fastener.html size="M5" variant="socket-button" length="16" %} screws through its outer holes into the External bracket — side. Mount it before the extrusion goes in, at the point in step 2 where the corner is still open.
+
+<figure class="single-figure">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-parts/img-4215-crop1-full-d1ae19d41e44.jpg" alt="Close-up of the foot cover bolted to the External bracket — side, with the two foot-cover screws and the extrusion mounting screws visible">
+  <figcaption>The foot cover to External bracket connection, with the extrusion socket open at the top. <cite>Photo courtesy of BrickCycleAlice.</cite></figcaption>
+</figure>
 
 The second layer's corners are ordinary, exactly as in [regular layers]({{ '/hardware/assembly/distribution/bin-frame/regular-layers/' | relative_url }}) step 1: an External bracket — bottom vertical slid onto piece D with its angles aligned at the bottom, 2 {% include fastener.html size="M5" variant="socket-button" length="16" %} screws through its outer holes.
 

@@ -870,7 +870,11 @@ class Positioning(BaseState):
         # candidate left, this raises the bin-full incident instead of
         # spilling the category into another bin.
         full_matching: Optional[tuple[BinAddress, int, int]] = None
+        full_role: Optional[str] = None
         first_unassigned: Optional[tuple[BinAddress, "Bin"]] = None
+        # First free bin per layer role: a full set bin takes a second bin
+        # from its own row (sets below, side sorting above) before it pauses.
+        free_by_role: dict[str, tuple[BinAddress, "Bin"]] = {}
         # Least-loaded shared-bin candidate, used only when every bin is
         # already assigned and multi-category bins are enabled: (num_categories,
         # piece_count, address, bin). Picking the bin with the fewest categories
@@ -898,6 +902,7 @@ class Positioning(BaseState):
 
             has_usable_layers = True
             max_per_bin = getattr(layer, "max_pieces_per_bin", None)
+            layer_role = getattr(layer, "role", None) or "primary"
             for section_idx, section in enumerate(layer.sections):
                 if not getattr(section, "enabled", True):
                     skipped.append(f"layer{layer_idx}.section{section_idx}=disabled")
@@ -917,12 +922,15 @@ class Positioning(BaseState):
                             continue
                         if full_matching is None:
                             full_matching = (address, count, int(max_per_bin))
+                            full_role = layer_role
                     if b.category_ids:
                         bins_with_cats += 1
                     if is_full:
                         full_bins += 1
                     if not b.category_ids and first_unassigned is None:
                         first_unassigned = (address, b)
+                    if not b.category_ids and layer_role not in free_by_role:
+                        free_by_role[layer_role] = (address, b)
                     if (
                         category_id != MISC_CATEGORY
                         and b.category_ids
@@ -958,6 +966,17 @@ class Positioning(BaseState):
         # The category's only bin(s) are full: hold the piece behind the
         # bin-full incident. When that incident kind is switched off the
         # legacy behaviour below (spill into a fresh/shared bin) applies.
+        if full_matching is not None and category_id != MISC_CATEGORY and full_role in free_by_role:
+            address, b = free_by_role[full_role]
+            b.category_ids = [category_id]
+            setBinCategories(extractCategories(self.layout))
+            self.logger.info(
+                f"Positioning: bin for {self.sorting_profile.categoryLabel(category_id)} is full — "
+                f"added a second bin at layer={address.layer_index}, section={address.section_index}, "
+                f"bin={address.bin_index}"
+            )
+            return address, True
+
         if full_matching is not None:
             address, count, limit = full_matching
             if publish_bin_full_incident(

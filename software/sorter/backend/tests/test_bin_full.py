@@ -351,3 +351,29 @@ class BinFullTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class OverflowBinTests(BinFullTests):
+    def test_full_set_bin_takes_a_free_bin_of_its_own_row_before_pausing(self) -> None:
+        record_piece_distribution(_piece("p1"))
+        free = BinSection(bins=[Bin(size=BinSize.MEDIUM, category_ids=[])])
+        other_row = BinSection(bins=[Bin(size=BinSize.MEDIUM, category_ids=[])])
+        layout = DistributionLayout(layers=[
+            Layer(sections=[BinSection(bins=[Bin(size=BinSize.MEDIUM, category_ids=["cat_a"])]), free], max_pieces_per_bin=1),
+            Layer(sections=[other_row], max_pieces_per_bin=None, role="secondary"),
+        ])
+        servo = SimpleNamespace(available=True, stopped=True, isClosed=lambda: True, isOpen=lambda: False, open=MagicMock(), close=MagicMock())
+        shared = SharedVariables(gc=self.gc, bus=None)
+        shared.transport = SimpleNamespace(getPieceForDistributionPositioning=lambda: KnownObject(part_id="3001", color_id="5", classification_status=ClassificationStatus.classified))
+        chute = MagicMock(spec=Chute)
+        chute.isBinReachable = MagicMock(return_value=True)
+        positioning = Positioning(
+            irl=SimpleNamespace(servos=[servo, servo]), gc=self.gc, shared=shared, chute=chute,
+            layout=layout, sorting_profile=_Profile(), event_queue=queue.Queue(),
+        )
+        with patch.object(Positioning, "_selectDoor", return_value=True), patch.object(Positioning, "_startChuteMove"):
+            positioning.step()
+        self.assertEqual(["cat_a"], layout.layers[0].sections[1].bins[0].category_ids, "second bin in the same row")
+        self.assertEqual([], layout.layers[1].sections[0].bins[0].category_ids, "other row untouched")
+        self.assertIsNone(self.runtime_stats.activeIncident())
+        self.assertTrue(self.cmd_queue.empty())

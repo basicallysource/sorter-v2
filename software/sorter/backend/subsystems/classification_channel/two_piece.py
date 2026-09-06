@@ -401,7 +401,8 @@ class TwoPieceClassificationChannel(Rev01BaseState):
         self._align_checked = False
         self._align_attempts = 0
         self._align_target_deg: Optional[float] = None
-        self._align_move_wall_time = 0.0  # time.time() of the last alignment turn (frames carry wall time)
+        self._align_move_wall_time = 0.0  # time.time() of the last alignment turn
+        self._align_frame_ts = 0.0  # timestamp (frame clock) of the frame behind the last measurement
         self._phase = _Phase.WAITING
         self._eject_target: Optional[_TrackedPiece] = None
         self._stage_target: Optional[_TrackedPiece] = None
@@ -1248,8 +1249,12 @@ class TwoPieceClassificationChannel(Rev01BaseState):
             if raw is None:
                 return False
             frame = raw[1]
-            if float(getattr(frame, "timestamp", wall_now)) < self._align_move_wall_time + _ALIGN_SETTLE_S:
-                return False  # frame predates the end of the last turn
+            frame_ts = float(getattr(frame, "timestamp", 0.0) or 0.0)
+            # Frame clock agnostic: a fresh look needs a frame at least a settle
+            # period newer than the one behind the previous look.
+            if self._align_frame_ts and frame_ts - self._align_frame_ts < _ALIGN_SETTLE_S:
+                return False
+            self._align_frame_ts = frame_ts
             self._align_checked = True  # one look per platter move
             if self._align_target_deg is None:
                 from blob_manager import getChannelPolygons
@@ -1276,12 +1281,18 @@ class TwoPieceClassificationChannel(Rev01BaseState):
         move = wallAlignmentMove(
             phase.sector_offset_deg, self._align_target_deg, holding, float(getattr(cfg, "wall_align_tolerance_deg", 3.0))
         )
+        walls = ", ".join(f"{a:.0f}" for a in phase.wall_angles_deg)
         if move is None:
+            self.logger.info(
+                f"{LOG_TAG} wall align: walls at {phase.sector_offset_deg:.1f}° (mod 72) [{walls}] — aligned, "
+                f"frame age {wall_now - frame_ts:.1f}s"
+            )
             return False
         self._align_attempts += 1
         self._align_move_wall_time = wall_now
         self.logger.info(
-            f"{LOG_TAG} wall align: walls at {phase.sector_offset_deg:.1f}° (mod 72), drop edge at "
+            f"{LOG_TAG} wall align: walls at {phase.sector_offset_deg:.1f}° (mod 72) [{walls}] residual "
+            f"{(phase.max_residual_deg or 0.0):.1f}°, frame age {wall_now - frame_ts:.1f}s, drop edge at "
             f"{self._align_target_deg:.1f}° -> turning {move:+.1f}° ({self._align_attempts}/{_ALIGN_ATTEMPTS})"
         )
         return self.startOutputMove(C4_TRAVEL_SIGN * move, cfg.precise_converge_speed_usteps_per_s)

@@ -436,6 +436,85 @@
 					"bearing-holder-right"
 				]
 			}
+		},
+		{
+			"id": "count-bins-and-funnels-in-the-tree",
+			"name": "Count the bins and funnels in the machine tree",
+			"priority": "P3",
+			"description": "The five bin parts and the two funnels are in no assembly, so the machine tree rolls them up as 0 and the Machine assembly page shows a machine with no bins in it. The 3D printed parts tab counts them correctly from their own quantities, so nothing anybody prints or buys is wrong, and neither part takes a fastener, so no hardware total is affected. The fix is not a data edit. Both are variant_group parts chosen per layer (third or half), and a tree line resolves its quantity from lineQty(line, layers), which knows the layer count and nothing else. Placing them needs a way for a line to express a per-layer variant, and a decision about what a mixed stack of third and half layers means to a node that is instantiated per layer. Found 2026-09-05 while reconciling the tree against the printed-parts and framing models, and deliberately left out of #545 and #561.",
+			"targets": {
+				"parts": [
+					"bin-half-left",
+					"bin-half-right",
+					"bin-third-left",
+					"bin-third-center",
+					"bin-third-rightback",
+					"funnel-half",
+					"funnel-third"
+				],
+				"assemblies": [
+					"layer",
+					"bottom-layer",
+					"chute"
+				]
+			}
+		},
+		{
+			"id": "delete-unused-m5-shcs-tbd-placeholder",
+			"name": "Delete the unused M5 socket/button head length-TBD placeholder",
+			"priority": "P4",
+			"condition": "retired",
+			"description": "This placeholder screw is not used anywhere in the machine. It stood in for an unmeasured M5 joint -- first the three electronics mounts that bolt to the frame (resolved to scr-m5-12-shcs and scr-m5-16-shcs in PR #428), then the two screws fastening the Chute stepper support block, which was removed from the machine on 2026-08-31 (sorter-v2#489, sorter-v2#483) once the NEMA 23 chute stepper mount was confirmed to work without it. Its length was never measured. It should be deleted outright, but a minted part id has to stay resolvable once it exists, and the catalog's own consistency check refuses a change that removes one, so deleting it needs that check overridden by someone who can make that call, not an edit from here. Tracked as sorter-v2 issue #565, and it belongs with #453 and #454.",
+			"targets": {
+				"hardware": [
+					"scr-m5-shcs-tbd"
+				]
+			}
+		},
+		{
+			"id": "delete-unused-m2-8-shcs-screw",
+			"name": "Delete the unused M2 x 8 mm socket/button head screw",
+			"priority": "P4",
+			"condition": "retired",
+			"description": "This screw reaches no bill of materials. Its only reference is the Camera extension assembly, which has been unused since 2026-09-02, when the Camera lamp replaced the light post, the overhead camera mount, the classification dome and the camera & LED insert. It self-tapped the IMX415 classification camera board onto the camera extension's printed post, 4 per module. Note the assembly goes with the screw: deleting the screw on its own would leave a listed assembly asking for a part that no longer exists. It should be deleted outright, but a minted part id has to stay resolvable once it exists, and the catalog's own consistency check refuses a change that removes one, so deleting it needs that check overridden by someone who can make that call, not an edit from here. Tracked as sorter-v2 issue #566.",
+			"targets": {
+				"hardware": [
+					"scr-m2-8-shcs"
+				],
+				"assemblies": [
+					"camera-extension-assembly"
+				]
+			}
+		},
+		{
+			"id": "delete-unused-led-cob-50mm",
+			"name": "Delete the unused 50 mm LED COB",
+			"priority": "P4",
+			"condition": "retired",
+			"description": "This COB reaches no bill of materials. Its only reference is the Light post assembly, which has been unused since 2026-09-02, when the Camera lamp replaced it: the lamp carries its own shaded lamp over each C-channel, so there is no post and no COB plate on the current machine. Note the assembly goes with the part. It should be deleted outright, but a minted part id has to stay resolvable once it exists, and the catalog's own consistency check refuses a change that removes one, so deleting it needs that check overridden by someone who can make that call, not an edit from here. Tracked as sorter-v2 issue #567.",
+			"targets": {
+				"hardware": [
+					"led-cob-50mm-24v"
+				],
+				"assemblies": [
+					"light-post-assembly"
+				]
+			}
+		},
+		{
+			"id": "delete-unused-steel-rod",
+			"name": "Delete the unused 3/8 in steel rod stock",
+			"priority": "P4",
+			"condition": "retired",
+			"description": "This rod reaches no bill of materials. Its only reference is the Overhead camera mount, which has been unused since 2026-09-02, when the Camera lamp replaced it. Two per mount, bought as a 4 ft length and cut into the four roughly 1 ft pieces the two camera arms hung from. It is the only stock-material row in the catalog, so it is also the only reason that section appears on the Hardware tab. Note the assembly goes with the part. It should be deleted outright, but a minted part id has to stay resolvable once it exists, and the catalog's own consistency check refuses a change that removes one, so deleting it needs that check overridden by someone who can make that call, not an edit from here. Tracked as sorter-v2 issue #568.",
+			"targets": {
+				"hardware": [
+					"rod-steel-3-8"
+				],
+				"assemblies": [
+					"camera-mount"
+				]
+			}
 		}
 	],
 	"folders": [
@@ -2763,8 +2842,8 @@
 		},
 		{
 			"id": "bottom-layer",
-			"uid": "sqsi",
-			"version": "1",
+			"uid": "rfl2",
+			"version": "2",
 			"name": "Bottom distribution layer",
 			"description": "The lowest bin layer. Identical to a distribution layer except that its frame carries foot covers instead of bracket covers and bottom verticals, and the bottom interface hangs underneath it.",
 			"docs": "/hardware/assembly/distribution/bin-frame/bottom-two-layers/",
@@ -2786,8 +2865,16 @@
 					"qty": 6
 				},
 				{
+					"part": "ext-2020-d",
+					"qty": 6
+				},
+				{
 					"part": "scr-m5-16-shcs",
 					"qty": 36
+				},
+				{
+					"part": "tnut-m5-2020",
+					"qty": 24
 				}
 			],
 			"connections": [
@@ -2809,12 +2896,54 @@
 					"through_mm": 12.8,
 					"note": "Mirror of the left retainer's joint, same bore and same screw."
 				}
+			],
+			"versions": [
+				{
+					"version": "1",
+					"uid": "sqsi",
+					"message": "As recorded before the first stamped change.",
+					"lines": [
+						{
+							"assembly": "hex-frame-bottom",
+							"qty": 1,
+							"uid": "5l36"
+						},
+						{
+							"assembly": "chute",
+							"qty": 1,
+							"uid": "axlb"
+						},
+						{
+							"part": "bin-retainer-left",
+							"qty": 6,
+							"uid": "hqz0"
+						},
+						{
+							"part": "bin-retainer-right",
+							"qty": 6,
+							"uid": "ybpv"
+						},
+						{
+							"part": "scr-m5-16-shcs",
+							"qty": 36,
+							"uid": "2e0s"
+						}
+					]
+				},
+				{
+					"version": "2",
+					"uid": "rfl2",
+					"date": "2026-09-06",
+					"message": "The 24 bin retainer T-nuts and the 6 piece D foot extensions this layer was created without. The T-nuts are the same 24 the layer node carries, one per retainer screw; this node was added after them and never got a line, so the machine read 164 T-nuts where it should read 188 at 5 layers. Piece D replaces this layer's piece C and was reaching the Hardware tab from an old BOM-sheet hand count rather than from the tree. No physical change.",
+					"breaking": false,
+					"commit": "970249dd"
+				}
 			]
 		},
 		{
 			"id": "layer",
-			"uid": "mnpn",
-			"version": "4",
+			"uid": "su1o",
+			"version": "5",
 			"name": "Distribution layer",
 			"description": "One distribution layer between the interfaces: frame, chute, bin retainers, funnels, bins.",
 			"docs": "/hardware/assembly/distribution/bin-frame/regular-layers/",
@@ -2833,6 +2962,10 @@
 				},
 				{
 					"part": "bin-retainer-right",
+					"qty": 6
+				},
+				{
+					"part": "ext-2020-c",
 					"qty": 6
 				},
 				{
@@ -2953,7 +3086,47 @@
 					"uid": "mnpn",
 					"date": "2026-09-05",
 					"message": "Restored tnut-m5-2020 qty 24 for the bin retainers. v2 dropped them here as \"the hex frame's own pre-installed T-nuts\", and hex-frame v2 then dropped the same 24 on 2026-08-31 as part of the Inner/Outer restructure, so they fell out of the machine entirely and no hardware list has carried them since. They belong on this node, alongside the 24 scr-m5-16-shcs that go through them. No physical change.",
-					"breaking": false
+					"breaking": false,
+					"lines": [
+						{
+							"assembly": "layer-frame",
+							"qty": 1,
+							"uid": "yq92"
+						},
+						{
+							"assembly": "chute",
+							"qty": 1,
+							"uid": "axlb"
+						},
+						{
+							"part": "bin-retainer-left",
+							"qty": 6,
+							"uid": "hqz0"
+						},
+						{
+							"part": "bin-retainer-right",
+							"qty": 6,
+							"uid": "ybpv"
+						},
+						{
+							"part": "scr-m5-16-shcs",
+							"qty": 36,
+							"uid": "2e0s"
+						},
+						{
+							"part": "tnut-m5-2020",
+							"qty": 24,
+							"uid": "bpwm"
+						}
+					]
+				},
+				{
+					"version": "5",
+					"uid": "su1o",
+					"date": "2026-09-06",
+					"message": "Piece C (Layer vertical support), 6 per layer. The layer carries the extrusion that spans up to the ring above it, so 6 on a node that runs non-bottom-layers times is the framing cut list's 6(n-1) exactly. It was in no assembly, so the Hardware tab had nothing to count it from and rendered qty TBD. No physical change.",
+					"breaking": false,
+					"commit": "970249dd"
 				}
 			]
 		},
@@ -4206,8 +4379,8 @@
 		},
 		{
 			"id": "interface-bracket-mount",
-			"uid": "pnl9",
-			"version": "2",
+			"uid": "so5r",
+			"version": "3",
 			"name": "Interface bracket",
 			"description": "One interface bracket with its spacer, bolted onto its vertical extrusion (piece F) and its spoke extrusion (piece E). 6 per interface.",
 			"docs": "/hardware/assembly/distribution/top-interface/",
@@ -4218,6 +4391,14 @@
 				},
 				{
 					"part": "interface-spacer",
+					"qty": 1
+				},
+				{
+					"part": "ext-2020-e",
+					"qty": 1
+				},
+				{
+					"part": "ext-2020-f",
 					"qty": 1
 				},
 				{
@@ -4270,7 +4451,47 @@
 					"uid": "pnl9",
 					"date": "2026-08-29",
 					"message": "Added the piece-E attachment (4 scr-m5-16-shcs into 4 tnut-m5-2020, step 3) and the rib-securing tnut-m5-2020 (step 5), neither previously modeled -- only step 13's piece-F mount (scr-m5-20-shcs + 4 T-nuts) was here before.",
-					"commit": "a2c66436"
+					"commit": "a2c66436",
+					"lines": [
+						{
+							"part": "interface-bracket",
+							"qty": 1,
+							"uid": "jk82"
+						},
+						{
+							"part": "interface-spacer",
+							"qty": 1,
+							"uid": "bfoc"
+						},
+						{
+							"part": "scr-m5-16-shcs",
+							"qty": 4,
+							"uid": "2e0s"
+						},
+						{
+							"part": "scr-m5-20-shcs",
+							"qty": 4,
+							"uid": "e4hi"
+						},
+						{
+							"part": "scr-m5-8-cs",
+							"qty": 1,
+							"uid": "mqh4"
+						},
+						{
+							"part": "tnut-m5-2020",
+							"qty": 9,
+							"uid": "bpwm"
+						}
+					]
+				},
+				{
+					"version": "3",
+					"uid": "so5r",
+					"date": "2026-09-06",
+					"message": "Pieces E and F, the interface spoke and the interface vertical support this bracket is bolted onto, 1 each. The node's own description already named both; neither was in any assembly, so both read qty TBD on the Hardware tab while the framing cut list knew them. 6 of each per machine, which is what framing.ts says. No physical change.",
+					"breaking": false,
+					"commit": "970249dd"
 				}
 			]
 		},
@@ -19598,10 +19819,10 @@
 			},
 			"name": "M2 \u00d7 8 mm socket/button head",
 			"category": "Screws",
-			"description": "Self-taps the IMX415 classification camera board to the camera extension's printed post. 4 per module, no insert. May also fit the OV9732 overhead camera mount once that gets a real bracket (sorter-v2#426), not confirmed.",
+			"description": "Self-taps the IMX415 classification camera board to the camera extension's printed post. 4 per module, no insert. May also fit the OV9732 overhead camera mount once that gets a real bracket (sorter-v2#426), not confirmed. Unused as of 2026-09-02: its only assembly, the Camera extension, was retired when the Camera lamp replaced that whole path. Do not add a new joint to this entry; deletion is tracked as sorter-v2 issue #566.",
 			"note": null,
 			"created_at": "2026-08-25",
-			"updated_at": "2026-08-25",
+			"updated_at": "2026-09-06",
 			"attributes": [
 				{
 					"label": "Thread",
@@ -20379,9 +20600,9 @@
 			"name": "M5 socket/button head, length TBD",
 			"category": "Screws",
 			"description": "Placeholder for an unmeasured M5 joint. Originally the three electronics mounts that bolt to the frame (resolved to scr-m5-12-shcs / scr-m5-16-shcs in PR #428) and, since then, the two screws fastening the Chute stepper support block. Unused as of 2026-08-31: that block was removed from the machine (sorter-v2#489, sorter-v2#483) after Spencer confirmed the NEMA 23 chute stepper mount works without it, so its two screws are gone from the interface assembly too. The length was never measured.",
-			"note": "Unused as of 2026-08-31. Kept as an unused entry rather than deleted, since a minted uid has to stay resolvable (see parts-calculator's own VERSIONING.md). Do not re-add without a new joint to point it at, the chute stepper support block it was last used for is gone.",
+			"note": "Unused as of 2026-08-31. Kept as an unused entry rather than deleted, since a minted uid has to stay resolvable (see parts-calculator's own VERSIONING.md). Do not re-add without a new joint to point it at, the chute stepper support block it was last used for is gone. Deletion is tracked as sorter-v2 issue #565.",
 			"created_at": "2026-07-18",
-			"updated_at": "2026-08-31",
+			"updated_at": "2026-09-06",
 			"attributes": [
 				{
 					"label": "Thread",
@@ -20546,10 +20767,10 @@
 			},
 			"name": "Steel rod, 3/8 in \u2014 4 ft stock",
 			"category": "Stock material",
-			"description": "Bought as a length and cut down. One 4 ft rod yields all four ~1 ft pieces the two overhead camera arms hang from.",
+			"description": "Bought as a length and cut down. One 4 ft rod yields all four ~1 ft pieces the two overhead camera arms hang from. Unused as of 2026-09-02: its only assembly, the Overhead camera mount, was retired when the Camera lamp replaced it. Do not add a new joint to this entry; deletion is tracked as sorter-v2 issue #568.",
 			"note": null,
 			"created_at": "2026-07-18",
-			"updated_at": "2026-07-18",
+			"updated_at": "2026-09-06",
 			"attributes": [
 				{
 					"label": "Diameter",
@@ -22133,10 +22354,10 @@
 			},
 			"name": "50mm LED COB - 24v",
 			"category": "Wire harness",
-			"description": "Lights the feeder C-channels. One per light post.",
+			"description": "Lights the feeder C-channels. One per light post. Unused as of 2026-09-02: its only assembly, the Light post, was retired when the Camera lamp replaced it. Do not add a new joint to this entry; deletion is tracked as sorter-v2 issue #567.",
 			"note": null,
 			"created_at": "2026-07-18",
-			"updated_at": "2026-07-18",
+			"updated_at": "2026-09-06",
 			"attributes": [],
 			"sheet_qty": null,
 			"sheet_qty_text": null,
@@ -22553,11 +22774,9 @@
 			"description": "2020 aluminum extrusion, cut to 231 mm (piece D). Replaces piece C on the bottom two layers: one D per corner runs from the caster up through the bottom layer to the second, so 6 per machine.",
 			"note": null,
 			"created_at": "2026-08-21",
-			"updated_at": "2026-08-21",
+			"updated_at": "2026-09-06",
 			"attributes": [],
-			"sheet_qty": {
-				"per_machine": 6
-			},
+			"sheet_qty": null,
 			"sheet_qty_text": null,
 			"stock": null,
 			"sourcing": null,
@@ -22568,7 +22787,7 @@
 			"image": "https://assets.basically.website/sorter-parts/extrusion-extrusion-2020-full-01bd50e7eac0.png"
 		},
 		{
-			"id": "extrusion-e",
+			"id": "ext-2020-e",
 			"uid": "rwuw",
 			"kind": "cots",
 			"cots": {
@@ -22577,10 +22796,10 @@
 			},
 			"name": "Interface spoke, long (E)",
 			"category": "Aluminum extrusion (2020)",
-			"description": "2020 aluminum extrusion, cut to 238 mm (piece E).",
+			"description": "2020 aluminum extrusion, cut to 238 mm (piece E). Formerly `extrusion-e`; same part, same `/u/rwuw` link.",
 			"note": null,
 			"created_at": "2026-08-21",
-			"updated_at": "2026-08-21",
+			"updated_at": "2026-09-06",
 			"attributes": [],
 			"sheet_qty": null,
 			"sheet_qty_text": null,
@@ -22593,7 +22812,7 @@
 			"image": "https://assets.basically.website/sorter-parts/top-interface-extrusion-e-full-d8fdcc54b309.png"
 		},
 		{
-			"id": "extrusion-f",
+			"id": "ext-2020-f",
 			"uid": "dfbb",
 			"kind": "cots",
 			"cots": {
@@ -22602,10 +22821,10 @@
 			},
 			"name": "Interface vertical support (F)",
 			"category": "Aluminum extrusion (2020)",
-			"description": "2020 aluminum extrusion, cut to 274 mm (piece F).",
+			"description": "2020 aluminum extrusion, cut to 274 mm (piece F). Formerly `extrusion-f`; same part, same `/u/dfbb` link.",
 			"note": null,
 			"created_at": "2026-08-21",
-			"updated_at": "2026-08-21",
+			"updated_at": "2026-09-06",
 			"attributes": [],
 			"sheet_qty": null,
 			"sheet_qty_text": null,

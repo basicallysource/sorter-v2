@@ -197,8 +197,10 @@ Both hexagons closed, six casters on, and the two layers held together as one un
 
 These two layers are the bottom of the bin frame, not a finished assembly on their own. What follows is fastening the rest of the frame onto them, in this order:
 
-1. **Stack the remaining layers on top.** Build N−2 [regular layers]({{ '/hardware/assembly/distribution/bin-frame/regular-layers/' | relative_url }}) for an N-layer machine and join each one down onto the layer below it. [Regular layers, step 3]({{ '/hardware/assembly/distribution/bin-frame/regular-layers/' | relative_url }}#step-3) is that joint, and it is the same joint every time, including where the first regular layer lands on the second of these two.
-2. **Cap the stack with the [top interface]({{ '/hardware/assembly/distribution/top-interface/' | relative_url }})**, which takes one of the hex frames you built at the start. [Top interface, step 14]({{ '/hardware/assembly/distribution/top-interface/' | relative_url }}#step-14) is how it lands on the top layer.
-3. **Hang a [chute]({{ '/hardware/assembly/distribution/chute/' | relative_url }}) in every layer**, these two included.
+<ol class="numbered-steps">
+  <li><strong>Stack the remaining layers on top.</strong> Build N−2 <a href="{{ '/hardware/assembly/distribution/bin-frame/regular-layers/' | relative_url }}">regular layers</a> for an N-layer machine and join each one down onto the layer below it. <a href="{{ '/hardware/assembly/distribution/bin-frame/regular-layers/' | relative_url }}#step-3">Regular layers, step 3</a> is that joint, and it is the same joint every time, including where the first regular layer lands on the second of these two.</li>
+  <li><strong>Cap the stack with the <a href="{{ '/hardware/assembly/distribution/top-interface/' | relative_url }}">top interface</a></strong>, which takes one of the hex frames you built at the start. <a href="{{ '/hardware/assembly/distribution/top-interface/' | relative_url }}#step-14">Top interface, step 14</a> is how it lands on the top layer.</li>
+  <li><strong>Hang a <a href="{{ '/hardware/assembly/distribution/chute/' | relative_url }}">chute</a> in every layer</strong>, these two included.</li>
+</ol>
 
 The [Bin frame]({{ '/hardware/assembly/distribution/bin-frame/' | relative_url }}) page carries that order for the whole stack, and is the place to go back to when you have finished here.

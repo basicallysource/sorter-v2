@@ -170,6 +170,17 @@ Six of the core's 18 inserts are for this module, and the screws for them are in
 
 The cover screws are 8 mm because that reaches 3.00 mm into the core's blind 5.70 mm insert, measured off the STLs. The arms' 12 mm is inferred by elimination rather than measured, since no STL exists for that joint, so check the fit before committing.
 
+<div class="img-row">
+  <figure>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-core-door-module-side-4-full-f61ab38ed984.png" alt="Render of the servo side of the chute core with four heat inserts circled in red">
+    <figcaption>The long side the servo sits on: two inserts for that side's bearing cover, two for the servo bracket arms. <cite>Render: Balloon.</cite></figcaption>
+  </figure>
+  <figure>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-core-door-module-side-2-full-c9afd2f336aa.png" alt="Render of the other long side of the chute core with two heat inserts circled in red">
+    <figcaption>The other long side: two inserts, both for the second bearing cover. <cite>Render: Balloon.</cite></figcaption>
+  </figure>
+</div>
+
 The servo output then couples to the door through the two-piece servo adapter, servo side and flap side.
 
 <div class="callout callout-warning">

@@ -162,11 +162,6 @@ Bolt a **2020 M6 foot connector** into the open bottom end of each piece D. The 
 
 Screw a **swivel stem caster (M6 × 15 mm)** into the connector's M6 thread. The casters have brakes; leave them on while you build.
 
-<figure class="single-figure">
-  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-bottom-two-layers-frame-on-casters-w1600-6454aa70d746.jpg" alt="The bottom of a built machine: two bin-frame layers on six swivel casters, with the extrusion legs running up past the bottom frame into the second, and the start of a third layer's hexagon ring above them">
-  <figcaption>All six casters on, on another build. The hexagon ring at the top is the next layer starting, not part of these two, so this is about two and a half layers of machine. <cite>Photo courtesy of Christoph in the basically Discord.</cite></figcaption>
-</figure>
-
 {% include step.html n="5" title="Add the bin retainers" %}
 
 Both layers take a full set of retainers, so do **[Bin retainers]({{ '/hardware/assembly/distribution/bin-frame/bin-retainers/' | relative_url }}) twice**, once for each hexagon. That page's parts list is per layer; double every quantity on it here.

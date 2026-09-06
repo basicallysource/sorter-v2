@@ -157,6 +157,11 @@ Push an External bracket — cover onto each of the six External bracket — sid
 
 This is the easy moment to do it. Once a vertical extrusion is standing in a collar, the cover is difficult to slide on past it.
 
+<figure class="single-figure">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-hex-frame-cover-fitted-on-collar-w1600-3fea0fa812e7.jpg" alt="A hex frame corner with the cover pushed onto the External bracket side, the two closing into a round collar whose square socket is empty, no vertical extrusion standing in it">
+  <figcaption>The collar closed, cover pushed on. The square socket stays empty at this stage; a vertical extrusion stands in it later, on whichever page turns this frame into a layer. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+</figure>
+
 <div class="callout">
   <p><strong>Building the bottom layer's frame?</strong> That one takes no External bracket — covers. <a href="{{ '/hardware/assembly/distribution/bin-frame/bottom-two-layers/' | relative_url }}">Bottom two layers</a> fits it with External bracket — foot covers instead, one printed part in place of the cover and the External bracket — bottom vertical together. Every other frame takes all six, the top interface's included.</p>
 </div>

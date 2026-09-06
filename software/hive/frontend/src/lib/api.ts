@@ -743,6 +743,9 @@ export interface SetInstanceSummary {
 	total_found: number;
 	pct: number;
 	progress_updated_at: string | null;
+	rate_per_hour: number | null;
+	eta_hours: number | null;
+	plateau: boolean;
 }
 
 export interface SetInstancePart {

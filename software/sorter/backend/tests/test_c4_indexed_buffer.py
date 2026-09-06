@@ -327,3 +327,39 @@ def test_new_phase_must_match_command_before_followup_motion(monkeypatch):
         ok=True, sector_offset_deg=20, wall_angles_deg=[20, 92, 164, 236, 308], center_x=500, center_y=500))
     assert not IndexedBufferClassificationChannel._reference(rig.h, rig.service, rig.state, rig.now)
     assert "expected divider phase" in rig.h.phaseName()
+
+
+def test_landing_arc_from_config_defines_the_landing_pocket_and_aligns_when_it_straddles(monkeypatch):
+    from subsystems.classification_channel.indexed_buffer import landing_alignment_move, landing_angles
+    rig = Rig(monkeypatch)
+    rig.h.ctx.config.landing_arc_start_deg = 104.0
+    rig.h.ctx.config.landing_arc_end_deg = 148.0
+    angles = landing_angles(rig.channel, rig.h.ctx.config)
+    assert angles[0] == 104.0 and angles[-1] == 148.0
+    # phase 0: dividers at 72 and 144 -> the arc straddles 144; a 9° forward turn
+    # puts the 72° divider at 81 (>= 5 short of 104) and the next at 153 (>= 5 past 148).
+    assert landing_alignment_move(rig.h._geometry, angles) == 9.0
+    assert rig.h._landingPocket(rig.service) is None
+    rig.tick(1.1)
+    assert rig.moves == [9]
+    assert not rig.shared.classification_ready
+    rig.finish()
+    assert rig.h._geometry.phase == 9
+    assert rig.h._landingPocket(rig.service) == 1
+    assert rig.shared.classification_ready
+
+
+def test_landing_arc_wider_than_a_pocket_blocks_with_a_message(monkeypatch):
+    from subsystems.classification_channel.indexed_buffer import landing_alignment_move, landing_angles
+    rig = Rig(monkeypatch)
+    rig.h.ctx.config.landing_arc_start_deg = 82.0
+    rig.h.ctx.config.landing_arc_end_deg = 205.0   # the whole drop zone
+    assert landing_alignment_move(rig.h._geometry, landing_angles(rig.channel, rig.h.ctx.config)) is None
+    rig.tick(1.1)
+    assert rig.moves == [] and "wider than a pocket" in rig.h._blocked
+
+
+def test_unmeasured_landing_arc_falls_back_to_the_drop_sections(monkeypatch):
+    from subsystems.classification_channel.indexed_buffer import landing_angles
+    rig = Rig(monkeypatch)
+    assert sorted(landing_angles(rig.channel, rig.h.ctx.config)) == list(range(32, 41))

@@ -65,8 +65,8 @@ Slot piece C (Layer vertical support) of aluminum extrusion between the External
 
 <div class="img-row">
   <figure>
-    <img src="https://assets.basically.website/sorter-docs/assembly-regular-layers-vertical-bottom-bracket-w1600-a45e5b572247.png" alt="Close-up of an External bracket — bottom vertical at the base of a corner vertical extrusion">
-    <figcaption><cite>Photo: zed0.</cite></figcaption>
+    <img src="https://assets.basically.website/sorter-docs/assembly-regular-layers-extrusion-below-bracket-top-w1600-d4f8bd1028e9.jpg" alt="Looking down onto the top of an External bracket — bottom vertical, with the end of piece C visible in the square socket sitting a few millimetres below the bracket's top face">
+    <figcaption>Piece C sitting about 3 mm below the top of the bracket, which is what it should look like. <cite>Photo: BrickCycleAlice.</cite></figcaption>
   </figure>
   <figure>
     <img src="https://assets.basically.website/sorter-docs/assembly-regular-layers-verticals-top-w1600-400576ddb1b6.png" alt="Top view of the layer with vertical supports and bottom brackets at every corner">

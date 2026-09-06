@@ -144,8 +144,8 @@ The servo adapter takes no inserts, but assemble it here anyway, before the brac
     <p>That leaves 5.00 mm of pocket above it, and the bearing cover's raised rim is 5.00 mm tall and Ø24.6 to Ø26.6 across. So the rim drops into the same pocket on top of the bearing, narrow enough to clear the pocket wall and wide enough to land on the outer race rather than the inner one, and the cover's screws clamp the stack. If the bearing sits proud of the face, it has not gone all the way down and the cover will not pull flat.</p>
   </div>
   <figure class="prep-item-figure">
-    <img class="doc-figure" src="https://assets.basically.website/sorter-parts/bearing-into-holder-v-full-3bfe04d180fe.png" alt="Two renders of the left bearing holder, one above the other: on top a 6704-2RS bearing lined up with the mouth of the holder's bore, below it the same bearing pushed down to the bottom of the pocket">
-    <figcaption>Lined up with the bore, then seated on the step at the bottom of it. The left holder is shown; the right one takes its bearing exactly the same way. <cite>Rendered from the holder's own geometry, with the bearing drawn to its 27 × 20 × 4 mm catalogue size. Not from a build. Render: Balloon.</cite></figcaption>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-parts/bearing-into-holder-blue-full-8cb4f2b8771b.png" alt="Two renders of the left bearing holder, one above the other: on top a 6704-2RS bearing, coloured blue, lined up with the mouth of the holder's bore, below it the same blue bearing pushed down to the bottom of the pocket">
+    <figcaption>Lined up with the bore, then seated on the step at the bottom of it. The left holder is shown; the right one takes its bearing exactly the same way. <cite>The bearing is coloured blue to pick it out. Rendered from the holder's own geometry, with the bearing drawn to its 27 × 20 × 4 mm catalogue size. Not from a build. Render: Balloon.</cite></figcaption>
   </figure>
 </div>
 
@@ -187,8 +187,8 @@ The shaft is captured at both ends once this is together, so there is only one o
 3. **Put a cover on each holder**, 3 {% include fastener.html size="M3" variant="countersunk" length="8" %} each, 6 in total, into the three inserts pressed in step 1. Those are what trap the bearings in their pockets. Each cover has **two further holes that stay empty here** — they take the screws that hold the flap assembly to the chute core in step 5.
 
 <figure>
-  <img class="doc-figure" src="https://assets.basically.website/sorter-parts/bearing-assembly-full-86bac1380e09.png" alt="Two renders, one above the other: on top the chute door with its shaft, the bearing race over the shaft, and the two bearing holders drawn out along the shaft with a bearing in each; below, the same parts pushed together so the holders sit on the ends of the race">
-  <figcaption>The holders, with their bearings, going onto the ends of the shaft and down onto the race. The covers are not shown. <cite>Rendered from the parts' own geometry in assembly position, not from a build. Render: Balloon.</cite></figcaption>
+  <img class="doc-figure" src="https://assets.basically.website/sorter-parts/bearing-assembly-blue-full-1cb33257bd5a.png" alt="Two renders, one above the other: on top the chute door with its shaft, the bearing race over the shaft, and the two bearing holders drawn out along the shaft with a blue bearing in each; below, the same parts pushed together so the holders sit on the ends of the race">
+  <figcaption>The holders, with their bearings in blue, going onto the ends of the shaft and down onto the race. The covers are not shown. <cite>Rendered from the parts' own geometry in assembly position, not from a build. Render: Balloon.</cite></figcaption>
 </figure>
 
 <div class="callout callout-warning">

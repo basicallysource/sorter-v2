@@ -46,7 +46,7 @@ The bottom interface is the Lazy Susan bearing assembly the chute rests and spin
     <p><strong>This assembly has no frame of its own.</strong> It hangs under the <strong>bottom layer's</strong> <a href="{{ '/hardware/assembly/distribution/bin-frame/hex-frame/' | relative_url }}">hex frame</a>, built on <a href="{{ '/hardware/assembly/distribution/bin-frame/bottom-two-layers/' | relative_url }}">bottom two layers</a>, so you don't need an extra one. Step 4 bolts onto that frame's spokes from underneath.</p>
   </div>
   <figure class="prep-item-figure">
-    <img class="doc-figure" src="https://assets.basically.website/sorter-parts/hex-frame-finished-top-down-full-c6abfb4dad6e.jpg" alt="A finished hex frame from above, the alternating grey spoke and teal crossbeam pieces forming the inner ring inside the aluminum outer hexagon">
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-hex-frame-finished-top-down-w1600-a62a42d595ca.jpg" alt="A finished hex frame from above: six printed B/H spokes and their crossbeams forming the inner ring inside the aluminum outer hexagon, with a printed corner bracket at each of the six vertices">
     <figcaption>A finished hex frame. <cite>Photo: BrickCycleAlice.</cite></figcaption>
   </figure>
 </div>

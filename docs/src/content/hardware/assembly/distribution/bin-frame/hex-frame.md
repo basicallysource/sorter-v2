@@ -147,7 +147,7 @@ Slide the final B/H spoke (158mm) in from the top to close the ring, then fit th
 Double-check that every Frame 90° bracket is still fully seated in its slot. A light hammer tap on each bracket, from the inside of the ring toward the outside, helps snug all the connections — use a mallet, or put a cloth between a hammer and the bracket, so you aren't striking the plastic directly.
 
 <figure class="single-figure">
-  <img class="doc-figure" src="https://assets.basically.website/sorter-parts/hex-frame-finished-top-down-full-c6abfb4dad6e.jpg" alt="A finished hex frame from above, the alternating grey spoke and teal crossbeam pieces forming the inner ring inside the aluminum outer hexagon">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-hex-frame-finished-top-down-w1600-a62a42d595ca.jpg" alt="A finished hex frame from above: six printed B/H spokes and their crossbeams forming the inner ring inside the aluminum outer hexagon, with a printed corner bracket at each of the six vertices">
   <figcaption><cite>Photo: BrickCycleAlice.</cite></figcaption>
 </figure>
 

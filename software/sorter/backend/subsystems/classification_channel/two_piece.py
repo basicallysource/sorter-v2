@@ -934,7 +934,9 @@ class TwoPieceClassificationChannel(Rev01BaseState):
                 # piece the camera only saw once the platter turned) would
                 # otherwise sit as an un-shippable head forever. After a grace
                 # period, photograph it at rest instead of sending it to misc blind.
-                if (now - tp.created_at) > _STRAY_CAPTURE_S:
+                # A piece still coded DROP is not a stray: the drop burst owns it
+                # (21:55: a burst interrupted by the eject turn was restarted here).
+                if tp.zone != _ZONE_DROP and (now - tp.created_at) > _STRAY_CAPTURE_S:
                     self._startStrayCapture(tp)
                 return
         if self._placedPiece() is not None:

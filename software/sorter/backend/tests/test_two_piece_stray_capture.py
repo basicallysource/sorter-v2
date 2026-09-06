@@ -92,3 +92,11 @@ def test_stray_without_an_at_rest_frame_drains_to_misc() -> None:
     h._aimChuteForHead(100.0 + _STRAY_MISC_S + 1)
     assert tp.retry_done and tp.result_applied and tp.placed
     assert tp.known_object.classification_status == ClassificationStatus.unknown
+
+
+def test_a_piece_still_in_the_drop_zone_is_not_a_stray() -> None:
+    tp = _stray(now=100.0)
+    tp.zone = 1  # _ZONE_DROP: its in-flight burst was interrupted, the drop capture finishes it
+    h = _handler(tp)
+    h._aimChuteForHead(100.0 + _STRAY_CAPTURE_S + 5)
+    assert not tp.stray and not tp.retry_started

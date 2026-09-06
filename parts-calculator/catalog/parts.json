@@ -8407,7 +8407,7 @@
           "date": "2026-09-05",
           "message": "The screw through the servo bracket's side arm into the chute core is an M3 × 8, not an M3 × 12. Measured off the STL: that ear is 5.00 mm thick, the same as the bearing covers', so an 8 reaches 3.00 mm into the core's blind 5.70 mm insert and a 12 bottoms out in it. The lower arm's ear is 8.40 mm and keeps its 12. One screw moves from the 12 column to the 8; no part changed.",
           "breaking": false,
-          "commit": "1bb47dd9"
+          "commit": null
         }
       ],
       "name": "Chute",

@@ -699,10 +699,10 @@ Attach an External bracket cover to each of the External bracket sides, then fas
 </figure>
 
 <figure class="figure-float-right">
-  <a href="https://assets.basically.website/sorter-docs/assembly-top-interface-joint-section-full-e96f8eb4493c.png" target="_blank" rel="noopener">
-    <img src="https://assets.basically.website/sorter-docs/assembly-top-interface-joint-section-full-e96f8eb4493c.png" alt="Vertical cross-section through one interface corner, showing the interface bracket and spacer in purple, piece F in grey running down into the top layer's bracket in blue">
+  <a href="https://assets.basically.website/sorter-docs/assembly-top-interface-joint-section-v2-full-72644bda3e2d.png" target="_blank" rel="noopener">
+    <img src="https://assets.basically.website/sorter-docs/assembly-top-interface-joint-section-v2-full-72644bda3e2d.png" alt="Vertical cross-section through one interface corner, drawn the right way up: the top plate as a slab across the top, the interface bracket and spacer in purple below it, piece F in grey running down into the top layer's bracket in blue">
   </a>
-  <figcaption>The same corner in section, cut through the centre of the profile. Purple is the interface, blue the top layer's bracket, grey the extrusion. Click to enlarge. The interface parts are not exported in a shared frame with the layer parts, so the part lengths are measured but their heights come from seating each one on the part below it. <cite>Drawn from the part geometry rather than from a build, by Balloon.</cite></figcaption>
+  <figcaption>The same corner in section, cut through the centre of the profile and drawn the right way up, with the top plate on top. On the build itself the whole assembly is upside down at this stage. Purple is the interface, blue the top layer's bracket, grey the extrusion. Click to enlarge. The interface parts are not exported in a shared frame with the layer parts, so the part lengths are measured but their heights come from seating each one on the part below it. <cite>Drawn from the part geometry rather than from a build, by Balloon.</cite></figcaption>
 </figure>
 
 This joint is not the same as the one between two layers, so it is worth naming what is different. There is **no External bracket — bottom vertical and no flange here**, and therefore none of the vertical screws that hold one layer to the next. Piece F is instead gripped at the interface end and clamped at the layer end, and it is sleeved the whole way between them, so no extrusion shows on a finished machine.
@@ -717,7 +717,7 @@ The numbers on the photo and the drawing:
   <li class="key-screw"><strong>Two {% include fastener.html size="M5" variant="socket-button" length="16" %} screws</strong> at the base of that bracket brace it against the extrusion, the same screws and holes a layer's own vertical gets. Nothing else fastens the interface to the layer.</li>
 </ol>
 
-**Piece F does not reach the top of the Interface bracket, and it comes nowhere near the top plate.** How deep it goes is not stated anywhere in the build, but it is fixed at both ends by what has to be screwed: the lower end has to reach past the two screws at the base of the layer's bracket, and the upper end has to cover the bracket's second pair of T-nut screws, whose bosses sit about 90 mm above the bracket's underside. A 274 mm piece cannot do both and also reach the top of a 120 mm bracket. On a built machine it stands about 20 mm past the upper screws and stops about 11 mm short of the top of the bracket. The drawing is made from the part geometry rather than from a build, and its inferred heights seat the extrusion around 12 mm shallower than that.
+**Piece F does not reach the top of the Interface bracket, and it comes nowhere near the top plate.** How deep it goes is not stated anywhere in the build, but it is fixed at both ends by what has to be screwed: the lower end has to reach past the two screws at the base of the layer's bracket, and the upper end has to cover the bracket's second pair of T-nut screws, whose bosses sit about 90 mm above the bracket's underside. A 274 mm piece cannot do both and also reach the top of a 120 mm bracket. On a built machine it stands about 20 mm past the upper screws and stops about 11 mm short of the top of the bracket. The drawing is made from the part geometry rather than from a build, and its inferred heights seat the extrusion around 25 mm shallower than that.
 
 <div class="clear-float"></div>
 

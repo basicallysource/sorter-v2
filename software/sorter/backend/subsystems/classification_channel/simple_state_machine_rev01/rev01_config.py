@@ -114,7 +114,7 @@ class Rev01Config:
     # edge towards the exit: a piece that bounces on landing hits the wall
     # instead of skipping straight into the exit arc (Marc, 2026-09-06).
     wall_align_enabled: bool = True
-    wall_align_tolerance_deg: float = 6.0
+    wall_align_tolerance_deg: float = 8.0
 
     # Jitter unstick: the ONLY trigger. If a piece sits in the FALL-OFF region
     # (the exit-only sub-arc, NOT the precise staging band — perception's

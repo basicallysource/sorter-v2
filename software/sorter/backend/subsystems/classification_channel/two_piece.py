@@ -125,7 +125,7 @@ _OFF_PLATTER_MAX_SHIFT_PX = 40.0
 # ~194° on this platter; stay well inside it). Two attempts per cycle.
 _ALIGN_HEAD_MARGIN_DEG = 15.0
 _ALIGN_BACK_LIMIT_DEG = 170.0
-_ALIGN_ATTEMPTS = 2
+_ALIGN_ATTEMPTS = 1  # one turn per wait; the residual after one turn (≤ ~7°) still fences
 _ALIGN_MIN_RESIDUAL_WALLS = 3
 _ALIGN_MAX_RESIDUAL_DEG = 3.0
 # After an alignment turn: wait this long, and for a frame taken after it,

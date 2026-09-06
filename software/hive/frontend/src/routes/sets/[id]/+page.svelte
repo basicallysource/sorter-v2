@@ -4,6 +4,7 @@
 	import { api, type SetInstanceDetail, type SetInstancePart } from '$lib/api';
 	import Spinner from '$lib/components/Spinner.svelte';
 	import CompletenessBar from '$lib/components/sets/CompletenessBar.svelte';
+	import PaceLine from '$lib/components/sets/PaceLine.svelte';
 	import { Alert, Button } from '$lib/components/primitives';
 	import Archive from 'lucide-svelte/icons/archive';
 	import ArchiveRestore from 'lucide-svelte/icons/archive-restore';
@@ -190,6 +191,9 @@
 					{/if}
 					<div class="mt-4 max-w-md">
 						<CompletenessBar found={instance.total_found} needed={instance.total_needed} pct={instance.pct} />
+						{#if instance.status !== 'archived'}
+							<PaceLine ratePerHour={instance.rate_per_hour} etaHours={instance.eta_hours} plateau={instance.plateau} found={instance.total_found} needed={instance.total_needed} />
+						{/if}
 					</div>
 				</div>
 				<div class="flex shrink-0 flex-col gap-2">

@@ -8,7 +8,7 @@ straight projection of the missing rows.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any, Iterable
 from uuid import UUID
 from xml.etree import ElementTree as ET
@@ -18,7 +18,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.errors import APIError
-from app.models.set_instance import SetInstance, SetInstanceMachineCount, SetInstanceProgress
+from app.models.set_instance import SetInstance, SetInstanceMachineCount, SetInstanceProgress, SetInstanceProgressSample
 from app.models.user import User
 
 ProgressKey = tuple[str, int]
@@ -239,6 +239,69 @@ def progress_totals(rows: Iterable[SetInstanceProgress]) -> dict[str, Any]:
         if row_updated_at is not None and (updated_at is None or row_updated_at > updated_at):
             updated_at = row_updated_at
     return _totals(count, needed, found, updated_at)
+
+
+# Pace: rate over roughly the last hour, ETA to 90 % from it, plateau when the
+# pile has nothing left for the set. 90 %, not 100: the tail is a reorder.
+PACE_WINDOW = timedelta(minutes=60)
+PACE_MIN_HISTORY = timedelta(minutes=20)
+PLATEAU_PARTS_PER_HOUR = 1.0
+ETA_TARGET = 0.9
+SAMPLE_INTERVAL = timedelta(minutes=10)
+
+
+def record_progress_sample(db: Session, instance: SetInstance, *, now: datetime) -> bool:
+    """One total_found sample per SAMPLE_INTERVAL per instance; the caller
+    owns the transaction. Returns whether a sample was written."""
+    latest = db.scalar(
+        select(func.max(SetInstanceProgressSample.sampled_at)).where(SetInstanceProgressSample.set_instance_id == instance.id)
+    )
+    latest = _as_utc(latest)
+    if latest is not None and now - latest < SAMPLE_INTERVAL:
+        return False
+    db.add(SetInstanceProgressSample(set_instance_id=instance.id, sampled_at=now, total_found=progress_totals(instance.progress)["total_found"]))
+    return True
+
+
+def pace(samples: list[tuple[datetime, int]], *, found: int, needed: int, now: datetime) -> dict[str, Any]:
+    """Rate, ETA and plateau from an instance's (sampled_at, total_found)
+    history. The anchor is the newest sample at least PACE_WINDOW old, else
+    the oldest one when it is at least PACE_MIN_HISTORY old; without that
+    much history there is no pace yet."""
+    none = {"rate_per_hour": None, "eta_hours": None, "plateau": False}
+    if needed <= 0 or not samples:
+        return none
+    ordered = sorted(((_as_utc(at), total) for at, total in samples), key=lambda item: item[0])
+    old_enough = [item for item in ordered if now - item[0] >= PACE_WINDOW]
+    anchor = old_enough[-1] if old_enough else ordered[0]
+    age = now - anchor[0]
+    if age < PACE_MIN_HISTORY:
+        return none
+    hours = age.total_seconds() / 3600.0
+    rate = max(0.0, (found - anchor[1]) / hours)
+    target = int(needed * ETA_TARGET + 0.999999)
+    remaining = max(0, target - found)
+    eta = 0.0 if remaining == 0 else (remaining / rate if rate > 0 else None)
+    plateau = remaining > 0 and age >= PACE_WINDOW and rate < PLATEAU_PARTS_PER_HOUR
+    return {"rate_per_hour": round(rate, 1), "eta_hours": round(eta, 1) if eta is not None else None, "plateau": plateau}
+
+
+def paces_for(db: Session, instance_ids: list[UUID], totals_by_id: dict[UUID, dict[str, Any]], *, now: datetime) -> dict[UUID, dict[str, Any]]:
+    """Pace per instance from the samples of the last PACE_WINDOW plus one anchor before it."""
+    if not instance_ids:
+        return {}
+    since = now - PACE_WINDOW - timedelta(minutes=15)
+    rows = db.execute(
+        select(SetInstanceProgressSample.set_instance_id, SetInstanceProgressSample.sampled_at, SetInstanceProgressSample.total_found)
+        .where(SetInstanceProgressSample.set_instance_id.in_(instance_ids), SetInstanceProgressSample.sampled_at >= since)
+    ).all()
+    by_instance: dict[UUID, list[tuple[datetime, int]]] = {instance_id: [] for instance_id in instance_ids}
+    for instance_id, sampled_at, total in rows:
+        by_instance[instance_id].append((sampled_at, total))
+    return {
+        instance_id: pace(samples, found=totals_by_id[instance_id]["total_found"], needed=totals_by_id[instance_id]["total_needed"], now=now)
+        for instance_id, samples in by_instance.items()
+    }
 
 
 def _refresh_status(instance: SetInstance) -> None:

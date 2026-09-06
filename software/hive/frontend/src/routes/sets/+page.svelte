@@ -6,6 +6,7 @@
 	import SetSearch from '$lib/components/profile/SetSearch.svelte';
 	import CompletenessBar from '$lib/components/sets/CompletenessBar.svelte';
 	import { Alert, Button } from '$lib/components/primitives';
+	import PaceLine from '$lib/components/sets/PaceLine.svelte';
 	import Plus from 'lucide-svelte/icons/plus';
 
 	type SetResult = { set_num: string; name: string; year: number; num_parts: number; img_url: string | null };
@@ -131,6 +132,9 @@
 					</p>
 					<div class="mt-3">
 						<CompletenessBar found={instance.total_found} needed={instance.total_needed} pct={instance.pct} compact />
+						{#if instance.status !== 'archived'}
+							<PaceLine ratePerHour={instance.rate_per_hour} etaHours={instance.eta_hours} plateau={instance.plateau} found={instance.total_found} needed={instance.total_needed} />
+						{/if}
 					</div>
 				</div>
 			</a>

@@ -44,6 +44,10 @@ class SetInstanceSummaryResponse(BaseModel):
     total_needed: int
     total_found: int
     pct: float
+    # Pace over roughly the last hour; None until there is enough history.
+    rate_per_hour: float | None = None
+    eta_hours: float | None = None  # to 90 % at that rate; None when the rate is 0 or unknown
+    plateau: bool = False  # an hour of history and under one part per hour: the pile is done for this set
     progress_updated_at: datetime | None
 
 

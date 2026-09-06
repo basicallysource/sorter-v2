@@ -70,6 +70,20 @@ class SetInstanceProgress(Base):
     )
 
 
+class SetInstanceProgressSample(Base):
+    """total_found of one set instance at one moment: the pace history behind
+    the rate, the ETA and the plateau call on the set pages."""
+
+    __tablename__ = "set_instance_progress_samples"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    set_instance_id = Column(UUID(as_uuid=True), ForeignKey("set_instances.id", ondelete="CASCADE"), nullable=False)
+    sampled_at = Column(DateTime(timezone=True), nullable=False, default=_now)
+    total_found = Column(Integer, nullable=False)
+
+    __table_args__ = (Index("ix_set_instance_progress_samples_instance_time", "set_instance_id", "sampled_at"),)
+
+
 class SetInstanceMachineCount(Base):
     """The count a machine last reported for one part of one set instance.
 

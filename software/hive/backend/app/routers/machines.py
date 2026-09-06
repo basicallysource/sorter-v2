@@ -822,6 +822,7 @@ def report_machine_set_progress(
         if instance is None or instance.user_id != machine.owner_id:
             raise APIError(400, f"Set instance {instance_id} is not owned by this machine's owner", "SET_PROGRESS_INSTANCE_UNKNOWN")
         instance_updated += set_instances.apply_machine_progress(db, instance, machine.id, by_part.values(), now=now)
+        set_instances.record_progress_sample(db, instance, now=now)
 
     normalized_items = list(normalized_by_key.values())
 

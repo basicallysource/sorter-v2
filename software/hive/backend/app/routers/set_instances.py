@@ -1,5 +1,6 @@
 """Set instances: a user's physical set copies and what has been found for them."""
 
+from datetime import datetime, timezone
 from typing import Any
 from uuid import UUID
 
@@ -24,11 +25,12 @@ from app.services.profile_catalog import get_profile_catalog_service
 router = APIRouter(prefix="/api/set-instances", tags=["set-instances"])
 
 
-def _summary(catalog: Any, instance: SetInstance, totals: dict[str, Any] | None = None) -> dict[str, Any]:
+def _summary(catalog: Any, instance: SetInstance, totals: dict[str, Any] | None = None, pace: dict[str, Any] | None = None) -> dict[str, Any]:
     cached = catalog.cached_set(instance.set_num) or {}
     if totals is None:
         totals = service.progress_totals(instance.progress)
     return {
+        **(pace or {}),
         "id": instance.id,
         "set_source": instance.set_source,
         "set_num": instance.set_num,
@@ -52,8 +54,12 @@ def _summary(catalog: Any, instance: SetInstance, totals: dict[str, Any] | None 
     }
 
 
-def _detail(catalog: Any, instance: SetInstance) -> dict[str, Any]:
-    return {**_summary(catalog, instance), "parts": service.part_details(catalog, instance)}
+def _detail(catalog: Any, instance: SetInstance, db: Session | None = None) -> dict[str, Any]:
+    totals = service.progress_totals(instance.progress)
+    pace = None
+    if db is not None:
+        pace = service.paces_for(db, [instance.id], {instance.id: totals}, now=datetime.now(timezone.utc)).get(instance.id)
+    return {**_summary(catalog, instance, totals, pace), "parts": service.part_details(catalog, instance)}
 
 
 @router.get("", response_model=list[SetInstanceSummaryResponse])
@@ -63,10 +69,9 @@ def list_set_instances(
     current_user: User = Depends(get_current_user),
 ):
     catalog = get_profile_catalog_service()
-    return [
-        _summary(catalog, instance, totals)
-        for instance, totals in service.list_instances(db, current_user, include_archived=include_archived)
-    ]
+    rows = service.list_instances(db, current_user, include_archived=include_archived)
+    paces = service.paces_for(db, [instance.id for instance, _ in rows], {instance.id: totals for instance, totals in rows}, now=datetime.now(timezone.utc))
+    return [_summary(catalog, instance, totals, paces.get(instance.id)) for instance, totals in rows]
 
 
 @router.post("", response_model=SetInstanceDetailResponse, status_code=201)
@@ -97,7 +102,7 @@ def get_set_instance(
     current_user: User = Depends(get_current_user),
 ):
     instance = service.get_owned_instance(db, current_user, instance_id)
-    return _detail(get_profile_catalog_service(), instance)
+    return _detail(get_profile_catalog_service(), instance, db)
 
 
 @router.patch("/{instance_id}", response_model=SetInstanceSummaryResponse)

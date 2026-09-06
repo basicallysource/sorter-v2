@@ -97,6 +97,10 @@ class BeltHoldMotionTests(unittest.TestCase):
         flow._last_arrival_at = 0.0
         flow._last_blocked_reason = None
         flow._status = {}
+        from subsystems.feeder.belt.flow import BeltLoadMonitor
+        flow._load = BeltLoadMonitor(0, 3)
+        flow._load_next_poll_at = 0.0
+        flow._load_last_log_at = 0.0
         return flow, stepper
 
     def test_hold_stops_a_running_belt_once(self) -> None:
@@ -139,3 +143,29 @@ class BeltUpstreamTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class BeltLoadMonitorTests(unittest.TestCase):
+    def test_watch_mode_records_but_never_blocks(self) -> None:
+        from subsystems.feeder.belt.flow import BeltLoadMonitor
+        m = BeltLoadMonitor(threshold=0, samples=3)
+        for sg in (400, 10, 0, 0, 0):
+            self.assertFalse(m.observe(sg))
+        self.assertEqual(m.last_sg, 0)
+
+    def test_blocks_after_consecutive_low_reads_only(self) -> None:
+        from subsystems.feeder.belt.flow import BeltLoadMonitor
+        m = BeltLoadMonitor(threshold=60, samples=3)
+        self.assertFalse(m.observe(500))
+        self.assertFalse(m.observe(30))
+        self.assertFalse(m.observe(20))
+        self.assertFalse(m.observe(300))   # a free read resets the streak
+        self.assertFalse(m.observe(10))
+        self.assertFalse(m.observe(10))
+        self.assertTrue(m.observe(5))
+        self.assertFalse(m.observe(None))  # an unreadable register is not evidence
+
+    def test_defaults_are_watch_only_and_jam_window_is_shorter(self) -> None:
+        cfg = BeltFeederConfig()
+        self.assertEqual(cfg.load_block_sg_threshold, 0)
+        self.assertEqual(cfg.jam_timeout_s, 20.0)

@@ -2820,7 +2820,7 @@
 			"uid": "r3v6",
 			"version": "1",
 			"name": "Outer hex frame (bottom layer)",
-			"description": "The outer hexagon of the lowest bin layer: six foot-cover corners with six A/G extrusions slid between them.",
+			"description": "The outer hexagon of the lowest bin layer: six foot-cover corners with six A extrusions slid between them.",
 			"lines": [
 				{
 					"assembly": "external-bracket-with-foot",
@@ -2916,7 +2916,7 @@
 					"qty": 12,
 					"method": "tnut",
 					"through_mm": 12.8,
-					"note": "Two per retainer, into the 4 T-nuts per A/G extrusion the hex frame pre-installs. Same joint as on a regular distribution layer."
+					"note": "Two per retainer, into the 4 T-nuts per A extrusion the hex frame pre-installs. Same joint as on a regular distribution layer."
 				},
 				{
 					"from": "bin-retainer-right",
@@ -3016,7 +3016,7 @@
 					"qty": 12,
 					"method": "tnut",
 					"through_mm": 12.8,
-					"note": "Two per retainer, into the 4 T-nuts per A/G extrusion, which go into the slot at this step. Measured off the STL: 12.00 mm of plastic between the head face and the face that sits on the extrusion, plus a 0.8 mm locating rib that drops into the slot, so the bore the screw crosses is 12.8 mm. An M5 x 12 stops level with the extrusion face with no thread in the nut; an M5 x 20 stands 8 mm into a slot about 5.9 mm deep and bottoms out before it clamps."
+					"note": "Two per retainer, into the 4 T-nuts per A extrusion, which go into the slot at this step. Measured off the STL: 12.00 mm of plastic between the head face and the face that sits on the extrusion, plus a 0.8 mm locating rib that drops into the slot, so the bore the screw crosses is 12.8 mm. An M5 x 12 stops level with the extrusion face with no thread in the nut; an M5 x 20 stands 8 mm into a slot about 5.9 mm deep and bottoms out before it clamps."
 				},
 				{
 					"from": "bin-retainer-right",
@@ -3972,7 +3972,7 @@
 			"uid": "jvp9",
 			"version": "1",
 			"name": "Outer hex frame",
-			"description": "Six External bracket with support corners with six A/G extrusions slid between them, closing the hexagon.",
+			"description": "Six External bracket with support corners with six A extrusions slid between them, closing the hexagon.",
 			"lines": [
 				{
 					"assembly": "external-bracket-with-support",
@@ -4010,7 +4010,7 @@
 			"uid": "ltdo",
 			"version": "1",
 			"name": "Inner hex frame",
-			"description": "The inner hexagon: six B/H spokes with six crossbeams and twelve 90-degree brackets.",
+			"description": "The inner hexagon: six B spokes with six crossbeams and twelve 90-degree brackets.",
 			"lines": [
 				{
 					"part": "ext-2020-bh",
@@ -22725,23 +22725,22 @@
 				"type": "extrusion-2020",
 				"length_mm": 320,
 				"letters": [
-					"A",
-					"G"
+					"A"
 				]
 			},
-			"name": "Outer horizontal / Horizontal interface frame (A/G)",
+			"name": "Hex outer horizontal (A)",
 			"category": "Aluminum extrusion (2020)",
-			"description": "2020 aluminum extrusion, cut to 320 mm (pieces A and G).",
+			"description": "2020 aluminum extrusion, cut to 320 mm (piece A). The outer ring of every hex frame: six per ring, on each bin layer and on the interface frame, which are the same frame built to the same guide.",
 			"note": null,
 			"created_at": "2026-08-21",
-			"updated_at": "2026-08-21",
+			"updated_at": "2026-09-07",
 			"attributes": [],
 			"sheet_qty": null,
 			"sheet_qty_text": null,
 			"stock": null,
 			"sourcing": null,
 			"alternative": null,
-			"caption": "2020 aluminum extrusion, cut to 320 mm (pieces A and G).",
+			"caption": "2020 aluminum extrusion, cut to 320 mm (piece A).",
 			"docs_page": null,
 			"conflicts": null,
 			"image": "https://assets.basically.website/sorter-parts/extrusion-extrusion-2020-full-01bd50e7eac0.png"
@@ -22754,23 +22753,22 @@
 				"type": "extrusion-2020",
 				"length_mm": 158,
 				"letters": [
-					"B",
-					"H"
+					"B"
 				]
 			},
-			"name": "Spoke / Interface spoke, short (B/H)",
+			"name": "Hex spoke (B)",
 			"category": "Aluminum extrusion (2020)",
-			"description": "2020 aluminum extrusion, cut to 158 mm (pieces B and H).",
+			"description": "2020 aluminum extrusion, cut to 158 mm (piece B). The inner ring of every hex frame: six spokes per ring, on each bin layer and on the interface frame. Not to be confused with the Interface spoke, long (E), which belongs to the interface bracket mounts rather than a hex frame.",
 			"note": null,
 			"created_at": "2026-08-21",
-			"updated_at": "2026-08-21",
+			"updated_at": "2026-09-07",
 			"attributes": [],
 			"sheet_qty": null,
 			"sheet_qty_text": null,
 			"stock": null,
 			"sourcing": null,
 			"alternative": null,
-			"caption": "2020 aluminum extrusion, cut to 158 mm (pieces B and H).",
+			"caption": "2020 aluminum extrusion, cut to 158 mm (piece B).",
 			"docs_page": null,
 			"conflicts": null,
 			"image": "https://assets.basically.website/sorter-parts/extrusion-extrusion-2020-full-01bd50e7eac0.png"

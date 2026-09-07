@@ -29,21 +29,29 @@ CACHE_TTL_SECONDS = 6 * 60 * 60
 # Curated roster. Order within a group is the order shown. Every id must exist on
 # OpenRouter; ids that 404 out of the catalog are dropped at serve time rather
 # than shown as broken options.
+#
+# Prices and names are live (fetched below), but WHICH models appear is this
+# hand-picked list and it goes stale as vendors ship. Last refreshed against
+# https://openrouter.ai/api/v1/models on 2026-09-06.
 CURATED_GROUPS: tuple[tuple[str, tuple[str, ...]], ...] = (
     (
         "Recommended",
         (
-            "z-ai/glm-5.2",
+            "z-ai/glm-5.3",
+            "z-ai/glm-5.3-flash",
             "anthropic/claude-sonnet-5",
-            "openai/gpt-5.4",
-            "deepseek/deepseek-v4-pro",
-            "google/gemini-3.6-flash",
+            "google/gemini-3.8-flash",
+            "deepseek/deepseek-v4-pro-0813",
+            "openai/gpt-5.6-sol",
         ),
     ),
     (
         "Anthropic",
         (
+            "anthropic/claude-fable-5.1",
             "anthropic/claude-fable-5",
+            "anthropic/claude-opus-5",
+            "anthropic/claude-opus-4.8",
             "anthropic/claude-opus-4.7",
             "anthropic/claude-sonnet-5",
             "anthropic/claude-sonnet-4.6",
@@ -53,28 +61,36 @@ CURATED_GROUPS: tuple[tuple[str, tuple[str, ...]], ...] = (
     (
         "OpenAI",
         (
+            "openai/gpt-6-astra-pro",
+            "openai/gpt-6-astra",
+            "openai/gpt-5.6-terra",
+            "openai/gpt-5.6-sol",
+            "openai/gpt-5.6-luna",
             "openai/gpt-5.5-pro",
             "openai/gpt-5.5",
             "openai/gpt-5.4-pro",
             "openai/gpt-5.4",
             "openai/gpt-5.4-mini",
-            "openai/gpt-5.6-terra",
-            "openai/gpt-5.6-luna",
+            "openai/gpt-5.4-nano",
         ),
     ),
     (
         "Google",
         (
+            "google/gemini-3.8-flash",
+            "google/gemini-3.7-flash",
             "google/gemini-3.6-flash",
             "google/gemini-3.5-flash",
+            "google/gemini-3.5-flash-lite",
             "google/gemini-3.1-pro-preview",
-            "google/gemini-3-flash-preview",
             "google/gemini-3.1-flash-lite",
         ),
     ),
     (
         "Z.ai (GLM)",
         (
+            "z-ai/glm-5.3",
+            "z-ai/glm-5.3-flash",
             "z-ai/glm-5.2",
             "z-ai/glm-5.1",
             "z-ai/glm-5",
@@ -86,7 +102,9 @@ CURATED_GROUPS: tuple[tuple[str, tuple[str, ...]], ...] = (
     (
         "DeepSeek",
         (
+            "deepseek/deepseek-v4-pro-0813",
             "deepseek/deepseek-v4-pro",
+            "deepseek/deepseek-v4-flash-0731",
             "deepseek/deepseek-v4-flash",
             "deepseek/deepseek-v3.2",
         ),
@@ -94,9 +112,10 @@ CURATED_GROUPS: tuple[tuple[str, tuple[str, ...]], ...] = (
     (
         "Qwen",
         (
+            "qwen/qwen3.8-max-0902",
+            "qwen/qwen3.8-flash",
             "qwen/qwen3.7-max",
-            "qwen/qwen3.6-max-preview",
-            "qwen/qwen3-max",
+            "qwen/qwen3.7-plus",
             "qwen/qwen3-vl-235b-a22b-instruct",
         ),
     ),
@@ -104,6 +123,7 @@ CURATED_GROUPS: tuple[tuple[str, tuple[str, ...]], ...] = (
         "Moonshot (Kimi)",
         (
             "moonshotai/kimi-k3",
+            "moonshotai/kimi-k2.7-code",
             "moonshotai/kimi-k2.6",
             "moonshotai/kimi-k2-thinking",
         ),
@@ -119,6 +139,7 @@ CURATED_GROUPS: tuple[tuple[str, tuple[str, ...]], ...] = (
     (
         "xAI (Grok)",
         (
+            "x-ai/grok-4.6",
             "x-ai/grok-4.5",
             "x-ai/grok-4.3",
         ),

@@ -933,6 +933,7 @@ def parseCameraDeviceSettings(raw: object) -> dict[str, int | float | bool]:
         "exposure",
         "white_balance_temperature",
         "focus",
+        "zoom",
         "power_line_frequency",
         "backlight_compensation",
     }

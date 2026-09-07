@@ -1586,18 +1586,29 @@
     },
     {
       "id": "interface-cage-bracket-cable",
-      "uid": "cy58",
+      "uid": "nu2n",
       "name": "Cable cage bracket (cable mount)",
       "description": "Cable cage bracket with the cable mount. 1 needed.",
-      "internal_notes": "1 per interface; the cage bracket variant with a cable mount. Frame color.",
-      "version": "1",
+      "internal_notes": "1 per interface; the cage bracket variant with a cable mount. Frame color. v2 (2026-09-07): barthel's proposed geometry for the ribbon-cable-clamp mismatch (sorter-v2 #403) -- the underside near the heat-insert boss moved from Z 210.0 to Z 212.0 and the mounting foot widened from X +-15 to X +-22, measured against the v1 master STL in this part's own export frame. Not confirmed to close #403; that's still tracked separately in the P1 changes entry.",
+      "version": "2",
       "created_at": "2026-06-27",
-      "updated_at": "2026-06-27",
+      "updated_at": "2026-09-07",
+      "versions": [
+        {
+          "version": "2",
+          "date": "2026-09-07",
+          "message": "barthel's proposed fix for the ribbon-cable-clamp foot/lip mismatch (#403): the underside near the heat-insert boss raised ~2mm (Z 210.0 -> 212.0) and the mounting foot widened from +-15 to +-22 in X. Mounting bolt pattern and insert bore unchanged, so an old print still bolts in the same place.",
+          "breaking": false,
+          "commit": null,
+          "onshape_version": "https://cad.onshape.com/documents/36d65973fe08f685f790dc8b/v/b0b87904579c8becc296a460/e/5e3340c2e9170c356be9cfb9"
+        }
+      ],
       "quantities": {
         "interface": 1
       },
       "assembly": "cable-cage",
-      "stl_hash": "081da7a95e53340f4f27219a224c0015905f176707c84f82c2f69bd72da85530",
+      "stl_hash": "0dad6ad3b408d51771212d81c465973dee0d4f0f41be46ac8f0ba92fbc1e7567",
+      "onshape_version": "https://cad.onshape.com/documents/36d65973fe08f685f790dc8b/v/b0b87904579c8becc296a460/e/5e3340c2e9170c356be9cfb9",
       "color": {
         "role": "frame"
       },

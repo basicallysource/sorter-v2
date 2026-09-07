@@ -923,7 +923,7 @@
 									>3D printed</span>
 								{#if line.part}{@render tagChips(line.part)}{/if}
 							</div>
-							<div class="text-xs text-text-muted">{part.grams != null ? `${part.grams.toFixed(0)} g each` : 'not sliced'}</div>
+							<div class="text-xs text-text-muted">{part.slice_failed ? 'not sliced' : `${(part.grams ?? 0).toFixed(0)} g each`}</div>
 						</div>
 						<div class="text-right text-xs tabular-nums text-text">
 							<div class="font-semibold">×{lineQty(line, layers)}</div>
@@ -1056,7 +1056,7 @@
 						{#if p.version}<span class="text-xs text-text-muted">· v{p.version}</span>{/if}
 					</div>
 					{#if typeof p.grams === 'number'}
-						<div class="text-xs text-text-muted">{p.grams != null ? `${p.grams.toFixed(0)} g each` : 'not sliced'}</div>
+						<div class="text-xs text-text-muted">{p.slice_failed ? 'not sliced' : `${(p.grams ?? 0).toFixed(0)} g each`}</div>
 					{/if}
 				</div>
 				{#if p.stl}

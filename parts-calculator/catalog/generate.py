@@ -322,6 +322,28 @@ def unchanged_render(prev, stl, part):
     return None
 
 
+def why_unsliceable(stl_abs, tried):
+    """A reason to put on the data when no slicer would slice a part.
+    OrcaSlicer's own log for these says nothing ("Errors / run found error")
+    and the asset service reports only that its worker failed, so this looks
+    at the mesh for the two things that reliably stop a slicer, and otherwise
+    says so. `tried` is what was attempted, for the same reader."""
+    import trimesh
+    m = trimesh.load(stl_abs, force="mesh", process=True)
+    if not m.is_watertight:
+        why = "the mesh is not a closed solid"
+    else:
+        z0 = m.bounds[0][2]
+        n, c = m.face_normals, m.triangles_center
+        on_bed = m.area_faces[(n[:, 2] < -0.95) & (c[:, 2] < z0 + 0.2)].sum()
+        if on_bed < 1.0:
+            why = ("it rests on an edge or a corner in its export orientation, "
+                   "so the first layer is empty")
+        else:
+            why = "OrcaSlicer refused it and its log gives no reason"
+    return f"{why}; tried {tried}"
+
+
 def unchanged_slice(prev, stl):
     """The committed slice numbers of `prev`, reusable when the bytes are the
     same -- for a part every slicing attempt refused this run. The asset
@@ -1199,8 +1221,11 @@ def main():
             # is a part the site can show and say so, a missing entry is a
             # broken build and a red check for whoever touched the catalog.
             failed.append(p["id"])
+            tried = ("the asset service's slicer, flat, with and without supports"
+                     if profiles is None else
+                     "flat, with supports, and auto-oriented with supports")
             info = {"grams": None, "support_grams": None, "support_used": False,
-                    "print_seconds": None}
+                    "print_seconds": None, "failed": why_unsliceable(stl_abs, tried)}
 
         png = os.path.join(RENDERS_OUT, p["id"] + ".png")
         try:
@@ -1261,6 +1286,10 @@ def main():
             # may force support on other parts just to slice, but that isn't surfaced.
             "support_intentional": bool(p.get("support", False)),
             "print_seconds": info["print_seconds"],
+            # Present only when the numbers above are empty: says why, so a
+            # reader of the data does not have to guess between "not sliced"
+            # and "never measured".
+            **({"slice_failed": info["failed"]} if info.get("failed") else {}),
             "color": p.get("color", {"any": True}),
             "optional": p.get("optional", False),
             "onshape": p.get("onshape"),

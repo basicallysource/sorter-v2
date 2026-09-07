@@ -620,13 +620,17 @@ def attributeBboxes(
             continue
         n_on_channel += 1
         sections = bboxSections(bbox, channel)
-        if not any_drop and sections & channel.drop_sections:
+        nd, ne, np_, nm = _bboxRegionCounts(bbox, channel)
+        # The drop gate and the handler's per-piece zone code must agree on
+        # what "in the drop arc" means, or the gate closes for a piece the
+        # handler never sees (the 2026-09-04 deadlock): both use the interior
+        # grid overlap.
+        if not any_drop and nd > 0:
             any_drop = True
         if not any_exit and sections & channel.exit_sections:
             any_exit = True
         if not any_precise and sections & channel.precise_sections:
             any_precise = True
-        nd, ne, np_, nm = _bboxRegionCounts(bbox, channel)
         per_bbox_counts.append((nd, ne, np_, nm, bbox))
         if not any_exit_majority and ne > np_ and ne > 0:
             any_exit_majority = True

@@ -33,15 +33,26 @@ def irlSteppers(irl: Any) -> list[tuple[str, Any]]:
     return out
 
 
-def stopStepper(stepper: Any) -> None:
-    """Zero the speed first (a running move_at_speed is the dangerous case),
-    then halt if the stepper offers it."""
+def stopStepper(stepper: Any) -> bool:
+    """Zero the speed (a running move_at_speed is the dangerous case), forced
+    past a software disable — this is exactly the moment nobody trusts the
+    motor's state. If the firmware does not acknowledge the stop (a jitter in
+    flight rejects overlapping commands), cut the driver instead. Returns
+    whether the motor is known to be stopped."""
     move_at_speed = getattr(stepper, "move_at_speed", None)
-    if callable(move_at_speed):
-        move_at_speed(0)
-    halt = getattr(stepper, "halt", None)
-    if callable(halt):
-        halt(disable_driver=False)
+    if not callable(move_at_speed):
+        return False
+    try:
+        acked = move_at_speed(0, force=True)
+    except TypeError:
+        acked = move_at_speed(0)  # a driver without the force flag
+    if acked is not False:
+        return True
+    enable_force = getattr(stepper, "enable_force", None)
+    if callable(enable_force):
+        enable_force(False)
+        return True
+    return False
 
 
 def stopAllSteppers(irl: Any, logger: Any, *, reason: str) -> list[str]:
@@ -50,8 +61,10 @@ def stopAllSteppers(irl: Any, logger: Any, *, reason: str) -> list[str]:
     stopped: list[str] = []
     for name, stepper in irlSteppers(irl):
         try:
-            stopStepper(stepper)
-            stopped.append(name)
+            if stopStepper(stepper):
+                stopped.append(name)
+            else:
+                logger.warning(f"Stepper '{name}': stop not confirmed during {reason}")
         except Exception as exc:
             logger.warning(f"Stepper '{name}': stop failed during {reason}: {exc}")
     if stopped:

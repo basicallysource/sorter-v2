@@ -34,6 +34,12 @@ def _connect() -> sqlite3.Connection:
     return conn
 
 
+def closeStaleActiveRows() -> None:
+    """Close incident rows a previous backend process left active. Called at
+    startup so an orphan does not wait for the first incident query."""
+    _ensureInitialized()
+
+
 @contextmanager
 def _connection() -> Iterator[sqlite3.Connection]:
     _ensureInitialized()

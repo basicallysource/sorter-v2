@@ -7,24 +7,31 @@ from machine_platform.stepper_safety import stopAllSteppers, stopStepper
 
 
 class _Stepper:
-    def __init__(self, fail: bool = False) -> None:
+    def __init__(self, fail: bool = False, ack: bool = True) -> None:
         self.calls: list = []
         self.fail = fail
+        self.ack = ack
 
-    def move_at_speed(self, speed: int) -> None:
+    def move_at_speed(self, speed: int, force: bool = False) -> bool:
         if self.fail:
             raise RuntimeError("bus down")
-        self.calls.append(("speed", speed))
+        self.calls.append(("speed", speed, force))
+        return self.ack
 
-    def halt(self, *, disable_driver: bool) -> bool:
-        self.calls.append(("halt", disable_driver))
-        return True
+    def enable_force(self, value: bool) -> None:
+        self.calls.append(("enable_force", value))
 
 
-def test_stop_zeroes_speed_then_halts_without_disabling() -> None:
+def test_stop_zeroes_speed_forced_past_a_software_disable() -> None:
     s = _Stepper()
-    stopStepper(s)
-    assert s.calls == [("speed", 0), ("halt", False)]
+    assert stopStepper(s)
+    assert s.calls == [("speed", 0, True)]
+
+
+def test_unacknowledged_stop_cuts_the_driver() -> None:
+    s = _Stepper(ack=False)
+    assert stopStepper(s)
+    assert s.calls == [("speed", 0, True), ("enable_force", False)]
 
 
 def test_stop_all_covers_every_stepper_once_and_survives_a_failure() -> None:
@@ -37,4 +44,4 @@ def test_stop_all_covers_every_stepper_once_and_survives_a_failure() -> None:
     )
     stopped = stopAllSteppers(irl, logging.getLogger("t"), reason="test")
     assert stopped == ["c_channel_1_rotor_stepper", "chute_stepper"]
-    assert belt.calls[0] == ("speed", 0) and chute.calls[0] == ("speed", 0)
+    assert belt.calls[0] == ("speed", 0, True) and chute.calls[0] == ("speed", 0, True)

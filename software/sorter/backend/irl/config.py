@@ -949,7 +949,7 @@ def parseCameraDeviceSettings(raw: object) -> dict[str, int | float | bool]:
             # Driver sentinel: cap.get() returns -1 for properties the device
             # does not actually expose. Persisting/applying these poisons the
             # camera — drop them.
-            if float(value) == -1.0 and key in {"focus", "gain", "exposure", "white_balance_temperature"}:
+            if float(value) == -1.0 and key in {"focus", "gain", "exposure", "white_balance_temperature", "zoom"}:
                 continue
             result[key] = float(value)
 

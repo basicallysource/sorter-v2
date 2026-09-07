@@ -3413,6 +3413,7 @@ def move_to_bin(payload: MoveToBinPayload) -> Dict[str, Any]:
     # Production door semantics: the TARGET layer's door is CLOSED (it
     # deflects the piece into that row), every other door is parked OPEN so
     # the piece passes through to the target.
+    door_failures: list[str] = []
     for i, servo in enumerate(servos):
         try:
             if i == payload.layer_index:
@@ -3420,8 +3421,13 @@ def move_to_bin(payload: MoveToBinPayload) -> Dict[str, Any]:
                     servo.close()
             elif hasattr(servo, "open"):
                 servo.open()
-        except Exception:
-            pass
+        except Exception as exc:
+            door_failures.append(f"layer {i}: {exc}")
+    if door_failures:
+        raise HTTPException(
+            status_code=409,
+            detail="Door(s) did not accept the command, chute not moved: " + "; ".join(door_failures),
+        )
 
     try:
         estimated_ms = chute.moveToBin(address)

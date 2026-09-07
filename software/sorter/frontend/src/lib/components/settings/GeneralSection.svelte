@@ -464,7 +464,7 @@
 					<div>
 						<div class="mb-1.5 text-xs font-medium text-text">Feeder Mode</div>
 						<div class="flex flex-wrap gap-2">
-							{#each ['pulse_perception_rev01', 'go_to_angle_rev01', 'constant_movement_rev01'] as mode}
+							{#each machineSetup === 'belt_feeder' ? ['belt_rev01'] : ['pulse_perception_rev01', 'go_to_angle_rev01', 'constant_movement_rev01'] as mode}
 								<button
 									onclick={() => saveFeederMode(mode)}
 									disabled={savingFeederMode}

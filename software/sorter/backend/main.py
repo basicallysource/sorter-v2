@@ -406,6 +406,9 @@ def runBroadcaster(gc: GlobalConfig) -> None:
 
 
 def main() -> None:
+    import incident_records
+
+    incident_records.closeStaleActiveRows()
     import server.shared_state as shared_state
 
     shutdown_requested = threading.Event()

@@ -344,6 +344,24 @@ def why_unsliceable(stl_abs, tried):
     return f"{why}; tried {tried}"
 
 
+# The instant checks CI runs on every parts PR (check-parts.yml), run here at
+# the end of every regeneration so an inconsistent result never gets committed
+# and "regenerate" is the one command. The URL check stays in CI: a thousand
+# fetches is a job for a runner, not for every regen.
+CHECKS = ("check_generated_pins", "check_versioning", "check_connections")
+
+
+def run_checks():
+    sys.stdout.flush()   # the checks write straight to the fd; keep the log in order
+    root = os.path.dirname(REPO)
+    failed = [name for name in CHECKS
+              if subprocess.run([sys.executable, os.path.join(REPO, "scripts", name + ".py")],
+                                cwd=root).returncode != 0]
+    if failed:
+        sys.exit(f"regenerated, but {', '.join(failed)} failed (see above) -- "
+                 "fix the source and run again; do not commit this")
+
+
 def unchanged_slice(prev, stl):
     """The committed slice numbers of `prev`, reusable when the bytes are the
     same -- for a part every slicing attempt refused this run. The asset
@@ -1150,6 +1168,7 @@ def main():
         data["tags"] = manifest.get("tags", [])
         json.dump(data, open(DATA_OUT, "w"), indent="\t")
         print(f"refreshed authored metadata in {DATA_OUT}")
+        run_checks()
         return
     if os.path.exists(ORCA) and os.path.isdir(PROFILES):
         profiles, density, cost_per_kg = build_profiles()
@@ -1395,6 +1414,7 @@ def main():
     if args.strict and (failed or not out_parts):
         sys.exit(f"strict mode: {len(failed)} part(s) failed, "
                  f"{len(out_parts)} produced -- refusing to bless this output")
+    run_checks()
 
 
 def process_plates(manifest):

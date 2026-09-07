@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { Download, Info } from 'lucide-svelte';
-	import { FRAMING_PIECES, STOCK_MM, CLEARANCE_MM } from '$lib/framing';
+	import { FRAMING_PIECES, framingQuantities, STOCK_MM, CLEARANCE_MM } from '$lib/framing';
 	import { layerStore } from '$lib/layers.svelte';
 	import { ftin, expand, packOptimal, packBundle, planGroups } from '$lib/cutplan';
 	import Popover from '$lib/components/Popover.svelte';
@@ -10,20 +10,24 @@
 	let stock = $state(STOCK_MM);
 	let kerf = $state(3);
 	let mode = $state<'opt' | 'bun'>('opt');
-	// per-piece overrides: only the fields the user has actually changed. Unset
-	// fields fall back to the default (selected, quantity from qtyFor(n)) so
-	// quantities keep tracking the layer count until the user pins them.
+	// per-piece overrides, keyed by catalog part id: only the fields the user has
+	// actually changed. Unset fields fall back to the default (selected, quantity
+	// resolved off the machine tree) so quantities keep tracking the layer count
+	// until the user pins them.
 	let overrides = $state<Record<string, { selected?: boolean; qty?: number }>>({});
 
 	const n = $derived(layerStore.sizes.length);
+	// every quantity on this page comes from one tree walk — the catalog is the
+	// only place a framing piece's count is written down
+	const totals = $derived(framingQuantities(n));
 	const pieces = $derived(
 		FRAMING_PIECES.map((p) => {
-			const defaultQty = p.qtyFor(n);
-			const defaultSelected = !p.optional; // optional pieces start off
-			const ov = overrides[p.letter] ?? {};
+			const defaultQty = totals.get(p.id) ?? 0;
+			const ov = overrides[p.id] ?? {};
 			const qty = ov.qty ?? defaultQty;
-			const selected = ov.selected ?? defaultSelected;
+			const selected = ov.selected ?? true;
 			return {
+				id: p.id,
 				letter: p.letter,
 				name: p.name,
 				cadLen: p.cadLen,
@@ -31,9 +35,8 @@
 				defaultQty,
 				qty,
 				selected,
-				optional: !!p.optional,
-				modified: selected !== defaultSelected || qty !== defaultQty,
-				cat: p.category,
+				modified: !selected || qty !== defaultQty,
+				cat: p.group,
 				from: p.from,
 				badge: p.badge,
 				zeroNote: p.zeroNote
@@ -41,8 +44,8 @@
 		})
 			// A piece that drops to zero at this layer count stays listed, at ×0, when
 			// it carries a note explaining why. Vanishing from the table reads as a
-			// missing part instead of a deliberate one. C at 1 and 2 layers is the
-			// one people keep hitting.
+			// missing part instead of a deliberate one. C at one layer is the one
+			// people keep hitting.
 			.filter((p) => p.defaultQty > 0 || !!p.zeroNote)
 	);
 	const anyModified = $derived(pieces.some((p) => p.modified));
@@ -56,15 +59,15 @@
 	// only selected pieces with a positive quantity feed the cut plan
 	const activePieces = $derived(pieces.filter((p) => p.selected && p.qty > 0));
 
-	function setQty(letter: string, val: string | number) {
+	function setQty(id: string, val: string | number) {
 		const q = Math.max(0, Math.floor(Number(val) || 0));
-		overrides[letter] = { ...(overrides[letter] ?? {}), qty: q };
+		overrides[id] = { ...(overrides[id] ?? {}), qty: q };
 	}
-	function toggle(letter: string, current: boolean) {
-		overrides[letter] = { ...(overrides[letter] ?? {}), selected: !current };
+	function toggle(id: string, current: boolean) {
+		overrides[id] = { ...(overrides[id] ?? {}), selected: !current };
 	}
-	function resetRow(letter: string) {
-		delete overrides[letter];
+	function resetRow(id: string) {
+		delete overrides[id];
 	}
 	function resetAll() {
 		overrides = {};
@@ -136,8 +139,7 @@
 		})
 	);
 
-	const catLabel = (c: string) =>
-		c === 'per-layer' ? `Per layer · ×${n}` : c === 'interface' ? 'Interface · per machine' : 'Feet · per machine';
+	const catLabel = (c: string) => (c === 'feeder' ? 'Feeder' : 'Frame');
 	const scrapHatch =
 		'repeating-linear-gradient(45deg,#f0eee7,#f0eee7 5px,#e2e0db 5px,#e2e0db 10px)';
 </script>
@@ -216,17 +218,17 @@
 					</tr>
 				</thead>
 				<tbody>
-					{#each rows as { p, header } (p.letter)}
+					{#each rows as { p, header } (p.id)}
 						{#if header}
 							<tr class="bg-[var(--color-bg)]">
 								<td colspan="9" class="px-3 py-1.5 text-xs font-semibold uppercase tracking-wider text-text-muted">
 									<span class="inline-flex items-center gap-1.5">
 										{catLabel(header)}
-										{#if header === 'feet'}
+										{#if header === 'feeder'}
 											<Popover
 												width="w-72"
-												label="Why the feet span two layers"
-												text="The bottom two layers share one continuous length of extrusion (D) that spans both, instead of a separate layer support (C) on each, so the wheels can sustain more force. That is why C is not in the list until 3 layers."
+												label="Why a feeder piece is in the framing list"
+												text="C-channel 1 stands on three legs of the same 2020 extrusion, cut to 228 mm, so they are cut from the same bars as the frame. C-channels 2 and 3 use printed legs instead and C-channel 4 has none, so this is 3 per machine whatever the layer count."
 											/>
 										{/if}
 									</span>
@@ -238,7 +240,7 @@
 								<input
 									type="checkbox"
 									checked={p.selected}
-									onchange={() => toggle(p.letter, p.selected)}
+									onchange={() => toggle(p.id, p.selected)}
 									aria-label="Include {p.name}"
 									class="h-4 w-4 accent-[var(--color-primary)]"
 								/>
@@ -250,9 +252,6 @@
 							</td>
 							<td class="px-1 py-2 text-text">
 								{p.name}
-								{#if p.optional}
-									<span class="ml-1.5 inline-block bg-[var(--color-bg)] px-1.5 py-0.5 align-middle text-[10px] font-semibold uppercase tracking-wider text-text-muted">optional</span>
-								{/if}
 								{#if p.defaultQty === 0}
 									<span class="ml-1.5 inline-block bg-[var(--color-bg)] px-1.5 py-0.5 align-middle text-[10px] font-semibold uppercase tracking-wider text-text-muted">none at {n} layer{n === 1 ? '' : 's'}</span>
 									{#if p.zeroNote}
@@ -270,7 +269,7 @@
 									step="1"
 									value={p.qty}
 									disabled={!p.selected}
-									oninput={(e) => setQty(p.letter, e.currentTarget.value)}
+									oninput={(e) => setQty(p.id, e.currentTarget.value)}
 									class="setup-control h-8 w-16 px-2 text-right font-mono text-sm tabular-nums disabled:opacity-50"
 								/>
 							</td>
@@ -279,7 +278,7 @@
 								{#if p.modified}
 									<button
 										class="text-xs text-text-muted underline decoration-dotted underline-offset-2 hover:text-text"
-										onclick={() => resetRow(p.letter)}>Reset</button
+										onclick={() => resetRow(p.id)}>Reset</button
 									>
 								{/if}
 							</td>

@@ -25,7 +25,7 @@ parts_needed:
 tools_needed: [Hex key]
 ---
 
-Every bin layer gets the same twelve retainers: a Bin retainer (left) and a Bin retainer (right) on the front face of each of the six A/G extrusions, so each of the six faces has a pair that a bin slides down between. The quantities above are **for one layer**. [Regular layers]({{ '/hardware/assembly/distribution/bin-frame/regular-layers/' | relative_url }}) and [Bottom two layers]({{ '/hardware/assembly/distribution/bin-frame/bottom-two-layers/' | relative_url }}) both send you here.
+Every bin layer gets the same twelve retainers: a Bin retainer (left) and a Bin retainer (right) on the front face of each of the six A extrusions, so each of the six faces has a pair that a bin slides down between. The quantities above are **for one layer**. [Regular layers]({{ '/hardware/assembly/distribution/bin-frame/regular-layers/' | relative_url }}) and [Bottom two layers]({{ '/hardware/assembly/distribution/bin-frame/bottom-two-layers/' | relative_url }}) both send you here.
 
 **Do this after the layer's External bracket — covers are on.** The retainers run right out to the corners, so leave them off until the corner is finished.
 
@@ -33,7 +33,7 @@ Every bin layer gets the same twelve retainers: a Bin retainer (left) and a Bin 
 
 {% include step.html n="1" title="Put four T-nuts in each face" %}
 
-Drop 4 {% include fastener.html size="M5" variant="t-nut" text="M5 T-nuts" %} into the outward-facing slot of each A/G extrusion, two per retainer. They do not have to be positioned accurately: slide them along to meet the retainer's holes once it is held in place.
+Drop 4 {% include fastener.html size="M5" variant="t-nut" text="M5 T-nuts" %} into the outward-facing slot of each A extrusion, two per retainer. They do not have to be positioned accurately: slide them along to meet the retainer's holes once it is held in place.
 
 The T-nuts specified for the machine are the roll-in kind, so they go into the slot here, at this step, with the frame already built. See [Fitting T-nuts]({{ '/hardware/helpers/t-nuts/' | relative_url }}) if you bought a different style, because slide-in nuts have to go in much earlier.
 
@@ -44,6 +44,6 @@ The T-nuts specified for the machine are the roll-in kind, so they go into the s
   <figcaption><cite>Photo: zed0.</cite></figcaption>
 </figure>
 
-On each side of the hexagon, hold both the Bin retainer (left) and the Bin retainer (right) against the front face of A/G (Outer horizontal / Horizontal interface frame). The rib along the back of each one drops into the extrusion's slot and sets the height for you; the hook at the top sits on the top face of the extrusion. Fasten each retainer with 2 {% include fastener.html size="M5" variant="socket-button" length="16" %} screws into the T-nuts.
+On each side of the hexagon, hold both the Bin retainer (left) and the Bin retainer (right) against the front face of A (Hex outer horizontal). The rib along the back of each one drops into the extrusion's slot and sets the height for you; the hook at the top sits on the top face of the extrusion. Fasten each retainer with 2 {% include fastener.html size="M5" variant="socket-button" length="16" %} screws into the T-nuts.
 
 Each retainer's bore is 12.8 mm deep, so a shorter M5 reaches the extrusion face with nothing left to bite in the T-nut. Use a socket head rather than a button head here: the flat the head lands on stops 4.1 mm below the hole, which a button head overhangs, and a washer will not sit flat on it at all.

@@ -46,7 +46,7 @@ The bottom interface is the Lazy Susan bearing assembly the chute rests and spin
     <p><strong>This assembly has no frame of its own.</strong> It hangs under the <strong>bottom layer's</strong> <a href="{{ '/hardware/assembly/distribution/bin-frame/hex-frame/' | relative_url }}">hex frame</a>, built on <a href="{{ '/hardware/assembly/distribution/bin-frame/bottom-two-layers/' | relative_url }}">bottom two layers</a>, so you don't need an extra one. Step 4 bolts onto that frame's spokes from underneath.</p>
   </div>
   <figure class="prep-item-figure">
-    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-hex-frame-finished-top-down-w1600-a62a42d595ca.jpg" alt="A finished hex frame from above: six printed B/H spokes and their crossbeams forming the inner ring inside the aluminum outer hexagon, with a printed corner bracket at each of the six vertices">
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-hex-frame-finished-top-down-w1600-a62a42d595ca.jpg" alt="A finished hex frame from above: six B spokes and their printed crossbeams forming the inner ring inside the aluminum outer hexagon, with a printed corner bracket at each of the six vertices">
     <figcaption>A finished hex frame. <cite>Photo: BrickCycleAlice.</cite></figcaption>
   </figure>
 </div>
@@ -233,7 +233,7 @@ The bearing stack is now complete:
 
 {% include step.html n="4" title="Hang it under the bottom layer" %}
 
-There is no separate frame here. The three Lazy Susan extrusion mounts bolt to the **underside of the bottom layer's B/H spokes**, alternating around the ring, and the bearing sits on them. Nothing already on the spoke is moved or replaced. [Build the hex frame]({{ '/hardware/assembly/distribution/bin-frame/hex-frame/' | relative_url }}) step 3 has a note on getting this page's 6 T-nuts into those 3 spokes while their ends are still open.
+There is no separate frame here. The three Lazy Susan extrusion mounts bolt to the **underside of the bottom layer's B spokes**, alternating around the ring, and the bearing sits on them. Nothing already on the spoke is moved or replaced. [Build the hex frame]({{ '/hardware/assembly/distribution/bin-frame/hex-frame/' | relative_url }}) step 3 has a note on getting this page's 6 T-nuts into those 3 spokes while their ends are still open.
 
 Three Lazy Susan extrusion mounts carry the bearing assembly's weight; a hold in place bolts to each one first, as a pair, before either touches the extrusion. **They don't fix the chute itself**, that's attached up at the [top interface]({{ '/hardware/assembly/distribution/top-interface/' | relative_url }}).
 
@@ -244,7 +244,7 @@ Three Lazy Susan extrusion mounts carry the bearing assembly's weight; a hold in
 
 The screw between the extrusion mount and the hold in place is an {% include fastener.html size="M5" variant="socket-button" length="16" %}.
 
-Each mount then bolts up into the B/H spoke (158mm) already in place in the bottom layer's frame, through two more 5.5 mm M5 clearance holes, 30 mm apart, into a T-nut in the extrusion. See [Fitting T-nuts]({{ '/hardware/helpers/t-nuts/' | relative_url }}) if you are not sure which style you have.
+Each mount then bolts up into the B spoke (158mm) already in place in the bottom layer's frame, through two more 5.5 mm M5 clearance holes, 30 mm apart, into a T-nut in the extrusion. See [Fitting T-nuts]({{ '/hardware/helpers/t-nuts/' | relative_url }}) if you are not sure which style you have.
 
 That's two {% include fastener.html size="M5" variant="socket-button" length="16" %} screws per mount, 6 more on top of the 3 between mount and hold in place.
 

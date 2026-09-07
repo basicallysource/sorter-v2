@@ -43,7 +43,7 @@ Everything else about these two layers is the same as any other. Build each one 
     <p><strong>Build two <a href="{{ '/hardware/assembly/distribution/bin-frame/hex-frame/' | relative_url }}">hex frames</a> before you start</strong>, one for each layer. They're required components of this page, not covered here.</p>
   </div>
   <figure class="prep-item-figure">
-    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-hex-frame-finished-top-down-w1600-a62a42d595ca.jpg" alt="A finished hex frame from above: six printed B/H spokes and their crossbeams forming the inner ring inside the aluminum outer hexagon, with a printed corner bracket at each of the six vertices">
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-hex-frame-finished-top-down-w1600-a62a42d595ca.jpg" alt="A finished hex frame from above: six B spokes and their printed crossbeams forming the inner ring inside the aluminum outer hexagon, with a printed corner bracket at each of the six vertices">
     <figcaption>A finished hex frame. <cite>Photo: BrickCycleAlice.</cite></figcaption>
   </figure>
 </div>
@@ -159,7 +159,7 @@ Both layers take a full set of retainers, so do **[Bin retainers]({{ '/hardware/
 
 {% include step.html n="6" title="The bottom interface comes next" %}
 
-Nothing further is fastened to these two layers here. The [bottom interface]({{ '/hardware/assembly/distribution/bin-frame/bottom-interface/' | relative_url }}) hangs underneath the **bottom layer's** frame, and it is built and fitted on its own page: three Lazy Susan extrusion mount pairs bolt up into 3 of the 6 B/H spokes, alternating around the ring, and the bearing sits on them. Its screws and T-nuts are on that page's parts list, not this one's, which is why they are not in the count above.
+Nothing further is fastened to these two layers here. The [bottom interface]({{ '/hardware/assembly/distribution/bin-frame/bottom-interface/' | relative_url }}) hangs underneath the **bottom layer's** frame, and it is built and fitted on its own page: three Lazy Susan extrusion mount pairs bolt up into 3 of the 6 B spokes, alternating around the ring, and the bearing sits on them. Its screws and T-nuts are on that page's parts list, not this one's, which is why they are not in the count above.
 
 <figure class="single-figure">
   <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-lazy-susan-extrusion-mount-three-views-w1600-581de80090b8.jpg" alt="Three views of the same printed part on a white background: the Lazy Susan extrusion mount with its hold in place bolted under it, a grey wedge with a triangular window through its web and counterbored slots along its bottom face">
@@ -168,8 +168,8 @@ Nothing further is fastened to these two layers here. The [bottom interface]({{ 
 
 <div class="img-row">
   <figure>
-    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-bottom-two-layers-ls-mount-on-spoke-w1600-f2dd3fc8fe63.jpg" alt="Close-up of a Lazy Susan extrusion mount bolted onto a B/H spoke, the printed wedge with its triangular window sitting against the spoke's extrusion at a hex frame corner">
-    <figcaption>One mount bolted onto a B/H spoke. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-bottom-two-layers-ls-mount-on-spoke-w1600-f2dd3fc8fe63.jpg" alt="Close-up of a Lazy Susan extrusion mount bolted onto a B spoke, the printed wedge with its triangular window sitting against the spoke's extrusion at a hex frame corner">
+    <figcaption>One mount bolted onto a B spoke. <cite>Photo: BrickCycleAlice.</cite></figcaption>
   </figure>
   <figure>
     <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-bottom-two-layers-ls-mounts-three-on-ring-w1600-2d730f64193b.jpg" alt="A hex frame seen from above with three Lazy Susan extrusion mounts fitted, one on each of three spokes spaced alternately around the ring">
@@ -197,7 +197,7 @@ These two layers are the bottom of the bin frame, not a finished assembly on the
 <ol class="numbered-steps">
   <li><strong>Stack the remaining layers on top.</strong> Build N−2 <a href="{{ '/hardware/assembly/distribution/bin-frame/regular-layers/' | relative_url }}">regular layers</a> for an N-layer machine and join each one down onto the layer below it. <a href="{{ '/hardware/assembly/distribution/bin-frame/regular-layers/' | relative_url }}#step-3">Regular layers, step 3</a> is that joint, and it is the same joint every time, including where the first regular layer lands on the second of these two.</li>
   <li><strong>Cap the stack with the <a href="{{ '/hardware/assembly/distribution/top-interface/' | relative_url }}">top interface</a></strong>, which takes one of the hex frames you built at the start. <a href="{{ '/hardware/assembly/distribution/top-interface/' | relative_url }}#step-14">Top interface, step 14</a> is how it lands on the top layer.</li>
-  <li><strong>Sling the <a href="{{ '/hardware/assembly/distribution/bin-frame/bottom-interface/' | relative_url }}">bottom interface</a> underneath</strong>, bolted up into 3 of the bottom layer's 6 B/H spokes.</li>
+  <li><strong>Sling the <a href="{{ '/hardware/assembly/distribution/bin-frame/bottom-interface/' | relative_url }}">bottom interface</a> underneath</strong>, bolted up into 3 of the bottom layer's 6 B spokes.</li>
   <li><strong>Hang a <a href="{{ '/hardware/assembly/distribution/chute/' | relative_url }}">chute</a> in every layer</strong>, these two included.</li>
 </ol>
 

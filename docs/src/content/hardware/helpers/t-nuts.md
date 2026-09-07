@@ -42,7 +42,7 @@ Cheaper T-nuts are usually **slide-in**: a plain rectangular block with no sprin
 
 If that is what you have, fit these before the frames close around them:
 
-- **4 per A/G extrusion** on each [hex frame]({{ '/hardware/assembly/distribution/bin-frame/hex-frame/' | relative_url }}), toward the outer end of the extrusion, for the [bin retainers]({{ '/hardware/assembly/distribution/bin-frame/bin-retainers/' | relative_url }}).
-- **2 each into 3 of the 6 B/H spokes** of the bottom layer's frame, alternating around the ring, for the [bottom interface]({{ '/hardware/assembly/distribution/bin-frame/bottom-interface/' | relative_url }})'s Lazy Susan mounts.
+- **4 per A extrusion** on each [hex frame]({{ '/hardware/assembly/distribution/bin-frame/hex-frame/' | relative_url }}), toward the outer end of the extrusion, for the [bin retainers]({{ '/hardware/assembly/distribution/bin-frame/bin-retainers/' | relative_url }}).
+- **2 each into 3 of the 6 B spokes** of the bottom layer's frame, alternating around the ring, for the [bottom interface]({{ '/hardware/assembly/distribution/bin-frame/bottom-interface/' | relative_url }})'s Lazy Susan mounts.
 
 Slide-in nuts also do not hold their position on their own, so a nut you fitted early can drift along the slot before you get to the part that uses it. Fitting the part in the same session is easier than trying to line up a nut you cannot see.

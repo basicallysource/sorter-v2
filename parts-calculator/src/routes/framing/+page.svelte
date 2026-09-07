@@ -10,11 +10,12 @@
 	// lengths quoted in the C/D note below, read off the pieces themselves
 	const lenC = FRAMING_PIECES.find((p) => p.letter === 'C')?.len ?? 0;
 	const lenD = FRAMING_PIECES.find((p) => p.letter === 'D')?.len ?? 0;
+	const lenJ = FRAMING_PIECES.find((p) => p.letter === 'J')?.len ?? 0;
 </script>
 
 <Seo
 	title="Aluminium framing"
-	description="Aluminium extrusion cut list for the Sorter V2 frame — every T-slot length and quantity, with an optimised cutting plan."
+	description="Aluminium extrusion cut list for the Sorter V2 frame and feeder — every T-slot length and quantity, with an optimised cutting plan."
 />
 
 <div class="mx-auto max-w-6xl px-4 py-8 sm:px-6">
@@ -34,7 +35,7 @@
 		<ExtrusionScene>
 			{#snippet aside()}
 				<Figure
-					src="https://assets.basically.website/sorter-parts/extrusion-assembly-explainer-full-7991b2c2abd8.png"
+					src="https://assets.basically.website/sorter-parts/extrusion-assembly-explainer-full-full-68c62d8a10b3.png"
 					alt="Extrusion assembly explainer"
 					title="Extrusion assembly explainer"
 					caption="The foot extensions (D) aren't in the CAD yet. On a build they replace the C supports on the bottom two layers, one D spanning both."
@@ -76,12 +77,27 @@
 					rather than one set per layer.
 				</li>
 				<li>
-					Pieces that share a cut length stack together at the saw — mark and cut the top bar, the rest
-					follow: <b class="text-text">A &amp; G</b> = 320 mm, <b class="text-text">B &amp; H</b> = 158 mm.
+					<b class="text-text">J is a feeder piece, not a frame one.</b> C-channel 1 stands on
+					three legs of the same 2020 extrusion (<b class="text-text">J</b>, {lenJ} mm) standing in
+					its layout guide. C-channels 2 and 3 use printed legs instead (148 mm and 68 mm) and
+					C-channel 4 has none, so it is 3 per machine whatever the layer count. It is listed here
+					because it is cut from the same bars as the frame.
+				</li>
+				<li>
+					<b class="text-text">A &amp; G and B &amp; H are one cut each.</b> A and G are the same
+					320 mm piece doing two jobs, on a layer's hex frame and on the interface frame; B and H
+					are the same 158 mm spoke. They are one row here because they are one part in the
+					catalog, and they stack together at the saw: mark and cut the top bar, the rest follow.
 				</li>
 				<li>
 					Where the cut length is under the CAD length, the piece is trimmed {CLEARANCE_MM} mm for
 					tolerance (see the <b class="text-text">Cut length</b> note above).
+				</li>
+				<li>
+					<b class="text-text">Every quantity here comes from the parts catalog.</b> Each piece is
+					a part in <code class="text-xs">catalog/parts.json</code>, placed in the machine
+					assembly tree, so this list, the Hardware tab and the docs site are all counting the same
+					thing. Nothing about the framing is written down twice.
 				</li>
 			</ul>
 		</Callout>

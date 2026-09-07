@@ -527,6 +527,25 @@
 					"camera-mount"
 				]
 			}
+		},
+		{
+			"id": "delete-retired-c-channel-supports",
+			"name": "Delete the retired C-channel foot/leg/leg-extension supports",
+			"priority": "P4",
+			"condition": "retired",
+			"description": "The prototype C-channel stand: a foot, a leg and a leg extension stacked into a standoff, nine of each, plus the three assemblies that stacked them (Channel 2 support, Channel 3 support, Bulk bucket support). All of it was replaced on 2026-09-02 by the layout guide, the support legs and the dovetail adapters, and none of it reaches a bill of materials: the three parts carry no quantities and the three assemblies are unreachable from the machine. zed0 confirmed on 2026-09-07 that they were never used in the construction of a machine on the website and can be discarded, which is also what retires the framing cut list's piece I, the 267 mm bulk bucket support extrusion that stood in the same stack and never had a catalog entry. They should be deleted outright, but a minted part id has to stay resolvable once it exists, and the catalog's own consistency check refuses a change that removes one, so deleting them needs that check overridden by someone who can make that call, not an edit from here. Note the assemblies go with the parts.",
+			"targets": {
+				"parts": [
+					"foot",
+					"leg",
+					"leg-extension"
+				],
+				"assemblies": [
+					"channel-two-support",
+					"channel-three-support",
+					"bulk-bucket-support"
+				]
+			}
 		}
 	],
 	"folders": [
@@ -2801,7 +2820,7 @@
 			"uid": "r3v6",
 			"version": "1",
 			"name": "Outer hex frame (bottom layer)",
-			"description": "The outer hexagon of the lowest bin layer: six foot-cover corners with six A/G extrusions slid between them.",
+			"description": "The outer hexagon of the lowest bin layer: six foot-cover corners with six A extrusions slid between them.",
 			"lines": [
 				{
 					"assembly": "external-bracket-with-foot",
@@ -2897,7 +2916,7 @@
 					"qty": 12,
 					"method": "tnut",
 					"through_mm": 12.8,
-					"note": "Two per retainer, into the 4 T-nuts per A/G extrusion the hex frame pre-installs. Same joint as on a regular distribution layer."
+					"note": "Two per retainer, into the 4 T-nuts per A extrusion the hex frame pre-installs. Same joint as on a regular distribution layer."
 				},
 				{
 					"from": "bin-retainer-right",
@@ -2997,7 +3016,7 @@
 					"qty": 12,
 					"method": "tnut",
 					"through_mm": 12.8,
-					"note": "Two per retainer, into the 4 T-nuts per A/G extrusion, which go into the slot at this step. Measured off the STL: 12.00 mm of plastic between the head face and the face that sits on the extrusion, plus a 0.8 mm locating rib that drops into the slot, so the bore the screw crosses is 12.8 mm. An M5 x 12 stops level with the extrusion face with no thread in the nut; an M5 x 20 stands 8 mm into a slot about 5.9 mm deep and bottoms out before it clamps."
+					"note": "Two per retainer, into the 4 T-nuts per A extrusion, which go into the slot at this step. Measured off the STL: 12.00 mm of plastic between the head face and the face that sits on the extrusion, plus a 0.8 mm locating rib that drops into the slot, so the bore the screw crosses is 12.8 mm. An M5 x 12 stops level with the extrusion face with no thread in the nut; an M5 x 20 stands 8 mm into a slot about 5.9 mm deep and bottoms out before it clamps."
 				},
 				{
 					"from": "bin-retainer-right",
@@ -3953,7 +3972,7 @@
 			"uid": "jvp9",
 			"version": "1",
 			"name": "Outer hex frame",
-			"description": "Six External bracket with support corners with six A/G extrusions slid between them, closing the hexagon.",
+			"description": "Six External bracket with support corners with six A extrusions slid between them, closing the hexagon.",
 			"lines": [
 				{
 					"assembly": "external-bracket-with-support",
@@ -3991,7 +4010,7 @@
 			"uid": "ltdo",
 			"version": "1",
 			"name": "Inner hex frame",
-			"description": "The inner hexagon: six B/H spokes with six crossbeams and twelve 90-degree brackets.",
+			"description": "The inner hexagon: six B spokes with six crossbeams and twelve 90-degree brackets.",
 			"lines": [
 				{
 					"part": "ext-2020-bh",
@@ -22704,21 +22723,24 @@
 			"kind": "cots",
 			"cots": {
 				"type": "extrusion-2020",
-				"length_mm": 320
+				"length_mm": 320,
+				"letters": [
+					"A"
+				]
 			},
-			"name": "Outer horizontal / Horizontal interface frame (A/G)",
+			"name": "Hex outer horizontal (A)",
 			"category": "Aluminum extrusion (2020)",
-			"description": "2020 aluminum extrusion, cut to 320 mm (pieces A and G).",
+			"description": "2020 aluminum extrusion, cut to 320 mm (piece A). The outer ring of every hex frame: six per ring, on each bin layer and on the interface frame, which are the same frame built to the same guide.",
 			"note": null,
 			"created_at": "2026-08-21",
-			"updated_at": "2026-08-21",
+			"updated_at": "2026-09-07",
 			"attributes": [],
 			"sheet_qty": null,
 			"sheet_qty_text": null,
 			"stock": null,
 			"sourcing": null,
 			"alternative": null,
-			"caption": "2020 aluminum extrusion, cut to 320 mm (pieces A and G).",
+			"caption": "2020 aluminum extrusion, cut to 320 mm (piece A).",
 			"docs_page": null,
 			"conflicts": null,
 			"image": "https://assets.basically.website/sorter-parts/extrusion-extrusion-2020-full-01bd50e7eac0.png"
@@ -22729,21 +22751,24 @@
 			"kind": "cots",
 			"cots": {
 				"type": "extrusion-2020",
-				"length_mm": 158
+				"length_mm": 158,
+				"letters": [
+					"B"
+				]
 			},
-			"name": "Spoke / Interface spoke, short (B/H)",
+			"name": "Hex spoke (B)",
 			"category": "Aluminum extrusion (2020)",
-			"description": "2020 aluminum extrusion, cut to 158 mm (pieces B and H).",
+			"description": "2020 aluminum extrusion, cut to 158 mm (piece B). The inner ring of every hex frame: six spokes per ring, on each bin layer and on the interface frame. Not to be confused with the Interface spoke, long (E), which belongs to the interface bracket mounts rather than a hex frame.",
 			"note": null,
 			"created_at": "2026-08-21",
-			"updated_at": "2026-08-21",
+			"updated_at": "2026-09-07",
 			"attributes": [],
 			"sheet_qty": null,
 			"sheet_qty_text": null,
 			"stock": null,
 			"sourcing": null,
 			"alternative": null,
-			"caption": "2020 aluminum extrusion, cut to 158 mm (pieces B and H).",
+			"caption": "2020 aluminum extrusion, cut to 158 mm (piece B).",
 			"docs_page": null,
 			"conflicts": null,
 			"image": "https://assets.basically.website/sorter-parts/extrusion-extrusion-2020-full-01bd50e7eac0.png"
@@ -22754,7 +22779,11 @@
 			"kind": "cots",
 			"cots": {
 				"type": "extrusion-2020",
-				"length_mm": 154
+				"length_mm": 154,
+				"cad_length_mm": 160,
+				"letters": [
+					"C"
+				]
 			},
 			"name": "Layer vertical support (C)",
 			"category": "Aluminum extrusion (2020)",
@@ -22779,7 +22808,11 @@
 			"kind": "cots",
 			"cots": {
 				"type": "extrusion-2020",
-				"length_mm": 231
+				"length_mm": 231,
+				"cad_length_mm": 240,
+				"letters": [
+					"D"
+				]
 			},
 			"name": "Foot extension (D)",
 			"category": "Aluminum extrusion (2020)",
@@ -22804,7 +22837,11 @@
 			"kind": "cots",
 			"cots": {
 				"type": "extrusion-2020",
-				"length_mm": 238
+				"length_mm": 238,
+				"cad_length_mm": 244,
+				"letters": [
+					"E"
+				]
 			},
 			"name": "Interface spoke, long (E)",
 			"category": "Aluminum extrusion (2020)",
@@ -22829,7 +22866,11 @@
 			"kind": "cots",
 			"cots": {
 				"type": "extrusion-2020",
-				"length_mm": 274
+				"length_mm": 274,
+				"cad_length_mm": 280,
+				"letters": [
+					"F"
+				]
 			},
 			"name": "Interface vertical support (F)",
 			"category": "Aluminum extrusion (2020)",
@@ -22854,21 +22895,24 @@
 			"kind": "cots",
 			"cots": {
 				"type": "extrusion-2020",
-				"length_mm": 228
+				"length_mm": 228,
+				"letters": [
+					"J"
+				]
 			},
-			"name": "C-channel 1 support legs (228 mm)",
+			"name": "C-channel 1 support leg (J)",
 			"category": "Aluminum extrusion (2020)",
-			"description": "2020 aluminum extrusion, cut to 228 mm \u2014 C-channel 1's three support legs.",
+			"description": "2020 aluminum extrusion, cut to 228 mm (piece J). C-channel 1's three support legs, standing in its layout guide. C-channels 2 and 3 use printed legs instead, so this is 3 per machine.",
 			"note": null,
 			"created_at": "2026-09-02",
-			"updated_at": "2026-09-02",
+			"updated_at": "2026-09-07",
 			"attributes": [],
 			"sheet_qty": null,
 			"sheet_qty_text": null,
 			"stock": null,
 			"sourcing": null,
 			"alternative": null,
-			"caption": "2020 aluminum extrusion, cut to 228 mm.",
+			"caption": "2020 aluminum extrusion, cut to 228 mm (piece J).",
 			"docs_page": null,
 			"conflicts": null,
 			"image": "https://assets.basically.website/sorter-parts/extrusion-extrusion-2020-full-01bd50e7eac0.png"

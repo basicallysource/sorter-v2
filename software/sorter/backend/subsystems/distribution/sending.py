@@ -150,6 +150,10 @@ class Sending(BaseState):
         self._door_hold_done = True
         if bool(getattr(self.gc, "disable_servos", False)):
             return
+        already = getattr(self.shared, "held_door", None)
+        if already is not None:
+            self._held_door = already  # positioning energized it before READY
+            return
         door = self._targetDoor()
         if door is None:
             return
@@ -165,6 +169,8 @@ class Sending(BaseState):
         if door is None:
             return
         self._held_door = None
+        if getattr(self.shared, "held_door", None) is door:
+            self.shared.held_door = None
         try:
             door.release()
         except Exception as exc:

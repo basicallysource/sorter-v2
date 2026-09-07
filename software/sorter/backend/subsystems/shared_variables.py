@@ -78,6 +78,16 @@ class SharedVariables:
         self.set_chute_motion(bool(value), target_bin=None)
 
     @property
+    def held_door(self) -> object | None:
+        """The door servo positioning energized for the coming drop; sending
+        releases it after the settle, the state machine on a pause."""
+        return getattr(self, "_held_door", None)
+
+    @held_door.setter
+    def held_door(self, door: object | None) -> None:
+        self._held_door = door
+
+    @property
     def sample_collection_mode(self) -> bool:
         return self._sample_collection_mode
 

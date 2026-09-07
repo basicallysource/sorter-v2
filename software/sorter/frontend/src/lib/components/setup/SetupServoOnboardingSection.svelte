@@ -845,13 +845,18 @@
 	{/if}
 
 	<div class="flex flex-wrap items-center gap-3">
-		<button
-			onclick={saveServoSetup}
-			disabled={saving}
-			class="border border-success bg-success px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-success/90 disabled:cursor-not-allowed disabled:opacity-60"
-		>
-			{saving ? 'Saving…' : 'Save servo setup'}
-		</button>
+		<!-- The PCA9685 calibrator above carries its own save (with the speed
+		     fields this outer form does not know); a second save here would
+		     drop those speeds from [servo]. -->
+		{#if backend === 'waveshare'}
+			<button
+				onclick={saveServoSetup}
+				disabled={saving}
+				class="border border-success bg-success px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-success/90 disabled:cursor-not-allowed disabled:opacity-60"
+			>
+				{saving ? 'Saving…' : 'Save servo setup'}
+			</button>
+		{/if}
 		{#if loading}
 			<div class="text-sm text-text-muted">Loading current servo configuration…</div>
 		{/if}

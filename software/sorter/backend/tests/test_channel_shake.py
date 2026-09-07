@@ -2,6 +2,7 @@ import logging
 import unittest
 from types import SimpleNamespace
 
+from subsystems.classification_channel.simple_state_machine_rev01 import channel_clear
 from subsystems.classification_channel.simple_state_machine_rev01.channel_clear import (
     shakeChannelClear,
 )
@@ -32,6 +33,9 @@ class _Perception:
 
 
 class _Stepper:
+    software_disabled = False
+    jittering = False
+
     def __init__(self):
         self.calls = []
 
@@ -40,7 +44,7 @@ class _Stepper:
         return True
 
     def is_jittering(self):
-        return False
+        return self.jittering
 
 
 def _gc(counts):
@@ -69,7 +73,7 @@ class ShakeChannelClearTests(unittest.TestCase):
         )
         self.assertTrue(result.cleared)
         self.assertEqual("shaken_clear", result.reason)
-        self.assertEqual([(2.5, 2, 900, 2000, True), (5.0, 2, 900, 2000, True)], stepper.calls)
+        self.assertEqual([(2.5, 2, 900, 2000, False), (5.0, 2, 900, 2000, False)], stepper.calls)
 
     def test_reports_exhausted_when_piece_stays(self):
         stepper = _Stepper()
@@ -85,6 +89,28 @@ class ShakeChannelClearTests(unittest.TestCase):
         self.assertEqual("already_clear", shakeChannelClear(_gc([0]), irl, _irl_config([_stage("a", 0.25)])).reason)
         self.assertEqual("no_shimmy_config", shakeChannelClear(_gc([1]), irl, _irl_config([])).reason)
         self.assertEqual([], stepper.calls)
+
+    def test_disabled_stepper_is_not_shaken(self):
+        stepper = _Stepper()
+        stepper.software_disabled = True
+        irl = SimpleNamespace(carousel_stepper=stepper)
+        result = shakeChannelClear(_gc([1]), irl, _irl_config([_stage("a", 0.25)]))
+        self.assertEqual("stepper_disabled", result.reason)
+        self.assertEqual([], stepper.calls)
+
+    def test_unconfirmed_jitter_holds_instead_of_climbing_the_ladder(self):
+        stepper = _Stepper()
+        stepper.jittering = True  # telemetry never reports the stroke finished
+        irl = SimpleNamespace(carousel_stepper=stepper)
+        original = channel_clear._SHAKE_JITTER_TIMEOUT_S
+        channel_clear._SHAKE_JITTER_TIMEOUT_S = 0.1
+        try:
+            result = shakeChannelClear(_gc([1, 0]), irl, _irl_config([_stage("a", 0.25), _stage("b", 0.5)]))
+        finally:
+            channel_clear._SHAKE_JITTER_TIMEOUT_S = original
+        self.assertFalse(result.cleared)
+        self.assertEqual("jitter_unconfirmed", result.reason)
+        self.assertEqual(1, len(stepper.calls))
 
 
 if __name__ == "__main__":

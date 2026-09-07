@@ -86,9 +86,10 @@ class Settings(BaseSettings):
     # server-health page (server_storage_cache). The walk lists every S3 key so
     # it's slow; a few hours is plenty. Clamped to a 5min floor in the worker.
     SERVER_STORAGE_REFRESH_INTERVAL_MINUTES: int = 180
-    # Best intelligence-per-dollar on OpenRouter as of 2026-07 (~$0.7/M in,
-    # ~$2.2/M out). Frontend settings page mirrors this in aiModelGroups.
-    DEFAULT_AI_MODEL: str = "z-ai/glm-5.2"
+    # Newest full-size GLM as of 2026-09: ~$1.4/M in, ~$4.4/M out, roughly half
+    # of Sonnet 5 on the blended cost factor. The settings page reads this from
+    # GET /api/ai/models rather than hardcoding it.
+    DEFAULT_AI_MODEL: str = "z-ai/glm-5.3"
     PROFILE_AI_PROMPT_CACHE_ENABLED: bool = True
     PROFILE_AI_PROMPT_CACHE_TTL: str | None = None
     SECRET_ENCRYPTION_KEY: str | None = None

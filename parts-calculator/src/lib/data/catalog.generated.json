@@ -12,8 +12,8 @@
 		"cost_per_kg": 24.99,
 		"commit_base_url": "https://github.com/basicallysource/sorter-v2/commit/",
 		"engrave": "33d9fa246b1a",
-		"all_parts_zip": "https://assets.basically.website/sorter-parts/all-parts-b69ef395e79f.zip",
-		"all_parts_plain_zip": "https://assets.basically.website/sorter-parts/all-parts-plain-d17d1486022f.zip"
+		"all_parts_zip": "https://assets.basically.website/sorter-parts/all-parts-3d5c310456fa.zip",
+		"all_parts_plain_zip": "https://assets.basically.website/sorter-parts/all-parts-plain-17642cc81389.zip"
 	},
 	"sections": [
 		{
@@ -1195,17 +1195,13 @@
 			]
 		},
 		{
-			"id": "cable-cage",
-			"uid": "nam6",
+			"id": "cage-bracket-cable-clamp",
+			"uid": "s4we",
 			"version": "1",
-			"name": "Cable cage",
-			"description": "Six cable cage brackets (5 regular + 1 cable mount) stacked with the ribbon cable clamp. Also sandwiches the laser-cut cage top and bottom plates, which are not in the parts registry yet.",
+			"name": "Cage bracket (cable mount) + ribbon clamp",
+			"description": "The one cable-cage corner that carries the ribbon cable: the cable-mount bracket with the outer ribbon cable clamp bolted to its post.",
 			"docs": "/hardware/assembly/distribution/top-interface/",
 			"lines": [
-				{
-					"part": "interface-cage-bracket",
-					"qty": 5
-				},
 				{
 					"part": "interface-cage-bracket-cable",
 					"qty": 1
@@ -1215,16 +1211,95 @@
 					"qty": 1
 				},
 				{
+					"part": "scr-m3-10-shcs",
+					"qty": 1
+				}
+			],
+			"connections": [
+				{
+					"from": "ribbon-cable-clamp",
+					"to": "interface-cage-bracket-cable",
+					"via": "scr-m3-10-shcs",
+					"qty": 1,
+					"method": "insert",
+					"note": "Single M3 into the bracket's heat-set insert. The clamp's lip hooks under the post's underside (raised in v2, sorter-v2 #403) to stop the clamp rotating on the single screw."
+				}
+			],
+			"images": [
+				{
+					"url": "https://assets.basically.website/sorter-parts/spencer-image2-full-adb0f1993da6.png",
+					"alt": "Onshape render of the cable-mount cage bracket (teal) with the ribbon cable clamp (purple) bolted to its post, one M3 hole visible through both",
+					"caption": "The cable-mount bracket and ribbon clamp, assembled."
+				}
+			]
+		},
+		{
+			"id": "cable-cage",
+			"uid": "wxcr",
+			"version": "2",
+			"name": "Cable cage",
+			"description": "Six cable cage brackets (5 regular + 1 cable mount, the latter carrying the ribbon cable clamp) stacked with the ribbon cable clamp. Also sandwiches the laser-cut cage top and bottom plates, which are not in the parts registry yet.",
+			"docs": "/hardware/assembly/distribution/top-interface/",
+			"versions": [
+				{
+					"version": "1",
+					"uid": "nam6",
+					"message": "As recorded before the first stamped change.",
+					"lines": [
+						{
+							"part": "interface-cage-bracket",
+							"qty": 5,
+							"uid": "resz"
+						},
+						{
+							"part": "interface-cage-bracket-cable",
+							"qty": 1,
+							"uid": "cy58"
+						},
+						{
+							"part": "ribbon-cable-clamp",
+							"qty": 1,
+							"uid": "nf0n"
+						},
+						{
+							"part": "scr-m5-35-fhcs",
+							"qty": 6
+						},
+						{
+							"part": "nut-m5",
+							"qty": 6
+						},
+						{
+							"part": "scr-m3-10-shcs",
+							"qty": 1
+						}
+					]
+				},
+				{
+					"version": "2",
+					"uid": "wxcr",
+					"date": "2026-09-07",
+					"message": "Both cage brackets moved to v2 (sorter-v2 #403, the 25mm 'temp catcher wall' to 23mm 'main' Onshape reset), and the cable-mount bracket + ribbon clamp + their M3 now nest as the new cage-bracket-cable-clamp sub-assembly instead of three flat lines. No change to what the six brackets are or how they stack; the regular brackets and their M5s stay flat lines here.",
+					"breaking": false,
+					"commit": null
+				}
+			],
+			"lines": [
+				{
+					"part": "interface-cage-bracket",
+					"qty": 5
+				},
+				{
+					"assembly": "cage-bracket-cable-clamp",
+					"qty": 1
+				},
+				{
 					"part": "scr-m5-35-fhcs",
 					"qty": 6
 				},
 				{
 					"part": "nut-m5",
 					"qty": 6
-				},
-				{
-					"part": "scr-m3-10-shcs",
-					"qty": 1
 				}
 			]
 		},
@@ -5170,7 +5245,7 @@
 					"stl_hash": "350de3f8e27e7d0bb1f00d2c070c7f255da73987c9b2d86f639664c5db81bfd6",
 					"render": "https://assets.basically.website/sorter-parts/rotor-faceted-v1-full-52fba49e5abb.png",
 					"stl": "https://assets.basically.website/sorter-parts/rotor-faceted-350de3f8e27e.stl",
-					"grams": 166.5
+					"grams": 166.51
 				},
 				{
 					"version": "2",
@@ -5187,10 +5262,10 @@
 			],
 			"attributes": [],
 			"grams": 165.58,
-			"support_grams": 0.0,
+			"support_grams": 0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 10670,
+			"print_seconds": 10668,
 			"color": {
 				"fixed": "ash-gray"
 			},
@@ -5314,15 +5389,15 @@
 					"commit": null,
 					"stl": "https://assets.basically.website/sorter-parts/output-gear-69ae2f998fe3.stl",
 					"render": "https://assets.basically.website/sorter-parts/output-gear-full-18ac70750f76.png",
-					"grams": 59.67
+					"grams": 59.69
 				}
 			],
 			"attributes": [],
-			"grams": 59.67,
-			"support_grams": 0.0,
+			"grams": 59.69,
+			"support_grams": 0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 7249,
+			"print_seconds": 7237,
 			"color": {
 				"role": "feeder"
 			},
@@ -5447,15 +5522,15 @@
 					"onshape_version": "https://cad.onshape.com/documents/60aa51fc61d18f2155b99910/v/b76489d0ca46a1169a2a6081/e/66109ce96b305bf318354f93",
 					"stl": "https://assets.basically.website/sorter-parts/nema-bracket-8b2bea87360e.stl",
 					"render": "https://assets.basically.website/sorter-parts/nema-bracket-full-91f60f914ef2.png",
-					"grams": 72.45
+					"grams": 72.42
 				}
 			],
 			"attributes": [],
-			"grams": 72.45,
-			"support_grams": 0.0,
+			"grams": 72.42,
+			"support_grams": 0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 7209,
+			"print_seconds": 7206,
 			"color": {
 				"by_section": {
 					"feeder": {
@@ -5597,10 +5672,10 @@
 			],
 			"attributes": [],
 			"grams": 13.16,
-			"support_grams": 2.47,
+			"support_grams": 2.51,
 			"support_used": true,
 			"support_intentional": true,
-			"print_seconds": 5172,
+			"print_seconds": 5161,
 			"color": {
 				"role": "feeder"
 			},
@@ -5684,7 +5759,7 @@
 			"support_grams": 4.62,
 			"support_used": true,
 			"support_intentional": true,
-			"print_seconds": 3240,
+			"print_seconds": 3246,
 			"color": {
 				"fixed": "ivory-white"
 			},
@@ -5805,10 +5880,10 @@
 			],
 			"attributes": [],
 			"grams": 2.59,
-			"support_grams": 0.0,
+			"support_grams": 0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 955,
+			"print_seconds": 956,
 			"color": {
 				"role": "feeder"
 			},
@@ -5903,10 +5978,10 @@
 			],
 			"attributes": [],
 			"grams": 620.43,
-			"support_grams": 0.0,
+			"support_grams": 0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 43773,
+			"print_seconds": 43772,
 			"color": {
 				"role": "feeder"
 			},
@@ -6032,10 +6107,10 @@
 			],
 			"attributes": [],
 			"grams": 371.28,
-			"support_grams": 0.0,
+			"support_grams": 0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 30870,
+			"print_seconds": 31045,
 			"color": {
 				"fixed": "ivory-white"
 			},
@@ -6204,7 +6279,7 @@
 					"stl_hash": "db2c0ecf58184c752a8d66035b2620a3d1570343167b8b2b7f3b7eedd402c58f",
 					"render": "https://assets.basically.website/sorter-parts/interface-bracket-v1-full-84aba44e6d1b.png",
 					"stl": "https://assets.basically.website/sorter-parts/interface-bracket-db2c0ecf5818.stl",
-					"grams": 159.48
+					"grams": 159.64
 				},
 				{
 					"version": "2",
@@ -6215,15 +6290,15 @@
 					"onshape_version": "https://cad.onshape.com/documents/36d65973fe08f685f790dc8b/v/f845b960415692451f2903b1/e/77f0be233cae0dcaf1c2a391",
 					"stl": "https://assets.basically.website/sorter-parts/interface-bracket-5835878c9a32.stl",
 					"render": "https://assets.basically.website/sorter-parts/interface-bracket-full-9bee4cdaf075.png",
-					"grams": 159.46
+					"grams": 159.45
 				}
 			],
 			"attributes": [],
-			"grams": 159.46,
-			"support_grams": 0.0,
+			"grams": 159.45,
+			"support_grams": 0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 14631,
+			"print_seconds": 14632,
 			"color": {
 				"role": "frame"
 			},
@@ -6490,7 +6565,7 @@
 			"support_grams": 9.29,
 			"support_used": true,
 			"support_intentional": false,
-			"print_seconds": 23969,
+			"print_seconds": 23661,
 			"color": {
 				"role": "chute-core"
 			},
@@ -6623,10 +6698,10 @@
 			],
 			"attributes": [],
 			"grams": 21.19,
-			"support_grams": 0.0,
+			"support_grams": 0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 2584,
+			"print_seconds": 2583,
 			"color": {
 				"role": "frame"
 			},
@@ -6755,10 +6830,10 @@
 			],
 			"attributes": [],
 			"grams": 21.44,
-			"support_grams": 0.0,
+			"support_grams": 0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 2604,
+			"print_seconds": 2606,
 			"color": {
 				"role": "frame"
 			},
@@ -6889,7 +6964,7 @@
 			],
 			"attributes": [],
 			"grams": 86.17,
-			"support_grams": 0.0,
+			"support_grams": 0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 9567,
@@ -7022,7 +7097,7 @@
 			],
 			"attributes": [],
 			"grams": 13.62,
-			"support_grams": 0.0,
+			"support_grams": 0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 2678,
@@ -7158,10 +7233,10 @@
 			],
 			"attributes": [],
 			"grams": 233.62,
-			"support_grams": 0.0,
+			"support_grams": 0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 18078,
+			"print_seconds": 18175,
 			"color": {
 				"role": "chute-core"
 			},
@@ -7302,10 +7377,10 @@
 			],
 			"attributes": [],
 			"grams": 206.81,
-			"support_grams": 0.0,
+			"support_grams": 0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 14391,
+			"print_seconds": 14392,
 			"color": {
 				"role": "frame"
 			},
@@ -7453,10 +7528,10 @@
 			],
 			"attributes": [],
 			"grams": 56.06,
-			"support_grams": 0.0,
+			"support_grams": 0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 7440,
+			"print_seconds": 7500,
 			"color": {
 				"role": "frame"
 			},
@@ -7715,10 +7790,10 @@
 			],
 			"attributes": [],
 			"grams": 10.63,
-			"support_grams": 0.0,
+			"support_grams": 0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 1458,
+			"print_seconds": 1456,
 			"color": {
 				"role": "frame"
 			},
@@ -7810,10 +7885,10 @@
 			],
 			"attributes": [],
 			"grams": 48.52,
-			"support_grams": 0.0,
+			"support_grams": 0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 6010,
+			"print_seconds": 6009,
 			"color": {
 				"role": "frame"
 			},
@@ -7938,15 +8013,15 @@
 					"onshape_version": "https://cad.onshape.com/documents/a4a1965bbaf3a15aff2b13ed/v/7279a42b05833c7b828efb0d/e/b0ee2e787191265cba1c1a31",
 					"stl": "https://assets.basically.website/sorter-parts/ext-bracket-bottom-vertical-313397afb08f.stl",
 					"render": "https://assets.basically.website/sorter-parts/ext-bracket-bottom-vertical-full-9d75356a3cf1.png",
-					"grams": 50.62
+					"grams": 50.66
 				}
 			],
 			"attributes": [],
-			"grams": 50.62,
-			"support_grams": 10.43,
+			"grams": 50.66,
+			"support_grams": 10.41,
 			"support_used": true,
 			"support_intentional": false,
-			"print_seconds": 8873,
+			"print_seconds": 8759,
 			"color": {
 				"role": "frame"
 			},
@@ -8076,7 +8151,7 @@
 			],
 			"attributes": [],
 			"grams": 12.45,
-			"support_grams": 0.0,
+			"support_grams": 0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 2264,
@@ -8222,10 +8297,10 @@
 			],
 			"attributes": [],
 			"grams": 23.59,
-			"support_grams": 0.0,
+			"support_grams": 0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 3584,
+			"print_seconds": 3585,
 			"color": {
 				"role": "frame"
 			},
@@ -8363,15 +8438,15 @@
 					"onshape_version": "https://cad.onshape.com/documents/36d65973fe08f685f790dc8b/v/3b8fafc8cab54b09332e14d2/e/8f693a0bd7ce7d62c0c00291",
 					"stl": "https://assets.basically.website/sorter-parts/interface-upper-fixed-section-47d71e76dcfa.stl",
 					"render": "https://assets.basically.website/sorter-parts/interface-upper-fixed-section-full-ab978b2f9123.png",
-					"grams": 164.14
+					"grams": 164.13
 				}
 			],
 			"attributes": [],
-			"grams": 164.14,
-			"support_grams": 0.0,
+			"grams": 164.13,
+			"support_grams": 0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 12186,
+			"print_seconds": 12159,
 			"color": {
 				"role": "frame"
 			},
@@ -8505,10 +8580,10 @@
 			],
 			"attributes": [],
 			"grams": 26.6,
-			"support_grams": 0.0,
+			"support_grams": 0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 3123,
+			"print_seconds": 3124,
 			"color": {
 				"role": "frame"
 			},
@@ -8637,7 +8712,7 @@
 			],
 			"attributes": [],
 			"grams": 15.27,
-			"support_grams": 0.0,
+			"support_grams": 0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 2264,
@@ -8764,7 +8839,7 @@
 					"stl_hash": "8ca345012b63e33064706c787705fa3d3f39229891319935beb58eeede6d1a14",
 					"render": "https://assets.basically.website/sorter-parts/interface-big-spacer-v1-full-320abf1a877e.png",
 					"stl": "https://assets.basically.website/sorter-parts/interface-big-spacer-8ca345012b63.stl",
-					"grams": 22.18
+					"grams": 22.19
 				},
 				{
 					"version": "2",
@@ -8780,10 +8855,10 @@
 			],
 			"attributes": [],
 			"grams": 11.13,
-			"support_grams": 0.0,
+			"support_grams": 0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 1485,
+			"print_seconds": 1484,
 			"color": {
 				"role": "frame"
 			},
@@ -8877,7 +8952,7 @@
 			"support_grams": 0.92,
 			"support_used": true,
 			"support_intentional": true,
-			"print_seconds": 1948,
+			"print_seconds": 1949,
 			"color": {
 				"role": "chute-core"
 			},
@@ -9018,10 +9093,10 @@
 			],
 			"attributes": [],
 			"grams": 19.76,
-			"support_grams": 6.9,
+			"support_grams": 6.97,
 			"support_used": true,
 			"support_intentional": true,
-			"print_seconds": 3550,
+			"print_seconds": 3555,
 			"color": {
 				"role": "chute-core"
 			},
@@ -9148,15 +9223,15 @@
 					"commit": null,
 					"stl": "https://assets.basically.website/sorter-parts/interface-spur-gear-f5c380479615.stl",
 					"render": "https://assets.basically.website/sorter-parts/interface-spur-gear-full-22b7d8546475.png",
-					"grams": 9.0
+					"grams": 9
 				}
 			],
 			"attributes": [],
-			"grams": 9.0,
-			"support_grams": 0.0,
+			"grams": 9,
+			"support_grams": 0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 1920,
+			"print_seconds": 1916,
 			"color": {
 				"role": "frame"
 			},
@@ -9248,10 +9323,10 @@
 			],
 			"attributes": [],
 			"grams": 8.98,
-			"support_grams": 0.0,
+			"support_grams": 0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 1993,
+			"print_seconds": 1989,
 			"color": {
 				"role": "frame"
 			},
@@ -9322,10 +9397,10 @@
 			],
 			"attributes": [],
 			"grams": 45.02,
-			"support_grams": 0.0,
+			"support_grams": 0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 5384,
+			"print_seconds": 5392,
 			"color": {
 				"role": "frame"
 			},
@@ -9466,10 +9541,10 @@
 			],
 			"attributes": [],
 			"grams": 1.43,
-			"support_grams": 0.0,
+			"support_grams": 0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 609,
+			"print_seconds": 610,
 			"color": {
 				"role": "frame"
 			},
@@ -9520,7 +9595,7 @@
 			],
 			"attributes": [],
 			"grams": 0.26,
-			"support_grams": 0.0,
+			"support_grams": 0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 445,
@@ -9543,7 +9618,7 @@
 		},
 		{
 			"id": "interface-cage-bracket",
-			"uid": "resz",
+			"uid": "1mqs",
 			"name": "Cable cage bracket",
 			"quantities": {
 				"interface": 5
@@ -9553,27 +9628,38 @@
 			"variant_group": null,
 			"variant_name": null,
 			"description": "Interface cable cage bracket (regular). 5 needed.",
-			"version": "1",
+			"version": "2",
 			"created_at": "2026-06-27",
-			"updated_at": "2026-06-27",
+			"updated_at": "2026-09-07",
 			"versions": [
 				{
 					"version": "1",
 					"uid": "resz",
-					"date": "2026-06-27",
-					"message": "Initial version.",
-					"commit": null,
-					"stl": "https://assets.basically.website/sorter-parts/interface-cage-bracket-6164e958336a.stl",
+					"message": "As recorded before the first stamped change.",
+					"stl_hash": "6164e958336a10b2a6f3910b6a0bc754996a15202d2719923b272e0963561074",
 					"render": "https://assets.basically.website/sorter-parts/interface-cage-bracket-full-fe74543cb2fd.png",
+					"stl": "https://assets.basically.website/sorter-parts/interface-cage-bracket-6164e958336a.stl",
 					"grams": 15.89
+				},
+				{
+					"version": "2",
+					"uid": "1mqs",
+					"date": "2026-09-07",
+					"message": "Full v2 reset of the cable-cage bracket set (sorter-v2 #403): the underside raises ~2mm (foot 212.5 -> 214.5, boss underside 210.0 -> 212.0), same change as interface-cage-bracket-cable's v2, moving the cage from the 25mm-tall 'temp catcher wall' Onshape branch to the 23mm-tall main branch. Bolt pattern and cage-plate rebate unchanged, so an old print still bolts in the same place.",
+					"breaking": false,
+					"commit": null,
+					"onshape_version": "https://cad.onshape.com/documents/36d65973fe08f685f790dc8b/v/ea31e1c51b28dfab1e6024f5/e/1850f7f376b0cfba64f9e367",
+					"stl": "https://assets.basically.website/sorter-parts/interface-cage-bracket-543ea9815e26.stl",
+					"render": "https://assets.basically.website/sorter-parts/interface-cage-bracket-full-df98c26092df.png",
+					"grams": 15.11
 				}
 			],
 			"attributes": [],
-			"grams": 15.89,
+			"grams": 15.11,
 			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 2797,
+			"print_seconds": 2704,
 			"color": {
 				"role": "frame"
 			},
@@ -9587,52 +9673,52 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"stl": "https://assets.basically.website/sorter-parts/interface-cage-bracket-6164e958336a.stl",
-			"render": "https://assets.basically.website/sorter-parts/interface-cage-bracket-full-fe74543cb2fd.png",
+			"stl": "https://assets.basically.website/sorter-parts/interface-cage-bracket-543ea9815e26.stl",
+			"render": "https://assets.basically.website/sorter-parts/interface-cage-bracket-full-df98c26092df.png",
 			"stamped": [
 				{
 					"face": "bottom",
-					"stl": "https://assets.basically.website/sorter-parts/interface-cage-bracket-resz-stamped-bottom-3e1088019686.stl",
+					"stl": "https://assets.basically.website/sorter-parts/interface-cage-bracket-1mqs-stamped-bottom-d17cea9ecb22.stl",
 					"normal": [
 						-0.0,
 						-0.0,
 						-1.0
 					],
 					"center": [
-						11.31,
-						199.65,
-						210.0
+						10.87,
+						199.67,
+						212.0
 					],
 					"size": [
-						3.63,
-						12.22
+						4.52,
+						12.2
 					],
 					"cap": 3.5,
 					"depth": 0.6
 				},
 				{
 					"face": "-x side",
-					"stl": "https://assets.basically.website/sorter-parts/interface-cage-bracket-resz-stamped-minus-x-side-d9ba0c2af605.stl",
+					"stl": "https://assets.basically.website/sorter-parts/interface-cage-bracket-1mqs-stamped-minus-x-side-3d15d533f77e.stl",
 					"normal": [
 						-1.0,
-						0.0,
-						0.0
+						-0.0,
+						-0.0
 					],
 					"center": [
 						-15.0,
-						200.15,
-						213.69
+						200.17,
+						216.13
 					],
 					"size": [
-						12.22,
-						3.63
+						12.2,
+						4.52
 					],
 					"cap": 3.5,
 					"depth": 0.6
 				},
 				{
 					"face": "+x side",
-					"stl": "https://assets.basically.website/sorter-parts/interface-cage-bracket-resz-stamped-plus-x-side-59567fdf0442.stl",
+					"stl": "https://assets.basically.website/sorter-parts/interface-cage-bracket-1mqs-stamped-plus-x-side-ef74c354ffdb.stl",
 					"normal": [
 						1.0,
 						0.0,
@@ -9640,32 +9726,32 @@
 					],
 					"center": [
 						15.0,
-						200.15,
-						213.69
+						200.17,
+						216.13
 					],
 					"size": [
-						12.22,
-						3.63
+						12.2,
+						4.52
 					],
 					"cap": 3.5,
 					"depth": 0.6
 				},
 				{
 					"face": "+y side",
-					"stl": "https://assets.basically.website/sorter-parts/interface-cage-bracket-resz-stamped-plus-y-side-c9afb6895ff2.stl",
+					"stl": "https://assets.basically.website/sorter-parts/interface-cage-bracket-1mqs-stamped-plus-y-side-b5929bf15b7e.stl",
 					"normal": [
 						0.0,
 						1.0,
-						0.0
+						-0.0
 					],
 					"center": [
-						7.51,
+						7.53,
 						207.64,
-						213.69
+						216.13
 					],
 					"size": [
-						12.22,
-						3.63
+						12.2,
+						4.52
 					],
 					"cap": 3.5,
 					"depth": 0.6
@@ -9704,15 +9790,15 @@
 					"message": "barthel's proposed fix for the ribbon-cable-clamp foot/lip mismatch (#403): the underside near the heat-insert boss raised ~2mm (Z 210.0 -> 212.0) and the mounting foot widened from +-15 to +-22 in X. Mounting bolt pattern and insert bore unchanged, so an old print still bolts in the same place.",
 					"breaking": false,
 					"commit": "6e02bf71",
-					"onshape_version": "https://cad.onshape.com/documents/36d65973fe08f685f790dc8b/v/b0b87904579c8becc296a460/e/5e3340c2e9170c356be9cfb9",
+					"onshape_version": "https://cad.onshape.com/documents/36d65973fe08f685f790dc8b/v/ea31e1c51b28dfab1e6024f5/e/53b920a202f4d2547f109634",
 					"stl": "https://assets.basically.website/sorter-parts/interface-cage-bracket-cable-0dad6ad3b408.stl",
-					"render": "https://assets.basically.website/sorter-parts/interface-cage-bracket-cable-full-de4012cabecf.png",
+					"render": "https://assets.basically.website/sorter-parts/interface-cage-bracket-cable-render-dd7105132e03.png",
 					"grams": 15.97
 				}
 			],
 			"attributes": [],
 			"grams": 15.97,
-			"support_grams": 0.0,
+			"support_grams": 0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 2841,
@@ -9735,7 +9821,7 @@
 			"docs_page": null,
 			"conflicts": null,
 			"stl": "https://assets.basically.website/sorter-parts/interface-cage-bracket-cable-0dad6ad3b408.stl",
-			"render": "https://assets.basically.website/sorter-parts/interface-cage-bracket-cable-full-de4012cabecf.png",
+			"render": "https://assets.basically.website/sorter-parts/interface-cage-bracket-cable-render-dd7105132e03.png",
 			"stamped": [
 				{
 					"face": "bottom",
@@ -9846,7 +9932,7 @@
 			],
 			"attributes": [],
 			"grams": 29.01,
-			"support_grams": 0.0,
+			"support_grams": 0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 2334,
@@ -9977,7 +10063,7 @@
 			],
 			"attributes": [],
 			"grams": 52.99,
-			"support_grams": 0.0,
+			"support_grams": 0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 3798,
@@ -10104,6 +10190,7 @@
 					"date": "2026-07-03",
 					"message": "Initial version.",
 					"commit": null,
+					"onshape_version": "https://cad.onshape.com/documents/36d65973fe08f685f790dc8b/v/ea31e1c51b28dfab1e6024f5/e/53b920a202f4d2547f109634",
 					"stl": "https://assets.basically.website/sorter-parts/ribbon-cable-clamp-39b7e6d0e986.stl",
 					"render": "https://assets.basically.website/sorter-parts/ribbon-cable-clamp-full-3639500e371d.png",
 					"grams": 5.31
@@ -10111,7 +10198,7 @@
 			],
 			"attributes": [],
 			"grams": 5.31,
-			"support_grams": 0.0,
+			"support_grams": 0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 1992,
@@ -10238,15 +10325,15 @@
 					"commit": null,
 					"stl": "https://assets.basically.website/sorter-parts/top-interface-split-spur-gear-1-6a600fb6a6b3.stl",
 					"render": "https://assets.basically.website/sorter-parts/top-interface-split-spur-gear-1-full-fe39441babb2.png",
-					"grams": 59.97
+					"grams": 59.95
 				}
 			],
 			"attributes": [],
-			"grams": 59.97,
-			"support_grams": 0.0,
+			"grams": 59.95,
+			"support_grams": 0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 7684,
+			"print_seconds": 7668,
 			"color": {
 				"role": "chute-core"
 			},
@@ -10350,12 +10437,12 @@
 					"commit": null,
 					"stl": "https://assets.basically.website/sorter-parts/top-interface-split-spur-gear-2-c109b8b226a8.stl",
 					"render": "https://assets.basically.website/sorter-parts/top-interface-split-spur-gear-2-full-ee8fba2a9ee9.png",
-					"grams": 8.0
+					"grams": 8
 				}
 			],
 			"attributes": [],
-			"grams": 8.0,
-			"support_grams": 0.0,
+			"grams": 8,
+			"support_grams": 0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 1250,
@@ -10446,15 +10533,15 @@
 					"commit": null,
 					"stl": "https://assets.basically.website/sorter-parts/top-interface-split-spur-gear-3-11f50ca23d80.stl",
 					"render": "https://assets.basically.website/sorter-parts/top-interface-split-spur-gear-3-full-4cc66f4b00eb.png",
-					"grams": 588.3
+					"grams": 588.15
 				}
 			],
 			"attributes": [],
-			"grams": 588.3,
-			"support_grams": 400.58,
+			"grams": 588.15,
+			"support_grams": 400.62,
 			"support_used": true,
 			"support_intentional": false,
-			"print_seconds": 46254,
+			"print_seconds": 46282,
 			"color": {
 				"role": "chute-core"
 			},
@@ -10591,7 +10678,7 @@
 			],
 			"attributes": [],
 			"grams": 0.71,
-			"support_grams": 0.0,
+			"support_grams": 0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 1057,
@@ -10641,7 +10728,7 @@
 			],
 			"attributes": [],
 			"grams": 10.13,
-			"support_grams": 0.0,
+			"support_grams": 0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 2140,
@@ -10777,7 +10864,7 @@
 			],
 			"attributes": [],
 			"grams": 3.56,
-			"support_grams": 0.0,
+			"support_grams": 0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 973,
@@ -10894,10 +10981,10 @@
 			],
 			"attributes": [],
 			"grams": 178.76,
-			"support_grams": 0.0,
+			"support_grams": 0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 12914,
+			"print_seconds": 12910,
 			"color": {
 				"fixed": "ash-gray"
 			},
@@ -11025,10 +11112,10 @@
 			],
 			"attributes": [],
 			"grams": 4.61,
-			"support_grams": 0.0,
+			"support_grams": 0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 1437,
+			"print_seconds": 1444,
 			"color": {
 				"role": "feeder"
 			},
@@ -11117,7 +11204,7 @@
 			],
 			"attributes": [],
 			"grams": 3.57,
-			"support_grams": 0.0,
+			"support_grams": 0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 1448,
@@ -11237,10 +11324,10 @@
 			],
 			"attributes": [],
 			"grams": 11.93,
-			"support_grams": 0.0,
+			"support_grams": 0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 3180,
+			"print_seconds": 3179,
 			"color": {
 				"fixed": "ash-gray"
 			},
@@ -11730,10 +11817,10 @@
 			],
 			"attributes": [],
 			"grams": 20.13,
-			"support_grams": 0.0,
+			"support_grams": 0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 2947,
+			"print_seconds": 2948,
 			"color": {
 				"role": "chute-core"
 			},
@@ -11861,7 +11948,7 @@
 					"commit": null,
 					"stl": "https://assets.basically.website/sorter-parts/bearing-holder-left-f0cc0eb5d575.stl",
 					"render": "https://assets.basically.website/sorter-parts/bearing-holder-left-full-5dff3021158c.png",
-					"grams": 7.95
+					"grams": 7.9
 				}
 			],
 			"attributes": [
@@ -11870,11 +11957,11 @@
 					"value": "Bearing holder (right)"
 				}
 			],
-			"grams": 7.95,
-			"support_grams": 0.0,
+			"grams": 7.9,
+			"support_grams": 0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 2231,
+			"print_seconds": 2226,
 			"color": {
 				"role": "chute-core"
 			},
@@ -12014,7 +12101,7 @@
 				}
 			],
 			"grams": 7.98,
-			"support_grams": 0.0,
+			"support_grams": 0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 2249,
@@ -12152,7 +12239,7 @@
 			],
 			"attributes": [],
 			"grams": 4.85,
-			"support_grams": 0.0,
+			"support_grams": 0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 2035,
@@ -12300,7 +12387,7 @@
 			],
 			"attributes": [],
 			"grams": 5.25,
-			"support_grams": 0.0,
+			"support_grams": 0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 2095,
@@ -12558,7 +12645,7 @@
 			],
 			"attributes": [],
 			"grams": 9.58,
-			"support_grams": 0.0,
+			"support_grams": 0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 2330,
@@ -12684,15 +12771,15 @@
 					"commit": null,
 					"stl": "https://assets.basically.website/sorter-parts/servo-bracket-cover-1ebad4ab6770.stl",
 					"render": "https://assets.basically.website/sorter-parts/servo-bracket-cover-full-0a9c4cf064c4.png",
-					"grams": 6.0
+					"grams": 6
 				}
 			],
 			"attributes": [],
-			"grams": 6.0,
-			"support_grams": 0.0,
+			"grams": 6,
+			"support_grams": 0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 2182,
+			"print_seconds": 2183,
 			"color": {
 				"role": "chute-core"
 			},
@@ -12823,7 +12910,7 @@
 			],
 			"attributes": [],
 			"grams": 17.31,
-			"support_grams": 0.0,
+			"support_grams": 0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 2881,
@@ -12957,7 +13044,7 @@
 			],
 			"attributes": [],
 			"grams": 21.11,
-			"support_grams": 0.0,
+			"support_grams": 0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 5597,
@@ -13086,7 +13173,7 @@
 			],
 			"attributes": [],
 			"grams": 8.45,
-			"support_grams": 0.0,
+			"support_grams": 0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 1891,
@@ -13217,7 +13304,7 @@
 			],
 			"attributes": [],
 			"grams": 46.85,
-			"support_grams": 3.54,
+			"support_grams": 3.53,
 			"support_used": true,
 			"support_intentional": false,
 			"print_seconds": 5504,
@@ -13348,7 +13435,7 @@
 			],
 			"attributes": [],
 			"grams": 15.47,
-			"support_grams": 0.0,
+			"support_grams": 0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 3638,
@@ -13477,7 +13564,7 @@
 			],
 			"attributes": [],
 			"grams": 4.28,
-			"support_grams": 0.0,
+			"support_grams": 0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 1121,
@@ -13525,10 +13612,10 @@
 			],
 			"attributes": [],
 			"grams": 19.14,
-			"support_grams": 0.0,
+			"support_grams": 0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 3504,
+			"print_seconds": 3507,
 			"color": {
 				"role": "feeder"
 			},
@@ -13654,10 +13741,10 @@
 			],
 			"attributes": [],
 			"grams": 18.34,
-			"support_grams": 0.0,
+			"support_grams": 0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 3321,
+			"print_seconds": 3320,
 			"color": {
 				"role": "feeder"
 			},
@@ -13783,7 +13870,7 @@
 			],
 			"attributes": [],
 			"grams": 9.41,
-			"support_grams": 0.0,
+			"support_grams": 0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 3255,
@@ -13909,15 +13996,15 @@
 					"commit": null,
 					"stl": "https://assets.basically.website/sorter-parts/camera-led-insert-14202c7b6732.stl",
 					"render": "https://assets.basically.website/sorter-parts/camera-led-insert-full-57cb3f47cdde.png",
-					"grams": 106.11
+					"grams": 106.12
 				}
 			],
 			"attributes": [],
-			"grams": 106.11,
-			"support_grams": 0.0,
+			"grams": 106.12,
+			"support_grams": 0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 10305,
+			"print_seconds": 10331,
 			"color": {
 				"fixed": "ivory-white"
 			},
@@ -14048,10 +14135,10 @@
 				}
 			],
 			"grams": 28.37,
-			"support_grams": 0.0,
+			"support_grams": 0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 4105,
+			"print_seconds": 4106,
 			"color": {
 				"fixed": "ash-gray"
 			},
@@ -14188,7 +14275,7 @@
 				}
 			],
 			"grams": 7.58,
-			"support_grams": 0.0,
+			"support_grams": 0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 1344,
@@ -14323,10 +14410,10 @@
 			],
 			"attributes": [],
 			"grams": 12.31,
-			"support_grams": 0.0,
+			"support_grams": 0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 2841,
+			"print_seconds": 2842,
 			"color": {
 				"role": "chute-core"
 			},
@@ -14456,7 +14543,7 @@
 			],
 			"attributes": [],
 			"grams": 12.3,
-			"support_grams": 0.0,
+			"support_grams": 0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 2840,
@@ -14718,7 +14805,7 @@
 			],
 			"attributes": [],
 			"grams": 216.27,
-			"support_grams": 0.0,
+			"support_grams": 0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 19064,
@@ -14850,7 +14937,7 @@
 			],
 			"attributes": [],
 			"grams": 158.23,
-			"support_grams": 0.0,
+			"support_grams": 0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 14385,
@@ -14976,15 +15063,15 @@
 					"commit": null,
 					"stl": "https://assets.basically.website/sorter-parts/bin-half-left-2073b94e6ea1.stl",
 					"render": "https://assets.basically.website/sorter-parts/bin-half-left-full-b416d103330a.png",
-					"grams": 171.54
+					"grams": 171.55
 				}
 			],
 			"attributes": [],
-			"grams": 171.54,
-			"support_grams": 0.69,
+			"grams": 171.55,
+			"support_grams": 0.73,
 			"support_used": true,
 			"support_intentional": false,
-			"print_seconds": 16584,
+			"print_seconds": 16592,
 			"color": {
 				"role": "bin"
 			},
@@ -15107,15 +15194,15 @@
 					"commit": null,
 					"stl": "https://assets.basically.website/sorter-parts/bin-half-right-93ccbb523ae5.stl",
 					"render": "https://assets.basically.website/sorter-parts/bin-half-right-full-3adcab197300.png",
-					"grams": 171.5
+					"grams": 171.67
 				}
 			],
 			"attributes": [],
-			"grams": 171.5,
-			"support_grams": 0.67,
+			"grams": 171.67,
+			"support_grams": 0.9,
 			"support_used": true,
 			"support_intentional": false,
-			"print_seconds": 16657,
+			"print_seconds": 16691,
 			"color": {
 				"role": "bin"
 			},
@@ -15238,15 +15325,15 @@
 					"commit": null,
 					"stl": "https://assets.basically.website/sorter-parts/bin-third-left-16b47a00d4e4.stl",
 					"render": "https://assets.basically.website/sorter-parts/bin-third-left-full-3e972427fc03.png",
-					"grams": 121.81
+					"grams": 121.75
 				}
 			],
 			"attributes": [],
-			"grams": 121.81,
-			"support_grams": 1.06,
+			"grams": 121.75,
+			"support_grams": 0.96,
 			"support_used": true,
 			"support_intentional": false,
-			"print_seconds": 12385,
+			"print_seconds": 12370,
 			"color": {
 				"role": "bin"
 			},
@@ -15636,7 +15723,7 @@
 			],
 			"attributes": [],
 			"grams": 6.47,
-			"support_grams": 0.0,
+			"support_grams": 0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 2417,
@@ -15747,10 +15834,10 @@
 			],
 			"attributes": [],
 			"grams": 5.9,
-			"support_grams": 0.0,
+			"support_grams": 0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 2426,
+			"print_seconds": 2427,
 			"color": {
 				"role": "chute-core"
 			},
@@ -15838,7 +15925,7 @@
 			],
 			"attributes": [],
 			"grams": 55.74,
-			"support_grams": 0.0,
+			"support_grams": 0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 5727,
@@ -15969,10 +16056,10 @@
 			],
 			"attributes": [],
 			"grams": 101.9,
-			"support_grams": 0.0,
+			"support_grams": 0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 10583,
+			"print_seconds": 10960,
 			"color": {
 				"role": "frame"
 			},
@@ -16100,7 +16187,7 @@
 			],
 			"attributes": [],
 			"grams": 60.81,
-			"support_grams": 0.0,
+			"support_grams": 0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 7682,
@@ -16232,10 +16319,10 @@
 			],
 			"attributes": [],
 			"grams": 89.65,
-			"support_grams": 0.0,
+			"support_grams": 0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 10845,
+			"print_seconds": 10898,
 			"color": {
 				"role": "frame"
 			},
@@ -16369,10 +16456,10 @@
 			],
 			"attributes": [],
 			"grams": 130.39,
-			"support_grams": 0.0,
+			"support_grams": 0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 15131,
+			"print_seconds": 15104,
 			"color": {
 				"role": "frame"
 			},
@@ -16503,7 +16590,7 @@
 			],
 			"attributes": [],
 			"grams": 1.47,
-			"support_grams": 0.0,
+			"support_grams": 0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 1626,
@@ -16639,10 +16726,10 @@
 			],
 			"attributes": [],
 			"grams": 1.28,
-			"support_grams": 0.0,
+			"support_grams": 0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 619,
+			"print_seconds": 620,
 			"color": {
 				"role": "frame"
 			},
@@ -16731,7 +16818,7 @@
 			],
 			"attributes": [],
 			"grams": 32.58,
-			"support_grams": 0.0,
+			"support_grams": 0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 3339,
@@ -16863,7 +16950,7 @@
 			],
 			"attributes": [],
 			"grams": 23.49,
-			"support_grams": 0.0,
+			"support_grams": 0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 2671,
@@ -16995,7 +17082,7 @@
 			],
 			"attributes": [],
 			"grams": 27.34,
-			"support_grams": 0.0,
+			"support_grams": 0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 4396,
@@ -17125,10 +17212,10 @@
 			],
 			"attributes": [],
 			"grams": 207.01,
-			"support_grams": 0.0,
+			"support_grams": 0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 26710,
+			"print_seconds": 26626,
 			"color": {
 				"role": "frame"
 			},
@@ -17255,10 +17342,10 @@
 			],
 			"attributes": [],
 			"grams": 56.13,
-			"support_grams": 0.0,
+			"support_grams": 0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 6680,
+			"print_seconds": 6676,
 			"color": {
 				"role": "frame"
 			},
@@ -17385,7 +17472,7 @@
 			],
 			"attributes": [],
 			"grams": 37.27,
-			"support_grams": 0.0,
+			"support_grams": 0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 3979,
@@ -17475,10 +17562,10 @@
 			],
 			"attributes": [],
 			"grams": 59.08,
-			"support_grams": 0.0,
+			"support_grams": 0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 3970,
+			"print_seconds": 3969,
 			"color": {
 				"role": "frame"
 			},
@@ -17560,15 +17647,15 @@
 					"onshape_version": "https://cad.onshape.com/documents/f7d34331a9a020dce9231dc1/v/13f56af58b306d7850aa3ea4/e/562fad1e09332ebe5efdd59c",
 					"stl": "https://assets.basically.website/sorter-parts/meanwell-psu-housing-front-panel-69dae822bcaf.stl",
 					"render": "https://assets.basically.website/sorter-parts/meanwell-psu-housing-front-panel-full-39145e845278.png",
-					"grams": 15.69
+					"grams": 15.7
 				}
 			],
 			"attributes": [],
-			"grams": 15.69,
-			"support_grams": 0.0,
+			"grams": 15.7,
+			"support_grams": 0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 3027,
+			"print_seconds": 3031,
 			"color": {
 				"role": "frame"
 			},
@@ -17700,7 +17787,7 @@
 			],
 			"attributes": [],
 			"grams": 5.98,
-			"support_grams": 0.0,
+			"support_grams": 0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 1122,
@@ -17815,7 +17902,7 @@
 			],
 			"attributes": [],
 			"grams": 4.96,
-			"support_grams": 0.0,
+			"support_grams": 0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 1043,
@@ -17952,10 +18039,10 @@
 			],
 			"attributes": [],
 			"grams": 11.74,
-			"support_grams": 0.0,
+			"support_grams": 0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 3588,
+			"print_seconds": 3589,
 			"color": {
 				"role": "channel"
 			},
@@ -18221,10 +18308,10 @@
 			],
 			"attributes": [],
 			"grams": 4.65,
-			"support_grams": 0.0,
+			"support_grams": 0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 3484,
+			"print_seconds": 3483,
 			"color": {
 				"role": "channel"
 			},
@@ -18356,7 +18443,7 @@
 			],
 			"attributes": [],
 			"grams": 4.8,
-			"support_grams": 0.0,
+			"support_grams": 0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 3485,
@@ -18491,7 +18578,7 @@
 			],
 			"attributes": [],
 			"grams": 14.66,
-			"support_grams": 0.0,
+			"support_grams": 0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 3096,
@@ -18628,10 +18715,10 @@
 			],
 			"attributes": [],
 			"grams": 76.42,
-			"support_grams": 0.0,
+			"support_grams": 0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 6824,
+			"print_seconds": 6802,
 			"color": {
 				"fixed": "ivory-white"
 			},
@@ -18794,10 +18881,10 @@
 			],
 			"attributes": [],
 			"grams": 0.59,
-			"support_grams": 0.0,
+			"support_grams": 0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 1018,
+			"print_seconds": 1017,
 			"color": {
 				"fixed": "ivory-white"
 			},
@@ -18846,10 +18933,10 @@
 			],
 			"attributes": [],
 			"grams": 47.02,
-			"support_grams": 0.0,
+			"support_grams": 0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 4248,
+			"print_seconds": 4192,
 			"color": {
 				"fixed": "ash-gray"
 			},
@@ -19012,10 +19099,10 @@
 			],
 			"attributes": [],
 			"grams": 93.35,
-			"support_grams": 0.0,
+			"support_grams": 0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 8959,
+			"print_seconds": 8954,
 			"color": {
 				"fixed": "charcoal"
 			},
@@ -19144,7 +19231,7 @@
 			],
 			"attributes": [],
 			"grams": 9.01,
-			"support_grams": 0.0,
+			"support_grams": 0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 2282,
@@ -19276,7 +19363,7 @@
 			],
 			"attributes": [],
 			"grams": 32.78,
-			"support_grams": 0.0,
+			"support_grams": 0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 6332,
@@ -19403,12 +19490,12 @@
 					"onshape_version": "https://cad.onshape.com/documents/60aa51fc61d18f2155b99910/v/45a8c24919bf95a5560da0f8/e/7f9499df9d10e70a5d51b6a1",
 					"stl": "https://assets.basically.website/sorter-parts/channel-three-support-leg-b7b2900b9962.stl",
 					"render": "https://assets.basically.website/sorter-parts/channel-three-support-leg-full-0fd2e2fccc3c.png",
-					"grams": 14.19
+					"grams": 14.18
 				}
 			],
 			"attributes": [],
-			"grams": 14.19,
-			"support_grams": 0.0,
+			"grams": 14.18,
+			"support_grams": 0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 3184,

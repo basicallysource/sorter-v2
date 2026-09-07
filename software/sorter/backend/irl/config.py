@@ -1115,6 +1115,21 @@ def mkIRLConfig(machine_params: dict[str, object] | None = None) -> IRLConfig:
                     f"Invalid feeder.mode={feeder_mode_raw!r} in machine.toml; valid values: {valid}"
                 )
 
+    # The belt topology and the belt feeder mode only work as a pair: the belt
+    # flow needs the belt_stepper this setup binds, and every other feeder mode
+    # drives the C2 rotor this setup does not have.
+    feeder_mode = irl_config.feeder_config.mode
+    if machine_setup.uses_belt_feeder and feeder_mode != FeederMode.BELT_REV01:
+        raise ValueError(
+            f"machine_setup {machine_setup.key!r} requires feeder.mode = "
+            f"{FeederMode.BELT_REV01.value!r}, got {feeder_mode.value!r}"
+        )
+    if feeder_mode == FeederMode.BELT_REV01 and not machine_setup.uses_belt_feeder:
+        raise ValueError(
+            f"feeder.mode = {FeederMode.BELT_REV01.value!r} needs the belt_feeder "
+            f"machine setup, not {machine_setup.key!r}"
+        )
+
     if camera_layout_type == "split_feeder":
         # split_feeder: per-channel cameras from TOML, no single feeder or classification
         cameras_section = cast(dict[str, object], raw_toml.get("cameras", {})) if isinstance(raw_toml, dict) else {}

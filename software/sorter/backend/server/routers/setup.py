@@ -794,6 +794,20 @@ def set_feeder_subsystem_mode(payload: FeederSubsystemModePayload) -> Dict[str, 
     if payload.mode not in valid:
         raise HTTPException(status_code=400, detail=f"Invalid mode {payload.mode!r}; valid: {sorted(valid)}")
     params_path, config = _read_machine_params_config()
+    # The belt topology and the belt feeder mode only work as a pair (see
+    # mkIRLConfig, which refuses to boot a mismatch).
+    definition = get_machine_setup_definition(_machine_setup_key_from_config(config))
+    wants_belt = payload.mode == FeederMode.BELT_REV01.value
+    if definition.uses_belt_feeder and not wants_belt:
+        raise HTTPException(
+            status_code=409,
+            detail=f"The {definition.key} setup runs the {FeederMode.BELT_REV01.value} feeder only.",
+        )
+    if wants_belt and not definition.uses_belt_feeder:
+        raise HTTPException(
+            status_code=409,
+            detail=f"{FeederMode.BELT_REV01.value} needs the belt_feeder machine setup, not {definition.key}.",
+        )
     section = config.get("feeder", {})
     if not isinstance(section, dict):
         section = {}

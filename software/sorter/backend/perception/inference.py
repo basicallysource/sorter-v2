@@ -468,7 +468,7 @@ class InferenceWorker:
             zones.append("EXIT")
         zone_str = "+".join(zones) if zones else "none"
         try:
-            self._logger.info(
+            self._logger.debug(
                 f"[perception summary ch={ch.channel_id} src={ch.camera_source_id}] "
                 f"detections={n_total} on_channel={n_pieces} zones={zone_str} "
                 f"sizes={sizes_str}"
@@ -503,7 +503,7 @@ class InferenceWorker:
             or (b[3] - b[1]) > _MAX_BBOX_MASK_DIM_FRACTION * mask_h
         )
         try:
-            self._logger.info(
+            self._logger.debug(
                 f"[perception sizes ch={ch.channel_id} src={ch.camera_source_id}] "
                 f"n={len(bboxes)} avg_area_px={avg_area:.0f} "
                 f"avg_frac_area={avg_area / mask_area:.2f} "

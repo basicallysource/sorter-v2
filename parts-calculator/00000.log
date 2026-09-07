@@ -1,3 +1,161 @@
-error_code 65540, description: Invalid OpenGL version 3.4
-Failed to create GLFW window; skipping thumbnail rendering for CLI export
-OpenGL context unavailable; skip thumbnail generating
+cli mode, Current OrcaSlicer Version 2.4.0
+Will start to read model file now, file count :1
+allow_multicolor_oneplate 1, allow_rotations 1 skip_modified_gcodes 0 avoid_extrusion_cali_region 0 loaded_filament_ids size 0, clone_objects size 0, skip_useless_pick 0, allow_newer_file 0, allow_mix_temp 0
+plate_to_slice=0, normative_check=1, use_first_fila_as_default=0
+read model file:catalog/build/masters/camera-lamp-arm.stl
+TriangleMesh::repair() started
+TriangleMesh::repair() finished
+object camera-lamp-arm.stl, id :5, from stl or other 3mf
+run:before load settings, file count=2
+operator():load setting file catalog/build/profiles/machine.json, with rule 1
+no substitutions performed from file catalog/build/profiles/machine.json
+loaded machine config catalog/build/profiles/machine.json, type Bambu Lab A1 0.4 nozzle, name system, inherits Bambu Lab A1 0.4 nozzle, printer_model_id 
+operator():load setting file catalog/build/profiles/process_support.json, with rule 1
+no substitutions performed from file catalog/build/profiles/process_support.json
+loaded process config catalog/build/profiles/process_support.json, type sorter process, name system, inherits sorter process
+operator():load setting file catalog/build/profiles/filament.json, with rule 1
+no substitutions performed from file catalog/build/profiles/filament.json
+loaded filament 1 from file catalog/build/profiles/filament.json, type system, name sorter filament, inherits 
+current printer , new printer Bambu Lab A1 0.4 nozzle, current process , new process sorter process
+current printer inherits , new printer inherits Bambu Lab A1 0.4 nozzle, current process inherits , new process inherits sorter process
+index 0, new print compatible printer Bambu Lab A1 0.4 nozzle
+new printer Bambu Lab A1 0.4 nozzle, inherited from Bambu Lab A1 0.4 nozzle, new process sorter process, inherited from sorter process ,compatible 1
+update printer config to newest, different size 0, different_settings: 
+update_full_config: config keys count 40
+load a new printer, update all the keys, different_settings: 
+check printer cli safe params, current_printer_name , new_printer_name Bambu Lab A1 0.4 nozzle, printer_model Bambu Lab A1
+line 2877 , will parse file /Applications/OrcaSlicer.app/Contents/Resources/profiles/BBL/cli_config.json
+can not find key machine_max_acceleration_e in config
+can not find key machine_max_acceleration_retracting in config
+can not find key machine_max_acceleration_travel in config
+set key machine_max_acceleration_x  index 0, from 12000  to 6000
+set key machine_max_acceleration_x  index 1, from 12000  to 6000
+set key machine_max_acceleration_y  index 0, from 12000  to 6000
+set key machine_max_acceleration_y  index 1, from 12000  to 6000
+can not find key machine_max_jerk_x in config
+can not find key machine_max_jerk_y in config
+can not find key machine_max_jerk_z in config
+can not find key machine_max_speed_e in config
+can not find key machine_max_speed_x in config
+can not find key machine_max_speed_y in config
+update process config to newest, different size 0, different_settings: 
+update_full_config: config keys count 132
+load a new process, update all the keys, different_settings: 
+update filament 1's config to newest, different size 0, name sorter filament, different_settings 
+no filament colors found in projects
+total 1 models, 0 objects
+3657, remove_wrapping_detect 0, old value 0
+set_index: plate_id update from 0 to 0
+set_index: plate_id update from 1807646064 to 1
+translate_old 0, shrink_to_new_bed 0, old bed size {600, 600, 600}
+reset_size:before size: plate_width 0, plate_depth 0, plate_height 0
+reset_size:after size: plate_width 600, plate_depth 600, plate_height 600
+set_pos_and_size: plate_id 0, before, origin {0,0,0}, plate_width 0, plate_depth 0, plate_height 0
+set_pos_and_size: with_instance_move 0, after, origin {0,0,0}, plate_width 600, plate_depth 600, plate_height 600
+update_slice_result_valid_state: plate 0 , update slice result from 0 to 0
+set_pos_and_size: plate_id 1, before, origin {0,0,0}, plate_width 0, plate_depth 0, plate_height 0
+set_pos_and_size: with_instance_move 0, after, origin {720,0,0}, plate_width 600, plate_depth 600, plate_height 600
+update_slice_result_valid_state: plate 1 , update slice result from 0 to 0
+update_slice_result_valid_state: plate 0 , update slice result from 0 to 0
+update_slice_result_valid_state: plate 1 , update slice result from 0 to 0
+will start transforms, commands count 2
+process transform orient
+object camera-lamp-arm.stl, id :5, no need to orient when setting orient to 0
+orient_option 0
+process transform arrange
+finished model pre-process commands
+Before process command, no need to orient, object id :5
+before arrange, need_arrange=1, duplicate_count 0, filament_color_changed 0
+preprocess_arrange_polygon: not in any plates, bed_idx 0, translation(x) 0, (y) 0
+arrange bedpts:1000000 1000000, 599000000   1000000, 599000000 599000000,   1000000 599000000
+Arrange full params: {"min_obj_distance":0,"accuracy":1.000000,"parallel":1,"allow_rotations":1,"do_final_align":1,"allow_multi_materials_on_same_plate":1,"avoid_extrusion_cali_region":0,"is_seq_print":0,"bed_shrink_x":1.000000,"bed_shrink_y":1.000000,"brim_skirt_distance":0.000000,"clearance_height_to_rod":25.000000,"clearance_height_to_lid":256.000000,"clearance_radius":73.000000,"printable_height":600.000000,
+arrange: items selected before arranging: 1
+arrange: items unselected before arranging: 0
+start 1 th arranging...
+arrange progress: initial order: camera-lamp-arm.stl, p=0, bed_temp=35, height=130, area=4.39133e+15
+arrange progress: camera-lamp-arm.stl bed_id=0,score=0.200000, score_all_plates=0.200000
+arrange camera-lamp-arm.stl succeed!, plate id=0, pos=622.455,727.32, temp_type=1
+finished 1 th arranging...
+update_slice_result_valid_state: plate 0 , update slice result from 0 to 0
+update_slice_result_valid_state: plate 1 , update slice result from 0 to 0
+postprocess_bed_index_for_selected: bed_idx 0, locked_plate -1, translation(x) 379.066, (y) 465.216
+postprocess_bed_index_for_selected:found in plate_index 0, bed_idx 0
+postprocess_arrange_polygon: bed_idx 0, selected 1, translation(x) 379.066, (y) 465.216
+rebuild_plates_after_arrangement:before rebuild, plates count 1, recycle_plates 1
+update_slice_result_valid_state: plate 0 , update slice result from 0 to 0
+update_slice_result_valid_state: plate 1 , update slice result from 0 to 0
+reload_all_objects: m_model->objects.size() is 1
+add_instance: plate_id 0, add instance obj_id 0, instance_id 0, move_position 0
+add_instance: plate 0 , m_ready_for_slice changes to 1
+reload_all_objects: found plate_id 0, for obj_id 0, instance_id 0
+rebuild_plates_after_arrangement:after rebuild, plates count 1
+Need to slice for plate 0, total plate count 1 partplates!
+Plate 1: pre_check 1, start
+BuildVolume printable_area clasified as: Rectangle
+update_print_volume_state, print_volume {0, 0, 0} to {600, 600, 600}, got 1 printable istances
+volume triangle count 3744, total 3744
+plate 1: load cached data success, go on.
+apply, Line 1120: enter
+apply, has_scarf_joint_seam:false
+apply, got print_diff 73, object_diff 19, region_diff 29, set status to APPLY_STATUS_CHANGED
+apply 1260: found full_config_diff changed.
+apply 1590: found print object changed.
+apply, got new_changed_keys, size=1
+apply, i=0, key=enable_prime_tower
+apply 1787: finished,  this 0xaf791c000, m_modified_count 1, apply_status 1, m_support_used 1
+set no_check to 0:
+printer_model_string: Bambu Lab A1, is_bbl_vendor_preset 1
+start Print::process for partplate 1
+set print's callback to default_status_callback.
+process: this=0xaf791c000, enter, use_cache=0, object size=1
+process: total object counts 1 in current print, need to slice 1
+Starting the slicing process. Resident memory: 48MB; Peak memory usage: 48MB
+default_status_callback: percent=5, warning_step=-1, message=Slicing mesh, message_type=0
+Slicing volumes... Resident memory: 48MB; Peak memory usage: 48MB
+slice_mesh to polygons
+Slicing volumes - removing top empty layers
+Make overhang printable...
+angle 0.959931 maxHoleArea 0 tan_angle 1.42815
+layer_thickness 0.2 max_dist_from_lower_layer 0.28563
+Slicing volumes - make_slices in parallel - begin
+Slicing volumes - make_slices in parallel - end
+default_status_callback: percent=15, warning_step=-1, message=Generating walls, message_type=0
+Generating walls... Resident memory: 89MB; Peak memory usage: 89MB
+Generating perimeters in parallel - start
+Generating perimeters in parallel - end
+SupportSpotsGenerator: applying filament type: PLA
+default_status_callback: percent=25, warning_step=-1, message=Generating infill regions, message_type=0
+Detecting solid surfaces... Resident memory: 90MB; Peak memory usage: 90MB
+Detecting solid surfaces for region 0 in parallel - start
+Detecting solid surfaces for region 0 - clipping in parallel - start
+Detecting solid surfaces for region 0 - clipping in parallel - end
+Preparing fill surfaces... Resident memory: 90MB; Peak memory usage: 90MB
+Discovering vertical shells... Resident memory: 90MB; Peak memory usage: 90MB
+Discovering vertical shells for region 0 in parallel - start : cache top / bottom
+Discovering vertical shells for region 0 in parallel - end : cache top / bottom
+Discovering vertical shells for region 0 in parallel - start : ensure vertical wall thickness
+Discovering vertical shells for region 0 in parallel - end
+Processing external surfaces... Resident memory: 91MB; Peak memory usage: 91MB
+Processing external surfaces for region 0 in parallel - start
+Processing external surfaces for region 0 in parallel - end
+Bridge over infill - Start Resident memory: 91MB; Peak memory usage: 91MB
+Bridge over infill - Directions and expanded surfaces computed Resident memory: 92MB; Peak memory usage: 92MB
+Bridge over infill - End Resident memory: 92MB; Peak memory usage: 92MB
+default_status_callback: percent=35, warning_step=-1, message=Generating infill toolpath, message_type=0
+Filling layers in parallel - start
+Filling layers in parallel - end
+Ironing in parallel - start
+Ironing in parallel - end
+default_status_callback: percent=50, warning_step=-1, message=Generating support, message_type=0
+Support generator - Start
+Support generator - Creating top contacts
+PrintObjectSupportMaterial::top_contact_layers() in parallel - start
+PrintObjectSupportMaterial::top_contact_layers() in parallel - end
+default_status_callback: percent=71, warning_step=-1, message=Detect overhangs for auto-lift, message_type=0
+default_status_callback: percent=70, warning_step=-1, message=Generating skirt & brim, message_type=0
+found slicing or export error for partplate 1
+update_slice_result_valid_state: plate 0 , update slice result from 0 to 0
+update_slice_result_valid_state: plate 0 , update slice result from 0 to 0
+~PrintObject: this=0x10bb7b930, m_shared_object 0x0
+update_slice_result_valid_state: plate 1 , update slice result from 0 to 0
+update_slice_result_valid_state: plate 1 , update slice result from 0 to 0

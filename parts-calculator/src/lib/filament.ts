@@ -389,11 +389,12 @@ export type Part = {
 	candidates?: PartCandidate[]; // revisions under test for this slot, oldest first
 	images?: CatalogImage[]; // extra pictures beyond the render
 	attributes?: { label: string; value: string }[]; // variant characteristics shown in the app
-	grams: number; // total incl. any support
-	support_grams: number; // the support portion of `grams`
+	grams: number | null; // total incl. any support; null when no slicer could do it
+	support_grams: number | null; // the support portion of `grams`; null with it
 	support_used: boolean; // slicer used support to slice this (may be auto-forced)
 	support_intentional?: boolean; // the part *opts into* support in the manifest (vs. auto-forced)
-	print_seconds: number;
+	print_seconds: number | null; // null when no slicer could do it
+	slice_failed?: string; // present when no slicer could slice this geometry (the three above are null): why, and what was tried
 	color: ColorSpec;
 	optional: boolean;
 	onshape?: string | null; // link to the source Onshape document, if known
@@ -946,7 +947,10 @@ export type BuyLine = {
 
 /** Grams counted for a part: total when its support is included, else object-only. */
 export function effectiveGrams(part: Part, inclSupport: boolean): number {
-	return inclSupport ? part.grams : part.grams - part.support_grams;
+	// A part no slicer could slice weighs nothing here: it is listed, and the
+	// page says it is not sliced, but it cannot contribute to a spool count.
+	if (part.grams == null) return 0;
+	return inclSupport ? part.grams : part.grams - (part.support_grams ?? 0);
 }
 
 /** Group the SELECTED parts' filament by resolved color, with bulk-tier pricing.

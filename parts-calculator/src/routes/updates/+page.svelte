@@ -85,10 +85,10 @@
 	// at the current layer count. A size for the diff, not an instruction.
 	const changed = $derived([...added, ...revised]);
 	const changedGrams = $derived(
-		changed.reduce((sum, u) => sum + u.part.grams * machineQty(u.part, layers), 0)
+		changed.reduce((sum, u) => sum + (u.part.grams ?? 0) * machineQty(u.part, layers), 0)
 	);
 	const changedSeconds = $derived(
-		changed.reduce((sum, u) => sum + u.part.print_seconds * machineQty(u.part, layers), 0)
+		changed.reduce((sum, u) => sum + (u.part.print_seconds ?? 0) * machineQty(u.part, layers), 0)
 	);
 
 	const presets = [
@@ -174,7 +174,7 @@
 				>
 					<Download size={14} /> STL
 				</a>
-				<span class="text-[11px] text-text-muted">{grams(u.part.grams * Math.max(qty, 1))} · {duration(u.part.print_seconds * Math.max(qty, 1))}</span>
+				<span class="text-[11px] text-text-muted">{#if u.part.slice_failed}not sliced{:else}{grams((u.part.grams ?? 0) * Math.max(qty, 1))} · {duration((u.part.print_seconds ?? 0) * Math.max(qty, 1))}{/if}</span>
 			{:else}
 				<a href="/part/{u.part.id}" class="text-xs text-primary hover:text-primary-hover">Open part</a>
 			{/if}

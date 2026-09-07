@@ -9,10 +9,7 @@ lede: The board that drives the servo.
 permalink: /hardware/assembly/distribution/chute/pcb/
 author: spencer
 contributors: [barthel]
-warning: >-
-  **AI-generated first draft.** Written from the machine assembly tree in the [parts
-  calculator](https://parts-calculator.basically.website/assembly?focus=chute-pcb), not from
-  an actual build. No step here has been checked against a machine. Correct it as you build.
+last_verified: 2026-09-07
 parts_needed:
   - part: layer-adapter-board-basically
     qty: 1

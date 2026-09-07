@@ -9,7 +9,7 @@ lede: The two brackets that hang off the chute core, and the funnel that snaps i
 permalink: /hardware/assembly/distribution/chute/funnel/
 author: spencer
 contributors: [barthel]
-last_verified: 2026-09-05
+last_verified: 2026-09-07
 parts_needed:
   - part: funnel-half
   - part: funnel-third

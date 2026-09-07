@@ -2165,7 +2165,7 @@ export const api = {
 		if (!res.ok) {
 			let errorData;
 			try { errorData = await res.json(); } catch { errorData = { error: `HTTP ${res.status}` }; }
-			throw errorData;
+			throw { ...errorData, status: res.status };
 		}
 		const reader = res.body!.getReader();
 		const decoder = new TextDecoder();
@@ -2189,7 +2189,7 @@ export const api = {
 					if (event.type === 'complete' && event.message) {
 						finalMessage = event.message as SortingProfileAiMessage;
 					} else if (event.type === 'error') {
-						throw { error: event.error || 'AI request failed', code: 'AI_ERROR' };
+						throw { error: event.error || 'AI request failed', code: event.code || 'AI_ERROR' };
 					} else {
 						onEvent(event);
 					}

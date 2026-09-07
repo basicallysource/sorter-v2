@@ -40,6 +40,8 @@
 		aiMessage: string;
 		onAiMessageChange: (value: string) => void;
 		aiBusy: boolean;
+		aiError: string | null;
+		aiErrorCode: string | null;
 		isNewProfile: boolean;
 		workingRulesLength: number;
 		visibleAiProgressCards: AiProgressCard[];
@@ -74,6 +76,8 @@
 		aiMessage,
 		onAiMessageChange,
 		aiBusy,
+		aiError,
+		aiErrorCode,
 		isNewProfile,
 		workingRulesLength,
 		visibleAiProgressCards,
@@ -315,6 +319,14 @@
 							{/if}
 						</div>
 					{/each}
+					{#if aiError}
+						<div class="mr-8 border border-danger/40 bg-danger/[0.06] px-3 py-2.5 text-xs" role="alert">
+							<div class="font-medium text-danger">{aiError}</div>
+							{#if aiErrorCode?.startsWith('OPENROUTER_')}
+								<a href="/settings" class="mt-1 inline-block font-medium text-primary hover:text-primary-hover">Fix your OpenRouter key in Settings</a>
+							{/if}
+						</div>
+					{/if}
 					{#if aiBusy}
 						<div class="mr-8">
 							<div class="mb-2 space-y-2" aria-live="polite">

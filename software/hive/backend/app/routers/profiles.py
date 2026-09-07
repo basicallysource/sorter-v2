@@ -818,7 +818,7 @@ def create_profile_ai_message_stream(
                     sort_keys=True,
                 ),
             )
-            yield f"data: {json.dumps({'type': 'error', 'error': exc.error_message})}\n\n"
+            yield f"data: {json.dumps({'type': 'error', 'error': exc.error_message, 'code': exc.error_code})}\n\n"
         except Exception as exc:
             logger.exception(
                 "profile_ai.http_failed %s",
@@ -834,7 +834,7 @@ def create_profile_ai_message_stream(
                     sort_keys=True,
                 ),
             )
-            yield f"data: {json.dumps({'type': 'error', 'error': str(exc)})}\n\n"
+            yield f"data: {json.dumps({'type': 'error', 'error': str(exc), 'code': 'AI_ERROR'})}\n\n"
 
     return StreamingResponse(event_generator(), media_type="text/event-stream")
 

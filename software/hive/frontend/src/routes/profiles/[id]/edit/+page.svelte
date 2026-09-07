@@ -849,11 +849,13 @@
 
 	// --- Save ---
 	let suggestingNote = $state(false);
+	let suggestNoteError = $state<string | null>(null);
 
 	async function openSavePopover() {
 		changeNote = '';
 		showSavePopover = true;
 		suggestingNote = false;
+		suggestNoteError = null;
 
 		if (!profile) return;
 		if (!hasOpenRouter) return;
@@ -868,8 +870,8 @@
 			if (showSavePopover && !changeNote) {
 				changeNote = result.change_note;
 			}
-		} catch (e) {
-			console.warn('[Hive] Failed to suggest change note:', e);
+		} catch (e: any) {
+			suggestNoteError = e?.error || 'Could not suggest a change note';
 		} finally {
 			suggestingNote = false;
 		}
@@ -966,6 +968,9 @@
 	}
 
 	// --- AI ---
+	let aiError = $state<string | null>(null);
+	let aiErrorCode = $state<string | null>(null);
+
 	async function sendAiMessage() {
 		if (!profile || !aiMessage.trim()) return;
 		const userMsg = aiMessage.trim();
@@ -990,7 +995,8 @@
 
 		aiBusy = true;
 		aiProgress = [{ type: 'thinking' }];
-		error = null;
+		aiError = null;
+		aiErrorCode = null;
 		try {
 			let response: SortingProfileAiMessage;
 			try {
@@ -1006,8 +1012,11 @@
 						aiProgress = [...aiProgress, event as typeof aiProgress[number]];
 					}
 				);
-			} catch {
-				// Fallback to non-streaming endpoint
+			} catch (e: any) {
+				// The fallback exists for a backend without the streaming route. Any
+				// other failure already cost a model call; making it again from the
+				// non-streaming route just doubles the bill and the wait.
+				if (e?.status !== 404) throw e;
 				aiProgress = [{ type: 'thinking' }];
 				response = await api.createSortingProfileAiMessage(profile.id, {
 					message: userMsg,
@@ -1032,7 +1041,8 @@
 				await loadProfile();
 			}
 		} catch (e: any) {
-			error = e.error || e.message || 'Request failed';
+			aiError = e.error || e.message || 'Request failed';
+			aiErrorCode = typeof e?.code === 'string' ? e.code : null;
 		} finally {
 			aiBusy = false;
 			aiProgress = [];
@@ -1158,6 +1168,9 @@
 							</div>
 						{/if}
 					</div>
+					{#if suggestNoteError}
+						<p class="mb-3 text-xs text-danger">{suggestNoteError}</p>
+					{/if}
 					<div class="flex justify-end gap-2">
 						<Button variant="secondary" size="sm" onclick={closeSavePopover}>Cancel</Button>
 						<Button size="sm" onclick={() => void saveVersion()} disabled={savingVersion} loading={savingVersion}>
@@ -1315,6 +1328,8 @@
 			{aiMessage}
 			onAiMessageChange={(value) => { aiMessage = value; }}
 			{aiBusy}
+			{aiError}
+			{aiErrorCode}
 			{isNewProfile}
 			workingRulesLength={workingRules.length}
 			{visibleAiProgressCards}

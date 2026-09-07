@@ -40,7 +40,10 @@ Reproducibility is the constraint behind the details. The same geometry has to
 stamp to the same bytes on any machine or the store starts collecting
 near-duplicates: the font is one pinned file fetched by hash, facet
 grouping, cylinder fits and corner order are quantised and fixed, and the
-boolean is manifold's, which is deterministic for identical input.
+boolean is manifold's, which is deterministic for identical input -- on one
+machine. Across platforms it triangulates the same solid differently, which
+is why generate.py reuses the committed stamps of an unchanged part instead
+of trusting a re-cut to land on the same URL.
 """
 
 from __future__ import annotations

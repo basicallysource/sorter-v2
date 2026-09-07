@@ -413,6 +413,7 @@ export type Settings = {
 	density_g_cm3: number;
 	cost_per_kg: number;
 	commit_base_url?: string; // e.g. https://github.com/owner/repo/commit/
+	engrave?: string; // signature of the engrave.py that cut the committed stamps; generate.py reuses them only when it matches
 	all_parts_zip?: string; // content-addressed URL for the every-part bundle (each part's default stamped variant)
 	all_parts_plain_zip?: string; // the same parts unstamped
 };

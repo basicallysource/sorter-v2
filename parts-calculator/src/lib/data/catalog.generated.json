@@ -11,6 +11,7 @@
 		"density_g_cm3": 1.32,
 		"cost_per_kg": 24.99,
 		"commit_base_url": "https://github.com/basicallysource/sorter-v2/commit/",
+		"engrave": "33d9fa246b1a",
 		"all_parts_zip": "https://assets.basically.website/sorter-parts/all-parts-b9de86b7d2b1.zip",
 		"all_parts_plain_zip": "https://assets.basically.website/sorter-parts/all-parts-plain-3a0441932286.zip"
 	},
@@ -5435,7 +5436,7 @@
 			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 7210,
+			"print_seconds": 7209,
 			"color": {
 				"by_section": {
 					"feeder": {
@@ -6470,7 +6471,7 @@
 			"support_grams": 9.29,
 			"support_used": true,
 			"support_intentional": false,
-			"print_seconds": 23980,
+			"print_seconds": 23969,
 			"color": {
 				"role": "chute-core"
 			},
@@ -7436,7 +7437,7 @@
 			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 7497,
+			"print_seconds": 7440,
 			"color": {
 				"role": "frame"
 			},
@@ -12396,10 +12397,10 @@
 			],
 			"attributes": [],
 			"grams": 13.96,
-			"support_grams": 5.55,
+			"support_grams": 5.52,
 			"support_used": true,
 			"support_intentional": false,
-			"print_seconds": 2727,
+			"print_seconds": 2724,
 			"color": {
 				"role": "chute-core"
 			},

@@ -284,9 +284,12 @@ page picks from that list; the viewer paints the pocket (found from
 Two bundles: `all_parts_zip` ships each part's default variant,
 `all_parts_plain_zip` the masters. One `IdStamp` component is the whole UI
 for the concept (viewport overlay, download checkbox, dashboard checkbox). Placement is quantised and the
-boolean is manifold's, so the same geometry stamps to the same bytes on any
-machine -- the generator warns if a re-cut lands on a different URL than the
-memo. Faces are planar facets plus cylindrical and conical walls (a smooth
+boolean is manifold's, but the cut is only byte-stable on one machine (Linux
+and macOS triangulate the same solid differently), so a checkout with no memo
+reuses the committed stamps of every part whose master and uid are unchanged,
+fetching the default variant's bytes for the bundle, and cuts only what
+changed. `settings.engrave` in the generated data records which engrave.py cut
+them; a signature bump re-cuts the lot. Faces are planar facets plus cylindrical and conical walls (a smooth
 walk across small dihedral angles, then a surface-of-revolution fit with
 the fillets it merged with rejected as tilt outliers; unrolled exactly,
 cutter bent back on; bores excluded; text turned sideways along the axis if

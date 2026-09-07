@@ -468,7 +468,10 @@ _INCIDENT_FEEDER_JAM = "feeder_jam"
 _INCIDENT_HANDLING_DEFAULTS: dict[str, str] = {
     _INCIDENT_EXIT_STUCK: _INCIDENT_MODE_AUTOMATIC,
     _INCIDENT_FEEDER_JAM: _INCIDENT_MODE_AUTOMATIC,
-    "distribution_chute_jam": _INCIDENT_MODE_MANUAL,
+    # Off by default: the chute-jam check is a move-budget timeout, and on
+    # deployed machines it has fired on stalls unrelated to the chute
+    # (#594). StallGuard still covers a real mechanical jam.
+    "distribution_chute_jam": _INCIDENT_MODE_OFF,
     "distribution_servo_bus_offline": _INCIDENT_MODE_MANUAL,
     "distribution_no_bin_available": _INCIDENT_MODE_MANUAL,
 }

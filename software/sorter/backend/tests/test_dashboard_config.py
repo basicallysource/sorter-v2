@@ -31,7 +31,7 @@ class DashboardConfigTests(unittest.TestCase):
         self.assertFalse(config["show_sample_capture"])
         self.assertEqual("automatic", config["incident_handling"]["exit_stuck"])
         self.assertEqual("automatic", config["incident_handling"]["feeder_jam"])
-        self.assertEqual("manual", config["incident_handling"]["distribution_chute_jam"])
+        self.assertEqual("off", config["incident_handling"]["distribution_chute_jam"])
         self.assertEqual("manual", config["incident_handling"]["distribution_servo_bus_offline"])
         self.assertEqual("manual", config["incident_handling"]["distribution_no_bin_available"])
         definition_kinds = [item["kind"] for item in config["incident_definitions"]]

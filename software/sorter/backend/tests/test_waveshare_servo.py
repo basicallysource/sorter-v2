@@ -174,6 +174,15 @@ class WaveshareServoMotorTests(unittest.TestCase):
         self.assertEqual(bus.torque_calls.count((1, False)), 1)
         self.assertEqual(bus.torque_calls[-1], (1, False))
 
+    def test_hold_releases_on_its_own_after_the_cap(self) -> None:
+        bus = _FakeBus()
+        motor = WaveshareServoMotor(bus, 1)
+        motor.initialize()
+        motor.hold(max_s=0.2)
+        self.assertNotIn((1, False), bus.torque_calls)
+        time.sleep(0.5)
+        self.assertEqual(bus.torque_calls[-1], (1, False), "nobody released: the cap did")
+
     def test_explicit_hold_cancels_the_pending_release(self) -> None:
         bus = _FakeBus()
         motor = WaveshareServoMotor(bus, 1)

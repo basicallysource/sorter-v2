@@ -75,7 +75,10 @@ def _positioning(door):
     p.irl = SimpleNamespace(servos=[door])
     p._door_servo_index = 0
     p._door_retries = 0
+    p._door_unknown_reads = 0
+    p._door_handed_off = False
     p._moving_started_at = 0.0
+    p.shared = SimpleNamespace(held_door=None)
     p.alerts = []
     p._raiseChuteJamAlert = lambda msg: p.alerts.append(msg)
     p._markLayerUnavailable = lambda index, reason: p.alerts.append(f"unavailable:{reason}")
@@ -83,17 +86,22 @@ def _positioning(door):
 
 
 class DoorFeedbackUnknownTests(unittest.TestCase):
+    """One bus read per coordinator tick; three unreadable ticks are 'unknown'."""
+
+    def _ticks(self, p, n, t0=1.0):
+        return [p._targetDoorArrived(t0 + i * 0.1) for i in range(n)]
+
     def test_a_late_reading_still_passes(self):
         p = _positioning(_Door([None, None, True]))
-        self.assertTrue(p._targetDoorArrived(1.0))
+        self.assertEqual([False, False, True], self._ticks(p, 3))
         self.assertEqual([], p.alerts)
 
     def test_no_reading_at_all_blocks_the_dispense(self):
         door = _Door([None] * 10)
         p = _positioning(door)
-        self.assertFalse(p._targetDoorArrived(1.0))
-        self.assertEqual(1, door.closes, "one re-close attempt")
-        self.assertFalse(p._targetDoorArrived(2.0))
+        self.assertEqual([False, False, False], self._ticks(p, 3))
+        self.assertEqual(1, door.closes, "one re-close attempt after three unknown ticks")
+        self.assertEqual([False, False, False], self._ticks(p, 3, t0=2.0))
         self.assertEqual(1, len(p.alerts))
         self.assertIn("unknown", p.alerts[0])
 
@@ -103,8 +111,8 @@ class DoorFeedbackUnknownTests(unittest.TestCase):
                 raise RuntimeError("bus down")
         door = _Broken([])
         p = _positioning(door)
-        self.assertFalse(p._targetDoorArrived(1.0))
-        self.assertFalse(p._targetDoorArrived(2.0))
+        self.assertEqual([False] * 6, self._ticks(p, 6))
+        self.assertEqual(1, door.closes)
         self.assertEqual(1, len(p.alerts))
 
 

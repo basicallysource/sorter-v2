@@ -84,4 +84,5 @@ class MachineRuntime(ABC):
             event_queue,
             vision=vision,
             post_distribute_cooldown_s=cooldown_s,
+            chute_settle_ms=getattr(irl_config, "distribution_chute_settle_ms", None),
         )

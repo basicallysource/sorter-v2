@@ -19,7 +19,7 @@ import logging
 import struct
 import threading
 import time
-from typing import Any, Dict
+from typing import Any, Dict, Protocol
 
 import serial
 
@@ -39,6 +39,7 @@ _REG_MODEL_L = 3
 _REG_ID = 5
 _REG_MIN_ANGLE_L = 9
 _REG_MAX_ANGLE_L = 11
+_REG_MAX_TORQUE_L = 16  # permille of the servo's stall torque, EEPROM
 _REG_P_COEF = 21
 _REG_D_COEF = 22
 _REG_I_COEF = 23
@@ -54,6 +55,11 @@ _REG_PRESENT_TEMPERATURE = 63
 _REG_MOVING = 66
 _REG_PRESENT_CURRENT_L = 69
 
+# Bounded retries for communication failures (short read, wrong responder id,
+# checksum mismatch). A nonzero status byte is NOT a comm failure.
+_SEND_ATTEMPTS = 3
+_SEND_RETRY_DELAY_S = 0.005
+
 
 def _checksum(data: bytes) -> int:
     return (~sum(data)) & 0xFF
@@ -63,8 +69,13 @@ class ScServoBus:
     """Low-level half-duplex serial bus for SC servos."""
 
     def __init__(self, port: str, baudrate: int = 1_000_000, timeout: float = 0.05):
-        self._serial = serial.Serial(port, baudrate=baudrate, timeout=timeout)
+        # exclusive=True prevents two processes from interleaving packets on
+        # the half-duplex bus; write_timeout bounds a wedged USB dongle.
+        self._serial = serial.Serial(
+            port, baudrate=baudrate, timeout=timeout, write_timeout=0.1, exclusive=True
+        )
         self._lock = threading.Lock()
+        self._last_status: dict[int, int] = {}
 
     def close(self):
         self._serial.close()
@@ -104,44 +115,68 @@ class ScServoBus:
 
         return b"\xFF\xFF" + meta + tail
 
-    def _send(self, servo_id: int, instruction: int, params: bytes = b"") -> bytes | None:
+    def _send(
+        self,
+        servo_id: int,
+        instruction: int,
+        params: bytes = b"",
+        *,
+        attempts: int = _SEND_ATTEMPTS,
+    ) -> bytes | None:
         with self._lock:
             length = len(params) + 2
             pkt = bytes([0xFF, 0xFF, servo_id, length, instruction]) + params
             pkt += bytes([_checksum(pkt[2:])])
 
-            self._serial.reset_input_buffer()
-            self._serial.write(pkt)
-            self._serial.flush()
+            for attempt in range(attempts):
+                if attempt > 0:
+                    time.sleep(_SEND_RETRY_DELAY_S)
+                payload = self._transact(servo_id, pkt)
+                if payload is not None:
+                    return payload
+            return None
 
+    def _transact(self, servo_id: int, pkt: bytes) -> bytes | None:
+        """One write + response cycle. Returns the payload, or None on a
+        communication failure (short read, wrong responder id, bad checksum).
+        """
+        self._serial.reset_input_buffer()
+        self._serial.write(pkt)
+        self._serial.flush()
+
+        packet = self._read_packet()
+        if packet == pkt:  # half-duplex adapters echo the request
             packet = self._read_packet()
-            if packet == pkt:
-                packet = self._read_packet()
-            if packet is None or len(packet) < 6:
-                return None
+        if packet is None or len(packet) < 6:
+            return None
 
-            response_id = packet[2]
-            resp_length = packet[3]
-            if resp_length < 2:
-                return None
-            error = packet[4]
-            if response_id != servo_id:
-                return None
+        if packet[2] != servo_id or packet[3] < 2:
+            return None
+        if packet[-1] != _checksum(packet[2:-1]):
+            return None
 
-            payload = packet[5:-1]
-            checksum = packet[-1]
-            expected_checksum = _checksum(packet[2:-1])
-            if checksum != expected_checksum:
-                return None
-            if error != 0:
-                return None
+        # packet[4] carries the servo's hardware status flags (overload,
+        # overheat, voltage, angle-limit). The servo answered, so the
+        # transaction succeeded — record the flags, don't fail the call.
+        self._record_status(servo_id, packet[4])
+        return packet[5:-1]
 
-            return payload
+    def _record_status(self, servo_id: int, status: int) -> None:
+        if self._last_status.get(servo_id, 0) == status:
+            return
+        self._last_status[servo_id] = status
+        if status:
+            logger.warning(f"Servo {servo_id}: hardware status flags 0x{status:02X}")
+        else:
+            logger.info(f"Servo {servo_id}: hardware status flags cleared")
+
+    def last_status_flags(self, servo_id: int) -> int:
+        return self._last_status.get(servo_id, 0)
 
     # -- helpers ------------------------------------------------------------
 
-    def ping(self, servo_id: int) -> bool:
-        return self._send(servo_id, _INST_PING) is not None
+    def ping(self, servo_id: int, *, attempts: int = _SEND_ATTEMPTS) -> bool:
+        return self._send(servo_id, _INST_PING, attempts=attempts) is not None
 
     def read_bytes(self, servo_id: int, address: int, count: int) -> bytes | None:
         resp = self._send(servo_id, _INST_READ, bytes([address, count]))
@@ -169,7 +204,9 @@ class ScServoBus:
     def scan(self, start: int = 1, end: int = 20) -> list[int]:
         found = []
         for sid in range(start, end + 1):
-            if self.ping(sid):
+            # Absent IDs are expected during a sweep; retrying their timeouts
+            # would triple the scan's bus-lock hold time for nothing.
+            if self.ping(sid, attempts=1):
                 found.append(sid)
             time.sleep(0.002)
         return found
@@ -223,6 +260,20 @@ class ScServoBus:
         result = self.write_bytes(servo_id, _REG_MIN_ANGLE_L, data)
         time.sleep(0.01)
         self.write_byte(servo_id, _REG_LOCK, 1)  # lock EEPROM
+        return result
+
+    def read_max_torque(self, servo_id: int) -> int | None:
+        return self.read_word(servo_id, _REG_MAX_TORQUE_L)
+
+    def set_max_torque(self, servo_id: int, permille: int) -> bool:
+        """Cap the servo's output torque (0-1000 permille of stall). A strong
+        servo on a printed flap needs this so the door, not the servo, wins."""
+        permille = max(0, min(1000, int(permille)))
+        self.write_byte(servo_id, _REG_LOCK, 0)  # unlock EEPROM
+        time.sleep(0.01)
+        result = self.write_word(servo_id, _REG_MAX_TORQUE_L, permille)
+        time.sleep(0.01)
+        self.write_byte(servo_id, _REG_LOCK, 1)
         return result
 
     def set_pid(self, servo_id: int, p: int, d: int, i: int) -> bool:
@@ -280,7 +331,7 @@ class ScServoBus:
             elif model in (60, 0x3C00):
                 model_name = "SC60"
 
-        return {
+        info = {
             "id": servo_id,
             "model": model,
             "model_name": model_name,
@@ -293,117 +344,294 @@ class ScServoBus:
             "current": current,
             "pid": pid,
         }
+        status_flags = self.last_status_flags(servo_id)
+        if status_flags:
+            info["status_flags"] = status_flags
+        return info
 
 
-# ---------------------------------------------------------------------------
-# Auto-calibration
-# ---------------------------------------------------------------------------
+class ServoBus(Protocol):
+    """Servo bus operations needed by the motor and calibration.
 
-_CAL_STEP_SIZE = 30
-_CAL_STEP_TIME_MS = 500
-_CAL_SETTLE_MS = 600
-_CAL_LOAD_THRESHOLD = 300
-_CAL_STALL_CHECKS = 3
-_CAL_MARGIN = 5
-
-
-def calibrate_servo(bus: ScServoBus, servo_id: int) -> tuple[int, int]:
-    """Find the physical min/max of a servo by stepping until stall.
-
-    Returns (safe_min, safe_max) with a small safety margin applied.
-    Raises RuntimeError if calibration fails.
+    Satisfied by both `ScServoBus` and `WaveshareBusService` (the production
+    path — servo_controller hands the motor the shared bus service).
     """
-    logger.info(f"Calibrating servo {servo_id}...")
 
-    # Temporarily open full range
-    bus.set_angle_limits(servo_id, 0, 1023)
-    time.sleep(0.02)
-    bus.set_torque(servo_id, True)
-    time.sleep(0.02)
+    def set_torque(self, servo_id: int, enable: bool) -> bool: ...
+    def move_to(self, servo_id: int, position: int, time_ms: int = 500) -> bool: ...
+    def read_position(self, servo_id: int) -> int | None: ...
+    def read_load(self, servo_id: int) -> int | None: ...
+    def read_angle_limits(self, servo_id: int) -> tuple[int, int] | None: ...
+    def set_angle_limits(self, servo_id: int, min_val: int, max_val: int) -> bool: ...
+    def set_pid(self, servo_id: int, p: int, d: int, i: int) -> bool: ...
+    def read_max_torque(self, servo_id: int) -> int | None: ...
+    def set_max_torque(self, servo_id: int, permille: int) -> bool: ...
 
-    current = bus.read_position(servo_id)
-    if current is None:
-        raise RuntimeError(f"Cannot read position of servo {servo_id}")
 
-    def find_limit(start_pos: int, direction: int) -> int:
-        """Step in `direction` (-1 for min, +1 for max) until stall."""
-        best = start_pos
-        target = start_pos
-        last_pos = None
-        stall_count = 0
+# ---------------------------------------------------------------------------
+# Calibration — find the door's end stops without leaving the servo on them
+# ---------------------------------------------------------------------------
+#
+# What the B1 doors taught us (2026-09-02, hardware/waveshare_servo probe):
+#   - the mechanics have ~10 counts of stiction: a 3- or 10-count command
+#     leaves the horn where it is while the duty climbs to 500, then it jumps.
+#     Small probes therefore look like a stop, and "duty at rest" says nothing
+#     about being free — the P-controller holds 100-250 duty against friction
+#     anywhere in the travel. Probes must be bigger than the stiction band and
+#     a stop means NO progress twice in a row, not a high duty reading.
+#   - a limit on the pressed stop made every open/close drive the horn into
+#     it at full duty (limit 69, resting at 64, 74 °C). The limits therefore
+#     keep a margin from the pressed position, and the runtime releases torque
+#     after each move (WaveshareServoMotor._release_after_move).
+# Procedure: probe outward in 30-count moves until two consecutive probes make
+# no progress, take the pressed position as the raw stop, keep a margin of at
+# least 10 counts (4 % of the span), verify both ends with full swings (a small
+# retreat command does not break the stiction at a stop, a full swing does), save.
+# Every EEPROM write is read back. Any failure restores the previous limits and
+# releases torque. Nothing calibrates implicitly: initialize() refuses an
+# uncalibrated servo instead of moving a door at machine start.
 
-        while True:
-            next_target = target + direction * _CAL_STEP_SIZE
-            next_target = max(0, min(1023, next_target))
-            if next_target == target:
-                # Hit 0 or 1023 boundary
-                return best
-            target = next_target
+# Door open/close move time. 300 ms tripped the overload protection (status
+# 0x20) of the stickier B1 door mid-swing at full duty; at 400-500 ms the same
+# door passes. The calibration verifies with the same timing the runtime uses.
+DOOR_MOVE_TIME_MS = 500
 
-            bus.move_to(servo_id, target, _CAL_STEP_TIME_MS)
-            time.sleep(_CAL_SETTLE_MS / 1000.0)
+_CAL_PROBE_STEP = 30  # counts per outward probe (~9°), well above the stiction band
+_CAL_PROBE_TIME_MS = 400
+_CAL_PROBE_SETTLE_S = 0.3
+_CAL_STOP_SHORT = 15  # a stalled probe ends at least this far short of its target
+_CAL_MIN_PROGRESS = 10  # counts; a free probe moves ~30, a pressed door creeps < 10
+_CAL_STALLED_PROBES = 2  # consecutive no-progress probes that make a stop
+_CAL_SWING_TOL = 20  # counts; a full swing must end within this of its target
+_CAL_MARGIN_MIN = 15  # counts; absorbs the compression seen while pressing (~5)
+_CAL_MARGIN_FRACTION = 0.05
+_CAL_SETTLE_MAX_S = 1.5  # keep polling until the position stops creeping
+_CAL_MIN_SPAN = 40  # counts (~12°); below this the door is not usable
+_CAL_MAX_PROBES = 40  # per direction; 40 × 30 covers the whole 0..1023 range
+_CAL_MAX_TEMPERATURE_C = 60
+_CAL_TELEMETRY_RETRIES = 3
+_CAL_BOUNDARY_SLACK = 8  # a limit within this of 0/1023 = software boundary hit
+_CAL_POLL_S = 0.05
+_SERVO_RANGE = (0, 1023)
 
-            # Poll for stall
-            for _ in range(5):
-                time.sleep(0.1)
-                pos = bus.read_position(servo_id)
-                load = bus.read_load(servo_id)
-                if pos is None or load is None:
-                    continue
+# Patchable in tests so the procedure runs without real delays.
+_sleep = time.sleep
 
-                if (direction < 0 and pos < best) or (direction > 0 and pos > best):
-                    best = pos
 
-                near_target = abs(pos - target) < 10
-                if near_target:
-                    break  # reached target, issue next step
+class CalibrationError(RuntimeError):
+    """Calibration aborted. The previous EEPROM limits were restored and
+    torque was released before this is raised."""
 
-                if last_pos is not None and abs(pos - last_pos) < 2:
-                    stall_count += 1
-                else:
-                    stall_count = 0
-                last_pos = pos
 
-                if stall_count >= _CAL_STALL_CHECKS or (abs(load) > _CAL_LOAD_THRESHOLD and stall_count >= 2):
-                    logger.info(f"  Servo {servo_id}: limit found at {best} (stall, load={load})")
-                    return best
-            else:
-                last_pos = pos
+def limits_look_uncalibrated(min_lim: int, max_lim: int) -> bool:
+    """Factory range, a too-small span, or a limit sitting on the software
+    boundary (what a stall search that never found a stop would produce)."""
+    if max_lim - min_lim < _CAL_MIN_SPAN:
+        return True
+    return min_lim <= _CAL_BOUNDARY_SLACK or max_lim >= _SERVO_RANGE[1] - _CAL_BOUNDARY_SLACK
 
-        return best  # unreachable but keeps linter happy
 
-    cal_min = find_limit(current, -1)
-    logger.info(f"  Servo {servo_id}: min = {cal_min}")
+def _clamp(position: int) -> int:
+    return max(_SERVO_RANGE[0], min(_SERVO_RANGE[1], position))
 
-    cal_max = find_limit(cal_min, +1)
-    logger.info(f"  Servo {servo_id}: max = {cal_max}")
 
-    span = cal_max - cal_min
-    if span < 20:
-        raise RuntimeError(
-            f"Servo {servo_id} calibration failed: range too small ({cal_min}-{cal_max}, span={span})"
+def _require(ok: object, what: str, servo_id: int) -> None:
+    if not ok:
+        raise CalibrationError(f"Servo {servo_id}: {what} was not acknowledged")
+
+
+def _read_pos_load(bus: ServoBus, servo_id: int) -> tuple[int, int]:
+    for attempt in range(_CAL_TELEMETRY_RETRIES):
+        if attempt:
+            _sleep(_CAL_POLL_S)
+        pos = bus.read_position(servo_id)
+        load = bus.read_load(servo_id)
+        if pos is not None and load is not None:
+            return pos, load
+    raise CalibrationError(f"Servo {servo_id}: telemetry lost during calibration")
+
+
+def _check_temperature(bus: ServoBus, servo_id: int, stage: str) -> None:
+    reader = getattr(bus, "read_servo_info", None)
+    if not callable(reader):
+        return
+    try:
+        info = reader(servo_id)
+    except Exception:
+        return
+    temperature = info.get("temperature") if isinstance(info, dict) else None
+    if isinstance(temperature, (int, float)) and temperature >= _CAL_MAX_TEMPERATURE_C:
+        raise CalibrationError(
+            f"Servo {servo_id}: {temperature} °C during {stage} — let it cool before calibrating"
         )
 
-    margin = min(_CAL_MARGIN, span // 4)
-    safe_min = cal_min + margin
-    safe_max = cal_max - margin
 
-    # Save to EEPROM so we don't need to recalibrate next time
-    bus.set_angle_limits(servo_id, safe_min, safe_max)
-    logger.info(f"  Servo {servo_id}: calibrated range {safe_min}-{safe_max} (saved to EEPROM)")
+def _move_and_settle(bus: ServoBus, servo_id: int, target: int, time_ms: int) -> tuple[int, int]:
+    """Command a move, then read position/load once the horn has stopped
+    creeping (a pressed or sticky door keeps moving well after ``time_ms``)."""
+    _require(bus.move_to(servo_id, target, time_ms), f"move to {target}", servo_id)
+    _sleep(time_ms / 1000.0 + _CAL_PROBE_SETTLE_S)
+    pos, load = _read_pos_load(bus, servo_id)
+    deadline = time.monotonic() + _CAL_SETTLE_MAX_S
+    while time.monotonic() < deadline:
+        _sleep(0.1)
+        new_pos, load = _read_pos_load(bus, servo_id)
+        if abs(new_pos - pos) <= 2:
+            return new_pos, load
+        pos = new_pos
+    return pos, load
 
-    # Move to center
-    center = (safe_min + safe_max) // 2
-    bus.move_to(servo_id, center, 500)
-    time.sleep(0.5)
-    bus.set_torque(servo_id, False)
 
-    return safe_min, safe_max
+def _write_limits_verified(bus: ServoBus, servo_id: int, lo: int, hi: int) -> None:
+    _require(bus.set_angle_limits(servo_id, lo, hi), f"writing limits {lo}-{hi}", servo_id)
+    _sleep(0.02)
+    back = bus.read_angle_limits(servo_id)
+    if back is None or tuple(back) != (lo, hi):
+        raise CalibrationError(f"Servo {servo_id}: limits read back as {back}, expected {(lo, hi)}")
+
+
+def _find_stop(bus: ServoBus, servo_id: int, direction: int) -> int:
+    """direction -1 = toward min, +1 = toward max. Returns the pressed stop
+    position. Torque stays on; the caller releases it."""
+    _require(bus.set_torque(servo_id, True), "torque enable", servo_id)
+    _sleep(0.02)
+    pos, _ = _read_pos_load(bus, servo_id)
+    target = pos
+    extreme = pos
+    stalled = 0
+    short = 0
+    for probe in range(_CAL_MAX_PROBES):
+        next_target = _clamp(target + direction * _CAL_PROBE_STEP)
+        if next_target == target:
+            if short >= _CAL_STOP_SHORT:
+                # Pressed against something right at the software boundary.
+                return extreme
+            raise CalibrationError(
+                f"Servo {servo_id}: reached the software boundary at {target} without "
+                f"finding a stop — is the horn free-spinning?"
+            )
+        target = next_target
+        last_pos = pos
+        pos, load = _move_and_settle(bus, servo_id, target, _CAL_PROBE_TIME_MS)
+        if (pos - extreme) * direction > 0:
+            extreme = pos
+        progressed = (pos - last_pos) * direction
+        short = (target - pos) * direction
+        stalled = stalled + 1 if (progressed < _CAL_MIN_PROGRESS and short >= _CAL_STOP_SHORT) else 0
+        if stalled >= _CAL_STALLED_PROBES:
+            logger.info(
+                f"  Servo {servo_id}: stop at {extreme} going {'down' if direction < 0 else 'up'} "
+                f"(load={load})"
+            )
+            return extreme
+        if probe % 10 == 9:
+            _check_temperature(bus, servo_id, "probing")
+    raise CalibrationError(f"Servo {servo_id}: no stop found within {_CAL_MAX_PROBES} probes")
+
+
+def _verify_swing(bus: ServoBus, servo_id: int, start: int, target: int) -> None:
+    """A full swing, as the runtime does it, must end near the target."""
+    _move_and_settle(bus, servo_id, start, DOOR_MOVE_TIME_MS)
+    pos, load = _move_and_settle(bus, servo_id, target, DOOR_MOVE_TIME_MS)
+    if abs(pos - target) > _CAL_SWING_TOL:
+        raise CalibrationError(
+            f"Servo {servo_id}: swing to {target} ended at {pos} (load {load}); "
+            f"the calibrated range is not usable"
+        )
+
+
+def apply_max_torque(bus: ServoBus, servo_id: int, permille: int | None) -> int | None:
+    """Write the torque cap only when it differs (EEPROM). Returns the value
+    that was in effect before, or None when nothing was changed."""
+    if permille is None:
+        return None
+    reader = getattr(bus, "read_max_torque", None)
+    writer = getattr(bus, "set_max_torque", None)
+    if not callable(reader) or not callable(writer):
+        return None
+    current = reader(servo_id)
+    if current is not None and int(current) == int(permille):
+        return None
+    if not writer(servo_id, int(permille)):
+        raise CalibrationError(f"Servo {servo_id}: could not set the torque cap")
+    logger.info(f"Servo {servo_id}: torque cap {current} -> {permille} permille")
+    return current
+
+
+def calibrate_servo(
+    bus: ServoBus, servo_id: int, max_torque_permille: int | None = None
+) -> tuple[int, int]:
+    """Measure the door's travel and store safe limits in EEPROM.
+
+    The stop search presses the door against its mechanical stops; with
+    ``max_torque_permille`` the servo does that with capped force, so a strong
+    servo cannot wreck a printed flap. Returns (safe_min, safe_max). Raises
+    CalibrationError with the previous limits restored and torque released.
+    """
+    logger.info(f"Calibrating servo {servo_id}...")
+    _check_temperature(bus, servo_id, "preflight")
+    apply_max_torque(bus, servo_id, max_torque_permille)
+    previous = bus.read_angle_limits(servo_id)
+    saved = False
+    try:
+        _write_limits_verified(bus, servo_id, *_SERVO_RANGE)
+        stops: dict[int, int] = {}
+        for direction in (-1, +1):
+            try:
+                stops[direction] = _find_stop(bus, servo_id, direction)
+            finally:
+                bus.set_torque(servo_id, False)
+            _sleep(0.1)
+        raw_min, raw_max = stops[-1], stops[+1]
+        span = raw_max - raw_min
+        logger.info(f"  Servo {servo_id}: stops at {raw_min} and {raw_max} ({span} counts)")
+        if span < _CAL_MIN_SPAN:
+            raise CalibrationError(
+                f"Servo {servo_id}: travel {raw_min}-{raw_max} is only {span} counts "
+                f"(minimum {_CAL_MIN_SPAN})"
+            )
+        margin = max(_CAL_MARGIN_MIN, int(round(span * _CAL_MARGIN_FRACTION)))
+        safe_min, safe_max = raw_min + margin, raw_max - margin
+        if safe_max - safe_min < _CAL_MIN_SPAN:
+            raise CalibrationError(f"Servo {servo_id}: a {margin}-count margin leaves no usable travel")
+        _require(bus.set_torque(servo_id, True), "torque enable", servo_id)
+        try:
+            _verify_swing(bus, servo_id, safe_min, safe_max)
+            _verify_swing(bus, servo_id, safe_max, safe_min)
+            _write_limits_verified(bus, servo_id, safe_min, safe_max)
+            saved = True
+            logger.info(
+                f"  Servo {servo_id}: calibrated range {safe_min}-{safe_max} "
+                f"(margin {margin} from the stops, saved to EEPROM)"
+            )
+            _move_and_settle(bus, servo_id, (safe_min + safe_max) // 2, 400)
+        finally:
+            bus.set_torque(servo_id, False)
+        return safe_min, safe_max
+    except CalibrationError:
+        raise
+    except Exception as exc:
+        raise CalibrationError(f"Servo {servo_id}: calibration failed: {exc}") from exc
+    finally:
+        if not saved:
+            if previous is not None:
+                try:
+                    bus.set_angle_limits(servo_id, previous[0], previous[1])
+                except Exception:
+                    logger.warning(f"Servo {servo_id}: could not restore limits {previous}")
+            try:
+                bus.set_torque(servo_id, False)
+            except Exception:
+                pass
 
 
 # ---------------------------------------------------------------------------
 # WaveshareServoMotor — drop-in replacement for ServoMotor
 # ---------------------------------------------------------------------------
+
+# Longest a door stays energized for a drop when nobody releases it.
+HOLD_CAP_S = 30.0
+
 
 class WaveshareServoMotor:
     """A servo motor controlled via the Waveshare SC serial bus.
@@ -417,10 +645,27 @@ class WaveshareServoMotor:
     If `invert` is True these are swapped.
     """
 
-    def __init__(self, bus: ScServoBus, servo_id: int, invert: bool = False):
+    # Consecutive failed bus operations before `available` flips to False.
+    # Hysteresis: single flukes must not toggle layer usability.
+    _OFFLINE_THRESHOLD = 3
+
+    def __init__(
+        self,
+        bus: ServoBus,
+        servo_id: int,
+        invert: bool = False,
+        move_time_ms: int = DOOR_MOVE_TIME_MS,
+        max_torque_permille: int | None = None,
+    ):
         self._bus = bus
         self._servo_id = servo_id
         self._invert = invert
+        self._move_time_ms = int(move_time_ms)
+        self._max_torque_permille = None if max_torque_permille is None else int(max_torque_permille)
+        # What the last move asked for, and whether the bus accepted it —
+        # distinct from _current_position, which only follows accepted moves.
+        self._requested_position: int | None = None
+        self._last_command_ok = True
         self._name = f"waveshare_servo_{servo_id}"
         self._enabled = False
         self._current_position: int = 0  # raw SC position 0-1023
@@ -430,24 +675,31 @@ class WaveshareServoMotor:
         self._closed_position: int = 1023
         self._move_started_at: float = 0.0
         self._move_duration: float = 0.0
+        self._consecutive_failures = 0
+        # Pending post-move torque release (open/close/move_to_and_release).
+        self._release_timer: threading.Timer | None = None
 
     def initialize(self) -> None:
-        """Read or auto-calibrate limits and apply good PID settings."""
+        """Read the calibrated limits and apply good PID settings.
+
+        Never calibrates: that moves a door at machine start, possibly loaded.
+        An uncalibrated servo is refused (the layer goes offline with a clear
+        message) until the operator calibrates it from the servo setup."""
         # Set PID to avoid undershooting (factory default I=0 causes issues)
         self._bus.set_pid(self._servo_id, 32, 32, 20)
+        apply_max_torque(self._bus, self._servo_id, self._max_torque_permille)
 
         limits = self._bus.read_angle_limits(self._servo_id)
         if limits is None:
             raise RuntimeError(f"Cannot communicate with servo {self._servo_id}")
 
         min_lim, max_lim = limits
-        needs_calibration = (min_lim == 0 and max_lim == 1023) or (max_lim - min_lim < 20)
-
-        if needs_calibration:
-            logger.info(f"Servo {self._servo_id}: limits are {min_lim}-{max_lim}, running auto-calibration")
-            min_lim, max_lim = calibrate_servo(self._bus, self._servo_id)
-        else:
-            logger.info(f"Servo {self._servo_id}: using stored limits {min_lim}-{max_lim}")
+        if limits_look_uncalibrated(min_lim, max_lim):
+            raise RuntimeError(
+                f"Servo {self._servo_id} is not calibrated (limits {min_lim}-{max_lim}); "
+                f"run calibration from the servo setup before use"
+            )
+        logger.info(f"Servo {self._servo_id}: using stored limits {min_lim}-{max_lim}")
 
         self._min_limit = min_lim
         self._max_limit = max_lim
@@ -483,6 +735,7 @@ class WaveshareServoMotor:
             self._current_position = pos
         else:
             self._current_position = (min_lim + max_lim) // 2
+        return min_lim, max_lim
 
     # -- ServoMotor-compatible interface ------------------------------------
 
@@ -493,30 +746,61 @@ class WaveshareServoMotor:
     @enabled.setter
     def enabled(self, value: bool):
         self._enabled = bool(value)
+        if self._enabled:
+            # An explicit hold must survive a release scheduled by an earlier move.
+            self._cancel_release()
         self._bus.set_torque(self._servo_id, self._enabled)
 
     def move_to(self, angle: int) -> bool:
         """Move to angle (0-180). Maps linearly to calibrated range."""
-        if not self._enabled:
-            self.enabled = True
-        position = self._angle_to_position(angle)
-        self._move_duration = 0.3
-        self._move_started_at = time.monotonic()
-        self._current_position = position
-        return self._bus.move_to(self._servo_id, position, 300)
+        return self._command_move(self._angle_to_position(angle), f"move_to({angle})")
 
     def move_to_and_release(self, angle: int) -> bool:
         """Move to angle then disable torque."""
         result = self.move_to(angle)
-        self._enabled = False  # will release after move
+        self._release_after_move()
         return result
+
+    def _release_after_move(self) -> None:
+        """Drop torque once the move in flight has finished.
+
+        The door mechanics hold the gate on their own, and a servo left
+        energized against its end stop draws stall current until it overheats
+        (seen at 74 °C on the B1 machine) and trips its protection — which the
+        old driver then reported as "unreachable". Nothing on the distribution
+        path polls ``stopped``, so the release cannot depend on it.
+        """
+        self._enabled = False
+        self._cancel_release()
+        if self._move_started_at == 0:
+            return  # no move in flight: the failed command already released
+        timer = threading.Timer(self._move_duration + 0.1, self._release_if_pending)
+        timer.daemon = True
+        self._release_timer = timer
+        timer.start()
+
+    def _release_if_pending(self) -> None:
+        if self._enabled:
+            return
+        self._move_started_at = 0.0
+        self._release_timer = None
+        self._bus.set_torque(self._servo_id, False)
+
+    def _cancel_release(self) -> None:
+        timer = self._release_timer
+        if timer is not None:
+            timer.cancel()
+            self._release_timer = None
 
     @property
     def position(self) -> int:
         pos = self._bus.read_position(self._servo_id)
+        self._record_result(pos is not None)
         return pos if pos is not None else self._current_position
 
     def stop(self):
+        self._cancel_release()
+        self._move_started_at = 0.0
         self._bus.set_torque(self._servo_id, False)
         self._enabled = False
 
@@ -527,8 +811,10 @@ class WaveshareServoMotor:
             return True
         elapsed = time.monotonic() - self._move_started_at
         if elapsed >= self._move_duration + 0.1:
-            # Auto-release torque if move_to_and_release was used
+            # The timer normally releases; a poll that gets here first does it
+            # instead (and cancels the timer so the coil isn't released twice).
             if not self._enabled:
+                self._cancel_release()
                 self._bus.set_torque(self._servo_id, False)
             self._move_started_at = 0
             return True
@@ -536,31 +822,69 @@ class WaveshareServoMotor:
 
     @property
     def available(self) -> bool:
-        return True
+        return self._consecutive_failures < self._OFFLINE_THRESHOLD
 
     def open(self, open_angle: int | None = None) -> None:
-        if not self._enabled:
-            self.enabled = True
-        self._move_duration = 0.3
-        self._move_started_at = time.monotonic()
-        self._current_position = self._open_position
-        self._bus.move_to(self._servo_id, self._open_position, 300)
-        self._enabled = False  # release after move
+        self._command_move(self._open_position, "open")
+        self._release_after_move()
 
     def close(self, closed_angle: int | None = None) -> None:
-        if not self._enabled:
-            self.enabled = True
-        self._move_duration = 0.3
-        self._move_started_at = time.monotonic()
-        self._current_position = self._closed_position
-        self._bus.move_to(self._servo_id, self._closed_position, 300)
-        self._enabled = False  # release after move
+        self._command_move(self._closed_position, "close")
+        self._release_after_move()
 
     def toggle(self) -> None:
         if self.isOpen():
             self.close()
         else:
             self.open()
+
+    def target_reached(self, tolerance: int = 15) -> bool | None:
+        """Did the servo arrive where the last move asked it to go? False when
+        the bus rejected that move (the flap then sits wherever it was), None
+        when nothing was commanded yet or the bus gave no reading."""
+        if self._requested_position is None:
+            return None
+        if not self._last_command_ok:
+            return False
+        pos = self._bus.read_position(self._servo_id)
+        self._record_result(pos is not None)
+        if pos is None:
+            return None
+        return abs(int(pos) - int(self._requested_position)) <= int(tolerance)
+
+    def hold(self, max_s: float = HOLD_CAP_S) -> None:
+        """Re-energize at the current target while a piece is on its way to
+        the door. The post-move release leaves the flap unpowered, and a piece
+        landing on an unpowered upper flap can push it open into the lower
+        row; holding only for the drop window keeps the servo cool. The hold
+        ends on release() or after ``max_s`` at the latest, whichever comes
+        first: an incident that skips the distribution steps must not leave
+        the door energized against its stop."""
+        self._cancel_release()
+        self._enabled = True
+        ok = bool(self._bus.set_torque(self._servo_id, True))
+        ok = bool(self._bus.move_to(self._servo_id, self._current_position, self._move_time_ms)) and ok
+        self._record_result(ok)
+        timer = threading.Timer(max(0.0, float(max_s)), self._release_hold_cap)
+        timer.daemon = True
+        self._release_timer = timer
+        timer.start()
+
+    def _release_hold_cap(self) -> None:
+        if not self._enabled:
+            return  # released in time
+        logger.warning(f"Waveshare servo {self._servo_id}: hold cap reached, releasing torque")
+        self._enabled = False
+        self._move_started_at = 0.0
+        self._release_timer = None
+        self._record_result(bool(self._bus.set_torque(self._servo_id, False)))
+
+    def release(self) -> None:
+        """Drop torque again once the piece has cleared the door."""
+        self._cancel_release()
+        self._enabled = False
+        self._move_started_at = 0.0
+        self._record_result(bool(self._bus.set_torque(self._servo_id, False)))
 
     def isOpen(self) -> bool:
         return abs(self._current_position - self._open_position) < abs(self._current_position - self._closed_position)
@@ -596,6 +920,7 @@ class WaveshareServoMotor:
     def feedback(self) -> Dict[str, Any]:
         position = self.position
         return {
+            "available": self.available,
             "channel": self._servo_id,
             "position": position,
             "angle": self._position_to_angle(position),
@@ -608,6 +933,34 @@ class WaveshareServoMotor:
         }
 
     # -- internal -----------------------------------------------------------
+
+    def _command_move(self, position: int, label: str) -> bool:
+        if not self._enabled:
+            self.enabled = True
+        self._requested_position = int(position)
+        ok = bool(self._bus.move_to(self._servo_id, position, self._move_time_ms))
+        self._last_command_ok = ok
+        self._record_result(ok)
+        if ok:
+            self._move_duration = self._move_time_ms / 1000.0
+            self._move_started_at = time.monotonic()
+            self._current_position = position
+        else:
+            logger.warning(
+                f"Servo {self._servo_id}: {label} command failed "
+                f"(consecutive failures: {self._consecutive_failures})"
+            )
+            # No move was started, so the `stopped` poll that normally
+            # releases torque after a move never will — release it here,
+            # best-effort, instead of leaving the coil energized.
+            self._bus.set_torque(self._servo_id, False)
+        return ok
+
+    def _record_result(self, success: bool) -> None:
+        if success:
+            self._consecutive_failures = 0
+        else:
+            self._consecutive_failures += 1
 
     def _angle_to_position(self, angle: int) -> int:
         """Map 0-180 degrees to calibrated min-max range."""

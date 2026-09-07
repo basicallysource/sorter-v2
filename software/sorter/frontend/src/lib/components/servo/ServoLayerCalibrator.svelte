@@ -431,12 +431,6 @@
 		/>
 	{/if}
 
-	{#if backend === 'waveshare'}
-		<Alert variant="warning">
-			This calibrator is for the PCA9685 (PWM) servo backend. The current machine is configured for
-			the Waveshare bus.
-		</Alert>
-	{:else}
 		<div class="flex flex-wrap items-center gap-3">
 			<label class="flex items-center gap-2 text-sm text-text">
 				Jog step (°)
@@ -692,7 +686,6 @@
 				</span>
 			{/if}
 		</div>
-	{/if}
 
 	{#if errorMsg}
 		<Alert variant="danger">{errorMsg}</Alert>

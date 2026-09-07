@@ -42,6 +42,7 @@
 		onAssignLayer,
 		onPromote,
 		onCalibrate,
+		onInstallPosition,
 		onToggleOpenClose,
 		onToggleInvert,
 		onNudge
@@ -49,7 +50,7 @@
 		servo: BusServo;
 		setup: SetupState;
 		busy: string | undefined;
-		lastMove: 'open' | 'close' | 'center' | undefined;
+		lastMove: 'open' | 'close' | 'center' | 'install' | undefined;
 		selected: boolean;
 		unassignedLayers: number[];
 		suggestedNextId: number | null;
@@ -62,6 +63,7 @@
 		onAssignLayer: (layer: number) => void;
 		onPromote: () => void;
 		onCalibrate: () => void;
+		onInstallPosition: () => void;
 		onToggleOpenClose: () => void;
 		onToggleInvert: () => void;
 		onNudge: (degrees: number) => void;
@@ -214,6 +216,14 @@
 					: calibrated
 						? 'Recalibrate'
 						: 'Auto-calibrate'}
+			</button>
+			<button
+				onclick={onInstallPosition}
+				disabled={!!busy}
+				title="Move to mid travel (512) so the horn can be fitted with room to close either way; calibrate after fitting"
+				class="setup-button-secondary px-3 py-1.5 text-xs font-medium text-text transition-colors disabled:cursor-not-allowed disabled:opacity-60"
+			>
+				{busy === 'moving' && lastMove === 'install' ? 'Moving…' : 'Install position'}
 			</button>
 			<button
 				onclick={onToggleOpenClose}

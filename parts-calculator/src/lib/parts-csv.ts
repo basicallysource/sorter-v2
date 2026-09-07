@@ -207,17 +207,25 @@ export function assemblyCsv(root: string, spec: ExportSpec): string {
 
 const FRAMING_COLUMNS = [
 	'letter',
+	'part_id',
 	'name',
 	'length_mm',
 	'qty',
-	'scaling',
+	'group',
 	'total_mm'
 ] as const;
 const BAR_COLUMNS = ['bar', 'pieces', 'cuts_mm', 'used_mm', 'offcut_mm'] as const;
 
 /** The cut list as the page currently has it — the user's own quantity and
  *  selection overrides included, not the defaults. */
-export type FramingRow = { letter: string; name: string; len: number; qty: number; cat: string };
+export type FramingRow = {
+	letter: string;
+	id: string; // catalog part id — the row is traceable back to catalog/parts.json
+	name: string;
+	len: number;
+	qty: number;
+	cat: string;
+};
 
 /** Two tables in one file: what to cut, then how to lay it out on the bars. */
 export function framingCsv(
@@ -229,6 +237,7 @@ export function framingCsv(
 ): string {
 	const pieceRows = pieces.map((g) => [
 		g.letter,
+		g.id,
 		g.name,
 		+g.len.toFixed(1),
 		g.qty,
@@ -242,11 +251,11 @@ export function framingCsv(
 		+b.consumed.toFixed(1),
 		+(stockMm - b.consumed).toFixed(1)
 	]);
-	const totalMm = pieceRows.reduce((s, r) => s + (r[5] as number), 0);
+	const totalMm = pieceRows.reduce((s, r) => s + (r[6] as number), 0);
 	return (
 		preamble(spec, 'aluminium framing', [
 			`# 2020 T-slot extrusion. Stock bar ${stockMm} mm, saw kerf ${kerfMm} mm.`,
-			`# ${pieceRows.reduce((s, r) => s + (r[3] as number), 0)} pieces, ` +
+			`# ${pieceRows.reduce((s, r) => s + (r[4] as number), 0)} pieces, ` +
 				`${(totalMm / 1000).toFixed(2)} m of material, ${bins.length} bars to buy.`,
 			'# Table 1 is the cut list; table 2 is how they pack onto bars.'
 		]) +

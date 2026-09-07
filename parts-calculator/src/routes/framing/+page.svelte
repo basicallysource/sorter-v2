@@ -84,12 +84,20 @@
 					because it is cut from the same bars as the frame.
 				</li>
 				<li>
-					Pieces that share a cut length stack together at the saw — mark and cut the top bar, the rest
-					follow: <b class="text-text">A &amp; G</b> = 320 mm, <b class="text-text">B &amp; H</b> = 158 mm.
+					<b class="text-text">A &amp; G and B &amp; H are one cut each.</b> A and G are the same
+					320 mm piece doing two jobs, on a layer's hex frame and on the interface frame; B and H
+					are the same 158 mm spoke. They are one row here because they are one part in the
+					catalog, and they stack together at the saw: mark and cut the top bar, the rest follow.
 				</li>
 				<li>
 					Where the cut length is under the CAD length, the piece is trimmed {CLEARANCE_MM} mm for
 					tolerance (see the <b class="text-text">Cut length</b> note above).
+				</li>
+				<li>
+					<b class="text-text">Every quantity here comes from the parts catalog.</b> Each piece is
+					a part in <code class="text-xs">catalog/parts.json</code>, placed in the machine
+					assembly tree, so this list, the Hardware tab and the docs site are all counting the same
+					thing. Nothing about the framing is written down twice.
 				</li>
 			</ul>
 		</Callout>

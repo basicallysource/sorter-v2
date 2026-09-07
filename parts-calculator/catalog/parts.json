@@ -513,6 +513,25 @@
           "camera-mount"
         ]
       }
+    },
+    {
+      "id": "delete-retired-c-channel-supports",
+      "name": "Delete the retired C-channel foot/leg/leg-extension supports",
+      "priority": "P4",
+      "condition": "retired",
+      "description": "The prototype C-channel stand: a foot, a leg and a leg extension stacked into a standoff, nine of each, plus the three assemblies that stacked them (Channel 2 support, Channel 3 support, Bulk bucket support). All of it was replaced on 2026-09-02 by the layout guide, the support legs and the dovetail adapters, and none of it reaches a bill of materials: the three parts carry no quantities and the three assemblies are unreachable from the machine. zed0 confirmed on 2026-09-07 that they were never used in the construction of a machine on the website and can be discarded, which is also what retires the framing cut list's piece I, the 267 mm bulk bucket support extrusion that stood in the same stack and never had a catalog entry. They should be deleted outright, but a minted part id has to stay resolvable once it exists, and the catalog's own consistency check refuses a change that removes one, so deleting them needs that check overridden by someone who can make that call, not an edit from here. Note the assemblies go with the parts.",
+      "targets": {
+        "parts": [
+          "foot",
+          "leg",
+          "leg-extension"
+        ],
+        "assemblies": [
+          "channel-two-support",
+          "channel-three-support",
+          "bulk-bucket-support"
+        ]
+      }
     }
   ],
   "folders": [
@@ -5586,7 +5605,11 @@
       "kind": "cots",
       "cots": {
         "type": "extrusion-2020",
-        "length_mm": 320
+        "length_mm": 320,
+        "letters": [
+          "A",
+          "G"
+        ]
       },
       "name": "Outer horizontal / Horizontal interface frame (A/G)",
       "category": "Aluminum extrusion (2020)",
@@ -5602,7 +5625,11 @@
       "kind": "cots",
       "cots": {
         "type": "extrusion-2020",
-        "length_mm": 158
+        "length_mm": 158,
+        "letters": [
+          "B",
+          "H"
+        ]
       },
       "name": "Spoke / Interface spoke, short (B/H)",
       "category": "Aluminum extrusion (2020)",
@@ -5618,7 +5645,11 @@
       "kind": "cots",
       "cots": {
         "type": "extrusion-2020",
-        "length_mm": 154
+        "length_mm": 154,
+        "cad_length_mm": 160,
+        "letters": [
+          "C"
+        ]
       },
       "name": "Layer vertical support (C)",
       "category": "Aluminum extrusion (2020)",
@@ -5634,7 +5665,11 @@
       "kind": "cots",
       "cots": {
         "type": "extrusion-2020",
-        "length_mm": 231
+        "length_mm": 231,
+        "cad_length_mm": 240,
+        "letters": [
+          "D"
+        ]
       },
       "name": "Foot extension (D)",
       "category": "Aluminum extrusion (2020)",
@@ -5650,7 +5685,11 @@
       "kind": "cots",
       "cots": {
         "type": "extrusion-2020",
-        "length_mm": 238
+        "length_mm": 238,
+        "cad_length_mm": 244,
+        "letters": [
+          "E"
+        ]
       },
       "name": "Interface spoke, long (E)",
       "category": "Aluminum extrusion (2020)",
@@ -5666,7 +5705,11 @@
       "kind": "cots",
       "cots": {
         "type": "extrusion-2020",
-        "length_mm": 274
+        "length_mm": 274,
+        "cad_length_mm": 280,
+        "letters": [
+          "F"
+        ]
       },
       "name": "Interface vertical support (F)",
       "category": "Aluminum extrusion (2020)",
@@ -6011,7 +6054,10 @@
       "kind": "cots",
       "cots": {
         "type": "extrusion-2020",
-        "length_mm": 228
+        "length_mm": 228,
+        "letters": [
+          "J"
+        ]
       },
       "name": "C-channel 1 support leg (J)",
       "category": "Aluminum extrusion (2020)",

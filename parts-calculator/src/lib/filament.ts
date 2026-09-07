@@ -264,7 +264,17 @@ export type Hardware = {
 	id: string;
 	uid: string; // minted like a printed part's, so one id scheme covers the machine
 	kind: 'cots';
-	cots?: { type: string; size?: string; variant?: string; length_mm?: number } | null;
+	// `letters` and `cad_length_mm` are the aluminium framing cut list's: the
+	// marker letter(s) written on the bar, and the CAD length when the piece is
+	// cut short of it for tolerance. See framing.ts.
+	cots?: {
+		type: string;
+		size?: string;
+		variant?: string;
+		length_mm?: number;
+		cad_length_mm?: number;
+		letters?: string[];
+	} | null;
 	name: string;
 	category?: string | null;
 	description: string;

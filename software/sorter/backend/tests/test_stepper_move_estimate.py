@@ -51,6 +51,18 @@ class MoveEstimateTests(unittest.TestCase):
     def test_zero_steps_is_free(self) -> None:
         self.assertEqual(_stepper().estimateMoveStepsMs(0), 0)
 
+    def test_one_step_takes_at_least_one_step_interval_at_the_min_speed(self) -> None:
+        stepper = _stepper()
+        stepper.set_speed_limits(16, 2000)
+        # 1 / 16 µsteps/s = 62.5 ms before the first step can even fire.
+        self.assertGreaterEqual(stepper.estimateMoveStepsMs(1, max_speed=2000), 62)
+
+    def test_without_applied_limits_the_firmware_default_ceiling_counts(self) -> None:
+        stepper = _stepper()  # no set_speed_limits: firmware cruises at 2000
+        # 5000 steps at the firmware ceiling take ~2.7 s; assuming the caller's
+        # 5000 µsteps/s would say ~1.75 s and re-issue too early.
+        self.assertGreater(stepper.estimateMoveStepsMs(5000, max_speed=5000), 2500)
+
 
 if __name__ == "__main__":
     unittest.main()

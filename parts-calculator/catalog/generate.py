@@ -16,7 +16,7 @@ which point the local matplotlib rendering here disappears.
 
 Runs anywhere: against a local OrcaSlicer when one is installed (ORCA_BIN /
 ORCA_PROFILES), otherwise through the asset service's slicer worker
-(ASSET_SERVICE_URL / ASSET_SERVICE_TOKEN) -- upload the master, read back the
+(ASSET_SERVICE_URL / ASSET_SERVICE_TOKEN) -- find the master, read back the
 service's slice reports, same pinned profile either way. Whoever edits the
 inputs runs this and commits the regenerated outputs in the same change;
 nothing regenerates in CI. Never in the site build.
@@ -59,8 +59,13 @@ REPO = os.path.dirname(HERE)
 # asking anyone. See notes/UNIFIED-PARTS-SYSTEM.md section 7.
 sys.path.insert(0, os.path.join(REPO, "scripts"))
 from publish_assets import (  # noqa: E402
-    publish, pinned_url, stl_url, sha256 as sha256_file, SERVICE as ASSET_SERVICE)
+    api, asset_key, publish, pinned_url, stl_url, sha256 as sha256_file, SERVICE as ASSET_SERVICE)
 import engrave  # noqa: E402
+
+# Written into the generated settings so a later run can tell whether the
+# committed stamps were cut the way this engrave.py cuts (see main()). A bump
+# in engrave.SIGNATURE therefore regenerates the lot on any machine.
+ENGRAVE_SIG = hashlib.sha1(json.dumps(engrave.SIGNATURE).encode()).hexdigest()[:12]
 
 # ---------------------------------------------------------------- config knobs
 # Overridable so CI can point at an extracted Linux AppImage. Grams depend on
@@ -182,13 +187,12 @@ def normalize_assemblies(manifest):
 
 
 def fetch_artifact(url, sha, dest):
-    """Materialize a published object at dest, verifying its full sha256.
-
-    The URL carries only a hash fragment (the name is for humans); the pin in
-    the manifest is the whole hash, and this refuses bytes that don't match it.
-    Skips the download when dest already holds the right bytes (gitignored
-    build/ keeps these around between local runs)."""
-    if os.path.exists(dest) and sha256_file(dest) == sha:
+    """Materialize a published object at dest, verifying its sha256 against
+    `sha`: the whole hash parts.json pins for a master, or the fragment a
+    stamp's URL carries, which is all that is ever pinned for one. Refuses
+    bytes that don't match. Skips the download when dest already holds the
+    right bytes (gitignored build/ keeps these around between local runs)."""
+    if os.path.exists(dest) and sha256_file(dest).startswith(sha):
         return
     os.makedirs(os.path.dirname(dest), exist_ok=True)
     # Real UA: the service's zone 403s urllib's default Python-urllib/x.y
@@ -198,7 +202,7 @@ def fetch_artifact(url, sha, dest):
     with urllib.request.urlopen(req, timeout=60) as r, open(dest, "wb") as f:
         shutil.copyfileobj(r, f)
     got = sha256_file(dest)
-    if got != sha:
+    if not got.startswith(sha):
         os.remove(dest)
         raise RuntimeError(f"{url} hashed to {got}, expected {sha}")
 
@@ -251,24 +255,32 @@ def render_url_for(stl_abs, hexcolor, out_png, force, prev_url=None):
     return url
 
 
-def stamped_variants(stl_abs, uid, name, force):
+def stamped_variants(stl_abs, uid, name, force, prev=None):
     """The uid-stamped downloads for this geometry: a list of
     {face, stl, normal, center}, best face first, empty when the uid fits
     nowhere on the part (or the mesh is not a volume). Every entry is a
-    published STL cut in build/stamped/.
+    published STL: cut in build/stamped/ this run, or already committed.
 
-    Memoized on (STL bytes, uid, engraving parameters) like renders are. The
-    files themselves are only on disk when this run made them, and the
-    all-parts zip needs the default one's bytes -- so a memo whose file is
-    gone re-cuts (seconds, deterministic) and checks it still lands on the
-    same URL, which doubles as the reproducibility test."""
+    `prev` is the committed list for these same bytes and this same uid
+    (unchanged_stamps), and when given it is the answer -- for the reason
+    render_url_for() reuses a thumbnail. The cut is only byte-stable on one
+    machine: Linux and macOS triangulate the same solid differently, so a
+    checkout that re-cut what is already published would move every stamped
+    URL and republish every file for nothing (396 of them, 2026-09-07). The
+    bundle fetches the one file it needs (stamped_local).
+
+    Otherwise memoized on (STL bytes, uid, engraving parameters); a memo
+    whose files are gone re-cuts and warns if the cut no longer lands on the
+    memo's URL."""
+    if not force and prev is not None:
+        return [dict(v) for v in prev]
     key = hashlib.sha1(open(stl_abs, "rb").read()
                        + json.dumps([uid, engrave.SIGNATURE]).encode()).hexdigest()[:16]
     meta = os.path.join(STAMP_META, key + ".json")
     memo = json.load(open(meta)) if os.path.exists(meta) else None
     # Same as renders: a memo naming the retired store is stale. These URLs
-    # could be rebuilt from the bytes, but re-cutting is deterministic and
-    # takes seconds, so the simpler thing is to treat the memo as absent.
+    # could be rebuilt from the bytes, but re-cutting takes seconds, so the
+    # simpler thing is to treat the memo as absent.
     if memo is not None and any(not v["stl"].startswith(ASSET_SERVICE + "/")
                                 for v in memo["variants"]):
         memo = None
@@ -310,6 +322,28 @@ def unchanged_render(prev, stl, part):
     return None
 
 
+def unchanged_stamps(prev, stl, uid):
+    """The committed stamps of `prev`, reusable only if they were cut into
+    the same bytes with the same uid -- the STL URL carries the hash -- and
+    by an engrave.py that cuts the same way: main() drops `stamped` from
+    every previous entry when the recorded signature is not this one."""
+    if prev and prev.get("stl") == stl and prev.get("uid") == uid and "stamped" in prev:
+        return prev["stamped"]
+    return None
+
+
+def stamped_local(v):
+    """The bytes of a stamped variant, for the bundle: the file this run cut,
+    or the published one fetched into build/stamped/. A stamp is pinned by
+    nothing but its URL, so the hash fragment in it is what gets verified."""
+    if v.get("path") and os.path.exists(v["path"]):
+        return v["path"]
+    name = v["stl"].rsplit("/", 1)[1]
+    dest = os.path.join(STAMPED_OUT, name)
+    fetch_artifact(v["stl"], name.rsplit("-", 1)[1].split(".")[0], dest)
+    return dest
+
+
 def archive_versions(parts_by_id, out_parts, profiles, hexmap, role_defaults, force, prev_parts):
     """Give every part version a previewable/downloadable STL.
 
@@ -338,7 +372,8 @@ def archive_versions(parts_by_id, out_parts, profiles, hexmap, role_defaults, fo
             vid = f"{out['id']}-v{v['version']}"
             tmp = os.path.join(CACHE, vid + ".stl")
             fetch_artifact(stl_url(out["id"], pin), pin, tmp)
-            info = slice_part(tmp, profiles, support=bool(p.get("support", False)), force=force)
+            info = slice_part(tmp, profiles, support=bool(p.get("support", False)), force=force,
+                              name=out["id"])
             png = os.path.join(VERS_RENDERS_OUT, vid + ".png")
             prev_v = next((q for q in (prev_parts.get(out["id"]) or {}).get("versions") or []
                            if str(q.get("version")) == str(v["version"])), None)
@@ -370,9 +405,9 @@ def resolve_candidates(parts_by_id, out_parts, profiles, hexmap, role_defaults, 
             tmp = os.path.join(CACHE, cid + ".stl")
             fetch_artifact(stl_url(out["id"], c["stl_hash"]), c["stl_hash"], tmp)
             want = bool(c.get("support", p.get("support", False)))
-            info = slice_part(tmp, profiles, support=want, force=force)
+            info = slice_part(tmp, profiles, support=want, force=force, name=out["id"])
             if info is None and not want:
-                info = slice_part(tmp, profiles, support=True, force=force)
+                info = slice_part(tmp, profiles, support=True, force=force, name=out["id"])
             png = os.path.join(VERS_RENDERS_OUT, cid + ".png")
             prev_c = next((q for q in (prev_parts.get(out["id"]) or {}).get("candidates") or []
                            if q.get("uid") == c["uid"]), None)
@@ -388,7 +423,8 @@ def resolve_candidates(parts_by_id, out_parts, profiles, hexmap, role_defaults, 
             c["print_seconds"] = info["print_seconds"] if info else None
             c["support_used"] = bool(info and info["support_used"])
             # a candidate is exactly what gets test-printed, so it is stamped too
-            c["stamped"] = public_stamped(stamped_variants(tmp, c["uid"], cid, force))
+            c["stamped"] = public_stamped(stamped_variants(
+                tmp, c["uid"], cid, force, unchanged_stamps(prev_c, c["stl"], c["uid"])))
             cands.append(c)
             resolved += 1
         if cands:
@@ -503,12 +539,11 @@ def prepare_mesh(stl_abs, out_path):
 # The asset service (assets.basically.website) slices every uploaded STL both
 # ways -- supports off and on -- under the same pinned profile constants as
 # this script (asset-service internal/model mirrors PRINTER/PROCESS/FILAMENT/
-# INFILL above; keep them in step). So remote slicing is: upload the master,
-# content-addressed and idempotent, wait for the rendition worker to have been
-# through it, and read the report for the variant asked for. A missing variant
-# means the slicer refused that one (floating regions with support off), which
-# is exactly what a local None means.
-ASSET_SERVICE_URL = os.environ.get("ASSET_SERVICE_URL", "https://assets.basically.website").rstrip("/")
+# INFILL above; keep them in step). So remote slicing is: find the master under
+# its pinned key (uploading only bytes the service has never seen), wait for
+# the rendition worker to have been through it, and read the report for the
+# variant asked for. A missing variant means the slicer refused that one
+# (floating regions with support off), which is exactly what a local None means.
 ASSET_SERVICE_TOKEN = os.environ.get("ASSET_SERVICE_TOKEN", "")
 ASSET_NAMESPACE = "sorter-parts"
 UA = "sorter-v2-catalog/1.0 (+https://github.com/basicallysource/sorter-v2)"
@@ -516,17 +551,7 @@ REMOTE_WAIT_S = 900          # a part slices in seconds once a worker claims it
 _remote_manifests = {}       # sha256 -> manifest, so both variants share one poll
 
 
-def _asset_api(method, path, body=None, ctype=None):
-    req = urllib.request.Request(ASSET_SERVICE_URL + path, data=body, method=method)
-    req.add_header("User-Agent", UA)
-    req.add_header("Authorization", "Bearer " + ASSET_SERVICE_TOKEN)
-    if ctype:
-        req.add_header("Content-Type", ctype)
-    with urllib.request.urlopen(req, timeout=120) as r:
-        return json.load(r)
-
-
-def slice_remote(stl_abs, support=False, force=False):
+def slice_remote(stl_abs, name, support=False, force=False):
     stl_bytes = open(stl_abs, "rb").read()
     sig = settings_signature() + ("|support" if support else "|nosupport")
     key = hashlib.sha1(stl_bytes + sig.encode()).hexdigest()[:16]
@@ -544,18 +569,24 @@ def slice_remote(stl_abs, support=False, force=False):
     digest = hashlib.sha256(stl_bytes).hexdigest()
     manifest = _remote_manifests.get(digest)
     if manifest is None:
-        name = os.path.basename(stl_abs)
-        manifest = _asset_api("POST", f"/v1/assets?namespace={ASSET_NAMESPACE}&filename={name}",
-                              body=stl_bytes, ctype="model/stl")
+        # Under the part's id these bytes are the pinned key, and a master,
+        # archived version or candidate is nearly always there already. Ask
+        # first: an upload under any other name is a second copy of the same
+        # bytes that the worker slices all over again.
+        key = asset_key(name, digest, ".stl")
+        manifest = api("GET", "/v1/assets/" + key)
+        if manifest is None:
+            manifest = api("POST", f"/v1/assets?namespace={ASSET_NAMESPACE}&filename={name}.stl",
+                           ASSET_SERVICE_TOKEN, stl_bytes, "model/stl")
         waited = 0
         while manifest.get("renditions_status") == "pending":
             if waited >= REMOTE_WAIT_S:
-                sys.exit(f"asset service produced no slice reports for {name} in {REMOTE_WAIT_S}s.\n"
+                sys.exit(f"asset service produced no slice reports for {key} in {REMOTE_WAIT_S}s.\n"
                          "Is the rendition worker running?")
             step = 5 if waited < 60 else 15
             time.sleep(step)
             waited += step
-            manifest = _asset_api("GET", "/v1/assets/" + manifest["key"])
+            manifest = api("GET", "/v1/assets/" + manifest["key"])
         _remote_manifests[digest] = manifest
 
     want = "slice-support" if support else "slice"
@@ -567,8 +598,10 @@ def slice_remote(stl_abs, support=False, force=False):
     req = urllib.request.Request(rend["url"], headers={"User-Agent": UA})
     with urllib.request.urlopen(req, timeout=120) as r:
         report = json.load(r)
-    info = {"grams": report["grams"], "support_grams": report.get("support_grams", 0.0),
-            "cm3": report.get("cm3", 0.0), "support_used": report.get("support_used", False),
+    # floats as the local path writes them: the service says 0 where the
+    # slicer here says 0.0, and that is a diff on every unsupported part
+    info = {"grams": float(report["grams"]), "support_grams": float(report.get("support_grams", 0.0)),
+            "cm3": float(report.get("cm3", 0.0)), "support_used": report.get("support_used", False),
             "print_seconds": report.get("print_seconds", 0)}
     json.dump(info, open(info_path, "w"), indent=1)
     info["fresh"] = True
@@ -588,9 +621,13 @@ def service_render(stl_abs):
 
 
 # ---------------------------------------------------------------- slicing
-def slice_part(stl_abs, profiles, support=False, force=False, orient=False):
+def slice_part(stl_abs, profiles, support=False, force=False, orient=False, name=None):
+    """`name` is what the bytes are published under if the service has to
+    slice them: the part id, so the key is the pinned one. Defaults to the
+    file's own stem, which is the id for a master in build/masters/."""
     if profiles is None:
-        return slice_remote(stl_abs, support=support, force=force)
+        return slice_remote(stl_abs, name or os.path.splitext(os.path.basename(stl_abs))[0],
+                            support=support, force=force)
     machine_path, process_off, process_on, filament_path = profiles
     process_path = process_on if support else process_off
     stl_bytes = open(stl_abs, "rb").read()
@@ -1084,7 +1121,7 @@ def main():
     elif ASSET_SERVICE_TOKEN:
         profiles = None
         density, cost_per_kg = committed_filament_constants()
-        print(f"slicing via the asset service ({ASSET_SERVICE_URL})")
+        print(f"slicing via the asset service ({ASSET_SERVICE})")
     else:
         sys.exit("no slicer available: install OrcaSlicer (or set ORCA_BIN/ORCA_PROFILES), "
                  "or set ASSET_SERVICE_TOKEN to slice via the asset service")
@@ -1097,9 +1134,16 @@ def main():
           f"(off by default; {SUPPORT_TYPE} @{SUPPORT_THRESHOLD}deg when on) | "
           f"{FILAMENT} ({density} g/cm3, ${cost_per_kg}/kg)\n")
 
-    prev_parts = {}
-    if os.path.exists(DATA_OUT):
-        prev_parts = {q["id"]: q for q in json.load(open(DATA_OUT)).get("parts", [])}
+    prev = json.load(open(DATA_OUT)) if os.path.exists(DATA_OUT) else {}
+    prev_parts = {q["id"]: q for q in prev.get("parts", [])}
+    if prev.get("settings", {}).get("engrave") != ENGRAVE_SIG:
+        # Cut with other engraving parameters, or before the signature was
+        # recorded: not reusable whatever the bytes and uid say, so every
+        # stamp is cut again this run (and lands where it was if it can).
+        for q in prev_parts.values():
+            q.pop("stamped", None)
+            for c in q.get("candidates") or []:
+                c.pop("stamped", None)
 
     out_parts = []
     zip_members = []      # the all-parts bundle: each part's default stamped variant
@@ -1152,7 +1196,8 @@ def main():
         # The uid recessed into the part, one STL per face it fits on; the
         # first is the default the bundle ships. Empty for a part too small
         # to carry it -- the page then offers no stamp. (catalog/engrave.py)
-        stamped = stamped_variants(stl_abs, p["uid"], f"{p['id']}-{p['uid']}", args.force)
+        stamped = stamped_variants(stl_abs, p["uid"], f"{p['id']}-{p['uid']}", args.force,
+                                   unchanged_stamps(prev_parts.get(p["id"]), live_stl, p["uid"]))
 
         # A part in no section -- it exists only inside a candidate assembly --
         # is not part of the build, so it stays out of the every-part bundle.
@@ -1165,7 +1210,8 @@ def main():
         if p.get("quantities"):
             plain = (stl_abs, os.path.basename(stl_url(p["id"], p["stl_hash"])))
             plain_members.append(plain)
-            zip_members.append((stamped[0]["path"], stamped[0]["stl"].rsplit("/", 1)[1]) if stamped else plain)
+            zip_members.append((stamped_local(stamped[0]), stamped[0]["stl"].rsplit("/", 1)[1])
+                               if stamped else plain)
 
         out_parts.append({
             "id": p["id"],
@@ -1255,6 +1301,7 @@ def main():
             "support_threshold_deg": int(SUPPORT_THRESHOLD),
             "density_g_cm3": density, "cost_per_kg": cost_per_kg,
             "commit_base_url": git_commit_base_url(),
+            "engrave": ENGRAVE_SIG,
             "all_parts_zip": publish(zip_path),
             "all_parts_plain_zip": publish(plain_zip_path),
         },

@@ -414,8 +414,8 @@ export type PartDetail = {
 	stl?: string;
 	version?: string;
 	updated_at?: string;
-	grams?: number;
-	print_seconds?: number;
+	grams?: number | null; // null when no slicer could slice the part
+	print_seconds?: number | null;
 	onshape?: string;
 	low_tolerance?: boolean;
 	low_tolerance_note?: string;

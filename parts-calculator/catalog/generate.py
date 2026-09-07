@@ -1194,8 +1194,13 @@ def main():
             if info is not None:
                 kept_numbers.append(p["id"])
         if info is None:
+            # No slicer could do it and nothing committed to fall back on. The
+            # part still ships, with its numbers empty: an entry with no weight
+            # is a part the site can show and say so, a missing entry is a
+            # broken build and a red check for whoever touched the catalog.
             failed.append(p["id"])
-            continue
+            info = {"grams": None, "support_grams": None, "support_used": False,
+                    "print_seconds": None}
 
         png = os.path.join(RENDERS_OUT, p["id"] + ".png")
         try:
@@ -1273,9 +1278,9 @@ def main():
         })
         sup = " +support" if info["support_used"] else ""
         mark = f"  stamp: {', '.join(v['face'] for v in stamped)}" if stamped else "  (no stamp fits)"
+        weight = f"{info['grams']:7.1f} g/ea" if info["grams"] is not None else "   not sliced"
         # [n/total] makes mid-run CI log pings read as real progress
-        print(f"  [{i}/{len(printed)}] {p['name']:<26} {info['grams']:7.1f} g/ea{sup}{mark}",
-              flush=True)
+        print(f"  [{i}/{len(printed)}] {p['name']:<26} {weight}{sup}{mark}", flush=True)
 
     archive_versions({p["id"]: p for p in printed}, out_parts,
                      profiles, hexmap, role_defaults, args.force, prev_parts)
@@ -1355,7 +1360,8 @@ def main():
         print(f"  ~ {len(kept_numbers)} part(s) the slicer refused this run; kept the committed "
               f"numbers, same bytes: {', '.join(kept_numbers)}")
     if failed:
-        print(f"  ! {len(failed)} part(s) FAILED to slice: {', '.join(failed)}")
+        print(f"  ! {len(failed)} part(s) could not be sliced and ship with no weight or "
+              f"print time: {', '.join(failed)}")
 
     if args.strict and (failed or not out_parts):
         sys.exit(f"strict mode: {len(failed)} part(s) failed, "

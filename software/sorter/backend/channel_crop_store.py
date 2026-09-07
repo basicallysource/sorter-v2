@@ -248,14 +248,26 @@ def _writeCrop(jpeg: bytes, meta: dict[str, Any]) -> None:
         conn.commit()
 
 
-def _unlinkEvictedFile(abs_path: Path, base_dir: Path) -> None:
-    try:
-        abs_path.unlink(missing_ok=True)
-        parent = abs_path.parent
-        if parent != base_dir and not any(parent.iterdir()):
+def _unlinkEvictedFiles(rel_paths: list[str], base_dir: Path) -> None:
+    # Unlink everything first, then try ONE rmdir per emptied parent. rmdir on a
+    # non-empty directory just fails with ENOTEMPTY, so this never lists the
+    # directory - the old per-file `any(parent.iterdir())` read all ~200k names
+    # on every unlink, which under sorting load made a sweep take 15-30 minutes
+    # and starved crop capture for the duration.
+    parents: set[Path] = set()
+    for rel_path in rel_paths:
+        abs_path = base_dir / rel_path
+        try:
+            abs_path.unlink(missing_ok=True)
+        except OSError:
+            continue
+        if abs_path.parent != base_dir:
+            parents.add(abs_path.parent)
+    for parent in parents:
+        try:
             parent.rmdir()
-    except OSError:
-        pass
+        except OSError:
+            pass
 
 
 def _retentionSweep() -> None:
@@ -294,9 +306,7 @@ def _retentionSweep() -> None:
         freed += int(r["bytes"] or 0)
     if not victims:
         return
-    base_dir = channel_crops_dir()
-    for _, rel_path in victims:
-        _unlinkEvictedFile(base_dir / rel_path, base_dir)
+    _unlinkEvictedFiles([rel_path for _, rel_path in victims], channel_crops_dir())
     now = time.time()
     with _connection() as conn:
         conn.executemany(

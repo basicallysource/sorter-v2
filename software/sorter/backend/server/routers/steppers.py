@@ -1204,8 +1204,10 @@ class _ChuteRandomMotion(_SweepMotion):
         self._chute = chute
         self._speed = speed
         self._min_delta = max(1.0, min_delta_deg)
-        self._min = max(0.0, min(min_deg, CHUTE_SAFE_MAX_DEG))
-        self._max = max(self._min, min(max_deg, CHUTE_SAFE_MAX_DEG))
+        # Never pick beyond the machine's travel limit, whatever the caller asked.
+        limit = min(CHUTE_SAFE_MAX_DEG, float(getattr(chute, "max_angle_deg", CHUTE_SAFE_MAX_DEG)))
+        self._min = max(0.0, min(min_deg, limit))
+        self._max = max(self._min, min(max_deg, limit))
         # Don't re-check stopped for a beat after issuing a move, so we don't read
         # a stale "stopped" before the firmware has started the move.
         self._next_check_at = 0.0
@@ -1242,7 +1244,11 @@ class _ChuteRandomMotion(_SweepMotion):
     def _go(self, now: float) -> None:
         current = float(self._chute.current_angle)
         target_deg = self._pick(current)
-        self._chute.moveToAngle(target_deg)  # absolute, clamps to [0,360]
+        try:
+            self._chute.moveToAngle(target_deg)  # absolute; refused beyond the travel limit
+        except ValueError as exc:
+            self._chute.logger.warning(f"chute stress: {exc}")
+            return
         self._next_check_at = now + 0.05
 
     def start(self, now: float) -> None:

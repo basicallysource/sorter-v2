@@ -29,17 +29,21 @@ class Sending(BaseState):
         *,
         vision=None,
         post_distribute_cooldown_s: float = 0.0,
+        chute_settle_ms: int = CHUTE_SETTLE_MS,
     ):
         super().__init__(irl, gc)
         self.shared = shared
         self.event_queue = event_queue
         self.vision = vision
         self._cooldown_s = max(0.0, float(post_distribute_cooldown_s))
+        self._settle_ms = max(0, int(chute_settle_ms))
         self.piece = None
         self.start_time: float = 0.0
         self._occupancy_state: str | None = None
         self._committed: bool = False
         self._exit_wait_incident_piece_uuid: str | None = None
+        self._held_door: object | None = None
+        self._door_hold_done = False
 
     def _setOccupancyState(self, state_name: str) -> None:
         if self._occupancy_state == state_name:
@@ -79,11 +83,14 @@ class Sending(BaseState):
                     return DistributionState.IDLE
                 return None
 
+        if self.piece is not None and self._held_door is None and not self._door_hold_done:
+            self._holdTargetDoor()
         elapsed_ms = (now - self.start_time) * 1000
         settle_ms = self._settleMs()
         self._setOccupancyState("sending.wait_chute_settle")
         if elapsed_ms < settle_ms:
             return None
+        self._releaseHeldDoor()
 
         # Commit the piece once (stats, event, recorder) — must not repeat
         # even if we decide to hold the gate for additional cooldown below.
@@ -126,6 +133,42 @@ class Sending(BaseState):
 
         self.shared.set_distribution_gate(True, reason=None)
         return DistributionState.IDLE
+
+    def _targetDoor(self):
+        target = getattr(self.shared, "chute_target_bin", None)
+        layer_index = getattr(target, "layer_index", None)
+        servos = getattr(self.irl, "servos", None)
+        if not isinstance(layer_index, int) or not servos or layer_index >= len(servos):
+            return None
+        servo = servos[layer_index]
+        return servo if callable(getattr(servo, "hold", None)) else None
+
+    def _holdTargetDoor(self) -> None:
+        """Keep the target door energized from the drop until the settle
+        elapsed: the piece must meet a powered flap, not one that was released
+        seconds ago and yields to the impact."""
+        self._door_hold_done = True
+        if bool(getattr(self.gc, "disable_servos", False)):
+            return
+        door = self._targetDoor()
+        if door is None:
+            return
+        try:
+            door.hold()
+        except Exception as exc:
+            self.logger.warning(f"Sending: could not hold the target door: {exc}")
+            return
+        self._held_door = door
+
+    def _releaseHeldDoor(self) -> None:
+        door = self._held_door
+        if door is None:
+            return
+        self._held_door = None
+        try:
+            door.release()
+        except Exception as exc:
+            self.logger.warning(f"Sending: could not release the held door: {exc}")
 
     def _shouldReopenGate(self) -> bool:
         if bool(getattr(self.shared, "sample_collection_mode", False)):
@@ -244,9 +287,11 @@ class Sending(BaseState):
     def _settleMs(self) -> int:
         if bool(getattr(self.shared, "sample_collection_mode", False)):
             return SAMPLE_COLLECTION_CHUTE_SETTLE_MS
-        return CHUTE_SETTLE_MS
+        return self._settle_ms
 
     def cleanup(self) -> None:
+        self._releaseHeldDoor()
+        self._door_hold_done = False
         super().cleanup()
         self.piece = None
         self.start_time = 0.0

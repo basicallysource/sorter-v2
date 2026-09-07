@@ -71,6 +71,7 @@ class Positioning(BaseState):
         self._phase: str = "init"
         self._target_address: BinAddress | None = None
         self._door_servo_index: int | None = None
+        self._door_retries: int = 0
         self._state_entered_at: float = 0.0
         self._moving_started_at: float = 0.0
         self._piece = None
@@ -292,6 +293,7 @@ class Positioning(BaseState):
 
             if not self.gc.disable_servos:
                 self._door_servo_index = address.layer_index
+                self._door_retries = 0
             self._target_address = address
             self._startChuteMove()
             self._moving_started_at = now
@@ -329,6 +331,8 @@ class Positioning(BaseState):
                     # over. Returning IDLE here would let the next piece
                     # start a new move on top of the stuck one.
                     return None
+                return None
+            if not self._targetDoorArrived(now):
                 return None
             self.shared.set_chute_motion(False, target_bin=self._target_address)
             if self._piece is not None and self._piece.distribution_positioned_at is None:
@@ -435,6 +439,51 @@ class Positioning(BaseState):
         self.logger.warning(
             f"Positioning: disabling layer {layer_index} temporarily because {reason}"
         )
+
+    def _targetDoorArrived(self, now: float) -> bool:
+        """Closed-loop check on the target door: a stalled or yielding flap
+        (seen with the SC09 on the upper row) reports 'stopped' by time but sits
+        far from its stop and lets pieces through to the wrong row. Re-issue the
+        close once; if it still does not arrive, raise the jam alert instead of
+        dispensing."""
+        index = self._door_servo_index
+        if index is None or self.gc.disable_servos:
+            return True
+        servo = self.irl.servos[index]
+        check = getattr(servo, "target_reached", None)
+        if not callable(check):
+            return True
+        reached = None
+        for attempt in range(3):
+            try:
+                reached = check()
+            except Exception as exc:
+                self.logger.warning(f"Positioning: door position check failed: {exc}")
+                reached = None
+            if reached is not None:
+                break
+            time.sleep(0.05)
+        if reached is True:
+            return True
+        # False: the flap is not where it should be. None: three reads gave no
+        # position, and a door we cannot see is not a door we may dispense on.
+        position = getattr(servo, "position", None) if reached is False else "unknown"
+        if self._door_retries < 1:
+            self._door_retries += 1
+            self.logger.warning(
+                f"Positioning: layer-{index} door stopped at {position}, not at its target — re-closing"
+            )
+            try:
+                servo.close()
+            except Exception as exc:
+                self._markLayerUnavailable(index, f"re-closing target servo failed: {exc}")
+                return True
+            self._moving_started_at = now
+            return False
+        self._raiseChuteJamAlert(
+            f"layer-{index} door flap did not reach its closed position (at {position}) after a retry"
+        )
+        return False
 
     def _isDoorServoStopped(self) -> bool:
         if self._door_servo_index is None:

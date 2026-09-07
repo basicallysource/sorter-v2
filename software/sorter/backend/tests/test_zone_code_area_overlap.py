@@ -8,7 +8,7 @@ ended in the stall watchdog and a good piece sent to misc.
 """
 import numpy as np
 
-from perception.arcs import SECTION_COUNT, SECTION_DEG, orderedPieceObservations
+from perception.arcs import SECTION_COUNT, SECTION_DEG, attributeBboxes, orderedPieceObservations
 from perception.channel import ChannelDef
 
 
@@ -53,3 +53,16 @@ def test_piece_well_outside_drop_keeps_its_centre_zone() -> None:
     obs = orderedPieceObservations([bbox], ch)
     assert obs[0][2] == 2
     assert SECTION_COUNT > 40
+
+
+def test_gate_and_handler_agree_on_the_drop_arc() -> None:
+    """Whatever the handler codes DROP must close the gate, and vice versa —
+    a piece caught by nine boundary samples but not by the interior grid (or
+    the other way round) was the deadlock's other half."""
+    ch = _channel()
+    rear_edge = 40 * SECTION_DEG
+    for angle, half in ((rear_edge + 0.5 * SECTION_DEG, 30), (rear_edge + 2.5 * SECTION_DEG, 4), (30 * SECTION_DEG, 4)):
+        bbox = _bbox_centred_at_angle(angle, 120.0, half)
+        any_drop = attributeBboxes([bbox], ch)[0]
+        code = orderedPieceObservations([bbox], ch)[0][2]
+        assert any_drop == (code == 1), (angle, half, any_drop, code)

@@ -27,3 +27,22 @@ def test_move_to_closes_target_layer_and_opens_the_others() -> None:
     assert out["ok"] and out["target_angle"] == 42.0
     assert lower.calls == ["close"]
     assert upper.calls == ["open"]
+
+
+def test_a_door_that_fails_blocks_the_chute_move() -> None:
+    import pytest
+    from fastapi import HTTPException
+
+    class _Broken(_Servo):
+        def close(self) -> None:
+            raise RuntimeError("bus timeout")
+
+    moves: list = []
+    chute = SimpleNamespace(getAngleForBin=lambda a: 42.0, moveToBin=lambda a: moves.append(a) or 500)
+    irl = SimpleNamespace(chute=chute, servos=[_Servo(), _Broken()])
+    payload = hardware.MoveToBinPayload(layer_index=1, section_index=2, bin_index=0)
+    with patch("server.routers.hardware.shared_state.controller_ref", SimpleNamespace(irl=irl)):
+        with pytest.raises(HTTPException) as info:
+            hardware.move_to_bin(payload)
+    assert info.value.status_code == 409
+    assert moves == [], "the chute must not move onto an unverified door"

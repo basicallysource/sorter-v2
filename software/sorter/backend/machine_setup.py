@@ -6,6 +6,7 @@ from typing import Any
 STANDARD_CAROUSEL_SETUP = "standard_carousel"
 CLASSIFICATION_CHANNEL_SETUP = "classification_channel"
 MANUAL_CAROUSEL_SETUP = "manual_carousel"
+BELT_FEEDER_SETUP = "belt_feeder"
 
 DEFAULT_MACHINE_SETUP = CLASSIFICATION_CHANNEL_SETUP
 
@@ -25,6 +26,10 @@ class MachineSetupDefinition:
     homes_chute: bool
     requires_carousel_endstop: bool
     runtime_supported: bool
+    # B1 belt topology: a cleated inclined conveyor replaces both the C1 bulk
+    # bucket and the C2 buffer channel. The belt motor plugs into the freed C1
+    # rotor port; C3 keeps doing the final singulation into C4.
+    uses_belt_feeder: bool = False
 
     @property
     def manual_feed_mode(self) -> bool:
@@ -45,6 +50,7 @@ class MachineSetupDefinition:
             "homes_chute": self.homes_chute,
             "requires_carousel_endstop": self.requires_carousel_endstop,
             "runtime_supported": self.runtime_supported,
+            "uses_belt_feeder": self.uses_belt_feeder,
         }
 
 
@@ -102,6 +108,27 @@ MACHINE_SETUPS: dict[str, MachineSetupDefinition] = {
         homes_chute=True,
         requires_carousel_endstop=True,
         runtime_supported=True,
+    ),
+    BELT_FEEDER_SETUP: MachineSetupDefinition(
+        key=BELT_FEEDER_SETUP,
+        label="B1 Belt Feeder + C3 + Classification Channel",
+        description=(
+            "Cleated inclined conveyor (B1) replaces the C1 bulk bucket and the C2 buffer "
+            "channel: the belt meters bulk parts directly into C3, which keeps doing the "
+            "final singulation into the classification C-channel. The belt motor plugs "
+            "into the C1 rotor port."
+        ),
+        feeding_mode="auto_channels",
+        automatic_feeder=True,
+        uses_carousel_transport=False,
+        uses_classification_chamber=False,
+        uses_classification_channel=True,
+        runs_reverse_pulse_calibration=False,
+        homes_carousel=False,
+        homes_chute=True,
+        requires_carousel_endstop=False,
+        runtime_supported=True,
+        uses_belt_feeder=True,
     ),
 }
 

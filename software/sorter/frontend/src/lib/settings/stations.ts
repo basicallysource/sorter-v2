@@ -16,11 +16,12 @@ import {
 	Zap
 } from 'lucide-svelte';
 import {
+	BELT_STEPPER_GEAR_RATIO,
 	CLASSIFICATION_CHANNEL_STEPPER_GEAR_RATIO,
 	CLASSIFICATION_CHANNEL_STEPPER_LABEL
 } from '$lib/settings/stepper-control';
 
-export type MachineSetupKey = 'classification_channel' | 'manual_carousel';
+export type MachineSetupKey = 'classification_channel' | 'manual_carousel' | 'belt_feeder';
 
 export type CameraRole =
 	| 'c_channel_2'
@@ -55,6 +56,7 @@ export type EndstopConfig = {
 };
 
 export type StationSlug =
+	| 'belt-feeder'
 	| 'c-channel-1'
 	| 'c-channel-2'
 	| 'c-channel-3'
@@ -174,6 +176,11 @@ export const tuningNavItems: SettingsNavItem[] = [
 		icon: SlidersHorizontal
 	},
 	{
+		href: '/settings/tuning/feeder-belt',
+		label: 'B1 Belt Feeder',
+		icon: SlidersHorizontal
+	},
+	{
 		href: '/settings/tuning/feeder-constant-movement',
 		label: 'Feeder Constant Movement',
 		icon: SlidersHorizontal
@@ -197,11 +204,32 @@ export const tuningNavItems: SettingsNavItem[] = [
 
 export const stationPageConfigs: StationPageConfig[] = [
 	{
+		// B1 belt topology only: same physical motor port as C-Channel 1, but
+		// labeled and geared for the belt (4:1 gearbox instead of the rotor's
+		// 130:12). settingsNavItemsForSetup shows exactly one of the two.
+		slug: 'belt-feeder',
+		href: '/settings/belt-feeder',
+		label: 'B1 Belt Feeder',
+		icon: Wrench,
+		description:
+			'Cleated conveyor replacing C1+C2. Manual stepper control for the belt motor on the C1 rotor port; the speed controller is tuned under Tuning → B1 Belt Feeder.',
+		cameraRoles: [],
+		zoneChannels: [],
+		stepperKeys: ['c_channel_1'],
+		stepperDisplay: {
+			c_channel_1: {
+				label: 'Belt Motor (B1)',
+				gearRatio: BELT_STEPPER_GEAR_RATIO
+			}
+		}
+	},
+	{
 		slug: 'c-channel-1',
 		href: '/settings/c-channel-1',
 		label: 'C-Channel 1',
 		icon: Wrench,
-		description: 'Bulk feed channel. This station only exposes manual stepper control.',
+		description:
+			'Bulk feed channel. This station only exposes manual stepper control. In the B1 belt topology the belt motor lives on this rotor port.',
 		cameraRoles: [],
 		zoneChannels: [],
 		stepperKeys: ['c_channel_1']
@@ -305,9 +333,18 @@ const baseSettingsNavItems: SettingsNavEntry[] = [
 
 export function settingsNavItemsForSetup(setup: MachineSetupKey): SettingsNavEntry[] {
 	const hiddenSlugs =
-		setup === 'classification_channel'
-			? new Set<StationSlug>(['carousel', 'classification-chamber'])
-			: new Set<StationSlug>(['classification-channel']);
+		setup === 'belt_feeder'
+			? // B1 belt topology: the belt-feeder station replaces C1, and there
+				// is no C2 channel and no carousel/chamber.
+				new Set<StationSlug>([
+					'c-channel-1',
+					'c-channel-2',
+					'carousel',
+					'classification-chamber'
+				])
+			: setup === 'classification_channel'
+				? new Set<StationSlug>(['belt-feeder', 'carousel', 'classification-chamber'])
+				: new Set<StationSlug>(['belt-feeder', 'classification-channel']);
 
 	return baseSettingsNavItems.filter((entry) => {
 		if (!('href' in entry)) return true;

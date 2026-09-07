@@ -180,6 +180,9 @@
 	let downloadingModelId = $state<string | null>(null);
 	let deletingLocalId = $state<string | null>(null);
 	let activatingAlgorithmId = $state<string | null>(null);
+	// Tracks which model's activate dropdown is open. Hover alone is unreachable
+	// on the CM5 touch tablet, so the panel toggles open on tap.
+	let openActivateId = $state<string | null>(null);
 	let cleaningUp = $state(false);
 	let actionError = $state<string | null>(null);
 
@@ -495,6 +498,7 @@
 				throw new Error(await readApiError(res, `HTTP ${res.status}`));
 			}
 			await loadActiveAssignments();
+			openActivateId = null;
 		} catch (e: any) {
 			actionError = e?.message ?? 'Failed to activate model.';
 		} finally {
@@ -630,13 +634,22 @@
 		};
 	});
 
+	function handleActivateMenuClickOutside(event: MouseEvent) {
+		if (openActivateId === null) return;
+		const target = event.target;
+		if (target instanceof Element && target.closest('[data-activate-menu]')) return;
+		openActivateId = null;
+	}
+
 	onMount(() => {
 		void (async () => {
 			await loadTargets();
 			await Promise.all([loadInstalled(), loadDownloads(), loadActiveAssignments()]);
 		})();
+		document.addEventListener('click', handleActivateMenuClickOutside);
 		return () => {
 			stopPolling();
+			document.removeEventListener('click', handleActivateMenuClickOutside);
 		};
 	});
 
@@ -1119,11 +1132,15 @@
 												Cannot activate
 											</span>
 										{:else}
-											<!-- Hover-expand activate: assign this model to a single
-											     subsystem at a time, 1:1 with the TOML, no fallback. -->
-											<div class="group relative">
+											<!-- Tap-to-open activate menu: assign this model to a single
+											     subsystem at a time, 1:1 with the TOML, no fallback.
+											     Tap toggles it, a tap anywhere outside closes it (CM5 touch tablet). -->
+											<div class="relative" data-activate-menu>
 												<button
 													type="button"
+													onclick={() =>
+														(openActivateId =
+															openActivateId === algorithmId ? null : algorithmId)}
 													class={`inline-flex items-center gap-1.5 border px-3 py-1.5 text-sm transition-colors ${
 														isActive
 															? 'border-success/40 bg-success/[0.08] text-text'
@@ -1139,7 +1156,11 @@
 													<ChevronDown size={13} class="opacity-70" />
 												</button>
 												<div
-													class="invisible absolute right-0 top-full z-30 mt-px min-w-[16rem] border border-border bg-surface opacity-0 shadow-lg transition-opacity duration-100 group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100"
+													class={`absolute top-full right-0 z-30 mt-px w-[min(16rem,calc(100vw-2rem))] border border-border bg-surface shadow-lg transition-opacity duration-100 ${
+														openActivateId === algorithmId
+															? 'visible opacity-100'
+															: 'invisible opacity-0'
+													}`}
 												>
 													<div
 														class="border-b border-border px-3 py-2 text-xs font-semibold uppercase tracking-wider text-text-muted"

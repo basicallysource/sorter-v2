@@ -14,11 +14,17 @@ class Rev01Config:
     # afterwards which frames are worth sending. The piece does not rotate, so
     # the views are near-identical.
     capture_at_rest_ms: float = 350.0
-    # Reverse converge to the precise staging zone (MOVING_TO_PRECISE). Slower
+    # Forward-only converge to the precise staging zone (MOVING_TO_PRECISE). Slower
     # than the discharge converge so the approach into the narrow precise band is
     # gentle; tolerance is the |gap-to-precise-centre| at which we call it parked.
     precise_converge_speed_usteps_per_s: int = 5000
     precise_center_tolerance_deg: float = 4.0
+    # Walled platter: when the piece is not detected during the converge
+    # (shadowed sector, polygon cut-out), the sector walls hold it in place —
+    # after this grace without a detection MOVING_TO_PRECISE simply proceeds
+    # to AWAITING instead of stalling into the rotate timeout. 0 = wait for
+    # the rotate timeout (legacy hold-and-wait).
+    precise_blind_grace_ms: float = 1200.0
     # Legacy fixed discharge kick (only used on the non-perception fallback path).
     # The active perception path closed-loops onto the fall-off centre instead;
     # see ``discharge_*`` fields below.
@@ -119,6 +125,7 @@ FIELD_META: list[dict] = [
     {"key": "capture_at_rest_ms", "label": "Capture-at-rest window (ms)", "type": "float", "default": _DEFAULTS.capture_at_rest_ms, "description": "How long the piece is photographed at rest. The burst ends at this window or the frame ceiling, whichever comes first (~30 fps, so 350 ms fits ~10 frames)."},
     {"key": "precise_converge_speed_usteps_per_s", "label": "Move-to-precise converge speed (µsteps/s)", "type": "int", "default": _DEFAULTS.precise_converge_speed_usteps_per_s, "description": "Motor speed for the reverse converge into the narrow precise staging band. Slower than normal rotation so the approach is gentle."},
     {"key": "precise_center_tolerance_deg", "label": "Move-to-precise: precise-centre tolerance (output deg)", "type": "float", "default": _DEFAULTS.precise_center_tolerance_deg, "description": "How close (in output degrees) the piece must be to the centre of the precise band to count as parked."},
+    {"key": "precise_blind_grace_ms", "label": "Move-to-precise: no-detection grace (ms)", "type": "float", "default": _DEFAULTS.precise_blind_grace_ms, "description": "If the piece is not detected for this long during the converge, proceed to AWAITING — the sector walls hold the piece, there is nothing to hunt for. 0 = wait for the rotate timeout."},
     {"key": "kick_off_output_deg", "label": "Kick-off move (output deg)", "type": "float", "default": _DEFAULTS.kick_off_output_deg, "description": "Legacy non-perception fallback only: fixed move that shoves the piece off the channel at discharge. The active path closed-loops onto the fall-off centre instead."},
     {"key": "discharge_speed_usteps_per_s", "label": "Discharge speed (µsteps/s)", "type": "int", "default": _DEFAULTS.discharge_speed_usteps_per_s, "description": "Motor speed for discharge moves (driving the piece into the fall-off zone)."},
     {"key": "crop_padding_px", "label": "Crop padding (px)", "type": "int", "default": _DEFAULTS.crop_padding_px, "description": "Extra pixels added around the detected bounding box when cropping the piece image sent to classification."},

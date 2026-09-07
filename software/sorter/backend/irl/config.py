@@ -41,6 +41,23 @@ class FeederMode(enum.Enum):
     # channel's drop zone occupied; for C3, a piece at the exit edge while the
     # classification channel is busy/not ready).
     CONSTANT_MOVEMENT_REV01 = "constant_movement_rev01"
+    # B1 belt topology: a cleated conveyor (continuous velocity via
+    # move_at_speed, throttled by C3's perception fill level) replaces the
+    # C1/C2 pulsing entirely; C3 keeps the pulse-perception exit metering.
+    # Pairs with machine_setup "belt_feeder". See subsystems/feeder/belt/.
+    BELT_REV01 = "belt_rev01"
+
+
+# Feeder modes that read ChannelState from the rev04 perception service
+# (perception owns detection; legacy VisionManager paths stay off).
+PERCEPTION_NATIVE_FEEDER_MODES = frozenset(
+    {
+        FeederMode.GO_TO_ANGLE_REV01,
+        FeederMode.PULSE_PERCEPTION_REV01,
+        FeederMode.CONSTANT_MOVEMENT_REV01,
+        FeederMode.BELT_REV01,
+    }
+)
 
 from global_config import GlobalConfig
 from hardware.bus import MCUBus, MCUBusError
@@ -626,6 +643,8 @@ class IRLInterface:
     c_channel_1_rotor_stepper: "StepperMotor"
     c_channel_2_rotor_stepper: "StepperMotor"
     c_channel_3_rotor_stepper: "StepperMotor"
+    # belt_feeder setups: alias for the C1 rotor stepper driving the B1 belt.
+    belt_stepper: "StepperMotor"
     fifth_stepper: "StepperMotor"
     servos: "list[ServoMotor]"
     chute: "Chute"
@@ -1085,13 +1104,13 @@ def mkIRLConfig(machine_params: dict[str, object] | None = None) -> IRLConfig:
         classification_channel_source = cameras_section.get("classification_channel")
         carousel_source = (
             classification_channel_source
-            if machine_setup.key == "classification_channel"
+            if machine_setup.uses_classification_channel
             and classification_channel_source is not None
             else cameras_section.get("carousel")
         )
         aux_camera_role = (
             "classification_channel"
-            if machine_setup.key == "classification_channel"
+            if machine_setup.uses_classification_channel
             else "carousel"
         )
 
@@ -1254,7 +1273,11 @@ def mkIRLConfig(machine_params: dict[str, object] | None = None) -> IRLConfig:
             color_profile=_color_profile("classification_top"),
         )
     
-    classification_channel_setup = machine_setup.key == "classification_channel"
+    # Capability, not key: any setup driving the classification C-channel off
+    # the carousel port (classification_channel, belt_feeder) needs the fast
+    # rotor profile — the key check silently left belt_feeder at 16 µsteps /
+    # 1000 µsteps/s, i.e. an ~8x slower C4.
+    classification_channel_setup = machine_setup.uses_classification_channel
     carousel_microsteps = 8 if classification_channel_setup else 16
     carousel_speed = 4000 if classification_channel_setup else 1000
     irl_config.carousel_stepper = mkStepperConfig(
@@ -1280,7 +1303,11 @@ def _requiredCanonicalStepperNames(
     stepper_binding_overrides: dict[str, str],
 ) -> list[str]:
     logical_required: list[str] = ["chute"]
-    if machine_setup.automatic_feeder:
+    if machine_setup.uses_belt_feeder:
+        # The belt motor lives on the C1 rotor port; C2 has no motor in this
+        # topology.
+        logical_required.extend(["c_channel_1", "c_channel_3"])
+    elif machine_setup.automatic_feeder:
         logical_required.extend(["c_channel_1", "c_channel_2", "c_channel_3"])
     if machine_setup.uses_carousel_transport:
         logical_required.append("carousel")
@@ -1487,6 +1514,11 @@ def mkIRLInterface(config: IRLConfig, gc: GlobalConfig) -> IRLInterface:
         irl_interface.c_channel_4_rotor_stepper = irl_interface.carousel_stepper
         if config.machine_setup.uses_classification_channel:
             irl_interface.classification_channel_rotor_stepper = irl_interface.carousel_stepper
+
+    if config.machine_setup.uses_belt_feeder and hasattr(
+        irl_interface, "c_channel_1_rotor_stepper"
+    ):
+        irl_interface.belt_stepper = irl_interface.c_channel_1_rotor_stepper
 
     _apply_stepper_software_disable(gc, irl_interface)
 

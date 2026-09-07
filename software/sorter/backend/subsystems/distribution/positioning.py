@@ -311,6 +311,12 @@ class Positioning(BaseState):
                 self._door_servo_index = address.layer_index
             self._target_address = address
             self._startChuteMove()
+            # Re-read the clock: `now` was taken at the top of step(), and the
+            # init phase above (bin lookup, servo selection, the move command
+            # itself) can block for seconds on the serial bus or a disk stall.
+            # Charging that time to the move budget produced a false
+            # "chute stepper did not stop" jam one second into a 2.8 s move.
+            now = time.monotonic()
             self._moving_started_at = now
             init_ms = (now - self._state_entered_at) * 1000
             if self.gc.disable_servos:

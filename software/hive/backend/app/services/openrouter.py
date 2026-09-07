@@ -27,6 +27,42 @@ class OpenRouterResponse:
     generation_id: str | None = None
 
 
+# OpenRouter answers 401/402/403/429 about the caller's own account: the key
+# the user pasted into Settings is wrong, or its account has no credits, or it
+# is being throttled. Those used to come back as a 502 "OpenRouter request
+# failed: <upstream text>", which reads as a Hive outage and gets reported as
+# one (2026-09-07: a user retried a no-credits key fifteen times and filed it as
+# "I got a 502"). They are the user's to fix, so they get a 4xx, a stable code
+# the frontend can point at Settings for, and a message that says what to do.
+# Everything else really is upstream failing and stays a 502.
+def _apiErrorForOpenRouterStatus(status: int, upstream_message: str | None) -> APIError:
+    detail = f" (OpenRouter said: {upstream_message})" if upstream_message else ""
+    if status == 402:
+        return APIError(
+            402,
+            "Your OpenRouter account has no credits. Add credits at openrouter.ai, or switch to a key from a funded account in Settings."
+            + detail,
+            "OPENROUTER_NO_CREDITS",
+        )
+    if status in (401, 403):
+        return APIError(
+            400,
+            "OpenRouter rejected your API key. Check the key in Settings." + detail,
+            "OPENROUTER_KEY_REJECTED",
+        )
+    if status == 429:
+        return APIError(
+            429,
+            "OpenRouter is rate limiting your key. Wait a moment and try again." + detail,
+            "OPENROUTER_RATE_LIMITED",
+        )
+    return APIError(
+        502,
+        f"OpenRouter request failed: {upstream_message or f'HTTP {status}'}",
+        "OPENROUTER_HTTP_ERROR",
+    )
+
+
 def run_openrouter_chat(
     *,
     api_key: str,
@@ -84,11 +120,7 @@ def run_openrouter_chat(
                 message = error_obj.get("message")
             if not message:
                 message = error_payload.get("message")
-        raise APIError(
-            502,
-            f"OpenRouter request failed: {message or f'HTTP {exc.code}'}",
-            "OPENROUTER_HTTP_ERROR",
-        ) from exc
+        raise _apiErrorForOpenRouterStatus(exc.code, message) from exc
     except URLError as exc:
         raise APIError(502, "OpenRouter could not be reached", "OPENROUTER_NETWORK_ERROR") from exc
 

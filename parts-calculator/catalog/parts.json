@@ -1566,18 +1566,35 @@
     },
     {
       "id": "interface-cage-bracket",
-      "uid": "resz",
+      "uid": "1mqs",
       "name": "Cable cage bracket",
       "description": "Interface cable cage bracket (regular). 5 needed.",
-      "internal_notes": "5 regular per interface; plus 1 of the cable-mount variant. Frame color.",
-      "version": "1",
+      "internal_notes": "5 regular per interface; plus 1 of the cable-mount variant. Frame color. v2 (2026-09-07), part of the same full v2 reset as interface-cage-bracket-cable: raises the underside 2mm, moving the set from the 25mm-tall 'temp catcher wall' Onshape branch (v1, exported 2026-06-27) to the 23mm-tall main branch. Bolt pattern and cage-plate rebate footprint unchanged, only the Z height of the underside. Spencer's export, Onshape v24.",
+      "version": "2",
       "created_at": "2026-06-27",
-      "updated_at": "2026-06-27",
+      "updated_at": "2026-09-07",
+      "versions": [
+        {
+          "version": "1",
+          "uid": "resz",
+          "message": "As recorded before the first stamped change.",
+          "stl_hash": "6164e958336a10b2a6f3910b6a0bc754996a15202d2719923b272e0963561074"
+        },
+        {
+          "version": "2",
+          "date": "2026-09-07",
+          "message": "Full v2 reset of the cable-cage bracket set (sorter-v2 #403): the underside raises ~2mm (foot 212.5 -> 214.5, boss underside 210.0 -> 212.0), same change as interface-cage-bracket-cable's v2, moving the cage from the 25mm-tall 'temp catcher wall' Onshape branch to the 23mm-tall main branch. Bolt pattern and cage-plate rebate unchanged, so an old print still bolts in the same place.",
+          "breaking": false,
+          "commit": "47a5e5a5",
+          "onshape_version": "https://cad.onshape.com/documents/36d65973fe08f685f790dc8b/v/ea31e1c51b28dfab1e6024f5/e/1850f7f376b0cfba64f9e367"
+        }
+      ],
       "quantities": {
         "interface": 5
       },
       "assembly": "cable-cage",
-      "stl_hash": "6164e958336a10b2a6f3910b6a0bc754996a15202d2719923b272e0963561074",
+      "stl_hash": "543ea9815e260495b2da30c58c3f120514c65eb18c2bcf4a75c4860852d4e40f",
+      "onshape_version": "https://cad.onshape.com/documents/36d65973fe08f685f790dc8b/v/ea31e1c51b28dfab1e6024f5/e/1850f7f376b0cfba64f9e367",
       "color": {
         "role": "frame"
       },
@@ -1586,18 +1603,35 @@
     },
     {
       "id": "interface-cage-bracket-cable",
-      "uid": "cy58",
+      "uid": "nu2n",
       "name": "Cable cage bracket (cable mount)",
       "description": "Cable cage bracket with the cable mount. 1 needed.",
-      "internal_notes": "1 per interface; the cage bracket variant with a cable mount. Frame color.",
-      "version": "1",
+      "internal_notes": "1 per interface; the cage bracket variant with a cable mount. Frame color. v2 (2026-09-07), part of a full v2 reset of the cable-cage bracket set: raises the underside 2mm as the #403 fix, and switches the whole set from the 25mm-tall 'temp catcher wall' Onshape branch (what v1 of every cage bracket was exported from, 2026-06-27) to the 23mm-tall main branch. Verified byte-for-byte identical geometry to Spencer's Onshape v24 export (same doc, .../v/ea31e1c51b28dfab1e6024f5/e/53b920a202f4d2547f109634) against barthel's earlier master. See interface-cage-bracket's v2 for the matching change to the other five brackets, and the new cage-bracket-cable-ribbon-clamp assembly.",
+      "version": "2",
       "created_at": "2026-06-27",
-      "updated_at": "2026-06-27",
+      "updated_at": "2026-09-07",
+      "versions": [
+        {
+          "version": "1",
+          "uid": "cy58",
+          "message": "As recorded before the first stamped change.",
+          "stl_hash": "081da7a95e53340f4f27219a224c0015905f176707c84f82c2f69bd72da85530"
+        },
+        {
+          "version": "2",
+          "date": "2026-09-07",
+          "message": "barthel's proposed fix for the ribbon-cable-clamp foot/lip mismatch (#403): the underside near the heat-insert boss raised ~2mm (Z 210.0 -> 212.0) and the mounting foot widened from +-15 to +-22 in X. Mounting bolt pattern and insert bore unchanged, so an old print still bolts in the same place.",
+          "breaking": false,
+          "commit": "6e02bf71",
+          "onshape_version": "https://cad.onshape.com/documents/36d65973fe08f685f790dc8b/v/ea31e1c51b28dfab1e6024f5/e/53b920a202f4d2547f109634"
+        }
+      ],
       "quantities": {
         "interface": 1
       },
       "assembly": "cable-cage",
-      "stl_hash": "081da7a95e53340f4f27219a224c0015905f176707c84f82c2f69bd72da85530",
+      "stl_hash": "0dad6ad3b408d51771212d81c465973dee0d4f0f41be46ac8f0ba92fbc1e7567",
+      "onshape_version": "https://cad.onshape.com/documents/36d65973fe08f685f790dc8b/v/ea31e1c51b28dfab1e6024f5/e/53b920a202f4d2547f109634",
       "color": {
         "role": "frame"
       },
@@ -1651,7 +1685,7 @@
       "uid": "nf0n",
       "name": "Ribbon cable clamp",
       "description": "Outer ribbon cable clamp, paired with the cable cage brackets.",
-      "internal_notes": "Outer ribbon cable clamp. Grouped with the cable cage brackets. Colour (frame) + qty 1/machine are DEFAULTS pending confirmation.",
+      "internal_notes": "Outer ribbon cable clamp. Grouped with the cable cage brackets. Colour (frame) + qty 1/machine are DEFAULTS pending confirmation. Checked 2026-09-07 against Spencer's Onshape v24 export of the same element (\"ribbon cable clamp with bracket\") during the cage-bracket v2 reset: geometry is unchanged, plane-for-plane identical to this v1 master. Only the two brackets it mates with moved.",
       "version": "1",
       "created_at": "2026-07-03",
       "updated_at": "2026-07-03",
@@ -1660,6 +1694,7 @@
       },
       "assembly": "cable-cage",
       "stl_hash": "39b7e6d0e9864c00ca1c75014c1243cabff5a4be54c7671e51352b922c5a0939",
+      "onshape_version": "https://cad.onshape.com/documents/36d65973fe08f685f790dc8b/v/ea31e1c51b28dfab1e6024f5/e/53b920a202f4d2547f109634",
       "color": {
         "role": "frame"
       },
@@ -6599,17 +6634,13 @@
       ]
     },
     {
-      "id": "cable-cage",
-      "uid": "nam6",
+      "id": "cage-bracket-cable-clamp",
+      "uid": "s4we",
       "version": "1",
-      "name": "Cable cage",
-      "description": "Six cable cage brackets (5 regular + 1 cable mount) stacked with the ribbon cable clamp. Also sandwiches the laser-cut cage top and bottom plates, which are not in the parts registry yet.",
+      "name": "Cage bracket (cable mount) + ribbon clamp",
+      "description": "The one cable-cage corner that carries the ribbon cable: the cable-mount bracket with the outer ribbon cable clamp bolted to its post.",
       "docs": "/hardware/assembly/distribution/top-interface/",
       "lines": [
-        {
-          "part": "interface-cage-bracket",
-          "qty": 5
-        },
         {
           "part": "interface-cage-bracket-cable",
           "qty": 1
@@ -6619,16 +6650,94 @@
           "qty": 1
         },
         {
+          "part": "scr-m3-10-shcs",
+          "qty": 1
+        }
+      ],
+      "connections": [
+        {
+          "from": "ribbon-cable-clamp",
+          "to": "interface-cage-bracket-cable",
+          "via": "scr-m3-10-shcs",
+          "qty": 1,
+          "method": "insert",
+          "note": "Single M3 into the bracket's heat-set insert. The clamp's lip hooks under the post's underside (raised in v2, sorter-v2 #403) to stop the clamp rotating on the single screw."
+        }
+      ],
+      "images": [
+        {
+          "url": "https://assets.basically.website/sorter-parts/spencer-image2-full-adb0f1993da6.png",
+          "alt": "Onshape render of the cable-mount cage bracket (teal) with the ribbon cable clamp (purple) bolted to its post, one M3 hole visible through both",
+          "caption": "The cable-mount bracket and ribbon clamp, assembled."
+        }
+      ]
+    },
+    {
+      "id": "cable-cage",
+      "uid": "wxcr",
+      "version": "2",
+      "name": "Cable cage",
+      "description": "Six cable cage brackets (5 regular + 1 cable mount, the latter carrying the ribbon cable clamp) stacked with the ribbon cable clamp. Also sandwiches the laser-cut cage top and bottom plates, which are not in the parts registry yet.",
+      "docs": "/hardware/assembly/distribution/top-interface/",
+      "versions": [
+        {
+          "version": "1",
+          "uid": "nam6",
+          "message": "As recorded before the first stamped change.",
+          "lines": [
+            {
+              "part": "interface-cage-bracket",
+              "qty": 5,
+              "uid": "resz"
+            },
+            {
+              "part": "interface-cage-bracket-cable",
+              "qty": 1,
+              "uid": "cy58"
+            },
+            {
+              "part": "ribbon-cable-clamp",
+              "qty": 1,
+              "uid": "nf0n"
+            },
+            {
+              "part": "scr-m5-35-fhcs",
+              "qty": 6
+            },
+            {
+              "part": "nut-m5",
+              "qty": 6
+            },
+            {
+              "part": "scr-m3-10-shcs",
+              "qty": 1
+            }
+          ]
+        },
+        {
+          "version": "2",
+          "date": "2026-09-07",
+          "message": "Both cage brackets moved to v2 (sorter-v2 #403, the 25mm 'temp catcher wall' to 23mm 'main' Onshape reset), and the cable-mount bracket + ribbon clamp + their M3 now nest as the new cage-bracket-cable-clamp sub-assembly instead of three flat lines. No change to what the six brackets are or how they stack; the regular brackets and their M5s stay flat lines here.",
+          "breaking": false,
+          "commit": "47a5e5a5"
+        }
+      ],
+      "lines": [
+        {
+          "part": "interface-cage-bracket",
+          "qty": 5
+        },
+        {
+          "assembly": "cage-bracket-cable-clamp",
+          "qty": 1
+        },
+        {
           "part": "scr-m5-35-fhcs",
           "qty": 6
         },
         {
           "part": "nut-m5",
           "qty": 6
-        },
-        {
-          "part": "scr-m3-10-shcs",
-          "qty": 1
         }
       ]
     },
@@ -8658,7 +8767,7 @@
           "date": "2026-09-05",
           "message": "The screw through the servo bracket's side arm into the chute core is an M3 × 8, not an M3 × 12. Measured off the STL: that ear is 5.00 mm thick, the same as the bearing covers', so an 8 reaches 3.00 mm into the core's blind 5.70 mm insert and a 12 bottoms out in it. The lower arm's ear is 8.40 mm and keeps its 12. One screw moves from the 12 column to the 8; no part changed.",
           "breaking": false,
-          "commit": null
+          "commit": "18236142"
         }
       ],
       "name": "Chute",
@@ -9207,7 +9316,7 @@
           "date": "2026-09-01",
           "message": "Recording correction: the idler gear's axle screw is 1 x M3 x 20 countersunk, not M3 x 35. It self-taps into the printed NEMA 23 bracket and never reaches the plywood Top plate, measured on BrickCycleAlice's build (sorter-v2#458). No physical change.",
           "breaking": false,
-          "commit": null
+          "commit": "5195cedc"
         }
       ]
     },

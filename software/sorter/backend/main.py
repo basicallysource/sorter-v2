@@ -351,7 +351,7 @@ def runBroadcaster(gc: GlobalConfig) -> None:
                 and command.tag != "heartbeat"
                 and command.tag != "runtime_stats"
             ):
-                gc.logger.info(f"broadcasting {command.tag} event")
+                gc.logger.debug(f"broadcasting {command.tag} event")
             send_started = time.perf_counter()
             future = asyncio.run_coroutine_threadsafe(
                 broadcastEvent(payload), shared_state.server_loop

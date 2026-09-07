@@ -151,7 +151,7 @@ class PulsePerceptionFeeding(BaseState):
         exec_ms = stepper.estimateMoveDegreesMs(abs(motor_deg), max_speed=speed or 5000)
         cooldown_ms = (max(0, exec_ms) + max(0, pause_ms)) if success else 500
         self._busy_until[stepper._name] = time.monotonic() + cooldown_ms / 1000.0
-        self.gc.logger.info(
+        self.gc.logger.debug(
             f"PulsePerception: {label} pulse ch={channel} speed={speed} "
             f"output={output_deg:.1f}° motor={motor_deg:.1f}° "
             f"success={success} exec_ms={exec_ms} pause_ms={pause_ms}"

@@ -199,7 +199,7 @@ class StepperMotor:
             return True
         self._ensure_move_acceleration(acceleration)
         physical_steps = self._logical_to_physical_steps(steps)
-        self._gc.logger.info(
+        self._gc.logger.debug(
             f"Stepper '{self._name}' (hw='{self._hardware_name}') ch{self._channel}: "
             f"move_steps logical={steps} physical={physical_steps} microsteps "
             f"({self.degrees_for_microsteps(steps):.2f}°), pos_before={self._current_position_steps}, "
@@ -237,7 +237,7 @@ class StepperMotor:
         if speed != 0:
             self._ensure_move_acceleration(acceleration)
         physical_speed = self._logical_to_physical_steps(speed)
-        self._gc.logger.info(
+        self._gc.logger.debug(
             f"Stepper '{self._name}' (hw='{self._hardware_name}') ch{self._channel}: "
             f"move_at_speed logical={speed} physical={physical_speed} µsteps/s, "
             f"inverted={self._direction_inverted}"
@@ -309,7 +309,7 @@ class StepperMotor:
 
     def set_speed_limits(self, min_speed: int, max_speed: int) -> None:
         """Set the minimum and maximum speed for the stepper in microsteps per second."""
-        self._gc.logger.info(f"Stepper '{self._name}' ch{self._channel}: set_speed_limits min={min_speed} max={max_speed} µsteps/s")
+        self._gc.logger.debug(f"Stepper '{self._name}' ch{self._channel}: set_speed_limits min={min_speed} max={max_speed} µsteps/s")
         payload = struct.pack("<II", min_speed, max_speed) # 8 bytes, two little-endian unsigned integers
         self._dev.send_command(InterfaceCommandCode.STEPPER_SET_SPEED_LIMITS, self._channel, payload)
         _controlDataRecordCommand(
@@ -644,7 +644,7 @@ class ServoMotor:
     @enabled.setter
     def enabled(self, value: bool):
         bool_value = bool(value)
-        self._gc.logger.info(f"Servo '{self._name}' ch{self._channel}: set_enabled={bool_value}")
+        self._gc.logger.debug(f"Servo '{self._name}' ch{self._channel}: set_enabled={bool_value}")
         payload = struct.pack("<?", bool_value) # 1 byte, boolean
         self._dev.send_command(InterfaceCommandCode.SERVO_SET_ENABLED, self._channel, payload)
         self._enabled = bool_value

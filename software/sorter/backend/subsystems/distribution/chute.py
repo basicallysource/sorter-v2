@@ -301,8 +301,21 @@ class Chute:
         if not self.endstop_triggered:
             return True
         self.logger.info("Chute: endstop already active before homing — backing out")
+        # Same driver re-enable as StepperMotor.home(): after a force-halt the
+        # chopper is off and every probe would count steps on a motor that
+        # does not turn.
+        self.stepper.enabled = True
         for probe in range(1, HOME_BACKOUT_MAX_PROBES + 1):
-            self.stepper.move_degrees_blocking(HOME_BACKOUT_STEP_STEPPER_DEG, timeout_ms=3000)
+            if not self.stepper.move_degrees_blocking(HOME_BACKOUT_STEP_STEPPER_DEG, timeout_ms=3000):
+                # The probe did not report stopped in time: it may still be
+                # moving, and a second command on top of it would be rejected
+                # or race the sensor search. Cut the driver so the unfinished
+                # move cannot carry on; the next home() re-enables it.
+                self.logger.error(
+                    f"Chute: backout probe {probe} did not finish within 3 s — halting, homing aborted"
+                )
+                self.stepper.enable_force(False)
+                return False
             if not self.endstop_triggered:
                 self.logger.info(
                     f"Chute: endstop released after {probe} probe(s) "
@@ -318,6 +331,10 @@ class Chute:
 
     def home(self) -> bool:
         self.logger.info("Chute: homing via sensor")
+        # From here on the recorded position is being rebuilt: a backout that
+        # moves the chute and then fails must not leave a stale homed=True
+        # behind, or the move API would trust a position that is now wrong.
+        self._homed = False
         if not self._backOutOfEndstop():
             return False
         pos_before = self.current_angle

@@ -10,11 +10,6 @@ permalink: /hardware/assembly/distribution/chute/
 author: spencer
 contributors: [alex, brickcyclealice, barthel]
 last_verified: 2026-09-07
-warning: >-
-  **The install order below is one builder's account.** Steps 2 to 4 are how alex built his
-  machine, written down from what he described in Discord; nobody else has said whether they
-  did it the same way. The pages themselves have been built from. Correct the order as you
-  build.
 ---
 
 The chute is one per layer. Build the core first, since everything else bolts into its heat inserts.

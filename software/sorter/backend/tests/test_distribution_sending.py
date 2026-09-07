@@ -177,6 +177,28 @@ class SendingDoorHoldTests(unittest.TestCase):
         self.assertEqual(DistributionState.IDLE, sending.step())
         self.assertEqual(["hold", "release"], upper.calls)
 
+    def test_a_door_positioning_already_holds_is_adopted_not_held_again(self) -> None:
+        transport = SendingChuteReopenGateTests._mkTransportWithDrop(SendingChuteReopenGateTests(), tracked_global_id=7)
+        shared = SendingChuteReopenGateTests._mkSharedWithTransport(SendingChuteReopenGateTests(), transport)
+        upper, lower = _FakeDoor(), _FakeDoor()
+        shared.set_chute_motion(False, target_bin=SimpleNamespace(layer_index=0))
+        shared.held_door = upper
+        sending = _mkSending(
+            vision=_FakeVision(live_ids_by_role={"carousel": set()}),
+            cooldown_s=0.0,
+            shared=shared,
+            event_queue=queue.Queue(),
+            gc=_GlobalConfig(),
+            servos=[upper, lower],
+        )
+        sending.start_time = time.time()
+        sending.step()
+        self.assertEqual([], upper.calls, "already energized by positioning")
+        sending.start_time = time.time() - 10.0
+        sending.step()
+        self.assertEqual(["release"], upper.calls)
+        self.assertIsNone(shared.held_door)
+
     def test_no_door_without_a_target_or_hold_support(self) -> None:
         transport = SendingChuteReopenGateTests._mkTransportWithDrop(SendingChuteReopenGateTests(), tracked_global_id=8)
         shared = SendingChuteReopenGateTests._mkSharedWithTransport(SendingChuteReopenGateTests(), transport)

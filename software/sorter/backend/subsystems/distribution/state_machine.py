@@ -87,6 +87,15 @@ class DistributionStateMachine(BaseSubsystem):
     def cleanup(self) -> None:
         self.gc.profiler.exitState("distribution")
         self.states_map[self.current_state].cleanup()
+        door = getattr(self.shared, "held_door", None)
+        if door is not None:
+            # The drop this hold was for is not coming (pause, incident):
+            # never leave a door energized against its stop.
+            self.shared.held_door = None
+            try:
+                door.release()
+            except Exception as exc:
+                self.logger.warning(f"Distribution: could not release the held door: {exc}")
         # Back to IDLE so a resume re-reads the transport instead of replaying
         # the interrupted state: SENDING would otherwise pick up the same
         # exit piece again and commit it a second time.

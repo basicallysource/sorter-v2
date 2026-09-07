@@ -78,6 +78,7 @@ class Positioning(BaseState):
         self._blocked_layers: set[int] = set()
         self._servo_offline_layers: set[int] = set()
         self._jam_pause_enqueued: bool = False
+        self._jam_ignored_logged: bool = False
         self._servo_bus_pause_enqueued: bool = False
         self._chute_move_estimated_ms: int = 0
 
@@ -633,8 +634,22 @@ class Positioning(BaseState):
     def _raiseChuteJamAlert(self, detail: str) -> None:
         """Hard alert: chute / servo can't physically move. Raises the red
         banner *and* enqueues a pause so the operator has to intervene.
+
+        Honors the Chute Jam incident policy: when it is Off, the condition
+        is logged once per move and otherwise ignored - no incident, no
+        banner, no pause - and positioning keeps waiting for the motion to
+        finish. The policy used to gate only the incident card, so a machine
+        set to Off still paused on a red banner.
         """
         elapsed_ms = int(max(0.0, time.monotonic() - self._moving_started_at) * 1000.0)
+        if _incidentHandlingOff(DISTRIBUTION_CHUTE_JAM_INCIDENT_KIND):
+            if not self._jam_ignored_logged:
+                self._jam_ignored_logged = True
+                self.logger.warning(
+                    f"{CHUTE_JAM_ALERT_PREFIX} check tripped ({detail}) but Chute Jam "
+                    "handling is Off - ignoring and waiting for the motion to finish"
+                )
+            return
         self._publishDistributionIncident(
             DISTRIBUTION_CHUTE_JAM_INCIDENT_KIND,
             detail=detail,
@@ -681,6 +696,7 @@ class Positioning(BaseState):
         except Exception:
             pass
         self._jam_pause_enqueued = False
+        self._jam_ignored_logged = False
         self._clearDistributionIncident(DISTRIBUTION_CHUTE_JAM_INCIDENT_KIND)
 
     def _clearBinsFullAlertIfOwned(self) -> None:

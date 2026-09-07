@@ -495,49 +495,80 @@ def _updateImageFlags(piece_uuid: str, flags: list[tuple[int, int, int, Any]]) -
         conn.commit()
 
 
-def _retentionSweep() -> None:
+def _unlinkEvictedFile(abs_path: Path, base_dir: Path) -> None:
+    try:
+        abs_path.unlink(missing_ok=True)
+        parent = abs_path.parent
+        if parent != base_dir and not any(parent.iterdir()):
+            parent.rmdir()
+    except OSError:
+        pass
+
+
+def _sweepTable(
+    *,
+    table: str,
+    order_sql: str,
+    max_total_bytes: int,
+    base_dir: Path,
+    label: str,
+) -> None:
+    # Filesystem work happens OUTSIDE any transaction - same shape and same
+    # reason as channel_crop_store._retentionSweep: holding the SQLite write
+    # lock across hundreds of unlinks starved every other writer of
+    # local_state.sqlite for minutes at a time. Victims are chosen in a short
+    # read, files are unlinked with no transaction open, then the rows are
+    # tombstoned in one batch. A crash between unlink and tombstone is
+    # harmless: the next sweep re-selects the rows and tombstones them.
     with _connection() as conn:
         row = conn.execute(
-            "SELECT COALESCE(SUM(bytes), 0) AS total FROM piece_images WHERE deleted_at IS NULL"
+            f"SELECT COALESCE(SUM(bytes), 0) AS total FROM {table} WHERE deleted_at IS NULL"
         ).fetchone()
         total = int(row["total"]) if row is not None else 0
-        if total <= _MAX_TOTAL_BYTES:
+        if total <= max_total_bytes:
             return
-        overage = total - _MAX_TOTAL_BYTES
+        overage = total - max_total_bytes
+        rows = conn.execute(
+            f"SELECT id, file_path, bytes FROM {table} WHERE deleted_at IS NULL "
+            f"ORDER BY {order_sql} LIMIT 500"
+        ).fetchall()
+    victims: list[tuple[int, str]] = []
+    freed = 0
+    for r in rows:
+        if freed >= overage:
+            break
+        victims.append((int(r["id"]), str(r["file_path"])))
+        freed += int(r["bytes"] or 0)
+    if not victims:
+        return
+    for _, rel_path in victims:
+        _unlinkEvictedFile(base_dir / rel_path, base_dir)
+    now = time.time()
+    with _connection() as conn:
+        conn.executemany(
+            f"UPDATE {table} SET deleted_at = ? WHERE id = ?",
+            [(now, image_id) for image_id, _ in victims],
+        )
+        conn.commit()
+    evicted = len(victims)
+    with _stats_lock:
+        _stats["evicted_files"] += evicted
+    _log(
+        "info",
+        f"piece_image_store: {label} evicted {evicted} files ({freed / 1024 / 1024:.1f} MB)",
+    )
+
+
+def _retentionSweep() -> None:
+    _sweepTable(
+        table="piece_images",
         # Synced files go first ((synced_at IS NULL)=0 sorts before 1), oldest
         # first within each group.
-        rows = conn.execute(
-            "SELECT id, file_path, bytes FROM piece_images WHERE deleted_at IS NULL "
-            "ORDER BY (synced_at IS NULL) ASC, created_at ASC LIMIT 500"
-        ).fetchall()
-        now = time.time()
-        freed = 0
-        evicted = 0
-        for r in rows:
-            if freed >= overage:
-                break
-            abs_path = piece_images_dir() / str(r["file_path"])
-            try:
-                abs_path.unlink(missing_ok=True)
-                parent = abs_path.parent
-                if parent != piece_images_dir() and not any(parent.iterdir()):
-                    parent.rmdir()
-            except OSError:
-                pass
-            conn.execute(
-                "UPDATE piece_images SET deleted_at = ? WHERE id = ?",
-                (now, int(r["id"])),
-            )
-            freed += int(r["bytes"] or 0)
-            evicted += 1
-        conn.commit()
-    if evicted:
-        with _stats_lock:
-            _stats["evicted_files"] += evicted
-        _log(
-            "info",
-            f"piece_image_store: retention evicted {evicted} files ({freed / 1024 / 1024:.1f} MB)",
-        )
+        order_sql="(synced_at IS NULL) ASC, created_at ASC",
+        max_total_bytes=_MAX_TOTAL_BYTES,
+        base_dir=piece_images_dir(),
+        label="retention",
+    )
     _linkRetentionSweep()
 
 
@@ -547,46 +578,13 @@ _MAX_LINK_TOTAL_BYTES = 200 * 1024 * 1024
 
 
 def _linkRetentionSweep() -> None:
-    with _connection() as conn:
-        row = conn.execute(
-            "SELECT COALESCE(SUM(bytes), 0) AS total FROM piece_link_images WHERE deleted_at IS NULL"
-        ).fetchone()
-        total = int(row["total"]) if row is not None else 0
-        if total <= _MAX_LINK_TOTAL_BYTES:
-            return
-        overage = total - _MAX_LINK_TOTAL_BYTES
-        rows = conn.execute(
-            "SELECT id, file_path, bytes FROM piece_link_images WHERE deleted_at IS NULL "
-            "ORDER BY created_at ASC LIMIT 500"
-        ).fetchall()
-        now = time.time()
-        freed = 0
-        evicted = 0
-        for r in rows:
-            if freed >= overage:
-                break
-            abs_path = piece_link_images_dir() / str(r["file_path"])
-            try:
-                abs_path.unlink(missing_ok=True)
-                parent = abs_path.parent
-                if parent != piece_link_images_dir() and not any(parent.iterdir()):
-                    parent.rmdir()
-            except OSError:
-                pass
-            conn.execute(
-                "UPDATE piece_link_images SET deleted_at = ? WHERE id = ?",
-                (now, int(r["id"])),
-            )
-            freed += int(r["bytes"] or 0)
-            evicted += 1
-        conn.commit()
-    if evicted:
-        with _stats_lock:
-            _stats["evicted_files"] += evicted
-        _log(
-            "info",
-            f"piece_image_store: link retention evicted {evicted} files ({freed / 1024 / 1024:.1f} MB)",
-        )
+    _sweepTable(
+        table="piece_link_images",
+        order_sql="created_at ASC",
+        max_total_bytes=_MAX_LINK_TOTAL_BYTES,
+        base_dir=piece_link_images_dir(),
+        label="link retention",
+    )
 
 
 def listPieceImages(piece_uuid: str) -> list[dict[str, Any]]:

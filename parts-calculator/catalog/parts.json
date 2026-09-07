@@ -1595,11 +1595,17 @@
       "updated_at": "2026-09-07",
       "versions": [
         {
+          "version": "1",
+          "uid": "cy58",
+          "message": "As recorded before the first stamped change.",
+          "stl_hash": "081da7a95e53340f4f27219a224c0015905f176707c84f82c2f69bd72da85530"
+        },
+        {
           "version": "2",
           "date": "2026-09-07",
           "message": "barthel's proposed fix for the ribbon-cable-clamp foot/lip mismatch (#403): the underside near the heat-insert boss raised ~2mm (Z 210.0 -> 212.0) and the mounting foot widened from +-15 to +-22 in X. Mounting bolt pattern and insert bore unchanged, so an old print still bolts in the same place.",
           "breaking": false,
-          "commit": null,
+          "commit": "6e02bf71",
           "onshape_version": "https://cad.onshape.com/documents/36d65973fe08f685f790dc8b/v/b0b87904579c8becc296a460/e/5e3340c2e9170c356be9cfb9"
         }
       ],
@@ -8669,7 +8675,7 @@
           "date": "2026-09-05",
           "message": "The screw through the servo bracket's side arm into the chute core is an M3 × 8, not an M3 × 12. Measured off the STL: that ear is 5.00 mm thick, the same as the bearing covers', so an 8 reaches 3.00 mm into the core's blind 5.70 mm insert and a 12 bottoms out in it. The lower arm's ear is 8.40 mm and keeps its 12. One screw moves from the 12 column to the 8; no part changed.",
           "breaking": false,
-          "commit": null
+          "commit": "18236142"
         }
       ],
       "name": "Chute",
@@ -9218,7 +9224,7 @@
           "date": "2026-09-01",
           "message": "Recording correction: the idler gear's axle screw is 1 x M3 x 20 countersunk, not M3 x 35. It self-taps into the printed NEMA 23 bracket and never reaches the plywood Top plate, measured on BrickCycleAlice's build (sorter-v2#458). No physical change.",
           "breaking": false,
-          "commit": null
+          "commit": "5195cedc"
         }
       ]
     },

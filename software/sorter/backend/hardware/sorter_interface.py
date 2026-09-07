@@ -613,6 +613,7 @@ class StepperMotor:
     # Firmware defaults (Stepper.cpp constructor / set_speed_limits floor).
     _FIRMWARE_DEFAULT_ACCELERATION = 10000
     _FIRMWARE_DEFAULT_MIN_SPEED = 16
+    _FIRMWARE_DEFAULT_MAX_SPEED = 2000
 
     def estimateMoveStepsMs(self, steps: int, max_speed: int = 5000) -> int:
         """Time a firmware distance move takes, ramps included.
@@ -628,7 +629,9 @@ class StepperMotor:
         if steps == 0:
             return 0
         steps = abs(steps)
-        ceiling = self._applied_max_speed or int(max_speed)
+        # Until a limit has been applied the firmware runs at its own default
+        # ceiling, whatever speed the caller thinks it asked for.
+        ceiling = self._applied_max_speed or self._FIRMWARE_DEFAULT_MAX_SPEED
         v_max = max(1, min(int(max_speed), ceiling))
         v0 = min(self._applied_min_speed or self._FIRMWARE_DEFAULT_MIN_SPEED, v_max)
         accel = max(
@@ -644,6 +647,9 @@ class StepperMotor:
             seconds = 2.0 * (v_peak - v0) / accel
         else:
             seconds = 2.0 * (v_max - v0) / accel + (steps - 2.0 * ramp_steps) / v_max
+        # The firmware emits steps on a 1 kHz update grid starting at the min
+        # speed: even a one-step move takes a full step interval at v0.
+        seconds = max(seconds, 1.0 / v0)
         return max(1, int(seconds * 1000 * 1.15) + 30)
 
     def estimateMoveDegreesMs(self, degrees: float, max_speed: int = 5000) -> int:

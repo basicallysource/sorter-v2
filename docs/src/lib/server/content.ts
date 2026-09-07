@@ -140,6 +140,7 @@ for (const [path, raw] of Object.entries(dataFiles)) {
 				updated_at: pt.updated_at,
 				grams: pt.grams,
 				print_seconds: pt.print_seconds,
+				slice_failed: pt.slice_failed,
 				onshape: pt.versions?.[pt.versions.length - 1]?.onshape_version ?? pt.onshape,
 				info: pt.info,
 				low_tolerance: pt.low_tolerance,
@@ -416,6 +417,7 @@ export type PartDetail = {
 	updated_at?: string;
 	grams?: number | null; // null when no slicer could slice the part
 	print_seconds?: number | null;
+	slice_failed?: string; // present when no slicer could slice the part: why, and what was tried
 	onshape?: string;
 	low_tolerance?: boolean;
 	low_tolerance_note?: string;

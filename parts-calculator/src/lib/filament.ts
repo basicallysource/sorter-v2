@@ -394,6 +394,7 @@ export type Part = {
 	support_used: boolean; // slicer used support to slice this (may be auto-forced)
 	support_intentional?: boolean; // the part *opts into* support in the manifest (vs. auto-forced)
 	print_seconds: number | null; // null when no slicer could do it
+	slice_failed?: string; // present when no slicer could slice this geometry (the three above are null): why, and what was tried
 	color: ColorSpec;
 	optional: boolean;
 	onshape?: string | null; // link to the source Onshape document, if known

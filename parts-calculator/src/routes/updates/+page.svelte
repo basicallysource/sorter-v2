@@ -174,7 +174,7 @@
 				>
 					<Download size={14} /> STL
 				</a>
-				<span class="text-[11px] text-text-muted">{u.part.grams != null ? grams(u.part.grams * Math.max(qty, 1)) : 'not sliced'} · {u.part.print_seconds != null ? duration(u.part.print_seconds * Math.max(qty, 1)) : '—'}</span>
+				<span class="text-[11px] text-text-muted">{#if u.part.slice_failed}not sliced{:else}{grams((u.part.grams ?? 0) * Math.max(qty, 1))} · {duration((u.part.print_seconds ?? 0) * Math.max(qty, 1))}{/if}</span>
 			{:else}
 				<a href="/part/{u.part.id}" class="text-xs text-primary hover:text-primary-hover">Open part</a>
 			{/if}

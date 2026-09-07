@@ -706,10 +706,10 @@
 							{#if sw.length > 1}{s.qty}× {/if}{s.color?.name ?? 'any'}
 						</span>
 					{/each}
-					{#if p.print_seconds != null}
+					{#if p.slice_failed}
+						<span title="Not sliced: {p.slice_failed}. Weight and print time are unknown.">· not sliced</span>
+					{:else if p.print_seconds != null}
 						<span title="Print time for one {p.name}">· {duration(p.print_seconds)}</span>
-					{:else}
-						<span title="No slicer could slice this part; weight and print time are unknown">· not sliced</span>
 					{/if}
 				</span>
 				{#if p.support_intentional}

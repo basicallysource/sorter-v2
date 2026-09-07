@@ -72,6 +72,12 @@ class FeederStateMachine(BaseSubsystem):
                 FeederState.IDLE: Idle(irl, gc, shared),
                 FeederState.FEEDING: ConstantMovementFeeding(irl, irl_config, gc, shared, vision),
             }
+        elif self._mode == FeederMode.BELT_REV01:
+            from .belt.flow import BeltFeeding
+            self.states_map = {
+                FeederState.IDLE: Idle(irl, gc, shared),
+                FeederState.FEEDING: BeltFeeding(irl, irl_config, gc, shared, vision),
+            }
         else:
             raise ValueError(f"Unsupported feeder mode: {self._mode}")
         self.gc.profiler.enterState("feeder", self.current_state.value)

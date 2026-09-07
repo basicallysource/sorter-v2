@@ -1,0 +1,417 @@
+import time
+from typing import Optional, TYPE_CHECKING
+
+from irl.config import IRLInterface, IRLConfig
+from global_config import GlobalConfig
+from subsystems.shared_variables import SharedVariables
+from vision import VisionManager
+
+from ..states import FeederState
+from ..pulse_perception.flow import C3Upstream, PulsePerceptionFeeding, _CONFIG_TTL_S
+from ..constant_movement.flow import FIRMWARE_MIN_SPEED_USTEPS_PER_S
+from .config import BeltFeederConfig
+
+# B1 belt topology (machine_setup "belt_feeder"): a cleated inclined conveyor
+# replaces the C1 bulk bucket AND the C2 buffer channel. The belt lifts a few
+# pieces per cleat out of the boat and drops them into C3; surplus tumbles back
+# into the boat, so the belt self-meters and self-recirculates.
+#
+# Control model — constant-speed feeding instead of stop/go:
+#   - C3 keeps the pulse-perception exit metering unchanged (final singulation
+#     into the classification channel). We inherit that wholesale from
+#     PulsePerceptionFeeding and force ch1/ch2 off — those motors don't exist
+#     in this topology.
+#   - The belt runs CONTINUOUSLY via move_at_speed, scaled by C3's perception
+#     fill level (ChannelState.n_pieces): full speed while C3 wants pieces,
+#     linear ramp down to a stop as C3 fills up. Because the boat buffers and
+#     the cleats self-meter, this controller can be lazy — no per-piece
+#     reactions, just a slow closed loop on channel occupancy.
+
+if TYPE_CHECKING:
+    from hardware.sorter_interface import StepperMotor
+
+
+class BeltLoadMonitor:
+    """Blocked-belt detector on the driver's StallGuard result: below the
+    threshold for ``samples`` consecutive reads means blocked. A threshold of 0
+    only records values (watch mode)."""
+
+    def __init__(self, threshold: int, samples: int) -> None:
+        self.threshold = int(threshold)
+        self.samples = max(1, int(samples))
+        self.last_sg: int | None = None
+        self.low_streak = 0
+
+    def observe(self, sg_result: int | None) -> bool:
+        if sg_result is None:
+            return False
+        self.last_sg = int(sg_result)
+        if self.threshold <= 0:
+            self.low_streak = 0
+            return False
+        if self.last_sg < self.threshold:
+            self.low_streak += 1
+        else:
+            self.low_streak = 0
+        return self.low_streak >= self.samples
+
+    def reset(self) -> None:
+        self.low_streak = 0
+
+
+class BeltFeeding(PulsePerceptionFeeding):
+    def __init__(
+        self,
+        irl: IRLInterface,
+        irl_config: IRLConfig,
+        gc: GlobalConfig,
+        shared: SharedVariables,
+        vision: VisionManager,
+    ):
+        super().__init__(irl, irl_config, gc, shared, vision)
+        self._belt_config: BeltFeederConfig = BeltFeederConfig()
+        self._belt_config_loaded_at: float = 0.0
+        # Last speed actually commanded to the motor (signed, µsteps/s) and the
+        # earliest time we may issue the next change.
+        self._belt_cmd_speed: int = 0
+        self._belt_next_cmd_at: float = 0.0
+        # A command the motor did not acknowledge leaves its real state unknown;
+        # the next command (and any stop) must go out regardless of the cache.
+        self._belt_cmd_unacked: bool = False
+        self._belt_speed_limit: int = 0
+        # Jam detection: the belt has been running since ``_belt_running_since``
+        # and the last new piece appeared in C3 at ``_last_arrival_at``.
+        self._belt_running_since: float | None = None
+        self._last_arrival_at: float = 0.0
+        self._last_c3_pieces: int = 0
+        # Live introspection for the tuning page / debugging: one dict, updated
+        # in place every tick and reachable via gc (read by the tuning router).
+        self._status: dict = {"reason": "idle", "ts": 0.0}
+        self._last_blocked_reason: str | None = None
+        # Stuck-watchdog nudge window (monotonic deadline) and attempts spent
+        # since the last piece reached C3.
+        self._nudge_until: float = 0.0
+        self._nudges_since_arrival: int = 0
+        self._perception_reason: str = "no_perception"
+        gc.belt_feeder_status = self._status
+        # Load watch (see BeltLoadMonitor); polled only while the belt runs.
+        self._load = BeltLoadMonitor(self._belt_config.load_block_sg_threshold, self._belt_config.load_block_samples)
+        self._load_next_poll_at: float = 0.0
+        self._load_last_log_at: float = 0.0
+
+    def _cfg(self):
+        # The C1/C2 rotors don't exist in the belt topology; the inherited C3
+        # exit metering (and its tuning page) is used unchanged.
+        cfg = super()._cfg()
+        cfg.enable_ch1 = False
+        cfg.enable_ch2 = False
+        return cfg
+
+    def _c3_upstream(self, cfg) -> C3Upstream:
+        belt_cfg = self._belt_cfg()
+        return C3Upstream(
+            label="B1 belt",
+            channel_id=1,
+            stepper=getattr(self.irl, "belt_stepper", None),
+            enabled=bool(belt_cfg.enable_belt),
+            nudge=self._nudge_belt,
+        )
+
+    def _nudge_belt(self) -> bool:
+        """Stuck-watchdog nudge for a piece hung at the belt's drop lip: run
+        the belt at base speed for ``nudge_run_ms``, then hand control back to
+        the fill-level controller. Bounded in time and in count: after
+        ``nudge_max_attempts`` per stall the request is refused so the watchdog
+        escalates to the operator instead of driving a blocked belt again."""
+        stepper: "StepperMotor | None" = getattr(self.irl, "belt_stepper", None)
+        cfg = self._belt_cfg()
+        if stepper is None or not cfg.enable_belt or getattr(stepper, "stalled", False):
+            return False
+        if self._nudges_since_arrival >= max(0, int(cfg.nudge_max_attempts)):
+            self.gc.logger.info(
+                f"BeltFeeding: nudge refused — {self._nudges_since_arrival} already spent on this stall"
+            )
+            return False
+        self._nudges_since_arrival += 1
+        self._nudge_until = time.monotonic() + max(0, int(cfg.nudge_run_ms)) / 1000.0
+        return True
+
+    def _belt_cfg(self) -> BeltFeederConfig:
+        now = time.monotonic()
+        if now - self._belt_config_loaded_at >= _CONFIG_TTL_S:
+            try:
+                from toml_config import getBeltFeederConfig
+                from .config import configFromDict
+                self._belt_config = configFromDict(getBeltFeederConfig())
+            except Exception as exc:
+                self.gc.logger.warning(f"BeltFeeding: config load failed: {exc}")
+            self._belt_config_loaded_at = now
+        return self._belt_config
+
+    def step(self) -> Optional[FeederState]:
+        next_state = super().step()
+        self._step_belt()
+        return next_state
+
+    def _step_belt(self) -> None:
+        stepper: "StepperMotor | None" = getattr(self.irl, "belt_stepper", None)
+        if stepper is None:
+            self._publish_status(None, 0, None, "no_belt_stepper")
+            return
+        cfg = self._belt_cfg()
+        now = time.monotonic()
+
+        if self.shared.chute_move_in_progress and not (
+            self.gc.rotary_channel_steppers_can_operate_in_parallel
+        ):
+            # Same rule as the rotors: no feeder motion while the chute moves.
+            self._stop_belt("chute move")
+            self._publish_status(cfg, 0, None, "chute_move")
+            return
+
+        c3_pieces = self._c3_piece_count(cfg)
+        if c3_pieces is None:
+            # Perception not up yet, or its C3 state is stale — never run the
+            # belt blind.
+            self._command_belt_speed(stepper, 0, cfg, now)
+            self._publish_status(cfg, 0, None, self._perception_reason)
+            return
+
+        if c3_pieces > self._last_c3_pieces:
+            self._last_arrival_at = now
+            self._nudges_since_arrival = 0
+        self._last_c3_pieces = c3_pieces
+
+        if getattr(stepper, "stalled", False):
+            # DIAG latch from the stall monitor: never keep driving.
+            self._stop_belt("stall latch")
+            self._publish_status(cfg, 0, c3_pieces, "stalled")
+            return
+        if self._check_load(stepper, cfg, now):
+            self._publish_status(cfg, 0, c3_pieces, "blocked")
+            return
+
+        nudging = cfg.enable_belt and now < self._nudge_until
+        target = abs(int(cfg.belt_speed_usteps_per_s)) if nudging else self._target_speed(cfg, c3_pieces)
+        self._command_belt_speed(stepper, target, cfg, now, immediate=nudging)
+        self._check_jam(cfg, now)
+
+        if not cfg.enable_belt:
+            reason = "disabled"
+        elif nudging:
+            reason = "nudging"
+        elif target == 0:
+            reason = "stopped_c3_full"
+        elif target < abs(cfg.belt_speed_usteps_per_s):
+            reason = "throttled"
+        else:
+            reason = "running"
+        self._publish_status(cfg, target, c3_pieces, reason)
+
+    def _publish_status(
+        self,
+        cfg: BeltFeederConfig | None,
+        target: int,
+        c3_pieces: int | None,
+        reason: str,
+    ) -> None:
+        now = time.monotonic()
+        quiet_since = max(self._belt_running_since or 0.0, self._last_arrival_at)
+        self._status.update(
+            {
+                "ts": time.time(),
+                "reason": reason,
+                "commanded_speed_usteps_per_s": self._belt_cmd_speed,
+                "target_speed_usteps_per_s": target,
+                "base_speed_usteps_per_s": cfg.belt_speed_usteps_per_s if cfg else None,
+                "c3_pieces": c3_pieces,
+                "c3_full_speed_pieces": cfg.c3_full_speed_pieces if cfg else None,
+                "c3_stop_pieces": cfg.c3_stop_pieces if cfg else None,
+                "running_for_s": (
+                    round(now - self._belt_running_since, 1)
+                    if self._belt_running_since is not None
+                    else None
+                ),
+                "since_last_arrival_s": (
+                    round(now - self._last_arrival_at, 1) if self._last_arrival_at else None
+                ),
+                "jam_timeout_s": cfg.jam_timeout_s if cfg else None,
+                "sg_result": self._load.last_sg,
+                "load_block_sg_threshold": cfg.load_block_sg_threshold if cfg else None,
+                "jam_countdown_s": (
+                    round(max(0.0, cfg.jam_timeout_s - (now - quiet_since)), 1)
+                    if cfg and cfg.jam_timeout_s > 0 and self._belt_running_since is not None
+                    else None
+                ),
+            }
+        )
+        # Count blocked reasons on the change edge only (not per tick).
+        if reason in ("running", "throttled"):
+            self._last_blocked_reason = None
+        elif reason != self._last_blocked_reason:
+            self._last_blocked_reason = reason
+            runtime_stats = getattr(self.gc, "runtime_stats", None)
+            if runtime_stats is not None and hasattr(runtime_stats, "observeBlockedReason"):
+                runtime_stats.observeBlockedReason("belt", reason)
+
+    def _c3_piece_count(self, cfg: BeltFeederConfig) -> int | None:
+        """C3's piece count, or None (with ``_perception_reason`` set) when
+        there is no usable state: perception not up, or its last C3 frame
+        older than ``perception_stale_s`` — a frozen camera keeps the last
+        count forever, and a belt fed by that count would run blind."""
+        perception_service = getattr(self.gc, "perception_service", None)
+        if perception_service is None:
+            self._perception_reason = "no_perception"
+            return None
+        from perception.state import EMPTY_STATE, EMPTY_STATE_TS
+
+        c3 = perception_service.read_states().get(3, EMPTY_STATE)
+        if c3.ts == EMPTY_STATE_TS:
+            self._perception_reason = "no_perception"
+            return None
+        if cfg.perception_stale_s > 0 and time.time() - float(c3.ts) > cfg.perception_stale_s:
+            self._perception_reason = "stale_perception"
+            return None
+        return c3.n_pieces
+
+    def _target_speed(self, cfg: BeltFeederConfig, c3_pieces: int) -> int:
+        if not cfg.enable_belt:
+            return 0
+        full = max(0, cfg.c3_full_speed_pieces)
+        stop = max(full + 1, cfg.c3_stop_pieces)
+        if c3_pieces <= full:
+            fraction = 1.0
+        elif c3_pieces >= stop:
+            fraction = 0.0
+        else:
+            fraction = (stop - c3_pieces) / (stop - full)
+        return int(round(abs(cfg.belt_speed_usteps_per_s) * fraction))
+
+    def _command_belt_speed(
+        self,
+        stepper: "StepperMotor",
+        target: int,
+        cfg: BeltFeederConfig,
+        now: float,
+        immediate: bool = False,
+    ) -> None:
+        sign = 1 if cfg.forward_direction_sign >= 0 else -1
+        signed_target = sign * target
+        if signed_target == self._belt_cmd_speed and not self._belt_cmd_unacked:
+            return
+        # An emergency stop (and a watchdog nudge) may always go out
+        # immediately; speed-ups and ramp-downs respect the update interval.
+        if target != 0 and not immediate and now < self._belt_next_cmd_at:
+            return
+        if target > self._belt_speed_limit:
+            # Never push a zero minimum into firmware: braking clamps to it and
+            # a later distance move on this port would never finish.
+            try:
+                stepper.set_speed_limits(FIRMWARE_MIN_SPEED_USTEPS_PER_S, target)
+                self._belt_speed_limit = target
+            except Exception as exc:
+                self.gc.logger.warning(f"BeltFeeding: speed limit set failed: {exc}")
+        success = stepper.move_at_speed(signed_target)
+        if not success:
+            self.gc.logger.warning(
+                f"BeltFeeding: move_at_speed({signed_target}) not acknowledged"
+            )
+            self._belt_cmd_unacked = True
+            return
+        self._belt_cmd_unacked = False
+        was_stopped = self._belt_cmd_speed == 0
+        self._belt_cmd_speed = signed_target
+        self._belt_next_cmd_at = now + max(0, cfg.speed_update_interval_ms) / 1000.0
+        if target == 0:
+            self._belt_running_since = None
+        elif was_stopped:
+            self._belt_running_since = now
+
+    def _check_load(self, stepper: "StepperMotor", cfg: BeltFeederConfig, now: float) -> bool:
+        """Read the driver's StallGuard result while the belt runs; stop and
+        raise the incident once it reads blocked. Returns True when blocked."""
+        self._load.threshold = int(cfg.load_block_sg_threshold)
+        self._load.samples = max(1, int(cfg.load_block_samples))
+        if self._belt_cmd_speed == 0 or self._belt_running_since is None:
+            self._load.reset()
+            return False
+        if now - self._belt_running_since < 0.5 or now < self._load_next_poll_at:
+            return False  # SG_RESULT is meaningless below cruise speed / during spin-up
+        self._load_next_poll_at = now + max(100, int(cfg.load_poll_interval_ms)) / 1000.0
+        from tmc_telemetry import REG_SG_RESULT, safeReadRegister
+
+        sg = safeReadRegister(stepper, REG_SG_RESULT)
+        blocked = self._load.observe(sg)
+        if sg is not None and now - self._load_last_log_at >= 10.0:
+            self._load_last_log_at = now
+            self.gc.logger.info(
+                f"BeltFeeding: SG_RESULT={sg} at {abs(self._belt_cmd_speed)} µsteps/s"
+                + (f" (block threshold {self._load.threshold})" if self._load.threshold > 0 else " (watch only)")
+            )
+        if not blocked:
+            return False
+        self.gc.logger.warning(
+            f"BeltFeeding: SG_RESULT {self._load.last_sg} below {self._load.threshold} for "
+            f"{self._load.low_streak} reads — belt blocked, stopping"
+        )
+        self._stop_belt("blocked")
+        from ..incidents import publish_belt_feeder_stalled_incident
+
+        publish_belt_feeder_stalled_incident(
+            self.gc,
+            stalled_ms=int((now - (self._belt_running_since or now)) * 1000),
+            belt_speed_usteps_per_s=abs(int(cfg.belt_speed_usteps_per_s)),
+            jam_timeout_s=cfg.jam_timeout_s,
+        )
+        self._load.reset()
+        return True
+
+    def _check_jam(self, cfg: BeltFeederConfig, now: float) -> None:
+        if cfg.jam_timeout_s <= 0 or self._belt_running_since is None:
+            return
+        quiet_since = max(self._belt_running_since, self._last_arrival_at)
+        quiet_s = now - quiet_since
+        if quiet_s < cfg.jam_timeout_s:
+            return
+        from ..incidents import publish_belt_feeder_stalled_incident
+
+        publish_belt_feeder_stalled_incident(
+            self.gc,
+            stalled_ms=int(quiet_s * 1000),
+            belt_speed_usteps_per_s=abs(self._belt_cmd_speed),
+            jam_timeout_s=cfg.jam_timeout_s,
+        )
+        # Re-arm so the incident (or a false alarm on an empty boat) doesn't
+        # re-fire every tick.
+        self._last_arrival_at = now
+
+    def _stop_belt(self, why: str) -> None:
+        """Idempotent: sends the stop only while the belt is commanded to run
+        (or its last command went unacknowledged, so the real state is unknown)."""
+        if self._belt_cmd_speed == 0 and not self._belt_cmd_unacked:
+            return
+        stepper: "StepperMotor | None" = getattr(self.irl, "belt_stepper", None)
+        acked = False
+        if stepper is not None:
+            try:
+                acked = bool(stepper.move_at_speed(0))
+            except Exception as exc:
+                self.gc.logger.warning(f"BeltFeeding: {why} belt stop failed: {exc}")
+        self._belt_cmd_speed = 0
+        self._belt_running_since = None
+        self._belt_cmd_unacked = stepper is not None and not acked
+
+    def hold_motion(self) -> None:
+        """The coordinator stops stepping the feeder during an incident or in
+        manual feed mode and calls this instead. A velocity move never ends on
+        its own, so the belt must be stopped explicitly here."""
+        if self._belt_cmd_speed == 0 and not self._belt_cmd_unacked:
+            return
+        self._stop_belt("hold")
+        self._publish_status(None, 0, None, "held")
+
+    def cleanup(self) -> None:
+        # Leaving FEEDING (pause/stop/incident) must always stop the belt.
+        self._stop_belt("cleanup")
+        self._status.update({"ts": time.time(), "reason": "idle"})
+        super().cleanup()

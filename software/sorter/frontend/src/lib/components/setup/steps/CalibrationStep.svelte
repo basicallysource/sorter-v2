@@ -3,7 +3,11 @@
 	import { getMachinesContext } from '$lib/machines/context';
 	import { onMount } from 'svelte';
 
-	type MachineSetupKey = 'standard_carousel' | 'classification_channel' | 'manual_carousel';
+	type MachineSetupKey =
+		| 'standard_carousel'
+		| 'classification_channel'
+		| 'manual_carousel'
+		| 'belt_feeder';
 
 	type CarouselLiveStatus = {
 		live_available: boolean;
@@ -45,7 +49,9 @@
 	let machineSetup = $state<MachineSetupKey>('standard_carousel');
 	const systemState = $derived(manager.selectedMachine?.systemStatus?.hardware_state ?? 'standby');
 	const homingStep = $derived(manager.selectedMachine?.systemStatus?.homing_step ?? null);
-	const usesCarouselEndstop = $derived(machineSetup !== 'classification_channel');
+	const usesCarouselEndstop = $derived(
+		machineSetup !== 'classification_channel' && machineSetup !== 'belt_feeder'
+	);
 
 	let carouselLoading = $state(false);
 	let carouselSaving = $state(false);
@@ -193,7 +199,9 @@
 			if (!res.ok) return;
 			const payload = await res.json();
 			machineSetup =
-				payload?.setup === 'classification_channel' || payload?.setup === 'manual_carousel'
+				payload?.setup === 'classification_channel' ||
+				payload?.setup === 'manual_carousel' ||
+				payload?.setup === 'belt_feeder'
 					? payload.setup
 					: 'standard_carousel';
 		} catch {

@@ -4,7 +4,11 @@
 	import type { MachineState } from '$lib/machines/types';
 	import { settings } from '$lib/stores/settings';
 
-	type MachineSetup = 'standard_carousel' | 'classification_channel' | 'manual_carousel';
+	type MachineSetup =
+		| 'standard_carousel'
+		| 'classification_channel'
+		| 'manual_carousel'
+		| 'belt_feeder';
 
 	type MachineSetupCard = {
 		key: MachineSetup;
@@ -20,6 +24,13 @@
 			description: 'C-Channels + Classification Channel',
 			detail:
 				'Replaces the carousel/chamber pair with a dedicated classification C-channel on the former carousel motor port.'
+		},
+		{
+			key: 'belt_feeder',
+			title: 'B1 Belt Feeder',
+			description: 'B1 Belt + C3 + Classification Channel',
+			detail:
+				'Cleated inclined conveyor replaces the C1 bulk bucket and the C2 buffer channel. The belt motor plugs into the C1 rotor port and feeds C3 directly; selecting this also switches the feeder subsystem to belt_rev01.'
 		},
 		{
 			key: 'standard_carousel',
@@ -112,7 +123,7 @@
 	}
 
 	function normalizeMachineSetup(value: unknown): MachineSetup {
-		return value === 'standard_carousel' || value === 'manual_carousel'
+		return value === 'standard_carousel' || value === 'manual_carousel' || value === 'belt_feeder'
 			? value
 			: 'classification_channel';
 	}
@@ -132,7 +143,8 @@
 			go_to_angle_rev01: 'Go to Angle',
 			pulse_perception_rev01: 'Simple Pulse',
 			constant_movement_rev01: 'Constant Movement',
-			drop_zone_reactive_rev01: 'Drop Zone Reactive'
+			drop_zone_reactive_rev01: 'Drop Zone Reactive',
+			belt_rev01: 'B1 Belt'
 		};
 		return labels[mode] ?? mode;
 	}
@@ -452,7 +464,7 @@
 					<div>
 						<div class="mb-1.5 text-xs font-medium text-text">Feeder Mode</div>
 						<div class="flex flex-wrap gap-2">
-							{#each ['pulse_perception_rev01', 'go_to_angle_rev01', 'constant_movement_rev01'] as mode}
+							{#each machineSetup === 'belt_feeder' ? ['belt_rev01'] : ['pulse_perception_rev01', 'go_to_angle_rev01', 'constant_movement_rev01'] as mode}
 								<button
 									onclick={() => saveFeederMode(mode)}
 									disabled={savingFeederMode}

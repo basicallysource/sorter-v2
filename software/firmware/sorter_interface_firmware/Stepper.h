@@ -89,12 +89,13 @@ public:
     bool isCruisingForStallCheck() {
         return _state.load() == STEPPER_CRUISING && !_jitter_active.load();
     }
-    void latchStall() {
-        _stalled.store(true);
-        _state.store(STEPPER_STOPPED);
-        _current_speed.store(0);
-        _current_speed_frac.store(0);
-    }
+    // Called from core 0 (the UART poll). Only *requests* the stop: the motion
+    // state machine is owned by core 1, and a state stored from core 0 could be
+    // overwritten by a transition core 1 was in the middle of (CRUISING ->
+    // BRAKING -> CRUISING), letting the motor resume after a detected stall.
+    // core 1 consumes the request at the top of its next motion tick.
+    void latchStall() { _stall_request.store(true); }
+    bool stallRequested() { return _stall_request.load(); }
 
 private:
     void beginJitterStroke();
@@ -130,6 +131,7 @@ private:
     // motion tick ever mutate these. core0 stop/move commands are REJECTED while
     // jittering rather than tearing the run down, so there is no cross-core race.
     std::atomic<bool> _jitter_active; // true from start until the last stroke completes
+    std::atomic<bool> _stall_request; // core 0 -> core 1: stop for a software-detected stall
     std::atomic<int32_t> _jitter_amplitude; // microsteps per stroke
     std::atomic<int32_t> _jitter_strokes_remaining; // strokes still to perform (2 per cycle)
     std::atomic<int32_t> _jitter_dir; // direction of the next stroke (1 / -1)

@@ -27,11 +27,11 @@ parts_needed:
 tools_needed: [Hex key, Mallet or hammer with a cloth to protect the brackets]
 ---
 
-This guide builds one hexagonal frame: the outer ring of A/G extrusion and External bracket — side, with the six B/H spokes and Frame crossbeams held inside it by the Frame 90° brackets. No fasteners are used from step 2 onward — the spokes, crossbeams and brackets are a friction-and-slide fit, no screws or T-nuts.
+This guide builds one hexagonal frame: the outer ring of A extrusion and External bracket — side, with the six B spokes and Frame crossbeams held inside it by the Frame 90° brackets. No fasteners are used from step 2 onward — the spokes, crossbeams and brackets are a friction-and-slide fit, no screws or T-nuts.
 
 An N-layer machine needs **N + 1 of these**: one per planned layer, plus one for the [top interface]({{ '/hardware/assembly/distribution/top-interface/' | relative_url }}). The [bottom interface]({{ '/hardware/assembly/distribution/bin-frame/bottom-interface/' | relative_url }}) does not get a frame of its own — it hangs underneath the bottom layer's frame, off the same six spokes.
 
-The aluminum extrusion is cut to length; the [framing cut list](https://parts-calculator.basically.website/framing) has the exact dimensions. Each frame uses 6 A/G (320mm) and 6 B/H (158mm).
+The aluminum extrusion is cut to length; the [framing cut list](https://parts-calculator.basically.website/framing) has the exact dimensions. Each frame uses 6 A (320mm) and 6 B (158mm).
 
 This frame's fastener total is fixed: 12 M5x16 screws, one per extrusion end and so two per bracket, all driven in step 1. Steps 2 through 8 use none, and the frame needs no T-nuts of its own. The bin retainers that later bolt to this ring do use T-nuts, but with the roll-in T-nuts this machine specifies those go into the slot on the [Bin retainers]({{ '/hardware/assembly/distribution/bin-frame/bin-retainers/' | relative_url }}) page, at the step that uses them.
 
@@ -41,7 +41,7 @@ This frame's fastener total is fixed: 12 M5x16 screws, one per extrusion end and
 
 <div class="img-row">
   <figure>
-    <img src="https://assets.basically.website/sorter-docs/assembly-regular-layers-frame-corner-joint-w1600-a47ad55fb797.png" alt="Two A/G aluminum extrusions meeting at an External bracket — side, forming one corner of the hexagon">
+    <img src="https://assets.basically.website/sorter-docs/assembly-regular-layers-frame-corner-joint-w1600-a47ad55fb797.png" alt="Two A aluminum extrusions meeting at an External bracket — side, forming one corner of the hexagon">
     <figcaption><cite>Photo: zed0.</cite></figcaption>
   </figure>
   <figure>
@@ -50,7 +50,7 @@ This frame's fastener total is fixed: 12 M5x16 screws, one per extrusion end and
   </figure>
 </div>
 
-Slide piece A/G (Outer horizontal / Horizontal interface frame, 320mm) of aluminum extrusion into an External bracket — side. Where the extrusion goes in, the bracket has two holes next to each other, and you use one of them.
+Slide piece A (Hex outer horizontal, 320mm) of aluminum extrusion into an External bracket — side. Where the extrusion goes in, the bracket has two holes next to each other, and you use one of them.
 
 **Standard:** use an {% include fastener.html size="M5" variant="socket-button" length="16" %} screw to tap directly through the outer of the two adjacent holes on the External bracket — side (the smaller of the pair), bracing it against the extrusion.
 
@@ -60,7 +60,7 @@ The bracket carries other holes that neither method uses, including one on its i
 
 If you are using slide-in T-nuts rather than the roll-in ones this machine specifies, insert 4 into the outermost section of the extrusion before connecting the next External bracket — side, as this is the last time the ends of the extrusion are accessible. Those 4 are for the [bin retainers]({{ '/hardware/assembly/distribution/bin-frame/bin-retainers/' | relative_url }}), and [Fitting T-nuts]({{ '/hardware/helpers/t-nuts/' | relative_url }}) lists every other place the same applies. With roll-in T-nuts there is nothing to do here.
 
-Repeat these steps to make two semi-circles: each is three sections of A/G extrusion (320mm) joined by three External bracket — side pieces. Slot the two half-hexagons together into a full hexagon and secure the join with 2 more {% include fastener.html size="M5" variant="socket-button" length="16" %} screws. Joining in this manner, rather than working your way around the hexagon, prevents having to force the brackets into awkward angles.
+Repeat these steps to make two semi-circles: each is three sections of A extrusion (320mm) joined by three External bracket — side pieces. Slot the two half-hexagons together into a full hexagon and secure the join with 2 more {% include fastener.html size="M5" variant="socket-button" length="16" %} screws. Joining in this manner, rather than working your way around the hexagon, prevents having to force the brackets into awkward angles.
 
 <figure class="single-figure">
   <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-regular-layers-two-half-hexagons-full-5e7c0f80f57f.png" alt="Two three-section half-hexagons laid out before being joined into a full hexagon">
@@ -72,27 +72,27 @@ Set the ring aside; it goes on last, in step 5.
 {% include step.html n="2" title="Slide a spoke and crossbeam together" %}
 
 <figure class="single-figure">
-  <img class="doc-figure" src="https://assets.basically.website/sorter-parts/hex-frame-spoke-crossbeam-slide-full-dbf46c1f9948.jpg" alt="A grey B/H spoke and a teal Frame crossbeam slid together over a length of aluminum extrusion, the crossbeam upside down">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-parts/hex-frame-spoke-crossbeam-slide-full-dbf46c1f9948.jpg" alt="A grey B spoke and a teal Frame crossbeam slid together over a length of aluminum extrusion, the crossbeam upside down">
   <figcaption><cite>Photo: BrickCycleAlice.</cite></figcaption>
 </figure>
 
 This part of the build has no hardware at all — every joint from here is a slide-in fit. It's a little fiddly, and a second pair of hands helps, but it's doable solo. Until the whole hexagon of spokes is closed the parts can feel loose and want to fall out with a small bump; once it's all together it's stable.
 
-Slide a B/H spoke (158mm) and a Frame crossbeam together. For easy assembly, start with the crossbeam **upside down**.
+Slide a B spoke (158mm) and a Frame crossbeam together. For easy assembly, start with the crossbeam **upside down**.
 
 {% include step.html n="3" title="Continue around the hexagon" %}
 
 <div class="img-row">
   <figure>
-    <img class="doc-figure" src="https://assets.basically.website/sorter-parts/hex-frame-ring-nearly-closed-full-e0399f3e9cf2.jpg" alt="Five spoke-and-crossbeam joints forming most of a hexagon, one B/H spoke and its extrusion still sitting loose at the open side">
+    <img class="doc-figure" src="https://assets.basically.website/sorter-parts/hex-frame-ring-nearly-closed-full-e0399f3e9cf2.jpg" alt="Five spoke-and-crossbeam joints forming most of a hexagon, one B spoke and its extrusion still sitting loose at the open side">
     <figcaption><cite>Photo: BrickCycleAlice.</cite></figcaption>
   </figure>
 </div>
 
-Repeat step 2 around the hexagon until you have used **6 Frame crossbeams and 5 B/H spokes (158mm)**. Deliberately hold the 6th spoke back — it closes the loop later, in step 7.
+Repeat step 2 around the hexagon until you have used **6 Frame crossbeams and 5 B spokes (158mm)**. Deliberately hold the 6th spoke back — it closes the loop later, in step 7.
 
 <div class="callout">
-  <p>Building the <strong>bottom layer's</strong> frame? The <a href="{{ '/hardware/assembly/distribution/bin-frame/bottom-interface/' | relative_url }}">bottom interface</a> hangs off it, and its three Lazy Susan extrusion mounts each bolt into a T-nut in a B/H spoke, on 3 of the 6 spokes alternating around the ring. If you're using slide-in T-nuts, slide 2 into each of those 3 spokes as you build them here in steps 2-3, since this is the last time their ends are open; drop-in or roll-in T-nuts can go in any time before the ring closes in step 7. Every other layer's frame needs none of this.</p>
+  <p>Building the <strong>bottom layer's</strong> frame? The <a href="{{ '/hardware/assembly/distribution/bin-frame/bottom-interface/' | relative_url }}">bottom interface</a> hangs off it, and its three Lazy Susan extrusion mounts each bolt into a T-nut in a B spoke, on 3 of the 6 spokes alternating around the ring. If you're using slide-in T-nuts, slide 2 into each of those 3 spokes as you build them here in steps 2-3, since this is the last time their ends are open; drop-in or roll-in T-nuts can go in any time before the ring closes in step 7. Every other layer's frame needs none of this.</p>
 </div>
 
 {% include step.html n="4" title="Fit 10 of the 12 Frame 90° brackets" %}
@@ -117,12 +117,12 @@ At each of the 5 closed spoke junctions, slide a pair of Frame 90° brackets on:
     <figcaption><cite>Photo: BrickCycleAlice.</cite></figcaption>
   </figure>
   <figure>
-    <img class="doc-figure" src="https://assets.basically.website/sorter-parts/hex-frame-bracket-leg-in-extrusion-closeup-full-7f60da969225.jpg" alt="Close-up of a Frame 90 degree bracket's long leg slotted into the T-slot channel of the A/G extrusion">
+    <img class="doc-figure" src="https://assets.basically.website/sorter-parts/hex-frame-bracket-leg-in-extrusion-closeup-full-7f60da969225.jpg" alt="Close-up of a Frame 90 degree bracket's long leg slotted into the T-slot channel of the A extrusion">
     <figcaption><cite>Photo: BrickCycleAlice.</cite></figcaption>
   </figure>
 </div>
 
-Grab the outer hexagon ring you set aside in step 1 and place it over the top of the spoke assembly. Wiggle it and apply outward pressure until all 10 long legs of the Frame 90° brackets are slotted into the T-slot channel of the A/G extrusion (320mm) — this is a slide fit, not a screw.
+Grab the outer hexagon ring you set aside in step 1 and place it over the top of the spoke assembly. Wiggle it and apply outward pressure until all 10 long legs of the Frame 90° brackets are slotted into the T-slot channel of the A extrusion (320mm) — this is a slide fit, not a screw.
 
 {% include step.html n="6" title="Flip the frame" %}
 
@@ -140,14 +140,14 @@ While holding the brackets in the ring, flip the whole assembly over — outward
   <figcaption><cite>Photo: BrickCycleAlice.</cite></figcaption>
 </figure>
 
-Slide the final B/H spoke (158mm) in from the top to close the ring, then fit the last 2 Frame 90° brackets at that junction.
+Slide the final B spoke (158mm) in from the top to close the ring, then fit the last 2 Frame 90° brackets at that junction.
 
 {% include step.html n="8" title="Check and snug every joint" %}
 
 Double-check that every Frame 90° bracket is still fully seated in its slot. A light hammer tap on each bracket, from the inside of the ring toward the outside, helps snug all the connections — use a mallet, or put a cloth between a hammer and the bracket, so you aren't striking the plastic directly.
 
 <figure class="single-figure">
-  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-hex-frame-finished-top-down-w1600-a62a42d595ca.jpg" alt="A finished hex frame from above: six printed B/H spokes and their crossbeams forming the inner ring inside the aluminum outer hexagon, with a printed corner bracket at each of the six vertices">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-hex-frame-finished-top-down-w1600-a62a42d595ca.jpg" alt="A finished hex frame from above: six B spokes and their printed crossbeams forming the inner ring inside the aluminum outer hexagon, with a printed corner bracket at each of the six vertices">
   <figcaption><cite>Photo: BrickCycleAlice.</cite></figcaption>
 </figure>
 

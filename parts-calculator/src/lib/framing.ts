@@ -51,6 +51,10 @@ const STYLE: Record<string, Style> = {
 		badge: '#d63b2f',
 		from: '6 on every hex frame ring · one ring per layer, plus the interface frame'
 	},
+	// (A and B used to be split into A/G and B/H, an outer-horizontal and a spoke
+	// for the bin layers and again for the interface frame. Every ring is the same
+	// hex frame built to the same guide, so the split named nothing real. Retired
+	// 2026-09-07; G and H are simply gone, and the letters are not renumbered.)
 	'ext-2020-c': {
 		group: 'frame',
 		badge: '#ffffff',
@@ -80,8 +84,8 @@ const DEFAULT_STYLE: Style = {
 
 export type FramingPiece = {
 	id: string; // catalog part id — the key for everything derived
-	letters: string[]; // 'A' and 'G' are one part cut to one length, at two rings
-	letter: string; // the letters joined, e.g. 'A/G' — what goes on the bar
+	letters: string[]; // usually one; joined into `letter` if a piece ever has two
+	letter: string; // the marker written on the bar, e.g. 'A'
 	name: string;
 	cadLen: number; // nominal design length from CAD (mm)
 	len: number; // actual cut length — cadLen minus any tolerance trim (mm)
@@ -150,7 +154,7 @@ export type LengthGroup = {
 	qty: number;
 	letters: string[];
 	names: string[];
-	label: string; // "A/G"
+	label: string; // the letters in this bundle, e.g. "A"
 	category: 'per-layer' | 'per-machine' | 'mixed';
 };
 

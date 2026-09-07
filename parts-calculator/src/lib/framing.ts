@@ -3,7 +3,8 @@
 //
 // Pieces split into two kinds, mirroring how the machine is built:
 //   • per-layer — quantity scales with the layer count N
-//   • const     — one set per machine, independent of N (the interface/base)
+//   • const     — one set per machine, independent of N (the interface/base,
+//                 the feet, and C-channel 1's support legs in the feeder)
 //
 // Tolerance-sensitive pieces (C, D, E, F) are cut 6 mm short so the frame
 // doesn't pinch the chute — 6 mm (vs ¼″) keeps every length a whole number.
@@ -12,8 +13,9 @@
 export const STOCK_MM = 1000;
 export const CLEARANCE_MM = 6; // trim on tolerance-sensitive pieces (was ¼″; 6 mm keeps lengths whole)
 
-// per-layer scales with the layer count; interface + feet are one set per machine
-export type PieceCategory = 'per-layer' | 'interface' | 'feet';
+// per-layer scales with the layer count; interface, feet and feeder are one set
+// per machine
+export type PieceCategory = 'per-layer' | 'interface' | 'feet' | 'feeder';
 
 export type FramingPiece = {
 	letter: string;
@@ -75,6 +77,20 @@ export const FRAMING_PIECES: FramingPiece[] = [
 		zeroNote:
 			'A foot extension joins the bottom two layers into one piece, so it is only cut from 2 layers up.',
 		qtyFor: (n) => (n >= 2 ? 6 : 0)
+	},
+	// ---- feeder (not frame: C-channel 1 stands on three of these) ----
+	{
+		letter: 'J',
+		name: 'C-channel 1 support leg',
+		cadLen: 228,
+		len: 228,
+		category: 'feeder',
+		from: 'per machine · C-channel 1 only',
+		badge: '#2a9d8f',
+		// The only 2020 extrusion outside the frame. C-channel 1's three legs stand
+		// in its layout guide; C-channels 2 and 3 use printed legs (148 and 68 mm)
+		// and C-channel 4 has none, so this is 3 per machine at any layer count.
+		qtyFor: () => 3
 	}
 ];
 

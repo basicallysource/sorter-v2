@@ -10,11 +10,12 @@
 	// lengths quoted in the C/D note below, read off the pieces themselves
 	const lenC = FRAMING_PIECES.find((p) => p.letter === 'C')?.len ?? 0;
 	const lenD = FRAMING_PIECES.find((p) => p.letter === 'D')?.len ?? 0;
+	const lenJ = FRAMING_PIECES.find((p) => p.letter === 'J')?.len ?? 0;
 </script>
 
 <Seo
 	title="Aluminium framing"
-	description="Aluminium extrusion cut list for the Sorter V2 frame — every T-slot length and quantity, with an optimised cutting plan."
+	description="Aluminium extrusion cut list for the Sorter V2 frame and feeder — every T-slot length and quantity, with an optimised cutting plan."
 />
 
 <div class="mx-auto max-w-6xl px-4 py-8 sm:px-6">
@@ -74,6 +75,13 @@
 					<b class="text-text">C</b> between the two. Piece <b class="text-text">F</b> only spans from
 					that frame up into the Interface brackets. That is why C comes out at 6 × (layers − 1)
 					rather than one set per layer.
+				</li>
+				<li>
+					<b class="text-text">J is a feeder piece, not a frame one.</b> C-channel 1 stands on
+					three legs of the same 2020 extrusion (<b class="text-text">J</b>, {lenJ} mm) standing in
+					its layout guide. C-channels 2 and 3 use printed legs instead (148 mm and 68 mm) and
+					C-channel 4 has none, so it is 3 per machine whatever the layer count. It is listed here
+					because it is cut from the same bars as the frame.
 				</li>
 				<li>
 					Pieces that share a cut length stack together at the saw — mark and cut the top bar, the rest

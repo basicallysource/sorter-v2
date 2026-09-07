@@ -235,6 +235,16 @@ def _usb_camera_control_specs() -> list[dict[str, Any]]:
             "step": 1.0,
             "help": "Manual focus distance, when supported by the driver.",
         },
+        {
+            "key": "zoom",
+            "label": "Zoom",
+            "kind": "number",
+            "prop": _cv_prop("CAP_PROP_ZOOM"),
+            "min": 0.0,
+            "max": 100.0,
+            "step": 1.0,
+            "help": "Digital zoom / field of view (0 = widest), when supported by the camera.",
+        },
     ]
     return [spec for spec in specs if spec["prop"] is not None]
 
@@ -281,6 +291,7 @@ _LINUX_V4L2CTL_CONTROL_MAP: dict[str, tuple[str, Any]] = {
     "exposure": ("exposure_time_absolute", lambda v: str(int(round(float(v))))),
     "white_balance_temperature": ("white_balance_temperature", lambda v: str(int(round(float(v))))),
     "focus": ("focus_absolute", lambda v: str(int(round(float(v))))),
+    "zoom": ("zoom_absolute", lambda v: str(int(round(float(v))))),
     "power_line_frequency": ("power_line_frequency", lambda v: str(int(round(float(v))))),
     "backlight_compensation": ("backlight_compensation", lambda v: str(int(round(float(v))))),
 }

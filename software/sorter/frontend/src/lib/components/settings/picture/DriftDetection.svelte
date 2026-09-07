@@ -25,10 +25,14 @@
 	let {
 		role,
 		pollMs = 10000,
+		paused = false,
 		onAction
 	}: {
 		role: CameraRole;
 		pollMs?: number;
+		// True while the operator is previewing unsaved values: the live camera is
+		// supposed to differ from the saved settings, so no check and no dialog.
+		paused?: boolean;
 		onAction?: (action: 'adopt' | 'restore') => void;
 	} = $props();
 
@@ -57,7 +61,7 @@
 	}
 
 	async function check(): Promise<void> {
-		if (applying || open) return;
+		if (applying || open || paused) return;
 		loading = true;
 		try {
 			const res = await fetch(

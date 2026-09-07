@@ -71,6 +71,9 @@
 			if (!res.ok) return;
 			const data = (await res.json()) as DiffResponse;
 			if (!data.supported) return;
+			// The operator may have started previewing while the request was
+			// in flight: a dialog now would fight their unsaved values.
+			if (paused || applying) return;
 			diffs = data.diffs ?? [];
 			savedSnapshot = data.saved ?? {};
 			liveSnapshot = data.live ?? {};

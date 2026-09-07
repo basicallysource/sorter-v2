@@ -82,9 +82,9 @@ export function partsCsv(
 			c.qty,
 			+each.toFixed(1),
 			+(each * c.qty).toFixed(1),
-			+p.support_grams.toFixed(1),
+			p.support_grams == null ? '' : +p.support_grams.toFixed(1),
 			p.support_intentional ? 'yes' : 'no',
-			Math.round(p.print_seconds / 60),
+			p.print_seconds == null ? '' : Math.round(p.print_seconds / 60),
 			c.name,
 			p.version,
 			p.updated_at,
@@ -172,7 +172,7 @@ export function assemblyCsv(root: string, spec: ExportSpec): string {
 				each,
 				total,
 				'',
-				part ? +part.grams.toFixed(1) : '',
+				part?.grams != null ? +part.grams.toFixed(1) : '',
 				part?.stl ?? (lc ? absolute(lc.dxf) : ''),
 				hw?.description ?? part?.description ?? lc?.description ?? ''
 			]);

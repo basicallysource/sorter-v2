@@ -313,7 +313,7 @@
 	// theoretical total print time: every included part printed alone, sequentially,
 	// on one printer (one part per plate — no batching)
 	const totalPrintSeconds = $derived(
-		PARTS.reduce((sum, p) => sum + p.print_seconds * qtyOf(p.id), 0)
+		PARTS.reduce((sum, p) => sum + (p.print_seconds ?? 0) * qtyOf(p.id), 0)
 	);
 
 	const sectionRows = $derived(
@@ -706,12 +706,16 @@
 							{#if sw.length > 1}{s.qty}× {/if}{s.color?.name ?? 'any'}
 						</span>
 					{/each}
-					<span title="Print time for one {p.name}">· {duration(p.print_seconds)}</span>
+					{#if p.print_seconds != null}
+						<span title="Print time for one {p.name}">· {duration(p.print_seconds)}</span>
+					{:else}
+						<span title="No slicer could slice this part; weight and print time are unknown">· not sliced</span>
+					{/if}
 				</span>
 				{#if p.support_intentional}
 					<label class="pl-support">
 						<input class="setup-toggle h-3.5 w-3.5" type="checkbox" bind:checked={inclSupport[p.id]} />
-						total {p.grams.toFixed(0)} g · support {p.support_grams.toFixed(0)} g
+						total {p.grams?.toFixed(0) ?? '—'} g · support {p.support_grams?.toFixed(0) ?? '—'} g
 						<span class="opacity-70">({inclSupport[p.id] ? 'included' : 'excluded'})</span>
 					</label>
 				{/if}

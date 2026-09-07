@@ -90,8 +90,9 @@ def _checkServoBusHealth(gc: GlobalConfig, irl) -> None:
     cabling) before the controller is allowed to accept pieces.
 
     The banner clears automatically the next time ``Positioning`` finds
-    any layer's servo back online, so a subsequent Resume after
-    reconnecting the bus recovers without a full restart.
+    any layer's servo back online. Boot-time offline servos stay offline
+    until the IRL is rebuilt, so the operator instruction is Home (full
+    hardware recovery), not Resume.
     """
     import server.shared_state as shared_state
 
@@ -104,7 +105,7 @@ def _checkServoBusHealth(gc: GlobalConfig, irl) -> None:
 
     message = (
         f"{SERVO_BUS_ALERT_PREFIX} — no layer servos responded at boot. "
-        "Check Waveshare USB + power, then press Resume."
+        "Check Waveshare USB + power, then press Home to re-initialize."
     )
     gc.logger.error(message)
     try:
@@ -932,6 +933,30 @@ def main() -> None:
             gc.logger.flushLogs()
         finally:
             backend_process_guard.release()
+        _exit_when_threads_linger()
+
+    def _exit_when_threads_linger(grace_s: float = 5.0) -> None:
+        """After cleanup the interpreter only exits once every non-daemon
+        thread has finished. A lingering one (seen 2026-09-04: the process sat
+        at 'Cleanup complete' until systemd's SIGKILL) would block restarts
+        indefinitely, so name the stragglers and leave anyway."""
+
+        def _reaper() -> None:
+            time.sleep(grace_s)
+            lingering = [
+                t.name for t in threading.enumerate()
+                if t is not threading.current_thread() and not t.daemon and t.is_alive()
+            ]
+            gc.logger.warning(
+                f"Process still alive {grace_s:.0f}s after cleanup; non-daemon threads: "
+                f"{lingering or 'none'} — exiting."
+            )
+            try:
+                gc.logger.flushLogs()
+            finally:
+                os._exit(0)
+
+        threading.Thread(target=_reaper, daemon=True, name="shutdown-reaper").start()
 
     # StallGuard stall detection: a daemon thread polls the firmware DIAG latch
     # for every stepper that has an enabled threshold and raises a blocking

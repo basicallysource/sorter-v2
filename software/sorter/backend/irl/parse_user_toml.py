@@ -166,6 +166,8 @@ def loadFeedingModeConfig(
 
 @dataclass
 class MachineConfig:
+    # [distribution] chute_settle_ms: hold doors/chute this long after a drop.
+    chute_settle_ms: int | None = None
     servo_open_speed: int | None = None
     servo_close_speed: int | None = None
     servo_homing_speed: int | None = None
@@ -487,6 +489,16 @@ def loadMachineConfig(
     if not isinstance(raw, dict):
         return config
 
+    distribution_params = raw.get("distribution")
+    if isinstance(distribution_params, dict) and "chute_settle_ms" in distribution_params:
+        raw_settle = distribution_params.get("chute_settle_ms")
+        if isinstance(raw_settle, int) and not isinstance(raw_settle, bool) and 200 <= raw_settle <= 10000:
+            config.chute_settle_ms = raw_settle
+        else:
+            gc.logger.warning(
+                f"Invalid distribution.chute_settle_ms={raw_settle!r}; expected int 200-10000 (ms). Using the default."
+            )
+
     servo_params = raw.get("servo")
     if isinstance(servo_params, dict):
         if "open_speed" in servo_params:
@@ -520,6 +532,12 @@ class ServoChannelConfig:
 class WaveshareServoConfig:
     port: str | None  # None = auto-detect
     channels: list[ServoChannelConfig]
+    # Time the servo is given for a door move (SC goal-time). A stiff door
+    # that stalls at 500 ms may follow a slower profile reliably.
+    move_time_ms: int = 500
+    # Cap on the servos' output torque in percent of stall (EEPROM register);
+    # 100 = factory. A 15 kg·cm servo on a printed flap wants ~30-50.
+    max_torque_percent: int = 100
 
 
 @dataclass
@@ -541,6 +559,8 @@ class ChuteCalibrationConfig:
     pillar_width_deg: float = DEFAULT_CHUTE_PILLAR_WIDTH_DEG
     endstop_active_high: bool = True
     operating_speed_microsteps_per_second: int = DEFAULT_CHUTE_OPERATING_SPEED_MICROSTEPS_PER_SEC
+    # Mechanical travel limit; targets beyond it are refused. 350 = code default.
+    max_angle_deg: float = 350.0
 
 
 def loadServoChannelConfig(
@@ -629,9 +649,31 @@ def loadWaveshareServoConfig(
         gc.logger.warning(f"Invalid servo.port={port!r}; expected string. Will auto-detect.")
         port = None
 
+    move_time_ms = 500
+    if "move_time_ms" in servo_params:
+        raw_time = servo_params.get("move_time_ms")
+        if isinstance(raw_time, int) and not isinstance(raw_time, bool) and 100 <= raw_time <= 5000:
+            move_time_ms = raw_time
+        else:
+            gc.logger.warning(
+                f"Invalid servo.move_time_ms={raw_time!r}; expected int 100-5000 (ms). Using {move_time_ms}."
+            )
+
+    max_torque_percent = 100
+    if "max_torque_percent" in servo_params:
+        raw_torque = servo_params.get("max_torque_percent")
+        if isinstance(raw_torque, int) and not isinstance(raw_torque, bool) and 10 <= raw_torque <= 100:
+            max_torque_percent = raw_torque
+        else:
+            gc.logger.warning(
+                f"Invalid servo.max_torque_percent={raw_torque!r}; expected int 10-100. Using {max_torque_percent}."
+            )
+
     return WaveshareServoConfig(
         port=port,
         channels=loadServoChannelConfig(gc, raw, backend="waveshare"),
+        move_time_ms=move_time_ms,
+        max_torque_percent=max_torque_percent,
     )
 
 
@@ -785,6 +827,13 @@ def loadChuteCalibrationConfig(
     else:
         first_section_offset_deg = first_bin_center
 
+    max_angle_deg = 350.0
+    raw_max_angle = chute_params.get("max_angle_deg")
+    if raw_max_angle is not None:
+        if isinstance(raw_max_angle, (int, float)) and not isinstance(raw_max_angle, bool) and 10.0 <= float(raw_max_angle) <= 360.0:
+            max_angle_deg = float(raw_max_angle)
+        else:
+            gc.logger.warning(f"Invalid chute.max_angle_deg={raw_max_angle!r}; expected 10-360. Using {max_angle_deg}.")
     return ChuteCalibrationConfig(
         home_pin_channel=home_pin_channel,
         num_sections=num_sections,
@@ -794,6 +843,7 @@ def loadChuteCalibrationConfig(
         pillar_width_deg=pillar_width_deg,
         endstop_active_high=endstop_active_high,
         operating_speed_microsteps_per_second=operating_speed_microsteps_per_second,
+        max_angle_deg=max_angle_deg,
     )
 
 

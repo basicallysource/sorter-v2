@@ -415,7 +415,9 @@ int dump_observability(char *buf, size_t buf_size) {
     int sg_len = snprintf(soft_sg_buf, sizeof(soft_sg_buf), "[");
     bool first = true;
     for (int i = 0; i < STEPPER_COUNT && sg_len > 0 && (size_t)sg_len < sizeof(soft_sg_buf); i++) {
-        if (!steppers[i].stallDetectionEnabled()) continue;
+        // Only the channels the software poll actually serves: a wired-DIAG
+        // channel never polls, and every entry costs ~45 of the 200 bytes.
+        if (!steppers[i].stallDetectionEnabled() || steppers[i].hasStallPin()) continue;
         sg_len += snprintf(soft_sg_buf + sg_len, sizeof(soft_sg_buf) - sg_len,
                            "%s{\"c\":%d,\"l\":%u,\"t\":%lu,\"s\":%lu,\"g\":%u}",
                            first ? "" : ",", i,
@@ -451,6 +453,19 @@ int dump_observability(char *buf, size_t buf_size) {
         soft_sg_buf,
         enc_buf);
 
+    if (n_bytes >= 0 && (size_t)n_bytes < buf_size) {
+        return n_bytes;
+    }
+
+    // Too long with the poll counters: keep the hardware facts (id, DIAG pins,
+    // LED GPIOs) and drop only the soft_sg detail rather than everything.
+    n_bytes = snprintf(
+        buf,
+        buf_size,
+        "{\"hw\":\"%s\",\"diag_pins\":%s,\"led_gpios\":%s,\"soft_sg\":[]}",
+        HW_ID,
+        diag_pins_len > 0 ? diag_pins_buf : "[]",
+        led_gpios_buf);
     if (n_bytes >= 0 && (size_t)n_bytes < buf_size) {
         return n_bytes;
     }

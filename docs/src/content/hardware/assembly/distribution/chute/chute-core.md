@@ -9,10 +9,7 @@ lede: The chute assembly. Build one per layer.
 permalink: /hardware/assembly/distribution/chute/chute-core/
 author: spencer
 contributors: [barthel]
-warning: >-
-  **AI-generated first draft.** Written from the machine assembly tree in the [parts
-  calculator](https://parts-calculator.basically.website/assembly?focus=chute), not from an
-  actual build. No step here has been checked against a machine. Correct it as you build.
+last_verified: 2026-09-07
 parts_needed:
   - part: chute-core
     qty: 1

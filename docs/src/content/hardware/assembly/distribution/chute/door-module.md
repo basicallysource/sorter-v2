@@ -9,14 +9,7 @@ lede: The per-layer door mechanism that releases parts into a bin.
 permalink: /hardware/assembly/distribution/chute/door-module/
 author: spencer
 contributors: [barthel]
-last_verified: 2026-09-05
-warning: >-
-  **AI-generated first draft, apart from the servo bracket.** Written from the machine assembly
-  tree in the [parts
-  calculator](https://parts-calculator.basically.website/assembly?focus=flap-module), not from
-  an actual build. Steps 2 and 3 are a builder's account, corrected against a real machine on
-  2026-09-05, and the video below is Basically's own. Step 4 is derived from the parts'
-  geometry, not from anyone who has built one. Correct it as you build.
+last_verified: 2026-09-07
 parts_needed:
   - part: chute-door
     qty: 1
@@ -190,11 +183,6 @@ The shaft is captured at both ends once this is together, so there is only one o
   <img class="doc-figure" src="https://assets.basically.website/sorter-parts/bearing-assembly-blue-full-1cb33257bd5a.png" alt="Two renders, one above the other: on top the chute door with its shaft, the bearing race over the shaft, and the two bearing holders drawn out along the shaft with a blue bearing in each; below, the same parts pushed together so the holders sit on the ends of the race">
   <figcaption>The holders, with their bearings in blue, going onto the ends of the shaft and down onto the race. The covers are not shown. <cite>Rendered from the parts' own geometry in assembly position, not from a build. Render: Balloon.</cite></figcaption>
 </figure>
-
-<div class="callout callout-warning">
-  <span class="callout-icon" aria-hidden="true">⚠</span>
-  <p>This order is derived from the parts rather than from a build: the bores, the shaft and the race line up in the CAD and only fit together one way. The fits quoted are measured off the STLs. Nobody has reported building it, so correct this step if it does not go together as described.</p>
-</div>
 
 {% include step.html n="5" title="Bolt the flap assembly to the chute core" %}
 

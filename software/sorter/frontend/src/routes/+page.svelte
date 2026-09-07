@@ -40,9 +40,9 @@
 	let startSystemPending = $state(false);
 	let classification_view = $state<'top' | 'bottom'>('top');
 	let classification_layer = $state<'raw' | 'annotated'>('annotated');
-	let machineSetup = $state<'standard_carousel' | 'classification_channel' | 'manual_carousel'>(
-		'standard_carousel'
-	);
+	let machineSetup = $state<
+		'standard_carousel' | 'classification_channel' | 'manual_carousel' | 'belt_feeder'
+	>('standard_carousel');
 	let exitIncidentActionPending = $state(false);
 	let exitIncidentActionError = $state<string | null>(null);
 	let stallIncidentActionPending = $state(false);
@@ -67,7 +67,9 @@
 		machine.machine?.camerasConfig?.cameras ?? {}
 	);
 	const c4CameraRole = $derived(
-		machineSetup === 'classification_channel' || isConfigured('classification_channel')
+		machineSetup === 'classification_channel' ||
+			machineSetup === 'belt_feeder' ||
+			isConfigured('classification_channel')
 			? 'classification_channel'
 			: 'carousel'
 	);
@@ -127,7 +129,10 @@
 	}
 
 	function cropFor(role: string): DashboardFeedCrop | null {
-		if (role === 'carousel' && machineSetup === 'classification_channel') {
+		if (
+			role === 'carousel' &&
+			(machineSetup === 'classification_channel' || machineSetup === 'belt_feeder')
+		) {
 			return dashboardCrops.classification_channel ?? dashboardCrops.carousel ?? null;
 		}
 		return dashboardCrops[role] ?? null;
@@ -186,7 +191,10 @@
 		if (stallIncidentActionPending) return;
 		stallIncidentActionPending = true;
 		stallIncidentActionError = null;
-		stallIncidentActionError = await postStallAction('/stall-incident/clear', 'Could not clear stall');
+		stallIncidentActionError = await postStallAction(
+			'/stall-incident/clear',
+			'Could not clear stall'
+		);
 		stallIncidentActionPending = false;
 	}
 
@@ -218,6 +226,7 @@
 			incident.kind === 'channel_dropzone_stuck' ||
 			incident.kind === 'c2_separation_needed' ||
 			incident.kind === 'bulk_feeder_stalled' ||
+			incident.kind === 'belt_feeder_stalled' ||
 			incident.kind === 'feeder_detection_unavailable' ||
 			incident.kind === 'feeder_jam' ||
 			incident.kind === 'distribution_chute_jam' ||
@@ -348,6 +357,9 @@
 		if (incident.kind === 'bulk_feeder_stalled') {
 			return `${currentBackendBaseUrl()}/api/feeder/bulk-feed-incident`;
 		}
+		if (incident.kind === 'belt_feeder_stalled') {
+			return `${currentBackendBaseUrl()}/api/feeder/belt-feed-incident`;
+		}
 		if (incident.kind === 'feeder_detection_unavailable') {
 			return `${currentBackendBaseUrl()}/api/feeder/detection-incident`;
 		}
@@ -380,6 +392,7 @@
 			incident.kind === 'channel_dropzone_stuck' ||
 			incident.kind === 'c2_separation_needed' ||
 			incident.kind === 'bulk_feeder_stalled' ||
+			incident.kind === 'belt_feeder_stalled' ||
 			incident.kind === 'feeder_detection_unavailable' ||
 			incident.kind === 'feeder_jam' ||
 			incident.kind === 'distribution_chute_jam' ||
@@ -409,6 +422,9 @@
 		}
 		if (incident?.kind === 'bulk_feeder_stalled') {
 			return 'Bulk Feed Stalled';
+		}
+		if (incident?.kind === 'belt_feeder_stalled') {
+			return 'Belt Feed Stalled';
 		}
 		if (incident?.kind === 'feeder_detection_unavailable') {
 			return 'Detection Unavailable';
@@ -446,6 +462,7 @@
 		if (role === 'c_channel_2' || channel === 'c2') return 'C2';
 		if (role === 'c_channel_3' || channel === 'c3') return 'C3';
 		if (role === 'bulk_feeder' || channel === 'c1') return 'C1';
+		if (role === 'belt_feeder' || channel === 'b1') return 'B1';
 		if (role === 'feeder_detection' || channel === 'feeder') return 'Feeder';
 		if (channel === 'distribution' || role.startsWith('distribution_')) return 'Distribution';
 		if (isClassificationExitStuckIncident(incident) || role === 'carousel' || channel === 'c4')
@@ -465,6 +482,9 @@
 		}
 		if (incident?.kind === 'bulk_feeder_stalled') {
 			return 'No pieces are reaching the next channel.';
+		}
+		if (incident?.kind === 'belt_feeder_stalled') {
+			return 'The belt ran for the whole jam window without a new piece reaching C3. Check the boat and the belt, then clear.';
 		}
 		if (incident?.kind === 'feeder_detection_unavailable') {
 			return 'Feeder camera detection is not reliable.';
@@ -514,6 +534,7 @@
 			return 'Status';
 		if (incident?.kind === 'c2_separation_needed') return 'Tracks';
 		if (incident?.kind === 'bulk_feeder_stalled') return 'Stall';
+		if (incident?.kind === 'belt_feeder_stalled') return 'Stall';
 		if (incident?.kind === 'feeder_detection_unavailable') return 'Unavailable';
 		if (incident?.kind === 'feeder_jam') return 'Stalled';
 		if (incident?.kind === 'distribution_chute_jam') return 'Elapsed';
@@ -540,6 +561,10 @@
 		if (incident?.kind === 'bulk_feeder_stalled') {
 			const stalled = incidentNumber(incident, 'stalled_ms');
 			return stalled === null ? '-' : `${stalled.toFixed(0)} ms`;
+		}
+		if (incident?.kind === 'belt_feeder_stalled') {
+			const stalled = incidentNumber(incident, 'stalled_ms');
+			return stalled === null ? '-' : `${(stalled / 1000).toFixed(1)} s`;
 		}
 		if (incident?.kind === 'feeder_detection_unavailable') {
 			const unavailable = incidentNumber(incident, 'unavailable_ms');
@@ -592,6 +617,7 @@
 		)
 			return 'Reason';
 		if (incident?.kind === 'bulk_feeder_stalled') return 'Pulses';
+		if (incident?.kind === 'belt_feeder_stalled') return 'Timeout';
 		if (incident?.kind === 'feeder_detection_unavailable') return 'Detail';
 		if (
 			incident?.kind === 'distribution_chute_jam' ||
@@ -605,6 +631,10 @@
 	function exitIncidentSecondaryMetricValue(incident: Record<string, unknown> | null): string {
 		if (incident?.kind === 'c2_separation_needed') {
 			return incident.automated_motion_enabled === true ? 'Enabled' : 'Disabled';
+		}
+		if (incident?.kind === 'belt_feeder_stalled') {
+			const timeout = incidentNumber(incident, 'jam_timeout_s');
+			return timeout === null ? '-' : `${timeout.toFixed(0)} s`;
 		}
 		if (incident?.kind === 'bulk_feeder_stalled') {
 			const pulses = incidentNumber(incident, 'pulses_since_activity');
@@ -745,6 +775,7 @@
 			(isChannelExitStuckIncident(incident) ||
 				incident.kind === 'c2_separation_needed' ||
 				incident.kind === 'bulk_feeder_stalled' ||
+				incident.kind === 'belt_feeder_stalled' ||
 				incident.kind === 'feeder_detection_unavailable' ||
 				incident.kind === 'distribution_chute_jam' ||
 				incident.kind === 'distribution_servo_bus_offline') &&
@@ -827,7 +858,8 @@
 			if (
 				payload?.setup === 'classification_channel' ||
 				payload?.setup === 'manual_carousel' ||
-				payload?.setup === 'standard_carousel'
+				payload?.setup === 'standard_carousel' ||
+				payload?.setup === 'belt_feeder'
 			) {
 				machineSetup = payload.setup;
 			}
@@ -861,7 +893,10 @@
 	};
 
 	function cameraLabel(role: string): string {
-		if (role === 'carousel' && machineSetup === 'classification_channel') {
+		if (
+			role === 'carousel' &&
+			(machineSetup === 'classification_channel' || machineSetup === 'belt_feeder')
+		) {
 			return 'Classification Channel';
 		}
 		return CAMERA_LABELS[role] ?? role;
@@ -891,27 +926,33 @@
 		{#if machine.machine}
 			<div class="flex h-[calc(100vh-7rem)] min-h-0 gap-3">
 				{#if camera_layout === 'split_feeder'}
-					{@const uses_chamber = machineSetup !== 'classification_channel'}
+					{@const uses_chamber =
+						machineSetup !== 'classification_channel' && machineSetup !== 'belt_feeder'}
 					{@const has_cls_top = uses_chamber && isConfigured('classification_top')}
 					{@const has_cls_bottom = uses_chamber && isConfigured('classification_bottom')}
 					{@const classification_camera = preferredClassificationCamera(
 						has_cls_top,
 						has_cls_bottom
 					)}
+					{@const has_c2 = machineSetup !== 'belt_feeder'}
+					<!-- The B1 belt topology has no C2 channel, so the existing two-row
+					     dashboard naturally becomes C3 stacked over C4. -->
 					<div class="flex min-h-0 min-w-0 flex-1 flex-col gap-3">
 						<div class="flex min-h-0 flex-1 gap-3">
-							<div class="min-w-0 flex-1">
-								<CameraFeed
-									camera="c_channel_2"
-									label={cameraLabel('c_channel_2')}
-									crop={cropFor('c_channel_2')}
-									controls={['annotations', 'zones', 'crop', 'fullscreen']}
-								>
-									{#snippet headerActions()}
-										<CameraChannelControls stepperKey="c_channel_2" />
-									{/snippet}
-								</CameraFeed>
-							</div>
+							{#if has_c2}
+								<div class="min-w-0 flex-1">
+									<CameraFeed
+										camera="c_channel_2"
+										label={cameraLabel('c_channel_2')}
+										crop={cropFor('c_channel_2')}
+										controls={['annotations', 'zones', 'crop', 'fullscreen']}
+									>
+										{#snippet headerActions()}
+											<CameraChannelControls stepperKey="c_channel_2" />
+										{/snippet}
+									</CameraFeed>
+								</div>
+							{/if}
 							<div class="min-w-0 flex-1">
 								<CameraFeed
 									camera="c_channel_3"
@@ -1387,12 +1428,12 @@
 										</div>
 										<div class="mt-1 text-xs text-text-muted">
 											{#if stallIncident.requires_rehome}
-												A stepper stalled and the machine paused. The chute lost its home
-												position, so it must be re-homed before sorting can resume. Clear
-												the jam, then re-home — or clear the stall now and re-home later.
+												A stepper stalled and the machine paused. The chute lost its home position,
+												so it must be re-homed before sorting can resume. Clear the jam, then
+												re-home — or clear the stall now and re-home later.
 											{:else}
-												A stepper stalled and the machine paused. Clear the jam, then clear
-												the stall; resume from the header once it's cleared.
+												A stepper stalled and the machine paused. Clear the jam, then clear the
+												stall; resume from the header once it's cleared.
 											{/if}
 										</div>
 										{#if incidentString(stallIncident, 'operator_message')}
@@ -1500,7 +1541,11 @@
 							{/if}
 						</div>
 					{/if}
-					<CollapsibleSection title="Recent Pieces" storageKey="recent" grow>
+					<CollapsibleSection
+						title="Recent Pieces"
+						storageKey="recent"
+						grow
+					>
 						<RecentObjects />
 					</CollapsibleSection>
 					<CollapsibleSection title="Runtime" storageKey="runtimeTabs">

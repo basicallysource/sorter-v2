@@ -1,5 +1,6 @@
 """Tuning endpoints for runtime-adjustable parameters."""
 from __future__ import annotations
+from server import shared_state
 
 from typing import Any
 
@@ -16,6 +17,8 @@ from toml_config import (
     setTrackerConfig,
     getPulsePerceptionConfig,
     setPulsePerceptionConfig,
+    getBeltFeederConfig,
+    setBeltFeederConfig,
     getConstantMovementConfig,
     setConstantMovementConfig,
     getClassificationProviders,
@@ -27,6 +30,7 @@ from classification.providers import COLOR_PROVIDER_SPECS, MOLD_PROVIDER_SPECS
 from subsystems.classification_channel.simple_state_machine_rev01.rev01_config import FIELD_META
 from subsystems.feeder.go_to_angle.config import FIELD_META as GO_TO_ANGLE_FIELD_META
 from subsystems.feeder.pulse_perception.config import FIELD_META as PULSE_PERCEPTION_FIELD_META
+from subsystems.feeder.belt.config import FIELD_META as BELT_FEEDER_FIELD_META
 from subsystems.feeder.constant_movement.config import FIELD_META as CONSTANT_MOVEMENT_FIELD_META
 from perception.tracker_config import TRACKER_SPECS
 
@@ -83,6 +87,34 @@ def set_pulse_perception_config(body: dict[str, Any]) -> dict[str, Any]:
         raise HTTPException(status_code=400, detail=str(exc))
     return {"config": updated}
 
+
+@router.get("/api/tuning/feeder-belt")
+def get_belt_feeder_config() -> dict[str, Any]:
+    return {
+        "config": getBeltFeederConfig(),
+        "fields": BELT_FEEDER_FIELD_META,
+    }
+
+
+@router.post("/api/tuning/feeder-belt")
+def set_belt_feeder_config(body: dict[str, Any]) -> dict[str, Any]:
+    try:
+        updated = setBeltFeederConfig(body)
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    return {"config": updated}
+
+
+@router.get("/api/tuning/feeder-belt/status")
+def get_belt_feeder_status() -> dict[str, Any]:
+    """Live introspection of the B1 belt controller: commanded speed, C3 fill
+    level driving the ramp, jam countdown, and why the belt is (not) moving.
+    ``available`` is False until a BELT_REV01 feeder has run at least once."""
+    gc = shared_state.gc_ref
+    status = getattr(gc, "belt_feeder_status", None) if gc is not None else None
+    if not isinstance(status, dict):
+        return {"available": False, "status": None}
+    return {"available": True, "status": dict(status)}
 
 @router.get("/api/tuning/feeder-pulse-perception/autotune")
 def get_pulse_perception_autotune_status() -> dict[str, Any]:

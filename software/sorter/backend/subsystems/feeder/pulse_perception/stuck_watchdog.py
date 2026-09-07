@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Optional
+from typing import Any, Callable, Optional
 
 from .config import PulsePerceptionConfig, channelMoveSpeed
 from subsystems.feeder.incidents import (
@@ -79,7 +79,10 @@ class FeederStuckWatchdog:
         wants_advance: bool,
         cfg: PulsePerceptionConfig,
         now: float,
+        nudge: Optional[Callable[[], bool]] = None,
     ) -> None:
+        """``nudge`` replaces the default upstream-rotor pulse for topologies
+        whose upstream is not a C-channel rotor (the B1 belt)."""
         if not cfg.stuck_watchdog_enabled or _handling_off():
             # Feature disabled or the operator set this incident to "off": drop
             # any state and never raise. (An already-raised jam clears the next
@@ -157,7 +160,11 @@ class FeederStuckWatchdog:
         if automatic and upstream_enabled and tracker.nudge_attempts < int(
             cfg.stuck_max_nudge_attempts
         ):
-            moved = self._nudge_upstream(upstream_stepper, upstream_channel_id, cfg)
+            moved = (
+                nudge()
+                if nudge is not None
+                else self._nudge_upstream(upstream_stepper, upstream_channel_id, cfg)
+            )
             if tracker.nudge_attempts == 0:
                 # First nudge of this stall: remember when it started (monotonic)
                 # so an auto-freed jam records its real duration.

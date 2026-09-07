@@ -12,7 +12,8 @@
 	import {
 		CLASSIFICATION_CHANNEL_STEPPER_LABEL,
 		stepperGearRatioForSetup,
-		triggerStoredStepperPulse
+		triggerStoredStepperPulse,
+		usesClassificationChannel
 	} from '$lib/settings/stepper-control';
 	import { onMount } from 'svelte';
 
@@ -68,7 +69,7 @@
 	}
 
 	function stepperHotkeyLabel(stepperKey: StepperKey): string {
-		if (stepperKey === 'carousel' && machineSetup === 'classification_channel') {
+		if (stepperKey === 'carousel' && usesClassificationChannel(machineSetup)) {
 			return CLASSIFICATION_CHANNEL_STEPPER_LABEL;
 		}
 		return stepperLabels[stepperKey];
@@ -106,10 +107,12 @@
 			const res = await fetch(`${currentBackendBaseUrl()}/api/machine-setup`);
 			if (!res.ok) return;
 			const payload = await res.json();
-			if (payload?.setup === 'manual_carousel') {
-				machineSetup = 'manual_carousel';
-			} else if (payload?.setup === 'classification_channel') {
-				machineSetup = 'classification_channel';
+			if (
+				payload?.setup === 'manual_carousel' ||
+				payload?.setup === 'classification_channel' ||
+				payload?.setup === 'belt_feeder'
+			) {
+				machineSetup = payload.setup;
 			}
 		} catch {
 			// Ignore transient backend fetch issues in the nav shell.

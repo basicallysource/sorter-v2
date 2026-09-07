@@ -54,12 +54,15 @@ build. Two halves:
   render as derived forms, made by the service's worker on the same pinned
   profile. So no machine needs OrcaSlicer to change parts data, and a branch
   preview is correct from the first push, because the data rode in with it.
-  `.github/workflows/check-parts.yml` guards every PR and push: the generated
-  data must agree with the source pins (`check_generated_pins.py`), every
-  URL the site ships must serve real bytes (`check_asset_urls.py`), and
-  revisions must follow the versioning discipline — breaking bits declared,
-  assembly line changes stamped (`check_versioning.py`, per `VERSIONING.md`).
-  Pure checks, about a minute; nothing commits onto your branch.
+  `generate.py` checks its own work: at the end of every run it runs
+  `check_generated_pins.py` (generated data agrees with the source pins),
+  `check_versioning.py` (breaking bits declared, assembly line changes
+  stamped, per `VERSIONING.md`) and `check_connections.py`, and exits
+  non-zero if one fails, so an inconsistent result never gets committed.
+  Do not run those by hand. `.github/workflows/check-parts.yml` runs the
+  same three on every PR and push as the backstop, plus the one that does
+  not belong in a regen: `check_asset_urls.py`, which fetches every URL the
+  site ships. Never run that one locally. Nothing commits onto your branch.
 - **`src/`** — the app. Reads generated JSON, does all math in the browser.
   Fully static.
 

@@ -47,12 +47,12 @@ sections:
                     url: /hardware/assembly/distribution/chute/chute-core/
                   - title: Door module
                     url: /hardware/assembly/distribution/chute/door-module/
-                  - title: Layer connectors
-                    url: /hardware/assembly/distribution/chute/layer-connectors/
                   - title: Layer adapter board
                     url: /hardware/assembly/distribution/chute/pcb/
                   - title: Funnel brackets
                     url: /hardware/assembly/distribution/chute/funnel/
+                  - title: Layer connectors
+                    url: /hardware/assembly/distribution/chute/layer-connectors/
           - title: Feeder
             url: /hardware/assembly/feeder/
             children:

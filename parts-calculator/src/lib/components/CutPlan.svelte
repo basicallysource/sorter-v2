@@ -137,7 +137,13 @@
 	);
 
 	const catLabel = (c: string) =>
-		c === 'per-layer' ? `Per layer · ×${n}` : c === 'interface' ? 'Interface · per machine' : 'Feet · per machine';
+		c === 'per-layer'
+			? `Per layer · ×${n}`
+			: c === 'interface'
+				? 'Interface · per machine'
+				: c === 'feeder'
+					? 'Feeder · per machine'
+					: 'Feet · per machine';
 	const scrapHatch =
 		'repeating-linear-gradient(45deg,#f0eee7,#f0eee7 5px,#e2e0db 5px,#e2e0db 10px)';
 </script>
@@ -227,6 +233,12 @@
 												width="w-72"
 												label="Why the feet span two layers"
 												text="The bottom two layers share one continuous length of extrusion (D) that spans both, instead of a separate layer support (C) on each, so the wheels can sustain more force. That is why C is not in the list until 3 layers."
+											/>
+										{:else if header === 'feeder'}
+											<Popover
+												width="w-72"
+												label="Why a feeder piece is in the framing list"
+												text="C-channel 1 stands on three legs of the same 2020 extrusion, cut to 228 mm, so they are cut from the same bars as the frame. C-channels 2 and 3 use printed legs instead and C-channel 4 has none, so this is 3 per machine whatever the layer count."
 											/>
 										{/if}
 									</span>

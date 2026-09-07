@@ -529,7 +529,7 @@ function buildIndex(): SearchItem[] {
 			note: f.letter,
 			name: f.name,
 			id: f.letter.toLowerCase(),
-			keywords: ['2020', 'extrusion', 'aluminium', 'aluminum', `${f.len}mm`, f.category],
+			keywords: ['2020', 'extrusion', 'aluminium', 'aluminum', `${f.len}mm`, f.group, f.id],
 			text: f.from,
 			subtitle: `Piece ${f.letter} · ${f.len} mm of 2020 extrusion`,
 			href: '/framing',

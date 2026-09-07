@@ -153,7 +153,8 @@ class Chute:
             self.endstop_active_high = endstop_active_high
 
     def setOperatingSpeed(self, operating_speed_microsteps_per_second: int) -> None:
-        self.operating_speed_microsteps_per_second = max(1, int(operating_speed_microsteps_per_second))
+        # Never below the firmware minimum: set_speed_limits(16, <16) is rejected.
+        self.operating_speed_microsteps_per_second = max(16, int(operating_speed_microsteps_per_second))
 
     def _applyOperatingSpeed(self) -> None:
         """Push the operating speed to the stepper's speed limit before a move.
@@ -162,7 +163,7 @@ class Chute:
         every move ran at the default."""
         # Not cached on purpose: the stepper API endpoints (move-degrees,
         # pulse) set their own limits, so re-assert ours on every move.
-        speed = self.operating_speed_microsteps_per_second
+        speed = max(16, int(self.operating_speed_microsteps_per_second))  # firmware minimum
         setter = getattr(self.stepper, "set_speed_limits", None)
         if not callable(setter):
             return

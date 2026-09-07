@@ -157,16 +157,22 @@ def clearChannelByAdvancing(
 _SHAKE_JITTER_TIMEOUT_S = 6.0
 
 
-def _waitJitterDone(stepper: Any, timeout_s: float) -> None:
+def _waitJitterDone(stepper: Any, timeout_s: float) -> bool:
+    """True once the stepper positively reports the jitter finished. A probe
+    error or the timeout is False: the platter may still be moving, so the
+    caller must not read occupancy or start another stage."""
     deadline = time.monotonic() + timeout_s
     probe = getattr(stepper, "is_jittering", None)
+    if not callable(probe):
+        return False
     while time.monotonic() < deadline:
         try:
-            if not callable(probe) or not bool(probe()):
-                return
+            if not bool(probe()):
+                return True
         except Exception:
-            return
+            return False
         time.sleep(0.05)
+    return False
 
 
 def shakeChannelClear(
@@ -197,6 +203,10 @@ def shakeChannelClear(
     jitter = getattr(stepper, "jitter_degrees", None)
     if not callable(jitter):
         return ChannelClearResult(False, True, 0.0, "no_jitter")
+    if getattr(stepper, "software_disabled", False):
+        # A disabled motor suppresses moves silently (jitter_degrees returns
+        # True without moving); automatic recovery must not pretend it shook.
+        return ChannelClearResult(False, True, 0.0, "stepper_disabled")
 
     for stage in stages:
         amplitude_stepper_deg = float(stage.amplitude_output_deg) * ratio
@@ -210,14 +220,17 @@ def shakeChannelClear(
                 int(stage.cycles),
                 int(stage.microsteps_per_second),
                 int(stage.acceleration_microsteps_per_second_sq),
-                force=True,
             ))
         except Exception as exc:
             gc.logger.warning(f"{label} channel shake: jitter failed at '{stage.name}': {exc}")
             return ChannelClearResult(False, True, 0.0, "jitter_failed")
         if not ok:
             return ChannelClearResult(False, True, 0.0, "jitter_failed")
-        _waitJitterDone(stepper, _SHAKE_JITTER_TIMEOUT_S)
+        if not _waitJitterDone(stepper, _SHAKE_JITTER_TIMEOUT_S):
+            gc.logger.warning(
+                f"{label} channel shake: jitter '{stage.name}' not confirmed finished — holding"
+            )
+            return ChannelClearResult(False, True, 0.0, "jitter_unconfirmed")
         time.sleep(max(0, int(stage.settle_ms)) / 1000.0)
         if channelOccupied(gc, vision) is False:
             gc.logger.info(f"{label} channel shake: channel empty after stage '{stage.name}'")

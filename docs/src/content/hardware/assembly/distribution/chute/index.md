@@ -24,9 +24,9 @@ The whole chute stack rotates as one unit, on the [top interface]({{ '/hardware/
 
 1. **[Chute core]({{ '/hardware/assembly/distribution/chute/chute-core/' | relative_url }})**. The printed body everything else mounts to, and the 18 heat inserts that hold it all together.
 2. **[Door module]({{ '/hardware/assembly/distribution/chute/door-module/' | relative_url }})**. The door itself, the bearing assembly it swings on, the servo adapter, and the MG995 servo that drives it. Built as a unit, then bolted on.
-3. **[Layer connectors]({{ '/hardware/assembly/distribution/chute/layer-connectors/' | relative_url }})**. The pair that joins this layer's chute to the one below.
-4. **[Layer adapter board]({{ '/hardware/assembly/distribution/chute/pcb/' | relative_url }})**. The board that drives the servo.
-5. **[Funnel brackets]({{ '/hardware/assembly/distribution/chute/funnel/' | relative_url }})**. The two brackets that go on last, and the funnel that snaps into them. You choose one of two funnel sizes for each layer, which sets that layer's funnel and its bin set together, so make the choice before printing either.
+3. **[Layer adapter board]({{ '/hardware/assembly/distribution/chute/pcb/' | relative_url }})**. The board that drives the servo.
+4. **[Funnel brackets]({{ '/hardware/assembly/distribution/chute/funnel/' | relative_url }})**. The two brackets that hang off the core, and the funnel that snaps into them. You choose one of two funnel sizes for each layer, which sets that layer's funnel and its bin set together, so make the choice before printing either.
+5. **[Layer connectors]({{ '/hardware/assembly/distribution/chute/layer-connectors/' | relative_url }})**. The pair that joins this layer's chute to the one below.
 
 ## Installing the chutes in the machine
 

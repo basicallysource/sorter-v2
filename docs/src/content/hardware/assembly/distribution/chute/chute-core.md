@@ -29,9 +29,9 @@ The heat inserts are in the parts list above. The screws that hold the four sub-
 One chute is the chute core plus four things that bolt onto it:
 
 - **Door module**, one per chute: the door, the bearing assembly, the servo adapter and the servo in its bracket, built as a unit. See [Door module]({{ '/hardware/assembly/distribution/chute/door-module/' | relative_url }}).
-- **Layer connector A** and **Layer connector B**, one of each. See [Layer connectors]({{ '/hardware/assembly/distribution/chute/layer-connectors/' | relative_url }}).
 - **Layer adapter board**, one per chute. See [Layer adapter board]({{ '/hardware/assembly/distribution/chute/pcb/' | relative_url }}).
 - **Funnel bracket (left)** and **Funnel bracket (right)**, one of each. See [Funnel brackets]({{ '/hardware/assembly/distribution/chute/funnel/' | relative_url }}).
+- **Layer connector A** and **Layer connector B**, one of each. See [Layer connectors]({{ '/hardware/assembly/distribution/chute/layer-connectors/' | relative_url }}).
 
 Every screw that fastens one of them to the core lands in one of the core's own M3 heat inserts. Nothing on the chute taps into bare plastic.
 
@@ -65,12 +65,12 @@ Press the heat inserts into the chute core before you mount anything else onto i
 Fit them in this order, each on its own page, and each with its own screws in its own parts list:
 
 - **[Door module]({{ '/hardware/assembly/distribution/chute/door-module/' | relative_url }})**, bolted on as a unit
-- **[Layer connectors]({{ '/hardware/assembly/distribution/chute/layer-connectors/' | relative_url }})** A and B
 - **[Layer adapter board]({{ '/hardware/assembly/distribution/chute/pcb/' | relative_url }})**
 - **[Funnel brackets]({{ '/hardware/assembly/distribution/chute/funnel/' | relative_url }})**, left and right
+- **[Layer connectors]({{ '/hardware/assembly/distribution/chute/layer-connectors/' | relative_url }})** A and B
 
 Every insert you pressed in at step 1 takes a screw from one of those four pages. That is why the inserts are listed here and the screws are not.
 
-<div class="img-placeholder">Photo of a finished chute core with all four sub-assemblies bolted on: door module, layer connectors, layer adapter board and funnel brackets.</div>
+<div class="img-placeholder">Photo of a finished chute core with all four sub-assemblies bolted on: door module, layer adapter board, funnel brackets and layer connectors.</div>
 
 The chute is complete when all four are on. Repeat for every layer.

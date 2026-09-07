@@ -322,6 +322,20 @@ def unchanged_render(prev, stl, part):
     return None
 
 
+def unchanged_slice(prev, stl):
+    """The committed slice numbers of `prev`, reusable when the bytes are the
+    same -- for a part every slicing attempt refused this run. The asset
+    service's worker cannot slice the camera lamp arm at all (a local Orca
+    only manages it auto-oriented), and dropping a part whose numbers were
+    measured from these very bytes is worse than keeping them. A NEW or
+    changed part has no `prev` and still fails loudly."""
+    if prev and prev.get("stl") == stl and prev.get("grams") is not None:
+        return {"grams": prev["grams"], "support_grams": prev.get("support_grams", 0.0),
+                "support_used": bool(prev.get("support_used")),
+                "print_seconds": prev.get("print_seconds", 0)}
+    return None
+
+
 def unchanged_stamps(prev, stl, uid):
     """The committed stamps of `prev`, reusable only if they were cut into
     the same bytes with the same uid -- the STL URL carries the hash -- and
@@ -1149,6 +1163,7 @@ def main():
     zip_members = []      # the all-parts bundle: each part's default stamped variant
     plain_members = []    # the same parts unstamped, for whoever unticks "engrave"
     failed = []
+    kept_numbers = []
     forced_support = []
     forced_orient = []
     printed = [p for p in manifest["parts"] if p.get("kind", "printed") == "printed"]
@@ -1173,12 +1188,16 @@ def main():
                               orient=True)
             if info is not None:
                 forced_orient.append(p["id"])
+        live_stl = stl_url(p["id"], p["stl_hash"])
+        if info is None:
+            info = unchanged_slice(prev_parts.get(p["id"]), live_stl)
+            if info is not None:
+                kept_numbers.append(p["id"])
         if info is None:
             failed.append(p["id"])
             continue
 
         png = os.path.join(RENDERS_OUT, p["id"] + ".png")
-        live_stl = stl_url(p["id"], p["stl_hash"])
         try:
             render_url = render_url_for(stl_abs, default_hex(p, role_defaults, hexmap),
                                         png, args.force,
@@ -1332,6 +1351,9 @@ def main():
     if forced_orient:
         print(f"  ~ {len(forced_orient)} part(s) could not slice in modeled orientation at "
               f"all; auto-oriented WITH support for the weight: {', '.join(forced_orient)}")
+    if kept_numbers:
+        print(f"  ~ {len(kept_numbers)} part(s) the slicer refused this run; kept the committed "
+              f"numbers, same bytes: {', '.join(kept_numbers)}")
     if failed:
         print(f"  ! {len(failed)} part(s) FAILED to slice: {', '.join(failed)}")
 

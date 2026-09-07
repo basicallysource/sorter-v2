@@ -72,6 +72,8 @@ class Positioning(BaseState):
         self._target_address: BinAddress | None = None
         self._door_servo_index: int | None = None
         self._door_retries: int = 0
+        self._door_unknown_reads: int = 0
+        self._door_handed_off: bool = False
         self._state_entered_at: float = 0.0
         self._moving_started_at: float = 0.0
         self._piece = None
@@ -294,6 +296,7 @@ class Positioning(BaseState):
             if not self.gc.disable_servos:
                 self._door_servo_index = address.layer_index
                 self._door_retries = 0
+                self._door_unknown_reads = 0
             self._target_address = address
             self._startChuteMove()
             self._moving_started_at = now
@@ -334,6 +337,7 @@ class Positioning(BaseState):
                 return None
             if not self._targetDoorArrived(now):
                 return None
+            self._holdVerifiedDoor()
             self.shared.set_chute_motion(False, target_bin=self._target_address)
             if self._piece is not None and self._piece.distribution_positioned_at is None:
                 self._piece.distribution_positioned_at = time.time()
@@ -361,6 +365,10 @@ class Positioning(BaseState):
 
     def cleanup(self) -> None:
         super().cleanup()
+        if not self._door_handed_off:
+            self._releaseSharedDoor("positioning aborted")
+        self._door_handed_off = False
+        self._door_unknown_reads = 0
         target_address = self._target_address
         self._phase = "init"
         self._target_address = None
@@ -369,6 +377,16 @@ class Positioning(BaseState):
         self._moving_started_at = 0.0
         self._piece = None
         self.shared.set_chute_motion(False, target_bin=target_address)
+
+    def _releaseSharedDoor(self, why: str) -> None:
+        door = getattr(self.shared, "held_door", None)
+        if door is None:
+            return
+        self.shared.held_door = None
+        try:
+            door.release()
+        except Exception as exc:
+            self.logger.warning(f"Positioning: could not release the held door ({why}): {exc}")
 
     def _layerMaxDimensionMm(self, layer_index: int) -> Optional[float]:
         layers = getattr(self.layout, "layers", [])
@@ -453,23 +471,26 @@ class Positioning(BaseState):
         check = getattr(servo, "target_reached", None)
         if not callable(check):
             return True
-        reached = None
-        for attempt in range(3):
-            try:
-                reached = check()
-            except Exception as exc:
-                self.logger.warning(f"Positioning: door position check failed: {exc}")
-                reached = None
-            if reached is not None:
-                break
-            time.sleep(0.05)
+        # One bus read per tick (the coordinator thread must not sleep on the
+        # serial bus); three unreadable ticks count as "unknown".
+        try:
+            reached = check()
+        except Exception as exc:
+            self.logger.warning(f"Positioning: door position check failed: {exc}")
+            reached = None
         if reached is True:
+            self._door_unknown_reads = 0
             return True
+        if reached is None:
+            self._door_unknown_reads += 1
+            if self._door_unknown_reads < 3:
+                return False
         # False: the flap is not where it should be. None: three reads gave no
         # position, and a door we cannot see is not a door we may dispense on.
         position = getattr(servo, "position", None) if reached is False else "unknown"
         if self._door_retries < 1:
             self._door_retries += 1
+            self._door_unknown_reads = 0
             self.logger.warning(
                 f"Positioning: layer-{index} door stopped at {position}, not at its target — re-closing"
             )
@@ -477,13 +498,36 @@ class Positioning(BaseState):
                 servo.close()
             except Exception as exc:
                 self._markLayerUnavailable(index, f"re-closing target servo failed: {exc}")
-                return True
+                self._raiseChuteJamAlert(
+                    f"layer-{index} door flap at {position} and the re-close failed: {exc}"
+                )
+                return False
             self._moving_started_at = now
             return False
         self._raiseChuteJamAlert(
             f"layer-{index} door flap did not reach its closed position (at {position}) after a retry"
         )
         return False
+
+    def _holdVerifiedDoor(self) -> None:
+        """Energize the verified target door now, before READY opens the gate:
+        the piece must meet a powered flap during the whole drop window, not
+        one that was released seconds ago and yields to the impact. Sending
+        releases it after the settle; the servo's own hold cap is the backstop."""
+        index = self._door_servo_index
+        if index is None or self.gc.disable_servos:
+            return
+        servo = self.irl.servos[index]
+        hold = getattr(servo, "hold", None)
+        if not callable(hold):
+            return
+        try:
+            hold()
+        except Exception as exc:
+            self.logger.warning(f"Positioning: could not hold the layer-{index} door: {exc}")
+            return
+        self.shared.held_door = servo
+        self._door_handed_off = True
 
     def _isDoorServoStopped(self) -> bool:
         if self._door_servo_index is None:

@@ -629,6 +629,10 @@ def calibrate_servo(
 # WaveshareServoMotor — drop-in replacement for ServoMotor
 # ---------------------------------------------------------------------------
 
+# Longest a door stays energized for a drop when nobody releases it.
+HOLD_CAP_S = 30.0
+
+
 class WaveshareServoMotor:
     """A servo motor controlled via the Waveshare SC serial bus.
 
@@ -848,16 +852,32 @@ class WaveshareServoMotor:
             return None
         return abs(int(pos) - int(self._requested_position)) <= int(tolerance)
 
-    def hold(self) -> None:
+    def hold(self, max_s: float = HOLD_CAP_S) -> None:
         """Re-energize at the current target while a piece is on its way to
         the door. The post-move release leaves the flap unpowered, and a piece
         landing on an unpowered upper flap can push it open into the lower
-        row; holding only for the drop window keeps the servo cool."""
+        row; holding only for the drop window keeps the servo cool. The hold
+        ends on release() or after ``max_s`` at the latest, whichever comes
+        first: an incident that skips the distribution steps must not leave
+        the door energized against its stop."""
         self._cancel_release()
         self._enabled = True
         ok = bool(self._bus.set_torque(self._servo_id, True))
         ok = bool(self._bus.move_to(self._servo_id, self._current_position, self._move_time_ms)) and ok
         self._record_result(ok)
+        timer = threading.Timer(max(0.0, float(max_s)), self._release_hold_cap)
+        timer.daemon = True
+        self._release_timer = timer
+        timer.start()
+
+    def _release_hold_cap(self) -> None:
+        if not self._enabled:
+            return  # released in time
+        logger.warning(f"Waveshare servo {self._servo_id}: hold cap reached, releasing torque")
+        self._enabled = False
+        self._move_started_at = 0.0
+        self._release_timer = None
+        self._record_result(bool(self._bus.set_torque(self._servo_id, False)))
 
     def release(self) -> None:
         """Drop torque again once the piece has cleared the door."""

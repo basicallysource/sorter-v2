@@ -4414,7 +4414,7 @@
 		},
 		{
 			"id": "orange-pi-mount",
-			"uid": "5vat",
+			"uid": "ghuf",
 			"version": "2",
 			"name": "Orange Pi mount",
 			"description": "The Orange Pi 5 standing off its bracket, which bolts to the 2020 extrusion, with a 40 mm fan on a bracket cantilevered over it.",
@@ -4494,12 +4494,64 @@
 			],
 			"versions": [
 				{
-					"version": "2",
+					"version": "1",
 					"uid": "5vat",
+					"message": "As recorded before the first stamped change.",
+					"lines": [
+						{
+							"part": "orange-pi-extrusion-mount",
+							"qty": 1,
+							"uid": "nxh7"
+						},
+						{
+							"part": "sbc-orange-pi-5",
+							"qty": 1,
+							"uid": "ilqj"
+						},
+						{
+							"part": "scr-m3-6-bhcs",
+							"qty": 4,
+							"uid": "e04c"
+						},
+						{
+							"part": "hsi-m3",
+							"qty": 4,
+							"uid": "ksut"
+						},
+						{
+							"part": "standoff-m3-10mm",
+							"qty": 4,
+							"uid": "hkor"
+						},
+						{
+							"part": "fan-bracket-40mm",
+							"qty": 1,
+							"uid": "3ufy"
+						},
+						{
+							"part": "fan-40mm-24v",
+							"qty": 1,
+							"uid": "7o57"
+						},
+						{
+							"part": "scr-m5-12-shcs",
+							"qty": 2,
+							"uid": "kmah"
+						},
+						{
+							"part": "tnut-m5-2020",
+							"qty": 2,
+							"uid": "bpwm"
+						}
+					]
+				},
+				{
+					"version": "2",
+					"uid": "ghuf",
 					"date": "2026-09-08",
 					"message": "The fan arm and the fan were members with nothing holding them on. Both joints are now recorded, and their fasteners: 2 x M3 x 16 through the arm's foot into two M3 inserts on the mount's front edge face, and 4 x M3 x 16 self-tapping through the fan into the arm's top plate. The mount's insert count goes 4 -> 6 with the two on that face. Measured off the orange-pi-extrusion-mount and fan-bracket-40mm STLs; no part changed.",
 					"breaking": false,
-					"commit": null
+					"commit": "d30e9cea"
 				}
 			]
 		},

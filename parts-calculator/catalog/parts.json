@@ -55,7 +55,9 @@
       "name": "The output guide and the C4 finned rotor cannot both be fitted",
       "priority": "P0",
       "condition": "broken",
-      "description": "C-channel 4 carries both the finned rotor unit and the Short and Angled Output Guide, and the two occupy the same space. The guide's inner face sits at r 67.82 mm; the finned rotor's body at that height is r 64.6, so the body clears it by about 3 mm, but the rotor's five fins reach out to r 85.4 and sweep through the guide. Rotated against the guide at 5 degree steps through a full turn, the finned rotor interferes at 24 of 72 positions, up to 0.504 cm3, in the region r 69.3 to 96.6 mm, azimuth -56.6 to -51.2 deg, z 2.5 to 27.4 mm; the fin sweep is up to 21.2 mm past the guide's inner face over the band z 8 to 29. The faceted rotor used on C1 to C3 interferes at none of the 72 positions and clears the guide by 1.5 to 1.8 mm along its whole height, which is the clearance the guide is dimensioned to. This is not the clocking error in output-guide-clocking: a rotor covers every azimuth, so no rotation of the guide changes it. C4 had no guide in the tree until e22fce30 (#534, 2026-09-02) consolidated all four channels onto one shape. Which way it is fixed, a C4-specific guide, shorter fins, or no guide on C4, is a CAD decision. Reported by Extremetaz. Tracked as sorter-v2 issue #543.",
+      "status": "complete",
+      "completed_at": "2026-09-08",
+      "description": "C-channel 4 carried both the finned rotor unit and the Short and Angled Output Guide, and the two occupy the same space. The guide's inner face sits at r 67.82 mm; the finned rotor's five fins reach out to r 85.4 and sweep up to 21.2 mm past that face over the band z 8 to 29, striking the guide at 24 of 72 rotations. The faceted rotor used on C1 to C3 clears the same guide by 1.5 to 1.8 mm along its whole height, which is the clearance the guide is dimensioned to. Resolved by taking the guide off C-channel 4: it had none until e22fce30 (#534, 2026-09-02) consolidated all four channels onto one shape. Reported from a build by Extremetaz.",
       "images": [
         {
           "url": "https://assets.basically.website/sorter-parts/c4-guide-finned-rotor-full-5c7e8f36a2e3.png",
@@ -69,39 +71,6 @@
           "rotor-finned"
         ],
         "assemblies": [
-          "classification-chamber"
-        ]
-      }
-    },
-    {
-      "id": "output-guide-clocking",
-      "name": "The output guide is clocked wrong and overlaps the stator on every channel",
-      "priority": "P0",
-      "condition": "broken",
-      "description": "The Short and Angled Output Guide, as pinned, overlaps the stator it mounts to by 3.014 cm3 (r 102.99 to 119.99 mm, azimuth -45.05 to -40.00 deg, over the full height z -19 to 50). That is on all four channels, because one guide STL serves all of them. The stator's exit opening is 45.0 deg at the wall (az -90.1 to -45.1) and 42.0 deg at the base flange; the guide is 23.3 deg wide and sits at -63.3 to -40.0, hard against one end of the opening and lapping past it. Rotating the guide -5.1 to -18.3 deg clears the stator, but that does not settle it: the stator's base flange indexes on a 25.714 deg notch grid (14 positions, notch width 4.8 to 5.0 mm of arc), the guide's base lobe pair sits at -43.5 deg which is not on that grid, and the nearest grid position inside the opening (-64.2) needs -20.7 deg, 2.4 deg outside the clear window. So the exported clocking is not the assembled clocking and where the guide is meant to index has to come from the CAD. Reported by ReveryX. Tracked as sorter-v2 issue #541. On C1 the guide additionally overlaps the Bulk cap by 0.315 cm3 at r 113.45 to 116.78, z 40 to 50, which is how this was spotted, and that half is not a clocking error: the cap has the original straight output guide built into it. 39.7 cm3 of that older guide's 54.13 cm3 lies inside the cap's solid, and sampling the cap at fixed radii through a full turn finds material only in a band at azimuth -96 to -74 deg, reaching inward from r 103 at the base to r 51 at z 25 and r 15 at z 45. A bucket floor would be present at every azimuth; this is a wall at one azimuth that leans in as it rises, standing in the stator's exit opening. So C1 does not want a separate guide at all, and no rotation of one would help. Spencer filed that as sorter-v2 issue #580, remove the output guide from the bulk bucket; the C1 assembly line is not changed here.",
-      "images": [
-        {
-          "url": "https://assets.basically.website/sorter-parts/c1-output-guide-clear-window-full-b764d42da838.png",
-          "alt": "Two top-down sections. At z = 45 mm the stator wall, the bulk cap's two concentric walls, the guide as exported overlapping both, and the guide rotated -11.7 degrees clear of them. At z = -12 mm the stator's base flange with its ring of index notches, and the guide's base lobes buried in solid flange.",
-          "caption": "Sections at z = 45 and z = -12. The guide as exported (yellow) against the clear position (green)."
-        },
-        {
-          "url": "https://assets.basically.website/sorter-parts/c1-bulk-cap-output-guide-clash-full-4bda026498a4.png",
-          "alt": "Top-down section at z = 45 mm showing the bulk cap's two concentric walls, the stator ring between them, the output guide lying in the cap's relief cut, and the interference at the guide's outer end marked in red",
-          "caption": "The bulk cap overlap on C1 alone, section at z = 45 mm."
-        }
-      ],
-      "targets": {
-        "parts": [
-          "output-guide",
-          "stator",
-          "bulk-cap"
-        ],
-        "assemblies": [
-          "bulk-bucket",
-          "c-channel",
-          "channel-two",
-          "channel-three",
           "classification-chamber"
         ]
       }
@@ -132,33 +101,6 @@
       "targets": {
         "parts": [
           "output-guide"
-        ]
-      }
-    },
-    {
-      "id": "improve-camera-extension",
-      "name": "Make the camera extension official",
-      "priority": "P2",
-      "description": "The camera extension was a prototype and needs to be made official. The finished design should also force the camera into the correct orientation.",
-      "targets": {
-        "parts": [
-          "camera-led-insert",
-          "camera-extension",
-          "camera-extension-mount"
-        ],
-        "assemblies": [
-          "camera-extension-assembly"
-        ]
-      }
-    },
-    {
-      "id": "retain-camera-led-strips",
-      "name": "Mechanically retain the camera LED strips",
-      "priority": "P2",
-      "description": "Update the Camera & LED insert so the LED strips are mechanically retained instead of depending on their adhesive. Integrated clips would be a good approach.",
-      "targets": {
-        "parts": [
-          "camera-led-insert"
         ]
       }
     },
@@ -242,17 +184,6 @@
       }
     },
     {
-      "id": "lock-overhead-camera-mount",
-      "name": "Lock the overhead camera mount",
-      "priority": "P3",
-      "description": "It would be ideal to lock the overhead camera mount in place completely.",
-      "targets": {
-        "assemblies": [
-          "camera-mount"
-        ]
-      }
-    },
-    {
       "id": "upgrade-interface-lazy-susan-fasteners",
       "name": "Update interface lazy-Susan fasteners to M5",
       "priority": "P3",
@@ -311,7 +242,9 @@
       "name": "Output gear to rotor screw does not reach the rotor",
       "priority": "P0",
       "condition": "broken",
-      "description": "The six screws holding the Output gear (130T) to the rotor were specified as M3 x 8 mm countersunk. The gear is 8.00 mm thick at the bolt circle and a countersunk screw's length is measured over its head, so an M3 x 8 seated flush in the countersink ends level with the gear's top face and takes no thread in the rotor at all. Fit M3 x 12 mm countersunk for now: 4.0 mm of thread in the rotor's 5.0 mm flange, 1 mm short of breaking through the far side. Whether the joint settles as a 12 mm screw or the gear boss changes is still to be decided, so treat the length as provisional. Reported from a build by aleph1111/christoph and scres; measured off the pinned output-gear and rotor STLs.",
+      "status": "complete",
+      "completed_at": "2026-09-01",
+      "description": "The six screws holding the Output gear (130T) to the rotor were specified as M3 x 8 mm countersunk. The gear is 8.00 mm thick at the bolt circle and a countersunk screw's length is measured over its head, so an M3 x 8 seated flush in the countersink ends level with the gear's top face and takes no thread in the rotor at all. Fit M3 x 12 mm countersunk for now: 4.0 mm of thread in the rotor's 5.0 mm flange, 1 mm short of breaking through the far side. Whether the joint settles as a 12 mm screw or the gear boss changes is still to be decided, so treat the length as provisional. Reported from a build by aleph1111/christoph and scres; measured off the pinned output-gear and rotor STLs. Fixed: both rotor units call for M3 x 12 mm countersunk, with the reason recorded on the joint (441d9114, #515, 2026-09-01), and the docs page was corrected in #378.",
       "targets": {
         "parts": [
           "output-gear",
@@ -1971,14 +1904,13 @@
       "id": "output-guide",
       "uid": "z9yd",
       "name": "Short and Angled Output Guide",
-      "description": "Output guide. 4 needed, one per C-channel. Ash grey.",
-      "internal_notes": "Plain 'Output Guide.stl'. 4 total, one per C-channel. Fixed ash grey since the C-channel overhaul (2026-09-02); it was 2 on the feeder colour role (black) before that.",
+      "description": "Output guide. 2 needed, one each on C-channels 2 and 3. Ash grey.",
+      "internal_notes": "Plain 'Output Guide.stl'. 2 total, one each on C2 and C3. Fixed ash grey since the C-channel overhaul (2026-09-02); it was 2 on the feeder colour role (black) before that. e22fce30 (#534) briefly put one on all four channels; C1 and C4 gave theirs back on 2026-09-08 (the Bulk cap has a guide moulded in, and the finned rotor sweeps through one).",
       "version": "2",
       "created_at": "2026-06-27",
       "updated_at": "2026-06-27",
       "quantities": {
-        "feeder": 3,
-        "classification-channel": 1
+        "feeder": 2
       },
       "assembly": null,
       "stl_hash": "d53a04f1715d87ac5d8eb7e583099898c4177bc90887ec032885db1bf0f7ed8f",
@@ -6359,10 +6291,10 @@
     },
     {
       "id": "classification-chamber",
-      "uid": "5tvh",
-      "version": "3",
+      "uid": "qzw4",
+      "version": "4",
       "name": "C-channel 4 - Classification",
-      "description": "The lowest channel, where classification happens: a C-channel drive with the finned rotor, the Short and Angled Output Guide, and a Camera lamp carrying the IMX415 4K camera.",
+      "description": "The lowest channel, where classification happens: a C-channel drive with the finned rotor and a Camera lamp carrying the IMX415 4K camera. No output guide: the rotor's fins sweep through where one would sit.",
       "docs": "/hardware/assembly/feeder/classification-chamber/",
       "versions": [
         {
@@ -6407,6 +6339,13 @@
           "message": "Renamed from Classification chamber and consolidated with the other channels: the dome and the Camera & LED insert give way to the Camera lamp with the IMX415 4K camera, and it gains the output guide. Same drive, same finned rotor.",
           "breaking": false,
           "commit": "e22fce30"
+        },
+        {
+          "version": "4",
+          "date": "2026-09-08",
+          "message": "The Short and Angled Output Guide comes off C4. The finned rotor's five fins reach r 85.4 mm and sweep up to 21.2 mm past the guide's inner face at r 67.82, so the two cannot both be fitted; the faceted rotor on C1 to C3 clears the same guide by 1.5 to 1.8 mm. This restores the state before e22fce30 (#534), which gave C4 a guide when all four channels were consolidated onto one shape. Reported from a build by Extremetaz. sorter-v2 issue #543.",
+          "breaking": false,
+          "commit": null
         }
       ],
       "lines": [
@@ -6419,10 +6358,6 @@
           "qty": 1
         },
         {
-          "part": "output-guide",
-          "qty": 1
-        },
-        {
           "assembly": "camera-lamp",
           "qty": 1,
           "args": {
@@ -6430,15 +6365,7 @@
           }
         }
       ],
-      "connections": [
-        {
-          "from": "output-guide",
-          "to": "c-channel",
-          "qty": 1,
-          "method": "friction",
-          "note": "The guide pushes onto the C-channel drive and is held by the fit alone."
-        }
-      ]
+      "connections": []
     },
     {
       "id": "chute-bearing",
@@ -7403,10 +7330,10 @@
     },
     {
       "id": "bulk-bucket",
-      "uid": "jnwt",
-      "version": "3",
+      "uid": "imbu",
+      "version": "4",
       "name": "C-channel 1 - Bulk bucket",
-      "description": "The top channel, where bulk is dumped in: a C-channel drive with the faceted rotor, the Short and Angled Output Guide, a Camera lamp, and the Bulk cap, standing on the tallest supports.",
+      "description": "The top channel, where bulk is dumped in: a C-channel drive with the faceted rotor, a Camera lamp, and the Bulk cap, standing on the tallest supports. No output guide: the Bulk cap has one built into it.",
       "lines": [
         {
           "assembly": "channel-one-support-structure",
@@ -7421,10 +7348,6 @@
           "qty": 1
         },
         {
-          "part": "output-guide",
-          "qty": 1
-        },
-        {
           "assembly": "camera-lamp",
           "qty": 1
         },
@@ -7434,13 +7357,6 @@
         }
       ],
       "connections": [
-        {
-          "from": "output-guide",
-          "to": "c-channel",
-          "qty": 1,
-          "method": "friction",
-          "note": "The guide pushes onto the C-channel drive and is held by the fit alone."
-        },
         {
           "from": "channel-one-support-structure",
           "to": "c-channel",
@@ -7523,6 +7439,13 @@
           "message": "The prototype supports give way to the new support structure: the shared layout guide and dovetail adapters with this channel's own legs. An old assembled channel stands on the old feet and does not fit the new layout.",
           "breaking": true,
           "commit": "3bbea57f"
+        },
+        {
+          "version": "4",
+          "date": "2026-09-08",
+          "message": "The Short and Angled Output Guide comes off C1. The Bulk cap has the original straight output guide built into it, so a separate guide has nowhere to sit and fouls the cap; 39.7 cm3 of the old guide's 54.13 cm3 lies inside the cap's solid. This restores the state before e22fce30 (#534), which gave C1 a guide when all four channels were consolidated onto one shape. sorter-v2 issue #580.",
+          "breaking": false,
+          "commit": null
         }
       ]
     },

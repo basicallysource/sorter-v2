@@ -13,7 +13,7 @@ author: spencer
 The feeder takes unsorted parts from the bulk input and, through four C-channel stages, spaces them out one at a time and carries each through the classification chamber before it drops to the distribution system below. Each channel meters parts by rotation; only after a part is imaged in the classification chamber does the software know where it should go next. Build the pages below roughly in order: the C-channel itself (built four times), then what mounts on it, then how the four are arranged and heighted relative to one another.
 
 1. **[C-channel]({{ '/hardware/assembly/feeder/c-channel/' | relative_url }})**, the C-channel stage itself. Build four.
-2. **[Camera lamp]({{ '/hardware/assembly/feeder/camera-lamp/' | relative_url }})**, the arm, light and camera over a channel. One per channel.
+2. **[Camera lamp]({{ '/hardware/assembly/feeder/camera-lamp/' | relative_url }})**, the arm, light and camera over a channel. Three per machine, one each on C2, C3 and the classification channel; the bulk bucket has none.
 3. **[Classification chamber]({{ '/hardware/assembly/feeder/classification-chamber/' | relative_url }})**, where parts are imaged for classification.
 4. **[Bulk input]({{ '/hardware/assembly/feeder/bulk-input/' | relative_url }})**, the bucket and cap that feed C1.
 5. **[Output guides]({{ '/hardware/assembly/feeder/output-guides/' | relative_url }})**, the walls on C2 and C3 that push parts off the channel.

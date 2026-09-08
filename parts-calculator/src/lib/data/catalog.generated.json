@@ -1897,10 +1897,10 @@
 		},
 		{
 			"id": "bulk-bucket",
-			"uid": "imbu",
-			"version": "4",
+			"uid": "tpd3",
+			"version": "5",
 			"name": "C-channel 1 - Bulk bucket",
-			"description": "The top channel, where bulk is dumped in: a C-channel drive with the faceted rotor, a Camera lamp, and the Bulk cap, standing on the tallest supports. No output guide: the Bulk cap has one built into it.",
+			"description": "The top channel, where bulk is dumped in: a C-channel drive with the faceted rotor and the Bulk cap, standing on the tallest supports. No output guide: the Bulk cap has one built into it. No camera lamp either: C1 is fed in bulk and nothing reads vision off it.",
 			"lines": [
 				{
 					"assembly": "channel-one-support-structure",
@@ -1912,10 +1912,6 @@
 				},
 				{
 					"assembly": "rotor-unit-faceted",
-					"qty": 1
-				},
-				{
-					"assembly": "camera-lamp",
 					"qty": 1
 				},
 				{
@@ -2045,6 +2041,41 @@
 					"uid": "imbu",
 					"date": "2026-09-08",
 					"message": "The Short and Angled Output Guide comes off C1. The Bulk cap has the original straight output guide built into it, so a separate guide has nowhere to sit and fouls the cap; 39.7 cm3 of the old guide's 54.13 cm3 lies inside the cap's solid. This restores the state before e22fce30 (#534), which gave C1 a guide when all four channels were consolidated onto one shape. sorter-v2 issue #580.",
+					"breaking": false,
+					"commit": null,
+					"lines": [
+						{
+							"assembly": "channel-one-support-structure",
+							"qty": 1,
+							"uid": "z6fs"
+						},
+						{
+							"assembly": "c-channel",
+							"qty": 1,
+							"uid": "4tvc"
+						},
+						{
+							"assembly": "rotor-unit-faceted",
+							"qty": 1,
+							"uid": "ylvv"
+						},
+						{
+							"assembly": "camera-lamp",
+							"qty": 1,
+							"uid": "u4si"
+						},
+						{
+							"part": "bulk-cap",
+							"qty": 1,
+							"uid": "737f"
+						}
+					]
+				},
+				{
+					"version": "5",
+					"uid": "tpd3",
+					"date": "2026-09-08",
+					"message": "The Camera lamp comes off C1. Jon (@effreek) confirmed 2026-09-08 that the machine takes three lamps, on C2, C3 and the classification channel, and that the bulk bucket gets none; e22fce30 (#534) gave C1 one when all four channels were consolidated onto one shape. The software has no C1 camera role either, so the lamp, its arm and its OV9732 were parts nobody needed. Resolves the open question BrickCycleAlice raised 2026-09-05.",
 					"breaking": false,
 					"commit": null
 				}
@@ -4922,7 +4953,7 @@
 			"uid": "u4si",
 			"version": "1",
 			"name": "Camera lamp",
-			"description": "The per-channel camera and light: the arm with its ring, the adapted camera module snapped in, and the shaded lamp over the top. One per C-channel; which camera it carries is a parameter.",
+			"description": "The per-channel camera and light: the arm with its ring, the adapted camera module snapped in, and the shaded lamp over the top. Three per machine, on C-channels 2 and 3 and the classification channel; the bulk bucket has none. Which camera it carries is a parameter.",
 			"params": {
 				"camera": {
 					"default": "cam-ov9732",

@@ -216,17 +216,6 @@
       }
     },
     {
-      "id": "secure-classification-chamber-rotation",
-      "name": "Keep the classification chamber aligned",
-      "priority": "P4",
-      "description": "The classification chamber can rotate out of place too easily. Even passing pieces can push it out of alignment, which shifts the camera detection zones. A more secure rotational lock would be a useful improvement.",
-      "targets": {
-        "parts": [
-          "classification-dome"
-        ]
-      }
-    },
-    {
       "id": "retain-interface-spacer",
       "name": "Keep the interface spacer in its slot",
       "priority": "P4",

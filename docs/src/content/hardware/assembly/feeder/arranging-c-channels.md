@@ -88,7 +88,7 @@ The numbers this page most needs, and none of them are written down anywhere tod
 
 {% include step.html n="4" title="Fit the output guides" %}
 
-One [output guide]({{ '/hardware/assembly/feeder/output-guides/' | relative_url }}) at each handover, C1 to C2 and C2 to C3.
+One [output guide]({{ '/hardware/assembly/feeder/output-guides/' | relative_url }}) on C2 and one on C3. Each belongs to the channel it is mounted on, not to the gap between two; C1 and the classification channel take none.
 
 <div class="img-placeholder">Image coming</div>
 

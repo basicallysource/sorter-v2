@@ -96,10 +96,16 @@ The Input gear (12T, screw) takes its {% include fastener.html size="M3" variant
 
 The bore is plain and round, so there is nothing to key it: turn the gear until that hole lines up with the flat on the shaft, push the gear all the way on, then tighten the screw down onto the flat. The head drops into a counterbore in the toothed end face. Tighten until the head is seated and the gear does not turn on the shaft, and no further, it is threading into plastic.
 
-<figure class="single-figure">
-  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-c-channel-input-gear-screw-hole-full-b4e56bf5b643.png" alt="Two views of the 12-tooth input gear from its toothed end: at a slight angle, and then square on. Both show the round central bore with a smaller screw hole running beside it and opening into it, and a wider counterbore recessed into the end face around them. The outside of the gear is unbroken, with no hole in the side of the boss">
-  <figcaption>Left, the toothed end at a slight angle; right, the same end square on. The screw hole runs beside the bore and opens into it, and the head seats in the counterbore around it. <cite>Rendered from the part geometry, not from a build. Render: Balloon.</cite></figcaption>
-</figure>
+<div class="img-row">
+  <figure>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-c-channel-input-gear-screw-end-angled-full-dd4887827574.png" alt="Render of the 12-tooth input gear seen from its toothed end at a slight angle, showing the round central bore, a smaller screw hole running beside it, and a shallow wider recess around both, cut into the end face. The outside of the gear is unbroken">
+    <figcaption>The toothed end, at a slight angle. The small hole beside the bore is the screw hole, and the shallow recess around the pair of them is the counterbore the head seats in. <cite>Rendered from the part geometry, not from a build. Render: Balloon.</cite></figcaption>
+  </figure>
+  <figure>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-c-channel-input-gear-screw-end-square-full-8a5956d68731.png" alt="Render of the same gear end square on, showing the screw hole overlapping the edge of the bore so the two openings run together into one figure-of-eight shape">
+    <figcaption>The same end square on. The screw hole breaks into the bore, which is what lets the screw reach the flat on the shaft. <cite>Rendered from the part geometry, not from a build. Render: Balloon.</cite></figcaption>
+  </figure>
+</div>
 
 {% include step.html n="4" title="Fit the idler gear and the stepper to the NEMA bracket" %}
 

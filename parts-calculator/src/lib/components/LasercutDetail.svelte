@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { tip } from '$lib/popover';
 	import DetailPanes from '$lib/components/DetailPanes.svelte';
 	import StlViewer from '$lib/components/StlViewer.svelte';
 	import DownloadButton from '$lib/components/DownloadButton.svelte';
@@ -56,7 +57,7 @@
 				target="_blank"
 				rel="noopener"
 				class="inline-flex items-center gap-0.5 text-xs text-primary hover:text-primary-hover"
-				title="Open the pinned OnShape version">OnShape <ExternalLink size={11} /></a>
+				use:tip={'Open the pinned OnShape version'}>OnShape <ExternalLink size={11} /></a>
 		</div>
 	</div>
 

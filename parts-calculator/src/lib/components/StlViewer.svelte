@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { tip } from '$lib/popover';
 	import { onMount } from 'svelte';
 	import * as THREE from 'three';
 	import { STLLoader } from 'three/examples/jsm/loaders/STLLoader.js';
@@ -310,8 +311,8 @@
 	{/if}
 	<div class="pointer-events-none absolute bottom-2 left-3 text-xs text-text-muted">drag to rotate · scroll to zoom</div>
 	<div class="absolute bottom-2 right-3 inline-flex border border-border bg-[var(--color-surface)]/95 text-xs" role="group" aria-label="View style">
-		<button type="button" class="px-2 py-0.5 {mode === 'cad' ? 'bg-text text-[var(--color-surface)]' : 'text-text-muted hover:text-text'}" onclick={() => (mode = 'cad')} title="Shaded with feature edges, on a grey ground">CAD</button>
-		<button type="button" class="px-2 py-0.5 {mode === 'shaded' ? 'bg-text text-[var(--color-surface)]' : 'text-text-muted hover:text-text'}" onclick={() => (mode = 'shaded')} title="Bare shaded surface">Shaded</button>
+		<button type="button" class="px-2 py-0.5 {mode === 'cad' ? 'bg-text text-[var(--color-surface)]' : 'text-text-muted hover:text-text'}" onclick={() => (mode = 'cad')} use:tip={'Shaded with feature edges, on a grey ground'}>CAD</button>
+		<button type="button" class="px-2 py-0.5 {mode === 'shaded' ? 'bg-text text-[var(--color-surface)]' : 'text-text-muted hover:text-text'}" onclick={() => (mode = 'shaded')} use:tip={'Bare shaded surface'}>Shaded</button>
 	</div>
 </div>
 

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { tip } from '$lib/popover';
 	import { ArrowLeft, Box, Boxes, CheckCircle2, Layers3, Trash2 } from 'lucide-svelte';
 	import Badge from '$lib/components/Badge.svelte';
 	import PriorityBadge from '$lib/components/PriorityBadge.svelte';
@@ -118,7 +119,7 @@
 						<td class="px-3 py-3">
 							<div class="flex flex-wrap gap-2">
 								{#each models as part (part.id)}
-									<button type="button" class="group w-20 cursor-pointer text-left" title="Open current 3D model for {part.name}" onclick={() => openModel(part)}>
+									<button type="button" class="group w-20 cursor-pointer text-left" use:tip={`Open current 3D model for ${part.name}`} onclick={() => openModel(part)}>
 										<span class="flex h-14 w-20 items-center justify-center overflow-hidden border border-border bg-[var(--color-bg)] group-hover:border-primary">
 											<img src={part.render} alt={part.name} class="h-full w-full object-contain transition-transform group-hover:scale-105" />
 										</span>
@@ -126,14 +127,14 @@
 									</button>
 								{/each}
 								{#each laserTargets as part (part.id)}
-									<button type="button" class="group w-20 cursor-zoom-in text-left" title="Open large preview of {part.name}" onclick={() => openImage(part.preview, part.name)}>
+									<button type="button" class="group w-20 cursor-zoom-in text-left" use:tip={`Open large preview of ${part.name}`} onclick={() => openImage(part.preview, part.name)}>
 										<span class="flex h-14 w-20 items-center justify-center overflow-hidden border border-border bg-white group-hover:border-primary"><img src={part.preview} alt={part.name} class="h-full w-full object-contain transition-transform group-hover:scale-105" /></span>
 										<span class="mt-1 block truncate text-[10px] leading-tight text-text-muted group-hover:text-primary">{part.name}</span>
 									</button>
 								{/each}
 								{#each hardwareTargets as part (part.id)}
 									{@const image = hardwareImage(part)}
-									<a href="/hardware#hardware-{part.id}" class="group w-20" title="Open {part.name}">
+									<a href="/hardware#hardware-{part.id}" class="group w-20" use:tip={`Open ${part.name}`}>
 										<span class="flex h-14 w-20 items-center justify-center overflow-hidden border border-border bg-white group-hover:border-primary">{#if image}<img src={image.src} alt={part.name} class="h-full w-full object-contain transition-transform group-hover:scale-105" />{:else}<Box size={18} class="text-text-muted" />{/if}</span>
 										<span class="mt-1 block truncate text-[10px] leading-tight text-text-muted group-hover:text-primary">{part.name}</span>
 									</a>

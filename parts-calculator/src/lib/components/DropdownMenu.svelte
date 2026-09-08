@@ -1,49 +1,45 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
+	import { Anchored } from '$lib/popover';
 
 	// Click-to-open menu in the site style. Unlike Popover (hover-to-peek
 	// context help), this is a control: it opens on click only, and the content
 	// snippet gets `close` so picking an item can dismiss it.
+	//
+	// The menu itself is drawn in the shared floating layer, so it is not cut off
+	// by whatever the trigger happens to sit inside and nothing on the page can
+	// be painted over it.
 	let {
 		label,
-		align = 'right',
+		placement = 'bottom-end',
 		menuClass = 'w-56',
 		trigger,
 		children
 	}: {
 		label: string;
-		align?: 'left' | 'right';
+		placement?: 'bottom-start' | 'bottom-end' | 'top-start' | 'top-end';
 		menuClass?: string;
 		trigger: Snippet<[{ toggle: () => void; open: boolean }]>;
 		children: Snippet<[{ close: () => void }]>;
 	} = $props();
 
 	let open = $state(false);
-	let root: HTMLElement;
+	let root = $state<HTMLElement | null>(null);
 	const toggle = () => (open = !open);
 	const close = () => (open = false);
-
-	function onWindowClick(e: MouseEvent) {
-		if (open && root && !root.contains(e.target as Node)) open = false;
-	}
-	function onKey(e: KeyboardEvent) {
-		if (e.key === 'Escape') open = false;
-	}
 </script>
-
-<svelte:window onclick={onWindowClick} onkeydown={onKey} />
 
 <span bind:this={root} class="relative inline-flex align-middle">
 	{@render trigger({ toggle, open })}
-	{#if open}
-		<div
-			class="setup-panel absolute top-full z-30 mt-1 {menuClass} py-1 {align === 'right'
-				? 'right-0'
-				: 'left-0'}"
-			role="menu"
-			aria-label={label}
-		>
-			{@render children({ close })}
-		</div>
-	{/if}
 </span>
+
+{#if open}
+	<Anchored
+		anchor={root}
+		{placement}
+		class="setup-panel {menuClass} py-1"
+		onDismiss={close}
+	>
+		<div role="menu" aria-label={label}>{@render children({ close })}</div>
+	</Anchored>
+{/if}

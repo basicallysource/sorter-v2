@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { tip } from '$lib/popover';
 	import { Box, ExternalLink, Hammer, Printer, Zap } from 'lucide-svelte';
 	import Seo from '$lib/components/Seo.svelte';
 	import DownloadButton from '$lib/components/DownloadButton.svelte';
@@ -175,7 +176,7 @@
 							{:else}
 								<span
 									class="inline-flex cursor-not-allowed items-center gap-1 border-b-2 border-transparent px-2.5 py-1.5 text-xs font-semibold text-text-muted opacity-40"
-									title="Not ready"
+									use:tip={'Not ready'}
 								>
 									<Box size={12} /> 3D Printed
 								</span>
@@ -204,7 +205,7 @@
 										target="_blank"
 										rel="noopener"
 										class="inline-flex items-center gap-0.5 text-xs text-primary hover:text-primary-hover"
-										title="Open the exact OnShape version this DXF came from"
+										use:tip={'Open the exact OnShape version this DXF came from'}
 									>
 										OnShape <ExternalLink size={11} />
 									</a>

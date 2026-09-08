@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { tip } from '$lib/popover';
 	import { ArrowLeft, CalendarClock, Download, FlaskConical, History, Info, Plus, RefreshCw } from 'lucide-svelte';
 	import Badge from '$lib/components/Badge.svelte';
 	import ChangeStatus from '$lib/components/ChangeStatus.svelte';
@@ -115,7 +116,7 @@
 		<button
 			type="button"
 			class="group shrink-0 cursor-pointer"
-			title="Open the current 3D model for {u.part.name}"
+			use:tip={`Open the current 3D model for ${u.part.name}`}
 			onclick={() => openModel(u.part)}
 		>
 			<span class="flex h-16 w-20 items-center justify-center overflow-hidden border border-border bg-[var(--color-bg)] group-hover:border-primary">
@@ -170,7 +171,7 @@
 					href={partDownload(u.part, false)}
 					download
 					class="setup-button-secondary inline-flex h-8 items-center gap-1.5 px-3 text-xs font-semibold"
-					title="Download the current {u.part.name}.stl"
+					use:tip={`Download the current ${u.part.name}.stl`}
 				>
 					<Download size={14} /> STL
 				</a>
@@ -307,7 +308,7 @@
 								<p class="mt-1 text-xs leading-relaxed text-text-muted">{c.candidate.message}</p>
 							</div>
 							<div class="shrink-0">
-								<a href={c.candidate.stl} download class="setup-button-secondary inline-flex h-8 items-center gap-1.5 px-3 text-xs font-semibold" title="Download the candidate STL"><Download size={14} /> STL</a>
+								<a href={c.candidate.stl} download class="setup-button-secondary inline-flex h-8 items-center gap-1.5 px-3 text-xs font-semibold" use:tip={'Download the candidate STL'}><Download size={14} /> STL</a>
 							</div>
 						</li>
 					{/each}

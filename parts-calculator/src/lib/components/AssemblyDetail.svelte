@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { tip } from '$lib/popover';
 	import { ArrowRight, BookOpen, Boxes, ExternalLink, FlaskConical, History, Zap } from 'lucide-svelte';
 	import AlternativeBadge from '$lib/components/AlternativeBadge.svelte';
 	import AssemblyDescription from '$lib/components/AssemblyDescription.svelte';
@@ -150,7 +151,7 @@
 					{part.name} <Badge variant="neutral">3D printed</Badge>
 					<ChangeStatus kind="parts" id={part.id} name={part.name} />
 				</span>
-				<span class="ad-meta" title={part.slice_failed ? `Not sliced: ${part.slice_failed}` : undefined}>{part.slice_failed ? 'not sliced' : `${(part.grams ?? 0).toFixed(0)} g each`} · {part.uid}</span>
+				<span class="ad-meta" use:tip={part.slice_failed ? `Not sliced: ${part.slice_failed}` : undefined}>{part.slice_failed ? 'not sliced' : `${(part.grams ?? 0).toFixed(0)} g each`} · {part.uid}</span>
 			</span>
 			<span class="ad-qty">×{each}</span>
 			<ArrowRight size={14} class="ad-go" />

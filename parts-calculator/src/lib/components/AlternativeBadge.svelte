@@ -5,16 +5,17 @@
 	// the explanation instantly; a string value names the specific alternative.
 	// `size` shrinks it for inline use inside a sentence, where the list's 18px
 	// would set the line height on its own.
-	import Popover from '$lib/components/Popover.svelte';
+	import { Popover } from '$lib/popover';
 	let { value, size = 18 }: { value?: string | boolean | null; size?: number } = $props();
 	const detail = $derived(typeof value === 'string' && value.trim() ? value : null);
 </script>
 
 {#if value}
-	<Popover label="Interchangeable alternative" width="w-64">
-		{#snippet trigger({ toggle })}
+	<Popover label="Interchangeable alternative" width="16rem">
+		{#snippet trigger({ toggle, props })}
 			<button
 				type="button"
+				{...props}
 				class="inline-flex shrink-0 cursor-help items-center justify-center px-1 font-bold leading-none text-white"
 				style="background: var(--color-success); height: {size}px; min-width: {size}px; font-size: {(
 					size * 0.04

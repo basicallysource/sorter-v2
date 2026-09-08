@@ -1,0 +1,187 @@
+/*
+ * The look of every floating panel on the site. Global rather than scoped
+ * because the `tip` action builds its node by hand, and because the panels are
+ * moved out of the component that owns them into a layer at the end of the
+ * document.
+ *
+ * Colours come from the two apps' shared design tokens (--color-surface,
+ * --color-border, --color-text, --color-text-muted), which the docs and the
+ * parts calculator both define, so this file is identical in both.
+ */
+
+.pop-layer {
+	position: fixed;
+	top: 0;
+	left: 0;
+	z-index: 9000; /* above the modals (z-50) and the sticky header (z-40) */
+	display: block;
+	margin: 0;
+	/* padding is written from JS: it is the transparent band that bridges the
+	   gap to the trigger, and the placement arithmetic depends on its width. */
+}
+
+/* A tip is a label, not a thing you interact with: it must never eat a click
+   or take the pointer away from what is underneath it. */
+.pop-layer[data-interactive='false'] {
+	pointer-events: none;
+}
+
+.pop-card {
+	position: relative;
+	box-sizing: border-box;
+	width: max-content;
+	max-width: min(var(--pop-w, 18rem), var(--pop-avail-w, 100vw));
+	max-height: var(--pop-avail-h, none);
+	overflow-y: auto;
+	overscroll-behavior: contain;
+	padding: 0.625rem 0.75rem;
+	/* Triggers live inside uppercase, letter-spaced, bold table headings. The
+	   panel is body copy wherever it opens from. */
+	font-family: inherit;
+	font-size: 0.8125rem;
+	font-weight: 400;
+	font-style: normal;
+	line-height: 1.5;
+	text-align: left;
+	text-transform: none;
+	letter-spacing: normal;
+	white-space: normal;
+	color: var(--color-text-muted, #6b6862);
+	background: var(--color-surface, #ffffff);
+	border: 1px solid var(--color-border, #e2e0db);
+	box-shadow:
+		0 1px 2px rgba(20, 18, 14, 0.06),
+		0 12px 30px -10px rgba(20, 18, 14, 0.3);
+}
+
+/* Long panels (a part with several planned changes and a photo on each) used to
+   run off the bottom of whatever was clipping them. Now they scroll in place,
+   and the bar says so. */
+.pop-card::-webkit-scrollbar {
+	width: 10px;
+}
+
+.pop-card::-webkit-scrollbar-thumb {
+	background: var(--color-border, #e2e0db);
+	border: 3px solid var(--color-surface, #ffffff);
+}
+
+.pop-arrow {
+	position: absolute;
+	width: 9px;
+	height: 9px;
+	background: var(--color-surface, #ffffff);
+	border: 1px solid var(--color-border, #e2e0db);
+	transform: rotate(45deg);
+}
+
+.pop-layer[data-side='bottom'] .pop-arrow {
+	top: calc(var(--pop-inset) - 4px);
+	left: calc(var(--pop-arrow) - 5px);
+	border-right: 0;
+	border-bottom: 0;
+}
+
+.pop-layer[data-side='top'] .pop-arrow {
+	bottom: calc(var(--pop-inset) - 4px);
+	left: calc(var(--pop-arrow) - 5px);
+	border-left: 0;
+	border-top: 0;
+}
+
+.pop-layer[data-side='right'] .pop-arrow {
+	left: calc(var(--pop-inset) - 4px);
+	top: calc(var(--pop-arrow) - 5px);
+	border-right: 0;
+	border-top: 0;
+}
+
+.pop-layer[data-side='left'] .pop-arrow {
+	right: calc(var(--pop-inset) - 4px);
+	top: calc(var(--pop-arrow) - 5px);
+	border-left: 0;
+	border-bottom: 0;
+}
+
+/* ── Tip: a short label, dark so it never reads as a panel you can click ── */
+
+.pop-layer[data-tone='tip'] .pop-card {
+	--pop-w: 17rem;
+	padding: 0.25rem 0.5rem;
+	font-size: 0.75rem;
+	line-height: 1.45;
+	color: var(--color-surface, #ffffff);
+	background: var(--color-text, #1a1a1a);
+	border-color: var(--color-text, #1a1a1a);
+	box-shadow: 0 6px 16px -6px rgba(20, 18, 14, 0.45);
+}
+
+.pop-layer[data-tone='tip'] .pop-arrow {
+	background: var(--color-text, #1a1a1a);
+	border-color: var(--color-text, #1a1a1a);
+}
+
+/* Wider than a label but still one paragraph: for the few tips that carry a
+   sentence rather than three words. */
+.pop-layer[data-tone='tip'][data-wide='true'] .pop-card {
+	--pop-w: 22rem;
+}
+
+/* ── Motion ─────────────────────────────────────────────────────────────── */
+
+@media (prefers-reduced-motion: no-preference) {
+	.pop-card,
+	.pop-arrow {
+		animation: pop-in 110ms ease-out both;
+	}
+}
+
+@keyframes pop-in {
+	from {
+		opacity: 0;
+	}
+	to {
+		opacity: 1;
+	}
+}
+
+/* Content helpers, so a panel's body copy does not have to re-state the same
+   spacing at every call site. */
+.pop-card :where(p, ul, ol) {
+	margin: 0;
+}
+
+.pop-card :where(p, ul, ol) + :where(p, ul, ol) {
+	margin-top: 0.5rem;
+}
+
+.pop-card :where(b, strong) {
+	color: var(--color-text, #1a1a1a);
+	font-weight: 600;
+}
+
+.pop-layer[data-tone='tip'] .pop-card :where(b, strong) {
+	color: inherit;
+}
+
+.pop-card :where(a) {
+	color: var(--color-primary, #0055bf);
+}
+
+/* `Anchored`: the panel brings its own look, this only stops it running off
+   the screen. */
+.pop-anchored {
+	box-sizing: border-box;
+	max-width: min(var(--pop-w, 100vw), var(--pop-avail-w, 100vw));
+	max-height: min(var(--pop-h, 100vh), var(--pop-avail-h, 100vh));
+	overflow: auto;
+	overscroll-behavior: contain;
+}
+
+/* A divider between repeated blocks in one panel (several conflicts on one
+   part, several planned changes). */
+.pop-card .pop-rule {
+	margin-top: 0.5rem;
+	padding-top: 0.5rem;
+	border-top: 1px solid var(--color-border, #e2e0db);
+}

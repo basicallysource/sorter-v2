@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { tipScope } from '$lib/popover';
 	import PageMeta from '$lib/components/PageMeta.svelte';
 	import Requirements from '$lib/components/Requirements.svelte';
 
@@ -80,7 +81,9 @@
 			const target = h.querySelector<HTMLElement>('.step-title') ?? h;
 			const label = target.textContent?.replace(/\s+/g, ' ').trim() ?? '';
 			btn.setAttribute('aria-label', label ? `Copy link to "${label}"` : 'Copy link to this section');
-			btn.title = 'Copy link to this section';
+			// data-tip, not title: `tipScope` on .md-content turns it into the same
+			// label the rest of the site uses.
+			btn.dataset.tip = 'Copy link to this section';
 			btn.innerHTML = LINK_ICON;
 			btn.addEventListener('click', async () => {
 				// Absolute, and built from the current page rather than the address
@@ -232,7 +235,10 @@
 
 <Requirements parts={p.parts} tools={p.tools} />
 
-<div class="md-content" bind:this={contentEl}>
+<!-- `tipScope` picks up every `data-tip` in the rendered markdown (the
+     affiliate-link star, anything a page marks up by hand) and gives it the
+     same popover-family label the rest of the site uses. -->
+<div class="md-content" bind:this={contentEl} use:tipScope>
 	{@html p.html}
 </div>
 

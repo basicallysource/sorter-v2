@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { tip } from '$lib/popover';
 	import {
 		Check,
 		ChevronDown,
@@ -806,7 +807,7 @@
 			{@const img = hardwareImage(hw)}
 			<div class="mt-2 flex items-center gap-3 border border-border bg-[var(--color-bg)] p-2">
 				{#if img}
-					<button type="button" class="asm-thumb shrink-0" title="View {hw.name} details" onclick={() => openHardware(hw)}>
+					<button type="button" class="asm-thumb shrink-0" use:tip={`View ${hw.name} details`} onclick={() => openHardware(hw)}>
 						<img src={img.src} alt={hw.name} class="h-10 w-10 object-contain" />
 					</button>
 				{/if}
@@ -832,7 +833,7 @@
 	{@const img = hardwareImage(hw)}
 	<div data-member={hw.id} class="ml-1.5 mt-2 flex items-center gap-3 border border-border bg-[var(--color-bg)] p-2 sm:ml-4">
 		{#if img}
-			<button type="button" class="asm-thumb shrink-0" title="View {hw.name} details" onclick={() => openHardware(hw)}>
+			<button type="button" class="asm-thumb shrink-0" use:tip={`View ${hw.name} details`} onclick={() => openHardware(hw)}>
 				<img src={img.src} alt={hw.name} class="h-8 w-8 object-contain" />
 			</button>
 		{/if}
@@ -869,7 +870,7 @@
 		{#if n.length}
 			<span
 				class="border px-1 py-px text-[10px] font-semibold uppercase tracking-wider {cls}"
-				title={n.map((t) => t.name).join(', ')}>{st}{n.length > 1 ? ` ×${n.length}` : ''}</span>
+				use:tip={n.map((t) => t.name).join(', ')}>{st}{n.length > 1 ? ` ×${n.length}` : ''}</span>
 		{/if}
 	{/each}
 {/snippet}
@@ -888,7 +889,7 @@
 		{:else if line.part && getLasercut(line.part)}
 			{@const lc = getLasercut(line.part)!}
 			<div data-member={line.part} class="ml-1.5 mt-2 flex items-center gap-3 border border-border bg-surface p-2 sm:ml-4 sm:p-3">
-				<button type="button" class="asm-thumb shrink-0" title="View {lc.name} details" onclick={() => openLasercut(lc)}>
+				<button type="button" class="asm-thumb shrink-0" use:tip={`View ${lc.name} details`} onclick={() => openLasercut(lc)}>
 					<img src={lc.preview} alt={lc.name} class="h-12 w-12 object-contain" />
 				</button>
 				<div class="min-w-0 flex-1">
@@ -913,7 +914,7 @@
 				{@const total = lineQty(line, layers) * mult}
 				<div data-member={line.part} class="ml-1.5 mt-2 border border-border bg-surface p-2 sm:ml-4 sm:p-3">
 					<div class="flex items-center gap-3">
-						<button type="button" class="asm-thumb shrink-0" title="View {part.name} details" onclick={() => openPart(part)}>
+						<button type="button" class="asm-thumb shrink-0" use:tip={`View ${part.name} details`} onclick={() => openPart(part)}>
 							<img src={part.render} alt={part.name} class="h-12 w-12 object-contain" />
 						</button>
 						<div class="min-w-0 flex-1">
@@ -969,7 +970,7 @@
 		<div class="ml-1.5 mt-2 border border-border bg-surface p-2 sm:ml-4 sm:p-3">
 			<div class="flex items-center gap-3">
 				{#if part}
-					<button type="button" class="shrink-0" onclick={() => openPart(part)} title="Open {part.name}">
+					<button type="button" class="shrink-0" onclick={() => openPart(part)} use:tip={`Open ${part.name}`}>
 						<img src={pv?.render ?? part.render} alt={part.name} class="h-12 w-12 object-contain" />
 					</button>
 				{/if}
@@ -990,7 +991,7 @@
 					<a
 						href={stl}
 						class="inline-flex shrink-0 items-center gap-1 text-xs font-medium text-primary hover:text-primary-hover"
-						title="Download this revision's STL"
+						use:tip={'Download this revision\'s STL'}
 					>
 						<Download size={11} /> STL
 					</a>
@@ -1060,7 +1061,7 @@
 					{/if}
 				</div>
 				{#if p.stl}
-					<a href={p.stl} class="inline-flex shrink-0 items-center gap-1 text-xs font-medium text-primary hover:text-primary-hover" title="This revision's STL">
+					<a href={p.stl} class="inline-flex shrink-0 items-center gap-1 text-xs font-medium text-primary hover:text-primary-hover" use:tip={'This revision\'s STL'}>
 						<Download size={11} /> STL
 					</a>
 				{/if}
@@ -1412,7 +1413,7 @@
 					type="button"
 					class="flex h-5 w-5 items-center justify-center text-text-muted hover:text-primary"
 					onclick={() => openAssembly(asm.id)}
-					title="View {asm.name} details"
+					use:tip={`View ${asm.name} details`}
 					aria-label="View {asm.name} details"
 				>
 					<Info size={13} />
@@ -1443,7 +1444,7 @@
 								type="button"
 								class="inline-flex items-center gap-1 border border-border bg-surface px-1.5 py-0.5 text-xs text-text hover:border-primary"
 								onclick={() => delete diffBase[asm.id]}
-								title="Close the diff"
+								use:tip={'Close the diff'}
 							>
 								diff v{diffBase[asm.id]} <X size={11} />
 							</button>
@@ -1624,7 +1625,7 @@
 									: 'border-border text-text-muted'} hover:border-primary hover:text-primary"
 								onclick={toggle}
 								aria-expanded={open}
-								title="Filter and order"
+								use:tip={'Filter and order'}
 							>
 								<SlidersHorizontal size={14} />
 							</button>
@@ -1637,7 +1638,7 @@
 										fStable = false;
 										order = 'authored';
 									}}
-									title="Clear filter and order"
+									use:tip={'Clear filter and order'}
 									aria-label="Clear filter and order"
 								>
 									<X size={12} />
@@ -1698,7 +1699,7 @@
 				<button
 					class="inline-flex shrink-0 items-center gap-1 text-xs font-medium text-primary hover:text-primary-hover"
 					onclick={downloadCsv}
-					title="Exports the tree as configured here: {layers} layers, with every quantity multiplied down and STL links included."
+					use:tip={`Exports the tree as configured here: ${layers} layers, with every quantity multiplied down and STL links included.`}
 				>
 					<Download size={13} /> CSV
 					<span class="font-normal text-text-muted">· {layers} layers</span>

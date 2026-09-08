@@ -2873,7 +2873,7 @@
       "id": "orange-pi-extrusion-mount",
       "uid": "nxh7",
       "name": "Orange Pi Extrusion Mount",
-      "description": "Plate the Orange Pi 5 stands off, which bolts to the 2020 extrusion. Same design as the control board's mount with the opening and bolt pattern changed for the Pi.",
+      "description": "Plate the Orange Pi 5 stands off, which bolts to the 2020 extrusion. Same design as the control board's mount with the opening and bolt pattern changed for the Pi. Six M3 inserts: four on the top face for the Pi's standoffs, two in the front edge face for the fan arm.",
       "internal_notes": "From 'PCB Extrusion Mount (1).zip' (Sorter V2 STLs, 2026-08-22), a zip of two zips, one per board. Named 'basically board v1-3 open air fan - Orange Pi 5 to extrusion mount.stl' (the zip's own prefix says 'basically board'; the part inside is the Pi's).",
       "version": "1",
       "created_at": "2026-08-22",
@@ -2894,7 +2894,7 @@
       "id": "fan-bracket-40mm",
       "uid": "3ufy",
       "name": "40 mm Fan Bracket",
-      "description": "L-shaped bracket that cantilevers a 40 mm fan over a board on its extrusion mount. The same part on both the control board and the Orange Pi mounts, so two per machine.",
+      "description": "L-shaped bracket that cantilevers a 40 mm fan over a board on its extrusion mount. Was on both the control board and the Orange Pi mounts; the control board's printed housing carries its own fan since 2026-08-23, so one per machine, on the Orange Pi. The foot bolts back into two M3 inserts on the mount's front edge face and the fan sits on the flat top of the arm.",
       "internal_notes": "Was 2 per machine — the control board and the Orange Pi each had one. The control board's housing carries its own fan as of ctrl-board-mount v2 (2026-08-23), so only the Orange Pi mount still uses this.",
       "version": "1",
       "created_at": "2026-08-22",
@@ -3361,7 +3361,7 @@
       "category": "Screws",
       "alternative": "Socket or button head",
       "image_url": "https://assets.basically.website/sorter-parts/scr-m3-16-shcs-full-26e52d7d5bcd.png",
-      "description": "No longer the C-channel stepper screw — those are countersunk (scr-m3-16-cs). The top-interface docs call for 2 to mount the roller-lever limit switch into its housing's inserts, though the limit-switch assembly records M3 × 12 button heads for that joint — one of the two is wrong; settle it at the bench.",
+      "description": "No longer the C-channel stepper screw — those are countersunk (scr-m3-16-cs). Holds the 40 mm fan arm to the Orange Pi mount (2, into the mount's front-edge inserts) and the fan to the arm (4, self-tapping). The top-interface docs call for 2 to mount the roller-lever limit switch into its housing's inserts, though the limit-switch assembly records M3 × 12 button heads for that joint — one of the two is wrong; settle it at the bench.",
       "created_at": "2026-07-18",
       "updated_at": "2026-09-01",
       "attributes": [
@@ -9831,8 +9831,8 @@
     },
     {
       "id": "orange-pi-mount",
-      "uid": "5vat",
-      "version": "1",
+      "uid": "ghuf",
+      "version": "2",
       "name": "Orange Pi mount",
       "description": "The Orange Pi 5 standing off its bracket, which bolts to the 2020 extrusion, with a 40 mm fan on a bracket cantilevered over it.",
       "docs": "/hardware/electronics/installation/orange-pi-mount/",
@@ -9851,7 +9851,7 @@
         },
         {
           "part": "hsi-m3",
-          "qty": 4
+          "qty": 6
         },
         {
           "part": "standoff-m3-10mm",
@@ -9866,6 +9866,10 @@
           "qty": 1
         },
         {
+          "part": "scr-m3-16-shcs",
+          "qty": 6
+        },
+        {
           "part": "scr-m5-12-shcs",
           "qty": 2
         },
@@ -9874,11 +9878,44 @@
           "qty": 2
         }
       ],
+      "connections": [
+        {
+          "from": "fan-bracket-40mm",
+          "to": "orange-pi-extrusion-mount",
+          "via": "scr-m3-16-shcs",
+          "qty": 2,
+          "method": "insert",
+          "through_mm": 12,
+          "thread_mm": 5.7,
+          "draft": true,
+          "note": "The arm's foot stands against the mount's front edge face and bolts back into two M3 inserts on that face, 32 mm apart on the centreline. 12.0 mm of plain 3.50 mm bore through the foot, then the insert, whose pocket is 4.00 mm across and 6.00 mm deep. Measured off the two published STLs, not from a build."
+        },
+        {
+          "from": "fan-40mm-24v",
+          "to": "fan-bracket-40mm",
+          "via": "scr-m3-16-shcs",
+          "qty": 4,
+          "method": "self-tap",
+          "through_mm": 10,
+          "thread_mm": 12,
+          "draft": true,
+          "note": "The fan sits on the flat top face of the arm over its 38 mm opening, on the standard 32 x 32 mm pattern. The four 2.50 mm pilots run right through the 12.0 mm plate; the screws cut their own thread in it, no inserts. Measured off the STL, not from a build."
+        }
+      ],
       "images": [
         {
           "url": "https://assets.basically.website/sorter-parts/orange-pi-mount-v1-render-full-d5893e241c96.png",
           "alt": "Onshape render of the Orange Pi's v1 extrusion mount and fan bracket",
           "caption": "The v1 mounting, from Onshape: the board's plate (blue) and the shared fan bracket (grey)."
+        }
+      ],
+      "versions": [
+        {
+          "version": "2",
+          "date": "2026-09-08",
+          "message": "The fan arm and the fan were members with nothing holding them on. Both joints are now recorded, and their fasteners: 2 x M3 x 16 through the arm's foot into two M3 inserts on the mount's front edge face, and 4 x M3 x 16 self-tapping through the fan into the arm's top plate. The mount's insert count goes 4 -> 6 with the two on that face. Measured off the orange-pi-extrusion-mount and fan-bracket-40mm STLs; no part changed.",
+          "breaking": false,
+          "commit": null
         }
       ]
     },

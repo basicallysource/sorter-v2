@@ -66,11 +66,10 @@ It replaces the [light post]({{ '/hardware/assembly/feeder/light-post/' | relati
   <figcaption>The finished thing, over a channel, lit. <cite>Photo: Spencer.</cite></figcaption>
 </figure>
 
-**The parts list above is one lamp's worth.** The catalog gives one to each of the four channels, so a machine takes four of everything on it: C1, C2 and C3 with the OV9732, and the classification channel with the [IMX415]({{ '/hardware/assembly/feeder/classification-chamber/' | relative_url }}) 4K module instead. Everything else is identical between the four.
+**The parts list above is one lamp's worth.** A machine takes three lamps, so three of everything on it: C2 and C3 with the OV9732, and the classification channel with the [IMX415]({{ '/hardware/assembly/feeder/classification-chamber/' | relative_url }}) 4K module instead. Everything else is identical between the three. **C1, the bulk bucket, takes no lamp**: it is fed in bulk and nothing reads vision off it.
 
-<div class="callout callout-warning">
-  <span class="callout-icon" aria-hidden="true">⚠</span>
-  <p><b>Whether C1 really takes a camera is an open question.</b> The parts list gives C1 a full lamp including an OV9732, but the software has no C1 camera role at all: the crop zones are the second channel, the third channel and the classification channel, and nothing reads vision off the bulk channel. The lamp itself is not in doubt on any channel. If you are buying rather than printing, the third OV9732 is the one to hold off on (raised by BrickCycleAlice, 2026-09-05, unanswered).</p>
+<div class="callout">
+  <p><b>If you printed four, one set is spare.</b> The parts list gave C1 a lamp of its own until 2026-09-08, when Jon confirmed the machine takes three. The software agrees: the crop zones are the second channel, the third channel and the classification channel, and nothing reads vision off the bulk channel, so C1 needs neither the lamp nor an OV9732. Question raised by BrickCycleAlice, 2026-09-05.</p>
 </div>
 
 {% include fastener-legend.html %}
@@ -91,7 +90,7 @@ It replaces the [light post]({{ '/hardware/assembly/feeder/light-post/' | relati
 
 <div class="prep-item">
   <div class="prep-item-body">
-    <p><strong>Print counts, if you are printing for the whole machine:</strong> 4 each of the mount, arm, bracket A, bracket B, ring, both clasp halves, reflector and cover, and <strong>24</strong> LED hooks, six per lamp. The hooks are the ones people come up short on.</p>
+    <p><strong>Print counts, if you are printing for the whole machine:</strong> 3 each of the mount, arm, bracket A, bracket B, ring, both clasp halves, reflector and cover, and <strong>18</strong> LED hooks, six per lamp. The hooks are the ones people come up short on.</p>
   </div>
   <figure class="prep-item-figure">
     <div class="img-placeholder">Image coming</div>
@@ -141,7 +140,9 @@ The clasp is what carries the camera into the lamp: its two halves form a 4 mm s
 
 Six **Inner reflector LED hooks** friction-fit into the rim of the **Lamp inner reflector**, evenly spaced 60° apart, one per 2.7 mm socket around its outside. Each hook retains the LED strip against the reflector. No screws.
 
-**Not recorded:** which LED strip, how much of it, how it is joined and how it is wired back to the board. None of that is in the catalog yet, and the strip is not a part in the machine's list. What the photograph shows is strip run in a ring around the inside of the reflector, retained by the hooks, with the leads coming out and down the arm.
+**How much strip, measured off the reflector.** The strip sits against the inner face of the reflector's outer skirt, which is 147 mm across and about 18 mm tall, so one turn around it is **462 mm**. The photograph below shows two turns side by side in that skirt, which puts a lamp at roughly **0.92 m** and a three-lamp machine at about **2.8 m**. The strip in the parts calculator is a 24 V daylight-white 6000 K COB strip sold as a 5 m roll, one roll per machine, which covers all three.
+
+**Not recorded:** which strip is actually on the lamps in these photographs, how it is joined and how it is wired back to the board. None of that is in the catalog, and the strip is not a line in the lamp's parts list. What the photograph shows is strip run in a ring around the inside of the reflector, retained by the hooks, with the leads coming out and down the arm. Spencer said on 2026-09-06 that the strips run at 24 V off the LED headers on the basically board.
 
 <figure class="single-figure">
   <img class="doc-figure" src="https://assets.basically.website/sorter-docs/camera-lamp-lit-from-below-w1600-bb9d54f4f43e.jpg" alt="The lamp lit, photographed from underneath: a ring of LED strip glowing around the outside of the white reflector, the reflector's central funnel in the middle, and the arm behind it">

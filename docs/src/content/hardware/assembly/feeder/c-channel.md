@@ -52,7 +52,7 @@ The parts list above is **all four channels' worth** — the count is fixed for 
 
 - **Build 4 per machine**, three in the feeder and one for the classification channel. It is the same build four times over, and the rotor is the only thing that changes.
 - **One rotor per unit, and only one of the two.** The three feeder channels take the Rotor (faceted); the classification channel takes the Rotor (finned), the one with the fins in the photographs below. The list above already splits them the way a real machine needs them: three faceted, one finned. Colour does not change with the rotor: both print ash grey on all four channels, as do the stator and the output guide.
-- Every channel also carries a [camera lamp]({{ '/hardware/assembly/feeder/camera-lamp/' | relative_url }}), whose parts and screws belong to that page rather than to the list above.
+- C2, C3 and the classification channel also carry a [camera lamp]({{ '/hardware/assembly/feeder/camera-lamp/' | relative_url }}), whose parts and screws belong to that page rather than to the list above. C1, the bulk bucket, does not.
 - **The charcoal parts are the gear train and one bracket.** The output, idler and input gears follow the feeder colour, which is charcoal by default and yours to change on the [parts calculator](https://parts-calculator.basically.website/assembly?focus=c-channel). Of the four NEMA brackets, C1's is charcoal and C2 to C4's are ash grey.
 
 {% include step.html n="1" title="Preparation" %}
@@ -127,7 +127,7 @@ Turn the stage by hand before wiring it. The train should run without a tight sp
 
 {% include step.html n="6" title="Hang the camera lamp over the channel" %}
 
-Every channel carries a camera lamp: an arm mounted to the channel, a shaded lamp on the end of it and a camera looking down through the middle. It has its own page, [camera lamp]({{ '/hardware/assembly/feeder/camera-lamp/' | relative_url }}), and none of its screws are in the list above.
+C2, C3 and the classification channel each carry a camera lamp: an arm mounted to the channel, a shaded lamp on the end of it and a camera looking down through the middle. It has its own page, [camera lamp]({{ '/hardware/assembly/feeder/camera-lamp/' | relative_url }}), and none of its screws are in the list above. Skip this step on C1, the bulk bucket, which takes no lamp.
 
 The light post and the overhead camera mount that used to do this job were retired on 2026-09-02. Their pages are still up for machines already built that way.
 

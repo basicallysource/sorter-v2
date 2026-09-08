@@ -9967,7 +9967,7 @@
           "date": "2026-09-08",
           "message": "The fan arm and the fan were members with nothing holding them on. Both joints are now recorded, and their fasteners: 2 x M3 x 16 through the arm's foot into two M3 inserts on the mount's front edge face, and 4 x M3 x 16 self-tapping through the fan into the arm's top plate. The mount's insert count goes 4 -> 6 with the two on that face. Measured off the orange-pi-extrusion-mount and fan-bracket-40mm STLs; no part changed.",
           "breaking": false,
-          "commit": "d30e9cea"
+          "commit": null
         }
       ]
     },

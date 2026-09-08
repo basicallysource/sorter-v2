@@ -92,13 +92,13 @@ Bolt the Output gear onto the underside of the rotor with 6 {% include fastener.
 
 {% include step.html n="3" title="Fit the input gear to the motor shaft" %}
 
-The Input gear (12T, screw) has a hole through its boss, parallel to the shaft, for the {% include fastener.html size="M3" variant="countersunk" length="8" %} screw that clamps it on. The bore is plain and round, so there is nothing to key it: turn the gear until that screw lines up with the flat on the NEMA 17's shaft, push the gear all the way on, then tighten the screw down onto the flat.
+The Input gear (12T, screw) takes its {% include fastener.html size="M3" variant="countersunk" length="8" %} clamping screw **parallel to the shaft, alongside the bore**, not radially into the side of the boss. The hole runs the full length of the gear, 3.6 mm off the axis, and breaks into the Ø4.9 mm bore along the way, so the screw ends up bearing on the flat of the NEMA 17's shaft.
 
-The head drops into a counterbore in the boss. Tighten until the head is seated and the gear does not turn on the shaft, and no further, it is threading into plastic.
+The bore is plain and round, so there is nothing to key it: turn the gear until that hole lines up with the flat on the shaft, push the gear all the way on, then tighten the screw down onto the flat. The head drops into a counterbore in the toothed end face. Tighten until the head is seated and the gear does not turn on the shaft, and no further, it is threading into plastic.
 
 <figure class="single-figure">
-  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-c-channel-input-gear-on-motor-shaft-w1600-be00a0374988.jpg" alt="A black NEMA 17 stepper motor lying on its side with the small grey 12-tooth input gear pushed fully onto its shaft, the clamping screw visible in the side of the gear boss">
-  <figcaption>Pushed fully onto the shaft, clamp screw bearing on the flat. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-c-channel-input-gear-screw-hole-full-b4e56bf5b643.png" alt="Two views of the 12-tooth input gear from its toothed end: at a slight angle, and then square on. Both show the round central bore with a smaller screw hole running beside it and opening into it, and a wider counterbore recessed into the end face around them. The outside of the gear is unbroken, with no hole in the side of the boss">
+  <figcaption>Left, the toothed end at a slight angle; right, the same end square on. The screw hole runs beside the bore and opens into it, and the head seats in the counterbore around it. <cite>Rendered from the part geometry, not from a build. Render: Balloon.</cite></figcaption>
 </figure>
 
 {% include step.html n="4" title="Fit the idler gear and the stepper to the NEMA bracket" %}

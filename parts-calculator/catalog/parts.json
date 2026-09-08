@@ -6320,10 +6320,36 @@
         },
         {
           "version": "3",
+          "uid": "5tvh",
           "date": "2026-09-02",
           "message": "Renamed from Classification chamber and consolidated with the other channels: the dome and the Camera & LED insert give way to the Camera lamp with the IMX415 4K camera, and it gains the output guide. Same drive, same finned rotor.",
           "breaking": false,
-          "commit": "e22fce30"
+          "commit": "e22fce30",
+          "lines": [
+            {
+              "assembly": "c-channel",
+              "qty": 1,
+              "uid": "4tvc"
+            },
+            {
+              "assembly": "rotor-unit-finned",
+              "qty": 1,
+              "uid": "7ol7"
+            },
+            {
+              "part": "output-guide",
+              "qty": 1,
+              "uid": "z9yd"
+            },
+            {
+              "assembly": "camera-lamp",
+              "qty": 1,
+              "args": {
+                "camera": "cam-imx415"
+              },
+              "uid": "u4si"
+            }
+          ]
         },
         {
           "version": "4",
@@ -7420,10 +7446,43 @@
         },
         {
           "version": "3",
+          "uid": "jnwt",
           "date": "2026-09-02",
           "message": "The prototype supports give way to the new support structure: the shared layout guide and dovetail adapters with this channel's own legs. An old assembled channel stands on the old feet and does not fit the new layout.",
           "breaking": true,
-          "commit": "3bbea57f"
+          "commit": "3bbea57f",
+          "lines": [
+            {
+              "assembly": "channel-one-support-structure",
+              "qty": 1,
+              "uid": "z6fs"
+            },
+            {
+              "assembly": "c-channel",
+              "qty": 1,
+              "uid": "4tvc"
+            },
+            {
+              "assembly": "rotor-unit-faceted",
+              "qty": 1,
+              "uid": "ylvv"
+            },
+            {
+              "part": "output-guide",
+              "qty": 1,
+              "uid": "z9yd"
+            },
+            {
+              "assembly": "camera-lamp",
+              "qty": 1,
+              "uid": "u4si"
+            },
+            {
+              "part": "bulk-cap",
+              "qty": 1,
+              "uid": "737f"
+            }
+          ]
         },
         {
           "version": "4",
@@ -10092,6 +10151,32 @@
         }
       },
       "versions": [
+        {
+          "version": "1",
+          "uid": "pdmk",
+          "message": "As recorded before the first stamped change.",
+          "lines": [
+            {
+              "part": "camera-clasp-bottom",
+              "qty": 1,
+              "uid": "zub8"
+            },
+            {
+              "param": "camera",
+              "qty": 1
+            },
+            {
+              "part": "camera-clasp-top",
+              "qty": 1,
+              "uid": "u816"
+            },
+            {
+              "part": "scr-m3-8-cs",
+              "qty": 4,
+              "uid": "l6br"
+            }
+          ]
+        },
         {
           "version": "2",
           "date": "2026-09-08",

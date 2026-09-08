@@ -16,7 +16,7 @@ The feeder takes unsorted parts from the bulk input and, through four C-channel 
 2. **[Camera lamp]({{ '/hardware/assembly/feeder/camera-lamp/' | relative_url }})**, the arm, light and camera over a channel. One per channel.
 3. **[Classification chamber]({{ '/hardware/assembly/feeder/classification-chamber/' | relative_url }})**, where parts are imaged for classification.
 4. **[Bulk input]({{ '/hardware/assembly/feeder/bulk-input/' | relative_url }})**, the bucket and cap that feed C1.
-5. **[Output guides]({{ '/hardware/assembly/feeder/output-guides/' | relative_url }})**, the handovers between channels.
+5. **[Output guides]({{ '/hardware/assembly/feeder/output-guides/' | relative_url }})**, the walls on C2 and C3 that push parts off the channel.
 6. **[Arranging C-channels]({{ '/hardware/assembly/feeder/arranging-c-channels/' | relative_url }})**, the stand, the heights, and how the four sit together.
 
 Everything after the C-channel page is an AI-generated first draft: the parts are recorded, the steps and the photographs are not. Each page says at the top what is missing from it.

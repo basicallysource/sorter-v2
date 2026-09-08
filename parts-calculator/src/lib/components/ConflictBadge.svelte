@@ -4,7 +4,7 @@
 	// and it has not been settled against the machine yet. Hover (or tap) pops
 	// the specifics instantly: which merge recorded it, what is disputed, and
 	// what each catalog claims.
-	import Popover from '$lib/components/Popover.svelte';
+	import { Popover } from '$lib/popover';
 	import { MERGES, type CatalogConflict } from '$lib/filament';
 	import { TriangleAlert } from 'lucide-svelte';
 	let { conflicts, size = 18 }: { conflicts?: CatalogConflict[] | null; size?: number } = $props();
@@ -28,10 +28,11 @@
 </script>
 
 {#if conflicts?.length}
-	<Popover label="Unresolved catalog conflict" width="w-72">
-		{#snippet trigger({ toggle })}
+	<Popover label="Unresolved catalog conflict" width="18rem">
+		{#snippet trigger({ toggle, props })}
 			<button
 				type="button"
+				{...props}
 				class="inline-flex shrink-0 cursor-help items-center justify-center"
 				style="background: var(--color-warning); color: var(--color-warning-dark); height: {size}px; min-width: {size}px"
 				aria-label="Unresolved catalog conflict"

@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { AlertTriangle, RefreshCw, Trash2 } from 'lucide-svelte';
 	import PriorityBadge from './PriorityBadge.svelte';
-	import Popover from './Popover.svelte';
+	import { Popover } from '$lib/popover';
 	import { plannedChangesFor, type ChangePriority, type ChangeTargetKind, type PlannedChange } from '$lib/filament';
 
 	// Every open notice on one thing, collapsed into a single control. A part can
@@ -17,14 +17,12 @@
 		kind,
 		id,
 		name,
-		variant = 'badge',
-		align = 'left'
+		variant = 'badge'
 	}: {
 		kind: ChangeTargetKind;
 		id: string;
 		name: string;
 		variant?: 'badge' | 'marker';
-		align?: 'left' | 'right';
 	} = $props();
 
 	const rank = (change: PlannedChange) =>
@@ -70,20 +68,17 @@
 </script>
 
 {#if changes.length}
-	<!-- Left by default, both variants. The parts table scrolls horizontally
-	     (`.pl-scroll`), which clips an absolutely positioned panel, and a marker
-	     sits in the narrow thumbnail cell at the very left — so a right-aligned
-	     panel runs 20rem off the edge of the table and loses its first half.
-	     Opening rightwards into the table body always has room. -->
+	<!-- The panel is drawn in the floating layer, so it no longer matters that
+	     the parts table scrolls horizontally (`.pl-scroll`) or that a marker sits
+	     in the narrow thumbnail cell at the very left: it slides itself back on
+	     screen and scrolls its own overflow. The marker still has to be placed in
+	     the tile's corner, which is what the class on the root does. -->
 	<Popover
-		width="w-80"
-		{align}
+		width="20rem"
 		{label}
-		class={variant === 'marker'
-			? 'absolute -bottom-px -left-px z-10 inline-flex'
-			: 'relative inline-flex align-middle'}
+		class={variant === 'marker' ? 'absolute -bottom-px -left-px inline-flex' : 'inline-flex align-middle'}
 	>
-		{#snippet trigger({ toggle, open })}
+		{#snippet trigger({ toggle, props })}
 			{#if variant === 'marker'}
 				<button
 					type="button"
@@ -91,8 +86,8 @@
 					class:is-broken={anyBroken}
 					class:is-retired={!anyBroken && allRetired}
 					onclick={toggle}
-					aria-expanded={open}
 					aria-label={label}
+					{...props}
 				>
 					{#if !anyBroken && allRetired}<Trash2 size={11} />{:else}<AlertTriangle size={11} />{/if}
 					{#if changes.length > 1}<span class="change-marker-n">{changes.length}</span>{/if}
@@ -101,7 +96,7 @@
 				<!-- Its own chip, not a PriorityBadge: the priority palette generates a
 				     pale hue for anything past P3, and "to be removed" is a state, not a
 				     rung on the fix-this-first ladder. -->
-				<button type="button" class="retired-badge" onclick={toggle} aria-expanded={open} aria-label={label}>
+				<button type="button" class="retired-badge" onclick={toggle} aria-label={label} {...props}>
 					<Trash2 size={11} />
 					{changes.length > 1 ? `${changes.length} Notices · To Be Removed` : 'To Be Removed'}
 					· {topPriority}
@@ -112,7 +107,7 @@
 					priority={topPriority}
 					class={anyBroken ? 'uppercase tracking-wide' : ''}
 					onclick={toggle}
-					aria-expanded={open}
+					{...props}
 				>
 					{#if anyBroken}<AlertTriangle size={11} />{:else if anyRetired}<Trash2 size={11} />{:else}<RefreshCw size={11} />{/if}
 					{#if changes.length > 1}

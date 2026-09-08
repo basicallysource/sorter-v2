@@ -591,6 +591,7 @@ body {
 }
 
 .part-card-qty {
+	cursor: help;
 	position: absolute;
 	z-index: 2;
 	top: 0;
@@ -607,6 +608,7 @@ body {
    of screws (every M5 socket head is the same picture), so the length is the
    one thing the image cannot tell you apart by. */
 .part-card-len {
+	cursor: help;
 	position: absolute;
 	z-index: 2;
 	right: 0;
@@ -621,53 +623,26 @@ body {
 	border: 1px solid var(--line);
 }
 
-/* Instant popover behind every corner badge: no tooltip delay, keyboard and
-   touch reachable (badges are focusable), right-aligned so it stays inside
-   the page. */
-.part-badge {
-	cursor: help;
-}
-
-.part-badge:focus {
-	outline: none;
-}
-
-.part-badge-pop {
-	display: none;
+/* The corner badges' explanations are `Popover` / `use:tip` from
+   $lib/popover now: they were absolutely positioned inside the 108px card,
+   so a long one was clipped by the card and could be painted over by the
+   next row. The wrapper below does the placing, so the badge itself is free
+   to be a popover trigger and still look the same. */
+.part-card-corner {
 	position: absolute;
-	top: calc(100% + 4px);
+	z-index: 2;
+	display: inline-flex;
+	line-height: 0;
+}
+
+.part-card-corner-tr {
+	top: 0;
 	right: 0;
-	z-index: 30;
-	min-width: 200px;
-	max-width: 260px;
-	padding: 8px 10px;
-	font-size: 0.75rem;
-	font-weight: 400;
-	line-height: 1.45;
-	text-align: left;
-	white-space: normal;
-	color: var(--ink);
-	background: var(--bg);
-	border: 1px solid var(--line);
-	box-shadow: 0 4px 14px rgb(0 0 0 / 0.12);
 }
 
-.part-badge:hover .part-badge-pop,
-.part-badge:focus .part-badge-pop,
-.part-badge:focus-within .part-badge-pop {
-	display: block;
-}
-
-.part-badge-pop-wide {
-	min-width: 240px;
-	max-width: 300px;
-}
-
-.part-badge-pop-rule {
-	display: block;
-	margin-top: 6px;
-	padding-top: 6px;
-	border-top: 1px solid var(--line);
+/* if a card carries both markers, sit the "A" left of the "?" */
+.part-card-corner-tr + .part-card-corner-tr {
+	right: 20px;
 }
 
 .part-card-conflict svg {
@@ -679,10 +654,6 @@ body {
    calculator disagreed about this part when their catalogs were merged
    (2026-08-21) and nobody has settled it against the machine yet. */
 .part-card-conflict {
-	position: absolute;
-	z-index: 2;
-	top: 0;
-	right: 0;
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
@@ -694,11 +665,11 @@ body {
 	line-height: 1;
 	color: var(--color-warning-dark);
 	background: var(--color-warning);
+	border: 0;
 	cursor: help;
 }
 
 .parts-warn-legend .part-card-conflict {
-	position: static;
 	margin-right: 5px;
 }
 
@@ -711,10 +682,6 @@ body {
 /* Marker for a part that has an interchangeable alternative (e.g. socket vs
    button head). Same footprint as the "!" but green, "A" for alternative. */
 .part-card-alt {
-	position: absolute;
-	z-index: 2;
-	top: 0;
-	right: 0;
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
@@ -726,16 +693,11 @@ body {
 	line-height: 1;
 	color: var(--color-primary-contrast);
 	background: var(--color-success);
+	border: 0;
 	cursor: help;
 }
 
-/* if a card carries both markers, sit the "A" left of the "?" */
-.part-card-conflict + .part-card-alt {
-	right: 20px;
-}
-
 .parts-warn-legend .part-card-alt {
-	position: static;
 	margin-right: 5px;
 }
 

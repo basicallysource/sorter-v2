@@ -12,4 +12,4 @@ Usage: {% include affiliate-link.html url="https://www.amazon.com/dp/XXXX" text=
 {%- endif -%}
 {%- capture affiliate_note_entry -%}<li><a href="{{ include.url }}" target="_blank" rel="noopener">{{ include.text }}</a></li>{%- endcapture -%}
 {%- assign affiliate_notes = affiliate_notes | append: affiliate_note_entry -%}
-<span class="affiliate-link"><a href="{{ affiliate_url }}" target="_blank" rel="noopener">{{ include.text }}</a><sup class="affiliate-star"><a href="#affiliate-notes" title="Affiliate link — non-affiliate version at the bottom of the page">*</a></sup></span>{%- comment -%}{%- endcomment -%}
+<span class="affiliate-link"><a href="{{ affiliate_url }}" target="_blank" rel="noopener">{{ include.text }}</a><sup class="affiliate-star"><a href="#affiliate-notes" data-tip="Affiliate link. A non-affiliate version is at the bottom of the page.">*</a></sup></span>{%- comment -%}{%- endcomment -%}

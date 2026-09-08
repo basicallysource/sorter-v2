@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { tip } from '$lib/popover';
 	import { goto } from '$app/navigation';
 	import { Search, X } from 'lucide-svelte';
 	import Kbd from './Kbd.svelte';
@@ -188,7 +189,7 @@
 							? 'border-primary bg-primary/[0.08] text-primary'
 							: 'border-transparent text-text-muted hover:border-border hover:text-text'}"
 						aria-pressed={scope === s.id}
-						title={s.hint}
+						use:tip={s.hint}
 						onclick={() => {
 							// Picking a chip overrides a typed `#` prefix, which would
 							// otherwise silently win and make the chip look broken.

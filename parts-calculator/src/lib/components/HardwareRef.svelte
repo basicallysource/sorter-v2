@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { tip } from '$lib/popover';
 	// A fastener named in the middle of a sentence: the same head silhouette and
 	// thread-size colour the hardware list uses, in front of the same parts-list
 	// name. So "M5 × 16 mm socket/button head" in a description and the row you
@@ -14,7 +15,7 @@
 	let { hw }: { hw: Hardware } = $props();
 </script>
 
-<a class="hw-ref" href="/part/{hw.id}" title="View {hw.name} details"><HardwareIcon
+<a class="hw-ref" href="/part/{hw.id}" use:tip={`View ${hw.name} details`}><HardwareIcon
 		{hw}
 		size={13}
 	/><span class="hw-ref-name">{hw.name}</span></a>

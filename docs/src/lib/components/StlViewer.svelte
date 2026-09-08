@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { tip } from '$lib/popover';
 	import { onMount } from 'svelte';
 
 	// The 3D preview of a printed part, the same one the parts calculator shows
@@ -179,15 +180,15 @@
 				type="button"
 				class:stl-mode--on={mode === 'cad'}
 				onclick={() => (mode = 'cad')}
-				title="Shaded with feature edges, on a grey ground">CAD</button
+				use:tip={'Shaded with feature edges, on a grey ground'}>CAD</button
 			>
 			<button
 				type="button"
 				class:stl-mode--on={mode === 'shaded'}
 				onclick={() => (mode = 'shaded')}
-				title="Bare shaded surface">Shaded</button
+				use:tip={'Bare shaded surface'}>Shaded</button
 			>
-			<button type="button" onclick={() => resetView?.()} title="Frame the whole part again"
+			<button type="button" onclick={() => resetView?.()} use:tip={'Frame the whole part again'}
 				>Reset</button
 			>
 		</div>

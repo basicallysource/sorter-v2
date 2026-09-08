@@ -323,7 +323,7 @@ function expandAffiliateLinks(body: string): string {
 			notes.push(`<li><a href="${url}" target="_blank" rel="noopener">${text}</a></li>`);
 			return (
 				`<span class="affiliate-link"><a href="${tagged}" target="_blank" rel="noopener">${text}</a>` +
-				`<sup class="affiliate-star"><a href="#affiliate-notes" title="Affiliate link — non-affiliate version at the bottom of the page">*</a></sup></span>`
+				`<sup class="affiliate-star"><a href="#affiliate-notes" data-tip="Affiliate link. A non-affiliate version is at the bottom of the page.">*</a></sup></span>`
 			);
 		}
 	);

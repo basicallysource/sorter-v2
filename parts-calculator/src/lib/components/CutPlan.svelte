@@ -3,7 +3,7 @@
 	import { FRAMING_PIECES, framingQuantities, STOCK_MM, CLEARANCE_MM } from '$lib/framing';
 	import { layerStore } from '$lib/layers.svelte';
 	import { ftin, expand, packOptimal, packBundle, planGroups } from '$lib/cutplan';
-	import Popover from '$lib/components/Popover.svelte';
+	import { Popover, tip } from '$lib/popover';
 	import { framingCsv } from '$lib/parts-csv';
 	import { download, exportSpec, filename } from '$lib/csv';
 
@@ -155,7 +155,7 @@
 			<span class="inline-flex items-center gap-1 text-xs font-semibold uppercase tracking-wider text-text-muted">
 				Kerf (mm)
 				<Popover
-					width="w-64"
+					width="16rem"
 					label="What is kerf"
 					text="Kerf is the width of material the saw blade removes on each cut. The plan leaves one kerf of spacing between pieces on a bar so every piece finishes at its exact length."
 				/>
@@ -204,8 +204,8 @@
 							<span class="inline-flex items-center justify-end gap-1">
 								Cut length
 								<Popover
-									align="right"
-									width="w-72"
+									placement="bottom-end"
+									width="18rem"
 									label="Why some cut lengths differ from CAD"
 									text={`Some pieces are cut ${CLEARANCE_MM} mm shorter than their CAD length on purpose. Sawn aluminium extrusion holds looser tolerances than 3D-printed parts, so the extra ${CLEARANCE_MM} mm of clearance keeps a slightly-off frame from clamping the chute.`}
 								/>
@@ -226,7 +226,7 @@
 										{catLabel(header)}
 										{#if header === 'feeder'}
 											<Popover
-												width="w-72"
+												width="18rem"
 												label="Why a feeder piece is in the framing list"
 												text="C-channel 1 stands on three legs of the same 2020 extrusion, cut to 228 mm, so they are cut from the same bars as the frame. C-channels 2 and 3 use printed legs instead and C-channel 4 has none, so this is 3 per machine whatever the layer count."
 											/>
@@ -296,9 +296,9 @@
 			<button
 				class="inline-flex items-center gap-1 text-xs font-medium text-primary hover:text-primary-hover"
 				onclick={downloadCsv}
-				title="Exports this exact plan: {anyModified
+				use:tip={`Exports this exact plan: ${anyModified
 					? 'your edited quantities'
-					: 'the default quantities'} at {n} layers, {stock} mm bars, {kerf} mm kerf."
+					: 'the default quantities'} at ${n} layers, ${stock} mm bars, ${kerf} mm kerf.`}
 			>
 				<Download size={13} /> CSV
 				<span class="font-normal text-text-muted"

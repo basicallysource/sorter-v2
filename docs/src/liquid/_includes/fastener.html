@@ -17,6 +17,9 @@ Params:
 
 Keep the whole rendered span on one line: it sits inline in prose, and a blank
 line inside it would end the HTML block for the markdown parser.
+
+No `title`: the label is printed next to the icon, so the browser's tooltip only
+repeated what you were already reading.
 {%- endcomment -%}
 {%- case include.size -%}
   {%- when "M3" -%}{%- assign fill = "#2f6fd0" -%}
@@ -45,4 +48,4 @@ line inside it would end the HTML block for the markdown parser.
 {%- else -%}
   {%- assign label = include.size | append: " " | append: word -%}
 {%- endif -%}
-<span class="fastener" title="{{ label }}"><svg class="fastener-icon" viewBox="0 0 24 24" width="15" height="15" fill="{{ fill }}" role="img" aria-label="{{ label }} icon"><path d="{{ profile }}"/>{%- unless hollow -%}<path d="M10.5 9 h3 v13 h-3 z"/>{%- endunless -%}{{ recess }}</svg><span class="fastener-name">{{ label }}</span></span>
+<span class="fastener"><svg class="fastener-icon" viewBox="0 0 24 24" width="15" height="15" fill="{{ fill }}" role="img" aria-label="{{ label }} icon"><path d="{{ profile }}"/>{%- unless hollow -%}<path d="M10.5 9 h3 v13 h-3 z"/>{%- endunless -%}{{ recess }}</svg><span class="fastener-name">{{ label }}</span></span>

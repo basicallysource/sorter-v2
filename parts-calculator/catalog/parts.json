@@ -7471,10 +7471,38 @@
         },
         {
           "version": "4",
+          "uid": "imbu",
           "date": "2026-09-08",
           "message": "The Short and Angled Output Guide comes off C1. The Bulk cap has the original straight output guide built into it, so a separate guide has nowhere to sit and fouls the cap; 39.7 cm3 of the old guide's 54.13 cm3 lies inside the cap's solid. This restores the state before e22fce30 (#534), which gave C1 a guide when all four channels were consolidated onto one shape. sorter-v2 issue #580.",
           "breaking": false,
-          "commit": null
+          "commit": null,
+          "lines": [
+            {
+              "assembly": "channel-one-support-structure",
+              "qty": 1,
+              "uid": "z6fs"
+            },
+            {
+              "assembly": "c-channel",
+              "qty": 1,
+              "uid": "4tvc"
+            },
+            {
+              "assembly": "rotor-unit-faceted",
+              "qty": 1,
+              "uid": "ylvv"
+            },
+            {
+              "assembly": "camera-lamp",
+              "qty": 1,
+              "uid": "u4si"
+            },
+            {
+              "part": "bulk-cap",
+              "qty": 1,
+              "uid": "737f"
+            }
+          ]
         },
         {
           "version": "5",

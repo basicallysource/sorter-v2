@@ -102,6 +102,11 @@ export function applyPlacement(
 	layer.style.padding = `${inset}px`;
 	layer.style.setProperty('--pop-inset', `${inset}px`);
 
+	// Taking the height cap off below makes the card briefly not overflow, and a
+	// browser clamps a non-overflowing element's scrollTop to 0. Put it back
+	// afterwards or every reposition throws away how far down the reader was.
+	const scrolled = card.scrollTop;
+
 	// Natural size first: the constraint from the last run has to come off or
 	// the card can only ever get smaller.
 	card.style.setProperty('--pop-avail-w', '100vw');
@@ -139,6 +144,8 @@ export function applyPlacement(
 		card.style.setProperty('--pop-avail-w', `${Math.max(room[side], 140)}px`);
 		card.style.setProperty('--pop-avail-h', `${Math.max(vh - 2 * edge, 80)}px`);
 	}
+
+	if (scrolled && card.scrollTop !== scrolled) card.scrollTop = scrolled;
 
 	const box = layer.getBoundingClientRect();
 	const w = box.width;
@@ -232,8 +239,17 @@ export function autoUpdate(anchor: Element, card: Element, update: () => void): 
 		});
 	};
 
+	// A wheel inside the panel is a scroll event like any other, and it reaches
+	// this capture listener before anything else. Repositioning on it is both
+	// pointless (the anchor has not moved) and destructive, so skip our own.
+	const onScroll = (e: Event) => {
+		const t = e.target as Node | null;
+		if (t && t.nodeType === 1 && (t === card || card.contains(t))) return;
+		schedule();
+	};
+
 	const scrollOpts: AddEventListenerOptions = { passive: true, capture: true };
-	window.addEventListener('scroll', schedule, scrollOpts);
+	window.addEventListener('scroll', onScroll, scrollOpts);
 	window.addEventListener('resize', schedule, { passive: true });
 
 	// The anchor can move without a scroll (a row expanding above it), and the
@@ -244,7 +260,7 @@ export function autoUpdate(anchor: Element, card: Element, update: () => void): 
 
 	return () => {
 		if (frame) cancelAnimationFrame(frame);
-		window.removeEventListener('scroll', schedule, scrollOpts);
+		window.removeEventListener('scroll', onScroll, scrollOpts);
 		window.removeEventListener('resize', schedule);
 		ro.disconnect();
 	};

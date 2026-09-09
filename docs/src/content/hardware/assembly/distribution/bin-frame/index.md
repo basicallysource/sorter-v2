@@ -19,7 +19,7 @@ Every bin layer is the same layer. The lowest one differs only at floor level, w
   <li><strong><a href="{{ '/hardware/assembly/distribution/bin-frame/regular-layers/' | relative_url }}">Regular layers</a></strong>. Build N−1 of these, one per bin layer except the lowest.</li>
   <li><strong><a href="{{ '/hardware/assembly/distribution/bin-frame/bottom-layer/' | relative_url }}">Bottom layer</a></strong>. The remaining layer, on the foot extensions the casters mount to. Build one.</li>
   <li><strong><a href="{{ '/hardware/assembly/distribution/bin-frame/bottom-interface/' | relative_url }}">Bottom interface</a></strong>. The Lazy Susan stage. It bolts up under the bottom layer's spokes once the machine is standing, which is why it comes last rather than first.</li>
-  <li><strong><a href="{{ '/hardware/assembly/distribution/bin-frame/bin-retainers/' | relative_url }}">Bin retainers</a></strong>. The same twelve rails on every bin layer. Step 2 sends you here, once per layer.</li>
+  <li><strong><a href="{{ '/hardware/assembly/distribution/bin-frame/bin-retainers/' | relative_url }}">Bin retainers</a></strong>. The same twelve rails on every bin layer. One pass per bin layer, the bottom one included.</li>
   <li><strong><a href="{{ '/hardware/assembly/distribution/top-interface/' | relative_url }}">Top interface</a></strong>. Outside this section, but takes one of the hex frames from step 1 and caps the stack.</li>
 </ol>
 

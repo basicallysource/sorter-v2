@@ -7,6 +7,7 @@ slug: assembly-bottom-interface
 kicker: Bin frame — Bottom interface
 lede: The component the chute rests on top of.
 permalink: /hardware/assembly/distribution/bin-frame/bottom-interface/
+og_image: https://assets.basically.website/sorter-parts/bottom-interface-step4-hex-frame-overview-full-bab24577ff64.jpg
 author: spencer
 contributors: [abrianbaker, brickcyclealice, barthel, daddyosbricksbill, danny]
 warning: >-

@@ -39,6 +39,7 @@ import {
 	getAssembly,
 	getFolder,
 	hardwareImage,
+	lengthMmText,
 	plainDescription,
 	type Assembly,
 	type Hardware,
@@ -327,6 +328,8 @@ function hardwareKeywords(h: Hardware): string[] {
 		c?.size ?? '',
 		c?.variant ?? '',
 		c?.length_mm ? `${c.length_mm}mm` : '',
+		c?.length_mm ? lengthMmText(c.length_mm, '') : '',
+		c?.length_max_mm ? lengthMmText(c.length_max_mm, '') : '',
 		// The two ways people write a screw, so `m3x8` and `M3 8mm` both land.
 		c?.size && c.length_mm ? `${c.size}x${c.length_mm}` : '',
 		...(h.attributes ?? []).map((a) => `${a.label} ${a.value}`)

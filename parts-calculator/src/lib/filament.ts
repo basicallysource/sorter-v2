@@ -271,7 +271,13 @@ export type Hardware = {
 		type: string;
 		size?: string;
 		variant?: string;
+		// The length the part IS — for an item specified rather than pinned to one
+		// listing (a ribbon cable), the ideal length to buy. `length_min_mm` and
+		// `length_max_mm` bound what else still works; absent or null on either
+		// side means the ideal is the only length that does.
 		length_mm?: number;
+		length_min_mm?: number | null;
+		length_max_mm?: number | null;
 		cad_length_mm?: number;
 		letters?: string[];
 	} | null;
@@ -524,11 +530,40 @@ export function hardwareImage(h: Hardware): { src: string; shared: boolean } | n
 	return fam?.image ? { src: fam.image, shared: true } : null;
 }
 
+/** A length in the unit a person would say it in: millimetres up to a metre,
+ *  metres past it, so a 1200 mm cable reads "1.2 m" and an M3×8 stays "8mm".
+ *  `space` is the gap before the unit — dropped where the label is stamped into
+ *  a corner badge, kept in prose. */
+export function lengthMmText(mm: number, space = ' '): string {
+	return mm >= 1000 ? `${+(mm / 1000).toFixed(3)}${space}m` : `${mm}${space}mm`;
+}
+
 /** The one thing a shared family photo can't show. Null when there's no length
  *  to state (a nut, an insert) or it isn't known yet. */
 export function hardwareLengthLabel(h: Hardware): string | null {
 	const mm = h.cots?.length_mm;
-	return mm ? `${mm}mm` : null;
+	return mm ? lengthMmText(mm, '') : null;
+}
+
+/** The length to buy, and the range that still works, for an item the catalog
+ *  specifies rather than pins to one product — a ribbon cable is any cable of
+ *  roughly the right length, not the one listing somebody found in 2026.
+ *  `range` is null when only the ideal is recorded. Null overall when the part
+ *  has no length at all. */
+export function hardwareLengthSpec(h: Hardware): { ideal: string; range: string | null } | null {
+	const c = h.cots;
+	if (c?.length_mm == null) return null;
+	const min = c.length_min_mm ?? null;
+	const max = c.length_max_mm ?? null;
+	const range =
+		min != null && max != null
+			? `${lengthMmText(min)} to ${lengthMmText(max)} works`
+			: min != null
+				? `${lengthMmText(min)} or longer works`
+				: max != null
+					? `up to ${lengthMmText(max)} works`
+					: null;
+	return { ideal: lengthMmText(c.length_mm), range };
 }
 
 /** One hop on the way down to a piece of hardware. `via` names the printed part

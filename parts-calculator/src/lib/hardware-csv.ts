@@ -4,7 +4,9 @@
  * The point is that the file stands on its own: someone should be able to hand
  * it to an assistant and ask "which screw multipacks cover 90% of this?" and
  * have every fact needed to answer — thread, length, head type, counts, pack
- * sizes, prices, and where each item is used.
+ * sizes, prices, and where each item is used. `length_mm` is the ideal length;
+ * `length_min_mm`/`length_max_mm` are set on items specified as a range rather
+ * than pinned to one listing, so a substitute can be judged from the file.
  */
 import { csvText, preamble, type ExportSpec } from '$lib/csv';
 import { usagePaths, type Hardware, type Vendor } from '$lib/filament';
@@ -16,6 +18,8 @@ const COLUMNS = [
 	'type',
 	'thread',
 	'length_mm',
+	'length_min_mm',
+	'length_max_mm',
 	'head',
 	'qty_needed',
 	'qty_source',
@@ -72,6 +76,8 @@ export function hardwareCsv(
 			h.cots?.type,
 			h.cots?.size,
 			h.cots?.length_mm,
+			h.cots?.length_min_mm,
+			h.cots?.length_max_mm,
 			h.cots?.variant,
 			qty,
 			opts.qtySource(h),

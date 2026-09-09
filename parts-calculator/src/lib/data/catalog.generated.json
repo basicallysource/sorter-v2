@@ -22366,14 +22366,17 @@
 			"uid": "2iv3",
 			"kind": "cots",
 			"cots": {
-				"type": "cable"
+				"type": "cable",
+				"length_mm": 1200,
+				"length_min_mm": 1200,
+				"length_max_mm": 1500
 			},
-			"name": "IDC ribbon cable, 16-pin (2\u00d78), 1 m",
+			"name": "IDC ribbon cable, 16-pin (2\u00d78), 1.2 to 1.5 m",
 			"category": "Electronics",
 			"description": "Cable from distribution board to chute",
 			"note": null,
 			"created_at": "2026-07-18",
-			"updated_at": "2026-07-18",
+			"updated_at": "2026-09-09",
 			"attributes": [
 				{
 					"label": "Pins",
@@ -22382,14 +22385,6 @@
 				{
 					"label": "Pitch",
 					"value": "2.54 mm"
-				},
-				{
-					"label": "Length",
-					"value": "1 m"
-				},
-				{
-					"label": "Brand",
-					"value": "uxcell"
 				}
 			],
 			"sheet_qty": {
@@ -22402,11 +22397,12 @@
 					{
 						"region": "US",
 						"vendor": "Amazon",
-						"url": "https://www.amazon.com/dp/B07S2W4N9T",
-						"price": 9.99,
-						"pack_qty": 1,
-						"as_of": "2026-07-18",
-						"affiliate_url": "https://www.amazon.com/dp/B07S2W4N9T?tag=sorterv2-20"
+						"url": "https://www.amazon.com/dp/B0GJ8PP3LH",
+						"price": 11.39,
+						"pack_qty": 2,
+						"as_of": "2026-09-09",
+						"affiliate_url": "https://www.amazon.com/dp/B0GJ8PP3LH?tag=sorterv2-20",
+						"note": "1.5 m, the long end of the range. Any 16-pin FC-to-FC cable between 1.2 m and 1.5 m works."
 					}
 				]
 			},
@@ -22421,14 +22417,17 @@
 			"uid": "ncil",
 			"kind": "cots",
 			"cots": {
-				"type": "cable"
+				"type": "cable",
+				"length_mm": 300,
+				"length_min_mm": null,
+				"length_max_mm": null
 			},
 			"name": "IDC ribbon cable, 16-pin (2\u00d78), 30 cm",
 			"category": "Electronics",
 			"description": "Cable between layer and layer below",
 			"note": null,
 			"created_at": "2026-07-18",
-			"updated_at": "2026-07-18",
+			"updated_at": "2026-09-09",
 			"attributes": [
 				{
 					"label": "Pins",
@@ -22437,14 +22436,6 @@
 				{
 					"label": "Pitch",
 					"value": "2.54 mm"
-				},
-				{
-					"label": "Length",
-					"value": "30 cm"
-				},
-				{
-					"label": "Brand",
-					"value": "Antrader"
 				}
 			],
 			"sheet_qty": {

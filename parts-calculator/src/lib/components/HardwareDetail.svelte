@@ -14,6 +14,7 @@
 		getHardware,
 		getPart,
 		hardwareImage,
+		hardwareLengthSpec,
 		hardwareQtySource,
 		hardwareTotalQty,
 		JOIN_LABELS,
@@ -91,6 +92,8 @@
 	{@const qty = hardwareTotalQty(h, treeTotals, layers)}
 	{@const src = hardwareQtySource(h, treeTotals)}
 	{@const dimg = hardwareImage(h)}
+	{@const lengthSpec = hardwareLengthSpec(h)}
+	{@const hasLengthAttr = (h.attributes ?? []).some((a) => a.label === 'Length')}
 	<!-- the view owns its own padding: Modal supplies none, and the page shell is bare -->
 	<div class="p-4">
 		<div class="flex flex-col gap-4 sm:flex-row">
@@ -134,6 +137,18 @@
 						<dt class="text-text-muted">Cut into</dt>
 						<dd class="text-text">
 							{qty} × {h.stock.piece_label}
+						</dd>
+					{/if}
+					<!-- Structured length, for a part the catalog specifies rather than
+					     pins to one listing. An authored "Length" attribute wins, so
+					     screws (which state it there) are untouched. -->
+					{#if lengthSpec && !hasLengthAttr}
+						<dt class="text-text-muted">Length</dt>
+						<dd class="text-text">
+							{lengthSpec.ideal}
+							{#if lengthSpec.range}<span class="text-text-muted"
+									>— {lengthSpec.range}</span
+								>{/if}
 						</dd>
 					{/if}
 					{#each h.attributes ?? [] as a}

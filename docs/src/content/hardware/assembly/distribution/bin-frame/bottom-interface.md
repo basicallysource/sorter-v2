@@ -43,7 +43,7 @@ The bottom interface is the Lazy Susan bearing assembly the chute rests and spin
 
 <div class="prep-item">
   <div class="prep-item-body">
-    <p><strong>This assembly has no frame of its own.</strong> It hangs under the <strong>bottom layer's</strong> <a href="{{ '/hardware/assembly/distribution/bin-frame/hex-frame/' | relative_url }}">hex frame</a>, built on <a href="{{ '/hardware/assembly/distribution/bin-frame/bottom-two-layers/' | relative_url }}">bottom two layers</a>, so you don't need an extra one. Steps 4 to 8 bolt onto that frame's spokes from underneath.</p>
+    <p><strong>This assembly has no frame of its own.</strong> It hangs under the <strong>bottom layer's</strong> <a href="{{ '/hardware/assembly/distribution/bin-frame/hex-frame/' | relative_url }}">hex frame</a>, built on <a href="{{ '/hardware/assembly/distribution/bin-frame/bottom-layer/' | relative_url }}">bottom layer</a>, so you don't need an extra one. Steps 4 to 8 bolt onto that frame's spokes from underneath.</p>
   </div>
   <figure class="prep-item-figure">
     <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-hex-frame-finished-top-down-w1600-a62a42d595ca.jpg" alt="A finished hex frame from above: six B spokes and their printed crossbeams forming the inner ring inside the aluminum outer hexagon, with a printed corner bracket at each of the six vertices">
@@ -91,7 +91,7 @@ Once assembled, it mounts into the machine frame:
 
 <div class="callout callout-warning">
   <span class="callout-icon" aria-hidden="true">⚠</span>
-  <p><strong>The corners in that render are out of date.</strong> It shows an ordinary bottom vertical and cover at floor level with the caster under it. On a build, each bottom corner takes the <strong>External bracket — foot cover</strong>, and the extrusion is piece D, running down through the corner to the foot connector the caster screws into. See <a href="{{ '/hardware/assembly/distribution/bin-frame/bottom-two-layers/' | relative_url }}#step-2">bottom two layers, steps 2 to 4</a>. The Lazy Susan mounting in the middle of the render is right.</p>
+  <p><strong>The corners in that render are out of date.</strong> It shows an ordinary bottom vertical and cover at floor level with the caster under it. On a build, each bottom corner takes the <strong>External bracket — foot cover</strong>, and the extrusion is piece D, running down through the corner to the foot connector the caster screws into. See <a href="{{ '/hardware/assembly/distribution/bin-frame/bottom-layer/' | relative_url }}#step-2">bottom layer, steps 2 to 4</a>. The Lazy Susan mounting in the middle of the render is right.</p>
 </div>
 
 {% include step.html n="1" title="Preparation" %}

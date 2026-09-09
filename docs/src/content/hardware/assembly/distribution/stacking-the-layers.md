@@ -1,0 +1,99 @@
+---
+layout: default
+title: Stacking the layers
+type: how-to
+section: hardware
+slug: assembly-stacking-the-layers
+kicker: Distribution — Stacking the layers
+lede: Joining the finished layers, the chutes and the two interfaces into the tower.
+permalink: /hardware/assembly/distribution/stacking-the-layers/
+author: barthel
+contributors: [alex, brickcyclealice, zed0]
+og_image: https://assets.basically.website/sorter-docs/assembly-stacking-upside-down-interface-first-w1600-a456339eabb6.jpg
+warning: >-
+  **AI-generated first draft.** Written from the machine assembly tree in the
+  [parts calculator](https://parts-calculator.basically.website/assembly?focus=superstructure)
+  and from the layer joint drawing, not from an actual build. The build order in
+  step 1 is Alex's, from his own machine. Correct it as you build.
+parts_needed:
+  - part: scr-m5-16-shcs
+    qty: 12
+tools_needed: [Hex key]
+---
+
+Every layer of the bin frame is built flat, on its own, and none of the pages that build them says how they go together. This one does. It is the last structural step of distribution: at the end of it the tower is standing, the chutes are in it, and the two interfaces are on.
+
+**The quantity above is for one joint.** An N-layer machine has N joints, because the top interface's own frame lands on the stack the same way a layer does, so it needs 12 × N of those screws in total.
+
+<div class="prep-item">
+  <div class="prep-item-body">
+    <p><strong>Everything this page joins is built elsewhere.</strong> You need one <a href="{{ '/hardware/assembly/distribution/bin-frame/bottom-layer/' | relative_url }}">bottom layer</a>, N−1 <a href="{{ '/hardware/assembly/distribution/bin-frame/regular-layers/' | relative_url }}">regular layers</a> for an N-layer machine, a <a href="{{ '/hardware/assembly/distribution/top-interface/' | relative_url }}">top interface</a>, one <a href="{{ '/hardware/assembly/distribution/chute/' | relative_url }}">chute</a> section per layer, and a <a href="{{ '/hardware/assembly/distribution/bin-frame/bottom-interface/' | relative_url }}">bottom interface</a>.</p>
+  </div>
+  <figure class="prep-item-figure">
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-bottom-layer-finished-top-down-w1600-be3d50a60894.jpg" alt="A finished bottom bin-frame layer seen from above, standing on six casters, with an External bracket — bottom vertical capping the extrusion at each of the six corners">
+    <figcaption>A finished layer, ready to be joined to another. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+  </figure>
+</div>
+
+{% include fastener-legend.html %}
+
+{% include step.html n="1" title="Decide which way up to build" %}
+
+There are two ways to do this and the machine comes out the same either way.
+
+**Upside down**, which is how Alex built his: the top interface goes on the bench with its top plate down, then each layer is added onto it in turn, and the bottom layer with its casters goes on last. The whole stack is then turned over onto its wheels. His reason is worth the trouble: at every joint the 12 screws go in from **above**, straight down into a joint you can see, instead of overhead underneath a tower that is already taller than you.
+
+<figure class="single-figure">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-stacking-upside-down-interface-first-w1600-a456339eabb6.jpg" alt="A partly built machine standing upside down on a workbench, resting on its top plate, with the interface's vertical extrusions pointing up and a hex frame layer being added on top of them, a cordless driver on the bench beside it">
+  <figcaption>The machine part way up, built upside down: the top interface is on the bench and the layers go on above it. <cite>Photo: alex.</cite></figcaption>
+</figure>
+
+**The right way up** starts from the bottom layer on its casters and works upward, capping the stack with the top interface. It matches the order the pages are written in and needs no flip at the end, but every joint is driven overhead and the tower gets tall quickly.
+
+Whichever you pick, the joint itself is identical, and so is the order the parts go in relative to each other: **all of the frame first, then the chutes, then the bottom interface**.
+
+{% include step.html n="2" title="Join one layer to the next" %}
+
+<figure class="figure-float-right">
+  <a href="https://assets.basically.website/sorter-docs/assembly-regular-layers-layer-joint-section-full-71e3c366f4e7.png" target="_blank" rel="noopener">
+    <img src="https://assets.basically.website/sorter-docs/assembly-regular-layers-layer-joint-section-w1600-b40f8b102c10.jpg" alt="Vertical cross-section through one corner of two stacked layers, with the lower layer's extrusion and bottom-vertical tube in blue, the upper layer's bracket in purple, the two screw pairs dashed in red, and six numbered callouts">
+  </a>
+  <figcaption>One corner where any two layers meet, cut through the centre of the profile. Blue is the lower layer, purple the layer above. The numbers match the list below. Click to enlarge. <cite>Drawn from the part geometry rather than from a build, by Balloon.</cite></figcaption>
+</figure>
+
+A finished layer already carries everything that spans up to the next one: its vertical extrusion standing out of the External bracket — side, and the External bracket — bottom vertical capping that extrusion. Joining two layers is therefore only the flange joint at each of the six corners.
+
+Set the next layer down so that each External bracket — bottom vertical's flange face meets the underside of that layer's External bracket — side, and drive 2 {% include fastener.html size="M5" variant="socket-button" length="16" %} screws up through each flange into the bracket above. **That pair is the whole layer-to-layer fastening, 12 screws per joint.**
+
+The numbers on the drawing:
+
+<ol class="keyed-list">
+  <li><strong>External bracket — side and cover</strong>, the 60.5 mm collar at each frame.</li>
+  <li><strong>Piece C</strong>, 154 mm cut. It starts 3 mm above its own collar's underside and ends 3 mm below the flange face of the collar above, so it spans the whole 160 mm between one frame and the next. At the bottom joint this is piece D instead, which is the same span plus the leg.</li>
+  <li><strong>External bracket — bottom vertical</strong>, 119.6 mm of tube. It sleeves the upper part of the extrusion, so it is not visible on an assembled machine, and its foot seats on the rim of its own layer's collar. That seat is what sets the 160 mm spacing between frames.</li>
+  <li class="key-screw"><strong>The two {% include fastener.html size="M5" variant="socket-button" length="16" %} screws that join the layers</strong>, up through the flange into the bracket above. The flange has a 5.6 mm clearance hole through 8 mm of plastic and the bracket above a 4.4 mm self-tapping hole 10 mm deep, so the screw is 8 mm of clearance and 8 mm of thread, and a longer one bottoms out before it clamps.</li>
+  <li class="key-screw"><strong>The two {% include fastener.html size="M5" variant="socket-button" length="16" %} screws that clamp the bracket onto the extrusion</strong>, self-tapping through the bracket wall. The extrusion is held only here, in its own layer's bracket, and nothing screws into it from the layer above.</li>
+  <li class="key-note"><strong>Where two extrusions meet</strong>: they stop about 3 mm short of each other at the flange face and never touch.</li>
+</ol>
+
+<div class="clear-float"></div>
+
+<div class="callout">
+  <p>The joint is the same at every level, including where the first regular layer lands on the bottom layer, and where the top interface's own hex frame lands on the topmost bin layer. There is no special case anywhere in the stack.</p>
+</div>
+
+{% include step.html n="3" title="Work through the whole stack" %}
+
+Repeat step 2 until every layer is on and the [top interface]({{ '/hardware/assembly/distribution/top-interface/' | relative_url }}) is at the top of the tower. Building upside down that means starting with the interface and finishing with the bottom layer; the right way up it means the reverse.
+
+Nothing else is fastened between layers. The layers do not interlock with each other through the extrusion: the 12 screws at each joint are the only thing holding one layer to the next, which is worth knowing before you go looking for a fixing you have missed.
+
+{% include step.html n="4" title="Add the chutes, one layer at a time" %}
+
+Build the whole frame before any [chute]({{ '/hardware/assembly/distribution/chute/' | relative_url }}) goes in, then fit the chute sections one at a time, working through the stack. **Leave the funnels off** while you do this; they go on afterwards.
+
+{% include step.html n="5" title="Hang the bottom interface underneath" %}
+
+The [bottom interface]({{ '/hardware/assembly/distribution/bin-frame/bottom-interface/' | relative_url }}) is last, bolted up into 3 of the bottom layer's 6 B spokes. If you built upside down, this is the step that follows turning the machine over onto its casters.
+
+The tower is now standing and the distribution side is structurally complete. The feeder is built and added afterwards; the [Assembly]({{ '/hardware/assembly/' | relative_url }}) page carries the order for the whole machine.

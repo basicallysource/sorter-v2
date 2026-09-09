@@ -16,5 +16,5 @@ Parts arrive from the feeder already identified; the interface's rotating chute 
 
 1. **[Bin frame]({{ '/hardware/assembly/distribution/bin-frame/' | relative_url }})**. The layers of bins, each built flat and on its own.
 2. **[Top interface]({{ '/hardware/assembly/distribution/top-interface/' | relative_url }})**. The interface between the feeder and the bin tower: brackets, the rotating-chute mount, gearing, and cable routing.
-3. **[Stacking the layers]({{ '/hardware/assembly/distribution/stacking-the-layers/' | relative_url }})**. Joining the layers, the chutes and the two interfaces into the standing tower.
-4. **[Chute]({{ '/hardware/assembly/distribution/chute/' | relative_url }})**. The rotating chute that aims parts at the correct bin, including the per-layer door module. One section per layer, built before you stack and fitted during it.
+3. **[Chute]({{ '/hardware/assembly/distribution/chute/' | relative_url }})**. The rotating chute that aims parts at the correct bin, including the per-layer door module. One section per layer.
+4. **[Stacking the layers]({{ '/hardware/assembly/distribution/stacking-the-layers/' | relative_url }})**. Joining the layers, the chutes and the two interfaces into the standing tower. It comes last because the finished chute has to go in as the tower goes up.

@@ -10,10 +10,6 @@ permalink: /hardware/assembly/distribution/bin-frame/bin-retainers/
 og_image: https://assets.basically.website/sorter-docs/assembly-regular-layers-bin-retainers-installed-w1600-31bf32089e71.png
 author: barthel
 contributors: [zed0, brickcyclealice]
-warning: >-
-  **Split out of Regular layers and Bottom layer, which described this
-  twice, not yet reviewed by a builder in this form.** The step itself is
-  unchanged from those pages. Correct it as you build.
 parts_needed:
   - part: bin-retainer-left
     qty: 6
@@ -51,4 +47,6 @@ Each retainer's bore is 12.8 mm deep, so a shorter M5 reaches the extrusion face
   <figcaption>One face with its pair fastened on. <cite>Photo: zed0.</cite></figcaption>
 </figure>
 
-Twelve retainers, six pairs, and the layer is finished. [Bin frame]({{ '/hardware/assembly/distribution/bin-frame/' | relative_url }}) carries the order for the whole stack.
+Twelve retainers, six pairs, and the layer is finished.
+
+The [Bin frame]({{ '/hardware/assembly/distribution/bin-frame/' | relative_url }}) page contains the instructions for the entire stack, and is where you should return once you're done here.

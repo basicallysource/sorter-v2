@@ -7,7 +7,7 @@ slug: assembly-regular-layers
 kicker: Bin frame — Regular layers
 lede: The repeating bin layers above the base. Build N−1 for an N-layer machine.
 permalink: /hardware/assembly/distribution/bin-frame/regular-layers/
-og_image: https://assets.basically.website/sorter-docs/assembly-regular-layers-verticals-top-w1600-400576ddb1b6.png
+og_image: https://assets.basically.website/sorter-docs/assembly-regular-layers-finished-square-full-779529c4b5f5.png
 author: zed0
 contributors: [brickcyclealice, barthel]
 parts_needed:
@@ -83,8 +83,8 @@ Matching parts from the same print run are embossed with a shared set code (e.g.
 The hexagon closed, with a vertical standing in every corner under its External bracket — bottom vertical.
 
 <figure class="single-figure">
-  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-regular-layers-verticals-top-w1600-400576ddb1b6.png" alt="A finished regular layer from above: the hexagon of extrusion with its spokes and crossbeams, and a vertical support capped by an External bracket — bottom vertical standing at each of the six corners">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-regular-layers-finished-square-full-779529c4b5f5.png" alt="A finished regular layer from above: the hexagon of extrusion with its spokes and crossbeams, and a vertical support capped by an External bracket — bottom vertical standing at each of the six corners">
   <figcaption>A finished regular layer, from above. <cite>Photo: zed0.</cite></figcaption>
 </figure>
 
-The layer already carries everything that spans up to the next one, so joining it to the layer below is six flange joints and 12 screws, and it is the same joint everywhere in the machine, so it lives on its own page: **[Stacking the layers]({{ '/hardware/assembly/distribution/stacking-the-layers/' | relative_url }})**, along with which way up to build and where the chutes and the bottom interface come in.
+The [Bin frame]({{ '/hardware/assembly/distribution/bin-frame/' | relative_url }}) page contains the instructions for the entire stack, and is where you should return once you're done here.

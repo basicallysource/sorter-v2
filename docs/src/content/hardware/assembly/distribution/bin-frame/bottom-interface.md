@@ -233,8 +233,6 @@ The bearing stack is now complete:
 
 {% include step.html n="4" title="Bolt a hold in place to each mount" %}
 
-Three Lazy Susan extrusion mounts carry the bearing, bolted under alternating **B spokes of the bottom layer's frame**. Nothing already on a spoke moves. They don't hold the chute; that's the [top interface]({{ '/hardware/assembly/distribution/top-interface/' | relative_url }}).
-
 Bolt a hold in place onto each mount with one {% include fastener.html size="M5" variant="socket-button" length="16" %}, before either part touches the extrusion.
 
 <div class="img-row">

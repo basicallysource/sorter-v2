@@ -184,6 +184,13 @@ The shaft is captured at both ends once this is together, so there is only one o
   <figcaption>The holders, with their bearings in blue, going onto the ends of the shaft and down onto the race. The covers are not shown. <cite>Rendered from the parts' own geometry in assembly position, not from a build. Render: Balloon.</cite></figcaption>
 </figure>
 
+Hung this way the door has **80.5° of swing**, from 10.7° off horizontal at its flattest to 88.9° at its steepest. Both ends of that are the door meeting the race across its full width, not the holders.
+
+<figure>
+  <img class="doc-figure" src="https://assets.basically.website/sorter-parts/door-travel-limits-full-323c3b543a10.png" alt="Render of the assembled door module seen from the servo end at an angle, with the chute door drawn twice: once in grey lying almost flat, and once in orange hanging almost vertically, both pivoting on the same shaft below the bearing race">
+  <figcaption>The two ends of the door's swing, 80.5° apart. Grey is the flattest the door goes, with the plate 10.7° off horizontal; orange is the steepest, at 88.9°. The covers are not shown. <cite>Measured and rendered from the parts' own geometry, not from a build. Render: Balloon.</cite></figcaption>
+</figure>
+
 {% include step.html n="5" title="Bolt the flap assembly to the chute core" %}
 
 Six of the core's 18 inserts belong to this module. Four are used here, two in step 6:

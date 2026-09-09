@@ -101,4 +101,10 @@ A regular layer is now complete.
   </figure>
 </div>
 
-A finished layer already carries everything that spans up to the next one: piece C standing out of its External bracket — side, and the External bracket — bottom vertical capping that extrusion. Joining it to the layer below is six flange joints and 12 screws, and it is the same joint everywhere in the machine, so it lives on its own page: **[Stacking the layers]({{ '/hardware/assembly/distribution/stacking-the-layers/' | relative_url }})**, along with which way up to build and where the chutes and the bottom interface come in.
+## The finished result
+
+The hexagon closed, a vertical standing in every corner under its External bracket — bottom vertical, and twelve bin retainers on the outside.
+
+<div class="img-placeholder">Image coming: a finished regular layer, whole, from above</div>
+
+The layer already carries everything that spans up to the next one, so joining it to the layer below is six flange joints and 12 screws, and it is the same joint everywhere in the machine, so it lives on its own page: **[Stacking the layers]({{ '/hardware/assembly/distribution/stacking-the-layers/' | relative_url }})**, along with which way up to build and where the chutes and the bottom interface come in.

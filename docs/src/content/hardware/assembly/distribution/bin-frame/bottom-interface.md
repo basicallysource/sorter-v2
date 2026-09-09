@@ -297,6 +297,8 @@ Tighten both {% include fastener.html size="M5" variant="socket-button" length="
 
 Nine {% include fastener.html size="M5" variant="socket-button" length="16" %} and six {% include fastener.html size="M5" variant="t-nut" %} across all three.
 
+## The finished result
+
 <div class="img-row">
   <figure>
     <img src="https://assets.basically.website/sorter-parts/bottom-interface-step4-hex-frame-overview-full-bab24577ff64.jpg" alt="Top-down view of the assembled hexagonal layer frame with three Lazy Susan extrusion mounts fitted at alternating spokes">

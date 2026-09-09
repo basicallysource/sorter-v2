@@ -25,7 +25,7 @@ parts_needed:
 tools_needed: [Hex key]
 ---
 
-Every bin layer gets the same twelve retainers: a Bin retainer (left) and a Bin retainer (right) on the front face of each of the six A extrusions, so each of the six faces has a pair that a bin slides down between. The quantities above are **for one layer**. [Regular layers]({{ '/hardware/assembly/distribution/bin-frame/regular-layers/' | relative_url }}) and [Bottom layer]({{ '/hardware/assembly/distribution/bin-frame/bottom-layer/' | relative_url }}) both send you here.
+Every bin layer gets the same twelve retainers: a Bin retainer (left) and a Bin retainer (right) on the front face of each of the six A extrusions, so each of the six faces has a pair that a bin slides down between. The quantities above are **for one layer**. [Regular layers]({{ '/hardware/assembly/distribution/bin-frame/regular-layers/' | relative_url }}) sends you here, and every bin layer takes the same twelve, the [bottom layer]({{ '/hardware/assembly/distribution/bin-frame/bottom-layer/' | relative_url }}) included.
 
 **Do this after the layer's External bracket — covers are on.** The retainers run right out to the corners, so leave them off until the corner is finished.
 

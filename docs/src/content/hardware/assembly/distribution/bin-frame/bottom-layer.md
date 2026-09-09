@@ -68,7 +68,7 @@ Here's where the {% include fastener.html size="M5" variant="socket-button" leng
 - **12** through the External bracket — bottom vertical's outer holes onto the top of piece D, 2 per corner (step 5 below)
 - **12** holding the External bracket — foot cover on, 2 per corner (step 2 below), the same 2 the bottom vertical it replaces would have taken
 
-Two more things are not in that count and are on their own pages: the bin retainers in step 6, and the 12 screws that join the layer above to this one, which are on [Stacking the layers]({{ '/hardware/assembly/distribution/stacking-the-layers/' | relative_url }}).
+Three things are not in that count and are on their own pages: the [bin retainers]({{ '/hardware/assembly/distribution/bin-frame/bin-retainers/' | relative_url }}) this layer takes like any other, the 12 screws that join the layer above to this one ([Stacking the layers]({{ '/hardware/assembly/distribution/stacking-the-layers/' | relative_url }})), and the [bottom interface]({{ '/hardware/assembly/distribution/bin-frame/bottom-interface/' | relative_url }})'s own hardware.
 
 {% include step.html n="2" title="Close off the corners at floor level" %}
 
@@ -154,43 +154,19 @@ This is the step that turns the bottom layer into an ordinary layer as far as ev
 
 Matching parts from the same print run are embossed with a shared set code (e.g. **"b2"**) on both the External bracket — side and the External bracket — bottom vertical. Keep marked pairs together so brackets don't get mixed across corners.
 
-{% include step.html n="6" title="Add the bin retainers" %}
-
-This layer takes a full set, the same twelve every bin layer gets: **[Bin retainers]({{ '/hardware/assembly/distribution/bin-frame/bin-retainers/' | relative_url }})**, including the T-nuts they fasten into. Do it now, while the layer is still something you can turn around.
-
 ## The finished result
 
 One hexagon closed, six casters on, and every corner ending in a bottom vertical bracket ready for the next layer.
 
-<div class="img-placeholder">Image coming: the whole layer on its casters, with the bin retainers on and nothing yet fitted under the spokes</div>
+<div class="img-placeholder">Image coming: the whole layer on its casters, with nothing yet fitted under the spokes</div>
 
 ## What comes next
 
-The bottom layer is the base of the bin frame, not a finished assembly on its own. What follows is:
-
 <ol class="numbered-steps">
-  <li><strong>Stack the rest of the frame onto it.</strong> Build N−1 <a href="{{ '/hardware/assembly/distribution/bin-frame/regular-layers/' | relative_url }}">regular layers</a> for an N-layer machine, then join them, the chutes and the top interface into the tower on <a href="{{ '/hardware/assembly/distribution/stacking-the-layers/' | relative_url }}">Stacking the layers</a>.</li>
-  <li><strong>Sling the <a href="{{ '/hardware/assembly/distribution/bin-frame/bottom-interface/' | relative_url }}">bottom interface</a> underneath</strong>, bolted up into 3 of this layer's 6 B spokes. It is built and fitted on its own page: three Lazy Susan extrusion mount pairs bolt up into 3 of the 6 spokes, alternating around the ring, and the bearing sits on them. Its screws and T-nuts are on that page's parts list, not this one's, which is why they are not in the count above.</li>
+  <li>Build N−1 <a href="{{ '/hardware/assembly/distribution/bin-frame/regular-layers/' | relative_url }}">regular layers</a> for an N-layer machine.</li>
+  <li>Build the <a href="{{ '/hardware/assembly/distribution/top-interface/' | relative_url }}">top interface</a> and one <a href="{{ '/hardware/assembly/distribution/chute/' | relative_url }}">chute</a> section per layer.</li>
+  <li>Join them into the tower on <a href="{{ '/hardware/assembly/distribution/stacking-the-layers/' | relative_url }}">Stacking the layers</a>.</li>
+  <li>Hang the <a href="{{ '/hardware/assembly/distribution/bin-frame/bottom-interface/' | relative_url }}">bottom interface</a> under this layer, last of all.</li>
 </ol>
-
-<figure class="single-figure">
-  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-lazy-susan-extrusion-mount-three-views-w1600-581de80090b8.jpg" alt="Three views of the same printed part on a white background: the Lazy Susan extrusion mount with its hold in place bolted under it, a grey wedge with a triangular window through its web and counterbored slots along its bottom face">
-  <figcaption>A Lazy Susan extrusion mount with its hold in place, from three angles. Three of these pairs go under this layer. <cite>Photo: BrickCycleAlice.</cite></figcaption>
-</figure>
-
-<div class="img-row">
-  <figure>
-    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-bottom-two-layers-ls-mount-on-spoke-w1600-f2dd3fc8fe63.jpg" alt="Close-up of a Lazy Susan extrusion mount bolted onto a B spoke, the printed wedge with its triangular window sitting against the spoke's extrusion at a hex frame corner">
-    <figcaption>One mount bolted onto a B spoke. <cite>Photo: BrickCycleAlice.</cite></figcaption>
-  </figure>
-  <figure>
-    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-bottom-two-layers-ls-mounts-three-on-ring-w1600-2d730f64193b.jpg" alt="A hex frame seen from above with three Lazy Susan extrusion mounts fitted, one on each of three spokes spaced alternately around the ring">
-    <figcaption>All three on, alternating around the ring so they land on 3 of the 6 spokes. <cite>Photo: BrickCycleAlice.</cite></figcaption>
-  </figure>
-</div>
-
-<div class="callout">
-  <p>The height that comes out of this is right when a <a href="{{ '/hardware/assembly/distribution/chute/chute-core/' | relative_url }}">chute core</a> with a funnel on it, fitted onto the chute mount, puts the funnel level with the bin entrances.</p>
-</div>
 
 The [Bin frame]({{ '/hardware/assembly/distribution/bin-frame/' | relative_url }}) page carries the order for the whole stack, and is the place to go back to when you have finished here.

@@ -9,7 +9,7 @@ lede: The layer the machine stands on. A regular layer with foot extensions in p
 permalink: /hardware/assembly/distribution/bin-frame/bottom-layer/
 author: spencer
 contributors: [brickcyclealice, christoph, daddyosbricksbill, dov2000]
-og_image: https://assets.basically.website/sorter-docs/assembly-bottom-layer-finished-top-down-w1600-be3d50a60894.jpg
+og_image: https://assets.basically.website/sorter-docs/assembly-bottom-layer-corner-bracket-on-d-w1600-67bd9444f306.jpg
 warning: >-
   **AI-generated first draft.** Written from the machine assembly tree in the
   [parts calculator](https://parts-calculator.basically.website/assembly?focus=bottom-layer),
@@ -35,11 +35,6 @@ tools_needed: [Hex key, Tape measure]
 ---
 
 The bottom layer is an ordinary bin layer that also carries the machine. Its vertical extrusion is one long piece per corner instead of a layer's worth: the caster screws into the bottom of it and the layer above lands on the top of it, so the wheel has something much stiffer to push against than a single layer's vertical would be.
-
-<figure class="single-figure">
-  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-bottom-layer-finished-top-down-w1600-be3d50a60894.jpg" alt="A finished bottom bin-frame layer seen from above, standing on six casters, with an External bracket — bottom vertical capping the extrusion at each of the six corners and bin retainers on every face">
-  <figcaption>The bottom layer finished, which is what this page builds. Every corner ends in an External bracket — bottom vertical with the extrusion recessed in its socket, exactly as a regular layer does, so the next layer joins to it the ordinary way. <cite>Photo: BrickCycleAlice.</cite></figcaption>
-</figure>
 
 **Build it after a [regular layer]({{ '/hardware/assembly/distribution/bin-frame/regular-layers/' | relative_url }}), not before.** Everything here is a regular layer with three differences at floor level, so that page is the one that describes the layer and this one only covers what changes: piece D in place of piece C, an External bracket — foot cover in place of the cover and the External bracket — bottom vertical at the bottom of the corner, and the feet.
 
@@ -167,10 +162,7 @@ This layer takes a full set, the same twelve every bin layer gets: **[Bin retain
 
 One hexagon closed, six casters on, and every corner ending in a bottom vertical bracket ready for the next layer.
 
-<figure class="single-figure">
-  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-bottom-layer-finished-top-down-w1600-be3d50a60894.jpg" alt="The finished bottom layer seen from directly above, standing on its six casters, with the bin retainers on and an empty bracket socket at each corner">
-  <figcaption>The finished bottom layer from above. The six sockets at the corners are what the next layer sits on. <cite>Photo: BrickCycleAlice.</cite></figcaption>
-</figure>
+<div class="img-placeholder">Image coming: the whole layer on its casters, with the bin retainers on and nothing yet fitted under the spokes</div>
 
 ## What comes next
 

@@ -30,8 +30,8 @@ Every layer of the bin frame is built flat, on its own, and none of the pages th
     <p><strong>Everything this page joins is built elsewhere.</strong> You need one <a href="{{ '/hardware/assembly/distribution/bin-frame/bottom-layer/' | relative_url }}">bottom layer</a>, N−1 <a href="{{ '/hardware/assembly/distribution/bin-frame/regular-layers/' | relative_url }}">regular layers</a> for an N-layer machine, a <a href="{{ '/hardware/assembly/distribution/top-interface/' | relative_url }}">top interface</a>, one <a href="{{ '/hardware/assembly/distribution/chute/' | relative_url }}">chute</a> section per layer, and a <a href="{{ '/hardware/assembly/distribution/bin-frame/bottom-interface/' | relative_url }}">bottom interface</a>.</p>
   </div>
   <figure class="prep-item-figure">
-    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-bottom-layer-finished-top-down-w1600-be3d50a60894.jpg" alt="A finished bottom bin-frame layer seen from above, standing on six casters, with an External bracket — bottom vertical capping the extrusion at each of the six corners">
-    <figcaption>A finished layer, ready to be joined to another. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-bottom-layer-corner-bracket-on-d-w1600-67bd9444f306.jpg" alt="One corner of a finished layer seen close up from above: the External bracket — bottom vertical standing on the collar with the end of the extrusion recessed in its square socket">
+    <figcaption>One corner of a finished layer. The socket is what the next layer's collar lands on. <cite>Photo: BrickCycleAlice.</cite></figcaption>
   </figure>
 </div>
 

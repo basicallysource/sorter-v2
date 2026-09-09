@@ -5,7 +5,7 @@ type: how-to
 section: hardware
 slug: assembly-regular-layers
 kicker: Bin frame — Regular layers
-lede: The repeating bin layers above the base. Build N−2 for an N-layer machine.
+lede: The repeating bin layers above the base. Build N−1 for an N-layer machine.
 permalink: /hardware/assembly/distribution/bin-frame/regular-layers/
 author: zed0
 contributors: [brickcyclealice, barthel]
@@ -15,12 +15,12 @@ parts_needed:
   - part: ext-2020-c
     qty: 6
   - part: scr-m5-16-shcs
-    qty: 36
+    qty: 24
 ---
 
 Each layer holds one chute-and-bin pair (built separately) that catches pieces routed to it; a regular layer's job is simply to repeat the same hexagonal ring, vertical supports, and flange joint as the layer below it, so the stack can go as tall as the machine needs.
 
-This guide covers creating a regular layer. It's also the basis for creating the top and bottom layers, so build N−2 of these for an N-layer machine (the [bottom two layers]({{ '/hardware/assembly/distribution/bin-frame/bottom-two-layers/' | relative_url }}) are covered separately).
+This guide covers creating a regular layer, and every bin layer but the lowest one is a regular layer, so build **N−1 of these for an N-layer machine**. The [bottom layer]({{ '/hardware/assembly/distribution/bin-frame/bottom-layer/' | relative_url }}) is the remaining one: it is this layer with foot extensions in place of piece C and the casters under them, and it has its own page.
 
 <div class="prep-item">
   <div class="prep-item-body">
@@ -34,13 +34,12 @@ This guide covers creating a regular layer. It's also the basis for creating the
 
 The aluminum extrusion is cut to length; the [framing cut list](https://parts-calculator.basically.website/framing) has the exact dimensions for piece C. The bin retainers in step 2 are the only thing on this layer that takes {% include fastener.html size="M5" variant="t-nut" text="M5 T-nuts" %}, and they carry their own parts on their own page, so neither the retainers nor their fasteners are in the list above. [Fitting T-nuts]({{ '/hardware/helpers/t-nuts/' | relative_url }}) covers the nuts themselves.
 
-The 36 {% include fastener.html size="M5" variant="socket-button" length="16" %} in the list above are three pairs at each of the six corners, and nothing else on this page takes a screw:
+The 24 {% include fastener.html size="M5" variant="socket-button" length="16" %} in the list above are two pairs at each of the six corners, and nothing else on this page takes a screw:
 
 - **12** clamping the External bracket — side onto piece C, 2 per corner (step 1)
 - **12** through the External bracket — bottom vertical's outer holes onto the same extrusion, 2 per corner (step 1)
-- **12** up through that flange into the layer above, 2 per corner (step 3)
 
-The hex frame's own 12 are on [its page]({{ '/hardware/assembly/distribution/bin-frame/hex-frame/' | relative_url }}), and the bin retainers' 24 are on [theirs]({{ '/hardware/assembly/distribution/bin-frame/bin-retainers/' | relative_url }}), so a complete layer is 72.
+The hex frame's own 12 are on [its page]({{ '/hardware/assembly/distribution/bin-frame/hex-frame/' | relative_url }}), the bin retainers' 24 are on [theirs]({{ '/hardware/assembly/distribution/bin-frame/bin-retainers/' | relative_url }}), and the 12 that join this layer to the one below it are on [Stacking the layers]({{ '/hardware/assembly/distribution/stacking-the-layers/' | relative_url }}), so a complete layer, joint included, is 72.
 
 {% include fastener-legend.html %}
 
@@ -102,28 +101,6 @@ A regular layer is now complete.
   </figure>
 </div>
 
-{% include step.html n="3" title="Join the layer to the one below" %}
+## What comes next
 
-<figure class="figure-float-right">
-  <a href="https://assets.basically.website/sorter-docs/assembly-regular-layers-layer-joint-section-full-71e3c366f4e7.png" target="_blank" rel="noopener">
-    <img src="https://assets.basically.website/sorter-docs/assembly-regular-layers-layer-joint-section-w1600-b40f8b102c10.jpg" alt="Vertical cross-section through one corner of two stacked layers, with the lower layer's extrusion and bottom-vertical tube in blue, the upper layer's bracket in purple, the two screw pairs dashed in red, and six numbered callouts">
-  </a>
-  <figcaption>One corner where any two layers meet, cut through the centre of the profile. Blue is the lower layer, purple the layer above. The numbers match the list below. Click to enlarge. <cite>Drawn from the part geometry rather than from a build, by Balloon.</cite></figcaption>
-</figure>
-
-A finished layer already carries everything that spans up to the next one: piece C standing out of its External bracket — side, and the External bracket — bottom vertical capping that extrusion. Joining two layers is therefore only the flange joint at each of the six corners.
-
-Set the next layer down so that each External bracket — bottom vertical's flange face meets the underside of that layer's External bracket — side, and drive 2 {% include fastener.html size="M5" variant="socket-button" length="16" %} screws up through each flange into the bracket above. **That pair is the whole layer-to-layer fastening, 12 screws per joint.**
-
-The numbers on the drawing:
-
-<ol class="keyed-list">
-  <li><strong>External bracket — side and cover</strong>, the 60.5 mm collar at each frame.</li>
-  <li><strong>Piece C</strong>, 154 mm cut. It starts 3 mm above its own collar's underside and ends 3 mm below the flange face of the collar above, so it spans the whole 160 mm between one frame and the next.</li>
-  <li><strong>External bracket — bottom vertical</strong>, 119.6 mm of tube. It sleeves the upper part of piece C, so the extrusion is not visible on an assembled machine, and its foot seats on the rim of its own layer's collar. That seat is what sets the 160 mm spacing between frames.</li>
-  <li class="key-screw"><strong>The two {% include fastener.html size="M5" variant="socket-button" length="16" %} screws that join the layers</strong>, up through the flange into the bracket above. The flange has a 5.6 mm clearance hole through 8 mm of plastic and the bracket above a 4.4 mm self-tapping hole 10 mm deep, so the screw is 8 mm of clearance and 8 mm of thread, and a longer one bottoms out before it clamps.</li>
-  <li class="key-screw"><strong>The two {% include fastener.html size="M5" variant="socket-button" length="16" %} screws that clamp the bracket onto the extrusion</strong>, self-tapping through the bracket wall. Piece C is held only here, in its own layer's bracket, and nothing screws into it from the layer above.</li>
-  <li class="key-note"><strong>Where two pieces of C meet</strong>: they stop about 3 mm short of each other at the flange face and never touch.</li>
-</ol>
-
-Both screw pairs are drawn dashed because neither lies in the plane of the cut: the joining pair sits 20.6 mm either side of it, and the clamping pair comes in at 45° to it.
+A finished layer already carries everything that spans up to the next one: piece C standing out of its External bracket — side, and the External bracket — bottom vertical capping that extrusion. Joining it to the layer below is six flange joints and 12 screws, and it is the same joint everywhere in the machine, so it lives on its own page: **[Stacking the layers]({{ '/hardware/assembly/distribution/stacking-the-layers/' | relative_url }})**, along with which way up to build and where the chutes and the bottom interface come in.

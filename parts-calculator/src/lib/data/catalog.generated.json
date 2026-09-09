@@ -2969,7 +2969,7 @@
 			"version": "1",
 			"name": "Hex frame (bottom layer)",
 			"description": "The lowest bin layer's hexagonal frame: the same inner hex, seated in the outer hex built from foot-cover corners.",
-			"docs": "/hardware/assembly/distribution/bin-frame/bottom-two-layers/",
+			"docs": "/hardware/assembly/distribution/bin-frame/bottom-layer/",
 			"lines": [
 				{
 					"assembly": "inner-hex-frame",
@@ -2987,7 +2987,7 @@
 			"version": "2",
 			"name": "Bottom distribution layer",
 			"description": "The lowest bin layer. Identical to a distribution layer except that its frame carries foot covers instead of bracket covers and bottom verticals, and the bottom interface hangs underneath it.",
-			"docs": "/hardware/assembly/distribution/bin-frame/bottom-two-layers/",
+			"docs": "/hardware/assembly/distribution/bin-frame/bottom-layer/",
 			"lines": [
 				{
 					"assembly": "hex-frame-bottom",
@@ -22984,7 +22984,7 @@
 			},
 			"name": "Foot extension (D)",
 			"category": "Aluminum extrusion (2020)",
-			"description": "2020 aluminum extrusion, cut to 231 mm (piece D). Replaces piece C on the bottom two layers: one D per corner runs from the caster up through the bottom layer to the second, so 6 per machine.",
+			"description": "2020 aluminum extrusion, cut to 231 mm (piece D). Replaces piece C on the bottom layer: one D per corner runs from the caster up through that layer's corner to the layer above, so 6 per machine.",
 			"note": null,
 			"created_at": "2026-08-21",
 			"updated_at": "2026-09-06",

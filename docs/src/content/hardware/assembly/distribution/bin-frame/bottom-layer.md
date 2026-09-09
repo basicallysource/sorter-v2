@@ -154,6 +154,8 @@ This is the step that turns the bottom layer into an ordinary layer as far as ev
 
 Matching parts from the same print run are embossed with a shared set code (e.g. **"b2"**) on both the External bracket — side and the External bracket — bottom vertical. Keep marked pairs together so brackets don't get mixed across corners.
 
+## The finished result
+
 One hexagon closed, six casters on, and every corner ending in a bottom vertical bracket ready for the next layer.
 
 <div class="img-placeholder">Image coming: the whole layer on its casters, with nothing yet fitted under the spokes</div>

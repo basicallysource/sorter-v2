@@ -146,11 +146,6 @@ Slide the final B spoke (158mm) in from the top to close the ring, then fit the 
 
 Double-check that every Frame 90° bracket is still fully seated in its slot. A light hammer tap on each bracket, from the inside of the ring toward the outside, helps snug all the connections — use a mallet, or put a cloth between a hammer and the bracket, so you aren't striking the plastic directly.
 
-<figure class="single-figure">
-  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-hex-frame-finished-top-down-w1600-a62a42d595ca.jpg" alt="A finished hex frame from above: six B spokes and their printed crossbeams forming the inner ring inside the aluminum outer hexagon, with a printed corner bracket at each of the six vertices">
-  <figcaption><cite>Photo: BrickCycleAlice.</cite></figcaption>
-</figure>
-
 {% include step.html n="9" title="Fit the External bracket — covers" %}
 
 <div class="callout callout-warning">
@@ -165,6 +160,13 @@ This is the easy moment to do it. Once a vertical extrusion is standing in a col
 <figure class="single-figure">
   <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-hex-frame-cover-fitted-on-collar-w1600-3fea0fa812e7.jpg" alt="A hex frame corner with the cover pushed onto the External bracket side, the two closing into a round collar whose square socket is empty, no vertical extrusion standing in it">
   <figcaption>The collar closed, cover pushed on. The square socket stays empty at this stage; a vertical extrusion stands in it later, on whichever page turns this frame into a layer. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+</figure>
+
+## The finished result
+
+<figure class="single-figure">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-hex-frame-finished-top-down-w1600-a62a42d595ca.jpg" alt="A finished hex frame from above: six B spokes and their printed crossbeams forming the inner ring inside the aluminum outer hexagon, with a printed corner bracket at each of the six vertices">
+  <figcaption>A finished hex frame, from above. <cite>Photo: BrickCycleAlice.</cite></figcaption>
 </figure>
 
 A hex frame is now complete. Build as many as your machine needs (see the note at the top of this page), then move on to [Regular layers]({{ '/hardware/assembly/distribution/bin-frame/regular-layers/' | relative_url }}), [Bottom layer]({{ '/hardware/assembly/distribution/bin-frame/bottom-layer/' | relative_url }}) or [Top interface]({{ '/hardware/assembly/distribution/top-interface/' | relative_url }}) to turn one into the layer you need.

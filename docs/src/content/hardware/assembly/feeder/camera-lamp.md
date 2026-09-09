@@ -8,16 +8,17 @@ kicker: Feeder — Camera lamp
 lede: The arm, the shaded lamp and the camera that hang over a C-channel.
 permalink: /hardware/assembly/feeder/camera-lamp/
 author: reveryx
-contributors: [spencer]
+contributors: [spencer, danny]
 og_image: https://assets.basically.website/sorter-docs/camera-lamp-on-channel-w1600-8d957377d671.jpg
 warning: >-
   **AI-generated first draft, and the order of operations is a guess.** The parts, the
   joints and Spencer's photographs are real, from the [parts
   calculator](https://parts-calculator.basically.website/assembly?focus=camera-lamp); every
   hole diameter and screw count below is measured off the published STLs, and the 12 screws
-  into 6 holes in Steps 2 and 3 are confirmed by ReveryX, who has the parts. What is missing
-  is a build: nobody has written down how the arm mount attaches to the C-channel, which LED
-  strip goes on the hooks, or how any of it is wired. Fill those in as you build.
+  into 6 holes in Steps 2 and 3 are confirmed by ReveryX, who has the parts. Step 4 is
+  photographed from Danny's build. What is missing is the rest of a build: nobody has
+  written down how the arm mount attaches to the C-channel, which LED strip goes on the
+  hooks, or how any of it is wired. Fill those in as you build.
 parts_needed:
   - part: c-channel-arm-mount
     qty: 1
@@ -120,20 +121,16 @@ That is all 12 of the M3 × 12 in the parts list: 8 at the mount joint, 4 here. 
 
 {% include step.html n="4" title="Clasp the camera between the two halves" %}
 
-The camera board is held between the **Camera clasp bottom** and the **Camera clasp top**, which are both 6 mm plates that meet face to face with the board between them.
-
-The two {% include fastener.html size="M3" variant="countersunk" length="8" %} screws go **up through the bottom half into the top half**: 3.5 mm clearance with a countersink on the underside of the bottom, 2.8 mm pilot 5 mm deep in the top. The two positions are on a diagonal, 43.2 mm apart.
-
-<div class="callout callout-warning">
-  <span class="callout-icon" aria-hidden="true">⚠</span>
-  <p><b>Two screws, not four, and the length is the one thing here still worth checking.</b> The parts calculator lists 4 × M3 × 8 and flags the count as unconfirmed; there are only two screw positions in either STL. On the lengths: the bottom half is 6 mm thick, so an M3 × 8 countersunk reaches about 2 mm into the top half's 5 mm pilot, and an M3 × 10 would give 4 mm and still stop 2 mm short of the top face. Nobody has confirmed either against a build. Do not overtighten, and check the halves close flush on the board.</p>
-</div>
-
-The clasp is what carries the camera into the lamp: its two halves form a 4 mm spigot on the diagonal, which plugs into a 4.2 mm socket in the camera lamp ring. The ring has two of those sockets at the same radius; which one is intended, and whether the module is meant to come out again, is not recorded. <span class="fastener-todo">fastener not recorded</span>
+The camera board sits in the recess in the **Camera clasp top**. Put the **Camera clasp bottom** over it with the lens through the opening, and secure the two halves with 2 {% include fastener.html size="M3" variant="countersunk" length="8" %} screws. They go up through the bottom half into the top, one either side of the board, and seat flush in the countersinks.
 
 <figure class="single-figure">
-  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/camera-lamp-camera-seated-w1600-eede61656118.jpg" alt="Looking down on the top of an assembled camera lamp: the grey cover with a circular opening at its centre, the camera board seated in the clasp inside it, its lead plugged in and running off to one side">
-  <figcaption>The camera sits at the centre of the lamp, looking straight down through the reflector. <cite>Photo: Spencer.</cite></figcaption>
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/camera-clasp-board-seated-full-2c6684aef97a.jpg" alt="A camera board sitting in the square recess of a grey printed clasp half, component side up with the black cylindrical lens standing in the middle, and a screw hole in the plastic below the board">
+  <figcaption>The board in the clasp top, photographed upside down. <cite>Photo: Danny.</cite></figcaption>
+</figure>
+
+<figure class="single-figure">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/camera-clasp-closed-full-eccd71244410.jpg" alt="The second clasp half closed over the camera board, the lens standing through the square opening in it and a black countersunk screw seated flush in the plastic at the near edge">
+  <figcaption>The bottom half closed over it, one of the two screws seated. <cite>Photo: Danny.</cite></figcaption>
 </figure>
 
 {% include step.html n="5" title="Hook the LED strip onto the reflector" %}
@@ -162,11 +159,18 @@ The **Lamp outer cover** friction-fits down over the reflector, and that is the 
 
 Plug the clasped camera into the ring, then set the lamp on top. **The lamp is not fastened to the arm at all.** It sits on it under its own weight, which is how it is recorded and how it comes apart again for a print change.
 
+The clasp is what carries the camera into the lamp: its two halves form a 4 mm spigot on the diagonal, which plugs into a 4.2 mm socket in the camera lamp ring. The ring has two of those sockets at the same radius; which one is intended, and whether the module is meant to come out again, is not recorded. <span class="fastener-todo">fastener not recorded</span>
+
 Order matters here in one place only: the camera has to be in the clasp and the clasp in the ring before the cover goes over the top, because the cover closes around the clasp.
 
 <figure class="single-figure">
   <img class="doc-figure" src="https://assets.basically.website/sorter-docs/camera-lamp-render-top-full-edc4616e7088.png" alt="CAD render of the assembled camera lamp from above: the grey cover with the camera clasp and board in the central opening, a slot near the rim, and the arm coming in from the lower left">
   <figcaption>Assembled, from above. <cite>Rendered from the part geometry, not from a build. Render: Spencer.</cite></figcaption>
+</figure>
+
+<figure class="single-figure">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/camera-lamp-camera-seated-w1600-eede61656118.jpg" alt="Looking down on the top of an assembled camera lamp: the grey cover with a circular opening at its centre, the camera board seated in the clasp inside it, its lead plugged in and running off to one side">
+  <figcaption>The camera sits at the centre of the lamp, looking straight down through the reflector. <cite>Photo: Spencer.</cite></figcaption>
 </figure>
 
 {% include step.html n="8" title="Mount the arm on the C-channel" %}

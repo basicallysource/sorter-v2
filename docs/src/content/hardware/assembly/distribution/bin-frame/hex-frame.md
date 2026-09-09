@@ -153,6 +153,11 @@ Double-check that every Frame 90° bracket is still fully seated in its slot. A 
 
 {% include step.html n="9" title="Fit the External bracket — covers" %}
 
+<div class="callout callout-warning">
+  <span class="callout-icon" aria-hidden="true">⚠</span>
+  <p><strong>Building the bottom layer's frame?</strong> That one takes no External bracket — covers, so skip this step. <a href="{{ '/hardware/assembly/distribution/bin-frame/bottom-layer/' | relative_url }}">Bottom layer</a> fits it with External bracket — foot covers instead, one printed part in place of the cover and the External bracket — bottom vertical together. Every other frame takes all six, the top interface's included.</p>
+</div>
+
 Push an External bracket — cover onto each of the six External bracket — sides. It takes no fasteners of its own, it is held by the fit; the side and the cover together form the collar that a layer's vertical extrusion later stands in.
 
 This is the easy moment to do it. Once a vertical extrusion is standing in a collar, the cover is difficult to slide on past it.
@@ -161,9 +166,5 @@ This is the easy moment to do it. Once a vertical extrusion is standing in a col
   <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-hex-frame-cover-fitted-on-collar-w1600-3fea0fa812e7.jpg" alt="A hex frame corner with the cover pushed onto the External bracket side, the two closing into a round collar whose square socket is empty, no vertical extrusion standing in it">
   <figcaption>The collar closed, cover pushed on. The square socket stays empty at this stage; a vertical extrusion stands in it later, on whichever page turns this frame into a layer. <cite>Photo: BrickCycleAlice.</cite></figcaption>
 </figure>
-
-<div class="callout">
-  <p><strong>Building the bottom layer's frame?</strong> That one takes no External bracket — covers. <a href="{{ '/hardware/assembly/distribution/bin-frame/bottom-layer/' | relative_url }}">Bottom layer</a> fits it with External bracket — foot covers instead, one printed part in place of the cover and the External bracket — bottom vertical together. Every other frame takes all six, the top interface's included.</p>
-</div>
 
 A hex frame is now complete. Build as many as your machine needs (see the note at the top of this page), then move on to [Regular layers]({{ '/hardware/assembly/distribution/bin-frame/regular-layers/' | relative_url }}), [Bottom layer]({{ '/hardware/assembly/distribution/bin-frame/bottom-layer/' | relative_url }}), [Bottom interface]({{ '/hardware/assembly/distribution/bin-frame/bottom-interface/' | relative_url }}) or [Top interface]({{ '/hardware/assembly/distribution/top-interface/' | relative_url }}) to turn one into the layer you need.

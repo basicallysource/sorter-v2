@@ -3487,9 +3487,9 @@
       "name": "M3 × 35 mm flat head",
       "category": "Screws",
       "alternative": "Flat or pan head",
-      "description": "The long M3 that clamps the two cable-clamp halves together at the top interface, threading into an M3 nut in the bottom of the Cable clamp (outer).",
+      "description": "Retired 2026-09-09, no longer used by any assembly: at 35 mm this screw cleared the far face of the nut by only 0.60 mm and did not reach in practice. The cable clamp takes the M3 × 40 mm flat head (scr-m3-40-fhcs) now. Kept as an unused entry rather than deleted, because chute-stepper-gearing v1 pins this uid in its line snapshot and a minted uid has to stay resolvable (VERSIONING.md).",
       "created_at": "2026-07-18",
-      "updated_at": "2026-08-30",
+      "updated_at": "2026-09-09",
       "attributes": [
         {
           "label": "Thread",
@@ -3503,7 +3503,40 @@
           "label": "Head",
           "value": "Flat (pancake) head, hex socket. Pan head works too."
         }
-      ]
+      ],
+      "note": "Do not add a new joint to this entry. Reported 2026-09-09: with the ribbon cable in the clamp the 35 mm screw would not pick up the nut. The stack under the head is 32.00 mm to the nut pocket floor and 34.40 mm through the nut, so 35 mm carried 0.60 mm of margin. See scr-m3-40-fhcs for the measurements."
+    },
+    {
+      "id": "scr-m3-40-fhcs",
+      "uid": "ucgw",
+      "kind": "cots",
+      "cots": {
+        "type": "screw",
+        "size": "M3",
+        "variant": "flat",
+        "length_mm": 40
+      },
+      "name": "M3 × 40 mm flat head",
+      "category": "Screws",
+      "alternative": "Flat or pan head",
+      "description": "The long M3 that clamps the two cable-clamp halves together at the top interface, threading into an M3 nut in the pocket in the Cable clamp (outer).",
+      "created_at": "2026-09-09",
+      "updated_at": "2026-09-09",
+      "attributes": [
+        {
+          "label": "Thread",
+          "value": "M3"
+        },
+        {
+          "label": "Length",
+          "value": "40 mm"
+        },
+        {
+          "label": "Head",
+          "value": "Flat (pancake) head, hex socket. Pan head works too."
+        }
+      ],
+      "note": "Was M3 × 35 mm (scr-m3-35-bhcs) until 2026-09-09. Measured off the two clamp masters in their shared export frame: the screw bears on the flat underside of the Cable clamp (inner) at Z 204.62 and the floor of the nut pocket in the Cable clamp (outer) is at Z 236.62, so the stack under the head is 32.00 mm, and 34.40 mm is needed to come through a 2.4 mm nut sitting on that floor. 35 mm left 0.60 mm of margin, inside the combined tolerance of the screw, the nut and the print. The pocket is a hex 5.70 mm across flats and 8.00 mm deep, so at 40 mm the screw spans the whole pocket and picks the nut up wherever it is sitting; the chute mount leaves a Ø6.4 mm relief 8.5 mm deep above it, so the tip cannot foul."
     },
     {
       "id": "scr-m4-6-cs",
@@ -6239,8 +6272,8 @@
     },
     {
       "id": "cable-clamp",
-      "uid": "e0p9",
-      "version": "1",
+      "uid": "rwaw",
+      "version": "2",
       "name": "Cable clamp",
       "description": "Inner + outer ribbon cable clamp; the two halves clamp together around the cable and the pair bolts to the top interface chute mount.",
       "docs": "/hardware/assembly/distribution/top-interface/",
@@ -6254,12 +6287,21 @@
           "qty": 1
         },
         {
-          "part": "scr-m3-35-bhcs",
+          "part": "scr-m3-40-fhcs",
           "qty": 1
         },
         {
           "part": "nut-m3",
           "qty": 1
+        }
+      ],
+      "versions": [
+        {
+          "version": "2",
+          "date": "2026-09-09",
+          "message": "M3 × 35 mm flat head replaced by M3 × 40 mm flat head. The stack under the screw head is 32.00 mm to the floor of the nut pocket in the outer clamp and 34.40 mm through the nut, so 35 mm carried 0.60 mm of margin and builders could not pick the nut up. 40 mm spans the 8.00 mm pocket.",
+          "breaking": false,
+          "commit": null
         }
       ]
     },

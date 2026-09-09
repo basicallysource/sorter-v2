@@ -94,7 +94,7 @@ parts_needed:
     qty: 2
   - part: scr-m3-20-cs
     qty: 1
-  - part: scr-m3-35-bhcs
+  - part: scr-m3-40-fhcs
     qty: 1
   - part: scr-m4-12-cs
     qty: 8
@@ -638,7 +638,7 @@ Guide the rest of the ribbon cable around the side of the Top interface chute mo
 
 Screw the Ribbon cable clamp lightly to the Cable cage bracket (cable mount) with one {% include fastener.html size="M3" variant="socket-button" length="10" %} screw, clamping the ribbon cable between the two.
 
-Check that the chute can rotate fully to the limit switch in both directions, then tighten the Ribbon cable clamp screw. Use a long {% include fastener.html size="M3" variant="flat" length="35" %} screw through the Cable clamp (inner) into the {% include fastener.html size="M3" variant="nut" %} in the bottom of the Cable clamp (outer) to secure that end.
+Check that the chute can rotate fully to the limit switch in both directions, then tighten the Ribbon cable clamp screw. Use a long {% include fastener.html size="M3" variant="flat" length="40" %} screw through the Cable clamp (inner) into the {% include fastener.html size="M3" variant="nut" %} in the bottom of the Cable clamp (outer) to secure that end.
 
 {% include step.html n="12" title="Attach the cable cage bottom" %}
 

@@ -630,6 +630,11 @@ Screw the remaining Cable cage brackets to the other 5 corners of the Cable cage
 
 Place an {% include fastener.html size="M3" variant="nut" %} into the bottom of the Cable clamp (outer) (the video skips this), then push it into the recess in the Top interface chute mount. Fasten it with two {% include fastener.html size="M3" variant="socket-button" length="10" %} screws.
 
+<div class="callout callout-warning">
+  <span class="callout-icon" aria-hidden="true">⚠</span>
+  <p>The nut is not captive. It drops into a hex pocket 5.7 mm across flats and 8 mm deep, and nothing holds it in until the clamp is pushed into the recess and the chute mount closes the pocket off. Check it is lying flat on the floor of the pocket, and keep that face upwards while you mount the clamp. If it falls out, or ends up skewed part-way up the pocket, the long screw later in this step has nothing to start on, and you cannot get at it once the clamp is bolted down. <cite>Reported by Daddy-O's Bricks - Bill.</cite></p>
+</div>
+
 Rotate the chute until it hits the limit switch.
 
 Fold your IDC ribbon cable around the Cable clamp (inner), following the guides on the clamp. Slide the cable and clamp together into the Cable clamp (outer), leaving a significant tail to connect to the chute.

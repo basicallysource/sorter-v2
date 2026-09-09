@@ -162,11 +162,4 @@ One hexagon closed, six casters on, and every corner ending in a bottom vertical
 
 ## What comes next
 
-<ol class="numbered-steps">
-  <li>Build N−1 <a href="{{ '/hardware/assembly/distribution/bin-frame/regular-layers/' | relative_url }}">regular layers</a> for an N-layer machine.</li>
-  <li>Build the <a href="{{ '/hardware/assembly/distribution/top-interface/' | relative_url }}">top interface</a> and one <a href="{{ '/hardware/assembly/distribution/chute/' | relative_url }}">chute</a> section per layer.</li>
-  <li>Join them into the tower on <a href="{{ '/hardware/assembly/distribution/stacking-the-layers/' | relative_url }}">Stacking the layers</a>.</li>
-  <li>Hang the <a href="{{ '/hardware/assembly/distribution/bin-frame/bottom-interface/' | relative_url }}">bottom interface</a> under this layer, last of all.</li>
-</ol>
-
 The [Bin frame]({{ '/hardware/assembly/distribution/bin-frame/' | relative_url }}) page carries the order for the whole stack, and is the place to go back to when you have finished here.

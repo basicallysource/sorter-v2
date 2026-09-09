@@ -10,10 +10,7 @@ permalink: /hardware/assembly/distribution/bin-frame/bottom-interface/
 og_image: https://assets.basically.website/sorter-parts/bottom-interface-step4-hex-frame-overview-full-bab24577ff64.jpg
 author: spencer
 contributors: [abrianbaker, brickcyclealice, barthel, daddyosbricksbill, danny]
-warning: >-
-  **Steps 1-3 have not been checked against a machine.** Steps 4 to 8, where
-  this assembly mounts, were corrected from builds by Daddy-O's Bricks - Bill
-  and Danny. Correct the rest as you go.
+last_verified: 2026-09-09
 parts_needed:
   - part: brg-lazy-susan
     qty: 1

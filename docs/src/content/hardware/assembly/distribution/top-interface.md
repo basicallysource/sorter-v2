@@ -727,3 +727,5 @@ The top interface is now complete.
   <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-top-interface-framing-4-full-b9ae16940954.jpg" alt="The completed top interface: the hexagonal top plate on its framed leg structure with the chute opening in the centre">
   <figcaption>The finished interface, seen from above with the top plate on. <cite>Photo: zed0.</cite></figcaption>
 </figure>
+
+It goes onto the top of the bin frame on [Stacking the layers]({{ '/hardware/assembly/distribution/stacking-the-layers/' | relative_url }}), which is also where the chutes and the bottom interface come in.

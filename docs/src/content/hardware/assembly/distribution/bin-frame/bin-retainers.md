@@ -47,3 +47,5 @@ The T-nuts specified for the machine are the roll-in kind, so they go into the s
 On each side of the hexagon, hold both the Bin retainer (left) and the Bin retainer (right) against the front face of A (Hex outer horizontal). The rib along the back of each one drops into the extrusion's slot and sets the height for you; the hook at the top sits on the top face of the extrusion. Fasten each retainer with 2 {% include fastener.html size="M5" variant="socket-button" length="16" %} screws into the T-nuts.
 
 Each retainer's bore is 12.8 mm deep, so a shorter M5 reaches the extrusion face with nothing left to bite in the T-nut. Use a socket head rather than a button head here: the flat the head lands on stops 4.1 mm below the hole, which a button head overhangs, and a washer will not sit flat on it at all.
+
+Twelve retainers, six pairs, and the layer is finished. Go back to [Regular layers]({{ '/hardware/assembly/distribution/bin-frame/regular-layers/' | relative_url }}) for the rest of it, or to [Bin frame]({{ '/hardware/assembly/distribution/bin-frame/' | relative_url }}) for the order of the whole stack.

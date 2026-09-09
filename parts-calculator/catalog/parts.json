@@ -6297,6 +6297,33 @@
       ],
       "versions": [
         {
+          "version": "1",
+          "uid": "e0p9",
+          "message": "As recorded before the first stamped change.",
+          "lines": [
+            {
+              "part": "cable-clamp-inner",
+              "qty": 1,
+              "uid": "3fue"
+            },
+            {
+              "part": "cable-clamp-outer",
+              "qty": 1,
+              "uid": "50dv"
+            },
+            {
+              "part": "scr-m3-35-bhcs",
+              "qty": 1,
+              "uid": "38vn"
+            },
+            {
+              "part": "nut-m3",
+              "qty": 1,
+              "uid": "sc1c"
+            }
+          ]
+        },
+        {
           "version": "2",
           "date": "2026-09-09",
           "message": "M3 × 35 mm flat head replaced by M3 × 40 mm flat head. The stack under the screw head is 32.00 mm to the floor of the nut pocket in the outer clamp and 34.40 mm through the nut, so 35 mm carried 0.60 mm of margin and builders could not pick the nut up. 40 mm spans the 8.00 mm pocket.",

@@ -170,4 +170,4 @@ This is the easy moment to do it. Once a vertical extrusion is standing in a col
   <figcaption>A finished hex frame, from above. <cite>Photo: BrickCycleAlice.</cite></figcaption>
 </figure>
 
-A hex frame is now complete. Build as many as your machine needs (see the note at the top of this page), then move on to [Regular layers]({{ '/hardware/assembly/distribution/bin-frame/regular-layers/' | relative_url }}), [Bottom layer]({{ '/hardware/assembly/distribution/bin-frame/bottom-layer/' | relative_url }}) or [Top interface]({{ '/hardware/assembly/distribution/top-interface/' | relative_url }}) to turn one into the layer you need.
+The [Bin frame]({{ '/hardware/assembly/distribution/bin-frame/' | relative_url }}) page contains the instructions for the entire stack, and is where you should return once you're done here.

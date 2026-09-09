@@ -160,4 +160,4 @@ One hexagon closed, six casters on, and every corner ending in a bottom vertical
 
 <div class="img-placeholder">Image coming: the whole layer on its casters, with nothing yet fitted under the spokes</div>
 
-The [Bin frame]({{ '/hardware/assembly/distribution/bin-frame/' | relative_url }}) page carries the order for the whole stack, and is the place to go back to when you have finished here.
+The [Bin frame]({{ '/hardware/assembly/distribution/bin-frame/' | relative_url }}) page contains the instructions for the entire stack, and is where you should return once you're done here.

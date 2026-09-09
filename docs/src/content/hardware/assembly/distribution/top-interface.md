@@ -728,4 +728,4 @@ The top interface is now complete.
   <figcaption>The finished interface, seen from above with the top plate on. <cite>Photo: zed0.</cite></figcaption>
 </figure>
 
-It goes onto the top of the bin frame on [Stacking the layers]({{ '/hardware/assembly/distribution/stacking-the-layers/' | relative_url }}), which is also where the chutes and the bottom interface come in.
+The [Bin frame]({{ '/hardware/assembly/distribution/bin-frame/' | relative_url }}) page contains the instructions for the entire stack, and is where you should return once you're done here.

@@ -7,6 +7,7 @@ slug: assembly-hex-frame
 kicker: Bin frame — Build the hex frame
 lede: The hexagonal aluminum-and-bracket ring shared by every layer. Build one per planned layer, plus one for the top interface.
 permalink: /hardware/assembly/distribution/bin-frame/hex-frame/
+og_image: https://assets.basically.website/sorter-docs/assembly-hex-frame-finished-top-down-w1600-a62a42d595ca.jpg
 author: barthel
 contributors: [brickcyclealice, zed0]
 parts_needed:

@@ -7,6 +7,7 @@ slug: assembly-bin-retainers
 kicker: Bin frame — Bin retainers
 lede: The pair of rails on each face of a layer that a bin slides into. Same on every bin layer.
 permalink: /hardware/assembly/distribution/bin-frame/bin-retainers/
+og_image: https://assets.basically.website/sorter-docs/assembly-regular-layers-bin-retainers-installed-w1600-31bf32089e71.png
 author: barthel
 contributors: [zed0, brickcyclealice]
 warning: >-
@@ -25,7 +26,7 @@ parts_needed:
 tools_needed: [Hex key]
 ---
 
-Every bin layer gets the same twelve retainers: a Bin retainer (left) and a Bin retainer (right) on the front face of each of the six A extrusions, so each of the six faces has a pair that a bin slides down between. The quantities above are **for one layer**. [Regular layers]({{ '/hardware/assembly/distribution/bin-frame/regular-layers/' | relative_url }}) sends you here, and every bin layer takes the same twelve, the [bottom layer]({{ '/hardware/assembly/distribution/bin-frame/bottom-layer/' | relative_url }}) included.
+Every bin layer gets the same twelve retainers: a Bin retainer (left) and a Bin retainer (right) on the front face of each of the six A extrusions, so each of the six faces has a pair that a bin slides down between. The quantities above are **for one layer**. Every bin layer takes the same twelve, the [bottom layer]({{ '/hardware/assembly/distribution/bin-frame/bottom-layer/' | relative_url }}) included, so this page runs once per layer.
 
 **Do this after the layer's External bracket — covers are on.** The retainers run right out to the corners, so leave them off until the corner is finished.
 
@@ -50,4 +51,4 @@ Each retainer's bore is 12.8 mm deep, so a shorter M5 reaches the extrusion face
   <figcaption>One face with its pair fastened on. <cite>Photo: zed0.</cite></figcaption>
 </figure>
 
-Twelve retainers, six pairs, and the layer is finished. Go back to [Regular layers]({{ '/hardware/assembly/distribution/bin-frame/regular-layers/' | relative_url }}) for the rest of it, or to [Bin frame]({{ '/hardware/assembly/distribution/bin-frame/' | relative_url }}) for the order of the whole stack.
+Twelve retainers, six pairs, and the layer is finished. [Bin frame]({{ '/hardware/assembly/distribution/bin-frame/' | relative_url }}) carries the order for the whole stack.

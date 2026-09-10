@@ -49,7 +49,7 @@ The overhead camera mount is a pair of 3/8 in steel rods clamped to a [C-channel
 
 The fasteners and quantities in the parts list come from the parts registry and are called out inline at each step. **The list above is one arm's worth**, and the machine takes 2, so 4 rod mounts and 4 rod pieces in total.
 
-The camera these carry is the **OV9732 720p module**, which the parts registry lists as the C-channel and drop plate detection camera. The 4K IMX415 is a different camera and belongs to the [classification chamber]({{ '/hardware/assembly/feeder/classification-chamber/' | relative_url }}).
+The camera these carry is the **OV9732 720p module**, which the parts registry lists as the C-channel and drop plate detection camera. The 4K IMX415 is a different camera and belongs to the classification channel.
 
 {% include fastener-legend.html %}
 

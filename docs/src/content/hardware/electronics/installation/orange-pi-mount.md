@@ -9,6 +9,7 @@ lede: The Orange Pi 5 standing off its mount, the 40 mm fan on its arm above it,
 permalink: /hardware/electronics/installation/orange-pi-mount/
 author: barthel
 contributors: [spencer]
+og_image: https://assets.basically.website/sorter-parts/orange-pi-mount-v1-render-full-d5893e241c96.png
 warning: >-
   **AI-generated first draft.** Written from the machine assembly tree in the [parts
   calculator](https://parts-calculator.basically.website/assembly?focus=orange-pi-mount), not
@@ -42,6 +43,11 @@ The fasteners and quantities in the parts list come from the parts calculator an
 {% include fastener-legend.html %}
 
 One per machine. Which Orange Pi 5 to buy, how much RAM and storage it needs, the WiFi module, the USB hub and cooling are all on the [Orange Pi 5]({{ '/hardware/orange-pi-5/' | relative_url }}) page. This page is only about bolting it to the machine, and it is close to the [control board housing]({{ '/hardware/electronics/installation/control-board-housing/' | relative_url }}): 6 inserts, 4 standoffs, 4 M3 screws under the Pi, a printed arm holding the 40 mm fan over it on 6 more, and 2 M5 into the frame.
+
+<figure class="single-figure">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-parts/orange-pi-mount-v1-render-full-d5893e241c96.png" alt="Onshape render of the two printed parts of the Orange Pi mount: the blue plate with its rectangular cutout and corner screw holes, and the grey fan arm standing on its front edge, reaching back over the plate with the round fan opening in its top">
+  <figcaption>The two printed parts: the plate the Pi stands off (blue) and the fan arm over it (grey). The Pi, the standoffs and the fan are not shown. <cite>Rendered from the part geometry, not from a build. Render: Spencer.</cite></figcaption>
+</figure>
 
 {% include step.html n="1" title="Preparation" %}
 

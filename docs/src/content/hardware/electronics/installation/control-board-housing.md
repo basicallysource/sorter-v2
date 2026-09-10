@@ -98,6 +98,19 @@ The plunger lands on the board's reset button, so the button can be pressed with
   </figure>
 </div>
 
+What that buys you is easier to see in section, once the cover is on: the plunger stands proud of the lid, the retainer holds it in the slot, and its foot sits over the button on the board.
+
+<div class="img-row">
+  <figure>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-parts/ctrl-board-housing-assembly-render-full-6f4acadd3ffc.png" alt="Onshape render of the control board housing, closed, standing on a length of 2020 extrusion, with the honeycomb fan vent and the square plunger head in the cover">
+    <figcaption>The housing closed. <cite>Rendered from the part geometry, not from a build. Render: Spencer.</cite></figcaption>
+  </figure>
+  <figure>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-parts/ctrl-board-housing-plunger-section-full-a5319da2b902.png" alt="Section through the closed housing at the plunger: the plunger passes down through the cover, the retainer holds it in the slot, and its foot stands over the reset button on the board below">
+    <figcaption>The same housing cut at the plunger: through the cover, held by the retainer, standing over the board. <cite>Rendered from the part geometry, not from a build. Render: Spencer.</cite></figcaption>
+  </figure>
+</div>
+
 {% include step.html n="5" title="Plug the fan into a GPIO-controlled port" %}
 
 Disconnect the board from its 24 V supply before wiring the fan or bridging the jumper. The fan runs off one of the board's four LED ports (24 V switched to ground by a Pico-driven MOSFET) — red wire goes to +V.

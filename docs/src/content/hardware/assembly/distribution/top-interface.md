@@ -644,6 +644,11 @@ Guide the rest of the ribbon cable around the side of the Top interface chute mo
 
 Screw the Ribbon cable clamp lightly to the Cable cage bracket (cable mount) with one {% include fastener.html size="M3" variant="socket-button" length="10" %} screw, clamping the ribbon cable between the two.
 
+<figure class="single-figure">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-parts/spencer-image2-full-adb0f1993da6.png" alt="Onshape render of the cable-mount cage bracket (teal) with the ribbon cable clamp (purple) bolted to its post, one M3 hole visible through both">
+  <figcaption>The clamp (purple) on the bracket's post (teal), and the one M3 that goes through both. The ribbon cable is not shown. <cite>Rendered from the part geometry, not from a build. Render: Spencer.</cite></figcaption>
+</figure>
+
 Check that the chute can rotate fully to the limit switch in both directions, then tighten the Ribbon cable clamp screw. Use a long {% include fastener.html size="M3" variant="flat" length="40" %} screw through the Cable clamp (inner) into the {% include fastener.html size="M3" variant="nut" %} in the bottom of the Cable clamp (outer) to secure that end.
 
 {% include step.html n="12" title="Attach the cable cage bottom" %}

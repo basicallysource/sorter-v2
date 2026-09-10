@@ -6144,28 +6144,6 @@
           "note": "The cap just sits on the adapter."
         }
       ],
-      "images": [
-        {
-          "url": "https://assets.basically.website/sorter-parts/light-post-assembled-full-2b59e7e84bdb.jpg",
-          "alt": "A finished light post on the bench: the black printed post with the 50 mm COB plate on its end, and the red and black leads running out of the post to a DC barrel plug",
-          "caption": "The light post, assembled."
-        },
-        {
-          "url": "https://assets.basically.website/sorter-parts/light-post-top-cap-off-full-d076a7bff4a1.jpg",
-          "alt": "The end of the post with the cap off: the aluminium back of the COB plate with the black cap adapter on it, three countersunk screws going down through both into the post, and the leads coming up through the centre hole",
-          "caption": "Cap off: the adapter and its three M3 × 12 through the plate into the post."
-        },
-        {
-          "url": "https://assets.basically.website/sorter-parts/light-post-led-side-full-428b89ff9243.jpg",
-          "alt": "The LED side of the COB plate, close up: the post's forked end holds the plate at its centre, with the leads passing through the centre hole",
-          "caption": "LED side: the post's forked end at the plate's centre."
-        },
-        {
-          "url": "https://assets.basically.website/sorter-parts/light-post-led-side-centre-full-b25b6589047d.jpg",
-          "alt": "The LED side of the COB plate straight on: the post's forked end at the centre with the leads leaving through it",
-          "caption": "LED side, straight on."
-        }
-      ],
       "versions": [
         {
           "version": "1",
@@ -6715,13 +6693,6 @@
           "qty": 1,
           "method": "insert",
           "note": "Single M3 into the bracket's heat-set insert. The clamp's lip hooks under the post's underside (raised in v2, sorter-v2 #403) to stop the clamp rotating on the single screw."
-        }
-      ],
-      "images": [
-        {
-          "url": "https://assets.basically.website/sorter-parts/spencer-image2-full-adb0f1993da6.png",
-          "alt": "Onshape render of the cable-mount cage bracket (teal) with the ribbon cable clamp (purple) bolted to its post, one M3 hole visible through both",
-          "caption": "The cable-mount bracket and ribbon clamp, assembled."
         }
       ]
     },
@@ -9869,18 +9840,6 @@
           "note": "The fan's four [[hw:scr-m3-12-bhcs]] cut their own threads in the cover; no inserts there."
         }
       ],
-      "images": [
-        {
-          "url": "https://assets.basically.website/sorter-parts/ctrl-board-housing-assembly-render-full-6f4acadd3ffc.png",
-          "alt": "Onshape render of the control board housing, closed",
-          "caption": "The housing closed, from Onshape: fan vent and plunger in the cover."
-        },
-        {
-          "url": "https://assets.basically.website/sorter-parts/ctrl-board-housing-plunger-section-full-a5319da2b902.png",
-          "alt": "Section through the housing at the plunger",
-          "caption": "Section at the plunger: through the cover, held by the retainer (blue), over the board."
-        }
-      ],
       "versions": [
         {
           "version": "1",
@@ -10011,13 +9970,6 @@
           "thread_mm": 12,
           "draft": true,
           "note": "The fan sits on the flat top face of the arm over its 38 mm opening, on the standard 32 x 32 mm pattern. The four 2.50 mm pilots run right through the 12.0 mm plate; the screws cut their own thread in it, no inserts. Measured off the STL, not from a build."
-        }
-      ],
-      "images": [
-        {
-          "url": "https://assets.basically.website/sorter-parts/orange-pi-mount-v1-render-full-d5893e241c96.png",
-          "alt": "Onshape render of the Orange Pi's v1 extrusion mount and fan bracket",
-          "caption": "The v1 mounting, from Onshape: the board's plate (blue) and the shared fan bracket (grey)."
         }
       ],
       "versions": [

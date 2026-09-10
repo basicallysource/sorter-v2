@@ -48,7 +48,7 @@ Steps below refer to the channels by the names the software uses, in the order a
 - **C1**, the bulk channel, under the [bulk input]({{ '/hardware/assembly/feeder/bulk-input/' | relative_url }}). Highest.
 - **C2**, with a [camera lamp]({{ '/hardware/assembly/feeder/camera-lamp/' | relative_url }}).
 - **C3**, the same again, and the last metering stage.
-- **The classification channel**, which images the part before it drops into the chute. Lowest.
+- **The classification channel**, inside the [classification chamber]({{ '/hardware/assembly/feeder/classification-chamber/' | relative_url }}), which images the part before it drops into the chute. Lowest.
 
 {% include step.html n="1" title="Preparation" %}
 

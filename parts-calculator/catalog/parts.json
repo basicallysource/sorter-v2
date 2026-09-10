@@ -9377,10 +9377,33 @@
         },
         {
           "version": "2",
+          "uid": "7ol7",
           "date": "2026-09-01",
           "message": "The output gear's 6806 bearing is a line of its own with its press fit as a connection (was the gear's requires).",
           "breaking": false,
-          "commit": "441d9114"
+          "commit": "441d9114",
+          "lines": [
+            {
+              "part": "rotor-finned",
+              "qty": 1,
+              "uid": "brsr"
+            },
+            {
+              "part": "output-gear",
+              "qty": 1,
+              "uid": "26ek"
+            },
+            {
+              "part": "brg-6806-2rs",
+              "qty": 1,
+              "uid": "elxe"
+            },
+            {
+              "part": "scr-m3-12-cs",
+              "qty": 6,
+              "uid": "0a9x"
+            }
+          ]
         },
         {
           "version": "3",

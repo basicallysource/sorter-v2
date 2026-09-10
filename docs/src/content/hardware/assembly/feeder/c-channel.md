@@ -121,8 +121,8 @@ Then fasten the NEMA 17 to the bracket with 3 {% include fastener.html size="M3"
 </figure>
 
 <figure class="single-figure">
-  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-c-channel-step4-mounting-face-w1600-5f972ded599d.jpg" alt="Close view of the mounting face on a large grey printed part, two countersunk screws driven at the edge with further mounting holes beside them">
-  <figcaption>Closer on the mounting face, two screws home. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-c-channel-step4-mounting-face-w1600-5f972ded599d.jpg" alt="Close view of the grey NEMA bracket, two countersunk screws driven near the edge with further mounting holes beside them">
+  <figcaption>Closer on the NEMA bracket, two screws home. <cite>Photo: BrickCycleAlice.</cite></figcaption>
 </figure>
 
 {% include step.html n="5" title="Mount the stator, then drop in the rotor" %}

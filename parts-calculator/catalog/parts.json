@@ -1829,7 +1829,7 @@
       "id": "rotor-finned",
       "uid": "brsr",
       "name": "Rotor (finned)",
-      "description": "Finned rotor on the classification chamber. Ash grey. 1 needed. Its centre bore is open, and the Rotor cap fits it.",
+      "description": "Finned rotor on the classification chamber. Ash grey. 1 needed.",
       "internal_notes": "File '01_c_channel - Rotor - with fins.stl'. Ash grey since the C-channel overhaul (2026-09-02); it was white before that. 1x. On the classification chamber.",
       "version": "1",
       "created_at": "2026-06-27",
@@ -1854,10 +1854,12 @@
       "internal_notes": "Retrofit. Applies to the faceted rotor v1 (its centre was open until 2026-09-02) and to the finned rotor, whose bore is still open in the current STL. Whether C4's finned rotor is meant to carry one is not settled anywhere, so quantities are empty rather than guessed. Geometry is Spencer's 'camera_lamp_-_rotor_cap_00.stl', posted 2026-09-09; measured 28.64 mm flange x 23.0 mm tall, spigot 25.0 mm x 20 mm, barrelled (radius 12.28 -> 12.50 -> 12.44) for a friction fit, flange 3 mm.",
       "version": "1",
       "created_at": "2026-09-10",
-      "quantities": {},
+      "quantities": {
+        "classification-channel": 1
+      },
       "assembly": null,
       "stl_hash": "ab6f4ad846ff0045771fa73efd901b6a2623002cd15c50d2282c1157abef55f2",
-      "optional": true,
+      "optional": false,
       "support": false,
       "onshape": "https://cad.onshape.com/documents/60aa51fc61d18f2155b99910/w/95f28d157e2e06c115b488fe/e/5bf04274a6c68015096bd757"
     },
@@ -9299,8 +9301,8 @@
     },
     {
       "id": "rotor-unit-finned",
-      "uid": "7ol7",
-      "version": "2",
+      "uid": "ufmf",
+      "version": "3",
       "name": "Rotor unit (finned)",
       "description": "The finned rotor with the Output gear (130T) bolted on. Assembled once as a unit; the classification channel's C-channel drive spins it.",
       "docs": "/hardware/assembly/feeder/c-channel/",
@@ -9320,6 +9322,10 @@
         {
           "part": "scr-m3-12-cs",
           "qty": 6
+        },
+        {
+          "part": "rotor-cap",
+          "qty": 1
         }
       ],
       "connections": [
@@ -9336,6 +9342,12 @@
           "qty": 6,
           "method": "self-tap",
           "note": "One per spoke. Same joint as the faceted rotor unit."
+        },
+        {
+          "from": "rotor-cap",
+          "to": "rotor-finned",
+          "qty": 1,
+          "method": "friction"
         }
       ],
       "versions": [
@@ -9365,10 +9377,40 @@
         },
         {
           "version": "2",
+          "uid": "7ol7",
           "date": "2026-09-01",
           "message": "The output gear's 6806 bearing is a line of its own with its press fit as a connection (was the gear's requires).",
           "breaking": false,
-          "commit": "441d9114"
+          "commit": "441d9114",
+          "lines": [
+            {
+              "part": "rotor-finned",
+              "qty": 1,
+              "uid": "brsr"
+            },
+            {
+              "part": "output-gear",
+              "qty": 1,
+              "uid": "26ek"
+            },
+            {
+              "part": "brg-6806-2rs",
+              "qty": 1,
+              "uid": "elxe"
+            },
+            {
+              "part": "scr-m3-12-cs",
+              "qty": 6,
+              "uid": "0a9x"
+            }
+          ]
+        },
+        {
+          "version": "3",
+          "date": "2026-09-10",
+          "message": "The Rotor cap is a member: the finned rotor's centre bore is open, and the cap is a friction fit into it. Asked for by barthel, who has the unit in front of him.",
+          "breaking": false,
+          "commit": null
         }
       ]
     },

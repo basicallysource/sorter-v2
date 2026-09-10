@@ -252,6 +252,11 @@ Snug all four down before tightening any of them, then cycle the door by hand th
 
 The servo-side and flap-side plates clamp the MG995 Servo Horn between them. The horn ships with the servo, it isn't printed. Drop the horn into the servo-side half **splined sleeve first**: the sleeve sits in the hole in the middle of that half and the two arms lie in the slot around it. It does not fit any other way. Bring the flap-side half down over it and drive 4 {% include fastener.html size="M3" variant="countersunk" length="8" %} screws through the flap side (it's the half with the visible screw holes) into the servo side. The screws cut their own thread in the printed plastic.
 
+<div class="callout">
+  <span class="callout-icon" aria-hidden="true">💡</span>
+  <p>The four screw holes are not spaced evenly around the centre. They sit on a 15 mm radius but the gaps between them alternate 84° and 96°, so the flap side only drops on in two of the four quarter turns. Line all four holes up by eye before you press the halves together, rather than finding out on the third screw. <cite>Tip: BrickCycleAlice.</cite></p>
+</div>
+
 <div class="img-row">
   <figure>
     <img class="doc-figure" src="https://assets.basically.website/sorter-parts/mg995-servo-horn-sleeve-right-full-7518b1e88254.png" alt="The MG995 Servo Horn, a two-arm splined servo arm that ships with the servo, with its splined sleeve facing to the right">

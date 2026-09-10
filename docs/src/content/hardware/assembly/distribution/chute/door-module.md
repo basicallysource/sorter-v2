@@ -202,6 +202,22 @@ The shaft is captured at both ends once this is together, so there is only one o
 2. **Lay the race along the back of the shaft**, on the opposite side from the flap, and bolt each holder down onto its end of it: 2 {% include fastener.html size="M3" variant="countersunk" length="8" %} per holder, 4 in total, into the race's four inserts. The holder seats flat against the race's end. The race arches over the shaft with about 0.5 mm of clearance and never touches it; if it does touch, something is not seated.
 3. **Put a cover on each holder**, 3 {% include fastener.html size="M3" variant="countersunk" length="8" %} each, 6 in total, into the three inserts pressed in step 1. The cover's raised rim, 5.00 mm tall, drops into the pocket on top of the bearing and clamps it against the step: if a bearing has not gone fully home against its lip, its cover will not pull flat. Each cover has **two further holes that stay empty here** — they take the screws that hold the flap assembly to the chute core in step 5.
 
+<div class="callout callout-warning">
+  <span class="callout-icon" aria-hidden="true">⚠</span>
+  <p><strong>Check the race is the right way round before any of this is bolted up.</strong> The shaft sits high on the door's axis and the race's step tucks down and under it, so laid together correctly the race and the door read as one flat plane. If they look like a flight of stairs, the race is round the wrong way. Getting it wrong is a lot of screws to undo. <cite>Tip: BrickCycleAlice.</cite></p>
+</div>
+
+<div class="img-row">
+  <figure>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-door-module-door-and-race-apart-w1600-a1c66c18ef8b.jpg" alt="The printed chute door lying beside the bearing race before assembly, the door's shaft running along its top edge with the hexagonal spigot at one end, and the race's stepped profile facing the shaft">
+    <figcaption>The two parts before they go together, and the orientation to get right: the race's step goes down and under the shaft. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+  </figure>
+  <figure>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-door-module-door-race-flat-plane-w1600-e407f399bfbc.jpg" alt="The door and race sighted along their length from the hexagonal end of the shaft, the top of the race and the top of the door lying in one continuous flat plane">
+    <figcaption>Right way round, sighted along the joint: one flat plane across both, no step to walk up. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+  </figure>
+</div>
+
 <figure>
   <img class="doc-figure" src="https://assets.basically.website/sorter-parts/bearing-assembly-blue-full-1cb33257bd5a.png" alt="Two renders, one above the other: on top the chute door with its shaft, the bearing race over the shaft, and the two bearing holders drawn out along the shaft with a blue bearing in each; below, the same parts pushed together so the holders sit on the ends of the race">
   <figcaption>The holders, with their bearings in blue, going onto the ends of the shaft and down onto the race. The covers are not shown. <cite>Rendered from the parts' own geometry in assembly position, not from a build. Render: Balloon.</cite></figcaption>

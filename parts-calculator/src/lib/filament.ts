@@ -777,27 +777,36 @@ export function getAssembly(id: string | null): Assembly | undefined {
 	return id ? assemblyById.get(id) : undefined;
 }
 
-/** Assembly descriptions name a fastener as `[[hw:<id>]]` rather than spelling
- *  out "M5×16", so a mention in prose and the row you actually buy from are the
- *  same thing: same parts-list name, same head symbol, same thread colour, same
- *  "A" tag. */
-const HW_REF = /\[\[hw:([a-z0-9-]+)\]\]/g;
+/** Catalog prose names a fastener as `[[hw:<id>]]` and a printed part as
+ *  `[[part:<id>]]` rather than spelling either out, so a mention in a sentence
+ *  and the thing itself are one item: the fastener keeps its parts-list name,
+ *  head symbol and thread colour, and the part becomes a link to its page.
+ *  Used in descriptions and in version messages, which is where one part points
+ *  at another — a cap that plugs the hole an older revision of a rotor has. */
+const REF = /\[\[(hw|part):([a-z0-9-]+)\]\]/g;
 
 export type DescriptionSegment =
 	| { kind: 'text'; text: string }
-	| { kind: 'hw'; hw: Hardware };
+	| { kind: 'hw'; hw: Hardware }
+	| { kind: 'part'; part: Part };
 
-/** A description split into plain runs and the hardware it names, in order. */
+/** A description split into plain runs and the things it names, in order. */
 export function descriptionSegments(text: string): DescriptionSegment[] {
 	const out: DescriptionSegment[] = [];
 	let cut = 0;
-	for (const m of text.matchAll(HW_REF)) {
+	for (const m of text.matchAll(REF)) {
 		if (m.index > cut) out.push({ kind: 'text', text: text.slice(cut, m.index) });
-		const hw = getHardware(m[1]);
 		// An id that resolves to nothing stays on the page as its raw token. The
 		// slicer rejects those before they ship, and a token that vanished
 		// silently would leave a sentence missing its subject with nothing to see.
-		out.push(hw ? { kind: 'hw', hw } : { kind: 'text', text: m[0] });
+		const named = m[1] === 'hw' ? getHardware(m[2]) : getPart(m[2]);
+		out.push(
+			!named
+				? { kind: 'text', text: m[0] }
+				: m[1] === 'hw'
+					? { kind: 'hw', hw: named as Hardware }
+					: { kind: 'part', part: named as Part }
+		);
 		cut = m.index + m[0].length;
 	}
 	if (cut < text.length) out.push({ kind: 'text', text: text.slice(cut) });
@@ -807,7 +816,9 @@ export function descriptionSegments(text: string): DescriptionSegment[] {
 /** The same text flattened to names, for the places that can only hold a plain
  *  string — a `title` tooltip, a CSV cell. */
 export function plainDescription(text: string): string {
-	return text.replace(HW_REF, (raw, id: string) => getHardware(id)?.name ?? raw);
+	return text.replace(REF, (raw, kind: string, id: string) =>
+		(kind === 'hw' ? getHardware(id)?.name : getPart(id)?.name) ?? raw
+	);
 }
 
 export function getFolder(id: string | null): Folder | undefined {

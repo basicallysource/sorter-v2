@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { ArrowLeft, CalendarClock, Download, FlaskConical, History, Info, Plus, RefreshCw } from 'lucide-svelte';
 	import Badge from '$lib/components/Badge.svelte';
+	import CatalogText from '$lib/components/CatalogText.svelte';
 	import ChangeStatus from '$lib/components/ChangeStatus.svelte';
 	import PartDetailModal from '$lib/components/PartDetailModal.svelte';
 	import Seo from '$lib/components/Seo.svelte';
@@ -147,7 +148,7 @@
 							{#if commitUrl(v.commit)}
 								<a href={commitUrl(v.commit)} target="_blank" rel="noopener" class="text-primary hover:text-primary-hover">{v.commit}</a>
 							{/if}
-							<span class="block">{v.message}</span>
+							<CatalogText as="span" text={v.message} class="block" />
 						</li>
 					{/each}
 				</ul>
@@ -304,7 +305,7 @@
 									<span class="text-xs text-text-muted">{fmtDate(c.candidate.created_at)}</span>
 									{#if c.candidate.superseded_by}<Badge variant="neutral"><History size={11} /> Superseded</Badge>{/if}
 								</div>
-								<p class="mt-1 text-xs leading-relaxed text-text-muted">{c.candidate.message}</p>
+								<CatalogText text={c.candidate.message} class="mt-1 text-xs leading-relaxed text-text-muted" />
 							</div>
 							<div class="shrink-0">
 								<a href={c.candidate.stl} download class="setup-button-secondary inline-flex h-8 items-center gap-1.5 px-3 text-xs font-semibold" title="Download the candidate STL"><Download size={14} /> STL</a>

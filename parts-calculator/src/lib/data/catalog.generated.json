@@ -5486,7 +5486,7 @@
 				{
 					"version": "1",
 					"uid": "9v9q",
-					"message": "Open center hole, as recorded before the first stamped change. The Rotor cap plugs that hole, for anyone who printed a rotor to this version and would rather not print it again.",
+					"message": "Open center hole, as recorded before the first stamped change. [[part:rotor-cap]] plugs that hole, for anyone who printed a rotor to this version and would rather not print it again.",
 					"stl_hash": "350de3f8e27e7d0bb1f00d2c070c7f255da73987c9b2d86f639664c5db81bfd6",
 					"render": "https://assets.basically.website/sorter-parts/rotor-faceted-v1-full-52fba49e5abb.png",
 					"stl": "https://assets.basically.website/sorter-parts/rotor-faceted-350de3f8e27e.stl",

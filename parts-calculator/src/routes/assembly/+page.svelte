@@ -18,7 +18,7 @@
 	import DropdownMenu from '$lib/components/DropdownMenu.svelte';
 	import AlternativeBadge from '$lib/components/AlternativeBadge.svelte';
 	import ConflictBadge from '$lib/components/ConflictBadge.svelte';
-	import AssemblyDescription from '$lib/components/AssemblyDescription.svelte';
+	import CatalogText from '$lib/components/CatalogText.svelte';
 	import Badge from '$lib/components/Badge.svelte';
 	import LayerControl from '$lib/components/LayerControl.svelte';
 	import PartDetailModal from '$lib/components/PartDetailModal.svelte';
@@ -854,7 +854,7 @@
 	{#each list ?? [] as j (j.method)}
 		<div class="mt-1 flex max-w-2xl flex-wrap items-baseline gap-x-2">
 			<Badge variant="warning"><Zap size={10} />{JOIN_LABELS[j.method]}</Badge>
-			{#if j.note}<AssemblyDescription text={j.note} as="span" class="text-xs text-text-muted" />{/if}
+			{#if j.note}<CatalogText text={j.note} as="span" class="text-xs text-text-muted" />{/if}
 		</div>
 	{/each}
 {/snippet}
@@ -1129,7 +1129,7 @@
 				</div>
 			{/if}
 			{#if root || open}
-				{#if rec.description}<AssemblyDescription text={rec.description} class="mt-1 max-w-2xl text-xs text-text-muted" />{/if}
+				{#if rec.description}<CatalogText text={rec.description} class="mt-1 max-w-2xl text-xs text-text-muted" />{/if}
 				{#if rec.images?.length}<div class="mt-2"><ImageStrip images={rec.images} /></div>{/if}
 				{@render joiningRows(rec.joining)}
 				<div class="relative" style={fGutter ? `padding-right: ${fGutter}px` : undefined}>
@@ -1185,7 +1185,7 @@
 				{#if entry?.uid}<span class="font-mono">{entry.uid}</span>{/if}
 				<button type="button" class="ml-auto font-medium underline underline-offset-2" onclick={() => delete shownVersion[asm.id]}>back to v{cur}</button>
 			</div>
-			{#if entry?.message}<AssemblyDescription text={entry.message} class="mt-1 max-w-2xl text-xs text-text-muted" />{/if}
+			{#if entry?.message}<CatalogText text={entry.message} class="mt-1 max-w-2xl text-xs text-text-muted" />{/if}
 			{#if typeof snap === 'object' && snap.assemblies[asm.id]}
 				{@render eraNode(snap, asm.id, mult, true, instArgs)}
 			{:else if snap === 'loading'}
@@ -1579,7 +1579,7 @@
 						<span class="text-xs text-text-muted">· {fmtDate(c.created_at)}</span>
 						{#if retired}<span class="border border-border px-1.5 py-px text-[10px] font-semibold uppercase tracking-wider text-text-muted">{c.rejected_at ? 'rejected' : 'superseded'}</span>{/if}
 					</div>
-					<AssemblyDescription text={c.message} class="mt-0.5 max-w-2xl text-xs text-text-muted" />
+					<CatalogText text={c.message} class="mt-0.5 max-w-2xl text-xs text-text-muted" />
 					{#if c.images?.length}<div class="mt-2"><ImageStrip images={c.images} /></div>{/if}
 					{@render joiningRows(c.joining)}
 					<p class="mt-1 text-xs italic text-text-muted/70">An alternative bill of materials under test — not part of the build and not in the totals.</p>

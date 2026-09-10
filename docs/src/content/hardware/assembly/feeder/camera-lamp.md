@@ -163,7 +163,30 @@ Six **Inner reflector LED hooks** friction-fit into the rim of the **Lamp inner 
 
 **How much strip, measured off the reflector.** The strip sits against the inner face of the reflector's outer skirt, which is 147 mm across and about 18 mm tall, so one turn around it is **462 mm**. The photograph below shows two turns side by side in that skirt, which puts a lamp at roughly **0.92 m** and a three-lamp machine at about **2.8 m**. The strip in the parts calculator is a 24 V daylight-white 6000 K COB strip sold as a 5 m roll, one roll per machine, which covers all three.
 
-**Not recorded:** which strip is actually on the lamps in these photographs, how it is joined and how it is wired back to the board. None of that is in the catalog, and the strip is not a line in the lamp's parts list. What the photograph shows is strip run in a ring around the inside of the reflector, retained by the hooks, with the leads coming out and down the arm. Spencer said on 2026-09-06 that the strips run at 24 V off the LED headers on the basically board.
+**Fitting it.** Two turns, and **950 mm** on the build photographed here.
+
+1. Peel the blue film off the first stretch of the strip and start it under one of the hooks, adhesive against the inside of the skirt.
+2. Work it round the skirt until you are back where you started. That is one turn.
+3. Drop down to the next clips and go round again for the second turn, peeling the film as you go.
+
+The bare wires at the starting end are trimmed later, when the drop to the board is made up. Only the first strip has them: the other two lamps take plain cut lengths off the roll.
+
+<div class="img-row">
+  <figure>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-camera-lamp-strip-start-w1600-3d30eeb9a913.jpg" alt="The white reflector with the leading end of the LED strip started under the hooks in its skirt, the rest of the strip still carrying its blue protective film">
+    <figcaption>Starting it, film peeled back only as far as needed. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+  </figure>
+  <figure>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-camera-lamp-strip-first-turn-w1600-101009ec515a.jpg" alt="The strip run once around the inside of the reflector skirt, back at its starting point, with the blue film being peeled off the length still to go">
+    <figcaption>One turn round, peeling as you go. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+  </figure>
+  <figure>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-camera-lamp-strip-second-turn-w1600-e7a417c98b26.jpg" alt="Both turns of strip in the skirt, one above the other, film gone, with the red and black leads leaving the reflector at one side">
+    <figcaption>Second turn in, on the next clips down, leads out at one side. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+  </figure>
+</div>
+
+**Still open:** how the strip is joined and wired back from here. The strip is not a line in the lamp's parts list, and the drop to the board is its own job. Spencer said on 2026-09-06 that the strips run at 24 V off the LED headers on the basically board.
 
 <figure class="single-figure">
   <img class="doc-figure" src="https://assets.basically.website/sorter-docs/camera-lamp-lit-from-below-w1600-bb9d54f4f43e.jpg" alt="The lamp lit, photographed from underneath: a ring of LED strip glowing around the outside of the white reflector, the reflector's central funnel in the middle, and the arm behind it">

@@ -125,11 +125,11 @@ One more sub-assembly goes together here, before the step that uses it, and it t
 
 <div class="prep-item">
   <div class="prep-item-body">
-    <p><strong>The two 6704-2RS bearings:</strong> one into the <strong>bearing holder (left)</strong>, one into the <strong>bearing holder (right)</strong>. There is no wrong way round. Push each one square to the bottom of the bore.</p>
+    <p><strong>The two 6704-2RS bearings:</strong> one into the <strong>bearing holder (left)</strong>, one into the <strong>bearing holder (right)</strong>. There is no wrong way round. Push each one square into the bore until it stops. <strong>Home is not the bottom of the pocket:</strong> the bearing comes up against a small lip inside the bore and sits proud of the floor, so stop when it stops rather than pushing for flush.</p>
   </div>
   <figure class="prep-item-figure">
-    <img class="doc-figure" src="https://assets.basically.website/sorter-parts/bearing-into-holder-blue-full-8cb4f2b8771b.png" alt="Two renders of the left bearing holder, one above the other: on top a 6704-2RS bearing, coloured blue, lined up with the mouth of the holder's bore, below it the same blue bearing pushed down to the bottom of the pocket">
-    <figcaption>Lined up with the bore, then seated at the bottom of it. The left holder is shown; the right one takes its bearing the same way. <cite>The bearing is coloured blue to pick it out. Rendered from the holder's own geometry, not from a build. Render: Balloon.</cite></figcaption>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-door-module-bearings-in-holders-w1600-180e121b8951.jpg" alt="Both printed bearing holders with a 6704-2RS bearing pushed into each bore, a ring of printed plastic still visible around the bearing's outer race, and three brass heat inserts around each face">
+    <figcaption>Both holders with their bearings pushed home. The ring of plastic still showing around each bearing is the lip it has stopped against. <cite>Photo: BrickCycleAlice.</cite></figcaption>
   </figure>
 </div>
 
@@ -171,7 +171,7 @@ The shaft is captured at both ends once this is together, so there is only one o
 
 1. **Slide a holder onto each end of the shaft**, bearings already seated. The bearing's Ø20 bore takes the Ø19.8 shaft, and the holder's own Ø21.0 mm hole clears the shaft by 0.6 mm all round, so neither should need forcing.
 2. **Lay the race along the back of the shaft**, on the opposite side from the flap, and bolt each holder down onto its end of it: 2 {% include fastener.html size="M3" variant="countersunk" length="8" %} per holder, 4 in total, into the race's four inserts. The holder seats flat against the race's end. The race arches over the shaft with about 0.5 mm of clearance and never touches it; if it does touch, something is not seated.
-3. **Put a cover on each holder**, 3 {% include fastener.html size="M3" variant="countersunk" length="8" %} each, 6 in total, into the three inserts pressed in step 1. The cover's raised rim, 5.00 mm tall, drops into the pocket on top of the bearing and clamps it against the step: if a bearing is not all the way down, its cover will not pull flat. Each cover has **two further holes that stay empty here** — they take the screws that hold the flap assembly to the chute core in step 5.
+3. **Put a cover on each holder**, 3 {% include fastener.html size="M3" variant="countersunk" length="8" %} each, 6 in total, into the three inserts pressed in step 1. The cover's raised rim, 5.00 mm tall, drops into the pocket on top of the bearing and clamps it against the step: if a bearing has not gone fully home against its lip, its cover will not pull flat. Each cover has **two further holes that stay empty here** — they take the screws that hold the flap assembly to the chute core in step 5.
 
 <figure>
   <img class="doc-figure" src="https://assets.basically.website/sorter-parts/bearing-assembly-blue-full-1cb33257bd5a.png" alt="Two renders, one above the other: on top the chute door with its shaft, the bearing race over the shaft, and the two bearing holders drawn out along the shaft with a blue bearing in each; below, the same parts pushed together so the holders sit on the ends of the race">

@@ -3547,8 +3547,7 @@
           "label": "Head",
           "value": "Flat (pancake) head, hex socket. Pan head works too."
         }
-      ],
-      "note": "Was M3 × 35 mm (scr-m3-35-bhcs) until 2026-09-09. Measured off the two clamp masters in their shared export frame: the screw bears on the flat underside of the Cable clamp (inner) at Z 204.62 and the floor of the nut pocket in the Cable clamp (outer) is at Z 236.62, so the stack under the head is 32.00 mm, and 34.40 mm is needed to come through a 2.4 mm nut sitting on that floor. 35 mm left 0.60 mm of margin, inside the combined tolerance of the screw, the nut and the print. The pocket is a hex 5.70 mm across flats and 8.00 mm deep, so at 40 mm the screw spans the whole pocket and picks the nut up wherever it is sitting; the chute mount leaves a Ø6.4 mm relief 8.5 mm deep above it, so the tip cannot foul."
+      ]
     },
     {
       "id": "scr-m4-6-cs",

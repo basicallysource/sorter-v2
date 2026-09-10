@@ -12,8 +12,8 @@
 		"cost_per_kg": 24.99,
 		"commit_base_url": "https://github.com/basicallysource/sorter-v2/commit/",
 		"engrave": "33d9fa246b1a",
-		"all_parts_zip": "https://assets.basically.website/sorter-parts/all-parts-3d5c310456fa.zip",
-		"all_parts_plain_zip": "https://assets.basically.website/sorter-parts/all-parts-plain-17642cc81389.zip"
+		"all_parts_zip": "https://assets.basically.website/sorter-parts/all-parts-944e236993fb.zip",
+		"all_parts_plain_zip": "https://assets.basically.website/sorter-parts/all-parts-plain-060ec035b0d2.zip"
 	},
 	"sections": [
 		{
@@ -3830,8 +3830,8 @@
 		},
 		{
 			"id": "rotor-unit-finned",
-			"uid": "7ol7",
-			"version": "2",
+			"uid": "ufmf",
+			"version": "3",
 			"name": "Rotor unit (finned)",
 			"description": "The finned rotor with the Output gear (130T) bolted on. Assembled once as a unit; the classification channel's C-channel drive spins it.",
 			"docs": "/hardware/assembly/feeder/c-channel/",
@@ -3851,6 +3851,10 @@
 				{
 					"part": "scr-m3-12-cs",
 					"qty": 6
+				},
+				{
+					"part": "rotor-cap",
+					"qty": 1
 				}
 			],
 			"connections": [
@@ -3867,6 +3871,12 @@
 					"qty": 6,
 					"method": "self-tap",
 					"note": "One per spoke. Same joint as the faceted rotor unit."
+				},
+				{
+					"from": "rotor-cap",
+					"to": "rotor-finned",
+					"qty": 1,
+					"method": "friction"
 				}
 			],
 			"versions": [
@@ -3900,7 +3910,37 @@
 					"date": "2026-09-01",
 					"message": "The output gear's 6806 bearing is a line of its own with its press fit as a connection (was the gear's requires).",
 					"breaking": false,
-					"commit": "441d9114"
+					"commit": "441d9114",
+					"lines": [
+						{
+							"part": "rotor-finned",
+							"qty": 1,
+							"uid": "brsr"
+						},
+						{
+							"part": "output-gear",
+							"qty": 1,
+							"uid": "26ek"
+						},
+						{
+							"part": "brg-6806-2rs",
+							"qty": 1,
+							"uid": "elxe"
+						},
+						{
+							"part": "scr-m3-12-cs",
+							"qty": 6,
+							"uid": "0a9x"
+						}
+					]
+				},
+				{
+					"version": "3",
+					"uid": "ufmf",
+					"date": "2026-09-10",
+					"message": "The Rotor cap is a member: the finned rotor's centre bore is open, and the cap is a friction fit into it. Asked for by barthel, who has the unit in front of him.",
+					"breaking": false,
+					"commit": null
 				}
 			]
 		},
@@ -5446,7 +5486,7 @@
 				{
 					"version": "1",
 					"uid": "9v9q",
-					"message": "Open center hole, as recorded before the first stamped change. The Rotor cap plugs that hole, for anyone who printed a rotor to this version and would rather not print it again.",
+					"message": "Open center hole, as recorded before the first stamped change. [[part:rotor-cap]] plugs that hole, for anyone who printed a rotor to this version and would rather not print it again.",
 					"stl_hash": "350de3f8e27e7d0bb1f00d2c070c7f255da73987c9b2d86f639664c5db81bfd6",
 					"render": "https://assets.basically.website/sorter-parts/rotor-faceted-v1-full-52fba49e5abb.png",
 					"stl": "https://assets.basically.website/sorter-parts/rotor-faceted-350de3f8e27e.stl",
@@ -11168,7 +11208,7 @@
 			"folder": null,
 			"variant_group": null,
 			"variant_name": null,
-			"description": "Finned rotor on the classification chamber. Ash grey. 1 needed. Its centre bore is open, and the Rotor cap fits it.",
+			"description": "Finned rotor on the classification chamber. Ash grey. 1 needed.",
 			"version": "1",
 			"created_at": "2026-06-27",
 			"updated_at": "2026-06-27",
@@ -11292,7 +11332,9 @@
 			"id": "rotor-cap",
 			"uid": "yaa2",
 			"name": "Rotor cap",
-			"quantities": {},
+			"quantities": {
+				"classification-channel": 1
+			},
 			"assembly": null,
 			"folder": null,
 			"variant_group": null,
@@ -11309,7 +11351,7 @@
 					"message": "Initial version.",
 					"commit": null,
 					"stl": "https://assets.basically.website/sorter-parts/rotor-cap-ab6f4ad846ff.stl",
-					"render": "https://assets.basically.website/sorter-parts/rotor-cap-full-8802847146c3.png",
+					"render": "https://assets.basically.website/sorter-parts/rotor-cap-full-924a36e28dc3.png",
 					"grams": 4.61
 				}
 			],
@@ -11320,9 +11362,9 @@
 			"support_intentional": false,
 			"print_seconds": 1326,
 			"color": {
-				"any": true
+				"fixed": "ash-gray"
 			},
-			"optional": true,
+			"optional": false,
 			"onshape": "https://cad.onshape.com/documents/60aa51fc61d18f2155b99910/w/95f28d157e2e06c115b488fe/e/5bf04274a6c68015096bd757",
 			"info": null,
 			"low_tolerance": false,
@@ -11333,7 +11375,7 @@
 			"docs_page": null,
 			"conflicts": null,
 			"stl": "https://assets.basically.website/sorter-parts/rotor-cap-ab6f4ad846ff.stl",
-			"render": "https://assets.basically.website/sorter-parts/rotor-cap-full-8802847146c3.png",
+			"render": "https://assets.basically.website/sorter-parts/rotor-cap-full-924a36e28dc3.png",
 			"stamped": [
 				{
 					"face": "bottom",

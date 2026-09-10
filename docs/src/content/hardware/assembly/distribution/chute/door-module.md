@@ -192,11 +192,6 @@ Each arm has one further hole, in the ear at its far end. Those two are not driv
   <figcaption>The bracket assembled, seen from the cover side. The two ears sticking out at bottom and right, one on each arm, are the pair that bolt to the chute core. <cite>Rendered from the part geometry in assembly position, not from a build. Render: Balloon.</cite></figcaption>
 </figure>
 
-<figure>
-  <img class="doc-figure" src="https://assets.basically.website/sorter-parts/servo-bracket-built-full-d4b253675de4.jpg" alt="Photograph of a finished MG995 servo bracket lying on a bench: the printed housing with its cover and both arms fitted, the black servo body visible through the gap between them, the servo lead running off to the right, and the round servo adapter already fitted on the servo's output">
-  <figcaption>The same thing on a real machine, from the other side: housing, cover and both arms, with the MG995 inside and its lead running off to the right. The servo adapter is already on the output here; on this page that does not happen until step 7. <cite>Frame at 0:01 of the video in step 7. Video: Spencer.</cite></figcaption>
-</figure>
-
 {% include step.html n="4" title="Hang the door on its bearings and the race" %}
 
 The shaft is captured at both ends once this is together, so there is only one order it goes in: the holders have to go onto the shaft before anything is bolted down.

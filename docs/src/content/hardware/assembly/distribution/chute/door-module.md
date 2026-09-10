@@ -198,10 +198,6 @@ The shaft is captured at both ends once this is together, so there is only one o
 
 **Check which way round the door goes first.** The shaft runs the length of the door's top edge and is Ø19.8 mm, but one end finishes in a hexagonal spigot 12.0 mm across the flats. That hex end is the servo side — it is what the servo adapter's flap-side half slides onto in step 7. The other end is plain round.
 
-1. **Slide a holder onto each end of the shaft**, bearings already seated. The bearing's Ø20 bore takes the Ø19.8 shaft, and the holder's own Ø21.0 mm hole clears the shaft by 0.6 mm all round, so neither should need forcing.
-2. **Lay the race along the back of the shaft**, on the opposite side from the flap, and bolt each holder down onto its end of it: 2 {% include fastener.html size="M3" variant="countersunk" length="8" %} per holder, 4 in total, into the race's four inserts. The holder seats flat against the race's end. The race arches over the shaft with about 0.5 mm of clearance and never touches it; if it does touch, something is not seated.
-3. **Put a cover on each holder**, 3 {% include fastener.html size="M3" variant="countersunk" length="8" %} each, 6 in total, into the three inserts pressed in step 1. The cover's raised rim, 5.00 mm tall, drops into the pocket on top of the bearing and clamps it against the step: if a bearing has not gone fully home against its lip, its cover will not pull flat. Each cover has **two further holes that stay empty here** — they take the screws that hold the flap assembly to the chute core in step 5.
-
 <div class="callout callout-warning">
   <span class="callout-icon" aria-hidden="true">⚠</span>
   <p><strong>Check the race is the right way round before any of this is bolted up.</strong> The shaft sits high on the door's axis and the race's step tucks down and under it, so laid together correctly the race and the door read as one flat plane. If they look like a flight of stairs, the race is round the wrong way. Getting it wrong is a lot of screws to undo. <cite>Tip: BrickCycleAlice.</cite></p>
@@ -217,6 +213,16 @@ The shaft is captured at both ends once this is together, so there is only one o
     <figcaption>Right way round, sighted along the joint: one flat plane across both, no step to walk up. <cite>Photo: BrickCycleAlice.</cite></figcaption>
   </figure>
 </div>
+
+
+1. **Slide a holder onto each end of the shaft**, bearings already seated. The bearing's Ø20 bore takes the Ø19.8 shaft, and the holder's own Ø21.0 mm hole clears the shaft by 0.6 mm all round, so neither should need forcing.
+2. **Lay the race along the back of the shaft**, on the opposite side from the flap, and bolt each holder down onto its end of it: 2 {% include fastener.html size="M3" variant="countersunk" length="8" %} per holder, 4 in total, into the race's four inserts. The holder seats flat against the race's end. The race arches over the shaft with about 0.5 mm of clearance and never touches it; if it does touch, something is not seated.
+3. **Put a cover on each holder**, 3 {% include fastener.html size="M3" variant="countersunk" length="8" %} each, 6 in total, into the three inserts pressed in step 1. The cover's raised rim, 5.00 mm tall, drops into the pocket on top of the bearing and clamps it against the step: if a bearing has not gone fully home against its lip, its cover will not pull flat. Each cover has **two further holes that stay empty here** — they take the screws that hold the flap assembly to the chute core in step 5.
+
+<figure class="single-figure">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-door-module-holder-on-race-end-w1600-71a9cfaaf366.jpg" alt="Close view of one end of the assembled flap: the bearing holder bolted to the end of the bearing race with two countersunk screws in its face, the bearing seated in its bore with the door's shaft through it, and the door plate above">
+  <figcaption>One end, done. The holder is bolted to the end of the race and the shaft runs through its bearing. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+</figure>
 
 <figure>
   <img class="doc-figure" src="https://assets.basically.website/sorter-parts/bearing-assembly-blue-full-1cb33257bd5a.png" alt="Two renders, one above the other: on top the chute door with its shaft, the bearing race over the shaft, and the two bearing holders drawn out along the shaft with a blue bearing in each; below, the same parts pushed together so the holders sit on the ends of the race">

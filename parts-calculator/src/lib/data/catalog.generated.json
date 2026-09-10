@@ -11351,7 +11351,7 @@
 					"message": "Initial version.",
 					"commit": null,
 					"stl": "https://assets.basically.website/sorter-parts/rotor-cap-ab6f4ad846ff.stl",
-					"render": "https://assets.basically.website/sorter-parts/rotor-cap-full-8802847146c3.png",
+					"render": "https://assets.basically.website/sorter-parts/rotor-cap-full-924a36e28dc3.png",
 					"grams": 4.61
 				}
 			],
@@ -11362,7 +11362,7 @@
 			"support_intentional": false,
 			"print_seconds": 1326,
 			"color": {
-				"any": true
+				"fixed": "ash-gray"
 			},
 			"optional": false,
 			"onshape": "https://cad.onshape.com/documents/60aa51fc61d18f2155b99910/w/95f28d157e2e06c115b488fe/e/5bf04274a6c68015096bd757",
@@ -11375,7 +11375,7 @@
 			"docs_page": null,
 			"conflicts": null,
 			"stl": "https://assets.basically.website/sorter-parts/rotor-cap-ab6f4ad846ff.stl",
-			"render": "https://assets.basically.website/sorter-parts/rotor-cap-full-8802847146c3.png",
+			"render": "https://assets.basically.website/sorter-parts/rotor-cap-full-924a36e28dc3.png",
 			"stamped": [
 				{
 					"face": "bottom",

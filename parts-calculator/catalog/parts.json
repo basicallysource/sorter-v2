@@ -346,6 +346,18 @@
       }
     },
     {
+      "id": "delete-unused-m3-35-flat-head-screw",
+      "name": "Delete the unused M3 x 35 mm flat head screw",
+      "priority": "P4",
+      "condition": "retired",
+      "description": "This screw reaches no bill of materials. Its only live use was the long screw clamping the two cable-clamp halves together at the top interface, and 35 mm was too short for that joint: the stack under the screw head is 32.00 mm to the floor of the nut pocket in the Cable clamp (outer) and 34.40 mm to come through the nut, so it carried 0.60 mm of margin and the nut could not be picked up. Cable clamp v2 carries the M3 x 40 mm flat head (scr-m3-40-fhcs) instead. Chute stepper gearing v1 also listed it, but v2 replaced it with the M3 x 20 mm countersunk (scr-m3-20-cs), so every remaining reference is a historical snapshot of a superseded assembly. It should be deleted outright, but a minted part id has to stay resolvable once it exists, and the catalog's own consistency check refuses a change that removes one, so deleting it needs that check overridden by someone who can make that call, not an edit from here. Tracked as sorter-v2 issue #618.",
+      "targets": {
+        "hardware": [
+          "scr-m3-35-bhcs"
+        ]
+      }
+    },
+    {
       "id": "delete-unused-m3-15-washer",
       "name": "Delete the unused M3 x 15 mm washer",
       "priority": "P4",
@@ -3504,7 +3516,7 @@
           "value": "Flat (pancake) head, hex socket. Pan head works too."
         }
       ],
-      "note": "Do not add a new joint to this entry. Reported 2026-09-09: with the ribbon cable in the clamp the 35 mm screw would not pick up the nut. The stack under the head is 32.00 mm to the nut pocket floor and 34.40 mm through the nut, so 35 mm carried 0.60 mm of margin. See scr-m3-40-fhcs for the measurements."
+      "note": "Do not add a new joint to this entry. Reported 2026-09-09: with the ribbon cable in the clamp the 35 mm screw would not pick up the nut. The stack under the head is 32.00 mm to the nut pocket floor and 34.40 mm through the nut, so 35 mm carried 0.60 mm of margin. See scr-m3-40-fhcs for the measurements. Deletion tracked as sorter-v2 issue #618."
     },
     {
       "id": "scr-m3-40-fhcs",

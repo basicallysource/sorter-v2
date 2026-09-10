@@ -310,7 +310,7 @@ The servo-side and flap-side plates clamp the MG995 Servo Horn between them. The
 
 <div class="callout callout-warning">
   <span class="callout-icon" aria-hidden="true">⚠</span>
-  <p><strong>Watch the video below before you finish this step.</strong> Coupling the servo to the door is where a door gets broken: the servo has a fixed range and the door has 80.5° of swing, and forcing the two together out of position can snap it. <cite>Tip: BrickCycleAlice.</cite></p>
+  <p><strong>Watch the video below before you finish this step.</strong> It is possible to break a door here, so see how the coupling is set in the video before you commit to a position. The door only has 80.5° of travel and both ends of it are the door itself meeting the race, so there is nowhere for it to give. <cite>Tip: BrickCycleAlice.</cite></p>
 </div>
 
 The bracket goes on the same long side as the servo-side bearing cover, into the other two inserts in the first render above. The two arms do not take the same screw, because their mounting ears are not the same thickness:

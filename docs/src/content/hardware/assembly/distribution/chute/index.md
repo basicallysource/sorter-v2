@@ -36,12 +36,20 @@ Once the frame is finished, add the chutes one at a time, in layer order. Each c
 
 Plug each chute's ribbon cable in before you slot it into the frame if the harness is easier to reach on the bench; see [Layer adapter board]({{ '/hardware/assembly/distribution/chute/pcb/' | relative_url }}) for the connector.
 
-{% include step.html n="3" title="Leave the funnels off" %}
+{% include step.html n="3" title="Leave the funnels off while you do it" %}
 
-Add the chutes **without their funnels**. Nobody has said yet when the funnels should go on, so don't assume it happens right before the Lazy Susan step below.
+Add each chute **without its funnel**: alex fitted his that way, "add the chutes one by one without funnel".
 
-{% include step.html n="4" title="Bottom Lazy Susan, then the feeder" %}
+{% include step.html n="4" title="Fit the funnels last" %}
+
+Once every chute is in the machine, hang each layer's funnel on the brackets already fitted to its core. That is the last step of installing a chute, and it is the same snap fit described on [Funnel brackets]({{ '/hardware/assembly/distribution/chute/funnel/' | relative_url }}), done in place instead of on the bench.
+
+{% include step.html n="5" title="Bottom Lazy Susan, then the feeder" %}
 
 The [bottom interface]({{ '/hardware/assembly/distribution/bin-frame/bottom-interface/' | relative_url }}) and its Lazy Susan go on after the chutes, not while the frame is being stacked: the bearing carries the bottom of the chute stack, so the chutes have to be in first. The [feeder]({{ '/hardware/assembly/feeder/' | relative_url }}) goes on last. Both BrickCycleAlice and alex built their machines in this order.
+
+## The finished result
+
+<div class="img-placeholder">Photo of a standing frame with the top interface on and a chute in every layer, no bins in it, so the chute stack is visible.</div>
 
 If you built yours in a different order, let us know. This is how one person built their machine, not an official method everyone has to follow.

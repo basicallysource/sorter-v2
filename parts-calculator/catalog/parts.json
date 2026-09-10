@@ -5871,7 +5871,7 @@
       "created_at": "2026-09-02",
       "description": "Top half of the clasp that holds a camera board inside the Camera lamp.",
       "quantities": {
-        "feeder": 3,
+        "feeder": 2,
         "classification-channel": 1
       },
       "color": {
@@ -5888,7 +5888,7 @@
       "created_at": "2026-09-02",
       "description": "Bottom half of the clasp that holds a camera board inside the Camera lamp.",
       "quantities": {
-        "feeder": 3,
+        "feeder": 2,
         "classification-channel": 1
       },
       "color": {
@@ -5905,7 +5905,7 @@
       "created_at": "2026-09-02",
       "description": "Mounts the Camera lamp arm onto a C-channel.",
       "quantities": {
-        "feeder": 3,
+        "feeder": 2,
         "classification-channel": 1
       },
       "color": {
@@ -5922,7 +5922,7 @@
       "created_at": "2026-09-02",
       "description": "The arm that hangs the camera and the shaded lamp over a C-channel.",
       "quantities": {
-        "feeder": 3,
+        "feeder": 2,
         "classification-channel": 1
       },
       "color": {
@@ -5939,7 +5939,7 @@
       "created_at": "2026-09-02",
       "description": "Ties the arm to the C-channel arm mount: four through holes, two into each.",
       "quantities": {
-        "feeder": 3,
+        "feeder": 2,
         "classification-channel": 1
       },
       "color": {
@@ -5956,7 +5956,7 @@
       "created_at": "2026-09-02",
       "description": "Ties the arm to the C-channel arm mount: four through holes, two into each.",
       "quantities": {
-        "feeder": 3,
+        "feeder": 2,
         "classification-channel": 1
       },
       "color": {
@@ -5973,7 +5973,7 @@
       "created_at": "2026-09-02",
       "description": "The ring on the end of the Camera lamp arm; four through holes into the arm.",
       "quantities": {
-        "feeder": 3,
+        "feeder": 2,
         "classification-channel": 1
       },
       "color": {
@@ -5990,7 +5990,7 @@
       "created_at": "2026-09-02",
       "description": "The white reflector that bounces the LED light down onto the channel.",
       "quantities": {
-        "feeder": 3,
+        "feeder": 2,
         "classification-channel": 1
       },
       "color": {
@@ -6007,7 +6007,7 @@
       "created_at": "2026-09-02",
       "description": "Friction-fits onto the inner reflector and retains an LED strip. Six per lamp.",
       "quantities": {
-        "feeder": 18,
+        "feeder": 12,
         "classification-channel": 6
       },
       "color": {
@@ -6024,7 +6024,7 @@
       "created_at": "2026-09-02",
       "description": "The cover that goes over the reflector; the outside of the shaded lamp.",
       "quantities": {
-        "feeder": 3,
+        "feeder": 2,
         "classification-channel": 1
       },
       "color": {

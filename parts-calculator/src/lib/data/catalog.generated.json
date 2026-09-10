@@ -18131,7 +18131,7 @@
 			"uid": "u816",
 			"name": "Camera clasp top",
 			"quantities": {
-				"feeder": 3,
+				"feeder": 2,
 				"classification-channel": 1
 			},
 			"assembly": null,
@@ -18246,7 +18246,7 @@
 			"uid": "zub8",
 			"name": "Camera clasp bottom",
 			"quantities": {
-				"feeder": 3,
+				"feeder": 2,
 				"classification-channel": 1
 			},
 			"assembly": null,
@@ -18383,7 +18383,7 @@
 			"uid": "yswm",
 			"name": "C-channel arm mount",
 			"quantities": {
-				"feeder": 3,
+				"feeder": 2,
 				"classification-channel": 1
 			},
 			"assembly": null,
@@ -18516,7 +18516,7 @@
 			"uid": "4ata",
 			"name": "Camera lamp arm",
 			"quantities": {
-				"feeder": 3,
+				"feeder": 2,
 				"classification-channel": 1
 			},
 			"assembly": null,
@@ -18652,7 +18652,7 @@
 			"uid": "ntbe",
 			"name": "Arm bracket A",
 			"quantities": {
-				"feeder": 3,
+				"feeder": 2,
 				"classification-channel": 1
 			},
 			"assembly": null,
@@ -18787,7 +18787,7 @@
 			"uid": "g2mu",
 			"name": "Arm bracket B",
 			"quantities": {
-				"feeder": 3,
+				"feeder": 2,
 				"classification-channel": 1
 			},
 			"assembly": null,
@@ -18922,7 +18922,7 @@
 			"uid": "sb0m",
 			"name": "Camera lamp ring",
 			"quantities": {
-				"feeder": 3,
+				"feeder": 2,
 				"classification-channel": 1
 			},
 			"assembly": null,
@@ -19059,7 +19059,7 @@
 			"uid": "4vio",
 			"name": "Lamp inner reflector",
 			"quantities": {
-				"feeder": 3,
+				"feeder": 2,
 				"classification-channel": 1
 			},
 			"assembly": null,
@@ -19225,7 +19225,7 @@
 			"uid": "l5qn",
 			"name": "Inner reflector LED hook",
 			"quantities": {
-				"feeder": 18,
+				"feeder": 12,
 				"classification-channel": 6
 			},
 			"assembly": null,
@@ -19277,7 +19277,7 @@
 			"uid": "8zqy",
 			"name": "Lamp outer cover",
 			"quantities": {
-				"feeder": 3,
+				"feeder": 2,
 				"classification-channel": 1
 			},
 			"assembly": null,

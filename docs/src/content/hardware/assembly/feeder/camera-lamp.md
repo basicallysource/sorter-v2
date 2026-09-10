@@ -158,7 +158,7 @@ The camera board sits in the recess in the **Camera clasp top**. Put the **Camer
 
 **Into the ring, no screws.** The clasped camera pushes into the camera lamp ring. Nothing fastens it: the only screws in this step are the two holding the clasp's own halves together.
 
-**Expect it to sit loose until the cover goes on.** The clasp top is 65.5 mm across and the opening in the middle of the Lamp outer cover is 65.0 mm, so it is the cover, in the last step, that traps the clasp and holds the camera down. Until then it can lift straight back out, so do not pick the lamp up by the camera.
+**Expect it to sit loose until the cover goes on.** The clasp is 67.8 mm across at its widest and the opening in the middle of the Lamp outer cover is 65.0 mm, so it is the cover, in the last step, that traps the clasp and holds the camera down. Until then it can lift straight back out, so do not pick the lamp up by the camera.
 
 <div class="img-row">
   <figure>

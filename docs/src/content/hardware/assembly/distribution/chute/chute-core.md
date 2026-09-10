@@ -9,6 +9,7 @@ lede: The chute assembly. Build one per layer.
 permalink: /hardware/assembly/distribution/chute/chute-core/
 author: spencer
 contributors: [barthel]
+og_image: https://assets.basically.website/sorter-docs/assembly-chute-core-built-w1600-6d9c4c0c0ac6.jpg
 last_verified: 2026-09-07
 parts_needed:
   - part: chute-core
@@ -18,6 +19,11 @@ parts_needed:
 ---
 
 The chute is what steers a part into the right bin. Build one per layer, N for an N-layer machine. The [bottom interface]({{ '/hardware/assembly/distribution/bin-frame/bottom-interface/' | relative_url }}) doesn't add any extra chutes of its own, it's a mounting stage the bottommost chute sits on, bridged to it by a [layer connector]({{ '/hardware/assembly/distribution/chute/layer-connectors/' | relative_url }}).
+
+<figure class="single-figure">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-chute-core-built-w1600-6d9c4c0c0ac6.jpg" alt="A built chute core standing on the bench: the printed core with the door module and its bearing covers on one side, the MG995 servo in its bracket above, and the funnel brackets projecting from the left">
+  <figcaption>What this page builds towards: a core with its sub-assemblies on it. The door module, its servo bracket and the funnel brackets are fitted here. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+</figure>
 
 The heat inserts are in the parts list above. The screws that hold the four sub-assemblies on are on their own pages, listed where they are driven.
 
@@ -68,6 +74,9 @@ Fit them in this order, each on its own page, and each with its own screws in it
 
 Every insert you pressed in at step 1 takes a screw from one of those four pages. That is why the inserts are listed here and the screws are not.
 
-<div class="img-placeholder">Photo of a finished chute core with all four sub-assemblies bolted on: door module, layer adapter board, funnel brackets and layer connectors.</div>
+<figure class="single-figure">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-chute-core-built-w1600-6d9c4c0c0ac6.jpg" alt="A built chute core standing on the bench: the printed core with the door module and its bearing covers on one side, the MG995 servo in its bracket above, and the funnel brackets projecting from the left">
+  <figcaption>A core with the door module, its servo bracket and the funnel brackets on. The layer adapter board and the layer connectors are not in this shot. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+</figure>
 
 The chute is complete when all four are on. Repeat for every layer.

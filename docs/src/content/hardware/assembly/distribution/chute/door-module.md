@@ -84,8 +84,8 @@ Every pocket is the same one the rest of the chute uses: Ø4.2 mm, blind, 5.7 mm
     <p><strong>Servo bracket (housing):</strong> 6 × M3, two on each of three faces. 2 take the lower arm, 2 take the side arm and 2 take the cover. The servo does not screw to the housing at all, so none of these is for it.</p>
   </div>
   <figure class="prep-item-figure">
-    <img class="doc-figure" src="https://assets.basically.website/sorter-parts/door-module-inserts-servo-bracket-housing-full-7545917fe3d9.png" alt="Render of the servo bracket housing at an angle, with its six heat-insert pockets circled in red, two on each of three faces">
-    <figcaption>All six, seen from the corner. That is the only angle that catches all three faces at once. <cite>Render: Balloon.</cite></figcaption>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-door-module-inserts-servo-bracket-housing-w1600-ca8e04d2c1d7.jpg" alt="A printed servo bracket housing standing on end, brass heat inserts pressed into all six pockets: two on the top face, two on the front face beside the open pocket, two on the bottom edge">
+    <figcaption>All six, seen from the corner. That is the only angle that catches all three faces at once. <cite>Photo: BrickCycleAlice.</cite></figcaption>
   </figure>
 </div>
 
@@ -94,8 +94,8 @@ Every pocket is the same one the rest of the chute uses: Ø4.2 mm, blind, 5.7 mm
     <p><strong>Bearing race:</strong> 4 × M3, two at each end. These are the ones the holders screw down onto.</p>
   </div>
   <figure class="prep-item-figure">
-    <img class="doc-figure" src="https://assets.basically.website/sorter-parts/door-module-inserts-bearing-race-full-4a30d9cbcc4a.png" alt="Render of the bearing race seen almost straight on, with its four heat-insert pockets circled in red, two at each end">
-    <figcaption>Two at each end of the race. <cite>Render: Balloon.</cite></figcaption>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-door-module-inserts-bearing-race-w1600-c3730d2c7c58.jpg" alt="A printed bearing race lying flat, brass heat inserts in the two pockets at each end and a raised chevron in the middle of the same face">
+    <figcaption>Two at each end of the race. They are on the same face as the raised chevron in the middle. <cite>Photo: BrickCycleAlice.</cite></figcaption>
   </figure>
 </div>
 
@@ -104,12 +104,22 @@ Every pocket is the same one the rest of the chute uses: Ø4.2 mm, blind, 5.7 mm
     <p><strong>Bearing holder (left) and bearing holder (right):</strong> 3 × M3 each, 6 between them, on the outboard face around the bearing bore.</p>
   </div>
   <figure class="prep-item-figure">
-    <img class="doc-figure" src="https://assets.basically.website/sorter-parts/door-module-inserts-bearing-holder-left-full-20b5c1bf8883.png" alt="Render of the left bearing holder at an angle, with its three heat-insert pockets circled in red around the bearing bore">
-    <figcaption>Three around the bore on the outboard face. The left holder is shown; the right one takes the same three. <cite>Render: Balloon.</cite></figcaption>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-door-module-inserts-bearing-holder-w1600-9f39521a7c9b.jpg" alt="A printed bearing holder held at an angle, three brass heat inserts spaced around its empty bearing bore, one on the small ear and two on the body">
+    <figcaption>Three around the bore on the outboard face. One holder is shown; the other takes the same three. <cite>Photo: BrickCycleAlice.</cite></figcaption>
   </figure>
 </div>
 
-The views are rendered from each part's STL, turned slightly off the face so the pockets shade as holes, and circle only the pockets visible from that angle. The counts match what the [parts calculator](https://parts-calculator.basically.website/assembly?focus=flap-module) asks for: 6 + 4 + 3 + 3.
+The photos are of printed parts with the inserts already pressed in, one part at a time, so the brass is what you count. The counts match what the [parts calculator](https://parts-calculator.basically.website/assembly?focus=flap-module) asks for: 6 + 4 + 3 + 3.
+
+<div class="callout">
+  <span class="callout-icon" aria-hidden="true">💡</span>
+  <p>No bench vice? Stand a bearing holder in the servo bracket housing while you press its inserts. The housing's pocket holds the holder upright and square, and leaves both your hands for the iron. <cite>Tip: BrickCycleAlice.</cite></p>
+</div>
+
+<figure class="single-figure">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-door-module-holder-propped-in-housing-w1600-8617b387f402.jpg" alt="A bearing holder with its three brass inserts standing against the open servo bracket housing, which props it upright on the bench">
+  <figcaption>A holder propped in the housing, which is steady enough to press against. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+</figure>
 
 Two sub-assemblies go together here as well, before the steps that use them. Neither takes inserts.
 

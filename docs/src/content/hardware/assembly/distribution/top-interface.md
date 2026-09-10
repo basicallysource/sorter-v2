@@ -683,11 +683,6 @@ Roll 6 {% include fastener.html size="M5" variant="t-nut" text="T-nuts" %} into 
   <p><b>No problem if you forget them.</b> The {% include fastener.html size="M5" variant="t-nut" text="T-nut" %} this build specifies is the spring-loaded roll-in kind, which drops into the slot anywhere along its length, so these six can still go in later without taking the frame apart.</p>
 </div>
 
-<figure>
-  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-top-interface-framing-3-full-b9ae16940954.jpg" alt="A hex frame lowered onto the interface assembly">
-  <figcaption><cite>Photo: zed0.</cite></figcaption>
-</figure>
-
 Attach an External bracket cover to each of the External bracket sides, then fasten each one with 2 {% include fastener.html size="M5" variant="socket-button" length="16" %} screws into the holes at the base of the External bracket sides, bracing against the extrusion. These holes run parallel to the extrusion profile, and the screws are self-tapping. There is no External bracket — bottom vertical at this joint; see [step 14](#step-14) for what's different here.
 
 {% include step.html n="14" title="How the interface joins the top layer" %}

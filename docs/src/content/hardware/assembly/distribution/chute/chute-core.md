@@ -22,7 +22,7 @@ The chute is what steers a part into the right bin. Build one per layer, N for a
 
 <figure class="single-figure">
   <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-chute-core-built-w1600-6d9c4c0c0ac6.jpg" alt="A built chute core standing on the bench: the printed core with the door module and its bearing covers on one side, the MG995 servo in its bracket above, and the funnel brackets projecting from the left">
-  <figcaption>What this page builds towards: a core with its sub-assemblies on it. The door module, its servo bracket and the funnel brackets are fitted here. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+  <figcaption>What this page builds towards: a core with its sub-assemblies on it. The door module, its servo bracket, the funnel brackets and the layer connectors are all fitted here. <cite>Photo: BrickCycleAlice.</cite></figcaption>
 </figure>
 
 The heat inserts are in the parts list above. The screws that hold the four sub-assemblies on are on their own pages, listed where they are driven.
@@ -76,7 +76,7 @@ Every insert you pressed in at step 1 takes a screw from one of those four pages
 
 <figure class="single-figure">
   <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-chute-core-built-w1600-6d9c4c0c0ac6.jpg" alt="A built chute core standing on the bench: the printed core with the door module and its bearing covers on one side, the MG995 servo in its bracket above, and the funnel brackets projecting from the left">
-  <figcaption>A core with the door module, its servo bracket and the funnel brackets on. The layer adapter board and the layer connectors are not in this shot. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+  <figcaption>A core with the door module, its servo bracket, the funnel brackets and the layer connectors on, the connectors being the small blocks along the top. The layer adapter board is the only one of the four not in this shot. <cite>Photo: BrickCycleAlice.</cite></figcaption>
 </figure>
 
 The chute is complete when all four are on. Repeat for every layer.

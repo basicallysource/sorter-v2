@@ -8,10 +8,10 @@ kicker: Feeder — C-channel
 lede: The C-channel stage itself.
 permalink: /hardware/assembly/feeder/c-channel/
 author: spencer
-contributors: [barthel, brickcyclealice, christoph]
+contributors: [barthel, brickcyclealice, christoph, danny]
 warning: >-
   **Steps 1 to 5 come from a build**, the order of operations and the photographs are
-  BrickCycleAlice's. Step 6, the camera lamp, is still an AI-generated first draft written
+  BrickCycleAlice's, apart from step 3's, which are Danny's. Step 6, the camera lamp, is still an AI-generated first draft written
   from the machine assembly tree in the [parts
   calculator](https://parts-calculator.basically.website/assembly?focus=c-channel) and has
   not been checked against a machine. Correct it as you build.
@@ -92,14 +92,20 @@ Bolt the Output gear onto the underside of the rotor with 6 {% include fastener.
 
 {% include step.html n="3" title="Fit the input gear to the motor shaft" %}
 
-The Input gear (12T, screw) has a hole through its boss, parallel to the shaft, for the {% include fastener.html size="M3" variant="countersunk" length="8" %} screw that clamps it on. The bore is plain and round, so there is nothing to key it: turn the gear until that screw lines up with the flat on the NEMA 17's shaft, push the gear all the way on, then tighten the screw down onto the flat.
+The Input gear (12T, screw) takes its {% include fastener.html size="M3" variant="countersunk" length="8" %} clamping screw **parallel to the shaft, alongside the bore**, not radially into the side of the boss. The hole runs the full length of the gear, 3.6 mm off the axis, and breaks into the Ø4.9 mm bore along the way, so the screw ends up bearing on the flat of the NEMA 17's shaft.
 
-The head drops into a counterbore in the boss. Tighten until the head is seated and the gear does not turn on the shaft, and no further, it is threading into plastic.
+The bore is plain and round, so there is nothing to key it: turn the gear until that hole lines up with the flat on the shaft, push the gear all the way on, then tighten the screw down onto the flat. The head drops into a counterbore in the toothed end face. Tighten until the head is seated and the gear does not turn on the shaft, and no further, it is threading into plastic.
 
-<figure class="single-figure">
-  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-c-channel-input-gear-on-motor-shaft-w1600-be00a0374988.jpg" alt="A black NEMA 17 stepper motor lying on its side with the small grey 12-tooth input gear pushed fully onto its shaft, the clamping screw visible in the side of the gear boss">
-  <figcaption>Pushed fully onto the shaft, clamp screw bearing on the flat. <cite>Photo: BrickCycleAlice.</cite></figcaption>
-</figure>
+<div class="img-row">
+  <figure>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-c-channel-input-gear-clamp-screw-driving-w1600-dfa74d5a362c.jpg" alt="The charcoal 12-tooth input gear pushed onto the shaft of a NEMA 17, seen from above. A driver bit is turning the clamping screw, which stands in a hole in the end face beside the bore with its thread still showing. The flat on the motor shaft is visible through the bore next to it">
+    <figcaption>The screw goes in beside the bore, parallel to the shaft, not into the side of the gear. The bright shape next to it is the flat on the shaft. <cite>Photo: Danny.</cite></figcaption>
+  </figure>
+  <figure>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-c-channel-input-gear-clamp-screw-seated-w1600-39abf5a9ff47.jpg" alt="The same gear and motor with the clamping screw driven fully home, its head sitting down in the round counterbore in the toothed end face, and the gear seated against the front face of the motor">
+    <figcaption>Tightened. The head sits down in the counterbore and the gear is pushed all the way onto the shaft. <cite>Photo: Danny.</cite></figcaption>
+  </figure>
+</div>
 
 {% include step.html n="4" title="Fit the idler gear and the stepper to the NEMA bracket" %}
 

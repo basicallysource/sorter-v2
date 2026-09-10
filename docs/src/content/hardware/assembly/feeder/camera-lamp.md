@@ -107,18 +107,24 @@ It replaces the [light post]({{ '/hardware/assembly/feeder/light-post/' | relati
 
 {% include step.html n="2" title="Bracket the arm to the C-channel arm mount" %}
 
-The arm and the mount butt together end to end, and brackets A and B hold the joint, one on each face. Each bracket has four 3.5 mm clearance holes in a 4.5 mm plate, two over the mount and two over the arm.
+The arm and the mount butt together end to end, with bracket A on one face and bracket B on the other.
 
-**The two brackets share their screw holes.** The mount and the arm each carry two 2.8 mm pilot holes that run 19.8 mm straight through the joint, so bracket A's screw enters one end and bracket B's the other, and eight screws go into four holes. Both pairs are 20 mm apart along the joint.
+**Which way round the brackets go:** their angled ends come in towards the end where the dovetail is printed, not away from it.
 
-Drive all 8 {% include fastener.html size="M3" variant="countersunk" length="12" %} screws, four per bracket, seated flush in the countersinks. Stop as soon as each head seats: you are cutting a thread in plastic, and the far half of the hole is somebody else's screw.
+**The two brackets share their screw holes.** Each 2.8 mm pilot runs 19.8 mm straight through the joint, so bracket A's screw enters one end and bracket B's the other: eight screws into four holes, both pairs 20 mm apart along the joint.
 
-**12 mm is the length, and it is the only one that fits.** A countersunk screw's length is measured over its head, so 12 mm through a 4.5 mm bracket leaves about 7.5 mm of thread in the 19.8 mm hole and two screws coming from opposite ends stop roughly 5 mm short of each other. A 16 would put 11.5 mm in from each end, 23 mm of screw in a 19.8 mm hole, and the two would meet before either seated. ReveryX confirmed the M3 × 12 on an assembled arm, 2026-09-05.
+Drive all 8 {% include fastener.html size="M3" variant="countersunk" length="12" %} screws, four per bracket, seated flush. Stop as each head seats, you are cutting a thread in plastic and the far half of the hole is somebody else's screw. **12 mm is the only length that fits**: two 16s coming from opposite ends would put 23 mm of screw into a 19.8 mm hole and meet before either seated. ReveryX confirmed the M3 × 12 on an assembled arm, 2026-09-05.
 
-<figure class="single-figure">
-  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/camera-lamp-mounted-wide-w1600-247fb837f4f8.jpg" alt="A wider view of a camera lamp on the machine, showing the full length of the arm from the lamp down to the C-channel, with a bracket screwed along the joint and the LED leads cable-tied along the arm">
-  <figcaption>The arm on the machine, bracket along the joint, leads running down it. <cite>Photo: Spencer.</cite></figcaption>
-</figure>
+<div class="img-row">
+  <figure>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-camera-lamp-arm-bracket-joint-w1600-a0beb5ce60b8.jpg" alt="The camera lamp arm butted to its mount with a bracket screwed across the joint, two countersunk screws in it, and the printed dovetail at the far end of the arm">
+    <figcaption>The joint with a bracket on, angled end towards the dovetail. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+  </figure>
+  <figure>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/camera-lamp-mounted-wide-w1600-247fb837f4f8.jpg" alt="A wider view of a camera lamp on the machine, showing the full length of the arm from the lamp down to the C-channel, with a bracket screwed along the joint and the LED leads cable-tied along the arm">
+    <figcaption>The same joint on the machine, leads running down the arm. <cite>Photo: Spencer.</cite></figcaption>
+  </figure>
+</div>
 
 {% include step.html n="3" title="Screw the camera lamp ring onto the arm" %}
 

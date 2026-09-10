@@ -144,6 +144,17 @@ The cover is 6.65 mm thick at the screw, so a 12 mm screw reaches 5.35 mm into t
   <figcaption>The cover pulled off the housing. The servo goes into the open pocket, and the two lugs the cover screws through are the only fasteners holding it. <cite>Rendered from the part geometry, not from a build. Render: Balloon.</cite></figcaption>
 </figure>
 
+<div class="img-row">
+  <figure>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-door-module-servo-in-housing-w1600-b7436486902c.jpg" alt="An MG995 servo lying in the open pocket of the printed housing with the cover off, its mounting tabs resting across the two brass-lined lugs and its lead running out of the bottom of the pocket">
+    <figcaption>Servo in, cover still off. Its tabs lie across the two lugs and nothing screws into the servo itself. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+  </figure>
+  <figure>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-door-module-cover-on-w1600-7153a7d8b99c.jpg" alt="The same housing from the corner with the cover screwed down over the servo, two countersunk screw heads in the cover and the servo's splined output standing through the window in it">
+    <figcaption>Cover on, both screws snugged down evenly. That pair is what holds the servo in. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+  </figure>
+</div>
+
 {% include step.html n="3" title="Add the bracket arms" %}
 
 The two arms land on two other faces of the housing, so they are independent of the servo and can go on before or after it.

@@ -14,11 +14,10 @@ warning: >-
   **AI-generated first draft.** Written from the machine assembly tree in the [parts
   calculator](https://parts-calculator.basically.website/assembly?focus=feeder) and measured
   off the published STLs, not from an actual build. The parts, the leg lengths and the 80 mm
-  step between channels are real and current, and BrickCycleAlice's photographs of all three
-  stands are on Steps 2 and 3 — but no step below has been walked through by a builder. Two
-  things are still missing: how far two channels overlap horizontally and where round the
-  circle each handover happens, and how the classification channel is fixed down. Fill them
-  in as you build.
+  step between channels are real and current. Steps 2, 4 and 6 and the photographs come from
+  BrickCycleAlice's build; the rest has not been walked through by a builder. One thing is
+  still missing: how far two channels overlap horizontally and where round the circle each
+  handover happens. Fill it in as you build.
 parts_needed:
   - part: layout-guide
     qty: 3
@@ -44,7 +43,7 @@ parts_needed:
 
 Four [C-channels]({{ '/hardware/assembly/feeder/c-channel/' | relative_url }}) are built the same way and then stood at different heights, so a part cascades from one to the next under gravity and arrives at the [interface]({{ '/hardware/assembly/distribution/top-interface/' | relative_url }}) singulated.
 
-C1, C2 and C3 each stand on the same three-piece support structure: a **Layout guide** it stands on, three **support legs** standing in that, and a **Support dovetail adapter** on top of each leg that slides up into the C-channel drive from below. The legs are the only thing that differs between the three channels, and their lengths are what set the drop between one channel and the next. The classification channel has no support structure of its own.
+C1, C2 and C3 each stand on the same three-piece support structure: a **Layout guide** it stands on, three **support legs** standing in that, and a **Support dovetail adapter** on top of each leg that slides up into the C-channel drive from below. The legs are the only thing that differs between the three channels, and their lengths are what set the drop between one channel and the next. The classification channel has no support structure of its own: it stands on the top plate and is located by C3's layout guide (step 6).
 
 <div class="callout callout-warning">
   <span class="callout-icon" aria-hidden="true">⚠</span>
@@ -135,7 +134,9 @@ Build the same stack three times, once per channel, with that channel's legs:
   <figcaption>The same C3 stand from lower down, with all three adapters in view. <cite>Photo: BrickCycleAlice.</cite></figcaption>
 </figure>
 
-**Not recorded:** how the three legs are clocked around the channel — which of the three sits under the stepper, under the exit, or under the camera lamp arm. The layout guide is exported on its own, so the STLs don't say.
+<div class="callout">
+  <p><strong>Clock all three the same way, with the steppers toward the centre of the guides.</strong> Nothing in the STLs says which of a channel's three legs sits under the motor — the layout guide is exported on its own — so this is how it is actually built. <cite>Tip: BrickCycleAlice.</cite></p>
+</div>
 
 {% include step.html n="3" title="★ Set the heights and the spacing" %}
 
@@ -147,7 +148,7 @@ Build the same stack three times, once per channel, with that channel's legs:
 | C2 | C-channel 2 support leg, printed | 148 mm |
 | C3 | C-channel 3 support leg, printed | 68 mm |
 
-228, 148, 68 — an even 80 mm step. Every leg sockets the same 18 mm into its guide and carries the same adapter, so the step passes straight through to the drives: measured from the underside of the layout guides, the three seats land at **240 mm, 160 mm and 80 mm**. Another 80 mm below C3 is zero, which is the surface the guides themselves stand on. That's the argument in step 6 for where the classification channel goes.
+228, 148, 68 — an even 80 mm step. Every leg sockets the same 18 mm into its guide and carries the same adapter, so the step passes straight through to the drives: measured from the underside of the layout guides, the three seats land at **240 mm, 160 mm and 80 mm**. Another 80 mm below C3 is zero, which is the surface the guides themselves stand on — the top plate, and where the classification channel goes (step 6).
 
 <div class="img-row">
   <figure>
@@ -172,9 +173,11 @@ Build the same stack three times, once per channel, with that channel's legs:
 
 <div class="img-placeholder">Image coming</div>
 
-{% include step.html n="4" title="Fit the output guides" %}
+{% include step.html n="4" title="Fit the rotors and the output guides" %}
 
-One [output guide]({{ '/hardware/assembly/feeder/output-guides/' | relative_url }}) on C2 and one on C3. Each belongs to the channel it is mounted on, not to the gap between two; C1 and the classification channel take none.
+With the channels standing, drop the rotor units in and fit the output guides at the same time.
+
+One [output guide]({{ '/hardware/assembly/feeder/output-guides/' | relative_url }}) on C2 and one on C3. Each belongs to the channel it is mounted on, not to the gap between two; C1 and the classification channel take none. <cite>Order: BrickCycleAlice.</cite>
 
 <div class="img-placeholder">Image coming</div>
 
@@ -184,15 +187,13 @@ One [output guide]({{ '/hardware/assembly/feeder/output-guides/' | relative_url 
 
 <div class="img-placeholder">Image coming</div>
 
-{% include step.html n="6" title="★ Stand the classification channel" %}
+{% include step.html n="6" title="Stand the classification channel" %}
 
-**The classification channel has no support structure in the parts list** — no layout guide, no legs, no adapters. Where its weight goes is the one part of the feeder nobody has written down, and it's been asked in the server twice without an answer.
+**The classification channel takes no support structure of its own** — no layout guide, no legs, no adapters. It sits flat on the [top interface]({{ '/hardware/assembly/distribution/top-interface/' | relative_url }})'s top plate, and it slides onto the layout guide that C3 stands in. The plate carries its weight; C3's guide locates it and sets which way round it goes. <cite>Tip: BrickCycleAlice.</cite>
 
-What the geometry says, which is an inference and not a build: the 80 mm step continues, so C4's seat falls exactly at the level the three layout guides stand on. Resting the drive straight on the [top interface]({{ '/hardware/assembly/distribution/top-interface/' | relative_url }})'s plate puts it at the right height — the stator and the NEMA bracket bottom out together and the stepper mounts on the bracket's upper face, so nothing hangs below the seating plane to foul the plate. What that doesn't give you is anything holding it down or setting which way it's clocked. The top plate has no mount holes for a C-channel.
+That also closes the height. C3's guide stands on the plate, so the plate is the zero the other three are measured from, and the 80 mm step below C3's 80 mm seat lands exactly there. Measured on the STLs, the fit is between the stator's base flange (r 103–120 mm, and the 19 mm of it that hangs below the drive's seating face) and the guide's ring (r 98–118 mm, 28 mm tall) — the flange drops inside the ring.
 
-**If you work this out on your own machine, it's the single most useful thing you could send back.** <span class="fastener-todo">not recorded</span>
-
-<div class="img-placeholder">Image coming</div>
+The top plate itself has no mount holes for a C-channel, so nothing bolts down here.
 
 {% include step.html n="7" title="Turn it all by hand" %}
 

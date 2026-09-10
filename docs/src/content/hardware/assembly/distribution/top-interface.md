@@ -9,6 +9,7 @@ lede: The interface between the feeder and the bin tower.
 permalink: /hardware/assembly/distribution/top-interface/
 author: zed0
 contributors: [barthel, brickcyclealice]
+og_image: https://assets.basically.website/sorter-docs/assembly-top-interface-framing-4-full-b9ae16940954.jpg
 parts_needed:
   - part: interface-upper-fixed-section
     qty: 1
@@ -122,6 +123,11 @@ tools_needed: [Hex key, Soldering iron or heat-set insert press]
 ---
 
 The top interface holds a chute that rotates on a lazy-susan bearing to aim incoming parts at whichever bin layer is currently selected. A NEMA 23 stepper drives the rotation through a small gear train (steps 6 and 9), and a limit switch and hammer (steps 4, 6, 8) give it a fixed reference point to home against, since the stepper alone has no way to know which way it is pointed. Everything on this page bolts onto the Top plate, which then sits on the hex frame built on the bin-frame page.
+
+<figure class="single-figure">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-top-interface-framing-4-full-b9ae16940954.jpg" alt="The finished top interface seen from above: the hexagonal aluminum frame around the plywood Top plate, six interface ribs radiating from the centre, and the white chute mount in the middle">
+  <figcaption>What this page builds, finished: the interface under its hex frame, ready for the top layer. <cite>Photo: zed0.</cite></figcaption>
+</figure>
 
 <div class="prep-item">
   <div class="prep-item-body">

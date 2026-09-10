@@ -37,9 +37,9 @@ parts_needed:
   - part: brg-608-2rs
     qty: 4
   - part: scr-m3-12-cs
-    qty: 40
+    qty: 32
   - part: scr-m3-16-cs
-    qty: 12
+    qty: 20
   - part: scr-m3-8-cs
     qty: 4
 ---
@@ -120,7 +120,7 @@ Then fasten the NEMA 17 to the bracket with 3 {% include fastener.html size="M3"
 
 {% include step.html n="5" title="Mount the stator, then drop in the rotor" %}
 
-Fasten the NEMA bracket to the underside of the stator with 4 {% include fastener.html size="M3" variant="countersunk" length="12" %} screws.
+Fasten the NEMA bracket to the underside of the stator with 4 screws, in two lengths. The two at the tips of the narrow arms take an {% include fastener.html size="M3" variant="countersunk" length="12" %}; the two on the wide plate the stepper sits on take an {% include fastener.html size="M3" variant="countersunk" length="16" %}, because the bracket is thicker at those two and a 12 mm barely bites.
 
 Then lower the rotor, output gear and all, onto the raised hub in the middle of the bracket, so the 130T comes down into mesh with the idler.
 

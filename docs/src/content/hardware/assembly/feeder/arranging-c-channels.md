@@ -90,7 +90,7 @@ Steps below refer to the channels by the names the software uses, in the order a
 </div>
 
 <div class="callout">
-  <p><strong>There are no fasteners in the stand at all.</strong> Every joint in it is gravity or friction: a leg stands in the layout guide, an adapter sits on a leg, and the three adapters push up into the drive. Nothing here is screwed and nothing takes a heat insert. The printed legs and the adapters do have holes through them — 2 × Ø4.20 in each leg, 2 × Ø5.50 in each adapter — and none of them is fastened. Don't go looking for the screws.</p>
+  <p><strong>There are no fasteners in the stand at all.</strong> Every joint in it is gravity or friction: a leg stands in the layout guide, an adapter sits on a leg, and the three adapters push up into the drive. Nothing here is screwed and nothing takes a heat insert. The printed legs and the adapters do have holes through them — 2 × Ø4.20 in each leg, 2 × Ø5.50 in each adapter — and none of them is fastened. Don't go looking for the screws. There is a case for adding one on C1, which carries the bulk bin; see step 2.</p>
 </div>
 
 {% include step.html n="2" title="Build C1's stand" %}
@@ -105,9 +105,13 @@ The tallest one. Three moves, and they are the same three on every channel:
 
 The channel itself goes on later, in step 7, once all three stands are laid out and the classification channel is in.
 
+<div class="callout">
+  <p><strong>How the 2020 sits at each end.</strong> Into the layout guide it slides with a firm fit. At the adapter it is only braced on three sides. Nothing is fastened at either end, here or anywhere else in the stand. <cite>Tip: BrickCycleAlice.</cite></p>
+</div>
+
 <div class="callout callout-warning">
   <span class="callout-icon" aria-hidden="true">⚠</span>
-  <p><strong>C1's legs don't fit their sockets closely.</strong> Both sockets — the one in the layout guide and the one under the adapter — are 26 mm square and 18 mm deep, which is what the printed legs' spigots are made to. C1's leg is 2020 extrusion, 20 mm square, so on the STLs it has about 3 mm of slack a side at both ends, and nothing in the parts registry says what takes that up. It goes together, as the photo shows — but the heights only come out right if the extrusion bottoms out in the socket rather than sitting proud. Worth checking on your own parts.</p>
+  <p><strong>C1 carries the bulk bin, and a full bin is heavy.</strong> The stand is a friction fit end to end and nothing stops the drive lifting off its adapters, so a machine that gets leaned on — or refilled by someone using the feeder to steady themselves — is worth bolting. Which T-nut and bolt suit the 2020 legs hasn't been settled, so there is no combination to quote here yet.</p>
 </div>
 
 <figure class="single-figure">

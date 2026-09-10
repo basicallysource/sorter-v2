@@ -191,7 +191,7 @@ One [output guide]({{ '/hardware/assembly/feeder/output-guides/' | relative_url 
 
 **The classification channel takes no support structure of its own** — no layout guide, no legs, no adapters. It sits flat on the [top interface]({{ '/hardware/assembly/distribution/top-interface/' | relative_url }})'s top plate, and it slides onto the layout guide that C3 stands in. The plate carries its weight; C3's guide locates it and sets which way round it goes. <cite>Tip: BrickCycleAlice.</cite>
 
-That also closes the height. C3's guide stands on the plate, so the plate is the zero the other three are measured from, and the 80 mm step below C3's 80 mm seat lands exactly there. Measured on the STLs, the fit is between the stator's base flange (r 103–120 mm, and the 19 mm of it that hangs below the drive's seating face) and the guide's ring (r 98–118 mm, 28 mm tall) — the flange drops inside the ring.
+That also closes the height. C3's guide stands on the plate, so the plate is the zero the other three are measured from, and the 80 mm step below C3's 80 mm seat lands exactly there. Measured on the STLs, the fit is between the stator's base flange — the bottom 19 mm of the drive, r 103–120 mm — and the guide's ring, r 98–118 mm and 28 mm tall. Stand the drive on the plate and the flange is inside the ring.
 
 The top plate itself has no mount holes for a C-channel, so nothing bolts down here.
 

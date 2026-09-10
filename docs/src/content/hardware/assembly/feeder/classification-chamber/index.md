@@ -32,6 +32,11 @@ parts_needed:
     qty: 4
 ---
 
+<div class="callout callout-warning">
+  <span class="callout-icon" aria-hidden="true">&#9888;</span>
+  <p><b>This assembly is retired.</b> The Classification dome and the Camera &amp; LED insert were replaced on 2026-09-02 by the <a href="{{ '/hardware/assembly/feeder/camera-lamp/' | relative_url }}">camera lamp</a>, which carries both the light and the camera over the classification channel. This page is kept for machines already built this way. Do not print or buy these parts for a new build.</p>
+</div>
+
 <div class="prep-item">
   <div class="prep-item-body">
     <p><strong>Build a <a href="{{ '/hardware/assembly/feeder/c-channel/' | relative_url }}">classification C-channel</a> before you start.</strong> It's a required component of this page. Step 2 below walks through building it, using the C-channel page's own steps, with the finned rotor rather than faceted — Step 3 then bolts the chamber's own parts onto it.</p>

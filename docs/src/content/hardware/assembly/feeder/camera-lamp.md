@@ -11,14 +11,13 @@ author: reveryx
 contributors: [spencer, danny]
 og_image: https://assets.basically.website/sorter-docs/camera-lamp-on-channel-w1600-8d957377d671.jpg
 warning: >-
-  **AI-generated first draft, and the order of operations is a guess.** The parts, the
-  joints and Spencer's photographs are real, from the [parts
-  calculator](https://parts-calculator.basically.website/assembly?focus=camera-lamp); every
-  hole diameter and screw count below is measured off the published STLs, and the 12 screws
-  into 6 holes in Steps 2 and 3 are confirmed by ReveryX, who has the parts. Step 4 is
-  photographed from Danny's build. What is missing is the rest of a build: nobody has
-  written down how the arm mount attaches to the C-channel, which LED strip goes on the
-  hooks, or how any of it is wired. Fill those in as you build.
+  **Steps 6, 7 and 8 are not verified against a build.** Steps 1 to 5 are photographed on
+  real builds, BrickCycleAlice's and Danny's, and the 12 screws into 6 holes in steps 2 and
+  3 were confirmed by ReveryX against the parts. Still open: which of the ring's two sockets
+  the clasp is meant to use (step 6); the arm mount's dovetail onto the NEMA bracket
+  (step 7), which a builder has described but nobody has dimensioned or photographed; and
+  the cover going on, which has no build photograph yet (step 8). Wiring the strip back to the board is not on this page at
+  all. Everything else is measured off the published STLs. Fill the gaps in as you build.
 parts_needed:
   - part: c-channel-arm-mount
     qty: 1
@@ -93,31 +92,55 @@ It replaces the [light post]({{ '/hardware/assembly/feeder/light-post/' | relati
   <div class="prep-item-body">
     <p><strong>Print counts, if you are printing for the whole machine:</strong> 3 each of the mount, arm, bracket A, bracket B, ring, both clasp halves, reflector and cover, and <strong>18</strong> LED hooks, six per lamp. The hooks are the ones people come up short on.</p>
   </div>
-  <figure class="prep-item-figure">
-    <div class="img-placeholder">Image coming</div>
-  </figure>
+  <div class="prep-item-figure prep-item-figure-split">
+    <figure>
+      <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-camera-lamp-reflector-hooks-w1600-ba5715705d94.jpg" alt="The printed lamp inner reflector lying face up, ivory white, with six LED hooks clipped evenly around its rim and a small grey rectangular plate sitting on the flat">
+      <figcaption>The inner reflector with its six LED hooks around the rim. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+    </figure>
+    <figure>
+      <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-camera-lamp-reflector-hooks-close-w1600-0b2e6c678dc5.jpg" alt="A closer view of the same reflector, two of the hooks standing off the rim and the grey rectangular plate on the flat between them">
+      <figcaption>Closer, with two of the hooks in view. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+    </figure>
+  </div>
 </div>
 
 {% include step.html n="2" title="Bracket the arm to the C-channel arm mount" %}
 
-The arm and the mount butt together end to end, and brackets A and B hold the joint, one on each face. Each bracket has four 3.5 mm clearance holes in a 4.5 mm plate, two over the mount and two over the arm.
+The arm and the mount butt together end to end, with bracket A on one face and bracket B on the other.
 
-**The two brackets share their screw holes.** The mount and the arm each carry two 2.8 mm pilot holes that run 19.8 mm straight through the joint, so bracket A's screw enters one end and bracket B's the other, and eight screws go into four holes. Both pairs are 20 mm apart along the joint.
+**Which way round the brackets go:** their angled ends come in towards the end where the dovetail is printed, not away from it.
 
-Drive all 8 {% include fastener.html size="M3" variant="countersunk" length="12" %} screws, four per bracket, seated flush in the countersinks. Stop as soon as each head seats: you are cutting a thread in plastic, and the far half of the hole is somebody else's screw.
+**The ends of the arm are shaped**, so the two only mate one way round. If it does not seem to fit, swap the piece end for end rather than forcing it.
 
-**12 mm is the length, and it is the only one that fits.** A countersunk screw's length is measured over its head, so 12 mm through a 4.5 mm bracket leaves about 7.5 mm of thread in the 19.8 mm hole and two screws coming from opposite ends stop roughly 5 mm short of each other. A 16 would put 11.5 mm in from each end, 23 mm of screw in a 19.8 mm hole, and the two would meet before either seated. ReveryX confirmed the M3 × 12 on an assembled arm, 2026-09-05.
+**The two brackets share their screw holes.** Each pilot runs 19.8 mm straight through the joint, so bracket A's screw enters one end and bracket B's the other: eight screws into four holes.
 
-<figure class="single-figure">
-  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/camera-lamp-mounted-wide-w1600-247fb837f4f8.jpg" alt="A wider view of a camera lamp on the machine, showing the full length of the arm from the lamp down to the C-channel, with a bracket screwed along the joint and the LED leads cable-tied along the arm">
-  <figcaption>The arm on the machine, bracket along the joint, leads running down it. <cite>Photo: Spencer.</cite></figcaption>
-</figure>
+Drive all 8 {% include fastener.html size="M3" variant="countersunk" length="12" %} screws, four per bracket, and stop as each head seats: you are cutting a thread in plastic and the far half of the hole is somebody else's screw. **12 mm is the only length that fits**, two 16s would meet inside the hole before either seated.
+
+<div class="img-row">
+  <figure>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-camera-lamp-arm-bracket-joint-w1600-a0beb5ce60b8.jpg" alt="The camera lamp arm butted to its mount with a bracket screwed across the joint, two countersunk screws in it, and the printed dovetail at the far end of the arm">
+    <figcaption>The joint with a bracket on, angled end towards the dovetail. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+  </figure>
+  <figure>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-camera-lamp-arm-ring-section-w1600-27f1be3340df.jpg" alt="The far section of the camera lamp arm lying on the bench, the lamp ring at one end and the shaped mating end at the other">
+    <figcaption>The other section, ring end and shaped end. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+  </figure>
+  <figure>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/camera-lamp-mounted-wide-w1600-247fb837f4f8.jpg" alt="A wider view of a camera lamp on the machine, showing the full length of the arm from the lamp down to the C-channel, with a bracket screwed along the joint and the LED leads cable-tied along the arm">
+    <figcaption>The same joint on the machine, leads running down the arm. <cite>Photo: Spencer.</cite></figcaption>
+  </figure>
+</div>
 
 {% include step.html n="3" title="Screw the camera lamp ring onto the arm" %}
 
-The ring goes on the far end of the arm and is what the lamp and the camera hang from. It works the same way as the joint below it: four 3.5 mm clearance holes in the ring, two 2.8 mm pilot holes through the end of the arm, so the remaining 4 {% include fastener.html size="M3" variant="countersunk" length="12" %} screws go two per side into the same two holes. The ring straddles the arm.
+This is the joint between the arm's two sections. The ring end goes onto the far end of the arm, and is what the lamp and the camera hang from. It works the same way as the joint below it: four 3.5 mm clearance holes in the ring, two 2.8 mm pilot holes through the end of the arm, so the remaining 4 {% include fastener.html size="M3" variant="countersunk" length="12" %} screws go two per side into the same two holes. The ring straddles the arm.
 
 That is all 12 of the M3 × 12 in the parts list: 8 at the mount joint, 4 here. **Six holes, a screw into each end of every one of them.** ReveryX confirmed that count against the parts on 2026-09-05; everything else about these two steps is off the STLs.
+
+<figure class="single-figure">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-camera-lamp-arm-assembled-w1600-735fdcc7ecd6.jpg" alt="The whole camera lamp arm assembled on the bench: the dovetailed mount end, the bracket running along the joint with its screws, the bend, and the lamp ring at the far end">
+  <figcaption>Both sections joined, dovetail at one end and the ring at the other. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+</figure>
 
 {% include step.html n="4" title="Clasp the camera between the two halves" %}
 
@@ -133,29 +156,58 @@ The camera board sits in the recess in the **Camera clasp top**. Put the **Camer
   <figcaption>The bottom half closed over it, one of the two screws seated. <cite>Photo: Danny.</cite></figcaption>
 </figure>
 
+**Into the ring, no screws.** The clasped camera pushes into the camera lamp ring. Nothing fastens it: the only screws in this step are the two holding the clasp's own halves together.
+
+**Expect it to sit loose until the cover goes on.** The clasp is 67.8 mm across at its widest and the opening in the middle of the Lamp outer cover is 65.0 mm, so it is the cover, in the last step, that traps the clasp and holds the camera down. Until then it can lift straight back out, so do not pick the lamp up by the camera.
+
+<div class="img-row">
+  <figure>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-camera-lamp-clasp-in-ring-back-w1600-84825cdaec58.jpg" alt="The clasped camera snapped into the lamp ring, seen from behind: the board's back and its ribbon connector inside the round clasp, with the arm running off to the left">
+    <figcaption>From behind, snapped into the ring. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+  </figure>
+  <figure>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-camera-lamp-clasp-in-ring-front-w1600-431110b2f55b.jpg" alt="The same from the front, the lens standing through the opening in the clasp and the two clasp screws above and below it">
+    <figcaption>From the front, lens through the opening. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+  </figure>
+</div>
+
 {% include step.html n="5" title="Hook the LED strip onto the reflector" %}
 
 Six **Inner reflector LED hooks** friction-fit into the rim of the **Lamp inner reflector**, evenly spaced 60° apart, one per 2.7 mm socket around its outside. Each hook retains the LED strip against the reflector. No screws.
 
 **How much strip, measured off the reflector.** The strip sits against the inner face of the reflector's outer skirt, which is 147 mm across and about 18 mm tall, so one turn around it is **462 mm**. The photograph below shows two turns side by side in that skirt, which puts a lamp at roughly **0.92 m** and a three-lamp machine at about **2.8 m**. The strip in the parts calculator is a 24 V daylight-white 6000 K COB strip sold as a 5 m roll, one roll per machine, which covers all three.
 
-**Not recorded:** which strip is actually on the lamps in these photographs, how it is joined and how it is wired back to the board. None of that is in the catalog, and the strip is not a line in the lamp's parts list. What the photograph shows is strip run in a ring around the inside of the reflector, retained by the hooks, with the leads coming out and down the arm. Spencer said on 2026-09-06 that the strips run at 24 V off the LED headers on the basically board.
+**Fitting it.** Two turns, and **950 mm** on the build photographed here.
+
+1. Peel the blue film off the first stretch of the strip and start it under one of the hooks, adhesive against the inside of the skirt.
+2. Work it round the skirt until you are back where you started. That is one turn.
+3. Drop down to the next clips and go round again for the second turn, peeling the film as you go.
+
+The bare wires at the starting end are trimmed later, when the drop to the board is made up. Only the first strip has them: the other two lamps take plain cut lengths off the roll.
+
+<div class="img-row">
+  <figure>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-camera-lamp-strip-start-w1600-3d30eeb9a913.jpg" alt="The white reflector with the leading end of the LED strip started under the hooks in its skirt, the rest of the strip still carrying its blue protective film">
+    <figcaption>Starting it, film peeled back only as far as needed. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+  </figure>
+  <figure>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-camera-lamp-strip-first-turn-w1600-101009ec515a.jpg" alt="The strip run once around the inside of the reflector skirt, back at its starting point, with the blue film being peeled off the length still to go">
+    <figcaption>One turn round, peeling as you go. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+  </figure>
+  <figure>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-camera-lamp-strip-second-turn-w1600-e7a417c98b26.jpg" alt="Both turns of strip in the skirt, one above the other, film gone, with the red and black leads leaving the reflector at one side">
+    <figcaption>Second turn in, on the next clips down, leads out at one side. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+  </figure>
+</div>
+
+**Still open:** how the strip is joined and wired back from here. The strip is not a line in the lamp's parts list, and the drop to the board is its own job. Spencer said on 2026-09-06 that the strips run at 24 V off the LED headers on the basically board.
 
 <figure class="single-figure">
   <img class="doc-figure" src="https://assets.basically.website/sorter-docs/camera-lamp-lit-from-below-w1600-bb9d54f4f43e.jpg" alt="The lamp lit, photographed from underneath: a ring of LED strip glowing around the outside of the white reflector, the reflector's central funnel in the middle, and the arm behind it">
   <figcaption>Lit, from below. The strip rings the reflector and the light reaches the parts off the white. <cite>Photo: Spencer.</cite></figcaption>
 </figure>
 
-{% include step.html n="6" title="Cover the reflector" %}
-
-The **Lamp outer cover** friction-fits down over the reflector, and that is the whole joint: it has no screw hole anywhere in its geometry. The reflector is 150 mm across, the cover 153 mm, and the cover stands about 1.5 mm proud of the reflector at the top so the camera clasp sits recessed in the opening at its centre.
-
-<figure class="single-figure">
-  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/camera-lamp-render-underside-full-0e2b1e5a0fb9.png" alt="CAD render of the camera lamp seen from below: the inside of the cover with the reflector dome, the LED hooks spaced around the rim, the camera at the centre, and the arm reaching up into it">
-  <figcaption>From below, with the reflector inside the cover and the hooks around the rim. <cite>Rendered from the part geometry, not from a build. Render: Spencer.</cite></figcaption>
-</figure>
-
-{% include step.html n="7" title="Bring the three together" %}
+{% include step.html n="6" title="Bring the three together" %}
 
 Plug the clasped camera into the ring, then set the lamp on top. **The lamp is not fastened to the arm at all.** It sits on it under its own weight, which is how it is recorded and how it comes apart again for a print change.
 
@@ -173,10 +225,24 @@ Order matters here in one place only: the camera has to be in the clasp and the 
   <figcaption>The camera sits at the centre of the lamp, looking straight down through the reflector. <cite>Photo: Spencer.</cite></figcaption>
 </figure>
 
-{% include step.html n="8" title="Mount the arm on the C-channel" %}
+{% include step.html n="7" title="Mount the arm on the C-channel" %}
 
-**Not recorded, and not in the CAD either.** The C-channel arm mount carries exactly two holes, the pair the brackets use, and nothing that would fasten it to a channel, so how it is held there is a real gap rather than a missing sentence. The mount is 83 mm long and stands off the channel wall; the photographs show it against the outside of the channel with the arm rising over the rim. <span class="fastener-todo">fastener not recorded</span>
+**It hangs off a dovetail, not a screw.** The dovetail on the bottom of the arm mount goes onto the bottom of a C-channel's NEMA bracket. That is the whole joint: the mount carries exactly two holes, the pair the brackets use, and nothing else that would fasten it. Reported by BrickCycleAlice from her build, 2026-09-10; the mating faces are not dimensioned here yet.
+
+**Do this when the channels are in place, not on the bench.** The lamp goes on during [arranging C-channels]({{ '/hardware/assembly/feeder/arranging-c-channels/' | relative_url }}), once the channels are standing where they belong.
 
 Write down what you did, and where the lamp ended up relative to the channel: height and overhang both change what the camera sees, and the [camera calibration]({{ '/sorter/camera-calibration/' | relative_url }}) step afterwards is software, not a way to fix a lamp in the wrong place.
+
+
+{% include step.html n="8" title="Cover the reflector" %}
+
+The **Lamp outer cover** friction-fits down over the reflector, and that is the whole joint: it has no screw hole anywhere in its geometry. The reflector is 150 mm across, the cover 153 mm, and the cover stands about 1.5 mm proud of the reflector at the top so the camera clasp sits recessed in the opening at its centre.
+
+<figure class="single-figure">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/camera-lamp-render-underside-full-0e2b1e5a0fb9.png" alt="CAD render of the camera lamp seen from below: the inside of the cover with the reflector dome, the LED hooks spaced around the rim, the camera at the centre, and the arm reaching up into it">
+  <figcaption>From below, with the reflector inside the cover and the hooks around the rim. <cite>Rendered from the part geometry, not from a build. Render: Spencer.</cite></figcaption>
+</figure>
+
+<div class="img-placeholder">Photo of the cover going on, or on: pending from the build.</div>
 
 Wiring, for both the LED strip and the camera, is on the [electronics]({{ '/hardware/electronics/' | relative_url }}) page. Build the other three lamps the same way, and see [arranging C-channels]({{ '/hardware/assembly/feeder/arranging-c-channels/' | relative_url }}) for how the channels themselves sit together.

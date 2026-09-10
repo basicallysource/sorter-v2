@@ -189,7 +189,18 @@ The top plate itself has no mount holes for a C-channel, so nothing bolts down h
 
 Now the other three drives go on their stands. Lower each one onto its three dovetail adapters so the tangs engage it from below. It's a friction fit; the channel's own weight holds it.
 
-<div class="img-placeholder">Image coming</div>
+The rotors are out of both photographs below, which is the only way to see the joints — with a rotor in, the middle of a channel is covered. They also show the clocking from step 5: every stepper ends up in the middle of the group.
+
+<div class="img-row">
+  <figure>
+    <img src="https://assets.basically.website/sorter-parts/c-channel-drives-three-on-full-0fb34fea7ae4.jpg" alt="Three C-channel drives sitting on their stands with no rotors fitted, the fourth stand still empty beside them, all the steppers pointing into the middle of the group">
+    <figcaption>Three drives on, one stand still empty. Rotors left out so the joints show. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+  </figure>
+  <figure>
+    <img src="https://assets.basically.website/sorter-parts/c-channel-drives-all-four-full-44246243494e.jpg" alt="All four C-channel drives in place without rotors, their stepper motors gathered together at the centre of the group">
+    <figcaption>All four drives in place, steppers together in the middle. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+  </figure>
+</div>
 
 {% include step.html n="8" title="Fit the rotors and the output guides" %}
 

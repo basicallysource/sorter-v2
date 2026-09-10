@@ -176,9 +176,7 @@ Put all three on the [top interface]({{ '/hardware/assembly/distribution/top-int
 
 {% include step.html n="6" title="Install the classification channel" %}
 
-C4 goes in first, before the three above it, and it takes **no support structure of its own** — no layout guide, no legs, no adapters. It sits flat on the top plate and slides onto the layout guide that C3 stands in. The plate carries its weight; C3's guide locates it and sets which way round it goes. <cite>Tip: BrickCycleAlice.</cite>
-
-That is also what closes the height. C3's guide stands on the plate, so the plate is the zero the other three are measured from, and the 80 mm step below C3's 80 mm seat lands exactly there. Measured on the STLs, the fit is between the stator's base flange — the bottom 19 mm of the drive, r 103–120 mm — and the guide's ring, r 98–118 mm and 28 mm tall. Stand the drive on the plate and the flange is inside the ring.
+C4 goes in first, before the three above it, and it takes **no support structure of its own** — no layout guide, no legs, no adapters. It sits flat on the top plate and slides onto the layout guide that C3 stands in.
 
 The top plate itself has no mount holes for a C-channel, so nothing bolts down here.
 

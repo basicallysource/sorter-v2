@@ -157,6 +157,19 @@ The camera board sits in the recess in the **Camera clasp top**. Put the **Camer
   <figcaption>The bottom half closed over it, one of the two screws seated. <cite>Photo: Danny.</cite></figcaption>
 </figure>
 
+**Into the ring, no screws.** The clasped camera plugs into the camera lamp ring and snaps in. Nothing fastens it: the only screws in this step are the two holding the clasp's own halves together.
+
+<div class="img-row">
+  <figure>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-camera-lamp-clasp-in-ring-back-w1600-84825cdaec58.jpg" alt="The clasped camera snapped into the lamp ring, seen from behind: the board's back and its ribbon connector inside the round clasp, with the arm running off to the left">
+    <figcaption>From behind, snapped into the ring. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+  </figure>
+  <figure>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-camera-lamp-clasp-in-ring-front-w1600-431110b2f55b.jpg" alt="The same from the front, the lens standing through the opening in the clasp and the two clasp screws above and below it">
+    <figcaption>From the front, lens through the opening. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+  </figure>
+</div>
+
 {% include step.html n="5" title="Hook the LED strip onto the reflector" %}
 
 Six **Inner reflector LED hooks** friction-fit into the rim of the **Lamp inner reflector**, evenly spaced 60° apart, one per 2.7 mm socket around its outside. Each hook retains the LED strip against the reflector. No screws.
@@ -193,16 +206,7 @@ The bare wires at the starting end are trimmed later, when the drop to the board
   <figcaption>Lit, from below. The strip rings the reflector and the light reaches the parts off the white. <cite>Photo: Spencer.</cite></figcaption>
 </figure>
 
-{% include step.html n="6" title="Cover the reflector" %}
-
-The **Lamp outer cover** friction-fits down over the reflector, and that is the whole joint: it has no screw hole anywhere in its geometry. The reflector is 150 mm across, the cover 153 mm, and the cover stands about 1.5 mm proud of the reflector at the top so the camera clasp sits recessed in the opening at its centre.
-
-<figure class="single-figure">
-  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/camera-lamp-render-underside-full-0e2b1e5a0fb9.png" alt="CAD render of the camera lamp seen from below: the inside of the cover with the reflector dome, the LED hooks spaced around the rim, the camera at the centre, and the arm reaching up into it">
-  <figcaption>From below, with the reflector inside the cover and the hooks around the rim. <cite>Rendered from the part geometry, not from a build. Render: Spencer.</cite></figcaption>
-</figure>
-
-{% include step.html n="7" title="Bring the three together" %}
+{% include step.html n="6" title="Bring the three together" %}
 
 Plug the clasped camera into the ring, then set the lamp on top. **The lamp is not fastened to the arm at all.** It sits on it under its own weight, which is how it is recorded and how it comes apart again for a print change.
 
@@ -220,10 +224,22 @@ Order matters here in one place only: the camera has to be in the clasp and the 
   <figcaption>The camera sits at the centre of the lamp, looking straight down through the reflector. <cite>Photo: Spencer.</cite></figcaption>
 </figure>
 
-{% include step.html n="8" title="Mount the arm on the C-channel" %}
+{% include step.html n="7" title="Mount the arm on the C-channel" %}
 
 **Not recorded, and not in the CAD either.** The C-channel arm mount carries exactly two holes, the pair the brackets use, and nothing that would fasten it to a channel, so how it is held there is a real gap rather than a missing sentence. The mount is 83 mm long and stands off the channel wall; the photographs show it against the outside of the channel with the arm rising over the rim. <span class="fastener-todo">fastener not recorded</span>
 
 Write down what you did, and where the lamp ended up relative to the channel: height and overhang both change what the camera sees, and the [camera calibration]({{ '/sorter/camera-calibration/' | relative_url }}) step afterwards is software, not a way to fix a lamp in the wrong place.
+
+
+{% include step.html n="8" title="Cover the reflector" %}
+
+The **Lamp outer cover** friction-fits down over the reflector, and that is the whole joint: it has no screw hole anywhere in its geometry. The reflector is 150 mm across, the cover 153 mm, and the cover stands about 1.5 mm proud of the reflector at the top so the camera clasp sits recessed in the opening at its centre.
+
+<figure class="single-figure">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/camera-lamp-render-underside-full-0e2b1e5a0fb9.png" alt="CAD render of the camera lamp seen from below: the inside of the cover with the reflector dome, the LED hooks spaced around the rim, the camera at the centre, and the arm reaching up into it">
+  <figcaption>From below, with the reflector inside the cover and the hooks around the rim. <cite>Rendered from the part geometry, not from a build. Render: Spencer.</cite></figcaption>
+</figure>
+
+<div class="img-placeholder">Photo of the cover going on, or on: pending from the build.</div>
 
 Wiring, for both the LED strip and the camera, is on the [electronics]({{ '/hardware/electronics/' | relative_url }}) page. Build the other three lamps the same way, and see [arranging C-channels]({{ '/hardware/assembly/feeder/arranging-c-channels/' | relative_url }}) for how the channels themselves sit together.

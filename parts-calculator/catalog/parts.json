@@ -9048,10 +9048,58 @@
         },
         {
           "version": "3",
+          "uid": "4tvc",
           "date": "2026-09-01",
           "message": "The screws are all countersunk — socket/button was recorded wrong. The idler's 608 bearing is a line of its own with its press fit as a connection, and the screw joints carry measured pass-through and thread depths. Connections bench-confirmed and listed in assembly order.",
           "breaking": false,
-          "commit": "441d9114"
+          "commit": "441d9114",
+          "lines": [
+            {
+              "part": "idler-gear",
+              "qty": 1,
+              "uid": "7bv7"
+            },
+            {
+              "part": "brg-608-2rs",
+              "qty": 1,
+              "uid": "mi1l"
+            },
+            {
+              "part": "nema-bracket",
+              "qty": 1,
+              "uid": "x09t"
+            },
+            {
+              "part": "motor-nema17",
+              "qty": 1,
+              "uid": "w7pq"
+            },
+            {
+              "part": "input-gear",
+              "qty": 1,
+              "uid": "70ul"
+            },
+            {
+              "part": "stator",
+              "qty": 1,
+              "uid": "n6bm"
+            },
+            {
+              "part": "scr-m3-16-cs",
+              "qty": 3,
+              "uid": "bdi4"
+            },
+            {
+              "part": "scr-m3-8-cs",
+              "qty": 1,
+              "uid": "l6br"
+            },
+            {
+              "part": "scr-m3-12-cs",
+              "qty": 4,
+              "uid": "0a9x"
+            }
+          ]
         },
         {
           "version": "4",

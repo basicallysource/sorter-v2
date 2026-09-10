@@ -88,4 +88,10 @@ Repeat step 2 until every layer is on and the [top interface]({{ '/hardware/asse
 
 Nothing else is fastened between layers. The layers do not interlock with each other through the extrusion: the 12 screws at each joint are the only thing holding one layer to the next, which is worth knowing before you go looking for a fixing you have missed.
 
+## The finished result
+
+Every layer on, twelve screws at each joint, the top interface at the top of the tower and nothing inside it.
+
+<div class="img-placeholder">Photo of the finished frame standing on its casters: the bottom layer, the regular layers and the top interface joined into one tower, with no chutes in it yet.</div>
+
 The frame is now standing and empty. The [chutes]({{ '/hardware/assembly/distribution/chute/' | relative_url }}) go in next, one at a time and without their funnels, and the [bottom interface]({{ '/hardware/assembly/distribution/bin-frame/bottom-interface/' | relative_url }}) goes on after them, because it screws onto the chute stack rather than onto the frame. Both are on the [Chute]({{ '/hardware/assembly/distribution/chute/' | relative_url }}) page.

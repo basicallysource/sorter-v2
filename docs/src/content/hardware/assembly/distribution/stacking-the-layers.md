@@ -5,7 +5,7 @@ type: how-to
 section: hardware
 slug: assembly-stacking-the-layers
 kicker: Distribution — Stacking the layers
-lede: Joining the finished layers, the chutes and the two interfaces into the tower.
+lede: Joining the finished layers and the top interface into the standing frame.
 permalink: /hardware/assembly/distribution/stacking-the-layers/
 author: barthel
 contributors: [alex, brickcyclealice, zed0]
@@ -21,13 +21,13 @@ parts_needed:
 tools_needed: [Hex key]
 ---
 
-Every layer of the bin frame is built flat, on its own, and none of the pages that build them says how they go together. This one does. It is the last structural step of distribution: at the end of it the tower is standing, the chutes are in it, and the two interfaces are on.
+Every layer of the bin frame is built flat, on its own, and none of the pages that build them says how they go together. This one does. At the end of it the frame is standing and empty, ready for the chutes to go in.
 
 **The quantity above is for one joint.** An N-layer machine has N joints, because the top interface's own frame lands on the stack the same way a layer does, so it needs 12 × N of those screws in total.
 
 <div class="prep-item">
   <div class="prep-item-body">
-    <p><strong>Everything this page joins is built elsewhere.</strong> You need one <a href="{{ '/hardware/assembly/distribution/bin-frame/bottom-layer/' | relative_url }}">bottom layer</a>, N−1 <a href="{{ '/hardware/assembly/distribution/bin-frame/regular-layers/' | relative_url }}">regular layers</a> for an N-layer machine, a <a href="{{ '/hardware/assembly/distribution/top-interface/' | relative_url }}">top interface</a>, one <a href="{{ '/hardware/assembly/distribution/chute/' | relative_url }}">chute</a> section per layer, and a <a href="{{ '/hardware/assembly/distribution/bin-frame/bottom-interface/' | relative_url }}">bottom interface</a>.</p>
+    <p><strong>Everything this page joins is built elsewhere.</strong> You need one <a href="{{ '/hardware/assembly/distribution/bin-frame/bottom-layer/' | relative_url }}">bottom layer</a>, N−1 <a href="{{ '/hardware/assembly/distribution/bin-frame/regular-layers/' | relative_url }}">regular layers</a> for an N-layer machine, and a <a href="{{ '/hardware/assembly/distribution/top-interface/' | relative_url }}">top interface</a>. The chutes are not needed yet and must not go in while you stack.</p>
   </div>
   <figure class="prep-item-figure">
     <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-bottom-layer-corner-bracket-on-d-w1600-67bd9444f306.jpg" alt="One corner of a finished layer seen close up from above: the External bracket — bottom vertical standing on the collar with the end of the extrusion recessed in its square socket">
@@ -50,7 +50,7 @@ There are two ways to do this and the machine comes out the same either way.
 
 **The right way up** starts from the bottom layer on its casters and works upward, capping the stack with the top interface. It matches the order the pages are written in and needs no flip at the end, but every joint is driven overhead and the tower gets tall quickly.
 
-Whichever you pick, the joint itself is identical, and so is the order the parts go in relative to each other: **all of the frame first, then the chutes, then the bottom interface**.
+Whichever you pick, the joint itself is identical. **The whole frame goes together before any chute does**, which is why the chutes are not on this page.
 
 {% include step.html n="2" title="Join one layer to the next" %}
 
@@ -88,12 +88,4 @@ Repeat step 2 until every layer is on and the [top interface]({{ '/hardware/asse
 
 Nothing else is fastened between layers. The layers do not interlock with each other through the extrusion: the 12 screws at each joint are the only thing holding one layer to the next, which is worth knowing before you go looking for a fixing you have missed.
 
-{% include step.html n="4" title="Add the chutes, one layer at a time" %}
-
-Build the whole frame before any [chute]({{ '/hardware/assembly/distribution/chute/' | relative_url }}) goes in, then fit the chute sections one at a time, working through the stack. **Leave the funnels off** while you do this; they go on afterwards.
-
-{% include step.html n="5" title="Hang the bottom interface underneath" %}
-
-The [bottom interface]({{ '/hardware/assembly/distribution/bin-frame/bottom-interface/' | relative_url }}) is last, bolted up into 3 of the bottom layer's 6 B spokes. If you built upside down, this is the step that follows turning the machine over onto its casters.
-
-The tower is now standing and the distribution side is structurally complete. The feeder is built and added afterwards; the [Assembly]({{ '/hardware/assembly/' | relative_url }}) page carries the order for the whole machine.
+The frame is now standing and empty. The [chutes]({{ '/hardware/assembly/distribution/chute/' | relative_url }}) go in next, one at a time and without their funnels, and the [bottom interface]({{ '/hardware/assembly/distribution/bin-frame/bottom-interface/' | relative_url }}) goes on after them, because it screws onto the chute stack rather than onto the frame. Both are on the [Chute]({{ '/hardware/assembly/distribution/chute/' | relative_url }}) page.

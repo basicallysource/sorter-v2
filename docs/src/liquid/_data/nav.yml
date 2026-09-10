@@ -40,6 +40,8 @@ sections:
                     url: /hardware/assembly/distribution/bin-frame/bin-retainers/
               - title: Top interface
                 url: /hardware/assembly/distribution/top-interface/
+              - title: Stacking the layers
+                url: /hardware/assembly/distribution/stacking-the-layers/
               - title: Chute
                 url: /hardware/assembly/distribution/chute/
                 children:
@@ -53,8 +55,6 @@ sections:
                     url: /hardware/assembly/distribution/chute/funnel/
                   - title: Layer connectors
                     url: /hardware/assembly/distribution/chute/layer-connectors/
-              - title: Stacking the layers
-                url: /hardware/assembly/distribution/stacking-the-layers/
           - title: Feeder
             url: /hardware/assembly/feeder/
             children:

@@ -7,6 +7,7 @@ slug: assembly-top-interface
 kicker: Distribution — Top interface
 lede: The interface between the feeder and the bin tower.
 permalink: /hardware/assembly/distribution/top-interface/
+og_image: https://assets.basically.website/sorter-docs/assembly-top-interface-framing-4-full-b9ae16940954.jpg
 author: zed0
 contributors: [barthel, brickcyclealice]
 parts_needed:
@@ -721,11 +722,13 @@ The numbers on the photo and the drawing:
 
 <div class="clear-float"></div>
 
-The top interface is now complete.
+## The finished result
 
-<figure>
-  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-top-interface-framing-4-full-b9ae16940954.jpg" alt="The completed top interface: the hexagonal top plate on its framed leg structure with the chute opening in the centre">
-  <figcaption>The finished interface, seen from above with the top plate on. <cite>Photo: zed0.</cite></figcaption>
+The top plate, its six bracket mounts and their extrusion, the rotating chute mount and its gear train, and a hex frame closed onto the bottom of the verticals.
+
+<figure class="single-figure">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-top-interface-framing-4-full-b9ae16940954.jpg" alt="The completed top interface resting on its top plate: the hex frame ring uppermost, the six interface brackets and their extrusion inside it, and the white chute mount at the centre">
+  <figcaption>The finished interface, resting on its top plate the way it is built. On the machine it is the other way up, with the plate at the top. <cite>Photo: zed0.</cite></figcaption>
 </figure>
 
 The [Bin frame]({{ '/hardware/assembly/distribution/bin-frame/' | relative_url }}) page contains the instructions for the entire stack, and is where you should return once you're done here.

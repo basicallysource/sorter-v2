@@ -95,10 +95,12 @@ Steps below refer to the channels by the names the software uses, in the order a
 
 Build the same stack three times, once per channel, with that channel's legs:
 
-1. Put the layout guide down flat, sockets up.
-2. Stand the three legs in it. The sockets are 18 mm deep and the legs are held by their own weight — C1's extrusion, C2's and C3's printed legs.
-3. Drop a dovetail adapter over the top of each leg. The socket in its underside takes the top 18 mm of the leg, so the block's top face lands 2 mm above the leg on every channel — that face is the seat.
-4. Lower the built C-channel onto the three tangs so they engage the drive from below. It's a friction fit; the channel's weight holds it.
+<ol class="numbered-steps">
+  <li>Put the layout guide down flat, sockets up.</li>
+  <li>Stand the three legs in it. The sockets are 18 mm deep and the legs are held by their own weight — C1's extrusion, C2's and C3's printed legs.</li>
+  <li>Drop a dovetail adapter over the top of each leg. The socket in its underside takes the top 18 mm of the leg, so the block's top face lands 2 mm above the leg on every channel — that face is the seat.</li>
+  <li>Lower the built C-channel onto the three tangs so they engage the drive from below. It's a friction fit; the channel's weight holds it.</li>
+</ol>
 
 <div class="callout callout-warning">
   <span class="callout-icon" aria-hidden="true">⚠</span>
@@ -121,10 +123,12 @@ Build the same stack three times, once per channel, with that channel's legs:
 
 228, 148, 68 — an even 80 mm step. Every leg sockets the same 18 mm into its guide and carries the same adapter, so the step passes straight through to the drives: measured from the underside of the layout guides, the three seats land at **240 mm, 160 mm and 80 mm**. Another 80 mm below C3 is zero, which is the surface the guides themselves stand on. That's the argument in step 6 for where the classification channel goes.
 
-<figure>
-  <img class="doc-figure" src="https://assets.basically.website/sorter-parts/c-channel-support-heights-full-a32b5d7f02ad.png" alt="Elevation of the three support stacks side by side, C1 tallest to C3 shortest, with dashed lines marking seat heights at 240, 160 and 80 mm above the surface the layout guides stand on, and 80 mm marked between each pair">
-  <figcaption>The three stacks to scale, from the published STLs, with one of each channel's three legs shown. C1's leg is drawn as a plain 20 × 20 × 228 mm extrusion. The dashed lines are the faces the C-channel drives sit on. <cite>Render from the published STLs.</cite></figcaption>
-</figure>
+<div class="img-row">
+  <figure>
+    <img src="https://assets.basically.website/sorter-parts/c-channel-support-heights-full-a32b5d7f02ad.png" alt="Elevation of the three support stacks side by side, C1 tallest to C3 shortest, with dashed lines marking seat heights at 240, 160 and 80 mm above the surface the layout guides stand on, and 80 mm marked between each pair">
+    <figcaption>The three stacks to scale, from the published STLs, with one of each channel's three legs shown. C1's leg is drawn as a plain 20 × 20 × 228 mm extrusion. The dashed lines are the faces the C-channel drives sit on. <cite>Render from the published STLs.</cite></figcaption>
+  </figure>
+</div>
 
 <div class="callout">
   <p>Don't add more drop than this to fix bouncing. A part is supposed to arrive at the next rotor with most of its energy gone; a bigger drop makes pieces bounce further and re-clump, which is the problem the cascade exists to solve. If parts are riding round a channel instead of leaving it, that's the <a href="{{ '/hardware/assembly/feeder/output-guides/' | relative_url }}">output guide</a>'s job, not the height's.</p>

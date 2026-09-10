@@ -39,6 +39,8 @@ tools_needed: [Hex key, Drill or electric screwdriver]
 
 The bottom interface is the Lazy Susan bearing assembly the chute rests and spins on, slung underneath the bottom layer's frame.
 
+**Build it on the bench whenever you like, but fit it last.** Its bearing carries the bottom of the chute stack, so it goes on once the frame is standing and the [chutes]({{ '/hardware/assembly/distribution/chute/' | relative_url }}) are in, not while the layers are being stacked.
+
 <div class="prep-item">
   <div class="prep-item-body">
     <p><strong>This assembly has no frame of its own.</strong> It hangs under the <strong>bottom layer's</strong> <a href="{{ '/hardware/assembly/distribution/bin-frame/hex-frame/' | relative_url }}">hex frame</a>, built on <a href="{{ '/hardware/assembly/distribution/bin-frame/bottom-layer/' | relative_url }}">bottom layer</a>, so you don't need an extra one. Steps 4 to 8 bolt onto that frame's spokes from underneath.</p>

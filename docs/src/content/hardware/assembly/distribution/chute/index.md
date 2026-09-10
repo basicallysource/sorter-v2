@@ -26,11 +26,9 @@ The whole chute stack rotates as one unit, on the [top interface]({{ '/hardware/
 
 **Do not add the chutes while you build the layers.** Build the whole frame first, then add the chutes afterward, one at a time. alex was clear about this: "first build all the frame then add the chutes one by one without funnel."
 
-{% include step.html n="1" title="Build the whole frame first, upside down" %}
+{% include step.html n="1" title="Build the whole frame first" %}
 
-Put the [top interface]({{ '/hardware/assembly/distribution/top-interface/' | relative_url }}) on the floor with its top plate facing down, then stack every [layer]({{ '/hardware/assembly/distribution/bin-frame/regular-layers/' | relative_url }}) on top of it. Finish the whole frame before you add any chutes.
-
-Building it upside down helps here: each layer's vertical screws can be driven **down from above** instead of reached from underneath.
+The layers and the top interface go together into a standing frame before any chute goes in, on [Stacking the layers]({{ '/hardware/assembly/distribution/stacking-the-layers/' | relative_url }}). Finish that first and come back here.
 
 {% include step.html n="2" title="Add the chutes one at a time" %}
 
@@ -44,6 +42,6 @@ Add the chutes **without their funnels**. Nobody has said yet when the funnels s
 
 {% include step.html n="4" title="Bottom Lazy Susan, then the feeder" %}
 
-The [bottom interface]({{ '/hardware/assembly/distribution/bin-frame/bottom-interface/' | relative_url }}) and its Lazy Susan go on after the chutes, and the [feeder]({{ '/hardware/assembly/feeder/' | relative_url }}) goes on last. Both BrickCycleAlice and alex built their machines in this order.
+The [bottom interface]({{ '/hardware/assembly/distribution/bin-frame/bottom-interface/' | relative_url }}) and its Lazy Susan go on after the chutes, not while the frame is being stacked: the bearing carries the bottom of the chute stack, so the chutes have to be in first. The [feeder]({{ '/hardware/assembly/feeder/' | relative_url }}) goes on last. Both BrickCycleAlice and alex built their machines in this order.
 
 If you built yours in a different order, let us know. This is how one person built their machine, not an official method everyone has to follow.

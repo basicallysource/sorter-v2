@@ -50,6 +50,8 @@ Steps below refer to the channels by the names the software uses, in the order a
 - **C3**, the same again, and the last metering stage.
 - **The classification channel**, inside the [classification chamber]({{ '/hardware/assembly/feeder/classification-chamber/' | relative_url }}), which images the part before it drops into the chute. Lowest.
 
+**The camera lamps go on here**, once the channels are standing in their places rather than while a channel is on the bench: each one hangs off the dovetail on the bottom of its arm mount, onto the bottom of that channel's NEMA bracket. C2, C3 and the classification channel take one each. See [camera lamp]({{ '/hardware/assembly/feeder/camera-lamp/' | relative_url }}).
+
 {% include step.html n="1" title="Preparation" %}
 
 <div class="prep-item">

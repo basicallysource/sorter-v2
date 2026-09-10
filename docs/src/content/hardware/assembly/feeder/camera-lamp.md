@@ -14,9 +14,9 @@ warning: >-
   **Steps 6, 7 and 8 are not verified against a build.** Steps 1 to 5 are photographed on
   real builds, BrickCycleAlice's and Danny's, and the 12 screws into 6 holes in steps 2 and
   3 were confirmed by ReveryX against the parts. Still open: which of the ring's two sockets
-  the clasp is meant to use (step 6); how the arm mount fastens to a C-channel, which nobody
-  has written down and the CAD does not show (step 7); and the cover going on, which has no
-  build photograph yet (step 8). Wiring the strip back to the board is not on this page at
+  the clasp is meant to use (step 6); the arm mount's dovetail onto the NEMA bracket
+  (step 7), which a builder has described but nobody has dimensioned or photographed; and
+  the cover going on, which has no build photograph yet (step 8). Wiring the strip back to the board is not on this page at
   all. Everything else is measured off the published STLs. Fill the gaps in as you build.
 parts_needed:
   - part: c-channel-arm-mount
@@ -227,7 +227,9 @@ Order matters here in one place only: the camera has to be in the clasp and the 
 
 {% include step.html n="7" title="Mount the arm on the C-channel" %}
 
-**Not recorded, and not in the CAD either.** The C-channel arm mount carries exactly two holes, the pair the brackets use, and nothing that would fasten it to a channel, so how it is held there is a real gap rather than a missing sentence. The mount is 83 mm long and stands off the channel wall; the photographs show it against the outside of the channel with the arm rising over the rim. <span class="fastener-todo">fastener not recorded</span>
+**It hangs off a dovetail, not a screw.** The dovetail on the bottom of the arm mount goes onto the bottom of a C-channel's NEMA bracket. That is the whole joint: the mount carries exactly two holes, the pair the brackets use, and nothing else that would fasten it. Reported by BrickCycleAlice from her build, 2026-09-10; the mating faces are not dimensioned here yet.
+
+**Do this when the channels are in place, not on the bench.** The lamp goes on during [arranging C-channels]({{ '/hardware/assembly/feeder/arranging-c-channels/' | relative_url }}), once the channels are standing where they belong.
 
 Write down what you did, and where the lamp ended up relative to the channel: height and overhang both change what the camera sees, and the [camera calibration]({{ '/sorter/camera-calibration/' | relative_url }}) step afterwards is software, not a way to fix a lamp in the wrong place.
 

@@ -731,4 +731,4 @@ The top plate, its six bracket mounts and their extrusion, the rotating chute mo
   <figcaption>The finished interface, resting on its top plate the way it is built. On the machine it is the other way up, with the plate at the top. <cite>Photo: zed0.</cite></figcaption>
 </figure>
 
-The [Bin frame]({{ '/hardware/assembly/distribution/bin-frame/' | relative_url }}) page contains the instructions for the entire stack, and is where you should return once you're done here.
+The [Distribution]({{ '/hardware/assembly/distribution/' | relative_url }}) page contains the instructions for the entire assembly, and is where you should return once you're done here.

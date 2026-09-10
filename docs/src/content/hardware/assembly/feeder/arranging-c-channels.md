@@ -8,14 +8,17 @@ kicker: Feeder — Arranging C-channels
 lede: How the four C-channels stand, at what heights, and what passes parts between them.
 permalink: /hardware/assembly/feeder/arranging-c-channels/
 author: barthel
+contributors: [brickcyclealice]
+og_image: https://assets.basically.website/sorter-parts/c-channel-stands-all-three-full-9b385f0819e2.jpg
 warning: >-
   **AI-generated first draft.** Written from the machine assembly tree in the [parts
   calculator](https://parts-calculator.basically.website/assembly?focus=feeder) and measured
   off the published STLs, not from an actual build. The parts, the leg lengths and the 80 mm
-  step between channels are real and current; nobody has photographed the stand. Two things
-  are still missing: how far two channels overlap horizontally and where round the circle
-  each handover happens, and how the classification channel is fixed down. Fill them in as
-  you build.
+  step between channels are real and current, and BrickCycleAlice's photographs of all three
+  stands are on Steps 2 and 3 — but no step below has been walked through by a builder. Two
+  things are still missing: how far two channels overlap horizontally and where round the
+  circle each handover happens, and how the classification channel is fixed down. Fill them
+  in as you build.
 parts_needed:
   - part: layout-guide
     qty: 3
@@ -104,12 +107,35 @@ Build the same stack three times, once per channel, with that channel's legs:
 
 <div class="callout callout-warning">
   <span class="callout-icon" aria-hidden="true">⚠</span>
-  <p><strong>C1's legs don't fit their sockets closely.</strong> Both sockets — the one in the layout guide and the one under the adapter — are 26 mm square and 18 mm deep, which is what the printed legs' spigots are made to. C1's leg is 2020 extrusion, 20 mm square, so it has about 3 mm of slack a side at both ends. Nothing in the parts registry says what takes that up. The heights below still work as long as the extrusion bottoms out in the socket, but if you're building C1, check this against your own parts.</p>
+  <p><strong>C1's legs don't fit their sockets closely.</strong> Both sockets — the one in the layout guide and the one under the adapter — are 26 mm square and 18 mm deep, which is what the printed legs' spigots are made to. C1's leg is 2020 extrusion, 20 mm square, so on the STLs it has about 3 mm of slack a side at both ends, and nothing in the parts registry says what takes that up. It goes together — the first photo below is C1 built — but the heights only come out right if the extrusion bottoms out in the socket rather than sitting proud. Worth checking on your own parts.</p>
 </div>
 
-**Not recorded:** how the three legs are clocked around the channel — which of the three sits under the stepper, under the exit, or under the camera lamp arm. The layout guide is exported on its own, so the STLs don't say. <span class="fastener-todo">not recorded</span>
+<div class="img-row">
+  <figure>
+    <img src="https://assets.basically.website/sorter-parts/c-channel-stand-c1-full-408a46f64257.jpg" alt="C1's stand: the layout guide flat on a bench with three 2020 aluminium extrusion legs standing in its sockets, each capped by a printed dovetail adapter">
+    <figcaption>C1, on the 228 mm 2020 legs. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+  </figure>
+  <figure>
+    <img src="https://assets.basically.website/sorter-parts/c-channel-stand-c2-full-6c846cbbedd2.jpg" alt="C2's stand: the layout guide with three printed support legs standing in its sockets, each capped by a dovetail adapter">
+    <figcaption>C2, on the 148 mm printed legs. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+  </figure>
+  <figure>
+    <img src="https://assets.basically.website/sorter-parts/c-channel-stand-c3-full-8a3466156d18.jpg" alt="C3's stand: the layout guide with three short printed support legs and their dovetail adapters">
+    <figcaption>C3, on the 68 mm printed legs. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+  </figure>
+</div>
 
-<div class="img-placeholder">Image coming</div>
+<figure class="single-figure">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-parts/c-channel-stand-adapter-dovetail-full-5476503ba39a.jpg" alt="Close-up of one leg: it stands in the layout guide's square socket at the bottom, and the dovetail adapter caps its top, with a ribbed dovetail rail across the adapter's upper face">
+  <figcaption>One leg, both joints. The square socket in the layout guide at the bottom, the adapter over the top of the leg, and the dovetail rail on the adapter's upper face — that rail is what the C-channel drive slides onto. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+</figure>
+
+<figure class="single-figure">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-parts/c-channel-stand-c3-side-full-0887a0989be9.jpg" alt="The C3 stand from a lower angle, showing all three dovetail adapters and the way their rails are oriented">
+  <figcaption>The same C3 stand from lower down, with all three adapters in view. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+</figure>
+
+**Not recorded:** how the three legs are clocked around the channel — which of the three sits under the stepper, under the exit, or under the camera lamp arm. The layout guide is exported on its own, so the STLs don't say.
 
 {% include step.html n="3" title="★ Set the heights and the spacing" %}
 
@@ -129,6 +155,11 @@ Build the same stack three times, once per channel, with that channel's legs:
     <figcaption>The three stacks to scale, from the published STLs, with one of each channel's three legs shown. C1's leg is drawn as a plain 20 × 20 × 228 mm extrusion. The dashed lines are the faces the C-channel drives sit on. <cite>Render from the published STLs.</cite></figcaption>
   </figure>
 </div>
+
+<figure class="single-figure">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-parts/c-channel-stands-all-three-full-9b385f0819e2.jpg" alt="All three stands laid out together, longest legs to shortest, showing the three leg lengths side by side">
+  <figcaption>The three stands built, longest to shortest. This is the whole of the height setting: same guide, same adapter, three leg lengths. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+</figure>
 
 <div class="callout">
   <p>Don't add more drop than this to fix bouncing. A part is supposed to arrive at the next rotor with most of its energy gone; a bigger drop makes pieces bounce further and re-clump, which is the problem the cascade exists to solve. If parts are riding round a channel instead of leaving it, that's the <a href="{{ '/hardware/assembly/feeder/output-guides/' | relative_url }}">output guide</a>'s job, not the height's.</p>

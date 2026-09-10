@@ -180,7 +180,10 @@ C4 goes in first, before the three above it, and it takes **no support structure
 
 The top plate itself has no mount holes for a C-channel, so nothing bolts down here.
 
-<div class="img-placeholder">Image coming</div>
+<figure class="single-figure">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-parts/c-channel-c4-on-c3-guide-full-574058daee19.jpg" alt="The classification channel's drive, stator ring with its stepper motor on the bracket, slid onto the layout guide that C3 stands in, with the three stands lying around it">
+  <figcaption>The classification channel's drive slid onto C3's layout guide, with the three stands beside it. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+</figure>
 
 {% include step.html n="7" title="Install C1, C2 and C3" %}
 

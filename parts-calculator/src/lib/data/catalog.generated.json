@@ -5446,7 +5446,7 @@
 				{
 					"version": "1",
 					"uid": "9v9q",
-					"message": "Open center hole, as recorded before the first stamped change.",
+					"message": "Open center hole, as recorded before the first stamped change. The Rotor cap plugs that hole, for anyone who printed a rotor to this version and would rather not print it again.",
 					"stl_hash": "350de3f8e27e7d0bb1f00d2c070c7f255da73987c9b2d86f639664c5db81bfd6",
 					"render": "https://assets.basically.website/sorter-parts/rotor-faceted-v1-full-52fba49e5abb.png",
 					"stl": "https://assets.basically.website/sorter-parts/rotor-faceted-350de3f8e27e.stl",
@@ -11297,7 +11297,7 @@
 			"folder": null,
 			"variant_group": null,
 			"variant_name": null,
-			"description": "Optional. Plugs the 25 mm hole through the centre of a rotor, on the two that have one: the faceted rotor v1, and the finned rotor. The faceted rotor v2 has a filled centre and takes no cap, so a machine printed from the current files does not need this part. The spigot presses in from above and the flange sits proud on the apex.",
+			"description": "Optional, and only for the faceted rotor v1, the one with the 25 mm hole through the middle. The spigot presses in from above and the flange sits proud on the apex, so a rotor printed before the centre was filled finishes the way the current one does. Nothing on a machine printed from today's files takes a cap: the faceted rotor v2 has a solid centre, and the finned rotor's bore is left open.",
 			"version": "1",
 			"created_at": "2026-09-10",
 			"updated_at": "2026-09-10",

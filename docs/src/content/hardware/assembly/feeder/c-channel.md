@@ -66,7 +66,8 @@ Press both bearings into their gears first, while the parts are loose and you ca
     <p><strong>Output gear (130T):</strong> one 6806-2RS bearing, 30 mm bore.</p>
   </div>
   <figure class="prep-item-figure">
-    <div class="img-placeholder">Image coming</div>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-c-channel-output-gear-bearing-pressed-w1600-238c650067c4.jpg" alt="The 130-tooth output gear lying flat with a black-sealed 6806 bearing pressed into its six-spoke hub">
+    <figcaption>The output gear with its bearing pressed home. <cite>Photo: BrickCycleAlice.</cite></figcaption>
   </figure>
 </div>
 
@@ -75,7 +76,8 @@ Press both bearings into their gears first, while the parts are loose and you ca
     <p><strong>Idler gear (24T):</strong> one 608-2RS bearing.</p>
   </div>
   <figure class="prep-item-figure">
-    <div class="img-placeholder">Image coming</div>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-c-channel-idler-gear-bearing-pressed-w1600-77f822b4b777.jpg" alt="The 24-tooth idler gear with a black-sealed 608 bearing pressed into its centre, seen from above">
+    <figcaption>The idler gear with its 608 in. <cite>Photo: BrickCycleAlice.</cite></figcaption>
   </figure>
 </div>
 
@@ -118,23 +120,30 @@ Then fasten the NEMA 17 to the bracket with 3 {% include fastener.html size="M3"
   <figcaption>Idler on its post, bearing up, with the stepper bolted on beside it. <cite>Photo: BrickCycleAlice.</cite></figcaption>
 </figure>
 
+<figure class="single-figure">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-c-channel-step4-mounting-face-w1600-5f972ded599d.jpg" alt="Close view of the grey NEMA bracket, two countersunk screws driven near the edge with further mounting holes beside them">
+  <figcaption>Closer on the NEMA bracket, two screws home. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+</figure>
+
 {% include step.html n="5" title="Mount the stator, then drop in the rotor" %}
 
 Fasten the NEMA bracket to the underside of the stator with 4 {% include fastener.html size="M3" variant="countersunk" length="12" %} screws.
+
+<figure class="single-figure">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-c-channel-bracket-under-stator-w1600-c45a38f08e69.jpg" alt="The stator ring seen from underneath with the three-armed NEMA bracket fastened across it, each arm reaching the rim">
+  <figcaption>The bracket on the underside of the stator, arms out to the rim. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+</figure>
 
 Then lower the rotor, output gear and all, onto the raised hub in the middle of the bracket, so the 130T comes down into mesh with the idler.
 
 Turn the stage by hand before wiring it. The train should run without a tight spot anywhere in a full revolution.
 
 <figure class="single-figure">
-  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-c-channel-stator-and-rotor-fitted-w1600-60758bbee2d5.jpg" alt="A finished C-channel seen from above: the white finned classification rotor sitting inside the grey stator ring, with the stepper motor projecting from the right-hand side">
-  <figcaption>The finished stage, here the classification one with the finned rotor. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-c-channel-finished-stage-w1600-9bd3719c4180.jpg" alt="A finished channel: the finned rotor sitting down in the grey stator ring with the stepper motor and its lead standing off one side">
+  <figcaption>The finished stage, rotor down in the stator with the stepper on the outside. <cite>Photo: BrickCycleAlice.</cite></figcaption>
 </figure>
 
-{% include step.html n="6" title="Hang the camera lamp over the channel" %}
+## Next steps
 
-C2, C3 and the classification channel each carry a camera lamp: an arm mounted to the channel, a shaded lamp on the end of it and a camera looking down through the middle. It has its own page, [camera lamp]({{ '/hardware/assembly/feeder/camera-lamp/' | relative_url }}), and none of its screws are in the list above. Skip this step on C1, the bulk bucket, which takes no lamp.
-
-The light post and the overhead camera mount that used to do this job were retired on 2026-09-02. Their pages are still up for machines already built that way.
-
-Once all four are built, see [arranging C-channels]({{ '/hardware/assembly/feeder/arranging-c-channels/' | relative_url }}) for how they sit together.
+- **[Build a camera lamp]({{ '/hardware/assembly/feeder/camera-lamp/' | relative_url }})** for this channel if it needs one. C2, C3 and the classification channel each carry one, an arm mounted to the channel with a shaded lamp and a camera looking down through the middle. C1, the bulk bucket, takes none. The lamp goes on once the channels are mounted, not now, and none of its screws are in the list above. It replaces the [light post]({{ '/hardware/assembly/feeder/light-post/' | relative_url }}) and the [overhead camera mount]({{ '/hardware/assembly/feeder/camera-mount/' | relative_url }}), whose pages are still up for machines already built that way.
+- **[Arrange the C-channels]({{ '/hardware/assembly/feeder/arranging-c-channels/' | relative_url }})** once all four are built, for how they stand together.

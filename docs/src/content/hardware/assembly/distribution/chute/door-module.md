@@ -357,6 +357,17 @@ Clock it before you commit: centre the servo (or let it settle at its power-on d
   <figcaption>The same job on a real machine. The disc in frame is the servo adapter from step 7, screwed together with its four countersunk screws, with the hexagonal socket that takes the door's shaft facing the camera; the MG995 sits in its bracket behind it. <cite>Frame from the video below. Video: Spencer.</cite></figcaption>
 </figure>
 
+<div class="img-row">
+  <figure>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-door-module-bracket-on-core-coupled-w1600-753b3624aba0.jpg" alt="The servo bracket bolted to the chute core with the servo adapter fitted on the servo's output, seen face on, the adapter's four screws and hex socket visible">
+    <figcaption>Bracket bolted on and the adapter fitted to the servo, seen face on. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+  </figure>
+  <figure>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-door-module-bracket-on-core-top-w1600-94ef36ed29c6.jpg" alt="The same assembly from above, the servo in its bracket standing off the chute core with the door hanging below">
+    <figcaption>From above, with the servo standing off the core and the door below. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+  </figure>
+</div>
+
 <div class="callout callout-warning">
   <span class="callout-icon" aria-hidden="true">⚠</span>
   <p>The MG995 only rotates 180°. Install the servo so the door can reach <strong>both</strong> its fully open and fully closed positions inside that range: clock the horn and set the mounting angle so neither extreme falls outside the servo's travel. Before you tighten anything down, cycle the door by hand through both positions to confirm it swings freely and doesn't bind on the bearings or the core.</p>

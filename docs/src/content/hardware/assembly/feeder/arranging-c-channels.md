@@ -140,7 +140,7 @@ The same again, with the **68 mm printed** legs.
   <figcaption>The same stand from lower down, with all three adapters in view. <cite>Photo: BrickCycleAlice.</cite></figcaption>
 </figure>
 
-{% include step.html n="5" title="★ Lay the three stands out" %}
+{% include step.html n="5" title="Lay the three stands out" %}
 
 Put all three on the [top interface]({{ '/hardware/assembly/distribution/top-interface/' | relative_url }})'s top plate. **The drop between channels comes out of this on its own** — you don't measure it, you get it by using the right leg on each channel and standing all three guides on the same flat surface.
 
@@ -171,11 +171,6 @@ Put all three on the [top interface]({{ '/hardware/assembly/distribution/top-int
 <div class="callout">
   <p>Don't add more drop than this to fix bouncing. A part is supposed to arrive at the next rotor with most of its energy gone; a bigger drop makes pieces bounce further and re-clump, which is the problem the cascade exists to solve. If parts are riding round a channel instead of leaving it, that's the <a href="{{ '/hardware/assembly/feeder/output-guides/' | relative_url }}">output guide</a>'s job, not the height's.</p>
 </div>
-
-**Still not recorded**, and these are the numbers this page most needs from a real build:
-
-- how far two channels overlap horizontally, which is what fixes where the guides sit relative to one another,
-- how far around the circle each handover happens.
 
 <div class="img-placeholder">Image coming</div>
 

@@ -361,6 +361,18 @@
 			}
 		},
 		{
+			"id": "delete-unused-m3-35-flat-head-screw",
+			"name": "Delete the unused M3 x 35 mm flat head screw",
+			"priority": "P4",
+			"condition": "retired",
+			"description": "This screw reaches no bill of materials. Its only live use was the long screw clamping the two cable-clamp halves together at the top interface, and 35 mm was too short for that joint: the stack under the screw head is 32.00 mm to the floor of the nut pocket in the Cable clamp (outer) and 34.40 mm to come through the nut, so it carried 0.60 mm of margin and the nut could not be picked up. Cable clamp v2 carries the M3 x 40 mm flat head (scr-m3-40-fhcs) instead. Chute stepper gearing v1 also listed it, but v2 replaced it with the M3 x 20 mm countersunk (scr-m3-20-cs), so every remaining reference is a historical snapshot of a superseded assembly. It should be deleted outright, but a minted part id has to stay resolvable once it exists, and the catalog's own consistency check refuses a change that removes one, so deleting it needs that check overridden by someone who can make that call, not an edit from here. Tracked as sorter-v2 issue #618.",
+			"targets": {
+				"hardware": [
+					"scr-m3-35-bhcs"
+				]
+			}
+		},
+		{
 			"id": "delete-unused-m3-15-washer",
 			"name": "Delete the unused M3 x 15 mm washer",
 			"priority": "P4",
@@ -799,8 +811,8 @@
 		},
 		{
 			"id": "cable-clamp",
-			"uid": "e0p9",
-			"version": "1",
+			"uid": "rwaw",
+			"version": "2",
 			"name": "Cable clamp",
 			"description": "Inner + outer ribbon cable clamp; the two halves clamp together around the cable and the pair bolts to the top interface chute mount.",
 			"docs": "/hardware/assembly/distribution/top-interface/",
@@ -814,12 +826,49 @@
 					"qty": 1
 				},
 				{
-					"part": "scr-m3-35-bhcs",
+					"part": "scr-m3-40-fhcs",
 					"qty": 1
 				},
 				{
 					"part": "nut-m3",
 					"qty": 1
+				}
+			],
+			"versions": [
+				{
+					"version": "1",
+					"uid": "e0p9",
+					"message": "As recorded before the first stamped change.",
+					"lines": [
+						{
+							"part": "cable-clamp-inner",
+							"qty": 1,
+							"uid": "3fue"
+						},
+						{
+							"part": "cable-clamp-outer",
+							"qty": 1,
+							"uid": "50dv"
+						},
+						{
+							"part": "scr-m3-35-bhcs",
+							"qty": 1,
+							"uid": "38vn"
+						},
+						{
+							"part": "nut-m3",
+							"qty": 1,
+							"uid": "sc1c"
+						}
+					]
+				},
+				{
+					"version": "2",
+					"uid": "rwaw",
+					"date": "2026-09-09",
+					"message": "M3 \u00d7 35 mm flat head replaced by M3 \u00d7 40 mm flat head. The stack under the screw head is 32.00 mm to the floor of the nut pocket in the outer clamp and 34.40 mm through the nut, so 35 mm carried 0.60 mm of margin and builders could not pick the nut up. 40 mm spans the 8.00 mm pocket.",
+					"breaking": false,
+					"commit": null
 				}
 			]
 		},
@@ -20461,10 +20510,10 @@
 			},
 			"name": "M3 \u00d7 35 mm flat head",
 			"category": "Screws",
-			"description": "The long M3 that clamps the two cable-clamp halves together at the top interface, threading into an M3 nut in the bottom of the Cable clamp (outer).",
-			"note": null,
+			"description": "Retired 2026-09-09, no longer used by any assembly: at 35 mm this screw cleared the far face of the nut by only 0.60 mm and did not reach in practice. The cable clamp takes the M3 \u00d7 40 mm flat head (scr-m3-40-fhcs) now. Kept as an unused entry rather than deleted, because chute-stepper-gearing v1 pins this uid in its line snapshot and a minted uid has to stay resolvable (VERSIONING.md).",
+			"note": "Do not add a new joint to this entry. Reported 2026-09-09: with the ribbon cable in the clamp the 35 mm screw would not pick up the nut. The stack under the head is 32.00 mm to the nut pocket floor and 34.40 mm through the nut, so 35 mm carried 0.60 mm of margin. See scr-m3-40-fhcs for the measurements. Deletion tracked as sorter-v2 issue #618.",
 			"created_at": "2026-07-18",
-			"updated_at": "2026-08-30",
+			"updated_at": "2026-09-09",
 			"attributes": [
 				{
 					"label": "Thread",
@@ -20473,6 +20522,46 @@
 				{
 					"label": "Length",
 					"value": "35 mm"
+				},
+				{
+					"label": "Head",
+					"value": "Flat (pancake) head, hex socket. Pan head works too."
+				}
+			],
+			"sheet_qty": null,
+			"sheet_qty_text": null,
+			"stock": null,
+			"sourcing": null,
+			"alternative": "Flat or pan head",
+			"caption": null,
+			"docs_page": null,
+			"conflicts": null,
+			"image": null
+		},
+		{
+			"id": "scr-m3-40-fhcs",
+			"uid": "ucgw",
+			"kind": "cots",
+			"cots": {
+				"type": "screw",
+				"size": "M3",
+				"variant": "flat",
+				"length_mm": 40
+			},
+			"name": "M3 \u00d7 40 mm flat head",
+			"category": "Screws",
+			"description": "The long M3 that clamps the two cable-clamp halves together at the top interface, threading into an M3 nut in the pocket in the Cable clamp (outer).",
+			"note": null,
+			"created_at": "2026-09-09",
+			"updated_at": "2026-09-09",
+			"attributes": [
+				{
+					"label": "Thread",
+					"value": "M3"
+				},
+				{
+					"label": "Length",
+					"value": "40 mm"
 				},
 				{
 					"label": "Head",

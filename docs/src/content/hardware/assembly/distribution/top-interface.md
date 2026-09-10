@@ -95,7 +95,7 @@ parts_needed:
     qty: 2
   - part: scr-m3-20-cs
     qty: 1
-  - part: scr-m3-35-bhcs
+  - part: scr-m3-40-fhcs
     qty: 1
   - part: scr-m4-12-cs
     qty: 8
@@ -631,6 +631,11 @@ Screw the remaining Cable cage brackets to the other 5 corners of the Cable cage
 
 Place an {% include fastener.html size="M3" variant="nut" %} into the bottom of the Cable clamp (outer) (the video skips this), then push it into the recess in the Top interface chute mount. Fasten it with two {% include fastener.html size="M3" variant="socket-button" length="10" %} screws.
 
+<div class="callout callout-warning">
+  <span class="callout-icon" aria-hidden="true">⚠</span>
+  <p>The nut is not captive: nothing holds it in the pocket until the clamp is pushed into the recess. Check it is lying flat on the bottom of the pocket and keep that face upwards while you mount the clamp. If it falls out or sits skewed, the long screw later in this step has nothing to start on, and you cannot get at it once the clamp is bolted down.</p>
+</div>
+
 Rotate the chute until it hits the limit switch.
 
 Fold your IDC ribbon cable around the Cable clamp (inner), following the guides on the clamp. Slide the cable and clamp together into the Cable clamp (outer), leaving a significant tail to connect to the chute.
@@ -639,7 +644,7 @@ Guide the rest of the ribbon cable around the side of the Top interface chute mo
 
 Screw the Ribbon cable clamp lightly to the Cable cage bracket (cable mount) with one {% include fastener.html size="M3" variant="socket-button" length="10" %} screw, clamping the ribbon cable between the two.
 
-Check that the chute can rotate fully to the limit switch in both directions, then tighten the Ribbon cable clamp screw. Use a long {% include fastener.html size="M3" variant="flat" length="35" %} screw through the Cable clamp (inner) into the {% include fastener.html size="M3" variant="nut" %} in the bottom of the Cable clamp (outer) to secure that end.
+Check that the chute can rotate fully to the limit switch in both directions, then tighten the Ribbon cable clamp screw. Use a long {% include fastener.html size="M3" variant="flat" length="40" %} screw through the Cable clamp (inner) into the {% include fastener.html size="M3" variant="nut" %} in the bottom of the Cable clamp (outer) to secure that end.
 
 {% include step.html n="12" title="Attach the cable cage bottom" %}
 

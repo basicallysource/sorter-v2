@@ -10,6 +10,7 @@ permalink: /hardware/assembly/distribution/top-interface/
 og_image: https://assets.basically.website/sorter-docs/assembly-top-interface-framing-4-full-b9ae16940954.jpg
 author: zed0
 contributors: [barthel, brickcyclealice]
+og_image: https://assets.basically.website/sorter-docs/assembly-top-interface-framing-4-full-b9ae16940954.jpg
 parts_needed:
   - part: interface-upper-fixed-section
     qty: 1
@@ -124,6 +125,11 @@ tools_needed: [Hex key, Soldering iron or heat-set insert press]
 
 The top interface holds a chute that rotates on a lazy-susan bearing to aim incoming parts at whichever bin layer is currently selected. A NEMA 23 stepper drives the rotation through a small gear train (steps 6 and 9), and a limit switch and hammer (steps 4, 6, 8) give it a fixed reference point to home against, since the stepper alone has no way to know which way it is pointed. Everything on this page bolts onto the Top plate, which then sits on the hex frame built on the bin-frame page.
 
+<figure class="single-figure">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-top-interface-framing-4-full-b9ae16940954.jpg" alt="The finished top interface seen from above: the hexagonal aluminum frame around the plywood Top plate, six interface ribs radiating from the centre, and the white chute mount in the middle">
+  <figcaption>What this page builds, finished: the interface under its hex frame, ready for the top layer. <cite>Photo: zed0.</cite></figcaption>
+</figure>
+
 <div class="prep-item">
   <div class="prep-item-body">
     <p><strong>Have a <a href="{{ '/hardware/assembly/distribution/bin-frame/hex-frame/' | relative_url }}">hex frame</a> ready by step 13.</strong> It's a required component of this page — step 13 places one onto the assembly, it doesn't build one. The rest of this page (steps 1-12, 14+) doesn't need it.</p>
@@ -181,7 +187,7 @@ Before assembling anything, press all the heat inserts listed below into their p
   </div>
   <figure class="prep-item-figure">
     <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-top-interface-prep-upper-fixed-section-inserts-full-ful-4f73af3a5587.png" alt="The Interface upper fixed section ring, underside with the NEMA 23 bracket attached, showing four brass M4 heat inserts around its face">
-    <figcaption>Underside, with the NEMA 23 bracket attached. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+    <figcaption>Underside, with the NEMA 23 bracket attached. <cite>Photo: zed0, a still from the assembly video.</cite></figcaption>
   </figure>
 </div>
 
@@ -192,7 +198,7 @@ Before assembling anything, press all the heat inserts listed below into their p
   <figure class="prep-item-figure">
     <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-top-interface-prep-nema23-inserts-full-5fda8f6ef8c0.png" alt="The Interface NEMA 23 bracket held up, showing four brass M5 inserts on the top edges and one M3 insert on the long tail">
     <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-top-interface-prep-nema23-inserts-underside-full-97cf1ce3e1b0.png" alt="The underside of the Interface NEMA 23 bracket, showing the two remaining brass M5 heat inserts">
-    <figcaption>Top: four M5 on the edges and one M3 on the tail. Underside: the two remaining M5. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+    <figcaption>Top: four M5 on the edges and one M3 on the tail. Underside: the two remaining M5. <cite>Photo: zed0, a still from the assembly video.</cite></figcaption>
   </figure>
 </div>
 
@@ -203,7 +209,7 @@ Before assembling anything, press all the heat inserts listed below into their p
   <div class="prep-item-figure prep-item-figure-split">
     <figure>
       <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-top-interface-prep-chute-mount-inserts-underside-full-ec67c0262221.png" alt="The underside of the white Top interface chute mount, showing brass M4 and M3 heat inserts around the ring">
-      <figcaption>Underside: the 4 M4 and 5 of the M3. The other 2 M3 sit by the cable-clamp recess on the top face. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+      <figcaption>Underside: the 4 M4 and 5 of the M3. The other 2 M3 sit by the cable-clamp recess on the top face. <cite>Photo: zed0, a still from the assembly video.</cite></figcaption>
     </figure>
     <figure>
       <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-top-interface-prep-chute-mount-inserts-underside-grey-w-52b54ffa44db.jpg" alt="A closer grey view of the Top interface chute mount underside, showing two of the M3 inserts on the ring beside the recess for the Limit switch hammer screw">
@@ -238,7 +244,7 @@ Before assembling anything, press all the heat inserts listed below into their p
   </div>
   <figure class="prep-item-figure">
     <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-top-interface-prep-limit-switch-hammer-inserts-full-ff286afdd969.png" alt="The Limit switch hammer held up, showing a single brass M3 heat insert in its round disc">
-    <figcaption>One M3 insert in the round disc. <cite>Photo: zed0.</cite></figcaption>
+    <figcaption>One M3 insert in the round disc. <cite>Photo: zed0, a still from the assembly video.</cite></figcaption>
   </figure>
 </div>
 
@@ -248,7 +254,7 @@ Before assembling anything, press all the heat inserts listed below into their p
   </div>
   <figure class="prep-item-figure">
     <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-top-interface-prep-cable-cage-bracket-cable-inserts-ful-9188d3883103.png" alt="The Cable cage bracket (cable mount) held up, showing a single brass M3 heat insert">
-    <figcaption>The one M3 insert in the Cable cage bracket (cable mount). <cite>Photo: zed0.</cite></figcaption>
+    <figcaption>The one M3 insert in the Cable cage bracket (cable mount). <cite>Photo: zed0, a still from the assembly video.</cite></figcaption>
   </figure>
 </div>
 
@@ -309,19 +315,19 @@ Attach the whole assembly to the bottom of the Top plate with {% include fastene
 
 <div class="img-row">
   <figure>
-    <img class="doc-figure" src="https://assets.basically.website/sorter-parts/img-4305-full-931aaff1af40.jpg" alt="Close-up of a hand-cut plywood Top plate showing a countersunk screw hole near the S3 hole position">
-    <figcaption>A hand-cut Top plate with the S2/S3 holes countersunk. <cite>Photo: BrickCycleAlice.</cite></figcaption>
-  </figure>
-</div>
-
-<div class="img-row">
-  <figure>
     <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-top-interface-step2-ribs-upper-fixed-section-w1600-4ebd47453115.jpg" alt="Six grey Interface ribs attached around the circular Interface upper fixed section">
     <figcaption>The 6 Interface ribs attached to the Interface upper fixed section. <cite>Photo: BrickCycleAlice.</cite></figcaption>
   </figure>
   <figure>
     <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-top-interface-step2-nema23-bracket-underside-w1600-cb1666b20cca.jpg" alt="Underside of the Interface upper fixed section with the Interface NEMA 23 bracket seated in its notch">
     <figcaption>Underside, with the Interface NEMA 23 bracket seated in its notch. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+  </figure>
+</div>
+
+<div class="img-row">
+  <figure>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-parts/img-4305-full-931aaff1af40.jpg" alt="Close-up of a hand-cut plywood Top plate showing a countersunk screw hole near the S3 hole position">
+    <figcaption>A hand-cut Top plate with the S2/S3 holes countersunk. <cite>Photo: BrickCycleAlice.</cite></figcaption>
   </figure>
 </div>
 
@@ -359,6 +365,14 @@ Slide the extrusion into the Interface bracket, careful not to dislodge the T-nu
     <img class="doc-figure" src="https://assets.basically.website/sorter-parts/img-4293-full-d11cce819ba3.jpg" alt="Four M5 screws threaded a few turns into T-nuts hanging in the Interface bracket's channel before the extrusion is slid in">
     <figcaption>Screws threaded into the T-nuts first, ready for the extrusion. <cite>Photo: BrickCycleAlice.</cite></figcaption>
   </figure>
+  <figure>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-top-interface-step3-extrusion-slid-in-w1600-914b4213437a.jpg" alt="The extrusion slid into the Interface bracket's channel, with the four M5 screws driven into the T-nuts along the bracket's face and a brass M5 insert at each end of it">
+    <figcaption>The extrusion slid home and all four screws driven into the T-nuts. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+  </figure>
+  <figure>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-top-interface-step3-bracket-extrusion-joined-w1600-60b9e370b515.jpg" alt="The joined Interface bracket and extrusion from the outer side, the extrusion projecting past the bracket's lower end and the square socket for the vertical leg at the top">
+    <figcaption>The finished joint from the outer side, with the socket for the vertical leg at the top. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+  </figure>
 </div>
 
 Repeat for all 6 Interface brackets.
@@ -385,6 +399,17 @@ Push the Printed dowel pin into the Limit switch housing.
 
 Attach the Roller lever limit switch (the "endstop-mechanical" part in your kit) with two {% include fastener.html size="M3" variant="socket-button" length="16" %} screws (into the housing's 2 M3 inserts) so the roller sits next to the dowel pin.
 
+<div class="img-row">
+  <figure>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-top-interface-step4-switch-on-housing-w1600-dc1356ce0023.jpg" alt="The roller lever limit switch screwed to the grey Limit switch housing, its roller sitting alongside the printed dowel pin">
+    <figcaption>The switch on the housing, roller alongside the dowel pin. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+  </figure>
+  <figure>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-top-interface-step4-switch-on-housing-back-w1600-b973ca34358f.jpg" alt="The same limit switch housing from behind, showing both M3 screws through the switch body and the dowel pin standing proud of the housing">
+    <figcaption>From behind, with both M3 screws in and the dowel pin seated. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+  </figure>
+</div>
+
 Align the switch housing with the extrusion of one of the prepared Interface brackets so the limit switch is on the same face as the sloped side of the bracket. Slide 2 T-nuts into the extrusion and fasten the Limit switch housing to the extrusion with two {% include fastener.html size="M5" variant="socket-button" length="16" %} screws. Slide it as far toward the Interface bracket as possible for now; it gets aligned properly later.
 
 <div class="callout">
@@ -396,6 +421,17 @@ Align the switch housing with the extrusion of one of the prepared Interface bra
   <figure>
     <img class="doc-figure" src="https://assets.basically.website/sorter-parts/img-4301-full-9ca956feeb74.jpg" alt="Two T-nuts threaded onto their screws on the Limit switch housing's mounting face, ready for the extrusion">
     <figcaption>T-nuts threaded on before the extrusion goes in. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+  </figure>
+</div>
+
+<div class="img-row">
+  <figure>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-top-interface-step4-housing-on-extrusion-w1600-3c2d478fa1c6.jpg" alt="The limit switch housing bolted to the extrusion of a prepared Interface bracket, seen along the whole length of the bracket">
+    <figcaption>The housing on the bracket's extrusion, slid up toward the bracket. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+  </figure>
+  <figure>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-top-interface-step4-housing-on-extrusion-close-w1600-5a430eea98ae.jpg" alt="Close view of the limit switch housing on the extrusion, with its two M5 screws and the switch facing the same way as the sloped side of the bracket">
+    <figcaption>Closer: the two M5 screws, switch on the same face as the bracket's slope. <cite>Photo: BrickCycleAlice.</cite></figcaption>
   </figure>
 </div>
 
@@ -422,6 +458,17 @@ Slide a T-nut just into the end of the extrusion of the limit switch interface b
 
 <div class="img-row">
   <figure>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-top-interface-step5-extrusion-into-rib-w1600-171a74d5ef45.jpg" alt="A bracket's extrusion slid into an Interface rib on the underside of the Top plate, held by a single screw">
+    <figcaption>The extrusion slid into its rib, still loose on one screw. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+  </figure>
+  <figure>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-top-interface-step5-extrusion-into-rib-close-w1600-6f7cb227905b.jpg" alt="Closer view of the same joint with the rib, the bracket and the Top plate's hole lined up">
+    <figcaption>Closer, with the bracket's holes lined up on the Top plate's. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+  </figure>
+</div>
+
+<div class="img-row">
+  <figure>
     <img class="doc-figure" src="https://assets.basically.website/sorter-parts/img-4311-full-f9e44da3df95.jpg" alt="Looking down through one of the Top plate's screw holes, with light visible through it into the extrusion channel below">
     <figcaption>What a clear sightline through the hole looks like. <cite>Photo: BrickCycleAlice.</cite></figcaption>
   </figure>
@@ -435,6 +482,17 @@ Slide a T-nut just into the end of the extrusion of the limit switch interface b
 Repeat with the 5 other prepared Interface brackets into the 5 other Interface ribs.
 
 Flip the whole assembly and screw all 6 Interface brackets into place with {% include fastener.html size="M5" variant="countersunk" length="22" %} screws through holes I1 to I6 and O1 to O6.
+
+<div class="img-row">
+  <figure>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-top-interface-step5-all-six-brackets-w1600-075fb97be950.jpg" alt="All six Interface brackets and their extrusions installed around the Interface upper fixed section, seen from above, with the limit switch bracket among them">
+    <figcaption>All six brackets in, the limit switch one among them. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+  </figure>
+  <figure>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-top-interface-step5-flipped-for-io-screws-w1600-7e736e282210.jpg" alt="The assembly flipped onto its Top plate, the plate's face up with the marked I and O holes around the centre opening">
+    <figcaption>Flipped over, ready for the I and O screws. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+  </figure>
+</div>
 
 <div class="callout callout-warning">
   <span class="callout-icon" aria-hidden="true">⚠</span>
@@ -528,6 +586,17 @@ Once done, check that the chute rotates freely relative to the Interface upper f
 </figure>
 
 Loosen the screws attaching the Limit switch housing to the extrusion. Slide the housing so the Limit switch hammer passes between the Roller lever limit switch and the Printed dowel pin in both directions of rotation, without touching the dowel pin. Rotate the chute slowly to each limit by hand: you should feel and hear the switch click just before the hammer would otherwise hit the dowel pin. If the hammer rubs against the dowel pin, slide the housing slightly further away and re-test. Tighten the screws to keep the housing in this position.
+
+<div class="img-row">
+  <figure>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-top-interface-step8-chute-installed-w1600-391797bae8a1.jpg" alt="The chute and its ring gear installed on the interface assembly, seen from above with all six brackets around it">
+    <figcaption>The chute in place, which is the state this adjustment starts from. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+  </figure>
+  <figure>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-top-interface-step8-hammer-at-switch-w1600-c5ea45cae0c0.jpg" alt="Close view of the Limit switch hammer swung in between the roller lever limit switch and the printed dowel pin, beside the chute's ring gear teeth">
+    <figcaption>The hammer passing between the roller and the dowel pin, clear of both. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+  </figure>
+</div>
 
 {% include step.html n="9" title="Install the chute stepper motor" %}
 

@@ -273,6 +273,8 @@ Six of the core's 18 inserts belong to this module. Four are used here, two in s
 
 Snug all four down before tightening any of them, then cycle the door by hand through its full swing. It should turn freely on the bearings and not touch the core anywhere; if it binds, slacken off and let the assembly settle square before tightening again.
 
+<div class="img-placeholder">Photos of the flap assembly on the core: sliding it in, bolted down with the door closed and then fully open, the same pair from the other side, and one from the back with the door closed. A half-open door in a finished photo is what a wrong install looks like, so the two ends of the swing are the shots that show this is right.</div>
+
 {% include step.html n="7" title="Build the servo adapter" %}
 
 The servo-side and flap-side plates clamp the MG995 Servo Horn between them. The horn ships with the servo, it isn't printed. Drop the horn into the servo-side half **splined sleeve first**: the sleeve sits in the hole in the middle of that half and the two arms lie in the slot around it. It does not fit any other way. Bring the flap-side half down over it and drive 4 {% include fastener.html size="M3" variant="countersunk" length="8" %} screws through the flap side (it's the half with the visible screw holes) into the servo side. The screws cut their own thread in the printed plastic.

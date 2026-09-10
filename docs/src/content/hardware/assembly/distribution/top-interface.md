@@ -10,7 +10,6 @@ permalink: /hardware/assembly/distribution/top-interface/
 og_image: https://assets.basically.website/sorter-docs/assembly-top-interface-framing-4-full-b9ae16940954.jpg
 author: zed0
 contributors: [barthel, brickcyclealice]
-og_image: https://assets.basically.website/sorter-docs/assembly-top-interface-framing-4-full-b9ae16940954.jpg
 parts_needed:
   - part: interface-upper-fixed-section
     qty: 1

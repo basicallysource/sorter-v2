@@ -67,7 +67,7 @@ It replaces the [light post]({{ '/hardware/assembly/feeder/light-post/' | relati
   <figcaption>The finished thing, over a channel, lit. <cite>Photo: Spencer.</cite></figcaption>
 </figure>
 
-**The parts list above is one lamp's worth.** A machine takes three lamps, so three of everything on it: C2 and C3 with the OV9732, and the classification channel with the [IMX415]({{ '/hardware/assembly/feeder/classification-chamber/' | relative_url }}) 4K module instead. Everything else is identical between the three. **C1, the bulk bucket, takes no lamp**: it is fed in bulk and nothing reads vision off it.
+**The parts list above is one lamp's worth.** A machine takes three lamps, so three of everything on it: C2 and C3 with the OV9732, and the classification channel with the IMX415 4K module instead. Everything else is identical between the three. **C1, the bulk bucket, takes no lamp**: it is fed in bulk and nothing reads vision off it.
 
 <div class="callout">
   <p><b>If you printed four, one set is spare.</b> The parts list gave C1 a lamp of its own until 2026-09-08, when Jon confirmed the machine takes three. The software agrees: the crop zones are the second channel, the third channel and the classification channel, and nothing reads vision off the bulk channel, so C1 needs neither the lamp nor an OV9732. Question raised by BrickCycleAlice, 2026-09-05.</p>
@@ -93,9 +93,16 @@ It replaces the [light post]({{ '/hardware/assembly/feeder/light-post/' | relati
   <div class="prep-item-body">
     <p><strong>Print counts, if you are printing for the whole machine:</strong> 3 each of the mount, arm, bracket A, bracket B, ring, both clasp halves, reflector and cover, and <strong>18</strong> LED hooks, six per lamp. The hooks are the ones people come up short on.</p>
   </div>
-  <figure class="prep-item-figure">
-    <div class="img-placeholder">Image coming</div>
-  </figure>
+  <div class="prep-item-figure prep-item-figure-split">
+    <figure>
+      <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-camera-lamp-reflector-hooks-w1600-ba5715705d94.jpg" alt="The printed lamp inner reflector lying face up, ivory white, with six LED hooks clipped evenly around its rim and a small grey rectangular plate sitting on the flat">
+      <figcaption>The inner reflector with its six LED hooks around the rim. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+    </figure>
+    <figure>
+      <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-camera-lamp-reflector-hooks-close-w1600-0b2e6c678dc5.jpg" alt="A closer view of the same reflector, two of the hooks standing off the rim and the grey rectangular plate on the flat between them">
+      <figcaption>Closer, with two of the hooks in view. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+    </figure>
+  </div>
 </div>
 
 {% include step.html n="2" title="Bracket the arm to the C-channel arm mount" %}

@@ -8938,8 +8938,8 @@
     },
     {
       "id": "c-channel",
-      "uid": "4tvc",
-      "version": "3",
+      "uid": "kuei",
+      "version": "4",
       "name": "C-channel drive",
       "description": "One C-channel drive unit: stator, NEMA bracket, gear train and stepper. 4 per machine — 3 in the feeder plus the classification channel's. Drives a rotor unit, which differs by location and is not part of this node.",
       "docs": "/hardware/assembly/feeder/c-channel/",
@@ -9052,6 +9052,13 @@
           "message": "The screws are all countersunk — socket/button was recorded wrong. The idler's 608 bearing is a line of its own with its press fit as a connection, and the screw joints carry measured pass-through and thread depths. Connections bench-confirmed and listed in assembly order.",
           "breaking": false,
           "commit": "441d9114"
+        },
+        {
+          "version": "4",
+          "date": "2026-09-10",
+          "message": "The two bracket-to-stator screws on the wide motor plate go to M3 x 16 countersunk. The bracket's four stator holes come in two depths and all four were specified at 12 mm: over the 8.45 mm pass-through the head leaves 1.85 mm in the stator's 10 mm thread, under the 2 mm minimum bite the site's own fit math applies, and Extremetaz reported it as marginal on a build. The two arm holes (6.45 mm pass-through, 3.85 mm bite) keep the 12 mm.",
+          "breaking": false,
+          "commit": null
         }
       ],
       "lines": [
@@ -9081,7 +9088,7 @@
         },
         {
           "part": "scr-m3-16-cs",
-          "qty": 3
+          "qty": 5
         },
         {
           "part": "scr-m3-8-cs",
@@ -9089,7 +9096,7 @@
         },
         {
           "part": "scr-m3-12-cs",
-          "qty": 4
+          "qty": 2
         }
       ],
       "connections": [
@@ -9123,17 +9130,18 @@
           "qty": 2,
           "method": "self-tap",
           "through_mm": 6.45,
-          "thread_mm": 10
+          "thread_mm": 10,
+          "note": "The two holes at the tips of the bracket's narrow arms."
         },
         {
           "from": "nema-bracket",
           "to": "stator",
-          "via": "scr-m3-12-cs",
+          "via": "scr-m3-16-cs",
           "qty": 2,
           "method": "self-tap",
           "through_mm": 8.45,
           "thread_mm": 10,
-          "note": "The bracket's four stator holes come in two depths: two at 6.45 mm, two at 8.45 mm."
+          "note": "The bracket's four stator holes come in two depths: two at 6.45 mm, two at 8.45 mm. The deeper pair needs the 16 mm."
         }
       ]
     },

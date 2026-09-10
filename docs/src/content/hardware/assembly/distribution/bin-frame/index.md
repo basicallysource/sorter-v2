@@ -7,7 +7,7 @@ slug: assembly-bin-frame
 kicker: Distribution — Bin frame
 lede: The layers of bins, each built flat and on its own. Layer count is N (however many bin layers your machine has, not the total number of bins); build in this order.
 permalink: /hardware/assembly/distribution/bin-frame/
-og_image: https://assets.basically.website/sorter-docs/install-bins-cardboard-bins-tower-full-97d68e720775.jpg
+og_image: https://assets.basically.website/sorter-docs/assembly-hex-frame-finished-top-down-w1600-a62a42d595ca.jpg
 author: spencer
 ---
 
@@ -28,7 +28,30 @@ Once every layer is built, [Stacking the layers]({{ '/hardware/assembly/distribu
 
 ## The finished result
 
-<figure class="single-figure">
-  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/install-bins-cardboard-bins-tower-full-97d68e720775.jpg" alt="A finished bin frame on its casters: five hexagonal layers of folded cardboard bins with sorted LEGO in them, the chutes hanging in the middle of the stack and the plywood deck of the top interface over them">
-  <figcaption>A bin frame with everything in it: five layers on their casters, the chutes hanging in the stack, and the top interface under the deck. The feeder is built separately and goes on after this. <cite>Photo: Basically.</cite></figcaption>
-</figure>
+Each page ends in one of these.
+
+<div class="img-row">
+  <figure>
+    <img src="https://assets.basically.website/sorter-docs/assembly-hex-frame-finished-top-down-w1600-a62a42d595ca.jpg" alt="A finished hex frame from above: six spokes and their printed crossbeams forming the inner ring inside the aluminum outer hexagon, with a printed corner bracket at each of the six vertices">
+    <figcaption><a href="{{ '/hardware/assembly/distribution/bin-frame/hex-frame/' | relative_url }}">Hex frame</a>. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+  </figure>
+  <figure>
+    <img src="https://assets.basically.website/sorter-docs/assembly-regular-layers-finished-square-full-779529c4b5f5.png" alt="A finished regular layer from above: the hexagon of extrusion with its spokes and crossbeams, and a vertical support capped by an External bracket — bottom vertical standing at each of the six corners">
+    <figcaption><a href="{{ '/hardware/assembly/distribution/bin-frame/regular-layers/' | relative_url }}">Regular layer</a>. <cite>Photo: zed0.</cite></figcaption>
+  </figure>
+  <figure>
+    <img src="https://assets.basically.website/sorter-docs/assembly-bottom-layer-corner-bracket-on-d-w1600-67bd9444f306.jpg" alt="One corner of the bottom layer seen close up from above: the External bracket — bottom vertical standing on the collar with the end of piece D recessed in its square socket, the foot cover below the frame, and the caster under that">
+    <figcaption><a href="{{ '/hardware/assembly/distribution/bin-frame/bottom-layer/' | relative_url }}">Bottom layer</a>, one corner. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+  </figure>
+</div>
+
+<div class="img-row">
+  <figure>
+    <img src="https://assets.basically.website/sorter-parts/bottom-interface-step4-hex-frame-overview-full-bab24577ff64.jpg" alt="Top-down view of the assembled hexagonal layer frame with three Lazy Susan extrusion mounts fitted at alternating spokes">
+    <figcaption><a href="{{ '/hardware/assembly/distribution/bin-frame/bottom-interface/' | relative_url }}">Bottom interface</a>. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+  </figure>
+  <figure>
+    <img src="https://assets.basically.website/sorter-docs/assembly-regular-layers-bin-retainers-installed-w1600-31bf32089e71.png" alt="Bin retainers fastened to the outer faces of the hexagon frame, a pair either side of the joint between two A extrusions">
+    <figcaption><a href="{{ '/hardware/assembly/distribution/bin-frame/bin-retainers/' | relative_url }}">Bin retainers</a>. <cite>Photo: zed0.</cite></figcaption>
+  </figure>
+</div>

@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { ArrowRight, BookOpen, Boxes, ExternalLink, FlaskConical, History, Zap } from 'lucide-svelte';
 	import AlternativeBadge from '$lib/components/AlternativeBadge.svelte';
-	import AssemblyDescription from '$lib/components/AssemblyDescription.svelte';
+	import CatalogText from '$lib/components/CatalogText.svelte';
 	import Badge from '$lib/components/Badge.svelte';
 	import ChangeStatus from '$lib/components/ChangeStatus.svelte';
 	import ConflictBadge from '$lib/components/ConflictBadge.svelte';
@@ -79,7 +79,7 @@
 	{#each list ?? [] as j (j.method)}
 		<div class="mt-1 flex flex-wrap items-baseline gap-x-2">
 			<Badge variant="warning"><Zap size={10} />{JOIN_LABELS[j.method]}</Badge>
-			{#if j.note}<AssemblyDescription text={j.note} as="span" class="text-xs text-text-muted" />{/if}
+			{#if j.note}<CatalogText text={j.note} as="span" class="text-xs text-text-muted" />{/if}
 		</div>
 	{/each}
 {/snippet}
@@ -178,7 +178,7 @@
 		</div>
 
 		{#if assembly.description}
-			<AssemblyDescription text={assembly.description} class="mt-1.5 text-sm text-text-muted" />
+			<CatalogText text={assembly.description} class="mt-1.5 text-sm text-text-muted" />
 		{/if}
 		{@render joining(assembly.joining)}
 		{#if docsUrl(assembly)}
@@ -233,7 +233,7 @@
 						>{c.rejected_at ? 'rejected' : 'superseded'}</span>
 				{/if}
 			</div>
-			<AssemblyDescription text={c.message} class="mt-0.5 text-xs text-text-muted" />
+			<CatalogText text={c.message} class="mt-0.5 text-xs text-text-muted" />
 			{#if c.images?.length}<div class="mt-2"><ImageStrip images={c.images} /></div>{/if}
 			{@render joining(c.joining)}
 			<p class="mt-1 text-xs italic text-text-muted/70">
@@ -257,7 +257,7 @@
 						{#if v.uid}<span class="font-mono text-text-muted">{v.uid}</span>{/if}
 						<span class="text-text-muted">· {fmtDate(v.date)}</span>
 					</div>
-					<AssemblyDescription text={v.message} class="mt-0.5 text-text-muted" />
+					<CatalogText text={v.message} class="mt-0.5 text-text-muted" />
 					{#if v.images?.length}<div class="mt-2"><ImageStrip images={v.images} /></div>{/if}
 					<ul class="mt-1.5 space-y-0.5 text-text-muted">
 						{#each v.lines ?? [] as l, i (`${l.part ?? l.assembly}-${i}`)}

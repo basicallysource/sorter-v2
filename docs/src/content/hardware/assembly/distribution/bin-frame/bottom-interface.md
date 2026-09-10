@@ -24,7 +24,13 @@ parts_needed:
     qty: 3
   - part: ls-hold-in-place
     qty: 3
+  - part: layer-connector-1
+    qty: 1
+  - part: layer-connector-2
+    qty: 1
   - part: hsi-m3
+    qty: 2
+  - part: scr-m3-8-cs
     qty: 2
   - part: hsi-m4
     qty: 8
@@ -51,7 +57,7 @@ The bottom interface is the Lazy Susan bearing assembly the chute rests and spin
   </figure>
 </div>
 
-The parts list above is only the Lazy Susan bearing stack and the extrusion mounts added in steps 4 to 8. The fasteners and quantities below are called out inline at each step.
+The parts list above is only the Lazy Susan bearing stack and the extrusion mounts added in steps 5 to 9. The fasteners and quantities below are called out inline at each step.
 
 {% include fastener-legend.html %}
 
@@ -120,6 +126,10 @@ Press the heat inserts into both printed parts while they are still loose. See [
     <figure>
       <img class="doc-figure" src="https://assets.basically.website/sorter-parts/bottom-interface-chute-mount-m3-pocket-photo-full-ea22d619b316.png" alt="Close photo of the same raised tab on a printed chute mount, with a red circle around the empty pocket in it">
       <figcaption>The same pocket on a printed part, empty. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+    </figure>
+    <figure>
+      <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-bottom-interface-chute-mount-m3-insert-fitted-w1600-817f55921507.jpg" alt="The same raised tab on the chute mount with its brass M3 heat insert pressed in flush">
+      <figcaption>And with the insert in. <cite>Photo: BrickCycleAlice.</cite></figcaption>
     </figure>
   </div>
 </div>
@@ -231,7 +241,18 @@ The bearing stack is now complete:
   <figcaption><cite>Photo: Spencer.</cite></figcaption>
 </figure>
 
-{% include step.html n="4" title="Bolt a hold in place to each mount" %}
+{% include step.html n="4" title="Add the two layer connectors" %}
+
+A [Layer connector A and a Layer connector B]({{ '/hardware/assembly/distribution/chute/layer-connectors/' | relative_url }}) go onto the chute mount, one on each side face, into the two M3 inserts pressed in step 1. One {% include fastener.html size="M3" variant="countersunk" length="8" %} each. They are the same pair that joins every chute to the one above it; here they are what the bottommost chute lands on.
+
+With them on, the bearing stack is complete: chute mount, Lazy Susan, washer and bottom static, plus the connectors that carry the layer above.
+
+<figure class="single-figure">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-bottom-interface-layer-connectors-on-w1600-916a76546669.jpg" alt="The finished bearing stack: the square chute mount standing on the round Lazy Susan and bottom static, with a layer connector bolted to the raised tab on each side face">
+  <figcaption>The completed stack, both connectors on. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+</figure>
+
+{% include step.html n="5" title="Bolt a hold in place to each mount" %}
 
 Bolt a hold in place onto each mount with one {% include fastener.html size="M5" variant="socket-button" length="16" %}, before either part touches the extrusion.
 
@@ -246,7 +267,7 @@ Bolt a hold in place onto each mount with one {% include fastener.html size="M5"
   </figure>
 </div>
 
-{% include step.html n="5" title="Prestart the T-nuts" %}
+{% include step.html n="6" title="Prestart the T-nuts" %}
 
 Drop an {% include fastener.html size="M5" variant="socket-button" length="16" %} through each of the mount's two counterbored holes and start a {% include fastener.html size="M5" variant="t-nut" %} on the end, two or three turns. Leave them loose enough to swing.
 
@@ -263,7 +284,7 @@ Drop an {% include fastener.html size="M5" variant="socket-button" length="16" %
 
 Roll-in nuts enter the slot anywhere along it. Slide-in nuts don't, and have to go into the spoke before the frame is built: see [Fitting T-nuts]({{ '/hardware/helpers/t-nuts/' | relative_url }}).
 
-{% include step.html n="6" title="Slide the mount onto the spoke" %}
+{% include step.html n="7" title="Slide the mount onto the spoke" %}
 
 Slide the mount onto a B spoke (158 mm) already in the frame, T-nuts into the extrusion slot. Push up on each nut with a screwdriver as it goes, so it seats square.
 
@@ -278,7 +299,7 @@ Slide the mount onto a B spoke (158 mm) already in the frame, T-nuts into the ex
   </figure>
 </div>
 
-{% include step.html n="7" title="Tighten" %}
+{% include step.html n="8" title="Tighten" %}
 
 Tighten both {% include fastener.html size="M5" variant="socket-button" length="16" %} screws into the T-nuts.
 
@@ -293,7 +314,7 @@ Tighten both {% include fastener.html size="M5" variant="socket-button" length="
   </figure>
 </div>
 
-{% include step.html n="8" title="Repeat for the other two mounts" %}
+{% include step.html n="9" title="Repeat for the other two mounts" %}
 
 Nine {% include fastener.html size="M5" variant="socket-button" length="16" %} and six {% include fastener.html size="M5" variant="t-nut" %} across all three.
 

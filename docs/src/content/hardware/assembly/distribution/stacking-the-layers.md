@@ -10,11 +10,7 @@ permalink: /hardware/assembly/distribution/stacking-the-layers/
 author: barthel
 contributors: [alex, brickcyclealice, zed0]
 og_image: https://assets.basically.website/sorter-docs/assembly-stacking-upside-down-interface-first-w1600-a456339eabb6.jpg
-warning: >-
-  **AI-generated first draft.** Written from the machine assembly tree in the
-  [parts calculator](https://parts-calculator.basically.website/assembly?focus=superstructure)
-  and from the layer joint drawing, not from an actual build. The build order in
-  step 1 is Alex's, from his own machine. Correct it as you build.
+last_verified: 2026-09-10
 parts_needed:
   - part: scr-m5-16-shcs
     qty: 12

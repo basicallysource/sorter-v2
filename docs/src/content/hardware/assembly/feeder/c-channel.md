@@ -24,6 +24,8 @@ parts_needed:
     qty: 3
   - part: rotor-finned
     qty: 1
+  - part: rotor-cap
+    qty: 1
   - part: output-gear
     qty: 4
   - part: idler-gear
@@ -50,8 +52,9 @@ The parts list above is **all four channels' worth** — the count is fixed for 
 
 {% include fastener-legend.html %}
 
-- **Build 4 per machine**, three in the feeder and one for the classification channel. It is the same build four times over, and the rotor is the only thing that changes.
+- **Build 4 per machine**, three in the feeder and one for the classification channel. It is the same build four times over, and the rotor is the only part that changes.
 - **One rotor per unit, and only one of the two.** The three feeder channels take the Rotor (faceted); the classification channel takes the Rotor (finned), the one with the fins in the photographs below. The list above already splits them the way a real machine needs them: three faceted, one finned. Colour does not change with the rotor: both print ash grey on all four channels, as do the stator and the output guide.
+- **The Rotor cap goes on the classification channel only.** The finned rotor has an open 25 mm bore through its centre and the cap plugs it; the faceted rotor is solid at the apex and takes none. It presses in by friction, so there is no screw for it in the list above.
 - C2, C3 and the classification channel also carry a [camera lamp]({{ '/hardware/assembly/feeder/camera-lamp/' | relative_url }}), whose parts and screws belong to that page rather than to the list above. C1, the bulk bucket, does not.
 - **The charcoal parts are the gear train and one bracket.** The output, idler and input gears follow the feeder colour, which is charcoal by default and yours to change on the [parts calculator](https://parts-calculator.basically.website/assembly?focus=c-channel). Of the four NEMA brackets, C1's is charcoal and C2 to C4's are ash grey.
 
@@ -135,6 +138,8 @@ Fasten the NEMA bracket to the underside of the stator with 4 screws, in two len
 </figure>
 
 Then lower the rotor, output gear and all, onto the raised hub in the middle of the bracket, so the 130T comes down into mesh with the idler.
+
+**On the classification channel, cap the rotor.** Press the Rotor cap into the open bore at the top of the finned rotor, spigot first from above, until its flange sits down on the apex. It is a friction fit and takes no screw. The three feeder channels skip this: their rotor is already closed.
 
 Turn the stage by hand before wiring it. The train should run without a tight spot anywhere in a full revolution.
 

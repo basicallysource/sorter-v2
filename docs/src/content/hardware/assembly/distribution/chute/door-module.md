@@ -273,7 +273,37 @@ Six of the core's 18 inserts belong to this module. Four are used here, two in s
 
 Snug all four down before tightening any of them, then cycle the door by hand through its full swing. It should turn freely on the bearings and not touch the core anywhere; if it binds, slacken off and let the assembly settle square before tightening again.
 
-<div class="img-placeholder">Photos of the flap assembly on the core: sliding it in, bolted down with the door closed and then fully open, the same pair from the other side, and one from the back with the door closed. A half-open door in a finished photo is what a wrong install looks like, so the two ends of the swing are the shots that show this is right.</div>
+<figure class="single-figure">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-door-module-flap-sliding-in-w1600-de953979e4b1.jpg" alt="The flap assembly being offered up to the chute core, one bearing cover standing proud of the core's long side before its screws go in">
+  <figcaption>How it goes in: a cover lands on each long side of the core, and the two screws per cover go in from there. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+</figure>
+
+<div class="img-row">
+  <figure>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-door-module-flap-closed-w1600-2cf8babd0acb.jpg" alt="The flap bolted to the core, seen down onto the top face, with the door closed so no blade shows below the core">
+    <figcaption>Bolted down, door fully closed: nothing showing below the core. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+  </figure>
+  <figure>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-door-module-flap-open-w1600-740514c1bff8.jpg" alt="The same assembly with the door fully open, the thin door plate hanging down clear of the core">
+    <figcaption>Door fully open, the plate hanging clear. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+  </figure>
+</div>
+
+<div class="img-row">
+  <figure>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-door-module-flap-closed-other-side-w1600-2b268da4eb66.jpg" alt="The other side of the same assembly, the bearing cover with the hexagonal socket in the middle, door closed">
+    <figcaption>The other side, door closed. This is the cover with the hex socket, so this end faces the servo. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+  </figure>
+  <figure>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-door-module-flap-open-other-side-w1600-f4850a808fe4.jpg" alt="The same side with the door fully open, the door plate hanging below the core">
+    <figcaption>The other side, door open. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+  </figure>
+</div>
+
+<figure class="single-figure">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-door-module-flap-from-back-w1600-542076f9f69f.jpg" alt="The assembly end on from the back with the door closed, four brass inserts in the flat top plate and the bearing race with its chevron sitting between the two holders">
+  <figcaption>From the back with the door closed: the race and its chevron sit between the two holders. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+</figure>
 
 {% include step.html n="7" title="Build the servo adapter" %}
 

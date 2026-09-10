@@ -24,11 +24,11 @@ Every bin layer is the same layer. The lowest one differs only at floor level, w
   <li><strong><a href="{{ '/hardware/assembly/distribution/top-interface/' | relative_url }}">Top interface</a></strong>. Outside this section, but takes one of the hex frames from step 1 and caps the stack.</li>
 </ol>
 
+Once every layer is built, [Stacking the layers]({{ '/hardware/assembly/distribution/stacking-the-layers/' | relative_url }}) joins them into the tower.
+
 ## The finished result
 
 <figure class="single-figure">
   <img class="doc-figure" src="https://assets.basically.website/sorter-docs/install-bins-cardboard-bins-tower-full-97d68e720775.jpg" alt="A finished bin frame on its casters: five hexagonal layers of folded cardboard bins with sorted LEGO in them, the chutes hanging in the middle of the stack and the plywood deck of the top interface over them">
   <figcaption>A bin frame with everything in it: five layers on their casters, the chutes hanging in the stack, and the top interface under the deck. The feeder is built separately and goes on after this. <cite>Photo: Basically.</cite></figcaption>
 </figure>
-
-Once every layer is built, [Stacking the layers]({{ '/hardware/assembly/distribution/stacking-the-layers/' | relative_url }}) joins them into the tower.

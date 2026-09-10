@@ -157,7 +157,7 @@ The cover is 6.65 mm thick at the screw, so a 12 mm screw reaches 5.35 mm into t
 
 {% include step.html n="3" title="Add the bracket arms" %}
 
-The two arms land on two other faces of the housing, so they are independent of the servo and can go on before or after it.
+The two arms land on two other faces of the housing.
 
 **Lower arm:** 2 {% include fastener.html size="M3" variant="countersunk" length="8" %} into the housing's inserts. It is the wider of the two arms, and it is 4.25 mm thick at the screws, so an 8 mm one reaches 3.75 mm in.
 
@@ -172,7 +172,7 @@ The two arms land on two other faces of the housing, so they are independent of 
   </figure>
 </div>
 
-**Side arm:** 2 {% include fastener.html size="M3" variant="countersunk" length="12" %} into the housing's inserts. This one is the narrow arm and it is 8.40 mm thick at the screws, so an 8 mm one would not reach them at all.
+**Side arm:** 2 {% include fastener.html size="M3" variant="countersunk" length="12" %} into the housing's inserts.
 
 <div class="img-row">
   <figure>
@@ -186,11 +186,6 @@ The two arms land on two other faces of the housing, so they are independent of 
 </div>
 
 Each arm has one further hole, in the ear at its far end. Those two are not driven here; they are what bolts the finished bracket to the chute core in step 8, so leave them empty.
-
-<figure>
-  <img class="doc-figure" src="https://assets.basically.website/sorter-parts/servo-bracket-assembled-full-2c6c3cddb48f.png" alt="Render of the assembled servo bracket seen from the cover side: the cover with its two screw lugs and the window the servo sits behind, the side arm to the right and the lower arm below, each with the single mounting ear that bolts to the chute core">
-  <figcaption>The bracket assembled, seen from the cover side. The two ears sticking out at bottom and right, one on each arm, are the pair that bolt to the chute core. <cite>Rendered from the part geometry in assembly position, not from a build. Render: Balloon.</cite></figcaption>
-</figure>
 
 {% include step.html n="4" title="Hang the door on its bearings and the race" %}
 
@@ -278,11 +273,6 @@ Six of the core's 18 inserts belong to this module. Four are used here, two in s
 
 Snug all four down before tightening any of them, then cycle the door by hand through its full swing. It should turn freely on the bearings and not touch the core anywhere; if it binds, slacken off and let the assembly settle square before tightening again.
 
-<figure>
-  <img class="doc-figure" src="https://assets.basically.website/sorter-parts/chute-core-flap-fitted-full-3988a30ff4a4.jpg" alt="Photograph of a printed chute core lying face up with the flap assembly already bolted to it: the round bearing cover, its six screw heads and central hex boss, sits on the core's long side, and the brass heads of the core's other heat inserts are visible across the face">
-  <figcaption>What you should have at the end of this step: the flap assembly on the core, held by the bearing cover you can see on the right. The servo bracket has not gone on yet. <cite>Frame at 0:01 of the video in step 8. Video: Spencer.</cite></figcaption>
-</figure>
-
 {% include step.html n="7" title="Build the servo adapter" %}
 
 The servo-side and flap-side plates clamp the MG995 Servo Horn between them. The horn ships with the servo, it isn't printed. Drop the horn into the servo-side half **splined sleeve first**: the sleeve sits in the hole in the middle of that half and the two arms lie in the slot around it. It does not fit any other way. Bring the flap-side half down over it and drive 4 {% include fastener.html size="M3" variant="countersunk" length="8" %} screws through the flap side (it's the half with the visible screw holes) into the servo side. The screws cut their own thread in the printed plastic.
@@ -315,6 +305,11 @@ The servo-side and flap-side plates clamp the MG995 Servo Horn between them. The
 </div>
 
 {% include step.html n="8" title="Bolt the servo bracket on and couple it to the door" %}
+
+<div class="callout callout-warning">
+  <span class="callout-icon" aria-hidden="true">⚠</span>
+  <p><strong>Watch the video below before you finish this step.</strong> Coupling the servo to the door is where a door gets broken: the servo has a fixed range and the door has 80.5° of swing, and forcing the two together out of position can snap it. <cite>Tip: BrickCycleAlice.</cite></p>
+</div>
 
 The bracket goes on the same long side as the servo-side bearing cover, into the other two inserts in the first render above. The two arms do not take the same screw, because their mounting ears are not the same thickness:
 

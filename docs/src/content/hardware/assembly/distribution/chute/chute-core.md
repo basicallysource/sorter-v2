@@ -39,20 +39,20 @@ Press the heat inserts into the chute core before you mount anything else onto i
 <div class="prep-item">
   <div class="prep-item-body">
     <p><strong>Chute core:</strong> 18 × M3, which is every insert on this page: 6 for the door module (4 for its two bearing covers, 2 for the servo bracket arms), 4 for the layer connectors, 4 for the layer adapter board, and 4 for the funnel brackets. This is separate from the bearing assembly's own 10 inserts, which live in the bearing race and holders themselves.</p>
-    <p>All 18 are the same pocket, Ø4.2 mm and blind, 5.7 mm deep, split <strong>8 + 6 + 4</strong> across three faces. The views are rendered from the chute core STL, turned slightly off each face so the pockets shade as holes, and circle only the pockets visible in that view.</p>
+    <p>All 18 are the same pocket, Ø4.2 mm and blind, 5.7 mm deep, split <strong>8 + 6 + 4</strong> across three faces. The photos below are of a printed core with the inserts already pressed in, one face at a time, so what you are counting is brass rather than empty pockets.</p>
   </div>
   <div class="prep-item-figure prep-item-figure-split">
     <figure>
-      <img class="doc-figure" src="https://assets.basically.website/sorter-parts/chute-core-inserts-v3-side-8-full-9f0f3b659b63.png" alt="Render of one long side of the chute core at a slight angle, with eight heat-insert pockets circled in red">
-      <figcaption>One long side: 8. The round cut-out near the end is the giveaway, this side has two pockets together beside it and one on its own in the middle of the face. <cite>Render: Balloon.</cite></figcaption>
+      <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-chute-core-inserts-side-8-w1600-9c2931ac6bab.jpg" alt="One long side of a printed chute core, brass heat inserts pressed into all eight pockets on that face">
+      <figcaption>One long side: 8. Two of them sit together beside the cut-out at the top, one more is on its own in the small square pocket in the middle of the face. <cite>Photo: BrickCycleAlice.</cite></figcaption>
     </figure>
     <figure>
-      <img class="doc-figure" src="https://assets.basically.website/sorter-parts/chute-core-inserts-v3-side-6-full-c4074e29338f.png" alt="Render of the other long side of the chute core at a slight angle, with six heat-insert pockets circled in red">
-      <figcaption>The other long side: 6. The same face mirrored, without those two. <cite>Render: Balloon.</cite></figcaption>
+      <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-chute-core-inserts-side-6-w1600-0d620740ad93.jpg" alt="The other long side of the same chute core, with brass heat inserts in its six pockets and the two round tube openings across the middle of the face">
+      <figcaption>The other long side: 6. The same face mirrored, without the square-pocket insert or the second one beside the cut-out. <cite>Photo: BrickCycleAlice.</cite></figcaption>
     </figure>
     <figure>
-      <img class="doc-figure" src="https://assets.basically.website/sorter-parts/chute-core-inserts-v3-rear-full-ad4c2cc7869c.png" alt="Close render of the rear end of the chute core at a slight angle, with the four heat-insert pockets on the rear panel circled in red">
-      <figcaption>Rear face: the last 4, all on the panel at the top end. Shown closer in than the other two. <cite>Render: Balloon.</cite></figcaption>
+      <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-chute-core-inserts-rear-w1600-1e4ceeaf46ea.jpg" alt="The rear panel of the chute core seen from above, four brass heat inserts in a square, with the curved channel of the core beside it">
+      <figcaption>Rear face: the last 4, in a square on the panel at the top end. <cite>Photo: BrickCycleAlice.</cite></figcaption>
     </figure>
   </div>
 </div>

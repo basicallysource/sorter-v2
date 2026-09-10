@@ -11,14 +11,13 @@ author: reveryx
 contributors: [spencer, danny]
 og_image: https://assets.basically.website/sorter-docs/camera-lamp-on-channel-w1600-8d957377d671.jpg
 warning: >-
-  **AI-generated first draft, and the order of operations is a guess.** The parts, the
-  joints and Spencer's photographs are real, from the [parts
-  calculator](https://parts-calculator.basically.website/assembly?focus=camera-lamp); every
-  hole diameter and screw count below is measured off the published STLs, and the 12 screws
-  into 6 holes in Steps 2 and 3 are confirmed by ReveryX, who has the parts. Step 4 is
-  photographed from Danny's build. What is missing is the rest of a build: nobody has
-  written down how the arm mount attaches to the C-channel, which LED strip goes on the
-  hooks, or how any of it is wired. Fill those in as you build.
+  **Steps 6, 7 and 8 are not verified against a build.** Steps 1 to 5 are photographed on
+  real builds, BrickCycleAlice's and Danny's, and the 12 screws into 6 holes in steps 2 and
+  3 were confirmed by ReveryX against the parts. Still open: which of the ring's two sockets
+  the clasp is meant to use (step 6); how the arm mount fastens to a C-channel, which nobody
+  has written down and the CAD does not show (step 7); and the cover going on, which has no
+  build photograph yet (step 8). Wiring the strip back to the board is not on this page at
+  all. Everything else is measured off the published STLs. Fill the gaps in as you build.
 parts_needed:
   - part: c-channel-arm-mount
     qty: 1

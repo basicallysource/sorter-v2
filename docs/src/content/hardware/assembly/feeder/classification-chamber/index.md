@@ -37,7 +37,7 @@ parts_needed:
     <p><strong>Build a <a href="{{ '/hardware/assembly/feeder/c-channel/' | relative_url }}">classification C-channel</a> before you start.</strong> It's a required component of this page. Step 2 below walks through building it, using the C-channel page's own steps, with the finned rotor rather than faceted — Step 3 then bolts the chamber's own parts onto it.</p>
   </div>
   <figure class="prep-item-figure">
-    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-c-channel-stator-and-rotor-fitted-w1600-60758bbee2d5.jpg" alt="A finished C-channel seen from above: the white finned classification rotor sitting inside the grey stator ring, with the stepper motor projecting from the right-hand side">
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-c-channel-finished-stage-w1600-9bd3719c4180.jpg" alt="A finished C-channel: the grey finned rotor sitting down in the grey stator ring, with the stepper motor and its lead standing off one side">
     <figcaption>A finished classification C-channel, from the C-channel page. <cite>Photo: BrickCycleAlice.</cite></figcaption>
   </figure>
 </div>
@@ -96,7 +96,7 @@ The parts are in the list above. Most fasteners for this stage still aren't reco
 Build the classification channel as a normal [C-channel]({{ '/hardware/assembly/feeder/c-channel/' | relative_url }}), but with the finned rotor rather than a faceted one. Nothing else about it differs, colour included.
 
 <figure class="single-figure">
-  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-c-channel-stator-and-rotor-fitted-w1600-60758bbee2d5.jpg" alt="A finished C-channel seen from above: the white finned classification rotor sitting inside the grey stator ring, with the stepper motor projecting from the right-hand side">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-c-channel-finished-stage-w1600-9bd3719c4180.jpg" alt="A finished C-channel: the grey finned rotor sitting down in the grey stator ring, with the stepper motor and its lead standing off one side">
   <figcaption>The classification channel, finned rotor fitted in the stator. Same photo as the C-channel page's step 5, since it's the same build. <cite>Photo: BrickCycleAlice.</cite></figcaption>
 </figure>
 

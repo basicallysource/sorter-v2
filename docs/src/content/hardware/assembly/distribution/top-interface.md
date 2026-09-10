@@ -392,6 +392,17 @@ Push the Printed dowel pin into the Limit switch housing.
 
 Attach the Roller lever limit switch (the "endstop-mechanical" part in your kit) with two {% include fastener.html size="M3" variant="socket-button" length="16" %} screws (into the housing's 2 M3 inserts) so the roller sits next to the dowel pin.
 
+<div class="img-row">
+  <figure>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-top-interface-step4-switch-on-housing-w1600-dc1356ce0023.jpg" alt="The roller lever limit switch screwed to the grey Limit switch housing, its roller sitting alongside the printed dowel pin">
+    <figcaption>The switch on the housing, roller alongside the dowel pin. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+  </figure>
+  <figure>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-top-interface-step4-switch-on-housing-back-w1600-b973ca34358f.jpg" alt="The same limit switch housing from behind, showing both M3 screws through the switch body and the dowel pin standing proud of the housing">
+    <figcaption>From behind, with both M3 screws in and the dowel pin seated. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+  </figure>
+</div>
+
 Align the switch housing with the extrusion of one of the prepared Interface brackets so the limit switch is on the same face as the sloped side of the bracket. Slide 2 T-nuts into the extrusion and fasten the Limit switch housing to the extrusion with two {% include fastener.html size="M5" variant="socket-button" length="16" %} screws. Slide it as far toward the Interface bracket as possible for now; it gets aligned properly later.
 
 <div class="callout">
@@ -403,6 +414,17 @@ Align the switch housing with the extrusion of one of the prepared Interface bra
   <figure>
     <img class="doc-figure" src="https://assets.basically.website/sorter-parts/img-4301-full-9ca956feeb74.jpg" alt="Two T-nuts threaded onto their screws on the Limit switch housing's mounting face, ready for the extrusion">
     <figcaption>T-nuts threaded on before the extrusion goes in. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+  </figure>
+</div>
+
+<div class="img-row">
+  <figure>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-top-interface-step4-housing-on-extrusion-w1600-3c2d478fa1c6.jpg" alt="The limit switch housing bolted to the extrusion of a prepared Interface bracket, seen along the whole length of the bracket">
+    <figcaption>The housing on the bracket's extrusion, slid up toward the bracket. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+  </figure>
+  <figure>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-top-interface-step4-housing-on-extrusion-close-w1600-5a430eea98ae.jpg" alt="Close view of the limit switch housing on the extrusion, with its two M5 screws and the switch facing the same way as the sloped side of the bracket">
+    <figcaption>Closer: the two M5 screws, switch on the same face as the bracket's slope. <cite>Photo: BrickCycleAlice.</cite></figcaption>
   </figure>
 </div>
 
@@ -429,6 +451,17 @@ Slide a T-nut just into the end of the extrusion of the limit switch interface b
 
 <div class="img-row">
   <figure>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-top-interface-step5-extrusion-into-rib-w1600-171a74d5ef45.jpg" alt="A bracket's extrusion slid into an Interface rib on the underside of the Top plate, held by a single screw">
+    <figcaption>The extrusion slid into its rib, still loose on one screw. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+  </figure>
+  <figure>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-top-interface-step5-extrusion-into-rib-close-w1600-6f7cb227905b.jpg" alt="Closer view of the same joint with the rib, the bracket and the Top plate's hole lined up">
+    <figcaption>Closer, with the bracket's holes lined up on the Top plate's. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+  </figure>
+</div>
+
+<div class="img-row">
+  <figure>
     <img class="doc-figure" src="https://assets.basically.website/sorter-parts/img-4311-full-f9e44da3df95.jpg" alt="Looking down through one of the Top plate's screw holes, with light visible through it into the extrusion channel below">
     <figcaption>What a clear sightline through the hole looks like. <cite>Photo: BrickCycleAlice.</cite></figcaption>
   </figure>
@@ -442,6 +475,17 @@ Slide a T-nut just into the end of the extrusion of the limit switch interface b
 Repeat with the 5 other prepared Interface brackets into the 5 other Interface ribs.
 
 Flip the whole assembly and screw all 6 Interface brackets into place with {% include fastener.html size="M5" variant="countersunk" length="22" %} screws through holes I1 to I6 and O1 to O6.
+
+<div class="img-row">
+  <figure>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-top-interface-step5-all-six-brackets-w1600-075fb97be950.jpg" alt="All six Interface brackets and their extrusions installed around the Interface upper fixed section, seen from above, with the limit switch bracket among them">
+    <figcaption>All six brackets in, the limit switch one among them. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+  </figure>
+  <figure>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-top-interface-step5-flipped-for-io-screws-w1600-7e736e282210.jpg" alt="The assembly flipped onto its Top plate, the plate's face up with the marked I and O holes around the centre opening">
+    <figcaption>Flipped over, ready for the I and O screws. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+  </figure>
+</div>
 
 <div class="callout callout-warning">
   <span class="callout-icon" aria-hidden="true">⚠</span>
@@ -535,6 +579,17 @@ Once done, check that the chute rotates freely relative to the Interface upper f
 </figure>
 
 Loosen the screws attaching the Limit switch housing to the extrusion. Slide the housing so the Limit switch hammer passes between the Roller lever limit switch and the Printed dowel pin in both directions of rotation, without touching the dowel pin. Rotate the chute slowly to each limit by hand: you should feel and hear the switch click just before the hammer would otherwise hit the dowel pin. If the hammer rubs against the dowel pin, slide the housing slightly further away and re-test. Tighten the screws to keep the housing in this position.
+
+<div class="img-row">
+  <figure>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-top-interface-step8-chute-installed-w1600-391797bae8a1.jpg" alt="The chute and its ring gear installed on the interface assembly, seen from above with all six brackets around it">
+    <figcaption>The chute in place, which is the state this adjustment starts from. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+  </figure>
+  <figure>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-top-interface-step8-hammer-at-switch-w1600-c5ea45cae0c0.jpg" alt="Close view of the Limit switch hammer swung in between the roller lever limit switch and the printed dowel pin, beside the chute's ring gear teeth">
+    <figcaption>The hammer passing between the roller and the dowel pin, clear of both. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+  </figure>
+</div>
 
 {% include step.html n="9" title="Install the chute stepper motor" %}
 

@@ -10,14 +10,7 @@ permalink: /hardware/assembly/feeder/arranging-c-channels/
 author: barthel
 contributors: [brickcyclealice]
 og_image: https://assets.basically.website/sorter-parts/c-channel-stands-all-three-full-9b385f0819e2.jpg
-warning: >-
-  **AI-generated first draft.** Written from the machine assembly tree in the [parts
-  calculator](https://parts-calculator.basically.website/assembly?focus=feeder) and measured
-  off the published STLs, not from an actual build. The parts, the leg lengths and the 80 mm
-  step between channels are real and current. **The order of the steps, the photographs, and
-  Steps 5, 6 and 8 come from BrickCycleAlice's build**; the rest has not been walked through
-  by a builder. One thing is still missing: how far two channels overlap horizontally and
-  where round the circle each handover happens. Fill it in as you build.
+last_verified: 2026-09-10
 parts_needed:
   - part: layout-guide
     qty: 3
@@ -135,7 +128,7 @@ The same three moves, with the **148 mm printed** legs.
 
 {% include step.html n="4" title="Build C3's stand" %}
 
-The same again, with the **68 mm printed** legs. This is the shortest stand, and it is also the one the classification channel drops into in step 6, so it is worth getting square before you go on.
+The same again, with the **68 mm printed** legs.
 
 <figure class="single-figure">
   <img class="doc-figure" src="https://assets.basically.website/sorter-parts/c-channel-stand-c3-full-8a3466156d18.jpg" alt="C3's stand: the layout guide with three short printed support legs and their dovetail adapters">

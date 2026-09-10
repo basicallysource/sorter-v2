@@ -23,11 +23,18 @@ tools_needed: [Hex key]
 
 Every layer of the bin frame is built flat, on its own, and none of the pages that build them says how they go together. This one does. At the end of it the frame is standing and empty, ready for the chutes to go in.
 
-**The quantity above is for one joint.** An N-layer machine has N joints, because the top interface's own frame lands on the stack the same way a layer does, so it needs 12 × N of those screws in total.
+**Those screws are the only loose parts this page uses**, and the quantity above is for one joint. An N-layer machine has N joints, because the top interface's own frame lands on the stack the same way a layer does, so the whole job takes **12 × N** of them: 36 at three layers, 60 at five. Everything else is already fitted to the layers you are joining.
 
 <div class="prep-item">
   <div class="prep-item-body">
-    <p><strong>Everything this page joins is built elsewhere.</strong> You need one <a href="{{ '/hardware/assembly/distribution/bin-frame/bottom-layer/' | relative_url }}">bottom layer</a>, N−1 <a href="{{ '/hardware/assembly/distribution/bin-frame/regular-layers/' | relative_url }}">regular layers</a> for an N-layer machine, and a <a href="{{ '/hardware/assembly/distribution/top-interface/' | relative_url }}">top interface</a>. The chutes are not needed yet and must not go in while you stack.</p>
+    <p><strong>Everything this page joins is built elsewhere.</strong> Have all of it finished and in front of you before you start, for an N-layer machine:</p>
+    <ul>
+      <li><strong>1 ×</strong> <a href="{{ '/hardware/assembly/distribution/bin-frame/bottom-layer/' | relative_url }}">bottom layer</a>, on its casters</li>
+      <li><strong>N−1 ×</strong> <a href="{{ '/hardware/assembly/distribution/bin-frame/regular-layers/' | relative_url }}">regular layers</a></li>
+      <li><strong>N ×</strong> sets of <a href="{{ '/hardware/assembly/distribution/bin-frame/bin-retainers/' | relative_url }}">bin retainers</a>, twelve per layer, fitted before the layer goes on the stack</li>
+      <li><strong>1 ×</strong> <a href="{{ '/hardware/assembly/distribution/top-interface/' | relative_url }}">top interface</a>, its own hex frame included</li>
+    </ul>
+    <p>The <a href="{{ '/hardware/assembly/distribution/chute/' | relative_url }}">chutes</a> and the <a href="{{ '/hardware/assembly/distribution/bin-frame/bottom-interface/' | relative_url }}">bottom interface</a> are not needed yet and must not go in while you stack.</p>
   </div>
   <figure class="prep-item-figure">
     <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-bottom-layer-corner-bracket-on-d-w1600-67bd9444f306.jpg" alt="One corner of a finished layer seen close up from above: the External bracket — bottom vertical standing on the collar with the end of the extrusion recessed in its square socket">

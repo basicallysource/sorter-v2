@@ -174,23 +174,25 @@ Three outputs, three loads, no spare. The cooling fans are deliberately not on t
 
 ### 4.3 &nbsp; LEDs (from basically board v1.3)
 
-Each LED drop is two segments: a 2x1 dupont feed from the board to a female DC jack (the unplug point), then a 6 in male-DC pigtail into the module. The strip end uses a solderless clamp-on connector rather than soldering to pads.
+Each LED drop is drawn as two segments: a 2x1 dupont feed from the board to a female DC jack (the unplug point), then a 6 in male-DC pigtail into the module. On a v1.3 board the barrel pair is optional and the drop can be one continuous 22 AWG pair, dupont at the board and a solderless clamp-on connector at the strip; the drawing has not been redrawn for that yet. Building one is [Make your own LED drop]({{ '/hardware/electronics/led-drop/' | relative_url }}).
+
+All three drops now feed an LED strip in a [camera lamp]({{ '/hardware/assembly/feeder/camera-lamp/' | relative_url }}), on C-channels 2 and 3 and the classification channel. The 50 mm COB plates that L1 and L2 used to feed went with the light post they were mounted on. The WireViz drawing still shows them as COB boards and has not been redrawn yet.
 
 <table>
   <thead><tr><th>ID</th><th>Segment</th><th>From</th><th>To</th><th>Cond.</th><th>Length</th></tr></thead>
   <tbody>
-    <tr><td class="wire-id">L1</td><td>COB board feed</td><td>2x1 dupont (board)</td><td>Female DC jack</td><td>2</td><td>36 in</td></tr>
-    <tr><td class="wire-id">L1p</td><td>COB board pigtail</td><td>Male DC jack</td><td>COB board</td><td>2</td><td>6 in</td></tr>
-    <tr><td class="wire-id">L2</td><td>COB board feed</td><td>2x1 dupont (board)</td><td>Female DC jack</td><td>2</td><td>36 in</td></tr>
-    <tr><td class="wire-id">L2p</td><td>COB board pigtail</td><td>Male DC jack</td><td>COB board</td><td>2</td><td>6 in</td></tr>
-    <tr><td class="wire-id">L3</td><td>LED strip feed</td><td>2x1 dupont (board)</td><td>Female DC jack</td><td>2</td><td>36 in</td></tr>
-    <tr><td class="wire-id">L3p</td><td>LED strip pigtail</td><td>Male DC jack</td><td>LED strip (6000K)</td><td>2</td><td>6 in</td></tr>
+    <tr><td class="wire-id">L1</td><td>Lamp feed, C2</td><td>2x1 dupont (board)</td><td>Female DC jack</td><td>2</td><td>36 in</td></tr>
+    <tr><td class="wire-id">L1p</td><td>Lamp pigtail, C2</td><td>Male DC jack</td><td>LED strip (6000K)</td><td>2</td><td>6 in</td></tr>
+    <tr><td class="wire-id">L2</td><td>Lamp feed, C3</td><td>2x1 dupont (board)</td><td>Female DC jack</td><td>2</td><td>36 in</td></tr>
+    <tr><td class="wire-id">L2p</td><td>Lamp pigtail, C3</td><td>Male DC jack</td><td>LED strip (6000K)</td><td>2</td><td>6 in</td></tr>
+    <tr><td class="wire-id">L3</td><td>Lamp feed, classification</td><td>2x1 dupont (board)</td><td>Female DC jack</td><td>2</td><td>36 in</td></tr>
+    <tr><td class="wire-id">L3p</td><td>Lamp pigtail, classification</td><td>Male DC jack</td><td>LED strip (6000K)</td><td>2</td><td>6 in</td></tr>
   </tbody>
 </table>
 
 <div class="callout">
   <span class="callout-icon" aria-hidden="true">›</span>
-  <p>LED strip for the classification channel is <b>6000K</b>. Length: 2× revolutions around the classification channel inner tube = 108.400 mm × 2, so roughly 220 mm.</p>
+  <p>The strip is <b>6000K</b> daylight white, 8 mm COB, and each lamp takes <b>950 mm</b> of it: two turns around the inside of the reflector's skirt. Three lamps is 2.85 m, so one 5 m roll does a machine. The 220 mm figure that used to be here was two turns around the old classification dome's inner tube, which is retired.</p>
 </div>
 
 <div class="callout callout-warning">

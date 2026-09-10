@@ -8,7 +8,7 @@ kicker: Feeder — Camera lamp
 lede: The arm, the shaded lamp and the camera that hang over a C-channel.
 permalink: /hardware/assembly/feeder/camera-lamp/
 author: reveryx
-contributors: [spencer, danny]
+contributors: [spencer, danny, brickcyclealice]
 og_image: https://assets.basically.website/sorter-docs/camera-lamp-on-channel-w1600-8d957377d671.jpg
 warning: >-
   **Steps 6, 7 and 8 are not verified against a build.** Steps 1 to 5 are photographed on
@@ -16,8 +16,9 @@ warning: >-
   3 were confirmed by ReveryX against the parts. Still open: which of the ring's two sockets
   the clasp is meant to use (step 6); the arm mount's dovetail onto the NEMA bracket
   (step 7), which a builder has described but nobody has dimensioned or photographed; and
-  the cover going on, which has no build photograph yet (step 8). Wiring the strip back to the board is not on this page at
-  all. Everything else is measured off the published STLs. Fill the gaps in as you build.
+  the cover going on, which has no build photograph yet (step 8). Wiring the strip back to the board is its own page, [Make your own LED
+  drop]({{ '/hardware/electronics/led-drop/' | relative_url }}). Everything else is measured
+  off the published STLs. Fill the gaps in as you build.
 parts_needed:
   - part: c-channel-arm-mount
     qty: 1
@@ -45,6 +46,12 @@ parts_needed:
     qty: 12
   - part: scr-m3-8-cs
     qty: 2
+  - part: led-strip-24v
+    qty: 1
+  - part: led-strip-connector-8mm
+    qty: 1
+  - part: dupont-lead-2p-1m
+    qty: 1
 ---
 
 <div class="prep-item">
@@ -175,9 +182,11 @@ The camera board sits in the recess in the **Camera clasp top**. Put the **Camer
 
 Six **Inner reflector LED hooks** friction-fit into the rim of the **Lamp inner reflector**, evenly spaced 60° apart, one per 2.7 mm socket around its outside. Each hook retains the LED strip against the reflector. No screws.
 
-**How much strip, measured off the reflector.** The strip sits against the inner face of the reflector's outer skirt, which is 147 mm across and about 18 mm tall, so one turn around it is **462 mm**. The photograph below shows two turns side by side in that skirt, which puts a lamp at roughly **0.92 m** and a three-lamp machine at about **2.8 m**. The strip in the parts calculator is a 24 V daylight-white 6000 K COB strip sold as a 5 m roll, one roll per machine, which covers all three.
+**How much strip, and where 950 mm comes from.** The strip sits against the inner face of the reflector's outer skirt, which is 147 mm across and about 18 mm tall, so one turn around it is **462 mm** and the two turns that fit side by side are **924 mm**. Cut at the first mark past that, which on the catalog's strip is 25 of its 1.5 in segments, about **950 mm**. That is what is on the build photographed here. One 5 m roll gives five of these lengths, so a roll covers a machine's three lamps.
 
-**Fitting it.** Two turns, and **950 mm** on the build photographed here.
+**Cut only on the printed marks, never between them.** The pads are at the marks, so a cut anywhere else leaves nothing to connect to.
+
+**Fitting it.** Two turns, LEDs facing inwards.
 
 1. Peel the blue film off the first stretch of the strip and start it under one of the hooks, adhesive against the inside of the skirt.
 2. Work it round the skirt until you are back where you started. That is one turn.
@@ -200,7 +209,7 @@ The bare wires at the starting end are trimmed later, when the drop to the board
   </figure>
 </div>
 
-**Still open:** how the strip is joined and wired back from here. The strip is not a line in the lamp's parts list, and the drop to the board is its own job. Spencer said on 2026-09-06 that the strips run at 24 V off the LED headers on the basically board.
+**Wiring it back to the board** is [Make your own LED drop]({{ '/hardware/electronics/led-drop/' | relative_url }}): the clamp-on connector onto those bare wires, and the run to an LED header. Nothing is joined end to end here, the far end of the strip stays dead. The strip runs at 24 V off the basically board, which Spencer confirmed on 2026-09-06.
 
 <figure class="single-figure">
   <img class="doc-figure" src="https://assets.basically.website/sorter-docs/camera-lamp-lit-from-below-w1600-bb9d54f4f43e.jpg" alt="The lamp lit, photographed from underneath: a ring of LED strip glowing around the outside of the white reflector, the reflector's central funnel in the middle, and the arm behind it">
@@ -245,4 +254,4 @@ The **Lamp outer cover** friction-fits down over the reflector, and that is the 
 
 <div class="img-placeholder">Photo of the cover going on, or on: pending from the build.</div>
 
-Wiring, for both the LED strip and the camera, is on the [electronics]({{ '/hardware/electronics/' | relative_url }}) page. Build the other three lamps the same way, and see [arranging C-channels]({{ '/hardware/assembly/feeder/arranging-c-channels/' | relative_url }}) for how the channels themselves sit together.
+Wiring is [Make your own LED drop]({{ '/hardware/electronics/led-drop/' | relative_url }}) for the strip, and the [electronics]({{ '/hardware/electronics/' | relative_url }}) page for the camera. Build the other two lamps the same way, and see [arranging C-channels]({{ '/hardware/assembly/feeder/arranging-c-channels/' | relative_url }}) for how the channels themselves sit together.

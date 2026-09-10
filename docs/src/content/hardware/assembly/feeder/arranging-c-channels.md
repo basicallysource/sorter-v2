@@ -10,16 +10,22 @@ permalink: /hardware/assembly/feeder/arranging-c-channels/
 author: barthel
 warning: >-
   **AI-generated first draft.** Written from the machine assembly tree in the [parts
-  calculator](https://parts-calculator.basically.website/assembly?focus=feeder) and the
-  extrusion list on the bill of materials, not from an actual build. No height, angle or fastener here
-  has been checked against a machine, and the two starred steps are the ones that make the
-  feeder work. Fill it in as you build.
+  calculator](https://parts-calculator.basically.website/assembly?focus=feeder) and measured
+  off the published STLs, not from an actual build. The parts, the leg lengths and the 80 mm
+  step between channels are real and current; nobody has photographed the stand. Two things
+  are still missing: how far two channels overlap horizontally and where round the circle
+  each handover happens, and how the classification channel is fixed down. Fill them in as
+  you build.
 parts_needed:
-  - part: leg
-    qty: 9
-  - part: foot
-    qty: 9
-  - part: leg-extension
+  - part: layout-guide
+    qty: 3
+  - part: ext-2020-c1
+    qty: 3
+  - part: channel-two-support-leg
+    qty: 3
+  - part: channel-three-support-leg
+    qty: 3
+  - part: support-dovetail-adapter
     qty: 9
 ---
 
@@ -35,54 +41,99 @@ parts_needed:
 
 Four [C-channels]({{ '/hardware/assembly/feeder/c-channel/' | relative_url }}) are built the same way and then stood at different heights, so a part cascades from one to the next under gravity and arrives at the [interface]({{ '/hardware/assembly/distribution/top-interface/' | relative_url }}) singulated.
 
-The fasteners and quantities in the parts list come from the parts registry and are called out inline at each step.
+C1, C2 and C3 each stand on the same three-piece support structure: a **Layout guide** it stands on, three **support legs** standing in that, and a **Support dovetail adapter** on top of each leg that slides up into the C-channel drive from below. The legs are the only thing that differs between the three channels, and their lengths are what set the drop between one channel and the next. The classification channel has no support structure of its own.
 
-{% include fastener-legend.html %}
+<div class="callout callout-warning">
+  <span class="callout-icon" aria-hidden="true">⚠</span>
+  <p><strong>The Leg, Foot and Leg extension are retired.</strong> Three printed parts stacked with dovetails used to hold each channel up, 9 of each across the feeder. They were replaced on 2026-09-02 by the layout guide, the support legs and the dovetail adapters, and the heights on this page only come out right with the new parts. Don't re-add them from an older photo, an older print list, or a machine built before that date.</p>
+</div>
 
 Steps below refer to the channels by the names the software uses, in the order a part travels:
 
 - **C1**, the bulk channel, under the [bulk input]({{ '/hardware/assembly/feeder/bulk-input/' | relative_url }}). Highest.
-- **C2**, with a [light post]({{ '/hardware/assembly/feeder/light-post/' | relative_url }}) and an [overhead camera mount]({{ '/hardware/assembly/feeder/camera-mount/' | relative_url }}).
+- **C2**, with a [camera lamp]({{ '/hardware/assembly/feeder/camera-lamp/' | relative_url }}).
 - **C3**, the same again, and the last metering stage.
-- **The classification channel**, inside the [classification chamber]({{ '/hardware/assembly/feeder/classification-chamber/' | relative_url }}), which images the part before it drops into the chute.
+- **The classification channel**, inside the [classification chamber]({{ '/hardware/assembly/feeder/classification-chamber/' | relative_url }}), which images the part before it drops into the chute. Lowest.
 
 {% include step.html n="1" title="Preparation" %}
 
 <div class="prep-item">
   <div class="prep-item-body">
-    <p><strong>Legs, feet and leg extensions:</strong> 3 of each per channel, 9 of each across the three feeder channels. The Leg is the 135 mm print, the extension raises it further, and the foot is what meets the bench. No heat inserts recorded.</p>
+    <p><strong>Three layout guides, one per channel.</strong> It's a ring about 250 mm across and 28 mm thick, spoked to a hub, with three square sockets standing on it. The same part goes under C1, C2 and C3 — it is <em>not</em> one big base that positions all three channels at once, so print three.</p>
   </div>
   <figure class="prep-item-figure">
-    <div class="img-placeholder">Image coming</div>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-parts/c-channel-layout-guide-full-8cf1b8fec1ec.png" alt="Render of the layout guide: a spoked ring with three open square sockets standing on it and a round hub in the middle">
+    <figcaption>The Layout guide, one per channel. <cite>Render from the published STL.</cite></figcaption>
   </figure>
 </div>
 
 <div class="prep-item">
   <div class="prep-item-body">
-    <p><strong>Feeder extrusion, from the bill of materials:</strong> 3 pieces of 2020 at 270 mm (bulk bucket supports), 3 at 190 mm (mid C-channel supports), 3 at 110 mm (lower C-channel supports), and the camera support, either 1 at 300 mm fixed or 1 at 350 mm plus 1 at 200 mm adjustable. No step records what any of them bolts to.</p>
+    <p><strong>Three legs per channel, and each channel's are different.</strong> C1's are 2020 aluminium extrusion cut to 228 mm — piece <strong>J</strong> on the <a href="https://parts-calculator.basically.website/framing">cut list</a>, and the only 2020 in the machine that isn't part of the frame. C2's and C3's are printed, and there's a separate STL for each. Both printed legs are the same shape: a 26 mm square spigot at each end and a fatter body between them, so the only difference is how long the body is.</p>
   </div>
   <figure class="prep-item-figure">
-    <div class="img-placeholder">Image coming</div>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-parts/c-channel-support-leg-full-87fa6d93be59.png" alt="Render of the printed C-channel 3 support leg: a square body with a narrower square spigot at each end, each spigot drilled through">
+    <figcaption>The C-channel 3 support leg. C2's is the same part with a longer body. <cite>Render from the published STL.</cite></figcaption>
   </figure>
+</div>
+
+<div class="prep-item">
+  <div class="prep-item-body">
+    <p><strong>Nine dovetail adapters</strong>, three per channel and the same part on all three. Each is 42 mm tall and in two halves: a 41 mm square block, 20 mm of it, with a socket in its underside that swallows the top 18 mm of a leg, and a 22 mm tapered tang above that goes up into the C-channel drive. <strong>The block's top face is what the channel sits on</strong>, 2 mm above the leg — not the tip of the tang.</p>
+  </div>
+  <figure class="prep-item-figure">
+    <img class="doc-figure" src="https://assets.basically.website/sorter-parts/c-channel-support-dovetail-adapter-full-0a3f5f941324.png" alt="Render of the support dovetail adapter: a square block with a tapered tang standing on it and a hole through one side of the block">
+    <figcaption>The Support dovetail adapter. <cite>Render from the published STL.</cite></figcaption>
+  </figure>
+</div>
+
+<div class="callout">
+  <p><strong>There are no fasteners in the stand at all.</strong> Every joint in it is gravity or friction: a leg stands in the layout guide, an adapter sits on a leg, and the three adapters push up into the drive. Nothing here is screwed and nothing takes a heat insert. The printed legs and the adapters do have holes through them — 2 × Ø4.20 in each leg, 2 × Ø5.50 in each adapter — and none of them is fastened. Don't go looking for the screws.</p>
 </div>
 
 {% include step.html n="2" title="Stand each channel" %}
 
-Fit 3 legs, 3 extensions and 3 feet to each of the three feeder channels.
+Build the same stack three times, once per channel, with that channel's legs:
 
-**Not recorded:** how the leg, extension and foot stack, what fastens them to each other, and how a leg attaches to the channel's stator or NEMA bracket. <span class="fastener-todo">fastener not recorded</span>
+1. Put the layout guide down flat, sockets up.
+2. Stand the three legs in it. The sockets are 18 mm deep and the legs are held by their own weight — C1's extrusion, C2's and C3's printed legs.
+3. Drop a dovetail adapter over the top of each leg. The socket in its underside takes the top 18 mm of the leg, so the block's top face lands 2 mm above the leg on every channel — that face is the seat.
+4. Lower the built C-channel onto the three tangs so they engage the drive from below. It's a friction fit; the channel's weight holds it.
 
-**Not recorded:** whether the classification channel stands on legs of its own or is carried by the chamber and the interface below it. The catalog gives 9 of each for the feeder and none for the classification channel, which suggests the latter.
+<div class="callout callout-warning">
+  <span class="callout-icon" aria-hidden="true">⚠</span>
+  <p><strong>C1's legs don't fit their sockets closely.</strong> Both sockets — the one in the layout guide and the one under the adapter — are 26 mm square and 18 mm deep, which is what the printed legs' spigots are made to. C1's leg is 2020 extrusion, 20 mm square, so it has about 3 mm of slack a side at both ends. Nothing in the parts registry says what takes that up. The heights below still work as long as the extrusion bottoms out in the socket, but if you're building C1, check this against your own parts.</p>
+</div>
+
+**Not recorded:** how the three legs are clocked around the channel — which of the three sits under the stepper, under the exit, or under the camera lamp arm. The layout guide is exported on its own, so the STLs don't say. <span class="fastener-todo">not recorded</span>
 
 <div class="img-placeholder">Image coming</div>
 
-{% include step.html n="3" title="★ Set the heights and the spacing (the numbers that make parts actually cascade)" %}
+{% include step.html n="3" title="★ Set the heights and the spacing" %}
 
-The numbers this page most needs, and none of them are written down anywhere today. For each handover, record:
+**The drop is 80 mm per handover, and it's built into the legs.** You don't measure it; you get it by using the right leg on each channel and standing all three layout guides on the same flat surface.
 
-- the drop from one rotor to the next,
-- the horizontal overlap between the two channels,
-- how far around the circle the handover happens.
+| Channel | Leg | Length |
+|---|---|---|
+| C1 | `ext-2020-c1`, 2020 extrusion, piece J | 228 mm |
+| C2 | C-channel 2 support leg, printed | 148 mm |
+| C3 | C-channel 3 support leg, printed | 68 mm |
+
+228, 148, 68 — an even 80 mm step. Every leg sockets the same 18 mm into its guide and carries the same adapter, so the step passes straight through to the drives: measured from the underside of the layout guides, the three seats land at **240 mm, 160 mm and 80 mm**. Another 80 mm below C3 is zero, which is the surface the guides themselves stand on. That's the argument in step 6 for where the classification channel goes.
+
+<figure>
+  <img class="doc-figure" src="https://assets.basically.website/sorter-parts/c-channel-support-heights-full-a32b5d7f02ad.png" alt="Elevation of the three support stacks side by side, C1 tallest to C3 shortest, with dashed lines marking seat heights at 240, 160 and 80 mm above the surface the layout guides stand on, and 80 mm marked between each pair">
+  <figcaption>The three stacks to scale, from the published STLs, with one of each channel's three legs shown. C1's leg is drawn as a plain 20 × 20 × 228 mm extrusion. The dashed lines are the faces the C-channel drives sit on. <cite>Render from the published STLs.</cite></figcaption>
+</figure>
+
+<div class="callout">
+  <p>Don't add more drop than this to fix bouncing. A part is supposed to arrive at the next rotor with most of its energy gone; a bigger drop makes pieces bounce further and re-clump, which is the problem the cascade exists to solve. If parts are riding round a channel instead of leaving it, that's the <a href="{{ '/hardware/assembly/feeder/output-guides/' | relative_url }}">output guide</a>'s job, not the height's.</p>
+</div>
+
+**Still not recorded**, and these are the numbers this page most needs from a real build:
+
+- how far two channels overlap horizontally, which is what fixes where the guides sit relative to one another,
+- how far around the circle each handover happens.
 
 <div class="img-placeholder">Image coming</div>
 
@@ -92,15 +143,19 @@ One [output guide]({{ '/hardware/assembly/feeder/output-guides/' | relative_url 
 
 <div class="img-placeholder">Image coming</div>
 
-{% include step.html n="5" title="Add the bulk input, the light posts and the camera arms" %}
+{% include step.html n="5" title="Add the bulk input and the camera lamps" %}
 
-[Bulk input]({{ '/hardware/assembly/feeder/bulk-input/' | relative_url }}) on C1. A [light post]({{ '/hardware/assembly/feeder/light-post/' | relative_url }}) and an [overhead camera mount]({{ '/hardware/assembly/feeder/camera-mount/' | relative_url }}) on C2 and on C3.
+[Bulk input]({{ '/hardware/assembly/feeder/bulk-input/' | relative_url }}) on C1. A [camera lamp]({{ '/hardware/assembly/feeder/camera-lamp/' | relative_url }}) on C2 and on C3 — C1 has neither a lamp nor an output guide, because it's fed in bulk and nothing reads vision off it.
 
 <div class="img-placeholder">Image coming</div>
 
-{% include step.html n="6" title="★ Hand over to the classification channel (the other unresolved joint)" %}
+{% include step.html n="6" title="★ Stand the classification channel" %}
 
-The other open question: how the classification channel sits relative to C3 and to the [top interface]({{ '/hardware/assembly/distribution/top-interface/' | relative_url }}) below it, and what carries its weight.
+**The classification channel has no support structure in the parts list** — no layout guide, no legs, no adapters. Where its weight goes is the one part of the feeder nobody has written down, and it's been asked in the server twice without an answer.
+
+What the geometry says, which is an inference and not a build: the 80 mm step continues, so C4's seat falls exactly at the level the three layout guides stand on. Resting the drive straight on the [top interface]({{ '/hardware/assembly/distribution/top-interface/' | relative_url }})'s plate puts it at the right height — the stator and the NEMA bracket bottom out together and the stepper mounts on the bracket's upper face, so nothing hangs below the seating plane to foul the plate. What that doesn't give you is anything holding it down or setting which way it's clocked. The top plate has no mount holes for a C-channel.
+
+**If you work this out on your own machine, it's the single most useful thing you could send back.** <span class="fastener-todo">not recorded</span>
 
 <div class="img-placeholder">Image coming</div>
 

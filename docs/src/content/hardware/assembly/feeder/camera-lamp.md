@@ -111,9 +111,9 @@ The arm and the mount butt together end to end, with bracket A on one face and b
 
 **Which way round the brackets go:** their angled ends come in towards the end where the dovetail is printed, not away from it.
 
-**The two brackets share their screw holes.** Each 2.8 mm pilot runs 19.8 mm straight through the joint, so bracket A's screw enters one end and bracket B's the other: eight screws into four holes, both pairs 20 mm apart along the joint.
+**The two brackets share their screw holes.** Each pilot runs 19.8 mm straight through the joint, so bracket A's screw enters one end and bracket B's the other: eight screws into four holes.
 
-Drive all 8 {% include fastener.html size="M3" variant="countersunk" length="12" %} screws, four per bracket, seated flush. Stop as each head seats, you are cutting a thread in plastic and the far half of the hole is somebody else's screw. **12 mm is the only length that fits**: two 16s coming from opposite ends would put 23 mm of screw into a 19.8 mm hole and meet before either seated. ReveryX confirmed the M3 × 12 on an assembled arm, 2026-09-05.
+Drive all 8 {% include fastener.html size="M3" variant="countersunk" length="12" %} screws, four per bracket, and stop as each head seats: you are cutting a thread in plastic and the far half of the hole is somebody else's screw. **12 mm is the only length that fits**, two 16s would meet inside the hole before either seated.
 
 <div class="img-row">
   <figure>

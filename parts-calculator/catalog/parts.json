@@ -5380,9 +5380,9 @@
       },
       "name": "White/daylight LED strip - 24v",
       "category": "Wire harness",
-      "description": "Lighting for classification chamber",
+      "description": "The light in a Camera lamp: two turns inside the reflector's skirt, held by the six LED hooks. Bought as a 5 m roll and cut into 950 mm rings, so one roll covers a machine's three lamps. Also the classification chamber's lighting before the dome was retired.",
       "created_at": "2026-07-18",
-      "updated_at": "2026-07-18",
+      "updated_at": "2026-09-10",
       "image_url": "https://assets.basically.website/sorter-parts/led-strip-24v-full-961391ece43d.jpg",
       "sourcing": {
         "vendors": [
@@ -5396,8 +5396,143 @@
           }
         ]
       },
+      "attributes": [
+        {
+          "label": "Buy",
+          "value": "One 5 m (16.4 ft) roll"
+        },
+        {
+          "label": "Cut into",
+          "value": "3 x 950 mm, one per Camera lamp"
+        },
+        {
+          "label": "Colour temperature",
+          "value": "6000K daylight white, CRI 90+"
+        },
+        {
+          "label": "Width",
+          "value": "8 mm, COB (dotless)"
+        },
+        {
+          "label": "Cut pitch",
+          "value": "Cuttable every 1.5 in (38 mm) on the printed marks"
+        }
+      ],
+      "caption": "950 mm cut from a 5 m roll. One roll does all three lamps.",
+      "stock": {
+        "unit_length_mm": 5000,
+        "cut_length_mm": 950,
+        "pieces_per_unit": 5,
+        "unit_label": "5 m (16.4 ft) roll",
+        "piece_label": "950 mm lamp ring"
+      }
+    },
+    {
+      "id": "led-strip-connector-8mm",
+      "uid": "bdwo",
+      "kind": "cots",
+      "cots": {
+        "type": "connector"
+      },
+      "name": "Solderless clamp-on strip connector, 8 mm COB",
+      "category": "Wire harness",
+      "description": "Joins an LED strip to wire without soldering: the cut end of the strip clamps under sprung contacts at one end, the wire clamps into the other. One per Camera lamp, so three per machine.",
+      "note": "8 mm COB strip only: a 10 mm connector, or one for SMD strip, will not grip. Soldering the pads is the only other way to get wire onto the strip.",
+      "alternative": "Solder the wire to the strip pads instead, which needs no connector at all",
+      "created_at": "2026-09-10",
+      "updated_at": "2026-09-10",
+      "image_url": "https://assets.basically.website/sorter-parts/led-strip-connector-8mm-full-915e0ed03fdc.jpg",
+      "attributes": [
+        {
+          "label": "Fits",
+          "value": "8 mm (0.31 in) COB strip"
+        },
+        {
+          "label": "Wire",
+          "value": "22 AWG, not supplied"
+        },
+        {
+          "label": "Conductors",
+          "value": "2"
+        },
+        {
+          "label": "Max current",
+          "value": "3 A"
+        },
+        {
+          "label": "Variants",
+          "value": "SBL-RA2P-8-1 comes with 4 in leads fitted; SBL-RA2P-8-DC ends in a 5.5 x 2.1 mm barrel socket"
+        }
+      ],
       "sheet_qty": {
-        "per_machine": 1
+        "per_machine": 3
+      },
+      "caption": "One per lamp. Strip in one end, your wire in the other.",
+      "docs_page": "/hardware/electronics/led-drop/",
+      "sourcing": {
+        "vendors": [
+          {
+            "region": "US",
+            "vendor": "SuperBrightLEDs",
+            "url": "https://www.superbrightleds.com/solderless-clamp-on-led-strip-light-to-pigtail-adaptor-8mm-cob-strips-22-awg",
+            "price": 1.59,
+            "pack_qty": 1,
+            "as_of": "2026-09-10",
+            "note": "Part SBL-RA2P-8, sold singly."
+          }
+        ]
+      }
+    },
+    {
+      "id": "dupont-lead-2p-1m",
+      "uid": "1lzt",
+      "kind": "cots",
+      "cots": {
+        "type": "cable"
+      },
+      "name": "Pre-crimped 2-pin Dupont lead, 1 m",
+      "category": "Wire harness",
+      "description": "A metre of 22 AWG red and black with a 2-pin 2.54 mm Dupont housing crimped on. One of these is a whole LED drop: the Dupont end pushes onto an LED header (J8 to J11), the far end goes into the strip connector. The pack is male-to-female, so cut the male plug off and discard it.",
+      "note": "Sold male-to-female: cut the male plug off and discard it. Any 22 AWG pair plus a 2-pin Dupont housing does the same job if you own a crimp tool.",
+      "alternative": "Your own 22 AWG pair plus a 2-pin 2.54 mm Dupont housing and two crimps",
+      "created_at": "2026-09-10",
+      "updated_at": "2026-09-10",
+      "attributes": [
+        {
+          "label": "Pitch",
+          "value": "2.54 mm, 2-pin single row"
+        },
+        {
+          "label": "Wire",
+          "value": "22 AWG stranded, red and black"
+        },
+        {
+          "label": "Length",
+          "value": "100 cm"
+        },
+        {
+          "label": "Pack",
+          "value": "5 sets, so three lamps and two spares"
+        }
+      ],
+      "sheet_qty": {
+        "per_machine": 3
+      },
+      "caption": "Cut the male end off and it is one LED drop.",
+      "docs_page": "/hardware/electronics/led-drop/",
+      "sourcing": {
+        "vendors": [
+          {
+            "region": "US",
+            "vendor": "Amazon",
+            "url": "https://www.amazon.com/dp/B0CCTZJZZ3",
+            "affiliate_url": "https://www.amazon.com/dp/B0CCTZJZZ3?tag=sorterv2-20",
+            "price": 8.48,
+            "pack_qty": 5,
+            "as_of": "2026-09-10",
+            "note": "Kidisoii KI-0715-Dupont-MF-2P-100CM."
+          }
+        ]
       }
     },
     {
@@ -10452,10 +10587,10 @@
     },
     {
       "id": "reflector-with-led-hooks",
-      "uid": "awve",
-      "version": "1",
+      "uid": "auja",
+      "version": "2",
       "name": "Reflector with LED hooks",
-      "description": "The white inner reflector with its six LED hooks friction-fitted on.",
+      "description": "The white inner reflector with its six LED hooks friction-fitted on, holding the ring of LED strip.",
       "docs": "/hardware/assembly/feeder/camera-lamp/",
       "lines": [
         {
@@ -10465,6 +10600,10 @@
         {
           "part": "inner-reflector-led-hook",
           "qty": 6
+        },
+        {
+          "part": "led-strip-24v",
+          "qty": 1
         }
       ],
       "connections": [
@@ -10474,6 +10613,39 @@
           "qty": 6,
           "method": "friction",
           "note": "Each hook friction-fits onto the reflector and retains an LED strip."
+        },
+        {
+          "from": "led-strip-24v",
+          "to": "lamp-inner-reflector",
+          "qty": 1,
+          "method": "friction",
+          "note": "Two turns of strip against the inner face of the reflector's skirt, retained by the six hooks. 950 mm per lamp."
+        }
+      ],
+      "versions": [
+        {
+          "version": "1",
+          "uid": "awve",
+          "message": "As recorded before the first stamped change.",
+          "lines": [
+            {
+              "part": "lamp-inner-reflector",
+              "qty": 1,
+              "uid": "4vio"
+            },
+            {
+              "part": "inner-reflector-led-hook",
+              "qty": 6,
+              "uid": "l5qn"
+            }
+          ]
+        },
+        {
+          "version": "2",
+          "date": "2026-09-10",
+          "message": "Record the LED strip as a member. The strip was always in this assembly (the hooks exist to retain it) but was never a line, so it appeared in no parts list and builders had nothing to buy from. It is one 950 mm piece cut from the 5 m roll, two turns inside the skirt.",
+          "breaking": false,
+          "commit": null
         }
       ]
     },

@@ -21,22 +21,51 @@ Every layer of the bin frame is built flat, on its own, and none of the pages th
 
 **Those screws are the only loose parts this page uses**, and the quantity above is for one joint. An N-layer machine has N joints, because the top interface's own frame lands on the stack the same way a layer does, so the whole job takes **12 × N** of them: 36 at three layers, 60 at five. Everything else is already fitted to the layers you are joining.
 
+## Elements needed
+
+Every one of these is built on another page. Have them all finished before you start, for an N-layer machine.
+
 <div class="prep-item">
   <div class="prep-item-body">
-    <p><strong>Everything this page joins is built elsewhere.</strong> Have all of it finished and in front of you before you start, for an N-layer machine:</p>
-    <ul>
-      <li><strong>1 ×</strong> <a href="{{ '/hardware/assembly/distribution/bin-frame/bottom-layer/' | relative_url }}">bottom layer</a>, on its casters</li>
-      <li><strong>N−1 ×</strong> <a href="{{ '/hardware/assembly/distribution/bin-frame/regular-layers/' | relative_url }}">regular layers</a></li>
-      <li><strong>N ×</strong> sets of <a href="{{ '/hardware/assembly/distribution/bin-frame/bin-retainers/' | relative_url }}">bin retainers</a>, twelve per layer, fitted before the layer goes on the stack</li>
-      <li><strong>1 ×</strong> <a href="{{ '/hardware/assembly/distribution/top-interface/' | relative_url }}">top interface</a>, its own hex frame included</li>
-    </ul>
-    <p>The <a href="{{ '/hardware/assembly/distribution/chute/' | relative_url }}">chutes</a> and the <a href="{{ '/hardware/assembly/distribution/bin-frame/bottom-interface/' | relative_url }}">bottom interface</a> are not needed yet and must not go in while you stack.</p>
+    <p><strong>1 × <a href="{{ '/hardware/assembly/distribution/bin-frame/bottom-layer/' | relative_url }}">bottom layer</a></strong>, standing on its six casters. It is the base of the stack and the only layer that does not land on another one.</p>
   </div>
   <figure class="prep-item-figure">
-    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-bottom-layer-corner-bracket-on-d-w1600-67bd9444f306.jpg" alt="One corner of a finished layer seen close up from above: the External bracket — bottom vertical standing on the collar with the end of the extrusion recessed in its square socket">
-    <figcaption>One corner of a finished layer. The socket is what the next layer's collar lands on. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-bottom-layer-corner-bracket-on-d-w1600-67bd9444f306.jpg" alt="One corner of the bottom layer seen close up from above: the External bracket — bottom vertical standing on the collar with the end of piece D recessed in its square socket, the foot cover below the frame, and the caster under that">
+    <figcaption>One corner of it. The socket is what the next layer lands on. <cite>Photo: BrickCycleAlice.</cite></figcaption>
   </figure>
 </div>
+
+<div class="prep-item">
+  <div class="prep-item-body">
+    <p><strong>N−1 × <a href="{{ '/hardware/assembly/distribution/bin-frame/regular-layers/' | relative_url }}">regular layers</a></strong>, every bin layer above the lowest. Each one carries the vertical and the bracket that reach up to the layer above it.</p>
+  </div>
+  <figure class="prep-item-figure">
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-regular-layers-finished-square-full-779529c4b5f5.png" alt="A finished regular layer from above: the hexagon of extrusion with its spokes and crossbeams, and a vertical support capped by an External bracket — bottom vertical standing at each of the six corners">
+    <figcaption>A finished regular layer. <cite>Photo: zed0.</cite></figcaption>
+  </figure>
+</div>
+
+<div class="prep-item">
+  <div class="prep-item-body">
+    <p><strong>N × sets of <a href="{{ '/hardware/assembly/distribution/bin-frame/bin-retainers/' | relative_url }}">bin retainers</a></strong>, twelve on every layer including the bottom one. Fit them while the layer is still something you can turn around, not once it is on the stack.</p>
+  </div>
+  <figure class="prep-item-figure">
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-regular-layers-bin-retainers-installed-w1600-31bf32089e71.png" alt="Bin retainers fastened to the outer faces of the hexagon frame, a pair either side of the joint between two A extrusions">
+    <figcaption>One face with its pair on. <cite>Photo: zed0.</cite></figcaption>
+  </figure>
+</div>
+
+<div class="prep-item">
+  <div class="prep-item-body">
+    <p><strong>1 × <a href="{{ '/hardware/assembly/distribution/top-interface/' | relative_url }}">top interface</a></strong>, its own hex frame included. That frame lands on the top bin layer through the same joint every other layer uses, which is why it counts as one of the N joints.</p>
+  </div>
+  <figure class="prep-item-figure">
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-top-interface-framing-4-full-b9ae16940954.jpg" alt="The completed top interface resting on its top plate: the hex frame ring uppermost, the six interface brackets and their extrusion inside it, and the white chute mount at the centre">
+    <figcaption>The finished interface, resting on its top plate the way it is built. <cite>Photo: zed0.</cite></figcaption>
+  </figure>
+</div>
+
+The <a href="{{ '/hardware/assembly/distribution/chute/' | relative_url }}">chutes</a> and the <a href="{{ '/hardware/assembly/distribution/bin-frame/bottom-interface/' | relative_url }}">bottom interface</a> are not needed yet and must not go in while you stack.
 
 {% include fastener-legend.html %}
 

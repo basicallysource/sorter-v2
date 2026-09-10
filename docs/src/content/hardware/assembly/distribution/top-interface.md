@@ -180,7 +180,7 @@ Before assembling anything, press all the heat inserts listed below into their p
   </div>
   <figure class="prep-item-figure">
     <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-top-interface-prep-upper-fixed-section-inserts-full-ful-4f73af3a5587.png" alt="The Interface upper fixed section ring, underside with the NEMA 23 bracket attached, showing four brass M4 heat inserts around its face">
-    <figcaption>Underside, with the NEMA 23 bracket attached. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+    <figcaption>Underside, with the NEMA 23 bracket attached. <cite>Photo: zed0, a still from the assembly video.</cite></figcaption>
   </figure>
 </div>
 
@@ -191,7 +191,7 @@ Before assembling anything, press all the heat inserts listed below into their p
   <figure class="prep-item-figure">
     <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-top-interface-prep-nema23-inserts-full-5fda8f6ef8c0.png" alt="The Interface NEMA 23 bracket held up, showing four brass M5 inserts on the top edges and one M3 insert on the long tail">
     <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-top-interface-prep-nema23-inserts-underside-full-97cf1ce3e1b0.png" alt="The underside of the Interface NEMA 23 bracket, showing the two remaining brass M5 heat inserts">
-    <figcaption>Top: four M5 on the edges and one M3 on the tail. Underside: the two remaining M5. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+    <figcaption>Top: four M5 on the edges and one M3 on the tail. Underside: the two remaining M5. <cite>Photo: zed0, a still from the assembly video.</cite></figcaption>
   </figure>
 </div>
 
@@ -202,7 +202,7 @@ Before assembling anything, press all the heat inserts listed below into their p
   <div class="prep-item-figure prep-item-figure-split">
     <figure>
       <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-top-interface-prep-chute-mount-inserts-underside-full-ec67c0262221.png" alt="The underside of the white Top interface chute mount, showing brass M4 and M3 heat inserts around the ring">
-      <figcaption>Underside: the 4 M4 and 5 of the M3. The other 2 M3 sit by the cable-clamp recess on the top face. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+      <figcaption>Underside: the 4 M4 and 5 of the M3. The other 2 M3 sit by the cable-clamp recess on the top face. <cite>Photo: zed0, a still from the assembly video.</cite></figcaption>
     </figure>
     <figure>
       <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-top-interface-prep-chute-mount-inserts-underside-grey-w-52b54ffa44db.jpg" alt="A closer grey view of the Top interface chute mount underside, showing two of the M3 inserts on the ring beside the recess for the Limit switch hammer screw">
@@ -237,7 +237,7 @@ Before assembling anything, press all the heat inserts listed below into their p
   </div>
   <figure class="prep-item-figure">
     <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-top-interface-prep-limit-switch-hammer-inserts-full-ff286afdd969.png" alt="The Limit switch hammer held up, showing a single brass M3 heat insert in its round disc">
-    <figcaption>One M3 insert in the round disc. <cite>Photo: zed0.</cite></figcaption>
+    <figcaption>One M3 insert in the round disc. <cite>Photo: zed0, a still from the assembly video.</cite></figcaption>
   </figure>
 </div>
 
@@ -247,7 +247,7 @@ Before assembling anything, press all the heat inserts listed below into their p
   </div>
   <figure class="prep-item-figure">
     <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-top-interface-prep-cable-cage-bracket-cable-inserts-ful-9188d3883103.png" alt="The Cable cage bracket (cable mount) held up, showing a single brass M3 heat insert">
-    <figcaption>The one M3 insert in the Cable cage bracket (cable mount). <cite>Photo: zed0.</cite></figcaption>
+    <figcaption>The one M3 insert in the Cable cage bracket (cable mount). <cite>Photo: zed0, a still from the assembly video.</cite></figcaption>
   </figure>
 </div>
 
@@ -308,19 +308,19 @@ Attach the whole assembly to the bottom of the Top plate with {% include fastene
 
 <div class="img-row">
   <figure>
-    <img class="doc-figure" src="https://assets.basically.website/sorter-parts/img-4305-full-931aaff1af40.jpg" alt="Close-up of a hand-cut plywood Top plate showing a countersunk screw hole near the S3 hole position">
-    <figcaption>A hand-cut Top plate with the S2/S3 holes countersunk. <cite>Photo: BrickCycleAlice.</cite></figcaption>
-  </figure>
-</div>
-
-<div class="img-row">
-  <figure>
     <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-top-interface-step2-ribs-upper-fixed-section-w1600-4ebd47453115.jpg" alt="Six grey Interface ribs attached around the circular Interface upper fixed section">
     <figcaption>The 6 Interface ribs attached to the Interface upper fixed section. <cite>Photo: BrickCycleAlice.</cite></figcaption>
   </figure>
   <figure>
     <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-top-interface-step2-nema23-bracket-underside-w1600-cb1666b20cca.jpg" alt="Underside of the Interface upper fixed section with the Interface NEMA 23 bracket seated in its notch">
     <figcaption>Underside, with the Interface NEMA 23 bracket seated in its notch. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+  </figure>
+</div>
+
+<div class="img-row">
+  <figure>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-parts/img-4305-full-931aaff1af40.jpg" alt="Close-up of a hand-cut plywood Top plate showing a countersunk screw hole near the S3 hole position">
+    <figcaption>A hand-cut Top plate with the S2/S3 holes countersunk. <cite>Photo: BrickCycleAlice.</cite></figcaption>
   </figure>
 </div>
 
@@ -357,6 +357,14 @@ Slide the extrusion into the Interface bracket, careful not to dislodge the T-nu
   <figure>
     <img class="doc-figure" src="https://assets.basically.website/sorter-parts/img-4293-full-d11cce819ba3.jpg" alt="Four M5 screws threaded a few turns into T-nuts hanging in the Interface bracket's channel before the extrusion is slid in">
     <figcaption>Screws threaded into the T-nuts first, ready for the extrusion. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+  </figure>
+  <figure>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-top-interface-step3-extrusion-slid-in-w1600-914b4213437a.jpg" alt="The extrusion slid into the Interface bracket's channel, with the four M5 screws driven into the T-nuts along the bracket's face and a brass M5 insert at each end of it">
+    <figcaption>The extrusion slid home and all four screws driven into the T-nuts. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+  </figure>
+  <figure>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-top-interface-step3-bracket-extrusion-joined-w1600-60b9e370b515.jpg" alt="The joined Interface bracket and extrusion from the outer side, the extrusion projecting past the bracket's lower end and the square socket for the vertical leg at the top">
+    <figcaption>The finished joint from the outer side, with the socket for the vertical leg at the top. <cite>Photo: BrickCycleAlice.</cite></figcaption>
   </figure>
 </div>
 

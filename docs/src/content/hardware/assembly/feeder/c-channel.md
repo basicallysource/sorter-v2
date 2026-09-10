@@ -8,10 +8,10 @@ kicker: Feeder — C-channel
 lede: The C-channel stage itself.
 permalink: /hardware/assembly/feeder/c-channel/
 author: spencer
-contributors: [barthel, brickcyclealice, christoph]
+contributors: [barthel, brickcyclealice, christoph, danny]
 warning: >-
   **Steps 1 to 5 come from a build**, the order of operations and the photographs are
-  BrickCycleAlice's. Step 6, the camera lamp, is still an AI-generated first draft written
+  BrickCycleAlice's, apart from step 3's, which are Danny's. Step 6, the camera lamp, is still an AI-generated first draft written
   from the machine assembly tree in the [parts
   calculator](https://parts-calculator.basically.website/assembly?focus=c-channel) and has
   not been checked against a machine. Correct it as you build.
@@ -98,12 +98,12 @@ The bore is plain and round, so there is nothing to key it: turn the gear until 
 
 <div class="img-row">
   <figure>
-    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-c-channel-input-gear-screw-end-angled-full-dd4887827574.png" alt="Render of the 12-tooth input gear seen from its toothed end at a slight angle, showing the round central bore, a smaller screw hole running beside it, and a shallow wider recess around both, cut into the end face. The outside of the gear is unbroken">
-    <figcaption>The toothed end, at a slight angle. The small hole beside the bore is the screw hole, and the shallow recess around the pair of them is the counterbore the head seats in. <cite>Rendered from the part geometry, not from a build. Render: Balloon.</cite></figcaption>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-c-channel-input-gear-clamp-screw-driving-w1600-dfa74d5a362c.jpg" alt="The charcoal 12-tooth input gear pushed onto the shaft of a NEMA 17, seen from above. A driver bit is turning the clamping screw, which stands in a hole in the end face beside the bore with its thread still showing. The flat on the motor shaft is visible through the bore next to it">
+    <figcaption>The screw goes in beside the bore, parallel to the shaft, not into the side of the gear. The bright shape next to it is the flat on the shaft. <cite>Photo: Danny.</cite></figcaption>
   </figure>
   <figure>
-    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-c-channel-input-gear-screw-end-square-full-8a5956d68731.png" alt="Render of the same gear end square on, showing the screw hole overlapping the edge of the bore so the two openings run together into one figure-of-eight shape">
-    <figcaption>The same end square on. The screw hole breaks into the bore, which is what lets the screw reach the flat on the shaft. <cite>Rendered from the part geometry, not from a build. Render: Balloon.</cite></figcaption>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-c-channel-input-gear-clamp-screw-seated-w1600-39abf5a9ff47.jpg" alt="The same gear and motor with the clamping screw driven fully home, its head sitting down in the round counterbore in the toothed end face, and the gear seated against the front face of the motor">
+    <figcaption>Tightened. The head sits down in the counterbore and the gear is pushed all the way onto the shaft. <cite>Photo: Danny.</cite></figcaption>
   </figure>
 </div>
 

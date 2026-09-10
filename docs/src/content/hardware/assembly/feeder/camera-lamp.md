@@ -67,7 +67,7 @@ It replaces the [light post]({{ '/hardware/assembly/feeder/light-post/' | relati
   <figcaption>The finished thing, over a channel, lit. <cite>Photo: Spencer.</cite></figcaption>
 </figure>
 
-**The parts list above is one lamp's worth.** A machine takes three lamps, so three of everything on it: C2 and C3 with the OV9732, and the classification channel with the IMX415 4K module instead. Everything else is identical between the three. **C1, the bulk bucket, takes no lamp**: it is fed in bulk and nothing reads vision off it.
+**The parts list above is one lamp's worth.** A machine takes three lamps, so three of everything on it: C2 and C3 with the OV9732, and the classification channel with the [IMX415]({{ '/hardware/assembly/feeder/classification-chamber/' | relative_url }}) 4K module instead. Everything else is identical between the three. **C1, the bulk bucket, takes no lamp**: it is fed in bulk and nothing reads vision off it.
 
 <div class="callout">
   <p><b>If you printed four, one set is spare.</b> The parts list gave C1 a lamp of its own until 2026-09-08, when Jon confirmed the machine takes three. The software agrees: the crop zones are the second channel, the third channel and the classification channel, and nothing reads vision off the bulk channel, so C1 needs neither the lamp nor an OV9732. Question raised by BrickCycleAlice, 2026-09-05.</p>

@@ -172,8 +172,6 @@ Put all three on the [top interface]({{ '/hardware/assembly/distribution/top-int
   <p>Don't add more drop than this to fix bouncing. A part is supposed to arrive at the next rotor with most of its energy gone; a bigger drop makes pieces bounce further and re-clump, which is the problem the cascade exists to solve. If parts are riding round a channel instead of leaving it, that's the <a href="{{ '/hardware/assembly/feeder/output-guides/' | relative_url }}">output guide</a>'s job, not the height's.</p>
 </div>
 
-<div class="img-placeholder">Image coming</div>
-
 {% include step.html n="6" title="Install the classification channel" %}
 
 C4 goes in first, before the three above it, and it takes **no support structure of its own** — no layout guide, no legs, no adapters. It sits flat on the top plate and slides onto the layout guide that C3 stands in.

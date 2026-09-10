@@ -1859,6 +1859,9 @@
       },
       "assembly": null,
       "stl_hash": "ab6f4ad846ff0045771fa73efd901b6a2623002cd15c50d2282c1157abef55f2",
+      "color": {
+        "fixed": "ash-gray"
+      },
       "optional": false,
       "support": false,
       "onshape": "https://cad.onshape.com/documents/60aa51fc61d18f2155b99910/w/95f28d157e2e06c115b488fe/e/5bf04274a6c68015096bd757"

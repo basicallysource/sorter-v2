@@ -12,8 +12,10 @@ warning: >-
   **AI-generated first draft, mounting order still unbuilt.** Written from the machine assembly
   tree in the [parts calculator](https://parts-calculator.basically.website/assembly?focus=light-post),
   not from an actual build. The two screws into the NEMA bracket, and the three that join the
-  post to the adapter, are now measured off the part geometry. The assembly order, the COB
-  plate's retention, and every photograph are still missing. Fill it in as you build.
+  post to the adapter, are now measured off the part geometry, and Spencer's bench photographs
+  below are of a built post. The order the parts go together in, how the cap is retained, and
+  how the post is aimed are still missing. Fill it in as you build.
+og_image: https://assets.basically.website/sorter-parts/light-post-assembled-full-2b59e7e84bdb.jpg
 parts_needed:
   - part: light-post
     qty: 1
@@ -48,6 +50,11 @@ The light post is a vertical printed post carrying a 50 mm COB LED plate, which 
 
 The fasteners and quantities in the parts list come from the parts registry and are called out inline at each step. **The list above is one post's worth**, and the machine takes 2, one each on C2 and C3.
 
+<figure class="single-figure">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-parts/light-post-assembled-full-2b59e7e84bdb.jpg" alt="A finished light post on the bench: the black printed post with the 50 mm COB plate on its end, and the red and black leads running out of the post to a DC barrel plug">
+  <figcaption>A finished post: the plate on the end, the leads leaving the bottom on a barrel plug. <cite>Photo: Spencer.</cite></figcaption>
+</figure>
+
 {% include fastener-legend.html %}
 
 {% include step.html n="1" title="Preparation" %}
@@ -74,7 +81,9 @@ The post and the cap adapter follow the feeder colour.
 
 {% include step.html n="2" title="Screw the adapter to the post" %}
 
-All 3 {% include fastener.html size="M3" variant="countersunk" length="12" %} screws join the Light post cap adapter down onto the Light post — the cap takes none of them. Measured off the two STLs: the post's top face carries 3 self-tapping pilot holes, 2.8 mm across, spaced 120° apart on a 12.1 mm radius; the adapter has a matching 3.4 mm clearance hole over each one. Screw down through the adapter into the post.
+Put the COB plate on the post's end first, leads down through the centre, then the Light post cap adapter over it. All 3 {% include fastener.html size="M3" variant="countersunk" length="12" %} screws go down through the adapter and the plate into the post, so the plate is clamped between the two. The cap takes none of them.
+
+Measured off the two STLs: the post's top face carries 3 self-tapping pilot holes, 2.8 mm across, spaced 120° apart on a 12.1 mm radius; the adapter has a matching 3.4 mm clearance hole over each one.
 
 <figure class="single-figure">
   <img class="doc-figure" src="https://assets.basically.website/sorter-parts/post-iso-render-full-d45cabf034b8.png" alt="Angled render of the post's top, with the adapter's ring seated over it and two of the three screw pockets visible">
@@ -83,20 +92,32 @@ All 3 {% include fastener.html size="M3" variant="countersunk" length="12" %} sc
 
 **Not recorded:** which way the lobed boss lines up on the adapter — the geometry rules out the two wrong 120°/240° rotations if you match it by eye, but nobody has confirmed which adapter feature it keys to. <span class="fastener-todo">fastener not recorded</span>
 
-<div class="img-placeholder">Image coming</div>
+<div class="img-row">
+  <figure>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-parts/light-post-top-cap-off-full-d076a7bff4a1.jpg" alt="The end of the post with the cap off: the aluminium back of the COB plate with the black cap adapter on it, three countersunk screws going down through both into the post, and the leads coming up through the centre hole">
+    <figcaption>The joint from the back, cap off: the adapter on the plate, its three screws through both into the post. <cite>Photo: Spencer.</cite></figcaption>
+  </figure>
+  <figure>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-parts/light-post-led-side-full-428b89ff9243.jpg" alt="The LED side of the COB plate, close up: the post's forked end holds the plate at its centre, with the leads passing through the centre hole">
+    <figcaption>The same joint from the front, the post's forked end at the plate's centre. <cite>Photo: Spencer.</cite></figcaption>
+  </figure>
+</div>
 
-{% include step.html n="3" title="Fit the cap and the COB plate" %}
+{% include step.html n="3" title="Fit the cap over it" %}
 
-The Light post cap has no screw holes of its own anywhere in its geometry — it fits over the post-and-adapter assembly without fasteners, so it needs no heat insert either. The 50 mm COB plate mounts inside it, facing across the channel.
+The Light post cap has no screw holes of its own anywhere in its geometry — it fits over the post-and-adapter assembly without fasteners, so it needs no heat insert either. The plate faces across the channel, LEDs outward.
 
-**Not recorded:** how the cap is retained (snap or friction fit — the geometry doesn't say which) and what holds the COB plate in place. <span class="fastener-todo">fastener not recorded</span>
+**Not recorded:** how the cap is retained (snap or friction fit — the geometry doesn't say which). <span class="fastener-todo">fastener not recorded</span>
 
 <div class="callout callout-warning">
   <span class="callout-icon" aria-hidden="true">⚠</span>
   <p><b>The C-channel COB light boards need a current-limiting resistor.</b> <b>220&#8486;, 1/4 W, in series, one per board.</b> Wired straight to 24V a 50 mm COB plate pulls about 0.5A and melts its printed mount. A board fed from a basically board v1.3 LED header already has one on the board. Full detail: <a href="{{ '/hardware/electronics/#43--leds-from-basically-board-v13' | relative_url }}">LEDs, on the wire harness page</a>.</p>
 </div>
 
-<div class="img-placeholder">Image coming</div>
+<figure class="single-figure">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-parts/light-post-led-side-centre-full-b25b6589047d.jpg" alt="The LED side of the COB plate straight on: the post's forked end at the centre with the leads leaving through it">
+  <figcaption>The face that lights the channel, straight on. The leads leave through the centre of the plate. <cite>Photo: Spencer.</cite></figcaption>
+</figure>
 
 {% include step.html n="4" title="Bolt the post to the NEMA bracket" %}
 

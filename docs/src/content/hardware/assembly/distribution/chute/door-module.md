@@ -159,8 +159,31 @@ The cover is 6.65 mm thick at the screw, so a 12 mm screw reaches 5.35 mm into t
 
 The two arms land on two other faces of the housing, so they are independent of the servo and can go on before or after it.
 
-- **Lower arm:** 2 {% include fastener.html size="M3" variant="countersunk" length="8" %} into the housing's inserts. The arm is 4.25 mm thick at the screws, so an 8 mm one reaches 3.75 mm in.
-- **Side arm:** 2 {% include fastener.html size="M3" variant="countersunk" length="12" %} into the housing's inserts. This arm is 8.40 mm thick at the screws, so an 8 mm one would not reach them at all.
+**Lower arm:** 2 {% include fastener.html size="M3" variant="countersunk" length="8" %} into the housing's inserts. It is the wider of the two arms, and it is 4.25 mm thick at the screws, so an 8 mm one reaches 3.75 mm in.
+
+<div class="img-row">
+  <figure>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-door-module-lower-arm-on-w1600-d777cd9b9a60.jpg" alt="The servo bracket housing with the wide lower arm bolted to it, seen from the cover side, the arm's thick end standing proud with a single empty hole in its sloped face">
+    <figcaption>The lower arm on. The empty hole in its raised end is the one that bolts to the chute core later, not now. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+  </figure>
+  <figure>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-door-module-lower-arm-screws-w1600-aebd2878b313.jpg" alt="The same assembly from the servo output end, with two countersunk screw heads visible in the face of the lower arm and the servo's splined output above them">
+    <figcaption>From the output end, with the arm's two countersunk screws driven home. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+  </figure>
+</div>
+
+**Side arm:** 2 {% include fastener.html size="M3" variant="countersunk" length="12" %} into the housing's inserts. This one is the narrow arm and it is 8.40 mm thick at the screws, so an 8 mm one would not reach them at all.
+
+<div class="img-row">
+  <figure>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-door-module-side-arm-on-w1600-d2fc44863353.jpg" alt="Both arms now on the housing: the wide lower arm across the top and the narrow side arm projecting from the right-hand face with an empty hole in its foot">
+    <figcaption>Side arm added, so both arms are now on. Its foot carries the second empty hole. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+  </figure>
+  <figure>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-door-module-both-arms-underside-w1600-882c2dfe8031.jpg" alt="The finished bracket from below with both arms fitted, two countersunk screw heads in the near face and the servo's output shaft visible between the arms">
+    <figcaption>The finished bracket from below, both arms fitted. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+  </figure>
+</div>
 
 Each arm has one further hole, in the ear at its far end. Those two are not driven here; they are what bolts the finished bracket to the chute core in step 7, so leave them empty.
 

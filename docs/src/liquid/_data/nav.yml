@@ -100,6 +100,8 @@ sections:
             url: /hardware/electronics/wireviz/
           - title: Make your own PSU pigtail
             url: /hardware/electronics/psu-pigtail/
+          - title: Make your own LED drop
+            url: /hardware/electronics/led-drop/
       - title: Helpers
         url: /hardware/helpers/
         children:

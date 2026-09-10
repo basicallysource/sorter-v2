@@ -19,6 +19,6 @@ The feeder takes unsorted parts from the bulk input and, through four C-channel 
 5. **[Output guides]({{ '/hardware/assembly/feeder/output-guides/' | relative_url }})**, the walls on C2 and C3 that push parts off the channel.
 6. **[Arranging C-channels]({{ '/hardware/assembly/feeder/arranging-c-channels/' | relative_url }})**, the stand, the heights, and how the four sit together.
 
-Everything after the C-channel page is an AI-generated first draft: the parts are recorded, the steps and the photographs are not. Each page says at the top what is missing from it.
+The C-channel page and the Arranging C-channels page are written from real builds. The rest are AI-generated first drafts: the parts are recorded, the steps and the photographs are not. Each of those says at the top what is missing from it.
 
 Two pages are kept for machines already built to the older arrangement and are not part of the build above: the **[light post]({{ '/hardware/assembly/feeder/light-post/' | relative_url }})** and the **[overhead camera mount]({{ '/hardware/assembly/feeder/camera-mount/' | relative_url }})**, both replaced by the camera lamp on 2026-09-02.

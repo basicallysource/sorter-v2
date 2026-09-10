@@ -111,6 +111,8 @@ The arm and the mount butt together end to end, with bracket A on one face and b
 
 **Which way round the brackets go:** their angled ends come in towards the end where the dovetail is printed, not away from it.
 
+**The ends of the arm are shaped**, so the two only mate one way round. If it does not seem to fit, swap the piece end for end rather than forcing it.
+
 **The two brackets share their screw holes.** Each pilot runs 19.8 mm straight through the joint, so bracket A's screw enters one end and bracket B's the other: eight screws into four holes.
 
 Drive all 8 {% include fastener.html size="M3" variant="countersunk" length="12" %} screws, four per bracket, and stop as each head seats: you are cutting a thread in plastic and the far half of the hole is somebody else's screw. **12 mm is the only length that fits**, two 16s would meet inside the hole before either seated.
@@ -121,6 +123,10 @@ Drive all 8 {% include fastener.html size="M3" variant="countersunk" length="12"
     <figcaption>The joint with a bracket on, angled end towards the dovetail. <cite>Photo: BrickCycleAlice.</cite></figcaption>
   </figure>
   <figure>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-camera-lamp-arm-ring-section-w1600-27f1be3340df.jpg" alt="The far section of the camera lamp arm lying on the bench, the lamp ring at one end and the shaped mating end at the other">
+    <figcaption>The other section, ring end and shaped end. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+  </figure>
+  <figure>
     <img class="doc-figure" src="https://assets.basically.website/sorter-docs/camera-lamp-mounted-wide-w1600-247fb837f4f8.jpg" alt="A wider view of a camera lamp on the machine, showing the full length of the arm from the lamp down to the C-channel, with a bracket screwed along the joint and the LED leads cable-tied along the arm">
     <figcaption>The same joint on the machine, leads running down the arm. <cite>Photo: Spencer.</cite></figcaption>
   </figure>
@@ -128,9 +134,14 @@ Drive all 8 {% include fastener.html size="M3" variant="countersunk" length="12"
 
 {% include step.html n="3" title="Screw the camera lamp ring onto the arm" %}
 
-The ring goes on the far end of the arm and is what the lamp and the camera hang from. It works the same way as the joint below it: four 3.5 mm clearance holes in the ring, two 2.8 mm pilot holes through the end of the arm, so the remaining 4 {% include fastener.html size="M3" variant="countersunk" length="12" %} screws go two per side into the same two holes. The ring straddles the arm.
+This is the joint between the arm's two sections. The ring end goes onto the far end of the arm, and is what the lamp and the camera hang from. It works the same way as the joint below it: four 3.5 mm clearance holes in the ring, two 2.8 mm pilot holes through the end of the arm, so the remaining 4 {% include fastener.html size="M3" variant="countersunk" length="12" %} screws go two per side into the same two holes. The ring straddles the arm.
 
 That is all 12 of the M3 × 12 in the parts list: 8 at the mount joint, 4 here. **Six holes, a screw into each end of every one of them.** ReveryX confirmed that count against the parts on 2026-09-05; everything else about these two steps is off the STLs.
+
+<figure class="single-figure">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-camera-lamp-arm-assembled-w1600-735fdcc7ecd6.jpg" alt="The whole camera lamp arm assembled on the bench: the dovetailed mount end, the bracket running along the joint with its screws, the bend, and the lamp ring at the far end">
+  <figcaption>Both sections joined, dovetail at one end and the ring at the other. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+</figure>
 
 {% include step.html n="4" title="Clasp the camera between the two halves" %}
 

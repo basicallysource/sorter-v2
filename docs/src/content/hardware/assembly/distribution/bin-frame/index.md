@@ -28,6 +28,8 @@ Once every layer is built, [Stacking the layers]({{ '/hardware/assembly/distribu
 
 ## The finished result
 
+<div class="img-placeholder">Photo of a finished bin frame: the bottom layer with the regular layers stacked on it, standing on its casters, with no top interface, no chutes and no bins in it.</div>
+
 Each page ends in one of these.
 
 <div class="img-row">

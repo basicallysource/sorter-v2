@@ -2,7 +2,7 @@
 	import {
 		PARTS,
 		SECTIONS,
-		CHANGES,
+		OPEN_CHANGES,
 		COLOR_ROLES,
 		SETTINGS,
 		STORE_URL,
@@ -767,10 +767,12 @@
 			</div>
 
 			{#if activeTab === 'parts'}
-				<a href="/changes" class="mb-4 flex items-center justify-between gap-4 border border-warning/60 bg-warning/[0.08] px-4 py-3 text-sm text-text transition-colors hover:bg-warning/[0.14]">
-					<span><b>Changes and improvements are tracked for some parts.</b> Review what is planned before printing.</span>
-					<span class="shrink-0 font-semibold text-primary">View {CHANGES.length} potential changes →</span>
-				</a>
+				{#if OPEN_CHANGES.length}
+					<a href="/changes" class="mb-4 flex items-center justify-between gap-4 border border-warning/60 bg-warning/[0.08] px-4 py-3 text-sm text-text transition-colors hover:bg-warning/[0.14]">
+						<span><b>Changes and improvements are tracked for some parts.</b> Review what is planned before printing.</span>
+						<span class="shrink-0 font-semibold text-primary">View {OPEN_CHANGES.length} potential {OPEN_CHANGES.length === 1 ? 'change' : 'changes'} →</span>
+					</a>
+				{/if}
 				<div class="mb-4 flex flex-wrap items-center gap-2">
 					<div class="inline-flex border border-border">
 						<button

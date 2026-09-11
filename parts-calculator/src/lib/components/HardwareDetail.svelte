@@ -3,6 +3,7 @@
 	import ImageStrip from '$lib/components/ImageStrip.svelte';
 	import CatalogText from '$lib/components/CatalogText.svelte';
 	import Badge from '$lib/components/Badge.svelte';
+	import OptionalBadge from '$lib/components/OptionalBadge.svelte';
 	import { copyText } from '$lib/clipboard';
 	import { SITE_URL } from '$lib/seo';
 	import {
@@ -129,8 +130,8 @@
 								</span>
 							{/if}
 						{/if}
-						<!-- the count still stands; the badge says the build works without it -->
-						{#if h.optional}<Badge variant="warning">Optional</Badge>{/if}
+						<!-- the count still stands; the tag says the build works without it -->
+						<OptionalBadge value={h.optional} />
 					</dd>
 					{#if h.stock}
 						<dt class="text-text-muted">Cut into</dt>

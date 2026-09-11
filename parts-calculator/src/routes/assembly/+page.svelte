@@ -17,6 +17,7 @@
 	import AssemblyStlZip from '$lib/components/AssemblyStlZip.svelte';
 	import DropdownMenu from '$lib/components/DropdownMenu.svelte';
 	import AlternativeBadge from '$lib/components/AlternativeBadge.svelte';
+	import OptionalBadge from '$lib/components/OptionalBadge.svelte';
 	import ConflictBadge from '$lib/components/ConflictBadge.svelte';
 	import CatalogText from '$lib/components/CatalogText.svelte';
 	import Badge from '$lib/components/Badge.svelte';
@@ -814,6 +815,7 @@
 					<div class="flex items-center gap-1.5 text-xs font-semibold text-text">
 						<HardwareIcon {hw} size={14} /><span class="truncate">{hw.name}</span>
 						<AlternativeBadge value={hw.alternative} size={14} />
+						<OptionalBadge value={hw.optional} />
 						<ConflictBadge conflicts={hw.conflicts} size={14} />
 					</div>
 				</div>
@@ -839,6 +841,7 @@
 		<div class="flex min-w-0 flex-1 items-center gap-1.5 text-xs font-semibold text-text">
 			<HardwareIcon {hw} size={14} /><span class="truncate">{hw.name}</span>
 			<AlternativeBadge value={hw.alternative} size={14} />
+						<OptionalBadge value={hw.optional} />
 						<ConflictBadge conflicts={hw.conflicts} size={14} />
 			{@render tagChips(hw.id)}
 		</div>

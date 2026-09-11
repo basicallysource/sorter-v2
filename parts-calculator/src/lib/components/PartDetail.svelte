@@ -119,7 +119,7 @@
 		<StlViewer bind:this={viewer} url={activeStl} color={getBambuColor(colorId).hex} mark={stamp} heightClass={variant === 'modal' ? 'h-[45vh] lg:h-[76vh]' : 'h-[60vh]'} />
 		<div class="pointer-events-none absolute inset-x-3 top-3 flex flex-wrap items-start justify-between gap-2">
 			<IdStamp where="viewport" uid={candidate?.uid ?? part.uid} {stamps} bind:on={stampOn} bind:faceIdx onView={() => viewer?.viewMark()} onReset={() => viewer?.resetView()} />
-			<div class="pointer-events-auto ml-auto w-48 border border-border bg-[var(--color-surface)]/95 px-2.5 py-1.5 shadow-sm backdrop-blur"><ColorPicker bind:value={colorId} label="Preview color" /></div>
+			<div class="pointer-events-auto ml-auto w-56 border border-border bg-[var(--color-surface)]/95 px-2.5 py-1.5 shadow-sm backdrop-blur"><ColorPicker bind:value={colorId} label="Preview color" /></div>
 		</div>
 		{/snippet}
 

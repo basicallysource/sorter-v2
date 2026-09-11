@@ -36,7 +36,7 @@
 		<span class="min-w-0 flex-1 leading-tight">
 			{current.name}
 			{#if current.lego}
-				<span class="block truncate text-[11px] text-text-muted">LEGO {current.lego.name}</span>
+				<span class="block text-[11px] leading-tight text-text-muted">LEGO {current.lego.name}</span>
 			{/if}
 		</span>
 		<span class="text-text-muted">▾</span>

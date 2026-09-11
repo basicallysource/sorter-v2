@@ -4960,6 +4960,7 @@
       "name": "Orange Pi 5 WiFi 6 + Bluetooth module",
       "category": "Computer",
       "description": "WiFi and Bluetooth for the Orange Pi. Optional.",
+      "optional": true,
       "created_at": "2026-07-18",
       "updated_at": "2026-07-18",
       "sheet_qty": {

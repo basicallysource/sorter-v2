@@ -129,6 +129,8 @@
 								</span>
 							{/if}
 						{/if}
+						<!-- the count still stands; the badge says the build works without it -->
+						{#if h.optional}<Badge variant="warning">Optional</Badge>{/if}
 					</dd>
 					{#if h.stock}
 						<dt class="text-text-muted">Cut into</dt>

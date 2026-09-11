@@ -291,6 +291,10 @@ export type Hardware = {
 	// Marks a part that has an interchangeable alternative (e.g. socket vs button
 	// head). `true` = a bare "Alternative" tag; a string names the alternative.
 	alternative?: string | boolean | null;
+	// The machine works without it: fit it if you want what it does. Same meaning
+	// and same "Optional" badge as a printed part's `optional`, and counted in the
+	// totals just the same -- it marks the item, it does not remove it.
+	optional?: boolean;
 	caption?: string | null; // small text under this part's docs parts-needed card
 	docs_page?: string | null; // its docs-site detail page, when one exists
 	conflicts?: CatalogConflict[] | null;

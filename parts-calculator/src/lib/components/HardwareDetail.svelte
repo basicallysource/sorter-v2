@@ -3,6 +3,7 @@
 	import ImageStrip from '$lib/components/ImageStrip.svelte';
 	import CatalogText from '$lib/components/CatalogText.svelte';
 	import Badge from '$lib/components/Badge.svelte';
+	import OptionalBadge from '$lib/components/OptionalBadge.svelte';
 	import { copyText } from '$lib/clipboard';
 	import { SITE_URL } from '$lib/seo';
 	import {
@@ -11,6 +12,7 @@
 		buyCost,
 		buyUnits,
 		fmtPrice,
+		hardwareOptional,
 		getHardware,
 		getPart,
 		hardwareImage,
@@ -102,6 +104,11 @@
 				/>
 			{/if}
 			<div class="min-w-0 flex-1">
+				<!-- above the description, not down in the Needed row: there it read as
+				     part of the "hand count from the BOM sheet" caveat it wrapped onto. -->
+				{#if hardwareOptional(h)}
+					<div class="mb-1.5"><OptionalBadge value /></div>
+				{/if}
 				<p class="text-sm text-text-muted">{h.description}</p>
 				{#if h.note}
 					<p class="mt-2 border border-warning/50 bg-warning/[0.08] p-2 text-sm text-warning-dark">

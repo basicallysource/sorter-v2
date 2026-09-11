@@ -22424,7 +22424,8 @@
 			"uid": "b25j",
 			"kind": "cots",
 			"cots": {
-				"type": "wifi"
+				"type": "wifi",
+				"optional": true
 			},
 			"name": "Orange Pi 5 WiFi 6 + Bluetooth module",
 			"category": "Computer",

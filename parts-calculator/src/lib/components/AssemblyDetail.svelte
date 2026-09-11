@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { ArrowRight, BookOpen, Boxes, ExternalLink, FlaskConical, History, Zap } from 'lucide-svelte';
 	import AlternativeBadge from '$lib/components/AlternativeBadge.svelte';
+	import OptionalBadge from '$lib/components/OptionalBadge.svelte';
 	import CatalogText from '$lib/components/CatalogText.svelte';
 	import Badge from '$lib/components/Badge.svelte';
 	import ChangeStatus from '$lib/components/ChangeStatus.svelte';
@@ -12,6 +13,7 @@
 		docsUrl,
 		fmtDate,
 		getAssembly,
+		hardwareOptional,
 		getHardware,
 		getLasercut,
 		getPart,
@@ -134,6 +136,7 @@
 				<span class="ad-name">
 					<HardwareIcon {hw} size={14} />{hw.name}
 					<AlternativeBadge value={hw.alternative} size={14} />
+					<OptionalBadge value={hardwareOptional(hw)} />
 					<ConflictBadge conflicts={hw.conflicts} size={14} />
 				</span>
 				<span class="ad-meta">Off the shelf</span>

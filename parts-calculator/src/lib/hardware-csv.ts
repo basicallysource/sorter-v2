@@ -7,7 +7,7 @@
  * sizes, prices, and where each item is used.
  */
 import { csvText, preamble, type ExportSpec } from '$lib/csv';
-import { usagePaths, type Hardware, type Vendor } from '$lib/filament';
+import { hardwareOptional, usagePaths, type Hardware, type Vendor } from '$lib/filament';
 
 const COLUMNS = [
 	'id',
@@ -76,7 +76,7 @@ export function hardwareCsv(
 			h.cots?.variant,
 			qty,
 			opts.qtySource(h),
-			h.optional ? 'yes' : 'no',
+			hardwareOptional(h) ? 'yes' : 'no',
 			units,
 			h.stock ? h.stock.unit_label : 'each',
 			v?.vendor ?? v?.region,

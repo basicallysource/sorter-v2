@@ -274,6 +274,16 @@ export type Hardware = {
 		length_mm?: number;
 		cad_length_mm?: number;
 		letters?: string[];
+		// The machine works without this item: fit it if you want what it does.
+		// Same meaning as a printed part's `optional`, and counted in the totals
+		// just the same -- it marks the item, it does not remove it.
+		//
+		// It lives in here rather than beside `alternative` because
+		// catalog/generate.py's build_hardware() copies a fixed list of keys onto
+		// a COTS record and passes `cots` through whole, so a key at the top level
+		// is silently dropped on the way to catalog.generated.json. Move it up and
+		// delete this paragraph the day that whitelist gains "optional".
+		optional?: boolean;
 	} | null;
 	name: string;
 	category?: string | null;
@@ -291,10 +301,6 @@ export type Hardware = {
 	// Marks a part that has an interchangeable alternative (e.g. socket vs button
 	// head). `true` = a bare "Alternative" tag; a string names the alternative.
 	alternative?: string | boolean | null;
-	// The machine works without it: fit it if you want what it does. Same meaning
-	// and same "Optional" badge as a printed part's `optional`, and counted in the
-	// totals just the same -- it marks the item, it does not remove it.
-	optional?: boolean;
 	caption?: string | null; // small text under this part's docs parts-needed card
 	docs_page?: string | null; // its docs-site detail page, when one exists
 	conflicts?: CatalogConflict[] | null;
@@ -471,6 +477,10 @@ export const TAGS = (((raw as Record<string, unknown>).tags ?? []) as CatalogTag
 export const ASSEMBLIES = (raw.assemblies ?? []) as Assembly[];
 export const PARTS = raw.parts as unknown as Part[];
 export const MERGES = ((raw as Record<string, unknown>).merges ?? []) as CatalogMerge[];
+/** Is this bought item marked optional? Reads through `cots` -- see the note on
+ *  the field for why it lives there rather than at the top level. */
+export const hardwareOptional = (h: Hardware) => !!h.cots?.optional;
+
 export function plannedChangesFor(kind: ChangeTargetKind, id: string): PlannedChange[] {
 	return OPEN_CHANGES.filter((change) => {
 		if (change.targets[kind]?.includes(id)) return true;

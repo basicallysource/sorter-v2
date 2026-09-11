@@ -12,6 +12,7 @@
 		buyCost,
 		buyUnits,
 		fmtPrice,
+		hardwareOptional,
 		getHardware,
 		getPart,
 		hardwareImage,
@@ -131,7 +132,7 @@
 							{/if}
 						{/if}
 						<!-- the count still stands; the tag says the build works without it -->
-						<OptionalBadge value={h.optional} />
+						<OptionalBadge value={hardwareOptional(h)} />
 					</dd>
 					{#if h.stock}
 						<dt class="text-text-muted">Cut into</dt>

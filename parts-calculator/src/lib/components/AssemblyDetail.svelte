@@ -13,6 +13,7 @@
 		docsUrl,
 		fmtDate,
 		getAssembly,
+		hardwareOptional,
 		getHardware,
 		getLasercut,
 		getPart,
@@ -135,7 +136,7 @@
 				<span class="ad-name">
 					<HardwareIcon {hw} size={14} />{hw.name}
 					<AlternativeBadge value={hw.alternative} size={14} />
-					<OptionalBadge value={hw.optional} />
+					<OptionalBadge value={hardwareOptional(hw)} />
 					<ConflictBadge conflicts={hw.conflicts} size={14} />
 				</span>
 				<span class="ad-meta">Off the shelf</span>

@@ -1040,7 +1040,7 @@
 							<td>
 								<span class="flex items-center gap-2">
 									<span class="pl-chip pl-chip-lg" style="background:{line.color?.hex ?? 'repeating-linear-gradient(45deg,#ccc,#ccc 3px,#eee 3px,#eee 6px)'}"></span>
-									<span class="leading-tight">{line.label}<br><span class="pl-buy-sub">{grams(line.grams)}</span></span>
+									<span class="leading-tight">{line.label}<br><span class="pl-buy-sub">{grams(line.grams)}{#if line.color?.lego} · LEGO {line.color.lego.name}{/if}</span></span>
 								</span>
 							</td>
 							<td class="pl-num pl-num-strong">{line.spools}</td>

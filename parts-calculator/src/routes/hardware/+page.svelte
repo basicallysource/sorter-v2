@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { tip } from '$lib/popover';
 	import {
 		Blocks,
 		ChevronDown,
@@ -327,7 +328,7 @@
 			: ''}"
 		role="button"
 		tabindex="0"
-		title="View {h.name} details"
+		use:tip={`View ${h.name} details`}
 		onclick={(e) => rowClickToOpen(e, h)}
 		onkeydown={(e) => {
 			if (e.key === 'Enter' || e.key === ' ') {
@@ -381,7 +382,7 @@
 						{#if spots > 0}
 							<span
 								class="shrink-0 text-text-muted"
-								title="Placed in the assembly — {spots} {spots === 1 ? 'spot' : 'spots'} on the machine"
+								use:tip={`Placed in the assembly — ${spots} ${spots === 1 ? 'spot' : 'spots'} on the machine`}
 							>
 								<Blocks size={12} />
 							</span>
@@ -391,7 +392,7 @@
 				</div>
 				<span
 					class="shrink-0 text-right text-xs tabular-nums text-text-muted"
-					title={src ? QTY_TITLE[src] : undefined}
+					use:tip={src ? QTY_TITLE[src] : undefined}
 				>
 					{#if h.sheet_qty_text}
 						{h.sheet_qty_text}
@@ -435,7 +436,7 @@
 									target="_blank"
 									rel="noopener"
 									class="inline-flex items-center gap-1 font-medium text-primary hover:text-primary-hover"
-									title={v.as_of ? `price as of ${v.as_of}` : undefined}
+									use:tip={v.as_of ? `price as of ${v.as_of}` : undefined}
 								>
 									{v.vendor ?? v.region}
 									<span class="font-normal text-text-muted">({v.region})</span>
@@ -513,8 +514,8 @@
 					<button
 						class="ml-3 inline-flex items-center gap-1 text-primary hover:text-primary-hover"
 						onclick={downloadCsv}
-						title="Exports exactly what you have set up here: {selectedList.length ||
-							HARDWARE.length} items at {layers} layers, with quantities resolved for that build."
+						use:tip={`Exports exactly what you have set up here: ${selectedList.length ||
+							HARDWARE.length} items at ${layers} layers, with quantities resolved for that build.`}
 					>
 						<Download size={13} /> CSV
 						<span class="font-normal text-text-muted"
@@ -540,7 +541,7 @@
 											: ''}"
 										role="button"
 										tabindex="0"
-										title={plainDescription(block.asm.description)}
+										use:tip={plainDescription(block.asm.description)}
 										onclick={(e) => {
 											if ((e.target as HTMLElement).closest('button, a, input, label')) return;
 											expandedAsm[block.asm.id] = !open;
@@ -580,7 +581,7 @@
 												<h3 class="text-sm font-semibold text-text">{block.asm.name}</h3>
 												<Badge variant="info">Assembly</Badge>
 												{#each block.asm.joining ?? [] as j (j.method)}
-													<Badge variant="warning" title={j.note ? plainDescription(j.note) : undefined}>
+													<Badge variant="warning" tipText={j.note ? plainDescription(j.note) : undefined}>
 														<Zap size={10} />{JOIN_LABELS[j.method]}
 													</Badge>
 												{/each}

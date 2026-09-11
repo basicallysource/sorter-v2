@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { tip } from '$lib/popover';
 	import ConflictNotice from '$lib/components/ConflictNotice.svelte';
 	import ImageStrip from '$lib/components/ImageStrip.svelte';
 	import CatalogText from '$lib/components/CatalogText.svelte';
@@ -148,7 +149,7 @@
 						class="inline-flex items-center gap-1 text-xs {copied
 							? 'text-success'
 							: 'text-primary hover:text-primary-hover'}"
-						title="Copy a shareable link to this part's page"
+						use:tip={'Copy a shareable link to this part\'s page'}
 					>
 						{#if copied}<Check size={13} /> Copied{:else}<Share2 size={13} /> Share{/if}
 					</button>
@@ -181,7 +182,7 @@
 										<a
 											href={assemblyHref(step.assembly.id)}
 											class="hover:text-primary hover:underline"
-											title="Show {step.assembly.name} on the assembly tree"
+											use:tip={`Show ${step.assembly.name} on the assembly tree`}
 										>{step.assembly.name}</a>
 									{/each}
 								</div>
@@ -189,7 +190,7 @@
 							<a
 								href={assemblyHref(inner.id)}
 								class="inline-flex shrink-0 items-center gap-1 text-xs font-medium text-primary hover:text-primary-hover"
-								title="Open {inner.name} on the assembly tree"
+								use:tip={`Open ${inner.name} on the assembly tree`}
 							>
 								Go to <ArrowUpRight size={12} />
 							</a>
@@ -261,7 +262,7 @@
 									target="_blank"
 									rel="noopener"
 									class="text-xs text-text-muted underline decoration-dotted underline-offset-2 hover:text-text"
-									title="The same listing, without the referral tag">Not affiliate</a
+									use:tip={'The same listing, without the referral tag'}>Not affiliate</a
 								>
 							{/if}
 						</span>

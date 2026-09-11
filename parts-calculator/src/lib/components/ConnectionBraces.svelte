@@ -69,6 +69,7 @@
 </script>
 
 <script lang="ts">
+	import { tip } from '$lib/popover';
 	let {
 		edges,
 		gutter,
@@ -247,7 +248,7 @@
 				{#if e.draft}
 					<span
 						class="border border-dashed border-warning/60 px-1 py-px text-[10px] font-semibold uppercase tracking-wider text-warning-dark"
-						title="Extracted from prose — not yet confirmed at the bench">draft</span>
+						use:tip={'Extracted from prose — not yet confirmed at the bench'}>draft</span>
 				{/if}
 			</div>
 			<div class="text-text-muted">
@@ -275,7 +276,7 @@
 						></div>
 					{/if}
 					{#if len != null}
-						<div class="absolute -inset-y-0.5 w-px bg-text" style="left: {(len / span) * 100}%" title="the screw reaches {mm(len)} mm"></div>
+						<div class="absolute -inset-y-0.5 w-px bg-text" style="left: {(len / span) * 100}%" use:tip={`the screw reaches ${mm(len)} mm`}></div>
 					{/if}
 				</div>
 				<div class="text-[11px] text-text-muted">

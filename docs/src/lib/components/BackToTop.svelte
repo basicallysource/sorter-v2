@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { tip } from '$lib/popover';
 	/* A floating "back to top" control, bottom right, on every page.
 
 	   It is not permanently on screen: the assembly tree gets deep, and the
@@ -71,7 +72,7 @@
 	class="back-to-top"
 	class:is-visible={visible}
 	aria-label="Back to top"
-	title="Back to top"
+	use:tip={'Back to top'}
 	onclick={toTop}
 >
 	<svg viewBox="0 0 16 16" fill="none" aria-hidden="true" width="14" height="14">

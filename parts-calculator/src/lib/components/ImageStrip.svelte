@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { tip } from '$lib/popover';
 	import Modal from '$lib/components/Modal.svelte';
 	import type { CatalogImage } from '$lib/filament';
 
@@ -22,7 +23,7 @@
 	{#if hero}
 		{@const main = images[0]}
 		<figure class="mb-2">
-			<button type="button" class="block w-full cursor-zoom-in" title="Open full-size image" onclick={() => show(main)}>
+			<button type="button" class="block w-full cursor-zoom-in" use:tip={'Open full-size image'} onclick={() => show(main)}>
 				<img src={main.url} alt={main.alt} class="h-56 w-full border border-border bg-white object-contain hover:border-primary" />
 			</button>
 			{#if main.caption}<figcaption class="mt-0.5 text-[11px] text-text-muted">{main.caption}</figcaption>{/if}
@@ -32,10 +33,10 @@
 	<div class="flex gap-2 overflow-x-auto">
 		{#each rest as im (im.url)}
 			<figure class="w-40 shrink-0">
-				<button type="button" class="block cursor-zoom-in" title="Open full-size image" onclick={() => show(im)}>
+				<button type="button" class="block cursor-zoom-in" use:tip={'Open full-size image'} onclick={() => show(im)}>
 					<img src={im.url} alt={im.alt} class="h-24 w-40 border border-border bg-white object-contain hover:border-primary" />
 				</button>
-				{#if im.caption}<figcaption class="mt-0.5 truncate text-[10px] text-text-muted" title={im.caption}>{im.caption}</figcaption>{/if}
+				{#if im.caption}<figcaption class="mt-0.5 truncate text-[10px] text-text-muted" use:tip={im.caption}>{im.caption}</figcaption>{/if}
 			</figure>
 		{/each}
 	</div>

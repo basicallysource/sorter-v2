@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { tip } from '$lib/popover';
 	import ConflictNotice from '$lib/components/ConflictNotice.svelte';
 	import StlViewer from '$lib/components/StlViewer.svelte';
 	import IdStamp from '$lib/components/IdStamp.svelte';
@@ -139,7 +140,7 @@
 						</div>
 					{/if}
 					{#if noteId}
-						<a class="inline-flex items-center gap-1 text-xs text-primary hover:text-primary-hover" href={noteUrl(noteId)} target="_blank" rel="noopener" title="A permanent write-up of something that happened to this part">
+						<a class="inline-flex items-center gap-1 text-xs text-primary hover:text-primary-hover" href={noteUrl(noteId)} target="_blank" rel="noopener" use:tip={'A permanent write-up of something that happened to this part'}>
 							<FileText size={12} /> Engineering note {noteId}
 						</a>
 					{/if}
@@ -148,7 +149,7 @@
 					<DownloadButton href={activeStl} size="md" label={candidate ? `Download STL (candidate ${candidate.uid})` : isCurrent ? 'Download STL' : `Download STL (v${active?.version})`} />
 					<div class="flex items-center gap-1.5"><IdStamp where="download" uid={candidate?.uid ?? part.uid} {stamps} bind:on={stampOn} bind:faceIdx /></div>
 					<div class="flex items-center gap-3 text-xs">
-						<button type="button" onclick={share} class="inline-flex items-center gap-1 {copied ? 'text-success' : 'text-primary hover:text-primary-hover'}" title="Copy a shareable link to this part's page">
+						<button type="button" onclick={share} class="inline-flex items-center gap-1 {copied ? 'text-success' : 'text-primary hover:text-primary-hover'}" use:tip={'Copy a shareable link to this part\'s page'}>
 							{#if copied}<Check size={13} /> Copied{:else}<Share2 size={13} /> Share{/if}
 						</button>
 						{#if onshapeHref}<a href={onshapeHref} target="_blank" rel="noopener" class="inline-flex items-center gap-0.5 text-primary hover:text-primary-hover">OnShape <ExternalLink size={11} /></a>{/if}
@@ -203,7 +204,7 @@
 									{#each pl.parts as pp}<span class="border px-1 py-0.5 text-[11px] {pp.part_id === pid ? 'border-primary bg-primary/10 text-primary' : 'border-border text-text-muted'}">{pp.count}× {pp.name}</span>{/each}
 								</div>
 								<div class="mt-auto flex items-center gap-2">
-									<span class="min-w-0 flex-1 truncate text-xs font-medium text-text" title={pl.name}>{pl.name}</span>
+									<span class="min-w-0 flex-1 truncate text-xs font-medium text-text" use:tip={pl.name}>{pl.name}</span>
 									<button type="button" class="shrink-0 text-xs text-primary hover:text-primary-hover" onclick={() => (platesOpen = true)}>view</button>
 									<DownloadButton href={pl.download} size="sm" label="3mf" title="Download {pl.name}.3mf" />
 								</div>

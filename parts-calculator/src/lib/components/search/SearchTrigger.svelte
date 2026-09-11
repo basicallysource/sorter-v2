@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { tip } from '$lib/popover';
 	import { onMount } from 'svelte';
 	import { Search } from 'lucide-svelte';
 	import Kbd from './Kbd.svelte';
@@ -23,7 +24,7 @@
 	onclick={() => palette.show()}
 	aria-label="Search the catalog"
 	aria-keyshortcuts="Meta+K Control+K"
-	title={compact ? 'Search the catalog' : undefined}
+	use:tip={compact ? 'Search the catalog' : undefined}
 >
 	<Search size={compact ? 16 : 14} class="shrink-0" />
 	{#if !compact}<span class="pr-1">Search</span>{/if}

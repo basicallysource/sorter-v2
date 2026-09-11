@@ -49,7 +49,7 @@
 	import { colorStore, defaultRoleColors, resetRoleColors } from '$lib/colors.svelte';
 	import SearchField from '$lib/components/search/SearchField.svelte';
 	import { search, type Searchable } from '$lib/search';
-	import Popover from '$lib/components/Popover.svelte';
+	import { Popover, tip } from '$lib/popover';
 	import Disclosure from '$lib/components/Disclosure.svelte';
 	import Badge from '$lib/components/Badge.svelte';
 	import ChangeStatus from '$lib/components/ChangeStatus.svelte';
@@ -581,7 +581,7 @@
 			<button
 				class="inline-flex items-center gap-1.5 text-sm text-text-muted hover:text-text"
 				onclick={resetToDefaults}
-				title="Reset all build options to defaults"
+				use:tip={'Reset all build options to defaults'}
 			>
 				<RotateCcw size={14} /> Reset to default
 			</button>
@@ -591,7 +591,7 @@
 		<div class="p-4">
 			<div class="mb-3 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-text-muted">
 				Colors
-				<Popover width="w-72" label="About the color options">
+				<Popover width="18rem" label="About the color options">
 					Each color picker sets every part in that group. Parts that must be a specific color —
 					stators, rotors, light post caps, the classification dome, the lazy-Susan chute mount — keep
 					their required color and aren't affected.
@@ -627,17 +627,17 @@
 						</div>
 						<div class="ml-auto flex items-center gap-1.5">
 							{#each pv.bins as b (b)}
-								<img src={render(b)} alt={b} class="h-9 w-9 border border-border bg-[var(--color-bg)] object-contain {printBins ? '' : 'opacity-30'}" title={partsById.get(b)?.name} />
+								<img src={render(b)} alt={b} class="h-9 w-9 border border-border bg-[var(--color-bg)] object-contain {printBins ? '' : 'opacity-30'}" use:tip={partsById.get(b)?.name} />
 							{/each}
 							<span class="px-1 text-text-muted">+</span>
-							<img src={render(pv.funnel)} alt="funnel" class="h-9 w-9 border border-primary/40 bg-[var(--color-bg)] object-contain" title="{size} funnel" />
+							<img src={render(pv.funnel)} alt="funnel" class="h-9 w-9 border border-primary/40 bg-[var(--color-bg)] object-contain" use:tip={`${size} funnel`} />
 						</div>
 						{#if layers > 1}
 							<button
 								class="flex h-7 w-7 shrink-0 items-center justify-center text-text-muted opacity-0 transition-opacity hover:text-danger group-hover:opacity-100"
 								onclick={() => removeLayer(i)}
 								aria-label="Remove layer {i + 1}"
-								title="Remove layer"
+								use:tip={'Remove layer'}
 							>
 								<X size={16} />
 							</button>
@@ -661,10 +661,10 @@
 		{@const eff = effectiveGrams(p, supportOn(p.id))}
 		{@const os = partOnshape(p)}
 		<!-- svelte-ignore a11y_no_noninteractive_element_interactions a11y_click_events_have_key_events -->
-		<tr class="pl-row group/row" class:pl-kid={indent} onclick={(e) => rowClickToOpen(e, p)} title="View {p.name} details">
+		<tr class="pl-row group/row" class:pl-kid={indent} onclick={(e) => rowClickToOpen(e, p)} use:tip={`View ${p.name} details`}>
 			<td class="pl-c-check">
 				{#if 'bins' in p.quantities}
-					<input class="setup-toggle h-4 w-4" type="checkbox" checked={printBins} onchange={() => (printBins = !printBins)} aria-label="Print bins (set in Build options)" title="Controlled by the Print bins toggle in Build options" />
+					<input class="setup-toggle h-4 w-4" type="checkbox" checked={printBins} onchange={() => (printBins = !printBins)} aria-label="Print bins (set in Build options)" use:tip={'Controlled by the Print bins toggle in Build options'} />
 				{:else}
 					<input class="setup-toggle h-4 w-4" type="checkbox" checked={qtyOf(p.id) > 0} onchange={(e) => (e.currentTarget.checked ? resetQty(p.id) : setQty(p.id, 0))} aria-label="Print {p.name}" />
 				{/if}
@@ -681,7 +681,7 @@
 							type="button"
 							class="pl-thumb group relative"
 							onclick={() => openViewer(p)}
-							title="View {p.name} in 3D"
+							use:tip={`View ${p.name} in 3D`}
 						>
 							<img src={p.render} alt={p.name} />
 							<span class="absolute inset-0 flex items-center justify-center bg-black/40 text-white opacity-0 transition-opacity group-hover:opacity-100 group-hover/row:opacity-100"><ZoomIn size={16} /></span>
@@ -693,11 +693,11 @@
 			<td class="pl-c-name">
 				<span class="pl-name">
 					{p.name}
-					{#if shared.has(p.id)}<span class="cursor-help border border-border px-1 text-xs text-text-muted" title="Also used in {usedIn(p.id).slice(1).join(', ')}">used in {usedIn(p.id).length} places</span>{/if}
-					{#if isEdited(p.id)}<span class="border border-primary/60 px-1 text-xs text-primary" title="Printing {qtyOf(p.id)}, the machine needs {machineNeeds(p.id)}">qty {qtyOf(p.id)}</span>{/if}
+					{#if shared.has(p.id)}<span class="cursor-help border border-border px-1 text-xs text-text-muted" use:tip={`Also used in ${usedIn(p.id).slice(1).join(', ')}`}>used in {usedIn(p.id).length} places</span>{/if}
+					{#if isEdited(p.id)}<span class="border border-primary/60 px-1 text-xs text-primary" use:tip={`Printing ${qtyOf(p.id)}, the machine needs ${machineNeeds(p.id)}`}>qty {qtyOf(p.id)}</span>{/if}
 					{#if p.optional}<Badge variant="warning">Optional</Badge>{/if}
-					{#if p.support_intentional}<Badge variant="info" title="Printed with support material — included in this part's grams">Supports</Badge>{/if}
-						{#if platesForPart(p.id).length}<button type="button" class="inline-flex items-center gap-0.5 border border-border px-1 text-xs text-text-muted hover:border-primary hover:text-primary" onclick={() => openPlatesModal(p.id)} title="Show plates with this part"><Layers3 size={11} /> {platesForPart(p.id).length} plate{platesForPart(p.id).length === 1 ? '' : 's'}</button>{/if}{#if os.version}<a href={os.version} target="_blank" rel="noopener" class="inline-flex items-center gap-0.5 border border-border px-1 text-xs text-text-muted hover:border-primary hover:text-primary" title="Open the exact OnShape version this STL came from">OnShape <ExternalLink size={11} /></a>{/if}{#if p.info}<Popover width="w-64" label="About {p.name}" text={p.info} />{/if}<ChangeStatus kind="parts" id={p.id} name={p.name} />{#if p.low_tolerance}<Popover width="w-72" label="Fit notes for {p.name}">{#snippet trigger({ toggle, open })}<Badge as="button" variant="warning" onclick={toggle} aria-expanded={open}><AlertTriangle size={11} /> Tight fit</Badge>{/snippet}<b class="text-text">Low tolerance.</b> This part has little room for dimensional error, so a test print is worth doing before you commit to the full set.{#if p.low_tolerance_note}<span class="mt-2 block border-t border-border pt-2 text-text">{p.low_tolerance_note}</span>{/if}</Popover>{/if}{#if p.attributes?.length}{#each p.attributes as a}<span class="border border-border bg-[var(--color-bg)] px-1 text-xs text-text-muted" title={a.label}>{a.label}: <span class="text-text">{a.value}</span></span>{/each}{/if}{#if p.versions && p.versions.length > 1}<Popover width="w-80" label="Version history for {p.name}">{#snippet trigger({ toggle, open })}<button type="button" onclick={toggle} aria-expanded={open} class="inline-flex items-center gap-0.5 border border-border px-1 text-xs text-text-muted hover:border-primary hover:text-primary" title="Version history"><History size={11} /> v{p.version} · {p.versions?.length ?? 0} versions</button>{/snippet}<b class="text-text">Version history</b><ul class="mt-1 space-y-2">{#each [...(p.versions ?? [])].reverse() as v}<li class="border-t border-border pt-2 first:border-t-0 first:pt-0"><div class="flex items-center gap-1.5 text-text"><b>v{v.version}</b><span class="text-text-muted">· {fmtDate(v.date)}</span>{#if commitUrl(v.commit)}<a href={commitUrl(v.commit)} target="_blank" rel="noopener" class="ml-auto inline-flex items-center gap-0.5 text-primary hover:text-primary-hover">{v.commit} <ExternalLink size={10} /></a>{:else}<span class="ml-auto italic text-text-muted/70">uncommitted</span>{/if}</div><div class="mt-0.5">{v.message}</div>{#if v.onshape_version}<div class="mt-1"><a href={v.onshape_version} target="_blank" rel="noopener" class="inline-flex items-center gap-0.5 text-primary hover:text-primary-hover">OnShape <ExternalLink size={10} /></a></div>{/if}</li>{/each}</ul></Popover>{/if}
+					{#if p.support_intentional}<Badge variant="info" tipText="Printed with support material — included in this part's grams">Supports</Badge>{/if}
+						{#if platesForPart(p.id).length}<button type="button" class="inline-flex items-center gap-0.5 border border-border px-1 text-xs text-text-muted hover:border-primary hover:text-primary" onclick={() => openPlatesModal(p.id)} use:tip={'Show plates with this part'}><Layers3 size={11} /> {platesForPart(p.id).length} plate{platesForPart(p.id).length === 1 ? '' : 's'}</button>{/if}{#if os.version}<a href={os.version} target="_blank" rel="noopener" class="inline-flex items-center gap-0.5 border border-border px-1 text-xs text-text-muted hover:border-primary hover:text-primary" use:tip={'Open the exact OnShape version this STL came from'}>OnShape <ExternalLink size={11} /></a>{/if}{#if p.info}<Popover width="16rem" label="About {p.name}" text={p.info} />{/if}<ChangeStatus kind="parts" id={p.id} name={p.name} />{#if p.low_tolerance}<Popover width="18rem" label="Fit notes for {p.name}">{#snippet trigger({ toggle, props })}<Badge as="button" variant="warning" onclick={toggle} {...props}><AlertTriangle size={11} /> Tight fit</Badge>{/snippet}<b class="text-text">Low tolerance.</b> This part has little room for dimensional error, so a test print is worth doing before you commit to the full set.{#if p.low_tolerance_note}<span class="mt-2 block border-t border-border pt-2 text-text">{p.low_tolerance_note}</span>{/if}</Popover>{/if}{#if p.attributes?.length}{#each p.attributes as a}<span class="border border-border bg-[var(--color-bg)] px-1 text-xs text-text-muted" use:tip={a.label}>{a.label}: <span class="text-text">{a.value}</span></span>{/each}{/if}{#if p.versions && p.versions.length > 1}<Popover width="20rem" label="Version history for {p.name}">{#snippet trigger({ toggle, props })}<button type="button" onclick={toggle} {...props} class="inline-flex items-center gap-0.5 border border-border px-1 text-xs text-text-muted hover:border-primary hover:text-primary" use:tip={'Version history'}><History size={11} /> v{p.version} · {p.versions?.length ?? 0} versions</button>{/snippet}<b class="text-text">Version history</b><ul class="mt-1 space-y-2">{#each [...(p.versions ?? [])].reverse() as v}<li class="border-t border-border pt-2 first:border-t-0 first:pt-0"><div class="flex items-center gap-1.5 text-text"><b>v{v.version}</b><span class="text-text-muted">· {fmtDate(v.date)}</span>{#if commitUrl(v.commit)}<a href={commitUrl(v.commit)} target="_blank" rel="noopener" class="ml-auto inline-flex items-center gap-0.5 text-primary hover:text-primary-hover">{v.commit} <ExternalLink size={10} /></a>{:else}<span class="ml-auto italic text-text-muted/70">uncommitted</span>{/if}</div><div class="mt-0.5">{v.message}</div>{#if v.onshape_version}<div class="mt-1"><a href={v.onshape_version} target="_blank" rel="noopener" class="inline-flex items-center gap-0.5 text-primary hover:text-primary-hover">OnShape <ExternalLink size={10} /></a></div>{/if}</li>{/each}</ul></Popover>{/if}
 				</span>
 				<span class="pl-meta">
 					{#each sw as s}
@@ -707,9 +707,9 @@
 						</span>
 					{/each}
 					{#if p.slice_failed}
-						<span title="Not sliced: {p.slice_failed}. Weight and print time are unknown.">· not sliced</span>
+						<span use:tip={`Not sliced: ${p.slice_failed}. Weight and print time are unknown.`}>· not sliced</span>
 					{:else if p.print_seconds != null}
-						<span title="Print time for one {p.name}">· {duration(p.print_seconds)}</span>
+						<span use:tip={`Print time for one ${p.name}`}>· {duration(p.print_seconds)}</span>
 					{/if}
 				</span>
 				{#if p.support_intentional}
@@ -723,7 +723,7 @@
 			<td class="pl-c-each">{eff.toFixed(0)} g × {n}</td>
 			<td class="pl-c-total">{grams(eff * n)}</td>
 			<td class="pl-c-dl">
-				<a class="pl-dl" href={partDownload(p, engraveIds)} download title="Download {p.name}.stl{engraveIds && p.stamped?.[0] ? ` (id ${p.uid.toUpperCase()} on the ${p.stamped[0].face})` : ''}"><Download size={16} /></a>
+				<a class="pl-dl" href={partDownload(p, engraveIds)} download use:tip={`Download {p.name}.stl{engraveIds && p.stamped?.[0] ? \` (id ${p.uid.toUpperCase()} on the ${p.stamped[0].face})\` : ''}`}><Download size={16} /></a>
 			</td>
 		</tr>
 	{/snippet}
@@ -747,8 +747,8 @@
 						<button
 							class="ml-3 inline-flex items-center gap-1 text-primary hover:text-primary-hover"
 							onclick={downloadCsv}
-							title="Exports exactly what you have set up here: {selectedParts.length ||
-								PARTS.length} parts, {layers} layers, your colours, and your support choices."
+							use:tip={`Exports exactly what you have set up here: ${selectedParts.length ||
+								PARTS.length} parts, ${layers} layers, your colours, and your support choices.`}
 						>
 							<Download size={13} /> CSV
 							<span class="font-normal text-text-muted"
@@ -758,7 +758,7 @@
 						<button
 							class="ml-3 inline-flex items-center gap-1 text-primary hover:text-primary-hover"
 							onclick={downloadManifest}
-							title="What to print and how many of each, as plain text. The same file rides inside the STL zip."
+							use:tip={'What to print and how many of each, as plain text. The same file rides inside the STL zip.'}
 						>
 							<Download size={13} /> Manifest
 						</button>
@@ -777,12 +777,12 @@
 							class="px-3 py-1.5 text-sm font-semibold {listView === 'assembly' ? 'bg-[var(--color-bg)] text-text' : 'text-text-muted hover:text-text'}"
 							onclick={() => (listView = 'assembly')}
 							aria-pressed={listView === 'assembly'}
-							title="Grouped by what bolts to what. A part used in several places is listed under the first and marked.">By assembly</button>
+							use:tip={'Grouped by what bolts to what. A part used in several places is listed under the first and marked.'}>By assembly</button>
 						<button
 							class="border-l border-border px-3 py-1.5 text-sm font-semibold {listView === 'unique' ? 'bg-[var(--color-bg)] text-text' : 'text-text-muted hover:text-text'}"
 							onclick={() => (listView = 'unique')}
 							aria-pressed={listView === 'unique'}
-							title="Every part once, with the number you are printing. This is the list you print from.">By unique part</button>
+							use:tip={'Every part once, with the number you are printing. This is the list you print from.'}>By unique part</button>
 					</div>
 					<SearchField
 						bind:value={partFilter}
@@ -813,7 +813,7 @@
 									<tr class="pl-row group/row" class:opacity-50={qty === 0}>
 										<td class="pl-c-thumb">
 											<span class="relative inline-flex">
-												<button type="button" class="pl-thumb group relative" onclick={() => openViewer(p)} title="View {p.name} in 3D">
+												<button type="button" class="pl-thumb group relative" onclick={() => openViewer(p)} use:tip={`View ${p.name} in 3D`}>
 													<img src={p.render} alt={p.name} />
 													<span class="absolute inset-0 flex items-center justify-center bg-black/40 text-white opacity-0 transition-opacity group-hover:opacity-100"><ZoomIn size={16} /></span>
 												</button>
@@ -823,7 +823,7 @@
 										<td class="pl-c-name">
 											<span class="pl-name">
 												{p.name}
-												{#if shared.has(p.id)}<span class="cursor-help border border-border px-1 text-xs text-text-muted" title="Used in {usedIn(p.id).join(', ')}">used in {usedIn(p.id).length} places</span>{/if}
+												{#if shared.has(p.id)}<span class="cursor-help border border-border px-1 text-xs text-text-muted" use:tip={`Used in ${usedIn(p.id).join(', ')}`}>used in {usedIn(p.id).length} places</span>{/if}
 												{#if p.optional}<Badge variant="warning">Optional</Badge>{/if}
 												<ChangeStatus kind="parts" id={p.id} name={p.name} />
 											</span>
@@ -845,14 +845,14 @@
 														type="button"
 														class="text-text-muted hover:text-primary"
 														onclick={() => resetQty(p.id)}
-														title="Back to {need}, what the machine needs"
+														use:tip={`Back to ${need}, what the machine needs`}
 														aria-label="Reset {p.name} to {need}"><RotateCcw size={13} /></button>
 												{/if}
 											</span>
 										</td>
 										<td class="pl-c-total">{grams(each * qty)}</td>
 										<td class="pl-c-dl">
-											<a href={partDownload(p, engraveIds)} download class="text-text-muted hover:text-primary" title="Download {p.name}"><Download size={16} /></a>
+											<a href={partDownload(p, engraveIds)} download class="text-text-muted hover:text-primary" use:tip={`Download ${p.name}`}><Download size={16} /></a>
 										</td>
 									</tr>
 								{/each}
@@ -878,9 +878,9 @@
 							<span class="pl-sec-mult">× {mult} layer{mult === 1 ? '' : 's'}</span>
 						{/if}
 						{#if section.experimental}
-							<Popover width="w-80" label="Why {section.name} is experimental">
-								{#snippet trigger({ toggle, open })}
-									<Badge as="button" variant="warning" class="px-1.5 py-0.5 uppercase tracking-wider" onclick={toggle} aria-expanded={open}><AlertTriangle size={11} /> experimental</Badge>
+							<Popover width="20rem" label="Why {section.name} is experimental">
+								{#snippet trigger({ toggle, props })}
+									<Badge as="button" variant="warning" class="px-1.5 py-0.5 uppercase tracking-wider" onclick={toggle} {...props}><AlertTriangle size={11} /> experimental</Badge>
 								{/snippet}
 								<b class="text-text">Experimental — subject to lots of change.</b>
 								{#if section.experimental_note}<span class="mt-2 block border-t border-border pt-2 text-text">{section.experimental_note}</span>{/if}
@@ -917,7 +917,7 @@
 										class="pl-row"
 										id="assembly-{block.id}"
 										onclick={() => (a ? openAssembly(a.id) : toggleAsm(k))}
-										title={a ? `View ${a.name}` : undefined}
+										use:tip={a ? `View ${a.name}` : undefined}
 									>
 										<td class="pl-c-check">
 											<input
@@ -942,7 +942,7 @@
 														onclick={(e) => { e.stopPropagation(); toggleAsm(k); }}
 														aria-expanded={!!open}
 														aria-label="{open ? 'Hide' : 'Show'} the parts inside {group?.name}"
-														title="{open ? 'Hide' : 'Show'} the {block.parts.length} parts inside"
+														use:tip={`${open ? 'Hide' : 'Show'} the ${block.parts.length} parts inside`}
 													>
 														{#if open}<ChevronDown size={15} />{:else}<ChevronRight size={15} />{/if}
 													</button>
@@ -976,7 +976,7 @@
 													type="button"
 													class="pl-dl"
 													onclick={(e) => { e.stopPropagation(); downloadZip(block.parts, `${block.id}.zip`); }}
-													title="Download every STL in {group?.name}"
+													use:tip={`Download every STL in ${group?.name}`}
 											><Download size={16} /></button>{/if}
 										</td>
 									</tr>

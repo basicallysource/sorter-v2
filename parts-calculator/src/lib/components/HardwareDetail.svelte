@@ -104,6 +104,11 @@
 				/>
 			{/if}
 			<div class="min-w-0 flex-1">
+				<!-- above the description, not down in the Needed row: there it read as
+				     part of the "hand count from the BOM sheet" caveat it wrapped onto. -->
+				{#if hardwareOptional(h)}
+					<div class="mb-1.5"><OptionalBadge value /></div>
+				{/if}
 				<p class="text-sm text-text-muted">{h.description}</p>
 				{#if h.note}
 					<p class="mt-2 border border-warning/50 bg-warning/[0.08] p-2 text-sm text-warning-dark">
@@ -131,8 +136,6 @@
 								</span>
 							{/if}
 						{/if}
-						<!-- the count still stands; the tag says the build works without it -->
-						<OptionalBadge value={hardwareOptional(h)} />
 					</dd>
 					{#if h.stock}
 						<dt class="text-text-muted">Cut into</dt>

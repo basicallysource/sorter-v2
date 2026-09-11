@@ -382,20 +382,14 @@
       }
     },
     {
-      "id": "unconfirmed-servo-adapter-heat-insert",
-      "name": "Servo adapter's 4x M3S heat inserts are unconfirmed against the current CAD",
-      "priority": "P2",
-      "description": "The catalog carries 4 x hsi-m3s per layer for the servo adapter from the original BOM spreadsheet, but that count was never placed in the assembly tree because the published STLs do not show an insert pocket: servo-adapter-flap-side has four 4.0 mm bores straight through a 5.0 mm wall with a countersink on the back, and servo-adapter-servo-side has four blind 2.8 mm holes only 4.0 mm deep, a self-tap pilot diameter, not ruthex's recommended 4.0 mm insert hole. That reads as a countersunk screw passing through the flap side and self-tapping into the servo side, no insert on either half, matching door-module.md's existing text that the two halves take no inserts. Neither STL has been revised since 2026-06-27. Buy the inserts only if you can confirm a pocket against a physical adapter or newer CAD; otherwise the self-tapping joint above is what the current model builds to.",
+      "id": "delete-unused-m3s-heat-insert",
+      "name": "Delete the unused Ruthex M3S short heat insert",
+      "priority": "P4",
+      "condition": "retired",
+      "description": "This insert reaches no bill of materials. It was carried over on 2026-08-21 from the BOM sheet's Screws tab, which asks for 4 short M3 inserts per layer for the servo adapter, but it was never placed in the assembly tree because neither adapter half has an insert pocket: servo-adapter-flap-side has four 4.0 mm bores straight through a 5.0 mm wall with a countersink on the back face, and servo-adapter-servo-side has four blind 2.8 mm holes 4.0 mm deep on the same bolt circle, a self-tap pilot diameter rather than ruthex's recommended 4.0 mm insert hole. The Door module page has described that joint as 4 x M3 x 8 mm countersunk screws threading straight into the printed plastic since 2026-08-24, and the short M3 is used nowhere else in the machine, so the BOM row should go with it. It should be deleted outright, but a minted part id has to stay resolvable once it exists, and the catalog's own consistency check refuses a change that removes one, so deleting it needs that check overridden by someone who can make that call, not an edit from here. Tracked as sorter-v2 issue #636.",
       "targets": {
         "hardware": [
           "hsi-m3s"
-        ],
-        "parts": [
-          "servo-adapter-servo-side",
-          "servo-adapter-flap-side"
-        ],
-        "assemblies": [
-          "servo-adapter"
         ]
       }
     },
@@ -4146,14 +4140,11 @@
       },
       "name": "Ruthex M3S heat insert (short)",
       "category": "Heat inserts",
-      "description": "ruthex RX-M3Sx4.0 brass heat-set threaded insert, the short M3. Servo adapter only; everywhere else takes the standard 5.7 mm M3.",
-      "internal_notes": "Added 2026-08-21 (barthel asked for it after the ruthex naming pass). BOM sheet, Screws tab: 'M3 | Small | 4 per layer | 20 per machine | Ruthex M3x4 | Servo adapter only'. NOT placed as a requires yet, because the current servo-adapter STLs do not have an insert pocket: servo-adapter-flap-side (v1, fu2t/lv7n pins) has four 4.0 mm bores through a 5.0 mm wall with a 90-degree countersink on the back face, and servo-adapter-servo-side has four blind 2.8 mm holes 4.0 mm deep on the same bolt circle with 2.25 mm of material behind them, which reads as a countersunk screw self-tapping into plastic. 4.0 mm is ruthex's recommended hole for an M3 insert, so the flap-side bore could be an insert pocket, but then nothing on the servo side would receive the screw. Needs confirming against current CAD or a physical adapter; if it is self-tapping now, delete this part and the BOM row with it.",
-      "note": "Servo adapter only. Count comes from the BOM sheet, not from the assembly tree -- the current adapter STLs show a self-tapping joint, so confirm before buying.",
+      "description": "Retired, no longer used anywhere. ruthex RX-M3Sx4.0 brass heat-set threaded insert, the short M3. It was carried over from the BOM sheet for the servo adapter, but that joint's screws thread straight into the printed plastic: neither adapter half has an insert pocket. Kept as an unused entry rather than deleted, since a minted uid has to stay resolvable (see parts-calculator's own CLAUDE.md); deletion is tracked as sorter-v2 issue #636.",
+      "internal_notes": "Added 2026-08-21 (barthel asked for it after the ruthex naming pass). BOM sheet, Screws tab: 'M3 | Small | 4 per layer | 20 per machine | Ruthex M3x4 | Servo adapter only'. NOT placed as a requires yet, because the current servo-adapter STLs do not have an insert pocket: servo-adapter-flap-side (v1, fu2t/lv7n pins) has four 4.0 mm bores through a 5.0 mm wall with a 90-degree countersink on the back face, and servo-adapter-servo-side has four blind 2.8 mm holes 4.0 mm deep on the same bolt circle with 2.25 mm of material behind them, which reads as a countersunk screw self-tapping into plastic. 4.0 mm is ruthex's recommended hole for an M3 insert, so the flap-side bore could be an insert pocket, but then nothing on the servo side would receive the screw. Needs confirming against current CAD or a physical adapter; if it is self-tapping now, delete this part and the BOM row with it. RETIRED 2026-09-11 (barthel: \"Mark 'hsi-m3s' for removal. The documentation for the servo adapter mentions self-tapping screws; M3S heat-shrink sleeves are not used. M3S is not used anywhere else either.\"). The adapter STLs were still v1 (2026-06-27) and unrevised at that point, so the self-tapping reading stands and the insert is not part of the machine. sheet_qty {per_layer: 4} dropped with it, since that hand count was the only thing giving this row a quantity on the Hardware tab. The P2 unconfirmed-servo-adapter-heat-insert change entry is replaced by delete-unused-m3s-heat-insert; deletion of the part object itself is sorter-v2 issue #636, and the BOM sheet's own 'M3 | Small' row should go with it.",
+      "note": "Unused as of 2026-09-11. Do not add a new joint to this insert; every insert joint in the machine takes the standard 5.7 mm M3 (hsi-m3).",
       "created_at": "2026-08-21",
-      "updated_at": "2026-08-21",
-      "sheet_qty": {
-        "per_layer": 4
-      },
+      "updated_at": "2026-09-11",
       "image_url": "https://assets.basically.website/sorter-parts/hsi-m3s-full-bdb4c6b1b9b8.jpg",
       "attributes": [
         {

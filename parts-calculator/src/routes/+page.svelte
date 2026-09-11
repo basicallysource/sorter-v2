@@ -1040,7 +1040,7 @@
 							<td>
 								<span class="flex items-center gap-2">
 									<span class="pl-chip pl-chip-lg" style="background:{line.color?.hex ?? 'repeating-linear-gradient(45deg,#ccc,#ccc 3px,#eee 3px,#eee 6px)'}"></span>
-									<span class="leading-tight">{line.label}<br><span class="pl-buy-sub">{grams(line.grams)}{#if line.color?.lego} · LEGO {line.color.lego.name}{/if}</span></span>
+									<span class="leading-tight">{line.label}<br><span class="pl-buy-sub">{grams(line.grams)}</span>{#if line.color?.lego}<br><span class="pl-buy-lego">LEGO {line.color.lego.name}</span>{/if}</span>
 								</span>
 							</td>
 							<td class="pl-num pl-num-strong">{line.spools}</td>
@@ -1285,6 +1285,8 @@
 	.pl-buy .pl-num { text-align: right; font-variant-numeric: tabular-nums; }
 	.pl-buy .pl-num-strong { font-weight: 500; }
 	.pl-buy-sub { font-size: 0.8125rem; color: color-mix(in oklab, var(--color-text-muted) 85%, transparent); }
+	/* the LEGO colour this filament matches, for people who shop in brick colours */
+	.pl-buy-lego { font-size: 0.6875rem; white-space: nowrap; color: color-mix(in oklab, var(--color-text-muted) 75%, transparent); }
 	.pl-buy-empty { text-align: center; color: var(--color-text-muted); padding: 1.25rem; }
 	.pl-buy tfoot td {
 		border-top: 1px solid var(--color-border);

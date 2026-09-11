@@ -6,7 +6,7 @@
 	import ImageStrip from '$lib/components/ImageStrip.svelte';
 	import PartDetailModal from '$lib/components/PartDetailModal.svelte';
 	import Seo from '$lib/components/Seo.svelte';
-	import { ASSEMBLIES, CHANGES, HARDWARE, PARTS, SECTIONS, fmtDate, hardwareImage, type ChangeTargetKind, type Part, type PartVersion, type PlannedChange } from '$lib/filament';
+	import { ASSEMBLIES, CHANGES, HARDWARE, OPEN_CHANGES, PARTS, SECTIONS, fmtDate, hardwareImage, type ChangeTargetKind, type Part, type PartVersion, type PlannedChange } from '$lib/filament';
 	import { LASER_CUT_PARTS } from '$lib/lasercut';
 
 	const partNames = new Map(PARTS.map((part) => [part.id, part.name]));
@@ -19,7 +19,7 @@
 		if (priority) return priority;
 		return Number(b.condition === 'broken') - Number(a.condition === 'broken');
 	}
-	const plannedChanges = CHANGES.filter((change) => change.status !== 'complete').sort(byPriority);
+	const plannedChanges = [...OPEN_CHANGES].sort(byPriority);
 	const completedChanges = CHANGES.filter((change) => change.status === 'complete').sort((a, b) =>
 		(b.completed_at ?? '').localeCompare(a.completed_at ?? '') || a.name.localeCompare(b.name)
 	);

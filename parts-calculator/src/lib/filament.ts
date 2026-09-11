@@ -444,6 +444,10 @@ export function commitUrl(commit: string | null | undefined): string | null {
 export const SETTINGS = raw.settings as Settings;
 export const SECTIONS = raw.sections as Section[];
 export const CHANGES = ((raw as Record<string, unknown>).changes ?? []) as PlannedChange[];
+/** The changes still outstanding. A change with `status: 'complete'` is
+ *  already in the models, so it is history, not something to wait for before
+ *  printing: everything that counts or warns about changes counts these. */
+export const OPEN_CHANGES = CHANGES.filter((change) => change.status !== 'complete');
 export const FOLDERS = ((raw as Record<string, unknown>).folders ?? []) as Folder[];
 export const COLOR_ROLES = raw.color_roles as ColorRoleDef[];
 /** A blessed moment of a node's whole subtree — resolved against history like
@@ -464,8 +468,7 @@ export const ASSEMBLIES = (raw.assemblies ?? []) as Assembly[];
 export const PARTS = raw.parts as unknown as Part[];
 export const MERGES = ((raw as Record<string, unknown>).merges ?? []) as CatalogMerge[];
 export function plannedChangesFor(kind: ChangeTargetKind, id: string): PlannedChange[] {
-	return CHANGES.filter((change) => {
-		if (change.status === 'complete') return false;
+	return OPEN_CHANGES.filter((change) => {
 		if (change.targets[kind]?.includes(id)) return true;
 		if (kind !== 'parts') return false;
 		const part = PARTS.find((candidate) => candidate.id === id);

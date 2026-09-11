@@ -595,6 +595,11 @@
 					Each color picker sets every part in that group. Parts that must be a specific color —
 					stators, rotors, light post caps, the classification dome, the lazy-Susan chute mount — keep
 					their required color and aren't affected.
+					<span class="mt-2 block border-t border-border pt-2">
+						Names are Bambu Lab PLA Matte. The grey line under a color is the LEGO color it matches,
+						in BrickLink naming, so Ash Gray is light bluish gray. Only colors with a genuinely close
+						LEGO counterpart show one.
+					</span>
 				</Popover>
 			</div>
 			<div class="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">

@@ -4,8 +4,18 @@ A builder holding a printed part wants to know which screw goes in its holes
 without going back to the documentation (asked by ReveryX, 2026-09-12). The
 catalog already knows: every assembly's `connections` are its joints, and each
 one names its fastener in `via`. This turns that graph into one short string
-per part -- "2X M3X12 5X M3X16" -- which engrave.py recesses into a face the
+per part -- "2*M3X12 5*M3X16" -- which engrave.py recesses into a face the
 same way it recesses the uid.
+
+The asterisk separates a count from its screw rather than a space, on
+ReveryX's reading of the first cut: "2X M3X12 5X M3X16" spaces the groups no
+wider than it spaces their parts, so the eye has to work out where each one
+ends. A lowercase x would read better still and is not available -- variants()
+uppercases the stamp text, which is the rule that puts a lowercase parts.json
+uid on the plastic in capitals. The asterisk survives that, is two characters
+shorter per group, and prints: its narrowest stroke in the pinned font is
+0.92 mm at the 3.5 mm cap, wider than the 0.79 mm of the `0` standing next to
+it.
 
 It is the counts that need care, not the designations:
 
@@ -113,7 +123,7 @@ def counts(catalog: dict) -> dict[str, dict[str, int]]:
 
 
 def lines(fasteners: dict[str, int]) -> list[str] | None:
-    """["2x M3x12", "5x M3x16"] for one part's fasteners, smallest first, or
+    """["2*M3x12", "5*M3x16"] for one part's fasteners, smallest first, or
     None if any of them has no designation to write."""
     if not fasteners or any(designation(f) is None for f in fasteners):
         return None
@@ -126,7 +136,7 @@ def lines(fasteners: dict[str, int]) -> list[str] | None:
         name = designation(f)
         if seen[name] > 1:
             name += " " + SCREW_ID.match(f).group(3).upper()
-        out.append(f"{fasteners[f]}x {name}")
+        out.append(f"{fasteners[f]}*{name}")
     return out
 
 

@@ -147,7 +147,7 @@ def _glyphs(text: str, font: str, cap: float = CAP, stacked: bool = False):
     A newline in `text` is a SOFT break: it is a place the text may be broken,
     not a place it must be. `stacked=False` joins the lines with a space and
     renders one run, which is what variants() tries first -- a bracket long
-    enough to take "X09T 2X M3X12 5X M3X16" along an edge reads better than the
+    enough to take "X09T 2*M3X12 5*M3X16" along an edge reads better than the
     same text in a block, and far more of these parts have room in one
     direction than in two. `stacked=True` is the fallback: lines left-aligned,
     LINE_GAP cap heights apart, growing downward.

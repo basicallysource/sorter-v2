@@ -41,12 +41,15 @@ The channel core is a C-channel with no rotor in it: the stator, the NEMA bracke
 
 {% include step.html n="1" title="Preparation" %}
 
-Press the 608-2RS bearing into the Idler gear (24T). It is a press fit: no screw, no glue, no heat.
-
-<figure class="single-figure">
-  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-c-channel-idler-gear-bearing-pressed-w1600-77f822b4b777.jpg" alt="The 24-tooth idler gear with a black-sealed 608 bearing pressed into its centre, seen from above">
-  <figcaption>The idler gear with its 608 in. <cite>Photo: BrickCycleAlice.</cite></figcaption>
-</figure>
+<div class="prep-item">
+  <div class="prep-item-body">
+    <p><strong>Idler gear (24T):</strong> press the 608-2RS bearing into it. No screw, no glue, no heat.</p>
+  </div>
+  <figure class="prep-item-figure">
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-c-channel-idler-gear-bearing-pressed-w1600-77f822b4b777.jpg" alt="The 24-tooth idler gear with a black-sealed 608 bearing pressed into its centre, seen from above">
+    <figcaption>The idler gear with its 608 in. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+  </figure>
+</div>
 
 {% include step.html n="2" title="Fit the input gear to the motor shaft" %}
 

@@ -12,22 +12,20 @@ author: spencer
 contributors: [barthel, brickcyclealice, christoph, danny]
 ---
 
-A C-channel is one drive unit: a rotor turning inside a stator, driven through a gear train by a NEMA 17 stepper on a bracket underneath. A machine has four of them, and **every one is built on the same core**. What differs is the rotor that drops into it and what hangs off it.
+A C-channel is one drive unit: a rotor turning inside a stator, driven by a NEMA 17 stepper through a gear train. A machine has four, and **all four are built on the same core**. What differs is the rotor that drops in and what hangs off it.
 
-Build the core four times first, then finish each one on its own page.
+Build the core four times, then finish each one on its own page.
 
 <ol class="numbered-steps">
-  <li><strong><a href="{{ '/hardware/assembly/feeder/c-channels/channel-core/' | relative_url }}">Channel core</a></strong>. The stator, the NEMA bracket, the gear train and the stepper. The same build four times, with no rotor in it yet.</li>
-  <li><strong><a href="{{ '/hardware/assembly/feeder/c-channels/bulk-channel/' | relative_url }}">Bulk channel (C1)</a></strong>. The top channel, where unsorted parts go in: the faceted rotor and the Bulk cap. No camera lamp, no separate output guide.</li>
-  <li><strong><a href="{{ '/hardware/assembly/feeder/c-channels/feeder-channels/' | relative_url }}">Feeder channels (C2 and C3)</a></strong>. The two metering stages: the faceted rotor, an output guide and a camera lamp each. Build two.</li>
-  <li><strong><a href="{{ '/hardware/assembly/feeder/c-channels/classification-channel/' | relative_url }}">Classification channel (C4)</a></strong>. The lowest channel, where the part is imaged: the finned rotor, its cap, and a camera lamp carrying the 4K module.</li>
+  <li><strong><a href="{{ '/hardware/assembly/feeder/c-channels/channel-core/' | relative_url }}">Channel core</a></strong>. Stator, NEMA bracket, gear train, stepper. Build four.</li>
+  <li><strong><a href="{{ '/hardware/assembly/feeder/c-channels/bulk-channel/' | relative_url }}">Bulk channel (C1)</a></strong>. The faceted rotor and the Bulk cap. No lamp, no output guide.</li>
+  <li><strong><a href="{{ '/hardware/assembly/feeder/c-channels/feeder-channels/' | relative_url }}">Feeder channels (C2 and C3)</a></strong>. The faceted rotor, an output guide and a camera lamp. Build two.</li>
+  <li><strong><a href="{{ '/hardware/assembly/feeder/c-channels/classification-channel/' | relative_url }}">Classification channel (C4)</a></strong>. The finned rotor, its cap, and a camera lamp with the 4K module.</li>
 </ol>
 
-**The rotor and its output gear are one sub-assembly, not part of the core.** The 130T output gear is bolted to the rotor with its 6806 bearing pressed in, and that unit drops onto the core's hub so the gear meshes with the idler. Three of the four take the faceted rotor (C1, C2, C3); the classification channel takes the finned one and a cap in the top of it.
+**Build the three [camera lamp]({{ '/hardware/assembly/feeder/camera-lamp/' | relative_url }})s first.** C2, C3 and the classification channel each need one before their page starts. C1 has none.
 
-**Build the [camera lamp]({{ '/hardware/assembly/feeder/camera-lamp/' | relative_url }})s before the channels that carry them**, three of them, for C2, C3 and the classification channel. C1 has none.
-
-Once all four are built, [arranging C-channels]({{ '/hardware/assembly/feeder/arranging-c-channels/' | relative_url }}) sets the heights and the order they stand in. The rotors, the output guides and the lamps go on there, with the channels standing, rather than on the bench.
+Once all four are built, [arranging C-channels]({{ '/hardware/assembly/feeder/arranging-c-channels/' | relative_url }}) sets their heights. The rotors, the output guides and the lamps go on there, with the channels standing, not on the bench.
 
 ## The finished result
 

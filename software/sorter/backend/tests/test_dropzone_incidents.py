@@ -108,15 +108,15 @@ class DropzoneIncidentTests(unittest.TestCase):
         self.assertFalse(ignored.ch2_dropzone_occupied)
         self.assertGreater(ignored.ch2_dropzone_overlap_max, 0.0)
 
-    def test_analyzer_ignores_unconfirmed_tracker_hits_for_exit_signal(self) -> None:
-        gc = SimpleNamespace()
-
+    def test_analyzer_counts_unconfirmed_tracker_hits_for_exit_signal(self) -> None:
+        # A piece parked at the exit (no motion confirmation) must still drive
+        # PULSE_PRECISE rather than being normal-pulsed off the channel.
         unconfirmed = analyzeFeederChannels(
             [_exit_detection(motion_confirmed=False)],
         )
-        self.assertEqual(0.0, unconfirmed.ch2_exit_overlap_max)
-        self.assertFalse(unconfirmed.ch2_exit_center_crossed)
-        self.assertEqual(ChannelAction.PULSE_NORMAL, unconfirmed.ch2_action)
+        self.assertGreater(unconfirmed.ch2_exit_overlap_max, 0.0)
+        self.assertTrue(unconfirmed.ch2_exit_center_crossed)
+        self.assertEqual(ChannelAction.PULSE_PRECISE, unconfirmed.ch2_action)
 
         confirmed = analyzeFeederChannels(
             [_exit_detection(motion_confirmed=True)],

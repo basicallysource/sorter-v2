@@ -18,7 +18,7 @@ sys.modules.setdefault("subsystems", subsystems_stub)
 sys.modules.setdefault("subsystems.feeder", feeder_stub)
 sys.modules.setdefault("subsystems.feeder.analysis", analysis_stub)
 
-from vision.vision_manager import VisionManager
+from vision.vision_manager import FeederDynamicOverlayPath, VisionManager
 from vision.detection_registry import DetectionResult
 from vision.tracking.history import PieceHistoryBuffer, SectorSnapshot, TrackSegment
 
@@ -36,6 +36,13 @@ class _OverlayFeed:
 
     def set_pinned_ts_provider(self, provider) -> None:
         self.pinned_ts_provider = provider
+
+
+def _gc() -> SimpleNamespace:
+    return SimpleNamespace(
+        logger=SimpleNamespace(warning=lambda *_a, **_k: None, info=lambda *_a, **_k: None),
+        runtime_stats=SimpleNamespace(observePerfMs=lambda *_a, **_k: None),
+    )
 
 
 class VisionManagerFeederDynamicTests(unittest.TestCase):
@@ -68,6 +75,9 @@ class VisionManagerFeederDynamicTests(unittest.TestCase):
         vm._feeder_dynamic_detection_cache = {}
         vm._per_channel_detectors = {}
         vm._per_channel_analysis = {}
+        vm._path_config = SimpleNamespace(
+            feeder_dynamic_overlay_path=FeederDynamicOverlayPath.TRACKS
+        )
 
         VisionManager._initOverlays(vm)
 
@@ -112,6 +122,7 @@ class VisionManagerFeederDynamicTests(unittest.TestCase):
             )
         )
 
+        vm.gc = _gc()
         result = VisionManager._getFeederDynamicDetection(vm, "carousel", force=False)
 
         self.assertIsNone(result)
@@ -121,13 +132,20 @@ class VisionManagerFeederDynamicTests(unittest.TestCase):
     def test_get_feeder_dynamic_detection_updates_tracker_from_same_frame_cache(self) -> None:
         vm = VisionManager.__new__(VisionManager)
         frame = SimpleNamespace(timestamp=123.0, raw=np.zeros((8, 8, 3), dtype=np.uint8))
-        detection = SimpleNamespace(bboxes=[(1, 1, 4, 4)], score=0.9)
+        detection = DetectionResult(
+            bbox=(1, 1, 4, 4),
+            bboxes=((1, 1, 4, 4),),
+            score=0.9,
+            algorithm="gemini_sam",
+            found=True,
+        )
         updates: list[tuple[str, object, float]] = []
 
         vm.getCaptureThreadForRole = lambda role: SimpleNamespace(latest_frame=frame)
         vm.getFeederDetectionAlgorithm = lambda role=None: "gemini_sam"
         vm._getCachedFeederDynamicDetection = lambda role, timestamp: detection
         vm._computeFeederGeminiDetection = lambda role, current_frame, force_call=False: None
+        vm._filterFeederDetectionResultToChannel = lambda role, current_detection: current_detection
         vm._feeder_dynamic_detection_cache = {"c_channel_2": (123.0, detection)}
         vm._feeder_track_cache = {}
         vm._updateFeederTracker = (
@@ -135,6 +153,7 @@ class VisionManagerFeederDynamicTests(unittest.TestCase):
                 (role, current_detection, float(timestamp))
             )
         )
+        vm.gc = _gc()
 
         result = VisionManager._getFeederDynamicDetection(vm, "c_channel_2", force=False)
 
@@ -160,7 +179,9 @@ class VisionManagerFeederDynamicTests(unittest.TestCase):
         vm._feeder_dynamic_detection_cache = {}
         vm._filterFeederDetectionResultToChannel = lambda role, current_detection: current_detection
         vm._runHiveDetection = (
-            lambda algorithm, raw, scope, role: infer_calls.append((algorithm, scope, role))
+            lambda algorithm, raw, scope, role, conf_threshold=None: infer_calls.append(
+                (algorithm, scope, role)
+            )
             or detection
         )
         vm._updateFeederTracker = (
@@ -168,6 +189,7 @@ class VisionManagerFeederDynamicTests(unittest.TestCase):
                 (role, current_detection, float(timestamp))
             )
         )
+        vm.gc = _gc()
 
         result = VisionManager._getFeederDynamicDetection(vm, "c_channel_2", force=False)
 
@@ -229,14 +251,16 @@ class VisionManagerFeederDynamicTests(unittest.TestCase):
         vm._getCarouselDynamicDetection = (
             lambda force=False: carousel_calls.append(1) or None
         )
-        vm.gc = SimpleNamespace(logger=SimpleNamespace(warning=lambda *_a, **_k: None))
+        vm.gc = _gc()
+        vm._aux_detection_pool = None
 
         VisionManager._refreshAuxiliaryDetections(vm)
 
         # Dynamic roles fan out; mog2 role is skipped.
         self.assertEqual(["c_channel_2", "carousel"], feeder_calls)
-        # Carousel hive driven independently of the feeder fan-out.
-        self.assertEqual([1], carousel_calls)
+        # "carousel" is already a feeder-tracker role, so the dedicated carousel
+        # path is NOT dispatched (its inference is mirrored from the feeder call).
+        self.assertEqual([], carousel_calls)
 
     def test_filter_feeder_detection_result_discards_bboxes_outside_channel_mask(self) -> None:
         vm = VisionManager.__new__(VisionManager)
@@ -310,6 +334,7 @@ class VisionManagerFeederDynamicTests(unittest.TestCase):
     def test_channel_info_for_role_falls_back_to_saved_polygon_when_detector_missing(self) -> None:
         vm = VisionManager.__new__(VisionManager)
         vm._per_channel_detectors = {}
+        vm._channel_info_cache = {}
         vm._channel_angles = {"classification_channel": 12.5}
         vm._channelPolygonKeyForRole = lambda role: "classification_channel"
         vm._channelAngleKeyForPolygonKey = lambda key: "classification_channel"

@@ -13,6 +13,7 @@ Precise centre ≈ 175.
 """
 
 import math
+from dataclasses import replace
 
 import numpy as np
 
@@ -21,7 +22,7 @@ from perception.arcs import (
     comInPreciseZone,
     exitComForwardDeg,
 )
-from perception.channel import buildChannelDef
+from perception.channel import REVERSE_TRAVEL_CHANNELS, buildChannelDef
 
 CENTER = (200.0, 200.0)
 RADIUS = 150.0
@@ -39,7 +40,7 @@ def _make_channel(channel_id: int):
     # Full-frame polygon → every bbox center is "on channel"; we are testing the
     # angle math, not the mask.
     poly = np.array([[0, 0], [400, 0], [400, 400], [0, 400]], dtype=np.float64)
-    return buildChannelDef(
+    ch = buildChannelDef(
         channel_id=channel_id,
         polygon=poly,
         frame_shape=(400, 400),
@@ -49,12 +50,17 @@ def _make_channel(channel_id: int):
         precise_arc=(160.0, 190.0),
         arc_center=CENTER,
     )
+    # Force the travel direction under test regardless of the build constant.
+    return replace(ch, reverse=(channel_id == 4))
 
 
 def test_reverse_flag_set_only_for_channel_4() -> None:
-    assert _make_channel(4).reverse is True
-    assert _make_channel(2).reverse is False
-    assert _make_channel(3).reverse is False
+    poly = np.array([[0, 0], [400, 0], [400, 400], [0, 400]], dtype=np.float64)
+    for cid in (2, 3, 4):
+        ch = buildChannelDef(channel_id=cid, polygon=poly, frame_shape=(400, 400),
+                             section_zero_angle=0.0, drop_arc=None, exit_arc=None, precise_arc=None)
+        assert ch.reverse is (cid in REVERSE_TRAVEL_CHANNELS)
+    assert 2 not in REVERSE_TRAVEL_CHANNELS and 3 not in REVERSE_TRAVEL_CHANNELS
 
 
 def test_reverse_exit_gap_measures_to_far_edge() -> None:

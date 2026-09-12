@@ -53,7 +53,7 @@ The channel core is a C-channel with no rotor in it: the stator, the NEMA bracke
 
 {% include step.html n="2" title="Fit the input gear to the motor shaft" %}
 
-The Input gear (12T, screw) is clamped by one {% include fastener.html size="M3" variant="countersunk" length="8" %} screw that runs **parallel to the shaft, beside the bore**, not into the side of the gear.
+One {% include fastener.html size="M3" variant="countersunk" length="8" %} screw clamps the Input gear (12T, screw) to the motor shaft. It goes in **beside the bore, parallel to the shaft**, not into the side of the gear.
 
 <ol class="numbered-steps">
   <li>Turn the gear until the screw hole lines up with the flat on the motor shaft.</li>
@@ -61,7 +61,7 @@ The Input gear (12T, screw) is clamped by one {% include fastener.html size="M3"
   <li>Tighten the screw down onto the flat. Its head drops into the counterbore in the toothed face.</li>
 </ol>
 
-Stop when the head is seated and the gear no longer turns on the shaft.
+Stop when the head is seated and the gear does not turn on the shaft.
 
 <div class="img-row">
   <figure>
@@ -76,9 +76,13 @@ Stop when the head is seated and the gear no longer turns on the shaft.
 
 {% include step.html n="3" title="Fit the idler gear and the stepper to the NEMA bracket" %}
 
-Drop the Idler gear (24T) onto its post on the bracket, **bearing facing up**.
+<ol class="numbered-steps">
+  <li>Drop the Idler gear (24T) onto its post on the bracket, <strong>bearing facing up</strong>.</li>
+  <li>Lower the NEMA 17 onto the bracket. The input gear meshes with the idler as it goes down.</li>
+  <li>Drive 3 {% include fastener.html size="M3" variant="countersunk" length="16" %} screws through the bracket into the motor.</li>
+</ol>
 
-Fasten the NEMA 17 to the bracket with 3 {% include fastener.html size="M3" variant="countersunk" length="16" %} screws. Three, not four: one corner of the motor face is left empty. The input gear meshes with the idler as the motor goes down.
+Three screws, not four: one corner of the motor face is left empty.
 
 <figure class="single-figure">
   <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-c-channel-idler-gear-and-motor-on-nema-bracket-w1600-dfefb06e2166.jpg" alt="The three-armed grey NEMA bracket seen from above, with the 24-tooth idler gear sitting on its post with the 608 bearing uppermost, the stepper motor bolted to the outer end of the bracket, and the raised hub at the centre of the bracket">
@@ -92,12 +96,14 @@ Fasten the NEMA 17 to the bracket with 3 {% include fastener.html size="M3" vari
 
 {% include step.html n="4" title="Mount the bracket under the stator" %}
 
-Fasten the bracket to the underside of the stator with 4 screws, two of each length:
+The bracket goes on the underside of the stator, held by four screws in two lengths.
 
-- **The two narrow arm tips:** {% include fastener.html size="M3" variant="countersunk" length="12" %}.
-- **The two on the wide plate under the stepper:** {% include fastener.html size="M3" variant="countersunk" length="16" %}. The bracket is thicker there and a 12 mm barely bites.
+<ol class="numbered-steps">
+  <li>Two {% include fastener.html size="M3" variant="countersunk" length="12" %} at the tips of the two narrow arms.</li>
+  <li>Two {% include fastener.html size="M3" variant="countersunk" length="16" %} through the wide plate the stepper sits on. The bracket is thicker there, and a 12 mm barely bites.</li>
+</ol>
 
-Turn the idler by hand. It should spin freely and drive the input gear with no tight spot.
+Turn the gear train by hand before you go on. It should run without a tight spot.
 
 <figure class="single-figure">
   <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-c-channel-bracket-under-stator-w1600-c45a38f08e69.jpg" alt="The stator ring seen from underneath with the three-armed NEMA bracket fastened across it, each arm reaching the rim">

@@ -9,7 +9,6 @@ lede: The lowest channel, where the part is imaged. The finned rotor, its cap, a
 permalink: /hardware/assembly/feeder/c-channels/classification-channel/
 author: spencer
 contributors: [barthel, brickcyclealice, danny]
-og_image: https://assets.basically.website/sorter-docs/assembly-c-channel-finished-stage-w1600-9bd3719c4180.jpg
 warning: >-
   **Steps 1 to 4 come from a build**, BrickCycleAlice's. **Step 5 is not verified**: the lamp's
   dovetail onto the NEMA bracket has been described by a builder but not photographed. Correct
@@ -108,10 +107,7 @@ The lamp's arm mount hangs on a dovetail under the channel's NEMA bracket. There
 
 A channel core with the finned rotor capped and dropped in, and a camera lamp over the top.
 
-<figure class="single-figure">
-  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-c-channel-finished-stage-w1600-9bd3719c4180.jpg" alt="A finished channel: the finned rotor sitting down in the grey stator ring with the stepper motor and its lead standing off one side">
-  <figcaption>The finned rotor down in the stator. The lamp goes on once the channel is standing. <cite>Photo: BrickCycleAlice.</cite></figcaption>
-</figure>
+<div class="img-placeholder">Photo of a finished classification channel: pending from a build.</div>
 
 Machines built before 2026-09-02 image this channel with a white dome instead: see [classification chamber]({{ '/hardware/assembly/feeder/classification-chamber/' | relative_url }}).
 

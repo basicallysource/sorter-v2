@@ -41,7 +41,7 @@ Each page ends in one of these.
     <figcaption><a href="{{ '/hardware/assembly/feeder/c-channels/feeder-channels/' | relative_url }}">Feeder channel</a>, with its lamp on. <cite>Photo: Spencer.</cite></figcaption>
   </figure>
   <figure>
-    <img src="https://assets.basically.website/sorter-docs/assembly-c-channel-finished-stage-w1600-9bd3719c4180.jpg" alt="A finished channel: the finned rotor sitting down in the grey stator ring with the stepper motor and its lead standing off one side">
-    <figcaption><a href="{{ '/hardware/assembly/feeder/c-channels/classification-channel/' | relative_url }}">Classification channel</a>, finned rotor in, lamp still to go on. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+    <div class="img-placeholder">Image coming</div>
+    <figcaption><a href="{{ '/hardware/assembly/feeder/c-channels/classification-channel/' | relative_url }}">Classification channel</a>. <cite>Photo pending from a build.</cite></figcaption>
   </figure>
 </div>

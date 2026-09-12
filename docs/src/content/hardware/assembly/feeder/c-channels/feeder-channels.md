@@ -9,7 +9,7 @@ lede: The two metering stages between the bulk channel and classification, with 
 permalink: /hardware/assembly/feeder/c-channels/feeder-channels/
 author: barthel
 contributors: [spencer, brickcyclealice, danny, reveryx]
-og_image: https://assets.basically.website/sorter-docs/camera-lamp-mounted-wide-w1600-247fb837f4f8.jpg
+og_image: https://assets.basically.website/sorter-docs/assembly-c-channel-finished-stage-w1600-9bd3719c4180.jpg
 warning: >-
   **Steps 1 to 3 come from a build**, BrickCycleAlice's. **Step 4 is not verified**: the output
   guide is held by friction, but where it seats, at what angle and how far it projects are not
@@ -95,8 +95,8 @@ Turn the rotor by hand. It should go all the way round without a tight spot.
 **On the machine this happens later**, once the channels are standing at their heights. See [arranging C-channels]({{ '/hardware/assembly/feeder/arranging-c-channels/' | relative_url }}), step 8.
 
 <figure class="single-figure">
-  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-c-channel-finished-stage-w1600-9bd3719c4180.jpg" alt="A C-channel from above on a plain surface: the faceted rotor sitting down in the stator ring, with the stepper motor and its lead standing off one side">
-  <figcaption>The rotor down in the core, stepper on the outside. Nothing else is on the channel at this stage. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-feeder-channel-rotor-and-stepper-full-89ba6b47c8ca.jpg" alt="A feeder channel seen from above on a plain background: the faceted rotor sitting down in the stator ring, with the stepper motor standing out from under the ring at one side, and nothing mounted on the channel">
+  <figcaption>The rotor down in the core. Nothing else is on the channel at this stage. <cite>Photo: BrickCycleAlice.</cite></figcaption>
 </figure>
 
 {% include step.html n="4" title="Fit the output guide" %}
@@ -119,13 +119,18 @@ The lamp's arm mount hangs on a dovetail under the channel's NEMA bracket. There
 
 **Do this with the channel standing where it belongs**, not on the bench. Its height and overhang change what the camera sees.
 
+<figure class="single-figure">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/camera-lamp-mounted-wide-w1600-247fb837f4f8.jpg" alt="A wider view of a camera lamp on the machine, showing the full length of the arm from the lamp down to the C-channel, with a bracket screwed along the joint and the LED leads cable-tied along the arm">
+  <figcaption>A lamp on its channel, the arm running down to the drive. <cite>Photo: Spencer.</cite></figcaption>
+</figure>
+
 ## The finished result
 
 A channel core with the faceted rotor in it, an output guide on the exit, and a camera lamp over the top.
 
 <figure class="single-figure">
-  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/camera-lamp-mounted-wide-w1600-247fb837f4f8.jpg" alt="A wider view of a camera lamp on the machine, showing the full length of the arm from the lamp down to the C-channel, with a bracket screwed along the joint and the LED leads cable-tied along the arm">
-  <figcaption>A feeder channel with its lamp on, the arm running down to the drive. <cite>Photo: Spencer.</cite></figcaption>
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-c-channel-finished-stage-w1600-9bd3719c4180.jpg" alt="A C-channel from above on a plain surface: the faceted rotor sitting down in the stator ring, with the stepper motor and its lead standing off one side">
+  <figcaption>A finished feeder channel, rotor in and stepper on the outside. The output guide and the camera lamp go on once it is standing at its height. <cite>Photo: BrickCycleAlice.</cite></figcaption>
 </figure>
 
 Back to [C-channels]({{ '/hardware/assembly/feeder/c-channels/' | relative_url }}).

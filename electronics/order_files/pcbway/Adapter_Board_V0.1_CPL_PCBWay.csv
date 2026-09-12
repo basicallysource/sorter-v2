@@ -1,0 +1,14 @@
+Designator,Footprint,Mid X(mm),Mid Y(mm),Layer,Rotation,Comment
+C1,CAP-SMD_BD6.3-L6.6-W6.6-LS7.4-FD,81.082,71.85,Top,0,100uF
+C2,C_0603,81.5,62.45,Top,0,1uF
+C3,C_0603,81.5,65.7,Top,0,100nF
+J1,JST_XA_B10B-XASK-1-A_1x10_P2.50mm_Vertical,91.0,57.0,Top,0,Conn_01x10
+J2,JST_XA_B10B-XASK-1-A_1x10_P2.50mm_Vertical,91.0,93.0,Top,0,Conn_01x10
+J3,IDC-Header_2x08_P2.54mm_Vertical,93.38,68.09,Top,90.0,Conn_02x08
+J4,IDC-Header_2x08_P2.54mm_Vertical,93.32,84.14,Top,90.0,Conn_02x08
+J5,PinHeader_1x03_P2.54mm_Horizontal,81.25,83.345,Top,180.0,Conn_01x03
+J6,JST_XA_B04B-XASK-1-A_1x04_P2.50mm_Vertical,76.5,57.0,Top,0,Conn_01x04
+J7,JST_XA_B04B-XASK-1-A_1x04_P2.50mm_Vertical,76.5,93.0,Top,0,Conn_01x04
+JP1,SolderJumper-2_P1.3mm_Open_TrianglePad1.0x1.5mm,118.85,86.95,Top,0,SolderJumper
+R1,R_0603,85.05,83.35,Top,180.0,0Ω
+R3,R_0603,87.05,81.4,Top,90.0,10kΩ

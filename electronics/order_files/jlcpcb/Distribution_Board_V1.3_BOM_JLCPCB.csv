@@ -1,0 +1,45 @@
+Comment,Designator,Footprint,LCSC Part #,MPN,Manufacturer,Mount,Qty,Description
+100nF,C16 C7 C8 C9,C_0603,C14663,CC0603KRX7R9BB104,YAGEO,SMT,4,50V 100nF X7R ±10% 0603 Multilayer Ceramic Capacitors MLCC - SMD/SMT ROHS
+100uF,C11 C12 C13 C14 C15,CAP-SMD_BD6.3-L6.6-W6.6-LS7.4-FD,C2836442,,,SMT,5,"Polarized capacitor, US symbol"
+100Ω,R14 R15,R_0603,C22775,0603WAF1000T5E,UNI-ROYAL(Uniroyal Elec),SMT,2,100mW Thick Film Resistors 75V ±1% ±200ppm/°C 100Ω 0603 Chip Resistor - Surface Mount ROHS
+10kΩ,R11 R12 R13 R16 R19 R2 R20 R25 R26 R29 R3 R30 R32 R33 R34 R35 R36 R37 R38 R39 R4 R40 R41 R42 R5 R59 R60 R61 R62 R63 R64 R65 R66 R67 R68 R69 R70 R71 R73 R74 R75 R76 R79 R80 R81 R82 R85 R86 R87 R88,R_0603,C25804,0603WAF1002T5E,UNI-ROYAL(Uniroyal Elec),SMT,50,100mW Thick Film Resistors 75V ±100ppm/°C ±1% 10kΩ 0603 Chip Resistor - Surface Mount ROHS
+10uF,C10,C_0603,C19702,CL10A106KP8NNNC,Samsung Electro-Mechanics,SMT,1,10V 10uF X5R ±10% 0603 Multilayer Ceramic Capacitors MLCC - SMD/SMT ROHS
+10uF,C1 C2 C3 C4 C5 C6,C_0805,C440198,GRM21BR61H106KE43L,Murata Electronics,SMT,6,50V 10uF X5R ±10% 0805 Multilayer Ceramic Capacitors MLCC - SMD/SMT ROHS
+180Ω,R21 R22 R27 R28,R_1206,C17924,1206W4F1800T5E,UNI-ROYAL(Uniroyal Elec),SMT,4,250mW Thick Film Resistors 200V ±100ppm/°C ±1% 180Ω 1206 Chip Resistor - Surface Mount ROHS
+1kΩ,R1 R17 R18 R23 R24 R6,R_0603,C21190,0603WAF1001T5E,UNI-ROYAL(Uniroyal Elec),SMT,6,100mW Thick Film Resistors 75V ±100ppm/°C ±1% 1kΩ 0603 Chip Resistor - Surface Mount ROHS
+1kΩ,R10 R8,R_0805,C17513,0805W8F1001T5E,UNI-ROYAL(Uniroyal Elec),SMT,2,125mW Thick Film Resistors 150V ±100ppm/°C ±1% 1kΩ 0805 Chip Resistor - Surface Mount ROHS
+2.2kΩ,R9,R_0805,C17520,0805W8F2201T5E,UNI-ROYAL(Uniroyal Elec),SMT,1,125mW Thick Film Resistors 150V ±100ppm/°C ±1% 2.2kΩ 0805 Chip Resistor - Surface Mount ROHS
+2.54-1*4P母,J14 J15 J19 J20,HDR-TH_4P-P2.54-V-F,C2718488,,,THT,4,
+200kΩ,R31,R_0603,C25811,0603WAF2003T5E,UNI-ROYAL(Uniroyal Elec),SMT,1,100mW Thick Film Resistors 75V ±100ppm/°C ±1% 200kΩ 0603 Chip Resistor - Surface Mount ROHS
+220Ω,R43 R44 R45 R46 R47 R48 R49 R50 R51 R52 R53 R54 R55 R56 R57 R58,R_0603,C22962,0603WAF2200T5E,UNI-ROYAL(Uniroyal Elec),SMT,16,100mW Thick Film Resistors 75V ±100ppm/°C ±1% 220Ω 0603 Chip Resistor - Surface Mount ROHS
+25MHz,Y1,Crystal_SMD_3.2x2.5mm,C669088,,,SMT,1,Oscillator clock source
+300Ω,R72,R_0603,C23025,0603WAF3000T5E,UNI-ROYAL(Uniroyal Elec),SMT,1,100mW Thick Film Resistors 75V ±100ppm/°C ±1% 300Ω 0603 Chip Resistor - Surface Mount ROHS
+5.1kΩ,R7,R_0805,C27834,0805W8F5101T5E,UNI-ROYAL(Uniroyal Elec),SMT,1,125mW Thick Film Resistors 150V ±100ppm/°C ±1% 5.1kΩ 0805 Chip Resistor - Surface Mount ROHS
+AO3400A,Q2 Q3 Q4 Q5,Q_SOT-23,C20917,AO3400A,Alpha & Omega Semicon,SMT,4,"30V 5.7A 26.5mΩ@10V,5.7A 1.4W 1.5V@250uA 1 N-Channel SOT-23-3L MOSFETs ROHS"
+Conn_01x04,J4,JST_XA_B04B-XASK-1-A_1x04_P2.50mm_Vertical,C264994,,,THT,1,"Generic connector, single row, 01x04"
+Conn_01x06,J12,PinHeader_1x06_P2.54mm_Vertical,C37208,,,THT,1,"Generic connector, single row, 01x06"
+Conn_01x10,J13,JST_XA_B10B-XASK-1-A_1x10_P2.50mm_Vertical,C378928,,,THT,1,"Generic connector, single row, 01x10"
+Conn_02x08_Odd_Even,J17,IDC-Header_2x08_P2.54mm_Vertical,C429960,,,THT,1,"Generic connector, double row, 02x08"
+DMG2305UX,Q1,SOT-23,C144153,,,SMT,1,"-3A Id, -20V Vds, P-Channel MOSFET, SOT-23"
+Fuse,F1 F2,Fuse_1206_3216Metric_Pad1.42x1.75mm_HandSolder,C2925020,,,SMT,2,Fuse
+Generic 2.54mm,J5 J6,PinHeader_1x03_P2.54mm_Vertical,C2937625,,,THT,2,"Generic connector, single row, 01x03"
+Generic 2.54mm,J10 J11 J8 J9,PinHeader_1x02_P2.54mm_Vertical,C492401,,,THT,4,"Generic connector, single row, 01x02"
+Generic 2.54mm,J24 J28 J32 J36 J40,PinHeader_1x04_P2.54mm_Vertical,C2691448,,,THT,5,"Generic connector, single row, 01x04"
+HC-5264-3A,CN1 CN2,CONN-TH_3P-P2.50_HCTL_HC-5264-3A,C2845815,,,THT,2,
+Header-Female-2.54_1x2,P11 P14 P2 P5 P8,PinSocket_1x02_P2.54mm_Vertical,C49661,,,THT,5,
+Header-Female-2.54_1x8,P1 P10 P12 P13 P15 P3 P4 P6 P7 P9,PinSocket_1x08_P2.54mm_Vertical,C27438,,,THT,10,
+JST PH,J23 J27 J31 J35 J39,JST_PH_B4B-PH-K_1x04_P2.00mm_Vertical,C131334,,,THT,5,"Generic connector, single row, 01x04"
+JST VH,J1 J2 J3,JST_VH_B2P-VH-FB-B_1x02_P3.96mm_Vertical,C160315,,,THT,3,"Generic connector, single row, 01x02"
+Jumper Pins,J21 J22 J25 J26 J29 J30 J33 J34 J37 J38,PinHeader_1x03_P2.54mm_Vertical,C49257,,,THT,10,"Generic connector, single row, 01x03"
+KH-2.54FH-1X20P-H8.5,U1 U2,HDR-TH_20P-P2.54-V-F-2,C2905423,,,THT,2,
+MBR120VLSFT1G,D1,SOD-123,,,,SMT,1,Schottky diode (DNP - separat beschaffen)
+PCA9306,U6,Texas_S-PDSO-G8_3x3mm_P0.65mm,C123752,,,SMT,1,Dual bidirectional I2C Bus and SMBus voltage level translator
+PCA9685PW,U7,TSSOP-28_4.4x9.7mm_P0.65mm,C92206,,,SMT,1,16-channel 12-bit PWM Fm+ I2C-bus LED controller
+PM254V-11-06-H85,J16 J18,HDR-TH_6P-P2.54-V-F,C2832269,,,THT,2,
+R-78B12-2.0,U4,Converter_DCDC_RECOM_R-78B-2.0_THT,,,,THT,1,"2A Step-Down DC/DC-Regulator, 12V (DNP - separat beschaffen)"
+R-78B6.5-1.5,U5,Converter_DCDC_RECOM_R-78B-2.0_THT,,,,THT,1,"1.5A Step-Down DC/DC-Regulator, 6.5V (DNP - separat beschaffen)"
+R-78C5.0-1.0,U3,Converter_DCDC_RECOM_R-78E-0.5_THT,,,,THT,1,"1A Step-Down DC/DC-Regulator, 5V (DNP - separat beschaffen)"
+SK84B,D2,D_SMB,C41410774,SK84B,hongjiacheng,SMT,1,8A 40V Schottky Diode
+"Tactile Button, 160gf",S1,SW_TS-1088-AR02016,C720477,TS-1088-AR02016,XUNPU,SMT,1,SPST SMD Tactile Switch
+Yellow,D3 D4 D5 D6 D7,D_0603,C89811,NCD0603Y2,Foshan NationStar Optoelectronics,SMT,5,Yellow LED 0603
+~,JP1 JP2 JP3 JP4,Jumper_2_NO,,,,SMT,4,"Solder Jumper, 2-pole, open"

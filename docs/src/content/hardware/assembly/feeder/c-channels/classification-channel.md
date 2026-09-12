@@ -8,6 +8,7 @@ kicker: Feeder — Classification channel
 lede: The lowest channel, where the part is imaged. The finned rotor, its cap, and a camera lamp carrying the 4K module.
 permalink: /hardware/assembly/feeder/c-channels/classification-channel/
 author: spencer
+og_image: https://assets.basically.website/sorter-docs/classification-channel-finned-rotor-render-full-af779c513f96.png
 contributors: [barthel, brickcyclealice, danny]
 warning: >-
   **Steps 1 to 4 come from a build**, BrickCycleAlice's. **Step 5 is not verified**: the lamp's
@@ -107,7 +108,10 @@ The lamp's arm mount hangs on a dovetail under the channel's NEMA bracket. There
 
 A channel core with the finned rotor capped and dropped in, and a camera lamp over the top.
 
-<div class="img-placeholder">Photo of a finished classification channel: pending from a build.</div>
+<figure class="single-figure">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/classification-channel-finned-rotor-render-full-af779c513f96.png" alt="Render of the classification channel from above: the finned rotor sitting down in the stator ring, its six fins running from the centre out to the rim, with the NEMA bracket showing at one side">
+  <figcaption>The finned rotor down in the stator, and the fins that tell this channel apart from the other three. The Rotor cap and the camera lamp are not shown. <cite>Rendered from the part geometry, not from a build. Render: Balloon.</cite></figcaption>
+</figure>
 
 Machines built before 2026-09-02 image this channel with a white dome instead: see [classification chamber]({{ '/hardware/assembly/feeder/classification-chamber/' | relative_url }}).
 

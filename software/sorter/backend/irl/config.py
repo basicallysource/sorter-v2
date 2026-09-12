@@ -88,6 +88,7 @@ from .parse_user_toml import (
     loadChuteCalibrationConfig,
     loadCameraLayoutConfig,
     applyStepperCurrentOverride,
+    applyStepperEncoder,
     applyStepperStallguard,
 )
 from .leds import LedController, discoverLedOutputs
@@ -954,8 +955,11 @@ def cameraDeviceSettingsToDict(
 def mkStepperConfig(
     default_steps_per_second: int = 2000,
     microsteps: int = 8,
+    acceleration_microsteps_per_second_sq: int = FIRMWARE_DEFAULT_ACCELERATION_MICROSTEPS_PER_SECOND_SQ,
 ) -> StepperConfig:
-    return StepperConfig(default_steps_per_second, microsteps)
+    return StepperConfig(
+        default_steps_per_second, microsteps, acceleration_microsteps_per_second_sq
+    )
 
 
 def mkIRLConfig(machine_params: dict[str, object] | None = None) -> IRLConfig:
@@ -1430,7 +1434,11 @@ def mkIRLInterface(config: IRLConfig, gc: GlobalConfig) -> IRLInterface:
         if stepper_config is not None:
             microsteps = stepper_config.microsteps
             default_steps_per_second = stepper_config.default_steps_per_second
-            default_acceleration = stepper_config.acceleration_microsteps_per_second_sq
+            # [stepper_acceleration_overrides.<name>] beats the code default: a
+            # long-armed chute skips steps at the firmware's 10000 µsteps/s².
+            default_acceleration = machine_config.stepper_acceleration_overrides.get(
+                canonical_name, stepper_config.acceleration_microsteps_per_second_sq
+            )
             _run_stepper_init_command_with_retry(
                 gc,
                 attr_base,
@@ -1462,6 +1470,13 @@ def mkIRLInterface(config: IRLConfig, gc: GlobalConfig) -> IRLInterface:
 
         applyStepperCurrentOverride(stepper, canonical_name, stepper_current_overrides, gc)
         applyStepperStallguard(stepper, canonical_name, machine_config.stepper_stallguard, gc)
+        applyStepperEncoder(
+            stepper,
+            canonical_name,
+            machine_config.stepper_encoders,
+            stepper_config.microsteps if stepper_config is not None else 8,
+            gc,
+        )
         logical_name = logical_name_for_attr_base.get(attr_base)
         stepper.set_direction_inverted(
             stepper_direction_inverts.get(logical_name, False) if logical_name is not None else False

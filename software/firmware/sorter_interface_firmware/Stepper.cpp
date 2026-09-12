@@ -32,7 +32,7 @@ Stepper::Stepper(int step_pin, int dir_pin)
       _mc_dir(1), _mc_home_pin(-1),
     _steps_moved(0), _steps_frac(0), _brake_distance(0),
     _current_speed(0), _current_speed_frac(0), _current_dir(1),
-    _jitter_active(false), _jitter_amplitude(0), _jitter_strokes_remaining(0), _jitter_dir(1) {
+    _jitter_active(false), _stall_request(false), _jitter_amplitude(0), _jitter_strokes_remaining(0), _jitter_dir(1) {
 }
 
 void Stepper::initialize() {
@@ -225,6 +225,7 @@ void Stepper::stepgen_tick() {
             _state = STEPPER_STOPPED;
             _current_speed = 0;
             _absolute_position = 0;
+            _position_reset.store(true);
             _mc_home_pin.store(-1);
             return;
         }
@@ -274,8 +275,13 @@ void Stepper::motion_update_tick() {
     // stop immediately — the backend poll then raises an operator incident.
     // Skip while jittering: the unstick wiggle is *meant* to fight load, and a
     // stall during it is expected, not a fault.
-    if (_stall_enabled.load() && _stall_pin >= 0 && _state.load() != STEPPER_STOPPED &&
-        !_jitter_active.load() && gpio_get(_stall_pin)) {
+    // The software StallGuard poll on core 0 only requests the stop (see
+    // latchStall); the transition itself happens here, on the core that owns
+    // the state, so no in-flight transition can undo it.
+    bool software_stall = _stall_request.exchange(false) && _state.load() != STEPPER_STOPPED &&
+                          !_jitter_active.load();
+    if (software_stall || (_stall_enabled.load() && _stall_pin >= 0 && _state.load() != STEPPER_STOPPED &&
+                           !_jitter_active.load() && gpio_get(_stall_pin))) {
         _stalled.store(true);
         _state.store(STEPPER_STOPPED);
         _current_speed.store(0);
@@ -333,6 +339,7 @@ void Stepper::motion_update_tick() {
                     _state = STEPPER_STOPPED;
                     _current_speed = 0;
                     _absolute_position = 0;
+                    _position_reset.store(true);
                     _mc_home_pin.store(-1); // Homing done
                     break;
                 }

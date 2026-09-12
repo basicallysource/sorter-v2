@@ -80,6 +80,11 @@ Sit the board on the four inner bosses and fix it with 4 {% include fastener.htm
 
 Fan on the inside of the cover, over the vent, label facing into the enclosure so it blows inwards. 4 {% include fastener.html size="M3" variant="button" length="12" %} screws, self-tapping into the plastic. Route the lead to the corner cutout.
 
+<div class="callout callout-warning">
+  <span class="callout-icon" aria-hidden="true">⚠</span>
+  <p>Take these four by hand. They cut their own thread in a printed boss only 6 mm across, and the boss snaps off long before the screw gives. Use a hand driver rather than a power tool, and stop as soon as the fan is pulled down onto the cover. If a screw stops turning before the fan is seated, back it out and clear the hole rather than forcing it. A bottomed screw is what breaks the boss.</p>
+</div>
+
 <div class="img-row">
   <figure>
     <img src="https://assets.basically.website/sorter-docs/assembly-control-board-housing-fan-in-cover-w1600-73bbe941cbdb.jpg" alt="The inside of the printed cover with the 40 mm WINSINN fan screwed down over its vent opening on four screws, its red and black lead running off to the left, and the rectangular plunger slot beside it">

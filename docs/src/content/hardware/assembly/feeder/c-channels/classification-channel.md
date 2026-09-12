@@ -71,9 +71,15 @@ The classification channel is the last stage before a part drops into the chute,
 
 {% include step.html n="2" title="Bolt the output gear to the rotor" %}
 
-Bolt the Output gear (130T) to the underside of the Rotor (finned) with 6 {% include fastener.html size="M3" variant="countersunk" length="12" %} screws, one at the outer end of each spoke, flush in the countersinks. Any of the six rotations works. The gear only fits one way up.
+The Output gear (130T) bolts to the open side of the Rotor (finned).
 
-**Use the 12 mm, not the 8 mm.** An M3 × 8 seated in the countersink never reaches the rotor at all.
+<ol class="numbered-steps">
+  <li>Turn the rotor so its open side faces up.</li>
+  <li>Put the gear on it and line up the six holes. If it does not sit flat, turn it over.</li>
+  <li>Drive one {% include fastener.html size="M3" variant="countersunk" length="12" %} screw at the outer end of each of the gear's six spokes, until the head is flush in the countersink.</li>
+</ol>
+
+It does not matter which way round you turn the gear. The six holes are the same all the way round.
 
 <figure class="single-figure">
   <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-c-channel-output-gear-bolted-to-rotor-w1600-7ca0b30ba41a.jpg" alt="The grey 130-tooth output gear with a black-sealed 6806 bearing pressed into its centre, bolted onto a white rotor behind it, with a countersunk screw at the outer end of each of the six spokes">
@@ -82,21 +88,21 @@ Bolt the Output gear (130T) to the underside of the Rotor (finned) with 6 {% inc
 
 {% include step.html n="3" title="Cap the rotor" %}
 
-Press the Rotor cap into the open bore at the top of the finned rotor, spigot first from above, until its flange sits on the apex. No screw.
+Press the Rotor cap into the open hole at the top of the rotor, spigot first from above. Push it until its flange sits flat on the rotor. No screw.
 
 {% include step.html n="4" title="Drop the rotor into the core" %}
 
-Lower the rotor, output gear and all, onto the raised hub in the middle of the NEMA bracket, so the 130T meshes with the idler.
+Lower the rotor onto the raised hub in the middle of the NEMA bracket. The output gear meshes with the idler as it goes down.
 
-Turn the stage by hand. It should run with no tight spot through a full revolution.
+Turn the rotor by hand. It should go all the way round without a tight spot.
 
 **On the machine this happens later.** The classification channel goes in first of the four, before the three above it. See [arranging C-channels]({{ '/hardware/assembly/feeder/arranging-c-channels/' | relative_url }}), steps 6 and 8.
 
 {% include step.html n="5" title="Hang the camera lamp" %}
 
-The lamp's arm mount hangs off a dovetail under the channel's NEMA bracket. There is no screw in that joint. See [camera lamp]({{ '/hardware/assembly/feeder/camera-lamp/' | relative_url }}), step 7.
+The lamp's arm mount hangs on a dovetail under the channel's NEMA bracket. There is no screw in that joint. The joint itself is step 7 of the [camera lamp]({{ '/hardware/assembly/feeder/camera-lamp/' | relative_url }}) page.
 
-**Do this with the channel standing where it belongs.** Height and overhang change what the camera sees.
+**Do this with the channel standing where it belongs**, not on the bench. Its height and overhang change what the camera sees.
 
 ## The finished result
 

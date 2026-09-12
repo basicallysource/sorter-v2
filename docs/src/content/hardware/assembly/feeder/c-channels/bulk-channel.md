@@ -42,7 +42,7 @@ C1 is where unsorted parts go in. A bucket over the channel feeds them onto the 
 
 **One per machine**, the highest of the four. It takes the faceted rotor, like C2 and C3.
 
-- **No camera lamp and no separate output guide.** Nothing reads vision off C1, and the Bulk cap has a guide built into it.
+- **No camera lamp and no output guide.** The machine does not look at C1, and the Bulk cap has a guide built into it.
 - The Bulk cap prints in the feeder colour.
 
 {% include fastener-legend.html %}
@@ -61,11 +61,15 @@ C1 is where unsorted parts go in. A bucket over the channel feeds them onto the 
 
 {% include step.html n="2" title="Bolt the output gear to the rotor" %}
 
-Bolt the Output gear (130T) to the underside of the Rotor (faceted) with 6 {% include fastener.html size="M3" variant="countersunk" length="12" %} screws, one at the outer end of each spoke, flush in the countersinks. Any of the six rotations works. The gear only fits one way up.
+The Output gear (130T) bolts to the open side of the Rotor (faceted).
 
-**Use the 12 mm, not the 8 mm.** An M3 × 8 seated in the countersink never reaches the rotor at all.
+<ol class="numbered-steps">
+  <li>Turn the rotor so its open side faces up.</li>
+  <li>Put the gear on it and line up the six holes. If it does not sit flat, turn it over.</li>
+  <li>Drive one {% include fastener.html size="M3" variant="countersunk" length="12" %} screw at the outer end of each of the gear's six spokes, until the head is flush in the countersink.</li>
+</ol>
 
-The faceted rotor takes no Rotor cap. It is closed at the apex.
+It does not matter which way round you turn the gear. The six holes are the same all the way round.
 
 <figure class="single-figure">
   <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-c-channel-output-gear-bolted-to-rotor-w1600-7ca0b30ba41a.jpg" alt="The grey 130-tooth output gear with a black-sealed 6806 bearing pressed into its centre, bolted onto a white rotor behind it, with a countersunk screw at the outer end of each of the six spokes">
@@ -74,15 +78,15 @@ The faceted rotor takes no Rotor cap. It is closed at the apex.
 
 {% include step.html n="3" title="Drop the rotor into the core" %}
 
-Lower the rotor, output gear and all, onto the raised hub in the middle of the NEMA bracket, so the 130T meshes with the idler.
+Lower the rotor onto the raised hub in the middle of the NEMA bracket. The output gear meshes with the idler as it goes down.
 
-Turn the stage by hand. It should run with no tight spot through a full revolution.
+Turn the rotor by hand. It should go all the way round without a tight spot.
 
 **On the machine this happens later**, once the channels are standing at their heights. See [arranging C-channels]({{ '/hardware/assembly/feeder/arranging-c-channels/' | relative_url }}), step 8.
 
 {% include step.html n="4" title="Fit the bulk cap" %}
 
-Slide the Bulk cap onto the stator along its dovetail. No screws.
+Slide the Bulk cap down onto the dovetail on the outside of the stator wall. No screws.
 
 **Not recorded:** which way it faces relative to the handover to C2.
 
@@ -95,7 +99,7 @@ Slide the Bulk cap onto the stator along its dovetail. No screws.
 
 {% include step.html n="5" title="Mount the bucket supports" %}
 
-Three pieces of 2020 extrusion, cut to 270 mm, carry the bucket above the channel. They are on the bill of materials as bulk bucket supports.
+Three pieces of 2020 aluminium extrusion, each cut to 270 mm, hold the bucket above the channel. They are on the bill of materials as bulk bucket supports.
 
 **Not recorded:** where they land on the [C-channel stand]({{ '/hardware/assembly/feeder/arranging-c-channels/' | relative_url }}), what fastens them at either end, and how high the bucket sits above the rotor.
 

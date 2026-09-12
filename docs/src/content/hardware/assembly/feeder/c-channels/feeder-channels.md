@@ -34,7 +34,7 @@ parts_needed:
     <p><strong>Build a <a href="{{ '/hardware/assembly/feeder/c-channels/channel-core/' | relative_url }}">channel core</a> before you start.</strong> It's a required component of this page, not optional or covered here. This page turns one core into C2 or C3.</p>
   </div>
   <figure class="prep-item-figure">
-    <img class="doc-figure" src="https://assets.basically.website/sorter-parts/c-channel-c4-on-c3-guide-full-574058daee19.jpg" alt="A C-channel core: the stator ring with its stepper motor on the bracket underneath and an empty hub in the middle, standing on a printed layout guide">
+    <img class="doc-figure" src="https://assets.basically.website/sorter-parts/c-channel-c4-on-c3-guide-full-574058daee19.jpg" alt="A C-channel drive with no rotor in it: the stator ring with its stepper motor on the bracket underneath, slid onto a printed layout guide, with other stands lying around it">
     <figcaption>A channel core, no rotor in it yet. <cite>Photo: BrickCycleAlice.</cite></figcaption>
   </figure>
 </div>

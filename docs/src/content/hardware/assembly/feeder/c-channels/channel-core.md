@@ -9,7 +9,7 @@ lede: The drive under every C-channel, from the stator down to the stepper.
 permalink: /hardware/assembly/feeder/c-channels/channel-core/
 author: spencer
 contributors: [barthel, brickcyclealice, christoph, danny]
-og_image: https://assets.basically.website/sorter-docs/assembly-channel-core-single-top-full-6dbc4b7bb3a0.jpg
+og_image: https://assets.basically.website/sorter-docs/assembly-channel-core-cutout-full-538336057944.jpg
 parts_needed:
   - part: stator
     qty: 1
@@ -107,7 +107,7 @@ Turn the idler by hand. It should spin freely and drive the input gear with no t
 A stator with the bracket, gear train and stepper under it, and an empty hub in the middle waiting for a rotor. Build four.
 
 <figure class="single-figure">
-  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-channel-core-single-top-full-6dbc4b7bb3a0.jpg" alt="A single C-channel core seen from above: the stator ring with its exit opening, the three-armed NEMA bracket fastened across it, the raised hub at its centre and the stepper motor on the far side, with no rotor fitted">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-channel-core-cutout-full-538336057944.jpg" alt="A single C-channel core seen from above on a plain background: the stator ring with its exit opening, the three-armed NEMA bracket fastened across it, the raised hub at its centre and the stepper motor on the far side, with no rotor fitted">
   <figcaption>One finished core from the top, no rotor in it. The opening in the stator wall is the channel's exit. <cite>Photo: BrickCycleAlice.</cite></figcaption>
 </figure>
 

@@ -95,8 +95,8 @@ Turn the rotor by hand. It should go all the way round without a tight spot.
 **On the machine this happens later**, once the channels are standing at their heights. See [arranging C-channels]({{ '/hardware/assembly/feeder/arranging-c-channels/' | relative_url }}), step 8.
 
 <figure class="single-figure">
-  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-feeder-channel-rotor-and-stepper-full-89ba6b47c8ca.jpg" alt="A feeder channel seen from above on a plain background: the faceted rotor sitting down in the stator ring, with the stepper motor standing out from under the ring at one side, and nothing mounted on the channel">
-  <figcaption>The rotor down in the core, with the stepper under the far side. Nothing is mounted on the channel at this stage. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-c-channel-finished-stage-w1600-9bd3719c4180.jpg" alt="A C-channel from above on a plain surface: the faceted rotor sitting down in the stator ring, with the stepper motor and its lead standing off one side">
+  <figcaption>The rotor down in the core, stepper on the outside. Nothing else is on the channel at this stage. <cite>Photo: BrickCycleAlice.</cite></figcaption>
 </figure>
 
 {% include step.html n="4" title="Fit the output guide" %}

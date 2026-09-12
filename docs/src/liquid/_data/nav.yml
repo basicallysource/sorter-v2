@@ -58,7 +58,7 @@ sections:
           - title: Feeder
             url: /hardware/assembly/feeder/
             children:
-              - title: Camera lamp
+              - title: Camera lamps
                 url: /hardware/assembly/feeder/camera-lamp/
               - title: C-channels
                 url: /hardware/assembly/feeder/c-channels/

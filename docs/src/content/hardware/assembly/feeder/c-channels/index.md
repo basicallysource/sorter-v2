@@ -12,20 +12,19 @@ author: spencer
 contributors: [barthel, brickcyclealice, christoph, danny]
 ---
 
-A C-channel is one drive unit: a rotor turning inside a stator, driven by a NEMA 17 stepper through a gear train. A machine has four, and **all four are built on the same core**. What differs is the rotor that drops in and what hangs off it.
+A C-channel is one drive unit: a rotor turning inside a stator, driven by a NEMA 17 stepper through a gear train. A machine has four.
 
-Build the core four times, then finish each one on its own page.
+**Every one of them starts as the same [channel core]({{ '/hardware/assembly/feeder/c-channels/channel-core/' | relative_url }}): the stator, the NEMA bracket, the gear train and the stepper. Build that four times first.** It is one page and one build, and nothing on it changes between the four channels.
+
+Then finish each core as the channel it is going to be. What differs is the rotor that drops in and what hangs off it.
 
 <ol class="numbered-steps">
-  <li><strong><a href="{{ '/hardware/assembly/feeder/c-channels/channel-core/' | relative_url }}">Channel core</a></strong>. Stator, NEMA bracket, gear train, stepper. Build four.</li>
   <li><strong><a href="{{ '/hardware/assembly/feeder/c-channels/bulk-channel/' | relative_url }}">Bulk channel (C1)</a></strong>. The faceted rotor and the Bulk cap. No lamp, no output guide.</li>
   <li><strong><a href="{{ '/hardware/assembly/feeder/c-channels/feeder-channels/' | relative_url }}">Feeder channels (C2 and C3)</a></strong>. The faceted rotor, an output guide and a camera lamp. Build two.</li>
   <li><strong><a href="{{ '/hardware/assembly/feeder/c-channels/classification-channel/' | relative_url }}">Classification channel (C4)</a></strong>. The finned rotor, its cap, and a camera lamp with the 4K module.</li>
 </ol>
 
 **Build the three [camera lamp]({{ '/hardware/assembly/feeder/camera-lamp/' | relative_url }})s first.** C2, C3 and the classification channel each need one before their page starts. C1 has none.
-
-Once all four are built, [arranging C-channels]({{ '/hardware/assembly/feeder/arranging-c-channels/' | relative_url }}) sets their heights. The rotors, the output guides and the lamps go on there, with the channels standing, not on the bench.
 
 ## The finished result
 
@@ -45,3 +44,5 @@ Each page ends in one of these.
     <figcaption><a href="{{ '/hardware/assembly/feeder/c-channels/classification-channel/' | relative_url }}">Classification channel</a>, finned rotor in, lamp still to go on. <cite>Photo: BrickCycleAlice.</cite></figcaption>
   </figure>
 </div>
+
+With all four built, [arranging C-channels]({{ '/hardware/assembly/feeder/arranging-c-channels/' | relative_url }}) sets their heights and the order they stand in.

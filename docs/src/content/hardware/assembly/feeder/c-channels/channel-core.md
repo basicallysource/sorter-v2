@@ -9,7 +9,7 @@ lede: The drive under every C-channel, from the stator down to the stepper.
 permalink: /hardware/assembly/feeder/c-channels/channel-core/
 author: spencer
 contributors: [barthel, brickcyclealice, christoph, danny]
-og_image: https://assets.basically.website/sorter-parts/c-channel-drives-all-four-full-44246243494e.jpg
+og_image: https://assets.basically.website/sorter-docs/assembly-channel-core-single-top-full-6dbc4b7bb3a0.jpg
 warning: >-
   **This page comes from a build**, the order of operations and the photographs are
   BrickCycleAlice's, apart from step 2's, which are Danny's. What goes on top of the core
@@ -106,11 +106,11 @@ Turn the idler by hand. It should spin freely on its post and drive the input ge
 
 ## The finished result
 
-Four cores, each a stator with its bracket, gear train and stepper underneath, and an empty hub in the middle waiting for a rotor.
+A stator with the bracket, gear train and stepper under it, and an empty hub in the middle waiting for a rotor. Build four.
 
 <figure class="single-figure">
-  <img class="doc-figure" src="https://assets.basically.website/sorter-parts/c-channel-drives-all-four-full-44246243494e.jpg" alt="All four C-channel drives in place without rotors, their stepper motors gathered together at the centre of the group">
-  <figcaption>All four cores, no rotors in yet. They are photographed on their stands, which is later: see arranging C-channels. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-channel-core-single-top-full-6dbc4b7bb3a0.jpg" alt="A single C-channel core seen from above: the stator ring with its exit opening, the three-armed NEMA bracket fastened across it, the raised hub at its centre and the stepper motor on the far side, with no rotor fitted">
+  <figcaption>One finished core from the top, no rotor in it. The opening in the stator wall is the channel's exit. <cite>Photo: BrickCycleAlice.</cite></figcaption>
 </figure>
 
 ## Next steps

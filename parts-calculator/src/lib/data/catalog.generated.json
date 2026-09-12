@@ -23085,7 +23085,7 @@
 			"description": "A metre of 22 AWG red and black with a 2-pin 2.54 mm Dupont housing crimped on. One of these is a whole LED drop: the Dupont end pushes onto an LED header (J8 to J11), the far end goes into the strip connector. The pack is male-to-female, so cut the male plug off and discard it.",
 			"note": "Sold male-to-female: cut the male plug off and discard it. Any 22 AWG pair plus a 2-pin Dupont housing does the same job if you own a crimp tool.",
 			"created_at": "2026-09-10",
-			"updated_at": "2026-09-10",
+			"updated_at": "2026-09-12",
 			"attributes": [
 				{
 					"label": "Pitch",
@@ -23127,7 +23127,7 @@
 			"caption": "Cut the male end off and it is one LED drop.",
 			"docs_page": "/hardware/electronics/led-drop/",
 			"conflicts": null,
-			"image": null
+			"image": "https://assets.basically.website/sorter-parts/dupont-lead-2p-1m-full-1d6495f8bb1b.jpg"
 		},
 		{
 			"id": "endstop-mechanical",

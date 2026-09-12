@@ -37,15 +37,15 @@ parts_needed:
 
 <div class="prep-item">
   <div class="prep-item-body">
-    <p><strong>Build a <a href="{{ '/hardware/assembly/feeder/c-channel/' | relative_url }}">C-channel</a> before you start.</strong> It's a required component of this page, not optional or covered here — Step 2 clamps the rod mounts onto one, it doesn't build one.</p>
+    <p><strong>Build a <a href="{{ '/hardware/assembly/feeder/c-channels/' | relative_url }}">C-channel</a> before you start.</strong> It's a required component of this page, not optional or covered here — Step 2 clamps the rod mounts onto one, it doesn't build one.</p>
   </div>
   <figure class="prep-item-figure">
     <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-c-channel-finished-stage-w1600-9bd3719c4180.jpg" alt="A finished C-channel: the grey finned rotor sitting down in the grey stator ring, with the stepper motor and its lead standing off one side">
-    <figcaption>A finished C-channel, from the C-channel page. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+    <figcaption>A finished C-channel, from the C-channels pages. <cite>Photo: BrickCycleAlice.</cite></figcaption>
   </figure>
 </div>
 
-The overhead camera mount is a pair of 3/8 in steel rods clamped to a [C-channel]({{ '/hardware/assembly/feeder/c-channel/' | relative_url }}), carrying a printed arm that holds a detection camera above the channel.
+The overhead camera mount is a pair of 3/8 in steel rods clamped to a [C-channel]({{ '/hardware/assembly/feeder/c-channels/' | relative_url }}), carrying a printed arm that holds a detection camera above the channel.
 
 The fasteners and quantities in the parts list come from the parts registry and are called out inline at each step. **The list above is one arm's worth**, and the machine takes 2, so 4 rod mounts and 4 rod pieces in total.
 

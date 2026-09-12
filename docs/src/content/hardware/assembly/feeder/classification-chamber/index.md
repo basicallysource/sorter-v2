@@ -39,15 +39,15 @@ parts_needed:
 
 <div class="prep-item">
   <div class="prep-item-body">
-    <p><strong>Build a <a href="{{ '/hardware/assembly/feeder/c-channel/' | relative_url }}">classification C-channel</a> before you start.</strong> It's a required component of this page. Step 2 below walks through building it, using the C-channel page's own steps, with the finned rotor rather than faceted — Step 3 then bolts the chamber's own parts onto it.</p>
+    <p><strong>Build a <a href="{{ '/hardware/assembly/feeder/c-channels/classification-channel/' | relative_url }}">classification channel</a> before you start.</strong> It's a required component of this page. Step 2 below walks through building it, using that page's own steps — Step 3 then bolts the chamber's own parts onto it.</p>
   </div>
   <figure class="prep-item-figure">
     <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-c-channel-finished-stage-w1600-9bd3719c4180.jpg" alt="A finished C-channel: the grey finned rotor sitting down in the grey stator ring, with the stepper motor and its lead standing off one side">
-    <figcaption>A finished classification C-channel, from the C-channel page. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+    <figcaption>A finished classification channel, from the classification channel page. <cite>Photo: BrickCycleAlice.</cite></figcaption>
   </figure>
 </div>
 
-The classification chamber is where a part is lit and photographed on its way through. It sits on the fourth [C-channel]({{ '/hardware/assembly/feeder/c-channel/' | relative_url }}), the classification-channel one.
+The classification chamber is where a part is lit and photographed on its way through. It sits on the fourth [C-channel]({{ '/hardware/assembly/feeder/c-channels/classification-channel/' | relative_url }}), the classification-channel one.
 
 The parts are in the list above. Most fasteners for this stage still aren't recorded; what is, is called out in Step 2.
 
@@ -98,11 +98,11 @@ The parts are in the list above. Most fasteners for this stage still aren't reco
 
 {% include step.html n="2" title="Build the classification C-channel" %}
 
-Build the classification channel as a normal [C-channel]({{ '/hardware/assembly/feeder/c-channel/' | relative_url }}), but with the finned rotor rather than a faceted one. Nothing else about it differs, colour included.
+Build it as on the [classification channel]({{ '/hardware/assembly/feeder/c-channels/classification-channel/' | relative_url }}) page: a channel core with the finned rotor, capped, dropped in. Nothing else about it differs, colour included.
 
 <figure class="single-figure">
   <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-c-channel-finished-stage-w1600-9bd3719c4180.jpg" alt="A finished C-channel: the grey finned rotor sitting down in the grey stator ring, with the stepper motor and its lead standing off one side">
-  <figcaption>The classification channel, finned rotor fitted in the stator. Same photo as the C-channel page's step 5, since it's the same build. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+  <figcaption>The classification channel, finned rotor fitted in the stator. Same photo as the classification channel page, since it's the same build. <cite>Photo: BrickCycleAlice.</cite></figcaption>
 </figure>
 
 {% include step.html n="3" title="Fit the insert, the camera and the dome" %}

@@ -26,7 +26,7 @@ parts_needed:
     qty: 8
   - part: scr-m3-6-bhcs
     qty: 4
-  - part: scr-m3-12-bhcs
+  - part: scr-m3-16-shcs
     qty: 4
   - part: scr-m3-12-cs
     qty: 4
@@ -78,7 +78,7 @@ Sit the board on the four inner bosses and fix it with 4 {% include fastener.htm
 
 {% include step.html n="3" title="Fit the fan inside the cover" %}
 
-Fan on the inside of the cover, over the vent, label facing into the enclosure so it blows inwards. 4 {% include fastener.html size="M3" variant="button" length="12" %} screws, self-tapping into the plastic. Route the lead to the corner cutout.
+Fan on the inside of the cover, over the vent, label facing into the enclosure so it blows inwards. 4 {% include fastener.html size="M3" variant="button" length="16" %} screws, self-tapping into the cover's four bosses. Route the lead to the corner cutout.
 
 <div class="img-row">
   <figure>

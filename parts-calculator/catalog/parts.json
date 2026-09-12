@@ -10153,9 +10153,72 @@
         },
         {
           "version": "2",
+          "uid": "rns2",
           "date": "2026-08-23",
           "message": "The printed housing replaces the bracket and standoffs. The board bolts straight to the base on four of its eight heat inserts; the cover closes onto the other four, carries the 40 mm 24 V fan on self-tapping M3 × 12 mm button heads, and holds a plunger over the board's reset button. Adopted from candidate rns2 after a test print.",
-          "commit": "9ff8a1e3"
+          "commit": "9ff8a1e3",
+          "lines": [
+            {
+              "part": "ctrl-board-housing-base",
+              "qty": 1,
+              "uid": "204b"
+            },
+            {
+              "part": "ctrl-board-basically",
+              "qty": 1,
+              "uid": "yugu"
+            },
+            {
+              "part": "scr-m3-6-bhcs",
+              "qty": 4,
+              "uid": "e04c"
+            },
+            {
+              "part": "ctrl-board-housing-cover",
+              "qty": 1,
+              "uid": "ksh2"
+            },
+            {
+              "part": "scr-m3-12-cs",
+              "qty": 4,
+              "uid": "0a9x"
+            },
+            {
+              "part": "ctrl-board-housing-plunger",
+              "qty": 1,
+              "uid": "cljt"
+            },
+            {
+              "part": "ctrl-board-housing-plunger-retainer",
+              "qty": 1,
+              "uid": "g9sx"
+            },
+            {
+              "part": "scr-m3-8-cs",
+              "qty": 2,
+              "uid": "l6br"
+            },
+            {
+              "part": "fan-40mm-24v",
+              "qty": 1,
+              "uid": "7o57"
+            },
+            {
+              "part": "scr-m3-12-bhcs",
+              "qty": 4,
+              "uid": "izrb"
+            },
+            {
+              "part": "scr-m5-16-shcs",
+              "qty": 2,
+              "uid": "2e0s"
+            },
+            {
+              "part": "tnut-m5-2020",
+              "qty": 2,
+              "uid": "bpwm"
+            }
+          ]
         },
         {
           "version": "3",

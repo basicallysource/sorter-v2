@@ -2817,11 +2817,11 @@
       "id": "ctrl-board-housing-cover",
       "uid": "ksh2",
       "name": "Control Board Housing — Cover",
-      "description": "Cover of the basically Embedded Control Board housing. Screws to the base with four M3 × 12 mm countersunk screws, carries the 40 mm 24 V fan on four self-tapping M3 × 12 mm button head screws, and the plunger passes through it.",
+      "description": "Cover of the basically Embedded Control Board housing. Screws to the base with four M3 × 12 mm countersunk screws, carries the 40 mm 24 V fan on four self-tapping M3 × 16 mm socket/button head screws, and the plunger passes through it.",
       "internal_notes": "From 'control board housing.zip' (Sorter V2 STLs, 2026-08-22). Exists only inside candidate rns2 on ctrl-board-mount, so quantities stay empty and it stays out of the bundle until that candidate is promoted.",
       "version": "1",
       "created_at": "2026-08-22",
-      "updated_at": "2026-08-23",
+      "updated_at": "2026-09-12",
       "quantities": {
         "electronics": 1
       },
@@ -3387,9 +3387,9 @@
       "category": "Screws",
       "alternative": "Socket or button head",
       "image_url": "https://assets.basically.website/sorter-parts/scr-m3-16-shcs-full-26e52d7d5bcd.png",
-      "description": "No longer the C-channel stepper screw — those are countersunk (scr-m3-16-cs). Holds the 40 mm fan arm to the Orange Pi mount (2, into the mount's front-edge inserts) and the fan to the arm (4, self-tapping). The top-interface docs call for 2 to mount the roller-lever limit switch into its housing's inserts, though the limit-switch assembly records M3 × 12 button heads for that joint — one of the two is wrong; settle it at the bench.",
+      "description": "No longer the C-channel stepper screw — those are countersunk (scr-m3-16-cs). Holds the 40 mm fan arm to the Orange Pi mount (2, into the mount's front-edge inserts), the fan to the arm (4, self-tapping), and the 40 mm fan to the control board housing cover (4, self-tapping into the cover's bosses). The top-interface docs call for 2 to mount the roller-lever limit switch into its housing's inserts, though the limit-switch assembly records M3 × 12 button heads for that joint — one of the two is wrong; settle it at the bench.",
       "created_at": "2026-07-18",
-      "updated_at": "2026-09-01",
+      "updated_at": "2026-09-12",
       "attributes": [
         {
           "label": "Thread",
@@ -5724,9 +5724,9 @@
       },
       "name": "40 mm 24 V fan (WINSINN 4010)",
       "category": "Electronics",
-      "description": "40 x 40 x 10 mm axial fan, 24 V, on the control board housing cover; mounted with four self-tapping M3 × 12 mm button head screws. Comes with an XH2.54 2-pin lead, which plugs straight into one of the board's LED ports.",
+      "description": "40 x 40 x 10 mm axial fan, 24 V, on the control board housing cover; mounted with four self-tapping M3 × 16 mm socket/button head screws. Comes with an XH2.54 2-pin lead, which plugs straight into one of the board's LED ports.",
       "created_at": "2026-08-22",
-      "updated_at": "2026-08-23",
+      "updated_at": "2026-09-12",
       "attributes": [
         {
           "label": "Size",
@@ -10039,8 +10039,8 @@
     },
     {
       "id": "ctrl-board-mount",
-      "uid": "rns2",
-      "version": "2",
+      "uid": "60ni",
+      "version": "3",
       "name": "basically Embedded Control Board Housing",
       "description": "The basically Embedded Control Board closed into a two-part printed housing that bolts to the 2020 extrusion. The board screws straight to the base — no bracket, no standoffs — and the cover carries a 40 mm 24 V fan and a plunger that reaches the board's reset button from outside.",
       "docs": "/hardware/electronics/installation/control-board-housing/",
@@ -10082,7 +10082,7 @@
           "qty": 1
         },
         {
-          "part": "scr-m3-12-bhcs",
+          "part": "scr-m3-16-shcs",
           "qty": 4
         },
         {
@@ -10097,7 +10097,7 @@
       "joining": [
         {
           "method": "self-tap",
-          "note": "The fan's four [[hw:scr-m3-12-bhcs]] cut their own threads in the cover; no inserts there."
+          "note": "The fan's four [[hw:scr-m3-16-shcs]] cut their own threads in the cover's bosses; no inserts there."
         }
       ],
       "versions": [
@@ -10156,6 +10156,13 @@
           "date": "2026-08-23",
           "message": "The printed housing replaces the bracket and standoffs. The board bolts straight to the base on four of its eight heat inserts; the cover closes onto the other four, carries the 40 mm 24 V fan on self-tapping M3 × 12 mm button heads, and holds a plunger over the board's reset button. Adopted from candidate rns2 after a test print.",
           "commit": "9ff8a1e3"
+        },
+        {
+          "version": "3",
+          "date": "2026-09-12",
+          "message": "The fan's four screws go from M3 × 12 mm to M3 × 16 mm. The cover's fan bosses are 2.5 mm tall nubs standing off the inner face of the lid, each on a 2.5 mm pilot hole that runs 6.5 mm deep in total (2.5 mm through the nub, 4 mm into the 5 mm lid plate) and is blind with 1 mm of lid above it. The 4010 fan is 10 mm thick, so a 12 mm screw reaches only 2 mm in and takes the whole of that in the nub, whose wall is 1.75 mm; a 16 mm screw engages 6 mm, through the nub and 3.5 mm into the solid lid, stopping 0.5 mm short of the blind end. Reported from a build where a nub snapped off under a 12 mm screw. Nothing else in the assembly changes.",
+          "breaking": false,
+          "commit": null
         }
       ]
     },

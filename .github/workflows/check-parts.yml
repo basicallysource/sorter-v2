@@ -57,6 +57,7 @@ jobs:
       - run: python parts-calculator/scripts/check_asset_urls.py
       - run: python parts-calculator/scripts/check_versioning.py
       - run: python parts-calculator/scripts/check_connections.py
+      - run: python parts-calculator/scripts/check_version_commits.py
       # Warnings only, never fails: annotates the PR when a docs page
       # references a part the catalog no longer uses, or documents an
       # assembly this change revises. Stale docs are allowed — unflagged

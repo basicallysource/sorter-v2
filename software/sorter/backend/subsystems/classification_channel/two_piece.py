@@ -14,6 +14,7 @@ from .simple_state_machine_rev01.base import Rev01BaseState
 from .simple_state_machine_rev01.channel_clear import (
     ChannelClearResult,
     clearChannelByAdvancing,
+    shakeChannelClear,
 )
 from .simple_state_machine_rev01.constants import C4_TRAVEL_SIGN
 from .simple_state_machine_rev01.context import SimpleStateMachineRev01Context
@@ -211,6 +212,16 @@ class TwoPieceClassificationChannel(Rev01BaseState):
             max_output_deg=max_output_deg,
             label=LOG_TAG,
         )
+        if not result.cleared and result.reason == "budget_exhausted":
+            # Rotation moved the platter under the piece without taking it
+            # along (a tyre on the fall-off lip, a plate wedged at the rim):
+            # shake it loose with the exit-release ladder instead.
+            shaken = shakeChannelClear(
+                self.gc, self.irl, self.irl_config, vision=self.cv._vision, label=LOG_TAG
+            )
+            result = ChannelClearResult(
+                shaken.cleared, result.occupied_at_start, result.output_deg_moved, shaken.reason
+            )
         if result.cleared:
             for tp in self._pieces.values():
                 try:

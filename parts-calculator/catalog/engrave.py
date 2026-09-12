@@ -10,6 +10,11 @@ calls `variants()` once per part and pre-generates a handful of stamped STLs,
 one per face the text fits on, ranked by where a stamp prints and hides best;
 the part page lets you flip through them, or take the plain master.
 
+The text is any short string. A newline in it is a SOFT break -- somewhere the
+text MAY be broken if it will not fit on one line -- which is what lets a part
+carry its fastener list (`fasteners.py` composes those) without the stamp
+turning into a block on parts that had room for a line.
+
 Placement is derived from the mesh alone; no part describes where its text
 goes:
 
@@ -23,8 +28,10 @@ goes:
      the face when no corner has room
   3. refuse a spot whose wall is too thin for the pocket. Fallbacks, in
      order, when a face does not take the text as is: turn it sideways, then
-     the smaller size (2.5 mm), and on a sheet too thin for a 0.6 mm pocket a
-     0.4 mm one -- so the washers and thin frames still get a mark
+     -- for a text that offers a break -- stack its lines, upright and
+     sideways, then all four of those again at the smaller size (2.5 mm), and
+     on a sheet too thin for a 0.6 mm pocket a 0.4 mm one -- so the washers
+     and thin frames still get a mark
   4. rank: the bed face first (a pocket in the first layer prints cleanest
      and is out of sight once assembled), then upward and vertical faces,
      downward overhangs last; within that, large flat faces before walls,
@@ -93,9 +100,13 @@ MIN_RADIUS = 8.0   # smallest wall considered; MAX_ARC keeps the text legible on
 MAX_ARC = 1.05     # radians the text box may subtend around a cylinder's axis
 LARGE_FACE = 600.0 # mm2: a flat face this big is preferred over any wall; a
                    # wall is only offered when a part is running out of these
+LINE_GAP = 1.45    # baseline to baseline, in cap heights, when text stacks
 
 # Anything in this tuple changes every stamped STL when it changes, so it is
 # folded into generate.py's memo key and a bump here regenerates the lot.
+# LINE_GAP is deliberately NOT in here: nothing the generator cuts today
+# stacks, so a bump would re-cut and re-publish all 116 parts for no change in
+# their bytes. Add it in the same change that first cuts stacked text.
 SIGNATURE = ("engrave-v3", FONT_SHA, CAP, CAP_SMALL, DEPTH, DEPTH_SHALLOW, MAX_VARIANTS,
              MIN_WALL, MIN_WALL_SHALLOW, MIN_RADIUS)
 
@@ -129,14 +140,36 @@ def _sha256(path: str) -> str:
 _font_em = None
 
 
-def _glyphs(text: str, font: str, cap: float = CAP):
-    """The text as a shapely geometry in mm, baseline at y=0, cap height `cap`."""
+def _glyphs(text: str, font: str, cap: float = CAP, stacked: bool = False):
+    """The text as a shapely geometry in mm, first baseline at y=0, cap height
+    `cap`.
+
+    A newline in `text` is a SOFT break: it is a place the text may be broken,
+    not a place it must be. `stacked=False` joins the lines with a space and
+    renders one run, which is what variants() tries first -- a bracket long
+    enough to take "X09T 2X M3X12 5X M3X16" along an edge reads better than the
+    same text in a block, and far more of these parts have room in one
+    direction than in two. `stacked=True` is the fallback: lines left-aligned,
+    LINE_GAP cap heights apart, growing downward.
+    """
     global _font_em
     fp = FontProperties(fname=font)
     if _font_em is None:
         h = _even_odd(TextPath((0, 0), "H", size=10.0, prop=fp))
         _font_em = 10.0 / (h.bounds[3] - h.bounds[1])   # em size per mm of cap height
-    return _even_odd(TextPath((0, 0), text, size=_font_em * cap, prop=fp))
+    lines = [ln for ln in text.split("\n") if ln.strip()]
+    if not stacked:
+        lines = [" ".join(lines)]
+    step = round(cap * LINE_GAP, 3)     # quantised: the cut has to reproduce
+    out = None
+    for i, line in enumerate(lines):
+        g = _even_odd(TextPath((0, 0), line, size=_font_em * cap, prop=fp))
+        if g is None or g.is_empty:
+            continue
+        if i:
+            g = shapely.affinity.translate(g, 0.0, -i * step)
+        out = g if out is None else out.union(g)
+    return out
 
 
 def _even_odd(tp: TextPath):
@@ -560,18 +593,27 @@ def variants(mesh: trimesh.Trimesh, text: str, font: str | None = None) -> list[
     find the pocket's triangles and paint them, and to fly the camera to it
     -- plus two private keys `cut()` needs."""
     font = font or font_path()
-    glyphs = {cap: _glyphs(text.upper(), font, cap) for cap in (CAP, CAP_SMALL)}
+    # A text with no newline has one layout, and the ladder below is then
+    # exactly the one every uid stamp has always climbed: same rungs, same
+    # order, same bytes out.
+    layouts = (False, True) if "\n" in text.strip() else (False,)
+    glyphs = {(cap, st): _glyphs(text.upper(), font, cap, st)
+              for cap in (CAP, CAP_SMALL) for st in layouts}
     found = []
     for face in _flat_faces(mesh) + _round_faces(mesh):
         if isinstance(face, RoundFace) and face.sign < 0:
             continue                    # a bore is a fit far more often than a wall is
-        placed = None
+        placed, stacked = None, False
         # the ladder: full size upright, full size sideways (along a frame's
-        # bar, or along a post so the text does not wrap), then the small size
-        # both ways. The first rung that fits is the one.
-        for cap, extra in ((CAP, 0.0), (CAP, 90.0), (CAP_SMALL, 0.0), (CAP_SMALL, 90.0)):
+        # bar, or along a post so the text does not wrap), then -- only for a
+        # text that offers a break -- the same two with the lines stacked, and
+        # then the whole lot again at the small size. The first rung that fits
+        # is the one, so one big line always beats a small or stacked one.
+        for cap, st, extra in ((cap, st, extra) for cap in (CAP, CAP_SMALL)
+                               for st in layouts for extra in (0.0, 90.0)):
             rot = face.text_rotation() + extra
-            tg = glyphs[cap] if rot == 0 else shapely.affinity.rotate(glyphs[cap], rot, origin=(0, 0))
+            g = glyphs[(cap, st)]
+            tg = g if rot == 0 else shapely.affinity.rotate(g, rot, origin=(0, 0))
             at = _place(face.outline, tg, 0.5 + cap * 0.25)
             if at is None:
                 continue
@@ -580,7 +622,7 @@ def variants(mesh: trimesh.Trimesh, text: str, font: str | None = None) -> list[
                 x0, y0, x1, y1 = cand.bounds
                 if (x1 - x0) / face.radius_at((x0 + x1) / 2, (y0 + y1) / 2) > MAX_ARC:
                     continue
-            placed = cand
+            placed, stacked = cand, st
             break
         if placed is None:
             continue
@@ -595,14 +637,17 @@ def variants(mesh: trimesh.Trimesh, text: str, font: str | None = None) -> list[
         n = face.normal_at(cx, cy)
         rank = 0 if face.is_bed else 1 if n[2] >= -0.2 else 2
         tier = 1 if isinstance(face, RoundFace) else 0 if face.area >= LARGE_FACE else 2
-        found.append((rank, cap < CAP, tier, -face.area, face, placed, n, (cx, cy), cap, depth))
-    found.sort(key=lambda t: (t[0], t[1], t[2], t[3]))
+        found.append((rank, cap < CAP, stacked, tier, -face.area,
+                      face, placed, n, (cx, cy), cap, depth))
+    found.sort(key=lambda t: (t[0], t[1], t[2], t[3], t[4]))
     out, labels = [], {}
-    for rank, _, tier, _, face, placed, n, (cx, cy), cap, depth in found[:MAX_VARIANTS]:
+    for rank, _, stacked, tier, _, face, placed, n, (cx, cy), cap, depth in found[:MAX_VARIANTS]:
         k = labels[face.label] = labels.get(face.label, 0) + 1
         label = face.label if k == 1 else f"{face.label} {k}"
         x0, y0, x1, y1 = placed.bounds
-        notes = (["smaller text"] if cap < CAP else []) + (["shallow pocket"] if depth < DEPTH else [])
+        notes = ((["smaller text"] if cap < CAP else [])
+                 + (["stacked"] if stacked else [])
+                 + (["shallow pocket"] if depth < DEPTH else []))
         out.append({
             "face": label,
             "normal": [round(float(t), 4) for t in n],
@@ -644,7 +689,8 @@ PUBLIC_KEYS = ("face", "normal", "center", "size", "cap", "depth", "note", "surf
 
 
 def stamp(stl_path: str, text: str, out_dir: str, name: str) -> list[dict]:
-    """Stamp `text` on every face it fits, writing <name>-stamped-<face>.stl
+    """Stamp `text` (newline = soft break, see `_glyphs`) on every face it
+    fits, writing <name>-stamped-<face>.stl
     under out_dir. Returns the variants with a `path` each (private keys
     dropped), best first; an empty list when nothing fits. Raises NotAVolume
     for a mesh a boolean cannot work on."""
@@ -680,9 +726,10 @@ if __name__ == "__main__":
     import sys
     import time
     if len(sys.argv) < 3:
-        sys.exit("usage: engrave.py <part.stl> <UID> [out_dir]")
+        sys.exit(r"usage: engrave.py <part.stl> <TEXT> [out_dir]   (\n in TEXT is a soft break)")
     t0 = time.time()
-    res = stamp(sys.argv[1], sys.argv[2], sys.argv[3] if len(sys.argv) > 3 else ".",
+    res = stamp(sys.argv[1], sys.argv[2].replace(r"\n", "\n"),
+                sys.argv[3] if len(sys.argv) > 3 else ".",
                 os.path.splitext(os.path.basename(sys.argv[1]))[0])
     for r in res:
         print(f"{r['face']:16} {r['cap']} mm x {r['depth']} deep  normal {r['normal']}  center {r['center']}"

@@ -4437,8 +4437,8 @@
 		},
 		{
 			"id": "ctrl-board-mount",
-			"uid": "rns2",
-			"version": "2",
+			"uid": "60ni",
+			"version": "3",
 			"name": "basically Embedded Control Board Housing",
 			"description": "The basically Embedded Control Board closed into a two-part printed housing that bolts to the 2020 extrusion. The board screws straight to the base \u2014 no bracket, no standoffs \u2014 and the cover carries a 40 mm 24 V fan and a plunger that reaches the board's reset button from outside.",
 			"docs": "/hardware/electronics/installation/control-board-housing/",
@@ -4480,7 +4480,7 @@
 					"qty": 1
 				},
 				{
-					"part": "scr-m3-12-bhcs",
+					"part": "scr-m3-16-shcs",
 					"qty": 4
 				},
 				{
@@ -4495,7 +4495,7 @@
 			"joining": [
 				{
 					"method": "self-tap",
-					"note": "The fan's four [[hw:scr-m3-12-bhcs]] cut their own threads in the cover; no inserts there."
+					"note": "The fan's four [[hw:scr-m3-16-shcs]] cut their own threads in the cover's bosses; no inserts there."
 				}
 			],
 			"versions": [
@@ -4554,7 +4554,77 @@
 					"uid": "rns2",
 					"date": "2026-08-23",
 					"message": "The printed housing replaces the bracket and standoffs. The board bolts straight to the base on four of its eight heat inserts; the cover closes onto the other four, carries the 40 mm 24 V fan on self-tapping M3 \u00d7 12 mm button heads, and holds a plunger over the board's reset button. Adopted from candidate rns2 after a test print.",
-					"commit": "9ff8a1e3"
+					"commit": "9ff8a1e3",
+					"lines": [
+						{
+							"part": "ctrl-board-housing-base",
+							"qty": 1,
+							"uid": "204b"
+						},
+						{
+							"part": "ctrl-board-basically",
+							"qty": 1,
+							"uid": "yugu"
+						},
+						{
+							"part": "scr-m3-6-bhcs",
+							"qty": 4,
+							"uid": "e04c"
+						},
+						{
+							"part": "ctrl-board-housing-cover",
+							"qty": 1,
+							"uid": "ksh2"
+						},
+						{
+							"part": "scr-m3-12-cs",
+							"qty": 4,
+							"uid": "0a9x"
+						},
+						{
+							"part": "ctrl-board-housing-plunger",
+							"qty": 1,
+							"uid": "cljt"
+						},
+						{
+							"part": "ctrl-board-housing-plunger-retainer",
+							"qty": 1,
+							"uid": "g9sx"
+						},
+						{
+							"part": "scr-m3-8-cs",
+							"qty": 2,
+							"uid": "l6br"
+						},
+						{
+							"part": "fan-40mm-24v",
+							"qty": 1,
+							"uid": "7o57"
+						},
+						{
+							"part": "scr-m3-12-bhcs",
+							"qty": 4,
+							"uid": "izrb"
+						},
+						{
+							"part": "scr-m5-16-shcs",
+							"qty": 2,
+							"uid": "2e0s"
+						},
+						{
+							"part": "tnut-m5-2020",
+							"qty": 2,
+							"uid": "bpwm"
+						}
+					]
+				},
+				{
+					"version": "3",
+					"uid": "60ni",
+					"date": "2026-09-12",
+					"message": "The fan's four screws go from M3 \u00d7 12 mm to M3 \u00d7 16 mm. The cover's fan bosses are 2.5 mm tall nubs standing off the inner face of the lid, each on a 2.5 mm pilot hole that runs 6.5 mm deep in total (2.5 mm through the nub, 4 mm into the 5 mm lid plate) and is blind with 1 mm of lid above it. The 4010 fan is 10 mm thick, so a 12 mm screw reaches only 2 mm in and takes the whole of that in the nub, whose wall is 1.75 mm; a 16 mm screw engages 6 mm, through the nub and 3.5 mm into the solid lid, stopping 0.5 mm short of the blind end. Reported from a build where a nub snapped off under a 12 mm screw. Nothing else in the assembly changes.",
+					"breaking": false,
+					"commit": null
 				}
 			]
 		},
@@ -16839,10 +16909,10 @@
 			"folder": null,
 			"variant_group": null,
 			"variant_name": null,
-			"description": "Cover of the basically Embedded Control Board housing. Screws to the base with four M3 \u00d7 12 mm countersunk screws, carries the 40 mm 24 V fan on four self-tapping M3 \u00d7 12 mm button head screws, and the plunger passes through it.",
+			"description": "Cover of the basically Embedded Control Board housing. Screws to the base with four M3 \u00d7 12 mm countersunk screws, carries the 40 mm 24 V fan on four self-tapping M3 \u00d7 16 mm socket/button head screws, and the plunger passes through it.",
 			"version": "1",
 			"created_at": "2026-08-22",
-			"updated_at": "2026-08-23",
+			"updated_at": "2026-09-12",
 			"versions": [
 				{
 					"version": "1",
@@ -20544,10 +20614,10 @@
 			},
 			"name": "M3 \u00d7 16 mm socket/button head",
 			"category": "Screws",
-			"description": "No longer the C-channel stepper screw \u2014 those are countersunk (scr-m3-16-cs). Holds the 40 mm fan arm to the Orange Pi mount (2, into the mount's front-edge inserts) and the fan to the arm (4, self-tapping). The top-interface docs call for 2 to mount the roller-lever limit switch into its housing's inserts, though the limit-switch assembly records M3 \u00d7 12 button heads for that joint \u2014 one of the two is wrong; settle it at the bench.",
+			"description": "No longer the C-channel stepper screw \u2014 those are countersunk (scr-m3-16-cs). Holds the 40 mm fan arm to the Orange Pi mount (2, into the mount's front-edge inserts), the fan to the arm (4, self-tapping), and the 40 mm fan to the control board housing cover (4, self-tapping into the cover's bosses). The top-interface docs call for 2 to mount the roller-lever limit switch into its housing's inserts, though the limit-switch assembly records M3 \u00d7 12 button heads for that joint \u2014 one of the two is wrong; settle it at the bench.",
 			"note": null,
 			"created_at": "2026-07-18",
-			"updated_at": "2026-09-01",
+			"updated_at": "2026-09-12",
 			"attributes": [
 				{
 					"label": "Thread",
@@ -23336,10 +23406,10 @@
 			},
 			"name": "40 mm 24 V fan (WINSINN 4010)",
 			"category": "Electronics",
-			"description": "40 x 40 x 10 mm axial fan, 24 V, on the control board housing cover; mounted with four self-tapping M3 \u00d7 12 mm button head screws. Comes with an XH2.54 2-pin lead, which plugs straight into one of the board's LED ports.",
+			"description": "40 x 40 x 10 mm axial fan, 24 V, on the control board housing cover; mounted with four self-tapping M3 \u00d7 16 mm socket/button head screws. Comes with an XH2.54 2-pin lead, which plugs straight into one of the board's LED ports.",
 			"note": null,
 			"created_at": "2026-08-22",
-			"updated_at": "2026-08-23",
+			"updated_at": "2026-09-12",
 			"attributes": [
 				{
 					"label": "Size",

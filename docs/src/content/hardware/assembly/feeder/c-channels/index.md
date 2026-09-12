@@ -41,7 +41,7 @@ Each page ends in one of these.
     <figcaption><a href="{{ '/hardware/assembly/feeder/c-channels/feeder-channels/' | relative_url }}">Feeder channel</a>, rotor in. <cite>Photo: BrickCycleAlice.</cite></figcaption>
   </figure>
   <figure>
-    <img src="https://assets.basically.website/sorter-docs/classification-channel-finned-rotor-render-full-af779c513f96.png" alt="Render of the classification channel from above: the finned rotor sitting down in the stator ring, its six fins running from the centre out to the rim, with the NEMA bracket showing at one side">
-    <figcaption><a href="{{ '/hardware/assembly/feeder/c-channels/classification-channel/' | relative_url }}">Classification channel</a>, the finned rotor in. <cite>Rendered from the part geometry, not from a build. Render: Balloon.</cite></figcaption>
+    <img src="https://assets.basically.website/sorter-docs/assembly-c-channel-stator-and-rotor-fitted-w1600-60758bbee2d5.jpg" alt="A classification channel from above on a plain surface: the finned rotor sitting down in the grey stator ring, its fins running from the centre bore out to the rim, with the stepper motor at one side">
+    <figcaption><a href="{{ '/hardware/assembly/feeder/c-channels/classification-channel/' | relative_url }}">Classification channel</a>, the finned rotor in. <cite>Photo: BrickCycleAlice.</cite></figcaption>
   </figure>
 </div>

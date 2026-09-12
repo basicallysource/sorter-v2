@@ -15,10 +15,13 @@ request through HiveTelemetryClient with that field declared.
 from __future__ import annotations
 
 import json
+import logging
 from pathlib import Path
 from typing import Any
 
 import requests
+
+log = logging.getLogger(__name__)
 
 TELEMETRY_FIELDS: tuple[dict[str, Any], ...] = (
     {
@@ -138,6 +141,47 @@ class TelemetryBlocked(Exception):
         self.field = field
 
 
+# Hive's own limits for a sync row's file (services/storage.py: MAX_FILE_SIZE for
+# images, MAX_CONTROL_DATA_FILE_SIZE for control data), under the 100 MB body
+# limit of the Cloudflare proxy in front of it. Hive cannot accept anything
+# larger, and a file far larger has a corrupted size (seen on a failing SD card:
+# 1 KB crops reporting 2 GB to 6 TB) that would pull that much into memory on
+# every retry.
+MAX_SYNC_IMAGE_BYTES = 10 * 1024 * 1024
+MAX_SYNC_SEGMENT_BYTES = 90 * 1024 * 1024
+
+# The leading bytes Hive checks before it accepts a file.
+_JPEG_MAGIC = b"\xff\xd8\xff"
+_GZIP_MAGIC = b"\x1f\x8b"
+
+
+def _readSyncFile(file_path: Path | None, expected_bytes: Any, magic: bytes, max_bytes: int) -> bytes | None:
+    """Return the file to upload with a sync row, or None to send the row
+    metadata-only: the file is missing, unreadable, not the size the row
+    recorded, over max_bytes, or not the format Hive accepts. Hive would refuse
+    it (413/400) and the sync would retry that row forever."""
+    if file_path is None:
+        return None
+    try:
+        if not file_path.is_file():
+            return None
+        size = file_path.stat().st_size
+        if size > max_bytes:
+            problem = f"is {size} bytes, over the {max_bytes} limit"
+        elif isinstance(expected_bytes, int) and not isinstance(expected_bytes, bool) and expected_bytes > 0 and size != expected_bytes:
+            problem = f"is {size} bytes, {expected_bytes} recorded"
+        else:
+            with open(file_path, "rb") as handle:
+                data = handle.read()
+            if data.startswith(magic):
+                return data
+            problem = "is not the expected format"
+    except OSError as exc:
+        problem = f"is unreadable ({exc.strerror or exc})"
+    log.warning("hive_sync: sending %s metadata-only: file %s", file_path, problem)
+    return None
+
+
 class HiveTelemetryClient:
     def __init__(self, url: str, api_token: str, target_id: str) -> None:
         self._url = url.rstrip("/")
@@ -161,6 +205,31 @@ class HiveTelemetryClient:
         response = self._session.request(method, f"{self._url}{path}", timeout=timeout, **kwargs)
         response.raise_for_status()
         return response
+
+    def _postSyncRow(
+        self,
+        path: str,
+        *,
+        fields: tuple[str, ...],
+        meta: dict[str, Any],
+        files: dict[str, Any] | None,
+        timeout: float,
+    ) -> requests.Response:
+        data = {"metadata": json.dumps(meta)}
+        try:
+            return self._request("POST", path, fields=fields, data=data, files=files, timeout=timeout)
+        except requests.HTTPError as exc:
+            status = exc.response.status_code if exc.response is not None else None
+            if files is None or status not in (400, 413):
+                raise
+        # Hive refused the file itself (too large, or not a valid image). Send the
+        # row without it so one bad file cannot stall the sync. A metadata problem
+        # fails again here and backs off as before.
+        log.warning(
+            "hive_sync: %s refused the file for local_id %s (HTTP %s); sending the row metadata-only",
+            path, meta.get("local_id"), status,
+        )
+        return self._request("POST", path, fields=fields, data=data, files=None, timeout=timeout)
 
     def getSyncState(self) -> dict[str, Any]:
         return self._request("GET", "/api/machine/sync/state", fields=(), timeout=15).json()
@@ -186,46 +255,34 @@ class HiveTelemetryClient:
         return int(response.json()["max_local_id"])
 
     def pushPieceImage(self, meta: dict[str, Any], file_path: Path | None) -> int:
-        files = None
-        if file_path is not None and file_path.is_file():
-            with open(file_path, "rb") as handle:
-                files = {"image": (file_path.name, handle.read(), "image/jpeg")}
-        response = self._request(
-            "POST",
+        image = _readSyncFile(file_path, meta.get("bytes"), _JPEG_MAGIC, MAX_SYNC_IMAGE_BYTES)
+        response = self._postSyncRow(
             "/api/machine/sync/piece-image",
             fields=("detection_images",),
-            data={"metadata": json.dumps(meta)},
-            files=files,
+            meta=meta,
+            files={"image": (file_path.name, image, "image/jpeg")} if image is not None else None,
             timeout=60,
         )
         return int(response.json()["max_local_id"])
 
     def pushChannelCrop(self, meta: dict[str, Any], file_path: Path | None) -> int:
-        files = None
-        if file_path is not None and file_path.is_file():
-            with open(file_path, "rb") as handle:
-                files = {"image": (file_path.name, handle.read(), "image/jpeg")}
-        response = self._request(
-            "POST",
+        image = _readSyncFile(file_path, meta.get("bytes"), _JPEG_MAGIC, MAX_SYNC_IMAGE_BYTES)
+        response = self._postSyncRow(
             "/api/machine/sync/channel-crop",
             fields=("upstream_channel_crops",),
-            data={"metadata": json.dumps(meta)},
-            files=files,
+            meta=meta,
+            files={"image": (file_path.name, image, "image/jpeg")} if image is not None else None,
             timeout=60,
         )
         return int(response.json()["max_local_id"])
 
     def pushControlDataSegment(self, meta: dict[str, Any], file_path: Path | None) -> int:
-        files = None
-        if file_path is not None and file_path.is_file():
-            with open(file_path, "rb") as handle:
-                files = {"data": (file_path.name, handle.read(), "application/gzip")}
-        response = self._request(
-            "POST",
+        segment = _readSyncFile(file_path, meta.get("bytes"), _GZIP_MAGIC, MAX_SYNC_SEGMENT_BYTES)
+        response = self._postSyncRow(
             "/api/machine/sync/control-data-segment",
             fields=("feeder_dynamics",),
-            data={"metadata": json.dumps(meta)},
-            files=files,
+            meta=meta,
+            files={"data": (file_path.name, segment, "application/gzip")} if segment is not None else None,
             timeout=120,
         )
         return int(response.json()["max_local_id"])

@@ -3,6 +3,8 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
+import requests
+
 import hive_telemetry
 from hive_telemetry import (
     HiveTelemetryClient,
@@ -264,3 +266,120 @@ class ChokePointTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+_JPEG = b"\xff\xd8\xff" + b"\x00" * 16 + b"\xff\xd9"
+
+
+class _StatusResponse(_FakeResponse):
+    def __init__(self, payload: dict, status: int) -> None:
+        super().__init__(payload)
+        self.status_code = status
+
+    def raise_for_status(self) -> None:
+        if self.status_code >= 400:
+            raise requests.HTTPError(str(self.status_code), response=self)  # type: ignore[arg-type]
+
+
+class _RefusingSession(_RecordingSession):
+    """Answers `status` to requests that carry a file (or to every request)."""
+
+    def __init__(self, payload: dict, status: int, refuse_all: bool = False) -> None:
+        super().__init__(payload)
+        self.status = status
+        self.refuse_all = refuse_all
+
+    def request(self, method: str, url: str, **kwargs) -> _FakeResponse:
+        self.calls.append({"method": method, "url": url, **kwargs})
+        if self.refuse_all or kwargs.get("files"):
+            return _StatusResponse(self.payload, self.status)
+        return _FakeResponse(self.payload)
+
+
+class SyncFileGuardTests(unittest.TestCase):
+    def _push_image(self, client: HiveTelemetryClient, content: bytes | None = None, *, recorded: int | None = None, sparse: int | None = None) -> int:
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "00_c4_burst.jpg"
+            if sparse is not None:
+                with open(path, "wb") as handle:
+                    handle.truncate(sparse)
+            else:
+                path.write_bytes(content or b"")
+            size = path.stat().st_size
+            meta = {"local_id": 7, "bytes": size if recorded is None else recorded}
+            with patch.object(hive_telemetry, "getTargetTelemetrySettings", return_value=_settings()):
+                return client.pushPieceImage(meta, path)
+
+    def test_valid_jpeg_is_uploaded(self) -> None:
+        client, session = _client_with_session()
+        self._push_image(client, _JPEG)
+        self.assertEqual(_JPEG, session.calls[0]["files"]["image"][1])
+
+    def test_file_over_the_limit_is_not_read(self) -> None:
+        client, session = _client_with_session()
+        with patch.object(hive_telemetry, "open", side_effect=AssertionError("must not read"), create=True):
+            self._push_image(client, sparse=hive_telemetry.MAX_SYNC_IMAGE_BYTES + 1)
+        self.assertEqual(1, len(session.calls))
+        self.assertIsNone(session.calls[0]["files"])
+
+    def test_size_differing_from_recorded_is_sent_metadata_only(self) -> None:
+        client, session = _client_with_session()
+        self._push_image(client, _JPEG, recorded=len(_JPEG) + 3)
+        self.assertIsNone(session.calls[0]["files"])
+
+    def test_non_jpeg_contents_are_sent_metadata_only(self) -> None:
+        client, session = _client_with_session()
+        self._push_image(client, b"\x00\x13garbage from a bad card")
+        self.assertIsNone(session.calls[0]["files"])
+        self.assertIn("metadata", session.calls[0]["data"])
+
+    def test_missing_file_is_sent_metadata_only(self) -> None:
+        client, session = _client_with_session()
+        with patch.object(hive_telemetry, "getTargetTelemetrySettings", return_value=_settings()):
+            client.pushPieceImage({"local_id": 7, "bytes": 10}, Path("/nonexistent/00_c4_burst.jpg"))
+        self.assertIsNone(session.calls[0]["files"])
+
+    def test_refused_file_is_resent_metadata_only(self) -> None:
+        for status in (400, 413):
+            client = HiveTelemetryClient("https://hive.example", "token", "target-a")
+            session = _RefusingSession({"max_local_id": 7}, status)
+            client._session = session  # type: ignore[assignment]
+            self.assertEqual(7, self._push_image(client, _JPEG))
+            self.assertEqual(2, len(session.calls))
+            self.assertIsNotNone(session.calls[0]["files"])
+            self.assertIsNone(session.calls[1]["files"])
+
+    def test_refused_metadata_still_raises(self) -> None:
+        client = HiveTelemetryClient("https://hive.example", "token", "target-a")
+        client._session = _RefusingSession({"max_local_id": 7}, 400, refuse_all=True)  # type: ignore[assignment]
+        with self.assertRaises(requests.HTTPError):
+            self._push_image(client, _JPEG)
+
+    def test_other_errors_are_not_retried(self) -> None:
+        client = HiveTelemetryClient("https://hive.example", "token", "target-a")
+        session = _RefusingSession({"max_local_id": 7}, 500)
+        client._session = session  # type: ignore[assignment]
+        with self.assertRaises(requests.HTTPError):
+            self._push_image(client, _JPEG)
+        self.assertEqual(1, len(session.calls))
+
+    def test_control_data_needs_gzip_contents(self) -> None:
+        for content, uploaded in ((b"\x1f\x8b\x08rest", True), (b"not gzip", False)):
+            client, session = _client_with_session()
+            with tempfile.TemporaryDirectory() as tmp:
+                path = Path(tmp) / "segment.jsonl.gz"
+                path.write_bytes(content)
+                with patch.object(hive_telemetry, "getTargetTelemetrySettings", return_value=_settings()):
+                    client.pushControlDataSegment({"local_id": 3, "bytes": len(content)}, path)
+            self.assertEqual(uploaded, session.calls[0]["files"] is not None)
+
+    def test_segment_may_exceed_the_image_limit(self) -> None:
+        client, session = _client_with_session()
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "segment.jsonl.gz"
+            with open(path, "wb") as handle:
+                handle.write(b"\x1f\x8b\x08")
+                handle.truncate(hive_telemetry.MAX_SYNC_IMAGE_BYTES + 1)
+            with patch.object(hive_telemetry, "getTargetTelemetrySettings", return_value=_settings()):
+                client.pushControlDataSegment({"local_id": 3, "bytes": path.stat().st_size}, path)
+        self.assertIsNotNone(session.calls[0]["files"])

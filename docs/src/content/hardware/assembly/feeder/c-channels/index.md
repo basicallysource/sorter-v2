@@ -7,7 +7,7 @@ slug: assembly-c-channels
 kicker: Feeder — C-channels
 lede: Four drive stages on one common core, each finished differently for the job it does.
 permalink: /hardware/assembly/feeder/c-channels/
-og_image: https://assets.basically.website/sorter-docs/assembly-channel-core-single-top-full-6dbc4b7bb3a0.jpg
+og_image: https://assets.basically.website/sorter-docs/assembly-channel-core-cutout-full-538336057944.jpg
 author: spencer
 contributors: [barthel, brickcyclealice, christoph, danny]
 ---
@@ -32,7 +32,7 @@ Each page ends in one of these.
 
 <div class="img-row">
   <figure>
-    <img src="https://assets.basically.website/sorter-docs/assembly-channel-core-single-top-full-6dbc4b7bb3a0.jpg" alt="A single C-channel core seen from above: the stator ring with its exit opening, the three-armed NEMA bracket fastened across it, the raised hub at its centre and the stepper motor on the far side, with no rotor fitted">
+    <img src="https://assets.basically.website/sorter-docs/assembly-channel-core-cutout-full-538336057944.jpg" alt="A single C-channel core seen from above on a plain background: the stator ring with its exit opening, the three-armed NEMA bracket fastened across it, the raised hub at its centre and the stepper motor on the far side, with no rotor fitted">
     <figcaption><a href="{{ '/hardware/assembly/feeder/c-channels/channel-core/' | relative_url }}">Channel core</a>, no rotor in it yet. <cite>Photo: BrickCycleAlice.</cite></figcaption>
   </figure>
   <figure>

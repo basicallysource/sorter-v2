@@ -59,8 +59,6 @@ C2 and C3 are the two metering stages. Each takes a part from the channel above,
 
 {% include step.html n="1" title="Preparation" %}
 
-**No heat inserts.** The screws cut their own thread in printed plastic. Stop as soon as one seats.
-
 <div class="prep-item">
   <div class="prep-item-body">
     <p><strong>Output gear (130T):</strong> press the 6806-2RS bearing into it. No screw, no glue, no heat.</p>
@@ -68,15 +66,6 @@ C2 and C3 are the two metering stages. Each takes a part from the channel above,
   <figure class="prep-item-figure">
     <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-c-channel-output-gear-bearing-pressed-w1600-238c650067c4.jpg" alt="The 130-tooth output gear lying flat with a black-sealed 6806 bearing pressed into its six-spoke hub">
     <figcaption>The output gear with its bearing pressed home. <cite>Photo: BrickCycleAlice.</cite></figcaption>
-  </figure>
-</div>
-
-<div class="prep-item">
-  <div class="prep-item-body">
-    <p><strong>Short and Angled Output Guide:</strong> no heat inserts and no screws of its own. Prints ash grey.</p>
-  </div>
-  <figure class="prep-item-figure">
-    <div class="img-placeholder">Image coming</div>
   </figure>
 </div>
 

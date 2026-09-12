@@ -26,15 +26,15 @@ parts_needed:
 
 <div class="prep-item">
   <div class="prep-item-body">
-    <p><strong>Build all four <a href="{{ '/hardware/assembly/feeder/c-channel/' | relative_url }}">C-channels</a> before you start.</strong> They're required components of this page, not optional or covered here — this page arranges and heights four already-built channels, it doesn't build them. Three with the faceted rotor, one with the finned one.</p>
+    <p><strong>Build all four <a href="{{ '/hardware/assembly/feeder/c-channels/' | relative_url }}">C-channels</a> before you start.</strong> They're required components of this page, not optional or covered here — this page arranges and heights four already-built channels, it doesn't build them. Three with the faceted rotor, one with the finned one.</p>
   </div>
   <figure class="prep-item-figure">
     <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-c-channel-finished-stage-w1600-9bd3719c4180.jpg" alt="A finished C-channel: the grey finned rotor sitting down in the grey stator ring, with the stepper motor and its lead standing off one side">
-    <figcaption>A finished C-channel, from the C-channel page. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+    <figcaption>A finished C-channel, from the C-channels pages. <cite>Photo: BrickCycleAlice.</cite></figcaption>
   </figure>
 </div>
 
-Four [C-channels]({{ '/hardware/assembly/feeder/c-channel/' | relative_url }}) are built the same way and then stood at different heights, so a part cascades from one to the next under gravity and arrives at the [interface]({{ '/hardware/assembly/distribution/top-interface/' | relative_url }}) singulated.
+Four [C-channels]({{ '/hardware/assembly/feeder/c-channels/' | relative_url }}) are built on the same core and then stood at different heights, so a part cascades from one to the next under gravity and arrives at the [interface]({{ '/hardware/assembly/distribution/top-interface/' | relative_url }}) singulated.
 
 C1, C2 and C3 each stand on the same three-piece support structure: a **Layout guide** it stands on, three **support legs** standing in that, and a **Support dovetail adapter** on top of each leg that slides up into the C-channel drive from below. The legs are the only thing that differs between the three channels, and their lengths are what set the drop between one channel and the next. The classification channel has no support structure of its own: it stands on the top plate and is located by C3's layout guide (step 6), and it goes in before the other three.
 
@@ -45,10 +45,10 @@ C1, C2 and C3 each stand on the same three-piece support structure: a **Layout g
 
 Steps below refer to the channels by the names the software uses, in the order a part travels:
 
-- **C1**, the bulk channel, under the [bulk input]({{ '/hardware/assembly/feeder/bulk-input/' | relative_url }}). Highest.
+- **C1**, the [bulk channel]({{ '/hardware/assembly/feeder/c-channels/bulk-channel/' | relative_url }}), where parts go in. Highest.
 - **C2**, with a [camera lamp]({{ '/hardware/assembly/feeder/camera-lamp/' | relative_url }}).
 - **C3**, the same again, and the last metering stage.
-- **The classification channel**, inside the [classification chamber]({{ '/hardware/assembly/feeder/classification-chamber/' | relative_url }}), which images the part before it drops into the chute. Lowest.
+- **The [classification channel]({{ '/hardware/assembly/feeder/c-channels/classification-channel/' | relative_url }})**, which images the part before it drops into the chute. Lowest.
 
 **The camera lamps go on here**, once the channels are standing in their places rather than while a channel is on the bench: each one hangs off the dovetail on the bottom of its arm mount, onto the bottom of that channel's NEMA bracket. C2, C3 and the classification channel take one each. See [camera lamp]({{ '/hardware/assembly/feeder/camera-lamp/' | relative_url }}).
 
@@ -171,7 +171,7 @@ Put all three on the [top interface]({{ '/hardware/assembly/distribution/top-int
 </div>
 
 <div class="callout">
-  <p>Don't add more drop than this to fix bouncing. A part is supposed to arrive at the next rotor with most of its energy gone; a bigger drop makes pieces bounce further and re-clump, which is the problem the cascade exists to solve. If parts are riding round a channel instead of leaving it, that's the <a href="{{ '/hardware/assembly/feeder/output-guides/' | relative_url }}">output guide</a>'s job, not the height's.</p>
+  <p>Don't add more drop than this to fix bouncing. A part is supposed to arrive at the next rotor with most of its energy gone; a bigger drop makes pieces bounce further and re-clump, which is the problem the cascade exists to solve. If parts are riding round a channel instead of leaving it, that's the <a href="{{ '/hardware/assembly/feeder/c-channels/feeder-channels/' | relative_url }}">output guide</a>'s job, not the height's.</p>
 </div>
 
 {% include step.html n="6" title="Install the classification channel" %}
@@ -206,13 +206,13 @@ The rotors are out of both photographs below, which is the only way to see the j
 
 With the channels standing, drop the rotor units in and fit the output guides at the same time. <cite>Order: BrickCycleAlice.</cite>
 
-One [output guide]({{ '/hardware/assembly/feeder/output-guides/' | relative_url }}) on C2 and one on C3. Each belongs to the channel it is mounted on, not to the gap between two; C1 and the classification channel take none.
+One [output guide]({{ '/hardware/assembly/feeder/c-channels/feeder-channels/' | relative_url }}) on C2 and one on C3. Each belongs to the channel it is mounted on, not to the gap between two; C1 and the classification channel take none.
 
 <div class="img-placeholder">Image coming</div>
 
 {% include step.html n="9" title="Add the bulk input and the camera lamps" %}
 
-[Bulk input]({{ '/hardware/assembly/feeder/bulk-input/' | relative_url }}) on C1. A [camera lamp]({{ '/hardware/assembly/feeder/camera-lamp/' | relative_url }}) on C2 and on C3 — C1 has neither a lamp nor an output guide, because it's fed in bulk and nothing reads vision off it.
+The [bulk cap and bucket]({{ '/hardware/assembly/feeder/c-channels/bulk-channel/' | relative_url }}) on C1. A [camera lamp]({{ '/hardware/assembly/feeder/camera-lamp/' | relative_url }}) on C2 and on C3 — C1 has neither a lamp nor an output guide, because it's fed in bulk and nothing reads vision off it.
 
 <div class="img-placeholder">Image coming</div>
 

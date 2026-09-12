@@ -6475,7 +6475,7 @@
       "version": "4",
       "name": "C-channel 4 - Classification",
       "description": "The lowest channel, where classification happens: a C-channel drive with the finned rotor and a Camera lamp carrying the IMX415 4K camera. No output guide: the rotor's fins sweep through where one would sit.",
-      "docs": "/hardware/assembly/feeder/classification-chamber/",
+      "docs": "/hardware/assembly/feeder/c-channels/classification-channel/",
       "versions": [
         {
           "version": "1",
@@ -7539,7 +7539,7 @@
       "version": "5",
       "name": "C-channel 1 - Bulk bucket",
       "description": "The top channel, where bulk is dumped in: a C-channel drive with the faceted rotor and the Bulk cap, standing on the tallest supports. No output guide: the Bulk cap has one built into it. No camera lamp either: C1 is fed in bulk and nothing reads vision off it.",
-      "docs": "/hardware/assembly/feeder/bulk-input/",
+      "docs": "/hardware/assembly/feeder/c-channels/bulk-channel/",
       "lines": [
         {
           "assembly": "channel-one-support-structure",
@@ -7725,7 +7725,7 @@
       "version": "4",
       "name": "C-channel 2",
       "description": "A feeder channel: a C-channel drive with the faceted rotor, the Short and Angled Output Guide and a Camera lamp, standing on three supports.",
-      "docs": "/hardware/assembly/feeder/arranging-c-channels/",
+      "docs": "/hardware/assembly/feeder/c-channels/feeder-channels/",
       "lines": [
         {
           "assembly": "channel-two-support-structure",
@@ -7897,7 +7897,7 @@
       "version": "4",
       "name": "C-channel 3",
       "description": "A feeder channel: a C-channel drive with the faceted rotor, the Short and Angled Output Guide and a Camera lamp, standing on three supports.",
-      "docs": "/hardware/assembly/feeder/arranging-c-channels/",
+      "docs": "/hardware/assembly/feeder/c-channels/feeder-channels/",
       "lines": [
         {
           "assembly": "channel-three-support-structure",
@@ -9102,7 +9102,7 @@
       "version": "4",
       "name": "C-channel drive",
       "description": "One C-channel drive unit: stator, NEMA bracket, gear train and stepper. 4 per machine — 3 in the feeder plus the classification channel's. Drives a rotor unit, which differs by location and is not part of this node.",
-      "docs": "/hardware/assembly/feeder/c-channel/",
+      "docs": "/hardware/assembly/feeder/c-channels/channel-core/",
       "versions": [
         {
           "version": "1",
@@ -9359,7 +9359,7 @@
       "version": "2",
       "name": "Rotor unit (faceted)",
       "description": "The faceted rotor with the Output gear (130T) bolted on. Assembled once as a unit; a C-channel drive spins it.",
-      "docs": "/hardware/assembly/feeder/c-channel/",
+      "docs": "/hardware/assembly/feeder/c-channels/",
       "lines": [
         {
           "part": "rotor-faceted",
@@ -9436,7 +9436,7 @@
       "version": "3",
       "name": "Rotor unit (finned)",
       "description": "The finned rotor with the Output gear (130T) bolted on. Assembled once as a unit; the classification channel's C-channel drive spins it.",
-      "docs": "/hardware/assembly/feeder/c-channel/",
+      "docs": "/hardware/assembly/feeder/c-channels/classification-channel/",
       "lines": [
         {
           "part": "rotor-finned",

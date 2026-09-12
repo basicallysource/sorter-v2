@@ -491,6 +491,21 @@
           "bulk-bucket-support"
         ]
       }
+    },
+    {
+      "id": "fillet-fan-boss-roots",
+      "name": "The cover's fan bosses have a sharp root and snap off",
+      "priority": "P0",
+      "condition": "broken",
+      "description": "The four bosses the 40 mm fan screws into on the Control Board Housing cover are plain ⌀6.00 mm cylinders standing 2.5 mm proud of the lid, bored ⌀2.50 mm, so the wall is 1.75 mm and the root where the boss meets the lid is a sharp 90° internal corner with no fillet. One builder broke four of them on a single cover, two of those on an M3 × 6 that should have gone in with room to spare against the 6.5 mm bore. Until the root is filleted, run the four screws by hand, stop as soon as the fan pulls down onto the cover, and back a screw out and clear the hole rather than forcing one that stops early. sorter-v2 issue #645.",
+      "targets": {
+        "parts": [
+          "ctrl-board-housing-cover"
+        ],
+        "assemblies": [
+          "ctrl-board-mount"
+        ]
+      }
     }
   ],
   "folders": [

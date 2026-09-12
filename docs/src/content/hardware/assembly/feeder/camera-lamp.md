@@ -54,15 +54,7 @@ parts_needed:
     qty: 1
 ---
 
-<div class="prep-item">
-  <div class="prep-item-body">
-    <p><strong>Build a <a href="{{ '/hardware/assembly/feeder/c-channel/' | relative_url }}">C-channel</a> before you start.</strong> The lamp hangs over one, on an arm that mounts to it. This page builds the lamp, not the channel.</p>
-  </div>
-  <figure class="prep-item-figure">
-    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-c-channel-finished-stage-w1600-9bd3719c4180.jpg" alt="A finished C-channel: the grey finned rotor sitting down in the grey stator ring, with the stepper motor and its lead standing off one side">
-    <figcaption>A finished C-channel, from the C-channel page. <cite>Photo: BrickCycleAlice.</cite></figcaption>
-  </figure>
-</div>
+The camera lamp is built on the bench, on its own, and hangs over a [C-channel]({{ '/hardware/assembly/feeder/c-channels/' | relative_url }}) later, on an arm that mounts to that channel's NEMA bracket (step 7). Build the lamps before the channels that carry them: they are a required component of two of the channel pages.
 
 The camera lamp is one arm carrying one light and one camera over a channel. The light is a ring of LED strip inside a white reflector, under a grey cover, so what reaches the parts is bounced rather than aimed straight at them, and the camera looks straight down through the hole in the middle of the reflector.
 
@@ -73,7 +65,7 @@ It replaces the [light post]({{ '/hardware/assembly/feeder/light-post/' | relati
   <figcaption>The finished thing, over a channel, lit. <cite>Photo: Spencer.</cite></figcaption>
 </figure>
 
-**The parts list above is one lamp's worth.** A machine takes three lamps, so three of everything on it: C2 and C3 with the OV9732, and the classification channel with the [IMX415]({{ '/hardware/assembly/feeder/classification-chamber/' | relative_url }}) 4K module instead. Everything else is identical between the three. **C1, the bulk bucket, takes no lamp**: it is fed in bulk and nothing reads vision off it.
+**The parts list above is one lamp's worth.** A machine takes three lamps, so three of everything on it: C2 and C3 with the OV9732, and the classification channel with the [IMX415]({{ '/hardware/assembly/feeder/c-channels/classification-channel/' | relative_url }}) 4K module instead. Everything else is identical between the three. **C1, the bulk bucket, takes no lamp**: it is fed in bulk and nothing reads vision off it.
 
 <div class="callout">
   <p><b>If you printed four, one set is spare.</b> The parts list gave C1 a lamp of its own until 2026-09-08, when Jon confirmed the machine takes three. The software agrees: the crop zones are the second channel, the third channel and the classification channel, and nothing reads vision off the bulk channel, so C1 needs neither the lamp nor an OV9732. Question raised by BrickCycleAlice, 2026-09-05.</p>

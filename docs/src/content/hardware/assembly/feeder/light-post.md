@@ -38,15 +38,15 @@ parts_needed:
 
 <div class="prep-item">
   <div class="prep-item-body">
-    <p><strong>Build a <a href="{{ '/hardware/assembly/feeder/c-channel/' | relative_url }}">C-channel</a> before you start.</strong> It's a required component of this page, not optional or covered here — Step 4 bolts the post onto one's NEMA bracket, it doesn't build one.</p>
+    <p><strong>Build a <a href="{{ '/hardware/assembly/feeder/c-channels/channel-core/' | relative_url }}">channel core</a> before you start.</strong> It's a required component of this page, not optional or covered here — Step 4 bolts the post onto one's NEMA bracket, it doesn't build one.</p>
   </div>
   <figure class="prep-item-figure">
     <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-c-channel-finished-stage-w1600-9bd3719c4180.jpg" alt="A finished C-channel: the grey finned rotor sitting down in the grey stator ring, with the stepper motor and its lead standing off one side">
-    <figcaption>A finished C-channel, from the C-channel page. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+    <figcaption>A finished C-channel, from the C-channels pages. <cite>Photo: BrickCycleAlice.</cite></figcaption>
   </figure>
 </div>
 
-The light post is a vertical printed post carrying a 50 mm COB LED plate, which lights the channel from the side so the overhead camera sees parts against an even background. It bolts to a [C-channel]({{ '/hardware/assembly/feeder/c-channel/' | relative_url }})'s NEMA bracket.
+The light post is a vertical printed post carrying a 50 mm COB LED plate, which lights the channel from the side so the overhead camera sees parts against an even background. It bolts to a [C-channel]({{ '/hardware/assembly/feeder/c-channels/' | relative_url }})'s NEMA bracket.
 
 The fasteners and quantities in the parts list come from the parts registry and are called out inline at each step. **The list above is one post's worth**, and the machine takes 2, one each on C2 and C3.
 

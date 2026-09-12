@@ -37,7 +37,6 @@ The channel core is a C-channel with no rotor in it: the stator, the NEMA bracke
 
 {% include fastener-legend.html %}
 
-- **No heat inserts.** Every screw cuts its own thread in printed plastic, except the three that go into the stepper's tapped holes. Stop as soon as a screw seats.
 - **Colours.** The stator is ash grey. The idler and input gears follow the feeder colour, charcoal by default. The NEMA bracket is charcoal on C1 and ash grey on the other three.
 
 {% include step.html n="1" title="Preparation" %}

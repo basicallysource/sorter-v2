@@ -49,8 +49,6 @@ C1 is where unsorted parts go in. A bucket over the channel feeds them onto the 
 
 {% include step.html n="1" title="Preparation" %}
 
-**No heat inserts.** The screws cut their own thread in printed plastic. Stop as soon as one seats.
-
 <div class="prep-item">
   <div class="prep-item-body">
     <p><strong>Output gear (130T):</strong> press the 6806-2RS bearing into it. No screw, no glue, no heat.</p>
@@ -59,29 +57,6 @@ C1 is where unsorted parts go in. A bucket over the channel feeds them onto the 
     <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-c-channel-output-gear-bearing-pressed-w1600-238c650067c4.jpg" alt="The 130-tooth output gear lying flat with a black-sealed 6806 bearing pressed into its six-spoke hub">
     <figcaption>The output gear with its bearing pressed home. <cite>Photo: BrickCycleAlice.</cite></figcaption>
   </figure>
-</div>
-
-<div class="prep-item">
-  <div class="prep-item-body">
-    <p><strong>Bulk cap:</strong> no heat inserts and no screws. It slides onto the stator on a dovetail.</p>
-  </div>
-  <figure class="prep-item-figure">
-    <div class="img-placeholder">Image coming</div>
-  </figure>
-</div>
-
-<div class="prep-item">
-  <div class="prep-item-body">
-    <p><strong>Bulk bucket:</strong> not published yet. There is no file to print and no quantity to give. Ask in the Discord server rather than printing a stand-in.</p>
-  </div>
-  <figure class="prep-item-figure">
-    <div class="img-placeholder">Image coming</div>
-  </figure>
-</div>
-
-<div class="callout callout-warning">
-  <span class="callout-icon" aria-hidden="true">&#9888;</span>
-  <p>Use the current Bulk cap. The v1 dovetail needed too much force to slide on. If yours is a fight, check you have the latest file rather than forcing it.</p>
 </div>
 
 {% include step.html n="2" title="Bolt the output gear to the rotor" %}
@@ -110,6 +85,11 @@ Turn the stage by hand. It should run with no tight spot through a full revoluti
 Slide the Bulk cap onto the stator along its dovetail. No screws.
 
 **Not recorded:** which way it faces relative to the handover to C2.
+
+<div class="callout callout-warning">
+  <span class="callout-icon" aria-hidden="true">&#9888;</span>
+  <p>Use the current Bulk cap. The v1 dovetail needed too much force to slide on. If yours is a fight, check you have the latest file rather than forcing it.</p>
+</div>
 
 <div class="img-placeholder">Image coming</div>
 

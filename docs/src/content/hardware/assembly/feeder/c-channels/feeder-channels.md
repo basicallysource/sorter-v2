@@ -88,6 +88,11 @@ Turn the stage by hand. It should run with no tight spot through a full revoluti
 
 **On the machine this happens later**, once the channels are standing at their heights. See [arranging C-channels]({{ '/hardware/assembly/feeder/arranging-c-channels/' | relative_url }}), step 8.
 
+<figure class="single-figure">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-feeder-channel-rotor-in-full-ecbe7bc09c8e.jpg" alt="A feeder channel seen from above on a plain background: the faceted rotor sitting down in the stator ring, with nothing mounted on the channel">
+  <figcaption>The rotor down in the core. Nothing is mounted on the channel at this stage. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+</figure>
+
 {% include step.html n="4" title="Fit the output guide" %}
 
 The guide is a wall on the channel's exit. Without it a part that does not drop off rides round the rotor again.

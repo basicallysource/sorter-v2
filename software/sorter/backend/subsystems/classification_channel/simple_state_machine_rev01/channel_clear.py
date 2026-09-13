@@ -152,3 +152,88 @@ def clearChannelByAdvancing(
     return ChannelClearResult(
         cleared, True, moved_output_deg, "cleared" if cleared else "budget_exhausted"
     )
+
+
+_SHAKE_JITTER_TIMEOUT_S = 6.0
+
+
+def _waitJitterDone(stepper: Any, timeout_s: float) -> bool:
+    """True once the stepper positively reports the jitter finished. A probe
+    error or the timeout is False: the platter may still be moving, so the
+    caller must not read occupancy or start another stage."""
+    deadline = time.monotonic() + timeout_s
+    probe = getattr(stepper, "is_jittering", None)
+    if not callable(probe):
+        return False
+    while time.monotonic() < deadline:
+        try:
+            if not bool(probe()):
+                return True
+        except Exception:
+            return False
+        time.sleep(0.05)
+    return False
+
+
+def shakeChannelClear(
+    gc: Any,
+    irl: Any,
+    irl_config: Any,
+    *,
+    vision: Any = None,
+    label: str = LOG_TAG,
+) -> ChannelClearResult:
+    """Second stall-recovery action, for a piece that forward rotation cannot
+    move (e.g. a tyre resting on the fall-off lip): walk the exit-release
+    shimmy ladder from irl_config (calm to firm, output degrees), re-checking
+    occupancy after every stage. Blocking; coordinator thread only."""
+    occupied = channelOccupied(gc, vision)
+    if occupied is False:
+        return ChannelClearResult(True, False, 0.0, "already_clear")
+    stepper = _carouselStepper(irl)
+    if stepper is None:
+        return ChannelClearResult(False, bool(occupied), 0.0, "no_stepper")
+    # The ladder lives on the classification-channel config; accept the bare
+    # channel config too (tests, legacy callers).
+    cc = getattr(irl_config, "classification_channel_config", None) or irl_config
+    stages = tuple(getattr(cc, "exit_release_shimmy_stages", None) or ())
+    ratio = float(getattr(cc, "exit_release_shimmy_stepper_per_output_deg", 0.0) or 0.0)
+    if not stages or ratio <= 0.0:
+        return ChannelClearResult(False, True, 0.0, "no_shimmy_config")
+    jitter = getattr(stepper, "jitter_degrees", None)
+    if not callable(jitter):
+        return ChannelClearResult(False, True, 0.0, "no_jitter")
+    if getattr(stepper, "software_disabled", False):
+        # A disabled motor suppresses moves silently (jitter_degrees returns
+        # True without moving); automatic recovery must not pretend it shook.
+        return ChannelClearResult(False, True, 0.0, "stepper_disabled")
+
+    for stage in stages:
+        amplitude_stepper_deg = float(stage.amplitude_output_deg) * ratio
+        gc.logger.info(
+            f"{label} channel shake: stage '{stage.name}' "
+            f"{stage.amplitude_output_deg:.2f}° x{stage.cycles} @ {stage.microsteps_per_second} µsteps/s"
+        )
+        try:
+            ok = bool(jitter(
+                amplitude_stepper_deg,
+                int(stage.cycles),
+                int(stage.microsteps_per_second),
+                int(stage.acceleration_microsteps_per_second_sq),
+            ))
+        except Exception as exc:
+            gc.logger.warning(f"{label} channel shake: jitter failed at '{stage.name}': {exc}")
+            return ChannelClearResult(False, True, 0.0, "jitter_failed")
+        if not ok:
+            return ChannelClearResult(False, True, 0.0, "jitter_failed")
+        if not _waitJitterDone(stepper, _SHAKE_JITTER_TIMEOUT_S):
+            gc.logger.warning(
+                f"{label} channel shake: jitter '{stage.name}' not confirmed finished — holding"
+            )
+            return ChannelClearResult(False, True, 0.0, "jitter_unconfirmed")
+        time.sleep(max(0, int(stage.settle_ms)) / 1000.0)
+        if channelOccupied(gc, vision) is False:
+            gc.logger.info(f"{label} channel shake: channel empty after stage '{stage.name}'")
+            return ChannelClearResult(True, True, 0.0, "shaken_clear")
+    gc.logger.warning(f"{label} channel shake: still occupied after {len(stages)} stages")
+    return ChannelClearResult(False, True, 0.0, "shake_exhausted")

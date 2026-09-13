@@ -39,7 +39,7 @@ parts_needed:
 
 <div class="prep-item">
   <div class="prep-item-body">
-    <p><strong>Build a <a href="{{ '/hardware/assembly/feeder/camera-lamp/' | relative_url }}">camera lamp</a> before you start.</strong> This one carries the <strong>IMX415 4K module</strong>, not the OV9732 that C2 and C3 use. Its parts and screws are on that page.</p>
+    <p><strong>Build a <a href="{{ '/hardware/assembly/feeder/camera-lamp/classification-camera-lamp/' | relative_url }}">classification camera lamp</a> before you start.</strong> This one carries the <strong>IMX415 4K module</strong>, not the OV9732 that C2 and C3 use. Its parts and screws are on that page and on the <a href="{{ '/hardware/assembly/feeder/camera-lamp/lamp-arm/' | relative_url }}">lamp arm</a> page.</p>
   </div>
   <figure class="prep-item-figure">
     <img class="doc-figure" src="https://assets.basically.website/sorter-docs/camera-lamp-on-channel-w1600-8d957377d671.jpg" alt="A camera lamp on the machine: a grey disc-shaped lamp on an angled arm hanging over the open top of a C-channel, the white reflector lit inside it, with the black bulk bucket behind">
@@ -100,7 +100,7 @@ Turn the rotor by hand. It should go all the way round without a tight spot.
 
 {% include step.html n="5" title="Hang the camera lamp" %}
 
-The lamp's arm mount hangs on a dovetail under the channel's NEMA bracket. There is no screw in that joint. The joint itself is step 7 of the [camera lamp]({{ '/hardware/assembly/feeder/camera-lamp/' | relative_url }}) page.
+The lamp's arm mount hangs on a dovetail under the channel's NEMA bracket. There is no screw in that joint. The joint itself is step 4 of the [classification camera lamp]({{ '/hardware/assembly/feeder/camera-lamp/classification-camera-lamp/' | relative_url }}) page.
 
 **Do this with the channel standing where it belongs**, not on the bench. Its height and overhang change what the camera sees.
 

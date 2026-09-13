@@ -57,7 +57,7 @@ Each [camera lamp]({{ '/hardware/assembly/feeder/camera-lamp/' | relative_url }}
 
 ## Build it
 
-1. **Cut the strip on a mark.** 950 mm for a lamp, cut where the strip is printed as cuttable, which leaves half of each copper pad on your piece. The full measurement is on the [camera lamp]({{ '/hardware/assembly/feeder/camera-lamp/' | relative_url }}) page, step 5.
+1. **Cut the strip on a mark.** 950 mm for a lamp, cut where the strip is printed as cuttable, which leaves half of each copper pad on your piece. The full measurement is on the [lamp arm]({{ '/hardware/assembly/feeder/camera-lamp/lamp-arm/' | relative_url }}) page, step 4.
 2. **Clamp the connector onto the pads.** Lift the lid, slide the cut end in until the two pads sit under the sprung contacts, press it shut. The pad printed <code>+24V</code> takes the red side. Nothing to strip, nothing to solder. Soldering to the pads instead is below.
 3. **Clamp the wire into the other end**, red to the <code>+24V</code> side, if you are using the strip-to-wire connector. It bites through the insulation, so the wire does not need stripping either.
 4. **Run the pair out of the reflector and down the arm**, and cable-tie it along the arm so it is not hanging in the channel.

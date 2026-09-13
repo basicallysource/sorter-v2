@@ -10620,7 +10620,7 @@
       "version": "1",
       "name": "Camera lamp arm",
       "description": "The arm that hangs the camera and lamp over a C-channel: the C-channel arm mount, the arm, brackets A and B tying them together, and the camera lamp ring.",
-      "docs": "/hardware/assembly/feeder/camera-lamp/",
+      "docs": "/hardware/assembly/feeder/camera-lamp/lamp-arm/",
       "lines": [
         {
           "part": "c-channel-arm-mount",
@@ -10696,7 +10696,7 @@
       "version": "2",
       "name": "Reflector with LED hooks",
       "description": "The white inner reflector with its six LED hooks friction-fitted on, holding the ring of LED strip.",
-      "docs": "/hardware/assembly/feeder/camera-lamp/",
+      "docs": "/hardware/assembly/feeder/camera-lamp/lamp-arm/",
       "lines": [
         {
           "part": "lamp-inner-reflector",
@@ -10760,7 +10760,7 @@
       "version": "1",
       "name": "Shaded lamp",
       "description": "The channel lamp: the reflector with its LED hooks, under the outer cover.",
-      "docs": "/hardware/assembly/feeder/camera-lamp/",
+      "docs": "/hardware/assembly/feeder/camera-lamp/lamp-arm/",
       "lines": [
         {
           "assembly": "reflector-with-led-hooks",

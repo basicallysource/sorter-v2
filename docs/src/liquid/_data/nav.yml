@@ -92,6 +92,8 @@ sections:
                 url: /hardware/electronics/installation/control-board-housing/
               - title: Orange Pi mount
                 url: /hardware/electronics/installation/orange-pi-mount/
+              - title: Connecting the components
+                url: /hardware/electronics/installation/connecting/
           - title: Stepper connectors
             url: /hardware/electronics/steppers/
           - title: Order spec

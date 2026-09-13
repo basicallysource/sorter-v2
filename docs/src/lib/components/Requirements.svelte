@@ -15,6 +15,29 @@
 		modalOpen = true;
 	}
 
+	/** A length in the unit a person would say it in: millimetres up to a metre,
+	 *  metres past it, so a 1200 mm cable reads "1.2m" and an M3×8 stays "8mm".
+	 *  Mirrors lengthMmText() in the parts calculator's filament.ts. */
+	function lenText(mm: number, space = ''): string {
+		return mm >= 1000 ? `${+(mm / 1000).toFixed(3)}${space}m` : `${mm}${space}mm`;
+	}
+
+	/** What the corner length badge says when the catalog gives a range rather
+	 *  than one length: the ideal is on the badge, this is the popover under it. */
+	function lenNote(part: ResolvedPart): string {
+		const min = part.length_min_mm ?? null;
+		const max = part.length_max_mm ?? null;
+		if (min == null && max == null)
+			return 'Length of this piece — the shared photo stands in for every length.';
+		const range =
+			min != null && max != null
+				? `${lenText(min, ' ')} to ${lenText(max, ' ')}`
+				: min != null
+					? `${lenText(min, ' ')} or longer`
+					: `up to ${lenText(max!, ' ')}`;
+		return `Ideal length. Anything ${range} works here, so buy whatever you can get.`;
+	}
+
 	function fmtClaim(value: unknown): string {
 		if (value == null) return 'none';
 		if (Array.isArray(value)) {
@@ -79,8 +102,7 @@
 										     every cut length of 2020 extrusion, so the length gets stamped on
 										     the corner, as on the parts calculator. -->
 										{#if part.length_mm}<span class="part-card-len part-badge" tabindex="0"
-											>{part.length_mm}mm<span class="part-badge-pop"
-												>Length of this piece — the shared photo stands in for every length.</span
+											>{lenText(part.length_mm)}<span class="part-badge-pop">{lenNote(part)}</span
 											></span
 										>{/if}
 										{#if part.conflicts?.length}<span class="part-card-conflict part-badge" tabindex="0"

@@ -103,6 +103,11 @@ for (const [path, raw] of Object.entries(dataFiles)) {
 			page: h.docs_page,
 			caption: h.caption,
 			length_mm: h.cots?.length_mm,
+			// Set on an item the catalog specifies as a range rather than pinning to
+			// one listing (a ribbon cable): the badge says the ideal, the popover says
+			// what else fits.
+			length_min_mm: h.cots?.length_min_mm ?? null,
+			length_max_mm: h.cots?.length_max_mm ?? null,
 			alternative: h.alternative,
 			conflicts: h.conflicts,
 			detail: {
@@ -369,7 +374,11 @@ export type ResolvedPart = {
 	// Screw length in mm, stamped on the corner of the card image. One photo
 	// stands in for a whole family of screws, so the length is the one thing it
 	// cannot show, the same reason the parts calculator's hardware list carries it.
+	// On an item specified as a range rather than pinned to one listing (a ribbon
+	// cable) this is the ideal length and min/max bound the substitutes.
 	length_mm?: number;
+	length_min_mm?: number | null;
+	length_max_mm?: number | null;
 	// Interchangeable alternative (e.g. socket vs button head): true for a bare
 	// tag, or a string naming the alternative. Renders the green "A" badge.
 	alternative?: string | boolean;
@@ -454,6 +463,8 @@ function resolveParts(partsNeeded: any[]): { groups: PartsGroup[]; conflicts: Re
 			page: part.page,
 			caption: part.caption,
 			length_mm: part.length_mm,
+			length_min_mm: part.length_min_mm,
+			length_max_mm: part.length_max_mm,
 			alternative: part.alternative,
 			conflicts: part.conflicts,
 			detail: part.detail,

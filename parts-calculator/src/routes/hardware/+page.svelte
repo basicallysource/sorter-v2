@@ -30,6 +30,8 @@
 		HARDWARE,
 		hardwareImage,
 		hardwareLengthLabel,
+		hardwareLengthSpec,
+		lengthMmText,
 		hardwareQtySource,
 		hardwareTotalQty,
 		JOIN_LABELS,
@@ -72,6 +74,8 @@
 			h.cots?.size ?? '',
 			h.cots?.variant ?? '',
 			h.cots?.length_mm ? `${h.cots.length_mm}mm` : '',
+			h.cots?.length_mm ? lengthMmText(h.cots.length_mm, '') : '',
+			h.cots?.length_max_mm ? lengthMmText(h.cots.length_max_mm, '') : '',
 			h.cots?.size && h.cots.length_mm ? `${h.cots.size}x${h.cots.length_mm}` : '',
 			...h.attributes.map((a) => `${a.label} ${a.value}`),
 			...assembliesContaining(h.id).map((a) => a.name)
@@ -321,6 +325,7 @@
 	{@const src = qtySource(h)}
 	{@const img = hardwareImage(h)}
 	{@const lengthLabel = hardwareLengthLabel(h)}
+	{@const lengthSpec = hardwareLengthSpec(h)}
 	{@const spots = placementCount.get(h.id) ?? 0}
 	<div
 		id="hardware-{h.id}"
@@ -411,11 +416,17 @@
 				</span>
 			</div>
 			<p class="mt-0.5 text-xs text-text-muted">{h.description}</p>
-			{#if h.attributes?.length}
+			{#if h.attributes?.length || lengthSpec?.range}
 				<!-- specs that pin down which variant to buy. flex-wrap rather than
 				     inline text: each spec stays whole, the row wraps between them. -->
 				<div class="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-text-muted">
-					{#each h.attributes as a}
+					<!-- The corner badge already stamps the ideal length, so this chip
+					     only earns its place when there's a range around it: the point
+					     being that a nearby length is a fine substitute. -->
+					{#if lengthSpec?.range}
+						<span>Length <span class="text-text">{lengthSpec.ideal}</span>, {lengthSpec.range}</span>
+					{/if}
+					{#each h.attributes ?? [] as a}
 						<span>{a.label} <span class="text-text">{a.value}</span></span>
 					{/each}
 				</div>

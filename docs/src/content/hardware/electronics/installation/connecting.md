@@ -376,10 +376,12 @@ That fills the hub: three cameras and the Pico, no spare port.
 
 Before the machine sees mains:
 
-- All three DC leads are in their jacks, and the PSU box is closed.
-- Every stepper plug is fully home, and no plug is hanging on one contact.
-- The ribbon goes from the board to `J3` of the first layer board, and down the stack `J4` to `J3`.
-- Nothing is resting on the fan blades.
+<ol class="numbered-steps">
+  <li>All three DC leads are in their jacks, and the PSU box is closed.</li>
+  <li>Every stepper plug is fully home, and no plug is hanging on one contact.</li>
+  <li>The ribbon goes from the board to <code>J3</code> of the first layer board, and down the stack <code>J4</code> to <code>J3</code>.</li>
+  <li>Nothing is resting on the fan blades.</li>
+</ol>
 
 Then plug the machine in and switch the inlet switch on. The red power light on the Orange Pi comes on. The fan in the housing lid does not run yet, because the software switches it.
 

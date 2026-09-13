@@ -18,48 +18,47 @@ warning: >-
   (step 8). Everything else is measured off the published STLs. Fill the gaps in as you build.
 parts_needed:
   - part: c-channel-arm-mount
-    qty: 3
+    qty: 1
   - part: camera-lamp-arm
-    qty: 3
+    qty: 1
   - part: arm-bracket-a
-    qty: 3
+    qty: 1
   - part: arm-bracket-b
-    qty: 3
+    qty: 1
   - part: camera-lamp-ring
-    qty: 3
+    qty: 1
   - part: camera-clasp-bottom
-    qty: 3
+    qty: 1
   - part: camera-clasp-top
-    qty: 3
+    qty: 1
   - part: lamp-inner-reflector
-    qty: 3
+    qty: 1
   - part: inner-reflector-led-hook
-    qty: 18
+    qty: 6
   - part: lamp-outer-cover
-    qty: 3
-  - part: cam-ov9732
-    qty: 2
-  - part: cam-imx415
     qty: 1
   - part: scr-m3-12-cs
-    qty: 36
+    qty: 12
   - part: scr-m3-8-cs
-    qty: 6
+    qty: 2
   - part: led-strip-24v
-    qty: 3
+    qty: 1
   - part: led-strip-connector-8mm
-    qty: 3
+    qty: 1
   - part: dupont-lead-2p-1m
-    qty: 3
+    qty: 1
 ---
 
 A camera lamp is one arm carrying one light and one camera over a channel. The light is a ring of LED strip inside a white reflector, under a grey cover, so the light reaches a part bounced off the white rather than aimed straight at it. The camera looks down through the hole in the middle of the reflector.
 
-**Build three.** C2, C3 and the classification channel each take one. **The bulk channel (C1) takes none**, because the machine does not look at it.
+**The parts list above is one lamp's worth, and it has no camera in it. Build three lamps**, for C2, C3 and the classification channel. **The bulk channel (C1) takes none**, because the machine does not look at it.
 
-**Two of the three carry the OV9732 camera. The classification channel's carries the IMX415 4K module instead.** Nothing else differs between the three lamps.
+**The cameras, three per machine, one per lamp:**
 
-**The parts list above is the whole machine, all three lamps.** The steps below build one lamp. Repeat them three times, with the right camera in each.
+- **2 × [OV9732 720p camera module](https://parts-calculator.basically.website/part/cam-ov9732)**, on C2 and C3.
+- **1 × [IMX415 4K camera module](https://parts-calculator.basically.website/part/cam-imx415)**, on the classification channel.
+
+Nothing else differs between the three lamps. Build each one by the steps below, with the right camera in it.
 
 <div class="callout">
   <p><b>If you printed four sets, one is spare.</b> The parts list gave C1 a lamp of its own until 2026-09-08. It takes none.</p>

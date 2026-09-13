@@ -6252,7 +6252,6 @@
       "version": "2",
       "name": "Light post",
       "description": "The feeder light post: the post, the 50 mm COB plate on its end lighting down the channel, and the cap adapter and cap over it. 2 per machine, one each on C-channels 2 and 3, bolted to the C-channel drive's NEMA bracket. Unused since 2026-09-02: the Camera lamp replaced the light post, the overhead camera mount, the classification dome and the camera & LED insert. Do not re-add from old docs or photos.",
-      "docs": "/hardware/assembly/feeder/light-post/",
       "lines": [
         {
           "part": "light-post",
@@ -6681,7 +6680,6 @@
       "version": "1",
       "name": "Overhead camera mount",
       "description": "Camera mount for the C-channels. 2 per machine, each hanging off two ~1 ft steel rods. Unused since 2026-09-02: the Camera lamp replaced the light post, the overhead camera mount, the classification dome and the camera & LED insert. Do not re-add from old docs or photos.",
-      "docs": "/hardware/assembly/feeder/camera-mount/",
       "lines": [
         {
           "part": "camera-mount-part-6",
@@ -7013,7 +7011,6 @@
       "version": "2",
       "name": "Camera extension",
       "description": "Classification-channel camera extension for the 4K camera module: the 50 mm extension tube, its mount, and the camera. 1 per machine. Unused since 2026-09-02: the Camera lamp replaced the light post, the overhead camera mount, the classification dome and the camera & LED insert. Do not re-add from old docs or photos.",
-      "docs": "/hardware/assembly/feeder/classification-chamber/",
       "lines": [
         {
           "part": "camera-extension",
@@ -8069,7 +8066,6 @@
       "version": "1",
       "name": "Camera & LED insert assembly",
       "description": "The Camera & LED insert print with the camera extension assembled into it; the loaded insert drops into the classification dome. Unused since 2026-09-02: the Camera lamp replaced the light post, the overhead camera mount, the classification dome and the camera & LED insert. Do not re-add from old docs or photos.",
-      "docs": "/hardware/assembly/feeder/classification-chamber/",
       "lines": [
         {
           "part": "camera-led-insert",

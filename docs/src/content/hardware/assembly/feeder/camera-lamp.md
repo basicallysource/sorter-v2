@@ -66,7 +66,7 @@ Nothing else differs between the three lamps. Build each one by the steps below,
 
 Build the lamps before the channels that carry them: two of the [C-channels]({{ '/hardware/assembly/feeder/c-channels/' | relative_url }}) pages need one to start. A lamp is built on the bench and goes onto its channel later, in step 7.
 
-It replaces the [light post]({{ '/hardware/assembly/feeder/light-post/' | relative_url }}) and the [overhead camera mount]({{ '/hardware/assembly/feeder/camera-mount/' | relative_url }}), which are retired.
+It replaces the light post and the overhead camera mount, the side-light-plus-rod-arm arrangement used before 2026-09-02. Both are retired and no longer documented.
 
 {% include fastener-legend.html %}
 

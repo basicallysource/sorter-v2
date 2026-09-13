@@ -17,5 +17,3 @@ The feeder takes unsorted parts from the bulk input and, through four C-channel 
 3. **[Arranging C-channels]({{ '/hardware/assembly/feeder/arranging-c-channels/' | relative_url }})**, the stands, the heights, and how the four sit together. The rotors, the output guides and the lamps go on here, with the channels standing.
 
 The channel core, the rotor units and the arranging page are written from real builds. The bulk cap, the bucket and the output guide's placement are not: those sections say so at the top of their pages.
-
-Three pages are kept for machines already built to the older arrangement and are not part of the build above: the **[classification chamber]({{ '/hardware/assembly/feeder/classification-chamber/' | relative_url }})**, the **[light post]({{ '/hardware/assembly/feeder/light-post/' | relative_url }})** and the **[overhead camera mount]({{ '/hardware/assembly/feeder/camera-mount/' | relative_url }})**, all replaced by the camera lamp on 2026-09-02.

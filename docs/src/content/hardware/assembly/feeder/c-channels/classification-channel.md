@@ -113,6 +113,6 @@ A channel core with the finned rotor capped and dropped in, and a camera lamp ov
   <figcaption>The finned rotor down in the stator, stepper on the outside. The camera lamp goes on once the channel is standing. <cite>Photo: BrickCycleAlice.</cite></figcaption>
 </figure>
 
-Machines built before 2026-09-02 image this channel with a white dome instead: see [classification chamber]({{ '/hardware/assembly/feeder/classification-chamber/' | relative_url }}).
+Machines built before 2026-09-02 image this channel with a white classification dome and a camera & LED insert instead of a lamp. Those parts are retired and no longer documented; the [camera lamp]({{ '/hardware/assembly/feeder/camera-lamp/' | relative_url }}) replaced them on that date.
 
 Back to [C-channels]({{ '/hardware/assembly/feeder/c-channels/' | relative_url }}).

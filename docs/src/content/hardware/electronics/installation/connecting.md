@@ -114,9 +114,9 @@ Everything in steps 2 to 6 plugs into this board. It is drawn from above, the wa
       <rect x="317.0" y="490.8" width="63.0" height="10.5" rx="2" fill="var(--bg)" stroke="var(--ink)" stroke-width="1" stroke-dasharray="3 3"/>
       <text x="346.4" y="479.0" font-size="10" text-anchor="middle" fill="var(--muted)">J12 · unused PWM</text>
       <rect x="566.5" y="518.5" width="16.8" height="33.6" rx="2" fill="var(--surface)" stroke="var(--primary)" stroke-width="2"/>
-      <path d="M583.3 535.3 L653.0 535.3" stroke="var(--muted)" stroke-width="1" fill="none"/>
-      <text x="661.4" y="512.6" font-size="12" font-weight="700" text-anchor="start" fill="var(--ink)">J1 · 24 V in</text>
-      <text x="661.4" y="527.6" font-size="11" font-weight="400" text-anchor="start" fill="var(--muted)">JST-VH, pin 1 = +24 V</text>
+      <path d="M574.9 552.1 L574.9 569.3 L728.6 569.3" stroke="var(--muted)" stroke-width="1" fill="none"/>
+      <text x="737.0" y="558.8" font-size="12" font-weight="700" text-anchor="start" fill="var(--ink)">J1 · 24 V in</text>
+      <text x="737.0" y="573.8" font-size="11" font-weight="400" text-anchor="start" fill="var(--muted)">JST-VH, pin 1 = +24 V</text>
       <rect x="696.3" y="123.7" width="12.2" height="30.2" rx="2" fill="var(--surface)" stroke="var(--primary)" stroke-width="2"/>
       <path d="M708.4 138.8 L730.4 138.8" stroke="var(--muted)" stroke-width="1" fill="none"/>
       <text x="736.4" y="135.8" font-size="12" font-weight="700" text-anchor="start" fill="var(--ink)">J23 · JST-PH</text>
@@ -137,7 +137,7 @@ Everything in steps 2 to 6 plugs into this board. It is drawn from above, the wa
       <rect x="672.7" y="223.6" width="10.5" height="35.3" rx="2" fill="var(--bg)" stroke="var(--ink)" stroke-width="1" stroke-dasharray="3 3"/>
       <rect x="672.7" y="326.5" width="10.5" height="35.3" rx="2" fill="var(--bg)" stroke="var(--ink)" stroke-width="1" stroke-dasharray="3 3"/>
       <rect x="672.7" y="429.4" width="10.5" height="35.3" rx="2" fill="var(--bg)" stroke="var(--ink)" stroke-width="1" stroke-dasharray="3 3"/>
-      <text x="916" y="596.6" font-size="10" text-anchor="end" fill="var(--muted)">Dashed outlines are parts already on the board. J24 / J28 / J32 / J36 carry the same stepper signals on 2.54 mm pins.</text>
+      <text x="916" y="613.4" font-size="10" text-anchor="end" fill="var(--muted)">Dashed outlines are parts already on the board. J24 / J28 / J32 / J36 carry the same stepper signals on 2.54 mm pins.</text>
     </svg>
   </div>
   <figcaption>basically board v1.3 from above. Red outlines are the sockets a cable plugs into on this page; the parts already fitted to the board are dashed.</figcaption>
@@ -227,9 +227,7 @@ The three leads go to the control board, the USB hub, and the buck converter tha
 
 {% include step.html n="2" title="24 V into the control board" %}
 
-The board's power input is `J1`, the big 2-pin socket in one corner of the board. It is the only connector of that size on the board, and the plug only goes in one way up.
-
-Pin 1 is +24 V and pin 2 is ground. Both pins are fused on the board.
+The board's power input is `J1`, the big 2-pin socket in one corner of the board. It is the only connector of that size on the board, and the plug only goes in one way up. Pin 1 is +24 V and pin 2 is ground, and both are fused on the board.
 
 {% include step.html n="3" title="The five stepper cables" %}
 
@@ -246,9 +244,7 @@ Each stepper has its own socket, and the socket decides which motor the software
   </tbody>
 </table>
 
-Every socket has a row of 2.54 mm pins beside it carrying the same signals, so a cable with a Dupont end goes on those instead: `J24` beside `J23`, `J28` beside `J27`, and so on. `Stepper_A6` is on the far side of the board on its own; the other four are in a row along one edge.
-
-Each socket is wired to the driver printed beside it, so that driver has to carry the address for that stepper. The addresses are set in [preparing the control board]({{ '/hardware/electronics/installation/control-board-prep/' | relative_url }}), step 3.
+Every socket has a row of 2.54 mm pins beside it carrying the same signals, so a cable with a Dupont end goes on those instead: `J24` beside `J23`, `J28` beside `J27`, and so on. `Stepper_A6` is on the far side of the board on its own; the other four are in a row along one edge. Each socket is wired to the driver printed beside it, so that driver has to carry the address for that stepper. The addresses are set in [preparing the control board]({{ '/hardware/electronics/installation/control-board-prep/' | relative_url }}), step 3.
 
 <div class="callout callout-warning">
   <span class="callout-icon" aria-hidden="true">⚠</span>
@@ -257,9 +253,7 @@ Each socket is wired to the driver printed beside it, so that driver has to carr
 
 {% include step.html n="4" title="The chute limit switch" %}
 
-The switch tells the machine where the chute is. Its cable ends in a 3-pin Dupont housing with only two positions filled, and it goes on `J5`, the header the board prints `HALL_SW_0`.
-
-The filled positions are ground and signal. The empty one lines up with the 3.3 V pin, so the housing cannot go on backwards.
+The switch tells the machine where the chute is. Its cable ends in a 3-pin Dupont housing with only two positions filled, and it goes on `J5`, the header the board prints `HALL_SW_0`. The filled positions are ground and signal, and the empty one lines up with the 3.3 V pin, so the housing cannot go on backwards.
 
 At the switch end, push the two #187 tabs onto the switch's `COM` and `NC` terminals. The switch has three tabs and one stays empty. Wired this way the circuit is closed while the lever is free and opens when the chute presses it, which is what the machine expects. If homing runs the wrong way round later, the setting is in the software, not the wiring.
 
@@ -364,10 +358,12 @@ The Orange Pi talks to the control board over USB, through the powered hub. The 
   <figcaption>The Orange Pi 5 from above, in the same orientation as the photo on the <a href="{{ '/hardware/orange-pi-5/' | relative_url }}">Orange Pi 5</a> page. Only the sockets this build uses are marked.</figcaption>
 </figure>
 
-1. Plug the buck converter's USB-C lead into the socket the board prints `PWR IN`. **The Pi has two USB-C sockets that look the same, and the other one is not a power input.** Check that the converter is putting out 5 V before it goes anywhere near the Pi.
-2. Run a USB cable from the Pico's micro USB socket to any port on the hub.
-3. Run a USB cable from the hub to the port marked `UP USB3.0` on the Pi, the upper of the two stacked sockets.
-4. Plug the three cameras into the three remaining hub ports.
+<ol class="numbered-steps">
+  <li>Plug the buck converter's USB-C lead into the socket the board prints <code>PWR IN</code>. <b>The Pi has two USB-C sockets that look the same, and the other one is not a power input.</b> Check that the converter is putting out 5 V before it goes anywhere near the Pi.</li>
+  <li>Run a USB cable from the Pico's micro USB socket to any port on the hub.</li>
+  <li>Run a USB cable from the hub to the port marked <code>UP USB3.0</code> on the Pi, the upper of the two stacked sockets.</li>
+  <li>Plug the three cameras into the three remaining hub ports.</li>
+</ol>
 
 That fills the hub: three cameras and the Pico, no spare port.
 

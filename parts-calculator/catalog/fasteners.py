@@ -4,7 +4,7 @@ A builder holding a printed part wants to know which screw goes in its holes
 without going back to the documentation (asked by ReveryX, 2026-09-12). The
 catalog already knows: every assembly's `connections` are its joints, and each
 one names its fastener in `via`. This turns that graph into one short string
-per part -- "2*M3X12 5*M3X16" -- which engrave.py recesses into a face the
+per part -- "2*M3*12 5*M3*16" -- which engrave.py recesses into a face the
 same way it recesses the uid.
 
 The asterisk separates a count from its screw rather than a space, on
@@ -60,9 +60,15 @@ SCREW_ID = re.compile(r"^scr-m(\d+(?:\.\d+)?)-(\d+)-([a-z]+)$")
 
 
 def designation(part_id: str) -> str | None:
-    """"M3x12" for `scr-m3-12-cs`, or None if the id does not state a size."""
+    """"M3*12" for `scr-m3-12-cs`, or None if the id does not state a size.
+
+    An asterisk rather than an x here too (ReveryX, 2026-09-13): the stamp is
+    engraved in capitals, and an X between two digits is one more letterform
+    to tell apart at 3.5 mm in a 0.6 mm pocket. Spaces separate the groups and
+    asterisks bind within one, so "2*M3*12 5*M3*16" still reads as two
+    groups."""
     m = SCREW_ID.match(part_id)
-    return f"M{m.group(1)}x{m.group(2)}" if m else None
+    return f"M{m.group(1)}*{m.group(2)}" if m else None
 
 
 def _sort_key(part_id: str):
@@ -123,7 +129,7 @@ def counts(catalog: dict) -> dict[str, dict[str, int]]:
 
 
 def lines(fasteners: dict[str, int]) -> list[str] | None:
-    """["2*M3x12", "5*M3x16"] for one part's fasteners, smallest first, or
+    """["2*M3*12", "5*M3*16"] for one part's fasteners, smallest first, or
     None if any of them has no designation to write."""
     if not fasteners or any(designation(f) is None for f in fasteners):
         return None

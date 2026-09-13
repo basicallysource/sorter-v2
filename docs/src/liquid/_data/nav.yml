@@ -60,6 +60,13 @@ sections:
             children:
               - title: Camera lamps
                 url: /hardware/assembly/feeder/camera-lamp/
+                children:
+                  - title: Lamp arm
+                    url: /hardware/assembly/feeder/camera-lamp/lamp-arm/
+                  - title: Feeder camera lamp (C2 and C3)
+                    url: /hardware/assembly/feeder/camera-lamp/feeder-camera-lamp/
+                  - title: Classification camera lamp (C4)
+                    url: /hardware/assembly/feeder/camera-lamp/classification-camera-lamp/
               - title: C-channels
                 url: /hardware/assembly/feeder/c-channels/
                 children:

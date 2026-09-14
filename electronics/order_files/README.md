@@ -28,7 +28,7 @@ Source designs live in `electronics/KiCad/0_Adapter_Board/` and
 | Manufacturer | Service model | Notes |
 |---|---|---|
 | **JLCPCB** | Instant online quote, portal-driven | BOM uses LCSC part numbers; DNP parts (U3, U4, U5) have no LCSC equivalent and must be sourced and fitted separately; D1 is DNP for all manufacturers, see below |
-| **PCBWay** | Manual quote via portal/sales rep | Full turnkey assembly including U3/U4/U5; accepts panel-by-supplier for Adapter Board; D1 and other DNP references confirmed with the manufacturer, see below |
+| **PCBWay** | Manual quote via portal/sales rep | Full turnkey assembly including U3/U4/U5; accepts panel-by-supplier for Adapter Board; D1 and other DNP references confirmed with the manufacturer, see below; Adapter Board DNP correction (J1, J2, J6, J7, R3) confirmed with the manufacturer during sample assembly, see below |
 
 ### European manufacturers
 
@@ -73,6 +73,26 @@ no LCSC equivalents. All other manufacturers source and assemble them without is
 
 If ordering via JLCPCB, source U3/U4/U5 from Farnell, Mouser or RS Components and
 fit them after delivery.
+
+## Adapter Board DNP components
+
+Found during PCBWay sample assembly review (order T-5C2W172163C5, 2026-09-14): the
+BOM we submitted mistakenly marked the following as **Populate** when they should be
+**Do Not Place**. This was a mistake on our side, confirmed and corrected after
+checking with the design's engineering team. Corrected in the PCBWay, Beta LAYOUT and
+Eurocircuits BOM files (JLCPCB DNP is set via the portal, not the BOM file, same as
+for the Distribution Board).
+
+| Ref | Part | Package | Why DNP |
+|-----|------|---------|---------|
+| J1, J2 | JST XA 10-pin connector | THT | Alternate connector to the IDC ribbon headers (J3, J4); not needed, misread as an intentional alternate |
+| J6, J7 | JST XA 4-pin connector | THT | Same as above |
+| R3 | 10 kΩ resistor | R_0603 | Genuine BOM bug; removed entirely in the next board revision |
+
+J1/J2/J6/J7 are through-hole and were only pin-positioned (not soldered) at the time
+of the sample check, so removing them required no rework. R3 is SMT and may already
+be soldered on delivered boards; it can be removed afterwards with pliers without
+affecting board function.
 
 ## Directory structure
 

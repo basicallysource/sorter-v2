@@ -23810,7 +23810,7 @@
 					"value": "2, red and black"
 				},
 				{
-					"label": "Needed",
+					"label": "Length per machine",
 					"value": "48 in per machine: 3 x 4 in for the PSU pigtails, 36 in for W1"
 				},
 				{
@@ -23870,7 +23870,7 @@
 					"value": "2, red and black"
 				},
 				{
-					"label": "Needed",
+					"label": "Length per machine",
 					"value": "168 in (14 ft) per machine: W2 12 in, W3 6 in, LED feeds 3 x 36 in, LED pigtails 3 x 6 in, limit switch 24 in"
 				},
 				{
@@ -23930,7 +23930,7 @@
 					"value": "Black, blue, green and red, one per coil lead"
 				},
 				{
-					"label": "Needed",
+					"label": "Length per machine",
 					"value": "About 5 m of each colour per machine: 4 x 1 m for S1 to S4, plus 40 in for CH"
 				},
 				{
@@ -23986,7 +23986,7 @@
 					"value": "1/4 in (6 mm) nominal, expandable"
 				},
 				{
-					"label": "Needed",
+					"label": "Length per machine",
 					"value": "About 5 m per machine: 4 x 1 m for S1 to S4, plus 40 in for CH"
 				},
 				{

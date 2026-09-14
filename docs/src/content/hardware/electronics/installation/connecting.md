@@ -8,7 +8,7 @@ kicker: Electronics — Connecting the components
 lede: Every cable between the PSU, the control board and the Orange Pi, and the socket each end goes into.
 permalink: /hardware/electronics/installation/connecting/
 author: daddyosbricksbill
-contributors: [spencer, effreek]
+contributors: [spencer, effreek, brickcyclealice]
 warning: >-
   **AI-generated first draft.** Written from the basically board v1.3 board files and the [wire
   harness]({{ '/hardware/electronics/' | relative_url }}) schedule, not from an actual build. The
@@ -57,6 +57,21 @@ If a cable is still missing, [make your own PSU pigtail]({{ '/hardware/electroni
 </table>
 
 The [wire harness]({{ '/hardware/electronics/' | relative_url }}) page calls the first three `W1`, `W2` and `W3`, the steppers `S1` to `S4` and `CH`, the lamps `L1` to `L3`, and the ribbon `RIB`.
+
+### The three 24 V leads
+
+The buck converter is the only bought part of the three. The leads themselves are:
+
+<dl class="spec-list">
+  <dt><code>W1</code>, control board</dt><dd>Male DC barrel plug at the PSU end, JST-VH 2-pin (VHR-2) housing at the board end. No supplier sells that pair of ends, so this is one you make: crimp the two wires of a barrel-plug pigtail into a VHR-2 housing, pin 1 +24 V, pin 2 ground.</dd>
+  <dt><code>W2</code>, USB hub</dt><dd>A male DC barrel plug at <i>both</i> ends, 12 in. The hub's input is an ordinary female barrel socket, so buy this one ready made.</dd>
+  <dt><code>W3</code>, Orange Pi</dt><dd>A 6 in male DC barrel plug onto the buck converter's input wires. The buck's USB-C lead is the other half of the run.</dd>
+</dl>
+
+<div class="callout callout-warning">
+  <span class="callout-icon" aria-hidden="true">⚠</span>
+  <p>Every jack on the PSU box is <b>5.5 x 2.1 mm, centre-positive</b>. A 2.5 mm plug looks the same and does not mate. Check the pin size before you buy a barrel lead.</p>
+</div>
 
 ## The control board, socket by socket
 

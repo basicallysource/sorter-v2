@@ -261,7 +261,7 @@ Each stepper has its own socket, and the socket decides which motor the software
   </tbody>
 </table>
 
-Every socket has a row of 2.54 mm pins beside it carrying the same signals, so a cable with a Dupont end goes on those instead: `J24` beside `J23`, `J28` beside `J27`, and so on. The board prints the coil names beside each of those rows, `B2 B1 A1 A2`, so go by the print rather than counting positions. `Stepper_A6` is on the far side of the board on its own; the other four are in a row along one edge. Each socket is wired to the driver printed beside it, so that driver has to carry the address for that stepper. The addresses are set in [preparing the control board]({{ '/hardware/electronics/installation/control-board-prep/' | relative_url }}), step 3.
+Every socket has a row of 2.54 mm pins beside it carrying the same signals, so a cable with a Dupont end goes on those instead: `J24` beside `J23`, `J28` beside `J27`, and so on, with each pin's coil name printed beside it so you can read them off the board rather than counting positions. `Stepper_A6` is on the far side of the board on its own; the other four are in a row along one edge. Each socket is wired to the driver printed beside it, so that driver has to carry the address for that stepper. The addresses are set in [preparing the control board]({{ '/hardware/electronics/installation/control-board-prep/' | relative_url }}), step 3.
 
 <div class="callout callout-warning">
   <span class="callout-icon" aria-hidden="true">⚠</span>

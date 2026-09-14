@@ -154,7 +154,13 @@
 			<section class="requirements-block">
 				<h2 class="requirements-title">Tools needed</h2>
 				<ul class="tools-list">
-					{#each tools as tool (tool)}<li>{tool}</li>{/each}
+					<!-- Not keyed: this is a plain list of strings, and two pages could
+					     legitimately list the same tool twice. A key here also turned a bad
+					     frontmatter value into a blank page once (psu-pigtail, 2026-09-14):
+					     an unquoted `: ` in the lede makes parseFrontmatter fall back to its
+					     line reader, which hands this back as a raw string, and iterating a
+					     string gives duplicate keys. -->
+					{#each tools as tool}<li>{tool}</li>{/each}
 				</ul>
 			</section>
 		{/if}

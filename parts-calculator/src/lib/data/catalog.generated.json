@@ -22968,7 +22968,7 @@
 				},
 				{
 					"label": "Power",
-					"value": "About 12 W/m, so about 11 W and 0.5 A per lamp"
+					"value": "About 10 W/m; the listing says 12"
 				},
 				{
 					"label": "Buy",
@@ -22976,7 +22976,15 @@
 				},
 				{
 					"label": "Colour temperature",
-					"value": "6000K daylight white, CRI 95+"
+					"value": "6000K daylight white"
+				},
+				{
+					"label": "Brightness",
+					"value": "About 1100 lm/m, not stated by the seller"
+				},
+				{
+					"label": "CRI",
+					"value": "95+ claimed. No minimum is set for the machine, and 90+ is normal for this type"
 				},
 				{
 					"label": "LED density",
@@ -22988,7 +22996,7 @@
 				},
 				{
 					"label": "Cut pitch",
-					"value": "Cuttable every 1.5 in (38 mm) on the printed marks"
+					"value": "Check the marks printed on the strip. The listing says every 1.5 in (38 mm); 24 V COB is usually 50 mm"
 				}
 			],
 			"sheet_qty": null,

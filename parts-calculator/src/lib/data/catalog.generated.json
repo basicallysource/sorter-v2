@@ -23527,7 +23527,7 @@
 					}
 				]
 			},
-			"alternative": "The Preciva crimp tool and connector kit (connector-kit-crimp) includes this, along with the crimper, and jst-ph-cable-4p-75cm arrives with one already fitted",
+			"alternative": "The Preciva crimp tool and connector kit (connector-kit-crimp) includes this, along with the crimper, and jst-ph-cable-4p-63cm arrives with one fitted at each end",
 			"caption": "Board end of S1 to S4 and CH.",
 			"docs_page": "/hardware/electronics/",
 			"conflicts": null,
@@ -23543,7 +23543,7 @@
 			"name": "JST PH housing, 6-pin (PHR-6)",
 			"category": "Wire harness",
 			"description": "The motor end of the four channel and carousel stepper cables, into the NEMA 17's own 6-pin socket. Only four of the six positions carry a contact.",
-			"note": "Positions 2 and 5 are deliberately left empty. The board's four conductors map 1, 2, 3, 4 to motor positions 1, 4, 3, 6, so this is a crossover cable and the pin order matters.",
+			"note": "Positions 2 and 5 are deliberately left empty. The board's four conductors map 1, 2, 3, 4 to motor positions 1, 4, 3, 6, so this is a crossover cable and the pin order matters. Buying jst-ph-cable-4p-63cm does not remove this: that cable is 4-pin at both ends, so the motor end still needs one of these.",
 			"created_at": "2026-09-14",
 			"updated_at": "2026-09-14",
 			"attributes": [
@@ -23637,7 +23637,7 @@
 					}
 				]
 			},
-			"alternative": "The Preciva crimp tool and connector kit (connector-kit-crimp) includes this, along with the crimper. Buying jst-ph-cable-4p-75cm drops the count to 16, the motor ends only",
+			"alternative": "The Preciva crimp tool and connector kit (connector-kit-crimp) includes this, along with the crimper. Buying jst-ph-cable-4p-63cm drops the count to 4, the chute's board end only",
 			"caption": "Thirty-six per machine. Buy spares.",
 			"docs_page": "/hardware/electronics/",
 			"conflicts": null,
@@ -23960,7 +23960,7 @@
 					}
 				]
 			},
-			"alternative": "Not needed for the channel steppers if you buy jst-ph-cable-4p-75cm, which is 24 AWG already",
+			"alternative": "Not needed for the channel steppers if you buy jst-ph-cable-4p-63cm, which is 24 AWG already",
 			"caption": "Four colours, because S1 to S4 are crossover cables.",
 			"docs_page": "/hardware/electronics/",
 			"conflicts": null,
@@ -24081,35 +24081,31 @@
 			"image": "https://assets.basically.website/sorter-parts/connector-kit-crimp-full-e3e61c2d331b.jpg"
 		},
 		{
-			"id": "jst-ph-cable-4p-75cm",
+			"id": "jst-ph-cable-4p-63cm",
 			"uid": "q8tc",
 			"kind": "cots",
 			"cots": {
 				"type": "cable",
 				"optional": true
 			},
-			"name": "JST PH 4-pin cable, 75 cm, board end fitted",
+			"name": "JST PH 4-pin cable, 63 cm, connector at both ends",
 			"category": "Wire harness",
-			"description": "A ready-made start for each channel stepper cable: 75 cm of 24 AWG with the 4-pin PHR-4 already fitted at one end, in four colours. Buy one per channel stepper, add a PHR-6 for the motor end, and the only crimping left is the four contacts at that end.",
-			"note": "The far end arrives with 0.1 in crimp pins on it, which do not fit a 2.0 mm PH housing. Cut them off and crimp PH contacts for the PHR-6. That is 4 crimps per cable instead of 8, and the board end, where a bad crimp is hardest to spot once the housing is on, comes done.",
+			"description": "A whole channel stepper cable with no crimping: 63 cm of twisted 24 AWG with a 4-pin PHR-4 at each end. One end plugs into the board as it comes. At the other, lift the four contacts out of their housing and re-seat them in a PHR-6 in the crossover order, which needs a pick and no crimp tool.",
+			"note": "Buy a PHR-6 per cable for the motor end; the housing the contacts came out of is then a spare. Contacts are held by a small lance inside the housing: press it back with a fine pick or a sliver of shim and the contact slides out, and it goes back into the PHR-6 until it clicks. Take your time, a bent lance will not retain.",
 			"created_at": "2026-09-14",
 			"updated_at": "2026-09-14",
 			"attributes": [
 				{
 					"label": "Length",
-					"value": "75 cm (30 in). The drawing says 1 m, so this is the shorter of the two"
+					"value": "63 cm (25 in). The drawing says 1 m, so this is the shorter of the two"
 				},
 				{
 					"label": "Wire",
-					"value": "24 AWG, UL 1007, rated 2 A and 100 V. Steppers draw up to 1.5 A a phase"
+					"value": "24 AWG twisted, UL 1007, rated 2 A and 100 V. Steppers draw up to 1.5 A a phase"
 				},
 				{
-					"label": "Fitted end",
-					"value": "4-pin female JST PH (PHR-4), for the board"
-				},
-				{
-					"label": "Free end",
-					"value": "0.1 in female crimp pins, to be cut off"
+					"label": "Ends",
+					"value": "4-pin female JST PH (PHR-4) at both ends, 2.0 mm pitch"
 				},
 				{
 					"label": "Colours",
@@ -24118,6 +24114,10 @@
 				{
 					"label": "Crossover",
 					"value": "Board pins 1, 2, 3, 4 go to motor positions 1, 4, 3, 6, with 2 and 5 left empty"
+				},
+				{
+					"label": "Also needed",
+					"value": "One jst-phr-6 per cable. No contacts and no crimp tool"
 				}
 			],
 			"sheet_qty": {
@@ -24130,18 +24130,18 @@
 					{
 						"region": "US",
 						"vendor": "Pololu",
-						"url": "https://www.pololu.com/product/5622",
-						"price": 4.66,
+						"url": "https://www.pololu.com/product/5627",
+						"price": 4.23,
 						"as_of": "2026-09-14",
-						"note": "Item #5622, $4.29 each at qty 5. Chosen by Jon. Pololu's female-female cables do not fit, because the cable this builds is 4-pin at the board and 6-pin at the motor."
+						"note": "Item #5627, $3.89 each at qty 5. Chosen by Jon. The 63 cm is the longest 4-pin PH-to-PH Pololu make."
 					}
 				]
 			},
 			"alternative": "Make the cable from wire-24awg plus a jst-phr-4, a jst-phr-6 and eight jst-sph-002t contacts",
-			"caption": "One per channel stepper. Add a PHR-6 and crimp only the motor end.",
+			"caption": "One per channel stepper. Move four contacts into a PHR-6 and it is done.",
 			"docs_page": "/hardware/electronics/",
 			"conflicts": null,
-			"image": "https://assets.basically.website/sorter-parts/jst-ph-cable-4p-75cm-full-8401a90f1147.jpg"
+			"image": "https://assets.basically.website/sorter-parts/jst-ph-cable-4p-63cm-full-9f00b9a255c8.jpg"
 		},
 		{
 			"id": "psu-24v-350w",

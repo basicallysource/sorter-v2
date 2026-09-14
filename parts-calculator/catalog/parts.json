@@ -5393,6 +5393,7 @@
       "name": "White/daylight LED strip - 24v",
       "category": "Wire harness",
       "description": "The light in a Camera lamp: two turns inside the reflector's skirt, held by the six LED hooks. Bought as a 5 m roll and cut into 950 mm rings, so one roll covers a machine's three lamps. Also the classification chamber's lighting before the dome was retired.",
+      "internal_notes": "Amazon B0DHV8ZF4R (VOEWT) contradicts itself on one page: LED density is 320/m in the About-this-item bullets and the A+ body text, 384/m in the A+ comparison banner and the Specifications box, and 120/m in the 'Why buy this Strip Lights' box. 320/m is the best supported, the bullets and body text being the two product-specific places. The 384/120 block also states 'Working Voltage: 12V/24V' for a roll sold as one or the other, so treat that whole block as boilerplate reused across the seller's range; it is also where the catalog's old 'CRI 90+' came from, against 95+ in the title, the bullets and the A+ banner. Power 12 W/m is from that same block, so approximate, but it squares with the page's own 100 W transformer recommendation for 16.4 ft and 150 W for 32.8 ft. The 0.5 A per lamp derived from it is an estimate and so is the 0.5 A on the LED drop docs page; neither is a measurement and they are not independent. The 480 LEDs/m rolls (BTF-LIGHTING 16.4FT 480LED/m, $14.99) are a different product from the also-viewed rail. What a substitute has to match is 24 V, 8 mm wide, COB and 6000 K, not density. Checked 2026-09-14 for sorter-v2#654.",
       "created_at": "2026-07-18",
       "updated_at": "2026-09-14",
       "image_url": "https://assets.basically.website/sorter-parts/led-strip-24v-full-961391ece43d.jpg",
@@ -5415,15 +5416,11 @@
         },
         {
           "label": "Power",
-          "value": "About 12 W/m, so about 11 W and 0.5 A per 950 mm lamp ring"
+          "value": "About 12 W/m, so about 11 W and 0.5 A per lamp"
         },
         {
           "label": "Buy",
-          "value": "One 5 m (16.4 ft) roll, the 16.4 ft 24 V size option"
-        },
-        {
-          "label": "Cut into",
-          "value": "3 x 950 mm, one per Camera lamp"
+          "value": "One 5 m (16.4 ft) roll, the 24 V size option"
         },
         {
           "label": "Colour temperature",
@@ -5442,7 +5439,7 @@
           "value": "Cuttable every 1.5 in (38 mm) on the printed marks"
         }
       ],
-      "note": "Buy the 24 V roll. The same Amazon listing sells a 16.4 ft 12 V roll under its size options, and outside the US the link can send you somewhere else entirely: from Germany it lands on a 12 V strip at about 55 EUR. A 12 V strip will not work on the board's 24 V LED headers, so check the roll says 24 V before you order. That listing also gives its LED density three different ways: 320/m in the bullets and the body text, 384/m in the marketing images and the spec box, and 120/m in one stray line. 320/m is the best supported. The 480 LEDs/m rolls sold alongside it are a different product, and density is not what makes a substitute work here: 24 V, 8 mm wide, COB and 6000 K are.",
+      "note": "Buy the 24 V roll: 5 m, 6000 K, 8 mm COB. The same listing also sells a 12 V one, and outside the US the link may not land on this product at all.",
       "caption": "950 mm of 24 V strip cut from a 5 m roll. One roll does all three lamps.",
       "stock": {
         "unit_length_mm": 5000,

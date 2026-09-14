@@ -164,9 +164,9 @@ A male DC barrel plug on each wire mates one of the PSU output jacks (J1-J3).
 <table>
   <thead><tr><th>ID</th><th>Load</th><th>From</th><th>To</th><th>Cond.</th><th>Length</th><th>Gauge</th></tr></thead>
   <tbody>
-    <tr><td class="wire-id">W1</td><td>basically board v1.3</td><td>PSU J1, male DC</td><td>JST-VH female (board 24V in)</td><td>2</td><td>36 in <span class="flagged">too long</span></td><td>TBD</td></tr>
-    <tr><td class="wire-id">W2</td><td>Waveshare 4-port USB hub, 24V</td><td>PSU J2, male DC</td><td>Male DC (hub)</td><td>2</td><td>12 in</td><td>TBD</td></tr>
-    <tr><td class="wire-id">W3</td><td>Orange Pi 5</td><td>PSU J3, male DC</td><td>24V-5V USB-C buck</td><td>2</td><td>6 in</td><td>TBD</td></tr>
+    <tr><td class="wire-id">W1</td><td>basically board v1.3</td><td>PSU J1, male DC</td><td>JST-VH female (board 24V in)</td><td>2</td><td>36 in <span class="flagged">too long</span></td><td>18 AWG</td></tr>
+    <tr><td class="wire-id">W2</td><td>Waveshare 4-port USB hub, 24V</td><td>PSU J2, male DC</td><td>Male DC (hub)</td><td>2</td><td>12 in</td><td>22 AWG <span class="flagged">guess</span></td></tr>
+    <tr><td class="wire-id">W3</td><td>Orange Pi 5</td><td>PSU J3, male DC</td><td>24V-5V USB-C buck</td><td>2</td><td>6 in</td><td>22 AWG <span class="flagged">guess</span></td></tr>
   </tbody>
 </table>
 

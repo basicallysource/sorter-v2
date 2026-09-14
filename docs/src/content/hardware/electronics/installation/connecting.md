@@ -63,10 +63,12 @@ The [wire harness]({{ '/hardware/electronics/' | relative_url }}) page calls the
 The buck converter is the only bought part of the three. The leads themselves are:
 
 <dl class="spec-list">
-  <dt><code>W1</code>, control board</dt><dd>Male DC barrel plug at the PSU end, JST-VH 2-pin (VHR-2) housing at the board end. No supplier sells that pair of ends, so this is one you make: crimp the two wires of a barrel-plug pigtail into a VHR-2 housing, pin 1 +24 V, pin 2 ground.</dd>
-  <dt><code>W2</code>, USB hub</dt><dd>A male DC barrel plug at <i>both</i> ends, 12 in. The hub's input is an ordinary female barrel socket, so buy this one ready made.</dd>
-  <dt><code>W3</code>, Orange Pi</dt><dd>A 6 in male DC barrel plug onto the buck converter's input wires. The buck's USB-C lead is the other half of the run.</dd>
+  <dt><code>W1</code>, control board</dt><dd>18 AWG, 36 in. Male DC barrel plug at the PSU end, JST-VH 2-pin (VHR-2) housing at the board end. No supplier sells that pair of ends, so this is one you make: crimp the two wires of a barrel-plug pigtail into a VHR-2 housing, pin 1 +24 V, pin 2 ground.</dd>
+  <dt><code>W2</code>, USB hub</dt><dd>22 AWG, 12 in, with a male DC barrel plug at <i>both</i> ends. The hub's input is an ordinary female barrel socket, so buy this one ready made.</dd>
+  <dt><code>W3</code>, Orange Pi</dt><dd>22 AWG, 6 in, a male DC barrel plug onto the buck converter's input wires. The buck's USB-C lead is the other half of the run.</dd>
 </dl>
+
+The machine needs seven male barrel plugs in total: these three (`W2` takes one at each end) and one on each of the three LED pigtails. The [order spec]({{ '/hardware/electronics/order/' | relative_url }}) page has the gauge, length and both end connectors for every cable in the machine.
 
 <div class="callout callout-warning">
   <span class="callout-icon" aria-hidden="true">⚠</span>

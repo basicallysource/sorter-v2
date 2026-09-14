@@ -5872,6 +5872,7 @@
       "name": "JST PH housing, 4-pin (PHR-4)",
       "category": "Wire harness",
       "description": "The board end of all five stepper cables: the four channel and carousel cables S1 to S4, and the chute cable CH. It plugs into J23, J27, J31, J35 or J39 on basically board v1.3, and the socket decides which motor the software drives.",
+      "alternative": "The Preciva crimp tool and connector kit (connector-kit-crimp) includes this, along with the crimper",
       "created_at": "2026-09-14",
       "updated_at": "2026-09-14",
       "image_url": "https://assets.basically.website/sorter-parts/jst-phr-4-full-0556181a4cd7.jpg",
@@ -5978,6 +5979,7 @@
       "category": "Wire harness",
       "description": "The contacts inside every PH housing on the machine. Crimp one onto each conductor, then push it into the housing until it latches.",
       "note": "PH contacts take 24 to 28 AWG only, which is why the stepper cables are 24 AWG and not something heavier. Buy well over the count; these are small and easy to spoil.",
+      "alternative": "The Preciva crimp tool and connector kit (connector-kit-crimp) includes this, along with the crimper",
       "created_at": "2026-09-14",
       "updated_at": "2026-09-14",
       "image_url": "https://assets.basically.website/sorter-parts/jst-sph-002t-full-020470b7194a.jpg",
@@ -6027,6 +6029,7 @@
       "category": "Wire harness",
       "description": "The board end of the chute limit switch cable, onto J5. Only two of the three positions are wired: signal and ground.",
       "note": "The third position is left empty on purpose, so the plug cannot go onto J5 the wrong way round. Do not fill it.",
+      "alternative": "The Preciva crimp tool and connector kit (connector-kit-crimp) includes this, along with the crimper",
       "created_at": "2026-09-14",
       "updated_at": "2026-09-14",
       "image_url": "https://assets.basically.website/sorter-parts/dupont-housing-3p-full-50d0a6c664ee.jpg",
@@ -6364,6 +6367,59 @@
             "url": "https://www.techtoolsupply.com/1-4in-Expandable-Sleeving-Black-200ft-p/ptn0.25-ms.htm",
             "as_of": "2026-09-14",
             "note": "Techflex Flexo PET, 1/4 in. Any expandable braid at this size does."
+          }
+        ]
+      }
+    },
+    {
+      "id": "connector-kit-crimp",
+      "uid": "9fxb",
+      "kind": "cots",
+      "cots": {
+        "type": "kit",
+        "optional": true
+      },
+      "name": "Crimp tool and connector kit (Dupont, JST-PH, JST-XH)",
+      "category": "Wire harness",
+      "description": "One box instead of several line items: a ratcheting crimper for open-barrel contacts plus 1565 terminals and a spread of Dupont 2.54 mm, JST-PH 2.0 mm and JST-XH 2.5 mm housings. It covers the PH housings and contacts and the Dupont housing this machine needs, and it is the crimp tool the connecting and PSU pigtail pages ask for.",
+      "note": "Read what it does not cover before you rely on it. The housings run 1 to 5 pin, so the 6-pin PHR-6 at the stepper motor end is not in it. There are no VH 3.96 mm housings, though the crimper's range does take the VH contacts. And the die is for non-insulated open-barrel contacts, so it will not crimp the PSU fork terminals or the #187 receptacles, which need an insulated-terminal die.",
+      "created_at": "2026-09-14",
+      "updated_at": "2026-09-14",
+      "image_url": "https://assets.basically.website/sorter-parts/connector-kit-crimp-full-e3e61c2d331b.jpg",
+      "attributes": [
+        {
+          "label": "Crimper",
+          "value": "Ratcheting, 28 to 16 AWG, non-insulated open-barrel contacts"
+        },
+        {
+          "label": "Housings",
+          "value": "Dupont 2.54 mm, JST-PH 2.0 mm, JST-XH 2.5 mm, 1 to 5 pin, male and female"
+        },
+        {
+          "label": "Terminals",
+          "value": "1565 across the three families, in a double-layer case"
+        },
+        {
+          "label": "Replaces",
+          "value": "jst-phr-4, jst-sph-002t and dupont-housing-3p, and the crimp tool in Tools needed"
+        },
+        {
+          "label": "Does not cover",
+          "value": "jst-phr-6 (6-pin), jst-vhr-2 (VH 3.96 mm), terminal-fork-m35 and terminal-qc-187 (insulated die)"
+        }
+      ],
+      "caption": "Covers the PH and Dupont ends, and the crimper. Not the 6-pin or the insulated terminals.",
+      "docs_page": "/hardware/electronics/",
+      "sourcing": {
+        "vendors": [
+          {
+            "region": "US",
+            "vendor": "Amazon",
+            "url": "https://www.amazon.com/dp/B0FD9KGK4G",
+            "affiliate_url": "https://www.amazon.com/dp/B0FD9KGK4G?tag=sorterv2-20",
+            "price": 30.99,
+            "as_of": "2026-09-14",
+            "note": "Preciva 1565-piece kit. Suggested by Jon."
           }
         ]
       }

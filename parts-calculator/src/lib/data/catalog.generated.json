@@ -23527,7 +23527,7 @@
 					}
 				]
 			},
-			"alternative": "The Preciva crimp tool and connector kit (connector-kit-crimp) includes this, along with the crimper",
+			"alternative": "The Preciva crimp tool and connector kit (connector-kit-crimp) includes this, along with the crimper, and jst-ph-cable-4p-75cm arrives with one already fitted",
 			"caption": "Board end of S1 to S4 and CH.",
 			"docs_page": "/hardware/electronics/",
 			"conflicts": null,
@@ -23637,7 +23637,7 @@
 					}
 				]
 			},
-			"alternative": "The Preciva crimp tool and connector kit (connector-kit-crimp) includes this, along with the crimper",
+			"alternative": "The Preciva crimp tool and connector kit (connector-kit-crimp) includes this, along with the crimper. Buying jst-ph-cable-4p-75cm drops the count to 16, the motor ends only",
 			"caption": "Thirty-six per machine. Buy spares.",
 			"docs_page": "/hardware/electronics/",
 			"conflicts": null,
@@ -23960,7 +23960,7 @@
 					}
 				]
 			},
-			"alternative": null,
+			"alternative": "Not needed for the channel steppers if you buy jst-ph-cable-4p-75cm, which is 24 AWG already",
 			"caption": "Four colours, because S1 to S4 are crossover cables.",
 			"docs_page": "/hardware/electronics/",
 			"conflicts": null,
@@ -24079,6 +24079,69 @@
 			"docs_page": "/hardware/electronics/",
 			"conflicts": null,
 			"image": "https://assets.basically.website/sorter-parts/connector-kit-crimp-full-e3e61c2d331b.jpg"
+		},
+		{
+			"id": "jst-ph-cable-4p-75cm",
+			"uid": "q8tc",
+			"kind": "cots",
+			"cots": {
+				"type": "cable",
+				"optional": true
+			},
+			"name": "JST PH 4-pin cable, 75 cm, board end fitted",
+			"category": "Wire harness",
+			"description": "A ready-made start for each channel stepper cable: 75 cm of 24 AWG with the 4-pin PHR-4 already fitted at one end, in four colours. Buy one per channel stepper, add a PHR-6 for the motor end, and the only crimping left is the four contacts at that end.",
+			"note": "The far end arrives with 0.1 in crimp pins on it, which do not fit a 2.0 mm PH housing. Cut them off and crimp PH contacts for the PHR-6. That is 4 crimps per cable instead of 8, and the board end, where a bad crimp is hardest to spot once the housing is on, comes done.",
+			"created_at": "2026-09-14",
+			"updated_at": "2026-09-14",
+			"attributes": [
+				{
+					"label": "Length",
+					"value": "75 cm (30 in). The drawing says 1 m, so this is the shorter of the two"
+				},
+				{
+					"label": "Wire",
+					"value": "24 AWG, UL 1007, rated 2 A and 100 V. Steppers draw up to 1.5 A a phase"
+				},
+				{
+					"label": "Fitted end",
+					"value": "4-pin female JST PH (PHR-4), for the board"
+				},
+				{
+					"label": "Free end",
+					"value": "0.1 in female crimp pins, to be cut off"
+				},
+				{
+					"label": "Colours",
+					"value": "Four: Pololu confirm black on pin 1 and red on pin 2; the other two are blue and yellow, so meter which is which before you load the PHR-6"
+				},
+				{
+					"label": "Crossover",
+					"value": "Board pins 1, 2, 3, 4 go to motor positions 1, 4, 3, 6, with 2 and 5 left empty"
+				}
+			],
+			"sheet_qty": {
+				"per_machine": 4
+			},
+			"sheet_qty_text": null,
+			"stock": null,
+			"sourcing": {
+				"vendors": [
+					{
+						"region": "US",
+						"vendor": "Pololu",
+						"url": "https://www.pololu.com/product/5622",
+						"price": 4.66,
+						"as_of": "2026-09-14",
+						"note": "Item #5622, $4.29 each at qty 5. Chosen by Jon. The 63 cm female-female versions do not fit, since this cable is 4-pin at one end and 6-pin at the other."
+					}
+				]
+			},
+			"alternative": "Make the cable from wire-24awg plus a jst-phr-4, a jst-phr-6 and eight jst-sph-002t contacts",
+			"caption": "One per channel stepper. Add a PHR-6 and crimp only the motor end.",
+			"docs_page": "/hardware/electronics/",
+			"conflicts": null,
+			"image": "https://assets.basically.website/sorter-parts/jst-ph-cable-4p-75cm-full-8401a90f1147.jpg"
 		},
 		{
 			"id": "psu-24v-350w",

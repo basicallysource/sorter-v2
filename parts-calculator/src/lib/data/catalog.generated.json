@@ -24133,7 +24133,7 @@
 						"url": "https://www.pololu.com/product/5622",
 						"price": 4.66,
 						"as_of": "2026-09-14",
-						"note": "Item #5622, $4.29 each at qty 5. Chosen by Jon. The 63 cm female-female versions do not fit, since this cable is 4-pin at one end and 6-pin at the other."
+						"note": "Item #5622, $4.29 each at qty 5. Chosen by Jon. Pololu's female-female cables do not fit, because the cable this builds is 4-pin at the board and 6-pin at the motor."
 					}
 				]
 			},

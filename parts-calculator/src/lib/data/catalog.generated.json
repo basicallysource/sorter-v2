@@ -22958,13 +22958,17 @@
 			"name": "White/daylight LED strip - 24v",
 			"category": "Wire harness",
 			"description": "The light in a Camera lamp: two turns inside the reflector's skirt, held by the six LED hooks. Bought as a 5 m roll and cut into 950 mm rings, so one roll covers a machine's three lamps. Also the classification chamber's lighting before the dome was retired.",
-			"note": null,
+			"note": "Buy the 24 V roll. The same Amazon listing sells a 16.4 ft 12 V roll under its size options, and outside the US the link can send you somewhere else entirely: from Germany it lands on a 12 V strip at about 55 EUR. A 12 V strip will not work on the board's 24 V LED headers, so check the roll says 24 V before you order.",
 			"created_at": "2026-07-18",
-			"updated_at": "2026-09-10",
+			"updated_at": "2026-09-14",
 			"attributes": [
 				{
+					"label": "Voltage",
+					"value": "24 V DC"
+				},
+				{
 					"label": "Buy",
-					"value": "One 5 m (16.4 ft) roll"
+					"value": "One 5 m (16.4 ft) roll, the 16.4 ft 24 V size option"
 				},
 				{
 					"label": "Cut into",
@@ -22972,7 +22976,7 @@
 				},
 				{
 					"label": "Colour temperature",
-					"value": "6000K daylight white, CRI 90+"
+					"value": "6000K daylight white, CRI 95+"
 				},
 				{
 					"label": "Width",
@@ -23005,7 +23009,7 @@
 				]
 			},
 			"alternative": null,
-			"caption": "950 mm cut from a 5 m roll. One roll does all three lamps.",
+			"caption": "950 mm of 24 V strip cut from a 5 m roll. One roll does all three lamps.",
 			"docs_page": null,
 			"conflicts": null,
 			"image": "https://assets.basically.website/sorter-parts/led-strip-24v-full-961391ece43d.jpg"

@@ -23527,7 +23527,7 @@
 					}
 				]
 			},
-			"alternative": null,
+			"alternative": "The Preciva crimp tool and connector kit (connector-kit-crimp) includes this, along with the crimper",
 			"caption": "Board end of S1 to S4 and CH.",
 			"docs_page": "/hardware/electronics/",
 			"conflicts": null,
@@ -23637,7 +23637,7 @@
 					}
 				]
 			},
-			"alternative": null,
+			"alternative": "The Preciva crimp tool and connector kit (connector-kit-crimp) includes this, along with the crimper",
 			"caption": "Thirty-six per machine. Buy spares.",
 			"docs_page": "/hardware/electronics/",
 			"conflicts": null,
@@ -23680,7 +23680,7 @@
 			"sheet_qty_text": null,
 			"stock": null,
 			"sourcing": null,
-			"alternative": null,
+			"alternative": "The Preciva crimp tool and connector kit (connector-kit-crimp) includes this, along with the crimper",
 			"caption": "Position 3 stays empty; that is what keys it.",
 			"docs_page": "/hardware/electronics/",
 			"conflicts": null,
@@ -24021,6 +24021,64 @@
 			"docs_page": "/hardware/electronics/",
 			"conflicts": null,
 			"image": "https://assets.basically.website/sorter-parts/sleeving-braided-6mm-full-39f6e9222044.jpg"
+		},
+		{
+			"id": "connector-kit-crimp",
+			"uid": "9fxb",
+			"kind": "cots",
+			"cots": {
+				"type": "kit",
+				"optional": true
+			},
+			"name": "Crimp tool and connector kit (Dupont, JST-PH, JST-XH)",
+			"category": "Wire harness",
+			"description": "One box instead of several line items: a ratcheting crimper for open-barrel contacts plus 1565 terminals and a spread of Dupont 2.54 mm, JST-PH 2.0 mm and JST-XH 2.5 mm housings. It covers the PH housings and contacts and the Dupont housing this machine needs, and it is the crimp tool the connecting and PSU pigtail pages ask for.",
+			"note": "Read what it does not cover before you rely on it. The housings run 1 to 5 pin, so the 6-pin PHR-6 at the stepper motor end is not in it. There are no VH 3.96 mm housings, though the crimper's range does take the VH contacts. And the die is for non-insulated open-barrel contacts, so it will not crimp the PSU fork terminals or the #187 receptacles, which need an insulated-terminal die.",
+			"created_at": "2026-09-14",
+			"updated_at": "2026-09-14",
+			"attributes": [
+				{
+					"label": "Crimper",
+					"value": "Ratcheting, 28 to 16 AWG, non-insulated open-barrel contacts"
+				},
+				{
+					"label": "Housings",
+					"value": "Dupont 2.54 mm, JST-PH 2.0 mm, JST-XH 2.5 mm, 1 to 5 pin, male and female"
+				},
+				{
+					"label": "Terminals",
+					"value": "1565 across the three families, in a double-layer case"
+				},
+				{
+					"label": "Replaces",
+					"value": "jst-phr-4, jst-sph-002t and dupont-housing-3p, and the crimp tool in Tools needed"
+				},
+				{
+					"label": "Does not cover",
+					"value": "jst-phr-6 (6-pin), jst-vhr-2 (VH 3.96 mm), terminal-fork-m35 and terminal-qc-187 (insulated die)"
+				}
+			],
+			"sheet_qty": null,
+			"sheet_qty_text": null,
+			"stock": null,
+			"sourcing": {
+				"vendors": [
+					{
+						"region": "US",
+						"vendor": "Amazon",
+						"url": "https://www.amazon.com/dp/B0FD9KGK4G",
+						"affiliate_url": "https://www.amazon.com/dp/B0FD9KGK4G?tag=sorterv2-20",
+						"price": 30.99,
+						"as_of": "2026-09-14",
+						"note": "Preciva 1565-piece kit. Suggested by Jon."
+					}
+				]
+			},
+			"alternative": null,
+			"caption": "Covers the PH and Dupont ends, and the crimper. Not the 6-pin or the insulated terminals.",
+			"docs_page": "/hardware/electronics/",
+			"conflicts": null,
+			"image": "https://assets.basically.website/sorter-parts/connector-kit-crimp-full-e3e61c2d331b.jpg"
 		},
 		{
 			"id": "psu-24v-350w",

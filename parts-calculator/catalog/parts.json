@@ -5414,6 +5414,10 @@
           "value": "24 V DC"
         },
         {
+          "label": "Power",
+          "value": "About 12 W/m, so about 11 W and 0.5 A per 950 mm lamp ring"
+        },
+        {
           "label": "Buy",
           "value": "One 5 m (16.4 ft) roll, the 16.4 ft 24 V size option"
         },
@@ -5426,6 +5430,10 @@
           "value": "6000K daylight white, CRI 95+"
         },
         {
+          "label": "LED density",
+          "value": "320 LEDs/m"
+        },
+        {
           "label": "Width",
           "value": "8 mm, COB (dotless)"
         },
@@ -5434,7 +5442,7 @@
           "value": "Cuttable every 1.5 in (38 mm) on the printed marks"
         }
       ],
-      "note": "Buy the 24 V roll. The same Amazon listing sells a 16.4 ft 12 V roll under its size options, and outside the US the link can send you somewhere else entirely: from Germany it lands on a 12 V strip at about 55 EUR. A 12 V strip will not work on the board's 24 V LED headers, so check the roll says 24 V before you order.",
+      "note": "Buy the 24 V roll. The same Amazon listing sells a 16.4 ft 12 V roll under its size options, and outside the US the link can send you somewhere else entirely: from Germany it lands on a 12 V strip at about 55 EUR. A 12 V strip will not work on the board's 24 V LED headers, so check the roll says 24 V before you order. That listing also gives its LED density three different ways: 320/m in the bullets and the body text, 384/m in the marketing images and the spec box, and 120/m in one stray line. 320/m is the best supported. The 480 LEDs/m rolls sold alongside it are a different product, and density is not what makes a substitute work here: 24 V, 8 mm wide, COB and 6000 K are.",
       "caption": "950 mm of 24 V strip cut from a 5 m roll. One roll does all three lamps.",
       "stock": {
         "unit_length_mm": 5000,

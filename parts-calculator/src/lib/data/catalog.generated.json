@@ -22958,13 +22958,17 @@
 			"name": "White/daylight LED strip - 24v",
 			"category": "Wire harness",
 			"description": "The light in a Camera lamp: two turns inside the reflector's skirt, held by the six LED hooks. Bought as a 5 m roll and cut into 950 mm rings, so one roll covers a machine's three lamps. Also the classification chamber's lighting before the dome was retired.",
-			"note": "Buy the 24 V roll. The same Amazon listing sells a 16.4 ft 12 V roll under its size options, and outside the US the link can send you somewhere else entirely: from Germany it lands on a 12 V strip at about 55 EUR. A 12 V strip will not work on the board's 24 V LED headers, so check the roll says 24 V before you order.",
+			"note": "Buy the 24 V roll. The same Amazon listing sells a 16.4 ft 12 V roll under its size options, and outside the US the link can send you somewhere else entirely: from Germany it lands on a 12 V strip at about 55 EUR. A 12 V strip will not work on the board's 24 V LED headers, so check the roll says 24 V before you order. That listing also gives its LED density three different ways: 320/m in the bullets and the body text, 384/m in the marketing images and the spec box, and 120/m in one stray line. 320/m is the best supported. The 480 LEDs/m rolls sold alongside it are a different product, and density is not what makes a substitute work here: 24 V, 8 mm wide, COB and 6000 K are.",
 			"created_at": "2026-07-18",
 			"updated_at": "2026-09-14",
 			"attributes": [
 				{
 					"label": "Voltage",
 					"value": "24 V DC"
+				},
+				{
+					"label": "Power",
+					"value": "About 12 W/m, so about 11 W and 0.5 A per 950 mm lamp ring"
 				},
 				{
 					"label": "Buy",
@@ -22977,6 +22981,10 @@
 				{
 					"label": "Colour temperature",
 					"value": "6000K daylight white, CRI 95+"
+				},
+				{
+					"label": "LED density",
+					"value": "320 LEDs/m"
 				},
 				{
 					"label": "Width",

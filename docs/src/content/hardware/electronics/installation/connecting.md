@@ -25,7 +25,7 @@ parts_needed:
   - part: cable-idc-2x8-long
     qty: 1
   - part: cable-idc-2x8-short
-tools_needed: [Multimeter, Side cutters or a small screwdriver]
+tools_needed: [Multimeter, Side cutters or a small screwdriver, "Only if you make your own W1 lead: wire strippers and a crimp tool"]
 ---
 
 The [PSU box]({{ '/hardware/electronics/installation/psu-box/' | relative_url }}), the [control board housing]({{ '/hardware/electronics/installation/control-board-housing/' | relative_url }}) and the [Orange Pi mount]({{ '/hardware/electronics/installation/orange-pi-mount/' | relative_url }}) are all bolted to the frame, and every cable is already made. This page plugs them together. Nothing here needs a soldering iron.

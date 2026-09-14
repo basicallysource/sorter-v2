@@ -8,7 +8,7 @@ last_verified: 2026-04-26
 section: lab
 slug: operation-target-10ppm-2026-04-25
 kicker: Lab - Runtime Target
-lede: A concrete operating target for the current live tuning phase: ten cleanly classified and distributed LEGO pieces per minute without relying on harsh C4 acceleration.
+lede: "A concrete operating target for the current live tuning phase: ten cleanly classified and distributed LEGO pieces per minute without relying on harsh C4 acceleration."
 permalink: /lab/operation-target-10ppm-2026-04-25/
 ---
 

@@ -5779,6 +5779,59 @@
       }
     },
     {
+      "id": "fan-orange-pi-5-heatsink",
+      "uid": "z0ye",
+      "kind": "cots",
+      "cots": {
+        "type": "fan"
+      },
+      "name": "Orange Pi 5 heatsink fan (official)",
+      "category": "Electronics",
+      "description": "Orange Pi's official aluminum-alloy heatsink and fan for the Orange Pi 5 (v1.3.2) and Orange Pi 5 Plus, which mounts directly on the SoC. 5 V DC, sleeve bearing; installing it means the official Orange Pi metal case no longer fits.",
+      "created_at": "2026-09-15",
+      "updated_at": "2026-09-15",
+      "attributes": [
+        {
+          "label": "Voltage",
+          "value": "5 V DC"
+        },
+        {
+          "label": "Bearing",
+          "value": "Sleeve"
+        },
+        {
+          "label": "Fits",
+          "value": "Orange Pi 5 (v1.3.2), Orange Pi 5 Plus"
+        }
+      ],
+      "sheet_qty": {
+        "per_machine": 1
+      },
+      "sourcing": {
+        "vendors": [
+          {
+            "region": "US",
+            "vendor": "Amazon",
+            "url": "https://www.amazon.com/dp/B0CJT6KNK4",
+            "affiliate_url": "https://www.amazon.com/dp/B0CJT6KNK4?tag=sorterv2-20",
+            "price": 14.99,
+            "pack_qty": 1,
+            "as_of": "2026-09-15"
+          },
+          {
+            "region": "EU",
+            "vendor": "TinyTronics",
+            "url": "https://www.tinytronics.nl/en/mechanics-and-actuators/parts/cooling-elements/orange-pi-fan-with-heatsink-for-orange-pi-5-plus",
+            "price": 6.0,
+            "currency": "EUR",
+            "pack_qty": 1,
+            "as_of": "2026-09-15"
+          }
+        ]
+      },
+      "image_url": "https://assets.basically.website/sorter-parts/fan-orange-pi-5-heatsink-full-c9d5bb86fbab.jpg"
+    },
+    {
       "id": "ext-2020-ag",
       "uid": "lnvw",
       "kind": "cots",

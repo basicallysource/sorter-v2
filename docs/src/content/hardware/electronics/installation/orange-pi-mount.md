@@ -74,13 +74,14 @@ The Pi's heatsink fan goes on at this stage too, while the board is still loose 
 <div class="prep-item">
   <div class="prep-item-body">
     <p><strong>Orange Pi 5:</strong> the official heatsink fan sits on the SoC, the large chip in the middle of the board. Check the revision printed on the board before you start: it fits the Orange Pi 5 v1.3.2 and the 5 Plus, and the mounting holes are not in the same place on earlier revisions.</p>
-    <p>Sit the heatsink squarely on the SoC with its two tabs over the holes either side of it, press both spring pins down until they click, and plug the 2-pin lead into the fan socket on the board. The pins hold it on, so there are no screws here and nothing to tighten.</p>
   </div>
   <figure class="prep-item-figure">
     <img class="doc-figure" src="https://assets.basically.website/sorter-parts/opi5-heatsink-fan-full-9ae83977d69f.png" alt="The official Orange Pi heatsink fan seen from above at an angle: a square finned aluminium block with a clear plastic fan in the middle, a white spring-loaded pin standing on a tab at each of two opposite corners, and a red and black two-wire lead ending in a small white plug">
     <figcaption>The 38 × 38 mm heatsink with its fan, the two spring pins that hold it to the board, and the 2-pin 5 V lead. <cite>Manufacturer photo (orangepi.org), not a Basically photo.</cite></figcaption>
   </figure>
 </div>
+
+Sit the heatsink squarely on the SoC with its two tabs over the holes either side of it, press both spring pins down until they click, and plug the 2-pin lead into the fan socket on the board. The pins hold it on, so there are no screws here and nothing to tighten.
 
 This is a second fan, not a replacement for the 40 mm one on the arm: the heatsink fan sits on the chip, and the arm fan blows down over the whole board from above. It fits underneath, with the arm's underside passing about 38 mm above the top of the Pi.
 

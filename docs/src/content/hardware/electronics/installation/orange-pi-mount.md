@@ -81,9 +81,9 @@ The Pi's heatsink fan goes on at this stage too, while the board is still loose 
   </figure>
 </div>
 
-Sit the heatsink squarely on the SoC with its two tabs over the holes either side of it, press both spring pins down until they click, and plug the 2-pin lead into the fan socket on the board. The pins hold it on, so there are no screws here and nothing to tighten.
+Peel the film off the thermal pad that comes in the box and lay it on the SoC. Sit the heatsink squarely on top with its two tabs over the holes either side, press both spring pins down until they click, and plug the 2-pin lead into the fan socket on the board. The pins hold it on, so there are no screws here and nothing to tighten.
 
-This is a second fan, not a replacement for the 40 mm one on the arm: the heatsink fan sits on the chip, and the arm fan blows down over the whole board from above. It fits underneath, with the arm's underside passing about 38 mm above the top of the Pi.
+This is a second fan, not a replacement for the 40 mm one on the arm: the heatsink fan sits on the chip, and the arm fan blows down over the whole board from above. It fits underneath: the heatsink stands 13 mm off the board and the arm's underside passes about 38 mm above it.
 
 {% include step.html n="2" title="Stand the Pi off the mount" %}
 

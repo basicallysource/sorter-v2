@@ -77,7 +77,7 @@ The Pi's heatsink fan goes on at this stage too, while the board is still loose 
   </div>
   <figure class="prep-item-figure">
     <img class="doc-figure" src="https://assets.basically.website/sorter-docs/orange-pi-5-heatsink-fan-fitted-full-6f0bb3b7ada4.jpg" alt="An Orange Pi 5 v1.3.2 seen from above with the heatsink fan already fitted over the SoC in the middle of the board, a white spring pin clipped through the board at opposite corners of the finned block, and the red and black lead running from the fan to a small white 2-pin socket silkscreened FAN, between the CAM1 connector and the USB 2.0 port">
-    <figcaption>What it looks like finished: the heatsink over the SoC, a spring pin through the board at each of two opposite corners, and the lead in the socket marked FAN. <cite>Manufacturer photo (orangepi.org), not a Basically photo; the pale highlights are theirs.</cite></figcaption>
+    <figcaption>An Orange Pi 5 v1.3.2 with the fan fitted: the heatsink over the SoC, a spring pin through the board at each of two opposite corners, and the lead in the socket marked FAN. <cite>Manufacturer photo (Orange Pi), not a Basically photo; the pale highlights are theirs.</cite></figcaption>
   </figure>
 </div>
 

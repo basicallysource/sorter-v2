@@ -22958,21 +22958,37 @@
 			"name": "White/daylight LED strip - 24v",
 			"category": "Wire harness",
 			"description": "The light in a Camera lamp: two turns inside the reflector's skirt, held by the six LED hooks. Bought as a 5 m roll and cut into 950 mm rings, so one roll covers a machine's three lamps. Also the classification chamber's lighting before the dome was retired.",
-			"note": null,
+			"note": "Buy the 24 V roll: 5 m, 6000 K, 8 mm COB. The same listing also sells a 12 V one, and outside the US the link may not land on this product at all.",
 			"created_at": "2026-07-18",
-			"updated_at": "2026-09-10",
+			"updated_at": "2026-09-14",
 			"attributes": [
 				{
-					"label": "Buy",
-					"value": "One 5 m (16.4 ft) roll"
+					"label": "Voltage",
+					"value": "24 V DC"
 				},
 				{
-					"label": "Cut into",
-					"value": "3 x 950 mm, one per Camera lamp"
+					"label": "Power",
+					"value": "About 10 W/m; the listing says 12"
+				},
+				{
+					"label": "Buy",
+					"value": "One 5 m (16.4 ft) roll, the 24 V size option"
 				},
 				{
 					"label": "Colour temperature",
-					"value": "6000K daylight white, CRI 90+"
+					"value": "6000K daylight white"
+				},
+				{
+					"label": "Brightness",
+					"value": "About 1100 lm/m, not stated by the seller"
+				},
+				{
+					"label": "CRI",
+					"value": "95+ claimed. No minimum is set for the machine, and 90+ is normal for this type"
+				},
+				{
+					"label": "LED density",
+					"value": "320 LEDs/m"
 				},
 				{
 					"label": "Width",
@@ -22980,7 +22996,7 @@
 				},
 				{
 					"label": "Cut pitch",
-					"value": "Cuttable every 1.5 in (38 mm) on the printed marks"
+					"value": "Check the marks printed on the strip. The listing says every 1.5 in (38 mm); 24 V COB is usually 50 mm"
 				}
 			],
 			"sheet_qty": null,
@@ -23001,11 +23017,20 @@
 						"price": 9.99,
 						"as_of": "2026-04-16",
 						"affiliate_url": "https://www.amazon.com/dp/B0DHV8ZF4R?tag=sorterv2-20"
+					},
+					{
+						"region": "EU",
+						"vendor": "Amazon DE",
+						"url": "https://www.amazon.de/dp/B0BVVSLPDN",
+						"price": 19.63,
+						"currency": "EUR",
+						"as_of": "2026-09-14",
+						"note": "BERIXDEEP, a different roll: 10 m, 384 LEDs/m, CRI 92, 9 to 10 W/m. Same 24 V, 8 mm, COB, 6000 K and IP20, so it fits the lamp and the clamp-on connector. Pick a plain length option, not the 10, 12, 15 or 30 mm widths. One roll does two machines."
 					}
 				]
 			},
 			"alternative": null,
-			"caption": "950 mm cut from a 5 m roll. One roll does all three lamps.",
+			"caption": "950 mm of 24 V strip cut from a 5 m roll. One roll does all three lamps.",
 			"docs_page": null,
 			"conflicts": null,
 			"image": "https://assets.basically.website/sorter-parts/led-strip-24v-full-961391ece43d.jpg"

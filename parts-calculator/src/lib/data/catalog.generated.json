@@ -23435,6 +23435,15 @@
 						"price": 14.99,
 						"pack_qty": 1,
 						"as_of": "2026-09-15"
+					},
+					{
+						"region": "EU",
+						"vendor": "TinyTronics",
+						"url": "https://www.tinytronics.nl/en/mechanics-and-actuators/parts/cooling-elements/orange-pi-fan-with-heatsink-for-orange-pi-5-plus",
+						"price": 6.0,
+						"currency": "EUR",
+						"pack_qty": 1,
+						"as_of": "2026-09-15"
 					}
 				]
 			},

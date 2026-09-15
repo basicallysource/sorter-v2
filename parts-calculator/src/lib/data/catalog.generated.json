@@ -23017,6 +23017,15 @@
 						"price": 9.99,
 						"as_of": "2026-04-16",
 						"affiliate_url": "https://www.amazon.com/dp/B0DHV8ZF4R?tag=sorterv2-20"
+					},
+					{
+						"region": "EU",
+						"vendor": "Amazon DE",
+						"url": "https://www.amazon.de/dp/B0BVVSLPDN",
+						"price": 19.63,
+						"currency": "EUR",
+						"as_of": "2026-09-14",
+						"note": "BERIXDEEP, a different roll: 10 m, 384 LEDs/m, CRI 92, 9 to 10 W/m. Same 24 V, 8 mm, COB, 6000 K and IP20, so it fits the lamp and the clamp-on connector. Pick a plain length option, not the 10, 12, 15 or 30 mm widths. One roll does two machines."
 					}
 				]
 			},

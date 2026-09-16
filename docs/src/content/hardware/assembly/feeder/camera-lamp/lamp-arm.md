@@ -140,11 +140,6 @@ The strip itself is cut and wired on [Preparing the LED strip]({{ '/hardware/hel
 
 The strip comes with its cable already on it from [Preparing the LED strip]({{ '/hardware/helpers/led-strip/' | relative_url }}); cable-tie that pair down the arm so it is not hanging in the channel. Plugging it into the board is step 5 of [connecting the components]({{ '/hardware/electronics/installation/connecting/' | relative_url }}). Nothing is joined end to end here, so the far end of the strip stays dead. The strip runs at 24 V off the basically board.
 
-<figure class="single-figure">
-  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/camera-lamp-lit-from-below-w1600-bb9d54f4f43e.jpg" alt="The lamp lit, photographed from underneath: a ring of LED strip glowing around the outside of the white reflector, the reflector's central funnel in the middle, and the arm behind it">
-  <figcaption>Lit, from below. The strip rings the reflector and the light reaches the parts off the white. <cite>Photo: Spencer.</cite></figcaption>
-</figure>
-
 {% include step.html n="5" title="The outer cover" %}
 
 The **Lamp outer cover** pushes down over the reflector. It is a friction fit and has no screw hole anywhere. It stands slightly proud of the reflector, so the camera clasp ends up recessed in the opening at its centre.

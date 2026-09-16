@@ -5,17 +5,16 @@ type: how-to
 section: hardware
 slug: helper-led-strip
 kicker: Helpers — LED strip
-lede: Cutting a length of 24 V strip, getting two wires onto the cut end with or without solder, and running that pair back to an LED header on basically board v1.3. Three per machine.
+lede: Cutting a length of 24 V strip and getting its cable onto the cut end, with a clamp-on connector or with solder. Three per machine.
 permalink: /hardware/helpers/led-strip/
 author: brickcyclealice
 contributors: [effreek, reveryx, spencer, barthel]
+og_image: https://assets.basically.website/sorter-parts/led-strip-connector-8mm-full-915e0ed03fdc.jpg
 warning: >-
-  **Not validated end to end against a built machine.** The strip end is from a real build, but
-  neither way of making its joint has been photographed: the strip in the photograph came off the
-  roll with its leads already fitted. The run back to the board is off the harness notes, and the
-  values marked **GUESS** in the [WireViz drawing]({{ '/hardware/electronics/wireviz/' | relative_url }}),
-  including the wire gauge and which board pin is +24V, are guesses. Meter the header before you
-  plug anything into it.
+  **Neither way of making the joint is photographed on a build.** The length and where to cut come
+  from real builds; the two ways of getting wire onto the pads are the manufacturers' own pictures.
+  The cable's 22 AWG is a **GUESS** in the harness notes, marked as one in the
+  [WireViz drawing]({{ '/hardware/electronics/wireviz/' | relative_url }}).
 parts_needed:
   - part: led-strip-24v
     qty: 1
@@ -23,23 +22,17 @@ parts_needed:
     qty: 1
   - part: dupont-lead-2p-1m
     qty: 1
-tools_needed: [Side cutters, Multimeter, "Only if you solder: iron, solder and heatshrink", "Only if you make your own lead: crimp tool"]
+tools_needed: [Side cutters, "Only if you solder: iron, solder and heatshrink", "Only if you make your own lead: crimp tool"]
 ---
 
-A prepared strip is a cut length of 24 V COB strip with a two-conductor run on the end of it: the strip at one end, a 2-pin Dupont plug onto one of the board's LED headers at the other. **A machine takes three**, and each carries about 0.5 A.
+A prepared strip is a cut length of 24 V COB strip with its cable on the end of it: about a metre of 22 AWG red and black, ending in a 2-pin 2.54 mm Dupont plug. **A machine takes three**, and each carries about 0.5 A.
 
 **The quantities above are for one, so a machine needs three of each**, except the strip: one 5 m roll cuts into five lengths. The Dupont leads come five to a pack. So a machine is one roll, three connectors and one pack.
 
-<figure class="single-figure">
-  <img class="doc-figure" src="https://assets.basically.website/sorter-parts/led-strip-connector-8mm-full-915e0ed03fdc.jpg" alt="A length of 8 mm COB LED strip with a clear clamp-on connector on its cut end, a red and a black wire leaving the other side of the connector in a white sheath">
-  <figcaption>What you are making: the cut end of the strip, a connector clamped onto it, and the pair that runs back to the board. <cite>Manufacturer photo (SuperBrightLEDs).</cite></figcaption>
-</figure>
-
 <dl class="spec-list">
-  <dt>Board end</dt><dd>A 2-pin 2.54 mm Dupont plug onto one of the four LED headers on basically board v1.3, <code>J8</code> to <code>J11</code>.</dd>
-  <dt>In between</dt><dd><b>On a v1.3 board it is Dupont straight to the strip</b>: one continuous pair of 22 AWG, about a metre, with no connector in the middle. That is how the one Spencer photographed is built, and it is what Jon (who drew the harness) says to do.</dd>
-  <dt>Optional unplug point</dt><dd>A 5.5 × 2.1 mm barrel pair partway along, so the strip end comes off without unwiring, which splits the run into about 36 in of feed and about 6 in of pigtail. The harness notes still draw it that way. Fit it if you want it; nothing needs it.</dd>
+  <dt>The cable</dt><dd>One continuous pair of 22 AWG, about a metre, with no connector in the middle. That is how the one Spencer photographed is built, and it is what Jon (who drew the harness) says to do.</dd>
   <dt>Strip end</dt><dd>A solderless clamp-on connector, or solder, onto the two pads at the cut end.</dd>
+  <dt>The other end</dt><dd>The Dupont plug, which goes onto an LED port when the machine is wired up: step 5 of <a href="{{ '/hardware/electronics/installation/connecting/' | relative_url }}">connecting the components</a>.</dd>
 </dl>
 
 <div class="callout">
@@ -51,17 +44,11 @@ A prepared strip is a cut length of 24 V COB strip with a two-conductor run on t
   <p>Check the roll you bought is the <b>24 V</b> one. The listing in the catalog also sells a 12 V strip of the same width, and the board's LED headers feed 24 V.</p>
 </div>
 
-<div class="callout">
-  <span class="callout-icon" aria-hidden="true">›</span>
-  <p><b>No current-limiting resistor on this run.</b> The strip has its own, and board v1.3 already carries one in series with the +24V feed to each LED header. That is only true of the strip: a 50 mm COB plate needs its own resistor, see the <a href="{{ '/hardware/electronics/' | relative_url }}">wire harness</a> page.</p>
-</div>
-
 ## Choosing the parts
 
 <dl class="spec-list">
-  <dt>Which connector</dt><dd>Three variants of the same body, all SuperBrightLEDs, all <b>8 mm COB only</b>, 22 AWG, 3A. <code>SBL-RA2P-8</code> ($1.59) is the one in the list above: it bites the strip at one end and <b>your own wire</b> at the other, no wire supplied. <code>SBL-RA2P-8-1</code> ($1.69) is the same thing with 4 in of tinned lead already on it, so you splice rather than clamp. <code>SBL-RA2P-8-DC</code> ($2.79) ends in a 5.5 × 2.1 mm barrel socket, which is only useful if you fit the optional unplug point. <b>Match the width</b>: a 10 mm connector, or one for SMD strip, will not grip.</dd>
+  <dt>Which connector</dt><dd>Three variants of the same body, all SuperBrightLEDs, all <b>8 mm COB only</b>, 22 AWG, 3A. <code>SBL-RA2P-8</code> ($1.59) is the one in the list above: it bites the strip at one end and <b>your own wire</b> at the other, no wire supplied. <code>SBL-RA2P-8-1</code> ($1.69) is the same thing with 4 in of tinned lead already on it, so you splice rather than clamp. <code>SBL-RA2P-8-DC</code> ($2.79) ends in a 5.5 × 2.1 mm barrel socket, which is only useful if you want the lamp to unplug partway along. <b>Match the width</b>: a 10 mm connector, or one for SMD strip, will not grip.</dd>
   <dt>If you own a crimp tool</dt><dd>You can make the lead yourself instead of buying it: about a metre of 22 AWG stranded per run, one red and one black, plus a 2-pin 2.54 mm Dupont female housing and two crimps. Gauge is a <b>GUESS</b> in the harness notes.</dd>
-  <dt>Barrel pair, if you want the unplug point</dt><dd>5.5 × 2.1 mm, one male and one female, <b>tip positive</b>. Buy only the mating half if your strip connector already brings one. The same size as the PSU outputs, so check you are not about to plug this into a PSU jack. Not in the catalog, because a v1.3 board does not need it.</dd>
   <dt>Insulation</dt><dd>Heatshrink, or lever connectors (Wago 221) or solder-seal butt splices, only if you end up splicing something.</dd>
 </dl>
 
@@ -114,36 +101,13 @@ Keep the iron on the pad briefly. The strip's backing and the LED next to the pa
   <figcaption>A soldered end, insulated with clear heatshrink over the joint. <cite>Manufacturer photo (LED strip product listing; seller not recorded).</cite></figcaption>
 </figure>
 
-{% include step.html n="3" title="The first length off the roll is already done" %}
+## The finished result
 
-A roll arrives with bare leads soldered to one end at the factory. Cut your first length so that end is on your piece and it needs neither a connector nor an iron: trim the leads and join them to the run back to the board. The other two take plain cut lengths from the middle of the roll, and those are the ones that need step 2a or step 2b.
-
-<figure class="single-figure">
-  <img class="doc-figure" src="https://assets.basically.website/sorter-parts/led-strip-24v-full-961391ece43d.jpg" alt="A 5 m reel of lit white COB LED strip with a loose length unwound from it, the free end of that length carrying a short red and black lead fitted at the factory">
-  <figcaption>The end of the roll, with the leads already on it. That end is worth having on your first cut length. <cite>Manufacturer photo (VOEWT).</cite></figcaption>
-</figure>
-
-{% include step.html n="4" title="Plug the other end into the board" %}
-
-**Push the 2-pin Dupont housing onto an LED header**, <code>J8</code> to <code>J11</code>. Red to +24V, and check which pin that is with a meter first. If you are using the pre-crimped lead, cut its male plug off and the female end is already the plug you need; otherwise crimp a housing on yourself.
+A 950 mm length of strip with a red and a black wire on one end and a dead end at the other, three of them for a machine. Nothing is joined end to end, so the far end of the strip stays dead.
 
 <figure class="single-figure">
-  <img class="doc-figure" src="https://assets.basically.website/sorter-parts/dupont-lead-2p-1m-full-1d6495f8bb1b.jpg" alt="Pre-crimped 2-pin Dupont leads in red and black, male plugs with pins on one side and female housings with sockets on the other, plus loose crimps and empty 2-pin housings">
-  <figcaption>The bought lead. The female end on the right is the one that goes on the header; the male end on the left is the one to cut off. <cite>Manufacturer photo (Kidisoii).</cite></figcaption>
+  <img class="doc-figure" src="https://assets.basically.website/sorter-parts/led-strip-connector-8mm-full-915e0ed03fdc.jpg" alt="A length of 8 mm COB LED strip with a clear clamp-on connector on its cut end, a red and a black wire leaving the other side of the connector in a white sheath">
+  <figcaption>A prepared strip: the cut end, the joint, and the cable that leaves it. <cite>Manufacturer photo (SuperBrightLEDs).</cite></figcaption>
 </figure>
 
-Cable-tie the pair along whatever it runs down, so it is not hanging loose.
-
-{% include step.html n="5" title="Optional: an unplug point partway along" %}
-
-Cut the run where you want it to come apart and put the barrel pair in, red to the tip. The strip end then comes off without unwiring anything. Nothing needs this on a v1.3 board.
-
-{% include step.html n="6" title="Set the output in software" %}
-
-Settings, then the channel, then the LED button: pick which of the board's LED outputs this one is on, and set the brightness with the slider. **Nothing lights until an output is assigned.**
-
-Repeat for all three.
-
-## Reference
-
-The two segments are <code>L1</code>/<code>L1p</code> to <code>L3</code>/<code>L3p</code> in the wire schedule on the [wire harness]({{ '/hardware/electronics/' | relative_url }}) page, and the drawings are on [WireViz drawings]({{ '/hardware/electronics/wireviz/' | relative_url }}). Both still split every run at a barrel jack, because <code>leds.yml</code> has not been redrawn since the straight run became the recommendation.
+The Dupont end goes onto an LED port at [connecting the components]({{ '/hardware/electronics/installation/connecting/' | relative_url }}), step 5.

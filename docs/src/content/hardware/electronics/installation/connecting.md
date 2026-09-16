@@ -30,7 +30,7 @@ tools_needed: [Multimeter, Side cutters or a small screwdriver, "Only if you mak
 
 The [PSU box]({{ '/hardware/electronics/installation/psu-box/' | relative_url }}), the [control board housing]({{ '/hardware/electronics/installation/control-board-housing/' | relative_url }}) and the [Orange Pi mount]({{ '/hardware/electronics/installation/orange-pi-mount/' | relative_url }}) are all bolted to the frame, and every cable is already made. This page plugs them together. Nothing here needs a soldering iron.
 
-If a cable is still missing, [make your own PSU pigtail]({{ '/hardware/electronics/psu-pigtail/' | relative_url }}) and [make your own LED drop]({{ '/hardware/electronics/led-drop/' | relative_url }}) build two of them, and the [wire harness]({{ '/hardware/electronics/' | relative_url }}) page has the length and gauge of the rest.
+If a cable is still missing, [make your own PSU pigtail]({{ '/hardware/electronics/psu-pigtail/' | relative_url }}) and [preparing the LED strip]({{ '/hardware/helpers/led-strip/' | relative_url }}) build two of them, and the [wire harness]({{ '/hardware/electronics/' | relative_url }}) page has the length and gauge of the rest.
 
 <div class="callout callout-warning">
   <span class="callout-icon" aria-hidden="true">⚠</span>
@@ -276,7 +276,7 @@ At the switch end, push the two #187 tabs onto the switch's `COM` and `NC` termi
 
 {% include step.html n="5" title="The three camera lamps" %}
 
-The board has four LED ports. The fan in the housing lid is already on one of them, so the three [LED drops]({{ '/hardware/electronics/led-drop/' | relative_url }}) from the [camera lamps]({{ '/hardware/assembly/feeder/camera-lamp/' | relative_url }}) take the other three.
+The board has four LED ports. The fan in the housing lid is already on one of them, so the three [camera lamps]({{ '/hardware/assembly/feeder/camera-lamp/' | relative_url }}) take the other three. Each arrives as a [prepared LED strip]({{ '/hardware/helpers/led-strip/' | relative_url }}) with about a metre of 22 AWG on it.
 
 <table>
   <thead><tr><th>Port</th><th>Printed on the board</th><th>What goes on it</th></tr></thead>
@@ -295,7 +295,13 @@ The board prints `+V` beside one pin of each port and `GND` beside the other. Th
   <p><b>Four ports, two switches.</b> <code>J8</code> and <code>J9</code> turn on and off together, and so do <code>J10</code> and <code>J11</code>. So one lamp always comes on with the fan. Which lamp is on which output is picked in the software later, on the LED button for each channel.</p>
 </div>
 
-Leave the small solder jumpers next to the three lamp ports alone. Each port feeds +24 V through a resistor that the LED strip wants. The fan's port is the one that gets bridged, and that is done on the [housing]({{ '/hardware/electronics/installation/control-board-housing/' | relative_url }}) page.
+Leave the small solder jumpers next to the three lamp ports alone. Each port feeds +24 V through a resistor that the LED strip wants, so the drop needs none of its own. The fan's port is the one that gets bridged, and that is done on the [housing]({{ '/hardware/electronics/installation/control-board-housing/' | relative_url }}) page.
+
+**Plugging one in.** Push the lamp's 2-pin 2.54 mm Dupont housing onto the port, red to `+V`, metering which pin that is first. A lead bought male-to-female has the male plug cut off; the female end is the plug you want. Cable-tie the pair along whatever it runs down so it is not left hanging.
+
+**If you want a lamp to come off without unwiring**, put a 5.5 × 2.1 mm barrel pair in the run partway along, tip positive. Nothing on a v1.3 board needs it, and the same size fits a PSU output, so check what you are plugging into.
+
+**Then assign the output in software**: Settings, the channel, the LED button, pick which output that lamp is on and set the brightness. **Nothing lights until an output is assigned.** The lamps are `L1` to `L3` in the [wire harness]({{ '/hardware/electronics/' | relative_url }}) schedule, which still draws every drop split at a barrel jack.
 
 {% include step.html n="6" title="The ribbon down to the layers" %}
 

@@ -10,11 +10,6 @@ permalink: /hardware/assembly/feeder/c-channels/bulk-channel/
 author: barthel
 contributors: [spencer, brickcyclealice]
 og_image: https://assets.basically.website/sorter-docs/assembly-bulk-channel-cap-fitted-w1600-f75843bda905.jpg
-warning: >-
-  **Every step on this page comes from a build**, BrickCycleAlice's. Two things are still
-  missing. Which way the cap faces relative to the handover to C2 is not recorded, and the
-  bucket that sits over the channel is not published as a part, so nothing about how it mounts
-  is written down yet. Fill them in as you build.
 parts_needed:
   - part: rotor-faceted
     qty: 1
@@ -86,9 +81,7 @@ Turn the rotor by hand. It should go all the way round without a tight spot.
 
 {% include step.html n="4" title="Fit the bulk cap" %}
 
-Slide the Bulk cap down onto the dovetail on the outside of the stator wall. No screws.
-
-**Not recorded:** which way it faces relative to the handover to C2.
+Slide the Bulk cap down onto the dovetail on the outside of the stator wall. No screws. There is one dovetail on the stator, so there is one way it goes on; the channel's own clocking is set later, at [arranging C-channels]({{ '/hardware/assembly/feeder/arranging-c-channels/' | relative_url }}), step 5.
 
 <div class="callout callout-warning">
   <span class="callout-icon" aria-hidden="true">&#9888;</span>

@@ -6912,6 +6912,28 @@
       ],
       "versions": [
         {
+          "version": "1",
+          "uid": "s4we",
+          "message": "As recorded before the first stamped change.",
+          "lines": [
+            {
+              "part": "interface-cage-bracket-cable",
+              "qty": 1,
+              "uid": "nu2n"
+            },
+            {
+              "part": "ribbon-cable-clamp",
+              "qty": 1,
+              "uid": "nf0n"
+            },
+            {
+              "part": "scr-m3-10-shcs",
+              "qty": 1,
+              "uid": "ufvb"
+            }
+          ]
+        },
+        {
           "version": "2",
           "date": "2026-09-16",
           "message": "Ribbon clamp screw M3 x 10 -> M3 x 12. The clamp is drawn standing 1.30 mm off the bracket face so the ribbon is not crushed, so under the head to the bracket face is 7.94 mm and an M3 x 10 left only 2.06 mm in the insert, under 1 x D. Reported from two builds (barthel 2026-09-13, BrickCycleAlice 2026-09-16). The 4.00 mm modelled boss depth is tracked separately as issue #648.",

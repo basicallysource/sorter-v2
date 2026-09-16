@@ -74,7 +74,7 @@ A prepared strip is a cut length of 24 V COB strip with a two-conductor run on t
 Leave the blue protective film on until the strip is going where it lives. It is the only thing keeping grease off the adhesive.
 
 <figure class="single-figure">
-  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/led-strip-cut-marks-full-1ad6f30193ee.png" alt="Diagram of a COB LED strip seen from above with scissors symbols marking two cut points 1.5 inches apart, and the copper pads at each cut point labelled +24V on the top row and minus on the bottom">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/led-strip-cut-marks-plain-full-3351d6e9340e.png" alt="Diagram of a COB LED strip seen from above with a scissors symbol over each of two cut points, and the copper pads at each cut point labelled +24V on the top row and minus on the bottom">
   <figcaption>The cut points, with the pads that sit either side of them. Each cut leaves you half of a pad, printed <code>+24V</code> on one side. <cite>Manufacturer diagram (VOEWT).</cite></figcaption>
 </figure>
 

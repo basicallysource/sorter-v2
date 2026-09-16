@@ -9,7 +9,7 @@ lede: The arm and the ring it carries, the reflector with its ring of LED strip,
 permalink: /hardware/assembly/feeder/camera-lamp/lamp-arm/
 author: reveryx
 contributors: [spencer, danny, brickcyclealice, barthel]
-og_image: https://assets.basically.website/sorter-docs/assembly-camera-lamp-arm-assembled-w1600-735fdcc7ecd6.jpg
+og_image: https://assets.basically.website/sorter-docs/camera-lamp-render-underside-full-0e2b1e5a0fb9.png
 warning: >-
   **Step 5, the cover, is not verified against a build.** Steps 1 to 4 are photographed on real
   builds. The cover has no build photograph yet, and it is the step whose place in the order is
@@ -147,11 +147,9 @@ The **Lamp outer cover** pushes down over the reflector. It is a friction fit an
 **Leave it off until the camera is in.** The cover is what holds the camera down: the clasp is wider than the opening in the middle of the cover, so the cover overlaps its rim and traps it, and until then the camera lifts straight back out. Both camera pages put the cover on as their last bench step, after the clasp is in the ring.
 
 <figure class="single-figure">
-  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/camera-lamp-render-underside-full-0e2b1e5a0fb9.png" alt="CAD render of the camera lamp seen from below: the inside of the cover with the reflector dome, the LED hooks spaced around the rim, the camera at the centre, and the arm reaching up into it">
-  <figcaption>From below, with the reflector inside the cover and the hooks around the rim. <cite>Rendered from the part geometry, not from a build. Render: Spencer.</cite></figcaption>
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/camera-lamp-lit-from-below-w1600-bb9d54f4f43e.jpg" alt="The lamp lit, photographed from underneath: a ring of LED strip glowing around the outside of the white reflector, the reflector's central funnel in the middle, and the arm behind it">
+  <figcaption>Lit, from below. The strip rings the reflector and the light reaches the parts off the white. <cite>Photo: Spencer.</cite></figcaption>
 </figure>
-
-<div class="img-placeholder">Photo of the cover going on, or on: pending from the build.</div>
 
 ## The finished result
 

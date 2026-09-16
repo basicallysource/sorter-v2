@@ -37,6 +37,10 @@ Each page ends in one of these.
     <figcaption><a href="{{ '/hardware/assembly/feeder/c-channels/channel-core/' | relative_url }}">Channel core</a>, no rotor in it yet. <cite>Photo: BrickCycleAlice.</cite></figcaption>
   </figure>
   <figure>
+    <img src="https://assets.basically.website/sorter-docs/assembly-bulk-channel-cap-fitted-w1600-f75843bda905.jpg" alt="A finished C1 on the bench: the tall cylindrical bulk cap seated on the channel below it, its outlet opening at the front right, the stepper motor at the front with its lead coiled">
+    <figcaption><a href="{{ '/hardware/assembly/feeder/c-channels/bulk-channel/' | relative_url }}">Bulk channel</a>, the cap on. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+  </figure>
+  <figure>
     <img src="https://assets.basically.website/sorter-docs/assembly-c-channel-finished-stage-w1600-9bd3719c4180.jpg" alt="A C-channel from above on a plain surface: the faceted rotor sitting down in the stator ring, with the stepper motor and its lead standing off one side">
     <figcaption><a href="{{ '/hardware/assembly/feeder/c-channels/feeder-channels/' | relative_url }}">Feeder channel</a>, rotor in. <cite>Photo: BrickCycleAlice.</cite></figcaption>
   </figure>

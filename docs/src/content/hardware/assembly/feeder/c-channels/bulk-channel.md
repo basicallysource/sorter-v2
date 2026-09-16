@@ -10,6 +10,7 @@ permalink: /hardware/assembly/feeder/c-channels/bulk-channel/
 author: barthel
 contributors: [spencer, brickcyclealice]
 og_image: https://assets.basically.website/sorter-docs/assembly-bulk-channel-cap-fitted-w1600-f75843bda905.jpg
+last_verified: 2026-09-16
 parts_needed:
   - part: rotor-faceted
     qty: 1

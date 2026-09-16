@@ -222,7 +222,7 @@ The board prints `+V` beside one pin of each port and `GND` beside the other. Th
 
 <div class="callout callout-warning">
   <span class="callout-icon" aria-hidden="true">⚠</span>
-  <p><b>Bridge the bypass jumper on all three lamp ports.</b> Each port feeds +24&nbsp;V through a 180&nbsp;&#8486; resistor, which is there for a COB LED board. The strip has its own current limiting, so on a lamp port the resistor only costs you brightness, and brightness is set in the software instead. Bridge the small solder jumper marked <b>Bypass R21</b>, <b>R22</b> or <b>R27</b> beside each port you used, the same job as the fan's port on the <a href="{{ '/hardware/electronics/installation/control-board-housing/' | relative_url }}">housing</a> page. A blob of solder across the two pads is all it takes, and all four ports end up bridged (Jon, 2026-09-13).</p>
+  <p><b>Bridge the bypass jumper on all three lamp ports.</b> Each port feeds +24&nbsp;V through a 180&nbsp;&#8486; resistor, which is there for a COB LED board. The strip has its own current limiting, so on a lamp port the resistor only costs you brightness, and brightness is set in the software instead. Bridge the small solder jumper marked <b>Bypass R21</b>, <b>R22</b> or <b>R27</b> beside each port you used: a blob of solder across the two pads is all it takes (Jon, 2026-09-13).</p>
 </div>
 
 **Plugging one in.** Push the lamp's 2-pin 2.54 mm Dupont housing onto the port, red to `+V`, metering which pin that is first. A lead bought male-to-female has the male plug cut off; the female end is the plug you want. Cable-tie the pair along whatever it runs down so it is not left hanging.

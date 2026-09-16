@@ -41,4 +41,4 @@ Both camera pages end in one of these: an arm, a lamp and a camera over a channe
   <figcaption>A finished lamp over its channel, lit. <cite>Photo: Spencer.</cite></figcaption>
 </figure>
 
-The strip is cut, wired and run back to the board on [Preparing the LED strip]({{ '/hardware/helpers/led-strip/' | relative_url }}), one per lamp before the arm is built. The camera is on the [electronics]({{ '/hardware/electronics/' | relative_url }}) page. See [arranging C-channels]({{ '/hardware/assembly/feeder/arranging-c-channels/' | relative_url }}) for how the channels themselves sit together.
+The strip is cut and wired on [Preparing the LED strip]({{ '/hardware/helpers/led-strip/' | relative_url }}), one per lamp before the arm is built, and plugged into the board on [connecting the components]({{ '/hardware/electronics/installation/connecting/' | relative_url }}). The camera is on the [electronics]({{ '/hardware/electronics/' | relative_url }}) page. See [arranging C-channels]({{ '/hardware/assembly/feeder/arranging-c-channels/' | relative_url }}) for how the channels themselves sit together.

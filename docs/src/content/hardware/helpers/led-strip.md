@@ -30,6 +30,11 @@ A prepared strip is a cut length of 24 V COB strip with a two-conductor run on t
 
 **The quantities above are for one, so a machine needs three of each**, except the strip: one 5 m roll cuts into five lengths. The Dupont leads come five to a pack. So a machine is one roll, three connectors and one pack.
 
+<figure class="single-figure">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-parts/led-strip-connector-8mm-full-915e0ed03fdc.jpg" alt="A length of 8 mm COB LED strip with a clear clamp-on connector on its cut end, a red and a black wire leaving the other side of the connector in a white sheath">
+  <figcaption>What you are making: the cut end of the strip, a connector clamped onto it, and the pair that runs back to the board. <cite>Manufacturer photo (SuperBrightLEDs).</cite></figcaption>
+</figure>
+
 <dl class="spec-list">
   <dt>Board end</dt><dd>A 2-pin 2.54 mm Dupont plug onto one of the four LED headers on basically board v1.3, <code>J8</code> to <code>J11</code>.</dd>
   <dt>In between</dt><dd><b>On a v1.3 board it is Dupont straight to the strip</b>: one continuous pair of 22 AWG, about a metre, with no connector in the middle. That is how the one Spencer photographed is built, and it is what Jon (who drew the harness) says to do.</dd>
@@ -68,6 +73,11 @@ A prepared strip is a cut length of 24 V COB strip with a two-conductor run on t
 
 Leave the blue protective film on until the strip is going where it lives. It is the only thing keeping grease off the adhesive.
 
+<figure class="single-figure">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/led-strip-cut-marks-full-1ad6f30193ee.png" alt="Diagram of a COB LED strip seen from above with scissors symbols marking two cut points 1.5 inches apart, and the copper pads at each cut point labelled +24V on the top row and minus on the bottom">
+  <figcaption>The cut points, with the pads that sit either side of them. Each cut leaves you half of a pad, printed <code>+24V</code> on one side. <cite>Manufacturer diagram (VOEWT).</cite></figcaption>
+</figure>
+
 {% include step.html n="2" title="Either: clamp a connector onto the pads" %}
 
 The solderless connector is a hinged body with sprung contacts at each end: the strip goes in one end, the wire in the other, and nothing is stripped or tinned.
@@ -80,6 +90,11 @@ The solderless connector is a hinged body with sprung contacts at each end: the 
 **Match the width.** These are 8 mm COB connectors and nothing else will grip: a 10 mm body, or one meant for SMD strip, will not hold the pads against the contacts.
 
 The wire is the pair that runs back to the board, a metre of 22 AWG red and black.
+
+<figure class="single-figure">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/led-strip-connector-open-full-6df299f213ed.jpg" alt="The clear polycarbonate clamp-on connector on its own, lid raised, showing the two sprung metal contacts inside the strip end">
+  <figcaption>The connector before anything is in it, lid up and both contacts visible. <cite>Manufacturer photo (SuperBrightLEDs).</cite></figcaption>
+</figure>
 
 {% include step.html n="3" title="Or: solder the wires to the pads" %}
 
@@ -94,18 +109,25 @@ Perfectly good, and what the strip is designed for. It needs no connector at all
 
 Keep the iron on the pad briefly. The strip's backing and the LED next to the pad do not like being cooked.
 
+<div class="img-placeholder">Photo of a soldered joint: pending from a build.</div>
+
 {% include step.html n="4" title="The first length off the roll is already done" %}
 
 A roll arrives with bare leads soldered to one end at the factory. Cut your first length so that end is on your piece and it needs neither a connector nor an iron: trim the leads and join them to the run back to the board. The other two take plain cut lengths from the middle of the roll, and those are the ones that need step 2 or step 3.
 
 <figure class="single-figure">
-  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-camera-lamp-strip-second-turn-w1600-e7a417c98b26.jpg" alt="Two turns of LED strip fitted inside a white printed housing, one above the other, the protective film gone, with the red and black leads leaving it at one side">
-  <figcaption>The roll's own lead end, red and black, on a fitted length. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+  <img class="doc-figure" src="https://assets.basically.website/sorter-parts/led-strip-24v-full-961391ece43d.jpg" alt="A 5 m reel of lit white COB LED strip with a loose length unwound from it, the free end of that length carrying a short red and black lead fitted at the factory">
+  <figcaption>The end of the roll, with the leads already on it. That end is worth having on your first cut length. <cite>Manufacturer photo (VOEWT).</cite></figcaption>
 </figure>
 
 {% include step.html n="5" title="Plug the other end into the board" %}
 
 **Push the 2-pin Dupont housing onto an LED header**, <code>J8</code> to <code>J11</code>. Red to +24V, and check which pin that is with a meter first. If you are using the pre-crimped lead, cut its male plug off and the female end is already the plug you need; otherwise crimp a housing on yourself.
+
+<figure class="single-figure">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-parts/dupont-lead-2p-1m-full-1d6495f8bb1b.jpg" alt="Pre-crimped 2-pin Dupont leads in red and black, male plugs with pins on one side and female housings with sockets on the other, plus loose crimps and empty 2-pin housings">
+  <figcaption>The bought lead. The female end on the right is the one that goes on the header; the male end on the left is the one to cut off. <cite>Manufacturer photo (Kidisoii).</cite></figcaption>
+</figure>
 
 Cable-tie the pair along whatever it runs down, so it is not hanging loose.
 

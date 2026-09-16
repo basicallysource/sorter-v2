@@ -5476,6 +5476,7 @@
       ],
       "note": "Buy the 24 V roll: 5 m, 6000 K, 8 mm COB. The same listing also sells a 12 V one, and outside the US the link may not land on this product at all.",
       "caption": "950 mm of 24 V strip cut from a 5 m roll. One roll does all three lamps.",
+      "docs_page": "/hardware/helpers/led-strip/",
       "stock": {
         "unit_length_mm": 5000,
         "cut_length_mm": 950,
@@ -5525,7 +5526,7 @@
         "per_machine": 3
       },
       "caption": "One per lamp. Strip in one end, your wire in the other.",
-      "docs_page": "/hardware/electronics/led-drop/",
+      "docs_page": "/hardware/helpers/led-strip/",
       "sourcing": {
         "vendors": [
           {

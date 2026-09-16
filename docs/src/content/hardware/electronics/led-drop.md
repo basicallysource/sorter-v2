@@ -5,7 +5,7 @@ type: reference
 section: hardware
 slug: electronics-led-drop
 kicker: Electronics — LED drop
-lede: Wire a camera lamp's LED strip back to a 24V LED header on basically board v1.3, with or without a soldering iron.
+lede: Wire a camera lamp's prepared LED strip back to a 24V LED header on basically board v1.3.
 permalink: /hardware/electronics/led-drop/
 author: brickcyclealice
 contributors: [effreek, barthel]
@@ -33,18 +33,28 @@ Each [camera lamp]({{ '/hardware/assembly/feeder/camera-lamp/' | relative_url }}
   <dt>Board end</dt><dd>A 2-pin 2.54 mm Dupont plug onto one of the board's four LED headers, <code>J8</code> to <code>J11</code>.</dd>
   <dt>In between</dt><dd><b>On a v1.3 board it is Dupont straight to the strip</b>: one continuous pair of 22 AWG, about a metre, board to lamp, no connector in the middle. That is how the lamp Spencer photographed is built, and it is what Jon (who drew the harness) says to do.</dd>
   <dt>Optional unplug point</dt><dd>A 5.5 × 2.1 mm barrel pair partway along, so the lamp comes off the machine without unwiring, which splits the run into about 36 in of feed and about 6 in of pigtail. The harness notes still draw it that way. Fit it if you want it; nothing needs it.</dd>
-  <dt>Lamp end</dt><dd>A solderless clamp-on connector, or solder, onto the two pads at the cut end of the strip.</dd>
+  <dt>Lamp end</dt><dd>A solderless clamp-on connector, or solder, onto the two pads at the cut end of the strip. That joint is <a href="{{ '/hardware/helpers/led-strip/' | relative_url }}">Preparing the LED strip</a>, done once per lamp before the strip goes in.</dd>
 </dl>
 
 <div class="callout">
   <p><b>You do not need a soldering iron.</b> A clamp-on connector at the strip and a ready-made 2-pin Dupont pigtail at the board is a whole drop out of two bought parts, joined once in the middle. You do not need a crimp tool either unless you make the Dupont end yourself.</p>
 </div>
 
+<div class="prep-item">
+  <div class="prep-item-body">
+    <p><strong>Prepare an <a href="{{ '/hardware/helpers/led-strip/' | relative_url }}">LED strip</a> before you start.</strong> The lamp end of this drop is made there: 950 mm cut off the roll, with the connector clamped on or the wires soldered to the pads. This page is the run from those two wires back to the board.</p>
+  </div>
+  <figure class="prep-item-figure">
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-camera-lamp-strip-start-w1600-3d30eeb9a913.jpg" alt="The white reflector with the leading end of the LED strip started under the hooks in its skirt, the rest of the strip still carrying its blue protective film">
+    <figcaption>A cut length of strip going into a reflector. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+  </figure>
+</div>
+
 ## Choosing the parts
 
 <dl class="spec-list">
   <dt>Which connector</dt><dd>Three variants of the same body, all SuperBrightLEDs, all <b>8 mm COB only</b>, 22 AWG, 3A. <code>SBL-RA2P-8</code> ($1.59) is the one in the list above: it bites the strip at one end and <b>your own wire</b> at the other, no wire supplied. <code>SBL-RA2P-8-1</code> ($1.69) is the same thing with 4 in of tinned lead already on it, so you splice rather than clamp. <code>SBL-RA2P-8-DC</code> ($2.79) ends in a 5.5 × 2.1 mm barrel socket, which is only useful if you fit the optional unplug point. <b>Match the width</b>: a 10 mm connector, or one for SMD strip, will not grip.</dd>
-  <dt>If you would rather solder</dt><dd>Soldering wire straight to the strip's pads is the only other way to make this joint, and it needs no connector. It is at the end of this page. You do not have to: the clamp-on connector is the route this page is built around, and it needs no iron.</dd>
+  <dt>If you would rather solder</dt><dd>Soldering wire straight to the strip's pads is the only other way to make this joint, and it needs no connector. Both routes are written out on <a href="{{ '/hardware/helpers/led-strip/' | relative_url }}">Preparing the LED strip</a>. You do not have to: the clamp-on connector needs no iron.</dd>
   <dt>If you own a crimp tool</dt><dd>You can make the lead yourself instead of buying it: about a metre of 22 AWG stranded per drop, one red and one black, plus a 2-pin 2.54 mm Dupont female housing and two crimps. Gauge is a <b>GUESS</b> in the harness notes.</dd>
   <dt>Barrel pair, if you want the unplug point</dt><dd>5.5 × 2.1 mm, one male and one female, <b>tip positive</b>. Buy only the mating half if your strip connector already brings one. The same size as the PSU outputs, so check you are not about to plug a lamp into a PSU jack. Not in the catalog, because a v1.3 board does not need it.</dd>
   <dt>Insulation</dt><dd>Heatshrink, or lever connectors (Wago 221) or solder-seal butt splices, only if you end up splicing something.</dd>
@@ -57,19 +67,13 @@ Each [camera lamp]({{ '/hardware/assembly/feeder/camera-lamp/' | relative_url }}
 
 ## Build it
 
-1. **Cut the strip on a mark.** 950 mm for a lamp, cut where the strip is printed as cuttable, which leaves half of each copper pad on your piece. The full measurement is on the [lamp arm]({{ '/hardware/assembly/feeder/camera-lamp/lamp-arm/' | relative_url }}) page, step 4.
-2. **Clamp the connector onto the pads.** Lift the lid, slide the cut end in until the two pads sit under the sprung contacts, press it shut. The pad printed <code>+24V</code> takes the red side. Nothing to strip, nothing to solder. Soldering to the pads instead is below.
-3. **Clamp the wire into the other end**, red to the <code>+24V</code> side, if you are using the strip-to-wire connector. It bites through the insulation, so the wire does not need stripping either.
-4. **Run the pair out of the reflector and down the arm**, and cable-tie it along the arm so it is not hanging in the channel.
-5. **At the board end, push the 2-pin Dupont housing onto an LED header.** Red to +24V, and check which pin that is with a meter first. If you are using the pre-crimped lead, cut its male plug off and the female end is already the plug you need; otherwise crimp a housing on yourself.
-6. **Only if you want an unplug point**, cut the run where the arm meets the channel and put the barrel pair in, red to the tip. The lamp then comes off the machine there without unwiring anything.
-7. **Set the output in software.** Settings, then the channel, then the LED button: pick which of the board's LED outputs this lamp is on, and set the brightness with the slider. Nothing lights until an output is assigned.
+1. **Start from a prepared strip.** 950 mm cut on a mark, with this drop's red and black pair already on its end, by connector or by solder: [Preparing the LED strip]({{ '/hardware/helpers/led-strip/' | relative_url }}) does that, and it is where both methods are written out.
+2. **Run the pair out of the reflector and down the arm**, and cable-tie it along the arm so it is not hanging in the channel.
+3. **At the board end, push the 2-pin Dupont housing onto an LED header.** Red to +24V, and check which pin that is with a meter first. If you are using the pre-crimped lead, cut its male plug off and the female end is already the plug you need; otherwise crimp a housing on yourself.
+4. **Only if you want an unplug point**, cut the run where the arm meets the channel and put the barrel pair in, red to the tip. The lamp then comes off the machine there without unwiring anything.
+5. **Set the output in software.** Settings, then the channel, then the LED button: pick which of the board's LED outputs this lamp is on, and set the brightness with the slider. Nothing lights until an output is assigned.
 
 Repeat for all three lamps.
-
-### Soldering to the pads instead
-
-Perfectly good, and it is what the strip is designed for. Clear any coating off the two pads, melt a little solder onto each until it wets the copper, tin 3 mm of bared wire the same way, then hold the wire on the pad and touch the iron to both for a second or two. Red to <code>+24V</code>, black to <code>-</code>. Insulate each joint so the two cannot touch. Keep the iron on the pad briefly: the strip's backing and the LED next to the pad do not like being cooked.
 
 ## Reference
 

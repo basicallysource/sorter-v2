@@ -123,6 +123,8 @@ sections:
             url: /hardware/helpers/heat-inserts/
           - title: Fitting T-nuts
             url: /hardware/helpers/t-nuts/
+          - title: Preparing the LED strip
+            url: /hardware/helpers/led-strip/
       - title: Parts
         url: /hardware/parts/
         children:

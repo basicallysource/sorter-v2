@@ -87,7 +87,7 @@ parts_needed:
     qty: 1
   - part: scr-m3-8-cs
     qty: 9
-  - part: scr-m3-10-shcs
+  - part: scr-m3-12-bhcs
     qty: 3
   - part: scr-m3-12-cs
     qty: 6
@@ -692,7 +692,7 @@ Screw the remaining Cable cage brackets to the other 5 corners of the Cable cage
   <figcaption><cite>Video: zed0.</cite></figcaption>
 </figure>
 
-Place an {% include fastener.html size="M3" variant="nut" %} into the bottom of the Cable clamp (outer) (the video skips this), then push it into the recess in the Top interface chute mount. Fasten it with two {% include fastener.html size="M3" variant="socket-button" length="10" %} screws.
+Place an {% include fastener.html size="M3" variant="nut" %} into the bottom of the Cable clamp (outer) (the video skips this), then push it into the recess in the Top interface chute mount. Fasten it with two {% include fastener.html size="M3" variant="socket-button" length="12" %} screws.
 
 <div class="callout callout-warning">
   <span class="callout-icon" aria-hidden="true">⚠</span>
@@ -705,7 +705,7 @@ Fold your IDC ribbon cable around the Cable clamp (inner), following the guides 
 
 Guide the rest of the ribbon cable around the side of the Top interface chute mount, in the direction the chute can rotate, back to the Cable cage bracket (cable mount).
 
-Screw the Ribbon cable clamp lightly to the Cable cage bracket (cable mount) with one {% include fastener.html size="M3" variant="socket-button" length="10" %} screw, clamping the ribbon cable between the two.
+Screw the Ribbon cable clamp lightly to the Cable cage bracket (cable mount) with one {% include fastener.html size="M3" variant="socket-button" length="12" %} screw, clamping the ribbon cable between the two. The clamp is meant to stand off the bracket face by about 1.3 mm so the ribbon is not crushed, so the screw has to be long enough to cross that gap and still bite.
 
 <figure class="single-figure">
   <img class="doc-figure" src="https://assets.basically.website/sorter-parts/spencer-image2-full-adb0f1993da6.png" alt="Onshape render of the cable-mount cage bracket (teal) with the ribbon cable clamp (purple) bolted to its post, one M3 hole visible through both">

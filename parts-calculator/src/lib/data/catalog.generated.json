@@ -373,6 +373,18 @@
 			}
 		},
 		{
+			"id": "delete-unused-m3-10-shcs-screw",
+			"name": "Delete the unused M3 x 10 mm socket/button head screw",
+			"priority": "P4",
+			"condition": "retired",
+			"description": "This screw reaches no bill of materials. Its only live use was the single screw holding the Ribbon cable clamp to the Cable cage bracket (cable mount) at the top interface, and 10 mm was too short for that joint: the clamp stands 1.30 mm off the bracket face so the ribbon is not crushed, so there is 7.94 mm from under the head to the bracket face and a 10 left only 2.06 mm of thread in the insert, under 1 x D. Cage bracket + cable clamp v2 carries the M3 x 12 mm socket/button head (scr-m3-12-bhcs) instead, and every remaining reference is a historical snapshot of a superseded assembly. It should be deleted outright, but a minted part id has to stay resolvable once it exists, and the catalog's own consistency check refuses a change that removes one, so deleting it needs that check overridden by someone who can make that call, not an edit from here. Tracked as sorter-v2 issue #662.",
+			"targets": {
+				"hardware": [
+					"scr-m3-10-shcs"
+				]
+			}
+		},
+		{
 			"id": "delete-unused-m3-15-washer",
 			"name": "Delete the unused M3 x 15 mm washer",
 			"priority": "P4",
@@ -20280,7 +20292,7 @@
 			"name": "M3 \u00d7 10 mm socket/button head",
 			"category": "Screws",
 			"description": "Retired 2026-09-16, no longer used by any assembly: the ribbon clamp on the cable-mount cage bracket was its only line and it takes the M3 x 12 (scr-m3-12-bhcs) now, because the clamp stands off the bracket face and a 10 left under 1 x D of thread. Kept as an unused entry rather than deleted, because cage-bracket-cable-clamp v1 pins this uid in its line snapshot and a minted uid has to stay resolvable (VERSIONING.md).",
-			"note": "Do not add a new joint to this entry.",
+			"note": "Do not add a new joint to this entry. Deletion tracked as sorter-v2 issue #662.",
 			"created_at": "2026-08-18",
 			"updated_at": "2026-09-16",
 			"attributes": [

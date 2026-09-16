@@ -47,8 +47,8 @@ Build these before the channels that carry them: two of the [C-channels]({{ '/ha
     <p><strong>Prepare an <a href="{{ '/hardware/helpers/led-strip/' | relative_url }}">LED strip</a> before you start.</strong> One per lamp: a 950 mm length cut off the roll with two wires on the end, either clamped on or soldered. That page has the strip, the connector and the lead; step 4 here only hooks it on.</p>
   </div>
   <figure class="prep-item-figure">
-    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-camera-lamp-strip-start-w1600-3d30eeb9a913.jpg" alt="The white reflector with the leading end of the LED strip started under the hooks in its skirt, the rest of the strip still carrying its blue protective film">
-    <figcaption>A cut length of strip going into a reflector. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-parts/led-strip-connector-8mm-full-915e0ed03fdc.jpg" alt="A length of 8 mm COB LED strip with a clear clamp-on connector on its cut end, a red and a black wire leaving the other side of the connector in a white sheath">
+    <figcaption>A prepared strip: the cut end, the joint, and the cable that leaves it. <cite>Manufacturer photo (SuperBrightLEDs).</cite></figcaption>
   </figure>
 </div>
 

@@ -16,6 +16,16 @@ A camera lamp is one arm carrying one light and one camera over a channel. The l
 
 **All three lamps are built on the same arm.** Build the [lamp arm]({{ '/hardware/assembly/feeder/camera-lamp/lamp-arm/' | relative_url }}) three times, then finish each one with the camera module its channel needs. The camera and its clasp are the only difference between the three.
 
+<div class="prep-item">
+  <div class="prep-item-body">
+    <p><strong>Prepare an <a href="{{ '/hardware/helpers/led-strip/' | relative_url }}">LED strip</a> before you start.</strong> One per lamp, three for a machine: a 950 mm length off the roll with its cable on the end, clamped on or soldered. It goes into the reflector on the lamp arm page, and the strip, the connector and the lead are all on that page.</p>
+  </div>
+  <figure class="prep-item-figure">
+    <img class="doc-figure" src="https://assets.basically.website/sorter-parts/led-strip-connector-8mm-full-915e0ed03fdc.jpg" alt="A length of 8 mm COB LED strip with a clear clamp-on connector on its cut end, a red and a black wire leaving the other side of the connector in a white sheath">
+    <figcaption>A prepared strip: the cut end, the joint, and the cable that leaves it. <cite>Manufacturer photo (SuperBrightLEDs).</cite></figcaption>
+  </figure>
+</div>
+
 <ol class="numbered-steps">
   <li><strong><a href="{{ '/hardware/assembly/feeder/camera-lamp/lamp-arm/' | relative_url }}">Lamp arm</a></strong>. The arm and the ring it carries, the reflector with its ring of LED strip, and the cover that goes over the top. Build three.</li>
   <li><strong><a href="{{ '/hardware/assembly/feeder/camera-lamp/feeder-camera-lamp/' | relative_url }}">Feeder camera lamp (C2 and C3)</a></strong>. A lamp arm finished with the OV9732 720p module in its clasp. Build two.</li>
@@ -41,4 +51,4 @@ Both camera pages end in one of these: an arm, a lamp and a camera over a channe
   <figcaption>A finished lamp over its channel, lit. <cite>Photo: Spencer.</cite></figcaption>
 </figure>
 
-The strip is cut and wired on [Preparing the LED strip]({{ '/hardware/helpers/led-strip/' | relative_url }}), one per lamp before the arm is built, and plugged into the board on [connecting the components]({{ '/hardware/electronics/installation/connecting/' | relative_url }}). The camera is on the [electronics]({{ '/hardware/electronics/' | relative_url }}) page. See [arranging C-channels]({{ '/hardware/assembly/feeder/arranging-c-channels/' | relative_url }}) for how the channels themselves sit together.
+Each lamp's strip is plugged into the board on [connecting the components]({{ '/hardware/electronics/installation/connecting/' | relative_url }}), and the camera is on the [electronics]({{ '/hardware/electronics/' | relative_url }}) page. See [arranging C-channels]({{ '/hardware/assembly/feeder/arranging-c-channels/' | relative_url }}) for how the channels themselves sit together.

@@ -23049,7 +23049,7 @@
 			},
 			"alternative": null,
 			"caption": "950 mm of 24 V strip cut from a 5 m roll. One roll does all three lamps.",
-			"docs_page": null,
+			"docs_page": "/hardware/helpers/led-strip/",
 			"conflicts": null,
 			"image": "https://assets.basically.website/sorter-parts/led-strip-24v-full-961391ece43d.jpg"
 		},
@@ -23108,7 +23108,7 @@
 			},
 			"alternative": "Solder the wire to the strip pads instead, which needs no connector at all",
 			"caption": "One per lamp. Strip in one end, your wire in the other.",
-			"docs_page": "/hardware/electronics/led-drop/",
+			"docs_page": "/hardware/helpers/led-strip/",
 			"conflicts": null,
 			"image": "https://assets.basically.website/sorter-parts/led-strip-connector-8mm-full-915e0ed03fdc.jpg"
 		},

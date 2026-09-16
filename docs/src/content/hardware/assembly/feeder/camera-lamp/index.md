@@ -9,7 +9,7 @@ lede: The arm, the shaded lamp and the camera that hang over C2, C3 and the clas
 permalink: /hardware/assembly/feeder/camera-lamp/
 author: reveryx
 contributors: [spencer, danny, brickcyclealice, barthel]
-og_image: https://assets.basically.website/sorter-docs/camera-lamp-on-channel-w1600-8d957377d671.jpg
+og_image: https://assets.basically.website/sorter-docs/camera-lamp-lit-from-below-w1600-bb9d54f4f43e.jpg
 ---
 
 A camera lamp is one arm carrying one light and one camera over a channel. The light is a ring of LED strip inside a white reflector, under a grey cover, so the light reaches a part bounced off the white rather than aimed straight at it. The camera looks down through the hole in the middle of the reflector.
@@ -47,8 +47,8 @@ It replaces the light post and the overhead camera mount, the side-light-plus-ro
 Both camera pages end in one of these: an arm, a lamp and a camera over a channel, lit.
 
 <figure class="single-figure">
-  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/camera-lamp-on-channel-w1600-8d957377d671.jpg" alt="A camera lamp on the machine: a grey disc-shaped lamp on an angled arm hanging over the open top of a C-channel, the white reflector lit inside it, with the black bulk bucket behind">
-  <figcaption>A finished lamp over its channel, lit. <cite>Photo: Spencer.</cite></figcaption>
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/camera-lamp-lit-from-below-w1600-bb9d54f4f43e.jpg" alt="The lamp lit, photographed from underneath: a ring of LED strip glowing around the outside of the white reflector, the reflector's central funnel in the middle, and the arm behind it">
+  <figcaption>Lit, from below. The strip rings the reflector and the light reaches the parts off the white. <cite>Photo: Spencer.</cite></figcaption>
 </figure>
 
 Each lamp's strip is plugged into the board on [connecting the components]({{ '/hardware/electronics/installation/connecting/' | relative_url }}), and the camera is on the [electronics]({{ '/hardware/electronics/' | relative_url }}) page. See [arranging C-channels]({{ '/hardware/assembly/feeder/arranging-c-channels/' | relative_url }}) for how the channels themselves sit together.

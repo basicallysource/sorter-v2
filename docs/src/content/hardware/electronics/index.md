@@ -174,7 +174,7 @@ Three outputs, three loads, no spare. The cooling fans are deliberately not on t
 
 ### 4.3 &nbsp; LEDs (from basically board v1.3)
 
-Each LED drop is drawn as two segments: a 2x1 dupont feed from the board to a female DC jack (the unplug point), then a 6 in male-DC pigtail into the module. On a v1.3 board the barrel pair is optional and the drop can be one continuous 22 AWG pair, dupont at the board and a solderless clamp-on connector at the strip; the drawing has not been redrawn for that yet. Building one is [Make your own LED drop]({{ '/hardware/electronics/led-drop/' | relative_url }}).
+Each LED drop is drawn as two segments: a 2x1 dupont feed from the board to a female DC jack (the unplug point), then a 6 in male-DC pigtail into the module. On a v1.3 board the barrel pair is optional and the drop can be one continuous 22 AWG pair, dupont at the board and a solderless clamp-on connector at the strip; the drawing has not been redrawn for that yet. Building one is [Preparing the LED strip]({{ '/hardware/helpers/led-strip/' | relative_url }}).
 
 All three drops now feed an LED strip in a [camera lamp]({{ '/hardware/assembly/feeder/camera-lamp/' | relative_url }}), on C-channels 2 and 3 and the classification channel. The 50 mm COB plates that L1 and L2 used to feed went with the light post they were mounted on. The WireViz drawing still shows them as COB boards and has not been redrawn yet.
 

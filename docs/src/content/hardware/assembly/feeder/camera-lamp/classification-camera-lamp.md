@@ -111,6 +111,6 @@ An arm, a lamp and the 4K camera hanging over the classification channel, lit. B
   <figcaption>A finished lamp over its channel, lit. <cite>Photo: Spencer.</cite></figcaption>
 </figure>
 
-Wiring is [Make your own LED drop]({{ '/hardware/electronics/led-drop/' | relative_url }}) for the strip, and the [electronics]({{ '/hardware/electronics/' | relative_url }}) page for the camera.
+Wiring is [Preparing the LED strip]({{ '/hardware/helpers/led-strip/' | relative_url }}) for the strip, and the [electronics]({{ '/hardware/electronics/' | relative_url }}) page for the camera.
 
 Back to [Camera lamps]({{ '/hardware/assembly/feeder/camera-lamp/' | relative_url }}).

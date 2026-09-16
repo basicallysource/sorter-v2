@@ -3,3 +3,5 @@
 /hardware/assembly/distribution/chute/mg995-servo/how-to-install/  /hardware/assembly/distribution/chute/door-module/  301
 /hardware/assembly/distribution/chute/mg995-servo/servo-mount/     /hardware/assembly/distribution/chute/door-module/  301
 /hardware/assembly/distribution/chute/mg995-servo/                 /hardware/assembly/distribution/chute/door-module/  301
+# Make your own LED drop was merged into the LED strip helper page (2026-09-16).
+/hardware/electronics/led-drop/                                     /hardware/helpers/led-strip/                        301

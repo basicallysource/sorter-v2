@@ -78,7 +78,7 @@ Leave the blue protective film on until the strip is going where it lives. It is
   <figcaption>The cut points, with the pads that sit either side of them. Each cut leaves you half of a pad, printed <code>+24V</code> on one side. <cite>Manufacturer diagram (VOEWT).</cite></figcaption>
 </figure>
 
-{% include step.html n="2" title="Either: clamp a connector onto the pads" %}
+{% include step.html n="2a" title="Either: clamp a connector onto the pads" %}
 
 The solderless connector is a hinged body with sprung contacts at each end: the strip goes in one end, the wire in the other, and nothing is stripped or tinned.
 
@@ -96,7 +96,7 @@ The wire is the pair that runs back to the board, a metre of 22 AWG red and blac
   <figcaption>The connector before anything is in it, lid up and both contacts visible. <cite>Manufacturer photo (SuperBrightLEDs).</cite></figcaption>
 </figure>
 
-{% include step.html n="3" title="Or: solder the wires to the pads" %}
+{% include step.html n="2b" title="Or: solder the wires to the pads" %}
 
 Perfectly good, and what the strip is designed for. It needs no connector at all.
 
@@ -109,18 +109,21 @@ Perfectly good, and what the strip is designed for. It needs no connector at all
 
 Keep the iron on the pad briefly. The strip's backing and the LED next to the pad do not like being cooked.
 
-<div class="img-placeholder">Photo of a soldered joint: pending from a build.</div>
+<figure class="single-figure">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/led-strip-soldered-joint-full-7e3214326bcb.png" alt="The cut end of a COB LED strip with a red and a black wire soldered to its two pads, a piece of clear heatshrink over the joint, and the pair running away from the strip">
+  <figcaption>A soldered end, insulated with clear heatshrink over the joint. <cite>Manufacturer photo (LED strip product listing; seller not recorded).</cite></figcaption>
+</figure>
 
-{% include step.html n="4" title="The first length off the roll is already done" %}
+{% include step.html n="3" title="The first length off the roll is already done" %}
 
-A roll arrives with bare leads soldered to one end at the factory. Cut your first length so that end is on your piece and it needs neither a connector nor an iron: trim the leads and join them to the run back to the board. The other two take plain cut lengths from the middle of the roll, and those are the ones that need step 2 or step 3.
+A roll arrives with bare leads soldered to one end at the factory. Cut your first length so that end is on your piece and it needs neither a connector nor an iron: trim the leads and join them to the run back to the board. The other two take plain cut lengths from the middle of the roll, and those are the ones that need step 2a or step 2b.
 
 <figure class="single-figure">
   <img class="doc-figure" src="https://assets.basically.website/sorter-parts/led-strip-24v-full-961391ece43d.jpg" alt="A 5 m reel of lit white COB LED strip with a loose length unwound from it, the free end of that length carrying a short red and black lead fitted at the factory">
   <figcaption>The end of the roll, with the leads already on it. That end is worth having on your first cut length. <cite>Manufacturer photo (VOEWT).</cite></figcaption>
 </figure>
 
-{% include step.html n="5" title="Plug the other end into the board" %}
+{% include step.html n="4" title="Plug the other end into the board" %}
 
 **Push the 2-pin Dupont housing onto an LED header**, <code>J8</code> to <code>J11</code>. Red to +24V, and check which pin that is with a meter first. If you are using the pre-crimped lead, cut its male plug off and the female end is already the plug you need; otherwise crimp a housing on yourself.
 
@@ -131,11 +134,11 @@ A roll arrives with bare leads soldered to one end at the factory. Cut your firs
 
 Cable-tie the pair along whatever it runs down, so it is not hanging loose.
 
-{% include step.html n="6" title="Optional: an unplug point partway along" %}
+{% include step.html n="5" title="Optional: an unplug point partway along" %}
 
 Cut the run where you want it to come apart and put the barrel pair in, red to the tip. The strip end then comes off without unwiring anything. Nothing needs this on a v1.3 board.
 
-{% include step.html n="7" title="Set the output in software" %}
+{% include step.html n="6" title="Set the output in software" %}
 
 Settings, then the channel, then the LED button: pick which of the board's LED outputs this one is on, and set the brightness with the slider. **Nothing lights until an output is assigned.**
 

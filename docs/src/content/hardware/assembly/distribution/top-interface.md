@@ -672,7 +672,7 @@ Because the chute above rotates but the wiring below it doesn't, the ribbon cabl
 
 **Heat inserts first:** the Cable cage bracket (cable mount) takes 1 × M3 insert. Press it in before assembling.
 
-Slot the Cable cage top over the Top interface chute mount, with the corners of the hexagon aligning with the Interface brackets.
+Slot the Cable cage top over the Top interface chute mount, with the corners of the hexagon aligning with the Interface brackets. Of the two cage plates, the one that goes on here is the one with the **plain round centre hole**. The plate with the keyed cutout in its centre hole is the other one, and it goes on at [step 12](#step-12).
 
 Screw the Cable cage bracket (cable mount) to the tail end of the Interface bracket opposite the Limit switch housing, using an {% include fastener.html size="M5" variant="socket-button" length="30" %} screw into the M5 heat insert. This clamps the Cable cage top firmly in place. (Mounting it opposite the limit switch minimizes how far the cable has to travel.)
 
@@ -728,7 +728,7 @@ Check that the chute can rotate fully to the limit switch in both directions, th
   <figcaption><cite>Video: zed0.</cite></figcaption>
 </figure>
 
-Place the Cable cage bottom over the Top interface chute mount. Use 6 {% include fastener.html size="M5" variant="flat" length="35" %} screws and {% include fastener.html size="M5" variant="nut" %}s to clamp the Cable cage bottom, Cable cage top, and Cable cage brackets together.
+Place the Cable cage bottom over the Top interface chute mount. This is the plate with the **keyed cutout** in its centre hole, the pocket that bulges outward on one side. Use 6 {% include fastener.html size="M5" variant="flat" length="35" %} screws and {% include fastener.html size="M5" variant="nut" %}s to clamp the Cable cage bottom, Cable cage top, and Cable cage brackets together.
 
 After this step the chute should still rotate to each of its limits.
 

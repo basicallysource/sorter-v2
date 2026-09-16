@@ -1360,7 +1360,7 @@
       "uid": "50dv",
       "name": "Cable clamp (outer)",
       "description": "Outer half of the ribbon cable clamp. White.",
-      "internal_notes": "1 per interface. White. Pairs with the inner clamp (cable-clamp assembly). v2 (2026-07-18): enlarged the M3 nut pocket so the nut seats — it did not fit in v1.",
+      "internal_notes": "1 per interface. White. Pairs with the inner clamp (cable-clamp assembly). v2 (2026-07-18): enlarged the M3 nut pocket so the nut seats — it did not fit in v1. The knock-on, from barthel 2026-09-16: the enlarged pocket is 8.00 mm deep for a 2.40 mm nut, so the nut no longer stays put in it, and that is why the clamp screw had to go to 40 mm (scr-m3-40-fhcs) to span the pocket and catch the nut wherever it has drifted to. See the v1 pocket note above for why it was enlarged.",
       "version": "2",
       "created_at": "2026-06-27",
       "updated_at": "2026-07-18",
@@ -3545,7 +3545,7 @@
       "name": "M3 × 40 mm flat head",
       "category": "Screws",
       "alternative": "Flat or pan head",
-      "description": "The long M3 that clamps the two cable-clamp halves together at the top interface, threading into an M3 nut in the pocket in the Cable clamp (outer).",
+      "description": "The long M3 that clamps the two cable-clamp halves together at the top interface, threading into an M3 nut in the pocket in the Cable clamp (outer). It is 40 mm so that it spans that pocket's full 8 mm depth: the nut is loose in there until the clamp is bolted into the chute mount, so a shorter screw can pass under it and never pick it up.",
       "created_at": "2026-09-09",
       "updated_at": "2026-09-09",
       "attributes": [

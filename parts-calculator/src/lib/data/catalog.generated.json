@@ -20740,7 +20740,7 @@
 			},
 			"name": "M3 \u00d7 40 mm flat head",
 			"category": "Screws",
-			"description": "The long M3 that clamps the two cable-clamp halves together at the top interface, threading into an M3 nut in the pocket in the Cable clamp (outer).",
+			"description": "The long M3 that clamps the two cable-clamp halves together at the top interface, threading into an M3 nut in the pocket in the Cable clamp (outer). It is 40 mm so that it spans that pocket's full 8 mm depth: the nut is loose in there until the clamp is bolted into the chute mount, so a shorter screw can pass under it and never pick it up.",
 			"note": null,
 			"created_at": "2026-09-09",
 			"updated_at": "2026-09-09",

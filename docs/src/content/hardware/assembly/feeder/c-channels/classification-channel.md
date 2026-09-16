@@ -32,7 +32,7 @@ parts_needed:
     <p><strong>Build a <a href="{{ '/hardware/assembly/feeder/c-channels/channel-core/' | relative_url }}">channel core</a> before you start.</strong> This page turns one core into the classification channel. It does not build the core.</p>
   </div>
   <figure class="prep-item-figure">
-    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-channel-core-cutout-full-538336057944.jpg" alt="A single C-channel core seen from above on a plain background: the stator ring with its exit opening, the three-armed NEMA bracket fastened across it, the raised hub at its centre and the stepper motor on the far side, with no rotor fitted">
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-channel-core-finished-top-w1600-4713962f4dfd.jpg" alt="A finished channel core from directly above: the stator ring open at one side, the three-armed NEMA bracket fastened across it with the raised hub at its centre, the gear train at the ring's edge and the stepper motor standing outside the wall with its lead, and no rotor in the hub">
     <figcaption>A channel core, no rotor in it yet. <cite>Photo: BrickCycleAlice.</cite></figcaption>
   </figure>
 </div>

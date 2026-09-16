@@ -115,7 +115,7 @@ Turn the gear train by hand before you go on. It should run without a tight spot
 A stator with the bracket, gear train and stepper under it, and an empty hub in the middle waiting for a rotor. Build four.
 
 <figure class="single-figure">
-  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-channel-core-finished-top-w1600-4713962f4dfd.jpg" alt="A finished channel core from directly above: the grey stator ring open at one side, the three-armed NEMA bracket fastened across it with the raised hub at its centre, the gear train at the ring's edge and the stepper motor standing outside the wall with its four-wire lead, and no rotor in the hub">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-channel-core-finished-top-w1600-4713962f4dfd.jpg" alt="A finished channel core from directly above: the stator ring open at one side, the three-armed NEMA bracket fastened across it with the raised hub at its centre, the gear train at the ring's edge and the stepper motor standing outside the wall with its lead, and no rotor in the hub">
   <figcaption>One finished core from the top, no rotor in it. The opening in the stator wall is the channel's exit. <cite>Photo: BrickCycleAlice.</cite></figcaption>
 </figure>
 

@@ -3153,7 +3153,7 @@
       "category": "Screws",
       "alternative": "Socket or button head",
       "image_url": "https://assets.basically.website/sorter-parts/scr-m3-10-shcs-full-26e52d7d5bcd.png",
-      "description": "Retired 2026-09-16, no longer used by any assembly: the ribbon clamp on the cable-mount cage bracket was its only line and it takes the M3 x 12 (scr-m3-12-bhcs) now, because the clamp stands off the bracket face and a 10 left under 1 x D of thread. Kept as an unused entry rather than deleted, because cage-bracket-cable-clamp v1 pins this uid in its line snapshot and a minted uid has to stay resolvable (VERSIONING.md).",
+      "description": "Not used on the machine. Superseded by the M3 x 12 (scr-m3-12-bhcs) on its last remaining joint, 2026-09-16. Kept as an unused entry rather than deleted, because cage-bracket-cable-clamp v1 pins this uid in its line snapshot and a minted uid has to stay resolvable (VERSIONING.md).",
       "created_at": "2026-08-18",
       "updated_at": "2026-09-16",
       "attributes": [

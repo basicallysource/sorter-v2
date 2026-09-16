@@ -143,9 +143,13 @@ The strip itself is cut and wired on [Preparing the LED strip]({{ '/hardware/hel
   </figure>
 </div>
 
+**Nothing fastens the reflector to the arm.** It drops over the ring on the camera page, after the camera is in, so the two stay separate until then.
+
 The strip comes with its cable already on it from [Preparing the LED strip]({{ '/hardware/helpers/led-strip/' | relative_url }}); cable-tie that pair down the arm so it is not hanging in the channel. Plugging it into the board is step 5 of [connecting the components]({{ '/hardware/electronics/installation/connecting/' | relative_url }}). Nothing is joined end to end here, so the far end of the strip stays dead. The strip runs at 24 V off the basically board.
 
-{% include step.html n="5" title="The outer cover" %}
+{% include step.html n="5" title="Later: the outer cover" %}
+
+**Do not fit this today.** The cover goes on at the end of the camera page for your channel, once the camera is in the ring. It is here so you know what the part is and why it is left off.
 
 The **Lamp outer cover** pushes down over the reflector. It is a friction fit and has no screw hole anywhere. It stands slightly proud of the reflector, so the camera clasp ends up recessed in the opening at its centre.
 

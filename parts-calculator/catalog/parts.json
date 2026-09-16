@@ -4907,6 +4907,15 @@
             "pack_qty": 1,
             "as_of": "2026-04-16",
             "affiliate_url": "https://www.amazon.com/dp/B0BN17BRYY?tag=sorterv2-20"
+          },
+          {
+            "region": "EU",
+            "vendor": "TinyTronics",
+            "url": "https://www.tinytronics.nl/en/development-boards/single-board-computers/orange-pi-5-8gb",
+            "price": 245.0,
+            "currency": "EUR",
+            "pack_qty": 1,
+            "as_of": "2026-09-15"
           }
         ]
       }
@@ -4993,6 +5002,15 @@
             "price": 23.99,
             "pack_qty": 1,
             "as_of": "2026-07-18"
+          },
+          {
+            "region": "EU",
+            "vendor": "TinyTronics",
+            "url": "https://www.tinytronics.nl/en/communication-and-signals/wireless/wi-fi/modules/orange-pi-wi-fi-6-and-bluetooth-5.0-module-for-orange-pi-5",
+            "price": 16.5,
+            "currency": "EUR",
+            "pack_qty": 1,
+            "as_of": "2026-09-15"
           }
         ]
       },
@@ -5815,6 +5833,15 @@
             "url": "https://www.amazon.com/dp/B0CJT6KNK4",
             "affiliate_url": "https://www.amazon.com/dp/B0CJT6KNK4?tag=sorterv2-20",
             "price": 14.99,
+            "pack_qty": 1,
+            "as_of": "2026-09-15"
+          },
+          {
+            "region": "EU",
+            "vendor": "TinyTronics",
+            "url": "https://www.tinytronics.nl/en/mechanics-and-actuators/parts/cooling-elements/orange-pi-fan-with-heatsink-for-orange-pi-5-plus",
+            "price": 6.0,
+            "currency": "EUR",
             "pack_qty": 1,
             "as_of": "2026-09-15"
           }

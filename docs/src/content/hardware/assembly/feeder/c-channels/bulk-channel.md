@@ -9,12 +9,14 @@ lede: The top channel, where unsorted parts go in. The faceted rotor, the Bulk c
 permalink: /hardware/assembly/feeder/c-channels/bulk-channel/
 author: barthel
 contributors: [spencer, brickcyclealice]
+og_image: https://assets.basically.website/sorter-docs/assembly-bulk-channel-cap-fitted-w1600-f75843bda905.jpg
 warning: >-
-  **Steps 1 to 3 come from a build**, BrickCycleAlice's. **Steps 4 to 6 are an AI-generated
+  **Steps 1 to 4 come from a build**, BrickCycleAlice's. **Steps 5 and 6 are an AI-generated
   first draft**, written from the machine assembly tree in the [parts
   calculator](https://parts-calculator.basically.website/assembly?focus=bulk-bucket), not from
   an actual build. The bulk bucket is not published yet, so those steps are mostly the shape of
-  what is missing. Fill them in as you build.
+  what is missing. Which way the cap faces relative to the handover to C2 is still not recorded
+  either. Fill them in as you build.
 parts_needed:
   - part: rotor-faceted
     qty: 1
@@ -95,7 +97,10 @@ Slide the Bulk cap down onto the dovetail on the outside of the stator wall. No 
   <p>Use the current Bulk cap. The v1 dovetail needed too much force to slide on. If yours is a fight, check you have the latest file rather than forcing it.</p>
 </div>
 
-<div class="img-placeholder">Image coming</div>
+<figure class="single-figure">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-bulk-channel-cap-from-above-w1600-4954ea826b3e.jpg" alt="Looking down into the fitted bulk cap: the tall cylindrical wall standing on the channel, the rotor face across the bottom of it, and the stepper motor below at the front">
+  <figcaption>Down into the cap once it is on, the rotor across the bottom of it. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+</figure>
 
 {% include step.html n="5" title="Mount the bucket supports" %}
 
@@ -113,8 +118,11 @@ Not documented, and the part is not published. Record the file, the fixings and 
 
 ## The finished result
 
-A channel core with the faceted rotor in it, the Bulk cap on the stator, and the bucket standing over it.
+A channel core with the faceted rotor in it and the Bulk cap on the stator. The bucket and its three supports go on later, at [arranging C-channels]({{ '/hardware/assembly/feeder/arranging-c-channels/' | relative_url }}), once the channels are standing at their heights.
 
-<div class="img-placeholder">Photo of a finished C1: pending from a build.</div>
+<figure class="single-figure">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-bulk-channel-cap-fitted-w1600-f75843bda905.jpg" alt="A finished C1 on the bench: the tall cylindrical bulk cap seated on the channel below it, its outlet opening at the front right, the stepper motor at the front with its lead coiled">
+  <figcaption>C1 off the machine, cap on, before the bucket supports. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+</figure>
 
 Back to [C-channels]({{ '/hardware/assembly/feeder/c-channels/' | relative_url }}).

@@ -59,7 +59,7 @@ Leave the blue protective film on until the strip is going where it lives. It is
 
 <div class="callout callout-warning">
   <span class="callout-icon" aria-hidden="true">⚠</span>
-  <p><b>Cut one plug off the lead first.</b> The bought lead has a plug on both ends, one male and one female. <b>Cut the male plug off</b> and use that cut end at the strip, whichever way you make the joint. The female end stays on: that is what pushes onto the board later. If you are soldering rather than clamping, strip 3 mm of each wire at that cut end as well.</p>
+  <p><b>Cut one plug off the lead first.</b> The bought lead has a plug on both ends: the <b>male</b> one has two pins sticking out of it, the <b>female</b> one has two holes. <b>Cut the male plug off</b> and use that cut end at the strip, whichever way you make the joint. The female end stays on: that is what pushes onto the board later. If you are soldering rather than clamping, strip 3 mm of each wire at that cut end as well.</p>
 </div>
 
 {% include step.html n="2a" title="Either: clamp a connector onto the pads" %}

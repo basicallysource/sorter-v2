@@ -12,9 +12,9 @@ contributors: [spencer, danny, brickcyclealice, barthel]
 og_image: https://assets.basically.website/sorter-docs/camera-lamp-render-underside-full-0e2b1e5a0fb9.png
 warning: >-
   **Step 5, the cover, is not verified against a build.** Steps 1 to 4 are photographed on real
-  builds. The cover has no build photograph yet, and it is the step whose place in the order is
-  still open, because it is also what holds the camera down. Everything else here is measured
-  off the published STLs. Fill the gaps in as you build.
+  builds. The cover has no build photograph yet, and it is fitted on the camera page rather than
+  here, because it is what holds the camera down. Everything else here is measured off the
+  published STLs. Fill the gaps in as you build.
 parts_needed:
   - part: c-channel-arm-mount
     qty: 1

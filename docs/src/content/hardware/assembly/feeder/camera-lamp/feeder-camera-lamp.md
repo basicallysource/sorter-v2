@@ -94,7 +94,9 @@ Order matters here in one place only: the camera has to be in the clasp and the 
   <figcaption>The camera sits at the centre of the lamp, looking straight down through the reflector. <cite>Photo: Spencer.</cite></figcaption>
 </figure>
 
-{% include step.html n="4" title="Hang the arm on the C-channel" %}
+{% include step.html n="4" title="Later: hang the arm on the C-channel" %}
+
+**Not at the bench.** The lamp goes onto its channel later, when the channels are standing on the top plate. Read this step then, and put the finished lamp aside for now.
 
 **It hangs off a dovetail, not a screw.** Slide the dovetail on the bottom of the arm mount onto the bottom of the channel's NEMA bracket. That is the whole joint: the mount has no other fixing. **Not recorded:** the mating faces are not dimensioned yet.
 

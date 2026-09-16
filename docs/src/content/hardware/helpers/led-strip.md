@@ -44,14 +44,6 @@ A prepared strip is a cut length of 24 V COB strip with its cable on the end of 
   <p>Check the roll you bought is the <b>24 V</b> one. The listing in the catalog also sells a 12 V strip of the same width, and the board's LED headers feed 24 V.</p>
 </div>
 
-## Choosing the parts
-
-<dl class="spec-list">
-  <dt>Which connector</dt><dd>Three variants of the same body, all SuperBrightLEDs, all <b>8 mm COB only</b>, 22 AWG, 3A. <code>SBL-RA2P-8</code> ($1.59) is the one in the list above: it bites the strip at one end and <b>your own wire</b> at the other, no wire supplied. <code>SBL-RA2P-8-1</code> ($1.69) is the same thing with 4 in of tinned lead already on it, so you splice rather than clamp. <code>SBL-RA2P-8-DC</code> ($2.79) ends in a 5.5 × 2.1 mm barrel socket, which is only useful if you want the lamp to unplug partway along. <b>Match the width</b>: a 10 mm connector, or one for SMD strip, will not grip.</dd>
-  <dt>If you own a crimp tool</dt><dd>You can make the lead yourself instead of buying it: about a metre of 22 AWG stranded per run, one red and one black, plus a 2-pin 2.54 mm Dupont female housing and two crimps. Gauge is a <b>GUESS</b> in the harness notes.</dd>
-  <dt>Insulation</dt><dd>Heatshrink, or lever connectors (Wago 221) or solder-seal butt splices, only if you end up splicing something.</dd>
-</dl>
-
 {% include step.html n="1" title="Cut the strip to length, on a mark" %}
 
 **950 mm per [camera lamp]({{ '/hardware/assembly/feeder/camera-lamp/' | relative_url }})**, which is the only length this machine cuts, and one 5 m roll gives five of them.
@@ -64,6 +56,11 @@ Leave the blue protective film on until the strip is going where it lives. It is
   <img class="doc-figure" src="https://assets.basically.website/sorter-docs/led-strip-cut-marks-plain-full-3351d6e9340e.png" alt="Diagram of a COB LED strip seen from above with a scissors symbol over each of two cut points, and the copper pads at each cut point labelled +24V on the top row and minus on the bottom">
   <figcaption>The cut points, with the pads that sit either side of them. Each cut leaves you half of a pad, printed <code>+24V</code> on one side. <cite>Manufacturer diagram (VOEWT).</cite></figcaption>
 </figure>
+
+<div class="callout callout-warning">
+  <span class="callout-icon" aria-hidden="true">⚠</span>
+  <p><b>Cut one plug off the lead first.</b> The bought lead has a plug on both ends, one male and one female. <b>Cut the male plug off</b> and use that cut end at the strip, whichever way you make the joint. The female end stays on: that is what pushes onto the board later. If you are soldering rather than clamping, strip 3 mm of each wire at that cut end as well.</p>
+</div>
 
 {% include step.html n="2a" title="Either: clamp a connector onto the pads" %}
 
@@ -100,6 +97,14 @@ Keep the iron on the pad briefly. The strip's backing and the LED next to the pa
   <img class="doc-figure" src="https://assets.basically.website/sorter-docs/led-strip-soldered-joint-clean-full-bdad7637dc9c.png" alt="The cut end of a COB LED strip with a red and a black wire soldered to its two pads, a piece of clear heatshrink over the joint, and the pair running away from the strip">
   <figcaption>A soldered end, insulated with clear heatshrink over the joint. <cite>Manufacturer photo (LED strip product listing; seller not recorded).</cite></figcaption>
 </figure>
+
+## Choosing the parts
+
+<dl class="spec-list">
+  <dt>Which connector</dt><dd>Three variants of the same body, all SuperBrightLEDs, all <b>8 mm COB only</b>, 22 AWG, 3A. <code>SBL-RA2P-8</code> ($1.59) is the one in the list above: it bites the strip at one end and <b>your own wire</b> at the other, no wire supplied. <code>SBL-RA2P-8-1</code> ($1.69) is the same thing with 4 in of tinned lead already on it, so you splice rather than clamp. <code>SBL-RA2P-8-DC</code> ($2.79) ends in a 5.5 × 2.1 mm barrel socket, which is only useful if you want the lamp to unplug partway along. <b>Match the width</b>: a 10 mm connector, or one for SMD strip, will not grip.</dd>
+  <dt>If you own a crimp tool</dt><dd>You can make the lead yourself instead of buying it: about a metre of 22 AWG stranded per run, one red and one black, plus a 2-pin 2.54 mm Dupont female housing and two crimps. Gauge is a <b>GUESS</b> in the harness notes.</dd>
+  <dt>Insulation</dt><dd>Heatshrink, or lever connectors (Wago 221) or solder-seal butt splices, only if you end up splicing something.</dd>
+</dl>
 
 ## The finished result
 

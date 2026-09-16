@@ -5578,7 +5578,7 @@
         "per_machine": 3
       },
       "caption": "Cut the male end off and it is one LED drop.",
-      "docs_page": "/hardware/electronics/led-drop/",
+      "docs_page": "/hardware/helpers/led-strip/",
       "sourcing": {
         "vendors": [
           {

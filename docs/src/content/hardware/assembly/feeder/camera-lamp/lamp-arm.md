@@ -138,7 +138,7 @@ The strip itself is cut and wired on [Preparing the LED strip]({{ '/hardware/hel
   </figure>
 </div>
 
-**Wiring it back to the board** is [Make your own LED drop]({{ '/hardware/electronics/led-drop/' | relative_url }}): the run from those two wires to an LED header. Nothing is joined end to end here, so the far end of the strip stays dead. The strip runs at 24 V off the basically board.
+**Wiring it back to the board** is on [Preparing the LED strip]({{ '/hardware/helpers/led-strip/' | relative_url }}): the run from those two wires to an LED header, cable-tied down the arm so it is not hanging in the channel. Nothing is joined end to end here, so the far end of the strip stays dead. The strip runs at 24 V off the basically board.
 
 <figure class="single-figure">
   <img class="doc-figure" src="https://assets.basically.website/sorter-docs/camera-lamp-lit-from-below-w1600-bb9d54f4f43e.jpg" alt="The lamp lit, photographed from underneath: a ring of LED strip glowing around the outside of the white reflector, the reflector's central funnel in the middle, and the arm behind it">

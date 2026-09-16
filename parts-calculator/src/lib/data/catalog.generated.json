@@ -23164,7 +23164,7 @@
 			},
 			"alternative": "Your own 22 AWG pair plus a 2-pin 2.54 mm Dupont housing and two crimps",
 			"caption": "Cut the male end off and it is one LED drop.",
-			"docs_page": "/hardware/electronics/led-drop/",
+			"docs_page": "/hardware/helpers/led-strip/",
 			"conflicts": null,
 			"image": "https://assets.basically.website/sorter-parts/dupont-lead-2p-1m-full-1d6495f8bb1b.jpg"
 		},

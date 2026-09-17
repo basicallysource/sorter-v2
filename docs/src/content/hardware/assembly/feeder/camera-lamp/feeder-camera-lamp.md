@@ -88,17 +88,6 @@ The clasp's two halves form a spigot that plugs into a socket in the ring. **The
 
 **Expect it to sit loose.** The next step, the cover, is what traps the clasp and holds the camera in. Until then the camera can lift straight back out, so do not pick the lamp up by it.
 
-<div class="img-row">
-  <figure>
-    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-camera-lamp-clasp-in-ring-back-w1600-84825cdaec58.jpg" alt="The clasped camera snapped into the lamp ring, seen from behind: the board's back and its ribbon connector inside the round clasp, with the arm running off to the left">
-    <figcaption>From behind, snapped into the ring. <cite>Photo: BrickCycleAlice.</cite></figcaption>
-  </figure>
-  <figure>
-    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-camera-lamp-clasp-in-ring-front-w1600-431110b2f55b.jpg" alt="The same from the front, the lens standing through the opening in the clasp and the two clasp screws above and below it">
-    <figcaption>From the front, lens through the opening. <cite>Photo: BrickCycleAlice.</cite></figcaption>
-  </figure>
-</div>
-
 <figure class="single-figure">
   <img class="doc-figure" src="https://assets.basically.website/sorter-docs/camera-lamp-camera-in-ring-from-below-w1600-18f0664f8f5b.jpg" alt="Looking up into the reflector from below: two turns of LED strip round the skirt held by the hooks, the arm coming down through the middle, and the clasped camera seated in the ring at the centre with its lens facing out">
   <figcaption>From below, with the reflector already on: the camera seated in the ring at the centre. <cite>Photo: BrickCycleAlice.</cite></figcaption>

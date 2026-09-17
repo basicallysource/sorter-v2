@@ -689,17 +689,6 @@ Screw the remaining Cable cage brackets to the other 5 corners of the Cable cage
 
 <div class="img-row">
   <figure>
-    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/top-interface-cable-mount-bracket-insert-w1600-789befa6f7b6.jpg" alt="The cable cage bracket at a corner of the plywood cage top, two M5 holes through its top face and the single brass M3 insert visible in the face that hangs below the plate">
-    <figcaption>The cable mount bracket at its corner. The M3 insert in the hanging face is what the ribbon clamp screws into in step 11. <cite>Photo: BrickCycleAlice.</cite></figcaption>
-  </figure>
-  <figure>
-    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/top-interface-cable-mount-bracket-corner-w1600-e1784688d63a.jpg" alt="The same bracket from the other side, sitting on the edge of the cage top with the interface bracket and extrusion below it">
-    <figcaption>The same corner from the other side. <cite>Photo: BrickCycleAlice.</cite></figcaption>
-  </figure>
-</div>
-
-<div class="img-row">
-  <figure>
     <img class="doc-figure" src="https://assets.basically.website/sorter-docs/top-interface-cable-cage-top-on-1-w1600-1ca5b90e20be.jpg" alt="Looking down on the hexagonal plywood cage top slotted over the chute mount, the square mount standing through its centre hole and the printed brackets at the hexagon's corners">
     <figcaption>The cage top over the chute mount, corners on the interface brackets. <cite>Photo: BrickCycleAlice.</cite></figcaption>
   </figure>

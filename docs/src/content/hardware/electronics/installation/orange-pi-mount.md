@@ -107,6 +107,11 @@ This is a second fan, not a replacement for the 40 mm one on the arm: the heatsi
 
 Screw the 4 M3 standoffs into the inserts. Sit the Pi on them and fasten it down with 4 {% include fastener.html size="M3" variant="socket-button" length="6" %} screws. The 10 mm standoffs are used.
 
+<div class="callout callout-warning">
+  <span class="callout-icon" aria-hidden="true">⚠</span>
+  <p><b>The thread shreds easily here.</b> Start each standoff by hand and keep it square to the plate, and stop turning the moment it seats. Forcing one, or starting it crossed, strips the thread, and a stripped insert means reheating a new one into the plate.</p>
+</div>
+
 <div class="clear-float"></div>
 
 <div class="img-row">

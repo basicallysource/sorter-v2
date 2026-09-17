@@ -9,7 +9,7 @@ lede: Flash SorterOS onto an SD card and configure it for first boot. The recomm
 permalink: /sorter/installation/sorter-os/
 audience: self-hosting operator
 applies_to: sorteros v3.x
-last_verified: 2026-05-19
+last_verified: 2026-09-17
 ---
 
 <div class="notice notice-warn">
@@ -33,6 +33,11 @@ SorterOS is a purpose-built OS image for Sorter, based on the official Ubuntu im
 Go to **[github.com/basicallysource/sorter-v2/releases](https://github.com/basicallysource/sorter-v2/releases)**, find the latest SorterOS release, and download the `.zip` file from its assets.
 
 ## Step 2 — Configure WiFi and SSH
+
+<div class="notice notice-warn">
+  <strong>SorterOS Setup is currently broken</strong>
+  <p>On the current release it rejects every configuration with <code>config too large: N bytes, capacity 2</code>, whatever you enter. This is a bug in the tool, not in your download, and shortening the configuration does not get past it. See <a href="https://github.com/basicallysource/sorter-v2/issues/675">issue #675</a>. Until it is fixed, flash the <code>.zip</code> directly and connect the Pi to your router over Ethernet; WiFi and Tailscale can both be set from the Sorter UI afterwards, under <strong>Settings</strong>.</p>
+</div>
 
 If you do not need to configure WiFi, hostname, SSH auth key, or Tailscale auth key, you can flash the `.zip` file directly — skip ahead to Step 3.
 
@@ -61,11 +66,14 @@ Wait for Etcher to finish writing and verifying. Do not remove the card until it
 
 Insert the SD card into the Orange Pi 5 and power it on. SorterOS completes first-boot setup automatically, then starts the Sorter backend and UI. This takes less than 5 minutes if everything is working.
 
-Once first-boot initialization completes and the Pi has finished downloading its dependencies, the Sorter UI is available at:
+Once first-boot initialization completes and the Pi has finished downloading its dependencies, the Sorter UI is available on port `5173`. Which address reaches it depends on whether you ran SorterOS Setup in Step 2, which is what sets the Pi's hostname.
 
-**[http://sorter.local:5173/](http://sorter.local:5173/)**
+- **Ran SorterOS Setup** — use the hostname you entered there: `http://<hostname>.local:5173/`. That field defaults to `sorter`, so if you left it alone the address is [http://sorter.local:5173/](http://sorter.local:5173/).
+- **Flashed the `.zip` directly** — nothing sets a hostname, so the Pi keeps the one from the base Orange Pi Ubuntu image, normally `orangepi5`: [http://orangepi5.local:5173/](http://orangepi5.local:5173/).
 
-This uses mDNS — the device you're browsing from must be on the same network as the Pi. If you set a custom hostname in SorterOS Setup, substitute that name for `sorter`.
+Both use mDNS, so the device you're browsing from must be on the same network as the Pi. mDNS resolves natively on macOS and iOS; on Windows it usually needs [Bonjour](https://support.apple.com/en-us/106380) installed.
+
+If no `.local` address resolves, find the Pi in your router's list of connected devices and browse to its IP address on port `5173` instead.
 
 ## SSH access
 

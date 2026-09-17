@@ -26,8 +26,8 @@ The fasteners and quantities are in the parts list above and are called out inli
 {% include fastener-legend.html %}
 
 - **How many:** 1 of each per distribution layer, plus 1 of each for the [bottom interface]({{ '/hardware/assembly/distribution/bin-frame/bottom-interface/' | relative_url }}). For an N-layer machine, that's N + 1 pairs total. **The [top interface]({{ '/hardware/assembly/distribution/top-interface/' | relative_url }}) carries none of its own**: it lands on the pair already standing on the topmost chute.
-- **Screws:** 2 {% include fastener.html size="M3" variant="countersunk" length="8" %} per connector, 4 for the pair, in the list above. They go into the core's inserts rather than into anything on this page.
-- Both connectors go into the chute core's M3 heat inserts.
+- **Screws:** 2 {% include fastener.html size="M3" variant="countersunk" length="8" %} per connector, 4 for the pair, in the list above. They go into the inserts of the parts at each end of the joint, not into anything on this page.
+- Both connectors go into M3 heat inserts: one screw into the part they are mounted on, one into the part that slots on above.
 
 {% include step.html n="1" title="Fit the connectors to the chute core" %}
 

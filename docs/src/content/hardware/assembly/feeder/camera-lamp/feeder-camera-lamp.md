@@ -67,10 +67,6 @@ The camera board sits in the recess in the **Camera clasp top**. Put the **Camer
 
 Do this first and the reflector cannot be dropped over a camera that is already in the ring, which is the part of this build that goes wrong.
 
-<div class="callout">
-  <p><strong>Take the outer cover off again first.</strong> If the <strong>Lamp outer cover</strong> is on the reflector, lift it straight off and set it aside. The camera clasp is wider than the opening at the centre of the cover, so the camera cannot go into the ring with the cover on. It goes back on in step 4.</p>
-</div>
-
 <div class="img-row">
   <figure>
     <img class="doc-figure" src="https://assets.basically.website/sorter-docs/camera-lamp-reflector-onto-arm-w1600-bd84acd2f247.jpg" alt="The lamp arm lying with its ring end pushed into the centre of the white inner reflector, the two turns of LED strip visible around the inside of the skirt">
@@ -86,6 +82,8 @@ Do this first and the reflector cannot be dropped over a camera that is already 
 
 **Into the ring, no screws.** The clasped camera pushes into the camera lamp ring on the arm, down through the middle of the reflector you fitted in step 2. Nothing fastens it: the only screws in this build are the two holding the clasp's own halves together.
 
+**If the cover is already on, take it off first.** The [lamp arm]({{ '/hardware/assembly/feeder/camera-lamp/lamp-arm/' | relative_url }}) page leaves the **Lamp outer cover** off until the camera is in, but if you fitted it anyway, lift it straight back off before you start. The clasp is wider than the opening in the middle of the cover, so it cannot go into the ring through it. It goes back on in step 4.
+
 **This is the delicate one.** The camera is easy to drop as it goes in, and it has to go in far enough: push until the clasp sits firmly in the ring rather than stopping at first resistance. Work over the bench, not over the floor.
 
 The clasp's two halves form a spigot that plugs into a socket in the ring. **The ring has two of these sockets, and which one is intended is not recorded.** Nothing on this page depends on it: use the one that leaves the camera's lead running clear of the arm, and check the lens points straight down before you go on. Which way round the picture arrives is set in software later, not here.
@@ -97,9 +95,11 @@ The clasp's two halves form a spigot that plugs into a socket in the ring. **The
   <figcaption>From below, with the reflector already on: the camera seated in the ring at the centre. <cite>Photo: BrickCycleAlice.</cite></figcaption>
 </figure>
 
-{% include step.html n="4" title="Thread the cable through the cover, then press it back on" %}
+{% include step.html n="4" title="Thread the cable through the cover, then press it on" %}
 
-**The cover you took off in step 2 goes back on now.** Plug the camera's cable into the board first, if it is not on already, and route it out of the lamp before the cover goes over the top. The cover has a rectangular slot near its rim for it.
+Plug the camera's cable into the board now, if it is not on already, and route it out of the lamp before the cover goes over the top. The cover has a rectangular slot near its rim for it.
+
+If you took the cover off in step 3, this is where it goes **back** on, the same way.
 
 <ol class="numbered-steps">
   <li>Thread the camera cable up through the slot in the <strong>Lamp outer cover</strong> <strong>before</strong> you offer the cover up. Doing it afterwards means taking the cover back off.</li>

@@ -33,7 +33,9 @@ The fasteners and quantities are in the parts list above and are called out inli
 
 Both connectors fasten to the [chute core]({{ '/hardware/assembly/distribution/chute/chute-core/' | relative_url }}), into its M3 heat inserts.
 
-Each connector takes 2 {% include fastener.html size="M3" variant="countersunk" length="8" %} screws through the flat strap between its two end blocks, but don't fully tighten them yet: step 2 covers checking the alignment first.
+**Fit one pair to the top of each chute core, and one pair to the top of the bottom interface.** Nothing goes on the underside of anything. As the tower goes up, the part above slots down onto the pair already standing on the part below.
+
+Each connector has 2 holes in its strap, one at each end, and takes 2 {% include fastener.html size="M3" variant="countersunk" length="8" %} screws. **Only the lower one goes in now**, into the core's own insert; the upper hole stays empty until the part above slots on and is screwed down into it. Don't fully tighten either: step 2 covers checking the alignment first.
 
 The strap is countersunk 90° on its outer face, so the head sits flush. It is 3.78 mm thick, so an 8 mm screw reaches 4.22 mm into the core's blind 5.70 mm insert and stops 1.5 mm short of the bottom, while a 12 mm one would bottom out before the head seated.
 
@@ -42,7 +44,10 @@ The strap is countersunk 90° on its outer face, so the head sits flush. It is 3
   <figcaption>The two inserts one layer connector screws into, one near each end of a long side of the chute core. The other long side carries the mirror pair for the second connector. <cite>Render: Balloon.</cite></figcaption>
 </figure>
 
-<div class="img-placeholder">Photo of both layer connectors screwed to the chute core.</div>
+<figure class="single-figure">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-layer-connector-on-chute-core-top-w1600-5d5d958ba719.jpg" alt="A light grey layer connector standing proud of the top edge of a chute core, screwed to the core through the lower of its two countersunk holes with the upper hole empty, other sub-assemblies on the core around it">
+  <figcaption>A connector standing on the top of a chute core. The lower screw holds it to the core; the empty hole above it is what the part above screws down into. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+</figure>
 
 {% include step.html n="2" title="Check the alignment against the layer below" %}
 

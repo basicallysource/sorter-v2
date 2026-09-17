@@ -8231,8 +8231,8 @@
     },
     {
       "id": "interface",
-      "uid": "vhrk",
-      "version": "4",
+      "uid": "mdu1",
+      "version": "5",
       "name": "Top interface",
       "description": "The interface between the feeder and the distribution layers. Its lazy Susan sandwiches the upper fixed section and the chute mount, 4 × [[hw:scr-m4-12-cs]] a side, and the plywood top plate bolts down onto the six brackets' inserts.",
       "docs": "/hardware/assembly/distribution/top-interface/",
@@ -8283,10 +8283,6 @@
         },
         {
           "part": "top-interface-split-spur-gear-2",
-          "qty": 1
-        },
-        {
-          "assembly": "layer-connector",
           "qty": 1
         },
         {
@@ -8664,6 +8660,13 @@
           "message": "The top plate moved up to the superstructure: it sits on top of the machine at this assembly's level, not inside it. No physical change.",
           "breaking": false,
           "commit": "e47151a1"
+        },
+        {
+          "version": "5",
+          "date": "2026-09-17",
+          "breaking": false,
+          "message": "Dropped the layer connector: the top interface carries none of its own. It lands on the pair already mounted on the top of the topmost chute, which is how the builder assembles it, and the top interface chute mount has no M3 pockets on any side face for one to screw into. The machine needs N+1 pairs for N layers, one per chute plus one on the bottom interface.",
+          "commit": null
         }
       ]
     },
@@ -9046,14 +9049,18 @@
     },
     {
       "id": "bottom-interface",
-      "uid": "oob0",
-      "version": "2",
+      "uid": "p0x7",
+      "version": "3",
       "name": "Bottom interface",
       "description": "The bottom interface / lazy Susan level. It hangs underneath the lowest bin layer and has no hexagonal frame of its own.",
       "docs": "/hardware/assembly/distribution/bin-frame/bottom-interface/",
       "lines": [
         {
           "assembly": "lazy-susan",
+          "qty": 1
+        },
+        {
+          "assembly": "layer-connector",
           "qty": 1
         }
       ],
@@ -9086,6 +9093,13 @@
           "breaking": false,
           "message": "Dropped the layer-frame: the bottom interface hangs under the lowest bin layer's frame and does not get a hexagon of its own (bottom two layers, step 6). Dropped the layer connector too: the spare one belongs to the top interface, which slides onto the external bracket on that hex ring. No physical change.",
           "commit": "36826f49"
+        },
+        {
+          "version": "3",
+          "date": "2026-09-17",
+          "breaking": false,
+          "message": "Put the layer connector back: v2 dropped it on the reasoning that the spare pair belonged to the top interface, and that is not how it goes together. A pair sits on the top of the bottom interface and the bottommost chute slots onto it; the lazy susan chute mount carries the two M3 inserts it screws into.",
+          "commit": null
         }
       ]
     },

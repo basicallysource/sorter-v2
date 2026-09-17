@@ -682,6 +682,11 @@ Screw the Cable cage bracket (cable mount) to the tail end of the Interface brac
 
 Screw the remaining Cable cage brackets to the other 5 corners of the Cable cage top with {% include fastener.html size="M5" variant="socket-button" length="30" %} screws.
 
+<div class="callout callout-warning">
+  <span class="callout-icon" aria-hidden="true">⚠</span>
+  <p><b>Check the chute still turns after every single screw.</b> The cage jams the rotation easily, and the two usual causes are a hand-cut cage plate and an over-tightened screw. Checking after each one tells you which screw did it; checking at the end of the step only tells you that something did.</p>
+</div>
+
 <div class="img-row">
   <figure>
     <img class="doc-figure" src="https://assets.basically.website/sorter-docs/top-interface-cable-mount-bracket-insert-w1600-789befa6f7b6.jpg" alt="The cable cage bracket at a corner of the plywood cage top, two M5 holes through its top face and the single brass M3 insert visible in the face that hangs below the plate">
@@ -780,7 +785,7 @@ Check that the chute can rotate fully to the limit switch in both directions, th
 
 Place the Cable cage bottom over the Top interface chute mount. This is the plate with the **keyed cutout** in its centre hole, the pocket that bulges outward on one side. Use 6 {% include fastener.html size="M5" variant="flat" length="35" %} screws and {% include fastener.html size="M5" variant="nut" %}s to clamp the Cable cage bottom, Cable cage top, and Cable cage brackets together.
 
-After this step the chute should still rotate to each of its limits.
+After this step the chute should still rotate to each of its limits. Same as step 10: check after each screw rather than at the end, and back a screw off rather than forcing the chute past a tight spot.
 
 {% include step.html n="13" title="Attach the framing" %}
 

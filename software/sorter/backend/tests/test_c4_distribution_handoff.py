@@ -101,6 +101,7 @@ def _mkChannel(transport, shared) -> TwoPieceClassificationChannel:
     ch._multi_drop_streak = 0
     ch._multi_drop_last_ts = -1.0
     ch._multi_drop_seq = 0
+    ch._bucket_hold_cycles = 0
     return ch
 
 

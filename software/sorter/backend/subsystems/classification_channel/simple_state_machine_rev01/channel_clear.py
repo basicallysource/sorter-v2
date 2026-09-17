@@ -66,6 +66,48 @@ def channelOccupied(gc: Any, vision: Any = None) -> Optional[bool]:
     return None
 
 
+def openAllLayerDoors(gc: Any, irl: Any, label: str = LOG_TAG, settle_timeout_s: float = 2.0) -> None:
+    """Open every layer door so a forced sweep drops the channel's contents into
+    the bottom bucket instead of whichever bin the chute happens to point at.
+
+    Nothing that comes off the channel this way has been routed: it is the piece
+    distribution was aiming for plus anything else still riding the platter (a
+    multi-drop clump, a stray, a piece whose track was lost). A closed layer door
+    would catch that mixture in a customer's sorted bin, so every door opens
+    first and the whole sweep goes to the bucket.
+
+    The doors are re-commanded unconditionally — shadow state is never trusted
+    here, exactly as ``Positioning._selectDoor`` does before a dispense — and we
+    wait for the flaps to stop before the caller starts rotating.
+    """
+    if getattr(gc, "disable_servos", False):
+        return
+    servos = list(getattr(irl, "servos", []) or [])
+    if not servos:
+        return
+    opened: list[int] = []
+    for i, servo in enumerate(servos):
+        try:
+            if hasattr(servo, "apply_open_speed"):
+                servo.apply_open_speed()
+            servo.open()
+            opened.append(i)
+        except Exception as exc:
+            gc.logger.warning(f"{label} channel clear: could not open layer {i} door: {exc}")
+    gc.logger.info(f"{label} channel clear: opened layer doors {opened} — sweep goes to the bucket")
+    deadline = time.monotonic() + max(0.0, settle_timeout_s)
+    while time.monotonic() < deadline:
+        try:
+            if all(bool(getattr(servo, "stopped", True)) for servo in servos):
+                return
+        except Exception:
+            return
+        time.sleep(0.02)
+    gc.logger.warning(
+        f"{label} channel clear: layer doors still moving after {settle_timeout_s:.1f}s — sweeping anyway"
+    )
+
+
 def _advanceOneStep(stepper: Any, step_microsteps: int, speed_usteps_per_s: int) -> bool:
     # Blocking so the occupancy re-check happens only after the carousel has
     # actually settled, never mid-move.
@@ -120,6 +162,8 @@ def clearChannelByAdvancing(
     step_microsteps = platter.output_degrees_to_motor_microsteps(
         C4_TRAVEL_SIGN * abs(step_output_deg)
     )
+
+    openAllLayerDoors(gc, irl, label)
 
     if occupied is None:
         gc.logger.info(

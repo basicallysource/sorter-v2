@@ -167,8 +167,8 @@ The **Lamp outer cover** pushes down over the reflector. It is a friction fit an
 An arm with its dovetail at one end and its ring at the other, plus a finished lamp: reflector, LED strip and cover. Build three of each, and take them to the camera page for the channel they belong to, where the camera goes in the ring and the arm goes up into the lamp.
 
 <figure class="single-figure">
-  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/camera-lamp-render-underside-full-0e2b1e5a0fb9.png" alt="CAD render of the camera lamp seen from below: the inside of the cover with the reflector dome, the LED hooks spaced around the rim, the camera at the centre, and the arm reaching up into it">
-  <figcaption>From below, with the reflector inside the cover and the hooks around the rim. The camera at the centre goes in on the camera pages. <cite>Rendered from the part geometry, not from a build. Render: Spencer.</cite></figcaption>
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/camera-lamp-render-underside-full-0e2b1e5a0fb9.png" alt="CAD render of the camera lamp seen from below: the inside of the cover with the reflector dome, the LED hooks spaced around the rim, and the arm reaching up into the middle of it">
+  <figcaption>From below: the reflector inside the cover, the hooks around the rim and the arm reaching up into the middle. <cite>Rendered from the part geometry, not from a build. Render: Spencer.</cite></figcaption>
 </figure>
 
 Back to [Camera lamps]({{ '/hardware/assembly/feeder/camera-lamp/' | relative_url }}).

@@ -143,6 +143,8 @@ The mount hangs off the 2020 frame on 2 {% include fastener.html size="M5" varia
 
 The Pi is powered by its own 24 V to USB-C adapter off the PSU, not from the control board. Confirm the buck converter's output is 5V and correctly polarized before connecting it to the Pi for the first time; a wrong connection here can destroy the board. That, the USB hub and the cameras are all on the [wire harness]({{ '/hardware/electronics/' | relative_url }}) page.
 
-The parts list carries the 24 V WINSINN 4010, the same fan as the [control board housing]({{ '/hardware/electronics/installation/control-board-housing/' | relative_url }}) uses, on an XH2.54 2-pin lead. A 24 V fan here has to reach one of that board's LED ports with its bypass jumper bridged, because the Orange Pi has no 24 V rail and no fan header of its own. The Pi's own manual instead has you run a **5 V** fan off two pins of its 26-pin header, which needs no board port at all, and the same 40 mm frame is sold in both voltages. Which of the two this fan is, and where its lead lands, is not settled.
+The fan on the arm is the **24 V** WINSINN 4010, the same fan the [control board housing]({{ '/hardware/electronics/installation/control-board-housing/' | relative_url }}) takes, on an XH2.54 2-pin lead. The Pi's heatsink fan is a different, 5 V fan and plugs straight into the board's own `FAN` socket back in step 1, so there is only one lead to find a home for here.
+
+Where that lead lands is not settled. The Orange Pi has no 24 V rail and no fan header of its own, so the fan has to come off the control board, and whether it goes on one of that board's LED ports (which is how the control board housing's own fan is wired) is still being decided.
 
 The Orange Pi mount is now complete. Flashing and configuring the Pi is [software setup]({{ '/hardware/assembly/software-setup/' | relative_url }}).

@@ -30,16 +30,18 @@ sections:
                 children:
                   - title: Build the hex frame
                     url: /hardware/assembly/distribution/bin-frame/hex-frame/
-                  - title: Bottom two layers
-                    url: /hardware/assembly/distribution/bin-frame/bottom-two-layers/
                   - title: Regular layers
                     url: /hardware/assembly/distribution/bin-frame/regular-layers/
+                  - title: Bottom layer
+                    url: /hardware/assembly/distribution/bin-frame/bottom-layer/
                   - title: Bottom interface
                     url: /hardware/assembly/distribution/bin-frame/bottom-interface/
                   - title: Bin retainers
                     url: /hardware/assembly/distribution/bin-frame/bin-retainers/
               - title: Top interface
                 url: /hardware/assembly/distribution/top-interface/
+              - title: Stacking the layers
+                url: /hardware/assembly/distribution/stacking-the-layers/
               - title: Chute
                 url: /hardware/assembly/distribution/chute/
                 children:
@@ -56,20 +58,26 @@ sections:
           - title: Feeder
             url: /hardware/assembly/feeder/
             children:
-              - title: C-channel
-                url: /hardware/assembly/feeder/c-channel/
-              - title: Camera lamp
+              - title: Camera lamps
                 url: /hardware/assembly/feeder/camera-lamp/
-              - title: Classification chamber
-                url: /hardware/assembly/feeder/classification-chamber/
-              - title: Light post (retired)
-                url: /hardware/assembly/feeder/light-post/
-              - title: Overhead camera mount (retired)
-                url: /hardware/assembly/feeder/camera-mount/
-              - title: Bulk input
-                url: /hardware/assembly/feeder/bulk-input/
-              - title: Output guides
-                url: /hardware/assembly/feeder/output-guides/
+                children:
+                  - title: Lamp arm
+                    url: /hardware/assembly/feeder/camera-lamp/lamp-arm/
+                  - title: Feeder camera lamp (C2 and C3)
+                    url: /hardware/assembly/feeder/camera-lamp/feeder-camera-lamp/
+                  - title: Classification camera lamp (C4)
+                    url: /hardware/assembly/feeder/camera-lamp/classification-camera-lamp/
+              - title: C-channels
+                url: /hardware/assembly/feeder/c-channels/
+                children:
+                  - title: Channel core
+                    url: /hardware/assembly/feeder/c-channels/channel-core/
+                  - title: Bulk channel (C1)
+                    url: /hardware/assembly/feeder/c-channels/bulk-channel/
+                  - title: Feeder channels (C2 and C3)
+                    url: /hardware/assembly/feeder/c-channels/feeder-channels/
+                  - title: Classification channel (C4)
+                    url: /hardware/assembly/feeder/c-channels/classification-channel/
               - title: Arranging C-channels
                 url: /hardware/assembly/feeder/arranging-c-channels/
           - title: Install the bins
@@ -90,6 +98,8 @@ sections:
                 url: /hardware/electronics/installation/control-board-housing/
               - title: Orange Pi mount
                 url: /hardware/electronics/installation/orange-pi-mount/
+              - title: Connecting the components
+                url: /hardware/electronics/installation/connecting/
           - title: Stepper connectors
             url: /hardware/electronics/steppers/
           - title: Order spec
@@ -111,6 +121,8 @@ sections:
             url: /hardware/helpers/heat-inserts/
           - title: Fitting T-nuts
             url: /hardware/helpers/t-nuts/
+          - title: Preparing the LED strip
+            url: /hardware/helpers/led-strip/
       - title: Parts
         url: /hardware/parts/
         children:

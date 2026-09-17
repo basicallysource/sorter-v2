@@ -1,5 +1,6 @@
 node_modules
 .svelte-kit
+.vite
 build
 vite.config.ts.timestamp-*
 _site/

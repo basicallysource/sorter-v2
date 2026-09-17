@@ -6,6 +6,7 @@ import yaml from 'js-yaml';
 // JSON only — importing TS from the sibling package would drag its tsconfig
 // (which extends a generated file) into this build.
 import partsGenerated from '../../../../parts-calculator/src/lib/data/catalog.generated.json';
+import { buildScale } from './build-scale';
 import { Liquid } from 'liquidjs';
 import { unified } from 'unified';
 import remarkParse from 'remark-parse';
@@ -190,6 +191,10 @@ for (const [path, raw] of Object.entries(dataFiles)) {
 // the harness render and the docs build start on the same push — and the
 // reader who lost that race cached a stale or truncated drawing under a
 // year-long immutable header. See electronics/wire_harness/AGENTS.md.
+
+// Whole-machine scale, computed from the same catalog rather than written down:
+// `site.data.build_scale` on the hardware Overview page. See ./build-scale.ts.
+data.build_scale = buildScale;
 
 export const site = {
 	title: 'Sorter V2 Documentation',

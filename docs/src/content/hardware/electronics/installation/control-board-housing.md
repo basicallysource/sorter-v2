@@ -80,6 +80,11 @@ Sit the board on the four inner bosses and fix it with 4 {% include fastener.htm
 
 Fan on the inside of the cover, over the vent, label facing into the enclosure so it blows inwards. 4 {% include fastener.html size="M3" variant="button" length="12" %} screws, self-tapping into the plastic. Route the lead to the corner cutout.
 
+<div class="callout callout-warning">
+  <span class="callout-icon" aria-hidden="true">⚠</span>
+  <p>Take these four by hand. They cut their own thread in a printed boss only 6 mm across, and the boss snaps off long before the screw gives. Use a hand driver rather than a power tool, and stop as soon as the fan is pulled down onto the cover. If a screw stops turning before the fan is seated, back it out and clear the hole rather than forcing it. A bottomed screw is what breaks the boss.</p>
+</div>
+
 <div class="img-row">
   <figure>
     <img src="https://assets.basically.website/sorter-docs/assembly-control-board-housing-fan-in-cover-w1600-73bbe941cbdb.jpg" alt="The inside of the printed cover with the 40 mm WINSINN fan screwed down over its vent opening on four screws, its red and black lead running off to the left, and the rectangular plunger slot beside it">
@@ -95,6 +100,19 @@ The plunger lands on the board's reset button, so the button can be pressed with
   <figure>
     <img src="https://assets.basically.website/sorter-docs/assembly-control-board-housing-retainer-fitted-w1600-c7677da6c247.jpg" alt="Inside the cover, the retainer screwed down on two countersunk screws over the plunger, capturing it so it can slide but not fall out, with the fan behind">
     <figcaption><cite>Photo: Spencer.</cite></figcaption>
+  </figure>
+</div>
+
+What that buys you is easier to see in section, once the cover is on: the plunger stands proud of the lid, the retainer holds it in the slot, and its foot sits over the button on the board.
+
+<div class="img-row">
+  <figure>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-parts/ctrl-board-housing-assembly-render-full-6f4acadd3ffc.png" alt="Onshape render of the control board housing, closed, standing on a length of 2020 extrusion, with the honeycomb fan vent and the square plunger head in the cover">
+    <figcaption>The housing closed. <cite>Rendered from the part geometry, not from a build. Render: Spencer.</cite></figcaption>
+  </figure>
+  <figure>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-parts/ctrl-board-housing-plunger-section-full-a5319da2b902.png" alt="Section through the closed housing at the plunger: the plunger passes down through the cover, the retainer holds it in the slot, and its foot stands over the reset button on the board below">
+    <figcaption>The same housing cut at the plunger: through the cover, held by the retainer, standing over the board. <cite>Rendered from the part geometry, not from a build. Render: Spencer.</cite></figcaption>
   </figure>
 </div>
 

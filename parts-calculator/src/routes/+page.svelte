@@ -2,7 +2,7 @@
 	import {
 		PARTS,
 		SECTIONS,
-		CHANGES,
+		OPEN_CHANGES,
 		COLOR_ROLES,
 		SETTINGS,
 		STORE_URL,
@@ -52,6 +52,7 @@
 	import { Popover, tip } from '$lib/popover';
 	import Disclosure from '$lib/components/Disclosure.svelte';
 	import Badge from '$lib/components/Badge.svelte';
+	import OptionalBadge from '$lib/components/OptionalBadge.svelte';
 	import ChangeStatus from '$lib/components/ChangeStatus.svelte';
 	import MissingImage from '$lib/components/MissingImage.svelte';
 	import { Download, Package, ZoomIn, Loader, Info, Plus, X, RotateCcw, Clock, Layers3, ExternalLink, AlertTriangle, History, ChevronRight, ChevronDown, ArrowUpRight, FlaskConical } from 'lucide-svelte';
@@ -595,6 +596,11 @@
 					Each color picker sets every part in that group. Parts that must be a specific color —
 					stators, rotors, light post caps, the classification dome, the lazy-Susan chute mount — keep
 					their required color and aren't affected.
+					<span class="mt-2 block border-t border-border pt-2">
+						Names are Bambu Lab PLA Matte. The grey line under a color is the LEGO color it matches,
+						in BrickLink naming, so Ash Gray is light bluish gray. Only colors with a genuinely close
+						LEGO counterpart show one.
+					</span>
 				</Popover>
 			</div>
 			<div class="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
@@ -695,7 +701,7 @@
 					{p.name}
 					{#if shared.has(p.id)}<span class="cursor-help border border-border px-1 text-xs text-text-muted" use:tip={`Also used in ${usedIn(p.id).slice(1).join(', ')}`}>used in {usedIn(p.id).length} places</span>{/if}
 					{#if isEdited(p.id)}<span class="border border-primary/60 px-1 text-xs text-primary" use:tip={`Printing ${qtyOf(p.id)}, the machine needs ${machineNeeds(p.id)}`}>qty {qtyOf(p.id)}</span>{/if}
-					{#if p.optional}<Badge variant="warning">Optional</Badge>{/if}
+					<OptionalBadge value={p.optional} />
 					{#if p.support_intentional}<Badge variant="info" tipText="Printed with support material — included in this part's grams">Supports</Badge>{/if}
 						{#if platesForPart(p.id).length}<button type="button" class="inline-flex items-center gap-0.5 border border-border px-1 text-xs text-text-muted hover:border-primary hover:text-primary" onclick={() => openPlatesModal(p.id)} use:tip={'Show plates with this part'}><Layers3 size={11} /> {platesForPart(p.id).length} plate{platesForPart(p.id).length === 1 ? '' : 's'}</button>{/if}{#if os.version}<a href={os.version} target="_blank" rel="noopener" class="inline-flex items-center gap-0.5 border border-border px-1 text-xs text-text-muted hover:border-primary hover:text-primary" use:tip={'Open the exact OnShape version this STL came from'}>OnShape <ExternalLink size={11} /></a>{/if}{#if p.info}<Popover width="16rem" label="About {p.name}" text={p.info} />{/if}<ChangeStatus kind="parts" id={p.id} name={p.name} />{#if p.low_tolerance}<Popover width="18rem" label="Fit notes for {p.name}">{#snippet trigger({ toggle, props })}<Badge as="button" variant="warning" onclick={toggle} {...props}><AlertTriangle size={11} /> Tight fit</Badge>{/snippet}<b class="text-text">Low tolerance.</b> This part has little room for dimensional error, so a test print is worth doing before you commit to the full set.{#if p.low_tolerance_note}<span class="mt-2 block border-t border-border pt-2 text-text">{p.low_tolerance_note}</span>{/if}</Popover>{/if}{#if p.attributes?.length}{#each p.attributes as a}<span class="border border-border bg-[var(--color-bg)] px-1 text-xs text-text-muted" use:tip={a.label}>{a.label}: <span class="text-text">{a.value}</span></span>{/each}{/if}{#if p.versions && p.versions.length > 1}<Popover width="20rem" label="Version history for {p.name}">{#snippet trigger({ toggle, props })}<button type="button" onclick={toggle} {...props} class="inline-flex items-center gap-0.5 border border-border px-1 text-xs text-text-muted hover:border-primary hover:text-primary" use:tip={'Version history'}><History size={11} /> v{p.version} · {p.versions?.length ?? 0} versions</button>{/snippet}<b class="text-text">Version history</b><ul class="mt-1 space-y-2">{#each [...(p.versions ?? [])].reverse() as v}<li class="border-t border-border pt-2 first:border-t-0 first:pt-0"><div class="flex items-center gap-1.5 text-text"><b>v{v.version}</b><span class="text-text-muted">· {fmtDate(v.date)}</span>{#if commitUrl(v.commit)}<a href={commitUrl(v.commit)} target="_blank" rel="noopener" class="ml-auto inline-flex items-center gap-0.5 text-primary hover:text-primary-hover">{v.commit} <ExternalLink size={10} /></a>{:else}<span class="ml-auto italic text-text-muted/70">uncommitted</span>{/if}</div><div class="mt-0.5">{v.message}</div>{#if v.onshape_version}<div class="mt-1"><a href={v.onshape_version} target="_blank" rel="noopener" class="inline-flex items-center gap-0.5 text-primary hover:text-primary-hover">OnShape <ExternalLink size={10} /></a></div>{/if}</li>{/each}</ul></Popover>{/if}
 				</span>
@@ -723,7 +729,7 @@
 			<td class="pl-c-each">{eff.toFixed(0)} g × {n}</td>
 			<td class="pl-c-total">{grams(eff * n)}</td>
 			<td class="pl-c-dl">
-				<a class="pl-dl" href={partDownload(p, engraveIds)} download use:tip={`Download {p.name}.stl{engraveIds && p.stamped?.[0] ? \` (id ${p.uid.toUpperCase()} on the ${p.stamped[0].face})\` : ''}`}><Download size={16} /></a>
+				<a class="pl-dl" href={partDownload(p, engraveIds)} download use:tip={`Download ${p.name}.stl${engraveIds && p.stamped?.[0] ? ` (id ${p.uid.toUpperCase()} on the ${p.stamped[0].face})` : ''}`}><Download size={16} /></a>
 			</td>
 		</tr>
 	{/snippet}
@@ -767,10 +773,12 @@
 			</div>
 
 			{#if activeTab === 'parts'}
-				<a href="/changes" class="mb-4 flex items-center justify-between gap-4 border border-warning/60 bg-warning/[0.08] px-4 py-3 text-sm text-text transition-colors hover:bg-warning/[0.14]">
-					<span><b>Changes and improvements are tracked for some parts.</b> Review what is planned before printing.</span>
-					<span class="shrink-0 font-semibold text-primary">View {CHANGES.length} potential changes →</span>
-				</a>
+				{#if OPEN_CHANGES.length}
+					<a href="/changes" class="mb-4 flex items-center justify-between gap-4 border border-warning/60 bg-warning/[0.08] px-4 py-3 text-sm text-text transition-colors hover:bg-warning/[0.14]">
+						<span><b>Changes and improvements are tracked for some parts.</b> Review what is planned before printing.</span>
+						<span class="shrink-0 font-semibold text-primary">View {OPEN_CHANGES.length} potential {OPEN_CHANGES.length === 1 ? 'change' : 'changes'} →</span>
+					</a>
+				{/if}
 				<div class="mb-4 flex flex-wrap items-center gap-2">
 					<div class="inline-flex border border-border">
 						<button
@@ -824,7 +832,7 @@
 											<span class="pl-name">
 												{p.name}
 												{#if shared.has(p.id)}<span class="cursor-help border border-border px-1 text-xs text-text-muted" use:tip={`Used in ${usedIn(p.id).join(', ')}`}>used in {usedIn(p.id).length} places</span>{/if}
-												{#if p.optional}<Badge variant="warning">Optional</Badge>{/if}
+												<OptionalBadge value={p.optional} />
 												<ChangeStatus kind="parts" id={p.id} name={p.name} />
 											</span>
 											<span class="pl-meta">{usedIn(p.id).join(' · ') || 'not placed yet'}</span>
@@ -1035,7 +1043,7 @@
 							<td>
 								<span class="flex items-center gap-2">
 									<span class="pl-chip pl-chip-lg" style="background:{line.color?.hex ?? 'repeating-linear-gradient(45deg,#ccc,#ccc 3px,#eee 3px,#eee 6px)'}"></span>
-									<span class="leading-tight">{line.label}<br><span class="pl-buy-sub">{grams(line.grams)}</span></span>
+									<span class="leading-tight">{line.label}<br><span class="pl-buy-sub">{grams(line.grams)}</span>{#if line.color?.lego}<br><span class="pl-buy-lego">LEGO {line.color.lego.name}</span>{/if}</span>
 								</span>
 							</td>
 							<td class="pl-num pl-num-strong">{line.spools}</td>
@@ -1280,6 +1288,8 @@
 	.pl-buy .pl-num { text-align: right; font-variant-numeric: tabular-nums; }
 	.pl-buy .pl-num-strong { font-weight: 500; }
 	.pl-buy-sub { font-size: 0.8125rem; color: color-mix(in oklab, var(--color-text-muted) 85%, transparent); }
+	/* the LEGO colour this filament matches, for people who shop in brick colours */
+	.pl-buy-lego { font-size: 0.6875rem; white-space: nowrap; color: color-mix(in oklab, var(--color-text-muted) 75%, transparent); }
 	.pl-buy-empty { text-align: center; color: var(--color-text-muted); padding: 1.25rem; }
 	.pl-buy tfoot td {
 		border-top: 1px solid var(--color-border);

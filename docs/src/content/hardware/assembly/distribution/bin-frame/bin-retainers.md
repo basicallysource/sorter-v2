@@ -7,12 +7,9 @@ slug: assembly-bin-retainers
 kicker: Bin frame — Bin retainers
 lede: The pair of rails on each face of a layer that a bin slides into. Same on every bin layer.
 permalink: /hardware/assembly/distribution/bin-frame/bin-retainers/
+og_image: https://assets.basically.website/sorter-docs/assembly-regular-layers-bin-retainers-installed-w1600-31bf32089e71.png
 author: barthel
 contributors: [zed0, brickcyclealice]
-warning: >-
-  **Split out of Regular layers and Bottom two layers, which described this
-  twice, not yet reviewed by a builder in this form.** The step itself is
-  unchanged from those pages. Correct it as you build.
 parts_needed:
   - part: bin-retainer-left
     qty: 6
@@ -25,7 +22,7 @@ parts_needed:
 tools_needed: [Hex key]
 ---
 
-Every bin layer gets the same twelve retainers: a Bin retainer (left) and a Bin retainer (right) on the front face of each of the six A extrusions, so each of the six faces has a pair that a bin slides down between. The quantities above are **for one layer**. [Regular layers]({{ '/hardware/assembly/distribution/bin-frame/regular-layers/' | relative_url }}) and [Bottom two layers]({{ '/hardware/assembly/distribution/bin-frame/bottom-two-layers/' | relative_url }}) both send you here.
+Every bin layer gets the same twelve retainers: a Bin retainer (left) and a Bin retainer (right) on the front face of each of the six A extrusions, so each of the six faces has a pair that a bin slides down between. The quantities above are **for one layer**. Every bin layer takes the same twelve, the [bottom layer]({{ '/hardware/assembly/distribution/bin-frame/bottom-layer/' | relative_url }}) included, so this page runs once per layer.
 
 **Do this after the layer's External bracket — covers are on.** The retainers run right out to the corners, so leave them off until the corner is finished.
 
@@ -39,11 +36,17 @@ The T-nuts specified for the machine are the roll-in kind, so they go into the s
 
 {% include step.html n="2" title="Fasten the retainers" %}
 
-<figure class="single-figure">
-  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-regular-layers-bin-retainers-installed-w1600-31bf32089e71.png" alt="Bin retainers fastened to the outer faces of the hexagon frame">
-  <figcaption><cite>Photo: zed0.</cite></figcaption>
-</figure>
-
 On each side of the hexagon, hold both the Bin retainer (left) and the Bin retainer (right) against the front face of A (Hex outer horizontal). The rib along the back of each one drops into the extrusion's slot and sets the height for you; the hook at the top sits on the top face of the extrusion. Fasten each retainer with 2 {% include fastener.html size="M5" variant="socket-button" length="16" %} screws into the T-nuts.
 
 Each retainer's bore is 12.8 mm deep, so a shorter M5 reaches the extrusion face with nothing left to bite in the T-nut. Use a socket head rather than a button head here: the flat the head lands on stops 4.1 mm below the hole, which a button head overhangs, and a washer will not sit flat on it at all.
+
+## The finished result
+
+<figure class="single-figure">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-regular-layers-bin-retainers-installed-w1600-31bf32089e71.png" alt="Bin retainers fastened to the outer faces of the hexagon frame, a pair either side of the joint between two A extrusions">
+  <figcaption>One face with its pair fastened on. <cite>Photo: zed0.</cite></figcaption>
+</figure>
+
+Twelve retainers, six pairs, and the layer is finished.
+
+The [Bin frame]({{ '/hardware/assembly/distribution/bin-frame/' | relative_url }}) page contains the instructions for the entire stack, and is where you should return once you're done here.

@@ -7,6 +7,7 @@ slug: assembly-distribution
 kicker: Assembly — Distribution
 lede: The bin tower, the interface that connects it to the feeder, and the chute that steers parts into it. Build in this order.
 permalink: /hardware/assembly/distribution/
+og_image: https://assets.basically.website/sorter-docs/install-bins-cardboard-bins-tower-full-97d68e720775.jpg
 author: spencer
 ---
 
@@ -14,6 +15,14 @@ Distribution and the interface layer are assembled as one unit. It comes first i
 
 Parts arrive from the feeder already identified; the interface's rotating chute aims each one down the hex-framed bin tower into the correct layer, and it is only fixed in place once the bin frame beneath it is built, which is why bin frame is built first even though the interface is where sorting decisions become physical.
 
-1. **[Bin frame]({{ '/hardware/assembly/distribution/bin-frame/' | relative_url }})** — the stacked layers of bins.
-2. **[Top interface]({{ '/hardware/assembly/distribution/top-interface/' | relative_url }})** — the interface between the feeder and the bin tower: brackets, the rotating-chute mount, gearing, and cable routing.
-3. **[Chute]({{ '/hardware/assembly/distribution/chute/' | relative_url }})** — the rotating chute that aims parts at the correct bin, including the per-layer door module.
+1. **[Bin frame]({{ '/hardware/assembly/distribution/bin-frame/' | relative_url }})**. The layers of bins, each built flat and on its own.
+2. **[Top interface]({{ '/hardware/assembly/distribution/top-interface/' | relative_url }})**. The interface between the feeder and the bin tower: brackets, the rotating-chute mount, gearing, and cable routing.
+3. **[Stacking the layers]({{ '/hardware/assembly/distribution/stacking-the-layers/' | relative_url }})**. Joining the layers and the top interface into a standing frame. No chutes yet.
+4. **[Chute]({{ '/hardware/assembly/distribution/chute/' | relative_url }})**. The rotating chute that aims parts at the correct bin, including the per-layer door module. One section per layer, built on the bench and fitted into the standing frame afterwards, followed by the bottom interface.
+
+## The finished result
+
+<figure class="single-figure">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/install-bins-cardboard-bins-tower-full-97d68e720775.jpg" alt="A finished distribution assembly on its casters: five hexagonal layers of folded cardboard bins with sorted LEGO in them, the chutes hanging in the middle of the stack and the plywood deck of the top interface over them">
+  <figcaption>Distribution finished: the bin frame on its casters, the chutes hanging in the stack, and the top interface under the deck. The feeder is built separately and goes on after this. <cite>Photo: Basically.</cite></figcaption>
+</figure>

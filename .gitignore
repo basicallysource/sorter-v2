@@ -2,7 +2,12 @@
 # Machine-local agent notes (private: machine names, tailnet, access details).
 # The committed AGENTS.md files are public.
 AGENTS.local.md
+agents.local/
 .tmp-*
+
+# Machine-generated on the Pi (dev.sh --dump logs, sorting-profile storage). Never source.
+/software/logs/
+/software/mine/
 
 machine.toml
 

@@ -11,6 +11,27 @@ adding and editing articles. Read it before touching anything here.
 data files, and includes all hot-reload; restart after changing
 `src/lib/server/content.ts`.
 
+## Verifying an edit
+
+The cheapest check that covers the change, and only that:
+
+- **A page edit** (markdown, frontmatter, an image or video embed): `npm run
+  check` from `docs/` for the Svelte and TypeScript side, `python3
+  scripts/validate_images.py` for every asset URL on the page, then load the
+  page on `npm run dev` and look at it.
+- **A change to layout, `src/lib/server/content.ts`, `svelte.config.js`,
+  `vite.config.ts`, or a data file every page reads**: `npm run build`, once.
+  It prerenders every page, needs about 500 MB of memory and a few minutes on
+  one CPU, and is not the way to check a paragraph.
+- **A dependency change**: the pull request's preview build is the check. An
+  environment may provide `node_modules` read-only, installed from the
+  lockfile on `main` (an agent's does); `npm ci` refuses there, so say what
+  you added in the PR and let the preview install it.
+
+Vite's dependency cache is `.vite/` in this directory rather than the default
+inside `node_modules`, so the dev server works when `node_modules` is not
+writable. It is ignored by git.
+
 ## Favicon — the docs site color is yellow
 
 Every web UI in the ecosystem shows the same basically brick on a full-bleed

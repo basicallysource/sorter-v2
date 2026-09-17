@@ -94,7 +94,7 @@ Screw the 4 M3 standoffs into the inserts. Sit the Pi on them and fasten it down
 
 <div class="callout callout-warning">
   <span class="callout-icon" aria-hidden="true">⚠</span>
-  <p><b>The thread shreds easily here.</b> Start each standoff by hand and keep it square to the plate, and stop turning the moment it seats. Forcing one, or starting it crossed, strips the thread, and a stripped insert means reheating a new one into the plate.</p>
+  <p><b>The standoff's own thread strips easily.</b> They are a soft plastic, closer to a hard rubber than to metal, so the thread that gives is theirs and not the brass insert's. Start each one by hand, keep it square to the plate, and stop turning the moment it seats. A stripped standoff is scrap: fit a new one rather than trying to persuade it.</p>
 </div>
 
 <div class="img-row">

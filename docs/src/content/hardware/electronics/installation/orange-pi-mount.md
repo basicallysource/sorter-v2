@@ -56,17 +56,12 @@ Before assembling anything, press the heat inserts into the parts that take them
     <p><strong>Orange Pi extrusion mount:</strong> 6 × M3. Four on the top face, one per standoff, and two more lying on their sides in the front edge of the plate, 32 mm apart, which are what the fan arm bolts back into.</p>
   </div>
   <figure class="prep-item-figure">
-    <img class="doc-figure" src="https://assets.basically.website/sorter-parts/opi-mount-six-inserts-full-09f831150f82.png" alt="The Orange Pi extrusion mount lying on its long edge, with six M3 insert holes circled in red: four on the top face near the corners of the frame, and two in the front edge face between them, each showing a real shadowed hole">
-    <figcaption>All 6 insert holes, ringed: four on the top face at the corners of the frame, two in the front edge for the fan arm. <cite>Rendered from the part geometry, not from a build. Render: Balloon.</cite></figcaption>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/opi-mount-inserts-fitted-w1600-6fef8b0dd716.jpg" alt="The printed Orange Pi extrusion mount lying on the bench with its six brass heat inserts fitted: four on the top face around the rectangular opening, and two in the front edge face between them, with the two M5 frame holes at the near corners left open">
+    <figcaption>All 6 inserts in: four on the top face, two in the front edge for the fan arm. The two open holes at the near corners are the M5 clearance holes for the frame. <cite>Photo: BrickCycleAlice.</cite></figcaption>
   </figure>
 </div>
 
 The two in the front edge go in on their sides, so press them with the plate stood on end rather than trying to reach them flat on the bench.
-
-<figure class="single-figure">
-  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/opi-mount-inserts-fitted-w1600-6fef8b0dd716.jpg" alt="The printed Orange Pi extrusion mount lying on the bench with its brass heat inserts fitted: four around the rectangular opening on the top face and two in the front edge below them">
-  <figcaption>All six inserts in, before anything goes on the plate. <cite>Photo: BrickCycleAlice.</cite></figcaption>
-</figure>
 
 The Pi, the fan and the fan arm take no inserts.
 

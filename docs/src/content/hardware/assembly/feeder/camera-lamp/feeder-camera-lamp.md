@@ -67,6 +67,10 @@ The camera board sits in the recess in the **Camera clasp top**. Put the **Camer
 
 Do this first and the reflector cannot be dropped over a camera that is already in the ring, which is the part of this build that goes wrong.
 
+<div class="callout">
+  <p><strong>Take the outer cover off again first.</strong> If the <strong>Lamp outer cover</strong> is on the reflector, lift it straight off and set it aside. The camera clasp is wider than the opening at the centre of the cover, so the camera cannot go into the ring with the cover on. It goes back on in step 4.</p>
+</div>
+
 <div class="img-row">
   <figure>
     <img class="doc-figure" src="https://assets.basically.website/sorter-docs/camera-lamp-reflector-onto-arm-w1600-bd84acd2f247.jpg" alt="The lamp arm lying with its ring end pushed into the centre of the white inner reflector, the two turns of LED strip visible around the inside of the skirt">
@@ -93,9 +97,9 @@ The clasp's two halves form a spigot that plugs into a socket in the ring. **The
   <figcaption>From below, with the reflector already on: the camera seated in the ring at the centre. <cite>Photo: BrickCycleAlice.</cite></figcaption>
 </figure>
 
-{% include step.html n="4" title="Thread the cable through the cover, then press it on" %}
+{% include step.html n="4" title="Thread the cable through the cover, then press it back on" %}
 
-Plug the camera's cable into the board now, if it is not on already, and route it out of the lamp before the cover goes over the top. The cover has a rectangular slot near its rim for it.
+**The cover you took off in step 2 goes back on now.** Plug the camera's cable into the board first, if it is not on already, and route it out of the lamp before the cover goes over the top. The cover has a rectangular slot near its rim for it.
 
 <ol class="numbered-steps">
   <li>Thread the camera cable up through the slot in the <strong>Lamp outer cover</strong> <strong>before</strong> you offer the cover up. Doing it afterwards means taking the cover back off.</li>

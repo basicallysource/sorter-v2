@@ -36,7 +36,7 @@ Go to **[github.com/basicallysource/sorter-v2/releases](https://github.com/basic
 
 <div class="notice notice-warn">
   <strong>SorterOS Setup is currently broken</strong>
-  <p>On the current release it rejects every configuration with <code>config too large: N bytes, capacity 2</code>, whatever you enter. This is a bug in the tool, not in your download, and shortening the configuration does not get past it. See <a href="https://github.com/basicallysource/sorter-v2/issues/675">issue #675</a>. Until it is fixed, flash the <code>.zip</code> directly and connect the Pi to your router over Ethernet; WiFi and Tailscale can both be set from the Sorter UI afterwards, under <strong>Settings</strong>.</p>
+  <p>On the current release it rejects every configuration with <code>config too large: N bytes, capacity 2</code>, whatever you enter. This is a bug in the tool, not in your download, and shortening the configuration does not get past it. See <a href="https://github.com/basicallysource/sorter-v2/issues/675">issue #675</a>. Until it is fixed, flash the <code>.zip</code> directly and connect the Pi to your router over Ethernet; WiFi and Tailscale can both be set from the Sorter UI afterwards, on its Settings page.</p>
 </div>
 
 If you do not need to configure WiFi, hostname, SSH auth key, or Tailscale auth key, you can flash the `.zip` file directly — skip ahead to Step 3.

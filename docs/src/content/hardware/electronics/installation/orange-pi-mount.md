@@ -10,12 +10,7 @@ permalink: /hardware/electronics/installation/orange-pi-mount/
 author: barthel
 contributors: [spencer]
 og_image: https://assets.basically.website/sorter-parts/orange-pi-mount-v1-render-full-d5893e241c96.png
-warning: >-
-  **Steps 5 and 6 are not verified against a build.** Steps 1 to 4 are photographed on
-  BrickCycleAlice's build. Bolting the mount to the frame has no photograph yet, and which fan
-  the arm takes and where its lead lands is still unsettled. The rest of the page was drafted
-  from the [parts calculator](https://parts-calculator.basically.website/assembly?focus=orange-pi-mount)
-  rather than from a build; fill the gaps in as you build.
+last_verified: 2026-09-17
 parts_needed:
   - part: sbc-orange-pi-5
     qty: 1

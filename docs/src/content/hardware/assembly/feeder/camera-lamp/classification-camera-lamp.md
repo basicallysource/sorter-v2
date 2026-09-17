@@ -118,7 +118,7 @@ Plug the camera's cable into the board now, if it is not on already, and route i
 
 <figure class="single-figure">
   <img class="doc-figure" src="https://assets.basically.website/sorter-docs/camera-lamp-cover-on-cord-through-slot-w1600-9678252fab1b.jpg" alt="The finished lamp from above: the grey cover seated on the reflector, the camera clasp recessed in the central opening, and the cord coming up through the rectangular slot in the cover">
-  <figcaption>The cord up through the cover's slot. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+  <figcaption>The finished lamp: cover on, cord up through its slot. <cite>Photo: BrickCycleAlice.</cite></figcaption>
 </figure>
 
 <figure class="single-figure">

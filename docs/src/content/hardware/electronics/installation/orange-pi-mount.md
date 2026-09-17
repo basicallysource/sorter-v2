@@ -114,29 +114,15 @@ Screw the 4 M3 standoffs into the inserts. Sit the Pi on them and fasten it down
 
 {% include step.html n="3" title="Fit the fan to the arm" %}
 
-<figure class="figure-float-right">
-  <img class="doc-figure" src="https://assets.basically.website/sorter-parts/opi-fan-arm-fan-holes-full-7b678b45ebd7.png" alt="The 40 mm fan arm on its own, standing on its foot, with the four fan screw holes around the round opening in its top plate circled in red">
-  <figcaption>The 4 fan holes in the top of the arm, ringed, on the standard 32 × 32 mm pattern around the opening. <cite>Rendered from the part geometry, not from a build. Render: Balloon.</cite></figcaption>
-</figure>
-
 Easier with the arm still loose on the bench. The fan sits on the flat top face of the arm, over the round opening, with its label side down so it blows down through the opening onto the Pi. The four holes take 4 {% include fastener.html size="M3" variant="socket-button" length="16" %} screws, self-tapping straight into the plastic. There are no inserts in the arm.
 
 Take the lead down through the rectangular 18 × 10 mm slot at the near end of the arm, over the upright, while the arm is still off the machine.
 
-<div class="clear-float"></div>
-
 {% include step.html n="4" title="Bolt the fan arm to the mount" %}
-
-<figure class="figure-float-right">
-  <img class="doc-figure" src="https://assets.basically.website/sorter-parts/opi-fan-arm-on-mount-full-6b0470d81e3f.png" alt="The fan arm in blue standing on the front edge of the grey Orange Pi extrusion mount, its arm reaching back over the plate, with the two screw holes through its foot circled in red">
-  <figcaption>The arm (blue) on the mount, with the 2 screws through its foot ringed. The arm reaches back over the Pi. <cite>Rendered from the part geometry, not from a build. Render: Balloon.</cite></figcaption>
-</figure>
 
 Stand the arm's foot against the front edge of the mount, the arm reaching back over the Pi, and line its two holes up with the two inserts pressed into that edge in step 1. Fasten it with 2 {% include fastener.html size="M3" variant="socket-button" length="16" %} screws.
 
 The screws pass through 12 mm of the foot before they reach the insert, so a 16 leaves about 4 mm in it. An {% include fastener.html size="M3" variant="socket-button" length="12" %} does not reach the insert at all, and an M3 × 20 bottoms out in it and jacks the arm off the plate.
-
-<div class="clear-float"></div>
 
 <figure class="single-figure">
   <img class="doc-figure" src="https://assets.basically.website/sorter-docs/opi-mount-assembled-w1600-d65b122c4efc.jpg" alt="The finished mount on the bench: the Orange Pi standing on its standoffs over the plate, the printed fan arm bolted to the front edge and reaching back over the board, a 40 mm fan screwed to the top of the arm with its lead down through the slot">

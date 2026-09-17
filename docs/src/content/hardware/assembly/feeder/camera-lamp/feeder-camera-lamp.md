@@ -115,20 +115,10 @@ Plug the camera's cable into the board now, if it is not on already, and route i
   </figure>
 </div>
 
-<div class="img-row">
-  <figure>
-    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/camera-lamp-cover-on-cord-through-slot-w1600-9678252fab1b.jpg" alt="The finished lamp from above: the grey cover seated on the reflector, the camera clasp recessed in the central opening, and the cord coming up through the rectangular slot in the cover">
-    <figcaption>The cord up through the cover's slot. <cite>Photo: BrickCycleAlice.</cite></figcaption>
-  </figure>
-  <figure>
-    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/camera-lamp-cover-on-cord-out-flat-w1600-6a44a9927184.jpg" alt="The same finished lamp lying flat, the cover on and the camera board centred in its opening, cord running off to one side">
-    <figcaption>The same, flat on the bench. <cite>Photo: BrickCycleAlice.</cite></figcaption>
-  </figure>
-  <figure>
-    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/camera-lamp-cover-on-cord-out-angle-w1600-a6243cca6314.jpg" alt="The finished lamp from a lower angle with the arm running off to the left, the cover on and the camera cord leaving the slot">
-    <figcaption>And from the side, arm out to the left. <cite>Photo: BrickCycleAlice.</cite></figcaption>
-  </figure>
-</div>
+<figure class="single-figure">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/camera-lamp-cover-on-cord-through-slot-w1600-9678252fab1b.jpg" alt="The finished lamp from above: the grey cover seated on the reflector, the camera clasp recessed in the central opening, and the cord coming up through the rectangular slot in the cover">
+  <figcaption>The finished lamp: cover on, cord up through its slot. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+</figure>
 
 {% include step.html n="5" title="Later: hang the arm on the C-channel" %}
 

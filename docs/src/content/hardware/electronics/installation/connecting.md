@@ -412,4 +412,4 @@ Next: [software setup]({{ '/hardware/assembly/software-setup/' | relative_url }}
 
 ## What is not recorded yet
 
-- **The Orange Pi's fan.** The Pi has a 2-pin `FAN` connector of its own, and it is 5 V. The fan in the parts list for the [Orange Pi mount]({{ '/hardware/electronics/installation/orange-pi-mount/' | relative_url }}) is a 24 V one, which that connector cannot run. Which fan goes there, and where its lead lands, is still open.
+- **Where the arm fan's lead lands.** The Pi's own 2-pin `FAN` connector is 5 V and runs the official heatsink fan on the SoC, which goes on during [the Orange Pi mount]({{ '/hardware/electronics/installation/orange-pi-mount/' | relative_url }}). The 40 mm fan on that mount's arm is a 24 V one, so it has to come off the control board instead, and whether it goes on one of that board's LED ports is still being decided.

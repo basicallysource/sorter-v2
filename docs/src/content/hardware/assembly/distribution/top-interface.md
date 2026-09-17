@@ -579,7 +579,7 @@ Once done, check that the chute rotates freely relative to the Interface upper f
   <figcaption><cite>Video: zed0.</cite></figcaption>
 </figure>
 
-Loosen the screws attaching the Limit switch housing to the extrusion. Slide the housing so the Limit switch hammer passes between the Roller lever limit switch and the Printed dowel pin in both directions of rotation, without touching the dowel pin. Rotate the chute slowly to each limit by hand: you should feel and hear the switch click just before the hammer would otherwise hit the dowel pin. If the hammer rubs against the dowel pin, slide the housing slightly further away and re-test. Tighten the screws to keep the housing in this position.
+Loosen the screws attaching the Limit switch housing to the extrusion. Slide the housing so the Limit switch hammer passes between the Roller lever limit switch and the Printed dowel pin. **The hammer has to strike the switch from both directions of rotation, and it must not run on the dowel pin.** Rotate the chute slowly to each limit by hand: you should feel and hear the switch click just before the hammer would otherwise hit the dowel pin. If the hammer rubs against the dowel pin, slide the housing slightly further away and re-test. Tighten the screws to keep the housing in this position.
 
 <div class="img-row">
   <figure>
@@ -589,6 +589,10 @@ Loosen the screws attaching the Limit switch housing to the extrusion. Slide the
   <figure>
     <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-top-interface-step8-hammer-at-switch-w1600-c5ea45cae0c0.jpg" alt="Close view of the Limit switch hammer swung in between the roller lever limit switch and the printed dowel pin, beside the chute's ring gear teeth">
     <figcaption>The hammer passing between the roller and the dowel pin, clear of both. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+  </figure>
+  <figure>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-top-interface-step8-hammer-clear-of-dowel-pin-w1600-650b1c552764.jpg" alt="Looking straight down on the ring gear and the limit switch housing: the hammer swung in towards the roller lever of the microswitch, with a clear gap between the hammer and the printed dowel pin beside it">
+    <figcaption>From above, where the gap to the dowel pin is easiest to judge. <cite>Photo: BrickCycleAlice.</cite></figcaption>
   </figure>
 </div>
 

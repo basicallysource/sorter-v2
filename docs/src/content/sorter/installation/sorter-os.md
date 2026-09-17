@@ -66,14 +66,16 @@ Wait for Etcher to finish writing and verifying. Do not remove the card until it
 
 Insert the SD card into the Orange Pi 5 and power it on. SorterOS completes first-boot setup automatically, then starts the Sorter backend and UI. This takes less than 5 minutes if everything is working.
 
-Once first-boot initialization completes and the Pi has finished downloading its dependencies, the Sorter UI is available on port `5173`. Which address reaches it depends on whether you ran SorterOS Setup in Step 2, which is what sets the Pi's hostname.
+Once first-boot initialization completes and the Pi has finished downloading its dependencies, the Sorter UI is available on port `80`, so the address takes no port suffix. Which address reaches it depends on whether you ran SorterOS Setup in Step 2, which is what sets the Pi's hostname.
 
-- **Ran SorterOS Setup** — use the hostname you entered there: `http://<hostname>.local:5173/`. That field defaults to `sorter`, so if you left it alone the address is [http://sorter.local:5173/](http://sorter.local:5173/).
-- **Flashed the `.zip` directly** — nothing sets a hostname, so the Pi keeps the one from the base Orange Pi Ubuntu image, normally `orangepi5`: [http://orangepi5.local:5173/](http://orangepi5.local:5173/).
+- **Ran SorterOS Setup** — use the hostname you entered there: `http://<hostname>.local/`. That field defaults to `sorter`, so if you left it alone the address is [http://sorter.local/](http://sorter.local/).
+- **Flashed the `.zip` directly** — nothing sets a hostname, so the Pi keeps the one from the base Orange Pi Ubuntu image, normally `orangepi5`: [http://orangepi5.local/](http://orangepi5.local/).
 
 Both use mDNS, so the device you're browsing from must be on the same network as the Pi. mDNS resolves natively on macOS and iOS; on Windows it usually needs [Bonjour](https://support.apple.com/en-us/106380) installed.
 
-If no `.local` address resolves, find the Pi in your router's list of connected devices and browse to its IP address on port `5173` instead.
+If no `.local` address resolves, find the Pi in your router's list of connected devices and browse to its IP address, again with no port.
+
+`5173` is the Vite dev server's port and applies only to the [by hand]({{ '/sorter/installation/by-hand/' | relative_url }}) and [generic Linux]({{ '/sorter/installation/linux-generic/' | relative_url }}) install paths, not to SorterOS.
 
 ## SSH access
 

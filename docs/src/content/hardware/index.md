@@ -5,7 +5,7 @@ type: landing
 section: hardware
 slug: hardware
 kicker: The Physical Machine
-lede: What building a Sorter V2 involves, how big a machine to build, and where the step-by-step instructions are.
+lede: The size of the build, what it costs in parts and printing time, and where the assembly instructions are.
 permalink: /hardware/
 author: spencer
 ---
@@ -38,7 +38,7 @@ Three and five layers are the two common choices.
 
 ## What each size costs you
 
-The table below is for 18 bins per layer, the smaller size.
+The table below uses 18 bins per layer.
 
 | | **3 layers** | **5 layers** |
 |---|---|---|
@@ -118,11 +118,11 @@ So, if you are planning:
 
 ## Keep track of what you have
 
-With thousands of small parts arriving over weeks, the thing that goes wrong is
-not knowing what is already in the drawer. Label the screw sizes as they arrive
-and keep the printed parts sorted by the assembly they belong to. Every assembly
-page lists the exact parts and fasteners for that step, so sorting to match them
-pays for itself.
+Parts arrive over several weeks, in the thousands. It is easy to lose track of
+what you already have. Label the screw sizes as they arrive, and keep the
+printed parts sorted by the assembly they belong to. Every assembly page lists
+the exact parts and fasteners for that step, so sorting them that way pays for
+itself.
 
 ## Where to go next
 

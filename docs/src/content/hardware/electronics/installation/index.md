@@ -10,8 +10,8 @@ permalink: /hardware/electronics/installation/
 author: barthel
 contributors: [spencer]
 warning: >-
-  **Mixed.** The two control board pages come from a real build. The PSU box and Orange Pi mount
-  pages are AI-generated first drafts written from the [parts
+  **Mixed.** The control board pages and the Orange Pi mount page come from real builds. The PSU
+  box page is an AI-generated first draft written from the [parts
   calculator](https://parts-calculator.basically.website/assembly), not from a build: the parts
   are real, the steps are not checked. Gaps are marked in place. Correct them as you build.
 

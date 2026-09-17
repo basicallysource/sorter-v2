@@ -740,7 +740,12 @@ Fold your IDC ribbon cable around the Cable clamp (inner), following the guides 
 
 **Leave about 80 mm of tail**, measured from where it leaves the clamp, which is what it takes to reach the layer adapter board on the chute core that sits on top of this assembly.
 
-**The connector goes on pins up.** You should be able to see the pins from above when the tail is lying where it will sit; if they are facing down at the bench, the cable is on the wrong way round.
+**The connector goes on pins up.** You should be able to see into the connector from above when the tail is lying where it will sit; if it is facing down at the bench, the cable is on the wrong way round. Getting this wrong is expensive: three steps have to come apart to turn it over.
+
+<figure class="single-figure">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/top-interface-ribbon-plug-orientation-w1600-e0c97d73b9a3.jpg" alt="Render of the free end of the ribbon cable folding up to its IDC socket, the socket's opening and its two rows of contacts facing up and towards the viewer, with the cable's red stripe along the right hand edge">
+  <figcaption>The right way up: the socket's opening faces up, so you can see into it. <cite>Render: Balloon.</cite></figcaption>
+</figure>
 
 Guide the rest of the ribbon cable around the side of the Top interface chute mount, in the direction the chute can rotate, back to the Cable cage bracket (cable mount).
 

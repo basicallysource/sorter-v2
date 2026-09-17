@@ -11,10 +11,11 @@ author: barthel
 contributors: [spencer]
 og_image: https://assets.basically.website/sorter-parts/orange-pi-mount-v1-render-full-d5893e241c96.png
 warning: >-
-  **AI-generated first draft.** Written from the machine assembly tree in the [parts
-  calculator](https://parts-calculator.basically.website/assembly?focus=orange-pi-mount), not
-  from an actual build. The parts and quantities are real, but no step here has been checked
-  against a machine. The steps below are placeholders with the gaps marked.
+  **Steps 5 and 6 are not verified against a build.** Steps 1 to 4 are photographed on
+  BrickCycleAlice's build. Bolting the mount to the frame has no photograph yet, and which fan
+  the arm takes and where its lead lands is still unsettled. The rest of the page was drafted
+  from the [parts calculator](https://parts-calculator.basically.website/assembly?focus=orange-pi-mount)
+  rather than from a build; fill the gaps in as you build.
 parts_needed:
   - part: sbc-orange-pi-5
     qty: 1
@@ -67,6 +68,11 @@ Before assembling anything, press the heat inserts into the parts that take them
 
 The two in the front edge go in on their sides, so press them with the plate stood on end rather than trying to reach them flat on the bench.
 
+<figure class="single-figure">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/opi-mount-inserts-fitted-w1600-6fef8b0dd716.jpg" alt="The printed Orange Pi extrusion mount lying on the bench with its brass heat inserts fitted: four around the rectangular opening on the top face and two in the front edge below them">
+  <figcaption>All six inserts in, before anything goes on the plate. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+</figure>
+
 The Pi, the fan and the fan arm take no inserts.
 
 The Pi's heatsink fan goes on at this stage too, while the board is still loose on the bench. Its two pins clip underneath the board, so you want to be able to reach both faces.
@@ -103,6 +109,21 @@ Screw the 4 M3 standoffs into the inserts. Sit the Pi on them and fasten it down
 
 <div class="clear-float"></div>
 
+<div class="img-row">
+  <figure>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/opi-mount-with-standoffs-loose-w1600-d31e70d2bea2.jpg" alt="The mount plate with its four black M3 standoffs lying loose on the bench beside it">
+    <figcaption>Four standoffs, one per insert on the top face. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+  </figure>
+  <figure>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/opi-mount-standoffs-in-w1600-dd57fc1042ae.jpg" alt="The same plate with all four standoffs screwed into the top face inserts, standing up around the rectangular opening">
+    <figcaption>Screwed in, standing off the plate. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+  </figure>
+  <figure>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/opi-pi-on-standoffs-w1600-b837e6e88b65.jpg" alt="The Orange Pi 5 sitting on the four standoffs over the plate's opening, ports along the far edge and the board's underside clear of the plastic">
+    <figcaption>The Pi on the standoffs, its underside clear of the plate. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+  </figure>
+</div>
+
 {% include step.html n="3" title="Fit the fan to the arm" %}
 
 <figure class="figure-float-right">
@@ -128,6 +149,11 @@ Stand the arm's foot against the front edge of the mount, the arm reaching back 
 The screws pass through 12 mm of the foot before they reach the insert, so a 16 leaves about 4 mm in it. An {% include fastener.html size="M3" variant="socket-button" length="12" %} does not reach the insert at all, and an M3 × 20 bottoms out in it and jacks the arm off the plate.
 
 <div class="clear-float"></div>
+
+<figure class="single-figure">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/opi-mount-assembled-w1600-d65b122c4efc.jpg" alt="The finished mount on the bench: the Orange Pi standing on its standoffs over the plate, the printed fan arm bolted to the front edge and reaching back over the board, a 40 mm fan screwed to the top of the arm with its lead down through the slot">
+  <figcaption>Everything on the plate: the Pi on its standoffs, the arm bolted to the front edge and the fan over the board. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+</figure>
 
 {% include step.html n="5" title="Bolt the mount to the frame" %}
 

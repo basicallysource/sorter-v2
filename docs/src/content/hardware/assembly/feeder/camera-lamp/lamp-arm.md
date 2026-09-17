@@ -11,10 +11,9 @@ author: reveryx
 contributors: [spencer, danny, brickcyclealice, barthel]
 og_image: https://assets.basically.website/sorter-docs/camera-lamp-render-underside-full-0e2b1e5a0fb9.png
 warning: >-
-  **Step 5, the cover, is not verified against a build.** Steps 1 to 4 are photographed on real
-  builds. The cover has no build photograph yet, and it is fitted on the camera page rather than
-  here, because it is what holds the camera down. Everything else here is measured off the
-  published STLs. Fill the gaps in as you build.
+  **Every step here is photographed on a real build.** The cover, step 5, is fitted on the camera
+  page rather than here, because it is what holds the camera down; it is photographed there.
+  Fill the gaps in as you build.
 parts_needed:
   - part: c-channel-arm-mount
     qty: 1
@@ -143,7 +142,7 @@ The strip itself is cut and wired on [Preparing the LED strip]({{ '/hardware/hel
   </figure>
 </div>
 
-**Nothing fastens the reflector to the arm.** It drops over the ring on the camera page, after the camera is in, so the two stay separate until then.
+**The reflector clicks onto the arm, and it goes on before the camera.** Push the ring on the end of the arm into the middle of the reflector and press until it clicks; it is a snap fit with no screws. That happens on the camera page for your channel, so the two stay separate until then.
 
 The strip comes with its cable already on it from [Preparing the LED strip]({{ '/hardware/helpers/led-strip/' | relative_url }}); cable-tie that pair down the arm so it is not hanging in the channel. Plugging it into the board is step 5 of [connecting the components]({{ '/hardware/electronics/installation/connecting/' | relative_url }}). Nothing is joined end to end here, so the far end of the strip stays dead. The strip runs at 24 V off the basically board.
 
@@ -153,7 +152,7 @@ The strip comes with its cable already on it from [Preparing the LED strip]({{ '
 
 The **Lamp outer cover** pushes down over the reflector. It is a friction fit and has no screw hole anywhere. It stands slightly proud of the reflector, so the camera clasp ends up recessed in the opening at its centre.
 
-**Leave it off until the camera is in.** The cover is what holds the camera down: the clasp is wider than the opening in the middle of the cover, so the cover overlaps its rim and traps it, and until then the camera lifts straight back out. Both camera pages put the cover on as their last bench step, after the clasp is in the ring.
+**Leave it off until the camera is in.** The cover is what holds the camera down: the clasp is wider than the opening in the middle of the cover, so the cover overlaps its rim and traps it, and until then the camera lifts straight back out. Both camera pages put the cover on as their last bench step, after the clasp is in the ring, and the camera's cable is threaded up through the slot in the cover before it goes on.
 
 <figure class="single-figure">
   <img class="doc-figure" src="https://assets.basically.website/sorter-docs/camera-lamp-lit-from-below-w1600-bb9d54f4f43e.jpg" alt="The lamp lit, photographed from underneath: a ring of LED strip glowing around the outside of the white reflector, the reflector's central funnel in the middle, and the arm behind it">

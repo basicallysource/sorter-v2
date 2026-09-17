@@ -129,6 +129,7 @@ class Positioning(BaseState):
                 self.logger.warn("Positioning: no piece ready for distribution")
                 self._setOccupancyState("positioning.wait_piece_for_distribution")
                 return DistributionState.IDLE
+            self.shared.distribution_positioned_uuid = piece.uuid
 
             if getattr(self.shared, "sample_collection_mode", False):
                 self.logger.info(

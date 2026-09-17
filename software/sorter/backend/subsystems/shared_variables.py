@@ -31,6 +31,11 @@ class SharedVariables:
         self._distribution_ready: bool = True
         self.transport: Optional["PieceTransport"] = None
         self.carousel: Optional["Carousel"] = None
+        # uuid of the piece distribution most recently started positioning for.
+        # Written by Positioning, read by Ready, so READY waits on the piece the
+        # chute was actually aimed for, not whatever holds the slot when READY
+        # first runs.
+        self.distribution_positioned_uuid: Optional[str] = None
         self._chute_move_in_progress: bool = False
         # Sample-collection maintenance mode. When True, the feeder ignores
         # downstream gates (ch3_held / classification_channel_block) so C2/C3

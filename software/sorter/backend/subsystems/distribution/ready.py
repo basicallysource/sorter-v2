@@ -23,13 +23,22 @@ class Ready(BaseState):
             self.signaled = True
             self._signaled_at = time.monotonic()
             # Remember which piece we positioned so we can tell, durably, when it
-            # has actually been flung — independent of any gate flag.
+            # has actually been flung — independent of any gate flag. Take it
+            # from Positioning rather than reading the slot here: classification
+            # steps between Positioning finishing and this first READY step and
+            # can fling the piece in that window. Reading the slot then latched
+            # None (or the next piece) and READY waited forever for a drop that
+            # had already happened.
             self._positioned_uuid = None
             if transport is not None:
-                positioned = transport.getPieceForDistributionPositioning()
-                self._positioned_uuid = (
-                    positioned.uuid if positioned is not None else None
+                self._positioned_uuid = getattr(
+                    self.shared, "distribution_positioned_uuid", None
                 )
+                if self._positioned_uuid is None:
+                    positioned = transport.getPieceForDistributionPositioning()
+                    self._positioned_uuid = (
+                        positioned.uuid if positioned is not None else None
+                    )
 
         # Durable drop detection: the piece we positioned has left the
         # positioning slot, i.e. classification flung it into the chute via
@@ -42,6 +51,19 @@ class Ready(BaseState):
         if transport is not None and self._positioned_uuid is not None:
             current = transport.getPieceForDistributionPositioning()
             if current is None or current.uuid != self._positioned_uuid:
+                if getattr(transport, "slot_handoff", False) and not self._positionedPieceDropped(
+                    transport
+                ):
+                    # It left the positioning slot but never reached the drop
+                    # slot: classification withdrew it (the piece was lost or the
+                    # channel was force-cleared) or placed a different piece.
+                    # Nothing fell, so there is nothing to send.
+                    self.logger.warning(
+                        f"Ready: positioned piece {self._positioned_uuid[:8]} was withdrawn "
+                        f"without dropping (slot now "
+                        f"{current.uuid[:8] if current is not None else 'empty'}) -> IDLE"
+                    )
+                    return DistributionState.IDLE
                 piece_advanced = True
 
         if piece_advanced or not self.shared.distribution_ready:
@@ -58,6 +80,10 @@ class Ready(BaseState):
             )
 
         return None
+
+    def _positionedPieceDropped(self, transport) -> bool:
+        dropped = transport.getPieceForDistributionDrop()
+        return dropped is not None and dropped.uuid == self._positioned_uuid
 
     def cleanup(self) -> None:
         super().cleanup()

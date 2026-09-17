@@ -95,6 +95,9 @@ class _TrackedPiece:
         self.result_applied = False
         # Handed to distribution (chute is aiming / aimed for it).
         self.placed = False
+        # Committed to distribution as flung (advanceTransport). The track can
+        # outlive the commit by a few frames; it no longer holds the slot.
+        self.ejected = False
         # Two+ pieces landed in the drop zone at once -> can't classify reliably,
         # route to the misc bin. multi_drop_group ties the clump's distinct track
         # ids together as one logical multi-drop (None when not a multi-drop).
@@ -190,19 +193,19 @@ class TwoPieceClassificationChannel(Rev01BaseState):
     def attemptStallAutoClear(self, *, max_output_deg: float) -> ChannelClearResult:
         """Forced recovery for a wedged channel: rotate forward (occupancy-checked,
         blocking) until perception sees the channel empty or the budget runs out.
-        A placed head is committed to distribution first — the chute is already
-        aimed for it, so the forced rotation drops it exactly where the normal
-        eject would have. Everything else on the channel falls wherever the chute
-        happens to point; their in-flight objects are abandoned."""
-        placed = next((tp for tp in self._pieces.values() if tp.placed), None)
-        if placed is not None:
-            obj = placed.known_object
-            if obj is not None and obj.stage == PieceStage.distributing:
-                self.transport.advanceTransport()
-                self.logger.info(
-                    f"{LOG_TAG} stall auto-clear: committed placed head "
-                    f"track={placed.track_id} to distribution"
-                )
+        A placed head whose chute is already aimed is committed to distribution
+        first, so the forced rotation drops it exactly where the normal eject
+        would have. Everything else on the channel falls wherever the chute
+        happens to point; their in-flight objects are abandoned, and anything
+        still in distribution's slot is withdrawn."""
+        placed = self._pendingPlacedPiece()
+        if placed is not None and self._headReady(placed):
+            self.transport.advanceTransport()
+            placed.ejected = True
+            self.logger.info(
+                f"{LOG_TAG} stall auto-clear: committed placed head "
+                f"track={placed.track_id} to distribution"
+            )
         result = clearChannelByAdvancing(
             self.gc,
             self.irl,
@@ -219,6 +222,13 @@ class TwoPieceClassificationChannel(Rev01BaseState):
                     )
                 except Exception:
                     pass
+            # A placed piece that was not committed above just fell wherever the
+            # chute pointed. Leaving it in the slot kept distribution waiting for
+            # its drop forever, and every later stall dumped the channel again.
+            if self.transport.clearPieceForDistribution():
+                self.logger.warning(
+                    f"{LOG_TAG} stall auto-clear: withdrew the uncommitted placed piece from distribution"
+                )
             self._pieces = {}
             self._eject_target = None
             self._stage_target = None
@@ -326,6 +336,19 @@ class TwoPieceClassificationChannel(Rev01BaseState):
             # (photographed but never classified/distributed) is dropped from the
             # UI — e.g. a stray that fell off before it could be processed.
             tp.worker.abandonInFlightObject("track id gone (left channel)")
+            # Lost while placed but never ejected (a tracker re-id or a
+            # detection gap): withdraw it so distribution stops waiting for its
+            # drop. The eject target is left alone: a slow tick can retire it
+            # here just before _ejecting commits it on this same tick.
+            if (
+                tp.placed
+                and not tp.ejected
+                and tp is not self._eject_target
+                and self.transport.clearPieceForDistribution(tp.known_object)
+            ):
+                self.logger.warning(
+                    f"{LOG_TAG} placed head track={tid} lost before eject; withdrew it from distribution"
+                )
             # Watchdog progress: a REAL piece (one that became a UI object) left
             # the channel. Churn tracks (no KnownObject) get no credit, so id
             # flapping can't mask a wedge.
@@ -378,12 +401,27 @@ class TwoPieceClassificationChannel(Rev01BaseState):
 
     # --------------------------------------------------- ordered-queue accessors
 
+    def _pendingPlacedPiece(self) -> Optional[_TrackedPiece]:
+        # The piece currently holding distribution's single slot, if still tracked.
+        return next(
+            (tp for tp in self._pieces.values() if tp.placed and not tp.ejected), None
+        )
+
     def _headPiece(self) -> Optional[_TrackedPiece]:
         # The head of the queue: the most-forward piece that has LEFT the drop zone
         # (in precise, the exit approach, or the unnamed gap between drop and
         # precise). This is the piece we classify-aim and eject next. Including the
         # gap (zone NONE) is what keeps a clump piece that overshot precise, or a
         # stray that landed mid-channel, from being stranded.
+        #
+        # Once a piece is placed it stays the head until ejected or lost, even if
+        # another track reads as further forward (a tracker re-id, a phantom, or
+        # two touching pieces trading places by a few degrees). Switching heads
+        # re-placed a different piece over the slot: distribution saw a drop that
+        # never happened and ended up aimed for the wrong piece.
+        pending = self._pendingPlacedPiece()
+        if pending is not None and pending.zone != _ZONE_DROP:
+            return pending
         fwd = [tp for tp in self._pieces.values() if tp.zone != _ZONE_DROP]
         if not fwd:
             return None
@@ -458,6 +496,9 @@ class TwoPieceClassificationChannel(Rev01BaseState):
         tp = self._headPiece()
         if tp is None or tp.placed:
             return
+        if self._pendingPlacedPiece() is not None:
+            # The slot still belongs to a placed piece that has not been ejected.
+            return
         if not tp.result_applied:
             # A forward piece that was never even captured (stray / churn leftover /
             # a multi-drop sibling that skipped the drop zone) would otherwise sit
@@ -498,6 +539,7 @@ class TwoPieceClassificationChannel(Rev01BaseState):
         obj = tp.known_object
         return bool(
             tp.placed
+            and not tp.ejected
             and self.shared.distribution_ready
             and obj is not None
             and obj.stage == PieceStage.distributing
@@ -540,6 +582,7 @@ class TwoPieceClassificationChannel(Rev01BaseState):
             # Track id gone (debounced) == the piece dropped off the fall-off ==
             # ejected. Commit it to distribution; the chute was already aimed.
             self.transport.advanceTransport()
+            target.ejected = True
             if timed_out and gone_for < _EJECT_GONE_CONFIRM_S:
                 self.logger.warning(
                     f"{LOG_TAG} EJECT timeout track={target.track_id} — committing anyway"
@@ -654,6 +697,9 @@ class TwoPieceClassificationChannel(Rev01BaseState):
                 tp.worker.abandonInFlightObject("two-piece classification channel teardown")
             except Exception:
                 pass
+        # Every tracked piece is forgotten, so a placed one would never be ejected;
+        # withdraw it rather than leave distribution aimed and waiting after resume.
+        self.transport.clearPieceForDistribution()
         self._pieces = {}
         self._phase = _Phase.WAITING
         self._eject_target = None

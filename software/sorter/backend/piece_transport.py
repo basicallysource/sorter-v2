@@ -118,6 +118,14 @@ class ClassificationChannelTransport(PieceTransport):
     def zone_manager(self) -> ZoneManager | None:
         return self._zone_manager
 
+    @property
+    def slot_handoff(self) -> bool:
+        """True when a flung piece always moves from the positioning slot to the
+        drop slot (every non-dynamic path: placePieceForDistribution, then
+        advanceTransport). Distribution can then tell a real drop apart from the
+        positioned piece being withdrawn or replaced, from the slots alone."""
+        return not self._dynamic_mode
+
     def configureDynamicMode(self, config: "ClassificationChannelConfig") -> None:
         if self._dynamic_mode:
             return
@@ -207,6 +215,18 @@ class ClassificationChannelTransport(PieceTransport):
         if self._dynamic_mode:
             return
         self._wait_piece = obj
+
+    def clearPieceForDistribution(self, obj: KnownObject | None = None) -> bool:
+        """Empty the positioning slot when its piece was abandoned instead of
+        flung (forced channel clear, teardown, track lost). With ``obj``, only
+        clears when the slot still holds that exact piece. Returns True if the
+        slot was cleared. No-op in dynamic mode."""
+        if self._dynamic_mode or self._wait_piece is None:
+            return False
+        if obj is not None and self._wait_piece is not obj:
+            return False
+        self._wait_piece = None
+        return True
 
     def getPieceAtClassification(self) -> KnownObject | None:
         if self._dynamic_mode:

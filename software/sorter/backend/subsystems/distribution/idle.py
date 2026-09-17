@@ -42,6 +42,17 @@ class Idle(BaseState):
             return DistributionState.POSITIONING
 
         if can_distribute and not is_unhandled:
+            if getattr(transport, "slot_handoff", False):
+                # Positioned once but never dropped, and distribution is idle:
+                # its READY cycle ended without the drop (an incident hold closed
+                # the gate). The chute may no longer point at the bin, so aim
+                # again. Positioning has no side effects beyond choosing a bin
+                # for the same category.
+                self.logger.info(
+                    f"Idle: piece {piece.uuid[:8]} was positioned but never dropped — positioning again"
+                )
+                self.shared.set_distribution_gate(False, reason="positioning")
+                return DistributionState.POSITIONING
             self.logger.info(
                 f"Idle: piece {piece.uuid[:8]} already prepared"
             )

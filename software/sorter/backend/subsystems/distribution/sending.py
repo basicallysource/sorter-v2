@@ -90,7 +90,15 @@ class Sending(BaseState):
         if not self._committed:
             self.logger.info(f"Sending: settle complete ({elapsed_ms:.0f}ms)")
             self._setOccupancyState("sending.commit_piece")
-            if self.piece:
+            if self.piece and self._alreadyCommitted(self.piece):
+                # The drop slot still holds the piece committed on an earlier
+                # cycle: READY released without a new drop (the gate fallback).
+                # Recording it again would double-count it in the run history
+                # and set progress.
+                self.logger.warning(
+                    f"Sending: piece {self.piece.uuid[:8]} was already committed; not recording it again"
+                )
+            elif self.piece:
                 self.piece.stage = PieceStage.distributed
                 self.piece.distributed_at = time.time()
                 self.piece.updated_at = time.time()
@@ -126,6 +134,10 @@ class Sending(BaseState):
 
         self.shared.set_distribution_gate(True, reason=None)
         return DistributionState.IDLE
+
+    @staticmethod
+    def _alreadyCommitted(piece) -> bool:
+        return piece.stage == PieceStage.distributed or piece.distributed_at is not None
 
     def _shouldReopenGate(self) -> bool:
         if bool(getattr(self.shared, "sample_collection_mode", False)):

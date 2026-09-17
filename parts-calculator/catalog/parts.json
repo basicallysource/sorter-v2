@@ -8656,10 +8656,98 @@
         },
         {
           "version": "4",
+          "uid": "vhrk",
           "date": "2026-09-01",
           "message": "The top plate moved up to the superstructure: it sits on top of the machine at this assembly's level, not inside it. No physical change.",
           "breaking": false,
-          "commit": "e47151a1"
+          "commit": "e47151a1",
+          "lines": [
+            {
+              "assembly": "interface-bracket-mount",
+              "qty": 6,
+              "uid": "so5r"
+            },
+            {
+              "assembly": "hex-frame",
+              "qty": 1,
+              "uid": "l0xa"
+            },
+            {
+              "assembly": "fixed-upper-section",
+              "qty": 1,
+              "uid": "99af"
+            },
+            {
+              "assembly": "cable-cage",
+              "qty": 1,
+              "uid": "wxcr"
+            },
+            {
+              "part": "scr-m5-30-shcs",
+              "qty": 6,
+              "uid": "92kv"
+            },
+            {
+              "assembly": "cable-clamp",
+              "qty": 1,
+              "uid": "rwaw"
+            },
+            {
+              "part": "scr-m3-12-bhcs",
+              "qty": 2,
+              "uid": "izrb"
+            },
+            {
+              "assembly": "limit-switch",
+              "qty": 1,
+              "uid": "xzje"
+            },
+            {
+              "part": "scr-m5-20-shcs",
+              "qty": 2,
+              "uid": "e4hi"
+            },
+            {
+              "assembly": "chute-stepper-gearing",
+              "qty": 1,
+              "uid": "1cfd"
+            },
+            {
+              "assembly": "interface-chute-drive",
+              "qty": 1,
+              "uid": "8cjj"
+            },
+            {
+              "part": "top-interface-split-spur-gear-2",
+              "qty": 1,
+              "uid": "izz5"
+            },
+            {
+              "assembly": "layer-connector",
+              "qty": 1,
+              "uid": "6m38"
+            },
+            {
+              "part": "brg-lazy-susan",
+              "qty": 1,
+              "uid": "wrxu"
+            },
+            {
+              "part": "scr-m4-12-cs",
+              "qty": 8,
+              "uid": "h8h4"
+            },
+            {
+              "part": "scr-m5-35-fhcs",
+              "qty": 6,
+              "uid": "xkl4"
+            },
+            {
+              "part": "scr-m5-8-cs",
+              "qty": 6,
+              "uid": "mqh4"
+            }
+          ]
         },
         {
           "version": "5",
@@ -9089,10 +9177,18 @@
         },
         {
           "version": "2",
+          "uid": "oob0",
           "date": "2026-09-05",
           "breaking": false,
           "message": "Dropped the layer-frame: the bottom interface hangs under the lowest bin layer's frame and does not get a hexagon of its own (bottom two layers, step 6). Dropped the layer connector too: the spare one belongs to the top interface, which slides onto the external bracket on that hex ring. No physical change.",
-          "commit": "36826f49"
+          "commit": "36826f49",
+          "lines": [
+            {
+              "assembly": "lazy-susan",
+              "qty": 1,
+              "uid": "v6ss"
+            }
+          ]
         },
         {
           "version": "3",

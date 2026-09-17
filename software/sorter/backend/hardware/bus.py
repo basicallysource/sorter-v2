@@ -55,6 +55,11 @@ MAX_PAYLOAD_SIZE = (
     254 - 8
 )  # Max total message size is 254, header is 4 bytes, CRC is 4 bytes
 
+MAX_FRAME_SIZE = 254
+# Ceiling on reading one response, however its bytes trickle in. The serial
+# timeout still bounds each wait for more data.
+MAX_FRAME_READ_S = 1.0
+
 
 @dataclass
 class MessageHeader:
@@ -203,11 +208,11 @@ class MCUBus:
                     # previous partial response so the next read starts clean.
                     self._serial.reset_input_buffer()
                     self._serial.write(encoded_message)
-                    resp_buf = bytearray(self._serial.read_until(b"\x00", 254))
+                    resp_buf = self._read_frame()
                 if not resp_buf:
                     raise MCUBusError("Timeout waiting for response terminator (0x00)")
                 if resp_buf[-1] != 0:
-                    if len(resp_buf) >= 254:
+                    if len(resp_buf) >= MAX_FRAME_SIZE:
                         raise MCUBusError("Response exceeded max frame size before terminator")
                     raise MCUBusError(
                         f"Partial response (missing terminator), got {len(resp_buf)} bytes"
@@ -267,6 +272,32 @@ class MCUBus:
                 raise
         # Loop must exit via return or raise — defensive fallthrough
         raise last_exc if last_exc is not None else MCUBusError("send_command exhausted retries with no error")
+
+    def _read_frame(self) -> bytearray:
+        """Read one response frame, up to and including its 0x00 terminator.
+
+        The serial timeout bounds each wait for more data, not the whole frame,
+        and whatever has already arrived is taken in one read. pyserial's
+        read_until reads a single byte per call against one overall deadline,
+        and every call releases and re-acquires the GIL. In a busy backend that
+        came to roughly 10 ms per byte, so an 11-byte reply that had arrived
+        intact was cut off at the 100 ms deadline ("Partial response"), and the
+        retry sent the command to the MCU a second time.
+        """
+        buf = bytearray()
+        give_up_at = time.monotonic() + MAX_FRAME_READ_S
+        while len(buf) < MAX_FRAME_SIZE:
+            wanted = min(max(self._serial.in_waiting, 1), MAX_FRAME_SIZE - len(buf))
+            chunk = self._serial.read(wanted)
+            if not chunk:
+                break  # nothing more arrived within the serial timeout
+            buf += chunk
+            end = buf.find(b"\x00")
+            if end >= 0:
+                return buf[: end + 1]
+            if time.monotonic() >= give_up_at:
+                break
+        return buf
 
     @classmethod
     def enumerate_buses(cls, vid=0x2E8A, pid=0x000A) -> list[str]:

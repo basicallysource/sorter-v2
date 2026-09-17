@@ -83,11 +83,6 @@ This is a second fan, not a replacement for the 40 mm one on the arm: the heatsi
 
 {% include step.html n="2" title="Stand the Pi off the mount" %}
 
-<figure class="figure-float-right">
-  <img class="doc-figure" src="https://assets.basically.website/sorter-parts/opi-landscape-standoffs-full-cefb56a912b0.png" alt="The Orange Pi extrusion mount lying on its long edge with 4 standoffs mounted in the corner insert holes and a screw head in blue on top of each, shown as plain placeholders since neither part is modelled in the catalog">
-  <figcaption>The 4 standoffs and their retention screws (blue), drawn as parametric placeholders. <cite>Render: Balloon.</cite></figcaption>
-</figure>
-
 (Inserts already pressed in step 1.)
 
 <div class="callout callout-warning">
@@ -101,8 +96,6 @@ Screw the 4 M3 standoffs into the inserts. Sit the Pi on them and fasten it down
   <span class="callout-icon" aria-hidden="true">⚠</span>
   <p><b>The thread shreds easily here.</b> Start each standoff by hand and keep it square to the plate, and stop turning the moment it seats. Forcing one, or starting it crossed, strips the thread, and a stripped insert means reheating a new one into the plate.</p>
 </div>
-
-<div class="clear-float"></div>
 
 <div class="img-row">
   <figure>

@@ -2,8 +2,9 @@
 	import { tip } from '$lib/popover';
 	import ConflictNotice from '$lib/components/ConflictNotice.svelte';
 	import ImageStrip from '$lib/components/ImageStrip.svelte';
-	import AssemblyDescription from '$lib/components/AssemblyDescription.svelte';
+	import CatalogText from '$lib/components/CatalogText.svelte';
 	import Badge from '$lib/components/Badge.svelte';
+	import OptionalBadge from '$lib/components/OptionalBadge.svelte';
 	import { copyText } from '$lib/clipboard';
 	import { SITE_URL } from '$lib/seo';
 	import {
@@ -12,6 +13,7 @@
 		buyCost,
 		buyUnits,
 		fmtPrice,
+		hardwareOptional,
 		getHardware,
 		getPart,
 		hardwareImage,
@@ -103,6 +105,11 @@
 				/>
 			{/if}
 			<div class="min-w-0 flex-1">
+				<!-- above the description, not down in the Needed row: there it read as
+				     part of the "hand count from the BOM sheet" caveat it wrapped onto. -->
+				{#if hardwareOptional(h)}
+					<div class="mb-1.5"><OptionalBadge value /></div>
+				{/if}
 				<p class="text-sm text-text-muted">{h.description}</p>
 				{#if h.note}
 					<p class="mt-2 border border-warning/50 bg-warning/[0.08] p-2 text-sm text-warning-dark">
@@ -220,7 +227,7 @@
 						<Badge variant="warning"><Zap size={10} />{JOIN_LABELS[j.method]}</Badge>
 					{/each}
 				</div>
-				<AssemblyDescription text={asm.description} class="mt-1 text-xs text-text-muted" />
+				<CatalogText text={asm.description} class="mt-1 text-xs text-text-muted" />
 				<ul class="mt-2 space-y-0.5 text-sm text-text">
 					{#each siblings(asm, h.id) as s (s.id)}
 						<li class="tabular-nums">
@@ -231,7 +238,7 @@
 				</ul>
 				{#each asm.joining ?? [] as j (j.method)}
 					{#if j.note}
-						<AssemblyDescription text={j.note} class="mt-2 text-xs text-warning-dark" />
+						<CatalogText text={j.note} class="mt-2 text-xs text-warning-dark" />
 					{/if}
 				{/each}
 			</div>

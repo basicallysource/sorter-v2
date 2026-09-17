@@ -12,8 +12,8 @@
 		"cost_per_kg": 24.99,
 		"commit_base_url": "https://github.com/basicallysource/sorter-v2/commit/",
 		"engrave": "33d9fa246b1a",
-		"all_parts_zip": "https://assets.basically.website/sorter-parts/all-parts-3d5c310456fa.zip",
-		"all_parts_plain_zip": "https://assets.basically.website/sorter-parts/all-parts-plain-17642cc81389.zip"
+		"all_parts_zip": "https://assets.basically.website/sorter-parts/all-parts-944e236993fb.zip",
+		"all_parts_plain_zip": "https://assets.basically.website/sorter-parts/all-parts-plain-060ec035b0d2.zip"
 	},
 	"sections": [
 		{
@@ -70,7 +70,9 @@
 			"name": "The output guide and the C4 finned rotor cannot both be fitted",
 			"priority": "P0",
 			"condition": "broken",
-			"description": "C-channel 4 carries both the finned rotor unit and the Short and Angled Output Guide, and the two occupy the same space. The guide's inner face sits at r 67.82 mm; the finned rotor's body at that height is r 64.6, so the body clears it by about 3 mm, but the rotor's five fins reach out to r 85.4 and sweep through the guide. Rotated against the guide at 5 degree steps through a full turn, the finned rotor interferes at 24 of 72 positions, up to 0.504 cm3, in the region r 69.3 to 96.6 mm, azimuth -56.6 to -51.2 deg, z 2.5 to 27.4 mm; the fin sweep is up to 21.2 mm past the guide's inner face over the band z 8 to 29. The faceted rotor used on C1 to C3 interferes at none of the 72 positions and clears the guide by 1.5 to 1.8 mm along its whole height, which is the clearance the guide is dimensioned to. This is not the clocking error in output-guide-clocking: a rotor covers every azimuth, so no rotation of the guide changes it. C4 had no guide in the tree until e22fce30 (#534, 2026-09-02) consolidated all four channels onto one shape. Which way it is fixed, a C4-specific guide, shorter fins, or no guide on C4, is a CAD decision. Reported by Extremetaz. Tracked as sorter-v2 issue #543.",
+			"status": "complete",
+			"completed_at": "2026-09-08",
+			"description": "C-channel 4 carried both the finned rotor unit and the Short and Angled Output Guide, and the two occupy the same space. The guide's inner face sits at r 67.82 mm; the finned rotor's five fins reach out to r 85.4 and sweep up to 21.2 mm past that face over the band z 8 to 29, striking the guide at 24 of 72 rotations. The faceted rotor used on C1 to C3 clears the same guide by 1.5 to 1.8 mm along its whole height, which is the clearance the guide is dimensioned to. Resolved by taking the guide off C-channel 4: it had none until e22fce30 (#534, 2026-09-02) consolidated all four channels onto one shape. Reported from a build by Extremetaz.",
 			"images": [
 				{
 					"url": "https://assets.basically.website/sorter-parts/c4-guide-finned-rotor-full-5c7e8f36a2e3.png",
@@ -84,39 +86,6 @@
 					"rotor-finned"
 				],
 				"assemblies": [
-					"classification-chamber"
-				]
-			}
-		},
-		{
-			"id": "output-guide-clocking",
-			"name": "The output guide is clocked wrong and overlaps the stator on every channel",
-			"priority": "P0",
-			"condition": "broken",
-			"description": "The Short and Angled Output Guide, as pinned, overlaps the stator it mounts to by 3.014 cm3 (r 102.99 to 119.99 mm, azimuth -45.05 to -40.00 deg, over the full height z -19 to 50). That is on all four channels, because one guide STL serves all of them. The stator's exit opening is 45.0 deg at the wall (az -90.1 to -45.1) and 42.0 deg at the base flange; the guide is 23.3 deg wide and sits at -63.3 to -40.0, hard against one end of the opening and lapping past it. Rotating the guide -5.1 to -18.3 deg clears the stator, but that does not settle it: the stator's base flange indexes on a 25.714 deg notch grid (14 positions, notch width 4.8 to 5.0 mm of arc), the guide's base lobe pair sits at -43.5 deg which is not on that grid, and the nearest grid position inside the opening (-64.2) needs -20.7 deg, 2.4 deg outside the clear window. So the exported clocking is not the assembled clocking and where the guide is meant to index has to come from the CAD. Reported by ReveryX. Tracked as sorter-v2 issue #541. On C1 the guide additionally overlaps the Bulk cap by 0.315 cm3 at r 113.45 to 116.78, z 40 to 50, which is how this was spotted, and that half is not a clocking error: the cap has the original straight output guide built into it. 39.7 cm3 of that older guide's 54.13 cm3 lies inside the cap's solid, and sampling the cap at fixed radii through a full turn finds material only in a band at azimuth -96 to -74 deg, reaching inward from r 103 at the base to r 51 at z 25 and r 15 at z 45. A bucket floor would be present at every azimuth; this is a wall at one azimuth that leans in as it rises, standing in the stator's exit opening. So C1 does not want a separate guide at all, and no rotation of one would help. Spencer filed that as sorter-v2 issue #580, remove the output guide from the bulk bucket; the C1 assembly line is not changed here.",
-			"images": [
-				{
-					"url": "https://assets.basically.website/sorter-parts/c1-output-guide-clear-window-full-b764d42da838.png",
-					"alt": "Two top-down sections. At z = 45 mm the stator wall, the bulk cap's two concentric walls, the guide as exported overlapping both, and the guide rotated -11.7 degrees clear of them. At z = -12 mm the stator's base flange with its ring of index notches, and the guide's base lobes buried in solid flange.",
-					"caption": "Sections at z = 45 and z = -12. The guide as exported (yellow) against the clear position (green)."
-				},
-				{
-					"url": "https://assets.basically.website/sorter-parts/c1-bulk-cap-output-guide-clash-full-4bda026498a4.png",
-					"alt": "Top-down section at z = 45 mm showing the bulk cap's two concentric walls, the stator ring between them, the output guide lying in the cap's relief cut, and the interference at the guide's outer end marked in red",
-					"caption": "The bulk cap overlap on C1 alone, section at z = 45 mm."
-				}
-			],
-			"targets": {
-				"parts": [
-					"output-guide",
-					"stator",
-					"bulk-cap"
-				],
-				"assemblies": [
-					"bulk-bucket",
-					"c-channel",
-					"channel-two",
-					"channel-three",
 					"classification-chamber"
 				]
 			}
@@ -147,33 +116,6 @@
 			"targets": {
 				"parts": [
 					"output-guide"
-				]
-			}
-		},
-		{
-			"id": "improve-camera-extension",
-			"name": "Make the camera extension official",
-			"priority": "P2",
-			"description": "The camera extension was a prototype and needs to be made official. The finished design should also force the camera into the correct orientation.",
-			"targets": {
-				"parts": [
-					"camera-led-insert",
-					"camera-extension",
-					"camera-extension-mount"
-				],
-				"assemblies": [
-					"camera-extension-assembly"
-				]
-			}
-		},
-		{
-			"id": "retain-camera-led-strips",
-			"name": "Mechanically retain the camera LED strips",
-			"priority": "P2",
-			"description": "Update the Camera & LED insert so the LED strips are mechanically retained instead of depending on their adhesive. Integrated clips would be a good approach.",
-			"targets": {
-				"parts": [
-					"camera-led-insert"
 				]
 			}
 		},
@@ -257,17 +199,6 @@
 			}
 		},
 		{
-			"id": "lock-overhead-camera-mount",
-			"name": "Lock the overhead camera mount",
-			"priority": "P3",
-			"description": "It would be ideal to lock the overhead camera mount in place completely.",
-			"targets": {
-				"assemblies": [
-					"camera-mount"
-				]
-			}
-		},
-		{
 			"id": "upgrade-interface-lazy-susan-fasteners",
 			"name": "Update interface lazy-Susan fasteners to M5",
 			"priority": "P3",
@@ -300,17 +231,6 @@
 			}
 		},
 		{
-			"id": "secure-classification-chamber-rotation",
-			"name": "Keep the classification chamber aligned",
-			"priority": "P4",
-			"description": "The classification chamber can rotate out of place too easily. Even passing pieces can push it out of alignment, which shifts the camera detection zones. A more secure rotational lock would be a useful improvement.",
-			"targets": {
-				"parts": [
-					"classification-dome"
-				]
-			}
-		},
-		{
 			"id": "retain-interface-spacer",
 			"name": "Keep the interface spacer in its slot",
 			"priority": "P4",
@@ -326,7 +246,9 @@
 			"name": "Output gear to rotor screw does not reach the rotor",
 			"priority": "P0",
 			"condition": "broken",
-			"description": "The six screws holding the Output gear (130T) to the rotor were specified as M3 x 8 mm countersunk. The gear is 8.00 mm thick at the bolt circle and a countersunk screw's length is measured over its head, so an M3 x 8 seated flush in the countersink ends level with the gear's top face and takes no thread in the rotor at all. Fit M3 x 12 mm countersunk for now: 4.0 mm of thread in the rotor's 5.0 mm flange, 1 mm short of breaking through the far side. Whether the joint settles as a 12 mm screw or the gear boss changes is still to be decided, so treat the length as provisional. Reported from a build by aleph1111/christoph and scres; measured off the pinned output-gear and rotor STLs.",
+			"status": "complete",
+			"completed_at": "2026-09-01",
+			"description": "The six screws holding the Output gear (130T) to the rotor were specified as M3 x 8 mm countersunk. The gear is 8.00 mm thick at the bolt circle and a countersunk screw's length is measured over its head, so an M3 x 8 seated flush in the countersink ends level with the gear's top face and takes no thread in the rotor at all. Fit M3 x 12 mm countersunk for now: 4.0 mm of thread in the rotor's 5.0 mm flange, 1 mm short of breaking through the far side. Whether the joint settles as a 12 mm screw or the gear boss changes is still to be decided, so treat the length as provisional. Reported from a build by aleph1111/christoph and scres; measured off the pinned output-gear and rotor STLs. Fixed: both rotor units call for M3 x 12 mm countersunk, with the reason recorded on the joint (441d9114, #515, 2026-09-01), and the docs page was corrected in #378.",
 			"targets": {
 				"parts": [
 					"output-gear",
@@ -439,6 +361,30 @@
 			}
 		},
 		{
+			"id": "delete-unused-m3-35-flat-head-screw",
+			"name": "Delete the unused M3 x 35 mm flat head screw",
+			"priority": "P4",
+			"condition": "retired",
+			"description": "This screw reaches no bill of materials. Its only live use was the long screw clamping the two cable-clamp halves together at the top interface, and 35 mm was too short for that joint: the stack under the screw head is 32.00 mm to the floor of the nut pocket in the Cable clamp (outer) and 34.40 mm to come through the nut, so it carried 0.60 mm of margin and the nut could not be picked up. Cable clamp v2 carries the M3 x 40 mm flat head (scr-m3-40-fhcs) instead. Chute stepper gearing v1 also listed it, but v2 replaced it with the M3 x 20 mm countersunk (scr-m3-20-cs), so every remaining reference is a historical snapshot of a superseded assembly. It should be deleted outright, but a minted part id has to stay resolvable once it exists, and the catalog's own consistency check refuses a change that removes one, so deleting it needs that check overridden by someone who can make that call, not an edit from here. Tracked as sorter-v2 issue #618.",
+			"targets": {
+				"hardware": [
+					"scr-m3-35-bhcs"
+				]
+			}
+		},
+		{
+			"id": "delete-unused-m3-10-shcs-screw",
+			"name": "Delete the unused M3 x 10 mm socket/button head screw",
+			"priority": "P4",
+			"condition": "retired",
+			"description": "This screw reaches no bill of materials. Its only live use was the single screw holding the Ribbon cable clamp to the Cable cage bracket (cable mount) at the top interface, and 10 mm was too short for that joint: the clamp stands 1.30 mm off the bracket face so the ribbon is not crushed, so there is 7.94 mm from under the head to the bracket face and a 10 left only 2.06 mm of thread in the insert, under 1 x D. Cage bracket + cable clamp v2 carries the M3 x 12 mm socket/button head (scr-m3-12-bhcs) instead, and every remaining reference is a historical snapshot of a superseded assembly. It should be deleted outright, but a minted part id has to stay resolvable once it exists, and the catalog's own consistency check refuses a change that removes one, so deleting it needs that check overridden by someone who can make that call, not an edit from here. Tracked as sorter-v2 issue #662.",
+			"targets": {
+				"hardware": [
+					"scr-m3-10-shcs"
+				]
+			}
+		},
+		{
 			"id": "delete-unused-m3-15-washer",
 			"name": "Delete the unused M3 x 15 mm washer",
 			"priority": "P4",
@@ -463,35 +409,14 @@
 			}
 		},
 		{
-			"id": "unconfirmed-servo-adapter-heat-insert",
-			"name": "Servo adapter's 4x M3S heat inserts are unconfirmed against the current CAD",
-			"priority": "P2",
-			"description": "The catalog carries 4 x hsi-m3s per layer for the servo adapter from the original BOM spreadsheet, but that count was never placed in the assembly tree because the published STLs do not show an insert pocket: servo-adapter-flap-side has four 4.0 mm bores straight through a 5.0 mm wall with a countersink on the back, and servo-adapter-servo-side has four blind 2.8 mm holes only 4.0 mm deep, a self-tap pilot diameter, not ruthex's recommended 4.0 mm insert hole. That reads as a countersunk screw passing through the flap side and self-tapping into the servo side, no insert on either half, matching door-module.md's existing text that the two halves take no inserts. Neither STL has been revised since 2026-06-27. Buy the inserts only if you can confirm a pocket against a physical adapter or newer CAD; otherwise the self-tapping joint above is what the current model builds to.",
+			"id": "delete-unused-m3s-heat-insert",
+			"name": "Delete the unused Ruthex M3S short heat insert",
+			"priority": "P4",
+			"condition": "retired",
+			"description": "This insert reaches no bill of materials. It was carried over on 2026-08-21 from the BOM sheet's Screws tab, which asks for 4 short M3 inserts per layer for the servo adapter, but it was never placed in the assembly tree because neither adapter half has an insert pocket: servo-adapter-flap-side has four 4.0 mm bores straight through a 5.0 mm wall with a countersink on the back face, and servo-adapter-servo-side has four blind 2.8 mm holes 4.0 mm deep on the same bolt circle, a self-tap pilot diameter rather than ruthex's recommended 4.0 mm insert hole. The Door module page has described that joint as 4 x M3 x 8 mm countersunk screws threading straight into the printed plastic since 2026-08-24, and the short M3 is used nowhere else in the machine, so the BOM row should go with it. It should be deleted outright, but a minted part id has to stay resolvable once it exists, and the catalog's own consistency check refuses a change that removes one, so deleting it needs that check overridden by someone who can make that call, not an edit from here. Tracked as sorter-v2 issue #636.",
 			"targets": {
 				"hardware": [
 					"hsi-m3s"
-				],
-				"parts": [
-					"servo-adapter-servo-side",
-					"servo-adapter-flap-side"
-				],
-				"assemblies": [
-					"servo-adapter"
-				]
-			}
-		},
-		{
-			"id": "camera-clasp-screw-count",
-			"name": "Adapted camera module: the clasp takes 2 screws, not 4",
-			"priority": "P3",
-			"description": "The Adapted camera module lists 4x M3 x 8 countersunk and marks the count as not confirmed at the bench. The published STLs have only two screw positions: the Camera clasp bottom has two 3.50 mm clearance holes with a countersink on its underside, the Camera clasp top has the two matching 2.80 mm self-tapping pilots 5.00 mm deep, and the pair sits on the diagonal 43.2 mm apart. There is no third or fourth hole in either half. Changing the line is an assembly revision and has to be stamped as a new version, so the count is left as authored until somebody does that with a build in front of them. Note also that an M3 x 8 countersunk only reaches about 2 mm into the top half through the 6 mm bottom half, so the length is worth checking at the same time. Measured 2026-09-05 while writing the camera lamp assembly docs page.",
-			"targets": {
-				"assemblies": [
-					"adapted-camera-module"
-				],
-				"parts": [
-					"camera-clasp-top",
-					"camera-clasp-bottom"
 				]
 			}
 		},
@@ -712,7 +637,6 @@
 			"version": "2",
 			"name": "Light post",
 			"description": "The feeder light post: the post, the 50 mm COB plate on its end lighting down the channel, and the cap adapter and cap over it. 2 per machine, one each on C-channels 2 and 3, bolted to the C-channel drive's NEMA bracket. Unused since 2026-09-02: the Camera lamp replaced the light post, the overhead camera mount, the classification dome and the camera & LED insert. Do not re-add from old docs or photos.",
-			"docs": "/hardware/assembly/feeder/light-post/",
 			"lines": [
 				{
 					"part": "light-post",
@@ -750,28 +674,6 @@
 					"qty": 1,
 					"method": "gravity",
 					"note": "The cap just sits on the adapter."
-				}
-			],
-			"images": [
-				{
-					"url": "https://assets.basically.website/sorter-parts/light-post-assembled-full-2b59e7e84bdb.jpg",
-					"alt": "A finished light post on the bench: the black printed post with the 50 mm COB plate on its end, and the red and black leads running out of the post to a DC barrel plug",
-					"caption": "The light post, assembled."
-				},
-				{
-					"url": "https://assets.basically.website/sorter-parts/light-post-top-cap-off-full-d076a7bff4a1.jpg",
-					"alt": "The end of the post with the cap off: the aluminium back of the COB plate with the black cap adapter on it, three countersunk screws going down through both into the post, and the leads coming up through the centre hole",
-					"caption": "Cap off: the adapter and its three M3 \u00d7 12 through the plate into the post."
-				},
-				{
-					"url": "https://assets.basically.website/sorter-parts/light-post-led-side-full-428b89ff9243.jpg",
-					"alt": "The LED side of the COB plate, close up: the post's forked end holds the plate at its centre, with the leads passing through the centre hole",
-					"caption": "LED side: the post's forked end at the plate's centre."
-				},
-				{
-					"url": "https://assets.basically.website/sorter-parts/light-post-led-side-centre-full-b25b6589047d.jpg",
-					"alt": "The LED side of the COB plate straight on: the post's forked end at the centre with the leads leaving through it",
-					"caption": "LED side, straight on."
 				}
 			],
 			"versions": [
@@ -828,7 +730,7 @@
 			"version": "1",
 			"name": "External distribution-frame bracket",
 			"description": "Three parts that bolt together into one external bracket. 6 per distribution frame (per layer). The cover clips on and takes no screws. The top interface uses only the side and cover from this set, no bottom vertical, see the interface assembly.",
-			"docs": "/hardware/helpers/external-bracket/",
+			"docs": "/hardware/assembly/distribution/bin-frame/hex-frame/",
 			"joining": [
 				{
 					"method": "self-tap",
@@ -892,8 +794,8 @@
 		},
 		{
 			"id": "cable-clamp",
-			"uid": "e0p9",
-			"version": "1",
+			"uid": "rwaw",
+			"version": "2",
 			"name": "Cable clamp",
 			"description": "Inner + outer ribbon cable clamp; the two halves clamp together around the cable and the pair bolts to the top interface chute mount.",
 			"docs": "/hardware/assembly/distribution/top-interface/",
@@ -907,22 +809,59 @@
 					"qty": 1
 				},
 				{
-					"part": "scr-m3-35-bhcs",
+					"part": "scr-m3-40-fhcs",
 					"qty": 1
 				},
 				{
 					"part": "nut-m3",
 					"qty": 1
 				}
+			],
+			"versions": [
+				{
+					"version": "1",
+					"uid": "e0p9",
+					"message": "As recorded before the first stamped change.",
+					"lines": [
+						{
+							"part": "cable-clamp-inner",
+							"qty": 1,
+							"uid": "3fue"
+						},
+						{
+							"part": "cable-clamp-outer",
+							"qty": 1,
+							"uid": "50dv"
+						},
+						{
+							"part": "scr-m3-35-bhcs",
+							"qty": 1,
+							"uid": "38vn"
+						},
+						{
+							"part": "nut-m3",
+							"qty": 1,
+							"uid": "sc1c"
+						}
+					]
+				},
+				{
+					"version": "2",
+					"uid": "rwaw",
+					"date": "2026-09-09",
+					"message": "M3 \u00d7 35 mm flat head replaced by M3 \u00d7 40 mm flat head. The stack under the screw head is 32.00 mm to the floor of the nut pocket in the outer clamp and 34.40 mm through the nut, so 35 mm carried 0.60 mm of margin and builders could not pick the nut up. 40 mm spans the 8.00 mm pocket.",
+					"breaking": false,
+					"commit": null
+				}
 			]
 		},
 		{
 			"id": "classification-chamber",
-			"uid": "5tvh",
-			"version": "3",
+			"uid": "qzw4",
+			"version": "4",
 			"name": "C-channel 4 - Classification",
-			"description": "The lowest channel, where classification happens: a C-channel drive with the finned rotor, the Short and Angled Output Guide, and a Camera lamp carrying the IMX415 4K camera.",
-			"docs": "/hardware/assembly/feeder/classification-chamber/",
+			"description": "The lowest channel, where classification happens: a C-channel drive with the finned rotor and a Camera lamp carrying the IMX415 4K camera. No output guide: the rotor's fins sweep through where one would sit.",
+			"docs": "/hardware/assembly/feeder/c-channels/classification-channel/",
 			"versions": [
 				{
 					"version": "1",
@@ -966,7 +905,40 @@
 					"date": "2026-09-02",
 					"message": "Renamed from Classification chamber and consolidated with the other channels: the dome and the Camera & LED insert give way to the Camera lamp with the IMX415 4K camera, and it gains the output guide. Same drive, same finned rotor.",
 					"breaking": false,
-					"commit": "e22fce30"
+					"commit": "e22fce30",
+					"lines": [
+						{
+							"assembly": "c-channel",
+							"qty": 1,
+							"uid": "4tvc"
+						},
+						{
+							"assembly": "rotor-unit-finned",
+							"qty": 1,
+							"uid": "7ol7"
+						},
+						{
+							"part": "output-guide",
+							"qty": 1,
+							"uid": "z9yd"
+						},
+						{
+							"assembly": "camera-lamp",
+							"qty": 1,
+							"args": {
+								"camera": "cam-imx415"
+							},
+							"uid": "u4si"
+						}
+					]
+				},
+				{
+					"version": "4",
+					"uid": "qzw4",
+					"date": "2026-09-08",
+					"message": "The Short and Angled Output Guide comes off C4. The finned rotor's five fins reach r 85.4 mm and sweep up to 21.2 mm past the guide's inner face at r 67.82, so the two cannot both be fitted; the faceted rotor on C1 to C3 clears the same guide by 1.5 to 1.8 mm. This restores the state before e22fce30 (#534), which gave C4 a guide when all four channels were consolidated onto one shape. Reported from a build by Extremetaz. sorter-v2 issue #543.",
+					"breaking": false,
+					"commit": null
 				}
 			],
 			"lines": [
@@ -979,10 +951,6 @@
 					"qty": 1
 				},
 				{
-					"part": "output-guide",
-					"qty": 1
-				},
-				{
 					"assembly": "camera-lamp",
 					"qty": 1,
 					"args": {
@@ -990,15 +958,7 @@
 					}
 				}
 			],
-			"connections": [
-				{
-					"from": "output-guide",
-					"to": "c-channel",
-					"qty": 1,
-					"method": "friction",
-					"note": "The guide pushes onto the C-channel drive and is held by the fit alone."
-				}
-			]
+			"connections": []
 		},
 		{
 			"id": "chute-bearing",
@@ -1006,6 +966,7 @@
 			"version": "1",
 			"name": "Chute bearing assembly",
 			"description": "The flap's bearing assembly: left + right bearing holders, the race between them, and the covers. Carries 10 M3 inserts and the two flap bearings, one screw per insert: 6 M3 \u00d7 8 hold the covers to the holders (3 each), 4 hold the holders to the race (2 each).",
+			"docs": "/hardware/assembly/distribution/chute/door-module/",
 			"lines": [
 				{
 					"part": "bearing-race",
@@ -1069,7 +1030,7 @@
 			"version": "1",
 			"name": "Servo assembly (MG995)",
 			"description": "The MG995 servo in its bracket: lower arm, side arm, cover, housing. Bolts to the chute core's two arm inserts as a unit.",
-			"docs": "/hardware/assembly/distribution/chute/mg995-servo/servo-mount/",
+			"docs": "/hardware/assembly/distribution/chute/door-module/",
 			"lines": [
 				{
 					"part": "servo-bracket-lower-arm",
@@ -1107,7 +1068,6 @@
 			"version": "1",
 			"name": "Overhead camera mount",
 			"description": "Camera mount for the C-channels. 2 per machine, each hanging off two ~1 ft steel rods. Unused since 2026-09-02: the Camera lamp replaced the light post, the overhead camera mount, the classification dome and the camera & LED insert. Do not re-add from old docs or photos.",
-			"docs": "/hardware/assembly/feeder/camera-mount/",
 			"lines": [
 				{
 					"part": "camera-mount-part-6",
@@ -1242,8 +1202,8 @@
 		},
 		{
 			"id": "cage-bracket-cable-clamp",
-			"uid": "s4we",
-			"version": "1",
+			"uid": "frol",
+			"version": "2",
 			"name": "Cage bracket (cable mount) + ribbon clamp",
 			"description": "The one cable-cage corner that carries the ribbon cable: the cable-mount bracket with the outer ribbon cable clamp bolted to its post.",
 			"docs": "/hardware/assembly/distribution/top-interface/",
@@ -1257,7 +1217,7 @@
 					"qty": 1
 				},
 				{
-					"part": "scr-m3-10-shcs",
+					"part": "scr-m3-12-bhcs",
 					"qty": 1
 				}
 			],
@@ -1265,17 +1225,42 @@
 				{
 					"from": "ribbon-cable-clamp",
 					"to": "interface-cage-bracket-cable",
-					"via": "scr-m3-10-shcs",
+					"via": "scr-m3-12-bhcs",
 					"qty": 1,
 					"method": "insert",
 					"note": "Single M3 into the bracket's heat-set insert. The clamp's lip hooks under the post's underside (raised in v2, sorter-v2 #403) to stop the clamp rotating on the single screw."
 				}
 			],
-			"images": [
+			"versions": [
 				{
-					"url": "https://assets.basically.website/sorter-parts/spencer-image2-full-adb0f1993da6.png",
-					"alt": "Onshape render of the cable-mount cage bracket (teal) with the ribbon cable clamp (purple) bolted to its post, one M3 hole visible through both",
-					"caption": "The cable-mount bracket and ribbon clamp, assembled."
+					"version": "1",
+					"uid": "s4we",
+					"message": "As recorded before the first stamped change.",
+					"lines": [
+						{
+							"part": "interface-cage-bracket-cable",
+							"qty": 1,
+							"uid": "nu2n"
+						},
+						{
+							"part": "ribbon-cable-clamp",
+							"qty": 1,
+							"uid": "nf0n"
+						},
+						{
+							"part": "scr-m3-10-shcs",
+							"qty": 1,
+							"uid": "ufvb"
+						}
+					]
+				},
+				{
+					"version": "2",
+					"uid": "frol",
+					"date": "2026-09-16",
+					"message": "Ribbon clamp screw M3 x 10 -> M3 x 12. The clamp is drawn standing 1.30 mm off the bracket face so the ribbon is not crushed, so under the head to the bracket face is 7.94 mm and an M3 x 10 left only 2.06 mm in the insert, under 1 x D. Reported from two builds (barthel 2026-09-13, BrickCycleAlice 2026-09-16). The 4.00 mm modelled boss depth is tracked separately as issue #648.",
+					"breaking": false,
+					"commit": null
 				}
 			]
 		},
@@ -1605,6 +1590,7 @@
 			"version": "2",
 			"name": "Superstructure",
 			"description": "What the feeder and the electronics mount onto: the top plate, the top interface, the distribution layers between the interfaces, and the bottom interface.",
+			"docs": "/hardware/assembly/distribution/",
 			"lines": [
 				{
 					"part": "top-plate",
@@ -1866,6 +1852,7 @@
 			"version": "1",
 			"name": "Channel 3 support",
 			"description": "One of C-channel 3's three standoffs: a foot and the leg the channel dovetails onto. Unused since 2026-09-02: the layout guide, support legs and dovetail adapters replaced the prototype foot/leg/leg-extension supports. Do not re-add from old docs or photos.",
+			"docs": "/hardware/assembly/feeder/arranging-c-channels/",
 			"lines": [
 				{
 					"part": "foot",
@@ -1892,6 +1879,7 @@
 			"version": "1",
 			"name": "Channel 2 support",
 			"description": "One of C-channel 2's three standoffs: a foot, one leg extension, and the leg the channel dovetails onto. Unused since 2026-09-02: the layout guide, support legs and dovetail adapters replaced the prototype foot/leg/leg-extension supports. Do not re-add from old docs or photos.",
+			"docs": "/hardware/assembly/feeder/arranging-c-channels/",
 			"lines": [
 				{
 					"part": "foot",
@@ -1929,6 +1917,7 @@
 			"version": "1",
 			"name": "Bulk bucket support",
 			"description": "One of the bulk bucket's three standoffs \u2014 the tallest stack: a foot, two leg extensions, and the leg. Unused since 2026-09-02: the layout guide, support legs and dovetail adapters replaced the prototype foot/leg/leg-extension supports. Do not re-add from old docs or photos.",
+			"docs": "/hardware/assembly/feeder/arranging-c-channels/",
 			"lines": [
 				{
 					"part": "foot",
@@ -1969,10 +1958,11 @@
 		},
 		{
 			"id": "bulk-bucket",
-			"uid": "jnwt",
-			"version": "3",
+			"uid": "tpd3",
+			"version": "5",
 			"name": "C-channel 1 - Bulk bucket",
-			"description": "The top channel, where bulk is dumped in: a C-channel drive with the faceted rotor, the Short and Angled Output Guide, a Camera lamp, and the Bulk cap, standing on the tallest supports.",
+			"description": "The top channel, where bulk is dumped in: a C-channel drive with the faceted rotor and the Bulk cap, standing on the tallest supports. No output guide: the Bulk cap has one built into it. No camera lamp either: C1 is fed in bulk and nothing reads vision off it.",
+			"docs": "/hardware/assembly/feeder/c-channels/bulk-channel/",
 			"lines": [
 				{
 					"assembly": "channel-one-support-structure",
@@ -1987,26 +1977,11 @@
 					"qty": 1
 				},
 				{
-					"part": "output-guide",
-					"qty": 1
-				},
-				{
-					"assembly": "camera-lamp",
-					"qty": 1
-				},
-				{
 					"part": "bulk-cap",
 					"qty": 1
 				}
 			],
 			"connections": [
-				{
-					"from": "output-guide",
-					"to": "c-channel",
-					"qty": 1,
-					"method": "friction",
-					"note": "The guide pushes onto the C-channel drive and is held by the fit alone."
-				},
 				{
 					"from": "channel-one-support-structure",
 					"to": "c-channel",
@@ -2089,7 +2064,82 @@
 					"date": "2026-09-02",
 					"message": "The prototype supports give way to the new support structure: the shared layout guide and dovetail adapters with this channel's own legs. An old assembled channel stands on the old feet and does not fit the new layout.",
 					"breaking": true,
-					"commit": "3bbea57f"
+					"commit": "3bbea57f",
+					"lines": [
+						{
+							"assembly": "channel-one-support-structure",
+							"qty": 1,
+							"uid": "z6fs"
+						},
+						{
+							"assembly": "c-channel",
+							"qty": 1,
+							"uid": "4tvc"
+						},
+						{
+							"assembly": "rotor-unit-faceted",
+							"qty": 1,
+							"uid": "ylvv"
+						},
+						{
+							"part": "output-guide",
+							"qty": 1,
+							"uid": "z9yd"
+						},
+						{
+							"assembly": "camera-lamp",
+							"qty": 1,
+							"uid": "u4si"
+						},
+						{
+							"part": "bulk-cap",
+							"qty": 1,
+							"uid": "737f"
+						}
+					]
+				},
+				{
+					"version": "4",
+					"uid": "imbu",
+					"date": "2026-09-08",
+					"message": "The Short and Angled Output Guide comes off C1. The Bulk cap has the original straight output guide built into it, so a separate guide has nowhere to sit and fouls the cap; 39.7 cm3 of the old guide's 54.13 cm3 lies inside the cap's solid. This restores the state before e22fce30 (#534), which gave C1 a guide when all four channels were consolidated onto one shape. sorter-v2 issue #580.",
+					"breaking": false,
+					"commit": null,
+					"lines": [
+						{
+							"assembly": "channel-one-support-structure",
+							"qty": 1,
+							"uid": "z6fs"
+						},
+						{
+							"assembly": "c-channel",
+							"qty": 1,
+							"uid": "4tvc"
+						},
+						{
+							"assembly": "rotor-unit-faceted",
+							"qty": 1,
+							"uid": "ylvv"
+						},
+						{
+							"assembly": "camera-lamp",
+							"qty": 1,
+							"uid": "u4si"
+						},
+						{
+							"part": "bulk-cap",
+							"qty": 1,
+							"uid": "737f"
+						}
+					]
+				},
+				{
+					"version": "5",
+					"uid": "tpd3",
+					"date": "2026-09-08",
+					"message": "The Camera lamp comes off C1. Jon (@effreek) confirmed 2026-09-08 that the machine takes three lamps, on C2, C3 and the classification channel, and that the bulk bucket gets none; e22fce30 (#534) gave C1 one when all four channels were consolidated onto one shape. The software has no C1 camera role either, so the lamp, its arm and its OV9732 were parts nobody needed. Resolves the open question BrickCycleAlice raised 2026-09-05.",
+					"breaking": false,
+					"commit": null
 				}
 			]
 		},
@@ -2099,6 +2149,7 @@
 			"version": "4",
 			"name": "C-channel 2",
 			"description": "A feeder channel: a C-channel drive with the faceted rotor, the Short and Angled Output Guide and a Camera lamp, standing on three supports.",
+			"docs": "/hardware/assembly/feeder/c-channels/feeder-channels/",
 			"lines": [
 				{
 					"assembly": "channel-two-support-structure",
@@ -2271,6 +2322,7 @@
 			"version": "4",
 			"name": "C-channel 3",
 			"description": "A feeder channel: a C-channel drive with the faceted rotor, the Short and Angled Output Guide and a Camera lamp, standing on three supports.",
+			"docs": "/hardware/assembly/feeder/c-channels/feeder-channels/",
 			"lines": [
 				{
 					"assembly": "channel-three-support-structure",
@@ -2912,6 +2964,7 @@
 			"version": "1",
 			"name": "External bracket with foot cover",
 			"description": "The bottom bin layer's corner segment: the side bracket with the foot cover, which stands in for the cover and the bottom vertical the other frames use.",
+			"docs": "/hardware/assembly/distribution/bin-frame/bottom-layer/",
 			"lines": [
 				{
 					"part": "ext-bracket-left",
@@ -2943,6 +2996,7 @@
 			"version": "1",
 			"name": "Outer hex frame (bottom layer)",
 			"description": "The outer hexagon of the lowest bin layer: six foot-cover corners with six A extrusions slid between them.",
+			"docs": "/hardware/assembly/distribution/bin-frame/bottom-layer/",
 			"lines": [
 				{
 					"assembly": "external-bracket-with-foot",
@@ -2981,7 +3035,7 @@
 			"version": "1",
 			"name": "Hex frame (bottom layer)",
 			"description": "The lowest bin layer's hexagonal frame: the same inner hex, seated in the outer hex built from foot-cover corners.",
-			"docs": "/hardware/assembly/distribution/bin-frame/bottom-two-layers/",
+			"docs": "/hardware/assembly/distribution/bin-frame/bottom-layer/",
 			"lines": [
 				{
 					"assembly": "inner-hex-frame",
@@ -2999,7 +3053,7 @@
 			"version": "2",
 			"name": "Bottom distribution layer",
 			"description": "The lowest bin layer. Identical to a distribution layer except that its frame carries foot covers instead of bracket covers and bottom verticals, and the bottom interface hangs underneath it.",
-			"docs": "/hardware/assembly/distribution/bin-frame/bottom-two-layers/",
+			"docs": "/hardware/assembly/distribution/bin-frame/bottom-layer/",
 			"lines": [
 				{
 					"assembly": "hex-frame-bottom",
@@ -3474,11 +3528,11 @@
 		},
 		{
 			"id": "c-channel",
-			"uid": "4tvc",
-			"version": "3",
+			"uid": "kuei",
+			"version": "4",
 			"name": "C-channel drive",
 			"description": "One C-channel drive unit: stator, NEMA bracket, gear train and stepper. 4 per machine \u2014 3 in the feeder plus the classification channel's. Drives a rotor unit, which differs by location and is not part of this node.",
-			"docs": "/hardware/assembly/feeder/c-channel/",
+			"docs": "/hardware/assembly/feeder/c-channels/channel-core/",
 			"versions": [
 				{
 					"version": "1",
@@ -3588,7 +3642,62 @@
 					"date": "2026-09-01",
 					"message": "The screws are all countersunk \u2014 socket/button was recorded wrong. The idler's 608 bearing is a line of its own with its press fit as a connection, and the screw joints carry measured pass-through and thread depths. Connections bench-confirmed and listed in assembly order.",
 					"breaking": false,
-					"commit": "441d9114"
+					"commit": "441d9114",
+					"lines": [
+						{
+							"part": "idler-gear",
+							"qty": 1,
+							"uid": "7bv7"
+						},
+						{
+							"part": "brg-608-2rs",
+							"qty": 1,
+							"uid": "mi1l"
+						},
+						{
+							"part": "nema-bracket",
+							"qty": 1,
+							"uid": "x09t"
+						},
+						{
+							"part": "motor-nema17",
+							"qty": 1,
+							"uid": "w7pq"
+						},
+						{
+							"part": "input-gear",
+							"qty": 1,
+							"uid": "70ul"
+						},
+						{
+							"part": "stator",
+							"qty": 1,
+							"uid": "n6bm"
+						},
+						{
+							"part": "scr-m3-16-cs",
+							"qty": 3,
+							"uid": "bdi4"
+						},
+						{
+							"part": "scr-m3-8-cs",
+							"qty": 1,
+							"uid": "l6br"
+						},
+						{
+							"part": "scr-m3-12-cs",
+							"qty": 4,
+							"uid": "0a9x"
+						}
+					]
+				},
+				{
+					"version": "4",
+					"uid": "kuei",
+					"date": "2026-09-10",
+					"message": "The two bracket-to-stator screws on the wide motor plate go to M3 x 16 countersunk. The bracket's four stator holes come in two depths and all four were specified at 12 mm: over the 8.45 mm pass-through the head leaves 1.85 mm in the stator's 10 mm thread, under the 2 mm minimum bite the site's own fit math applies, and Extremetaz reported it as marginal on a build. The two arm holes (6.45 mm pass-through, 3.85 mm bite) keep the 12 mm.",
+					"breaking": false,
+					"commit": null
 				}
 			],
 			"lines": [
@@ -3618,7 +3727,7 @@
 				},
 				{
 					"part": "scr-m3-16-cs",
-					"qty": 3
+					"qty": 5
 				},
 				{
 					"part": "scr-m3-8-cs",
@@ -3626,7 +3735,7 @@
 				},
 				{
 					"part": "scr-m3-12-cs",
-					"qty": 4
+					"qty": 2
 				}
 			],
 			"connections": [
@@ -3660,17 +3769,18 @@
 					"qty": 2,
 					"method": "self-tap",
 					"through_mm": 6.45,
-					"thread_mm": 10
+					"thread_mm": 10,
+					"note": "The two holes at the tips of the bracket's narrow arms."
 				},
 				{
 					"from": "nema-bracket",
 					"to": "stator",
-					"via": "scr-m3-12-cs",
+					"via": "scr-m3-16-cs",
 					"qty": 2,
 					"method": "self-tap",
 					"through_mm": 8.45,
 					"thread_mm": 10,
-					"note": "The bracket's four stator holes come in two depths: two at 6.45 mm, two at 8.45 mm."
+					"note": "The bracket's four stator holes come in two depths: two at 6.45 mm, two at 8.45 mm. The deeper pair needs the 16 mm."
 				}
 			]
 		},
@@ -3680,6 +3790,7 @@
 			"version": "2",
 			"name": "Rotor unit (faceted)",
 			"description": "The faceted rotor with the Output gear (130T) bolted on. Assembled once as a unit; a C-channel drive spins it.",
+			"docs": "/hardware/assembly/feeder/c-channels/",
 			"lines": [
 				{
 					"part": "rotor-faceted",
@@ -3753,10 +3864,11 @@
 		},
 		{
 			"id": "rotor-unit-finned",
-			"uid": "7ol7",
-			"version": "2",
+			"uid": "ufmf",
+			"version": "3",
 			"name": "Rotor unit (finned)",
 			"description": "The finned rotor with the Output gear (130T) bolted on. Assembled once as a unit; the classification channel's C-channel drive spins it.",
+			"docs": "/hardware/assembly/feeder/c-channels/classification-channel/",
 			"lines": [
 				{
 					"part": "rotor-finned",
@@ -3773,6 +3885,10 @@
 				{
 					"part": "scr-m3-12-cs",
 					"qty": 6
+				},
+				{
+					"part": "rotor-cap",
+					"qty": 1
 				}
 			],
 			"connections": [
@@ -3789,6 +3905,12 @@
 					"qty": 6,
 					"method": "self-tap",
 					"note": "One per spoke. Same joint as the faceted rotor unit."
+				},
+				{
+					"from": "rotor-cap",
+					"to": "rotor-finned",
+					"qty": 1,
+					"method": "friction"
 				}
 			],
 			"versions": [
@@ -3822,7 +3944,37 @@
 					"date": "2026-09-01",
 					"message": "The output gear's 6806 bearing is a line of its own with its press fit as a connection (was the gear's requires).",
 					"breaking": false,
-					"commit": "441d9114"
+					"commit": "441d9114",
+					"lines": [
+						{
+							"part": "rotor-finned",
+							"qty": 1,
+							"uid": "brsr"
+						},
+						{
+							"part": "output-gear",
+							"qty": 1,
+							"uid": "26ek"
+						},
+						{
+							"part": "brg-6806-2rs",
+							"qty": 1,
+							"uid": "elxe"
+						},
+						{
+							"part": "scr-m3-12-cs",
+							"qty": 6,
+							"uid": "0a9x"
+						}
+					]
+				},
+				{
+					"version": "3",
+					"uid": "ufmf",
+					"date": "2026-09-10",
+					"message": "The Rotor cap is a member: the finned rotor's centre bore is open, and the cap is a friction fit into it. Asked for by barthel, who has the unit in front of him.",
+					"breaking": false,
+					"commit": null
 				}
 			]
 		},
@@ -4016,6 +4168,7 @@
 			"version": "2",
 			"name": "External bracket with support",
 			"description": "One corner segment of the outer hex: the side bracket screwed to the bottom vertical, with the snap-on cover.",
+			"docs": "/hardware/assembly/distribution/bin-frame/hex-frame/",
 			"lines": [
 				{
 					"part": "ext-bracket-cover",
@@ -4095,6 +4248,7 @@
 			"version": "1",
 			"name": "Outer hex frame",
 			"description": "Six External bracket with support corners with six A extrusions slid between them, closing the hexagon.",
+			"docs": "/hardware/assembly/distribution/bin-frame/hex-frame/",
 			"lines": [
 				{
 					"assembly": "external-bracket-with-support",
@@ -4133,6 +4287,7 @@
 			"version": "1",
 			"name": "Inner hex frame",
 			"description": "The inner hexagon: six B spokes with six crossbeams and twelve 90-degree brackets.",
+			"docs": "/hardware/assembly/distribution/bin-frame/hex-frame/",
 			"lines": [
 				{
 					"part": "ext-2020-bh",
@@ -4383,18 +4538,6 @@
 					"note": "The fan's four [[hw:scr-m3-12-bhcs]] cut their own threads in the cover; no inserts there."
 				}
 			],
-			"images": [
-				{
-					"url": "https://assets.basically.website/sorter-parts/ctrl-board-housing-assembly-render-full-6f4acadd3ffc.png",
-					"alt": "Onshape render of the control board housing, closed",
-					"caption": "The housing closed, from Onshape: fan vent and plunger in the cover."
-				},
-				{
-					"url": "https://assets.basically.website/sorter-parts/ctrl-board-housing-plunger-section-full-a5319da2b902.png",
-					"alt": "Section through the housing at the plunger",
-					"caption": "Section at the plunger: through the cover, held by the retainer (blue), over the board."
-				}
-			],
 			"versions": [
 				{
 					"version": "1",
@@ -4457,8 +4600,8 @@
 		},
 		{
 			"id": "orange-pi-mount",
-			"uid": "5vat",
-			"version": "1",
+			"uid": "ghuf",
+			"version": "2",
 			"name": "Orange Pi mount",
 			"description": "The Orange Pi 5 standing off its bracket, which bolts to the 2020 extrusion, with a 40 mm fan on a bracket cantilevered over it.",
 			"docs": "/hardware/electronics/installation/orange-pi-mount/",
@@ -4477,7 +4620,7 @@
 				},
 				{
 					"part": "hsi-m3",
-					"qty": 4
+					"qty": 6
 				},
 				{
 					"part": "standoff-m3-10mm",
@@ -4492,6 +4635,10 @@
 					"qty": 1
 				},
 				{
+					"part": "scr-m3-16-shcs",
+					"qty": 6
+				},
+				{
 					"part": "scr-m5-12-shcs",
 					"qty": 2
 				},
@@ -4500,11 +4647,90 @@
 					"qty": 2
 				}
 			],
-			"images": [
+			"connections": [
 				{
-					"url": "https://assets.basically.website/sorter-parts/orange-pi-mount-v1-render-full-d5893e241c96.png",
-					"alt": "Onshape render of the Orange Pi's v1 extrusion mount and fan bracket",
-					"caption": "The v1 mounting, from Onshape: the board's plate (blue) and the shared fan bracket (grey)."
+					"from": "fan-bracket-40mm",
+					"to": "orange-pi-extrusion-mount",
+					"via": "scr-m3-16-shcs",
+					"qty": 2,
+					"method": "insert",
+					"through_mm": 12,
+					"thread_mm": 5.7,
+					"draft": true,
+					"note": "The arm's foot stands against the mount's front edge face and bolts back into two M3 inserts on that face, 32 mm apart on the centreline. 12.0 mm of plain 3.50 mm bore through the foot, then the insert, whose pocket is 4.00 mm across and 6.00 mm deep. Measured off the two published STLs, not from a build."
+				},
+				{
+					"from": "fan-40mm-24v",
+					"to": "fan-bracket-40mm",
+					"via": "scr-m3-16-shcs",
+					"qty": 4,
+					"method": "self-tap",
+					"through_mm": 10,
+					"thread_mm": 12,
+					"draft": true,
+					"note": "The fan sits on the flat top face of the arm over its 38 mm opening, on the standard 32 x 32 mm pattern. The four 2.50 mm pilots run right through the 12.0 mm plate; the screws cut their own thread in it, no inserts. Measured off the STL, not from a build."
+				}
+			],
+			"versions": [
+				{
+					"version": "1",
+					"uid": "5vat",
+					"message": "As recorded before the first stamped change.",
+					"lines": [
+						{
+							"part": "orange-pi-extrusion-mount",
+							"qty": 1,
+							"uid": "nxh7"
+						},
+						{
+							"part": "sbc-orange-pi-5",
+							"qty": 1,
+							"uid": "ilqj"
+						},
+						{
+							"part": "scr-m3-6-bhcs",
+							"qty": 4,
+							"uid": "e04c"
+						},
+						{
+							"part": "hsi-m3",
+							"qty": 4,
+							"uid": "ksut"
+						},
+						{
+							"part": "standoff-m3-10mm",
+							"qty": 4,
+							"uid": "hkor"
+						},
+						{
+							"part": "fan-bracket-40mm",
+							"qty": 1,
+							"uid": "3ufy"
+						},
+						{
+							"part": "fan-40mm-24v",
+							"qty": 1,
+							"uid": "7o57"
+						},
+						{
+							"part": "scr-m5-12-shcs",
+							"qty": 2,
+							"uid": "kmah"
+						},
+						{
+							"part": "tnut-m5-2020",
+							"qty": 2,
+							"uid": "bpwm"
+						}
+					]
+				},
+				{
+					"version": "2",
+					"uid": "ghuf",
+					"date": "2026-09-08",
+					"message": "The fan arm and the fan were members with nothing holding them on. Both joints are now recorded, and their fasteners: 2 x M3 x 16 through the arm's foot into two M3 inserts on the mount's front edge face, and 4 x M3 x 16 self-tapping through the fan into the arm's top plate. The mount's insert count goes 4 -> 6 with the two on that face. Measured off the orange-pi-extrusion-mount and fan-bracket-40mm STLs; no part changed.",
+					"breaking": false,
+					"commit": null
 				}
 			]
 		},
@@ -4757,16 +4983,53 @@
 		},
 		{
 			"id": "adapted-camera-module",
-			"uid": "pdmk",
-			"version": "1",
+			"uid": "vfct",
+			"version": "2",
 			"name": "Adapted camera module",
 			"description": "A camera board clasped between the printed top and bottom halves, ready to snap into the Camera lamp arm.",
+			"docs": "/hardware/assembly/feeder/camera-lamp/",
 			"params": {
 				"camera": {
 					"default": "cam-ov9732",
 					"note": "Which camera board the clasp holds: the OV9732 on C-channels 1-3, the IMX415 4K on C-channel 4."
 				}
 			},
+			"versions": [
+				{
+					"version": "1",
+					"uid": "pdmk",
+					"message": "As recorded before the first stamped change.",
+					"lines": [
+						{
+							"part": "camera-clasp-bottom",
+							"qty": 1,
+							"uid": "zub8"
+						},
+						{
+							"param": "camera",
+							"qty": 1
+						},
+						{
+							"part": "camera-clasp-top",
+							"qty": 1,
+							"uid": "u816"
+						},
+						{
+							"part": "scr-m3-8-cs",
+							"qty": 4,
+							"uid": "l6br"
+						}
+					]
+				},
+				{
+					"version": "2",
+					"uid": "vfct",
+					"date": "2026-09-08",
+					"message": "Two M3 x 8 countersunk, not four. The published clasp STLs have only two screw positions: two 3.50 mm clearance holes in the bottom half and the two matching 2.80 mm pilots 5.00 mm deep in the top, on the diagonal 43.2 mm apart. There is no third or fourth hole in either half. The length is still worth a look at the bench: an M3 x 8 reaches about 2 mm into the top half through the 6 mm bottom half.",
+					"breaking": false,
+					"commit": null
+				}
+			],
 			"lines": [
 				{
 					"part": "camera-clasp-bottom",
@@ -4782,7 +5045,7 @@
 				},
 				{
 					"part": "scr-m3-8-cs",
-					"qty": 4
+					"qty": 2
 				}
 			],
 			"connections": [
@@ -4790,10 +5053,10 @@
 					"from": "camera-clasp-top",
 					"to": "camera-clasp-bottom",
 					"via": "scr-m3-8-cs",
-					"qty": 4,
+					"qty": 2,
 					"method": "self-tap",
 					"draft": true,
-					"note": "Clasp the camera board between the halves; the screw count is not yet confirmed at the bench."
+					"note": "Clasp the camera board between the halves. Two positions, on the diagonal 43.2 mm apart: 3.50 mm clearance holes countersunk on the bottom half's underside, 2.80 mm self-tapping pilots 5.00 mm deep in the top half. Measured off the published STLs, not yet confirmed at the bench."
 				}
 			]
 		},
@@ -4803,6 +5066,7 @@
 			"version": "1",
 			"name": "Camera lamp arm",
 			"description": "The arm that hangs the camera and lamp over a C-channel: the C-channel arm mount, the arm, brackets A and B tying them together, and the camera lamp ring.",
+			"docs": "/hardware/assembly/feeder/camera-lamp/lamp-arm/",
 			"lines": [
 				{
 					"part": "c-channel-arm-mount",
@@ -4874,10 +5138,11 @@
 		},
 		{
 			"id": "reflector-with-led-hooks",
-			"uid": "awve",
-			"version": "1",
+			"uid": "auja",
+			"version": "2",
 			"name": "Reflector with LED hooks",
-			"description": "The white inner reflector with its six LED hooks friction-fitted on.",
+			"description": "The white inner reflector with its six LED hooks friction-fitted on, holding the ring of LED strip.",
+			"docs": "/hardware/assembly/feeder/camera-lamp/lamp-arm/",
 			"lines": [
 				{
 					"part": "lamp-inner-reflector",
@@ -4886,6 +5151,10 @@
 				{
 					"part": "inner-reflector-led-hook",
 					"qty": 6
+				},
+				{
+					"part": "led-strip-24v",
+					"qty": 1
 				}
 			],
 			"connections": [
@@ -4895,6 +5164,40 @@
 					"qty": 6,
 					"method": "friction",
 					"note": "Each hook friction-fits onto the reflector and retains an LED strip."
+				},
+				{
+					"from": "led-strip-24v",
+					"to": "lamp-inner-reflector",
+					"qty": 1,
+					"method": "friction",
+					"note": "Two turns of strip against the inner face of the reflector's skirt, retained by the six hooks. 950 mm per lamp."
+				}
+			],
+			"versions": [
+				{
+					"version": "1",
+					"uid": "awve",
+					"message": "As recorded before the first stamped change.",
+					"lines": [
+						{
+							"part": "lamp-inner-reflector",
+							"qty": 1,
+							"uid": "4vio"
+						},
+						{
+							"part": "inner-reflector-led-hook",
+							"qty": 6,
+							"uid": "l5qn"
+						}
+					]
+				},
+				{
+					"version": "2",
+					"uid": "auja",
+					"date": "2026-09-10",
+					"message": "Record the LED strip as a member. The strip was always in this assembly (the hooks exist to retain it) but was never a line, so it appeared in no parts list and builders had nothing to buy from. It is one 950 mm piece cut from the 5 m roll, two turns inside the skirt.",
+					"breaking": false,
+					"commit": null
 				}
 			]
 		},
@@ -4904,6 +5207,7 @@
 			"version": "1",
 			"name": "Shaded lamp",
 			"description": "The channel lamp: the reflector with its LED hooks, under the outer cover.",
+			"docs": "/hardware/assembly/feeder/camera-lamp/lamp-arm/",
 			"lines": [
 				{
 					"assembly": "reflector-with-led-hooks",
@@ -4929,7 +5233,8 @@
 			"uid": "u4si",
 			"version": "1",
 			"name": "Camera lamp",
-			"description": "The per-channel camera and light: the arm with its ring, the adapted camera module snapped in, and the shaded lamp over the top. One per C-channel; which camera it carries is a parameter.",
+			"description": "The per-channel camera and light: the arm with its ring, the adapted camera module snapped in, and the shaded lamp over the top. Three per machine, on C-channels 2 and 3 and the classification channel; the bulk bucket has none. Which camera it carries is a parameter.",
+			"docs": "/hardware/assembly/feeder/camera-lamp/",
 			"params": {
 				"camera": {
 					"default": "cam-ov9732",
@@ -4968,43 +5273,6 @@
 					"method": "gravity",
 					"note": "The lamp sits over the top of the arm."
 				}
-			],
-			"images": [
-				{
-					"url": "https://assets.basically.website/sorter-parts/pub-img-camera-lamp-on-channel-full-fb1aaa6d8462.jpg",
-					"alt": "A camera lamp mounted over a C-channel: the gray shaded lamp on its arm above the channel, with the white funnel of the rotor beside it",
-					"caption": "On the machine, over a C-channel."
-				},
-				{
-					"url": "https://assets.basically.website/sorter-parts/pub-img-camera-lamp-lit-full-590dd8686f25.jpg",
-					"alt": "The lamp lit, seen from below: the LED strips ring the white inner reflector under the gray cover, with the arm silhouetted through the centre opening",
-					"caption": "Lit: the LED strips around the reflector."
-				},
-				{
-					"url": "https://assets.basically.website/sorter-parts/pub-img-camera-lamp-mounted-wide-full-0e2a50c0e1e5.jpg",
-					"alt": "A wider view of the camera lamp on its arm over the channel, leads cable-tied along the arm down to the drive",
-					"caption": "The arm carries the leads down to the channel."
-				},
-				{
-					"url": "https://assets.basically.website/sorter-parts/pub-img-camera-lamp-camera-seated-full-a6fff6fecc23.jpg",
-					"alt": "The top of the shaded lamp with the camera board seated in its clasp recess at the centre, lead plugged in",
-					"caption": "The camera board seated in the clasp, from above."
-				},
-				{
-					"url": "https://assets.basically.website/sorter-parts/pub-img-camera-lamp-render-top-full-edc4616e7088.png",
-					"alt": "Onshape render of the assembled camera lamp from above: the cover with the camera opening, on the arm and brackets",
-					"caption": "Render, from above."
-				},
-				{
-					"url": "https://assets.basically.website/sorter-parts/pub-img-camera-lamp-render-side-full-2a681306f3a9.png",
-					"alt": "Onshape render of the camera lamp in profile: the lamp overhanging on the angled arm, brackets along the joints",
-					"caption": "Render, in profile."
-				},
-				{
-					"url": "https://assets.basically.website/sorter-parts/pub-img-camera-lamp-render-underside-full-0e2b1e5a0fb9.png",
-					"alt": "Onshape render of the camera lamp from below: the reflector and ring inside the cover, the hooks around the rim, the arm reaching up",
-					"caption": "Render, the underside."
-				}
 			]
 		},
 		{
@@ -5013,6 +5281,7 @@
 			"version": "1",
 			"name": "Channel 1 support structure",
 			"description": "Channel 1 support: the layout guide its three legs stand in, and a dovetail adapter on each leg.",
+			"docs": "/hardware/assembly/feeder/arranging-c-channels/",
 			"lines": [
 				{
 					"part": "layout-guide",
@@ -5050,6 +5319,7 @@
 			"version": "1",
 			"name": "Channel 2 support structure",
 			"description": "Channel 2 support: the layout guide its three legs stand in, and a dovetail adapter on each leg.",
+			"docs": "/hardware/assembly/feeder/arranging-c-channels/",
 			"lines": [
 				{
 					"part": "layout-guide",
@@ -5087,6 +5357,7 @@
 			"version": "1",
 			"name": "Channel 3 support structure",
 			"description": "Channel 3 support: the layout guide its three legs stand in, and a dovetail adapter on each leg.",
+			"docs": "/hardware/assembly/feeder/arranging-c-channels/",
 			"lines": [
 				{
 					"part": "layout-guide",
@@ -5287,7 +5558,7 @@
 				{
 					"version": "1",
 					"uid": "9v9q",
-					"message": "Open center hole, as recorded before the first stamped change.",
+					"message": "Open center hole, as recorded before the first stamped change. [[part:rotor-cap]] plugs that hole, for anyone who printed a rotor to this version and would rather not print it again.",
 					"stl_hash": "350de3f8e27e7d0bb1f00d2c070c7f255da73987c9b2d86f639664c5db81bfd6",
 					"render": "https://assets.basically.website/sorter-parts/rotor-faceted-v1-full-52fba49e5abb.png",
 					"stl": "https://assets.basically.website/sorter-parts/rotor-faceted-350de3f8e27e.stl",
@@ -5308,7 +5579,7 @@
 			],
 			"attributes": [],
 			"grams": 165.58,
-			"support_grams": 0,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 10668,
@@ -5440,7 +5711,7 @@
 			],
 			"attributes": [],
 			"grams": 59.69,
-			"support_grams": 0,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 7237,
@@ -5573,7 +5844,7 @@
 			],
 			"attributes": [],
 			"grams": 72.42,
-			"support_grams": 0,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 7206,
@@ -5926,7 +6197,7 @@
 			],
 			"attributes": [],
 			"grams": 2.59,
-			"support_grams": 0,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 956,
@@ -6024,7 +6295,7 @@
 			],
 			"attributes": [],
 			"grams": 620.43,
-			"support_grams": 0,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 43772,
@@ -6153,7 +6424,7 @@
 			],
 			"attributes": [],
 			"grams": 371.28,
-			"support_grams": 0,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 31045,
@@ -6341,7 +6612,7 @@
 			],
 			"attributes": [],
 			"grams": 159.45,
-			"support_grams": 0,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 14632,
@@ -6744,7 +7015,7 @@
 			],
 			"attributes": [],
 			"grams": 21.19,
-			"support_grams": 0,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 2583,
@@ -6876,7 +7147,7 @@
 			],
 			"attributes": [],
 			"grams": 21.44,
-			"support_grams": 0,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 2606,
@@ -7010,7 +7281,7 @@
 			],
 			"attributes": [],
 			"grams": 86.17,
-			"support_grams": 0,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 9567,
@@ -7143,7 +7414,7 @@
 			],
 			"attributes": [],
 			"grams": 13.62,
-			"support_grams": 0,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 2678,
@@ -7279,7 +7550,7 @@
 			],
 			"attributes": [],
 			"grams": 233.62,
-			"support_grams": 0,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 18175,
@@ -7423,7 +7694,7 @@
 			],
 			"attributes": [],
 			"grams": 206.81,
-			"support_grams": 0,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 14392,
@@ -7574,7 +7845,7 @@
 			],
 			"attributes": [],
 			"grams": 56.06,
-			"support_grams": 0,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 7500,
@@ -7836,7 +8107,7 @@
 			],
 			"attributes": [],
 			"grams": 10.63,
-			"support_grams": 0,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 1456,
@@ -7931,7 +8202,7 @@
 			],
 			"attributes": [],
 			"grams": 48.52,
-			"support_grams": 0,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 6009,
@@ -8197,7 +8468,7 @@
 			],
 			"attributes": [],
 			"grams": 12.45,
-			"support_grams": 0,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 2264,
@@ -8343,7 +8614,7 @@
 			],
 			"attributes": [],
 			"grams": 23.59,
-			"support_grams": 0,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 3585,
@@ -8489,7 +8760,7 @@
 			],
 			"attributes": [],
 			"grams": 164.13,
-			"support_grams": 0,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 12159,
@@ -8626,7 +8897,7 @@
 			],
 			"attributes": [],
 			"grams": 26.6,
-			"support_grams": 0,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 3124,
@@ -8758,7 +9029,7 @@
 			],
 			"attributes": [],
 			"grams": 15.27,
-			"support_grams": 0,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 2264,
@@ -8901,7 +9172,7 @@
 			],
 			"attributes": [],
 			"grams": 11.13,
-			"support_grams": 0,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 1484,
@@ -9269,12 +9540,12 @@
 					"commit": null,
 					"stl": "https://assets.basically.website/sorter-parts/interface-spur-gear-f5c380479615.stl",
 					"render": "https://assets.basically.website/sorter-parts/interface-spur-gear-full-22b7d8546475.png",
-					"grams": 9
+					"grams": 9.0
 				}
 			],
 			"attributes": [],
-			"grams": 9,
-			"support_grams": 0,
+			"grams": 9.0,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 1916,
@@ -9369,7 +9640,7 @@
 			],
 			"attributes": [],
 			"grams": 8.98,
-			"support_grams": 0,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 1989,
@@ -9443,7 +9714,7 @@
 			],
 			"attributes": [],
 			"grams": 45.02,
-			"support_grams": 0,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 5392,
@@ -9587,7 +9858,7 @@
 			],
 			"attributes": [],
 			"grams": 1.43,
-			"support_grams": 0,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 610,
@@ -9641,7 +9912,7 @@
 			],
 			"attributes": [],
 			"grams": 0.26,
-			"support_grams": 0,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 445,
@@ -9844,7 +10115,7 @@
 			],
 			"attributes": [],
 			"grams": 15.97,
-			"support_grams": 0,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 2841,
@@ -9978,7 +10249,7 @@
 			],
 			"attributes": [],
 			"grams": 29.01,
-			"support_grams": 0,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 2334,
@@ -10109,7 +10380,7 @@
 			],
 			"attributes": [],
 			"grams": 52.99,
-			"support_grams": 0,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 3798,
@@ -10244,7 +10515,7 @@
 			],
 			"attributes": [],
 			"grams": 5.31,
-			"support_grams": 0,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 1992,
@@ -10376,7 +10647,7 @@
 			],
 			"attributes": [],
 			"grams": 59.95,
-			"support_grams": 0,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 7668,
@@ -10483,12 +10754,12 @@
 					"commit": null,
 					"stl": "https://assets.basically.website/sorter-parts/top-interface-split-spur-gear-2-c109b8b226a8.stl",
 					"render": "https://assets.basically.website/sorter-parts/top-interface-split-spur-gear-2-full-ee8fba2a9ee9.png",
-					"grams": 8
+					"grams": 8.0
 				}
 			],
 			"attributes": [],
-			"grams": 8,
-			"support_grams": 0,
+			"grams": 8.0,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 1250,
@@ -10724,7 +10995,7 @@
 			],
 			"attributes": [],
 			"grams": 0.71,
-			"support_grams": 0,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 1057,
@@ -10774,7 +11045,7 @@
 			],
 			"attributes": [],
 			"grams": 10.13,
-			"support_grams": 0,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 2140,
@@ -10910,7 +11181,7 @@
 			],
 			"attributes": [],
 			"grams": 3.56,
-			"support_grams": 0,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 973,
@@ -11027,7 +11298,7 @@
 			],
 			"attributes": [],
 			"grams": 178.76,
-			"support_grams": 0,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 12910,
@@ -11130,6 +11401,132 @@
 			]
 		},
 		{
+			"id": "rotor-cap",
+			"uid": "yaa2",
+			"name": "Rotor cap",
+			"quantities": {
+				"classification-channel": 1
+			},
+			"assembly": null,
+			"folder": null,
+			"variant_group": null,
+			"variant_name": null,
+			"description": "Caps the open 25 mm hole through the centre of a rotor: the faceted rotor v1 and the finned rotor. Press the spigot in from above; the flange sits on the apex.",
+			"version": "1",
+			"created_at": "2026-09-10",
+			"updated_at": "2026-09-10",
+			"versions": [
+				{
+					"version": "1",
+					"uid": "yaa2",
+					"date": "2026-09-10",
+					"message": "Initial version.",
+					"commit": null,
+					"stl": "https://assets.basically.website/sorter-parts/rotor-cap-ab6f4ad846ff.stl",
+					"render": "https://assets.basically.website/sorter-parts/rotor-cap-full-924a36e28dc3.png",
+					"grams": 4.61
+				}
+			],
+			"attributes": [],
+			"grams": 4.61,
+			"support_grams": 0.0,
+			"support_used": false,
+			"support_intentional": false,
+			"print_seconds": 1326,
+			"color": {
+				"fixed": "ash-gray"
+			},
+			"optional": false,
+			"onshape": "https://cad.onshape.com/documents/60aa51fc61d18f2155b99910/w/95f28d157e2e06c115b488fe/e/5bf04274a6c68015096bd757",
+			"info": null,
+			"low_tolerance": false,
+			"low_tolerance_note": null,
+			"layer_scope": "all",
+			"requires": [],
+			"caption": null,
+			"docs_page": null,
+			"conflicts": null,
+			"stl": "https://assets.basically.website/sorter-parts/rotor-cap-ab6f4ad846ff.stl",
+			"render": "https://assets.basically.website/sorter-parts/rotor-cap-full-924a36e28dc3.png",
+			"stamped": [
+				{
+					"face": "bottom",
+					"stl": "https://assets.basically.website/sorter-parts/rotor-cap-yaa2-stamped-bottom-8621df54860a.stl",
+					"normal": [
+						0.0,
+						-0.0,
+						-1.0
+					],
+					"center": [
+						-200.8,
+						5.08,
+						26.88
+					],
+					"size": [
+						12.45,
+						3.5
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "outer wall",
+					"stl": "https://assets.basically.website/sorter-parts/rotor-cap-yaa2-stamped-outer-wall-a8957e05157c.stl",
+					"normal": [
+						0.0044,
+						1.0,
+						0.0
+					],
+					"center": [
+						-200.74,
+						17.4,
+						35.97
+					],
+					"size": [
+						12.45,
+						3.5
+					],
+					"cap": 3.5,
+					"depth": 0.6,
+					"surface": {
+						"axis": [
+							0.0,
+							0.0,
+							1.0
+						],
+						"point": [
+							-200.798,
+							5.077,
+							35.977
+						],
+						"r0": 12.324,
+						"slope": 0.0,
+						"sign": 1
+					}
+				},
+				{
+					"face": "top",
+					"stl": "https://assets.basically.website/sorter-parts/rotor-cap-yaa2-stamped-top-8da4fcd0f614.stl",
+					"normal": [
+						-0.0,
+						0.0,
+						1.0
+					],
+					"center": [
+						-200.8,
+						5.08,
+						49.88
+					],
+					"size": [
+						12.45,
+						3.5
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				}
+			]
+		},
+		{
 			"id": "idler-gear",
 			"uid": "7bv7",
 			"name": "Idler gear (24T)",
@@ -11158,7 +11555,7 @@
 			],
 			"attributes": [],
 			"grams": 4.61,
-			"support_grams": 0,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 1444,
@@ -11250,7 +11647,7 @@
 			],
 			"attributes": [],
 			"grams": 3.57,
-			"support_grams": 0,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 1448,
@@ -11334,14 +11731,13 @@
 			"uid": "z9yd",
 			"name": "Short and Angled Output Guide",
 			"quantities": {
-				"feeder": 3,
-				"classification-channel": 1
+				"feeder": 2
 			},
 			"assembly": null,
 			"folder": null,
 			"variant_group": null,
 			"variant_name": null,
-			"description": "Output guide. 4 needed, one per C-channel. Ash grey.",
+			"description": "Output guide. 2 needed, one each on C-channels 2 and 3. Ash grey.",
 			"version": "2",
 			"created_at": "2026-06-27",
 			"updated_at": "2026-06-27",
@@ -11370,7 +11766,7 @@
 			],
 			"attributes": [],
 			"grams": 11.93,
-			"support_grams": 0,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 3179,
@@ -11863,7 +12259,7 @@
 			],
 			"attributes": [],
 			"grams": 20.13,
-			"support_grams": 0,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 2948,
@@ -12004,7 +12400,7 @@
 				}
 			],
 			"grams": 7.9,
-			"support_grams": 0,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 2226,
@@ -12147,7 +12543,7 @@
 				}
 			],
 			"grams": 7.98,
-			"support_grams": 0,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 2249,
@@ -12285,7 +12681,7 @@
 			],
 			"attributes": [],
 			"grams": 4.85,
-			"support_grams": 0,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 2035,
@@ -12433,7 +12829,7 @@
 			],
 			"attributes": [],
 			"grams": 5.25,
-			"support_grams": 0,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 2095,
@@ -12691,7 +13087,7 @@
 			],
 			"attributes": [],
 			"grams": 9.58,
-			"support_grams": 0,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 2330,
@@ -12817,12 +13213,12 @@
 					"commit": null,
 					"stl": "https://assets.basically.website/sorter-parts/servo-bracket-cover-1ebad4ab6770.stl",
 					"render": "https://assets.basically.website/sorter-parts/servo-bracket-cover-full-0a9c4cf064c4.png",
-					"grams": 6
+					"grams": 6.0
 				}
 			],
 			"attributes": [],
-			"grams": 6,
-			"support_grams": 0,
+			"grams": 6.0,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 2183,
@@ -12956,7 +13352,7 @@
 			],
 			"attributes": [],
 			"grams": 17.31,
-			"support_grams": 0,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 2881,
@@ -13090,7 +13486,7 @@
 			],
 			"attributes": [],
 			"grams": 21.11,
-			"support_grams": 0,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 5597,
@@ -13219,7 +13615,7 @@
 			],
 			"attributes": [],
 			"grams": 8.45,
-			"support_grams": 0,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 1891,
@@ -13481,7 +13877,7 @@
 			],
 			"attributes": [],
 			"grams": 15.47,
-			"support_grams": 0,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 3638,
@@ -13610,7 +14006,7 @@
 			],
 			"attributes": [],
 			"grams": 4.28,
-			"support_grams": 0,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 1121,
@@ -13658,7 +14054,7 @@
 			],
 			"attributes": [],
 			"grams": 19.14,
-			"support_grams": 0,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 3507,
@@ -13787,7 +14183,7 @@
 			],
 			"attributes": [],
 			"grams": 18.34,
-			"support_grams": 0,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 3320,
@@ -13916,7 +14312,7 @@
 			],
 			"attributes": [],
 			"grams": 9.41,
-			"support_grams": 0,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 3255,
@@ -14047,7 +14443,7 @@
 			],
 			"attributes": [],
 			"grams": 106.12,
-			"support_grams": 0,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 10331,
@@ -14181,7 +14577,7 @@
 				}
 			],
 			"grams": 28.37,
-			"support_grams": 0,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 4106,
@@ -14321,7 +14717,7 @@
 				}
 			],
 			"grams": 7.58,
-			"support_grams": 0,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 1344,
@@ -14456,7 +14852,7 @@
 			],
 			"attributes": [],
 			"grams": 12.31,
-			"support_grams": 0,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 2842,
@@ -14589,7 +14985,7 @@
 			],
 			"attributes": [],
 			"grams": 12.3,
-			"support_grams": 0,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 2840,
@@ -14851,7 +15247,7 @@
 			],
 			"attributes": [],
 			"grams": 216.27,
-			"support_grams": 0,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 19064,
@@ -14983,7 +15379,7 @@
 			],
 			"attributes": [],
 			"grams": 158.23,
-			"support_grams": 0,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 14385,
@@ -15769,7 +16165,7 @@
 			],
 			"attributes": [],
 			"grams": 6.47,
-			"support_grams": 0,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 2417,
@@ -15880,7 +16276,7 @@
 			],
 			"attributes": [],
 			"grams": 5.9,
-			"support_grams": 0,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 2427,
@@ -15971,7 +16367,7 @@
 			],
 			"attributes": [],
 			"grams": 55.74,
-			"support_grams": 0,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 5727,
@@ -16102,7 +16498,7 @@
 			],
 			"attributes": [],
 			"grams": 101.9,
-			"support_grams": 0,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 10960,
@@ -16233,7 +16629,7 @@
 			],
 			"attributes": [],
 			"grams": 60.81,
-			"support_grams": 0,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 7682,
@@ -16365,7 +16761,7 @@
 			],
 			"attributes": [],
 			"grams": 89.65,
-			"support_grams": 0,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 10898,
@@ -16502,7 +16898,7 @@
 			],
 			"attributes": [],
 			"grams": 130.39,
-			"support_grams": 0,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 15104,
@@ -16636,7 +17032,7 @@
 			],
 			"attributes": [],
 			"grams": 1.47,
-			"support_grams": 0,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 1626,
@@ -16772,7 +17168,7 @@
 			],
 			"attributes": [],
 			"grams": 1.28,
-			"support_grams": 0,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 620,
@@ -16864,7 +17260,7 @@
 			],
 			"attributes": [],
 			"grams": 32.58,
-			"support_grams": 0,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 3339,
@@ -16977,7 +17373,7 @@
 			"folder": null,
 			"variant_group": null,
 			"variant_name": null,
-			"description": "Plate the Orange Pi 5 stands off, which bolts to the 2020 extrusion. Same design as the control board's mount with the opening and bolt pattern changed for the Pi.",
+			"description": "Plate the Orange Pi 5 stands off, which bolts to the 2020 extrusion. Same design as the control board's mount with the opening and bolt pattern changed for the Pi. Six M3 inserts: four on the top face for the Pi's standoffs, two in the front edge face for the fan arm.",
 			"version": "1",
 			"created_at": "2026-08-22",
 			"updated_at": "2026-08-22",
@@ -16996,7 +17392,7 @@
 			],
 			"attributes": [],
 			"grams": 23.49,
-			"support_grams": 0,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 2671,
@@ -17109,7 +17505,7 @@
 			"folder": null,
 			"variant_group": null,
 			"variant_name": null,
-			"description": "L-shaped bracket that cantilevers a 40 mm fan over a board on its extrusion mount. The same part on both the control board and the Orange Pi mounts, so two per machine.",
+			"description": "L-shaped bracket that cantilevers a 40 mm fan over a board on its extrusion mount. Was on both the control board and the Orange Pi mounts; the control board's printed housing carries its own fan since 2026-08-23, so one per machine, on the Orange Pi. The foot bolts back into two M3 inserts on the mount's front edge face and the fan sits on the flat top of the arm.",
 			"version": "1",
 			"created_at": "2026-08-22",
 			"updated_at": "2026-08-23",
@@ -17128,7 +17524,7 @@
 			],
 			"attributes": [],
 			"grams": 27.34,
-			"support_grams": 0,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 4396,
@@ -17258,7 +17654,7 @@
 			],
 			"attributes": [],
 			"grams": 207.01,
-			"support_grams": 0,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 26626,
@@ -17388,7 +17784,7 @@
 			],
 			"attributes": [],
 			"grams": 56.13,
-			"support_grams": 0,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 6676,
@@ -17518,7 +17914,7 @@
 			],
 			"attributes": [],
 			"grams": 37.27,
-			"support_grams": 0,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 3979,
@@ -17608,7 +18004,7 @@
 			],
 			"attributes": [],
 			"grams": 59.08,
-			"support_grams": 0,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 3969,
@@ -17698,7 +18094,7 @@
 			],
 			"attributes": [],
 			"grams": 15.7,
-			"support_grams": 0,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 3031,
@@ -17807,7 +18203,7 @@
 			"uid": "u816",
 			"name": "Camera clasp top",
 			"quantities": {
-				"feeder": 3,
+				"feeder": 2,
 				"classification-channel": 1
 			},
 			"assembly": null,
@@ -17833,7 +18229,7 @@
 			],
 			"attributes": [],
 			"grams": 5.98,
-			"support_grams": 0,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 1122,
@@ -17922,7 +18318,7 @@
 			"uid": "zub8",
 			"name": "Camera clasp bottom",
 			"quantities": {
-				"feeder": 3,
+				"feeder": 2,
 				"classification-channel": 1
 			},
 			"assembly": null,
@@ -17948,7 +18344,7 @@
 			],
 			"attributes": [],
 			"grams": 4.96,
-			"support_grams": 0,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 1043,
@@ -18059,7 +18455,7 @@
 			"uid": "yswm",
 			"name": "C-channel arm mount",
 			"quantities": {
-				"feeder": 3,
+				"feeder": 2,
 				"classification-channel": 1
 			},
 			"assembly": null,
@@ -18085,7 +18481,7 @@
 			],
 			"attributes": [],
 			"grams": 11.74,
-			"support_grams": 0,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 3589,
@@ -18192,7 +18588,7 @@
 			"uid": "4ata",
 			"name": "Camera lamp arm",
 			"quantities": {
-				"feeder": 3,
+				"feeder": 2,
 				"classification-channel": 1
 			},
 			"assembly": null,
@@ -18328,7 +18724,7 @@
 			"uid": "ntbe",
 			"name": "Arm bracket A",
 			"quantities": {
-				"feeder": 3,
+				"feeder": 2,
 				"classification-channel": 1
 			},
 			"assembly": null,
@@ -18354,7 +18750,7 @@
 			],
 			"attributes": [],
 			"grams": 4.65,
-			"support_grams": 0,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 3483,
@@ -18463,7 +18859,7 @@
 			"uid": "g2mu",
 			"name": "Arm bracket B",
 			"quantities": {
-				"feeder": 3,
+				"feeder": 2,
 				"classification-channel": 1
 			},
 			"assembly": null,
@@ -18489,7 +18885,7 @@
 			],
 			"attributes": [],
 			"grams": 4.8,
-			"support_grams": 0,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 3485,
@@ -18598,7 +18994,7 @@
 			"uid": "sb0m",
 			"name": "Camera lamp ring",
 			"quantities": {
-				"feeder": 3,
+				"feeder": 2,
 				"classification-channel": 1
 			},
 			"assembly": null,
@@ -18624,7 +19020,7 @@
 			],
 			"attributes": [],
 			"grams": 14.66,
-			"support_grams": 0,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 3096,
@@ -18735,7 +19131,7 @@
 			"uid": "4vio",
 			"name": "Lamp inner reflector",
 			"quantities": {
-				"feeder": 3,
+				"feeder": 2,
 				"classification-channel": 1
 			},
 			"assembly": null,
@@ -18761,7 +19157,7 @@
 			],
 			"attributes": [],
 			"grams": 76.42,
-			"support_grams": 0,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 6802,
@@ -18901,7 +19297,7 @@
 			"uid": "l5qn",
 			"name": "Inner reflector LED hook",
 			"quantities": {
-				"feeder": 18,
+				"feeder": 12,
 				"classification-channel": 6
 			},
 			"assembly": null,
@@ -18927,7 +19323,7 @@
 			],
 			"attributes": [],
 			"grams": 0.59,
-			"support_grams": 0,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 1017,
@@ -18953,7 +19349,7 @@
 			"uid": "8zqy",
 			"name": "Lamp outer cover",
 			"quantities": {
-				"feeder": 3,
+				"feeder": 2,
 				"classification-channel": 1
 			},
 			"assembly": null,
@@ -18979,7 +19375,7 @@
 			],
 			"attributes": [],
 			"grams": 47.02,
-			"support_grams": 0,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 4192,
@@ -19145,7 +19541,7 @@
 			],
 			"attributes": [],
 			"grams": 93.35,
-			"support_grams": 0,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 8954,
@@ -19277,7 +19673,7 @@
 			],
 			"attributes": [],
 			"grams": 9.01,
-			"support_grams": 0,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 2282,
@@ -19409,7 +19805,7 @@
 			],
 			"attributes": [],
 			"grams": 32.78,
-			"support_grams": 0,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 6332,
@@ -19541,7 +19937,7 @@
 			],
 			"attributes": [],
 			"grams": 14.18,
-			"support_grams": 0,
+			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
 			"print_seconds": 3184,
@@ -19895,10 +20291,10 @@
 			},
 			"name": "M3 \u00d7 10 mm socket/button head",
 			"category": "Screws",
-			"description": "Fastens the outer cable clamp into the top interface chute mount, and the ribbon cable clamp to the cable cage bracket.",
-			"note": "The \u00d73 is the top-interface count (2 cable clamp, 1 ribbon clamp). Screws used elsewhere on the machine aren't tallied here yet.",
+			"description": "Not used on the machine. Superseded by the M3 x 12 (scr-m3-12-bhcs) on its last remaining joint, 2026-09-16. Kept as an unused entry rather than deleted, because cage-bracket-cable-clamp v1 pins this uid in its line snapshot and a minted uid has to stay resolvable (VERSIONING.md).",
+			"note": "Do not add a new joint to this entry. Deletion tracked as sorter-v2 issue #662.",
 			"created_at": "2026-08-18",
-			"updated_at": "2026-08-18",
+			"updated_at": "2026-09-16",
 			"attributes": [
 				{
 					"label": "Thread",
@@ -19913,9 +20309,7 @@
 					"value": "Socket head cap"
 				}
 			],
-			"sheet_qty": {
-				"per_machine": 3
-			},
+			"sheet_qty": null,
 			"sheet_qty_text": null,
 			"stock": null,
 			"sourcing": null,
@@ -20188,7 +20582,7 @@
 			},
 			"name": "M3 \u00d7 16 mm socket/button head",
 			"category": "Screws",
-			"description": "No longer the C-channel stepper screw \u2014 those are countersunk (scr-m3-16-cs). The top-interface docs call for 2 to mount the roller-lever limit switch into its housing's inserts, though the limit-switch assembly records M3 \u00d7 12 button heads for that joint \u2014 one of the two is wrong; settle it at the bench.",
+			"description": "No longer the C-channel stepper screw \u2014 those are countersunk (scr-m3-16-cs). Holds the 40 mm fan arm to the Orange Pi mount (2, into the mount's front-edge inserts) and the fan to the arm (4, self-tapping). The top-interface docs call for 2 to mount the roller-lever limit switch into its housing's inserts, though the limit-switch assembly records M3 \u00d7 12 button heads for that joint \u2014 one of the two is wrong; settle it at the bench.",
 			"note": null,
 			"created_at": "2026-07-18",
 			"updated_at": "2026-09-01",
@@ -20348,10 +20742,10 @@
 			},
 			"name": "M3 \u00d7 35 mm flat head",
 			"category": "Screws",
-			"description": "The long M3 that clamps the two cable-clamp halves together at the top interface, threading into an M3 nut in the bottom of the Cable clamp (outer).",
-			"note": null,
+			"description": "Retired 2026-09-09, no longer used by any assembly: at 35 mm this screw cleared the far face of the nut by only 0.60 mm and did not reach in practice. The cable clamp takes the M3 \u00d7 40 mm flat head (scr-m3-40-fhcs) now. Kept as an unused entry rather than deleted, because chute-stepper-gearing v1 pins this uid in its line snapshot and a minted uid has to stay resolvable (VERSIONING.md).",
+			"note": "Do not add a new joint to this entry. Reported 2026-09-09: with the ribbon cable in the clamp the 35 mm screw would not pick up the nut. The stack under the head is 32.00 mm to the nut pocket floor and 34.40 mm through the nut, so 35 mm carried 0.60 mm of margin. See scr-m3-40-fhcs for the measurements. Deletion tracked as sorter-v2 issue #618.",
 			"created_at": "2026-07-18",
-			"updated_at": "2026-08-30",
+			"updated_at": "2026-09-09",
 			"attributes": [
 				{
 					"label": "Thread",
@@ -20360,6 +20754,46 @@
 				{
 					"label": "Length",
 					"value": "35 mm"
+				},
+				{
+					"label": "Head",
+					"value": "Flat (pancake) head, hex socket. Pan head works too."
+				}
+			],
+			"sheet_qty": null,
+			"sheet_qty_text": null,
+			"stock": null,
+			"sourcing": null,
+			"alternative": "Flat or pan head",
+			"caption": null,
+			"docs_page": null,
+			"conflicts": null,
+			"image": null
+		},
+		{
+			"id": "scr-m3-40-fhcs",
+			"uid": "ucgw",
+			"kind": "cots",
+			"cots": {
+				"type": "screw",
+				"size": "M3",
+				"variant": "flat",
+				"length_mm": 40
+			},
+			"name": "M3 \u00d7 40 mm flat head",
+			"category": "Screws",
+			"description": "The long M3 that clamps the two cable-clamp halves together at the top interface, threading into an M3 nut in the pocket in the Cable clamp (outer).",
+			"note": null,
+			"created_at": "2026-09-09",
+			"updated_at": "2026-09-09",
+			"attributes": [
+				{
+					"label": "Thread",
+					"value": "M3"
+				},
+				{
+					"label": "Length",
+					"value": "40 mm"
 				},
 				{
 					"label": "Head",
@@ -21071,10 +21505,10 @@
 			},
 			"name": "Ruthex M3S heat insert (short)",
 			"category": "Heat inserts",
-			"description": "ruthex RX-M3Sx4.0 brass heat-set threaded insert, the short M3. Servo adapter only; everywhere else takes the standard 5.7 mm M3.",
-			"note": "Servo adapter only. Count comes from the BOM sheet, not from the assembly tree -- the current adapter STLs show a self-tapping joint, so confirm before buying.",
+			"description": "Retired, no longer used anywhere. ruthex RX-M3Sx4.0 brass heat-set threaded insert, the short M3. It was carried over from the BOM sheet for the servo adapter, but that joint's screws thread straight into the printed plastic: neither adapter half has an insert pocket. Kept as an unused entry rather than deleted, since a minted uid has to stay resolvable (see parts-calculator's own CLAUDE.md); deletion is tracked as sorter-v2 issue #636.",
+			"note": "Unused as of 2026-09-11. Do not add a new joint to this insert; every insert joint in the machine takes the standard 5.7 mm M3 (hsi-m3).",
 			"created_at": "2026-08-21",
-			"updated_at": "2026-08-21",
+			"updated_at": "2026-09-11",
 			"attributes": [
 				{
 					"label": "Type",
@@ -21097,9 +21531,7 @@
 					"value": "ruthex RX-M3Sx4.0"
 				}
 			],
-			"sheet_qty": {
-				"per_layer": 4
-			},
+			"sheet_qty": null,
 			"sheet_qty_text": null,
 			"stock": null,
 			"sourcing": {
@@ -21978,6 +22410,15 @@
 						"pack_qty": 1,
 						"as_of": "2026-04-16",
 						"affiliate_url": "https://www.amazon.com/dp/B0BN17BRYY?tag=sorterv2-20"
+					},
+					{
+						"region": "EU",
+						"vendor": "TinyTronics",
+						"url": "https://www.tinytronics.nl/en/development-boards/single-board-computers/orange-pi-5-8gb",
+						"price": 245.0,
+						"currency": "EUR",
+						"pack_qty": 1,
+						"as_of": "2026-09-15"
 					}
 				]
 			},
@@ -22030,7 +22471,8 @@
 			"uid": "b25j",
 			"kind": "cots",
 			"cots": {
-				"type": "wifi"
+				"type": "wifi",
+				"optional": true
 			},
 			"name": "Orange Pi 5 WiFi 6 + Bluetooth module",
 			"category": "Computer",
@@ -22079,6 +22521,15 @@
 						"price": 23.99,
 						"pack_qty": 1,
 						"as_of": "2026-07-18"
+					},
+					{
+						"region": "EU",
+						"vendor": "TinyTronics",
+						"url": "https://www.tinytronics.nl/en/communication-and-signals/wireless/wi-fi/modules/orange-pi-wi-fi-6-and-bluetooth-5.0-module-for-orange-pi-5",
+						"price": 16.5,
+						"currency": "EUR",
+						"pack_qty": 1,
+						"as_of": "2026-09-15"
 					}
 				]
 			},
@@ -22566,16 +23017,57 @@
 			},
 			"name": "White/daylight LED strip - 24v",
 			"category": "Wire harness",
-			"description": "Lighting for classification chamber",
-			"note": null,
+			"description": "The light in a Camera lamp: two turns inside the reflector's skirt, held by the six LED hooks. Bought as a 5 m roll and cut into 950 mm rings, so one roll covers a machine's three lamps. Also the classification chamber's lighting before the dome was retired.",
+			"note": "Buy the 24 V roll: 5 m, 6000 K, 8 mm COB. The same listing also sells a 12 V one, and outside the US the link may not land on this product at all.",
 			"created_at": "2026-07-18",
-			"updated_at": "2026-07-18",
-			"attributes": [],
-			"sheet_qty": {
-				"per_machine": 1
-			},
+			"updated_at": "2026-09-14",
+			"attributes": [
+				{
+					"label": "Voltage",
+					"value": "24 V DC"
+				},
+				{
+					"label": "Power",
+					"value": "About 10 W/m; the listing says 12"
+				},
+				{
+					"label": "Buy",
+					"value": "One 5 m (16.4 ft) roll, the 24 V size option"
+				},
+				{
+					"label": "Colour temperature",
+					"value": "6000K daylight white"
+				},
+				{
+					"label": "Brightness",
+					"value": "About 1100 lm/m, not stated by the seller"
+				},
+				{
+					"label": "CRI",
+					"value": "95+ claimed. No minimum is set for the machine, and 90+ is normal for this type"
+				},
+				{
+					"label": "LED density",
+					"value": "320 LEDs/m"
+				},
+				{
+					"label": "Width",
+					"value": "8 mm, COB (dotless)"
+				},
+				{
+					"label": "Cut pitch",
+					"value": "Check the marks printed on the strip. The listing says every 1.5 in (38 mm); 24 V COB is usually 50 mm"
+				}
+			],
+			"sheet_qty": null,
 			"sheet_qty_text": null,
-			"stock": null,
+			"stock": {
+				"unit_length_mm": 5000,
+				"cut_length_mm": 950,
+				"pieces_per_unit": 5,
+				"unit_label": "5 m (16.4 ft) roll",
+				"piece_label": "950 mm lamp ring"
+			},
 			"sourcing": {
 				"vendors": [
 					{
@@ -22585,14 +23077,138 @@
 						"price": 9.99,
 						"as_of": "2026-04-16",
 						"affiliate_url": "https://www.amazon.com/dp/B0DHV8ZF4R?tag=sorterv2-20"
+					},
+					{
+						"region": "EU",
+						"vendor": "Amazon DE",
+						"url": "https://www.amazon.de/dp/B0BVVSLPDN",
+						"price": 19.63,
+						"currency": "EUR",
+						"as_of": "2026-09-14",
+						"note": "BERIXDEEP, a different roll: 10 m, 384 LEDs/m, CRI 92, 9 to 10 W/m. Same 24 V, 8 mm, COB, 6000 K and IP20, so it fits the lamp and the clamp-on connector. Pick a plain length option, not the 10, 12, 15 or 30 mm widths. One roll does two machines."
 					}
 				]
 			},
 			"alternative": null,
-			"caption": null,
-			"docs_page": null,
+			"caption": "950 mm of 24 V strip cut from a 5 m roll. One roll does all three lamps.",
+			"docs_page": "/hardware/helpers/led-strip/",
 			"conflicts": null,
 			"image": "https://assets.basically.website/sorter-parts/led-strip-24v-full-961391ece43d.jpg"
+		},
+		{
+			"id": "led-strip-connector-8mm",
+			"uid": "bdwo",
+			"kind": "cots",
+			"cots": {
+				"type": "connector"
+			},
+			"name": "Solderless clamp-on strip connector, 8 mm COB",
+			"category": "Wire harness",
+			"description": "Joins an LED strip to wire without soldering: the cut end of the strip clamps under sprung contacts at one end, the wire clamps into the other. One per Camera lamp, so three per machine.",
+			"note": "8 mm COB strip only: a 10 mm connector, or one for SMD strip, will not grip. Soldering the pads is the only other way to get wire onto the strip.",
+			"created_at": "2026-09-10",
+			"updated_at": "2026-09-10",
+			"attributes": [
+				{
+					"label": "Fits",
+					"value": "8 mm (0.31 in) COB strip"
+				},
+				{
+					"label": "Wire",
+					"value": "22 AWG, not supplied"
+				},
+				{
+					"label": "Conductors",
+					"value": "2"
+				},
+				{
+					"label": "Max current",
+					"value": "3 A"
+				},
+				{
+					"label": "Variants",
+					"value": "SBL-RA2P-8-1 comes with 4 in leads fitted; SBL-RA2P-8-DC ends in a 5.5 x 2.1 mm barrel socket"
+				}
+			],
+			"sheet_qty": {
+				"per_machine": 3
+			},
+			"sheet_qty_text": null,
+			"stock": null,
+			"sourcing": {
+				"vendors": [
+					{
+						"region": "US",
+						"vendor": "SuperBrightLEDs",
+						"url": "https://www.superbrightleds.com/solderless-clamp-on-led-strip-light-to-pigtail-adaptor-8mm-cob-strips-22-awg",
+						"price": 1.59,
+						"pack_qty": 1,
+						"as_of": "2026-09-10",
+						"note": "Part SBL-RA2P-8, sold singly."
+					}
+				]
+			},
+			"alternative": "Solder the wire to the strip pads instead, which needs no connector at all",
+			"caption": "One per lamp. Strip in one end, your wire in the other.",
+			"docs_page": "/hardware/helpers/led-strip/",
+			"conflicts": null,
+			"image": "https://assets.basically.website/sorter-parts/led-strip-connector-8mm-full-915e0ed03fdc.jpg"
+		},
+		{
+			"id": "dupont-lead-2p-1m",
+			"uid": "1lzt",
+			"kind": "cots",
+			"cots": {
+				"type": "cable"
+			},
+			"name": "Pre-crimped 2-pin Dupont lead, 1 m",
+			"category": "Wire harness",
+			"description": "A metre of 22 AWG red and black with a 2-pin 2.54 mm Dupont housing crimped on. One of these is a whole LED drop: the Dupont end pushes onto an LED header (J8 to J11), the far end goes into the strip connector. The pack is male-to-female, so cut the male plug off and discard it.",
+			"note": "Sold male-to-female: cut the male plug off and discard it. Any 22 AWG pair plus a 2-pin Dupont housing does the same job if you own a crimp tool.",
+			"created_at": "2026-09-10",
+			"updated_at": "2026-09-12",
+			"attributes": [
+				{
+					"label": "Pitch",
+					"value": "2.54 mm, 2-pin single row"
+				},
+				{
+					"label": "Wire",
+					"value": "22 AWG stranded, red and black"
+				},
+				{
+					"label": "Length",
+					"value": "100 cm"
+				},
+				{
+					"label": "Pack",
+					"value": "5 sets, so three lamps and two spares"
+				}
+			],
+			"sheet_qty": {
+				"per_machine": 3
+			},
+			"sheet_qty_text": null,
+			"stock": null,
+			"sourcing": {
+				"vendors": [
+					{
+						"region": "US",
+						"vendor": "Amazon",
+						"url": "https://www.amazon.com/dp/B0CCTZJZZ3",
+						"affiliate_url": "https://www.amazon.com/dp/B0CCTZJZZ3?tag=sorterv2-20",
+						"price": 8.48,
+						"pack_qty": 5,
+						"as_of": "2026-09-10",
+						"note": "Kidisoii KI-0715-Dupont-MF-2P-100CM."
+					}
+				]
+			},
+			"alternative": "Your own 22 AWG pair plus a 2-pin 2.54 mm Dupont housing and two crimps",
+			"caption": "Cut the male end off and it is one LED drop.",
+			"docs_page": "/hardware/helpers/led-strip/",
+			"conflicts": null,
+			"image": "https://assets.basically.website/sorter-parts/dupont-lead-2p-1m-full-1d6495f8bb1b.jpg"
 		},
 		{
 			"id": "endstop-mechanical",
@@ -22863,6 +23479,66 @@
 			"image": "https://assets.basically.website/sorter-parts/fan-40mm-24v-full-aab71b941312.png"
 		},
 		{
+			"id": "fan-orange-pi-5-heatsink",
+			"uid": "z0ye",
+			"kind": "cots",
+			"cots": {
+				"type": "fan"
+			},
+			"name": "Orange Pi 5 heatsink fan (official)",
+			"category": "Electronics",
+			"description": "Orange Pi's official aluminum-alloy heatsink and fan for the Orange Pi 5 (v1.3.2) and Orange Pi 5 Plus, which mounts directly on the SoC. 5 V DC, sleeve bearing; installing it means the official Orange Pi metal case no longer fits.",
+			"note": null,
+			"created_at": "2026-09-15",
+			"updated_at": "2026-09-15",
+			"attributes": [
+				{
+					"label": "Voltage",
+					"value": "5 V DC"
+				},
+				{
+					"label": "Bearing",
+					"value": "Sleeve"
+				},
+				{
+					"label": "Fits",
+					"value": "Orange Pi 5 (v1.3.2), Orange Pi 5 Plus"
+				}
+			],
+			"sheet_qty": {
+				"per_machine": 1
+			},
+			"sheet_qty_text": null,
+			"stock": null,
+			"sourcing": {
+				"vendors": [
+					{
+						"region": "US",
+						"vendor": "Amazon",
+						"url": "https://www.amazon.com/dp/B0CJT6KNK4",
+						"affiliate_url": "https://www.amazon.com/dp/B0CJT6KNK4?tag=sorterv2-20",
+						"price": 14.99,
+						"pack_qty": 1,
+						"as_of": "2026-09-15"
+					},
+					{
+						"region": "EU",
+						"vendor": "TinyTronics",
+						"url": "https://www.tinytronics.nl/en/mechanics-and-actuators/parts/cooling-elements/orange-pi-fan-with-heatsink-for-orange-pi-5-plus",
+						"price": 6.0,
+						"currency": "EUR",
+						"pack_qty": 1,
+						"as_of": "2026-09-15"
+					}
+				]
+			},
+			"alternative": null,
+			"caption": null,
+			"docs_page": null,
+			"conflicts": null,
+			"image": "https://assets.basically.website/sorter-parts/fan-orange-pi-5-heatsink-full-c9d5bb86fbab.jpg"
+		},
+		{
 			"id": "ext-2020-ag",
 			"uid": "lnvw",
 			"kind": "cots",
@@ -22961,7 +23637,7 @@
 			},
 			"name": "Foot extension (D)",
 			"category": "Aluminum extrusion (2020)",
-			"description": "2020 aluminum extrusion, cut to 231 mm (piece D). Replaces piece C on the bottom two layers: one D per corner runs from the caster up through the bottom layer to the second, so 6 per machine.",
+			"description": "2020 aluminum extrusion, cut to 231 mm (piece D). Replaces piece C on the bottom layer: one D per corner runs from the caster up through that layer's corner to the layer above, so 6 per machine.",
 			"note": null,
 			"created_at": "2026-08-21",
 			"updated_at": "2026-09-06",

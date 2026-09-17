@@ -7,6 +7,7 @@ slug: assembly-hex-frame
 kicker: Bin frame — Build the hex frame
 lede: The hexagonal aluminum-and-bracket ring shared by every layer. Build one per planned layer, plus one for the top interface.
 permalink: /hardware/assembly/distribution/bin-frame/hex-frame/
+og_image: https://assets.basically.website/sorter-docs/assembly-hex-frame-finished-top-down-w1600-a62a42d595ca.jpg
 author: barthel
 contributors: [brickcyclealice, zed0]
 parts_needed:
@@ -146,12 +147,12 @@ Slide the final B spoke (158mm) in from the top to close the ring, then fit the 
 
 Double-check that every Frame 90° bracket is still fully seated in its slot. A light hammer tap on each bracket, from the inside of the ring toward the outside, helps snug all the connections — use a mallet, or put a cloth between a hammer and the bracket, so you aren't striking the plastic directly.
 
-<figure class="single-figure">
-  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-hex-frame-finished-top-down-w1600-a62a42d595ca.jpg" alt="A finished hex frame from above: six B spokes and their printed crossbeams forming the inner ring inside the aluminum outer hexagon, with a printed corner bracket at each of the six vertices">
-  <figcaption><cite>Photo: BrickCycleAlice.</cite></figcaption>
-</figure>
-
 {% include step.html n="9" title="Fit the External bracket — covers" %}
+
+<div class="callout callout-warning">
+  <span class="callout-icon" aria-hidden="true">⚠</span>
+  <p><strong>Building the bottom layer's frame?</strong> That one takes no External bracket — covers, so skip this step. <a href="{{ '/hardware/assembly/distribution/bin-frame/bottom-layer/' | relative_url }}">Bottom layer</a> fits it with External bracket — foot covers instead, one printed part in place of the cover and the External bracket — bottom vertical together. Every other frame takes all six, the top interface's included.</p>
+</div>
 
 Push an External bracket — cover onto each of the six External bracket — sides. It takes no fasteners of its own, it is held by the fit; the side and the cover together form the collar that a layer's vertical extrusion later stands in.
 
@@ -162,8 +163,11 @@ This is the easy moment to do it. Once a vertical extrusion is standing in a col
   <figcaption>The collar closed, cover pushed on. The square socket stays empty at this stage; a vertical extrusion stands in it later, on whichever page turns this frame into a layer. <cite>Photo: BrickCycleAlice.</cite></figcaption>
 </figure>
 
-<div class="callout">
-  <p><strong>Building the bottom layer's frame?</strong> That one takes no External bracket — covers. <a href="{{ '/hardware/assembly/distribution/bin-frame/bottom-two-layers/' | relative_url }}">Bottom two layers</a> fits it with External bracket — foot covers instead, one printed part in place of the cover and the External bracket — bottom vertical together. Every other frame takes all six, the top interface's included.</p>
-</div>
+## The finished result
 
-A hex frame is now complete. Build as many as your machine needs (see the note at the top of this page), then move on to [Bottom two layers]({{ '/hardware/assembly/distribution/bin-frame/bottom-two-layers/' | relative_url }}), [Regular layers]({{ '/hardware/assembly/distribution/bin-frame/regular-layers/' | relative_url }}), [Bottom interface]({{ '/hardware/assembly/distribution/bin-frame/bottom-interface/' | relative_url }}) or [Top interface]({{ '/hardware/assembly/distribution/top-interface/' | relative_url }}) to turn one into the layer you need.
+<figure class="single-figure">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-hex-frame-finished-top-down-w1600-a62a42d595ca.jpg" alt="A finished hex frame from above: six B spokes and their printed crossbeams forming the inner ring inside the aluminum outer hexagon, with a printed corner bracket at each of the six vertices">
+  <figcaption>A finished hex frame, from above. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+</figure>
+
+The [Bin frame]({{ '/hardware/assembly/distribution/bin-frame/' | relative_url }}) page contains the instructions for the entire stack, and is where you should return once you're done here.

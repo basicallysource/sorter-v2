@@ -11,6 +11,7 @@
 	import Modal from '$lib/components/Modal.svelte';
 	import DetailPanes from '$lib/components/DetailPanes.svelte';
 	import ImageStrip from '$lib/components/ImageStrip.svelte';
+	import CatalogText from '$lib/components/CatalogText.svelte';
 	import { getBambuColor } from '$lib/bambu-colors';
 	import { SITE_URL } from '$lib/seo';
 	import { copyText } from '$lib/clipboard';
@@ -119,7 +120,7 @@
 		<StlViewer bind:this={viewer} url={activeStl} color={getBambuColor(colorId).hex} mark={stamp} heightClass={variant === 'modal' ? 'h-[45vh] lg:h-[76vh]' : 'h-[60vh]'} />
 		<div class="pointer-events-none absolute inset-x-3 top-3 flex flex-wrap items-start justify-between gap-2">
 			<IdStamp where="viewport" uid={candidate?.uid ?? part.uid} {stamps} bind:on={stampOn} bind:faceIdx onView={() => viewer?.viewMark()} onReset={() => viewer?.resetView()} />
-			<div class="pointer-events-auto ml-auto w-48 border border-border bg-[var(--color-surface)]/95 px-2.5 py-1.5 shadow-sm backdrop-blur"><ColorPicker bind:value={colorId} label="Preview color" /></div>
+			<div class="pointer-events-auto ml-auto w-56 border border-border bg-[var(--color-surface)]/95 px-2.5 py-1.5 shadow-sm backdrop-blur"><ColorPicker bind:value={colorId} label="Preview color" /></div>
 		</div>
 		{/snippet}
 
@@ -129,9 +130,9 @@
 				<div class="min-w-0 flex-1 space-y-2 text-sm">
 					{#if candidate}
 						<div class="inline-flex items-center gap-1.5 border border-border px-2 py-0.5 text-xs text-text-muted"><FlaskConical size={12} /> Candidate <span class="font-mono font-semibold text-text">{candidate.uid}</span>{#if candidate.name} · {candidate.name}{/if}</div>
-						<p class="text-text">{candidate.message}</p>
+						<CatalogText text={candidate.message} class="text-text" />
 					{:else}
-						{#if part.description}<p class="text-text">{part.description}</p>{/if}
+						{#if part.description}<CatalogText text={part.description} class="text-text" />{/if}
 					{/if}
 					{#if part.attributes?.length}
 						<div class="flex flex-wrap gap-1.5">
@@ -232,7 +233,7 @@
 				{#if active && !candidate}
 					<div class="mt-2 border-t border-border pt-2 text-sm">
 						<div class="font-medium text-text">v{active.version} · {fmtDate(active.date)}</div>
-						<p class="mt-0.5 text-text-muted">{active.message}</p>
+						<CatalogText text={active.message} class="mt-0.5 text-text-muted" />
 						{#if active.images?.length}<div class="mt-2"><ImageStrip images={active.images} /></div>{/if}
 					</div>
 				{/if}

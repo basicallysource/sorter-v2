@@ -16,3 +16,4 @@ contributors: [barthel]
 - **[Soldering Pico headers]({{ '/hardware/helpers/pico-headers/' | relative_url }})**
 - **[Installing heat inserts]({{ '/hardware/helpers/heat-inserts/' | relative_url }})**
 - **[Fitting T-nuts]({{ '/hardware/helpers/t-nuts/' | relative_url }})**
+- **[Preparing the LED strip]({{ '/hardware/helpers/led-strip/' | relative_url }})**

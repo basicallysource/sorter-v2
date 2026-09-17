@@ -71,15 +71,15 @@ The 4 channel motors are NEMA 17 with their own **JST-PH 6-pin** socket, so cabl
   <tbody>
     <tr>
       <td>Channels 1-4 (×4)</td>
-      <td>JST-PH 4-pin (PHR-4) on J23 / J27 / J31 / J35</td>
+      <td>JST-PH 4-pin (PHR-4) on J27 / J31 / J35 / J39</td>
       <td>JST-PH 6-pin (PHR-6), the motor's own socket</td>
       <td>1 m</td>
       <td>24 AWG</td>
       <td>Board 1·2·3·4 lands on motor 1·4·3·6; motor 2 and 5 stay empty</td>
     </tr>
     <tr>
-      <td>Chute (5th)</td>
-      <td>4x1 dupont (2.54 mm) on pin header J40</td>
+      <td>Chute</td>
+      <td>4x1 dupont (2.54 mm) on pin header J24</td>
       <td>Bare flying leads, crimp into a 4x1 housing</td>
       <td>unknown</td>
       <td>unknown</td>
@@ -88,7 +88,20 @@ The 4 channel motors are NEMA 17 with their own **JST-PH 6-pin** socket, so cabl
   </tbody>
 </table>
 
-Refdes-to-channel assignment (which of J23/J27/J31/J35/J39 is which channel, and which is the chute) is still to confirm.
+Which connector is which channel is fixed by the board: each output is wired to the driver socket beside it, and each driver socket is wired to its own STEP and DIR pins on the Pico.
+
+<table>
+  <thead><tr><th>Connectors</th><th>Driver printed</th><th>Firmware channel</th><th>Stepper</th></tr></thead>
+  <tbody>
+    <tr><td>J23 / J24</td><td><code>Stepper_A2</code></td><td>0</td><td><code>chute_stepper</code></td></tr>
+    <tr><td>J27 / J28</td><td><code>Stepper_A3</code></td><td>1</td><td><code>c_channel_1_rotor</code></td></tr>
+    <tr><td>J31 / J32</td><td><code>Stepper_A4</code></td><td>2</td><td><code>c_channel_3_rotor</code></td></tr>
+    <tr><td>J35 / J36</td><td><code>Stepper_A5</code></td><td>3</td><td><code>carousel</code> (the 4th channel)</td></tr>
+    <tr><td>J39 / J40</td><td><code>Stepper_A6</code></td><td>4</td><td><code>c_channel_2_rotor</code>, the only one on the second UART bus</td></tr>
+  </tbody>
+</table>
+
+So the driver in each socket has to carry the address that [preparing the control board]({{ '/hardware/electronics/installation/control-board-prep/' | relative_url }}) gives that channel. Not yet checked against a built machine.
 
 <div class="callout callout-warning">
   <span class="callout-icon" aria-hidden="true">⚠</span>

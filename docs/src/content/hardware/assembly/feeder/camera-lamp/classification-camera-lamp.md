@@ -11,11 +11,11 @@ author: reveryx
 contributors: [spencer, danny, brickcyclealice, barthel]
 og_image: https://assets.basically.website/sorter-docs/camera-lamp-camera-seated-w1600-eede61656118.jpg
 warning: >-
-  **Steps 3 and 4 are not verified against a build.** Steps 1 and 2 are photographed on real
-  builds. Still open: which of the ring's two sockets the clasp is meant to use (step 2); the
-  cover going on, which has no build photograph yet (step 3); and the arm mount's dovetail onto
-  the NEMA bracket (step 4), which a builder has described but nobody has dimensioned or
-  photographed. Everything else is measured off the published STLs. Fill the gaps in as you build.
+  **Step 5 is not verified against a build.** Steps 1 to 4 are photographed on a real build of the
+  feeder lamp, which is this build apart from the camera module. Still open: which of the ring's
+  two sockets the clasp is meant to use (step 3), and the arm mount's dovetail onto the NEMA
+  bracket (step 5), which a builder has described but nobody has dimensioned or photographed.
+  Fill the gaps in as you build.
 parts_needed:
   - part: cam-imx415
     qty: 1
@@ -57,13 +57,37 @@ The camera board sits in the recess in the **Camera clasp top**. Put the **Camer
   <figcaption>The bottom half closed over it, one of the two screws seated. <cite>Photo: Danny.</cite></figcaption>
 </figure>
 
-{% include step.html n="2" title="Push the clasp into the ring" %}
+<figure class="single-figure">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/camera-lamp-camera-in-clasp-no-cable-w1600-79b5a08ea522.jpg" alt="A hand holding the closed camera clasp, the camera board seated in the round grey disc with its ribbon socket empty and a rectangular slot in the plastic beside it">
+  <figcaption>A camera in the clasp. Its cable is not on yet; that goes on in step 4. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+</figure>
 
-**Into the ring, no screws.** The clasped camera pushes into the camera lamp ring on the arm. Nothing fastens it: the only screws in this build are the two holding the clasp's own halves together.
+{% include step.html n="2" title="Click the reflector onto the arm" %}
+
+**The reflector goes on before the camera does.** Push the ring on the end of the arm down into the middle of the **Lamp inner reflector** and **press firmly until it clicks**. It is a snap fit and there are no screws in it.
+
+Do this first and the reflector cannot be dropped over a camera that is already in the ring, which is the part of this build that goes wrong.
+
+<div class="img-row">
+  <figure>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/camera-lamp-reflector-onto-arm-w1600-bd84acd2f247.jpg" alt="The lamp arm lying with its ring end pushed into the centre of the white inner reflector, the two turns of LED strip visible around the inside of the skirt">
+    <figcaption>The arm pushed into the reflector, from above. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+  </figure>
+  <figure>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/camera-lamp-reflector-on-arm-angle-w1600-5866be2e9b46.jpg" alt="The same arm and reflector held up at an angle, the reflector square on the end of the arm and the arm's two bracketed sections running away from it">
+    <figcaption>Clicked home, from the side. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+  </figure>
+</div>
+
+{% include step.html n="3" title="Push the clasp into the ring" %}
+
+**Into the ring, no screws.** The clasped camera pushes into the camera lamp ring on the arm, down through the middle of the reflector you fitted in step 2. Nothing fastens it: the only screws in this build are the two holding the clasp's own halves together.
+
+**This is the delicate one.** The camera is easy to drop as it goes in, and it has to go in far enough: push until the clasp sits firmly in the ring rather than stopping at first resistance. Work over the bench, not over the floor.
 
 The clasp's two halves form a spigot that plugs into a socket in the ring. **The ring has two of these sockets, and which one is intended is not recorded.** Nothing on this page depends on it: use the one that leaves the camera's lead running clear of the arm, and check the lens points straight down before you go on. Which way round the picture arrives is set in software later, not here.
 
-**Expect it to sit loose.** The cover, two steps down, is what traps the clasp and holds the camera in. Until then the camera can lift straight back out, so do not pick the lamp up by it.
+**Expect it to sit loose.** The next step, the cover, is what traps the clasp and holds the camera in. Until then the camera can lift straight back out, so do not pick the lamp up by it.
 
 <div class="img-row">
   <figure>
@@ -76,20 +100,44 @@ The clasp's two halves form a spigot that plugs into a socket in the ring. **The
   </figure>
 </div>
 
-{% include step.html n="3" title="Lamp over the top, then the cover" %}
+<figure class="single-figure">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/camera-lamp-camera-in-ring-from-below-w1600-18f0664f8f5b.jpg" alt="Looking up into the reflector from below: two turns of LED strip round the skirt held by the hooks, the arm coming down through the middle, and the clasped camera seated in the ring at the centre with its lens facing out">
+  <figcaption>From below, with the reflector already on: the camera seated in the ring at the centre. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+</figure>
 
-Set the reflector on the arm over the clasped camera, then push the **Lamp outer cover** down over it.
+{% include step.html n="4" title="Thread the cable through the cover, then press it on" %}
 
-**The lamp is not fastened to the arm at all.** It sits on it under its own weight, which is how it is recorded and how it comes apart again for a print change. The cover is a friction fit too, with no screw hole anywhere.
+Plug the camera's cable into the board now, if it is not on already, and route it out of the lamp before the cover goes over the top. The cover has a rectangular slot near its rim for it.
 
-Order matters here in one place only: the camera has to be in the clasp and the clasp in the ring before the cover goes over the top, because the cover closes around the clasp and is what holds the camera down.
+<ol class="numbered-steps">
+  <li>Thread the camera cable up through the slot in the <strong>Lamp outer cover</strong> <strong>before</strong> you offer the cover up. Doing it afterwards means taking the cover back off.</li>
+  <li>Put the lamp flat on the table, cover on top, and press straight down until it seats.</li>
+</ol>
+
+**It is a friction fit with no screw hole anywhere**, and it is what holds the camera down: the clasp is wider than the opening in the middle of the cover, so the cover overlaps its rim and traps it.
+
+<div class="img-row">
+  <figure>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/camera-lamp-cable-through-cover-w1600-455f0670387d.jpg" alt="The reflector on the arm with the clasped camera in its centre, lying beside the grey outer cover turned upside down, the black camera cable running from the board across to the cover's central opening">
+    <figcaption>Cable through the cover first, then the cover goes on. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+  </figure>
+  <figure>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/camera-lamp-cover-pressed-on-w1600-c4ab9aef9369.jpg" alt="The cover pressed down onto the reflector, seen from above at an angle, the camera board in the central opening and the cable leaving through the slot near the rim">
+    <figcaption>Pressed on flat, cable out through the slot. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+  </figure>
+</div>
+
+<figure class="single-figure">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/camera-lamp-cover-on-cord-through-slot-w1600-9678252fab1b.jpg" alt="The finished lamp from above: the grey cover seated on the reflector, the camera clasp recessed in the central opening, and the cord coming up through the rectangular slot in the cover">
+  <figcaption>The cord up through the cover's slot. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+</figure>
 
 <figure class="single-figure">
   <img class="doc-figure" src="https://assets.basically.website/sorter-docs/camera-lamp-render-top-full-edc4616e7088.png" alt="CAD render of the assembled camera lamp from above: the grey cover with the camera clasp and board in the central opening, a slot near the rim, and the arm coming in from the lower left">
-  <figcaption>Assembled, from above. <cite>Rendered from the part geometry, not from a build. Render: Spencer.</cite></figcaption>
+  <figcaption>The same thing as designed, with the 4K module in place of the one in the photographs. <cite>Rendered from the part geometry, not from a build. Render: Spencer.</cite></figcaption>
 </figure>
 
-{% include step.html n="4" title="Later: hang the arm on the C-channel" %}
+{% include step.html n="5" title="Later: hang the arm on the C-channel" %}
 
 **Not at the bench.** The lamp goes onto its channel later, when the channels are standing on the top plate. Read this step then, and put the finished lamp aside for now.
 

@@ -49,6 +49,7 @@ from app.routers import (
 from app.services.profile_catalog import get_existing_profile_catalog_service, get_profile_catalog_service
 from app.services.candidate_matview import get_candidate_matview_worker
 from app.services.condition_worker import get_condition_worker
+from app.services.fleet_mass import get_fleet_mass_worker
 from app.services.machine_stats import get_machine_stats_worker
 from app.services.server_health import get_memory_log_worker, get_storage_stats_worker
 from app.services.teacher_worker import get_teacher_worker
@@ -58,7 +59,7 @@ def _configure_app_logging() -> None:
 
     uvicorn configures its own loggers and deliberately leaves the root logger
     alone, so nothing in this package had a handler and all 50-odd logger calls
-    under app/ went nowhere — including the five background workers announcing
+    under app/ went nowhere — including the background workers announcing
     themselves at startup, and warnings like "color model has no usable classes"
     that were meant to be the first sign something was wrong. None of it has
     ever appeared in `docker logs`.
@@ -87,6 +88,7 @@ async def lifespan(_app: FastAPI):
     get_teacher_worker().start()
     get_condition_worker().start()
     get_machine_stats_worker().start()
+    get_fleet_mass_worker().start()
     get_storage_stats_worker().start()
     get_memory_log_worker().start()  # diagnostic, delete with the 2026-08 leak
     get_candidate_matview_worker().start()
@@ -97,6 +99,7 @@ async def lifespan(_app: FastAPI):
         get_teacher_worker().stop()
         get_condition_worker().stop()
         get_machine_stats_worker().stop()
+        get_fleet_mass_worker().stop()
         get_storage_stats_worker().stop()
         get_memory_log_worker().stop()
         service = get_existing_profile_catalog_service()

@@ -42,7 +42,9 @@ Hold the module against the slot and check the notches line up before pushing. *
 
 With the board unplugged, turn it over and find the M.2 slot on the underside.
 
-Slide the module in at a shallow angle, roughly 30°, gold contacts first, until it is fully home. Press the free end down flat against the board and secure it with the small retention screw the module ships with.
+Slide the module in at a shallow angle, roughly 30°, gold contacts first, until it is fully home. Press the free end down and secure it with the small retention screw.
+
+**The washer goes between the board and the module**, under the free end, not on top of it. The slot holds the contact end of the module up off the board, so the washer is what keeps the other end at the same height. Without it the screw pulls that end down and the module ends up bent and unevenly tensioned rather than sitting flat.
 
 <div class="img-placeholder">Image coming</div>
 

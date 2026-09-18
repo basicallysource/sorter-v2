@@ -106,8 +106,6 @@ sections:
             url: /hardware/electronics/order/
           - title: WireViz drawings
             url: /hardware/electronics/wireviz/
-          - title: Make your own PSU pigtail
-            url: /hardware/electronics/psu-pigtail/
       - title: Helpers
         url: /hardware/helpers/
         children:
@@ -123,6 +121,8 @@ sections:
             url: /hardware/helpers/t-nuts/
           - title: Preparing the LED strip
             url: /hardware/helpers/led-strip/
+          - title: Make your own PSU pigtail
+            url: /hardware/helpers/psu-pigtail/
       - title: Parts
         url: /hardware/parts/
         children:

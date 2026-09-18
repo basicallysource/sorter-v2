@@ -32,6 +32,16 @@ parts_needed:
     qty: 2
 ---
 
+<div class="prep-item">
+  <div class="prep-item-body">
+    <p><strong>Make three <a href="{{ '/hardware/helpers/psu-pigtail/' | relative_url }}">PSU output pigtails</a> before you start.</strong> One per 24V load. Each is a panel-mount barrel jack with a spade terminal crimped onto each of its two leads, and they are commonly sold with the leads already on. That page builds them and lists the jack, the terminals and the wire; step 3 here lands them on the supply and mounts them in the box.</p>
+  </div>
+  <figure class="prep-item-figure">
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/harness-psu-pigtail-built-w1600-59554dc6b189.jpg" alt="An assembled PSU output pigtail: a panel-mount barrel jack with red and black 18 AWG leads, each ending in an insulated spade terminal">
+    <figcaption>One finished pigtail: the jack, its red and black leads, and a spade terminal on each. <cite>Photo: Jon.</cite></figcaption>
+  </figure>
+</div>
+
 The fasteners and quantities in the parts list come from the parts calculator and are called out inline at each step.
 
 {% include fastener-legend.html %}
@@ -44,7 +54,7 @@ Several steps below refer to the supply's terminal block by screw number. Mean W
   <dt>7, 8, 9</dt><dd>DC output +V</dd>
 </dl>
 
-One DC output pigtail per +V/-V pair: 7 with 4, 8 with 5, 9 with 6. The full spec, the terminal sizes and the pigtail build are on the [wire harness]({{ '/hardware/electronics/' | relative_url }}) and [make your own PSU pigtail]({{ '/hardware/electronics/psu-pigtail/' | relative_url }}) pages.
+One DC output pigtail per +V/-V pair: 7 with 4, 8 with 5, 9 with 6. The full spec and the terminal sizes are on the [wire harness]({{ '/hardware/electronics/' | relative_url }}) page, and [make your own PSU output pigtail]({{ '/hardware/helpers/psu-pigtail/' | relative_url }}) builds the cables.
 
 <div class="callout callout-warning">
   <span class="callout-icon" aria-hidden="true">⚠</span>
@@ -67,18 +77,27 @@ Which part takes which screw isn't fully recorded, but the parts' own STLs answe
 
 <div class="img-placeholder">Image coming</div>
 
-{% include step.html n="3" title="Wire the terminal block" %}
+{% include step.html n="3" title="Wire the terminal block and mount the jacks" %}
 
 <div class="callout callout-warning">
   <span class="callout-icon" aria-hidden="true">⚠</span>
   <p>The PSU must be unplugged from the wall for this entire step. Screws 1-3 carry mains voltage whenever it's plugged in; after unplugging, wait a few seconds before touching the terminal block.</p>
 </div>
 
-Land the fused IEC inlet switch's leads on screws 1, 2 and 3, and the three DC output pigtails on the +V/-V pairs above. Tug-test each connection, then route every wire through the connections plate so nothing can shift and touch the mains terminals once the box is closed.
+Land the fused IEC inlet switch's leads on screws 1, 2 and 3. Then take one pigtail per +V/-V pair: **7 with 4, 8 with 5, 9 with 6**, red terminal on the +V screw and black on the -V screw of the same pair.
 
-The connections plate is already fastened at this point (step 2); the cap isn't on yet (step 4).
+<figure class="single-figure">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/psu-box-terminal-map-full-9befeb766677.png" alt="Diagram of the Mean Well LRS-350-24 seen from above, its nine-way terminal block down the left edge numbered 1 at the bottom to 9 at the top. Screws 1, 2 and 3 are labelled AC/L, AC/N and earth and are marked as mains, fed by the fused IEC inlet switch. Red leads run from screws 9, 8 and 7 and black leads from 6, 5 and 4, pairing 9 with 6, 8 with 5 and 7 with 4 into three barrel jacks labelled PJ3 to the Orange Pi buck, PJ2 to the powered USB hub, and PJ1 to the basically board.">
+  <figcaption>Every lead that lands on the block, and the screw it lands on. <cite>Drawn from the Mean Well LRS-350 spec sheet and the harness drawings, not from a build.</cite></figcaption>
+</figure>
 
-<div class="img-placeholder">Image coming</div>
+All three +V screws are the same rail inside the supply, and so are all three -V screws, so the pairing is about splitting the current rather than about which load goes where. What matters is that each pigtail keeps to one pair.
+
+Tug-test every connection once they are all on.
+
+Mount the three jacks in the connections plate. It is drilled with six 12 mm holes, two columns of three, 16 mm apart across and 20 mm apart down; the jack body goes behind the plate and its nut does up on the outside. <span class="fastener-todo">The hole size and spacing are read off the plate's STL. Which three of the six the jacks use, and what the other three are for, isn't recorded.</span>
+
+Then route every wire through the connections plate so nothing can shift and touch the mains terminals once the box is closed. The connections plate is already fastened at this point (step 2); the cap isn't on yet (step 4).
 
 {% include step.html n="4" title="Close the box" %}
 

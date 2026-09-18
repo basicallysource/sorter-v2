@@ -5,7 +5,7 @@ type: how-to
 section: hardware
 slug: electronics-control-board-housing
 kicker: Electronics — Control board housing
-lede: Closing the control board into its printed housing, with the 40 mm fan on a GPIO-controlled port, and bolting it to the frame.
+lede: Closing the control board into its printed housing, with the 40 mm fan on a GPIO-controlled port and the reset plunger in its lid.
 permalink: /hardware/electronics/installation/control-board-housing/
 author: spencer
 og_image: https://assets.basically.website/sorter-docs/assembly-control-board-housing-housing-angled-w1600-d8c3ed33682d.jpg
@@ -31,10 +31,6 @@ parts_needed:
   - part: scr-m3-12-cs
     qty: 4
   - part: scr-m3-8-cs
-    qty: 2
-  - part: scr-m5-16-shcs
-    qty: 2
-  - part: tnut-m5-2020
     qty: 2
 ---
 
@@ -146,10 +142,6 @@ Lower the cover on, keeping the fan lead clear of the board, and fix it with 4 {
     <img src="https://assets.basically.website/sorter-docs/assembly-control-board-housing-cover-on-base-w1600-a77ec49b9e64.jpg" alt="The cover set down on the base with the housing closed, the fan's lead emerging through the corner cutout, and four countersunk screws lying on the bench beside it ready to go in">
     <figcaption><cite>Photo: Spencer.</cite></figcaption>
   </figure>
-  <figure>
-    <img src="https://assets.basically.website/sorter-docs/assembly-control-board-housing-housing-angled-w1600-d8c3ed33682d.jpg" alt="The finished housing at an angle, showing the honeycomb vent and basically logo on the lid, the plunger standing proud of the surface, and the slots along the right edge that expose the stepper connectors">
-    <figcaption><cite>Photo: Spencer.</cite></figcaption>
-  </figure>
 </div>
 
 {% include step.html n="7" title="Check the reset plunger" %}
@@ -176,19 +168,13 @@ Press the plunger on the lid. You should hear the button click.
   <figcaption><cite>Video: Spencer.</cite></figcaption>
 </figure>
 
-{% include step.html n="8" title="Bolt it to the frame" %}
+## The finished result
 
-The two clamp bosses go onto the 2020 extrusion on 2 {% include fastener.html size="M5" variant="socket-button" length="16" %} screws into 2 {% include fastener.html size="M5" variant="t-nut" text="T-nuts" %} in the extrusion slot. It goes on the [hex frame]({{ '/hardware/assembly/distribution/bin-frame/hex-frame/' | relative_url }}) belonging to the top interface; the [layout render]({{ '/hardware/electronics/installation/' | relative_url }}) on the installation overview shows where it sits relative to the chute stepper.
+The housing closed, with the fan and the reset plunger in the cover and the stepper connectors still reachable through the slots in the wall.
 
-<div class="callout">
-  <p><b>No problem if you forgot them.</b> The {% include fastener.html size="M5" variant="t-nut" text="T-nut" %} this build specifies is the spring-loaded roll-in kind, which drops into the slot anywhere along its length, so it can still go in now without taking the frame apart. See <a href="{{ '/hardware/helpers/t-nuts/' | relative_url }}">Fitting T-nuts</a>.</p>
-</div>
+<figure class="single-figure">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-control-board-housing-housing-angled-w1600-d8c3ed33682d.jpg" alt="The finished housing at an angle, showing the honeycomb vent and basically logo on the lid, the plunger standing proud of the surface, and the slots along the right edge that expose the stepper connectors">
+  <figcaption>The closed housing, from above and to one side. <cite>Photo: Spencer.</cite></figcaption>
+</figure>
 
-<div class="img-row">
-  <figure>
-    <img src="https://assets.basically.website/sorter-docs/assembly-control-board-housing-on-the-extrusion-w1600-813fbb56a0d6.jpg" alt="The finished housing bolted down onto a 2020 aluminium extrusion under the machine's frame, with two socket head screws through its clamp bosses">
-    <figcaption><cite>Photo: Spencer.</cite></figcaption>
-  </figure>
-</div>
-
-Wiring next, on the [wire harness]({{ '/hardware/electronics/' | relative_url }}) page.
+**Bolting it to the frame is on the [installation overview]({{ '/hardware/electronics/installation/' | relative_url }})**. Wiring next, on the [wire harness]({{ '/hardware/electronics/' | relative_url }}) page.

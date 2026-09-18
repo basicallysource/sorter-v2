@@ -11,7 +11,7 @@ author: barthel
 contributors: [spencer]
 og_image: https://assets.basically.website/sorter-parts/psu-24v-350w-full-72bba2c3919b.jpg
 last_verified: 2026-09-18
-tools_needed: ["Hex keys, 2 mm and 2.5 mm", "Screwdriver for the supply's terminal block screws"]
+tools_needed: ["Hex keys, 2 mm and 2.5 mm", "Screwdriver for the supply's M3.5 terminal screws"]
 parts_needed:
   - part: psu-24v-350w
     qty: 1
@@ -52,9 +52,11 @@ The connections plate is populated and wired in your hand, and goes onto the sup
 
 {% include step.html n="1" title="Fit and wire the three jacks" %}
 
-Push each jack through the connections plate from behind and do its nut up on the outside. The plate has six holes; use the top three.
+Push each jack through the connections plate from behind and do its nut up on the outside, finger tight. The plate has six holes in two rows of three: use the top row.
 
 Then land each pigtail on the supply's terminal block, one pigtail per **+V/-V** pair: **7 with 4, 8 with 5, 9 with 6**, the red terminal on the +V screw and the black on the -V screw of the same pair. Each pigtail must keep to one pair.
+
+For each one: back the screw off a few turns, slide the fork terminal in under it, and tighten it down. Mean Well's figure for these M3.5 screws is 8 to 10 kgf&middot;cm, about 0.8 to 1.0 N&middot;m, which is firm rather than hard.
 
 The screw numbers are Mean Well's own, printed on the supply beside the block.
 
@@ -77,8 +79,8 @@ The **IEC C14 inlet, switch + 10 A fuse** is the machine's mains entry and its o
 Push it into the rectangular cutout from the outside so its flange sits on the outer face of the plate. Fasten it with 2 {% include fastener.html size="M3" variant="countersunk" length="8" %} screws, one through each flange hole. The flange is countersunk for them, so the heads finish flush. They cut their own thread in the plate, so run them in until the flange is tight and stop.
 
 <figure class="harness-figure">
-  <img src="https://assets.basically.website/sorter-docs/psu-box-inlet-mounting-full-e34ceb6bf26b.png" alt="The PSU connections plate drawn twice side by side at the same scale. On the left it is bare: a tall rectangular cutout near the top, a small screw hole either side of it, and six round holes below in two columns of three. On the right the IEC C14 inlet switch module sits in the cutout, its flange covering the hole with its rocker, fuse drawer and C14 socket showing. A warning says not to plug a cable into the IEC inlet until the assembly is complete, the wiring is verified and the cap is on.">
-  <figcaption>The connections plate from outside, and the same plate with the inlet in it. <cite>Plate drawn from its STL and the module from its published flange size, both at the same scale, not from a build.</cite></figcaption>
+  <img src="https://assets.basically.website/sorter-docs/psu-box-inlet-mounting-full-9a711b1627f7.png" alt="The PSU connections plate drawn twice, one above the other, the way it sits on the machine: a wide landscape panel with a rectangular cutout on the left, a screw hole above and below it, and six round holes on the right in two rows of three. In the lower drawing the IEC C14 inlet switch module lies on its side in the cutout, C14 socket to the left and illuminated rocker to the right, its flange covering the hole. A warning says not to plug a cable into the inlet until the assembly is complete and the wiring verified.">
+  <figcaption>The connections plate from outside, and the same plate with the inlet in it. The cap closes the top, so that edge is up. <cite>Plate drawn from its STL and the module from its published flange size, both at the same scale, not from a build.</cite></figcaption>
 </figure>
 
 Then land its three leads on screws 1, 2 and 3: **red on 1** (AC/L), **blue on 2** (AC/N), **yellow on 3** (earth). The drawing in step 1 has them too.
@@ -99,7 +101,7 @@ Fasten the PSU connections plate and the PSU back mount to the supply's own case
   <figcaption>The four M4 threads on the back of the supply, and which plate each pair takes. <cite>Manufacturer photo, marked up.</cite></figcaption>
 </figure>
 
-Route every lead through the connections plate so nothing can shift and touch the mains terminals once the box is closed.
+The connections plate is a shallow tray, and the leads lie in it between the terminal block and the panel. Lay them so none of them rests against the mains screws once the cap is on.
 
 {% include step.html n="4" title="Close the box" %}
 

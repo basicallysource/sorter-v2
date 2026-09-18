@@ -30,7 +30,7 @@ tools_needed: [Multimeter, Side cutters or a small screwdriver, "Only if you mak
 
 The [PSU box]({{ '/hardware/electronics/installation/psu-box/' | relative_url }}), the [control board housing]({{ '/hardware/electronics/installation/control-board-housing/' | relative_url }}) and the [Orange Pi mount]({{ '/hardware/electronics/installation/orange-pi-mount/' | relative_url }}) are all bolted to the frame, and every cable is already made. This page plugs them together. Nothing here needs a soldering iron.
 
-If a cable is still missing, [make your own PSU pigtail]({{ '/hardware/electronics/psu-pigtail/' | relative_url }}) and [preparing the LED strip]({{ '/hardware/helpers/led-strip/' | relative_url }}) build two of them, and the [wire harness]({{ '/hardware/electronics/' | relative_url }}) page has the length and gauge of the rest.
+If a cable is still missing, [make your own PSU pigtail]({{ '/hardware/helpers/psu-pigtail/' | relative_url }}) and [preparing the LED strip]({{ '/hardware/helpers/led-strip/' | relative_url }}) build two of them, and the [wire harness]({{ '/hardware/electronics/' | relative_url }}) page has the length and gauge of the rest.
 
 <div class="callout callout-warning">
   <span class="callout-icon" aria-hidden="true">⚠</span>

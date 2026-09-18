@@ -5,3 +5,5 @@
 /hardware/assembly/distribution/chute/mg995-servo/                 /hardware/assembly/distribution/chute/door-module/  301
 # Make your own LED drop was merged into the LED strip helper page (2026-09-16).
 /hardware/electronics/led-drop/                                     /hardware/helpers/led-strip/                        301
+# The PSU output pigtail page moved to the helpers section (2026-09-18).
+/hardware/electronics/psu-pigtail/                                  /hardware/helpers/psu-pigtail/                      301

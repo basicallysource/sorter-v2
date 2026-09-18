@@ -1,12 +1,12 @@
 ---
 layout: default
 title: Make your own PSU output pigtail
-type: reference
+type: how-to
 section: hardware
-slug: electronics-psu-pigtail
-kicker: Electronics — PSU output pigtail
+slug: helper-psu-pigtail
+kicker: Helpers — PSU output pigtail
 lede: Build one of the three DC output pigtails for the PSU box, a panel-mount barrel jack with two crimp spade terminals on its leads.
-permalink: /hardware/electronics/psu-pigtail/
+permalink: /hardware/helpers/psu-pigtail/
 author: effreek
 contributors: [brickcyclealice]
 last_verified: 2026-07-12
@@ -18,7 +18,9 @@ tools_needed: [Side cutters, Wire strippers, Ratcheting crimp tool, Multimeter]
   <p><b>Not validated against a built machine.</b> This is the current spec off the harness drawings, not a checked build procedure. Values marked <b>GUESS</b> in the <a href="{{ '/hardware/electronics/wireviz/' | n }}">WireViz drawing</a> are guesses.</p>
 </div>
 
-The PSU box has three DC outputs, and each one is a short pigtail: two crimp spade terminals onto the PSU terminal block at one end, a panel-mount barrel jack on the other. You need **three per PSU build**, one for each 24V load (the basically board, the USB hub, and the Orange Pi buck).
+The PSU box has three DC outputs, and each one is a short pigtail: two crimp spade terminals at one end, a panel-mount barrel jack at the other. You need **three per PSU build**, one for each 24V load (the basically board, the USB hub, and the Orange Pi buck).
+
+This page builds the cables and stops there. Landing them on the supply's terminal block and mounting the jacks in the box is step 3 of the [PSU box]({{ '/hardware/electronics/installation/psu-box/' | n }}) page.
 
 <div class="callout">
   <p><b>You usually don't have to make these.</b> The panel-mount jacks are commonly sold with the pigtail leads already attached, so buying the jacks with leads and crimping the spade terminals on is less work than building from bare wire. This page is for when you want to make your own.</p>
@@ -32,7 +34,7 @@ The PSU box has three DC outputs, and each one is a short pigtail: two crimp spa
 ## Parts, per pigtail
 
 <dl class="spec-list">
-  <dt>DC barrel jack</dt><dd>5.5 × 2.1 mm female, panel-mount, center-positive, rated ≥ 5 A. <b>2.1 mm pin, not 2.5 mm</b> — the two do not mate.</dd>
+  <dt>DC barrel jack</dt><dd>5.5 × 2.1 mm female, panel-mount, center-positive, rated ≥ 5 A, on a body that fits a <b>12 mm</b> panel hole. <b>2.1 mm pin, not 2.5 mm</b> — the two do not mate.</dd>
   <dt>Spade terminals (×2)</dt><dd>Insulated fork/spade, 18 AWG, M3.5 stud, <b>8 mm wide max</b>. Molex <code>0191310031</code> or equivalent. The 8 mm limit matters: wider terminals will not fit between the LRS-350-24 output screws.</dd>
   <dt>Wire</dt><dd>~4 in of 18 AWG, one red and one black. Skip this if your jack already ships with leads.</dd>
 </dl>
@@ -47,10 +49,8 @@ The PSU box has three DC outputs, and each one is a short pigtail: two crimp spa
 1. Start from ~4 in of 18 AWG red and black wire, or from a panel-mount jack that already has its leads.
 2. Wire the jack **center-positive**: red to the tip (+24V), black to the sleeve (GND). If your jack came with unlabeled leads, check tip vs sleeve with a multimeter before you trust the colors.
 3. Crimp an insulated spade terminal onto the free end of each wire — one on red, one on black.
-4. At the PSU terminal block, the red terminal lands on a <b>+V</b> screw and the black on the matching <b>−V</b> screw. MEAN WELL numbers the LRS-350-24 block so that <b>4–6 are −V</b> and <b>7–9 are +V</b>: pair <b>7 with 4, 8 with 5, 9 with 6</b>, one pigtail per pair.
-5. Panel-mount the jack into the PSU enclosure.
 
-Repeat for all three outputs.
+Repeat for all three outputs. All three are identical, so it does not matter which finished pigtail goes to which load.
 
 ### Crimping the spade terminal
 
@@ -74,6 +74,10 @@ The crimp is the fiddly part. Strip the wire, seat it fully in the terminal barr
     <figcaption>4. Finished: the grip is closed on the jacket and the wire will not pull out. <cite>Photo: Jon.</cite></figcaption>
   </figure>
 </div>
+
+## Where they go
+
+Three finished pigtails are a needed component of the [PSU box]({{ '/hardware/electronics/installation/psu-box/' | n }}). That page has which screw pair each one lands on and how the jacks mount in the box.
 
 ## Reference
 

@@ -5,17 +5,17 @@ type: how-to
 section: hardware
 slug: assembly-classification-camera-lamp
 kicker: Feeder — Classification camera lamp
-lede: A lamp arm finished with the IMX415 4K module, clasped between its two halves and pushed into the ring, with the lamp and its cover over the top. Build one.
+lede: The IMX415 4K module clasped between its two halves, pushed into the ring on the arm, and the arm pushed up into a finished lamp. Build one.
 permalink: /hardware/assembly/feeder/camera-lamp/classification-camera-lamp/
 author: reveryx
 contributors: [spencer, danny, brickcyclealice, barthel]
 og_image: https://assets.basically.website/sorter-docs/camera-lamp-camera-seated-w1600-eede61656118.jpg
 warning: >-
-  **Steps 3 and 4 are not verified against a build.** Steps 1 and 2 are photographed on real
-  builds. Still open: which of the ring's two sockets the clasp is meant to use (step 2); the
-  cover going on, which has no build photograph yet (step 3); and the arm mount's dovetail onto
-  the NEMA bracket (step 4), which a builder has described but nobody has dimensioned or
-  photographed. Everything else is measured off the published STLs. Fill the gaps in as you build.
+  **Step 4 is not verified against a build.** Steps 1 to 3 are photographed on a real build of the
+  feeder lamp, which is this build apart from the camera module. Still open: which of the ring's
+  two sockets the clasp is meant to use (step 2), and the arm mount's dovetail onto the NEMA
+  bracket (step 4), which a builder has described but nobody has dimensioned or photographed.
+  Fill the gaps in as you build.
 parts_needed:
   - part: cam-imx415
     qty: 1
@@ -57,36 +57,51 @@ The camera board sits in the recess in the **Camera clasp top**. Put the **Camer
   <figcaption>The bottom half closed over it, one of the two screws seated. <cite>Photo: Danny.</cite></figcaption>
 </figure>
 
+<figure class="single-figure">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/camera-lamp-camera-in-clasp-no-cable-w1600-79b5a08ea522.jpg" alt="A hand holding the closed camera clasp, the camera board seated in the round grey disc with its ribbon socket empty and a rectangular slot in the plastic beside it">
+  <figcaption>A camera in the clasp. Its cable is not on yet; that goes on in step 4. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+</figure>
+
 {% include step.html n="2" title="Push the clasp into the ring" %}
 
-**Into the ring, no screws.** The clasped camera pushes into the camera lamp ring on the arm. Nothing fastens it: the only screws in this build are the two holding the clasp's own halves together.
+**Into the ring, no screws.** The clasped camera pushes into the camera lamp ring on the end of the arm, with the lamp still off the arm entirely. Nothing fastens it: the only screws in this build are the two holding the clasp's own halves together.
+
+**Push until it sits firmly**, not just until it meets resistance. The next step pushes the arm up inside the lamp, and a clasp that is not fully home lifts out on the way.
 
 The clasp's two halves form a spigot that plugs into a socket in the ring. **The ring has two of these sockets, and which one is intended is not recorded.** Nothing on this page depends on it: use the one that leaves the camera's lead running clear of the arm, and check the lens points straight down before you go on. Which way round the picture arrives is set in software later, not here.
 
-**Expect it to sit loose.** The cover, two steps down, is what traps the clasp and holds the camera in. Until then the camera can lift straight back out, so do not pick the lamp up by it.
+**Expect it to sit loose.** The lamp's cover is what traps the clasp and holds the camera in, and that happens in the next step, once the arm is up inside the lamp. Until then the camera can lift straight back out, so do not pick the arm up by it.
+
+{% include step.html n="3" title="Push the arm up into the lamp" %}
+
+The [lamp arm]({{ '/hardware/assembly/feeder/camera-lamp/lamp-arm/' | relative_url }}) page leaves you a finished lamp: reflector, LED strip and cover. **It keeps its cover on for this.**
+
+<ol class="numbered-steps">
+  <li>Feed the camera's lead up through the rectangular slot near the rim of the cover first, so it is clear before anything is pushed together.</li>
+  <li>Hold the lamp and push the arm's ring up into the middle of the reflector from underneath until it seats.</li>
+</ol>
+
+**That is what holds the camera in.** The clasp is wider than the opening in the middle of the cover, so with the arm home the cover overlaps the clasp's rim and traps it.
+
+<div class="callout callout-warning">
+  <span class="callout-icon" aria-hidden="true">⚠</span>
+  <p><b>It is a tight pass.</b> The clasp is 67.76 mm across and the reflector's bore is 68.0 mm at the top, a quarter of a millimetre all round, so the clasp rubs the whole way up and can lift out of the ring as it goes. If that happens, take the arm back out, push the clasp fully home and try again.</p>
+</div>
 
 <div class="img-row">
   <figure>
-    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-camera-lamp-clasp-in-ring-back-w1600-84825cdaec58.jpg" alt="The clasped camera snapped into the lamp ring, seen from behind: the board's back and its ribbon connector inside the round clasp, with the arm running off to the left">
-    <figcaption>From behind, snapped into the ring. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/camera-lamp-camera-in-ring-from-below-w1600-18f0664f8f5b.jpg" alt="Looking up into the reflector from below: two turns of LED strip round the skirt held by the hooks, the arm coming down through the middle, and the clasped camera seated in the ring at the centre with its lens facing out">
+    <figcaption>From below, with the arm home: the camera seated in the ring at the centre. <cite>Photo: BrickCycleAlice.</cite></figcaption>
   </figure>
   <figure>
-    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-camera-lamp-clasp-in-ring-front-w1600-431110b2f55b.jpg" alt="The same from the front, the lens standing through the opening in the clasp and the two clasp screws above and below it">
-    <figcaption>From the front, lens through the opening. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/camera-lamp-cover-on-cord-through-slot-w1600-9678252fab1b.jpg" alt="The finished lamp from above: the grey cover seated on the reflector, the camera clasp recessed in the central opening, and the cord coming up through the rectangular slot in the cover">
+    <figcaption>Finished: the clasp recessed in the cover's opening, lead out through the slot. <cite>Photo: BrickCycleAlice.</cite></figcaption>
   </figure>
 </div>
 
-{% include step.html n="3" title="Lamp over the top, then the cover" %}
-
-Set the reflector on the arm over the clasped camera, then push the **Lamp outer cover** down over it.
-
-**The lamp is not fastened to the arm at all.** It sits on it under its own weight, which is how it is recorded and how it comes apart again for a print change. The cover is a friction fit too, with no screw hole anywhere.
-
-Order matters here in one place only: the camera has to be in the clasp and the clasp in the ring before the cover goes over the top, because the cover closes around the clasp and is what holds the camera down.
-
 <figure class="single-figure">
   <img class="doc-figure" src="https://assets.basically.website/sorter-docs/camera-lamp-render-top-full-edc4616e7088.png" alt="CAD render of the assembled camera lamp from above: the grey cover with the camera clasp and board in the central opening, a slot near the rim, and the arm coming in from the lower left">
-  <figcaption>Assembled, from above. <cite>Rendered from the part geometry, not from a build. Render: Spencer.</cite></figcaption>
+  <figcaption>The same thing as designed, with the 4K module in place of the one in the photographs. <cite>Rendered from the part geometry, not from a build. Render: Spencer.</cite></figcaption>
 </figure>
 
 {% include step.html n="4" title="Later: hang the arm on the C-channel" %}

@@ -54,6 +54,18 @@ Each entry: what you see → cause → fix → how to verify. For the install pr
 
 ---
 
+## Setup wizard: `No MCU buses found` at Controller Discovery
+
+The wizard's Controller Discovery step lists no controllers, and the issue banner reads `No MCU buses found`.
+
+**Cause:** Discovery only enumerates USB serial devices with the Pico's firmware VID/PID (`2e8a:000a`). A Pico that has never been flashed has empty flash, so it boots into its own USB bootloader and enumerates as an `RPI-RP2` mass-storage device instead. It is invisible to discovery until the control board firmware is on it. This is normal for a freshly built machine, not a fault.
+
+**Fix:** Flash both boards before running the wizard, as [Software setup]({{ '/hardware/assembly/software-setup/' | relative_url }}) describes. For a blank board, go to **Settings → Control board**, tick the **Recovery flash** checkbox (labelled "board is already in bootloader (RPI-RP2), or blank"), pick the release asset for that board, and flash. Do one board at a time. The job mounts the `RPI-RP2` drive itself. Then return to the wizard and press **Rescan**.
+
+**Verify:** `ls /dev/ttyACM*` lists a device per board, and Controller Discovery shows each one with a **Controller** badge.
+
+---
+
 ## Pico boards not detected (`permission denied` on `/dev/ttyACM*`)
 
 **Cause:** udev rule not installed, or your user is not in the `plugdev` group and you are not on the active desktop seat (e.g. headless/SSH session).

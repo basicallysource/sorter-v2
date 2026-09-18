@@ -4971,7 +4971,7 @@
       "category": "Computer",
       "description": "WiFi and Bluetooth for the Orange Pi. Optional.",
       "created_at": "2026-07-18",
-      "updated_at": "2026-07-18",
+      "updated_at": "2026-09-18",
       "sheet_qty": {
         "per_machine": 1
       },
@@ -4998,7 +4998,7 @@
         },
         {
           "label": "Includes",
-          "value": "Antennas"
+          "value": "Antennas, retention screw and washer"
         }
       ],
       "sourcing": {
@@ -5679,6 +5679,858 @@
         ]
       },
       "image_url": "https://assets.basically.website/sorter-parts/buck-24v-5v-usbc-full-1a5bf367214f.jpg"
+    },
+    {
+      "id": "dc-plug-5521-male",
+      "uid": "ky9z",
+      "kind": "cots",
+      "cots": {
+        "type": "connector"
+      },
+      "name": "DC barrel plug, 5.5 x 2.1 mm male",
+      "category": "Wire harness",
+      "description": "The plug on the end of every 24 V lead that goes into a PSU box jack or an LED unplug point. Tip is +24 V and the sleeve is ground. Buy it as a moulded plug already on a short lead and splice to that; a screw-terminal plug you assemble yourself works but is bulkier and comes loose.",
+      "note": "5.5 x 2.5 mm looks identical and does not mate: the 0.4 mm is on the centre pin. Check the pin size on the listing, not the outside diameter.",
+      "created_at": "2026-09-14",
+      "updated_at": "2026-09-14",
+      "image_url": "https://assets.basically.website/sorter-parts/dc-plug-5521-male-full-9cabce9431e7.jpg",
+      "attributes": [
+        {
+          "label": "Size",
+          "value": "5.5 mm outside, 2.1 mm centre pin"
+        },
+        {
+          "label": "Polarity",
+          "value": "Centre positive"
+        },
+        {
+          "label": "Rating",
+          "value": "5 A or better on the three PSU leads"
+        },
+        {
+          "label": "Used on",
+          "value": "W1, both ends of W2, W3, and the three LED pigtails L1p to L3p"
+        }
+      ],
+      "sheet_qty": {
+        "per_machine": 7
+      },
+      "caption": "Seven per machine. W2 takes one at each end.",
+      "docs_page": "/hardware/electronics/",
+      "sourcing": {
+        "vendors": [
+          {
+            "region": "US",
+            "vendor": "JacobsParts",
+            "url": "https://www.jacobsparts.com/items/DCCONN-D",
+            "as_of": "2026-09-14",
+            "note": "DCCONN-D, 6 in lead. Any 5.5 x 2.1 mm centre-positive pigtail does."
+          }
+        ]
+      }
+    },
+    {
+      "id": "dc-jack-5521-panel",
+      "uid": "u38e",
+      "kind": "cots",
+      "cots": {
+        "type": "connector"
+      },
+      "name": "DC barrel jack, 5.5 x 2.1 mm female, panel-mount",
+      "category": "Wire harness",
+      "description": "The three outputs of the PSU box, mounted through its connections plate. Each one is fed by a short 18 AWG pigtail with a spade terminal on each wire, landing on one +V/-V screw pair of the LRS-350-24.",
+      "note": "Buy the jacks with the pigtail leads already attached. Building one from a bare jack and loose wire is more work for the same part, and the leads are the fiddly bit.",
+      "created_at": "2026-09-14",
+      "updated_at": "2026-09-18",
+      "image_url": "https://assets.basically.website/sorter-parts/dc-jack-5521-panel-full-77c46f1a0a2e.jpg",
+      "attributes": [
+        {
+          "label": "Size",
+          "value": "5.5 mm outside, 2.1 mm centre pin"
+        },
+        {
+          "label": "Polarity",
+          "value": "Centre positive: red to the tip, black to the sleeve"
+        },
+        {
+          "label": "Rating",
+          "value": "5 A or better"
+        },
+        {
+          "label": "Lead",
+          "value": "About 4 in of 18 AWG, usually supplied on the jack"
+        },
+        {
+          "label": "Mounting",
+          "value": "Threaded barrel through the PSU connections plate, which is drilled 12 mm"
+        }
+      ],
+      "sheet_qty": {
+        "per_machine": 3
+      },
+      "caption": "One assembled PSU pigtail: the jack, its leads, and a fork terminal on each. Photo: Jon.",
+      "docs_page": "/hardware/helpers/psu-pigtail/"
+    },
+    {
+      "id": "dc-jack-5521-inline",
+      "uid": "ls0v",
+      "kind": "cots",
+      "cots": {
+        "type": "connector",
+        "optional": true
+      },
+      "name": "DC barrel jack, 5.5 x 2.1 mm female, inline",
+      "category": "Wire harness",
+      "description": "The unplug point partway along an LED drop, so a camera lamp can come off without unpicking the board end. One per lamp when the drop is built in two segments.",
+      "note": "Optional on a v1.3 board. The drop can be one continuous 22 AWG pair from the LED header to the strip connector, with no barrel anywhere, and Spencer's built lamp is wired that way. Fit these if you want the lamp to unplug.",
+      "created_at": "2026-09-14",
+      "updated_at": "2026-09-14",
+      "image_url": "https://assets.basically.website/sorter-parts/dc-jack-5521-inline-full-7804080cd0ea.jpg",
+      "attributes": [
+        {
+          "label": "Size",
+          "value": "5.5 mm outside, 2.1 mm centre pin"
+        },
+        {
+          "label": "Polarity",
+          "value": "Centre positive, matching the pigtail that plugs into it"
+        },
+        {
+          "label": "Used on",
+          "value": "LJ1 to LJ3, the LED feeds L1 to L3"
+        }
+      ],
+      "sheet_qty": {
+        "per_machine": 3
+      },
+      "caption": "The unplug point in an LED drop. Skip it and run one continuous pair.",
+      "docs_page": "/hardware/electronics/led-drop/"
+    },
+    {
+      "id": "jst-vhr-2",
+      "uid": "gukn",
+      "kind": "cots",
+      "cots": {
+        "type": "connector"
+      },
+      "name": "JST VH housing, 2-pin (VHR-2)",
+      "category": "Wire harness",
+      "description": "The board end of W1, the 24 V feed into basically board v1.3. It pushes onto J1, the big 2-pin header in the corner of the board, and it is the only connector of that size there. Pin 1 is +24 V and pin 2 is ground.",
+      "note": "VH is 3.96 mm between pins and is much chunkier than the 2.0 mm PH housings the steppers use. The two are not interchangeable and a PH plug will not stay on J1.",
+      "created_at": "2026-09-14",
+      "updated_at": "2026-09-14",
+      "image_url": "https://assets.basically.website/sorter-parts/jst-vhr-2-full-42731782ea88.jpg",
+      "attributes": [
+        {
+          "label": "Series",
+          "value": "JST VH"
+        },
+        {
+          "label": "Pitch",
+          "value": "3.96 mm"
+        },
+        {
+          "label": "Positions",
+          "value": "2, single row"
+        },
+        {
+          "label": "Contacts",
+          "value": "Takes 2 x SVH-21T-P1.1, bought separately"
+        },
+        {
+          "label": "Wire",
+          "value": "16 to 22 AWG through the contact; W1 is 18 AWG"
+        }
+      ],
+      "sheet_qty": {
+        "per_machine": 1
+      },
+      "caption": "The board end of W1. Pin 1 is +24 V.",
+      "docs_page": "/hardware/electronics/",
+      "sourcing": {
+        "vendors": [
+          {
+            "region": "Global",
+            "vendor": "LCSC",
+            "url": "https://www.lcsc.com/product-detail/C157900.html",
+            "as_of": "2026-09-14",
+            "note": "JST VHR-2N, LCSC C157900. Sold singly; kits pairing housings with contacts are usually cheaper."
+          }
+        ]
+      }
+    },
+    {
+      "id": "jst-svh-21t",
+      "uid": "3kex",
+      "kind": "cots",
+      "cots": {
+        "type": "terminal"
+      },
+      "name": "JST VH crimp contact (SVH-21T-P1.1)",
+      "category": "Wire harness",
+      "description": "The two metal contacts that go inside the VHR-2 housing. Crimp one onto each wire of W1, then push them into the back of the shell until they click and will not pull out.",
+      "note": "Buy spares. The first one or two crimps in a series you have not done before usually come out wrong, and a contact cannot be recovered once it is mis-crimped.",
+      "created_at": "2026-09-14",
+      "updated_at": "2026-09-14",
+      "image_url": "https://assets.basically.website/sorter-parts/jst-svh-21t-full-12fe480e1b3f.jpg",
+      "attributes": [
+        {
+          "label": "Series",
+          "value": "JST VH"
+        },
+        {
+          "label": "Wire",
+          "value": "16 to 22 AWG"
+        },
+        {
+          "label": "Goes in",
+          "value": "VHR-2 housing"
+        },
+        {
+          "label": "Per machine",
+          "value": "2, one per conductor of W1"
+        }
+      ],
+      "sheet_qty": {
+        "per_machine": 2
+      },
+      "caption": "Crimp onto the wire first, then push into the shell.",
+      "docs_page": "/hardware/electronics/",
+      "sourcing": {
+        "vendors": [
+          {
+            "region": "Global",
+            "vendor": "LCSC",
+            "url": "https://www.lcsc.com/product-detail/C160349.html",
+            "as_of": "2026-09-14",
+            "note": "JST SVH-21T-P1.1, LCSC C160349."
+          }
+        ]
+      }
+    },
+    {
+      "id": "jst-phr-4",
+      "uid": "frxy",
+      "kind": "cots",
+      "cots": {
+        "type": "connector"
+      },
+      "name": "JST PH housing, 4-pin (PHR-4)",
+      "category": "Wire harness",
+      "description": "The board end of the stepper cables, into a 4-pin JST-PH stepper output on basically board v1.3. Which socket you plug it into is what decides which motor the software drives, so follow the mapping on the docs page rather than guessing.",
+      "note": "Count of 5 follows the harness drawing, which puts the chute cable's board end on a PHR-4 as well. The v1.3 netlist reads the chute as a Dupont header instead, which would make this 4. Unsettled, so buy 5 and have a spare.",
+      "alternative": "The Preciva crimp tool and connector kit (connector-kit-crimp) includes this, along with the crimper, and jst-ph-cable-4p-63cm arrives with one fitted at each end",
+      "created_at": "2026-09-14",
+      "updated_at": "2026-09-14",
+      "image_url": "https://assets.basically.website/sorter-parts/jst-phr-4-full-0556181a4cd7.jpg",
+      "attributes": [
+        {
+          "label": "Series",
+          "value": "JST PH"
+        },
+        {
+          "label": "Pitch",
+          "value": "2.0 mm"
+        },
+        {
+          "label": "Positions",
+          "value": "4, single row"
+        },
+        {
+          "label": "Contacts",
+          "value": "Takes 4 x SPH-002T-P0.5S, bought separately"
+        },
+        {
+          "label": "Pin order",
+          "value": "A2 A1 B1 B2, see the stepper pin map on the order spec page"
+        }
+      ],
+      "sheet_qty": {
+        "per_machine": 5
+      },
+      "caption": "Board end of S1 to S4 and CH.",
+      "docs_page": "/hardware/electronics/",
+      "sourcing": {
+        "vendors": [
+          {
+            "region": "Global",
+            "vendor": "LCSC",
+            "url": "https://www.lcsc.com/product-detail/C111514.html",
+            "as_of": "2026-09-14",
+            "note": "JST PHR-4, LCSC C111514. A mixed PH kit covers this and the PHR-6 and the contacts in one buy."
+          }
+        ]
+      }
+    },
+    {
+      "id": "jst-phr-6",
+      "uid": "qlfa",
+      "kind": "cots",
+      "cots": {
+        "type": "connector"
+      },
+      "name": "JST PH housing, 6-pin (PHR-6)",
+      "category": "Wire harness",
+      "description": "The motor end of the four channel and carousel stepper cables, into the NEMA 17's own 6-pin socket. Only four of the six positions carry a contact.",
+      "note": "Positions 2 and 5 are deliberately left empty. The board's four conductors map 1, 2, 3, 4 to motor positions 1, 4, 3, 6, so this is a crossover cable and the pin order matters. Buying jst-ph-cable-4p-63cm does not remove this: that cable is 4-pin at both ends, so the motor end still needs one of these.",
+      "created_at": "2026-09-14",
+      "updated_at": "2026-09-14",
+      "image_url": "https://assets.basically.website/sorter-parts/jst-phr-6-full-bf8127ef2725.jpg",
+      "attributes": [
+        {
+          "label": "Series",
+          "value": "JST PH"
+        },
+        {
+          "label": "Pitch",
+          "value": "2.0 mm"
+        },
+        {
+          "label": "Positions",
+          "value": "6, of which 4 are populated"
+        },
+        {
+          "label": "Pin order",
+          "value": "A2 C1 B1 A1 C2 B2, positions 2 and 5 empty"
+        },
+        {
+          "label": "Mates with",
+          "value": "The NEMA 17's own PH socket"
+        }
+      ],
+      "sheet_qty": {
+        "per_machine": 4
+      },
+      "caption": "Motor end of S1 to S4. Two positions stay empty.",
+      "docs_page": "/hardware/electronics/",
+      "sourcing": {
+        "vendors": [
+          {
+            "region": "Global",
+            "vendor": "LCSC",
+            "url": "https://www.lcsc.com/product-detail/C157952.html",
+            "as_of": "2026-09-14",
+            "note": "JST PHR-6, LCSC C157952."
+          }
+        ]
+      }
+    },
+    {
+      "id": "jst-sph-002t",
+      "uid": "ysu7",
+      "kind": "cots",
+      "cots": {
+        "type": "terminal"
+      },
+      "name": "JST PH crimp contact (SPH-002T-P0.5S)",
+      "category": "Wire harness",
+      "description": "The contacts inside every PH housing on the machine. Crimp one onto each conductor, then push it into the housing until it latches.",
+      "note": "PH contacts take 24 to 28 AWG only, which is why the stepper cables are 24 AWG and not something heavier. Buy well over the count; these are small and easy to spoil.",
+      "alternative": "The Preciva crimp tool and connector kit (connector-kit-crimp) includes this, along with the crimper. Buying jst-ph-cable-4p-63cm drops the count to 4, the chute's board end only",
+      "created_at": "2026-09-14",
+      "updated_at": "2026-09-14",
+      "image_url": "https://assets.basically.website/sorter-parts/jst-sph-002t-full-020470b7194a.jpg",
+      "attributes": [
+        {
+          "label": "Series",
+          "value": "JST PH"
+        },
+        {
+          "label": "Wire",
+          "value": "24 to 28 AWG"
+        },
+        {
+          "label": "Goes in",
+          "value": "PHR-4 and PHR-6 housings"
+        },
+        {
+          "label": "Per machine",
+          "value": "36: four contacts at each end of S1 to S4, plus four at CH's board end"
+        }
+      ],
+      "sheet_qty": {
+        "per_machine": 36
+      },
+      "caption": "Thirty-six per machine. Buy spares.",
+      "docs_page": "/hardware/electronics/",
+      "sourcing": {
+        "vendors": [
+          {
+            "region": "Global",
+            "vendor": "LCSC",
+            "url": "https://www.lcsc.com/product-detail/C111515.html",
+            "as_of": "2026-09-14",
+            "note": "JST SPH-002T-P0.5S, LCSC C111515."
+          }
+        ]
+      }
+    },
+    {
+      "id": "dupont-housing-3p",
+      "uid": "rf21",
+      "kind": "cots",
+      "cots": {
+        "type": "connector"
+      },
+      "name": "Dupont housing, 1x3 female, 2.54 mm",
+      "category": "Wire harness",
+      "description": "The board end of the chute limit switch cable, onto J5. Only two of the three positions are wired: signal and ground.",
+      "note": "The third position is left empty on purpose, so the plug cannot go onto J5 the wrong way round. Do not fill it.",
+      "alternative": "The Preciva crimp tool and connector kit (connector-kit-crimp) includes this, along with the crimper",
+      "created_at": "2026-09-14",
+      "updated_at": "2026-09-14",
+      "image_url": "https://assets.basically.website/sorter-parts/dupont-housing-3p-full-50d0a6c664ee.jpg",
+      "attributes": [
+        {
+          "label": "Pitch",
+          "value": "2.54 mm"
+        },
+        {
+          "label": "Positions",
+          "value": "3, of which 2 are populated"
+        },
+        {
+          "label": "Goes on",
+          "value": "J5 on basically board v1.3"
+        },
+        {
+          "label": "Contacts",
+          "value": "Standard 2.54 mm Dupont crimps, not supplied with most housing packs"
+        }
+      ],
+      "sheet_qty": {
+        "per_machine": 1
+      },
+      "caption": "Position 3 stays empty; that is what keys it.",
+      "docs_page": "/hardware/electronics/"
+    },
+    {
+      "id": "terminal-fork-m35",
+      "uid": "ui10",
+      "kind": "cots",
+      "cots": {
+        "type": "terminal"
+      },
+      "name": "Insulated fork terminal, M3.5, 18 AWG",
+      "category": "Wire harness",
+      "description": "Crimped onto both wires of each PSU output pigtail, landing under the screws of the LRS-350-24 terminal block. Three pigtails, two terminals each.",
+      "note": "8 mm wide at most. Plenty of fork terminals are wider and simply will not fit between the LRS-350-24's output screws, and the listing rarely gives the width, so go by the stud size: M3.5 or #6.",
+      "created_at": "2026-09-14",
+      "updated_at": "2026-09-18",
+      "image_url": "https://assets.basically.website/sorter-parts/terminal-fork-m35-full-98f7ee7ba1a5.jpg",
+      "attributes": [
+        {
+          "label": "Stud",
+          "value": "M3.5, sold as #6"
+        },
+        {
+          "label": "Wire",
+          "value": "18 AWG, in a 22 to 16 AWG barrel"
+        },
+        {
+          "label": "Width",
+          "value": "8 mm maximum, hard limit"
+        },
+        {
+          "label": "Part",
+          "value": "Molex 0191310031 or equivalent"
+        },
+        {
+          "label": "Per machine",
+          "value": "6: two on each of the three PSU pigtails"
+        }
+      ],
+      "sheet_qty": {
+        "per_machine": 6
+      },
+      "caption": "Six per machine. The 8 mm width limit is the one that bites.",
+      "docs_page": "/hardware/helpers/psu-pigtail/"
+    },
+    {
+      "id": "terminal-qc-187",
+      "uid": "hunw",
+      "kind": "cots",
+      "cots": {
+        "type": "terminal"
+      },
+      "name": "Insulated quick-connect receptacle, #187",
+      "category": "Wire harness",
+      "description": "The switch end of the chute limit switch cable. It pushes straight onto the Omron V-155-1C25's blade tabs, so there is nothing to solder.",
+      "note": "Fully insulated, not the open kind. The switch is SPDT with three tabs and only two are used, so a bare receptacle can touch the spare one.",
+      "created_at": "2026-09-14",
+      "updated_at": "2026-09-14",
+      "image_url": "https://assets.basically.website/sorter-parts/terminal-qc-187-full-1b297cc335ae.jpg",
+      "attributes": [
+        {
+          "label": "Tab",
+          "value": "#187, 4.75 x 0.5 mm"
+        },
+        {
+          "label": "Wire",
+          "value": "22 AWG, in an 18 to 22 AWG barrel"
+        },
+        {
+          "label": "Insulation",
+          "value": "Fully insulated"
+        },
+        {
+          "label": "Fits",
+          "value": "Omron V-155-1C25, the roller lever limit switch"
+        }
+      ],
+      "sheet_qty": {
+        "per_machine": 2
+      },
+      "caption": "Pushes onto the switch tabs. No soldering.",
+      "docs_page": "/hardware/electronics/",
+      "sourcing": {
+        "vendors": [
+          {
+            "region": "US",
+            "vendor": "Vetco",
+            "url": "https://vetco.net/products/sr-fqd-2f_female_quick_disconnect_terminal_-_fully_insulated_-_22-18_awg_-_-187_-_100_pack",
+            "as_of": "2026-09-14",
+            "note": "SR-FQD-2F, 100 pack."
+          }
+        ]
+      }
+    },
+    {
+      "id": "wire-18awg-2c",
+      "uid": "hwr6",
+      "kind": "cots",
+      "cots": {
+        "type": "stock-material",
+        "size": "18 AWG"
+      },
+      "name": "Hook-up wire, 18 AWG, 2-conductor red and black",
+      "category": "Wire harness",
+      "description": "The heavy gauge in the machine: the three PSU output pigtails inside the box, and W1, the 24 V feed to the control board. A bonded red and black pair is easiest, since the polarity is then obvious at both ends.",
+      "note": "You may cut none of this. The panel-mount jacks normally arrive with their 0.102 m (10.2 cm, 4 in) leads attached, which leaves only W1's 0.914 m (91.4 cm, 36 in) to make.",
+      "created_at": "2026-09-14",
+      "updated_at": "2026-09-18",
+      "image_url": "https://assets.basically.website/sorter-parts/wire-18awg-2c-full-3e5bb7dfedfa.jpg",
+      "attributes": [
+        {
+          "label": "Gauge",
+          "value": "18 AWG stranded"
+        },
+        {
+          "label": "Conductors",
+          "value": "2, red and black"
+        },
+        {
+          "label": "Length per machine",
+          "value": "1.22 m (121.9 cm, 48 in) per machine: 3 x 0.102 m (10.2 cm, 4 in) for the PSU pigtails, 0.914 m (91.4 cm, 36 in) for W1"
+        },
+        {
+          "label": "Buy",
+          "value": "One spool covers many machines; the shortest spool sold is plenty"
+        }
+      ],
+      "stock": {
+        "unit_length_mm": 30480,
+        "cut_length_mm": 1219,
+        "pieces_per_unit": 25,
+        "unit_label": "30.5 m (100 ft) spool",
+        "piece_label": "one machine's worth (1.22 m / 121.9 cm / 48 in)"
+      },
+      "sheet_qty": {
+        "per_machine": 1
+      },
+      "caption": "1.22 m a machine, nearly all of it W1.",
+      "docs_page": "/hardware/electronics/",
+      "sourcing": {
+        "vendors": [
+          {
+            "region": "US",
+            "vendor": "BNTECHGO",
+            "url": "https://bntechgo.com/bntechgo-18-gauge-100ft-flexible-2-conductor-parallel-silicone-wire-spool-red-black-highly-resistant-to-200-c-600v-for-single-color-led-strip-extension-lead-wire-stranded-tinned-copper-wire/",
+            "as_of": "2026-09-14",
+            "note": "Any 18 AWG bonded red and black pair does. Shorter spools exist and are enough."
+          }
+        ]
+      }
+    },
+    {
+      "id": "wire-22awg-2c",
+      "uid": "l1js",
+      "kind": "cots",
+      "cots": {
+        "type": "stock-material",
+        "size": "22 AWG"
+      },
+      "name": "Hook-up wire, 22 AWG, 2-conductor red and black",
+      "category": "Wire harness",
+      "description": "Everything lighter than the board feed: W2 to the USB hub, W3 to the buck converter, the three LED drops and their pigtails, and the chute limit switch cable.",
+      "created_at": "2026-09-14",
+      "updated_at": "2026-09-18",
+      "image_url": "https://assets.basically.website/sorter-parts/wire-22awg-2c-full-c5bdc4a8c04e.jpg",
+      "attributes": [
+        {
+          "label": "Gauge",
+          "value": "22 AWG stranded"
+        },
+        {
+          "label": "Conductors",
+          "value": "2, red and black. The drawing gives the limit switch cable as white and black"
+        },
+        {
+          "label": "Length per machine",
+          "value": "4.27 m (426.7 cm, 168 in) per machine: W2 0.305 m (30.5 cm, 12 in), W3 0.152 m (15.2 cm, 6 in), LED feeds 3 x 0.914 m (91.4 cm, 36 in), LED pigtails 3 x 0.152 m (15.2 cm, 6 in), limit switch 0.610 m (61 cm, 24 in)"
+        },
+        {
+          "label": "Note",
+          "value": "22 AWG on W2 and W3 is the harness drawing's guess, not a measured figure. Gauge per segment is an open item on the wire harness page"
+        }
+      ],
+      "stock": {
+        "unit_length_mm": 15240,
+        "cut_length_mm": 4267,
+        "pieces_per_unit": 3,
+        "unit_label": "15.2 m (50 ft) spool",
+        "piece_label": "one machine's worth (4.27 m / 426.7 cm / 168 in)"
+      },
+      "sheet_qty": {
+        "per_machine": 1
+      },
+      "caption": "4.27 m a machine, most of it the three LED drops.",
+      "docs_page": "/hardware/electronics/",
+      "sourcing": {
+        "vendors": [
+          {
+            "region": "US",
+            "vendor": "BNTECHGO",
+            "url": "https://bntechgo.com/bntechgo-22-gauge-50ft-flexible-2-conductor-parallel-silicone-wire-spool-red-black-highly-resistant-to-200-c-600v-for-single-color-led-strip-extension-lead-wire-stranded-tinned-copper-wire/",
+            "as_of": "2026-09-14",
+            "note": "Any 22 AWG bonded red and black pair does."
+          }
+        ]
+      }
+    },
+    {
+      "id": "wire-24awg",
+      "uid": "tb1j",
+      "kind": "cots",
+      "cots": {
+        "type": "stock-material",
+        "size": "24 AWG"
+      },
+      "name": "Hook-up wire, 24 AWG, four colours",
+      "category": "Wire harness",
+      "description": "The stepper cables. Each of the five is a four-wire bundle, and the colours are how you keep the crossover straight: black, blue, green and red, matching the pin map on the order spec page.",
+      "note": "24 AWG is not a choice: it is the heaviest wire the JST PH contacts accept. Do not go up a gauge for these.",
+      "alternative": "Not needed for the channel steppers if you buy jst-ph-cable-4p-63cm, which is 24 AWG already",
+      "created_at": "2026-09-14",
+      "updated_at": "2026-09-18",
+      "image_url": "https://assets.basically.website/sorter-parts/wire-24awg-full-f63b62a78fb9.jpg",
+      "attributes": [
+        {
+          "label": "Gauge",
+          "value": "24 AWG stranded"
+        },
+        {
+          "label": "Colours",
+          "value": "Black, blue, green and red, one per coil lead"
+        },
+        {
+          "label": "Length per machine",
+          "value": "5.02 m (501.6 cm, 197.5 in) of each colour per machine: 4 x 1 m (100 cm, 39.4 in) for S1 to S4, plus 1.016 m (101.6 cm, 40 in) for CH"
+        },
+        {
+          "label": "Buy",
+          "value": "A multi-colour hook-up kit is the usual way; 9 m (30 ft) of each colour does a machine with room over"
+        }
+      ],
+      "stock": {
+        "unit_length_mm": 9000,
+        "cut_length_mm": 5020,
+        "pieces_per_unit": 1,
+        "unit_label": "kit with about 9 m (30 ft) of each colour",
+        "piece_label": "one machine's worth (5.02 m / 501.6 cm / 197.5 in of each of four colours)"
+      },
+      "sheet_qty": {
+        "per_machine": 1
+      },
+      "caption": "Four colours, because S1 to S4 are crossover cables.",
+      "docs_page": "/hardware/electronics/",
+      "sourcing": {
+        "vendors": [
+          {
+            "region": "Global",
+            "vendor": "Plusivo",
+            "url": "https://www.plusivo.com/awg24-silicone-wire-kit/97-plusivo-awg24-hook-up-silicone-wire-kit-600v-stranded-tinned-copper-silicone-wire-of-6-different-colors-x-9-m-30-ft-each.html",
+            "as_of": "2026-09-14",
+            "note": "Six colours x 9 m. Any 24 AWG stranded kit with black, blue, green and red in it does."
+          }
+        ]
+      }
+    },
+    {
+      "id": "sleeving-braided-6mm",
+      "uid": "nwm2",
+      "kind": "cots",
+      "cots": {
+        "type": "stock-material",
+        "size": "1/4 in"
+      },
+      "name": "Braided cable sleeving, 1/4 in",
+      "category": "Wire harness",
+      "description": "Holds each stepper cable's four wires together as one bundle, so a metre of loose wire does not end up spread across the frame.",
+      "note": "The harness drawing calls it PVC sleeving. What is commonly sold is PET braid at the same size, which is what the sourcing link is, and it does the same job. The drawing sleeves the four S bundles only, not CH.",
+      "created_at": "2026-09-14",
+      "updated_at": "2026-09-18",
+      "image_url": "https://assets.basically.website/sorter-parts/sleeving-braided-6mm-full-39f6e9222044.jpg",
+      "attributes": [
+        {
+          "label": "Size",
+          "value": "1/4 in (6 mm) nominal, expandable"
+        },
+        {
+          "label": "Length per machine",
+          "value": "4.0 m (400 cm, 157.5 in) per machine: 1 m (100 cm, 39.4 in) over each of the four S bundles"
+        },
+        {
+          "label": "Material",
+          "value": "PET braid, or PVC as the drawing names it"
+        }
+      ],
+      "stock": {
+        "unit_length_mm": 15240,
+        "cut_length_mm": 4000,
+        "pieces_per_unit": 3,
+        "unit_label": "15.2 m (50 ft) roll",
+        "piece_label": "one machine's worth (4.0 m / 400 cm / 157.5 in)"
+      },
+      "sheet_qty": {
+        "per_machine": 1
+      },
+      "caption": "One roll does three machines.",
+      "docs_page": "/hardware/electronics/",
+      "sourcing": {
+        "vendors": [
+          {
+            "region": "US",
+            "vendor": "Tech Tool Supply",
+            "url": "https://www.techtoolsupply.com/1-4in-Expandable-Sleeving-Black-200ft-p/ptn0.25-ms.htm",
+            "as_of": "2026-09-14",
+            "note": "Techflex Flexo PET, 1/4 in. Any expandable braid at this size does."
+          }
+        ]
+      }
+    },
+    {
+      "id": "connector-kit-crimp",
+      "uid": "9fxb",
+      "kind": "cots",
+      "cots": {
+        "type": "kit",
+        "optional": true
+      },
+      "name": "Crimp tool and connector kit (Dupont, JST-PH, JST-XH)",
+      "category": "Wire harness",
+      "description": "One box instead of several line items: a ratcheting crimper for open-barrel contacts plus 1565 terminals and a spread of Dupont 2.54 mm, JST-PH 2.0 mm and JST-XH 2.5 mm housings. It covers the PH housings and contacts and the Dupont housing this machine needs, and it is the crimp tool the connecting and PSU pigtail pages ask for.",
+      "note": "Read what it does not cover before you rely on it. The housings run 1 to 5 pin, so the 6-pin PHR-6 at the stepper motor end is not in it. There are no VH 3.96 mm housings, though the crimper's range does take the VH contacts. And the die is for non-insulated open-barrel contacts, so it will not crimp the PSU fork terminals or the #187 receptacles, which need an insulated-terminal die.",
+      "created_at": "2026-09-14",
+      "updated_at": "2026-09-14",
+      "image_url": "https://assets.basically.website/sorter-parts/connector-kit-crimp-full-e3e61c2d331b.jpg",
+      "attributes": [
+        {
+          "label": "Crimper",
+          "value": "Ratcheting, 28 to 16 AWG, non-insulated open-barrel contacts"
+        },
+        {
+          "label": "Housings",
+          "value": "Dupont 2.54 mm, JST-PH 2.0 mm, JST-XH 2.5 mm, 1 to 5 pin, male and female"
+        },
+        {
+          "label": "Terminals",
+          "value": "1565 across the three families, in a double-layer case"
+        },
+        {
+          "label": "Replaces",
+          "value": "jst-phr-4, jst-sph-002t and dupont-housing-3p, and the crimp tool in Tools needed"
+        },
+        {
+          "label": "Does not cover",
+          "value": "jst-phr-6 (6-pin), jst-vhr-2 (VH 3.96 mm), terminal-fork-m35 and terminal-qc-187 (insulated die)"
+        }
+      ],
+      "caption": "Covers the PH and Dupont ends, and the crimper. Not the 6-pin or the insulated terminals.",
+      "docs_page": "/hardware/electronics/",
+      "sourcing": {
+        "vendors": [
+          {
+            "region": "US",
+            "vendor": "Amazon",
+            "url": "https://www.amazon.com/dp/B0FD9KGK4G",
+            "affiliate_url": "https://www.amazon.com/dp/B0FD9KGK4G?tag=sorterv2-20",
+            "price": 30.99,
+            "as_of": "2026-09-14",
+            "note": "Preciva 1565-piece kit. Suggested by Jon."
+          }
+        ]
+      }
+    },
+    {
+      "id": "jst-ph-cable-4p-63cm",
+      "uid": "q8tc",
+      "kind": "cots",
+      "cots": {
+        "type": "cable",
+        "optional": true
+      },
+      "name": "JST PH 4-pin cable, 63 cm, connector at both ends",
+      "category": "Wire harness",
+      "description": "A whole channel stepper cable with no crimping: 63 cm of twisted 24 AWG with a 4-pin PHR-4 at each end. One end plugs into the board as it comes. At the other, lift the four contacts out of their housing and re-seat them in a PHR-6 in the crossover order, which needs a pick and no crimp tool.",
+      "note": "Buy a PHR-6 per cable for the motor end; the housing the contacts came out of is then a spare. Contacts are held by a small lance inside the housing: press it back with a fine pick or a sliver of shim and the contact slides out, and it goes back into the PHR-6 until it clicks. Take your time, a bent lance will not retain.",
+      "alternative": "Make the cable from wire-24awg plus a jst-phr-4, a jst-phr-6 and eight jst-sph-002t contacts",
+      "created_at": "2026-09-14",
+      "updated_at": "2026-09-18",
+      "image_url": "https://assets.basically.website/sorter-parts/jst-ph-cable-4p-63cm-full-9f00b9a255c8.jpg",
+      "attributes": [
+        {
+          "label": "Length",
+          "value": "0.63 m (63 cm, 24.8 in) each, 4 per machine = 2.52 m (252 cm, 99.2 in). The drawing says 1 m, so this is the shorter of the two"
+        },
+        {
+          "label": "Wire",
+          "value": "24 AWG twisted, UL 1007, rated 2 A and 100 V. Steppers draw up to 1.5 A a phase"
+        },
+        {
+          "label": "Ends",
+          "value": "4-pin female JST PH (PHR-4) at both ends, 2.0 mm pitch"
+        },
+        {
+          "label": "Colours",
+          "value": "Four: Pololu confirm black on pin 1 and red on pin 2; the other two are blue and yellow, so meter which is which before you load the PHR-6"
+        },
+        {
+          "label": "Crossover",
+          "value": "Board pins 1, 2, 3, 4 go to motor positions 1, 4, 3, 6, with 2 and 5 left empty"
+        },
+        {
+          "label": "Also needed",
+          "value": "One jst-phr-6 per cable. No contacts and no crimp tool"
+        }
+      ],
+      "sheet_qty": {
+        "per_machine": 4
+      },
+      "caption": "One per channel stepper. Move four contacts into a PHR-6 and it is done.",
+      "docs_page": "/hardware/electronics/",
+      "sourcing": {
+        "vendors": [
+          {
+            "region": "US",
+            "vendor": "Pololu",
+            "url": "https://www.pololu.com/product/5627",
+            "price": 4.23,
+            "as_of": "2026-09-14",
+            "note": "Item #5627, $3.89 each at qty 5. Chosen by Jon. The 63 cm is the longest 4-pin PH-to-PH Pololu make."
+          }
+        ]
+      }
     },
     {
       "id": "psu-24v-350w",

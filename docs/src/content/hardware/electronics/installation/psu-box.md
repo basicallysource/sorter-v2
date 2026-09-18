@@ -98,24 +98,24 @@ Push it into the cutout from the outside so its flange sits on the outer face of
   <p><b>No mains cable in the inlet for this step.</b> Screws 1, 2 and 3 are mains and they are exposed until the cap goes on. If the machine has been powered, wait a few seconds after unplugging before you touch the terminal block.</p>
 </div>
 
-Land the inlet's three leads on screws 1, 2 and 3. **The yellow one is the earth and goes on screw 3.** Red and blue go on screws 1 and 2, either way round: the supply's AC input is not polarity-sensitive, and the fuse and the switch are both inside the inlet module. The module's colours are its own and do not follow any national code, so do not read live and neutral from them. Then take one pigtail per +V/-V pair: **7 with 4, 8 with 5, 9 with 6**, red terminal on the +V screw and black on the -V screw of the same pair.
+Land the inlet's three leads on screws 1, 2 and 3: **red on 1** (AC/L), **blue on 2** (AC/N), **yellow on 3**, which is the earth and the one that has to be right. Red and blue are the two AC poles, and the supply does not mind which way round they go: its AC input is not polarity-sensitive and the fuse and the switch are both inside the inlet module. Then take one pigtail per +V/-V pair: **7 with 4, 8 with 5, 9 with 6**, red terminal on the +V screw and black on the -V screw of the same pair.
 
 <figure class="harness-figure">
-  <img src="https://assets.basically.website/sorter-docs/psu-box-terminal-map-full-c373a1f9e370.png" alt="Diagram of the Mean Well LRS-350-24 seen from above, its nine-way terminal block down the left edge numbered 1 at the bottom to 9 at the top. Red leads run from screws 9, 8 and 7 and black leads from 6, 5 and 4, pairing 9 with 6, 8 with 5 and 7 with 4 into three barrel jacks labelled PJ3 to the Orange Pi buck, PJ2 to the powered USB hub, and PJ1 to the basically board. Below them the IEC C14 inlet switch module is drawn upright with its illuminated rocker, fuse drawer and C14 socket, and its three factory leads run to screws 1, 2 and 3, labelled AC/L, AC/N and earth: the yellow lead to screw 3, which is the earth, and the red and blue to screws 1 and 2, bracketed as interchangeable. A warning band says not to plug a cable into the IEC inlet until the assembly is complete, the wiring is verified and the cap is on.">
-  <figcaption>Every lead that lands on the block, and the screw it lands on. <cite>Drawn from the Mean Well LRS-350 spec sheet, the inlet's catalog entry and the harness drawings, not from a build.</cite></figcaption>
+  <img src="https://assets.basically.website/sorter-docs/psu-box-terminal-map-full-81629ce6a8e1.png" alt="Diagram of the Mean Well LRS-350-24 seen from above, its nine-way terminal block down the left edge numbered 1 at the bottom to 9 at the top. Red leads run from screws 9, 8 and 7 and black leads from 6, 5 and 4, pairing 9 with 6, 8 with 5 and 7 with 4 into three barrel jacks labelled PJ3 to the Orange Pi buck, PJ2 to the powered USB hub, and PJ1 to the basically board. Below them the IEC C14 inlet switch module is drawn upright with its illuminated rocker, fuse drawer and C14 socket, and its three factory leads run to screws 1, 2 and 3, labelled AC/L, AC/N and earth: red to screw 1 as the live, blue to screw 2 as the neutral, and yellow to screw 3 as the earth. A warning band says not to plug a cable into the IEC inlet until the assembly is complete, the wiring is verified and the cap is on.">
+  <figcaption>Every lead that lands on the block, and the screw it lands on. <cite>Drawn from the Mean Well LRS-350 spec sheet, the inlet's catalog entry and the harness drawings.</cite></figcaption>
 </figure>
 
 All three +V screws are the same rail inside the supply, and so are all three -V screws, so the pairing is about splitting the current rather than about which load goes where. What matters is that each pigtail keeps to one pair.
 
 Tug-test every connection once they are all on.
 
-Mount the three jacks in the connections plate. It is drilled with six 12 mm holes, two columns of three, 16 mm apart across and 20 mm apart down; the jack body goes behind the plate and its nut does up on the outside.
+Mount the three jacks in the connections plate. It is drilled with six 12 mm holes, two columns of three, and the three you use are the top three. The jack body goes behind the plate and its nut does up on the outside.
 
 Then route every wire through the connections plate so nothing can shift and touch the mains terminals once the box is closed. The connections plate is already fastened at this point (step 1) and the inlet is in it (step 2); the cap isn't on yet (step 4).
 
 {% include step.html n="4" title="Close the box" %}
 
-Fit the cap. It carries no screws of its own — its STL has no case-screw holes, and its footprint sits directly over the connections plate's face, which reads as a friction or snap fit rather than a fastened one. The box is closed before the machine sees mains.
+Fit the cap. It takes no screws and nothing else holds it: it sits on top, resting on the connections plate at one end and against the supply at the other. The box is closed before the machine sees mains.
 
 <div class="img-placeholder">Image coming</div>
 

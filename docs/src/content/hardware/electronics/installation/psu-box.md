@@ -68,9 +68,16 @@ One DC output pigtail per +V/-V pair: 7 with 4, 8 with 5, 9 with 6. The full spe
 
 {% include step.html n="1" title="Fit the printed parts to the supply" %}
 
-Fasten the PSU back mount and the PSU connections plate to the supply's case with the 4 {% include fastener.html size="M4" variant="countersunk" length="6" %} screws, before wiring: the connections plate's cable routing needs to be in place first.
+Fasten the PSU back mount and the PSU connections plate to the supply's own case with the 4 {% include fastener.html size="M4" variant="countersunk" length="6" %} screws, two into each plate. Do this before wiring: the connections plate's cable routing needs to be in place first.
 
-Which part takes which screw isn't fully recorded, but the parts' own STLs answer most of it: the back mount has one clearance hole into the case (at the end away from the terminal block, the same end that bolts to the frame in step 5), and the connections plate has two, spread along the case nearer the terminal-block end. That's three of the four screws. The PSU box cap's STL has no case-screw holes at all, so it isn't fastened here despite this step covering all three parts in the parts list; see step 4. <span class="fastener-todo">Read from the STLs, not confirmed against a built box — worth checking against a real assembly, and the fourth screw's hole isn't accounted for either way.</span>
+The supply has four M4 threads in its case, in a 150 × 50 mm rectangle, two at each end.
+
+<ol class="numbered-steps">
+  <li><b>PSU connections plate</b>, on the end the terminal block is on. This is the plate the mains inlet and the three output jacks go through.</li>
+  <li><b>PSU back mount</b>, on the opposite end, which is the end that bolts to the frame in step 5. Its semicircular cutout, 60 mm across, leaves the supply's own fan clear.</li>
+</ol>
+
+**The PSU box cap takes none of the four.** It has no case-screw holes at all; see step 4.
 
 <div class="img-placeholder">Image coming</div>
 

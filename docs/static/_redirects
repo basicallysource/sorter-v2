@@ -5,3 +5,5 @@
 /hardware/assembly/distribution/chute/mg995-servo/                 /hardware/assembly/distribution/chute/door-module/  301
 # Make your own LED drop was merged into the LED strip helper page (2026-09-16).
 /hardware/electronics/led-drop/                                     /hardware/helpers/led-strip/                        301
+# Connecting the components moved up a level, out of Installing the electronics (2026-09-18).
+/hardware/electronics/installation/connecting/                      /hardware/electronics/connecting/                   301

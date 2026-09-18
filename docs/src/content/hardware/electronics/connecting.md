@@ -6,7 +6,7 @@ section: hardware
 slug: electronics-connecting
 kicker: Electronics — Connecting the components
 lede: Every cable between the PSU, the control board and the Orange Pi, and the socket each end goes into.
-permalink: /hardware/electronics/installation/connecting/
+permalink: /hardware/electronics/connecting/
 author: daddyosbricksbill
 contributors: [spencer, effreek, brickcyclealice]
 warning: >-

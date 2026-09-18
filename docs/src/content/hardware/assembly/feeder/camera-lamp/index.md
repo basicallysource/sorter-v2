@@ -49,4 +49,4 @@ Each page ends in one of these.
   </figure>
 </div>
 
-Each lamp's strip is plugged into the board on [connecting the components]({{ '/hardware/electronics/installation/connecting/' | relative_url }}), and the camera is on the [electronics]({{ '/hardware/electronics/' | relative_url }}) page. See [arranging C-channels]({{ '/hardware/assembly/feeder/arranging-c-channels/' | relative_url }}) for how the channels themselves sit together.
+Each lamp's strip is plugged into the board on [connecting the components]({{ '/hardware/electronics/connecting/' | relative_url }}), and the camera is on the [electronics]({{ '/hardware/electronics/' | relative_url }}) page. See [arranging C-channels]({{ '/hardware/assembly/feeder/arranging-c-channels/' | relative_url }}) for how the channels themselves sit together.

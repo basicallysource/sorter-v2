@@ -10,10 +10,10 @@ permalink: /hardware/electronics/installation/
 author: barthel
 contributors: [spencer]
 warning: >-
-  **Mixed.** The control board pages and the Orange Pi mount page come from real builds. The PSU
-  box page is an AI-generated first draft written from the [parts
-  calculator](https://parts-calculator.basically.website/assembly), not from a build: the parts
-  are real, the steps are not checked. Gaps are marked in place. Correct them as you build.
+  **Mixed.** The control board pages and the Orange Pi mount page come from real builds. On the PSU
+  box page the mains inlet step comes from one too; the rest of it is written from the [parts
+  calculator](https://parts-calculator.basically.website/assembly) rather than from a build, with
+  its parts real and its steps unchecked. Gaps are marked in place. Correct them as you build.
 
   One of these steps (PSU box) involves wiring mains voltage. Read it fully before starting, and
   keep the unit unplugged while you work on it.

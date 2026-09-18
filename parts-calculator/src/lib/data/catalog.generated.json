@@ -22589,7 +22589,7 @@
 			"description": "WiFi and Bluetooth for the Orange Pi. Optional.",
 			"note": null,
 			"created_at": "2026-07-18",
-			"updated_at": "2026-07-18",
+			"updated_at": "2026-09-18",
 			"attributes": [
 				{
 					"label": "Chip",
@@ -22613,7 +22613,7 @@
 				},
 				{
 					"label": "Includes",
-					"value": "Antennas"
+					"value": "Antennas, retention screw and washer"
 				}
 			],
 			"sheet_qty": {

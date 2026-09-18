@@ -4971,7 +4971,7 @@
       "category": "Computer",
       "description": "WiFi and Bluetooth for the Orange Pi. Optional.",
       "created_at": "2026-07-18",
-      "updated_at": "2026-07-18",
+      "updated_at": "2026-09-18",
       "sheet_qty": {
         "per_machine": 1
       },
@@ -4998,7 +4998,7 @@
         },
         {
           "label": "Includes",
-          "value": "Antennas"
+          "value": "Antennas, retention screw and washer"
         }
       ],
       "sourcing": {

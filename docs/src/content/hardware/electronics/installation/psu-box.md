@@ -119,4 +119,10 @@ Fit the cap. It takes no screws and nothing else holds it: it sits on top, resti
 
 <div class="img-placeholder">Image coming</div>
 
-The box is finished. **Bolting it to the frame is on the [installation overview]({{ '/hardware/electronics/installation/' | relative_url }})**. Everything that plugs into it is on the [wire harness]({{ '/hardware/electronics/' | relative_url }}) page.
+## The finished result
+
+The supply with both printed plates bolted to its back, the mains inlet in the connections plate, the three jacks beside it and every lead landed on the terminal block. Shown with the cap off, because with it on there is nothing to see.
+
+<div class="img-placeholder">Image coming: the supply on the bench, both plates on, the inlet and the three jacks in the connections plate, cap off</div>
+
+**Bolting it to the frame is on the [installation overview]({{ '/hardware/electronics/installation/' | relative_url }})**. Everything that plugs into it is on the [wire harness]({{ '/hardware/electronics/' | relative_url }}) page.

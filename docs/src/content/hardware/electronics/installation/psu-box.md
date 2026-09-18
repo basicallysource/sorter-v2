@@ -81,7 +81,7 @@ Push it into the rectangular cutout from the outside so its flange sits on the o
   <figcaption>The connections plate from outside, and the same plate with the inlet in it. <cite>Plate drawn from its STL and the module from its published flange size, both at the same scale, not from a build.</cite></figcaption>
 </figure>
 
-Then land its three leads on screws 1, 2 and 3: **red on 1** (AC/L), **blue on 2** (AC/N), **yellow on 3**, which is the earth and the one that has to be right. The drawing in step 1 has them too.
+Then land its three leads on screws 1, 2 and 3: **red on 1** (AC/L), **blue on 2** (AC/N), **yellow on 3** (earth). Those three are fixed, not a choice. The drawing in step 1 has them too.
 
 {% include step.html n="3" title="Fasten the plates to the supply" %}
 

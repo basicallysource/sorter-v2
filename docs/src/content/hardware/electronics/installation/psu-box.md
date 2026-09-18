@@ -42,16 +42,6 @@ The fasteners and quantities in the parts list come from the parts calculator an
 
 {% include fastener-legend.html %}
 
-Several steps below refer to the supply's terminal block by screw number. Mean Well numbers them itself, and this is the assignment:
-
-<dl class="spec-list">
-  <dt>1, 2, 3</dt><dd>AC/L, AC/N, FG (earth)</dd>
-  <dt>4, 5, 6</dt><dd>DC output -V</dd>
-  <dt>7, 8, 9</dt><dd>DC output +V</dd>
-</dl>
-
-One DC output pigtail per +V/-V pair: 7 with 4, 8 with 5, 9 with 6. The full spec and the terminal sizes are on the [wire harness]({{ '/hardware/electronics/' | relative_url }}) page, and [make your own PSU output pigtail]({{ '/hardware/helpers/psu-pigtail/' | relative_url }}) builds the cables.
-
 <div class="callout callout-warning">
   <span class="callout-icon" aria-hidden="true">⚠</span>
   <p><b>Until this box is finished it has exposed mains wiring.</b> Observe basic electrical safety precautions: do not plug a cable into the IEC inlet until the assembly is complete, the wiring is verified and the cap is on.</p>
@@ -99,10 +89,12 @@ Push it into the cutout from the outside so its flange sits on the outer face of
   <p><b>No mains cable in the inlet for this step.</b> Screws 1, 2 and 3 are mains and they are exposed until the cap goes on. If the machine has been powered, wait a few seconds after unplugging before you touch the terminal block.</p>
 </div>
 
+The screw numbers here are Mean Well's own, printed on the supply beside the block.
+
 Land the inlet's three leads on screws 1, 2 and 3: **red on 1** (AC/L), **blue on 2** (AC/N), **yellow on 3**, which is the earth and the one that has to be right. Red and blue are the two AC poles, and the supply does not mind which way round they go: its AC input is not polarity-sensitive and the fuse and the switch are both inside the inlet module. Then take one pigtail per +V/-V pair: **7 with 4, 8 with 5, 9 with 6**, red terminal on the +V screw and black on the -V screw of the same pair.
 
 <figure class="harness-figure">
-  <img src="https://assets.basically.website/sorter-docs/psu-box-terminal-map-full-81629ce6a8e1.png" alt="Diagram of the Mean Well LRS-350-24 seen from above, its nine-way terminal block down the left edge numbered 1 at the bottom to 9 at the top. Red leads run from screws 9, 8 and 7 and black leads from 6, 5 and 4, pairing 9 with 6, 8 with 5 and 7 with 4 into three barrel jacks labelled PJ3 to the Orange Pi buck, PJ2 to the powered USB hub, and PJ1 to the basically board. Below them the IEC C14 inlet switch module is drawn upright with its illuminated rocker, fuse drawer and C14 socket, and its three factory leads run to screws 1, 2 and 3, labelled AC/L, AC/N and earth: red to screw 1 as the live, blue to screw 2 as the neutral, and yellow to screw 3 as the earth. A warning band says not to plug a cable into the IEC inlet until the assembly is complete, the wiring is verified and the cap is on.">
+  <img src="https://assets.basically.website/sorter-docs/psu-box-terminal-map-full-81629ce6a8e1.png" alt="Diagram of the Mean Well LRS-350-24 seen from above, its nine-way terminal block down the left edge numbered 1 at the bottom to 9 at the top, the numbers being Mean Well's own and printed on the supply. Red leads run from screws 9, 8 and 7 and black leads from 6, 5 and 4, pairing 9 with 6, 8 with 5 and 7 with 4 into three barrel jacks labelled PJ3 to the Orange Pi buck, PJ2 to the powered USB hub, and PJ1 to the basically board. Below them the IEC C14 inlet switch module is drawn upright with its illuminated rocker, fuse drawer and C14 socket, and its three factory leads run to screws 1, 2 and 3, labelled AC/L, AC/N and earth: red to screw 1 as the live, blue to screw 2 as the neutral, and yellow to screw 3 as the earth. A warning band says not to plug a cable into the IEC inlet until the assembly is complete, the wiring is verified and the cap is on.">
   <figcaption>Every lead that lands on the block, and the screw it lands on. <cite>Drawn from the Mean Well LRS-350 spec sheet, the inlet's catalog entry and the harness drawings.</cite></figcaption>
 </figure>
 

@@ -31,10 +31,6 @@ parts_needed:
     qty: 1
   - part: scr-m4-6-cs
     qty: 4
-  - part: scr-m5-12-shcs
-    qty: 2
-  - part: tnut-m5-2020
-    qty: 2
 ---
 
 <div class="prep-item">
@@ -75,7 +71,7 @@ The supply has four M4 threads in its case, in a 150 × 50 mm rectangle, two at 
 
 <ol class="numbered-steps">
   <li><b>PSU connections plate</b>, on the end the terminal block is on. This is the plate the mains inlet and the three output jacks go through.</li>
-  <li><b>PSU back mount</b>, on the opposite end, which is the end that bolts to the frame in step 5. Its semicircular cutout, 60 mm across, leaves the supply's own fan clear.</li>
+  <li><b>PSU back mount</b>, on the opposite end, which is the end that bolts to the frame. Its semicircular cutout, 60 mm across, leaves the supply's own fan clear.</li>
 </ol>
 
 **The PSU box cap takes none of the four.** It has no case-screw holes at all; see step 4.
@@ -129,14 +125,4 @@ Fit the cap. It carries no screws of its own — its STL has no case-screw holes
 
 <div class="img-placeholder">Image coming</div>
 
-{% include step.html n="5" title="Bolt the box to the frame" %}
-
-The box hangs off the 2020 frame on 2 {% include fastener.html size="M5" variant="socket-button" length="12" %} screws into 2 {% include fastener.html size="M5" variant="t-nut" text="T-nuts" %} in the extrusion slot. It goes on the [hex frame]({{ '/hardware/assembly/distribution/bin-frame/hex-frame/' | relative_url }}) belonging to the top interface; the [layout render]({{ '/hardware/electronics/installation/' | relative_url }}) on the installation overview shows where it sits relative to the chute stepper.
-
-<div class="callout">
-  <p><b>No problem if you forgot them.</b> The {% include fastener.html size="M5" variant="t-nut" text="T-nut" %} this build specifies is the spring-loaded roll-in kind, which drops into the slot anywhere along its length, so it can still go in now without taking the frame apart. See <a href="{{ '/hardware/helpers/t-nuts/' | relative_url }}">Fitting T-nuts</a>.</p>
-</div>
-
-<div class="img-placeholder">Image coming</div>
-
-The PSU box is now complete. Everything that plugs into it is on the [wire harness]({{ '/hardware/electronics/' | relative_url }}) page.
+The box is finished. **Bolting it to the frame is on the [installation overview]({{ '/hardware/electronics/installation/' | relative_url }})**. Everything that plugs into it is on the [wire harness]({{ '/hardware/electronics/' | relative_url }}) page.

@@ -5,7 +5,7 @@ type: how-to
 section: hardware
 slug: helper-chute-stepper-lead
 kicker: Helpers — Chute stepper lead
-lede: "The only stepper cable you build: four bare motor leads into a 4-pin housing, in the right coil order. One per machine."
+lede: The only stepper cable you build. Four bare motor leads into a 4-pin housing, in the right coil order. One per machine.
 permalink: /hardware/helpers/chute-stepper-lead/
 author: effreek
 contributors: [spencer]

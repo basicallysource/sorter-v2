@@ -9,7 +9,7 @@ slug: sorter-camera-calibration
 kicker: Sorter — Operate
 lede: Set up focus, exposure, and color accuracy for the classification and feeder cameras. Do this once per camera or after swapping hardware.
 permalink: /sorter/camera-calibration/
-last_verified: 2026-08-31
+last_verified: 2026-09-18
 ---
 
 Camera calibration has two stages: **focus** (mechanical, done by hand) and **color** (automated via the Settings UI). Both matter — a soft image kills detection accuracy, and wrong color balance drifts classification.
@@ -45,6 +45,11 @@ This preview isn't sized to print, it's just scaled to fit the column. Click it 
 For feeder cameras, place the chart on the C-channel belt at the detection point and repeat.
 
 ## Color calibration
+
+<div class="callout callout-warning">
+  <span class="callout-icon" aria-hidden="true">⚠</span>
+  <p><b>Color calibration is switched off in the current software.</b> No <b>Calibrate</b> button appears in Settings and no frames are corrected on any camera. Focus calibration above is unaffected, and any profile already saved on a machine is kept and applies again if it is switched back on.</p>
+</div>
 
 Color calibration uses a **6-color LEGO reference plate**, not a commercial color checker, and runs automatically from the UI.
 

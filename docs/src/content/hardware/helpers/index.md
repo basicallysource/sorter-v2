@@ -17,4 +17,5 @@ contributors: [barthel]
 - **[Installing heat inserts]({{ '/hardware/helpers/heat-inserts/' | relative_url }})**
 - **[Fitting T-nuts]({{ '/hardware/helpers/t-nuts/' | relative_url }})**
 - **[Preparing the LED strip]({{ '/hardware/helpers/led-strip/' | relative_url }})**
+- **[Fitting the WiFi module]({{ '/hardware/helpers/wifi-module/' | relative_url }})**
 - **[Make your own PSU output pigtail]({{ '/hardware/helpers/psu-pigtail/' | relative_url }})**

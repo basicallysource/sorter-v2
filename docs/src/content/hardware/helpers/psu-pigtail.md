@@ -10,6 +10,11 @@ permalink: /hardware/helpers/psu-pigtail/
 author: effreek
 contributors: [brickcyclealice]
 last_verified: 2026-07-12
+parts_needed:
+  - part: dc-jack-5521-panel
+    qty: 1
+  - part: terminal-fork-m35
+    qty: 2
 tools_needed: [Wire strippers, "Ratcheting crimp tool, or ordinary pliers", Multimeter]
 ---
 
@@ -24,14 +29,7 @@ The PSU box has three DC outputs. Each one is a short pigtail: a panel-mount bar
   <figcaption>One finished pigtail: the jack, its red +24 V and black ground leads, and an insulated fork terminal crimped on each. <cite>Photo: Jon.</cite></figcaption>
 </figure>
 
-## Parts
-
-**A machine takes 3 jacks and 6 fork terminals.** The list below is one pigtail's worth.
-
-<dl class="spec-list">
-  <dt>DC barrel jack (×1)</dt><dd>5.5 × 2.1 mm female, panel-mount, centre-positive, rated 5 A or better, with its leads already attached: about 100 mm (4 in) of 18 AWG, red and black. The body fits a <b>12 mm</b> panel hole. <b>2.1 mm pin, not 2.5 mm</b> — the two do not mate.</dd>
-  <dt>Fork terminals (×2)</dt><dd>Insulated fork terminal, 18 AWG, M3.5 stud, sold as fork or spade and often listed as #6. <b>8 mm wide at most.</b> Molex <code>0191310031</code> or equivalent. The width is the catch: plenty of them are wider and will not fit between the LRS-350-24's output screws, and the listing rarely gives the width, so go by the stud size.</dd>
-</dl>
+**A machine takes 3 jacks and 6 fork terminals**, so the list above is one pigtail's worth. The jack's **2.1 mm pin** is the thing to check when you buy: a 2.5 mm one looks identical and does not mate.
 
 ## Build it
 

@@ -23797,9 +23797,9 @@
 			"name": "Hook-up wire, 18 AWG, 2-conductor red and black",
 			"category": "Wire harness",
 			"description": "The heavy gauge in the machine: the three PSU output pigtails inside the box, and W1, the 24 V feed to the control board. A bonded red and black pair is easiest, since the polarity is then obvious at both ends.",
-			"note": "You may cut none of this. The panel-mount jacks normally arrive with their 4 in leads attached, which leaves only W1's 36 in to make.",
+			"note": "You may cut none of this. The panel-mount jacks normally arrive with their 0.102 m (10.2 cm, 4 in) leads attached, which leaves only W1's 0.914 m (91.4 cm, 36 in) to make.",
 			"created_at": "2026-09-14",
-			"updated_at": "2026-09-14",
+			"updated_at": "2026-09-18",
 			"attributes": [
 				{
 					"label": "Gauge",
@@ -23811,7 +23811,7 @@
 				},
 				{
 					"label": "Length per machine",
-					"value": "48 in per machine: 3 x 4 in for the PSU pigtails, 36 in for W1"
+					"value": "1.22 m (121.9 cm, 48 in) per machine: 3 x 0.102 m (10.2 cm, 4 in) for the PSU pigtails, 0.914 m (91.4 cm, 36 in) for W1"
 				},
 				{
 					"label": "Buy",
@@ -23826,8 +23826,8 @@
 				"unit_length_mm": 30480,
 				"cut_length_mm": 1219,
 				"pieces_per_unit": 25,
-				"unit_label": "100 ft (30.5 m) spool",
-				"piece_label": "one machine's worth (48 in)"
+				"unit_label": "30.5 m (100 ft) spool",
+				"piece_label": "one machine's worth (1.22 m / 121.9 cm / 48 in)"
 			},
 			"sourcing": {
 				"vendors": [
@@ -23841,7 +23841,7 @@
 				]
 			},
 			"alternative": null,
-			"caption": "48 in a machine, nearly all of it W1.",
+			"caption": "1.22 m a machine, nearly all of it W1.",
 			"docs_page": "/hardware/electronics/",
 			"conflicts": null,
 			"image": "https://assets.basically.website/sorter-parts/wire-18awg-2c-full-3e5bb7dfedfa.jpg"
@@ -23859,7 +23859,7 @@
 			"description": "Everything lighter than the board feed: W2 to the USB hub, W3 to the buck converter, the three LED drops and their pigtails, and the chute limit switch cable.",
 			"note": null,
 			"created_at": "2026-09-14",
-			"updated_at": "2026-09-14",
+			"updated_at": "2026-09-18",
 			"attributes": [
 				{
 					"label": "Gauge",
@@ -23867,11 +23867,11 @@
 				},
 				{
 					"label": "Conductors",
-					"value": "2, red and black"
+					"value": "2, red and black. The drawing gives the limit switch cable as white and black"
 				},
 				{
 					"label": "Length per machine",
-					"value": "168 in (14 ft) per machine: W2 12 in, W3 6 in, LED feeds 3 x 36 in, LED pigtails 3 x 6 in, limit switch 24 in"
+					"value": "4.27 m (426.7 cm, 168 in) per machine: W2 0.305 m (30.5 cm, 12 in), W3 0.152 m (15.2 cm, 6 in), LED feeds 3 x 0.914 m (91.4 cm, 36 in), LED pigtails 3 x 0.152 m (15.2 cm, 6 in), limit switch 0.610 m (61 cm, 24 in)"
 				},
 				{
 					"label": "Note",
@@ -23886,8 +23886,8 @@
 				"unit_length_mm": 15240,
 				"cut_length_mm": 4267,
 				"pieces_per_unit": 3,
-				"unit_label": "50 ft (15.2 m) spool",
-				"piece_label": "one machine's worth (168 in)"
+				"unit_label": "15.2 m (50 ft) spool",
+				"piece_label": "one machine's worth (4.27 m / 426.7 cm / 168 in)"
 			},
 			"sourcing": {
 				"vendors": [
@@ -23901,7 +23901,7 @@
 				]
 			},
 			"alternative": null,
-			"caption": "14 ft a machine, most of it the three LED drops.",
+			"caption": "4.27 m a machine, most of it the three LED drops.",
 			"docs_page": "/hardware/electronics/",
 			"conflicts": null,
 			"image": "https://assets.basically.website/sorter-parts/wire-22awg-2c-full-c5bdc4a8c04e.jpg"
@@ -23919,7 +23919,7 @@
 			"description": "The stepper cables. Each of the five is a four-wire bundle, and the colours are how you keep the crossover straight: black, blue, green and red, matching the pin map on the order spec page.",
 			"note": "24 AWG is not a choice: it is the heaviest wire the JST PH contacts accept. Do not go up a gauge for these.",
 			"created_at": "2026-09-14",
-			"updated_at": "2026-09-14",
+			"updated_at": "2026-09-18",
 			"attributes": [
 				{
 					"label": "Gauge",
@@ -23931,11 +23931,11 @@
 				},
 				{
 					"label": "Length per machine",
-					"value": "About 5 m of each colour per machine: 4 x 1 m for S1 to S4, plus 40 in for CH"
+					"value": "5.02 m (501.6 cm, 197.5 in) of each colour per machine: 4 x 1 m (100 cm, 39.4 in) for S1 to S4, plus 1.016 m (101.6 cm, 40 in) for CH"
 				},
 				{
 					"label": "Buy",
-					"value": "A multi-colour hook-up kit is the usual way; 9 m or 30 ft of each colour does a machine with room over"
+					"value": "A multi-colour hook-up kit is the usual way; 9 m (30 ft) of each colour does a machine with room over"
 				}
 			],
 			"sheet_qty": {
@@ -23947,7 +23947,7 @@
 				"cut_length_mm": 5020,
 				"pieces_per_unit": 1,
 				"unit_label": "kit with about 9 m (30 ft) of each colour",
-				"piece_label": "one machine's worth (about 5 m of each of four colours)"
+				"piece_label": "one machine's worth (5.02 m / 501.6 cm / 197.5 in of each of four colours)"
 			},
 			"sourcing": {
 				"vendors": [
@@ -23977,9 +23977,9 @@
 			"name": "Braided cable sleeving, 1/4 in",
 			"category": "Wire harness",
 			"description": "Holds each stepper cable's four wires together as one bundle, so a metre of loose wire does not end up spread across the frame.",
-			"note": "The harness drawing calls it PVC sleeving. What is commonly sold is PET braid at the same size, which is what the sourcing link is, and it does the same job.",
+			"note": "The harness drawing calls it PVC sleeving. What is commonly sold is PET braid at the same size, which is what the sourcing link is, and it does the same job. The drawing sleeves the four S bundles only, not CH.",
 			"created_at": "2026-09-14",
-			"updated_at": "2026-09-14",
+			"updated_at": "2026-09-18",
 			"attributes": [
 				{
 					"label": "Size",
@@ -23987,7 +23987,7 @@
 				},
 				{
 					"label": "Length per machine",
-					"value": "About 5 m per machine: 4 x 1 m for S1 to S4, plus 40 in for CH"
+					"value": "4.0 m (400 cm, 157.5 in) per machine: 1 m (100 cm, 39.4 in) over each of the four S bundles"
 				},
 				{
 					"label": "Material",
@@ -24000,10 +24000,10 @@
 			"sheet_qty_text": null,
 			"stock": {
 				"unit_length_mm": 15240,
-				"cut_length_mm": 5020,
+				"cut_length_mm": 4000,
 				"pieces_per_unit": 3,
-				"unit_label": "50 ft (15.2 m) roll",
-				"piece_label": "one machine's worth (about 5 m)"
+				"unit_label": "15.2 m (50 ft) roll",
+				"piece_label": "one machine's worth (4.0 m / 400 cm / 157.5 in)"
 			},
 			"sourcing": {
 				"vendors": [
@@ -24093,11 +24093,11 @@
 			"description": "A whole channel stepper cable with no crimping: 63 cm of twisted 24 AWG with a 4-pin PHR-4 at each end. One end plugs into the board as it comes. At the other, lift the four contacts out of their housing and re-seat them in a PHR-6 in the crossover order, which needs a pick and no crimp tool.",
 			"note": "Buy a PHR-6 per cable for the motor end; the housing the contacts came out of is then a spare. Contacts are held by a small lance inside the housing: press it back with a fine pick or a sliver of shim and the contact slides out, and it goes back into the PHR-6 until it clicks. Take your time, a bent lance will not retain.",
 			"created_at": "2026-09-14",
-			"updated_at": "2026-09-14",
+			"updated_at": "2026-09-18",
 			"attributes": [
 				{
 					"label": "Length",
-					"value": "63 cm (25 in). The drawing says 1 m, so this is the shorter of the two"
+					"value": "0.63 m (63 cm, 24.8 in) each, 4 per machine = 2.52 m (252 cm, 99.2 in). The drawing says 1 m, so this is the shorter of the two"
 				},
 				{
 					"label": "Wire",

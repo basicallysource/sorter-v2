@@ -32,7 +32,7 @@ A prepared strip is a cut length of 24 V COB strip with its cable on the end of 
 <dl class="spec-list">
   <dt>The cable</dt><dd>One continuous pair of 22 AWG, about a metre, with no connector in the middle. That is how the one Spencer photographed is built, and it is what Jon (who drew the harness) says to do.</dd>
   <dt>Strip end</dt><dd>A solderless clamp-on connector, or solder, onto the two pads at the cut end.</dd>
-  <dt>The other end</dt><dd>The Dupont plug, which goes onto an LED port when the machine is wired up: step 5 of <a href="{{ '/hardware/electronics/installation/connecting/' | relative_url }}">connecting the components</a>.</dd>
+  <dt>The other end</dt><dd>The Dupont plug, which goes onto an LED port when the machine is wired up: step 4 of <a href="{{ '/hardware/electronics/installation/connecting/' | relative_url }}">connecting the components</a>.</dd>
 </dl>
 
 <div class="callout">
@@ -115,4 +115,4 @@ A 950 mm length of strip with a red and a black wire on one end and a dead end a
   <figcaption>A prepared strip: the cut end, the joint, and the cable that leaves it. <cite>Manufacturer photo (SuperBrightLEDs).</cite></figcaption>
 </figure>
 
-The Dupont end goes onto an LED port at [connecting the components]({{ '/hardware/electronics/installation/connecting/' | relative_url }}), step 5.
+The Dupont end goes onto an LED port at [connecting the components]({{ '/hardware/electronics/installation/connecting/' | relative_url }}), step 4.

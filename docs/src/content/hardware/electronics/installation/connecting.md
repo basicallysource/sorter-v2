@@ -60,6 +60,8 @@ The [wire harness]({{ '/hardware/electronics/' | relative_url }}) page calls the
 
 ### The three 24 V leads
 
+All three plug into the PSU box's three DC jacks, which are the same 24 V, so it does not matter which lead goes in which jack. Push each one fully home. Nothing else runs off the supply, the two cooling fans included, and there is no spare jack.
+
 The buck converter is the only bought part of the three. The leads themselves are:
 
 <dl class="spec-list">
@@ -77,7 +79,7 @@ The machine needs seven male barrel plugs in total: these three (`W2` takes one 
 
 ## The control board, socket by socket
 
-Everything in steps 2 to 6 plugs into this board. It is drawn from above, the way you look at it once the housing is open.
+Everything in steps 1 to 5 plugs into this board. It is drawn from above, the way you look at it once the housing is open.
 
 <figure class="harness-figure">
   <div class="diagram diagram-wide">
@@ -165,88 +167,11 @@ Everything in steps 2 to 6 plugs into this board. It is drawn from above, the wa
   <p>The housing's openings reach the sockets along the edges of the board. If one of the sockets below will not reach with the cover on, take out the four countersunk screws, lift the cover, plug the cable in, and put the cover back. See <a href="{{ '/hardware/electronics/installation/control-board-housing/' | relative_url }}">Control board housing</a>, step 6.</p>
 </div>
 
-{% include step.html n="1" title="24 V out of the PSU box" %}
-
-The PSU box has three DC jacks on its connections plate. They are all the same 24 V, so it does not matter which lead goes in which jack. Push each of the three leads fully home.
-
-<figure class="harness-figure">
-  <div class="diagram diagram-wide">
-    <svg viewBox="0 0 930 420" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="The Mean Well LRS-350-24 terminal block: screws 1 to 3 are live mains from the fused inlet switch, screws 4 to 6 are minus V and 7 to 9 are plus V, paired into three DC output jacks feeding the control board, the USB hub and the Orange Pi buck converter">
-      <rect x="180" y="60" width="290" height="300" rx="4" fill="var(--surface)" stroke="var(--ink)" stroke-width="1.5"/>
-      <text x="210" y="100" font-size="13" font-weight="700" fill="var(--ink)">MEAN WELL</text>
-      <text x="210" y="118" font-size="12" font-weight="700" fill="var(--ink)">LRS-350-24</text>
-      <text x="210" y="136" font-size="11" fill="var(--muted)">24 V · 14.6 A</text>
-      <rect x="400" y="72" width="52" height="276" rx="3" fill="var(--bg)" stroke="var(--ink)" stroke-width="1.2"/>
-      <circle cx="426" cy="92" r="9" fill="var(--surface)" stroke="var(--ink)" stroke-width="1.3"/>
-      <text x="426" y="96" font-size="10.5" text-anchor="middle" fill="var(--ink)">1</text>
-      <circle cx="426" cy="121" r="9" fill="var(--surface)" stroke="var(--ink)" stroke-width="1.3"/>
-      <text x="426" y="125" font-size="10.5" text-anchor="middle" fill="var(--ink)">2</text>
-      <circle cx="426" cy="150" r="9" fill="var(--surface)" stroke="var(--ink)" stroke-width="1.3"/>
-      <text x="426" y="154" font-size="10.5" text-anchor="middle" fill="var(--ink)">3</text>
-      <circle cx="426" cy="179" r="9" fill="var(--surface)" stroke="var(--ink)" stroke-width="1.3"/>
-      <text x="426" y="183" font-size="10.5" text-anchor="middle" fill="var(--ink)">4</text>
-      <text x="392" y="183" font-size="11" text-anchor="end" fill="var(--muted)">-V</text>
-      <circle cx="426" cy="208" r="9" fill="var(--surface)" stroke="var(--ink)" stroke-width="1.3"/>
-      <text x="426" y="212" font-size="10.5" text-anchor="middle" fill="var(--ink)">5</text>
-      <text x="392" y="212" font-size="11" text-anchor="end" fill="var(--muted)">-V</text>
-      <circle cx="426" cy="237" r="9" fill="var(--surface)" stroke="var(--ink)" stroke-width="1.3"/>
-      <text x="426" y="241" font-size="10.5" text-anchor="middle" fill="var(--ink)">6</text>
-      <text x="392" y="241" font-size="11" text-anchor="end" fill="var(--muted)">-V</text>
-      <circle cx="426" cy="266" r="9" fill="var(--surface)" stroke="var(--ink)" stroke-width="1.3"/>
-      <text x="426" y="270" font-size="10.5" text-anchor="middle" fill="var(--ink)">7</text>
-      <text x="392" y="270" font-size="11" text-anchor="end" fill="var(--muted)">+V</text>
-      <circle cx="426" cy="295" r="9" fill="var(--surface)" stroke="var(--ink)" stroke-width="1.3"/>
-      <text x="426" y="299" font-size="10.5" text-anchor="middle" fill="var(--ink)">8</text>
-      <text x="392" y="299" font-size="11" text-anchor="end" fill="var(--muted)">+V</text>
-      <circle cx="426" cy="324" r="9" fill="var(--surface)" stroke="var(--ink)" stroke-width="1.3"/>
-      <text x="426" y="328" font-size="10.5" text-anchor="middle" fill="var(--ink)">9</text>
-      <text x="392" y="328" font-size="11" text-anchor="end" fill="var(--muted)">+V</text>
-      <rect x="40" y="228" width="104" height="48" rx="3" fill="var(--bg)" stroke="var(--ink)" stroke-width="1.2"/>
-      <text x="92" y="250" font-size="11.5" font-weight="700" text-anchor="middle" fill="var(--ink)">fused IEC</text>
-      <text x="92" y="266" font-size="11.5" font-weight="700" text-anchor="middle" fill="var(--ink)">inlet switch</text>
-      <text x="92" y="294" font-size="10.5" text-anchor="middle" fill="var(--muted)">already wired,</text>
-      <text x="92" y="309" font-size="10.5" text-anchor="middle" fill="var(--muted)">nothing to make</text>
-      <path d="M144 259 C 250 259, 300 92, 400 92" stroke="var(--ink)" stroke-width="1.2" fill="none"/>
-      <path d="M144 252 C 250 252, 300 121, 400 121" stroke="var(--ink)" stroke-width="1.2" fill="none"/>
-      <path d="M144 245 C 250 245, 300 150, 400 150" stroke="var(--ink)" stroke-width="1.2" fill="none"/>
-      <text x="452" y="46" font-size="11" text-anchor="end" fill="var(--muted)">1 live, 2 neutral, 3 earth</text>
-      <path d="M452 266 C 500 266, 510 113, 560 113" stroke="var(--ink)" stroke-width="1.4" fill="none"/>
-      <path d="M452 179 C 500 179, 510 127, 560 127" stroke="var(--muted)" stroke-width="1.4" fill="none"/>
-      <rect x="560" y="100" width="40" height="40" rx="4" fill="var(--surface)" stroke="var(--primary)" stroke-width="2"/>
-      <circle cx="580" cy="120" r="10" fill="var(--bg)" stroke="var(--primary)" stroke-width="1.4"/>
-      <circle cx="580" cy="120" r="3" fill="var(--primary)"/>
-      <text x="616" y="118" font-size="12" font-weight="700" fill="var(--ink)">to the control board</text>
-      <text x="616" y="134" font-size="11" fill="var(--muted)">J1 on the board, JST-VH end</text>
-      <path d="M452 295 C 500 295, 510 201, 560 201" stroke="var(--ink)" stroke-width="1.4" fill="none"/>
-      <path d="M452 208 C 500 208, 510 215, 560 215" stroke="var(--muted)" stroke-width="1.4" fill="none"/>
-      <rect x="560" y="188" width="40" height="40" rx="4" fill="var(--surface)" stroke="var(--primary)" stroke-width="2"/>
-      <circle cx="580" cy="208" r="10" fill="var(--bg)" stroke="var(--primary)" stroke-width="1.4"/>
-      <circle cx="580" cy="208" r="3" fill="var(--primary)"/>
-      <text x="616" y="206" font-size="12" font-weight="700" fill="var(--ink)">to the USB hub</text>
-      <text x="616" y="222" font-size="11" fill="var(--muted)">the hub’s DC input</text>
-      <path d="M452 324 C 500 324, 510 289, 560 289" stroke="var(--ink)" stroke-width="1.4" fill="none"/>
-      <path d="M452 237 C 500 237, 510 303, 560 303" stroke="var(--muted)" stroke-width="1.4" fill="none"/>
-      <rect x="560" y="276" width="40" height="40" rx="4" fill="var(--surface)" stroke="var(--primary)" stroke-width="2"/>
-      <circle cx="580" cy="296" r="10" fill="var(--bg)" stroke="var(--primary)" stroke-width="1.4"/>
-      <circle cx="580" cy="296" r="3" fill="var(--primary)"/>
-      <text x="616" y="294" font-size="12" font-weight="700" fill="var(--ink)">to the Orange Pi</text>
-      <text x="616" y="310" font-size="11" fill="var(--muted)">24 V to 5 V buck, then USB-C</text>
-      <text x="580" y="66" font-size="11" text-anchor="middle" fill="var(--muted)">3 × female DC jack</text>
-      <text x="580" y="82" font-size="11" text-anchor="middle" fill="var(--muted)">on the connections plate</text>
-      <text x="325" y="392" font-size="11" text-anchor="middle" fill="var(--muted)">Screws 1, 2 and 3 are live mains whenever the machine is plugged in.</text>
-      <text x="760" y="392" font-size="11" text-anchor="middle" fill="var(--muted)">Pairs: 7 with 4, 8 with 5, 9 with 6.</text>
-    </svg>
-  </div>
-  <figcaption>Inside the PSU box. The mains side (screws 1 to 3) is already wired and stays closed. The three output pairs come out of the box as three DC jacks.</figcaption>
-</figure>
-
-The three leads go to the control board, the USB hub, and the buck converter that feeds the Orange Pi. Nothing else runs off the PSU: the two cooling fans do not. There is no spare jack.
-
-{% include step.html n="2" title="24 V into the control board" %}
+{% include step.html n="1" title="24 V into the control board" %}
 
 The board's power input is `J1`, the big 2-pin socket in one corner of the board. It is the only connector of that size on the board, and the plug only goes in one way up. Pin 1 is +24 V and pin 2 is ground, and both are fused on the board.
 
-{% include step.html n="3" title="The five stepper cables" %}
+{% include step.html n="2" title="The five stepper cables" %}
 
 Each stepper has its own socket, and the socket decides which motor the software is driving. Plug them in as below.
 
@@ -268,13 +193,13 @@ Every socket has a row of 2.54 mm pins beside it carrying the same signals, so a
   <p><b>Check the coils before you plug a motor in.</b> A stepper has two coils, two wires each, and the plug has four holes: holes 1 and 2 feed one coil, 3 and 4 the other. Put a multimeter across the wires that should be a pair. A pair reads a few ohms; two wires from different coils read open circuit. If holes 2 and 3 are the pair, pull those two contacts out of the housing and swap them, or the motor will buzz and barely turn. Full pinout: <a href="{{ '/hardware/electronics/steppers/' | relative_url }}">stepper connectors</a>.</p>
 </div>
 
-{% include step.html n="4" title="The chute limit switch" %}
+{% include step.html n="3" title="The chute limit switch" %}
 
 The switch tells the machine where the chute is. Its cable ends in a 3-pin Dupont housing with only two positions filled, and it goes on `J5`, the header the board prints `HALL_SW_0`. The filled positions are ground and signal, and the empty one lines up with the 3.3 V pin, so the housing cannot go on backwards.
 
 At the switch end, push the two #187 tabs onto the switch's `COM` and `NC` terminals. The switch has three tabs and one stays empty. Wired this way the circuit is closed while the lever is free and opens when the chute presses it, which is what the machine expects. If homing runs the wrong way round later, the setting is in the software, not the wiring.
 
-{% include step.html n="5" title="The three camera lamps" %}
+{% include step.html n="4" title="The three camera lamps" %}
 
 The board has four LED ports. The fan in the housing lid is already on one of them, so the three [camera lamps]({{ '/hardware/assembly/feeder/camera-lamp/' | relative_url }}) take the other three. Each arrives as a [prepared LED strip]({{ '/hardware/helpers/led-strip/' | relative_url }}) with about a metre of 22 AWG on it.
 
@@ -303,7 +228,7 @@ Leave the small solder jumpers next to the three lamp ports alone. Each port fee
 
 **Then assign the output in software**: Settings, the channel, the LED button, pick which output that lamp is on and set the brightness. **Nothing lights until an output is assigned.** The lamps are `L1` to `L3` in the [wire harness]({{ '/hardware/electronics/' | relative_url }}) schedule, which still draws every drop split at a barrel jack.
 
-{% include step.html n="6" title="The ribbon down to the layers" %}
+{% include step.html n="5" title="The ribbon down to the layers" %}
 
 One flat 16-pin ribbon runs from `J17` on the control board to the first layer board in the chute, and a shorter one runs from each layer board to the one below it. Both ends of every ribbon are keyed, so they only go in one way up.
 
@@ -322,7 +247,7 @@ One flat 16-pin ribbon runs from `J17` on the control board to the first layer b
 
 Each layer board's own servo plugs into `J5` on that board, three pins, signal and power and ground. That is covered on the [chute PCB]({{ '/hardware/assembly/distribution/chute/pcb/' | relative_url }}) page.
 
-{% include step.html n="7" title="USB: the Pico, the hub and the Orange Pi" %}
+{% include step.html n="6" title="USB: the Pico, the hub and the Orange Pi" %}
 
 The Orange Pi talks to the control board over USB, through the powered hub. The three cameras are on the same hub.
 
@@ -395,7 +320,7 @@ That fills the hub: three cameras and the Pico, no spare port.
   <p><b>They have to be data cables.</b> Many short USB cables carry power only and nothing will appear on the Pi. Use the powered hub as well: a hub running off the Pi's own power has been seen to brown the Pi out and crash it.</p>
 </div>
 
-{% include step.html n="8" title="Check it over, then plug it in" %}
+{% include step.html n="7" title="Check it over, then plug it in" %}
 
 Before the machine sees mains:
 

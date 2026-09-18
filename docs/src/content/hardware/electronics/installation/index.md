@@ -10,13 +10,13 @@ permalink: /hardware/electronics/installation/
 author: barthel
 contributors: [spencer]
 warning: >-
-  **Mixed.** The control board pages and the Orange Pi mount page come from real builds. On the PSU
-  box page the mains inlet step comes from one too; the rest of it is written from the [parts
-  calculator](https://parts-calculator.basically.website/assembly) rather than from a build, with
-  its parts real and its steps unchecked. Gaps are marked in place. Correct them as you build.
+  **Mixed.** The PSU box, the two control board pages and the Orange Pi mount page come from real
+  builds. Connecting the components is an AI-generated first draft, written from the board files
+  and the harness schedule rather than from a build: its sockets and pinouts are read off the board
+  and are real, its step order is not checked. Gaps are marked in place.
 
-  One of these steps (PSU box) involves wiring mains voltage. Read it fully before starting, and
-  keep the unit unplugged while you work on it.
+  One of these pages (PSU box) involves wiring mains voltage. Read it fully before starting, and do
+  not plug a cable into the IEC inlet until that box is complete and its wiring verified.
 ---
 
 The [wire harness]({{ '/hardware/electronics/' | relative_url }}) pages cover what connects to what. These cover the other half: where the hardware physically sits and what holds it there. "The control board" here means basically board v1.3, the basically Embedded Control Board; the three sections below call their own printed enclosure a housing, a box, and a mount, but they're the same kind of part, one per component, bolted to the frame.

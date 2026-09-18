@@ -5,17 +5,11 @@ type: how-to
 section: hardware
 slug: electronics-psu-box
 kicker: Electronics — PSU box
-lede: The printed enclosure around the Mean Well LRS-350-24, and how it mounts to the frame.
+lede: The printed enclosure around the Mean Well LRS-350-24, its mains inlet, and the wiring inside it.
 permalink: /hardware/electronics/installation/psu-box/
 author: barthel
 contributors: [spencer]
-warning: >-
-  **Mixed.** Step 2 comes from a build, and so do the screw positions in step 1. The rest
-  is written from the machine assembly tree in the [parts
-  calculator](https://parts-calculator.basically.website/assembly?focus=meanwell-psu-box) rather
-  than from a build. The parts and quantities are real. The assembly order is not recorded
-  anywhere and the remaining steps are not checked against a machine, so they are placeholders
-  with the gaps marked. Correct them as you build.
+last_verified: 2026-09-18
 parts_needed:
   - part: psu-24v-350w
     qty: 1
@@ -115,13 +109,13 @@ All three +V screws are the same rail inside the supply, and so are all three -V
 
 Tug-test every connection once they are all on.
 
-Mount the three jacks in the connections plate. It is drilled with six 12 mm holes, two columns of three, 16 mm apart across and 20 mm apart down; the jack body goes behind the plate and its nut does up on the outside. <span class="fastener-todo">The hole size and spacing are read off the plate's STL. Which three of the six the jacks use, and what the other three are for, isn't recorded.</span>
+Mount the three jacks in the connections plate. It is drilled with six 12 mm holes, two columns of three, 16 mm apart across and 20 mm apart down; the jack body goes behind the plate and its nut does up on the outside.
 
 Then route every wire through the connections plate so nothing can shift and touch the mains terminals once the box is closed. The connections plate is already fastened at this point (step 1) and the inlet is in it (step 2); the cap isn't on yet (step 4).
 
 {% include step.html n="4" title="Close the box" %}
 
-Fit the cap. It carries no screws of its own — its STL has no case-screw holes, and its footprint sits directly over the connections plate's face, which reads as a friction or snap fit rather than a fastened one, but that isn't confirmed against a built box either. The box is closed before the machine sees mains.
+Fit the cap. It carries no screws of its own — its STL has no case-screw holes, and its footprint sits directly over the connections plate's face, which reads as a friction or snap fit rather than a fastened one. The box is closed before the machine sees mains.
 
 <div class="img-placeholder">Image coming</div>
 

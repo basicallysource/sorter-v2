@@ -7,6 +7,7 @@ slug: helper-wifi-module
 kicker: Helpers — WiFi module
 lede: Seating the M.2 WiFi module in the Orange Pi 5, and why it goes in while the board is still loose on the bench.
 permalink: /hardware/helpers/wifi-module/
+last_verified: 2026-09-18
 author: brickcyclealice
 contributors: [spencer]
 warning: >-
@@ -21,8 +22,8 @@ tools_needed: [Small Phillips screwdriver]
 The original Orange Pi 5 has no WiFi on the board. If the machine is not staying on Ethernet, it needs either a Linux-compatible USB adapter or the M.2 module in the parts list, and this page is about the M.2 one. It is an optional part: pick it on the [Orange Pi 5]({{ '/hardware/orange-pi-5/' | relative_url }}) page before buying, because the module that fits the original Orange Pi 5 does not fit a 5 Plus.
 
 <figure class="single-figure">
-  <img class="doc-figure" src="https://assets.basically.website/sorter-parts/wifi-module-opi5-full-8ab3a6417605.jpg" alt="The AP6275P M.2 WiFi module, a small green card with a keying notch in its row of gold contacts, shipped with two antennas and a retention screw">
-  <figcaption>The AP6275P and the antennas it ships with. <cite>Supplier listing photo from the parts catalog; who took it isn't recorded.</cite></figcaption>
+  <img class="doc-figure" src="https://assets.basically.website/sorter-parts/wifi-module-opi5-full-8ab3a6417605.jpg" alt="The AP6275P M.2 WiFi module seen from above: a small blue card with a shielded can across the middle marked AP6275P, two round antenna sockets at the top corners, and a row of gold contacts along the bottom edge with a keying notch cut into it">
+  <figcaption>The AP6275P, with its keying notch cut into the row of gold contacts along the bottom edge. <cite>Supplier listing photo from the parts catalog; who took it isn't recorded.</cite></figcaption>
 </figure>
 
 ## Do this before the board goes on its mount

@@ -34,7 +34,7 @@ If a cable is still missing, [make your own PSU pigtail]({{ '/hardware/helpers/p
 
 <div class="callout callout-warning">
   <span class="callout-icon" aria-hidden="true">⚠</span>
-  <p><b>Keep the machine unplugged from the wall until the last step.</b> Screws 1, 2 and 3 inside the PSU box are live mains whenever it is plugged in. The PSU box stays closed from here on, so you never touch them on this page.</p>
+  <p><b>Do not plug a cable into the IEC inlet until the last step.</b> The mains wiring inside the PSU box is finished and the box stays closed from here on, so nothing on this page goes near it, but the machine is not to see mains until every cable below is in and checked.</p>
 </div>
 
 ## Every cable on this page

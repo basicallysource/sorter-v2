@@ -20,6 +20,8 @@ parts_needed:
     qty: 1
   - part: psu-switch-fused
     qty: 1
+  - part: scr-m3-8-cs
+    qty: 2
   - part: meanwell-psu-back-mount
     qty: 1
   - part: meanwell-psu-connections
@@ -36,11 +38,11 @@ parts_needed:
 
 <div class="prep-item">
   <div class="prep-item-body">
-    <p><strong>Make three <a href="{{ '/hardware/helpers/psu-pigtail/' | relative_url }}">PSU output pigtails</a> before you start.</strong> One per 24V load. Each is a panel-mount barrel jack with a spade terminal crimped onto each of its two leads, and they are commonly sold with the leads already on. That page builds them and lists the jack, the terminals and the wire; step 4 here lands them on the supply and mounts them in the box.</p>
+    <p><strong>Make three <a href="{{ '/hardware/helpers/psu-pigtail/' | relative_url }}">PSU output pigtails</a> before you start.</strong> One per 24V load. Each is a panel-mount barrel jack with a fork terminal crimped onto each of its two leads, and they are commonly sold with the leads already on. That page builds them and lists the jack and the terminals; step 4 here lands them on the supply and mounts them in the box.</p>
   </div>
   <figure class="prep-item-figure">
-    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/harness-psu-pigtail-built-w1600-59554dc6b189.jpg" alt="An assembled PSU output pigtail: a panel-mount barrel jack with red and black 18 AWG leads, each ending in an insulated spade terminal">
-    <figcaption>One finished pigtail: the jack, its red and black leads, and a spade terminal on each. <cite>Photo: Jon.</cite></figcaption>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/harness-psu-pigtail-built-w1600-59554dc6b189.jpg" alt="An assembled PSU output pigtail: a panel-mount barrel jack with red and black 18 AWG leads, each ending in an insulated fork terminal">
+    <figcaption>One finished pigtail: the jack, its red and black leads, and a fork terminal on each. <cite>Photo: Jon.</cite></figcaption>
   </figure>
 </div>
 
@@ -60,8 +62,8 @@ One DC output pigtail per +V/-V pair: 7 with 4, 8 with 5, 9 with 6. The full spe
 
 <div class="callout callout-warning">
   <span class="callout-icon" aria-hidden="true">⚠</span>
-  <p><b>Screws 1, 2 and 3 are live mains.</b> They are fed by the fused IEC inlet switch's own pre-terminated leads, so there is no AC cable to make, but the cap goes on before the machine is plugged in.</p>
-  <p><b>Nothing in steps 3 and 4 may be done with either the inlet or the supply powered.</b> Take the mains cord out of the inlet and out of the wall before you start, and leave it out until the box is closed. The inlet's rocker switch is not isolation.</p>
+  <p><b>Until this box is finished it has exposed mains wiring.</b> Observe basic electrical safety precautions: do not plug a cable into the IEC inlet until the assembly is complete, the wiring is verified and the cap is on.</p>
+  <p>Screws 1, 2 and 3 are the mains ones. They are fed by the inlet's own attached leads, so there is no AC cable to make.</p>
 </div>
 
 {% include step.html n="1" title="Preparation" %}
@@ -84,15 +86,15 @@ Which part takes which screw isn't fully recorded, but the parts' own STLs answe
 
 <div class="callout callout-warning">
   <span class="callout-icon" aria-hidden="true">⚠</span>
-  <p><b>No mains cord in the inlet, and the supply unplugged, for this step and the next.</b> The rocker being off is not isolation: the inlet's pins and the fuse are live whenever a cord is plugged in, whichever way the rocker is set. Neither the inlet nor the PSU may be powered while any of this is being fitted or wired.</p>
+  <p><b>No mains cable in the inlet.</b> Not for this step, not for the next one, and not until the box is closed and the wiring checked.</p>
 </div>
 
 The **IEC C14 inlet, switch + 10 A fuse** is the machine's mains entry and its on/off switch, and it goes in the rectangular cutout in the connections plate. Its three 18 AWG leads come already attached — red, blue and yellow, 27 cm each, a push-on spade at the module end and a fork terminal at the other — so there is no AC cable to make. This step mounts the module; step 4 lands those leads on the terminal block.
 
-Push it into the cutout from the outside so its flange sits on the outer face of the plate, then screw it down through the flange into the plate's two holes. <span class="fastener-todo">Read off the connections plate's STL, not confirmed against a built box. The plate's two holes are 2.6 mm, a self-tapping size, and no screw for them is in the parts list.</span>
+Push it into the cutout from the outside so its flange sits on the outer face of the plate. Fasten it with 2 {% include fastener.html size="M3" variant="countersunk" length="8" %} screws, one through each flange hole. The flange is countersunk for them, so the heads finish flush. They cut their own thread in the plate, so run them in until the flange is tight and stop. <span class="fastener-todo">Read off the connections plate's STL, not confirmed against a built box.</span>
 
 <figure class="harness-figure">
-  <img src="https://assets.basically.website/sorter-docs/psu-box-inlet-mounting-full-3766fb4cc853.png" alt="The PSU connections plate drawn twice side by side at the same scale. On the left it is bare: a tall rectangular cutout near the top, a small screw hole either side of it, and six round holes below in two columns of three. On the right the IEC C14 inlet switch module sits in the cutout, its flange covering the hole with its rocker, fuse drawer and C14 socket showing. A warning says to fit and wire it with no mains cord in the inlet.">
+  <img src="https://assets.basically.website/sorter-docs/psu-box-inlet-mounting-full-e34ceb6bf26b.png" alt="The PSU connections plate drawn twice side by side at the same scale. On the left it is bare: a tall rectangular cutout near the top, a small screw hole either side of it, and six round holes below in two columns of three. On the right the IEC C14 inlet switch module sits in the cutout, its flange covering the hole with its rocker, fuse drawer and C14 socket showing. A warning says not to plug a cable into the IEC inlet until the assembly is complete, the wiring is verified and the cap is on.">
   <figcaption>The connections plate from outside, and the same plate with the inlet in it. <cite>Plate drawn from its STL and the module from its published flange size, both at the same scale, not from a build.</cite></figcaption>
 </figure>
 
@@ -100,13 +102,13 @@ Push it into the cutout from the outside so its flange sits on the outer face of
 
 <div class="callout callout-warning">
   <span class="callout-icon" aria-hidden="true">⚠</span>
-  <p>The PSU must be unplugged from the wall for this entire step. Screws 1-3 carry mains voltage whenever it's plugged in; after unplugging, wait a few seconds before touching the terminal block.</p>
+  <p><b>No mains cable in the inlet for this step.</b> Screws 1, 2 and 3 are mains and they are exposed until the cap goes on. If the machine has been powered, wait a few seconds after unplugging before you touch the terminal block.</p>
 </div>
 
-Land the inlet's three leads on screws 1, 2 and 3: **red on 1** (AC/L), **blue on 2** (AC/N), **yellow on 3** (earth). <span class="fastener-todo">The colours are off the vendor's own photographs of this module. Yellow is the earth and is the one that has to be right; nothing published says which of red and blue is live, and it makes no difference to the supply, whose AC input is not polarity-sensitive and whose fuse and switch are both inside the inlet module.</span> Then take one pigtail per +V/-V pair: **7 with 4, 8 with 5, 9 with 6**, red terminal on the +V screw and black on the -V screw of the same pair.
+Land the inlet's three leads on screws 1, 2 and 3. **The yellow one is the earth and goes on screw 3.** Red and blue go on screws 1 and 2, either way round: the supply's AC input is not polarity-sensitive, and the fuse and the switch are both inside the inlet module. The module's colours are its own and do not follow any national code, so do not read live and neutral from them. Then take one pigtail per +V/-V pair: **7 with 4, 8 with 5, 9 with 6**, red terminal on the +V screw and black on the -V screw of the same pair.
 
 <figure class="harness-figure">
-  <img src="https://assets.basically.website/sorter-docs/psu-box-terminal-map-full-e41192c70c54.png" alt="Diagram of the Mean Well LRS-350-24 seen from above, its nine-way terminal block down the left edge numbered 1 at the bottom to 9 at the top. Red leads run from screws 9, 8 and 7 and black leads from 6, 5 and 4, pairing 9 with 6, 8 with 5 and 7 with 4 into three barrel jacks labelled PJ3 to the Orange Pi buck, PJ2 to the powered USB hub, and PJ1 to the basically board. Below them the IEC C14 inlet switch module is drawn upright with its illuminated rocker, fuse drawer and C14 socket, and its three factory leads run to screws 1, 2 and 3, labelled AC/L, AC/N and earth: the red lead to screw 1, the blue to screw 2 and the yellow to screw 3. A warning band says no mains cord may be in the inlet while any of this is fitted or wired, because the rocker is not isolation.">
+  <img src="https://assets.basically.website/sorter-docs/psu-box-terminal-map-full-c373a1f9e370.png" alt="Diagram of the Mean Well LRS-350-24 seen from above, its nine-way terminal block down the left edge numbered 1 at the bottom to 9 at the top. Red leads run from screws 9, 8 and 7 and black leads from 6, 5 and 4, pairing 9 with 6, 8 with 5 and 7 with 4 into three barrel jacks labelled PJ3 to the Orange Pi buck, PJ2 to the powered USB hub, and PJ1 to the basically board. Below them the IEC C14 inlet switch module is drawn upright with its illuminated rocker, fuse drawer and C14 socket, and its three factory leads run to screws 1, 2 and 3, labelled AC/L, AC/N and earth: the yellow lead to screw 3, which is the earth, and the red and blue to screws 1 and 2, bracketed as interchangeable. A warning band says not to plug a cable into the IEC inlet until the assembly is complete, the wiring is verified and the cap is on.">
   <figcaption>Every lead that lands on the block, and the screw it lands on. <cite>Drawn from the Mean Well LRS-350 spec sheet, the inlet's catalog entry and the harness drawings, not from a build.</cite></figcaption>
 </figure>
 

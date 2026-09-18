@@ -5,7 +5,7 @@ type: how-to
 section: hardware
 slug: helper-board-24v-lead
 kicker: Helpers — Control board 24 V lead
-lede: "The lead that powers basically board v1.3: a barrel plug at the PSU end, a JST-VH housing crimped on at the board end. One per machine."
+lede: The lead that powers basically board v1.3, a barrel plug at the PSU end and a JST-VH housing crimped on at the board end. One per machine.
 permalink: /hardware/helpers/board-24v-lead/
 author: effreek
 contributors: [spencer]

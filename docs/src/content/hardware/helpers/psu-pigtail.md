@@ -13,14 +13,9 @@ last_verified: 2026-07-12
 tools_needed: [Side cutters, Wire strippers, Ratcheting crimp tool, Multimeter]
 ---
 
-<div class="callout callout-warning">
-  <span class="callout-icon" aria-hidden="true">⚠</span>
-  <p><b>Not validated against a built machine.</b> This is the current spec off the harness drawings, not a checked build procedure. Values marked <b>GUESS</b> in the <a href="{{ '/hardware/electronics/wireviz/' | n }}">WireViz drawing</a> are guesses.</p>
-</div>
-
 The PSU box has three DC outputs, and each one is a short pigtail: two crimp spade terminals at one end, a panel-mount barrel jack at the other. You need **three per PSU build**, one for each 24V load (the basically board, the USB hub, and the Orange Pi buck).
 
-This page builds the cables and stops there. Landing them on the supply's terminal block and mounting the jacks in the box is step 3 of the [PSU box]({{ '/hardware/electronics/installation/psu-box/' | n }}) page.
+This page builds the cables and stops there. Landing them on the supply's terminal block and mounting the jacks in the box is step 4 of the [PSU box]({{ '/hardware/electronics/installation/psu-box/' | n }}) page.
 
 <div class="callout">
   <p><b>You usually don't have to make these.</b> The panel-mount jacks are commonly sold with the pigtail leads already attached, so buying the jacks with leads and crimping the spade terminals on is less work than building from bare wire. This page is for when you want to make your own.</p>

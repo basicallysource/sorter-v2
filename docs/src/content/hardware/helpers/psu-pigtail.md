@@ -35,9 +35,11 @@ The PSU box has three DC outputs. Each one is a short pigtail: a panel-mount bar
 
 ## Build it
 
-1. Start from a panel-mount jack with its leads already attached.
-2. Work out which lead is the tip (+24 V) and which is the sleeve (ground). The jack is **centre-positive**, so red is the tip and black is the sleeve. If the leads are not red and black, set a multimeter to continuity and hold one probe on the centre pin inside the jack: the lead that beeps is the tip.
-3. Crimp a fork terminal onto the free end of each lead, one on the tip lead and one on the sleeve lead.
+<ol class="numbered-steps">
+  <li>Start from a panel-mount jack with its leads already attached.</li>
+  <li>Work out which lead is the tip (+24 V) and which is the sleeve (ground). The jack is <b>centre-positive</b>, so red is the tip and black is the sleeve. If the leads are not red and black, set a multimeter to continuity and hold one probe on the centre pin inside the jack: the lead that beeps is the tip.</li>
+  <li>Crimp a fork terminal onto the free end of each lead, one on the tip lead and one on the sleeve lead.</li>
+</ol>
 
 Build three. All three are the same, so it does not matter which one goes to which load.
 

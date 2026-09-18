@@ -155,6 +155,8 @@ sections:
         pages:
           - title: Your first sort run
             url: /sorter/tutorials/first-sort-run/
+          - title: Chute calibration
+            url: /sorter/chute-calibration/
           - title: Camera calibration
             url: /sorter/camera-calibration/
           - title: Shutting down the machine

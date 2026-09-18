@@ -7,6 +7,7 @@ slug: sorter-chute-calibration
 kicker: Sorter — Operate
 lede: Home the chute, teach it where the bins are, and test every bin it can reach. Do this once on a new machine, before you calibrate the cameras.
 permalink: /sorter/chute-calibration/
+last_verified: 2026-09-18
 ---
 
 The chute is the arm that drops each part into a bin. It does not know where your bins are until you tell it. You do that from the UI, in three parts: home the chute, capture two bins, then test where it can reach.

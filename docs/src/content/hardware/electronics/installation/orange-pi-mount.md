@@ -76,6 +76,8 @@ Peel the film off the thermal pad that comes in the box and lay it on the SoC. S
 
 This is a second fan, not a replacement for the 40 mm one on the arm: the heatsink fan sits on the chip, and the arm fan blows down over the whole board from above. It fits underneath: the heatsink stands 13 mm off the board and the arm's underside passes about 38 mm above it.
 
+If the machine is going on WiFi rather than Ethernet, the M.2 WiFi module goes in at this stage too, and for the same reason: its slot, its retention screw and its antenna leads are all on the underside of the board, which this mount then sits under. See [fitting the WiFi module]({{ '/hardware/helpers/wifi-module/' | relative_url }}).
+
 {% include step.html n="2" title="Stand the Pi off the mount" %}
 
 (Inserts already pressed in step 1.)

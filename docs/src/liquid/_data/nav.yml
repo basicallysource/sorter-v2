@@ -123,6 +123,8 @@ sections:
             url: /hardware/helpers/t-nuts/
           - title: Preparing the LED strip
             url: /hardware/helpers/led-strip/
+          - title: Fitting the WiFi module
+            url: /hardware/helpers/wifi-module/
       - title: Parts
         url: /hardware/parts/
         children:

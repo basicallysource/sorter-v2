@@ -9,7 +9,7 @@ lede: The printed enclosure around the Mean Well LRS-350-24, its mains inlet, an
 permalink: /hardware/electronics/installation/psu-box/
 author: barthel
 contributors: [spencer]
-og_image: https://assets.basically.website/sorter-docs/psu-box-case-screws-full-8fe11b7f0d7b.png
+og_image: https://assets.basically.website/sorter-parts/psu-24v-350w-full-72bba2c3919b.jpg
 last_verified: 2026-09-18
 parts_needed:
   - part: psu-24v-350w

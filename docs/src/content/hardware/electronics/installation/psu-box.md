@@ -10,11 +10,12 @@ permalink: /hardware/electronics/installation/psu-box/
 author: barthel
 contributors: [spencer]
 warning: >-
-  **AI-generated first draft.** Written from the machine assembly tree in the [parts
-  calculator](https://parts-calculator.basically.website/assembly?focus=meanwell-psu-box), not
-  from an actual build. The parts and quantities are real. The assembly order is not recorded
-  anywhere and no step here has been checked against a machine, so the steps below are
-  placeholders with the gaps marked. Correct them as you build.
+  **Mixed.** Step 2 comes from a build, and so do the screw positions in step 1. The rest
+  is written from the machine assembly tree in the [parts
+  calculator](https://parts-calculator.basically.website/assembly?focus=meanwell-psu-box) rather
+  than from a build. The parts and quantities are real. The assembly order is not recorded
+  anywhere and the remaining steps are not checked against a machine, so they are placeholders
+  with the gaps marked. Correct them as you build.
 parts_needed:
   - part: psu-24v-350w
     qty: 1
@@ -93,7 +94,7 @@ The supply has four M4 threads in its case, in a 150 × 50 mm rectangle, two at 
 
 The **IEC C14 inlet, switch + 10 A fuse** is the machine's mains entry and its on/off switch, and it goes in the rectangular cutout in the connections plate. Its three 18 AWG leads come already attached — red, blue and yellow, 27 cm each, a push-on spade at the module end and a fork terminal at the other — so there is no AC cable to make. This step mounts the module; step 3 lands those leads on the terminal block.
 
-Push it into the cutout from the outside so its flange sits on the outer face of the plate. Fasten it with 2 {% include fastener.html size="M3" variant="countersunk" length="8" %} screws, one through each flange hole. The flange is countersunk for them, so the heads finish flush. They cut their own thread in the plate, so run them in until the flange is tight and stop. <span class="fastener-todo">Read off the connections plate's STL, not confirmed against a built box.</span>
+Push it into the cutout from the outside so its flange sits on the outer face of the plate. Fasten it with 2 {% include fastener.html size="M3" variant="countersunk" length="8" %} screws, one through each flange hole. The flange is countersunk for them, so the heads finish flush. They cut their own thread in the plate, so run them in until the flange is tight and stop.
 
 <figure class="harness-figure">
   <img src="https://assets.basically.website/sorter-docs/psu-box-inlet-mounting-full-e34ceb6bf26b.png" alt="The PSU connections plate drawn twice side by side at the same scale. On the left it is bare: a tall rectangular cutout near the top, a small screw hole either side of it, and six round holes below in two columns of three. On the right the IEC C14 inlet switch module sits in the cutout, its flange covering the hole with its rocker, fuse drawer and C14 socket showing. A warning says not to plug a cable into the IEC inlet until the assembly is complete, the wiring is verified and the cap is on.">

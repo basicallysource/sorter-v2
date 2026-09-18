@@ -18,6 +18,8 @@ warning: >-
 parts_needed:
   - part: psu-24v-350w
     qty: 1
+  - part: psu-switch-fused
+    qty: 1
   - part: meanwell-psu-back-mount
     qty: 1
   - part: meanwell-psu-connections
@@ -34,7 +36,7 @@ parts_needed:
 
 <div class="prep-item">
   <div class="prep-item-body">
-    <p><strong>Make three <a href="{{ '/hardware/helpers/psu-pigtail/' | relative_url }}">PSU output pigtails</a> before you start.</strong> One per 24V load. Each is a panel-mount barrel jack with a spade terminal crimped onto each of its two leads, and they are commonly sold with the leads already on. That page builds them and lists the jack, the terminals and the wire; step 3 here lands them on the supply and mounts them in the box.</p>
+    <p><strong>Make three <a href="{{ '/hardware/helpers/psu-pigtail/' | relative_url }}">PSU output pigtails</a> before you start.</strong> One per 24V load. Each is a panel-mount barrel jack with a spade terminal crimped onto each of its two leads, and they are commonly sold with the leads already on. That page builds them and lists the jack, the terminals and the wire; step 4 here lands them on the supply and mounts them in the box.</p>
   </div>
   <figure class="prep-item-figure">
     <img class="doc-figure" src="https://assets.basically.website/sorter-docs/harness-psu-pigtail-built-w1600-59554dc6b189.jpg" alt="An assembled PSU output pigtail: a panel-mount barrel jack with red and black 18 AWG leads, each ending in an insulated spade terminal">
@@ -59,6 +61,7 @@ One DC output pigtail per +V/-V pair: 7 with 4, 8 with 5, 9 with 6. The full spe
 <div class="callout callout-warning">
   <span class="callout-icon" aria-hidden="true">⚠</span>
   <p><b>Screws 1, 2 and 3 are live mains.</b> They are fed by the fused IEC inlet switch's own pre-terminated leads, so there is no AC cable to make, but the cap goes on before the machine is plugged in.</p>
+  <p><b>Nothing in steps 3 and 4 may be done with either the inlet or the supply powered.</b> Take the mains cord out of the inlet and out of the wall before you start, and leave it out until the box is closed. The inlet's rocker switch is not isolation.</p>
 </div>
 
 {% include step.html n="1" title="Preparation" %}
@@ -73,22 +76,38 @@ Print the three enclosure parts: the PSU back mount, the PSU connections plate a
 
 Fasten the PSU back mount and the PSU connections plate to the supply's case with the 4 {% include fastener.html size="M4" variant="countersunk" length="6" %} screws, before wiring: the connections plate's cable routing needs to be in place first.
 
-Which part takes which screw isn't fully recorded, but the parts' own STLs answer most of it: the back mount has one clearance hole into the case (at the end away from the terminal block, the same end that bolts to the frame in step 5), and the connections plate has two, spread along the case nearer the terminal-block end. That's three of the four screws. The PSU box cap's STL has no case-screw holes at all, so it isn't fastened here despite this step covering all three parts in the parts list; see step 4. <span class="fastener-todo">Read from the STLs, not confirmed against a built box — worth checking against a real assembly, and the fourth screw's hole isn't accounted for either way.</span>
+Which part takes which screw isn't fully recorded, but the parts' own STLs answer most of it: the back mount has one clearance hole into the case (at the end away from the terminal block, the same end that bolts to the frame in step 6), and the connections plate has two, spread along the case nearer the terminal-block end. That's three of the four screws. The PSU box cap's STL has no case-screw holes at all, so it isn't fastened here despite this step covering all three parts in the parts list; see step 5. <span class="fastener-todo">Read from the STLs, not confirmed against a built box — worth checking against a real assembly, and the fourth screw's hole isn't accounted for either way.</span>
 
 <div class="img-placeholder">Image coming</div>
 
-{% include step.html n="3" title="Wire the terminal block and mount the jacks" %}
+{% include step.html n="3" title="Fit the mains inlet" %}
+
+<div class="callout callout-warning">
+  <span class="callout-icon" aria-hidden="true">⚠</span>
+  <p><b>No mains cord in the inlet, and the supply unplugged, for this step and the next.</b> The rocker being off is not isolation: the inlet's pins and the fuse are live whenever a cord is plugged in, whichever way the rocker is set. Neither the inlet nor the PSU may be powered while any of this is being fitted or wired.</p>
+</div>
+
+The **IEC C14 inlet, switch + 10 A fuse** is the machine's mains entry and its on/off switch, and it goes in the rectangular cutout in the connections plate. Its three 18 AWG leads come already attached, so there is no AC cable to make: this step mounts the module, and step 4 lands those leads on the terminal block.
+
+Push it into the cutout from the outside so its flange sits on the outer face of the plate, then screw it down through the flange into the plate's two holes. <span class="fastener-todo">Read off the connections plate's STL, not confirmed against a built box. The plate's two holes are 2.6 mm, a self-tapping size, and no screw for them is in the parts list.</span>
+
+<figure class="harness-figure">
+  <img src="https://assets.basically.website/sorter-docs/psu-box-inlet-mounting-full-205f98ae8ed0.png" alt="Dimensioned drawing of the PSU connections plate seen from outside. A 28 by 47.5 mm rectangular cutout takes the IEC C14 inlet switch module, with two 2.6 mm screw holes 40 mm apart on the cutout's centreline either side of it, and six 12 mm holes below it in two columns of three for the DC output jacks. The inlet module is drawn beside the plate with an arrow into the cutout, and a warning says to fit and wire it with no mains cord in the inlet.">
+  <figcaption>The connections plate from outside: the inlet cutout, its two screw holes, and the six jack holes below it. <cite>Drawn from the connections plate's STL, not from a build.</cite></figcaption>
+</figure>
+
+{% include step.html n="4" title="Wire the terminal block and mount the jacks" %}
 
 <div class="callout callout-warning">
   <span class="callout-icon" aria-hidden="true">⚠</span>
   <p>The PSU must be unplugged from the wall for this entire step. Screws 1-3 carry mains voltage whenever it's plugged in; after unplugging, wait a few seconds before touching the terminal block.</p>
 </div>
 
-Land the fused IEC inlet switch's leads on screws 1, 2 and 3. Then take one pigtail per +V/-V pair: **7 with 4, 8 with 5, 9 with 6**, red terminal on the +V screw and black on the -V screw of the same pair.
+Land the inlet's three leads on screws 1, 2 and 3: **live on 1, neutral on 2, earth on 3**. Go by the module's own markings at the tabs rather than by lead colour, which the catalog does not specify. Then take one pigtail per +V/-V pair: **7 with 4, 8 with 5, 9 with 6**, red terminal on the +V screw and black on the -V screw of the same pair.
 
 <figure class="harness-figure">
-  <img src="https://assets.basically.website/sorter-docs/psu-box-terminal-map-full-9befeb766677.png" alt="Diagram of the Mean Well LRS-350-24 seen from above, its nine-way terminal block down the left edge numbered 1 at the bottom to 9 at the top. Screws 1, 2 and 3 are labelled AC/L, AC/N and earth and are marked as mains, fed by the fused IEC inlet switch. Red leads run from screws 9, 8 and 7 and black leads from 6, 5 and 4, pairing 9 with 6, 8 with 5 and 7 with 4 into three barrel jacks labelled PJ3 to the Orange Pi buck, PJ2 to the powered USB hub, and PJ1 to the basically board.">
-  <figcaption>Every lead that lands on the block, and the screw it lands on. <cite>Drawn from the Mean Well LRS-350 spec sheet and the harness drawings, not from a build.</cite></figcaption>
+  <img src="https://assets.basically.website/sorter-docs/psu-box-terminal-map-full-238fce06c7d9.png" alt="Diagram of the Mean Well LRS-350-24 seen from above, its nine-way terminal block down the left edge numbered 1 at the bottom to 9 at the top. Red leads run from screws 9, 8 and 7 and black leads from 6, 5 and 4, pairing 9 with 6, 8 with 5 and 7 with 4 into three barrel jacks labelled PJ3 to the Orange Pi buck, PJ2 to the powered USB hub, and PJ1 to the basically board. Below them the IEC C14 inlet switch module is drawn with its C14 socket, illuminated rocker and 10 A fuse drawer, and its three factory leads run to screws 1, 2 and 3, labelled AC/L, AC/N and earth. A warning band says no mains cord may be in the inlet while any of this is fitted or wired, because the rocker is not isolation.">
+  <figcaption>Every lead that lands on the block, and the screw it lands on. <cite>Drawn from the Mean Well LRS-350 spec sheet, the inlet's catalog entry and the harness drawings, not from a build.</cite></figcaption>
 </figure>
 
 All three +V screws are the same rail inside the supply, and so are all three -V screws, so the pairing is about splitting the current rather than about which load goes where. What matters is that each pigtail keeps to one pair.
@@ -97,15 +116,15 @@ Tug-test every connection once they are all on.
 
 Mount the three jacks in the connections plate. It is drilled with six 12 mm holes, two columns of three, 16 mm apart across and 20 mm apart down; the jack body goes behind the plate and its nut does up on the outside. <span class="fastener-todo">The hole size and spacing are read off the plate's STL. Which three of the six the jacks use, and what the other three are for, isn't recorded.</span>
 
-Then route every wire through the connections plate so nothing can shift and touch the mains terminals once the box is closed. The connections plate is already fastened at this point (step 2); the cap isn't on yet (step 4).
+Then route every wire through the connections plate so nothing can shift and touch the mains terminals once the box is closed. The connections plate is already fastened at this point (step 2) and the inlet is in it (step 3); the cap isn't on yet (step 5).
 
-{% include step.html n="4" title="Close the box" %}
+{% include step.html n="5" title="Close the box" %}
 
 Fit the cap. It carries no screws of its own — its STL has no case-screw holes, and its footprint sits directly over the connections plate's face, which reads as a friction or snap fit rather than a fastened one, but that isn't confirmed against a built box either. The box is closed before the machine sees mains.
 
 <div class="img-placeholder">Image coming</div>
 
-{% include step.html n="5" title="Bolt the box to the frame" %}
+{% include step.html n="6" title="Bolt the box to the frame" %}
 
 The box hangs off the 2020 frame on 2 {% include fastener.html size="M5" variant="socket-button" length="12" %} screws into 2 {% include fastener.html size="M5" variant="t-nut" text="T-nuts" %} in the extrusion slot. It goes on the [hex frame]({{ '/hardware/assembly/distribution/bin-frame/hex-frame/' | relative_url }}) belonging to the top interface; the [layout render]({{ '/hardware/electronics/installation/' | relative_url }}) on the installation overview shows where it sits relative to the chute stepper.
 

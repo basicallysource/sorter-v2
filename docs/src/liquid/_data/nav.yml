@@ -125,6 +125,10 @@ sections:
             url: /hardware/helpers/led-strip/
           - title: Fitting the WiFi module
             url: /hardware/helpers/wifi-module/
+          - title: Make the control board's 24 V lead
+            url: /hardware/helpers/board-24v-lead/
+          - title: Make the chute stepper lead
+            url: /hardware/helpers/chute-stepper-lead/
       - title: Parts
         url: /hardware/parts/
         children:

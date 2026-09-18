@@ -67,12 +67,7 @@ If you order the wrong module for your board variant it will not physically seat
 
 ### Installing the module
 
-1. Power off the board and disconnect it before opening the case.
-2. Locate the M.2 slot on the underside of the board (check the [Orange Pi mount]({{ '/hardware/electronics/installation/orange-pi-mount/' | relative_url }}) page for where the board sits in the machine).
-3. Insert the module into the slot at a shallow angle (roughly 30°), gold contacts first, until it's fully seated.
-4. Press the free end down flat and secure it with the small retention screw the module ships with.
-5. Connect the antenna cable(s) to the module's u.FL connectors.
-6. Power the board back on and confirm the OS sees the adapter, e.g. `ip link` or `nmcli device wifi list` should list it.
+[Fitting the WiFi module]({{ '/hardware/helpers/wifi-module/' | relative_url }}) is the procedure. Do it while the board is still loose on the bench, before it goes on its mount and before the first boot: the slot, the retention screw and the antenna leads are all on the underside of the board, and the mount sits under the board.
 
 <div class="notice">
   <strong>Driver support</strong>

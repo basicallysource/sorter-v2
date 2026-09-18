@@ -40,15 +40,19 @@ All three go on the same plane: the [hex frame]({{ '/hardware/assembly/distribut
   <figcaption>Where everything sits, top-down. This render is the record of the placement; the chute stepper is drawn slightly further out than it really sits, to keep the callouts readable. <cite>Render: Spencer.</cite></figcaption>
 </figure>
 
+<figure class="single-figure">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-control-board-housing-on-the-extrusion-w1600-813fbb56a0d6.jpg" alt="The finished control board housing bolted down onto a 2020 aluminium extrusion under the machine's frame, with two socket head screws through its clamp bosses">
+  <figcaption>The control board housing bolted on, its two clamp bosses pulled down onto the extrusion. The PSU box and the Orange Pi mount go on the same way. <cite>Photo: Spencer.</cite></figcaption>
+</figure>
+
 Solder the [Pico headers]({{ '/hardware/helpers/pico-headers/' | relative_url }}) first, a one-time prep step under [Helpers]({{ '/hardware/helpers/' | relative_url }}); the Pico won't seat in the control board without it. Then:
 
 1. **[PSU box]({{ '/hardware/electronics/installation/psu-box/' | relative_url }})**: the printed enclosure around the Mean Well LRS-350-24.
 2. **[Preparing the control board]({{ '/hardware/electronics/installation/control-board-prep/' | relative_url }})**: the five stepper drivers, the Pico, and the jumpers that address the drivers.
 3. **[Control board housing]({{ '/hardware/electronics/installation/control-board-housing/' | relative_url }})**: the printed housing the board closes into, with its fan.
 4. **[Orange Pi mount]({{ '/hardware/electronics/installation/orange-pi-mount/' | relative_url }})**: Orange Pi 5 on standoffs.
-5. **[Connecting the components]({{ '/hardware/electronics/installation/connecting/' | relative_url }})**: every cable between the three, and the socket each end goes into.
 
-The [wire harness]({{ '/hardware/electronics/' | relative_url }}) page is the reference for what those cables are made of. [Software setup]({{ '/hardware/assembly/software-setup/' | relative_url }}) comes after.
+With all four bolted to the frame, [connecting the components]({{ '/hardware/electronics/connecting/' | relative_url }}) plugs them together: every cable between them, and the socket each end goes into. The [wire harness]({{ '/hardware/electronics/' | relative_url }}) page is the reference for what those cables are made of. [Software setup]({{ '/hardware/assembly/software-setup/' | relative_url }}) comes after.
 
 ## What is not recorded yet
 

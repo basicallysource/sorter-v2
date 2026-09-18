@@ -76,6 +76,8 @@ Peel the film off the thermal pad that comes in the box and lay it on the SoC. S
 
 This is a second fan, not a replacement for the 40 mm one on the arm: the heatsink fan sits on the chip, and the arm fan blows down over the whole board from above. It fits underneath: the heatsink stands 13 mm off the board and the arm's underside passes about 38 mm above it.
 
+If the machine is going on WiFi rather than Ethernet, the M.2 WiFi module goes in at this stage too, and for the same reason: its slot, its retention screw and its antenna leads are all on the underside of the board, which this mount then sits under. See [fitting the WiFi module]({{ '/hardware/helpers/wifi-module/' | relative_url }}).
+
 {% include step.html n="2" title="Stand the Pi off the mount" %}
 
 (Inserts already pressed in step 1.)
@@ -111,7 +113,11 @@ Screw the 4 M3 standoffs into the inserts. Sit the Pi on them and fasten it down
 
 Easier with the arm still loose on the bench. The fan sits on the flat top face of the arm, over the round opening, with its label side down so it blows down through the opening onto the Pi. The four holes take 4 {% include fastener.html size="M3" variant="socket-button" length="16" %} screws, self-tapping straight into the plastic. There are no inserts in the arm.
 
+The fan is the **24 V** WINSINN 4010 on an XH2.54 2-pin lead, the same fan the [control board housing]({{ '/hardware/electronics/installation/control-board-housing/' | relative_url }}) takes. It is not the Pi's own heatsink fan, which is 5 V and went into the board's `FAN` socket back in step 1.
+
 Take the lead down through the rectangular 18 × 10 mm slot at the near end of the arm, over the upright, while the arm is still off the machine.
+
+Leave it loose for now. Where it lands is not settled: the Orange Pi has no 24 V rail and no fan header of its own, so the fan has to come off the control board, and whether it goes on one of that board's LED ports (which is how the control board housing's own fan is wired) is still being decided.
 
 {% include step.html n="4" title="Bolt the fan arm to the mount" %}
 
@@ -134,12 +140,4 @@ The mount hangs off the 2020 frame on 2 {% include fastener.html size="M5" varia
 
 <div class="img-placeholder">Image coming</div>
 
-{% include step.html n="6" title="Plug it in" %}
-
-The Pi is powered by its own 24 V to USB-C adapter off the PSU, not from the control board. Confirm the buck converter's output is 5V and correctly polarized before connecting it to the Pi for the first time; a wrong connection here can destroy the board. That, the USB hub and the cameras are all on the [wire harness]({{ '/hardware/electronics/' | relative_url }}) page.
-
-The fan on the arm is the **24 V** WINSINN 4010, the same fan the [control board housing]({{ '/hardware/electronics/installation/control-board-housing/' | relative_url }}) takes, on an XH2.54 2-pin lead. The Pi's heatsink fan is a different, 5 V fan and plugs straight into the board's own `FAN` socket back in step 1, so there is only one lead to find a home for here.
-
-Where that lead lands is not settled. The Orange Pi has no 24 V rail and no fan header of its own, so the fan has to come off the control board, and whether it goes on one of that board's LED ports (which is how the control board housing's own fan is wired) is still being decided.
-
-The Orange Pi mount is now complete. Flashing and configuring the Pi is [software setup]({{ '/hardware/assembly/software-setup/' | relative_url }}).
+The Orange Pi mount is now complete. Nothing plugs into the Pi here: its power comes from a 24 V to 5 V buck converter off the PSU rather than from the control board, and that, the USB hub, the cameras and the arm fan's lead are all on [connecting the components]({{ '/hardware/electronics/installation/connecting/' | relative_url }}), which is the next page.

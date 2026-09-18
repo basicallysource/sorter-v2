@@ -86,8 +86,8 @@ Which part takes which screw isn't fully recorded, but the parts' own STLs answe
 
 Land the fused IEC inlet switch's leads on screws 1, 2 and 3. Then take one pigtail per +V/-V pair: **7 with 4, 8 with 5, 9 with 6**, red terminal on the +V screw and black on the -V screw of the same pair.
 
-<figure class="single-figure">
-  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/psu-box-terminal-map-full-9befeb766677.png" alt="Diagram of the Mean Well LRS-350-24 seen from above, its nine-way terminal block down the left edge numbered 1 at the bottom to 9 at the top. Screws 1, 2 and 3 are labelled AC/L, AC/N and earth and are marked as mains, fed by the fused IEC inlet switch. Red leads run from screws 9, 8 and 7 and black leads from 6, 5 and 4, pairing 9 with 6, 8 with 5 and 7 with 4 into three barrel jacks labelled PJ3 to the Orange Pi buck, PJ2 to the powered USB hub, and PJ1 to the basically board.">
+<figure class="harness-figure">
+  <img src="https://assets.basically.website/sorter-docs/psu-box-terminal-map-full-9befeb766677.png" alt="Diagram of the Mean Well LRS-350-24 seen from above, its nine-way terminal block down the left edge numbered 1 at the bottom to 9 at the top. Screws 1, 2 and 3 are labelled AC/L, AC/N and earth and are marked as mains, fed by the fused IEC inlet switch. Red leads run from screws 9, 8 and 7 and black leads from 6, 5 and 4, pairing 9 with 6, 8 with 5 and 7 with 4 into three barrel jacks labelled PJ3 to the Orange Pi buck, PJ2 to the powered USB hub, and PJ1 to the basically board.">
   <figcaption>Every lead that lands on the block, and the screw it lands on. <cite>Drawn from the Mean Well LRS-350 spec sheet and the harness drawings, not from a build.</cite></figcaption>
 </figure>
 

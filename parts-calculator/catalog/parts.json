@@ -7044,8 +7044,59 @@
     },
     {
       "id": "meanwell-psu-box",
-      "uid": "skg6",
-      "version": "1",
+      "uid": "5h82",
+      "version": "2",
+      "versions": [
+        {
+          "version": "1",
+          "uid": "skg6",
+          "message": "As recorded before the first stamped change.",
+          "lines": [
+            {
+              "part": "meanwell-psu-back-mount",
+              "qty": 1,
+              "uid": "15uh"
+            },
+            {
+              "part": "meanwell-psu-connections",
+              "qty": 1,
+              "uid": "08id"
+            },
+            {
+              "part": "meanwell-psu-cap",
+              "qty": 1,
+              "uid": "5nt1"
+            },
+            {
+              "part": "psu-24v-350w",
+              "qty": 1,
+              "uid": "s3ru"
+            },
+            {
+              "part": "scr-m4-6-cs",
+              "qty": 4,
+              "uid": "5r29"
+            },
+            {
+              "part": "scr-m5-12-shcs",
+              "qty": 2,
+              "uid": "kmah"
+            },
+            {
+              "part": "tnut-m5-2020",
+              "qty": 2,
+              "uid": "bpwm"
+            }
+          ]
+        },
+        {
+          "version": "2",
+          "date": "2026-09-18",
+          "message": "The mains inlet and the two screws that hold it in. The fused IEC inlet switch mounts in this box's connections plate, in a 28 x 47.5 mm cutout with two 2.6 mm holes 40 mm apart, which matches the module's own cutout spec and flange hole pitch. It was only a sheet_qty hand count before, and its screws were in no list at all. The screws are M3 x 8 countersunk, self-tapping into an 8 mm boss: the module's flange holes are countersunk for them.",
+          "breaking": false,
+          "commit": null
+        }
+      ],
       "name": "Meanwell 24V PSU box",
       "description": "Enclosure for the Meanwell 24V power supply: back mount, connections plate, and cap, screwed to the supply's own case.",
       "docs": "/hardware/electronics/installation/psu-box/",
@@ -7076,6 +7127,14 @@
         },
         {
           "part": "tnut-m5-2020",
+          "qty": 2
+        },
+        {
+          "part": "psu-switch-fused",
+          "qty": 1
+        },
+        {
+          "part": "scr-m3-8-cs",
           "qty": 2
         }
       ],

@@ -8,6 +8,7 @@ kicker: Electronics — Preparing the control board
 lede: The five stepper drivers, the Pico, and the jumpers that address the drivers.
 permalink: /hardware/electronics/installation/control-board-prep/
 author: spencer
+og_image: https://assets.basically.website/sorter-docs/assembly-control-board-prep-all-jumpers-fitted-w1600-f470f24a8913.jpg
 parts_needed:
   - part: ctrl-board-basically
     qty: 1
@@ -94,13 +95,13 @@ Which driver is which channel is fixed by the board, not by you: each driver soc
   <p>Read the 1 2 3 printed beside every header. The fifth driver's block is mirrored, which is why the board prints <b>!Double check!</b> next to it, and a wrong address fails silently: that driver never answers and its stepper stays unconfigured.</p>
 </div>
 
+## The finished result
+
 This is a correctly jumpered board.
 
-<div class="img-row">
-  <figure>
-    <img src="https://assets.basically.website/sorter-docs/assembly-control-board-prep-all-jumpers-fitted-w1600-f470f24a8913.jpg" alt="Top-down view of the fully populated control board, with five TMC2209 drivers, the Raspberry Pi Pico, and ten yellow jumpers fitted across the MS1 and MS2 headers">
-    <figcaption><cite>Photo: Spencer.</cite></figcaption>
-  </figure>
-</div>
+<figure class="single-figure">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-control-board-prep-all-jumpers-fitted-w1600-f470f24a8913.jpg" alt="Top-down view of the fully populated control board, with five TMC2209 drivers, the Raspberry Pi Pico, and ten yellow jumpers fitted across the MS1 and MS2 headers">
+  <figcaption>Five drivers, the Pico, and ten jumpers across the MS1 and MS2 headers. <cite>Photo: Spencer.</cite></figcaption>
+</figure>
 
 Next: [the control board housing]({{ '/hardware/electronics/installation/control-board-housing/' | relative_url }}).

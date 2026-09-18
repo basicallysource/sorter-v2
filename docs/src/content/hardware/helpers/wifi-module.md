@@ -46,6 +46,8 @@ Slide the module in at a shallow angle, roughly 30°, gold contacts first, until
 
 **The washer goes between the board and the module**, under the free end, not on top of it. The slot holds the contact end of the module up off the board, so the washer is what keeps the other end at the same height. Without it the screw pulls that end down and the module ends up bent and unevenly tensioned rather than sitting flat.
 
+Both the washer and the screw come in the box with the module, so there is nothing to buy for this and nothing to substitute.
+
 <div class="img-placeholder">Image coming</div>
 
 {% include step.html n="3" title="Connect the antennas" %}

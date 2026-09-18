@@ -79,7 +79,10 @@ The supply has four M4 threads in its case, in a 150 × 50 mm rectangle, two at 
 
 **The PSU box cap takes none of the four.** It has no case-screw holes at all; see step 4.
 
-<div class="img-placeholder">Image coming</div>
+<figure class="harness-figure">
+  <img src="https://assets.basically.website/sorter-docs/psu-box-case-screws-full-8fe11b7f0d7b.png" alt="Photograph of the Mean Well LRS-350-24 seen from its back, with four of its threaded holes ringed. The two nearer the terminal block are labelled as taking the PSU connections plate, the two at the opposite end as taking the PSU back mount, each with two M4 by 6 mm countersunk screws. A note says the hex-stamped screws beside them are the case's own.">
+  <figcaption>The four M4 threads on the back of the supply, and which plate each pair takes. <cite>Manufacturer photo, marked up.</cite></figcaption>
+</figure>
 
 {% include step.html n="2" title="Fit the mains inlet" %}
 

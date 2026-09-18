@@ -80,10 +80,6 @@ Use a **powered USB hub** for webcams, Raspberry Pi Picos, and other attached US
 We have seen bus-powered hubs let those devices brown out the Orange Pi 5 under load,
 which can trigger severe system crashes instead of a clean USB disconnect.
 
-On the machine that hub is the Waveshare 4-port 24V model, it is the only thing on the Pi's USB,
-and its four ports are full: the Pico on the control board and the three cameras. Plugging them in
-is step 7 of [connecting the components]({{ '/hardware/electronics/connecting/' | relative_url }}).
-
 ## Cooling
 
 If the Orange Pi 5 is pinned hard, especially when running a detection model on the CPU,

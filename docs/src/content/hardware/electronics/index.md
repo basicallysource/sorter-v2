@@ -172,8 +172,6 @@ A male DC barrel plug on each wire mates one of the PSU output jacks (J1-J3).
 
 Three outputs, three loads, no spare. The cooling fans are deliberately not on this bus.
 
-The hub is the only thing on the Orange Pi's USB, and its four ports are full: the Pico on basically board v1.3 and the three cameras. Which camera goes where, and the lead each one takes, is step 7 of [connecting the components]({{ '/hardware/electronics/connecting/' | relative_url }}).
-
 ### 4.3 &nbsp; LEDs (from basically board v1.3)
 
 Each LED drop is drawn as two segments: a 2x1 dupont feed from the board to a female DC jack (the unplug point), then a 6 in male-DC pigtail into the module. On a v1.3 board the barrel pair is optional and the drop can be one continuous 22 AWG pair, dupont at the board and a solderless clamp-on connector at the strip; the drawing has not been redrawn for that yet. Building one is [Preparing the LED strip]({{ '/hardware/helpers/led-strip/' | relative_url }}).

@@ -30,7 +30,7 @@ tools_needed: [Multimeter, Side cutters or a small screwdriver, "Only if you mak
 
 The [PSU box]({{ '/hardware/electronics/installation/psu-box/' | relative_url }}), the [control board housing]({{ '/hardware/electronics/installation/control-board-housing/' | relative_url }}) and the [Orange Pi mount]({{ '/hardware/electronics/installation/orange-pi-mount/' | relative_url }}) are all bolted to the frame, and every cable is already made. This page plugs them together. Nothing here needs a soldering iron.
 
-If a cable is still missing, [make your own PSU pigtail]({{ '/hardware/electronics/psu-pigtail/' | relative_url }}) and [preparing the LED strip]({{ '/hardware/helpers/led-strip/' | relative_url }}) build two of them, and the [wire harness]({{ '/hardware/electronics/' | relative_url }}) page has the length and gauge of the rest.
+If a cable is still missing, four of them have a page that builds them: the [PSU output pigtails]({{ '/hardware/electronics/psu-pigtail/' | relative_url }}), the [prepared LED strips]({{ '/hardware/helpers/led-strip/' | relative_url }}), the [control board's 24 V lead]({{ '/hardware/helpers/board-24v-lead/' | relative_url }}) and the [chute stepper lead]({{ '/hardware/helpers/chute-stepper-lead/' | relative_url }}). The [wire harness]({{ '/hardware/electronics/' | relative_url }}) page has the length and gauge of the rest.
 
 <div class="callout callout-warning">
   <span class="callout-icon" aria-hidden="true">⚠</span>
@@ -46,7 +46,7 @@ If a cable is still missing, [make your own PSU pigtail]({{ '/hardware/electroni
     <tr><td>24 V, USB hub</td><td>PSU box jack, male DC barrel</td><td>Hub DC input, male DC barrel</td></tr>
     <tr><td>24 V, Orange Pi</td><td>PSU box jack, male DC barrel</td><td>Buck converter, then USB-C into <code>PWR IN</code></td></tr>
     <tr><td>Rotor steppers (×4)</td><td>Board <code>J27</code> / <code>J31</code> / <code>J35</code> / <code>J39</code>, JST-PH 4-pin</td><td>The motor's own JST-PH 6-pin socket</td></tr>
-    <tr><td>Chute stepper</td><td>Board <code>J24</code>, 4-pin Dupont on 2.54 mm pins</td><td>The motor's flying leads, crimped into the housing</td></tr>
+    <tr><td>Chute stepper</td><td>Board <code>J24</code>, 4-pin Dupont on 2.54 mm pins</td><td>The motor's flying leads, crimped into the housing (<a href="{{ '/hardware/helpers/chute-stepper-lead/' | relative_url }}">make the chute stepper lead</a>)</td></tr>
     <tr><td>Chute limit switch</td><td>Board <code>J5</code>, 3-pin Dupont, 2 positions used</td><td>Two #187 push-on tabs on the switch</td></tr>
     <tr><td>Camera lamps (×3)</td><td>Board <code>J8</code> / <code>J9</code> / <code>J10</code>, 2-pin Dupont</td><td>Clamp-on connector on the LED strip</td></tr>
     <tr><td>Ribbon to the layers</td><td>Board <code>J17</code>, 16-pin IDC</td><td><code>J3</code> on the first layer board, 16-pin IDC</td></tr>
@@ -63,7 +63,7 @@ The [wire harness]({{ '/hardware/electronics/' | relative_url }}) page calls the
 The buck converter is the only bought part of the three. The leads themselves are:
 
 <dl class="spec-list">
-  <dt><code>W1</code>, control board</dt><dd>18 AWG, 36 in. Male DC barrel plug at the PSU end, JST-VH 2-pin (VHR-2) housing at the board end. No supplier sells that pair of ends, so this is one you make: crimp the two wires of a barrel-plug pigtail into a VHR-2 housing, pin 1 +24 V, pin 2 ground.</dd>
+  <dt><code>W1</code>, control board</dt><dd>18 AWG, 36 in. Male DC barrel plug at the PSU end, JST-VH 2-pin (VHR-2) housing at the board end. No supplier sells that pair of ends, so this is one you make: <a href="{{ '/hardware/helpers/board-24v-lead/' | relative_url }}">make the control board's 24 V lead</a>.</dd>
   <dt><code>W2</code>, USB hub</dt><dd>22 AWG, 12 in, with a male DC barrel plug at <i>both</i> ends. The hub's input is an ordinary female barrel socket, so buy this one ready made.</dd>
   <dt><code>W3</code>, Orange Pi</dt><dd>22 AWG, 6 in, a male DC barrel plug onto the buck converter's input wires. The buck's USB-C lead is the other half of the run.</dd>
 </dl>
@@ -253,7 +253,7 @@ Each stepper has its own socket, and the socket decides which motor the software
 <table>
   <thead><tr><th>Socket</th><th>Printed beside it</th><th>The motor that goes on it</th><th>Cable end</th></tr></thead>
   <tbody>
-    <tr><td><code>J24</code></td><td><code>Stepper_A2</code></td><td>Chute stepper</td><td>4-pin Dupont on the 2.54 mm pins. The chute motor has bare leads, so they are crimped into a Dupont housing</td></tr>
+    <tr><td><code>J24</code></td><td><code>Stepper_A2</code></td><td>Chute stepper</td><td>4-pin Dupont on the 2.54 mm pins. The chute motor has bare leads, so they are crimped into a housing: <a href="{{ '/hardware/helpers/chute-stepper-lead/' | relative_url }}">make the chute stepper lead</a></td></tr>
     <tr><td><code>J27</code></td><td><code>Stepper_A3</code></td><td>C-channel 1 rotor</td><td>JST-PH 4-pin</td></tr>
     <tr><td><code>J31</code></td><td><code>Stepper_A4</code></td><td>C-channel 3 rotor</td><td>JST-PH 4-pin</td></tr>
     <tr><td><code>J35</code></td><td><code>Stepper_A5</code></td><td>Classification channel rotor (the software calls it the carousel)</td><td>JST-PH 4-pin</td></tr>

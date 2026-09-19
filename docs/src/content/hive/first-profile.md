@@ -99,6 +99,25 @@ When the assistant answers, it changes the rules on the left. Two things are wor
 
 Click a rule to see which parts it matches. That preview is the honest answer about what your profile does, more than the rule text is.
 
+### Conditions, Match ALL, and Add child
+
+Open a rule and you see its conditions: a field, an operator, and a value. **Add condition** adds another line to the same rule.
+
+**The dropdown next to the rule name decides how those lines combine.** `Match ALL` means every condition has to be true, which is "and". `Match ANY` means one is enough, which is "or". A rule with two conditions on `Match ALL` catches only parts that satisfy both.
+
+**Add child** adds a group inside the rule. A child is not a separate box. It is worked out on its own, and its answer then counts as one more true or false alongside the rule's own conditions. That is how you mix and with or.
+
+An example. The rule is on `Match ALL` with one condition, `category_id = Tile`. Inside it, a child on `Match ANY` holds `color_id = 4` and `color_id = 1`. The rule now catches tiles that are red or blue, and they all go in the rule's own box.
+
+The operators, as the editor shows them:
+
+- `=` is exactly this value, and `!=` is anything except this value.
+- `in` is any one of a list of values.
+- `contains` looks for text inside a name, and `regex` is a pattern for the same job.
+- `>=` and `<=` compare numbers, for fields like a year or a weight.
+
+Which operators you get depends on the field you picked. A name can be searched with `contains`, not compared with `>=`.
+
 ## 4. Send it to your machine
 
 Save the version, then open **Machines** in Hive and use **Assign Profile** on your machine. You choose the profile and which version of it. The machine picks up what it has been assigned.

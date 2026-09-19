@@ -11,3 +11,6 @@
 /hardware/electronics/psu-pigtail/                                  /hardware/helpers/psu-pigtail/                      301
 # The WireViz drawings page moved from Electronics to Parts (2026-09-19).
 /hardware/electronics/wireviz/                                      /hardware/parts/wireviz/                            301
+# The external-bracket helper page was retired into the pages that install it (2026-08-31);
+# the catalog's assembly routes point at the hex frame, which is where it is built.
+/hardware/helpers/external-bracket/                                 /hardware/assembly/distribution/bin-frame/hex-frame/  301

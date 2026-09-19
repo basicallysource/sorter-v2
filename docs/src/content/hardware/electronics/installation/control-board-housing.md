@@ -130,7 +130,7 @@ Disconnect the board from its 24 V supply before wiring the fan or bridging the 
 
 <div class="callout callout-warning">
   <span class="callout-icon" aria-hidden="true">⚠</span>
-  <p><b>Bridge the port's bypass jumper.</b> Each port feeds +V through a 180 Ω resistor meant for an LED strip. Skip the bridge and the fan will barely turn, if it turns at all, because most of the 24 V drops across the resistor instead of reaching the fan. Bridge the solder jumper marked <b>Bypass R21</b>, <b>R22</b>, <b>R27</b> or <b>R28</b> for the port you used to give the fan the full 24 V.</p>
+  <p><b>Bridge the port's bypass jumper.</b> Each port feeds +V through a 180 Ω resistor meant for a COB LED board. Skip the bridge and the fan will barely turn, if it turns at all, because most of the 24 V drops across the resistor instead of reaching the fan. Bridge the solder jumper marked <b>Bypass R21</b>, <b>R22</b>, <b>R27</b> or <b>R28</b> for the port you used to give the fan the full 24 V.</p>
 </div>
 
 {% include step.html n="6" title="Close the housing" %}

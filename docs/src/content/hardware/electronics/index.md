@@ -250,7 +250,7 @@ All three drops now feed an LED strip in a [camera lamp]({{ '/hardware/assembly/
 
 <dl class="spec-list">
   <dt>Fit your own</dt><dd><b>220&#8486;</b>, <b>1/4 W</b>, in series, one per COB board. That is what Basically settled on for the C-channel plates and the classification chamber, and what Jon recommends. <b>200&#8486;</b> is the ballpark given to people whose lights are overheating</dd>
-  <dt>On basically board v1.3</dt><dd>Already fitted, so a COB board fed from the board needs nothing added. <b>180&#8486;</b>, 1206, 250 mW, 1% (LCSC C17924) in series with the +24V feed to each of the four LED headers: R21 on J8, R22 on J9, R27 on J10, R28 on J11. Each has a solder jumper next to it (JP1-JP4) that bridges the resistor out. On the strip channel the resistor is not strictly required, and brightness can be trimmed with PWM instead (Jon, 2026-08-19)</dd>
+  <dt>On basically board v1.3</dt><dd>Already fitted, so a COB board fed from the board needs nothing added. <b>180&#8486;</b>, 1206, 250 mW, 1% (LCSC C17924) in series with the +24V feed to each of the four LED headers: R21 on J8, R22 on J9, R27 on J10, R28 on J11. Each has a solder jumper next to it (JP1-JP4) that bridges the resistor out. <b>Bridge it on every port feeding an LED strip</b>: the strip limits its own current, so the resistor only dims it, and brightness is set with PWM in the software instead, see <a href="{{ '/hardware/electronics/installation/control-board-prep/' | relative_url }}">preparing the control board</a> (Jon, 2026-08-19 and 2026-09-13)</dd>
   <dt>Effect</dt><dd>Draw drops from ~0.5A to ~0.1A. Still bright enough for the camera, per the C-channel testing in Feb 2026</dd>
 </dl>
 

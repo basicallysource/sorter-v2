@@ -220,7 +220,7 @@ The board prints `+V` beside one pin of each port and `GND` beside the other. Th
   <p><b>Four ports, two switches.</b> <code>J8</code> and <code>J9</code> turn on and off together, and so do <code>J10</code> and <code>J11</code>. So one lamp always comes on with the fan. Which lamp is on which output is picked in the software later, on the LED button for each channel.</p>
 </div>
 
-Leave the small solder jumpers next to the three lamp ports alone. Each port feeds +24 V through a resistor that the LED strip wants, so the drop needs none of its own. The fan's port is the one that gets bridged, and that is done on the [housing]({{ '/hardware/electronics/installation/control-board-housing/' | relative_url }}) page.
+The solder jumper beside each of these three ports should already be bridged, from [preparing the control board]({{ '/hardware/electronics/installation/control-board-prep/' | relative_url }}), step 4. If you skipped it, do it before the lamps go on: the 180 Ω resistor in each port is there for a COB LED board and only dims a strip.
 
 **Plugging one in.** Push the lamp's 2-pin 2.54 mm Dupont housing onto the port, red to `+V`, metering which pin that is first. A lead bought male-to-female has the male plug cut off; the female end is the plug you want. Cable-tie the pair along whatever it runs down so it is not left hanging.
 

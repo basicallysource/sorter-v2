@@ -121,8 +121,14 @@ sections:
             url: /hardware/helpers/led-strip/
           - title: Make the control board's 24 V lead
             url: /hardware/helpers/board-24v-lead/
+          - title: Make the Orange Pi's 24 V lead
+            url: /hardware/helpers/pi-24v-lead/
+          - title: Make the channel stepper leads
+            url: /hardware/helpers/channel-stepper-lead/
           - title: Make the chute stepper lead
             url: /hardware/helpers/chute-stepper-lead/
+          - title: Make the chute limit switch lead
+            url: /hardware/helpers/limit-switch-lead/
           - title: Make your own PSU pigtail
             url: /hardware/helpers/psu-pigtail/
       - title: Parts

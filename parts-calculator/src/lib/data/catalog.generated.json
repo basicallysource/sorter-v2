@@ -23429,7 +23429,7 @@
 			"description": "Powers the Orange Pi from the 24 V PSU.",
 			"note": null,
 			"created_at": "2026-07-18",
-			"updated_at": "2026-07-18",
+			"updated_at": "2026-09-19",
 			"attributes": [
 				{
 					"label": "Input",
@@ -23468,7 +23468,7 @@
 			},
 			"alternative": null,
 			"caption": null,
-			"docs_page": null,
+			"docs_page": "/hardware/helpers/pi-24v-lead/",
 			"conflicts": null,
 			"image": "https://assets.basically.website/sorter-parts/buck-24v-5v-usbc-full-1a5bf367214f.jpg"
 		},
@@ -23624,7 +23624,7 @@
 			"description": "The board end of W1, the 24 V feed into basically board v1.3. It pushes onto J1, the big 2-pin header in the corner of the board, and it is the only connector of that size there. Pin 1 is +24 V and pin 2 is ground.",
 			"note": "VH is 3.96 mm between pins and is much chunkier than the 2.0 mm PH housings the steppers use. The two are not interchangeable and a PH plug will not stay on J1.",
 			"created_at": "2026-09-14",
-			"updated_at": "2026-09-14",
+			"updated_at": "2026-09-19",
 			"attributes": [
 				{
 					"label": "Series",
@@ -23665,7 +23665,7 @@
 			},
 			"alternative": null,
 			"caption": "The board end of W1. Pin 1 is +24 V.",
-			"docs_page": "/hardware/electronics/",
+			"docs_page": "/hardware/helpers/board-24v-lead/",
 			"conflicts": null,
 			"image": "https://assets.basically.website/sorter-parts/jst-vhr-2-full-42731782ea88.jpg"
 		},
@@ -23681,7 +23681,7 @@
 			"description": "The two metal contacts that go inside the VHR-2 housing. Crimp one onto each wire of W1, then push them into the back of the shell until they click and will not pull out.",
 			"note": "Buy spares. The first one or two crimps in a series you have not done before usually come out wrong, and a contact cannot be recovered once it is mis-crimped.",
 			"created_at": "2026-09-14",
-			"updated_at": "2026-09-14",
+			"updated_at": "2026-09-19",
 			"attributes": [
 				{
 					"label": "Series",
@@ -23718,7 +23718,7 @@
 			},
 			"alternative": null,
 			"caption": "Crimp onto the wire first, then push into the shell.",
-			"docs_page": "/hardware/electronics/",
+			"docs_page": "/hardware/helpers/board-24v-lead/",
 			"conflicts": null,
 			"image": "https://assets.basically.website/sorter-parts/jst-svh-21t-full-12fe480e1b3f.jpg"
 		},
@@ -23791,7 +23791,7 @@
 			"description": "The motor end of the four channel and carousel stepper cables, into the NEMA 17's own 6-pin socket. Only four of the six positions carry a contact.",
 			"note": "Positions 2 and 5 are deliberately left empty. The board's four conductors map 1, 2, 3, 4 to motor positions 1, 4, 3, 6, so this is a crossover cable and the pin order matters. Buying jst-ph-cable-4p-63cm does not remove this: that cable is 4-pin at both ends, so the motor end still needs one of these.",
 			"created_at": "2026-09-14",
-			"updated_at": "2026-09-14",
+			"updated_at": "2026-09-19",
 			"attributes": [
 				{
 					"label": "Series",
@@ -23832,7 +23832,7 @@
 			},
 			"alternative": null,
 			"caption": "Motor end of S1 to S4. Two positions stay empty.",
-			"docs_page": "/hardware/electronics/",
+			"docs_page": "/hardware/helpers/channel-stepper-lead/",
 			"conflicts": null,
 			"image": "https://assets.basically.website/sorter-parts/jst-phr-6-full-bf8127ef2725.jpg"
 		},
@@ -23901,7 +23901,7 @@
 			"description": "The board end of the chute limit switch cable, onto J5. Only two of the three positions are wired: signal and ground.",
 			"note": "The third position is left empty on purpose, so the plug cannot go onto J5 the wrong way round. Do not fill it.",
 			"created_at": "2026-09-14",
-			"updated_at": "2026-09-14",
+			"updated_at": "2026-09-19",
 			"attributes": [
 				{
 					"label": "Pitch",
@@ -23928,7 +23928,7 @@
 			"sourcing": null,
 			"alternative": "The Preciva crimp tool and connector kit (connector-kit-crimp) includes this, along with the crimper",
 			"caption": "Position 3 stays empty; that is what keys it.",
-			"docs_page": "/hardware/electronics/",
+			"docs_page": "/hardware/helpers/limit-switch-lead/",
 			"conflicts": null,
 			"image": "https://assets.basically.website/sorter-parts/dupont-housing-3p-full-50d0a6c664ee.jpg"
 		},
@@ -23991,7 +23991,7 @@
 			"description": "The switch end of the chute limit switch cable. It pushes straight onto the Omron V-155-1C25's blade tabs, so there is nothing to solder.",
 			"note": "Fully insulated, not the open kind. The switch is SPDT with three tabs and only two are used, so a bare receptacle can touch the spare one.",
 			"created_at": "2026-09-14",
-			"updated_at": "2026-09-14",
+			"updated_at": "2026-09-19",
 			"attributes": [
 				{
 					"label": "Tab",
@@ -24028,7 +24028,7 @@
 			},
 			"alternative": null,
 			"caption": "Pushes onto the switch tabs. No soldering.",
-			"docs_page": "/hardware/electronics/",
+			"docs_page": "/hardware/helpers/limit-switch-lead/",
 			"conflicts": null,
 			"image": "https://assets.basically.website/sorter-parts/terminal-qc-187-full-1b297cc335ae.jpg"
 		},
@@ -24339,7 +24339,7 @@
 			"description": "A whole channel stepper cable with no crimping: 63 cm of twisted 24 AWG with a 4-pin PHR-4 at each end. One end plugs into the board as it comes. At the other, lift the four contacts out of their housing and re-seat them in a PHR-6 in the crossover order, which needs a pick and no crimp tool.",
 			"note": "Buy a PHR-6 per cable for the motor end; the housing the contacts came out of is then a spare. Contacts are held by a small lance inside the housing: press it back with a fine pick or a sliver of shim and the contact slides out, and it goes back into the PHR-6 until it clicks. Take your time, a bent lance will not retain.",
 			"created_at": "2026-09-14",
-			"updated_at": "2026-09-18",
+			"updated_at": "2026-09-19",
 			"attributes": [
 				{
 					"label": "Length",
@@ -24385,7 +24385,7 @@
 			},
 			"alternative": "Make the cable from wire-24awg plus a jst-phr-4, a jst-phr-6 and eight jst-sph-002t contacts",
 			"caption": "One per channel stepper. Move four contacts into a PHR-6 and it is done.",
-			"docs_page": "/hardware/electronics/",
+			"docs_page": "/hardware/helpers/channel-stepper-lead/",
 			"conflicts": null,
 			"image": "https://assets.basically.website/sorter-parts/jst-ph-cable-4p-63cm-full-9f00b9a255c8.jpg"
 		},

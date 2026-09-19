@@ -71,6 +71,19 @@ Three things make a request work:
 
 Once you have the first version, keep going in the same chat. `Split the bricks box into 1xN bricks and everything larger.` `Move wedges in with slopes.` `Add a box for wheels and tyres.` Each message changes the profile you already have.
 
+### If English is not your first language
+
+Write to the chat in your own language. Nothing in Hive asks for English, and the assistant normally answers in the language you wrote in.
+
+There is no list of supported languages, because the chat is not Hive's own: it runs on the model your OpenRouter key is pointed at, and the languages it handles are that model's. If it answers your language badly, open **Settings** and try a different **Preferred Model**.
+
+Two things stay English whatever you type:
+
+- **Part names, category names and colour names.** The catalog Hive sorts against is English, and the rules it writes have to match that text, so the assistant translates your request as it goes. Ask in German for bricks, plates and tiles and you get those three boxes, but check them: if a rule ends up searching for a word in your own language it matches nothing, and the box is simply empty. Click the rule and look at the parts it caught.
+- **Hive's own screens and error messages**, including every message quoted on this page.
+
+Your box names are labels and are not matched against anything, so name them in whatever language you like. That is the name your machine shows.
+
 ### Asking for colour
 
 Colour is the one thing to be careful with right now. A request like `sort by colour` produces a profile Hive cannot apply, and you get an `HTTP 502` error when it tries. This is a bug in Hive and not something you did wrong.

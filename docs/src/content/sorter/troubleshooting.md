@@ -60,7 +60,7 @@ The wizard's Controller Discovery step lists no controllers, and the issue banne
 
 **Cause:** Discovery only enumerates USB serial devices with the Pico's firmware VID/PID (`2e8a:000a`). A Pico that has never been flashed has empty flash, so it boots into its own USB bootloader and enumerates as an `RPI-RP2` mass-storage device instead. It is invisible to discovery until the control board firmware is on it. This is normal for a freshly built machine, not a fault.
 
-**Fix:** Flash both boards before running the wizard, as [Software setup]({{ '/hardware/electronics/software-setup/' | relative_url }}) describes. For a blank board, go to **Settings → Control board**, tick the **Recovery flash** checkbox (labelled "board is already in bootloader (RPI-RP2), or blank"), pick the release asset for that board, and flash. Do one board at a time. The job mounts the `RPI-RP2` drive itself. Then return to the wizard and press **Rescan**.
+**Fix:** Flash the control board before running the wizard, as [Software setup]({{ '/hardware/electronics/software-setup/' | relative_url }}) describes. For a blank board, go to **Settings → Control board**, tick the **Recovery flash** checkbox (labelled "board is already in bootloader (RPI-RP2), or blank"), pick the release asset for that board, and flash. Do one board at a time. The job mounts the `RPI-RP2` drive itself. Then return to the wizard and press **Rescan**.
 
 **Verify:** `ls /dev/ttyACM*` lists a device per board, and Controller Discovery shows each one with a **Controller** badge.
 

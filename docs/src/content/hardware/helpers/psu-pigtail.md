@@ -70,4 +70,4 @@ The crimp is the part that takes care. Strip the lead, seat it fully in the term
 
 ## Reference
 
-The drawing for this pigtail, its bill of materials and its downloads are on the [WireViz drawings]({{ '/hardware/parts/wireviz/#psu-pigtail' | n }}) page.
+The drawing for this pigtail, its bill of materials and its downloads are on the [WireViz drawings]({{ '/hardware/parts/harness-order/#psu-pigtail' | n }}) page.

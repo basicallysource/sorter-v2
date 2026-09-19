@@ -176,7 +176,7 @@ Three outputs, three loads, no spare. The cooling fans are deliberately not on t
 
 Each LED drop is drawn as two segments: a 2x1 dupont feed from the board to a female DC jack (the unplug point), then a 6 in male-DC pigtail into the module. On a v1.3 board the barrel pair is optional and the drop can be one continuous 22 AWG pair, dupont at the board and a solderless clamp-on connector at the strip; the drawing has not been redrawn for that yet. Building one is [Preparing the LED strip]({{ '/hardware/helpers/led-strip/' | relative_url }}).
 
-All three drops now feed an LED strip in a [camera lamp]({{ '/hardware/assembly/feeder/camera-lamp/' | relative_url }}), on C-channels 2 and 3 and the classification channel. The 50 mm COB plates that L1 and L2 used to feed went with the light post they were mounted on. The [WireViz drawing]({{ '/hardware/parts/wireviz/#leds' | relative_url }}) still shows them as COB boards and has not been redrawn yet.
+All three drops now feed an LED strip in a [camera lamp]({{ '/hardware/assembly/feeder/camera-lamp/' | relative_url }}), on C-channels 2 and 3 and the classification channel. The 50 mm COB plates that L1 and L2 used to feed went with the light post they were mounted on. The [WireViz drawing]({{ '/hardware/parts/harness-order/#leds' | relative_url }}) still shows them as COB boards and has not been redrawn yet.
 
 <table>
   <thead><tr><th>ID</th><th>Segment</th><th>From</th><th>To</th><th>Cond.</th><th>Length</th></tr></thead>
@@ -273,4 +273,4 @@ All three drops now feed an LED strip in a [camera lamp]({{ '/hardware/assembly/
 5. **Gauge per segment.** Current draw per load is needed to spec gauge.
 6. **SKU reduction.** Once gauges are known, standardize on as few gauges and connector types as possible.
 
-The [order spec]({{ '/hardware/electronics/order/' | relative_url }}) page fills these in with guesses (marked as guesses) for ordering purposes. Nothing there is confirmed.
+[Ordering the wire harness]({{ '/hardware/parts/harness-order/' | relative_url }}) fills these in with guesses, marked as guesses, so the set can be ordered. Nothing there is confirmed.

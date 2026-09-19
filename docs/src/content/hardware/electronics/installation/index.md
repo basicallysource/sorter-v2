@@ -28,7 +28,7 @@ The six T-nuts go into the hex frame while the top interface is built, at [step 
 
 All three go on the same plane: the [hex frame]({{ '/hardware/assembly/distribution/bin-frame/hex-frame/' | relative_url }}) that belongs to the top interface, the one lowered onto the interface assembly at [step 13]({{ '/hardware/assembly/distribution/top-interface/' | relative_url }}#step-13) of the top interface build. The render below is that frame seen from above, and the chute stepper is the landmark to place the three enclosures against.
 
-**The PSU box is bolted on from here**, once it is built and closed on its own page. The control board housing and the Orange Pi mount each still end with their own bolting step.
+**All three are bolted on from here**, each once it is built and closed on its own page. None of the three pages ends with a bolting step of its own.
 
 <figure class="single-figure">
   <img class="doc-figure" src="https://assets.basically.website/sorter-docs/electronics-component-layout-topdown-full-2d38b86c4b2e.jpg" alt="Top-down physical component layout on the machine, with the PSU, Pi, basically board, USB hub, Pico, chute stepper and ribbon run called out">

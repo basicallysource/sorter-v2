@@ -106,4 +106,4 @@ A board that has been prepared: fan on, module in, network set, powered down and
   <figcaption>Prepared and on the network, still on the bench. This board is running without the heatsink fan from step 1, which is not a reason to leave it off. <cite>Photo: BrickCycleAlice.</cite></figcaption>
 </figure>
 
-Carry on with [Orange Pi mount]({{ '/hardware/electronics/installation/orange-pi-mount/' | relative_url }}), which bolts it to the frame.
+Carry on with [Orange Pi mount]({{ '/hardware/electronics/installation/orange-pi-mount/' | relative_url }}), which stands it off its printed plate and puts the fan arm over it.

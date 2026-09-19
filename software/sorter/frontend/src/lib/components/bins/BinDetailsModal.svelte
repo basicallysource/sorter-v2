@@ -64,11 +64,17 @@
 		return { name: match.name, set_num: match.set_num, img_url: match.set_meta?.img_url };
 	});
 
+	// Misc is the discard passthrough; it only lands in a bin when assigned
+	// here explicitly (e.g. no bucket under the chute), so offer it too.
+	const MISC_CATEGORY = { id: 'misc', name: 'Misc (discard)' };
+
 	function availableCategories(): { id: string; name: string }[] {
 		const cats = sortingProfileStore.data?.categories ?? {};
-		return Object.entries(cats)
+		const list = Object.entries(cats)
 			.map(([id, cat]) => ({ id, name: cat?.name ?? id }))
 			.sort((a, b) => a.name.localeCompare(b.name));
+		if (!(MISC_CATEGORY.id in cats)) list.push(MISC_CATEGORY);
+		return list;
 	}
 
 	// Where each category is currently assigned across the persisted layout, so

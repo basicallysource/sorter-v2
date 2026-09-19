@@ -247,9 +247,30 @@ class ServoBusFatalTests(unittest.TestCase):
         self.assertEqual("positioning.passthrough_no_bin", positioning._occupancy_state)
         servo.open.assert_called_once()
 
-    def test_misc_assigned_bin_is_ignored_for_bottom_passthrough(self) -> None:
+    def test_misc_routes_to_an_explicitly_assigned_bin(self) -> None:
+        # The operator may assign misc to a bin (e.g. no bucket under the
+        # chute); only then does misc leave the discard passthrough.
         servo = _mk_healthy_servo()
         section = BinSection(bins=[Bin(size=BinSize.MEDIUM, category_ids=[MISC_CATEGORY])])
+        layer = Layer(sections=[section])
+        layer.enabled = True
+        layout = DistributionLayout(layers=[layer])
+        positioning = self._mk_positioning(
+            servos=[servo],
+            layout=layout,
+            sorting_profile=_AllCategoriesProfile(MISC_CATEGORY),
+        )
+
+        positioning.step()
+
+        self.assertIsNone(self.runtime_stats.snapshot().get("active_incident"))
+        self.assertIsNotNone(positioning._piece.destination_bin)
+        self.assertNotEqual("positioning.passthrough_no_bin", positioning._occupancy_state)
+        positioning.chute.moveToBin.assert_called_once()
+
+    def test_misc_never_claims_an_empty_bin(self) -> None:
+        servo = _mk_healthy_servo()
+        section = BinSection(bins=[Bin(size=BinSize.MEDIUM, category_ids=[])])
         layer = Layer(sections=[section])
         layer.enabled = True
         layout = DistributionLayout(layers=[layer])
@@ -262,9 +283,9 @@ class ServoBusFatalTests(unittest.TestCase):
         next_state = positioning.step()
 
         self.assertEqual(DistributionState.READY, next_state)
-        self.assertIsNone(self.runtime_stats.snapshot().get("active_incident"))
         self.assertIsNone(positioning._piece.destination_bin)
         self.assertEqual("positioning.passthrough_no_bin", positioning._occupancy_state)
+        self.assertEqual([], section.bins[0].category_ids)
         positioning.chute.moveToBin.assert_not_called()
         servo.open.assert_called_once()
 

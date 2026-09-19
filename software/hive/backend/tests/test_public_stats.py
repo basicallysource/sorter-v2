@@ -453,3 +453,66 @@ class TestFleetAnonTier:
         ).json()
         assert "registered_machine_count" not in body
         assert "active_machine_count" in body
+
+
+class TestMachineThresholdLadder:
+    """How many machines are above each rung, rather than one arguable cutoff.
+
+    The point of the ladder is that a consumer picks the rung whose meaning
+    matches the sentence it is writing, so what these assert is that the rungs
+    disagree with each other in the right direction.
+    """
+
+    def test_counts_machines_above_each_rung(self, client, db, monkeypatch, machine_token):
+        monkeypatch.setattr(settings, "PUBLIC_STATS_API_KEY", STATS_KEY)
+        now = time.time()
+        _sync(client, machine_token, [
+            {"piece_uuid": f"ladder-{i}", "local_id": i + 1, "seen_at": now - 60,
+             "classification_status": "classified", "part_id": "3001", "color_id": "5"}
+            for i in range(150)
+        ])
+
+        # The ladder is folded from machine_stats_cache, same as totals.machines,
+        # so it moves when the stats worker runs and not the instant a piece
+        # lands. That is the intended staleness for a lifetime threshold.
+        from app.services import machine_stats
+
+        machine_stats.refresh_all(db)
+
+        body = client.get("/api/public/stats", headers={"X-Stats-Key": STATS_KEY}).json()
+        rungs = {row["min_pieces"]: row["machines"] for row in body["machine_thresholds"]}
+
+        # 150 pieces on one machine: over the first two rungs, under the rest.
+        assert rungs[0] == 1
+        assert rungs[100] == 1
+        assert rungs[250] == 0
+        assert rungs[1000] == 0
+        # The ladder never climbs as the bar rises.
+        counts = [row["machines"] for row in body["machine_thresholds"]]
+        assert counts == sorted(counts, reverse=True)
+
+    def test_registration_count_is_the_denominator(self, client, db, monkeypatch, machine_token):
+        """A machine that has never sorted is registered and on no rung, which is
+        the whole reason both numbers are served."""
+        monkeypatch.setattr(settings, "PUBLIC_STATS_API_KEY", STATS_KEY)
+        from app.services import machine_stats
+
+        machine_stats.refresh_all(db)
+        body = client.get("/api/public/stats", headers={"X-Stats-Key": STATS_KEY}).json()
+        assert body["machines_registered"] == body["scope"]["machine_count"] == 1
+        rungs = {row["min_pieces"]: row["machines"] for row in body["machine_thresholds"]}
+        assert rungs[0] == 0
+
+
+class TestMassOnStats:
+    """Weight rides along on /stats, read from the worker and never computed here."""
+
+    def test_absent_until_a_pass_has_run(self, client, monkeypatch, machine_token):
+        """Zeroes labelled as not-yet-computed, rather than a number to quote."""
+        monkeypatch.setattr(settings, "PUBLIC_STATS_API_KEY", STATS_KEY)
+        from app.services import fleet_mass
+
+        fleet_mass.reset_cache()
+        body = client.get("/api/public/stats", headers={"X-Stats-Key": STATS_KEY}).json()
+        assert body["mass"]["computed_at"] is None
+        assert body["mass"]["known_grams"] == 0.0

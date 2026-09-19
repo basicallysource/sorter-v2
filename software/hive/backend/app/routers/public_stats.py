@@ -93,10 +93,16 @@ PUBLIC_STATS_LOCAL_TZ = "America/Los_Angeles"
 # ratio built on it — how many are live, how many owners have claimed theirs —
 # read worse than the truth and mean less than it should.
 #
-# 250 pieces is roughly one real run. It is deliberately low: the bar is "this
+# 100 pieces is roughly one real run. It is deliberately low: the bar is "this
 # thing has actually sorted", not "this thing is impressive". Consumers get
 # BOTH counts and choose which to say — see the two counters on /fleet.
-ACTIVE_MACHINE_MIN_PIECES = 250
+#
+# Lowered from 250 on 2026-09-18. One cutoff can only ever be somebody's
+# judgement, which is why `/stats` now carries the whole ladder
+# (`analytics.MACHINE_PIECE_THRESHOLDS`) and a consumer picks its own rung.
+# This constant survives as the default for the two roster endpoints, where a
+# boolean per machine is more useful than a distribution.
+ACTIVE_MACHINE_MIN_PIECES = 100
 
 
 def require_stats_key(
@@ -151,6 +157,11 @@ def get_public_stats(db: Session = Depends(get_db)):
         "last_24h_pieces": _rolling_24h_pieces(db, ids),
         **_local_day_in_progress(db, ids),
         **data,
+        # Weight, from the fleet-mass worker's last pass. Read and not computed:
+        # this endpoint is polled continuously and the scan behind mass belongs
+        # on a clock. `computed_at` is null until the first pass lands, which is
+        # about a second after boot.
+        "mass": fleet_mass.latest(),
     }
 
 
@@ -345,9 +356,13 @@ def get_public_fleet_mass(db: Session = Depends(get_db)):
     Read `services/fleet_mass.py` before quoting a field: the honest number
     depends on coverage, and the payload carries both a measured sum and an
     extrapolation because neither alone is the answer.
+
+    Served from the worker's last pass, never computed here — the same numbers
+    `/stats` carries under `mass`, so the two endpoints cannot disagree. This
+    one remains because it is the surface a consumer that wants only weight
+    asks, and it costs it nothing to ask.
     """
-    ids = [mid for (mid,) in db.query(Machine.id).filter(Machine.archived_at.is_(None)).all()]
-    return fleet_mass.get_fleet_mass(db, ids)
+    return fleet_mass.latest()
 
 
 def _pieces_by_machine_since(db: Session, ids: list, *, hours: int) -> dict[str, int]:

@@ -19,57 +19,125 @@ payload carries the measured sum, how many pieces are behind it, and an
 estimate that extends the mean matched piece over the unmatched remainder.
 A consumer says "at least X" from the first or "about Y" from the second, and
 `coverage` is what tells it which claim it can defend.
+
+In practice the two halves of the shortfall are nothing like equal, and a
+consumer choosing between the two figures should know which one it is bounded
+by. Almost every identified piece gets a weight; what is missing is pieces the
+machine never identified at all. So `known_grams` is not "the conservative
+measurement" — it is the mass of the identified subset, and it treats every
+unidentified piece as weighing zero. Neither figure is wrong; they answer
+different questions, and `coverage` is the one number that says how far apart
+they can be.
+
+**Nothing here runs on a request path.** A worker computes, `latest()` reads.
+See the note above `_latest`.
 """
 
 from __future__ import annotations
 
 import logging
 import threading
-import time
+from datetime import datetime, timezone
 from typing import Any
 
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
+from app.config import settings
+from app.database import SessionLocal
+from app.models.machine import Machine
 from app.models.machine_piece import MachinePiece
+from app.services.periodic import PeriodicWorker
 
 logger = logging.getLogger(__name__)
 
-# The whole-table group-by behind this is one sequential scan of machine_pieces,
-# which is seconds at fleet scale and grows with the fleet. Nothing downstream
-# needs it fresher than this: it is a lifetime total, so a ten-minute-old answer
-# differs from a live one in a digit nobody reads.
-CACHE_TTL_S = 600.0
-
-_cache: dict[str, Any] | None = None
-_cache_key: tuple | None = None
-_cache_at: float = 0.0
+# What a pass costs, and why no request may pay it. The group-by behind this is
+# one sequential scan of machine_pieces — about a second at 660k rows, growing
+# with the fleet — plus a batched lookup in the catalog. That is affordable on a
+# clock and not on a request path: `/stats` is the most-called endpoint hive has
+# and is polled whether or not anyone is looking, so a request that recomputed
+# would eventually be every tenth request recomputing, and a slow fleet would be
+# a slow website.
+#
+# So a worker computes and PUBLISHES; `latest()` reads what was published and
+# never computes. A lifetime total that is half an hour stale differs from a
+# live one in a digit nobody reads, which is what makes this trade free.
+_latest: dict[str, Any] | None = None
 _lock = threading.Lock()
 
 
-def get_fleet_mass(db: Session, machine_ids: list) -> dict[str, Any]:
-    """Total mass sorted across these machines, with its coverage."""
-    global _cache, _cache_key, _cache_at
+def latest() -> dict[str, Any]:
+    """The last published answer. Never computes.
 
-    key = tuple(sorted(str(m) for m in machine_ids))
+    Before the first pass finishes this is the empty shape with a null
+    `computed_at`, which is the honest thing to serve: zeroes that are labelled
+    as not-yet-computed rather than a number a caller would quote.
+    """
     with _lock:
-        if _cache is not None and _cache_key == key and (time.monotonic() - _cache_at) < CACHE_TTL_S:
-            return _cache
+        if _latest is None:
+            return {**_empty(), "computed_at": None}
+        return _latest
 
-    # Computed outside the lock: it is a multi-second scan, and two concurrent
-    # callers doing it twice is cheaper than every caller queueing behind one.
+
+def refresh(db: Session, machine_ids: list) -> dict[str, Any]:
+    """Recompute and publish. The worker's job, and what a test drives directly."""
     computed = _compute(db, machine_ids)
-
+    computed["computed_at"] = datetime.now(timezone.utc).isoformat()
     with _lock:
-        _cache, _cache_key, _cache_at = computed, key, time.monotonic()
+        global _latest
+        _latest = computed
     return computed
 
 
 def reset_cache() -> None:
-    """Drop the memo. For tests, which sync pieces and re-ask within the TTL."""
-    global _cache, _cache_key, _cache_at
+    """Drop what was published, so the next pass starts clean. For tests."""
+    global _latest
     with _lock:
-        _cache, _cache_key, _cache_at = None, None, 0.0
+        _latest = None
+
+
+def _refresh_pass() -> dict[str, Any]:
+    """One pass over the whole fleet — every non-archived machine.
+
+    The set is decided here rather than passed in because there is exactly one
+    set anybody asks about, and a worker that took an argument would invite a
+    second one nothing refreshes.
+    """
+    db = SessionLocal()
+    try:
+        ids = [mid for (mid,) in db.query(Machine.id).filter(Machine.archived_at.is_(None)).all()]
+        answer = refresh(db, ids)
+        return {
+            "last_run_known_kg": answer["known_kg"],
+            "last_run_coverage": answer["coverage"],
+        }
+    except Exception:
+        db.rollback()
+        raise
+    finally:
+        db.close()
+
+
+_WORKER: PeriodicWorker | None = None
+_WORKER_LOCK = threading.Lock()
+
+
+def get_fleet_mass_worker() -> PeriodicWorker:
+    global _WORKER
+    if _WORKER is None:
+        with _WORKER_LOCK:
+            if _WORKER is None:
+                _WORKER = PeriodicWorker(
+                    "fleet-mass-worker",
+                    _refresh_pass,
+                    # Read per pass so the cadence can be changed without a restart.
+                    lambda: max(60.0, float(settings.FLEET_MASS_REFRESH_INTERVAL_MINUTES) * 60.0),
+                    # Publish before the first request rather than after, so the
+                    # not-yet-computed shape above is a second at boot and not a
+                    # whole interval.
+                    run_at_start=True,
+                )
+    return _WORKER
 
 
 def _compute(db: Session, machine_ids: list) -> dict[str, Any]:
@@ -153,4 +221,13 @@ def _empty(total_pieces: int = 0) -> dict[str, Any]:
         "estimated_total_kg": None,
         "distinct_parts": 0,
         "distinct_parts_weighed": 0,
+        "computed_at": None,
     }
+
+
+__all__ = [
+    "latest",
+    "refresh",
+    "reset_cache",
+    "get_fleet_mass_worker",
+]

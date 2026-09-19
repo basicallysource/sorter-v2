@@ -41,6 +41,12 @@ last_verified: 2026-07-12
   <figcaption>{{ d.caption }} <cite>WireViz-generated drawing, not a photo.</cite> Click for full size.</figcaption>
 </figure>
 
+{% unless d.photo %}{% if d.guide %}
+<p class="download-line">
+  <a href="{{ d.guide | n }}"><b>{{ d.guide_label }} →</b></a>
+</p>
+{% endif %}{% endunless %}
+
 <p class="download-line">
   <span>Download:</span>
   <a href="{{ d.pdf }}">PDF</a> ·

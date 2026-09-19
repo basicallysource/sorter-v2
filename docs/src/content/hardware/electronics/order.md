@@ -106,7 +106,8 @@ Rendered harness drawings, BOMs, downloads, and the full supplier package live o
 Some parts come with their own fixed leads or solder pads, so the harness can't fully land on them. Those cables are ordered with one end bare and tinned, and joined on the machine:
 
 - **24V to 5V USB-C buck** (W3): converter has fixed input leads, so splice.
-- **Chute stepper** (CH): flying leads out of the motor, so splice.
+- **Control board feed** (W1): no supplier sells barrel plug to JST-VH, so it is built rather than ordered. [Make the control board's 24 V lead]({{ '/hardware/helpers/board-24v-lead/' | relative_url }}).
+- **Chute stepper** (CH): flying leads out of the motor, so splice. Building it: [make the chute stepper lead]({{ '/hardware/helpers/chute-stepper-lead/' | relative_url }}).
 - **COB boards** (L1p, L2p): solder pads, so solder direct. Each COB board also needs a **220&#8486;, 1/4 W current-limiting resistor in series**, one per board, unless it is fed from a basically board v1.3 LED header (which has its own). Without one the plate pulls about 0.5A and melts its mount. See [LEDs]({{ '/hardware/electronics/#43--leds-from-basically-board-v13' | relative_url }}).
 - **LED strip** (L3p): a solderless clamp-on connector bites onto the cut strip, so no soldering. Pick the variant with IDC crimp points on both sides and it takes the pigtail wire too.
 

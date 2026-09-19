@@ -124,6 +124,20 @@ Save the version, then open **Machines** in Hive and use **Assign Profile** on y
 
 That assignment is the route today. Hive has no button that downloads a profile as a file, so if your machine is not linked to Hive, you are writing the profile on the machine itself instead. The machine's own **Profiles** page accepts a `sorting_profile.json` upload, and a machine sorts perfectly well without Hive.
 
+### Bins are chosen on the machine, not in the profile
+
+A profile never names a bin number. It only says which boxes exist. Which bin each box lands in is decided on the machine, after the profile is on it, on the machine's **Bins** page. That is also where bin size stops being an abstract question: you can see which bins are the big ones.
+
+You have two ways to do it.
+
+**Assign by hand.** Open a bin and pick the category it holds. This is what you want when a box needs a particular bin for a physical reason, like plates that only lie flat in a large bin.
+
+**Auto-assign.** The machine counts which categories your last week of sorting actually produced, ranks them, and fills the biggest bins first, so the categories with the most pieces get the largest bins. It is a good starting point, and you can then move individual ones by hand.
+
+One box can live in more than one bin. When it does, pieces are spread across them rather than filling one and moving to the next.
+
+**How full a bin may get** is a separate setting, on the machine under storage layers: a maximum piece count per bin, shared by every bin on that layer. Leave it empty for no limit.
+
 Then do a short run with twenty mixed parts and watch where they land. That tells you more than another hour of editing.
 
 ## When something goes wrong

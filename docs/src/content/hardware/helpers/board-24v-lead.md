@@ -65,7 +65,7 @@ This is `W1` on the [harness drawings]({{ '/hardware/parts/harness-order/#board-
 
 ## Where it goes
 
-Onto `J1` at [connecting the components]({{ '/hardware/electronics/connecting/' | relative_url }}), step 2. The PSU end goes into any of the three jacks on the PSU box; all three are the same.
+Onto `J1` at [connecting the components]({{ '/hardware/electronics/connecting/' | relative_url }}), step 1. The PSU end goes into any of the three jacks on the PSU box; all three are the same.
 
 ## Reference
 

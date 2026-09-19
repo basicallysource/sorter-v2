@@ -503,6 +503,18 @@
           "bulk-bucket-support"
         ]
       }
+    },
+    {
+      "id": "delete-unused-m4-12-cs-screw",
+      "name": "Delete the unused M4 x 12 mm countersunk screw",
+      "priority": "P4",
+      "condition": "retired",
+      "description": "This screw reaches no bill of materials. It bolted both lazy Susans, 4 a side, and it was too short at all four of those joints: the bearing is 10 mm thick rather than the 9 mm the catalog claimed, so an M4 x 12 reached 2.0 to 3.0 mm of an 8.1 mm insert at the top interface inner ring, 1.0 mm at the outer ring, and 1.0 mm on the bottom lazy Susan's rotating side. Interface v6 and Bottom lazy Susan v3 carry the M4 x 16 mm countersunk (scr-m4-16-cs) instead, and every remaining reference is a historical snapshot of a superseded assembly. It has no sheet_qty either. It should be deleted outright, but a minted part id has to stay resolvable once it exists, and the catalog's own consistency check refuses a change that removes one, so deleting it needs that check overridden by someone who can make that call, not an edit from here. Tracked as sorter-v2 issue #716.",
+      "targets": {
+        "hardware": [
+          "scr-m4-12-cs"
+        ]
+      }
     }
   ],
   "folders": [

@@ -190,7 +190,7 @@ Every socket has a row of 2.54 mm pins beside it carrying the same signals, so a
 
 <div class="callout callout-warning">
   <span class="callout-icon" aria-hidden="true">⚠</span>
-  <p><b>Check the coils before you plug a motor in.</b> A stepper has two coils, two wires each, and the plug has four holes: holes 1 and 2 feed one coil, 3 and 4 the other. Put a multimeter across the wires that should be a pair. A pair reads a few ohms; two wires from different coils read open circuit. If holes 2 and 3 are the pair, pull those two contacts out of the housing and swap them, or the motor will buzz and barely turn. Full pinout: <a href="{{ '/hardware/electronics/steppers/' | relative_url }}">stepper connectors</a>.</p>
+  <p><b>Check the coils before you plug a motor in.</b> A stepper has two coils, two wires each, and the plug has four holes: holes 1 and 2 feed one coil, 3 and 4 the other. Put a multimeter across the wires that should be a pair. A pair reads a few ohms; two wires from different coils read open circuit. If holes 2 and 3 are the pair, pull those two contacts out of the housing and swap them, or the motor will buzz and barely turn. Full pinout and the board-side footprint: <a href="{{ '/hardware/electronics/#31--stepper-pinout-and-polarity' | relative_url }}">the wire harness page</a>.</p>
 </div>
 
 {% include step.html n="3" title="The chute limit switch" %}

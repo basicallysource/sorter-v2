@@ -75,20 +75,22 @@ The five drivers share a UART bus, so each needs its own address. You set it by 
   </figure>
 </div>
 
-Which driver is which channel is fixed by the board, not by you: each driver socket is wired to its own pins on the Pico. The board prints the name of each one beside it, `Stepper_A2` to `Stepper_A6`, so set the jumpers by that name.
+Which driver is which channel is fixed by the board, not by you: each driver socket is wired to its own pins on the Pico, and to the pair of stepper connectors beside it. The board prints the name of each one beside it, `Stepper_A2` to `Stepper_A6`, so set the jumpers by that name.
 
 <table>
   <thead>
-    <tr><th>Printed on the board</th><th>Channel</th><th>Stepper</th><th>Bus</th><th>Address</th><th>MS1</th><th>MS2</th></tr>
+    <tr><th>Printed on the board</th><th>Its stepper connectors</th><th>Channel</th><th>Stepper</th><th>Bus</th><th>Address</th><th>MS1</th><th>MS2</th></tr>
   </thead>
   <tbody>
-    <tr><td><code>Stepper_A2</code></td><td>0</td><td>chute_stepper</td><td>uart0</td><td>0</td><td>GND (2-3)</td><td>GND (2-3)</td></tr>
-    <tr><td><code>Stepper_A3</code></td><td>1</td><td>c_channel_1_rotor</td><td>uart0</td><td>1</td><td>3V3 (1-2)</td><td>GND (2-3)</td></tr>
-    <tr><td><code>Stepper_A4</code></td><td>2</td><td>c_channel_3_rotor</td><td>uart0</td><td>2</td><td>GND (2-3)</td><td>3V3 (1-2)</td></tr>
-    <tr><td><code>Stepper_A5</code></td><td>3</td><td>carousel</td><td>uart0</td><td>3</td><td>3V3 (1-2)</td><td>3V3 (1-2)</td></tr>
-    <tr><td><code>Stepper_A6</code></td><td>4</td><td>c_channel_2_rotor</td><td>uart1</td><td>0</td><td>GND (2-3)</td><td>GND (2-3)</td></tr>
+    <tr><td><code>Stepper_A2</code></td><td><code>J23</code> / <code>J24</code></td><td>0</td><td>chute_stepper</td><td>uart0</td><td>0</td><td>GND (2-3)</td><td>GND (2-3)</td></tr>
+    <tr><td><code>Stepper_A3</code></td><td><code>J27</code> / <code>J28</code></td><td>1</td><td>c_channel_1_rotor</td><td>uart0</td><td>1</td><td>3V3 (1-2)</td><td>GND (2-3)</td></tr>
+    <tr><td><code>Stepper_A4</code></td><td><code>J31</code> / <code>J32</code></td><td>2</td><td>c_channel_3_rotor</td><td>uart0</td><td>2</td><td>GND (2-3)</td><td>3V3 (1-2)</td></tr>
+    <tr><td><code>Stepper_A5</code></td><td><code>J35</code> / <code>J36</code></td><td>3</td><td>carousel</td><td>uart0</td><td>3</td><td>3V3 (1-2)</td><td>3V3 (1-2)</td></tr>
+    <tr><td><code>Stepper_A6</code></td><td><code>J39</code> / <code>J40</code></td><td>4</td><td>c_channel_2_rotor</td><td>uart1</td><td>0</td><td>GND (2-3)</td><td>GND (2-3)</td></tr>
   </tbody>
 </table>
+
+The two connectors in each pair are the JST-PH socket and the row of 2.54 mm pins beside it, wired to the same four nets. Nothing plugs into them yet: the motors go on at [connecting the components]({{ '/hardware/electronics/connecting/' | relative_url }}), step 2.
 
 <div class="callout callout-warning">
   <span class="callout-icon" aria-hidden="true">⚠</span>

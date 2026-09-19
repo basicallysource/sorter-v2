@@ -102,8 +102,6 @@ sections:
                 url: /hardware/electronics/installation/orange-pi-mount/
           - title: Connecting the components
             url: /hardware/electronics/connecting/
-          - title: Stepper connectors
-            url: /hardware/electronics/steppers/
       - title: Helpers
         url: /hardware/helpers/
         children:

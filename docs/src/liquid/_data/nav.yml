@@ -102,8 +102,6 @@ sections:
             url: /hardware/electronics/connecting/
           - title: Stepper connectors
             url: /hardware/electronics/steppers/
-          - title: Order spec
-            url: /hardware/electronics/order/
       - title: Helpers
         url: /hardware/helpers/
         children:
@@ -134,8 +132,8 @@ sections:
             url: /hardware/parts/lazy-susan/
           - title: Orange Pi 5
             url: /hardware/orange-pi-5/
-          - title: WireViz drawings
-            url: /hardware/parts/wireviz/
+          - title: Ordering the wire harness
+            url: /hardware/parts/harness-order/
 
   - id: sorter
     title: Sorter

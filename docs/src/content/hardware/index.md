@@ -128,5 +128,5 @@ itself.
 
 - **[Assembly]({{ '/hardware/assembly/' | relative_url }})**: the build order, structured like a set of instructions. Electronics is part of this same build order (see its order of operations), not a separate track.
 - **[Electronics]({{ '/hardware/electronics/' | relative_url }})**: the wire harness, stepper connectors and polarity, the cable order spec, and [installing the electronics]({{ '/hardware/electronics/installation/' | relative_url }}).
-- **[Parts]({{ '/hardware/parts/' | relative_url }})**: reference pages for individual parts, like the Lazy Susan bearing, and the [WireViz drawings]({{ '/hardware/parts/wireviz/' | relative_url }}).
+- **[Parts]({{ '/hardware/parts/' | relative_url }})**: reference pages for individual parts, like the Lazy Susan bearing, and [ordering the wire harness]({{ '/hardware/parts/harness-order/' | relative_url }}).
 - **[Bill of materials](https://parts-calculator.basically.website/hardware)**: every part, with sources and part numbers.

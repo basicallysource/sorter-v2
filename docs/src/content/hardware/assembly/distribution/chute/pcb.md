@@ -48,4 +48,4 @@ Seat it over the four inserts and fasten it with 4 {% include fastener.html size
 
 {% include step.html n="3" title="Connect the ribbon cable" %}
 
-Plug the ribbon cable into the board's connector before you install the chute into the frame if the harness is easier to reach on the bench beforehand. Full harness routing is covered under [electronics]({{ '/hardware/electronics/' | relative_url }}) and in the [WireViz drawings]({{ '/hardware/parts/wireviz/' | relative_url }}).
+Plug the ribbon cable into the board's connector before you install the chute into the frame if the harness is easier to reach on the bench beforehand. Full harness routing is covered under [electronics]({{ '/hardware/electronics/' | relative_url }}) and in the [WireViz drawings]({{ '/hardware/parts/harness-order/' | relative_url }}).

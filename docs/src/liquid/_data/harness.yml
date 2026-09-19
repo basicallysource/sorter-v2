@@ -9,7 +9,7 @@
 # rule comes from.
 #
 # `name` is the basename of the drawing's source, electronics/wire_harness/<name>.yml.
-# It is also the heading's anchor on the page, so /hardware/parts/wireviz/#<name>
+# It is also the heading's anchor on the page, so /hardware/parts/harness-order/#<name>
 # links straight to one drawing. `guide:` is the helper page for building the
 # cable; the page renders the same "How to make your own" label for every one,
 # so do not add a per-drawing label back.

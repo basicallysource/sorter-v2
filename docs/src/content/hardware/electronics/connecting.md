@@ -245,7 +245,9 @@ One flat 16-pin ribbon runs from `J17` on the control board to the first layer b
   <p><b>On a layer board, <code>J3</code> is the cable coming in and <code>J4</code> is the cable going on down.</b> The two look identical and only the designator is printed on the board. A board fed on <code>J4</code> gets no signal at all, and every layer below it moves the wrong flap.</p>
 </div>
 
-Each layer board's own servo plugs into `J5` on that board, three pins, signal and power and ground. That is covered on the [chute PCB]({{ '/hardware/assembly/distribution/chute/pcb/' | relative_url }}) page.
+Each layer board's own servo plugs into `J5` on that board, three pins: signal, power and ground. One servo per layer, into the board on that layer's own [chute]({{ '/hardware/assembly/distribution/chute/' | relative_url }}).
+
+A layer's ribbon and its servo are both easier to reach before that chute goes into the frame, so plug them in on the bench where you can.
 
 {% include step.html n="6" title="USB: the Pico, the hub and the Orange Pi" %}
 

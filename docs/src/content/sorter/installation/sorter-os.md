@@ -67,8 +67,8 @@ Wait for Etcher to finish writing and verifying. Do not remove the card until it
 Insert the SD card into the Orange Pi 5 and power it on. There is no power switch: the board starts as soon as it has power, and SorterOS runs its first-boot setup on its own.
 
 <div class="notice">
-  <strong>First boot is slow, and it needs the network throughout</strong>
-  <p>The image is a bootstrap rather than a finished install. It fetches the Sorter software, then builds the backend's Python environment and the frontend's node modules on the board itself, so on a slow connection first boot can run well over an hour. The board's LEDs are no guide to any of this: they blink whenever it is running and go on blinking long after setup has finished.</p>
+  <strong>First boot takes a while, and it needs the network throughout</strong>
+  <p>The image is a bootstrap rather than a finished install. It fetches the Sorter software, then builds the backend's Python environment and the frontend's node modules on the board itself, so this is not a matter of a minute or two and how long it takes depends on your connection. Nobody has timed it, so watch the progress page below rather than the clock. The board's LEDs are no guide either: they blink whenever it is running and go on blinking long after setup has finished.</p>
 </div>
 
 Once first-boot initialization completes and the Pi has finished downloading its dependencies, the Sorter UI is available on port `80`, so the address takes no port suffix. Which address reaches it depends on whether you ran SorterOS Setup in Step 2, which is what sets the Pi's hostname.

@@ -14,18 +14,26 @@ parts_needed:
     qty: 1
   - part: drv-tmc2209
     qty: 5
-  - part: mcu-rpi-pico
-    qty: 1
   - part: jumper-cap-254
     qty: 10
 ---
 
-Do this with the board loose, before the [housing]({{ '/hardware/electronics/installation/control-board-housing/' | relative_url }}). Solder the [Pico headers]({{ '/hardware/helpers/pico-headers/' | relative_url }}) first.
+Do this with the board loose, before the [housing]({{ '/hardware/electronics/installation/control-board-housing/' | relative_url }}).
 
 <div class="img-row">
   <figure>
     <img src="https://assets.basically.website/sorter-docs/assembly-control-board-prep-board-and-drivers-w1600-f6a7efe7c0f4.jpg" alt="The bare green basically Embedded Control Board on a wooden bench with five blue-finned TMC2209 stepper driver modules laid out in a row above it">
     <figcaption><cite>Photo: Spencer.</cite></figcaption>
+  </figure>
+</div>
+
+<div class="prep-item">
+  <div class="prep-item-body">
+    <p><strong>Solder the <a href="{{ '/hardware/helpers/pico-headers/' | relative_url }}">Pico headers</a> before you start.</strong> One per machine: a Raspberry Pi Pico with two rows of 20 header pins soldered on. A bare Pico will not seat in its sockets. That page has the Pico and the pins; step 2 here only pushes it in.</p>
+  </div>
+  <figure class="prep-item-figure">
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/pico-headers-soldered-full-cbca1cbf0ca8.jpg" alt="A Raspberry Pi Pico seen at an angle from above, chip and micro USB socket facing up, with two rows of twenty header pins soldered along its long edges and pointing down away from the board">
+    <figcaption>A Pico with its pins on. <cite>Manufacturer photo (Raspberry Pi Pico H, via Adafruit).</cite></figcaption>
   </figure>
 </div>
 

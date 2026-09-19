@@ -139,6 +139,14 @@ Each entry is what you see, then what to do.
 
 ---
 
+### `OpenRouter returned an empty response`
+
+**Cause:** The model sent nothing back that Hive could use. This is not your key, whatever the error says underneath it. Hive offers you a link to your key settings for this message, and following it will not help.
+
+**Fix:** Send the message again first. If it keeps happening, open **Settings** and choose a different **Preferred Model**, then try once more.
+
+---
+
 ### `AI response was truncated (too long)`
 
 **Cause:** You asked for more than fits in one answer, usually a long list of boxes with a long list of parts in each.

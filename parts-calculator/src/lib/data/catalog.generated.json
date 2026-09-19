@@ -1336,8 +1336,60 @@
 		},
 		{
 			"id": "meanwell-psu-box",
-			"uid": "skg6",
-			"version": "1",
+			"uid": "5h82",
+			"version": "2",
+			"versions": [
+				{
+					"version": "1",
+					"uid": "skg6",
+					"message": "As recorded before the first stamped change.",
+					"lines": [
+						{
+							"part": "meanwell-psu-back-mount",
+							"qty": 1,
+							"uid": "15uh"
+						},
+						{
+							"part": "meanwell-psu-connections",
+							"qty": 1,
+							"uid": "08id"
+						},
+						{
+							"part": "meanwell-psu-cap",
+							"qty": 1,
+							"uid": "5nt1"
+						},
+						{
+							"part": "psu-24v-350w",
+							"qty": 1,
+							"uid": "s3ru"
+						},
+						{
+							"part": "scr-m4-6-cs",
+							"qty": 4,
+							"uid": "5r29"
+						},
+						{
+							"part": "scr-m5-12-shcs",
+							"qty": 2,
+							"uid": "kmah"
+						},
+						{
+							"part": "tnut-m5-2020",
+							"qty": 2,
+							"uid": "bpwm"
+						}
+					]
+				},
+				{
+					"version": "2",
+					"uid": "5h82",
+					"date": "2026-09-18",
+					"message": "The mains inlet and the two screws that hold it in. The fused IEC inlet switch mounts in this box's connections plate, in a 28 x 47.5 mm cutout with two 2.6 mm holes 40 mm apart, which matches the module's own cutout spec and flange hole pitch. It was only a sheet_qty hand count before, and its screws were in no list at all. The screws are M3 x 8 countersunk, self-tapping into an 8 mm boss: the module's flange holes are countersunk for them.",
+					"breaking": false,
+					"commit": null
+				}
+			],
 			"name": "Meanwell 24V PSU box",
 			"description": "Enclosure for the Meanwell 24V power supply: back mount, connections plate, and cap, screwed to the supply's own case.",
 			"docs": "/hardware/electronics/installation/psu-box/",
@@ -1368,6 +1420,14 @@
 				},
 				{
 					"part": "tnut-m5-2020",
+					"qty": 2
+				},
+				{
+					"part": "psu-switch-fused",
+					"qty": 1
+				},
+				{
+					"part": "scr-m3-8-cs",
 					"qty": 2
 				}
 			],
@@ -8327,7 +8387,7 @@
 			"layer_scope": "all",
 			"requires": [],
 			"caption": null,
-			"docs_page": "/hardware/helpers/external-bracket/",
+			"docs_page": null,
 			"conflicts": null,
 			"stl": "https://assets.basically.website/sorter-parts/ext-bracket-left-da4b3abd3db7.stl",
 			"render": "https://assets.basically.website/sorter-parts/ext-bracket-left-full-a105b452a4e1.png",
@@ -8460,7 +8520,7 @@
 			"layer_scope": "non-bottom",
 			"requires": [],
 			"caption": null,
-			"docs_page": "/hardware/helpers/external-bracket/",
+			"docs_page": null,
 			"conflicts": null,
 			"stl": "https://assets.basically.website/sorter-parts/ext-bracket-bottom-vertical-313397afb08f.stl",
 			"render": "https://assets.basically.website/sorter-parts/ext-bracket-bottom-vertical-full-9d75356a3cf1.png",
@@ -8593,7 +8653,7 @@
 			"layer_scope": "non-bottom",
 			"requires": [],
 			"caption": null,
-			"docs_page": "/hardware/helpers/external-bracket/",
+			"docs_page": null,
 			"conflicts": null,
 			"stl": "https://assets.basically.website/sorter-parts/ext-bracket-cover-f99e33cea115.stl",
 			"render": "https://assets.basically.website/sorter-parts/ext-bracket-cover-full-2936c7ca9c44.png",
@@ -23477,7 +23537,7 @@
 			"description": "The three outputs of the PSU box, mounted through its connections plate. Each one is fed by a short 18 AWG pigtail with a spade terminal on each wire, landing on one +V/-V screw pair of the LRS-350-24.",
 			"note": "Buy the jacks with the pigtail leads already attached. Building one from a bare jack and loose wire is more work for the same part, and the leads are the fiddly bit.",
 			"created_at": "2026-09-14",
-			"updated_at": "2026-09-14",
+			"updated_at": "2026-09-18",
 			"attributes": [
 				{
 					"label": "Size",
@@ -23497,7 +23557,7 @@
 				},
 				{
 					"label": "Mounting",
-					"value": "Threaded barrel through the PSU connections plate"
+					"value": "Threaded barrel through the PSU connections plate, which is drilled 12 mm"
 				}
 			],
 			"sheet_qty": {
@@ -23507,8 +23567,8 @@
 			"stock": null,
 			"sourcing": null,
 			"alternative": null,
-			"caption": "One assembled PSU pigtail: the jack, its leads, and a spade terminal on each. Photo: Jon.",
-			"docs_page": "/hardware/electronics/psu-pigtail/",
+			"caption": "One assembled PSU pigtail: the jack, its leads, and a fork terminal on each. Photo: Jon.",
+			"docs_page": "/hardware/helpers/psu-pigtail/",
 			"conflicts": null,
 			"image": "https://assets.basically.website/sorter-parts/dc-jack-5521-panel-full-77c46f1a0a2e.jpg"
 		},
@@ -23884,7 +23944,7 @@
 			"description": "Crimped onto both wires of each PSU output pigtail, landing under the screws of the LRS-350-24 terminal block. Three pigtails, two terminals each.",
 			"note": "8 mm wide at most. Plenty of fork terminals are wider and simply will not fit between the LRS-350-24's output screws, and the listing rarely gives the width, so go by the stud size: M3.5 or #6.",
 			"created_at": "2026-09-14",
-			"updated_at": "2026-09-14",
+			"updated_at": "2026-09-18",
 			"attributes": [
 				{
 					"label": "Stud",
@@ -23915,7 +23975,7 @@
 			"sourcing": null,
 			"alternative": null,
 			"caption": "Six per machine. The 8 mm width limit is the one that bites.",
-			"docs_page": "/hardware/electronics/psu-pigtail/",
+			"docs_page": "/hardware/helpers/psu-pigtail/",
 			"conflicts": null,
 			"image": "https://assets.basically.website/sorter-parts/terminal-fork-m35-full-98f7ee7ba1a5.jpg"
 		},

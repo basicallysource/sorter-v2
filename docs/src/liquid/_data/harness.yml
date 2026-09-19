@@ -9,6 +9,10 @@
 # rule comes from.
 #
 # `name` is the basename of the drawing's source, electronics/wire_harness/<name>.yml.
+# It is also the heading's anchor on the page, so /hardware/parts/wireviz/#<name>
+# links straight to one drawing. `guide:` is the helper page for building the
+# cable; the page renders the same "How to make your own" label for every one,
+# so do not add a per-drawing label back.
 #
 # Changing a drawing: edit the source, push, and CI fails with the exact block
 # of URLs to paste back in here. Adding one: a new YAML source, an entry here,
@@ -40,8 +44,7 @@ drawings:
       panel-mount jack on the other end.
     photo: https://assets.basically.website/sorter-docs/harness-psu-pigtail-built-w1600-59554dc6b189.jpg
     photo_credit: Jon
-    guide: /hardware/electronics/psu-pigtail/
-    guide_label: How to make your own
+    guide: /hardware/helpers/psu-pigtail/
     png: https://assets.basically.website/sorter-harness/psu-pigtail-full-e7a2cf6fc86b.png
     svg: https://assets.basically.website/sorter-harness/psu-pigtail-7cdf562b2118.svg
     pdf: https://assets.basically.website/sorter-harness/psu-pigtail-791cdb0604d1.pdf
@@ -53,6 +56,7 @@ drawings:
     of: power
     caption: >-
       The board's own feed, W1 on the overview: barrel plug to JST VHR-2.
+    guide: /hardware/helpers/board-24v-lead/
     png: https://assets.basically.website/sorter-harness/board-power-full-2077cc9520d9.png
     svg: https://assets.basically.website/sorter-harness/board-power-c95037653768.svg
     pdf: https://assets.basically.website/sorter-harness/board-power-a486b9cc36b1.pdf

@@ -7,3 +7,10 @@
 /hardware/electronics/led-drop/                                     /hardware/helpers/led-strip/                        301
 # Connecting the components moved up a level, out of Installing the electronics (2026-09-18).
 /hardware/electronics/installation/connecting/                      /hardware/electronics/connecting/                   301
+# The PSU output pigtail page moved to the helpers section (2026-09-18).
+/hardware/electronics/psu-pigtail/                                  /hardware/helpers/psu-pigtail/                      301
+# The WireViz drawings page moved from Electronics to Parts (2026-09-19).
+/hardware/electronics/wireviz/                                      /hardware/parts/wireviz/                            301
+# The external-bracket helper page was retired into the pages that install it (2026-08-31);
+# the catalog's assembly routes point at the hex frame, which is where it is built.
+/hardware/helpers/external-bracket/                                 /hardware/assembly/distribution/bin-frame/hex-frame/  301

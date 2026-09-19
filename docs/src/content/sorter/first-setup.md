@@ -202,8 +202,9 @@ Everything on this list is on the **General** page, which is the one Settings op
 
 ## Before your first sort run
 
-Three things are left, in this order:
+Four things are left, in this order:
 
 1. [Camera calibration]({{ '/sorter/camera-calibration/' | relative_url }}): focus each camera, then run the color calibration.
 2. [Homing and calibrating the chute]({{ '/sorter/chute-calibration/' | relative_url }}): teach the chute where the bins are.
-3. [Your first sort run]({{ '/sorter/tutorials/first-sort-run/' | relative_url }}): pick a profile, feed a handful of parts, watch them land.
+3. [Before your first sort run]({{ '/sorter/before-first-sort-run/' | relative_url }}): the last five settings to check, including the detection model, which an Orange Pi 5 build has to change.
+4. [Your first sort run]({{ '/sorter/tutorials/first-sort-run/' | relative_url }}): pick a profile, feed a handful of parts, watch them land.

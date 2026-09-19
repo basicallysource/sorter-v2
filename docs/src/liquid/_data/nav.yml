@@ -104,10 +104,6 @@ sections:
             url: /hardware/electronics/steppers/
           - title: Order spec
             url: /hardware/electronics/order/
-          - title: WireViz drawings
-            url: /hardware/electronics/wireviz/
-          - title: Make your own PSU pigtail
-            url: /hardware/electronics/psu-pigtail/
       - title: Helpers
         url: /hardware/helpers/
         children:
@@ -125,6 +121,12 @@ sections:
             url: /hardware/helpers/led-strip/
           - title: Fitting the WiFi module
             url: /hardware/helpers/wifi-module/
+          - title: Make the control board's 24 V lead
+            url: /hardware/helpers/board-24v-lead/
+          - title: Make the chute stepper lead
+            url: /hardware/helpers/chute-stepper-lead/
+          - title: Make your own PSU pigtail
+            url: /hardware/helpers/psu-pigtail/
       - title: Parts
         url: /hardware/parts/
         children:
@@ -132,6 +134,8 @@ sections:
             url: /hardware/parts/lazy-susan/
           - title: Orange Pi 5
             url: /hardware/orange-pi-5/
+          - title: WireViz drawings
+            url: /hardware/parts/wireviz/
 
   - id: sorter
     title: Sorter
@@ -155,8 +159,12 @@ sections:
         pages:
           - title: First setup in the UI
             url: /sorter/first-setup/
+          - title: Before your first sort run
+            url: /sorter/before-first-sort-run/
           - title: Your first sort run
             url: /sorter/tutorials/first-sort-run/
+          - title: Chute calibration
+            url: /sorter/chute-calibration/
           - title: Camera calibration
             url: /sorter/camera-calibration/
           - title: Shutting down the machine

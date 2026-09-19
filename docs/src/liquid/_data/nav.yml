@@ -181,6 +181,8 @@ sections:
     pages:
       - title: Overview
         url: /hive/
+      - title: Build your first sorting profile
+        url: /hive/first-profile/
 
   - id: lab
     title: Lab

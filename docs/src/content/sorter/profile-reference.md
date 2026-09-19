@@ -13,7 +13,7 @@ permalink: /sorter/profile-reference/
 
 The sorting profile is the rulebook telling the Sorter which bin a part belongs in. Stored at `software/sorter/backend/sorting_profile.json`, hot-reloaded by the backend when the UI saves it. There is always exactly one active profile.
 
-This page documents the on-disk schema. For editing profiles in the UI, see the profile editor pages.
+This page documents the on-disk schema. If you are making your first profile rather than reading one, start with [build your first sorting profile]({{ '/hive/first-profile/' | relative_url }}).
 
 ## Top-level fields
 

@@ -4967,6 +4967,7 @@
       "name": "Orange Pi 5 WiFi 6 + Bluetooth module",
       "category": "Computer",
       "description": "WiFi and Bluetooth for the Orange Pi. Optional.",
+      "docs_page": "/hardware/electronics/installation/orange-pi-prep/",
       "created_at": "2026-07-18",
       "updated_at": "2026-09-18",
       "sheet_qty": {
@@ -6683,6 +6684,7 @@
       "name": "Orange Pi 5 heatsink fan (official)",
       "category": "Electronics",
       "description": "Orange Pi's official aluminum-alloy heatsink and fan for the Orange Pi 5 (v1.3.2) and Orange Pi 5 Plus, which mounts directly on the SoC. 5 V DC, sleeve bearing; installing it means the official Orange Pi metal case no longer fits.",
+      "docs_page": "/hardware/electronics/installation/orange-pi-prep/",
       "created_at": "2026-09-15",
       "updated_at": "2026-09-15",
       "attributes": [

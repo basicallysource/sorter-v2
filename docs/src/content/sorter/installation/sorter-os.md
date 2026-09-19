@@ -64,7 +64,12 @@ Wait for Etcher to finish writing and verifying. Do not remove the card until it
 
 ## Step 4 — Boot
 
-Insert the SD card into the Orange Pi 5 and power it on. SorterOS completes first-boot setup automatically, then starts the Sorter backend and UI. This takes less than 5 minutes if everything is working.
+Insert the SD card into the Orange Pi 5 and power it on. There is no power switch: the board starts as soon as it has power, and SorterOS runs its first-boot setup on its own.
+
+<div class="notice">
+  <strong>First boot is slow, and it needs the network throughout</strong>
+  <p>The image is a bootstrap rather than a finished install. It fetches the Sorter software, then builds the backend's Python environment and the frontend's node modules on the board itself, so on a slow connection first boot can run well over an hour. The board's LEDs are no guide to any of this: they blink whenever it is running and go on blinking long after setup has finished.</p>
+</div>
 
 Once first-boot initialization completes and the Pi has finished downloading its dependencies, the Sorter UI is available on port `80`, so the address takes no port suffix. Which address reaches it depends on whether you ran SorterOS Setup in Step 2, which is what sets the Pi's hostname.
 
@@ -74,6 +79,10 @@ Once first-boot initialization completes and the Pi has finished downloading its
 Both use mDNS, so the device you're browsing from must be on the same network as the Pi. mDNS resolves natively on macOS and iOS; on Windows it usually needs [Bonjour](https://support.apple.com/en-us/106380) installed.
 
 If no `.local` address resolves, find the Pi in your router's list of connected devices and browse to its IP address, again with no port.
+
+**Before the UI exists, that same address shows you the setup running.** The Pi serves a progress page on port `80` from the moment it boots, listing every first-boot stage and its state and refreshing itself every few seconds; it hands the port over and becomes the Sorter UI once the last stage is done. Browse to the Pi at any point and you get whichever is current.
+
+Use it rather than guessing from outside. A stage that needs the network does not fail when it cannot reach it, it waits and retries, so an Ethernet cable with a link light but no route to the internet looks exactly like steady progress from the outside. The page is what tells the two apart.
 
 `5173` is the Vite dev server's port and applies only to the [by hand]({{ '/sorter/installation/by-hand/' | relative_url }}) and [generic Linux]({{ '/sorter/installation/linux-generic/' | relative_url }}) install paths, not to SorterOS.
 

@@ -320,7 +320,7 @@ Before the machine sees mains:
 
 Then plug the machine in and switch the inlet switch on. The red power light on the Orange Pi comes on. The fan in the housing lid does not run yet, because the software switches it.
 
-Next: [software setup]({{ '/hardware/electronics/software-setup/' | relative_url }}), which flashes the Orange Pi and the control board and then asks you which output each lamp and each stepper is on.
+Next: [software setup]({{ '/hardware/software-setup/' | relative_url }}), which flashes the Orange Pi and the control board and then asks you which output each lamp and each stepper is on.
 
 ## What is not recorded yet
 

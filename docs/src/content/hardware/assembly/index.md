@@ -20,4 +20,4 @@ A few names recur across these sections and are worth fixing here, once: the fee
 2. **[Feeder]({{ '/hardware/assembly/feeder/' | relative_url }})** — the C-channel stages that meter parts in.
 3. **[Electronics]({{ '/hardware/electronics/' | relative_url }})** — boards, wiring, and steppers.
 4. **[Install the bins]({{ '/hardware/assembly/install-bins/' | relative_url }})** — printed or laser cut, dropped into the finished tower.
-5. **[Software setup]({{ '/hardware/electronics/software-setup/' | relative_url }})** — flash and configure. Hands off to the [Sorter]({{ '/sorter/' | relative_url }}) section.
+5. **[Software setup]({{ '/hardware/software-setup/' | relative_url }})** — flash and configure. Hands off to the [Sorter]({{ '/sorter/' | relative_url }}) section.

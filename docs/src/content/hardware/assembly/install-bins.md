@@ -101,4 +101,4 @@ The funnel lands right at the bin entrances by design, so there is very little g
   <figcaption>The finished result: every bay on every layer loaded. <cite>Photo: Daddy-O's Bricks - Bill.</cite></figcaption>
 </figure>
 
-With the bins in, the hardware is finished. Continue to [Software setup]({{ '/hardware/electronics/software-setup/' | relative_url }}), which is where the machine is told how many bins each layer has and where they are.
+With the bins in, the hardware is finished. Continue to [Software setup]({{ '/hardware/software-setup/' | relative_url }}), which is where the machine is told how many bins each layer has and where they are.

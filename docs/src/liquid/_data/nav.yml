@@ -183,6 +183,8 @@ sections:
         url: /hive/
       - title: Build your first sorting profile
         url: /hive/first-profile/
+      - title: When the profile chat goes wrong
+        url: /hive/chat-errors/
 
   - id: lab
     title: Lab

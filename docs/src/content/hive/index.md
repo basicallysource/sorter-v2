@@ -12,6 +12,7 @@ permalink: /hive/
 ## Start here
 
 - **[Build your first sorting profile]({{ '/hive/first-profile/' | relative_url }})** — ask Hive's assistant for the boxes you want, check what it proposes, and send the result to your machine.
+- **[When the profile chat goes wrong]({{ '/hive/chat-errors/' | relative_url }})** — every error message the profile chat can show, and what to do about it.
 
 ## Coming soon
 

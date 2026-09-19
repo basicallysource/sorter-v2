@@ -14,23 +14,22 @@ contributors: [brickcyclealice]
 warning: >-
   **AI-generated first draft.** Written from Hive's own source and from one owner's
   first session with the chat, not from clicking through the flow start to finish.
-  The error messages quoted here are the ones Hive actually sends. Correct it as you
-  use it.
+  Correct it as you use it.
 ---
 
 A sorting profile is the list of boxes your machine sorts into, plus the rules that decide which box a part belongs in. One box is one category, and a category can be spread over several bins.
 
 You do not have to write rules. Hive has a chat that builds the profile for you: you describe the boxes you want in ordinary words, it proposes the rules, and Hive applies them. This page is the short version of doing that for the first time.
 
-For the shape of the file itself, once you want to understand or hand-edit one, see the [sorting profile reference]({{ '/sorter/profile-reference/' | relative_url }}). That page is for later. You do not need it to make a working profile.
+For the file itself, field by field, see the [sorting profile reference]({{ '/sorter/profile-reference/' | relative_url }}). You do not need it to make a working profile.
 
 ## Before you start
 
 - A Hive account, signed in.
 - An OpenRouter key saved in Hive under **Settings**, if you want the chat to write the profile for you. It is your own key and your own credit, and Hive never sees your card. See [set up an OpenRouter key](#set-up-an-openrouter-key) at the bottom of this page.
-- Somewhere between five and twenty minutes. There is no rush and nothing you can break: every save is a new version, and old versions stay.
+- Twenty minutes or so. Every save is a new version and the old ones stay, so nothing you do here is permanent.
 
-You can build a profile with no key at all by adding rules by hand in the editor. The chat is the faster route, not the only one.
+Without a key you can still build a profile by adding rules by hand in the editor.
 
 ## 1. Decide your boxes before you type
 
@@ -40,13 +39,13 @@ Two questions decide the whole profile.
 
 **What do you want to separate?** Sorting by part type (bricks, plates, tiles) works well today. Sorting by colour is where Hive currently struggles, and there is a workaround below.
 
-Write your list on paper first. It is much easier to ask for eight boxes you have already named than to think them up in the chat.
+Write your list on paper first. It is easier than thinking the boxes up in the chat.
 
 ### Three kinds of box
 
 A box can be one of three things, and the chat can make any of them.
 
-**A rule** describes parts: "all tiles", "everything in dark bluish grey", "Technic pins". It catches however many parts match that description, with no limit and no counting. Most boxes are rules, and a profile made only of rules is the normal case.
+**A rule** describes parts: "all tiles", "everything in dark bluish grey", "Technic pins". It catches however many parts match that description, with no limit and no counting. Most boxes are rules.
 
 **A set** is one official LEGO set, given by its set number. Hive looks up what is in that set, and the box catches exactly those parts, each in the colour the set actually uses. It also counts: the machine knows how many of each part the set needs, so it can tell you how much of the set you have found. Spare parts are left out unless you ask for them.
 
@@ -71,18 +70,18 @@ Three things make a request work:
 
 Once you have the first version, keep going in the same chat. `Split the bricks box into 1xN bricks and everything larger.` `Move wedges in with slopes.` `Add a box for wheels and tyres.` Each message changes the profile you already have.
 
+<div class="callout callout-warning">
+  <span class="callout-icon" aria-hidden="true">⚠</span>
+  <p><strong>Save before you send a message.</strong> The assistant works from the last saved version of the profile, not from what is on your screen. Hand edits you have not saved are overwritten when its answer loads, and there is no undo.</p>
+</div>
+
 ### If English is not your first language
 
-Write to the chat in your own language. Nothing in Hive asks for English, and the assistant normally answers in the language you wrote in.
+Write to the chat in your own language. Hive does not ask for English, and the assistant normally answers in the language you wrote in. There is no list of supported languages: the chat runs on the model your OpenRouter key is pointed at, so it handles whatever that model handles. If your language comes out badly, open **Settings** and pick a different **Preferred Model**.
 
-There is no list of supported languages, because the chat is not Hive's own: it runs on the model your OpenRouter key is pointed at, and the languages it handles are that model's. If it answers your language badly, open **Settings** and try a different **Preferred Model**.
+The parts catalog itself is English, and the rules the assistant writes have to match that English text. It translates for you. Check the result anyway: a rule that searches for a word in your own language matches nothing, and the box comes out empty with no error.
 
-Two things stay English whatever you type:
-
-- **Part names, category names and colour names.** The catalog Hive sorts against is English, and the rules it writes have to match that text, so the assistant translates your request as it goes. Ask in German for bricks, plates and tiles and you get those three boxes, but check them: if a rule ends up searching for a word in your own language it matches nothing, and the box is simply empty. Click the rule and look at the parts it caught.
-- **Hive's own screens and error messages**, including every message quoted on this page.
-
-Your box names are labels and are not matched against anything, so name them in whatever language you like. That is the name your machine shows.
+Box names are only labels. Name them in any language you like, and that is the name your machine shows.
 
 ### Asking for colour
 
@@ -92,15 +91,9 @@ Until it is fixed, ask for colour like this:
 
 `Make boxes for black, white, grey, red, blue, green, yellow and brown. Use one colour per box. Do not include shade variants.`
 
-That produces a much smaller profile, which Hive can apply. The cost is real: a box for grey will catch plain grey and miss light bluish grey, so parts in the shades you did not name land in your catch-all box instead.
+That produces a smaller profile, which Hive can apply. A box for grey then catches plain grey and misses light bluish grey, so the shades you did not name land in your catch-all box.
 
-**Name colours in words, not numbers.** [Rebrickable's colour list](https://rebrickable.com/colors/) is the numbering Hive sorts by, with a swatch and a name for every colour, and columns showing the same colour's BrickLink and LDraw numbers if you need them. Beware of any other colour chart: BrickLink numbers its colours differently, and white is 1 there and 15 in Hive. Typing the colour name avoids the whole problem, because the assistant looks the name up for you.
-
-### Save your own edits before you use the chat again
-
-You can edit rules by hand as well as through the chat, and the two do not mix. The assistant works from the last **saved** version of the profile, not from what is on your screen. So if you change something by hand and then send a message, your change is not part of what it edits, and it disappears when the assistant's version loads.
-
-Save first, then chat. It costs one click and there is no undo for the other order.
+**Name colours in words, not numbers.** The assistant looks the name up for you. The numbering it sorts by is [Rebrickable's colour list](https://rebrickable.com/colors/), which gives every colour a swatch, a name, and its BrickLink and LDraw numbers. Watch out for colour charts from anywhere else: BrickLink numbers colours differently, so white is 1 there and 15 in Hive.
 
 ## 3. Read what it proposes before you trust it
 
@@ -110,7 +103,7 @@ When the assistant answers, it changes the rules on the left. Two things are wor
 
 **The catch-all is doing the work you cannot see.** Anything that matches no rule goes to your default box. If that box is enormous, your rules are narrower than you think.
 
-Click a rule to see which parts it matches. That preview is the honest answer about what your profile does, more than the rule text is.
+Click a rule to see which parts it matches. That list is what your profile actually does.
 
 ### Conditions, Match ALL, and Add child
 
@@ -120,7 +113,7 @@ Open a rule and you see its conditions: a field, an operator, and a value. **Add
 
 **Add child** adds a group inside the rule. A child is not a separate box. It is worked out on its own, and its answer then counts as one more true or false alongside the rule's own conditions. That is how you mix and with or.
 
-An example. The rule is on `Match ALL` with one condition, `category_id = Tile`. Inside it, a child on `Match ANY` holds `color_id = 4` and `color_id = 1`. The rule now catches tiles that are red or blue, and they all go in the rule's own box.
+An example: a rule on `Match ALL` with one condition, `category_id = Tile`. Inside it, a child on `Match ANY` holds `color_id = 4` and `color_id = 1`. The rule catches tiles that are red or blue, and they all go in the rule's own box.
 
 The operators, as the editor shows them:
 
@@ -135,7 +128,7 @@ Which operators you get depends on the field you picked. A name can be searched 
 
 Save the version, then open **Machines** in Hive and use **Assign Profile** on your machine. You choose the profile and which version of it. The machine picks up what it has been assigned.
 
-That assignment is the route today. Hive has no button that downloads a profile as a file, so if your machine is not linked to Hive, you are writing the profile on the machine itself instead. The machine's own **Profiles** page accepts a `sorting_profile.json` upload, and a machine sorts perfectly well without Hive.
+Hive has no button that downloads a profile as a file. If your machine is not linked to Hive, you write the profile on the machine itself instead, and its own **Profiles** page accepts a `sorting_profile.json` upload.
 
 ### Bins are chosen on the machine, not in the profile
 
@@ -143,11 +136,11 @@ A profile never names a bin number. It only says which boxes exist. Which bin ea
 
 The first decision is made when you activate the profile there. The machine asks how the bins should start: **Pre-assign from rules** seeds them in the order your rules are in, and **Reset bins** empties them and gives a category a bin the first time a piece needs one.
 
-After that, the machine's **Bins** page is where you change any of it. That is also where bin size stops being an abstract question: you can see which bins are the big ones.
+After that, the machine's **Bins** page is where you change any of it. That page also shows you which bins are the big ones.
 
 You have two ways to do it.
 
-**Assign by hand.** Open a bin and pick the category it holds. This is what you want when a box needs a particular bin for a physical reason, like plates that only lie flat in a large bin.
+**Assign by hand.** Open a bin and pick the category it holds. Do this when a box needs one particular bin, like plates that only lie flat in a large one.
 
 **Auto-assign.** The machine counts which categories your last week of sorting actually produced, ranks them, and fills the biggest bins first, so the categories with the most pieces get the largest bins. It is a good starting point, and you can then move individual ones by hand.
 
@@ -155,81 +148,11 @@ One box can live in more than one bin. When it does, pieces are spread across th
 
 **How full a bin may get** is a separate setting, on the machine under storage layers: a maximum piece count per bin, shared by every bin on that layer. Leave it empty for no limit.
 
-Then do a short run with twenty mixed parts and watch where they land. That tells you more than another hour of editing.
+Then do a short run with twenty mixed parts and watch where they land.
 
 ## When something goes wrong
 
-Each entry is what you see, then what to do.
-
-### `Not authenticated`
-
-**Cause:** Your session quietly expired. Hive signs you out of the chat after fifteen minutes of not calling anything, and the chat is the one screen that does not renew it for you.
-
-**Fix:** Reload the page and send the message again. You are still logged in, and nothing is wrong with your account.
-
----
-
-### `HTTP 502`, with no sentence after it
-
-**Cause:** Usually a colour profile that is too large for Hive to apply. See [asking for colour](#asking-for-colour).
-
-**Fix:** Ask for fewer colours, one colour ID per box, with no shade variants. Sending the same request again will fail the same way.
-
----
-
-### `No OpenRouter key configured for this account`
-
-**Cause:** The chat needs your own OpenRouter key and there is none saved.
-
-**Fix:** Add one under **Settings**, see below.
-
----
-
-### `Your OpenRouter account has no credits`
-
-**Cause:** OpenRouter is prepaid and your balance is empty. Hive is not involved in the billing.
-
-**Fix:** Add credits at [openrouter.ai/credits](https://openrouter.ai/credits) and send the message again.
-
----
-
-### `OpenRouter rejected your API key`
-
-**Cause:** The key is wrong, or it was deleted on OpenRouter after you saved it here.
-
-**Fix:** Create a new key at [openrouter.ai/keys](https://openrouter.ai/keys) and paste it into **Settings** again.
-
----
-
-### `OpenRouter is rate limiting your key`
-
-**Cause:** Too many requests in a short time, which OpenRouter counts per key.
-
-**Fix:** Wait a minute, then send the message again.
-
----
-
-### `OpenRouter returned an empty response`
-
-**Cause:** The model sent nothing back that Hive could use. This is not your key, whatever the error says underneath it. Hive offers you a link to your key settings for this message, and following it will not help.
-
-**Fix:** Send the message again first. If it keeps happening, open **Settings** and choose a different **Preferred Model**, then try once more.
-
----
-
-### `AI response was truncated (too long)`
-
-**Cause:** You asked for more than fits in one answer, usually a long list of boxes with a long list of parts in each.
-
-**Fix:** Ask for half of it, then ask for the rest in the next message.
-
----
-
-### The chat describes a profile, but nothing changes on the left
-
-**Cause:** The assistant answered in words without proposing any rules. It cannot tell that nothing was applied, so asking it to try again often produces another description.
-
-**Fix:** Ask for something concrete and small: `Add a box for tiles.` One box landing correctly puts the chat back on track.
+Several of the chat's error messages are bugs in Hive rather than something you did. [When the profile chat goes wrong]({{ '/hive/chat-errors/' | relative_url }}) lists every message it can show, with what to do about each one.
 
 ## Set up an OpenRouter key
 

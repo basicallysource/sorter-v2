@@ -23608,7 +23608,7 @@
 			"sourcing": null,
 			"alternative": null,
 			"caption": "The unplug point in an LED drop. Skip it and run one continuous pair.",
-			"docs_page": "/hardware/electronics/led-drop/",
+			"docs_page": "/hardware/helpers/led-strip/",
 			"conflicts": null,
 			"image": "https://assets.basically.website/sorter-parts/dc-jack-5521-inline-full-7804080cd0ea.jpg"
 		},
@@ -23754,7 +23754,7 @@
 				},
 				{
 					"label": "Pin order",
-					"value": "A2 A1 B1 B2, see the stepper pin map on the order spec page"
+					"value": "A2 A1 B1 B2, see the stepper pin map on the docs page"
 				}
 			],
 			"sheet_qty": {
@@ -23775,7 +23775,7 @@
 			},
 			"alternative": "The Preciva crimp tool and connector kit (connector-kit-crimp) includes this, along with the crimper, and jst-ph-cable-4p-63cm arrives with one fitted at each end",
 			"caption": "Board end of S1 to S4 and CH.",
-			"docs_page": "/hardware/electronics/",
+			"docs_page": "/hardware/parts/harness-order/",
 			"conflicts": null,
 			"image": "https://assets.basically.website/sorter-parts/jst-phr-4-full-0556181a4cd7.jpg"
 		},
@@ -24162,7 +24162,7 @@
 			},
 			"name": "Hook-up wire, 24 AWG, four colours",
 			"category": "Wire harness",
-			"description": "The stepper cables. Each of the five is a four-wire bundle, and the colours are how you keep the crossover straight: black, blue, green and red, matching the pin map on the order spec page.",
+			"description": "The stepper cables. Each of the five is a four-wire bundle, and the colours are how you keep the crossover straight: black, blue, green and red, matching the stepper pin map on the docs page.",
 			"note": "24 AWG is not a choice: it is the heaviest wire the JST PH contacts accept. Do not go up a gauge for these.",
 			"created_at": "2026-09-14",
 			"updated_at": "2026-09-18",
@@ -24208,7 +24208,7 @@
 			},
 			"alternative": "Not needed for the channel steppers if you buy jst-ph-cable-4p-63cm, which is 24 AWG already",
 			"caption": "Four colours, because S1 to S4 are crossover cables.",
-			"docs_page": "/hardware/electronics/",
+			"docs_page": "/hardware/parts/harness-order/",
 			"conflicts": null,
 			"image": "https://assets.basically.website/sorter-parts/wire-24awg-full-f63b62a78fb9.jpg"
 		},

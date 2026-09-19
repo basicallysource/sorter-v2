@@ -7,7 +7,7 @@ slug: helper-wifi-module
 kicker: Helpers — WiFi module
 lede: Seating the M.2 WiFi module in the Orange Pi 5, and why it goes in while the board is still loose on the bench.
 permalink: /hardware/helpers/wifi-module/
-last_verified: 2026-09-18
+last_verified: 2026-09-19
 author: brickcyclealice
 contributors: [spencer]
 warning: >-
@@ -59,5 +59,22 @@ The antenna leads end in small round push-fit connectors. Line one up squarely o
 Nothing else is needed to install it: the driver is in the official Orange Pi Ubuntu image that SorterOS is built on, so a SorterOS machine picks the module up on its own. Third-party OS images may not have the driver at all.
 
 After the machine has booted, the adapter shows up in the Sorter UI under **Settings → WiFi**, which is where the network and password go in. Over SSH, `nmcli device wifi list` lists what it can see.
+
+## On the bench for first setup
+
+The network is set on a running machine, so a board that is going on WiFi does its first boot on its own, off the machine: the USB-C supply in the socket marked `PWR IN`, Ethernet to a router for that boot alone, and the antennas on. [Install SorterOS]({{ '/sorter/installation/sorter-os/' | relative_url }}) covers flashing the card and where the UI is.
+
+<div class="img-row">
+  <figure>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/wifi-module-bench-first-boot-w1600-c538b35694b3.jpg" alt="An Orange Pi 5 standing off its printed extrusion mount with the fan arm above it, powered up on a desk with the red LED lit, a USB-C lead in the power socket and two antenna leads running off the module fitted underneath">
+    <figcaption>Powered on the bench, red LED lit, with the antenna leads coming off the module underneath the board. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+  </figure>
+  <figure>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/wifi-module-bench-top-w1600-cc4b7edb44fd.jpg" alt="The same board from above, the 40 mm fan on its arm covering most of the board, with a blue Ethernet cable and the USB-C power lead plugged in along the top edge and the two antennas lying beside it">
+    <figcaption>The same board from above, Ethernet in for the first boot. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+  </figure>
+</div>
+
+Neither photo has the Pi's own heatsink fan on the chip. That is fitted in [Orange Pi mount]({{ '/hardware/electronics/installation/orange-pi-mount/' | relative_url }}) step 1 and this board is running without it on a desk, not a reason to leave it off.
 
 The board is now ready to go on its mount: carry on with [Orange Pi mount]({{ '/hardware/electronics/installation/orange-pi-mount/' | relative_url }}).

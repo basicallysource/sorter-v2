@@ -17,6 +17,7 @@ permalink: /sorter/
 ## Operate
 
 - **[Your first sort run]({{ '/sorter/tutorials/first-sort-run/' | relative_url }})** — the end-to-end happy path: pick a profile, feed the machine, check a bin, stop cleanly.
+- **[Build your first sorting profile]({{ '/hive/first-profile/' | relative_url }})** — decide your boxes, have Hive's assistant write the rules, and assign the result to the machine.
 - **[Chute calibration]({{ '/sorter/chute-calibration/' | relative_url }})** — home the chute, capture two bins to set the bin locations, and test every bin it can reach.
 - **[Camera calibration]({{ '/sorter/camera-calibration/' | relative_url }})** — focus with a Siemens Star, then auto-calibrate color with a 6-color LEGO reference plate.
 - **[Sorter troubleshooting]({{ '/sorter/troubleshooting/' | relative_url }})** — symptom-led entries for install, first-run, and runtime problems.

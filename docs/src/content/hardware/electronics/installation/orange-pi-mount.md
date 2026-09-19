@@ -115,11 +115,6 @@ Stand the arm's foot against the front edge of the mount, the arm reaching back 
 
 The screws pass through 12 mm of the foot before they reach the insert, so a 16 leaves about 4 mm in it. An {% include fastener.html size="M3" variant="socket-button" length="12" %} does not reach the insert at all, and an M3 × 20 bottoms out in it and jacks the arm off the plate.
 
-<figure class="single-figure">
-  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/opi-mount-assembled-w1600-d65b122c4efc.jpg" alt="The finished mount on the bench: the Orange Pi standing on its standoffs over the plate, the printed fan arm bolted to the front edge and reaching back over the board, a 40 mm fan screwed to the top of the arm with its lead down through the slot">
-  <figcaption>Everything on the plate: the Pi on its standoffs, the arm bolted to the front edge and the fan over the board. <cite>Photo: BrickCycleAlice.</cite></figcaption>
-</figure>
-
 {% include step.html n="5" title="Bolt the mount to the frame" %}
 
 The mount hangs off the 2020 frame on 2 {% include fastener.html size="M5" variant="socket-button" length="12" %} screws into 2 {% include fastener.html size="M5" variant="t-nut" text="T-nuts" %} in the extrusion slot. It goes on the [hex frame]({{ '/hardware/assembly/distribution/bin-frame/hex-frame/' | relative_url }}) belonging to the top interface; the [layout render]({{ '/hardware/electronics/installation/' | relative_url }}) on the installation overview shows where it sits relative to the chute stepper.
@@ -130,4 +125,13 @@ The mount hangs off the 2020 frame on 2 {% include fastener.html size="M5" varia
 
 <div class="img-placeholder">Image coming</div>
 
-The Orange Pi mount is now complete. Nothing plugs into the Pi here: its power comes from a 24 V to 5 V buck converter off the PSU rather than from the control board, and that, the USB hub, the cameras and the arm fan's lead are all on [connecting the components]({{ '/hardware/electronics/installation/connecting/' | relative_url }}), which is the next page.
+## The finished result
+
+Everything on the plate: the Pi on its standoffs, the arm bolted to the front edge and the fan reaching back over the board. This is the mount complete, photographed on the bench before the two M5 screws in step 5 hang it on the frame.
+
+<figure class="single-figure">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/opi-mount-assembled-w1600-d65b122c4efc.jpg" alt="The finished mount on the bench: the Orange Pi standing on its standoffs over the plate, the printed fan arm bolted to the front edge and reaching back over the board, a 40 mm fan screwed to the top of the arm with its lead down through the slot">
+  <figcaption>The assembled mount. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+</figure>
+
+Nothing plugs into the Pi here: its power comes from a 24 V to 5 V buck converter off the PSU rather than from the control board, and that, the USB hub, the cameras and the arm fan's lead are all on [connecting the components]({{ '/hardware/electronics/connecting/' | relative_url }}), which is the next page.

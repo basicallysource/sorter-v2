@@ -14,8 +14,6 @@ last_verified: 2026-09-17
 parts_needed:
   - part: sbc-orange-pi-5
     qty: 1
-  - part: fan-orange-pi-5-heatsink
-    qty: 1
   - part: orange-pi-extrusion-mount
     qty: 1
   - part: fan-bracket-40mm
@@ -40,7 +38,7 @@ The fasteners and quantities in the parts list come from the parts calculator an
 
 {% include fastener-legend.html %}
 
-One per machine. Which Orange Pi 5 to buy, how much RAM and storage it needs, the WiFi module, the USB hub and cooling are all on the [Orange Pi 5]({{ '/hardware/orange-pi-5/' | relative_url }}) page. This page is only about bolting it to the machine, and it is close to the [control board housing]({{ '/hardware/electronics/installation/control-board-housing/' | relative_url }}): 6 inserts, 4 standoffs, 4 M3 screws under the Pi, a printed arm holding the 40 mm fan over it on 6 more, and 2 M5 into the frame.
+One per machine. Which Orange Pi 5 to buy, how much RAM and storage it needs, the WiFi module, the USB hub and cooling are all on the [Orange Pi 5]({{ '/hardware/orange-pi-5/' | relative_url }}) page, and the work done to the board before it gets here is [preparing the Orange Pi]({{ '/hardware/electronics/installation/orange-pi-prep/' | relative_url }}). This page is only about bolting it to the machine, and it is close to the [control board housing]({{ '/hardware/electronics/installation/control-board-housing/' | relative_url }}): 6 inserts, 4 standoffs, 4 M3 screws under the Pi, a printed arm holding the 40 mm fan over it on 6 more, and 2 M5 into the frame.
 
 {% include step.html n="1" title="Preparation" %}
 
@@ -60,23 +58,9 @@ The two in the front edge go in on their sides, so press them with the plate sto
 
 The Pi, the fan and the fan arm take no inserts.
 
-The Pi's heatsink fan goes on at this stage too, while the board is still loose on the bench. Its two pins clip underneath the board, so you want to be able to reach both faces.
+The board itself arrives here already prepared, from [preparing the Orange Pi]({{ '/hardware/electronics/installation/orange-pi-prep/' | relative_url }}): heatsink fan on, WiFi module in if the machine is going wireless, and the network set. All of that wants both faces of the board reachable, so none of it is done once the Pi is on the plate.
 
-<div class="prep-item">
-  <div class="prep-item-body">
-    <p><strong>Orange Pi 5:</strong> the official heatsink fan sits on the SoC, the large chip in the middle of the board. Check the revision printed on the board before you start: it fits the Orange Pi 5 v1.3.2 and the 5 Plus, and the mounting holes are not in the same place on earlier revisions.</p>
-  </div>
-  <figure class="prep-item-figure">
-    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/orange-pi-5-heatsink-fan-fitted-full-6f0bb3b7ada4.jpg" alt="An Orange Pi 5 v1.3.2 seen from above with the heatsink fan already fitted over the SoC in the middle of the board, a white spring pin clipped through the board at opposite corners of the finned block, and the red and black lead running from the fan to a small white 2-pin socket silkscreened FAN, between the CAM1 connector and the USB 2.0 port">
-    <figcaption>An Orange Pi 5 v1.3.2 with the fan fitted: the heatsink over the SoC, a spring pin through the board at each of two opposite corners, and the lead in the socket marked FAN. <cite>Manufacturer photo (Orange Pi), not a Basically photo; the pale highlights are theirs.</cite></figcaption>
-  </figure>
-</div>
-
-Peel the film off the thermal pad that comes in the box and lay it on the SoC. Sit the heatsink squarely on top with its two tabs over the holes either side, press both spring pins down until they click, and plug the 2-pin lead into the socket marked FAN, which on a v1.3.2 board is between the CAM1 connector and the USB 2.0 port. The pins hold it on, so there are no screws here and nothing to tighten.
-
-This is a second fan, not a replacement for the 40 mm one on the arm: the heatsink fan sits on the chip, and the arm fan blows down over the whole board from above. It fits underneath: the heatsink stands 13 mm off the board and the arm's underside passes about 38 mm above it.
-
-If the machine is going on WiFi rather than Ethernet, the M.2 WiFi module goes in at this stage too, and for the same reason: its slot, its retention screw and its antenna leads are all on the underside of the board, which this mount then sits under. See [fitting the WiFi module]({{ '/hardware/helpers/wifi-module/' | relative_url }}).
+The heatsink fan fits under the arm: it stands 13 mm off the board and the arm's underside passes about 38 mm above it.
 
 {% include step.html n="2" title="Stand the Pi off the mount" %}
 

@@ -96,6 +96,8 @@ sections:
                 url: /hardware/electronics/installation/control-board-prep/
               - title: Control board housing
                 url: /hardware/electronics/installation/control-board-housing/
+              - title: Preparing the Orange Pi
+                url: /hardware/electronics/installation/orange-pi-prep/
               - title: Orange Pi mount
                 url: /hardware/electronics/installation/orange-pi-mount/
           - title: Connecting the components
@@ -119,8 +121,6 @@ sections:
             url: /hardware/helpers/t-nuts/
           - title: Preparing the LED strip
             url: /hardware/helpers/led-strip/
-          - title: Fitting the WiFi module
-            url: /hardware/helpers/wifi-module/
           - title: Make the control board's 24 V lead
             url: /hardware/helpers/board-24v-lead/
           - title: Make the chute stepper lead

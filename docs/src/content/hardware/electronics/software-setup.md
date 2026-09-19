@@ -3,10 +3,10 @@ layout: default
 title: Software setup
 type: how-to
 section: hardware
-slug: assembly-software-setup
-kicker: Assembly — Software setup
+slug: electronics-software-setup
+kicker: Electronics — Software setup
 lede: Flash and configure the machine, then continue in the Sorter section.
-permalink: /hardware/assembly/software-setup/
+permalink: /hardware/electronics/software-setup/
 author: spencer
 ---
 

@@ -27,7 +27,7 @@ parts_needed:
 tools_needed: [Wire strippers, "Crimp tool for open-barrel contacts", Multimeter, "Soldering iron and adhesive-lined heat shrink"]
 ---
 
-This is `W1` on the [harness drawings]({{ '/hardware/parts/wireviz/#board-power' | relative_url }}). It runs from one of the three jacks on the [PSU box]({{ '/hardware/electronics/installation/psu-box/' | relative_url }}) to `J1`, the 24 V input on the control board. **One per machine.**
+This is `W1` on the [harness drawings]({{ '/hardware/parts/harness-order/#board-power' | relative_url }}). It runs from one of the three jacks on the [PSU box]({{ '/hardware/electronics/installation/psu-box/' | relative_url }}) to `J1`, the 24 V input on the control board. **One per machine.**
 
 <div class="callout">
   <p><b>This is the one 24 V lead you make yourself.</b> No supplier sells a barrel plug with a JST-VH housing on the other end, so buying one is not an option. The other two 24 V leads are bought ready made.</p>
@@ -69,4 +69,4 @@ Onto `J1` at [connecting the components]({{ '/hardware/electronics/connecting/' 
 
 ## Reference
 
-The drawing for this lead, its bill of materials and its downloads are on the [WireViz drawings]({{ '/hardware/parts/wireviz/#board-power' | relative_url }}) page.
+The drawing for this lead, its bill of materials and its downloads are on the [WireViz drawings]({{ '/hardware/parts/harness-order/#board-power' | relative_url }}) page.

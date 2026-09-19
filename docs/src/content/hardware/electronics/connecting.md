@@ -70,7 +70,7 @@ The buck converter is the only bought part of the three. The leads themselves ar
   <dt><code>W3</code>, Orange Pi</dt><dd>22 AWG, 6 in, a male DC barrel plug onto the buck converter's input wires. The buck's USB-C lead is the other half of the run.</dd>
 </dl>
 
-The machine needs seven male barrel plugs in total: these three (`W2` takes one at each end) and one on each of the three LED pigtails. The [order spec]({{ '/hardware/electronics/order/' | relative_url }}) page has the gauge, length and both end connectors for every cable in the machine.
+The machine needs seven male barrel plugs in total: these three (`W2` takes one at each end) and one on each of the three LED pigtails. [Ordering the wire harness]({{ '/hardware/parts/harness-order/' | relative_url }}) has a drawing of every cable in the machine, with the gauge, the length and both end connectors on it.
 
 <div class="callout callout-warning">
   <span class="callout-icon" aria-hidden="true">⚠</span>
@@ -190,7 +190,7 @@ Every socket has a row of 2.54 mm pins beside it carrying the same signals, so a
 
 <div class="callout callout-warning">
   <span class="callout-icon" aria-hidden="true">⚠</span>
-  <p><b>Check the coils before you plug a motor in.</b> A stepper has two coils, two wires each, and the plug has four holes: holes 1 and 2 feed one coil, 3 and 4 the other. Put a multimeter across the wires that should be a pair. A pair reads a few ohms; two wires from different coils read open circuit. If holes 2 and 3 are the pair, pull those two contacts out of the housing and swap them, or the motor will buzz and barely turn. Full pinout: <a href="{{ '/hardware/electronics/steppers/' | relative_url }}">stepper connectors</a>.</p>
+  <p><b>Check the coils before you plug a motor in.</b> A stepper has two coils, two wires each, and the plug has four holes: holes 1 and 2 feed one coil, 3 and 4 the other. Put a multimeter across the wires that should be a pair. A pair reads a few ohms; two wires from different coils read open circuit. If holes 2 and 3 are the pair, pull those two contacts out of the housing and swap them, or the motor will buzz and barely turn. Full pinout and the board-side footprint: <a href="{{ '/hardware/electronics/#31--stepper-pinout-and-polarity' | relative_url }}">the wire harness page</a>.</p>
 </div>
 
 {% include step.html n="3" title="The chute limit switch" %}

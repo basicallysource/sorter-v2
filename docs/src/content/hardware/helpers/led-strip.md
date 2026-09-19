@@ -14,7 +14,7 @@ warning: >-
   **Neither way of making the joint is photographed on a build.** The length and where to cut come
   from real builds; the two ways of getting wire onto the pads are the manufacturers' own pictures.
   The cable's 22 AWG is a **GUESS** in the harness notes, marked as one in the
-  [WireViz drawing]({{ '/hardware/parts/wireviz/#leds' | relative_url }}).
+  [WireViz drawing]({{ '/hardware/parts/harness-order/#leds' | relative_url }}).
 parts_needed:
   - part: led-strip-24v
     qty: 1

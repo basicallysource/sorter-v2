@@ -42,6 +42,18 @@ Two questions decide the whole profile.
 
 Write your list on paper first. It is much easier to ask for eight boxes you have already named than to think them up in the chat.
 
+### Three kinds of box
+
+A box can be one of three things, and the chat can make any of them.
+
+**A rule** describes parts: "all tiles", "everything in dark bluish grey", "Technic pins". It catches however many parts match that description, with no limit and no counting. Most boxes are rules, and a profile made only of rules is the normal case.
+
+**A set** is one official LEGO set, given by its set number. Hive looks up what is in that set, and the box catches exactly those parts, each in the colour the set actually uses. It also counts: the machine knows how many of each part the set needs, so it can tell you how much of the set you have found. Spare parts are left out unless you ask for them.
+
+**A custom set** works the same way, except the part list is yours instead of LEGO's. Use it for a model of your own, a kit you sell, or a picking list. You can search for the parts and add them one at a time, or import a BrickLink CSV file with `BLItemNo`, `BLColorId` and `Qty` columns. Those are BrickLink's colour numbers, and in this one file they are the correct ones.
+
+Choose by what you are asking. Sorting a pile into boxes is rules. "Do I have everything for this model" is a set or a custom set.
+
 ## 2. Ask for it in plain words
 
 Open your profile, go to the **Chat** tab, and say what you want. These all work:

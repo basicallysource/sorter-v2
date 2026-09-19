@@ -12,8 +12,6 @@ contributors: [spencer]
 og_image: https://assets.basically.website/sorter-docs/opi-mount-assembled-w1600-d65b122c4efc.jpg
 last_verified: 2026-09-17
 parts_needed:
-  - part: sbc-orange-pi-5
-    qty: 1
   - part: orange-pi-extrusion-mount
     qty: 1
   - part: fan-bracket-40mm
@@ -38,7 +36,17 @@ The fasteners and quantities in the parts list come from the parts calculator an
 
 {% include fastener-legend.html %}
 
-One per machine. Which Orange Pi 5 to buy, how much RAM and storage it needs, the WiFi module, the USB hub and cooling are all on the [Orange Pi 5]({{ '/hardware/orange-pi-5/' | relative_url }}) page, and the work done to the board before it gets here is [preparing the Orange Pi]({{ '/hardware/electronics/installation/orange-pi-prep/' | relative_url }}). This page is only about bolting it to the machine, and it is close to the [control board housing]({{ '/hardware/electronics/installation/control-board-housing/' | relative_url }}): 6 inserts, 4 standoffs, 4 M3 screws under the Pi, a printed arm holding the 40 mm fan over it on 6 more, and 2 M5 into the frame.
+One per machine. Which Orange Pi 5 to buy, how much RAM and storage it needs, the WiFi module, the USB hub and cooling are all on the [Orange Pi 5]({{ '/hardware/orange-pi-5/' | relative_url }}) page. This page is only about bolting it to the machine, and it is close to the [control board housing]({{ '/hardware/electronics/installation/control-board-housing/' | relative_url }}): 6 inserts, 4 standoffs, 4 M3 screws under the Pi, a printed arm holding the 40 mm fan over it on 6 more, and 2 M5 into the frame.
+
+<div class="prep-item">
+  <div class="prep-item-body">
+    <p><strong><a href="{{ '/hardware/electronics/installation/orange-pi-prep/' | relative_url }}">Prepare the Orange Pi</a> before you start.</strong> The heatsink fan, the WiFi module and the first boot that sets the network all need both faces of the board reachable, and this mount sits under it. Not covered here.</p>
+  </div>
+  <figure class="prep-item-figure">
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/wifi-module-bench-first-boot-w1600-c538b35694b3.jpg" alt="A prepared Orange Pi 5 on a desk, powered with its red LED lit, a USB-C lead in the power socket and two antenna leads running off the WiFi module fitted underneath the board">
+    <figcaption>A prepared Orange Pi, still on the bench. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+  </figure>
+</div>
 
 {% include step.html n="1" title="Preparation" %}
 
@@ -58,9 +66,7 @@ The two in the front edge go in on their sides, so press them with the plate sto
 
 The Pi, the fan and the fan arm take no inserts.
 
-The board itself arrives here already prepared, from [preparing the Orange Pi]({{ '/hardware/electronics/installation/orange-pi-prep/' | relative_url }}): heatsink fan on, WiFi module in if the machine is going wireless, and the network set. All of that wants both faces of the board reachable, so none of it is done once the Pi is on the plate.
-
-The heatsink fan fits under the arm: it stands 13 mm off the board and the arm's underside passes about 38 mm above it.
+The Pi's heatsink fan fits under the arm: it stands 13 mm off the board and the arm's underside passes about 38 mm above it.
 
 {% include step.html n="2" title="Stand the Pi off the mount" %}
 

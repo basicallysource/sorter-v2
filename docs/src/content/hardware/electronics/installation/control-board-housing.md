@@ -177,4 +177,4 @@ The housing closed, with the fan and the reset plunger in the cover and the step
   <figcaption>The closed housing, from above and to one side. <cite>Photo: Spencer.</cite></figcaption>
 </figure>
 
-**Bolting it to the frame is on the [installation overview]({{ '/hardware/electronics/installation/' | relative_url }})**. Wiring next, on the [wire harness]({{ '/hardware/electronics/' | relative_url }}) page.
+**Bolting it to the frame is on the [installation overview]({{ '/hardware/electronics/installation/' | relative_url }})**. Wiring next, on the [wire harness]({{ '/hardware/electronics/wire-harness/' | relative_url }}) page.

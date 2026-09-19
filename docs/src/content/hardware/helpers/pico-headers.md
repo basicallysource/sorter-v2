@@ -9,12 +9,12 @@ lede: Soldering 2.54 mm header pins to the Raspberry Pi Pico so it can seat in t
 permalink: /hardware/helpers/pico-headers/
 author: barthel
 contributors: [spencer]
-og_image: https://assets.basically.website/sorter-docs/pico-headers-soldered-full-cbca1cbf0ca8.jpg
+og_image: https://assets.basically.website/sorter-docs/pico-headers-soldered-plain-full-fc3efcd791b5.jpg
 warning: >-
   **AI-generated first draft.** Written from the machine assembly tree in the [parts
   calculator](https://parts-calculator.basically.website/assembly?focus=pico-headers), not from
   an actual build. The parts and quantities are real. The soldering is not photographed on a
-  build, and the finished result below is a manufacturer photo of the factory-soldered Pico H.
+  build; the finished result below is a supplier photo of a Pico with the pins already on.
 parts_needed:
   - part: mcu-rpi-pico
     qty: 1
@@ -52,8 +52,8 @@ A row goes in the 20 holes down each long edge. The three holes in the short end
 A Pico with two rows of 20 pins soldered on, both rows pointing away from the chip side.
 
 <figure class="single-figure">
-  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/pico-headers-soldered-full-cbca1cbf0ca8.jpg" alt="A Raspberry Pi Pico seen at an angle from above, chip and micro USB socket facing up, with two rows of twenty header pins soldered along its long edges and pointing down away from the board">
-  <figcaption>Pins on both long edges, pointing away from the chip side. Pictured is the Pico H, which arrives with these pins already fitted; the white DEBUG socket at its end is the only other thing that differs from the bare Pico. <cite>Manufacturer photo (Raspberry Pi Pico H, via Adafruit).</cite></figcaption>
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/pico-headers-soldered-plain-full-fc3efcd791b5.jpg" alt="A Raspberry Pi Pico on a white background, seen at an angle from above with the chip and micro USB socket facing up, two rows of twenty header pins soldered along its long edges and pointing down away from the board, the solder visible on each joint and the three DEBUG pads at the near end left bare">
+  <figcaption>Pins on both long edges, pointing away from the chip side, soldered on the chip side. The three DEBUG pads at the near end stay bare. <cite>Manufacturer photo (Raspberry Pi Pico with headers fitted; seller not recorded).</cite></figcaption>
 </figure>
 
 It goes into its sockets in step 2 of [preparing the control board]({{ '/hardware/electronics/installation/control-board-prep/' | relative_url }}). Flashing the firmware is covered in [software setup]({{ '/hardware/assembly/software-setup/' | relative_url }}).

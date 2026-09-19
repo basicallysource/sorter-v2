@@ -5,7 +5,7 @@ type: how-to
 section: hardware
 slug: electronics-orange-pi-mount
 kicker: Electronics — Orange Pi mount
-lede: The Orange Pi 5 standing off its mount, the 40 mm fan on its arm above it, and how the mount bolts to the frame.
+lede: The Orange Pi 5 standing off its mount, with the 40 mm fan on its arm above it.
 permalink: /hardware/electronics/installation/orange-pi-mount/
 author: barthel
 contributors: [spencer]
@@ -28,17 +28,13 @@ parts_needed:
     qty: 4
   - part: scr-m3-16-shcs
     qty: 6
-  - part: scr-m5-12-shcs
-    qty: 2
-  - part: tnut-m5-2020
-    qty: 2
 ---
 
 The fasteners and quantities in the parts list come from the parts calculator and are called out inline at each step.
 
 {% include fastener-legend.html %}
 
-One per machine. Which Orange Pi 5 to buy, how much RAM and storage it needs, the WiFi module, the USB hub and cooling are all on the [Orange Pi 5]({{ '/hardware/orange-pi-5/' | relative_url }}) page, and the work done to the board before it gets here is [preparing the Orange Pi]({{ '/hardware/electronics/installation/orange-pi-prep/' | relative_url }}). This page is only about bolting it to the machine, and it is close to the [control board housing]({{ '/hardware/electronics/installation/control-board-housing/' | relative_url }}): 6 inserts, 4 standoffs, 4 M3 screws under the Pi, a printed arm holding the 40 mm fan over it on 6 more, and 2 M5 into the frame.
+One per machine. Which Orange Pi 5 to buy, how much RAM and storage it needs, the WiFi module, the USB hub and cooling are all on the [Orange Pi 5]({{ '/hardware/orange-pi-5/' | relative_url }}) page, and the work done to the board before it gets here is [preparing the Orange Pi]({{ '/hardware/electronics/installation/orange-pi-prep/' | relative_url }}). This page is the build on the bench, and it is close to the [control board housing]({{ '/hardware/electronics/installation/control-board-housing/' | relative_url }}): 6 inserts, 4 standoffs, 4 M3 screws under the Pi, and a printed arm holding the 40 mm fan over it on 6 more.
 
 {% include step.html n="1" title="Preparation" %}
 
@@ -109,19 +105,13 @@ Stand the arm's foot against the front edge of the mount, the arm reaching back 
 
 The screws pass through 12 mm of the foot before they reach the insert, so a 16 leaves about 4 mm in it. An {% include fastener.html size="M3" variant="socket-button" length="12" %} does not reach the insert at all, and an M3 × 20 bottoms out in it and jacks the arm off the plate.
 
+## The finished result
+
+Everything on the plate: the Pi on its standoffs over the opening, the arm bolted to the front edge and reaching back over it, and the fan on top of the arm with its lead down through the slot.
+
 <figure class="single-figure">
   <img class="doc-figure" src="https://assets.basically.website/sorter-docs/opi-mount-assembled-w1600-d65b122c4efc.jpg" alt="The finished mount on the bench: the Orange Pi standing on its standoffs over the plate, the printed fan arm bolted to the front edge and reaching back over the board, a 40 mm fan screwed to the top of the arm with its lead down through the slot">
-  <figcaption>Everything on the plate: the Pi on its standoffs, the arm bolted to the front edge and the fan over the board. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+  <figcaption>The assembled mount, off the machine. <cite>Photo: BrickCycleAlice.</cite></figcaption>
 </figure>
 
-{% include step.html n="5" title="Bolt the mount to the frame" %}
-
-The mount hangs off the 2020 frame on 2 {% include fastener.html size="M5" variant="socket-button" length="12" %} screws into 2 {% include fastener.html size="M5" variant="t-nut" text="T-nuts" %} in the extrusion slot. It goes on the [hex frame]({{ '/hardware/assembly/distribution/bin-frame/hex-frame/' | relative_url }}) belonging to the top interface; the [layout render]({{ '/hardware/electronics/installation/' | relative_url }}) on the installation overview shows where it sits relative to the chute stepper.
-
-<div class="callout">
-  <p><b>No problem if you forgot them.</b> The {% include fastener.html size="M5" variant="t-nut" text="T-nut" %} this build specifies is the spring-loaded roll-in kind, which drops into the slot anywhere along its length, so it can still go in now without taking the frame apart. See <a href="{{ '/hardware/helpers/t-nuts/' | relative_url }}">Fitting T-nuts</a>.</p>
-</div>
-
-<div class="img-placeholder">Image coming</div>
-
-The Orange Pi mount is now complete. Nothing plugs into the Pi here: its power comes from a 24 V to 5 V buck converter off the PSU rather than from the control board, and that, the USB hub, the cameras and the arm fan's lead are all on [connecting the components]({{ '/hardware/electronics/installation/connecting/' | relative_url }}), which is the next page.
+**Bolting it to the frame is on the [installation overview]({{ '/hardware/electronics/installation/' | relative_url }})**, with the other two enclosures. Nothing plugs into the Pi there either: its power comes from a 24 V to 5 V buck converter off the PSU rather than from the control board, and that, the USB hub, the cameras and the arm fan's lead are all on [connecting the components]({{ '/hardware/electronics/installation/connecting/' | relative_url }}), which is the next page.

@@ -188,14 +188,15 @@ honestly.
 
 ## Where this shows up in the docs
 
-Four pages under `docs/src/content/hardware/electronics/`:
+Two pages, after the 2026-09-19 consolidation:
 
 | Page | What it is |
 |---|---|
-| `index.md` → `/hardware/electronics/` | Wire harness: PSU spec, interconnect diagram, wire schedule, parts, open items |
-| `steppers.md` → `/hardware/electronics/steppers/` | Board stepper pinout, board-to-motor mapping, the 4-to-6 position crossover |
-| `order.md` → `/hardware/electronics/order/` | Order-ready cable build list for a harness vendor, every guess marked |
-| `wireviz.md` → `/hardware/electronics/wireviz/` | The rendered drawings and the supplier zip. **The page that consumes the store.** |
+| `docs/src/content/hardware/electronics/index.md` → `/hardware/electronics/` | Wire harness: PSU spec, interconnect diagram, stepper pinout and polarity (3.1), wire schedule, parts, connector types, open items |
+| `docs/src/content/hardware/parts/harness-order.md` → `/hardware/parts/harness-order/` | Ordering the wire harness: global spec, how to order, the rendered drawings and the supplier zip. **The page that consumes the store.** |
+
+`electronics/order.md`, `electronics/wireviz.md` and `electronics/steppers.md`
+are all gone, merged into those two, with 301s in `docs/static/_redirects`.
 
 The wire IDs (`W1`, `L3p`, `S1-S4`, `CH`, `RIB`) are the join key across the
 schedule, the order spec, and the drawings. Renaming one means renaming it

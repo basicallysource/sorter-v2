@@ -9,6 +9,10 @@ lede: Hive is the shared platform behind the Sorter family — community-maintai
 permalink: /hive/
 ---
 
+## Start here
+
+- **[Build your first sorting profile]({{ '/hive/first-profile/' | relative_url }})** — ask Hive's assistant for the boxes you want, check what it proposes, and send the result to your machine.
+
 ## Coming soon
 
 This section will cover:

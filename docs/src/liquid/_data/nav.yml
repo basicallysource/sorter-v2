@@ -82,8 +82,6 @@ sections:
                 url: /hardware/assembly/feeder/arranging-c-channels/
           - title: Install the bins
             url: /hardware/assembly/install-bins/
-          - title: Software setup
-            url: /hardware/assembly/software-setup/
       - title: Electronics
         url: /hardware/electronics/
         children:
@@ -102,6 +100,8 @@ sections:
                 url: /hardware/electronics/installation/orange-pi-mount/
           - title: Connecting the components
             url: /hardware/electronics/connecting/
+      - title: Software setup
+        url: /hardware/software-setup/
       - title: Helpers
         url: /hardware/helpers/
         children:

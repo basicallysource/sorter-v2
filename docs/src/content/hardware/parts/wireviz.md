@@ -3,10 +3,10 @@ layout: default
 title: WireViz drawings
 type: reference
 section: hardware
-slug: electronics-wireviz
-kicker: Electronics — WireViz
-lede: The harness drawings and the zip to send a cable vendor.
-permalink: /hardware/electronics/wireviz/
+slug: parts-wireviz
+kicker: Parts — WireViz
+lede: Every harness drawing on the machine, with its bill of materials, its downloads, and the zip to send a cable vendor.
+permalink: /hardware/parts/wireviz/
 author: spencer
 contributors: [effreek]
 last_verified: 2026-07-12
@@ -17,20 +17,23 @@ last_verified: 2026-07-12
   <p><b>Not remotely validated.</b> Nothing on this page has been checked against the physical machine. Values marked <b>GUESS</b> in the drawings are guesses. Sample quantities only, after a review pass.</p>
 </div>
 
+This is the only page that carries the drawings. Everywhere else on the site links here, so a cable is drawn once and a redrawn harness updates in one place.
+
 <p class="download-line">
   <a href="{{ site.data.harness.zip }}" download><b>↓ sorter-v2-harness-rfq.zip</b></a>
   <span>cover sheet + every drawing (PDF/PNG/SVG/HTML) + a BOM per drawing (TSV) + WireViz YAML sources</span>
 </p>
 
+<ul class="harness-contents">{% for d in site.data.harness.drawings %}{% unless d.of %}<li><a href="#{{ d.name }}">{{ d.title }}</a>{% assign parts = site.data.harness.drawings | where: "of", d.name %}{% if parts.size > 0 %}<ul>{% for p in parts %}<li><a href="#{{ p.name }}">{{ p.title }}</a></li>{% endfor %}</ul>{% endif %}</li>{% endunless %}{% endfor %}</ul>
+
 {% for d in site.data.harness.drawings %}
-{% if d.of %}### {{ d.title }}{% else %}## {{ d.title }}{% endif %}
+{% if d.of %}{% assign parent = site.data.harness.drawings | where: "name", d.of | first %}<h3 id="{{ d.name }}">{{ d.title }}</h3>
+<p class="harness-parent">A sub-harness of <a href="#{{ d.of }}">{{ parent.title }}</a>.</p>{% else %}<h2 id="{{ d.name }}">{{ d.title }}</h2>{% endif %}
 
 {% if d.photo %}
-<figure class="harness-figure harness-photo">
-  <a href="{{ d.guide | n }}">
-    <img src="{{ d.photo }}" alt="Assembled {{ d.title }}">
-  </a>
-  <figcaption>What it looks like built. <cite>{% if d.photo_credit %}Photo: {{ d.photo_credit }}.{% else %}Photographer not recorded.{% endif %}</cite> <a href="{{ d.guide | n }}">{{ d.guide_label }} →</a></figcaption>
+<figure class="harness-figure">
+  <img src="{{ d.photo }}" alt="Assembled {{ d.title }}">
+  <figcaption>What it looks like built. <cite>{% if d.photo_credit %}Photo: {{ d.photo_credit }}.{% else %}Photographer not recorded.{% endif %}</cite></figcaption>
 </figure>
 {% endif %}
 
@@ -41,11 +44,11 @@ last_verified: 2026-07-12
   <figcaption>{{ d.caption }} <cite>WireViz-generated drawing, not a photo.</cite> Click for full size.</figcaption>
 </figure>
 
-{% unless d.photo %}{% if d.guide %}
+{% if d.guide %}
 <p class="download-line">
-  <a href="{{ d.guide | n }}"><b>{{ d.guide_label }} →</b></a>
+  <a href="{{ d.guide | n }}"><b>How to make your own →</b></a>
 </p>
-{% endif %}{% endunless %}
+{% endif %}
 
 <p class="download-line">
   <span>Download:</span>

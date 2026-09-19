@@ -27,18 +27,11 @@ parts_needed:
 tools_needed: [Wire strippers, "Crimp tool for open-barrel contacts", Multimeter, "Soldering iron and adhesive-lined heat shrink"]
 ---
 
-This is `W1` on the harness drawings. It runs from one of the three jacks on the [PSU box]({{ '/hardware/electronics/installation/psu-box/' | relative_url }}) to `J1`, the 24 V input on the control board. **One per machine.**
+This is `W1` on the [harness drawings]({{ '/hardware/parts/wireviz/#board-power' | relative_url }}). It runs from one of the three jacks on the [PSU box]({{ '/hardware/electronics/installation/psu-box/' | relative_url }}) to `J1`, the 24 V input on the control board. **One per machine.**
 
 <div class="callout">
   <p><b>This is the one 24 V lead you make yourself.</b> No supplier sells a barrel plug with a JST-VH housing on the other end, so buying one is not an option. The other two 24 V leads are bought ready made.</p>
 </div>
-
-<figure class="harness-figure">
-  <a href="https://assets.basically.website/sorter-harness/board-power-full-2077cc9520d9.png" target="_blank" rel="noopener">
-    <img src="https://assets.basically.website/sorter-harness/board-power-full-2077cc9520d9.png" alt="WireViz drawing of W1: a 914 mm two-conductor 18 AWG lead, a 5.5 by 2.1 mm male DC barrel plug at one end with the tip as plus 24 volts and the sleeve as ground, and a JST VHR-2 two-pin housing at the other with pin 1 as plus 24 volts and pin 2 as ground">
-  </a>
-  <figcaption>The lead, end to end. <cite>WireViz-generated drawing, not a photo.</cite> Click for full size.</figcaption>
-</figure>
 
 ## What the two ends are
 
@@ -73,3 +66,7 @@ This is `W1` on the harness drawings. It runs from one of the three jacks on the
 ## Where it goes
 
 Onto `J1` at [connecting the components]({{ '/hardware/electronics/connecting/' | relative_url }}), step 2. The PSU end goes into any of the three jacks on the PSU box; all three are the same.
+
+## Reference
+
+The drawing for this lead, its bill of materials and its downloads are on the [WireViz drawings]({{ '/hardware/parts/wireviz/#board-power' | relative_url }}) page.

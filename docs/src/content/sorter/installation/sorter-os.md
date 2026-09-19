@@ -9,7 +9,7 @@ lede: Flash SorterOS onto an SD card and configure it for first boot. The recomm
 permalink: /sorter/installation/sorter-os/
 audience: self-hosting operator
 applies_to: sorteros v3.x
-last_verified: 2026-09-17
+last_verified: 2026-09-19
 ---
 
 <div class="notice notice-warn">

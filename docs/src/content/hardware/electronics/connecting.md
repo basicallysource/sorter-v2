@@ -230,24 +230,9 @@ Leave the small solder jumpers next to the three lamp ports alone. Each port fee
 
 {% include step.html n="5" title="The ribbon down to the layers" %}
 
-One flat 16-pin ribbon runs from `J17` on the control board to the first layer board in the chute, and a shorter one runs from each layer board to the one below it. Both ends of every ribbon are keyed, so they only go in one way up.
+One flat 16-pin ribbon, 1 m, runs from `J17` on the control board down to `J3` on the first layer board in the chute stack. Both ends are keyed, so it only goes in one way up.
 
-<table>
-  <thead><tr><th>Cable</th><th>From</th><th>To</th></tr></thead>
-  <tbody>
-    <tr><td>1 m ribbon</td><td>Control board <code>J17</code></td><td>First layer board, <code>J3</code></td></tr>
-    <tr><td>30 cm ribbon, one per extra layer</td><td>A layer board, <code>J4</code></td><td>The next layer board down, <code>J3</code></td></tr>
-  </tbody>
-</table>
-
-<div class="callout callout-warning">
-  <span class="callout-icon" aria-hidden="true">⚠</span>
-  <p><b>On a layer board, <code>J3</code> is the cable coming in and <code>J4</code> is the cable going on down.</b> The two look identical and only the designator is printed on the board. A board fed on <code>J4</code> gets no signal at all, and every layer below it moves the wrong flap.</p>
-</div>
-
-Each layer board's own servo plugs into `J5` on that board, three pins: signal, power and ground. One servo per layer, into the board on that layer's own [chute]({{ '/hardware/assembly/distribution/chute/' | relative_url }}).
-
-A layer's ribbon and its servo are both easier to reach before that chute goes into the frame, so plug them in on the bench where you can.
+The layer boards are already chained to each other and their servos are already plugged in: both are done on the bench as each [layer adapter board]({{ '/hardware/assembly/distribution/chute/pcb/' | relative_url }}) is built, because those sockets are hard to reach once the chute is in the frame.
 
 {% include step.html n="6" title="USB: the Pico, the hub and the Orange Pi" %}
 

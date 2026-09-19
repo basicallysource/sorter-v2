@@ -65,9 +65,11 @@ Colour is the one thing to be careful with right now. A request like `sort by co
 
 Until it is fixed, ask for colour like this:
 
-`Make boxes for black, white, grey, red, blue, green, yellow and brown. Use one colour ID per box. Do not include shade variants.`
+`Make boxes for black, white, grey, red, blue, green, yellow and brown. Use one colour per box. Do not include shade variants.`
 
 That produces a much smaller profile, which Hive can apply. The cost is real: a box for grey will catch plain grey and miss light bluish grey, so parts in the shades you did not name land in your catch-all box instead.
+
+**Name colours in words, not numbers.** [BrickLink's colour guide](https://v2.bricklink.com/en-au/catalog/color-guide) is a good way to see which colours exist and what each one looks like. The numbers on that page are BrickLink's own colour IDs, and they are not the numbers Hive sorts by: white is 1 on BrickLink and 15 in Hive's catalog. Type the colour name and let the assistant pick the right one.
 
 ## 3. Read what it proposes before you trust it
 

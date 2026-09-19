@@ -287,6 +287,14 @@ class TestFleetMass:
              "classification_status": "classified", **rec}
             for i, rec in enumerate(records)
         ])
+        # The endpoint reads what the worker published and never computes, so a
+        # pass has to run before there is anything to read. `refresh` and not
+        # the worker itself: the worker opens its own SessionLocal, which here
+        # is not the session the fixtures wrote through.
+        from app.models.machine import Machine
+
+        ids = [m for (m,) in db.query(Machine.id).filter(Machine.archived_at.is_(None)).all()]
+        fleet_mass.refresh(db, ids)
         token = _mint(client, _admin_login(client, db), ["stats:read"])
         r = client.get("/api/public/fleet/mass", headers=_bearer(token))
         assert r.status_code == 200, r.text
@@ -308,6 +316,21 @@ class TestFleetMass:
         assert body["total_pieces"] == 5
         assert body["coverage"] == 1.0
         assert body["distinct_parts"] == 2
+
+    def test_stats_carries_the_same_numbers(self, client, db, catalog, machine_token):
+        """`/stats` serves the worker's last pass under `mass`, so the headline
+        endpoint and the dedicated one cannot drift apart."""
+        from app.config import settings
+
+        settings.PUBLIC_STATS_API_KEY = "test-mass-on-stats"
+        mass = self._mass(client, db, catalog, machine_token, [
+            {"part_id": "3001", "color_id": "5"},
+            {"part_id": "3020", "color_id": "5"},
+        ])
+        body = client.get(
+            "/api/public/stats", headers={"X-Stats-Key": "test-mass-on-stats"}
+        ).json()
+        assert body["mass"] == mass
 
     def test_coverage_reports_what_could_not_be_weighed(
         self, client, db, catalog, machine_token

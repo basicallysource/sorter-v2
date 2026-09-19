@@ -53,6 +53,8 @@ drawings:
     of: power
     caption: >-
       The board's own feed, W1 on the overview: barrel plug to JST VHR-2.
+    guide: /hardware/helpers/board-24v-lead/
+    guide_label: How to make it
     png: https://assets.basically.website/sorter-harness/board-power-full-2077cc9520d9.png
     svg: https://assets.basically.website/sorter-harness/board-power-c95037653768.svg
     pdf: https://assets.basically.website/sorter-harness/board-power-a486b9cc36b1.pdf

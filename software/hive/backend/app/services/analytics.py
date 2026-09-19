@@ -54,6 +54,45 @@ from app.models.user import User
 ACTIVE_GAP_IDLE_S = 60.0
 MINUTES_PER_DAY = 1440.0
 
+# The ladder the fleet is reported against: how many machines have ever passed
+# each of these lifetime piece counts.
+#
+# **A ladder rather than a number, because every single threshold is arguable.**
+# "How many machines are there" has no one honest answer — registrations include
+# benches powered on once, and any cutoff that excludes them is a judgement
+# somebody has to defend. Serving the whole distribution moves that judgement to
+# the consumer, which is where it belongs: a page saying "machines that have
+# sorted" and a page saying "machines doing real work" can both be right and
+# read the rung that means what they say.
+#
+# The rungs are `>` and not `>=`, matching ACTIVE_MACHINE_MIN_PIECES, so the
+# first one is "has sorted at least one piece" rather than "exists".
+MACHINE_PIECE_THRESHOLDS = (
+    0, 100, 250, 500, 1_000, 2_500, 5_000,
+    10_000, 25_000, 50_000, 100_000, 250_000, 500_000, 1_000_000,
+)
+
+
+def _threshold_ladder(by_machine: list[tuple[str, int]]) -> list[dict[str, Any]]:
+    """How many machines are above each rung.
+
+    A fold over rows already in memory, so it costs nothing on top of the
+    aggregation that was happening anyway — which is the only reason this can
+    live on the hot endpoint at all.
+
+    It therefore inherits the cache's staleness: a machine that crossed a rung
+    in the last hour is still on the old one until the stats worker's next pass.
+    That is the same lag `totals.machines` already has, deliberately — these are
+    lifetime thresholds, where being an hour behind is invisible, and the live
+    top-up that keeps `pieces_seen` current is a fleet-wide count that cannot be
+    attributed back to a machine.
+    """
+    counts = [pieces for _, pieces in by_machine]
+    return [
+        {"min_pieces": rung, "machines": sum(1 for n in counts if n > rung)}
+        for rung in MACHINE_PIECE_THRESHOLDS
+    ]
+
 
 # --------------------------------------------------------------------------- refresh
 
@@ -418,6 +457,8 @@ def get_analytics(db: Session, machine_ids: list[Any]) -> dict[str, Any]:
             },
             "timeseries": [],
             "distributions": {"by_machine": [], "by_status": [], "top_parts": [], "top_colors": [], "top_categories": []},
+            "machine_thresholds": _threshold_ladder([]),
+            "machines_registered": 0,
             "fresh_as_of": None,
         }
 
@@ -484,6 +525,10 @@ def get_analytics(db: Session, machine_ids: list[Any]) -> dict[str, Any]:
                 [(key, entry[0]) for key, entry in folded["parts"].items()], limit=15
             ),
         },
+        # How many machines are above each rung of MACHINE_PIECE_THRESHOLDS,
+        # alongside the registration count that is the ladder's denominator.
+        "machine_thresholds": _threshold_ladder(folded["by_machine"]),
+        "machines_registered": len(machine_ids),
         # When the folded half was built. The caller can say "as of" rather than
         # implying every number in the payload is to-the-second.
         "fresh_as_of": folded["watermark"].isoformat() if folded["watermark"] else None,

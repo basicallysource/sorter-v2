@@ -7,7 +7,7 @@ slug: helper-wifi-module
 kicker: Helpers — WiFi module
 lede: Seating the M.2 WiFi module in the Orange Pi 5, and why it goes in while the board is still loose on the bench.
 permalink: /hardware/helpers/wifi-module/
-last_verified: 2026-09-18
+last_verified: 2026-09-19
 author: brickcyclealice
 contributors: [spencer]
 warning: >-
@@ -59,5 +59,32 @@ The antenna leads end in small round push-fit connectors. Line one up squarely o
 Nothing else is needed to install it: the driver is in the official Orange Pi Ubuntu image that SorterOS is built on, so a SorterOS machine picks the module up on its own. Third-party OS images may not have the driver at all.
 
 After the machine has booted, the adapter shows up in the Sorter UI under **Settings → WiFi**, which is where the network and password go in. Over SSH, `nmcli device wifi list` lists what it can see.
+
+**Take the adapter's address before you unplug the Ethernet.** Joining a network gets the machine a second address, different from the one it has been answering on, and once connected the adapter's row on that same WiFi page shows what it is. Write it down, then pull the Ethernet and browse to it. Doing it the other way round leaves you hunting for the machine, because the page you were reading goes with the cable.
+
+## On the bench for first setup
+
+The network is set on a running machine, so a board that is going on WiFi does its first boot on its own, off the machine: the USB-C supply in the socket marked `PWR IN`, Ethernet to a router for that boot alone, and the antennas on. [Install SorterOS]({{ '/sorter/installation/sorter-os/' | relative_url }}) covers flashing the card and where the UI is. The Ethernet comes out once WiFi is set, at the end of step 4, and the board goes to the machine.
+
+<div class="img-row">
+  <figure>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/wifi-module-bench-first-boot-w1600-c538b35694b3.jpg" alt="An Orange Pi 5 standing off its printed extrusion mount with the fan arm above it, powered up on a desk with the red LED lit, a USB-C lead in the power socket and two antenna leads running off the module fitted underneath">
+    <figcaption>Powered on the bench, red LED lit, with the antenna leads coming off the module underneath the board. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+  </figure>
+  <figure>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/wifi-module-bench-top-w1600-cc4b7edb44fd.jpg" alt="The same board from above, the 40 mm fan on its arm covering most of the board, with a blue Ethernet cable and the USB-C power lead plugged in along the top edge and the two antennas lying beside it">
+    <figcaption>The same board from above, Ethernet in for the first boot. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+  </figure>
+</div>
+
+Neither photo has the Pi's own heatsink fan on the chip. That is fitted in [Orange Pi mount]({{ '/hardware/electronics/installation/orange-pi-mount/' | relative_url }}) step 1 and this board is running without it on a desk, not a reason to leave it off.
+
+## Shutting it down
+
+**Never cut the power to a running board.** It writes files continuously, and pulling the plug mid-write can corrupt the card you just flashed.
+
+Press the small black button on the side of the Orange Pi once and leave it alone. Shutdown takes about a minute and a half, and it has finished when the red and green LEDs stop blinking. Only then unplug it. The button is a shutdown button, not a power switch: the board starts again the moment it has power, with no press needed.
+
+[Shutting down the machine]({{ '/sorter/safe-shutdown/' | relative_url }}) covers the same from the UI, which is the route once the board is in the machine and the button is harder to reach.
 
 The board is now ready to go on its mount: carry on with [Orange Pi mount]({{ '/hardware/electronics/installation/orange-pi-mount/' | relative_url }}).

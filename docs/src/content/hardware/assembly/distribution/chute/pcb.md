@@ -46,6 +46,19 @@ Seat it over the four inserts and fasten it with 4 {% include fastener.html size
 
 <div class="img-placeholder">Photo of the layer adapter board seated on its four inserts and screwed to the chute core.</div>
 
-{% include step.html n="3" title="Connect the ribbon cable" %}
+{% include step.html n="3" title="Connect the ribbon cable and the servo" %}
 
-Plug the ribbon cable into the board's connector before you install the chute into the frame if the harness is easier to reach on the bench beforehand. Full harness routing is covered under [electronics]({{ '/hardware/electronics/' | relative_url }}) and in the [WireViz drawings]({{ '/hardware/electronics/wireviz/' | relative_url }}).
+Do both now, while the chute is still on the bench. Once it is in the frame these three connectors are hard to reach.
+
+The board has two identical 16-pin sockets. **`J3` is the ribbon coming in and `J4` is the ribbon going on down to the next layer.** Nothing but the designator printed on the board tells them apart.
+
+<div class="callout callout-warning">
+  <span class="callout-icon" aria-hidden="true">⚠</span>
+  <p>A board fed on <code>J4</code> gets no signal at all, and every layer below it moves the wrong flap.</p>
+</div>
+
+This layer's servo plugs into `J5`, the 3-pin header beside them: pin 1 signal, pin 2 servo power, pin 3 ground.
+
+The ribbon that comes down from the control board to the top of the stack is [connecting the components]({{ '/hardware/electronics/connecting/' | relative_url }}), step 5.
+
+Full harness routing is covered in the [WireViz drawings]({{ '/hardware/parts/wireviz/' | relative_url }}).

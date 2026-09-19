@@ -18,3 +18,6 @@ contributors: [barthel]
 - **[Fitting T-nuts]({{ '/hardware/helpers/t-nuts/' | relative_url }})**
 - **[Preparing the LED strip]({{ '/hardware/helpers/led-strip/' | relative_url }})**
 - **[Fitting the WiFi module]({{ '/hardware/helpers/wifi-module/' | relative_url }})**
+- **[Make the control board's 24 V lead]({{ '/hardware/helpers/board-24v-lead/' | relative_url }})**
+- **[Make the chute stepper lead]({{ '/hardware/helpers/chute-stepper-lead/' | relative_url }})**
+- **[Make your own PSU output pigtail]({{ '/hardware/helpers/psu-pigtail/' | relative_url }})**

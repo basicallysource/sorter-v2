@@ -14,7 +14,7 @@ warning: >-
   **Neither way of making the joint is photographed on a build.** The length and where to cut come
   from real builds; the two ways of getting wire onto the pads are the manufacturers' own pictures.
   The cable's 22 AWG is a **GUESS** in the harness notes, marked as one in the
-  [WireViz drawing]({{ '/hardware/electronics/wireviz/' | relative_url }}).
+  [WireViz drawing]({{ '/hardware/parts/wireviz/#leds' | relative_url }}).
 parts_needed:
   - part: led-strip-24v
     qty: 1
@@ -32,7 +32,7 @@ A prepared strip is a cut length of 24 V COB strip with its cable on the end of 
 <dl class="spec-list">
   <dt>The cable</dt><dd>One continuous pair of 22 AWG, about a metre, with no connector in the middle. That is how the one Spencer photographed is built, and it is what Jon (who drew the harness) says to do.</dd>
   <dt>Strip end</dt><dd>A solderless clamp-on connector, or solder, onto the two pads at the cut end.</dd>
-  <dt>The other end</dt><dd>The Dupont plug, which goes onto an LED port when the machine is wired up: step 5 of <a href="{{ '/hardware/electronics/connecting/' | relative_url }}">connecting the components</a>.</dd>
+  <dt>The other end</dt><dd>The Dupont plug, which goes onto an LED port when the machine is wired up: step 4 of <a href="{{ '/hardware/electronics/connecting/' | relative_url }}">connecting the components</a>.</dd>
 </dl>
 
 <div class="callout">
@@ -115,4 +115,4 @@ A 950 mm length of strip with a red and a black wire on one end and a dead end a
   <figcaption>A prepared strip: the cut end, the joint, and the cable that leaves it. <cite>Manufacturer photo (SuperBrightLEDs).</cite></figcaption>
 </figure>
 
-The Dupont end goes onto an LED port at [connecting the components]({{ '/hardware/electronics/connecting/' | relative_url }}), step 5.
+The Dupont end goes onto an LED port at [connecting the components]({{ '/hardware/electronics/connecting/' | relative_url }}), step 4.

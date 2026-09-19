@@ -87,6 +87,8 @@ sections:
       - title: Electronics
         url: /hardware/electronics/
         children:
+          - title: Wire harness
+            url: /hardware/electronics/wire-harness/
           - title: Installing the electronics
             url: /hardware/electronics/installation/
             children:

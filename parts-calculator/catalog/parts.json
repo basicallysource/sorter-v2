@@ -5758,7 +5758,7 @@
         "per_machine": 7
       },
       "caption": "Seven per machine. W2 takes one at each end.",
-      "docs_page": "/hardware/electronics/",
+      "docs_page": "/hardware/electronics/wire-harness/",
       "sourcing": {
         "vendors": [
           {
@@ -5888,7 +5888,7 @@
         "per_machine": 1
       },
       "caption": "The board end of W1. Pin 1 is +24 V.",
-      "docs_page": "/hardware/electronics/",
+      "docs_page": "/hardware/electronics/wire-harness/",
       "sourcing": {
         "vendors": [
           {
@@ -5937,7 +5937,7 @@
         "per_machine": 2
       },
       "caption": "Crimp onto the wire first, then push into the shell.",
-      "docs_page": "/hardware/electronics/",
+      "docs_page": "/hardware/electronics/wire-harness/",
       "sourcing": {
         "vendors": [
           {
@@ -6044,7 +6044,7 @@
         "per_machine": 4
       },
       "caption": "Motor end of S1 to S4. Two positions stay empty.",
-      "docs_page": "/hardware/electronics/",
+      "docs_page": "/hardware/electronics/wire-harness/",
       "sourcing": {
         "vendors": [
           {
@@ -6094,7 +6094,7 @@
         "per_machine": 36
       },
       "caption": "Thirty-six per machine. Buy spares.",
-      "docs_page": "/hardware/electronics/",
+      "docs_page": "/hardware/electronics/wire-harness/",
       "sourcing": {
         "vendors": [
           {
@@ -6144,7 +6144,7 @@
         "per_machine": 1
       },
       "caption": "Position 3 stays empty; that is what keys it.",
-      "docs_page": "/hardware/electronics/"
+      "docs_page": "/hardware/electronics/wire-harness/"
     },
     {
       "id": "terminal-fork-m35",
@@ -6224,7 +6224,7 @@
         "per_machine": 2
       },
       "caption": "Pushes onto the switch tabs. No soldering.",
-      "docs_page": "/hardware/electronics/",
+      "docs_page": "/hardware/electronics/wire-harness/",
       "sourcing": {
         "vendors": [
           {
@@ -6281,7 +6281,7 @@
         "per_machine": 1
       },
       "caption": "1.22 m a machine, nearly all of it W1.",
-      "docs_page": "/hardware/electronics/",
+      "docs_page": "/hardware/electronics/wire-harness/",
       "sourcing": {
         "vendors": [
           {
@@ -6337,7 +6337,7 @@
         "per_machine": 1
       },
       "caption": "4.27 m a machine, most of it the three LED drops.",
-      "docs_page": "/hardware/electronics/",
+      "docs_page": "/hardware/electronics/wire-harness/",
       "sourcing": {
         "vendors": [
           {
@@ -6448,7 +6448,7 @@
         "per_machine": 1
       },
       "caption": "One roll does three machines.",
-      "docs_page": "/hardware/electronics/",
+      "docs_page": "/hardware/electronics/wire-harness/",
       "sourcing": {
         "vendors": [
           {
@@ -6499,7 +6499,7 @@
         }
       ],
       "caption": "Covers the PH and Dupont ends, and the crimper. Not the 6-pin or the insulated terminals.",
-      "docs_page": "/hardware/electronics/",
+      "docs_page": "/hardware/electronics/wire-harness/",
       "sourcing": {
         "vendors": [
           {
@@ -6560,7 +6560,7 @@
         "per_machine": 4
       },
       "caption": "One per channel stepper. Move four contacts into a PHR-6 and it is done.",
-      "docs_page": "/hardware/electronics/",
+      "docs_page": "/hardware/electronics/wire-harness/",
       "sourcing": {
         "vendors": [
           {

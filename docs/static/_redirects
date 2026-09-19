@@ -10,9 +10,15 @@
 # The PSU output pigtail page moved to the helpers section (2026-09-18).
 /hardware/electronics/psu-pigtail/                                  /hardware/helpers/psu-pigtail/                      301
 # The WireViz drawings page moved from Electronics to Parts (2026-09-19).
-/hardware/electronics/wireviz/                                      /hardware/parts/wireviz/                            301
+/hardware/electronics/wireviz/                                      /hardware/parts/harness-order/                      301
+/hardware/parts/wireviz/                                            /hardware/parts/harness-order/                      301
+# The order spec merged into that same page (2026-09-19).
+/hardware/electronics/order/                                        /hardware/parts/harness-order/                      301
 # The external-bracket helper page was retired into the pages that install it (2026-08-31);
 # the catalog's assembly routes point at the hex frame, which is where it is built.
 /hardware/helpers/external-bracket/                                 /hardware/assembly/distribution/bin-frame/hex-frame/  301
+# Stepper connectors was distributed into the pages that use it and retired (2026-09-19);
+# the pinout and the board-side footprint are section 3.1 of the wire harness page.
+/hardware/electronics/steppers/                                     /hardware/electronics/#31--stepper-pinout-and-polarity  301
 # The WiFi module helper became part of Preparing the Orange Pi (2026-09-19).
 /hardware/helpers/wifi-module/                                      /hardware/electronics/installation/orange-pi-prep/  301

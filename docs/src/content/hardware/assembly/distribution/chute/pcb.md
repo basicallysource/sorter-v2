@@ -61,4 +61,4 @@ This layer's servo plugs into `J5`, the 3-pin header beside them: pin 1 signal, 
 
 The ribbon that comes down from the control board to the top of the stack is [connecting the components]({{ '/hardware/electronics/connecting/' | relative_url }}), step 5.
 
-Full harness routing is covered in the [WireViz drawings]({{ '/hardware/parts/wireviz/' | relative_url }}).
+Full harness routing is covered in the [harness drawings]({{ '/hardware/parts/harness-order/' | relative_url }}).

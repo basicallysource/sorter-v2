@@ -30,9 +30,9 @@ Building a profile in the first place is [Build your first sorting profile]({{ '
 
 ## `HTTP 502`, with no sentence after it
 
-**Cause:** Usually a colour profile that is too large for Hive to apply. See [asking for colour]({{ '/hive/first-profile/#asking-for-colour' | relative_url }}).
+**Cause:** Usually a colour profile that is too large for Hive to apply. See [asking for colour]({{ '/hive/first-profile/#asking-for-colour' | relative_url }}). The other cause is a value that is not a number in a condition that compares numbers, such as `$5` in `bl_price_min >= $5`. Saving fails the same way, with nothing to say which rule it was.
 
-**Fix:** Ask for fewer colours, one colour per box, with no shade variants. Sending the same request again will fail the same way.
+**Fix:** For colour, ask for fewer colours, one colour per box, with no shade variants. Sending the same request again will fail the same way. For a number, open the rule and take the currency symbol or the unit out of the value, leaving the digits: `5`, not `$5`.
 
 ---
 

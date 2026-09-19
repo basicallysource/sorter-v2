@@ -157,6 +157,8 @@ sections:
             url: /sorter/installation/by-hand/
       - title: Operate
         pages:
+          - title: First setup in the UI
+            url: /sorter/first-setup/
           - title: Before your first sort run
             url: /sorter/before-first-sort-run/
           - title: Your first sort run

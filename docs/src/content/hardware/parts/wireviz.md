@@ -41,7 +41,7 @@ This is the only page that carries the drawings. Everywhere else on the site lin
   <a href="{{ d.png }}" target="_blank" rel="noopener">
     <img src="{{ d.png }}" alt="WireViz drawing: {{ d.title }}">
   </a>
-  <figcaption>{{ d.caption }} <cite>WireViz-generated drawing, not a photo.</cite> Click for full size.</figcaption>
+  <figcaption>{{ d.caption }} Click for full size. <cite>WireViz-generated drawing, not a photo.</cite></figcaption>
 </figure>
 
 {% if d.guide %}

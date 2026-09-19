@@ -70,7 +70,7 @@ The buck converter is the only bought part of the three. The leads themselves ar
   <dt><code>W3</code>, Orange Pi</dt><dd>22 AWG, 6 in, a male DC barrel plug onto the buck converter's input wires. The buck's USB-C lead is the other half of the run.</dd>
 </dl>
 
-The machine needs seven male barrel plugs in total: these three (`W2` takes one at each end) and one on each of the three LED pigtails. The [order spec]({{ '/hardware/electronics/order/' | relative_url }}) page has the gauge, length and both end connectors for every cable in the machine.
+The machine needs seven male barrel plugs in total: these three (`W2` takes one at each end) and one on each of the three LED pigtails. [Ordering the wire harness]({{ '/hardware/parts/harness-order/' | relative_url }}) has a drawing of every cable in the machine, with the gauge, the length and both end connectors on it.
 
 <div class="callout callout-warning">
   <span class="callout-icon" aria-hidden="true">⚠</span>

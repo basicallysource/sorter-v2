@@ -17,5 +17,8 @@
 # The external-bracket helper page was retired into the pages that install it (2026-08-31);
 # the catalog's assembly routes point at the hex frame, which is where it is built.
 /hardware/helpers/external-bracket/                                 /hardware/assembly/distribution/bin-frame/hex-frame/  301
+# Stepper connectors was distributed into the pages that use it and retired (2026-09-19);
+# the pinout and the board-side footprint are section 3.1 of the wire harness page.
+/hardware/electronics/steppers/                                     /hardware/electronics/#31--stepper-pinout-and-polarity  301
 # The WiFi module helper became part of Preparing the Orange Pi (2026-09-19).
 /hardware/helpers/wifi-module/                                      /hardware/electronics/installation/orange-pi-prep/  301

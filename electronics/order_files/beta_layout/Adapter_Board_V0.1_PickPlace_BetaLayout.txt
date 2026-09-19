@@ -1,0 +1,17 @@
+Filename:	Adapter_Board_V0.1_PickPlace
+
+name	X-axis	Y-axis	angle	value	package	side
+
+C1	81.082	71.85	0	100uF	CAP-SMD_BD6.3	top
+C2	81.5	62.45	0	1uF	C_0603	top
+C3	81.5	65.7	0	100nF	C_0603	top
+J1	91.0	57.0	0	JST	XA 10-pin THT	top
+J2	91.0	93.0	0	JST	XA 10-pin THT	top
+J3	93.38	68.09	90.0	IDC	Header 2x08 THT	top
+J4	93.32	84.14	90.0	IDC	Header 2x08 THT	top
+J5	81.25	83.345	180.0	PinHeader	1x03 horizontal THT	top
+J6	76.5	57.0	0	JST	XA 4-pin THT	top
+J7	76.5	93.0	0	JST	XA 4-pin THT	top
+JP1	118.85	86.95	0	Solder	Jumper SMD	top
+R1	85.05	83.35	180.0	0Ω	R_0603	top
+R3	87.05	81.4	90.0	10kΩ	R_0603	top

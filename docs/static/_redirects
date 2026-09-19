@@ -22,5 +22,5 @@
 /hardware/electronics/steppers/                                     /hardware/electronics/#31--stepper-pinout-and-polarity  301
 # The WiFi module helper became part of Preparing the Orange Pi (2026-09-19).
 /hardware/helpers/wifi-module/                                      /hardware/electronics/installation/orange-pi-prep/  301
-# Software setup moved from Assembly to Electronics, after Connecting the components (2026-09-19).
-/hardware/assembly/software-setup/                                  /hardware/electronics/software-setup/               301
+# Software setup moved out of Assembly to sit beside Assembly and Electronics (2026-09-19).
+/hardware/assembly/software-setup/                                  /hardware/software-setup/                           301

@@ -47,7 +47,7 @@ Solder the [Pico headers]({{ '/hardware/helpers/pico-headers/' | relative_url }}
 3. **[Control board housing]({{ '/hardware/electronics/installation/control-board-housing/' | relative_url }})**: the printed housing the board closes into, with its fan.
 4. **[Orange Pi mount]({{ '/hardware/electronics/installation/orange-pi-mount/' | relative_url }})**: Orange Pi 5 on standoffs.
 
-With all four bolted to the frame, [connecting the components]({{ '/hardware/electronics/connecting/' | relative_url }}) plugs them together: every cable between them, and the socket each end goes into. The [wire harness]({{ '/hardware/electronics/' | relative_url }}) page is the reference for what those cables are made of. [Software setup]({{ '/hardware/electronics/software-setup/' | relative_url }}) comes after.
+With all four bolted to the frame, [connecting the components]({{ '/hardware/electronics/connecting/' | relative_url }}) plugs them together: every cable between them, and the socket each end goes into. The [wire harness]({{ '/hardware/electronics/' | relative_url }}) page is the reference for what those cables are made of. [Software setup]({{ '/hardware/software-setup/' | relative_url }}) comes after.
 
 ## What is not recorded yet
 

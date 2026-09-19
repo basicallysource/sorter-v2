@@ -3,10 +3,10 @@ layout: default
 title: Software setup
 type: how-to
 section: hardware
-slug: electronics-software-setup
-kicker: Electronics — Software setup
+slug: hardware-software-setup
+kicker: Hardware — Software setup
 lede: The physical build is finished. Install the software, then carry on in the Sorter section.
-permalink: /hardware/electronics/software-setup/
+permalink: /hardware/software-setup/
 author: spencer
 ---
 

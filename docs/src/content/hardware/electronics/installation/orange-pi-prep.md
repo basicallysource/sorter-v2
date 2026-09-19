@@ -7,7 +7,7 @@ slug: electronics-orange-pi-prep
 kicker: Electronics — Preparing the Orange Pi
 lede: The heatsink fan, the WiFi module, and the first boot that sets the network, all done while the board is still loose on the bench.
 permalink: /hardware/electronics/installation/orange-pi-prep/
-og_image: https://assets.basically.website/sorter-docs/wifi-module-bench-first-boot-w1600-c538b35694b3.jpg
+og_image: https://assets.basically.website/sorter-docs/orange-pi-5-heatsink-fan-fitted-full-6f0bb3b7ada4.jpg
 last_verified: 2026-09-19
 author: barthel
 contributors: [brickcyclealice, spencer]

@@ -9,37 +9,51 @@ lede: Soldering 2.54 mm header pins to the Raspberry Pi Pico so it can seat in t
 permalink: /hardware/helpers/pico-headers/
 author: barthel
 contributors: [spencer]
+og_image: https://assets.basically.website/sorter-docs/pico-headers-soldered-full-cbca1cbf0ca8.jpg
 warning: >-
   **AI-generated first draft.** Written from the machine assembly tree in the [parts
   calculator](https://parts-calculator.basically.website/assembly?focus=pico-headers), not from
-  an actual build. The parts and quantities are real. The procedure is not recorded anywhere and
-  no step here has been checked against a build, so the steps below are placeholders with the
-  gaps marked.
+  an actual build. The parts and quantities are real. The soldering is not photographed on a
+  build, and the finished result below is a manufacturer photo of the factory-soldered Pico H.
 parts_needed:
   - part: mcu-rpi-pico
     qty: 1
   - part: header-pins-254
     qty: 40
+tools_needed: ["Soldering iron and solder", "Side cutters or pliers, to break the strip"]
 ---
 
-The Pico ships bare. The [basically Embedded Control Board]({{ '/hardware/electronics/installation/control-board-prep/' | relative_url }}) expects it on 2.54 mm headers, so the pins are a separate purchase and a soldering job before the board goes on its mount.
+The Pico ships bare. The [basically Embedded Control Board]({{ '/hardware/electronics/installation/control-board-prep/' | relative_url }}) takes it on 2.54 mm header pins, so the pins are a separate purchase and a soldering job before the board is worked on.
 
-One Pico per machine, needing 40 header pins total: break a breakaway strip into two rows of 20. It is the only assembly in the parts tree recorded as soldered: every pin goes into the Pico's through-holes, nothing here presses or clips together.
+{% include step.html n="1" title="Break the strip into two rows of 20" %}
 
-{% include step.html n="1" title="Preparation" %}
+The pins arrive as one long breakaway strip. Break it into two rows of 20 pins, which is the 40 the Pico takes. It snaps between any two pins; side cutters or pliers give a cleaner break than fingers.
 
-Break the header strip into two rows of 20. Nothing here takes a heat insert.
+{% include step.html n="2" title="Solder the rows to the Pico" %}
 
-<div class="img-placeholder">Image coming</div>
+A row goes in the 20 holes down each long edge. The three holes in the short end of the board are the debug pads and take nothing here.
 
-{% include step.html n="2" title="Solder the headers to the Pico" %}
+<div class="callout callout-warning">
+  <span class="callout-icon" aria-hidden="true">⚠</span>
+  <p><b>The pins point away from the chip side.</b> The chip side is the one carrying the RP2040 chip, the USB socket and the BOOTSEL button. The black plastic of each row sits flat against the other face, and you solder on the chip side. Getting this wrong means desoldering twenty pins, so check it before the iron touches anything.</p>
+</div>
 
-Solder the headers so the Pico's USB port ends up facing the edge of the control board once seated (see [preparing the control board]({{ '/hardware/electronics/installation/control-board-prep/' | relative_url }})). Dry-fit the bare Pico against the board's sockets first to confirm which face the pins go on — it's very difficult to desolder and redo.
+<ol class="numbered-steps">
+  <li>Stand one row of 20 pins with the long ends down, in a breadboard if you have one.</li>
+  <li>Lower the Pico onto the row, chip side up, until the plastic is flat against the board.</li>
+  <li>Solder the two end pins first. Check the row sits square, then solder the other 18.</li>
+  <li>Do the other edge the same way.</li>
+</ol>
 
-<div class="img-placeholder">Image coming</div>
+<div class="img-placeholder">Image coming: one row soldered along a long edge of the Pico, chip side up, the second row not yet on</div>
 
-{% include step.html n="3" title="Seat it in the board" %}
+## The finished result
 
-Push the Pico into its socket on the basically Embedded Control Board, then carry on with the [preparing the control board]({{ '/hardware/electronics/installation/control-board-prep/' | relative_url }}).
+A Pico with two rows of 20 pins soldered on, both rows pointing away from the chip side.
 
-The Pico is now ready. Flashing its firmware is covered in [software setup]({{ '/hardware/assembly/software-setup/' | relative_url }}).
+<figure class="single-figure">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/pico-headers-soldered-full-cbca1cbf0ca8.jpg" alt="A Raspberry Pi Pico seen at an angle from above, chip and micro USB socket facing up, with two rows of twenty header pins soldered along its long edges and pointing down away from the board">
+  <figcaption>Pins on both long edges, pointing away from the chip side. Pictured is the Pico H, which arrives with these pins already fitted; the white DEBUG socket at its end is the only other thing that differs from the bare Pico. <cite>Manufacturer photo (Raspberry Pi Pico H, via Adafruit).</cite></figcaption>
+</figure>
+
+It goes into its sockets in step 2 of [preparing the control board]({{ '/hardware/electronics/installation/control-board-prep/' | relative_url }}). Flashing the firmware is covered in [software setup]({{ '/hardware/assembly/software-setup/' | relative_url }}).

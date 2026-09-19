@@ -9684,10 +9684,93 @@
         },
         {
           "version": "5",
+          "uid": "mdu1",
           "date": "2026-09-17",
           "breaking": false,
           "message": "Dropped the layer connector: the top interface carries none of its own. It lands on the pair already mounted on the top of the topmost chute, which is how the builder assembles it, and the top interface chute mount has no M3 pockets on any side face for one to screw into. The machine needs N+1 pairs for N layers, one per chute plus one on the bottom interface.",
-          "commit": null
+          "commit": null,
+          "lines": [
+            {
+              "assembly": "interface-bracket-mount",
+              "qty": 6,
+              "uid": "so5r"
+            },
+            {
+              "assembly": "hex-frame",
+              "qty": 1,
+              "uid": "l0xa"
+            },
+            {
+              "assembly": "fixed-upper-section",
+              "qty": 1,
+              "uid": "99af"
+            },
+            {
+              "assembly": "cable-cage",
+              "qty": 1,
+              "uid": "wxcr"
+            },
+            {
+              "part": "scr-m5-30-shcs",
+              "qty": 6,
+              "uid": "92kv"
+            },
+            {
+              "assembly": "cable-clamp",
+              "qty": 1,
+              "uid": "rwaw"
+            },
+            {
+              "part": "scr-m3-12-bhcs",
+              "qty": 2,
+              "uid": "izrb"
+            },
+            {
+              "assembly": "limit-switch",
+              "qty": 1,
+              "uid": "xzje"
+            },
+            {
+              "part": "scr-m5-20-shcs",
+              "qty": 2,
+              "uid": "e4hi"
+            },
+            {
+              "assembly": "chute-stepper-gearing",
+              "qty": 1,
+              "uid": "1cfd"
+            },
+            {
+              "assembly": "interface-chute-drive",
+              "qty": 1,
+              "uid": "8cjj"
+            },
+            {
+              "part": "top-interface-split-spur-gear-2",
+              "qty": 1,
+              "uid": "izz5"
+            },
+            {
+              "part": "brg-lazy-susan",
+              "qty": 1,
+              "uid": "wrxu"
+            },
+            {
+              "part": "scr-m4-12-cs",
+              "qty": 8,
+              "uid": "h8h4"
+            },
+            {
+              "part": "scr-m5-35-fhcs",
+              "qty": 6,
+              "uid": "xkl4"
+            },
+            {
+              "part": "scr-m5-8-cs",
+              "qty": 6,
+              "uid": "mqh4"
+            }
+          ]
         },
         {
           "version": "6",
@@ -11719,9 +11802,57 @@
         },
         {
           "version": "2",
+          "uid": "v6ss",
           "date": "2026-08-29",
           "message": "Catalog never picked up sorter-v2#447's fastener correction on bottom-interface.md: 1 screw per mount into the hold-in-place (self-tap, 3 total) plus 2 more per mount into a T-nut in the extrusion (6 more), so 9 scr-m5-16-shcs and 6 tnut-m5-2020 total, not 3 and 3.",
-          "commit": "9708a416"
+          "commit": "9708a416",
+          "lines": [
+            {
+              "part": "ls-mount-to-chute",
+              "qty": 1,
+              "uid": "lma9"
+            },
+            {
+              "part": "ls-bottom-static",
+              "qty": 1,
+              "uid": "4mmh"
+            },
+            {
+              "part": "ls-washer",
+              "qty": 1,
+              "uid": "9c4a"
+            },
+            {
+              "part": "ls-mount-to-extrusion",
+              "qty": 3,
+              "uid": "bmt4"
+            },
+            {
+              "part": "ls-hold-in-place",
+              "qty": 3,
+              "uid": "ss05"
+            },
+            {
+              "part": "brg-lazy-susan",
+              "qty": 1,
+              "uid": "wrxu"
+            },
+            {
+              "part": "scr-m4-12-cs",
+              "qty": 8,
+              "uid": "h8h4"
+            },
+            {
+              "part": "scr-m5-16-shcs",
+              "qty": 9,
+              "uid": "2e0s"
+            },
+            {
+              "part": "tnut-m5-2020",
+              "qty": 6,
+              "uid": "bpwm"
+            }
+          ]
         },
         {
           "version": "3",

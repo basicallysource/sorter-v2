@@ -160,7 +160,7 @@ A profile with four boxes, in the order the machine tries them:
 
 **To change the order**, hover over a rule in the list and use the up and down arrows on its row.
 
-**Type numbers on their own.** The value in the +$5 rule is `5`, not `$5`. A currency symbol or a unit in a number field stops the profile saving.
+**Type numbers on their own.** The value in the +$5 rule is `5`, not `$5`. A currency symbol or a unit in a number field makes the save fail with `Internal server error`, and nothing says which rule it was.
 
 ## 4. Send it to your machine
 

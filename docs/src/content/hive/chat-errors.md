@@ -30,9 +30,17 @@ Building a profile in the first place is [Build your first sorting profile]({{ '
 
 ## `HTTP 502`, with no sentence after it
 
-**Cause:** Usually a colour profile that is too large for Hive to apply. See [asking for colour]({{ '/hive/first-profile/#asking-for-colour' | relative_url }}). The other cause is a value that is not a number in a condition that compares numbers, such as `$5` in `bl_price_min >= $5`. Saving fails the same way, with nothing to say which rule it was.
+**Cause:** Usually a colour profile that is too large for Hive to apply. See [asking for colour]({{ '/hive/first-profile/#asking-for-colour' | relative_url }}).
 
-**Fix:** For colour, ask for fewer colours, one colour per box, with no shade variants. Sending the same request again will fail the same way. For a number, open the rule and take the currency symbol or the unit out of the value, leaving the digits: `5`, not `$5`.
+**Fix:** Ask for fewer colours, one colour per box, with no shade variants. Sending the same request again will fail the same way.
+
+---
+
+## `Internal server error`, when you save
+
+**Cause:** Usually a value that is not a number in a condition that compares numbers, most often a currency symbol: `bl_price_min >= $5` rather than `bl_price_min >= 5`. Hive stores what you typed as text, and the comparison against the price fails when it builds the profile. The message names no rule and no field, and nothing in the editor is marked.
+
+**Fix:** Open your rules, find any condition using `>=` or `<=`, and leave only digits in the value box. `5`, not `$5`. A unit does the same thing: `10mm`, `5 USD` and `2019 or later` all break the save.
 
 ---
 

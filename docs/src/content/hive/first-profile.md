@@ -69,7 +69,13 @@ Until it is fixed, ask for colour like this:
 
 That produces a much smaller profile, which Hive can apply. The cost is real: a box for grey will catch plain grey and miss light bluish grey, so parts in the shades you did not name land in your catch-all box instead.
 
-**Name colours in words, not numbers.** [BrickLink's colour guide](https://v2.bricklink.com/en-au/catalog/color-guide) is a good way to see which colours exist and what each one looks like. The numbers on that page are BrickLink's own colour IDs, and they are not the numbers Hive sorts by: white is 1 on BrickLink and 15 in Hive's catalog. Type the colour name and let the assistant pick the right one.
+**Name colours in words, not numbers.** [Rebrickable's colour list](https://rebrickable.com/colors/) is the numbering Hive sorts by, with a swatch and a name for every colour, and columns showing the same colour's BrickLink and LDraw numbers if you need them. Beware of any other colour chart: BrickLink numbers its colours differently, and white is 1 there and 15 in Hive. Typing the colour name avoids the whole problem, because the assistant looks the name up for you.
+
+### Save your own edits before you use the chat again
+
+You can edit rules by hand as well as through the chat, and the two do not mix. The assistant works from the last **saved** version of the profile, not from what is on your screen. So if you change something by hand and then send a message, your change is not part of what it edits, and it disappears when the assistant's version loads.
+
+Save first, then chat. It costs one click and there is no undo for the other order.
 
 ## 3. Read what it proposes before you trust it
 

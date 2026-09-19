@@ -60,9 +60,11 @@ Nothing else is needed to install it: the driver is in the official Orange Pi Ub
 
 After the machine has booted, the adapter shows up in the Sorter UI under **Settings → WiFi**, which is where the network and password go in. Over SSH, `nmcli device wifi list` lists what it can see.
 
+**Take the adapter's address before you unplug the Ethernet.** Joining a network gets the machine a second address, different from the one it has been answering on, and once connected the adapter's row on that same WiFi page shows what it is. Write it down, then pull the Ethernet and browse to it. Doing it the other way round leaves you hunting for the machine, because the page you were reading goes with the cable.
+
 ## On the bench for first setup
 
-The network is set on a running machine, so a board that is going on WiFi does its first boot on its own, off the machine: the USB-C supply in the socket marked `PWR IN`, Ethernet to a router for that boot alone, and the antennas on. [Install SorterOS]({{ '/sorter/installation/sorter-os/' | relative_url }}) covers flashing the card and where the UI is.
+The network is set on a running machine, so a board that is going on WiFi does its first boot on its own, off the machine: the USB-C supply in the socket marked `PWR IN`, Ethernet to a router for that boot alone, and the antennas on. [Install SorterOS]({{ '/sorter/installation/sorter-os/' | relative_url }}) covers flashing the card and where the UI is. The Ethernet comes out once WiFi is set, at the end of step 4, and the board goes to the machine.
 
 <div class="img-row">
   <figure>

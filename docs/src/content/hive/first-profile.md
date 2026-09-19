@@ -124,6 +124,44 @@ The operators, as the editor shows them:
 
 Which operators you get depends on the field you picked. A name can be searched with `contains`, not compared with `>=`.
 
+### An example: four boxes in the right order
+
+A profile with four boxes, in the order the machine tries them:
+
+<ol class="numbered-steps">
+  <li><strong>Minifigure +$5</strong>, minifigure parts worth five dollars or more.</li>
+  <li><strong>Minifigure</strong>, every other minifigure part.</li>
+  <li><strong>Black</strong>, anything black.</li>
+  <li><strong>Red, Dark Red</strong>, anything in either red.</li>
+</ol>
+
+<figure class="single-figure">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/hive-rule-minifigure-full-cf2141d17cb3.png" alt="A rule named Minifigure, set to Match ANY, with five conditions: category_name contains minifig heads, minifig upper, minifigs, minifig lower, minifig headwear.">
+  <figcaption>One rule, five conditions, <strong>Match ANY</strong>: a part in any one of those categories is a minifigure part. <cite>Screenshot courtesy of BrickCycleAlice.</cite></figcaption>
+</figure>
+
+<figure class="single-figure">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/hive-rule-black-full-7d54ee69f7dd.png" alt="A rule named Black with one condition: color_id equals 0.">
+  <figcaption>The black box. Colour 0 is black in Hive's numbering. <cite>Screenshot courtesy of BrickCycleAlice.</cite></figcaption>
+</figure>
+
+<figure class="single-figure">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/hive-rule-red-dark-red-full-9b1512b1fda9.png" alt="A rule named Red, Dark Red, set to Match ANY, with two conditions: color_id equals 320 and color_id equals 4.">
+  <figcaption>Two colours in one box, on <strong>Match ANY</strong>. <cite>Screenshot courtesy of BrickCycleAlice.</cite></figcaption>
+</figure>
+
+**Minifigure +$5** is the one box not pictured. It has two conditions, `bl_price_min >= 5` and `category_name contains minifig`, on **Match ALL**, so a part has to be both to land there.
+
+**Put the minifigure boxes above the colour boxes.** Black hair and black legs are minifigure parts and they are also black, so whichever rule is higher takes them. In this order they go in with the rest of the minifigure parts. Put **Black** on top instead and the black box takes them, and your minifigure box comes out with no black in it.
+
+**Put +$5 above plain Minifigure** if you want the valuable parts separated. A five dollar hairpiece is an ordinary minifigure part as well, and the plain box takes it the moment it is the higher of the two.
+
+**A colour box only takes the colours it names.** Everything it does not claim carries on down the list, so a black box near the bottom does not empty the boxes under it. It takes their black and leaves the rest.
+
+**To change the order**, hover over a rule in the list and use the up and down arrows on its row.
+
+**Type numbers on their own.** The value in the +$5 rule is `5`, not `$5`. A currency symbol or a unit in a number field stops the profile saving.
+
 ## 4. Send it to your machine
 
 Save the version, then open **Machines** in Hive and use **Assign Profile** on your machine. You choose the profile and which version of it. The machine picks up what it has been assigned.

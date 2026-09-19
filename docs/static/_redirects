@@ -9,3 +9,5 @@
 /hardware/electronics/installation/connecting/                      /hardware/electronics/connecting/                   301
 # The PSU output pigtail page moved to the helpers section (2026-09-18).
 /hardware/electronics/psu-pigtail/                                  /hardware/helpers/psu-pigtail/                      301
+# The WireViz drawings page moved from Electronics to Parts (2026-09-19).
+/hardware/electronics/wireviz/                                      /hardware/parts/wireviz/                            301

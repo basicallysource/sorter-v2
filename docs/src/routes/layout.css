@@ -1730,11 +1730,40 @@ blockquote {
 	border: 1px solid var(--line);
 	background: var(--surface);
 }
+/* A harness drawing is full width, so its caption is too: left aligned and
+   uncapped, matching the download line under it. Without these two it falls
+   back to `figure > figcaption`, which centres a 440px column under a
+   1000px-wide drawing. */
 .harness-figure figcaption {
 	margin-top: 8px;
+	max-width: none;
+	text-align: left;
 	font-size: 0.875rem;
 	line-height: 1.5;
 	color: var(--muted);
+}
+
+/* The line under a sub-harness heading naming the drawing it belongs to. */
+.harness-parent {
+	margin: 0 0 1.2rem;
+	font-size: 0.875rem;
+	color: var(--muted);
+}
+
+/* Contents at the top of the WireViz page: the drawings, with sub-harnesses
+   nested under the one they come out of. */
+.harness-contents {
+	margin: 0 0 2rem;
+	padding-left: 1.1rem;
+	font-size: 0.9375rem;
+}
+.harness-contents ul {
+	margin: 0.2rem 0 0;
+	padding-left: 1.1rem;
+	list-style: circle;
+}
+.harness-contents li {
+	margin: 0.2rem 0;
 }
 
 .diagram {

@@ -104,8 +104,6 @@ sections:
             url: /hardware/electronics/steppers/
           - title: Order spec
             url: /hardware/electronics/order/
-          - title: WireViz drawings
-            url: /hardware/electronics/wireviz/
       - title: Helpers
         url: /hardware/helpers/
         children:
@@ -136,6 +134,8 @@ sections:
             url: /hardware/parts/lazy-susan/
           - title: Orange Pi 5
             url: /hardware/orange-pi-5/
+          - title: WireViz drawings
+            url: /hardware/parts/wireviz/
 
   - id: sorter
     title: Sorter

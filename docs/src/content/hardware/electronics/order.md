@@ -99,7 +99,7 @@ Straight-through, coil pairs = 1-2 and 3-4. Identify the motor's coil pairs with
 
 ### 3.4 &nbsp; Drawings (WireViz)
 
-Rendered harness drawings, BOMs, downloads, and the full supplier package live on the [WireViz]({{ '/hardware/electronics/wireviz/' | relative_url }}) page. Every guessed value is marked **GUESS** in the drawings themselves.
+Rendered harness drawings, BOMs, downloads, and the full supplier package live on the [WireViz drawings]({{ '/hardware/parts/wireviz/' | relative_url }}) page, which is the only place they are published. Every guessed value is marked **GUESS** in the drawings themselves.
 
 ## 4 &nbsp; Ends the vendor can't terminate
 

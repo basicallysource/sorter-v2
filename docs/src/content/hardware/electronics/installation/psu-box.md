@@ -115,4 +115,4 @@ The supply with both printed plates bolted to its back, the mains inlet in the c
 
 <div class="img-placeholder">Image coming: the supply on the bench, both plates on, the inlet and the three jacks in the connections plate, cap off</div>
 
-**Bolting it to the frame is on the [installation overview]({{ '/hardware/electronics/installation/' | relative_url }})**. Everything that plugs into it is on the [wire harness]({{ '/hardware/electronics/' | relative_url }}) page.
+**Bolting it to the frame is on the [installation overview]({{ '/hardware/electronics/installation/' | relative_url }})**. Everything that plugs into it is on the [wire harness]({{ '/hardware/electronics/wire-harness/' | relative_url }}) page.

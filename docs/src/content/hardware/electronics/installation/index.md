@@ -14,7 +14,7 @@ warning: >-
   not plug a cable into the IEC inlet until that box is complete and its wiring verified.
 ---
 
-The [wire harness]({{ '/hardware/electronics/' | relative_url }}) pages cover what connects to what. These cover the other half: where the hardware physically sits and what holds it there. "The control board" here means basically board v1.3, the basically Embedded Control Board; the three sections below call their own printed enclosure a housing, a box, and a mount, but they're the same kind of part, one per component, bolted to the frame.
+The [wire harness]({{ '/hardware/electronics/wire-harness/' | relative_url }}) pages cover what connects to what. These cover the other half: where the hardware physically sits and what holds it there. "The control board" here means basically board v1.3, the basically Embedded Control Board; the three sections below call their own printed enclosure a housing, a box, and a mount, but they're the same kind of part, one per component, bolted to the frame.
 
 ## Bolting the enclosures to the frame
 
@@ -47,10 +47,10 @@ Solder the [Pico headers]({{ '/hardware/helpers/pico-headers/' | relative_url }}
 3. **[Control board housing]({{ '/hardware/electronics/installation/control-board-housing/' | relative_url }})**: the printed housing the board closes into, with its fan.
 4. **[Orange Pi mount]({{ '/hardware/electronics/installation/orange-pi-mount/' | relative_url }})**: Orange Pi 5 on standoffs.
 
-With all four bolted to the frame, [connecting the components]({{ '/hardware/electronics/connecting/' | relative_url }}) plugs them together: every cable between them, and the socket each end goes into. The [wire harness]({{ '/hardware/electronics/' | relative_url }}) page is the reference for what those cables are made of. [Software setup]({{ '/hardware/software-setup/' | relative_url }}) comes after.
+With all four bolted to the frame, [connecting the components]({{ '/hardware/electronics/connecting/' | relative_url }}) plugs them together: every cable between them, and the socket each end goes into. The [wire harness]({{ '/hardware/electronics/wire-harness/' | relative_url }}) page is the reference for what those cables are made of. [Software setup]({{ '/hardware/software-setup/' | relative_url }}) comes after.
 
 ## What is not recorded yet
 
 Collected here rather than left on the individual pages, because these are the things that block finishing them.
 
-- **Cooling the Orange Pi.** The control board's fan is answered: it sits in the housing cover and runs off a GPIO-switched 24 V port on the board itself. The fan on the Pi's arm is a 24 V one too, and the Pi's heatsink fan runs off the Pi itself; where the arm fan's lead lands is still open (open item 1 on the [wire harness]({{ '/hardware/electronics/' | relative_url }}) page).
+- **Cooling the Orange Pi.** The control board's fan is answered: it sits in the housing cover and runs off a GPIO-switched 24 V port on the board itself. The fan on the Pi's arm is a 24 V one too, and the Pi's heatsink fan runs off the Pi itself; where the arm fan's lead lands is still open (open item 1 on the [wire harness]({{ '/hardware/electronics/wire-harness/' | relative_url }}) page).

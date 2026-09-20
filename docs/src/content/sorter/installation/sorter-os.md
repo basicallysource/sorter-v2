@@ -86,6 +86,8 @@ Use it rather than guessing from outside. A stage that needs the network does no
 
 `5173` is the Vite dev server's port and applies only to the [by hand]({{ '/sorter/installation/by-hand/' | relative_url }}) and [generic Linux]({{ '/sorter/installation/linux-generic/' | relative_url }}) install paths, not to SorterOS.
 
+The first time you open the UI it starts on the setup wizard, which names the machine, finds the control boards, checks motion and endstops, and assigns servos and cameras. [First setup in the UI]({{ '/sorter/first-setup/' | relative_url }}) takes it step by step.
+
 ## SSH access
 
 SorterOS services run as root. The default SSH username is `root` and the default password is `orangepi`. If you are using Tailscale SSH, no password is required.

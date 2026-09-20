@@ -54,7 +54,7 @@ When the installer finishes you can start the dev runner:
 
 `./dev.sh` starts the Python backend on `:8000` and the Vite dev server on `:5173`, prefixes both log streams, and restarts either one if it crashes. Stop with Ctrl-C.
 
-Then open `http://localhost:5173/` (or `http://<machine-ip>:5173/` from another device on the same network). You should see the Sorter UI. The first time you open it, the in-app **Setup Wizard** will take over.
+Then open `http://localhost:5173/` (or `http://<machine-ip>:5173/` from another device on the same network). You should see the Sorter UI. The first time you open it, the in-app **Setup Wizard** will take over; [First setup in the UI]({{ '/sorter/first-setup/' | relative_url }}) takes it step by step.
 
 If the UI does not come up, see [Sorter troubleshooting]({{ '/sorter/troubleshooting/' | relative_url }}).
 

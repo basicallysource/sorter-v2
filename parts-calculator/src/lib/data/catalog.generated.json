@@ -23734,7 +23734,7 @@
 			"description": "The three outputs of the PSU box, mounted through its connections plate. Each one is fed by a short 18 AWG pigtail with a spade terminal on each wire, landing on one +V/-V screw pair of the LRS-350-24.",
 			"note": "Buy the jacks with the pigtail leads already attached. Building one from a bare jack and loose wire is more work for the same part, and the leads are the fiddly bit.",
 			"created_at": "2026-09-14",
-			"updated_at": "2026-09-19",
+			"updated_at": "2026-09-20",
 			"attributes": [
 				{
 					"label": "Size",
@@ -23764,7 +23764,7 @@
 			"stock": null,
 			"sourcing": null,
 			"alternative": null,
-			"caption": "Three a machine, with the 18 AWG leads already attached. The fork terminals go on afterwards.",
+			"caption": "Three per machine, with the 18 AWG leads already attached. The fork terminals go on afterwards.",
 			"docs_page": "/hardware/helpers/psu-pigtail/",
 			"conflicts": null,
 			"image": "https://assets.basically.website/sorter-parts/dc-jack-5521-panel-full-63a00536559f.jpg"

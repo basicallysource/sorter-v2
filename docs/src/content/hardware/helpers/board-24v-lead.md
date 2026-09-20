@@ -11,7 +11,7 @@ author: effreek
 contributors: [spencer]
 warning: >-
   **AI-generated first draft.** Written from the basically board v1.3 board files and the [wire
-  harness]({{ '/hardware/electronics/' | relative_url }}) schedule, not from an actual build. The
+  harness]({{ '/hardware/electronics/wire-harness/' | relative_url }}) schedule, not from an actual build. The
   connector, the pin order and the socket come from the board itself and are real. Nobody has made
   this lead from these steps yet. The 914 mm (36 in) length is a **GUESS** in the harness notes and
   is longer than the run needs.

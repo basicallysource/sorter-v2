@@ -58,7 +58,7 @@ Slide piece A (Hex outer horizontal, 320mm) of aluminum extrusion into an Extern
 **Option:** if you would rather not tap and brace, place T-nuts in the extrusion and use the inner holes (the larger of the pair) to fasten into them instead. That is 12 more {% include fastener.html size="M5" variant="t-nut" text="M5 T-nuts" %} per frame, on top of the parts list above.
 
 <div class="callout">
-  <p>Taking the T-nut option? Use {% include fastener.html size="M5" variant="socket-button" length="12" %} screws for it, not the 16 mm ones. That is 12 {% include fastener.html size="M5" variant="socket-button" length="12" %} per frame in place of the 12 M5 × 16, and like the T-nuts they are not in the parts list above.</p>
+  <p>Taking the T-nut option? Use {% include fastener.html size="M5" variant="socket-button" length="12" %} screws for it, not the 16 mm ones. That is 12 {% include fastener.html size="M5" variant="socket-button" length="12" %} screws per frame in place of the 12 M5 × 16, and like the T-nuts they are not in the parts list above.</p>
 </div>
 
 The bracket carries other holes that neither method uses, including one on its inward-facing side further along the extrusion. Leave those empty.

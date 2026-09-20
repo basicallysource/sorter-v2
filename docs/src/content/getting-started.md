@@ -61,6 +61,7 @@ Python 3.12+, Node.js 20+, pnpm. The install script handles dependencies on Debi
 | Brickognize API docs | [api.brickognize.com/docs](https://api.brickognize.com/docs) |
 | Shared Google Drive | [Design docs and presentations](https://drive.google.com/drive/folders/19ZV8AnAjYpwCfDaukLdA2u8vyNN1H8Yf) |
 | Documentation site | [docs.basically.website](https://docs.basically.website/) |
+| Basically on YouTube | [youtube.com/@basicallyhandle](https://www.youtube.com/@basicallyhandle) |
 | Community build videos | A contributor's own machine, built differently from the one documented here: [overview](https://www.youtube.com/watch?v=NfSrd4IZd58) and [engineering deep dive](https://www.youtube.com/watch?v=I6AhcB-rUWc) |
 
 ## How the project works

@@ -64,9 +64,11 @@ Three things about this page:
 
 ## 4. Deploy a sorting profile
 
-Open **Profiles**, then press **Deploy to this machine** on **Presort**. Presort has eight categories and a catch-all, so nothing falls through on a first run.
+Open **Profiles**, then press **activate** on **Presort**. Presort has eight categories and a catch-all, so nothing falls through on a first run.
 
-Deploying fills the bins in order. The first category goes to the first bin of the first section of the first layer, the second category to the next bin, and so on. Read that order off the screen and put your bins where the machine expects them.
+Activating asks how the bins should start. **Pre-assign from rules** fills the bins in order: the first category goes to the first bin of the first section of the first layer, the second category to the next bin, and so on. Read that order off the screen and put your bins where the machine expects them. **Reset bins** empties them instead and assigns each category to a bin the first time a piece needs one.
+
+Presort is the profile that ships with the machine. When you want your own boxes, [build your first sorting profile]({{ '/hive/first-profile/' | relative_url }}) walks through making one in Hive and getting it onto this machine.
 
 No bin is kept for pieces that match nothing. Those drop out of the bottom of the tower, so put a box or a tray under it before you start.
 

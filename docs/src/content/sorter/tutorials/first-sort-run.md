@@ -22,7 +22,7 @@ This tutorial assumes the first-boot setup wizard is done and `./dev.sh` is runn
 
 ## 1. Pick a profile
 
-Open the UI → **Profiles** → click **Deploy to this machine** on **Presort**. Presort has eight categories plus a catch-all "Other", so nothing falls through.
+Open the UI → **Profiles** → click **activate** on **Presort**. Presort has eight categories plus a catch-all "Other", so nothing falls through.
 
 ## 2. Confirm the dashboard is ready
 

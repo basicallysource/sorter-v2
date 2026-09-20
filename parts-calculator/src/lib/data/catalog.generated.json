@@ -23718,7 +23718,7 @@
 			},
 			"alternative": null,
 			"caption": "Seven per machine. W2 takes one at each end.",
-			"docs_page": "/hardware/electronics/",
+			"docs_page": "/hardware/electronics/wire-harness/",
 			"conflicts": null,
 			"image": "https://assets.basically.website/sorter-parts/dc-plug-5521-male-full-9cabce9431e7.jpg"
 		},
@@ -23734,7 +23734,7 @@
 			"description": "The three outputs of the PSU box, mounted through its connections plate. Each one is fed by a short 18 AWG pigtail with a spade terminal on each wire, landing on one +V/-V screw pair of the LRS-350-24.",
 			"note": "Buy the jacks with the pigtail leads already attached. Building one from a bare jack and loose wire is more work for the same part, and the leads are the fiddly bit.",
 			"created_at": "2026-09-14",
-			"updated_at": "2026-09-18",
+			"updated_at": "2026-09-20",
 			"attributes": [
 				{
 					"label": "Size",
@@ -23764,10 +23764,10 @@
 			"stock": null,
 			"sourcing": null,
 			"alternative": null,
-			"caption": "One assembled PSU pigtail: the jack, its leads, and a fork terminal on each. Photo: Jon.",
+			"caption": "Three per machine, with the 18 AWG leads already attached. The fork terminals go on afterwards.",
 			"docs_page": "/hardware/helpers/psu-pigtail/",
 			"conflicts": null,
-			"image": "https://assets.basically.website/sorter-parts/dc-jack-5521-panel-full-77c46f1a0a2e.jpg"
+			"image": "https://assets.basically.website/sorter-parts/dc-jack-5521-panel-full-63a00536559f.jpg"
 		},
 		{
 			"id": "dc-jack-5521-inline",
@@ -23862,7 +23862,7 @@
 			},
 			"alternative": null,
 			"caption": "The board end of W1. Pin 1 is +24 V.",
-			"docs_page": "/hardware/electronics/",
+			"docs_page": "/hardware/electronics/wire-harness/",
 			"conflicts": null,
 			"image": "https://assets.basically.website/sorter-parts/jst-vhr-2-full-42731782ea88.jpg"
 		},
@@ -23915,7 +23915,7 @@
 			},
 			"alternative": null,
 			"caption": "Crimp onto the wire first, then push into the shell.",
-			"docs_page": "/hardware/electronics/",
+			"docs_page": "/hardware/electronics/wire-harness/",
 			"conflicts": null,
 			"image": "https://assets.basically.website/sorter-parts/jst-svh-21t-full-12fe480e1b3f.jpg"
 		},
@@ -24029,7 +24029,7 @@
 			},
 			"alternative": null,
 			"caption": "Motor end of S1 to S4. Two positions stay empty.",
-			"docs_page": "/hardware/electronics/",
+			"docs_page": "/hardware/electronics/wire-harness/",
 			"conflicts": null,
 			"image": "https://assets.basically.website/sorter-parts/jst-phr-6-full-bf8127ef2725.jpg"
 		},
@@ -24082,7 +24082,7 @@
 			},
 			"alternative": "The Preciva crimp tool and connector kit (connector-kit-crimp) includes this, along with the crimper. Buying jst-ph-cable-4p-63cm drops the count to 4, the chute's board end only",
 			"caption": "Thirty-six per machine. Buy spares.",
-			"docs_page": "/hardware/electronics/",
+			"docs_page": "/hardware/electronics/wire-harness/",
 			"conflicts": null,
 			"image": "https://assets.basically.website/sorter-parts/jst-sph-002t-full-020470b7194a.jpg"
 		},
@@ -24125,7 +24125,7 @@
 			"sourcing": null,
 			"alternative": "The Preciva crimp tool and connector kit (connector-kit-crimp) includes this, along with the crimper",
 			"caption": "Position 3 stays empty; that is what keys it.",
-			"docs_page": "/hardware/electronics/",
+			"docs_page": "/hardware/electronics/wire-harness/",
 			"conflicts": null,
 			"image": "https://assets.basically.website/sorter-parts/dupont-housing-3p-full-50d0a6c664ee.jpg"
 		},
@@ -24225,7 +24225,7 @@
 			},
 			"alternative": null,
 			"caption": "Pushes onto the switch tabs. No soldering.",
-			"docs_page": "/hardware/electronics/",
+			"docs_page": "/hardware/electronics/wire-harness/",
 			"conflicts": null,
 			"image": "https://assets.basically.website/sorter-parts/terminal-qc-187-full-1b297cc335ae.jpg"
 		},
@@ -24285,7 +24285,7 @@
 			},
 			"alternative": null,
 			"caption": "1.22 m a machine, nearly all of it W1.",
-			"docs_page": "/hardware/electronics/",
+			"docs_page": "/hardware/electronics/wire-harness/",
 			"conflicts": null,
 			"image": "https://assets.basically.website/sorter-parts/wire-18awg-2c-full-3e5bb7dfedfa.jpg"
 		},
@@ -24345,7 +24345,7 @@
 			},
 			"alternative": null,
 			"caption": "4.27 m a machine, most of it the three LED drops.",
-			"docs_page": "/hardware/electronics/",
+			"docs_page": "/hardware/electronics/wire-harness/",
 			"conflicts": null,
 			"image": "https://assets.basically.website/sorter-parts/wire-22awg-2c-full-c5bdc4a8c04e.jpg"
 		},
@@ -24461,7 +24461,7 @@
 			},
 			"alternative": null,
 			"caption": "One roll does three machines.",
-			"docs_page": "/hardware/electronics/",
+			"docs_page": "/hardware/electronics/wire-harness/",
 			"conflicts": null,
 			"image": "https://assets.basically.website/sorter-parts/sleeving-braided-6mm-full-39f6e9222044.jpg"
 		},
@@ -24519,7 +24519,7 @@
 			},
 			"alternative": null,
 			"caption": "Covers the PH and Dupont ends, and the crimper. Not the 6-pin or the insulated terminals.",
-			"docs_page": "/hardware/electronics/",
+			"docs_page": "/hardware/electronics/wire-harness/",
 			"conflicts": null,
 			"image": "https://assets.basically.website/sorter-parts/connector-kit-crimp-full-e3e61c2d331b.jpg"
 		},
@@ -24582,7 +24582,7 @@
 			},
 			"alternative": "Make the cable from wire-24awg plus a jst-phr-4, a jst-phr-6 and eight jst-sph-002t contacts",
 			"caption": "One per channel stepper. Move four contacts into a PHR-6 and it is done.",
-			"docs_page": "/hardware/electronics/",
+			"docs_page": "/hardware/electronics/wire-harness/",
 			"conflicts": null,
 			"image": "https://assets.basically.website/sorter-parts/jst-ph-cable-4p-63cm-full-9f00b9a255c8.jpg"
 		},

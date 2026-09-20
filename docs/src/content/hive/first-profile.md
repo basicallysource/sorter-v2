@@ -126,7 +126,11 @@ That assignment is the route today. Hive has no button that downloads a profile 
 
 ### Bins are chosen on the machine, not in the profile
 
-A profile never names a bin number. It only says which boxes exist. Which bin each box lands in is decided on the machine, after the profile is on it, on the machine's **Bins** page. That is also where bin size stops being an abstract question: you can see which bins are the big ones.
+A profile never names a bin number. It only says which boxes exist. Which bin each box lands in is decided on the machine.
+
+The first decision is made when you activate the profile there. The machine asks how the bins should start: **Pre-assign from rules** seeds them in the order your rules are in, and **Reset bins** empties them and gives a category a bin the first time a piece needs one.
+
+After that, the machine's **Bins** page is where you change any of it. That is also where bin size stops being an abstract question: you can see which bins are the big ones.
 
 You have two ways to do it.
 

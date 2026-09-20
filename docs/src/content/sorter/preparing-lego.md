@@ -9,7 +9,7 @@ author: brickcyclealice
 lede: What to take out of a tub of bulk LEGO before it goes in the bulk bucket, and what each thing does to the machine if it stays in.
 permalink: /sorter/preparing-lego/
 last_verified: 2026-09-20
-og_image: https://assets.basically.website/sorter-docs/lego-intake-prep-sheet-full-408d161958be.png
+og_image: https://assets.basically.website/sorter-docs/lego-intake-prep-sheet-full-4974b5d037f3.png
 warning: >-
   **A working house standard, not a published specification.** Basically has not
   published a list of parts the machine will and will not take. This page is
@@ -101,8 +101,8 @@ Use one tray for everything that comes out, and have someone go through it after
 ## The one-page sheet
 
 <figure class="single-figure">
-  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/lego-intake-prep-sheet-w1600-b442694f034d.jpg" alt="One-page intake standard headed LEGO tub prep, in three numbered zones: a size check with a life-size 2x10 brick drawn under an 80 mm dimension, a red take-out block of eight illustrated tiles, and a green leave-in strip">
-  <figcaption>The same rules as a single sheet for the bench or the wall. <a href="https://assets.basically.website/sorter-docs/lego-intake-prep-sheet-full-408d161958be.png">Open it full size</a> and print it at A4, at 100% scale rather than fit-to-page. The brick on it is drawn life size, so a doubtful piece can be laid straight on top of it; the bar under the brick measures 80 mm on a correct print, which is how you check the printer did not scale the page. <cite>Drawn from the rules on this page. Drawing: balloon.</cite></figcaption>
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/lego-intake-prep-sheet-w1600-7184f43cba8d.jpg" alt="One-page intake standard headed LEGO tub prep, in three numbered zones: a size check with a life-size 2x10 brick drawn under an 80 mm dimension, a red take-out block of eight illustrated tiles, and a green leave-in strip">
+  <figcaption>The same rules as a single sheet for the bench or the wall. <a href="https://assets.basically.website/sorter-docs/lego-intake-prep-sheet-full-4974b5d037f3.png">Open it full size</a> and print it at A4, at 100% scale rather than fit-to-page. The brick on it is drawn life size, so a doubtful piece can be laid straight on top of it; the bar under the brick measures 80 mm on a correct print, which is how you check the printer did not scale the page. <cite>Drawn from the rules on this page. Drawing: balloon.</cite></figcaption>
 </figure>
 
 ## Next

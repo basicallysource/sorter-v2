@@ -17,6 +17,7 @@ permalink: /sorter/
 ## Operate
 
 - **[First setup in the UI]({{ '/sorter/first-setup/' | relative_url }})** — the setup wizard step by step: name the machine, find the boards, check motion and endstops, assign servos and cameras, link Hive.
+- **[Preparing LEGO for a sort run]({{ '/sorter/preparing-lego/' | relative_url }})** — what to take out of a tub of bulk LEGO before it goes in the bulk bucket, and what each thing does to the machine if it stays in.
 - **[Your first sort run]({{ '/sorter/tutorials/first-sort-run/' | relative_url }})** — the end-to-end happy path: pick a profile, feed the machine, check a bin, stop cleanly.
 - **[Chute calibration]({{ '/sorter/chute-calibration/' | relative_url }})** — home the chute, capture two bins to set the bin locations, and test every bin it can reach.
 - **[Camera calibration]({{ '/sorter/camera-calibration/' | relative_url }})** — focus with a Siemens Star, then auto-calibrate color with a 6-color LEGO reference plate.

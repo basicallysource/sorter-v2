@@ -24,4 +24,4 @@ With Sorter running, flash it from **Settings** &rarr; **Control board**: pick a
 
 ## 3. Carry on in Sorter
 
-From here the order is the setup wizard in the UI, then [camera calibration]({{ '/sorter/camera-calibration/' | relative_url }}), then [chute calibration]({{ '/sorter/chute-calibration/' | relative_url }}), then [before your first sort run]({{ '/sorter/before-first-sort-run/' | relative_url }}) and [your first sort run]({{ '/sorter/tutorials/first-sort-run/' | relative_url }}).
+From here the order is [the setup wizard in the UI]({{ '/sorter/first-setup/' | relative_url }}), then [camera calibration]({{ '/sorter/camera-calibration/' | relative_url }}), then [chute calibration]({{ '/sorter/chute-calibration/' | relative_url }}), then [before your first sort run]({{ '/sorter/before-first-sort-run/' | relative_url }}) and [your first sort run]({{ '/sorter/tutorials/first-sort-run/' | relative_url }}).

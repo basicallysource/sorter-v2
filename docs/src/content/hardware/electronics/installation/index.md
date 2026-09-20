@@ -17,7 +17,7 @@ warning: >-
 
 The machine's electronics are three printed enclosures and the hardware that goes inside them: the power supply, the control board, and the Orange Pi that runs the machine. "The control board" here means basically board v1.3, the basically Embedded Control Board; the pages below call their enclosures a box, a housing and a mount, but they are the same kind of part, one per component.
 
-**These pages cover where the hardware sits and what holds it there.** What plugs into what is the other half, and that is [connecting the components]({{ '/hardware/electronics/connecting/' | relative_url }}), with the [wire harness]({{ '/hardware/electronics/' | relative_url }}) pages behind it as the reference for the cables themselves.
+**These pages cover where the hardware sits and what holds it there.** What plugs into what is the other half, and that is [connecting the components]({{ '/hardware/electronics/connecting/' | relative_url }}), with the [wire harness]({{ '/hardware/electronics/wire-harness/' | relative_url }}) page behind it as the reference for the cables themselves.
 
 Solder the [Pico headers]({{ '/hardware/helpers/pico-headers/' | relative_url }}) first, a one-time prep step under [Helpers]({{ '/hardware/helpers/' | relative_url }}); the Pico won't seat in the control board without it. Then:
 
@@ -54,7 +54,7 @@ All three go on the same plane: the [hex frame]({{ '/hardware/assembly/distribut
 
 Collected here rather than left on the individual pages, because these are the things that block finishing them.
 
-- **Cooling the Orange Pi.** The control board's fan is answered: it sits in the housing cover and runs off a GPIO-switched 24 V port on the board itself. The fan on the Pi's arm is a 24 V one too, and the Pi's heatsink fan runs off the Pi itself; where the arm fan's lead lands is still open (open item 1 on the [wire harness]({{ '/hardware/electronics/' | relative_url }}) page).
+- **Cooling the Orange Pi.** The control board's fan is answered: it sits in the housing cover and runs off a GPIO-switched 24 V port on the board itself. The fan on the Pi's arm is a 24 V one too, and the Pi's heatsink fan runs off the Pi itself; where the arm fan's lead lands is still open (open item 1 on the [wire harness]({{ '/hardware/electronics/wire-harness/' | relative_url }}) page).
 - **Two of the three enclosures have never been photographed bolted on.** The control board housing is the only one anybody has a picture of on the frame; the row below carries a described placeholder for the other two. The finished PSU box has no photo on the bench either, so its own page carries one as well.
 
 ## The finished result

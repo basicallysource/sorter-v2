@@ -34,7 +34,7 @@ parts_needed:
     qty: 2
   - part: hsi-m4
     qty: 8
-  - part: scr-m4-12-cs
+  - part: scr-m4-16-cs
     qty: 8
   - part: scr-m5-16-shcs
     qty: 9
@@ -157,7 +157,7 @@ Remove the Lazy Susan's rubber tabs first (see [Preparing Lazy Susan]({{ '/hardw
   <figcaption>Holding the washer in place before the bearing goes on. <cite>Photo: BrickCycleAlice.</cite></figcaption>
 </figure>
 
-Line up a hole in the disc with one of the chute mount's inserts, drive an {% include fastener.html size="M4" variant="countersunk" length="12" %} screw, and repeat around the disc.
+Line up a hole in the disc with one of the chute mount's inserts, drive an {% include fastener.html size="M4" variant="countersunk" length="16" %} screw, and repeat around the disc.
 
 <div class="img-row">
   <figure>
@@ -172,7 +172,7 @@ Line up a hole in the disc with one of the chute mount's inserts, drive an {% in
 
 <div class="callout callout-warning">
   <span class="callout-icon" aria-hidden="true">⚠</span>
-  <p>The {% include fastener.html size="M4" variant="countersunk" length="12" %} screws must be very tight. A drill or electric screwdriver will not get them there, so finish them with a hex key by hand. Machine vibration works a loose one out of a spot that is a hassle to reach later.</p>
+  <p>The {% include fastener.html size="M4" variant="countersunk" length="16" %} screws must be very tight. A drill or electric screwdriver will not get them there, so finish them with a hex key by hand. Machine vibration works a loose one out of a spot that is a hassle to reach later.</p>
 </div>
 
 <div class="img-row">
@@ -214,7 +214,7 @@ Set the chute mount and Lazy Susan assembly onto the bottom static part, then li
   </figure>
 </div>
 
-Drive the first {% include fastener.html size="M4" variant="countersunk" length="12" %} screw through the pass-through hole. Don't tighten it fully yet, leave some play while you get the rest of the four seated.
+Drive the first {% include fastener.html size="M4" variant="countersunk" length="16" %} screw through the pass-through hole. Don't tighten it fully yet, leave some play while you get the rest of the four seated.
 
 <figure class="single-figure">
   <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-bottom-interface-step2-screwed-in-full-92f81fc1417a.jpg" alt="First screw driven through the pass-through hole">

@@ -11,7 +11,7 @@ author: daddyosbricksbill
 contributors: [spencer, effreek, brickcyclealice]
 warning: >-
   **AI-generated first draft.** Written from the basically board v1.3 board files and the [wire
-  harness]({{ '/hardware/electronics/' | relative_url }}) schedule, not from an actual build. The
+  harness]({{ '/hardware/electronics/wire-harness/' | relative_url }}) schedule, not from an actual build. The
   sockets and the pinouts are read from the board itself and are real. The order of the steps is
   not checked against a machine. One step involves mains voltage: read the page fully before you
   start.
@@ -30,7 +30,7 @@ tools_needed: [Multimeter, Side cutters or a small screwdriver, "Only if you mak
 
 The [PSU box]({{ '/hardware/electronics/installation/psu-box/' | relative_url }}), the [control board housing]({{ '/hardware/electronics/installation/control-board-housing/' | relative_url }}) and the [Orange Pi mount]({{ '/hardware/electronics/installation/orange-pi-mount/' | relative_url }}) are all bolted to the frame, and every cable is already made. This page plugs them together. Nothing here needs a soldering iron.
 
-If a cable is still missing, four of them have a page that builds them: the [PSU output pigtails]({{ '/hardware/helpers/psu-pigtail/' | relative_url }}), the [prepared LED strips]({{ '/hardware/helpers/led-strip/' | relative_url }}), the [control board's 24 V lead]({{ '/hardware/helpers/board-24v-lead/' | relative_url }}) and the [chute stepper lead]({{ '/hardware/helpers/chute-stepper-lead/' | relative_url }}). The [wire harness]({{ '/hardware/electronics/' | relative_url }}) page has the length and gauge of the rest.
+If a cable is still missing, four of them have a page that builds them: the [PSU output pigtails]({{ '/hardware/helpers/psu-pigtail/' | relative_url }}), the [prepared LED strips]({{ '/hardware/helpers/led-strip/' | relative_url }}), the [control board's 24 V lead]({{ '/hardware/helpers/board-24v-lead/' | relative_url }}) and the [chute stepper lead]({{ '/hardware/helpers/chute-stepper-lead/' | relative_url }}). The [wire harness]({{ '/hardware/electronics/wire-harness/' | relative_url }}) page has the length and gauge of the rest.
 
 <div class="callout callout-warning">
   <span class="callout-icon" aria-hidden="true">⚠</span>
@@ -56,7 +56,7 @@ If a cable is still missing, four of them have a page that builds them: the [PSU
   </tbody>
 </table>
 
-The [wire harness]({{ '/hardware/electronics/' | relative_url }}) page calls the first three `W1`, `W2` and `W3`, the steppers `S1` to `S4` and `CH`, the lamps `L1` to `L3`, and the ribbon `RIB`.
+The [wire harness]({{ '/hardware/electronics/wire-harness/' | relative_url }}) page calls the first three `W1`, `W2` and `W3`, the steppers `S1` to `S4` and `CH`, the lamps `L1` to `L3`, and the ribbon `RIB`.
 
 ### The three 24 V leads
 
@@ -226,7 +226,7 @@ Leave the small solder jumpers next to the three lamp ports alone. Each port fee
 
 **If you want a lamp to come off without unwiring**, put a 5.5 × 2.1 mm barrel pair in the run partway along, tip positive. Nothing on a v1.3 board needs it, and the same size fits a PSU output, so check what you are plugging into.
 
-**Then assign the output in software**: Settings, the channel, the LED button, pick which output that lamp is on and set the brightness. **Nothing lights until an output is assigned.** The lamps are `L1` to `L3` in the [wire harness]({{ '/hardware/electronics/' | relative_url }}) schedule, which still draws every drop split at a barrel jack.
+**Then assign the output in software**: Settings, the channel, the LED button, pick which output that lamp is on and set the brightness. **Nothing lights until an output is assigned.** The lamps are `L1` to `L3` in the [wire harness]({{ '/hardware/electronics/wire-harness/' | relative_url }}) schedule, which still draws every drop split at a barrel jack.
 
 {% include step.html n="5" title="The ribbon down to the layers" %}
 

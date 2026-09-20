@@ -503,6 +503,18 @@
           "bulk-bucket-support"
         ]
       }
+    },
+    {
+      "id": "delete-unused-m4-12-cs-screw",
+      "name": "Delete the unused M4 x 12 mm countersunk screw",
+      "priority": "P4",
+      "condition": "retired",
+      "description": "This screw reaches no bill of materials. It bolted both lazy Susans, 4 a side, and it was too short at all four of those joints: the bearing is 10 mm thick rather than the 9 mm the catalog claimed, so an M4 x 12 reached 2.0 to 3.0 mm of an 8.1 mm insert at the top interface inner ring, 1.0 mm at the outer ring, and 1.0 mm on the bottom lazy Susan's rotating side. Interface v6 and Bottom lazy Susan v3 carry the M4 x 16 mm countersunk (scr-m4-16-cs) instead, and every remaining reference is a historical snapshot of a superseded assembly. It has no sheet_qty either. It should be deleted outright, but a minted part id has to stay resolvable once it exists, and the catalog's own consistency check refuses a change that removes one, so deleting it needs that check overridden by someone who can make that call, not an edit from here. Tracked as sorter-v2 issue #716.",
+      "targets": {
+        "hardware": [
+          "scr-m4-12-cs"
+        ]
+      }
     }
   ],
   "folders": [
@@ -3611,9 +3623,9 @@
       },
       "name": "M4 × 12 mm countersunk",
       "category": "Screws",
-      "description": "Bolts each lazy Susan together — 4 a side, through the M4 inserts in the static half and the chute mount. 2 lazy Susans per machine.",
+      "description": "Retired, no longer used anywhere. Was recorded as the screw bolting both lazy Susans, 4 a side, but the bearing is 10 mm thick rather than the 9 mm the catalog claimed and a 12 leaves 1.0 to 3.0 mm of thread in an 8.1 mm insert. Replaced by scr-m4-16-cs. Kept as an unused entry rather than deleted, since a minted uid has to stay resolvable.",
       "created_at": "2026-07-18",
-      "updated_at": "2026-07-18",
+      "updated_at": "2026-09-19",
       "attributes": [
         {
           "label": "Thread",
@@ -3622,6 +3634,38 @@
         {
           "label": "Length",
           "value": "12 mm"
+        },
+        {
+          "label": "Head",
+          "value": "Countersunk (flat) socket"
+        }
+      ],
+      "image_url": "https://assets.basically.website/sorter-parts/hardware-screws-m4-12mm-countersunk-full-eb3c4468cf87.jpg",
+      "note": "Measured 2026-09-19 off the assembly-frame STLs. Top interface, inner ring: the Top interface lazy Susan washer is 1.000 mm and the chute mount's pockets are Ø5.80 × 8.200 mm blind, so an M4 × 12 reaches 2.0 to 3.0 mm and an M4 × 16 reaches 6.0 to 7.0 mm. Top interface, outer ring: the Interface big spacer is 1.000 mm and the Interface upper fixed section's pockets are Ø5.80 × 8.200 mm, so a 12 reaches 1.0 mm and a 16 reaches 5.0 mm. Bottom lazy Susan: 9.500 mm pockets both sides, so a 12 reaches 1.0 mm on the rotating side and 3.0 mm on the static side against 5.0 and 7.0 for a 16. Do not add a new joint to this entry."
+    },
+    {
+      "id": "scr-m4-16-cs",
+      "uid": "ee5j",
+      "kind": "cots",
+      "cots": {
+        "type": "screw",
+        "size": "M4",
+        "variant": "countersunk",
+        "length_mm": 16
+      },
+      "name": "M4 × 16 mm countersunk",
+      "category": "Screws",
+      "description": "Bolts each lazy Susan to the parts either side of it — 4 a side, into M4 inserts. 2 lazy Susans per machine.",
+      "created_at": "2026-09-19",
+      "updated_at": "2026-09-19",
+      "attributes": [
+        {
+          "label": "Thread",
+          "value": "M4"
+        },
+        {
+          "label": "Length",
+          "value": "16 mm"
         },
         {
           "label": "Head",
@@ -4878,7 +4922,7 @@
         },
         {
           "label": "Thickness",
-          "value": "9 mm"
+          "value": "10 mm"
         },
         {
           "label": "Weight",
@@ -5714,7 +5758,7 @@
         "per_machine": 7
       },
       "caption": "Seven per machine. W2 takes one at each end.",
-      "docs_page": "/hardware/electronics/",
+      "docs_page": "/hardware/electronics/wire-harness/",
       "sourcing": {
         "vendors": [
           {
@@ -5844,7 +5888,7 @@
         "per_machine": 1
       },
       "caption": "The board end of W1. Pin 1 is +24 V.",
-      "docs_page": "/hardware/electronics/",
+      "docs_page": "/hardware/electronics/wire-harness/",
       "sourcing": {
         "vendors": [
           {
@@ -5893,7 +5937,7 @@
         "per_machine": 2
       },
       "caption": "Crimp onto the wire first, then push into the shell.",
-      "docs_page": "/hardware/electronics/",
+      "docs_page": "/hardware/electronics/wire-harness/",
       "sourcing": {
         "vendors": [
           {
@@ -6000,7 +6044,7 @@
         "per_machine": 4
       },
       "caption": "Motor end of S1 to S4. Two positions stay empty.",
-      "docs_page": "/hardware/electronics/",
+      "docs_page": "/hardware/electronics/wire-harness/",
       "sourcing": {
         "vendors": [
           {
@@ -6050,7 +6094,7 @@
         "per_machine": 36
       },
       "caption": "Thirty-six per machine. Buy spares.",
-      "docs_page": "/hardware/electronics/",
+      "docs_page": "/hardware/electronics/wire-harness/",
       "sourcing": {
         "vendors": [
           {
@@ -6100,7 +6144,7 @@
         "per_machine": 1
       },
       "caption": "Position 3 stays empty; that is what keys it.",
-      "docs_page": "/hardware/electronics/"
+      "docs_page": "/hardware/electronics/wire-harness/"
     },
     {
       "id": "terminal-fork-m35",
@@ -6180,7 +6224,7 @@
         "per_machine": 2
       },
       "caption": "Pushes onto the switch tabs. No soldering.",
-      "docs_page": "/hardware/electronics/",
+      "docs_page": "/hardware/electronics/wire-harness/",
       "sourcing": {
         "vendors": [
           {
@@ -6237,7 +6281,7 @@
         "per_machine": 1
       },
       "caption": "1.22 m a machine, nearly all of it W1.",
-      "docs_page": "/hardware/electronics/",
+      "docs_page": "/hardware/electronics/wire-harness/",
       "sourcing": {
         "vendors": [
           {
@@ -6293,7 +6337,7 @@
         "per_machine": 1
       },
       "caption": "4.27 m a machine, most of it the three LED drops.",
-      "docs_page": "/hardware/electronics/",
+      "docs_page": "/hardware/electronics/wire-harness/",
       "sourcing": {
         "vendors": [
           {
@@ -6404,7 +6448,7 @@
         "per_machine": 1
       },
       "caption": "One roll does three machines.",
-      "docs_page": "/hardware/electronics/",
+      "docs_page": "/hardware/electronics/wire-harness/",
       "sourcing": {
         "vendors": [
           {
@@ -6455,7 +6499,7 @@
         }
       ],
       "caption": "Covers the PH and Dupont ends, and the crimper. Not the 6-pin or the insulated terminals.",
-      "docs_page": "/hardware/electronics/",
+      "docs_page": "/hardware/electronics/wire-harness/",
       "sourcing": {
         "vendors": [
           {
@@ -6516,7 +6560,7 @@
         "per_machine": 4
       },
       "caption": "One per channel stepper. Move four contacts into a PHR-6 and it is done.",
-      "docs_page": "/hardware/electronics/",
+      "docs_page": "/hardware/electronics/wire-harness/",
       "sourcing": {
         "vendors": [
           {
@@ -9132,8 +9176,8 @@
     },
     {
       "id": "interface",
-      "uid": "mdu1",
-      "version": "5",
+      "uid": "eggk",
+      "version": "6",
       "name": "Top interface",
       "description": "The interface between the feeder and the distribution layers. Its lazy Susan sandwiches the upper fixed section and the chute mount, 4 × [[hw:scr-m4-12-cs]] a side, and the plywood top plate bolts down onto the six brackets' inserts.",
       "docs": "/hardware/assembly/distribution/top-interface/",
@@ -9191,7 +9235,7 @@
           "qty": 1
         },
         {
-          "part": "scr-m4-12-cs",
+          "part": "scr-m4-16-cs",
           "qty": 8
         },
         {
@@ -9652,9 +9696,99 @@
         },
         {
           "version": "5",
+          "uid": "mdu1",
           "date": "2026-09-17",
           "breaking": false,
           "message": "Dropped the layer connector: the top interface carries none of its own. It lands on the pair already mounted on the top of the topmost chute, which is how the builder assembles it, and the top interface chute mount has no M3 pockets on any side face for one to screw into. The machine needs N+1 pairs for N layers, one per chute plus one on the bottom interface.",
+          "commit": null,
+          "lines": [
+            {
+              "assembly": "interface-bracket-mount",
+              "qty": 6,
+              "uid": "so5r"
+            },
+            {
+              "assembly": "hex-frame",
+              "qty": 1,
+              "uid": "l0xa"
+            },
+            {
+              "assembly": "fixed-upper-section",
+              "qty": 1,
+              "uid": "99af"
+            },
+            {
+              "assembly": "cable-cage",
+              "qty": 1,
+              "uid": "wxcr"
+            },
+            {
+              "part": "scr-m5-30-shcs",
+              "qty": 6,
+              "uid": "92kv"
+            },
+            {
+              "assembly": "cable-clamp",
+              "qty": 1,
+              "uid": "rwaw"
+            },
+            {
+              "part": "scr-m3-12-bhcs",
+              "qty": 2,
+              "uid": "izrb"
+            },
+            {
+              "assembly": "limit-switch",
+              "qty": 1,
+              "uid": "xzje"
+            },
+            {
+              "part": "scr-m5-20-shcs",
+              "qty": 2,
+              "uid": "e4hi"
+            },
+            {
+              "assembly": "chute-stepper-gearing",
+              "qty": 1,
+              "uid": "1cfd"
+            },
+            {
+              "assembly": "interface-chute-drive",
+              "qty": 1,
+              "uid": "8cjj"
+            },
+            {
+              "part": "top-interface-split-spur-gear-2",
+              "qty": 1,
+              "uid": "izz5"
+            },
+            {
+              "part": "brg-lazy-susan",
+              "qty": 1,
+              "uid": "wrxu"
+            },
+            {
+              "part": "scr-m4-12-cs",
+              "qty": 8,
+              "uid": "h8h4"
+            },
+            {
+              "part": "scr-m5-35-fhcs",
+              "qty": 6,
+              "uid": "xkl4"
+            },
+            {
+              "part": "scr-m5-8-cs",
+              "qty": 6,
+              "uid": "mqh4"
+            }
+          ]
+        },
+        {
+          "version": "6",
+          "date": "2026-09-19",
+          "message": "The 8 lazy Susan screws become M4 x 16 countersunk. The bearing is 10 mm thick, not the 9 mm the catalog claimed, so an M4 x 12 reached 2.0 to 3.0 mm of an 8.1 mm insert on the inner ring (step 6) and 1.0 mm on the outer ring (step 7). Reported by Extremetaz and barthel, measured off the assembly-frame STLs.",
+          "breaking": false,
           "commit": null
         }
       ]
@@ -11582,8 +11716,8 @@
     },
     {
       "id": "lazy-susan",
-      "uid": "v6ss",
-      "version": "2",
+      "uid": "9hb1",
+      "version": "3",
       "name": "Bottom lazy Susan",
       "description": "The bottom interface's lazy Susan: the static half, the chute mount that spins on it, the extrusion mounts, and the bearing itself. Bolted through 4 × [[hw:scr-m4-12-cs]] a side, same as the top interface's.",
       "docs": "/hardware/assembly/distribution/bin-frame/bottom-interface/",
@@ -11613,7 +11747,7 @@
           "qty": 1
         },
         {
-          "part": "scr-m4-12-cs",
+          "part": "scr-m4-16-cs",
           "qty": 8
         },
         {
@@ -11680,9 +11814,64 @@
         },
         {
           "version": "2",
+          "uid": "v6ss",
           "date": "2026-08-29",
           "message": "Catalog never picked up sorter-v2#447's fastener correction on bottom-interface.md: 1 screw per mount into the hold-in-place (self-tap, 3 total) plus 2 more per mount into a T-nut in the extrusion (6 more), so 9 scr-m5-16-shcs and 6 tnut-m5-2020 total, not 3 and 3.",
-          "commit": "9708a416"
+          "commit": "9708a416",
+          "lines": [
+            {
+              "part": "ls-mount-to-chute",
+              "qty": 1,
+              "uid": "lma9"
+            },
+            {
+              "part": "ls-bottom-static",
+              "qty": 1,
+              "uid": "4mmh"
+            },
+            {
+              "part": "ls-washer",
+              "qty": 1,
+              "uid": "9c4a"
+            },
+            {
+              "part": "ls-mount-to-extrusion",
+              "qty": 3,
+              "uid": "bmt4"
+            },
+            {
+              "part": "ls-hold-in-place",
+              "qty": 3,
+              "uid": "ss05"
+            },
+            {
+              "part": "brg-lazy-susan",
+              "qty": 1,
+              "uid": "wrxu"
+            },
+            {
+              "part": "scr-m4-12-cs",
+              "qty": 8,
+              "uid": "h8h4"
+            },
+            {
+              "part": "scr-m5-16-shcs",
+              "qty": 9,
+              "uid": "2e0s"
+            },
+            {
+              "part": "tnut-m5-2020",
+              "qty": 6,
+              "uid": "bpwm"
+            }
+          ]
+        },
+        {
+          "version": "3",
+          "date": "2026-09-19",
+          "message": "The 8 lazy Susan screws become M4 x 16 countersunk, the same correction as interface v6. With a 10 mm bearing an M4 x 12 reached 1.0 mm of thread on the rotating side and 3.0 mm on the static side; a 16 reaches 5.0 and 7.0 in the 9.500 mm pockets.",
+          "breaking": false,
+          "commit": null
         }
       ]
     },

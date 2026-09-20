@@ -11,7 +11,7 @@ author: effreek
 contributors: [spencer]
 warning: >-
   **AI-generated first draft.** Written from the basically board v1.3 board files and the [wire
-  harness]({{ '/hardware/electronics/' | relative_url }}) schedule, not from an actual build. The
+  harness]({{ '/hardware/electronics/wire-harness/' | relative_url }}) schedule, not from an actual build. The
   pin order and the sockets are read off the board and are real. The cable length is a **GUESS**,
   copied from the channel stepper cables, and no harness drawing covers this cable. Whether the
   motor's own leads are long enough to crimp directly is **not recorded**: both cases are below.

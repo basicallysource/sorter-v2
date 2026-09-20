@@ -97,7 +97,7 @@ parts_needed:
     qty: 1
   - part: scr-m3-40-fhcs
     qty: 1
-  - part: scr-m4-12-cs
+  - part: scr-m4-16-cs
     qty: 8
   - part: scr-m5-8-cs
     qty: 6
@@ -523,7 +523,7 @@ Slot the Limit switch hammer into the Top interface chute mount, then secure it 
 
 Align the Chute gear on the Top interface chute mount with the notch by the screw for the Limit switch hammer. Attach it with five {% include fastener.html size="M3" variant="countersunk" length="12" %} screws.
 
-Align the Top interface lazy Susan washer with the 4 inner heat inserts on the Top interface chute mount. Align the inner ring of the [Lazy Susan]({{ '/hardware/parts/lazy-susan/' | relative_url }}) with these 4 heat inserts too. Screw the Lazy Susan into position through the washer and into the Top interface chute mount with four {% include fastener.html size="M4" variant="countersunk" length="12" %} screws.
+Align the Top interface lazy Susan washer with the 4 inner heat inserts on the Top interface chute mount. Align the inner ring of the [Lazy Susan]({{ '/hardware/parts/lazy-susan/' | relative_url }}) with these 4 heat inserts too. Screw the Lazy Susan into position through the washer and into the Top interface chute mount with four {% include fastener.html size="M4" variant="countersunk" length="16" %} screws.
 
 <div class="callout callout-warning">
   <span class="callout-icon" aria-hidden="true">⚠</span>
@@ -559,9 +559,9 @@ Once complete, the free section of the Lazy Susan should rotate freely.
 
 Place the Interface big spacer on the Interface upper fixed section with its 4 holes lined up with the 4 heat inserts.
 
-Rotate the free part of the Lazy Susan on the chute mount assembly from step 6 so that 3 of its holes line up with the holes in the Top interface chute mount. Place the assembly on top of the Interface big spacer with the 3 holes aligned with 3 of the heat inserts. Screw these together tightly with three {% include fastener.html size="M4" variant="countersunk" length="12" %} screws.
+Rotate the free part of the Lazy Susan on the chute mount assembly from step 6 so that 3 of its holes line up with the holes in the Top interface chute mount. Place the assembly on top of the Interface big spacer with the 3 holes aligned with 3 of the heat inserts. Screw these together tightly with three {% include fastener.html size="M4" variant="countersunk" length="16" %} screws.
 
-Rotate the Top interface chute mount 90 degrees relative to the Interface upper fixed section to reveal the 4th screw hole in the Lazy Susan (it should also line up with a hole in the Interface big spacer and a heat insert). Drive a fourth {% include fastener.html size="M4" variant="countersunk" length="12" %} screw tightly through this hole.
+Rotate the Top interface chute mount 90 degrees relative to the Interface upper fixed section to reveal the 4th screw hole in the Lazy Susan (it should also line up with a hole in the Interface big spacer and a heat insert). Drive a fourth {% include fastener.html size="M4" variant="countersunk" length="16" %} screw tightly through this hole.
 
 Once done, check that the chute rotates freely relative to the Interface upper fixed section.
 

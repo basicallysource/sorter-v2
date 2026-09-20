@@ -105,6 +105,17 @@ Use one tray for everything that comes out, and have someone go through it after
   <figcaption>The same rules as a single sheet for the bench or the wall. <a href="https://assets.basically.website/sorter-docs/lego-intake-prep-sheet-full-4974b5d037f3.png">Open it full size</a> and print it at A4, at 100% scale rather than fit-to-page. The brick on it is drawn life size, so a doubtful piece can be laid straight on top of it; the bar under the brick measures 80 mm on a correct print, which is how you check the printer did not scale the page. <cite>Drawn from the rules on this page. Drawing: balloon.</cite></figcaption>
 </figure>
 
+## Box labels
+
+Everything pulled out has to go somewhere, and a box with a label on it is faster to aim at than a list on a wall. This second sheet is the same seven icons plus the ask-someone one, sized to cut out and stick on a box or a tray.
+
+<figure class="single-figure">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/lego-intake-box-labels-w1600-140811e2fd70.jpg" alt="An A4 sheet of eight box labels, two columns by four rows, each with a dashed cut line, a red header carrying the category number, a large icon, the category name in capitals and one line of examples; the last label is yellow and reads Not sure">
+  <figcaption>Eight labels on one A4 sheet. <a href="https://assets.basically.website/sorter-docs/lego-intake-box-labels-full-6e852f7c55eb.png">Open it full size</a> and print it at A4, 100% scale. Each label cuts out at about 96 by 63 mm. The numbers are the same as the wall sheet, so a piece that matches tile 3 goes in box 3. <cite>Drawn from the rules on this page. Drawing: balloon.</cite></figcaption>
+</figure>
+
+Anything not named on one of those boxes stays in the tub and goes to the machine.
+
 ## Next
 
 [Before your first sort run]({{ '/sorter/before-first-sort-run/' | relative_url }}) covers the machine side, and [Your first sort run]({{ '/sorter/tutorials/first-sort-run/' | relative_url }}) walks a prepared tub through it.

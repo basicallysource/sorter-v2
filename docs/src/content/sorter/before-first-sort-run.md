@@ -20,7 +20,7 @@ Five things stand between a set-up machine and a first sort run. All of them are
 
 ## Before you start
 
-- The setup wizard is finished. The UI opens on the dashboard, not on the wizard.
+- [First setup in the UI]({{ '/sorter/first-setup/' | relative_url }}) is done: the UI opens on the dashboard, not on the wizard.
 - [Camera calibration]({{ '/sorter/camera-calibration/' | relative_url }}) is done.
 - [Chute calibration]({{ '/sorter/chute-calibration/' | relative_url }}) is done, and a test aim landed the chute centred over the bins you tried.
 

@@ -113,7 +113,7 @@ This starts the Python backend on `:8000` and the Vite dev server on `:5173`.
 
 ## Verify the install
 
-Open `http://localhost:5173/` in a browser. You should see the Sorter UI. The first time you open it, the in-app **Setup Wizard** takes over.
+Open `http://localhost:5173/` in a browser. You should see the Sorter UI. The first time you open it, the in-app **Setup Wizard** takes over; [First setup in the UI]({{ '/sorter/first-setup/' | relative_url }}) takes it step by step.
 
 ```bash
 curl -fsS http://localhost:8000/api/health

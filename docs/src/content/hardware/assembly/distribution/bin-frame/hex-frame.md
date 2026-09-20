@@ -57,6 +57,10 @@ Slide piece A (Hex outer horizontal, 320mm) of aluminum extrusion into an Extern
 
 **Option:** if you would rather not tap and brace, place T-nuts in the extrusion and use the inner holes (the larger of the pair) to fasten into them instead. That is 12 more {% include fastener.html size="M5" variant="t-nut" text="M5 T-nuts" %} per frame, on top of the parts list above.
 
+<div class="callout">
+  <p>Taking the T-nut option? Use {% include fastener.html size="M5" variant="socket-button" length="12" %} screws for it, not the 16 mm ones in the parts list. An {% include fastener.html size="M5" variant="socket-button" length="16" %} bottoms out on the floor of the extrusion slot before its head reaches the bracket, so it pins the bracket in place without ever clamping it down.</p>
+</div>
+
 The bracket carries other holes that neither method uses, including one on its inward-facing side further along the extrusion. Leave those empty.
 
 If you are using slide-in T-nuts rather than the roll-in ones this machine specifies, insert 4 into the outermost section of the extrusion before connecting the next External bracket — side, as this is the last time the ends of the extrusion are accessible. Those 4 are for the [bin retainers]({{ '/hardware/assembly/distribution/bin-frame/bin-retainers/' | relative_url }}), and [Fitting T-nuts]({{ '/hardware/helpers/t-nuts/' | relative_url }}) lists every other place the same applies. With roll-in T-nuts there is nothing to do here.

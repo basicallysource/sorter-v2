@@ -9,7 +9,7 @@ author: brickcyclealice
 lede: What to take out of a tub of bulk LEGO before it goes in the bulk bucket, and what each thing does to the machine if it stays in.
 permalink: /sorter/preparing-lego/
 last_verified: 2026-09-20
-og_image: https://assets.basically.website/sorter-docs/lego-intake-prep-sheet-full-632b61acfe94.png
+og_image: https://assets.basically.website/sorter-docs/lego-intake-prep-sheet-full-408d161958be.png
 warning: >-
   **A working house standard, not a published specification.** Basically has not
   published a list of parts the machine will and will not take. This page is
@@ -34,6 +34,8 @@ A LEGO stud is 8 mm across, so 80 mm is ten studs. Count studs instead of measur
 - A 10L axle fits. A longer one does not.
 
 A piece over the limit does not fall through a channel cleanly. It bridges the channel, or it wedges on the way into the chute, and everything behind it stops.
+
+The [one-page sheet](#the-one-page-sheet) at the bottom of this page carries a life-size 2x10 brick, so a doubtful piece can be laid straight on top of it instead of counted.
 
 ## What to take out
 
@@ -99,8 +101,8 @@ Use one tray for everything that comes out, and have someone go through it after
 ## The one-page sheet
 
 <figure class="single-figure">
-  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/lego-intake-prep-sheet-w1600-629594ca3c8a.jpg" alt="One-page intake standard headed LEGO tub prep, in three numbered zones: a size check showing a ten-stud brick accepted and a twelve-stud brick rejected, a red take-out block of eight illustrated tiles, and a green leave-in strip">
-  <figcaption>The same rules as a single sheet for the bench or the wall. <a href="https://assets.basically.website/sorter-docs/lego-intake-prep-sheet-full-632b61acfe94.png">Open it full size</a> and print it at A4, at 100% scale rather than fit-to-page. <cite>Drawn from the rules on this page. Drawing: balloon.</cite></figcaption>
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/lego-intake-prep-sheet-w1600-b442694f034d.jpg" alt="One-page intake standard headed LEGO tub prep, in three numbered zones: a size check with a life-size 2x10 brick drawn under an 80 mm dimension, a red take-out block of eight illustrated tiles, and a green leave-in strip">
+  <figcaption>The same rules as a single sheet for the bench or the wall. <a href="https://assets.basically.website/sorter-docs/lego-intake-prep-sheet-full-408d161958be.png">Open it full size</a> and print it at A4, at 100% scale rather than fit-to-page. The brick on it is drawn life size, so a doubtful piece can be laid straight on top of it; the bar under the brick measures 80 mm on a correct print, which is how you check the printer did not scale the page. <cite>Drawn from the rules on this page. Drawing: balloon.</cite></figcaption>
 </figure>
 
 ## Next

@@ -192,9 +192,10 @@ Two pages, after the 2026-09-19 consolidation:
 
 | Page | What it is |
 |---|---|
-| `docs/src/content/hardware/electronics/index.md` → `/hardware/electronics/` | Wire harness: PSU spec, interconnect diagram, stepper pinout and polarity (3.1), wire schedule, parts, connector types, open items |
-| `docs/src/content/hardware/parts/harness-order.md` → `/hardware/parts/harness-order/` | Ordering the wire harness: global spec, how to order, the rendered drawings and the supplier zip. **The page that consumes the store.** |
+| `docs/src/content/hardware/electronics/wire-harness.md` → `/hardware/electronics/wire-harness/` | Wire harness: PSU spec, interconnect diagram, stepper pinout and polarity (2.1), wire schedule, parts, connector and terminal types, open items |
+| `docs/src/content/hardware/parts/harness-order.md` → `/hardware/parts/harness-order/` | Ordering the wire harness: global spec, how to order, the stepper cable pin map, the rendered drawings and the supplier zip. **The page that consumes the store.** |
 
+`electronics/index.md` is the Electronics landing page and only links to these.
 `electronics/order.md`, `electronics/wireviz.md` and `electronics/steppers.md`
 are all gone, merged into those two, with 301s in `docs/static/_redirects`.
 

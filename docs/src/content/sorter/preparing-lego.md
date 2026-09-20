@@ -9,7 +9,7 @@ author: brickcyclealice
 lede: What to take out of a tub of bulk LEGO before it goes in the bulk bucket, and what each thing does to the machine if it stays in.
 permalink: /sorter/preparing-lego/
 last_verified: 2026-09-20
-og_image: https://assets.basically.website/sorter-docs/lego-intake-prep-sheet-full-dec7ef1e1d2e.png
+og_image: https://assets.basically.website/sorter-docs/lego-intake-prep-sheet-full-b0f02f9cd83c.png
 warning: >-
   **A working house standard, not a published specification.** Basically has not
   published a list of parts the machine will and will not take. This page is
@@ -71,9 +71,9 @@ Two separate reasons. The soft accessories behave like the cloth and string abov
 
 Loose minifigure heads, torsos, legs, hats and hair are ordinary rigid parts. Leave those in.
 
-### <svg viewBox="0 0 100 100" width="30" height="30" aria-hidden="true" style="display:inline-block;vertical-align:-7px;margin-right:10px"><g fill="#fff" stroke="currentColor" stroke-width="5" stroke-linejoin="round"><rect x="24" y="34" width="20" height="12"/><rect x="56" y="34" width="20" height="12"/><rect x="20" y="46" width="60" height="28" rx="2"/></g><g fill="none" stroke="#C8102E" stroke-width="7" stroke-linecap="round"><circle cx="50" cy="52" r="42"/><path d="M21 23 L79 81"/></g></svg>Duplo, Primo and other brands
+### <svg viewBox="0 0 100 100" width="30" height="30" aria-hidden="true" style="display:inline-block;vertical-align:-7px;margin-right:10px"><g fill="#fff" stroke="currentColor" stroke-width="5" stroke-linejoin="round"><rect x="24" y="34" width="20" height="12"/><rect x="56" y="34" width="20" height="12"/><rect x="20" y="46" width="60" height="28" rx="2"/></g><g fill="none" stroke="#C8102E" stroke-width="7" stroke-linecap="round"><circle cx="50" cy="52" r="42"/><path d="M21 23 L79 81"/></g></svg>Rubbish, or Primo, Duplo and other brands
 
-Duplo and Primo, other brick brands, and anything that is not LEGO at all: paper, stickers, packaging, coins, screws, batteries and dirt.
+Anything that is not LEGO at all: paper, stickers, packaging, coins, screws, batteries and dirt. Duplo and Primo. Other brick brands.
 
 Duplo and Primo are a firm exclusion rather than a preference. The software throws away any identification in those two categories, so a Duplo brick can never be named, whatever the camera sees. It occupies the machine for its full classification timeout and then goes to the misc bin.
 
@@ -101,8 +101,8 @@ Use one tray for everything that comes out, and have someone go through it after
 ## The one-page sheet
 
 <figure class="single-figure">
-  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/lego-intake-prep-sheet-w1600-ca83868e280d.jpg" alt="One-page intake standard headed LEGO tub prep, in three numbered zones: a size check with a life-size 2x10 brick drawn under an 80 mm dimension, a red take-out block of eight illustrated tiles, and a green leave-in strip">
-  <figcaption>The same rules as a single sheet for the bench or the wall. <a href="https://assets.basically.website/sorter-docs/lego-intake-prep-sheet-full-dec7ef1e1d2e.png">Open it full size</a> and print it at A4, at 100% scale rather than fit-to-page. The brick on it is drawn life size, so a doubtful piece can be laid straight on top of it; the bar under the brick measures 80 mm on a correct print, which is how you check the printer did not scale the page. <cite>Drawn from the rules on this page. Drawing: balloon.</cite></figcaption>
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/lego-intake-prep-sheet-w1600-308972a46c64.jpg" alt="One-page intake standard headed LEGO tub prep, in three numbered zones: a size check with a life-size 2x10 brick drawn under an 80 mm dimension, a red take-out block of eight illustrated tiles, and a green leave-in strip">
+  <figcaption>The same rules as a single sheet for the bench or the wall. <a href="https://assets.basically.website/sorter-docs/lego-intake-prep-sheet-full-b0f02f9cd83c.png">Open it full size</a> and print it at A4, at 100% scale rather than fit-to-page. The brick on it is drawn life size, so a doubtful piece can be laid straight on top of it; the bar under the brick measures 80 mm on a correct print, which is how you check the printer did not scale the page. <cite>Drawn from the rules on this page. Drawing: balloon.</cite></figcaption>
 </figure>
 
 ## Box labels
@@ -110,8 +110,8 @@ Use one tray for everything that comes out, and have someone go through it after
 Everything pulled out has to go somewhere, and a box with a label on it is faster to aim at than a list on a wall. This second sheet is the same seven icons plus the ask-someone one, sized to cut out and stick on a box or a tray.
 
 <figure class="single-figure">
-  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/lego-intake-box-labels-w1600-b2937cc86ae1.jpg" alt="An A4 sheet of eight box labels, two columns by four rows, each with a dashed cut line, a red header carrying the category number, a large icon, the category name in capitals and one line of examples; the last label is yellow and reads Not sure">
-  <figcaption>Eight labels on one A4 sheet. <a href="https://assets.basically.website/sorter-docs/lego-intake-box-labels-full-5f3e36fddd78.png">Open it full size</a> and print it at A4, 100% scale. Each label cuts out at about 96 by 63 mm. The numbers are the same as the wall sheet, so a piece that matches tile 3 goes in box 3. <cite>Drawn from the rules on this page. Drawing: balloon.</cite></figcaption>
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/lego-intake-box-labels-w1600-d3ffb00a8a84.jpg" alt="An A4 sheet of eight box labels, two columns by four rows, each with a dashed cut line, a red header carrying the category number, a large icon, the category name in capitals and one line of examples; the last label is yellow and reads Not sure">
+  <figcaption>Eight labels on one A4 sheet. <a href="https://assets.basically.website/sorter-docs/lego-intake-box-labels-full-de3df95cd16a.png">Open it full size</a> and print it at A4, 100% scale. Each label cuts out at about 96 by 63 mm. The numbers are the same as the wall sheet, so a piece that matches tile 3 goes in box 3. <cite>Drawn from the rules on this page. Drawing: balloon.</cite></figcaption>
 </figure>
 
 Anything not named on one of those boxes stays in the tub and goes to the machine.

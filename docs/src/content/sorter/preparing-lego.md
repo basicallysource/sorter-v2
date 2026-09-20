@@ -9,7 +9,7 @@ author: brickcyclealice
 lede: What to take out of a tub of bulk LEGO before it goes in the bulk bucket, and what each thing does to the machine if it stays in.
 permalink: /sorter/preparing-lego/
 last_verified: 2026-09-20
-og_image: https://assets.basically.website/sorter-docs/lego-intake-prep-sheet-full-4974b5d037f3.png
+og_image: https://assets.basically.website/sorter-docs/lego-intake-prep-sheet-full-dec7ef1e1d2e.png
 warning: >-
   **A working house standard, not a published specification.** Basically has not
   published a list of parts the machine will and will not take. This page is
@@ -51,7 +51,7 @@ Rubber grips where plastic slides. A tyre carried around a channel is pushed by 
 
 Take the whole wheel out. If you pull the tyre off the rim, the bare rim is an ordinary part and can go back in.
 
-### <svg viewBox="0 0 100 100" width="30" height="30" aria-hidden="true" style="display:inline-block;vertical-align:-7px;margin-right:10px"><g fill="#fff" stroke="currentColor" stroke-width="6" stroke-linejoin="round" stroke-linecap="round"><path d="M22 10 V92" fill="none"/><path d="M22 18 H74 Q60 34 74 50 H22 Z"/></g></svg>Cloth, string and chain
+### <svg viewBox="0 0 100 100" width="30" height="30" aria-hidden="true" style="display:inline-block;vertical-align:-7px;margin-right:10px"><g fill="none" stroke="currentColor" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"><path d="M10 34 C18 18 44 16 52 30 C58 42 44 52 34 46 C22 39 30 22 48 22 C62 22 66 32 66 42"/><path d="M10 34 C6 44 12 54 22 56"/></g><g fill="#fff" stroke="currentColor" stroke-width="6" stroke-linejoin="round"><rect x="55" y="47" width="30" height="18" rx="9" transform="rotate(58 70 56)"/><rect x="65" y="71" width="30" height="18" rx="9" transform="rotate(58 80 80)"/></g></svg>Cloth, string and chain
 
 Capes, sails, flags, curtains, sleeping bags and parachutes. String and rope. Chain. Paper and card.
 
@@ -101,8 +101,8 @@ Use one tray for everything that comes out, and have someone go through it after
 ## The one-page sheet
 
 <figure class="single-figure">
-  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/lego-intake-prep-sheet-w1600-7184f43cba8d.jpg" alt="One-page intake standard headed LEGO tub prep, in three numbered zones: a size check with a life-size 2x10 brick drawn under an 80 mm dimension, a red take-out block of eight illustrated tiles, and a green leave-in strip">
-  <figcaption>The same rules as a single sheet for the bench or the wall. <a href="https://assets.basically.website/sorter-docs/lego-intake-prep-sheet-full-4974b5d037f3.png">Open it full size</a> and print it at A4, at 100% scale rather than fit-to-page. The brick on it is drawn life size, so a doubtful piece can be laid straight on top of it; the bar under the brick measures 80 mm on a correct print, which is how you check the printer did not scale the page. <cite>Drawn from the rules on this page. Drawing: balloon.</cite></figcaption>
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/lego-intake-prep-sheet-w1600-ca83868e280d.jpg" alt="One-page intake standard headed LEGO tub prep, in three numbered zones: a size check with a life-size 2x10 brick drawn under an 80 mm dimension, a red take-out block of eight illustrated tiles, and a green leave-in strip">
+  <figcaption>The same rules as a single sheet for the bench or the wall. <a href="https://assets.basically.website/sorter-docs/lego-intake-prep-sheet-full-dec7ef1e1d2e.png">Open it full size</a> and print it at A4, at 100% scale rather than fit-to-page. The brick on it is drawn life size, so a doubtful piece can be laid straight on top of it; the bar under the brick measures 80 mm on a correct print, which is how you check the printer did not scale the page. <cite>Drawn from the rules on this page. Drawing: balloon.</cite></figcaption>
 </figure>
 
 ## Box labels
@@ -110,8 +110,8 @@ Use one tray for everything that comes out, and have someone go through it after
 Everything pulled out has to go somewhere, and a box with a label on it is faster to aim at than a list on a wall. This second sheet is the same seven icons plus the ask-someone one, sized to cut out and stick on a box or a tray.
 
 <figure class="single-figure">
-  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/lego-intake-box-labels-w1600-140811e2fd70.jpg" alt="An A4 sheet of eight box labels, two columns by four rows, each with a dashed cut line, a red header carrying the category number, a large icon, the category name in capitals and one line of examples; the last label is yellow and reads Not sure">
-  <figcaption>Eight labels on one A4 sheet. <a href="https://assets.basically.website/sorter-docs/lego-intake-box-labels-full-6e852f7c55eb.png">Open it full size</a> and print it at A4, 100% scale. Each label cuts out at about 96 by 63 mm. The numbers are the same as the wall sheet, so a piece that matches tile 3 goes in box 3. <cite>Drawn from the rules on this page. Drawing: balloon.</cite></figcaption>
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/lego-intake-box-labels-w1600-b2937cc86ae1.jpg" alt="An A4 sheet of eight box labels, two columns by four rows, each with a dashed cut line, a red header carrying the category number, a large icon, the category name in capitals and one line of examples; the last label is yellow and reads Not sure">
+  <figcaption>Eight labels on one A4 sheet. <a href="https://assets.basically.website/sorter-docs/lego-intake-box-labels-full-5f3e36fddd78.png">Open it full size</a> and print it at A4, 100% scale. Each label cuts out at about 96 by 63 mm. The numbers are the same as the wall sheet, so a piece that matches tile 3 goes in box 3. <cite>Drawn from the rules on this page. Drawing: balloon.</cite></figcaption>
 </figure>
 
 Anything not named on one of those boxes stays in the tub and goes to the machine.

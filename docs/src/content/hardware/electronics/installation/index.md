@@ -19,7 +19,7 @@ The machine's electronics are three printed enclosures and the hardware that goe
 
 **These pages cover where the hardware sits and what holds it there.** What plugs into what is the other half, and that is [connecting the components]({{ '/hardware/electronics/connecting/' | relative_url }}), with the [wire harness]({{ '/hardware/electronics/wire-harness/' | relative_url }}) page behind it as the reference for the cables themselves.
 
-Solder the [Pico headers]({{ '/hardware/helpers/pico-headers/' | relative_url }}) first, a one-time prep step under [Helpers]({{ '/hardware/helpers/' | relative_url }}); the Pico won't seat in the control board without it. Then:
+The Pico is bought with its header pins already fitted, so there is nothing to prepare before this list. If yours is a bare one, [solder its headers on]({{ '/hardware/helpers/pico-headers/' | relative_url }}) first, a one-time step under [Helpers]({{ '/hardware/helpers/' | relative_url }}); it won't seat in the control board without them. Then:
 
 <ol class="numbered-steps">
   <li><strong><a href="{{ '/hardware/electronics/installation/psu-box/' | relative_url }}">PSU box</a></strong>. The printed enclosure around the Mean Well LRS-350-24, its mains inlet, and the wiring inside it.</li>

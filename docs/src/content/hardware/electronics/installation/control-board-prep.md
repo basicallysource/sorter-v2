@@ -14,6 +14,8 @@ parts_needed:
     qty: 1
   - part: drv-tmc2209
     qty: 5
+  - part: mcu-rpi-pico-presoldered
+    qty: 1
   - part: jumper-cap-254
     qty: 10
 ---
@@ -29,7 +31,7 @@ Do this with the board loose, before the [housing]({{ '/hardware/electronics/ins
 
 <div class="prep-item">
   <div class="prep-item-body">
-    <p><strong>Solder the <a href="{{ '/hardware/helpers/pico-headers/' | relative_url }}">Pico headers</a> before you start.</strong> One per machine: a Raspberry Pi Pico with two rows of 20 header pins soldered on. A bare Pico will not seat in its sockets. That page has the Pico and the pins; step 2 here only pushes it in.</p>
+    <p><strong>Working from a bare Pico? <a href="{{ '/hardware/helpers/pico-headers/' | relative_url }}">Solder its headers on</a> before you start.</strong> The parts list above asks for a Pico with its two rows of 20 pins already fitted, which is what the catalog now buys. A bare one will not seat in its sockets, and step 2 here only pushes it in.</p>
   </div>
   <figure class="prep-item-figure">
     <img class="doc-figure" src="https://assets.basically.website/sorter-docs/pico-headers-soldered-plain-full-fc3efcd791b5.jpg" alt="A Raspberry Pi Pico on a white background, seen at an angle from above with the chip and micro USB socket facing up, and two rows of twenty header pins soldered along its long edges pointing down away from the board">

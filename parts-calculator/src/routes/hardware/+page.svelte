@@ -594,6 +594,15 @@
 													/>{/if}
 												<h3 class="text-sm font-semibold text-text">{block.asm.name}</h3>
 												<Badge variant="info">Assembly</Badge>
+												<!-- the rollup row is the only place a builder meets one of these
+												     assemblies: they are not in the machine tree, so the assembly
+												     explorer never shows them and a notice on one would otherwise
+												     appear on the changes page alone -->
+												<ChangeStatus
+													kind="assemblies"
+													id={block.asm.id}
+													name={block.asm.name}
+												/>
 												{#each block.asm.joining ?? [] as j (j.method)}
 													<Badge variant="warning" tipText={j.note ? plainDescription(j.note) : undefined}>
 														<Zap size={10} />{JOIN_LABELS[j.method]}

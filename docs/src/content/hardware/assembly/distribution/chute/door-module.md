@@ -54,7 +54,6 @@ The door module is the moving half of the chute. Build it on the bench as one un
 
 The door pivots on two bearings held in the bearing assembly. The MG995 servo, coupled through the two-piece servo adapter, swings it between its open and closed positions, and the layer's [layer adapter board]({{ '/hardware/assembly/distribution/chute/pcb/' | relative_url }}) controls when it opens, releasing the part only once the chute stack has rotated the funnel into position over the right bin.
 
-Every step from 2 to 7 now carries photographs of a real build, and the checks called out in steps 4, 5 and 7 come from that build rather than from the geometry. The dimensions quoted are still measured off the parts. Correct this page as you go; the fastener counts are accurate either way.
 
 The fasteners and quantities are in the parts list above and are called out inline at each step.
 
@@ -64,7 +63,7 @@ Four things make it up:
 
 1. **Chute door**. The flap itself, one printed part.
 2. **Bearing assembly**. What the door swings on: the bearing race, a bearing holder (left) and a bearing holder (right), a bearing cover (covered side) and a bearing cover (servo side), and two 6704-2RS bearings.
-3. **Servo adapter**. Two printed parts, a servo side and a flap side, that couple the servo's output to the door. The MG995 Servo Horn that comes with the servo is clasped between the two halves, then the halves are screwed together around it: 4 {% include fastener.html size="M3" variant="countersunk" length="8" %} screws, driven through the flap side (it's the half with the visible screw holes) into the servo side. No heat inserts, the screws thread directly into the printed plastic.
+3. **Servo adapter**. Two printed parts, a servo side and a flap side, that couple the servo's output to the door. The MG995 Servo Horn that comes with the servo is clasped between the two halves, then the halves are screwed together around it: 4 {% include fastener.html size="M3" variant="countersunk" length="8" %} screws, driven through the flap side (it's the half with the visible screw holes) into the servo side.
 4. **MG995 servo** in its four-part bracket: a housing, a lower arm, a side arm and a cover. Built on the bench, in the steps below. **The servo itself is not screwed to anything.** It slides into the housing and the cover goes on over it, and the cover's two screws clamp the servo's mounting tabs in place.
 
 **What each fastener is for.** The list above gives totals for the whole module; this is the split:
@@ -72,13 +71,13 @@ Four things make it up:
 - **Bearing assembly, its own:** 10 {% include fastener.html size="M3" variant="heat-insert" %} (4 in the race, 3 in each holder) and 10 {% include fastener.html size="M3" variant="countersunk" length="8" %}. Six hold the covers to the holders, 3 each, and 4 hold the holders to the race, 2 each; all ten are driven in steps 4 and 5. The two 6704-2RS bearings go into the holders in step 1. The covers are thin at the rim, so snug their screws down evenly rather than fully tightening one before the others.
 - **Servo adapter, its own:** 4 {% include fastener.html size="M3" variant="countersunk" length="8" %}, no heat inserts. They hold the servo-side and flap-side halves together with the MG995 Servo Horn clasped between them.
 - **Servo bracket, its own:** 6 {% include fastener.html size="M3" variant="heat-insert" %} in the housing, two on each of three faces, and one screw per insert. 2 {% include fastener.html size="M3" variant="countersunk" length="8" %} hold the lower arm on, 2 {% include fastener.html size="M3" variant="countersunk" length="12" %} hold the side arm on, and 2 {% include fastener.html size="M3" variant="countersunk" length="12" %} hold the cover on. None of them goes through the servo.
-- **Holding the finished module to the chute core:** 4 {% include fastener.html size="M3" variant="countersunk" length="8" %} through the two bearing covers, plus one screw through each bracket arm's mounting ear, step 8. The two arms are not the same thickness there, so they do not take the same screw: the lower arm's ear is 8.40 mm and takes a {% include fastener.html size="M3" variant="countersunk" length="12" %}, the side arm's is 5.00 mm and takes a {% include fastener.html size="M3" variant="countersunk" length="8" %}. All six go into the core's own heat inserts, so there is nothing to press in here for them.
+- **Holding the finished module to the chute core:** 4 {% include fastener.html size="M3" variant="countersunk" length="8" %} through the two bearing covers, plus one screw through each bracket arm's mounting ear, step 8. The two arms do not take the same screw: the lower arm takes a {% include fastener.html size="M3" variant="countersunk" length="12" %} and the side arm a {% include fastener.html size="M3" variant="countersunk" length="8" %}. All six go into the core's own heat inserts, so there is nothing to press in here for them.
 
 {% include step.html n="1" title="Preparation" %}
 
 Four of the module's parts take heat inserts, 16 between them. Press them all in while the parts are still bare, before anything is screwed together. See [installing heat inserts]({{ '/hardware/helpers/heat-inserts/' | relative_url }}) for the technique.
 
-Every pocket is the same one the rest of the chute uses: Ø4.2 mm, blind, 5.7 mm deep. The two bearing covers, the chute door and the two servo adapter halves take none.
+The two bearing covers, the chute door and the two servo adapter halves take none.
 
 <div class="prep-item">
   <div class="prep-item-body">
@@ -110,7 +109,7 @@ Every pocket is the same one the rest of the chute uses: Ø4.2 mm, blind, 5.7 mm
   </figure>
 </div>
 
-The photos are of printed parts with the inserts already pressed in, one part at a time, so the brass is what you count. The counts match what the [parts calculator](https://parts-calculator.basically.website/assembly?focus=flap-module) asks for: 6 + 4 + 3 + 3.
+The photos are of printed parts with the inserts already pressed in, one part at a time, so the brass is what you count.
 
 <div class="callout">
   <span class="callout-icon" aria-hidden="true">💡</span>
@@ -214,8 +213,8 @@ The shaft is captured at both ends once this is together, so there is only one o
 </div>
 
 
-1. **Slide a holder onto each end of the shaft**, bearings already seated. The bearing's Ø20 bore takes the Ø19.8 shaft, and the holder's own Ø21.0 mm hole clears the shaft by 0.6 mm all round, so neither should need forcing.
-2. **Lay the race along the back of the shaft**, on the opposite side from the flap, and bolt each holder down onto its end of it: 2 {% include fastener.html size="M3" variant="countersunk" length="8" %} per holder, 4 in total, into the race's four inserts. The holder seats flat against the race's end. The race arches over the shaft with about 0.5 mm of clearance and never touches it; if it does touch, something is not seated.
+1. **Slide a holder onto each end of the shaft**, bearings already seated. Neither should need forcing.
+2. **Lay the race along the back of the shaft**, on the opposite side from the flap, and bolt each holder down onto its end of it: 2 {% include fastener.html size="M3" variant="countersunk" length="8" %} per holder, 4 in total, into the race's four inserts. The holder seats flat against the race's end. The race arches over the shaft and never touches it; if it does touch, something is not seated.
 
 <figure class="single-figure">
   <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-door-module-holder-on-race-end-w1600-71a9cfaaf366.jpg" alt="Close view of one end of the assembled flap: the bearing holder bolted to the end of the bearing race with two countersunk screws in its face, the bearing seated in its bore with the door's shaft through it, and the door plate above">
@@ -227,7 +226,7 @@ The shaft is captured at both ends once this is together, so there is only one o
   <figcaption>The holders, with their bearings in blue, going onto the ends of the shaft and down onto the race. The covers are not shown. <cite>Rendered from the parts' own geometry in assembly position, not from a build. Render: Balloon.</cite></figcaption>
 </figure>
 
-Hung this way the door has **80.5° of swing**, from 10.7° off horizontal at its flattest to 88.9° at its steepest. Both ends of that are the door meeting the race across its full width, not the holders.
+Hung this way the door has **80.5° of swing**, and both ends of it are the door meeting the race across its full width, not the holders.
 
 <figure>
   <img class="doc-figure" src="https://assets.basically.website/sorter-parts/door-travel-limits-full-323c3b543a10.png" alt="Render of the assembled door module seen from the servo end at an angle, with the chute door drawn twice: once in grey lying almost flat, and once in orange hanging almost vertically, both pivoting on the same shaft below the bearing race">

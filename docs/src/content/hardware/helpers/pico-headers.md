@@ -9,7 +9,7 @@ lede: Soldering 2.54 mm header pins to the Raspberry Pi Pico so it can seat in t
 permalink: /hardware/helpers/pico-headers/
 author: barthel
 contributors: [spencer, brickcyclealice]
-og_image: https://assets.basically.website/sorter-docs/pico-headers-soldered-build-w1600-78b9af1ae940.jpg
+og_image: https://assets.basically.website/sorter-docs/pico-headers-soldered-build-angled-w1600-fd41bda1d6d3.jpg
 last_verified: 2026-09-21
 parts_needed:
   - part: mcu-rpi-pico
@@ -52,6 +52,8 @@ A breadboard does this if you have one. If you do not, two saw cuts in a piece o
 
 Set the iron to around 350C (660F), or 320C (610F) if your solder is leaded.
 
+Use as little flux as the joint needs. Get each joint hot enough that the solder runs down into the hole instead of sitting on top of it, and no hotter: the black plastic of the header softens if you dwell on a pin. Pins and board straight out of the packet solder best, since dust and finger oil both make it harder.
+
 Solder one pin at each end of both rows, four joints in total. Check that the Pico is still flat against the plastic and that both rows are square to it; if one corner stands proud, reheat that joint and press the board down by its edge. Then solder the remaining 36.
 
 <figure class="single-figure">
@@ -64,7 +66,7 @@ Solder one pin at each end of both rows, four joints in total. Check that the Pi
 A Pico with two rows of 20 pins soldered on, pointing away from the chip side.
 
 <figure class="single-figure">
-  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/pico-headers-soldered-build-w1600-78b9af1ae940.jpg" alt="A Raspberry Pi Pico seen from the chip side with all forty header joints soldered, the pins pointing away from the camera and the three DEBUG pads left bare">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/pico-headers-soldered-build-angled-w1600-fd41bda1d6d3.jpg" alt="A Raspberry Pi Pico on a white background, seen at an angle from above with the chip and micro USB socket facing up, forty bright solder joints along its long edges and the pins pointing down away from the board">
   <figcaption><cite>Photo: BrickCycleAlice.</cite></figcaption>
 </figure>
 

@@ -50,7 +50,7 @@ Both rows in first is what keeps the Pico flat. Solder one row on its own and th
 
 Stand the pins in a breadboard, chip side up, so the Pico sits level and both hands are free.
 
-No breadboard is not a problem. Cut two saw slots a Pico's width apart in a block of soft wood, drop a row into each, and hold the block in a vice.
+If you do not have one, cut two saw slots a Pico's width apart in a block of soft wood, drop a row into each, and hold the block in a vice.
 
 <div class="img-row">
   <figure><img src="https://assets.basically.website/sorter-docs/pico-headers-wood-jig-w1600-e6ba852126a4.jpg" alt="A Raspberry Pi Pico sitting flat on a block of soft wood, its two rows of pins dropped into two saw slots cut into the block"><figcaption>Two saw slots in a block of wood do the same job as a breadboard. <cite>Photo: BrickCycleAlice.</cite></figcaption></figure>

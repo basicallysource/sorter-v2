@@ -6,6 +6,7 @@ section: hardware
 slug: assembly-door-module
 kicker: Chute — Door module
 lede: The per-layer door mechanism that releases parts into a bin.
+og_image: https://assets.basically.website/sorter-docs/assembly-door-module-bracket-on-core-top-w1600-94ef36ed29c6.jpg
 permalink: /hardware/assembly/distribution/chute/door-module/
 author: spencer
 contributors: [barthel, extremetaz]
@@ -54,7 +55,6 @@ The door module is the moving half of the chute. Build it on the bench as one un
 
 The door pivots on two bearings held in the bearing assembly. The MG995 servo, coupled through the two-piece servo adapter, swings it between its open and closed positions, and the layer's [layer adapter board]({{ '/hardware/assembly/distribution/chute/pcb/' | relative_url }}) controls when it opens, releasing the part only once the chute stack has rotated the funnel into position over the right bin.
 
-
 The fasteners and quantities are in the parts list above and are called out inline at each step.
 
 {% include fastener-legend.html %}
@@ -65,13 +65,6 @@ Four things make it up:
 2. **Bearing assembly**. What the door swings on: the bearing race, a bearing holder (left) and a bearing holder (right), a bearing cover (covered side) and a bearing cover (servo side), and two 6704-2RS bearings.
 3. **Servo adapter**. Two printed parts, a servo side and a flap side, that couple the servo's output to the door. The MG995 Servo Horn that comes with the servo is clasped between the two halves, then the halves are screwed together around it: 4 {% include fastener.html size="M3" variant="countersunk" length="8" %} screws, driven through the flap side (it's the half with the visible screw holes) into the servo side.
 4. **MG995 servo** in its four-part bracket: a housing, a lower arm, a side arm and a cover. Built on the bench, in the steps below. **The servo itself is not screwed to anything.** It slides into the housing and the cover goes on over it, and the cover's two screws clamp the servo's mounting tabs in place.
-
-**What each fastener is for.** The list above gives totals for the whole module; this is the split:
-
-- **Bearing assembly, its own:** 10 {% include fastener.html size="M3" variant="heat-insert" %} (4 in the race, 3 in each holder) and 10 {% include fastener.html size="M3" variant="countersunk" length="8" %}. Six hold the covers to the holders, 3 each, and 4 hold the holders to the race, 2 each; all ten are driven in steps 4 and 5. The two 6704-2RS bearings go into the holders in step 1. The covers are thin at the rim, so snug their screws down evenly rather than fully tightening one before the others.
-- **Servo adapter, its own:** 4 {% include fastener.html size="M3" variant="countersunk" length="8" %}, no heat inserts. They hold the servo-side and flap-side halves together with the MG995 Servo Horn clasped between them.
-- **Servo bracket, its own:** 6 {% include fastener.html size="M3" variant="heat-insert" %} in the housing, two on each of three faces, and one screw per insert. 2 {% include fastener.html size="M3" variant="countersunk" length="8" %} hold the lower arm on, 2 {% include fastener.html size="M3" variant="countersunk" length="12" %} hold the side arm on, and 2 {% include fastener.html size="M3" variant="countersunk" length="12" %} hold the cover on. None of them goes through the servo.
-- **Holding the finished module to the chute core:** 4 {% include fastener.html size="M3" variant="countersunk" length="8" %} through the two bearing covers, plus one screw through each bracket arm's mounting ear, step 8. The two arms do not take the same screw: the lower arm takes a {% include fastener.html size="M3" variant="countersunk" length="12" %} and the side arm a {% include fastener.html size="M3" variant="countersunk" length="8" %}. All six go into the core's own heat inserts, so there is nothing to press in here for them.
 
 {% include step.html n="1" title="Preparation" %}
 
@@ -237,7 +230,7 @@ Hung this way the door has **80.5° of swing**, and both ends of it are the door
 
 **The two covers are not the same part.** The Bearing cover (servo) has an open centre, and it goes on the hex end of the shaft, because the shaft has to come through it to reach the servo adapter. The Bearing cover (covered) is closed and goes on the plain end.
 
-Put one on each holder with 3 {% include fastener.html size="M3" variant="countersunk" length="8" %} each, 6 in total, into the three inserts pressed in step 1. The cover's raised rim drops into the pocket on top of the bearing and clamps it against the step: if a bearing has not gone fully home against its lip, its cover will not pull flat.
+Put one on each holder with 3 {% include fastener.html size="M3" variant="countersunk" length="8" %} each, 6 in total, into the three inserts pressed in step 1. The cover's raised rim drops into the pocket on top of the bearing and clamps it against the step: if a bearing has not gone fully home against its lip, its cover will not pull flat. The covers are thin at the rim, so snug the three screws down evenly rather than tightening one fully first.
 
 Each cover has **two further holes that stay empty here** — they take the screws that hold the flap assembly to the chute core in step 6.
 
@@ -359,16 +352,10 @@ Clock it before you commit: centre the servo (or let it settle at its power-on d
   <figcaption>The same job on a real machine. The disc in frame is the servo adapter from step 7, screwed together with its four countersunk screws, with the hexagonal socket that takes the door's shaft facing the camera; the MG995 sits in its bracket behind it. <cite>Frame from the video below. Video: Spencer.</cite></figcaption>
 </figure>
 
-<div class="img-row">
-  <figure>
-    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-door-module-bracket-on-core-coupled-w1600-753b3624aba0.jpg" alt="The servo bracket bolted to the chute core with the servo adapter fitted on the servo's output, seen face on, the adapter's four screws and hex socket visible">
-    <figcaption>Bracket bolted on and the adapter fitted to the servo, seen face on. <cite>Photo: BrickCycleAlice.</cite></figcaption>
-  </figure>
-  <figure>
-    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-door-module-bracket-on-core-top-w1600-94ef36ed29c6.jpg" alt="The same assembly from above, the servo in its bracket standing off the chute core with the door hanging below">
-    <figcaption>From above, with the servo standing off the core and the door below. <cite>Photo: BrickCycleAlice.</cite></figcaption>
-  </figure>
-</div>
+<figure class="single-figure">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-door-module-bracket-on-core-coupled-w1600-753b3624aba0.jpg" alt="The servo bracket bolted to the chute core with the servo adapter fitted on the servo's output, seen face on, the adapter's four screws and hex socket visible">
+  <figcaption>Bracket bolted on and the adapter fitted to the servo, seen face on. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+</figure>
 
 <div class="callout callout-warning">
   <span class="callout-icon" aria-hidden="true">⚠</span>
@@ -386,3 +373,14 @@ Clock it before you commit: centre the servo (or let it settle at its power-on d
   </div>
   <figcaption><cite>Video: Spencer.</cite></figcaption>
 </figure>
+
+## The finished result
+
+The module is finished when the bracket is on the core and the adapter couples the servo to the door, and the door swings freely through its whole travel. One of these per layer.
+
+<figure class="single-figure">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-door-module-bracket-on-core-top-w1600-94ef36ed29c6.jpg" alt="The finished door module on the chute core, seen from above: the servo in its bracket standing off the core with the door hanging below">
+  <figcaption>A finished module, from above: the servo standing off the core and the door below. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+</figure>
+
+The [Chute core]({{ '/hardware/assembly/distribution/chute/chute-core/' | relative_url }}) page carries the other three sub-assemblies that go on the same core, and is where you should return once you're done here.

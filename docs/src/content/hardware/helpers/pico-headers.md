@@ -64,7 +64,7 @@ Set the iron to around 350C (660F), or 320C (610F) if your solder is leaded.
 Solder one pin at each end of both rows, four joints in total. Then look along the board: if a row leans, or a plastic body has lifted off the Pico, reheat that corner and press it down before going further. Then solder the remaining 36.
 
 <figure class="single-figure">
-  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/pico-headers-soldering-first-pin-w1600-8a47ed674f29.jpg" alt="A soldering iron tip and a length of solder meeting a corner pin on the chip side of a Pico, with the corner diagonally opposite it already soldered, the board sitting on its wooden support in a vice">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/pico-headers-soldering-first-pin-w1600-8a47ed674f29.jpg" alt="A soldering iron tip and a length of solder meeting a corner pin on the chip side of a Pico, with the pin at the far end of the same row already soldered, the board sitting on its wooden support in a vice">
   <figcaption>Tacking the corners: the second one going in, the first already done. <cite>Photo: BrickCycleAlice.</cite></figcaption>
 </figure>
 

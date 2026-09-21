@@ -48,16 +48,18 @@ Push both rows of 20 into the Pico, long ends down, until the plastic sits flat 
 
 A breadboard does this if you have one. If you do not, two saw cuts in a piece of soft wood do the same job: cut them 17.8 mm (0.7 in) apart, which is the spacing of the Pico's two rows, drop the pins into the cuts and hold the wood in a vice. The Pico sits flat on the wood with both of your hands free.
 
-<figure class="single-figure">
-  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/pico-headers-wood-jig-vice-w1600-6c4d48fd9cff.jpg" alt="A Pico resting flat on a block of soft wood held in a vice, with its two rows of pins dropped into a pair of saw cuts running along the block">
-  <figcaption>Two saw cuts in a scrap of wood, held in a vice. <cite>Photo: BrickCycleAlice.</cite></figcaption>
-</figure>
+<div class="img-row">
+  <figure><img src="https://assets.basically.website/sorter-docs/pico-headers-wood-jig-w1600-e6ba852126a4.jpg" alt="A Raspberry Pi Pico sitting flat on a block of soft wood, its two rows of pins dropped into two saw slots cut into the block"><figcaption>A row of pins in each saw cut, the board flat on the wood. <cite>Photo: BrickCycleAlice.</cite></figcaption></figure>
+  <figure><img src="https://assets.basically.website/sorter-docs/pico-headers-wood-jig-vice-w1600-6c4d48fd9cff.jpg" alt="The wooden block with the Pico standing on it, clamped between the jaws of a vice"><figcaption>The block in a vice, chip side up and both hands free. <cite>Photo: BrickCycleAlice.</cite></figcaption></figure>
+</div>
 
 {% include step.html n="4" title="Solder the four corners, then the rest" %}
 
 Set the iron to around 350C (660F), or 320C (610F) if your solder is leaded.
 
-Use as little flux as the joint needs. Get each joint hot enough that the solder runs down into the hole instead of sitting on top of it, and no hotter: the black plastic of the header softens if you dwell on a pin. Pins and board straight out of the packet solder best, since dust and finger oil both make it harder.
+<div class="callout">
+  <p><b>Getting clean joints.</b> Use the parts straight out of the packet: dust and finger oil on the pins or the pads fight the solder. Flux-cored solder carries enough flux on its own, so if you add any extra, add a little. Heat the pin and the pad together until the solder runs into the hole on its own, then take the iron off. Solder that has to be pushed into place was too cold, and an iron parked on a pin softens the black plastic that is holding the row square.</p>
+</div>
 
 Solder one pin at each end of both rows, four joints in total. Then look along the board: if a row leans, or a plastic body has lifted off the Pico, reheat that corner and press it down before going further. Then solder the remaining 36.
 

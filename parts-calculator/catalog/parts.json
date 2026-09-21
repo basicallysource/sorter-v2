@@ -5163,10 +5163,7 @@
       "category": "Electronics",
       "description": "Driver for the all steppers",
       "created_at": "2026-07-18",
-      "updated_at": "2026-07-18",
-      "sheet_qty": {
-        "per_machine": 5
-      },
+      "updated_at": "2026-09-21",
       "image_url": "https://assets.basically.website/sorter-parts/drv-tmc2209-full-4eb0a0fc4354.jpg",
       "sourcing": {
         "vendors": [
@@ -5201,10 +5198,7 @@
       "category": "Electronics",
       "description": "Shunt for the control board's MS1/MS2 headers, which set each TMC2209's address on its UART bus. 10 per machine, two per driver.",
       "created_at": "2026-08-23",
-      "updated_at": "2026-08-23",
-      "sheet_qty": {
-        "per_machine": 10
-      },
+      "updated_at": "2026-09-21",
       "image_url": "https://assets.basically.website/sorter-parts/jumper-cap-full-1ffebeb4f956.png",
       "attributes": [
         {
@@ -5267,13 +5261,9 @@
       "name": "Raspberry Pi Pico with pre-soldered headers",
       "category": "Electronics",
       "description": "Embedded MCU for controlling motors. Bought with its two rows of 20 header pins already fitted, ready to seat in the control board.",
-      "note": "The three DEBUG pads are left bare, and nothing on the control board uses them. The loose 1x3 header in the box is not needed.",
       "alternative": "A bare Raspberry Pi Pico plus 40 header pins, soldered on by hand: [[docs:/hardware/helpers/pico-headers/|Soldering Pico headers]]",
       "created_at": "2026-09-21",
       "updated_at": "2026-09-21",
-      "sheet_qty": {
-        "per_machine": 1
-      },
       "image_url": "https://assets.basically.website/sorter-parts/mcu-rpi-pico-presoldered-full-fc3efcd791b5.jpg",
       "attributes": [
         {
@@ -11382,8 +11372,8 @@
     },
     {
       "id": "ctrl-board-mount",
-      "uid": "rns2",
-      "version": "2",
+      "uid": "p5yl",
+      "version": "3",
       "name": "basically Embedded Control Board Housing",
       "description": "The basically Embedded Control Board closed into a two-part printed housing that bolts to the 2020 extrusion. The board screws straight to the base — no bracket, no standoffs — and the cover carries a 40 mm 24 V fan and a plunger that reaches the board's reset button from outside.",
       "docs": "/hardware/electronics/installation/control-board-housing/",
@@ -11395,6 +11385,18 @@
         {
           "part": "ctrl-board-basically",
           "qty": 1
+        },
+        {
+          "part": "drv-tmc2209",
+          "qty": 5
+        },
+        {
+          "part": "mcu-rpi-pico-presoldered",
+          "qty": 1
+        },
+        {
+          "part": "jumper-cap-254",
+          "qty": 10
         },
         {
           "part": "scr-m3-6-bhcs",
@@ -11499,6 +11501,13 @@
           "date": "2026-08-23",
           "message": "The printed housing replaces the bracket and standoffs. The board bolts straight to the base on four of its eight heat inserts; the cover closes onto the other four, carries the 40 mm 24 V fan on self-tapping M3 × 12 mm button heads, and holds a plunger over the board's reset button. Adopted from candidate rns2 after a test print.",
           "commit": "9ff8a1e3"
+        },
+        {
+          "version": "3",
+          "date": "2026-09-21",
+          "message": "The five TMC2209 drivers, the Raspberry Pi Pico and the ten address jumper caps are placed on the board. Nothing about the housing changes: all three were always fitted to this board before the cover goes on, and they were carried as hand counts off the BOM sheet instead of lines, so their quantities did not come from the tree. The Pico is the pre-soldered one the catalog now buys.",
+          "breaking": false,
+          "commit": null
         }
       ]
     },

@@ -24636,7 +24636,7 @@
 			"description": "Mains inlet for the PSU: switched, fused, pre-wired.",
 			"note": null,
 			"created_at": "2026-07-18",
-			"updated_at": "2026-07-18",
+			"updated_at": "2026-09-21",
 			"attributes": [
 				{
 					"label": "Inlet",
@@ -24681,7 +24681,7 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"image": "https://assets.basically.website/sorter-parts/psu-switch-fused-full-d442e682a279.jpg"
+			"image": "https://assets.basically.website/sorter-parts/psu-switch-one-full-1614496a00cc.png"
 		},
 		{
 			"id": "fan-40mm-24v",

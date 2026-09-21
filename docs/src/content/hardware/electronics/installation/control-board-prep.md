@@ -8,6 +8,7 @@ kicker: Electronics — Preparing the control board
 lede: The five stepper drivers, the Pico, and the jumpers that address the drivers.
 permalink: /hardware/electronics/installation/control-board-prep/
 author: spencer
+contributors: [brickcyclealice]
 og_image: https://assets.basically.website/sorter-docs/assembly-control-board-prep-all-jumpers-fitted-w1600-f470f24a8913.jpg
 parts_needed:
   - part: ctrl-board-basically
@@ -32,8 +33,8 @@ Do this with the board loose, before the [housing]({{ '/hardware/electronics/ins
     <p><strong>Solder the <a href="{{ '/hardware/helpers/pico-headers/' | relative_url }}">Pico headers</a> before you start.</strong> One per machine: a Raspberry Pi Pico with two rows of 20 header pins soldered on. A bare Pico will not seat in its sockets. That page has the Pico and the pins; step 2 here only pushes it in.</p>
   </div>
   <figure class="prep-item-figure">
-    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/pico-headers-soldered-plain-full-fc3efcd791b5.jpg" alt="A Raspberry Pi Pico on a white background, seen at an angle from above with the chip and micro USB socket facing up, and two rows of twenty header pins soldered along its long edges pointing down away from the board">
-    <figcaption>A Pico with its pins on. <cite>Manufacturer photo (Raspberry Pi Pico with headers fitted; seller not recorded).</cite></figcaption>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/pico-headers-soldered-build-angle-w1600-8a2bec64f920.jpg" alt="A soldered Raspberry Pi Pico seen at an angle from above, chip side and micro USB socket facing up, with two rows of twenty header pins soldered along its long edges pointing down away from the board">
+    <figcaption>A Pico with its pins on. <cite>Photo: BrickCycleAlice.</cite></figcaption>
   </figure>
 </div>
 

@@ -18,6 +18,7 @@
 		getPart,
 		hardwareImage,
 		hardwareLengthSpec,
+		hardwareDocsUrl,
 		hardwareQtySource,
 		hardwareTotalQty,
 		JOIN_LABELS,
@@ -28,7 +29,7 @@
 		type Assembly,
 		type Hardware
 	} from '$lib/filament';
-	import { ArrowUpRight, Check, ExternalLink, Share2, Zap } from 'lucide-svelte';
+	import { ArrowUpRight, BookOpen, Check, ExternalLink, Share2, Zap } from 'lucide-svelte';
 
 	// The off-the-shelf hardware detail view: photo, specs, where it goes on the
 	// machine, what it's joined to, and where to buy it. Rendered two ways off the
@@ -114,6 +115,29 @@
 					<div class="mb-1.5"><OptionalBadge value /></div>
 				{/if}
 				<p class="text-sm text-text-muted">{h.description}</p>
+				<!-- the alternative was on the list row and its popover only, so the
+				     card — the thing you read before buying — never said a part had
+				     one. Spelled out here rather than hidden behind the badge again. -->
+				{#if h.alternative}
+					<p class="mt-2 flex flex-wrap items-baseline gap-x-1.5 text-sm text-text-muted">
+						<span class="font-semibold text-text">Alternative</span>
+						{#if typeof h.alternative === 'string' && h.alternative.trim()}
+							<CatalogText as="span" text={h.alternative} />
+						{:else}
+							<span>Either variant works here (e.g. socket vs button head).</span>
+						{/if}
+					</p>
+				{/if}
+				{#if hardwareDocsUrl(h)}
+					<a
+						href={hardwareDocsUrl(h)}
+						target="_blank"
+						rel="noopener"
+						class="mt-2 inline-flex items-center gap-1 text-xs font-medium text-primary hover:text-primary-hover"
+					>
+						<BookOpen size={12} /> Docs page <ExternalLink size={10} />
+					</a>
+				{/if}
 				{#if h.note}
 					<p class="mt-2 border border-warning/50 bg-warning/[0.08] p-2 text-sm text-warning-dark">
 						{h.note}

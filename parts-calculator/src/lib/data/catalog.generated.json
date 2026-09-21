@@ -533,14 +533,17 @@
 		},
 		{
 			"id": "delete-bare-pico-and-header-pins",
-			"name": "Delete the bare Raspberry Pi Pico and its 2.54 mm header pins",
+			"name": "Delete the bare Raspberry Pi Pico, its 2.54 mm header pins and the Pico with headers assembly",
 			"priority": "P4",
 			"condition": "retired",
-			"description": "Neither reaches a bill of materials. The catalog specifies the Raspberry Pi Pico with pre-soldered headers (mcu-rpi-pico-presoldered) as of 2026-09-21, the same board bought with its two rows of 20 pins already fitted, so the bare Pico and the 40 header pins that went with it have no quantity anywhere. Their only remaining reference is the Pico with headers sub-assembly and its helper page, which are the route for anybody who already owns a bare board. They should be deleted outright, but a minted part id has to stay resolvable once it exists, and the catalog's own consistency check refuses a change that removes one, so deleting them needs that check overridden by someone who can make that call, not an edit from here. Note the sub-assembly goes with the parts. Tracked as sorter-v2 issue #734.",
+			"description": "Neither part reaches a bill of materials. The catalog specifies the Raspberry Pi Pico with pre-soldered headers (mcu-rpi-pico-presoldered) as of 2026-09-21, the same board bought with its two rows of 20 pins already fitted, so the bare Pico and the 40 header pins that went with it have no quantity anywhere. The Pico with headers sub-assembly is the hand-soldering of one onto the other, which is now an optional route rather than a step every build takes, and it goes with them. They should be deleted outright, but a minted part id has to stay resolvable once it exists, and the catalog's own consistency check refuses a change that removes one, so deleting them needs that check overridden by someone who can make that call, not an edit from here. The helper page describing the route stays either way: it is linked from the pre-soldered Pico as its alternative. Tracked as sorter-v2 issue #734.",
 			"targets": {
 				"hardware": [
 					"mcu-rpi-pico",
 					"header-pins-254"
+				],
+				"assemblies": [
+					"pico-headers"
 				]
 			}
 		}
@@ -23126,7 +23129,7 @@
 			},
 			"alternative": null,
 			"caption": null,
-			"docs_page": null,
+			"docs_page": "/hardware/helpers/pico-headers/",
 			"conflicts": null,
 			"image": "https://assets.basically.website/sorter-parts/mcu-rpi-pico-full-35bf81d20d6e.jpg"
 		},
@@ -23176,7 +23179,7 @@
 					}
 				]
 			},
-			"alternative": "A bare Raspberry Pi Pico plus 40 header pins, soldered on by hand: /hardware/helpers/pico-headers/",
+			"alternative": "A bare Raspberry Pi Pico plus 40 header pins, soldered on by hand: [[docs:/hardware/helpers/pico-headers/|Soldering Pico headers]]",
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
@@ -23213,7 +23216,7 @@
 			},
 			"alternative": null,
 			"caption": null,
-			"docs_page": null,
+			"docs_page": "/hardware/helpers/pico-headers/",
 			"conflicts": null,
 			"image": "https://assets.basically.website/sorter-parts/header-pins-254-full-2f61f803bd83.jpg"
 		},

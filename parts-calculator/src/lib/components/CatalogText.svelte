@@ -1,9 +1,11 @@
 <script lang="ts">
 	// Any prose out of the catalog — a description, a joining note, a version
-	// message — with every `[[hw:<id>]]` and `[[part:<id>]]` reference in it
-	// rendered as the real hardware item or part rather than left as a token.
+	// message — with every `[[hw:<id>]]`, `[[part:<id>]]` and `[[docs:<path>]]`
+	// reference in it rendered as the real hardware item, part or documentation
+	// page rather than left as a token.
 	// `as` picks the wrapper: a block `p` for a description, an inline `span`
 	// for a note that sits in a flex row next to its badge.
+	import DocsRef from './DocsRef.svelte';
 	import HardwareRef from './HardwareRef.svelte';
 	import PartRef from './PartRef.svelte';
 	import { descriptionSegments } from '$lib/filament';
@@ -18,4 +20,6 @@
 
 <svelte:element this={as} class={className}>{#each segments as seg, i (i)}{#if seg.kind === 'text'}{seg.text}{:else if seg.kind === 'hw'}<HardwareRef
 			hw={seg.hw}
-		/>{:else}<PartRef part={seg.part} />{/if}{/each}</svelte:element>
+		/>{:else if seg.kind === 'docs'}<DocsRef href={seg.href} label={seg.label} />{:else}<PartRef
+			part={seg.part}
+		/>{/if}{/each}</svelte:element>

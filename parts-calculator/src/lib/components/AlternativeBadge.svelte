@@ -6,6 +6,7 @@
 	// `size` shrinks it for inline use inside a sentence, where the list's 18px
 	// would set the line height on its own.
 	import { Popover } from '$lib/popover';
+	import CatalogText from './CatalogText.svelte';
 	let { value, size = 18 }: { value?: string | boolean | null; size?: number } = $props();
 	const detail = $derived(typeof value === 'string' && value.trim() ? value : null);
 </script>
@@ -29,6 +30,12 @@
 			>A</button>
 		{/snippet}
 		<p class="font-semibold text-text">Interchangeable alternative</p>
-		<p class="mt-1">{detail ?? 'Either variant works here (e.g. socket vs button head).'}</p>
+		<!-- through CatalogText, so an alternative that names another part or the
+		     docs page describing it is a link rather than an id or a path to retype -->
+		{#if detail}
+			<CatalogText text={detail} class="mt-1" />
+		{:else}
+			<p class="mt-1">Either variant works here (e.g. socket vs button head).</p>
+		{/if}
 	</Popover>
 {/if}

@@ -25,11 +25,16 @@ The Pico ships bare. It will not seat in the [basically Embedded Control Board](
 
 The pins arrive as one long breakaway strip. Break two rows of 20 off it. The strip snaps between any two pins, and side cutters or pliers give a cleaner break than fingers.
 
+<figure class="single-figure">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/pico-headers-rows-of-20-broken-w1600-190c163caa68.jpg" alt="A bare Raspberry Pi Pico on a white surface with two broken-off rows of twenty black header pins lying below it">
+  <figcaption>Two rows of 20 off the strip, next to the bare Pico. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+</figure>
+
 {% include step.html n="2" title="Fit both rows before you solder anything" %}
 
 <div class="callout callout-warning">
   <span class="callout-icon" aria-hidden="true">⚠</span>
-  <p><b>The pins point away from the chip side</b>, the side with the black chip, the USB socket and the button. The plastic of each row sits flat against the other face, and you solder on the chip side. Undoing this means desoldering twenty pins.</p>
+  <p><b>The pins point away from the chip side</b>, the side with the black chip, the USB socket and the button. The plastic of each row sits flat against the other face, and you solder on the chip side. Undoing this means desoldering forty pins.</p>
 </div>
 
 Push both rows of 20 into the Pico, long ends down, until the plastic sits flat against the board. Both rows go in now, before the iron touches anything: solder one row on its own and the second one has to follow whatever angle the first one set, and the Pico will not sit flat in the control board.
@@ -54,11 +59,16 @@ Set the iron to around 350C (660F), or 320C (610F) if your solder is leaded.
 
 Use as little flux as the joint needs. Get each joint hot enough that the solder runs down into the hole instead of sitting on top of it, and no hotter: the black plastic of the header softens if you dwell on a pin. Pins and board straight out of the packet solder best, since dust and finger oil both make it harder.
 
-Solder one pin at each end of both rows, four joints in total. Check that the Pico is still flat against the plastic and that both rows are square to it; if one corner stands proud, reheat that joint and press the board down by its edge. Then solder the remaining 36.
+Solder one pin at each end of both rows, four joints in total. Then look along the board: if a row leans, or a plastic body has lifted off the Pico, reheat that corner and press it down before going further. Then solder the remaining 36.
 
 <figure class="single-figure">
   <img class="doc-figure" src="https://assets.basically.website/sorter-docs/pico-headers-soldering-first-pin-w1600-8a47ed674f29.jpg" alt="A soldering iron tip and a length of solder meeting a corner pin on the chip side of a Pico, the board sitting on its wooden support in a vice">
   <figcaption>The first corner joint. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+</figure>
+
+<figure class="single-figure">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/pico-headers-soldered-side-flush-w1600-5c3fab4115be.jpg" alt="Close side view of the soldered Pico showing a solder fillet on every pad along the chip side and the black plastic of the header pressed flat against the underside of the board">
+  <figcaption>What to check when you are done: a fillet on every pad, and no gap between the plastic and the board. <cite>Photo: BrickCycleAlice.</cite></figcaption>
 </figure>
 
 ## The finished result

@@ -32,7 +32,7 @@ Do this with the board loose, before the [housing]({{ '/hardware/electronics/ins
     <p><strong>Solder the <a href="{{ '/hardware/helpers/pico-headers/' | relative_url }}">Pico headers</a> before you start.</strong> One per machine: a Raspberry Pi Pico with two rows of 20 header pins soldered on. A bare Pico will not seat in its sockets. That page has the Pico and the pins; step 2 here only pushes it in.</p>
   </div>
   <figure class="prep-item-figure">
-    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/pico-headers-soldered-build-w1600-78b9af1ae940.jpg" alt="A Raspberry Pi Pico seen from the chip side with all forty header joints soldered, the pins pointing away from the camera and the three DEBUG pads left bare">
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/pico-headers-soldered-build-angled-w1600-fd41bda1d6d3.jpg" alt="A Raspberry Pi Pico on a white background, seen at an angle from above with the chip and micro USB socket facing up, forty bright solder joints along its long edges and the pins pointing down away from the board">
     <figcaption>A Pico with its pins on. <cite>Photo: BrickCycleAlice.</cite></figcaption>
   </figure>
 </div>

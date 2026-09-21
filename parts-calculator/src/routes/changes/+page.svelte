@@ -36,7 +36,11 @@
 		if (kind === 'assemblies') return `/assembly?focus=${id}`;
 		if (kind === 'sections') return `/#section-${id}`;
 		if (kind === 'lasercut') return `/lasercut#laser-${id}`;
-		return `/hardware#hardware-${id}`;
+		// `?hw=<id>` opens the part's detail modal, not `/hardware#hardware-<id>`:
+		// bought parts joined into one unit collapse into a rollup row and their
+		// own rows only exist once it is expanded, so a member of one (the bare
+		// Pico, its header pins) has no anchor in the prerendered page.
+		return `/hardware?hw=${id}`;
 	}
 	function modelsFor(change: PlannedChange): Part[] {
 		const ids = new Set(change.targets.parts ?? []);
@@ -134,7 +138,7 @@
 								{/each}
 								{#each hardwareTargets as part (part.id)}
 									{@const image = hardwareImage(part)}
-									<a href="/hardware#hardware-{part.id}" class="group w-20" use:tip={`Open ${part.name}`}>
+									<a href="/hardware?hw={part.id}" class="group w-20" use:tip={`Open ${part.name}`}>
 										<span class="flex h-14 w-20 items-center justify-center overflow-hidden border border-border bg-white group-hover:border-primary">{#if image}<img src={image.src} alt={part.name} class="h-full w-full object-contain transition-transform group-hover:scale-105" />{:else}<Box size={18} class="text-text-muted" />{/if}</span>
 										<span class="mt-1 block truncate text-[10px] leading-tight text-text-muted group-hover:text-primary">{part.name}</span>
 									</a>

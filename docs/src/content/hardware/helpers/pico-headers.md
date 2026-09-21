@@ -40,8 +40,8 @@ The pins arrive as one long breakaway strip. Break two rows of 20 off it. The st
 Push both rows of 20 into the Pico, long ends down, until the plastic sits flat against the board. Both rows go in now, before the iron touches anything: solder one row on its own and the second one has to follow whatever angle the first one set, and the Pico will not sit flat in the control board.
 
 <figure class="single-figure">
-  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/pico-headers-rows-fitted-w1600-10ae7c024dc7.jpg" alt="A Raspberry Pi Pico held chip side up with both rows of twenty header pins pushed into its long edges, the black plastic of each row flat against the underside and the pins pointing down">
-  <figcaption>Both rows in, nothing soldered yet. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/pico-headers-both-rows-unsoldered-w1600-cf7c0d9f83af.jpg" alt="A side view of a Raspberry Pi Pico chip side up with a row of twenty header pins pushed into each long edge, both rows of black plastic flat against the underside, the pads still bare gold with no solder on them">
+  <figcaption>Both rows in, pads still bare. <cite>Photo: BrickCycleAlice.</cite></figcaption>
 </figure>
 
 {% include step.html n="3" title="Stand the pins in something that holds them square" %}

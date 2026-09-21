@@ -137,7 +137,7 @@ One more sub-assembly goes together here, before the step that uses it, and it t
 
 **The servo is not screwed down.** Slide the MG995 into the housing's pocket, then lay the cover over the open face and drive its 2 {% include fastener.html size="M3" variant="countersunk" length="12" %} screws into the housing's inserts. Tightening those two is what holds the servo: the cover traps the servo's mounting tabs between itself and the housing.
 
-The cover is 6.65 mm thick at the screw, so a 12 mm screw reaches 5.35 mm into the housing's blind 5.70 mm insert and an 8 mm one would reach only 1.35 mm. Snug both down evenly rather than pulling one home first, so the cover seats flat on the tabs.
+Use the 12 mm screws here, not the 8 mm: an 8 mm one barely enters the insert. Snug both down evenly rather than pulling one home first, so the cover seats flat on the tabs.
 
 <figure>
   <img class="doc-figure" src="https://assets.basically.website/sorter-parts/housing-cover-open-full-eb4bde91c9c0.png" alt="Render of the servo bracket housing with the cover pulled off it, showing the open pocket the servo slides into and the two screw lugs that line up between the cover and the housing">
@@ -157,12 +157,12 @@ The cover is 6.65 mm thick at the screw, so a 12 mm screw reaches 5.35 mm into t
 
 {% include step.html n="3" title="Add the bracket arms" %}
 
-The two arms land on two other faces of the housing, and they do not take the same screw, so tell them apart before you pick one up.
+The two arms land on two other faces of the housing. They do not take the same screw, so tell them apart before you pick one up.
 
-- **The side arm** is the flat slab that covers the whole side of the housing. Its two holes are plain countersinks, so its screws finish flush with the face.
-- **The lower arm** is the narrower one that goes under the housing and tapers into a raised end. Its two holes are counterbored first, so its screws finish at the bottom of a deep round well.
+- **The side arm** is the flat slab that covers the whole side of the housing. Its screws finish flush with the face.
+- **The lower arm** is the narrower one that goes under the housing and tapers into a raised end. Its screws finish at the bottom of a deep round well.
 
-**Side arm:** 2 {% include fastener.html size="M3" variant="countersunk" length="12" %} into the housing's inserts. There are 7.84 mm of plate above the insert, so a 12 reaches 4.16 mm in and an 8 mm one does not reach the insert at all.
+**Side arm:** 2 {% include fastener.html size="M3" variant="countersunk" length="12" %} into the housing's inserts. Use the 12 mm on this arm. An 8 mm screw does not reach the insert at all.
 
 <div class="img-row">
   <figure>
@@ -171,11 +171,11 @@ The two arms land on two other faces of the housing, and they do not take the sa
   </figure>
   <figure>
     <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-door-module-lower-arm-screws-w1600-aebd2878b313.jpg" alt="The same assembly from the servo output end, with the side arm's two screw heads sitting flush in their countersinks and the servo's splined output above them">
-    <figcaption>From the output end, with the side arm's two screws driven home. They finish flush, which is the tell: this face has no counterbore. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+    <figcaption>From the output end, with the side arm's two screws driven home. They finish flush with the face. <cite>Photo: BrickCycleAlice.</cite></figcaption>
   </figure>
 </div>
 
-**Lower arm:** 2 {% include fastener.html size="M3" variant="countersunk" length="8" %} into the housing's inserts. The counterbore takes the head 3.42 mm down before the countersink starts, which leaves 4.42 mm above the insert, so an 8 mm screw reaches 3.58 mm in. A 12 bottoms out in the 5.70 mm pocket before its head seats, so the arm never pulls down.
+**Lower arm:** 2 {% include fastener.html size="M3" variant="countersunk" length="8" %} into the housing's inserts. Use the 8 mm on this arm. A 12 mm one bottoms out in the well before its head seats, so the arm never pulls down tight.
 
 <div class="img-row">
   <figure>
@@ -184,7 +184,7 @@ The two arms land on two other faces of the housing, and they do not take the sa
   </figure>
   <figure>
     <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-door-module-both-arms-underside-w1600-882c2dfe8031.jpg" alt="The finished bracket from below with both arms fitted, the lower arm's two screw heads sunk at the bottom of their round counterbores and the servo's output shaft visible between the arms">
-    <figcaption>The finished bracket from below, both arms fitted. The lower arm's two screws sit down in their wells, where the side arm's sat flush. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+    <figcaption>The finished bracket from below, both arms fitted. The lower arm's two screws sit down in their wells, not flush. <cite>Photo: BrickCycleAlice.</cite></figcaption>
   </figure>
 </div>
 

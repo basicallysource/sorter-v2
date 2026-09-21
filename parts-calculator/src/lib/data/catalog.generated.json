@@ -530,6 +530,19 @@
 					"scr-m4-12-cs"
 				]
 			}
+		},
+		{
+			"id": "delete-bare-pico-and-header-pins",
+			"name": "Delete the bare Raspberry Pi Pico and its 2.54 mm header pins",
+			"priority": "P4",
+			"condition": "retired",
+			"description": "Neither reaches a bill of materials. The catalog specifies the Raspberry Pi Pico with pre-soldered headers (mcu-rpi-pico-presoldered) as of 2026-09-21, the same board bought with its two rows of 20 pins already fitted, so the bare Pico and the 40 header pins that went with it have no quantity anywhere. Their only remaining reference is the Pico with headers sub-assembly and its helper page, which are the route for anybody who already owns a bare board. They should be deleted outright, but a minted part id has to stay resolvable once it exists, and the catalog's own consistency check refuses a change that removes one, so deleting them needs that check overridden by someone who can make that call, not an edit from here. Note the sub-assembly goes with the parts. Tracked as sorter-v2 issue #734.",
+			"targets": {
+				"hardware": [
+					"mcu-rpi-pico",
+					"header-pins-254"
+				]
+			}
 		}
 	],
 	"folders": [
@@ -23090,14 +23103,12 @@
 			},
 			"name": "Raspberry Pi Pico",
 			"category": "Electronics",
-			"description": "Embedded MCU for controlling motors",
-			"note": null,
+			"description": "Retired, no longer counted into a machine. The catalog specifies the Pico bought with its headers already fitted (mcu-rpi-pico-presoldered) as of 2026-09-21. Kept as an unused entry rather than deleted, since a minted uid has to stay resolvable (see parts-calculator's own CLAUDE.md); deletion is tracked as sorter-v2 issue #734.",
+			"note": "Unused as of 2026-09-21. Buy mcu-rpi-pico-presoldered instead. If you already own a bare board, solder the headers on yourself: /hardware/helpers/pico-headers/.",
 			"created_at": "2026-07-18",
-			"updated_at": "2026-07-18",
+			"updated_at": "2026-09-21",
 			"attributes": [],
-			"sheet_qty": {
-				"per_machine": 1
-			},
+			"sheet_qty": null,
 			"sheet_qty_text": null,
 			"stock": null,
 			"sourcing": {
@@ -23120,6 +23131,58 @@
 			"image": "https://assets.basically.website/sorter-parts/mcu-rpi-pico-full-35bf81d20d6e.jpg"
 		},
 		{
+			"id": "mcu-rpi-pico-presoldered",
+			"uid": "dq0q",
+			"kind": "cots",
+			"cots": {
+				"type": "mcu"
+			},
+			"name": "Raspberry Pi Pico with pre-soldered headers",
+			"category": "Electronics",
+			"description": "Embedded MCU for controlling motors. Bought with its two rows of 20 header pins already fitted, ready to seat in the control board.",
+			"note": "The three DEBUG pads are left bare, and nothing on the control board uses them. The loose 1x3 header in the box is not needed.",
+			"created_at": "2026-09-21",
+			"updated_at": "2026-09-21",
+			"attributes": [
+				{
+					"label": "Chip",
+					"value": "RP2040"
+				},
+				{
+					"label": "Headers",
+					"value": "2 x 20 male pins, 2.54 mm, factory-fitted"
+				},
+				{
+					"label": "Debug pads",
+					"value": "Bare, no connector fitted"
+				}
+			],
+			"sheet_qty": {
+				"per_machine": 1
+			},
+			"sheet_qty_text": null,
+			"stock": null,
+			"sourcing": {
+				"vendors": [
+					{
+						"region": "US",
+						"vendor": "Amazon (waveshare)",
+						"url": "https://www.amazon.com/waveshare-Pico-Microcontroller-Development-Pre-soldered/dp/B0912M3T1H",
+						"affiliate_url": "https://www.amazon.com/waveshare-Pico-Microcontroller-Development-Pre-soldered/dp/B0912M3T1H?tag=sorterv2-20",
+						"price": 11.39,
+						"pack_qty": 1,
+						"as_of": "2026-09-21",
+						"note": "Ships with a loose 1x3 debug header and a micro USB cable; neither is needed."
+					}
+				]
+			},
+			"alternative": "A bare Raspberry Pi Pico plus 40 header pins, soldered on by hand: /hardware/helpers/pico-headers/",
+			"caption": null,
+			"docs_page": null,
+			"conflicts": null,
+			"image": "https://assets.basically.website/sorter-parts/mcu-rpi-pico-presoldered-full-434d81395bb9.jpg"
+		},
+		{
 			"id": "header-pins-254",
 			"uid": "10o3",
 			"kind": "cots",
@@ -23128,14 +23191,12 @@
 			},
 			"name": "2.54mm header pins",
 			"category": "Electronics",
-			"description": "Pico Headers",
-			"note": null,
+			"description": "Retired, no longer counted into a machine. Their only use was fitting headers to a bare Raspberry Pi Pico, and the catalog specifies the Pico bought with its headers already fitted (mcu-rpi-pico-presoldered) as of 2026-09-21. Kept as an unused entry rather than deleted, since a minted uid has to stay resolvable (see parts-calculator's own CLAUDE.md); deletion is tracked as sorter-v2 issue #734.",
+			"note": "Unused as of 2026-09-21. Needed only if you are soldering headers onto a bare Pico: /hardware/helpers/pico-headers/.",
 			"created_at": "2026-07-18",
-			"updated_at": "2026-07-18",
+			"updated_at": "2026-09-21",
 			"attributes": [],
-			"sheet_qty": {
-				"per_machine": 40
-			},
+			"sheet_qty": null,
 			"sheet_qty_text": null,
 			"stock": null,
 			"sourcing": {

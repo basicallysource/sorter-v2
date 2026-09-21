@@ -22,7 +22,7 @@ parts_needed:
 tools_needed: ["Soldering iron and solder", "Side cutters or pliers, to break the strip"]
 ---
 
-The Pico ships bare. It will not seat in the [basically Embedded Control Board]({{ '/hardware/electronics/installation/control-board-prep/' | relative_url }}) until 2.54 mm header pins are soldered along both its long edges.
+The parts list buys a Pico with its header pins already fitted. This page is for a bare board: it will not seat in the [basically Embedded Control Board]({{ '/hardware/electronics/installation/control-board-prep/' | relative_url }}) until 2.54 mm header pins are soldered along both its long edges.
 
 {% include step.html n="1" title="Break the strip into two rows of 20" %}
 

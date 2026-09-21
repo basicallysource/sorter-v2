@@ -192,6 +192,13 @@ export function docsUrl(a: Assembly): string | null {
 	return a.docs ? DOCS_BASE + a.docs : null;
 }
 
+/** The same for a bought part's `docs_page` — the page on the documentation
+ *  site that covers it, which for most of them is the helper page where it is
+ *  prepared or fitted rather than a page about the part itself. */
+export function hardwareDocsUrl(h: { docs_page?: string | null }): string | null {
+	return h.docs_page ? DOCS_BASE + h.docs_page : null;
+}
+
 /** Fastener anchors committed to a single physical part before it joins
  *  anything — heat-set inserts, which a later joint's `insert` edge threads
  *  into. Scales automatically with the part count. Components that merely
@@ -834,13 +841,20 @@ export function getAssembly(id: string | null): Assembly | undefined {
  *  and the thing itself are one item: the fastener keeps its parts-list name,
  *  head symbol and thread colour, and the part becomes a link to its page.
  *  Used in descriptions and in version messages, which is where one part points
- *  at another — a cap that plugs the hole an older revision of a rotor has. */
-const REF = /\[\[(hw|part):([a-z0-9-]+)\]\]/g;
+ *  at another — a cap that plugs the hole an older revision of a rotor has.
+ *
+ *  `[[docs:<path>|<label>]]` is the third kind and points off this site: a page
+ *  on the documentation site, written as a path so the two stay linkable if the
+ *  host moves, exactly like an assembly's `docs`. It exists because a sentence
+ *  that ends in a bare `/hardware/helpers/...` is a path the reader has to
+ *  retype. The label is what the sentence reads as; without one the path shows. */
+const REF = /\[\[(hw|part|docs):([^\]|]+)(?:\|([^\]]+))?\]\]/g;
 
 export type DescriptionSegment =
 	| { kind: 'text'; text: string }
 	| { kind: 'hw'; hw: Hardware }
-	| { kind: 'part'; part: Part };
+	| { kind: 'part'; part: Part }
+	| { kind: 'docs'; href: string; label: string };
 
 /** A description split into plain runs and the things it names, in order. */
 export function descriptionSegments(text: string): DescriptionSegment[] {
@@ -848,6 +862,17 @@ export function descriptionSegments(text: string): DescriptionSegment[] {
 	let cut = 0;
 	for (const m of text.matchAll(REF)) {
 		if (m.index > cut) out.push({ kind: 'text', text: text.slice(cut, m.index) });
+		if (m[1] === 'docs') {
+			// A path only. A full URL here would outlive the host it names, and
+			// anything not starting with `/` is somebody's idea of a free link.
+			out.push(
+				m[2].startsWith('/')
+					? { kind: 'docs', href: DOCS_BASE + m[2], label: m[3]?.trim() || m[2] }
+					: { kind: 'text', text: m[0] }
+			);
+			cut = m.index + m[0].length;
+			continue;
+		}
 		// An id that resolves to nothing stays on the page as its raw token. The
 		// slicer rejects those before they ship, and a token that vanished
 		// silently would leave a sentence missing its subject with nothing to see.
@@ -868,8 +893,10 @@ export function descriptionSegments(text: string): DescriptionSegment[] {
 /** The same text flattened to names, for the places that can only hold a plain
  *  string — a `title` tooltip, a CSV cell. */
 export function plainDescription(text: string): string {
-	return text.replace(REF, (raw, kind: string, id: string) =>
-		(kind === 'hw' ? getHardware(id)?.name : getPart(id)?.name) ?? raw
+	return text.replace(REF, (raw, kind: string, id: string, label?: string) =>
+		kind === 'docs'
+			? label?.trim() || id
+			: ((kind === 'hw' ? getHardware(id)?.name : getPart(id)?.name) ?? raw)
 	);
 }
 

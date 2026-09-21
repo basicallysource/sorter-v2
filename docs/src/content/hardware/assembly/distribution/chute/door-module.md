@@ -8,8 +8,8 @@ kicker: Chute — Door module
 lede: The per-layer door mechanism that releases parts into a bin.
 permalink: /hardware/assembly/distribution/chute/door-module/
 author: spencer
-contributors: [barthel]
-last_verified: 2026-09-07
+contributors: [barthel, extremetaz]
+last_verified: 2026-09-21
 parts_needed:
   - part: chute-door
     qty: 1
@@ -157,31 +157,34 @@ The cover is 6.65 mm thick at the screw, so a 12 mm screw reaches 5.35 mm into t
 
 {% include step.html n="3" title="Add the bracket arms" %}
 
-The two arms land on two other faces of the housing.
+The two arms land on two other faces of the housing, and they do not take the same screw, so tell them apart before you pick one up.
 
-**Lower arm:** 2 {% include fastener.html size="M3" variant="countersunk" length="8" %} into the housing's inserts. It is the wider of the two arms, and it is 4.25 mm thick at the screws, so an 8 mm one reaches 3.75 mm in.
+- **The side arm** is the flat slab that covers the whole side of the housing. Its two holes are plain countersinks, so its screws finish flush with the face.
+- **The lower arm** is the narrower one that goes under the housing and tapers into a raised end. Its two holes are counterbored first, so its screws finish at the bottom of a deep round well.
+
+**Side arm:** 2 {% include fastener.html size="M3" variant="countersunk" length="12" %} into the housing's inserts. There are 7.84 mm of plate above the insert, so a 12 reaches 4.16 mm in and an 8 mm one does not reach the insert at all.
 
 <div class="img-row">
   <figure>
-    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-door-module-lower-arm-on-w1600-d777cd9b9a60.jpg" alt="The servo bracket housing with the wide lower arm bolted to it, seen from the cover side, the arm's thick end standing proud with a single empty hole in its sloped face">
-    <figcaption>The lower arm on. The empty hole in its raised end is the one that bolts to the chute core later, not now. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-door-module-lower-arm-on-w1600-d777cd9b9a60.jpg" alt="The servo bracket housing with the side arm bolted to it, seen from the cover side, the slab standing proud of the housing with a single empty hole in its foot">
+    <figcaption>The side arm on. The empty hole in its foot is the one that bolts to the chute core later, not now. <cite>Photo: BrickCycleAlice.</cite></figcaption>
   </figure>
   <figure>
-    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-door-module-lower-arm-screws-w1600-aebd2878b313.jpg" alt="The same assembly from the servo output end, with two countersunk screw heads visible in the face of the lower arm and the servo's splined output above them">
-    <figcaption>From the output end, with the arm's two countersunk screws driven home. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-door-module-lower-arm-screws-w1600-aebd2878b313.jpg" alt="The same assembly from the servo output end, with the side arm's two screw heads sitting flush in their countersinks and the servo's splined output above them">
+    <figcaption>From the output end, with the side arm's two screws driven home. They finish flush, which is the tell: this face has no counterbore. <cite>Photo: BrickCycleAlice.</cite></figcaption>
   </figure>
 </div>
 
-**Side arm:** 2 {% include fastener.html size="M3" variant="countersunk" length="12" %} into the housing's inserts.
+**Lower arm:** 2 {% include fastener.html size="M3" variant="countersunk" length="8" %} into the housing's inserts. The counterbore takes the head 3.42 mm down before the countersink starts, which leaves 4.42 mm above the insert, so an 8 mm screw reaches 3.58 mm in. A 12 bottoms out in the 5.70 mm pocket before its head seats, so the arm never pulls down.
 
 <div class="img-row">
   <figure>
-    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-door-module-side-arm-on-w1600-d2fc44863353.jpg" alt="Both arms now on the housing: the wide lower arm across the top and the narrow side arm projecting from the right-hand face with an empty hole in its foot">
-    <figcaption>Side arm added, so both arms are now on. Its foot carries the second empty hole. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-door-module-side-arm-on-w1600-d2fc44863353.jpg" alt="Both arms now on the housing: the side arm slab across the top and the lower arm projecting from the right-hand face with an empty hole in its raised end">
+    <figcaption>Lower arm added, so both arms are now on. Its raised end carries the second empty hole. <cite>Photo: BrickCycleAlice.</cite></figcaption>
   </figure>
   <figure>
-    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-door-module-both-arms-underside-w1600-882c2dfe8031.jpg" alt="The finished bracket from below with both arms fitted, two countersunk screw heads in the near face and the servo's output shaft visible between the arms">
-    <figcaption>The finished bracket from below, both arms fitted. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-door-module-both-arms-underside-w1600-882c2dfe8031.jpg" alt="The finished bracket from below with both arms fitted, the lower arm's two screw heads sunk at the bottom of their round counterbores and the servo's output shaft visible between the arms">
+    <figcaption>The finished bracket from below, both arms fitted. The lower arm's two screws sit down in their wells, where the side arm's sat flush. <cite>Photo: BrickCycleAlice.</cite></figcaption>
   </figure>
 </div>
 

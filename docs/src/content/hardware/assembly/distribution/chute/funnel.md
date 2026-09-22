@@ -6,9 +6,10 @@ section: hardware
 slug: assembly-funnel
 kicker: Chute — Funnel brackets
 lede: The two brackets that hang off the chute core, and the funnel that snaps into them.
+og_image: https://assets.basically.website/sorter-docs/assembly-funnel-hung-on-brackets-w1600-0ac96b70b9bc.jpg
 permalink: /hardware/assembly/distribution/chute/funnel/
 author: spencer
-contributors: [barthel]
+contributors: [barthel, brickcyclealice]
 last_verified: 2026-09-07
 parts_needed:
   - part: funnel-half
@@ -71,4 +72,13 @@ The calculator takes a size per layer and totals the print for whatever mix you 
 
 It should feel like it has landed. If the funnel can be lifted straight back off without the arm flexing, it has not gone far enough in.
 
-<div class="img-placeholder">Photo of a funnel snapped into its two brackets.</div>
+## The finished result
+
+The funnel is on when both its rails have run into the sprung arms and it cannot be lifted straight back off. One funnel per layer.
+
+<figure class="single-figure">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-funnel-hung-on-brackets-w1600-0ac96b70b9bc.jpg" alt="A funnel hung on its two brackets on a chute core lying on the bench, the wide funnel mouth to the left with a bracket arm across each side rail, and the servo in its printed bracket at the far end of the core with its lead trailing">
+  <figcaption>A funnel snapped into its two brackets on the chute. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+</figure>
+
+The [Chute core]({{ '/hardware/assembly/distribution/chute/chute-core/' | relative_url }}) page carries the other three sub-assemblies that go on the same core, and is where you should return once you're done here.

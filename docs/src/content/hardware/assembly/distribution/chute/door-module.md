@@ -6,10 +6,10 @@ section: hardware
 slug: assembly-door-module
 kicker: Chute — Door module
 lede: The per-layer door mechanism that releases parts into a bin.
-og_image: https://assets.basically.website/sorter-docs/assembly-door-module-bracket-on-core-top-w1600-94ef36ed29c6.jpg
+og_image: https://assets.basically.website/sorter-docs/assembly-door-module-on-core-finished-w1600-3727d3fa8771.jpg
 permalink: /hardware/assembly/distribution/chute/door-module/
 author: spencer
-contributors: [barthel, extremetaz]
+contributors: [barthel, brickcyclealice, extremetaz]
 last_verified: 2026-09-21
 tools_needed: ["Hex key, 2 mm", Soldering iron or heat-set insert press]
 parts_needed:
@@ -352,10 +352,16 @@ Clock it before you commit: centre the servo (or let it settle at its power-on d
   <figcaption>The same job on a real machine. The disc in frame is the servo adapter from step 7, screwed together with its four countersunk screws, with the hexagonal socket that takes the door's shaft facing the camera; the MG995 sits in its bracket behind it. <cite>Frame from the video below. Video: Spencer.</cite></figcaption>
 </figure>
 
-<figure class="single-figure">
-  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-door-module-bracket-on-core-coupled-w1600-753b3624aba0.jpg" alt="The servo bracket bolted to the chute core with the servo adapter fitted on the servo's output, seen face on, the adapter's four screws and hex socket visible">
-  <figcaption>Bracket bolted on and the adapter fitted to the servo, seen face on. <cite>Photo: BrickCycleAlice.</cite></figcaption>
-</figure>
+<div class="img-row">
+  <figure>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-door-module-bracket-on-core-coupled-w1600-753b3624aba0.jpg" alt="The servo bracket bolted to the chute core with the servo adapter fitted on the servo's output, seen face on, the adapter's four screws and hex socket visible">
+    <figcaption>Bracket bolted on and the adapter fitted to the servo, seen face on. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+  </figure>
+  <figure>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-door-module-bracket-on-core-top-w1600-94ef36ed29c6.jpg" alt="The same assembly from above, the servo in its bracket standing off the chute core with the door hanging below">
+    <figcaption>From above, with the servo standing off the core and the door below. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+  </figure>
+</div>
 
 <div class="callout callout-warning">
   <span class="callout-icon" aria-hidden="true">⚠</span>
@@ -379,8 +385,8 @@ Clock it before you commit: centre the servo (or let it settle at its power-on d
 The module is finished when the bracket is on the core and the adapter couples the servo to the door, and the door swings freely through its whole travel. One of these per layer.
 
 <figure class="single-figure">
-  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-door-module-bracket-on-core-top-w1600-94ef36ed29c6.jpg" alt="The finished door module on the chute core, seen from above: the servo in its bracket standing off the core with the door hanging below">
-  <figcaption>A finished module, from above: the servo standing off the core and the door below. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-door-module-on-core-finished-w1600-3727d3fa8771.jpg" alt="A finished door module bolted to a chute core: the MG995 in its printed bracket with its lead looped out to a bare connector, the bracket's arms screwed to the core's side, and the light grey door plate hanging below the core">
+  <figcaption>A finished module on its core: the servo in its bracket, the adapter coupled to the door's shaft, and the door hanging below. <cite>Photo: BrickCycleAlice.</cite></figcaption>
 </figure>
 
 The [Chute core]({{ '/hardware/assembly/distribution/chute/chute-core/' | relative_url }}) page carries the other three sub-assemblies that go on the same core, and is where you should return once you're done here.

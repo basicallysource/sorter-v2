@@ -4,6 +4,8 @@ After=multi-user.target
 
 [Service]
 Type=simple
+# systemd gives a service no HOME; git config --global, uv and pnpm all need one.
+Environment=HOME=/root
 ExecStart=/usr/bin/python3 /usr/local/sbin/sorteros-firstboot.py
 Restart=on-failure
 RestartSec=30s

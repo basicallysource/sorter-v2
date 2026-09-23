@@ -899,6 +899,9 @@ def main() -> int:
             server = _start_status_server(STATUS_PORT)
 
         for s in remaining:
+            # Stages after the UI wait for it, so they never delay it.
+            if not s.before_ui and not ui_started:
+                continue
             if s.needs_internet and not net:
                 _set_state(s.name, "waiting", "waiting for internet")
                 continue

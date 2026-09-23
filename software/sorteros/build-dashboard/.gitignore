@@ -1,4 +1,0 @@
-preset.toml
-__pycache__/
-.venv/
-*.pyc

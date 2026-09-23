@@ -24859,7 +24859,20 @@
 			},
 			"sheet_qty_text": null,
 			"stock": null,
-			"sourcing": null,
+			"sourcing": {
+				"vendors": [
+					{
+						"region": "US",
+						"vendor": "Amazon",
+						"url": "https://www.amazon.com/dp/B072BYGKZZ",
+						"affiliate_url": "https://www.amazon.com/dp/B072BYGKZZ?tag=sorterv2-20",
+						"price": 6.94,
+						"pack_qty": 1,
+						"as_of": "2026-09-23",
+						"note": "Amazon Basics 6 ft, NEMA 5-15P to C13, 18 AWG, UL listed. That is the US plug; outside the US buy the same cord with your own plug on it, or use one you already have."
+					}
+				]
+			},
 			"alternative": null,
 			"caption": "One per machine, and the one part you probably already own.",
 			"docs_page": "/hardware/electronics/installation/psu-box/",

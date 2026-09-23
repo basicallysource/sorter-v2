@@ -11,6 +11,7 @@ permalink: /hardware/assembly/distribution/chute/funnel/
 author: spencer
 contributors: [barthel, brickcyclealice]
 last_verified: 2026-09-07
+tools_needed: ["Hex key, 2 mm"]
 parts_needed:
   - part: funnel-half
   - part: funnel-third
@@ -37,14 +38,17 @@ The fasteners and quantities are in the parts list above and are called out inli
 
 Every chute carries a Funnel bracket (left) and a Funnel bracket (right), one of each. They screw into the [chute core]({{ '/hardware/assembly/distribution/chute/chute-core/' | relative_url }})'s M3 heat inserts, which are pressed in on that page.
 
-Each bracket takes 2 {% include fastener.html size="M3" variant="countersunk" length="12" %} screws, 4 for the pair. The bracket is 8.16 mm thick at the screw, so a 12 mm screw reaches 3.84 mm into the core's blind 5.70 mm insert and an 8 mm one would not reach it at all.
+Each bracket takes 2 {% include fastener.html size="M3" variant="countersunk" length="12" %} screws, 4 for the pair. Use the 12 mm, not the 8 mm: an 8 mm screw does not reach the core's insert at all.
 
 <figure>
   <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-core-funnel-brackets-full-36040ab587fd.png" alt="Render of one long side of the chute core with the two heat inserts a funnel bracket screws into circled in red">
   <figcaption>The two inserts one funnel bracket screws into, at the lower end of one long side of the chute core. The other long side carries the mirror pair for the second bracket. <cite>Render: Balloon.</cite></figcaption>
 </figure>
 
-<div class="img-placeholder">Photo of both funnel brackets fitted to the chute core.</div>
+<figure class="single-figure">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-funnel-bracket-on-core-servo-end-w1600-1e06a5f96c10.jpg" alt="A funnel bracket bolted to the side of a chute core on the bench, its two countersunk screws driven home in the face and its three slotted arms standing clear, with the servo bracket and the door at the other end of the core">
+  <figcaption>One bracket on, seen from the servo end, with both of its screws home. The second is the mirror of it on the other long side. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+</figure>
 
 {% include step.html n="2" title="Pick the funnel size for the layer" %}
 

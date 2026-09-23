@@ -1,9 +1,11 @@
 # Testing an image before flashing it
 
-Two checks, both run on the Linux box that built the image.
+`check.py image` mounts the image, so it runs on Linux as root (the build box).
+`boot.sh` and `check.py boot` run there too, or on an Apple Silicon Mac, where
+the VM runs at native speed.
 
 ```bash
-sudo apt-get install qemu-system-arm qemu-utils sshpass
+sudo apt-get install qemu-system-arm qemu-utils     # or on a Mac: brew install qemu
 
 sudo ./check.py image ../build/out/sorteros-v4.1.0-<date>.img   # seconds
 ./boot.sh ../build/out/sorteros-v4.1.0-<date>.img               # starts a VM in the background

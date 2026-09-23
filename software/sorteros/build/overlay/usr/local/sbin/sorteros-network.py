@@ -58,6 +58,11 @@ PORTAL_CMD = [
 # never finds them in this file.
 CFG_END_MARKER = "# __SORTEROS_CFG" + "_END__"
 
+# The Sorter UI holds port 80 once first boot is done. While the setup network
+# is up the machine is offline and the UI unreachable anyway, so it steps
+# aside for the setup page and comes back after.
+UI_UNITS = ("sorter-ui-dev.service", "sorter-ui.service")
+
 AP_CON = "sorteros-ap"
 AP_GATEWAY = "10.42.0.1/24"
 WIRED_WAIT_S = 45
@@ -189,6 +194,18 @@ class System:
             return False
         return "Station" in self._run("iw", "dev", iface, "station", "dump").stdout
 
+    def ui_stop(self) -> list[str]:
+        stopped = []
+        for unit in UI_UNITS:
+            if self._run("systemctl", "is-active", "--quiet", unit).returncode == 0:
+                self._run("systemctl", "stop", unit, timeout=60)
+                stopped.append(unit)
+        return stopped
+
+    def ui_start(self, units: list[str]) -> None:
+        for unit in units:
+            self._run("systemctl", "start", unit, timeout=60)
+
     def start_portal(self) -> None:
         RUN_DIR.mkdir(parents=True, exist_ok=True)
         PORTAL_DONE.unlink(missing_ok=True)
@@ -262,7 +279,18 @@ def try_saved(sys_: System, iface: str) -> bool:
 
 
 def hotspot(sys_: System, iface: str) -> int:
-    """Broadcast the setup network until the machine is online."""
+    """Broadcast the setup network until the machine is online, with the
+    Sorter UI stepped aside so the setup page has port 80."""
+    ui = sys_.ui_stop()
+    if ui:
+        log.info("stopped %s for the setup page", ", ".join(ui))
+    try:
+        return _hotspot(sys_, iface)
+    finally:
+        sys_.ui_start(ui)
+
+
+def _hotspot(sys_: System, iface: str) -> int:
     ssid = sys_.ap_up(iface)
     sys_.start_portal()
     log.info("offline: broadcasting %s with the setup page", ssid)

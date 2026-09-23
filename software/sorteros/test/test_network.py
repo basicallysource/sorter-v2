@@ -20,12 +20,13 @@ class Fake:
 
     def __init__(self, *, iface="wlan0", cable_at=None, saved=(), wifi_ok=lambda name, t: False,
                  phone_submits_at=None, phone_password_ok=True, clients=lambda t: False,
-                 page_active=lambda t: False, portal_dies_at=None, imported=""):
+                 page_active=lambda t: False, portal_dies_at=None, imported="", ui_running=False):
         self.t = 0.0
         self.iface, self.cable_at, self.saved, self.wifi_ok = iface, cable_at, list(saved), wifi_ok
         self.phone_submits_at, self.phone_password_ok = phone_submits_at, phone_password_ok
         self.clients, self.page_active, self.portal_dies_at = clients, page_active, portal_dies_at
         self._imported = imported
+        self.ui_running = ui_running
         self.ap = False
         self.portal = False
         self.portal_done = False
@@ -91,6 +92,14 @@ class Fake:
 
     def ap_has_clients(self, iface):
         return self.clients(self.t)
+
+    # the Sorter UI
+    def ui_stop(self):
+        self.log.append(("ui_stop", self.t))
+        return ["sorter-ui-dev.service"] if self.ui_running else []
+
+    def ui_start(self, units):
+        self.log.append(("ui_start", tuple(units), self.t))
 
     # portal
     def start_portal(self):
@@ -167,8 +176,8 @@ class BringUp(unittest.TestCase):
     def test_cable_plugged_in_during_setup_closes_the_setup_network(self):
         f = Fake(cable_at=15 * 60)
         self.assertEqual(net.bring_up(f, {}), 0)
-        self.assertEqual(f.log[-1][0], "ap_down")
-        self.assertGreaterEqual(f.t, 15 * 60)
+        last_down = [e for e in f.log if e[0] == "ap_down"][-1]
+        self.assertGreaterEqual(last_down[1], 15 * 60)
 
     def test_router_slower_than_the_pi_after_a_power_cut(self):
         # Right password, but the router is down for the first 20 minutes.
@@ -196,12 +205,25 @@ class BringUp(unittest.TestCase):
         self.assertEqual(net.bring_up(f, {}), 0)
         self.assertEqual(f.count("phone"), 1)
         self.assertEqual(f.count("ap_up"), 1)  # never dropped
-        self.assertEqual(f.log[-1], ("ap_down", HOUR))  # closed only for the cable
+        self.assertEqual([e for e in f.log if e[0] == "ap_down"], [("ap_down", HOUR)])  # closed only for the cable
 
     def test_setup_page_is_restarted_if_it_dies(self):
         f = Fake(portal_dies_at=6 * 60, cable_at=20 * 60)
         net.bring_up(f, {})
         self.assertGreaterEqual(f.count("portal"), 2)
+
+    def test_the_sorter_ui_steps_aside_for_the_setup_page_and_comes_back(self):
+        # A later boot, UI installed, router gone: the setup page needs port 80.
+        f = Fake(ui_running=True, phone_submits_at=5 * 60)
+        self.assertEqual(net.bring_up(f, {}), 0)
+        kinds = [e[0] for e in f.log]
+        self.assertLess(kinds.index("ui_stop"), kinds.index("portal"))
+        self.assertEqual(f.log[-1][:2], ("ui_start", ("sorter-ui-dev.service",)))
+
+    def test_no_setup_network_no_ui_changes(self):
+        f = Fake(cable_at=3, ui_running=True)
+        net.bring_up(f, {})
+        self.assertEqual(f.count("ui_stop"), 0)
 
     def test_no_wifi_hardware_waits_for_a_cable(self):
         f = Fake(iface=None, cable_at=30 * 60)

@@ -139,7 +139,7 @@ net_start
 check "setup network opens after the wrong password" wait_for 200 setup_visible
 echo "     setup network after ${WAITED}s"
 phone_join
-check "setup page answers the phone" bash -c "ip netns exec phone curl -s -m 15 http://10.42.0.1/api/status | grep -q hostname"
+check "setup page answers the phone" bash -c "ip netns exec phone curl -s -m 15 http://10.42.0.1/api/status | grep -q suggested_url"
 submit HomeNet right-password >/dev/null
 check "joins the network the phone gave it" wait_for 120 on_wifi
 check "network service finishes" wait_for 30 net_finished

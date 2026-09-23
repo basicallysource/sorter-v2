@@ -182,7 +182,7 @@ Set the mode on each camera:
 | C-Channel 2 and C-Channel 3 | 1280x720 at 30 fps |
 | Classification C-Channel (C4) | 3840x2160 at 30 fps |
 
-On C-Channel 2 and C-Channel 3, set **Pixel Format** to MJPG.
+On all C-Channels, set **Pixel Format** to MJPG.
 
 The camera's automatic settings should be enough for everything else, and manual settings are there if you need them. Click **Confirm**.
 

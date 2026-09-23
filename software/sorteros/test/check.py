@@ -16,8 +16,8 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
-import shutil
 import subprocess
 import tempfile
 import time
@@ -131,14 +131,21 @@ def stages_from_status_page(html: str) -> list[tuple[str, str, str]]:
 
 
 def ssh(port: int, cmd: str) -> tuple[int, str]:
-    if shutil.which("sshpass") is None:
-        return 127, "sshpass not installed"
-    r = subprocess.run(
-        ["sshpass", "-p", SSH_PASSWORD, "ssh", "-p", str(port), "-o", "StrictHostKeyChecking=no",
-         "-o", "UserKnownHostsFile=/dev/null", "-o", "LogLevel=ERROR", "-o", "ConnectTimeout=10",
-         f"{SSH_USER}@localhost", cmd],
-        capture_output=True, text=True, timeout=60,
-    )
+    # OpenSSH's own askpass hook feeds the password (no sshpass needed).
+    with tempfile.NamedTemporaryFile("w", suffix=".sh", delete=False) as f:
+        f.write(f"#!/bin/sh\necho '{SSH_PASSWORD}'\n")
+    askpass = Path(f.name)
+    askpass.chmod(0o700)
+    env = {**os.environ, "SSH_ASKPASS": str(askpass), "SSH_ASKPASS_REQUIRE": "force", "DISPLAY": ":0"}
+    try:
+        r = subprocess.run(
+            ["ssh", "-p", str(port), "-o", "StrictHostKeyChecking=no", "-o", "UserKnownHostsFile=/dev/null",
+             "-o", "LogLevel=ERROR", "-o", "ConnectTimeout=10", "-o", "PreferredAuthentications=password",
+             f"{SSH_USER}@localhost", cmd],
+            capture_output=True, text=True, timeout=60, env=env, stdin=subprocess.DEVNULL,
+        )
+    finally:
+        askpass.unlink()
     return r.returncode, (r.stdout + r.stderr).strip()
 
 
@@ -207,9 +214,6 @@ def check_boot(args: argparse.Namespace) -> None:
     rc, out = ssh(args.ssh_port, "hostname; systemctl is-active avahi-daemon; "
                   "test -d /home/orangepi/sorter-v2/software/sorter/backend/bundled_models && echo BUNDLED; "
                   "command -v git-lfs || true; ls /var/lib/sorteros/")
-    if rc == 127:
-        print(f"  skip {out}")
-        return
     lines = out.splitlines()
     check(rc == 0 and lines[:1] == ["sorter"], "hostname is sorter", out)
     check("active" in lines[1:2], "avahi-daemon is running", out)

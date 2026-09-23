@@ -80,7 +80,14 @@ def check_image(img: Path) -> None:
         print("services and packages")
         wants = mnt / "etc/systemd/system/multi-user.target.wants"
         for unit in ("avahi-daemon.service", "sorteros-firstboot.service", "sorteros-onboarding.service"):
-            check((wants / unit).exists(), f"{unit} enabled")
+            # is_symlink: the link's absolute target only resolves inside the image
+            check((wants / unit).is_symlink(), f"{unit} enabled")
+        # The overlay must not hand the orangepi user (uid 1000) anything root runs.
+        for rel in ("etc", "etc/systemd/system", "usr/local/sbin", "usr/local/sbin/sorteros-firstboot.py",
+                    "usr/local/sbin/sorteros-onboarding.sh", "etc/systemd/system/sorteros-firstboot.service"):
+            st = (mnt / rel).stat()
+            check(st.st_uid == 0 and not st.st_mode & 0o022, f"/{rel} owned by root, not group/world-writable",
+                  f"uid {st.st_uid} mode {oct(st.st_mode & 0o777)}")
         check("mdns" in (mnt / "etc/nsswitch.conf").read_text(), "nsswitch resolves .local")
         check(not (mnt / "usr/bin/git-lfs").exists(), "git-lfs not installed")
         check(not any((mnt / "etc/systemd/system").glob("sorter-*.service")),

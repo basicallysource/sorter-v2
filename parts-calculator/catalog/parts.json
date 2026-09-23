@@ -5129,6 +5129,14 @@
             "pack_qty": 1,
             "as_of": "2026-04-16",
             "affiliate_url": "https://www.amazon.com/Waveshare-Compatible-Windows-Wall-Mount-Driver-Free/dp/B0D97V3N3R?tag=sorterv2-20"
+          },
+          {
+            "region": "AU",
+            "vendor": "Amazon AU",
+            "url": "https://www.amazon.com.au/dp/B0BRN9QNY2",
+            "pack_qty": 1,
+            "as_of": "2026-09-23",
+            "note": "The USB3.2-Gen1-HUB-2IN-4OUT, the dual-host alternative rather than the 4U. Same 7 to 36 V input on the same DC-044 jack, so it is interchangeable here. No AU listing of the 4U itself is known; the hub commonly stocked in Australia is the 5 V USB 2.0 USB-HUB-2IN-4OUT, which is not usable."
           }
         ]
       }

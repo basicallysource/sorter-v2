@@ -32,11 +32,19 @@ These are for [SorterOS]({{ '/sorter/installation/sorter-os/' | relative_url }})
 
 ### No `SorterOS-Setup-` network appears
 
-**Cause:** An Ethernet cable is plugged in (the Pi uses that instead), it has been less than a minute since power-on, or the board has no WiFi (see the [Orange Pi 5 page]({{ '/hardware/orange-pi-5/' | relative_url }}#wifi)).
+**Cause:** The Pi only opens it when it can't get online. It's online if a cable is plugged in or it joined the WiFi you gave it, and then there's nothing to set up. Otherwise it's been less than about two minutes since power-on, or the board has no WiFi (see the [Orange Pi 5 page]({{ '/hardware/orange-pi-5/' | relative_url }}#wifi)).
 
-**Fix:** Wait a minute with no cable in, or use Ethernet.
+**Fix:** Look for the Pi on your network at `http://sorter.local` first. If it isn't there, wait two minutes with no cable in, or use Ethernet.
 
 **Verify:** The network shows up in your phone's WiFi list.
+
+### The WiFi entered in SorterOS Setup was wrong
+
+**Cause:** A typo, or the network changed. The Pi tries it for about a minute and a half each time it starts.
+
+**Fix:** Nothing to reflash. After that minute and a half the Pi opens its `SorterOS-Setup-` network; join it from a phone and enter the right password.
+
+**Verify:** The setup network disappears and the Pi answers at `http://sorter.local`.
 
 ### `tailscale-up` shows ✕
 

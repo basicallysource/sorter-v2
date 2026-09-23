@@ -1,9 +1,10 @@
 # SorterOS Captive Portal
 
-Zero-touch Wi-Fi onboarding for SorterOS v4 images. The image ships
-generic; with no Ethernet uplink, `sorteros-onboarding.service` opens a
-`SorterOS-Setup-XXXXXX` access point and this portal, where the user picks
-their network. The builder's `portal` phase bakes both halves into the image.
+The setup page a SorterOS machine serves on its `SorterOS-Setup-XXXXXX`
+network. `sorteros-network` (in `../build/overlay/usr/local/sbin/`) starts it
+at boot when the machine has no Ethernet and no saved Wi-Fi that works, and
+stops it once the machine is online. The builder's `portal` phase bakes both
+halves into the image.
 Below is how to run it locally in mock mode, with no hardware.
 
 ## Layout
@@ -87,77 +88,26 @@ In `ap` mode `_nmcli_write_wifi` mirrors the format firstboot's existing
 `stage_apply_config_toml` expects — same `.nmconnection` file shape so
 the handoff to firstboot doesn't need any new logic.
 
-When the connect endpoint succeeds, the backend:
+When the connect endpoint is called, the backend:
 
-1. writes `/etc/NetworkManager/system-connections/<SSID>.nmconnection`
-2. writes `/etc/sorteros-config.toml` if the user provided a hostname or
-   SSH key (same file firstboot already reads)
-3. responds 200 to the frontend so the handoff page renders
-4. waits 5 s, runs `nmcli connection up <SSID>` (30 s timeout)
-5. on Layer-3 success: **announces the LAN IP** (see below), then touches
-   `/var/lib/sorteros/wifi-configured` (firstboot's gate file) and drops
-   the AP profile
-6. on failure: leaves the AP up so the user can retry with a fresh
-   password
+1. writes `/etc/NetworkManager/system-connections/<SSID>.nmconnection`,
+   remembering any profile it replaced
+2. responds 200 to the frontend so the handoff page renders
+3. waits 5 s, runs `nmcli connection up <SSID>` (30 s timeout); joining
+   takes the radio from the setup network
+4. on success: merges the network, hostname and SSH key into
+   `/etc/sorteros-config.toml` (keeping anything the setup site put there,
+   such as a Tailscale key), backs the profile up, removes the setup
+   network profile and touches `/run/sorteros/portal-connected`, which
+   `sorteros-network` is waiting for; firstboot applies the hostname and key
+5. on failure: puts the replaced profile back (or removes the new one) and
+   brings the setup network back up so the user can retry
 
-The announce happens *before* the gate file is touched on purpose — the
-onboarding orchestrator kills the portal process the moment the gate
-appears, so the encrypted IP drop has to finish (or time out) first.
+Every API request touches `/run/sorteros/portal-activity`, so
+`sorteros-network` never drops the setup network to retry saved networks
+while someone is using the page.
 
-If the user cuts power between steps 1–6, firstboot at next boot will
-still re-trigger the portal because the gate file is the last thing
-written.
-
-## Encrypted LAN-IP rendezvous
-
-The hard part of headless onboarding is "what IP did my Pi get?". mDNS
-(`.local`) covers Apple but is flaky on Windows / locked-down networks,
-and the public NAT IP a server would see is useless for a LAN address.
-So the Pi tells the user its LAN IP through Hive as a **zero-knowledge
-dead-drop**:
-
-```
-browser (AP page)                 Pi (portal)                Hive
-─────────────────                 ───────────                ────
-generate RSA-OAEP keypair
-+ random rendezvous id
-        │ pubkey + id (wifi-connect POST)
-        ├──────────────────────────▶ store
-        │                            connect to Wi-Fi, read LAN IP
-        │                            encrypt {ip,hostname,port} w/ pubkey
-        │                            POST ciphertext ───────────▶ /api/machine-ip-lookup/<id>
-   navigate to Hive lookup
-   (privkey in URL #fragment)
-   poll GET <id> ◀───────────────────────────────────────────── ciphertext
-   decrypt w/ privkey → show "http://192.168.1.42/"
-```
-
-- Hive only ever stores **opaque ciphertext** — it never sees the LAN IP
-  in clear. The Hive endpoints (`app/routers/machine_lookup.py`) are an
-  in-memory, 10-minute-TTL, rate-limited dead-drop keyed by an
-  unguessable id.
-- The private key never crosses an origin boundary via storage —
-  localStorage/cookies are origin-scoped and wouldn't survive the jump
-  from `http://10.42.0.1` to `https://hive.basically.website`. It rides
-  in the **URL fragment** (`#k=…`), which never reaches the Hive server.
-- The lookup page is `hive.basically.website/machine-ip-lookup` —
-  unlisted (not in nav), login-free, `ssr=false`.
-- A malicious POST to a guessed id just stores junk that fails to
-  decrypt in the browser; the page ignores undecryptable payloads.
-- Crypto: RSA-OAEP-SHA256, 2048-bit. Browser uses WebCrypto, the Pi uses
-  `cryptography`. Ciphertext is ~344 base64 chars.
-
-The announce is **best-effort**: bounded retries over ~30 s, then
-onboarding completes regardless. The `.local` address remains the
-fallback and is still shown on the handoff screen.
-
-## What's mocked vs. real
-
-| Path             | mock mode               | ap mode                                  |
-| ---------------- | ----------------------- | ---------------------------------------- |
-| Scan             | canned 5-entry list     | `nmcli dev wifi list --rescan yes`       |
-| Connection write | no-op                   | writes `.nmconnection` + `nmcli reload`  |
-| Switchover task  | flips `last_attempt=ok` | runs `nmcli connection up <SSID>`, gates |
+| Switchover task  | flips `last_attempt=ok` | runs `nmcli connection up <SSID>`, signals |
 | IP announce      | logs "would announce"   | reads wlan0 IP, encrypts, POSTs to Hive  |
 | Hostname read    | local `gethostname()`   | local `gethostname()`                    |
 
@@ -167,17 +117,12 @@ fallback and is still shown on the handoff screen.
   CM5 — flash → AP → smartphone captive-portal sheet → submit → handoff
   → firstboot stages → sorter-ui. Backend can be retuned (timeouts,
   switchover delay) based on what the real Wi-Fi chip does.
-- **Reset-GPIO / factory-reset**: long-press handler that deletes
-  `/var/lib/sorteros/wifi-configured` and reboots so the device falls
-  back into AP mode without re-flashing.
 - **Tailscale auth in portal**: optional field so a fresh image joins
   the org tailnet without ever touching SSH first. Already plumbed in
   `/etc/sorteros-config.toml` by firstboot's `stage_tailscale_up` —
   just needs the input on the portal form.
 - **Hardened captive-portal probe responses**: today every probe gets a
-  302, which works but logs as "captive portal" forever. A friendlier
-  exit experience is to flip the probes to "success" responses once
-  `wifi-configured` exists so devices on the AP don't get stuck loops.
+  302, which works but logs as "captive portal" forever.
 
 ## Handoff screen
 

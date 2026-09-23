@@ -1,9 +1,8 @@
 # sorteros-setup
 
-Browser-side .img customizer for SorterOS v3. SvelteKit + Tailwind, deployed
-to Vercel at **<https://setup.basically.website>**. v4 images have no
-placeholder to patch (they're set up on the device, see `../portal/`), so
-this only serves people flashing a v3 release.
+Browser-side .img customizer for SorterOS. SvelteKit + Tailwind, deployed
+to Vercel at **<https://setup.basically.website>**. Optional: a machine with
+no settings uses Ethernet, or opens its setup network (`../portal/`).
 
 ## What it does
 

@@ -5,7 +5,7 @@ type: installation
 section: sorter
 slug: installation-sorter-os
 kicker: Installation — SorterOS
-lede: Flash SorterOS onto an SD card, plug in the Orange Pi, and it sets itself up. The recommended way to run Sorter on an Orange Pi 5.
+lede: Flash SorterOS onto an SD card, power on the Orange Pi, and it sets itself up. The recommended way to run Sorter on an Orange Pi 5.
 permalink: /sorter/installation/sorter-os/
 audience: self-hosting operator
 applies_to: sorteros v4.x
@@ -31,27 +31,34 @@ SorterOS is an OS image for Sorter, based on the official Ubuntu image from Oran
 
 ## Step 1 — Download the image
 
-Go to **[github.com/basicallysource/sorter-v2/releases](https://github.com/basicallysource/sorter-v2/releases)**, find the latest release named **SorterOS v4.x**, and download the `.zip` file from its assets.
+Go to **[github.com/basicallysource/sorter-v2/releases](https://github.com/basicallysource/sorter-v2/releases)**, find the latest **SorterOS** release, and download the `.zip` file from its assets.
 
-## Step 2 — Flash to SD card
+## Step 2 — Add your WiFi (optional)
+
+Skip this if the Pi will use Ethernet, or if you'd rather give it your WiFi from a phone after it starts (Step 4).
+
+Otherwise, unzip the download and open the `.img` in **[SorterOS Setup](https://setup.basically.website)**. It writes your WiFi network and password into the image, and optionally a hostname, an SSH key and a Tailscale auth key. It runs entirely in your browser; nothing is uploaded. In Chrome it can save into the original `.img`; other browsers download a changed copy (about 7 GB).
+
+## Step 3 — Flash to SD card
 
 1. Open **[Balena Etcher](https://etcher.balena.io/)**
-2. Click **Flash from file** and select the `.zip` file
+2. Click **Flash from file** and select the `.zip` (or, if you did Step 2, the `.img` you saved)
 3. Click **Select target** and choose your SD card
 4. Click **Flash**
 
 Wait for Etcher to finish writing and verifying. Do not remove the card until it reports success.
 
-## Step 3 — Get the Pi online
+## Step 4 — Power on
 
-Insert the SD card into the Orange Pi 5. Then either:
+Insert the SD card into the Orange Pi 5 and power it on. It gets online the first way that works:
 
-- **Ethernet:** plug the Pi into your router and power it on. Nothing else to do.
-- **WiFi:** power the Pi on with no cable. After about a minute it opens its own WiFi network named `SorterOS-Setup-` followed by six characters. Join it from a phone or laptop; a setup page opens (if it doesn't, browse to [http://10.42.0.1](http://10.42.0.1)). Pick your network, enter its password, and the Pi joins it. The last screen shows how to find the Pi from here on.
+1. **Ethernet**, if a cable to your router is plugged in.
+2. **The WiFi from Step 2.** It gets about a minute and a half to connect.
+3. Otherwise it opens its own WiFi network, named `SorterOS-Setup-` followed by six characters. Join it from a phone or laptop; a setup page opens (if it doesn't, browse to [http://10.42.0.1](http://10.42.0.1)). Pick your network and enter its password. If the password is wrong the page says so and you can try again; when it's right, the Pi joins your network and the setup network disappears.
 
-If you plug in a cable while the setup network is up, the Pi uses the cable and closes the setup network.
+The setup network is also the way back if something changes later: a Pi that can't get online when it starts (a new router, a changed password) opens it again. If you plug in a cable while it's up, the Pi uses the cable instead.
 
-## Step 4 — First boot
+## Step 5 — First boot
 
 Browse to **[http://sorter.local](http://sorter.local)** from a computer on the same network. Until the software is ready this shows a progress page listing every first-boot stage and its state, refreshing itself every few seconds. When the last stage the UI needs is done, the same address becomes the Sorter UI.
 
@@ -77,10 +84,3 @@ SorterOS services run as root. The default SSH username is `root` and the defaul
 ## Troubleshooting
 
 See [Sorter troubleshooting]({{ '/sorter/troubleshooting/' | relative_url }}#first-boot) for first-boot problems.
-
-<details>
-<summary>SorterOS v3 images</summary>
-
-Images up to v3.4.7 have no setup network. To put WiFi settings on a v3 image before flashing, decompress the `.zip` and open the `.img` in [SorterOS Setup](https://setup.basically.website), which runs entirely in the browser. On v3 an image flashed without it keeps the hostname `orangepi5`.
-
-</details>

@@ -6,6 +6,9 @@ how things build, where things live, what the conventions are. Nothing
 specific to one person's machines, accounts, or setup goes in this file; that
 belongs in the gitignored `agents.local/` directory.
 
+Don't commit binaries and don't use Git LFS: vision models come from Hive,
+images and other assets from the asset service.
+
 ## Where things live
 
 | Path | What it is | Read first |

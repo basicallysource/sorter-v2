@@ -44,8 +44,8 @@ docker run --rm \
 
         cd /home/sorter/sorter-v2/software
 
-        echo "==> Running install.sh --skip-lfs..."
-        ./install.sh --skip-lfs
+        echo "==> Running install.sh..."
+        ./install.sh
 
         # uv installs to ~/.local/bin which is not on the parent shell PATH
         export PATH="$HOME/.local/bin:$PATH"

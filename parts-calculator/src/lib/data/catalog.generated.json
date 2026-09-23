@@ -24824,6 +24824,49 @@
 			"image": "https://assets.basically.website/sorter-parts/psu-switch-one-full-1614496a00cc.png"
 		},
 		{
+			"id": "mains-cord-c13",
+			"uid": "nuya",
+			"kind": "cots",
+			"cots": {
+				"type": "cable"
+			},
+			"name": "Mains lead, IEC C13 to wall plug",
+			"category": "Power supply",
+			"description": "The cable from the wall socket to the machine. A C13 socket at the machine end, which is what the inlet's C14 mates with, and your country's plug at the other. The cord a desktop PC or a monitor comes with.",
+			"note": "Three core: the machine earths through this cable. 10 A or better, which matches the inlet's own fuse and is far more than the machine draws. It is listed so it is not forgotten at the end of a build, not because it has to be bought; most people have a spare one already.",
+			"created_at": "2026-09-23",
+			"updated_at": "2026-09-23",
+			"attributes": [
+				{
+					"label": "Machine end",
+					"value": "IEC 320 C13 socket, 3-pin"
+				},
+				{
+					"label": "Wall end",
+					"value": "Whatever plug your country uses"
+				},
+				{
+					"label": "Cores",
+					"value": "3, including earth. A 2-core figure-8 lead neither fits nor earths the machine"
+				},
+				{
+					"label": "Rating",
+					"value": "10 A or better, to match the inlet's 10 A fuse"
+				}
+			],
+			"sheet_qty": {
+				"per_machine": 1
+			},
+			"sheet_qty_text": null,
+			"stock": null,
+			"sourcing": null,
+			"alternative": null,
+			"caption": "One per machine, and the one part you probably already own.",
+			"docs_page": "/hardware/electronics/installation/psu-box/",
+			"conflicts": null,
+			"image": null
+		},
+		{
 			"id": "fan-40mm-24v",
 			"uid": "7o57",
 			"kind": "cots",

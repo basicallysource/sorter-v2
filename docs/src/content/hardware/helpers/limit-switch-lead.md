@@ -8,13 +8,13 @@ kicker: Helpers — Chute limit switch lead
 lede: The lead from the control board to the switch that tells the machine where the chute is. Push-on tabs at the switch, a keyed 3-pin housing at the board. One per machine.
 permalink: /hardware/helpers/limit-switch-lead/
 author: effreek
-contributors: [daddyosbricksbill]
+contributors: [daddyosbricksbill, brickcyclealice]
+og_image: https://assets.basically.website/sorter-docs/harness-limit-switch-terminals-w1600-49cf87cbb757.jpg
 warning: >-
-  **AI-generated first draft.** Written from the basically board v1.3 board files and the [wire
-  harness]({{ '/hardware/electronics/wire-harness/' | relative_url }}) schedule, not from an actual build. Two
-  things on this page are marked **GUESS** in the harness notes and nobody has checked either
-  against a running machine: **which board pin is signal and which is ground**, and **which of the
-  switch's three tabs the two conductors land on**. Meter both before you rely on them.
+  **The photographs are from a real build; two of the numbers are still guesses.** The harness
+  notes mark **which board pin is signal and which is ground**, and **which of the switch's three
+  tabs the two conductors land on**, as guesses, and no running machine has confirmed either. The
+  build shown below is wired the way this page says. Meter both before you rely on them.
 parts_needed:
   - part: wire-22awg-2c
     qty: 1
@@ -54,14 +54,32 @@ Positions 1 to 3 of the Dupont housing, held as it goes onto `J5`:
   </tbody>
 </table>
 
+**The switch prints its own tab names.** The body carries a little schematic with `NC` and `NO` against the two tabs on its side and `COM` against the one on its bottom edge, so you can read the three off the switch in your hand rather than counting positions.
+
+<div class="img-row">
+  <figure>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/harness-limit-switch-terminals-w1600-49cf87cbb757.jpg" alt="The red roller-lever switch on a bench with its printed schematic visible, NC and NO labelled against the two tabs on its side and COM against the tab on its bottom edge, an insulated receptacle pushed onto the NC tab and another onto the COM tab, and the middle NO tab left bare">
+    <figcaption>The two receptacles on <code>COM</code> and <code>NC</code>. The bare blade between them is <code>NO</code>, which stays empty. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+  </figure>
+  <figure>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/harness-limit-switch-mounted-w1600-c579aa172b70.jpg" alt="The same switch mounted under the machine's top plate in its printed housing, both insulated receptacles pushed on and the red and black pair leaving them and running away under the plate">
+    <figcaption>The same two tabs once the switch is in its housing under the top plate. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+  </figure>
+</div>
+
 The switch is an SPDT with three tabs and the third one, `NO`, stays bare. Wired to `COM` and `NC` the circuit is closed while the lever is free and opens when the chute presses it, which is the way round the machine expects. If homing later runs the wrong way, that is a setting in the software rather than a rewire.
 
 <div class="callout callout-warning">
   <span class="callout-icon" aria-hidden="true">⚠</span>
-  <p><b>Both halves of that table are unverified.</b> The harness notes mark the board pin order and the choice of switch tabs as guesses, and no built machine has confirmed either. Before you crimp, meter the switch: continuity between two tabs with the lever free, and none with the lever pressed, identifies <code>COM</code> and <code>NC</code> whatever the printing says.</p>
+  <p><b>Both halves of that table are unverified.</b> The harness notes mark the board pin order and the choice of switch tabs as guesses, and no built machine has confirmed either. Before you crimp, meter the switch: continuity between two tabs with the lever free, and none with the lever pressed, is what confirms the pair the printing names.</p>
 </div>
 
 ## Build it
+
+<figure class="single-figure">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/harness-limit-switch-parts-w1600-661badd2af06.jpg" alt="Laid out on a bench: the red roller-lever switch with its three bare tabs, two insulated quick-connect receptacles already crimped onto short leads, and the stripped end of a red and black 22 AWG pair">
+  <figcaption>What the switch end takes: two #187 receptacles and the pair. Nothing here is soldered. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+</figure>
 
 <ol class="numbered-steps">
   <li>Cut 610 mm (24 in) of the pair.</li>

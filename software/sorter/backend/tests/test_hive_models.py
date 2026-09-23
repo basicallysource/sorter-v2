@@ -507,6 +507,65 @@ class TestRemoveInstalledModel:
 
 
 # ---------------------------------------------------------------------------
+# Local models — put in the models dir by hand, no hive block
+# ---------------------------------------------------------------------------
+
+
+class TestLocalModels:
+    def test_listing_tells_hive_downloads_and_local_models_apart(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from vision import detection_registry
+
+        monkeypatch.setattr(hive_models, "LOCAL_MODELS_DIR", tmp_path)
+        monkeypatch.setattr(detection_registry, "MODELS_DIR", tmp_path)
+        detection_registry.invalidate_registry()
+        _write_legacy_install(tmp_path)
+
+        local = tmp_path / "my-model"
+        (local / "exports").mkdir(parents=True)
+        (local / "exports" / "best.onnx").write_bytes(b"onnx")
+        (local / "run.json").write_text(json.dumps({"name": "My model", "model_family": "yolo"}))
+
+        junk = tmp_path / "not-a-model"
+        (junk / "exports").mkdir(parents=True)
+        (junk / "run.json").write_text(json.dumps({"notes": "no family, no artifact"}))
+
+        by_id = {entry["local_id"]: entry for entry in hive_models.list_installed_models()}
+        assert set(by_id) == {"hive-model-1-onnx", "my-model"}
+
+        hive_entry = by_id["hive-model-1-onnx"]
+        assert hive_entry["source"] == "hive"
+        assert hive_entry["algorithm_id"] == "hive:hive-model-1-onnx"
+        assert hive_entry["target_id"] == "hive-a"
+
+        local_entry = by_id["my-model"]
+        assert local_entry["source"] == "local"
+        assert local_entry["algorithm_id"] == "local:my-model"
+        assert local_entry["name"] == "My model"
+        assert local_entry["variant_runtime"] == "onnx"
+        assert local_entry["compatible"] is True
+        assert local_entry["target_id"] is None
+
+        # The registry agrees on the id.
+        assert detection_registry.detection_algorithm_definition("local:my-model") is not None
+
+    def test_local_model_is_removable(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(hive_models, "LOCAL_MODELS_DIR", tmp_path)
+        local = tmp_path / "my-model"
+        (local / "exports").mkdir(parents=True)
+        (local / "exports" / "best.onnx").write_bytes(b"onnx")
+        (local / "run.json").write_text(json.dumps({"model_family": "yolo"}))
+
+        hive_models.remove_installed_model("my-model")
+
+        assert not local.exists()
+        assert hive_models.list_installed_models() == []
+
+
+# ---------------------------------------------------------------------------
 # Codenames — Hive's human-readable identity carried onto the machine
 # ---------------------------------------------------------------------------
 

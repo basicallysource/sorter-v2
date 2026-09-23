@@ -312,8 +312,7 @@ def list_installed() -> dict:
     # Models UI can flag "not designed for this subsystem" when the operator
     # assigns a model to a slot outside its scope (still allowed — informational).
     for item in items:
-        algo_id = f"{'bundled:' if item.get('bundled') else 'hive:'}{item.get('local_id')}"
-        definition = detection_algorithm_definition(algo_id)
+        definition = detection_algorithm_definition(item.get("algorithm_id"))
         item["registry_scopes"] = (
             sorted(definition.supported_scopes) if definition is not None else []
         )

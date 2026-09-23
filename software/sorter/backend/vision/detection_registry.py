@@ -15,17 +15,27 @@ log = logging.getLogger(__name__)
 
 DetectionScope = Literal["classification", "feeder", "carousel"]
 BuiltinDetectionAlgorithmId = Literal["baseline_diff", "mog2", "heatmap_diff", "gemini_sam"]
-# Runtime ids may be the built-ins or a dynamic ``hive:<slug>``; keep the type as ``str``
-# for everything that crosses module boundaries.
+# Runtime ids may be the built-ins or an installed model (``hive:<dir>`` /
+# ``local:<dir>``); keep the type as ``str`` for everything that crosses module
+# boundaries.
 DetectionAlgorithmId = str
 ClassificationDetectionAlgorithm = str
 FeederDetectionAlgorithm = str
 CarouselDetectionAlgorithm = str
 
 HIVE_ID_PREFIX = "hive:"
-BUNDLED_ID_PREFIX = "bundled:"
-HIVE_MODELS_DIR = Path(__file__).resolve().parent.parent / "blob" / "hive_detection_models"
-BUNDLED_MODELS_DIR = Path(__file__).resolve().parent.parent / "bundled_models"
+LOCAL_ID_PREFIX = "local:"
+# Installed-model kinds and their id prefixes: Hive downloads and models put in
+# MODELS_DIR by hand. Both run through the same on-device inference path.
+MODEL_KINDS = frozenset({"hive", "local"})
+MODEL_ID_PREFIXES = (HIVE_ID_PREFIX, LOCAL_ID_PREFIX)
+# The one place installed models live (``server.hive_models.LOCAL_MODELS_DIR``).
+MODELS_DIR = Path(__file__).resolve().parent.parent / "blob" / "hive_detection_models"
+
+MODEL_FAMILIES = frozenset({"yolo", "nanodet"})
+# Runtimes a model can be loaded with, in the order a local model without a
+# declared runtime is probed.
+MODEL_RUNTIMES = ("onnx", "ncnn", "hailo", "rknn")
 
 _SCOPE_BY_HIVE_SCOPE: dict[str, DetectionScope] = {
     "classification_chamber": "classification",
@@ -79,11 +89,11 @@ class DetectionAlgorithmDefinition:
     required_inputs: frozenset[str]
     default_for_scopes: frozenset[DetectionScope] = frozenset()
     needs_baseline: bool = False
-    kind: str = "builtin"  # "builtin" | "hive" | "bundled"
+    kind: str = "builtin"  # "builtin" | "hive" | "local"
     model_path: Path | None = None
     model_family: str | None = None
     imgsz: int | None = None
-    runtime: str | None = None  # "onnx" | "ncnn" | "hailo" (hive only)
+    runtime: str | None = None  # "onnx" | "ncnn" | "hailo" | "rknn" (installed models only)
     hive_metadata: dict[str, Any] | None = None
 
 
@@ -128,21 +138,19 @@ _BUILTIN_ALGORITHMS: tuple[DetectionAlgorithmDefinition, ...] = (
 
 
 # ---------------------------------------------------------------------------
-# Dynamic (Hive-installed) entries
+# Installed models (Hive downloads and local ones)
 # ---------------------------------------------------------------------------
 
 
 _cache_lock = threading.Lock()
-_cached_hive_algorithms: tuple[DetectionAlgorithmDefinition, ...] | None = None
-_cached_bundled_algorithms: tuple[DetectionAlgorithmDefinition, ...] | None = None
+_cached_model_algorithms: tuple[DetectionAlgorithmDefinition, ...] | None = None
 
 
 def invalidate_registry() -> None:
-    """Drop the cache so the next registry read rescans the model dirs."""
-    global _cached_hive_algorithms, _cached_bundled_algorithms
+    """Drop the cache so the next registry read rescans the models dir."""
+    global _cached_model_algorithms
     with _cache_lock:
-        _cached_hive_algorithms = None
-        _cached_bundled_algorithms = None
+        _cached_model_algorithms = None
 
 
 def _map_hive_scopes(scopes: Any) -> frozenset[DetectionScope]:
@@ -158,20 +166,119 @@ def _map_hive_scopes(scopes: Any) -> frozenset[DetectionScope]:
     return frozenset(mapped)
 
 
-def _discover_model_algorithms(
-    root: Path,
-    *,
-    id_prefix: str,
-    kind: str,
-    default_for_scopes: frozenset[DetectionScope] = frozenset(),
-) -> tuple[DetectionAlgorithmDefinition, ...]:
-    if not root.exists():
-        return ()
+def local_model_artifact(model_dir: Path, meta: dict[str, Any]) -> tuple[str, Path] | None:
+    """Return ``(runtime, artifact)`` when ``model_dir`` is a usable local model.
 
+    A local model is a directory someone put in ``MODELS_DIR`` by hand: its
+    ``run.json`` has no ``hive`` block (that block marks a Hive download). Its
+    algorithm id is ``local:<dir name>``. The ``run.json`` fields it reads:
+
+      model_family  ``"yolo"`` or ``"nanodet"`` (required)
+      runtime       ``"onnx"``, ``"ncnn"``, ``"hailo"`` or ``"rknn"`` (optional;
+                    without it the first of those with an artifact wins)
+      name          the label shown in the UI (optional; the dir name otherwise)
+      scopes        Hive scope names such as ``["c_channel"]`` (optional; absent
+                    means every scope)
+      imgsz         the model input size (optional; 320 otherwise)
+
+    The artifact sits under ``exports/`` the way ``resolve_variant_artifact``
+    expects: ``exports/best.onnx``, an extracted ``*ncnn*`` directory holding a
+    ``.param``, ``exports/*.hef`` or ``exports/*.rknn``.
+    """
+    from vision.ml import resolve_variant_artifact
+
+    if str(meta.get("model_family") or "").lower() not in MODEL_FAMILIES:
+        return None
+    declared = str(meta.get("runtime") or "").lower()
+    for runtime in (declared,) if declared else MODEL_RUNTIMES:
+        if runtime not in MODEL_RUNTIMES:
+            return None
+        artifact = resolve_variant_artifact(model_dir, runtime)
+        if artifact is not None:
+            return runtime, artifact
+    return None
+
+
+def _model_definition(entry: Path, meta: dict[str, Any]) -> DetectionAlgorithmDefinition | None:
     from vision.ml import imgsz_from_run_metadata, resolve_variant_artifact
 
+    hive_info = meta.get("hive")
+    if isinstance(hive_info, dict):
+        # Hive publishes models for several purposes into one catalog and the
+        # sorter installs them all the same way. Only detection models become
+        # detection algorithms. Absent purpose predates the field, so it's a
+        # detection model.
+        purpose = str(hive_info.get("purpose") or "detection").lower()
+        if purpose != "detection":
+            return None
+        model_family = str(meta.get("model_family") or "").lower()
+        if model_family not in MODEL_FAMILIES:
+            log.info("Skipping Hive model %s — unsupported family %r", entry.name, model_family)
+            return None
+        runtime = str(hive_info.get("variant_runtime") or "onnx").lower()
+        if runtime not in MODEL_RUNTIMES:
+            log.info("Skipping Hive model %s — unsupported runtime %r", entry.name, runtime)
+            return None
+        model_path = resolve_variant_artifact(entry, runtime)
+        if model_path is None:
+            log.info(
+                "Skipping Hive model %s — no %s artifact found under exports/", entry.name, runtime
+            )
+            return None
+        kind = "hive"
+        algorithm_id = f"{HIVE_ID_PREFIX}{entry.name}"
+        label = f"Hive · {meta.get('name') or hive_info.get('model_id') or entry.name}"
+        description = (
+            f"Downloaded {model_family.upper()} model from Hive. Runtime variant: {runtime}."
+        )
+    else:
+        found = local_model_artifact(entry, meta)
+        if found is None:
+            log.info(
+                "Skipping %s — not a Hive download, and not a local model (run.json needs "
+                "model_family yolo|nanodet and exports/ an artifact for its runtime)",
+                entry.name,
+            )
+            return None
+        runtime, model_path = found
+        model_family = str(meta.get("model_family")).lower()
+        kind = "local"
+        algorithm_id = f"{LOCAL_ID_PREFIX}{entry.name}"
+        label = f"Local · {meta.get('name') or entry.name}"
+        description = (
+            f"Local {model_family.upper()} model installed on this machine by hand. "
+            f"Runtime: {runtime}."
+        )
+
+    supported = _map_hive_scopes(meta.get("scopes"))
+    if not supported:
+        # When the model has no scope metadata we can't tell what it is good
+        # for — but the operator installed it deliberately, so refuse-
+        # everywhere is worse UX than allow-everywhere. They get to decide; if
+        # it's a bad fit they'll see it on the live feed and switch back.
+        supported = frozenset({"classification", "feeder", "carousel"})
+
+    return DetectionAlgorithmDefinition(
+        id=algorithm_id,
+        label=label,
+        description=description,
+        supported_scopes=supported,
+        required_inputs=frozenset({"frame"}),
+        needs_baseline=False,
+        kind=kind,
+        model_path=model_path,
+        model_family=model_family,
+        imgsz=imgsz_from_run_metadata(meta),
+        runtime=runtime,
+        hive_metadata=hive_info if isinstance(hive_info, dict) else None,
+    )
+
+
+def _discover_model_algorithms() -> tuple[DetectionAlgorithmDefinition, ...]:
+    if not MODELS_DIR.exists():
+        return ()
     entries: list[DetectionAlgorithmDefinition] = []
-    for entry in sorted(root.iterdir()):
+    for entry in sorted(MODELS_DIR.iterdir()):
         if not entry.is_dir():
             continue
         run_json = entry / "run.json"
@@ -180,114 +287,28 @@ def _discover_model_algorithms(
         try:
             meta = json.loads(run_json.read_text())
         except (OSError, json.JSONDecodeError):
-            log.warning("Skipping %s model %s — unreadable run.json", kind, entry.name)
+            log.warning("Skipping model %s — unreadable run.json", entry.name)
             continue
-        if not isinstance(meta, dict) or "hive" not in meta:
+        if not isinstance(meta, dict):
             continue
-
-        hive_info = meta.get("hive") or {}
-        # Hive publishes models for several purposes into one catalog and the
-        # sorter installs them all the same way. Only detection models become
-        # detection algorithms. Absent purpose predates the field, so it's a
-        # detection model.
-        purpose = str(hive_info.get("purpose") or "detection").lower()
-        if purpose != "detection":
-            continue
-
-        model_family = str(meta.get("model_family") or "").lower()
-        if model_family not in {"yolo", "nanodet"}:
-            log.info("Skipping %s model %s — unsupported family %r", kind, entry.name, model_family)
-            continue
-
-        variant_runtime = str(hive_info.get("variant_runtime") or "onnx").lower()
-        if variant_runtime not in {"onnx", "ncnn", "hailo", "rknn"}:
-            log.info(
-                "Skipping %s model %s — unsupported runtime %r",
-                kind,
-                entry.name,
-                variant_runtime,
-            )
-            continue
-
-        model_path = resolve_variant_artifact(entry, variant_runtime)
-        if model_path is None:
-            log.info(
-                "Skipping %s model %s — no %s artifact found under exports/",
-                kind,
-                entry.name,
-                variant_runtime,
-            )
-            continue
-
-        supported = _map_hive_scopes(meta.get("scopes"))
-        if not supported:
-            # When the catalog entry has no scope metadata we can't tell what
-            # this model is good for — but the operator just downloaded it
-            # deliberately, so refuse-everywhere is worse UX than allow-
-            # everywhere. They get to decide; if it's a bad fit they'll see
-            # it on the live feed and switch back.
-            supported = frozenset({"classification", "feeder", "carousel"})
-
-        defaults = supported & default_for_scopes if default_for_scopes else frozenset()
-
-        slug = str(meta.get("name") or hive_info.get("model_id") or entry.name)
-        algorithm_id = f"{id_prefix}{entry.name}"
-        label_prefix = "Bundled" if kind == "bundled" else "Hive"
-        label = f"{label_prefix} · {slug}"
-        family_label = model_family.upper()
-        description = (
-            f"Bundled {family_label} model shipped with the sorter."
-            if kind == "bundled"
-            else f"Downloaded {family_label} model from Hive. Runtime variant: {variant_runtime}."
-        )
-        imgsz = imgsz_from_run_metadata(meta)
-
-        entries.append(
-            DetectionAlgorithmDefinition(
-                id=algorithm_id,
-                label=label,
-                description=description,
-                supported_scopes=supported,
-                required_inputs=frozenset({"frame"}),
-                default_for_scopes=defaults,
-                needs_baseline=False,
-                kind=kind,
-                model_path=model_path,
-                model_family=model_family,
-                imgsz=imgsz,
-                runtime=variant_runtime,
-                hive_metadata=hive_info,
-            )
-        )
+        definition = _model_definition(entry, meta)
+        if definition is not None:
+            entries.append(definition)
     return tuple(entries)
 
 
-def _hive_algorithms() -> tuple[DetectionAlgorithmDefinition, ...]:
-    global _cached_hive_algorithms
+def _model_algorithms() -> tuple[DetectionAlgorithmDefinition, ...]:
+    global _cached_model_algorithms
     with _cache_lock:
-        if _cached_hive_algorithms is None:
-            _cached_hive_algorithms = _discover_model_algorithms(
-                HIVE_MODELS_DIR, id_prefix=HIVE_ID_PREFIX, kind="hive"
-            )
-        return _cached_hive_algorithms
-
-
-def _bundled_algorithms() -> tuple[DetectionAlgorithmDefinition, ...]:
-    global _cached_bundled_algorithms
-    with _cache_lock:
-        if _cached_bundled_algorithms is None:
-            _cached_bundled_algorithms = _discover_model_algorithms(
-                BUNDLED_MODELS_DIR,
-                id_prefix=BUNDLED_ID_PREFIX,
-                kind="bundled",
-                default_for_scopes=frozenset({"classification", "feeder", "carousel"}),
-            )
-        return _cached_bundled_algorithms
+        if _cached_model_algorithms is None:
+            _cached_model_algorithms = _discover_model_algorithms()
+        return _cached_model_algorithms
 
 
 def _all_algorithms() -> tuple[DetectionAlgorithmDefinition, ...]:
-    # Bundled before built-ins so a bundled default beats the legacy built-in default.
-    return _bundled_algorithms() + _hive_algorithms() + _BUILTIN_ALGORITHMS
+    # Installed models are never a default: the built-ins are the fallback
+    # until a model is assigned (server.default_model assigns Hive's default).
+    return _model_algorithms() + _BUILTIN_ALGORITHMS
 
 
 # ---------------------------------------------------------------------------

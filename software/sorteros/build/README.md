@@ -25,9 +25,10 @@ cd software/sorteros/build
 sudo python3 build.py                      # release image: first boot checks out stable
 sudo python3 build.py --ref my-branch      # test image: first boot checks out my-branch
 sudo python3 build.py --phase overlay      # re-run one phase
+sudo python3 build.py --phase zip          # compress for a release
 ```
 
-Output: `out/sorteros-v<version>-<date>.img`, and `--phase zip` compresses it
+Output: `out/sorteros-v<version>-<date>.img`; `--phase zip` compresses it
 for a GitHub release.
 
 | phase | what it does |

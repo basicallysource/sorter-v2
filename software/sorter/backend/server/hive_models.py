@@ -2,7 +2,8 @@
 
 Exposes a tiny service layer around the ``HiveClient`` shipped in
 ``software/hive/sorter-client`` so the sorter UI can browse the Hive catalog,
-trigger downloads, and manage installed (downloaded) models locally.
+trigger downloads, and manage installed models locally: Hive downloads, and
+local models someone put in ``LOCAL_MODELS_DIR`` by hand.
 
 Downloads are handled by a single daemon worker thread reading from a
 ``queue.Queue``; progress is reported through an in-memory status dict keyed by
@@ -52,19 +53,15 @@ log = logging.getLogger(__name__)
 # Module-level configuration
 # ---------------------------------------------------------------------------
 
+# The one place installed models live, one directory each: Hive downloads
+# (``hive-<model_id>-<runtime>``) and local models put here by hand.
 LOCAL_MODELS_DIR: Path = (
     Path(__file__).resolve().parent.parent / "blob" / "hive_detection_models"
 )
 
-# Models that ship with the repo (committed via git LFS) live here. They look
-# the same as downloaded models but cannot be removed via the API.
-BUNDLED_MODELS_DIR: Path = (
-    Path(__file__).resolve().parent.parent / "bundled_models"
-)
-
 # Key embedded in a synthesized ``run.json`` to mark a directory as
-# originating from Hive. Presence of this key means the model was downloaded
-# via this module and can be safely listed/removed.
+# originating from Hive. A directory without it is a local model when its
+# run.json says enough to load it (``vision.detection_registry.local_model_artifact``).
 HIVE_SENTINEL_KEY = "hive"
 
 # Variant runtimes the sorter can actually load via the detection registry.
@@ -197,40 +194,36 @@ def _reset_hailo_cache_for_tests() -> None:
     _HAS_HAILO_CACHE = None
 
 
+def compatible_runtimes_for_this_machine() -> list[str]:
+    """Deployable runtimes this machine can run, best first.
+
+    ``hailo`` when a Hailo device is present, ``rknn`` when the RK3588 NPU is,
+    then ``ncnn`` before ``onnx`` on ARM and ``onnx`` before ``ncnn`` elsewhere.
+    """
+    runtimes: list[str] = []
+    if _has_hailo():
+        runtimes.append("hailo")
+    if _has_rknn_npu():
+        runtimes.append("rknn")
+    on_arm = platform.machine().lower() in {"aarch64", "armv7l", "arm64"}
+    runtimes.extend(("ncnn", "onnx") if on_arm else ("onnx", "ncnn"))
+    return runtimes
+
+
 def pick_runtime_for_this_machine(variant_runtimes: list[str]) -> str | None:
     """Pick the best runtime available for the local hardware.
 
-    Priority:
-      1. ``hailo`` when a Hailo device is present and offered
-      2. ``ncnn`` on ARM (aarch64/armv7l) when offered
-      3. ``onnx`` otherwise when offered
-      4. ``pytorch`` only as a last-resort fallback
+    The first of ``compatible_runtimes_for_this_machine()`` that is offered;
+    otherwise ``hailo``, then ``pytorch``, then whatever was offered first.
 
     Returns ``None`` when ``variant_runtimes`` is empty.
     """
     if not variant_runtimes:
         return None
     runtimes = set(variant_runtimes)
-
-    if "hailo" in runtimes and _has_hailo():
-        return "hailo"
-
-    if "rknn" in runtimes and _has_rknn_npu():
-        return "rknn"
-
-    machine = platform.machine().lower()
-    on_arm = machine in {"aarch64", "armv7l", "arm64"}
-    if on_arm and "ncnn" in runtimes:
-        return "ncnn"
-
-    if "onnx" in runtimes:
-        return "onnx"
-
-    # Fallback order when none of the preferred runtimes are present.
-    for candidate in ("ncnn", "hailo", "pytorch"):
+    for candidate in (*compatible_runtimes_for_this_machine(), "hailo", "pytorch"):
         if candidate in runtimes:
             return candidate
-
     # variant_runtimes had at least one entry but none matched known runtimes.
     return variant_runtimes[0]
 
@@ -250,12 +243,116 @@ def _read_run_json(path: Path) -> dict | None:
     return raw
 
 
-def _scan_models_dir(root: Path, *, bundled: bool) -> list[dict]:
+def _dir_size(path: Path) -> int:
+    size_bytes = 0
+    for child in path.rglob("*"):
+        if child.is_file():
+            try:
+                size_bytes += child.stat().st_size
+            except OSError:
+                pass
+    return size_bytes
+
+
+def _local_model_entry(child: Path, payload: dict) -> dict | None:
+    from vision.detection_registry import LOCAL_ID_PREFIX, local_model_artifact
+
+    found = local_model_artifact(child, payload)
+    if found is None:
+        return None
+    runtime, _artifact = found
+    trained_at = payload.get("trained_at") or payload.get("created_at")
+    return {
+        "local_id": child.name,
+        "algorithm_id": f"{LOCAL_ID_PREFIX}{child.name}",
+        "source": "local",
+        "target_id": None,
+        "model_id": None,
+        "codename": None,
+        "codename_color": None,
+        "variant_runtime": runtime,
+        "purpose": DEFAULT_PURPOSE,
+        "inert": False,
+        "sha256": None,
+        "downloaded_at": None,
+        "source_url": None,
+        "installed_as_default": False,
+        "trained_at": trained_at if isinstance(trained_at, str) else None,
+        "name": payload.get("name") or child.name,
+        "model_family": payload.get("model_family"),
+        "size_bytes": _dir_size(child),
+        "path": str(child),
+        "compatible": True,
+    }
+
+
+def _hive_model_entry(child: Path, payload: dict, hive_meta: dict) -> dict:
+    from vision.detection_registry import HIVE_ID_PREFIX
+
+    # Surface ``trained_at`` (preferred), falling back to ``created_at`` or
+    # ``hive.published_at`` so the UI can show how fresh the model itself
+    # is — distinct from when the operator pulled it.
+    trained_at = (
+        payload.get("trained_at")
+        or payload.get("created_at")
+        or hive_meta.get("published_at")
+    )
+
+    variant_runtime = hive_meta.get("variant_runtime")
+    raw_purpose = hive_meta.get("purpose")
+    purpose = raw_purpose if isinstance(raw_purpose, str) and raw_purpose else DEFAULT_PURPOSE
+    compatible = (
+        isinstance(variant_runtime, str)
+        and variant_runtime.lower() in DEPLOYABLE_RUNTIMES
+        # An inert-purpose model is installed correctly but has no consumer
+        # on the machine yet, so it can't be activated against a scope.
+        and purpose not in INERT_PURPOSES
+    )
+
+    return {
+        "local_id": child.name,
+        "algorithm_id": f"{HIVE_ID_PREFIX}{child.name}",
+        "source": "hive",
+        "target_id": hive_meta.get("target_id"),
+        "model_id": hive_meta.get("model_id"),
+        # Hive's human-friendly handle ("Ember") and its swatch color,
+        # captured at download time so the installed list can identify a
+        # model the same way Hive does without going back to the network.
+        # Absent for installs that predate this field — see
+        # ``_backfill_codenames``.
+        "codename": hive_meta.get("codename"),
+        "codename_color": hive_meta.get("codename_color"),
+        "variant_runtime": variant_runtime,
+        "purpose": purpose,
+        "inert": purpose in INERT_PURPOSES,
+        "sha256": hive_meta.get("sha256"),
+        "downloaded_at": hive_meta.get("downloaded_at"),
+        # The Hive it was downloaded from. Recorded since the default-model
+        # install, which has no configured target to name the Hive by.
+        "source_url": hive_meta.get("source_url"),
+        # Installed by server.default_model as Hive's default for this machine.
+        "installed_as_default": bool(hive_meta.get("installed_as_default")),
+        "trained_at": trained_at if isinstance(trained_at, str) else None,
+        "name": payload.get("name"),
+        "model_family": payload.get("model_family"),
+        "size_bytes": _dir_size(child),
+        "path": str(child),
+        "compatible": compatible,
+    }
+
+
+def list_installed_models() -> list[dict]:
+    """Every model installed in ``LOCAL_MODELS_DIR``.
+
+    Hive downloads carry ``source: "hive"`` and algorithm id ``hive:<local_id>``;
+    models put there by hand carry ``source: "local"`` and ``local:<local_id>``.
+    Both are removable.
+    """
     results: list[dict] = []
-    if not root.exists():
+    if not LOCAL_MODELS_DIR.exists():
         return results
 
-    for child in sorted(root.iterdir()):
+    for child in sorted(LOCAL_MODELS_DIR.iterdir()):
         if not child.is_dir():
             continue
         run_json = child / "run.json"
@@ -265,86 +362,31 @@ def _scan_models_dir(root: Path, *, bundled: bool) -> list[dict]:
         if payload is None:
             continue
         hive_meta = payload.get(HIVE_SENTINEL_KEY)
-        if not isinstance(hive_meta, dict):
+        if isinstance(hive_meta, dict):
+            results.append(_hive_model_entry(child, payload, hive_meta))
             continue
-
-        size_bytes = 0
-        for path in child.rglob("*"):
-            if path.is_file():
-                try:
-                    size_bytes += path.stat().st_size
-                except OSError:
-                    pass
-
-        # Surface ``trained_at`` (preferred), falling back to ``created_at`` or
-        # ``hive.published_at`` so the UI can show how fresh the model itself
-        # is — distinct from when the operator pulled it.
-        trained_at = (
-            payload.get("trained_at")
-            or payload.get("created_at")
-            or hive_meta.get("published_at")
-        )
-
-        variant_runtime = hive_meta.get("variant_runtime")
-        raw_purpose = hive_meta.get("purpose")
-        purpose = raw_purpose if isinstance(raw_purpose, str) and raw_purpose else DEFAULT_PURPOSE
-        compatible = (
-            isinstance(variant_runtime, str)
-            and variant_runtime.lower() in DEPLOYABLE_RUNTIMES
-            # An inert-purpose model is installed correctly but has no consumer
-            # on the machine yet, so it can't be activated against a scope.
-            and purpose not in INERT_PURPOSES
-        )
-
-        results.append(
-            {
-                "local_id": child.name,
-                "target_id": hive_meta.get("target_id"),
-                "model_id": hive_meta.get("model_id"),
-                # Hive's human-friendly handle ("Ember") and its swatch color,
-                # captured at download time so the installed list can identify a
-                # model the same way Hive does without going back to the network.
-                # Absent for repo-bundled models and for installs that predate
-                # this field — see ``_backfill_codenames``.
-                "codename": hive_meta.get("codename"),
-                "codename_color": hive_meta.get("codename_color"),
-                "variant_runtime": variant_runtime,
-                "purpose": purpose,
-                "inert": purpose in INERT_PURPOSES,
-                "sha256": hive_meta.get("sha256"),
-                "downloaded_at": hive_meta.get("downloaded_at"),
-                "trained_at": trained_at if isinstance(trained_at, str) else None,
-                "name": payload.get("name"),
-                "model_family": payload.get("model_family"),
-                "size_bytes": size_bytes,
-                "path": str(child),
-                "bundled": bundled,
-                "compatible": compatible,
-            }
-        )
+        local_entry = _local_model_entry(child, payload)
+        if local_entry is not None:
+            results.append(local_entry)
     return results
 
 
-def list_installed_models() -> list[dict]:
-    """All locally-available Hive-format models — both downloaded and bundled.
-
-    Bundled entries (shipped with the repo via git LFS) carry ``bundled: True``
-    so the UI can show a badge and disable Remove. Downloaded entries from
-    ``LOCAL_MODELS_DIR`` carry ``bundled: False``.
-    """
-    return _scan_models_dir(BUNDLED_MODELS_DIR, bundled=True) + _scan_models_dir(
-        LOCAL_MODELS_DIR, bundled=False
-    )
+def _same_hive(a: Any, b: Any) -> bool:
+    return isinstance(a, str) and isinstance(b, str) and bool(a) and a.rstrip("/") == b.rstrip("/")
 
 
-def _installed_index() -> set[tuple[str, str]]:
-    index: set[tuple[str, str]] = set()
-    for installed in list_installed_models():
-        target_id = installed.get("target_id")
-        model_id = installed.get("model_id")
-        if isinstance(target_id, str) and isinstance(model_id, str):
-            index.add((target_id, model_id))
-    return index
+def _installed_model_ids(target: dict, entries: list[dict]) -> set[str]:
+    """Model ids from ``target`` that are installed: downloaded through that
+    target, or from the same Hive without one (the default-model install)."""
+    return {
+        entry["model_id"]
+        for entry in entries
+        if isinstance(entry.get("model_id"), str)
+        and (
+            entry.get("target_id") == target.get("id")
+            or _same_hive(entry.get("source_url"), target.get("url"))
+        )
+    }
 
 
 def _backfill_codenames(target_id: str, items: list[dict], entries: list[dict]) -> None:
@@ -362,7 +404,6 @@ def _backfill_codenames(target_id: str, items: list[dict], entries: list[dict]) 
         entry
         for entry in entries
         if not entry.get("codename")
-        and not entry.get("bundled")
         and entry.get("target_id") == target_id
     ]
     if not stale:
@@ -400,19 +441,12 @@ def list_remote_models(target_id: str, **filters: Any) -> dict:
     # walking the model dirs means stat'ing every weight file, so don't do it
     # twice per browse.
     entries = list_installed_models()
-    installed = {
-        (entry["target_id"], entry["model_id"])
-        for entry in entries
-        if isinstance(entry.get("target_id"), str) and isinstance(entry.get("model_id"), str)
-    }
+    installed = _installed_model_ids(target, entries)
     items = page.get("items") if isinstance(page, dict) else None
     if isinstance(items, list):
         dicts = [item for item in items if isinstance(item, dict)]
         for item in dicts:
-            model_id = item.get("id")
-            item["installed"] = (
-                isinstance(model_id, str) and (target_id, model_id) in installed
-            )
+            item["installed"] = item.get("id") in installed
             item["target_id"] = target_id
             item["target_url"] = target.get("url")
             item["target_name"] = target.get("name")
@@ -468,10 +502,10 @@ def list_remote_models_all(**filters: Any) -> dict:
 
 def get_remote_model(target_id: str, model_id: str) -> dict:
     """Fetch a single model's detail and tag whether it's already installed."""
-    client, _target = _get_client_for_target(target_id)
+    client, target = _get_client_for_target(target_id)
     detail = client.get_model(model_id)
     if isinstance(detail, dict):
-        detail["installed"] = (target_id, model_id) in _installed_index()
+        detail["installed"] = model_id in _installed_model_ids(target, list_installed_models())
     return detail
 
 
@@ -480,15 +514,12 @@ def remove_installed_model(local_id: str) -> None:
 
     ``local_id`` must be a single path component (no traversal). Raises
     ``ValueError`` on invalid ids and ``FileNotFoundError`` when the directory
-    does not exist. Bundled (repo-shipped) models cannot be removed.
+    does not exist. Hive downloads and local models are removed the same way.
     """
     if not isinstance(local_id, str) or not local_id:
         raise ValueError("local_id must be a non-empty string")
     if Path(local_id).name != local_id or local_id in (".", ".."):
         raise ValueError("local_id must be a single path component")
-
-    if (BUNDLED_MODELS_DIR / local_id).exists():
-        raise ValueError("bundled models cannot be removed")
 
     target = LOCAL_MODELS_DIR / local_id
     if not target.exists() or not target.is_dir():
@@ -556,6 +587,8 @@ class DownloadJobManager:
     def __init__(self) -> None:
         self._queue: queue.Queue[str | None] = queue.Queue()
         self._lock = threading.Lock()
+        # Notified on every job update, so a waiter sleeps until one happens.
+        self._changed = threading.Condition(self._lock)
         self._jobs: dict[str, dict[str, Any]] = {}
         self._worker = threading.Thread(
             target=self._worker_loop, daemon=True, name="hive-model-downloader"
@@ -673,9 +706,45 @@ class DownloadJobManager:
             ]
         return [self.enqueue(target_id, model_id, runtime) for runtime in deployable]
 
+    def enqueue_default(self, purpose: str, runtime: str, item: dict, base_url: str) -> str:
+        """Queue the download of Hive's default ``purpose`` model for ``runtime``.
+
+        ``item`` is Hive's answer to ``GET /api/model-defaults/{purpose}/{runtime}``
+        (its ``model`` and ``variant``); ``base_url`` is that Hive. The file
+        lands in the same ``hive-<model_id>-<runtime>`` directory a manual
+        download would, and shows in the same downloads list.
+        """
+        model = item.get("model") if isinstance(item.get("model"), dict) else {}
+        variant = item.get("variant") if isinstance(item.get("variant"), dict) else {}
+        model_id = model.get("id")
+        if not isinstance(model_id, str) or not model_id:
+            return self._record_failure(None, "", runtime, "Hive's default names no model id")
+        job_id = uuid.uuid4().hex
+        now = _now_iso()
+        with self._lock:
+            self._jobs[job_id] = {
+                "job_id": job_id,
+                "status": "queued",
+                "target_id": None,
+                "model_id": model_id,
+                "variant_runtime": runtime,
+                "variant_id": variant.get("id"),
+                "file_name": variant.get("file_name") or f"{model_id}-{runtime}.bin",
+                "total_bytes": int(variant.get("file_size") or 0),
+                "progress_bytes": 0,
+                "error": None,
+                "created_at": now,
+                "updated_at": now,
+                "model_detail": {**model, "purpose": model.get("purpose") or purpose},
+                "variant": {**variant, "runtime": runtime},
+                "default_source": {"purpose": purpose, "runtime": runtime, "url": base_url},
+            }
+        self._queue.put(job_id)
+        return job_id
+
     def _record_failure(
         self,
-        target_id: str,
+        target_id: str | None,
         model_id: str,
         variant_runtime: str | None,
         error: str,
@@ -706,20 +775,23 @@ class DownloadJobManager:
         for job in jobs:
             job.pop("model_detail", None)
             job.pop("variant", None)
+            job.pop("default_source", None)
         jobs.sort(key=lambda j: j.get("created_at") or "", reverse=True)
         return jobs
 
     def wait_for_terminal(self, job_id: str, timeout: float = 5.0) -> dict:
-        """Test helper: block until ``job_id`` reaches ``done``/``failed``."""
-        deadline = time.time() + timeout
-        while time.time() < deadline:
-            with self._lock:
+        """Block until ``job_id`` reaches ``done``/``failed`` or ``timeout``
+        passes; returns the job as it stands then."""
+        deadline = time.monotonic() + timeout
+        with self._changed:
+            while True:
                 job = self._jobs.get(job_id)
                 if job is not None and job.get("status") in {"done", "failed"}:
                     return dict(job)
-            time.sleep(0.02)
-        with self._lock:
-            return dict(self._jobs.get(job_id) or {})
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    return dict(job or {})
+                self._changed.wait(remaining)
 
     # -- internals ---------------------------------------------------------
 
@@ -730,6 +802,7 @@ class DownloadJobManager:
                 return
             job.update(fields)
             job["updated_at"] = _now_iso()
+            self._changed.notify_all()
 
     def _worker_loop(self) -> None:
         while True:
@@ -753,13 +826,20 @@ class DownloadJobManager:
         model_id = snapshot["model_id"]
         variant = snapshot.get("variant") or {}
         detail = snapshot.get("model_detail") or {}
+        default_source = snapshot.get("default_source")
         variant_id = variant.get("id")
         runtime = variant.get("runtime")
         file_name = snapshot.get("file_name") or "model.bin"
         expected_sha = variant.get("sha256") if isinstance(variant.get("sha256"), str) else None
 
         try:
-            client, _target = _get_client_for_target(target_id)
+            if default_source is not None:
+                # Hive's public default needs no account, so no target.
+                client = HiveClient(default_source["url"])
+                source_url = default_source["url"]
+            else:
+                client, target = _get_client_for_target(target_id)
+                source_url = target.get("url")
         except Exception as exc:
             self._update(job_id, status="failed", error=str(exc))
             return
@@ -784,13 +864,22 @@ class DownloadJobManager:
             self._update(job_id, **fields)
 
         try:
-            digest = client.download_model_variant(
-                model_id,
-                variant_id,
-                dest_path,
-                on_progress=_on_progress,
-                expected_sha256=expected_sha,
-            )
+            if default_source is not None:
+                digest = client.download_default_model(
+                    default_source["purpose"],
+                    default_source["runtime"],
+                    dest_path,
+                    on_progress=_on_progress,
+                    expected_sha256=expected_sha,
+                )
+            else:
+                digest = client.download_model_variant(
+                    model_id,
+                    variant_id,
+                    dest_path,
+                    on_progress=_on_progress,
+                    expected_sha256=expected_sha,
+                )
         except Exception as exc:
             self._update(job_id, status="failed", error=str(exc))
             return
@@ -820,21 +909,25 @@ class DownloadJobManager:
                 detail=detail,
                 variant=variant,
                 purpose=detail.get("purpose") if isinstance(detail, dict) else None,
+                source_url=source_url,
+                installed_as_default=default_source is not None,
             )
         except Exception as exc:
             self._update(job_id, status="failed", error=f"run.json write failed: {exc}")
             return
 
-        self._update(
-            job_id,
-            status="done",
-            progress_bytes=int(dest_path.stat().st_size) if dest_path.exists() else snapshot.get("progress_bytes", 0),
-        )
+        # Rescan before reporting done, so whoever waits on the job can
+        # resolve the new model's algorithm id straight away.
         try:
             from vision.detection_registry import invalidate_registry
             invalidate_registry()
         except Exception:
             log.debug("registry invalidation after download failed", exc_info=True)
+        self._update(
+            job_id,
+            status="done",
+            progress_bytes=int(dest_path.stat().st_size) if dest_path.exists() else snapshot.get("progress_bytes", 0),
+        )
 
     @staticmethod
     def _looks_like_tarball(path: Path) -> bool:
@@ -866,13 +959,15 @@ class DownloadJobManager:
     def _write_run_json(
         *,
         dest_dir: Path,
-        target_id: str,
+        target_id: str | None,
         model_id: str,
         variant_runtime: str | None,
         sha256: str,
         detail: dict,
         variant: dict | None = None,
         purpose: str | None = None,
+        source_url: str | None = None,
+        installed_as_default: bool = False,
     ) -> None:
         run_path = dest_dir / "run.json"
         # Merge with existing run.json if one was included inside a tarball.
@@ -915,6 +1010,8 @@ class DownloadJobManager:
             "purpose": purpose or DEFAULT_PURPOSE,
             "sha256": sha256,
             "downloaded_at": _now_iso(),
+            "source_url": source_url,
+            "installed_as_default": installed_as_default,
             # Carried over so the installed list can show the same identity Hive
             # does (codename + color swatch) with no network round-trip.
             "codename": codename if isinstance(codename, str) and codename else None,
@@ -954,11 +1051,11 @@ def _reset_job_manager_for_tests() -> None:
 
 
 __all__ = [
-    "BUNDLED_MODELS_DIR",
     "DEPLOYABLE_RUNTIMES",
     "HIVE_SENTINEL_KEY",
     "LOCAL_MODELS_DIR",
     "DownloadJobManager",
+    "compatible_runtimes_for_this_machine",
     "HiveError",
     "get_job_manager",
     "get_remote_model",

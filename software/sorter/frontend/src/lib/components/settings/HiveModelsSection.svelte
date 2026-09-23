@@ -52,9 +52,13 @@
 	};
 	type Installed = {
 		local_id: string;
+		// `hive:<local_id>` for a Hive download, `local:<local_id>` for a model
+		// someone put in the models directory by hand.
+		algorithm_id: string;
+		source: 'hive' | 'local';
 		target_id: string | null;
-		model_id: string;
-		// Recorded in run.json at download time; absent for bundled models and
+		model_id: string | null;
+		// Recorded in run.json at download time; absent for local models and
 		// for installs that predate the field.
 		codename?: string | null;
 		codename_color?: string | null;
@@ -67,9 +71,11 @@
 		model_family: string;
 		size_bytes: number;
 		downloaded_at: string | null;
+		// The Hive a download came from. Shown when no configured target names
+		// it, e.g. for the default model a new machine installs on its own.
+		source_url?: string | null;
 		trained_at: string | null;
 		path: string;
-		bundled?: boolean;
 		compatible?: boolean;
 		registry_scopes?: string[];
 	};
@@ -123,7 +129,7 @@
 
 	// Hive identifies a model by its codename ("Ember") and a color swatch, with
 	// the long descriptive name as the subtitle. Mirror that here so a model
-	// reads the same on both sites. Anything without a codename — bundled
+	// reads the same on both sites. Anything without a codename — local
 	// models, pre-codename publishes — keeps the descriptive name as its title.
 	function titleOf(item: { codename?: string | null; name: string }): string {
 		return item.codename || item.name;
@@ -353,10 +359,6 @@
 		}
 	}
 
-	function entryAlgorithmId(entry: Installed): string {
-		return `${entry.bundled ? 'bundled:' : 'hive:'}${entry.local_id}`;
-	}
-
 	async function readApiError(res: Response, fallback: string): Promise<string> {
 		const text = await res.text().catch(() => '');
 		if (!text) return fallback;
@@ -371,7 +373,7 @@
 	}
 
 	function activeLabelsFor(entry: Installed): string[] {
-		const id = entryAlgorithmId(entry);
+		const id = entry.algorithm_id;
 		return activeAssignments
 			.filter((assignment) => assignment.algorithm_id === id)
 			.map((assignment) => assignment.label);
@@ -482,7 +484,7 @@
 	// slot outside its training scope (we flag it in the hover list), so there's
 	// no "valid?" gate here.
 	async function handleActivateForSlot(entry: Installed, slot: ActiveAssignment) {
-		const id = entryAlgorithmId(entry);
+		const id = entry.algorithm_id;
 		actionError = null;
 		activatingAlgorithmId = id;
 		try {
@@ -503,12 +505,13 @@
 	}
 
 	async function handleCleanupUnused() {
-		// Sweep up: entries that aren't bundled, aren't currently active,
-		// and either are flagged as not-deployable on this sorter or just
-		// nobody uses them.
+		// Sweep up: Hive downloads that aren't currently active, and either are
+		// flagged as not-deployable on this sorter or just nobody uses them.
+		// Local models were put here by hand and can't be downloaded again, so
+		// only an explicit Remove deletes one.
 		const candidates = installed.filter(
 			(entry) =>
-				!entry.bundled &&
+				entry.source === 'hive' &&
 				// An inert model has no scope to be active against, so "no active
 				// assignment" doesn't mean unused — it means not wired up yet.
 				// Sweeping those would delete a model the operator just fetched.
@@ -977,7 +980,7 @@
 		{:else if tab === 'installed'}
 			{@const unusedCount = installed.filter(
 				(entry) =>
-					!entry.bundled &&
+					entry.source === 'hive' &&
 					(entry.compatible === false || activeLabelsFor(entry).length === 0)
 			).length}
 			<div class="flex flex-col gap-4">
@@ -1022,12 +1025,12 @@
 							{@const activeLabels = activeLabelsFor(entry)}
 							{@const isActive = activeLabels.length > 0}
 							{@const isExpanded = expandedDetailsId === entry.local_id}
-							{@const algorithmId = entryAlgorithmId(entry)}
+							{@const algorithmId = entry.algorithm_id}
 							{@const ageIso = entry.trained_at ?? entry.downloaded_at}
 							{@const ageRelative = formatRelativeAge(ageIso)}
 							{@const isCompatible = entry.compatible !== false}
-							{@const hiveBase = targetUrl(entry.target_id)}
-							{@const detailHref = !entry.bundled && hiveBase ? `${hiveBase.replace(/\/+$/, '')}/models/${entry.model_id}` : null}
+							{@const hiveBase = targetUrl(entry.target_id) ?? entry.source_url ?? null}
+							{@const detailHref = entry.source === 'hive' && hiveBase ? `${hiveBase.replace(/\/+$/, '')}/models/${entry.model_id}` : null}
 							<li
 								class={`border ${idx > 0 ? '-mt-px' : ''} ${isActive ? 'border-success bg-success/[0.06]' : !isCompatible ? 'border-border bg-bg opacity-70' : 'border-border bg-surface'}`}
 							>
@@ -1056,10 +1059,12 @@
 													{titleOf(entry)}
 												</span>
 											{/if}
-											{#if entry.bundled}
-												<span class="inline-flex items-center bg-text-muted/20 px-2 py-0.5 text-xs font-semibold uppercase tracking-wider text-text">
-													Bundled
-												</span>
+											{#if entry.source === 'local'}
+												<Tooltip text="Put in this machine's models directory by hand, not downloaded from Hive">
+													<span class="inline-flex items-center bg-text-muted/20 px-2 py-0.5 text-xs font-semibold uppercase tracking-wider text-text">
+														Local
+													</span>
+												</Tooltip>
 											{/if}
 											{#if isInert(entry)}
 												<span class="inline-flex items-center bg-warning/20 px-2 py-0.5 text-xs font-semibold uppercase tracking-wider text-warning-dark dark:text-warning">
@@ -1097,13 +1102,10 @@
 													</span>
 												</Tooltip>
 											{/if}
-											{#if entry.bundled}
+											{#if entry.source === 'hive' && hostFromUrl(hiveBase)}
 												<span aria-hidden="true">·</span>
-												<span>bundled</span>
-											{:else if hostFromUrl(targetUrl(entry.target_id)) }
-												<span aria-hidden="true">·</span>
-												<span class="font-mono text-text-muted/80" title={`From Hive: ${targetUrl(entry.target_id)}`}>
-													{hostFromUrl(targetUrl(entry.target_id))}
+												<span class="font-mono text-text-muted/80" title={`From Hive: ${hiveBase}`}>
+													{hostFromUrl(hiveBase)}
 												</span>
 											{/if}
 										</div>
@@ -1184,18 +1186,16 @@
 												</div>
 											</div>
 										{/if}
-										{#if !entry.bundled}
-											<Tooltip text="Remove this downloaded model">
-												<Button
-													variant="ghost"
-													size="sm"
-													disabled={deletingLocalId === entry.local_id}
-													onclick={() => void handleDelete(entry)}
-												>
-													<Trash2 size={14} class="text-danger" />
-												</Button>
-											</Tooltip>
-										{/if}
+										<Tooltip text="Remove this model from the sorter">
+											<Button
+												variant="ghost"
+												size="sm"
+												disabled={deletingLocalId === entry.local_id}
+												onclick={() => void handleDelete(entry)}
+											>
+												<Trash2 size={14} class="text-danger" />
+											</Button>
+										</Tooltip>
 										<button
 											type="button"
 											aria-expanded={isExpanded}
@@ -1234,18 +1234,17 @@
 											</dd>
 											<dt class="text-text-muted">Size</dt>
 											<dd class="text-text">{formatSize(entry.size_bytes)}</dd>
-											<dt class="text-text-muted">
-												{entry.bundled ? 'Source' : 'Downloaded'}
-											</dt>
-											<dd class="text-text">
-												{entry.bundled
-													? 'Shipped with sorter'
-													: `${formatDate(entry.downloaded_at)} (${formatRelativeAge(entry.downloaded_at) ?? '—'})`}
-											</dd>
-											{#if !entry.bundled}
+											{#if entry.source === 'local'}
+												<dt class="text-text-muted">Source</dt>
+												<dd class="text-text">Put on this machine by hand</dd>
+											{:else}
+												<dt class="text-text-muted">Downloaded</dt>
+												<dd class="text-text">
+													{`${formatDate(entry.downloaded_at)} (${formatRelativeAge(entry.downloaded_at) ?? '—'})`}
+												</dd>
 												<dt class="text-text-muted">Hive</dt>
 												<dd class="break-all font-mono text-text">
-													{targetUrl(entry.target_id) ?? targetName(entry.target_id ?? '')}
+													{hiveBase ?? targetName(entry.target_id ?? '')}
 												</dd>
 											{/if}
 											<dt class="text-text-muted">Algorithm ID</dt>

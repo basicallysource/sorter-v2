@@ -11,11 +11,10 @@ The RKNN graph for our INT8 YOLO export expects **HWC uint8** inputs in
 at convert time). Do NOT pre-normalize to float32 — passing the same blob
 ONNX uses produces silent garbage outputs.
 
-The current bundled artifact (`_MEDIOCRE_CONVERSION`) carries a broken
-sigmoid: confidences come out roughly logit-shaped and can exceed 1. We
-ship raw pass-through here per agent-notes decision — operators can drop
-the conf threshold close to 0 to surface boxes, and use this purely for
-pipeline validation, not production accuracy.
+A conversion flagged `_MEDIOCRE_CONVERSION` in its Hive variant label carries
+a broken sigmoid: confidences come out roughly logit-shaped and can exceed 1.
+Outputs pass through raw here, so with such a model drop the conf threshold
+close to 0 to surface boxes, and use it for pipeline validation only.
 """
 
 from __future__ import annotations

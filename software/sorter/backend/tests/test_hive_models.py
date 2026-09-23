@@ -79,6 +79,25 @@ class TestPickRuntime:
             hive_models.pick_runtime_for_this_machine(["hailo", "onnx"]) == "onnx"
         )
 
+    def test_rknn_on_an_rk3588(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr(hive_models, "_has_hailo", lambda: False)
+        monkeypatch.setattr(hive_models, "_has_rknn_npu", lambda: True)
+        monkeypatch.setattr(hive_models.platform, "machine", lambda: "aarch64")
+        assert hive_models.compatible_runtimes_for_this_machine() == ["rknn", "ncnn", "onnx"]
+        assert (
+            hive_models.pick_runtime_for_this_machine(["onnx", "ncnn", "rknn"]) == "rknn"
+        )
+
+    def test_compatible_runtimes_without_accelerators(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(hive_models, "_has_hailo", lambda: False)
+        monkeypatch.setattr(hive_models, "_has_rknn_npu", lambda: False)
+        monkeypatch.setattr(hive_models.platform, "machine", lambda: "x86_64")
+        assert hive_models.compatible_runtimes_for_this_machine() == ["onnx", "ncnn"]
+        monkeypatch.setattr(hive_models.platform, "machine", lambda: "aarch64")
+        assert hive_models.compatible_runtimes_for_this_machine() == ["ncnn", "onnx"]
+
 
 # ---------------------------------------------------------------------------
 # DownloadJobManager
@@ -507,6 +526,65 @@ class TestRemoveInstalledModel:
 
 
 # ---------------------------------------------------------------------------
+# Local models — put in the models dir by hand, no hive block
+# ---------------------------------------------------------------------------
+
+
+class TestLocalModels:
+    def test_listing_tells_hive_downloads_and_local_models_apart(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from vision import detection_registry
+
+        monkeypatch.setattr(hive_models, "LOCAL_MODELS_DIR", tmp_path)
+        monkeypatch.setattr(detection_registry, "MODELS_DIR", tmp_path)
+        detection_registry.invalidate_registry()
+        _write_legacy_install(tmp_path)
+
+        local = tmp_path / "my-model"
+        (local / "exports").mkdir(parents=True)
+        (local / "exports" / "best.onnx").write_bytes(b"onnx")
+        (local / "run.json").write_text(json.dumps({"name": "My model", "model_family": "yolo"}))
+
+        junk = tmp_path / "not-a-model"
+        (junk / "exports").mkdir(parents=True)
+        (junk / "run.json").write_text(json.dumps({"notes": "no family, no artifact"}))
+
+        by_id = {entry["local_id"]: entry for entry in hive_models.list_installed_models()}
+        assert set(by_id) == {"hive-model-1-onnx", "my-model"}
+
+        hive_entry = by_id["hive-model-1-onnx"]
+        assert hive_entry["source"] == "hive"
+        assert hive_entry["algorithm_id"] == "hive:hive-model-1-onnx"
+        assert hive_entry["target_id"] == "hive-a"
+
+        local_entry = by_id["my-model"]
+        assert local_entry["source"] == "local"
+        assert local_entry["algorithm_id"] == "local:my-model"
+        assert local_entry["name"] == "My model"
+        assert local_entry["variant_runtime"] == "onnx"
+        assert local_entry["compatible"] is True
+        assert local_entry["target_id"] is None
+
+        # The registry agrees on the id.
+        assert detection_registry.detection_algorithm_definition("local:my-model") is not None
+
+    def test_local_model_is_removable(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(hive_models, "LOCAL_MODELS_DIR", tmp_path)
+        local = tmp_path / "my-model"
+        (local / "exports").mkdir(parents=True)
+        (local / "exports" / "best.onnx").write_bytes(b"onnx")
+        (local / "run.json").write_text(json.dumps({"model_family": "yolo"}))
+
+        hive_models.remove_installed_model("my-model")
+
+        assert not local.exists()
+        assert hive_models.list_installed_models() == []
+
+
+# ---------------------------------------------------------------------------
 # Codenames — Hive's human-readable identity carried onto the machine
 # ---------------------------------------------------------------------------
 
@@ -588,6 +666,35 @@ class TestCodenames:
         assert sentinel["codename"] == "Ember"
         assert sentinel["codename_color"] == "#E25822"
         assert hive_models.list_installed_models()[0]["codename"] == "Ember"
+
+
+def test_a_default_install_counts_as_installed_on_its_hive(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The default-model install has no target; browsing the same Hive through
+    a target still shows the model as installed."""
+    monkeypatch.setattr(hive_models, "LOCAL_MODELS_DIR", tmp_path)
+    _configure_target(monkeypatch)
+    run_path = _write_legacy_install(tmp_path)
+    payload = json.loads(run_path.read_text())
+    payload[hive_models.HIVE_SENTINEL_KEY].update(
+        {"target_id": None, "source_url": "https://hive.example/", "installed_as_default": True}
+    )
+    run_path.write_text(json.dumps(payload))
+
+    stub = _StubClient(detail=_make_detail())
+    stub.list_models = lambda **_: {  # type: ignore[method-assign]
+        "items": [{"id": "model-1"}, {"id": "model-2"}],
+        "total": 2,
+        "page": 1,
+        "page_size": 30,
+        "pages": 1,
+    }
+    _install_stub_client(monkeypatch, stub)
+
+    items = hive_models.list_remote_models("hive-a")["items"]
+    assert [item["installed"] for item in items] == [True, False]
+    assert hive_models.get_remote_model("hive-a", "model-1")["installed"] is True
 
 
 def _write_legacy_install(root: Path) -> Path:

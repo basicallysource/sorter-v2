@@ -8,7 +8,7 @@ kicker: Electronics — PSU box
 lede: The printed enclosure around the Mean Well LRS-350-24, its mains inlet, and the wiring inside it.
 permalink: /hardware/electronics/installation/psu-box/
 author: barthel
-contributors: [spencer]
+contributors: [spencer, brickcyclealice]
 og_image: https://assets.basically.website/sorter-parts/psu-24v-350w-full-72bba2c3919b.jpg
 last_verified: 2026-09-18
 tools_needed: ["Hex keys, 2 mm and 2.5 mm", "Screwdriver for the supply's M3.5 terminal screws"]
@@ -16,6 +16,8 @@ parts_needed:
   - part: psu-24v-350w
     qty: 1
   - part: psu-switch-fused
+    qty: 1
+  - part: mains-cord-c13
     qty: 1
   - part: scr-m3-8-cs
     qty: 2
@@ -62,7 +64,7 @@ The screw numbers are Mean Well's own, printed on the supply beside the block.
 
 <figure class="harness-figure">
   <img src="https://assets.basically.website/sorter-docs/psu-box-terminal-map-full-81629ce6a8e1.png" alt="Diagram of the Mean Well LRS-350-24 seen from above, its nine-way terminal block down the left edge numbered 1 at the bottom to 9 at the top, the numbers being Mean Well's own and printed on the supply. Red leads run from screws 9, 8 and 7 and black leads from 6, 5 and 4, pairing 9 with 6, 8 with 5 and 7 with 4 into three barrel jacks labelled PJ3 to the Orange Pi buck, PJ2 to the powered USB hub, and PJ1 to the basically board. Below them the IEC C14 inlet switch module is drawn upright with its illuminated rocker, fuse drawer and C14 socket, and its three factory leads run to screws 1, 2 and 3, labelled AC/L, AC/N and earth: red to screw 1 as the live, blue to screw 2 as the neutral, and yellow to screw 3 as the earth. A warning band says not to plug a cable into the IEC inlet until the assembly is complete, the wiring is verified and the cap is on.">
-  <figcaption>Every lead that lands on the block, and the screw it lands on. The mains leads at the bottom are step 2. <cite>Drawn from the Mean Well LRS-350 spec sheet, the inlet's catalog entry and the harness drawings.</cite></figcaption>
+  <figcaption>Every lead that lands on the block, and the screw it lands on. The mains leads at the bottom are step 2, and the red and blue drawn there are one module's: check which of yours is live rather than copying the colours. <cite>Drawn from the Mean Well LRS-350 spec sheet, the inlet's catalog entry and the harness drawings.</cite></figcaption>
 </figure>
 
 Tug-test each terminal once it is down.
@@ -76,6 +78,8 @@ Tug-test each terminal once it is down.
 
 The **IEC C14 inlet, switch + 10 A fuse** is the machine's mains entry and its on/off switch. Its three leads come already attached, so there is no AC cable to make.
 
+**The cable from the wall is an ordinary IEC C13 mains lead**, the cord a desktop PC or a monitor comes with, with the plug your country uses. It is in the parts above. Three core, because the machine earths through it and out to the supply's earth screw, and 10 A or better, which matches the module's own fuse and is far more than the machine draws. It is the one part of this build most people already own, so check a drawer before buying one.
+
 Push it into the rectangular cutout from the outside so its flange sits on the outer face of the plate. Fasten it with 2 {% include fastener.html size="M3" variant="countersunk" length="8" %} screws, one through each flange hole. The flange is countersunk for them, so the heads finish flush. They cut their own thread in the plate, so run them in until the flange is tight and stop.
 
 <figure class="harness-figure">
@@ -83,7 +87,19 @@ Push it into the rectangular cutout from the outside so its flange sits on the o
   <figcaption>The connections plate from outside, and the same plate with the inlet in it. The cap closes the top, so that edge is up. <cite>Plate drawn from its STL and the module from its published flange size, both at the same scale, not from a build.</cite></figcaption>
 </figure>
 
-Then land its three leads on screws 1, 2 and 3: **red on 1** (AC/L), **blue on 2** (AC/N), **yellow on 3** (earth). The drawing in step 1 has them too.
+Then land its three leads on screws 1, 2 and 3: **live on 1** (AC/L), **neutral on 2** (AC/N), **earth on 3**. The earth lead is the green-yellow one. They arrive with their terminals already crimped on, so this is three screws and nothing else.
+
+<div class="callout callout-warning">
+  <span class="callout-icon" aria-hidden="true">⚠</span>
+  <p><b>Find out which of the other two is live. Do not go by colour.</b> These modules are sold with red and blue leads and <b>both orders have been found in the post</b>, so the colour tells you nothing about which one the fuse and the switch are in. Land them the wrong way round and the machine is fused and switched in its neutral: the supply stays live with the rocker off.</p>
+</div>
+
+**The test**, with nothing plugged in: take the fuse out of its drawer, set the meter to continuity, and probe from each coloured lead to each of the two flat pins inside the C14. The pair that still beeps with the fuse out is **neutral**. The one that beeps only with the fuse back in and the rocker on is **live**, because the fuse and the switch sit in the live side. That lead goes on screw 1.
+
+<figure class="single-figure">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/psu-box-inlet-leads-tested-w1600-152d058c81fe.jpg" alt="The Mean Well LRS-350-24 on a bench with the fused IEC inlet module beside it, its three factory leads running to the bottom three screws of the terminal block: the blue lead on the screw marked L, the red lead on N and the yellow lead on the earth symbol">
+  <figcaption>One module wired after testing it: on this one the live lead turned out to be the <b>blue</b> one, so blue is on <code>L</code> and red on <code>N</code>. Another unit of the same part can be the other way round, which is the whole reason for the test. Shown with the module out of its plate, where the build fits it first. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+</figure>
 
 {% include step.html n="3" title="Fasten the plates to the supply" %}
 
@@ -114,5 +130,10 @@ Fit the cap. It takes no screws and nothing else holds it: it sits on top, resti
 The supply with both printed plates bolted to its back, the mains inlet in the connections plate, the three jacks beside it and every lead landed on the terminal block. Shown with the cap off, because with it on there is nothing to see.
 
 <div class="img-placeholder">Image coming: the supply on the bench, both plates on, the inlet and the three jacks in the connections plate, cap off</div>
+
+<div class="callout callout-warning">
+  <span class="callout-icon" aria-hidden="true">⚠</span>
+  <p><b>Once it is in service, pull the cord out of the wall before you open this box.</b> The rocker is not an isolator you can rely on: a plug that goes in either way round means the switch may be breaking the neutral rather than the live, so treat everything inside as live whenever the cord is in.</p>
+</div>
 
 **Bolting it to the frame is on the [installation overview]({{ '/hardware/electronics/installation/' | relative_url }})**. Everything that plugs into it is on the [wire harness]({{ '/hardware/electronics/wire-harness/' | relative_url }}) page.

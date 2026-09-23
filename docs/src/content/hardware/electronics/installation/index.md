@@ -33,7 +33,11 @@ The Pico is bought with its header pins already fitted, so there is nothing to p
 
 ## Bolting the enclosures to the frame
 
-Each of the three printed enclosures bolts to the 2020 frame with 2 M5 screws into 2 {% include fastener.html size="M5" variant="t-nut" text="T-nuts" %}, 6 of each in total. The holes in all three are clearance, so the screw passes through the plastic and pulls down onto the nut. PSU box: 2x {% include fastener.html size="M5" variant="socket-button" length="12" %}. Orange Pi mount: 2x {% include fastener.html size="M5" variant="socket-button" length="12" %}. Control board housing: 2x {% include fastener.html size="M5" variant="socket-button" length="16" %}, longer because its clamp boss is 10 mm deep against the other two at 8 mm.
+Each of the three printed enclosures bolts to the 2020 frame with 2 M5 screws into 2 {% include fastener.html size="M5" variant="t-nut" text="T-nuts" %}, 6 of each in total. The holes in all three are clearance, so the screw passes through the plastic and pulls down onto the nut.
+
+- **PSU box**: 2x {% include fastener.html size="M5" variant="socket-button" length="12" %}
+- **Orange Pi mount**: 2x {% include fastener.html size="M5" variant="socket-button" length="12" %}
+- **Control board housing**: 2x {% include fastener.html size="M5" variant="socket-button" length="16" %}, longer because its clamp boss is 10 mm deep against the other two at 8 mm
 
 The six T-nuts go into the hex frame while the top interface is built, at [step 13]({{ '/hardware/assembly/distribution/top-interface/' | relative_url }}#step-13) of that page.
 
@@ -55,6 +59,7 @@ All three go on the same plane: the [hex frame]({{ '/hardware/assembly/distribut
 Collected here rather than left on the individual pages, because these are the things that block finishing them.
 
 - **Cooling the Orange Pi.** The control board's fan is answered: it sits in the housing cover and runs off a GPIO-switched 24 V port on the board itself. The fan on the Pi's arm is a 24 V one too, and the Pi's heatsink fan runs off the Pi itself; where the arm fan's lead lands is still open (open item 1 on the [wire harness]({{ '/hardware/electronics/wire-harness/' | relative_url }}) page).
+- **Nothing says how the USB hub attaches.** The render above is the only record of where it goes, and it records placement, not a method. The hub has a slotted mounting flange at each end of its case, so it is meant to screw down, but no page says what it screws to or with what, and there is no printed mount or bracket for it in the build. Its 24 V lead is `W2` on the [wire harness]({{ '/hardware/electronics/wire-harness/' | relative_url }}) page.
 - **Two of the three enclosures have never been photographed bolted on.** The control board housing is the only one anybody has a picture of on the frame; the row below carries a described placeholder for the other two. The finished PSU box has no photo on the bench either, so its own page carries one as well.
 
 ## The finished result

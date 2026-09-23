@@ -4367,11 +4367,11 @@
       },
       "name": "Standoff - M3 - 10mm",
       "category": "Standoffs",
-      "description": "Stands the control board and the Orange Pi off their brackets.",
+      "description": "Stands the Orange Pi off its extrusion mount: one screws into each of the four inserts on the plate's top face, and the Pi sits on them.",
       "created_at": "2026-07-18",
       "updated_at": "2026-07-18",
       "sheet_qty": {
-        "per_machine": 8
+        "per_machine": 4
       },
       "image_url": "https://assets.basically.website/sorter-parts/standoff-m3-10mm-full-08660bba7bbb.jpg",
       "sourcing": {
@@ -4387,7 +4387,7 @@
           }
         ]
       },
-      "note": "Length is the BOM sheet's 10 mm and has not been confirmed against the board mounts."
+      "note": "The control board housing uses none, its board sits on four printed bosses. The standoff's own thread is soft and strips easily, so start each one by hand, keep it square, and stop turning the moment it seats."
     },
     {
       "id": "tnut-m5-2020",
@@ -4772,11 +4772,11 @@
       },
       "name": "6806-2RS bearing",
       "category": "Bearings",
-      "description": "Bearings for c-channel rotors",
+      "description": "Pressed into the output gear of each C-channel rotor, one per channel.",
       "created_at": "2026-07-18",
       "updated_at": "2026-07-18",
       "sheet_qty": {
-        "per_machine": 3
+        "per_machine": 4
       },
       "image_url": "https://assets.basically.website/sorter-parts/brg-6806-2rs-full-b7aac380cc21.jpg",
       "sourcing": {
@@ -4816,11 +4816,11 @@
       },
       "name": "608 2RS bearing",
       "category": "Bearings",
-      "description": "Bearings for c-channel idler, chute idler, carousel arms",
+      "description": "Pressed into the idler gear of each C-channel drive and into the chute stepper's idler gear. Four in the feeder and one in the top interface. No screw, no glue, no heat.",
       "created_at": "2026-07-18",
       "updated_at": "2026-07-18",
       "sheet_qty": {
-        "per_machine": 8
+        "per_machine": 5
       },
       "image_url": "https://assets.basically.website/sorter-parts/brg-608-2rs-full-e11bf4434f28.jpg",
       "sourcing": {
@@ -4904,11 +4904,11 @@
       },
       "name": "Lazy Susan",
       "category": "Bearings",
-      "description": "Main chute bearing",
+      "description": "The bearing either end of the distribution stack: one in the top interface between the chute mount and the upper fixed section, one in the bottom interface.",
       "created_at": "2026-07-18",
       "updated_at": "2026-07-18",
       "sheet_qty": {
-        "per_machine": 1
+        "per_machine": 2
       },
       "image_url": "https://assets.basically.website/sorter-parts/brg-lazy-susan-full-8d3232c97b1f.jpg",
       "sourcing": {
@@ -6694,6 +6694,7 @@
       "name": "IEC C14 inlet, switch + 10 A fuse",
       "category": "Power supply",
       "description": "Mains inlet for the PSU: switched, fused, pre-wired.",
+      "note": "Its red and blue leads are not consistent between units: both have arrived with the live on either colour. The fuse and the switch are in the live side, so pull the fuse and meter which lead loses continuity to its C14 pin, and land that one on the supply's L. Going by colour risks fusing and switching the neutral.",
       "created_at": "2026-07-18",
       "updated_at": "2026-09-21",
       "attributes": [
@@ -6735,6 +6736,57 @@
         ]
       },
       "image_url": "https://assets.basically.website/sorter-parts/psu-switch-one-full-1614496a00cc.png"
+    },
+    {
+      "id": "mains-cord-c13",
+      "uid": "nuya",
+      "kind": "cots",
+      "cots": {
+        "type": "cable"
+      },
+      "name": "Mains lead, IEC C13 to wall plug",
+      "category": "Power supply",
+      "description": "The cable from the wall socket to the machine. A C13 socket at the machine end, which is what the inlet's C14 mates with, and your country's plug at the other. The cord a desktop PC or a monitor comes with.",
+      "note": "Three core: the machine earths through this cable. 10 A or better, which matches the inlet's own fuse and is far more than the machine draws. It is listed so it is not forgotten at the end of a build, not because it has to be bought; most people have a spare one already.",
+      "created_at": "2026-09-23",
+      "updated_at": "2026-09-23",
+      "attributes": [
+        {
+          "label": "Machine end",
+          "value": "IEC 320 C13 socket, 3-pin"
+        },
+        {
+          "label": "Wall end",
+          "value": "Whatever plug your country uses"
+        },
+        {
+          "label": "Cores",
+          "value": "3, including earth. A 2-core figure-8 lead neither fits nor earths the machine"
+        },
+        {
+          "label": "Rating",
+          "value": "10 A or better, to match the inlet's 10 A fuse"
+        }
+      ],
+      "sheet_qty": {
+        "per_machine": 1
+      },
+      "caption": "One per machine, and the one part you probably already own.",
+      "docs_page": "/hardware/electronics/installation/psu-box/",
+      "sourcing": {
+        "vendors": [
+          {
+            "region": "US",
+            "vendor": "Amazon",
+            "url": "https://www.amazon.com/dp/B072BYGKZZ",
+            "affiliate_url": "https://www.amazon.com/dp/B072BYGKZZ?tag=sorterv2-20",
+            "price": 6.94,
+            "pack_qty": 1,
+            "as_of": "2026-09-23",
+            "note": "Amazon Basics 6 ft, NEMA 5-15P to C13, 18 AWG, UL listed. That is the US plug; outside the US buy the same cord with your own plug on it, or use one you already have."
+          }
+        ]
+      }
     },
     {
       "id": "fan-40mm-24v",
@@ -7446,8 +7498,8 @@
     },
     {
       "id": "fixed-upper-section",
-      "uid": "99af",
-      "version": "1",
+      "uid": "c16o",
+      "version": "2",
       "name": "Fixed upper section",
       "description": "The interface's fixed upper section: the upper-fixed-section plate, its ribs (5 plain + 1 with the limit-switch gap), and the big spacer. 1 per interface. Each rib takes 2 × [[hw:scr-m5-16-shcs]] into the plate; the screw that ties it to its bracket's extrusion belongs to the interface above.",
       "docs": "/hardware/assembly/distribution/top-interface/",
@@ -7461,6 +7513,10 @@
         {
           "part": "interface-upper-fixed-section",
           "qty": 1
+        },
+        {
+          "part": "hsi-m4",
+          "qty": 4
         },
         {
           "part": "interface-rib",
@@ -7477,6 +7533,47 @@
         {
           "part": "scr-m5-16-shcs",
           "qty": 12
+        }
+      ],
+      "versions": [
+        {
+          "version": "1",
+          "uid": "99af",
+          "message": "As recorded before the first stamped change.",
+          "lines": [
+            {
+              "part": "interface-upper-fixed-section",
+              "qty": 1,
+              "uid": "kigs"
+            },
+            {
+              "part": "interface-rib",
+              "qty": 5,
+              "uid": "z9o2"
+            },
+            {
+              "part": "interface-rib-switch",
+              "qty": 1,
+              "uid": "19gx"
+            },
+            {
+              "part": "interface-big-spacer",
+              "qty": 1,
+              "uid": "vt50"
+            },
+            {
+              "part": "scr-m5-16-shcs",
+              "qty": 12,
+              "uid": "2e0s"
+            }
+          ]
+        },
+        {
+          "version": "2",
+          "date": "2026-09-23",
+          "message": "The four M4 heat inserts in the Interface upper fixed section, pressed in before anything is assembled to it. They take four of the eight M4 x 16 that clamp the top interface lazy Susan.",
+          "breaking": false,
+          "commit": null
         }
       ]
     },
@@ -7538,7 +7635,7 @@
           "date": "2026-09-09",
           "message": "M3 × 35 mm flat head replaced by M3 × 40 mm flat head. The stack under the screw head is 32.00 mm to the floor of the nut pocket in the outer clamp and 34.40 mm through the nut, so 35 mm carried 0.60 mm of margin and builders could not pick the nut up. 40 mm spans the 8.00 mm pocket.",
           "breaking": false,
-          "commit": null
+          "commit": "aa873b6b"
         }
       ]
     },
@@ -7624,7 +7721,7 @@
           "date": "2026-09-08",
           "message": "The Short and Angled Output Guide comes off C4. The finned rotor's five fins reach r 85.4 mm and sweep up to 21.2 mm past the guide's inner face at r 67.82, so the two cannot both be fitted; the faceted rotor on C1 to C3 clears the same guide by 1.5 to 1.8 mm. This restores the state before e22fce30 (#534), which gave C4 a guide when all four channels were consolidated onto one shape. Reported from a build by Extremetaz. sorter-v2 issue #543.",
           "breaking": false,
-          "commit": null
+          "commit": "c467c375"
         }
       ],
       "lines": [
@@ -7809,8 +7906,8 @@
     },
     {
       "id": "limit-switch",
-      "uid": "xzje",
-      "version": "2",
+      "uid": "fnsb",
+      "version": "3",
       "name": "Chute limit switch",
       "description": "Interface limit switch: printed dowel pin, housing, hammer, and the switch itself. Bolts to the interface frame as a unit.",
       "docs": "/hardware/assembly/distribution/top-interface/",
@@ -7828,7 +7925,15 @@
           "qty": 1
         },
         {
+          "part": "scr-m3-6-cs",
+          "qty": 1
+        },
+        {
           "part": "endstop-mechanical",
+          "qty": 1
+        },
+        {
+          "assembly": "harness-limit-switch",
           "qty": 1
         },
         {
@@ -7879,9 +7984,54 @@
         },
         {
           "version": "2",
+          "uid": "xzje",
           "date": "2026-08-29",
           "message": "Added the 2 scr-m5-16-shcs + 2 tnut-m5-2020 that fasten the Limit switch housing to its bracket's extrusion (step 4), previously missing -- only the switch-to-housing M3s were modeled.",
-          "commit": "a2c66436"
+          "commit": "a2c66436",
+          "lines": [
+            {
+              "part": "limit-switch-dowel-pin",
+              "qty": 1,
+              "uid": "g68e"
+            },
+            {
+              "part": "limit-switch-housing",
+              "qty": 1,
+              "uid": "mrs0"
+            },
+            {
+              "part": "limit-switch-hammer",
+              "qty": 1,
+              "uid": "lfu7"
+            },
+            {
+              "part": "endstop-mechanical",
+              "qty": 1,
+              "uid": "92h6"
+            },
+            {
+              "part": "scr-m3-12-bhcs",
+              "qty": 2,
+              "uid": "izrb"
+            },
+            {
+              "part": "scr-m5-16-shcs",
+              "qty": 2,
+              "uid": "2e0s"
+            },
+            {
+              "part": "tnut-m5-2020",
+              "qty": 2,
+              "uid": "bpwm"
+            }
+          ]
+        },
+        {
+          "version": "3",
+          "date": "2026-09-23",
+          "message": "The limit switch cable joins the switch: a Dupont housing onto J5 at the board end, an insulated quick-connect onto each of the switch's tabs at the other. Plus the M3 x 6 countersunk that secures the hammer into the chute mount from below, into the hammer's own insert, which was a hand count of 1 and in no assembly.",
+          "breaking": false,
+          "commit": null
         }
       ]
     },
@@ -7944,14 +8094,14 @@
           "date": "2026-09-16",
           "message": "Ribbon clamp screw M3 x 10 -> M3 x 12. The clamp is drawn standing 1.30 mm off the bracket face so the ribbon is not crushed, so under the head to the bracket face is 7.94 mm and an M3 x 10 left only 2.06 mm in the insert, under 1 x D. Reported from two builds (barthel 2026-09-13, BrickCycleAlice 2026-09-16). The 4.00 mm modelled boss depth is tracked separately as issue #648.",
           "breaking": false,
-          "commit": null
+          "commit": "5c2d5e1a"
         }
       ]
     },
     {
       "id": "cable-cage",
-      "uid": "wxcr",
-      "version": "2",
+      "uid": "ay0q",
+      "version": "3",
       "name": "Cable cage",
       "description": "Six cable cage brackets (5 regular + 1 cable mount, the latter carrying the ribbon cable clamp) stacked with the ribbon cable clamp. Also sandwiches the laser-cut cage top and bottom plates, which are not in the parts registry yet.",
       "docs": "/hardware/assembly/distribution/top-interface/",
@@ -7992,16 +8142,54 @@
         },
         {
           "version": "2",
+          "uid": "wxcr",
           "date": "2026-09-07",
           "message": "Both cage brackets moved to v2 (sorter-v2 #403, the 25mm 'temp catcher wall' to 23mm 'main' Onshape reset), and the cable-mount bracket + ribbon clamp + their M3 now nest as the new cage-bracket-cable-clamp sub-assembly instead of three flat lines. No change to what the six brackets are or how they stack; the regular brackets and their M5s stay flat lines here.",
           "breaking": false,
-          "commit": "47a5e5a5"
+          "commit": "47a5e5a5",
+          "lines": [
+            {
+              "part": "interface-cage-bracket",
+              "qty": 5,
+              "uid": "1mqs"
+            },
+            {
+              "assembly": "cage-bracket-cable-clamp",
+              "qty": 1,
+              "uid": "frol"
+            },
+            {
+              "part": "scr-m5-35-fhcs",
+              "qty": 6,
+              "uid": "xkl4"
+            },
+            {
+              "part": "nut-m5",
+              "qty": 6,
+              "uid": "7m70"
+            }
+          ]
+        },
+        {
+          "version": "3",
+          "date": "2026-09-23",
+          "message": "The cage's two laser-cut plates, the top with its keyed cutout for the interface and the plain bottom. They were in the catalog with no count at all and in no assembly, so the cage listed its brackets and screws and neither of the sheets they hold.",
+          "breaking": false,
+          "commit": null
         }
       ],
       "lines": [
         {
           "part": "interface-cage-bracket",
           "qty": 5
+        },
+        {
+          "part": "cable-cage-top",
+          "qty": 1
+        },
+        {
+          "part": "cable-cage-bottom",
+          "qty": 1
         },
         {
           "assembly": "cage-bracket-cable-clamp",
@@ -8019,8 +8207,8 @@
     },
     {
       "id": "meanwell-psu-box",
-      "uid": "5h82",
-      "version": "2",
+      "uid": "6uhi",
+      "version": "3",
       "versions": [
         {
           "version": "1",
@@ -8066,8 +8254,63 @@
         },
         {
           "version": "2",
+          "uid": "5h82",
           "date": "2026-09-18",
           "message": "The mains inlet and the two screws that hold it in. The fused IEC inlet switch mounts in this box's connections plate, in a 28 x 47.5 mm cutout with two 2.6 mm holes 40 mm apart, which matches the module's own cutout spec and flange hole pitch. It was only a sheet_qty hand count before, and its screws were in no list at all. The screws are M3 x 8 countersunk, self-tapping into an 8 mm boss: the module's flange holes are countersunk for them.",
+          "breaking": false,
+          "commit": null,
+          "lines": [
+            {
+              "part": "meanwell-psu-back-mount",
+              "qty": 1,
+              "uid": "15uh"
+            },
+            {
+              "part": "meanwell-psu-connections",
+              "qty": 1,
+              "uid": "08id"
+            },
+            {
+              "part": "meanwell-psu-cap",
+              "qty": 1,
+              "uid": "5nt1"
+            },
+            {
+              "part": "psu-24v-350w",
+              "qty": 1,
+              "uid": "s3ru"
+            },
+            {
+              "part": "scr-m4-6-cs",
+              "qty": 4,
+              "uid": "5r29"
+            },
+            {
+              "part": "scr-m5-12-shcs",
+              "qty": 2,
+              "uid": "kmah"
+            },
+            {
+              "part": "tnut-m5-2020",
+              "qty": 2,
+              "uid": "bpwm"
+            },
+            {
+              "part": "psu-switch-fused",
+              "qty": 1,
+              "uid": "lmu7"
+            },
+            {
+              "part": "scr-m3-8-cs",
+              "qty": 2,
+              "uid": "l6br"
+            }
+          ]
+        },
+        {
+          "version": "3",
+          "date": "2026-09-23",
+          "message": "The three PSU output pigtails and the mains lead join the box. Each pigtail is a panel-mount barrel jack on the connections plate with a fork terminal on each of its two leads, landing on one +V/-V screw pair of the LRS-350-24; the mains lead is the C13 cord into the fused inlet. Both were hand counts from the BOM sheet and the tree totals are the same.",
           "breaking": false,
           "commit": null
         }
@@ -8093,6 +8336,10 @@
           "qty": 1
         },
         {
+          "assembly": "harness-psu-pigtail",
+          "qty": 3
+        },
+        {
           "part": "scr-m4-6-cs",
           "qty": 4
         },
@@ -8106,6 +8353,10 @@
         },
         {
           "part": "psu-switch-fused",
+          "qty": 1
+        },
+        {
+          "part": "mains-cord-c13",
           "qty": 1
         },
         {
@@ -8876,7 +9127,7 @@
           "date": "2026-09-08",
           "message": "The Camera lamp comes off C1. Jon (@effreek) confirmed 2026-09-08 that the machine takes three lamps, on C2, C3 and the classification channel, and that the bulk bucket gets none; e22fce30 (#534) gave C1 one when all four channels were consolidated onto one shape. The software has no C1 camera role either, so the lamp, its arm and its OV9732 were parts nobody needed. Resolves the open question BrickCycleAlice raised 2026-09-05.",
           "breaking": false,
-          "commit": null
+          "commit": "93451a97"
         }
       ]
     },
@@ -9256,8 +9507,8 @@
     },
     {
       "id": "interface",
-      "uid": "eggk",
-      "version": "6",
+      "uid": "19a2",
+      "version": "7",
       "name": "Top interface",
       "description": "The interface between the feeder and the distribution layers. Its lazy Susan sandwiches the upper fixed section and the chute mount, 4 × [[hw:scr-m4-12-cs]] a side, and the plywood top plate bolts down onto the six brackets' inserts.",
       "docs": "/hardware/assembly/distribution/top-interface/",
@@ -9265,6 +9516,10 @@
         {
           "assembly": "interface-bracket-mount",
           "qty": 6
+        },
+        {
+          "part": "scr-m5-22-cs",
+          "qty": 2
         },
         {
           "assembly": "hex-frame",
@@ -9303,6 +9558,10 @@
           "qty": 1
         },
         {
+          "assembly": "harness-stepper-chute",
+          "qty": 1
+        },
+        {
           "assembly": "interface-chute-drive",
           "qty": 1
         },
@@ -9320,10 +9579,6 @@
         },
         {
           "part": "scr-m5-35-fhcs",
-          "qty": 6
-        },
-        {
-          "part": "scr-m5-8-cs",
           "qty": 6
         }
       ],
@@ -9866,8 +10121,98 @@
         },
         {
           "version": "6",
+          "uid": "eggk",
           "date": "2026-09-19",
           "message": "The 8 lazy Susan screws become M4 x 16 countersunk. The bearing is 10 mm thick, not the 9 mm the catalog claimed, so an M4 x 12 reached 2.0 to 3.0 mm of an 8.1 mm insert on the inner ring (step 6) and 1.0 mm on the outer ring (step 7). Reported by Extremetaz and barthel, measured off the assembly-frame STLs.",
+          "breaking": false,
+          "commit": null,
+          "lines": [
+            {
+              "assembly": "interface-bracket-mount",
+              "qty": 6,
+              "uid": "so5r"
+            },
+            {
+              "assembly": "hex-frame",
+              "qty": 1,
+              "uid": "l0xa"
+            },
+            {
+              "assembly": "fixed-upper-section",
+              "qty": 1,
+              "uid": "99af"
+            },
+            {
+              "assembly": "cable-cage",
+              "qty": 1,
+              "uid": "wxcr"
+            },
+            {
+              "part": "scr-m5-30-shcs",
+              "qty": 6,
+              "uid": "92kv"
+            },
+            {
+              "assembly": "cable-clamp",
+              "qty": 1,
+              "uid": "rwaw"
+            },
+            {
+              "part": "scr-m3-12-bhcs",
+              "qty": 2,
+              "uid": "izrb"
+            },
+            {
+              "assembly": "limit-switch",
+              "qty": 1,
+              "uid": "xzje"
+            },
+            {
+              "part": "scr-m5-20-shcs",
+              "qty": 2,
+              "uid": "e4hi"
+            },
+            {
+              "assembly": "chute-stepper-gearing",
+              "qty": 1,
+              "uid": "1cfd"
+            },
+            {
+              "assembly": "interface-chute-drive",
+              "qty": 1,
+              "uid": "8cjj"
+            },
+            {
+              "part": "top-interface-split-spur-gear-2",
+              "qty": 1,
+              "uid": "izz5"
+            },
+            {
+              "part": "brg-lazy-susan",
+              "qty": 1,
+              "uid": "wrxu"
+            },
+            {
+              "part": "scr-m4-16-cs",
+              "qty": 8,
+              "uid": "ee5j"
+            },
+            {
+              "part": "scr-m5-35-fhcs",
+              "qty": 6,
+              "uid": "xkl4"
+            },
+            {
+              "part": "scr-m5-8-cs",
+              "qty": 6,
+              "uid": "mqh4"
+            }
+          ]
+        },
+        {
+          "version": "7",
+          "date": "2026-09-23",
+          "message": "The chute stepper cable joins the top interface, beside the gearing the motor drives: PHR-4 at the board end and bare leads spliced to the motor at the other. Plus the two M5 x 22 countersunk at holes S2 and S3 that attach the NEMA 23 bracket assembly to the underside of the top plate; the other twelve of that screw's fourteen are now on the six Interface brackets. The interface-level line of 6 M5 x 8 countersunk is removed: it is the same six screws the six Interface brackets now carry one each, so the tree was counting them twice against a hand count of 6.",
           "breaking": false,
           "commit": null
         }
@@ -9964,8 +10309,8 @@
     },
     {
       "id": "bottom-layer",
-      "uid": "rfl2",
-      "version": "2",
+      "uid": "n76i",
+      "version": "3",
       "name": "Bottom distribution layer",
       "description": "The lowest bin layer. Identical to a distribution layer except that its frame carries foot covers instead of bracket covers and bottom verticals, and the bottom interface hangs underneath it.",
       "docs": "/hardware/assembly/distribution/bin-frame/bottom-layer/",
@@ -9988,6 +10333,14 @@
         },
         {
           "part": "ext-2020-d",
+          "qty": 6
+        },
+        {
+          "part": "foot-connector-2020-m6",
+          "qty": 6
+        },
+        {
+          "part": "caster-wheel-m6",
           "qty": 6
         },
         {
@@ -10054,17 +10407,62 @@
         },
         {
           "version": "2",
+          "uid": "rfl2",
           "date": "2026-09-06",
           "message": "The 24 bin retainer T-nuts and the 6 piece D foot extensions this layer was created without. The T-nuts are the same 24 the layer node carries, one per retainer screw; this node was added after them and never got a line, so the machine read 164 T-nuts where it should read 188 at 5 layers. Piece D replaces this layer's piece C and was reaching the Hardware tab from an old BOM-sheet hand count rather than from the tree. No physical change.",
           "breaking": false,
-          "commit": "a5ebc2ca"
+          "commit": "a5ebc2ca",
+          "lines": [
+            {
+              "assembly": "hex-frame-bottom",
+              "qty": 1,
+              "uid": "5l36"
+            },
+            {
+              "assembly": "chute",
+              "qty": 1,
+              "uid": "re1n"
+            },
+            {
+              "part": "bin-retainer-left",
+              "qty": 6,
+              "uid": "hqz0"
+            },
+            {
+              "part": "bin-retainer-right",
+              "qty": 6,
+              "uid": "ybpv"
+            },
+            {
+              "part": "ext-2020-d",
+              "qty": 6,
+              "uid": "h9ov"
+            },
+            {
+              "part": "scr-m5-16-shcs",
+              "qty": 36,
+              "uid": "2e0s"
+            },
+            {
+              "part": "tnut-m5-2020",
+              "qty": 24,
+              "uid": "bpwm"
+            }
+          ]
+        },
+        {
+          "version": "3",
+          "date": "2026-09-23",
+          "message": "The six feet. A 2020 M6 foot connector goes into the bottom end of each piece D and a swivel caster screws into it, which is what the machine stands and rolls on. Both were hand counts of 6 from the BOM sheet and the tree total is the same 6.",
+          "breaking": false,
+          "commit": null
         }
       ]
     },
     {
       "id": "layer",
-      "uid": "su1o",
-      "version": "5",
+      "uid": "70ot",
+      "version": "6",
       "name": "Distribution layer",
       "description": "One distribution layer between the interfaces: frame, chute, bin retainers, funnels, bins.",
       "docs": "/hardware/assembly/distribution/bin-frame/regular-layers/",
@@ -10075,6 +10473,10 @@
         },
         {
           "assembly": "chute",
+          "qty": 1
+        },
+        {
+          "part": "cable-idc-2x8-short",
           "qty": 1
         },
         {
@@ -10243,10 +10645,55 @@
         },
         {
           "version": "5",
+          "uid": "su1o",
           "date": "2026-09-06",
           "message": "Piece C (Layer vertical support), 6 per layer. The layer carries the extrusion that spans up to the ring above it, so 6 on a node that runs non-bottom-layers times is the framing cut list's 6(n-1) exactly. It was in no assembly, so the Hardware tab had nothing to count it from and rendered qty TBD. No physical change.",
           "breaking": false,
-          "commit": "a5ebc2ca"
+          "commit": "a5ebc2ca",
+          "lines": [
+            {
+              "assembly": "layer-frame",
+              "qty": 1,
+              "uid": "yq92"
+            },
+            {
+              "assembly": "chute",
+              "qty": 1,
+              "uid": "re1n"
+            },
+            {
+              "part": "bin-retainer-left",
+              "qty": 6,
+              "uid": "hqz0"
+            },
+            {
+              "part": "bin-retainer-right",
+              "qty": 6,
+              "uid": "ybpv"
+            },
+            {
+              "part": "ext-2020-c",
+              "qty": 6,
+              "uid": "pc3b"
+            },
+            {
+              "part": "scr-m5-16-shcs",
+              "qty": 36,
+              "uid": "2e0s"
+            },
+            {
+              "part": "tnut-m5-2020",
+              "qty": 24,
+              "uid": "bpwm"
+            }
+          ]
+        },
+        {
+          "version": "6",
+          "date": "2026-09-23",
+          "message": "The 30 cm ribbon that carries one layer down to the layer below. It plugs into J4 of this layer's adapter board and J3 of the one beneath, so it belongs to the layers that have something under them: this node runs non-bottom-layers, which is n - 1 hops for n layers. The BOM sheet counted it per layer, n, which is one more than the stack has hops.",
+          "breaking": false,
+          "commit": null
         }
       ]
     },
@@ -10310,7 +10757,7 @@
           "date": "2026-09-17",
           "breaking": false,
           "message": "Put the layer connector back: v2 dropped it on the reasoning that the spare pair belonged to the top interface, and that is not how it goes together. A pair sits on the top of the bottom interface and the bottommost chute slots onto it; the lazy susan chute mount carries the two M3 inserts it screws into.",
-          "commit": null
+          "commit": "becdd057"
         }
       ]
     },
@@ -10458,8 +10905,8 @@
     },
     {
       "id": "c-channel",
-      "uid": "kuei",
-      "version": "4",
+      "uid": "npx0",
+      "version": "5",
       "name": "C-channel drive",
       "description": "One C-channel drive unit: stator, NEMA bracket, gear train and stepper. 4 per machine — 3 in the feeder plus the classification channel's. Drives a rotor unit, which differs by location and is not part of this node.",
       "docs": "/hardware/assembly/feeder/c-channels/channel-core/",
@@ -10623,8 +11070,63 @@
         },
         {
           "version": "4",
+          "uid": "kuei",
           "date": "2026-09-10",
           "message": "The two bracket-to-stator screws on the wide motor plate go to M3 x 16 countersunk. The bracket's four stator holes come in two depths and all four were specified at 12 mm: over the 8.45 mm pass-through the head leaves 1.85 mm in the stator's 10 mm thread, under the 2 mm minimum bite the site's own fit math applies, and Extremetaz reported it as marginal on a build. The two arm holes (6.45 mm pass-through, 3.85 mm bite) keep the 12 mm.",
+          "breaking": false,
+          "commit": null,
+          "lines": [
+            {
+              "part": "idler-gear",
+              "qty": 1,
+              "uid": "7bv7"
+            },
+            {
+              "part": "brg-608-2rs",
+              "qty": 1,
+              "uid": "mi1l"
+            },
+            {
+              "part": "nema-bracket",
+              "qty": 1,
+              "uid": "x09t"
+            },
+            {
+              "part": "motor-nema17",
+              "qty": 1,
+              "uid": "w7pq"
+            },
+            {
+              "part": "input-gear",
+              "qty": 1,
+              "uid": "70ul"
+            },
+            {
+              "part": "stator",
+              "qty": 1,
+              "uid": "n6bm"
+            },
+            {
+              "part": "scr-m3-16-cs",
+              "qty": 5,
+              "uid": "bdi4"
+            },
+            {
+              "part": "scr-m3-8-cs",
+              "qty": 1,
+              "uid": "l6br"
+            },
+            {
+              "part": "scr-m3-12-cs",
+              "qty": 2,
+              "uid": "0a9x"
+            }
+          ]
+        },
+        {
+          "version": "5",
+          "date": "2026-09-23",
+          "message": "Each C-channel drive gets its stepper cable, beside the NEMA 17 it plugs into: PHR-4 at the board, PHR-6 at the motor, eight PH contacts. Four drives, so four cables.",
           "breaking": false,
           "commit": null
         }
@@ -10644,6 +11146,10 @@
         },
         {
           "part": "motor-nema17",
+          "qty": 1
+        },
+        {
+          "assembly": "harness-stepper-channel",
           "qty": 1
         },
         {
@@ -10901,14 +11407,14 @@
           "date": "2026-09-10",
           "message": "The Rotor cap is a member: the finned rotor's centre bore is open, and the cap is a friction fit into it. Asked for by barthel, who has the unit in front of him.",
           "breaking": false,
-          "commit": null
+          "commit": "f650bf69"
         }
       ]
     },
     {
       "id": "chute-stepper-gearing",
-      "uid": "1cfd",
-      "version": "2",
+      "uid": "ud8y",
+      "version": "3",
       "name": "Chute Stepper Gearing",
       "description": "The printed drive and idler gearing that transfers motion from the NEMA 23 chute stepper. The idler gear's 608 2RS bearing is retained by two printed caps: [[hw:chute-stepper-idler-bearing-retainer-outer]] bolts over the bearing pocket on 4 × [[hw:scr-m3-8-cs]] into the gear's own heat inserts (the same screw the Interface spur gear uses two lines up), and [[hw:chute-stepper-idler-bearing-retainer-inner]] caps the bore where 1 × [[hw:scr-m3-20-cs]] runs through into the bracket, self-tapping straight into the printed NEMA 23 bracket rather than reaching all the way to the plywood Top plate.",
       "docs": "/hardware/assembly/distribution/top-interface/",
@@ -10918,7 +11424,23 @@
           "qty": 1
         },
         {
+          "part": "hsi-m5",
+          "qty": 6
+        },
+        {
+          "part": "motor-nema23",
+          "qty": 1
+        },
+        {
+          "part": "scr-m5-12-shcs",
+          "qty": 4
+        },
+        {
           "part": "interface-spur-gear",
+          "qty": 1
+        },
+        {
+          "part": "pulley-20t-8mm",
           "qty": 1
         },
         {
@@ -11015,10 +11537,65 @@
         },
         {
           "version": "2",
+          "uid": "1cfd",
           "date": "2026-09-01",
           "message": "Recording correction: the idler gear's axle screw is 1 x M3 x 20 countersunk, not M3 x 35. It self-taps into the printed NEMA 23 bracket and never reaches the plywood Top plate, measured on BrickCycleAlice's build (sorter-v2#458). No physical change.",
           "breaking": false,
-          "commit": "5195cedc"
+          "commit": "5195cedc",
+          "lines": [
+            {
+              "part": "interface-nema23-bracket",
+              "qty": 1,
+              "uid": "if4v"
+            },
+            {
+              "part": "interface-spur-gear",
+              "qty": 1,
+              "uid": "ywxy"
+            },
+            {
+              "part": "interface-idler-gear",
+              "qty": 1,
+              "uid": "ptl7"
+            },
+            {
+              "part": "brg-608-2rs",
+              "qty": 1,
+              "uid": "mi1l"
+            },
+            {
+              "part": "scr-m3-20-cs",
+              "qty": 1,
+              "uid": "60g4"
+            },
+            {
+              "part": "chute-stepper-idler-bearing-retainer-outer",
+              "qty": 1,
+              "uid": "wgsc"
+            },
+            {
+              "part": "chute-stepper-idler-bearing-retainer-inner",
+              "qty": 1,
+              "uid": "zzql"
+            },
+            {
+              "part": "scr-m3-8-cs",
+              "qty": 4,
+              "uid": "l6br"
+            },
+            {
+              "part": "hsi-m3",
+              "qty": 4,
+              "uid": "ksut"
+            }
+          ]
+        },
+        {
+          "version": "3",
+          "date": "2026-09-23",
+          "message": "The NEMA 23 itself, its four M5 x 12 mounting screws, the six M5 inserts in its bracket, and the 20T timing pulley on its shaft. The motor and the pulley were both in the catalog with a hand count of 1 and in no assembly, and the two nodes that held them (interface-nema23-mount, interface-spur-gear-drive) are referenced from nothing, so browsing the machine never reached the chute drive motor. Tree totals are the same 1 and 1.",
+          "breaking": false,
+          "commit": null
         }
       ]
     },
@@ -11068,8 +11645,8 @@
     },
     {
       "id": "interface-chute-drive",
-      "uid": "8cjj",
-      "version": "1",
+      "uid": "w4jv",
+      "version": "2",
       "name": "Interface chute gear + mount",
       "description": "The Chute gear screwed onto the Top interface chute mount with five M3x12 countersunk screws (top-interface.md step 6). Despite their ids (inherited from an earlier three-piece gear design), these are two distinct parts fastened together, not two sections of one gear.",
       "docs": "/hardware/assembly/distribution/top-interface/",
@@ -11083,8 +11660,43 @@
           "qty": 1
         },
         {
+          "part": "hsi-m4",
+          "qty": 4
+        },
+        {
           "part": "scr-m3-12-cs",
           "qty": 5
+        }
+      ],
+      "versions": [
+        {
+          "version": "1",
+          "uid": "8cjj",
+          "message": "As recorded before the first stamped change.",
+          "lines": [
+            {
+              "part": "top-interface-split-spur-gear-1",
+              "qty": 1,
+              "uid": "1a0l"
+            },
+            {
+              "part": "top-interface-split-spur-gear-3",
+              "qty": 1,
+              "uid": "vrz8"
+            },
+            {
+              "part": "scr-m3-12-cs",
+              "qty": 5,
+              "uid": "0a9x"
+            }
+          ]
+        },
+        {
+          "version": "2",
+          "date": "2026-09-23",
+          "message": "The four M4 heat inserts in the Top interface chute mount, which take the other four M4 x 16 of the top interface lazy Susan sandwich.",
+          "breaking": false,
+          "commit": null
         }
       ]
     },
@@ -11400,8 +12012,8 @@
     },
     {
       "id": "ctrl-board-mount",
-      "uid": "p5yl",
-      "version": "3",
+      "uid": "esvy",
+      "version": "4",
       "name": "basically Embedded Control Board Housing",
       "description": "The basically Embedded Control Board closed into a two-part printed housing that bolts to the 2020 extrusion. The board screws straight to the base — no bracket, no standoffs — and the cover carries a 40 mm 24 V fan and a plunger that reaches the board's reset button from outside.",
       "docs": "/hardware/electronics/installation/control-board-housing/",
@@ -11415,11 +12027,23 @@
           "qty": 1
         },
         {
+          "part": "cable-idc-2x8-long",
+          "qty": 1
+        },
+        {
+          "assembly": "harness-board-24v",
+          "qty": 1
+        },
+        {
           "part": "drv-tmc2209",
           "qty": 5
         },
         {
           "part": "mcu-rpi-pico-presoldered",
+          "qty": 1
+        },
+        {
+          "part": "cable-micro-usb",
           "qty": 1
         },
         {
@@ -11595,8 +12219,93 @@
         },
         {
           "version": "3",
+          "uid": "p5yl",
           "date": "2026-09-21",
           "message": "The five TMC2209 drivers, the Raspberry Pi Pico and the ten address jumper caps are placed on the board. Nothing about the housing changes: all three were always fitted to this board before the cover goes on, and they were carried as hand counts off the BOM sheet instead of lines, so their quantities did not come from the tree. The Pico is the pre-soldered one the catalog now buys.",
+          "breaking": false,
+          "commit": null,
+          "lines": [
+            {
+              "part": "ctrl-board-housing-base",
+              "qty": 1,
+              "uid": "204b"
+            },
+            {
+              "part": "ctrl-board-basically",
+              "qty": 1,
+              "uid": "yugu"
+            },
+            {
+              "part": "drv-tmc2209",
+              "qty": 5,
+              "uid": "b7c2"
+            },
+            {
+              "part": "mcu-rpi-pico-presoldered",
+              "qty": 1,
+              "uid": "dq0q"
+            },
+            {
+              "part": "jumper-cap-254",
+              "qty": 10,
+              "uid": "46qm"
+            },
+            {
+              "part": "scr-m3-6-bhcs",
+              "qty": 4,
+              "uid": "e04c"
+            },
+            {
+              "part": "ctrl-board-housing-cover",
+              "qty": 1,
+              "uid": "ksh2"
+            },
+            {
+              "part": "scr-m3-12-cs",
+              "qty": 4,
+              "uid": "0a9x"
+            },
+            {
+              "part": "ctrl-board-housing-plunger",
+              "qty": 1,
+              "uid": "cljt"
+            },
+            {
+              "part": "ctrl-board-housing-plunger-retainer",
+              "qty": 1,
+              "uid": "g9sx"
+            },
+            {
+              "part": "scr-m3-8-cs",
+              "qty": 2,
+              "uid": "l6br"
+            },
+            {
+              "part": "fan-40mm-24v",
+              "qty": 1,
+              "uid": "7o57"
+            },
+            {
+              "part": "scr-m3-12-bhcs",
+              "qty": 4,
+              "uid": "izrb"
+            },
+            {
+              "part": "scr-m5-16-shcs",
+              "qty": 2,
+              "uid": "2e0s"
+            },
+            {
+              "part": "tnut-m5-2020",
+              "qty": 2,
+              "uid": "bpwm"
+            }
+          ]
+        },
+        {
+          "version": "4",
+          "date": "2026-09-23",
+          "message": "The board's cables join the housing. W1 on the power drawing is a barrel plug at the PSU box end and a VHR-2 with two SVH-21T contacts onto J1; the 16-pin ribbon RIB runs from J17 down to J3 on the first layer board; the micro USB cable runs from the Pico's own socket to a port on the USB hub. Each is listed beside the board or the Pico it plugs into, because that is the end that is in the tree and the end that decides the cable. All three were hand counts before this and the tree totals are the same.",
           "breaking": false,
           "commit": null
         }
@@ -11604,8 +12313,8 @@
     },
     {
       "id": "orange-pi-mount",
-      "uid": "ghuf",
-      "version": "2",
+      "uid": "zczw",
+      "version": "3",
       "name": "Orange Pi mount",
       "description": "The Orange Pi 5 standing off its bracket, which bolts to the 2020 extrusion, with a 40 mm fan on a bracket cantilevered over it.",
       "docs": "/hardware/electronics/installation/orange-pi-mount/",
@@ -11616,6 +12325,18 @@
         },
         {
           "part": "sbc-orange-pi-5",
+          "qty": 1
+        },
+        {
+          "part": "fan-orange-pi-5-heatsink",
+          "qty": 1
+        },
+        {
+          "part": "wifi-module-opi5",
+          "qty": 1
+        },
+        {
+          "part": "microsd-32gb",
           "qty": 1
         },
         {
@@ -11649,6 +12370,10 @@
         {
           "part": "tnut-m5-2020",
           "qty": 2
+        },
+        {
+          "assembly": "harness-buck-24v",
+          "qty": 1
         }
       ],
       "connections": [
@@ -11730,8 +12455,68 @@
         },
         {
           "version": "2",
+          "uid": "ghuf",
           "date": "2026-09-08",
           "message": "The fan arm and the fan were members with nothing holding them on. Both joints are now recorded, and their fasteners: 2 x M3 x 16 through the arm's foot into two M3 inserts on the mount's front edge face, and 4 x M3 x 16 self-tapping through the fan into the arm's top plate. The mount's insert count goes 4 -> 6 with the two on that face. Measured off the orange-pi-extrusion-mount and fan-bracket-40mm STLs; no part changed.",
+          "breaking": false,
+          "commit": null,
+          "lines": [
+            {
+              "part": "orange-pi-extrusion-mount",
+              "qty": 1,
+              "uid": "nxh7"
+            },
+            {
+              "part": "sbc-orange-pi-5",
+              "qty": 1,
+              "uid": "ilqj"
+            },
+            {
+              "part": "scr-m3-6-bhcs",
+              "qty": 4,
+              "uid": "e04c"
+            },
+            {
+              "part": "hsi-m3",
+              "qty": 6,
+              "uid": "ksut"
+            },
+            {
+              "part": "standoff-m3-10mm",
+              "qty": 4,
+              "uid": "hkor"
+            },
+            {
+              "part": "fan-bracket-40mm",
+              "qty": 1,
+              "uid": "3ufy"
+            },
+            {
+              "part": "fan-40mm-24v",
+              "qty": 1,
+              "uid": "7o57"
+            },
+            {
+              "part": "scr-m3-16-shcs",
+              "qty": 6,
+              "uid": "e0ud"
+            },
+            {
+              "part": "scr-m5-12-shcs",
+              "qty": 2,
+              "uid": "kmah"
+            },
+            {
+              "part": "tnut-m5-2020",
+              "qty": 2,
+              "uid": "bpwm"
+            }
+          ]
+        },
+        {
+          "version": "3",
+          "date": "2026-09-23",
+          "message": "The Orange Pi's own peripherals and its 24 V lead join the mount. The official heatsink fan, the WiFi 6 and Bluetooth module and the microSD card all sit beside the Pi they fit into, and W3 on the power drawing is the barrel plug at the PSU box end with bare leads spliced to the buck converter. All four were hand counts from the BOM sheet before this and the tree totals are the same. The converter itself is not in the tree yet, so its lead sits on the mount the Pi it powers sits on.",
           "breaking": false,
           "commit": null
         }
@@ -11739,10 +12524,10 @@
     },
     {
       "id": "electronics",
-      "uid": "8yz8",
-      "version": "2",
+      "uid": "t22u",
+      "version": "3",
       "name": "Electronics",
-      "description": "The PSU, the control board and the Orange Pi, each in its own box bolted to the frame, plus the powered USB hub that feeds the cameras and the Picos.",
+      "description": "The PSU, the control board and the Orange Pi, each in its own box bolted to the frame, plus the powered USB hub they share and its 24 V lead.",
       "docs": "/hardware/electronics/installation/",
       "lines": [
         {
@@ -11759,6 +12544,10 @@
         },
         {
           "assembly": "orange-pi-mount",
+          "qty": 1
+        },
+        {
+          "assembly": "harness-hub-24v",
           "qty": 1
         }
       ],
@@ -11787,8 +12576,38 @@
         },
         {
           "version": "2",
+          "uid": "k49u",
           "date": "2026-09-23",
-          "message": "Place the powered USB hub in the tree, beside the PSU box. It was a BOM-sheet hand count and belongs to the electronics group like the three boxes it sits among; it runs off the PSU at 24 V and feeds the cameras and the Picos. No physical change.",
+          "message": "The USB hub's 24 V lead joins Electronics. W2 on the power drawing, a barrel plug at each end. It sits at this level rather than on a load because the hub itself is not in the tree yet.",
+          "breaking": false,
+          "commit": null,
+          "lines": [
+            {
+              "assembly": "meanwell-psu-box",
+              "qty": 1,
+              "uid": "6uhi"
+            },
+            {
+              "assembly": "ctrl-board-mount",
+              "qty": 1,
+              "uid": "esvy"
+            },
+            {
+              "assembly": "orange-pi-mount",
+              "qty": 1,
+              "uid": "zczw"
+            },
+            {
+              "assembly": "harness-hub-24v",
+              "qty": 1,
+              "uid": "8b59"
+            }
+          ]
+        },
+        {
+          "version": "3",
+          "date": "2026-09-23",
+          "message": "Place the powered USB hub itself in the tree, beside the PSU box. It was a BOM-sheet hand count in no assembly at all; it runs off the PSU at 24 V and feeds the cameras and the Picos. v2 put its lead (W2) at this level because the hub was not in the tree yet, and that lead stays exactly where v2 put it. No physical change.",
           "breaking": false,
           "commit": null
         }
@@ -11796,8 +12615,8 @@
     },
     {
       "id": "interface-bracket-mount",
-      "uid": "so5r",
-      "version": "3",
+      "uid": "ng7f",
+      "version": "4",
       "name": "Interface bracket",
       "description": "One interface bracket with its spacer, bolted onto its vertical extrusion (piece F) and its spoke extrusion (piece E). 6 per interface.",
       "docs": "/hardware/assembly/distribution/top-interface/",
@@ -11805,6 +12624,10 @@
         {
           "part": "interface-bracket",
           "qty": 1
+        },
+        {
+          "part": "hsi-m5",
+          "qty": 3
         },
         {
           "part": "interface-spacer",
@@ -11833,6 +12656,10 @@
         {
           "part": "tnut-m5-2020",
           "qty": 9
+        },
+        {
+          "part": "scr-m5-22-cs",
+          "qty": 2
         }
       ],
       "versions": [
@@ -11904,17 +12731,67 @@
         },
         {
           "version": "3",
+          "uid": "so5r",
           "date": "2026-09-06",
           "message": "Pieces E and F, the interface spoke and the interface vertical support this bracket is bolted onto, 1 each. The node's own description already named both; neither was in any assembly, so both read qty TBD on the Hardware tab while the framing cut list knew them. 6 of each per machine, which is what framing.ts says. No physical change.",
           "breaking": false,
-          "commit": "a5ebc2ca"
+          "commit": "a5ebc2ca",
+          "lines": [
+            {
+              "part": "interface-bracket",
+              "qty": 1,
+              "uid": "jk82"
+            },
+            {
+              "part": "interface-spacer",
+              "qty": 1,
+              "uid": "bfoc"
+            },
+            {
+              "part": "ext-2020-e",
+              "qty": 1,
+              "uid": "rwuw"
+            },
+            {
+              "part": "ext-2020-f",
+              "qty": 1,
+              "uid": "dfbb"
+            },
+            {
+              "part": "scr-m5-16-shcs",
+              "qty": 4,
+              "uid": "2e0s"
+            },
+            {
+              "part": "scr-m5-20-shcs",
+              "qty": 4,
+              "uid": "e4hi"
+            },
+            {
+              "part": "scr-m5-8-cs",
+              "qty": 1,
+              "uid": "mqh4"
+            },
+            {
+              "part": "tnut-m5-2020",
+              "qty": 9,
+              "uid": "bpwm"
+            }
+          ]
+        },
+        {
+          "version": "4",
+          "date": "2026-09-23",
+          "message": "The three M5 heat inserts each Interface bracket takes, and the two M5 x 22 countersunk that bolt it down through the top plate (holes I1-I6 and O1-O6, two per bracket). Six brackets, so 18 inserts and 12 screws, which with the two at S2/S3 is the M5 x 22 hand count of 14 exactly.",
+          "breaking": false,
+          "commit": null
         }
       ]
     },
     {
       "id": "lazy-susan",
-      "uid": "9hb1",
-      "version": "3",
+      "uid": "hhpa",
+      "version": "4",
       "name": "Bottom lazy Susan",
       "description": "The bottom interface's lazy Susan: the static half, the chute mount that spins on it, the extrusion mounts, and the bearing itself. Bolted through 4 × [[hw:scr-m4-12-cs]] a side, same as the top interface's.",
       "docs": "/hardware/assembly/distribution/bin-frame/bottom-interface/",
@@ -11926,6 +12803,10 @@
         {
           "part": "ls-bottom-static",
           "qty": 1
+        },
+        {
+          "part": "hsi-m4",
+          "qty": 8
         },
         {
           "part": "ls-washer",
@@ -12065,8 +12946,63 @@
         },
         {
           "version": "3",
+          "uid": "9hb1",
           "date": "2026-09-19",
           "message": "The 8 lazy Susan screws become M4 x 16 countersunk, the same correction as interface v6. With a 10 mm bearing an M4 x 12 reached 1.0 mm of thread on the rotating side and 3.0 mm on the static side; a 16 reaches 5.0 and 7.0 in the 9.500 mm pockets.",
+          "breaking": false,
+          "commit": "17cdff46",
+          "lines": [
+            {
+              "part": "ls-mount-to-chute",
+              "qty": 1,
+              "uid": "lma9"
+            },
+            {
+              "part": "ls-bottom-static",
+              "qty": 1,
+              "uid": "4mmh"
+            },
+            {
+              "part": "ls-washer",
+              "qty": 1,
+              "uid": "9c4a"
+            },
+            {
+              "part": "ls-mount-to-extrusion",
+              "qty": 3,
+              "uid": "bmt4"
+            },
+            {
+              "part": "ls-hold-in-place",
+              "qty": 3,
+              "uid": "ss05"
+            },
+            {
+              "part": "brg-lazy-susan",
+              "qty": 1,
+              "uid": "wrxu"
+            },
+            {
+              "part": "scr-m4-16-cs",
+              "qty": 8,
+              "uid": "ee5j"
+            },
+            {
+              "part": "scr-m5-16-shcs",
+              "qty": 9,
+              "uid": "2e0s"
+            },
+            {
+              "part": "tnut-m5-2020",
+              "qty": 6,
+              "uid": "bpwm"
+            }
+          ]
+        },
+        {
+          "version": "4",
+          "date": "2026-09-23",
+          "message": "The eight M4 heat inserts of the bottom lazy Susan, four in the chute mount and four in the bottom static ring, which is what the eight M4 x 16 already listed here thread into.",
           "breaking": false,
           "commit": null
         }
@@ -12117,7 +13053,7 @@
           "date": "2026-09-08",
           "message": "Two M3 x 8 countersunk, not four. The published clasp STLs have only two screw positions: two 3.50 mm clearance holes in the bottom half and the two matching 2.80 mm pilots 5.00 mm deep in the top, on the diagonal 43.2 mm apart. There is no third or fourth hole in either half. The length is still worth a look at the bench: an M3 x 8 reaches about 2 mm into the top half through the 6 mm bottom half.",
           "breaking": false,
-          "commit": null
+          "commit": "c467c375"
         }
       ],
       "lines": [
@@ -12286,7 +13222,7 @@
           "date": "2026-09-10",
           "message": "Record the LED strip as a member. The strip was always in this assembly (the hooks exist to retain it) but was never a line, so it appeared in no parts list and builders had nothing to buy from. It is one 950 mm piece cut from the 5 m roll, two turns inside the skirt.",
           "breaking": false,
-          "commit": null
+          "commit": "075dd9d4"
         }
       ]
     },
@@ -12319,8 +13255,8 @@
     },
     {
       "id": "camera-lamp",
-      "uid": "u4si",
-      "version": "1",
+      "uid": "rjhy",
+      "version": "2",
       "name": "Camera lamp",
       "description": "The per-channel camera and light: the arm with its ring, the adapted camera module snapped in, and the shaded lamp over the top. Three per machine, on C-channels 2 and 3 and the classification channel; the bulk bucket has none. Which camera it carries is a parameter.",
       "docs": "/hardware/assembly/feeder/camera-lamp/",
@@ -12345,6 +13281,10 @@
         {
           "assembly": "shaded-lamp",
           "qty": 1
+        },
+        {
+          "assembly": "harness-led-drop",
+          "qty": 1
         }
       ],
       "connections": [
@@ -12361,6 +13301,40 @@
           "qty": 1,
           "method": "gravity",
           "note": "The lamp sits over the top of the arm."
+        }
+      ],
+      "versions": [
+        {
+          "version": "1",
+          "uid": "u4si",
+          "message": "As recorded before the first stamped change.",
+          "lines": [
+            {
+              "assembly": "camera-lamp-arm-assembly",
+              "qty": 1,
+              "uid": "fcj4"
+            },
+            {
+              "assembly": "adapted-camera-module",
+              "qty": 1,
+              "args": {
+                "camera": "$camera"
+              },
+              "uid": "vfct"
+            },
+            {
+              "assembly": "shaded-lamp",
+              "qty": 1,
+              "uid": "k2fg"
+            }
+          ]
+        },
+        {
+          "version": "2",
+          "date": "2026-09-23",
+          "message": "Each camera lamp gets its LED drop. Dupont lead from an LED header to the inline barrel jack, then the pigtail from the plug to the clamp-on connector on the strip. One per lamp, so three per machine, which is what the hand count already said for all four of its parts.",
+          "breaking": false,
+          "commit": null
         }
       ]
     },
@@ -12475,6 +13449,198 @@
           "qty": 3,
           "method": "gravity",
           "note": "An adapter sits on top of each leg under its own weight."
+        }
+      ]
+    },
+    {
+      "id": "harness-psu-pigtail",
+      "uid": "kog5",
+      "version": "1",
+      "name": "PSU output pigtail (PJ)",
+      "description": "One of the PSU box's three 24 V outputs: a panel-mount barrel jack through the connections plate, fed by a 4 in 18 AWG pigtail with a fork terminal crimped onto each wire. The pair lands on one +V/-V screw pair of the LRS-350-24, 7 with 4, 8 with 5, 9 with 6. Buy the jacks with their leads already attached; building one from a bare jack and loose wire is more work for the same part. 3 per machine.",
+      "joining": [
+        {
+          "method": "crimp",
+          "note": "A fork terminal onto each of the jack lead's two wires, red to +V and black to -V."
+        }
+      ],
+      "lines": [
+        {
+          "part": "dc-jack-5521-panel",
+          "qty": 1
+        },
+        {
+          "part": "terminal-fork-m35",
+          "qty": 2
+        }
+      ]
+    },
+    {
+      "id": "harness-board-24v",
+      "uid": "odr5",
+      "version": "1",
+      "name": "24 V board feed (W1)",
+      "description": "The control board's 24 V lead, W1 on the power drawing: a barrel plug into one of the PSU box jacks at one end, a 2-pin VHR-2 onto J1 at the board end. 36 in of 18 AWG, deliberately long. Pin 1 is +24 V and pin 2 is ground. 1 per machine.",
+      "joining": [
+        {
+          "method": "crimp",
+          "note": "An SVH-21T contact onto each wire, then push it into the back of the VHR-2 until it clicks and will not pull out."
+        }
+      ],
+      "lines": [
+        {
+          "part": "dc-plug-5521-male",
+          "qty": 1
+        },
+        {
+          "part": "jst-vhr-2",
+          "qty": 1
+        },
+        {
+          "part": "jst-svh-21t",
+          "qty": 2
+        }
+      ]
+    },
+    {
+      "id": "harness-hub-24v",
+      "uid": "8b59",
+      "version": "1",
+      "name": "24 V USB hub lead (W2)",
+      "description": "The powered USB hub's feed, W2 on the power drawing: a barrel plug at each end, one into a PSU box jack and one into the hub's own jack. 12 in of 22 AWG. It sits at the Electronics level beside the box the lead starts at. 1 per machine.",
+      "joining": [
+        {
+          "method": "solder",
+          "note": "Splice the two moulded plug leads together, or use a single double-ended lead if you can buy one."
+        }
+      ],
+      "lines": [
+        {
+          "part": "dc-plug-5521-male",
+          "qty": 2
+        }
+      ]
+    },
+    {
+      "id": "harness-buck-24v",
+      "uid": "6odt",
+      "version": "1",
+      "name": "24 V buck converter lead (W3)",
+      "description": "The feed to the 24 V to 5 V buck converter that powers the Orange Pi, W3 on the power drawing: a barrel plug into a PSU box jack at one end, bare tinned leads at the other. 6 in of 22 AWG. The converter itself is not placed in the tree yet, so this sits on the mount its load bolts beside. 1 per machine.",
+      "joining": [
+        {
+          "method": "solder",
+          "note": "Splice the bare end to the converter's input leads."
+        }
+      ],
+      "lines": [
+        {
+          "part": "dc-plug-5521-male",
+          "qty": 1
+        }
+      ]
+    },
+    {
+      "id": "harness-led-drop",
+      "uid": "nmlx",
+      "version": "1",
+      "name": "LED drop (L, Lp)",
+      "description": "One camera lamp's power: a metre-long Dupont lead from an LED header on the board to an inline barrel jack, then a 6 in pigtail from the matching plug to the clamp-on connector on the lamp's strip. The barrel pair is the unplug point, so a lamp comes off without unpicking the board end. Run the drop as one continuous pair instead if you would rather have no barrel in it. 1 per camera lamp.",
+      "joining": [
+        {
+          "method": "crimp",
+          "note": "The strip connector clamps onto the cut end of the COB strip and onto the pigtail wire, so neither end is soldered."
+        }
+      ],
+      "lines": [
+        {
+          "part": "dupont-lead-2p-1m",
+          "qty": 1
+        },
+        {
+          "part": "dc-jack-5521-inline",
+          "qty": 1
+        },
+        {
+          "part": "dc-plug-5521-male",
+          "qty": 1
+        },
+        {
+          "part": "led-strip-connector-8mm",
+          "qty": 1
+        }
+      ]
+    },
+    {
+      "id": "harness-stepper-channel",
+      "uid": "ims7",
+      "version": "1",
+      "name": "Channel stepper cable (S)",
+      "description": "One C-channel stepper's cable: a 4-pin PHR-4 into a stepper socket on the board, a 6-pin PHR-6 into the NEMA 17's own socket, four 24 AWG conductors between them, sleeved as one bundle. The board's 1, 2, 3, 4 go to motor positions 1, 4, 3, 6, so this is a crossover and the pin order matters; positions 2 and 5 on the motor housing stay empty. Check the coil pairs with a multimeter before connecting. 1 per C-channel drive.",
+      "joining": [
+        {
+          "method": "crimp",
+          "note": "One SPH-002T contact onto each of the eight conductor ends, then push each into its housing until it latches."
+        }
+      ],
+      "lines": [
+        {
+          "part": "jst-phr-4",
+          "qty": 1
+        },
+        {
+          "part": "jst-sph-002t",
+          "qty": 8
+        },
+        {
+          "part": "jst-phr-6",
+          "qty": 1
+        }
+      ]
+    },
+    {
+      "id": "harness-stepper-chute",
+      "uid": "ujmp",
+      "version": "1",
+      "name": "Chute stepper cable (CH)",
+      "description": "The chute stepper's cable: a 4-pin PHR-4 into the board at one end, bare labelled leads at the other spliced to the motor's flying leads. Straight through, not a crossover, 40 in of 24 AWG. Find the coil pairs with a multimeter first. 1 per machine.",
+      "joining": [
+        {
+          "method": "crimp",
+          "note": "One SPH-002T contact onto each of the four board-end conductors."
+        }
+      ],
+      "lines": [
+        {
+          "part": "jst-phr-4",
+          "qty": 1
+        },
+        {
+          "part": "jst-sph-002t",
+          "qty": 4
+        }
+      ]
+    },
+    {
+      "id": "harness-limit-switch",
+      "uid": "76vq",
+      "version": "1",
+      "name": "Limit switch cable (LIM)",
+      "description": "The chute limit switch's cable: a 3-pin Dupont housing onto J5 with the third position left empty so the plug cannot go on backwards, and an insulated #187 quick-connect on each wire pushing onto the switch's blade tabs. 24 in of 22 AWG, and nothing on it is soldered. 1 per machine.",
+      "joining": [
+        {
+          "method": "crimp",
+          "note": "A quick-connect receptacle onto each wire at the switch end and a Dupont contact at the board end."
+        }
+      ],
+      "lines": [
+        {
+          "part": "dupont-housing-3p",
+          "qty": 1
+        },
+        {
+          "part": "terminal-qc-187",
+          "qty": 2
         }
       ]
     }

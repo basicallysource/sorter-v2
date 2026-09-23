@@ -8,7 +8,7 @@ kicker: Helpers — Control board 24 V lead
 lede: The lead that powers basically board v1.3, a barrel plug at the PSU end and a JST-VH housing crimped on at the board end. One per machine.
 permalink: /hardware/helpers/board-24v-lead/
 author: effreek
-contributors: [spencer]
+contributors: [spencer, brickcyclealice]
 warning: >-
   **AI-generated first draft.** Written from the basically board v1.3 board files and the [wire
   harness]({{ '/hardware/electronics/wire-harness/' | relative_url }}) schedule, not from an actual build. The
@@ -36,9 +36,9 @@ This is `W1` on the [harness drawings]({{ '/hardware/parts/harness-order/#board-
 ## What the two ends are
 
 <dl class="spec-list">
-  <dt>PSU end</dt><dd>Male DC barrel plug, <b>5.5 mm outside and 2.1 mm inside</b>, centre-positive. A 2.5 mm plug looks the same and does not mate.</dd>
+  <dt>PSU end</dt><dd>Male DC barrel plug, <b>5.5 mm outside and 2.1 mm inside</b>, centre-positive: the tip is +24 V and the sleeve is ground. A 2.5 mm plug looks the same and does not mate.</dd>
   <dt>Board end</dt><dd>JST <b>VH</b> housing, 2-pin (VHR-2), with a VH crimp contact on each conductor. VH pins are 3.96 mm apart, so the housing is much chunkier than the 2.0 mm PH housings the steppers use. The two do not interchange.</dd>
-  <dt>Wire</dt><dd>18 AWG, two conductor, red and black. Cut it 914 mm (36 in) long.</dd>
+  <dt>Wire</dt><dd>18 AWG, two conductor, red and black: <b>red is +24 V, black is ground</b>, the same convention as every other DC lead on the machine. Cut it 914 mm (36 in) long.</dd>
 </dl>
 
 <div class="callout callout-warning">
@@ -50,7 +50,7 @@ This is `W1` on the [harness drawings]({{ '/hardware/parts/harness-order/#board-
 
 <ol class="numbered-steps">
   <li>Start from a moulded barrel plug on a short lead. Splice the 18 AWG pair onto it so the finished lead is 914 mm (36 in) end to end: solder each conductor, cover each one with adhesive-lined heat shrink, then sleeve both together.</li>
-  <li>Find which conductor is the tip. Set the multimeter to continuity and hold one probe on the centre pin inside the plug. The conductor that beeps is <b>+24 V</b>. It is the red one on most moulded plugs, and this is the step where you find out.</li>
+  <li>Find which conductor is the tip. Set the multimeter to continuity and hold one probe on the centre pin inside the plug. The conductor that beeps is <b>+24 V</b>. It is the red one on most moulded plugs, but the plug came from somebody else and a few are wired the other way, so this is the step where you find out.</li>
   <li>Strip 3 mm off the free end of each conductor.</li>
   <li>Crimp a VH contact onto each. Seat the bare strands fully in the barrel, crimp in the matching die, then pull on the wire to check it holds.</li>
   <li>Push each contact into the back of the VHR-2 housing until it clicks and will not pull out: <b>+24 V into position 1, ground into position 2</b>.</li>

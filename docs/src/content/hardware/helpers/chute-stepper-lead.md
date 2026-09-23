@@ -50,8 +50,8 @@ The full pinout and the board-side footprint are on the [wire harness]({{ '/hard
 The motor's four leads are coloured, and the colours do not tell you which pair is which coil on every motor.
 
 <ol class="numbered-steps">
-  <li>Set the multimeter to resistance.</li>
-  <li>Put a probe on two of the four leads. A pair from the same coil reads a few ohms. Two leads from different coils read open circuit.</li>
+  <li>Set the multimeter to resistance, the <b>&Omega;</b> position on its dial.</li>
+  <li>Put a probe on two of the four leads. <b>A pair from the same coil reads well under an ohm</b> on this motor, 0.65 &Omega; at the winding plus whatever your probe leads add. Two leads from different coils read open circuit, which most meters show as <code>OL</code> or a lone <code>1</code>.</li>
   <li>Work through the leads until you have both pairs. Write down which colour goes with which.</li>
 </ol>
 
@@ -66,7 +66,7 @@ The motor's four leads are coloured, and the colours do not tell you which pair 
 
 <div class="callout callout-warning">
   <span class="callout-icon" aria-hidden="true">⚠</span>
-  <p><b>Check the coils again on the finished lead.</b> Meter across positions 1 and 2, then across 3 and 4. Both read a few ohms. If either reads open circuit, a contact has gone into the wrong position: pull the two out and swap them. A motor wired across the coils buzzes and barely turns.</p>
+  <p><b>Check the coils again on the finished lead.</b> Meter across positions 1 and 2, then across 3 and 4. Both read the same fraction of an ohm you measured at the leads. If either reads open circuit, a contact has gone into the wrong position: pull the two out and swap them. A motor wired across the coils buzzes and barely turns.</p>
 </div>
 
 ## Either socket on the board takes it

@@ -128,9 +128,9 @@ class System:
     def wifi_iface(self) -> str | None:
         """The first Wi-Fi device NetworkManager manages: wlan0 for the M.2
         module, wlx<mac> for a USB adapter."""
-        for line in self._run("nmcli", "-t", "-f", "DEVICE,TYPE", "device").stdout.splitlines():
-            device, _, kind = line.partition(":")
-            if kind == "wifi":
+        for line in self._run("nmcli", "-t", "-f", "DEVICE,TYPE,STATE", "device").stdout.splitlines():
+            device, kind, state = (line.split(":") + ["", ""])[:3]
+            if kind == "wifi" and state != "unmanaged":
                 return device
         return None
 

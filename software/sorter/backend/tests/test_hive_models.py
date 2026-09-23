@@ -79,6 +79,25 @@ class TestPickRuntime:
             hive_models.pick_runtime_for_this_machine(["hailo", "onnx"]) == "onnx"
         )
 
+    def test_rknn_on_an_rk3588(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr(hive_models, "_has_hailo", lambda: False)
+        monkeypatch.setattr(hive_models, "_has_rknn_npu", lambda: True)
+        monkeypatch.setattr(hive_models.platform, "machine", lambda: "aarch64")
+        assert hive_models.compatible_runtimes_for_this_machine() == ["rknn", "ncnn", "onnx"]
+        assert (
+            hive_models.pick_runtime_for_this_machine(["onnx", "ncnn", "rknn"]) == "rknn"
+        )
+
+    def test_compatible_runtimes_without_accelerators(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(hive_models, "_has_hailo", lambda: False)
+        monkeypatch.setattr(hive_models, "_has_rknn_npu", lambda: False)
+        monkeypatch.setattr(hive_models.platform, "machine", lambda: "x86_64")
+        assert hive_models.compatible_runtimes_for_this_machine() == ["onnx", "ncnn"]
+        monkeypatch.setattr(hive_models.platform, "machine", lambda: "aarch64")
+        assert hive_models.compatible_runtimes_for_this_machine() == ["ncnn", "onnx"]
+
 
 # ---------------------------------------------------------------------------
 # DownloadJobManager
@@ -647,6 +666,35 @@ class TestCodenames:
         assert sentinel["codename"] == "Ember"
         assert sentinel["codename_color"] == "#E25822"
         assert hive_models.list_installed_models()[0]["codename"] == "Ember"
+
+
+def test_a_default_install_counts_as_installed_on_its_hive(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The default-model install has no target; browsing the same Hive through
+    a target still shows the model as installed."""
+    monkeypatch.setattr(hive_models, "LOCAL_MODELS_DIR", tmp_path)
+    _configure_target(monkeypatch)
+    run_path = _write_legacy_install(tmp_path)
+    payload = json.loads(run_path.read_text())
+    payload[hive_models.HIVE_SENTINEL_KEY].update(
+        {"target_id": None, "source_url": "https://hive.example/", "installed_as_default": True}
+    )
+    run_path.write_text(json.dumps(payload))
+
+    stub = _StubClient(detail=_make_detail())
+    stub.list_models = lambda **_: {  # type: ignore[method-assign]
+        "items": [{"id": "model-1"}, {"id": "model-2"}],
+        "total": 2,
+        "page": 1,
+        "page_size": 30,
+        "pages": 1,
+    }
+    _install_stub_client(monkeypatch, stub)
+
+    items = hive_models.list_remote_models("hive-a")["items"]
+    assert [item["installed"] for item in items] == [True, False]
+    assert hive_models.get_remote_model("hive-a", "model-1")["installed"] is True
 
 
 def _write_legacy_install(root: Path) -> Path:

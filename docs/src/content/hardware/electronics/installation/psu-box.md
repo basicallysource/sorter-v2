@@ -17,6 +17,8 @@ parts_needed:
     qty: 1
   - part: psu-switch-fused
     qty: 1
+  - part: mains-cord-c13
+    qty: 1
   - part: scr-m3-8-cs
     qty: 2
   - part: meanwell-psu-back-mount
@@ -76,7 +78,7 @@ Tug-test each terminal once it is down.
 
 The **IEC C14 inlet, switch + 10 A fuse** is the machine's mains entry and its on/off switch. Its three leads come already attached, so there is no AC cable to make.
 
-**The cable from the wall is an ordinary IEC C13 mains lead**, the cord a desktop PC or a monitor comes with, with the plug your country uses. Three core, because the machine earths through it and out to the supply's earth screw. 10 A or better, which matches the module's own fuse and is far more than the machine draws. **It is in no parts list**: it is the one part of this build you probably already own, so nothing is missing if you cannot find it in the BOM.
+**The cable from the wall is an ordinary IEC C13 mains lead**, the cord a desktop PC or a monitor comes with, with the plug your country uses. It is in the parts above. Three core, because the machine earths through it and out to the supply's earth screw, and 10 A or better, which matches the module's own fuse and is far more than the machine draws. It is the one part of this build most people already own, so check a drawer before buying one.
 
 Push it into the rectangular cutout from the outside so its flange sits on the outer face of the plate. Fasten it with 2 {% include fastener.html size="M3" variant="countersunk" length="8" %} screws, one through each flange hole. The flange is countersunk for them, so the heads finish flush. They cut their own thread in the plate, so run them in until the flange is tight and stop.
 

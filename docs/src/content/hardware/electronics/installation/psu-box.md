@@ -8,7 +8,7 @@ kicker: Electronics — PSU box
 lede: The printed enclosure around the Mean Well LRS-350-24, its mains inlet, and the wiring inside it.
 permalink: /hardware/electronics/installation/psu-box/
 author: barthel
-contributors: [spencer]
+contributors: [spencer, brickcyclealice]
 og_image: https://assets.basically.website/sorter-parts/psu-24v-350w-full-72bba2c3919b.jpg
 last_verified: 2026-09-18
 tools_needed: ["Hex keys, 2 mm and 2.5 mm", "Screwdriver for the supply's M3.5 terminal screws"]
@@ -85,7 +85,12 @@ Push it into the rectangular cutout from the outside so its flange sits on the o
   <figcaption>The connections plate from outside, and the same plate with the inlet in it. The cap closes the top, so that edge is up. <cite>Plate drawn from its STL and the module from its published flange size, both at the same scale, not from a build.</cite></figcaption>
 </figure>
 
-Then land its three leads on screws 1, 2 and 3: **red on 1** (AC/L), **blue on 2** (AC/N), **yellow on 3** (earth). The drawing in step 1 has them too.
+Then land its three leads on screws 1, 2 and 3: **red on 1** (AC/L), **blue on 2** (AC/N), **yellow on 3** (earth). The drawing in step 1 has them too. They arrive with their terminals already crimped on, so this is three screws and nothing else.
+
+<figure class="single-figure">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/psu-box-inlet-leads-on-block-w1600-c75694a6cff8.jpg" alt="The Mean Well LRS-350-24 on a bench with the fused IEC inlet module beside it, the module's three factory leads running to the bottom three screws of the terminal block: red on the screw marked L, blue on N and yellow on the earth symbol">
+  <figcaption>The three mains leads on the bottom three screws, red to <code>L</code>, blue to <code>N</code>, yellow to earth. Shown with the module still out of its plate, which is the one thing this picture does not follow: in the build it goes into the plate first. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+</figure>
 
 {% include step.html n="3" title="Fasten the plates to the supply" %}
 

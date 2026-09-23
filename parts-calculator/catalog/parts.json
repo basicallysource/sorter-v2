@@ -11788,6 +11788,28 @@
       ],
       "versions": [
         {
+          "version": "1",
+          "uid": "lbrp",
+          "message": "As recorded before the first stamped change.",
+          "lines": [
+            {
+              "assembly": "meanwell-psu-box",
+              "qty": 1,
+              "uid": "5h82"
+            },
+            {
+              "assembly": "ctrl-board-mount",
+              "qty": 1,
+              "uid": "p5yl"
+            },
+            {
+              "assembly": "orange-pi-mount",
+              "qty": 1,
+              "uid": "ghuf"
+            }
+          ]
+        },
+        {
           "version": "2",
           "date": "2026-09-23",
           "message": "The 24 V to 5 V USB-C buck converter is a member of this group now, beside the Orange Pi mount rather than inside it. It was in the catalog with a hand-written per-machine count and in no assembly, so browsing the machine never reached it. Beside and not inside because nothing holds it: the converter is potted, has no mounting feature, and no page places or retains it, so a line inside the mount would assert a joint that does not exist.",

@@ -262,10 +262,13 @@ def phase_overlay(ctx: BuildCtx) -> None:
         log(f"overlay dir {ctx.overlay_dir} does not exist; nothing to copy")
         return
 
-    # -a preserves perms/symlinks; -H preserves hard links inside the overlay.
-    # --no-times so we don't pollute mtimes of files that haven't changed.
+    # -a keeps modes and symlinks; -H hard links. Everything in the overlay is
+    # system files, so it lands owned by root and never group/world-writable,
+    # whoever owns the checkout (rsync -a alone copied the build user's uid,
+    # which is orangepi's uid 1000 in the image, onto /etc and onto scripts
+    # root runs at boot). --no-times keeps unchanged files' mtimes.
     run([
-        "rsync", "-aH", "--no-times",
+        "rsync", "-aH", "--no-times", "--chown=0:0", "--chmod=Dgo-w,Fgo-w",
         f"{ctx.overlay_dir}/", f"{ctx.mnt}/",
     ])
 

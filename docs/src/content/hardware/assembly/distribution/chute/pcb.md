@@ -10,6 +10,7 @@ permalink: /hardware/assembly/distribution/chute/pcb/
 author: spencer
 contributors: [barthel]
 last_verified: 2026-09-07
+tools_needed: ["Hex key, 2 mm for a button head or 2.5 mm for a socket head"]
 parts_needed:
   - part: layer-adapter-board-basically
     qty: 1

@@ -11,6 +11,7 @@ author: spencer
 contributors: [barthel]
 og_image: https://assets.basically.website/sorter-docs/assembly-chute-core-built-w1600-6d9c4c0c0ac6.jpg
 last_verified: 2026-09-07
+tools_needed: [Soldering iron or heat-set insert press]
 parts_needed:
   - part: chute-core
     qty: 1

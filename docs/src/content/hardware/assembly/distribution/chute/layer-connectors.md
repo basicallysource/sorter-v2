@@ -10,6 +10,7 @@ permalink: /hardware/assembly/distribution/chute/layer-connectors/
 author: spencer
 contributors: [barthel]
 last_verified: 2026-09-07
+tools_needed: ["Hex key, 2 mm"]
 parts_needed:
   - part: layer-connector-1
     qty: 1

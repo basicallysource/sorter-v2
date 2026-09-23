@@ -96,6 +96,11 @@ Then land its three leads on screws 1, 2 and 3: **live on 1** (AC/L), **neutral 
 
 **The test**, with nothing plugged in: take the fuse out of its drawer, set the meter to continuity, and probe from each coloured lead to each of the two flat pins inside the C14. The pair that still beeps with the fuse out is **neutral**. The one that beeps only with the fuse back in and the rocker on is **live**, because the fuse and the switch sit in the live side. That lead goes on screw 1.
 
+<figure class="single-figure">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/psu-box-inlet-leads-tested-w1600-152d058c81fe.jpg" alt="The Mean Well LRS-350-24 on a bench with the fused IEC inlet module beside it, its three factory leads running to the bottom three screws of the terminal block: the blue lead on the screw marked L, the red lead on N and the yellow lead on the earth symbol">
+  <figcaption>One module wired after testing it: on this one the live lead turned out to be the <b>blue</b> one, so blue is on <code>L</code> and red on <code>N</code>. Another unit of the same part can be the other way round, which is the whole reason for the test. Shown with the module out of its plate, where the build fits it first. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+</figure>
+
 {% include step.html n="3" title="Fasten the plates to the supply" %}
 
 Fasten the PSU connections plate and the PSU back mount to the supply's own case with the 4 {% include fastener.html size="M4" variant="countersunk" length="6" %} screws, two into each plate. The supply has four M4 threads in its case, two at each end.

@@ -17,9 +17,9 @@ Phases (run with --phase <name> for a partial rerun):
   finalize          — unmount, rename, report
   zip               — compress .img → .img.zip for GitHub Releases distribution
 
-Default with no --phase: run all of them in order. Each phase is
-idempotent on its own — re-running a single phase won't break the
-overall state.
+Default with no --phase: prep through finalize, in order. zip is only for a
+release: --phase zip. Each phase is idempotent on its own — re-running a
+single phase won't break the overall state.
 """
 
 from __future__ import annotations
@@ -600,7 +600,7 @@ def main() -> None:
         ref=ref,
     )
 
-    phases = [args.phase] if args.phase else PHASES
+    phases = [args.phase] if args.phase else PHASES[:PHASES.index("zip")]
     for p in phases:
         log(f"=== phase: {p} ===")
         PHASE_FNS[p](ctx)

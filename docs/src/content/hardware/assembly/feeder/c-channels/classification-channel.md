@@ -9,11 +9,11 @@ lede: The lowest channel, where the part is imaged. The finned rotor, its cap, a
 permalink: /hardware/assembly/feeder/c-channels/classification-channel/
 author: spencer
 og_image: https://assets.basically.website/sorter-docs/assembly-c-channel-stator-and-rotor-fitted-w1600-60758bbee2d5.jpg
-contributors: [barthel, brickcyclealice, danny]
+contributors: [barthel, brickcyclealice, danny, daddyosbricksbill]
 warning: >-
-  **Steps 1 to 4 come from a build**, BrickCycleAlice's. **Step 5 is not verified**: the lamp's
-  dovetail onto the NEMA bracket has been described by a builder but not photographed. Correct
-  it as you build.
+  **Steps 1 to 4 come from a build**, BrickCycleAlice's, and **step 5 from a second build**,
+  Daddy-O's Bricks - Bill's. The dovetail fit itself has still not been dimensioned. Correct it
+  as you build.
 parts_needed:
   - part: rotor-finned
     qty: 1
@@ -100,7 +100,7 @@ Turn the rotor by hand. It should go all the way round without a tight spot.
 
 {% include step.html n="5" title="Hang the camera lamp" %}
 
-The lamp's arm mount hangs on a dovetail under the channel's NEMA bracket. There is no screw in that joint. The joint itself is step 4 of the [classification camera lamp]({{ '/hardware/assembly/feeder/camera-lamp/classification-camera-lamp/' | relative_url }}) page.
+The lamp's arm mount slides down into one of the dovetails around the outside of the channel wall: the 8th from the exit, counting anticlockwise seen from above. There is no screw in that joint. The joint itself is step 4 of the [classification camera lamp]({{ '/hardware/assembly/feeder/camera-lamp/classification-camera-lamp/' | relative_url }}) page, and it happens at step 9 of [arranging C-channels]({{ '/hardware/assembly/feeder/arranging-c-channels/' | relative_url }}), with the channels standing.
 
 **Do this with the channel standing where it belongs**, not on the bench. Its height and overhang change what the camera sees.
 

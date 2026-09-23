@@ -8,7 +8,7 @@ kicker: Feeder — Feeder channels
 lede: The two metering stages between the bulk channel and classification, with a faceted rotor, an output guide and a camera lamp each.
 permalink: /hardware/assembly/feeder/c-channels/feeder-channels/
 author: barthel
-contributors: [spencer, brickcyclealice, danny, reveryx]
+contributors: [spencer, brickcyclealice, danny, reveryx, daddyosbricksbill]
 og_image: https://assets.basically.website/sorter-docs/assembly-c-channel-finished-stage-w1600-9bd3719c4180.jpg
 warning: >-
   **Steps 1 to 3 come from a build**, BrickCycleAlice's. **Step 4 is not verified**: the output
@@ -115,7 +115,7 @@ Then turn both channels by hand, with a few parts on the rotor above. A part sho
 
 {% include step.html n="5" title="Hang the camera lamp" %}
 
-The lamp's arm mount hangs on a dovetail under the channel's NEMA bracket. There is no screw in that joint. The joint itself is step 4 of the [feeder camera lamp]({{ '/hardware/assembly/feeder/camera-lamp/feeder-camera-lamp/' | relative_url }}) page.
+The lamp's arm mount slides down into one of the dovetails around the outside of the channel wall: the 5th from the exit, counting anticlockwise seen from above. There is no screw in that joint. The joint itself is step 4 of the [feeder camera lamp]({{ '/hardware/assembly/feeder/camera-lamp/feeder-camera-lamp/' | relative_url }}) page, and it happens at step 9 of [arranging C-channels]({{ '/hardware/assembly/feeder/arranging-c-channels/' | relative_url }}), with the channels standing.
 
 **Do this with the channel standing where it belongs**, not on the bench. Its height and overhang change what the camera sees.
 

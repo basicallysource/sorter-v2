@@ -71,6 +71,9 @@
 		model_family: string;
 		size_bytes: number;
 		downloaded_at: string | null;
+		// The Hive a download came from. Shown when no configured target names
+		// it, e.g. for the default model a new machine installs on its own.
+		source_url?: string | null;
 		trained_at: string | null;
 		path: string;
 		compatible?: boolean;
@@ -1026,7 +1029,7 @@
 							{@const ageIso = entry.trained_at ?? entry.downloaded_at}
 							{@const ageRelative = formatRelativeAge(ageIso)}
 							{@const isCompatible = entry.compatible !== false}
-							{@const hiveBase = targetUrl(entry.target_id)}
+							{@const hiveBase = targetUrl(entry.target_id) ?? entry.source_url ?? null}
 							{@const detailHref = entry.source === 'hive' && hiveBase ? `${hiveBase.replace(/\/+$/, '')}/models/${entry.model_id}` : null}
 							<li
 								class={`border ${idx > 0 ? '-mt-px' : ''} ${isActive ? 'border-success bg-success/[0.06]' : !isCompatible ? 'border-border bg-bg opacity-70' : 'border-border bg-surface'}`}
@@ -1099,10 +1102,10 @@
 													</span>
 												</Tooltip>
 											{/if}
-											{#if entry.source === 'hive' && hostFromUrl(targetUrl(entry.target_id))}
+											{#if entry.source === 'hive' && hostFromUrl(hiveBase)}
 												<span aria-hidden="true">·</span>
-												<span class="font-mono text-text-muted/80" title={`From Hive: ${targetUrl(entry.target_id)}`}>
-													{hostFromUrl(targetUrl(entry.target_id))}
+												<span class="font-mono text-text-muted/80" title={`From Hive: ${hiveBase}`}>
+													{hostFromUrl(hiveBase)}
 												</span>
 											{/if}
 										</div>
@@ -1241,7 +1244,7 @@
 												</dd>
 												<dt class="text-text-muted">Hive</dt>
 												<dd class="break-all font-mono text-text">
-													{targetUrl(entry.target_id) ?? targetName(entry.target_id ?? '')}
+													{hiveBase ?? targetName(entry.target_id ?? '')}
 												</dd>
 											{/if}
 											<dt class="text-text-muted">Algorithm ID</dt>

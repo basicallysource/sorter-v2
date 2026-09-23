@@ -608,7 +608,7 @@ def _bench_rknn(model_dir: Path, core_mask_name: str, warmup: int, iterations: i
                 raise HTTPException(status_code=500, detail="init_runtime failed")
         # Probe input shape from the model — RKNN INT8 wants HWC uint8.
         # We can't easily introspect post-quantization shape, so default to
-        # 320x320 (matches our bundled YOLO export).
+        # 320x320 (the input size of the YOLO exports on Hive).
         size = 320
         # RKNN graph expects NHWC — wrap in a batch axis or rknn-toolkit-lite2
         # raises "The input[0] need 4dims input, but 3dims input buffer feed."

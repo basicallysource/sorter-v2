@@ -14,7 +14,6 @@ RUN apt-get update \
         curl \
         ca-certificates \
         git \
-        git-lfs \
     && rm -rf /var/lib/apt/lists/* \
     && useradd -m -s /bin/bash $TEST_USER \
     && echo "$TEST_USER ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/$TEST_USER

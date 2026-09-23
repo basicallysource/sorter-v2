@@ -1,63 +1,57 @@
-# v3 builder
+# SorterOS image builder
 
-Python image builder. Runs locally on the M2 Mac inside a colima Linux VM
-(arm64 native — no qemu emulation, no Hive).
+`build.py` turns the Orange Pi vendor image into a SorterOS image. It runs as
+root on Linux, natively on arm64 or on x86_64 with QEMU user emulation for
+the chroot step.
 
-## One-time setup on the Mac
+## One-time setup (Ubuntu / Debian)
 
 ```bash
-brew install colima docker
-colima start --arch aarch64 --cpu 4 --memory 8 --mount-type virtiofs \
-    --mount $HOME/Documents/GitHub/sorter-v2-03:w
+sudo apt-get install qemu-user-static binfmt-support cloud-guest-utils rsync e2fsprogs
 ```
 
-`colima` gives you a real Linux VM with `/dev/loop*`, `mount`, `chroot`,
-all of it. The repo is bind-mounted so the build sees source files
-directly.
+`qemu-user-static` is only needed on x86_64; check that
+`/proc/sys/fs/binfmt_misc/qemu-aarch64` exists and its flags include `F`.
+The `portal` phase builds the captive portal with Node 20+ and pnpm, and
+`build.py` needs Python 3.11+.
+
+Download the base image named in `config.toml` (`[base]`) into `cache/`, or
+point `SORTEROS_BASE_IMG` at it. The build checks its sha256.
 
 ## Running a build
 
 ```bash
-# Inside the colima VM (colima ssh):
-cd ~/sorter-v2-03/software/sorteros/v3/build
-sudo /opt/homebrew/opt/python@3.11/libexec/bin/python build.py
+cd software/sorteros/build
+sudo python3 build.py                      # release image: first boot checks out stable
+sudo python3 build.py --ref my-branch      # test image: first boot checks out my-branch
+sudo python3 build.py --phase overlay      # re-run one phase
 ```
 
-Or with phases for fast iteration:
+Output: `out/sorteros-v<version>-<date>.img`, and `--phase zip` compresses it
+for a GitHub release.
 
-```bash
-sudo python build.py --phase chroot   # re-run only the apt step
-sudo python build.py --phase overlay  # re-run only the overlay copy
-```
-
-Output: `out/sorteros-v3-<date>.img` in the repo dir.
-
-## Target wall-time
-
-| phase | target | what it does |
-| --- | --- | --- |
-| `prep` | ~5 s | `cp` base image from `cache/` → `out/work.img` |
-| `mount` | ~5 s | `losetup -fP`, `e2fsck -fy`, `mount` p1 at `/mnt/sorteros-build` |
-| `overlay` | ~2 s | `rsync -aH` `overlay/` → rootfs; bake `/etc/sorteros/branch` |
-| `portal` | ~15 s | `pnpm build` the SorterOS captive portal, copy backend + static bundle into rootfs |
-| `chroot` | ~60 s | bind `/dev /proc /sys /dev/pts`, run `chroot_apt.sh`, unbind |
-| `finalize` | ~5 s | `umount`, `losetup -d`, rename `work.img` → `sorteros-v4-<date>.img` |
-| **total** | **< 90 s** | (assumes base img is cached and arm64-native; under qemu add ~3 min) |
-
-The base image is downloaded once and cached under `cache/`. Subsequent
-builds skip the download entirely.
+| phase | what it does |
+| --- | --- |
+| `prep` | verify the base image, copy it to `out/work.img` |
+| `grow` | add 4 GiB, grow p1 and the ext4 into it, switch ext4 to `data=ordered` |
+| `mount` | loop-mount p1 at `/mnt/sorteros-build` |
+| `overlay` | copy `overlay/`, bake `/etc/sorteros/{ref,version}`, hostname `sorter`, `errors=panic` in fstab, `fsck.repair=yes panic=10` on the kernel command line |
+| `portal` | build the captive portal (`../portal/`) into the rootfs |
+| `chroot` | run `chroot_apt.sh` inside the rootfs (apt delta, Node, uv, avahi) |
+| `finalize` | unmount, detach, rename to the versioned name |
+| `zip` | compress the newest image for distribution |
 
 ## What is NOT in the image
 
-- `uv sync` — deferred to the firstboot daemon (~5 GB PyTorch wheels).
-- `pnpm install` — deferred to the firstboot daemon.
-- Repo clone of `sorter-v2` — deferred to the firstboot daemon.
+The Sorter software itself. First boot clones the repo (blobless), checks out
+the newest `sorter/stable/v*` tag (or the `--ref` baked into a test image),
+runs `uv sync` and `pnpm install`/`build`, installs the services, and hands
+port 80 to the UI. That keeps the image small and means an image never has to
+be rebuilt to ship a software release. Vision models are not in the repo
+either: the machine downloads Hive's default model for its hardware after
+first boot.
 
-The point of deferral isn't speed-of-build (the chroot path is native
-arm64 anyway), it's image *size*. Keeping these out of the image takes
-the .img from ~8 GB → < 4 GB raw.
+## Test before flashing
 
-## See also
-
-- `../README.md` — v3 overview
-- `sorter-v2-agent-notes/orange_pi/sorteros_v3.md` — full design doc
+`../test/` boots a built image in QEMU and checks it end to end. See its
+README.

@@ -1,6 +1,6 @@
 [Unit]
 Description=Sorter Backend
-Documentation=https://basicallysource.github.io/sorter-v2/sorter/installation/
+Documentation=https://docs.basically.website/sorter/installation/
 After=network-online.target
 Wants=network-online.target
 # No start-rate limit: field machines get power-cut and must keep retrying

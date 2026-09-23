@@ -14,7 +14,7 @@ sha256 = "acd946a427101ff8fa6953d482831ee5901ea4c50d9d200fb3963be3027d1be5"
 
 [output]
 dir = "out"
-version = "4.0.5-cm5.1"
+version = "4.1.0-cm5.1"
 name = "sorteros-v{version}-{date}.img"
 
 [chroot]
@@ -28,7 +28,8 @@ packages = [
     "libgl1",
     "libglib2.0-0",
     "v4l-utils",
-    "git-lfs",
+    "avahi-daemon",
+    "libnss-mdns",
     "cloud-guest-utils",
     "figlet",
     "systemd-timesyncd",
@@ -36,8 +37,8 @@ packages = [
 ]
 extra_curl_installs = ["node22", "tailscale", "portal-py-deps"]
 
-[branch]
-default = "sorteros-v3"
+[source]
+ref = "stable"
 
 [overlay]
 # CM5 Tablet Base Board WiFi is auto-detected by the vendor image — no

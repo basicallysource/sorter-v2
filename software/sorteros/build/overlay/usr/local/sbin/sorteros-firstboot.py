@@ -1,12 +1,18 @@
 """
-SorterOS v3 firstboot daemon.
+SorterOS firstboot daemon.
 
 Type=simple background service. Loops every 60s. Each stage is idempotent
 and guarded by a stamp file. Stages that need internet just skip themselves
 and retry next iteration when offline — boot is NEVER blocked, errors are
 NEVER fatal.
 
-When all stages are stamped done, the daemon exits 0 and systemd stops
+The stages up to install-services are what it takes to run the Sorter UI.
+The moment those are done the status page hands port 80 to the UI, even if a
+later stage (Tailscale) is still retrying or has given up. A later stage that
+keeps failing stops after LATE_STAGE_MAX_FAILURES tries so a bad key doesn't
+retry forever.
+
+When every stage is done or given up, the daemon exits 0 and systemd stops
 restarting it (RestartPreventExitStatus=0 in the unit).
 """
 
@@ -16,9 +22,9 @@ import base64
 import html as _html
 import json
 import logging
-import os
 import random
 import re
+import shutil
 import socket
 import subprocess
 import threading
@@ -62,10 +68,19 @@ except ImportError:
 
 STAMP_DIR = Path("/var/lib/sorteros")
 CONFIG_PATH = Path("/etc/sorteros-config.toml")
+REF_PATH = Path("/etc/sorteros/ref")
 STATUS_PORT = 80
+REPO_URL = "https://github.com/basicallysource/sorter-v2"
 REPO_DIR = Path("/home/orangepi/sorter-v2")
 SOFTWARE_DIR = REPO_DIR / "software"
+# The image bakes "stable" into REF_PATH: check out the newest release tag in
+# the stable channel, the same tags the Sorter UI's Versions page updates to.
+# A test image may bake a branch, tag or commit instead.
+STABLE_REF = "stable"
+STABLE_TAG_PREFIX = "sorter/stable/v"
 POLL_INTERVAL = 60
+LATE_STAGE_MAX_FAILURES = 10
+DOCS_URL = "https://docs.basically.website/sorter/installation/sorter-os/"
 INTERNET_PROBE_HOSTS = ("deb.debian.org", "github.com")
 INTERNET_PROBE_TIMEOUT = 5
 
@@ -87,6 +102,8 @@ class Stage:
     name: str
     needs_internet: bool
     run: Callable[[], None]
+    # False for stages that run after the UI is up and may give up.
+    before_ui: bool = True
 
 
 # ─── status server ─────────────────────────────────────────────────────────
@@ -105,6 +122,7 @@ STATUS_ICONS = {
     "active":  ("●", "running"),
     "waiting": ("…", "waiting"),
     "pending": ("○", "pending"),
+    "failed":  ("✕", "failed"),
 }
 
 
@@ -119,18 +137,27 @@ def _set_state(name: str, status: str, info: str = "") -> None:
 
 
 def _read_meta() -> tuple[str, str, str]:
-    hostname = socket.gethostname() or "sorty"
+    hostname = socket.gethostname() or "sorter"
     version = "dev"
-    branch = "?"
     try:
         version = Path("/etc/sorteros/version").read_text().strip()
     except OSError:
         pass
+    return hostname, version, _checked_out_ref() or _baked_ref()
+
+
+def _baked_ref() -> str:
     try:
-        branch = Path("/etc/sorteros/branch").read_text().strip()
+        return REF_PATH.read_text().strip() or STABLE_REF
     except OSError:
-        pass
-    return hostname, version, branch
+        return STABLE_REF
+
+
+def _checked_out_ref() -> str | None:
+    try:
+        return (STAMP_DIR / "checked-out-ref").read_text().strip() or None
+    except OSError:
+        return None
 
 
 STATUS_HTML = """<!doctype html>
@@ -160,29 +187,32 @@ td{{padding:.4rem .8rem;border-bottom:1px solid #1c1c1c;vertical-align:top}}
 .running .info{{color:#fbbf24}}
 .waiting .info{{color:#888}}
 .pending .info{{color:#555}}
+.failed .icon,.failed .info{{color:#f87171}}
 .foot{{color:#555;font-size:.8rem;margin:2rem auto 0;max-width:720px}}
 code{{background:#1a1a1a;padding:.1rem .35rem}}
 </style></head><body>
 <div class="head">
 <h1>SorterOS · {hostname}</h1>
-<div class="meta">v{version} · {branch} · {done}/{total} · {net_label}</div>
+<div class="meta">v{version} · {ref} · {done}/{total} · {net_label}</div>
 </div>
 {banner}
 <table>{rows}</table>
-<div class="foot">Live log: <code>journalctl -fu sorteros-firstboot</code></div>
+<div class="foot">Live log: <code>journalctl -fu sorteros-firstboot</code> · Stuck? <a href="{docs_url}" style="color:#60a5fa">Install guide</a></div>
 </body></html>
 """
 
 
 def _render_status_page() -> bytes:
-    hostname, version, branch = _read_meta()
+    hostname, version, ref = _read_meta()
     with _state_lock:
         snapshot = {k: dict(v) for k, v in _stage_state.items()}
         net = _runtime.get("net", False)
 
     done = sum(1 for s in snapshot.values() if s.get("status") == "done")
     total = len(STAGES)
-    complete = done == total
+    complete = all(
+        snapshot.get(s.name, {}).get("status") == "done" for s in STAGES if s.before_ui
+    )
 
     rows = []
     for stage in STAGES:
@@ -221,7 +251,8 @@ def _render_status_page() -> bytes:
     return STATUS_HTML.format(
         hostname=_html.escape(hostname),
         version=_html.escape(version),
-        branch=_html.escape(branch),
+        ref=_html.escape(ref),
+        docs_url=_html.escape(DOCS_URL),
         done=done, total=total,
         net_label="online" if net else "offline",
         banner=banner,
@@ -270,7 +301,10 @@ def internet_up() -> bool:
 
 def sh(cmd: list[str], **kw) -> None:
     log.info("$ %s", " ".join(cmd))
-    r = subprocess.run(cmd, **kw)
+    try:
+        r = subprocess.run(cmd, **kw)
+    except subprocess.TimeoutExpired:
+        raise RuntimeError(f"{cmd[0]} timed out") from None
     if r.returncode != 0:
         raise RuntimeError(f"{cmd[0]} exited {r.returncode}")
 
@@ -580,22 +614,36 @@ def stage_setup_swap() -> None:
             f.write("/swapfile none swap sw,pri=-2 0 0\n")
 
 
+def _resolve_ref(ref: str) -> str:
+    """``stable`` → the newest ``sorter/stable/v*`` tag; anything else as given."""
+    if ref != STABLE_REF:
+        return ref
+    out = subprocess.check_output(
+        ["git", "-C", str(REPO_DIR), "tag", "-l", f"{STABLE_TAG_PREFIX}*", "--sort=-v:refname"],
+        text=True,
+    )
+    tags = out.split()
+    if not tags:
+        raise RuntimeError(f"no {STABLE_TAG_PREFIX}* tag in {REPO_URL}")
+    return tags[0]
+
+
 def stage_clone_repo() -> None:
-    if REPO_DIR.exists():
-        return
-    branch_file = Path("/etc/sorteros/branch")
-    branch = branch_file.read_text().strip() if branch_file.exists() else "main"
-    sh(["git", "clone", "https://github.com/basicallysource/sorter-v2", str(REPO_DIR)])
-    sh(["git", "-C", str(REPO_DIR), "checkout", branch])
+    # Blobless: full history and tags (the Versions page lists and switches
+    # between them) without downloading every file ever committed. Cloned
+    # beside the target and renamed, so an interrupted clone never leaves a
+    # half-made repo that looks finished.
+    if not (REPO_DIR / ".git").exists():
+        partial = REPO_DIR.with_name(REPO_DIR.name + ".partial")
+        shutil.rmtree(partial, ignore_errors=True)
+        shutil.rmtree(REPO_DIR, ignore_errors=True)
+        sh(["git", "clone", "--filter=blob:none", "--no-checkout", REPO_URL, str(partial)])
+        partial.rename(REPO_DIR)
     sh(["git", "config", "--global", "--add", "safe.directory", str(REPO_DIR)])
-
-
-def stage_git_lfs_pull() -> None:
-    if not REPO_DIR.exists():
-        raise RuntimeError("repo not cloned yet")
-    env = {**os.environ, "HOME": "/root"}
-    sh(["git", "-C", str(REPO_DIR), "lfs", "install"], env=env)
-    sh(["git", "-C", str(REPO_DIR), "lfs", "pull"], env=env)
+    target = _resolve_ref(_baked_ref())
+    sh(["git", "-C", str(REPO_DIR), "checkout", "--quiet", target])
+    (STAMP_DIR / "checked-out-ref").write_text(target + "\n")
+    log.info("checked out %s", target)
 
 
 def stage_write_env() -> None:
@@ -633,21 +681,6 @@ def stage_write_machine_toml() -> None:
         "classification_bottom = -1\n"
     )
     sh(["chown", "orangepi:orangepi", str(machine_toml)])
-
-
-def stage_write_frontend_env() -> None:
-    frontend_env = SOFTWARE_DIR / "sorter" / "frontend" / ".env"
-    if frontend_env.exists():
-        return
-    if not (SOFTWARE_DIR / "sorter" / "frontend").exists():
-        raise RuntimeError("repo not cloned yet")
-    hostname = _hostname()
-    frontend_env.write_text(
-        f"PUBLIC_BACKEND_BASE_URL=http://{hostname}:8000\n"
-        f"PUBLIC_BACKEND_WS_URL=ws://{hostname}:8000\n"
-        f"SORTER_ALLOWED_HOSTS={hostname}\n"
-    )
-    sh(["chown", "orangepi:orangepi", str(frontend_env)])
 
 
 def stage_uv_sync() -> None:
@@ -768,7 +801,10 @@ def stage_tailscale_up() -> None:
     else:
         ts_name = _generate_machine_name()
         log.info("tailscale device name: %s", ts_name)
-    sh(["tailscale", "up", f"--authkey={key}", f"--advertise-tags={tags}", f"--hostname={ts_name}", "--ssh"])
+    sh(
+        ["tailscale", "up", f"--authkey={key}", f"--advertise-tags={tags}", f"--hostname={ts_name}", "--ssh"],
+        timeout=120,
+    )
     env.unlink()
 
 
@@ -778,16 +814,14 @@ STAGES: list[Stage] = [
     Stage("apply-config-toml",   needs_internet=False, run=stage_apply_config_toml),
     Stage("setup-swap",          needs_internet=False, run=stage_setup_swap),
     Stage("clone-repo",          needs_internet=True,  run=stage_clone_repo),
-    Stage("git-lfs-pull",        needs_internet=True,  run=stage_git_lfs_pull),
     Stage("write-env",           needs_internet=False, run=stage_write_env),
     Stage("write-machine-toml",  needs_internet=False, run=stage_write_machine_toml),
-    Stage("write-frontend-env",  needs_internet=False, run=stage_write_frontend_env),
     Stage("uv-sync",             needs_internet=True,  run=stage_uv_sync),
     Stage("pnpm-install",        needs_internet=True,  run=stage_pnpm_install),
     Stage("pnpm-build",          needs_internet=False, run=stage_pnpm_build),
     Stage("install-services",    needs_internet=False, run=stage_install_services),
-    Stage("install-tailscale",   needs_internet=True,  run=stage_install_tailscale),
-    Stage("tailscale-up",        needs_internet=True,  run=stage_tailscale_up),
+    Stage("install-tailscale",   needs_internet=True,  run=stage_install_tailscale, before_ui=False),
+    Stage("tailscale-up",        needs_internet=True,  run=stage_tailscale_up, before_ui=False),
 ]
 
 
@@ -795,12 +829,35 @@ def stamp_path(name: str) -> Path:
     return STAMP_DIR / f"{name}.done"
 
 
+def failed_path(name: str) -> Path:
+    return STAMP_DIR / f"{name}.failed"
+
+
+def _finished(stage: Stage) -> bool:
+    return stamp_path(stage.name).exists() or failed_path(stage.name).exists()
+
+
+def _start_sorter_services() -> None:
+    try:
+        services = Path("/var/lib/sorteros/active-services").read_text().split()
+    except OSError:
+        services = ["sorter-backend.service", "sorter-ui.service"]
+    subprocess.run(["systemctl", "start", *services])
+    log.info("started %s", ", ".join(services))
+
+
 def main() -> int:
     logging.basicConfig(level=logging.INFO, format="[%(name)s %(asctime)s] %(message)s")
     STAMP_DIR.mkdir(parents=True, exist_ok=True)
 
     for s in STAGES:
-        _set_state(s.name, "done" if stamp_path(s.name).exists() else "pending")
+        if stamp_path(s.name).exists():
+            _set_state(s.name, "done")
+        elif failed_path(s.name).exists():
+            _set_state(s.name, "failed", failed_path(s.name).read_text().strip())
+        else:
+            _set_state(s.name, "pending")
+    failures: dict[str, int] = {}
 
     # Port 80 is shared with the onboarding captive portal. While onboarding is
     # still in progress (no uplink yet and wifi not configured) the portal owns
@@ -809,22 +866,24 @@ def main() -> int:
     # the bind succeeds (the portal frees :80 when it tears the AP down).
     onboarding_gate = STAMP_DIR / "wifi-configured"
     server = None
+    ui_started = False
 
     while True:
-        remaining = [s for s in STAGES if not stamp_path(s.name).exists()]
-        if not remaining:
-            log.info("all stages complete")
-            # let the final "complete" page render before we hand port 80 over
+        if not ui_started and all(stamp_path(s.name).exists() for s in STAGES if s.before_ui):
+            log.info("everything the UI needs is in place")
+            # let the "complete" page render once before port 80 changes hands
             time.sleep(5)
             if server is not None:
                 server.shutdown()
                 server.server_close()
+                server = None
                 log.info("released port %d", STATUS_PORT)
-            try:
-                services = Path("/var/lib/sorteros/active-services").read_text().split()
-            except OSError:
-                services = ["sorter-backend.service", "sorter-ui.service"]
-            subprocess.run(["systemctl", "start", *services])
+            _start_sorter_services()
+            ui_started = True
+
+        remaining = [s for s in STAGES if not _finished(s)]
+        if not remaining:
+            log.info("all stages finished")
             return 0
 
         net = internet_up()
@@ -834,8 +893,9 @@ def main() -> int:
             _ensure_clock_synced()
             _maybe_reannounce_ip()
 
-        # Claim :80 for the status page only once onboarding is out of the way.
-        if server is None and (net or onboarding_gate.exists()):
+        # Claim :80 for the status page only once onboarding is out of the way,
+        # and only until the UI has it.
+        if server is None and not ui_started and (net or onboarding_gate.exists()):
             server = _start_status_server(STATUS_PORT)
 
         for s in remaining:
@@ -849,8 +909,14 @@ def main() -> int:
                 stamp_path(s.name).touch()
                 _set_state(s.name, "done")
             except Exception as e:
-                log.warning("stage %s failed: %s — will retry", s.name, e)
-                _set_state(s.name, "waiting", str(e))
+                failures[s.name] = failures.get(s.name, 0) + 1
+                if not s.before_ui and failures[s.name] >= LATE_STAGE_MAX_FAILURES:
+                    log.warning("stage %s failed %d times: %s — giving up", s.name, failures[s.name], e)
+                    failed_path(s.name).write_text(f"{e}\n")
+                    _set_state(s.name, "failed", str(e))
+                else:
+                    log.warning("stage %s failed: %s — will retry", s.name, e)
+                    _set_state(s.name, "waiting", str(e))
 
         time.sleep(POLL_INTERVAL)
 

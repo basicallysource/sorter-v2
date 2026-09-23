@@ -24,14 +24,18 @@ if [[ -f "$GATE" ]]; then
     exit 0
 fi
 
-# If the box already has a default route (e.g. an Ethernet uplink), there is
-# nothing to onboard — the device is reachable on the LAN already. Bringing up
-# an AP would be pointless and would fight firstboot for port 80. Exit 0 so
-# systemd doesn't restart us (RestartPreventExitStatus=0).
-if ip route show default 2>/dev/null | grep -q .; then
-    log "default route present (wired/online) — skipping AP onboarding"
-    exit 0
-fi
+# If the box has a default route (e.g. an Ethernet uplink), there is nothing to
+# onboard — the device is reachable on the LAN already. Bringing up an AP would
+# be pointless and would hold port 80 against the Sorter UI. Ethernet DHCP can
+# land a few seconds after NetworkManager starts, so give it 45 s before
+# deciding. Exit 0 so systemd doesn't restart us (RestartPreventExitStatus=0).
+for _ in $(seq 1 45); do
+    if ip route show default 2>/dev/null | grep -q .; then
+        log "default route present (wired/online) — skipping AP onboarding"
+        exit 0
+    fi
+    sleep 1
+done
 
 log "fresh boot — entering onboarding mode"
 
@@ -61,6 +65,14 @@ while ! [[ -f "$GATE" ]]; do
         log "portal process exited before wifi was configured — bailing"
         cleanup
         exit 1
+    fi
+    # Someone plugged in Ethernet instead: the machine is online, so the AP
+    # and portal are in the way.
+    if ip route show default 2>/dev/null | grep -v " dev wlan0 " | grep -q .; then
+        log "wired uplink appeared — tearing down AP, onboarding not needed"
+        /usr/local/sbin/sorteros-ap-down.sh || true
+        cleanup
+        exit 0
     fi
     sleep 2
 done

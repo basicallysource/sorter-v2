@@ -2,14 +2,15 @@
 
 [base]
 # Orange Pi 5 Ubuntu Jammy server image — kernel 6.1.99
+# Orange Pi's official download (Google Drive). Put the .img in cache/ or
+# point SORTEROS_BASE_IMG at it; the build checks this sha256.
 url = "https://drive.google.com/file/d/1A-XwhSnRb_TaDfDxF6tNzfNyvHy8tn7w/view"
-# Override: drop a local file at cache/base.img to skip download entirely.
 filename = "Orangepi5_1.2.2_ubuntu_jammy_server_linux6.1.99.img"
-sha256 = ""  # fill in when known
+sha256 = "ae53507811323a4c6ac4db71df98e043fc64de07657440f14b079a0994e8810a"
 
 [output]
 dir = "out"
-version = "4.0.5"
+version = "4.1.0"
 name = "sorteros-v{version}-{date}.img"
 
 [chroot]
@@ -24,7 +25,8 @@ packages = [
     "libgl1",             # OpenCV runtime dep
     "libglib2.0-0",       # OpenCV runtime dep
     "v4l-utils",          # camera inspection / V4L2 tools
-    "git-lfs",            # pull LFS model artifacts on first boot
+    "avahi-daemon",       # answers as sorter.local on the LAN
+    "libnss-mdns",        # resolves other .local names from the machine
     "cloud-guest-utils",  # provides growpart for stage_grow_rootfs
     "figlet",             # MOTD ASCII art for SorterOS login screen
     "systemd-timesyncd",  # NTP sync — required so first-boot TLS certs validate
@@ -37,7 +39,9 @@ packages = [
 #   - fastapi + uvicorn + pydantic via pip for sorteros-portal
 extra_curl_installs = ["node22", "tailscale", "portal-py-deps"]
 
-[branch]
-# Git branch to encode in /etc/sorteros/branch so the firstboot daemon
-# clones the right thing. Can be overridden with --branch on CLI.
-default = "sorteros-v3"
+[source]
+# What firstboot checks out, baked into /etc/sorteros/ref. "stable" = the
+# newest sorter/stable/v* tag at first boot, the same channel the Sorter UI's
+# Versions page updates within. A test image can bake a branch, tag or commit
+# instead: build.py --ref <ref>.
+ref = "stable"

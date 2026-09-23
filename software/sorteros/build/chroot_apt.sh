@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Runs inside the chroot via `chroot <rootfs> /tmp/chroot_apt.sh`.
-# Installs the v3 apt delta on top of the Orange Pi base.
+# Installs the SorterOS apt delta on top of the Orange Pi base.
 # Kept tiny on purpose — every package here is build time and image bytes.
 
 set -euo pipefail
@@ -32,7 +32,7 @@ apt-get install "${APT_OPTS[@]}" \
     python3-tomli \
     libgl1 libglib2.0-0 \
     v4l-utils \
-    git-lfs \
+    avahi-daemon libnss-mdns \
     cloud-guest-utils \
     figlet \
     systemd-timesyncd \
@@ -93,7 +93,10 @@ log "cleaning apt caches"
 apt-get clean
 rm -rf /var/lib/apt/lists/*
 
-# Enable the v3 services (they're installed by the overlay step).
+# The machine answers as <hostname>.local (sorter.local by default).
+systemctl enable avahi-daemon.service || true
+
+# Enable the SorterOS services (they're installed by the overlay step).
 log "enabling sorteros-firstboot"
 systemctl enable sorteros-firstboot.service || true
 

@@ -1,9 +1,11 @@
 """
-v3 SorterOS image builder.
+SorterOS image builder.
 
-Runs inside a Linux environment (a colima VM on the Mac, or any Linux box).
-Builds a bootable Orange Pi 5 .img with the v3 overlay applied and a
-minimal apt delta. No partition surgery, no FAT, no qemu. Single ext4.
+Runs as root on Linux: natively on arm64, or on x86_64 with qemu-user-static
+registered for aarch64 so the chroot step can run arm64 binaries. Builds a
+bootable Orange Pi 5 .img from the vendor base image: the overlay, a minimal
+apt delta, and the filesystem/boot settings a headless appliance needs. No
+partition surgery, no FAT. Single ext4.
 
 Phases (run with --phase <name> for a partial rerun):
   prep              — fetch base img if missing, copy to working file
@@ -24,6 +26,7 @@ from __future__ import annotations
 
 import argparse
 import datetime as dt
+import hashlib
 import json
 import os
 import shutil
@@ -56,7 +59,7 @@ class BuildCtx:
     mnt: Path
     out_dir: Path
     state_file: Path
-    branch: str
+    ref: str
 
 
 def log(msg: str) -> None:
@@ -129,31 +132,28 @@ def _teardown_mnt(ctx: BuildCtx) -> None:
         subprocess.run(["losetup", "-d", loop])
 
 def _find_base_image(ctx: BuildCtx) -> Path:
-    """Look for the base .img in order of preference:
-        1. $SORTEROS_BASE_IMG env var (explicit override)
-        2. cache/<filename> in this build dir
-        3. ~/Downloads/<filename> (Spencer's usual landing zone)
-        4. /Users/spencer/Downloads/<filename> (same, from inside colima)
-        5. /Volumes/macHome/Downloads/<filename> (some colima setups)
-    """
+    """$SORTEROS_BASE_IMG if set, else cache/<filename> in this build dir.
+    Verified against [base].sha256 so a truncated download can't become an
+    image."""
     filename = ctx.config["base"]["filename"]
-    candidates: list[Path] = []
     env = os.environ.get("SORTEROS_BASE_IMG")
-    if env:
-        candidates.append(Path(env))
-    candidates.append(ctx.cache_dir / filename)
-    home = Path(os.environ.get("HOME", "/root"))
-    candidates.append(home / "Downloads" / filename)
-    candidates.append(Path("/Users/spencer/Downloads") / filename)
-    candidates.append(Path("/Volumes/macHome/Downloads") / filename)
-    for c in candidates:
-        if c.exists():
-            return c
-    sys.exit(
-        "base image not found. Looked at:\n  "
-        + "\n  ".join(str(c) for c in candidates)
-        + f"\nSet SORTEROS_BASE_IMG=<path> or drop it in {ctx.cache_dir}/."
-    )
+    base = Path(env) if env else ctx.cache_dir / filename
+    if not base.exists():
+        sys.exit(
+            f"base image not found at {base}.\n"
+            f"Download {filename} ({ctx.config['base']['url']}) into {ctx.cache_dir}/ "
+            "or set SORTEROS_BASE_IMG=<path>."
+        )
+    want = ctx.config["base"].get("sha256", "")
+    if want:
+        log(f"verifying sha256 of {base.name}")
+        h = hashlib.sha256()
+        with base.open("rb") as f:
+            for chunk in iter(lambda: f.read(8 * 1024 * 1024), b""):
+                h.update(chunk)
+        if h.hexdigest() != want:
+            sys.exit(f"{base} sha256 {h.hexdigest()} != expected {want}")
+    return base
 
 
 def phase_prep(ctx: BuildCtx) -> None:
@@ -210,6 +210,11 @@ def phase_grow(ctx: BuildCtx) -> None:
         if p.returncode not in (0, 1):
             sys.exit(f"e2fsck exit {p.returncode}")
         run(["resize2fs", part])
+        # The vendor superblock defaults to data=writeback, under which a power
+        # cut can leave garbage inside files ext4 thinks are intact; it
+        # corrupted SQLite on machines in the field. data=ordered prevents
+        # that. The superblock setting applies whatever fstab says.
+        run(["tune2fs", "-o", "^journal_data_writeback,journal_data_ordered", part])
     finally:
         run(["losetup", "-d", loop])
     log("grow complete")
@@ -264,20 +269,22 @@ def phase_overlay(ctx: BuildCtx) -> None:
         f"{ctx.overlay_dir}/", f"{ctx.mnt}/",
     ])
 
-    # Record the branch and version so the firstboot daemon knows what to clone
-    # and so anyone who SSHes in can identify the image.
+    # Record what firstboot checks out and the image version, so anyone who
+    # SSHes in can identify the image.
     sorteros_etc = ctx.mnt / "etc" / "sorteros"
     sorteros_etc.mkdir(parents=True, exist_ok=True)
     version = ctx.config["output"]["version"]
-    (sorteros_etc / "branch").write_text(ctx.branch + "\n")
+    (sorteros_etc / "ref").write_text(ctx.ref + "\n")
     (sorteros_etc / "version").write_text(version + "\n")
-    log(f"branch baked into image: {ctx.branch}")
+    log(f"ref baked into image: {ctx.ref}")
     log(f"version baked into image: {version}")
 
-    # MOTD so `ssh root-pi` immediately shows the image version.
     motd = ctx.mnt / "etc" / "motd"
-    motd.write_text(f"\nSorterOS  v{version}  ({ctx.branch})\n\n")
-    log(f"wrote /etc/motd")
+    motd.write_text(f"\nSorterOS  v{version}  ({ctx.ref})\n\n")
+    log("wrote /etc/motd")
+
+    _set_hostname(ctx)
+    _harden_root_fs(ctx)
 
     # Tailscale auth key is intentionally NOT baked in at build time.
     # It is supplied at setup time via the AP captive portal (../portal/),
@@ -313,6 +320,56 @@ def phase_overlay(ctx: BuildCtx) -> None:
     else:
         log("WARN: /boot/orangepiEnv.txt not found; wifi overlay not set")
 
+
+HOSTNAME = "sorter"
+
+
+def _set_hostname(ctx: BuildCtx) -> None:
+    """Every image answers as sorter.local (avahi, installed in the chroot
+    step, advertises it; a second machine on the same network becomes
+    sorter-2.local). The captive portal can still set another name."""
+    (ctx.mnt / "etc" / "hostname").write_text(HOSTNAME + "\n")
+    hosts = ctx.mnt / "etc" / "hosts"
+    lines = [
+        ln for ln in hosts.read_text().splitlines()
+        if not ln.startswith("127.0.1.1") and not ln.startswith("::1")
+    ]
+    lines[1:1] = [f"127.0.1.1   {HOSTNAME}", f"::1         localhost {HOSTNAME} ip6-localhost ip6-loopback"]
+    hosts.write_text("\n".join(lines) + "\n")
+    log(f"hostname: {HOSTNAME}")
+
+
+def _harden_root_fs(ctx: BuildCtx) -> None:
+    """A headless machine must get itself back up after a filesystem error.
+
+    - errors=panic (fstab) + panic=10 (kernel): an ext4 error reboots the
+      machine instead of leaving it half-alive on a read-only root.
+    - fsck.repair=yes (kernel): the boot-time fsck repairs instead of
+      dropping to an initramfs prompt nobody can type into.
+    """
+    fstab = ctx.mnt / "etc" / "fstab"
+    content = fstab.read_text()
+    if "errors=remount-ro" in content:
+        fstab.write_text(content.replace("errors=remount-ro", "errors=panic"))
+        log("fstab: errors=remount-ro -> errors=panic")
+    elif "errors=panic" not in content:
+        sys.exit("fstab has no errors= option on the root line; base image changed?")
+
+    env_txt = ctx.mnt / "boot" / "orangepiEnv.txt"
+    if not env_txt.exists():
+        log("WARN: /boot/orangepiEnv.txt not found; kernel args not set")
+        return
+    lines = env_txt.read_text().splitlines()
+    wanted = ["fsck.repair=yes", "panic=10"]
+    for i, ln in enumerate(lines):
+        if ln.startswith("extraargs="):
+            args = ln[len("extraargs="):].split()
+            lines[i] = "extraargs=" + " ".join(args + [a for a in wanted if a not in args])
+            break
+    else:
+        lines.append("extraargs=" + " ".join(wanted))
+    env_txt.write_text("\n".join(lines) + "\n")
+    log(f"orangepiEnv.txt: {next(ln for ln in lines if ln.startswith('extraargs='))}")
 
 
 # ─── chroot ────────────────────────────────────────────────────────────────
@@ -403,7 +460,7 @@ def phase_portal(ctx: BuildCtx) -> None:
             run(["pnpm", "install", "--frozen-lockfile"], cwd=str(frontend_dir))
         run(["pnpm", "build"], cwd=str(frontend_dir))
     else:
-        log(f"portal frontend build/ up to date — skipping pnpm")
+        log("portal frontend build/ up to date — skipping pnpm")
 
     # Backend script → /usr/local/sbin/sorteros-portal.py
     backend_dst = ctx.mnt / "usr" / "local" / "sbin" / "sorteros-portal.py"
@@ -509,7 +566,10 @@ PHASE_FNS = {
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--phase", choices=PHASES, help="run only this phase")
-    ap.add_argument("--branch", default=None, help="override branch from config.toml")
+    ap.add_argument(
+        "--ref", default=None,
+        help="what firstboot checks out: 'stable' (the default in config.toml), or a branch/tag/commit for a test image",
+    )
     ap.add_argument("--config", default=str(SCRIPT_DIR / "config.toml"))
     args = ap.parse_args()
 
@@ -527,7 +587,7 @@ def main() -> None:
     with open(args.config, "rb") as f:
         config = tomllib.load(f)
 
-    branch = args.branch or config["branch"]["default"]
+    ref = args.ref or config["source"]["ref"]
 
     ctx = BuildCtx(
         config=config,
@@ -537,7 +597,7 @@ def main() -> None:
         mnt=Path("/mnt/sorteros-build"),
         out_dir=SCRIPT_DIR / "out",
         state_file=SCRIPT_DIR / "out" / ".build-state.json",
-        branch=branch,
+        ref=ref,
     )
 
     phases = [args.phase] if args.phase else PHASES

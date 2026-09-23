@@ -237,10 +237,10 @@ def _nmcli_bring_up(ssid: str, timeout: float) -> bool:
 def _wifi_iface() -> str:
     """The first Wi-Fi device NetworkManager manages: wlan0 for the M.2 module,
     wlx<mac> for a USB adapter."""
-    r = _run(["nmcli", "-t", "-f", "DEVICE,TYPE", "device"])
+    r = _run(["nmcli", "-t", "-f", "DEVICE,TYPE,STATE", "device"])
     for line in r.stdout.splitlines():
-        device, _, kind = line.partition(":")
-        if kind == "wifi":
+        device, kind, state = (line.split(":") + ["", ""])[:3]
+        if kind == "wifi" and state != "unmanaged":
             return device
     return "wlan0"
 

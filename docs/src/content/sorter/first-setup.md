@@ -173,7 +173,7 @@ Two more buttons on each card: **Picture tuning** and **Review zone**.
 
 ### Picture tuning
 
-Color correction is not a manual setting at the moment. Focus is worth doing before you sort, and that is its own job: see [Camera calibration]({{ '/sorter/camera-calibration/' | relative_url }}) for getting each camera nice and sharp.
+Color correction is not a manual setting at the moment, but it is worth visiting [Camera calibration]({{ '/sorter/camera-calibration/' | relative_url }}) to get each camera's focus nice and sharp.
 
 Set the mode on each camera:
 
@@ -184,17 +184,17 @@ Set the mode on each camera:
 
 On C-Channel 2 and C-Channel 3, set **Pixel Format** to MJPG.
 
-The camera's automatic settings should be enough for everything else. Manual settings are there if you need them.
+The camera's automatic settings should be enough for everything else, and manual settings are there if you need them. Click **Confirm**.
 
 ### Review zone
 
-Use the colored circles to drag the center, the inner and the outer. Then use the colored rectangles: drop start and drop end, exit end, and precise end and exit start, which are linked and move together. Finally use the red circle for the exit outer. Click **Save Zone**.
+Use the colored circles to drag the center, the inner and the outer. Then use the colored rectangles to set the drop start and drop end, the exit end, and the precise end and exit start, which are linked and move together. Finally, use the red circle to set the exit outer. Click **Save Zone**.
 
 <div class="img-row">
   <figure><img src="https://assets.basically.website/sorter-docs/sorter-first-setup-step7-zone-editor-full-8149e45a5d8b.png" alt="The zone editor over a live C-channel view, with every handle labelled: center, inner, outer, drop start, drop end, precise start, precise end, exit start, exit end and exit outer"><figcaption>What the camera should see, and a starting point for setting the zones. <cite>Screenshot courtesy of Daddy-O's Bricks - Bill.</cite></figcaption></figure>
 </div>
 
-The angles each channel ships with, as a starting point. They are drawn against a generic view of the channel, so treat them as a starting geometry rather than a calibration for your machine.
+The angles each channel ships with are below. They are drawn against a generic view of the channel, so treat them as a starting geometry rather than a calibration for your machine.
 
 <div class="img-row">
   <figure><img src="https://assets.basically.website/sorter-docs/sorter-first-setup-step7-zones-c2-full-0bd7da7975d7.png" alt="Diagram of C-Channel 2 as a ring, with the drop zone from 101 to 180 degrees, a suggested precise zone from 284 to 304 and the exit zone from 304 to 338"><figcaption>C-Channel 2. <cite>Drawn from the software's shipped defaults. Render: Balloon.</cite></figcaption></figure>

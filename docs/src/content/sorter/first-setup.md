@@ -169,6 +169,11 @@ Every camera the machine needs gets a card here. On a standard machine:
 
 For each card, pick a camera from the dropdown. The card then shows what that camera sees, so you can tell them apart. Both a channel's drop zone and its exit should be visible in the frame. If they are not, you may need to move the camera lamp to a different dovetail on its C-channel. One camera can serve more than one area if its view covers both.
 
+<div class="callout callout-warning">
+  <span class="callout-icon" aria-hidden="true">⚠</span>
+  <p><strong>The dovetail on the arm can break</strong> when a lamp needs to be removed from it to be repositioned. Use caution if repositioning is needed. The lamps go on at <a href="{{ '/hardware/assembly/feeder/arranging-c-channels/' | relative_url }}">arranging C-channels</a>, step 9, which says which dovetail each one starts in.</p>
+</div>
+
 Two more buttons on each card: **Review zone** and **Picture tuning**, in that order on the card.
 
 ### Review zone

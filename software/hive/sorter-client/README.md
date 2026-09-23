@@ -38,6 +38,20 @@ result = client.upload_sample(
 print(result)
 ```
 
+### Default model, without an account
+
+A machine linked to no Hive account has no token, but it can still fetch the
+model an admin picked as the default for its runtime:
+
+```python
+client = HiveClient(api_url="https://hive.example.com")  # no token
+item = client.get_default_model("detection", "rknn")  # HiveError 404 if none is set
+client.download_default_model(
+    "detection", "rknn", Path("models/default.rknn"),
+    expected_sha256=item["variant"]["sha256"],
+)
+```
+
 ## curl Examples
 
 ### Heartbeat

@@ -10,6 +10,9 @@
 	import ModelTrainingReport from '$lib/components/ModelTrainingReport.svelte';
 	import Badge from '$lib/components/Badge.svelte';
 	import Spinner from '$lib/components/Spinner.svelte';
+	import { Alert } from '$lib/components/primitives';
+	import { auth } from '$lib/auth.svelte';
+	import Star from 'lucide-svelte/icons/star';
 
 	let model = $state<DetectionModelDetail | null>(null);
 	let loading = $state(true);
@@ -140,6 +143,32 @@
 		if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
 		if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 		return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+	}
+
+	// The default a fresh install with no account downloads for its runtime.
+	let savingDefault = $state<string | null>(null);
+	let defaultError = $state<string | null>(null);
+
+	async function toggleDefault(variant: DetectionModelVariant, input: HTMLInputElement) {
+		if (!model) return;
+		const isDefault = model.default_for.includes(variant.runtime);
+		savingDefault = variant.runtime;
+		defaultError = null;
+		try {
+			if (isDefault) {
+				await api.clearModelDefault(model.purpose, variant.runtime);
+				model.default_for = model.default_for.filter((r) => r !== variant.runtime);
+			} else {
+				await api.setModelDefault(model.purpose, variant.runtime, model.id, variant.id);
+				model.default_for = [...model.default_for, variant.runtime].sort();
+			}
+		} catch (err: unknown) {
+			defaultError = (err as { error?: string })?.error || 'Failed to update the default';
+		} finally {
+			savingDefault = null;
+			// The box shows what the server holds, not the click that failed.
+			input.checked = model.default_for.includes(variant.runtime);
+		}
 	}
 
 	function downloadUrl(variantId: string): string {
@@ -299,32 +328,66 @@
 					<h2 class="text-sm font-semibold uppercase tracking-wider text-text-muted">Downloads</h2>
 					<span class="text-xs text-text-muted">{model.variants.length} variant{model.variants.length === 1 ? '' : 's'}</span>
 				</div>
+				{#if defaultError}
+					<div class="border-b border-border p-3"><Alert variant="danger">{defaultError}</Alert></div>
+				{/if}
 				<div class="grid grid-cols-1 gap-px bg-border sm:grid-cols-2 lg:grid-cols-4">
 					{#each model.variants as variant (variant.id)}
-						<a
-							href={downloadUrl(variant.id)}
-							class="group relative block bg-surface p-4 transition-colors hover:bg-bg"
-							download={downloadFilename(variant)}
-						>
+						{@const isDefault = model.default_for.includes(variant.runtime)}
+						<div class="relative flex flex-col bg-surface">
 							<span class="absolute inset-y-0 left-0 w-1" style="background-color: {variantAccent(variant)};"></span>
-							<div class="pl-3">
-								<div class="flex items-baseline justify-between gap-2">
-									<span class="font-mono text-sm font-bold uppercase tracking-wider" style="color: {variantAccent(variant)};">
-										{variant.runtime}
-									</span>
-									<span class="text-xs tabular-nums text-text-muted">{formatSize(variant.file_size)}</span>
+							<a
+								href={downloadUrl(variant.id)}
+								class="group block flex-1 p-4 transition-colors hover:bg-bg"
+								download={downloadFilename(variant)}
+							>
+								<div class="pl-3">
+									<div class="flex items-baseline justify-between gap-2">
+										<span class="font-mono text-sm font-bold uppercase tracking-wider" style="color: {variantAccent(variant)};">
+											{variant.runtime}
+										</span>
+										<span class="text-xs tabular-nums text-text-muted">{formatSize(variant.file_size)}</span>
+									</div>
+									{#if runtimeTarget[variant.runtime.toLowerCase()]}
+										<p class="mt-0.5 text-[11px] text-text-muted">{runtimeTarget[variant.runtime.toLowerCase()]}</p>
+									{/if}
+									<div class="mt-2 truncate font-mono text-[10px] text-text" title={downloadFilename(variant)}>
+										{downloadFilename(variant)}
+									</div>
+									<div class="mt-0.5 font-mono text-[9px] text-text-muted" title={variant.sha256}>
+										sha256 {variant.sha256.slice(0, 12)}…
+									</div>
 								</div>
-								{#if runtimeTarget[variant.runtime.toLowerCase()]}
-									<p class="mt-0.5 text-[11px] text-text-muted">{runtimeTarget[variant.runtime.toLowerCase()]}</p>
-								{/if}
-								<div class="mt-2 truncate font-mono text-[10px] text-text" title={downloadFilename(variant)}>
-									{downloadFilename(variant)}
+							</a>
+							{#if auth.isAdmin}
+								<label
+									class="flex items-center gap-2 border-t border-border py-2 pr-4 pl-7 text-[11px] {isDefault
+										? 'font-medium text-success'
+										: 'text-text-muted'} {model.is_public ? 'cursor-pointer' : 'cursor-not-allowed'}"
+									title={model.is_public
+										? undefined
+										: 'Only a public model can be a default: installs fetch it without signing in'}
+								>
+									<input
+										type="checkbox"
+										class="accent-success"
+										checked={isDefault}
+										disabled={!model.is_public || savingDefault !== null}
+										onchange={(e) => toggleDefault(variant, e.currentTarget)}
+									/>
+									Default for new {variant.runtime} installs
+									{#if savingDefault === variant.runtime}
+										<Spinner size={12} />
+									{:else if isDefault}
+										<Star size={12} />
+									{/if}
+								</label>
+							{:else if isDefault}
+								<div class="flex items-center gap-2 border-t border-border py-2 pr-4 pl-7 text-[11px] font-medium text-success">
+									<Star size={12} />Default for new {variant.runtime} installs
 								</div>
-								<div class="mt-0.5 font-mono text-[9px] text-text-muted" title={variant.sha256}>
-									sha256 {variant.sha256.slice(0, 12)}…
-								</div>
-							</div>
-						</a>
+							{/if}
+						</div>
 					{/each}
 				</div>
 			</section>

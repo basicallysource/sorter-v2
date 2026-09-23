@@ -24,7 +24,7 @@ A revision is an **addition**, never an edit-in-place:
 1. New geometry is exported and published; its bytes get a new content hash and
    therefore a new URL. Old URLs keep serving forever (the asset service has no
    delete or overwrite operation — see the "Artifacts and the asset service"
-   section of `CLAUDE.md`).
+   section of `AGENTS.md`).
 2. The new revision gets a new uid. `stamp_versions.py` archives the outgoing
    design into the part's `versions[]` with its uid and `stl_hash` (the sha256
    of its final bytes). Historical geometry is fetched by that pin — never

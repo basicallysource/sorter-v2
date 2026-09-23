@@ -32,7 +32,7 @@ any OS.
 ## Design rules — INHERIT THE SORTER FRONTEND
 
 The site is brand-consistent with the sorter UI. **Before writing any
-component, read `software/sorter/frontend/CLAUDE.md` and apply the same
+component, read `software/sorter/frontend/AGENTS.md` and apply the same
 rules verbatim:**
 
 - Sharp edges. No `rounded-*` utilities (exception: spinner).

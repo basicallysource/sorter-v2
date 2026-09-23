@@ -45,7 +45,7 @@ for (const [path, raw] of Object.entries(dataFiles)) {
 }
 
 // ── Parts catalog ────────────────────────────────────────────────────────────
-// One catalog: parts-calculator/slicer/parts.json (see its _comment for the
+// One catalog: parts-calculator/catalog/parts.json (see its _comment for the
 // merge/conflict model). This site renders the same generated JSON the
 // calculator app ships, so both always agree on ids, names, images, and open
 // conflicts. The old hand-maintained _data/parts.yml is deleted.

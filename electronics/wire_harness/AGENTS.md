@@ -7,8 +7,9 @@ into everything the docs and a cable vendor need.
 
 **Sources are in git. Renders never are. URLs are.**
 
-`power.yml`, `steppers.yml`, `leds.yml` and `rfq.txt` are the source of truth:
-small, diffable text. Reviewing a harness change means reviewing them.
+The `*.yml` drawings (`power`, `psu-pigtail`, `board-power`, `steppers`,
+`leds`) and `rfq.txt` are the source of truth: small, diffable text.
+Reviewing a harness change means reviewing them.
 Everything derived (PNG, SVG, PDF, HTML, per-cable BOM, the supplier RFQ zip)
 is a build artifact, and build artifacts live in the **asset service**
 (`assets.basically.website`, public repo `basicallysource/asset-service`,
@@ -25,35 +26,16 @@ and its URL changes in the same commit, right next to the change, visible in
 the diff. A PR preview shows the PR's drawings because the PR's data file names
 them, not because anything resolved a branch.
 
-### Why, at length, because this cost a day
+### Why
 
-The scheme this replaced wrote every render to `harness/<branch>/power.png`,
-overwriting in place, and had the docs build the URL from the branch name plus
-`?v=<the docs build's commit sha>`. Three things were wrong with it, and they
-compounded:
-
-1. The sha in the URL was the *docs build's*, not the drawing's. So a
-   docs-only push reissued all five drawings' URLs (2.3 MB refetched for
-   nothing), and a changed drawing got a new URL for an unrelated reason.
-2. The object behind a URL was mutable, but the worker served it
-   `cache-control: public, max-age=31536000, immutable`. That header was a
-   lie.
-3. The harness render and the docs build start on the *same push*. The docs
-   build can win. In that window the page names `power.png?v=<newsha>` while
-   the bucket still holds the previous render at that path — or a
-   half-uploaded one. Whoever loads the page then pins wrong bytes for a year,
-   in their own browser and in the edge cache, with no recovery but a hard
-   reload they have no reason to attempt.
-
-That is not hypothetical: it is what put a broken drawing on the live WireViz
-page on 2026-08-09, visible in an already-warmed browser and fine in
-incognito. A
-content-addressed name fixes all three at once, because the object now exists
-before any commit can name it.
-
-Caching is not load-bearing for correctness here, and that is the point of
-content-addressed names: a URL's bytes cannot change, so a stale cache entry
-and a fresh one are the same bytes.
+The scheme this replaced overwrote renders in place at a branch path and had
+the docs build their URL from the branch plus the docs build's own commit sha.
+The docs build and the harness render start on the same push, so a page could
+name a URL before its bytes were uploaded, and the year-long `immutable` cache
+header pinned the wrong picture in readers' browsers. Content-addressed names
+make that impossible: the object exists before any commit can name it, and the
+bytes at a URL can never change, so a stale cache entry and a fresh one are the
+same bytes.
 
 One thing the asset service adds: a PNG is an image, and the service never
 serves an image's uploaded file directly — pages get a byte-identical (for
@@ -67,11 +49,6 @@ is serving**, and the answer is in the page source and in
 resolution. If the URL is the one you expect and the bytes are wrong, that is a
 real cache bug worth chasing. If the URL is not the one you expect, somebody
 skipped the paste.
-
-Permanent, content-addressed copies are a release-time concern (the lockfile
-mechanism in the unified parts plan), not a live-docs one. The store is
-disposable by design: every object in it can be regenerated from git plus the
-pinned toolchain.
 
 ## Changing a harness
 
@@ -102,10 +79,8 @@ Local renders are for looking at a change. CI is the only renderer whose
 output gets pasted.
 
 Credentials are `ASSET_SERVICE_URL` / `ASSET_SERVICE_TOKEN`; CI uses a repo
-secret holding a key scoped to the `sorter-harness` namespace only. Note CI is
-the canonical renderer: it pins WireViz 0.4.1 and graphviz 2.42.2, the
-graphviz version is part of the rendered pixels, and a local render on a
-different graphviz gets quietly normalized by the next CI run for that ref.
+secret holding a key scoped to the `sorter-harness` namespace only. CI pins
+WireViz 0.4.1 and graphviz 2.42.2.
 
 Disaster recovery: revoke the key (`asset-service keys revoke
 sorter-harness-ci`), mint another, update the repo secret, run the workflow on
@@ -119,11 +94,8 @@ pinned toolchain, and nothing can be overwritten or deleted with the CI key.
 Pages names a deployment by a hash you cannot predict, and the check's own
 `details_url` is the dashboard rather than the site. The comment carries no URL
 at all while the build is running, so re-read it rather than concluding there
-is no preview. The wireviz page on that preview is
-`/hardware/electronics/wireviz/`.
-
-A dead `Vercel - sorter-v2-docs` check still goes green on these PRs and is not
-the docs site any more. Ignore it.
+is no preview. The drawings are on `/hardware/parts/harness-order/` on that
+preview.
 
 ## Adding a drawing
 
@@ -174,13 +146,8 @@ fetched in the browser, not baked in at build time**, by the `$effect` in
 `docs/src/routes/[...path]/+page.svelte` that picks up
 `<div class="bom" data-bom="...">` placeholders.
 
-Build-time was rejected because the docs build and the harness render used to
-start on the same push, so a docs build that won the race would bake in a
-missing or stale table and keep serving it. Content-addressed URLs removed that
-race — the TSV is uploaded before any commit names it — so baking in at build
-time would now be safe. It is still fetched at read time because there is no
-reason to change it and the `BOM (TSV)` download link above each table is the
-fallback when the fetch does not run.
+The `BOM (TSV)` download link above each table is the fallback when the
+fetch does not run.
 
 The asset service sends `access-control-allow-origin: *`, so the cross-origin
 fetch is fine, and the name contains the hash, so it is served immutable and

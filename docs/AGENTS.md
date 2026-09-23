@@ -38,7 +38,7 @@ Every web UI in the ecosystem shows the same basically brick on a full-bleed
 colored square, and the color says which site you are looking at: Hive is red, a
 machine is blue, the docs site is **yellow** (`#FFD500`). The convention, the
 asset spec, and the rules for adding a site live in
-`software/hive/frontend/CLAUDE.md` § Favicons. Assets are
+`software/hive/frontend/AGENTS.md` § Favicons. Assets are
 `static/assets/favicon.ico`, `favicon-96.png`, `favicon-192.png`,
 `apple-touch-icon.png`.
 
@@ -52,7 +52,7 @@ asset spec, and the rules for adding a site live in
 - **Structural lines are hairlines (1px), one weight everywhere** — borders,
   dividers, table rules. Emphasis comes from color, never thickness. The
   active-nav underline and the `:focus-visible` outline are state markers,
-  not structure, and stay 2px. (Same rule as `parts-calculator/CLAUDE.md`
+  not structure, and stay 2px. (Same rule as `parts-calculator/AGENTS.md`
   § Design rules.)
 - **No photos of out-of-spec builds.** If a build photo shows a part somebody
   modified, reprinted differently, or otherwise deviated from what the catalog
@@ -120,11 +120,11 @@ asset spec, and the rules for adding a site live in
 3. Add it to the sidebar in `src/liquid/_data/nav.yml` under the right
    section's `pages:` (nest with `children:` — the sidebar renders
    arbitrarily deep).
-4. `python3 scripts/validate_frontmatter.py` must pass, and so must
+4. `python3 scripts/validate_frontmatter.py`, and
    `python3 scripts/validate_credits.py` if the page has any photo or video
-   (see "Writing conventions" above). As of 2026-08-26 `top-interface.md`
-   fails this until its open PR lands and gets credits in a follow-up; that
-   is not yours to fix along the way.
+   (see "Writing conventions" above), must report nothing for your page.
+   Neither runs in CI yet and both have failures on other pages; those are
+   not yours to fix along the way.
 
 ## Link previews (`og:image`)
 
@@ -276,39 +276,25 @@ Desktop, VLC Snapshots, etc.). Then do all of this yourself:
 
 ## Video — the workflow
 
-A clip does **not** go in the images bucket. `upload_image.py` uploads exactly
-what you hand it, which is right for a photo and wrong for a phone video: tens
-of megabytes of HEVC at 4K, which no browser should be asked to download to
-watch two seconds of something clicking.
+A clip does **not** go through `upload_image.py`, which uploads exactly what
+you hand it: right for a photo, wrong for tens of megabytes of 4K HEVC that no
+browser should download to show two seconds of something clicking.
 
-Video goes to the **asset service** (`assets.basically.website`, public repo
-`basicallysource/asset-service`), the same one the parts calculator slices STLs
-through. It keeps the original and holds derived forms beside it: an **MP4
-ladder** (960 and 1920 wide, never upscaled) and a **poster** still. A page
-shows the poster and downloads nothing until someone presses play.
-
-Upload with that repo's own CLI, not with a script in here. The encoding rules
-live in its `internal/derive`, and a second copy of them here would drift:
+Upload it with the asset service's own CLI (public repo
+`basicallysource/asset-service`; the encoding rules live in its
+`internal/derive`, and a copy here would drift). The service keeps the
+original plus an **MP4 ladder** (960 and 1920 wide, never upscaled) and a
+**poster** still; a page shows the poster and downloads nothing until someone
+presses play.
 
 ```bash
 asset-service upload --derive --namespace sorter-docs ~/Downloads/IMG_7204.MOV
 ```
 
-**`--derive` is not optional for anything big.** The service *queues*
-derivation rather than doing it, and a standing worker elsewhere drains that
-queue. That worker has a memory ceiling, and a 4K phone clip goes straight
-through it: encoding 3840x2160 down to the 1920 rung wanted more than the
-worker is allowed, so ffmpeg was OOM-killed. The worker restarts on failure,
-re-claims the same job, and dies again, which blocks **everything** behind it
-in the queue, including uploads that would have been fine on their own. From
-the client all you see is `renditions_status: pending` forever, with no error
-and nothing to poll (`/v1/health`, `/v1/namespaces` are 404), so you cannot
-tell a busy queue from a jammed one.
-
-`--derive` sidesteps all of that: it encodes on your machine, where the file
-already is, and uploads the results. It finished the same clip in seconds.
-(Diagnosed 2026-08-23, after a plain upload jammed the shared queue for an
-hour.)
+**Always pass `--derive`.** It encodes on your machine and uploads the
+results. Without it the service queues the encode for a shared worker, which a
+4K clip can run out of memory, jamming the queue for everyone while the client
+shows `renditions_status: pending` and no error.
 
 Then turn the manifest into markup:
 
@@ -351,12 +337,6 @@ its own file, then upload that file with `upload_image.py` like any other
 original. Don't leave the base64 inline in the page, it defeats "images are
 not in git" and bloats the repo.
 
-**A printed part's catalog image (`parts.yml`'s `image:` field) can often be
-pulled from `parts-calculator`'s own renders** instead of asking for a fresh
-photo: that repo's `static/renders/<part-id>.png` is a real OrcaSlicer
-thumbnail for every printed part in its catalog. Upload it the same way,
-named after the part id.
-
 **Names are content-addressed.** The service appends a hash of the bytes to
 every object name, so a changed image always prints a new URL that can be
 cached forever. Name the upload by what it shows
@@ -386,14 +366,11 @@ again.
 
 `src/liquid/_data/harness.yml` carries the display list (name, title, caption,
 `of:`) *and* the six URLs per drawing (`png`, `svg`, `pdf`, `html`, `bom_tsv`,
-`yml`) plus the top-level `zip:`. Nothing in `src/lib/server/content.ts`
-derives harness URLs any more — `resolveHarness()`, `site.harness_base` and
-`site.harness_v` are gone. Do not reintroduce a computed harness URL: the docs
-build and the harness render start on the same push, so anything the docs
-compute can name bytes that have not been uploaded yet, and the `immutable`
-header on the images turns that into a year-long wrong picture in the reader's
-cache. That is a real outage this site had on 2026-08-09, written up in
-`electronics/wire_harness/AGENTS.md`.
+`yml`) plus the top-level `zip:`. Do not reintroduce a computed harness URL:
+the docs build and the harness render start on the same push, so anything the
+docs compute can name bytes that have not been uploaded yet, and the
+`immutable` header turns that into a year-long wrong picture in the reader's
+cache.
 
 Adding a drawing: new YAML source, an entry in the data file, an entry in the
 `drawings` list inside `build-harness.sh`, then the paste. Full pipeline doc:
@@ -401,19 +378,15 @@ Adding a drawing: new YAML source, an entry in the data file, an entry in the
 
 ## Parts
 
-`src/liquid/_data/parts.yml` is the catalog, keyed by id. Fields: `name`,
-`image`, `page` (detail page, optional), `category` (groups the "Parts
-needed" block), `length_mm` (screw length or extrusion cut length, stamped on the card
-image),
-`notes` (short, collected into a list under the whole block),
-`caption` (small text under a single card, e.g. a cut length),
-`heat_inserts: [{insert, qty}]`. ids and render filenames mirror the
-`sorter-v2-filament-calculator` repo so the two merge cleanly later.
+There is no parts file in `docs/`. The catalog is
+`parts-calculator/catalog/parts.json`, shared with the parts calculator: the
+docs import its generated `catalog.generated.json`, so a part edited there
+changes both sites. Edit parts there, following `parts-calculator/AGENTS.md`.
 
-- A page lists what it needs via `parts_needed` (see front matter). Cards render
-  image + name, linked to the detail page when one exists, grouped by category,
-  with a quantity badge and any notes.
-- **Every screw and every 2020 extrusion needs `length_mm`.** One photo stands
+- A page lists what it needs via `parts_needed` (see front matter), by catalog
+  id. Cards render image + name, linked to the detail page when one exists,
+  grouped by category, with a quantity badge and any notes.
+- **Every screw and every 2020 extrusion needs `length_mm` in the catalog.** One photo stands
   in for a whole family of screws (every M5 socket head cap screw shares one
   picture), so without the length stamped on the card an M5 x 12 and an M5 x 35
   are the same card. The same is true of the extrusions, which differ only in
@@ -422,10 +395,9 @@ image),
 - Part detail pages live under `src/content/hardware/parts/`. Only put a part
   in the nav if it has a detail page worth linking; the catalog can hold parts
   with no page.
-- `heat_inserts` on a part records which inserts it takes. There is no longer a
-  central Preparation page: each assembly page opens with its own numbered
-  **Preparation** step listing the inserts for the parts that page uses, with a
-  photo per part (see `assembly/distribution/top-interface.md` for the pattern).
+- Each assembly page opens with its own numbered **Preparation** step listing
+  the heat-set inserts for the parts that page uses, with a photo per part (see
+  `assembly/distribution/top-interface.md` for the pattern).
 - Name the specific fastener inline in a step where it is used. When a step
   uses a screw whose size/type is not known yet, mark it with
   `<span class="fastener-todo">fastener not recorded</span>` so contributors
@@ -460,34 +432,15 @@ project setting, not a file in this repo, so they are recorded here:
     path_includes: docs/*, electronics/wire_harness/*
 
 A `*` matches across `/`, so `docs/*` covers `docs/src/content/x.md`. Pushes
-that touch only firmware, `software/`, or hive do not build the docs.
-`electronics/wire_harness/*` is in that list for historical reasons and is now
-harmless either way: it was load-bearing when a harness change re-rendered into
-the same bucket path and only a docs rebuild issued the `?v=<sha>` that made
-browsers refetch. Harness URLs are literal strings in
-`src/liquid/_data/harness.yml` now, so a drawing change always touches
-`docs/*` too and would trigger a build on its own. Leaving the path in costs a
-no-op build on a YAML-only push. To change the filter, edit the project's source
-config (dashboard, or `PATCH /accounts/<id>/pages/projects/sorter-v2-docs`)
-and update this block.
+that touch only firmware, `software/`, or hive do not build the docs. (The
+harness path is redundant: a drawing change always edits
+`src/liquid/_data/harness.yml` too.) To change the filter, edit the project's
+source config (dashboard, or `PATCH
+/accounts/<id>/pages/projects/sorter-v2-docs`) and update this block.
 
 A build can always be triggered by hand, for a branch that the filter would
 otherwise skip: `POST /accounts/<id>/pages/projects/sorter-v2-docs/deployments`
 with `-F branch=<branch>`, or the Create deployment button on the project.
 
-Moved off Vercel on 2026-08-09. Two reasons, in order: static asset requests
-on Pages are unmetered, and the site was generating ~40k Vercel edge requests
-a day against a 100-deploy-a-day Hobby account that had already rate-limited
-itself out of deploying; and everything else the docs depend on
-already lived in the same Cloudflare account. The site is `@sveltejs/adapter-static` with
-`trailingSlash: 'always'` set in SvelteKit rather than in host config, so
-there was nothing host-specific to port. `vercel.json` is gone.
-
-The Pages move did break one thing silently and it is worth knowing about even
-though the code is gone: `resolveHarness()` read the branch from
-`VERCEL_GIT_COMMIT_REF` only, so on Pages every preview fell back to a detached
-HEAD and pointed at `main`'s drawings. That whole class of bug is why harness
-URLs are literal strings now and nothing about them is derived from host env
-vars. If you move hosts again, no harness code needs touching.
-
-Commit only when verified; push only when asked.
+The site is `@sveltejs/adapter-static` with `trailingSlash: 'always'` set in
+SvelteKit rather than in host config, so nothing about it is host-specific.

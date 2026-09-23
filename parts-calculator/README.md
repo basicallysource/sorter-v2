@@ -30,7 +30,7 @@ src/lib/data/catalog.generated.json # GENERATED, committed — both sites' input
 
 **Nothing binary is in git** — no STL, 3MF, PNG or zip. Every asset lives in
 the asset service under a hash-bearing filename and is pinned from the JSON
-above. See [CLAUDE.md](CLAUDE.md#storage-layout).
+above. See [AGENTS.md](AGENTS.md#storage-layout).
 
 ## Updating parts
 

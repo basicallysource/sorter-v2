@@ -27,9 +27,10 @@ Content is authored the same way it was under Jekyll:
   (`step.html`, `harness/pin-swap.html`, …). Affiliate links and kramdown
   `{#heading-id}` attributes are expanded by small transforms in
   `content.ts`.
-- **Data files** (`nav.yml`, `parts.yml`, `authors.yml`, `harness.yml`) live
-  in `src/liquid/_data/` and drive the nav, parts cards, bylines, and the
-  WireViz page.
+- **Data files** (`nav.yml`, `authors.yml`, `harness.yml`) live in
+  `src/liquid/_data/` and drive the nav, bylines, and the WireViz page. Parts
+  cards come from the parts calculator's catalog
+  (`parts-calculator/src/lib/data/catalog.generated.json`).
 
 Everything renders once at build time; the browser never fetches or parses
 markdown. `src/routes/[...path]/+page.server.ts` prerenders one page per
@@ -42,6 +43,6 @@ authors).
 
 `src/routes/layout.css` — Tailwind v4 `@theme` tokens using the same naming
 scheme as `software/sorter/frontend/src/routes/layout.css`, and the design
-rules from that app's CLAUDE.md apply here too: sharp edges (no `rounded-*`),
+rules from that app's AGENTS.md apply here too: sharp edges (no `rounded-*`),
 flat 1px borders on callouts (no left-accent stripes), body copy ≥ 14px, no
 raw hex in components. The docs keep LEGO red as `--color-primary`.

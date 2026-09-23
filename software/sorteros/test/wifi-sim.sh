@@ -15,9 +15,9 @@ ok() { echo "PASS $*"; pass=$((pass + 1)); }
 bad() { echo "FAIL $*"; fail=$((fail + 1)); }
 step() { echo "---- $*"; }
 check() { local what=$1; shift; if "$@"; then ok "$what"; else bad "$what"; fi; }
-wait_for() { # seconds command...
-    local t=$1 i; shift
-    for ((i = 0; i < t; i++)); do "$@" && { WAITED=$i; return 0; }; sleep 1; done
+wait_for() { # seconds command...  (wall clock: a scan can take seconds)
+    local t=$1 start=$SECONDS; shift
+    while ((SECONDS - start < t)); do "$@" && { WAITED=$((SECONDS - start)); return 0; }; sleep 1; done
     WAITED=$t
     return 1
 }
@@ -111,9 +111,11 @@ pi_reset() { # config text
     rm -rf /var/lib/sorteros/wifi-imported /var/lib/sorteros/wifi-backups /run/sorteros
     printf '%b' "$1" >/etc/sorteros-config.toml
     phone_leave
+    wait_for 30 offline || echo "     (still online 30s after reset)"
 }
 net_start() { systemctl reset-failed sorteros-network 2>/dev/null; systemctl start sorteros-network; SINCE=$(date '+%F %T'); }
 on_wifi() { ip -4 route show default | grep -q " dev $PI "; }
+offline() { [ -z "$(ip -4 route show default)" ]; }
 net_finished() { ! systemctl is-active -q sorteros-network; }
 net_said() { journalctl -u sorteros-network --since "$SINCE" --no-pager | grep -q "$1"; }
 never_broadcast() { ! net_said broadcasting; }

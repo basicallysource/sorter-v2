@@ -2,7 +2,10 @@
 layout: default
 title: Read what it proposes
 type: tutorial
+audience: operator
+applies_to: Hive profile editor
 section: hive
+owner: hive
 slug: hive-read-what-it-proposes
 kicker: First profile — Read what it proposes
 lede: Rules are tried top to bottom and the first match wins, so the order of the boxes is most of what a profile does. What the conditions mean, and a worked example of four boxes in the right order.

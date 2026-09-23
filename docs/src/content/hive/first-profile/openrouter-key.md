@@ -2,7 +2,10 @@
 layout: default
 title: Set up an OpenRouter key
 type: how-to
+audience: operator
+applies_to: Hive profile editor
 section: hive
+owner: hive
 slug: hive-openrouter-key
 kicker: First profile — Set up an OpenRouter key
 lede: The profile chat runs on your own OpenRouter account. Four steps to get a key and paste it into Hive.

@@ -2,7 +2,10 @@
 layout: default
 title: Send it to your machine
 type: tutorial
+audience: operator
+applies_to: Hive profile editor
 section: hive
+owner: hive
 slug: hive-send-to-machine
 kicker: First profile — Send it to your machine
 lede: Assign the version to your machine from Hive's Machines page, then decide on the machine which bin each box lands in.

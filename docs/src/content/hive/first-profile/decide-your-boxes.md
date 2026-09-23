@@ -2,7 +2,10 @@
 layout: default
 title: Decide your boxes
 type: tutorial
+audience: operator
+applies_to: Hive profile editor
 section: hive
+owner: hive
 slug: hive-decide-your-boxes
 kicker: First profile — Decide your boxes
 lede: How many bins you have and what you want to separate decide the whole profile. Settle both on paper before you open the chat.

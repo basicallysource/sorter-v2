@@ -2,7 +2,10 @@
 layout: default
 title: Ask for it in plain words
 type: tutorial
+audience: operator
+applies_to: Hive profile editor
 section: hive
+owner: hive
 slug: hive-ask-in-plain-words
 kicker: First profile — Ask for it in plain words
 lede: Describe the boxes you want in the Chat tab, one change per message. Name the boxes, say how many bins you have, and save before you send.

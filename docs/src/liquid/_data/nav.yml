@@ -197,6 +197,17 @@ sections:
         url: /hive/
       - title: Build your first sorting profile
         url: /hive/first-profile/
+        children:
+          - title: Decide your boxes
+            url: /hive/first-profile/decide-your-boxes/
+          - title: Ask for it in plain words
+            url: /hive/first-profile/ask-in-plain-words/
+          - title: Read what it proposes
+            url: /hive/first-profile/read-what-it-proposes/
+          - title: Send it to your machine
+            url: /hive/first-profile/send-it-to-your-machine/
+          - title: Set up an OpenRouter key
+            url: /hive/first-profile/openrouter-key/
       - title: When the profile chat goes wrong
         url: /hive/chat-errors/
 

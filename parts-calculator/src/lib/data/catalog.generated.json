@@ -5106,14 +5106,18 @@
 		},
 		{
 			"id": "electronics",
-			"uid": "lbrp",
-			"version": "1",
+			"uid": "8yz8",
+			"version": "2",
 			"name": "Electronics",
-			"description": "The three boxes that bolt to the frame: the PSU, the control board, and the Orange Pi.",
+			"description": "The PSU, the control board and the Orange Pi, each in its own box bolted to the frame, plus the powered USB hub that feeds the cameras and the Picos.",
 			"docs": "/hardware/electronics/installation/",
 			"lines": [
 				{
 					"assembly": "meanwell-psu-box",
+					"qty": 1
+				},
+				{
+					"part": "usb-hub-powered-24v",
 					"qty": 1
 				},
 				{
@@ -5123,6 +5127,38 @@
 				{
 					"assembly": "orange-pi-mount",
 					"qty": 1
+				}
+			],
+			"versions": [
+				{
+					"version": "1",
+					"uid": "lbrp",
+					"message": "As recorded before the first stamped change.",
+					"lines": [
+						{
+							"assembly": "meanwell-psu-box",
+							"qty": 1,
+							"uid": "5h82"
+						},
+						{
+							"assembly": "ctrl-board-mount",
+							"qty": 1,
+							"uid": "p5yl"
+						},
+						{
+							"assembly": "orange-pi-mount",
+							"qty": 1,
+							"uid": "ghuf"
+						}
+					]
+				},
+				{
+					"version": "2",
+					"uid": "8yz8",
+					"date": "2026-09-23",
+					"message": "Place the powered USB hub in the tree, beside the PSU box. It was a BOM-sheet hand count and belongs to the electronics group like the three boxes it sits among; it runs off the PSU at 24 V and feeds the cameras and the Picos. No physical change.",
+					"breaking": false,
+					"commit": null
 				}
 			]
 		},

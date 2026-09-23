@@ -103,6 +103,11 @@ Then land its three leads on screws 1, 2 and 3: **live on 1** (AC/L), **neutral 
 
 {% include step.html n="3" title="Fasten the plates to the supply" %}
 
+<div class="callout callout-warning">
+  <span class="callout-icon" aria-hidden="true">⚠</span>
+  <p><b>Set the supply's input voltage selector before it goes in the box.</b> The LRS-350-24 is not universal input: a small slide switch on the side of its case selects <b>115 V</b> or <b>230 V</b>, and it has to match the mains the machine will run on. Check which way it is set now, while the supply is loose and nothing is plugged in, and slide it across if it is wrong. Left on 115 V and plugged into 230 V mains, the supply is destroyed the moment the rocker goes on.</p>
+</div>
+
 Fasten the PSU connections plate and the PSU back mount to the supply's own case with the 4 {% include fastener.html size="M4" variant="countersunk" length="6" %} screws, two into each plate. The supply has four M4 threads in its case, two at each end.
 
 <ol class="numbered-steps">

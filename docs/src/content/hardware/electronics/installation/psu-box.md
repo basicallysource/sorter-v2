@@ -64,7 +64,7 @@ The screw numbers are Mean Well's own, printed on the supply beside the block.
 
 <figure class="harness-figure">
   <img src="https://assets.basically.website/sorter-docs/psu-box-terminal-map-full-81629ce6a8e1.png" alt="Diagram of the Mean Well LRS-350-24 seen from above, its nine-way terminal block down the left edge numbered 1 at the bottom to 9 at the top, the numbers being Mean Well's own and printed on the supply. Red leads run from screws 9, 8 and 7 and black leads from 6, 5 and 4, pairing 9 with 6, 8 with 5 and 7 with 4 into three barrel jacks labelled PJ3 to the Orange Pi buck, PJ2 to the powered USB hub, and PJ1 to the basically board. Below them the IEC C14 inlet switch module is drawn upright with its illuminated rocker, fuse drawer and C14 socket, and its three factory leads run to screws 1, 2 and 3, labelled AC/L, AC/N and earth: red to screw 1 as the live, blue to screw 2 as the neutral, and yellow to screw 3 as the earth. A warning band says not to plug a cable into the IEC inlet until the assembly is complete, the wiring is verified and the cap is on.">
-  <figcaption>Every lead that lands on the block, and the screw it lands on. The mains leads at the bottom are step 2. <cite>Drawn from the Mean Well LRS-350 spec sheet, the inlet's catalog entry and the harness drawings.</cite></figcaption>
+  <figcaption>Every lead that lands on the block, and the screw it lands on. The mains leads at the bottom are step 2, and the red and blue drawn there are one module's: check which of yours is live rather than copying the colours. <cite>Drawn from the Mean Well LRS-350 spec sheet, the inlet's catalog entry and the harness drawings.</cite></figcaption>
 </figure>
 
 Tug-test each terminal once it is down.
@@ -87,12 +87,14 @@ Push it into the rectangular cutout from the outside so its flange sits on the o
   <figcaption>The connections plate from outside, and the same plate with the inlet in it. The cap closes the top, so that edge is up. <cite>Plate drawn from its STL and the module from its published flange size, both at the same scale, not from a build.</cite></figcaption>
 </figure>
 
-Then land its three leads on screws 1, 2 and 3: **red on 1** (AC/L), **blue on 2** (AC/N), **yellow on 3** (earth). The drawing in step 1 has them too. They arrive with their terminals already crimped on, so this is three screws and nothing else.
+Then land its three leads on screws 1, 2 and 3: **live on 1** (AC/L), **neutral on 2** (AC/N), **earth on 3**. The earth lead is the green-yellow one. They arrive with their terminals already crimped on, so this is three screws and nothing else.
 
-<figure class="single-figure">
-  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/psu-box-inlet-leads-on-block-w1600-c75694a6cff8.jpg" alt="The Mean Well LRS-350-24 on a bench with the fused IEC inlet module beside it, the module's three factory leads running to the bottom three screws of the terminal block: red on the screw marked L, blue on N and yellow on the earth symbol">
-  <figcaption>The three mains leads on the bottom three screws, red to <code>L</code>, blue to <code>N</code>, yellow to earth. Shown with the module still out of its plate, which is the one thing this picture does not follow: in the build it goes into the plate first. <cite>Photo: BrickCycleAlice.</cite></figcaption>
-</figure>
+<div class="callout callout-warning">
+  <span class="callout-icon" aria-hidden="true">⚠</span>
+  <p><b>Find out which of the other two is live. Do not go by colour.</b> These modules are sold with red and blue leads and <b>both orders have been found in the post</b>, so the colour tells you nothing about which one the fuse and the switch are in. Land them the wrong way round and the machine is fused and switched in its neutral: the supply stays live with the rocker off.</p>
+</div>
+
+**The test**, with nothing plugged in: take the fuse out of its drawer, set the meter to continuity, and probe from each coloured lead to each of the two flat pins inside the C14. The pair that still beeps with the fuse out is **neutral**. The one that beeps only with the fuse back in and the rocker on is **live**, because the fuse and the switch sit in the live side. That lead goes on screw 1.
 
 {% include step.html n="3" title="Fasten the plates to the supply" %}
 

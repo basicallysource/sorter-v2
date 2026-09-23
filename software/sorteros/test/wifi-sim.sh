@@ -124,6 +124,7 @@ WIFI_OK='[wifi]\nssid = "HomeNet"\npassword = "right-password"\n'
 eth_default no
 
 step "1. setup site Wi-Fi, right password"
+router_down
 router_up
 pi_reset "$WIFI_OK"
 net_start

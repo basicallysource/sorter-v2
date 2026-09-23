@@ -76,6 +76,8 @@ Tug-test each terminal once it is down.
 
 The **IEC C14 inlet, switch + 10 A fuse** is the machine's mains entry and its on/off switch. Its three leads come already attached, so there is no AC cable to make.
 
+**The cable from the wall is an ordinary IEC C13 mains lead**, the cord a desktop PC or a monitor comes with, with the plug your country uses. Three core, because the machine earths through it and out to the supply's earth screw. 10 A or better, which matches the module's own fuse and is far more than the machine draws. **It is in no parts list**: it is the one part of this build you probably already own, so nothing is missing if you cannot find it in the BOM.
+
 Push it into the rectangular cutout from the outside so its flange sits on the outer face of the plate. Fasten it with 2 {% include fastener.html size="M3" variant="countersunk" length="8" %} screws, one through each flange hole. The flange is countersunk for them, so the heads finish flush. They cut their own thread in the plate, so run them in until the flange is tight and stop.
 
 <figure class="harness-figure">
@@ -114,5 +116,10 @@ Fit the cap. It takes no screws and nothing else holds it: it sits on top, resti
 The supply with both printed plates bolted to its back, the mains inlet in the connections plate, the three jacks beside it and every lead landed on the terminal block. Shown with the cap off, because with it on there is nothing to see.
 
 <div class="img-placeholder">Image coming: the supply on the bench, both plates on, the inlet and the three jacks in the connections plate, cap off</div>
+
+<div class="callout callout-warning">
+  <span class="callout-icon" aria-hidden="true">⚠</span>
+  <p><b>Once it is in service, pull the cord out of the wall before you open this box.</b> The rocker is not an isolator you can rely on: a plug that goes in either way round means the switch may be breaking the neutral rather than the live, so treat everything inside as live whenever the cord is in.</p>
+</div>
 
 **Bolting it to the frame is on the [installation overview]({{ '/hardware/electronics/installation/' | relative_url }})**. Everything that plugs into it is on the [wire harness]({{ '/hardware/electronics/wire-harness/' | relative_url }}) page.

@@ -20,27 +20,37 @@ class HiveError(Exception):
         super().__init__(message)
 
 
-class HiveClient:
-    """Python client for Hive machine API."""
+def _raise_for_error(resp: requests.Response) -> None:
+    if resp.ok:
+        return
+    try:
+        body = resp.json()
+        message = body.get("error", resp.text)
+        code = body.get("code")
+    except (ValueError, KeyError, AttributeError):
+        message = resp.text
+        code = None
+    raise HiveError(resp.status_code, message, code)
 
-    def __init__(self, api_url: str, api_token: str):
+
+class HiveClient:
+    """Python client for Hive machine API.
+
+    ``api_token`` may be None for an install linked to no account: the model
+    defaults answer without one, and every other endpoint answers 401.
+    """
+
+    def __init__(self, api_url: str, api_token: str | None = None):
         self.api_url = api_url.rstrip("/")
         self.api_token = api_token
         self._session = requests.Session()
-        self._session.headers["Authorization"] = f"Bearer {api_token}"
+        if api_token:
+            self._session.headers["Authorization"] = f"Bearer {api_token}"
 
     def _request(self, method: str, path: str, **kwargs: Any) -> Any:
         url = f"{self.api_url}{path}"
         resp = self._session.request(method, url, **kwargs)
-        if not resp.ok:
-            try:
-                body = resp.json()
-                message = body.get("error", resp.text)
-                code = body.get("code")
-            except (ValueError, KeyError):
-                message = resp.text
-                code = None
-            raise HiveError(resp.status_code, message, code)
+        _raise_for_error(resp)
         if resp.status_code == 204:
             return None
         return resp.json()
@@ -186,21 +196,54 @@ class HiveClient:
         expected_sha256: str | None = None,
     ) -> str:
         """GET /api/machine/models/{id}/variants/{vid}/download -- stream to disk, verify sha256."""
+        return self._download(
+            f"/api/machine/models/{model_id}/variants/{variant_id}/download",
+            dest_path,
+            on_progress,
+            expected_sha256,
+        )
+
+    def get_default_model(self, purpose: str, runtime: str) -> dict:
+        """GET /api/model-defaults/{purpose}/{runtime} -- the model an install
+        should run when it has chosen none, as picked in Hive. Needs no token.
+        Raises HiveError 404 (code MODEL_DEFAULT_NOT_SET) when none is set."""
+        return self._request("GET", f"/api/model-defaults/{purpose}/{runtime}")
+
+    def download_default_model(
+        self,
+        purpose: str,
+        runtime: str,
+        dest_path: Path,
+        on_progress: Callable[[int, int], None] | None = None,
+        expected_sha256: str | None = None,
+    ) -> str:
+        """GET /api/model-defaults/{purpose}/{runtime}/download -- stream to
+        disk, verify sha256. Needs no token."""
+        return self._download(
+            f"/api/model-defaults/{purpose}/{runtime}/download",
+            dest_path,
+            on_progress,
+            expected_sha256,
+        )
+
+    def _download(
+        self,
+        path: str,
+        dest_path: Path,
+        on_progress: Callable[[int, int], None] | None,
+        expected_sha256: str | None,
+    ) -> str:
         dest_path = Path(dest_path)
         dest_path.parent.mkdir(parents=True, exist_ok=True)
         partial = dest_path.with_suffix(dest_path.suffix + ".partial")
-        url = f"{self.api_url}/api/machine/models/{model_id}/variants/{variant_id}/download"
-        with self._session.get(url, stream=True) as resp:
-            if not resp.ok:
-                try:
-                    body = resp.json()
-                    message = body.get("error", resp.text)
-                    code = body.get("code")
-                except (ValueError, KeyError):
-                    message = resp.text
-                    code = None
-                raise HiveError(resp.status_code, message, code)
-            header_sha = resp.headers.get("X-Model-SHA256")
+        with self._session.get(f"{self.api_url}{path}", stream=True) as resp:
+            _raise_for_error(resp)
+            # In redirect serve mode the hash rides on the 307, not on the
+            # storage response it points at.
+            header_sha = next(
+                (r.headers["X-Model-SHA256"] for r in (resp, *resp.history) if "X-Model-SHA256" in r.headers),
+                None,
+            )
             total = int(resp.headers.get("Content-Length") or 0)
             hasher = hashlib.sha256()
             written = 0
@@ -269,15 +312,7 @@ class HiveAdminClient:
         headers = kwargs.pop("headers", {})
         headers.update(self._headers())
         resp = self._session.request(method, f"{self.api_url}{path}", headers=headers, **kwargs)
-        if not resp.ok:
-            try:
-                body = resp.json()
-                message = body.get("error", resp.text)
-                code = body.get("code")
-            except (ValueError, KeyError):
-                message = resp.text
-                code = None
-            raise HiveError(resp.status_code, message, code)
+        _raise_for_error(resp)
         if resp.status_code == 204:
             return None
         return resp.json()

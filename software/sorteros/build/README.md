@@ -26,6 +26,7 @@ sudo python3 build.py                      # release image: first boot checks ou
 sudo python3 build.py --ref my-branch      # test image: first boot checks out my-branch
 sudo python3 build.py --phase overlay      # re-run one phase
 sudo python3 build.py --phase zip          # compress for a release
+sudo python3 build.py --ref my-branch --from out/<previous>.img   # test image in a minute or two: skips grow + chroot
 ```
 
 Output: `out/sorteros-v<version>-<date>.img`; `--phase zip` compresses it

@@ -18,7 +18,14 @@ Phases (run with --phase <name> for a partial rerun):
   zip               — compress .img → .img.zip for GitHub Releases distribution
 
 Default with no --phase: prep through finalize, in order. zip is only for a
-release: --phase zip. Each phase is idempotent on its own — re-running a
+release: --phase zip.
+
+--from <image> respins a previous SorterOS build instead of starting from the
+vendor image: prep copies it, then mount, overlay, portal and finalize run
+(grow and chroot are skipped). A minute or two instead of ~10, for a test image
+when only overlay/, the portal or --ref changed. The overlay is copied over
+what's there, so a file deleted from overlay/ stays; release builds start from
+the vendor image. Each phase is idempotent on its own — re-running a
 single phase won't break the overall state.
 """
 
@@ -60,6 +67,7 @@ class BuildCtx:
     out_dir: Path
     state_file: Path
     ref: str
+    from_image: Path | None = None
 
 
 def log(msg: str) -> None:
@@ -168,7 +176,9 @@ def phase_prep(ctx: BuildCtx) -> None:
         ctx.work_img.unlink()
     ctx.state_file.unlink(missing_ok=True)
 
-    base = _find_base_image(ctx)
+    base = ctx.from_image or _find_base_image(ctx)
+    if not base.exists():
+        sys.exit(f"{base} not found")
     log(f"base image: {base}")
     log(f"copying base → {ctx.work_img}")
     shutil.copy2(base, ctx.work_img)
@@ -574,6 +584,10 @@ def main() -> None:
         help="what firstboot checks out: 'stable' (the default in config.toml), or a branch/tag/commit for a test image",
     )
     ap.add_argument("--config", default=str(SCRIPT_DIR / "config.toml"))
+    ap.add_argument(
+        "--from", dest="from_image", type=Path, default=None,
+        help="respin this previous SorterOS image (skips grow and chroot); test images only",
+    )
     args = ap.parse_args()
 
     require_root()
@@ -601,9 +615,15 @@ def main() -> None:
         out_dir=SCRIPT_DIR / "out",
         state_file=SCRIPT_DIR / "out" / ".build-state.json",
         ref=ref,
+        from_image=args.from_image,
     )
 
-    phases = [args.phase] if args.phase else PHASES[:PHASES.index("zip")]
+    if args.phase:
+        phases = [args.phase]
+    elif args.from_image:
+        phases = ["prep", "mount", "overlay", "portal", "finalize"]
+    else:
+        phases = PHASES[:PHASES.index("zip")]
     for p in phases:
         log(f"=== phase: {p} ===")
         PHASE_FNS[p](ctx)

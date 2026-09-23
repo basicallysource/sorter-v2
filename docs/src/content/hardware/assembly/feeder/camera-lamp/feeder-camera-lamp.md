@@ -103,6 +103,11 @@ The [lamp arm]({{ '/hardware/assembly/feeder/camera-lamp/lamp-arm/' | relative_u
 
 **It hangs off a dovetail, not a screw.** The outside of the channel wall carries a row of dovetails. Slide the arm mount down into the **5th one from the channel exit**, counting anticlockwise seen from above, until it stops. C2 and C3 use the same count. That is the whole joint: the mount has no other fixing, and the lamp's weight holds it in the rail.
 
+<div class="callout callout-warning">
+  <span class="callout-icon" aria-hidden="true">⚠</span>
+  <p><strong>Count before you push it on.</strong> The dovetail on the arm mount breaks off easily when a lamp is pulled back out of the wrong slot. Get the count right the first time rather than trying one and moving it.</p>
+</div>
+
 It is a printed joint and the fit has not been dimensioned, so it may be tight or it may have a little play. **Do not force it and do not file it down**: if it will not go on, say so in the Discord with a photo, because that is a part problem rather than a step you are doing wrong.
 
 The lamp goes on during [arranging C-channels]({{ '/hardware/assembly/feeder/arranging-c-channels/' | relative_url }}), onto the two [feeder channels]({{ '/hardware/assembly/feeder/c-channels/feeder-channels/' | relative_url }}).

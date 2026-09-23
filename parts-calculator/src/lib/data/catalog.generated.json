@@ -24774,7 +24774,7 @@
 			"name": "IEC C14 inlet, switch + 10 A fuse",
 			"category": "Power supply",
 			"description": "Mains inlet for the PSU: switched, fused, pre-wired.",
-			"note": null,
+			"note": "Its red and blue leads are not consistent between units: both have arrived with the live on either colour. The fuse and the switch are in the live side, so pull the fuse and meter which lead loses continuity to its C14 pin, and land that one on the supply's L. Going by colour risks fusing and switching the neutral.",
 			"created_at": "2026-07-18",
 			"updated_at": "2026-09-21",
 			"attributes": [

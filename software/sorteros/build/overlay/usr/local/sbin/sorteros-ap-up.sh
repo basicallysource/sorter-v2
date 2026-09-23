@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Bring up the SorterOS onboarding access point on wlan0 — idempotent.
+# Bring up the SorterOS onboarding access point on the Wi-Fi device — idempotent.
 #
 # Called by sorteros-onboarding.service on boot when /var/lib/sorteros/wifi-configured
 # is absent. Creates (or updates) an nmcli AP profile, ipv4-shared so NetworkManager
@@ -9,29 +9,29 @@
 set -euo pipefail
 
 AP_CON=sorteros-ap
-IFACE=wlan0
 GATEWAY=10.42.0.1/24
 LOG_TAG=sorteros-ap-up
 
 log() { logger -t "$LOG_TAG" -- "$*"; echo "[$LOG_TAG] $*" >&2; }
 
-# Derive SSID from the wlan0 MAC so two adjacent devices in AP mode don't clash.
-mac=$(cat /sys/class/net/${IFACE}/address 2>/dev/null || echo "00:00:00:00:00:00")
-suffix=$(echo "$mac" | tr -d ':' | tail -c 7 | tr 'a-f' 'A-F')
-SSID="SorterOS-Setup-${suffix}"
-
-# Wait briefly for NM to take charge of wlan0 — on cold boot the radio is
-# usually settled by the time onboarding.service starts, but in pathological
-# cases (USB Wi-Fi, late-loading firmware) it can lag.
+# The first Wi-Fi device NetworkManager manages: wlan0 for the M.2 module,
+# wlx<mac> for a USB adapter. On cold boot a USB adapter or late-loading
+# firmware can lag, so give it a moment.
+IFACE=""
 for _ in $(seq 1 15); do
-    if nmcli -t -f DEVICE,STATE dev | grep -q "^${IFACE}:"; then break; fi
+    IFACE=$(nmcli -t -f DEVICE,TYPE device 2>/dev/null | awk -F: '$2 == "wifi" { print $1; exit }')
+    [ -n "$IFACE" ] && break
     sleep 1
 done
-
-if ! nmcli -t -f DEVICE,STATE dev | grep -q "^${IFACE}:"; then
-    log "wlan0 not present after 15s — bailing"
+if [ -z "$IFACE" ]; then
+    log "no Wi-Fi device after 15s — bailing"
     exit 1
 fi
+
+# SSID from the device's MAC so two machines in setup mode don't clash.
+mac=$(cat "/sys/class/net/${IFACE}/address" 2>/dev/null || echo "00:00:00:00:00:00")
+suffix=$(echo "$mac" | tr -d ':' | tail -c 7 | tr 'a-f' 'A-F')
+SSID="SorterOS-Setup-${suffix}"
 
 # Tear down any stale instance of the AP profile so we always boot from a
 # known shape (SSID may have changed if the MAC changed, e.g. swapped board).

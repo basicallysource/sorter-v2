@@ -5,16 +5,16 @@ type: how-to
 section: hardware
 slug: helper-chute-stepper-lead
 kicker: Helpers — Chute stepper lead
-lede: The only stepper cable you build. Four bare motor leads into a 4-pin housing, in the right coil order. One per machine.
+lede: The only stepper cable you build. A 24 AWG tail onto the motor's four bare leads, then a 4-pin housing in the right coil order. One per machine.
 permalink: /hardware/helpers/chute-stepper-lead/
 author: effreek
-contributors: [spencer]
+contributors: [spencer, brickcyclealice]
 warning: >-
   **AI-generated first draft.** Written from the basically board v1.3 board files and the [wire
   harness]({{ '/hardware/electronics/wire-harness/' | relative_url }}) schedule, not from an actual build. The
   pin order and the sockets are read off the board and are real. The cable length is a **GUESS**,
-  copied from the channel stepper cables, and no harness drawing covers this cable. Whether the
-  motor's own leads are long enough to crimp directly is **not recorded**: both cases are below.
+  copied from the channel stepper cables, and no harness drawing covers this cable. The motor's own
+  leads have been measured on one build at 500 mm against the drawing's 300 mm, so check yours.
 parts_needed:
   - part: jst-phr-4
     qty: 1
@@ -22,10 +22,15 @@ parts_needed:
     qty: 4
   - part: wire-24awg
     qty: 1
-tools_needed: [Wire strippers, "Crimp tool for open-barrel contacts", Multimeter, "Only if you extend the leads: soldering iron and adhesive-lined heat shrink"]
+tools_needed: [Wire strippers, "Crimp tool for open-barrel contacts", "Soldering iron and adhesive-lined heat shrink", Multimeter]
 ---
 
 The chute stepper is the NEMA 23 that drives the chute. It is the only motor on the machine with bare flying leads: the four channel steppers have their own 6-pin socket and take a bought cable. So this one lead gets built. **One per machine.**
+
+<div class="callout callout-warning">
+  <span class="callout-icon" aria-hidden="true">⚠</span>
+  <p><b>The motor's own leads are too thick for the connector, however long they are.</b> They are <b>20 AWG</b> (UL1007 on the motor drawing) and a JST PH contact takes 24 to 28 AWG, so the board end of this lead is always a short 24 AWG tail spliced onto them. Length decides how long that tail is, not whether you need one.</p>
+</div>
 
 ## The pin order
 
@@ -58,8 +63,9 @@ The motor's four leads are coloured, and the colours do not tell you which pair 
 ## Build it
 
 <ol class="numbered-steps">
-  <li>Hold the motor where it will sit and check its own leads reach the control board. If they do, use them as they are. If they do not, splice 24 AWG onto each of the four: solder each conductor, cover it with adhesive-lined heat shrink, and sleeve the four together. The harness notes put the finished length at about 1 m (40 in).</li>
-  <li>Strip 2 mm off the end of each of the four conductors.</li>
+  <li>Hold the motor where it will sit and see how far its own leads get you. They come out of the motor at 300 to 500 mm depending on the batch, and the harness notes put the finished lead at about 1 m (40 in).</li>
+  <li>Splice 24 AWG of the matching colour onto each of the four, long enough to make the length up and at least 100 mm even when the motor's own leads already reach: solder each conductor, cover it with adhesive-lined heat shrink, and sleeve the four together. The thin ends are what the contacts crimp onto.</li>
+  <li>Strip 2 mm off the end of each of the four <b>24 AWG</b> conductors.</li>
   <li>Crimp a PH contact onto each. Seat the strands fully in the barrel, crimp in the matching die, then pull on the wire to check it holds.</li>
   <li>Push the contacts into the housing until each one clicks: <b>one coil into positions 1 and 2, the other coil into positions 3 and 4</b>. Which coil goes in which pair does not matter. Nor does which lead of a pair goes in which position: that only reverses the direction the motor turns, and the direction is set in the software.</li>
 </ol>

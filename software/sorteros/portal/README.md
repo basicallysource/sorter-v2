@@ -1,14 +1,10 @@
 # SorterOS Captive Portal
 
-Zero-touch Wi-Fi onboarding for SorterOS images. Replaces the
-`sorteros-setup/` Vercel customizer — the image ships generic, and the
-user joins an AP on the device to configure Wi-Fi via a browser captive
-portal.
-
-Today this is a **spike**: backend + frontend run locally with no
-hardware, no image-builder integration, no systemd unit. Once we're happy
-with the UX we wire it into `build/overlay/` and add the AP-mode
-orchestrator.
+Zero-touch Wi-Fi onboarding for SorterOS v4 images. The image ships
+generic; with no Ethernet uplink, `sorteros-onboarding.service` opens a
+`SorterOS-Setup-XXXXXX` access point and this portal, where the user picks
+their network. The builder's `portal` phase bakes both halves into the image.
+Below is how to run it locally in mock mode, with no hardware.
 
 ## Layout
 

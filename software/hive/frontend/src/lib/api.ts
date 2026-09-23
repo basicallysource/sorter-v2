@@ -2314,6 +2314,16 @@ export const api = {
 	modelVariantDownloadUrl(modelId: string, variantId: string) {
 		return resolveApiPath(`/api/models/${modelId}/variants/${variantId}/download`);
 	},
+	// The model a fresh install with no account downloads for its runtime (admin).
+	setModelDefault(purpose: string, runtime: string, modelId: string, variantId: string) {
+		return request<unknown>('PUT', `/api/model-defaults/${purpose}/${runtime}`, {
+			model_id: modelId,
+			variant_id: variantId
+		});
+	},
+	clearModelDefault(purpose: string, runtime: string) {
+		return request<void>('DELETE', `/api/model-defaults/${purpose}/${runtime}`);
+	},
 	// Teacher (admin-only re-detection jobs)
 	createTeacherJob(filter: TeacherJobFilter, openrouter_model?: string) {
 		return request<TeacherJobSummary>('POST', '/api/admin/teacher/jobs', {
@@ -2446,6 +2456,7 @@ export interface DetectionModelSummary {
 	codename_color: string | null;
 	name: string;
 	description: string | null;
+	purpose: string;
 	model_family: string;
 	scopes: string[] | null;
 	is_public: boolean;
@@ -2459,6 +2470,8 @@ export interface DetectionModelSummary {
 export interface DetectionModelDetail extends DetectionModelSummary {
 	training_metadata: Record<string, unknown> | null;
 	variants: DetectionModelVariant[];
+	// Runtimes a fresh install is served this model for.
+	default_for: string[];
 }
 
 export interface ModelDatasetMachine {

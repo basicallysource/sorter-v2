@@ -5,7 +5,7 @@ type: how-to
 section: hardware
 slug: electronics-control-board-prep
 kicker: Electronics — Preparing the control board
-lede: The five stepper drivers, the Pico, the jumpers that address the drivers, and the bypass jumpers for the camera lamp ports.
+lede: The five stepper drivers, the Pico, the jumpers that address the drivers, and the bypass jumpers on the four LED ports.
 permalink: /hardware/electronics/installation/control-board-prep/
 author: spencer
 contributors: [effreek]
@@ -106,22 +106,22 @@ The two connectors in each pair are the JST-PH socket and the row of 2.54 mm pin
   <p>Read the 1 2 3 printed beside every header. The fifth driver's block is mirrored, which is why the board prints <b>!Double check!</b> next to it, and a wrong address fails silently: that driver never answers and its stepper stays unconfigured.</p>
 </div>
 
-{% include step.html n="4" title="Bridge the bypass jumpers on the lamp ports" %}
+{% include step.html n="4" title="Bridge the bypass jumpers on the LED ports" %}
 
-The board has four LED ports, and each one feeds +24&nbsp;V through a 180 Ω resistor: `R21` on `J8`, `R22` on `J9`, `R27` on `J10`, `R28` on `J11`. That resistor is there for a COB LED board, which has no current limiting of its own. The [camera lamps]({{ '/hardware/assembly/feeder/camera-lamp/' | relative_url }}) run LED strip, which does have its own, so on a lamp port the resistor only costs brightness, and brightness is set with PWM in the software instead. Bridge it out on the three ports the lamps go on (Jon, 2026-09-13).
+The board has four LED ports, and each one feeds +24&nbsp;V through a 180 Ω resistor: `R21` on `J8`, `R22` on `J9`, `R27` on `J10`, `R28` on `J11`. That resistor is there for a COB LED board, which has no current limiting of its own. Nothing this machine plugs into those ports wants it: the [camera lamps]({{ '/hardware/assembly/feeder/camera-lamp/' | relative_url }}) run LED strip, which limits its own current, so the resistor only costs brightness, and brightness is set with PWM in the software instead.
 
-Beside each port is a two-pad solder jumper, printed `Bypass R21`, `Bypass R22`, `Bypass R27` and `Bypass R28`. Melt a blob of solder across both pads of the one you want so they are joined. Nothing is added to the board.
+**Bridge all four.** Beside each port is a two-pad solder jumper, printed `Bypass R21`, `Bypass R22`, `Bypass R27` and `Bypass R28`. Melt a blob of solder across both pads of each so they are joined. Nothing is added to the board (Jon, 2026-09-13 and 2026-09-23).
 
 <div class="img-row">
   <figure>
-    <img src="https://assets.basically.website/sorter-docs/assembly-control-board-prep-bypass-jumper-bridged-full-1d129db28c6a.jpg" alt="Close-up of the control board between ports J10 and J11: the upper solder jumper above R27 carries a shiny blob of solder across both pads, the lower one above R28 is two bare pads with a gap between them">
-    <figcaption>Above <code>R27</code>, bridged. Above <code>R28</code>, not. <cite>Photo: Jon.</cite></figcaption>
+    <img src="https://assets.basically.website/sorter-docs/assembly-control-board-prep-bypass-jumper-annotated-full-ecd08a4b945d.jpg" alt="Annotated close-up of the control board between ports J10 and J11: the solder jumper above R27 is circled in green with a green tick beside it and carries a blob of solder across both pads, and a red arrow points at the jumper above R28, which is two bare pads with a gap between them">
+    <figcaption>Circled in green, bridged. The one the red arrow points at is not. <cite>Photo: Jon.</cite></figcaption>
   </figure>
 </div>
 
 <div class="callout">
   <span class="callout-icon" aria-hidden="true">›</span>
-  <p><b>Do it now, while the board is loose.</b> Once it is closed into its housing and wired, the pads are under the lid and behind a dozen cables. Which port takes which lamp is picked on the <a href="{{ '/hardware/electronics/connecting/' | relative_url }}">connecting</a> page; the fourth port has its own jumper instruction on the <a href="{{ '/hardware/electronics/installation/control-board-housing/' | relative_url }}">housing</a> page, so if you are following that too, you can do all four in one sitting.</p>
+  <p><b>Do it now, while the board is loose.</b> Once it is closed into its housing and wired, the pads are under the lid and behind a dozen cables. Which port takes which lamp is picked on the <a href="{{ '/hardware/electronics/connecting/' | relative_url }}">connecting</a> page.</p>
 </div>
 
 ## The finished result

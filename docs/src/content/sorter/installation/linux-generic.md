@@ -25,7 +25,6 @@ The installer is written against a freshly installed **Debian 12** or **Ubuntu 2
 ## The one-command install
 
 ```bash
-git lfs install
 git clone https://github.com/basicallysource/sorter-v2.git
 cd sorter-v2/software
 ./install.sh
@@ -35,14 +34,13 @@ That's it. The installer is idempotent — re-running it on a partially-installe
 
 What `install.sh` actually does, in order:
 
-1. **`apt install`** the system packages — `git`, `git-lfs`, `curl`, `build-essential`, `libgl1`, `libglib2.0-0`, `lsof`, `v4l-utils`. `libgl1` is what OpenCV needs at import time; the rest are dependencies of the toolchain or the dev runner.
+1. **`apt install`** the system packages — `git`, `curl`, `build-essential`, `libgl1`, `libglib2.0-0`, `lsof`, `v4l-utils`. `libgl1` is what OpenCV needs at import time; the rest are dependencies of the toolchain or the dev runner.
 2. **Install a udev rule** for Raspberry Pi Pico boards (`/etc/udev/rules.d/99-sorter-pico.rules`). This restricts Pico access to the `plugdev` group plus the active desktop seat user (via `uaccess`), preventing arbitrary local users from flashing firmware. The installer adds your user to `plugdev`; headless/SSH sessions need a logout/login cycle, but the seat user's desktop session works immediately.
 3. **Install `uv`** (the Python toolchain) if it isn't already on the box. `uv` then fetches the exact Python version pinned by the project — no `apt python3` needed.
 4. **Install Node.js 20.x and `pnpm`** via NodeSource. `pnpm` is mandatory here, not `npm`: the dev runner explicitly invokes `pnpm dev`.
-5. **`git lfs pull`** the detector model artifacts and the parts catalogue (skip with `--skip-lfs`).
-6. **Generate `.env`** with the *correct* absolute paths discovered from the install location. No more editing `/home/user/sorter-v2/...` placeholders by hand. (The UI's own `.env` is also seeded from its example.)
-7. **`uv sync`** in `software/sorter/backend/` — this is the slow step on first install because uv downloads the Python interpreter and resolves all 53 backend dependencies including OpenCV and ONNX Runtime.
-8. **`pnpm install --frozen-lockfile`** in `software/sorter/frontend/` — resolves the SvelteKit + Vite + Tailwind toolchain and the in-app component set.
+5. **Generate `.env`** with the *correct* absolute paths discovered from the install location. No more editing `/home/user/sorter-v2/...` placeholders by hand. (The UI's own `.env` is also seeded from its example.)
+6. **`uv sync`** in `software/sorter/backend/` — this is the slow step on first install because uv downloads the Python interpreter and resolves all 53 backend dependencies including OpenCV and ONNX Runtime.
+7. **`pnpm install --frozen-lockfile`** in `software/sorter/frontend/` — resolves the SvelteKit + Vite + Tailwind toolchain and the in-app component set.
 
 ## Verify the install
 
@@ -64,7 +62,6 @@ If the UI does not come up, see [Sorter troubleshooting]({{ '/sorter/troubleshoo
 ./install.sh --help
 ./install.sh                 # default — install everything in dev mode
 ./install.sh --as-service    # also build the UI for production and install systemd units
-./install.sh --skip-lfs      # skip git lfs pull (useful in CI / Docker / when LFS already pulled)
 ./install.sh --skip-apt      # skip the apt step (useful when packages are already installed)
 ```
 
@@ -101,7 +98,7 @@ software/scripts/test_install_in_docker.sh
 This script:
 
 1. builds a minimal `debian:12-slim` image whose only pre-installed packages are `sudo`, `curl`, `ca-certificates`, and `git` — everything else has to come from `install.sh` itself;
-2. copies the working tree into the container, strips any host-side dev state (`.env`, `.venv`, `node_modules`), and runs `./install.sh --skip-lfs`;
+2. copies the working tree into the container, strips any host-side dev state (`.env`, `.venv`, `node_modules`), and runs `./install.sh`;
 3. smoke-tests the backend by importing the trickiest Python deps (`fastapi`, `cv2`, `onnxruntime`, `uvicorn`, `numpy`) inside the freshly-built `uv` environment;
 4. runs `pnpm exec vite --version` to confirm the UI toolchain is callable;
 5. runs `systemd-analyze verify` against both unit files to catch unit-syntax regressions.

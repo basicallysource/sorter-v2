@@ -37,7 +37,7 @@ You will need:
 
 ```bash
 sudo apt update && sudo apt install -y \
-  git git-lfs curl ca-certificates \
+  git curl ca-certificates \
   build-essential pkg-config \
   libgl1 libglib2.0-0 lsof v4l-utils
 ```
@@ -76,13 +76,11 @@ sudo npm install -g pnpm
 ### 5. Clone the repo
 
 ```bash
-git lfs install
 git clone https://github.com/basicallysource/sorter-v2.git
 cd sorter-v2/software
-git lfs pull
 ```
 
-`git lfs pull` is what brings down the detector model artifacts and the parts catalogue.
+Vision models are not in the repo: once the backend is running it downloads Hive's default detection model for this computer and puts it on every channel.
 
 ### 6. Generate `.env`
 

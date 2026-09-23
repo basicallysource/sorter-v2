@@ -33,6 +33,7 @@ apt-get install "${APT_OPTS[@]}" \
     libgl1 libglib2.0-0 \
     v4l-utils \
     avahi-daemon libnss-mdns \
+    iw \
     cloud-guest-utils \
     figlet \
     systemd-timesyncd \
@@ -100,8 +101,8 @@ systemctl enable avahi-daemon.service || true
 log "enabling sorteros-firstboot"
 systemctl enable sorteros-firstboot.service || true
 
-log "enabling sorteros-onboarding (portal)"
-systemctl enable sorteros-onboarding.service || true
+log "enabling sorteros-network (Ethernet, saved Wi-Fi, else the setup network)"
+systemctl enable sorteros-network.service || true
 
 # We install dnsmasq-base (the binary NetworkManager spawns for AP/shared
 # mode — required by the onboarding captive portal). The standalone

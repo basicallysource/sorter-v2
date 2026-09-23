@@ -278,7 +278,7 @@ def phase_overlay(ctx: BuildCtx) -> None:
     # which is orangepi's uid 1000 in the image, onto /etc and onto scripts
     # root runs at boot). --no-times keeps unchanged files' mtimes.
     run([
-        "rsync", "-aH", "--no-times", "--chown=0:0", "--chmod=Dgo-w,Fgo-w",
+        "rsync", "-aH", "--no-times", "--chown=0:0", "--chmod=Dgo-w,Fgo-w", "--exclude=__pycache__",
         f"{ctx.overlay_dir}/", f"{ctx.mnt}/",
     ])
 
@@ -490,15 +490,26 @@ def phase_portal(ctx: BuildCtx) -> None:
     shutil.copytree(frontend_build, www_dst)
     log(f"copied portal frontend → {www_dst.relative_to(ctx.mnt)}")
 
-    # The portal will also need an empty /etc/sorteros-config.toml so
-    # firstboot's stage_apply_config_toml has a known path to read once
-    # the user completes onboarding. No markers, no placeholder — just a
-    # comment so the file isn't empty.
+    _write_config_placeholder(ctx)
+
+
+# The setup site (sorteros-setup, setup.basically.website) finds these two
+# comment lines in the raw .img and overwrites the newline padding between
+# them with the user's settings (Wi-Fi, hostname, SSH key, Tailscale key),
+# keeping the file's size so no ext4 metadata moves. firstboot and
+# sorteros-network read the file up to the end marker. Split so this source
+# doesn't contain the literal lines the site searches for.
+CFG_START_MARKER = "# __SORTEROS_CFG" + "_START__\n"
+CFG_END_MARKER = "# __SORTEROS_CFG" + "_END__\n"
+CFG_PLACEHOLDER_BYTES = 8192
+
+
+def _write_config_placeholder(ctx: BuildCtx) -> None:
+    padding = CFG_PLACEHOLDER_BYTES - len(CFG_START_MARKER) - len(CFG_END_MARKER)
     cfg = ctx.mnt / "etc" / "sorteros-config.toml"
-    if not cfg.exists():
-        cfg.write_text("# Populated by sorteros-portal during AP onboarding.\n")
-        os.chmod(cfg, 0o644)
-        log(f"created {cfg.relative_to(ctx.mnt)}")
+    cfg.write_text(CFG_START_MARKER + "\n" * padding + CFG_END_MARKER)
+    os.chmod(cfg, 0o644)
+    log(f"wrote the setup-site placeholder: {cfg.relative_to(ctx.mnt)} ({padding} bytes of room)")
 
 
 def _portal_frontend_needs_build(src_dir: Path, build_dir: Path) -> bool:

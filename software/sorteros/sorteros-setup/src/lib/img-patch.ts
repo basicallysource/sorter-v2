@@ -117,8 +117,8 @@ function findMarkerRegion(
 }
 
 const NOT_SUPPORTED =
-    'No config placeholder found. This customizer only works on SorterOS v3 images ' +
-    '(sorteros-v3.x.img); v4 and later are set up on the device instead.';
+    'No settings placeholder found in this file. Use the .img from a SorterOS release, ' +
+    'unzipped first.';
 
 async function findMarkerRegionInFile(
     file: Blob,

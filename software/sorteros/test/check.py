@@ -79,12 +79,12 @@ def check_image(img: Path) -> None:
 
         print("services and packages")
         wants = mnt / "etc/systemd/system/multi-user.target.wants"
-        for unit in ("avahi-daemon.service", "sorteros-firstboot.service", "sorteros-onboarding.service"):
+        for unit in ("avahi-daemon.service", "sorteros-firstboot.service", "sorteros-network.service"):
             # is_symlink: the link's absolute target only resolves inside the image
             check((wants / unit).is_symlink(), f"{unit} enabled")
         # The overlay must not hand the orangepi user (uid 1000) anything root runs.
         for rel in ("etc", "etc/systemd/system", "usr/local/sbin", "usr/local/sbin/sorteros-firstboot.py",
-                    "usr/local/sbin/sorteros-onboarding.sh", "etc/systemd/system/sorteros-firstboot.service"):
+                    "usr/local/sbin/sorteros-network.py", "etc/systemd/system/sorteros-firstboot.service"):
             st = (mnt / rel).stat()
             check(st.st_uid == 0 and not st.st_mode & 0o022, f"/{rel} owned by root, not group/world-writable",
                   f"uid {st.st_uid} mode {oct(st.st_mode & 0o777)}")
@@ -96,6 +96,11 @@ def check_image(img: Path) -> None:
         check(resolv.is_symlink() and str(resolv.readlink()).endswith("stub-resolv.conf"),
               "resolv.conf is the systemd-resolved stub")
         check((mnt / "var/www/portal/index.html").exists(), "captive portal baked")
+        cfg = (mnt / "etc/sorteros-config.toml").read_bytes() if (mnt / "etc/sorteros-config.toml").exists() else b""
+        start, end = cfg.find(b"# __SORTEROS_CFG_START__"), cfg.find(b"# __SORTEROS_CFG_END__")
+        check(0 <= start < end and end - start >= 4096, "setup-site placeholder in /etc/sorteros-config.toml",
+              f"{len(cfg)} bytes")
+        check(not any((mnt / "usr/local/sbin").rglob("__pycache__")), "no compiled Python in the overlay")
         daemon = mnt / "usr/local/sbin/sorteros-firstboot.py"
         try:
             compile(daemon.read_text(), str(daemon), "exec")

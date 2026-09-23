@@ -1,35 +1,35 @@
 # SorterOS
 
-The Orange Pi image for the Sorter. One generic image: plug in Ethernet and it
-sets itself up, or it opens a Wi-Fi hotspot with a setup page when there's no
-cable. It answers at `http://sorter.local`.
+The Orange Pi image for the Sorter. It answers at `http://sorter.local`.
 
-> SorterOS v3 (`sorteros/v3.x` tags) instead baked Wi-Fi settings into the
-> `.img` before flashing, with the browser customizer in `sorteros-setup/`
-> (setup.basically.website). That site only works on v3 images.
+Getting it online, at every boot: Ethernet if there's a cable; else the Wi-Fi
+saved on it (from the setup site before flashing, or from its setup page
+earlier); else it broadcasts a `SorterOS-Setup-XXXXXX` network whose page
+takes Wi-Fi details from a phone. See `build/overlay/usr/local/sbin/sorteros-network.py`.
 
 ## What's here
 
 - **`build/`** — the image builder (Linux, arm64 or x86_64). See its README.
 - **`portal/`** — Captive-portal stack the image boots into when no Wi-Fi is configured. FastAPI backend + SvelteKit static frontend, both source-of-truth here. The build copies them into `/usr/local/sbin/sorteros-portal.py` and `/var/www/portal/` on the image.
-- **`test/`** — boots a built image in QEMU and checks first boot end to end, before anyone flashes a card.
-- **`sorteros-setup/`** — the v3 customizer site.
+- **`test/`** — checks a built image, boots it in QEMU through first boot, and unit-tests the network decisions (`test_network.py`), before anyone flashes a card.
+- **`sorteros-setup/`** — the setup site: writes Wi-Fi, hostname, SSH key and Tailscale key into a downloaded `.img` before flashing.
 
 ## Boot story
 
 ```
 fresh flash
    │
-   ├─→ sorteros-onboarding.service (Before=firstboot)
-   │    ├─ /var/lib/sorteros/wifi-configured present? → exit 0
-   │    ├─ default route within 45 s (Ethernet)? → exit 0
-   │    └─ else: nmcli AP up + sorteros-portal on 10.42.0.1:80
-   │              └─ user submits SSID/password
-   │                    └─ portal writes .nmconnection, touches gate,
-   │                       brings the AP down
+   ├─→ sorteros-network.service (every boot, Before=firstboot)
+   │    ├─ Wi-Fi in /etc/sorteros-config.toml (setup site)? save it in NM, once
+   │    ├─ online within 45 s (90 s with a saved Wi-Fi)? → exit 0
+   │    └─ else: SorterOS-Setup-XXXXXX + sorteros-portal on 10.42.0.1:80
+   │         until the page joins a network, a cable appears, or a saved
+   │         network comes back (retried every 3 min while nobody's on it);
+   │         a failed join from the page brings the setup network back
    │
    ├─→ sorteros-firstboot.service (Type=simple, 60s loop)
-   │    ├─ reads /etc/sorteros-config.toml (populated by portal)
+   │    ├─ applies /etc/sorteros-config.toml whenever it changes
+   │    │   (hostname, SSH key, Tailscale key)
    │    ├─ stages: ssh-keys, grow-rootfs, swap, clone-repo (newest
    │    │           sorter/stable/v* tag), env files, machine.toml,
    │    │           uv-sync, pnpm, install-services
@@ -47,7 +47,7 @@ The image does not carry the Sorter software: first boot checks out the newest
 updates within. `build.py --ref <branch>` bakes a different ref for a test
 image.
 
-Recovery: deleting `/var/lib/sorteros/wifi-configured` (and rebooting) drops the device back into AP mode. A future change wires this to a long-press GPIO button.
+Recovery is automatic: a machine that can't get online at boot (new router, changed password) opens its setup network.
 
 ## Layout
 
@@ -60,7 +60,7 @@ sorteros/
 │   ├── frontend/      # SvelteKit + adapter-static + Tailwind v4
 │   └── README.md      # local dev / mock-mode walkthrough
 ├── test/              # QEMU boot test
-└── sorteros-setup/    # v3 image customizer (setup.basically.website)
+└── sorteros-setup/    # the setup site (setup.basically.website)
 ```
 
 The portal source is the single source of truth — the build's `portal` phase copies `portal/backend/portal.py` into the rootfs and `pnpm build`s `portal/frontend/` into `/var/www/portal/`. Editing the portal during development uses mock mode and never touches an image.

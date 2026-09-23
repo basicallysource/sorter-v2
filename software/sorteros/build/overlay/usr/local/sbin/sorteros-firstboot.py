@@ -19,6 +19,7 @@ restarting it (RestartPreventExitStatus=0 in the unit).
 from __future__ import annotations
 
 import base64
+import hashlib
 import html as _html
 import json
 import logging
@@ -289,6 +290,11 @@ def _start_status_server(port: int) -> ThreadingHTTPServer | None:
     return srv
 
 
+def _on_a_network() -> bool:
+    r = subprocess.run(["ip", "-4", "route", "show", "default"], capture_output=True, text=True)
+    return bool(r.stdout.strip())
+
+
 def internet_up() -> bool:
     for host in INTERNET_PROBE_HOSTS:
         try:
@@ -491,40 +497,51 @@ def stage_grow_rootfs() -> None:
     sh(["resize2fs", root_dev])
 
 
-def stage_apply_config_toml() -> None:
-    """Read /etc/sorteros-config.toml and apply it.
+# Split so the setup site, which scans the raw image for the marker lines,
+# never finds them in this file.
+CFG_END_MARKER = "# __SORTEROS_CFG" + "_END__"
+CONFIG_APPLIED = STAMP_DIR / "config-applied"
 
-    Written by sorteros-portal (AP captive portal) when the user submits
-    their Wi-Fi credentials. Keys honored:
-      hostname              → set system hostname
-      [wifi].ssid           → write NM connection (autoconnect=true)
-      [wifi].password       → wpa-psk for the above
-      [ssh].authorized_key  → append to orangepi user's authorized_keys
+
+def _read_config() -> tuple[str, dict]:
+    """/etc/sorteros-config.toml as (text, parsed), minus the setup site's
+    placeholder padding. Written by the setup site before flashing and by the
+    setup page on the device."""
+    try:
+        raw = CONFIG_PATH.read_text("utf-8", errors="replace")
+    except OSError:
+        return "", {}
+    if CFG_END_MARKER in raw:
+        raw = raw[: raw.index(CFG_END_MARKER)]
+    try:
+        return raw, tomllib.loads(raw)
+    except Exception as e:
+        log.warning("config toml unreadable: %s", e)
+        return raw, {}
+
+
+def apply_config_if_changed() -> None:
+    """Apply the setup config whenever its contents change: once at first
+    boot for what the setup site wrote, again if the setup page on the device
+    adds a hostname or SSH key later. Wi-Fi is sorteros-network's job.
+      hostname              → system hostname (avahi announces <name>.local)
+      [ssh].authorized_key  → orangepi's authorized_keys
       [tailscale].auth_key  → stored for stage_tailscale_up
     """
-    cfg: dict = {}
-    if CONFIG_PATH.exists():
-        raw = CONFIG_PATH.read_text("utf-8", errors="replace")
-        try:
-            cfg = tomllib.loads(raw)
-        except Exception as e:
-            log.warning("config toml unreadable: %s", e)
+    raw, cfg = _read_config()
+    digest = hashlib.sha256(raw.encode()).hexdigest()
+    try:
+        if CONFIG_APPLIED.read_text().strip() == digest:
+            return
+    except OSError:
+        pass
 
     hostname = cfg.get("hostname")
     if isinstance(hostname, str) and hostname.strip():
         log.info("setting hostname: %s", hostname)
-        sh(["hostnamectl", "set-hostname", hostname])
+        sh(["hostnamectl", "set-hostname", hostname.strip()])
 
-    wifi = cfg.get("wifi") or {}
-    ssid = wifi.get("ssid")
-    psk = wifi.get("password", "")
-    if isinstance(ssid, str) and ssid.strip():
-        log.info("applying wifi config for ssid: %s", ssid)
-        _write_nm_wifi(ssid, str(psk))
-        sh(["nmcli", "connection", "up", ssid])
-
-    ssh_block = cfg.get("ssh") or {}
-    key = ssh_block.get("authorized_key")
+    key = (cfg.get("ssh") or {}).get("authorized_key")
     if isinstance(key, str) and key.strip():
         _append_authorized_key(key.strip())
 
@@ -538,40 +555,7 @@ def stage_apply_config_toml() -> None:
         ts_env.chmod(0o600)
         log.info("tailscale auth key written from config")
 
-
-def _write_nm_wifi(ssid: str, psk: str) -> None:
-    body = (
-        "[connection]\n"
-        f"id={ssid}\n"
-        "type=wifi\n"
-        "autoconnect=true\n"
-        "\n"
-        "[wifi]\n"
-        f"ssid={ssid}\n"
-        "mode=infrastructure\n"
-        "\n"
-        "[wifi-security]\n"
-        "key-mgmt=wpa-psk\n"
-        f"psk={psk}\n"
-        "\n"
-        "[ipv4]\n"
-        "method=auto\n"
-        "\n"
-        "[ipv6]\n"
-        "method=auto\n"
-    )
-    backup_dir = Path("/var/lib/sorteros/wifi-backups")
-    backup_dir.mkdir(parents=True, exist_ok=True)
-    backup = backup_dir / f"{ssid}.nmconnection"
-    backup.write_text(body)
-    backup.chmod(0o600)
-    p = Path("/etc/NetworkManager/system-connections") / f"{ssid}.nmconnection"
-    p.parent.mkdir(parents=True, exist_ok=True)
-    p.write_text(body)
-    p.chmod(0o600)
-    Path("/var/lib/sorteros/wifi-configured").parent.mkdir(parents=True, exist_ok=True)
-    Path("/var/lib/sorteros/wifi-configured").touch()
-    sh(["nmcli", "connection", "reload"])
+    CONFIG_APPLIED.write_text(digest + "\n")
 
 
 def _append_authorized_key(key: str) -> None:
@@ -744,7 +728,7 @@ def stage_install_services() -> None:
         installed.append(unit)
 
     sh(["systemctl", "daemon-reload"])
-    sh(["systemctl", "enable", "wifi-repair.service", "wifi-connect.service"])
+    sh(["systemctl", "enable", "wifi-repair.service"])
     # Prefer dev services for HMR during early setup; fall back to prod
     # when dev templates aren't in this branch yet. Enable only — main()
     # starts the services AFTER our status server releases port 80,
@@ -811,7 +795,6 @@ def stage_tailscale_up() -> None:
 STAGES: list[Stage] = [
     Stage("ssh-host-keys",       needs_internet=False, run=stage_ssh_host_keys),
     Stage("grow-rootfs",         needs_internet=False, run=stage_grow_rootfs),
-    Stage("apply-config-toml",   needs_internet=False, run=stage_apply_config_toml),
     Stage("setup-swap",          needs_internet=False, run=stage_setup_swap),
     Stage("clone-repo",          needs_internet=True,  run=stage_clone_repo),
     Stage("write-env",           needs_internet=False, run=stage_write_env),
@@ -864,7 +847,6 @@ def main() -> int:
     # :80; firstboot must not grab it. We start the status server lazily — once
     # the box is online or onboarding has completed — and retry each loop until
     # the bind succeeds (the portal frees :80 when it tears the AP down).
-    onboarding_gate = STAMP_DIR / "wifi-configured"
     server = None
     ui_started = False
 
@@ -886,6 +868,11 @@ def main() -> int:
             log.info("all stages finished")
             return 0
 
+        try:
+            apply_config_if_changed()
+        except Exception as e:
+            log.warning("applying the setup config failed: %s — will retry", e)
+
         net = internet_up()
         with _state_lock:
             _runtime["net"] = net
@@ -893,9 +880,10 @@ def main() -> int:
             _ensure_clock_synced()
             _maybe_reannounce_ip()
 
-        # Claim :80 for the status page only once onboarding is out of the way,
-        # and only until the UI has it.
-        if server is None and not ui_started and (net or onboarding_gate.exists()):
+        # The status page takes :80 once the machine is on a network (so not
+        # while sorteros-network's setup page holds it), and only until the UI
+        # has it.
+        if server is None and not ui_started and _on_a_network():
             server = _start_status_server(STATUS_PORT)
 
         for s in remaining:

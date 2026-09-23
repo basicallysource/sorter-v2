@@ -11,9 +11,10 @@ requests:
 
 Three modes:
 
-  --mode=ap     Production AP mode on the device. nmcli scans the radio,
-                writes a Client connection on submit, then drops the AP
-                profile after a short delay so the Pi reboots into STA mode.
+  --mode=ap     On the device, started by sorteros-network while the setup
+                network is up. nmcli scans the radio, writes a client
+                connection on submit, then joins it; a failed join brings the
+                setup network back.
   --mode=mock   No nmcli calls at all. Returns a canned network list and
                 accepts any submit. Good for local frontend dev.
   --mode=auto   nmcli if it's on PATH and the binary works, else mock.
@@ -51,8 +52,16 @@ log = logging.getLogger("sorteros-portal")
 # ─── config & constants ────────────────────────────────────────────────────
 
 AP_CON_NAME = "sorteros-ap"
-WIFI_CONFIGURED_FLAG = Path("/var/lib/sorteros/wifi-configured")
 CONFIG_TOML = Path("/etc/sorteros-config.toml")
+BACKUP_DIR = Path("/var/lib/sorteros/wifi-backups")
+# Read by sorteros-network, which started this portal: DONE when the page has
+# connected the machine, ACTIVITY touched on every API request so it never
+# drops the setup network to retry saved networks while someone is using it.
+PORTAL_DONE = Path("/run/sorteros/portal-connected")
+PORTAL_ACTIVITY = Path("/run/sorteros/portal-activity")
+# Split so the setup site, which scans the raw image for the marker lines,
+# never finds them in this file.
+CFG_END_MARKER = "# __SORTEROS_CFG" + "_END__"
 # Handoff to firstboot's re-announce: the portal does the fast first
 # announce, then persists the rendezvous here so sorteros-firstboot keeps
 # re-posting the (possibly changed) LAN IP for a bounded window — covering a
@@ -139,8 +148,10 @@ def _nmcli_scan(rescan: bool = True) -> list[dict[str, Any]]:
     return networks
 
 
-def _nmcli_write_wifi(ssid: str, password: str, hidden: bool = False) -> None:
-    """Write a NetworkManager connection file the same way firstboot does."""
+def _nmcli_write_wifi(ssid: str, password: str, hidden: bool = False) -> str | None:
+    """Write a NetworkManager connection file for the network the user
+    picked. Returns the profile it replaced, if any, so a failed join can put
+    it back."""
     body = (
         "[connection]\n"
         f"id={ssid}\n"
@@ -165,7 +176,8 @@ def _nmcli_write_wifi(ssid: str, password: str, hidden: bool = False) -> None:
         "\n[ipv6]\n"
         "method=auto\n"
     )
-    target = Path("/etc/NetworkManager/system-connections") / f"{ssid}.nmconnection"
+    target = _profile_path(ssid)
+    previous = target.read_text() if target.exists() else None
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text(body)
     target.chmod(0o600)
@@ -173,6 +185,36 @@ def _nmcli_write_wifi(ssid: str, password: str, hidden: bool = False) -> None:
     r = _run(["nmcli", "connection", "reload"])
     if r.returncode != 0:
         raise NMCliError(f"nmcli reload failed: {r.stderr.strip()}")
+    return previous
+
+
+def _profile_path(ssid: str) -> Path:
+    return Path("/etc/NetworkManager/system-connections") / f"{ssid}.nmconnection"
+
+
+def _restore_after_failed_join(ssid: str, previous: str | None) -> None:
+    """Joining took the radio away from the setup network. Put back whatever
+    profile the attempt replaced (or remove the new one) and bring the setup
+    network up again so the user can retry."""
+    target = _profile_path(ssid)
+    if previous is None:
+        target.unlink(missing_ok=True)
+    else:
+        target.write_text(previous)
+        target.chmod(0o600)
+    _run(["nmcli", "connection", "reload"])
+    r = _run(["nmcli", "--wait", "20", "connection", "up", AP_CON_NAME], timeout=30)
+    if r.returncode != 0:
+        log.warning("could not bring the setup network back: %s", r.stderr.strip())
+
+
+def _mark_connected(ssid: str) -> None:
+    BACKUP_DIR.mkdir(parents=True, exist_ok=True)
+    backup = BACKUP_DIR / f"{ssid}.nmconnection"
+    shutil.copyfile(_profile_path(ssid), backup)
+    backup.chmod(0o600)
+    PORTAL_DONE.parent.mkdir(parents=True, exist_ok=True)
+    PORTAL_DONE.touch()
 
 
 def _nmcli_bring_up(ssid: str, timeout: float) -> bool:
@@ -245,28 +287,51 @@ def _suggested_url() -> str:
 
 # ─── config persistence ────────────────────────────────────────────────────
 
-def _write_config_toml(*, hostname: str | None, ssh_key: str | None) -> None:
-    """Mirror the format firstboot's stage_apply_config_toml expects.
+def _read_config_toml() -> dict[str, Any]:
+    try:
+        raw = CONFIG_TOML.read_text("utf-8", errors="replace")
+    except OSError:
+        return {}
+    if CFG_END_MARKER in raw:
+        raw = raw[: raw.index(CFG_END_MARKER)]
+    try:
+        import tomllib  # type: ignore
+    except ImportError:
+        import tomli as tomllib  # type: ignore
+    try:
+        return tomllib.loads(raw)
+    except Exception:
+        log.warning("existing config unreadable; starting a fresh one")
+        return {}
 
-    Only writes keys the user actually provided; the file becomes the
-    single source of truth for what the portal collected.
-    """
-    if not hostname and not ssh_key:
-        return
-    lines = ["# Written by sorteros-portal during AP onboarding.\n"]
+
+def _toml_str(value: str) -> str:
+    return json.dumps(value)  # a JSON string is a valid TOML basic string
+
+
+def _write_config_toml(*, hostname: str | None, ssh_key: str | None, wifi: tuple[str, str] | None = None) -> None:
+    """Merge what the page collected into /etc/sorteros-config.toml, keeping
+    anything else the setup site put there (the Tailscale key). firstboot
+    applies the file whenever it changes."""
+    cfg = _read_config_toml()
     if hostname:
-        lines.append(f'hostname = "{hostname.strip()}"\n')
+        cfg["hostname"] = hostname.strip()
     if ssh_key:
-        lines.append("\n[ssh]\n")
-        escaped = ssh_key.strip().replace('"', '\\"')
-        lines.append(f'authorized_key = "{escaped}"\n')
+        cfg.setdefault("ssh", {})["authorized_key"] = ssh_key.strip()
+    if wifi:
+        cfg["wifi"] = {"ssid": wifi[0], "password": wifi[1]}
+    lines = ["# Written by sorteros-portal during Wi-Fi setup.\n"]
+    if isinstance(cfg.get("hostname"), str):
+        lines.append(f"hostname = {_toml_str(cfg['hostname'])}\n")
+    for table in ("wifi", "ssh", "tailscale"):
+        values = cfg.get(table)
+        if isinstance(values, dict) and values:
+            lines.append(f"\n[{table}]\n")
+            for key, value in values.items():
+                if isinstance(value, str):
+                    lines.append(f"{key} = {_toml_str(value)}\n")
     CONFIG_TOML.parent.mkdir(parents=True, exist_ok=True)
     CONFIG_TOML.write_text("".join(lines))
-
-
-def _mark_configured() -> None:
-    WIFI_CONFIGURED_FLAG.parent.mkdir(parents=True, exist_ok=True)
-    WIFI_CONFIGURED_FLAG.touch()
 
 
 # ─── app ──────────────────────────────────────────────────────────────────
@@ -351,6 +416,16 @@ def _validate_rendezvous(rendezvous_id: str | None) -> str | None:
 def create_app(state: PortalState) -> FastAPI:
     app = FastAPI(title="SorterOS Portal", docs_url=None, redoc_url=None)
 
+    @app.middleware("http")
+    async def note_activity(request: Request, call_next):
+        if request.url.path.startswith("/api/") and state.mode == "ap":
+            try:
+                PORTAL_ACTIVITY.parent.mkdir(parents=True, exist_ok=True)
+                PORTAL_ACTIVITY.touch()
+            except OSError:
+                pass
+        return await call_next(request)
+
     # ── status & wifi API ───────────────────────────────────────────────
 
     @app.get("/api/status")
@@ -359,7 +434,7 @@ def create_app(state: PortalState) -> FastAPI:
             "mode": state.mode,
             "hostname": _hostname(),
             "suggested_url": _suggested_url(),
-            "configured": WIFI_CONFIGURED_FLAG.exists(),
+            "configured": PORTAL_DONE.exists(),
             "last_attempt": state.last_attempt,
         }
 
@@ -416,8 +491,7 @@ def create_app(state: PortalState) -> FastAPI:
         # response can land before we kill the AP out from under the
         # client.
         try:
-            _nmcli_write_wifi(ssid, password, hidden=payload.hidden)
-            _write_config_toml(hostname=hostname, ssh_key=ssh_key)
+            previous = _nmcli_write_wifi(ssid, password, hidden=payload.hidden)
         except NMCliError as e:
             attempt["result"] = "error"
             attempt["error"] = str(e)
@@ -429,7 +503,7 @@ def create_app(state: PortalState) -> FastAPI:
             _write_announce_state(state, rendezvous)
 
         asyncio.get_event_loop().create_task(
-            _delayed_switchover(state, ssid),
+            _delayed_switchover(state, ssid, password, previous, hostname, ssh_key),
         )
         return {
             "ok": True,
@@ -532,25 +606,36 @@ def _fallback_index() -> str:
 
 # ─── switchover background task ────────────────────────────────────────────
 
-async def _delayed_switchover(state: PortalState, ssid: str) -> None:
-    """Wait briefly so the HTTP response reaches the client, then bring the
-    requested SSID up. On success, mark onboarding done and tear down the AP
-    (firstboot announces the LAN IP from here on, using the persisted
-    rendezvous). On failure, leave the AP up so the user can retry."""
+async def _delayed_switchover(
+    state: PortalState,
+    ssid: str,
+    password: str,
+    previous: str | None,
+    hostname: str | None,
+    ssh_key: str | None,
+) -> None:
+    """Wait briefly so the HTTP response reaches the client, then join the
+    requested network. Joining takes the radio from the setup network. On
+    success, record the settings and signal sorteros-network (firstboot
+    announces the LAN IP from here on, using the persisted rendezvous). On
+    failure, put the setup network back so the user can retry."""
     await asyncio.sleep(AP_TEARDOWN_DELAY_S)
     attempt = state.last_attempt or {}
     try:
         ok = _nmcli_bring_up(ssid, timeout=CONNECT_TIMEOUT_S)
         if ok:
-            _mark_configured()
+            _write_config_toml(hostname=hostname, ssh_key=ssh_key, wifi=(ssid, password))
             _nmcli_teardown_ap()
+            _mark_connected(ssid)
             attempt["result"] = "connected"
         else:
             attempt["result"] = "associate_failed"
-            log.warning("association with %s failed; AP stays up", ssid)
+            log.warning("joining %s failed; bringing the setup network back", ssid)
+            _restore_after_failed_join(ssid, previous)
     except Exception:
-        log.exception("switchover crashed")
+        log.exception("switchover crashed; bringing the setup network back")
         attempt["result"] = "error"
+        _restore_after_failed_join(ssid, previous)
     finally:
         state.last_attempt = attempt
 

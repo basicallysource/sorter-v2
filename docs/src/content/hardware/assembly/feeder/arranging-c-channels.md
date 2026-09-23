@@ -8,7 +8,7 @@ kicker: Feeder — Arranging C-channels
 lede: How the four C-channels stand, at what heights, and what passes parts between them.
 permalink: /hardware/assembly/feeder/arranging-c-channels/
 author: barthel
-contributors: [brickcyclealice, daddyosbricksbill]
+contributors: [brickcyclealice, daddyosbricksbill, reveryx]
 og_image: https://assets.basically.website/sorter-parts/c-channel-stands-all-three-full-9b385f0819e2.jpg
 last_verified: 2026-09-10
 parts_needed:
@@ -220,6 +220,11 @@ The [bulk cap and bucket]({{ '/hardware/assembly/feeder/c-channels/bulk-channel/
 - **Classification channel**: the **8th**.
 
 Slide the arm mount straight down into that dovetail until it stops. Nothing screws into this joint, and the lamp's own weight is what holds it.
+
+<div class="callout callout-warning">
+  <span class="callout-icon" aria-hidden="true">⚠</span>
+  <p><strong>Count before you push it on.</strong> The dovetail on the arm mount breaks off easily when a lamp is pulled back out of the wrong slot. Get the count right the first time rather than trying one and moving it.</p>
+</div>
 
 <div class="img-row">
   <figure>

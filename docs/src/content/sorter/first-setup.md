@@ -12,9 +12,10 @@ permalink: /sorter/first-setup/
 warning: >-
   **AI-generated first draft.** Written from the Sorter UI's own source and from
   the UI running here, not from setting up a real machine. The screenshots are of
-  steps 1 to 3 and of Settings; steps 4 to 9 need hardware attached, so their
-  screenshots are still missing and their wording has not been checked against a
-  machine that has boards, servos and cameras on it.
+  steps 1 to 3, step 7 and Settings; steps 4 to 6, 8 and 9 need hardware
+  attached, so their screenshots are still missing and their wording has not
+  been checked against a machine that has boards, servos and cameras on it.
+  Step 7 has been.
 ---
 
 The software is installed and the machine has booted. This page takes you from opening its UI in a browser to a machine that is ready to sort. Everything here happens in the browser, so there are no commands to type.
@@ -163,19 +164,55 @@ Every camera the machine needs gets a card here. On a standard machine:
 | C-Channel 2 | yes |
 | C-Channel 3 | yes |
 | Carousel, or Classification C-Channel (C4) | yes |
-| Classification Top | yes |
+| Classification Top | optional |
 | Classification Bottom | optional |
 
-For each card, pick a camera from the dropdown. The card then shows what that camera sees, so you can tell them apart. One camera can serve more than one area if its view covers both.
+For each card, pick a camera from the dropdown. The card then shows what that camera sees, so you can tell them apart. Both a channel's drop zone and its exit should be visible in the frame. If they are not, you may need to move the camera lamp to a different dovetail on its C-channel. One camera can serve more than one area if its view covers both.
 
-Two more buttons on each card:
+Two more buttons on each card: **Picture tuning** and **Review zone**.
 
-- **Picture settings** for brightness, exposure and the rest.
-- **Edit zone** for the part of the frame the machine should look at.
+### Picture tuning
+
+Color correction is not a manual setting at the moment. Focus is worth doing before you sort, and that is its own job: see [Camera calibration]({{ '/sorter/camera-calibration/' | relative_url }}) for getting each camera nice and sharp.
+
+Set the mode on each camera:
+
+| Camera | Mode |
+|---|---|
+| C-Channel 2 and C-Channel 3 | 1280x720 at 30 fps |
+| Classification C-Channel (C4) | 3840x2160 at 30 fps |
+
+On C-Channel 2 and C-Channel 3, set **Pixel Format** to MJPG.
+
+The camera's automatic settings should be enough for everything else. Manual settings are there if you need them.
+
+### Review zone
+
+Use the colored circles to drag the center, the inner and the outer. Then use the colored rectangles: drop start and drop end, exit end, and precise end and exit start, which are linked and move together. Finally use the red circle for the exit outer. Click **Save Zone**.
+
+<div class="img-row">
+  <figure><img src="https://assets.basically.website/sorter-docs/sorter-first-setup-step7-zone-editor-full-8149e45a5d8b.png" alt="The zone editor over a live C-channel view, with every handle labelled: center, inner, outer, drop start, drop end, precise start, precise end, exit start, exit end and exit outer"><figcaption>What the camera should see, and a starting point for setting the zones. <cite>Screenshot courtesy of Daddy-O's Bricks - Bill.</cite></figcaption></figure>
+</div>
+
+The angles each channel ships with, as a starting point. They are drawn against a generic view of the channel, so treat them as a starting geometry rather than a calibration for your machine.
+
+<div class="img-row">
+  <figure><img src="https://assets.basically.website/sorter-docs/sorter-first-setup-step7-zones-c2-full-0bd7da7975d7.png" alt="Diagram of C-Channel 2 as a ring, with the drop zone from 101 to 180 degrees, a suggested precise zone from 284 to 304 and the exit zone from 304 to 338"><figcaption>C-Channel 2. <cite>Drawn from the software's shipped defaults. Render: Balloon.</cite></figcaption></figure>
+</div>
+
+<div class="img-row">
+  <figure><img src="https://assets.basically.website/sorter-docs/sorter-first-setup-step7-zones-c3-full-4caea0b6340f.png" alt="Diagram of C-Channel 3 as a ring, with the drop zone from 45 to 119 degrees, a suggested precise zone from 295 to 315 and the exit zone from 315 to 360"><figcaption>C-Channel 3. <cite>Drawn from the software's shipped defaults. Render: Balloon.</cite></figcaption></figure>
+</div>
+
+<div class="img-row">
+  <figure><img src="https://assets.basically.website/sorter-docs/sorter-first-setup-step7-zones-c4-full-1cf92c39d8f4.png" alt="Diagram of the classification C-channel as a ring, with the drop zone from 44 to 118 degrees, a suggested precise zone from 290 to 314 and the exit zone from 314 to 350"><figcaption>Classification C-Channel (C4). <cite>Drawn from the software's shipped defaults. Render: Balloon.</cite></figcaption></figure>
+</div>
+
+<div class="img-row">
+  <figure><img src="https://assets.basically.website/sorter-docs/sorter-first-setup-step7-three-channels-full-b17f9f7815d3.png" alt="The three camera cards side by side, each showing its live view with the drop, precise and exit zones shaded and labelled"><figcaption>Base line for how all 3 channels should look after setup. <cite>Screenshot courtesy of Daddy-O's Bricks - Bill. Labels added by Balloon.</cite></figcaption></figure>
+</div>
 
 Press **Save Camera Setup** when every required area has a camera.
-
-Getting each camera sharp and its colors right is its own job, and it is worth doing before you sort: see [Camera calibration]({{ '/sorter/camera-calibration/' | relative_url }}).
 
 ## Step 8: Hive
 

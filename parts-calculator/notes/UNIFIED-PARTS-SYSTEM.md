@@ -571,8 +571,7 @@ exactly the subset being built. Per-assembly "kit view" is scope = one node.
 
 ## 7. STL storage (out of git, content-addressed)
 
-STLs (and renders/3MFs) do not belong in git history, and Git LFS conflicts
-with the Vercel deploy path. Instead:
+STLs (and renders/3MFs) do not belong in git history. Instead:
 
 - **GH Action on push**: hash each artifact (`sha256`), upload to a bucket
   (Cloudflare R2 — no egress fees) at `stl/<hash>.stl` **only if absent**.
@@ -675,17 +674,6 @@ end on printed parts and everything else is enrichment.
    staleness linter; structured `applies_to`.
 9. **Artifact storage** — §7. Done: artifacts are content-addressed in the
    asset service and the site links to them.
-
-   **Ordering constraint — do not migrate git history to LFS before step 1.**
-   Historical part revisions are not stored; they are *reconstructed* from
-   git history (`archive_versions()` runs `git show <commit>~1:<path>` to
-   recover pre-change geometry). After an LFS migration `git show` returns
-   pointer text, the `is_lfs_pointer()` guard fires, and the revision
-   silently falls back to the *current* geometry — wrong data, no error.
-   Once each revision pins its own `stl_hash` (step 1), the published bytes
-   are authoritative and git history stops being load-bearing. That is now
-   the case: every revision pins its own hash, and no binary is committed at
-   all, so this constraint is discharged.
 10. **Sheet retirement** — stamp each tab superseded with a link as its
     domain migrates (extrusion-tab pattern). Optionally add a one-way
     lockfile→sheet export for spreadsheet lovers; never authoritative again.

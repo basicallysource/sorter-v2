@@ -2,13 +2,13 @@
 
 This exists because a broken asset is invisible to every other check we run.
 Assets are content-addressed, so a wrong URL is not a 404 -- it is a 200 with
-the wrong bytes. When catalog/images/** was briefly LFS-tracked, CI hashed and
-uploaded 130-byte pointer stubs; every URL looked healthy, returned 200 with
-Content-Type: image/png, and rendered as a broken image on production.
+the wrong bytes. Product images were once published as 130-byte stubs; every
+URL looked healthy, returned 200 with Content-Type: image/png, and rendered as
+a broken image on production.
 
 So status codes alone prove nothing here. Images must return a real PNG/JPEG
-magic number; STLs, plates and the all-parts bundle must be reachable, larger
-than a pointer stub, and not LFS pointer text. Since the repo no longer holds
+magic number; STLs, plates and the all-parts bundle must be reachable and
+larger than a stub. Since the repo no longer holds
 any binary serving copies, this is also the check that catches "the generated
 data references bytes nobody published" -- e.g. a fork PR (no credentials in
 CI) adding a part.
@@ -50,11 +50,10 @@ SERVICE = "https://assets.basically.website/"
 # fronted -- which some components used to reach straight past it.
 RETIRED = ("img.basically.website", "sorter-v2-parts.nyc3.cdn.digitaloceanspaces.com")
 
-# An asset smaller than this is not real; the LFS pointer stubs that broke
-# production were 130 bytes.
+# An asset smaller than this is not real; the stubs that broke production were
+# 130 bytes.
 MIN_BYTES = 1024
 IMAGE_MAGIC = {b"\x89PNG\r\n\x1a\n": "png", b"\xff\xd8\xff": "jpeg"}
-LFS_POINTER = b"version https://git-lfs"
 
 # Where a URL could hide. Everything else under parts-calculator/ is either
 # generated from these or not shipped.
@@ -167,11 +166,6 @@ def check(item: tuple[str, str]) -> tuple[str, str | None]:
     # and the hash the service stored the bytes under. An engraved STL still
     # arrives as <part>-<uid>-stamped-<face>-<hash12>.stl, and the slicer
     # project made from it still inherits that name.
-    if head.startswith(LFS_POINTER):
-        return url, (
-            "serves a Git LFS pointer, not real content -- something hashed "
-            "and uploaded an unmaterialized LFS file"
-        )
     if size < MIN_BYTES:
         return url, f"only {size} bytes -- not a real asset"
     if kind == "image" and not any(head.startswith(m) for m in IMAGE_MAGIC):

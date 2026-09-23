@@ -71,8 +71,6 @@ CONTENT_TYPES = {".stl": "model/stl", ".3mf": "model/3mf", ".zip": "application/
 # What the service republishes rather than serving as uploaded.
 STRIPPED = {".png", ".jpg"}
 
-LFS_POINTER = b"version https://git-lfs"
-
 
 def slug(name: str) -> str:
     s = re.sub(r"[^a-z0-9]+", "-", str(name).lower()).strip("-")[:64].strip("-")
@@ -111,18 +109,7 @@ def stl_url(part_id: str, digest: str) -> str:
 def sha256(path: str | Path) -> str:
     h = hashlib.sha256()
     with Path(path).open("rb") as f:
-        first = True
         for chunk in iter(lambda: f.read(1024 * 1024), b""):
-            # An unmaterialized LFS file hashes and uploads perfectly happily --
-            # it is just 130 bytes of pointer text. The result is a valid-looking
-            # content-addressed URL serving a stub, which the browser renders as
-            # a broken image. Fail loudly instead of publishing the stub.
-            if first and chunk[:40].startswith(LFS_POINTER):
-                sys.exit(
-                    f"{path} is an unmaterialized Git LFS pointer, not real content.\n"
-                    "Run `git lfs pull` (or check out with lfs: true in CI) and retry."
-                )
-            first = False
             h.update(chunk)
     return h.hexdigest()
 
@@ -226,7 +213,7 @@ def upload_loose(paths: list[str]) -> None:
         p = Path(raw).resolve()
         if not p.is_file():
             sys.exit(f"not a file: {p}")
-        digest = sha256(p)          # refuses LFS pointers, so no stub is ever published
+        digest = sha256(p)
         url, sent = _publish(p)
         what = "published" if sent else "already there"
         print(f"  {what:<14} {p.name}  ({p.stat().st_size / 1e6:.1f} MB)")

@@ -10,6 +10,7 @@ sudo apt-get install qemu-system-arm qemu-utils     # or on a Mac: brew install 
 sudo ./check.py image ../build/out/sorteros-v4.1.0-<date>.img   # seconds
 ./boot.sh ../build/out/sorteros-v4.1.0-<date>.img               # starts a VM in the background
 ./check.py boot --expect-default-model                           # follows first boot, then checks it
+./check.py wifi                                                   # simulated Wi-Fi scenarios in the same VM
 kill "$(cat work/qemu.pid)"
 ```
 
@@ -26,8 +27,17 @@ backend answers, that the checked-out code is the newest `sorter/stable/v*`
 tag (or `--expect-ref`), that Hive's default model landed on every channel,
 and, over SSH, the hostname, avahi, and that no stage gave up.
 
-What it can't cover: anything that needs the board (Wi-Fi and the captive
-portal, the NPU, cameras, the control boards, the boot loader and kernel
+`check.py wifi` then runs `wifi-sim.sh` in the same VM: `mac80211_hwsim`
+gives it three simulated radios (the Pi's Wi-Fi, a home router, a phone, the
+last two in their own network namespaces), and it walks the network decisions
+end to end with the real NetworkManager, setup page and sorteros-network:
+setup-site Wi-Fi with the right and the wrong password, the phone fixing it,
+the phone typing a wrong password first, a router that comes back after the
+Pi, a cable plugged in during setup. `test_network.py` covers the same
+decisions in seconds against a fake: `python3 -m unittest test_network`.
+
+What it can't cover: anything that needs the board (the real Wi-Fi chip and
+its driver, the NPU, cameras, the control boards, the boot loader and kernel
 arguments actually taking effect). Those still need a card.
 
 Speed: on an x86_64 host QEMU emulates every instruction and first boot

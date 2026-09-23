@@ -5093,7 +5093,7 @@
       "name": "Powered USB Hub - 24v - 4 ports",
       "category": "Computer",
       "description": "Powered USB Hub(s) for webcams and Picos (see note)",
-      "alternative": "Waveshare USB3.2-Gen1-HUB-2IN-4OUT, which is the same hub with a second switchable host input and the same 7 to 36 V jack. Otherwise any powered 4-port hub whose DC input range covers 24 V.",
+      "alternative": "Waveshare USB3.2-Gen1-HUB-2IN-4OUT, or any powered 4-port hub whose DC input range covers 24 V.",
       "created_at": "2026-07-18",
       "updated_at": "2026-09-23",
       "attributes": [
@@ -5114,7 +5114,7 @@
           "value": "Metal, with a slotted mounting flange at each end"
         }
       ],
-      "note": "W2 runs straight off the PSU at 24 V into this jack, and the machine has no 5 V rail a hub could be fed from instead, so the DC input range is the only thing that decides whether a hub can be used here. Waveshare sell four hubs of this shape and the USB3.2-Gen1- prefix is the entire difference: USB3.2-Gen1-HUB-4U and USB3.2-Gen1-HUB-2IN-4OUT take 7 to 36 V and both work; USB-HUB-4U and USB-HUB-2IN-4OUT are USB 2.0, 5 V only, and cut their own power if the input is too high. The 5 V USB-HUB-2IN-4OUT is the one commonly stocked in Australia (Core Electronics WS-23062, listed as \"Industrial USB Switch\"). The model is printed on the case.",
+      "note": "The hub is fed 24 V, so it has to take 24 V DC in. Waveshare sell four hubs of this shape: USB3.2-Gen1-HUB-4U and USB3.2-Gen1-HUB-2IN-4OUT take 7 to 36 V and both work. USB-HUB-4U and USB-HUB-2IN-4OUT are 5 V only and will not run. Check the DC input range on the listing before you buy; the model is printed on the case.",
       "sheet_qty": {
         "per_machine": 1
       },
@@ -5136,7 +5136,7 @@
             "url": "https://www.amazon.com.au/dp/B0BRN9QNY2",
             "pack_qty": 1,
             "as_of": "2026-09-23",
-            "note": "The USB3.2-Gen1-HUB-2IN-4OUT, the dual-host alternative rather than the 4U. Same 7 to 36 V input on the same DC-044 jack, so it is interchangeable here. No AU listing of the 4U itself is known; the hub commonly stocked in Australia is the 5 V USB 2.0 USB-HUB-2IN-4OUT, which is not usable."
+            "note": "The USB3.2-Gen1-HUB-2IN-4OUT, which works here. The 4U itself has no Australian listing."
           }
         ]
       }

@@ -23014,10 +23014,27 @@
 			"name": "Powered USB Hub - 24v - 4 ports",
 			"category": "Computer",
 			"description": "Powered USB Hub(s) for webcams and Picos (see note)",
-			"note": null,
+			"note": "Buy the 24 V model. The machine has no 5 V rail to feed a hub from, so W2 runs straight off the PSU at 24 V into this jack and a 5 V hub cannot be used. Waveshare also sell a 4-port USB 2.0 industrial hub and a USB3.2-Gen1-HUB-2IN-4OUT dual-host one; the listing text is nearly identical and the model is printed on the case.",
 			"created_at": "2026-07-18",
-			"updated_at": "2026-07-18",
-			"attributes": [],
+			"updated_at": "2026-09-23",
+			"attributes": [
+				{
+					"label": "Part number",
+					"value": "Waveshare USB3.2-Gen1-HUB-4U"
+				},
+				{
+					"label": "Ports",
+					"value": "4x USB 3.2 Gen1 (USB-A)"
+				},
+				{
+					"label": "DC input",
+					"value": "7 to 36 V, 5.5 x 2.1 mm barrel jack"
+				},
+				{
+					"label": "Case",
+					"value": "Metal, with a slotted mounting flange at each end"
+				}
+			],
 			"sheet_qty": {
 				"per_machine": 1
 			},
@@ -23036,7 +23053,7 @@
 					}
 				]
 			},
-			"alternative": null,
+			"alternative": "Any powered 4-port hub whose DC input range covers 24 V",
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,

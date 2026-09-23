@@ -67,6 +67,19 @@ class DetectionModel(Base):
         back_populates="model",
         cascade="all, delete-orphan",
     )
+    defaults = relationship(
+        "ModelDefault",
+        back_populates="model",
+        cascade="all, delete-orphan",
+    )
+
+    @property
+    def default_for(self) -> list[str]:
+        """Runtimes a fresh install is served this model for. Empty while the
+        model is private, because the defaults endpoints will not serve it."""
+        if not self.is_public:
+            return []
+        return sorted(d.runtime for d in self.defaults)
 
     __table_args__ = (
         UniqueConstraint("slug", "version", name="uq_detection_models_slug_version"),

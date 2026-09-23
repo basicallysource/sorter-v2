@@ -89,6 +89,13 @@ must pair `get_current_user_or_api_key` / `require_role_flex` with
 scope guard is what enforces deny-by-default. Adding a new key-accessible
 surface means adding a scope for it, not reusing a vaguely-related one.
 
+The one corner of the models surface that takes **no credential at all** is
+the reads under `/api/model-defaults` (`routers/model_defaults.py`), so an
+install linked to no account can fetch the admin-picked default model for its
+runtime; they only ever serve a public model. Setting or clearing a default is
+gated like the other model writes: `require_role_flex("admin")` +
+`models:write` + CSRF.
+
 Roles (`member` / `reviewer` / `admin` on `users.role`) still apply on top:
 a key never grants more than the owning user's role allows.
 

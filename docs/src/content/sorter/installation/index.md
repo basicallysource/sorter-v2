@@ -9,13 +9,13 @@ lede: Choose how you want to install Sorter — a pre-built OS image for Orange 
 permalink: /sorter/installation/
 audience: self-hosting operator
 applies_to: sorter 2.x
-last_verified: 2026-05-19
+last_verified: 2026-09-23
 ---
 
 <div class="callout-grid">
   <div class="callout">
     <strong><a href="{{ '/sorter/installation/sorter-os/' | relative_url }}">SorterOS</a></strong>
-    <p>A pre-built OS image for the Orange Pi 5. Flash, configure WiFi, plug in — no install steps required.</p>
+    <p>A pre-built OS image for the Orange Pi 5. Flash it, plug in Ethernet or pick your WiFi on its setup network, and it installs the current stable release itself.</p>
   </div>
   <div class="callout">
     <strong><a href="{{ '/sorter/installation/linux-generic/' | relative_url }}">Linux (generic)</a></strong>

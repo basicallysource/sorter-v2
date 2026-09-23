@@ -36,30 +36,18 @@ Open **Settings** &rarr; **Storage Layers**. Each layer needs four things: switc
 
 The setup wizard assigned the servos. The bin counts are separate, and the chute aims from them, so a wrong count sends pieces to the wrong bin. If your chute test aim landed centred every time, the counts are already right.
 
-## 3. Choose a detection model
+## 3. Check the detection model
 
-Detection is how the machine sees that a piece is there and where it is on the channel. Each camera channel runs its own model, and you choose which one.
+Detection is how the machine sees that a piece is there and where it is on the channel. Each camera channel runs its own model.
 
-**If the machine runs on an Orange Pi 5, which is the standard build, you have to change the model before the first run.** On any other computer, the model the machine starts with is the right one, and you can skip this step.
+There is nothing to choose on a new machine. When it first comes online it asks [Hive](https://hive.basically.website) for the default detection model for its hardware (on an Orange Pi 5, **r5 C-Channel Full YOLO11s 320**, a model built for the Orange Pi's NPU), downloads it, and puts it on every channel that has none. If the machine was offline, it tries again every five minutes.
 
-Open **Settings** &rarr; **Hive** &rarr; **Models**. The page is titled **Detection Models**. The **Installed** list holds every model the machine already has, so there is nothing to download. Each row has an **Activate for subsystem** menu with one button per channel.
-
-Set:
-
-- **C-Channel 2** and **C-Channel 3** to `r4-c-channel-yolo11s-320-silu`
-- **Classification C-Channel (C4)** to `r3-c-channel-full-yolo11n-320`
-
-Leave **Chamber** as it is.
-
-<div class="callout callout-warning">
-  <span class="callout-icon" aria-hidden="true">⚠</span>
-  <p>The model a new machine starts with, <code>c-chamber-combined-yolo11s-320</code>, is in a file format an Orange Pi 5 cannot run, and nothing in the UI tells you. The channel shows no pieces, reports no error and raises no incident. It looks like a dead camera, not a wrong setting.</p>
-</div>
+To check, open **Settings** &rarr; **Local Models**. The model is in the **Installed** list, and its **Active** menu names every channel. To use a different model on a channel, pick it from that model's **Activate for subsystem** menu.
 
 Three things about this page:
 
 - **Classification C-Channel and Carousel detect are one setting shown as two rows.** Set either one and both change.
-- **The page lets you activate a model on a channel it was not trained for.** It marks the row with a note and does not stop you. Use the two models above.
+- **The page lets you activate a model on a channel it was not trained for.** It marks the row with a note and does not stop you.
 - **The change takes effect in a second or two.** Nothing needs restarting.
 
 ## 4. Deploy a sorting profile

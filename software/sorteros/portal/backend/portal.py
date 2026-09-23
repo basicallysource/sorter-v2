@@ -51,7 +51,6 @@ log = logging.getLogger("sorteros-portal")
 # ─── config & constants ────────────────────────────────────────────────────
 
 AP_CON_NAME = "sorteros-ap"
-AP_IFACE = "wlan0"
 WIFI_CONFIGURED_FLAG = Path("/var/lib/sorteros/wifi-configured")
 CONFIG_TOML = Path("/etc/sorteros-config.toml")
 # Handoff to firstboot's re-announce: the portal does the fast first
@@ -186,11 +185,22 @@ def _nmcli_bring_up(ssid: str, timeout: float) -> bool:
     # IPv4 can still be coming up. Re-check state for a few seconds.
     deadline = time.monotonic() + 5.0
     while time.monotonic() < deadline:
-        check = _run(["nmcli", "-t", "-f", "GENERAL.STATE", "device", "show", AP_IFACE])
+        check = _run(["nmcli", "-t", "-f", "GENERAL.STATE", "device", "show", _wifi_iface()])
         if "100 (connected)" in check.stdout:
             return True
         time.sleep(0.5)
     return False
+
+
+def _wifi_iface() -> str:
+    """The first Wi-Fi device NetworkManager manages: wlan0 for the M.2 module,
+    wlx<mac> for a USB adapter."""
+    r = _run(["nmcli", "-t", "-f", "DEVICE,TYPE", "device"])
+    for line in r.stdout.splitlines():
+        device, _, kind = line.partition(":")
+        if kind == "wifi":
+            return device
+    return "wlan0"
 
 
 def _nmcli_teardown_ap() -> None:

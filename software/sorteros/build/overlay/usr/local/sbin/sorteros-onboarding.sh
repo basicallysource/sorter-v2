@@ -46,6 +46,7 @@ if ! /usr/local/sbin/sorteros-ap-up.sh; then
 fi
 
 # Hand off to the portal. --mode=ap makes it call real nmcli.
+WIFI_IFACE=$(nmcli -t -f DEVICE,TYPE device 2>/dev/null | awk -F: '$2 == "wifi" { print $1; exit }')
 log "starting sorteros-portal on 10.42.0.1:80"
 /usr/bin/env python3 /usr/local/sbin/sorteros-portal.py \
     --mode ap --host 0.0.0.0 --port 80 --static-dir /var/www/portal &
@@ -68,7 +69,7 @@ while ! [[ -f "$GATE" ]]; do
     fi
     # Someone plugged in Ethernet instead: the machine is online, so the AP
     # and portal are in the way.
-    if ip route show default 2>/dev/null | grep -v " dev wlan0 " | grep -q .; then
+    if ip route show default 2>/dev/null | grep -v " dev ${WIFI_IFACE} " | grep -q .; then
         log "wired uplink appeared — tearing down AP, onboarding not needed"
         /usr/local/sbin/sorteros-ap-down.sh || true
         cleanup

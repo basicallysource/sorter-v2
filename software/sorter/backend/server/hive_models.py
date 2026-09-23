@@ -2,7 +2,8 @@
 
 Exposes a tiny service layer around the ``HiveClient`` shipped in
 ``software/hive/sorter-client`` so the sorter UI can browse the Hive catalog,
-trigger downloads, and manage installed (downloaded) models locally.
+trigger downloads, and manage installed models locally: Hive downloads, and
+local models someone put in ``LOCAL_MODELS_DIR`` by hand.
 
 Downloads are handled by a single daemon worker thread reading from a
 ``queue.Queue``; progress is reported through an in-memory status dict keyed by
@@ -52,19 +53,15 @@ log = logging.getLogger(__name__)
 # Module-level configuration
 # ---------------------------------------------------------------------------
 
+# The one place installed models live, one directory each: Hive downloads
+# (``hive-<model_id>-<runtime>``) and local models put here by hand.
 LOCAL_MODELS_DIR: Path = (
     Path(__file__).resolve().parent.parent / "blob" / "hive_detection_models"
 )
 
-# Models that ship with the repo (committed via git LFS) live here. They look
-# the same as downloaded models but cannot be removed via the API.
-BUNDLED_MODELS_DIR: Path = (
-    Path(__file__).resolve().parent.parent / "bundled_models"
-)
-
 # Key embedded in a synthesized ``run.json`` to mark a directory as
-# originating from Hive. Presence of this key means the model was downloaded
-# via this module and can be safely listed/removed.
+# originating from Hive. A directory without it is a local model when its
+# run.json says enough to load it (``vision.detection_registry.local_model_artifact``).
 HIVE_SENTINEL_KEY = "hive"
 
 # Variant runtimes the sorter can actually load via the detection registry.
@@ -250,12 +247,109 @@ def _read_run_json(path: Path) -> dict | None:
     return raw
 
 
-def _scan_models_dir(root: Path, *, bundled: bool) -> list[dict]:
+def _dir_size(path: Path) -> int:
+    size_bytes = 0
+    for child in path.rglob("*"):
+        if child.is_file():
+            try:
+                size_bytes += child.stat().st_size
+            except OSError:
+                pass
+    return size_bytes
+
+
+def _local_model_entry(child: Path, payload: dict) -> dict | None:
+    from vision.detection_registry import LOCAL_ID_PREFIX, local_model_artifact
+
+    found = local_model_artifact(child, payload)
+    if found is None:
+        return None
+    runtime, _artifact = found
+    trained_at = payload.get("trained_at") or payload.get("created_at")
+    return {
+        "local_id": child.name,
+        "algorithm_id": f"{LOCAL_ID_PREFIX}{child.name}",
+        "source": "local",
+        "target_id": None,
+        "model_id": None,
+        "codename": None,
+        "codename_color": None,
+        "variant_runtime": runtime,
+        "purpose": DEFAULT_PURPOSE,
+        "inert": False,
+        "sha256": None,
+        "downloaded_at": None,
+        "trained_at": trained_at if isinstance(trained_at, str) else None,
+        "name": payload.get("name") or child.name,
+        "model_family": payload.get("model_family"),
+        "size_bytes": _dir_size(child),
+        "path": str(child),
+        "compatible": True,
+    }
+
+
+def _hive_model_entry(child: Path, payload: dict, hive_meta: dict) -> dict:
+    from vision.detection_registry import HIVE_ID_PREFIX
+
+    # Surface ``trained_at`` (preferred), falling back to ``created_at`` or
+    # ``hive.published_at`` so the UI can show how fresh the model itself
+    # is — distinct from when the operator pulled it.
+    trained_at = (
+        payload.get("trained_at")
+        or payload.get("created_at")
+        or hive_meta.get("published_at")
+    )
+
+    variant_runtime = hive_meta.get("variant_runtime")
+    raw_purpose = hive_meta.get("purpose")
+    purpose = raw_purpose if isinstance(raw_purpose, str) and raw_purpose else DEFAULT_PURPOSE
+    compatible = (
+        isinstance(variant_runtime, str)
+        and variant_runtime.lower() in DEPLOYABLE_RUNTIMES
+        # An inert-purpose model is installed correctly but has no consumer
+        # on the machine yet, so it can't be activated against a scope.
+        and purpose not in INERT_PURPOSES
+    )
+
+    return {
+        "local_id": child.name,
+        "algorithm_id": f"{HIVE_ID_PREFIX}{child.name}",
+        "source": "hive",
+        "target_id": hive_meta.get("target_id"),
+        "model_id": hive_meta.get("model_id"),
+        # Hive's human-friendly handle ("Ember") and its swatch color,
+        # captured at download time so the installed list can identify a
+        # model the same way Hive does without going back to the network.
+        # Absent for installs that predate this field — see
+        # ``_backfill_codenames``.
+        "codename": hive_meta.get("codename"),
+        "codename_color": hive_meta.get("codename_color"),
+        "variant_runtime": variant_runtime,
+        "purpose": purpose,
+        "inert": purpose in INERT_PURPOSES,
+        "sha256": hive_meta.get("sha256"),
+        "downloaded_at": hive_meta.get("downloaded_at"),
+        "trained_at": trained_at if isinstance(trained_at, str) else None,
+        "name": payload.get("name"),
+        "model_family": payload.get("model_family"),
+        "size_bytes": _dir_size(child),
+        "path": str(child),
+        "compatible": compatible,
+    }
+
+
+def list_installed_models() -> list[dict]:
+    """Every model installed in ``LOCAL_MODELS_DIR``.
+
+    Hive downloads carry ``source: "hive"`` and algorithm id ``hive:<local_id>``;
+    models put there by hand carry ``source: "local"`` and ``local:<local_id>``.
+    Both are removable.
+    """
     results: list[dict] = []
-    if not root.exists():
+    if not LOCAL_MODELS_DIR.exists():
         return results
 
-    for child in sorted(root.iterdir()):
+    for child in sorted(LOCAL_MODELS_DIR.iterdir()):
         if not child.is_dir():
             continue
         run_json = child / "run.json"
@@ -265,76 +359,13 @@ def _scan_models_dir(root: Path, *, bundled: bool) -> list[dict]:
         if payload is None:
             continue
         hive_meta = payload.get(HIVE_SENTINEL_KEY)
-        if not isinstance(hive_meta, dict):
+        if isinstance(hive_meta, dict):
+            results.append(_hive_model_entry(child, payload, hive_meta))
             continue
-
-        size_bytes = 0
-        for path in child.rglob("*"):
-            if path.is_file():
-                try:
-                    size_bytes += path.stat().st_size
-                except OSError:
-                    pass
-
-        # Surface ``trained_at`` (preferred), falling back to ``created_at`` or
-        # ``hive.published_at`` so the UI can show how fresh the model itself
-        # is — distinct from when the operator pulled it.
-        trained_at = (
-            payload.get("trained_at")
-            or payload.get("created_at")
-            or hive_meta.get("published_at")
-        )
-
-        variant_runtime = hive_meta.get("variant_runtime")
-        raw_purpose = hive_meta.get("purpose")
-        purpose = raw_purpose if isinstance(raw_purpose, str) and raw_purpose else DEFAULT_PURPOSE
-        compatible = (
-            isinstance(variant_runtime, str)
-            and variant_runtime.lower() in DEPLOYABLE_RUNTIMES
-            # An inert-purpose model is installed correctly but has no consumer
-            # on the machine yet, so it can't be activated against a scope.
-            and purpose not in INERT_PURPOSES
-        )
-
-        results.append(
-            {
-                "local_id": child.name,
-                "target_id": hive_meta.get("target_id"),
-                "model_id": hive_meta.get("model_id"),
-                # Hive's human-friendly handle ("Ember") and its swatch color,
-                # captured at download time so the installed list can identify a
-                # model the same way Hive does without going back to the network.
-                # Absent for repo-bundled models and for installs that predate
-                # this field — see ``_backfill_codenames``.
-                "codename": hive_meta.get("codename"),
-                "codename_color": hive_meta.get("codename_color"),
-                "variant_runtime": variant_runtime,
-                "purpose": purpose,
-                "inert": purpose in INERT_PURPOSES,
-                "sha256": hive_meta.get("sha256"),
-                "downloaded_at": hive_meta.get("downloaded_at"),
-                "trained_at": trained_at if isinstance(trained_at, str) else None,
-                "name": payload.get("name"),
-                "model_family": payload.get("model_family"),
-                "size_bytes": size_bytes,
-                "path": str(child),
-                "bundled": bundled,
-                "compatible": compatible,
-            }
-        )
+        local_entry = _local_model_entry(child, payload)
+        if local_entry is not None:
+            results.append(local_entry)
     return results
-
-
-def list_installed_models() -> list[dict]:
-    """All locally-available Hive-format models — both downloaded and bundled.
-
-    Bundled entries (shipped with the repo via git LFS) carry ``bundled: True``
-    so the UI can show a badge and disable Remove. Downloaded entries from
-    ``LOCAL_MODELS_DIR`` carry ``bundled: False``.
-    """
-    return _scan_models_dir(BUNDLED_MODELS_DIR, bundled=True) + _scan_models_dir(
-        LOCAL_MODELS_DIR, bundled=False
-    )
 
 
 def _installed_index() -> set[tuple[str, str]]:
@@ -362,7 +393,6 @@ def _backfill_codenames(target_id: str, items: list[dict], entries: list[dict]) 
         entry
         for entry in entries
         if not entry.get("codename")
-        and not entry.get("bundled")
         and entry.get("target_id") == target_id
     ]
     if not stale:
@@ -480,15 +510,12 @@ def remove_installed_model(local_id: str) -> None:
 
     ``local_id`` must be a single path component (no traversal). Raises
     ``ValueError`` on invalid ids and ``FileNotFoundError`` when the directory
-    does not exist. Bundled (repo-shipped) models cannot be removed.
+    does not exist. Hive downloads and local models are removed the same way.
     """
     if not isinstance(local_id, str) or not local_id:
         raise ValueError("local_id must be a non-empty string")
     if Path(local_id).name != local_id or local_id in (".", ".."):
         raise ValueError("local_id must be a single path component")
-
-    if (BUNDLED_MODELS_DIR / local_id).exists():
-        raise ValueError("bundled models cannot be removed")
 
     target = LOCAL_MODELS_DIR / local_id
     if not target.exists() or not target.is_dir():
@@ -954,7 +981,6 @@ def _reset_job_manager_for_tests() -> None:
 
 
 __all__ = [
-    "BUNDLED_MODELS_DIR",
     "DEPLOYABLE_RUNTIMES",
     "HIVE_SENTINEL_KEY",
     "LOCAL_MODELS_DIR",

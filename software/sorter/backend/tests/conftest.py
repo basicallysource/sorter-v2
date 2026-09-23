@@ -1,13 +1,11 @@
 """Shared test fixtures for the sorter backend.
 
-The bundled-models directory ``software/sorter/backend/bundled_models/`` ships
-real model artifacts via git LFS. Tests that exercise the model registry or
-``list_installed_models()`` need to start from a clean slate, otherwise the
-real bundled entries leak into assertions about counts/contents.
-
-This autouse fixture redirects both module-level constants to an empty tmp
-dir for every test. Tests that specifically want to exercise the bundled flow
-can re-monkeypatch with their own seeded directory.
+Installed detection models live in ``backend/blob/hive_detection_models/``,
+which on a developer machine holds whatever that machine has downloaded. Tests
+that exercise the model registry or ``list_installed_models()`` must not see
+those, so this autouse fixture points both module-level constants at an empty
+tmp dir for every test. Tests that want models seed their own directory and
+re-monkeypatch.
 """
 
 from __future__ import annotations
@@ -18,8 +16,8 @@ import pytest
 
 
 @pytest.fixture(autouse=True)
-def _isolate_bundled_models_dir(tmp_path_factory: pytest.TempPathFactory, monkeypatch: pytest.MonkeyPatch) -> Path:
-    empty_root = tmp_path_factory.mktemp("bundled-models-empty")
+def _isolate_installed_models_dir(tmp_path_factory: pytest.TempPathFactory, monkeypatch: pytest.MonkeyPatch) -> Path:
+    empty_root = tmp_path_factory.mktemp("installed-models-empty")
     try:
         from vision import detection_registry as registry
     except Exception:
@@ -30,10 +28,10 @@ def _isolate_bundled_models_dir(tmp_path_factory: pytest.TempPathFactory, monkey
         hive_models_service = None
 
     if registry is not None:
-        monkeypatch.setattr(registry, "BUNDLED_MODELS_DIR", empty_root)
+        monkeypatch.setattr(registry, "MODELS_DIR", empty_root)
         registry.invalidate_registry()
     if hive_models_service is not None:
-        monkeypatch.setattr(hive_models_service, "BUNDLED_MODELS_DIR", empty_root)
+        monkeypatch.setattr(hive_models_service, "LOCAL_MODELS_DIR", empty_root)
 
     yield empty_root
 

@@ -169,22 +169,7 @@ Every camera the machine needs gets a card here. On a standard machine:
 
 For each card, pick a camera from the dropdown. The card then shows what that camera sees, so you can tell them apart. Both a channel's drop zone and its exit should be visible in the frame. If they are not, you may need to move the camera lamp to a different dovetail on its C-channel. One camera can serve more than one area if its view covers both.
 
-Two more buttons on each card: **Picture tuning** and **Review zone**.
-
-### Picture tuning
-
-Color correction is not a manual setting at the moment, but it is worth visiting [Camera calibration]({{ '/sorter/camera-calibration/' | relative_url }}) to get each camera's focus nice and sharp.
-
-Set the mode on each camera:
-
-| Camera | Mode |
-|---|---|
-| C-Channel 2 and C-Channel 3 | 1280x720 at 30 fps |
-| Classification C-Channel (C4) | 3840x2160 at 30 fps |
-
-On all C-Channels, set **Pixel Format** to MJPG.
-
-The camera's automatic settings should be enough for everything else, and manual settings are there if you need them. Click **Confirm**.
+Two more buttons on each card: **Review zone** and **Picture tuning**, in that order on the card.
 
 ### Review zone
 
@@ -211,6 +196,21 @@ The angles each channel ships with are below. They are drawn against a generic v
 <div class="img-row">
   <figure><img src="https://assets.basically.website/sorter-docs/sorter-first-setup-step7-three-channels-full-b17f9f7815d3.png" alt="The three camera cards side by side, each showing its live view with the drop, precise and exit zones shaded and labelled"><figcaption>Base line for how all 3 channels should look after setup. <cite>Screenshot courtesy of Daddy-O's Bricks - Bill. Labels added by Balloon.</cite></figcaption></figure>
 </div>
+
+### Picture tuning
+
+Color correction is not a manual setting at the moment, but it is worth visiting [Camera calibration]({{ '/sorter/camera-calibration/' | relative_url }}) to get each camera's focus nice and sharp.
+
+Set the mode on each camera:
+
+| Camera | Mode |
+|---|---|
+| C-Channel 2 and C-Channel 3 | 1280x720 at 30 fps |
+| Classification C-Channel (C4) | 3840x2160 at 30 fps |
+
+On all C-Channels, set **Pixel Format** to MJPG.
+
+The camera's automatic settings should be enough for everything else, and manual settings are there if you need them. Click **Confirm**.
 
 Press **Save Camera Setup** when every required area has a camera.
 

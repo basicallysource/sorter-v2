@@ -17,8 +17,11 @@
 #   ./check.py boot                                        # watch it and check it
 #   kill "$(cat work/qemu.pid)"                            # stop it
 #
-# On an x86_64 host the whole guest is emulated (slow: first boot takes an
-# hour or more); on an arm64 Linux host with /dev/kvm it runs at native speed.
+# On an x86_64 host the whole guest is emulated (slow: first boot takes one to
+# three hours). On an Apple Silicon Mac (Hypervisor.framework) or an arm64
+# Linux host with /dev/kvm it runs at native speed. On a Mac: brew install qemu.
+# The image may be raw (as built) or qcow2 (smaller to copy between machines:
+# qemu-img convert -c -O qcow2 in.img out.qcow2).
 set -euo pipefail
 
 IMG=${1:?usage: boot.sh <sorteros.img> [workdir]}
@@ -42,13 +45,14 @@ fi
 # A fresh copy-on-write disk each run, sized like an SD card so grow-rootfs
 # and the swap stage have room.
 rm -f "$WORK/disk.qcow2" "$WORK/console.log"
-qemu-img create -q -f qcow2 -F raw -b "$(realpath "$IMG")" "$WORK/disk.qcow2" "$DISK"
+FMT=$(qemu-img info "$IMG" | awk '/^file format:/ {print $3}')
+qemu-img create -q -f qcow2 -F "$FMT" -b "$(cd "$(dirname "$IMG")" && pwd)/$(basename "$IMG")" "$WORK/disk.qcow2" "$DISK"
 
-if [ "$(uname -m)" = aarch64 ] && [ -w /dev/kvm ]; then
-    ACCEL=(-accel kvm -cpu host)
-else
-    ACCEL=(-accel tcg,thread=multi -cpu max)
-fi
+case "$(uname -s)/$(uname -m)" in
+    Darwin/arm64)                     ACCEL=(-accel hvf -cpu host) ;;
+    Linux/aarch64) [ -w /dev/kvm ] && ACCEL=(-accel kvm -cpu host) || ACCEL=(-accel tcg,thread=multi -cpu max) ;;
+    *)                                ACCEL=(-accel tcg,thread=multi -cpu max) ;;
+esac
 
 qemu-system-aarch64 -M virt "${ACCEL[@]}" -smp "$SMP" -m "$MEM" \
     -kernel "$WORK/vmlinuz" -initrd "$WORK/initrd" \

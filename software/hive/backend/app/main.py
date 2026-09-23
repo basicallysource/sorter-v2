@@ -34,6 +34,7 @@ from app.routers import (
     machine_parts,
     machine_sync,
     machines,
+    model_defaults,
     models as models_router,
     piece_color_labels,
     profiles,
@@ -141,6 +142,7 @@ app.include_router(review.router)
 app.include_router(sets.router)
 app.include_router(stats.router)
 app.include_router(models_router.router)
+app.include_router(model_defaults.router)
 app.include_router(machine_models.router)
 app.include_router(machine_parts.router)
 app.include_router(machine_parts.catalog_router)

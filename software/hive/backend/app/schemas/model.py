@@ -52,6 +52,8 @@ class DetectionModelSummary(BaseModel):
 class DetectionModelDetail(DetectionModelSummary):
     training_metadata: dict[str, Any] | None = None
     variants: list[DetectionModelVariantDetail] = Field(default_factory=list)
+    # Runtimes a fresh install is served this model for (see ModelDefault).
+    default_for: list[str] = Field(default_factory=list)
 
 
 class DetectionModelListResponse(BaseModel):
@@ -138,3 +140,23 @@ class ModelDatasetMachine(BaseModel):
 class ModelDatasetMachinesResponse(BaseModel):
     machines: list[ModelDatasetMachine]
     total_recorded: int
+
+
+class ModelDefaultSetRequest(BaseModel):
+    model_id: UUID
+    variant_id: UUID
+
+
+class ModelDefaultItem(BaseModel):
+    """What a fresh install needs to fetch and run the default for one
+    (purpose, runtime). ``download_path`` is relative to the API root."""
+    purpose: str
+    runtime: str
+    model: DetectionModelSummary
+    variant: DetectionModelVariantDetail
+    download_path: str
+    updated_at: datetime
+
+
+class ModelDefaultListResponse(BaseModel):
+    items: list[ModelDefaultItem]

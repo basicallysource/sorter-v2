@@ -111,7 +111,7 @@ The [lamp arm]({{ '/hardware/assembly/feeder/camera-lamp/lamp-arm/' | relative_u
 
 <div class="callout callout-warning">
   <span class="callout-icon" aria-hidden="true">⚠</span>
-  <p><strong>The dovetail on the arm can break</strong> when a lamp needs to be removed from it to be repositioned. Use caution if repositioning is needed.</p>
+  <p><strong>The dovetail on the arm can break</strong> when a lamp needs to be removed and repositioned. Use caution if repositioning is needed.</p>
 </div>
 
 It is a printed joint and the fit has not been dimensioned, so it may be tight or it may have a little play. **Do not force it and do not file it down**: if it will not go on, say so in the Discord with a photo, because that is a part problem rather than a step you are doing wrong.

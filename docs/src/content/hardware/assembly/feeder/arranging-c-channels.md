@@ -223,7 +223,7 @@ The [bulk cap and bucket]({{ '/hardware/assembly/feeder/c-channels/bulk-channel/
 
 <div class="callout callout-warning">
   <span class="callout-icon" aria-hidden="true">⚠</span>
-  <p><strong>The dovetail on the arm can break</strong> when a lamp needs to be removed from it to be repositioned. Use caution if repositioning is needed.</p>
+  <p><strong>The dovetail on the arm can break</strong> when a lamp needs to be removed and repositioned. Use caution if repositioning is needed.</p>
 </div>
 
 <div class="img-row">

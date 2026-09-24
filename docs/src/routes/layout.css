@@ -1014,6 +1014,76 @@ body {
 	line-height: 1.55;
 }
 
+/* The landing page's "Start here" row: the tiles in a two-up grid on the left,
+   a picture of the machine beside them on the right. The picture is sized by
+   the tiles, not the other way round: it is absolutely positioned inside
+   .landing-split-media, so it contributes no height of its own and the row is
+   exactly as tall as the stack of tiles however the copy wraps. */
+.landing-split {
+	display: grid;
+	grid-template-columns: minmax(0, 2.2fr) minmax(0, 1fr);
+	gap: 28px;
+	align-items: stretch;
+	margin: 1.3rem 0 1.7rem;
+}
+
+.landing-split .callout-grid {
+	margin: 0;
+}
+
+.callout-grid-paired {
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.landing-split-figure {
+	display: flex;
+	flex-direction: column;
+	min-height: 0;
+	margin: 0;
+}
+
+.landing-split-media {
+	position: relative;
+	flex: 1 1 auto;
+	min-height: 180px;
+}
+
+.landing-split-media img {
+	position: absolute;
+	inset: 0;
+	width: 100%;
+	height: 100%;
+	object-fit: contain;
+	object-position: center;
+}
+
+.landing-split-figure figcaption {
+	max-width: none;
+	margin: 10px 0 0;
+	text-align: center;
+}
+
+/* Stacked: tiles one per row, the picture under them at its own aspect ratio
+   rather than squeezed into a height the tiles no longer set. */
+@media (max-width: 740px) {
+	.landing-split {
+		grid-template-columns: minmax(0, 1fr);
+		gap: 20px;
+	}
+
+	.callout-grid-paired {
+		grid-template-columns: minmax(0, 1fr);
+	}
+
+	.landing-split-media {
+		min-height: 0;
+		width: 100%;
+		max-width: 300px;
+		margin: 0 auto;
+		aspect-ratio: 1600 / 1820;
+	}
+}
+
 /* ── Media ─────────────────────────────────────────────────────────────── */
 
 /* A bare <figure><figcaption> (not in an .img-row or a floated figure, both

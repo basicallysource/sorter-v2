@@ -9,6 +9,7 @@ lede: The layers of bins, each built flat and on its own. Layer count is N (howe
 permalink: /hardware/assembly/distribution/bin-frame/
 og_image: https://assets.basically.website/sorter-docs/assembly-hex-frame-finished-top-down-w1600-a62a42d595ca.jpg
 author: spencer
+last_verified: 2026-09-24
 ---
 
 The bin frame is the stack of hexagonal layers that makes up the body of the machine: each layer carries one chute-and-bin pair that catches pieces routed to it as they come down from distribution above. The bottom interface hangs underneath the bottom layer, and the stack is capped by [Top interface]({{ '/hardware/assembly/distribution/top-interface/' | relative_url }}).

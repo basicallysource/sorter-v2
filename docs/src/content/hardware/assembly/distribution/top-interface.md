@@ -7,7 +7,7 @@ slug: assembly-top-interface
 kicker: Distribution — Top interface
 lede: The interface between the feeder and the bin tower.
 permalink: /hardware/assembly/distribution/top-interface/
-og_image: https://assets.basically.website/sorter-docs/assembly-top-interface-framing-4-full-b9ae16940954.jpg
+og_image: https://assets.basically.website/sorter-parts/top-interface-finished-full-65eb32ba52dc.png
 author: zed0
 contributors: [barthel, brickcyclealice]
 parts_needed:
@@ -120,6 +120,7 @@ parts_needed:
   - part: nut-m5
     qty: 6
 tools_needed: ["Hex keys, 2 mm, 2.5 mm, 3 mm and 4 mm", "Spanner, 8 mm, for the M5 nuts", "Soldering iron or heat-set insert press"]
+last_verified: 2026-09-24
 ---
 
 The top interface holds a chute that rotates on a lazy-susan bearing to aim incoming parts at whichever bin layer is currently selected. A NEMA 23 stepper drives the rotation through a small gear train (steps 6 and 9), and a limit switch and hammer (steps 4, 6, 8) give it a fixed reference point to home against, since the stepper alone has no way to know which way it is pointed. Everything on this page bolts onto the Top plate, which then sits on the hex frame built on the bin-frame page.
@@ -160,7 +161,7 @@ The top interface holds a chute that rotates on a lazy-susan bearing to aim inco
   </div>
 </div>
 
-The fasteners and quantities in the parts list come from the build notes and are called out inline at each step.
+The fasteners and quantities are in the parts list above and are called out inline at each step.
 
 {% include fastener-legend.html %}
 
@@ -840,17 +841,17 @@ The numbers on the photo and the drawing:
   <li class="key-screw"><strong>Two {% include fastener.html size="M5" variant="socket-button" length="16" %} screws</strong> at the base of that bracket brace it against the extrusion, the same screws and holes a layer's own vertical gets. Nothing else fastens the interface to the layer.</li>
 </ol>
 
-**Piece F does not reach the top of the Interface bracket, and it comes nowhere near the top plate.** How deep it goes is not stated anywhere in the build, but it is fixed at both ends by what has to be screwed: the lower end has to reach past the two screws at the base of the layer's bracket, and the upper end has to cover the bracket's second pair of T-nut screws, whose bosses sit about 90 mm above the bracket's underside. A 274 mm piece cannot do both and also reach the top of a 120 mm bracket. On a built machine it stands about 20 mm past the upper screws and stops about 11 mm short of the top of the bracket. The drawing is made from the part geometry rather than from a build, and its inferred heights seat the extrusion around 25 mm shallower than that.
+**Piece F does not reach the top of the Interface bracket, and it comes nowhere near the top plate.** It has to cover both pairs of T-nut screws in the bracket and still reach past the two screws at the base of the layer's collar, which is what the 165 mm standing out in step 13 sets.
 
 <div class="clear-float"></div>
 
 ## The finished result
 
-The top plate, its six bracket mounts and their extrusion, the rotating chute mount and its gear train, and a hex frame closed onto the bottom of the verticals.
+The top plate, its six bracket mounts and their extrusion, the rotating chute mount and its gear train, and a hex frame closed onto the bottom of the verticals. The render below leaves the hex frame and the verticals off so the plate and the brackets are visible.
 
 <figure class="single-figure">
-  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-top-interface-framing-4-full-b9ae16940954.jpg" alt="The completed top interface resting on its top plate: the hex frame ring uppermost, the six interface brackets and their extrusion inside it, and the white chute mount at the centre">
-  <figcaption>The finished interface, resting on its top plate the way it is built. On the machine it is the other way up, with the plate at the top. <cite>Photo: zed0.</cite></figcaption>
+  <img class="doc-figure" src="https://assets.basically.website/sorter-parts/top-interface-finished-full-65eb32ba52dc.png" alt="The finished top interface seen the way up it sits on the machine: the hexagonal top plate uppermost with the round opening through its centre, the six interface brackets splayed below it, and the chute mount hanging in the middle">
+  <figcaption>The finished interface the way up it sits on the machine, with the plate at the top and the chute mount hanging through it. <cite>Rendered from the parts' own geometry in assembly position, not from a build. Render: Balloon.</cite></figcaption>
 </figure>
 
 The [Distribution]({{ '/hardware/assembly/distribution/' | relative_url }}) page contains the instructions for the entire assembly, and is where you should return once you're done here.

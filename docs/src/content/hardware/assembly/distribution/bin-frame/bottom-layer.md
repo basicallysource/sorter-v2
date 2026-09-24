@@ -10,14 +10,6 @@ permalink: /hardware/assembly/distribution/bin-frame/bottom-layer/
 author: spencer
 contributors: [brickcyclealice, christoph, daddyosbricksbill, dov2000]
 og_image: https://assets.basically.website/sorter-docs/assembly-bottom-layer-corner-bracket-on-d-w1600-67bd9444f306.jpg
-warning: >-
-  **AI-generated first draft.** Written from the machine assembly tree in the
-  [parts calculator](https://parts-calculator.basically.website/assembly?focus=bottom-layer),
-  not from an actual build. The one-layer structure and the photographs of the
-  finished result come from BrickCycleAlice's build, and how the bottom
-  interface hangs under this layer was written from a build by Daddy-O's Bricks
-  - Bill; the screw counts have not been checked off a machine. Correct it as
-  you build.
 parts_needed:
   - part: ext-bracket-bottom-vertical
     qty: 6
@@ -32,6 +24,7 @@ parts_needed:
   - part: scr-m5-16-shcs
     qty: 36
 tools_needed: ["Hex key, 3 mm for a button head or 4 mm for a socket head", "Tape measure"]
+last_verified: 2026-09-24
 ---
 
 The bottom layer is an ordinary bin layer that also carries the machine. Its vertical extrusion is one long piece per corner instead of a layer's worth: the caster screws into the bottom of it and the layer above lands on the top of it, so the wheel has something much stiffer to push against than a single layer's vertical would be.
@@ -62,7 +55,7 @@ This layer uses **6 × piece D (Foot extension), 231 mm**, and **no piece C**: D
   <p>D is 1.5 × a single layer's vertical support, not 2 ×, so the bottom layer sits about half a layer's height off the floor.</p>
 </div>
 
-Here's where the {% include fastener.html size="M5" variant="socket-button" length="16" %} count in the parts list comes from (nobody has counted these off a built machine yet, and the hex frame's own outer-ring screws are on that page's own list, so they aren't counted again here):
+Here's where the {% include fastener.html size="M5" variant="socket-button" length="16" %} count in the parts list comes from. The hex frame's own outer-ring screws are on that page's own list, so they aren't counted again here:
 
 - **12** clamping the External bracket — side onto piece D, 2 per corner (step 3 below)
 - **12** through the External bracket — bottom vertical's outer holes onto the top of piece D, 2 per corner (step 5 below)

@@ -57,7 +57,7 @@ The bottom interface is the Lazy Susan bearing assembly the chute rests and spin
   </figure>
 </div>
 
-The parts list above is only the Lazy Susan bearing stack and the extrusion mounts added in steps 5 to 10. The fasteners and quantities below are called out inline at each step.
+The parts list above is only the Lazy Susan bearing stack and the extrusion mounts added in steps 5 to 10. The fasteners and quantities are in the parts list above and are called out inline at each step.
 
 {% include fastener-legend.html %}
 

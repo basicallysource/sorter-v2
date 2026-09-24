@@ -127,3 +127,5 @@ Every layer on, twelve screws at each joint, the top interface at the top of the
 <div class="img-placeholder">Photo of the finished frame standing on its casters: the bottom layer, the regular layers and the top interface joined into one tower, with no chutes in it yet.</div>
 
 The frame is now standing and empty. The [chutes]({{ '/hardware/assembly/distribution/chute/' | relative_url }}) go in next, one at a time and without their funnels, and the [bottom interface]({{ '/hardware/assembly/distribution/bin-frame/bottom-interface/' | relative_url }}) goes on after them, because its bearing carries the bottom of the chute stack. Both are on the [Chute]({{ '/hardware/assembly/distribution/chute/' | relative_url }}) page.
+
+The [Distribution]({{ '/hardware/assembly/distribution/' | relative_url }}) page contains the instructions for the entire assembly, and is where you should return once you're done here.

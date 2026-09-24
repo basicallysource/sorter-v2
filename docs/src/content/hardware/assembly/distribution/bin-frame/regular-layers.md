@@ -18,6 +18,7 @@ parts_needed:
   - part: scr-m5-16-shcs
     qty: 24
 tools_needed: ["Hex key, 3 mm for a button head or 4 mm for a socket head"]
+last_verified: 2026-09-24
 ---
 
 Each layer holds one chute-and-bin pair (built separately) that catches pieces routed to it; a regular layer's job is simply to repeat the same hexagonal ring, vertical supports, and flange joint as the layer below it, so the stack can go as tall as the machine needs.

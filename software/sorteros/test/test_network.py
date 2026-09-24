@@ -22,10 +22,15 @@ WRONG_PASSWORD_S = 11  # measured on the AP6275P
 
 
 class Router:
+    """One network: a 2.4 GHz radio on `freq`, a 5 GHz one on `freq5`, or both."""
+
     def __init__(self, password="right-password", *, security="WPA2", internet=True, dhcp=True,
-                 up=lambda t: True, signal=70):
+                 up=lambda t: True, signal=70, freq=2462, freq5=None):
         self.password, self.security, self.internet, self.dhcp = password, security, internet, dhcp
-        self.up, self.signal = up, signal
+        self.up, self.signal, self.freq, self.freq5 = up, signal, freq, freq5
+
+    def radios(self):
+        return [f for f in (self.freq, self.freq5) if f]
 
 
 class World:
@@ -44,6 +49,7 @@ class World:
         self.possible_since = None  # when autoconnect became possible
         self.ap_on = None  # the SSID it broadcasts
         self.ap0 = False
+        self.ap_freq = None  # where it broadcasts
         self.phones = 0  # on the setup network
         self.fenced = set()
         self.nm_on_top = False  # NetworkManager's sharing rules above the fence
@@ -112,8 +118,8 @@ class Fake(net.System):
         if w.radio is None or w.wifi_on or not self._radio_free():
             w.possible_since = None
             return
-        ok = [s for s, p in w.saved.items()
-              if self._router_ok(s) and w.routers[s].password == p["password"] and w.routers[s].dhcp]
+        ok = [s for s, p in w.saved.items() if p.get("autoconnect", True)
+              and self._router_ok(s) and w.routers[s].password == p["password"] and w.routers[s].dhcp]
         if not ok:
             w.possible_since = None
         elif w.possible_since is None:
@@ -174,12 +180,18 @@ class Fake(net.System):
     def saved_wifi(self):
         return list(self.w.saved)
 
-    def write_wifi(self, ssid, password, hidden=False, security=""):
+    def write_wifi(self, ssid, password, hidden=False, security="", bssid=None):
         replaced = {ssid: dict(self.w.saved[ssid])} if ssid in self.w.saved else {}
         con_uuid = f"uuid-{len(self.w.log)}"
-        self.w.saved[ssid] = {"uuid": con_uuid, "password": password, "security": security}
+        self.w.saved[ssid] = {"uuid": con_uuid, "password": password, "security": security,
+                              "bssid": bssid, "autoconnect": bssid is None}
         self._log("write", ssid, password, security)
         return con_uuid, replaced
+
+    def release_wifi(self, con_uuid):
+        p = self.w.saved[self.ssid_of(con_uuid)]
+        p.update(bssid=None, autoconnect=True)
+        self._log("release", self.ssid_of(con_uuid))
 
     def forget_wifi(self, con_uuid, replaced):
         ssid = self.ssid_of(con_uuid)
@@ -200,6 +212,12 @@ class Fake(net.System):
             w.t += 15
             return "Connection activation failed: The Wi-Fi network could not be found"
         r = w.routers[ssid]
+        pinned = w.saved[ssid].get("bssid")
+        freq = int(pinned.split("@")[1]) if pinned else max(r.radios())  # wpa_supplicant likes 5 GHz
+        self._log("associate", ssid, freq)
+        if w.ap_on and w.ap_freq != freq:  # the AP6275P drags the setup network along, unannounced
+            w.ap_freq = freq
+            w.phones = 0
         if r.password != w.saved[ssid]["password"]:
             w.t += WRONG_PASSWORD_S
             return "Connection activation failed: (7) Secrets were required, but not provided."
@@ -219,8 +237,10 @@ class Fake(net.System):
         if w.radio == "single" and w.ap_on:
             return []
         w.t += 4
-        return sorted(({"ssid": s, "signal": r.signal, "security": r.security}
-                       for s, r in w.routers.items() if r.up(w.t)), key=lambda n: -n["signal"])
+        found = [{"ssid": s, "signal": r.signal, "security": r.security, "bssid": f"{s}@{f}", "freq": f}
+                 for s, r in w.routers.items() if r.up(w.t) for f in r.radios()]
+        text = "".join(f"{n['ssid']}:{n['signal']}:{n['security']}:{n['bssid']}:{n['freq']} MHz\n" for n in found)
+        return net.parse_scan(text)
 
     # the setup network
     def add_ap_iface(self, wifi_iface):
@@ -232,6 +252,7 @@ class Fake(net.System):
     def ap_up(self, iface, ssid):
         w = self.w
         w.ap_on = ssid
+        w.ap_freq = 2437
         w.nm_on_top = True
         if w.radio == "single":
             w.wifi_on = None
@@ -245,6 +266,16 @@ class Fake(net.System):
 
     def ap_clients(self, iface):
         return self.w.phones if self.w.ap_on else 0
+
+    def ap_freq(self, iface):
+        return self.w.ap_freq
+
+    def ap_move(self, iface, freq):
+        self._log("ap_move", freq, self.w.t)
+        if not 2400 <= freq < 2500:
+            return "FAIL"
+        self.w.ap_freq = freq  # announced: the phones follow
+        return None
 
     def fence(self, iface):
         self.w.fenced.add(iface)
@@ -478,6 +509,35 @@ class JoinFromThePhone(unittest.TestCase):
         self.assertEqual((join["state"], join["address"], join["internet"]), ("joined", "192.168.1.68", True))
         self.assertTrue(w.ap_on)  # still up: the phone reads the result on it
         self.assertEqual(w.count("ap_down"), 0)
+
+    def test_the_phone_stays_on_while_the_sorter_joins_on_another_channel(self):
+        w, n = self.setup_network(routers={"HomeNet": Router(freq=2412)})
+        phone_join(n, "HomeNet")
+        run_for(n, 10)
+        self.assertEqual(n.page_state()["join"]["state"], "joined")
+        self.assertEqual((w.ap_freq, w.phones), (2412, 1))
+        kinds = [e[0] for e in w.log]
+        self.assertLess(kinds.index("ap_move"), kinds.index("join"))
+
+    def test_a_dual_band_router_is_joined_on_2_4_ghz_then_left_free_to_roam(self):
+        w, n = self.setup_network(routers={"HomeNet": Router(freq=2462, freq5=5220)})
+        phone_join(n, "HomeNet")
+        run_for(n, 10)
+        self.assertEqual(n.page_state()["join"]["state"], "joined")
+        self.assertIn(("associate", "HomeNet", 2462), w.log)
+        self.assertEqual(w.phones, 1)
+        self.assertEqual((w.saved["HomeNet"]["bssid"], w.saved["HomeNet"]["autoconnect"]), (None, True))
+
+    def test_a_5ghz_only_network_loses_the_phone_and_keeps_the_result_for_it(self):
+        w, n = self.setup_network(routers={"HomeNet": Router(freq=None, freq5=5180)})
+        phone_join(n, "HomeNet", password="not-the-password")
+        run_for(n, 20)
+        self.assertEqual(w.phones, 0)  # the setup network moved to 5 GHz under it
+        self.assertEqual(w.count("ap_move"), 0)
+        w.phones = 1  # back, from Wi-Fi settings
+        run_for(n, 4)
+        self.assertEqual((n.page_state()["join"]["state"], n.page_state()["join"]["reason"]), ("failed", "password"))
+        self.assertTrue(w.ap_on)
 
     def test_a_wrong_password_says_so_and_the_setup_network_stays(self):
         w, n = self.setup_network()
@@ -885,6 +945,16 @@ class Keyfile(unittest.TestCase):
     def test_the_ssid_is_written_as_bytes(self):
         self.assertIn("ssid=67;97;102;195;169;47;78;101;116;\n", net.nm_keyfile("Café/Net", "password1", "u"))
 
+    def test_a_profile_through_one_access_point_waits_to_be_joined(self):
+        # NetworkManager starts on a new profile the moment it's written;
+        # this one waits for the join, which goes through that access point.
+        pinned = net.nm_keyfile("Home", "right-password", "u", bssid="88:DE:7C:40:92:8D")
+        self.assertIn("autoconnect=false", pinned)
+        self.assertIn("bssid=88:DE:7C:40:92:8D", pinned)
+        free = net.nm_keyfile("Home", "right-password", "u")
+        self.assertIn("autoconnect=true", free)
+        self.assertNotIn("bssid", free)
+
     def test_wpa3_only_takes_sae_and_mixed_mode_takes_psk(self):
         self.assertIn("key-mgmt=sae", net.nm_keyfile("n", "password1", "u", security="WPA3"))
         self.assertIn("key-mgmt=wpa-psk", net.nm_keyfile("n", "password1", "u", security="WPA2 WPA3"))
@@ -911,8 +981,16 @@ class Nmcli(unittest.TestCase):
         self.assertEqual(net.nmcli_fields(r"a\:b:c\\d:"), ["a:b", "c\\d", ""])
 
     def test_the_scan_keeps_names_exact_and_drops_hidden_and_setup_networks(self):
-        text = " Home :30:WPA2\n Home :70:WPA2\n:90:WPA2\nSorterOS-Setup-ABCDEF:99:\nCafe:40:\n"
+        text = (" Home :30:WPA2:AA\\:01:2412 MHz\n Home :70:WPA2:AA\\:02:2437 MHz\n:90:WPA2:AA\\:03:2412 MHz\n"
+                "SorterOS-Setup-ABCDEF:99::AA\\:04:2437 MHz\nCafe:40::AA\\:05:5180 MHz\n")
         self.assertEqual([n["ssid"] for n in net.parse_scan(text)], [" Home ", "Cafe"])
+
+    def test_a_network_is_joined_through_its_strongest_usable_access_point_on_2_4_ghz(self):
+        text = ("Home:80:WPA2:AA\\:01:5180 MHz\nHome:55:WPA2:AA\\:02:2462 MHz\nHome:20:WPA2:AA\\:03:2412 MHz\n"
+                "Far:90:WPA2:BB\\:01:5745 MHz\nFar:12:WPA2:BB\\:02:2437 MHz\n")
+        home_net, far = sorted(net.parse_scan(text), key=lambda n: n["ssid"], reverse=True)
+        self.assertEqual((home_net["signal"], home_net["bssid"], home_net["freq"]), (80, "AA:02", 2462))
+        self.assertEqual((far["bssid"], far["freq"]), ("BB:01", 5745))  # its 2.4 GHz one is too weak
 
     def test_connectivity_words(self):
         self.assertEqual(net.connectivity("4 (full)"), "full")

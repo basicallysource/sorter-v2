@@ -128,6 +128,8 @@ AFTER_JOIN_MAX_S = 600
 DONE_CLOSE_S = 5
 SCAN_EVERY_S = 120
 SECOND_SCAN_S = 15  # the scan at start can come back short: NetworkManager has only just brought up the Wi-Fi
+CSA_BEACONS = 10  # a channel switch announced this many beacons ahead (about a second): phones follow it
+USABLE_SIGNAL = 30  # an access point this strong (nmcli's percent) or better is worth joining through
 SAVED_RETRY_S = 60  # a saved network seen in a scan while offline is tried this often
 SINGLE_RADIO_RETRY_S = 300
 STATUS_EVERY_S = 30
@@ -199,14 +201,21 @@ def keyfile_value(text: str) -> str:
     return text
 
 
-def nm_keyfile(ssid: str, password: str, uuid_: str, hidden: bool = False, security: str = "") -> str:
+def nm_keyfile(ssid: str, password: str, uuid_: str, hidden: bool = False, security: str = "",
+               bssid: str | None = None) -> str:
     """A NetworkManager profile for a network. WPA3-only networks take SAE;
     everything else with a password takes WPA-PSK (WPA2, and WPA2/WPA3 mixed
-    mode). It must get an IPv4 address to count as joined."""
+    mode). It must get an IPv4 address to count as joined. With `bssid` it
+    joins through that access point only and never on its own, until
+    release_wifi: NetworkManager would otherwise start on it the moment it's
+    written, and wpa_supplicant would pick the router's 5 GHz radio."""
     lines = [
-        "[connection]", f"id={keyfile_value(ssid)}", f"uuid={uuid_}", "type=wifi", "autoconnect=true", "",
+        "[connection]", f"id={keyfile_value(ssid)}", f"uuid={uuid_}", "type=wifi",
+        f"autoconnect={'false' if bssid else 'true'}", "",
         "[wifi]", "mode=infrastructure", "ssid=" + "".join(f"{b};" for b in ssid.encode()),
     ]
+    if bssid:
+        lines.append(f"bssid={bssid}")
     if hidden:
         lines.append("hidden=true")
     if password:
@@ -273,23 +282,38 @@ def nmcli_fields(line: str) -> list[str]:
 
 
 def parse_scan(text: str) -> list[dict]:
-    """`nmcli -t -f SSID,SIGNAL,SECURITY dev wifi list` → one entry per SSID,
-    strongest first, names exact, hidden networks and setup networks left out."""
-    best: dict[str, dict] = {}
+    """`nmcli -t -f SSID,SIGNAL,SECURITY,BSSID,FREQ dev wifi list` → one entry
+    per SSID, strongest first, names exact, hidden networks and setup networks
+    left out. `bssid` and `freq` are the access point to join it through: its
+    strongest usable one on 2.4 GHz if it has one, since the setup network can
+    move there without losing the phone on it (it can't move to 5 GHz)."""
+    found: dict[str, list[dict]] = {}
     for line in text.splitlines():
         parts = nmcli_fields(line)
-        if len(parts) < 3:
+        if len(parts) < 5:
             continue
-        ssid, signal_raw, security = parts[0], parts[1], parts[2].strip()
+        ssid, signal_raw, security, bssid, freq_raw = parts[0], parts[1], parts[2].strip(), parts[3], parts[4]
         if not ssid.strip() or ssid.startswith(SETUP_SSID_PREFIX):
             continue
         try:
             signal = int(signal_raw)
         except ValueError:
             signal = 0
-        if ssid not in best or signal > best[ssid]["signal"]:
-            best[ssid] = {"ssid": ssid, "signal": signal, "security": security}
-    return sorted(best.values(), key=lambda n: -n["signal"])
+        freq = re.match(r"\s*(\d*)", freq_raw).group(1)
+        found.setdefault(ssid, []).append({"signal": signal, "security": security, "bssid": bssid,
+                                           "freq": int(freq) if freq else 0})
+    networks = []
+    for ssid, aps in found.items():
+        strongest = max(aps, key=lambda a: a["signal"])
+        low = [a for a in aps if is_2ghz(a["freq"]) and a["signal"] >= USABLE_SIGNAL]
+        via = max(low, key=lambda a: a["signal"]) if low else strongest
+        networks.append({"ssid": ssid, "signal": strongest["signal"], "security": strongest["security"],
+                         "bssid": via["bssid"], "freq": via["freq"]})
+    return sorted(networks, key=lambda n: -n["signal"])
+
+
+def is_2ghz(freq: int) -> bool:
+    return 2400 <= freq < 2500
 
 
 def connectivity(value: str) -> str:
@@ -489,10 +513,10 @@ class System:
         return ssids
 
     def write_wifi(self, ssid: str, password: str, hidden: bool = False,
-                   security: str = "") -> tuple[str, dict[str, str]]:
-        """Save `ssid` as the one profile for that network. Returns the new
-        profile's uuid and the profiles it replaced (file → text), so a
-        failed join can put them back."""
+                   security: str = "", bssid: str | None = None) -> tuple[str, dict[str, str]]:
+        """Save `ssid` as the one profile for that network (through `bssid`
+        only, for now, if given). Returns the new profile's uuid and the
+        profiles it replaced (file → text), so a failed join can put them back."""
         replaced = {}
         for line in self._run("nmcli", "-t", "-f", "UUID,TYPE,FILENAME", "connection", "show").stdout.splitlines():
             con_uuid, kind, filename = (nmcli_fields(line) + ["", ""])[:3]
@@ -506,9 +530,15 @@ class System:
             except OSError:
                 pass
         new_uuid = str(uuid.uuid4())
-        _write_file(profile_path(ssid), nm_keyfile(ssid, password, new_uuid, hidden, security))
+        _write_file(profile_path(ssid), nm_keyfile(ssid, password, new_uuid, hidden, security, bssid))
         self._run("nmcli", "connection", "reload")
         return new_uuid, replaced
+
+    def release_wifi(self, con_uuid: str) -> None:
+        """A profile written through one access point, once joined: free to
+        roam to the router's other radios, and to come back on its own."""
+        self._run("nmcli", "connection", "modify", "uuid", con_uuid,
+                  "connection.autoconnect", "yes", "802-11-wireless.bssid", "")
 
     def forget_wifi(self, con_uuid: str, replaced: dict[str, str]) -> None:
         """Undo write_wifi: drop the new profile, put back the ones it replaced."""
@@ -543,7 +573,7 @@ class System:
         return "not saved"
 
     def scan(self, iface: str) -> list[dict]:
-        r = self._run("nmcli", "-t", "-f", "SSID,SIGNAL,SECURITY", "device", "wifi", "list",
+        r = self._run("nmcli", "-t", "-f", "SSID,SIGNAL,SECURITY,BSSID,FREQ", "device", "wifi", "list",
                       "ifname", iface, "--rescan", "yes", timeout=30)
         return parse_scan(r.stdout)
 
@@ -583,6 +613,26 @@ class System:
 
     def ap_down(self) -> None:
         self._run("nmcli", "connection", "down", AP_CON)
+
+    def ap_freq(self, iface: str) -> int | None:
+        m = re.search(r"channel \d+ \((\d+) MHz\)", self._run("iw", "dev", iface, "info").stdout)
+        return int(m.group(1)) if m else None
+
+    def ap_move(self, iface: str, freq: int) -> str | None:
+        """Move the setup network to `freq`, announced first so a phone on it
+        follows. Left alone, the AP6275P drags it to whatever channel wlan0
+        joins on, unannounced, and the phone drops off. None once it's there,
+        else why not."""
+        if self.ap_freq(iface) == freq:
+            return None
+        r = self._run("wpa_cli", "-i", iface, "chan_switch", str(CSA_BEACONS), str(freq))
+        if r.stdout.strip() != "OK":
+            return (r.stdout + r.stderr).strip() or f"wpa_cli exited {r.returncode}"
+        for _ in range(8):
+            time.sleep(0.5)
+            if self.ap_freq(iface) == freq:
+                return None
+        return "announced, but it didn't move"
 
     def ap_clients(self, iface: str) -> int:
         return self._run("iw", "dev", iface, "station", "dump").stdout.count("Station ")
@@ -975,10 +1025,13 @@ class Network:
                 self.do_scan()
             security = next((n["security"] for n in self.scan["networks"] if n["ssid"] == ssid), "")
         self.event(f"Trying {ssid}" + (", from the setup site" if source == "setup_site" else ""))
-        con_uuid, replaced = self.sys.write_wifi(ssid, req["password"], req.get("hidden", False), security)
+        via = self._keep_the_phone(ssid) if source == "phone" else None
+        con_uuid, replaced = self.sys.write_wifi(ssid, req["password"], req.get("hidden", False), security, via)
         if self.ap and self.ap_iface == self.wifi_iface:
             self.close_ap("to join " + ssid)
         error = self.sys.join(con_uuid, self.wifi_iface)
+        if error is None and via:
+            self.sys.release_wifi(con_uuid)
         if error is None:
             self.sys.check_internet()
             info = self.sys.device_info(self.wifi_iface)
@@ -996,6 +1049,21 @@ class Network:
             log.info("keeping %s, from the setup site: its router may not be up yet", ssid)
         else:
             self.sys.forget_wifi(con_uuid, replaced)
+
+    def _keep_the_phone(self, ssid: str) -> str | None:
+        """The radio can only be on one channel, so joining `ssid` drags the
+        setup network to its channel, unannounced, and the phone on it drops
+        off. Move it there first, announced, and join through the access point
+        on that channel. Returns that access point, or None when there is no
+        setup network beside the join, or it can't move there (5 GHz)."""
+        target = next((n for n in self.scan["networks"] if n["ssid"] == ssid), {})
+        if not (self.ap and self.ap_iface != self.wifi_iface and is_2ghz(target.get("freq", 0))):
+            return None
+        error = self.sys.ap_move(self.ap_iface, target["freq"])
+        if error:
+            log.info("couldn't move the setup network to %s MHz: %s", target["freq"], error)
+            return None
+        return target["bssid"]
 
     def import_config_wifi(self, cfg: dict) -> None:
         """The setup site's Wi-Fi, the first time this machine sees it (once
@@ -1168,7 +1236,8 @@ class Network:
                          for n in self.networks if n["kind"] != "tailscale"],
             "cable": self.cable,
             "join": join,
-            "scan": dict(self.scan),
+            "scan": {**self.scan, "networks": [{k: n[k] for k in ("ssid", "signal", "security", "saved") if k in n}
+                                                for n in self.scan["networks"]]},
             "events": [{"at": e.get("at"), "text": e.get("text")} for e in self.events[-EVENTS_SHOWN:]],
         }
 
@@ -1418,10 +1487,11 @@ class MockSystem(System):
     def mdns_name(self): return f"{self.hostname()}.local"
     def mac(self, iface): return "02:11:22:ab:cd:ef"
     def saved_wifi(self): return list(self.saved)
-    def write_wifi(self, ssid, password, hidden=False, security=""):
+    def write_wifi(self, ssid, password, hidden=False, security="", bssid=None):
         replaced = {ssid: self.saved[ssid]} if ssid in self.saved else {}
         self.saved[ssid] = password
         return ssid, replaced
+    def release_wifi(self, con_uuid): pass
     def forget_wifi(self, con_uuid, replaced):
         self.saved.pop(con_uuid, None)
         self.saved.update(replaced)

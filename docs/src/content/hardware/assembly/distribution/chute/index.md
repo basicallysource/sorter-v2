@@ -12,11 +12,11 @@ contributors: [alex, brickcyclealice, barthel]
 last_verified: 2026-09-07
 ---
 
-<figure class="figure-float-right is-wide">
+<figure class="figure-float-right">
   <a href="https://assets.basically.website/sorter-docs/assembly-chute-stack-in-frame-full-7d6494495a4b.png" target="_blank" rel="noopener">
     <img src="https://assets.basically.website/sorter-docs/assembly-chute-stack-in-frame-w1600-26cf1259d46f.jpg" alt="Render of four stacked chutes, each with its door module and funnel, shown solid against a ghosted outline of the frame and bins around them">
   </a>
-  <figcaption>One chute per layer, stacked, with the rest of the machine ghosted out. Click to enlarge. <cite>Rendered from the CAD assembly, not from a build.</cite></figcaption>
+  <figcaption><cite>Rendered from the CAD assembly, not from a build.</cite></figcaption>
 </figure>
 
 The chute is one per layer. Build the core first, since everything else bolts into its heat inserts.

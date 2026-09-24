@@ -2,18 +2,18 @@ export type WifiNetwork = {
 	ssid: string;
 	signal: number;
 	security: string;
-	in_use: boolean;
 };
 
 export type StatusResponse = {
 	mode: 'ap' | 'mock';
 	hostname: string;
 	suggested_url: string;
-	configured: boolean;
 	last_attempt: {
 		ssid: string;
 		hostname: string | null;
 		result: string;
+		// Why a join failed: 'password' | 'not_found' | 'no_address' | 'other'
+		reason?: string;
 		error?: string;
 	} | null;
 };
@@ -58,8 +58,8 @@ export async function fetchStatus(): Promise<StatusResponse> {
 	return jsonOrThrow(await fetch('/api/status'));
 }
 
-export async function scanNetworks(rescan = true): Promise<ScanResponse> {
-	return jsonOrThrow(await fetch(`/api/wifi-scan?rescan=${rescan ? 'true' : 'false'}`));
+export async function scanNetworks(): Promise<ScanResponse> {
+	return jsonOrThrow(await fetch('/api/wifi-scan'));
 }
 
 export async function connect(payload: ConnectPayload): Promise<ConnectResponse> {

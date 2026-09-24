@@ -52,16 +52,17 @@
 
 <div class="flex flex-col items-center gap-6 px-4 py-8 text-center">
 	<div class="text-sm tracking-wider text-[var(--color-text-muted)] uppercase">
-		Switching networks…
+		Restarting to join…
 	</div>
 	<h1 class="text-2xl font-semibold">Almost there!</h1>
 
 	{#if lookupUrl}
 		<p class="max-w-md text-[var(--color-text-muted)]">
-			The sorter is joining <span class="font-medium text-[var(--color-text)]">{ssid}</span> now.
+			The sorter is restarting to join <span class="font-medium text-[var(--color-text)]">{ssid}</span>,
+			which takes about two minutes.
 			<span class="text-[var(--color-text)]">Rejoin that same Wi-Fi on this device</span>, then open
-			the finder below — it waits for the sorter to come online and shows you its address. The
-			address is encrypted end to end; only this device can read it.
+			the finder below. It waits for the sorter to come online and shows you its address and
+			network. The address is encrypted end to end; only this device can read it.
 		</p>
 
 		<a
@@ -76,8 +77,8 @@
 		</div>
 	{:else}
 		<p class="max-w-md text-[var(--color-text-muted)]">
-			The sorter is joining <span class="font-medium text-[var(--color-text)]">{ssid}</span> now.
-			Switch your phone or laptop to the same Wi-Fi, then open:
+			The sorter is restarting to join <span class="font-medium text-[var(--color-text)]">{ssid}</span>,
+			which takes about two minutes. Switch your phone or laptop to the same Wi-Fi, then open:
 		</p>
 
 		<a
@@ -106,12 +107,13 @@
 
 	{#if remaining > 0}
 		<div class="text-sm text-[var(--color-text-muted)]">
-			This hotspot shuts down in <span class="font-mono">{remaining}s</span>.
+			This setup network shuts down in <span class="font-mono">{remaining}s</span>.
 		</div>
 	{:else}
 		<div class="text-sm text-[var(--color-text-muted)]">
-			Hotspot is closing. If your phone hasn't reconnected automatically, pick
-			<span class="text-[var(--color-text)]">{ssid}</span> in your Wi-Fi settings.
+			The setup network is off while the sorter restarts. If it comes back instead of the sorter
+			appearing on <span class="text-[var(--color-text)]">{ssid}</span>, the sorter couldn't join
+			it: rejoin the setup network and check the password.
 		</div>
 	{/if}
 

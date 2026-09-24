@@ -24,7 +24,7 @@ These are for [SorterOS]({{ '/sorter/installation/sorter-os/' | relative_url }})
 
 ### A stage says `waiting for internet`
 
-**Cause:** The Pi has a network link but no route to the internet, for example an Ethernet port with no upstream, or a WiFi network that doesn't reach the internet. (A wrong WiFi password never gets this far: the setup page says the Pi couldn't join and keeps the setup network up so you can try again.)
+**Cause:** The Pi has a network link but no route to the internet, for example an Ethernet port with no upstream, or a WiFi network that doesn't reach the internet. (A wrong WiFi password never gets this far: the Pi opens its setup network again and the setup page says why it couldn't join.)
 
 **Fix:** Plug the Pi into a port on your router, or check that the WiFi network you picked reaches the internet from another device.
 
@@ -37,6 +37,14 @@ These are for [SorterOS]({{ '/sorter/installation/sorter-os/' | relative_url }})
 **Fix:** Look for the Pi on your network at `http://sorter.local` first. If it isn't there, wait two minutes with no cable in, or use Ethernet.
 
 **Verify:** The network shows up in your phone's WiFi list.
+
+### **Find my sorter** keeps waiting
+
+**Cause:** One of three things. The Pi couldn't join the network you picked (it opens its `SorterOS-Setup-` network again). It joined but the network doesn't reach the internet, so it can't report its address. Or more than 15 minutes passed since you picked the network, after which it stops reporting.
+
+**Fix:** Look in your phone's WiFi list for `SorterOS-Setup-`. If it's there, join it: the setup page says why the Pi couldn't join. If not, browse to `http://<name>.local` (the name you gave it, `sorter` if you didn't), or find the Pi in your router's list of connected devices.
+
+**Verify:** The Sorter UI or the first-boot progress page loads.
 
 ### The WiFi entered in SorterOS Setup was wrong
 

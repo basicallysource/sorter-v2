@@ -46,11 +46,11 @@
 		}
 	}
 
-	async function rescan() {
+	async function loadNetworks() {
 		scanning = true;
 		scanError = null;
 		try {
-			const res = await scanNetworks(true);
+			const res = await scanNetworks();
 			networks = res.networks;
 		} catch (err: any) {
 			scanError = err?.message ?? 'scan failed';
@@ -81,9 +81,10 @@
 		event.preventDefault();
 		submitError = null;
 
-		const ssid = (selected?.ssid ?? hiddenSsid).trim();
+		// A listed name is sent exactly: spaces at either end are legal in one.
+		const ssid = selected ? selected.ssid : hiddenSsid.trim();
 		if (!ssid) {
-			submitError = 'Pick a network or type a hidden SSID.';
+			submitError = 'Pick a network or type its name.';
 			return;
 		}
 
@@ -113,7 +114,7 @@
 	onMount(async () => {
 		rendezvous = createRendezvous();
 		await refreshStatus();
-		await rescan();
+		await loadNetworks();
 		if (stage === 'loading') stage = 'pick';
 	});
 </script>
@@ -134,16 +135,6 @@
 				{/if}
 			</div>
 		</div>
-		{#if stage === 'pick' || stage === 'auth'}
-			<button
-				type="button"
-				onclick={rescan}
-				class="border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-1.5 text-xs uppercase tracking-wider text-[var(--color-text-muted)] hover:text-[var(--color-text)] disabled:opacity-50"
-				disabled={scanning}
-			>
-				{scanning ? 'Scanning…' : 'Rescan'}
-			</button>
-		{/if}
 	</header>
 
 	{#if stage === 'loading'}
@@ -156,6 +147,26 @@
 				Pick the Wi-Fi the sorter should join. Signal strength shown on the right.
 			</p>
 
+			{#if status?.last_attempt?.result === 'join_failed'}
+				{@const ssid = status.last_attempt.ssid}
+				<div class="border border-[var(--color-danger)] bg-[color:var(--color-danger)]/10 px-3 py-2 text-sm text-[var(--color-danger)]">
+					{#if status.last_attempt.reason === 'password'}
+						Couldn't join <span class="font-medium">{ssid}</span>: the password was wrong. Try
+						again.
+					{:else if status.last_attempt.reason === 'not_found'}
+						The sorter couldn't find <span class="font-medium">{ssid}</span>. Check it's in range
+						of the sorter and try again.
+					{:else if status.last_attempt.reason === 'no_address'}
+						<span class="font-medium">{ssid}</span> let the sorter on but didn't give it an address.
+						The router may be full, or only let in devices it knows.
+					{:else}
+						Couldn't join <span class="font-medium">{ssid}</span>{status.last_attempt.error
+							? ` (${status.last_attempt.error})`
+							: ''}. Try again.
+					{/if}
+				</div>
+			{/if}
+
 			{#if scanError}
 				<div class="border border-[var(--color-danger)] bg-[color:var(--color-danger)]/10 px-3 py-2 text-sm text-[var(--color-danger)]">
 					{scanError}
@@ -164,11 +175,11 @@
 
 			{#if scanning && networks.length === 0}
 				<div class="border border-[var(--color-border)] px-4 py-6 text-center text-sm text-[var(--color-text-muted)]">
-					Scanning the 2.4 / 5 GHz bands…
+					Loading networks…
 				</div>
 			{:else if networks.length === 0}
 				<div class="border border-[var(--color-border)] px-4 py-6 text-center text-sm text-[var(--color-text-muted)]">
-					No networks visible. Try the Rescan button.
+					The sorter didn't see any networks when it started. Type yours below.
 				</div>
 			{/if}
 
@@ -177,14 +188,18 @@
 					<li>
 						<button
 							type="button"
-							class="flex w-full items-center justify-between border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-3 text-left hover:bg-[#1d1d1d]"
+							class="flex w-full items-center justify-between border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-3 text-left hover:bg-[#1d1d1d] disabled:opacity-50 disabled:hover:bg-[var(--color-surface)]"
 							onclick={() => choose(net)}
+							disabled={net.security.includes('802.1X')}
 						>
 							<div class="min-w-0">
 								<div class="truncate text-base text-[var(--color-text)]">{net.ssid}</div>
 								<div class="text-xs text-[var(--color-text-muted)]">
-									{net.security || 'open'}
-									{#if net.in_use} · current{/if}
+									{#if net.security.includes('802.1X')}
+										enterprise sign-in, not supported here
+									{:else}
+										{net.security || 'open'}
+									{/if}
 								</div>
 							</div>
 							<div class="flex items-center gap-3 text-[var(--color-text-muted)]">
@@ -201,7 +216,7 @@
 				class="mt-3 self-start text-sm text-[var(--color-text-muted)] underline-offset-2 hover:text-[var(--color-text)] hover:underline"
 				onclick={chooseHidden}
 			>
-				+ Add a hidden network manually
+				+ Not listed? Type its name
 			</button>
 		</section>
 	{:else if stage === 'auth' || stage === 'submitting'}
@@ -225,7 +240,7 @@
 						<input
 							type="text"
 							bind:value={hiddenSsid}
-							placeholder="hidden SSID"
+							placeholder="network name"
 							class="w-full border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-base"
 							autocomplete="off"
 							autocapitalize="none"

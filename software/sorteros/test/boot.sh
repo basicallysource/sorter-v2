@@ -43,10 +43,15 @@ fi
 [ -f "$WORK/initrd" ] || curl -fsSL -o "$WORK/initrd" "$UBUNTU/jammy-server-cloudimg-arm64-initrd-generic"
 
 # A fresh copy-on-write disk each run, sized like an SD card so grow-rootfs
-# and the swap stage have room.
-rm -f "$WORK/disk.qcow2" "$WORK/console.log"
-FMT=$(qemu-img info "$IMG" | awk '/^file format:/ {print $3}')
-qemu-img create -q -f qcow2 -F "$FMT" -b "$(cd "$(dirname "$IMG")" && pwd)/$(basename "$IMG")" "$WORK/disk.qcow2" "$DISK"
+# and the swap stage have room. REUSE=1 boots the disk the last run left
+# instead: a machine that already did its first boot, for trying changed
+# overlay files (copy them in over ssh) without waiting for first boot again.
+rm -f "$WORK/console.log"
+if [ "${REUSE:-0}" != 1 ] || [ ! -f "$WORK/disk.qcow2" ]; then
+    rm -f "$WORK/disk.qcow2"
+    FMT=$(qemu-img info "$IMG" | awk '/^file format:/ {print $3}')
+    qemu-img create -q -f qcow2 -F "$FMT" -b "$(cd "$(dirname "$IMG")" && pwd)/$(basename "$IMG")" "$WORK/disk.qcow2" "$DISK"
+fi
 
 case "$(uname -s)/$(uname -m)" in
     Darwin/arm64)                     ACCEL=(-accel hvf -cpu host) ;;

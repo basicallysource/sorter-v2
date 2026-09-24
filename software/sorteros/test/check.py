@@ -111,6 +111,9 @@ def check_image(img: Path) -> None:
         dhd = mnt / "lib/firmware/ap6275p/config.txt"
         check(dhd.exists() and "\nccode=XZ\n" in dhd.read_text(errors="replace"),
               "Wi-Fi country starts worldwide (XZ), not the vendor's CN")
+        localtime = mnt / "etc/localtime"
+        check(localtime.is_symlink() and str(localtime.readlink()).endswith("/Etc/UTC"),
+              "time zone starts at UTC, not the vendor's Asia/Shanghai")
         check(not any((mnt / "usr/local/sbin").rglob("__pycache__")), "no compiled Python in the overlay")
         daemon = mnt / "usr/local/sbin/sorteros-firstboot.py"
         try:

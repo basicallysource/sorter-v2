@@ -300,6 +300,7 @@ def phase_overlay(ctx: BuildCtx) -> None:
     _set_hostname(ctx)
     _harden_root_fs(ctx)
     _set_wifi_country(ctx)
+    _set_timezone_utc(ctx)
 
     # Tailscale auth key is intentionally NOT baked in at build time.
     # It is supplied at setup time via the AP captive portal (../portal/),
@@ -504,6 +505,16 @@ def phase_portal(ctx: BuildCtx) -> None:
 CFG_START_MARKER = "# __SORTEROS_CFG" + "_START__\n"
 CFG_END_MARKER = "# __SORTEROS_CFG" + "_END__\n"
 CFG_PLACEHOLDER_BYTES = 8192
+
+
+def _set_timezone_utc(ctx: BuildCtx) -> None:
+    """The vendor image is on Asia/Shanghai. Start at UTC; first boot moves to
+    the owner's time zone once the setup site or page has passed it on."""
+    localtime = ctx.mnt / "etc" / "localtime"
+    localtime.unlink(missing_ok=True)
+    localtime.symlink_to("/usr/share/zoneinfo/Etc/UTC")
+    (ctx.mnt / "etc" / "timezone").write_text("Etc/UTC\n")
+    log("time zone: Etc/UTC")
 
 
 def _set_wifi_country(ctx: BuildCtx) -> None:

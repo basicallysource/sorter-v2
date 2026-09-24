@@ -38,6 +38,14 @@ These are for [SorterOS]({{ '/sorter/installation/sorter-os/' | relative_url }})
 
 **Verify:** The network shows up in your phone's WiFi list.
 
+### Your network isn't in the setup page's list
+
+**Cause:** The page lists the networks the Pi heard when it started. A network that was off then, is out of range, or is hidden won't be there. Until the Pi knows your time zone it listens on every channel but doesn't call out on the ones it isn't sure your country allows, so a hidden network on 5 GHz can't be found yet.
+
+**Fix:** Choose **Not listed? Type its name** and enter it exactly (spaces and capitals count). If your router has separate 2.4 GHz and 5 GHz networks and the 5 GHz one isn't found, pick the 2.4 GHz one; the Pi learns your country from the setup page, so the 5 GHz one works after that.
+
+**Verify:** The Pi joins after its restart and **Find my sorter** shows it.
+
 ### **Find my sorter** keeps waiting
 
 **Cause:** One of three things. The Pi couldn't join the network you picked (it opens its `SorterOS-Setup-` network again). It joined but the network doesn't reach the internet, so it can't report its address. Or it came online more than 15 minutes ago, after which it stops reporting.

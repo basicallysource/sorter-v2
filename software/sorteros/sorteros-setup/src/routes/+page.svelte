@@ -81,6 +81,7 @@
     function buildConfig(): SorterosConfig {
         return {
             hostname,
+            timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || undefined,
             wifi: ssid ? { ssid, password } : undefined,
             ssh_authorized_key: sshKey || undefined,
             tailscale_auth_key: tailscaleKey || undefined

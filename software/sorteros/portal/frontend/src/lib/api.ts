@@ -29,6 +29,8 @@ export type ConnectPayload = {
 	hidden?: boolean;
 	hostname?: string | null;
 	sshKey?: string | null;
+	// This device's IANA time zone: the sorter's clock and its Wi-Fi country.
+	timezone?: string | null;
 	rendezvousId?: string | null;
 };
 

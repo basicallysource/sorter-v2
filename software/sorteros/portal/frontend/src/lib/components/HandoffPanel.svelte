@@ -113,18 +113,14 @@
 		<div class="text-sm text-[var(--color-text-muted)]">
 			The setup network is off while the sorter restarts. If it comes back instead of the sorter
 			appearing on <span class="text-[var(--color-text)]">{ssid}</span>, the sorter couldn't join
-			it: rejoin the setup network and check the password.
+			it: rejoin the setup network and the page says why.
 		</div>
 	{/if}
 
 	<div class="mt-4 max-w-md text-xs text-[var(--color-text-muted)]/80">
-		{#if lookupUrl}
-			On Apple devices the sorter also answers at
-			<a href={nextUrl} class="font-mono underline">{nextUrl}</a>. Otherwise check your router's
-			device list for the LEGO-coloured name.
-		{:else}
-			Can't find it on the new network? Check your router's device list for the device named after a
-			LEGO color.
-		{/if}
+		Most computers and iPhones also reach it at
+		<a href={nextUrl} class="font-mono underline">{nextUrl}</a>. Otherwise look for
+		<span class="font-mono">{new URL(nextUrl).hostname.replace(/\.local$/, '')}</span> in your router's
+		list of devices.
 	</div>
 </div>

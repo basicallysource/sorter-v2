@@ -71,24 +71,28 @@ EOF
 systemctl daemon-reload
 
 # ── the home router ───────────────────────────────────────────────────────
-router_up() { # [ssid] [password]  (given to hostapd as hex, so any bytes survive)
-    local hex psk
-    hex=$(python3 -c 'import sys; print(sys.argv[1].encode().hex())' "${1:-HomeNet}")
-    psk=$(python3 -c 'import hashlib, sys; print(hashlib.pbkdf2_hmac("sha1", sys.argv[2].encode(), sys.argv[1].encode(), 4096, 32).hex())' "${1:-HomeNet}" "${2:-right-password}")
-    cat >"$W/hostapd.conf" <<EOF
-interface=$RIF
-driver=nl80211
-ssid2=$hex
-hw_mode=g
-channel=1
-wpa=2
-wpa_psk=$psk
-wpa_key_mgmt=WPA-PSK
-rsn_pairwise=CCMP
-EOF
+router_up() { # [ssid] [password] [wpa2|open|sae|mixed]; HIDDEN=1 hides it, NO_DHCP=1 gives no addresses
+    local ssid=${1:-HomeNet} pw=${2:-right-password} mode=${3:-wpa2} hex psk
+    hex=$(python3 -c 'import sys; print(sys.argv[1].encode().hex())' "$ssid")
+    psk=$(python3 -c 'import hashlib, sys; print(hashlib.pbkdf2_hmac("sha1", sys.argv[2].encode(), sys.argv[1].encode(), 4096, 32).hex())' "$ssid" "$pw")
+    {
+        echo "interface=$RIF"
+        echo "driver=nl80211"
+        echo "ssid2=$hex"  # hex, so any bytes survive
+        echo "hw_mode=g"
+        echo "channel=1"
+        [ "${HIDDEN:-0}" = 1 ] && echo "ignore_broadcast_ssid=1"
+        case "$mode" in
+            wpa2) printf 'wpa=2\nwpa_psk=%s\nwpa_key_mgmt=WPA-PSK\nrsn_pairwise=CCMP\n' "$psk" ;;
+            sae) printf 'wpa=2\nsae_password=%s\nwpa_key_mgmt=SAE\nrsn_pairwise=CCMP\nieee80211w=2\n' "$pw" ;;
+            mixed) printf 'wpa=2\nwpa_psk=%s\nsae_password=%s\nwpa_key_mgmt=WPA-PSK SAE\nrsn_pairwise=CCMP\nieee80211w=1\n' "$psk" "$pw" ;;
+            open) ;;
+        esac
+    } >"$W/hostapd.conf"
     R ip link set "$RIF" up
     R ip addr replace 192.168.77.1/24 dev "$RIF"
     R hostapd -B -P "$W/hostapd.pid" "$W/hostapd.conf" >/dev/null
+    [ "${NO_DHCP:-0}" = 1 ] && return
     R dnsmasq --interface="$RIF" --bind-interfaces --port=0 --dhcp-range=192.168.77.50,192.168.77.99,1h \
         --dhcp-option=3,192.168.77.1 --pid-file="$W/dnsmasq.pid" --dhcp-leasefile="$W/leases"
 }
@@ -118,10 +122,15 @@ phone_join() { # until the phone reaches the setup page (a scan can come back em
 }
 phone_leave() { P iw dev "$PIF" disconnect 2>/dev/null; P ip addr flush dev "$PIF"; }
 page() { P curl -s -m 15 "$@"; }
-submit() { # ssid password
+submit() { # ssid password [more JSON fields, e.g. '{"hidden": true}']
+    local more=${3:-}
+    [ -n "$more" ] || more='{}'
     page -X POST -H 'Content-Type: application/json' \
-        -d "$(python3 -c 'import json, sys; print(json.dumps({"ssid": sys.argv[1], "password": sys.argv[2]}))' "$1" "$2")" \
+        -d "$(python3 -c 'import json, sys; print(json.dumps({"ssid": sys.argv[1], "password": sys.argv[2], **json.loads(sys.argv[3])}))' "$1" "$2" "$more")" \
         http://10.42.0.1/api/wifi-connect
+}
+page_says() { # reason: what the setup page's status reports for the last join
+    P curl -s -m 15 http://10.42.0.1/api/status | grep -q "\"reason\": *\"$1\""
 }
 
 # ── the Pi ────────────────────────────────────────────────────────────────
@@ -176,12 +185,15 @@ check "setup network opens after the wrong password" wait_for 200 setup_visible
 echo "     setup network after ${WAITED}s"
 phone_join
 check "setup page answers the phone" bash -c "ip netns exec phone curl -s -m 15 http://10.42.0.1/api/status | grep -q suggested_url"
-submit HomeNet right-password >/dev/null
+check "setup page says the setup site's password was wrong" page_says password
+submit HomeNet right-password '{"timezone": "Europe/Berlin"}' >/dev/null
 check "joins the network the phone gave it" wait_for 120 on_wifi
 check "network service finishes" wait_for 30 net_finished
 check "setup network closed" wait_for 30 setup_gone
 check "NetworkManager has the new password, and only it" psk_is HomeNet right-password
 check "config kept the setup site's Tailscale key" grep -q 'tskey-sim' /etc/sorteros-config.toml
+check "config has the phone's time zone" grep -q 'Europe/Berlin' /etc/sorteros-config.toml
+check "the Wi-Fi country follows it" grep -qx 'ccode=DE' /lib/firmware/ap6275p/config.txt
 fi
 
 if want 3; then
@@ -196,7 +208,7 @@ submit HomeNet wrong-password >/dev/null
 sleep 15
 check "setup network comes back after the wrong password" wait_for 120 setup_visible
 phone_join
-check "setup page says the password was wrong" bash -c "ip netns exec phone curl -s -m 15 http://10.42.0.1/api/status | grep -q '\"reason\": *\"password\"'"
+check "setup page says the password was wrong" page_says password
 submit HomeNet right-password >/dev/null
 check "then joins with the right one" wait_for 120 on_wifi
 check "network service finishes" wait_for 30 net_finished
@@ -238,6 +250,39 @@ phone_join
 submit "$ODD_SSID" "$ODD_PSK" >/dev/null
 check "joins it" wait_for 120 on_wifi
 check "NetworkManager holds the name and password exactly" psk_is "$ODD_SSID" "$ODD_PSK"
+fi
+
+phone_joins() { # scenario title, router args, submit args...: the phone gives it and the Pi joins
+    local ssid=$2 pw=$3 mode=$4 extra=${5:-}
+    step "$1"
+    router_down
+    router_up "$ssid" "$pw" "$mode"
+    pi_reset ''
+    net_start
+    check "setup network opens" wait_for 120 setup_visible
+    phone_join
+    submit "$ssid" "$pw" "$extra" >/dev/null
+    check "joins it" wait_for 150 on_wifi
+    check "network service finishes" wait_for 60 net_finished
+}
+want 7 && phone_joins "7. an open network" OpenCafe "" open
+want 8 && HIDDEN=1 phone_joins "8. a hidden network, typed on the phone" Hideaway hidden-password wpa2 '{"hidden": true}'
+want 9 && phone_joins "9. a WPA3-only network" Wpa3Only wpa3-password sae
+want 10 && phone_joins "10. a WPA2/WPA3 mixed network" Mixed mixed-password mixed
+
+if want 11; then
+step "11. a router that gives no address"
+router_down
+NO_DHCP=1 router_up HomeNet right-password
+pi_reset ''
+net_start
+check "setup network opens" wait_for 120 setup_visible
+phone_join
+submit HomeNet right-password >/dev/null
+sleep 15
+check "setup network comes back" wait_for 240 setup_visible
+phone_join
+check "setup page says it got no address" page_says no_address
 fi
 
 eth_default yes

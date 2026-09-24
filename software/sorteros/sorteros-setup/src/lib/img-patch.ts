@@ -20,6 +20,8 @@ const SEARCH_CHUNK_BYTES = 8 * 1024 * 1024;
 
 export interface SorterosConfig {
     hostname?: string;
+    // IANA time zone: the sorter's clock and its Wi-Fi country (which channels it may use).
+    timezone?: string;
     wifi?: { ssid: string; password: string };
     ssh_authorized_key?: string;
     tailscale_auth_key?: string;
@@ -215,6 +217,7 @@ function buildPaddedToml(
 function buildToml(cfg: SorterosConfig): string {
     const lines: string[] = ['# written by sorteros-setup'];
     if (cfg.hostname) lines.push(`hostname = ${JSON.stringify(cfg.hostname)}`);
+    if (cfg.timezone) lines.push(`timezone = ${JSON.stringify(cfg.timezone)}`);
     if (cfg.wifi) {
         lines.push('', '[wifi]');
         lines.push(`ssid = ${JSON.stringify(cfg.wifi.ssid)}`);

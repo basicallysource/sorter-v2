@@ -36,7 +36,6 @@ import logging
 import re
 import shutil
 import socket
-import subprocess
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -56,9 +55,9 @@ AP_CON_NAME = "sorteros-ap"
 CONFIG_TOML = Path("/etc/sorteros-config.toml")
 # Shared with sorteros-network, which started this portal. Joining a network
 # is a restart (the Orange Pi 5's Wi-Fi can't join after broadcasting until
-# it restarts): the page leaves the choice in JOIN_PENDING and restarts, and
-# sorteros-network saves and joins it at the next boot or reports why not in
-# JOIN_FAILED. It is the only thing that writes Wi-Fi profiles. It
+# it restarts): the page leaves the choice in JOIN_PENDING, sorteros-network
+# restarts the Pi, then saves and joins it at the next boot or reports why not
+# in JOIN_FAILED. It is the only thing that writes Wi-Fi profiles. It
 # scanned before broadcasting (NETWORKS), since the chip can't scan while it
 # broadcasts. ACTIVITY is touched on every API request so it never restarts to
 # retry saved networks while someone is using the page.
@@ -66,7 +65,6 @@ JOIN_PENDING = Path("/var/lib/sorteros/join-pending.json")
 JOIN_FAILED = Path("/var/lib/sorteros/join-failed.json")
 NETWORKS = Path("/run/sorteros/networks.json")
 PORTAL_ACTIVITY = Path("/run/sorteros/portal-activity")
-REBOOT_CMD = os.environ.get("SORTEROS_REBOOT_CMD", "systemctl reboot").split()
 # Split so the setup site, which scans the raw image for the marker lines,
 # never finds them in this file.
 CFG_END_MARKER = "# __SORTEROS_CFG" + "_END__"
@@ -75,7 +73,8 @@ CFG_END_MARKER = "# __SORTEROS_CFG" + "_END__"
 ANNOUNCE_STATE_FILE = Path("/var/lib/sorteros/ip-announce.json")
 PORTAL_HOST = "0.0.0.0"
 PORTAL_PORT = 80
-AP_TEARDOWN_DELAY_S = 5.0
+# About how long after a choice sorteros-network restarts the Pi, for the page's countdown.
+RESTART_IN_S = 7
 
 
 # Where the encrypted LAN-IP rendezvous lives. The browser carries the
@@ -183,14 +182,6 @@ def _security_of(ssid: str) -> str:
     return next((n.get("security") or "" for n in _scan_before_broadcast() if n.get("ssid") == ssid), "")
 
 
-async def _restart_soon() -> None:
-    """Let the HTTP response reach the phone, then restart. The next boot
-    joins the saved network (sorteros-network)."""
-    await asyncio.sleep(AP_TEARDOWN_DELAY_S)
-    log.info("restarting to join the network: %s", " ".join(REBOOT_CMD))
-    subprocess.run(REBOOT_CMD, timeout=30)
-
-
 # ─── config persistence ────────────────────────────────────────────────────
 
 def _read_config_toml() -> dict[str, Any]:
@@ -215,28 +206,33 @@ def _toml_str(value: str) -> str:
     return json.dumps(value)  # a JSON string is a valid TOML basic string
 
 
-def _write_config_toml(*, hostname: str | None, ssh_key: str | None) -> None:
-    """Merge the hostname and SSH key from the page into
-    /etc/sorteros-config.toml, keeping anything else the setup site put there
-    (its Wi-Fi, the Tailscale key). firstboot applies the file whenever it
-    changes. The network itself lives in NetworkManager."""
+def _write_config_toml(*, hostname: str | None, ssh_key: str | None, timezone: str | None) -> None:
+    """Merge what the page collected into /etc/sorteros-config.toml, keeping
+    everything else the setup site put there (its Wi-Fi, the Tailscale key).
+    firstboot applies the file whenever it changes; sorteros-network takes
+    the Wi-Fi country from its time zone. The network itself lives in
+    NetworkManager."""
     cfg = _read_config_toml()
     if hostname:
         cfg["hostname"] = hostname.strip()
+    if timezone:
+        cfg["timezone"] = timezone
     if ssh_key:
         cfg.setdefault("ssh", {})["authorized_key"] = ssh_key.strip()
     lines = ["# Written by sorteros-portal during Wi-Fi setup.\n"]
-    if isinstance(cfg.get("hostname"), str):
-        lines.append(f"hostname = {_toml_str(cfg['hostname'])}\n")
-    for table in ("wifi", "ssh", "tailscale"):
-        values = cfg.get(table)
+    lines += [f"{k} = {_toml_str(v)}\n" for k, v in cfg.items() if isinstance(v, str)]
+    for table, values in cfg.items():
         if isinstance(values, dict) and values:
             lines.append(f"\n[{table}]\n")
-            for key, value in values.items():
-                if isinstance(value, str):
-                    lines.append(f"{key} = {_toml_str(value)}\n")
+            lines += [f"{k} = {_toml_str(v)}\n" for k, v in values.items() if isinstance(v, str)]
     CONFIG_TOML.parent.mkdir(parents=True, exist_ok=True)
-    CONFIG_TOML.write_text("".join(lines))
+    tmp = CONFIG_TOML.with_name(CONFIG_TOML.name + ".tmp")
+    with open(tmp, "w") as f:
+        os.fchmod(f.fileno(), 0o600)
+        f.write("".join(lines))
+        f.flush()
+        os.fsync(f.fileno())
+    os.replace(tmp, CONFIG_TOML)
 
 
 # ─── app ──────────────────────────────────────────────────────────────────
@@ -301,12 +297,22 @@ class WifiConnectPayload(BaseModel):
     # Rendezvous: just the browser-generated id. The keypair lives on the Hive
     # lookup page (https); the Pi fetches the public key from Hive by this id.
     rendezvous_id: str | None = Field(default=None, alias="rendezvousId")
+    # The phone's IANA time zone: the sorter's clock and its Wi-Fi country.
+    timezone: str | None = None
 
     class Config:
         populate_by_name = True
 
 
 _RENDEZVOUS_ID_RE = re.compile(r"^[A-Za-z0-9_-]{16,64}$")
+
+
+def _validate_timezone(timezone: str | None) -> str | None:
+    """The phone's time zone iff it's one this machine knows, else None (the
+    Wi-Fi then follows the worldwide setting)."""
+    if not timezone or not re.fullmatch(r"[A-Za-z0-9_+-]+(/[A-Za-z0-9_+-]+)*", timezone):
+        return None
+    return timezone if (Path("/usr/share/zoneinfo") / timezone).is_file() else None
 
 
 def _validate_rendezvous(rendezvous_id: str | None) -> str | None:
@@ -395,7 +401,7 @@ def create_app(state: PortalState) -> FastAPI:
                 "page can't do. Use another network or plug in a cable.",
             )
         try:
-            _write_config_toml(hostname=hostname, ssh_key=ssh_key)
+            _write_config_toml(hostname=hostname, ssh_key=ssh_key, timezone=_validate_timezone(payload.timezone))
             _restart_to_join(ssid, password, payload.hidden, security)
         except OSError as e:
             attempt["result"] = "error"
@@ -406,12 +412,11 @@ def create_app(state: PortalState) -> FastAPI:
             _write_announce_state(state, rendezvous)
 
         attempt["result"] = "restarting"
-        asyncio.get_event_loop().create_task(_restart_soon())
         return {
             "ok": True,
             "next_url": _suggested_url(hostname),
             "hostname": hostname or _hostname(),
-            "teardown_in_s": AP_TEARDOWN_DELAY_S,
+            "teardown_in_s": RESTART_IN_S,
             "mocked": False,
         }
 

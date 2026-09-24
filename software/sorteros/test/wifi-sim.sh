@@ -3,11 +3,11 @@
 # image (./check.py wifi copies and runs this). mac80211_hwsim gives the VM
 # three simulated radios: the Pi's own Wi-Fi (NetworkManager's), a home router
 # (hostapd + dnsmasq) and a phone, the last two in their own network
-# namespaces so their traffic really crosses the simulated air. Ethernet stays
-# up for ssh but stops being a way online (never-default), so the Pi has to
-# get online over Wi-Fi. A restart (the setup page joining a network, or the
-# service retrying saved ones) restarts sorteros-network here instead of the
-# VM, and the retry comes after a minute instead of ten.
+# namespaces so their traffic really crosses the simulated air. The router
+# reaches the internet through the VM's own connection (a veth and NAT), so
+# "online" means here what it means in a house: the internet answers. The
+# VM's Ethernet stays up for ssh but stops being a way online (never-default)
+# unless a scenario plugs the cable in.
 set -u
 W=/tmp/wifisim
 mkdir -p "$W"
@@ -24,11 +24,11 @@ wait_for() { # seconds command...  (wall clock: a scan can take seconds)
     return 1
 }
 
-# ── radios ────────────────────────────────────────────────────────────────
+# ── radios and kernel modules ─────────────────────────────────────────────
 KVER=$(uname -r)
 POOL=https://ports.ubuntu.com/pool/main/l/linux
-if ! lsmod | grep -q mac80211_hwsim; then
-    step "loading mac80211_hwsim for $KVER"
+if [ ! -d "$W/root/lib/modules/$KVER" ]; then
+    step "fetching the modules the VM's kernel lacks, for $KVER"
     index=$(curl -fsSL "$POOL/")
     for pkg in linux-modules linux-modules-extra; do
         deb=$(grep -o "${pkg}-${KVER}_[^\"]*_arm64.deb" <<<"$index" | head -1)
@@ -37,13 +37,16 @@ if ! lsmod | grep -q mac80211_hwsim; then
         dpkg-deb -x "$W/$deb" "$W/root"
     done
     depmod -b "$W/root" "$KVER"
-    modprobe -d "$W/root" mac80211_hwsim radios=3 || { echo "FAIL could not load mac80211_hwsim"; exit 1; }
-    sleep 2
 fi
-# The generic kernel the VM boots has no netfilter modules on the image
-# either; the setup network's firewall needs them.
-for m in nf_tables nft_counter nft_compat nf_conntrack xt_conntrack xt_tcpudp; do  # iptables-nft counts every rule
-    lsmod | grep -q "^$m " || modprobe -d "$W/root" "$m"
+# Two channels: the simulated radio may broadcast on one while it joins on
+# another. (The AP6275P moves its setup network to the joined network's
+# channel instead; either way the phone keeps the page.)
+lsmod | grep -q mac80211_hwsim || { modprobe -d "$W/root" mac80211_hwsim radios=3 channels=2 && sleep 2; } ||
+    { echo "FAIL could not load mac80211_hwsim"; exit 1; }
+# The setup network's fence, its port 80 redirect, and the router's NAT.
+for m in nf_tables nft_counter nft_compat nf_conntrack xt_conntrack xt_tcpudp nf_nat nft_chain_nat \
+    xt_REDIRECT xt_MASQUERADE xt_nat veth; do
+    lsmod | grep -q "^$m " || modprobe -d "$W/root" "$m" 2>/dev/null || modprobe "$m" 2>/dev/null || true
 done
 phy_of() { cat "/sys/class/net/$1/phy80211/name"; }
 PI=wlan0
@@ -63,26 +66,48 @@ PIF=$(P ls /sys/class/net | grep '^wlan' | head -1)
 
 ETH=$(nmcli -t -f DEVICE,TYPE device | awk -F: '$2 == "ethernet" { print $1; exit }')
 ETHCON=$(nmcli -t -f NAME,DEVICE connection show --active | awk -F: -v d="$ETH" '$2 == d { print $1; exit }')
-eth_default() { # yes|no
+ETHGW=$(ip -4 route show default dev "$ETH" | awk '{ print $3; exit }')
+ETHGW=${ETHGW:-10.0.2.2}
+eth_default() { # yes|no: the cable is a way online, or only for ssh
     local never=yes; [ "$1" = yes ] && never=no
     nmcli connection modify "$ETHCON" ipv4.never-default "$never" ipv6.never-default "$never"
     nmcli device reapply "$ETH" >/dev/null
 }
+cable_internet() { # yes|no: the cable's own traffic (not the router's) reaches the internet
+    iptables -D OUTPUT -o "$ETH" -p tcp --dport 80 -j REJECT 2>/dev/null
+    [ "$1" = no ] && iptables -I OUTPUT -o "$ETH" -p tcp --dport 80 -j REJECT
+    nmcli networking connectivity check >/dev/null
+}
 
-mkdir -p /etc/systemd/system/sorteros-network.service.d
-cat >/etc/systemd/system/sorteros-network.service.d/wifi-sim.conf <<'EOF'
-[Service]
-Environment="SORTEROS_REBOOT_CMD=systemctl restart --no-block sorteros-network" SORTEROS_RETRY_S=60
-EOF
-systemctl daemon-reload
+# The router's uplink: a veth into the VM, NAT out of the VM's own
+# connection, routed by the router's traffic's source so it never loops back
+# through the Pi's Wi-Fi.
+if ! ip link show rtr0 >/dev/null 2>&1; then
+    ip link add rtr0 type veth peer name rtr1
+    nmcli device set rtr0 managed no 2>/dev/null
+    ip link set rtr1 netns router
+    ip addr add 10.99.0.1/24 dev rtr0
+    ip link set rtr0 up
+    R ip addr add 10.99.0.2/24 dev rtr1
+    R ip link set rtr1 up
+    R ip link set lo up
+    sysctl -qw net.ipv4.ip_forward=1
+    R sysctl -qw net.ipv4.ip_forward=1
+    ip rule add iif rtr0 lookup 100 pref 100
+    ip route add default via "$ETHGW" dev "$ETH" table 100
+    iptables -t nat -A POSTROUTING -s 10.99.0.0/24 -o "$ETH" -j MASQUERADE
+    R iptables -t nat -A POSTROUTING -s 192.168.77.0/24 -o rtr1 -j MASQUERADE
+fi
 
 # ── the home router ───────────────────────────────────────────────────────
-router_up() { # [ssid] [password] [wpa2|open|sae|mixed]; HIDDEN=1 hides it, NO_DHCP=1 gives no addresses
+router_up() { # [ssid] [password] [wpa2|open|sae|mixed]; HIDDEN=1 hides it, NO_DHCP=1 gives no addresses, NO_INTERNET=1 no uplink
     local ssid=${1:-HomeNet} pw=${2:-right-password} mode=${3:-wpa2} hex psk
     hex=$(python3 -c 'import sys; print(sys.argv[1].encode().hex())' "$ssid")
     psk=$(python3 -c 'import hashlib, sys; print(hashlib.pbkdf2_hmac("sha1", sys.argv[2].encode(), sys.argv[1].encode(), 4096, 32).hex())' "$ssid" "$pw")
     R ip link set "$RIF" up
     R ip addr replace 192.168.77.1/24 dev "$RIF"
+    R ip route del default 2>/dev/null
+    [ "${NO_INTERNET:-0}" = 1 ] || R ip route add default via 10.99.0.1
     case "$mode" in
         wpa2 | open)
             {
@@ -113,8 +138,9 @@ router_up() { # [ssid] [password] [wpa2|open|sae|mixed]; HIDDEN=1 hides it, NO_D
             R wpa_supplicant -B -i "$RIF" -D nl80211 -c "$W/ap-supplicant.conf" -P "$W/router.pid" -f "$W/ap-supplicant.log" ;;
     esac
     [ "${NO_DHCP:-0}" = 1 ] && return
-    R dnsmasq --interface="$RIF" --bind-interfaces --port=0 --dhcp-range=192.168.77.50,192.168.77.99,1h \
-        --dhcp-option=3,192.168.77.1 --pid-file="$W/dnsmasq.pid" --dhcp-leasefile="$W/leases"
+    R dnsmasq --interface="$RIF" --bind-interfaces --no-resolv --server=10.0.2.3 \
+        --dhcp-range=192.168.77.50,192.168.77.99,1h --dhcp-option=3,192.168.77.1 --dhcp-option=6,192.168.77.1 \
+        --pid-file="$W/dnsmasq.pid" --dhcp-leasefile="$W/leases"
 }
 router_down() {
     for f in "$W/router.pid" "$W/dnsmasq.pid"; do [ -f "$f" ] && kill "$(cat "$f")" 2>/dev/null; rm -f "$f"; done
@@ -126,14 +152,16 @@ router_down() {
 setup_ssid() { P ip link set "$PIF" up; P iw dev "$PIF" scan flush 2>/dev/null | awk -F': ' '/SSID: SorterOS-Setup-/ { print $2; exit }'; }
 setup_visible() { [ -n "$(setup_ssid)" ]; }
 setup_gone() { ! setup_visible; }
-phone_join() { # until the phone reaches the setup page (a scan can come back empty)
+page() { P curl -s -m 15 "$@"; }
+state() { page http://10.42.0.1/api/state; }
+phone_join() { # until the phone has the setup page (a scan can come back empty)
     local ssid start=$SECONDS
     while ((SECONDS - start < 90)); do
         ssid=$(setup_ssid)
         if [ -n "$ssid" ]; then
             P iw dev "$PIF" disconnect 2>/dev/null
             P iw dev "$PIF" connect "$ssid" && sleep 3 && P ip addr replace 10.42.0.77/24 dev "$PIF" &&
-                P curl -s -m 5 -o /dev/null http://10.42.0.1/api/status && return 0
+                state >/dev/null && return 0
         fi
         sleep 3
     done
@@ -141,36 +169,43 @@ phone_join() { # until the phone reaches the setup page (a scan can come back em
     return 1
 }
 phone_leave() { P iw dev "$PIF" disconnect 2>/dev/null; P ip addr flush dev "$PIF"; }
-page() { P curl -s -m 15 "$@"; }
-submit() { # ssid password [more JSON fields, e.g. '{"hidden": true}']
+phone_on_setup() { P iw dev "$PIF" link | grep -q "SSID: SorterOS-Setup-"; }
+join() { # ssid password [more JSON fields, e.g. '{"hidden": true}']
     local more=${3:-}
     [ -n "$more" ] || more='{}'
     page -X POST -H 'Content-Type: application/json' \
         -d "$(python3 -c 'import json, sys; print(json.dumps({"ssid": sys.argv[1], "password": sys.argv[2], **json.loads(sys.argv[3])}))' "$1" "$2" "$more")" \
-        http://10.42.0.1/api/wifi-connect
+        http://10.42.0.1/api/join
 }
+join_is() { # state [reason]: what the page shows for the last join
+    state | python3 -c 'import json, sys
+j = json.load(sys.stdin).get("join") or {}
+sys.exit(0 if j.get("state") == sys.argv[1] and (len(sys.argv) < 3 or j.get("reason") == sys.argv[2]) else 1)' "$@"
+}
+joined_with_internet() { # the page shows the Sorter's address, and the internet answers through it
+    state | python3 -c 'import json, sys
+j = json.load(sys.stdin).get("join") or {}
+sys.exit(0 if j.get("state") == "joined" and j.get("address", "").startswith("192.168.77.") and j.get("internet") else 1)'
+}
+done_() { page -X POST -H 'Content-Type: application/json' -d '{}' http://10.42.0.1/api/done >/dev/null; }
 reach() { P timeout 4 bash -c "</dev/tcp/10.42.0.1/$1" 2>/dev/null; }  # port, from the phone
 cant_reach() { ! reach "$1"; }
-page_says() { # reason: what the setup page's status reports for the last join
-    P curl -s -m 15 http://10.42.0.1/api/status | grep -q "\"reason\": *\"$1\""
-}
 
 # ── the Pi ────────────────────────────────────────────────────────────────
 pi_reset() { # config text
     systemctl stop sorteros-network
+    nmcli connection down sorteros-ap >/dev/null 2>&1
     eth_default no
+    cable_internet yes
     nmcli -t -f UUID,TYPE connection show | awk -F: '$2 == "802-11-wireless" { print $1 }' |
         while read -r u; do nmcli connection delete uuid "$u" >/dev/null; done  # names can end in a space
-    rm -rf /var/lib/sorteros/wifi-imported /var/lib/sorteros/join-pending.json /var/lib/sorteros/join-failed.json \
-        /var/lib/sorteros/saved-retry-count /var/lib/sorteros/ip-announce.json /run/sorteros
+    rm -f /var/lib/sorteros/wifi-imported /var/lib/sorteros/join.json /var/lib/sorteros/ip-announce.json
     printf '%b' "$1" >/etc/sorteros-config.toml
     phone_leave
-    wait_for 30 offline || echo "     (still online 30s after reset)"
 }
 net_start() { systemctl reset-failed sorteros-network 2>/dev/null; systemctl start sorteros-network; SINCE=$(date '+%F %T'); }
-on_wifi() { ip -4 route show default | grep -q " dev $PI "; }
-offline() { [ -z "$(ip -4 route show default)" ]; }
-net_finished() { ! systemctl is-active -q sorteros-network; }
+on_wifi() { nmcli -t -f GENERAL.IP4-CONNECTIVITY device show "$PI" | grep -q full; }
+online() { [ "$(nmcli networking connectivity check)" = full ]; }
 net_said() { journalctl -u sorteros-network --since "$SINCE" --no-pager | grep -q "$1"; }
 saved_psk() { # ssid → the password NetworkManager holds for it
     local u
@@ -180,7 +215,7 @@ saved_psk() { # ssid → the password NetworkManager holds for it
     done
 }
 psk_is() { [ "$(saved_psk "$1")" = "$2" ]; }
-never_broadcast() { ! net_said broadcasting; }
+never_broadcast() { ! net_said "Opened the setup network"; }
 
 WIFI_OK='[wifi]\nssid = "HomeNet"\npassword = "right-password"\n'
 want() { [ -z "${ONLY:-}" ] || [[ " $ONLY " == *" $1 "* ]]; } # ONLY="3 6" runs just those
@@ -191,9 +226,9 @@ router_down
 router_up
 pi_reset "$WIFI_OK"
 net_start
-check "joins the network from the setup site" wait_for 150 on_wifi
-echo "     joined after ${WAITED}s"
-check "network service finishes" wait_for 30 net_finished
+check "joins the network from the setup site, with internet" wait_for 120 on_wifi
+echo "     online after ${WAITED}s"
+sleep 60
 check "setup network never opened" never_broadcast
 fi
 
@@ -203,30 +238,31 @@ router_down
 router_up
 pi_reset '[wifi]\nssid = "HomeNet"\npassword = "wrong-password"\n\n[tailscale]\nauth_key = "tskey-sim"\n'
 net_start
-check "setup network opens after the wrong password" wait_for 200 setup_visible
+check "setup network opens" wait_for 120 setup_visible
 echo "     setup network after ${WAITED}s"
 phone_join
-check "setup page answers the phone" bash -c "ip netns exec phone curl -s -m 15 http://10.42.0.1/api/status | grep -q suggested_url"
-check "setup page says the setup site's password was wrong" page_says password
-submit HomeNet right-password '{"timezone": "Europe/Berlin"}' >/dev/null
-check "joins the network the phone gave it" wait_for 120 on_wifi
-check "network service finishes" wait_for 30 net_finished
-check "setup network closed" wait_for 30 setup_gone
+check "the page says the setup site's password was wrong" join_is failed password
+join HomeNet right-password '{"timezone": "Europe/Berlin"}' >/dev/null
+check "joins while the phone watches" wait_for 60 joined_with_internet
+check "the phone is still on the setup network" phone_on_setup
 check "NetworkManager has the new password, and only it" psk_is HomeNet right-password
 check "config kept the setup site's Tailscale key" grep -q 'tskey-sim' /etc/sorteros-config.toml
 check "config has the phone's time zone" grep -q 'Europe/Berlin' /etc/sorteros-config.toml
 check "the Wi-Fi country follows it" grep -qx 'ccode=DE' /lib/firmware/ap6275p/config.txt
+phone_leave
+check "setup network closes once the phone has left" wait_for 180 setup_gone
 fi
 
 if want 3; then
-step "3. no Wi-Fi given; the phone types a wrong password first"
+step "3. nothing given; the phone types a wrong password, then the right one"
 router_down
 router_up
 pi_reset ''
 net_start
-check "setup network opens with nothing configured" wait_for 120 setup_visible
+check "setup network opens with nothing configured" wait_for 90 setup_visible
+echo "     setup network after ${WAITED}s"
 phone_join
-check "the phone reaches the setup page" reach 80
+check "the phone reaches the setup page on port 80" reach 80
 check "but not SSH (the setup network is open)" cant_reach 22
 check "nor the Sorter backend" cant_reach 8000
 check "any name the phone looks up is the setup page (so it pops up)" \
@@ -235,14 +271,18 @@ check "Android's check is sent to the page" \
     bash -c "ip netns exec phone curl -s -o /dev/null -w '%{http_code}' http://connectivitycheck.gstatic.com/generate_204 | grep -q '^30'"
 check "Apple's check is sent to the page" \
     bash -c "ip netns exec phone curl -s -o /dev/null -w '%{http_code}' http://captive.apple.com/hotspot-detect.html | grep -q '^30'"
-submit HomeNet wrong-password >/dev/null
-sleep 15
-check "setup network comes back after the wrong password" wait_for 120 setup_visible
-phone_join
-check "setup page says the password was wrong" page_says password
-submit HomeNet right-password >/dev/null
-check "then joins with the right one" wait_for 120 on_wifi
-check "network service finishes" wait_for 30 net_finished
+check "the page has the networks it scanned" bash -c "ip netns exec phone curl -s -m 15 http://10.42.0.1/api/state | grep -q '\"ssid\": \"HomeNet\"'"
+join HomeNet wrong-password >/dev/null
+check "the page says the password was wrong" wait_for 60 join_is failed password
+echo "     answer after ${WAITED}s"
+check "the phone never lost the setup network" phone_on_setup
+join HomeNet right-password >/dev/null
+check "then joins with the right one, and the page shows the address" wait_for 60 joined_with_internet
+echo "     joined after ${WAITED}s"
+check "the phone is still on the setup network" phone_on_setup
+check "the Sorter UI's port 80 is untouched on its own network" bash -c "! iptables -t nat -S PREROUTING | grep -- '-i $PI '"
+done_
+check "Done closes the setup network in seconds" wait_for 30 setup_gone
 fi
 
 if want 4; then
@@ -250,11 +290,11 @@ step "4. router slower than the Pi after a power cut"
 router_down
 pi_reset "$WIFI_OK"
 net_start
-check "setup network opens while the router is down" wait_for 200 setup_visible
+check "setup network opens while the router is down" wait_for 150 setup_visible
 router_up
-check "rejoins when the router comes back (nobody on the setup network)" wait_for 360 on_wifi
+check "rejoins when the router comes back, by itself" wait_for 300 on_wifi
 echo "     rejoined ${WAITED}s after the router came back"
-check "network service finishes" wait_for 30 net_finished
+check "setup network closes (nobody on it)" wait_for 120 setup_gone
 fi
 
 if want 5; then
@@ -262,10 +302,10 @@ step "5. cable plugged in during setup"
 router_down
 pi_reset ''
 net_start
-check "setup network opens" wait_for 120 setup_visible
+check "setup network opens" wait_for 90 setup_visible
 eth_default yes
-check "network service finishes on the cable" wait_for 30 net_finished
-check "setup network closed" wait_for 30 setup_gone
+check "online by cable" wait_for 60 net_said "Online by cable"
+check "setup network closes" wait_for 120 setup_gone
 fi
 
 if want 6; then
@@ -276,25 +316,24 @@ ODD_PSK=' back\slash pass'
 router_up "$ODD_SSID" "$ODD_PSK"
 pi_reset ''
 net_start
-check "setup network opens" wait_for 120 setup_visible
+check "setup network opens" wait_for 90 setup_visible
 phone_join
-submit "$ODD_SSID" "$ODD_PSK" >/dev/null
-check "joins it" wait_for 120 on_wifi
+join "$ODD_SSID" "$ODD_PSK" >/dev/null
+check "joins it" wait_for 60 joined_with_internet
 check "NetworkManager holds the name and password exactly" psk_is "$ODD_SSID" "$ODD_PSK"
 fi
 
-phone_joins() { # scenario title, router args, submit args...: the phone gives it and the Pi joins
+phone_joins() { # scenario title, router args, join args...: the phone gives it and the Pi joins
     local ssid=$2 pw=$3 mode=$4 extra=${5:-}
     step "$1"
     router_down
     router_up "$ssid" "$pw" "$mode"
     pi_reset ''
     net_start
-    check "setup network opens" wait_for 120 setup_visible
+    check "setup network opens" wait_for 90 setup_visible
     phone_join
-    submit "$ssid" "$pw" "$extra" >/dev/null
-    check "joins it" wait_for 150 on_wifi
-    check "network service finishes" wait_for 60 net_finished
+    join "$ssid" "$pw" "$extra" >/dev/null
+    check "joins it, and the page shows the address" wait_for 90 joined_with_internet
 }
 want 7 && phone_joins "7. an open network" OpenCafe "" open
 want 8 && HIDDEN=1 phone_joins "8. a hidden network, typed on the phone" Hideaway hidden-password wpa2 '{"hidden": true}'
@@ -307,17 +346,49 @@ router_down
 NO_DHCP=1 router_up HomeNet right-password
 pi_reset ''
 net_start
-check "setup network opens" wait_for 120 setup_visible
+check "setup network opens" wait_for 90 setup_visible
 phone_join
-submit HomeNet right-password >/dev/null
-sleep 15
-check "setup network comes back" wait_for 240 setup_visible
+join HomeNet right-password >/dev/null
+check "the page says it got no address" wait_for 120 join_is failed no_address
+check "the phone never lost the setup network" phone_on_setup
+fi
+
+if want 12; then
+step "12. a network with no internet"
+router_down
+NO_INTERNET=1 router_up HomeNet right-password
+pi_reset ''
+net_start
+check "setup network opens" wait_for 90 setup_visible
 phone_join
-check "setup page says it got no address" page_says no_address
+join HomeNet right-password >/dev/null
+check "joins it" wait_for 60 join_is joined
+check "and the page says there's no internet through it" bash -c "ip netns exec phone curl -s -m 15 http://10.42.0.1/api/state | grep -q '\"internet\": false'"
+done_
+check "Done closes the setup network" wait_for 30 setup_gone
+sleep 90
+check "and it stays closed while the Pi is on that network" setup_gone
+fi
+
+if want 13; then
+step "13. a cable with no internet doesn't hide a Wi-Fi that works"
+router_down
+router_up
+pi_reset ''
+eth_default yes
+cable_internet no
+net_start
+check "setup network opens despite the cable" wait_for 120 setup_visible
+check "the Pi says the cable has no internet" net_said "Connected by cable at .*, but no internet"
+phone_join
+join HomeNet right-password >/dev/null
+check "joins Wi-Fi, and the page shows the internet answers through it" wait_for 60 joined_with_internet
+check "the Pi's own traffic goes over the Wi-Fi" wait_for 90 online
+check "the cable's route was moved below the Wi-Fi's" bash -c "ip -4 route show default | head -1 | grep -q ' dev $PI '"
+cable_internet yes
 fi
 
 eth_default yes
+cable_internet yes
 router_down
-rm -rf /etc/systemd/system/sorteros-network.service.d
-systemctl daemon-reload
 echo "DONE pass=$pass fail=$fail"

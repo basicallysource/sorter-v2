@@ -232,12 +232,8 @@ Go round anticlockwise from the exit until the next dovetail is under the channe
 
 <div class="img-row">
   <figure>
-    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-camera-lamp-dovetail-c3-w1600-85089c63ca95.jpg" alt="A standing C-channel from outside, the grey camera lamp arm mount running down the wall with its LED leads cable-tied to it, and its foot in one of the dovetails in the bottom edge of the wall">
-    <figcaption>C3, with the arm mount home in its dovetail. C2 is the same. <cite>Photo: Daddy-O's Bricks - Bill.</cite></figcaption>
-  </figure>
-  <figure>
     <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-camera-lamp-dovetail-classification-w1600-bb7f28e0d58c.jpg" alt="The classification channel with its lamp overhead, the arm coming down the outside of the wall to the dovetail, and the finned rotor visible in the channel below">
-    <figcaption>The classification channel, counted the same way as the other two. <cite>Photo: Daddy-O's Bricks - Bill.</cite></figcaption>
+    <figcaption>A lamp on its channel, the arm coming down the outside of the wall to its dovetail. <cite>Photo: Daddy-O's Bricks - Bill.</cite></figcaption>
   </figure>
   <figure>
     <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-camera-lamp-arm-mount-seated-w1600-ff6fd6c3355d.jpg" alt="Close view of the arm mount seated on a channel: the ribbed rail of the mount home in the dovetail and clipped over the wall's top edge, with the arm bracket and two countersunk screws beside it">

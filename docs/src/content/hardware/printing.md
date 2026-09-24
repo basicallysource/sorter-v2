@@ -8,9 +8,6 @@ kicker: Hardware — Printing
 lede: What printer the parts need, how to place them on the plate, when supports go on, and what to check before you start a print that runs overnight.
 permalink: /hardware/printing/
 author: brickcyclealice
-warning: >-
-  **AI-generated first draft.** Written from the published STLs and the parts catalog,
-  not from a printed set.
 tools_needed: [3D printer, Slicer]
 ---
 
@@ -24,9 +21,9 @@ there first, because that is what decides how many of each part you need.
 ## Filament
 
 **Print the parts in PETG or ASA rather than PLA if the machine will stand anywhere
-warm**, meaning a shed, a garage, or any room without air conditioning. PLA softens
-from around 55 C, and the printed gears the steppers drive through go first. The
-temperatures both materials hold are on the
+in warm or hot environments (in- and/or outdoors).** PLA softens from around 55 C,
+and the printed gears the steppers drive through go first. The temperatures both
+materials hold are on the
 [Hardware overview]({{ '/hardware/' | relative_url }}#intended-operating-conditions).
 
 ## The printer
@@ -115,8 +112,10 @@ A plate of these parts can run ten hours or more, so two things before you start
   <li><strong>Print one before you print twelve.</strong> This matters most for the <strong>External bracket (side)</strong>, which is a tight fit around the 2020 extrusion and is badged <strong>Tight fit</strong> on the calculator. Print one, fit it on a piece of extrusion, then commit to the set.</li>
 </ol>
 
-The calculator's figures are sliced with a 0.4 mm nozzle, 0.2 mm layers, 15% infill,
-in PLA.
+**Print settings**, at the top of the
+[parts calculator](https://parts-calculator.basically.website/), is the profile those
+figures are sliced with: printer and nozzle, layer height, infill, supports, skirt
+and filament.
 
 There are also **[ready made build plates](https://parts-calculator.basically.website/?tab=plates)**
 for some of the repeated parts, as 3MF projects you open and print. They print on

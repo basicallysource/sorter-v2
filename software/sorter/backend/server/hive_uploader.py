@@ -15,6 +15,7 @@ import requests
 
 from blob_manager import getHiveConfig
 from hive_telemetry import HiveTelemetryClient, TelemetryBlocked, telemetryAllows
+from machine_network import buildNetworkBlock
 from server.sample_payloads import build_sample_payload
 
 log = logging.getLogger(__name__)
@@ -502,8 +503,10 @@ class HiveUploader:
                     if target.get("enabled") and target.get("client") is not None
                 ]
 
-            # Build the specs snapshot at most once per cycle (identical across
-            # targets); the client drops it per-target if the field is off.
+            # Build the network block and the specs snapshot at most once per
+            # cycle (identical across targets); the client drops each per
+            # target if its field is off.
+            network = self._collect_network() if heartbeat_targets else None
             machine_specs = None
             if heartbeat_targets and time.time() >= self._specs_next_at:
                 machine_specs = self._collect_machine_specs()
@@ -512,7 +515,7 @@ class HiveUploader:
 
             for target_id, target_name, client in heartbeat_targets:
                 try:
-                    reachable = client.heartbeat(machine_specs=machine_specs)
+                    reachable = client.heartbeat(network=network, machine_specs=machine_specs)
                 except Exception:
                     reachable = False
 
@@ -530,6 +533,14 @@ class HiveUploader:
                     log.info("Hive server is back online: %s", target_name)
                 elif not reachable and not was_down:
                     log.warning("Hive server is unreachable: %s", target_name)
+
+    @staticmethod
+    def _collect_network() -> dict[str, Any] | None:
+        try:
+            return buildNetworkBlock()
+        except Exception as exc:
+            log.debug("Network block collection failed: %s", exc)
+            return None
 
     @staticmethod
     def _collect_machine_specs() -> dict[str, Any] | None:

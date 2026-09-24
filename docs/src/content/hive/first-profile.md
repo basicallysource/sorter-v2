@@ -179,7 +179,12 @@ The first decision is made when you activate the profile there. The machine asks
 
 After that, the machine's **Bins** page is where you change any of it. That page also shows you which bins are the big ones.
 
-**A big bin is also the only kind that takes a big piece.** Each layer of the machine is either half size or third size, and the funnel that feeds its bins sets the largest piece that layer can pass: 8 studs across on a half-size layer, 6 on a third-size one. Give any box holding pieces bigger than that a bin on a half-size layer. The Bins page marks which those are.
+**A big bin is also the only kind that takes a big piece.** Every layer of the machine is either half size or third size, and the [funnel]({{ '/hardware/assembly/distribution/chute/funnel/' | relative_url }}) under it sets the largest piece that layer can pass:
+
+- A **half-size layer**, the one with 12 bins, takes a piece up to **8 studs** across (64 mm).
+- A **third-size layer**, 18 bins, takes **6 studs** (48 mm).
+
+That is tighter than the ten studs the machine accepts at the feed side, so a piece can go into the tub, be classified correctly, and still wedge on its way into the bin. Give any box holding pieces bigger than that a bin on a half-size layer; the Bins page marks which those are. If every layer on your machine is third size, six studs is the working limit for what you put in the tub.
 
 You have two ways to do it.
 

@@ -72,6 +72,19 @@ The clasp's two halves form a spigot that plugs into a socket in the ring. **The
 
 **Expect it to sit loose.** The lamp's cover is what traps the clasp and holds the camera in, and that happens in the next step, once the arm is up inside the lamp. Until then the camera can lift straight back out, so do not pick the arm up by it.
 
+**The lead plugs in from above on this one.** The IMX415's cable stands up out of the board rather than leaving flat through the cover's slot the way the OV9732's does, so leave room above the lamp for it and for the bend in the cable.
+
+<div class="img-row">
+  <figure>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-camera-lamp-imx415-seated-c4-w1600-94d553e88c9b.jpg" alt="Looking down on the classification lamp: the larger 4K camera board filling the square opening in the cover, with its black cable plugged into the middle of the board and standing straight up, and the lamp arm running off to the right">
+    <figcaption>The 4K module seated on C4, lead plugged in from above. <cite>Photo: Daddy-O's Bricks - Bill.</cite></figcaption>
+  </figure>
+  <figure>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-camera-lamp-imx415-lead-routing-w1600-ff6852248c3f.jpg" alt="The same lamp, marked 4, from a lower angle: the camera cable standing up out of the board, the red and black lamp leads looped over the cover and cable-tied clear of it, and the rectangular slot in the cover below">
+    <figcaption>The same lamp, with the LED leads tied clear of the camera cable. <cite>Photo: Daddy-O's Bricks - Bill.</cite></figcaption>
+  </figure>
+</div>
+
 {% include step.html n="3" title="Push the arm up into the lamp" %}
 
 The [lamp arm]({{ '/hardware/assembly/feeder/camera-lamp/lamp-arm/' | relative_url }}) page leaves you a finished lamp: reflector, LED strip and cover. **It keeps its cover on for this.**

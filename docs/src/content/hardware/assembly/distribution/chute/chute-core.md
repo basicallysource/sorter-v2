@@ -78,3 +78,5 @@ The chute is complete when all four are on. Repeat for every layer.
   <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-chute-core-built-w1600-6d9c4c0c0ac6.jpg" alt="A built chute core standing on the bench: the printed core with the door module and its bearing covers on one side, the MG995 servo in its bracket above, and the funnel brackets projecting from the left">
   <figcaption>A core with the door module, its servo bracket, the funnel brackets and the layer connectors on, the connectors being the small blocks along the top. The layer adapter board is the only one of the four not in this shot. <cite>Photo: BrickCycleAlice.</cite></figcaption>
 </figure>
+
+The [Chute]({{ '/hardware/assembly/distribution/chute/' | relative_url }}) page contains the instructions for the whole chute, and is where you should return once you're done here.

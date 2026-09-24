@@ -9,16 +9,19 @@ lede: The bin tower, the interface that connects it to the feeder, and the chute
 permalink: /hardware/assembly/distribution/
 og_image: https://assets.basically.website/sorter-docs/install-bins-cardboard-bins-tower-full-97d68e720775.jpg
 author: spencer
+last_verified: 2026-09-24
 ---
 
 Distribution and the interface layer are assembled as one unit. It comes first in the [overall build order]({{ '/hardware/assembly/' | relative_url }}) and does not depend on the feeder: the feeder is built and added afterward, once the bin tower, interface, and chutes are already standing.
 
 Parts arrive from the feeder already identified; the interface's rotating chute aims each one down the hex-framed bin tower into the correct layer, and it is only fixed in place once the bin frame beneath it is built, which is why bin frame is built first even though the interface is where sorting decisions become physical.
 
-1. **[Bin frame]({{ '/hardware/assembly/distribution/bin-frame/' | relative_url }})**. The layers of bins, each built flat and on its own.
-2. **[Top interface]({{ '/hardware/assembly/distribution/top-interface/' | relative_url }})**. The interface between the feeder and the bin tower: brackets, the rotating-chute mount, gearing, and cable routing.
-3. **[Stacking the layers]({{ '/hardware/assembly/distribution/stacking-the-layers/' | relative_url }})**. Joining the layers and the top interface into a standing frame. No chutes yet.
-4. **[Chute]({{ '/hardware/assembly/distribution/chute/' | relative_url }})**. The rotating chute that aims parts at the correct bin, including the per-layer door module. One section per layer, built on the bench and fitted into the standing frame afterwards, followed by the bottom interface.
+<ol class="numbered-steps">
+  <li><strong><a href="{{ '/hardware/assembly/distribution/bin-frame/' | relative_url }}">Bin frame</a></strong>. The layers of bins, each built flat and on its own.</li>
+  <li><strong><a href="{{ '/hardware/assembly/distribution/top-interface/' | relative_url }}">Top interface</a></strong>. The interface between the feeder and the bin tower: brackets, the rotating-chute mount, gearing, and cable routing.</li>
+  <li><strong><a href="{{ '/hardware/assembly/distribution/stacking-the-layers/' | relative_url }}">Stacking the layers</a></strong>. Joining the layers and the top interface into a standing frame. No chutes yet.</li>
+  <li><strong><a href="{{ '/hardware/assembly/distribution/chute/' | relative_url }}">Chute</a></strong>. The rotating chute that aims parts at the correct bin, including the per-layer door module. One section per layer, built on the bench and fitted into the standing frame afterwards, followed by the bottom interface.</li>
+</ol>
 
 ## The finished result
 

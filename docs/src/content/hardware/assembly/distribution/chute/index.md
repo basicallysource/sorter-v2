@@ -23,15 +23,17 @@ The chute is one per layer. Build the core first, since everything else bolts in
 
 The whole chute stack rotates as one unit, on the [top interface]({{ '/hardware/assembly/distribution/top-interface/' | relative_url }})'s Lazy Susan, driven by the stepper motor and gear train described there. The bins themselves don't move; each chute's door opens for a moment once it's rotated into position over the correct bin, dropping the part in. See [Door module]({{ '/hardware/assembly/distribution/chute/door-module/' | relative_url }}) and [Layer adapter board]({{ '/hardware/assembly/distribution/chute/pcb/' | relative_url }}) for how that opening is driven and timed.
 
-1. **[Chute core]({{ '/hardware/assembly/distribution/chute/chute-core/' | relative_url }})**. The printed body everything else mounts to, and the 18 heat inserts that hold it all together.
-2. **[Door module]({{ '/hardware/assembly/distribution/chute/door-module/' | relative_url }})**. The door itself, the bearing assembly it swings on, the servo adapter, and the MG995 servo that drives it. Built as a unit, then bolted on.
-3. **[Layer adapter board]({{ '/hardware/assembly/distribution/chute/pcb/' | relative_url }})**. The board that drives the servo.
-4. **[Funnel brackets]({{ '/hardware/assembly/distribution/chute/funnel/' | relative_url }})**. The two brackets that hang off the core, and the funnel that snaps into them. You choose one of two funnel sizes for each layer, which sets that layer's funnel and its bin set together, so make the choice before printing either.
-5. **[Layer connectors]({{ '/hardware/assembly/distribution/chute/layer-connectors/' | relative_url }})**. The pair that joins this layer's chute to the one below.
+<ol class="numbered-steps">
+  <li><strong><a href="{{ '/hardware/assembly/distribution/chute/chute-core/' | relative_url }}">Chute core</a></strong>. The printed body everything else mounts to, and the 18 heat inserts that hold it all together.</li>
+  <li><strong><a href="{{ '/hardware/assembly/distribution/chute/door-module/' | relative_url }}">Door module</a></strong>. The door itself, the bearing assembly it swings on, the servo adapter, and the MG995 servo that drives it. Built as a unit, then bolted on.</li>
+  <li><strong><a href="{{ '/hardware/assembly/distribution/chute/pcb/' | relative_url }}">Layer adapter board</a></strong>. The board that drives the servo.</li>
+  <li><strong><a href="{{ '/hardware/assembly/distribution/chute/funnel/' | relative_url }}">Funnel brackets</a></strong>. The two brackets that hang off the core, and the funnel that snaps into them. You choose one of two funnel sizes for each layer, which sets that layer's funnel and its bin set together, so make the choice before printing either.</li>
+  <li><strong><a href="{{ '/hardware/assembly/distribution/chute/layer-connectors/' | relative_url }}">Layer connectors</a></strong>. The pair that joins this layer's chute to the one below.</li>
+</ol>
 
 ## Installing the chutes in the machine
 
-**Do not add the chutes while you build the layers.** Build the whole frame first, then add the chutes afterward, one at a time. alex was clear about this: "first build all the frame then add the chutes one by one without funnel."
+**Do not add the chutes while you build the layers.** Build the whole frame first, then add the chutes afterward, one at a time, without their funnels.
 
 <div class="clear-float"></div>
 
@@ -47,7 +49,7 @@ Plug each chute's ribbon cable in before you slot it into the frame if the harne
 
 {% include step.html n="3" title="Leave the funnels off while you do it" %}
 
-Add each chute **without its funnel**: alex fitted his that way, "add the chutes one by one without funnel".
+Add each chute **without its funnel**. The funnels go on last, once every chute is in.
 
 {% include step.html n="4" title="Fit the funnels last" %}
 
@@ -55,10 +57,8 @@ Once every chute is in the machine, hang each layer's funnel on the brackets alr
 
 {% include step.html n="5" title="Bottom Lazy Susan, then the feeder" %}
 
-The [bottom interface]({{ '/hardware/assembly/distribution/bin-frame/bottom-interface/' | relative_url }}) and its Lazy Susan go on after the chutes, not while the frame is being stacked: the bearing carries the bottom of the chute stack, so the chutes have to be in first. The [feeder]({{ '/hardware/assembly/feeder/' | relative_url }}) goes on last. Both BrickCycleAlice and alex built their machines in this order.
+The [bottom interface]({{ '/hardware/assembly/distribution/bin-frame/bottom-interface/' | relative_url }}) and its Lazy Susan go on after the chutes, not while the frame is being stacked: the bearing carries the bottom of the chute stack, so the chutes have to be in first. The [feeder]({{ '/hardware/assembly/feeder/' | relative_url }}) goes on last.
 
 ## The finished result
 
 <div class="img-placeholder">Photo of a standing frame with the top interface on and a chute in every layer, no bins in it, so the chute stack is visible.</div>
-
-If you built yours in a different order, let us know. This is how one person built their machine, not an official method everyone has to follow.

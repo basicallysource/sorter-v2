@@ -26,6 +26,7 @@ parts_needed:
   - part: scr-m5-16-shcs
     qty: 12
 tools_needed: ["Hex key, 3 mm for a button head or 4 mm for a socket head", "Mallet or hammer with a cloth to protect the brackets"]
+last_verified: 2026-09-24
 ---
 
 This guide builds one hexagonal frame: the outer ring of A extrusion and External bracket — side, with the six B spokes and Frame crossbeams held inside it by the Frame 90° brackets. No fasteners are used from step 2 onward — the spokes, crossbeams and brackets are a friction-and-slide fit, no screws or T-nuts.

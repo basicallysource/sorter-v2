@@ -14,7 +14,9 @@ last_verified: 2026-09-07
 tools_needed: ["Hex key, 2 mm"]
 parts_needed:
   - part: funnel-half
+    qty: 1
   - part: funnel-third
+    qty: 1
   - part: funnel-bracket-left
     qty: 1
   - part: funnel-bracket-right
@@ -64,7 +66,7 @@ Each bracket takes 2 {% include fastener.html size="M3" variant="countersunk" le
 - Half again as many destinations, which is what you want for the small parts that make up most of a pile.
 - Narrower mouth. The opening is what limits piece size on a layer, so anything too big for it has to be routed to a half-size layer instead.
 
-Neither is cheaper to build: a layer's bins come to roughly 2.1 kg of filament and 55 to 60 hours of printing either way, and total capacity per layer works out much the same, since the extra walls of the three-way split take room out of each bin rather than out of the layer.
+Neither is cheaper to build, and neither holds more: a layer's bins cost about the same in filament and print time either way, and the extra walls of the three-way split take room out of each bin rather than out of the layer.
 
 **If you have no reason to prefer one:** the [parts calculator](https://parts-calculator.basically.website/) starts a fresh machine at two third-size layers and one half-size, which is a sensible default. Most LEGO is small, so most of your destinations should be, but you want at least one layer that can take the big pieces. Nothing in the machine or the software ties a size to a particular height, so which level carries the half-size layer is yours to choose too.
 

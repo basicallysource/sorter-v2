@@ -1,7 +1,7 @@
 # sorteros-setup
 
 Browser-side .img customizer for SorterOS. SvelteKit + Tailwind, deployed
-to Vercel at **<https://setup.basically.website>**. Optional: a machine with
+to Cloudflare Pages at **<https://setup.basically.website>**. Optional: a machine with
 no settings uses Ethernet, or opens its setup network (`../portal/`).
 
 ## What it does
@@ -51,65 +51,19 @@ package later — not worth it yet, two sites).
 
 - **SvelteKit** (current major; pin to whatever the sorter frontend uses).
 - **Tailwind v4** with `@theme` token approach.
-- **`@sveltejs/adapter-vercel`** for deployment.
-- No backend code. The whole site is static (SPA), so Vercel just serves
-  the prerendered output.
-
-## Bootstrap (one-time)
-
-This directory is a placeholder. To turn it into a real SvelteKit project:
-
-```bash
-cd software/sorteros/v3/sorteros-setup
-pnpm create svelte@latest .            # skeleton, TypeScript, no extras
-pnpm install
-pnpm add -D tailwindcss@next @tailwindcss/vite @sveltejs/adapter-vercel
-```
-
-Then:
-1. Replace the default `+page.svelte` with the form scaffold below.
-2. Copy `software/sorter/frontend/src/routes/layout.css` (the
-   `@theme` block) into `src/app.css`.
-3. Set `adapter: adapter()` in `svelte.config.js` to `adapter-vercel`.
-4. Implement the byte-pattern patcher (see `src/lib/img-patch.ts`).
+- **`@sveltejs/adapter-static`**: no backend code, the whole site is
+  prerendered to `build/`.
 
 ## Deployment
 
+Cloudflare Pages project `sorteros-setup`, the same way `parts-calculator`
+and `docs` ship: Cloudflare's GitHub integration builds
+`software/sorteros/sorteros-setup` (`pnpm build`, output `build`) only when a
+push touches this directory. A push to `main` is production at
+setup.basically.website; any other branch gets a preview URL. There is
+nothing to run by hand.
+
 ```bash
-vercel link               # one-time, point at the "sorteros-setup" Vercel project
-vercel --prod             # ship to setup.basically.website
+pnpm install
+pnpm dev
 ```
-
-Spencer has the Vercel project and domain set up. CI hookup is TBD; for
-now, deploy by hand.
-
-The Vercel project's Root Directory is `software/sorteros/sorteros-setup`,
-but its Git integration fires on *every* push to the monorepo. So
-`vercel.json` carries an `ignoreCommand` that exits 0 (= skip the build)
-when the pushed commit touched nothing under this directory. The pathspec
-is anchored with `:/` so it resolves from the repo root no matter which
-directory the ignore step runs in.
-
-Two things the ignore step does *not* fix:
-
-- Vercel still creates a deployment record per push and marks it
-  `Canceled`; only the build is skipped. Those records count against the
-  Hobby plan's 100-deployments-per-day limit.
-- On a branch that predates this directory, Vercel fails on `The
-  specified Root Directory ... does not exist` before it ever runs the
-  ignore step, and posts a red **Error** into the PR. Rebasing the branch
-  onto `main` is the only cure.
-
-## Files in this scaffold
-
-- `README.md` — this file.
-- `package.json` — declares the deps to install via `pnpm install`.
-- `svelte.config.js` — Vercel adapter wired up.
-- `src/routes/+page.svelte` — the customizer UI.
-- `src/lib/img-patch.ts` — the byte-pattern search/replace.
-- `src/app.css` — Tailwind directives + theme tokens (placeholder).
-
-Run `pnpm create svelte@latest .` *over the top* of this directory to
-fill in the missing pieces (`vite.config.ts`, `tsconfig.json`,
-`.gitignore`, etc.); the create script preserves files that already
-exist.

@@ -15,7 +15,7 @@
     "test:real-image": "node --experimental-strip-types ./scripts/test_real_image.ts"
   },
   "devDependencies": {
-    "@sveltejs/adapter-vercel": "^5.10.2",
+    "@sveltejs/adapter-static": "^3.0.10",
     "@sveltejs/kit": "^2.49.1",
     "@sveltejs/vite-plugin-svelte": "^6.2.1",
     "@tailwindcss/vite": "^4.1.17",

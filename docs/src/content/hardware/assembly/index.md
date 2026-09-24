@@ -14,7 +14,7 @@ author: spencer
   <a href="https://assets.basically.website/web/section-full-e1f0ccc4b3e9.png" target="_blank" rel="noopener">
     <img src="https://assets.basically.website/web/section-full-e1f0ccc4b3e9.png" alt="Cutaway render of the whole machine sliced down its centre line: the hopper and the feeder's channels on top, the chute running down the middle of the tower, and the cardboard bins fanned out on both sides of the frame down to the casters">
   </a>
-  <figcaption>The finished machine cut down the middle, so the sections below have something to build towards. Feeder on top, chute down the centre, bins on the frame. Click to enlarge. <cite>Rendered from the machine's CAD rather than from a build. Renderer not recorded.</cite></figcaption>
+  <figcaption>Click to enlarge. <cite>Rendered from the machine's CAD rather than from a build. Renderer not recorded.</cite></figcaption>
 </figure>
 
 Before starting, source everything on the [Bill of materials](https://parts-calculator.basically.website/hardware) and print the required parts — see [Parts]({{ '/hardware/parts/' | relative_url }}) for individual part references. Then follow the sections below top to bottom.

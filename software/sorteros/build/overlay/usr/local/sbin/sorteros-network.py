@@ -37,6 +37,12 @@ slower to boot than the Pi after a power cut) is picked up by restarting, when
 nobody is using the setup network: after RETRY_FIRST_S, doubling each time up
 to RETRY_MAX_S. A cable plugged in ends it at once.
 
+Once online it makes sure the clock is right before anything uses HTTPS:
+with no battery clock a Pi back from days unplugged runs days behind until
+NTP answers, and some networks block NTP, which fails every certificate
+check. NTP gets CLOCK_WAIT_S, then the time comes from a web server's Date
+header over plain HTTP.
+
 Once online, if the setup page left a rendezvous, the Pi's address (and the
 network it joined) goes to Hive encrypted to the key that the phone's Hive
 page made, so only that page can read it.
@@ -50,7 +56,9 @@ the middle of sorting. Everything that touches the system goes through
 from __future__ import annotations
 
 import base64
+import email.utils
 import hashlib
+import http.client
 import json
 import logging
 import os
@@ -116,6 +124,8 @@ ANNOUNCE_EVERY_S = 10
 HTTP_HEADERS = {"User-Agent": "SorterOS"}
 TICK_S = 2
 RESTART_DELAY_S = 5  # after the setup page's choice lands, so its answer reaches the phone
+CLOCK_WAIT_S = 20
+CLOCK_HOST = "hive.basically.website"  # any server whose plain-HTTP answer carries a Date header
 REBOOT_CMD = os.environ.get("SORTEROS_REBOOT_CMD", "systemctl reboot").split()
 
 _CONTROL = re.compile(r"\x1b\[[0-9;?]*[ -/]*[@-~]|[\x00-\x08\x0b-\x1f]")
@@ -290,6 +300,28 @@ class System:
 
     def sleep(self, seconds: float) -> None:
         time.sleep(seconds)
+
+    def wall_now(self) -> float:
+        return time.time()
+
+    def clock_synced(self) -> bool:
+        return self._run("timedatectl", "show", "-p", "NTPSynchronized", "--value").stdout.strip() == "yes"
+
+    def http_date(self) -> float | None:
+        """The time a web server says it is, over plain HTTP (a redirect to
+        HTTPS still carries it; HTTPS itself needs the clock to be right)."""
+        conn = http.client.HTTPConnection(CLOCK_HOST, 80, timeout=8)
+        try:
+            conn.request("HEAD", "/", headers=HTTP_HEADERS)
+            date = conn.getresponse().getheader("Date")
+            return email.utils.parsedate_to_datetime(date).timestamp() if date else None
+        except (OSError, ValueError, TypeError, http.client.HTTPException):
+            return None
+        finally:
+            conn.close()
+
+    def set_clock(self, t: float) -> None:
+        self._run("date", "-u", "-s", f"@{int(t)}")
 
     # network
     def wifi_iface(self) -> str | None:
@@ -610,9 +642,23 @@ def announce_address(sys_: System) -> None:
     sys_.clear_announce()
 
 
+def settle_clock(sys_: System) -> None:
+    deadline = sys_.now() + CLOCK_WAIT_S
+    while not sys_.clock_synced():
+        if sys_.now() >= deadline:
+            t = sys_.http_date()
+            if t is not None and abs(t - sys_.wall_now()) > 60:
+                log.info("no NTP after %d s: clock set from %s's Date header (it was %d s off)",
+                         CLOCK_WAIT_S, CLOCK_HOST, round(t - sys_.wall_now()))
+                sys_.set_clock(t)
+            return
+        sys_.sleep(TICK_S)
+
+
 def online_now(sys_: System) -> int:
     sys_.set_retry_count(0)
     sys_.clear_failure()  # a failed join from before is history once online
+    settle_clock(sys_)
     announce_address(sys_)
     return 0
 

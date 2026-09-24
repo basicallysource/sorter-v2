@@ -457,7 +457,10 @@ class System:
         self._run("iptables", "-A", SETUP_CHAIN, "-p", "icmp", "-j", "ACCEPT")
         self._run("iptables", "-A", SETUP_CHAIN, "-m", "conntrack", "--ctstate", "ESTABLISHED,RELATED", "-j", "ACCEPT")
         self._run("iptables", "-A", SETUP_CHAIN, "-j", "DROP")
-        self._run("iptables", "-I", "INPUT", "-i", iface, "-j", SETUP_CHAIN)
+        r = self._run("iptables", "-I", "INPUT", "-i", iface, "-j", SETUP_CHAIN)
+        if r.returncode != 0:
+            log.warning("the setup network is NOT fenced off from the rest of the machine: %s",
+                        (r.stderr or r.stdout).strip())
         self._run("ip6tables", "-N", SETUP_CHAIN)  # link-local IPv6 would get around all of the above
         self._run("ip6tables", "-A", SETUP_CHAIN, "-j", "DROP")
         self._run("ip6tables", "-I", "INPUT", "-i", iface, "-j", SETUP_CHAIN)

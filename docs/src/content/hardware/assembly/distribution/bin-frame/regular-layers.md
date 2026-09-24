@@ -21,7 +21,7 @@ tools_needed: ["Hex key, 3 mm for a button head or 4 mm for a socket head"]
 last_verified: 2026-09-24
 ---
 
-Each layer holds one chute-and-bin pair (built separately) that catches pieces routed to it; a regular layer's job is simply to repeat the same hexagonal ring, vertical supports, and flange joint as the layer below it, so the stack can go as tall as the machine needs.
+Each layer holds one chute-and-bin pair, built separately, that catches the pieces routed to it. A regular layer is the same hexagonal ring, vertical supports and flange joint as the layer below it.
 
 This guide covers creating a regular layer, and every bin layer but the lowest one is a regular layer, so build **N−1 of these for an N-layer machine**. The [bottom layer]({{ '/hardware/assembly/distribution/bin-frame/bottom-layer/' | relative_url }}) is the remaining one: it is this layer with foot extensions in place of piece C and the casters under them, and it has its own page.
 

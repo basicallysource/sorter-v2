@@ -29,7 +29,7 @@ tools_needed: ["Hex key, 3 mm for a button head or 4 mm for a socket head", "Mal
 last_verified: 2026-09-24
 ---
 
-This guide builds one hexagonal frame: the outer ring of A extrusion and External bracket — side, with the six B spokes and Frame crossbeams held inside it by the Frame 90° brackets. No fasteners are used from step 2 onward — the spokes, crossbeams and brackets are a friction-and-slide fit, no screws or T-nuts.
+This guide builds one hexagonal frame: the outer ring of A extrusion and External bracket — side, with the six B spokes and Frame crossbeams held inside it by the Frame 90° brackets. No fasteners are used from step 2 onward.
 
 An N-layer machine needs **N + 1 of these**: one per planned layer, plus one for the [top interface]({{ '/hardware/assembly/distribution/top-interface/' | relative_url }}). The [bottom interface]({{ '/hardware/assembly/distribution/bin-frame/bottom-interface/' | relative_url }}) does not get a frame of its own — it hangs underneath the bottom layer's frame, off the same six spokes.
 
@@ -66,7 +66,7 @@ The bracket carries other holes that neither method uses, including one on its i
 
 If you are using slide-in T-nuts rather than the roll-in ones this machine specifies, insert 4 into the outermost section of the extrusion before connecting the next External bracket — side, as this is the last time the ends of the extrusion are accessible. Those 4 are for the [bin retainers]({{ '/hardware/assembly/distribution/bin-frame/bin-retainers/' | relative_url }}), and [Fitting T-nuts]({{ '/hardware/helpers/t-nuts/' | relative_url }}) lists every other place the same applies. With roll-in T-nuts there is nothing to do here.
 
-Repeat these steps to make two semi-circles: each is three sections of A extrusion (320mm) joined by three External bracket — side pieces. Slot the two half-hexagons together into a full hexagon and secure the join with 2 more {% include fastener.html size="M5" variant="socket-button" length="16" %} screws. Joining in this manner, rather than working your way around the hexagon, prevents having to force the brackets into awkward angles.
+Repeat these steps to make two semi-circles: each is three sections of A extrusion (320mm) joined by three External bracket — side pieces. Slot the two half-hexagons together into a full hexagon and secure the join with 2 more {% include fastener.html size="M5" variant="socket-button" length="16" %} screws. Build it this way rather than working your way around the hexagon.
 
 <figure class="single-figure">
   <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-regular-layers-two-half-hexagons-full-5e7c0f80f57f.png" alt="Two three-section half-hexagons laid out before being joined into a full hexagon">

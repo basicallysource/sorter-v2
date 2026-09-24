@@ -9,9 +9,8 @@ lede: What printer the parts need, how to place them on the plate, when supports
 permalink: /hardware/printing/
 author: brickcyclealice
 warning: >-
-  **First draft.** The printer table and the lists of parts that do not fit are measured
-  from the published STLs. The printing advice around them is general practice, not a
-  profile anybody has validated against a full set. Correct it as you print.
+  **AI-generated first draft.** Written from the published STLs and the parts catalog,
+  not from a printed set.
 tools_needed: [3D printer, Slicer]
 ---
 
@@ -22,6 +21,13 @@ Every printed part, its STL, its filament weight and its print time are on the
 [parts calculator](https://parts-calculator.basically.website/). Set your layer count
 there first, because that is what decides how many of each part you need.
 
+## Filament
+
+**Print the parts in PETG or ASA rather than PLA if the machine will stand anywhere
+warm.** PLA softens from around 55 C, and the printed gears the steppers drive through
+go first. The temperatures both materials hold are on the
+[Hardware overview]({{ '/hardware/' | relative_url }}#intended-operating-conditions).
+
 ## The printer
 
 **The parts are designed to a 256 x 256 mm bed.** Nothing in the catalog is larger
@@ -31,12 +37,12 @@ you cannot print at all.
 The machine needs **107 different printed designs**, not counting the bins, which are
 optional and which you can also cut from cardboard.
 
-| Printer | Bed (mm) | Parts that fit | Will not fit |
-|---|---|---|---|
-| Bambu Lab A1, P1S, X1C | 256 x 256 x 256 | 107 | 0 |
-| Prusa MK4S | 250 x 210 x 220 | 97 | 10 |
-| Creality Ender-3 V3 | 220 x 220 x 250 | 97 | 10 |
-| Bambu Lab A1 mini | 180 x 180 x 180 | 88 | 19 |
+| Printer | Bed (mm) | Designs that fit |
+|---|---|---|
+| Bambu Lab A1, P1S, X1C | 256 x 256 x 256 | all 107 |
+| Prusa MK4S | 250 x 210 x 220 | 97 |
+| Creality Ender-3 V3 | 220 x 220 x 250 | 97 |
+| Bambu Lab A1 mini | 180 x 180 x 180 | 88 |
 
 What each bed cannot do:
 
@@ -106,56 +112,19 @@ reslice.
 
 ## Check before you press print
 
-A plate of these parts can run ten hours or more, so spend two minutes on it first.
+A plate of these parts can run ten hours or more, so two things before you start it.
 
 <ol class="numbered-steps">
-  <li><strong>The right printer and plate are selected</strong>, and the plate in the slicer is the one actually in the machine. Textured PEI is what the pre-arranged plates use.</li>
-  <li><strong>The whole part is inside the bed, brim included.</strong> A part that sticks out is greyed out or flagged by the slicer, but a brim that hangs over the edge often is not.</li>
-  <li><strong>Slice, then scrub through the preview.</strong> Look at the first layer for gaps, and run up through the part looking for anything printing on nothing.</li>
-  <li><strong>Check the time and the filament.</strong> If your figure is wildly different from the calculator's, something in the profile is not what you think it is.</li>
+  <li><strong>Check the slicer's time and filament against the calculator.</strong> If your figure is wildly different, something in the profile is not what you think it is.</li>
   <li><strong>Print one before you print twelve.</strong> This matters most for the <strong>External bracket (side)</strong>, which is a tight fit around the 2020 extrusion and is badged <strong>Tight fit</strong> on the calculator. Print one, fit it on a piece of extrusion, then commit to the set.</li>
 </ol>
 
-**Change settings and slice again as often as you like.** Reslicing costs nothing.
-Running a 14 hour print you were unsure about costs a day.
-
 The calculator's figures are sliced with a 0.4 mm nozzle, 0.2 mm layers, 15% infill,
-in PLA. Treat those as the baseline rather than a requirement. Your own profile for
-your own printer will be better than a copied one.
+in PLA.
 
 There are also **[ready made build plates](https://parts-calculator.basically.website/?tab=plates)**
-for some of the repeated parts, as 3MF projects you open and print. Each part row on
-the calculator says which plates it appears on.
-
-## The first layer
-
-Stay with the printer for the first layer of every plate. Nearly everything that goes
-wrong on a long print is already visible there.
-
-**Before a big plate**, run the printer's bed levelling, and clean the plate with warm
-water and dish soap, then dry it. Fingerprints and grease are the usual reason a part
-lets go, and wiping with alcohol alone spreads them.
-
-What you are looking at, and what to do:
-
-- **Lines with gaps between them**, or the part peeling as it prints: the nozzle is
-  too far from the plate. Lower the Z offset a little, in steps of 0.02 mm.
-- **A rough, scratchy first layer** with plastic pushed out at the sides: the nozzle
-  is too close. Raise the Z offset the same way.
-- **A corner lifting.** The big flat parts are where this bites, and several of them
-  are 240 to 250 mm across. Add a brim, raise the bed temperature by 5 C, and keep
-  the printer out of a draught. An open printer next to an open window will lift
-  corners no setting can fix.
-- **The first layer is down but the edges are spread wider than the rest of the
-  part** (elephant's foot). Turn on elephant foot compensation in the slicer. It
-  matters where a part has to sit flat or a hole has to stay round.
-- **It did not stick at all.** Stop the print. There is nothing to be gained by
-  letting it run, and a ball of filament dragged around the plate can take the
-  nozzle with it.
-
-If you are printing in PETG or ASA, keep the printer somewhere still and warm.
-Those materials lift more than PLA, and a five layer set has been printed in PETG
-successfully.
+for some of the repeated parts, as 3MF projects you open and print. They print on
+textured PEI, and each part row on the calculator says which plates it appears on.
 
 ## Planning the print
 

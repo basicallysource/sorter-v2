@@ -100,7 +100,7 @@ Turn the rotor by hand. It should go all the way round without a tight spot.
 
 {% include step.html n="5" title="Hang the camera lamp" %}
 
-The lamp's arm mount feeds up into one of the dovetails around the outside of the channel wall, from the bottom edge, and clips over the top: the 8th dovetail from the exit, counting anticlockwise seen from above. There is no screw in that joint. The joint itself is step 4 of the [classification camera lamp]({{ '/hardware/assembly/feeder/camera-lamp/classification-camera-lamp/' | relative_url }}) page, and it happens at step 9 of [arranging C-channels]({{ '/hardware/assembly/feeder/arranging-c-channels/' | relative_url }}), with the channels standing.
+The lamp's arm mount feeds up into one of the dovetails around the outside of the channel wall, from the bottom edge, and clips over the top: the 8th dovetail from the exit, counting anticlockwise seen from above, which is the last one before the channel above covers the wall. There is no screw in that joint. The joint itself is step 4 of the [classification camera lamp]({{ '/hardware/assembly/feeder/camera-lamp/classification-camera-lamp/' | relative_url }}) page, and it happens at step 9 of [arranging C-channels]({{ '/hardware/assembly/feeder/arranging-c-channels/' | relative_url }}), with the channels standing.
 
 **Do this with the channel standing where it belongs**, not on the bench. Its height and overhang change what the camera sees.
 

@@ -52,13 +52,13 @@ Wait for Etcher to finish writing and verifying. Do not remove the card until it
 
 Insert the SD card into the Orange Pi 5 and power it on. It gets online the first way that works:
 
-1. **Ethernet**, if a cable to your router is plugged in.
-2. **The WiFi from Step 2.** It gets about a minute and a half to connect.
-3. Otherwise it opens its own WiFi network, named `SorterOS-Setup-` followed by six characters. Join it from a phone or laptop; a setup page opens (if it doesn't, browse to [http://10.42.0.1](http://10.42.0.1)). Pick your network, or type its name if it isn't listed, and enter its password. The Pi restarts to join it, which takes about two minutes, and your phone goes back to its usual WiFi. Open the **Find my sorter** link the page gives you: once the Pi is online it shows its address and the network it joined. If the setup network shows up again instead, the Pi couldn't join; connect to it again and the page says why, usually a wrong password. The page also gives the Pi your phone's time zone, which sets its clock and the WiFi channels it may use in your country.
+1. **Ethernet**, if a cable to your router (or to a computer sharing its internet) is plugged in.
+2. **The WiFi from Step 2.**
+3. Otherwise, about half a minute after power-on, it opens its own WiFi network, named `SorterOS-Setup-` followed by six characters. Join it from a phone or laptop; a setup page opens (if it doesn't, browse to [http://10.42.0.1](http://10.42.0.1)). Pick your network, or type its name under **Other network**, and enter its password. The Pi joins it while your phone stays on the setup network, so within a few seconds the page shows either the Pi's address on your network or why it couldn't join, usually a wrong password, which you can fix right there. Note the address (tap and hold it to copy it), tap **Done**, and your phone goes back to its usual WiFi; open the address there in Safari or Chrome. The page also gives the Pi your phone's time zone, which sets its clock and the WiFi channels it may use in your country.
 
    Networks that sign in with a username as well as a password (enterprise WiFi, common in offices and schools) can't be set up this way. Use Ethernet on those.
 
-The setup network is also the way back if something changes later: a Pi that can't get online when it starts (a new router, a changed password) opens it again. If you plug in a cable while it's up, the Pi uses the cable instead.
+The setup network is also the way back if something changes later: whenever the Pi can't reach the internet for about a minute (a new router, a changed password, an unplugged cable), it opens the setup network again, and closes it once it's back online and nobody is on it. Online means the internet actually answers: a cable into a switch with no internet doesn't count, and doesn't get in the way of a WiFi network that works.
 
 ## Step 5 — First boot
 
@@ -69,7 +69,7 @@ Browse to **[http://sorter.local](http://sorter.local)** from a computer on the 
   <p>The Pi downloads the Sorter software and builds the backend's Python environment and the frontend on the board itself; how long that takes depends on your connection. A stage that needs the network waits and retries rather than failing, and the progress page shows the reason next to any stage that is stuck. The board's LEDs are no guide: they blink the whole time.</p>
 </div>
 
-`sorter.local` uses mDNS, so the device you're browsing from must be on the same network as the Pi. It resolves natively on macOS, iOS, Linux and recent Windows; older Windows may need [Bonjour](https://support.apple.com/en-us/106380). A second SorterOS machine on the same network answers at `sorter-2.local`. If no `.local` address resolves, find the Pi in your router's list of connected devices and browse to its IP address.
+`sorter.local` uses mDNS, so the device you're browsing from must be on the same network as the Pi. It resolves natively on macOS, iOS, Linux and recent Windows; older Windows may need [Bonjour](https://support.apple.com/en-us/106380), and Android usually can't. A second SorterOS machine on the same network answers at `sorter-2.local`. If no `.local` address works, use the IP address the setup page showed, or find the Pi in your router's list of connected devices.
 
 Once the UI is up, the Pi downloads a detection model from [Hive](https://hive.basically.website) that suits its hardware and puts it on every camera channel, so detection works without picking a model yourself. You can change it later under **Settings → Local Models**.
 

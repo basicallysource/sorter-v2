@@ -453,18 +453,14 @@ def phase_chroot(ctx: BuildCtx) -> None:
 # ─── portal ───────────────────────────────────────────────────────────────
 
 def phase_portal(ctx: BuildCtx) -> None:
-    """Bake the SorterOS captive-portal backend script and static frontend
-    bundle into the rootfs. Portal source lives at ../portal/ and is
-    reused for local development via mock mode."""
+    """Bake the setup page (../portal/frontend, static files) into the
+    rootfs. sorteros-network serves it on the setup network."""
     if not is_mounted(ctx.mnt):
         sys.exit("rootfs not mounted — run --phase mount first")
 
-    backend_src = PORTAL_DIR / "backend" / "portal.py"
     frontend_dir = PORTAL_DIR / "frontend"
     frontend_build = frontend_dir / "build"
 
-    if not backend_src.exists():
-        sys.exit(f"portal backend missing at {backend_src} — repo layout broken?")
     if not frontend_dir.exists():
         sys.exit(f"portal frontend missing at {frontend_dir} — repo layout broken?")
 
@@ -478,12 +474,8 @@ def phase_portal(ctx: BuildCtx) -> None:
     else:
         log("portal frontend build/ up to date — skipping pnpm")
 
-    # Backend script → /usr/local/sbin/sorteros-portal.py
-    backend_dst = ctx.mnt / "usr" / "local" / "sbin" / "sorteros-portal.py"
-    backend_dst.parent.mkdir(parents=True, exist_ok=True)
-    shutil.copyfile(backend_src, backend_dst)
-    os.chmod(backend_dst, 0o755)
-    log(f"copied portal backend → {backend_dst.relative_to(ctx.mnt)}")
+    # An image respun from an older one still has the old setup page server.
+    (ctx.mnt / "usr" / "local" / "sbin" / "sorteros-portal.py").unlink(missing_ok=True)
 
     # Frontend bundle → /var/www/portal
     www_dst = ctx.mnt / "var" / "www" / "portal"

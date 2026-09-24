@@ -66,8 +66,10 @@ import os
 import queue
 import re
 import shutil
+import signal
 import socket
 import subprocess
+import sys
 import threading
 import time
 import urllib.error
@@ -1457,26 +1459,33 @@ class MockSystem(System):
 
 # ─── running it ────────────────────────────────────────────────────────────
 
+def take_down(sys_: System) -> None:
+    """The setup network off the air, its fence gone."""
+    sys_.ap_down()
+    for d in sys_.devices():
+        if d["kind"] == "wifi":
+            sys_.unfence(d["iface"])
+
+
 def start(net: Network, cfg: dict) -> None:
     net.event("Started")
-    # A service restarted without the machine finds its own setup network
-    # still up, with no one to close it.
-    net.sys.ap_down()
-    for d in net.sys.devices():
-        if d["kind"] == "wifi":
-            net.sys.unfence(d["iface"])
+    take_down(net.sys)  # a service that crashed left its setup network up, with no one to close it
     sync_wifi_country(net.sys, cfg)
     net.import_config_wifi(cfg)
 
 
 def run(net: Network, cfg: dict) -> None:
     start(net, cfg)
-    while True:
-        try:
-            net.tick()
-        except Exception:
-            log.exception("tick failed")
-        net.sys.sleep(TICK_S)
+    signal.signal(signal.SIGTERM, lambda *_: sys.exit(0))
+    try:
+        while True:
+            try:
+                net.tick()
+            except Exception:
+                log.exception("tick failed")
+            net.sys.sleep(TICK_S)
+    finally:
+        take_down(net.sys)  # stopped: nothing left on the air that nobody manages
 
 
 def main() -> int:

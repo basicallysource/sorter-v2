@@ -219,14 +219,9 @@ The [bulk cap and bucket]({{ '/hardware/assembly/feeder/c-channels/bulk-channel/
 - **C2 and C3**: the **5th**.
 - **Classification channel**: the **8th**, which is the last one before the channel above covers the wall.
 
-**Why C2 and C3 are not on the 8th as well.** In the CAD all three sit in that last free dovetail, and machines have been built that way. On the machine these steps were checked against, with the parts and cameras the calculator lists, C2 and C3 in the 8th put the camera 90 degrees out, so the drop zone and the exit would not both be in frame.
+**Why C2 and C3 are not on the 8th as well.** The 8th is the last dovetail the channel above leaves free, and the CAD puts all three lamps there. On a running machine with the parts and cameras the calculator lists, C2 and C3 in the 8th put the camera 90 degrees out, so the drop zone and the exit would not both be in frame.
 
 Whichever you start from, the framing is what decides: [first setup]({{ '/sorter/first-setup/' | relative_url }}) step 7 shows you what each camera sees, and a lamp that cannot see both its drop zone and its exit is in the wrong dovetail.
-
-<figure class="single-figure">
-  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-camera-lamp-arm-positions-plan-crop-full-b264f26e54b4.png" alt="Plan view of the feeder: the bulk channel at the top and the three lamp channels below it, each of the three stators shaded grey, with the camera lamp arm on each one picked out in red. Every red arm sits where the channel above it starts to overlap the wall">
-  <figcaption>Looking straight down at the CAD: stators grey, camera lamp arms red, each one in the last dovetail the channel above leaves free. That is the 8th on all three; C2 and C3 sit three earlier on the build these steps come from. <cite>Diagram: barthel.</cite></figcaption>
-</figure>
 
 **It goes on from underneath.** Offer the arm mount up to the bottom edge of the channel wall, feed its rail into the dovetail, and push it up until it clips over the top edge. Nothing screws into this joint.
 
@@ -236,6 +231,10 @@ Whichever you start from, the framing is what decides: [first setup]({{ '/sorter
 </div>
 
 <div class="img-row">
+  <figure>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-camera-lamp-dovetail-c3-w1600-85089c63ca95.jpg" alt="A standing C-channel from outside, the grey camera lamp arm mount running down the wall with its LED leads cable-tied to it, and its foot in one of the dovetails in the bottom edge of the wall">
+    <figcaption>C3, with the arm mount home in its 5th dovetail. C2 is the same. <cite>Photo: Daddy-O's Bricks - Bill.</cite></figcaption>
+  </figure>
   <figure>
     <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-camera-lamp-dovetail-classification-w1600-bb7f28e0d58c.jpg" alt="The classification channel with its lamp overhead, the arm coming down the outside of the wall to the dovetail, and the finned rotor visible in the channel below">
     <figcaption>A lamp on its channel, the arm coming down the outside of the wall to its dovetail. <cite>Photo: Daddy-O's Bricks - Bill.</cite></figcaption>

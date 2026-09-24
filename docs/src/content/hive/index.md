@@ -9,6 +9,8 @@ lede: Hive is the shared platform behind the Sorter family — community-maintai
 permalink: /hive/
 ---
 
+Hive itself is at **[hive.basically.website](https://hive.basically.website)**. Make an account there, then connect your machine to it in [step 8 of first setup]({{ '/sorter/first-setup/' | relative_url }}), or later under **Settings** → **Hive** in the machine's own UI.
+
 ## Start here
 
 - **[Build your first sorting profile]({{ '/hive/first-profile/' | relative_url }})** — ask Hive's assistant for the boxes you want, check what it proposes, and send the result to your machine.

@@ -10,6 +10,7 @@ import uuid
 from pathlib import Path
 from typing import Any
 
+from machine_toml import machine_toml_path
 from toml_config import loadTomlFile
 
 SOFTWARE_DIR = Path(__file__).resolve().parent
@@ -81,15 +82,8 @@ def local_state_db_path() -> Path:
     return SOFTWARE_DIR / "local_state.sqlite"
 
 
-def _legacy_machine_params_path() -> Path:
-    params_path = os.getenv("MACHINE_SPECIFIC_PARAMS_PATH")
-    if isinstance(params_path, str) and params_path.strip():
-        return Path(params_path).expanduser().resolve()
-    return SOFTWARE_DIR / "machine_params.toml"
-
-
 def _legacy_state_dir() -> Path:
-    return _legacy_machine_params_path().parent
+    return machine_toml_path().parent
 
 
 def _legacy_data_path() -> Path:
@@ -148,7 +142,7 @@ def _read_json_file(path: Path) -> Any | None:
 
 
 def _read_machine_params() -> dict[str, Any]:
-    path = _legacy_machine_params_path()
+    path = machine_toml_path()
     if not path.exists():
         return {}
     data = loadTomlFile(path)
@@ -323,7 +317,7 @@ def _migrate_misc_state_files(conn: sqlite3.Connection) -> None:
 
 
 def _cleanup_machine_params_runtime_sections(conn: sqlite3.Connection) -> None:
-    path = _legacy_machine_params_path()
+    path = machine_toml_path()
     if not path.exists():
         return
 

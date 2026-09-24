@@ -36,12 +36,6 @@ You do not need to be an engineer, and none of the build is specialist work. It 
 
 **Not needed at all.** No CAD, no PCB design and no programming, to build the machine or to run it. No saw and no laser either: the aluminium is ordered cut to length, and the flat parts are cut for you by a service or a maker space.
 
-## How these pages are written
-
-The pages here are drafted in English by an AI assistant, then read back against an internal reader persona the project keeps, called Mira: a LEGO seller building the machine on the side, at ease with a 3D printer and hand tools, with no CAD and no machine shop, reading on a phone beside a half-built machine. The review asks one question of every step, whether she could do it from that page alone.
-
-It is a writing tool rather than a promise about any one page. Whether a page has been followed on a real machine is a separate thing, and each page says which it is at the top.
-
 ## I want to help build the project
 
 - **Mechanical / CAD** — The project uses [Onshape](https://www.onshape.com/) (free, web-based, collaborative). Every V2 document is public and listed in the repo's `mechanical/README.md`; the folder holding them is private, so ask in the [Discord](https://discord.gg/6PZtqkwtaS) to be added to it. Start by browsing the V2 CAD and checking open bounties for mechanical tasks.

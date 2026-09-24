@@ -24,8 +24,9 @@ there first, because that is what decides how many of each part you need.
 ## Filament
 
 **Print the parts in PETG or ASA rather than PLA if the machine will stand anywhere
-warm.** PLA softens from around 55 C, and the printed gears the steppers drive through
-go first. The temperatures both materials hold are on the
+warm**, meaning a shed, a garage, or any room without air conditioning. PLA softens
+from around 55 C, and the printed gears the steppers drive through go first. The
+temperatures both materials hold are on the
 [Hardware overview]({{ '/hardware/' | relative_url }}#intended-operating-conditions).
 
 ## The printer
@@ -37,12 +38,10 @@ you cannot print at all.
 The machine needs **107 different printed designs**, not counting the bins, which are
 optional and which you can also cut from cardboard.
 
-| Printer | Bed (mm) | Designs that fit |
-|---|---|---|
-| Bambu Lab A1, P1S, X1C | 256 x 256 x 256 | all 107 |
-| Prusa MK4S | 250 x 210 x 220 | 97 |
-| Creality Ender-3 V3 | 220 x 220 x 250 | 97 |
-| Bambu Lab A1 mini | 180 x 180 x 180 | 88 |
+- **Bambu Lab A1, P1S, X1C**, 256 x 256 x 256 mm: all 107.
+- **Prusa MK4S**, 250 x 210 x 220 mm: 97.
+- **Creality Ender-3 V3**, 220 x 220 x 250 mm: 97.
+- **Bambu Lab A1 mini**, 180 x 180 x 180 mm: 88.
 
 A smaller bed loses the largest parts: the feeder's stators and rotors, the interface
 plates, the Lazy Susan base. Several of those are needed four times over, so it is

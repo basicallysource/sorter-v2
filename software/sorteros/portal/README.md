@@ -45,7 +45,10 @@ times of day).
       "done": 3, "total": 11          // steps
     }
   },
-  "setup_network": { "ssid": "SorterOS-Setup-ABCDEF" },
+  "setup_network": {                  // null once it has closed
+    "ssid": "SorterOS-Setup-ABCDEF",
+    "live_join": true                 // false on a radio that must leave the air to join: the phone loses the page
+  },
   "networks": [                       // every network the Sorter is on now
     { "kind": "wifi", "name": "HomeNet", "address": "192.168.1.68", "internet": true },
     { "kind": "ethernet", "name": "Ethernet", "address": "192.168.2.3", "internet": false }
@@ -70,7 +73,7 @@ times of day).
   },
   "events": [                         // what the Sorter did, oldest first, the last 20
     { "at": 1790274440, "text": "Started" },
-    { "at": 1790274460, "text": "No cable and no saved Wi-Fi: opened the setup network" }
+    { "at": 1790274460, "text": "Opened the setup network SorterOS-Setup-ABCDEF: no cable, no saved Wi-Fi" }
   ]
 }
 ```

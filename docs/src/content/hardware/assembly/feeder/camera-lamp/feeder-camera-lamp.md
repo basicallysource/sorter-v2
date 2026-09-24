@@ -101,7 +101,7 @@ The [lamp arm]({{ '/hardware/assembly/feeder/camera-lamp/lamp-arm/' | relative_u
 
 **Not at the bench.** The lamp goes onto its channel later, when the channels are standing on the top plate. Read this step then, and put the finished lamp aside for now.
 
-**It hangs off a dovetail, not a screw.** The outside of the channel wall carries a row of dovetails. Use the **8th one from the channel exit**, counting anticlockwise seen from above, which is the last one before the channel above covers the wall. C2 and C3 are the same. **It goes on from underneath**: offer the mount up to the bottom edge of the wall, feed its rail into the dovetail and push it up until it clips over the top edge. That is the whole joint, and the mount has no other fixing.
+**It hangs off a dovetail, not a screw.** The outside of the channel wall carries a row of dovetails. Use the **5th one from the channel exit**, counting anticlockwise seen from above. C2 and C3 are the same, and the classification channel is different. **It goes on from underneath**: offer the mount up to the bottom edge of the wall, feed its rail into the dovetail and push it up until it clips over the top edge. That is the whole joint, and the mount has no other fixing.
 
 <div class="callout callout-warning">
   <span class="callout-icon" aria-hidden="true">⚠</span>

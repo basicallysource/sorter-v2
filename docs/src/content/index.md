@@ -7,6 +7,24 @@ kicker: Sorter V2
 lede: The durable documentation layer for the Sorter V2 project — hardware, the local machine software, the Hive community platform, and the lab where research and contributor references live.
 ---
 
+## What Sorter V2 is
+
+Sorter V2 is an open-source LEGO sorting machine. Feed bulk LEGO into a hopper, and the machine singulates each piece, classifies it by part number (and optionally color), and drops it into the correct bin. The project is source-available; see [CONTRIBUTING.md](https://github.com/basicallysource/sorter-v2/blob/main/CONTRIBUTING.md) for licensing details. V1 exists as a reference but is no longer maintained; V2 is the active development target.
+
+Machines are built and running, and they sort every day. It is not a product: there is no kit, no price, and nothing for sale. What exists is the design, the parts list, and these instructions.
+
+**What it sorts:** loose, rigid LEGO pieces up to ten studs in any direction. That is most of a mixed tub, not all of it, and the rest you pick out by hand before a run:
+
+- **Anything over ten studs.** Baseplates, long plates and beams, boat hulls, large wheels and tank tracks.
+- **Tyres and anything rubber.** Rubber grips where plastic slides, so a tyre stalls in a channel instead of dropping out of it.
+- **Cloth, string and chain.** These tangle, with each other and with ordinary parts.
+- **Minifigures and their small accessories.**
+- **Duplo, Primo and other brands.**
+
+The size limit is tighter on some layers than others: a half-size layer takes a piece up to 8 studs across, a third-size layer up to 6. [Preparing LEGO]({{ '/sorter/preparing-lego/' | relative_url }}) is the full list, with what each thing does to the machine if it stays in.
+
+**How much it sorts at once is your choice.** The machine is a stack of layers, each holding 18 bins or 12 larger ones, so more layers means more categories in one pass and more to build. [Hardware]({{ '/hardware/' | relative_url }}) has what each size costs in parts, filament and printing time.
+
 ## Start here
 
 <div class="landing-split">

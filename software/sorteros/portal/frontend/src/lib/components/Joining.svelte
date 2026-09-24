@@ -8,7 +8,7 @@
 	<span class="text-primary"><Spinner size={32} /></span>
 	<div class="flex flex-col gap-2">
 		<h1 class="text-2xl font-bold break-words text-text">Joining {ssid}</h1>
-		<p class="text-sm text-text-muted">
+		<p class="text-sm text-balance text-text-muted">
 			{seconds > 60 ? 'This is taking longer than usual.' : 'This can take up to a minute.'}
 			Keep this page open.
 		</p>

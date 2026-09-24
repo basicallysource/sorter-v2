@@ -45,7 +45,7 @@ export type State = {
 	networks: Network[];
 	cable: 'none' | 'plugged' | 'connected';
 	join: Join | null;
-	scan: { scanning: boolean; at: number | null; networks: ScannedNetwork[] };
+	scan: { scanning: boolean; at: number; networks: ScannedNetwork[] };
 	events: SorterEvent[];
 };
 

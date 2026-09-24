@@ -8,6 +8,7 @@
 	let { state }: { state: State } = $props();
 
 	const join = $derived(state.join);
+	const lastJoin = { joining: 'Joining', joined: 'Joined', failed: "Couldn't join" };
 	const newestFirst = $derived([...state.events].reverse());
 </script>
 
@@ -20,7 +21,7 @@
 	</summary>
 
 	<div class="flex flex-col gap-4 border-t border-border px-4 py-4 text-sm text-text">
-		<dl class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2.5">
+		<dl class="grid grid-cols-[6.5rem_1fr] gap-x-3 gap-y-2.5">
 			<dt class="text-text-muted">Name</dt>
 			<dd class="min-w-0 break-words">{state.sorter.name} <span class="text-text-muted">({state.sorter.mdns})</span></dd>
 
@@ -29,8 +30,9 @@
 				{#each state.networks as n (n.kind + n.name)}
 					<span class="break-words">
 						{n.name}
-						<span class="font-mono">{n.address}</span>
-						<span class="text-text-muted">· internet {n.internet ? 'yes' : 'no'}</span>
+						<span class="block text-text-muted">
+							<span class="font-mono">{n.address}</span> · {n.internet ? 'has internet' : 'no internet'}
+						</span>
 					</span>
 				{:else}
 					<span class="text-text-muted">None</span>
@@ -49,7 +51,8 @@
 			{#if join}
 				<dt class="text-text-muted">Last join</dt>
 				<dd class="min-w-0 break-words">
-					{join.ssid}: {join.state}{join.detail ? ` (${join.detail})` : ''}
+					{lastJoin[join.state]}
+					{join.ssid}{#if join.detail}<span class="block text-text-muted">{join.detail}</span>{/if}
 				</dd>
 			{/if}
 		</dl>
@@ -58,7 +61,7 @@
 			<h2 class="text-xs font-semibold tracking-wider text-text-muted uppercase">Events</h2>
 			<ol class="flex flex-col gap-1.5">
 				{#each newestFirst as e, i (i)}
-					<li class="grid grid-cols-[5rem_1fr] gap-3">
+					<li class="grid grid-cols-[6.5rem_1fr] gap-3">
 						<span class="text-text-muted tabular-nums">{when(e.at, state)}</span>
 						<span class="min-w-0 break-words">{e.text}</span>
 					</li>

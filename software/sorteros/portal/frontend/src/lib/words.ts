@@ -39,7 +39,7 @@ export function softwareLine(sw: Software, internet: boolean | null): string | n
 			return `Installing the Sorter software${step ? ` (${step})` : ''}. ${progress}`;
 		}
 		case 'waiting':
-			return internet === false ? null : `The Sorter software installs next. ${progress}`;
+			return internet === false ? null : `The Sorter is about to install its software. ${progress}`;
 	}
 }
 

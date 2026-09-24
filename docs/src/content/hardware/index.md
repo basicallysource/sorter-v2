@@ -36,6 +36,14 @@ first layer costs far more work than the fifth.
 
 Three and five layers are the two common choices.
 
+**A 5 layer machine stands 1270 mm (4 ft 2 in) from the floor to the top
+plate**, and 1772 mm (5 ft 10 in) to the top of the bulk bucket sitting above
+it. Each layer you add or leave off moves both figures by 160 mm (6.3 in), so a
+3 layer machine is 950 mm (3 ft 1 in) to the top plate and 1452 mm (4 ft 9 in)
+overall. Check the space before you choose a height: the bulk bucket is the
+highest point of the machine and it is where you pour the LEGO in, so you have
+to be able to reach into it.
+
 ## What each size costs you
 
 The table below uses 18 bins per layer.

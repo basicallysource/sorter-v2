@@ -118,9 +118,11 @@ garage, or any room without air conditioning in a hot climate.
 
 - **Print the structural parts in PETG or ASA, not PLA.** PLA starts to soften
   from around 55 C (131 F), and the parts that give way first are the loaded
-  ones bolted to a motor: the servo brackets, the stepper mounts, the carousel
-  cam. PETG holds to around 80 C (176 F), and a full 5 layer set has already
-  been printed in it.
+  ones next to a motor: the printed gear trains in the C-channels and on the
+  chute stepper, the NEMA brackets they are bolted to, and the servo brackets.
+  A gear that softens under load loses its teeth profile and starts skipping.
+  PETG holds to around 80 C (176 F), and a full 5 layer set has already been
+  printed in it.
 - **Cool the Orange Pi, and keep detection on the NPU.** It throttles as it
   warms and shuts down at about 105 C (221 F) on the chip, and the room's
   temperature adds to its own. See

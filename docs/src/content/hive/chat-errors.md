@@ -30,7 +30,7 @@ Building a profile in the first place is [Build your first sorting profile]({{ '
 
 ## `HTTP 502`, with no sentence after it
 
-**Cause:** Usually a colour profile that is too large for Hive to apply. See [asking for colour]({{ '/hive/first-profile/#asking-for-colour' | relative_url }}).
+**Cause:** Usually a colour profile that is too large for Hive to apply. See [asking for colour]({{ '/hive/first-profile/ask-in-plain-words/#asking-for-colour' | relative_url }}).
 
 **Fix:** Ask for fewer colours, one colour per box, with no shade variants. Sending the same request again will fail the same way.
 
@@ -48,7 +48,7 @@ Building a profile in the first place is [Build your first sorting profile]({{ '
 
 **Cause:** The chat needs your own OpenRouter key and there is none saved.
 
-**Fix:** Add one under **Settings**. The steps are on [Build your first sorting profile]({{ '/hive/first-profile/#set-up-an-openrouter-key' | relative_url }}).
+**Fix:** Add one under **Settings**. The steps are on [set up an OpenRouter key]({{ '/hive/first-profile/openrouter-key/' | relative_url }}).
 
 ---
 

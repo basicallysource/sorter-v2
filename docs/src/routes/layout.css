@@ -1014,6 +1014,69 @@ body {
 	line-height: 1.55;
 }
 
+/* The landing page's hero: the machine floated into the right margin of the
+   opening section, with the copy running down its left. Sized by a box with a
+   fixed aspect rather than by the file, because the render carries about a
+   quarter of its width in empty margin on each side — covering the box puts
+   those margins outside it and the machine fills the width it is given. The
+   crop never reaches the machine: at this aspect it takes 192px off each side
+   of a 1600px-wide file and the machine starts at 435px. */
+.landing-hero-float {
+	float: right;
+	width: 320px;
+	max-width: 40%;
+	margin: 0.3rem 0 1.2rem 1.8rem;
+}
+
+.landing-hero-media {
+	aspect-ratio: 2 / 3;
+}
+
+.landing-hero-media img {
+	display: block;
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+	object-position: center;
+}
+
+.landing-hero-float figcaption {
+	margin: 8px 0 0;
+	font-size: 0.8125rem;
+	line-height: 1.4;
+	text-align: center;
+	color: var(--muted);
+}
+
+/* The tiles below it, forced to two per row rather than however many fit. */
+.callout-grid-paired {
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+/* Stacked: the picture centred above the copy at its own aspect ratio, since
+   there is no longer a column of text beside it to set its height, and the
+   tiles one per row. */
+@media (max-width: 740px) {
+	.landing-hero-float {
+		float: none;
+		width: 100%;
+		max-width: 300px;
+		margin: 0 auto 1.4rem;
+	}
+
+	.landing-hero-media {
+		aspect-ratio: auto;
+	}
+
+	.landing-hero-media img {
+		height: auto;
+	}
+
+	.callout-grid-paired {
+		grid-template-columns: minmax(0, 1fr);
+	}
+}
+
 /* ── Media ─────────────────────────────────────────────────────────────── */
 
 /* A bare <figure><figcaption> (not in an .img-row or a floated figure, both

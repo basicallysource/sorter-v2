@@ -10,6 +10,7 @@ import time
 from typing import Any, Dict, List, Optional
 
 import stepper_telemetry
+from machine_toml import machine_toml_path
 from toml_config import loadTomlFile
 
 from fastapi import APIRouter, HTTPException
@@ -125,8 +126,8 @@ def _getCameraLayout() -> str:
     if shared_state.vision_manager is not None:
         return getattr(shared_state.vision_manager, "_camera_layout", "default")
     # Fallback: read directly from TOML
-    params_path = os.getenv("MACHINE_SPECIFIC_PARAMS_PATH")
-    if params_path and os.path.exists(params_path):
+    params_path = machine_toml_path()
+    if params_path.exists():
         raw = loadTomlFile(params_path)
         return raw.get("cameras", {}).get("layout", "default")
     return "default"

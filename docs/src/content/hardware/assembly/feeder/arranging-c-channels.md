@@ -8,7 +8,7 @@ kicker: Feeder — Arranging C-channels
 lede: How the four C-channels stand, at what heights, and what passes parts between them.
 permalink: /hardware/assembly/feeder/arranging-c-channels/
 author: barthel
-contributors: [brickcyclealice]
+contributors: [brickcyclealice, daddyosbricksbill, reveryx]
 og_image: https://assets.basically.website/sorter-parts/c-channel-stands-all-three-full-9b385f0819e2.jpg
 last_verified: 2026-09-10
 parts_needed:
@@ -38,11 +38,6 @@ Four [C-channels]({{ '/hardware/assembly/feeder/c-channels/' | relative_url }}) 
 
 C1, C2 and C3 each stand on the same three-piece support structure: a **Layout guide** it stands on, three **support legs** standing in that, and a **Support dovetail adapter** on top of each leg that slides up into the C-channel drive from below. The legs are the only thing that differs between the three channels, and their lengths are what set the drop between one channel and the next. The classification channel has no support structure of its own: it stands on the top plate and is located by C3's layout guide (step 6), and it goes in before the other three.
 
-<div class="callout callout-warning">
-  <span class="callout-icon" aria-hidden="true">⚠</span>
-  <p><strong>The Leg, Foot and Leg extension are retired.</strong> Three printed parts stacked with dovetails used to hold each channel up, 9 of each across the feeder. They were replaced on 2026-09-02 by the layout guide, the support legs and the dovetail adapters, and the heights on this page only come out right with the new parts. Don't re-add them from an older photo, an older print list, or a machine built before that date.</p>
-</div>
-
 Steps below refer to the channels by the names the software uses, in the order a part travels:
 
 - **C1**, the [bulk channel]({{ '/hardware/assembly/feeder/c-channels/bulk-channel/' | relative_url }}), where parts go in. Highest.
@@ -50,7 +45,7 @@ Steps below refer to the channels by the names the software uses, in the order a
 - **C3**, the same again, and the last metering stage.
 - **The [classification channel]({{ '/hardware/assembly/feeder/c-channels/classification-channel/' | relative_url }})**, which images the part before it drops into the chute. Lowest.
 
-**The camera lamps go on here**, once the channels are standing in their places rather than while a channel is on the bench: each one hangs off the dovetail on the bottom of its arm mount, onto the bottom of that channel's NEMA bracket. C2, C3 and the classification channel take one each. See [camera lamp]({{ '/hardware/assembly/feeder/camera-lamp/' | relative_url }}).
+**The camera lamps go on here**, once the channels are standing in their places rather than while a channel is on the bench: each one feeds up into one of the dovetails around the outside of that channel's wall, from the bottom edge, and clips over the top. C2, C3 and the classification channel take one each, and step 9 says which dovetail. See [camera lamp]({{ '/hardware/assembly/feeder/camera-lamp/' | relative_url }}).
 
 {% include step.html n="1" title="Preparation" %}
 
@@ -212,9 +207,41 @@ One [output guide]({{ '/hardware/assembly/feeder/c-channels/feeder-channels/' | 
 
 {% include step.html n="9" title="Add the bulk input and the camera lamps" %}
 
-The [bulk cap and bucket]({{ '/hardware/assembly/feeder/c-channels/bulk-channel/' | relative_url }}) on C1. A [camera lamp]({{ '/hardware/assembly/feeder/camera-lamp/' | relative_url }}) on C2 and on C3 — C1 has neither a lamp nor an output guide, because it's fed in bulk and nothing reads vision off it.
+The [bulk cap and bucket]({{ '/hardware/assembly/feeder/c-channels/bulk-channel/' | relative_url }}) on C1. A [camera lamp]({{ '/hardware/assembly/feeder/camera-lamp/' | relative_url }}) on C2, on C3 and on the classification channel. C1 has neither a lamp nor an output guide, because it's fed in bulk and nothing reads vision off it.
 
-<div class="img-placeholder">Image coming</div>
+**Which dovetail the arm goes in.** The outside of every channel wall carries a row of dovetails, evenly spaced all the way round except where the exit opening interrupts them. Count anticlockwise from the exit, seen from above, taking the first dovetail past the exit as number 1:
+
+- **C2 and C3**: the **5th**.
+- **Classification channel**: the **8th**, which is the last one before the channel above covers the wall.
+
+**It goes on from underneath.** Offer the arm mount up to the bottom edge of the channel wall, feed its rail into the dovetail, and push it up until it clips over the top edge. Nothing screws into this joint.
+
+A camera has to see its channel's drop zone and its exit in the same frame. You check that at [first setup]({{ '/sorter/first-setup/' | relative_url }}) step 7; if one cannot, its lamp is in the wrong dovetail.
+
+<div class="callout callout-warning">
+  <span class="callout-icon" aria-hidden="true">⚠</span>
+  <p><strong>The dovetail on the arm can break</strong> when a lamp needs to be removed and repositioned. Use caution if repositioning is needed.</p>
+</div>
+
+<div class="img-row">
+  <figure>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-camera-lamp-dovetail-c3-w1600-85089c63ca95.jpg" alt="A standing C-channel from outside, the grey camera lamp arm mount running down the wall with its LED leads cable-tied to it, and its foot in one of the dovetails in the bottom edge of the wall">
+    <figcaption>C3, with the arm mount home in its 5th dovetail. C2 is the same. <cite>Photo: Daddy-O's Bricks - Bill.</cite></figcaption>
+  </figure>
+  <figure>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-camera-lamp-dovetail-classification-w1600-bb7f28e0d58c.jpg" alt="The classification channel with its lamp overhead, the arm coming down the outside of the wall to the dovetail, and the finned rotor visible in the channel below">
+    <figcaption>A lamp on its channel, the arm coming down the outside of the wall to its dovetail. <cite>Photo: Daddy-O's Bricks - Bill.</cite></figcaption>
+  </figure>
+  <figure>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-camera-lamp-arm-mount-seated-w1600-ff6fd6c3355d.jpg" alt="Close view of the arm mount seated on a channel: the ribbed rail of the mount home in the dovetail and clipped over the wall's top edge, with the arm bracket and two countersunk screws beside it">
+    <figcaption>Seated. The rail is fully home in the dovetail and the mount sits flat against the wall. <cite>Photo: Daddy-O's Bricks - Bill.</cite></figcaption>
+  </figure>
+</div>
+
+<figure class="single-figure">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-camera-lamps-from-above-w1600-285496e1bd00.jpg" alt="The feeder from above on a built machine: three camera lamps over their channels, each with its camera board in the middle of the cover and its leads running off to one side, with the black bulk hopper at the left and the steppers grouped in the centre">
+  <figcaption>The three lamps in place, seen from above. <cite>Photo: Daddy-O's Bricks - Bill.</cite></figcaption>
+</figure>
 
 {% include step.html n="10" title="Turn it all by hand" %}
 

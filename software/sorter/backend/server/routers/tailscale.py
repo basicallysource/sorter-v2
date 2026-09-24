@@ -54,7 +54,7 @@ def _get_status() -> Dict[str, Any]:
 
     self_node = data.get("Self") or {}
     # DNSName is the authoritative name MagicDNS actually resolves (e.g.
-    # "sorter-green-arch-0ffbef.tailf1686d.ts.net."); the first label is the
+    # "sorter-green-arch-0ffbef.tail1234ab.ts.net."); the first label is the
     # device name, the rest is the tailnet. HostName can differ from this when a
     # requested name collided with an existing node.
     dns_name = (self_node.get("DNSName") or "").rstrip(".")

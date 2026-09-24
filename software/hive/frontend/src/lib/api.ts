@@ -28,14 +28,41 @@ export interface MachineOwnerSummary {
 	avatar_url: string | null;
 }
 
+/** One network a Sorter is on, as its heartbeat reports it. */
+export interface MachineNetwork {
+	kind: 'wifi' | 'ethernet' | 'tailscale' | 'other';
+	iface: string | null;
+	/** The Wi-Fi name for `wifi`. */
+	name: string | null;
+	/** An IP literal, checked by Hive. */
+	address: string;
+	/** null when the Sorter can't tell. */
+	internet: boolean | null;
+	since: number | null;
+}
+
+/** Where to find a Sorter on its own networks. Only its owner and admins get it. */
+export interface MachineNetworkInfo {
+	version: number | null;
+	at: number | null;
+	clock_ok: boolean | null;
+	hostname: string | null;
+	/** The .local name it answers to, e.g. sorter.local. */
+	mdns: string | null;
+	ports: { ui: number | null; backend: number | null };
+	networks: MachineNetwork[];
+	/** Set while the Sorter broadcasts its own setup network. */
+	setup_network: { ssid: string; clients: number | null; since: number | null } | null;
+}
+
 export interface Machine {
 	id: string;
 	owner_id?: string;
 	name: string;
 	description: string | null;
 	token_prefix: string;
-	last_seen_ip: string | null;
-	local_ui_port: string | null;
+	network_info: MachineNetworkInfo | null;
+	network_reported_at: string | null;
 	last_seen_at: string | null;
 	is_active: boolean;
 	created_at: string;
@@ -67,7 +94,6 @@ export interface FleetMachine {
 	archived_at: string | null;
 	last_seen_at: string | null;
 	last_seen_ip: string | null;
-	local_ui_port: string | null;
 	created_at: string | null;
 }
 
@@ -222,8 +248,8 @@ export interface MachineOverview {
 		is_active: boolean;
 		archived_at: string | null;
 		last_seen_at: string | null;
-		last_seen_ip: string | null;
-		local_ui_port: string | null;
+		network_info: MachineNetworkInfo | null;
+		network_reported_at: string | null;
 		created_at: string | null;
 		token_prefix: string;
 		hardware_info: MachineHardwareSpecs | null;

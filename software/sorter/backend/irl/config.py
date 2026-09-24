@@ -42,6 +42,12 @@ class FeederMode(enum.Enum):
     # classification channel is busy/not ready).
     CONSTANT_MOVEMENT_REV01 = "constant_movement_rev01"
 
+
+# What a machine runs when machine.toml names no mode. The setup page reports
+# the same, so it never shows a mode the machine isn't running.
+DEFAULT_CLASSIFICATION_CHANNEL_MODE = ClassificationChannelMode.TWO_PIECE_STATE_MACHINE_REV01
+DEFAULT_FEEDER_MODE = FeederMode.PULSE_PERCEPTION_REV01
+
 from global_config import GlobalConfig
 from hardware.bus import MCUBus, MCUBusError
 from hardware.cobs import DecodeError
@@ -338,7 +344,7 @@ class ClassificationChannelConfig:
     post_distribute_cooldown_s: float
 
     def __init__(self) -> None:
-        self.mode = ClassificationChannelMode.TWO_PIECE_STATE_MACHINE_REV01
+        self.mode = DEFAULT_CLASSIFICATION_CHANNEL_MODE
         # Keep C4 pipelined instead of serialised: target one piece in the
         # intake/drop zone and three more spread across the platter on the way
         # to the exit. Zone hard-guards still prevent same-sector loading.
@@ -531,7 +537,7 @@ class FeederConfig:
     first_rotor_jam_max_cycles: int
 
     def __init__(self):
-        self.mode = FeederMode.PULSE_PERCEPTION_REV01
+        self.mode = DEFAULT_FEEDER_MODE
         self.first_rotor = RotorPulseConfig(
             steps=100,
             microsteps_per_second=2000,
@@ -962,15 +968,15 @@ def mkIRLConfig(machine_params: dict[str, object] | None = None) -> IRLConfig:
     irl_config = IRLConfig()
 
     # Check for TOML camera layout override
-    import os
+    from machine_toml import machine_toml_path
     from toml_config import loadTomlFile
     from .toml_migrations import applyTomlMigrations
     camera_layout_type = "default"
     feeding_mode = "auto_channels"
     machine_setup_key = DEFAULT_MACHINE_SETUP
     raw_toml: dict[str, object] = {}
-    params_path = os.getenv("MACHINE_SPECIFIC_PARAMS_PATH")
-    if params_path and os.path.exists(params_path):
+    params_path = machine_toml_path()
+    if params_path.exists():
         raw_toml = loadTomlFile(params_path)
         applyTomlMigrations(raw_toml)
         cameras_section = raw_toml.get("cameras", {})

@@ -34,6 +34,17 @@ class SetupWizardConfigTests(unittest.TestCase):
 
         self._tmpdir.cleanup()
 
+    def test_modes_report_what_the_machine_runs_when_the_toml_names_none(self) -> None:
+        from irl.config import DEFAULT_CLASSIFICATION_CHANNEL_MODE, DEFAULT_FEEDER_MODE
+
+        self.machine_params_path.write_text('[cameras]\nlayout = "default"\n', encoding="utf-8")
+        classification = setup.get_classification_channel_mode()
+        feeder = setup.get_feeder_subsystem_mode()
+        self.assertEqual(classification["mode"], DEFAULT_CLASSIFICATION_CHANNEL_MODE.value)
+        self.assertEqual(classification["default"], DEFAULT_CLASSIFICATION_CHANNEL_MODE.value)
+        self.assertEqual(feeder["mode"], DEFAULT_FEEDER_MODE.value)
+        self.assertEqual(feeder["default"], DEFAULT_FEEDER_MODE.value)
+
     def test_camera_layout_roundtrip_supports_default(self) -> None:
         response = cameras.save_camera_layout(cameras.CameraLayoutPayload(layout="default"))
 

@@ -1405,7 +1405,7 @@ class MockSystem(System):
     def tailscale_ip(self): return None
     def hostname(self): return self.cfg.get("hostname") or "sorter"
     def mdns_name(self): return f"{self.hostname()}.local"
-    def mac(self, iface): return "40:d9:5a:63:f3:2a"
+    def mac(self, iface): return "02:11:22:ab:cd:ef"
     def saved_wifi(self): return list(self.saved)
     def write_wifi(self, ssid, password, hidden=False, security=""):
         replaced = {ssid: self.saved[ssid]} if ssid in self.saved else {}

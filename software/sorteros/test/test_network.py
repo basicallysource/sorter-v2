@@ -168,7 +168,7 @@ class Fake(net.System):
         return f"{self.hostname()}.local"
 
     def mac(self, iface):
-        return "40:d9:5a:63:f3:2a"
+        return "02:11:22:ab:cd:ef"
 
     # profiles
     def saved_wifi(self):
@@ -359,8 +359,8 @@ class Boot(unittest.TestCase):
         n = boot(w)
         until(n, lambda: w.ap_on)
         self.assertLessEqual(w.t, 10)
-        self.assertEqual(w.ap_on, "SorterOS-Setup-63F32A")
-        self.assertIn("Opened the setup network SorterOS-Setup-63F32A: no cable, no saved Wi-Fi", w.texts())
+        self.assertEqual(w.ap_on, "SorterOS-Setup-ABCDEF")
+        self.assertIn("Opened the setup network SorterOS-Setup-ABCDEF: no cable, no saved Wi-Fi", w.texts())
 
     def test_it_scans_before_it_broadcasts(self):
         w = World(routers=home())
@@ -618,7 +618,7 @@ class Recovery(unittest.TestCase):
 
     def test_a_restarted_service_takes_its_old_setup_network_down(self):
         w = World(routers=home(), cable={"at": 0, "internet": True})
-        w.ap_on = "SorterOS-Setup-63F32A"
+        w.ap_on = "SorterOS-Setup-ABCDEF"
         boot(w)
         self.assertIsNone(w.ap_on)
 
@@ -655,7 +655,7 @@ class Status(unittest.TestCase):
         self.assertEqual(set(s), {"now", "clock_ok", "sorter", "setup_network", "networks", "cable", "join",
                                   "scan", "events"})
         self.assertEqual(s["sorter"]["software"]["done"], 3)
-        self.assertEqual(s["setup_network"], {"ssid": "SorterOS-Setup-63F32A", "live_join": True})
+        self.assertEqual(s["setup_network"], {"ssid": "SorterOS-Setup-ABCDEF", "live_join": True})
         self.assertEqual(s["cable"], "none")
         self.assertEqual(s["events"][0]["text"], "Started")
 
@@ -665,7 +665,7 @@ class Status(unittest.TestCase):
         until(n, lambda: w.ap_on)
         n2 = boot(w)
         self.assertEqual([e["text"] for e in n2.page_state()["events"]][:2],
-                         ["Started", "Opened the setup network SorterOS-Setup-63F32A: no cable, no saved Wi-Fi"])
+                         ["Started", "Opened the setup network SorterOS-Setup-ABCDEF: no cable, no saved Wi-Fi"])
 
 
 class Validation(unittest.TestCase):
@@ -736,7 +736,7 @@ class Page(unittest.TestCase):
     def test_state_and_files(self):
         code, _, body = self.get("/api/state")
         self.assertEqual(code, 200)
-        self.assertEqual(json.loads(body)["setup_network"]["ssid"], "SorterOS-Setup-63F32A")
+        self.assertEqual(json.loads(body)["setup_network"]["ssid"], "SorterOS-Setup-ABCDEF")
         code, headers, body = self.get("/_app/immutable/app.js")
         self.assertEqual((code, body), (200, b"console.log(1)"))
         self.assertIn("immutable", headers["Cache-Control"])

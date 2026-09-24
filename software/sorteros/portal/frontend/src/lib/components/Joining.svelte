@@ -16,7 +16,8 @@
 		{#if liveJoin}
 			<p class="text-sm text-balance text-text-muted">
 				{seconds > 60 ? 'This is taking longer than usual.' : 'This can take up to a minute.'}
-				Keep this page open.
+				Keep this page open. If it closes, rejoin {setupSsid ?? "the Sorter's setup network"} to see
+				how it went.
 			</p>
 		{:else}
 			<p class="text-sm text-balance text-text-muted">

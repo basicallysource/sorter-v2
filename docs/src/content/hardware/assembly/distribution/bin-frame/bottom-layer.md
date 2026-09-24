@@ -27,7 +27,7 @@ tools_needed: ["Hex key, 3 mm for a button head or 4 mm for a socket head", "Tap
 last_verified: 2026-09-24
 ---
 
-The bottom layer is an ordinary bin layer that also carries the machine. Its vertical extrusion is one long piece per corner instead of a layer's worth: the caster screws into the bottom of it and the layer above lands on the top of it, so the wheel has something much stiffer to push against than a single layer's vertical would be.
+The bottom layer is an ordinary bin layer that also carries the machine. Its vertical extrusion is one long piece per corner instead of a layer's worth: the caster screws into the bottom of it and the layer above lands on the top of it.
 
 **Build it after a [regular layer]({{ '/hardware/assembly/distribution/bin-frame/regular-layers/' | relative_url }}), not before.** Everything here is a regular layer with three differences at floor level, so that page is the one that describes the layer and this one only covers what changes: piece D in place of piece C, an External bracket — foot cover in place of the cover and the External bracket — bottom vertical at the bottom of the corner, and the feet.
 

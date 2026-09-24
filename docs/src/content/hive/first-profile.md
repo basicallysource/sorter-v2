@@ -179,6 +179,8 @@ The first decision is made when you activate the profile there. The machine asks
 
 After that, the machine's **Bins** page is where you change any of it. That page also shows you which bins are the big ones.
 
+**A big bin is also the only kind that takes a big piece.** Each layer of the machine is either half size or third size, and the funnel that feeds its bins sets the largest piece that layer can pass: 8 studs across on a half-size layer, 6 on a third-size one. Give any box holding pieces bigger than that a bin on a half-size layer. The Bins page marks which those are.
+
 You have two ways to do it.
 
 **Assign by hand.** Open a bin and pick the category it holds. Do this when a box needs one particular bin, like plates that only lie flat in a large one.

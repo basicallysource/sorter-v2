@@ -132,7 +132,10 @@ class Fake:
         return self.w.mdns
 
     def lan_ip(self):
-        return "192.0.2.50"
+        return "192.0.2.50" if self.w.cable_at is not None else self.wifi_ip()
+
+    def wifi_ip(self):
+        return "192.0.2.60" if self._wifi() else None
 
     def saved_wifi(self):
         return list(self.w.saved)
@@ -277,7 +280,7 @@ class Fake:
         return h["pubkey"], h["sealed_to"] == h["pubkey"] and h["pubkey"] is not None
 
     def publish_address(self, state, pubkey, payload):
-        self._log("announced", pubkey, payload["ssid"], self.w.t)
+        self._log("announced", pubkey, payload["ssid"], self.w.t, payload["ip"])
         self.w.hive["sealed_to"] = pubkey
 
 
@@ -546,6 +549,24 @@ class Announce(unittest.TestCase):
         w.run(cfg())
         self.assertEqual([e[:3] for e in w.log if e[0] == "announced"], [("announced", "key-1", "HomeNet")])
         self.assertIsNone(w.announce)
+
+    def test_on_wifi_with_a_cable_in_it_gives_the_wifi_address(self):
+        # The cable can go to another network, like a laptop sharing its
+        # connection: the internet route leaves by it, but the person is on
+        # the Wi-Fi.
+        w = self.world(cable_at=0)
+        w.hive["pubkey"] = "key-1"
+        w.run(cfg())
+        # The cable comes up first and is announced; the Wi-Fi joining corrects it.
+        self.assertEqual([(e[2], e[4]) for e in w.log if e[0] == "announced"][-1], ("HomeNet", "192.0.2.60"))
+
+    def test_on_the_cable_alone_it_gives_the_cable_address(self):
+        w = World(cable_at=0)
+        w.run({})
+        w.announce = {"rendezvous_id": "r" * 22, "hive_url": "https://hive.example"}
+        w.hive["pubkey"] = "key-1"
+        w.run({})
+        self.assertEqual([(e[2], e[4]) for e in w.log if e[0] == "announced"], [(None, "192.0.2.50")])
 
     def test_sends_again_when_the_page_is_reloaded(self):
         w = self.world()

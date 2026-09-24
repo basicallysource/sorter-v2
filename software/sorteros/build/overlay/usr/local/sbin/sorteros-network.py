@@ -360,6 +360,14 @@ class System:
         finally:
             s.close()
 
+    def wifi_ip(self) -> str | None:
+        iface = self.wifi_iface()
+        if not iface:
+            return None
+        out = self._run("ip", "-4", "-o", "addr", "show", "dev", iface, "scope", "global").stdout
+        m = re.search(r"\binet (\d+\.\d+\.\d+\.\d+)/", out)
+        return m.group(1) if m else None
+
     def mdns_name(self) -> str:
         """The name the machine answers to on the network: avahi's, which is
         <hostname>-2.local when another machine already has <hostname>.local."""
@@ -660,7 +668,14 @@ def announce_address(sys_: System) -> None:
     sent = None
     while sys_.now() < deadline:
         try:
-            payload = {"ip": sys_.lan_ip(), "hostname": sys_.mdns_name(), "port": 80, "ssid": sys_.joined_ssid()}
+            # On Wi-Fi, give the Wi-Fi's own address: that is the network
+            # the person is on, and with a cable in as well the route to the
+            # internet (lan_ip) can leave by a network they can't see, like
+            # a laptop sharing its connection.
+            ssid = sys_.joined_ssid()
+            wifi_ip = sys_.wifi_ip() if ssid else None
+            payload = {"ip": wifi_ip or sys_.lan_ip(), "hostname": sys_.mdns_name(), "port": 80,
+                       "ssid": ssid if wifi_ip else None}
             pubkey, ready = sys_.rendezvous(state)
             if pubkey and ((pubkey, payload) != sent or not ready):
                 sys_.publish_address(state, pubkey, payload)

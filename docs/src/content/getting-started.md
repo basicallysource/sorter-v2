@@ -24,6 +24,18 @@ The instructions are written and being built from, but they are not finished. Of
 
 Each page lists the tools that page needs. There is no single tool list for the whole build, because what you need in front of you depends on the step you are standing at.
 
+## What you need to know
+
+You do not need to be an engineer, and none of the build is specialist work. It is a long job rather than a hard one.
+
+**Taken as read.** You can run a 3D printer and print a part from an STL file. You are at ease with hex keys, side cutters, wire strippers and pliers, and you can work from a parts list.
+
+**Taught here, at the point you need it.** [Heat-set inserts]({{ '/hardware/helpers/heat-inserts/' | relative_url }}), [crimping contacts onto wire]({{ '/hardware/helpers/channel-stepper-lead/' | relative_url }}) and [finding a stepper's coils with a multimeter]({{ '/hardware/helpers/chute-stepper-lead/' | relative_url }}). Those pages start from the tool in your hand, so you can arrive at them having never done it.
+
+**Soldering** is needed on two of the leads you make yourself, [the board's 24 V lead]({{ '/hardware/helpers/board-24v-lead/' | relative_url }}) and [the chute stepper lead]({{ '/hardware/helpers/chute-stepper-lead/' | relative_url }}), where a spliced wire is covered with adhesive-lined heat shrink. Nothing else on the machine has to be soldered: the Pico comes with its pins already fitted, and the LED strips take a clamp-on connector.
+
+**Not needed at all.** No CAD, no PCB design and no programming, to build the machine or to run it. No saw and no laser either: the aluminium is ordered cut to length, and the flat parts are cut for you by a service or a maker space.
+
 ## I want to help build the project
 
 - **Mechanical / CAD** — The project uses [Onshape](https://www.onshape.com/) (free, web-based, collaborative). Every V2 document is public and listed in the repo's `mechanical/README.md`; the folder holding them is private, so ask in the [Discord](https://discord.gg/6PZtqkwtaS) to be added to it. Start by browsing the V2 CAD and checking open bounties for mechanical tasks.

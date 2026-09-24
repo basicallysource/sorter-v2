@@ -1,6 +1,6 @@
 """Machine config helpers.
 
-Declarative machine configuration stays in `machine_params.toml`.
+Declarative machine configuration stays in machine.toml (see machine_toml.py).
 Mutable local state such as polygons, sync state, training session state,
 and secrets lives in `local_state.sqlite` via `local_state.py`.
 """
@@ -17,6 +17,7 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
 
+from machine_toml import machine_toml_path
 from server.config_helpers import write_machine_params_config
 
 
@@ -38,18 +39,9 @@ _POLYGONS_LOCK = threading.Lock()
 # ---------------------------------------------------------------------------
 
 
-def _toml_path() -> str:
-    """Return the machine params TOML path from env, or a default."""
-    path = os.getenv("MACHINE_SPECIFIC_PARAMS_PATH")
-    if path:
-        return path
-    return str(Path(__file__).parent / "machine_params.toml")
-
-
 def _polygons_path() -> str:
     """Legacy helper for the old polygons.json location."""
-    toml = _toml_path()
-    return str(Path(toml).parent / "polygons.json")
+    return str(machine_toml_path().parent / "polygons.json")
 
 
 # ---------------------------------------------------------------------------
@@ -59,8 +51,8 @@ def _polygons_path() -> str:
 
 def _read_toml() -> dict[str, Any]:
     """Read and parse the TOML file. Returns {} if missing. Malformed TOML exits the program."""
-    path = _toml_path()
-    if not os.path.exists(path):
+    path = machine_toml_path()
+    if not path.exists():
         return {}
     return loadTomlFile(path)
 
@@ -70,7 +62,7 @@ def _update_toml(updater: Any) -> None:
     with _TOML_LOCK:
         config = _read_toml()
         updater(config)
-        write_machine_params_config(_toml_path(), config)
+        write_machine_params_config(str(machine_toml_path()), config)
 
 
 # ---------------------------------------------------------------------------

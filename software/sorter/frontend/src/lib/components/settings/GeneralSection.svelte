@@ -51,12 +51,14 @@
 	let machineSetupError = $state<string | null>(null);
 	let machineSetupStatus = $state('');
 
-	let classificationMode = $state('two_piece_state_machine_rev01');
+	let classificationMode = $state<string | null>(null);
+	let classificationDefault = $state<string | null>(null);
 	let savingClassificationMode = $state(false);
 	let classificationModeError = $state<string | null>(null);
 	let classificationModeStatus = $state('');
 
-	let feederMode = $state('pulse_perception_rev01');
+	let feederMode = $state<string | null>(null);
+	let feederDefault = $state<string | null>(null);
 	let savingFeederMode = $state(false);
 	let feederModeError = $state<string | null>(null);
 	let feederModeStatus = $state('');
@@ -172,10 +174,12 @@
 			if (cRes.ok) {
 				const d = await cRes.json();
 				classificationMode = d.mode;
+				classificationDefault = d.default ?? null;
 			}
 			if (fRes.ok) {
 				const d = await fRes.json();
 				feederMode = d.mode;
+				feederDefault = d.default ?? null;
 			}
 		} catch {}
 	}
@@ -434,7 +438,7 @@
 									}`}
 								>
 									{classificationModeLabel(mode)}
-									{#if mode === 'two_piece_state_machine_rev01'}
+									{#if mode === classificationDefault}
 										<span class="border border-primary/40 bg-primary/10 px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-[0.14em] text-primary">
 											default
 										</span>
@@ -463,7 +467,7 @@
 									}`}
 								>
 									{feederModeLabel(mode)}
-									{#if mode === 'pulse_perception_rev01'}
+									{#if mode === feederDefault}
 										<span class="border border-primary/40 bg-primary/10 px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-[0.14em] text-primary">
 											default
 										</span>

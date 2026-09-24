@@ -130,10 +130,19 @@ else
     cat > "$ENV_FILE" <<EOF
 export DEBUG_LEVEL=2
 
-export MACHINE_SPECIFIC_PARAMS_PATH="$SOFTWARE_DIR/machine.example.toml"
-
 EOF
     ok ".env written"
+fi
+
+# The Sorter reads software/machine.toml. Start it from the example; never
+# point the Sorter at the example itself, or settings saved in the UI end up in
+# a file git tracks.
+MACHINE_TOML="$SOFTWARE_DIR/machine.toml"
+if [[ -f "$MACHINE_TOML" ]]; then
+    warn "machine.toml already exists at $MACHINE_TOML — leaving it alone"
+else
+    cp "$SOFTWARE_DIR/machine.example.toml" "$MACHINE_TOML"
+    ok "machine.toml created from machine.example.toml"
 fi
 
 # ─────────────────────────────────────────────────────────────────────────────

@@ -4,7 +4,7 @@ title: machine.toml Reference
 section: sorter
 slug: machine-toml-reference
 kicker: Sorter Configuration
-lede: All fields for the machine-specific config file. Set MACHINE_SPECIFIC_PARAMS_PATH to point to your copy.
+lede: All fields for the machine-specific config file, software/machine.toml. MACHINE_SPECIFIC_PARAMS_PATH, if set, points the Sorter at a different file.
 permalink: /sorter/machine-toml-reference/
 ---
 

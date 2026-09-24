@@ -165,17 +165,18 @@ def _configInfo() -> dict[str, Any]:
     # Feeder / classification-channel modes default to the hardcoded rev04 values
     # unless machine.toml overrides them; report whichever is actually in force.
     try:
-        from irl.config import ClassificationChannelMode, FeederMode
+        from irl.config import DEFAULT_CLASSIFICATION_CHANNEL_MODE, DEFAULT_FEEDER_MODE
 
-        info["feeder_mode"] = FeederMode.PULSE_PERCEPTION_REV01.value
-        info["classification_channel_mode"] = ClassificationChannelMode.TWO_PIECE_STATE_MACHINE_REV01.value
+        info["feeder_mode"] = DEFAULT_FEEDER_MODE.value
+        info["classification_channel_mode"] = DEFAULT_CLASSIFICATION_CHANNEL_MODE.value
     except Exception:
         pass
     try:
+        from machine_toml import machine_toml_path
         from toml_config import loadTomlFile
 
-        params_path = os.getenv("MACHINE_SPECIFIC_PARAMS_PATH")
-        if params_path and os.path.exists(params_path):
+        params_path = machine_toml_path()
+        if params_path.exists():
             raw = loadTomlFile(params_path)
             if isinstance(raw, dict):
                 info["machine_setup"] = raw.get("machine_setup", info["machine_setup"])

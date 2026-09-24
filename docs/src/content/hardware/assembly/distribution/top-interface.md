@@ -108,7 +108,7 @@ parts_needed:
   - part: scr-m5-20-shcs
     qty: 24
   - part: scr-m5-22-cs
-    qty: 15
+    qty: 14
   - part: scr-m5-30-shcs
     qty: 6
   - part: scr-m5-35-fhcs
@@ -119,7 +119,7 @@ parts_needed:
     qty: 56
   - part: nut-m5
     qty: 6
-tools_needed: [Hex key, Soldering iron or heat-set insert press]
+tools_needed: ["Hex keys, 2 mm, 2.5 mm, 3 mm and 4 mm", "Spanner, 8 mm, for the M5 nuts", "Soldering iron or heat-set insert press"]
 ---
 
 The top interface holds a chute that rotates on a lazy-susan bearing to aim incoming parts at whichever bin layer is currently selected. A NEMA 23 stepper drives the rotation through a small gear train (steps 6 and 9), and a limit switch and hammer (steps 4, 6, 8) give it a fixed reference point to home against, since the stepper alone has no way to know which way it is pointed. Everything on this page bolts onto the Top plate, which then sits on the hex frame built on the bin-frame page.
@@ -303,7 +303,7 @@ Attach the remaining 5 Interface ribs to the Interface upper fixed section, two 
 
 Slot the Interface NEMA 23 bracket into the Interface upper fixed section and secure it from below with an {% include fastener.html size="M3" variant="countersunk" length="12" %} screw.
 
-Attach the whole assembly to the bottom of the Top plate with {% include fastener.html size="M5" variant="countersunk" length="22" %} screws through holes S2 and S3 into the Interface NEMA 23 bracket.
+Attach the whole assembly to the bottom of the Top plate with 2 {% include fastener.html size="M5" variant="countersunk" length="22" %} screws, one through hole S2 and one through hole S3, into the Interface NEMA 23 bracket.
 
 **Alternative:** whether these need a countersunk head depends on how your Top plate was cut. If the S2/S3 holes have a countersink cut in, use a countersunk head; if they don't, {% include fastener.html size="M5" variant="socket-button" length="20" %} screws work here instead. Builder's call depending on their plate, the same as the I1-I6/O1-O6 screws in step 5.
 
@@ -475,7 +475,7 @@ Slide a T-nut just into the end of the extrusion of the limit switch interface b
 
 Repeat with the 5 other prepared Interface brackets into the 5 other Interface ribs.
 
-Flip the whole assembly and screw all 6 Interface brackets into place with {% include fastener.html size="M5" variant="countersunk" length="22" %} screws through holes I1 to I6 and O1 to O6.
+Flip the whole assembly and screw all 6 Interface brackets into place with 12 {% include fastener.html size="M5" variant="countersunk" length="22" %} screws, one through each of holes I1 to I6 and O1 to O6.
 
 <div class="img-row">
   <figure>

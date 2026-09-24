@@ -25,14 +25,14 @@ parts_needed:
     qty: 12
   - part: scr-m5-16-shcs
     qty: 12
-tools_needed: [Hex key, Mallet or hammer with a cloth to protect the brackets]
+tools_needed: ["Hex key, 3 mm for a button head or 4 mm for a socket head", "Mallet or hammer with a cloth to protect the brackets"]
 ---
 
 This guide builds one hexagonal frame: the outer ring of A extrusion and External bracket — side, with the six B spokes and Frame crossbeams held inside it by the Frame 90° brackets. No fasteners are used from step 2 onward — the spokes, crossbeams and brackets are a friction-and-slide fit, no screws or T-nuts.
 
 An N-layer machine needs **N + 1 of these**: one per planned layer, plus one for the [top interface]({{ '/hardware/assembly/distribution/top-interface/' | relative_url }}). The [bottom interface]({{ '/hardware/assembly/distribution/bin-frame/bottom-interface/' | relative_url }}) does not get a frame of its own — it hangs underneath the bottom layer's frame, off the same six spokes.
 
-The aluminum extrusion is cut to length; the [framing cut list](https://parts-calculator.basically.website/framing) has the exact dimensions. Each frame uses 6 A (320mm) and 6 B (158mm).
+Pieces A and B are 2020 aluminum extrusion, cut to length. Each frame uses 6 A (320mm) and 6 B (158mm); the [framing cut list](https://parts-calculator.basically.website/framing) has the exact dimensions.
 
 This frame's fastener total is fixed: 12 M5x16 screws, one per extrusion end and so two per bracket, all driven in step 1. Steps 2 through 8 use none, and the frame needs no T-nuts of its own. The bin retainers that later bolt to this ring do use T-nuts, but with the roll-in T-nuts this machine specifies those go into the slot on the [Bin retainers]({{ '/hardware/assembly/distribution/bin-frame/bin-retainers/' | relative_url }}) page, at the step that uses them.
 

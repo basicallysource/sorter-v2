@@ -14,7 +14,7 @@ last_verified: 2026-09-10
 parts_needed:
   - part: scr-m5-16-shcs
     qty: 12
-tools_needed: [Hex key]
+tools_needed: ["Hex key, 3 mm for a button head or 4 mm for a socket head"]
 ---
 
 Every layer of the bin frame is built flat, on its own, and none of the pages that build them says how they go together. This one does. At the end of it the frame is standing and empty, ready for the chutes to go in.
@@ -126,4 +126,4 @@ Every layer on, twelve screws at each joint, the top interface at the top of the
 
 <div class="img-placeholder">Photo of the finished frame standing on its casters: the bottom layer, the regular layers and the top interface joined into one tower, with no chutes in it yet.</div>
 
-The frame is now standing and empty. The [chutes]({{ '/hardware/assembly/distribution/chute/' | relative_url }}) go in next, one at a time and without their funnels, and the [bottom interface]({{ '/hardware/assembly/distribution/bin-frame/bottom-interface/' | relative_url }}) goes on after them, because it screws onto the chute stack rather than onto the frame. Both are on the [Chute]({{ '/hardware/assembly/distribution/chute/' | relative_url }}) page.
+The frame is now standing and empty. The [chutes]({{ '/hardware/assembly/distribution/chute/' | relative_url }}) go in next, one at a time and without their funnels, and the [bottom interface]({{ '/hardware/assembly/distribution/bin-frame/bottom-interface/' | relative_url }}) goes on after them, because its bearing carries the bottom of the chute stack. Both are on the [Chute]({{ '/hardware/assembly/distribution/chute/' | relative_url }}) page.

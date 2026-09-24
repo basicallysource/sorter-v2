@@ -10,6 +10,8 @@
 		ip: string;
 		hostname?: string;
 		port?: number;
+		// The Wi-Fi network it joined; null when it came online on a cable.
+		ssid?: string | null;
 	};
 
 	let phase = $state<Phase>('waiting');
@@ -17,13 +19,21 @@
 	let elapsed = $state(0);
 
 	let privKey: CryptoKey | null = null;
+	let pubKeyB64 = '';
+	let keyPostedAt = 0;
+	let startedAt = 0;
 	let rendezvousId = '';
 	let poll: ReturnType<typeof setInterval> | null = null;
 	let clock: ReturnType<typeof setInterval> | null = null;
 
-	// Give up polling after this long — matches the backend TTL window.
-	const TIMEOUT_S = 600;
+	// Give up after this long: the sorter stops reporting 15 minutes after the
+	// Wi-Fi was chosen on its setup page.
+	const TIMEOUT_S = 900;
 	const POLL_MS = 2000;
+	// Hive keeps the key in memory for ten minutes from the last post and
+	// forgets it if it restarts, so the page re-posts it while it waits. A
+	// failed post is retried on the next poll.
+	const KEY_REFRESH_MS = 30_000;
 
 	function b64ToBytes(s: string): Uint8Array {
 		const bin = atob(s);
@@ -57,9 +67,9 @@
 		return `http://${info.ip}${port}/`;
 	}
 
-	// Generate the keypair here, hand the public half to Hive (the sorter
-	// fetches it to encrypt its IP), keep the private half in memory only.
-	async function generateAndPublishKey(id: string): Promise<boolean> {
+	// Generate the keypair here and keep the private half in memory only; the
+	// public half goes to Hive for the sorter to encrypt its address with.
+	async function generateKey(): Promise<void> {
 		const pair = await crypto.subtle.generateKey(
 			{
 				name: 'RSA-OAEP',
@@ -71,16 +81,23 @@
 			['encrypt', 'decrypt']
 		);
 		privKey = pair.privateKey;
-		const spki = await crypto.subtle.exportKey('spki', pair.publicKey);
-		const res = await fetch(
-			`${getApiBaseUrl()}/api/machine-ip-lookup/${encodeURIComponent(id)}/pubkey`,
-			{
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ pubkey: bytesToB64(spki) })
-			}
-		);
-		return res.ok;
+		pubKeyB64 = bytesToB64(await crypto.subtle.exportKey('spki', pair.publicKey));
+	}
+
+	async function postKey(): Promise<void> {
+		try {
+			const res = await fetch(
+				`${getApiBaseUrl()}/api/machine-ip-lookup/${encodeURIComponent(rendezvousId)}/pubkey`,
+				{
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ pubkey: pubKeyB64 })
+				}
+			);
+			if (res.ok) keyPostedAt = Date.now();
+		} catch {
+			// transient network error: the next poll retries
+		}
 	}
 
 	async function tryDecrypt(ciphertextB64: string): Promise<SorterInfo | null> {
@@ -94,7 +111,7 @@
 			);
 			const obj = JSON.parse(new TextDecoder().decode(plain));
 			if (obj && typeof obj.ip === 'string') {
-				return { ip: obj.ip, hostname: obj.hostname, port: obj.port };
+				return { ip: obj.ip, hostname: obj.hostname, port: obj.port, ssid: obj.ssid };
 			}
 		} catch {
 			// Junk POST (or a key mismatch) — ignore and keep polling.
@@ -103,6 +120,7 @@
 	}
 
 	async function pollOnce() {
+		if (Date.now() - keyPostedAt > KEY_REFRESH_MS) await postKey();
 		const base = getApiBaseUrl();
 		try {
 			const res = await fetch(`${base}/api/machine-ip-lookup/${encodeURIComponent(rendezvousId)}`, {
@@ -137,16 +155,18 @@
 		}
 		rendezvousId = frag.id;
 		try {
-			await generateAndPublishKey(rendezvousId);
+			await generateKey();
 		} catch {
 			phase = 'invalid';
 			return;
 		}
 
+		startedAt = Date.now();
 		void pollOnce();
 		poll = setInterval(() => void pollOnce(), POLL_MS);
+		// From the wall clock: a phone throttles timers in a background tab.
 		clock = setInterval(() => {
-			elapsed += 1;
+			elapsed = Math.floor((Date.now() - startedAt) / 1000);
 			if (elapsed >= TIMEOUT_S && phase === 'waiting') {
 				phase = 'expired';
 				stopTimers();
@@ -182,9 +202,13 @@
 			<Spinner size={32} />
 			<div class="text-text">Waiting for your sorter to come online…</div>
 			<p class="max-w-sm text-sm text-text-muted">
-				Make sure you've rejoined your normal Wi-Fi. As soon as the sorter connects to the same
-				network it will report its address here — this stays private, the address is encrypted end
-				to end and only your browser can read it.
+				Make sure you've rejoined your normal Wi-Fi. The sorter restarts to join it, which takes
+				about two minutes, then reports its address here. The address is encrypted end to end, so
+				only this browser can read it.
+			</p>
+			<p class="max-w-sm text-sm text-text-muted">
+				If the sorter's setup network (<span class="font-mono">SorterOS-Setup-…</span>) shows up in
+				your Wi-Fi list again, it couldn't join. Connect to it again to see why and try again.
 			</p>
 			<div class="font-mono text-xs text-text-muted">
 				{Math.floor(elapsed / 60)}:{String(elapsed % 60).padStart(2, '0')} elapsed
@@ -198,6 +222,9 @@
 			{#if info.hostname}
 				<div class="font-mono text-sm text-text-muted">{info.hostname}</div>
 			{/if}
+			<div class="text-sm text-text-muted">
+				{info.ssid ? `On the Wi-Fi network ${info.ssid}` : 'Connected by cable'}
+			</div>
 			<div class="font-mono text-base break-all text-text">{sorterUrl()}</div>
 			<a href={sorterUrl()} class="w-full max-w-xs">
 				<Button variant="primary">Open the sorter →</Button>
@@ -208,9 +235,10 @@
 		</div>
 	{:else if phase === 'expired'}
 		<Alert variant="warning" title="No sorter reported in">
-			Ten minutes passed without the sorter checking in. It may have failed to join Wi-Fi (wrong
-			password?) or your network blocks the connection. Re-run Wi-Fi setup on the sorter, or try the
-			<span class="font-mono">.local</span> address it showed.
+			Fifteen minutes passed without the sorter checking in. If its setup network
+			(<span class="font-mono">SorterOS-Setup-…</span>) is back in your Wi-Fi list, it couldn't
+			join: connect to it and try again. Otherwise it's online but can't reach Hive, so try the
+			<span class="font-mono">.local</span> address its setup page showed.
 		</Alert>
 	{/if}
 </div>

@@ -4,7 +4,7 @@
 	import type { Snippet } from 'svelte';
 	import Spinner from './Spinner.svelte';
 
-	type Variant = 'primary' | 'secondary' | 'ghost';
+	type Variant = 'primary' | 'secondary';
 
 	let {
 		variant = 'secondary',
@@ -26,8 +26,7 @@
 
 	const variantClasses: Record<Variant, string> = {
 		primary: 'setup-button-primary',
-		secondary: 'setup-button-secondary text-text',
-		ghost: 'border border-transparent text-text hover:bg-border/60'
+		secondary: 'setup-button-secondary text-text'
 	};
 </script>
 

@@ -27,7 +27,7 @@
 
 			<dt class="text-text-muted">Networks</dt>
 			<dd class="flex min-w-0 flex-col gap-1">
-				{#each state.networks as n (n.kind + n.name)}
+				{#each state.networks as n, i (i)}
 					<span class="break-words">
 						{n.name}
 						<span class="block text-text-muted">

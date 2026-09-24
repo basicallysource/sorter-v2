@@ -10,8 +10,9 @@
 
   ./check.py wifi [--only "3 6"]
       Simulated Wi-Fi (wifi-sim.sh) in the running VM: setup-site Wi-Fi right
-      and wrong, the phone fixing it, a router that comes back late, a cable,
-      an odd network name and password.
+      and wrong, the phone joining a network while it watches, the setup
+      network's fence, a router that comes back late, a cable, odd names and
+      passwords, open, hidden and WPA3 networks, no address, no internet.
 
 Exits non-zero and says which check failed. Standard library only, Python 3.10+
 (the image's own Python), so it runs anywhere the image is built.

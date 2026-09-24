@@ -110,9 +110,12 @@ So, if you are planning:
   [Assembly]({{ '/hardware/assembly/' | relative_url }}) sections are in build
   order, so you can start assembling long before the last part is printed.
 
-## If the machine will live somewhere hot
+## Intended operating conditions
 
-For a shed, a garage, or any room without air conditioning:
+Indoors, out of direct sun, in a room you would be comfortable working in.
+Nobody has tested a limit, so the two cases worth planning for are these.
+
+**Too hot** (a shed, a garage, any room without air conditioning):
 
 - **Print the parts in PETG or ASA, not PLA.** PLA softens from around 55 C
   (131 F), and the printed gears the steppers drive through go first. PETG
@@ -120,11 +123,14 @@ For a shed, a garage, or any room without air conditioning:
   printed in it.
 - **Cool the Orange Pi.** It shuts down at about 105 C (221 F). See
   [Orange Pi 5]({{ '/hardware/orange-pi-5/' | relative_url }}).
-- **Keep the machine out of direct sun, and leave air around the power
-  supply.**
+- Working figure: up to about 40 C (104 F) in PLA, and 45 to 50 C (113 to
+  122 F) in PETG.
 
-Nobody has tested a limit. As a working figure: up to about 40 C (104 F) in
-PLA, and 45 to 50 C (113 to 122 F) in PETG with the Pi's fan fitted.
+**Damp mornings** (a humid climate, or a space that cools down overnight):
+
+- **Do not switch the machine on while any part of it feels cold to the touch
+  or looks wet.** Let it reach room temperature first. The power supply is
+  rated for 20 to 90% humidity, provided no water forms on it.
 
 ## Two things you may not be able to make yourself
 

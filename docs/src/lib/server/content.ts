@@ -7,6 +7,7 @@ import yaml from 'js-yaml';
 // (which extends a generated file) into this build.
 import partsGenerated from '../../../../parts-calculator/src/lib/data/catalog.generated.json';
 import { buildScale } from './build-scale';
+import { docsStatus } from './docs-status';
 import { Liquid } from 'liquidjs';
 import { unified } from 'unified';
 import remarkParse from 'remark-parse';
@@ -200,6 +201,11 @@ for (const [path, raw] of Object.entries(dataFiles)) {
 // Whole-machine scale, computed from the same catalog rather than written down:
 // `site.data.build_scale` on the hardware Overview page. See ./build-scale.ts.
 data.build_scale = buildScale;
+
+// How many hardware how-to pages are verified vs first drafts, counted from the
+// pages' own `warning:` frontmatter: `site.data.docs_status` on Getting started.
+// See ./docs-status.ts.
+data.docs_status = docsStatus;
 
 export const site = {
 	title: 'Sorter V2 Documentation',

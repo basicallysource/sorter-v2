@@ -5,84 +5,102 @@ type: installation
 section: sorter
 slug: installation-sorter-os
 kicker: Installation — SorterOS
-lede: Flash SorterOS onto an SD card, power on the Orange Pi, and it sets itself up. The recommended way to run Sorter on an Orange Pi 5.
+lede: Flash an SD card, power on the Orange Pi, and put it on your WiFi from your phone. The Pi sets up the rest.
 permalink: /sorter/installation/sorter-os/
 audience: self-hosting operator
 applies_to: sorteros v4.x
-last_verified: 2026-09-23
+last_verified: 2026-09-24
 ---
 
 <div class="notice notice-warn">
-  <strong>Orange Pi 5 required</strong>
-  <p>SorterOS is designed specifically for the <a href="{{ '/hardware/orange-pi-5/' | relative_url }}">Orange Pi 5</a>. See the <a href="{{ '/hardware/orange-pi-5/' | relative_url }}">Orange Pi 5 hardware page</a> for board selection, memory, storage, and WiFi requirements before continuing here.</p>
+  <strong>Orange Pi 5 only</strong>
+  <p>SorterOS runs on the <a href="{{ '/hardware/orange-pi-5/' | relative_url }}">Orange Pi 5</a> with 8 GB of memory or more.</p>
 </div>
 
-## What is SorterOS
+## What you need
 
-SorterOS is an OS image for Sorter, based on the official Ubuntu image from Orange Pi. The image itself is small: on first boot it downloads the current stable release of the Sorter software, builds it on the board, and starts it. Every SorterOS machine answers at [http://sorter.local](http://sorter.local).
+- An [Orange Pi 5]({{ '/hardware/orange-pi-5/' | relative_url }}) with 8 GB of memory or more
+- **A 32 GB or larger microSD card from a name brand, like Samsung** ([the SD card part](https://parts-calculator.basically.website/u/7fvo/)). The Pi writes to it all day, and cheap cards corrupt.
+- A computer with an SD card reader, and [Balena Etcher](https://etcher.balena.io/)
+- A phone and your WiFi's password, or an Ethernet cable to your router
 
-## Prerequisites
+## 1. Download
 
-- An [Orange Pi 5]({{ '/hardware/orange-pi-5/' | relative_url }}) with at least 8 GB of memory
-- A 32 GB or larger SD card, ideally a name-brand high-endurance one (see the hardware page)
-- A computer with an SD card reader
-- [Balena Etcher](https://etcher.balena.io/) installed on your computer
-- An internet connection for the Pi: an Ethernet cable to your router, or your WiFi network's name and password
+Download the `.zip` from the latest **SorterOS** release on [GitHub](https://github.com/basicallysource/sorter-v2/releases).
 
-## Step 1 — Download the image
+## 2. Flash
 
-Go to **[github.com/basicallysource/sorter-v2/releases](https://github.com/basicallysource/sorter-v2/releases)**, find the latest **SorterOS** release, and download the `.zip` file from its assets.
+In Balena Etcher: **Flash from file**, pick the `.zip`, **Select target**, pick the SD card, **Flash**. Wait until Etcher says the flash is complete.
 
-## Step 2 — Add your WiFi (optional)
+## 3. Power on
 
-Skip this if the Pi will use Ethernet, or if you'd rather give it your WiFi from a phone after it starts (Step 4).
+Put the card in the Orange Pi and power it on.
 
-Otherwise, unzip the download and open the `.img` in **[SorterOS Setup](https://setup.basically.website)**. It writes your WiFi network and password into the image, and optionally a hostname, an SSH key and a Tailscale auth key. It runs entirely in your browser; nothing is uploaded. In Chrome it can save into the original `.img`; other browsers download a changed copy (about 7 GB).
+**On Ethernet to your router?** The Pi goes online by itself. Skip to step 5.
 
-## Step 3 — Flash to SD card
+## 4. Put it on your WiFi from your phone
 
-1. Open **[Balena Etcher](https://etcher.balena.io/)**
-2. Click **Flash from file** and select the `.zip` (or, if you did Step 2, the `.img` you saved)
-3. Click **Select target** and choose your SD card
-4. Click **Flash**
+About half a minute after power on, the Pi starts its own WiFi network, `SorterOS-Setup-` and six characters.
 
-Wait for Etcher to finish writing and verifying. Do not remove the card until it reports success.
-
-## Step 4 — Power on
-
-Insert the SD card into the Orange Pi 5 and power it on. It gets online the first way that works:
-
-1. **Ethernet**, if a cable to your router (or to a computer sharing its internet) is plugged in.
-2. **The WiFi from Step 2.**
-3. Otherwise, about half a minute after power-on, it opens its own WiFi network, named `SorterOS-Setup-` followed by six characters. Join it from a phone or laptop; a setup page opens (if it doesn't, browse to [http://10.42.0.1](http://10.42.0.1)). Pick your network, or type its name under **Other network**, and enter its password. The Pi joins it while your phone stays on the setup network, so within a few seconds the page shows either the Pi's address on your network or why it couldn't join, usually a wrong password, which you can fix right there. (If your phone drops off the setup network while the Pi joins, which can happen with a network that is only on 5 GHz, join the setup network again to see how it went.) Note the address (tap and hold it to copy it), tap **Done**, and your phone goes back to its usual WiFi; open the address there in Safari or Chrome. The page also gives the Pi your phone's time zone, which sets its clock and the WiFi channels it may use in your country.
-
-   Networks that sign in with a username as well as a password (enterprise WiFi, common in offices and schools) can't be set up this way. Use Ethernet on those.
-
-The setup network is also the way back if something changes later: whenever the Pi can't reach the internet for about a minute (a new router, a changed password, an unplugged cable), it opens the setup network again, and closes it once it's back online and nobody is on it. Online means the internet actually answers: a cable into a switch with no internet doesn't count, and doesn't get in the way of a WiFi network that works.
-
-## Step 5 — First boot
-
-Browse to **[http://sorter.local](http://sorter.local)** from a computer on the same network. Until the software is ready this shows a progress page listing every first-boot stage and its state, refreshing itself every few seconds. When the last stage the UI needs is done, the same address becomes the Sorter UI.
-
-<div class="notice">
-  <strong>First boot takes a while, and it needs the network throughout</strong>
-  <p>The Pi downloads the Sorter software and builds the backend's Python environment and the frontend on the board itself; how long that takes depends on your connection. A stage that needs the network waits and retries rather than failing, and the progress page shows the reason next to any stage that is stuck. The board's LEDs are no guide: they blink the whole time.</p>
+<div class="img-row">
+  <figure>
+    <img src="https://assets.basically.website/sorter-docs/sorteros-setup-phone-1-join-network-full-fe8a716277d0.png" alt="An iPhone's WiFi settings listing a network called SorterOS-Setup-63F32A among the nearby networks">
+    <figcaption>In your phone's WiFi settings, join the <code>SorterOS-Setup</code> network. <cite>Screenshot recorded on an iPhone.</cite></figcaption>
+  </figure>
+  <figure>
+    <img src="https://assets.basically.website/sorter-docs/sorteros-setup-phone-2-choose-network-full-5db6cef77cbf.png" alt="The Sorter's setup page in the phone's sign-in window, listing the WiFi networks the Sorter can see">
+    <figcaption>A setup page opens. Tap your WiFi network. <cite>Screenshot recorded on an iPhone.</cite></figcaption>
+  </figure>
+  <figure>
+    <img src="https://assets.basically.website/sorter-docs/sorteros-setup-phone-3-password-full-87f1684b0c28.png" alt="The setup page asking for the password of the chosen network, with a Join button">
+    <figcaption>Enter its password and tap <strong>Join</strong>. <cite>Screenshot recorded on an iPhone.</cite></figcaption>
+  </figure>
 </div>
 
-`sorter.local` uses mDNS, so the device you're browsing from must be on the same network as the Pi. It resolves natively on macOS, iOS, Linux and recent Windows; older Windows may need [Bonjour](https://support.apple.com/en-us/106380), and Android usually can't. A second SorterOS machine on the same network answers at `sorter-2.local`. If no `.local` address works, use the IP address the setup page showed, or find the Pi in your router's list of connected devices.
+No setup page? Stay on the `SorterOS-Setup` network and open [http://10.42.0.1](http://10.42.0.1) in Safari or Chrome.
 
-Once the UI is up, the Pi downloads a detection model from [Hive](https://hive.basically.website) that suits its hardware and puts it on every camera channel, so detection works without picking a model yourself. You can change it later under **Settings → Local Models**.
+<div class="img-row">
+  <figure>
+    <img src="https://assets.basically.website/sorter-docs/sorteros-setup-phone-4-joining-full-52aa8287136c.png" alt="The setup page saying it is joining the network, and to keep the page open">
+    <figcaption>The Pi joins while your phone stays on the setup network. <cite>Screenshot recorded on an iPhone.</cite></figcaption>
+  </figure>
+  <figure>
+    <img src="https://assets.basically.website/sorter-docs/sorteros-setup-phone-5-wrong-password-full-44310e947171.png" alt="The setup page showing Wrong password for the network, with the password field ready to try again">
+    <figcaption>A wrong password says so. Fix it and join again. <cite>Screenshot recorded on an iPhone.</cite></figcaption>
+  </figure>
+  <figure>
+    <img src="https://assets.basically.website/sorter-docs/sorteros-setup-phone-6-joined-full-bcd8440c578d.png" alt="The setup page saying the Sorter is on the network, with its address, the next steps and a Done button">
+    <figcaption>It's on. Note the address and tap <strong>Done</strong>; your phone goes back to your WiFi. <cite>Screenshot recorded on an iPhone.</cite></figcaption>
+  </figure>
+</div>
 
-The first time you open the UI it starts on the setup wizard, which names the machine, finds the control boards, checks motion and endstops, and assigns servos and cameras. [First setup in the UI]({{ '/sorter/first-setup/' | relative_url }}) takes it step by step.
+## 5. Open the Sorter
 
-## Updates
+On a phone or computer on the same WiFi, open **[http://sorter.local](http://sorter.local)**.
 
-The UI's **Settings → Versions** page lists the stable and canary releases and switches between them. A new SorterOS image is only needed when the image itself changes, never to get a newer Sorter release.
+<figure class="single-figure">
+  <img src="https://assets.basically.website/sorter-docs/sorteros-setup-phone-7-first-boot-full-c61f9a7eaa82.png" alt="The first boot progress page at sorter.local with every stage checked and a link to reload for the Sorter UI">
+  <figcaption>The first boot installs the Sorter software, which takes a few minutes. The page updates itself, then becomes the Sorter UI. <cite>Screenshot recorded on an iPhone.</cite></figcaption>
+</figure>
 
-## SSH access
+The first time, the UI opens on the [setup wizard]({{ '/sorter/first-setup/' | relative_url }}).
 
-SorterOS services run as root. The default SSH username is `root` and the default password is `orangepi`. If you are using Tailscale SSH, no password is required.
+## If something's off
 
-## Troubleshooting
+- **No `SorterOS-Setup` network.** It only appears while the Pi is offline. On a cable with internet, the Pi is already online: go to step 5.
+- **The setup page didn't open.** Open [http://10.42.0.1](http://10.42.0.1) in Safari or Chrome while on the setup network.
+- **Your phone left the setup network during the join** (it can on a WiFi that's only 5 GHz). Join it again to see the result.
+- **`sorter.local` doesn't open.** Use the address the setup page showed. Older Windows needs [Bonjour](https://support.apple.com/en-us/106380), and Android usually can't open `.local` names. A second SorterOS machine is `sorter-2.local`.
+- **Office or school WiFi** that asks for a username as well as a password can't be set up this way. Use Ethernet.
 
-See [Sorter troubleshooting]({{ '/sorter/troubleshooting/' | relative_url }}#first-boot) for first-boot problems.
+More in [troubleshooting]({{ '/sorter/troubleshooting/' | relative_url }}#first-boot).
+
+## Or: put your WiFi in before you flash
+
+[SorterOS Setup](https://setup.basically.website) writes your WiFi into the image, and optionally a hostname, an SSH key and a Tailscale key. It runs in your browser and uploads nothing. Unzip the download, open the `.img` there, and flash the `.img` it saves instead of the `.zip`.
+
+## Later
+
+- **New router or WiFi password.** When the Pi can't reach the internet for about a minute, its setup network comes back. Do step 4 again.
+- **Updates.** Settings, then Versions, in the Sorter UI. You only need a new SorterOS image when the image itself changes.
+- **SSH.** User `root`, password `orangepi`.

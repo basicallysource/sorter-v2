@@ -4995,7 +4995,7 @@
       },
       "name": "32gb+ Micro SD Card",
       "category": "Computer",
-      "description": "MicroSD card for Orange Pi",
+      "description": "32 GB or larger, from a name brand like Samsung. SorterOS writes to the card all day, and cheap cards corrupt.",
       "created_at": "2026-07-18",
       "updated_at": "2026-07-18",
       "sheet_qty": {

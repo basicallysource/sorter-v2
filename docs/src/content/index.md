@@ -1,13 +1,11 @@
 ---
 layout: default
-title: Sorter Documentation
+title: What Sorter is
 type: landing
 slug: home
 kicker: Sorter
-lede: What Sorter is, what it sorts, and where to start if you want to build one.
+lede: An open-source LEGO sorting machine: what it sorts, what it will not, and where to start if you want to build one.
 ---
-
-## What Sorter is
 
 <figure class="landing-hero-float">
   <div class="landing-hero-media">
@@ -17,7 +15,7 @@ lede: What Sorter is, what it sorts, and where to start if you want to build one
   <figcaption><cite>Rendered from the part geometry, not from a build.</cite></figcaption>
 </figure>
 
-Sorter is an open-source LEGO sorting machine. You feed bulk LEGO into a hopper. The machine separates the pieces one at a time, works out what each one is by part number (and by color, if you want), and drops it into the right bin.
+You feed bulk LEGO into a hopper. The machine separates the pieces one at a time, works out what each one is by part number (and by color, if you want), and drops it into the right bin.
 
 Machines are built and running, and they sort every day. It is not a product: there is no kit, no price, and nothing for sale. What exists is the design, the parts list, and these instructions.
 

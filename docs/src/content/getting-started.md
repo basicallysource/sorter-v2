@@ -47,7 +47,6 @@ To run the software from source you need Python 3.12+, Node.js 20+ and pnpm. The
 | Assembly instructions | [Assembly]({{ '/hardware/assembly/' | relative_url }}) |
 | GitHub organization | [github.com/basicallysource](https://github.com/basicallysource) |
 | V2 CAD (active) | [Onshape document](https://cad.onshape.com/documents/59b1b8e595daebcff3d3711c/w/77adcf46916b421c55e6a947/e/626a2d725f7a102031079019) |
-| V1 CAD (reference only) | [Onshape document](https://cad.onshape.com/documents/57a6deba5df3f2fefb14bfa4/w/69c1555983f7ea624f0cf5a5/e/62f915a1f9533b22259df854) |
 | Brickognize API docs | [api.brickognize.com/docs](https://api.brickognize.com/docs) |
 | Shared Google Drive | [Design docs and presentations](https://drive.google.com/drive/folders/19ZV8AnAjYpwCfDaukLdA2u8vyNN1H8Yf) |
 | Documentation site | [docs.basically.website](https://docs.basically.website/) |

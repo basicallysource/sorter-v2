@@ -57,7 +57,7 @@ The bottom interface is the Lazy Susan bearing assembly the chute rests and spin
   </figure>
 </div>
 
-The parts list above is only the Lazy Susan bearing stack and the extrusion mounts added in steps 5 to 10. The fasteners and quantities are in the parts list above and are called out inline at each step.
+The parts list above is only the Lazy Susan bearing stack and the extrusion mounts added in steps 5 to 10, and its fasteners are called out inline at each step.
 
 {% include fastener-legend.html %}
 
@@ -322,15 +322,17 @@ Nine {% include fastener.html size="M5" variant="socket-button" length="16" %} a
 
 Set the bearing stack from steps 1 to 4 down onto the three mounts, so the Lazy Susan bottom static part lands in the triangular cutouts.
 
-**Nothing screws it down.** The cutouts hold it in position, and the weight of the chute stack that hangs from it afterwards keeps it seated. There is no fastener missing here.
+**Nothing screws it down.** The cutouts hold it in position, and the weight of the chute stack that hangs from it afterwards keeps it seated.
 
 ## The finished result
 
+The bearing stack sitting in the three mounts, ready for the [chute core]({{ '/hardware/assembly/distribution/chute/chute-core/' | relative_url }}). With a funnel fitted, it lands level with the bin entrances.
+
+<div class="img-placeholder">Photo from underneath the bottom layer: the bearing stack down in the three extrusion mounts, both layer connectors on it.</div>
+
 <figure class="single-figure">
   <img class="doc-figure" src="https://assets.basically.website/sorter-parts/bottom-interface-step4-hex-frame-overview-full-bab24577ff64.jpg" alt="Top-down view of the assembled hexagonal layer frame with three Lazy Susan extrusion mounts fitted at alternating spokes">
-  <figcaption>All three mounts, fitted around the ring. The frame is off the machine here, not in its built orientation. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+  <figcaption>The three mounts around the ring, before the bearing stack goes in. The frame is off the machine here, not in its built orientation. <cite>Photo: BrickCycleAlice.</cite></figcaption>
 </figure>
-
-The bearing stack sits in the three mounts, ready for the [chute core]({{ '/hardware/assembly/distribution/chute/chute-core/' | relative_url }}). With a funnel fitted, it lands level with the bin entrances.
 
 The [Bin frame]({{ '/hardware/assembly/distribution/bin-frame/' | relative_url }}) page contains the instructions for the entire stack, and is where you should return once you're done here.

@@ -44,7 +44,7 @@ function fresh(t: number): State {
 			mdns: 'sorter.local',
 			software: { state: 'waiting', step: null, done: 0, total: 11 }
 		},
-		setup_network: { ssid: 'SorterOS-Setup-63F32A' },
+		setup_network: { ssid: 'SorterOS-Setup-ABCDEF' },
 		networks: [],
 		cable: 'none',
 		join: null,

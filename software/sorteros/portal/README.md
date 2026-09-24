@@ -45,7 +45,7 @@ times of day).
       "done": 3, "total": 11          // steps
     }
   },
-  "setup_network": { "ssid": "SorterOS-Setup-63F32A" },
+  "setup_network": { "ssid": "SorterOS-Setup-ABCDEF" },
   "networks": [                       // every network the Sorter is on now
     { "kind": "wifi", "name": "HomeNet", "address": "192.168.1.68", "internet": true },
     { "kind": "ethernet", "name": "Ethernet", "address": "192.168.2.3", "internet": false }

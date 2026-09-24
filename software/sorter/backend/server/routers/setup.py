@@ -19,6 +19,8 @@ from machine_setup import (
 from blob_manager import getMachineId, getMachineNickname
 from hardware.bus import MCUBus
 from irl.config import (
+    DEFAULT_CLASSIFICATION_CHANNEL_MODE,
+    DEFAULT_FEEDER_MODE,
     ClassificationChannelMode,
     FeederMode,
     _requiredCanonicalStepperNames,
@@ -716,9 +718,10 @@ def set_machine_setup(payload: MachineSetupPayload) -> Dict[str, Any]:
 @router.get("/api/classification-channel-mode")
 def get_classification_channel_mode() -> Dict[str, Any]:
     _, config = _read_machine_params_config()
-    current = config.get("classification_channel", {}).get("mode", ClassificationChannelMode.SIMPLE_STATE_MACHINE_REV01.value)
+    current = config.get("classification_channel", {}).get("mode", DEFAULT_CLASSIFICATION_CHANNEL_MODE.value)
     return {
         "mode": current,
+        "default": DEFAULT_CLASSIFICATION_CHANNEL_MODE.value,
         "options": [m.value for m in ClassificationChannelMode],
     }
 
@@ -744,9 +747,10 @@ def set_classification_channel_mode(payload: ClassificationChannelModePayload) -
 @router.get("/api/feeder-subsystem-mode")
 def get_feeder_subsystem_mode() -> Dict[str, Any]:
     _, config = _read_machine_params_config()
-    current = config.get("feeder", {}).get("mode", FeederMode.GO_TO_ANGLE_REV01.value)
+    current = config.get("feeder", {}).get("mode", DEFAULT_FEEDER_MODE.value)
     return {
         "mode": current,
+        "default": DEFAULT_FEEDER_MODE.value,
         "options": [m.value for m in FeederMode],
     }
 

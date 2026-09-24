@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 import tomllib
 
 from global_config import GlobalConfig
+from machine_toml import machine_toml_path
 from hardware.bus import MCUBusError
 from hardware.cobs import DecodeError
 from machine_setup import (
@@ -18,7 +19,6 @@ from machine_setup import (
 if TYPE_CHECKING:
     from hardware.sorter_interface import StepperMotor
 
-MACHINE_SPECIFIC_PARAMS_ENV_VAR = "MACHINE_SPECIFIC_PARAMS_PATH"
 
 # Servos have no hard-coded open/closed angle defaults. A PWM servo must be
 # calibrated per layer (its angles locked in via the UI) before it will move.
@@ -176,18 +176,10 @@ class MachineConfig:
 
 
 def loadMachineSpecificParams(gc: GlobalConfig) -> dict[str, object]:
-    current_override_env_path = os.getenv(MACHINE_SPECIFIC_PARAMS_ENV_VAR)
-
-    if not current_override_env_path:
-        gc.logger.info(
-            f"No {MACHINE_SPECIFIC_PARAMS_ENV_VAR} set; using default stepper currents and servo angles."
-        )
-        return {}
-
-    stepper_current_config_path = Path(current_override_env_path).expanduser()
+    stepper_current_config_path = machine_toml_path()
     if not stepper_current_config_path.exists():
         gc.logger.warning(
-            f"{MACHINE_SPECIFIC_PARAMS_ENV_VAR} is set to '{stepper_current_config_path}', but file does not exist. Using defaults."
+            f"No machine config at {stepper_current_config_path}; using default stepper currents and servo angles."
         )
         return {}
 

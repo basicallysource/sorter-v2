@@ -370,6 +370,18 @@ class Boot(unittest.TestCase):
         self.assertLess(kinds.index("scan"), kinds.index("ap_up"))
         self.assertEqual([s["ssid"] for s in n.page_state()["scan"]["networks"]], ["HomeNet"])
 
+    def test_a_short_first_scan_is_filled_in_before_anyone_can_join(self):
+        # Right after boot NetworkManager's scan can miss networks: seen on
+        # the AP6275P, two of the dozen in range.
+        w = World(routers={"HomeNet": Router(up=lambda t: t >= 6)})
+        n = boot(w)
+        until(n, lambda: w.ap_on)
+        self.assertEqual(n.page_state()["scan"]["networks"], [])
+        run_for(n, 25)
+        self.assertEqual([s["ssid"] for s in n.page_state()["scan"]["networks"]], ["HomeNet"])
+        run_for(n, 90)
+        self.assertEqual(w.count("scan"), 2)
+
     def test_a_cable_with_internet_means_no_setup_network(self):
         w = World(routers=home(), cable={"at": 0, "internet": True})
         n = boot(w)

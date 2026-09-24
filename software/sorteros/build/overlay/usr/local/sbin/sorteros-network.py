@@ -127,6 +127,7 @@ AFTER_JOIN_IDLE_CLOSE_S = 300  # after a join: the phone may drop off as the cha
 AFTER_JOIN_MAX_S = 600
 DONE_CLOSE_S = 5
 SCAN_EVERY_S = 120
+SECOND_SCAN_S = 15  # the scan at start can come back short: NetworkManager has only just brought up the Wi-Fi
 SAVED_RETRY_S = 60  # a saved network seen in a scan while offline is tried this often
 SINGLE_RADIO_RETRY_S = 300
 STATUS_EVERY_S = 30
@@ -945,6 +946,7 @@ class Network:
                 self.scan["scanning"] = False
             return
         with self.lock:
+            first = self.scan["at"] is None
             self.scan["scanning"] = True
         networks = self.sys.scan(self.wifi_iface)
         saved = set(self.sys.saved_wifi())
@@ -952,7 +954,7 @@ class Network:
             n["saved"] = n["ssid"] in saved
         with self.lock:
             self.scan = {"scanning": False, "at": round(self.sys.wall_now()), "networks": networks}
-        self.next_scan = self.sys.now() + SCAN_EVERY_S
+        self.next_scan = self.sys.now() + (SECOND_SCAN_S if first else SCAN_EVERY_S)
 
     def do_join(self, req: dict) -> None:
         """Save the network and join it, while the setup network stays up

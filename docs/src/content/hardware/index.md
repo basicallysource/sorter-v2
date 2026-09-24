@@ -112,28 +112,19 @@ So, if you are planning:
 
 ## If the machine will live somewhere hot
 
-The machine has no tested temperature range, so what follows is read off the
-parts it is built from. It matters if it will stand in an uninsulated shed, a
-garage, or any room without air conditioning in a hot climate.
+For a shed, a garage, or any room without air conditioning:
 
-- **Print the structural parts in PETG or ASA, not PLA.** PLA starts to soften
-  from around 55 C (131 F), and the parts that give way first are the loaded
-  ones next to a motor: the printed gear trains in the C-channels and on the
-  chute stepper, the NEMA brackets they are bolted to, and the servo brackets.
-  A gear that softens under load loses its teeth profile and starts skipping.
-  PETG holds to around 80 C (176 F), and a full 5 layer set has already been
+- **Print the parts in PETG or ASA, not PLA.** PLA softens from around 55 C
+  (131 F), and the printed gears the steppers drive through go first. PETG
+  holds to around 80 C (176 F), and a full 5 layer set has already been
   printed in it.
-- **Cool the Orange Pi, and keep detection on the NPU.** It throttles as it
-  warms and shuts down at about 105 C (221 F) on the chip, and the room's
-  temperature adds to its own. See
+- **Cool the Orange Pi.** It shuts down at about 105 C (221 F). See
   [Orange Pi 5]({{ '/hardware/orange-pi-5/' | relative_url }}).
-- **Keep the machine out of direct sun, and leave the power supply free air.**
-  The supply is rated to 70 C (158 F) and runs at about a quarter of its
-  capacity, so it is not what limits you. The plastic around it is.
+- **Keep the machine out of direct sun, and leave air around the power
+  supply.**
 
-A working figure: below about 40 C (104 F) in PLA, and 45 to 50 C (113 to
-122 F) in PETG with both Orange Pi fans fitted. In a humid climate, watch for
-condensation on the electronics on cool mornings as well as for heat.
+Nobody has tested a limit. As a working figure: up to about 40 C (104 F) in
+PLA, and 45 to 50 C (113 to 122 F) in PETG with the Pi's fan fitted.
 
 ## Two things you may not be able to make yourself
 

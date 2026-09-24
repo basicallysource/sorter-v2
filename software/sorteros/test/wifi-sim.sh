@@ -45,7 +45,7 @@ lsmod | grep -q mac80211_hwsim || { modprobe -d "$W/root" mac80211_hwsim radios=
     { echo "FAIL could not load mac80211_hwsim"; exit 1; }
 # The setup network's fence, its port 80 redirect, and the router's NAT.
 for m in nf_tables nft_counter nft_compat nf_conntrack xt_conntrack xt_tcpudp nf_nat nft_chain_nat \
-    xt_REDIRECT xt_MASQUERADE xt_nat veth; do
+    xt_REDIRECT xt_MASQUERADE xt_nat nf_reject_ipv4 xt_REJECT veth; do
     lsmod | grep -q "^$m " || modprobe -d "$W/root" "$m" 2>/dev/null || modprobe "$m" 2>/dev/null || true
 done
 phy_of() { cat "/sys/class/net/$1/phy80211/name"; }
@@ -77,7 +77,10 @@ eth_default() { # yes|no: the cable is a way online, or only for ssh
 router_uplink() { ip route replace default via "$ETHGW" dev "$ETH" table 100; }
 cable_internet() { # yes|no: the cable's own traffic (not the router's) reaches the internet
     iptables -D OUTPUT -o "$ETH" -p tcp --dport 80 -j REJECT 2>/dev/null
-    [ "$1" = no ] && iptables -I OUTPUT -o "$ETH" -p tcp --dport 80 -j REJECT
+    if [ "$1" = no ]; then
+        iptables -I OUTPUT -o "$ETH" -p tcp --dport 80 -j REJECT ||
+            echo "     (couldn't block the cable's internet: the scenario proves nothing)"
+    fi
     nmcli networking connectivity check >/dev/null
 }
 

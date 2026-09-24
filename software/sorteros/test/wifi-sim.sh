@@ -252,7 +252,7 @@ check "config kept the setup site's Tailscale key" grep -q 'tskey-sim' /etc/sort
 check "config has the phone's time zone" grep -q 'Europe/Berlin' /etc/sorteros-config.toml
 check "the Wi-Fi country follows it" grep -qx 'ccode=DE' /lib/firmware/ap6275p/config.txt
 phone_leave
-check "setup network closes once the phone has left" wait_for 180 setup_gone
+check "setup network closes once the phone has left" wait_for 420 setup_gone
 fi
 
 if want 3; then

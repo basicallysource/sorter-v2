@@ -1,23 +1,23 @@
 ---
 layout: default
-title: Sorter V2 Documentation
+title: Sorter Documentation
 type: landing
 slug: home
-kicker: Sorter V2
-lede: What Sorter V2 is, what it sorts, and where to start if you want to build one.
+kicker: Sorter
+lede: What Sorter is, what it sorts, and where to start if you want to build one.
 ---
 
-## What Sorter V2 is
+## What Sorter is
 
 <figure class="landing-hero-float">
   <div class="landing-hero-media">
     <img src="https://assets.basically.website/web/hero-w1600-webp-8481cdd67816.webp"
-      alt="Sorter V2 assembled: a hexagonal tower of open bins under the platter, distributor and camera head.">
+      alt="Sorter assembled: a hexagonal tower of open bins under the platter, distributor and camera head.">
   </div>
   <figcaption><cite>Rendered from the part geometry, not from a build.</cite></figcaption>
 </figure>
 
-Sorter V2 is an open-source LEGO sorting machine. You feed bulk LEGO into a hopper. The machine separates the pieces one at a time, works out what each one is by part number (and by color, if you want), and drops it into the right bin.
+Sorter is an open-source LEGO sorting machine. You feed bulk LEGO into a hopper. The machine separates the pieces one at a time, works out what each one is by part number (and by color, if you want), and drops it into the right bin.
 
 Machines are built and running, and they sort every day. It is not a product: there is no kit, no price, and nothing for sale. What exists is the design, the parts list, and these instructions.
 

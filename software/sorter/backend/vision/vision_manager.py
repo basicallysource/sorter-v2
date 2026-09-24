@@ -46,6 +46,8 @@ from .detection_registry import (
     CarouselDetectionAlgorithm,
     ClassificationDetectionAlgorithm,
     FeederDetectionAlgorithm,
+    MODEL_ID_PREFIXES,
+    MODEL_KINDS,
     detection_algorithm_definition,
     normalize_detection_algorithm,
     scope_supports_detection_algorithm,
@@ -787,10 +789,10 @@ class VisionManager:
     def _isLocalModelDetectionAlgorithm(algorithm: str | None) -> bool:
         if not isinstance(algorithm, str):
             return False
-        if algorithm.startswith(("hive:", "bundled:")):
+        if algorithm.startswith(MODEL_ID_PREFIXES):
             return True
         definition = detection_algorithm_definition(algorithm)
-        return bool(definition is not None and definition.kind in {"hive", "bundled"})
+        return bool(definition is not None and definition.kind in MODEL_KINDS)
 
     @staticmethod
     def _isDynamicDetectionAlgorithm(algorithm: str | None) -> bool:
@@ -2370,7 +2372,7 @@ class VisionManager:
         from .detection_registry import detection_algorithm_definition
 
         definition = detection_algorithm_definition(algorithm_id)
-        if definition is None or definition.kind not in {"hive", "bundled"} or definition.model_path is None:
+        if definition is None or definition.kind not in MODEL_KINDS or definition.model_path is None:
             return None
 
         # NPU per-core fanout: when running on RKNN, build one runtime per NPU

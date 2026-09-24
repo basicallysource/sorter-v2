@@ -21,14 +21,23 @@ def _have_nmcli() -> bool:
     return bool(shutil.which("nmcli"))
 
 
+# nmcli draws a progress line while it associates and erases it with ESC[2K,
+# which otherwise ends up in the message the UI shows. Cursor control, not
+# colour, so --colors no doesn't help.
+_CONTROL_SEQUENCES = re.compile(r"\x1b\[[0-9;?]*[ -/]*[@-~]|[\x00-\x08\x0b-\x1f]")
+
+
 def _run(*args: str, timeout: float = 10.0) -> subprocess.CompletedProcess:
-    return subprocess.run(
+    proc = subprocess.run(
         ["nmcli", *args],
         capture_output=True,
         text=True,
         timeout=timeout,
         check=False,
     )
+    proc.stdout = _CONTROL_SEQUENCES.sub("", proc.stdout or "")
+    proc.stderr = _CONTROL_SEQUENCES.sub("", proc.stderr or "")
+    return proc
 
 
 def _split_terse(line: str) -> List[str]:
@@ -152,8 +161,9 @@ class WifiConnectPayload(BaseModel):
 def wifi_connect(payload: WifiConnectPayload) -> Dict[str, Any]:
     if not _have_nmcli():
         return {"ok": False, "error": "nmcli not found"}
-    ssid = payload.ssid.strip()
-    if not ssid:
+    # Kept exactly as given: spaces at either end are legal in an SSID.
+    ssid = payload.ssid
+    if not ssid.strip():
         return {"ok": False, "error": "ssid is required"}
 
     args = ["device", "wifi", "connect", ssid]

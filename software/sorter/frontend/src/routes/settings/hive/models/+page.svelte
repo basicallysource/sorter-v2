@@ -12,9 +12,9 @@
 	<header>
 		<h1 class="text-lg font-semibold text-text">Detection Models</h1>
 		<p class="mt-1 max-w-3xl text-sm text-text-muted">
-			Manage which neural-network model the sorter uses for live detection. The
-			bundled YOLO model ships with the repo and is the default fallback if
-			nothing else is installed.
+			Manage which neural-network model the sorter uses for live detection. A new
+			machine downloads Hive's default model for its hardware and uses it on every
+			channel until you pick another one here.
 		</p>
 	</header>
 

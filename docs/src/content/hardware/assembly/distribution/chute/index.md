@@ -12,7 +12,7 @@ contributors: [alex, brickcyclealice, barthel]
 last_verified: 2026-09-07
 ---
 
-<figure class="figure-float-right">
+<figure class="figure-float-right is-wide">
   <a href="https://assets.basically.website/sorter-docs/assembly-chute-stack-in-frame-full-7d6494495a4b.png" target="_blank" rel="noopener">
     <img src="https://assets.basically.website/sorter-docs/assembly-chute-stack-in-frame-w1600-26cf1259d46f.jpg" alt="Render of four stacked chutes, each with its door module and funnel, shown solid against a ghosted outline of the frame and bins around them">
   </a>
@@ -29,11 +29,11 @@ The whole chute stack rotates as one unit, on the [top interface]({{ '/hardware/
 4. **[Funnel brackets]({{ '/hardware/assembly/distribution/chute/funnel/' | relative_url }})**. The two brackets that hang off the core, and the funnel that snaps into them. You choose one of two funnel sizes for each layer, which sets that layer's funnel and its bin set together, so make the choice before printing either.
 5. **[Layer connectors]({{ '/hardware/assembly/distribution/chute/layer-connectors/' | relative_url }})**. The pair that joins this layer's chute to the one below.
 
-<div class="clear-float"></div>
-
 ## Installing the chutes in the machine
 
 **Do not add the chutes while you build the layers.** Build the whole frame first, then add the chutes afterward, one at a time. alex was clear about this: "first build all the frame then add the chutes one by one without funnel."
+
+<div class="clear-float"></div>
 
 {% include step.html n="1" title="Build the whole frame first" %}
 

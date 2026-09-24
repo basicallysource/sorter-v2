@@ -1150,6 +1150,13 @@ figcaption cite {
 	margin: 0 0 1rem 1.6rem;
 }
 
+/* Wider: a portrait figure that runs beside a whole section rather than one
+   paragraph. */
+.figure-float-right.is-wide {
+	width: 400px;
+	max-width: 52%;
+}
+
 .figure-float-right img {
 	display: block;
 	width: 100%;
@@ -1225,7 +1232,8 @@ figcaption cite {
 }
 
 @media (max-width: 740px) {
-	.figure-float-right {
+	.figure-float-right,
+	.figure-float-right.is-wide {
 		float: none;
 		width: 100%;
 		max-width: 440px;

@@ -17,6 +17,7 @@ parts_needed:
     qty: 6
   - part: scr-m5-16-shcs
     qty: 24
+tools_needed: ["Hex key, 3 mm for a button head or 4 mm for a socket head"]
 ---
 
 Each layer holds one chute-and-bin pair (built separately) that catches pieces routed to it; a regular layer's job is simply to repeat the same hexagonal ring, vertical supports, and flange joint as the layer below it, so the stack can go as tall as the machine needs.
@@ -33,7 +34,7 @@ This guide covers creating a regular layer, and every bin layer but the lowest o
   </figure>
 </div>
 
-The aluminum extrusion is cut to length; the [framing cut list](https://parts-calculator.basically.website/framing) has the exact dimensions for piece C. Nothing on this page takes a {% include fastener.html size="M5" variant="t-nut" text="T-nut" %}.
+Piece C is 2020 aluminum extrusion, cut to length. The [framing cut list](https://parts-calculator.basically.website/framing) has the exact dimensions. Nothing on this page takes a {% include fastener.html size="M5" variant="t-nut" text="T-nut" %}.
 
 The 24 {% include fastener.html size="M5" variant="socket-button" length="16" %} in the list above are two pairs at each of the six corners, and nothing else on this page takes a screw:
 

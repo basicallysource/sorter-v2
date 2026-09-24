@@ -31,7 +31,7 @@ parts_needed:
     qty: 6
   - part: scr-m5-16-shcs
     qty: 36
-tools_needed: [Hex key, Tape measure]
+tools_needed: ["Hex key, 3 mm for a button head or 4 mm for a socket head", "Tape measure"]
 ---
 
 The bottom layer is an ordinary bin layer that also carries the machine. Its vertical extrusion is one long piece per corner instead of a layer's worth: the caster screws into the bottom of it and the layer above lands on the top of it, so the wheel has something much stiffer to push against than a single layer's vertical would be.
@@ -48,7 +48,7 @@ The bottom layer is an ordinary bin layer that also carries the machine. Its ver
   </figure>
 </div>
 
-The aluminum extrusion is cut to length; the [framing cut list](https://parts-calculator.basically.website/framing) has the exact dimensions for piece D.
+Piece D is 2020 aluminum extrusion, cut to length. The [framing cut list](https://parts-calculator.basically.website/framing) has the exact dimensions.
 
 {% include fastener-legend.html %}
 
@@ -56,7 +56,7 @@ The aluminum extrusion is cut to length; the [framing cut list](https://parts-ca
 
 No heat inserts on this assembly. Every printed part here takes a self-tapping {% include fastener.html size="M5" variant="socket-button" length="16" %} screw straight into the plastic.
 
-Cut the extrusion first. This layer uses **6 × piece D (Foot extension), 231 mm**, and **no piece C**: D is what stands between this layer and the one above it, and it carries on down to the caster as well. Every layer above this one takes its own piece C, so an N-layer machine needs 6 × D and 6 × (N−1) × C. The [framing cut list](https://parts-calculator.basically.website/framing) has every length.
+This layer uses **6 × piece D (Foot extension), 231 mm**, and **no piece C**: D is what stands between this layer and the one above it, and it carries on down to the caster as well. Every layer above this one takes its own piece C, so an N-layer machine needs 6 × D and 6 × (N−1) × C. The [framing cut list](https://parts-calculator.basically.website/framing) has every length.
 
 <div class="callout">
   <p>D is 1.5 × a single layer's vertical support, not 2 ×, so the bottom layer sits about half a layer's height off the floor.</p>
@@ -126,7 +126,7 @@ The numbers on the drawing:
   <li><strong>External bracket — foot cover</strong> in place of the bottom vertical and cover. It closes the corner off but is far shorter, so the extrusion can leave the bottom of it.</li>
   <li><strong>Piece D</strong>, 231 mm cut. It runs from below this layer, through its collar, and up to 3 mm below the flange face of the collar above, so it spans the whole gap to the next layer as well as reaching the floor.</li>
   <li class="key-screw"><strong>Two {% include fastener.html size="M5" variant="socket-button" length="16" %} screws</strong> clamp this layer's collar onto piece D, and two more clamp the External bracket — bottom vertical onto it in step 5. Same screws, same holes as on a regular layer.</li>
-  <li class="key-note"><strong>The exposed end of piece D</strong>, which takes the 2020 M6 foot connector and the caster. On the lengths as drawn it stands about 54 mm below the foot cover, but how far it should protrude is not recorded anywhere, so hold a foot connector against the end before you tighten the corner screws.</li>
+  <li class="key-note"><strong>The exposed end of piece D</strong>, which takes the 2020 M6 foot connector and the caster. On the lengths as drawn it stands about 54 mm below the foot cover.</li>
   <li><strong>The collar of the layer above</strong>, sitting on the External bracket — bottom vertical fitted in step 5. From here up, every joint is the ordinary layer joint described on <a href="{{ '/hardware/assembly/distribution/stacking-the-layers/' | relative_url }}">Stacking the layers</a>.</li>
 </ol>
 

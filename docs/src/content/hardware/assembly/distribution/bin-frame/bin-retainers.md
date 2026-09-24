@@ -19,7 +19,7 @@ parts_needed:
     qty: 24
   - part: tnut-m5-2020
     qty: 24
-tools_needed: [Hex key]
+tools_needed: ["Hex key, 4 mm"]
 ---
 
 Every bin layer gets the same twelve retainers: a Bin retainer (left) and a Bin retainer (right) on the front face of each of the six A extrusions, so each of the six faces has a pair that a bin slides down between. The quantities above are **for one layer**. Every bin layer takes the same twelve, the [bottom layer]({{ '/hardware/assembly/distribution/bin-frame/bottom-layer/' | relative_url }}) included, so this page runs once per layer.

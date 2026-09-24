@@ -115,7 +115,7 @@ Then turn both channels by hand, with a few parts on the rotor above. A part sho
 
 {% include step.html n="5" title="Hang the camera lamp" %}
 
-The lamp's arm mount hangs on a dovetail under the channel's NEMA bracket. There is no screw in that joint. The joint itself is step 9 of [arranging C-channels]({{ '/hardware/assembly/feeder/arranging-c-channels/' | relative_url }}), with the channels standing; the lamp it carries is built on the [feeder camera lamp]({{ '/hardware/assembly/feeder/camera-lamp/feeder-camera-lamp/' | relative_url }}) page.
+The lamp's arm mount hangs on a dovetail under the channel's NEMA bracket. There is no screw in that joint. The joint itself is step 4 of the [feeder camera lamp]({{ '/hardware/assembly/feeder/camera-lamp/feeder-camera-lamp/' | relative_url }}) page.
 
 **Do this with the channel standing where it belongs**, not on the bench. Its height and overhang change what the camera sees.
 

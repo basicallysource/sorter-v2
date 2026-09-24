@@ -1,10 +1,13 @@
-"""The boot-time network decisions in sorteros-network, against a simulated
-clock and a fake NetworkManager, across restarts. Run:
-python3 -m unittest test/test_network.py"""
+"""sorteros-network's decisions against a simulated Sorter: a clock, a cable,
+routers, a radio that can (or can't) broadcast beside a connection, and
+phones on the setup network. Run: python3 -m unittest test/test_network.py"""
 
 import importlib.util
+import json
 import tempfile
 import unittest
+import urllib.error
+import urllib.request
 from pathlib import Path
 
 _SRC = Path(__file__).resolve().parents[1] / "build/overlay/usr/local/sbin/sorteros-network.py"
@@ -12,86 +15,65 @@ _spec = importlib.util.spec_from_file_location("sorteros_network", _SRC)
 net = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(net)
 
-HOUR = 3600.0
-BOOT_S = 60  # a restart, power-on to this service starting
+WALL = 1_790_000_000.0
+AUTOCONNECT_S = 8  # NetworkManager joining a saved network on its own
+JOIN_S = 4  # an explicit join, when it works
+WRONG_PASSWORD_S = 11  # measured on the AP6275P
 
 
-class Restart(Exception):
-    pass
+class Router:
+    def __init__(self, password="right-password", *, security="WPA2", internet=True, dhcp=True,
+                 up=lambda t: True, signal=70):
+        self.password, self.security, self.internet, self.dhcp = password, security, internet, dhcp
+        self.up, self.signal = up, signal
 
 
 class World:
-    """What outlives a restart: the clock, the routers, NetworkManager's saved
-    profiles, the files under /var/lib/sorteros, and what was said to Hive."""
+    """What outlives a restart of the service: the clock, the air, the cable,
+    NetworkManager's saved profiles and the files under /var/lib/sorteros."""
 
-    def __init__(self, *, routers=None, up=lambda ssid, t: True, cable_at=None, iface="wlan0", ui_running=False):
+    def __init__(self, *, routers=None, cable=None, radio="concurrent", ntp=True):
         self.t = 0.0
-        self.routers = dict(routers or {})  # ssid -> the password it takes
-        self.up = up  # is that router on at time t
-        self.cable_at = cable_at
-        self.iface = iface
-        self.ui_running = ui_running
-        self.saved = {}  # ssid -> (uuid, password)
+        self.routers = dict(routers or {})
+        self.cable = cable  # None, or {"at": t, "internet": bool, "dhcp": bool}
+        self.radio = radio  # "concurrent" (the AP6275P), "single", or None (no Wi-Fi at all)
+        self.ntp = ntp
+        self.clock_off = 0.0
+        self.saved = {}  # ssid -> {"uuid", "password", "security"}
+        self.wifi_on = None  # the network wlan0 is on
+        self.possible_since = None  # when autoconnect became possible
+        self.ap_on = None  # the SSID it broadcasts
+        self.ap0 = False
+        self.phones = 0  # on the setup network
+        self.fenced = set()
+        self.nm_on_top = False  # NetworkManager's sharing rules above the fence
+        self.config = {}
         self.imported = ""
-        self.pending = None
-        self.failed = None
-        self.retry = 0
+        self.join_record = None
+        self.events = []
+        self.status = None
         self.announce = None
         self.hive = {"pubkey": None, "sealed_to": None}
-        self.config = {}
-        self.country = "CN"  # what the vendor image ships
-        self.ntp = True  # does NTP answer
-        self.clock_off = 0.0  # how far behind the wall clock is
-        self.http_date_works = True
-        self.mdns = "sorter.local"
-        self.boots = 0
+        self.software = None
+        self.country = "CN"
         self.log = []
 
     def count(self, kind):
         return sum(1 for e in self.log if e[0] == kind)
 
-    def boot(self, cfg=None, **kw):
-        """Run the service for one boot. "restart" when it (or the setup page)
-        restarted the machine, else what bring_up returned."""
-        self.boots += 1
-        if self.boots > 1:
-            self.t += BOOT_S
-        if cfg is not None:
-            self.config = cfg
-        try:
-            return net.bring_up(Fake(self, **kw), self.config)
-        except Restart:
-            return "restart"
-
-    def run(self, cfg=None, max_boots=20, **kw):
-        """Boot until the service finishes without a restart."""
-        for _ in range(max_boots):
-            result = self.boot(cfg, **kw)
-            if result != "restart":
-                return result
-        raise AssertionError(f"still restarting after {max_boots} boots: {self.log[-8:]}")
+    def texts(self):
+        return [e["text"] for e in self.events]
 
 
-class Fake:
-    """NetworkManager and the rest of the machine for one boot. A saved
-    network joins on its own (autoconnect) a few seconds into the boot when
-    its router is on, the password matches and the radio isn't broadcasting.
+class Fake(net.System):
+    def __init__(self, w: World):
+        self.w = w
 
-    `phone` is a list of (t, ssid, password[, timezone]): at time t, while
-    the setup network is up, someone submits that on the setup page, which
-    leaves it for the service and writes the time zone into the config."""
+    def _run(self, *cmd, timeout=20):
+        raise AssertionError(f"ran {cmd}")
 
-    def __init__(self, world, *, phone=(), clients=lambda t: False, page_active=lambda t: False,
-                 portal_dies_at=None):
-        self.w = world
-        self.started = world.t
-        self.phone = sorted(phone)
-        self.clients, self.page_active, self.portal_dies_at = clients, page_active, portal_dies_at
-        self.ap = False
-        self.portal = False
-
-    def _log(self, *e):
-        self.w.log.append(e)
+    def _log(self, *entry):
+        self.w.log.append(entry)
 
     # clock
     def now(self):
@@ -99,540 +81,778 @@ class Fake:
 
     def sleep(self, s):
         self.w.t += s
-        t = self.w.t
-        if self.portal and self.portal_dies_at is not None and t >= self.portal_dies_at:
-            self.portal, self.portal_dies_at = False, None
-        if self.ap and self.portal and self.phone and t >= self.phone[0][0]:
-            _, ssid, password, *timezone = self.phone.pop(0)
-            self._log("phone", ssid, t)
-            self.w.pending = {"ssid": ssid, "password": password, "hidden": False, "security": "WPA2"}
-            self.w.failed = None
-            if timezone:
-                self.w.config = {**self.w.config, "timezone": timezone[0]}
+        self._autoconnect()
 
-    # network
-    def wifi_iface(self):
-        return self.w.iface
+    def wall_now(self):
+        return WALL + self.w.t - self.w.clock_off
 
-    def _wifi(self):
-        if self.ap or not self.w.iface or self.w.t - self.started < 5:
-            return None
-        for ssid, (_, password) in self.w.saved.items():
-            if self.w.routers.get(ssid) == password and self.w.up(ssid, self.w.t):
-                return ssid
+    def boot_id(self):
+        return "boot"
+
+    def clock_synced(self):
+        return self.w.ntp
+
+    def http_date(self):
+        return WALL + self.w.t
+
+    def set_clock(self, t):
+        self._log("set_clock", t)
+        self.w.clock_off = 0.0
+
+    # the world
+    def _router_ok(self, ssid):
+        r = self.w.routers.get(ssid)
+        return r is not None and r.up(self.w.t)
+
+    def _radio_free(self):
+        return self.w.radio == "concurrent" or not self.w.ap_on
+
+    def _autoconnect(self):
+        w = self.w
+        if w.radio is None or w.wifi_on or not self._radio_free():
+            w.possible_since = None
+            return
+        ok = [s for s, p in w.saved.items()
+              if self._router_ok(s) and w.routers[s].password == p["password"] and w.routers[s].dhcp]
+        if not ok:
+            w.possible_since = None
+        elif w.possible_since is None:
+            w.possible_since = w.t
+        elif w.t - w.possible_since >= AUTOCONNECT_S:
+            w.wifi_on = ok[0]
+            self._log("autoconnect", ok[0], w.t)
+
+    def _cable_state(self):
+        c = self.w.cable
+        if c is None or self.w.t < c["at"]:
+            return "unavailable"
+        return "connected" if c.get("dhcp", True) and self.w.t >= c["at"] + 2 else "connecting"
+
+    def devices(self):
+        w = self.w
+        out = [{"iface": "eth0", "kind": "ethernet", "state": self._cable_state()}]
+        if w.radio:
+            wlan_connected = w.wifi_on or (w.radio == "single" and w.ap_on)
+            out.append({"iface": "wlan0", "kind": "wifi", "state": "connected" if wlan_connected else "disconnected"})
+        if w.ap0:
+            out.append({"iface": "ap0", "kind": "wifi", "state": "connected" if w.ap_on else "disconnected"})
+        return out
+
+    def device_info(self, iface):
+        w = self.w
+        if iface == "eth0" and self._cable_state() == "connected":
+            return {"address": "192.168.2.3", "internet": "full" if w.cable.get("internet") else "limited", "uuid": "eth"}
+        if iface == "wlan0" and w.wifi_on:
+            internet = "full" if w.routers[w.wifi_on].internet else "portal"
+            return {"address": "192.168.1.68", "internet": internet, "uuid": w.saved[w.wifi_on]["uuid"]}
+        if iface == "wlan0" and w.ap_on:
+            return {"address": net.AP_ADDR, "internet": "limited", "uuid": "ap"}
+        return {"address": None, "internet": "unknown", "uuid": None}
+
+    def check_internet(self):
+        pass
+
+    def ssid_of(self, con_uuid):
+        return next((s for s, p in self.w.saved.items() if p["uuid"] == con_uuid), None)
+
+    def carrier(self, iface):
+        return self._cable_state() != "unavailable"
+
+    def tailscale_ip(self):
         return None
 
-    def online(self):
-        return (self.w.cable_at is not None and self.w.t >= self.w.cable_at) or self._wifi() is not None
-
-    def joined_ssid(self):
-        return self._wifi()
+    def hostname(self):
+        return self.w.config.get("hostname") or "sorter"
 
     def mdns_name(self):
-        return self.w.mdns
+        return f"{self.hostname()}.local"
 
-    def lan_ip(self):
-        return "192.0.2.50" if self.w.cable_at is not None else self.wifi_ip()
+    def mac(self, iface):
+        return "40:d9:5a:63:f3:2a"
 
-    def wifi_ip(self):
-        return "192.0.2.60" if self._wifi() else None
-
+    # profiles
     def saved_wifi(self):
         return list(self.w.saved)
 
     def write_wifi(self, ssid, password, hidden=False, security=""):
-        self._log("write", ssid, password)
-        replaced = {ssid: self.w.saved[ssid]} if ssid in self.w.saved else {}
-        uuid = f"uuid-{len(self.w.log)}"
-        self.w.saved[ssid] = (uuid, password)
-        return uuid, replaced
+        replaced = {ssid: dict(self.w.saved[ssid])} if ssid in self.w.saved else {}
+        con_uuid = f"uuid-{len(self.w.log)}"
+        self.w.saved[ssid] = {"uuid": con_uuid, "password": password, "security": security}
+        self._log("write", ssid, password, security)
+        return con_uuid, replaced
 
-    def join(self, uuid, iface):
-        ssid = next(s for s, (u, _) in self.w.saved.items() if u == uuid)
-        self._log("join", ssid, self.w.t)
-        if ssid not in self.w.routers or not self.w.up(ssid, self.w.t):
-            self.w.t += 20
+    def forget_wifi(self, con_uuid, replaced):
+        ssid = self.ssid_of(con_uuid)
+        self.w.saved.pop(ssid, None)
+        self.w.saved.update(replaced)
+        if self.w.wifi_on == ssid and ssid not in self.w.saved:
+            self.w.wifi_on = None
+        self._log("forget", ssid)
+
+    def join(self, con_uuid, iface):
+        w = self.w
+        ssid = self.ssid_of(con_uuid)
+        self._log("join", ssid, w.t)
+        assert iface == "wlan0"
+        if not self._radio_free():
+            return "device is busy"
+        if not self._router_ok(ssid):
+            w.t += 15
             return "Connection activation failed: The Wi-Fi network could not be found"
-        if self.w.routers[ssid] != self.w.saved[ssid][1]:
-            self.w.t += 11
-            return "Connection activation failed: Secrets were required, but not provided"
-        self.w.t += 5
+        r = w.routers[ssid]
+        if r.password != w.saved[ssid]["password"]:
+            w.t += WRONG_PASSWORD_S
+            return "Connection activation failed: (7) Secrets were required, but not provided."
+        if not r.dhcp:
+            w.t += 45
+            return "Connection activation failed: IP configuration could not be reserved (no available address, timeout, etc.)."
+        w.t += JOIN_S
+        w.wifi_on = ssid
         return None
 
-    def forget_wifi(self, uuid, replaced):
-        ssid = next(s for s, (u, _) in self.w.saved.items() if u == uuid)
-        self._log("forget", ssid)
-        del self.w.saved[ssid]
-        self.w.saved.update(replaced)
+    def join_saved(self, ssid, iface):
+        return self.join(self.w.saved[ssid]["uuid"], iface)
 
     def scan(self, iface):
-        self._log("scan", self.w.t)
-        return [{"ssid": s, "signal": 60, "security": "WPA2"}
-                for s in self.w.routers if self.w.up(s, self.w.t)]
+        w = self.w
+        self._log("scan", w.t)
+        if w.radio == "single" and w.ap_on:
+            return []
+        w.t += 4
+        return sorted(({"ssid": s, "signal": r.signal, "security": r.security}
+                       for s, r in w.routers.items() if r.up(w.t)), key=lambda n: -n["signal"])
 
-    def write_networks(self, networks):
-        self._log("networks", tuple(n["ssid"] for n in networks))
+    # the setup network
+    def add_ap_iface(self, wifi_iface):
+        if self.w.radio != "concurrent":
+            return None
+        self.w.ap0 = True
+        return net.AP_IFACE
 
-    def ap_up(self, iface):
-        self._log("ap_up", self.w.t)
-        self.ap = True
-        return "SorterOS-Setup-ABC123"
+    def ap_up(self, iface, ssid):
+        w = self.w
+        w.ap_on = ssid
+        w.nm_on_top = True
+        if w.radio == "single":
+            w.wifi_on = None
+        self._log("ap_up", iface, w.t)
+        return None
 
     def ap_down(self):
-        self._log("ap_down", self.w.t)
-        self.ap = False
+        if self.w.ap_on:
+            self._log("ap_down", self.w.t)
+        self.w.ap_on = None
 
-    def ap_has_clients(self, iface):
-        return self.clients(self.w.t)
+    def ap_clients(self, iface):
+        return self.w.phones if self.w.ap_on else 0
 
-    def reboot(self):
-        self._log("reboot", self.w.t)
-        raise Restart()
+    def fence(self, iface):
+        self.w.fenced.add(iface)
+        self.w.nm_on_top = False
 
-    # the Sorter UI
-    def ui_stop(self):
-        self._log("ui_stop", self.w.t)
-        return ["sorter-ui-dev.service"] if self.w.ui_running else []
+    def fenced(self, iface):
+        return iface in self.w.fenced and not self.w.nm_on_top
 
-    def ui_start(self, units):
-        self._log("ui_start", tuple(units), self.w.t)
+    def unfence(self, iface):
+        self.w.fenced.discard(iface)
 
-    # setup page
-    def start_portal(self):
-        self._log("portal", self.w.t)
-        self.portal = True
+    # files
+    def config(self):
+        return dict(self.w.config)
 
-    def portal_alive(self):
-        return self.portal
+    def update_config(self, **values):
+        self.w.config.update({k: v for k, v in values.items() if v})
+        self._log("config", dict(self.w.config))
 
-    def stop_portal(self):
-        self.portal = False
+    def zone_tab(self):
+        return "US\t+404251-0740023\tAmerica/New_York\nDE\t+5230+01322\tEurope/Berlin\n"
 
-    def portal_idle_s(self):
-        return 0.0 if self.page_active(self.w.t) else float("inf")
+    def set_wifi_country(self, country):
+        changed = country != self.w.country
+        self.w.country = country
+        return changed
 
-    # state that survives the restart
     def imported(self):
         return self.w.imported
 
     def mark_imported(self, digest):
         self.w.imported = digest
 
-    def pending(self):
-        return self.w.pending
+    def load_join(self):
+        return dict(self.w.join_record) if self.w.join_record else None
 
-    def clear_pending(self):
-        self.w.pending = None
+    def save_join(self, join):
+        self.w.join_record = dict(join) if join else None
 
-    def record_failure(self, ssid, reason, detail):
-        self._log("failed", ssid, reason)
-        self.w.failed = {"ssid": ssid, "reason": reason}
+    def load_events(self):
+        return list(self.w.events)
 
-    def clear_failure(self):
-        self.w.failed = None
+    def save_event(self, event, keep):
+        self.w.events.append(event)
 
-    def retry_count(self):
-        return self.w.retry
+    def software(self):
+        return self.w.software
 
-    def set_retry_count(self, n):
-        self.w.retry = n
+    def write_status(self, status):
+        self.w.status = status
 
-    # the clock
-    def wall_now(self):
-        return 1_800_000_000 + self.w.t - self.w.clock_off
-
-    def clock_synced(self):
-        return self.w.ntp
-
-    def http_date(self):
-        return 1_800_000_000 + self.w.t if self.w.http_date_works else None
-
-    def set_clock(self, t):
-        self._log("set_clock", round(1_800_000_000 + self.w.t - self.w.clock_off - t))
-        self.w.clock_off = 0.0
-
-    # the radio's country
-    def config(self):
-        return self.w.config
-
-    def zone_tab(self):
-        return ZONE_TAB
-
-    def set_wifi_country(self, country):
-        if country == self.w.country:
-            return False
-        self._log("country", country)
-        self.w.country = country
-        return True
-
-    # Hive
     def announce_state(self):
         return self.w.announce
 
+    def set_announce(self, rendezvous_id):
+        self.w.announce = {"rendezvous_id": rendezvous_id, "hive_url": "https://hive.example"}
+
     def clear_announce(self):
-        self._log("announce_closed", self.w.t)
         self.w.announce = None
 
     def rendezvous(self, state):
-        h = self.w.hive
-        if isinstance(h, Exception):
-            raise h
-        return h["pubkey"], h["sealed_to"] == h["pubkey"] and h["pubkey"] is not None
+        if isinstance(self.w.hive, Exception):
+            raise self.w.hive
+        return self.w.hive["pubkey"], self.w.hive["sealed_to"] == self.w.hive["pubkey"]
 
     def publish_address(self, state, pubkey, payload):
-        self._log("announced", pubkey, payload["ssid"], self.w.t, payload["ip"])
+        self._log("announced", pubkey, payload["ssid"], payload["ip"], self.w.t)
         self.w.hive["sealed_to"] = pubkey
 
 
-def cfg(ssid="HomeNet", password="right-password"):
-    return {"wifi": {"ssid": ssid, "password": password}}
+def boot(w: World, cfg=None, **kw):
+    """The service starting (the machine, or just the service, restarting)."""
+    if cfg is not None:
+        w.config = dict(cfg)
+    n = net.Network(Fake(w), **kw)
+    n.spawn = lambda target: None  # the clock and Find my sorter threads are tested on their own
+    net.start(n, w.config)
+    return n
 
 
-HOME = {"HomeNet": "right-password"}
-ZONE_TAB = "# comment\nDE\t+5230+01322\tEurope/Berlin\tmost of Germany\nUS\t+404251-0740023\tAmerica/New_York\tEastern (most areas)\n"
+def run_for(n, seconds):
+    end = n.sys.now() + seconds
+    while n.sys.now() < end:
+        n.tick()
+        n.sys.sleep(net.TICK_S)
 
 
-class BringUp(unittest.TestCase):
-    def test_cable_means_no_setup_network(self):
-        w = World(cable_at=3)
-        self.assertEqual(w.run(), 0)
-        self.assertEqual(w.count("ap_up"), 0)
+def until(n, done, limit=900):
+    end = n.sys.now() + limit
+    while not done():
+        if n.sys.now() >= end:
+            raise AssertionError(f"not after {limit} s: {n.sys.w.texts()[-6:]}")
+        n.tick()
+        n.sys.sleep(net.TICK_S)
 
-    def test_setup_site_wifi_is_saved_and_joined(self):
-        w = World(routers=HOME)
-        self.assertEqual(w.run(cfg()), 0)
-        self.assertIn(("write", "HomeNet", "right-password"), w.log)
-        self.assertEqual(w.count("ap_up"), 0)
 
-    def test_setup_site_wifi_is_imported_once(self):
-        w = World(routers=HOME)
-        w.run(cfg())
-        w.run(cfg())
-        self.assertEqual(w.count("write"), 1)
+def phone_join(n, ssid, password="right-password", **extra):
+    n.request_join({"ssid": ssid, "password": password, **extra})
 
-    def test_changed_setup_site_wifi_is_imported_again(self):
-        w = World(routers={"HomeNet": "new-password"})
-        w.run(cfg(password="old-password"), phone=[(HOUR, "HomeNet", "new-password")])
-        w.run(cfg(password="new-password"))
-        self.assertIn(("write", "HomeNet", "new-password"), w.log)
 
-    def test_no_wifi_given_no_cable_opens_the_setup_network_after_the_wired_wait(self):
-        w = World(routers=HOME)
-        w.boot(phone=[(5 * 60, "HomeNet", "right-password")])
-        self.assertLessEqual(next(e for e in w.log if e[0] == "ap_up")[1], net.WIRED_WAIT_S + net.TICK_S)
+def home():
+    return {"HomeNet": Router()}
 
-    def test_wrong_setup_site_password_opens_the_setup_network_after_one_wait(self):
-        w = World(routers=HOME)
-        w.boot(cfg(password="wrong"), phone=[(HOUR, "HomeNet", "right-password")])
-        first_ap = next(e for e in w.log if e[0] == "ap_up")
-        self.assertLessEqual(first_ap[1], net.WIFI_WAIT_S + net.TICK_S)
 
-    def test_a_wrong_setup_site_password_is_forgotten_and_the_page_says_why(self):
-        w = World(routers=HOME)
-        w.boot(cfg(password="wrong-password"), phone=[(HOUR, "HomeNet", "right-password")])
-        self.assertIn(("failed", "HomeNet", "password"), w.log)
-        self.assertNotIn(("reboot",), [e[:1] for e in w.log if e[0] == "reboot" and e[1] < HOUR])
-        self.assertLessEqual(next(e for e in w.log if e[0] == "ap_up")[1], 11 + net.WIRED_WAIT_S + net.TICK_S)
+def saved(w, ssid="HomeNet", password="right-password"):
+    w.saved[ssid] = {"uuid": f"saved-{ssid}", "password": password, "security": "WPA2"}
 
-    def test_a_setup_site_network_that_isnt_up_yet_is_kept(self):
-        w = World(routers=HOME, up=lambda s, t: t > 5 * 60)
-        w.run(cfg())
-        self.assertIn(("failed", "HomeNet", "not_found"), w.log)
-        self.assertNotIn(("forget", "HomeNet"), w.log)
-        self.assertIsNone(w.failed)  # cleared once it joined
+
+class Boot(unittest.TestCase):
+    def test_nothing_saved_no_cable_opens_the_setup_network_at_once(self):
+        w = World(routers=home())
+        n = boot(w)
+        until(n, lambda: w.ap_on)
+        self.assertLessEqual(w.t, 10)
+        self.assertEqual(w.ap_on, "SorterOS-Setup-63F32A")
+        self.assertIn("Opened the setup network SorterOS-Setup-63F32A: no cable, no saved Wi-Fi", w.texts())
 
     def test_it_scans_before_it_broadcasts(self):
-        w = World(routers={"HomeNet": "x" * 8, "Neighbour": "y" * 8})
-        w.boot(phone=[(5 * 60, "HomeNet", "x" * 8)])
+        w = World(routers=home())
+        n = boot(w)
+        until(n, lambda: w.ap_on)
         kinds = [e[0] for e in w.log]
         self.assertLess(kinds.index("scan"), kinds.index("ap_up"))
-        self.assertIn(("networks", ("HomeNet", "Neighbour")), w.log)
+        self.assertEqual([s["ssid"] for s in n.page_state()["scan"]["networks"]], ["HomeNet"])
+
+    def test_a_cable_with_internet_means_no_setup_network(self):
+        w = World(routers=home(), cable={"at": 0, "internet": True})
+        n = boot(w)
+        run_for(n, 120)
+        self.assertEqual(w.count("ap_up"), 0)
+        self.assertIn("Online by cable at 192.168.2.3", w.texts())
+
+    def test_a_cable_without_internet_doesnt_fool_it(self):
+        w = World(routers=home(), cable={"at": 0, "internet": False})
+        n = boot(w)
+        until(n, lambda: w.ap_on)
+        self.assertLessEqual(w.t, net.WIRED_GRACE_S + 10)
+        self.assertIn("Connected by cable at 192.168.2.3, but no internet", w.texts())
+        self.assertIn("the cable has no internet", w.texts()[-1])
+
+    def test_a_cable_plugged_into_nothing_gets_a_grace_then_the_setup_network(self):
+        w = World(routers=home(), cable={"at": 0, "dhcp": False})
+        n = boot(w)
+        until(n, lambda: w.ap_on)
+        self.assertGreaterEqual(w.t, net.WIRED_GRACE_S)
+
+    def test_saved_wifi_joins_on_its_own(self):
+        w = World(routers=home())
+        saved(w)
+        n = boot(w)
+        run_for(n, 120)
+        self.assertEqual(w.wifi_on, "HomeNet")
+        self.assertEqual(w.count("ap_up"), 0)
+
+    def test_no_wifi_hardware_waits_for_a_cable(self):
+        w = World(radio=None, cable={"at": 300, "internet": True})
+        n = boot(w)
+        run_for(n, 200)
+        self.assertEqual(w.count("ap_up"), 0)
+        until(n, lambda: n.online)
+
+
+class SetupSite(unittest.TestCase):
+    def cfg(self, password="right-password"):
+        return {"wifi": {"ssid": "HomeNet", "password": password}}
+
+    def test_its_wifi_is_saved_and_joined(self):
+        w = World(routers=home())
+        n = boot(w, self.cfg())
+        run_for(n, 60)
+        self.assertEqual(w.wifi_on, "HomeNet")
+        self.assertEqual(n.page_state()["join"]["state"], "joined")
+        self.assertEqual(w.count("ap_up"), 0)
+
+    def test_its_wifi_is_imported_once(self):
+        w = World(routers=home())
+        boot(w, self.cfg()).tick()
+        boot(w, self.cfg()).tick()
+        self.assertEqual(w.count("write"), 1)
+
+    def test_a_wrong_password_is_forgotten_and_the_setup_page_says_why(self):
+        w = World(routers=home())
+        n = boot(w, self.cfg("wrong-password"))
+        until(n, lambda: w.ap_on)
+        join = n.page_state()["join"]
+        self.assertEqual((join["state"], join["reason"], join["source"]), ("failed", "password", "setup_site"))
+        self.assertNotIn("HomeNet", w.saved)
+
+    def test_a_network_not_up_yet_is_kept_and_joined_when_it_is(self):
+        w = World(routers={"HomeNet": Router(up=lambda t: t > 300)})
+        n = boot(w, self.cfg())
+        until(n, lambda: w.ap_on)
+        self.assertEqual(n.page_state()["join"]["reason"], "not_found")
+        self.assertIn("HomeNet", w.saved)
+        until(n, lambda: w.wifi_on == "HomeNet", limit=900)
+        until(n, lambda: not w.ap_on)
+
+    def test_wpa3_only_is_saved_as_sae(self):
+        w = World(routers={"HomeNet": Router(security="WPA3")})
+        boot(w, self.cfg()).tick()
+        self.assertEqual(w.saved["HomeNet"]["security"], "WPA3")
 
 
 class JoinFromThePhone(unittest.TestCase):
-    def test_right_password_restarts_and_joins(self):
-        w = World(routers=HOME)
-        self.assertEqual(w.run(phone=[(5 * 60, "HomeNet", "right-password")]), 0)
-        self.assertEqual(w.count("reboot"), 1)
-        self.assertEqual(w.boots, 2)
-        self.assertEqual(w.count("ap_up"), 1)
-        self.assertIsNone(w.pending)
-        self.assertIsNone(w.failed)
-        self.assertIn("HomeNet", w.saved)
+    def setup_network(self, routers=None, **kw):
+        w = World(routers=routers or home(), **kw)
+        n = boot(w)
+        until(n, lambda: w.ap_on)
+        w.phones = 1
+        run_for(n, 4)
+        return w, n
 
-    def test_wrong_password_brings_the_setup_network_back_and_says_why(self):
-        w = World(routers=HOME)
-        w.boot(phone=[(5 * 60, "HomeNet", "wrong-password")])
-        w.boot(phone=[(w.t + 5 * 60, "HomeNet", "right-password")])
-        self.assertIn(("failed", "HomeNet", "password"), w.log)
-        self.assertEqual(w.count("ap_up"), 2)  # it came back for the phone
-        self.assertEqual(w.run(), 0)  # then the right one works
-        self.assertIsNone(w.failed)
+    def test_the_right_password_joins_while_the_phone_watches(self):
+        w, n = self.setup_network()
+        phone_join(n, "HomeNet")
+        self.assertEqual(n.page_state()["join"]["state"], "joining")  # at once, before the next tick
+        run_for(n, 10)
+        join = n.page_state()["join"]
+        self.assertEqual((join["state"], join["address"], join["internet"]), ("joined", "192.168.1.68", True))
+        self.assertTrue(w.ap_on)  # still up: the phone reads the result on it
+        self.assertEqual(w.count("ap_down"), 0)
 
-    def test_a_network_out_of_range_is_reported_as_not_found(self):
-        w = World(routers=HOME)
-        w.boot(phone=[(5 * 60, "Elsewhere", "whatever1")])
-        w.boot(phone=[(w.t + HOUR, "HomeNet", "right-password")])
-        self.assertIn(("failed", "Elsewhere", "not_found"), w.log)
-        self.assertNotIn("Elsewhere", w.saved)
+    def test_a_wrong_password_says_so_and_the_setup_network_stays(self):
+        w, n = self.setup_network()
+        phone_join(n, "HomeNet", "wrong-password")
+        run_for(n, 20)
+        join = n.page_state()["join"]
+        self.assertEqual((join["state"], join["reason"]), ("failed", "password"))
+        self.assertEqual(w.count("ap_down"), 0)
+        self.assertNotIn("HomeNet", w.saved)
+        phone_join(n, "HomeNet")
+        run_for(n, 10)
+        self.assertEqual(n.page_state()["join"]["state"], "joined")
+
+    def test_a_network_out_of_range(self):
+        w, n = self.setup_network()
+        phone_join(n, "Faraway", hidden=True)
+        run_for(n, 30)
+        self.assertEqual(n.page_state()["join"]["reason"], "not_found")
+
+    def test_a_router_that_gives_no_address(self):
+        w, n = self.setup_network(routers={"HomeNet": Router(dhcp=False)})
+        phone_join(n, "HomeNet")
+        run_for(n, 60)
+        self.assertEqual(n.page_state()["join"]["reason"], "no_address")
+
+    def test_joined_but_no_internet_is_joined_and_says_so(self):
+        w, n = self.setup_network(routers={"Cafe": Router(internet=False)})
+        phone_join(n, "Cafe")
+        run_for(n, 10)
+        join = n.page_state()["join"]
+        self.assertEqual((join["state"], join["internet"]), ("joined", False))
+        self.assertIn("Joined Cafe at 192.168.1.68, but no internet", w.texts())
 
     def test_a_failed_join_puts_back_the_profile_it_replaced(self):
-        # The setup site's password worked until the router's was changed;
-        # a typo on the phone must not lose the one that was there.
-        w = World(routers=HOME)
-        w.run(cfg())
-        before = w.saved["HomeNet"]
-        w.routers["HomeNet"] = "changed-password"
-        self.assertEqual(w.boot(cfg(), phone=[(w.t + 5 * 60, "HomeNet", "typo-password")]), "restart")
-        self.assertEqual(w.boot(cfg(), phone=[(w.t + 5 * 60, "HomeNet", "changed-password")]), "restart")
-        self.assertIn(("forget", "HomeNet"), w.log)
-        self.assertIn(("failed", "HomeNet", "password"), w.log)
-        self.assertEqual(w.run(cfg()), 0)
-        self.assertEqual(w.saved["HomeNet"][1], "changed-password")
-        self.assertNotEqual(w.saved["HomeNet"], before)
+        w = World(routers=home())
+        saved(w, password="old-password")
+        n = boot(w)
+        until(n, lambda: w.ap_on)
+        phone_join(n, "HomeNet", "wrong-password")
+        run_for(n, 20)
+        self.assertEqual(w.saved["HomeNet"]["password"], "old-password")
 
-    def test_the_replaced_profile_is_what_comes_back(self):
-        w = World(routers=HOME)
-        w.run(cfg())
-        before = w.saved["HomeNet"]
-        w.pending = {"ssid": "HomeNet", "password": "typo-password"}
-        w.boot(cfg())
-        self.assertEqual(w.saved["HomeNet"], before)
+    def test_the_setup_network_closes_once_the_phone_has_left(self):
+        w, n = self.setup_network()
+        phone_join(n, "HomeNet")
+        run_for(n, 60)
+        self.assertTrue(w.ap_on)  # the phone is still reading
+        w.phones = 0
+        until(n, lambda: not w.ap_on)
+        self.assertIn("Closed the setup network (online)", w.texts())
 
-    def test_the_pending_choice_is_tried_once(self):
-        # It holds the password; a crash mid-join must not replay it on every
-        # restart of the service.
-        w = World(routers=HOME)
-        w.pending = {"ssid": "HomeNet", "password": "right-password"}
-        orig = Fake.join
-        Fake.join = lambda fake, uuid, iface: (_ for _ in ()).throw(RuntimeError("crashed"))
+    def test_done_closes_it_in_seconds(self):
+        w, n = self.setup_network()
+        phone_join(n, "HomeNet")
+        run_for(n, 10)
+        n.request_done()
+        run_for(n, net.DONE_CLOSE_S + 4)
+        self.assertFalse(w.ap_on)
+
+    def test_done_on_a_network_without_internet_doesnt_bring_it_back(self):
+        w, n = self.setup_network(routers={"Cafe": Router(internet=False)})
+        phone_join(n, "Cafe")
+        run_for(n, 10)
+        n.request_done()
+        run_for(n, 300)
+        self.assertFalse(w.ap_on)
+
+    def test_the_phone_brings_its_time_zone_and_a_name(self):
+        w, n = self.setup_network()
+        phone_join(n, "HomeNet", timezone="America/New_York", name="sorter-3")
+        run_for(n, 10)
+        self.assertEqual(w.config["hostname"], "sorter-3")
+        self.assertEqual(w.country, "US")
+
+    def test_a_second_join_while_joining_is_refused(self):
+        w, n = self.setup_network()
+        phone_join(n, "HomeNet")
+        with self.assertRaises(net.BadRequest):
+            phone_join(n, "HomeNet")
+
+    def test_a_failure_from_an_earlier_boot_is_not_shown_once_online(self):
+        w = World(routers=home(), cable={"at": 0, "internet": True})
+        w.join_record = {"ssid": "HomeNet", "state": "failed", "reason": "password", "boot": "before", "at": 1}
+        n = boot(w)
+        run_for(n, 10)
+        self.assertIsNone(n.page_state()["join"])
+
+    def test_a_join_cut_off_by_a_power_cut_reads_as_interrupted(self):
+        w = World(routers=home())
+        w.join_record = {"ssid": "HomeNet", "state": "joining", "boot": "before", "at": 1}
+        n = boot(w)
+        self.assertEqual(n.page_state()["join"]["detail"], "interrupted")
+
+
+class SingleRadio(unittest.TestCase):
+    def test_it_steps_off_the_air_to_join(self):
+        w = World(routers=home(), radio="single")
+        n = boot(w)
+        until(n, lambda: w.ap_on)
+        self.assertFalse(n.page_state()["setup_network"]["live_join"])
+        phone_join(n, "HomeNet")
+        run_for(n, 10)
+        self.assertEqual(w.wifi_on, "HomeNet")
+        self.assertFalse(w.ap_on)
+
+    def test_a_wrong_password_brings_the_setup_network_back(self):
+        w = World(routers=home(), radio="single")
+        n = boot(w)
+        until(n, lambda: w.ap_on)
+        phone_join(n, "HomeNet", "wrong-password")
+        until(n, lambda: w.count("ap_up") == 2)
+        self.assertEqual(n.page_state()["join"]["reason"], "password")
+
+    def test_saved_networks_are_retried_off_the_air_when_nobody_is_on_it(self):
+        w = World(routers={"HomeNet": Router(up=lambda t: t > 200)}, radio="single")
+        saved(w)
+        n = boot(w)
+        until(n, lambda: w.ap_on)
+        until(n, lambda: w.wifi_on == "HomeNet", limit=1200)
+        self.assertFalse(w.ap_on)
+
+
+class Recovery(unittest.TestCase):
+    def test_a_router_slower_than_the_pi_after_a_power_cut(self):
+        w = World(routers={"HomeNet": Router(up=lambda t: t > 150)})
+        saved(w)
+        n = boot(w)
+        until(n, lambda: w.ap_on)
+        self.assertGreaterEqual(w.t, net.SAVED_GRACE_S)
+        until(n, lambda: w.wifi_on == "HomeNet")
+        until(n, lambda: not w.ap_on)
+        self.assertLess(w.t, 150 + net.SCAN_EVERY_S + net.IDLE_CLOSE_S + 20)
+
+    def test_a_cable_plugged_in_during_setup_closes_it(self):
+        w = World(routers=home(), cable={"at": 100, "internet": True})
+        n = boot(w)
+        until(n, lambda: w.ap_on)
+        until(n, lambda: not w.ap_on)
+        self.assertLess(w.t, 100 + net.IDLE_CLOSE_S + 10)
+
+    def test_a_cable_pulled_opens_the_setup_network_after_a_grace(self):
+        w = World(routers=home(), cable={"at": 0, "internet": True})
+        n = boot(w)
+        run_for(n, 30)
+        w.cable = None
+        pulled = w.t
+        until(n, lambda: w.ap_on)
+        self.assertGreaterEqual(w.t - pulled, net.LOST_GRACE_S)
+        self.assertIn("Cable unplugged", w.texts())
+
+    def test_a_restarted_service_takes_its_old_setup_network_down(self):
+        w = World(routers=home(), cable={"at": 0, "internet": True})
+        w.ap_on = "SorterOS-Setup-63F32A"
+        boot(w)
+        self.assertIsNone(w.ap_on)
+
+    def test_the_fence_goes_back_on_top_of_networkmanagers_rules(self):
+        w = World(routers=home())
+        n = boot(w)
+        until(n, lambda: w.ap_on)
+        self.assertTrue(n.sys.fenced("ap0"))
+        w.nm_on_top = True  # NetworkManager restarted the network
+        run_for(n, 4)
+        self.assertTrue(n.sys.fenced("ap0"))
+
+
+class Status(unittest.TestCase):
+    def test_every_network_with_its_address_and_internet(self):
+        w = World(routers=home(), cable={"at": 0, "internet": False})
+        saved(w)
+        n = boot(w)
+        run_for(n, 30)
+        s = w.status
+        self.assertEqual(s["ports"], {"ui": 80, "backend": 8000})
+        self.assertEqual(s["mdns"], "sorter.local")
+        by_kind = {x["kind"]: x for x in s["networks"]}
+        self.assertEqual((by_kind["wifi"]["name"], by_kind["wifi"]["address"], by_kind["wifi"]["internet"]),
+                         ("HomeNet", "192.168.1.68", True))
+        self.assertEqual((by_kind["ethernet"]["address"], by_kind["ethernet"]["internet"]), ("192.168.2.3", False))
+
+    def test_the_page_state_matches_the_contract(self):
+        w = World(routers=home())
+        w.software = {"state": "installing", "step": "Installing packages", "done": 3, "total": 11}
+        n = boot(w)
+        until(n, lambda: w.ap_on)
+        s = n.page_state()
+        self.assertEqual(set(s), {"now", "clock_ok", "sorter", "setup_network", "networks", "cable", "join",
+                                  "scan", "events"})
+        self.assertEqual(s["sorter"]["software"]["done"], 3)
+        self.assertEqual(s["setup_network"], {"ssid": "SorterOS-Setup-63F32A", "live_join": True})
+        self.assertEqual(s["cable"], "none")
+        self.assertEqual(s["events"][0]["text"], "Started")
+
+    def test_events_outlive_a_restart(self):
+        w = World(routers=home())
+        n = boot(w)
+        until(n, lambda: w.ap_on)
+        n2 = boot(w)
+        self.assertEqual([e["text"] for e in n2.page_state()["events"]][:2],
+                         ["Started", "Opened the setup network SorterOS-Setup-63F32A: no cable, no saved Wi-Fi"])
+
+
+class Validation(unittest.TestCase):
+    scanned = [{"ssid": "HomeNet", "security": "WPA2"}, {"ssid": "Office", "security": "WPA2 802.1X"},
+               {"ssid": "Old", "security": "WEP"}, {"ssid": "Cafe", "security": ""}]
+
+    def check(self, body):
+        with tempfile.TemporaryDirectory() as d:
+            (Path(d) / "America").mkdir()
+            (Path(d) / "America/New_York").write_text("")
+            return net.validate_join(body, self.scanned, zoneinfo=Path(d))
+
+    def test_rejects_what_cant_work(self):
+        for body in ({"ssid": ""}, {"ssid": "HomeNet", "password": "short"}, {"ssid": "HomeNet", "password": ""},
+                     {"ssid": "Office", "password": "long-enough"}, {"ssid": "Old", "password": "long-enough"},
+                     {"ssid": "x" * 33}, {"ssid": "HomeNet", "password": "p" * 64},
+                     {"ssid": "HomeNet", "password": "long-enough", "name": "Not A Name"}):
+            with self.assertRaises(net.BadRequest, msg=body):
+                self.check(body)
+
+    def test_keeps_the_ssid_exact_and_drops_unknown_time_zones(self):
+        req = self.check({"ssid": " HomeNet ", "password": "long-enough", "timezone": "Mars/Base",
+                          "rendezvous_id": "short"})
+        self.assertEqual((req["ssid"], req["timezone"], req["rendezvous"]), (" HomeNet ", None, None))
+        req = self.check({"ssid": "Cafe", "timezone": "America/New_York", "name": "Sorter-3", "rendezvous_id": "a" * 22})
+        self.assertEqual((req["timezone"], req["name"], req["rendezvous"]), ("America/New_York", "sorter-3", "a" * 22))
+
+
+class Page(unittest.TestCase):
+    """The setup page's HTTP side, served for real on localhost."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        static = Path(self.tmp.name)
+        (static / "index.html").write_text("<!doctype html><title>setup</title>")
+        (static / "_app/immutable").mkdir(parents=True)
+        (static / "_app/immutable/app.js").write_text("console.log(1)")
+        self.w = World(routers=home())
+        self.n = boot(self.w)
+        until(self.n, lambda: self.w.ap_on)
+        self.server = net.serve_portal(self.n, "127.0.0.1", 0, static, only_on=None)
+        self.base = f"http://127.0.0.1:{self.server.server_address[1]}"
+
+    def tearDown(self):
+        self.server.shutdown()
+        self.server.server_close()
+        self.tmp.cleanup()
+
+    def get(self, path):
+        class NoRedirect(urllib.request.HTTPRedirectHandler):
+            def redirect_request(self, *a, **k):
+                return None
         try:
-            with self.assertRaises(RuntimeError):
-                w.boot()
+            r = urllib.request.build_opener(NoRedirect).open(self.base + path, timeout=5)
+            return r.status, r.headers, r.read()
+        except urllib.error.HTTPError as e:
+            return e.code, e.headers, e.read()
+
+    def post(self, path, body):
+        req = urllib.request.Request(self.base + path, data=json.dumps(body).encode(),
+                                     headers={"Content-Type": "application/json"}, method="POST")
+        try:
+            r = urllib.request.urlopen(req, timeout=5)
+            return r.status, json.loads(r.read())
+        except urllib.error.HTTPError as e:
+            return e.code, json.loads(e.read())
+
+    def test_state_and_files(self):
+        code, _, body = self.get("/api/state")
+        self.assertEqual(code, 200)
+        self.assertEqual(json.loads(body)["setup_network"]["ssid"], "SorterOS-Setup-63F32A")
+        code, headers, body = self.get("/_app/immutable/app.js")
+        self.assertEqual((code, body), (200, b"console.log(1)"))
+        self.assertIn("immutable", headers["Cache-Control"])
+        self.assertEqual(self.get("/")[0], 200)
+
+    def test_captive_portal_checks_land_on_the_page(self):
+        for path in ("/hotspot-detect.html", "/generate_204", "/connecttest.txt", "/anything/else", "/../etc/passwd"):
+            code, headers, _ = self.get(path)
+            self.assertEqual((code, headers["Location"]), (302, "/"), path)
+
+    def test_join_is_accepted_or_says_why_not(self):
+        self.assertEqual(self.post("/api/join", {"ssid": "HomeNet", "password": "x"}),
+                         (400, {"detail": "Wi-Fi passwords are at least 8 characters."}))
+        self.assertEqual(self.post("/api/join", {"ssid": "HomeNet", "password": "right-password"}), (202, {"ok": True}))
+        self.assertEqual(json.loads(self.get("/api/state")[2])["join"]["state"], "joining")
+        self.assertEqual(self.post("/api/nope", {})[0], 404)
+
+    def test_only_the_setup_network_is_served(self):
+        server = net.serve_portal(self.n, "127.0.0.1", 0, Path(self.tmp.name), only_on="10.42.0.1")
+        try:
+            with self.assertRaises(urllib.error.HTTPError) as e:
+                urllib.request.urlopen(f"http://127.0.0.1:{server.server_address[1]}/api/state", timeout=5)
+            self.assertEqual(e.exception.code, 404)
         finally:
-            Fake.join = orig
-        self.assertIsNone(w.pending)
-
-    def test_a_failed_join_on_a_machine_with_a_cable_still_comes_online(self):
-        w = World(routers=HOME, cable_at=0)
-        w.pending = {"ssid": "HomeNet", "password": "wrong-password"}
-        self.assertEqual(w.boot(), 0)
-        self.assertIn(("failed", "HomeNet", "password"), w.log)
-        self.assertEqual(w.count("ap_up"), 0)
-
-
-class Clock(unittest.TestCase):
-    def test_ntp_answers_so_the_clock_is_left_alone(self):
-        w = World(cable_at=3)
-        w.clock_off = 3 * 86400
-        w.run()
-        self.assertEqual(w.count("set_clock"), 0)
-
-    def test_blocked_ntp_takes_the_time_from_a_web_server(self):
-        w = World(cable_at=3)
-        w.ntp, w.clock_off = False, 3 * 86400
-        started = w.t
-        self.assertEqual(w.run(), 0)
-        self.assertEqual([e[1] for e in w.log if e[0] == "set_clock"], [-3 * 86400])
-        self.assertLessEqual(w.t - started, 3 + net.CLOCK_WAIT_S + net.TICK_S)
-
-    def test_a_clock_already_right_isnt_touched_and_no_internet_is_survived(self):
-        w = World(cable_at=3)
-        w.ntp = False
-        w.run()
-        self.assertEqual(w.count("set_clock"), 0)
-        w.clock_off, w.http_date_works = 86400, False
-        self.assertEqual(w.run(), 0)
-        self.assertEqual(w.count("set_clock"), 0)
-
-
-class Country(unittest.TestCase):
-    def test_the_time_zone_names_the_country(self):
-        self.assertEqual(net.country_for_timezone("Europe/Berlin", ZONE_TAB), "DE")
-        self.assertIsNone(net.country_for_timezone("Etc/UTC", ZONE_TAB))
-        self.assertEqual(net.wifi_country({}, ZONE_TAB), "XZ")
-        self.assertEqual(net.wifi_country({"timezone": "Mars/Base"}, ZONE_TAB), "XZ")
-
-    def test_the_config_line_is_replaced_not_piled_up(self):
-        text = "PM=0\nccode=CN\nregrev=4\n#ccode ==> a comment\n"
-        once = net.with_country(text, "DE")
-        self.assertEqual(once, "PM=0\n#ccode ==> a comment\nccode=DE\nregrev=0\n")
-        self.assertEqual(net.with_country(once, "DE"), once)
-
-    def test_worldwide_until_a_time_zone_is_known(self):
-        w = World(cable_at=3)
-        w.run()
-        self.assertEqual(w.country, "XZ")
-
-    def test_the_setup_sites_time_zone_sets_it(self):
-        w = World(routers=HOME)
-        w.run({**cfg(), "timezone": "Europe/Berlin"})
-        self.assertEqual(w.country, "DE")
-
-    def test_the_phones_time_zone_is_in_place_before_the_restart_to_join(self):
-        w = World(routers=HOME)
-        w.run(phone=[(5 * 60, "HomeNet", "right-password", "America/New_York")])
-        kinds = [e[:2] for e in w.log if e[0] in ("country", "reboot")]
-        self.assertEqual(kinds[-2:], [("country", "US"), ("reboot", kinds[-1][1])])
-
-
-class Retry(unittest.TestCase):
-    def test_router_slower_than_the_pi_after_a_power_cut(self):
-        # Right password, but the router is down for the first 20 minutes and
-        # nobody touches the setup network: it restarts to try again.
-        w = World(routers=HOME, up=lambda s, t: t > 20 * 60)
-        w.run(cfg())
-        self.assertGreaterEqual(w.count("reboot"), 1)
-        self.assertLess(w.t, 20 * 60 + 2 * net.RETRY_FIRST_S + 5 * BOOT_S)
-        self.assertEqual(w.retry, 0)  # reset once online
-
-    def test_retries_back_off_and_never_run_hot(self):
-        w = World(routers=HOME, up=lambda s, t: False, cable_at=12 * HOUR)
-        w.run(cfg(), max_boots=40)
-        reboots = [e[1] for e in w.log if e[0] == "reboot"]
-        gaps = [b - a for a, b in zip(reboots, reboots[1:])]
-        self.assertTrue(all(b >= a for a, b in zip(gaps, gaps[1:])), gaps)
-        self.assertLessEqual(max(gaps), net.RETRY_MAX_S + net.WIFI_WAIT_S + BOOT_S + 60)
-        self.assertLessEqual(len(reboots), 12)
-
-    def test_never_restarts_under_someone_using_the_setup_network(self):
-        for kw in ({"clients": lambda t: True}, {"page_active": lambda t: True}):
-            w = World(routers=HOME, up=lambda s, t: False, cable_at=HOUR)
-            w.run(cfg(), **kw)
-            self.assertEqual(w.count("reboot"), 0, kw)
-
-    def test_no_saved_network_means_no_restarts(self):
-        w = World(cable_at=5 * HOUR)
-        w.run()
-        self.assertEqual(w.count("reboot"), 0)
-
-
-class SetupNetwork(unittest.TestCase):
-    def test_cable_plugged_in_during_setup_closes_it(self):
-        w = World(cable_at=15 * 60)
-        self.assertEqual(w.run(), 0)
-        self.assertGreaterEqual([e for e in w.log if e[0] == "ap_down"][-1][1], 15 * 60)
-
-    def test_setup_page_is_restarted_if_it_dies(self):
-        w = World(cable_at=20 * 60)
-        w.run(portal_dies_at=6 * 60)
-        self.assertGreaterEqual(w.count("portal"), 2)
-
-    def test_the_sorter_ui_steps_aside_for_the_setup_page_and_comes_back(self):
-        w = World(ui_running=True, cable_at=10 * 60)
-        self.assertEqual(w.run(), 0)
-        kinds = [e[0] for e in w.log]
-        self.assertLess(kinds.index("ui_stop"), kinds.index("portal"))
-        self.assertEqual(w.log[-1][:2], ("ui_start", ("sorter-ui-dev.service",)))
-
-    def test_no_setup_network_no_ui_changes(self):
-        w = World(cable_at=3, ui_running=True)
-        w.run()
-        self.assertEqual(w.count("ui_stop"), 0)
-
-    def test_no_wifi_hardware_waits_for_a_cable(self):
-        w = World(iface=None, cable_at=30 * 60)
-        self.assertEqual(w.run(), 0)
-        self.assertEqual(w.count("ap_up"), 0)
+            server.shutdown()
+            server.server_close()
 
 
 class Announce(unittest.TestCase):
     def world(self, **kw):
-        w = World(routers=HOME, **kw)
-        w.run(cfg())
+        w = World(routers=home(), **kw)
+        saved(w)
+        n = boot(w)
+        run_for(n, 30)
         w.announce = {"rendezvous_id": "r" * 22, "hive_url": "https://hive.example"}
-        return w
+        return w, n
 
     def test_gives_the_address_and_the_network_once_the_page_has_a_key(self):
-        w = self.world()
+        w, n = self.world()
         w.hive["pubkey"] = "key-1"
-        w.run(cfg())
-        self.assertEqual([e[:3] for e in w.log if e[0] == "announced"], [("announced", "key-1", "HomeNet")])
+        net.announce_address(n)
+        self.assertEqual([e[1:4] for e in w.log if e[0] == "announced"], [("key-1", "HomeNet", "192.168.1.68")])
         self.assertIsNone(w.announce)
 
     def test_on_wifi_with_a_cable_in_it_gives_the_wifi_address(self):
-        # The cable can go to another network, like a laptop sharing its
-        # connection: the internet route leaves by it, but the person is on
-        # the Wi-Fi.
-        w = self.world(cable_at=0)
+        w, n = self.world(cable={"at": 0, "internet": True})
         w.hive["pubkey"] = "key-1"
-        w.run(cfg())
-        # The cable comes up first and is announced; the Wi-Fi joining corrects it.
-        self.assertEqual([(e[2], e[4]) for e in w.log if e[0] == "announced"][-1], ("HomeNet", "192.0.2.60"))
-
-    def test_on_the_cable_alone_it_gives_the_cable_address(self):
-        w = World(cable_at=0)
-        w.run({})
-        w.announce = {"rendezvous_id": "r" * 22, "hive_url": "https://hive.example"}
-        w.hive["pubkey"] = "key-1"
-        w.run({})
-        self.assertEqual([(e[2], e[4]) for e in w.log if e[0] == "announced"], [(None, "192.0.2.50")])
+        net.announce_address(n)
+        self.assertEqual([e[2:4] for e in w.log if e[0] == "announced"], [("HomeNet", "192.168.1.68")])
 
     def test_sends_again_when_the_page_is_reloaded(self):
-        w = self.world()
+        w, n = self.world()
         w.hive["pubkey"] = "key-1"
         orig = Fake.sleep
 
         def sleep(fake, s):
             orig(fake, s)
             if fake.w.count("announced") == 1:
-                fake.w.hive["pubkey"] = "key-2"  # a reload makes a new key pair
+                fake.w.hive["pubkey"] = "key-2"
         Fake.sleep = sleep
         try:
-            w.run(cfg())
+            net.announce_address(n)
         finally:
             Fake.sleep = orig
         self.assertEqual([e[1] for e in w.log if e[0] == "announced"], ["key-1", "key-2"])
 
-    def test_sends_again_when_the_name_changes(self):
-        # First boot applies the name from the setup page, or avahi renames
-        # the machine because another one already has it.
-        w = self.world()
-        w.hive["pubkey"] = "key-1"
-        orig = Fake.sleep
-
-        def sleep(fake, s):
-            orig(fake, s)
-            if fake.w.count("announced") == 1:
-                fake.w.mdns = "sorter-2.local"
-        Fake.sleep = sleep
-        try:
-            w.run(cfg())
-        finally:
-            Fake.sleep = orig
-        self.assertEqual(w.count("announced"), 2)
-
-    def test_sends_again_after_hive_forgets(self):
-        w = self.world()
-        w.hive["pubkey"] = "key-1"
-        orig = Fake.sleep
-
-        def sleep(fake, s):
-            orig(fake, s)
-            if fake.w.count("announced") == 1:
-                fake.w.hive["sealed_to"] = None  # Hive restarted; the page re-posted its key
-        Fake.sleep = sleep
-        try:
-            w.run(cfg())
-        finally:
-            Fake.sleep = orig
-        self.assertEqual([e[1] for e in w.log if e[0] == "announced"], ["key-1", "key-1"])
-
-    def test_gives_up_when_the_window_closes(self):
-        w = self.world()
-        opened = w.t
-        w.run(cfg())  # the page never opened
-        self.assertEqual(w.count("announced"), 0)
-        closed = [e[1] for e in w.log if e[0] == "announce_closed"][-1]
-        self.assertLessEqual(closed - opened, net.ANNOUNCE_WINDOW_S + BOOT_S + net.ANNOUNCE_EVERY_S)
+    def test_gives_up_when_the_window_closes_and_can_start_again(self):
+        w, n = self.world()
+        start = w.t
+        n.announcing = True
+        net.announce_address(n)  # the page never opened
+        self.assertLessEqual(w.t - start, net.ANNOUNCE_WINDOW_S + net.ANNOUNCE_EVERY_S)
         self.assertIsNone(w.announce)
+        self.assertFalse(n.announcing)
 
     def test_an_unreachable_hive_does_not_stop_it(self):
-        import urllib.error
-        w = self.world()
+        w, n = self.world()
         w.hive = urllib.error.URLError("Forbidden")
-        self.assertEqual(w.run(cfg()), 0)
+        net.announce_address(n)
         self.assertIsNone(w.announce)
+
+
+class Clock(unittest.TestCase):
+    def test_ntp_answers_so_the_clock_is_left_alone(self):
+        w = World(routers=home())
+        self.assertEqual(net.settle_clock(Fake(w)), 0.0)
+        self.assertEqual(w.count("set_clock"), 0)
+
+    def test_blocked_ntp_takes_the_time_from_a_web_server(self):
+        w = World(routers=home(), ntp=False)
+        w.clock_off = 3 * 86400
+        self.assertAlmostEqual(net.settle_clock(Fake(w)), 3 * 86400, delta=1)
+        self.assertEqual(w.count("set_clock"), 1)
+
+    def test_events_stamped_by_the_wrong_clock_are_moved(self):
+        w = World(routers=home(), ntp=False, cable={"at": 0, "internet": True})
+        w.clock_off = 3 * 86400
+        n = boot(w)
+        before = n.page_state()["events"][0]["at"]
+        n._settle_clock()
+        after = n.page_state()["events"][0]["at"]
+        self.assertAlmostEqual(after - before, 3 * 86400, delta=1)
+        self.assertTrue(n.page_state()["clock_ok"])
+
+
+class Country(unittest.TestCase):
+    tab = "US\t+404251-0740023\tAmerica/New_York\nDE\t+5230+01322\tEurope/Berlin\n"
+
+    def test_the_time_zone_names_the_country(self):
+        self.assertEqual(net.wifi_country({"timezone": "Europe/Berlin"}, self.tab), "DE")
+        self.assertEqual(net.wifi_country({}, self.tab), "XZ")
+        self.assertEqual(net.wifi_country({"timezone": "Mars/Base"}, self.tab), "XZ")
+
+    def test_the_config_line_is_replaced_not_piled_up(self):
+        text = net.with_country(net.with_country("nv_by_chip=1\nccode=CN\nregrev=38\n", "US"), "DE")
+        self.assertEqual(text, "nv_by_chip=1\nccode=DE\nregrev=0\n")
 
 
 class Keyfile(unittest.TestCase):
@@ -642,8 +862,7 @@ class Keyfile(unittest.TestCase):
         self.assertEqual(net.keyfile_value("tab\there"), "tab\\there")
 
     def test_the_ssid_is_written_as_bytes(self):
-        text = net.nm_keyfile("Café/Net", "password1", "u")
-        self.assertIn("ssid=67;97;102;195;169;47;78;101;116;\n", text)
+        self.assertIn("ssid=67;97;102;195;169;47;78;101;116;\n", net.nm_keyfile("Café/Net", "password1", "u"))
 
     def test_wpa3_only_takes_sae_and_mixed_mode_takes_psk(self):
         self.assertIn("key-mgmt=sae", net.nm_keyfile("n", "password1", "u", security="WPA3"))
@@ -658,42 +877,41 @@ class Keyfile(unittest.TestCase):
         self.assertNotEqual(net.profile_path("a/b"), net.profile_path("a_b"))
 
     def test_nmcli_errors_map_to_what_the_page_says(self):
-        self.assertEqual(net.join_failure_reason("Connection activation failed: Secrets were required, but not provided"), "password")
-        self.assertEqual(net.join_failure_reason("Connection activation failed: The Wi-Fi network could not be found"), "not_found")
-        self.assertEqual(net.join_failure_reason("IP configuration could not be reserved (no available address, timeout, etc.)"), "no_address")
-        self.assertEqual(net.join_failure_reason("Timeout expired (90 seconds)"), "other")
+        cases = {"Connection activation failed: (7) Secrets were required, but not provided.": "password",
+                 "Connection activation failed: The Wi-Fi network could not be found": "not_found",
+                 "IP configuration could not be reserved (no available address, timeout, etc.)": "no_address",
+                 "timed out": "timeout", "Something else": "other"}
+        for error, reason in cases.items():
+            self.assertEqual(net.join_failure_reason(error), reason, error)
 
 
 class Nmcli(unittest.TestCase):
     def test_terse_fields_undo_both_escapes(self):
-        self.assertEqual(net.nmcli_fields(r"a\:b\\c:d::e"), ["a:b\\c", "d", "", "e"])
+        self.assertEqual(net.nmcli_fields(r"a\:b:c\\d:"), ["a:b", "c\\d", ""])
 
     def test_the_scan_keeps_names_exact_and_drops_hidden_and_setup_networks(self):
-        scan = "Home\\:Net:80:WPA2\n Edge :60:WPA2 802.1X\n:50:WPA2\nSorterOS-Setup-ABC:90:\nHome\\:Net:30:WPA2\n"
-        self.assertEqual(net.parse_scan(scan), [
-            {"ssid": "Home:Net", "signal": 80, "security": "WPA2"},
-            {"ssid": " Edge ", "signal": 60, "security": "WPA2 802.1X"},
-        ])
+        text = " Home :30:WPA2\n Home :70:WPA2\n:90:WPA2\nSorterOS-Setup-ABCDEF:99:\nCafe:40:\n"
+        self.assertEqual([n["ssid"] for n in net.parse_scan(text)], [" Home ", "Cafe"])
+
+    def test_connectivity_words(self):
+        self.assertEqual(net.connectivity("4 (full)"), "full")
+        self.assertEqual(net.connectivity("3 (limited)"), "limited")
+        self.assertEqual(net.connectivity(""), "unknown")
 
 
 class Config(unittest.TestCase):
     def test_placeholder_padding_is_cut_before_parsing(self):
         with tempfile.TemporaryDirectory() as d:
             p = Path(d) / "c.toml"
-            start = "# __SORTEROS_CFG" + "_START__"
-            end = "# __SORTEROS_CFG" + "_END__"
-            # what the setup site leaves: its text right after the start marker,
-            # newline padding, then the end marker
-            p.write_text(start + '# written by sorteros-setup\nhostname = "bin-3"\n\n[wifi]\nssid = "HomeNet"\npassword = "pw12345678"\n' + "\n" * 500 + end + "\n")
-            c = net.read_config(p)
-        self.assertEqual(net.wifi_from_config(c), ("HomeNet", "pw12345678"))
-        self.assertEqual(c["hostname"], "bin-3")
+            p.write_text('hostname = "a"\n' + net.CFG_END_MARKER + "\n" + "#" * 100 + "\n[[[not toml")
+            self.assertEqual(net.read_config(p), {"hostname": "a"})
 
-    def test_untouched_placeholder_is_empty(self):
+    def test_written_config_reads_back(self):
+        cfg = {"hostname": "sorter-3", "timezone": "Europe/Berlin", "wifi": {"ssid": 'He said "hi"', "password": "p\\w"}}
         with tempfile.TemporaryDirectory() as d:
             p = Path(d) / "c.toml"
-            p.write_text("# __SORTEROS_CFG" + "_START__\n" + "\n" * 100 + "# __SORTEROS_CFG" + "_END__\n")
-            self.assertEqual(net.read_config(p), {})
+            p.write_text(net.config_toml(cfg))
+            self.assertEqual(net.read_config(p), cfg)
 
 
 if __name__ == "__main__":

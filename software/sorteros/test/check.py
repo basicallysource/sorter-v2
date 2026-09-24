@@ -100,7 +100,10 @@ def check_image(img: Path) -> None:
         resolv = mnt / "etc/resolv.conf"
         check(resolv.is_symlink() and str(resolv.readlink()).endswith("stub-resolv.conf"),
               "resolv.conf is the systemd-resolved stub")
-        check((mnt / "var/www/portal/index.html").exists(), "captive portal baked")
+        check((mnt / "var/www/portal/index.html").exists(), "setup page baked")
+        check(not (mnt / "usr/local/sbin/sorteros-portal.py").exists(), "no old setup page server")
+        conn = mnt / "etc/NetworkManager/conf.d/20-sorteros-connectivity.conf"
+        check(conn.exists() and "uri=" in conn.read_text(), "NetworkManager checks each network for internet")
         cfg = (mnt / "etc/sorteros-config.toml").read_bytes() if (mnt / "etc/sorteros-config.toml").exists() else b""
         start, end = cfg.find(b"# __SORTEROS_CFG_START__"), cfg.find(b"# __SORTEROS_CFG_END__")
         check(0 <= start < end and end - start >= 4096, "setup-site placeholder in /etc/sorteros-config.toml",

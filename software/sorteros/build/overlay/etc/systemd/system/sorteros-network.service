@@ -1,5 +1,5 @@
 [Unit]
-Description=SorterOS network bring-up: Ethernet, else saved Wi-Fi, else the setup network
+Description=SorterOS network: online, or the setup network while it isn't
 Documentation=https://docs.basically.website/sorter/installation/sorter-os/
 After=NetworkManager.service
 Wants=NetworkManager.service
@@ -8,11 +8,8 @@ Before=sorteros-firstboot.service
 [Service]
 Type=simple
 ExecStart=/usr/bin/python3 /usr/local/sbin/sorteros-network.py
-# Exits 0 once the machine is online. A crash (say the Wi-Fi driver refuses
-# access-point mode) retries after a pause instead of giving up for the boot.
-Restart=on-failure
-RestartSec=10
-RestartPreventExitStatus=0
+Restart=always
+RestartSec=5
 TimeoutStopSec=20
 
 [Install]

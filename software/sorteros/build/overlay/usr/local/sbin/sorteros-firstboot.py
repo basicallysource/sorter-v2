@@ -20,7 +20,9 @@ from __future__ import annotations
 
 import hashlib
 import html as _html
+import json
 import logging
+import os
 import random
 import re
 import shutil
@@ -76,6 +78,8 @@ SOFTWARE_DIR = REPO_DIR / "software"
 STABLE_REF = "stable"
 STABLE_TAG_PREFIX = "sorter/stable/v"
 POLL_INTERVAL = 60
+WAITING_POLL_INTERVAL = 10  # waiting for the internet: a phone may be putting it on Wi-Fi right now
+SOFTWARE_STATUS = Path("/run/sorteros/software.json")  # read by the setup page
 LATE_STAGE_MAX_FAILURES = 10
 DOCS_URL = "https://docs.basically.website/sorter/installation/sorter-os/"
 INTERNET_PROBE_HOSTS = ("deb.debian.org", "github.com")
@@ -114,6 +118,20 @@ STATUS_ICONS = {
 }
 
 
+STEP_WORDS = {
+    "ssh-host-keys": "Making the machine's keys",
+    "grow-rootfs": "Growing the disk",
+    "setup-swap": "Making swap",
+    "clone-repo": "Downloading the Sorter software",
+    "write-env": "Configuring",
+    "write-machine-toml": "Configuring",
+    "uv-sync": "Installing Python packages",
+    "pnpm-install": "Installing the interface's packages",
+    "pnpm-build": "Building the interface",
+    "install-services": "Starting the Sorter",
+}
+
+
 def _set_state(name: str, status: str, info: str = "") -> None:
     with _state_lock:
         prev = _stage_state.get(name, {})
@@ -122,6 +140,27 @@ def _set_state(name: str, status: str, info: str = "") -> None:
             "info": info,
             "started_at": time.time() if status == "active" and prev.get("status") != "active" else prev.get("started_at"),
         }
+        software = _software_status()
+    try:
+        SOFTWARE_STATUS.parent.mkdir(parents=True, exist_ok=True)
+        tmp = SOFTWARE_STATUS.with_name(".software.json.tmp")
+        tmp.write_text(json.dumps(software))
+        os.replace(tmp, SOFTWARE_STATUS)
+    except OSError as e:
+        log.warning("couldn't write %s: %s", SOFTWARE_STATUS, e)
+
+
+def _software_status() -> dict:
+    """How far the install of the Sorter software is, for the setup page:
+    waiting (for the internet), installing, or ready."""
+    needed = [s for s in STAGES if s.before_ui]
+    done = sum(1 for s in needed if _stage_state.get(s.name, {}).get("status") == "done")
+    nxt = next((s for s in needed if _stage_state.get(s.name, {}).get("status") != "done"), None)
+    if nxt is None:
+        return {"state": "ready", "step": None, "done": done, "total": len(needed)}
+    waiting = _stage_state.get(nxt.name, {}).get("info") == "waiting for internet"
+    return {"state": "waiting" if waiting else "installing", "step": STEP_WORDS.get(nxt.name, nxt.name),
+            "done": done, "total": len(needed)}
 
 
 def _read_meta() -> tuple[str, str, str]:
@@ -277,27 +316,15 @@ def _start_status_server(port: int) -> ThreadingHTTPServer | None:
     return srv
 
 
-def _on_a_network() -> bool:
-    r = subprocess.run(["ip", "-4", "route", "show", "default"], capture_output=True, text=True)
-    return bool(r.stdout.strip())
-
-
 def _keep_status_server(ui_ready: threading.Event) -> None:
-    """Serve the progress page on :80 while the machine is on a network and
-    the UI doesn't have the port yet. Off a network, sorteros-network's setup
-    page needs :80, so it is let go within a couple of seconds, not at the
-    end of whatever stage is running."""
+    """Serve the progress page on :80 until the UI takes the port. (The setup
+    network's port 80 is redirected to the setup page, so it never needs it.)"""
     server = None
-    while not ui_ready.is_set():
-        on = _on_a_network()
-        if on and server is None:
-            server = _start_status_server(STATUS_PORT)
-        elif not on and server is not None:
-            server.shutdown()
-            server.server_close()
-            server = None
-            log.info("off the network: released port %d for the setup page", STATUS_PORT)
-        ui_ready.wait(2)
+    while server is None and not ui_ready.is_set():
+        server = _start_status_server(STATUS_PORT)
+        if server is None:
+            ui_ready.wait(5)
+    ui_ready.wait()
     if server is not None:
         server.shutdown()
         server.server_close()
@@ -426,9 +453,11 @@ def apply_config_if_changed() -> None:
         pass
 
     hostname = cfg.get("hostname")
-    if isinstance(hostname, str) and hostname.strip():
+    if isinstance(hostname, str) and hostname.strip() and hostname.strip() != socket.gethostname():
         log.info("setting hostname: %s", hostname)
         sh(["hostnamectl", "set-hostname", hostname.strip()])
+        # avahi keeps announcing the old <name>.local until it restarts
+        subprocess.run(["systemctl", "try-restart", "avahi-daemon.service"], check=False)
 
     timezone = cfg.get("timezone")
     if isinstance(timezone, str) and re.fullmatch(r"[A-Za-z0-9_+-]+(/[A-Za-z0-9_+-]+)*", timezone) \
@@ -736,12 +765,13 @@ def main() -> int:
             _set_state(s.name, "pending")
     failures: dict[str, int] = {}
 
-    # Port 80 goes to whoever the machine needs: sorteros-network's setup page
-    # while it's off a network, the progress page while first boot runs, then
-    # the Sorter UI.
+    # Port 80 goes to the progress page while first boot runs, then to the
+    # Sorter UI. A machine whose UI is long installed has nothing to show.
     ui_ready = threading.Event()
-    keeper = threading.Thread(target=_keep_status_server, args=(ui_ready,), name="status-keeper", daemon=True)
-    keeper.start()
+    keeper = None
+    if not all(stamp_path(s.name).exists() for s in STAGES if s.before_ui):
+        keeper = threading.Thread(target=_keep_status_server, args=(ui_ready,), name="status-keeper", daemon=True)
+        keeper.start()
     ui_started = False
 
     while True:
@@ -754,10 +784,11 @@ def main() -> int:
 
         if not ui_started and all(stamp_path(s.name).exists() for s in STAGES if s.before_ui):
             log.info("everything the UI needs is in place")
-            # let the "complete" page render once before port 80 changes hands
-            time.sleep(5)
+            if keeper is not None:
+                time.sleep(5)  # let the "complete" page render once before port 80 changes hands
             ui_ready.set()
-            keeper.join(timeout=15)
+            if keeper is not None:
+                keeper.join(timeout=15)
             _start_sorter_services()
             ui_started = True
 
@@ -795,7 +826,8 @@ def main() -> int:
                     log.warning("stage %s failed: %s — will retry", s.name, e)
                     _set_state(s.name, "waiting", str(e))
 
-        time.sleep(POLL_INTERVAL)
+        waiting = any(_stage_state.get(s.name, {}).get("info") == "waiting for internet" for s in remaining)
+        time.sleep(WAITING_POLL_INTERVAL if waiting else POLL_INTERVAL)
 
 
 if __name__ == "__main__":

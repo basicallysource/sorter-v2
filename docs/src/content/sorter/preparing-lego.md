@@ -35,7 +35,7 @@ A LEGO stud is 8 mm across, so 80 mm is ten studs. Count studs instead of measur
 
 A piece over the limit does not fall through a channel cleanly. It bridges the channel, or it wedges on the way into the chute, and everything behind it stops.
 
-**Ten studs is the feed side, and the layer a piece is sorted to is tighter.** A half-size layer takes 8 studs, a third-size layer 6, so on a machine whose layers are all third size six studs is the working limit for the tub. [Which bin a box lands in]({{ '/hive/first-profile/' | relative_url }}#bins-are-chosen-on-the-machine-not-in-the-profile) has the detail and what it means for your sorting profile.
+**Ten studs is the feed side, and the layer a piece is sorted to is tighter.** A half-size layer takes 8 studs, a third-size layer 6, so on a machine whose layers are all third size six studs is the working limit for the tub. [Which bin a box lands in]({{ '/hive/first-profile/send-it-to-your-machine/' | relative_url }}#bins-are-chosen-on-the-machine-not-in-the-profile) has the detail and what it means for your sorting profile.
 
 The [one-page sheet](#the-one-page-sheet) at the bottom of this page carries a life-size 2x10 brick, so a doubtful piece can be laid straight on top of it instead of counted.
 

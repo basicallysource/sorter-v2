@@ -218,6 +218,11 @@ The [bulk cap and bucket]({{ '/hardware/assembly/feeder/c-channels/bulk-channel/
 
 Go round anticlockwise from the exit until the next dovetail is under the channel above and no arm would fit there. The one before it is yours.
 
+<figure class="single-figure">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-camera-lamp-arm-positions-plan-w1600-73abad62a3d9.png" alt="Plan view of the feeder: the bulk channel at the top and the three lamp channels below it, each of the three stators shaded grey, with the camera lamp arm on each one picked out in red. Every red arm sits where the channel above it starts to overlap the wall">
+  <figcaption>Looking straight down. Stators grey, camera lamp arms red. Each arm is in the last dovetail the channel above leaves free. <cite>Diagram: barthel.</cite></figcaption>
+</figure>
+
 **It goes on from underneath.** Offer the arm mount up to the bottom edge of the channel wall, feed its rail into the dovetail, and push it up until it clips over the top edge. Nothing screws into this joint.
 
 <div class="callout callout-warning">

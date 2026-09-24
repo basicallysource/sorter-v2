@@ -69,7 +69,7 @@ No setup page? Stay on the `SorterOS-Setup` network and open [http://10.42.0.1](
     <figcaption>A wrong password says so. Fix it and join again. <cite>Screenshot recorded on an iPhone.</cite></figcaption>
   </figure>
   <figure>
-    <img src="https://assets.basically.website/sorter-docs/sorteros-setup-phone-6-joined-full-bcd8440c578d.png" alt="The setup page saying the Sorter is on the network, with its address, the next steps and a Done button">
+    <img src="https://assets.basically.website/sorter-docs/sorteros-setup-phone-6-joined-full-30b10b9ff095.png" alt="The setup page saying the Sorter is on the network, with its address, the next steps and a Done button">
     <figcaption>It's on. Note the address and tap <strong>Done</strong>; your phone goes back to your WiFi. <cite>Screenshot recorded on an iPhone.</cite></figcaption>
   </figure>
 </div>

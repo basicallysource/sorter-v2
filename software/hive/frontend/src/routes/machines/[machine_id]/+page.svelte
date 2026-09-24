@@ -8,9 +8,11 @@
 		type MachineCameraSpec
 	} from '$lib/api';
 	import Badge from '$lib/components/Badge.svelte';
+	import MachineWhereToFind from '$lib/components/MachineWhereToFind.svelte';
 	import Spinner from '$lib/components/Spinner.svelte';
 	import { Alert } from '$lib/components/primitives';
 	import AnalyticsDashboard from '$lib/components/charts/AnalyticsDashboard.svelte';
+	import { localUiUrl } from '$lib/machineNetwork';
 
 	const machineId = $derived(page.params.machine_id ?? '');
 
@@ -33,6 +35,7 @@
 	const isOnline = $derived(
 		!!machine?.last_seen_at && Date.now() - new Date(machine.last_seen_at).getTime() < 5 * 60 * 1000
 	);
+	const localUi = $derived(localUiUrl(machine?.network_info ?? null));
 	const backLink = $derived(
 		overview && !overview.is_owner && overview.viewer_is_admin
 			? { href: '/admin/machines', label: '← All machines' }
@@ -253,9 +256,9 @@
 				<div>
 					<dt class="text-text-muted">Local UI</dt>
 					<dd class="text-text">
-						{#if machine.last_seen_ip}
+						{#if localUi}
 							<a
-								href={`http://${machine.last_seen_ip}:${machine.local_ui_port || '8000'}`}
+								href={localUi}
 								target="_blank"
 								rel="noopener noreferrer"
 								class="text-primary hover:underline">Open ↗</a
@@ -267,6 +270,12 @@
 				</div>
 			</dl>
 		</header>
+
+		<MachineWhereToFind
+			info={machine.network_info}
+			reportedAt={machine.network_reported_at}
+			everSeen={!!machine.last_seen_at}
+		/>
 
 		<!-- Piece stats -->
 		<section class="mt-6">

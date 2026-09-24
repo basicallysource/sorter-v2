@@ -100,11 +100,6 @@ The [lamp arm]({{ '/hardware/assembly/feeder/camera-lamp/lamp-arm/' | relative_u
   </figure>
 </div>
 
-<figure class="single-figure">
-  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/camera-lamp-render-top-full-edc4616e7088.png" alt="CAD render of the assembled camera lamp from above: the grey cover with the camera clasp and board in the central opening, a slot near the rim, and the arm coming in from the lower left">
-  <figcaption>The same thing as designed, with the 4K module in it. <cite>Rendered from the part geometry, not from a build. Render: Spencer.</cite></figcaption>
-</figure>
-
 ## The finished result
 
 A finished lamp: the arm, the shaded lamp and the 4K camera seated at its centre with its cable standing up out of the board. Build one. It hangs onto the classification channel later, at step 9 of [arranging C-channels]({{ '/hardware/assembly/feeder/arranging-c-channels/' | relative_url }}), once the channels are standing.

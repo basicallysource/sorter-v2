@@ -40,6 +40,9 @@ class World:
         self.hive = {"pubkey": None, "sealed_to": None}
         self.config = {}
         self.country = "CN"  # what the vendor image ships
+        self.ntp = True  # does NTP answer
+        self.clock_off = 0.0  # how far behind the wall clock is
+        self.http_date_works = True
         self.boots = 0
         self.log = []
 
@@ -227,6 +230,20 @@ class Fake:
     def set_retry_count(self, n):
         self.w.retry = n
 
+    # the clock
+    def wall_now(self):
+        return 1_800_000_000 + self.w.t - self.w.clock_off
+
+    def clock_synced(self):
+        return self.w.ntp
+
+    def http_date(self):
+        return 1_800_000_000 + self.w.t if self.w.http_date_works else None
+
+    def set_clock(self, t):
+        self._log("set_clock", round(1_800_000_000 + self.w.t - self.w.clock_off - t))
+        self.w.clock_off = 0.0
+
     # the radio's country
     def config(self):
         return self.w.config
@@ -395,6 +412,31 @@ class JoinFromThePhone(unittest.TestCase):
         self.assertEqual(w.boot(), 0)
         self.assertIn(("failed", "HomeNet", "password"), w.log)
         self.assertEqual(w.count("ap_up"), 0)
+
+
+class Clock(unittest.TestCase):
+    def test_ntp_answers_so_the_clock_is_left_alone(self):
+        w = World(cable_at=3)
+        w.clock_off = 3 * 86400
+        w.run()
+        self.assertEqual(w.count("set_clock"), 0)
+
+    def test_blocked_ntp_takes_the_time_from_a_web_server(self):
+        w = World(cable_at=3)
+        w.ntp, w.clock_off = False, 3 * 86400
+        started = w.t
+        self.assertEqual(w.run(), 0)
+        self.assertEqual([e[1] for e in w.log if e[0] == "set_clock"], [-3 * 86400])
+        self.assertLessEqual(w.t - started, 3 + net.CLOCK_WAIT_S + net.TICK_S)
+
+    def test_a_clock_already_right_isnt_touched_and_no_internet_is_survived(self):
+        w = World(cable_at=3)
+        w.ntp = False
+        w.run()
+        self.assertEqual(w.count("set_clock"), 0)
+        w.clock_off, w.http_date_works = 86400, False
+        self.assertEqual(w.run(), 0)
+        self.assertEqual(w.count("set_clock"), 0)
 
 
 class Country(unittest.TestCase):

@@ -40,7 +40,7 @@ These are for [SorterOS]({{ '/sorter/installation/sorter-os/' | relative_url }})
 
 ### **Find my sorter** keeps waiting
 
-**Cause:** One of three things. The Pi couldn't join the network you picked (it opens its `SorterOS-Setup-` network again). It joined but the network doesn't reach the internet, so it can't report its address. Or more than 15 minutes passed since you picked the network, after which it stops reporting.
+**Cause:** One of three things. The Pi couldn't join the network you picked (it opens its `SorterOS-Setup-` network again). It joined but the network doesn't reach the internet, so it can't report its address. Or it came online more than 15 minutes ago, after which it stops reporting.
 
 **Fix:** Look in your phone's WiFi list for `SorterOS-Setup-`. If it's there, join it: the setup page says why the Pi couldn't join. If not, browse to `http://<name>.local` (the name you gave it, `sorter` if you didn't), or find the Pi in your router's list of connected devices.
 

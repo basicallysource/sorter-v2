@@ -125,7 +125,6 @@ def _write_announce_state(state: "PortalState", rendezvous_id: str) -> None:
         ANNOUNCE_STATE_FILE.write_text(json.dumps({
             "rendezvous_id": rendezvous_id,
             "hive_url": state.hive_url,
-            "created_at": time.time(),
         }))
     except OSError as e:
         log.warning("could not persist ip-announce state: %s", e)

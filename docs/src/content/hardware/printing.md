@@ -44,20 +44,9 @@ optional and which you can also cut from cardboard.
 | Creality Ender-3 V3 | 220 x 220 x 250 | 97 |
 | Bambu Lab A1 mini | 180 x 180 x 180 | 88 |
 
-What each bed cannot do:
-
-- **Ender-3 V3, 220 mm.** NEMA bracket, stator, chute gear, layout guide, bulk cap,
-  classification dome, Lazy Susan bottom static, interface upper fixed section, top
-  interface chute mount, PSU housing rear tray.
-- **Prusa MK4S, 250 x 210 mm.** The same list without the PSU housing rear tray,
-  which fits across its 250 mm side, plus the chute core: that one is 229 mm tall
-  and prints standing up, and the MK4S has 220 mm of height.
-- **A1 mini, 180 mm.** All of the above, plus the rotor, the output gear, the frame
-  crossbeam, the Lazy Susan washer and chute mount, the interface big spacer and the
-  control board housing base.
-
-Some of those are needed several times over. A machine takes four stators and four
-NEMA brackets, not one of each.
+A smaller bed loses the largest parts: the feeder's stators and rotors, the interface
+plates, the Lazy Susan base. Several of those are needed four times over, so it is
+not one awkward part.
 
 If your printer cannot do the whole set, print what it can and have the rest printed
 by somebody else or by a print service. The parts calculator has the STL for every

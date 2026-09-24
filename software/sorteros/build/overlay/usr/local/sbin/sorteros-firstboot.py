@@ -563,7 +563,9 @@ def stage_write_env() -> None:
     env_path.write_text(
         "export DEBUG_LEVEL=2\n"
         "export PYTHONUNBUFFERED=1\n"
-        'export MACHINE_SPECIFIC_PARAMS_PATH="../machine.toml"\n'
+        # software/machine.toml, where the Sorter looks by itself; releases
+        # older than that need telling, relative to the backend directory.
+        'export MACHINE_SPECIFIC_PARAMS_PATH="../../machine.toml"\n'
         "export SORTER_API_HOST=0.0.0.0\n"
         # Headless LAN device: the user reaches it by IP, hostname, or .local —
         # whichever resolves for them. The local API is unauthenticated and not
@@ -574,10 +576,10 @@ def stage_write_env() -> None:
 
 
 def stage_write_machine_toml() -> None:
-    machine_toml = SOFTWARE_DIR / "sorter" / "machine.toml"
+    machine_toml = SOFTWARE_DIR / "machine.toml"
     if machine_toml.exists():
         return
-    if not (SOFTWARE_DIR / "sorter").exists():
+    if not SOFTWARE_DIR.exists():
         raise RuntimeError("repo not cloned yet")
     # Minimal [cameras] section — backend bails on startup without it.
     # -1 means "no camera assigned"; user picks real indexes in Settings → Cameras.

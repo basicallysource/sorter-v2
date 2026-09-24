@@ -90,8 +90,8 @@ The clasp's two halves form a spigot that plugs into a socket in the ring. **The
 The [lamp arm]({{ '/hardware/assembly/feeder/camera-lamp/lamp-arm/' | relative_url }}) page leaves you a finished lamp: reflector, LED strip and cover. **It keeps its cover on for this.**
 
 <ol class="numbered-steps">
-  <li>Feed the camera's lead up through the rectangular slot near the rim of the cover first, so it is clear before anything is pushed together.</li>
   <li>Hold the lamp and push the arm's ring up into the middle of the reflector from underneath until it seats.</li>
+  <li>Plug the camera's cable in afterwards. It goes into the top of the board, so there is nothing to thread through the cover first.</li>
 </ol>
 
 **That is what holds the camera in.** The clasp is wider than the opening in the middle of the cover, so with the arm home the cover overlaps the clasp's rim and traps it.

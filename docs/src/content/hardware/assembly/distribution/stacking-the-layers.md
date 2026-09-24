@@ -73,7 +73,7 @@ The <a href="{{ '/hardware/assembly/distribution/chute/' | relative_url }}">chut
 
 There are two ways to do this and the machine comes out the same either way.
 
-**Upside down**, which is how Alex built his: the top interface goes on the bench with its top plate down, then each layer is added onto it in turn, and the bottom layer with its casters goes on last. The whole stack is then turned over onto its wheels. His reason is worth the trouble: at every joint the 12 screws go in from **above**, straight down into a joint you can see, instead of overhead underneath a tower that is already taller than you.
+**Upside down**: the top interface goes on the bench with its top plate down, then each layer is added onto it in turn, and the bottom layer with its casters goes on last. The whole stack is then turned over onto its wheels. At every joint the 12 screws go in from **above**, straight down into a joint you can see, instead of overhead underneath a tower that is already taller than you.
 
 <figure class="single-figure">
   <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-stacking-upside-down-interface-first-w1600-a456339eabb6.jpg" alt="A partly built machine standing upside down on a workbench, resting on its top plate, with the interface's vertical extrusions pointing up and a hex frame layer being added on top of them, a cordless driver on the bench beside it">

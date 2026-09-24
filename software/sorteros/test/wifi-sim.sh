@@ -40,6 +40,11 @@ if ! lsmod | grep -q mac80211_hwsim; then
     modprobe -d "$W/root" mac80211_hwsim radios=3 || { echo "FAIL could not load mac80211_hwsim"; exit 1; }
     sleep 2
 fi
+# The generic kernel the VM boots has no netfilter modules on the image
+# either; the setup network's firewall needs them.
+for m in nf_tables nft_counter nft_compat nf_conntrack xt_conntrack xt_tcpudp; do  # iptables-nft counts every rule
+    lsmod | grep -q "^$m " || modprobe -d "$W/root" "$m"
+done
 phy_of() { cat "/sys/class/net/$1/phy80211/name"; }
 PI=wlan0
 if ! ip netns list | grep -q router; then

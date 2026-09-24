@@ -17,7 +17,7 @@ author: spencer
   <figcaption>The finished machine cut down the middle, so the sections below have something to build towards. Feeder on top, chute down the centre, bins on the frame. Click to enlarge. <cite>Rendered from the machine's CAD rather than from a build. Renderer not recorded.</cite></figcaption>
 </figure>
 
-Before starting, source everything on the [Bill of materials](https://parts-calculator.basically.website/hardware) and print the required parts — see [Parts]({{ '/hardware/parts/' | relative_url }}) for individual part references. Then follow the sections below top to bottom.
+Before starting, source everything on the [Bill of materials](https://parts-calculator.basically.website/hardware) and print the required parts. [Printing the parts]({{ '/hardware/printing/' | relative_url }}) covers what printer they need and how they go on the plate, and [Parts]({{ '/hardware/parts/' | relative_url }}) has reference pages for individual parts. Then follow the sections below top to bottom.
 
 A few names recur across these sections and are worth fixing here, once: the feeder's three channels are C1, C2 and C3, first through third; "the control board" means basically board v1.3, the basically Embedded Control Board; and the printed enclosure around each of the PSU, Orange Pi and control board is the same kind of part even though each page names its own differently (housing, box, mount).
 

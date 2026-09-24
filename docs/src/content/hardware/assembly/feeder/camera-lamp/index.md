@@ -44,8 +44,8 @@ Each page ends in one of these.
     <figcaption><a href="{{ '/hardware/assembly/feeder/camera-lamp/feeder-camera-lamp/' | relative_url }}">Feeder camera lamp</a>, over its channel. <cite>Photo: Spencer.</cite></figcaption>
   </figure>
   <figure>
-    <img src="https://assets.basically.website/sorter-docs/camera-lamp-camera-seated-w1600-eede61656118.jpg" alt="Looking down on a camera seated at the centre of a lamp, its lens in the middle of the white reflector">
-    <figcaption><a href="{{ '/hardware/assembly/feeder/camera-lamp/classification-camera-lamp/' | relative_url }}">Classification camera lamp</a>, camera seated. <cite>Photo: Spencer.</cite></figcaption>
+    <img src="https://assets.basically.website/sorter-docs/assembly-camera-lamp-imx415-finished-full-ffc5214cce8a.jpg" alt="Looking down on a finished classification lamp: the 4K camera board seated in the clasp at the centre of the cover, its cable plugged into the top of the board">
+    <figcaption><a href="{{ '/hardware/assembly/feeder/camera-lamp/classification-camera-lamp/' | relative_url }}">Classification camera lamp</a>, the 4K camera seated. <cite>Photo: Daddy-O's Bricks - Bill.</cite></figcaption>
   </figure>
 </div>
 

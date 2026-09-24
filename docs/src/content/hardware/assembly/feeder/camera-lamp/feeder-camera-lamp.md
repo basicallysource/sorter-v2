@@ -9,7 +9,7 @@ lede: The OV9732 720p module clasped between its two halves, pushed into the rin
 permalink: /hardware/assembly/feeder/camera-lamp/feeder-camera-lamp/
 author: reveryx
 contributors: [spencer, danny, brickcyclealice, barthel, daddyosbricksbill]
-og_image: https://assets.basically.website/sorter-docs/camera-lamp-camera-seated-w1600-eede61656118.jpg
+og_image: https://assets.basically.website/sorter-docs/assembly-camera-lamp-ov9732-finished-full-ba5c51576455.jpg
 warning: >-
   Steps 1 to 3 are photographed on a real build, and step 4 on a second one. The dovetail fit
   itself (step 4) has never been dimensioned. Fill the gaps in as you build.
@@ -71,16 +71,10 @@ The clasp's two halves form a spigot that plugs into a socket in the ring. **The
 
 **Expect it to sit loose.** The lamp's cover is what traps the clasp and holds the camera in, and that happens in the next step, once the arm is up inside the lamp. Until then the camera can lift straight back out, so do not pick the arm up by it.
 
-<div class="img-row">
-  <figure>
-    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-camera-lamp-ov9732-seated-c2-c3-w1600-09a5707f0771.jpg" alt="Looking straight down on a finished C2 lamp: the camera board square in the opening at the centre of the cover, its white six-pin connector on the edge of the board nearest the camera, and the ribbon lead running out through the slot directly below it">
-    <figcaption>A finished C2 lamp from above, with the board's connector over the slot in the cover. <cite>Photo: Daddy-O's Bricks - Bill.</cite></figcaption>
-  </figure>
-  <figure>
-    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-camera-lamp-ov9732-lead-routing-w1600-e5c818271b94.jpg" alt="The lamp on channel 3 from a low angle: the camera board in the cover's opening, the red and black lamp leads cable-tied to the arm, and the rectangular slot in the cover below the board">
-    <figcaption>The same on C3, with the leads tied down the arm. <cite>Photo: Daddy-O's Bricks - Bill.</cite></figcaption>
-  </figure>
-</div>
+<figure class="single-figure">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-camera-lamp-ov9732-lead-routing-w1600-e5c818271b94.jpg" alt="The lamp on channel 3 from a low angle: the camera board in the cover's opening, the red and black lamp leads cable-tied to the arm, and the rectangular slot in the cover below the board">
+  <figcaption>A lamp on C3 with the camera in it, leads tied down the arm. <cite>Photo: Daddy-O's Bricks - Bill.</cite></figcaption>
+</figure>
 
 {% include step.html n="3" title="Push the arm up into the lamp" %}
 
@@ -136,8 +130,8 @@ Use the dovetail the count gives you rather than the one that looks right. Where
 A finished lamp on the bench: the arm, the shaded lamp and the 720p camera seated at its centre. Build two, and they go onto their channels later.
 
 <figure class="single-figure">
-  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/camera-lamp-camera-seated-w1600-eede61656118.jpg" alt="Looking down on the top of an assembled camera lamp: the grey cover with a circular opening at its centre, the camera board seated in the clasp inside it, its lead plugged in and running off to one side">
-  <figcaption>A finished lamp on the bench, camera seated at its centre. <cite>Photo: Spencer.</cite></figcaption>
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-camera-lamp-ov9732-finished-full-ba5c51576455.jpg" alt="Looking straight down on a finished lamp: the grey cover with its square opening, the 720p camera board seated in the clasp inside it, and the ribbon lead leaving the board's connector through the slot below">
+  <figcaption>A finished lamp, the 720p camera seated at its centre. <cite>Photo: Daddy-O's Bricks - Bill.</cite></figcaption>
 </figure>
 
 Wiring is [Preparing the LED strip]({{ '/hardware/helpers/led-strip/' | relative_url }}) for the strip, and the [electronics]({{ '/hardware/electronics/' | relative_url }}) page for the camera.

@@ -75,29 +75,43 @@ router_up() { # [ssid] [password] [wpa2|open|sae|mixed]; HIDDEN=1 hides it, NO_D
     local ssid=${1:-HomeNet} pw=${2:-right-password} mode=${3:-wpa2} hex psk
     hex=$(python3 -c 'import sys; print(sys.argv[1].encode().hex())' "$ssid")
     psk=$(python3 -c 'import hashlib, sys; print(hashlib.pbkdf2_hmac("sha1", sys.argv[2].encode(), sys.argv[1].encode(), 4096, 32).hex())' "$ssid" "$pw")
-    {
-        echo "interface=$RIF"
-        echo "driver=nl80211"
-        echo "ssid2=$hex"  # hex, so any bytes survive
-        echo "hw_mode=g"
-        echo "channel=1"
-        [ "${HIDDEN:-0}" = 1 ] && echo "ignore_broadcast_ssid=1"
-        case "$mode" in
-            wpa2) printf 'wpa=2\nwpa_psk=%s\nwpa_key_mgmt=WPA-PSK\nrsn_pairwise=CCMP\n' "$psk" ;;
-            sae) printf 'wpa=2\nsae_password=%s\nwpa_key_mgmt=SAE\nrsn_pairwise=CCMP\nieee80211w=2\n' "$pw" ;;
-            mixed) printf 'wpa=2\nwpa_psk=%s\nsae_password=%s\nwpa_key_mgmt=WPA-PSK SAE\nrsn_pairwise=CCMP\nieee80211w=1\n' "$psk" "$pw" ;;
-            open) ;;
-        esac
-    } >"$W/hostapd.conf"
     R ip link set "$RIF" up
     R ip addr replace 192.168.77.1/24 dev "$RIF"
-    R hostapd -B -P "$W/hostapd.pid" "$W/hostapd.conf" >/dev/null
+    case "$mode" in
+        wpa2 | open)
+            {
+                echo "interface=$RIF"
+                echo "driver=nl80211"
+                echo "ssid2=$hex"  # hex, so any bytes survive
+                echo "hw_mode=g"
+                echo "channel=1"
+                [ "${HIDDEN:-0}" = 1 ] && echo "ignore_broadcast_ssid=1"
+                [ "$mode" = wpa2 ] && printf 'wpa=2\nwpa_psk=%s\nwpa_key_mgmt=WPA-PSK\nrsn_pairwise=CCMP\n' "$psk"
+            } >"$W/hostapd.conf"
+            R hostapd -B -P "$W/router.pid" "$W/hostapd.conf" >/dev/null ;;
+        sae | mixed)
+            # Ubuntu's hostapd is built without SAE; its wpa_supplicant has it and can be the access point.
+            {
+                echo "network={"
+                echo " ssid=$hex"
+                echo " mode=2"
+                echo " frequency=2412"
+                echo " proto=RSN"
+                echo " pairwise=CCMP"
+                echo " group=CCMP"
+                echo " sae_password=\"$pw\""
+                if [ "$mode" = sae ]; then echo " key_mgmt=SAE"; echo " ieee80211w=2"
+                else echo " key_mgmt=WPA-PSK SAE"; echo " psk=$psk"; echo " ieee80211w=1"; fi
+                echo "}"
+            } >"$W/ap-supplicant.conf"
+            R wpa_supplicant -B -i "$RIF" -D nl80211 -c "$W/ap-supplicant.conf" -P "$W/router.pid" -f "$W/ap-supplicant.log" ;;
+    esac
     [ "${NO_DHCP:-0}" = 1 ] && return
     R dnsmasq --interface="$RIF" --bind-interfaces --port=0 --dhcp-range=192.168.77.50,192.168.77.99,1h \
         --dhcp-option=3,192.168.77.1 --pid-file="$W/dnsmasq.pid" --dhcp-leasefile="$W/leases"
 }
 router_down() {
-    for f in "$W/hostapd.pid" "$W/dnsmasq.pid"; do [ -f "$f" ] && kill "$(cat "$f")" 2>/dev/null; rm -f "$f"; done
+    for f in "$W/router.pid" "$W/dnsmasq.pid"; do [ -f "$f" ] && kill "$(cat "$f")" 2>/dev/null; rm -f "$f"; done
     sleep 1
 }
 

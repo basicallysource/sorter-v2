@@ -11,9 +11,8 @@ author: reveryx
 contributors: [spencer, danny, brickcyclealice, barthel]
 og_image: https://assets.basically.website/sorter-docs/camera-lamp-render-underside-full-0e2b1e5a0fb9.png
 warning: >-
-  **Steps 1 to 4 are photographed on a real build.** Step 5, pressing the cover on, has a
-  placeholder until somebody photographs it without a camera in the lamp. Fill the gaps in as you
-  build.
+  **Steps 1 to 4 are photographed on a real build.** Step 5, pressing the cover on, is not: nobody
+  has photographed the cover going on with no camera in the lamp. Fill the gaps in as you build.
 parts_needed:
   - part: c-channel-arm-mount
     qty: 1
@@ -151,11 +150,6 @@ The strip comes with its cable already on it from [Preparing the LED strip]({{ '
 The **Lamp outer cover** pushes down over the reflector. It is a friction fit and has no screw hole anywhere. Put the reflector flat on the table, sit the cover on it and press straight down until it seats. It stands slightly proud of the reflector, so the camera clasp ends up recessed in the opening at its centre.
 
 **The lamp is finished here, and it is finished without a camera.** The camera goes into the ring on the arm, and the arm goes up into the underside of this lamp, on the camera page for your channel. The cover stays on while that happens: the clasp is wider than the opening in the middle of the cover, so the cover overlaps its rim and is what holds the camera down once the arm is home.
-
-<figure class="single-figure">
-  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/lamp-arm-cover-on-reflector-placeholder-full-3910b6bb62b8.jpg" alt="Placeholder, marked as such: a faded photo of the outer cover seated on the reflector, standing in until a photo without a camera in it exists">
-  <figcaption><strong>Placeholder.</strong> The cover seated on the reflector, before any camera is involved. The faded photo behind the marker is the same joint with a camera already in it. <cite>Photo: BrickCycleAlice.</cite></figcaption>
-</figure>
 
 <figure class="single-figure">
   <img class="doc-figure" src="https://assets.basically.website/sorter-docs/camera-lamp-lit-from-below-w1600-bb9d54f4f43e.jpg" alt="The lamp lit, photographed from underneath: a ring of LED strip glowing around the outside of the white reflector, the reflector's central funnel in the middle, and the arm behind it">

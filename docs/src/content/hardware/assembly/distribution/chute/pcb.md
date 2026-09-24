@@ -34,7 +34,7 @@ The fasteners and quantities are in the parts list above and are called out inli
   <p>Static caution: this is a bare board. Touch a grounded metal surface before handling it, and handle it by its edges, avoiding the connectors and components.</p>
 </div>
 
-Seat it over the four inserts and fasten it with 4 {% include fastener.html size="M3" variant="socket-button" length="6" %} screws. Do not overtighten, the board is standing on printed plastic, not a metal standoff.
+Seat it over the four inserts and fasten it with 4 {% include fastener.html size="M3" variant="socket-button" length="6" %} screws. Do not overtighten.
 
 <figure>
   <img class="doc-figure" src="https://assets.basically.website/sorter-parts/chute-core-inserts-v3-rear-full-ad4c2cc7869c.png" alt="Close render of the rear end of the chute core with the four heat inserts the layer adapter board screws into circled in red">

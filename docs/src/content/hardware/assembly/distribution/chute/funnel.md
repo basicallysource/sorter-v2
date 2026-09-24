@@ -40,7 +40,7 @@ The fasteners and quantities are in the parts list above and are called out inli
 
 Every chute carries a Funnel bracket (left) and a Funnel bracket (right), one of each. They screw into the [chute core]({{ '/hardware/assembly/distribution/chute/chute-core/' | relative_url }})'s M3 heat inserts, which are pressed in on that page.
 
-Each bracket takes 2 {% include fastener.html size="M3" variant="countersunk" length="12" %} screws, 4 for the pair. Use the 12 mm, not the 8 mm: an 8 mm screw does not reach the core's insert at all.
+Each bracket takes 2 {% include fastener.html size="M3" variant="countersunk" length="12" %} screws, 4 for the pair. Use the 12 mm, not the 8 mm.
 
 <figure>
   <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-core-funnel-brackets-full-36040ab587fd.png" alt="Render of one long side of the chute core with the two heat inserts a funnel bracket screws into circled in red">
@@ -66,7 +66,7 @@ Each bracket takes 2 {% include fastener.html size="M3" variant="countersunk" le
 - Half again as many destinations, which is what you want for the small parts that make up most of a pile.
 - Narrower mouth. The opening is what limits piece size on a layer, so anything too big for it has to be routed to a half-size layer instead.
 
-Neither is cheaper to build, and neither holds more: a layer's bins cost about the same in filament and print time either way, and the extra walls of the three-way split take room out of each bin rather than out of the layer.
+Neither is cheaper to build, and neither holds more.
 
 **If you have no reason to prefer one:** the [parts calculator](https://parts-calculator.basically.website/) starts a fresh machine at two third-size layers and one half-size, which is a sensible default. Most LEGO is small, so most of your destinations should be, but you want at least one layer that can take the big pieces. Nothing in the machine or the software ties a size to a particular height, so which level carries the half-size layer is yours to choose too.
 

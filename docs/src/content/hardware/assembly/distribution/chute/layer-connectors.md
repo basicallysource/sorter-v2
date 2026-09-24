@@ -39,7 +39,7 @@ Both connectors fasten to the [chute core]({{ '/hardware/assembly/distribution/c
 
 Each connector has 2 holes in its strap, one at each end, and takes 2 {% include fastener.html size="M3" variant="countersunk" length="8" %} screws. **Only the lower one goes in now**, into the core's own insert; the upper hole stays empty until the part above slots on and is screwed down into it. Don't fully tighten either: step 2 covers checking the alignment first.
 
-The strap is countersunk 90° on its outer face, so the head sits flush. Use the 8 mm, not the 12 mm: a 12 mm screw bottoms out in the insert before its head seats.
+The strap is countersunk on its outer face, so the head sits flush. Use the 8 mm, not the 12 mm.
 
 <figure>
   <img class="doc-figure" src="https://assets.basically.website/sorter-docs/chute-core-layer-connectors-full-2092b04f9864.png" alt="Render of one long side of the chute core with the two heat inserts a layer connector screws into circled in red">

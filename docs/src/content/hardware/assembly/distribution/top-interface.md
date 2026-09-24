@@ -640,9 +640,9 @@ Push the prepared Interface idler gear — bearing, inner retainer cap, and oute
   </figure>
 </div>
 
-Drive an {% include fastener.html size="M3" variant="countersunk" length="20" %} screw through the middle of the gear and into the bracket. The inner retainer cap sits between the screw head and the bearing, spanning the 8 mm bore, so the screw head on its own (narrower than the bore) has something to clamp against. Tighten until it's seated, then check that the idler gear still spins freely.
+Drive an {% include fastener.html size="M3" variant="countersunk" length="20" %} screw through the middle of the gear and into the bracket, so its head lands on the inner retainer cap. Tighten until it's seated, then check that the idler gear still spins freely.
 
-The head has to be low here — countersunk (flat/pancake) is the only head type confirmed to clear the Limit switch hammer as it sweeps past. If you only have a pan head on hand, check clearance by hand-rotating the chute past this screw before closing everything up. The screw self-taps straight into the printed NEMA 23 bracket; it does not reach through to the plywood Top plate underneath, which is why 20 mm is enough.
+Use a countersunk (flat/pancake) head here, not a socket or button head. If you only have a pan head on hand, hand-rotate the chute past this screw and check it clears the Limit switch hammer before closing everything up.
 
 Slot the NEMA 23 onto the Interface NEMA 23 bracket and secure it with four {% include fastener.html size="M5" variant="socket-button" length="12" %} screws.
 
@@ -673,13 +673,13 @@ At this point the chute should still rotate, but you will now feel resistance fr
   <figcaption><cite>Video: zed0.</cite></figcaption>
 </figure>
 
-Because the chute above rotates but the wiring below it doesn't, the ribbon cable has to flex through the full range of rotation without catching or fraying; the cable cage (top, bottom, and clamps) is a guided channel that lets it do that safely as the chute sweeps between its limit switches.
+The cable cage (top, bottom, and clamps) is the channel the ribbon cable runs in while the chute rotates.
 
 **Heat inserts first:** the Cable cage bracket (cable mount) takes 1 × M3 insert. Press it in before assembling.
 
 Slot the Cable cage top over the Top interface chute mount, with the corners of the hexagon aligning with the Interface brackets. Of the two cage plates, the one that goes on here is the one with the **plain round centre hole**. The plate with the keyed cutout in its centre hole is the other one, and it goes on at [step 12](#step-12).
 
-Screw the Cable cage bracket (cable mount) to the tail end of the Interface bracket opposite the Limit switch housing, using an {% include fastener.html size="M5" variant="socket-button" length="30" %} screw into the M5 heat insert. This clamps the Cable cage top firmly in place. (Mounting it opposite the limit switch minimizes how far the cable has to travel.)
+Screw the Cable cage bracket (cable mount) to the tail end of the Interface bracket opposite the Limit switch housing, using an {% include fastener.html size="M5" variant="socket-button" length="30" %} screw into the M5 heat insert. This clamps the Cable cage top firmly in place.
 
 Screw the remaining Cable cage brackets to the other 5 corners of the Cable cage top with {% include fastener.html size="M5" variant="socket-button" length="30" %} screws.
 
@@ -739,7 +739,7 @@ Fold your IDC ribbon cable around the Cable clamp (inner), following the guides 
 
 Guide the rest of the ribbon cable around the side of the Top interface chute mount, in the direction the chute can rotate, back to the Cable cage bracket (cable mount).
 
-Screw the Ribbon cable clamp lightly to the Cable cage bracket (cable mount) with one {% include fastener.html size="M3" variant="socket-button" length="12" %} screw, clamping the ribbon cable between the two. The clamp is meant to stand off the bracket face by about 1.3 mm so the ribbon is not crushed, so the screw has to be long enough to cross that gap and still bite.
+Screw the Ribbon cable clamp lightly to the Cable cage bracket (cable mount) with one {% include fastener.html size="M3" variant="socket-button" length="12" %} screw, clamping the ribbon cable between the two. Leave the clamp standing slightly off the bracket face rather than pulling it down hard, so the ribbon is not crushed.
 
 <div class="img-row">
   <figure>
@@ -841,7 +841,7 @@ The numbers on the photo and the drawing:
   <li class="key-screw"><strong>Two {% include fastener.html size="M5" variant="socket-button" length="16" %} screws</strong> at the base of that bracket brace it against the extrusion, the same screws and holes a layer's own vertical gets. Nothing else fastens the interface to the layer.</li>
 </ol>
 
-**Piece F does not reach the top of the Interface bracket, and it comes nowhere near the top plate.** It has to cover both pairs of T-nut screws in the bracket and still reach past the two screws at the base of the layer's collar, which is what the 165 mm standing out in step 13 sets.
+**Piece F does not reach the top of the Interface bracket, and it comes nowhere near the top plate.** The 165 mm standing out of the bracket in step 13 is what sets where it sits.
 
 <div class="clear-float"></div>
 

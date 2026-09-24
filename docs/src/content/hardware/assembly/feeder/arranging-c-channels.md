@@ -38,11 +38,6 @@ Four [C-channels]({{ '/hardware/assembly/feeder/c-channels/' | relative_url }}) 
 
 C1, C2 and C3 each stand on the same three-piece support structure: a **Layout guide** it stands on, three **support legs** standing in that, and a **Support dovetail adapter** on top of each leg that slides up into the C-channel drive from below. The legs are the only thing that differs between the three channels, and their lengths are what set the drop between one channel and the next. The classification channel has no support structure of its own: it stands on the top plate and is located by C3's layout guide (step 6), and it goes in before the other three.
 
-<div class="callout callout-warning">
-  <span class="callout-icon" aria-hidden="true">⚠</span>
-  <p><strong>The Leg, Foot and Leg extension are retired.</strong> Three printed parts stacked with dovetails used to hold each channel up, 9 of each across the feeder. They were replaced on 2026-09-02 by the layout guide, the support legs and the dovetail adapters, and the heights on this page only come out right with the new parts. Don't re-add them from an older photo, an older print list, or a machine built before that date.</p>
-</div>
-
 Steps below refer to the channels by the names the software uses, in the order a part travels:
 
 - **C1**, the [bulk channel]({{ '/hardware/assembly/feeder/c-channels/bulk-channel/' | relative_url }}), where parts go in. Highest.

@@ -21,7 +21,7 @@ Machines are built and running, and they sort every day. It is not a product: th
 - **Minifigures and their small accessories.**
 - **Duplo, Primo and other brands.**
 
-The size limit is tighter on some layers than others: a half-size layer takes a piece up to 8 studs across, a third-size layer up to 6. [Preparing LEGO]({{ '/sorter/preparing-lego/' | relative_url }}) is the full list, with what each thing does to the machine if it stays in.
+[Preparing LEGO]({{ '/sorter/preparing-lego/' | relative_url }}) is the full list, with what each thing does to the machine if it stays in.
 
 **How much it sorts at once is your choice.** The machine is a stack of layers, each holding 18 bins or 12 larger ones, so more layers means more categories in one pass and more to build. [Hardware]({{ '/hardware/' | relative_url }}) has what each size costs in parts, filament and printing time.
 

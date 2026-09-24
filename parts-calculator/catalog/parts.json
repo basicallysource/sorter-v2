@@ -8029,10 +8029,58 @@
         },
         {
           "version": "3",
+          "uid": "fnsb",
           "date": "2026-09-23",
           "message": "The limit switch cable joins the switch: a Dupont housing onto J5 at the board end, an insulated quick-connect onto each of the switch's tabs at the other. Plus the M3 x 6 countersunk that secures the hammer into the chute mount from below, into the hammer's own insert, which was a hand count of 1 and in no assembly.",
           "breaking": false,
-          "commit": null
+          "commit": null,
+          "lines": [
+            {
+              "part": "limit-switch-dowel-pin",
+              "qty": 1,
+              "uid": "g68e"
+            },
+            {
+              "part": "limit-switch-housing",
+              "qty": 1,
+              "uid": "mrs0"
+            },
+            {
+              "part": "limit-switch-hammer",
+              "qty": 1,
+              "uid": "lfu7"
+            },
+            {
+              "part": "scr-m3-6-cs",
+              "qty": 1,
+              "uid": "unfk"
+            },
+            {
+              "part": "endstop-mechanical",
+              "qty": 1,
+              "uid": "92h6"
+            },
+            {
+              "assembly": "harness-limit-switch",
+              "qty": 1,
+              "uid": "76vq"
+            },
+            {
+              "part": "scr-m3-12-bhcs",
+              "qty": 2,
+              "uid": "izrb"
+            },
+            {
+              "part": "scr-m5-16-shcs",
+              "qty": 2,
+              "uid": "2e0s"
+            },
+            {
+              "part": "tnut-m5-2020",
+              "qty": 2,
+              "uid": "bpwm"
+            }
+          ]
         },
         {
           "version": "4",

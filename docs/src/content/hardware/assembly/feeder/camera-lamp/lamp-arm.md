@@ -144,7 +144,7 @@ The strip itself is cut and wired on [Preparing the LED strip]({{ '/hardware/hel
 
 **Nothing fastens the reflector to the arm.** The arm's ring pushes up into the middle of the reflector from underneath and is held by the fit alone. That happens on the camera page for your channel, with the camera already clasped in the ring, so the arm and the lamp stay separate until then.
 
-The strip comes with its cable already on it from [Preparing the LED strip]({{ '/hardware/helpers/led-strip/' | relative_url }}); cable-tie that pair down the arm so it is not hanging in the channel. Plugging it into the board is step 4 of [connecting the components]({{ '/hardware/electronics/connecting/' | relative_url }}). Nothing is joined end to end here, so the far end of the strip stays dead. The strip runs at 24 V off the basically board.
+The strip comes with its cable already on it from [Preparing the LED strip]({{ '/hardware/helpers/led-strip/' | relative_url }}); cable-tie that pair down the arm so it is not hanging in the channel. It can leave the lamp two ways, and machines have been built both: straight out of the bottom of the shade, or up through the slot in the cover and down the outside alongside the camera lead. Whichever you pick, keep the run clear of where the strip's own joint sits inside the shade. Plugging it into the board is step 4 of [connecting the components]({{ '/hardware/electronics/connecting/' | relative_url }}). Nothing is joined end to end here, so the far end of the strip stays dead. The strip runs at 24 V off the basically board.
 
 {% include step.html n="5" title="Press the outer cover onto the reflector" %}
 

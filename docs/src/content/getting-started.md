@@ -1,14 +1,14 @@
 ---
 title: Getting started
 type: tutorial
-audience: newcomer who discovered the project
+audience: newcomer, either building a machine or joining the project
 applies_to: sorter v2
 owner: docs
-last_verified: 2026-04-14
+last_verified: 2026-09-24
 section: home
 slug: getting-started
 kicker: Start Here
-lede: Everything a new contributor needs to orient themselves — what the project is, what you need, and where to jump in.
+lede: What Sorter V2 is, how to build one, and how to work on it.
 permalink: /getting-started/
 ---
 
@@ -16,45 +16,35 @@ permalink: /getting-started/
 
 Sorter V2 is an open-source LEGO sorting machine. Feed bulk LEGO into a hopper, and the machine singulates each piece, classifies it by part number (and optionally color), and drops it into the correct bin. The project is source-available; see [CONTRIBUTING.md](https://github.com/basicallysource/sorter-v2/blob/main/CONTRIBUTING.md) for licensing details. V1 exists as a reference but is no longer maintained; V2 is the active development target.
 
-## Current status
+Machines are built and running, and they sort every day. It is not a product: there is no kit, no price, and nothing for sale. What exists is the design, the parts list, and these instructions.
 
-| Subsystem | Status | Notes |
-|-----------|--------|-------|
-| C-channel singulation | Working | 3-stage design, ~330 pieces/hour, targeting 1,000 |
-| Classification (Brickognize API) | Working | 98.5% accuracy on supported parts, 0.56s avg response |
-| Object detection (chamber zone) | Working | NanoDet + YOLO11s trained, benchmarked on Pi 5 + Orange Pi 5 |
-| Host software (Python backend) | WIP | Coordinator, state machines, vision manager functional |
-| SvelteKit UI | WIP | Setup wizard, camera calibration, runtime dashboard in progress |
-| Hive community platform | WIP | Upload pipeline, shared profiles, crowd verification |
-| Electronics / PCB | WIP | Feeder + distribution board schematics in review (Rev 0.3) |
-| Hardware CAD | WIP | V2 CAD mostly complete in Onshape, validation in progress |
-| Build guide / assembly docs | Stub | No step-by-step guide yet |
+## I want to build one
 
-## What you need
+Read these three in order.
 
-### Hardware
+- **[Hardware]({{ '/hardware/' | relative_url }})** — the size of the job. How tall a machine to build, what it costs in parts and printing time, and the two things you may not be able to make yourself. Read it before you buy filament.
+- **[Bill of materials](https://parts-calculator.basically.website/hardware)** — everything to buy, with vendor links and part numbers, at your own layer count. The site root lists the parts to print, and [/framing](https://parts-calculator.basically.website/framing) is the aluminium cut list.
+- **[Assembly]({{ '/hardware/assembly/' | relative_url }})** — the build order, section by section, ending in [Software setup]({{ '/hardware/software-setup/' | relative_url }}) and then the [Sorter]({{ '/sorter/' | relative_url }}) section.
 
-A full bill of materials is still being finalized alongside the build guide (currently a stub — see [Current status](#current-status)). At a high level the machine is built from an Orange Pi host, several stepper motors driving the C-channel feeder and rotating bin tower, `basically` controller boards, USB cameras, and 3D-printed structural parts on 2020 aluminum extrusion — all off-the-shelf, 3D-printable, or laser-cuttable. Detailed part choices and costs will be published with the build guide.
+The instructions are written and being built from, but they are not finished. Of the {{ site.data.docs_status.how_to }} hardware pages with steps on them, {{ site.data.docs_status.verified }} have been followed on a real machine and {{ site.data.docs_status.drafts }} are unverified first drafts. Every page says which it is at the top.
 
-### Tools
+Each page lists the tools that page needs. There is no single tool list for the whole build, because what you need in front of you depends on the step you are standing at.
 
-Soldering iron (PINECIL V2 recommended), pliers, wire strippers, screwdrivers, hacksaw.
-
-### Software
-
-Python 3.12+, Node.js 20+, pnpm. The install script handles dependencies on Debian 12 / Ubuntu 24.04 / Pi OS Bookworm.
-
-## Pick a contribution track
+## I want to help build the project
 
 - **Mechanical / CAD** — The project uses [Onshape](https://www.onshape.com/) (free, web-based, collaborative). Every V2 document is public and listed in the repo's `mechanical/README.md`; the folder holding them is private, so ask in the [Discord](https://discord.gg/6PZtqkwtaS) to be added to it. Start by browsing the V2 CAD and checking open bounties for mechanical tasks.
-- **Electronics** — PCB schematics are in KiCad. Active work on feeder and distribution board reviews. Background in EE or PCB layout is valuable.
+- **Electronics** — PCB schematics are in KiCad, in the repo under `electronics/KiCad/`. Background in EE or PCB layout is valuable.
 - **Software** — Python backend + SvelteKit frontend. See the [Sorter install guide]({{ '/sorter/installation/' | relative_url }}).
 - **ML / Vision** — Classification research, training data collection, model optimization. See [Classification research]({{ '/lab/classification-research/' | relative_url }}) and [Object detection research]({{ '/lab/object-detection/' | relative_url }}).
+
+To run the software from source you need Python 3.12+, Node.js 20+ and pnpm. The install script handles dependencies on Debian 12 / Ubuntu 24.04 / Pi OS Bookworm. Building a machine does not need any of this: the [Sorter install guide]({{ '/sorter/installation/' | relative_url }}) has a pre-built image.
 
 ## Key resources
 
 | Resource | Link |
 |----------|------|
+| Bill of materials and printed parts | [parts-calculator.basically.website](https://parts-calculator.basically.website/) |
+| Assembly instructions | [Assembly]({{ '/hardware/assembly/' | relative_url }}) |
 | GitHub organization | [github.com/basicallysource](https://github.com/basicallysource) |
 | V2 CAD (active) | [Onshape document](https://cad.onshape.com/documents/59b1b8e595daebcff3d3711c/w/77adcf46916b421c55e6a947/e/626a2d725f7a102031079019) |
 | V1 CAD (reference only) | [Onshape document](https://cad.onshape.com/documents/57a6deba5df3f2fefb14bfa4/w/69c1555983f7ea624f0cf5a5/e/62f915a1f9533b22259df854) |

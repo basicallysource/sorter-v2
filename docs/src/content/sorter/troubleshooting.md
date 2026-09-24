@@ -24,41 +24,41 @@ These are for [SorterOS]({{ '/sorter/installation/sorter-os/' | relative_url }})
 
 ### A stage says `waiting for internet`
 
-**Cause:** The Pi has a network link but no route to the internet, for example an Ethernet port with no upstream, or a WiFi network that doesn't reach the internet. (A wrong WiFi password never gets this far: the Pi opens its setup network again and the setup page says why it couldn't join.)
+**Cause:** The Pi is on a network, but the internet doesn't answer through it: an Ethernet port with no upstream, or a WiFi network that doesn't reach the internet. Within about a minute the Pi opens its `SorterOS-Setup-` network so you can give it one that does.
 
-**Fix:** Plug the Pi into a port on your router, or check that the WiFi network you picked reaches the internet from another device.
+**Fix:** Plug the Pi into a port on your router, or join `SorterOS-Setup-` from a phone and pick a WiFi network that reaches the internet.
 
 **Verify:** The stage moves on within a minute.
 
 ### No `SorterOS-Setup-` network appears
 
-**Cause:** The Pi only opens it when it can't get online. It's online if a cable is plugged in or it joined the WiFi you gave it, and then there's nothing to set up. Otherwise it's been less than about two minutes since power-on, or the board has no WiFi (see the [Orange Pi 5 page]({{ '/hardware/orange-pi-5/' | relative_url }}#wifi)).
+**Cause:** The Pi only opens it when the internet doesn't answer through any network it's on. If a cable or the WiFi you gave it gets it online, there's nothing to set up. Otherwise it's been less than about half a minute since power-on (a minute while a cable or a saved WiFi network is still trying), or the board has no WiFi (see the [Orange Pi 5 page]({{ '/hardware/orange-pi-5/' | relative_url }}#wifi)).
 
-**Fix:** Look for the Pi on your network at `http://sorter.local` first. If it isn't there, wait two minutes with no cable in, or use Ethernet.
+**Fix:** Look for the Pi on your network at `http://sorter.local` first. If it isn't there, wait a minute with no cable in, or use Ethernet.
 
 **Verify:** The network shows up in your phone's WiFi list.
 
 ### Your network isn't in the setup page's list
 
-**Cause:** The page lists the networks the Pi heard when it started. A network that was off then, is out of range, or is hidden won't be there. Until the Pi knows your time zone it listens on every channel but doesn't call out on the ones it isn't sure your country allows, so a hidden network on 5 GHz can't be found yet.
+**Cause:** A network that's off, out of range of the Pi, or hidden isn't listed. Until the Pi knows your time zone it listens on every channel but doesn't call out on the ones it isn't sure your country allows, so a hidden network on 5 GHz can't be found yet.
 
-**Fix:** Choose **Not listed? Type its name** and enter it exactly (spaces and capitals count). If your router has separate 2.4 GHz and 5 GHz networks and the 5 GHz one isn't found, pick the 2.4 GHz one; the Pi learns your country from the setup page, so the 5 GHz one works after that.
+**Fix:** Tap **Refresh**. If it's still missing, choose **Other network** and type its name exactly (spaces and capitals count). If your router has separate 2.4 GHz and 5 GHz networks and the 5 GHz one isn't found, pick the 2.4 GHz one; the Pi learns your country from the setup page, so the 5 GHz one works from its next start.
 
-**Verify:** The Pi joins after its restart and **Find my sorter** shows it.
+**Verify:** The page says **Your Sorter is on** your network.
 
 ### **Find my sorter** keeps waiting
 
-**Cause:** One of three things. The Pi couldn't join the network you picked (it opens its `SorterOS-Setup-` network again). It joined but the network doesn't reach the internet, so it can't report its address. Or it came online more than 15 minutes ago, after which it stops reporting.
+**Cause:** The network the Pi joined doesn't reach the internet, so it can't report its address, or it came online more than 15 minutes ago, after which it stops reporting.
 
-**Fix:** Look in your phone's WiFi list for `SorterOS-Setup-`. If it's there, join it: the setup page says why the Pi couldn't join. If not, browse to `http://<name>.local` (the name you gave it, `sorter` if you didn't), or find the Pi in your router's list of connected devices.
+**Fix:** Use the address the setup page showed when the Pi joined. If you didn't note it, browse to `http://<name>.local` (the name you gave it, `sorter` if you didn't), find the Pi in your router's list of connected devices, or join `SorterOS-Setup-` again if it's in your phone's WiFi list: the page shows where the Pi is.
 
 **Verify:** The Sorter UI or the first-boot progress page loads.
 
 ### The WiFi entered in SorterOS Setup was wrong
 
-**Cause:** A typo, or the network changed. The Pi tries it for about a minute and a half each time it starts.
+**Cause:** A typo, or the network changed.
 
-**Fix:** Nothing to reflash. After that minute and a half the Pi opens its `SorterOS-Setup-` network; join it from a phone and enter the right password.
+**Fix:** Nothing to reflash. The Pi opens its `SorterOS-Setup-` network within a minute; join it from a phone. The page says why the first try failed; enter the right password.
 
 **Verify:** The setup network disappears and the Pi answers at `http://sorter.local`.
 

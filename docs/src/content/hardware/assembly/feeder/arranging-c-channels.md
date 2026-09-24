@@ -214,13 +214,18 @@ One [output guide]({{ '/hardware/assembly/feeder/c-channels/feeder-channels/' | 
 
 The [bulk cap and bucket]({{ '/hardware/assembly/feeder/c-channels/bulk-channel/' | relative_url }}) on C1. A [camera lamp]({{ '/hardware/assembly/feeder/camera-lamp/' | relative_url }}) on C2, on C3 and on the classification channel. C1 has neither a lamp nor an output guide, because it's fed in bulk and nothing reads vision off it.
 
-**Which dovetail the arm goes in.** The outside of every channel wall carries a row of dovetails, evenly spaced all the way round except where the exit opening interrupts them. **The arm goes in the last one before the channel above covers the wall**, which is the **8th** counting anticlockwise from the exit, seen from above, taking the first dovetail past the exit as number 1. **The same on all three**: C2, C3 and the classification channel.
+**Which dovetail the arm goes in.** The outside of every channel wall carries a row of dovetails, evenly spaced all the way round except where the exit opening interrupts them. Count anticlockwise from the exit, seen from above, taking the first dovetail past the exit as number 1:
 
-Go round anticlockwise from the exit until the next dovetail is under the channel above and no arm would fit there. The one before it is yours.
+- **C2 and C3**: the **5th**.
+- **Classification channel**: the **8th**, which is the last one before the channel above covers the wall.
+
+**Why C2 and C3 are not on the 8th as well.** In the CAD all three sit in that last free dovetail, and machines have been built that way. On the machine these steps were checked against, with the parts and cameras the calculator lists, C2 and C3 in the 8th put the camera 90 degrees out, so the drop zone and the exit would not both be in frame.
+
+Whichever you start from, the framing is what decides: [first setup]({{ '/sorter/first-setup/' | relative_url }}) step 7 shows you what each camera sees, and a lamp that cannot see both its drop zone and its exit is in the wrong dovetail.
 
 <figure class="single-figure">
   <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-camera-lamp-arm-positions-plan-crop-full-b264f26e54b4.png" alt="Plan view of the feeder: the bulk channel at the top and the three lamp channels below it, each of the three stators shaded grey, with the camera lamp arm on each one picked out in red. Every red arm sits where the channel above it starts to overlap the wall">
-  <figcaption>Looking straight down. Stators grey, camera lamp arms red. Each arm is in the last dovetail the channel above leaves free. <cite>Diagram: barthel.</cite></figcaption>
+  <figcaption>Looking straight down at the CAD: stators grey, camera lamp arms red, each one in the last dovetail the channel above leaves free. That is the 8th on all three; C2 and C3 sit three earlier on the build these steps come from. <cite>Diagram: barthel.</cite></figcaption>
 </figure>
 
 **It goes on from underneath.** Offer the arm mount up to the bottom edge of the channel wall, feed its rail into the dovetail, and push it up until it clips over the top edge. Nothing screws into this joint.

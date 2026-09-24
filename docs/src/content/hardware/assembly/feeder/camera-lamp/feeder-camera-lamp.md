@@ -71,6 +71,17 @@ The clasp's two halves form a spigot that plugs into a socket in the ring. **The
 
 **Expect it to sit loose.** The lamp's cover is what traps the clasp and holds the camera in, and that happens in the next step, once the arm is up inside the lamp. Until then the camera can lift straight back out, so do not pick the arm up by it.
 
+<div class="img-row">
+  <figure>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-camera-lamp-ov9732-seated-c2-c3-w1600-09a5707f0771.jpg" alt="Looking straight down on a finished C2 lamp: the camera board square in the opening at the centre of the cover, its white six-pin connector on the edge of the board nearest the camera, and the ribbon lead running out through the slot directly below it">
+    <figcaption>A finished C2 lamp from above, with the board's connector over the slot in the cover. <cite>Photo: Daddy-O's Bricks - Bill.</cite></figcaption>
+  </figure>
+  <figure>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-camera-lamp-ov9732-lead-routing-w1600-e5c818271b94.jpg" alt="The lamp on channel 3 from a low angle: the camera board in the cover's opening, the red and black lamp leads cable-tied to the arm, and the rectangular slot in the cover below the board">
+    <figcaption>The same on C3, with the leads tied down the arm. <cite>Photo: Daddy-O's Bricks - Bill.</cite></figcaption>
+  </figure>
+</div>
+
 {% include step.html n="3" title="Push the arm up into the lamp" %}
 
 The [lamp arm]({{ '/hardware/assembly/feeder/camera-lamp/lamp-arm/' | relative_url }}) page leaves you a finished lamp: reflector, LED strip and cover. **It keeps its cover on for this.**

@@ -32,16 +32,14 @@ One chute is the chute core plus four things that bolt onto it:
 - **Funnel bracket (left)** and **Funnel bracket (right)**, one of each. See [Funnel brackets]({{ '/hardware/assembly/distribution/chute/funnel/' | relative_url }}).
 - **Layer connector A** and **Layer connector B**, one of each. See [Layer connectors]({{ '/hardware/assembly/distribution/chute/layer-connectors/' | relative_url }}).
 
-Every screw that fastens one of them to the core lands in one of the core's own M3 heat inserts. Nothing on the chute taps into bare plastic.
-
 {% include step.html n="1" title="Preparation" %}
 
-Press the heat inserts into the chute core before you mount anything else onto it. Once the door module and the funnel brackets are on, several of the insert positions are hard to reach with an iron. See [installing heat inserts]({{ '/hardware/helpers/heat-inserts/' | relative_url }}) for the technique.
+Press the heat inserts into the chute core before you mount anything else onto it. See [installing heat inserts]({{ '/hardware/helpers/heat-inserts/' | relative_url }}) for the technique.
 
 <div class="prep-item">
   <div class="prep-item-body">
     <p><strong>Chute core:</strong> 18 × M3, which is every insert on this page: 6 for the door module (4 for its two bearing covers, 2 for the servo bracket arms), 4 for the layer connectors, 4 for the layer adapter board, and 4 for the funnel brackets. This is separate from the bearing assembly's own 10 inserts, which live in the bearing race and holders themselves.</p>
-    <p>All 18 are the same pocket, Ø4.2 mm and blind, 5.7 mm deep, split <strong>8 + 6 + 4</strong> across three faces. The photos below are of a printed core with the inserts already pressed in, one face at a time, so what you are counting is brass rather than empty pockets.</p>
+    <p>All 18 are the same insert, split <strong>8 + 6 + 4</strong> across three faces. The photos below show one face at a time, with the brass already in.</p>
   </div>
   <div class="prep-item-figure prep-item-figure-split">
     <figure>
@@ -78,3 +76,5 @@ The chute is complete when all four are on. Repeat for every layer.
   <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-chute-core-built-w1600-6d9c4c0c0ac6.jpg" alt="A built chute core standing on the bench: the printed core with the door module and its bearing covers on one side, the MG995 servo in its bracket above, and the funnel brackets projecting from the left">
   <figcaption>A core with the door module, its servo bracket, the funnel brackets and the layer connectors on, the connectors being the small blocks along the top. The layer adapter board is the only one of the four not in this shot. <cite>Photo: BrickCycleAlice.</cite></figcaption>
 </figure>
+
+The [Chute]({{ '/hardware/assembly/distribution/chute/' | relative_url }}) page contains the instructions for the whole chute, and is where you should return once you're done here.

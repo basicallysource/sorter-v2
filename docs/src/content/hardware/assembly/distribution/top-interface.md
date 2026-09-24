@@ -7,7 +7,7 @@ slug: assembly-top-interface
 kicker: Distribution — Top interface
 lede: The interface between the feeder and the bin tower.
 permalink: /hardware/assembly/distribution/top-interface/
-og_image: https://assets.basically.website/sorter-docs/assembly-top-interface-framing-4-full-b9ae16940954.jpg
+og_image: https://assets.basically.website/sorter-parts/top-interface-finished-full-65eb32ba52dc.png
 author: zed0
 contributors: [barthel, brickcyclealice]
 parts_needed:
@@ -108,7 +108,7 @@ parts_needed:
   - part: scr-m5-20-shcs
     qty: 24
   - part: scr-m5-22-cs
-    qty: 15
+    qty: 14
   - part: scr-m5-30-shcs
     qty: 6
   - part: scr-m5-35-fhcs
@@ -119,7 +119,8 @@ parts_needed:
     qty: 56
   - part: nut-m5
     qty: 6
-tools_needed: [Hex key, Soldering iron or heat-set insert press]
+tools_needed: ["Hex keys, 2 mm, 2.5 mm, 3 mm and 4 mm", "Spanner, 8 mm, for the M5 nuts", "Soldering iron or heat-set insert press"]
+last_verified: 2026-09-24
 ---
 
 The top interface holds a chute that rotates on a lazy-susan bearing to aim incoming parts at whichever bin layer is currently selected. A NEMA 23 stepper drives the rotation through a small gear train (steps 6 and 9), and a limit switch and hammer (steps 4, 6, 8) give it a fixed reference point to home against, since the stepper alone has no way to know which way it is pointed. Everything on this page bolts onto the Top plate, which then sits on the hex frame built on the bin-frame page.
@@ -160,7 +161,7 @@ The top interface holds a chute that rotates on a lazy-susan bearing to aim inco
   </div>
 </div>
 
-The fasteners and quantities in the parts list come from the build notes and are called out inline at each step.
+The fasteners and quantities are in the parts list above and are called out inline at each step.
 
 {% include fastener-legend.html %}
 
@@ -303,7 +304,7 @@ Attach the remaining 5 Interface ribs to the Interface upper fixed section, two 
 
 Slot the Interface NEMA 23 bracket into the Interface upper fixed section and secure it from below with an {% include fastener.html size="M3" variant="countersunk" length="12" %} screw.
 
-Attach the whole assembly to the bottom of the Top plate with {% include fastener.html size="M5" variant="countersunk" length="22" %} screws through holes S2 and S3 into the Interface NEMA 23 bracket.
+Attach the whole assembly to the bottom of the Top plate with 2 {% include fastener.html size="M5" variant="countersunk" length="22" %} screws, one through hole S2 and one through hole S3, into the Interface NEMA 23 bracket.
 
 **Alternative:** whether these need a countersunk head depends on how your Top plate was cut. If the S2/S3 holes have a countersink cut in, use a countersunk head; if they don't, {% include fastener.html size="M5" variant="socket-button" length="20" %} screws work here instead. Builder's call depending on their plate, the same as the I1-I6/O1-O6 screws in step 5.
 
@@ -475,7 +476,7 @@ Slide a T-nut just into the end of the extrusion of the limit switch interface b
 
 Repeat with the 5 other prepared Interface brackets into the 5 other Interface ribs.
 
-Flip the whole assembly and screw all 6 Interface brackets into place with {% include fastener.html size="M5" variant="countersunk" length="22" %} screws through holes I1 to I6 and O1 to O6.
+Flip the whole assembly and screw all 6 Interface brackets into place with 12 {% include fastener.html size="M5" variant="countersunk" length="22" %} screws, one through each of holes I1 to I6 and O1 to O6.
 
 <div class="img-row">
   <figure>
@@ -639,9 +640,9 @@ Push the prepared Interface idler gear — bearing, inner retainer cap, and oute
   </figure>
 </div>
 
-Drive an {% include fastener.html size="M3" variant="countersunk" length="20" %} screw through the middle of the gear and into the bracket. The inner retainer cap sits between the screw head and the bearing, spanning the 8 mm bore, so the screw head on its own (narrower than the bore) has something to clamp against. Tighten until it's seated, then check that the idler gear still spins freely.
+Drive an {% include fastener.html size="M3" variant="countersunk" length="20" %} screw through the middle of the gear and into the bracket, so its head lands on the inner retainer cap. Tighten until it's seated, then check that the idler gear still spins freely.
 
-The head has to be low here — countersunk (flat/pancake) is the only head type confirmed to clear the Limit switch hammer as it sweeps past. If you only have a pan head on hand, check clearance by hand-rotating the chute past this screw before closing everything up. The screw self-taps straight into the printed NEMA 23 bracket; it does not reach through to the plywood Top plate underneath, which is why 20 mm is enough.
+Use a countersunk (flat/pancake) head here, not a socket or button head. If you only have a pan head on hand, hand-rotate the chute past this screw and check it clears the Limit switch hammer before closing everything up.
 
 Slot the NEMA 23 onto the Interface NEMA 23 bracket and secure it with four {% include fastener.html size="M5" variant="socket-button" length="12" %} screws.
 
@@ -672,13 +673,13 @@ At this point the chute should still rotate, but you will now feel resistance fr
   <figcaption><cite>Video: zed0.</cite></figcaption>
 </figure>
 
-Because the chute above rotates but the wiring below it doesn't, the ribbon cable has to flex through the full range of rotation without catching or fraying; the cable cage (top, bottom, and clamps) is a guided channel that lets it do that safely as the chute sweeps between its limit switches.
+The cable cage (top, bottom, and clamps) is the channel the ribbon cable runs in while the chute rotates.
 
 **Heat inserts first:** the Cable cage bracket (cable mount) takes 1 × M3 insert. Press it in before assembling.
 
 Slot the Cable cage top over the Top interface chute mount, with the corners of the hexagon aligning with the Interface brackets. Of the two cage plates, the one that goes on here is the one with the **plain round centre hole**. The plate with the keyed cutout in its centre hole is the other one, and it goes on at [step 12](#step-12).
 
-Screw the Cable cage bracket (cable mount) to the tail end of the Interface bracket opposite the Limit switch housing, using an {% include fastener.html size="M5" variant="socket-button" length="30" %} screw into the M5 heat insert. This clamps the Cable cage top firmly in place. (Mounting it opposite the limit switch minimizes how far the cable has to travel.)
+Screw the Cable cage bracket (cable mount) to the tail end of the Interface bracket opposite the Limit switch housing, using an {% include fastener.html size="M5" variant="socket-button" length="30" %} screw into the M5 heat insert. This clamps the Cable cage top firmly in place.
 
 Screw the remaining Cable cage brackets to the other 5 corners of the Cable cage top with {% include fastener.html size="M5" variant="socket-button" length="30" %} screws.
 
@@ -738,7 +739,7 @@ Fold your IDC ribbon cable around the Cable clamp (inner), following the guides 
 
 Guide the rest of the ribbon cable around the side of the Top interface chute mount, in the direction the chute can rotate, back to the Cable cage bracket (cable mount).
 
-Screw the Ribbon cable clamp lightly to the Cable cage bracket (cable mount) with one {% include fastener.html size="M3" variant="socket-button" length="12" %} screw, clamping the ribbon cable between the two. The clamp is meant to stand off the bracket face by about 1.3 mm so the ribbon is not crushed, so the screw has to be long enough to cross that gap and still bite.
+Screw the Ribbon cable clamp lightly to the Cable cage bracket (cable mount) with one {% include fastener.html size="M3" variant="socket-button" length="12" %} screw, clamping the ribbon cable between the two. Leave the clamp standing slightly off the bracket face rather than pulling it down hard, so the ribbon is not crushed.
 
 <div class="img-row">
   <figure>
@@ -840,7 +841,7 @@ The numbers on the photo and the drawing:
   <li class="key-screw"><strong>Two {% include fastener.html size="M5" variant="socket-button" length="16" %} screws</strong> at the base of that bracket brace it against the extrusion, the same screws and holes a layer's own vertical gets. Nothing else fastens the interface to the layer.</li>
 </ol>
 
-**Piece F does not reach the top of the Interface bracket, and it comes nowhere near the top plate.** How deep it goes is not stated anywhere in the build, but it is fixed at both ends by what has to be screwed: the lower end has to reach past the two screws at the base of the layer's bracket, and the upper end has to cover the bracket's second pair of T-nut screws, whose bosses sit about 90 mm above the bracket's underside. A 274 mm piece cannot do both and also reach the top of a 120 mm bracket. On a built machine it stands about 20 mm past the upper screws and stops about 11 mm short of the top of the bracket. The drawing is made from the part geometry rather than from a build, and its inferred heights seat the extrusion around 25 mm shallower than that.
+**Piece F does not reach the top of the Interface bracket, and it comes nowhere near the top plate.** The 165 mm standing out of the bracket in step 13 is what sets where it sits.
 
 <div class="clear-float"></div>
 
@@ -849,8 +850,8 @@ The numbers on the photo and the drawing:
 The top plate, its six bracket mounts and their extrusion, the rotating chute mount and its gear train, and a hex frame closed onto the bottom of the verticals.
 
 <figure class="single-figure">
-  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-top-interface-framing-4-full-b9ae16940954.jpg" alt="The completed top interface resting on its top plate: the hex frame ring uppermost, the six interface brackets and their extrusion inside it, and the white chute mount at the centre">
-  <figcaption>The finished interface, resting on its top plate the way it is built. On the machine it is the other way up, with the plate at the top. <cite>Photo: zed0.</cite></figcaption>
+  <img class="doc-figure" src="https://assets.basically.website/sorter-parts/top-interface-finished-full-65eb32ba52dc.png" alt="The finished top interface seen the way up it sits on the machine: the hexagonal top plate uppermost with the round opening through its centre, the six interface brackets splayed below it, and the chute mount hanging in the middle">
+  <figcaption>The finished interface the way up it sits on the machine, with the plate at the top and the chute mount hanging through it. <cite>Rendered from the parts' own geometry in assembly position, not from a build. Render: Balloon.</cite></figcaption>
 </figure>
 
 The [Distribution]({{ '/hardware/assembly/distribution/' | relative_url }}) page contains the instructions for the entire assembly, and is where you should return once you're done here.

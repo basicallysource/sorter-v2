@@ -10,14 +10,6 @@ permalink: /hardware/assembly/distribution/bin-frame/bottom-layer/
 author: spencer
 contributors: [brickcyclealice, christoph, daddyosbricksbill, dov2000]
 og_image: https://assets.basically.website/sorter-docs/assembly-bottom-layer-corner-bracket-on-d-w1600-67bd9444f306.jpg
-warning: >-
-  **AI-generated first draft.** Written from the machine assembly tree in the
-  [parts calculator](https://parts-calculator.basically.website/assembly?focus=bottom-layer),
-  not from an actual build. The one-layer structure and the photographs of the
-  finished result come from BrickCycleAlice's build, and how the bottom
-  interface hangs under this layer was written from a build by Daddy-O's Bricks
-  - Bill; the screw counts have not been checked off a machine. Correct it as
-  you build.
 parts_needed:
   - part: ext-bracket-bottom-vertical
     qty: 6
@@ -31,10 +23,11 @@ parts_needed:
     qty: 6
   - part: scr-m5-16-shcs
     qty: 36
-tools_needed: [Hex key, Tape measure]
+tools_needed: ["Hex key, 3 mm for a button head or 4 mm for a socket head", "Tape measure"]
+last_verified: 2026-09-24
 ---
 
-The bottom layer is an ordinary bin layer that also carries the machine. Its vertical extrusion is one long piece per corner instead of a layer's worth: the caster screws into the bottom of it and the layer above lands on the top of it, so the wheel has something much stiffer to push against than a single layer's vertical would be.
+The bottom layer is an ordinary bin layer that also carries the machine. Its vertical extrusion is one long piece per corner instead of a layer's worth: the caster screws into the bottom of it and the layer above lands on the top of it.
 
 **Build it after a [regular layer]({{ '/hardware/assembly/distribution/bin-frame/regular-layers/' | relative_url }}), not before.** Everything here is a regular layer with three differences at floor level, so that page is the one that describes the layer and this one only covers what changes: piece D in place of piece C, an External bracket — foot cover in place of the cover and the External bracket — bottom vertical at the bottom of the corner, and the feet.
 
@@ -48,31 +41,15 @@ The bottom layer is an ordinary bin layer that also carries the machine. Its ver
   </figure>
 </div>
 
-The aluminum extrusion is cut to length; the [framing cut list](https://parts-calculator.basically.website/framing) has the exact dimensions for piece D.
+Piece D is 2020 aluminum extrusion, cut to length. The [framing cut list](https://parts-calculator.basically.website/framing) has the exact dimensions.
+
+This layer uses **6 × piece D (Foot extension), 231 mm**, and **no piece C**. Every layer above it takes its own piece C, so an N-layer machine needs 6 × D and 6 × (N−1) × C.
 
 {% include fastener-legend.html %}
 
-{% include step.html n="1" title="Preparation" %}
+{% include step.html n="1" title="Close off the corners at floor level" %}
 
-No heat inserts on this assembly. Every printed part here takes a self-tapping {% include fastener.html size="M5" variant="socket-button" length="16" %} screw straight into the plastic.
-
-Cut the extrusion first. This layer uses **6 × piece D (Foot extension), 231 mm**, and **no piece C**: D is what stands between this layer and the one above it, and it carries on down to the caster as well. Every layer above this one takes its own piece C, so an N-layer machine needs 6 × D and 6 × (N−1) × C. The [framing cut list](https://parts-calculator.basically.website/framing) has every length.
-
-<div class="callout">
-  <p>D is 1.5 × a single layer's vertical support, not 2 ×, so the bottom layer sits about half a layer's height off the floor.</p>
-</div>
-
-Here's where the {% include fastener.html size="M5" variant="socket-button" length="16" %} count in the parts list comes from (nobody has counted these off a built machine yet, and the hex frame's own outer-ring screws are on that page's own list, so they aren't counted again here):
-
-- **12** clamping the External bracket — side onto piece D, 2 per corner (step 3 below)
-- **12** through the External bracket — bottom vertical's outer holes onto the top of piece D, 2 per corner (step 5 below)
-- **12** holding the External bracket — foot cover on, 2 per corner (step 2 below), the same 2 the bottom vertical it replaces would have taken
-
-Three things are not in that count and are on their own pages: the [bin retainers]({{ '/hardware/assembly/distribution/bin-frame/bin-retainers/' | relative_url }}) this layer takes like any other, the 12 screws that join the layer above to this one ([Stacking the layers]({{ '/hardware/assembly/distribution/stacking-the-layers/' | relative_url }})), and the [bottom interface]({{ '/hardware/assembly/distribution/bin-frame/bottom-interface/' | relative_url }})'s own hardware.
-
-{% include step.html n="2" title="Close off the corners at floor level" %}
-
-The bottom layer does not get an External bracket — cover, and it does not get an External bracket — bottom vertical *below* its frame the way every other layer does. It gets an **External bracket — foot cover** instead, one per corner, which is the single printed part that replaces both of them. It is shorter than the pair it replaces, on purpose, so the extrusion stands out past it far enough for the foot connector in step 4.
+The bottom layer does not get an External bracket — cover, and it does not get an External bracket — bottom vertical *below* its frame the way every other layer does. It gets an **External bracket — foot cover** instead, one per corner, which is the single printed part that replaces both of them.
 
 **Fit it now, before any extrusion goes in.** It takes 2 {% include fastener.html size="M5" variant="socket-button" length="16" %} screws through its outer holes into the External bracket — side, and it is awkward to fit once piece D is through the corner.
 
@@ -81,7 +58,7 @@ The bottom layer does not get an External bracket — cover, and it does not get
   <figcaption>The foot cover to External bracket connection, with the extrusion socket open at the top. <cite>Photo courtesy of BrickCycleAlice.</cite></figcaption>
 </figure>
 
-{% include step.html n="3" title="Run the foot extensions through the corners" %}
+{% include step.html n="2" title="Run the foot extensions through the corners" %}
 
 <figure class="single-figure">
   <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-bottom-two-layers-c-and-d-extrusion-corner-full-58d89d80131f.jpg" alt="One corner of a built machine close up, with the C layer vertical support marked by an arrow between the two frames above and the longer D foot extension marked by an arrow running from the caster up past the bottom frame to the second">
@@ -125,14 +102,14 @@ The numbers on the drawing:
   <li><strong>External bracket — side</strong>, the same collar as on any layer, at this layer's frame.</li>
   <li><strong>External bracket — foot cover</strong> in place of the bottom vertical and cover. It closes the corner off but is far shorter, so the extrusion can leave the bottom of it.</li>
   <li><strong>Piece D</strong>, 231 mm cut. It runs from below this layer, through its collar, and up to 3 mm below the flange face of the collar above, so it spans the whole gap to the next layer as well as reaching the floor.</li>
-  <li class="key-screw"><strong>Two {% include fastener.html size="M5" variant="socket-button" length="16" %} screws</strong> clamp this layer's collar onto piece D, and two more clamp the External bracket — bottom vertical onto it in step 5. Same screws, same holes as on a regular layer.</li>
-  <li class="key-note"><strong>The exposed end of piece D</strong>, which takes the 2020 M6 foot connector and the caster. On the lengths as drawn it stands about 54 mm below the foot cover, but how far it should protrude is not recorded anywhere, so hold a foot connector against the end before you tighten the corner screws.</li>
-  <li><strong>The collar of the layer above</strong>, sitting on the External bracket — bottom vertical fitted in step 5. From here up, every joint is the ordinary layer joint described on <a href="{{ '/hardware/assembly/distribution/stacking-the-layers/' | relative_url }}">Stacking the layers</a>.</li>
+  <li class="key-screw"><strong>Two {% include fastener.html size="M5" variant="socket-button" length="16" %} screws</strong> clamp this layer's collar onto piece D, and two more clamp the External bracket — bottom vertical onto it in step 4. Same screws, same holes as on a regular layer.</li>
+  <li class="key-note"><strong>The exposed end of piece D</strong>, which takes the 2020 M6 foot connector and the caster. On the lengths as drawn it stands about 54 mm below the foot cover.</li>
+  <li><strong>The collar of the layer above</strong>, sitting on the External bracket — bottom vertical fitted in step 4. From here up, every joint is the ordinary layer joint described on <a href="{{ '/hardware/assembly/distribution/stacking-the-layers/' | relative_url }}">Stacking the layers</a>.</li>
 </ol>
 
 <div class="clear-float"></div>
 
-{% include step.html n="4" title="Fit the feet" %}
+{% include step.html n="3" title="Fit the feet" %}
 
 <div class="callout callout-warning">
   <span class="callout-icon" aria-hidden="true">⚠</span>
@@ -143,7 +120,7 @@ Bolt a **2020 M6 foot connector** into the open bottom end of each piece D. The 
 
 Screw a **swivel stem caster (M6 × 15 mm)** into the connector's M6 thread. The casters have brakes; leave them on while you build.
 
-{% include step.html n="5" title="Cap each extrusion with the bottom vertical bracket" %}
+{% include step.html n="4" title="Cap each extrusion with the bottom vertical bracket" %}
 
 This is the step that turns the bottom layer into an ordinary layer as far as everything above it is concerned. Slide an **External bracket — bottom vertical** onto the length of piece D standing above the frame, ensuring its angles align at the bottom, and secure it with 2 {% include fastener.html size="M5" variant="socket-button" length="16" %} screws through its outer holes. It is the same part, fitted the same way, as on a regular layer.
 

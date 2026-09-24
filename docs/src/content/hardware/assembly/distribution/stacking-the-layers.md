@@ -14,7 +14,7 @@ last_verified: 2026-09-10
 parts_needed:
   - part: scr-m5-16-shcs
     qty: 12
-tools_needed: [Hex key]
+tools_needed: ["Hex key, 3 mm for a button head or 4 mm for a socket head"]
 ---
 
 Every layer of the bin frame is built flat, on its own, and none of the pages that build them says how they go together. This one does. At the end of it the frame is standing and empty, ready for the chutes to go in.
@@ -73,7 +73,7 @@ The <a href="{{ '/hardware/assembly/distribution/chute/' | relative_url }}">chut
 
 There are two ways to do this and the machine comes out the same either way.
 
-**Upside down**, which is how Alex built his: the top interface goes on the bench with its top plate down, then each layer is added onto it in turn, and the bottom layer with its casters goes on last. The whole stack is then turned over onto its wheels. His reason is worth the trouble: at every joint the 12 screws go in from **above**, straight down into a joint you can see, instead of overhead underneath a tower that is already taller than you.
+**Upside down**: the top interface goes on the bench with its top plate down, then each layer is added onto it in turn, and the bottom layer with its casters goes on last. The whole stack is then turned over onto its wheels. At every joint the 12 screws go in from **above**, straight down into a joint you can see, instead of overhead underneath a tower that is already taller than you.
 
 <figure class="single-figure">
   <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-stacking-upside-down-interface-first-w1600-a456339eabb6.jpg" alt="A partly built machine standing upside down on a workbench, resting on its top plate, with the interface's vertical extrusions pointing up and a hex frame layer being added on top of them, a cordless driver on the bench beside it">
@@ -82,7 +82,7 @@ There are two ways to do this and the machine comes out the same either way.
 
 **The right way up** starts from the bottom layer on its casters and works upward, capping the stack with the top interface. It matches the order the pages are written in and needs no flip at the end, but every joint is driven overhead and the tower gets tall quickly.
 
-Whichever you pick, the joint itself is identical. **The whole frame goes together before any chute does**, which is why the chutes are not on this page.
+Whichever you pick, the joint itself is identical. **The whole frame goes together before any chute does.**
 
 {% include step.html n="2" title="Join one layer to the next" %}
 
@@ -103,7 +103,7 @@ The numbers on the drawing:
   <li><strong>External bracket — side and cover</strong>, the 60.5 mm collar at each frame.</li>
   <li><strong>Piece C</strong>, 154 mm cut. It starts 3 mm above its own collar's underside and ends 3 mm below the flange face of the collar above, so it spans the whole 160 mm between one frame and the next. At the bottom joint this is piece D instead, which is the same span plus the leg.</li>
   <li><strong>External bracket — bottom vertical</strong>, 119.6 mm of tube. It sleeves the upper part of the extrusion, so it is not visible on an assembled machine, and its foot seats on the rim of its own layer's collar. That seat is what sets the 160 mm spacing between frames.</li>
-  <li class="key-screw"><strong>The two {% include fastener.html size="M5" variant="socket-button" length="16" %} screws that join the layers</strong>, up through the flange into the bracket above. The flange has a 5.6 mm clearance hole through 8 mm of plastic and the bracket above a 4.4 mm self-tapping hole 10 mm deep, so the screw is 8 mm of clearance and 8 mm of thread, and a longer one bottoms out before it clamps.</li>
+  <li class="key-screw"><strong>The two {% include fastener.html size="M5" variant="socket-button" length="16" %} screws that join the layers</strong>, up through the flange into the bracket above. Use the 16 mm, not a longer one.</li>
   <li class="key-screw"><strong>The two {% include fastener.html size="M5" variant="socket-button" length="16" %} screws that clamp the bracket onto the extrusion</strong>, self-tapping through the bracket wall. The extrusion is held only here, in its own layer's bracket, and nothing screws into it from the layer above.</li>
   <li class="key-note"><strong>Where two extrusions meet</strong>: they stop about 3 mm short of each other at the flange face and never touch.</li>
 </ol>
@@ -126,4 +126,6 @@ Every layer on, twelve screws at each joint, the top interface at the top of the
 
 <div class="img-placeholder">Photo of the finished frame standing on its casters: the bottom layer, the regular layers and the top interface joined into one tower, with no chutes in it yet.</div>
 
-The frame is now standing and empty. The [chutes]({{ '/hardware/assembly/distribution/chute/' | relative_url }}) go in next, one at a time and without their funnels, and the [bottom interface]({{ '/hardware/assembly/distribution/bin-frame/bottom-interface/' | relative_url }}) goes on after them, because it screws onto the chute stack rather than onto the frame. Both are on the [Chute]({{ '/hardware/assembly/distribution/chute/' | relative_url }}) page.
+The frame is now standing and empty. The [chutes]({{ '/hardware/assembly/distribution/chute/' | relative_url }}) go in next, one at a time and without their funnels, and the [bottom interface]({{ '/hardware/assembly/distribution/bin-frame/bottom-interface/' | relative_url }}) goes on after them, because its bearing carries the bottom of the chute stack. Both are on the [Chute]({{ '/hardware/assembly/distribution/chute/' | relative_url }}) page.
+
+The [Distribution]({{ '/hardware/assembly/distribution/' | relative_url }}) page contains the instructions for the entire assembly, and is where you should return once you're done here.

@@ -19,7 +19,8 @@ parts_needed:
     qty: 24
   - part: tnut-m5-2020
     qty: 24
-tools_needed: [Hex key]
+tools_needed: ["Hex key, 4 mm"]
+last_verified: 2026-09-24
 ---
 
 Every bin layer gets the same twelve retainers: a Bin retainer (left) and a Bin retainer (right) on the front face of each of the six A extrusions, so each of the six faces has a pair that a bin slides down between. The quantities above are **for one layer**. Every bin layer takes the same twelve, the [bottom layer]({{ '/hardware/assembly/distribution/bin-frame/bottom-layer/' | relative_url }}) included, so this page runs once per layer.
@@ -38,7 +39,7 @@ The T-nuts specified for the machine are the roll-in kind, so they go into the s
 
 On each side of the hexagon, hold both the Bin retainer (left) and the Bin retainer (right) against the front face of A (Hex outer horizontal). The rib along the back of each one drops into the extrusion's slot and sets the height for you; the hook at the top sits on the top face of the extrusion. Fasten each retainer with 2 {% include fastener.html size="M5" variant="socket-button" length="16" %} screws into the T-nuts.
 
-Each retainer's bore is 12.8 mm deep, so a shorter M5 reaches the extrusion face with nothing left to bite in the T-nut. Use a socket head rather than a button head here: the flat the head lands on stops 4.1 mm below the hole, which a button head overhangs, and a washer will not sit flat on it at all.
+Use the 16 mm, not a shorter one, and a socket head rather than a button head. No washer.
 
 ## The finished result
 

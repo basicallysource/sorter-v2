@@ -40,7 +40,7 @@ parts_needed:
     qty: 9
   - part: tnut-m5-2020
     qty: 6
-tools_needed: [Hex key, Drill or electric screwdriver]
+tools_needed: ["Hex keys, 2 mm for M3 and 2.5 mm for M4, plus 3 mm for an M5 button head or 4 mm for a socket head", "Soldering iron or heat-set insert press", "Drill or electric screwdriver"]
 ---
 
 The bottom interface is the Lazy Susan bearing assembly the chute rests and spins on, slung underneath the bottom layer's frame.
@@ -49,7 +49,7 @@ The bottom interface is the Lazy Susan bearing assembly the chute rests and spin
 
 <div class="prep-item">
   <div class="prep-item-body">
-    <p><strong>This assembly has no frame of its own.</strong> It hangs under the <strong>bottom layer's</strong> <a href="{{ '/hardware/assembly/distribution/bin-frame/hex-frame/' | relative_url }}">hex frame</a>, built on <a href="{{ '/hardware/assembly/distribution/bin-frame/bottom-layer/' | relative_url }}">bottom layer</a>, so you don't need an extra one. Steps 4 to 8 bolt onto that frame's spokes from underneath.</p>
+    <p><strong>This assembly has no frame of its own.</strong> It hangs under the <strong>bottom layer's</strong> <a href="{{ '/hardware/assembly/distribution/bin-frame/hex-frame/' | relative_url }}">hex frame</a>, built on <a href="{{ '/hardware/assembly/distribution/bin-frame/bottom-layer/' | relative_url }}">bottom layer</a>, so you don't need an extra one. Steps 5 to 10 work on that frame's spokes, from underneath.</p>
   </div>
   <figure class="prep-item-figure">
     <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-hex-frame-finished-top-down-w1600-a62a42d595ca.jpg" alt="A finished hex frame from above: six B spokes and their printed crossbeams forming the inner ring inside the aluminum outer hexagon, with a printed corner bracket at each of the six vertices">
@@ -57,7 +57,7 @@ The bottom interface is the Lazy Susan bearing assembly the chute rests and spin
   </figure>
 </div>
 
-The parts list above is only the Lazy Susan bearing stack and the extrusion mounts added in steps 5 to 9. The fasteners and quantities below are called out inline at each step.
+The parts list above is only the Lazy Susan bearing stack and the extrusion mounts added in steps 5 to 10, and its fasteners are called out inline at each step.
 
 {% include fastener-legend.html %}
 
@@ -97,7 +97,7 @@ Once assembled, it mounts into the machine frame:
 
 <div class="callout callout-warning">
   <span class="callout-icon" aria-hidden="true">⚠</span>
-  <p><strong>The corners in that render are out of date.</strong> It shows an ordinary bottom vertical and cover at floor level with the caster under it. On a build, each bottom corner takes the <strong>External bracket — foot cover</strong>, and the extrusion is piece D, running down through the corner to the foot connector the caster screws into. See <a href="{{ '/hardware/assembly/distribution/bin-frame/bottom-layer/' | relative_url }}#step-2">bottom layer, steps 2 to 4</a>. The Lazy Susan mounting in the middle of the render is right.</p>
+  <p><strong>The corners in that render are out of date.</strong> It shows an ordinary bottom vertical and cover at floor level with the caster under it. On a build, each bottom corner takes the <strong>External bracket — foot cover</strong>, and the extrusion is piece D, running down through the corner to the foot connector the caster screws into. See <a href="{{ '/hardware/assembly/distribution/bin-frame/bottom-layer/' | relative_url }}#step-1">bottom layer, steps 1 to 3</a>. The Lazy Susan mounting in the middle of the render is right.</p>
 </div>
 
 {% include step.html n="1" title="Preparation" %}
@@ -318,13 +318,21 @@ Tighten both {% include fastener.html size="M5" variant="socket-button" length="
 
 Nine {% include fastener.html size="M5" variant="socket-button" length="16" %} and six {% include fastener.html size="M5" variant="t-nut" %} across all three.
 
+{% include step.html n="10" title="Lower the bearing stack onto the mounts" %}
+
+Set the bearing stack from steps 1 to 4 down onto the three mounts, so the Lazy Susan bottom static part lands in the triangular cutouts.
+
+**Nothing screws it down.** The cutouts hold it in position, and the weight of the chute stack that hangs from it afterwards keeps it seated.
+
 ## The finished result
+
+The bearing stack sitting in the three mounts, ready for the [chute core]({{ '/hardware/assembly/distribution/chute/chute-core/' | relative_url }}). With a funnel fitted, it lands level with the bin entrances.
+
+<div class="img-placeholder">Photo from underneath the bottom layer: the bearing stack down in the three extrusion mounts, both layer connectors on it.</div>
 
 <figure class="single-figure">
   <img class="doc-figure" src="https://assets.basically.website/sorter-parts/bottom-interface-step4-hex-frame-overview-full-bab24577ff64.jpg" alt="Top-down view of the assembled hexagonal layer frame with three Lazy Susan extrusion mounts fitted at alternating spokes">
-  <figcaption>All three mounts, fitted around the ring. The frame is off the machine here, not in its built orientation. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+  <figcaption>The three mounts around the ring, before the bearing stack goes in. The frame is off the machine here, not in its built orientation. <cite>Photo: BrickCycleAlice.</cite></figcaption>
 </figure>
-
-The bearing stack from steps 1-3 now sits on the three mounts, ready for the [chute core]({{ '/hardware/assembly/distribution/chute/chute-core/' | relative_url }}). With a funnel fitted, it lands level with the bin entrances.
 
 The [Bin frame]({{ '/hardware/assembly/distribution/bin-frame/' | relative_url }}) page contains the instructions for the entire stack, and is where you should return once you're done here.

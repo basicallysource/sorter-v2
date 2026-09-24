@@ -130,7 +130,7 @@ One more sub-assembly goes together here, before the step that uses it, and it t
 
 **The servo is not screwed down.** Slide the MG995 into the housing's pocket, then lay the cover over the open face and drive its 2 {% include fastener.html size="M3" variant="countersunk" length="12" %} screws into the housing's inserts. Tightening those two is what holds the servo: the cover traps the servo's mounting tabs between itself and the housing.
 
-Use the 12 mm screws here, not the 8 mm: an 8 mm one barely enters the insert. Snug both down evenly rather than pulling one home first, so the cover seats flat on the tabs.
+Use the 12 mm here, not the 8 mm. Snug both down evenly rather than pulling one home first, so the cover seats flat on the tabs.
 
 <figure>
   <img class="doc-figure" src="https://assets.basically.website/sorter-parts/housing-cover-open-full-eb4bde91c9c0.png" alt="Render of the servo bracket housing with the cover pulled off it, showing the open pocket the servo slides into and the two screw lugs that line up between the cover and the housing">
@@ -155,7 +155,7 @@ The two arms land on two other faces of the housing. They do not take the same s
 - **The side arm** is the flat slab that covers the whole side of the housing. Its screws finish flush with the face.
 - **The lower arm** is the narrower one that goes under the housing and tapers into a raised end. Its screws finish at the bottom of a deep round well.
 
-**Side arm:** 2 {% include fastener.html size="M3" variant="countersunk" length="12" %} into the housing's inserts. Use the 12 mm on this arm. An 8 mm screw does not reach the insert at all.
+**Side arm:** 2 {% include fastener.html size="M3" variant="countersunk" length="12" %} into the housing's inserts. Use the 12 mm on this arm.
 
 <div class="img-row">
   <figure>
@@ -168,7 +168,7 @@ The two arms land on two other faces of the housing. They do not take the same s
   </figure>
 </div>
 
-**Lower arm:** 2 {% include fastener.html size="M3" variant="countersunk" length="8" %} into the housing's inserts. Use the 8 mm on this arm. A 12 mm one bottoms out in the well before its head seats, so the arm never pulls down tight.
+**Lower arm:** 2 {% include fastener.html size="M3" variant="countersunk" length="8" %} into the housing's inserts. Use the 8 mm on this arm.
 
 <div class="img-row">
   <figure>
@@ -219,16 +219,16 @@ The shaft is captured at both ends once this is together, so there is only one o
   <figcaption>The holders, with their bearings in blue, going onto the ends of the shaft and down onto the race. The covers are not shown. <cite>Rendered from the parts' own geometry in assembly position, not from a build. Render: Balloon.</cite></figcaption>
 </figure>
 
-Hung this way the door has **80.5° of swing**, and both ends of it are the door meeting the race across its full width, not the holders.
+Hung this way the door swings between the two positions below, and it stops against the race at both ends.
 
 <figure>
   <img class="doc-figure" src="https://assets.basically.website/sorter-parts/door-travel-limits-full-323c3b543a10.png" alt="Render of the assembled door module seen from the servo end at an angle, with the chute door drawn twice: once in grey lying almost flat, and once in orange hanging almost vertically, both pivoting on the same shaft below the bearing race">
-  <figcaption>The two ends of the door's swing, 80.5° apart. Grey is the flattest the door goes, with the plate 10.7° off horizontal; orange is the steepest, at 88.9°. The covers are not shown. <cite>Measured and rendered from the parts' own geometry, not from a build. Render: Balloon.</cite></figcaption>
+  <figcaption>The two ends of the door's swing. Grey is the flattest it goes, orange the steepest. The covers are not shown. <cite>Rendered from the parts' own geometry, not from a build. Render: Balloon.</cite></figcaption>
 </figure>
 
 {% include step.html n="5" title="Fit the bearing covers" %}
 
-**The two covers are not the same part.** The Bearing cover (servo) has an open centre, and it goes on the hex end of the shaft, because the shaft has to come through it to reach the servo adapter. The Bearing cover (covered) is closed and goes on the plain end.
+**The two covers are not the same part.** The Bearing cover (servo) has an open centre and goes on the hex end of the shaft. The Bearing cover (covered) is closed and goes on the plain end.
 
 Put one on each holder with 3 {% include fastener.html size="M3" variant="countersunk" length="8" %} each, 6 in total, into the three inserts pressed in step 1. The cover's raised rim drops into the pocket on top of the bearing and clamps it against the step: if a bearing has not gone fully home against its lip, its cover will not pull flat. The covers are thin at the rim, so snug the three screws down evenly rather than tightening one fully first.
 
@@ -335,13 +335,13 @@ The servo-side and flap-side plates clamp the MG995 Servo Horn between them. The
 
 <div class="callout callout-warning">
   <span class="callout-icon" aria-hidden="true">⚠</span>
-  <p><strong>Watch the video below before you finish this step.</strong> It is possible to break a door here, so see how the coupling is set in the video before you commit to a position. The door only has 80.5° of travel and both ends of it are the door itself meeting the race, so there is nowhere for it to give. <cite>Tip: BrickCycleAlice.</cite></p>
+  <p><strong>Watch the video below before you finish this step.</strong> It is possible to break a door here. See how the coupling is set in the video before you commit to a position. <cite>Tip: BrickCycleAlice.</cite></p>
 </div>
 
 The bracket goes on the same long side as the servo-side bearing cover, into the other two inserts in the first render above. The two arms do not take the same screw here either:
 
-- **Lower arm**, 1 {% include fastener.html size="M3" variant="countersunk" length="12" %}. An 8 mm screw would not reach the insert at all.
-- **Side arm**, 1 {% include fastener.html size="M3" variant="countersunk" length="8" %}. A 12 mm one would bottom out in the pocket.
+- **Lower arm**, 1 {% include fastener.html size="M3" variant="countersunk" length="12" %}.
+- **Side arm**, 1 {% include fastener.html size="M3" variant="countersunk" length="8" %}.
 
 Then couple the servo to the door through the two-piece adapter you built in the step above. Its servo side goes onto the servo's splined output, through the horn clasped inside it, and its flap side has a hexagonal socket that takes **the hex end of the door's shaft**, the end step 4 told you to point at the servo. It is a slip fit, so it pushes on without force.
 

@@ -25,7 +25,10 @@ class MachineUpdate(BaseModel):
 
 class MachineHeartbeat(BaseModel):
     hardware_info: dict | None = None
-    local_ui_port: str | None = None
+    # Where to find the Sorter on its networks. Any shape is accepted here and
+    # cleaned by app.machine_network, so a malformed block never fails the
+    # keep-alive; an explicit null asks Hive to forget the stored one.
+    network: Any = None
 
 
 class MachineOwnerSummary(BaseModel):
@@ -40,9 +43,9 @@ class MachineResponse(BaseModel):
     token_prefix: str
     name: str
     description: str | None
-    hardware_info: dict | None
-    last_seen_ip: str | None
-    local_ui_port: str | None
+    # Owner and admins only; see routers.machines.machine_response.
+    network_info: dict | None = None
+    network_reported_at: datetime | None = None
     last_seen_at: datetime | None
     is_active: bool
     archived_at: datetime | None = None

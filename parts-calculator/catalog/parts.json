@@ -1799,7 +1799,7 @@
       "uid": "mrs0",
       "name": "Limit switch housing",
       "description": "Housing for the interface limit switch.",
-      "internal_notes": "Interface limit switch assembly. Frame colour + qty 1/machine are DEFAULTS pending confirmation.",
+      "internal_notes": "Interface limit switch assembly. Frame colour + qty 1/machine are DEFAULTS pending confirmation. 2 M3 inserts: blind pockets 4.20 mm across and 5.70 mm deep, 24.7 mm apart, measured off the published STL 2026-09-24. With the V-155-1C25's 10.2 mm body between the screw head and the insert, that is what sets the M3 x 16.",
       "version": "1",
       "created_at": "2026-07-03",
       "updated_at": "2026-07-03",
@@ -3421,7 +3421,7 @@
       "category": "Screws",
       "alternative": "Socket or button head",
       "image_url": "https://assets.basically.website/sorter-parts/scr-m3-16-shcs-full-26e52d7d5bcd.png",
-      "description": "No longer the C-channel stepper screw — those are countersunk (scr-m3-16-cs). Holds the 40 mm fan arm to the Orange Pi mount (2, into the mount's front-edge inserts) and the fan to the arm (4, self-tapping). The top-interface docs call for 2 to mount the roller-lever limit switch into its housing's inserts, though the limit-switch assembly records M3 × 12 button heads for that joint — one of the two is wrong; settle it at the bench.",
+      "description": "No longer the C-channel stepper screw — those are countersunk (scr-m3-16-cs). Holds the 40 mm fan arm to the Orange Pi mount (2, into the mount's front-edge inserts), the fan to the arm (4, self-tapping), and the roller lever limit switch to its housing (2, into the housing's inserts).",
       "created_at": "2026-07-18",
       "updated_at": "2026-09-01",
       "attributes": [
@@ -3516,7 +3516,7 @@
       "category": "Screws",
       "alternative": "Socket or button head",
       "image_url": "https://assets.basically.website/sorter-parts/scr-m3-12-bhcs-full-26e52d7d5bcd.png",
-      "description": "Mounts the cable clamp to the interface, the limit switch to its housing, and fastens the camera extension into the Camera & LED insert.",
+      "description": "Mounts the cable clamp to the interface, and fastens the camera extension into the Camera & LED insert.",
       "created_at": "2026-07-18",
       "updated_at": "2026-09-01",
       "attributes": [
@@ -7907,8 +7907,8 @@
     },
     {
       "id": "limit-switch",
-      "uid": "fnsb",
-      "version": "3",
+      "uid": "apb5",
+      "version": "4",
       "name": "Chute limit switch",
       "description": "Interface limit switch: printed dowel pin, housing, hammer, and the switch itself. Bolts to the interface frame as a unit.",
       "docs": "/hardware/assembly/distribution/top-interface/",
@@ -7938,7 +7938,7 @@
           "qty": 1
         },
         {
-          "part": "scr-m3-12-bhcs",
+          "part": "scr-m3-16-shcs",
           "qty": 2
         },
         {
@@ -8031,6 +8031,13 @@
           "version": "3",
           "date": "2026-09-23",
           "message": "The limit switch cable joins the switch: a Dupont housing onto J5 at the board end, an insulated quick-connect onto each of the switch's tabs at the other. Plus the M3 x 6 countersunk that secures the hammer into the chute mount from below, into the hammer's own insert, which was a hand count of 1 and in no assembly.",
+          "breaking": false,
+          "commit": null
+        },
+        {
+          "version": "4",
+          "date": "2026-09-24",
+          "message": "The roller lever limit switch takes 2 M3 x 16 socket head, not M3 x 12 button head. The screw crosses the V-155-1C25 body (10.2 mm) before it reaches the housing, whose two insert pockets measure 4.20 mm across and 5.70 mm deep on the published STL, so a 16 lands at the bottom of the insert and a 12 leaves 1.8 mm of engagement. top-interface.md step 4 has said M3 x 16 since it was written; this makes the catalog agree with it.",
           "breaking": false,
           "commit": null
         }

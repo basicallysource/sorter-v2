@@ -129,6 +129,8 @@ submit() { # ssid password [more JSON fields, e.g. '{"hidden": true}']
         -d "$(python3 -c 'import json, sys; print(json.dumps({"ssid": sys.argv[1], "password": sys.argv[2], **json.loads(sys.argv[3])}))' "$1" "$2" "$more")" \
         http://10.42.0.1/api/wifi-connect
 }
+reach() { P timeout 4 bash -c "</dev/tcp/10.42.0.1/$1" 2>/dev/null; }  # port, from the phone
+cant_reach() { ! reach "$1"; }
 page_says() { # reason: what the setup page's status reports for the last join
     P curl -s -m 15 http://10.42.0.1/api/status | grep -q "\"reason\": *\"$1\""
 }
@@ -204,6 +206,9 @@ pi_reset ''
 net_start
 check "setup network opens with nothing configured" wait_for 120 setup_visible
 phone_join
+check "the phone reaches the setup page" reach 80
+check "but not SSH (the setup network is open)" cant_reach 22
+check "nor the Sorter backend" cant_reach 8000
 submit HomeNet wrong-password >/dev/null
 sleep 15
 check "setup network comes back after the wrong password" wait_for 120 setup_visible

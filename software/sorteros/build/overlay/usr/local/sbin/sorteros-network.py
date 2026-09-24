@@ -110,6 +110,11 @@ UI_UNITS = ("sorter-ui-dev.service", "sorter-ui.service")
 
 AP_CON = "sorteros-ap"
 AP_GATEWAY = "10.42.0.1/24"
+# The setup network is open, so anyone in range can join it. Its clients may
+# reach the setup page and what joining needs, nothing else on the machine
+# (not SSH, not the Sorter backend).
+SETUP_CHAIN = "SORTEROS_SETUP"
+SETUP_ALLOWED = (("udp", "67"), ("udp", "53"), ("tcp", "53"), ("tcp", "80"))
 WIRED_WAIT_S = 45
 WIFI_WAIT_S = 90
 WIFI_DEVICE_WAIT_S = 15
@@ -433,6 +438,7 @@ class System:
             "802-11-wireless.mode", "ap", "802-11-wireless.band", "bg", "802-11-wireless.channel", "6",
             "ipv4.method", "shared", "ipv4.addresses", AP_GATEWAY, "ipv6.method", "ignore",
         )
+        self._fence_setup_network(iface)
         r = self._run("nmcli", "--wait", "20", "connection", "up", AP_CON, timeout=30)
         if r.returncode != 0:
             raise RuntimeError(f"setup network would not start: {(r.stderr or r.stdout).strip()}")
@@ -441,6 +447,28 @@ class System:
     def ap_down(self) -> None:
         self._run("nmcli", "connection", "down", AP_CON)
         self._run("nmcli", "connection", "delete", AP_CON)
+        self._unfence_setup_network()
+
+    def _fence_setup_network(self, iface: str) -> None:
+        self._unfence_setup_network()
+        self._run("iptables", "-N", SETUP_CHAIN)
+        for proto, port in SETUP_ALLOWED:
+            self._run("iptables", "-A", SETUP_CHAIN, "-p", proto, "--dport", port, "-j", "ACCEPT")
+        self._run("iptables", "-A", SETUP_CHAIN, "-p", "icmp", "-j", "ACCEPT")
+        self._run("iptables", "-A", SETUP_CHAIN, "-m", "conntrack", "--ctstate", "ESTABLISHED,RELATED", "-j", "ACCEPT")
+        self._run("iptables", "-A", SETUP_CHAIN, "-j", "DROP")
+        self._run("iptables", "-I", "INPUT", "-i", iface, "-j", SETUP_CHAIN)
+        self._run("ip6tables", "-N", SETUP_CHAIN)  # link-local IPv6 would get around all of the above
+        self._run("ip6tables", "-A", SETUP_CHAIN, "-j", "DROP")
+        self._run("ip6tables", "-I", "INPUT", "-i", iface, "-j", SETUP_CHAIN)
+
+    def _unfence_setup_network(self) -> None:
+        for tool in ("iptables", "ip6tables"):
+            for rule in self._run(tool, "-S", "INPUT").stdout.splitlines():
+                if rule.startswith("-A INPUT") and rule.endswith(f"-j {SETUP_CHAIN}"):
+                    self._run(tool, "-D", *rule.split()[1:])
+            self._run(tool, "-F", SETUP_CHAIN)
+            self._run(tool, "-X", SETUP_CHAIN)
 
     def ap_has_clients(self, iface: str) -> bool:
         if shutil.which("iw") is None:

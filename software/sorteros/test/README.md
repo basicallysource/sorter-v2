@@ -33,23 +33,26 @@ and, over SSH, the hostname, avahi, and that no stage gave up.
 
 `check.py wifi` then runs `wifi-sim.sh` in the same VM: `mac80211_hwsim`
 gives it three simulated radios (the Pi's Wi-Fi, a home router, a phone, the
-last two in their own network namespaces), and it walks the network decisions
-end to end with the real NetworkManager, setup page and sorteros-network:
-setup-site Wi-Fi with the right and the wrong password, the phone fixing it,
-the phone typing a wrong password first (and the page saying so), a router
-that comes back after the Pi, a cable plugged in during setup, and a network
-name and password full of characters that break naive keyfiles. A restart
-(the setup page joining a network, the service retrying saved ones) restarts
-the service there instead of the VM. `test_network.py` covers the same
-decisions across restarts in seconds against a fake:
-`python3 -m unittest test_network`.
+last two in their own network namespaces), and the router reaches the
+internet through the VM's own connection, so "online" means what it means in
+a house. It walks the network decisions end to end with the real
+NetworkManager, setup page and sorteros-network: setup-site Wi-Fi with the
+right and the wrong password, the phone fixing it, the phone typing a wrong
+password and then the right one while it stays on the setup network (and the
+page saying so each time), the setup network's fence and its captive-portal
+answers, a router that comes back after the Pi, a cable plugged in during
+setup, a network name and password full of characters that break naive
+keyfiles, open, hidden, WPA3-only and mixed networks, a router that gives no
+address, a network with no internet, and a cable with no internet beside a
+Wi-Fi network that works. `test_network.py` covers the same decisions in
+seconds against a simulated machine: `python3 -m unittest test_network`.
 
 What it can't cover: anything that needs the board (the real Wi-Fi chip and
 its driver, the NPU, cameras, the control boards, the boot loader and kernel
-arguments actually taking effect). Those still need a card. The Orange Pi 5's
-Wi-Fi in particular can neither scan nor join a network after it has
-broadcast the setup network until it restarts, which the simulated radios
-happily do.
+arguments actually taking effect), and a real phone's captive-portal window.
+Those still need a card and a phone. The simulated radio keeps its setup
+network on its own channel while it joins another; the Orange Pi 5's moves
+the setup network to the joined network's channel.
 
 Speed: on an x86_64 host QEMU emulates every instruction and first boot
 (`uv sync`, `pnpm build`) takes one to two hours. On an arm64 Linux host with

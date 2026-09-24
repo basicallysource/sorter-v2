@@ -57,6 +57,19 @@ If your printer cannot do the whole set, print what it can and have the rest pri
 by somebody else or by a print service. The parts calculator has the STL for every
 one of them.
 
+## Calibrate the printer first
+
+Some parts fit against something else with almost no room. The external brackets
+clamp around the 2020 extrusion, bearings press into printed seats, and heat inserts
+go into holes sized for them. A printer that is slightly out prints those too tight
+or too loose while every other part on the plate still looks fine.
+
+Run the printer's own calibration before the first plate, and run it again when you
+change filament or nozzle. Bed levelling, flow ratio and pressure advance are the
+settings that move a printed dimension, and both Bambu Studio and Orca can test flow
+and pressure advance for one filament in a few minutes. Dialling those in once is
+worth more than any profile you copy from somebody else.
+
 ## Print each part the way the file comes
 
 **Every STL is already sitting the way it should print.** Drop it on the plate as it

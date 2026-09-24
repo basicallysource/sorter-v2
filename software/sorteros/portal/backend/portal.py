@@ -12,9 +12,9 @@ requests:
 Three modes:
 
   --mode=ap     On the device, started by sorteros-network while the setup
-                network is up. nmcli scans the radio, writes a client
-                connection on submit, then joins it; a failed join brings the
-                setup network back.
+                network is up. Offers the networks sorteros-network scanned
+                before broadcasting; on submit it records the choice and
+                restarts, and sorteros-network joins it at the next boot.
   --mode=mock   No nmcli calls at all. Returns a canned network list and
                 accepts any submit. Good for local frontend dev.
   --mode=auto   nmcli if it's on PATH and the binary works, else mock.
@@ -31,6 +31,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import json
+import os
 import logging
 import re
 import shutil
@@ -42,7 +43,7 @@ from pathlib import Path
 from typing import Any
 
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
@@ -53,211 +54,72 @@ log = logging.getLogger("sorteros-portal")
 
 AP_CON_NAME = "sorteros-ap"
 CONFIG_TOML = Path("/etc/sorteros-config.toml")
-BACKUP_DIR = Path("/var/lib/sorteros/wifi-backups")
-# Read by sorteros-network, which started this portal: DONE when the page has
-# connected the machine, ACTIVITY touched on every API request so it never
-# drops the setup network to retry saved networks while someone is using it.
-PORTAL_DONE = Path("/run/sorteros/portal-connected")
+# Shared with sorteros-network, which started this portal. Joining a network
+# is a restart (the Orange Pi 5's Wi-Fi can't join after broadcasting until
+# it restarts): the page leaves the choice in JOIN_PENDING and restarts, and
+# sorteros-network saves and joins it at the next boot or reports why not in
+# JOIN_FAILED. It is the only thing that writes Wi-Fi profiles. It
+# scanned before broadcasting (NETWORKS), since the chip can't scan while it
+# broadcasts. ACTIVITY is touched on every API request so it never restarts to
+# retry saved networks while someone is using the page.
+JOIN_PENDING = Path("/var/lib/sorteros/join-pending.json")
+JOIN_FAILED = Path("/var/lib/sorteros/join-failed.json")
+NETWORKS = Path("/run/sorteros/networks.json")
 PORTAL_ACTIVITY = Path("/run/sorteros/portal-activity")
+REBOOT_CMD = os.environ.get("SORTEROS_REBOOT_CMD", "systemctl reboot").split()
 # Split so the setup site, which scans the raw image for the marker lines,
 # never finds them in this file.
 CFG_END_MARKER = "# __SORTEROS_CFG" + "_END__"
-# Handoff to firstboot's re-announce: the portal does the fast first
-# announce, then persists the rendezvous here so sorteros-firstboot keeps
-# re-posting the (possibly changed) LAN IP for a bounded window — covering a
-# failed first announce, a late-opened lookup page, or a DHCP renewal.
+# The rendezvous for the phone's Hive page, for sorteros-network to announce
+# the address to after the restart.
 ANNOUNCE_STATE_FILE = Path("/var/lib/sorteros/ip-announce.json")
 PORTAL_HOST = "0.0.0.0"
 PORTAL_PORT = 80
 AP_TEARDOWN_DELAY_S = 5.0
 
-# A connection-attempt window — after the user submits credentials we keep
-# the AP alive for this long while the Pi tries to associate with the
-# requested SSID. Long enough for DHCP + IPv4, short enough that a typo'd
-# password fails back into AP mode without the user wandering off.
-CONNECT_TIMEOUT_S = 30.0
 
 # Where the encrypted LAN-IP rendezvous lives. The browser carries the
 # matching private key; Hive only ever stores opaque ciphertext. The portal
-# only persists the rendezvous id + hive url; sorteros-firstboot does the
-# actual announce (it fetches the browser's public key from Hive and encrypts
-# the LAN IP with it), because the pubkey isn't on Hive until the user opens
-# the lookup page — long after this portal process is gone.
+# only persists the rendezvous id + hive url; sorteros-network does the
+# announce (it fetches the browser's public key from Hive and encrypts the
+# address with it), because the pubkey isn't on Hive until the user opens the
+# lookup page, after this portal process is gone.
 DEFAULT_HIVE_URL = "https://hive.basically.website"
 
 # Mock data — only used in --mode=mock.
 MOCK_NETWORKS = [
-    {"ssid": "WohnzimmerWLAN", "signal": 92, "security": "WPA2", "in_use": False},
-    {"ssid": "Coffee_Shop_Guest", "signal": 71, "security": "WPA2", "in_use": False},
-    {"ssid": "FRITZ!Box 7590", "signal": 64, "security": "WPA3", "in_use": False},
-    {"ssid": "Open Network", "signal": 48, "security": "", "in_use": False},
-    {"ssid": "weak-uplink", "signal": 22, "security": "WPA2", "in_use": False},
+    {"ssid": "WohnzimmerWLAN", "signal": 92, "security": "WPA2"},
+    {"ssid": "Coffee_Shop_Guest", "signal": 71, "security": "WPA2"},
+    {"ssid": "FRITZ!Box 7590", "signal": 64, "security": "WPA3"},
+    {"ssid": "Open Network", "signal": 48, "security": ""},
+    {"ssid": "weak-uplink", "signal": 22, "security": "WPA2"},
 ]
 
 
 # ─── nmcli helpers ─────────────────────────────────────────────────────────
 
-class NMCliError(RuntimeError):
-    pass
-
-
 def _nmcli_available() -> bool:
     return shutil.which("nmcli") is not None
 
 
-def _run(cmd: list[str], timeout: float = 15.0) -> subprocess.CompletedProcess[str]:
-    log.info("$ %s", " ".join(cmd))
-    return subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
+def _scan_before_broadcast() -> list[dict[str, Any]]:
+    """What sorteros-network scanned just before the setup network went up,
+    strongest first. The page offers only this: the Orange Pi 5's Wi-Fi can't
+    scan while it broadcasts, and asking it to stalls for the whole timeout."""
+    try:
+        networks = json.loads(NETWORKS.read_text())
+    except (OSError, ValueError):
+        return []
+    return [n for n in networks if isinstance(n, dict) and isinstance(n.get("ssid"), str)]
 
 
-def _nmcli_scan(rescan: bool = True) -> list[dict[str, Any]]:
-    rescan_flag = "yes" if rescan else "no"
-    r = _run(
-        ["nmcli", "-t", "-f", "IN-USE,SSID,SIGNAL,SECURITY", "dev", "wifi", "list",
-         "--rescan", rescan_flag],
-        timeout=20.0,
-    )
-    if r.returncode != 0:
-        raise NMCliError(f"wifi scan failed: {r.stderr.strip()}")
-
-    networks: list[dict[str, Any]] = []
-    seen: set[str] = set()
-    for line in r.stdout.splitlines():
-        # Terse format separates with ':'. SSID can itself contain colons —
-        # nmcli escapes them as '\:'. Replace, split, unreplace.
-        parts = line.replace(r"\:", "\x00").split(":")
-        if len(parts) < 4:
-            continue
-        in_use_raw, ssid_raw, signal_raw, security_raw = parts[:4]
-        ssid = ssid_raw.replace("\x00", ":").strip()
-        if not ssid or ssid in seen:
-            continue
-        seen.add(ssid)
-        try:
-            signal = int(signal_raw)
-        except ValueError:
-            signal = 0
-        networks.append({
-            "ssid": ssid,
-            "signal": signal,
-            "security": security_raw.strip() or "",
-            "in_use": in_use_raw.strip() == "*",
-        })
-
-    networks.sort(key=lambda n: n["signal"], reverse=True)
-    return networks
-
-
-def _nmcli_write_wifi(ssid: str, password: str, hidden: bool = False) -> str | None:
-    """Write a NetworkManager connection file for the network the user
-    picked. Returns the profile it replaced, if any, so a failed join can put
-    it back."""
-    body = (
-        "[connection]\n"
-        f"id={ssid}\n"
-        "type=wifi\n"
-        "autoconnect=true\n"
-        "\n"
-        "[wifi]\n"
-        f"ssid={ssid}\n"
-        "mode=infrastructure\n"
-    )
-    if hidden:
-        body += "hidden=true\n"
-    if password:
-        body += (
-            "\n[wifi-security]\n"
-            "key-mgmt=wpa-psk\n"
-            f"psk={password}\n"
-        )
-    body += (
-        "\n[ipv4]\n"
-        "method=auto\n"
-        "\n[ipv6]\n"
-        "method=auto\n"
-    )
-    target = _profile_path(ssid)
-    previous = target.read_text() if target.exists() else None
-    target.parent.mkdir(parents=True, exist_ok=True)
-    target.write_text(body)
-    target.chmod(0o600)
-
-    r = _run(["nmcli", "connection", "reload"])
-    if r.returncode != 0:
-        raise NMCliError(f"nmcli reload failed: {r.stderr.strip()}")
-    return previous
-
-
-def _profile_path(ssid: str) -> Path:
-    return Path("/etc/NetworkManager/system-connections") / f"{ssid}.nmconnection"
-
-
-def _restore_after_failed_join(ssid: str, previous: str | None) -> None:
-    """Joining took the radio away from the setup network. Put back whatever
-    profile the attempt replaced (or remove the new one) and bring the setup
-    network up again so the user can retry."""
-    target = _profile_path(ssid)
-    if previous is None:
-        target.unlink(missing_ok=True)
-    else:
-        target.write_text(previous)
-        target.chmod(0o600)
-    _run(["nmcli", "connection", "reload"])
-    r = _run(["nmcli", "--wait", "20", "connection", "up", AP_CON_NAME], timeout=30)
-    if r.returncode != 0:
-        log.warning("could not bring the setup network back: %s", r.stderr.strip())
-
-
-def _mark_connected(ssid: str) -> None:
-    BACKUP_DIR.mkdir(parents=True, exist_ok=True)
-    backup = BACKUP_DIR / f"{ssid}.nmconnection"
-    shutil.copyfile(_profile_path(ssid), backup)
-    backup.chmod(0o600)
-    PORTAL_DONE.parent.mkdir(parents=True, exist_ok=True)
-    PORTAL_DONE.touch()
-
-
-def _nmcli_bring_up(ssid: str, timeout: float) -> bool:
-    """Tell NetworkManager to connect. Returns True on Layer-3 success."""
-    r = _run(["nmcli", "connection", "up", ssid], timeout=timeout)
-    if r.returncode != 0:
-        log.warning("nmcli up %s failed: %s", ssid, r.stderr.strip())
-        return False
-    # Quick poll — nmcli returns when the activation transaction settles but
-    # IPv4 can still be coming up. Re-check state for a few seconds.
-    deadline = time.monotonic() + 5.0
-    while time.monotonic() < deadline:
-        check = _run(["nmcli", "-t", "-f", "GENERAL.STATE", "device", "show", _wifi_iface()])
-        if "100 (connected)" in check.stdout:
-            return True
-        time.sleep(0.5)
-    return False
-
-
-def _wifi_iface() -> str:
-    """The first Wi-Fi device NetworkManager manages: wlan0 for the M.2 module,
-    wlx<mac> for a USB adapter."""
-    r = _run(["nmcli", "-t", "-f", "DEVICE,TYPE,STATE", "device"])
-    for line in r.stdout.splitlines():
-        device, kind, state = (line.split(":") + ["", ""])[:3]
-        if kind == "wifi" and state != "unmanaged":
-            return device
-    return "wlan0"
-
-
-def _nmcli_teardown_ap() -> None:
-    r = _run(["nmcli", "connection", "down", AP_CON_NAME])
-    if r.returncode != 0:
-        log.warning("ap teardown returned %d: %s", r.returncode, r.stderr.strip())
-
-
-# ─── IP-announce handoff to firstboot ──────────────────────────────────────
+# ─── IP-announce handoff to sorteros-network ───────────────────────────────
 
 def _write_announce_state(state: "PortalState", rendezvous_id: str) -> None:
-    """Persist the rendezvous so sorteros-firstboot can announce the LAN IP.
-
-    Only the id + hive url — no key material. firstboot fetches the browser's
-    public key from Hive and does the encrypting. Best-effort write."""
+    """Persist the rendezvous so sorteros-network can announce the address
+    after the restart. Only the id + hive url, no key material:
+    sorteros-network fetches the phone's public key from Hive and encrypts to
+    it. Best-effort write."""
     try:
         ANNOUNCE_STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
         ANNOUNCE_STATE_FILE.write_text(json.dumps({
@@ -280,9 +142,54 @@ def _hostname() -> str:
     return name or "sorter"
 
 
-def _suggested_url() -> str:
-    """Best-guess URL the user should hit once Wi-Fi is up."""
-    return f"http://{_hostname()}.local/"
+def _suggested_url(hostname: str | None = None) -> str:
+    """Best-guess URL the user should hit once Wi-Fi is up: the name they
+    just gave it, if any."""
+    return f"http://{hostname or _hostname()}.local/"
+
+
+def _last_failed_join() -> dict[str, Any] | None:
+    """The network sorteros-network couldn't join after the last restart."""
+    try:
+        failed = json.loads(JOIN_FAILED.read_text())
+    except (OSError, ValueError):
+        return None
+    if not isinstance(failed, dict) or not isinstance(failed.get("ssid"), str):
+        return None
+    return {
+        "ssid": failed["ssid"],
+        "hostname": None,
+        "result": "join_failed",
+        "reason": failed.get("reason") or "other",
+        "error": failed.get("detail"),
+    }
+
+
+def _restart_to_join(ssid: str, password: str, hidden: bool, security: str) -> None:
+    """Leave the choice for sorteros-network, root-only (it holds the
+    password until the next boot uses it)."""
+    JOIN_PENDING.parent.mkdir(parents=True, exist_ok=True)
+    tmp = JOIN_PENDING.with_name(JOIN_PENDING.name + ".tmp")
+    with open(tmp, "w") as f:
+        os.fchmod(f.fileno(), 0o600)
+        json.dump({"ssid": ssid, "password": password, "hidden": hidden, "security": security, "at": time.time()}, f)
+        f.flush()
+        os.fsync(f.fileno())
+    os.replace(tmp, JOIN_PENDING)
+    JOIN_FAILED.unlink(missing_ok=True)
+
+
+def _security_of(ssid: str) -> str:
+    """The security the scan saw for `ssid` ("" for a hidden network)."""
+    return next((n.get("security") or "" for n in _scan_before_broadcast() if n.get("ssid") == ssid), "")
+
+
+async def _restart_soon() -> None:
+    """Let the HTTP response reach the phone, then restart. The next boot
+    joins the saved network (sorteros-network)."""
+    await asyncio.sleep(AP_TEARDOWN_DELAY_S)
+    log.info("restarting to join the network: %s", " ".join(REBOOT_CMD))
+    subprocess.run(REBOOT_CMD, timeout=30)
 
 
 # ─── config persistence ────────────────────────────────────────────────────
@@ -309,17 +216,16 @@ def _toml_str(value: str) -> str:
     return json.dumps(value)  # a JSON string is a valid TOML basic string
 
 
-def _write_config_toml(*, hostname: str | None, ssh_key: str | None, wifi: tuple[str, str] | None = None) -> None:
-    """Merge what the page collected into /etc/sorteros-config.toml, keeping
-    anything else the setup site put there (the Tailscale key). firstboot
-    applies the file whenever it changes."""
+def _write_config_toml(*, hostname: str | None, ssh_key: str | None) -> None:
+    """Merge the hostname and SSH key from the page into
+    /etc/sorteros-config.toml, keeping anything else the setup site put there
+    (its Wi-Fi, the Tailscale key). firstboot applies the file whenever it
+    changes. The network itself lives in NetworkManager."""
     cfg = _read_config_toml()
     if hostname:
         cfg["hostname"] = hostname.strip()
     if ssh_key:
         cfg.setdefault("ssh", {})["authorized_key"] = ssh_key.strip()
-    if wifi:
-        cfg["wifi"] = {"ssid": wifi[0], "password": wifi[1]}
     lines = ["# Written by sorteros-portal during Wi-Fi setup.\n"]
     if isinstance(cfg.get("hostname"), str):
         lines.append(f"hostname = {_toml_str(cfg['hostname'])}\n")
@@ -346,8 +252,8 @@ class PortalState:
 
 
 def _validate_ssid(ssid: str) -> str:
-    ssid = ssid.strip()
-    if not ssid:
+    # Kept exactly as given: spaces at either end are legal in an SSID.
+    if not ssid.strip():
         raise HTTPException(status_code=400, detail="ssid required")
     # IEEE 802.11 caps SSID at 32 bytes UTF-8
     if len(ssid.encode("utf-8")) > 32:
@@ -366,6 +272,8 @@ def _validate_password(pwd: str | None) -> str:
             status_code=400,
             detail="Wi-Fi password must be at least 8 characters (or empty for open networks).",
         )
+    if len(pwd) > 63 and not re.fullmatch(r"[0-9A-Fa-f]{64}", pwd):
+        raise HTTPException(status_code=400, detail="Wi-Fi passwords are at most 63 characters.")
     return pwd
 
 
@@ -434,26 +342,14 @@ def create_app(state: PortalState) -> FastAPI:
             "mode": state.mode,
             "hostname": _hostname(),
             "suggested_url": _suggested_url(),
-            "configured": PORTAL_DONE.exists(),
-            "last_attempt": state.last_attempt,
+            "last_attempt": state.last_attempt or _last_failed_join(),
         }
 
     @app.get("/api/wifi-scan")
-    def api_wifi_scan(rescan: bool = True) -> dict[str, Any]:
+    def api_wifi_scan() -> dict[str, Any]:
         if state.mode == "mock":
-            # tiny jitter so the UI feels alive between rescans
-            jittered = []
-            for i, net in enumerate(MOCK_NETWORKS):
-                copy = dict(net)
-                copy["signal"] = max(5, min(100, copy["signal"] + (int(time.time()) + i) % 5 - 2))
-                jittered.append(copy)
-            return {"networks": jittered, "mocked": True}
-
-        try:
-            networks = _nmcli_scan(rescan=rescan)
-        except NMCliError as e:
-            raise HTTPException(status_code=503, detail=str(e))
-        return {"networks": networks, "mocked": False}
+            return {"networks": MOCK_NETWORKS, "mocked": True}
+        return {"networks": _scan_before_broadcast(), "mocked": False}
 
     @app.post("/api/wifi-connect")
     async def api_wifi_connect(payload: WifiConnectPayload) -> dict[str, Any]:
@@ -478,36 +374,43 @@ def create_app(state: PortalState) -> FastAPI:
             attempt["result"] = "ok"
             attempt["next_url"] = _suggested_url()
             if rendezvous:
-                log.info("mock: firstboot would announce LAN IP to %s (id=%s)", state.hive_url, rendezvous)
+                log.info("mock: the Pi would announce its address to %s (id=%s)", state.hive_url, rendezvous)
             return {
                 "ok": True,
-                "next_url": _suggested_url(),
+                "next_url": _suggested_url(hostname),
                 "hostname": hostname or _hostname(),
                 "mocked": True,
             }
 
-        # Real device path. Write the connection profile, then schedule the
-        # actual association+AP teardown in the background so the HTTP
-        # response can land before we kill the AP out from under the
-        # client.
+        # Real device: leave the network, the hostname and key, and the
+        # rendezvous, then restart once the response has landed. The next
+        # boot joins the network (sorteros-network), announces the address to
+        # the phone's Hive page, and brings the setup network back if the
+        # join fails.
+        security = _security_of(ssid)
+        if "802.1X" in security:
+            attempt["result"] = "error"
+            raise HTTPException(
+                status_code=400,
+                detail=f"{ssid} signs in with a username and password (enterprise Wi-Fi), which the setup "
+                "page can't do. Use another network or plug in a cable.",
+            )
         try:
-            previous = _nmcli_write_wifi(ssid, password, hidden=payload.hidden)
-        except NMCliError as e:
+            _write_config_toml(hostname=hostname, ssh_key=ssh_key)
+            _restart_to_join(ssid, password, payload.hidden, security)
+        except OSError as e:
             attempt["result"] = "error"
             attempt["error"] = str(e)
-            raise HTTPException(status_code=503, detail=str(e))
+            raise HTTPException(status_code=503, detail=f"Couldn't save the network: {e}")
 
         if rendezvous:
-            # Persist before switchover so firstboot can announce the LAN IP
-            # even if the portal crashes mid-connect.
             _write_announce_state(state, rendezvous)
 
-        asyncio.get_event_loop().create_task(
-            _delayed_switchover(state, ssid, password, previous, hostname, ssh_key),
-        )
+        attempt["result"] = "restarting"
+        asyncio.get_event_loop().create_task(_restart_soon())
         return {
             "ok": True,
-            "next_url": _suggested_url(),
+            "next_url": _suggested_url(hostname),
             "hostname": hostname or _hostname(),
             "teardown_in_s": AP_TEARDOWN_DELAY_S,
             "mocked": False,
@@ -602,42 +505,6 @@ def _fallback_index() -> str:
 <p>Mock API is live: try
 <code><a href="/api/wifi-scan" style="color:#60a5fa">/api/wifi-scan</a></code>.</p>
 </body></html>"""
-
-
-# ─── switchover background task ────────────────────────────────────────────
-
-async def _delayed_switchover(
-    state: PortalState,
-    ssid: str,
-    password: str,
-    previous: str | None,
-    hostname: str | None,
-    ssh_key: str | None,
-) -> None:
-    """Wait briefly so the HTTP response reaches the client, then join the
-    requested network. Joining takes the radio from the setup network. On
-    success, record the settings and signal sorteros-network (firstboot
-    announces the LAN IP from here on, using the persisted rendezvous). On
-    failure, put the setup network back so the user can retry."""
-    await asyncio.sleep(AP_TEARDOWN_DELAY_S)
-    attempt = state.last_attempt or {}
-    try:
-        ok = _nmcli_bring_up(ssid, timeout=CONNECT_TIMEOUT_S)
-        if ok:
-            _write_config_toml(hostname=hostname, ssh_key=ssh_key, wifi=(ssid, password))
-            _nmcli_teardown_ap()
-            _mark_connected(ssid)
-            attempt["result"] = "connected"
-        else:
-            attempt["result"] = "associate_failed"
-            log.warning("joining %s failed; bringing the setup network back", ssid)
-            _restore_after_failed_join(ssid, previous)
-    except Exception:
-        log.exception("switchover crashed; bringing the setup network back")
-        attempt["result"] = "error"
-        _restore_after_failed_join(ssid, previous)
-    finally:
-        state.last_attempt = attempt
 
 
 # ─── entrypoint ────────────────────────────────────────────────────────────

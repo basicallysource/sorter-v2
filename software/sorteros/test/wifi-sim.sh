@@ -5,7 +5,9 @@
 # (hostapd + dnsmasq) and a phone, the last two in their own network
 # namespaces so their traffic really crosses the simulated air. Ethernet stays
 # up for ssh but stops being a way online (never-default), so the Pi has to
-# get online over Wi-Fi.
+# get online over Wi-Fi. A restart (the setup page joining a network, or the
+# service retrying saved ones) restarts sorteros-network here instead of the
+# VM, and the retry comes after a minute instead of ten.
 set -u
 W=/tmp/wifisim
 mkdir -p "$W"
@@ -61,16 +63,26 @@ eth_default() { # yes|no
     nmcli device reapply "$ETH" >/dev/null
 }
 
+mkdir -p /etc/systemd/system/sorteros-network.service.d
+cat >/etc/systemd/system/sorteros-network.service.d/wifi-sim.conf <<'EOF'
+[Service]
+Environment="SORTEROS_REBOOT_CMD=systemctl restart --no-block sorteros-network" SORTEROS_RETRY_S=60
+EOF
+systemctl daemon-reload
+
 # ── the home router ───────────────────────────────────────────────────────
-router_up() {
+router_up() { # [ssid] [password]  (given to hostapd as hex, so any bytes survive)
+    local hex psk
+    hex=$(python3 -c 'import sys; print(sys.argv[1].encode().hex())' "${1:-HomeNet}")
+    psk=$(python3 -c 'import hashlib, sys; print(hashlib.pbkdf2_hmac("sha1", sys.argv[2].encode(), sys.argv[1].encode(), 4096, 32).hex())' "${1:-HomeNet}" "${2:-right-password}")
     cat >"$W/hostapd.conf" <<EOF
 interface=$RIF
 driver=nl80211
-ssid=HomeNet
+ssid2=$hex
 hw_mode=g
 channel=1
 wpa=2
-wpa_passphrase=right-password
+wpa_psk=$psk
 wpa_key_mgmt=WPA-PSK
 rsn_pairwise=CCMP
 EOF
@@ -89,18 +101,26 @@ router_down() {
 setup_ssid() { P ip link set "$PIF" up; P iw dev "$PIF" scan 2>/dev/null | awk -F': ' '/SSID: SorterOS-Setup-/ { print $2; exit }'; }
 setup_visible() { [ -n "$(setup_ssid)" ]; }
 setup_gone() { ! setup_visible; }
-phone_join() {
-    local ssid
-    ssid=$(setup_ssid)
-    P iw dev "$PIF" disconnect 2>/dev/null
-    P iw dev "$PIF" connect "$ssid"
-    sleep 3
-    P ip addr replace 10.42.0.77/24 dev "$PIF"
+phone_join() { # until the phone reaches the setup page (a scan can come back empty)
+    local ssid i
+    for i in 1 2 3 4 5 6; do
+        ssid=$(setup_ssid)
+        if [ -n "$ssid" ]; then
+            P iw dev "$PIF" disconnect 2>/dev/null
+            P iw dev "$PIF" connect "$ssid" && sleep 3 && P ip addr replace 10.42.0.77/24 dev "$PIF" &&
+                P curl -s -m 5 -o /dev/null http://10.42.0.1/api/status && return 0
+        fi
+        sleep 3
+    done
+    echo "     (the phone couldn't reach the setup page)"
+    return 1
 }
 phone_leave() { P iw dev "$PIF" disconnect 2>/dev/null; P ip addr flush dev "$PIF"; }
 page() { P curl -s -m 15 "$@"; }
 submit() { # ssid password
-    page -X POST -H 'Content-Type: application/json' -d "{\"ssid\":\"$1\",\"password\":\"$2\"}" http://10.42.0.1/api/wifi-connect
+    page -X POST -H 'Content-Type: application/json' \
+        -d "$(python3 -c 'import json, sys; print(json.dumps({"ssid": sys.argv[1], "password": sys.argv[2]}))' "$1" "$2")" \
+        http://10.42.0.1/api/wifi-connect
 }
 
 # ── the Pi ────────────────────────────────────────────────────────────────
@@ -108,7 +128,8 @@ pi_reset() { # config text
     systemctl stop sorteros-network
     nmcli -t -f NAME,TYPE connection show | awk -F: '$2 == "802-11-wireless" { print $1 }' |
         while read -r n; do nmcli connection delete "$n" >/dev/null; done
-    rm -rf /var/lib/sorteros/wifi-imported /var/lib/sorteros/wifi-backups /run/sorteros
+    rm -rf /var/lib/sorteros/wifi-imported /var/lib/sorteros/join-pending.json /var/lib/sorteros/join-failed.json \
+        /var/lib/sorteros/saved-retry-count /var/lib/sorteros/ip-announce.json /run/sorteros
     printf '%b' "$1" >/etc/sorteros-config.toml
     phone_leave
     wait_for 30 offline || echo "     (still online 30s after reset)"
@@ -118,6 +139,14 @@ on_wifi() { ip -4 route show default | grep -q " dev $PI "; }
 offline() { [ -z "$(ip -4 route show default)" ]; }
 net_finished() { ! systemctl is-active -q sorteros-network; }
 net_said() { journalctl -u sorteros-network --since "$SINCE" --no-pager | grep -q "$1"; }
+saved_psk() { # ssid → the password NetworkManager holds for it
+    local u
+    for u in $(nmcli -t -f UUID,TYPE connection show | awk -F: '$2 == "802-11-wireless" { print $1 }'); do
+        [ "$(nmcli --escape no -g 802-11-wireless.ssid connection show uuid "$u")" = "$1" ] &&
+            nmcli --escape no -s -g 802-11-wireless-security.psk connection show uuid "$u"
+    done
+}
+psk_is() { [ "$(saved_psk "$1")" = "$2" ]; }
 never_broadcast() { ! net_said broadcasting; }
 
 WIFI_OK='[wifi]\nssid = "HomeNet"\npassword = "right-password"\n'
@@ -144,7 +173,7 @@ submit HomeNet right-password >/dev/null
 check "joins the network the phone gave it" wait_for 120 on_wifi
 check "network service finishes" wait_for 30 net_finished
 check "setup network closed" wait_for 30 setup_gone
-check "config has the new password" grep -q 'right-password' /etc/sorteros-config.toml
+check "NetworkManager has the new password, and only it" psk_is HomeNet right-password
 check "config kept the setup site's Tailscale key" grep -q 'tskey-sim' /etc/sorteros-config.toml
 
 step "3. no Wi-Fi given; the phone types a wrong password first"
@@ -156,7 +185,7 @@ submit HomeNet wrong-password >/dev/null
 sleep 15
 check "setup network comes back after the wrong password" wait_for 120 setup_visible
 phone_join
-check "setup page reports the failed join" bash -c "ip netns exec phone curl -s -m 15 http://10.42.0.1/api/status | grep -q associate_failed"
+check "setup page says the password was wrong" bash -c "ip netns exec phone curl -s -m 15 http://10.42.0.1/api/status | grep -q '\"reason\": *\"password\"'"
 submit HomeNet right-password >/dev/null
 check "then joins with the right one" wait_for 120 on_wifi
 check "network service finishes" wait_for 30 net_finished
@@ -180,6 +209,22 @@ eth_default yes
 check "network service finishes on the cable" wait_for 30 net_finished
 check "setup network closed" wait_for 30 setup_gone
 
+step "6. an odd network name and password from the phone"
+eth_default no
+router_down
+ODD_SSID='Café Net/2 '
+ODD_PSK=' back\slash pass'
+router_up "$ODD_SSID" "$ODD_PSK"
+pi_reset ''
+net_start
+check "setup network opens" wait_for 120 setup_visible
+phone_join
+submit "$ODD_SSID" "$ODD_PSK" >/dev/null
+check "joins it" wait_for 120 on_wifi
+check "NetworkManager holds the name and password exactly" psk_is "$ODD_SSID" "$ODD_PSK"
+
 eth_default yes
 router_down
+rm -rf /etc/systemd/system/sorteros-network.service.d
+systemctl daemon-reload
 echo "DONE pass=$pass fail=$fail"

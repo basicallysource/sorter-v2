@@ -54,7 +54,9 @@ Insert the SD card into the Orange Pi 5 and power it on. It gets online the firs
 
 1. **Ethernet**, if a cable to your router is plugged in.
 2. **The WiFi from Step 2.** It gets about a minute and a half to connect.
-3. Otherwise it opens its own WiFi network, named `SorterOS-Setup-` followed by six characters. Join it from a phone or laptop; a setup page opens (if it doesn't, browse to [http://10.42.0.1](http://10.42.0.1)). Pick your network and enter its password. If the password is wrong the page says so and you can try again; when it's right, the Pi joins your network and the setup network disappears.
+3. Otherwise it opens its own WiFi network, named `SorterOS-Setup-` followed by six characters. Join it from a phone or laptop; a setup page opens (if it doesn't, browse to [http://10.42.0.1](http://10.42.0.1)). Pick your network, or type its name if it isn't listed, and enter its password. The Pi restarts to join it, which takes about two minutes, and your phone goes back to its usual WiFi. Open the **Find my sorter** link the page gives you: once the Pi is online it shows its address and the network it joined. If the setup network shows up again instead, the Pi couldn't join; connect to it again and the page says why, usually a wrong password.
+
+   Networks that sign in with a username as well as a password (enterprise WiFi, common in offices and schools) can't be set up this way. Use Ethernet on those.
 
 The setup network is also the way back if something changes later: a Pi that can't get online when it starts (a new router, a changed password) opens it again. If you plug in a cable while it's up, the Pi uses the cable instead.
 

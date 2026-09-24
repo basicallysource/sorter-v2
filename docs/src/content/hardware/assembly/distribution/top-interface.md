@@ -847,7 +847,7 @@ The numbers on the photo and the drawing:
 
 ## The finished result
 
-The top plate, its six bracket mounts and their extrusion, the rotating chute mount and its gear train, and a hex frame closed onto the bottom of the verticals. The render below leaves the hex frame and the verticals off so the plate and the brackets are visible.
+The top plate, its six bracket mounts and their extrusion, the rotating chute mount and its gear train, and a hex frame closed onto the bottom of the verticals.
 
 <figure class="single-figure">
   <img class="doc-figure" src="https://assets.basically.website/sorter-parts/top-interface-finished-full-65eb32ba52dc.png" alt="The finished top interface seen the way up it sits on the machine: the hexagonal top plate uppermost with the round opening through its centre, the six interface brackets splayed below it, and the chute mount hanging in the middle">

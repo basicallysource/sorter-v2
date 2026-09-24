@@ -8,12 +8,14 @@ kicker: Feeder — Classification camera lamp
 lede: The IMX415 4K module clasped between its two halves, pushed into the ring on the arm, and the arm pushed up into a finished lamp. Build one.
 permalink: /hardware/assembly/feeder/camera-lamp/classification-camera-lamp/
 author: reveryx
-contributors: [spencer, danny, brickcyclealice, barthel, daddyosbricksbill]
+contributors: [spencer, danny, brickcyclealice, barthel]
 og_image: https://assets.basically.website/sorter-docs/camera-lamp-camera-seated-w1600-eede61656118.jpg
 warning: >-
-  Steps 1 to 3 are photographed on a real build of the feeder lamp, which is this build apart from
-  the camera module, and step 4 on a second build. The dovetail fit itself (step 4) has never been
-  dimensioned. Fill the gaps in as you build.
+  **Step 4 is not verified against a build.** Steps 1 to 3 are photographed on a real build of the
+  feeder lamp, which is this build apart from the camera module. Still open: which of the ring's
+  two sockets the clasp is meant to use (step 2), and the arm mount's dovetail onto the NEMA
+  bracket (step 4), which a builder has described but nobody has dimensioned or photographed.
+  Fill the gaps in as you build.
 parts_needed:
   - part: cam-imx415
     qty: 1
@@ -66,9 +68,7 @@ The camera board sits in the recess in the **Camera clasp top**. Put the **Camer
 
 **Push until it sits firmly**, not just until it meets resistance. The next step pushes the arm up inside the lamp, and a clasp that is not fully home lifts out on the way.
 
-The clasp's two halves form a spigot that plugs into a socket in the ring. **The ring has two of these sockets**, and both take the clasp. The machine these steps come from uses the left-hand one on all three lamps, looking down at the lamp from above. Use the same socket on all three, keep the camera's lead running clear of the arm, and check the lens points straight down before you go on.
-
-**Which socket changes what the camera can see**, not just which way up the picture arrives. If a channel's drop zone and its exit are not both in frame at [first setup]({{ '/sorter/first-setup/' | relative_url }}) step 7, that is the mounting, and rotating the view in the camera settings will not fix it.
+The clasp's two halves form a spigot that plugs into a socket in the ring. **The ring has two of these sockets, and which one is intended is not recorded.** Nothing on this page depends on it: use the one that leaves the camera's lead running clear of the arm, and check the lens points straight down before you go on. Which way round the picture arrives is set in software later, not here.
 
 **Expect it to sit loose.** The lamp's cover is what traps the clasp and holds the camera in, and that happens in the next step, once the arm is up inside the lamp. Until then the camera can lift straight back out, so do not pick the arm up by it.
 
@@ -108,14 +108,9 @@ The [lamp arm]({{ '/hardware/assembly/feeder/camera-lamp/lamp-arm/' | relative_u
 
 **Not at the bench.** The lamp goes onto its channel later, when the channels are standing on the top plate. Read this step then, and put the finished lamp aside for now.
 
-**It hangs off a dovetail, not a screw.** The outside of the channel wall carries a row of dovetails. Use the **8th one from the channel exit**, counting anticlockwise seen from above, which is the last one before the channel above covers the wall. C2 and C3 use the 5th instead. **It goes on from underneath**: offer the mount up to the bottom edge of the wall, feed its rail into the dovetail and push it up until it clips over the top edge. That is the whole joint, and the mount has no other fixing.
+**It hangs off a dovetail, not a screw.** Slide the dovetail on the bottom of the arm mount down onto the bottom of the channel's NEMA bracket until it stops. That is the whole joint: the mount has no other fixing, and the lamp's weight holds it in the rail.
 
-<div class="callout callout-warning">
-  <span class="callout-icon" aria-hidden="true">⚠</span>
-  <p><strong>The dovetail on the arm can break</strong> when a lamp needs to be removed and repositioned. Use caution if repositioning is needed.</p>
-</div>
-
-It is a printed joint and the fit has not been dimensioned, so it may be tight or it may have a little play. **Do not force it and do not file it down**: if it will not go on, say so in the Discord with a photo, because that is a part problem rather than a step you are doing wrong.
+It is a printed joint and nobody has measured the fit yet, so it may be tight or it may have a little play. **Do not force it and do not file it down**: if it will not go on, say so in the Discord with a photo, because that is a part problem rather than a step you are doing wrong.
 
 The lamp goes on during [arranging C-channels]({{ '/hardware/assembly/feeder/arranging-c-channels/' | relative_url }}), onto the [classification channel]({{ '/hardware/assembly/feeder/c-channels/classification-channel/' | relative_url }}).
 
@@ -124,7 +119,7 @@ The lamp goes on during [arranging C-channels]({{ '/hardware/assembly/feeder/arr
   <figcaption>What it looks like once it is on, lit. <cite>Photo: Spencer.</cite></figcaption>
 </figure>
 
-Use the dovetail the count gives you rather than the one that looks right. Where the lamp sits changes what the camera sees, and [camera calibration]({{ '/sorter/camera-calibration/' | relative_url }}) afterwards is software, not a way to fix a lamp in the wrong place.
+Write down where the lamp ended up over its channel. Its height and overhang change what the camera sees, and [camera calibration]({{ '/sorter/camera-calibration/' | relative_url }}) afterwards is software, not a way to fix a lamp in the wrong place.
 
 ## The finished result
 

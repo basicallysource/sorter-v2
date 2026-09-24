@@ -87,14 +87,9 @@ file is a fault worth fixing for everybody.
 
 ## Supports
 
-**Supports are off for almost everything.** Five parts need them, and the parts
-calculator badges each one **Supports**:
-
-- Stator
-- Light post
-- Light post cap
-- Cable clamp (inner)
-- Cable clamp (outer)
+**Supports are off for almost everything.** A handful of parts need them, and the
+[parts calculator](https://parts-calculator.basically.website/) badges each one
+**Supports**. Check the part there before you slice it.
 
 Turn support on for those, `normal (auto)`, with the overhang threshold at 10
 degrees. That is what the filament weights on the calculator assume.

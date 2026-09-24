@@ -12,8 +12,7 @@ contributors: [spencer, danny, brickcyclealice, barthel, daddyosbricksbill]
 og_image: https://assets.basically.website/sorter-docs/camera-lamp-camera-seated-w1600-eede61656118.jpg
 warning: >-
   Steps 1 to 3 are photographed on a real build of the feeder lamp, which is this build apart from
-  the camera module, and step 4 on a second build. Still open: which of the ring's two sockets the
-  clasp is meant to use (step 2), and the dovetail fit itself (step 4), which nobody has
+  the camera module, and step 4 on a second build. The dovetail fit itself (step 4) has never been
   dimensioned. Fill the gaps in as you build.
 parts_needed:
   - part: cam-imx415
@@ -67,7 +66,9 @@ The camera board sits in the recess in the **Camera clasp top**. Put the **Camer
 
 **Push until it sits firmly**, not just until it meets resistance. The next step pushes the arm up inside the lamp, and a clasp that is not fully home lifts out on the way.
 
-The clasp's two halves form a spigot that plugs into a socket in the ring. **The ring has two of these sockets, and which one is intended is not recorded.** Nothing on this page depends on it: use the one that leaves the camera's lead running clear of the arm, and check the lens points straight down before you go on. Which way round the picture arrives is set in software later, not here.
+The clasp's two halves form a spigot that plugs into a socket in the ring. **The ring has two of these sockets**, and both take the clasp. The machine these steps come from uses the left-hand one on all three lamps, looking down at the lamp from above. Use the same socket on all three, keep the camera's lead running clear of the arm, and check the lens points straight down before you go on.
+
+**Which socket changes what the camera can see**, not just which way up the picture arrives. If a channel's drop zone and its exit are not both in frame at [first setup]({{ '/sorter/first-setup/' | relative_url }}) step 7, that is the mounting, and rotating the view in the camera settings will not fix it.
 
 **Expect it to sit loose.** The lamp's cover is what traps the clasp and holds the camera in, and that happens in the next step, once the arm is up inside the lamp. Until then the camera can lift straight back out, so do not pick the arm up by it.
 

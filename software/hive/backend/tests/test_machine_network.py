@@ -210,7 +210,7 @@ def test_fields_are_typed_and_bounded():
                 "not a network",
                 {"kind": "wifi", "name": "no address"},
             ],
-            "setup_network": {"ssid": "SorterOS-Setup-63F32A", "clients": -1, "since": 1790274000},
+            "setup_network": {"ssid": "SorterOS-Setup-ABCDEF", "clients": -1, "since": 1790274000},
         }
     )
     assert block["version"] is None
@@ -224,7 +224,7 @@ def test_fields_are_typed_and_bounded():
     assert first["internet"] is None
     assert first["since"] is None
     assert second["kind"] == "other"
-    assert block["setup_network"] == {"ssid": "SorterOS-Setup-63F32A", "clients": None, "since": 1790274000}
+    assert block["setup_network"] == {"ssid": "SorterOS-Setup-ABCDEF", "clients": None, "since": 1790274000}
 
 
 def test_networks_are_capped():

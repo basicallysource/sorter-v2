@@ -61,7 +61,6 @@
 
 	const join = $derived(live?.join ?? null);
 	const failure = $derived(join?.state === 'failed' ? join : null);
-	const lost = $derived(!finished && misses >= (live ? 2 : 1));
 	const online = $derived(live?.networks.find((n) => n.internet) ?? null);
 	// One row per name (a network on two bands can be listed twice).
 	const scanned = $derived.by(() => {
@@ -91,6 +90,10 @@
 					? 'joined'
 					: 'choose'
 	);
+
+	// Not once joined: leaving the setup network is then what the page asks
+	// for, and the address is on screen.
+	const lost = $derived(!finished && misses >= (live ? 2 : 1) && screen !== 'joined');
 
 	$effect(() => {
 		void screen;
@@ -266,6 +269,7 @@
 			onrefresh={rescan}
 			onpick={(n) => openForm({ ssid: n.ssid, security: n.security, hidden: false })}
 			onother={() => openForm({ ssid: '', security: '', hidden: true })}
+			onback={join?.state === 'joined' ? () => (replacing = null) : undefined}
 		/>
 	{/if}
 

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import ChevronLeft from '@lucide/svelte/icons/chevron-left';
 	import Lock from '@lucide/svelte/icons/lock';
 	import Plus from '@lucide/svelte/icons/plus';
 	import RefreshCw from '@lucide/svelte/icons/refresh-cw';
@@ -15,7 +16,8 @@
 		failure,
 		onrefresh,
 		onpick,
-		onother
+		onother,
+		onback
 	}: {
 		networks: ScannedNetwork[];
 		scanning: boolean;
@@ -25,12 +27,24 @@
 		onrefresh: () => void;
 		onpick: (net: ScannedNetwork) => void;
 		onother: () => void;
+		/** Back to the network the Sorter joined, when this list replaces it. */
+		onback?: () => void;
 	} = $props();
 
 	const row = 'flex min-h-14 w-full items-center gap-3 px-4 py-3 text-left';
 </script>
 
 <section class="flex flex-col gap-5">
+	{#if onback}
+		<button
+			type="button"
+			class="-my-2 -ml-2 inline-flex min-h-11 items-center gap-1 self-start px-2 text-sm font-medium text-text-muted hover:text-text"
+			onclick={onback}
+		>
+			<ChevronLeft size={16} />
+			Back
+		</button>
+	{/if}
 	{#if online}
 		<Alert variant="success">
 			Your Sorter is already online {online.kind === 'ethernet' ? 'by cable' : `on ${online.name}`} at

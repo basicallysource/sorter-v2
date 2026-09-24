@@ -355,6 +355,14 @@ class System:
         finally:
             s.close()
 
+    def mdns_name(self) -> str:
+        """The name the machine answers to on the network: avahi's, which is
+        <hostname>-2.local when another machine already has <hostname>.local."""
+        out = self._run("busctl", "call", "org.freedesktop.Avahi", "/", "org.freedesktop.Avahi.Server",
+                        "GetHostNameFqdn").stdout.strip()
+        m = re.fullmatch(r's "(.+)"', out)
+        return m.group(1) if m else f"{socket.gethostname() or 'sorter'}.local"
+
     def saved_wifi(self) -> list[str]:
         names = []
         for line in self._run("nmcli", "-t", "-f", "NAME,TYPE", "connection", "show").stdout.splitlines():
@@ -607,30 +615,27 @@ def wait_online(sys_: System, seconds: float) -> bool:
 def announce_address(sys_: System) -> None:
     """If the setup page left a rendezvous, keep the phone's Hive page told
     where the machine is until the window closes: a reloaded page brings a
-    new key, and a restarted Hive forgets what it held."""
+    new key, a restarted Hive forgets what it held, and the address or the
+    name can change (first boot applies a new hostname; avahi renames on a
+    clash)."""
     state = sys_.announce_state()
     if not state or not state.get("rendezvous_id") or not state.get("hive_url"):
         return
-    payload = {
-        "ip": sys_.lan_ip(),
-        "hostname": f"{socket.gethostname() or 'sorter'}.local",
-        "port": 80,
-        "ssid": sys_.joined_ssid(),
-    }
     # From now, on this boot's clock: a Pi with no battery clock can come
     # back from days unplugged with its wall clock days behind until it
     # reaches the internet, so the setup page's timestamp can't be trusted.
     deadline = sys_.now() + ANNOUNCE_WINDOW_S
     last_error = ""
-    sent_to = None
+    sent = None
     while sys_.now() < deadline:
         try:
+            payload = {"ip": sys_.lan_ip(), "hostname": sys_.mdns_name(), "port": 80, "ssid": sys_.joined_ssid()}
             pubkey, ready = sys_.rendezvous(state)
-            if pubkey and (pubkey != sent_to or not ready):
+            if pubkey and ((pubkey, payload) != sent or not ready):
                 sys_.publish_address(state, pubkey, payload)
-                sent_to = pubkey
-                log.info("gave the setup page's Hive link the address: %s on %s",
-                         payload["ip"], payload["ssid"] or "Ethernet")
+                sent = (pubkey, payload)
+                log.info("gave the setup page's Hive link the address: %s (%s) on %s",
+                         payload["ip"], payload["hostname"], payload["ssid"] or "Ethernet")
         except (urllib.error.URLError, OSError) as e:
             if str(e) != last_error:
                 log.warning("can't reach Hive for the address announce yet: %s", e)

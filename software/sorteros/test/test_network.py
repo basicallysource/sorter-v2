@@ -43,6 +43,7 @@ class World:
         self.ntp = True  # does NTP answer
         self.clock_off = 0.0  # how far behind the wall clock is
         self.http_date_works = True
+        self.mdns = "sorter.local"
         self.boots = 0
         self.log = []
 
@@ -126,6 +127,9 @@ class Fake:
 
     def joined_ssid(self):
         return self._wifi()
+
+    def mdns_name(self):
+        return self.w.mdns
 
     def lan_ip(self):
         return "192.0.2.50"
@@ -558,6 +562,24 @@ class Announce(unittest.TestCase):
         finally:
             Fake.sleep = orig
         self.assertEqual([e[1] for e in w.log if e[0] == "announced"], ["key-1", "key-2"])
+
+    def test_sends_again_when_the_name_changes(self):
+        # First boot applies the name from the setup page, or avahi renames
+        # the machine because another one already has it.
+        w = self.world()
+        w.hive["pubkey"] = "key-1"
+        orig = Fake.sleep
+
+        def sleep(fake, s):
+            orig(fake, s)
+            if fake.w.count("announced") == 1:
+                fake.w.mdns = "sorter-2.local"
+        Fake.sleep = sleep
+        try:
+            w.run(cfg())
+        finally:
+            Fake.sleep = orig
+        self.assertEqual(w.count("announced"), 2)
 
     def test_sends_again_after_hive_forgets(self):
         w = self.world()

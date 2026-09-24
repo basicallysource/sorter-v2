@@ -219,9 +219,7 @@ The [bulk cap and bucket]({{ '/hardware/assembly/feeder/c-channels/bulk-channel/
 - **C2 and C3**: the **5th**.
 - **Classification channel**: the **8th**, which is the last one before the channel above covers the wall.
 
-**Why C2 and C3 are not on the 8th as well.** The 8th is the last dovetail the channel above leaves free, and the CAD puts all three lamps there. On a running machine with the parts and cameras the calculator lists, C2 and C3 in the 8th put the camera 90 degrees out, so the drop zone and the exit would not both be in frame.
-
-Whichever you start from, the framing is what decides: [first setup]({{ '/sorter/first-setup/' | relative_url }}) step 7 shows you what each camera sees, and a lamp that cannot see both its drop zone and its exit is in the wrong dovetail.
+A camera has to see its channel's drop zone and its exit in the same frame. You check that at [first setup]({{ '/sorter/first-setup/' | relative_url }}) step 7; if one cannot, its lamp is in the wrong dovetail.
 
 **It goes on from underneath.** Offer the arm mount up to the bottom edge of the channel wall, feed its rail into the dovetail, and push it up until it clips over the top edge. Nothing screws into this joint.
 

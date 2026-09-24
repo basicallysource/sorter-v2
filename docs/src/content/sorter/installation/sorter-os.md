@@ -83,7 +83,7 @@ On a phone or computer on the same WiFi, open **[http://sorter.local](http://sor
   <figcaption>The first boot installs the Sorter software, which takes a few minutes. The page updates itself, then becomes the Sorter UI. <cite>Screenshot recorded on an iPhone.</cite></figcaption>
 </figure>
 
-The first time, the UI opens on the [setup wizard]({{ '/sorter/first-setup/' | relative_url }}).
+Then set the machine up with the setup wizard: in the Sorter UI, **Settings**, then **Open Setup Wizard**. [First setup in the UI]({{ '/sorter/first-setup/' | relative_url }}) goes through it.
 
 ## If something's off
 

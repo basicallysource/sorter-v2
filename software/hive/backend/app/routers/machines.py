@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session, joinedload
 
 from app.deps import get_current_machine, get_current_user, get_db, require_role, verify_csrf
 from app.errors import APIError
+from app.machine_network import normalize_network_block
 from app.models.machine import Machine
 from app.models.machine_piece import MachinePiece
 from app.models.machine_piece_image import MachinePieceImage
@@ -64,7 +65,7 @@ def list_machines(
         query = query.filter(Machine.owner_id == current_user.id)
     if not include_archived:
         query = query.filter(Machine.archived_at.is_(None))
-    return query.all()
+    return [machine_response(machine, current_user) for machine in query.all()]
 
 
 @router.get("/machines/stats")
@@ -160,7 +161,6 @@ def admin_list_machines(
             "archived_at": m.archived_at.isoformat() if m.archived_at else None,
             "last_seen_at": m.last_seen_at.isoformat() if m.last_seen_at else None,
             "last_seen_ip": m.last_seen_ip,
-            "local_ui_port": m.local_ui_port,
             "created_at": m.created_at.isoformat() if m.created_at else None,
         }
         for m in machines
@@ -203,6 +203,21 @@ def admin_refresh_machine_stats(
     return {"ok": True, "refreshed": count, "worker": get_machine_stats_worker().status()}
 
 
+def _may_view(machine: Machine, user: User) -> bool:
+    """A machine's own details are for its owner and admins."""
+    return str(machine.owner_id) == str(user.id) or user.role == "admin"
+
+
+def machine_response(machine: Machine, viewer: User) -> MachineResponse:
+    """A machine as ``viewer`` may see it. Where to find it on its network is
+    for its owner and admins only, so ``?scope=all`` lists everyone else's
+    machines without it."""
+    response = MachineResponse.model_validate(machine)
+    if _may_view(machine, viewer):
+        return response
+    return response.model_copy(update={"network_info": None, "network_reported_at": None})
+
+
 def _machine_for_viewer(db: Session, machine_id: UUID, user: User) -> Machine:
     """Fetch a machine the given user may view (its owner, or any admin).
 
@@ -210,7 +225,7 @@ def _machine_for_viewer(db: Session, machine_id: UUID, user: User) -> Machine:
     endpoint doesn't confirm the existence of other users' machines.
     """
     machine = db.query(Machine).options(joinedload(Machine.owner)).filter(Machine.id == machine_id).first()
-    if machine is None or (str(machine.owner_id) != str(user.id) and user.role != "admin"):
+    if machine is None or not _may_view(machine, user):
         raise APIError(404, "Machine not found", "MACHINE_NOT_FOUND")
     return machine
 
@@ -236,8 +251,8 @@ def get_machine_overview(
             "is_active": machine.is_active,
             "archived_at": machine.archived_at.isoformat() if machine.archived_at else None,
             "last_seen_at": machine.last_seen_at.isoformat() if machine.last_seen_at else None,
-            "last_seen_ip": machine.last_seen_ip,
-            "local_ui_port": machine.local_ui_port,
+            "network_info": machine.network_info,
+            "network_reported_at": machine.network_reported_at.isoformat() if machine.network_reported_at else None,
             "created_at": machine.created_at.isoformat() if machine.created_at else None,
             "token_prefix": machine.token_prefix,
             "hardware_info": machine.hardware_info,
@@ -589,8 +604,10 @@ def heartbeat(
     db: Session = Depends(get_db),
     machine: Machine = Depends(get_current_machine),
 ):
-    machine.last_seen_at = datetime.now(timezone.utc)
-    # Capture the machine's IP from the request so we can link to its local UI
+    now = datetime.now(timezone.utc)
+    machine.last_seen_at = now
+    # Where the request came from as Hive sees it: usually the public side of
+    # the Sorter's router, so it is recorded but never linked to.
     client_ip = request.headers.get("x-forwarded-for", "").split(",")[0].strip() or (request.client.host if request.client else None)
     if client_ip:
         machine.last_seen_ip = client_ip
@@ -604,14 +621,16 @@ def heartbeat(
                 record_hardware_report(db, machine, data.hardware_info)
             else:
                 machine.hardware_info = data.hardware_info
-        local_ui_port = data.local_ui_port if "local_ui_port" in data.model_fields_set else None
-        if local_ui_port is None and isinstance(data.hardware_info, dict) and "hardware_info" in data.model_fields_set:
-            raw_port = data.hardware_info.get("local_ui_port")
-            if isinstance(raw_port, (str, int)) and not isinstance(raw_port, bool):
-                local_ui_port = str(raw_port)
-        if local_ui_port is not None:
-            normalized_port = local_ui_port.strip()
-            machine.local_ui_port = normalized_port or None
+        if "network" in data.model_fields_set:
+            if data.network is None:
+                # The Sorter's owner turned the field off: forget the addresses.
+                machine.network_info = None
+                machine.network_reported_at = None
+            else:
+                network = normalize_network_block(data.network)
+                if network is not None:
+                    machine.network_info = network
+                    machine.network_reported_at = now
     db.commit()
     return {"ok": True, "machine_id": str(machine.id)}
 

@@ -7,6 +7,7 @@
 	// list is what you actually land on, with the settings a click away and
 	// their current values readable without opening anything.
 	let {
+		id,
 		title,
 		summary = '',
 		open = $bindable(false),
@@ -14,6 +15,7 @@
 		children,
 		actions
 	}: {
+		id?: string;
 		title: string;
 		summary?: string;
 		open?: boolean;
@@ -24,9 +26,24 @@
 
 	const uniq = $props.id();
 	const bodyId = `disclosure-${uniq}`;
+
+	// A box given an `id` is one a link can point at. The id is in the prerendered
+	// HTML, so the browser scrolls to it on its own; this opens it as well, because
+	// somebody arriving from a link that promised these settings should not land on
+	// a closed strip and have to guess that it clicks. `hashchange` covers the link
+	// being followed while the page is already open.
+	$effect(() => {
+		if (!id) return;
+		const openWhenTargeted = () => {
+			if (location.hash === `#${id}`) open = true;
+		};
+		openWhenTargeted();
+		window.addEventListener('hashchange', openWhenTargeted);
+		return () => window.removeEventListener('hashchange', openWhenTargeted);
+	});
 </script>
 
-<div class="setup-panel">
+<div class="setup-panel" {id}>
 	<div class="flex items-center">
 		<button
 			type="button"

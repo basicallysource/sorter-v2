@@ -60,6 +60,12 @@ TELEMETRY_FIELDS: tuple[dict[str, Any], ...] = (
         "description": "Basic hardware and software details — camera, controller board, platform, operating system, and per-camera calibration state — shown on the machine's dashboard and used for compatibility and support.",
         "default": True,
     },
+    {
+        "key": "network",
+        "label": "Network addresses",
+        "description": "Where to find this Sorter on your networks: its local addresses, Wi-Fi name, hostname and ports. Shown on its Hive page so you can open it from there.",
+        "default": True,
+    },
 )
 
 _TELEMETRY_FIELD_KEYS = tuple(field["key"] for field in TELEMETRY_FIELDS)
@@ -398,17 +404,28 @@ class HiveTelemetryClient:
             **kwargs,
         )
 
-    def heartbeat(self, machine_specs: dict[str, Any] | None = None) -> bool:
-        # Keep-alive so target reachability shows in the UI. It also carries the
-        # machine-specs snapshot when one is supplied and the "machine_specs"
-        # field is enabled for this target; reachability still works when the
-        # field is off (the body is simply omitted), so toggling specs off never
-        # makes the machine look offline.
-        body: dict[str, Any] | None = None
-        if machine_specs is not None and getTargetTelemetrySettings(self._target_id).get("machine_specs", False):
-            body = {"hardware_info": machine_specs}
+    def heartbeat(
+        self,
+        *,
+        network: dict[str, Any] | None = None,
+        machine_specs: dict[str, Any] | None = None,
+    ) -> bool:
+        # Keep-alive so target reachability shows in the UI. It also carries
+        # where to find the Sorter on its networks (every beat; it is small)
+        # and, when one is supplied, the machine-specs snapshot, each only
+        # while its field is enabled for this target. Reachability never
+        # depends on either, so turning them off never makes the machine look
+        # offline.
+        settings = getTargetTelemetrySettings(self._target_id)
+        body: dict[str, Any] = {}
+        if network is not None:
+            # With the field off the key is sent as null, which tells Hive to
+            # forget the addresses it already has.
+            body["network"] = network if settings.get("network", False) else None
+        if machine_specs is not None and settings.get("machine_specs", False):
+            body["hardware_info"] = machine_specs
         try:
-            response = self._session.post(f"{self._url}/api/machine/heartbeat", json=body, timeout=10)
+            response = self._session.post(f"{self._url}/api/machine/heartbeat", json=body or None, timeout=10)
             return response.status_code < 500
         except requests.RequestException:
             return False

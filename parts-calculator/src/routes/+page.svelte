@@ -563,7 +563,7 @@
 
 	<!-- print settings and build options: two boxes that say what they hold -->
 	<div class="mb-6 flex flex-col gap-3">
-	<Disclosure title="Print settings" summary={settingsSummary} bind:open={showSettings} flush>
+	<Disclosure id="print-settings" title="Print settings" summary={settingsSummary} bind:open={showSettings} flush>
 		<table class="pl-settings w-full max-w-xl">
 			<tbody>
 				{#each settingsRows as [k, v] (k)}

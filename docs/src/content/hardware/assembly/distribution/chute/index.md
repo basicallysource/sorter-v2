@@ -12,6 +12,13 @@ contributors: [alex, brickcyclealice, barthel]
 last_verified: 2026-09-07
 ---
 
+<figure class="figure-float-right">
+  <a href="https://assets.basically.website/sorter-docs/assembly-chute-stack-in-frame-full-7d6494495a4b.png" target="_blank" rel="noopener">
+    <img src="https://assets.basically.website/sorter-docs/assembly-chute-stack-in-frame-w1600-26cf1259d46f.jpg" alt="Render of four stacked chutes, each with its door module and funnel, shown solid against a ghosted outline of the frame and bins around them">
+  </a>
+  <figcaption><cite>Rendered from the CAD assembly, not from a build.</cite></figcaption>
+</figure>
+
 The chute is one per layer. Build the core first, since everything else bolts into its heat inserts.
 
 The whole chute stack rotates as one unit, on the [top interface]({{ '/hardware/assembly/distribution/top-interface/' | relative_url }})'s Lazy Susan, driven by the stepper motor and gear train described there. The bins themselves don't move; each chute's door opens for a moment once it's rotated into position over the correct bin, dropping the part in. See [Door module]({{ '/hardware/assembly/distribution/chute/door-module/' | relative_url }}) and [Layer adapter board]({{ '/hardware/assembly/distribution/chute/pcb/' | relative_url }}) for how that opening is driven and timed.
@@ -25,6 +32,8 @@ The whole chute stack rotates as one unit, on the [top interface]({{ '/hardware/
 ## Installing the chutes in the machine
 
 **Do not add the chutes while you build the layers.** Build the whole frame first, then add the chutes afterward, one at a time. alex was clear about this: "first build all the frame then add the chutes one by one without funnel."
+
+<div class="clear-float"></div>
 
 {% include step.html n="1" title="Build the whole frame first" %}
 

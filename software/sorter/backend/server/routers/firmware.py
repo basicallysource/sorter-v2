@@ -319,10 +319,11 @@ def get_firmware_config() -> Dict[str, Any]:
     except Exception:
         pass
     try:
+        from machine_toml import machine_toml_path
         from toml_config import loadTomlFile
 
-        params_path = os.getenv("MACHINE_SPECIFIC_PARAMS_PATH")
-        if params_path and os.path.exists(params_path):
+        params_path = machine_toml_path()
+        if params_path.exists():
             raw = loadTomlFile(params_path)
             payload["machine_setup"] = raw.get("machine_setup", payload["machine_setup"])
             payload["feeder_mode"] = raw.get("feeder", {}).get("mode")

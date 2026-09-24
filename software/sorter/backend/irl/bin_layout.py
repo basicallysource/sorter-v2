@@ -2,6 +2,8 @@ from typing import List
 from dataclasses import dataclass, field
 from enum import Enum
 
+from machine_toml import machine_toml_path
+
 
 @dataclass
 class LayerConfig:
@@ -223,8 +225,8 @@ def _loadFromToml() -> BinLayoutConfig | None:
     import os
     from toml_config import loadTomlFile
 
-    path = os.getenv("MACHINE_SPECIFIC_PARAMS_PATH")
-    if not path or not os.path.exists(path):
+    path = machine_toml_path()
+    if not path.exists():
         return None
     config = loadTomlFile(path)
 

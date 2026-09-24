@@ -6,7 +6,7 @@ export default defineConfig({
 	plugins: [tailwindcss(), sveltekit()],
 	server: {
 		// Reachable over Tailscale so the dev Hive can be used like a hosted
-		// instance (browse at http://flux.tailf1686d.ts.net:5174).
+		// instance (browse at http://<machine>.<tailnet>.ts.net:5174).
 		host: true,
 		allowedHosts: ['.ts.net'],
 		proxy: {

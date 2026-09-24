@@ -60,7 +60,7 @@ Switching a layer to the other size at this point means printing a new funnel as
 
 Both are real options and the machine holds them identically. Printed bins are in the parts catalog and need nothing but a printer and time; cut bins are cardboard, need a laser, and are what the machine was designed around.
 
-**Printed.** The five parts above, on the [parts calculator](https://parts-calculator.basically.website/), STLs and all. Budget for them: a half set is about 2.1 kg of filament and 55 hours of printing per layer, a third set about 2.1 kg and 60 hours, so a five layer machine is roughly 10 kg and ten days of printer time in bins alone. That is the single biggest print on the machine.
+**Printed.** The five parts above, on the [parts calculator](https://parts-calculator.basically.website/), STLs and all, printed the same way as everything else ([Printing the parts]({{ '/hardware/printing/' | relative_url }})). Budget for them: a half set is about 2.1 kg of filament and 55 hours of printing per layer, a third set about 2.1 kg and 60 hours, so a five layer machine is roughly 10 kg and ten days of printer time in bins alone. That is the single biggest print on the machine.
 
 **Laser cut cardboard.** The bins were designed to be cut flat and folded, for cost and because pre-made boxes in the sizes needed ship mostly air. Cut them with the [laser cut bin generator](https://bin-gen.basically.website/), which turns a bin into a foldable flat pattern for LightBurn:
 

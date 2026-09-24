@@ -40,3 +40,8 @@ CH2_DROPZONE_SECTIONS = range(101, 180)
 # the drop zone in the zone editor, and verify the motor spins the intended way
 # from the UI (the +1/-1 motor mapping is a guess until confirmed on hardware).
 CLASSIFICATION_CHANNEL_CLOCKWISE = True
+
+# The port the backend API serves on. main.py and api_only.py bind it, and the
+# Hive heartbeat reports it (machine_network.py) so the machine's Hive page can
+# point API users at it.
+BACKEND_PORT = 8000

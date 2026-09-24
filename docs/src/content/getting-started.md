@@ -49,7 +49,7 @@ To run the software from source you need Python 3.12+, Node.js 20+ and pnpm. The
 
 ## How the project works
 
-- **Contributions** go through pull requests on GitHub. Branch protection is enabled on main.
+- **Contributions** go through pull requests on GitHub. Branch protection is enabled on main. The project is source-available; the repo's [CONTRIBUTING.md](https://github.com/basicallysource/sorter-v2/blob/main/CONTRIBUTING.md) has the licensing details.
 - **Bounties** are posted on the Discord bounty board for discrete, high-priority tasks. Claim one if you can deliver within the posted timeline.
 - **Communication** happens on Discord. Engineering sync calls happen periodically and are recorded for async viewing.
 - **CAD collaboration** uses Onshape shared documents. The individual documents are public; for the shared folder, ask in the Discord with your Onshape email.

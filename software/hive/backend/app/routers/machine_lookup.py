@@ -95,7 +95,7 @@ class PubkeyPayload(BaseModel):
 
 
 class PublishPayload(BaseModel):
-    # Base64 ciphertext of the JSON {ip, hostname, port} blob, RSA-OAEP
+    # Base64 ciphertext of the JSON {ip, hostname, port, ssid} blob, RSA-OAEP
     # encrypted with the browser's public key. Opaque to Hive.
     ciphertext: str = Field(min_length=1, max_length=MAX_CIPHERTEXT_LEN)
 
@@ -103,12 +103,19 @@ class PublishPayload(BaseModel):
 @router.post("/{rendezvous_id}/pubkey")
 @limiter.limit("30/minute")
 def put_pubkey(rendezvous_id: str, payload: PubkeyPayload, request: Request) -> dict:
-    """Browser (on the https lookup page) uploads its public key."""
+    """Browser (on the https lookup page) uploads its public key, and keeps
+    re-posting it while it waits: each post extends the entry, and a restart
+    of this process (which empties the store) is repaired by the next one. A
+    different key (the page was reloaded) drops the address encrypted to the
+    old one, so the sorter sees nothing is waiting and publishes again."""
     _validate_id(rendezvous_id)
     with _lock:
         _prune_locked()
         entry = _entry(rendezvous_id)
+        if entry["pubkey"] != payload.pubkey:
+            entry["ciphertext"] = None
         entry["pubkey"] = payload.pubkey
+        entry["expires_at"] = _now() + TTL_SECONDS
     return {"ok": True}
 
 

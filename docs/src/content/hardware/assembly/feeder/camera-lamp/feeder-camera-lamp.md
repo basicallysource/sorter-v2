@@ -9,10 +9,7 @@ lede: The OV9732 720p module clasped between its two halves, pushed into the rin
 permalink: /hardware/assembly/feeder/camera-lamp/feeder-camera-lamp/
 author: reveryx
 contributors: [spencer, danny, brickcyclealice, barthel, daddyosbricksbill]
-og_image: https://assets.basically.website/sorter-docs/assembly-camera-lamp-ov9732-finished-full-ba5c51576455.jpg
-warning: >-
-  Steps 1 to 3 are photographed on a real build, and step 4 on a second one. The dovetail fit
-  itself (step 4) has never been dimensioned. Fill the gaps in as you build.
+og_image: https://assets.basically.website/sorter-docs/camera-lamp-cover-on-cord-through-slot-w1600-9678252fab1b.jpg
 parts_needed:
   - part: cam-ov9732
     qty: 1
@@ -56,7 +53,7 @@ The camera board sits in the recess in the **Camera clasp top**. Put the **Camer
 
 <figure class="single-figure">
   <img class="doc-figure" src="https://assets.basically.website/sorter-docs/camera-lamp-camera-in-clasp-no-cable-w1600-79b5a08ea522.jpg" alt="A hand holding the closed camera clasp, the camera board seated in the round grey disc with its ribbon socket empty and a rectangular slot in the plastic beside it">
-  <figcaption>The camera in the clasp. Its cable is not on yet; that goes on in step 4. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+  <figcaption>The camera in the clasp. Its cable is not on yet; it goes on before step 3 feeds the lead through the cover. <cite>Photo: BrickCycleAlice.</cite></figcaption>
 </figure>
 
 {% include step.html n="2" title="Push the clasp into the ring" %}
@@ -98,40 +95,18 @@ The [lamp arm]({{ '/hardware/assembly/feeder/camera-lamp/lamp-arm/' | relative_u
     <figcaption>From below, with the arm home: the camera seated in the ring at the centre. <cite>Photo: BrickCycleAlice.</cite></figcaption>
   </figure>
   <figure>
-    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/camera-lamp-cover-on-cord-through-slot-w1600-9678252fab1b.jpg" alt="The finished lamp from above: the grey cover seated on the reflector, the camera clasp recessed in the central opening, and the cord coming up through the rectangular slot in the cover">
-    <figcaption>Finished: the clasp recessed in the cover's opening, lead out through the slot. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-camera-lamp-ov9732-finished-full-ba5c51576455.jpg" alt="Looking straight down on a finished lamp: the grey cover with its square opening, the 720p camera board seated in the clasp inside it, and the ribbon lead leaving the board's connector through the slot below">
+    <figcaption>From above on a second build, with the arm home: the cover overlaps the clasp's rim and traps the camera. <cite>Photo: Daddy-O's Bricks - Bill.</cite></figcaption>
   </figure>
 </div>
 
-{% include step.html n="4" title="Later: hang the arm on the C-channel" %}
-
-**Not at the bench.** The lamp goes onto its channel later, when the channels are standing on the top plate. Read this step then, and put the finished lamp aside for now.
-
-**It hangs off a dovetail, not a screw.** The outside of the channel wall carries a row of dovetails. Use the **5th one from the channel exit**, counting anticlockwise seen from above. C2 and C3 are the same, and the classification channel is different. **It goes on from underneath**: offer the mount up to the bottom edge of the wall, feed its rail into the dovetail and push it up until it clips over the top edge. That is the whole joint, and the mount has no other fixing.
-
-<div class="callout callout-warning">
-  <span class="callout-icon" aria-hidden="true">⚠</span>
-  <p><strong>The dovetail on the arm can break</strong> when a lamp needs to be removed and repositioned. Use caution if repositioning is needed.</p>
-</div>
-
-It is a printed joint and the fit has not been dimensioned, so it may be tight or it may have a little play. **Do not force it and do not file it down**: if it will not go on, say so in the Discord with a photo, because that is a part problem rather than a step you are doing wrong.
-
-The lamp goes on during [arranging C-channels]({{ '/hardware/assembly/feeder/arranging-c-channels/' | relative_url }}), onto the two [feeder channels]({{ '/hardware/assembly/feeder/c-channels/feeder-channels/' | relative_url }}).
-
-<figure class="single-figure">
-  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/camera-lamp-on-channel-w1600-8d957377d671.jpg" alt="A camera lamp on the machine: a grey disc-shaped lamp on an angled arm hanging over the open top of a C-channel, the white reflector lit inside it, with the black bulk bucket behind">
-  <figcaption>What it looks like once it is on, lit. <cite>Photo: Spencer.</cite></figcaption>
-</figure>
-
-Use the dovetail the count gives you rather than the one that looks right. Where the lamp sits changes what the camera sees, and [camera calibration]({{ '/sorter/camera-calibration/' | relative_url }}) afterwards is software, not a way to fix a lamp in the wrong place.
-
 ## The finished result
 
-A finished lamp on the bench: the arm, the shaded lamp and the 720p camera seated at its centre. Build two, and they go onto their channels later.
+A finished lamp on the bench: the arm, the shaded lamp and the 720p camera trapped under the cover. Build two. They hang onto C2 and C3 later, at step 9 of [arranging C-channels]({{ '/hardware/assembly/feeder/arranging-c-channels/' | relative_url }}), once the channels are standing.
 
 <figure class="single-figure">
-  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-camera-lamp-ov9732-finished-full-ba5c51576455.jpg" alt="Looking straight down on a finished lamp: the grey cover with its square opening, the 720p camera board seated in the clasp inside it, and the ribbon lead leaving the board's connector through the slot below">
-  <figcaption>A finished lamp, the 720p camera seated at its centre. <cite>Photo: Daddy-O's Bricks - Bill.</cite></figcaption>
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/camera-lamp-cover-on-cord-through-slot-w1600-9678252fab1b.jpg" alt="The finished lamp from above: the grey cover seated on the reflector, the camera clasp recessed in the central opening, and the cord coming up through the rectangular slot in the cover">
+  <figcaption>Finished: the clasp recessed in the cover's opening, lead out through the slot. <cite>Photo: BrickCycleAlice.</cite></figcaption>
 </figure>
 
 Wiring is [Preparing the LED strip]({{ '/hardware/helpers/led-strip/' | relative_url }}) for the strip, and the [electronics]({{ '/hardware/electronics/' | relative_url }}) page for the camera.

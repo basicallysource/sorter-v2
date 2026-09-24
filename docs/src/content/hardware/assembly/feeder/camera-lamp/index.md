@@ -40,12 +40,12 @@ Each page ends in one of these.
     <figcaption><a href="{{ '/hardware/assembly/feeder/camera-lamp/lamp-arm/' | relative_url }}">Lamp arm</a>, from below. <cite>Rendered from the part geometry, not from a build. Render: Spencer.</cite></figcaption>
   </figure>
   <figure>
-    <img src="https://assets.basically.website/sorter-docs/camera-lamp-on-channel-w1600-8d957377d671.jpg" alt="A camera lamp on the machine: a grey disc-shaped lamp on an angled arm hanging over the open top of a C-channel, the white reflector lit inside it, with the black bulk bucket behind">
-    <figcaption><a href="{{ '/hardware/assembly/feeder/camera-lamp/feeder-camera-lamp/' | relative_url }}">Feeder camera lamp</a>, over its channel. <cite>Photo: Spencer.</cite></figcaption>
+    <img src="https://assets.basically.website/sorter-docs/camera-lamp-cover-on-cord-through-slot-w1600-9678252fab1b.jpg" alt="The finished lamp from above: the grey cover seated on the reflector, the camera clasp recessed in the central opening, and the cord coming up through the rectangular slot in the cover">
+    <figcaption><a href="{{ '/hardware/assembly/feeder/camera-lamp/feeder-camera-lamp/' | relative_url }}">Feeder camera lamp</a>, the clasp recessed in the cover's opening. <cite>Photo: BrickCycleAlice.</cite></figcaption>
   </figure>
   <figure>
-    <img src="https://assets.basically.website/sorter-docs/assembly-camera-lamp-imx415-finished-full-ffc5214cce8a.jpg" alt="Looking down on a finished classification lamp: the 4K camera board seated in the clasp at the centre of the cover, its cable plugged into the top of the board">
-    <figcaption><a href="{{ '/hardware/assembly/feeder/camera-lamp/classification-camera-lamp/' | relative_url }}">Classification camera lamp</a>, the 4K camera seated. <cite>Photo: Daddy-O's Bricks - Bill.</cite></figcaption>
+    <img src="https://assets.basically.website/sorter-docs/assembly-camera-lamp-imx415-lead-routing-w1600-ff6852248c3f.jpg" alt="The classification lamp, marked 4, from a lower angle: the camera cable standing up out of the board, the red and black lamp leads looped over the cover and cable-tied clear of it, and the rectangular slot in the cover below">
+    <figcaption><a href="{{ '/hardware/assembly/feeder/camera-lamp/classification-camera-lamp/' | relative_url }}">Classification camera lamp</a>, on C4 with its cable standing up out of the board. <cite>Photo: Daddy-O's Bricks - Bill.</cite></figcaption>
   </figure>
 </div>
 

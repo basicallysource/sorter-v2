@@ -10,15 +10,65 @@ permalink: /sorter/troubleshooting/
 
 Each entry: what you see → cause → fix → how to verify. For the install procedure itself, see [Installation]({{ '/sorter/installation/' | relative_url }}).
 
-## `.onnx` files are tiny — backend logs a malformed model error
+## First boot {#first-boot}
 
-`du -h software/sorter/backend/blob/local_detection_models/*.onnx` shows files of a few hundred bytes.
+These are for [SorterOS]({{ '/sorter/installation/sorter-os/' | relative_url }}). While it sets up, the Pi serves a progress page at `http://sorter.local` that lists every stage, and next to a stage that is stuck, the reason.
 
-**Cause:** Git LFS was not initialized before the clone.
+### `sorter.local` doesn't open
 
-**Fix:** Re-run `software/install.sh`, or by hand: `git lfs install && git lfs pull`.
+**Cause:** mDNS only works on the Pi's own network, older Windows needs Bonjour for it, and a second SorterOS machine on the same network answers at `sorter-2.local`.
 
-**Verify:** `du -h` reports MB, not bytes.
+**Fix:** Browse from a device on the same network, or find the Pi in your router's list of connected devices and use its IP address.
+
+**Verify:** The progress page or the Sorter UI loads.
+
+### A stage says `waiting for internet`
+
+**Cause:** The Pi is on a network, but the internet doesn't answer through it: an Ethernet port with no upstream, or a WiFi network that doesn't reach the internet. Within about a minute the Pi opens its `SorterOS-Setup-` network so you can give it one that does.
+
+**Fix:** Plug the Pi into a port on your router, or join `SorterOS-Setup-` from a phone and pick a WiFi network that reaches the internet.
+
+**Verify:** The stage moves on within a minute.
+
+### No `SorterOS-Setup-` network appears
+
+**Cause:** The Pi only opens it when the internet doesn't answer through any network it's on. If a cable or the WiFi you gave it gets it online, there's nothing to set up. Otherwise it's been less than about half a minute since power-on (a minute while a cable or a saved WiFi network is still trying), or the board has no WiFi (see the [Orange Pi 5 page]({{ '/hardware/orange-pi-5/' | relative_url }}#wifi)).
+
+**Fix:** Look for the Pi on your network at `http://sorter.local` first. If it isn't there, wait a minute with no cable in, or use Ethernet.
+
+**Verify:** The network shows up in your phone's WiFi list.
+
+### Your network isn't in the setup page's list
+
+**Cause:** A network that's off, out of range of the Pi, or hidden isn't listed. Until the Pi knows your time zone it listens on every channel but doesn't call out on the ones it isn't sure your country allows, so a hidden network on 5 GHz can't be found yet.
+
+**Fix:** Tap **Refresh**. If it's still missing, choose **Other network** and type its name exactly (spaces and capitals count). If your router has separate 2.4 GHz and 5 GHz networks and the 5 GHz one isn't found, pick the 2.4 GHz one; the Pi learns your country from the setup page, so the 5 GHz one works from its next start.
+
+**Verify:** The page says **Your Sorter is on** your network.
+
+### **Find my sorter** keeps waiting
+
+**Cause:** The network the Pi joined doesn't reach the internet, so it can't report its address, or it came online more than 15 minutes ago, after which it stops reporting.
+
+**Fix:** Use the address the setup page showed when the Pi joined. If you didn't note it, browse to `http://<name>.local` (the name you gave it, `sorter` if you didn't), find the Pi in your router's list of connected devices, or join `SorterOS-Setup-` again if it's in your phone's WiFi list: the page shows where the Pi is.
+
+**Verify:** The Sorter UI or the first-boot progress page loads.
+
+### The WiFi entered in SorterOS Setup was wrong
+
+**Cause:** A typo, or the network changed.
+
+**Fix:** Nothing to reflash. The Pi opens its `SorterOS-Setup-` network within a minute; join it from a phone. The page says why the first try failed; enter the right password.
+
+**Verify:** The setup network disappears and the Pi answers at `http://sorter.local`.
+
+### `tailscale-up` shows ✕
+
+**Cause:** The Tailscale key was rejected (expired, already used, or not allowed the `tag:sorter` tag). After ten tries the Pi stops trying. The Sorter UI is not affected.
+
+**Fix:** Connect Tailscale from the UI's **Settings** later.
+
+**Verify:** The machine shows up in your Tailscale admin console.
 
 ---
 

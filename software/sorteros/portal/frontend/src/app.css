@@ -1,36 +1,151 @@
 @import 'tailwindcss';
 
+/* The Sorter app's design tokens and surfaces, copied from
+   software/sorter/frontend/src/routes/layout.css (the two apps share no code).
+   Two differences, both because this page runs in a phone's captive-portal
+   window with no internet and no settings:
+   - fonts are the system's, since IBM Plex comes from a font CDN;
+   - dark mode follows the phone (prefers-color-scheme) instead of the app's
+     stored toggle. */
+
 @theme {
-	--color-bg: #0a0a0a;
-	--color-surface: #141414;
-	--color-border: #2a2a2a;
-	--color-text: #e5e5e5;
-	--color-text-muted: #888;
-	--color-accent: #fbbf24;
-	--color-accent-dark: #d97706;
-	--color-success: #4ade80;
-	--color-danger: #ef4444;
-	--font-mono: ui-monospace, 'SF Mono', Menlo, monospace;
+	--color-bg: #f7f6f3;
+	--color-surface: #ffffff;
+	--color-border: #e2e0db;
+	--color-text: #1a1a1a;
+	--color-text-muted: #7a7770;
+	--color-primary: #0055bf;
+	--color-primary-hover: #004499;
+	--color-primary-contrast: #ffffff;
+	--color-danger: #d01012;
+	--color-success: #00852b;
+	--color-warning: #f2a900;
+	--color-info: #0055bf;
+	--font-sans:
+		ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
+		'Helvetica Neue', Arial, sans-serif;
+	--font-mono:
+		ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
 }
 
-html,
+:root {
+	color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+	:root {
+		color-scheme: dark;
+		--color-bg: #0d0d0c;
+		--color-surface: #1a1918;
+		--color-border: #2a2926;
+		--color-text: #f5f4f1;
+		--color-text-muted: #9a9890;
+	}
+}
+
 body {
 	background: var(--color-bg);
 	color: var(--color-text);
-	font-family:
-		system-ui,
-		-apple-system,
-		'Segoe UI',
-		sans-serif;
-	line-height: 1.5;
-	min-height: 100vh;
+	font-family: var(--font-sans);
+	-webkit-text-size-adjust: 100%;
 }
 
-* {
-	box-sizing: border-box;
+*:focus-visible {
+	outline: 2px solid var(--color-text-muted);
+	outline-offset: 2px;
 }
 
-input,
-button {
-	font: inherit;
+.setup-panel {
+	border: 1px solid var(--color-border);
+	background: var(--color-surface);
+	box-shadow:
+		inset 0 1px 0 rgba(255, 255, 255, 0.9),
+		0 1px 2px rgba(32, 28, 20, 0.04);
+}
+
+.setup-control {
+	min-height: 2.75rem;
+	border: 1px solid #d6d3cb;
+	background: var(--color-surface);
+	color: var(--color-text);
+	box-shadow:
+		inset 0 1px 0 rgba(255, 255, 255, 0.9),
+		0 1px 2px rgba(32, 28, 20, 0.02);
+}
+
+.setup-control::placeholder {
+	color: var(--color-text-muted);
+}
+
+.setup-control:hover {
+	border-color: #b9b5ab;
+}
+
+.setup-control:focus,
+.setup-control:focus-visible {
+	outline: none;
+	border-color: var(--color-primary);
+	box-shadow:
+		0 0 0 3px color-mix(in oklab, var(--color-primary) 14%, transparent),
+		inset 0 1px 0 rgba(255, 255, 255, 0.95);
+}
+
+.setup-button-secondary {
+	border: 1px solid #d6d3cb;
+	background: #f3f1ec;
+	box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.75);
+}
+
+.setup-button-secondary:hover {
+	border-color: #b9b5ab;
+	background: #ebe8e1;
+}
+
+.setup-button-primary {
+	border: 1px solid var(--color-primary);
+	background: var(--color-primary);
+	color: var(--color-primary-contrast);
+	box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18);
+}
+
+.setup-button-primary:hover {
+	border-color: var(--color-primary-hover);
+	background: var(--color-primary-hover);
+}
+
+@media (prefers-color-scheme: dark) {
+	.setup-panel {
+		box-shadow: none;
+	}
+
+	.setup-control {
+		border-color: #48433a;
+		background: #141311;
+		box-shadow: none;
+	}
+
+	.setup-control:hover {
+		border-color: #666054;
+	}
+
+	.setup-control:focus,
+	.setup-control:focus-visible {
+		border-color: var(--color-primary);
+		box-shadow: none;
+	}
+
+	.setup-control::placeholder {
+		color: #8e897f;
+	}
+
+	.setup-button-secondary {
+		border-color: #48433a;
+		background: #141311;
+		box-shadow: none;
+	}
+
+	.setup-button-secondary:hover {
+		border-color: #666054;
+		background: #1d1b18;
+	}
 }

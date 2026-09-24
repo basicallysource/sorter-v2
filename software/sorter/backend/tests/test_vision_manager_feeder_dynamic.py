@@ -142,25 +142,28 @@ class VisionManagerFeederDynamicTests(unittest.TestCase):
         self.assertEqual((1, 1, 4, 4), result.bbox)
         self.assertEqual([("c_channel_2", result, 123.0)], updates)
 
-    def test_bundled_feeder_model_runs_local_model_detection_path(self) -> None:
+    def test_local_feeder_model_runs_local_model_detection_path(self) -> None:
         vm = VisionManager.__new__(VisionManager)
+        vm.gc = SimpleNamespace(runtime_stats=SimpleNamespace(observePerfMs=lambda *_a, **_k: None))
         frame = SimpleNamespace(timestamp=123.0, raw=np.zeros((8, 8, 3), dtype=np.uint8))
         detection = DetectionResult(
             bbox=(1, 1, 4, 4),
             bboxes=((1, 1, 4, 4),),
             score=0.9,
-            algorithm="bundled:c-channel",
+            algorithm="local:c-channel",
             found=True,
         )
         infer_calls: list[tuple[str, str, str]] = []
         updates: list[tuple[str, object, float]] = []
 
         vm.getCaptureThreadForRole = lambda role: SimpleNamespace(latest_frame=frame)
-        vm.getFeederDetectionAlgorithm = lambda role=None: "bundled:c-channel"
+        vm.getFeederDetectionAlgorithm = lambda role=None: "local:c-channel"
         vm._feeder_dynamic_detection_cache = {}
         vm._filterFeederDetectionResultToChannel = lambda role, current_detection: current_detection
         vm._runHiveDetection = (
-            lambda algorithm, raw, scope, role: infer_calls.append((algorithm, scope, role))
+            lambda algorithm, raw, scope, role, conf_threshold=None: infer_calls.append(
+                (algorithm, scope, role)
+            )
             or detection
         )
         vm._updateFeederTracker = (
@@ -172,16 +175,16 @@ class VisionManagerFeederDynamicTests(unittest.TestCase):
         result = VisionManager._getFeederDynamicDetection(vm, "c_channel_2", force=False)
 
         self.assertIs(result, detection)
-        self.assertEqual([("bundled:c-channel", "feeder", "c_channel_2")], infer_calls)
+        self.assertEqual([("local:c-channel", "feeder", "c_channel_2")], infer_calls)
         self.assertEqual([("c_channel_2", detection, 123.0)], updates)
 
-    def test_get_or_build_hive_processor_accepts_bundled_registry_entries(self) -> None:
+    def test_get_or_build_hive_processor_accepts_local_registry_entries(self) -> None:
         vm = VisionManager.__new__(VisionManager)
         vm._hive_ml_processors = {}
         vm.gc = SimpleNamespace(logger=SimpleNamespace(warning=lambda *_a, **_k: None))
         definition = SimpleNamespace(
-            kind="bundled",
-            model_path=Path("/tmp/bundled.onnx"),
+            kind="local",
+            model_path=Path("/tmp/local.onnx"),
             model_family="yolo",
             runtime="onnx",
             imgsz=320,
@@ -192,10 +195,10 @@ class VisionManagerFeederDynamicTests(unittest.TestCase):
             patch("vision.detection_registry.detection_algorithm_definition", return_value=definition),
             patch("vision.ml.create_processor", return_value=processor) as create_processor,
         ):
-            result = VisionManager._getOrBuildHiveProcessor(vm, "bundled:c-channel")
+            result = VisionManager._getOrBuildHiveProcessor(vm, "local:c-channel")
 
         self.assertIs(result, processor)
-        self.assertIs(vm._hive_ml_processors["bundled:c-channel"], processor)
+        self.assertIs(vm._hive_ml_processors["local:c-channel"], processor)
         create_processor.assert_called_once()
 
     def test_refresh_auxiliary_detections_runs_all_dynamic_roles_per_tick(self) -> None:

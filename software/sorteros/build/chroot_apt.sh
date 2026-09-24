@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Runs inside the chroot via `chroot <rootfs> /tmp/chroot_apt.sh`.
-# Installs the v3 apt delta on top of the Orange Pi base.
+# Installs the SorterOS apt delta on top of the Orange Pi base.
 # Kept tiny on purpose — every package here is build time and image bytes.
 
 set -euo pipefail
@@ -32,27 +32,18 @@ apt-get install "${APT_OPTS[@]}" \
     python3-tomli \
     libgl1 libglib2.0-0 \
     v4l-utils \
-    git-lfs \
+    avahi-daemon libnss-mdns \
+    iw \
     cloud-guest-utils \
     figlet \
     systemd-timesyncd \
     qrencode
 
-log "installing sorteros-portal python deps"
-# Onboarding portal runs before the repo is cloned and before uv pulls the
-# backend's venv — needs its own system-wide install of fastapi+uvicorn+
-# pydantic. They land in /usr/local/lib/python3.* so `python3 portal.py`
-# works straight from the overlay'd /usr/local/sbin/.
-python3 -m pip install --no-cache-dir --break-system-packages \
-    fastapi==0.115.4 \
-    'uvicorn[standard]==0.32.0' \
-    pydantic==2.9.2 \
-    cryptography==43.0.3 || \
-    python3 -m pip install --no-cache-dir \
-        fastapi==0.115.4 \
-        'uvicorn[standard]==0.32.0' \
-        pydantic==2.9.2 \
-        cryptography==43.0.3
+log "installing sorteros-network's python deps"
+# sorteros-network runs before the repo is cloned; it seals the Sorter's
+# address for the setup page's Find my sorter link with this.
+python3 -m pip install --no-cache-dir --break-system-packages cryptography==43.0.3 || \
+    python3 -m pip install --no-cache-dir cryptography==43.0.3
 
 # Without an enabled NTP client the system boots with a stale RTC, TLS certs
 # fail "not yet valid", and clone-repo/uv-sync/pnpm-install all bail with
@@ -93,12 +84,15 @@ log "cleaning apt caches"
 apt-get clean
 rm -rf /var/lib/apt/lists/*
 
-# Enable the v3 services (they're installed by the overlay step).
+# The machine answers as <hostname>.local (sorter.local by default).
+systemctl enable avahi-daemon.service || true
+
+# Enable the SorterOS services (they're installed by the overlay step).
 log "enabling sorteros-firstboot"
 systemctl enable sorteros-firstboot.service || true
 
-log "enabling sorteros-onboarding (portal)"
-systemctl enable sorteros-onboarding.service || true
+log "enabling sorteros-network (Ethernet, saved Wi-Fi, else the setup network)"
+systemctl enable sorteros-network.service || true
 
 # We install dnsmasq-base (the binary NetworkManager spawns for AP/shared
 # mode — required by the onboarding captive portal). The standalone

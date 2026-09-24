@@ -21,14 +21,23 @@ def _have_nmcli() -> bool:
     return bool(shutil.which("nmcli"))
 
 
+# nmcli draws a progress line while it associates and erases it with ESC[2K,
+# which otherwise ends up in the message the UI shows. Cursor control, not
+# colour, so --colors no doesn't help.
+_CONTROL_SEQUENCES = re.compile(r"\x1b\[[0-9;?]*[ -/]*[@-~]|[\x00-\x08\x0b-\x1f]")
+
+
 def _run(*args: str, timeout: float = 10.0) -> subprocess.CompletedProcess:
-    return subprocess.run(
+    proc = subprocess.run(
         ["nmcli", *args],
         capture_output=True,
         text=True,
         timeout=timeout,
         check=False,
     )
+    proc.stdout = _CONTROL_SEQUENCES.sub("", proc.stdout or "")
+    proc.stderr = _CONTROL_SEQUENCES.sub("", proc.stderr or "")
+    return proc
 
 
 def _split_terse(line: str) -> List[str]:
@@ -51,8 +60,15 @@ def _device_ip(device: str) -> Optional[str]:
     return None
 
 
+# SorterOS broadcasts its setup network from a second interface on the same
+# radio. It is never a way online, and making it a client can switch the
+# radio off, so it is neither listed nor used here.
+SETUP_IFACE = "ap0"
+
+
 def _wifi_devices() -> List[Dict[str, Any]]:
-    # DEVICE,TYPE,STATE,CONNECTION — keep only real wifi radios (not wifi-p2p).
+    # DEVICE,TYPE,STATE,CONNECTION — keep only real wifi radios (not wifi-p2p,
+    # not the setup network's interface).
     proc = _run("-t", "-f", "DEVICE,TYPE,STATE,CONNECTION", "device", "status", timeout=6.0)
     devices: List[Dict[str, Any]] = []
     if proc.returncode != 0:
@@ -61,7 +77,7 @@ def _wifi_devices() -> List[Dict[str, Any]]:
         if not line.strip():
             continue
         parts = _split_terse(line)
-        if len(parts) < 4 or parts[1] != "wifi":
+        if len(parts) < 4 or parts[1] != "wifi" or parts[0] == SETUP_IFACE:
             continue
         device, _type, state, connection = parts[0], parts[1], parts[2], parts[3]
         connected = state == "connected"
@@ -145,22 +161,24 @@ def wifi_scan() -> Dict[str, Any]:
 class WifiConnectPayload(BaseModel):
     ssid: str
     password: Optional[str] = None
-    device: Optional[str] = None  # adapter to use; None lets NetworkManager pick
+    device: Optional[str] = None  # adapter to use; None means the first one
 
 
 @router.post("/api/wifi/connect")
 def wifi_connect(payload: WifiConnectPayload) -> Dict[str, Any]:
     if not _have_nmcli():
         return {"ok": False, "error": "nmcli not found"}
-    ssid = payload.ssid.strip()
-    if not ssid:
+    # Kept exactly as given: spaces at either end are legal in an SSID.
+    ssid = payload.ssid
+    if not ssid.strip():
         return {"ok": False, "error": "ssid is required"}
 
-    args = ["device", "wifi", "connect", ssid]
+    device = (payload.device or "").strip() or next((d["device"] for d in _wifi_devices()), "")
+    if not device or device == SETUP_IFACE:
+        return {"ok": False, "error": "No Wi-Fi adapter to connect with"}
+    args = ["device", "wifi", "connect", ssid, "ifname", device]
     if payload.password:
         args += ["password", payload.password]
-    if payload.device:
-        args += ["ifname", payload.device.strip()]
 
     try:
         # Association + DHCP can take a while on a slow AP; keep it generous.

@@ -1,8 +1,17 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-const START_MARKER = '__SORTEROS_CFG_START__';
-const END_MARKER = '__SORTEROS_CFG_END__';
+// Same layout the v3 builder wrote: marker comment lines around newline
+// padding. A released image also carries the bare marker text in a compiled
+// .pyc about 1 GB earlier (2 bytes apart); the decoy reproduces that.
+const START_MARKER = '# __SORTEROS_CFG_START__\n';
+const END_MARKER = '# __SORTEROS_CFG_END__\n';
+const PYC_DECOY = Buffer.concat([
+    Buffer.from([0xda, 0x16]),
+    Buffer.from('__SORTEROS_CFG_START__', 'utf8'),
+    Buffer.from([0xda, 0x14]),
+    Buffer.from('__SORTEROS_CFG_END__', 'utf8')
+]);
 const PLACEHOLDER_BYTES = 4096;
 const DEFAULT_SIZE_MIB = 64;
 
@@ -53,6 +62,7 @@ function main() {
     const size_bytes = Math.max(1, Math.floor(args.size_mib)) * 1024 * 1024;
     const placeholder = buildPlaceholder();
     const prefix = Buffer.alloc(2 * 1024 * 1024, 0);
+    PYC_DECOY.copy(prefix, 1024 * 1024);
     const suffix_size = size_bytes - prefix.length - placeholder.length;
 
     if (suffix_size < 0) {

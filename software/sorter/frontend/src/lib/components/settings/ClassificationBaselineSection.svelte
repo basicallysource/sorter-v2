@@ -493,7 +493,7 @@
 					<div
 						class="border border-warning bg-warning/10 px-3 py-2 text-sm text-warning-dark dark:text-amber-200"
 					>
-						Currently using <span class="font-mono">{algorithm}</span> (legacy). Pick a Hive or bundled
+						Currently using <span class="font-mono">{algorithm}</span> (legacy). Pick a Hive or local
 						model above to switch this station to the new pipeline.
 					</div>
 				{/if}

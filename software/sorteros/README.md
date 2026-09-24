@@ -1,39 +1,53 @@
-# SorterOS v4
+# SorterOS
 
-> Predecessor: SorterOS v3 used a browser-side image customizer
-> (`sorteros-setup/`) that patched WiFi/hostname/SSH placeholders into a
-> downloaded `.img` before flashing. v4 ships a single generic image and
-> moves all configuration to a captive portal on the device — no more
-> placeholders, no more pre-flash customizer.
+The Orange Pi image for the Sorter. It answers at `http://sorter.local`.
+
+Getting it online, at every boot: Ethernet if there's a cable; else the Wi-Fi
+saved on it (from the setup site before flashing, or from its setup page
+earlier); else it broadcasts a `SorterOS-Setup-XXXXXX` network whose page
+takes Wi-Fi details from a phone. See `build/overlay/usr/local/sbin/sorteros-network.py`.
 
 ## What's here
 
-- **`build/`** — Python image builder. Runs locally on the M2 Mac via colima. No qemu, no Hive. Target wall-time < 3 min.
+- **`build/`** — the image builder (Linux, arm64 or x86_64). See its README.
 - **`portal/`** — Captive-portal stack the image boots into when no Wi-Fi is configured. FastAPI backend + SvelteKit static frontend, both source-of-truth here. The build copies them into `/usr/local/sbin/sorteros-portal.py` and `/var/www/portal/` on the image.
-- **`build-dashboard/`** — Local web UI + agent API in front of the builder.
+- **`test/`** — checks a built image, boots it in QEMU through first boot, and unit-tests the network decisions (`test_network.py`), before anyone flashes a card.
+- **`sorteros-setup/`** — the setup site: writes Wi-Fi, hostname, SSH key and Tailscale key into a downloaded `.img` before flashing.
 
 ## Boot story
 
 ```
 fresh flash
    │
-   ├─→ sorteros-onboarding.service (Before=firstboot)
-   │    ├─ /var/lib/sorteros/wifi-configured present? → exit 0
-   │    └─ else: nmcli AP up + sorteros-portal on 10.42.0.1:80
-   │              └─ user submits SSID/password
-   │                    └─ portal writes .nmconnection, touches gate,
-   │                       brings the AP down
+   ├─→ sorteros-network.service (every boot, Before=firstboot)
+   │    ├─ Wi-Fi in /etc/sorteros-config.toml (setup site)? save it in NM, once
+   │    ├─ online within 45 s (90 s with a saved Wi-Fi)? → exit 0
+   │    └─ else: SorterOS-Setup-XXXXXX + sorteros-portal on 10.42.0.1:80
+   │         until the page joins a network, a cable appears, or a saved
+   │         network comes back (retried every 3 min while nobody's on it);
+   │         a failed join from the page brings the setup network back
    │
    ├─→ sorteros-firstboot.service (Type=simple, 60s loop)
-   │    ├─ reads /etc/sorteros-config.toml (populated by portal)
-   │    ├─ stages: ssh-keys, grow-rootfs, swap, repo-clone, lfs-pull,
-   │    │           env files, machine.toml, tailscale-up, …
-   │    └─ status HTML on :80 until done
+   │    ├─ applies /etc/sorteros-config.toml whenever it changes
+   │    │   (hostname, SSH key, Tailscale key)
+   │    ├─ stages: ssh-keys, grow-rootfs, swap, clone-repo (newest
+   │    │           sorter/stable/v* tag), env files, machine.toml,
+   │    │           uv-sync, pnpm, install-services
+   │    ├─ status HTML on :80 until those are done, with any stage's error
+   │    └─ then tailscale (if a key was given) in the background; gives up
+   │       after 10 failures instead of blocking anything
    │
-   └─→ sorter-ui.service takes over :80 with the regular setup wizard
+   └─→ sorter-ui.service takes over :80 with the regular setup wizard,
+       and the backend installs Hive's default vision model for this
+       hardware on every channel that has none
 ```
 
-Recovery: deleting `/var/lib/sorteros/wifi-configured` (and rebooting) drops the device back into AP mode. A future change wires this to a long-press GPIO button.
+The image does not carry the Sorter software: first boot checks out the newest
+`sorter/stable/v*` tag, the same release channel the UI's Versions page
+updates within. `build.py --ref <branch>` bakes a different ref for a test
+image.
+
+Recovery is automatic: a machine that can't get online at boot (new router, changed password) opens its setup network.
 
 ## Layout
 
@@ -45,7 +59,8 @@ sorteros/
 │   ├── backend/portal.py
 │   ├── frontend/      # SvelteKit + adapter-static + Tailwind v4
 │   └── README.md      # local dev / mock-mode walkthrough
-└── build-dashboard/   # local builder UI
+├── test/              # QEMU boot test
+└── sorteros-setup/    # the setup site (setup.basically.website)
 ```
 
 The portal source is the single source of truth — the build's `portal` phase copies `portal/backend/portal.py` into the rootfs and `pnpm build`s `portal/frontend/` into `/var/www/portal/`. Editing the portal during development uses mock mode and never touches an image.

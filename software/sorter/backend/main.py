@@ -570,6 +570,11 @@ def main() -> None:
     gc.hive_sync_worker = hive_sync_worker
     with gc.profiler.timer("startup.vision_start_ms"):
         vision.start()
+    # A detection slot with no usable model gets Hive's default for this
+    # machine's runtime, in the background (nothing happens when every slot
+    # has one). See server/default_model.py.
+    from server import default_model
+    default_model.start(gc.logger)
     with gc.profiler.timer("startup.waveshare_inventory_ms"):
         waveshare_inventory = get_waveshare_inventory_manager()
         waveshare_inventory.start()

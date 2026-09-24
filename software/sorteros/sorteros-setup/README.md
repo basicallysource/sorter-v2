@@ -1,7 +1,8 @@
 # sorteros-setup
 
-Browser-side .img customizer for SorterOS v3. SvelteKit + Tailwind, deployed
-to Vercel at **<https://setup.basically.website>**.
+Browser-side .img customizer for SorterOS. SvelteKit + Tailwind, deployed
+to Vercel at **<https://setup.basically.website>**. Optional: a machine with
+no settings uses Ethernet, or opens its setup network (`../portal/`).
 
 ## What it does
 

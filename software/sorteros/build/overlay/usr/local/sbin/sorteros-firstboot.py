@@ -1,30 +1,35 @@
 """
-SorterOS v3 firstboot daemon.
+SorterOS firstboot daemon.
 
 Type=simple background service. Loops every 60s. Each stage is idempotent
 and guarded by a stamp file. Stages that need internet just skip themselves
 and retry next iteration when offline — boot is NEVER blocked, errors are
 NEVER fatal.
 
-When all stages are stamped done, the daemon exits 0 and systemd stops
+The stages up to install-services are what it takes to run the Sorter UI.
+The moment those are done the status page hands port 80 to the UI, even if a
+later stage (Tailscale) is still retrying or has given up. A later stage that
+keeps failing stops after LATE_STAGE_MAX_FAILURES tries so a bad key doesn't
+retry forever.
+
+When every stage is done or given up, the daemon exits 0 and systemd stops
 restarting it (RestartPreventExitStatus=0 in the unit).
 """
 
 from __future__ import annotations
 
-import base64
+import hashlib
 import html as _html
 import json
 import logging
 import os
 import random
 import re
+import shutil
 import socket
 import subprocess
 import threading
 import time
-import urllib.error
-import urllib.request
 from dataclasses import dataclass
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -62,22 +67,24 @@ except ImportError:
 
 STAMP_DIR = Path("/var/lib/sorteros")
 CONFIG_PATH = Path("/etc/sorteros-config.toml")
+REF_PATH = Path("/etc/sorteros/ref")
 STATUS_PORT = 80
+REPO_URL = "https://github.com/basicallysource/sorter-v2"
 REPO_DIR = Path("/home/orangepi/sorter-v2")
 SOFTWARE_DIR = REPO_DIR / "software"
+# The image bakes "stable" into REF_PATH: check out the newest release tag in
+# the stable channel, the same tags the Sorter UI's Versions page updates to.
+# A test image may bake a branch, tag or commit instead.
+STABLE_REF = "stable"
+STABLE_TAG_PREFIX = "sorter/stable/v"
 POLL_INTERVAL = 60
+WAITING_POLL_INTERVAL = 10  # waiting for the internet: a phone may be putting it on Wi-Fi right now
+SOFTWARE_STATUS = Path("/run/sorteros/software.json")  # read by the setup page
+LATE_STAGE_MAX_FAILURES = 10
+DOCS_URL = "https://docs.basically.website/sorter/installation/sorter-os/"
 INTERNET_PROBE_HOSTS = ("deb.debian.org", "github.com")
 INTERNET_PROBE_TIMEOUT = 5
 
-# Re-announce: the onboarding portal writes this file with the rendezvous
-# {id, public_key, hive_url, created_at}. We re-post the current LAN IP each
-# loop until the window elapses, then delete the file. The Hive dead-drop
-# has a 10-min TTL, so re-announcing keeps the entry fresh for late lookups
-# and survives a DHCP renewal. The private key is NOT here — it only ever
-# lives in the user's browser.
-ANNOUNCE_STATE_FILE = STAMP_DIR / "ip-announce.json"
-ANNOUNCE_WINDOW_S = 900  # 15 min — comfortably past the Hive TTL
-ANNOUNCE_HTTP_TIMEOUT = 8
 
 log = logging.getLogger("sorteros-firstboot")
 
@@ -87,6 +94,8 @@ class Stage:
     name: str
     needs_internet: bool
     run: Callable[[], None]
+    # False for stages that run after the UI is up and may give up.
+    before_ui: bool = True
 
 
 # ─── status server ─────────────────────────────────────────────────────────
@@ -105,6 +114,21 @@ STATUS_ICONS = {
     "active":  ("●", "running"),
     "waiting": ("…", "waiting"),
     "pending": ("○", "pending"),
+    "failed":  ("✕", "failed"),
+}
+
+
+STEP_WORDS = {
+    "ssh-host-keys": "Making the machine's keys",
+    "grow-rootfs": "Growing the disk",
+    "setup-swap": "Making swap",
+    "clone-repo": "Downloading the Sorter software",
+    "write-env": "Configuring",
+    "write-machine-toml": "Configuring",
+    "uv-sync": "Installing Python packages",
+    "pnpm-install": "Installing the interface's packages",
+    "pnpm-build": "Building the interface",
+    "install-services": "Starting the Sorter",
 }
 
 
@@ -116,21 +140,51 @@ def _set_state(name: str, status: str, info: str = "") -> None:
             "info": info,
             "started_at": time.time() if status == "active" and prev.get("status") != "active" else prev.get("started_at"),
         }
+        software = _software_status()
+    try:
+        SOFTWARE_STATUS.parent.mkdir(parents=True, exist_ok=True)
+        tmp = SOFTWARE_STATUS.with_name(".software.json.tmp")
+        tmp.write_text(json.dumps(software))
+        os.replace(tmp, SOFTWARE_STATUS)
+    except OSError as e:
+        log.warning("couldn't write %s: %s", SOFTWARE_STATUS, e)
+
+
+def _software_status() -> dict:
+    """How far the install of the Sorter software is, for the setup page:
+    waiting (for the internet), installing, or ready."""
+    needed = [s for s in STAGES if s.before_ui]
+    done = sum(1 for s in needed if _stage_state.get(s.name, {}).get("status") == "done")
+    nxt = next((s for s in needed if _stage_state.get(s.name, {}).get("status") != "done"), None)
+    if nxt is None:
+        return {"state": "ready", "step": None, "done": done, "total": len(needed)}
+    waiting = _stage_state.get(nxt.name, {}).get("info") == "waiting for internet"
+    return {"state": "waiting" if waiting else "installing", "step": STEP_WORDS.get(nxt.name, nxt.name),
+            "done": done, "total": len(needed)}
 
 
 def _read_meta() -> tuple[str, str, str]:
-    hostname = socket.gethostname() or "sorty"
+    hostname = socket.gethostname() or "sorter"
     version = "dev"
-    branch = "?"
     try:
         version = Path("/etc/sorteros/version").read_text().strip()
     except OSError:
         pass
+    return hostname, version, _checked_out_ref() or _baked_ref()
+
+
+def _baked_ref() -> str:
     try:
-        branch = Path("/etc/sorteros/branch").read_text().strip()
+        return REF_PATH.read_text().strip() or STABLE_REF
     except OSError:
-        pass
-    return hostname, version, branch
+        return STABLE_REF
+
+
+def _checked_out_ref() -> str | None:
+    try:
+        return (STAMP_DIR / "checked-out-ref").read_text().strip() or None
+    except OSError:
+        return None
 
 
 STATUS_HTML = """<!doctype html>
@@ -160,29 +214,32 @@ td{{padding:.4rem .8rem;border-bottom:1px solid #1c1c1c;vertical-align:top}}
 .running .info{{color:#fbbf24}}
 .waiting .info{{color:#888}}
 .pending .info{{color:#555}}
+.failed .icon,.failed .info{{color:#f87171}}
 .foot{{color:#555;font-size:.8rem;margin:2rem auto 0;max-width:720px}}
 code{{background:#1a1a1a;padding:.1rem .35rem}}
 </style></head><body>
 <div class="head">
 <h1>SorterOS · {hostname}</h1>
-<div class="meta">v{version} · {branch} · {done}/{total} · {net_label}</div>
+<div class="meta">v{version} · {ref} · {done}/{total} · {net_label}</div>
 </div>
 {banner}
 <table>{rows}</table>
-<div class="foot">Live log: <code>journalctl -fu sorteros-firstboot</code></div>
+<div class="foot">Live log: <code>journalctl -fu sorteros-firstboot</code> · Stuck? <a href="{docs_url}" style="color:#60a5fa">Install guide</a></div>
 </body></html>
 """
 
 
 def _render_status_page() -> bytes:
-    hostname, version, branch = _read_meta()
+    hostname, version, ref = _read_meta()
     with _state_lock:
         snapshot = {k: dict(v) for k, v in _stage_state.items()}
         net = _runtime.get("net", False)
 
     done = sum(1 for s in snapshot.values() if s.get("status") == "done")
     total = len(STAGES)
-    complete = done == total
+    complete = all(
+        snapshot.get(s.name, {}).get("status") == "done" for s in STAGES if s.before_ui
+    )
 
     rows = []
     for stage in STAGES:
@@ -221,7 +278,8 @@ def _render_status_page() -> bytes:
     return STATUS_HTML.format(
         hostname=_html.escape(hostname),
         version=_html.escape(version),
-        branch=_html.escape(branch),
+        ref=_html.escape(ref),
+        docs_url=_html.escape(DOCS_URL),
         done=done, total=total,
         net_label="online" if net else "offline",
         banner=banner,
@@ -258,6 +316,21 @@ def _start_status_server(port: int) -> ThreadingHTTPServer | None:
     return srv
 
 
+def _keep_status_server(ui_ready: threading.Event) -> None:
+    """Serve the progress page on :80 until the UI takes the port. (The setup
+    network's port 80 is redirected to the setup page, so it never needs it.)"""
+    server = None
+    while server is None and not ui_ready.is_set():
+        server = _start_status_server(STATUS_PORT)
+        if server is None:
+            ui_ready.wait(5)
+    ui_ready.wait()
+    if server is not None:
+        server.shutdown()
+        server.server_close()
+        log.info("released port %d", STATUS_PORT)
+
+
 def internet_up() -> bool:
     for host in INTERNET_PROBE_HOSTS:
         try:
@@ -270,7 +343,10 @@ def internet_up() -> bool:
 
 def sh(cmd: list[str], **kw) -> None:
     log.info("$ %s", " ".join(cmd))
-    r = subprocess.run(cmd, **kw)
+    try:
+        r = subprocess.run(cmd, **kw)
+    except subprocess.TimeoutExpired:
+        raise RuntimeError(f"{cmd[0]} timed out") from None
     if r.returncode != 0:
         raise RuntimeError(f"{cmd[0]} exited {r.returncode}")
 
@@ -278,127 +354,6 @@ def sh(cmd: list[str], **kw) -> None:
 def _hostname() -> str:
     p = Path("/etc/hostname")
     return p.read_text().strip() if p.exists() else "sorter"
-
-
-# ─── encrypted LAN-IP re-announce ───────────────────────────────────────────
-#
-# Safety net behind the onboarding portal's immediate announce. Reads the
-# rendezvous the portal persisted and keeps re-posting the current egress LAN
-# IP to Hive until the window elapses. Best-effort and crash-proof — every
-# path is wrapped so a missing dep or network blip never kills the daemon.
-
-def _current_lan_ip() -> str | None:
-    """The IP of whichever interface routes to the internet (wlan0 or eth0).
-
-    No packets are sent — connect() on a UDP socket just selects the egress
-    interface, which is exactly the address the user reaches the local UI on.
-    """
-    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    try:
-        s.connect(("8.8.8.8", 80))
-        return s.getsockname()[0]
-    except OSError:
-        return None
-    finally:
-        s.close()
-
-
-def _encrypt_for_pubkey(pubkey_b64: str, plaintext: bytes) -> str | None:
-    """RSA-OAEP-SHA256 encrypt with the browser's SPKI public key.
-
-    Returns base64 ciphertext, or None if cryptography is missing / the key
-    is unparseable. Mirrors the portal's _encrypt_for_pubkey exactly.
-    """
-    try:
-        from cryptography.hazmat.primitives import hashes, serialization
-        from cryptography.hazmat.primitives.asymmetric import padding
-
-        pub = serialization.load_der_public_key(base64.b64decode(pubkey_b64))
-        ciphertext = pub.encrypt(
-            plaintext,
-            padding.OAEP(
-                mgf=padding.MGF1(algorithm=hashes.SHA256()),
-                algorithm=hashes.SHA256(),
-                label=None,
-            ),
-        )
-        return base64.b64encode(ciphertext).decode("ascii")
-    except Exception as e:
-        log.warning("re-announce encrypt failed: %s", e)
-        return None
-
-
-def _fetch_pubkey(hive_url: str, rendezvous_id: str) -> str | None:
-    """Fetch the browser's public key from Hive (base64 SPKI). Returns None
-    until the user has opened the lookup page (which uploads the key)."""
-    url = f"{hive_url.rstrip('/')}/api/machine-ip-lookup/{rendezvous_id}/pubkey"
-    try:
-        with urllib.request.urlopen(url, timeout=ANNOUNCE_HTTP_TIMEOUT) as resp:
-            if not (200 <= resp.status < 300):
-                return None
-            data = json.loads(resp.read().decode("utf-8"))
-            pubkey = data.get("pubkey")
-            return pubkey if isinstance(pubkey, str) and pubkey else None
-    except (urllib.error.URLError, urllib.error.HTTPError, OSError, ValueError) as e:
-        log.info("pubkey fetch failed (will retry): %s", e)
-        return None
-
-
-def _post_ciphertext(hive_url: str, rendezvous_id: str, ciphertext_b64: str) -> bool:
-    url = f"{hive_url.rstrip('/')}/api/machine-ip-lookup/{rendezvous_id}"
-    body = json.dumps({"ciphertext": ciphertext_b64}).encode("utf-8")
-    req = urllib.request.Request(
-        url, data=body, method="POST",
-        headers={"Content-Type": "application/json"},
-    )
-    try:
-        with urllib.request.urlopen(req, timeout=ANNOUNCE_HTTP_TIMEOUT) as resp:
-            return 200 <= resp.status < 300
-    except (urllib.error.URLError, urllib.error.HTTPError, OSError) as e:
-        log.info("re-announce POST failed (will retry): %s", e)
-        return False
-
-
-def _maybe_reannounce_ip() -> None:
-    """Called every loop while online. No-op unless the portal left a
-    rendezvous file and we're still inside the window."""
-    try:
-        if not ANNOUNCE_STATE_FILE.exists():
-            return
-        data = json.loads(ANNOUNCE_STATE_FILE.read_text())
-        created = float(data.get("created_at", 0))
-        if time.time() - created > ANNOUNCE_WINDOW_S:
-            ANNOUNCE_STATE_FILE.unlink(missing_ok=True)
-            log.info("ip-announce window elapsed — stopping re-announce")
-            return
-        rid = data.get("rendezvous_id")
-        hive_url = data.get("hive_url")
-        if not (rid and hive_url):
-            ANNOUNCE_STATE_FILE.unlink(missing_ok=True)
-            return
-        ip = _current_lan_ip()
-        if not ip:
-            return
-        # The keypair lives in the user's browser on the Hive lookup page; we
-        # fetch the public key from Hive. It's absent until the user opens that
-        # page, so a None here just means "retry next loop".
-        pubkey = _fetch_pubkey(hive_url, rid)
-        if pubkey is None:
-            return
-        payload = json.dumps({
-            "ip": ip,
-            "hostname": f"{_hostname()}.local",
-            "port": 80,
-        }).encode("utf-8")
-        ciphertext = _encrypt_for_pubkey(pubkey, payload)
-        if ciphertext is None:
-            # Unparseable key — re-announce can never succeed, stop trying.
-            ANNOUNCE_STATE_FILE.unlink(missing_ok=True)
-            return
-        if _post_ciphertext(hive_url, rid, ciphertext):
-            log.info("re-announced LAN IP %s to %s", ip, hive_url)
-    except Exception as e:
-        log.warning("re-announce skipped: %s", e)
 
 
 def _mac_suffix() -> str:
@@ -457,40 +412,60 @@ def stage_grow_rootfs() -> None:
     sh(["resize2fs", root_dev])
 
 
-def stage_apply_config_toml() -> None:
-    """Read /etc/sorteros-config.toml and apply it.
+# Split so the setup site, which scans the raw image for the marker lines,
+# never finds them in this file.
+CFG_END_MARKER = "# __SORTEROS_CFG" + "_END__"
+CONFIG_APPLIED = STAMP_DIR / "config-applied"
 
-    Written by sorteros-portal (AP captive portal) when the user submits
-    their Wi-Fi credentials. Keys honored:
-      hostname              → set system hostname
-      [wifi].ssid           → write NM connection (autoconnect=true)
-      [wifi].password       → wpa-psk for the above
-      [ssh].authorized_key  → append to orangepi user's authorized_keys
+
+def _read_config() -> tuple[str, dict]:
+    """/etc/sorteros-config.toml as (text, parsed), minus the setup site's
+    placeholder padding. Written by the setup site before flashing and by the
+    setup page on the device."""
+    try:
+        raw = CONFIG_PATH.read_text("utf-8", errors="replace")
+    except OSError:
+        return "", {}
+    if CFG_END_MARKER in raw:
+        raw = raw[: raw.index(CFG_END_MARKER)]
+    try:
+        return raw, tomllib.loads(raw)
+    except Exception as e:
+        log.warning("config toml unreadable: %s", e)
+        return raw, {}
+
+
+def apply_config_if_changed() -> None:
+    """Apply the setup config whenever its contents change: once at first
+    boot for what the setup site wrote, again if the setup page on the device
+    adds a hostname or SSH key later. Wi-Fi is sorteros-network's job.
+      hostname              → system hostname (avahi announces <name>.local)
+      timezone              → system time zone (the vendor image says Asia/Shanghai)
+      [ssh].authorized_key  → orangepi's authorized_keys
       [tailscale].auth_key  → stored for stage_tailscale_up
     """
-    cfg: dict = {}
-    if CONFIG_PATH.exists():
-        raw = CONFIG_PATH.read_text("utf-8", errors="replace")
-        try:
-            cfg = tomllib.loads(raw)
-        except Exception as e:
-            log.warning("config toml unreadable: %s", e)
+    raw, cfg = _read_config()
+    digest = hashlib.sha256(raw.encode()).hexdigest()
+    try:
+        if CONFIG_APPLIED.read_text().strip() == digest:
+            return
+    except OSError:
+        pass
 
     hostname = cfg.get("hostname")
-    if isinstance(hostname, str) and hostname.strip():
+    if isinstance(hostname, str) and hostname.strip() and hostname.strip() != socket.gethostname():
         log.info("setting hostname: %s", hostname)
-        sh(["hostnamectl", "set-hostname", hostname])
+        sh(["hostnamectl", "set-hostname", hostname.strip()])
+        # avahi keeps announcing the old <name>.local until it restarts
+        subprocess.run(["systemctl", "try-restart", "avahi-daemon.service"], check=False)
 
-    wifi = cfg.get("wifi") or {}
-    ssid = wifi.get("ssid")
-    psk = wifi.get("password", "")
-    if isinstance(ssid, str) and ssid.strip():
-        log.info("applying wifi config for ssid: %s", ssid)
-        _write_nm_wifi(ssid, str(psk))
-        sh(["nmcli", "connection", "up", ssid])
+    timezone = cfg.get("timezone")
+    if isinstance(timezone, str) and re.fullmatch(r"[A-Za-z0-9_+-]+(/[A-Za-z0-9_+-]+)*", timezone) \
+            and (Path("/usr/share/zoneinfo") / timezone).is_file():
+        log.info("setting time zone: %s", timezone)
+        sh(["timedatectl", "set-timezone", timezone])
 
-    ssh_block = cfg.get("ssh") or {}
-    key = ssh_block.get("authorized_key")
+    key = (cfg.get("ssh") or {}).get("authorized_key")
     if isinstance(key, str) and key.strip():
         _append_authorized_key(key.strip())
 
@@ -504,40 +479,7 @@ def stage_apply_config_toml() -> None:
         ts_env.chmod(0o600)
         log.info("tailscale auth key written from config")
 
-
-def _write_nm_wifi(ssid: str, psk: str) -> None:
-    body = (
-        "[connection]\n"
-        f"id={ssid}\n"
-        "type=wifi\n"
-        "autoconnect=true\n"
-        "\n"
-        "[wifi]\n"
-        f"ssid={ssid}\n"
-        "mode=infrastructure\n"
-        "\n"
-        "[wifi-security]\n"
-        "key-mgmt=wpa-psk\n"
-        f"psk={psk}\n"
-        "\n"
-        "[ipv4]\n"
-        "method=auto\n"
-        "\n"
-        "[ipv6]\n"
-        "method=auto\n"
-    )
-    backup_dir = Path("/var/lib/sorteros/wifi-backups")
-    backup_dir.mkdir(parents=True, exist_ok=True)
-    backup = backup_dir / f"{ssid}.nmconnection"
-    backup.write_text(body)
-    backup.chmod(0o600)
-    p = Path("/etc/NetworkManager/system-connections") / f"{ssid}.nmconnection"
-    p.parent.mkdir(parents=True, exist_ok=True)
-    p.write_text(body)
-    p.chmod(0o600)
-    Path("/var/lib/sorteros/wifi-configured").parent.mkdir(parents=True, exist_ok=True)
-    Path("/var/lib/sorteros/wifi-configured").touch()
-    sh(["nmcli", "connection", "reload"])
+    CONFIG_APPLIED.write_text(digest + "\n")
 
 
 def _append_authorized_key(key: str) -> None:
@@ -580,22 +522,36 @@ def stage_setup_swap() -> None:
             f.write("/swapfile none swap sw,pri=-2 0 0\n")
 
 
+def _resolve_ref(ref: str) -> str:
+    """``stable`` → the newest ``sorter/stable/v*`` tag; anything else as given."""
+    if ref != STABLE_REF:
+        return ref
+    out = subprocess.check_output(
+        ["git", "-C", str(REPO_DIR), "tag", "-l", f"{STABLE_TAG_PREFIX}*", "--sort=-v:refname"],
+        text=True,
+    )
+    tags = out.split()
+    if not tags:
+        raise RuntimeError(f"no {STABLE_TAG_PREFIX}* tag in {REPO_URL}")
+    return tags[0]
+
+
 def stage_clone_repo() -> None:
-    if REPO_DIR.exists():
-        return
-    branch_file = Path("/etc/sorteros/branch")
-    branch = branch_file.read_text().strip() if branch_file.exists() else "main"
-    sh(["git", "clone", "https://github.com/basicallysource/sorter-v2", str(REPO_DIR)])
-    sh(["git", "-C", str(REPO_DIR), "checkout", branch])
+    # Blobless: full history and tags (the Versions page lists and switches
+    # between them) without downloading every file ever committed. Cloned
+    # beside the target and renamed, so an interrupted clone never leaves a
+    # half-made repo that looks finished.
+    if not (REPO_DIR / ".git").exists():
+        partial = REPO_DIR.with_name(REPO_DIR.name + ".partial")
+        shutil.rmtree(partial, ignore_errors=True)
+        shutil.rmtree(REPO_DIR, ignore_errors=True)
+        sh(["git", "clone", "--filter=blob:none", "--no-checkout", REPO_URL, str(partial)])
+        partial.rename(REPO_DIR)
     sh(["git", "config", "--global", "--add", "safe.directory", str(REPO_DIR)])
-
-
-def stage_git_lfs_pull() -> None:
-    if not REPO_DIR.exists():
-        raise RuntimeError("repo not cloned yet")
-    env = {**os.environ, "HOME": "/root"}
-    sh(["git", "-C", str(REPO_DIR), "lfs", "install"], env=env)
-    sh(["git", "-C", str(REPO_DIR), "lfs", "pull"], env=env)
+    target = _resolve_ref(_baked_ref())
+    sh(["git", "-C", str(REPO_DIR), "checkout", "--quiet", target])
+    (STAMP_DIR / "checked-out-ref").write_text(target + "\n")
+    log.info("checked out %s", target)
 
 
 def stage_write_env() -> None:
@@ -607,7 +563,9 @@ def stage_write_env() -> None:
     env_path.write_text(
         "export DEBUG_LEVEL=2\n"
         "export PYTHONUNBUFFERED=1\n"
-        'export MACHINE_SPECIFIC_PARAMS_PATH="../machine.toml"\n'
+        # software/machine.toml, where the Sorter looks by itself; releases
+        # older than that need telling, relative to the backend directory.
+        'export MACHINE_SPECIFIC_PARAMS_PATH="../../machine.toml"\n'
         "export SORTER_API_HOST=0.0.0.0\n"
         # Headless LAN device: the user reaches it by IP, hostname, or .local —
         # whichever resolves for them. The local API is unauthenticated and not
@@ -618,10 +576,10 @@ def stage_write_env() -> None:
 
 
 def stage_write_machine_toml() -> None:
-    machine_toml = SOFTWARE_DIR / "sorter" / "machine.toml"
+    machine_toml = SOFTWARE_DIR / "machine.toml"
     if machine_toml.exists():
         return
-    if not (SOFTWARE_DIR / "sorter").exists():
+    if not SOFTWARE_DIR.exists():
         raise RuntimeError("repo not cloned yet")
     # Minimal [cameras] section — backend bails on startup without it.
     # -1 means "no camera assigned"; user picks real indexes in Settings → Cameras.
@@ -633,21 +591,6 @@ def stage_write_machine_toml() -> None:
         "classification_bottom = -1\n"
     )
     sh(["chown", "orangepi:orangepi", str(machine_toml)])
-
-
-def stage_write_frontend_env() -> None:
-    frontend_env = SOFTWARE_DIR / "sorter" / "frontend" / ".env"
-    if frontend_env.exists():
-        return
-    if not (SOFTWARE_DIR / "sorter" / "frontend").exists():
-        raise RuntimeError("repo not cloned yet")
-    hostname = _hostname()
-    frontend_env.write_text(
-        f"PUBLIC_BACKEND_BASE_URL=http://{hostname}:8000\n"
-        f"PUBLIC_BACKEND_WS_URL=ws://{hostname}:8000\n"
-        f"SORTER_ALLOWED_HOSTS={hostname}\n"
-    )
-    sh(["chown", "orangepi:orangepi", str(frontend_env)])
 
 
 def stage_uv_sync() -> None:
@@ -711,7 +654,6 @@ def stage_install_services() -> None:
         installed.append(unit)
 
     sh(["systemctl", "daemon-reload"])
-    sh(["systemctl", "enable", "wifi-repair.service", "wifi-connect.service"])
     # Prefer dev services for HMR during early setup; fall back to prod
     # when dev templates aren't in this branch yet. Enable only — main()
     # starts the services AFTER our status server releases port 80,
@@ -768,26 +710,26 @@ def stage_tailscale_up() -> None:
     else:
         ts_name = _generate_machine_name()
         log.info("tailscale device name: %s", ts_name)
-    sh(["tailscale", "up", f"--authkey={key}", f"--advertise-tags={tags}", f"--hostname={ts_name}", "--ssh"])
+    sh(
+        ["tailscale", "up", f"--authkey={key}", f"--advertise-tags={tags}", f"--hostname={ts_name}", "--ssh"],
+        timeout=120,
+    )
     env.unlink()
 
 
 STAGES: list[Stage] = [
     Stage("ssh-host-keys",       needs_internet=False, run=stage_ssh_host_keys),
     Stage("grow-rootfs",         needs_internet=False, run=stage_grow_rootfs),
-    Stage("apply-config-toml",   needs_internet=False, run=stage_apply_config_toml),
     Stage("setup-swap",          needs_internet=False, run=stage_setup_swap),
     Stage("clone-repo",          needs_internet=True,  run=stage_clone_repo),
-    Stage("git-lfs-pull",        needs_internet=True,  run=stage_git_lfs_pull),
     Stage("write-env",           needs_internet=False, run=stage_write_env),
     Stage("write-machine-toml",  needs_internet=False, run=stage_write_machine_toml),
-    Stage("write-frontend-env",  needs_internet=False, run=stage_write_frontend_env),
     Stage("uv-sync",             needs_internet=True,  run=stage_uv_sync),
     Stage("pnpm-install",        needs_internet=True,  run=stage_pnpm_install),
     Stage("pnpm-build",          needs_internet=False, run=stage_pnpm_build),
     Stage("install-services",    needs_internet=False, run=stage_install_services),
-    Stage("install-tailscale",   needs_internet=True,  run=stage_install_tailscale),
-    Stage("tailscale-up",        needs_internet=True,  run=stage_tailscale_up),
+    Stage("install-tailscale",   needs_internet=True,  run=stage_install_tailscale, before_ui=False),
+    Stage("tailscale-up",        needs_internet=True,  run=stage_tailscale_up, before_ui=False),
 ]
 
 
@@ -795,36 +737,66 @@ def stamp_path(name: str) -> Path:
     return STAMP_DIR / f"{name}.done"
 
 
+def failed_path(name: str) -> Path:
+    return STAMP_DIR / f"{name}.failed"
+
+
+def _finished(stage: Stage) -> bool:
+    return stamp_path(stage.name).exists() or failed_path(stage.name).exists()
+
+
+def _start_sorter_services() -> None:
+    try:
+        services = Path("/var/lib/sorteros/active-services").read_text().split()
+    except OSError:
+        services = ["sorter-backend.service", "sorter-ui.service"]
+    subprocess.run(["systemctl", "start", *services])
+    log.info("started %s", ", ".join(services))
+
+
 def main() -> int:
     logging.basicConfig(level=logging.INFO, format="[%(name)s %(asctime)s] %(message)s")
     STAMP_DIR.mkdir(parents=True, exist_ok=True)
 
     for s in STAGES:
-        _set_state(s.name, "done" if stamp_path(s.name).exists() else "pending")
+        if stamp_path(s.name).exists():
+            _set_state(s.name, "done")
+        elif failed_path(s.name).exists():
+            _set_state(s.name, "failed", failed_path(s.name).read_text().strip())
+        else:
+            _set_state(s.name, "pending")
+    failures: dict[str, int] = {}
 
-    # Port 80 is shared with the onboarding captive portal. While onboarding is
-    # still in progress (no uplink yet and wifi not configured) the portal owns
-    # :80; firstboot must not grab it. We start the status server lazily — once
-    # the box is online or onboarding has completed — and retry each loop until
-    # the bind succeeds (the portal frees :80 when it tears the AP down).
-    onboarding_gate = STAMP_DIR / "wifi-configured"
-    server = None
+    # Port 80 goes to the progress page while first boot runs, then to the
+    # Sorter UI. A machine whose UI is long installed has nothing to show.
+    ui_ready = threading.Event()
+    keeper = None
+    if not all(stamp_path(s.name).exists() for s in STAGES if s.before_ui):
+        keeper = threading.Thread(target=_keep_status_server, args=(ui_ready,), name="status-keeper", daemon=True)
+        keeper.start()
+    ui_started = False
 
     while True:
-        remaining = [s for s in STAGES if not stamp_path(s.name).exists()]
+        # First, and on every boot: the setup page can change the config
+        # (hostname, SSH key) on a machine whose stages are long done.
+        try:
+            apply_config_if_changed()
+        except Exception as e:
+            log.warning("applying the setup config failed: %s — will retry", e)
+
+        if not ui_started and all(stamp_path(s.name).exists() for s in STAGES if s.before_ui):
+            log.info("everything the UI needs is in place")
+            if keeper is not None:
+                time.sleep(5)  # let the "complete" page render once before port 80 changes hands
+            ui_ready.set()
+            if keeper is not None:
+                keeper.join(timeout=15)
+            _start_sorter_services()
+            ui_started = True
+
+        remaining = [s for s in STAGES if not _finished(s)]
         if not remaining:
-            log.info("all stages complete")
-            # let the final "complete" page render before we hand port 80 over
-            time.sleep(5)
-            if server is not None:
-                server.shutdown()
-                server.server_close()
-                log.info("released port %d", STATUS_PORT)
-            try:
-                services = Path("/var/lib/sorteros/active-services").read_text().split()
-            except OSError:
-                services = ["sorter-backend.service", "sorter-ui.service"]
-            subprocess.run(["systemctl", "start", *services])
+            log.info("all stages finished")
             return 0
 
         net = internet_up()
@@ -832,13 +804,11 @@ def main() -> int:
             _runtime["net"] = net
         if net:
             _ensure_clock_synced()
-            _maybe_reannounce_ip()
-
-        # Claim :80 for the status page only once onboarding is out of the way.
-        if server is None and (net or onboarding_gate.exists()):
-            server = _start_status_server(STATUS_PORT)
 
         for s in remaining:
+            # Stages after the UI wait for it, so they never delay it.
+            if not s.before_ui and not ui_started:
+                continue
             if s.needs_internet and not net:
                 _set_state(s.name, "waiting", "waiting for internet")
                 continue
@@ -849,10 +819,17 @@ def main() -> int:
                 stamp_path(s.name).touch()
                 _set_state(s.name, "done")
             except Exception as e:
-                log.warning("stage %s failed: %s — will retry", s.name, e)
-                _set_state(s.name, "waiting", str(e))
+                failures[s.name] = failures.get(s.name, 0) + 1
+                if not s.before_ui and failures[s.name] >= LATE_STAGE_MAX_FAILURES:
+                    log.warning("stage %s failed %d times: %s — giving up", s.name, failures[s.name], e)
+                    failed_path(s.name).write_text(f"{e}\n")
+                    _set_state(s.name, "failed", str(e))
+                else:
+                    log.warning("stage %s failed: %s — will retry", s.name, e)
+                    _set_state(s.name, "waiting", str(e))
 
-        time.sleep(POLL_INTERVAL)
+        waiting = any(_stage_state.get(s.name, {}).get("info") == "waiting for internet" for s in remaining)
+        time.sleep(WAITING_POLL_INTERVAL if waiting else POLL_INTERVAL)
 
 
 if __name__ == "__main__":

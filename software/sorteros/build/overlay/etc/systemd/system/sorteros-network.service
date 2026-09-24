@@ -1,0 +1,16 @@
+[Unit]
+Description=SorterOS network: online, or the setup network while it isn't
+Documentation=https://docs.basically.website/sorter/installation/sorter-os/
+After=NetworkManager.service
+Wants=NetworkManager.service
+Before=sorteros-firstboot.service
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /usr/local/sbin/sorteros-network.py
+Restart=always
+RestartSec=5
+TimeoutStopSec=20
+
+[Install]
+WantedBy=multi-user.target

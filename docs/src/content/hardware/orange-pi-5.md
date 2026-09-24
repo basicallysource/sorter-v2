@@ -41,7 +41,7 @@ No other single-board computer at this price point sustains that inference throu
 | Component | Requirement |
 |-----------|-------------|
 | Memory | 8 GB+ |
-| Storage | 32 GB+ SD card (faster class preferred) |
+| Storage | 32 GB+ SD card, a name-brand high-endurance one (Samsung PRO Endurance, SanDisk High Endurance or similar) |
 
 The 4 GB variant is not supported — the backend, inference workers, and OS together exceed its available memory.
 

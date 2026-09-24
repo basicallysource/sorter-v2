@@ -1,214 +1,122 @@
-# SorterOS Captive Portal
+# The setup page
 
-Zero-touch Wi-Fi onboarding for SorterOS images. Replaces the
-`sorteros-setup/` Vercel customizer — the image ships generic, and the
-user joins an AP on the device to configure Wi-Fi via a browser captive
-portal.
+What a phone sees after joining a Sorter's `SorterOS-Setup-XXXXXX` network:
+the page that puts the Sorter on Wi-Fi. `sorteros-network` (in
+`../build/overlay/usr/local/sbin/`) serves it and does the work; this folder
+is only the page (SvelteKit, built to static files, baked into the image at
+`/var/www/portal` by the builder's `portal` phase).
 
-Today this is a **spike**: backend + frontend run locally with no
-hardware, no image-builder integration, no systemd unit. Once we're happy
-with the UX we wire it into `build/overlay/` and add the AP-mode
-orchestrator.
+## How it works
 
-## Layout
+The Sorter broadcasts its setup network on its own interface (`ap0`) while
+its normal Wi-Fi (`wlan0`) stays free to scan and join. So a join from the
+phone happens while the phone is still connected: the page asks, the Sorter
+tries, and within seconds the page shows the result: the Sorter's address on
+the network it joined, or why it couldn't join. Nothing restarts.
 
+The page is driven by the Sorter's state, not by its own: every screen is
+rendered from `GET /api/state`, so a reload, a phone that drops off and
+rejoins, or a second phone all land on the same screen.
+
+The page must work inside a phone's captive-portal window (iOS's sign-in
+sheet, Android's "Sign in to network"), over plain HTTP, with no internet:
+no fonts or scripts from anywhere else, no `window.open` or `target=_blank`,
+no clipboard API or WebCrypto (both need HTTPS), and nothing that breaks
+when the window is closed and reopened.
+
+## API
+
+All JSON. Times are Unix seconds on the Sorter's clock; `clock_ok` says
+whether that clock has been set from the internet yet (before that, show no
+times of day).
+
+### `GET /api/state`
+
+```jsonc
+{
+  "now": 1790274659,
+  "clock_ok": true,
+  "sorter": {
+    "name": "sorter",                 // its hostname
+    "mdns": "sorter.local",           // the name it answers to (sorter-2.local if taken)
+    "software": {                     // first-boot install of the Sorter software
+      "state": "waiting",             // waiting (for the internet) | installing | ready | failed
+      "step": "Installing packages",  // human text, or null
+      "done": 3, "total": 11          // steps
+    }
+  },
+  "setup_network": {                  // null once it has closed
+    "ssid": "SorterOS-Setup-ABCDEF",
+    "live_join": true                 // false on a radio that must leave the air to join: the phone loses the page
+  },
+  "networks": [                       // every network the Sorter is on now
+    { "kind": "wifi", "name": "HomeNet", "address": "192.168.1.68", "internet": true },
+    { "kind": "ethernet", "name": "Ethernet", "address": "192.168.2.3", "internet": false }
+  ],
+  "cable": "none",                    // none | plugged (a cable with a link, no address yet) | connected
+  "join": {                           // the last join the page or the setup site asked for, or null
+    "ssid": "HomeNet",
+    "state": "failed",                // joining | joined | failed
+    "reason": "password",             // failed only: password | not_found | no_address | timeout | other
+    "detail": "Secrets were required, but not provided",  // NetworkManager's words, for support
+    "address": null,                  // joined only: its address on that network
+    "internet": null,                 // joined only: whether the internet answers through it
+    "source": "phone",                // phone | setup_site
+    "at": 1790274600
+  },
+  "scan": {
+    "scanning": false,
+    "at": 1790274500,
+    "networks": [
+      { "ssid": "HomeNet", "signal": 77, "security": "WPA2", "saved": true }
+    ]                                 // strongest first; security "" is open, "802.1X" is enterprise
+  },
+  "events": [                         // what the Sorter did, oldest first, the last 20
+    { "at": 1790274440, "text": "Started" },
+    { "at": 1790274460, "text": "Opened the setup network SorterOS-Setup-ABCDEF: no cable, no saved Wi-Fi" }
+  ]
+}
 ```
-portal/
-├── README.md          # this file
-├── backend/
-│   ├── portal.py      # single-file FastAPI app (~400 LOC)
-│   └── pyproject.toml # fastapi + uvicorn + pydantic
-└── frontend/
-    ├── package.json   # SvelteKit + adapter-static + Tailwind v4
-    └── src/
-        ├── lib/api.ts
-        ├── lib/components/{SignalBars,HandoffPanel}.svelte
-        └── routes/+page.svelte
+
+### `POST /api/join`
+
+```jsonc
+{ "ssid": "HomeNet", "password": "…", "hidden": false,
+  "timezone": "America/New_York",     // the phone's, for the clock and the Wi-Fi country
+  "name": "sorter-3",                 // optional: rename the Sorter
+  "rendezvous_id": "…" }              // optional: a Find my sorter link to tell the address to
 ```
 
-## Run locally
+`202 {"ok": true}` and `join.state` becomes `joining`; poll `/api/state`
+every second or two until it changes. `400 {"detail": "…"}` for a request
+it can't try (no name, a password under 8 or over 63 characters, an
+enterprise network), with the text to show.
 
-Two terminals. Backend in mock mode (no `nmcli` calls):
+### `POST /api/scan`
 
-```sh
-cd backend
-uv run --with fastapi --with uvicorn --with pydantic \
-    python portal.py --mode mock --port 8088 --log-level info
-```
+Starts a fresh scan (`202`); `scan.scanning` is true until it's done.
 
-Frontend with Vite dev (proxies `/api/*` to the backend on 8088):
+### `POST /api/done`
+
+The person has what they need: the setup network closes a few seconds
+later, and the phone goes back to its own Wi-Fi.
+
+### Captive-portal checks
+
+Every other path redirects to `/`, which is how phones notice the setup
+page and open it by themselves.
+
+## Working on the page
 
 ```sh
 cd frontend
-pnpm install   # first time
-pnpm dev
+pnpm install
+pnpm dev        # the dev server answers /api/* from fixtures; ?scenario=… picks one
+pnpm build      # static files in build/, what the image serves
 ```
 
-Open <http://localhost:5176>. You'll see a fake network list, can pick
-one, the submit flow ends on the QR-code handoff screen.
-
-To exercise the **production-style** build (static bundle served by the
-backend directly, exactly how the image will work):
+To serve a build the way the Sorter does, with a pretend network:
 
 ```sh
-cd frontend && pnpm build
-cd ../backend
-uv run --with fastapi --with uvicorn --with pydantic \
-    python portal.py --mode mock --port 8088 --static-dir ../frontend/build
+python3 ../build/overlay/usr/local/sbin/sorteros-network.py --mock --port 8090 --static-dir frontend/build
 ```
-
-Then hit <http://localhost:8088> — same UX, served from a single port,
-identical to what the Orange Pi will do in AP mode.
-
-## API contract
-
-All routes the frontend uses:
-
-| Method | Path               | Returns                                                                                |
-| ------ | ------------------ | -------------------------------------------------------------------------------------- |
-| GET    | `/api/status`      | `{ mode, hostname, suggested_url, configured, last_attempt }`                          |
-| GET    | `/api/wifi-scan`   | `{ networks: [{ ssid, signal, security, in_use }], mocked }`                           |
-| POST   | `/api/wifi-connect`| body `{ ssid, password?, hidden?, hostname?, sshKey?, rendezvousId?, publicKey? }` → `{ ok, next_url, hostname }` |
-
-Captive-portal probe routes — all `302 → /` so the OS sheet pops the
-portal automatically when the user joins the AP:
-
-- `/hotspot-detect.html`, `/library/test/success.html` — iOS / macOS
-- `/generate_204`, `/gen_204` — Android
-- `/connecttest.txt`, `/ncsi.txt` — Windows
-- `/canonical.html` — Firefox
-- catch-all `/{anything}` — anything else still 302s
-
-## Backend modes
-
-```
---mode=auto   # ap if nmcli on PATH, else mock (default)
---mode=ap     # production on-device — real nmcli scan & connection writes
---mode=mock   # canned data, no system calls, safe for laptop dev
-```
-
-In `ap` mode `_nmcli_write_wifi` mirrors the format firstboot's existing
-`stage_apply_config_toml` expects — same `.nmconnection` file shape so
-the handoff to firstboot doesn't need any new logic.
-
-When the connect endpoint succeeds, the backend:
-
-1. writes `/etc/NetworkManager/system-connections/<SSID>.nmconnection`
-2. writes `/etc/sorteros-config.toml` if the user provided a hostname or
-   SSH key (same file firstboot already reads)
-3. responds 200 to the frontend so the handoff page renders
-4. waits 5 s, runs `nmcli connection up <SSID>` (30 s timeout)
-5. on Layer-3 success: **announces the LAN IP** (see below), then touches
-   `/var/lib/sorteros/wifi-configured` (firstboot's gate file) and drops
-   the AP profile
-6. on failure: leaves the AP up so the user can retry with a fresh
-   password
-
-The announce happens *before* the gate file is touched on purpose — the
-onboarding orchestrator kills the portal process the moment the gate
-appears, so the encrypted IP drop has to finish (or time out) first.
-
-If the user cuts power between steps 1–6, firstboot at next boot will
-still re-trigger the portal because the gate file is the last thing
-written.
-
-## Encrypted LAN-IP rendezvous
-
-The hard part of headless onboarding is "what IP did my Pi get?". mDNS
-(`.local`) covers Apple but is flaky on Windows / locked-down networks,
-and the public NAT IP a server would see is useless for a LAN address.
-So the Pi tells the user its LAN IP through Hive as a **zero-knowledge
-dead-drop**:
-
-```
-browser (AP page)                 Pi (portal)                Hive
-─────────────────                 ───────────                ────
-generate RSA-OAEP keypair
-+ random rendezvous id
-        │ pubkey + id (wifi-connect POST)
-        ├──────────────────────────▶ store
-        │                            connect to Wi-Fi, read LAN IP
-        │                            encrypt {ip,hostname,port} w/ pubkey
-        │                            POST ciphertext ───────────▶ /api/machine-ip-lookup/<id>
-   navigate to Hive lookup
-   (privkey in URL #fragment)
-   poll GET <id> ◀───────────────────────────────────────────── ciphertext
-   decrypt w/ privkey → show "http://192.168.1.42/"
-```
-
-- Hive only ever stores **opaque ciphertext** — it never sees the LAN IP
-  in clear. The Hive endpoints (`app/routers/machine_lookup.py`) are an
-  in-memory, 10-minute-TTL, rate-limited dead-drop keyed by an
-  unguessable id.
-- The private key never crosses an origin boundary via storage —
-  localStorage/cookies are origin-scoped and wouldn't survive the jump
-  from `http://10.42.0.1` to `https://hive.basically.website`. It rides
-  in the **URL fragment** (`#k=…`), which never reaches the Hive server.
-- The lookup page is `hive.basically.website/machine-ip-lookup` —
-  unlisted (not in nav), login-free, `ssr=false`.
-- A malicious POST to a guessed id just stores junk that fails to
-  decrypt in the browser; the page ignores undecryptable payloads.
-- Crypto: RSA-OAEP-SHA256, 2048-bit. Browser uses WebCrypto, the Pi uses
-  `cryptography`. Ciphertext is ~344 base64 chars.
-
-The announce is **best-effort**: bounded retries over ~30 s, then
-onboarding completes regardless. The `.local` address remains the
-fallback and is still shown on the handoff screen.
-
-## What's mocked vs. real
-
-| Path             | mock mode               | ap mode                                  |
-| ---------------- | ----------------------- | ---------------------------------------- |
-| Scan             | canned 5-entry list     | `nmcli dev wifi list --rescan yes`       |
-| Connection write | no-op                   | writes `.nmconnection` + `nmcli reload`  |
-| Switchover task  | flips `last_attempt=ok` | runs `nmcli connection up <SSID>`, gates |
-| IP announce      | logs "would announce"   | reads wlan0 IP, encrypts, POSTs to Hive  |
-| Hostname read    | local `gethostname()`   | local `gethostname()`                    |
-
-## Not done yet (next PRs)
-
-- **First-hardware-boot validation**: full end-to-end test on a fresh
-  CM5 — flash → AP → smartphone captive-portal sheet → submit → handoff
-  → firstboot stages → sorter-ui. Backend can be retuned (timeouts,
-  switchover delay) based on what the real Wi-Fi chip does.
-- **Reset-GPIO / factory-reset**: long-press handler that deletes
-  `/var/lib/sorteros/wifi-configured` and reboots so the device falls
-  back into AP mode without re-flashing.
-- **Tailscale auth in portal**: optional field so a fresh image joins
-  the org tailnet without ever touching SSH first. Already plumbed in
-  `/etc/sorteros-config.toml` by firstboot's `stage_tailscale_up` —
-  just needs the input on the portal form.
-- **Hardened captive-portal probe responses**: today every probe gets a
-  302, which works but logs as "captive portal" forever. A friendlier
-  exit experience is to flip the probes to "success" responses once
-  `wifi-configured` exists so devices on the AP don't get stuck loops.
-
-## Handoff screen
-
-The handoff screen's primary action is **Find my sorter →**, a link (and
-QR) to the Hive rendezvous page carrying the private key in its fragment.
-On the same phone the user just taps it after rejoining their Wi-Fi; the
-QR is for hopping to another device. The `.local` address is shown as the
-secondary path for Apple devices and as a fallback when WebCrypto wasn't
-available (e.g. a plain-http origin that isn't `localhost`).
-
-mDNS lookup works natively on iOS and macOS; modern Chrome/Edge on
-Android resolve `.local` via Network Service Discovery; on Windows the
-user typically needs Bonjour. The Hive rendezvous exists precisely to
-cover the networks where `.local` doesn't resolve.
-
-## Re-announce safety net
-
-The portal's immediate announce is the fast path, but it fires once from
-a process that's killed seconds later. So the portal also persists the
-rendezvous to `/var/lib/sorteros/ip-announce.json`
-(`{rendezvous_id, public_key, hive_url, created_at}` — never the private
-key), and **sorteros-firstboot re-posts the current LAN IP each loop**
-until a 15-minute window elapses, then deletes the file.
-
-This covers a failed first announce, a lookup page opened a little late,
-and a DHCP renewal that changes the IP mid-onboarding. firstboot reads
-the egress IP from a `connect()`-only UDP socket (works on wlan0 or
-eth0), lazy-imports `cryptography`, and wraps every path so the
-never-crash daemon contract holds. See `_maybe_reannounce_ip` in
-`build/overlay/usr/local/sbin/sorteros-firstboot.py`.

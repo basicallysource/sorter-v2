@@ -2,19 +2,26 @@
 // placeholder inside a .img file. Runs entirely in the browser on a
 // File / ArrayBuffer; nothing is uploaded.
 //
-// Contract: these marker strings AND the TOML key layout (hostname,
-// [wifi].ssid/.password, [ssh].authorized_key) must stay in sync with:
-//   - software/sorteros/v3/build/build.py        (writes the placeholder)
-//   - software/sorteros/v3/build/overlay/usr/local/sbin/sorteros-firstboot.py
-//                                                (reads the patched TOML)
-// If you change one, change all three.
+// Contract: the marker lines AND the TOML key layout (hostname,
+// [wifi].ssid/.password, [ssh].authorized_key) match the placeholder that the
+// SorterOS v3 builder wrote into /etc/sorteros-config.toml (tag sorteros/v3.4.7)
+// and the v3 firstboot that reads it.
+//
+// The markers are matched as whole comment lines, "# " included. The bare
+// marker text also appears inside a compiled .pyc in the image (CPython folds
+// the split string constant back together), about 1 GB before the real
+// placeholder, with 2 bytes between its two markers. Matching the "# " prefix
+// skips it, and MIN_CAPACITY skips any other stray pair.
 
-const START_MARKER = '__SORTEROS_CFG_START__';
-const END_MARKER = '__SORTEROS_CFG_END__';
+const START_MARKER = '# __SORTEROS_CFG_START__';
+const END_MARKER = '# __SORTEROS_CFG_END__';
+const MIN_CAPACITY = 1024;
 const SEARCH_CHUNK_BYTES = 8 * 1024 * 1024;
 
 export interface SorterosConfig {
     hostname?: string;
+    // IANA time zone: the sorter's clock and its Wi-Fi country (which channels it may use).
+    timezone?: string;
     wifi?: { ssid: string; password: string };
     ssh_authorized_key?: string;
     tailscale_auth_key?: string;
@@ -99,17 +106,21 @@ function findMarkerRegion(
     startBytes: Uint8Array,
     endBytes: Uint8Array
 ): MarkerRegion {
-    const start = indexOfBytes(bytes, startBytes);
-    if (start < 0) throw new Error('start marker not found. This is not a supported SorterOS image.');
-
-    const end = indexOfBytes(bytes, endBytes, start + startBytes.length);
-    if (end < 0) throw new Error('end marker not found. This image looks incomplete.');
-
-    return {
-        start: start + startBytes.length,
-        end
-    };
+    let start = indexOfBytes(bytes, startBytes);
+    while (start >= 0) {
+        const end = indexOfBytes(bytes, endBytes, start + startBytes.length);
+        if (end < 0) throw new Error('end marker not found. This image looks incomplete.');
+        if (end - (start + startBytes.length) >= MIN_CAPACITY) {
+            return { start: start + startBytes.length, end };
+        }
+        start = indexOfBytes(bytes, startBytes, end + endBytes.length);
+    }
+    throw new Error(NOT_SUPPORTED);
 }
+
+const NOT_SUPPORTED =
+    'No settings placeholder found in this file. Use the .img from a SorterOS release, ' +
+    'unzipped first.';
 
 async function findMarkerRegionInFile(
     file: Blob,
@@ -117,9 +128,25 @@ async function findMarkerRegionInFile(
     endBytes: Uint8Array,
     onProgress?: (fraction: number) => void
 ): Promise<MarkerRegion> {
+    let from = 0;
+    while (from < file.size) {
+        const region = await findNextMarkerRegionInFile(file, startBytes, endBytes, from, onProgress);
+        if (region.end - region.start >= MIN_CAPACITY) return region;
+        from = region.end + endBytes.length;
+    }
+    throw new Error(NOT_SUPPORTED);
+}
+
+async function findNextMarkerRegionInFile(
+    file: Blob,
+    startBytes: Uint8Array,
+    endBytes: Uint8Array,
+    from: number,
+    onProgress?: (fraction: number) => void
+): Promise<MarkerRegion> {
     const overlap = Math.max(startBytes.length, endBytes.length) - 1;
     let start = -1;
-    let offset = 0;
+    let offset = from;
 
     while (offset < file.size) {
         onProgress?.(offset / file.size);
@@ -140,7 +167,7 @@ async function findMarkerRegionInFile(
     }
 
     if (start < 0) {
-        throw new Error('start marker not found. This is not a supported SorterOS image.');
+        throw new Error(NOT_SUPPORTED);
     }
 
     const end_search_offset = start + startBytes.length;
@@ -190,6 +217,7 @@ function buildPaddedToml(
 function buildToml(cfg: SorterosConfig): string {
     const lines: string[] = ['# written by sorteros-setup'];
     if (cfg.hostname) lines.push(`hostname = ${JSON.stringify(cfg.hostname)}`);
+    if (cfg.timezone) lines.push(`timezone = ${JSON.stringify(cfg.timezone)}`);
     if (cfg.wifi) {
         lines.push('', '[wifi]');
         lines.push(`ssid = ${JSON.stringify(cfg.wifi.ssid)}`);

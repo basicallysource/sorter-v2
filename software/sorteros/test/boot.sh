@@ -1,0 +1,72 @@
+#!/usr/bin/env bash
+# Boot a SorterOS image in QEMU so first boot can be watched end to end
+# without flashing a card.
+#
+# The Orange Pi's own kernel only runs on its hardware, so this boots the
+# image's root filesystem with a stock Ubuntu arm64 kernel on QEMU's "virt"
+# machine. Everything above the kernel is the image: systemd, onboarding,
+# firstboot, the Sorter services. There is no NPU, camera, Wi-Fi or control
+# board, so the machine comes up the way a board with an Ethernet cable and
+# nothing plugged in would.
+#
+# The image file is never modified: the VM writes to a copy-on-write disk in
+# the work directory. Guest ports 80 (status page, then UI), 8000 (backend)
+# and 22 are forwarded to HTTP_PORT, API_PORT and SSH_PORT on this host.
+#
+#   ./boot.sh out/sorteros-v4.1.0-2026-09-23.img          # starts in the background
+#   ./check.py boot                                        # watch it and check it
+#   kill "$(cat work/qemu.pid)"                            # stop it
+#
+# On an x86_64 host the whole guest is emulated (slow: first boot takes one to
+# three hours). On an Apple Silicon Mac (Hypervisor.framework) or an arm64
+# Linux host with /dev/kvm it runs at native speed. On a Mac: brew install qemu.
+# The image may be raw (as built) or qcow2 (smaller to copy between machines:
+# qemu-img convert -c -O qcow2 in.img out.qcow2).
+set -euo pipefail
+
+IMG=${1:?usage: boot.sh <sorteros.img> [workdir]}
+WORK=${2:-$(cd "$(dirname "$0")" && pwd)/work}
+HTTP_PORT=${HTTP_PORT:-8080}
+API_PORT=${API_PORT:-8000}
+SSH_PORT=${SSH_PORT:-2222}
+SMP=${SMP:-4}
+MEM=${MEM:-4096}
+DISK=${DISK:-16G}
+UBUNTU=https://cloud-images.ubuntu.com/jammy/current/unpacked
+
+mkdir -p "$WORK"
+if [ -f "$WORK/qemu.pid" ] && kill -0 "$(cat "$WORK/qemu.pid")" 2>/dev/null; then
+    echo "a VM from $WORK is already running (pid $(cat "$WORK/qemu.pid"))" >&2
+    exit 1
+fi
+[ -f "$WORK/vmlinuz" ] || curl -fsSL -o "$WORK/vmlinuz" "$UBUNTU/jammy-server-cloudimg-arm64-vmlinuz-generic"
+[ -f "$WORK/initrd" ] || curl -fsSL -o "$WORK/initrd" "$UBUNTU/jammy-server-cloudimg-arm64-initrd-generic"
+
+# A fresh copy-on-write disk each run, sized like an SD card so grow-rootfs
+# and the swap stage have room. REUSE=1 boots the disk the last run left
+# instead: a machine that already did its first boot, for trying changed
+# overlay files (copy them in over ssh) without waiting for first boot again.
+rm -f "$WORK/console.log"
+if [ "${REUSE:-0}" != 1 ] || [ ! -f "$WORK/disk.qcow2" ]; then
+    rm -f "$WORK/disk.qcow2"
+    FMT=$(qemu-img info "$IMG" | awk '/^file format:/ {print $3}')
+    qemu-img create -q -f qcow2 -F "$FMT" -b "$(cd "$(dirname "$IMG")" && pwd)/$(basename "$IMG")" "$WORK/disk.qcow2" "$DISK"
+fi
+
+case "$(uname -s)/$(uname -m)" in
+    Darwin/arm64)                     ACCEL=(-accel hvf -cpu host) ;;
+    Linux/aarch64) [ -w /dev/kvm ] && ACCEL=(-accel kvm -cpu host) || ACCEL=(-accel tcg,thread=multi -cpu max) ;;
+    *)                                ACCEL=(-accel tcg,thread=multi -cpu max) ;;
+esac
+
+qemu-system-aarch64 -M virt "${ACCEL[@]}" -smp "$SMP" -m "$MEM" \
+    -kernel "$WORK/vmlinuz" -initrd "$WORK/initrd" \
+    -append "root=LABEL=opi_root rw console=ttyAMA0 fsck.repair=yes panic=10" \
+    -drive "file=$WORK/disk.qcow2,if=virtio,format=qcow2" \
+    -netdev "user,id=n0,hostfwd=tcp::$HTTP_PORT-:80,hostfwd=tcp::$API_PORT-:8000,hostfwd=tcp::$SSH_PORT-:22" \
+    -device virtio-net-pci,netdev=n0 \
+    -display none -monitor none -serial "file:$WORK/console.log" \
+    -pidfile "$WORK/qemu.pid" -daemonize
+
+echo "booting (pid $(cat "$WORK/qemu.pid")); console: $WORK/console.log"
+echo "status page / UI: http://localhost:$HTTP_PORT   backend: http://localhost:$API_PORT   ssh: -p $SSH_PORT root@localhost"

@@ -90,6 +90,25 @@ calculator](https://parts-calculator.basically.website/). Set your own layer
 count and each layer's bin size there, and it lists exactly what to buy and
 print.
 
+## The room the machine will stand in
+
+Pick that room now, before you buy filament, because it decides two things.
+This is where the finished machine runs, not where you build it: indoors, out
+of direct sun, in a room you would be comfortable working in.
+
+**How hot it gets decides your filament.** Print the parts in PETG or ASA
+unless the room is air conditioned. PLA softens from around 55 C (131 F) and
+the printed gears the steppers drive through go first, which puts a PLA machine
+at about 40 C (104 F) against 45 to 50 C (113 to 122 F) in PETG. Nobody has
+tested a limit, so treat both as working figures. The Orange Pi is separate
+from the plastic: it throttles and then shuts down at about 105 C (221 F), see
+[Orange Pi 5]({{ '/hardware/orange-pi-5/' | relative_url }}).
+
+**How damp it gets decides when you can switch on.** In a humid climate, or a
+room that cools down overnight, do not switch the machine on while any part of
+it feels cold to the touch or looks wet. Let it reach room temperature first.
+The power supply needs 20 to 90% humidity with no water forming on it.
+
 ## What the print figures mean
 
 The filament and time figures come from the catalog, sliced on
@@ -121,28 +140,6 @@ So, if you are planning:
 a long print** are on [Printing the parts]({{ '/hardware/printing/' | relative_url }}).
 The parts are designed to a 256 x 256 mm bed, and a smaller one cannot print all of
 them.
-
-## Where the machine runs
-
-This is about where the finished machine stands and runs, not where you build
-it: indoors, out of direct sun, in a room you would be comfortable working in.
-Nobody has tested a limit, so the two cases worth planning for are these.
-
-**A room that gets hot** (a shed, an uncooled garage, a loft in summer):
-
-- **Print the parts in PETG or ASA, not PLA.** PLA softens from around 55 C
-  (131 F) and the printed gears the steppers drive through go first, which puts
-  a PLA machine at about 40 C (104 F) against 45 to 50 C (113 to 122 F) in
-  PETG. A full 5 layer set has already been printed in PETG.
-- **Cool the Orange Pi.** It shuts down at about 105 C (221 F). See
-  [Orange Pi 5]({{ '/hardware/orange-pi-5/' | relative_url }}).
-
-**A room that gets damp** (a humid climate, or a space that cools down
-overnight):
-
-- **Do not switch the machine on while any part of it feels cold to the touch
-  or looks wet.** Let it reach room temperature first. The power supply needs
-  20 to 90% humidity with no water forming on it.
 
 ## Two things you may not be able to make yourself
 

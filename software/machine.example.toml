@@ -1,5 +1,6 @@
 # Machine-specific parameters
-# Set MACHINE_SPECIFIC_PARAMS_PATH env var to point to your copy of this file.
+# The Sorter reads software/machine.toml: copy this file there and edit the copy.
+# MACHINE_SPECIFIC_PARAMS_PATH, if set, points it at a different file instead.
 # This file is for parameters that vary between machines and local setups.
 
 [servo]

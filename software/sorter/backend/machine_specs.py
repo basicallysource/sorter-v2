@@ -25,6 +25,8 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any
 
+from machine_toml import machine_toml_path
+
 # 2: per-camera `calibration` block (color profile summary + device/picture
 # settings + capture mode).
 SCHEMA_VERSION = 2
@@ -116,8 +118,8 @@ def _machineParamsTable(section: str) -> dict[str, Any]:
     try:
         from toml_config import loadTomlFile
 
-        params_path = os.getenv("MACHINE_SPECIFIC_PARAMS_PATH")
-        if not params_path or not os.path.exists(params_path):
+        params_path = machine_toml_path()
+        if not params_path.exists():
             return {}
         raw = loadTomlFile(params_path)
         if not isinstance(raw, dict):

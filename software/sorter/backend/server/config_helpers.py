@@ -1,4 +1,4 @@
-"""Shared config I/O helpers for reading/writing machine_params.toml.
+"""Shared config I/O helpers for reading/writing the machine's machine.toml.
 
 Used by hardware, steppers, and cameras routers.
 """
@@ -14,19 +14,9 @@ from typing import Any, Dict, List
 
 from fastapi import HTTPException
 
+from machine_toml import machine_toml_path
+
 _CONFIG_WRITE_LOCK = threading.Lock()
-
-
-def _default_client_config_path(filename: str) -> str:
-    return str(Path(__file__).resolve().parent.parent / filename)
-
-
-def machine_params_path() -> str:
-    """Return the machine params path from env, or the repo-local default."""
-    params_path = os.getenv("MACHINE_SPECIFIC_PARAMS_PATH")
-    if params_path:
-        return params_path
-    return _default_client_config_path("machine_params.toml")
 
 
 def read_machine_params_config(
@@ -34,7 +24,7 @@ def read_machine_params_config(
     require_exists: bool = False,
 ) -> tuple[str, Dict[str, Any]]:
     """Read and parse the machine params TOML file."""
-    params_path = machine_params_path()
+    params_path = str(machine_toml_path())
     if not os.path.exists(params_path):
         if require_exists:
             raise HTTPException(status_code=404, detail="Machine params file not found")

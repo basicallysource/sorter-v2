@@ -105,7 +105,7 @@ The wizard's Controller Discovery step lists no controllers, and the issue banne
 
 **Fix:**
 - Re-home from **Hardware → Chute → Home**. The chute does *not* re-home between runs.
-- Re-measure `first_bin_center` and update `[chute]` in `machine.example.toml`.
+- Re-measure `first_bin_center` and update `[chute]` in `software/machine.toml`.
 - If steppers skip: lower the move speed or raise `[stepper_current_overrides.chute_stepper] irun` (max 31).
 
 **Verify:** Send 50 parts to bin 0 from the test panel — all land in the same physical bin.

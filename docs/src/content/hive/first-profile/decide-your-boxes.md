@@ -21,6 +21,8 @@ Two questions decide the whole profile.
 
 **How many bins does your machine have?** Every box needs somewhere to land. Ask for fewer boxes than you have bins, and keep one spare for everything that matches nothing.
 
+**Not every bin takes every piece.** The big bins are the only ones a big piece fits through, so a box holding large parts has to get one of those. [Send it to your machine]({{ '/hive/first-profile/send-it-to-your-machine/#bins-are-chosen-on-the-machine-not-in-the-profile' | relative_url }}) has the sizes and what to do about it.
+
 **What do you want to separate?** Sorting by part type (bricks, plates, tiles) works well today. Sorting by colour is where Hive currently struggles, and there is a workaround on [asking for colour]({{ '/hive/first-profile/ask-in-plain-words/#asking-for-colour' | relative_url }}).
 
 Write your list on paper first. It is easier than thinking the boxes up in the chat.

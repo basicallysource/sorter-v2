@@ -255,9 +255,6 @@ class System:
     def now(self) -> float:
         return time.monotonic()
 
-    def wall_now(self) -> float:
-        return time.time()
-
     def sleep(self, seconds: float) -> None:
         time.sleep(seconds)
 
@@ -535,10 +532,13 @@ def announce_address(sys_: System) -> None:
         "port": 80,
         "ssid": sys_.joined_ssid(),
     }
-    deadline = float(state.get("created_at", 0)) + ANNOUNCE_WINDOW_S
+    # From now, on this boot's clock: a Pi with no battery clock can come
+    # back from days unplugged with its wall clock days behind until it
+    # reaches the internet, so the setup page's timestamp can't be trusted.
+    deadline = sys_.now() + ANNOUNCE_WINDOW_S
     last_error = ""
     sent_to = None
-    while sys_.wall_now() < deadline:
+    while sys_.now() < deadline:
         try:
             pubkey, ready = sys_.rendezvous(state)
             if pubkey and (pubkey != sent_to or not ready):

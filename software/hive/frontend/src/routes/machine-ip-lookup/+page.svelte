@@ -26,8 +26,8 @@
 	let poll: ReturnType<typeof setInterval> | null = null;
 	let clock: ReturnType<typeof setInterval> | null = null;
 
-	// Give up after this long: the sorter stops reporting 15 minutes after the
-	// Wi-Fi was chosen on its setup page.
+	// Give up after this long: the sorter reports for 15 minutes after it comes
+	// online, which is a couple of minutes after the Wi-Fi was chosen.
 	const TIMEOUT_S = 900;
 	const POLL_MS = 2000;
 	// Hive keeps the key in memory for ten minutes from the last post and

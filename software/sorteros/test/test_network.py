@@ -89,9 +89,6 @@ class Fake:
     def now(self):
         return self.w.t
 
-    def wall_now(self):
-        return 1_800_000_000 + self.w.t
-
     def sleep(self, s):
         self.w.t += s
         t = self.w.t
@@ -430,7 +427,7 @@ class Announce(unittest.TestCase):
     def world(self, **kw):
         w = World(routers=HOME, **kw)
         w.run(cfg())
-        w.announce = {"rendezvous_id": "r" * 22, "hive_url": "https://hive.example", "created_at": 1_800_000_000 + w.t}
+        w.announce = {"rendezvous_id": "r" * 22, "hive_url": "https://hive.example"}
         return w
 
     def test_gives_the_address_and_the_network_once_the_page_has_a_key(self):

@@ -38,6 +38,8 @@ class World:
         self.retry = 0
         self.announce = None
         self.hive = {"pubkey": None, "sealed_to": None}
+        self.config = {}
+        self.country = "CN"  # what the vendor image ships
         self.boots = 0
         self.log = []
 
@@ -50,8 +52,10 @@ class World:
         self.boots += 1
         if self.boots > 1:
             self.t += BOOT_S
+        if cfg is not None:
+            self.config = cfg
         try:
-            return net.bring_up(Fake(self, **kw), cfg or {})
+            return net.bring_up(Fake(self, **kw), self.config)
         except Restart:
             return "restart"
 
@@ -69,9 +73,9 @@ class Fake:
     network joins on its own (autoconnect) a few seconds into the boot when
     its router is on, the password matches and the radio isn't broadcasting.
 
-    `phone` is a list of (t, ssid, password): at time t, while the setup
-    network is up, someone submits that on the setup page, which leaves it
-    for the next boot and restarts."""
+    `phone` is a list of (t, ssid, password[, timezone]): at time t, while
+    the setup network is up, someone submits that on the setup page, which
+    leaves it for the service and writes the time zone into the config."""
 
     def __init__(self, world, *, phone=(), clients=lambda t: False, page_active=lambda t: False,
                  portal_dies_at=None):
@@ -94,12 +98,13 @@ class Fake:
         t = self.w.t
         if self.portal and self.portal_dies_at is not None and t >= self.portal_dies_at:
             self.portal, self.portal_dies_at = False, None
-        while self.ap and self.portal and self.phone and t >= self.phone[0][0]:
-            _, ssid, password = self.phone.pop(0)
+        if self.ap and self.portal and self.phone and t >= self.phone[0][0]:
+            _, ssid, password, *timezone = self.phone.pop(0)
             self._log("phone", ssid, t)
             self.w.pending = {"ssid": ssid, "password": password, "hidden": False, "security": "WPA2"}
             self.w.failed = None
-            raise Restart()
+            if timezone:
+                self.w.config = {**self.w.config, "timezone": timezone[0]}
 
     # network
     def wifi_iface(self):
@@ -222,6 +227,20 @@ class Fake:
     def set_retry_count(self, n):
         self.w.retry = n
 
+    # the radio's country
+    def config(self):
+        return self.w.config
+
+    def zone_tab(self):
+        return ZONE_TAB
+
+    def set_wifi_country(self, country):
+        if country == self.w.country:
+            return False
+        self._log("country", country)
+        self.w.country = country
+        return True
+
     # Hive
     def announce_state(self):
         return self.w.announce
@@ -246,6 +265,7 @@ def cfg(ssid="HomeNet", password="right-password"):
 
 
 HOME = {"HomeNet": "right-password"}
+ZONE_TAB = "# comment\nDE\t+5230+01322\tEurope/Berlin\tmost of Germany\nUS\t+404251-0740023\tAmerica/New_York\tEastern (most areas)\n"
 
 
 class BringUp(unittest.TestCase):
@@ -283,6 +303,20 @@ class BringUp(unittest.TestCase):
         first_ap = next(e for e in w.log if e[0] == "ap_up")
         self.assertLessEqual(first_ap[1], net.WIFI_WAIT_S + net.TICK_S)
 
+    def test_a_wrong_setup_site_password_is_forgotten_and_the_page_says_why(self):
+        w = World(routers=HOME)
+        w.boot(cfg(password="wrong-password"), phone=[(HOUR, "HomeNet", "right-password")])
+        self.assertIn(("failed", "HomeNet", "password"), w.log)
+        self.assertNotIn(("reboot",), [e[:1] for e in w.log if e[0] == "reboot" and e[1] < HOUR])
+        self.assertLessEqual(next(e for e in w.log if e[0] == "ap_up")[1], 11 + net.WIRED_WAIT_S + net.TICK_S)
+
+    def test_a_setup_site_network_that_isnt_up_yet_is_kept(self):
+        w = World(routers=HOME, up=lambda s, t: t > 5 * 60)
+        w.run(cfg())
+        self.assertIn(("failed", "HomeNet", "not_found"), w.log)
+        self.assertNotIn(("forget", "HomeNet"), w.log)
+        self.assertIsNone(w.failed)  # cleared once it joined
+
     def test_it_scans_before_it_broadcasts(self):
         w = World(routers={"HomeNet": "x" * 8, "Neighbour": "y" * 8})
         w.boot(phone=[(5 * 60, "HomeNet", "x" * 8)])
@@ -295,7 +329,7 @@ class JoinFromThePhone(unittest.TestCase):
     def test_right_password_restarts_and_joins(self):
         w = World(routers=HOME)
         self.assertEqual(w.run(phone=[(5 * 60, "HomeNet", "right-password")]), 0)
-        self.assertEqual(w.count("reboot"), 0)  # the page restarted it, once
+        self.assertEqual(w.count("reboot"), 1)
         self.assertEqual(w.boots, 2)
         self.assertEqual(w.count("ap_up"), 1)
         self.assertIsNone(w.pending)
@@ -361,6 +395,36 @@ class JoinFromThePhone(unittest.TestCase):
         self.assertEqual(w.boot(), 0)
         self.assertIn(("failed", "HomeNet", "password"), w.log)
         self.assertEqual(w.count("ap_up"), 0)
+
+
+class Country(unittest.TestCase):
+    def test_the_time_zone_names_the_country(self):
+        self.assertEqual(net.country_for_timezone("Europe/Berlin", ZONE_TAB), "DE")
+        self.assertIsNone(net.country_for_timezone("Etc/UTC", ZONE_TAB))
+        self.assertEqual(net.wifi_country({}, ZONE_TAB), "XZ")
+        self.assertEqual(net.wifi_country({"timezone": "Mars/Base"}, ZONE_TAB), "XZ")
+
+    def test_the_config_line_is_replaced_not_piled_up(self):
+        text = "PM=0\nccode=CN\nregrev=4\n#ccode ==> a comment\n"
+        once = net.with_country(text, "DE")
+        self.assertEqual(once, "PM=0\n#ccode ==> a comment\nccode=DE\nregrev=0\n")
+        self.assertEqual(net.with_country(once, "DE"), once)
+
+    def test_worldwide_until_a_time_zone_is_known(self):
+        w = World(cable_at=3)
+        w.run()
+        self.assertEqual(w.country, "XZ")
+
+    def test_the_setup_sites_time_zone_sets_it(self):
+        w = World(routers=HOME)
+        w.run({**cfg(), "timezone": "Europe/Berlin"})
+        self.assertEqual(w.country, "DE")
+
+    def test_the_phones_time_zone_is_in_place_before_the_restart_to_join(self):
+        w = World(routers=HOME)
+        w.run(phone=[(5 * 60, "HomeNet", "right-password", "America/New_York")])
+        kinds = [e[:2] for e in w.log if e[0] in ("country", "reboot")]
+        self.assertEqual(kinds[-2:], [("country", "US"), ("reboot", kinds[-1][1])])
 
 
 class Retry(unittest.TestCase):

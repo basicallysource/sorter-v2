@@ -105,6 +105,12 @@ def check_image(img: Path) -> None:
         start, end = cfg.find(b"# __SORTEROS_CFG_START__"), cfg.find(b"# __SORTEROS_CFG_END__")
         check(0 <= start < end and end - start >= 4096, "setup-site placeholder in /etc/sorteros-config.toml",
               f"{len(cfg)} bytes")
+        cfg_path = mnt / "etc/sorteros-config.toml"
+        check(cfg_path.exists() and cfg_path.stat().st_mode & 0o077 == 0,
+              "setup config is root-only (it will hold the Wi-Fi password)")
+        dhd = mnt / "lib/firmware/ap6275p/config.txt"
+        check(dhd.exists() and "\nccode=XZ\n" in dhd.read_text(errors="replace"),
+              "Wi-Fi country starts worldwide (XZ), not the vendor's CN")
         check(not any((mnt / "usr/local/sbin").rglob("__pycache__")), "no compiled Python in the overlay")
         daemon = mnt / "usr/local/sbin/sorteros-firstboot.py"
         try:

@@ -32,6 +32,7 @@ single phase won't break the overall state.
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import datetime as dt
 import hashlib
 import json
@@ -298,6 +299,7 @@ def phase_overlay(ctx: BuildCtx) -> None:
 
     _set_hostname(ctx)
     _harden_root_fs(ctx)
+    _set_wifi_country(ctx)
 
     # Tailscale auth key is intentionally NOT baked in at build time.
     # It is supplied at setup time via the AP captive portal (../portal/),
@@ -504,11 +506,27 @@ CFG_END_MARKER = "# __SORTEROS_CFG" + "_END__\n"
 CFG_PLACEHOLDER_BYTES = 8192
 
 
+def _set_wifi_country(ctx: BuildCtx) -> None:
+    """The vendor image leaves the Orange Pi 5's Wi-Fi on CN, which hides 5 GHz
+    channels 100-144. Start at XZ, Broadcom's worldwide setting; sorteros-network
+    moves it to the owner's country once it knows their time zone."""
+    spec = importlib.util.spec_from_file_location(
+        "sorteros_network", SCRIPT_DIR / "overlay/usr/local/sbin/sorteros-network.py")
+    net = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(net)
+    config = ctx.mnt / net.DHD_CONFIG.relative_to("/")
+    if not config.exists():
+        log(f"no {net.DHD_CONFIG} in this image: Wi-Fi country left alone")
+        return
+    config.write_text(net.with_country(config.read_text(errors="replace"), net.WORLD_COUNTRY))
+    log(f"Wi-Fi country: {net.WORLD_COUNTRY} in {net.DHD_CONFIG}")
+
+
 def _write_config_placeholder(ctx: BuildCtx) -> None:
     padding = CFG_PLACEHOLDER_BYTES - len(CFG_START_MARKER) - len(CFG_END_MARKER)
     cfg = ctx.mnt / "etc" / "sorteros-config.toml"
     cfg.write_text(CFG_START_MARKER + "\n" * padding + CFG_END_MARKER)
-    os.chmod(cfg, 0o644)
+    os.chmod(cfg, 0o600)  # the setup site puts the Wi-Fi password and Tailscale key here
     log(f"wrote the setup-site placeholder: {cfg.relative_to(ctx.mnt)} ({padding} bytes of room)")
 
 

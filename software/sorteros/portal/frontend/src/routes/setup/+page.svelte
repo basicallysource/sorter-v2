@@ -96,7 +96,8 @@
 				hidden: selected === null,
 				hostname: hostnameDraft.trim() || null,
 				sshKey: sshKeyDraft.trim() || null,
-				rendezvousId: rendezvous?.id ?? null
+				rendezvousId: rendezvous?.id ?? null,
+				timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || null
 			});
 			handoff = {
 				ssid,

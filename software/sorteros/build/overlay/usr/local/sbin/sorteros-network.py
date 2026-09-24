@@ -3,17 +3,18 @@ SorterOS network bring-up, once per boot.
 
 In order:
   0. Ethernet: a cable with DHCP comes up on its own. Nothing to do.
-  1. Wi-Fi given to the setup site before flashing: saved in NetworkManager
-     (once per distinct network/password) and joined like any saved network.
-     Saved networks get WIFI_WAIT_S to connect, no cable WIRED_WAIT_S.
+  1. Wi-Fi given to the setup site before flashing: saved and joined the
+     first boot it's seen (once per distinct network/password), then joined
+     like any saved network. Saved networks get WIFI_WAIT_S to connect, no
+     cable WIRED_WAIT_S.
   2. Still offline: scan for networks, then broadcast SorterOS-Setup-XXXXXX
      with the setup page (sorteros-portal), which offers that scan.
 
 Joining a network from the setup page is a restart. The Orange Pi 5's Wi-Fi
 (AP6275P, Broadcom's bcmdhd) can't join a network after it has been
 broadcasting until it's restarted, and can't scan while broadcasting. So the
-page writes what was chosen to PENDING_PATH and restarts the Pi; at the next
-boot this service saves it and joins it. If that fails, the profile it
+page writes what was chosen to PENDING_PATH, this service restarts the Pi, and
+at the next boot it saves the network and joins it. If that fails, the profile it
 replaced comes back, FAILED_PATH tells the page which network and why (the
 password, not found, no address), and the setup network comes back: on the
 phone, the setup network reappearing is the sign it didn't work.
@@ -22,6 +23,14 @@ This file is the only thing that writes Wi-Fi profiles, as keyfiles: SSIDs as
 bytes (any SSID is legal, "/" and all), the rest escaped for GLib's key file
 format (a backslash or an edge space in a password would otherwise be lost),
 one profile per SSID.
+
+It also sets the radio's country, which decides the channels it can use. The
+vendor image says CN, which hides 5 GHz channels 100-144. The country comes
+from the time zone the setup site or page passed on (zone.tab), else it is XZ,
+Broadcom's worldwide setting, which sees every channel and listens before it
+transmits on any it isn't sure of. The driver reads it when it loads, so a
+change counts from the next restart, and the restart to join is taken after
+it is written.
 
 While the setup network is up, a saved network that comes back (a router
 slower to boot than the Pi after a power cut) is picked up by restarting, when
@@ -70,6 +79,10 @@ FAILED_PATH = STATE_DIR / "join-failed.json"
 RETRY_COUNT_PATH = STATE_DIR / "saved-retry-count"
 ANNOUNCE_PATH = STATE_DIR / "ip-announce.json"
 NM_DIR = Path("/etc/NetworkManager/system-connections")
+# Where the AP6275P's driver (Ampak's dhd) reads its country as it loads.
+DHD_CONFIG = Path("/lib/firmware/ap6275p/config.txt")
+ZONE_TAB = Path("/usr/share/zoneinfo/zone.tab")
+WORLD_COUNTRY = "XZ"
 RUN_DIR = Path("/run/sorteros")
 NETWORKS_PATH = RUN_DIR / "networks.json"
 PORTAL_ACTIVITY = RUN_DIR / "portal-activity"
@@ -102,6 +115,7 @@ ANNOUNCE_EVERY_S = 10
 # with a 403. Any honest name gets through.
 HTTP_HEADERS = {"User-Agent": "SorterOS"}
 TICK_S = 2
+RESTART_DELAY_S = 5  # after the setup page's choice lands, so its answer reaches the phone
 REBOOT_CMD = os.environ.get("SORTEROS_REBOOT_CMD", "systemctl reboot").split()
 
 _CONTROL = re.compile(r"\x1b\[[0-9;?]*[ -/]*[@-~]|[\x00-\x08\x0b-\x1f]")
@@ -166,6 +180,25 @@ def profile_path(ssid: str) -> Path:
     return NM_DIR / f"{safe}-{hashlib.sha256(ssid.encode()).hexdigest()[:8]}.nmconnection"
 
 
+def country_for_timezone(timezone: str, zone_tab: str) -> str | None:
+    for line in zone_tab.splitlines():
+        cols = line.split("\t")
+        if not line.startswith("#") and len(cols) >= 3 and cols[2] == timezone:
+            return cols[0]
+    return None
+
+
+def wifi_country(cfg: dict, zone_tab: str) -> str:
+    timezone = cfg.get("timezone")
+    return (isinstance(timezone, str) and country_for_timezone(timezone, zone_tab)) or WORLD_COUNTRY
+
+
+def with_country(text: str, country: str) -> str:
+    """A dhd config.txt with its country set (and any old setting dropped)."""
+    lines = [line for line in text.splitlines() if not re.match(r"\s*(ccode|regrev)\s*=", line)]
+    return "\n".join(lines + [f"ccode={country}", "regrev=0"]) + "\n"
+
+
 def join_failure_reason(error: str) -> str:
     """What NetworkManager's error means for the person on the setup page."""
     e = error.lower()
@@ -178,13 +211,13 @@ def join_failure_reason(error: str) -> str:
     return "other"
 
 
-def _write_private(path: Path, text: str) -> None:
-    """Write a root-only file whole or not at all: a power cut mid-write
-    leaves the old one."""
+def _write_private(path: Path, text: str, mode: int = 0o600) -> None:
+    """Write a file whole or not at all: a power cut mid-write leaves the old
+    one. Root-only unless `mode` says otherwise."""
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp = path.with_name(f".{path.name}.tmp")
     with open(tmp, "w") as f:
-        os.fchmod(f.fileno(), 0o600)
+        os.fchmod(f.fileno(), mode)
         f.write(text)
         f.flush()
         os.fsync(f.fileno())
@@ -377,6 +410,28 @@ class System:
     def reboot(self) -> None:
         self._run(*REBOOT_CMD, timeout=30)
 
+    def config(self) -> dict:
+        return read_config()
+
+    def zone_tab(self) -> str:
+        try:
+            return ZONE_TAB.read_text()
+        except OSError:
+            return ""
+
+    def set_wifi_country(self, country: str) -> bool:
+        """Set the radio's country for the next time the driver loads. True
+        if it changed."""
+        try:
+            text = DHD_CONFIG.read_text(errors="replace")
+        except OSError:
+            return False  # not an AP6275P
+        new = with_country(text, country)
+        if new == text:
+            return False
+        _write_private(DHD_CONFIG, new, 0o644)
+        return True
+
     # the Sorter UI
     def ui_stop(self) -> list[str]:
         stopped = []
@@ -494,19 +549,17 @@ def _get_json(url: str) -> dict:
     return data if isinstance(data, dict) else {}
 
 
-def import_config_wifi(sys_: System, cfg: dict) -> bool:
-    """Hand the setup site's Wi-Fi to NetworkManager, once per distinct
-    network and password. NetworkManager joins it like any saved network."""
+def new_config_wifi(sys_: System, cfg: dict) -> tuple[str, str] | None:
+    """The setup site's Wi-Fi if this is the first boot to see it (once per
+    distinct network and password; after that it is a saved network)."""
     wifi = wifi_from_config(cfg)
     if wifi is None:
-        return False
+        return None
     digest = hashlib.sha256("\0".join(wifi).encode()).hexdigest()
     if sys_.imported() == digest:
-        return False
-    sys_.write_wifi(*wifi)
+        return None
     sys_.mark_imported(digest)
-    log.info("saved Wi-Fi network %r from the setup config", wifi[0])
-    return True
+    return wifi
 
 
 def wait_online(sys_: System, seconds: float) -> bool:
@@ -559,6 +612,7 @@ def announce_address(sys_: System) -> None:
 
 def online_now(sys_: System) -> int:
     sys_.set_retry_count(0)
+    sys_.clear_failure()  # a failed join from before is history once online
     announce_address(sys_)
     return 0
 
@@ -590,6 +644,13 @@ def _hotspot(sys_: System, iface: str) -> int:
     retry_after = min(RETRY_FIRST_S * 2 ** tries, RETRY_MAX_S)
     while True:
         sys_.sleep(TICK_S)
+        if sys_.pending():
+            log.info("the setup page chose a network: restarting to join it")
+            sys_.sleep(RESTART_DELAY_S)
+            sys_.stop_portal()
+            sync_wifi_country(sys_, sys_.config())  # the page may have brought a time zone
+            sys_.reboot()
+            return 0
         if sys_.online():
             log.info("online over a cable: closing the setup network")
             sys_.stop_portal()
@@ -612,23 +673,31 @@ def _hotspot(sys_: System, iface: str) -> int:
             return 0
 
 
-def join_pending(sys_: System, iface: str, pending: dict) -> bool:
-    """Save and join the network chosen on the setup page before the restart.
-    A failed join puts back what it replaced and tells the page why."""
-    ssid = pending.get("ssid")
-    if not isinstance(ssid, str) or not ssid:
+def sync_wifi_country(sys_: System, cfg: dict) -> None:
+    country = wifi_country(cfg, sys_.zone_tab())
+    if sys_.set_wifi_country(country):
+        log.info("Wi-Fi country set to %s, from the next restart", country)
+
+
+def save_and_join(sys_: System, iface: str | None, ssid: str, password: str, *, source: str,
+                  hidden: bool = False, security: str = "", keep_unless_wrong: bool = False) -> bool:
+    """Save a network and join it now. A failed join tells the setup page why
+    and puts back the profile it replaced; one from the setup site stays
+    saved unless its password is wrong (its router may just not be up yet)."""
+    con_uuid, replaced = sys_.write_wifi(ssid, password, hidden, security)
+    if iface is None:
         return False
-    con_uuid, replaced = sys_.write_wifi(ssid, str(pending.get("password") or ""),
-                                         bool(pending.get("hidden")), str(pending.get("security") or ""))
     error = sys_.join(con_uuid, iface)
     if error is None:
-        log.info("joined %s, given on the setup page", ssid)
-        sys_.clear_failure()
+        log.info("joined %s, %s", ssid, source)
         return True
     reason = join_failure_reason(error)
-    log.warning("couldn't join %s, given on the setup page (%s): %s", ssid, reason, error)
     sys_.record_failure(ssid, reason, error)
-    sys_.forget_wifi(con_uuid, replaced)
+    if keep_unless_wrong and reason != "password":
+        log.warning("couldn't join %s, %s (%s): keeping it to try again: %s", ssid, source, reason, error)
+    else:
+        log.warning("couldn't join %s, %s (%s): %s", ssid, source, reason, error)
+        sys_.forget_wifi(con_uuid, replaced)
     return False
 
 
@@ -637,18 +706,29 @@ def bring_up(sys_: System, cfg: dict) -> int:
     # setup network still up, which keeps saved networks from joining and
     # the chip from scanning.
     sys_.ap_down()
+    sync_wifi_country(sys_, cfg)
     iface = None
     deadline = sys_.now() + WIFI_DEVICE_WAIT_S
     while iface is None and sys_.now() < deadline:
         iface = sys_.wifi_iface()
         if iface is None:
             sys_.sleep(1)
-    import_config_wifi(sys_, cfg)
+    # The setup site's Wi-Fi is saved before a choice from the setup page, so
+    # the page's always wins for the same network.
+    config_wifi = new_config_wifi(sys_, cfg)
     pending = sys_.pending()
     if pending:
         sys_.clear_pending()  # one attempt; it holds the password
-        if iface and join_pending(sys_, iface, pending):
+        if config_wifi:
+            sys_.write_wifi(*config_wifi)
+        ssid = pending.get("ssid")
+        if isinstance(ssid, str) and ssid and save_and_join(
+                sys_, iface, ssid, str(pending.get("password") or ""), source="given on the setup page",
+                hidden=bool(pending.get("hidden")), security=str(pending.get("security") or "")):
             return online_now(sys_)
+    elif config_wifi and save_and_join(sys_, iface, *config_wifi, source="given to the setup site",
+                                       keep_unless_wrong=True):
+        return online_now(sys_)
     wait = WIFI_WAIT_S if iface and sys_.saved_wifi() else WIRED_WAIT_S
     if wait_online(sys_, wait):
         log.info("online")

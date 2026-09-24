@@ -413,6 +413,7 @@ def apply_config_if_changed() -> None:
     boot for what the setup site wrote, again if the setup page on the device
     adds a hostname or SSH key later. Wi-Fi is sorteros-network's job.
       hostname              → system hostname (avahi announces <name>.local)
+      timezone              → system time zone (the vendor image says Asia/Shanghai)
       [ssh].authorized_key  → orangepi's authorized_keys
       [tailscale].auth_key  → stored for stage_tailscale_up
     """
@@ -428,6 +429,12 @@ def apply_config_if_changed() -> None:
     if isinstance(hostname, str) and hostname.strip():
         log.info("setting hostname: %s", hostname)
         sh(["hostnamectl", "set-hostname", hostname.strip()])
+
+    timezone = cfg.get("timezone")
+    if isinstance(timezone, str) and re.fullmatch(r"[A-Za-z0-9_+-]+(/[A-Za-z0-9_+-]+)*", timezone) \
+            and (Path("/usr/share/zoneinfo") / timezone).is_file():
+        log.info("setting time zone: %s", timezone)
+        sh(["timedatectl", "set-timezone", timezone])
 
     key = (cfg.get("ssh") or {}).get("authorized_key")
     if isinstance(key, str) and key.strip():

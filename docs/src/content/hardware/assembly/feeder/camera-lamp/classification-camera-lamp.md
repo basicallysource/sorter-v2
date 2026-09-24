@@ -9,7 +9,7 @@ lede: The IMX415 4K module clasped between its two halves, pushed into the ring 
 permalink: /hardware/assembly/feeder/camera-lamp/classification-camera-lamp/
 author: reveryx
 contributors: [spencer, danny, brickcyclealice, barthel, daddyosbricksbill]
-og_image: https://assets.basically.website/sorter-docs/camera-lamp-camera-seated-w1600-eede61656118.jpg
+og_image: https://assets.basically.website/sorter-docs/assembly-camera-lamp-imx415-finished-full-ffc5214cce8a.jpg
 warning: >-
   Steps 1 to 3 are photographed on a real build of the feeder lamp, which is this build apart from
   the camera module, and step 4 on a second build. The dovetail fit itself (step 4) has never been
@@ -74,16 +74,10 @@ The clasp's two halves form a spigot that plugs into a socket in the ring. **The
 
 **The lead plugs in from above on this one.** The IMX415's cable stands up out of the board rather than leaving flat through the cover's slot the way the OV9732's does, so leave room above the lamp for it and for the bend in the cable.
 
-<div class="img-row">
-  <figure>
-    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-camera-lamp-imx415-seated-c4-w1600-94d553e88c9b.jpg" alt="Looking down on the classification lamp: the larger 4K camera board filling the square opening in the cover, with its black cable plugged into the middle of the board and standing straight up, and the lamp arm running off to the right">
-    <figcaption>The 4K module seated on C4, lead plugged in from above. <cite>Photo: Daddy-O's Bricks - Bill.</cite></figcaption>
-  </figure>
-  <figure>
-    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-camera-lamp-imx415-lead-routing-w1600-ff6852248c3f.jpg" alt="The same lamp, marked 4, from a lower angle: the camera cable standing up out of the board, the red and black lamp leads looped over the cover and cable-tied clear of it, and the rectangular slot in the cover below">
-    <figcaption>The same lamp, with the LED leads tied clear of the camera cable. <cite>Photo: Daddy-O's Bricks - Bill.</cite></figcaption>
-  </figure>
-</div>
+<figure class="single-figure">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-camera-lamp-imx415-lead-routing-w1600-ff6852248c3f.jpg" alt="The classification lamp, marked 4, from a lower angle: the camera cable standing up out of the board, the red and black lamp leads looped over the cover and cable-tied clear of it, and the rectangular slot in the cover below">
+  <figcaption>On C4, with the LED leads tied clear of the camera cable. <cite>Photo: Daddy-O's Bricks - Bill.</cite></figcaption>
+</figure>
 
 {% include step.html n="3" title="Push the arm up into the lamp" %}
 
@@ -144,8 +138,8 @@ Use the dovetail the count gives you rather than the one that looks right. Where
 A finished lamp on the bench: the arm, the shaded lamp and the 4K camera seated at its centre. Build one, and it goes onto its channel later.
 
 <figure class="single-figure">
-  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/camera-lamp-camera-seated-w1600-eede61656118.jpg" alt="Looking down on the top of an assembled camera lamp: the grey cover with a circular opening at its centre, the camera board seated in the clasp inside it, its lead plugged in and running off to one side">
-  <figcaption>A finished lamp on the bench, camera seated at its centre. <cite>Photo: Spencer.</cite></figcaption>
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-camera-lamp-imx415-finished-full-ffc5214cce8a.jpg" alt="Looking down on a finished classification lamp: the grey cover with its square opening, the 4K camera board seated in the clasp inside it, and its cable plugged into the top of the board">
+  <figcaption>A finished lamp, the 4K camera seated at its centre. <cite>Photo: Daddy-O's Bricks - Bill.</cite></figcaption>
 </figure>
 
 Wiring is [Preparing the LED strip]({{ '/hardware/helpers/led-strip/' | relative_url }}) for the strip, and the [electronics]({{ '/hardware/electronics/' | relative_url }}) page for the camera.

@@ -19,6 +19,8 @@ sections:
     pages:
       - title: Overview
         url: /hardware/
+      - title: Printing the parts
+        url: /hardware/printing/
       - title: Assembly
         url: /hardware/assembly/
         children:

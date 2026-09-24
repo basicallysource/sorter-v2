@@ -110,6 +110,11 @@ So, if you are planning:
   [Assembly]({{ '/hardware/assembly/' | relative_url }}) sections are in build
   order, so you can start assembling long before the last part is printed.
 
+**Which printer you need, how to place a part on the plate and what to check before
+a long print** are on [Printing the parts]({{ '/hardware/printing/' | relative_url }}).
+The parts are designed to a 256 x 256 mm bed, and a smaller one cannot print all of
+them.
+
 ## Intended operating conditions
 
 Indoors, out of direct sun, in a room you would be comfortable working in.
@@ -156,6 +161,7 @@ itself.
 
 ## Where to go next
 
+- **[Printing the parts]({{ '/hardware/printing/' | relative_url }})**: what printer the parts need, orientation, supports, and the slicer checks worth doing before a long print.
 - **[Assembly]({{ '/hardware/assembly/' | relative_url }})**: the build order, structured like a set of instructions. Electronics is part of this same build order (see its order of operations), not a separate track.
 - **[Electronics]({{ '/hardware/electronics/' | relative_url }})**: the [wire harness]({{ '/hardware/electronics/wire-harness/' | relative_url }}) and the stepper pinout, [installing the electronics]({{ '/hardware/electronics/installation/' | relative_url }}), and [connecting the components]({{ '/hardware/electronics/connecting/' | relative_url }}).
 - **[Software setup]({{ '/hardware/software-setup/' | relative_url }})**: the last step of the build, where the finished machine hands off to installing the software and the [Sorter]({{ '/sorter/' | relative_url }}) section.

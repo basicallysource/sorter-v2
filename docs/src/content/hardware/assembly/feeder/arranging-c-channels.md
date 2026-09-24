@@ -214,14 +214,9 @@ The [bulk cap and bucket]({{ '/hardware/assembly/feeder/c-channels/bulk-channel/
 - **C2 and C3**: the **5th**.
 - **Classification channel**: the **8th**, which is the last one before the channel above covers the wall.
 
-A camera has to see its channel's drop zone and its exit in the same frame. You check that at [first setup]({{ '/sorter/first-setup/' | relative_url }}) step 7; if one cannot, its lamp is in the wrong dovetail.
-
-<figure class="single-figure">
-  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-camera-lamps-from-above-w1600-285496e1bd00.jpg" alt="The feeder from above on a built machine: three camera lamps over their channels, each with its camera board in the middle of the cover and its leads running off to one side, with the black bulk hopper at the left and the steppers grouped in the centre">
-  <figcaption>The three lamps in place, seen from above. <cite>Photo: Daddy-O's Bricks - Bill.</cite></figcaption>
-</figure>
-
 **It goes on from underneath.** Offer the arm mount up to the bottom edge of the channel wall, feed its rail into the dovetail, and push it up until it clips over the top edge. Nothing screws into this joint.
+
+A camera has to see its channel's drop zone and its exit in the same frame. You check that at [first setup]({{ '/sorter/first-setup/' | relative_url }}) step 7; if one cannot, its lamp is in the wrong dovetail.
 
 <div class="callout callout-warning">
   <span class="callout-icon" aria-hidden="true">⚠</span>
@@ -242,6 +237,11 @@ A camera has to see its channel's drop zone and its exit in the same frame. You 
     <figcaption>Seated. The rail is fully home in the dovetail and the mount sits flat against the wall. <cite>Photo: Daddy-O's Bricks - Bill.</cite></figcaption>
   </figure>
 </div>
+
+<figure class="single-figure">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-camera-lamps-from-above-w1600-285496e1bd00.jpg" alt="The feeder from above on a built machine: three camera lamps over their channels, each with its camera board in the middle of the cover and its leads running off to one side, with the black bulk hopper at the left and the steppers grouped in the centre">
+  <figcaption>The three lamps in place, seen from above. <cite>Photo: Daddy-O's Bricks - Bill.</cite></figcaption>
+</figure>
 
 {% include step.html n="10" title="Turn it all by hand" %}
 

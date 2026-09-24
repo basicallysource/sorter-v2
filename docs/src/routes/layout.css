@@ -1048,12 +1048,18 @@ body {
 	min-height: 180px;
 }
 
+/* Sized by height, not width: the render carries about a quarter of its width
+   in empty margin on each side, so fitting it inside the column would leave
+   the machine itself far shorter than the tiles. Covering the box instead puts
+   those margins outside it and nothing of the machine is lost. Below 900px the
+   column is narrow enough that the crop would start eating the machine, so it
+   goes back to fitting whole. */
 .landing-split-media img {
 	position: absolute;
 	inset: 0;
 	width: 100%;
 	height: 100%;
-	object-fit: contain;
+	object-fit: cover;
 	object-position: center;
 }
 
@@ -1061,6 +1067,12 @@ body {
 	max-width: none;
 	margin: 10px 0 0;
 	text-align: center;
+}
+
+@media (max-width: 900px) {
+	.landing-split-media img {
+		object-fit: contain;
+	}
 }
 
 /* Stacked: tiles one per row, the picture under them at its own aspect ratio

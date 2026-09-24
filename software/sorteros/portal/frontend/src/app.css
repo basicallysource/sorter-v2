@@ -16,14 +16,10 @@
 	--color-text-muted: #7a7770;
 	--color-primary: #0055bf;
 	--color-primary-hover: #004499;
-	--color-primary-dark: #002656;
 	--color-primary-contrast: #ffffff;
 	--color-danger: #d01012;
-	--color-danger-dark: #5c0708;
 	--color-success: #00852b;
-	--color-success-dark: #003d14;
 	--color-warning: #f2a900;
-	--color-warning-dark: #4a3300;
 	--color-info: #0055bf;
 	--font-sans:
 		ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
@@ -117,10 +113,6 @@ body {
 	background: var(--color-primary-hover);
 }
 
-.setup-card-header {
-	background: #efede8;
-}
-
 @media (prefers-color-scheme: dark) {
 	.setup-panel {
 		box-shadow: none;
@@ -155,9 +147,5 @@ body {
 	.setup-button-secondary:hover {
 		border-color: #666054;
 		background: #1d1b18;
-	}
-
-	.setup-card-header {
-		background: #252524;
 	}
 }

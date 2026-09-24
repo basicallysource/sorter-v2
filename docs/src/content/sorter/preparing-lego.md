@@ -35,6 +35,15 @@ A LEGO stud is 8 mm across, so 80 mm is ten studs. Count studs instead of measur
 
 A piece over the limit does not fall through a channel cleanly. It bridges the channel, or it wedges on the way into the chute, and everything behind it stops.
 
+**Ten studs is the feed side. The layer a piece is sorted to is tighter than that.**
+
+Every piece leaves through the funnel on the layer its bin is on, and that mouth is narrower than the channels that fed it:
+
+- A **half-size layer**, the one with 12 bins, takes a piece up to **8 studs** across (64 mm).
+- A **third-size layer**, 18 bins, takes **6 studs** (48 mm).
+
+So on a machine whose layers are all third size, six studs is the working limit for the tub rather than ten. Which size each layer is was settled when its [funnel]({{ '/hardware/assembly/distribution/chute/funnel/' | relative_url }}) was printed.
+
 The [one-page sheet](#the-one-page-sheet) at the bottom of this page carries a life-size 2x10 brick, so a doubtful piece can be laid straight on top of it instead of counted.
 
 ## What to take out

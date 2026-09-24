@@ -46,7 +46,7 @@
 			<dd class="min-w-0 break-words">{softwareDetail(state.sorter.software)}</dd>
 
 			<dt class="text-text-muted">Setup network</dt>
-			<dd class="min-w-0 break-words">{state.setup_network.ssid}</dd>
+			<dd class="min-w-0 break-words">{state.setup_network?.ssid ?? 'Closed'}</dd>
 
 			{#if join}
 				<dt class="text-text-muted">Last join</dt>

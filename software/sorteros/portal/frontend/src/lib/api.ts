@@ -41,7 +41,9 @@ export type State = {
 	now: number;
 	clock_ok: boolean;
 	sorter: { name: string; mdns: string; software: Software };
-	setup_network: { ssid: string };
+	// null once it has closed. live_join is false on a radio that must leave the
+	// air to join: the phone then loses this page until the join is over.
+	setup_network: { ssid: string; live_join: boolean } | null;
 	networks: Network[];
 	cable: 'none' | 'plugged' | 'connected';
 	join: Join | null;

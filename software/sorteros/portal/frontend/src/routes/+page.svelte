@@ -222,7 +222,7 @@
 	{#if lost}
 		<Alert variant="warning">
 			Lost the connection to the Sorter. If your phone left
-			<span class="font-medium">{live?.setup_network.ssid ?? "the Sorter's setup network"}</span>,
+			<span class="font-medium">{live?.setup_network?.ssid ?? "the Sorter's setup network"}</span>,
 			rejoin it.
 		</Alert>
 	{/if}
@@ -232,7 +232,12 @@
 			<div class="flex justify-center py-16 text-text-muted"><Spinner size={24} /></div>
 		{/if}
 	{:else if screen === 'joining' && join}
-		<Joining ssid={join.ssid} seconds={live.now - join.at} />
+		<Joining
+			ssid={join.ssid}
+			seconds={live.now - join.at}
+			setupSsid={live.setup_network?.ssid ?? null}
+			liveJoin={live.setup_network?.live_join ?? true}
+		/>
 	{:else if screen === 'joined' && join}
 		<Joined
 			{join}

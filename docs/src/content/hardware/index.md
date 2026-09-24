@@ -116,7 +116,8 @@ The filament and time figures come from the catalog, sliced on
 **{{ site.data.build_scale.process }}**, in
 **{{ site.data.build_scale.filament }}** at
 {{ site.data.build_scale.infill }} infill. Your own printer and profile will
-differ.
+differ. If the room means PETG or ASA instead, expect the weight and the print
+time to change with it.
 
 **Treat the hours as a floor, not a plan.** They assume each part printed on
 its own plate, back to back, with nobody waiting. A real build runs about twice

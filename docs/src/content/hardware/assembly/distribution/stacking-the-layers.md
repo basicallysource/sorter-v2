@@ -82,7 +82,7 @@ There are two ways to do this and the machine comes out the same either way.
 
 **The right way up** starts from the bottom layer on its casters and works upward, capping the stack with the top interface. It matches the order the pages are written in and needs no flip at the end, but every joint is driven overhead and the tower gets tall quickly.
 
-Whichever you pick, the joint itself is identical. **The whole frame goes together before any chute does**, which is why the chutes are not on this page.
+Whichever you pick, the joint itself is identical. **The whole frame goes together before any chute does.**
 
 {% include step.html n="2" title="Join one layer to the next" %}
 
@@ -103,7 +103,7 @@ The numbers on the drawing:
   <li><strong>External bracket — side and cover</strong>, the 60.5 mm collar at each frame.</li>
   <li><strong>Piece C</strong>, 154 mm cut. It starts 3 mm above its own collar's underside and ends 3 mm below the flange face of the collar above, so it spans the whole 160 mm between one frame and the next. At the bottom joint this is piece D instead, which is the same span plus the leg.</li>
   <li><strong>External bracket — bottom vertical</strong>, 119.6 mm of tube. It sleeves the upper part of the extrusion, so it is not visible on an assembled machine, and its foot seats on the rim of its own layer's collar. That seat is what sets the 160 mm spacing between frames.</li>
-  <li class="key-screw"><strong>The two {% include fastener.html size="M5" variant="socket-button" length="16" %} screws that join the layers</strong>, up through the flange into the bracket above. The flange has a 5.6 mm clearance hole through 8 mm of plastic and the bracket above a 4.4 mm self-tapping hole 10 mm deep, so the screw is 8 mm of clearance and 8 mm of thread, and a longer one bottoms out before it clamps.</li>
+  <li class="key-screw"><strong>The two {% include fastener.html size="M5" variant="socket-button" length="16" %} screws that join the layers</strong>, up through the flange into the bracket above. Use the 16 mm, not a longer one.</li>
   <li class="key-screw"><strong>The two {% include fastener.html size="M5" variant="socket-button" length="16" %} screws that clamp the bracket onto the extrusion</strong>, self-tapping through the bracket wall. The extrusion is held only here, in its own layer's bracket, and nothing screws into it from the layer above.</li>
   <li class="key-note"><strong>Where two extrusions meet</strong>: they stop about 3 mm short of each other at the flange face and never touch.</li>
 </ol>

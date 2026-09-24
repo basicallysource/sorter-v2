@@ -72,7 +72,9 @@ eth_default() { # yes|no: the cable is a way online, or only for ssh
     local never=yes; [ "$1" = yes ] && never=no
     nmcli connection modify "$ETHCON" ipv4.never-default "$never" ipv6.never-default "$never"
     nmcli device reapply "$ETH" >/dev/null
+    router_uplink  # a reapply drops every route on the device NetworkManager didn't make
 }
+router_uplink() { ip route replace default via "$ETHGW" dev "$ETH" table 100; }
 cable_internet() { # yes|no: the cable's own traffic (not the router's) reaches the internet
     iptables -D OUTPUT -o "$ETH" -p tcp --dport 80 -j REJECT 2>/dev/null
     [ "$1" = no ] && iptables -I OUTPUT -o "$ETH" -p tcp --dport 80 -j REJECT
@@ -94,7 +96,7 @@ if ! ip link show rtr0 >/dev/null 2>&1; then
     sysctl -qw net.ipv4.ip_forward=1
     R sysctl -qw net.ipv4.ip_forward=1
     ip rule add iif rtr0 lookup 100 pref 100
-    ip route add default via "$ETHGW" dev "$ETH" table 100
+    router_uplink
     iptables -t nat -A POSTROUTING -s 10.99.0.0/24 -o "$ETH" -j MASQUERADE
     R iptables -t nat -A POSTROUTING -s 192.168.77.0/24 -o rtr1 -j MASQUERADE
 fi

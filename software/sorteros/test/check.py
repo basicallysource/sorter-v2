@@ -8,9 +8,10 @@
       Follows a VM started with ./boot.sh through first boot, then checks the
       running machine over HTTP (status page, UI, backend API) and SSH.
 
-  ./check.py wifi
+  ./check.py wifi [--only "3 6"]
       Simulated Wi-Fi (wifi-sim.sh) in the running VM: setup-site Wi-Fi right
-      and wrong, the phone fixing it, a router that comes back late, a cable.
+      and wrong, the phone fixing it, a router that comes back late, a cable,
+      an odd network name and password.
 
 Exits non-zero and says which check failed. Standard library only, Python 3.10+
 (the image's own Python), so it runs anywhere the image is built.
@@ -235,7 +236,7 @@ def check_wifi(args: argparse.Namespace) -> None:
     """Run wifi-sim.sh inside the VM and relay its PASS/FAIL lines."""
     script = Path(__file__).with_name("wifi-sim.sh")
     rc, out = ssh(args.ssh_port, f"cat > /tmp/wifi-sim.sh <<'SCRIPT'\n{script.read_text()}SCRIPT\n"
-                                 "nohup bash /tmp/wifi-sim.sh > /tmp/wifi-sim.log 2>&1 < /dev/null & echo started")
+                                 f"ONLY='{args.only}' nohup bash /tmp/wifi-sim.sh > /tmp/wifi-sim.log 2>&1 < /dev/null & echo started")
     check(rc == 0 and "started" in out, "wifi-sim started in the VM", out)
     if failures:
         return
@@ -271,6 +272,7 @@ def main() -> int:
     p_wifi = sub.add_parser("wifi", help="simulated Wi-Fi scenarios inside a running VM (wifi-sim.sh)")
     p_wifi.add_argument("--ssh-port", type=int, default=2222)
     p_wifi.add_argument("--timeout", type=int, default=40, help="minutes")
+    p_wifi.add_argument("--only", default="", help='scenario numbers to run, e.g. "3 6" (default: all)')
     args = ap.parse_args()
 
     if args.what == "image":

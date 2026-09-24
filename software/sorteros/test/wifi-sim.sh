@@ -98,12 +98,13 @@ router_down() {
 }
 
 # ── the phone ─────────────────────────────────────────────────────────────
-setup_ssid() { P ip link set "$PIF" up; P iw dev "$PIF" scan 2>/dev/null | awk -F': ' '/SSID: SorterOS-Setup-/ { print $2; exit }'; }
+# "scan flush": the radio's BSS cache keeps a network that went away for about 30 s
+setup_ssid() { P ip link set "$PIF" up; P iw dev "$PIF" scan flush 2>/dev/null | awk -F': ' '/SSID: SorterOS-Setup-/ { print $2; exit }'; }
 setup_visible() { [ -n "$(setup_ssid)" ]; }
 setup_gone() { ! setup_visible; }
 phone_join() { # until the phone reaches the setup page (a scan can come back empty)
-    local ssid i
-    for i in 1 2 3 4 5 6; do
+    local ssid start=$SECONDS
+    while ((SECONDS - start < 90)); do
         ssid=$(setup_ssid)
         if [ -n "$ssid" ]; then
             P iw dev "$PIF" disconnect 2>/dev/null
@@ -126,8 +127,9 @@ submit() { # ssid password
 # ── the Pi ────────────────────────────────────────────────────────────────
 pi_reset() { # config text
     systemctl stop sorteros-network
-    nmcli -t -f NAME,TYPE connection show | awk -F: '$2 == "802-11-wireless" { print $1 }' |
-        while read -r n; do nmcli connection delete "$n" >/dev/null; done
+    eth_default no
+    nmcli -t -f UUID,TYPE connection show | awk -F: '$2 == "802-11-wireless" { print $1 }' |
+        while read -r u; do nmcli connection delete uuid "$u" >/dev/null; done  # names can end in a space
     rm -rf /var/lib/sorteros/wifi-imported /var/lib/sorteros/join-pending.json /var/lib/sorteros/join-failed.json \
         /var/lib/sorteros/saved-retry-count /var/lib/sorteros/ip-announce.json /run/sorteros
     printf '%b' "$1" >/etc/sorteros-config.toml
@@ -150,8 +152,9 @@ psk_is() { [ "$(saved_psk "$1")" = "$2" ]; }
 never_broadcast() { ! net_said broadcasting; }
 
 WIFI_OK='[wifi]\nssid = "HomeNet"\npassword = "right-password"\n'
-eth_default no
+want() { [ -z "${ONLY:-}" ] || [[ " $ONLY " == *" $1 "* ]]; } # ONLY="3 6" runs just those
 
+if want 1; then
 step "1. setup site Wi-Fi, right password"
 router_down
 router_up
@@ -161,8 +164,12 @@ check "joins the network from the setup site" wait_for 150 on_wifi
 echo "     joined after ${WAITED}s"
 check "network service finishes" wait_for 30 net_finished
 check "setup network never opened" never_broadcast
+fi
 
+if want 2; then
 step "2. setup site Wi-Fi, wrong password; the phone fixes it"
+router_down
+router_up
 pi_reset '[wifi]\nssid = "HomeNet"\npassword = "wrong-password"\n\n[tailscale]\nauth_key = "tskey-sim"\n'
 net_start
 check "setup network opens after the wrong password" wait_for 200 setup_visible
@@ -175,8 +182,12 @@ check "network service finishes" wait_for 30 net_finished
 check "setup network closed" wait_for 30 setup_gone
 check "NetworkManager has the new password, and only it" psk_is HomeNet right-password
 check "config kept the setup site's Tailscale key" grep -q 'tskey-sim' /etc/sorteros-config.toml
+fi
 
+if want 3; then
 step "3. no Wi-Fi given; the phone types a wrong password first"
+router_down
+router_up
 pi_reset ''
 net_start
 check "setup network opens with nothing configured" wait_for 120 setup_visible
@@ -189,7 +200,9 @@ check "setup page says the password was wrong" bash -c "ip netns exec phone curl
 submit HomeNet right-password >/dev/null
 check "then joins with the right one" wait_for 120 on_wifi
 check "network service finishes" wait_for 30 net_finished
+fi
 
+if want 4; then
 step "4. router slower than the Pi after a power cut"
 router_down
 pi_reset "$WIFI_OK"
@@ -199,7 +212,9 @@ router_up
 check "rejoins when the router comes back (nobody on the setup network)" wait_for 360 on_wifi
 echo "     rejoined ${WAITED}s after the router came back"
 check "network service finishes" wait_for 30 net_finished
+fi
 
+if want 5; then
 step "5. cable plugged in during setup"
 router_down
 pi_reset ''
@@ -208,9 +223,10 @@ check "setup network opens" wait_for 120 setup_visible
 eth_default yes
 check "network service finishes on the cable" wait_for 30 net_finished
 check "setup network closed" wait_for 30 setup_gone
+fi
 
+if want 6; then
 step "6. an odd network name and password from the phone"
-eth_default no
 router_down
 ODD_SSID='Café Net/2 '
 ODD_PSK=' back\slash pass'
@@ -222,6 +238,7 @@ phone_join
 submit "$ODD_SSID" "$ODD_PSK" >/dev/null
 check "joins it" wait_for 120 on_wifi
 check "NetworkManager holds the name and password exactly" psk_is "$ODD_SSID" "$ODD_PSK"
+fi
 
 eth_default yes
 router_down

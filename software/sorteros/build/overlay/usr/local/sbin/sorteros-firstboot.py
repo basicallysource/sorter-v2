@@ -282,6 +282,28 @@ def _on_a_network() -> bool:
     return bool(r.stdout.strip())
 
 
+def _keep_status_server(ui_ready: threading.Event) -> None:
+    """Serve the progress page on :80 while the machine is on a network and
+    the UI doesn't have the port yet. Off a network, sorteros-network's setup
+    page needs :80, so it is let go within a couple of seconds, not at the
+    end of whatever stage is running."""
+    server = None
+    while not ui_ready.is_set():
+        on = _on_a_network()
+        if on and server is None:
+            server = _start_status_server(STATUS_PORT)
+        elif not on and server is not None:
+            server.shutdown()
+            server.server_close()
+            server = None
+            log.info("off the network: released port %d for the setup page", STATUS_PORT)
+        ui_ready.wait(2)
+    if server is not None:
+        server.shutdown()
+        server.server_close()
+        log.info("released port %d", STATUS_PORT)
+
+
 def internet_up() -> bool:
     for host in INTERNET_PROBE_HOSTS:
         try:
@@ -707,12 +729,12 @@ def main() -> int:
             _set_state(s.name, "pending")
     failures: dict[str, int] = {}
 
-    # Port 80 is shared with the onboarding captive portal. While onboarding is
-    # still in progress (no uplink yet and wifi not configured) the portal owns
-    # :80; firstboot must not grab it. We start the status server lazily — once
-    # the box is online or onboarding has completed — and retry each loop until
-    # the bind succeeds (the portal frees :80 when it tears the AP down).
-    server = None
+    # Port 80 goes to whoever the machine needs: sorteros-network's setup page
+    # while it's off a network, the progress page while first boot runs, then
+    # the Sorter UI.
+    ui_ready = threading.Event()
+    keeper = threading.Thread(target=_keep_status_server, args=(ui_ready,), name="status-keeper", daemon=True)
+    keeper.start()
     ui_started = False
 
     while True:
@@ -727,11 +749,8 @@ def main() -> int:
             log.info("everything the UI needs is in place")
             # let the "complete" page render once before port 80 changes hands
             time.sleep(5)
-            if server is not None:
-                server.shutdown()
-                server.server_close()
-                server = None
-                log.info("released port %d", STATUS_PORT)
+            ui_ready.set()
+            keeper.join(timeout=15)
             _start_sorter_services()
             ui_started = True
 
@@ -745,12 +764,6 @@ def main() -> int:
             _runtime["net"] = net
         if net:
             _ensure_clock_synced()
-
-        # The status page takes :80 once the machine is on a network (so not
-        # while sorteros-network's setup page holds it), and only until the UI
-        # has it.
-        if server is None and not ui_started and _on_a_network():
-            server = _start_status_server(STATUS_PORT)
 
         for s in remaining:
             # Stages after the UI wait for it, so they never delay it.

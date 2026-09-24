@@ -121,7 +121,7 @@ TICK_S = 2
 WIRED_GRACE_S = 20  # a cable with a link, to get an address and answer
 SAVED_GRACE_S = 40  # saved Wi-Fi, to join after power-on
 LOST_GRACE_S = 60  # was online, to come back before the setup network opens
-JOIN_WAIT_S = 45
+JOIN_WAIT_S = 90  # longer than NetworkManager's own DHCP timeout (45 s), so its reason comes back
 IDLE_CLOSE_S = 30  # online, and nobody on the setup network for this long
 AFTER_JOIN_IDLE_CLOSE_S = 300  # after a join: the phone may drop off as the channel changes, and come back
 AFTER_JOIN_MAX_S = 600
@@ -523,6 +523,10 @@ class System:
                       "ifname", iface, timeout=JOIN_WAIT_S + 15)
         if r.returncode == 0:
             return None
+        state = self._run("nmcli", "-g", "GENERAL.STATE", "device", "show", iface).stdout
+        if "getting IP" in state:  # still waiting for the router to hand out an address
+            self._run("nmcli", "device", "disconnect", iface)
+            return "IP configuration could not be reserved: no address in time"
         if r.returncode == 124:
             return "timed out"
         # nmcli can lead with warnings and trail a journalctl hint; keep the error.

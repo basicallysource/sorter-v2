@@ -286,18 +286,6 @@ def _macAddresses() -> list[str]:
     return sorted(macs)
 
 
-def _localIps() -> list[str]:
-    ips: set[str] = set()
-    try:
-        for info in socket.getaddrinfo(socket.gethostname(), None):
-            addr = info[4][0]
-            if isinstance(addr, str) and not addr.startswith("127.") and addr != "::1":
-                ips.add(addr)
-    except Exception:
-        pass
-    return sorted(ips)
-
-
 def _cpuSerial() -> str | None:
     try:
         with open("/proc/cpuinfo") as handle:
@@ -313,7 +301,6 @@ def _cpuSerial() -> str | None:
 def _host() -> dict[str, Any]:
     return {
         "hostname": socket.gethostname() or None,
-        "local_ips": _localIps(),
         "mac_addresses": _macAddresses(),
         "cpu_serial": _cpuSerial(),
     }
@@ -339,8 +326,8 @@ def buildMachineSpecs() -> dict[str, Any]:
         "config": _configInfo(),
         "cameras": _cameras(),
         "controller_boards": _controllerBoards(),
-        # Host/network details. The dashboard shows a compact summary, so this
-        # block is retained in the report history rather than rendered.
+        # Host identity, kept in the report history rather than rendered. Where
+        # to reach the machine rides every heartbeat instead (machine_network).
         "host": _host(),
     }
     return payload

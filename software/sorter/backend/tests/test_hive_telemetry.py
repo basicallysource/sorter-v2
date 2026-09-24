@@ -383,3 +383,41 @@ class SyncFileGuardTests(unittest.TestCase):
             with patch.object(hive_telemetry, "getTargetTelemetrySettings", return_value=_settings()):
                 client.pushControlDataSegment({"local_id": 3, "bytes": path.stat().st_size}, path)
         self.assertIsNotNone(session.calls[0]["files"])
+
+
+class _PostRecordingSession:
+    def __init__(self) -> None:
+        self.posts: list[dict] = []
+        self.headers: dict = {}
+
+    def post(self, url: str, **kwargs) -> _FakeResponse:
+        self.posts.append({"url": url, **kwargs})
+        return _FakeResponse({"ok": True})
+
+
+class HeartbeatBodyTests(unittest.TestCase):
+    NETWORK = {"version": 1, "networks": [{"kind": "wifi", "address": "192.168.1.68"}]}
+    SPECS = {"schema_version": 2}
+
+    def _beat(self, settings: dict[str, bool], **kwargs) -> dict | None:
+        client = HiveTelemetryClient("https://hive.example", "token", "target-a")
+        session = _PostRecordingSession()
+        client._session = session  # type: ignore[assignment]
+        with patch.object(hive_telemetry, "getTargetTelemetrySettings", return_value=settings):
+            self.assertTrue(client.heartbeat(**kwargs))
+        return session.posts[0]["json"]
+
+    def test_network_rides_a_beat_without_specs(self) -> None:
+        self.assertEqual({"network": self.NETWORK}, self._beat(_settings(), network=self.NETWORK))
+
+    def test_network_does_not_depend_on_machine_specs(self) -> None:
+        body = self._beat(_settings(machine_specs=False), network=self.NETWORK, machine_specs=self.SPECS)
+        self.assertEqual({"network": self.NETWORK}, body)
+
+    def test_network_field_off_sends_null(self) -> None:
+        # null, not absent: Hive drops the addresses it already has.
+        body = self._beat(_settings(network=False), network=self.NETWORK, machine_specs=self.SPECS)
+        self.assertEqual({"network": None, "hardware_info": self.SPECS}, body)
+
+    def test_nothing_to_carry_sends_no_body(self) -> None:
+        self.assertIsNone(self._beat(_settings(machine_specs=False), machine_specs=self.SPECS))

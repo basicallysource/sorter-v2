@@ -102,8 +102,9 @@ With a target configured:
 
 **Heartbeat** — every 30 seconds, a keep-alive so the UI can show whether
 the server is reachable. The server records when your machine was last seen
-and the IP it connected from. At most every 30 minutes the heartbeat also
-carries the machine specs snapshot (see the Machine specs field below).
+and the IP it connected from. Each heartbeat also carries the machine's
+network addresses, and at most every 30 minutes the machine specs snapshot
+(see the Network addresses and Machine specs fields below).
 
 **Part dimension lookups** — when a piece is classified, the machine asks
 Hive for that part's physical dimensions to route oversize pieces to the
@@ -119,7 +120,8 @@ jobs already queued.
 | Full camera frames | on | Uncropped camera captures and detection overlay images attached to training samples. |
 | Piece metadata | on | Classification results per piece (part, color, confidence, bin, timestamps) and set sorting progress. |
 | Channel crops (C2/C3) | off | Unlabeled bbox crops of pieces on the upstream feeder channels, tagged with position for same-piece lookup. Experimental, high volume. |
-| Machine specs | on | Camera, controller board, platform and OS details, plus per-camera calibration state: whether a color profile is calibrated, whether it applies, its matrix and bias, and the saved device/orientation/capture settings. No image data. |
+| Machine specs | on | Camera, controller board, platform and OS details, plus per-camera calibration state: whether a color profile is calibrated, whether it applies, its matrix and bias, and the saved device/orientation/capture settings. Also the machine's hostname, MAC addresses and CPU serial. No image data. |
+| Network addresses | on | Where to find the machine: its hostname and `.local` name, the ports of its UI and API, and each network it is on (the Wi-Fi name, Ethernet or Tailscale) with its address there and whether that network reaches the internet. On SorterOS, also the name of its setup network while it broadcasts one. Shown on the machine's Hive page, to you and to Hive admins only. Turning it off makes the next heartbeat tell Hive to forget the addresses it has. |
 
 The field registry in `hive_telemetry.py` is the single choke point — no
 other code path can upload to Hive, and adding a new kind of upload requires

@@ -1014,85 +1014,66 @@ body {
 	line-height: 1.55;
 }
 
-/* The landing page's "Start here" row: the tiles in a two-up grid on the left,
-   a picture of the machine beside them on the right. The picture is sized by
-   the tiles, not the other way round: it is absolutely positioned inside
-   .landing-split-media, so it contributes no height of its own and the row is
-   exactly as tall as the stack of tiles however the copy wraps. */
-.landing-split {
-	display: grid;
-	grid-template-columns: minmax(0, 2.2fr) minmax(0, 1fr);
-	gap: 28px;
-	align-items: stretch;
-	margin: 1.3rem 0 1.7rem;
+/* The landing page's hero: the machine floated into the right margin of the
+   opening section, with the copy running down its left. Sized by a box with a
+   fixed aspect rather than by the file, because the render carries about a
+   quarter of its width in empty margin on each side — covering the box puts
+   those margins outside it and the machine fills the width it is given. The
+   crop never reaches the machine: at this aspect it takes 192px off each side
+   of a 1600px-wide file and the machine starts at 435px. */
+.landing-hero-float {
+	float: right;
+	width: 320px;
+	max-width: 40%;
+	margin: 0.3rem 0 1.2rem 1.8rem;
 }
 
-.landing-split .callout-grid {
-	margin: 0;
+.landing-hero-media {
+	aspect-ratio: 2 / 3;
 }
 
-.callout-grid-paired {
-	grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
-.landing-split-figure {
-	display: flex;
-	flex-direction: column;
-	min-height: 0;
-	margin: 0;
-}
-
-.landing-split-media {
-	position: relative;
-	flex: 1 1 auto;
-	min-height: 180px;
-}
-
-/* Sized by height, not width: the render carries about a quarter of its width
-   in empty margin on each side, so fitting it inside the column would leave
-   the machine itself far shorter than the tiles. Covering the box instead puts
-   those margins outside it and nothing of the machine is lost. Below 900px the
-   column is narrow enough that the crop would start eating the machine, so it
-   goes back to fitting whole. */
-.landing-split-media img {
-	position: absolute;
-	inset: 0;
+.landing-hero-media img {
+	display: block;
 	width: 100%;
 	height: 100%;
 	object-fit: cover;
 	object-position: center;
 }
 
-.landing-split-figure figcaption {
-	max-width: none;
-	margin: 10px 0 0;
+.landing-hero-float figcaption {
+	margin: 8px 0 0;
+	font-size: 0.8125rem;
+	line-height: 1.4;
 	text-align: center;
+	color: var(--muted);
 }
 
-@media (max-width: 900px) {
-	.landing-split-media img {
-		object-fit: contain;
-	}
+/* The tiles below it, forced to two per row rather than however many fit. */
+.callout-grid-paired {
+	grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
-/* Stacked: tiles one per row, the picture under them at its own aspect ratio
-   rather than squeezed into a height the tiles no longer set. */
+/* Stacked: the picture centred above the copy at its own aspect ratio, since
+   there is no longer a column of text beside it to set its height, and the
+   tiles one per row. */
 @media (max-width: 740px) {
-	.landing-split {
-		grid-template-columns: minmax(0, 1fr);
-		gap: 20px;
+	.landing-hero-float {
+		float: none;
+		width: 100%;
+		max-width: 300px;
+		margin: 0 auto 1.4rem;
+	}
+
+	.landing-hero-media {
+		aspect-ratio: auto;
+	}
+
+	.landing-hero-media img {
+		height: auto;
 	}
 
 	.callout-grid-paired {
 		grid-template-columns: minmax(0, 1fr);
-	}
-
-	.landing-split-media {
-		min-height: 0;
-		width: 100%;
-		max-width: 300px;
-		margin: 0 auto;
-		aspect-ratio: 1600 / 1820;
 	}
 }
 

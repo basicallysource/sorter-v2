@@ -108,19 +108,13 @@ reslice.
 
 A plate of these parts can run ten hours or more, so spend two minutes on it first.
 
-1. **The right printer and plate are selected**, and the plate in the slicer is the
-   one actually in the machine. Textured PEI is what the pre-arranged plates use.
-2. **The whole part is inside the bed, brim included.** A part that sticks out is
-   greyed out or flagged by the slicer, but a brim that hangs over the edge often is
-   not.
-3. **Slice, then scrub through the preview.** Look at the first layer for gaps, and
-   run up through the part looking for anything printing on nothing.
-4. **Check the time and the filament.** If your figure is wildly different from the
-   calculator's, something in the profile is not what you think it is.
-5. **Print one before you print twelve.** This matters most for the **External
-   bracket (side)**, which is a tight fit around the 2020 extrusion and is badged
-   **Tight fit** on the calculator. Print one, fit it on a piece of extrusion, then
-   commit to the set.
+<ol class="numbered-steps">
+  <li><strong>The right printer and plate are selected</strong>, and the plate in the slicer is the one actually in the machine. Textured PEI is what the pre-arranged plates use.</li>
+  <li><strong>The whole part is inside the bed, brim included.</strong> A part that sticks out is greyed out or flagged by the slicer, but a brim that hangs over the edge often is not.</li>
+  <li><strong>Slice, then scrub through the preview.</strong> Look at the first layer for gaps, and run up through the part looking for anything printing on nothing.</li>
+  <li><strong>Check the time and the filament.</strong> If your figure is wildly different from the calculator's, something in the profile is not what you think it is.</li>
+  <li><strong>Print one before you print twelve.</strong> This matters most for the <strong>External bracket (side)</strong>, which is a tight fit around the 2020 extrusion and is badged <strong>Tight fit</strong> on the calculator. Print one, fit it on a piece of extrusion, then commit to the set.</li>
+</ol>
 
 **Change settings and slice again as often as you like.** Reslicing costs nothing.
 Running a 14 hour print you were unsure about costs a day.

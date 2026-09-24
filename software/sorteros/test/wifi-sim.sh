@@ -55,6 +55,7 @@ if ! ip netns list | grep -q router; then
     iw phy "$ROUTER_PHY" set netns name router
     iw phy "$PHONE_PHY" set netns name phone
 fi
+mkdir -p /etc/netns/phone && echo "nameserver 10.42.0.1" >/etc/netns/phone/resolv.conf  # the phone asks the setup network
 R() { ip netns exec router "$@"; }
 P() { ip netns exec phone "$@"; }
 RIF=$(R ls /sys/class/net | grep '^wlan' | head -1)
@@ -228,6 +229,12 @@ phone_join
 check "the phone reaches the setup page" reach 80
 check "but not SSH (the setup network is open)" cant_reach 22
 check "nor the Sorter backend" cant_reach 8000
+check "any name the phone looks up is the setup page (so it pops up)" \
+    bash -c "ip netns exec phone getent ahostsv4 connectivitycheck.gstatic.com | grep -q '^10.42.0.1 '"
+check "Android's check is sent to the page" \
+    bash -c "ip netns exec phone curl -s -o /dev/null -w '%{http_code}' http://connectivitycheck.gstatic.com/generate_204 | grep -q '^30'"
+check "Apple's check is sent to the page" \
+    bash -c "ip netns exec phone curl -s -o /dev/null -w '%{http_code}' http://captive.apple.com/hotspot-detect.html | grep -q '^30'"
 submit HomeNet wrong-password >/dev/null
 sleep 15
 check "setup network comes back after the wrong password" wait_for 120 setup_visible

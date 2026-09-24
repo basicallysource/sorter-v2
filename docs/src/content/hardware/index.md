@@ -16,8 +16,13 @@ drafts; each page states its own status.
 
 ## Before you order anything
 
-You can build this on a bench in a garage. It does not need a workshop, and
-nothing in it is hard on its own.
+You can build this on a bench. It does not need a workshop, and nothing in it
+is hard on its own. Hex keys, a screwdriver, side cutters, wire strippers and a
+multimeter cover most of it, plus a soldering iron or a [heat-set insert
+press]({{ '/hardware/helpers/heat-inserts/' | relative_url }}) for the brass
+inserts. Making your own leads also needs a crimp tool, or you can [order the
+harness ready made]({{ '/hardware/parts/harness-order/' | relative_url }}).
+Every page lists the tools its own steps need.
 
 It is a long build. The parts count runs into the thousands and the printing
 runs into months, so read this page before you buy filament. The point is not
@@ -26,9 +31,13 @@ to put you off. It is so you plan for the right size of job.
 ## You choose how tall the machine is
 
 The machine is a stack of layers. **Each layer holds 18 sorting bins**, or 12
-larger ones if you pick the wider bin size. More layers means more bins, so more
-different parts the machine can sort in one pass, a taller tower, and more of
-everything to build.
+larger ones. More layers means more bins, so more different parts the machine
+can sort in one pass, a taller tower, and more of everything to build.
+
+Bin size is a separate choice for each layer, and a machine can mix the two. You
+make it by choosing which funnel to print for that layer, so **take it before
+you print**: [Funnel brackets]({{ '/hardware/assembly/distribution/chute/funnel/' | relative_url }})
+compares the two and is where the choice is made.
 
 Everything above and below the stack is the same whatever height you pick: one
 feeder, one top interface, one chute, one set of electronics. That is why the
@@ -38,15 +47,14 @@ Three and five layers are the two common choices.
 
 **A 5 layer machine stands 1270 mm (4 ft 2 in) from the floor to the top
 plate**, and 1772 mm (5 ft 10 in) to the top of the bulk bucket sitting above
-it. Each layer you add or leave off moves both figures by 160 mm (6.3 in), so a
-3 layer machine is 950 mm (3 ft 1 in) to the top plate and 1452 mm (4 ft 9 in)
-overall. Check the space before you choose a height: the bulk bucket is the
-highest point of the machine and it is where you pour the LEGO in, so you have
-to be able to reach into it.
+it. A 3 layer machine is 950 mm (3 ft 1 in) and 1452 mm (4 ft 9 in). Each layer
+is 160 mm (6.3 in) of that. Measure your space before you choose a height: the
+bulk bucket is the highest point of the machine and it is where you pour the
+LEGO in, so you have to be able to reach into it.
 
 ## What each size costs you
 
-The table below uses 18 bins per layer.
+The table below is for 18 bin layers throughout.
 
 | | **3 layers** | **5 layers** |
 |---|---|---|
@@ -74,14 +82,13 @@ Bins are not in those totals. They are optional and you print them last: a
 cardboard, or use boxes you already own. See
 [Install the bins]({{ '/hardware/assembly/install-bins/' | relative_url }}).
 
-Two layers cost you about 130 more printed parts and 200 more screws. Compare
-that with a 1 layer machine, which already needs most of the build. **The tower
-is the cheap part. The machine around it is the work.**
+Two layers cost you about 130 more printed parts and 200 more screws. **The
+tower is the cheap part. The machine around it is the work.**
 
-Every number above is read from the [parts
-catalog](https://parts-calculator.basically.website/) when this page is built,
-so it follows the catalog as parts change. For your own layer count, set it
-there and the catalog lists exactly what to buy and print.
+Every number above comes from the [parts
+calculator](https://parts-calculator.basically.website/). Set your own layer
+count and each layer's bin size there, and it lists exactly what to buy and
+print.
 
 ## What the print figures mean
 
@@ -115,27 +122,27 @@ a long print** are on [Printing the parts]({{ '/hardware/printing/' | relative_u
 The parts are designed to a 256 x 256 mm bed, and a smaller one cannot print all of
 them.
 
-## Intended operating conditions
+## Where the machine runs
 
-Indoors, out of direct sun, in a room you would be comfortable working in.
+This is about where the finished machine stands and runs, not where you build
+it: indoors, out of direct sun, in a room you would be comfortable working in.
 Nobody has tested a limit, so the two cases worth planning for are these.
 
-**Too hot** (a shed, a garage, any room without air conditioning):
+**A room that gets hot** (a shed, an uncooled garage, a loft in summer):
 
 - **Print the parts in PETG or ASA, not PLA.** PLA softens from around 55 C
-  (131 F), and the printed gears the steppers drive through go first. PETG
-  holds to around 80 C (176 F), and a full 5 layer set has already been
-  printed in it.
+  (131 F) and the printed gears the steppers drive through go first, which puts
+  a PLA machine at about 40 C (104 F) against 45 to 50 C (113 to 122 F) in
+  PETG. A full 5 layer set has already been printed in PETG.
 - **Cool the Orange Pi.** It shuts down at about 105 C (221 F). See
   [Orange Pi 5]({{ '/hardware/orange-pi-5/' | relative_url }}).
-- Working figure: up to about 40 C (104 F) in PLA, and 45 to 50 C (113 to
-  122 F) in PETG.
 
-**Damp mornings** (a humid climate, or a space that cools down overnight):
+**A room that gets damp** (a humid climate, or a space that cools down
+overnight):
 
 - **Do not switch the machine on while any part of it feels cold to the touch
-  or looks wet.** Let it reach room temperature first. The power supply is
-  rated for 20 to 90% humidity, provided no water forms on it.
+  or looks wet.** Let it reach room temperature first. The power supply needs
+  20 to 90% humidity with no water forming on it.
 
 ## Two things you may not be able to make yourself
 
@@ -148,8 +155,11 @@ Nobody has tested a limit, so the two cases worth planning for are these.
   list](https://parts-calculator.basically.website/framing) has every length and
   a plan for packing them into standard bars.
 - **The laser cut parts.** The top plate and the two cable cage plates are cut
-  from flat sheet. A local maker space or an online cutting service will cut
-  them from the files. The cardboard bins, if you choose those, need a laser too.
+  from flat sheet. [Laser cut
+  parts](https://parts-calculator.basically.website/lasercut) has the DXF for
+  each one, to send to a local maker space or an online cutting service.
+  Cardboard bins need a laser too, and their patterns come out of the [bin
+  generator](https://bin-gen.basically.website/).
 
 ## Keep track of what you have
 
@@ -162,7 +172,7 @@ itself.
 ## Where to go next
 
 - **[Printing the parts]({{ '/hardware/printing/' | relative_url }})**: what printer the parts need, orientation, supports, and the slicer checks worth doing before a long print.
-- **[Assembly]({{ '/hardware/assembly/' | relative_url }})**: the build order, structured like a set of instructions. Electronics is part of this same build order (see its order of operations), not a separate track.
+- **[Assembly]({{ '/hardware/assembly/' | relative_url }})**: the build order, structured like a set of instructions. Electronics is one of its steps.
 - **[Electronics]({{ '/hardware/electronics/' | relative_url }})**: the [wire harness]({{ '/hardware/electronics/wire-harness/' | relative_url }}) and the stepper pinout, [installing the electronics]({{ '/hardware/electronics/installation/' | relative_url }}), and [connecting the components]({{ '/hardware/electronics/connecting/' | relative_url }}).
 - **[Software setup]({{ '/hardware/software-setup/' | relative_url }})**: the last step of the build, where the finished machine hands off to installing the software and the [Sorter]({{ '/sorter/' | relative_url }}) section.
 - **[Parts]({{ '/hardware/parts/' | relative_url }})**: reference pages for individual parts, like the Lazy Susan bearing, and [ordering the wire harness]({{ '/hardware/parts/harness-order/' | relative_url }}).

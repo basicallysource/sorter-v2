@@ -38,6 +38,7 @@ from stepper_stall_monitor import StepperStallMonitor
 from run_recorder import RunRecorder
 from lifetime_stats import LifetimeStatsTracker
 from message_queue.handler import handleServerToMainEvent
+from defs.consts import BACKEND_PORT
 from defs.events import HeartbeatEvent, HeartbeatData, MainThreadToServerCommand
 from defs.events import RuntimeStatsEvent, RuntimeStatsData
 from irl.config import (
@@ -220,7 +221,7 @@ def runServer(gc: GlobalConfig) -> None:
     )
 
     gc.logger.info(
-        f"[server] binding host={host!r} port=8000 ui_port={_ui_port()!r} "
+        f"[server] binding host={host!r} port={BACKEND_PORT} ui_port={_ui_port()!r} "
         f"allow_any_origin={allow_any_origin()} "
         f"SORTER_API_ALLOWED_ORIGINS_override={explicit_allowed_origins()} "
         f"effective_allowed_origins={compute_allowed_ui_origins()} "
@@ -232,7 +233,7 @@ def runServer(gc: GlobalConfig) -> None:
     # startup ("ValueError: Unknown level: 'INFO'" out of dictConfig), leaving
     # main.py alive but port 8000 unbound so the UI couldn't connect. Skipping
     # dictConfig removes the failure mode entirely.
-    uvicorn.run(app, host=host, port=8000, log_level="error", ws="wsproto", log_config=None)
+    uvicorn.run(app, host=host, port=BACKEND_PORT, log_level="error", ws="wsproto", log_config=None)
 
 
 def runBroadcaster(gc: GlobalConfig) -> None:
@@ -429,7 +430,7 @@ def main() -> None:
         backend_process_guard = acquire_backend_process_guard(
             script_path=script_path,
             repo_root=repo_root,
-            port=8000,
+            port=BACKEND_PORT,
         )
     except ProcessGuardError as exc:
         print(f"[process_guard] {exc}", file=sys.stderr)

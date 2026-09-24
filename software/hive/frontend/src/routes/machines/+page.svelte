@@ -5,6 +5,8 @@
 	import Modal from '$lib/components/Modal.svelte';
 	import Spinner from '$lib/components/Spinner.svelte';
 	import AnalyticsDashboard from '$lib/components/charts/AnalyticsDashboard.svelte';
+	import { localUiUrl } from '$lib/machineNetwork';
+	import ExternalLink from 'lucide-svelte/icons/external-link';
 
 	let machines = $state<Machine[]>([]);
 	let loading = $state(true);
@@ -390,6 +392,7 @@ async function loadAssignmentProfile(profileId: string) {
 			{@const stats = machineStats[machine.id]}
 			{@const isOnline = machine.last_seen_at && (Date.now() - new Date(machine.last_seen_at).getTime()) < 5 * 60 * 1000}
 			{@const acceptRate = stats && stats.total_samples > 0 ? Math.round((stats.accepted_samples / stats.total_samples) * 100) : null}
+			{@const localUi = localUiUrl(machine.network_info)}
 			<!-- svelte-ignore a11y_no_static_element_interactions -->
 			<div
 				class="flex cursor-pointer flex-col border border-border bg-surface transition-colors hover:border-text-muted"
@@ -415,16 +418,17 @@ async function loadAssignmentProfile(profileId: string) {
 						{#if machine.description}
 							<p class="mt-0.5 truncate text-xs text-text-muted">{machine.description}</p>
 						{/if}
+						{#if machine.last_seen_at && !machine.network_info}
+							<p class="mt-0.5 text-xs text-text-muted">Update the Sorter software to get a link to it here.</p>
+						{/if}
 					</div>
 					<div class="flex shrink-0 items-center gap-0.5">
-						{#if machine.last_seen_ip}
-							<a href={`http://${machine.last_seen_ip}:${machine.local_ui_port || '8000'}`}
+						{#if localUi}
+							<a href={localUi}
 								target="_blank" rel="noopener noreferrer"
 								onclick={(event) => event.stopPropagation()}
-								class="-mt-1 p-1.5 text-text-muted hover:text-primary" title="Open local UI">
-								<svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-									<path fill-rule="evenodd" d="M4.25 5.5a.75.75 0 00-.75.75v8.5c0 .414.336.75.75.75h8.5a.75.75 0 00.75-.75v-4a.75.75 0 011.5 0v4A2.25 2.25 0 0112.75 17h-8.5A2.25 2.25 0 012 14.75v-8.5A2.25 2.25 0 014.25 4h5a.75.75 0 010 1.5h-5zm7.25-.75a.75.75 0 01.75-.75h3.5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0V6.31l-5.97 5.97a.75.75 0 01-1.06-1.06l5.97-5.97H12.25a.75.75 0 01-.75-.75z" clip-rule="evenodd" />
-								</svg>
+								class="-mt-1 p-1.5 text-text-muted hover:text-primary" title={`Open the Sorter at ${localUi}`} aria-label="Open the Sorter's UI">
+								<ExternalLink size={16} />
 							</a>
 						{/if}
 					<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->

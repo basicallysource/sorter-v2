@@ -1148,6 +1148,9 @@ class Network:
             join = None  # a failure from before is history once the Sorter is online
         if join:
             join = {k: join.get(k) for k in ("ssid", "state", "reason", "detail", "address", "internet", "source", "at")}
+            now_on = next((n for n in self.networks if n["kind"] == "wifi" and n["name"] == join["ssid"]), None)
+            if join["state"] == "joined" and now_on:  # as it is now: the internet can answer a moment after the join
+                join.update(address=now_on["address"], internet=now_on["internet"])
         software = self.sys.software() or {"state": "waiting", "step": None, "done": 0, "total": 0}
         return {
             "now": round(self.sys.wall_now()),

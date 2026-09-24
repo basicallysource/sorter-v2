@@ -100,6 +100,11 @@ if ! ip link show rtr0 >/dev/null 2>&1; then
     iptables -t nat -A POSTROUTING -s 10.99.0.0/24 -o "$ETH" -j MASQUERADE
     R iptables -t nat -A POSTROUTING -s 192.168.77.0/24 -o rtr1 -j MASQUERADE
 fi
+# NetworkManager drops routes it didn't make from the Ethernet device whenever
+# it reapplies it, a moment after the reapply returns: keep the uplink there.
+(while sleep 2; do router_uplink 2>/dev/null; done) &
+UPLINK_KEEPER=$!
+trap 'kill $UPLINK_KEEPER 2>/dev/null' EXIT
 
 # ── the home router ───────────────────────────────────────────────────────
 router_up() { # [ssid] [password] [wpa2|open|sae|mixed]; HIDDEN=1 hides it, NO_DHCP=1 gives no addresses, NO_INTERNET=1 no uplink
@@ -139,6 +144,8 @@ router_up() { # [ssid] [password] [wpa2|open|sae|mixed]; HIDDEN=1 hides it, NO_D
             } >"$W/ap-supplicant.conf"
             R wpa_supplicant -B -i "$RIF" -D nl80211 -c "$W/ap-supplicant.conf" -P "$W/router.pid" -f "$W/ap-supplicant.log" ;;
     esac
+    [ "${NO_INTERNET:-0}" = 1 ] || wait_for 20 R ping -c1 -W1 1.1.1.1 >/dev/null ||
+        echo "     (the router has no uplink: the scenario's internet checks will fail)"
     [ "${NO_DHCP:-0}" = 1 ] && return
     R dnsmasq --interface="$RIF" --bind-interfaces --no-resolv --server=10.0.2.3 \
         --dhcp-range=192.168.77.50,192.168.77.99,1h --dhcp-option=3,192.168.77.1 --dhcp-option=6,192.168.77.1 \

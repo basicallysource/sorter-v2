@@ -499,6 +499,15 @@ class JoinFromThePhone(unittest.TestCase):
         self.assertEqual((join["state"], join["internet"]), ("joined", False))
         self.assertIn("Joined Cafe at 192.168.1.68, but no internet", w.texts())
 
+    def test_the_page_shows_the_internet_arriving_after_the_join(self):
+        w, n = self.setup_network(routers={"HomeNet": Router(internet=False)})
+        phone_join(n, "HomeNet")
+        run_for(n, 10)
+        self.assertIs(n.page_state()["join"]["internet"], False)
+        w.routers["HomeNet"].internet = True  # the router's uplink comes up
+        run_for(n, 4)
+        self.assertIs(n.page_state()["join"]["internet"], True)
+
     def test_a_failed_join_puts_back_the_profile_it_replaced(self):
         w = World(routers=home())
         saved(w, password="old-password")

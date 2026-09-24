@@ -18,8 +18,14 @@ class Machine(Base):
     name = Column(String, nullable=False)
     description = Column(String, nullable=True)
     hardware_info = Column(JSON_VARIANT, nullable=True)
+    # The address the heartbeat came from as Hive sees it, usually the public
+    # side of the Sorter's router: not a way to open it. network_info is.
     last_seen_ip = Column(String, nullable=True)
-    local_ui_port = Column(String, nullable=True, default="8000")
+    # Where to find the Sorter on its own networks, as its heartbeat last
+    # reported it (app/machine_network.py), and when Hive received that.
+    # Owner and admins only.
+    network_info = Column(JSON_VARIANT, nullable=True)
+    network_reported_at = Column(DateTime(timezone=True), nullable=True)
     last_seen_at = Column(DateTime(timezone=True), nullable=True)
     is_active = Column(Boolean, nullable=False, default=True)
     # When non-null, the machine + its samples are hidden from default listings,

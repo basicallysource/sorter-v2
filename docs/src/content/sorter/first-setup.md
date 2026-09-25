@@ -115,6 +115,8 @@ A recognised device has a green **Controller** or **Servo Bus** badge, its board
 
 A device badged red **Unrecognised** is one the machine can see but cannot place: it is on the bus, so the cable and the power are fine.
 
+The wizard's own wording, and the screenshot below, still name a feeder and a distribution board, because the software also supports the older machines that had one of each. On this build the single board reports as the distribution one.
+
 **Continue** is blocked with "Waiting for controller boards to be detected" until at least one control board is found.
 
 <div class="img-row">

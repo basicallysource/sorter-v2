@@ -20,7 +20,7 @@ The machine is built. Everything is printed, bolted, wired and plugged in, and n
 
 The board needs its firmware before the wizard can see it. Controller Discovery only lists boards that already answer on USB serial, so a board with nothing on it is invisible there and the step reports `No MCU buses found`.
 
-With Sorter running, flash it from **Settings** &rarr; **Control board**: pick a release (or upload a `.uf2` directly) and flash it over the Pico's USB serial connection. A board that has never been flashed is a special case, because it enumerates as an `RPI-RP2` drive rather than a serial port and needs the **Recovery flash** option instead. [Sorter troubleshooting]({{ '/sorter/troubleshooting/' | relative_url }}) has those steps.
+With Sorter running, flash it from **Settings** &rarr; **Control board**: pick a release (or upload a `.uf2` directly) and flash it over the Pico's USB serial connection. **The asset you want is the `distribution` one for your board revision**, which is the all-in-one build for a machine with a single control board. A v1.3 board takes the `v1-2` build. A board that has never been flashed is a special case, because it enumerates as an `RPI-RP2` drive rather than a serial port and needs the **Recovery flash** option instead. [Sorter troubleshooting]({{ '/sorter/troubleshooting/' | relative_url }}) has those steps.
 
 ## 3. Carry on in Sorter
 

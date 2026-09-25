@@ -8,6 +8,7 @@ kicker: Helpers — T-nuts
 lede: How the machine's roll-in T-nuts go into the extrusion, and what changes if you buy a different style.
 permalink: /hardware/helpers/t-nuts/
 author: barthel
+og_image: https://assets.basically.website/sorter-docs/bottom-interface-tnuts-entering-extrusion-slot-w1600-1291f08f0d51.jpg
 parts_needed:
   - part: tnut-m5-2020
 ---
@@ -59,7 +60,10 @@ slot before you reach the part that uses it. Fit the part in the same session.
 
 ## The finished result
 
-A T-nut turned a quarter turn into the slot, sitting under the lips, holding its own
-position with no screw in it yet.
+A T-nut in the slot with its ends under the lips, holding its own position, ready for the
+screw to find it.
 
-<div class="img-placeholder">Image coming: a roll-in T-nut turned into a 2020 slot, seen close and slightly along the extrusion so the ends under the lips are visible</div>
+<figure class="single-figure">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/bottom-interface-tnuts-entering-extrusion-slot-w1600-1291f08f0d51.jpg" alt="Two roll-in T-nuts meeting the slot of a 2020 extrusion, each threaded onto a screw through the printed mount behind it, with the open end of the extrusion showing the slot's two lips">
+  <figcaption>Two T-nuts going into the slot of a B spoke, at the <a href="{{ '/hardware/assembly/distribution/bin-frame/bottom-interface/' | relative_url }}">bottom interface</a>. They are threaded onto their screws first here, because they enter at the open end. The extrusion's cut end shows the two lips a T-nut turns under. <cite>Photo: Danny.</cite></figcaption>
+</figure>

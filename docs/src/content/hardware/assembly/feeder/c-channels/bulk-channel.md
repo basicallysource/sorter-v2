@@ -81,7 +81,7 @@ Turn the rotor by hand. It should go all the way round without a tight spot.
 
 {% include step.html n="4" title="Fit the bulk cap" %}
 
-Slide the Bulk cap down onto the dovetail on the outside of the stator wall. No screws. There is one dovetail on the stator, so there is one way it goes on; the channel's own clocking is set later, at [arranging C-channels]({{ '/hardware/assembly/feeder/arranging-c-channels/' | relative_url }}), step 5.
+Slide the Bulk cap down onto the dovetail on the outside of the stator wall. No screws. There is one dovetail on the stator, so there is one way it goes on; the channel's own clocking is set later, at [arranging C-channels]({{ '/hardware/assembly/feeder/arranging-c-channels/' | relative_url }}), step 4.
 
 <div class="callout callout-warning">
   <span class="callout-icon" aria-hidden="true">&#9888;</span>

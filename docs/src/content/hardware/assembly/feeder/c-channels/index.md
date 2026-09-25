@@ -39,11 +39,11 @@ Each page ends in one of these.
     <figcaption><a href="{{ '/hardware/assembly/feeder/c-channels/bulk-channel/' | relative_url }}">Bulk channel</a>, the cap on. <cite>Photo: BrickCycleAlice.</cite></figcaption>
   </figure>
   <figure>
-    <img src="https://assets.basically.website/sorter-docs/assembly-c-channel-finished-stage-w1600-9bd3719c4180.jpg" alt="A C-channel from above on a plain surface: the faceted rotor sitting down in the stator ring, with the stepper motor and its lead standing off one side">
-    <figcaption><a href="{{ '/hardware/assembly/feeder/c-channels/feeder-channels/' | relative_url }}">Feeder channel</a>, rotor in. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+    <img src="https://assets.basically.website/sorter-docs/render-feeder-channel-with-lamp-full-bcc210ac04d0.png" alt="Render of a finished feeder channel: the faceted rotor in the stator with the output guide at its exit, and the camera lamp hanging over the open top on its angled arm">
+    <figcaption><a href="{{ '/hardware/assembly/feeder/c-channels/feeder-channels/' | relative_url }}">Feeder channel</a>, guide on and a lamp over it. <cite>Rendered from the part geometry.</cite></figcaption>
   </figure>
   <figure>
-    <img src="https://assets.basically.website/sorter-docs/assembly-c-channel-stator-and-rotor-fitted-w1600-60758bbee2d5.jpg" alt="A classification channel from above on a plain surface: the finned rotor sitting down in the grey stator ring, its fins running from the centre bore out to the rim, with the stepper motor at one side">
-    <figcaption><a href="{{ '/hardware/assembly/feeder/c-channels/classification-channel/' | relative_url }}">Classification channel</a>, the finned rotor in. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+    <img src="https://assets.basically.website/sorter-docs/render-classification-channel-with-lamp-full-4d53e252605a.png" alt="Render of the finished classification channel: the capped finned rotor in the stator, and the camera lamp hanging over the open top on its angled arm">
+    <figcaption><a href="{{ '/hardware/assembly/feeder/c-channels/classification-channel/' | relative_url }}">Classification channel</a>, capped rotor and a lamp over it. <cite>Rendered from the part geometry.</cite></figcaption>
   </figure>
 </div>

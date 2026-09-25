@@ -171,7 +171,7 @@ For each card, pick a camera from the dropdown. The card then shows what that ca
 
 <div class="callout callout-warning">
   <span class="callout-icon" aria-hidden="true">⚠</span>
-  <p><strong>The dovetail on the arm can break</strong> when a lamp needs to be removed and repositioned. Use caution if repositioning is needed. The lamps go on at <a href="{{ '/hardware/assembly/feeder/arranging-c-channels/' | relative_url }}">arranging C-channels</a>, step 8, which says which dovetail each one starts in.</p>
+  <p><strong>The dovetail on the arm can break</strong> when a lamp needs to be removed and repositioned. Use caution if repositioning is needed. The lamps go on at <a href="{{ '/hardware/assembly/feeder/arranging-c-channels/' | relative_url }}">arranging C-channels</a>, step 7, which says which dovetail each one starts in.</p>
 </div>
 
 Two more buttons on each card: **Review zone** and **Picture tuning**, in that order on the card.

@@ -13401,7 +13401,7 @@
 		{
 			"id": "output-guide",
 			"uid": "z9yd",
-			"name": "Short and Angled Output Guide",
+			"name": "Output guide",
 			"quantities": {
 				"feeder": 2
 			},
@@ -24787,7 +24787,7 @@
 			},
 			"name": "White/daylight LED strip - 24v",
 			"category": "Wire harness",
-			"description": "The light in a Camera lamp: two turns inside the reflector's skirt, held by the six LED hooks. Bought as a 5 m roll and cut into 950 mm rings, so one roll covers a machine's three lamps. Also the classification chamber's lighting before the dome was retired.",
+			"description": "The light in a Camera lamp: two turns inside the reflector's skirt, held by the six LED hooks. Bought as a 5 m roll and cut on the strip's own marks into three lamp rings of about 920 mm, so one roll covers a machine.",
 			"note": "Buy the 24 V roll: 5 m, 6000 K, 8 mm COB. The same listing also sells a 12 V one, and outside the US the link may not land on this product at all.",
 			"created_at": "2026-07-18",
 			"updated_at": "2026-09-14",
@@ -24833,10 +24833,10 @@
 			"sheet_qty_text": null,
 			"stock": {
 				"unit_length_mm": 5000,
-				"cut_length_mm": 950,
+				"cut_length_mm": 920,
 				"pieces_per_unit": 5,
 				"unit_label": "5 m (16.4 ft) roll",
-				"piece_label": "950 mm lamp ring"
+				"piece_label": "one lamp ring (about 920 mm)"
 			},
 			"sourcing": {
 				"vendors": [

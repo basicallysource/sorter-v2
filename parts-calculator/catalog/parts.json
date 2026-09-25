@@ -9563,8 +9563,8 @@
     },
     {
       "id": "interface",
-      "uid": "19a2",
-      "version": "7",
+      "uid": "b84z",
+      "version": "8",
       "name": "Top interface",
       "description": "The interface between the feeder and the distribution layers. Its lazy Susan sandwiches the upper fixed section and the chute mount, 4 × [[hw:scr-m4-12-cs]] a side, and the plywood top plate bolts down onto the six brackets' inserts.",
       "docs": "/hardware/assembly/distribution/top-interface/",
@@ -9636,6 +9636,10 @@
         {
           "part": "scr-m5-35-fhcs",
           "qty": 6
+        },
+        {
+          "part": "scr-m5-16-shcs",
+          "qty": 12
         }
       ],
       "versions": [
@@ -10267,8 +10271,103 @@
         },
         {
           "version": "7",
+          "uid": "19a2",
           "date": "2026-09-23",
           "message": "The chute stepper cable joins the top interface, beside the gearing the motor drives: PHR-4 at the board end and bare leads spliced to the motor at the other. Plus the two M5 x 22 countersunk at holes S2 and S3 that attach the NEMA 23 bracket assembly to the underside of the top plate; the other twelve of that screw's fourteen are now on the six Interface brackets. The interface-level line of 6 M5 x 8 countersunk is removed: it is the same six screws the six Interface brackets now carry one each, so the tree was counting them twice against a hand count of 6.",
+          "breaking": false,
+          "commit": null,
+          "lines": [
+            {
+              "assembly": "interface-bracket-mount",
+              "qty": 6,
+              "uid": "ng7f"
+            },
+            {
+              "part": "scr-m5-22-cs",
+              "qty": 2,
+              "uid": "hr49"
+            },
+            {
+              "assembly": "hex-frame",
+              "qty": 1,
+              "uid": "l0xa"
+            },
+            {
+              "assembly": "fixed-upper-section",
+              "qty": 1,
+              "uid": "c16o"
+            },
+            {
+              "assembly": "cable-cage",
+              "qty": 1,
+              "uid": "ay0q"
+            },
+            {
+              "part": "scr-m5-30-shcs",
+              "qty": 6,
+              "uid": "92kv"
+            },
+            {
+              "assembly": "cable-clamp",
+              "qty": 1,
+              "uid": "rwaw"
+            },
+            {
+              "part": "scr-m3-12-bhcs",
+              "qty": 2,
+              "uid": "izrb"
+            },
+            {
+              "assembly": "limit-switch",
+              "qty": 1,
+              "uid": "apb5"
+            },
+            {
+              "part": "scr-m5-20-shcs",
+              "qty": 2,
+              "uid": "e4hi"
+            },
+            {
+              "assembly": "chute-stepper-gearing",
+              "qty": 1,
+              "uid": "ud8y"
+            },
+            {
+              "assembly": "harness-stepper-chute",
+              "qty": 1,
+              "uid": "ujmp"
+            },
+            {
+              "assembly": "interface-chute-drive",
+              "qty": 1,
+              "uid": "w4jv"
+            },
+            {
+              "part": "top-interface-split-spur-gear-2",
+              "qty": 1,
+              "uid": "izz5"
+            },
+            {
+              "part": "brg-lazy-susan",
+              "qty": 1,
+              "uid": "wrxu"
+            },
+            {
+              "part": "scr-m4-16-cs",
+              "qty": 8,
+              "uid": "ee5j"
+            },
+            {
+              "part": "scr-m5-35-fhcs",
+              "qty": 6,
+              "uid": "xkl4"
+            }
+          ]
+        },
+        {
+          "version": "8",
+          "date": "2026-09-25",
+          "message": "The 12 M5 x 16 that fasten the interface's own hex frame down onto the topmost bin layer. The interface lands on the stack through the same joint every layer uses, so it carries the same 12 screws. The 12 M5 x 16 that fasten this node down onto the one below it, which stacking-the-layers.md has called for since it was written and the tree never carried.",
           "breaking": false,
           "commit": null
         }
@@ -10365,8 +10464,8 @@
     },
     {
       "id": "bottom-layer",
-      "uid": "n76i",
-      "version": "3",
+      "uid": "oxj0",
+      "version": "4",
       "name": "Bottom distribution layer",
       "description": "The lowest bin layer. Identical to a distribution layer except that its frame carries foot covers instead of bracket covers and bottom verticals, and the bottom interface hangs underneath it.",
       "docs": "/hardware/assembly/distribution/bin-frame/bottom-layer/",
@@ -10401,7 +10500,7 @@
         },
         {
           "part": "scr-m5-16-shcs",
-          "qty": 36
+          "qty": 48
         },
         {
           "part": "tnut-m5-2020",
@@ -10508,8 +10607,63 @@
         },
         {
           "version": "3",
+          "uid": "n76i",
           "date": "2026-09-23",
           "message": "The six feet. A 2020 M6 foot connector goes into the bottom end of each piece D and a swivel caster screws into it, which is what the machine stands and rolls on. Both were hand counts of 6 from the BOM sheet and the tree total is the same 6.",
+          "breaking": false,
+          "commit": null,
+          "lines": [
+            {
+              "assembly": "hex-frame-bottom",
+              "qty": 1,
+              "uid": "5l36"
+            },
+            {
+              "assembly": "chute",
+              "qty": 1,
+              "uid": "re1n"
+            },
+            {
+              "part": "bin-retainer-left",
+              "qty": 6,
+              "uid": "hqz0"
+            },
+            {
+              "part": "bin-retainer-right",
+              "qty": 6,
+              "uid": "ybpv"
+            },
+            {
+              "part": "ext-2020-d",
+              "qty": 6,
+              "uid": "h9ov"
+            },
+            {
+              "part": "foot-connector-2020-m6",
+              "qty": 6,
+              "uid": "sxxb"
+            },
+            {
+              "part": "caster-wheel-m6",
+              "qty": 6,
+              "uid": "l7ww"
+            },
+            {
+              "part": "scr-m5-16-shcs",
+              "qty": 36,
+              "uid": "2e0s"
+            },
+            {
+              "part": "tnut-m5-2020",
+              "qty": 24,
+              "uid": "bpwm"
+            }
+          ]
+        },
+        {
+          "version": "4",
+          "date": "2026-09-25",
+          "message": "The 12 M5 x 16 that fasten the six External bracket - bottom vertical onto the top of piece D, bottom-layer.md step 4. Every other layer gets these through external-bracket-with-support; the bottom layer's corners use external-bracket-with-foot, which carries neither the bracket nor its screws, so the screws were missing from the machine entirely.",
           "breaking": false,
           "commit": null
         }
@@ -10517,8 +10671,8 @@
     },
     {
       "id": "layer",
-      "uid": "70ot",
-      "version": "6",
+      "uid": "y3bz",
+      "version": "7",
       "name": "Distribution layer",
       "description": "One distribution layer between the interfaces: frame, chute, bin retainers, funnels, bins.",
       "docs": "/hardware/assembly/distribution/bin-frame/regular-layers/",
@@ -10549,7 +10703,7 @@
         },
         {
           "part": "scr-m5-16-shcs",
-          "qty": 36
+          "qty": 48
         },
         {
           "part": "tnut-m5-2020",
@@ -10746,8 +10900,58 @@
         },
         {
           "version": "6",
+          "uid": "70ot",
           "date": "2026-09-23",
           "message": "The 30 cm ribbon that carries one layer down to the layer below. It plugs into J4 of this layer's adapter board and J3 of the one beneath, so it belongs to the layers that have something under them: this node runs non-bottom-layers, which is n - 1 hops for n layers. The BOM sheet counted it per layer, n, which is one more than the stack has hops.",
+          "breaking": false,
+          "commit": null,
+          "lines": [
+            {
+              "assembly": "layer-frame",
+              "qty": 1,
+              "uid": "yq92"
+            },
+            {
+              "assembly": "chute",
+              "qty": 1,
+              "uid": "re1n"
+            },
+            {
+              "part": "cable-idc-2x8-short",
+              "qty": 1,
+              "uid": "ncil"
+            },
+            {
+              "part": "bin-retainer-left",
+              "qty": 6,
+              "uid": "hqz0"
+            },
+            {
+              "part": "bin-retainer-right",
+              "qty": 6,
+              "uid": "ybpv"
+            },
+            {
+              "part": "ext-2020-c",
+              "qty": 6,
+              "uid": "pc3b"
+            },
+            {
+              "part": "scr-m5-16-shcs",
+              "qty": 36,
+              "uid": "2e0s"
+            },
+            {
+              "part": "tnut-m5-2020",
+              "qty": 24,
+              "uid": "bpwm"
+            }
+          ]
+        },
+        {
+          "version": "7",
+          "date": "2026-09-25",
+          "message": "The 12 M5 x 16 that fasten this node down onto the one below it, which stacking-the-layers.md has called for since it was written and the tree never carried. The stack has one joint per layer, so they belong on the node that lands rather than as a flat count on the superstructure: an N-layer machine now totals 12N of them instead of 6.",
           "breaking": false,
           "commit": null
         }

@@ -24,7 +24,7 @@ parts_needed:
 tools_needed: [Multimeter, "A fine pick or a sliver of shim", Side cutters, "Only if you crimp instead: wire strippers and a crimp tool for open-barrel contacts"]
 ---
 
-These are `S1` to `S4` on the [harness drawings]({{ '/hardware/parts/harness-order/#steppers' | relative_url }}), one for each of the four c-channel motors. **Four per machine**, all identical.
+These are `S1` to `S4` on the [harness drawings]({{ '/hardware/parts/harness-order/#channel-stepper' | relative_url }}), one for each of the four c-channel motors. **Four per machine**, all identical.
 
 <div class="callout callout-warning">
   <span class="callout-icon" aria-hidden="true">⚠</span>
@@ -44,17 +44,15 @@ These are `S1` to `S4` on the [harness drawings]({{ '/hardware/parts/harness-ord
 ### The crossover
 
 The board and the motor do not use the same positions, so this cable is not straight through.
+Board 1 goes to motor 1, 2 to 4, 3 to 3 and 4 to 6, which is the crossing pair in the middle of
+the drawing. Motor positions 2 and 5 stay empty.
 
-<table style="max-width:460px">
-  <thead><tr><th>Board position</th><th>Net</th><th>Motor position</th></tr></thead>
-  <tbody>
-    <tr><td>1</td><td><code>A2</code></td><td>1</td></tr>
-    <tr><td>2</td><td><code>A1</code></td><td>4</td></tr>
-    <tr><td>3</td><td><code>B1</code></td><td>3</td></tr>
-    <tr><td>4</td><td><code>B2</code></td><td>6</td></tr>
-    <tr><td colspan="2">not used</td><td>2 and 5 stay empty</td></tr>
-  </tbody>
-</table>
+<figure class="harness-figure">
+  <a href="https://assets.basically.website/sorter-harness/channel-stepper-full-c66a1f4a3f06.png" target="_blank" rel="noopener">
+    <img src="https://assets.basically.website/sorter-harness/channel-stepper-full-c66a1f4a3f06.png" alt="WireViz drawing of one channel stepper lead: a 4-pin PHR-4 at the board with positions A2, A1, B1 and B2, four coloured conductors, and a 6-pin PHR-6 at the motor, with the middle two wires crossing so board 2 lands on motor 4 and board 3 on motor 3">
+  </a>
+  <figcaption>One lead end to end. The green and red conductors cross in the middle: that is the whole difference between this cable and a straight-through one. Click for full size. <cite>WireViz-generated drawing, not a photo.</cite></figcaption>
+</figure>
 
 **Positions 1 and 2 on the board are one coil, 3 and 4 are the other.** Keeping each pair together is what matters. Swapping the two wires inside a coil only reverses which way the motor turns, and the direction is set in the software.
 
@@ -117,4 +115,5 @@ Onto the four channel stepper sockets at [connecting the components]({{ '/hardwa
 
 ## Reference
 
-The drawing for this cable, its bill of materials and its downloads are on the [WireViz drawings]({{ '/hardware/parts/harness-order/#steppers' | relative_url }}) page.
+The drawing above with its bill of materials and its downloads, and the whole stepper harness it
+is part of, are on the [WireViz drawings]({{ '/hardware/parts/harness-order/#channel-stepper' | relative_url }}) page.

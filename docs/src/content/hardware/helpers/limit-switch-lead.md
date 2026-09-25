@@ -27,7 +27,7 @@ parts_needed:
 tools_needed: [Wire strippers, "Crimp tool for open-barrel contacts", "Crimp tool for insulated terminals", Multimeter]
 ---
 
-This is `LIM` on the [harness drawings]({{ '/hardware/parts/harness-order/#leds' | relative_url }}). It runs from `J5` on the control board to the roller-lever switch on the chute. **One per machine.**
+This is `LIM` on the [harness drawings]({{ '/hardware/parts/harness-order/#limit-switch' | relative_url }}). It runs from `J5` on the control board to the roller-lever switch on the chute. **One per machine.**
 
 Nothing on this lead is soldered. The switch end pushes on, and the board end is two crimps.
 
@@ -39,6 +39,13 @@ Nothing on this lead is soldered. The switch end pushes on, and the board end is
   <dt>Switch end</dt><dd>Two <b>#187</b> insulated quick-connect receptacles, for a 4.75 x 0.5 mm blade. They push straight onto the switch's tabs.</dd>
   <dt>Wire</dt><dd>22 AWG, two conductor. Cut it 610 mm (24 in) long.</dd>
 </dl>
+
+<figure class="harness-figure">
+  <a href="https://assets.basically.website/sorter-harness/limit-switch-full-5d6e73282f0d.png" target="_blank" rel="noopener">
+    <img src="https://assets.basically.website/sorter-harness/limit-switch-full-5d6e73282f0d.png" alt="WireViz drawing of the chute limit switch lead: a keyed 3-pin Dupont housing at the board with position 1 ground, position 2 signal and position 3 empty at the 3.3 V pin, two conductors, and two number 187 quick-connect receptacles at the switch on COM and NC">
+  </a>
+  <figcaption>The whole lead. Two conductors, a keyed 3-pin housing at the board with its third position empty, and two push-on receptacles at the switch. Click for full size. <cite>WireViz-generated drawing, not a photo.</cite></figcaption>
+</figure>
 
 <div class="callout">
   <p><b>#187 is the small one.</b> The far more common #250 receptacle is 6.35 mm wide and will not grip these tabs. Check the size on the packet, not the picture.</p>
@@ -112,4 +119,4 @@ Onto `J5` at [connecting the components]({{ '/hardware/electronics/connecting/' 
 
 ## Reference
 
-The drawing for this lead, its bill of materials and its downloads are on the [WireViz drawings]({{ '/hardware/parts/harness-order/#leds' | relative_url }}) page.
+The drawing above with its bill of materials and its downloads is on the [WireViz drawings]({{ '/hardware/parts/harness-order/#limit-switch' | relative_url }}) page.

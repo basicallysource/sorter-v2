@@ -50,6 +50,13 @@ All five stepper outputs on the board have the same pinout, pin 1 to pin 4:
 
 **Positions 1 and 2 are one coil, 3 and 4 are the other.** Swapping the two wires inside a coil only reverses the direction the motor turns. Splitting a coil across the 2 and 3 boundary is what stops it working, so keep each pair together.
 
+<figure class="harness-figure">
+  <a href="https://assets.basically.website/sorter-harness/chute-stepper-full-6b5f10e6aded.png" target="_blank" rel="noopener">
+    <img src="https://assets.basically.website/sorter-harness/chute-stepper-full-6b5f10e6aded.png" alt="WireViz drawing of the chute stepper lead: a 4-pin PHR-4 at the board with positions A2, A1, B1 and B2, four straight-through conductors, and the motor end shown as bare flying leads labelled coil A, coil A, coil B, coil B">
+  </a>
+  <figcaption>The whole lead. It is straight through: the crossing that the channel stepper leads need does not apply here. The motor end is bare leads, which is why this one is spliced rather than plugged. Click for full size. <cite>WireViz-generated drawing, not a photo.</cite></figcaption>
+</figure>
+
 The full pinout and the board-side footprint are on the [wire harness]({{ '/hardware/electronics/wire-harness/#21--stepper-pinout-and-polarity' | relative_url }}) page.
 
 ## Find the coils first

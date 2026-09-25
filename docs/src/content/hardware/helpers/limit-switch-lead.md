@@ -22,6 +22,8 @@ parts_needed:
     qty: 1
   - part: terminal-qc-187
     qty: 2
+  - part: connector-kit-crimp
+    qty: 1
 tools_needed: [Wire strippers, "Crimp tool for open-barrel contacts", "Crimp tool for insulated terminals", Multimeter]
 ---
 
@@ -93,6 +95,12 @@ The switch is an SPDT with three tabs and the third one, `NO`, stays bare. Wired
   <span class="callout-icon" aria-hidden="true">⚠</span>
   <p><b>Meter the finished lead.</b> With the lever free, positions 1 and 2 of the housing read continuity. Press the lever and they read open circuit. If it is the other way round, the receptacles are on <code>COM</code> and <code>NO</code>: move one tab along.</p>
 </div>
+
+## The finished result
+
+One lead, 610 mm, with a #187 receptacle on each conductor at the switch end and a 3-pin Dupont housing at the board end whose middle position is empty.
+
+<div class="img-placeholder">Image coming: the finished lead laid out straight, the two receptacles at one end and the keyed 3-pin housing at the other, close enough to see the empty position</div>
 
 ## Where it goes
 

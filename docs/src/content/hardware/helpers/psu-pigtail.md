@@ -10,11 +10,12 @@ permalink: /hardware/helpers/psu-pigtail/
 author: effreek
 contributors: [brickcyclealice]
 last_verified: 2026-07-12
+og_image: https://assets.basically.website/sorter-docs/harness-psu-pigtail-built-w1600-59554dc6b189.jpg
 parts_needed:
   - part: dc-jack-5521-panel
-    qty: 1
+    qty: 3
   - part: terminal-fork-m35
-    qty: 2
+    qty: 6
 tools_needed: [Wire strippers, "Ratcheting crimp tool, or ordinary pliers", Multimeter]
 ---
 
@@ -24,12 +25,7 @@ The PSU box has three DC outputs. Each one is a short pigtail: a panel-mount bar
   <p><b>Buy the jacks with their leads already attached.</b> This page assumes that. It crimps the terminals onto leads the jack already has. A bare jack means soldering the leads on, which this page does not cover.</p>
 </div>
 
-<figure class="harness-figure">
-  <img src="https://assets.basically.website/sorter-docs/harness-psu-pigtail-built-w1600-59554dc6b189.jpg" alt="An assembled PSU output pigtail: a panel-mount barrel jack with red and black 18 AWG leads, each ending in an insulated fork terminal">
-  <figcaption>One finished pigtail: the jack, its red +24 V and black ground leads, and an insulated fork terminal crimped on each. <cite>Photo: Jon.</cite></figcaption>
-</figure>
-
-**A machine takes 3 jacks and 6 fork terminals**, so the list above is one pigtail's worth. The jack's **2.1 mm pin** is the thing to check when you buy: a 2.5 mm one looks identical and does not mate.
+The jack's **2.1 mm pin** is the thing to check when you buy: a 2.5 mm one looks identical and does not mate.
 
 ## Build it
 
@@ -68,6 +64,19 @@ The crimp is the part that takes care. Strip the lead, seat it fully in the term
   </figure>
 </div>
 
+## The finished result
+
+Three pigtails, each a panel-mount jack with a fork terminal crimped on both of its leads.
+
+<figure class="single-figure">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/harness-psu-pigtail-built-w1600-59554dc6b189.jpg" alt="An assembled PSU output pigtail: a panel-mount barrel jack with red and black 18 AWG leads, each ending in an insulated fork terminal">
+  <figcaption>One finished pigtail: the jack, its red +24 V and black ground leads, and an insulated fork terminal crimped on each. <cite>Photo: Jon.</cite></figcaption>
+</figure>
+
+## Where it goes
+
+Step 1 of the [PSU box]({{ '/hardware/electronics/installation/psu-box/' | relative_url }}): the three jacks push through the connections plate from behind, and the six fork terminals land under the screws of the supply's own terminal block. All three pigtails are identical, so it does not matter which one ends up feeding which load.
+
 ## Reference
 
-The drawing for this pigtail, its bill of materials and its downloads are on the [WireViz drawings]({{ '/hardware/parts/harness-order/#psu-pigtail' | n }}) page.
+The drawing for this pigtail, its bill of materials and its downloads are on the [WireViz drawings]({{ '/hardware/parts/harness-order/#psu-pigtail' | relative_url }}) page.

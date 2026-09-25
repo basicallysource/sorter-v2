@@ -19,18 +19,16 @@ parts_needed:
   - part: led-strip-24v
     qty: 1
   - part: led-strip-connector-8mm
-    qty: 1
+    qty: 3
   - part: dupont-lead-2p-1m
-    qty: 1
+    qty: 3
 tools_needed: [Side cutters, "Only if you solder: iron, solder and heatshrink", "Only if you make your own lead: crimp tool"]
 ---
 
-A prepared strip is a cut length of 24 V COB strip with its cable on the end of it: about a metre of 22 AWG red and black, ending in a 2-pin 2.54 mm Dupont plug. **A machine takes three**, and each carries about 0.5 A.
-
-**The quantities above are for one, so a machine needs three of each**, except the strip: one 5 m roll cuts into five lengths. The Dupont leads come five to a pack. So a machine is one roll, three connectors and one pack.
+A prepared strip is a cut length of 24 V COB strip with its cable on the end of it: about a metre of 22 AWG red and black, ending in a 2-pin 2.54 mm Dupont plug. **A machine takes three**, and each carries about 0.5 A. The quantities above are a whole machine's worth: one 5 m roll cuts into five lengths, and the Dupont leads come five to a pack.
 
 <dl class="spec-list">
-  <dt>The cable</dt><dd>One continuous pair of 22 AWG, about a metre, with no connector in the middle. That is how the one Spencer photographed is built, and it is what Jon (who drew the harness) says to do.</dd>
+  <dt>The cable</dt><dd>One continuous pair of 22 AWG, about a metre, with no connector in the middle.</dd>
   <dt>Strip end</dt><dd>A solderless clamp-on connector, or solder, onto the two pads at the cut end.</dd>
   <dt>The other end</dt><dd>The Dupont plug, which goes onto an LED port when the machine is wired up: step 4 of <a href="{{ '/hardware/electronics/connecting/' | relative_url }}">connecting the components</a>.</dd>
 </dl>
@@ -46,9 +44,9 @@ A prepared strip is a cut length of 24 V COB strip with its cable on the end of 
 
 {% include step.html n="1" title="Cut the strip to length, on a mark" %}
 
-**Two turns of the [camera lamp]({{ '/hardware/assembly/feeder/camera-lamp/' | relative_url }})'s reflector skirt**, which is 924 mm of strip. One 5 m roll gives five lamps' worth.
+**Two turns of the [camera lamp]({{ '/hardware/assembly/feeder/camera-lamp/' | relative_url }})'s reflector skirt**, which is about 920 mm of strip. One 5 m roll gives five lamps' worth.
 
-**Cut only on the printed marks**, never between them: the solder pads are at the marks, so a cut anywhere else leaves nothing to connect to. **The marks are not the same pitch on every roll**, and 31 mm, 38 mm and 50 mm have all turned up on rolls people have bought, so work in marks rather than in millimetres: coil the strip dry inside the skirt and cut at the last mark before the free end reaches the start of the coil. That lands somewhere between 900 and 930 mm.
+**Cut only on the printed marks**, never between them: the solder pads are at the marks, so a cut anywhere else leaves nothing to connect to. **The marks are not the same pitch on every roll**, and 31 mm, 38 mm and 50 mm have all turned up on rolls people have bought, so work in marks rather than in millimetres: coil the strip dry inside the skirt and cut at the last mark before the free end reaches the start of the coil. That lands somewhere near 920 mm.
 
 **Take the mark under two turns rather than the one over it.** Strip past two turns has nowhere to sit: it lifts out from under the cover and the light leaves the lamp at an odd angle. A small gap where the ends do not quite meet does not show.
 
@@ -103,9 +101,9 @@ Keep the iron on the pad briefly. The strip's backing and the LED next to the pa
 ## Choosing the parts
 
 <dl class="spec-list">
-  <dt>Which connector</dt><dd>Three variants of the same body, all SuperBrightLEDs, all <b>8 mm COB only</b>, 22 AWG, 3A. <code>SBL-RA2P-8</code> ($1.59) is the one in the list above: it bites the strip at one end and <b>your own wire</b> at the other, no wire supplied. <code>SBL-RA2P-8-1</code> ($1.69) is the same thing with 4 in of tinned lead already on it, so you splice rather than clamp. <code>SBL-RA2P-8-DC</code> ($2.79) ends in a 5.5 × 2.1 mm barrel socket, which is only useful if you want the lamp to unplug partway along. <b>Match the width</b>: a 10 mm connector, or one for SMD strip, will not grip.</dd>
-  <dt>If you own a crimp tool</dt><dd>You can make the lead yourself instead of buying it: about a metre of 22 AWG stranded per run, one red and one black, plus a 2-pin 2.54 mm Dupont female housing and two crimps. Gauge is a <b>GUESS</b> in the harness notes.</dd>
-  <dt>Insulation</dt><dd>Heatshrink, or lever connectors (Wago 221) or solder-seal butt splices, only if you end up splicing something.</dd>
+  <dt>Which connector</dt><dd><code>SBL-RA2P-8</code> is the one in the list above, and it is the one that takes your own wire. <code>SBL-RA2P-8-1</code> arrives with 4 in of tinned lead on it, so it gets spliced rather than clamped, and <code>SBL-RA2P-8-DC</code> ends in a barrel socket so the lamp can unplug partway along. Any of the three works. All are <b>8 mm COB only</b>.</dd>
+  <dt>If you own a crimp tool</dt><dd>You can make the lead instead of buying it: about a metre of 22 AWG stranded per run, one red and one black, plus a 2-pin 2.54 mm Dupont female housing and two crimps.</dd>
+  <dt>If you solder</dt><dd>Heatshrink for the two joints. Nothing else on this page needs insulating.</dd>
 </dl>
 
 ## The finished result

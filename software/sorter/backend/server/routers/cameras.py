@@ -13,7 +13,6 @@ import logging
 import os
 import platform
 import re
-import subprocess
 import threading
 import time
 from functools import lru_cache
@@ -31,6 +30,7 @@ from fastapi.responses import HTMLResponse, StreamingResponse
 from pydantic import BaseModel
 
 from blob_manager import BLOB_DIR, getCameraSetup, getChannelPolygons, getClassificationPolygons
+from vision.camera_modes import list_v4l2_modes
 from vision.channel_alignment import (
     alignmentRotationDeg,
     dropStartAngleForRole,
@@ -4170,7 +4170,12 @@ def assign_cameras(assignment: CameraAssignment) -> Dict[str, Any]:
             cameras["layout"] = "default"
         elif any(role in updates for role in ("c_channel_2", "c_channel_3", "carousel", "classification_channel")):
             cameras["layout"] = "split_feeder"
+    # A capture mode saved for a role belonged to the camera it had; a new
+    # camera starts from its own default mode.
+    capture_modes = config.get("camera_capture_modes")
     for key, value in updates.items():
+        if isinstance(capture_modes, dict) and cameras.get(key) != value:
+            capture_modes.pop(key, None)
         if value is None:
             cameras.pop(key, None)
         else:
@@ -4786,7 +4791,7 @@ def _capture_modes_for_source(source: int | str | None) -> tuple[List[Dict[str, 
             pass
 
     if platform.system() == "Linux":
-        v4l2_modes = _list_v4l2_modes(source)
+        v4l2_modes = list_v4l2_modes(source)
         if v4l2_modes:
             return (v4l2_modes, "v4l2")
 
@@ -4794,63 +4799,6 @@ def _capture_modes_for_source(source: int | str | None) -> tuple[List[Dict[str, 
     # Some UVC devices still stream fine even when the discovery API
     # returns an empty format list.
     return (fallback_modes, "probe-fallback")
-
-
-def _list_v4l2_modes(source: int) -> List[Dict[str, Any]]:
-    """Enumerate (fourcc, width, height, fps) tuples for /dev/videoN.
-
-    Parses `v4l2-ctl --list-formats-ext` output. Returns one entry per
-    unique (fourcc, width, height, fps) combination. Empty list on failure.
-    """
-    try:
-        result = subprocess.run(
-            ["v4l2-ctl", "-d", f"/dev/video{source}", "--list-formats-ext"],
-            capture_output=True,
-            text=True,
-            timeout=3,
-        )
-    except Exception:
-        return []
-    if result.returncode != 0:
-        return []
-
-    seen: set[tuple[str, int, int, int]] = set()
-    modes: List[Dict[str, Any]] = []
-    current_fourcc: str | None = None
-    current_size: tuple[int, int] | None = None
-    fmt_pat = re.compile(r"\]\s*:\s*'([A-Za-z0-9]{4})'")
-    size_pat = re.compile(r"Size:\s*Discrete\s+(\d+)x(\d+)")
-    interval_pat = re.compile(r"\(\s*([0-9.]+)\s*fps\s*\)")
-
-    for raw in result.stdout.splitlines():
-        line = raw.strip()
-        m = fmt_pat.search(line)
-        if m:
-            current_fourcc = m.group(1).upper()
-            current_size = None
-            continue
-        m = size_pat.search(line)
-        if m and current_fourcc is not None:
-            current_size = (int(m.group(1)), int(m.group(2)))
-            continue
-        m = interval_pat.search(line)
-        if m and current_fourcc is not None and current_size is not None:
-            try:
-                fps_val = int(round(float(m.group(1))))
-            except ValueError:
-                continue
-            key = (current_fourcc, current_size[0], current_size[1], fps_val)
-            if key not in seen:
-                seen.add(key)
-                modes.append({
-                    "width": current_size[0],
-                    "height": current_size[1],
-                    "fps": fps_val,
-                    "fourcc": current_fourcc,
-                    "native_fourcc": current_fourcc,
-                })
-
-    return modes
 
 
 def _avf_to_opencv_fourcc(native: str) -> str | None:
@@ -4960,9 +4908,12 @@ def save_camera_capture_mode(role: str, payload: CaptureModePayload) -> Dict[str
         raise HTTPException(status_code=400, detail="Resolution selection requires a USB camera.")
 
     modes, _ = _capture_modes_for_source(source)
+    wanted_fourcc = (payload.fourcc or "MJPG").strip().upper()[:4]
+    same_size = [m for m in modes if m["width"] == payload.width and m["height"] == payload.height]
+    # Never fall into YUYV by accident: it fills the USB bus on its own.
     mode_match = next(
-        (m for m in modes if m["width"] == payload.width and m["height"] == payload.height),
-        None,
+        (m for m in same_size if str(m.get("fourcc", "")).upper() == wanted_fourcc),
+        same_size[0] if same_size else None,
     )
     if mode_match is None:
         raise HTTPException(

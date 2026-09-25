@@ -9,17 +9,15 @@
 		requiresManualConfirm: boolean;
 	};
 
-	type StepStatus = 'current' | 'done' | 'locked' | 'ready';
+	type StepStatus = 'current' | 'done' | 'ready';
 
 	let {
 		steps,
 		getStatus,
-		canOpenStep,
 		onSelect
 	}: {
 		steps: WizardStepDefinition[];
 		getStatus: (stepId: string) => StepStatus;
-		canOpenStep: (stepId: string) => boolean;
 		onSelect: (stepId: string) => void;
 	} = $props();
 </script>
@@ -48,9 +46,8 @@
 			<button
 				type="button"
 				onclick={() => onSelect(step.id)}
-				disabled={!canOpenStep(step.id)}
 				aria-label={step.title}
-				class={`relative z-10 flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-2 text-sm font-semibold transition-colors disabled:cursor-not-allowed ${
+				class={`relative z-10 flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-2 text-sm font-semibold transition-colors ${
 					status === 'done'
 						? 'border-success bg-success text-white hover:bg-success/90'
 						: status === 'current'

@@ -190,6 +190,9 @@ class CameraConfig:
     height: int
     fps: int
     fourcc: str
+    # True when machine.toml names this camera's capture mode. Otherwise the
+    # camera service gives a USB camera its own default (see vision/camera_modes.py).
+    capture_mode_saved: bool
     picture_settings: "CameraPictureSettings"
     device_settings: dict[str, int | float | bool]
     color_profile: "CameraColorProfile"
@@ -197,6 +200,7 @@ class CameraConfig:
     def __init__(self):
         self.url = None
         self.fourcc = "MJPG"
+        self.capture_mode_saved = False
 
 
 class CameraPictureSettings:
@@ -1053,7 +1057,9 @@ def mkIRLConfig(machine_params: dict[str, object] | None = None) -> IRLConfig:
         for key in ("width", "height", "fps", "fourcc"):
             if key in mode and key not in merged:
                 merged[key] = mode[key]
-        return mkCameraConfig(**merged)
+        config = mkCameraConfig(**merged)
+        config.capture_mode_saved = bool(mode)
+        return config
 
     irl_config.camera_layout = camera_layout_type
     irl_config.feeding_mode = feeding_mode
@@ -1599,7 +1605,10 @@ def mkIRLInterface(config: IRLConfig, gc: GlobalConfig) -> IRLInterface:
     if distribution_board is None:
         raise RuntimeError("Distribution board not found — cannot initialize chute homing")
     chute_calibration = loadChuteCalibrationConfig(
-        gc, machine_specific_params, dict(distribution_board.input_aliases)
+        gc,
+        machine_specific_params,
+        dict(distribution_board.input_aliases),
+        distribution_board.chute_home_active_high,
     )
     chute_home_pin = distribution_board.get_input(chute_calibration.home_pin_channel)
     if chute_home_pin is None:

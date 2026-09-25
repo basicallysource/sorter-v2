@@ -16,6 +16,7 @@ from irl.config import (
 from .camera import CaptureThread, probe_camera_device_controls
 from .camera_device import CameraDevice
 from .camera_feed import CameraFeed
+from .camera_modes import default_capture_mode, list_v4l2_modes
 
 if TYPE_CHECKING:
     from global_config import GlobalConfig
@@ -31,6 +32,21 @@ _ROLE_TO_CONFIG_ATTR: dict[str, str] = {
     "classification_channel": "carousel_camera",
     "carousel": "carousel_camera",
 }
+
+def _apply_default_capture_mode(config: CameraConfig) -> bool:
+    """Give a USB camera nobody chose a mode for its default one (MJPEG at its
+    own resolution). Returns whether the config changed."""
+    if config.capture_mode_saved or config.url is not None or config.device_index < 0:
+        return False
+    mode = default_capture_mode(list_v4l2_modes(config.device_index))
+    if mode is None:
+        return False
+    config.width = mode["width"]
+    config.height = mode["height"]
+    config.fps = mode["fps"]
+    config.fourcc = mode["fourcc"]
+    return True
+
 
 # Health poll interval. Video is streamed through the MJPEG endpoint only; this
 # lightweight loop just surfaces camera status changes over the control socket.
@@ -130,6 +146,7 @@ class CameraService:
                     self._feeds[role] = CameraFeed(role, existing_device)
                     return
 
+        _apply_default_capture_mode(config)
         device = CameraDevice(role, config)
         self._devices[role] = device
         self._feeds[role] = CameraFeed(role, device)
@@ -239,6 +256,7 @@ class CameraService:
             config = mkCameraConfig(device_index=-1)
             setattr(self._irl_config, config_attr, config)
 
+        previous_source = config.url if config.url is not None else config.device_index
         if isinstance(source, str):
             config.url = source
             config.device_index = -1
@@ -249,6 +267,10 @@ class CameraService:
             config.url = None
             config.device_index = -1
 
+        # A saved mode belonged to the camera that was there before.
+        if source != previous_source:
+            config.capture_mode_saved = False
+
         device = self._devices.get(role)
         if device is None:
             if source is None:
@@ -258,6 +280,10 @@ class CameraService:
             if self._started:
                 device.start()
         else:
+            if source != previous_source and _apply_default_capture_mode(config):
+                device.set_capture_mode(
+                    width=config.width, height=config.height, fps=config.fps, fourcc=config.fourcc
+                )
             device.set_source(source)
 
         # feeder alias in split_feeder mode
@@ -327,6 +353,7 @@ class CameraService:
                 config.height = height
                 config.fps = fps
                 config.fourcc = fourcc
+                config.capture_mode_saved = True
         device.set_capture_mode(width=width, height=height, fps=fps, fourcc=fourcc)
         return True
 

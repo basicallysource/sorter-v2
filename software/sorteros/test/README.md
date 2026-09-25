@@ -25,9 +25,10 @@ the hostname, which services are enabled, no git-lfs, the portal baked in.
 `boot.sh` boots the image's root filesystem in QEMU with a stock Ubuntu arm64
 kernel (the Orange Pi kernel only runs on the board) behind a user-mode
 network, as a machine plugged into Ethernet with no hardware attached. It
-never modifies the image. `check.py boot` then follows the first-boot status
-page stage by stage until the Sorter UI takes over port 80, and checks the
-backend answers, that the checked-out code is the newest `sorter/stable/v*`
+never modifies the image. `check.py boot` then follows first boot stage by
+stage through the progress page's `/status.json` until the Sorter UI takes
+over port 80, and checks that the backend already answers at that moment (the
+page waits for it), that the checked-out code is the newest `sorter/stable/v*`
 tag (or `--expect-ref`), that Hive's default model landed on every channel,
 and, over SSH, the hostname, avahi, and that no stage gave up.
 
@@ -46,6 +47,8 @@ keyfiles, open, hidden, WPA3-only and mixed networks, a router that gives no
 address, a network with no internet, and a cable with no internet beside a
 Wi-Fi network that works. `test_network.py` covers the same decisions in
 seconds against a simulated machine: `python3 -m unittest test_network`.
+`test_firstboot.py` covers the progress page and the hand-over of port 80:
+`python3 -m unittest test_firstboot`.
 
 What it can't cover: anything that needs the board (the real Wi-Fi chip and
 its driver, the NPU, cameras, the control boards, the boot loader and kernel

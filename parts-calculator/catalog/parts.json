@@ -9603,8 +9603,8 @@
     },
     {
       "id": "interface",
-      "uid": "izux",
-      "version": "9",
+      "uid": "6et2",
+      "version": "10",
       "name": "Top interface",
       "description": "The interface between the feeder and the distribution layers. Its lazy Susan sandwiches the upper fixed section and the chute mount, 4 × [[hw:scr-m4-12-cs]] a side, and the plywood top plate bolts down onto the six brackets' inserts.",
       "docs": "/hardware/assembly/distribution/top-interface/",
@@ -9675,7 +9675,7 @@
         },
         {
           "part": "scr-m5-16-shcs",
-          "qty": 12
+          "qty": 24
         }
       ],
       "versions": [
@@ -10506,6 +10506,13 @@
           "message": "Dropped the 2 M5 x 22 for the top plate's S2/S3 screws. That joint holds the plate to this assembly, so both its sides are members of superstructure and not of this node; it is recorded there. The 12 M5 x 22 through I1-I6 and O1-O6 are unaffected, they come from interface-bracket-mount.",
           "breaking": false,
           "commit": null
+        },
+        {
+          "version": "10",
+          "date": "2026-09-25",
+          "message": "The 12 M5 x 16 at the base of the six External bracket - side, bracing them against piece F (step 13). They used to arrive through the hex frame's corner node as the bottom vertical's screws, which is the wrong joint here: the top interface has no bottom vertical, the Interface spacer sleeves piece F instead and takes no screws. Same count, now on the joint that exists.",
+          "breaking": false,
+          "commit": null
         }
       ]
     },
@@ -10600,8 +10607,8 @@
     },
     {
       "id": "bottom-layer",
-      "uid": "oxj0",
-      "version": "4",
+      "uid": "scr8",
+      "version": "5",
       "name": "Bottom distribution layer",
       "description": "The lowest bin layer. Identical to a distribution layer except that its frame carries foot covers instead of bracket covers and bottom verticals, and the bottom interface hangs underneath it.",
       "docs": "/hardware/assembly/distribution/bin-frame/bottom-layer/",
@@ -10641,6 +10648,10 @@
         {
           "part": "tnut-m5-2020",
           "qty": 24
+        },
+        {
+          "part": "ext-bracket-bottom-vertical",
+          "qty": 6
         }
       ],
       "connections": [
@@ -10802,13 +10813,20 @@
           "message": "The 12 M5 x 16 that fasten the six External bracket - bottom vertical onto the top of piece D, bottom-layer.md step 4. Every other layer gets these through external-bracket-with-support; the bottom layer's corners use external-bracket-with-foot, which carries neither the bracket nor its screws, so the screws were missing from the machine entirely.",
           "breaking": false,
           "commit": null
+        },
+        {
+          "version": "5",
+          "date": "2026-09-25",
+          "message": "The six External bracket - bottom vertical its step 4 fits on top of piece D. They were on no node at all: the bottom layer's frame is built from external-bracket-with-foot, which has none, and the shared frame node that did carry them is not the one this layer uses. Their 12 screws were added in the previous version.",
+          "breaking": false,
+          "commit": null
         }
       ]
     },
     {
       "id": "layer",
-      "uid": "y3bz",
-      "version": "7",
+      "uid": "5nnb",
+      "version": "8",
       "name": "Distribution layer",
       "description": "One distribution layer between the interfaces: frame, chute, bin retainers, funnels, bins.",
       "docs": "/hardware/assembly/distribution/bin-frame/regular-layers/",
@@ -10839,11 +10857,15 @@
         },
         {
           "part": "scr-m5-16-shcs",
-          "qty": 48
+          "qty": 60
         },
         {
           "part": "tnut-m5-2020",
           "qty": 24
+        },
+        {
+          "part": "ext-bracket-bottom-vertical",
+          "qty": 6
         }
       ],
       "connections": [
@@ -10864,6 +10886,14 @@
           "method": "tnut",
           "through_mm": 12.8,
           "note": "Mirror of the left retainer's joint, same bore and same screw."
+        },
+        {
+          "from": "ext-bracket-bottom-vertical",
+          "to": "layer-frame",
+          "via": "scr-m5-16-shcs",
+          "qty": 12,
+          "method": "self-tap",
+          "note": "Two per corner through the bottom vertical's outer holes onto piece C, regular-layers.md step 1."
         }
       ],
       "versions": [
@@ -11088,6 +11118,13 @@
           "version": "7",
           "date": "2026-09-25",
           "message": "The 12 M5 x 16 that fasten this node down onto the one below it, which stacking-the-layers.md has called for since it was written and the tree never carried. The stack has one joint per layer, so they belong on the node that lands rather than as a flat count on the superstructure: an N-layer machine now totals 12N of them instead of 6.",
+          "breaking": false,
+          "commit": null
+        },
+        {
+          "version": "8",
+          "date": "2026-09-25",
+          "message": "The six External bracket - bottom vertical and their 12 screws, moved off the hex frame. They sleeve piece C up to the layer above, so they belong to the layer rather than to the frame it is built on.",
           "breaking": false,
           "commit": null
         }
@@ -12098,10 +12135,10 @@
     },
     {
       "id": "external-bracket-with-support",
-      "uid": "5wdt",
-      "version": "2",
-      "name": "External bracket with support",
-      "description": "One corner segment of the outer hex: the side bracket screwed to the bottom vertical, with the snap-on cover.",
+      "uid": "4wus",
+      "version": "3",
+      "name": "External bracket with cover",
+      "description": "The hex frame's corner: the External bracket - side with its cover pushed on, forming the collar a vertical extrusion stands in.",
       "docs": "/hardware/assembly/distribution/bin-frame/hex-frame/",
       "lines": [
         {
@@ -12111,24 +12148,9 @@
         {
           "part": "ext-bracket-left",
           "qty": 1
-        },
-        {
-          "part": "ext-bracket-bottom-vertical",
-          "qty": 1
-        },
-        {
-          "part": "scr-m5-16-shcs",
-          "qty": 2
         }
       ],
       "connections": [
-        {
-          "from": "ext-bracket-bottom-vertical",
-          "to": "ext-bracket-left",
-          "via": "scr-m5-16-shcs",
-          "qty": 2,
-          "method": "self-tap"
-        },
         {
           "from": "ext-bracket-cover",
           "to": "ext-bracket-left",
@@ -12172,6 +12194,13 @@
           "message": "Recording correction: the bottom vertical is screwed into the side bracket with 2 x M5 x 16, not 1, and the screws run from the bottom vertical into the side. No physical change.",
           "breaking": false,
           "commit": "937a96e5"
+        },
+        {
+          "version": "3",
+          "date": "2026-09-25",
+          "message": "Dropped the External bracket - bottom vertical and its 2 screws. The bottom vertical is not part of a hex frame: it is the sleeve the layer above stands in, so it belongs to the layer, not to the frame the layer is built on. Carrying it here gave one to every frame, including the top interface's, which has none (the Interface spacer does that job there and is not screwed), and gave none to the bottom layer, which fits six in its step 4. Moved onto layer and bottom-layer. Confirmed by barthel.",
+          "breaking": false,
+          "commit": null
         }
       ]
     },

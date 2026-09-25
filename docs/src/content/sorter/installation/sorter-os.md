@@ -65,27 +65,32 @@ No setup page? Stay on the `SorterOS-Setup` network and open [http://10.42.0.1](
     <figcaption>The Pi joins while your phone stays on the setup network. <cite>Screenshot recorded on an iPhone.</cite></figcaption>
   </figure>
   <figure>
-    <img src="https://assets.basically.website/sorter-docs/sorteros-setup-phone-5-wrong-password-full-44310e947171.png" alt="The setup page showing Wrong password for the network, with the password field ready to try again">
-    <figcaption>A wrong password says so. Fix it and join again. <cite>Screenshot recorded on an iPhone.</cite></figcaption>
-  </figure>
-  <figure>
     <img src="https://assets.basically.website/sorter-docs/sorteros-setup-phone-6-joined-full-30b10b9ff095.png" alt="The setup page saying the Sorter is on the network, with its address, the next steps and a Done button">
     <figcaption>It's on. Note the address and tap <strong>Done</strong>; your phone goes back to your WiFi. <cite>Screenshot recorded on an iPhone.</cite></figcaption>
   </figure>
 </div>
 
-## 5. Open the Sorter
+## 5. Open the installation progress
 
-On a phone or computer on the same WiFi, open **[http://sorter.local](http://sorter.local)**.
+On a phone or computer on the same WiFi, open **[http://sorter.local](http://sorter.local)**. It shows SorterOS installing the Sorter software, which takes a few minutes.
 
 <figure class="single-figure">
-  <img src="https://assets.basically.website/sorter-docs/sorteros-setup-phone-7-first-boot-full-c61f9a7eaa82.png" alt="The first boot progress page at sorter.local with every stage checked and a link to reload for the Sorter UI">
-  <figcaption>The first boot installs the Sorter software, which takes a few minutes. The page updates itself, then becomes the Sorter UI. <cite>Screenshot recorded on an iPhone.</cite></figcaption>
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/sorteros-setup-phone-7-first-boot-full-c61f9a7eaa82.png" alt="The installation progress page at sorter.local with every stage checked and a link to reload for the Sorter UI">
+  <figcaption>The installation progress. The page updates itself. <cite>Screenshot recorded on an iPhone.</cite></figcaption>
 </figure>
+
+When it's done, the same page becomes the Sorter UI.
+
+<div class="img-row">
+  <figure>
+    <img src="https://assets.basically.website/sorter-docs/sorteros-first-load-sorter-ui-full-c7e8aae4ac07.png" alt="The Sorter UI's dashboard the first time it loads: no camera assigned yet, no pieces, and the machine in standby with a Home button">
+    <figcaption>The Sorter UI, the first time it loads. <cite>Screenshot recorded in a browser.</cite></figcaption>
+  </figure>
+</div>
 
 Then set the machine up with the setup wizard: in the Sorter UI, **Settings**, then **Open Setup Wizard**. [First setup in the UI]({{ '/sorter/first-setup/' | relative_url }}) goes through it.
 
-## If something's off
+## Debugging
 
 - **No `SorterOS-Setup` network.** It only appears while the Pi is offline. On a cable with internet, the Pi is already online: go to step 5.
 - **The setup page didn't open.** Open [http://10.42.0.1](http://10.42.0.1) in Safari or Chrome while on the setup network.

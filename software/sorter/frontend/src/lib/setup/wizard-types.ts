@@ -104,6 +104,7 @@ export type WizardSummary = {
 		pca_available: boolean;
 		waveshare_ports: WavesharePort[];
 		usb_devices: UsbDevice[];
+		bootloader_board: boolean;
 		issues: string[];
 		recommended_camera_layout: 'default' | 'split_feeder';
 	};

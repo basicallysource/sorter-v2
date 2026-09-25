@@ -18,6 +18,7 @@ from machine_setup import (
 )
 from blob_manager import getMachineId, getMachineNickname
 from hardware.bus import MCUBus
+from hardware.firmware_flash import bootloaderPresent
 from irl.config import (
     DEFAULT_CLASSIFICATION_CHANNEL_MODE,
     DEFAULT_FEEDER_MODE,
@@ -540,6 +541,9 @@ def _build_discovery_payload(
         if device.get("category") == "servo_bus"
     ]
 
+    # A Pico with no firmware never answers on serial; it shows up as the RPI-RP2
+    # drive instead, and only a recovery flash from Settings brings it up.
+    bootloader_board = not board_summaries and bootloaderPresent()
     issues = list(issue_messages)
     if not board_summaries and not issue_messages:
         issues.append("No control boards detected.")
@@ -558,6 +562,7 @@ def _build_discovery_payload(
         "pca_available": pca_available,
         "waveshare_ports": waveshare_ports,
         "usb_devices": usb_devices,
+        "bootloader_board": bootloader_board,
         "issues": issues,
     }
 
@@ -571,6 +576,21 @@ def _serialize_machine_profile(active_irl: Any | None) -> dict[str, Any] | None:
     if is_dataclass(profile):
         return asdict(cast(Any, profile))
     return None
+
+
+@router.get("/api/setup-wizard/needed")
+def get_setup_wizard_needed() -> Dict[str, bool]:
+    # A machine that has never been through the wizard has neither a name nor a
+    # single camera (first boot writes -1 or nothing). Cheap on purpose: the
+    # Dashboard asks on every first load, and the full summary probes the USB buses.
+    _, config = _read_machine_params_config()
+    assignments = _camera_assignments_from_config(config)
+    any_camera = any(
+        value is not None and value != -1
+        for role, value in assignments.items()
+        if role != "layout"
+    )
+    return {"needed": not getMachineNickname() and not any_camera}
 
 
 @router.get("/api/setup-wizard")

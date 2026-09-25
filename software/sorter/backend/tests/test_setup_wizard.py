@@ -304,6 +304,35 @@ class SetupWizardConfigTests(unittest.TestCase):
                 summary_response.json()["config"]["machine_setup"]["key"],
             )
 
+    def test_setup_is_needed_only_by_a_machine_never_set_up(self) -> None:
+        cases = [
+            (None, "", True),
+            (None, "[cameras]\nfeeder = -1\nclassification_top = -1\nclassification_bottom = -1\n", True),
+            ("Sorting Bench A", "", False),
+            (None, "[cameras]\nc_channel_2 = 0\n", False),
+            (None, '[cameras]\nlayout = "default"\nfeeder = "usb-cam"\n', False),
+        ]
+        for nickname, toml, needed in cases:
+            with self.subTest(nickname=nickname, toml=toml):
+                self.machine_params_path.write_text(toml, encoding="utf-8")
+                with patch("server.routers.setup.getMachineNickname", return_value=nickname):
+                    self.assertEqual(setup.get_setup_wizard_needed(), {"needed": needed})
+
+    def test_discovery_says_when_a_blank_board_waits_in_its_bootloader(self) -> None:
+        for boards, present, expected in [([], True, True), ([], False, False)]:
+            with self.subTest(present=present):
+                with (
+                    patch("server.routers.setup.bootloaderPresent", return_value=present),
+                    patch("server.routers.setup._enumerate_usb_devices", return_value=[]),
+                    patch("server.routers.setup.shared_state.getActiveIRL", return_value=None),
+                ):
+                    payload = setup._build_discovery_payload(
+                        board_summaries=boards,
+                        mcu_ports=[],
+                        source="fresh",
+                        issue_messages=["No MCU buses found."],
+                    )
+                self.assertIs(payload["bootloader_board"], expected)
 
 if __name__ == "__main__":
     unittest.main()

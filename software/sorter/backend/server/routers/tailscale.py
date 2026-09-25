@@ -11,7 +11,6 @@ import logging
 import os
 import shutil
 import subprocess
-import tempfile
 import re
 import threading
 import time
@@ -32,12 +31,17 @@ _TAILSCALE_SOCKET = os.getenv("TAILSCALE_SOCKET_PATH", "").strip()
 SORTEROS_STAMP = Path("/etc/sorteros/version")
 # Where first boot keeps a key typed on the setup page until it has joined.
 SETUP_KEY_FILE = Path("/etc/sorteros/tailscale.env")
-INSTALL_SCRIPT_URL = "https://tailscale.com/install.sh"
+# Download, then run: `curl | sh` succeeds when the download fails.
+INSTALL_COMMAND = (
+    "curl -fsSL --retry 5 --retry-all-errors --connect-timeout 20 -o /tmp/tailscale-install.sh"
+    " https://tailscale.com/install.sh && sh /tmp/tailscale-install.sh"
+)
+INSTALL_UNIT = "sorter-tailscale-install"
 # Tailscale's coordination server, which every join has to reach.
 CONTROL_URL = "https://controlplane.tailscale.com/"
 JOIN_TIMEOUT_S = 30.0
 INSTALL_RETRY_S = 300.0
-FIRSTBOOT_POLL_S = 30.0
+BUSY_POLL_S = 30.0
 
 _installer: threading.Thread | None = None
 _install_error: str | None = None
@@ -226,10 +230,11 @@ def keep_installed() -> None:
 
 def _install_until_done() -> None:
     global _install_error
-    # First boot installs Tailscale and joins with the setup key itself; doing
-    # either beside it fights over apt's lock or spends a single-use key twice.
-    while _firstboot_running():
-        time.sleep(FIRSTBOOT_POLL_S)
+    # First boot installs Tailscale and joins with the setup key itself, and a
+    # restarted backend's install may still be going; doing either beside them
+    # fights over apt's lock or spends a single-use key twice.
+    while _busy():
+        time.sleep(BUSY_POLL_S)
     while not shutil.which("tailscale"):
         try:
             _install()
@@ -243,31 +248,22 @@ def _install_until_done() -> None:
 
 
 def _install() -> None:
-    with tempfile.TemporaryDirectory() as tmp:
-        script = Path(tmp) / "install.sh"
-        # Download, then run: `curl | sh` succeeds when the download fails.
-        _run(
-            ["curl", "-fsSL", "--retry", "5", "--retry-all-errors", "--connect-timeout", "20",
-             "-o", str(script), INSTALL_SCRIPT_URL],
-            timeout=600,
-        )
-        _run(["sh", str(script)], timeout=1800)
-    if not shutil.which("tailscale"):
-        raise RuntimeError("the Tailscale installer finished without installing tailscale")
+    # Its own unit, so restarting the backend never stops apt halfway through.
+    result = subprocess.run(
+        ["systemd-run", f"--unit={INSTALL_UNIT}", "--collect", "--wait", "--quiet", "sh", "-c", INSTALL_COMMAND],
+        capture_output=True, text=True, timeout=1800, check=False,
+    )
+    if result.returncode != 0 or not shutil.which("tailscale"):
+        raise RuntimeError(f"the installer failed, see journalctl -u {INSTALL_UNIT}")
 
 
-def _run(cmd: list[str], timeout: float) -> None:
-    result = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout, check=False)
-    if result.returncode != 0:
-        lines = (result.stderr or result.stdout or "").strip().splitlines()
-        raise RuntimeError(f"{cmd[0]} exited {result.returncode}: {lines[-1] if lines else 'no output'}")
+def _busy() -> bool:
+    return any(_unit_active(unit) for unit in ("sorteros-firstboot.service", f"{INSTALL_UNIT}.service"))
 
 
-def _firstboot_running() -> bool:
+def _unit_active(unit: str) -> bool:
     try:
-        return subprocess.run(
-            ["systemctl", "is-active", "--quiet", "sorteros-firstboot.service"], timeout=10, check=False
-        ).returncode == 0
+        return subprocess.run(["systemctl", "is-active", "--quiet", unit], timeout=10, check=False).returncode == 0
     except (OSError, subprocess.TimeoutExpired):
         return False
 

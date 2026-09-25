@@ -15,12 +15,10 @@ from server.routers import tailscale
 @pytest.fixture
 def machine(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> dict[str, Any]:
     """A SorterOS machine without Tailscale, first boot finished, nothing slept."""
-    state: dict[str, Any] = {"installed": False, "sleeps": [], "firstboot": [], "installs": 0, "joins": []}
+    state: dict[str, Any] = {"installed": False, "sleeps": [], "busy": [], "installs": 0, "joins": []}
     monkeypatch.setattr(tailscale.shutil, "which", lambda name: "/usr/bin/tailscale" if state["installed"] else None)
     monkeypatch.setattr(tailscale.time, "sleep", lambda s: state["sleeps"].append(s))
-    monkeypatch.setattr(
-        tailscale, "_firstboot_running", lambda: state["firstboot"].pop(0) if state["firstboot"] else False
-    )
+    monkeypatch.setattr(tailscale, "_busy", lambda: state["busy"].pop(0) if state["busy"] else False)
     monkeypatch.setattr(tailscale, "SETUP_KEY_FILE", tmp_path / "tailscale.env")
     monkeypatch.setattr(tailscale, "_get_status", lambda: {"installed": state["installed"], "connected": False})
     monkeypatch.setattr(tailscale, "_install_error", None)
@@ -28,7 +26,7 @@ def machine(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> dict[str, Any]:
 
 
 def test_waits_for_first_boot_then_retries_a_failed_install(machine, monkeypatch):
-    machine["firstboot"] = [True, True]
+    machine["busy"] = [True, True]
 
     def install() -> None:
         machine["installs"] += 1
@@ -40,21 +38,17 @@ def test_waits_for_first_boot_then_retries_a_failed_install(machine, monkeypatch
     tailscale._install_until_done()
 
     assert machine["installs"] == 2
-    assert machine["sleeps"] == [tailscale.FIRSTBOOT_POLL_S] * 2 + [tailscale.INSTALL_RETRY_S]
+    assert machine["sleeps"] == [tailscale.BUSY_POLL_S] * 2 + [tailscale.INSTALL_RETRY_S]
     assert tailscale._install_error is None
 
 
-def test_a_failed_download_is_a_failed_install(monkeypatch):
-    ran: list[list[str]] = []
-
-    def run(cmd, **kwargs):
-        ran.append(cmd)
-        return subprocess.CompletedProcess(cmd, 56, "", "curl: (56) Connection reset by peer")
-
-    monkeypatch.setattr(tailscale.subprocess, "run", run)
-    with pytest.raises(RuntimeError, match="curl exited 56"):
-        tailscale._install()
-    assert [cmd[0] for cmd in ran] == ["curl"]
+def test_a_failed_download_fails_the_install(tmp_path):
+    # `curl | sh` exits 0 here, which is how first boot lost Tailscale.
+    fake = tmp_path / "curl"
+    fake.write_text("#!/bin/sh\nexit 56\n")
+    fake.chmod(0o755)
+    result = subprocess.run(["sh", "-c", tailscale.INSTALL_COMMAND], env={"PATH": f"{tmp_path}:/usr/bin:/bin"})
+    assert result.returncode == 56
 
 
 @pytest.mark.parametrize("joined", [True, False])

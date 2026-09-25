@@ -112,7 +112,7 @@ The fifth stepper cable, the chute one, is straight through and is built rather 
 
 {% if d.guide %}
 <p class="download-line">
-  <a href="{{ d.guide | n }}"><b>How to make your own →</b></a>
+  <a href="{{ d.guide | relative_url }}"><b>How to make your own →</b></a>
 </p>
 {% endif %}
 

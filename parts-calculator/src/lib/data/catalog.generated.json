@@ -21633,7 +21633,7 @@
 					"stl_hash": "8b617c795d40c1a9a9a553e99dd43402014468b6b1720af90facdbe0dc4182b6",
 					"render": "https://assets.basically.website/sorter-parts/camera-lamp-ring-full-78b8adf2ec94.png",
 					"stl": "https://assets.basically.website/sorter-parts/camera-lamp-ring-8b617c795d40.stl",
-					"grams": 14.66
+					"grams": 36.1
 				},
 				{
 					"version": "2",
@@ -21644,15 +21644,15 @@
 					"commit": "1d53b683",
 					"stl": "https://assets.basically.website/sorter-parts/camera-lamp-ring-7d729a3e60c2.stl",
 					"render": "https://assets.basically.website/sorter-parts/camera-lamp-ring-full-95127920d806.png",
-					"grams": 14.68
+					"grams": 36.1
 				}
 			],
 			"attributes": [],
-			"grams": 14.68,
-			"support_grams": 0.0,
-			"support_used": false,
-			"support_intentional": false,
-			"print_seconds": 3107,
+			"grams": 36.1,
+			"support_grams": 25.33,
+			"support_used": true,
+			"support_intentional": true,
+			"print_seconds": 5220,
 			"color": {
 				"role": "channel"
 			},

@@ -14332,7 +14332,7 @@
 		{
 			"id": "output-guide",
 			"uid": "z9yd",
-			"name": "Short and Angled Output Guide",
+			"name": "Output guide",
 			"quantities": {
 				"feeder": 2
 			},
@@ -25718,7 +25718,7 @@
 			},
 			"name": "White/daylight LED strip - 24v",
 			"category": "Wire harness",
-			"description": "The light in a Camera lamp: two turns inside the reflector's skirt, held by the six LED hooks. Bought as a 5 m roll and cut into 950 mm rings, so one roll covers a machine's three lamps. Also the classification chamber's lighting before the dome was retired.",
+			"description": "The light in a Camera lamp: two turns inside the reflector's skirt, held by the six LED hooks. Three per machine, all from one roll. Cut on the strip's printed marks, not to a measurement: the solder pads are at the marks, and the pitch differs from roll to roll.",
 			"note": "Buy the 24 V roll: 5 m, 6000 K, 8 mm COB. The same listing also sells a 12 V one, and outside the US the link may not land on this product at all.",
 			"created_at": "2026-07-18",
 			"updated_at": "2026-09-14",
@@ -25764,10 +25764,10 @@
 			"sheet_qty_text": null,
 			"stock": {
 				"unit_length_mm": 5000,
-				"cut_length_mm": 950,
+				"cut_length_mm": 920,
 				"pieces_per_unit": 5,
 				"unit_label": "5 m (16.4 ft) roll",
-				"piece_label": "950 mm lamp ring"
+				"piece_label": "one lamp ring, two turns (about 920 mm)"
 			},
 			"sourcing": {
 				"vendors": [
@@ -27397,7 +27397,7 @@
 			},
 			"name": "C-channel 1 support leg (J)",
 			"category": "Aluminum extrusion (2020)",
-			"description": "2020 aluminum extrusion, cut to 228 mm (piece J). C-channel 1's three support legs, standing in its layout guide. C-channels 2 and 3 use printed legs instead, so this is 3 per machine.",
+			"description": "2020 aluminum extrusion, 228 mm, piece J on the framing list. C-channel 1's three support legs, standing in its layout guide. C-channels 2 and 3 use printed legs instead, so this is 3 per machine.",
 			"note": null,
 			"created_at": "2026-09-02",
 			"updated_at": "2026-09-07",
@@ -27407,7 +27407,7 @@
 			"stock": null,
 			"sourcing": null,
 			"alternative": null,
-			"caption": "2020 aluminum extrusion, cut to 228 mm (piece J).",
+			"caption": "2020 aluminum extrusion, 228 mm, piece J on the framing list.",
 			"docs_page": null,
 			"conflicts": null,
 			"image": "https://assets.basically.website/sorter-parts/extrusion-extrusion-2020-full-01bd50e7eac0.png"

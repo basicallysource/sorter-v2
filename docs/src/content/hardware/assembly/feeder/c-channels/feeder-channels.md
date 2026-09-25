@@ -5,15 +5,13 @@ type: how-to
 section: hardware
 slug: assembly-feeder-channels
 kicker: Feeder — Feeder channels
-lede: The two metering stages between the bulk channel and classification, with a faceted rotor, an output guide and a camera lamp each.
+lede: The two metering stages between the bulk channel and classification, with a faceted rotor and an output guide each.
 permalink: /hardware/assembly/feeder/c-channels/feeder-channels/
 author: barthel
 contributors: [spencer, brickcyclealice, danny, reveryx, daddyosbricksbill]
 og_image: https://assets.basically.website/sorter-docs/assembly-c-channel-finished-stage-w1600-9bd3719c4180.jpg
-warning: >-
-  **Steps 1 to 3 come from a build**, BrickCycleAlice's. **Step 4 is not verified**: the output
-  guide is held by friction, but where it seats, at what angle and how far it projects are not
-  recorded anywhere. Fill that in as you build.
+last_verified: 2026-09-25
+tools_needed: ["Hex key, 2 mm"]
 parts_needed:
   - part: rotor-faceted
     qty: 1
@@ -37,23 +35,13 @@ parts_needed:
   </figure>
 </div>
 
-<div class="prep-item">
-  <div class="prep-item-body">
-    <p><strong>Build a <a href="{{ '/hardware/assembly/feeder/camera-lamp/feeder-camera-lamp/' | relative_url }}">feeder camera lamp</a> before you start.</strong> One per channel, carrying the OV9732 camera. Its parts and screws are on that page and on the <a href="{{ '/hardware/assembly/feeder/camera-lamp/lamp-arm/' | relative_url }}">lamp arm</a> page.</p>
-  </div>
-  <figure class="prep-item-figure">
-    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/camera-lamp-on-channel-w1600-8d957377d671.jpg" alt="A camera lamp on the machine: a grey disc-shaped lamp on an angled arm hanging over the open top of a C-channel, the white reflector lit inside it, with the black bulk bucket behind">
-    <figcaption>A camera lamp over a channel. <cite>Photo: Spencer.</cite></figcaption>
-  </figure>
-</div>
-
-C2 and C3 are the two metering stages. Each takes a part from the channel above, spaces it out further by rotation, and pushes it off its exit to the next channel down. The camera over each one is what the software reads.
+C2 and C3 are the two metering stages. Each takes a part from the channel above, spaces it out further by rotation, and pushes it off its exit to the next channel down.
 
 **The parts list above is one channel's worth. Build two**, one for C2 and one for C3. They are the same build. Only the height differs, and that is set on [arranging C-channels]({{ '/hardware/assembly/feeder/arranging-c-channels/' | relative_url }}).
 
 - **The faceted rotor**, the same one C1 takes. It takes no Rotor cap.
 - **One output guide each**, two in the machine. The guide belongs to the channel it is mounted on, not to the gap between two.
-- **One camera lamp each**, with the OV9732.
+- **A camera lamp hangs over each of these two.** It goes on at [arranging C-channels]({{ '/hardware/assembly/feeder/arranging-c-channels/' | relative_url }}), with the channel standing.
 
 {% include fastener-legend.html %}
 
@@ -92,45 +80,23 @@ Lower the rotor onto the raised hub in the middle of the NEMA bracket. The outpu
 
 Turn the rotor by hand. It should go all the way round without a tight spot.
 
-**On the machine this happens later**, once the channels are standing at their heights. See [arranging C-channels]({{ '/hardware/assembly/feeder/arranging-c-channels/' | relative_url }}), step 8.
-
 <figure class="single-figure">
-  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-feeder-channel-rotor-and-stepper-full-89ba6b47c8ca.jpg" alt="A feeder channel seen from above on a plain background: the faceted rotor sitting down in the stator ring, with the stepper motor standing out from under the ring at one side, and nothing mounted on the channel">
-  <figcaption>The rotor down in the core. Nothing else is on the channel at this stage. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-c-channel-finished-stage-w1600-9bd3719c4180.jpg" alt="A C-channel from above on a plain surface: the faceted rotor sitting down in the stator ring, with the stepper motor and its lead standing off one side">
+  <figcaption>The rotor down in the core. <cite>Photo: BrickCycleAlice.</cite></figcaption>
 </figure>
 
 {% include step.html n="4" title="Fit the output guide" %}
 
 The guide is a wall at the channel's exit. Without it, a part that does not drop off rides round the rotor again.
 
-Push the guide onto the drive. It is held by the fit alone: no screws, nothing to tighten.
+Push the guide onto the dovetail on the stator wall beside the NEMA bracket, so it stands in over the rotor just before the exit opening. It is held by the fit alone: no screws, nothing to tighten.
 
-**Fit it once the channel is standing at its final height**, not on the bench.
-
-**Not recorded:** where on the drive it seats, at what angle, and how far it projects over the exit.
-
-<div class="img-placeholder">Image coming</div>
-
-Then turn both channels by hand, with a few parts on the rotor above. A part should leave one rotor and land on the next, without being carried back round.
-
-{% include step.html n="5" title="Hang the camera lamp" %}
-
-The lamp's arm mount feeds up into one of the dovetails around the outside of the channel wall, from the bottom edge, and clips over the top: the 5th dovetail from the exit, counting anticlockwise seen from above. There is no screw in that joint. The joint itself happens at step 9 of [arranging C-channels]({{ '/hardware/assembly/feeder/arranging-c-channels/' | relative_url }}), with the channels standing, and the lamp it carries is built on the [feeder camera lamp]({{ '/hardware/assembly/feeder/camera-lamp/feeder-camera-lamp/' | relative_url }}) page.
-
-**Do this with the channel standing where it belongs**, not on the bench. Its height and overhang change what the camera sees.
-
-<figure class="single-figure">
-  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/camera-lamp-mounted-wide-w1600-247fb837f4f8.jpg" alt="A wider view of a camera lamp on the machine, showing the full length of the arm from the lamp down to the C-channel, with a bracket screwed along the joint and the LED leads cable-tied along the arm">
-  <figcaption>A lamp on its channel, the arm running down to the drive. <cite>Photo: Spencer.</cite></figcaption>
-</figure>
+<div class="img-placeholder">Photo of a feeder channel from above with its output guide fitted: the dovetail it clips to beside the NEMA bracket, and how far it reaches in over the rotor.</div>
 
 ## The finished result
 
-A channel core with the faceted rotor in it, an output guide on the exit, and a camera lamp over the top.
+A channel core with the faceted rotor in it and an output guide beside the NEMA bracket. Build two. The camera lamp goes on later, at [arranging C-channels]({{ '/hardware/assembly/feeder/arranging-c-channels/' | relative_url }}).
 
-<figure class="single-figure">
-  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-c-channel-finished-stage-w1600-9bd3719c4180.jpg" alt="A C-channel from above on a plain surface: the faceted rotor sitting down in the stator ring, with the stepper motor and its lead standing off one side">
-  <figcaption>A finished feeder channel, rotor in and stepper on the outside. The output guide and the camera lamp go on once it is standing at its height. <cite>Photo: BrickCycleAlice.</cite></figcaption>
-</figure>
+<div class="img-placeholder">Photo of a finished feeder channel: the faceted rotor down in the core and the output guide on, with the stepper on the outside.</div>
 
 Back to [C-channels]({{ '/hardware/assembly/feeder/c-channels/' | relative_url }}).

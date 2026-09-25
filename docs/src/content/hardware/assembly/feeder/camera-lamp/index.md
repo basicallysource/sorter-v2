@@ -9,6 +9,7 @@ lede: The arm, the shaded lamp and the camera that hang over C2, C3 and the clas
 permalink: /hardware/assembly/feeder/camera-lamp/
 author: reveryx
 contributors: [spencer, danny, brickcyclealice, barthel]
+last_verified: 2026-09-25
 og_image: https://assets.basically.website/sorter-docs/camera-lamp-render-underside-full-0e2b1e5a0fb9.png
 ---
 
@@ -24,11 +25,7 @@ A camera lamp is one arm carrying one light and one camera over a channel. The l
 
 **The bulk channel (C1) takes none**, because the machine does not look at it.
 
-<div class="callout">
-  <p><b>If you printed four sets, one is spare.</b> The parts list gave C1 a lamp of its own until 2026-09-08. It takes none.</p>
-</div>
-
-Build the lamps before the channels that carry them: two of the [C-channels]({{ '/hardware/assembly/feeder/c-channels/' | relative_url }}) pages need one to start. A lamp is built on the bench and hangs onto its channel later, once the channels are standing.
+A lamp is finished on the bench. It hangs onto its channel later, at [arranging C-channels]({{ '/hardware/assembly/feeder/arranging-c-channels/' | relative_url }}), once the channels are standing in their places.
 
 ## The finished result
 

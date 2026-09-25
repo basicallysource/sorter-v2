@@ -10,6 +10,7 @@ permalink: /hardware/assembly/feeder/c-channels/
 og_image: https://assets.basically.website/sorter-docs/assembly-channel-core-finished-top-w1600-4713962f4dfd.jpg
 author: spencer
 contributors: [barthel, brickcyclealice, christoph, danny]
+last_verified: 2026-09-25
 ---
 
 A C-channel is one drive unit: a rotor turning inside a stator, driven by a NEMA 17 stepper through a gear train. A machine has four, and **all four are built on the same core**. What differs is the rotor that drops in and what hangs off it.
@@ -19,13 +20,11 @@ Build the core four times, then finish each one on its own page.
 <ol class="numbered-steps">
   <li><strong><a href="{{ '/hardware/assembly/feeder/c-channels/channel-core/' | relative_url }}">Channel core</a></strong>. Stator, NEMA bracket, gear train, stepper. Build four.</li>
   <li><strong><a href="{{ '/hardware/assembly/feeder/c-channels/bulk-channel/' | relative_url }}">Bulk channel (C1)</a></strong>. The faceted rotor and the Bulk cap. No lamp, no output guide.</li>
-  <li><strong><a href="{{ '/hardware/assembly/feeder/c-channels/feeder-channels/' | relative_url }}">Feeder channels (C2 and C3)</a></strong>. The faceted rotor, an output guide and a camera lamp. Build two.</li>
-  <li><strong><a href="{{ '/hardware/assembly/feeder/c-channels/classification-channel/' | relative_url }}">Classification channel (C4)</a></strong>. The finned rotor, its cap, and a camera lamp with the 4K module.</li>
+  <li><strong><a href="{{ '/hardware/assembly/feeder/c-channels/feeder-channels/' | relative_url }}">Feeder channels (C2 and C3)</a></strong>. The faceted rotor and an output guide. Build two.</li>
+  <li><strong><a href="{{ '/hardware/assembly/feeder/c-channels/classification-channel/' | relative_url }}">Classification channel (C4)</a></strong>. The finned rotor and its cap.</li>
 </ol>
 
-**Build the three [camera lamps]({{ '/hardware/assembly/feeder/camera-lamp/' | relative_url }}) first.** C2, C3 and the classification channel each need one before their page starts. C1 has none.
-
-Once all four are built, [arranging C-channels]({{ '/hardware/assembly/feeder/arranging-c-channels/' | relative_url }}) sets their heights. The rotors, the output guides and the lamps go on there, with the channels standing, not on the bench.
+Each page finishes its channel on the bench, rotor in. Once all four are built, [arranging C-channels]({{ '/hardware/assembly/feeder/arranging-c-channels/' | relative_url }}) sets their heights and hangs the [camera lamps]({{ '/hardware/assembly/feeder/camera-lamp/' | relative_url }}).
 
 ## The finished result
 
@@ -42,10 +41,10 @@ Each page ends in one of these.
   </figure>
   <figure>
     <img src="https://assets.basically.website/sorter-docs/assembly-c-channel-finished-stage-w1600-9bd3719c4180.jpg" alt="A C-channel from above on a plain surface: the faceted rotor sitting down in the stator ring, with the stepper motor and its lead standing off one side">
-    <figcaption><a href="{{ '/hardware/assembly/feeder/c-channels/feeder-channels/' | relative_url }}">Feeder channel</a>, rotor in. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+    <figcaption><a href="{{ '/hardware/assembly/feeder/c-channels/feeder-channels/' | relative_url }}">Feeder channel</a>, rotor in. The output guide is not in this shot. <cite>Photo: BrickCycleAlice.</cite></figcaption>
   </figure>
   <figure>
-    <img src="https://assets.basically.website/sorter-docs/assembly-c-channel-stator-and-rotor-fitted-w1600-60758bbee2d5.jpg" alt="A classification channel from above on a plain surface: the finned rotor sitting down in the grey stator ring, its fins running from the centre bore out to the rim, with the stepper motor at one side">
-    <figcaption><a href="{{ '/hardware/assembly/feeder/c-channels/classification-channel/' | relative_url }}">Classification channel</a>, the finned rotor in. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+    <img src="https://assets.basically.website/sorter-docs/render-classification-channel-finished-full-683c6f99f962.png" alt="Render of the finished classification channel: the capped finned rotor sitting down in the stator ring">
+    <figcaption><a href="{{ '/hardware/assembly/feeder/c-channels/classification-channel/' | relative_url }}">Classification channel</a>, the capped rotor in. <cite>Rendered from the part geometry.</cite></figcaption>
   </figure>
 </div>

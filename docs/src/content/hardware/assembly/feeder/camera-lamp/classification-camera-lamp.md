@@ -10,9 +10,8 @@ permalink: /hardware/assembly/feeder/camera-lamp/classification-camera-lamp/
 author: reveryx
 contributors: [spencer, danny, brickcyclealice, barthel, daddyosbricksbill]
 og_image: https://assets.basically.website/sorter-docs/assembly-camera-lamp-imx415-lead-routing-w1600-ff6852248c3f.jpg
-warning: >-
-  Some of the photographs below are of the feeder lamp, which is this build apart from the camera
-  module. Fill the gaps in as you build.
+last_verified: 2026-09-25
+tools_needed: ["Hex key, 2 mm"]
 parts_needed:
   - part: cam-imx415
     qty: 1
@@ -44,6 +43,8 @@ This is the lamp that hangs over the classification channel, the stage the machi
 
 The camera board sits in the recess in the **Camera clasp top**. Put the **Camera clasp bottom** over it with the lens through the opening, and secure the two halves with 2 {% include fastener.html size="M3" variant="countersunk" length="8" %} screws. They go up through the bottom half into the top, one either side of the board, and seat flush in the countersinks.
 
+**Then plug the camera's cable into the board.** It ships with the camera, and on this module it goes into the top of the board.
+
 <figure class="single-figure">
   <img class="doc-figure" src="https://assets.basically.website/sorter-docs/camera-clasp-board-seated-full-2c6684aef97a.jpg" alt="A camera board sitting in the square recess of a grey printed clasp half, component side up with the black cylindrical lens standing in the middle, and a screw hole in the plastic below the board">
   <figcaption>The board in the clasp top, photographed upside down. <cite>Photo: Danny.</cite></figcaption>
@@ -56,7 +57,7 @@ The camera board sits in the recess in the **Camera clasp top**. Put the **Camer
 
 <figure class="single-figure">
   <img class="doc-figure" src="https://assets.basically.website/sorter-docs/camera-lamp-camera-in-clasp-no-cable-w1600-79b5a08ea522.jpg" alt="A hand holding the closed camera clasp, the camera board seated in the round grey disc with its ribbon socket empty and a rectangular slot in the plastic beside it">
-  <figcaption>A camera in the clasp. Its cable is not on yet; that goes on in step 3. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+  <figcaption>A camera in the clasp, photographed before its cable went on. <cite>Photo: BrickCycleAlice.</cite></figcaption>
 </figure>
 
 {% include step.html n="2" title="Push the clasp into the ring" %}
@@ -71,16 +72,11 @@ The clasp's two halves form a spigot that plugs into a socket in the ring. **The
 
 **Expect it to sit loose.** The lamp's cover is what traps the clasp and holds the camera in, and that happens in the next step, once the arm is up inside the lamp. Until then the camera can lift straight back out, so do not pick the arm up by it.
 
-**The lead plugs in from above on this one.** The IMX415's cable stands up out of the board rather than leaving flat through the cover's slot the way the OV9732's does, so leave room above the lamp for it and for the bend in the cable.
-
 {% include step.html n="3" title="Push the arm up into the lamp" %}
 
 The [lamp arm]({{ '/hardware/assembly/feeder/camera-lamp/lamp-arm/' | relative_url }}) page leaves you a finished lamp: reflector, LED strip and cover. **It keeps its cover on for this.**
 
-<ol class="numbered-steps">
-  <li>Hold the lamp and push the arm's ring up into the middle of the reflector from underneath until it seats.</li>
-  <li>Plug the camera's cable in afterwards. It goes into the top of the board, so there is nothing to thread through the cover first.</li>
-</ol>
+Hold the lamp and push the arm's ring up into the middle of the reflector from underneath until it seats. The cable stands up out of the top of the board, so there is nothing to thread through the cover first.
 
 **That is what holds the camera in.** The clasp is wider than the opening in the middle of the cover, so with the arm home the cover overlaps the clasp's rim and traps it.
 
@@ -102,7 +98,7 @@ The [lamp arm]({{ '/hardware/assembly/feeder/camera-lamp/lamp-arm/' | relative_u
 
 ## The finished result
 
-A finished lamp: the arm, the shaded lamp and the 4K camera seated at its centre with its cable standing up out of the board. Build one. It hangs onto the classification channel later, at step 9 of [arranging C-channels]({{ '/hardware/assembly/feeder/arranging-c-channels/' | relative_url }}), once the channels are standing.
+A finished lamp: the arm, the shaded lamp and the 4K camera seated at its centre with its cable standing up out of the board. Build one. It hangs onto the classification channel later, at step 7 of [arranging C-channels]({{ '/hardware/assembly/feeder/arranging-c-channels/' | relative_url }}), once the channels are standing.
 
 <figure class="single-figure">
   <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-camera-lamp-imx415-lead-routing-w1600-ff6852248c3f.jpg" alt="The classification lamp, marked 4, from a lower angle: the camera cable standing up out of the board, the red and black lamp leads looped over the cover and cable-tied clear of it, and the rectangular slot in the cover below">

@@ -1047,6 +1047,8 @@
 					{:else if activeStepId === 'discovery'}
 						<DiscoveryStep
 							usbDevices={wizard?.discovery.usb_devices ?? []}
+							boardsFound={(wizard?.discovery.boards.length ?? 0) > 0}
+							bootloaderBoard={wizard?.discovery.bootloader_board ?? false}
 							issues={wizard?.discovery.issues ?? []}
 							{loadingWizard}
 							onRescan={loadWizard}

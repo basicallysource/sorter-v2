@@ -12,6 +12,7 @@ import os
 import shutil
 import subprocess
 import tempfile
+import re
 import threading
 import time
 from pathlib import Path
@@ -32,6 +33,9 @@ SORTEROS_STAMP = Path("/etc/sorteros/version")
 # Where first boot keeps a key typed on the setup page until it has joined.
 SETUP_KEY_FILE = Path("/etc/sorteros/tailscale.env")
 INSTALL_SCRIPT_URL = "https://tailscale.com/install.sh"
+# Tailscale's coordination server, which every join has to reach.
+CONTROL_URL = "https://controlplane.tailscale.com/"
+JOIN_TIMEOUT_S = 30.0
 INSTALL_RETRY_S = 300.0
 FIRSTBOOT_POLL_S = 30.0
 
@@ -76,7 +80,10 @@ def _get_status() -> Dict[str, Any]:
         return {"installed": True, "connected": False, "error": str(exc)}
 
     if data.get("BackendState") != "Running":
-        return {"installed": True, "connected": False, "error": data.get("BackendState") or "Not connected"}
+        # Health carries the reason, e.g. "You are logged out. The last login
+        # error was: invalid key: API key does not exist".
+        health = "; ".join(data.get("Health") or [])
+        return {"installed": True, "connected": False, "error": health or data.get("BackendState") or "Not connected"}
 
     self_node = data.get("Self") or {}
     # DNSName is the authoritative name MagicDNS actually resolves (e.g.
@@ -138,11 +145,22 @@ def _join(auth_key: str) -> Dict[str, Any]:
             _cli("up", f"--authkey={auth_key}", f"--hostname={hostname}", "--ssh"),
             capture_output=True,
             text=True,
-            timeout=30.0,
+            timeout=JOIN_TIMEOUT_S,
             check=False,
         )
     except subprocess.TimeoutExpired:
-        return {"ok": False, "error": "tailscale up timed out after 30 seconds", "status": _get_status()}
+        # A bad key fails in seconds; a join that never finishes almost always
+        # means Tailscale's servers can't be reached from this network.
+        status = _get_status()
+        unreachable = _control_unreachable()
+        if unreachable:
+            error = (
+                f"This machine can't reach Tailscale's servers ({unreachable}). "
+                "Something on this network, like a router, firewall or DNS filter, may be blocking Tailscale."
+            )
+        else:
+            error = f"Tailscale didn't finish joining within {JOIN_TIMEOUT_S:.0f} seconds: {status.get('error')}"
+        return {"ok": False, "error": error, "status": status}
     except (FileNotFoundError, OSError) as exc:
         return {"ok": False, "error": str(exc)}
 
@@ -178,6 +196,22 @@ def tailscale_logout() -> Dict[str, Any]:
 
     refresh_device_identity()
     return {"ok": True, "status": _get_status()}
+
+
+def _control_unreachable() -> str | None:
+    """Why Tailscale's coordination server can't be reached, or None if it answers."""
+    # curl's -m bounds the whole check; a socket timeout applies per address
+    # and the server has many.
+    try:
+        result = subprocess.run(
+            ["curl", "-sS", "-o", "/dev/null", "-m", "10", CONTROL_URL],
+            capture_output=True, text=True, timeout=15, check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        return str(exc)
+    if result.returncode == 0:
+        return None
+    return re.sub(r"^curl: \(\d+\) ", "", result.stderr.strip()) or f"curl exited {result.returncode}"
 
 
 def keep_installed() -> None:

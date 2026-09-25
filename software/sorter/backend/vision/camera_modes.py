@@ -95,3 +95,12 @@ def default_capture_mode(modes: list[dict[str, Any]]) -> dict[str, Any] | None:
     at_most = [r for r in rates if r <= TARGET_FPS]
     fps = TARGET_FPS if TARGET_FPS in rates else (at_most[-1] if at_most else rates[0])
     return {"width": chosen[0], "height": chosen[1], "fps": fps, "fourcc": "MJPG"}
+
+
+def preview_capture_mode(modes: list[dict[str, Any]]) -> dict[str, Any] | None:
+    """The smallest MJPEG mode at least 640 wide, for picker thumbnails."""
+    mjpeg = [m for m in modes if str(m.get("fourcc", "")).upper() == "MJPG" and int(m["width"]) >= 640]
+    if not mjpeg:
+        return None
+    best = min(mjpeg, key=lambda m: (int(m["width"]) * int(m["height"]), abs(int(m["fps"]) - TARGET_FPS)))
+    return {"width": int(best["width"]), "height": int(best["height"]), "fps": int(best["fps"]), "fourcc": "MJPG"}

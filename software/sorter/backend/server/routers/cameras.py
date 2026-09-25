@@ -30,7 +30,7 @@ from fastapi.responses import HTMLResponse, StreamingResponse
 from pydantic import BaseModel
 
 from blob_manager import BLOB_DIR, getCameraSetup, getChannelPolygons, getClassificationPolygons
-from vision.camera_modes import default_capture_mode, list_v4l2_modes
+from vision.camera_modes import default_capture_mode, list_v4l2_modes, preview_capture_mode
 from vision.channel_alignment import (
     alignmentRotationDeg,
     dropStartAngleForRole,
@@ -588,6 +588,21 @@ def _open_camera_for_probe(index: int) -> cv2.VideoCapture:
         return _open_capture_source(index, fourcc="MJPG")
     except Exception:
         return cv2.VideoCapture(index)
+
+
+def _open_camera_for_preview(index: int) -> cv2.VideoCapture:
+    # Thumbnails are 426 px wide: open at a small MJPEG mode rather than the
+    # camera's own resolution, which is 4K on a 4K camera.
+    if platform.system() != "Linux":
+        return _open_camera_for_probe(index)
+    mode = preview_capture_mode(list_v4l2_modes(index))
+    if mode is None:
+        return _open_camera_for_probe(index)
+    from vision.camera import _open_capture_source
+
+    return _open_capture_source(
+        index, width=mode["width"], height=mode["height"], fps=mode["fps"], fourcc="MJPG"
+    )
 
 
 def _v4l2_camera_name(index: int) -> str:
@@ -3431,11 +3446,14 @@ def camera_stream(index: int):
         )
 
     def generate_direct():
-        cap = _open_camera_for_probe(index)
+        cap = _open_camera_for_preview(index)
         if not cap.isOpened():
             return
         try:
-            while True:
+            # A role that claims this camera needs it more than a picker
+            # thumbnail does. A browser can keep a finished preview's stream
+            # open, and its handle would stop the role's capture from starting.
+            while _device_capturing_index(index) is None:
                 ret, frame = cap.read()
                 if not ret:
                     break

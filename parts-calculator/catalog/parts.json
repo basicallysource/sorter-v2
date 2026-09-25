@@ -4650,10 +4650,52 @@
       "category": "Motors",
       "description": "C-channel and carousel drive motors",
       "created_at": "2026-07-18",
-      "updated_at": "2026-07-18",
+      "updated_at": "2026-09-25",
       "sheet_qty": {
         "per_machine": 4
       },
+      "attributes": [
+        {
+          "label": "Model",
+          "value": "StepperOnline 17HE15-1504S"
+        },
+        {
+          "label": "Frame size",
+          "value": "NEMA 17, 42 × 42 mm, 38 mm body"
+        },
+        {
+          "label": "Step angle",
+          "value": "1.8° (200 steps/rev), bipolar, 2 phase"
+        },
+        {
+          "label": "Holding torque",
+          "value": "42 Ncm (59.5 oz·in)"
+        },
+        {
+          "label": "Rated current",
+          "value": "1.5 A per phase"
+        },
+        {
+          "label": "Phase resistance",
+          "value": "2.3 Ω"
+        },
+        {
+          "label": "Inductance",
+          "value": "4.0 mH ±20% at 1 kHz"
+        },
+        {
+          "label": "Shaft",
+          "value": "Ø5 mm, 23.5 mm long, 20 mm D-cut"
+        },
+        {
+          "label": "Leads",
+          "value": "4, on a 1 m cable that plugs into the motor's own 6-pin JST-PH socket"
+        },
+        {
+          "label": "Weight",
+          "value": "280 g"
+        }
+      ],
       "image_url": "https://assets.basically.website/sorter-parts/motor-nema17-full-578841523909.jpg",
       "sourcing": {
         "vendors": [
@@ -4685,10 +4727,52 @@
       "category": "Motors",
       "description": "Chute drive motor",
       "created_at": "2026-07-18",
-      "updated_at": "2026-07-18",
+      "updated_at": "2026-09-25",
       "sheet_qty": {
         "per_machine": 1
       },
+      "attributes": [
+        {
+          "label": "Model",
+          "value": "StepperOnline 23HS32-4004S"
+        },
+        {
+          "label": "Frame size",
+          "value": "NEMA 23, 57 × 57 mm, 82 mm body"
+        },
+        {
+          "label": "Step angle",
+          "value": "1.8° (200 steps/rev), bipolar, 2 phase"
+        },
+        {
+          "label": "Holding torque",
+          "value": "2.4 Nm (339.9 oz·in)"
+        },
+        {
+          "label": "Rated current",
+          "value": "4.0 A per phase"
+        },
+        {
+          "label": "Phase resistance",
+          "value": "0.65 Ω ±10%"
+        },
+        {
+          "label": "Inductance",
+          "value": "3.2 mH ±20% at 1 kHz"
+        },
+        {
+          "label": "Shaft",
+          "value": "Ø8 mm, 21 mm long, 15 mm D-cut. The 20T timing pulley's bore is 8 mm"
+        },
+        {
+          "label": "Leads",
+          "value": "4 bare flying leads, 20 AWG, 300 mm on the drawing; some batches ship 500 mm"
+        },
+        {
+          "label": "Weight",
+          "value": "1.2 kg"
+        }
+      ],
       "image_url": "https://assets.basically.website/sorter-parts/motor-nema23-full-e8eac018a9a8.jpg",
       "sourcing": {
         "vendors": [
@@ -4713,7 +4797,8 @@
           {
             "region": "EU",
             "vendor": "StepperOnline",
-            "url": "https://www.omc-stepperonline.com/nema-23-bipolar-1-8deg-0-6nm-85oz-in-0-88a-6-6v-57x57x41mm-4-wires-23hs16-0884s"
+            "url": "https://www.omc-stepperonline.com/nema-23-bipolar-1-8deg-0-6nm-85oz-in-0-88a-6-6v-57x57x41mm-4-wires-23hs16-0884s",
+            "note": "23HS16-0884S is a different motor from the one specified above: 0.6 Nm, 0.88 A, 42 mm body and a Ø6.35 mm shaft, which the 20T timing pulley's 8 mm bore does not fit. Nobody has run the machine on it. Order the 23HS32-4004S from StepperOnline's German warehouse instead."
           }
         ]
       }

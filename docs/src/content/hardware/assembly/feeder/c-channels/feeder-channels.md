@@ -96,7 +96,7 @@ Push the guide onto the drive at the exit, so it stands across the opening in th
 
 ## The finished result
 
-A channel core with the faceted rotor in it and an output guide at the exit. Build two, then stand them at their heights on [arranging C-channels]({{ '/hardware/assembly/feeder/arranging-c-channels/' | relative_url }}), where the camera lamps go on.
+A channel core with the faceted rotor in it and an output guide at the exit. Build two.
 
 <figure class="single-figure">
   <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-c-channel-finished-stage-w1600-9bd3719c4180.jpg" alt="A C-channel from above on a plain surface: the faceted rotor sitting down in the stator ring, with the stepper motor and its lead standing off one side">

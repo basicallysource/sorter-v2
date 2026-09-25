@@ -9,7 +9,7 @@ lede: The two metering stages between the bulk channel and classification, with 
 permalink: /hardware/assembly/feeder/c-channels/feeder-channels/
 author: barthel
 contributors: [spencer, brickcyclealice, danny, reveryx, daddyosbricksbill]
-og_image: https://assets.basically.website/sorter-docs/render-feeder-channel-with-lamp-full-1d39cf876df3.png
+og_image: https://assets.basically.website/sorter-docs/render-feeder-channel-finished-full-d6b5b13558b5.png
 warning: >-
   **Steps 1 to 3 come from a build**, BrickCycleAlice's. **Step 4 is not verified.**
 tools_needed: ["Hex key, 2 mm"]
@@ -90,20 +90,20 @@ Turn the rotor by hand. It should go all the way round without a tight spot.
 
 The guide is a wall at the channel's exit. Without it, a part that does not drop off rides round the rotor again.
 
-Push the guide onto the drive at the exit, so it stands across the opening in the stator wall. It is held by the fit alone: no screws, nothing to tighten.
+Push the guide onto the dovetail on the stator wall beside the NEMA bracket, so it stands in across the rotor just before the exit opening. It is held by the fit alone: no screws, nothing to tighten.
 
 <figure class="single-figure">
-  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/render-feeder-channel-output-guide-full-9ed721a2bc7d.png" alt="Render of a feeder channel from directly above: the faceted rotor filling the stator ring, the gear train below it, and the output guide standing as an angled wall reaching from the rotor face out across the opening in the stator wall">
-  <figcaption>From above, with the guide fitted: it stands across the opening in the stator wall, at the channel's exit. <cite>Rendered from the part geometry, not from a build.</cite></figcaption>
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/render-feeder-channel-output-guide-full-b03767a495af.png" alt="Render of a feeder channel from directly above: the faceted rotor filling the stator ring, the gear train and NEMA bracket below it, and the output guide standing as an angled wall on the dovetail beside the bracket, reaching in across the rotor toward the opening in the stator wall">
+  <figcaption>From above, with the guide fitted: it clips to the dovetail beside the NEMA bracket and reaches in across the rotor, just before the opening in the stator wall. <cite>Rendered from the part geometry, not from a build.</cite></figcaption>
 </figure>
 
 ## The finished result
 
-A channel core with the faceted rotor in it and an output guide at the exit. Build two. A camera lamp hangs over each one at [arranging C-channels]({{ '/hardware/assembly/feeder/arranging-c-channels/' | relative_url }}), which is what the render below shows.
+A channel core with the faceted rotor in it and an output guide beside the NEMA bracket. Build two. The camera lamp goes on later, at [arranging C-channels]({{ '/hardware/assembly/feeder/arranging-c-channels/' | relative_url }}).
 
 <figure class="single-figure">
-  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/render-feeder-channel-with-lamp-full-1d39cf876df3.png" alt="Render of a finished feeder channel: the faceted rotor in the stator with the output guide at its exit, and the camera lamp centred directly over the rotor on its angled arm, which runs down the outside of the channel wall to a dovetail">
-  <figcaption>A feeder channel with its lamp over it. The stepper and the camera board are bought parts with no model, so they are not in the render. <cite>Rendered from the part geometry, not from a build.</cite></figcaption>
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/render-feeder-channel-finished-full-d6b5b13558b5.png" alt="Render of a finished feeder channel: the faceted rotor sitting down in the stator ring, with the output guide standing on the dovetail beside the NEMA bracket">
+  <figcaption>A finished feeder channel, rotor in and guide on. The stepper is a bought part with no model, so it is not in the render. <cite>Rendered from the part geometry, not from a build.</cite></figcaption>
 </figure>
 
 Back to [C-channels]({{ '/hardware/assembly/feeder/c-channels/' | relative_url }}).

@@ -8,7 +8,7 @@ kicker: Feeder — Classification channel
 lede: The lowest channel, where the part is imaged. The finned rotor and its cap.
 permalink: /hardware/assembly/feeder/c-channels/classification-channel/
 author: spencer
-og_image: https://assets.basically.website/sorter-docs/render-classification-channel-with-lamp-full-34ceed40a766.png
+og_image: https://assets.basically.website/sorter-docs/render-classification-channel-finished-full-683c6f99f962.png
 contributors: [barthel, brickcyclealice, danny, daddyosbricksbill]
 last_verified: 2026-09-25
 tools_needed: ["Hex key, 2 mm"]
@@ -92,11 +92,11 @@ Turn the rotor by hand. It should go all the way round without a tight spot.
 
 ## The finished result
 
-A channel core with the finned rotor capped and dropped in. It goes onto the machine first of the four, before the three above it: see [arranging C-channels]({{ '/hardware/assembly/feeder/arranging-c-channels/' | relative_url }}), step 5, and its camera lamp hangs on there too.
+A channel core with the finned rotor capped and dropped in. It goes onto the machine first of the four, before the three above it, and its camera lamp hangs on there too: see [arranging C-channels]({{ '/hardware/assembly/feeder/arranging-c-channels/' | relative_url }}).
 
 <figure class="single-figure">
-  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/render-classification-channel-with-lamp-full-34ceed40a766.png" alt="Render of the finished classification channel: the capped finned rotor in the stator, and the camera lamp centred directly over the rotor on its angled arm, which runs down the outside of the channel wall to a dovetail">
-  <figcaption>The classification channel with its lamp over it. The stepper and the 4K camera board are bought parts with no model, so they are not in the render. <cite>Rendered from the part geometry, not from a build.</cite></figcaption>
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/render-classification-channel-finished-full-683c6f99f962.png" alt="Render of the finished classification channel: the finned rotor sitting down in the stator ring with its cap seated in the middle of it, its fins running out to the rim">
+  <figcaption>A finished classification channel, the capped rotor down in the core. The stepper is a bought part with no model, so it is not in the render. <cite>Rendered from the part geometry, not from a build.</cite></figcaption>
 </figure>
 
 Back to [C-channels]({{ '/hardware/assembly/feeder/c-channels/' | relative_url }}).

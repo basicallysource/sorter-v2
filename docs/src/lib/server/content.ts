@@ -486,7 +486,10 @@ function resolvePeople(ids: unknown): ResolvedPerson[] {
  *
  *  Only folds a group the page offers a real choice from: one variant_name is
  *  not a choice, so a page listing just the half bins renders unchanged. Order
- *  follows the page's own parts_needed. */
+ *  within a choice follows the page's own parts_needed, and the choices render
+ *  above the category's plain cards: picking a variant is the decision that
+ *  comes before shopping the rest, and both affected pages list their variants
+ *  first. */
 function foldVariants(group: PartsGroup): void {
 	const byGroup = new Map<string, Map<string, ResolvedPart[]>>();
 	for (const p of group.parts) {

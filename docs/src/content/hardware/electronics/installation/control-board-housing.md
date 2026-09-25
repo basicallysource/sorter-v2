@@ -117,7 +117,7 @@ What that buys you is easier to see in section, once the cover is on: the plunge
 
 {% include step.html n="5" title="Plug the fan into a GPIO-controlled port" %}
 
-The fan runs off one of the board's four LED ports (24 V switched to ground by a Pico-driven MOSFET) — red wire goes to +V.
+The fan runs off one of the board's four LED ports. The red wire goes to `+V`.
 
 <dl class="spec-list">
   <dt>LED_0_1, LED_0_2</dt><dd>GPIO1 (output channel 0)</dd>

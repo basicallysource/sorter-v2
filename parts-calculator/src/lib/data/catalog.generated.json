@@ -24823,8 +24823,12 @@
 					{
 						"region": "EU",
 						"vendor": "StepperOnline",
-						"url": "https://www.omc-stepperonline.com/nema-23-bipolar-1-8deg-0-6nm-85oz-in-0-88a-6-6v-57x57x41mm-4-wires-23hs16-0884s",
-						"note": "23HS16-0884S is a different motor from the one specified above: 0.6 Nm, 0.88 A, 42 mm body and a \u00d86.35 mm shaft. The 20T timing pulley that carries the drive gear is bored 8 mm, so this motor also needs a pulley to suit its shaft. Order the 23HS32-4004S, which StepperOnline stock in their German warehouse, unless you have sorted the pulley out."
+						"url": "https://www.omc-stepperonline.com/de/nema-23-schrittmotor-2-4nm-339-79oz-in-4a-57x57x82mm-8mm-welle-4-draehte-23hs32-4004s",
+						"price": 17.22,
+						"currency": "EUR",
+						"pack_qty": 1,
+						"as_of": "2026-09-25",
+						"note": "Pick Deutschland under \"Versendet von\". VAT is added at checkout, not in the price shown."
 					}
 				]
 			},

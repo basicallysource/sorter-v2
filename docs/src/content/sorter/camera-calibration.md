@@ -16,7 +16,7 @@ tools_needed:
 
 Focus is the whole of camera calibration today, and it is mechanical: you turn each lens by hand against a printed chart until the image is sharp. A soft image costs you detection accuracy on every piece that camera sees.
 
-Colour calibration exists in the software but is switched off in the current build. There is nothing to set up for it, and the last section says what that means.
+Color calibration exists in the software but is switched off in the current build. There is nothing to set up for it, and the last section says what that means.
 
 ## Focus calibration
 
@@ -52,14 +52,14 @@ Do this for every camera on the machine, one at a time.
 
 <div class="callout callout-warning">
   <span class="callout-icon" aria-hidden="true">⚠</span>
-  <p><b>Colour calibration is switched off in the current software, so there is nothing to do here.</b> No <b>Calibrate</b> button appears in Settings and no frames are corrected on any camera. Focus above is unaffected. Any profile already saved on a machine is kept and applies again if it is switched back on.</p>
+  <p><b>Color calibration is switched off in the current software, so there is nothing to do here.</b> No <b>Calibrate</b> button appears in Settings and no frames are corrected on any camera. Focus above is unaffected. Any profile already saved on a machine is kept and applies again if it is switched back on.</p>
 </div>
 
-Skip to [Chute calibration]({{ '/sorter/chute-calibration/' | relative_url }}). The rest of this section is the reference for when colour calibration comes back, so you do not need to read it or build anything for it now.
+Skip to [Chute calibration]({{ '/sorter/chute-calibration/' | relative_url }}). The rest of this section is the reference for when color calibration comes back, so you do not need to read it or build anything for it now.
 
 ### The reference plate, for later
 
-Colour calibration uses a **6-color LEGO reference plate**, not a commercial color checker. The same flow runs per camera role (`classification_top`, `classification_bottom`, `classification_channel`, `c_channel_2`, `c_channel_3`, `carousel`), so one plate has to work in front of each of those.
+Color calibration uses a **6-color LEGO reference plate**, not a commercial color checker. The same flow runs per camera role (`classification_top`, `classification_bottom`, `classification_channel`, `c_channel_2`, `c_channel_3`, `carousel`), so one plate has to work in front of each of those.
 
 A 4-column x 6-row grid, columns left to right and rows top to bottom:
 
@@ -72,7 +72,7 @@ A 4-column x 6-row grid, columns left to right and rows top to bottom:
 | Row 5 | green | green | yellow | yellow |
 | Row 6 | black | white | black | white |
 
-The six colours, with the closest standard LEGO colour name and ID in each cataloging system. These are the six basic colours LEGO has used since 1949; the hex values are measured off a photographed reference swatch under specific lighting, not a pigment spec.
+The six colors, with the closest standard LEGO color name and ID in each cataloging system. These are the six basic colors LEGO has used since 1949; the hex values are measured off a photographed reference swatch under specific lighting, not a pigment spec.
 
 | Color | Hex | RGB | LEGO name (ID) | BrickLink name (ID) | Rebrickable name (ID) |
 |---|---|---|---|---|---|
@@ -95,7 +95,7 @@ The six colours, with the closest standard LEGO colour name and ID in each catal
   <figcaption>Click to enlarge. <cite>Rendered from the pattern above, not a photo. Render: Balloon.</cite></figcaption>
 </figure>
 
-One way to build it: 2x2 studs per grid cell, 8 studs wide x 12 studs tall overall. The four 2x2-cell colour blocks (blue, red, green, yellow) are each 4x4 studs, so one plate or tile per colour instead of four 2x2s. The alternating top and bottom rows need individual 2x2 plates or tiles, because they do not form contiguous blocks.
+One way to build it: 2x2 studs per grid cell, 8 studs wide x 12 studs tall overall. The four 2x2-cell color blocks (blue, red, green, yellow) are each 4x4 studs, so one plate or tile per color instead of four 2x2s. The alternating top and bottom rows need individual 2x2 plates or tiles, because they do not form contiguous blocks.
 
 <div class="clear-float"></div>
 

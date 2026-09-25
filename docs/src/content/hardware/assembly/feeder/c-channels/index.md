@@ -39,11 +39,11 @@ Each page ends in one of these.
     <figcaption><a href="{{ '/hardware/assembly/feeder/c-channels/bulk-channel/' | relative_url }}">Bulk channel</a>, the cap on. <cite>Photo: BrickCycleAlice.</cite></figcaption>
   </figure>
   <figure>
-    <img src="https://assets.basically.website/sorter-docs/render-feeder-channel-with-lamp-full-bcc210ac04d0.png" alt="Render of a finished feeder channel: the faceted rotor in the stator with the output guide at its exit, and the camera lamp hanging over the open top on its angled arm">
+    <img src="https://assets.basically.website/sorter-docs/render-feeder-channel-with-lamp-full-1d39cf876df3.png" alt="Render of a finished feeder channel: the faceted rotor in the stator with the output guide at its exit, and the camera lamp centred over the rotor on its angled arm">
     <figcaption><a href="{{ '/hardware/assembly/feeder/c-channels/feeder-channels/' | relative_url }}">Feeder channel</a>, guide on and a lamp over it. <cite>Rendered from the part geometry.</cite></figcaption>
   </figure>
   <figure>
-    <img src="https://assets.basically.website/sorter-docs/render-classification-channel-with-lamp-full-4d53e252605a.png" alt="Render of the finished classification channel: the capped finned rotor in the stator, and the camera lamp hanging over the open top on its angled arm">
+    <img src="https://assets.basically.website/sorter-docs/render-classification-channel-with-lamp-full-34ceed40a766.png" alt="Render of the finished classification channel: the capped finned rotor in the stator, and the camera lamp centred over the rotor on its angled arm">
     <figcaption><a href="{{ '/hardware/assembly/feeder/c-channels/classification-channel/' | relative_url }}">Classification channel</a>, capped rotor and a lamp over it. <cite>Rendered from the part geometry.</cite></figcaption>
   </figure>
 </div>

@@ -42,7 +42,7 @@ C2 and C3 are the two metering stages. Each takes a part from the channel above,
 
 - **The faceted rotor**, the same one C1 takes. It takes no Rotor cap.
 - **One output guide each**, two in the machine. The guide belongs to the channel it is mounted on, not to the gap between two.
-- **A camera lamp hangs over each of these two**, but not here: it goes on at [arranging C-channels]({{ '/hardware/assembly/feeder/arranging-c-channels/' | relative_url }}), with the channel standing.
+- **A camera lamp hangs over each of these two.** It goes on at [arranging C-channels]({{ '/hardware/assembly/feeder/arranging-c-channels/' | relative_url }}), with the channel standing.
 
 {% include fastener-legend.html %}
 

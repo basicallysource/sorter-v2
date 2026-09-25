@@ -70,7 +70,7 @@ The four stand at different heights, so a part cascades from one to the next und
 
 C1, C2 and C3 each stand on their own three-legged stand, and **the legs are the only thing that differs between them**: their lengths are what set the drop from one channel to the next. C4 has no stand at all. It sits flat on the top plate, located by C3's layout guide, and it goes in before the other three.
 
-Steps below use the names the software uses, C1 to C4, in the order a part travels: C1 highest, C4 lowest and flat on the plate.
+Steps below use the names the software uses, C1 to C4, in the order a part travels: C1 highest, C4 lowest.
 
 {% include step.html n="1" title="Build C1's stand" %}
 
@@ -114,7 +114,7 @@ The same three moves, with three **C-channel 2 support legs**, printed.
 
 {% include step.html n="3" title="Build C3's stand" %}
 
-The same again, with three **C-channel 3 support legs**, the shortest of the three.
+The same again, with three **C-channel 3 support legs**, printed.
 
 <figure class="single-figure">
   <img class="doc-figure" src="https://assets.basically.website/sorter-parts/c-channel-stand-c3-full-8a3466156d18.jpg" alt="C3's stand: the layout guide with three short printed support legs and their dovetail adapters">
@@ -169,7 +169,7 @@ The drive in the photograph below has no rotor in it, which is the only way to s
 
 <figure class="single-figure">
     <img class="doc-figure" src="https://assets.basically.website/sorter-parts/c-channel-drives-three-on-full-0fb34fea7ae4.jpg" alt="Three C-channel drives sitting on their stands with no rotors fitted, the fourth stand still empty beside them, all the steppers pointing into the middle of the group">
-    <figcaption>Three drives on, one stand still empty. Rotors left out so the joints show. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+    <figcaption>Three drives on, one stand still empty. <cite>Photo: BrickCycleAlice.</cite></figcaption>
 </figure>
 
 {% include step.html n="7" title="Hang the camera lamps" %}

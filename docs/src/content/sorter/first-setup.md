@@ -119,8 +119,8 @@ One card per axis: C-Channel 1, C-Channel 2, C-Channel 3, the carousel (or the c
 
 <ol class="numbered-steps">
   <li>Press <strong>Jog</strong> on the first card. The axis moves a small amount.</li>
-  <li>Watch it, then press <strong>Clockwise</strong> or <strong>Counter-Clockwise</strong> to say which way it went.</li>
-  <li>The card turns green and reads <strong>Verified</strong>. If the direction was reversed, the wizard flips it for you.</li>
+  <li>Look down on it from above, then press <strong>Clockwise</strong> or <strong>Counter-Clockwise</strong> to say which way it turned. On a C-channel, watch the rotor, the part the pieces ride on.</li>
+  <li>The card turns green and reads <strong>Verified</strong>. If it turned counter-clockwise, the wizard reverses that motor in software and the card reads <strong>Inverted</strong>. That is expected: the motor is wired the other way round.</li>
   <li>Repeat for every card.</li>
 </ol>
 

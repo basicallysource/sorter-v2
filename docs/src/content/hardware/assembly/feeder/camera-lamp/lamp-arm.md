@@ -10,9 +10,7 @@ permalink: /hardware/assembly/feeder/camera-lamp/lamp-arm/
 author: reveryx
 contributors: [spencer, danny, brickcyclealice, barthel]
 og_image: https://assets.basically.website/sorter-docs/camera-lamp-render-underside-full-0e2b1e5a0fb9.png
-warning: >-
-  **Steps 1 to 4 are photographed on a real build.** Step 5, pressing the cover on, is not: nobody
-  has photographed the cover going on with no camera in the lamp.
+last_verified: 2026-09-25
 tools_needed: ["Hex key, 2 mm"]
 parts_needed:
   - part: c-channel-arm-mount
@@ -30,6 +28,8 @@ parts_needed:
   - part: inner-reflector-led-hook
     qty: 6
   - part: lamp-outer-cover
+    qty: 1
+  - part: led-strip-24v
     qty: 1
   - part: scr-m3-12-cs
     qty: 12

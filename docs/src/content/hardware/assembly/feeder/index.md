@@ -8,6 +8,7 @@ kicker: Assembly — Feeder
 lede: The C-channel stages that meter parts toward the distribution system.
 permalink: /hardware/assembly/feeder/
 author: spencer
+og_image: https://assets.basically.website/sorter-docs/assembly-camera-lamps-from-above-w1600-285496e1bd00.jpg
 ---
 
 The feeder takes unsorted parts from the bulk input and, through four C-channel stages, spaces them out one at a time and carries each through the classification channel before it drops to the distribution system below. The four are C1, C2, C3 and C4, top to bottom, and C4 is the classification channel. Each channel meters parts by rotation; only after a part is imaged on C4 does the software know where it should go next.
@@ -18,4 +19,9 @@ The feeder takes unsorted parts from the bulk input and, through four C-channel 
   <li><strong><a href="{{ '/hardware/assembly/feeder/arranging-c-channels/' | relative_url }}">Arranging C-channels</a></strong>. The stands, the heights, and how the four sit together. The lamps hang on here, with the channels standing.</li>
 </ol>
 
-The channel core, the rotor units, the bulk channel, the classification channel and the arranging page are written from real builds. The output guide's placement is not, and that page says so at the top. The bulk bucket is not documented yet, because the part is not published.
+## The finished result
+
+<figure class="single-figure">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-camera-lamps-from-above-w1600-285496e1bd00.jpg" alt="The feeder from above on a built machine: three camera lamps over their channels, each with its camera board in the middle of the cover and its leads running off to one side, with the black bulk hopper at the left and the steppers grouped in the centre">
+  <figcaption>A finished feeder on the machine: four channels standing at their heights, three lamps over them, and the bulk hopper feeding the top one. <cite>Photo: Daddy-O's Bricks - Bill.</cite></figcaption>
+</figure>

@@ -10,6 +10,7 @@ permalink: /hardware/assembly/feeder/camera-lamp/feeder-camera-lamp/
 author: reveryx
 contributors: [spencer, danny, brickcyclealice, barthel, daddyosbricksbill]
 og_image: https://assets.basically.website/sorter-docs/assembly-camera-lamp-ov9732-lead-routing-w1600-e5c818271b94.jpg
+last_verified: 2026-09-25
 tools_needed: ["Hex key, 2 mm"]
 parts_needed:
   - part: cam-ov9732
@@ -105,7 +106,7 @@ The [lamp arm]({{ '/hardware/assembly/feeder/camera-lamp/lamp-arm/' | relative_u
 
 ## The finished result
 
-A finished lamp: the arm, the shaded lamp and the 720p camera trapped under the cover, with its lead out through the slot. Build two. They hang onto C2 and C3 later, at step 8 of [arranging C-channels]({{ '/hardware/assembly/feeder/arranging-c-channels/' | relative_url }}), once the channels are standing.
+A finished lamp: the arm, the shaded lamp and the 720p camera trapped under the cover, with its lead out through the slot. Build two. They hang onto C2 and C3 later, at step 7 of [arranging C-channels]({{ '/hardware/assembly/feeder/arranging-c-channels/' | relative_url }}), once the channels are standing.
 
 <figure class="single-figure">
   <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-camera-lamp-ov9732-lead-routing-w1600-e5c818271b94.jpg" alt="The lamp on channel 3 from a low angle: the camera board in the cover's opening, the red and black lamp leads cable-tied to the arm, and the rectangular slot in the cover below the board">

@@ -8,7 +8,7 @@ kicker: Feeder — Classification channel
 lede: The lowest channel, where the part is imaged. The finned rotor and its cap.
 permalink: /hardware/assembly/feeder/c-channels/classification-channel/
 author: spencer
-og_image: https://assets.basically.website/sorter-docs/assembly-c-channel-stator-and-rotor-fitted-w1600-60758bbee2d5.jpg
+og_image: https://assets.basically.website/sorter-docs/render-classification-channel-with-lamp-full-4d53e252605a.png
 contributors: [barthel, brickcyclealice, danny, daddyosbricksbill]
 last_verified: 2026-09-25
 tools_needed: ["Hex key, 2 mm"]
@@ -85,15 +85,18 @@ Lower the rotor onto the raised hub in the middle of the NEMA bracket. The outpu
 
 Turn the rotor by hand. It should go all the way round without a tight spot.
 
-## The finished result
-
-A channel core with the finned rotor capped and dropped in. It goes onto the machine first of the four, before the three above it: see [arranging C-channels]({{ '/hardware/assembly/feeder/arranging-c-channels/' | relative_url }}), step 6.
-
 <figure class="single-figure">
-  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-c-channel-stator-and-rotor-fitted-w1600-60758bbee2d5.jpg" alt="A classification channel from above on a plain surface: the finned rotor sitting down in the grey stator ring, its fins running from the centre bore out to the rim, with the stepper motor at one side">
-  <figcaption>The finned rotor down in the stator, stepper on the outside. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/render-classification-channel-rotor-capped-full-90f84be1a1c9.png" alt="Render of the classification channel from above: the finned rotor sitting down in the stator ring with its fins running out to the rim, the rotor cap seated as a round disc in the middle of it, and the gear train and bracket outside the ring">
+  <figcaption>The finned rotor down in the core, capped. <cite>Rendered from the part geometry, not from a build.</cite></figcaption>
 </figure>
 
-Machines built before 2026-09-02 image this channel with a white classification dome and a camera & LED insert instead of a lamp. Those parts are retired and no longer documented; the [camera lamp]({{ '/hardware/assembly/feeder/camera-lamp/' | relative_url }}) replaced them on that date.
+## The finished result
+
+A channel core with the finned rotor capped and dropped in. It goes onto the machine first of the four, before the three above it: see [arranging C-channels]({{ '/hardware/assembly/feeder/arranging-c-channels/' | relative_url }}), step 5, and its camera lamp hangs on there too.
+
+<figure class="single-figure">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/render-classification-channel-with-lamp-full-4d53e252605a.png" alt="Render of the finished classification channel: the capped finned rotor in the stator, and the camera lamp hanging over the open top on its angled arm, which runs down the outside of the channel wall to a dovetail">
+  <figcaption>The classification channel with its lamp over it. The stepper and the 4K camera board are bought parts with no model, so they are not in the render. <cite>Rendered from the part geometry, not from a build.</cite></figcaption>
+</figure>
 
 Back to [C-channels]({{ '/hardware/assembly/feeder/c-channels/' | relative_url }}).

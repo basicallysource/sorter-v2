@@ -45,7 +45,7 @@ The layers and the top interface go together into a standing frame before any ch
 
 Once the frame is finished, add the chutes one at a time, in layer order. Each chute goes in as a complete unit, the [chute core]({{ '/hardware/assembly/distribution/chute/chute-core/' | relative_url }}) with its own parts already attached. The [layer connectors]({{ '/hardware/assembly/distribution/chute/layer-connectors/' | relative_url }}) join each chute to the one below it, so working through the layers in order matters more than which direction you start from.
 
-Plug each chute's ribbon cable in before you slot it into the frame if the harness is easier to reach on the bench; see [Layer adapter board]({{ '/hardware/assembly/distribution/chute/pcb/' | relative_url }}) for the connector.
+Each chute's 30 cm ribbon is joined to the chute below at the same time, so do it as each one goes in. Its other end is already in the board, plugged in on the bench because that socket is hard to reach afterwards; see [Layer adapter board]({{ '/hardware/assembly/distribution/chute/pcb/' | relative_url }}) for which socket is which.
 
 {% include step.html n="3" title="Fit the funnels last" %}
 

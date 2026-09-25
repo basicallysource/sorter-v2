@@ -48,7 +48,7 @@ All five stepper outputs on the board have the same pinout, pin 1 to pin 4:
 
 **Positions 1 and 2 are one coil, 3 and 4 are the other.** Swapping the two wires inside a coil only reverses the direction the motor turns. Splitting a coil across the 2 and 3 boundary is what stops it working, so keep each pair together.
 
-The full pinout and the board-side footprint are on the [wire harness]({{ '/hardware/electronics/#31--stepper-pinout-and-polarity' | relative_url }}) page.
+The full pinout and the board-side footprint are on the [wire harness]({{ '/hardware/electronics/wire-harness/#21--stepper-pinout-and-polarity' | relative_url }}) page.
 
 ## Find the coils first
 

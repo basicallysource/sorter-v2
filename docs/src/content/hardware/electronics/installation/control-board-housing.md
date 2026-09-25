@@ -9,6 +9,7 @@ lede: Closing the control board into its printed housing, with the 40 mm fan on 
 permalink: /hardware/electronics/installation/control-board-housing/
 author: spencer
 og_image: https://assets.basically.website/sorter-docs/assembly-control-board-housing-housing-angled-w1600-d8c3ed33682d.jpg
+tools_needed: ["Hex keys, 2 mm and 2.5 mm", "Soldering iron or heat-set insert press"]
 parts_needed:
   - part: ctrl-board-housing-base
     qty: 1
@@ -35,6 +36,8 @@ parts_needed:
 ---
 
 The board needs its drivers, Pico and jumpers in first: see [preparing the control board]({{ '/hardware/electronics/installation/control-board-prep/' | relative_url }}).
+
+The fasteners and quantities are in the parts list above and are called out inline at each step.
 
 {% include fastener-legend.html %}
 
@@ -114,7 +117,7 @@ What that buys you is easier to see in section, once the cover is on: the plunge
 
 {% include step.html n="5" title="Plug the fan into a GPIO-controlled port" %}
 
-Disconnect the board from its 24 V supply before wiring the fan or bridging the jumper. The fan runs off one of the board's four LED ports (24 V switched to ground by a Pico-driven MOSFET) — red wire goes to +V.
+The fan runs off one of the board's four LED ports. The red wire goes to `+V`.
 
 <dl class="spec-list">
   <dt>LED_0_1, LED_0_2</dt><dd>GPIO1 (output channel 0)</dd>
@@ -177,4 +180,6 @@ The housing closed, with the fan and the reset plunger in the cover and the step
   <figcaption>The closed housing, from above and to one side. <cite>Photo: Spencer.</cite></figcaption>
 </figure>
 
-**Bolting it to the frame is on the [installation overview]({{ '/hardware/electronics/installation/' | relative_url }})**. Wiring next, on the [wire harness]({{ '/hardware/electronics/wire-harness/' | relative_url }}) page.
+**Bolting it to the frame is on the [installation overview]({{ '/hardware/electronics/installation/' | relative_url }})**, once all three enclosures are built.
+
+Next: [preparing the Orange Pi]({{ '/hardware/electronics/installation/orange-pi-prep/' | relative_url }}).

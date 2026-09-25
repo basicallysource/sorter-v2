@@ -33,7 +33,6 @@ That is the whole of distribution. The [feeder]({{ '/hardware/assembly/feeder/' 
 
 ## The finished result
 
-<figure class="single-figure">
-  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/install-bins-cardboard-bins-tower-full-97d68e720775.jpg" alt="A finished distribution assembly on its casters: five hexagonal layers of folded cardboard bins with sorted LEGO in them, the chutes hanging in the middle of the stack and the plywood deck of the top interface over them">
-  <figcaption>Distribution finished: the bin frame on its casters, the chutes hanging in the stack, and the top interface under the deck. The feeder is built separately and goes on after this. <cite>Photo: Basically.</cite></figcaption>
-</figure>
+<div class="img-placeholder">Photo of a finished distribution assembly on its casters: the standing hex frame with the top interface under its deck, a chute in every layer and the bottom interface under them, with no bins in it and no feeder on it yet.</div>
+
+The frame is empty at this point. The bins are the last thing to go in, on [Install the bins]({{ '/hardware/assembly/install-bins/' | relative_url }}).

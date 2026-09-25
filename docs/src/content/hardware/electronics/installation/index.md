@@ -5,7 +5,7 @@ type: landing
 section: hardware
 slug: electronics-installation
 kicker: Electronics — Installation
-lede: The power supply, the control board and the Orange Pi, each built on the bench, closed into its own printed enclosure and bolted onto the same frame. Build in this order.
+lede: The power supply, the control board and the Orange Pi, each built on the bench and bolted onto the same frame. Build in this order.
 permalink: /hardware/electronics/installation/
 author: barthel
 contributors: [spencer]
@@ -16,7 +16,7 @@ warning: >-
   not plug a cable into the IEC inlet until that box is complete and its wiring verified.
 ---
 
-The machine's electronics are three printed enclosures and the hardware that goes inside them: the power supply, the control board, and the Orange Pi that runs the machine. "The control board" here means basically board v1.3, the basically Embedded Control Board; the pages below call their enclosures a box, a housing and a mount, but they are the same kind of part, one per component.
+The machine's electronics are the power supply, the control board, and the Orange Pi that runs the machine, each on its own printed part bolted to the same frame. The supply and the control board are closed in, a box and a housing; the Orange Pi stands open on a mount, on standoffs. "The control board" here means basically board v1.3, the basically Embedded Control Board.
 
 **These pages cover where the hardware sits and what holds it there.** What plugs into what is the other half, and that is [connecting the components]({{ '/hardware/electronics/connecting/' | relative_url }}), with the [wire harness]({{ '/hardware/electronics/wire-harness/' | relative_url }}) page behind it as the reference for the cables themselves.
 

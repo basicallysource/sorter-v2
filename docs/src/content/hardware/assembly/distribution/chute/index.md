@@ -53,7 +53,7 @@ Once every chute is in the machine, hang each layer's funnel on the brackets alr
 
 {% include step.html n="4" title="Bottom Lazy Susan, then the feeder" %}
 
-The [bottom interface]({{ '/hardware/assembly/distribution/bin-frame/bottom-interface/' | relative_url }}) and its Lazy Susan go on after the chutes, not while the frame is being stacked: the bearing carries the bottom of the chute stack, so the chutes have to be in first. The [feeder]({{ '/hardware/assembly/feeder/' | relative_url }}) goes on last.
+The [bottom interface]({{ '/hardware/assembly/distribution/bin-frame/bottom-interface/' | relative_url }}) is the Lazy Susan the bottom of the chute stack sits on, so the chutes have to be in first. It is the last thing fitted in distribution. The [feeder]({{ '/hardware/assembly/feeder/' | relative_url }}) goes on after that.
 
 ## The finished result
 

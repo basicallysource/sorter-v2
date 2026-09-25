@@ -24,4 +24,19 @@ With Sorter running, flash it from **Settings** &rarr; **Control board**: pick a
 
 ## 3. Carry on in Sorter
 
-From here the order is [the setup wizard in the UI]({{ '/sorter/first-setup/' | relative_url }}), then [camera calibration]({{ '/sorter/camera-calibration/' | relative_url }}), then [chute calibration]({{ '/sorter/chute-calibration/' | relative_url }}), then [before your first sort run]({{ '/sorter/before-first-sort-run/' | relative_url }}) and [your first sort run]({{ '/sorter/tutorials/first-sort-run/' | relative_url }}).
+From here the order is:
+
+<ol class="numbered-steps">
+  <li><strong><a href="{{ '/sorter/first-setup/' | relative_url }}">First setup in the UI</a></strong>. The setup wizard: name the machine, find the boards, check motion and endstops, assign the servos and the cameras.</li>
+  <li><strong><a href="{{ '/sorter/camera-calibration/' | relative_url }}">Camera calibration</a></strong>. Focus each camera against a printed chart.</li>
+  <li><strong><a href="{{ '/sorter/chute-calibration/' | relative_url }}">Chute calibration</a></strong>. Teach the chute where your bins are.</li>
+  <li><strong><a href="{{ '/sorter/before-first-sort-run/' | relative_url }}">Before your first sort run</a></strong>. The last five settings to check.</li>
+  <li><strong><a href="{{ '/sorter/preparing-lego/' | relative_url }}">Preparing LEGO for a sort run</a></strong>. What to take out of a tub of bulk LEGO before it goes in.</li>
+  <li><strong><a href="{{ '/sorter/tutorials/first-sort-run/' | relative_url }}">Your first sort run</a></strong>. Pick a profile, feed a handful of parts, watch them land.</li>
+</ol>
+
+## The finished result
+
+The software installed, the board flashed, and the machine set up and sorting.
+
+<div class="img-placeholder">Photo of the finished machine running, with the Sorter UI open on a phone or a laptop beside it.</div>

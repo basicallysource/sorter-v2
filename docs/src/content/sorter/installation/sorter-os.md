@@ -7,9 +7,17 @@ slug: installation-sorter-os
 kicker: Installation — SorterOS
 lede: Flash an SD card, power on the Orange Pi, and put it on your WiFi from your phone. The Pi sets up the rest.
 permalink: /sorter/installation/sorter-os/
+og_image: https://assets.basically.website/sorter-docs/sorteros-first-load-sorter-ui-full-c7e8aae4ac07.png
 audience: self-hosting operator
 applies_to: sorteros v4.x
 last_verified: 2026-09-24
+tools_needed:
+  - A computer with a microSD card reader
+  - Balena Etcher
+  - A phone, or an Ethernet cable to your router
+parts_needed:
+  - part: microsd-32gb
+    qty: 1
 ---
 
 <div class="notice notice-warn">
@@ -19,11 +27,11 @@ last_verified: 2026-09-24
 
 ## What you need
 
-- An [Orange Pi 5]({{ '/hardware/orange-pi-5/' | relative_url }}) with 8 GB of memory or more
-- **A 32 GB or larger microSD card from a name brand, like Samsung** ([the SD card part](https://parts-calculator.basically.website/u/7fvo/)). The Pi writes to it all day, and cheap cards corrupt.
-- A computer with an SD card reader, and [Balena Etcher](https://etcher.balena.io/)
-  - On Windows, open Etcher with right-click, **Run as administrator**. Otherwise the flash can fail with "Error starting flasher sidecar process".
-- A phone and your WiFi's password, or an Ethernet cable to your router
+The [Orange Pi 5]({{ '/hardware/orange-pi-5/' | relative_url }}) already in the machine, with 8 GB of memory or more, and the card and tools above. You also need your WiFi's password, unless the machine is on a cable.
+
+**Buy the card from a name brand, like Samsung.** The Pi writes to it all day and cheap cards corrupt.
+
+**On Windows, open [Balena Etcher](https://etcher.balena.io/) with right-click, Run as administrator.** Otherwise the flash can fail with "Error starting flasher sidecar process".
 
 ## 1. Download
 
@@ -84,12 +92,18 @@ On a phone or computer on the same WiFi, open **[http://sorter.local](http://sor
 
 When it's ready, the page opens the Sorter UI by itself.
 
-<div class="img-row">
-  <figure>
-    <img src="https://assets.basically.website/sorter-docs/sorteros-first-load-sorter-ui-full-c7e8aae4ac07.png" alt="The Sorter UI's dashboard the first time it loads: no camera assigned yet, no pieces, and the machine in standby with a Home button">
-    <figcaption>The Sorter UI, the first time it loads. <cite>Screenshot recorded in a browser.</cite></figcaption>
-  </figure>
-</div>
+## The finished result
+
+The Sorter UI open in a browser, with nothing set up on the machine yet.
+
+<figure class="single-figure">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/sorteros-first-load-sorter-ui-full-c7e8aae4ac07.png" alt="The Sorter UI's dashboard the first time it loads: no camera assigned yet, no pieces, and the machine in standby with a Home button">
+  <figcaption>The Sorter UI, the first time it loads. <cite>Screenshot recorded in a browser.</cite></figcaption>
+</figure>
+
+## Next
+
+**Flash the control board before you open the setup wizard.** The wizard only lists boards that already answer on USB serial, so a board with no firmware on it does not appear and the wizard says `No MCU buses found`. [Software setup]({{ '/hardware/software-setup/' | relative_url }}) step 2 has the route.
 
 Then set the machine up with the setup wizard: in the Sorter UI, **Settings**, then **Open Setup Wizard**. [First setup in the UI]({{ '/sorter/first-setup/' | relative_url }}) goes through it.
 

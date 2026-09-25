@@ -24,6 +24,7 @@ from irl.config import (
     ClassificationChannelMode,
     FeederMode,
     _requiredCanonicalStepperNames,
+    cameraLayout,
 )
 from irl.parse_user_toml import (
     LOGICAL_STEPPER_BINDING_BASES,
@@ -230,29 +231,6 @@ def _stepper_config_key(stepper_name: str) -> str:
 def _stepper_attr_base(stepper_name: str) -> str:
     config_key = _stepper_config_key(stepper_name)
     return LOGICAL_STEPPER_BINDING_BASES[config_key]
-
-
-def _recommended_layout(config: Dict[str, Any], board_summaries: list[dict[str, Any]]) -> str:
-    camera_assignments = _camera_assignments_from_config(config)
-    configured = camera_assignments.get("layout")
-    if configured in {"default", "split_feeder"}:
-        return configured
-    if any(
-        camera_assignments.get(role) is not None
-        for role in ("c_channel_2", "c_channel_3", "carousel", "classification_channel")
-    ):
-        return "split_feeder"
-    if camera_assignments.get("feeder") is not None:
-        return "default"
-
-    logical_steppers = {
-        logical_name
-        for board in board_summaries
-        for logical_name in board.get("logical_steppers", [])
-        if isinstance(logical_name, str)
-    }
-    split_feeder_ready = {"c_channel_2_rotor", "c_channel_3_rotor", "carousel"}.issubset(logical_steppers)
-    return "split_feeder" if split_feeder_ready else "default"
 
 
 def _discover_control_board_summary() -> dict[str, Any]:
@@ -644,7 +622,7 @@ def get_setup_wizard_summary() -> Dict[str, Any]:
         },
         "discovery": {
             **discovery,
-            "recommended_camera_layout": _recommended_layout(config, discovery["boards"]),
+            "recommended_camera_layout": cameraLayout(config.get("cameras")),
         },
         "readiness": readiness,
     }

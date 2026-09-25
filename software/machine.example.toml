@@ -98,13 +98,13 @@ sections = [
 # carousel = false
 
 # --- Camera configuration ---
-# layout = "default" (default): single feeder camera + classification cameras.
-#   Camera indices are assigned from the Settings → Cameras page in the UI.
-#
-# layout = "split_feeder": separate camera per c-channel + carousel.
+# layout = "split_feeder" (default): separate camera per c-channel + carousel.
 #   Indices are OpenCV device indices.
 #   Carousel and classification cameras may also use a URL source
 #   (e.g. MJPEG stream from IP Webcam app via ADB or a local scrcpy bridge).
+#
+# layout = "default": single feeder camera + classification cameras.
+#   Camera indices are assigned from the Settings → Cameras page in the UI.
 
 # required to boot
 [cameras]

@@ -63,6 +63,117 @@
 	} = $props();
 </script>
 
+{#snippet partCard(part: ResolvedPart)}
+						<li class="part-card">
+							{#if part.missing}
+								<span class="part-card-name part-card-missing">{part.id}</span>
+							{:else}
+								<div class="part-card-media">
+									<!-- the button carries only the image: the corner badges are its
+									     siblings, painted over it, so a badge's popover stays reachable
+									     without nesting one control inside another -->
+									<button
+										class="part-card-open"
+										type="button"
+										onclick={() => show(part)}
+										disabled={!part.detail}
+										aria-label="Open details for {part.name}"
+										aria-haspopup="dialog"
+									>
+										{#if part.image}
+											<img class="part-card-img" src={part.image} alt={part.name} loading="lazy" />
+										{:else}
+											<span class="part-card-img part-card-noimg">no image</span>
+										{/if}
+									</button>
+									<!-- focusable on purpose: it is the only way to reach the
+									     explanation without a pointer -->
+									<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+									{#if part.qty}<span
+											class="part-card-qty"
+											tabindex="0"
+											use:tip={'How many this step needs.'}>{part.qty}×</span
+										>{/if}
+									<!-- One photo stands in for every length in a screw family, and for
+									     every cut length of 2020 extrusion, so the length gets stamped on
+									     the corner, as on the parts calculator. -->
+									<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+									{#if part.length_mm}<span
+											class="part-card-len"
+											tabindex="0"
+											use:tip={{ text: lenNote(part), wide: true }}>{lenText(part.length_mm)}</span
+										>{/if}
+									{#if part.conflicts?.length}<Popover
+											class="part-card-corner part-card-corner-tr"
+											label="Unresolved catalog conflict"
+											width="19rem"
+										>
+											{#snippet trigger({ toggle, props })}
+												<button
+													type="button"
+													class="part-card-conflict"
+													onclick={toggle}
+													aria-label="Unresolved catalog conflict"
+													{...props}
+													><svg
+														viewBox="0 0 24 24"
+														fill="none"
+														stroke="currentColor"
+														stroke-width="2.4"
+														stroke-linecap="round"
+														stroke-linejoin="round"
+														aria-hidden="true"
+														><path
+															d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 20h16a2 2 0 0 0 1.73-2Z"
+														/><path d="M12 9v4" /><path d="M12 17h.01" /></svg
+													></button
+												>
+											{/snippet}
+											{#each part.conflicts as c, i (c.field)}
+												<p class={i > 0 ? 'pop-rule' : ''}>
+													<strong>Conflict · {c.merge}</strong><br />
+													{#if c.note}{c.note}<br />{/if}
+													{#each c.claims as claim, j (claim.source)}{j > 0
+															? ' · '
+															: ''}<strong>{claim.source}:</strong> {fmtClaim(claim.value)}{/each}
+												</p>
+											{/each}
+										</Popover>{/if}
+									{#if part.alternative}<Popover
+											class="part-card-corner part-card-corner-tr"
+											label="Interchangeable alternative"
+											width="16rem"
+										>
+											{#snippet trigger({ toggle, props })}
+												<button
+													type="button"
+													class="part-card-alt"
+													onclick={toggle}
+													aria-label="Interchangeable alternative"
+													{...props}>A</button
+												>
+											{/snippet}
+											<p>
+												<strong>Interchangeable alternative</strong><br />{typeof part.alternative ===
+												'string'
+													? part.alternative
+													: 'Either variant works here (e.g. socket vs button head).'}
+											</p>
+										</Popover>{/if}
+								</div>
+								<span class="part-card-name">
+									<button
+										class="part-card-name-button"
+										type="button"
+										onclick={() => show(part)}
+										disabled={!part.detail}>{part.name}</button
+									>
+								</span>
+								{#if part.caption}<span class="part-card-caption">{part.caption}</span>{/if}
+							{/if}
+						</li>
+{/snippet}
+
 {#if parts || tools}
 	<div class="requirements">
 		{#if parts}
@@ -72,118 +183,25 @@
 					{#if parts.groups.length > 1 || group.category !== 'Other'}
 						<p class="parts-category">{group.category}</p>
 					{/if}
-					<ul class="parts-list">
-						{#each group.parts as part (part.id)}
-							<li class="part-card">
-								{#if part.missing}
-									<span class="part-card-name part-card-missing">{part.id}</span>
-								{:else}
-									<div class="part-card-media">
-										<!-- the button carries only the image: the corner badges are its
-										     siblings, painted over it, so a badge's popover stays reachable
-										     without nesting one control inside another -->
-										<button
-											class="part-card-open"
-											type="button"
-											onclick={() => show(part)}
-											disabled={!part.detail}
-											aria-label="Open details for {part.name}"
-											aria-haspopup="dialog"
-										>
-											{#if part.image}
-												<img class="part-card-img" src={part.image} alt={part.name} loading="lazy" />
-											{:else}
-												<span class="part-card-img part-card-noimg">no image</span>
-											{/if}
-										</button>
-										<!-- focusable on purpose: it is the only way to reach the
-										     explanation without a pointer -->
-										<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
-										{#if part.qty}<span
-												class="part-card-qty"
-												tabindex="0"
-												use:tip={'How many this step needs.'}>{part.qty}×</span
-											>{/if}
-										<!-- One photo stands in for every length in a screw family, and for
-										     every cut length of 2020 extrusion, so the length gets stamped on
-										     the corner, as on the parts calculator. -->
-										<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
-										{#if part.length_mm}<span
-												class="part-card-len"
-												tabindex="0"
-												use:tip={{ text: lenNote(part), wide: true }}>{lenText(part.length_mm)}</span
-											>{/if}
-										{#if part.conflicts?.length}<Popover
-												class="part-card-corner part-card-corner-tr"
-												label="Unresolved catalog conflict"
-												width="19rem"
-											>
-												{#snippet trigger({ toggle, props })}
-													<button
-														type="button"
-														class="part-card-conflict"
-														onclick={toggle}
-														aria-label="Unresolved catalog conflict"
-														{...props}
-														><svg
-															viewBox="0 0 24 24"
-															fill="none"
-															stroke="currentColor"
-															stroke-width="2.4"
-															stroke-linecap="round"
-															stroke-linejoin="round"
-															aria-hidden="true"
-															><path
-																d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 20h16a2 2 0 0 0 1.73-2Z"
-															/><path d="M12 9v4" /><path d="M12 17h.01" /></svg
-														></button
-													>
-												{/snippet}
-												{#each part.conflicts as c, i (c.field)}
-													<p class={i > 0 ? 'pop-rule' : ''}>
-														<strong>Conflict · {c.merge}</strong><br />
-														{#if c.note}{c.note}<br />{/if}
-														{#each c.claims as claim, j (claim.source)}{j > 0
-																? ' · '
-																: ''}<strong>{claim.source}:</strong> {fmtClaim(claim.value)}{/each}
-													</p>
-												{/each}
-											</Popover>{/if}
-										{#if part.alternative}<Popover
-												class="part-card-corner part-card-corner-tr"
-												label="Interchangeable alternative"
-												width="16rem"
-											>
-												{#snippet trigger({ toggle, props })}
-													<button
-														type="button"
-														class="part-card-alt"
-														onclick={toggle}
-														aria-label="Interchangeable alternative"
-														{...props}>A</button
-													>
-												{/snippet}
-												<p>
-													<strong>Interchangeable alternative</strong><br />{typeof part.alternative ===
-													'string'
-														? part.alternative
-														: 'Either variant works here (e.g. socket vs button head).'}
-												</p>
-											</Popover>{/if}
-									</div>
-									<span class="part-card-name">
-										<button
-											class="part-card-name-button"
-											type="button"
-											onclick={() => show(part)}
-											disabled={!part.detail}>{part.name}</button
-										>
-									</span>
-									{#if part.caption}<span class="part-card-caption">{part.caption}</span>{/if}
-								{/if}
-							</li>
-						{/each}
-					</ul>
+					{#if group.parts.length}
+						<ul class="parts-list">
+							{#each group.parts as part (part.id)}{@render partCard(part)}{/each}
+						</ul>
+					{/if}
+					{#if group.choices.length}
+						<p class="parts-category">One of these per layer</p>
+						<div class="parts-choices">
+							{#each group.choices as choice, i (choice.label)}
+								{#if i > 0}<span class="parts-choice-or">or</span>{/if}
+								<div class="parts-choice">
+									<p class="parts-choice-name">{choice.label}</p>
+									<ul class="parts-list">
+										{#each choice.parts as part (part.id)}{@render partCard(part)}{/each}
+									</ul>
+								</div>
+							{/each}
+						</div>
+					{/if}
 				{/each}
 				{#if parts.conflicts.length}
 					<p class="parts-warn-legend">

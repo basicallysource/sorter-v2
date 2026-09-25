@@ -72,6 +72,10 @@ class Page(unittest.TestCase):
 
     def test_starting_once_everything_the_ui_needs_is_in_place(self):
         machine(done=BEFORE_UI)
+        p = fb._progress()
+        self.assertEqual(p["phase"], "starting")
+        # not done: that is when the UI has port 80, and this page is gone
+        self.assertEqual(row(p, "Starting the Sorter")["state"], "active")
         with fb._state_lock:
             fb._runtime["starting_since"] = fb.time.time() - 41
         p = fb._progress()

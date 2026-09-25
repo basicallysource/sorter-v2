@@ -141,7 +141,7 @@ PHASE_WORDS = {
     "waiting": ("Waiting for the internet",
                 "The Sorter needs the internet to install its software. It carries on as soon as it's online."),
     "starting": ("Starting the Sorter",
-                 "It's installed. This page opens the Sorter UI as soon as it answers, in a minute or two."),
+                 "It's installed. This page opens the Sorter UI when it's ready, in a couple of minutes."),
 }
 
 WAITING_FOR_INTERNET = "waiting for internet"
@@ -241,7 +241,9 @@ def _progress() -> dict:
                   if st.get("status") in ("waiting", "failed") and st.get("info")
                   and st.get("info") != WAITING_FOR_INTERNET and not st.get("info", "").endswith(" yet")]
         active = next((st for st in states if st.get("status") == "active"), None)
-        if "install-services" in row["stages"] and starting_since:
+        if "install-services" in row["stages"] and phase == "starting":
+            # Starting the Sorter is done when the UI has port 80, and then
+            # this page is gone: here it is running.
             row["state"], row["detail"] = "active", _elapsed(starting_since)
         elif all(st.get("status") == "done" for st in states):
             row["state"], row["detail"] = "done", ""
@@ -394,7 +396,7 @@ def _render_status_page() -> bytes:
         f'<section class="panel hero phase">{_spinner(32)}'
         f'<div><h1>{esc(headline)}</h1><p>{esc(lede)}</p></div></section>'
         f'<section class="panel hero opening">{_spinner(32)}'
-        '<div><h1>Opening the Sorter UI</h1><p>It takes a few seconds.</p></div></section>'
+        '<div><h1>Opening the Sorter UI</h1><p>It takes up to a minute the first time.</p></div></section>'
         '<section class="phase"><div class="label-row"><h2 class="label">Steps</h2>'
         f'<span class="count">{done} of {len(p["rows"])} done</span></div>'
         f'<ol class="panel steps">{"".join(rows)}</ol></section>'
@@ -985,7 +987,9 @@ def main() -> int:
                     log.warning("stage %s failed: %s — will retry", s.name, e)
                     _set_state(s.name, "waiting", str(e))
 
-        waiting = any(_stage_state.get(s.name, {}).get("info") == "waiting for internet" for s in remaining)
+        if not ui_started and all(stamp_path(s.name).exists() for s in STAGES if s.before_ui):
+            continue  # start the Sorter now, not a poll later
+        waiting = any(_stage_state.get(s.name, {}).get("info") == WAITING_FOR_INTERNET for s in remaining)
         time.sleep(WAITING_POLL_INTERVAL if waiting else POLL_INTERVAL)
 
 

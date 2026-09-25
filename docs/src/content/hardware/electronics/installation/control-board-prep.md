@@ -10,6 +10,7 @@ permalink: /hardware/electronics/installation/control-board-prep/
 author: spencer
 contributors: [effreek]
 og_image: https://assets.basically.website/sorter-docs/assembly-control-board-prep-all-jumpers-fitted-w1600-f470f24a8913.jpg
+tools_needed: ["Soldering iron and solder", "Tweezers or needle-nose pliers"]
 parts_needed:
   - part: ctrl-board-basically
     qty: 1

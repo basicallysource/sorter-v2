@@ -7241,7 +7241,7 @@
           "date": "2026-09-25",
           "message": "Reindex the camera alignment key and matching clasp sockets to align the camera image with the channel. Replace the ring and both clasp halves together.",
           "breaking": true,
-          "commit": null
+          "commit": "1d53b683"
         }
       ],
       "updated_at": "2026-09-25"
@@ -7274,7 +7274,7 @@
           "date": "2026-09-25",
           "message": "Reindex the camera alignment key and matching clasp sockets to align the camera image with the channel. Replace the ring and both clasp halves together.",
           "breaking": true,
-          "commit": null
+          "commit": "1d53b683"
         }
       ],
       "updated_at": "2026-09-25"
@@ -7375,7 +7375,7 @@
           "date": "2026-09-25",
           "message": "Reindex the camera alignment key and matching clasp sockets to align the camera image with the channel. Replace the ring and both clasp halves together.",
           "breaking": true,
-          "commit": null
+          "commit": "1d53b683"
         }
       ],
       "updated_at": "2026-09-25"

@@ -20833,7 +20833,7 @@
 					"date": "2026-09-25",
 					"message": "Reindex the camera alignment key and matching clasp sockets to align the camera image with the channel. Replace the ring and both clasp halves together.",
 					"breaking": true,
-					"commit": null,
+					"commit": "1d53b683",
 					"stl": "https://assets.basically.website/sorter-parts/camera-clasp-top-577f34236a7c.stl",
 					"render": "https://assets.basically.website/sorter-parts/camera-clasp-top-full-e44904cee17f.png",
 					"grams": 5.94
@@ -20957,7 +20957,7 @@
 					"date": "2026-09-25",
 					"message": "Reindex the camera alignment key and matching clasp sockets to align the camera image with the channel. Replace the ring and both clasp halves together.",
 					"breaking": true,
-					"commit": null,
+					"commit": "1d53b683",
 					"stl": "https://assets.basically.website/sorter-parts/camera-clasp-bottom-b31a43151b66.stl",
 					"render": "https://assets.basically.website/sorter-parts/camera-clasp-bottom-full-c6a8b8b18de3.png",
 					"grams": 4.97
@@ -21641,7 +21641,7 @@
 					"date": "2026-09-25",
 					"message": "Reindex the camera alignment key and matching clasp sockets to align the camera image with the channel. Replace the ring and both clasp halves together.",
 					"breaking": true,
-					"commit": null,
+					"commit": "1d53b683",
 					"stl": "https://assets.basically.website/sorter-parts/camera-lamp-ring-7d729a3e60c2.stl",
 					"render": "https://assets.basically.website/sorter-parts/camera-lamp-ring-full-95127920d806.png",
 					"grams": 14.68

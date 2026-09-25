@@ -188,12 +188,12 @@ Before assembling anything, press all the heat inserts listed below into their p
 
 <div class="prep-item">
   <div class="prep-item-body">
-    <p><strong>Interface NEMA 23 bracket:</strong> 6 × M5 (4 on the top edges, 2 underneath) and 1 × M3 (on the tail)</p>
+    <p><strong>Interface NEMA 23 bracket:</strong> 6 × M5 (4 at the corners of the motor plate, 2 in a pair on the centre line) and 1 × M3 (on the tail)</p>
   </div>
   <figure class="prep-item-figure">
     <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-top-interface-prep-nema23-inserts-full-5fda8f6ef8c0.png" alt="The Interface NEMA 23 bracket held up, showing four brass M5 inserts on the top edges and one M3 insert on the long tail">
     <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-top-interface-prep-nema23-inserts-underside-full-97cf1ce3e1b0.png" alt="The underside of the Interface NEMA 23 bracket, showing the two remaining brass M5 heat inserts">
-    <figcaption>Top: four M5 on the edges and one M3 on the tail. Underside: the two remaining M5. <cite>Photo: zed0, a still from the assembly video.</cite></figcaption>
+    <figcaption>The four at the corners of the motor plate and the M3 on the tail, with the pair on the centre line on the other face. On the machine the four face down, towards the motor, and the pair face up, towards the Top plate. <cite>Photo: zed0, a still from the assembly video.</cite></figcaption>
   </figure>
 </div>
 
@@ -304,7 +304,7 @@ Attach the remaining 5 Interface ribs to the Interface upper fixed section, two 
 
 Slot the Interface NEMA 23 bracket into the Interface upper fixed section and secure it from below with an {% include fastener.html size="M3" variant="countersunk" length="12" %} screw.
 
-Attach the whole assembly to the bottom of the Top plate with 2 {% include fastener.html size="M5" variant="countersunk" length="22" %} screws, one through hole S2 and one through hole S3, into the Interface NEMA 23 bracket.
+Attach the whole assembly to the bottom of the Top plate with 2 {% include fastener.html size="M5" variant="countersunk" length="22" %} screws, one through hole S2 and one through hole S3, into the Interface NEMA 23 bracket's pair of M5 inserts. Hole S1 stays empty.
 
 **Alternative:** whether these need a countersunk head depends on how your Top plate was cut. If the S2/S3 holes have a countersink cut in, use a countersunk head; if they don't, {% include fastener.html size="M5" variant="socket-button" length="20" %} screws work here instead. Builder's call depending on their plate, the same as the I1-I6/O1-O6 screws in step 5.
 

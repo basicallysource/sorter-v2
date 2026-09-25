@@ -30,7 +30,7 @@ from fastapi.responses import HTMLResponse, StreamingResponse
 from pydantic import BaseModel
 
 from blob_manager import BLOB_DIR, getCameraSetup, getChannelPolygons, getClassificationPolygons
-from vision.camera_modes import list_v4l2_modes
+from vision.camera_modes import default_capture_mode, list_v4l2_modes
 from vision.channel_alignment import (
     alignmentRotationDeg,
     dropStartAngleForRole,
@@ -697,33 +697,28 @@ def _list_usb_cameras() -> List[Dict[str, Any]]:
                 )
             return cameras
 
-    # Non-macOS: probe indices 0-15, skip active ones
-    indices_to_probe = [i for i in range(16) if i not in active]
-    probed_map: dict[int, dict] = {}
-    if indices_to_probe:
-        with ThreadPoolExecutor(max_workers=min(4, len(indices_to_probe))) as pool:
-            futs = {pool.submit(_probe_camera_index, idx): idx for idx in indices_to_probe}
-            for fut in as_completed(futs):
-                idx = futs[fut]
-                result = fut.result()
-                if result is not None:
-                    probed_map[idx] = result
-
+    # Linux: a capture camera is a node with pixel formats. Asking for them does
+    # not open a stream, so a camera already streaming a preview (or a probe
+    # running in a parallel request) is still listed; opening every camera to
+    # probe it made the list come back with a different subset each time.
     usb_cameras: List[Dict[str, Any]] = []
     for i in range(16):
-        if i in active:
+        if i in active and active[i] != (0, 0):
             w, h = active[i]
-            if w > 0 or h > 0:
-                usb_cameras.append({
-                    "kind": "usb",
-                    "index": i,
-                    "name": _v4l2_camera_name(i),
-                    "width": w,
-                    "height": h,
-                    "preview_available": True,
-                })
-        elif i in probed_map:
-            usb_cameras.append(probed_map[i])
+        else:
+            modes = list_v4l2_modes(i)
+            if not modes:
+                continue
+            mode = default_capture_mode(modes) or modes[0]
+            w, h = int(mode["width"]), int(mode["height"])
+        usb_cameras.append({
+            "kind": "usb",
+            "index": i,
+            "name": _v4l2_camera_name(i),
+            "width": w,
+            "height": h,
+            "preview_available": True,
+        })
     return usb_cameras
 
 

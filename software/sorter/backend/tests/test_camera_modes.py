@@ -98,5 +98,20 @@ class CaptureModeRouterTests(unittest.TestCase):
         self.assertEqual({"width": 1920, "height": 1080, "fps": 60, "fourcc": "MJPG"}, response["mode"])
 
 
+
+class CameraListTests(unittest.TestCase):
+    def test_linux_lists_cameras_from_their_formats_without_opening_them(self) -> None:
+        by_index = {0: HD_CAMERA, 2: FOUR_K_CAMERA, 4: HD_CAMERA}
+        with patch.object(cameras.platform, "system", return_value="Linux"), patch.object(
+            cameras, "list_v4l2_modes", side_effect=lambda i: by_index.get(i, [])
+        ), patch.object(cameras, "_active_camera_indices", return_value={}), patch.object(
+            cameras, "_v4l2_camera_name", side_effect=lambda i: f"cam{i}"
+        ), patch.object(cameras, "_probe_camera_index", side_effect=AssertionError("opened a camera")):
+            listed = cameras._list_usb_cameras()
+        self.assertEqual(
+            [(0, 1280, 720), (2, 3840, 2160), (4, 1280, 720)],
+            [(c["index"], c["width"], c["height"]) for c in listed],
+        )
+
 if __name__ == "__main__":
     unittest.main()

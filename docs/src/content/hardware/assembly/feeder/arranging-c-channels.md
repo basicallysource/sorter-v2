@@ -10,7 +10,7 @@ permalink: /hardware/assembly/feeder/arranging-c-channels/
 author: barthel
 contributors: [brickcyclealice, daddyosbricksbill, reveryx]
 og_image: https://assets.basically.website/sorter-parts/c-channel-drives-all-four-full-44246243494e.jpg
-last_verified: 2026-09-10
+last_verified: 2026-09-25
 parts_needed:
   - part: layout-guide
     qty: 3

@@ -39,11 +39,11 @@ Each page ends in one of these.
     <figcaption><a href="{{ '/hardware/assembly/feeder/c-channels/bulk-channel/' | relative_url }}">Bulk channel</a>, the cap on. <cite>Photo: BrickCycleAlice.</cite></figcaption>
   </figure>
   <figure>
-    <img src="https://assets.basically.website/sorter-docs/render-feeder-channel-with-lamp-full-1d39cf876df3.png" alt="Render of a finished feeder channel: the faceted rotor in the stator with the output guide at its exit, and the camera lamp centred over the rotor on its angled arm">
-    <figcaption><a href="{{ '/hardware/assembly/feeder/c-channels/feeder-channels/' | relative_url }}">Feeder channel</a>, guide on and a lamp over it. <cite>Rendered from the part geometry.</cite></figcaption>
+    <img src="https://assets.basically.website/sorter-docs/render-feeder-channel-finished-full-d6b5b13558b5.png" alt="Render of a finished feeder channel: the faceted rotor in the stator with the output guide standing beside the NEMA bracket">
+    <figcaption><a href="{{ '/hardware/assembly/feeder/c-channels/feeder-channels/' | relative_url }}">Feeder channel</a>, rotor in and guide on. <cite>Rendered from the part geometry.</cite></figcaption>
   </figure>
   <figure>
-    <img src="https://assets.basically.website/sorter-docs/render-classification-channel-with-lamp-full-34ceed40a766.png" alt="Render of the finished classification channel: the capped finned rotor in the stator, and the camera lamp centred over the rotor on its angled arm">
-    <figcaption><a href="{{ '/hardware/assembly/feeder/c-channels/classification-channel/' | relative_url }}">Classification channel</a>, capped rotor and a lamp over it. <cite>Rendered from the part geometry.</cite></figcaption>
+    <img src="https://assets.basically.website/sorter-docs/render-classification-channel-finished-full-683c6f99f962.png" alt="Render of the finished classification channel: the capped finned rotor sitting down in the stator ring">
+    <figcaption><a href="{{ '/hardware/assembly/feeder/c-channels/classification-channel/' | relative_url }}">Classification channel</a>, the capped rotor in. <cite>Rendered from the part geometry.</cite></figcaption>
   </figure>
 </div>

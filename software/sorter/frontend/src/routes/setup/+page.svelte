@@ -406,10 +406,9 @@
 		tunedPictures = { ...tunedPictures, [role]: true };
 	}
 
-	function stepStatus(stepId: WizardStepId): 'current' | 'done' | 'locked' | 'ready' {
+	function stepStatus(stepId: WizardStepId): 'current' | 'done' | 'ready' {
 		if (activeStepId === stepId) return 'current';
 		if (isStepComplete(stepId)) return 'done';
-		if (!isStepUnlocked(stepId)) return 'locked';
 		return 'ready';
 	}
 
@@ -455,27 +454,12 @@
 		}
 	}
 
-	function isStepUnlocked(stepId: WizardStepId): boolean {
-		const index = stepIndex(stepId);
-		if (index <= 0) return true;
-		for (const previous of WIZARD_STEPS.slice(0, index)) {
-			if (!isStepComplete(previous.id)) return false;
-		}
-		return true;
-	}
-
-	function canOpenStep(stepId: WizardStepId): boolean {
-		return isStepUnlocked(stepId) || isStepComplete(stepId);
-	}
-
-	function currentStepLocked(): boolean {
-		return !canOpenStep(activeStepId) && !isStepComplete(activeStepId);
-	}
-
+	// Every step can be opened at any time, and only the user moves between
+	// them: a step that locked itself whenever an earlier one read as not done
+	// (a hardware reload, another browser without this one's confirmations)
+	// used to throw people out of the step they were on.
 	function setActiveStep(stepId: string) {
-		const id = stepId as WizardStepId;
-		if (!canOpenStep(id)) return;
-		void navigateToStep(id);
+		void navigateToStep(stepId as WizardStepId);
 	}
 
 	function goToPreviousStep() {
@@ -572,7 +556,6 @@
 	};
 
 	function stepBlockerReason(): string | null {
-		if (currentStepLocked()) return 'Complete previous steps first';
 		return STEP_BLOCKERS[activeStepId]?.() ?? null;
 	}
 
@@ -607,13 +590,19 @@
 		goToNextStep();
 	}
 
+	// Loads overlap (mount, machine switch, every hardware state change) and a
+	// full scan can take seconds; only the newest one may write the page.
+	let wizardLoadSeq = 0;
+
 	async function loadWizard() {
+		const seq = ++wizardLoadSeq;
 		loadingWizard = true;
 		wizardError = null;
 		try {
 			const res = await fetch(`${currentBackendBaseUrl()}/api/setup-wizard`);
 			if (!res.ok) throw new Error(await res.text());
 			const payload = (await res.json()) as WizardSummary;
+			if (seq !== wizardLoadSeq) return;
 			wizard = payload;
 			hardwareState = payload.hardware.state;
 			hardwareError = payload.hardware.error;
@@ -640,9 +629,9 @@
 			}
 			roleSelections = nextSelections;
 		} catch (e: any) {
-			wizardError = e.message ?? 'Failed to load setup wizard state';
+			if (seq === wizardLoadSeq) wizardError = e.message ?? 'Failed to load setup wizard state';
 		} finally {
-			loadingWizard = false;
+			if (seq === wizardLoadSeq) loadingWizard = false;
 		}
 	}
 
@@ -728,21 +717,25 @@
 		goToNextStep();
 	}
 
+	let cameraLoadSeq = 0;
+
 	async function loadCameraInventory() {
+		const seq = ++cameraLoadSeq;
 		loadingCameras = true;
 		cameraError = null;
 		try {
 			const res = await fetch(`${currentBackendBaseUrl()}/api/cameras/list`);
 			if (!res.ok) throw new Error(await res.text());
 			const payload = await res.json();
+			if (seq !== cameraLoadSeq) return;
 			usbCameras = Array.isArray(payload?.usb)
 				? payload.usb.filter((camera: UsbCamera) => camera.index >= 0)
 				: [];
 			networkCameras = Array.isArray(payload?.network) ? payload.network : [];
 		} catch (e: any) {
-			cameraError = e.message ?? 'Failed to load camera inventory';
+			if (seq === cameraLoadSeq) cameraError = e.message ?? 'Failed to load camera inventory';
 		} finally {
-			loadingCameras = false;
+			if (seq === cameraLoadSeq) loadingCameras = false;
 		}
 	}
 
@@ -774,7 +767,7 @@
 			if (!res.ok) throw new Error(await res.text());
 			nameStatus = 'Machine name saved.';
 			await loadWizard();
-			await navigateToStep('discovery');
+			goToNextStep();
 		} catch (e: any) {
 			nameError = e.message ?? 'Failed to save machine name';
 		} finally {
@@ -803,13 +796,12 @@
 				body: JSON.stringify(payload)
 			});
 			if (!res.ok) throw new Error(await res.text());
-			clearManualConfirmations(['motion', 'calibration', 'servos', 'advanced']);
+			clearManualConfirmations(['advanced']);
 			for (const role of changedRoles) {
 				clearCameraVerification(role);
 			}
 			cameraStatus = 'Camera assignments saved.';
 			await loadWizard();
-			await navigateToStep('motion');
 		} catch (e: any) {
 			cameraError = e.message ?? 'Failed to save camera assignments';
 		} finally {
@@ -942,7 +934,7 @@
 
 	$effect(() => {
 		if (activeStepId !== 'motion' && activeStepId !== 'calibration') return;
-		if (homingSystem) return;
+		if (homingSystem || !wizard?.readiness.boards_detected) return;
 		if (hardwareState === 'standby') {
 			void initializeSteppers();
 		}
@@ -996,7 +988,6 @@
 						<SetupStepperNav
 							steps={WIZARD_STEPS}
 							getStatus={(id) => stepStatus(id as WizardStepId)}
-							canOpenStep={(id) => canOpenStep(id as WizardStepId)}
 							onSelect={setActiveStep}
 						/>
 					</div>
@@ -1027,12 +1018,6 @@
 								<RefreshCcw size={14} class={loadingWizard ? 'animate-spin' : ''} />
 								Try Again
 							</button>
-						</div>
-					{:else if currentStepLocked()}
-						<div class="setup-panel px-4 py-4 text-sm text-text-muted">
-							This step keeps its own URL at
-							<span class="font-mono text-text">{stepHref(activeStepId)}</span>, but it stays locked
-							until the previous steps are complete.
 						</div>
 					{:else if activeStepId === 'identity'}
 						<IdentityStep
@@ -1119,7 +1104,6 @@
 
 					{@const isAdvanced = activeStepId === 'advanced'}
 					{@const continueDisabled =
-						currentStepLocked() ||
 						!canAdvanceCurrentStep() ||
 						(currentStep().requiresManualConfirm && !manualConfirmEnabled(activeStepId))}
 					{@const continueLabel =
@@ -1131,7 +1115,7 @@
 					<SetupNavFooter
 						blockerReason={stepBlockerReason()}
 						showBack={currentStepNumber() > 1}
-						showFinish={isAdvanced && currentStep().requiresManualConfirm && !currentStepLocked()}
+						showFinish={isAdvanced && currentStep().requiresManualConfirm}
 						showContinue={!isAdvanced}
 						{continueDisabled}
 						{continueLabel}

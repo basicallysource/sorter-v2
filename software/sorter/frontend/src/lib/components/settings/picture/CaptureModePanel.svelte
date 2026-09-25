@@ -91,7 +91,10 @@
 			});
 			if (!res.ok) throw new Error(await res.text());
 			const parsed = (await res.json()) as CaptureModeResponse;
-			data = parsed;
+			// Uncompressed modes (YUYV) fill the USB bus the cameras share, so a
+			// camera that can do MJPEG is only offered MJPEG.
+			const mjpeg = parsed.modes.filter((m) => (m.fourcc || '').toUpperCase() === 'MJPG');
+			data = mjpeg.length ? { ...parsed, modes: mjpeg } : parsed;
 			selectedModeKey = pickInitialModeKey(
 				parsed.current?.width ?? parsed.live?.width ?? null,
 				parsed.current?.height ?? parsed.live?.height ?? null,

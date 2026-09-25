@@ -160,20 +160,19 @@
 
 	const flashAllowed = $derived(boardsMeta?.flash_allowed ?? false);
 
+	// The board kits ship with. A blank board, or one in its bootloader, cannot
+	// say what it is, and the first asset in a release is an older board's.
+	const KIT_BOARD_VARIANT = 'distribution-v1-2';
+
 	function suggestAssetForBoard(release: Release, board: Board | null): ReleaseAsset | null {
 		if (!release.assets.length) return null;
-		if (board) {
-			const variant = board.version?.variant ?? null;
-			if (variant) {
-				const exact = release.assets.find((a) => a.variant === variant);
-				if (exact) return exact;
-			}
-			if (board.role) {
-				const byRole = release.assets.find((a) => a.role === board.role);
-				if (byRole) return byRole;
-			}
-		}
-		return release.assets[0];
+		const kit = release.assets.find((a) => a.variant === KIT_BOARD_VARIANT) ?? null;
+		if (!board) return kit ?? release.assets[0];
+		const variant = board.version?.variant ?? null;
+		const exact = variant ? release.assets.find((a) => a.variant === variant) : undefined;
+		if (exact) return exact;
+		const sameKind = release.assets.filter((a) => a.family === board.family && a.role === board.role);
+		return sameKind.find((a) => a === kit) ?? sameKind[0] ?? kit ?? release.assets[0];
 	}
 
 	async function loadBoards(refresh = false) {

@@ -32,6 +32,9 @@ class BoardProfile:
     role: str
     physical_to_canonical_stepper_names: Mapping[str, str]
     input_aliases: Mapping[str, int]
+    # Polarity of the chute home switch as this board is shipped, when it
+    # differs from DEFAULT_CHUTE_ENDSTOP_ACTIVE_HIGH. machine.toml still wins.
+    chute_home_active_high: bool | None = None
 
 
 SKR_PICO_FEEDER_PROFILE = BoardProfile(
@@ -93,6 +96,8 @@ BASICALLY_V1_2_DISTRIBUTION_PROFILE = BoardProfile(
         "carousel": "carousel",
     },
     input_aliases={"chute_home": 0},  # GPIO3 = digital_input_pins[0] on V1.2
+    # The kit's roller-lever limit switch pulls the input low when pressed.
+    chute_home_active_high=False,
 )
 
 GENERIC_PROFILE = BoardProfile(
@@ -131,6 +136,10 @@ class ControlBoard(ABC):
     @abstractmethod
     def input_aliases(self) -> Mapping[str, int]:
         raise NotImplementedError
+
+    @property
+    def chute_home_active_high(self) -> bool | None:
+        return None
 
     @abstractmethod
     def iter_steppers(self) -> tuple[DiscoveredStepper, ...]:
@@ -201,6 +210,10 @@ class SorterInterfaceControlBoard(ControlBoard):
     @property
     def input_aliases(self) -> Mapping[str, int]:
         return self._profile.input_aliases
+
+    @property
+    def chute_home_active_high(self) -> bool | None:
+        return self._profile.chute_home_active_high
 
     def iter_steppers(self) -> tuple[DiscoveredStepper, ...]:
         return self._discovered_steppers

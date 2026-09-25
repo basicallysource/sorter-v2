@@ -38,6 +38,7 @@ from subsystems.distribution.chute import BinAddress, CHUTE_MAX_ANGLE
 from irl.parse_user_toml import (
     DEFAULT_CAROUSEL_HOME_PIN_CHANNEL,
     DEFAULT_CHUTE_FIRST_BIN_CENTER,
+    DEFAULT_CHUTE_ENDSTOP_ACTIVE_HIGH,
     DEFAULT_CHUTE_FIRST_SECTION_OFFSET_DEG,
     DEFAULT_CHUTE_HOME_PIN_CHANNEL,
     DEFAULT_CHUTE_NUM_SECTIONS,
@@ -260,7 +261,7 @@ class ServoHardwareSettingsPayload(BaseModel):
 class ChuteHardwareSettingsPayload(BaseModel):
     first_bin_center: float = DEFAULT_CHUTE_FIRST_BIN_CENTER
     pillar_width_deg: float = DEFAULT_CHUTE_PILLAR_WIDTH_DEG
-    endstop_active_high: bool = True
+    endstop_active_high: bool = DEFAULT_CHUTE_ENDSTOP_ACTIVE_HIGH
     operating_speed_microsteps_per_second: int = DEFAULT_CHUTE_OPERATING_SPEED_MICROSTEPS_PER_SEC
 
 
@@ -680,9 +681,15 @@ def _chute_settings_from_config(config: Dict[str, Any]) -> Dict[str, Any]:
         chute.get("pillar_width_deg"),
         DEFAULT_CHUTE_PILLAR_WIDTH_DEG,
     )
-    endstop_active_high = chute.get("endstop_active_high", True)
+    irl = _active_irl()
+    live_chute = getattr(irl, "chute", None) if irl is not None else None
+    # Unsaved, the polarity is the board's default, which only the live chute knows.
+    endstop_active_high = chute.get("endstop_active_high")
     if not isinstance(endstop_active_high, bool):
-        endstop_active_high = True
+        live_active_high = getattr(live_chute, "endstop_active_high", None)
+        endstop_active_high = (
+            live_active_high if isinstance(live_active_high, bool) else DEFAULT_CHUTE_ENDSTOP_ACTIVE_HIGH
+        )
     operating_speed_microsteps_per_second = chute.get(
         "operating_speed_microsteps_per_second",
         DEFAULT_CHUTE_OPERATING_SPEED_MICROSTEPS_PER_SEC,
@@ -723,8 +730,6 @@ def _chute_settings_from_config(config: Dict[str, Any]) -> Dict[str, Any]:
     home_pin_channel = _coerce_int(
         chute.get("home_pin_channel"), DEFAULT_CHUTE_HOME_PIN_CHANNEL
     )
-    irl = _active_irl()
-    live_chute = getattr(irl, "chute", None) if irl is not None else None
     live_home_pin_channel = _pin_channel(getattr(live_chute, "home_pin", None))
     if live_home_pin_channel is not None:
         home_pin_channel = live_home_pin_channel
@@ -936,7 +941,7 @@ def _live_chute_status() -> Dict[str, Any]:
         "live_available": True,
         "endstop_triggered": None,
         "raw_endstop_high": None,
-        "endstop_active_high": getattr(chute, "endstop_active_high", True),
+        "endstop_active_high": getattr(chute, "endstop_active_high", DEFAULT_CHUTE_ENDSTOP_ACTIVE_HIGH),
         "stepper_direction_inverted": bool(getattr(stepper, "direction_inverted", True)),
         "current_angle": None,
         "stepper_position_degrees": None,

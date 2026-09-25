@@ -119,8 +119,9 @@
 				<div class="text-text-muted">
 					It shows up as a drive called RPI-RP2, which is what a Pico does before it has ever been
 					flashed. Open <a href="/settings/control-board" class="underline">Settings → Control board</a>,
-					tick <strong>Recovery flash</strong>, pick the newest firmware release and flash it. Then
-					come back here and rescan.
+					tick <strong>Recovery flash</strong>, pick the newest firmware release (the file for the
+					kit's board is <strong>basically-v1-2-distribution</strong>) and flash it. Then come back here
+					and rescan.
 				</div>
 			{:else}
 				<div class="font-medium">No control board answered.</div>
@@ -128,8 +129,9 @@
 					On a new machine this usually means the Pico has no firmware yet. Unplug the Pico's USB
 					cable, hold down the BOOTSEL button (the white button on top of the Pico), plug the cable back in and let go.
 					Then open <a href="/settings/control-board" class="underline">Settings → Control board</a>,
-					tick <strong>Recovery flash</strong>, pick the newest firmware release and flash it, and
-					come back here to rescan. If the board has been flashed before, check its power and USB
+					tick <strong>Recovery flash</strong>, pick the newest firmware release (the file for the
+					kit's board is <strong>basically-v1-2-distribution</strong>) and flash it, and come back here
+					to rescan. If the board has been flashed before, check its power and USB
 					cable instead.
 				</div>
 			{/if}

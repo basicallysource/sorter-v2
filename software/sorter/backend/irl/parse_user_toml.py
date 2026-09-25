@@ -51,6 +51,8 @@ DEFAULT_CHUTE_OPERATING_SPEED_MICROSTEPS_PER_SEC = 3000
 DEFAULT_CAROUSEL_HOME_PIN_CHANNEL = 2
 # Matches the SKR Pico distribution E0-STOP wiring used by the setup wizard.
 DEFAULT_CHUTE_HOME_PIN_CHANNEL = 3
+# For boards whose profile does not name a polarity (see BoardProfile).
+DEFAULT_CHUTE_ENDSTOP_ACTIVE_HIGH = True
 HARDWARE_INIT_COMMAND_ATTEMPTS = 4
 HARDWARE_INIT_RETRY_DELAY_S = 0.2
 
@@ -531,7 +533,7 @@ class ChuteCalibrationConfig:
     # above are absent they are derived from these (see loader below).
     first_bin_center: float = DEFAULT_CHUTE_FIRST_BIN_CENTER
     pillar_width_deg: float = DEFAULT_CHUTE_PILLAR_WIDTH_DEG
-    endstop_active_high: bool = True
+    endstop_active_high: bool = DEFAULT_CHUTE_ENDSTOP_ACTIVE_HIGH
     operating_speed_microsteps_per_second: int = DEFAULT_CHUTE_OPERATING_SPEED_MICROSTEPS_PER_SEC
 
 
@@ -631,6 +633,7 @@ def loadChuteCalibrationConfig(
     gc: GlobalConfig,
     machine_specific_params: dict[str, object] | None = None,
     board_input_aliases: dict[str, int] | None = None,
+    board_endstop_active_high: bool | None = None,
 ) -> ChuteCalibrationConfig:
     raw = machine_specific_params
     if raw is None:
@@ -641,22 +644,22 @@ def loadChuteCalibrationConfig(
         if board_input_aliases is not None
         else DEFAULT_CHUTE_HOME_PIN_CHANNEL
     )
+    default_active_high = (
+        board_endstop_active_high
+        if board_endstop_active_high is not None
+        else DEFAULT_CHUTE_ENDSTOP_ACTIVE_HIGH
+    )
 
     if not isinstance(raw, dict):
-        return ChuteCalibrationConfig(home_pin_channel=board_default)
+        return ChuteCalibrationConfig(home_pin_channel=board_default, endstop_active_high=default_active_high)
 
     chute_params = raw.get("chute")
     if chute_params is None:
-        return ChuteCalibrationConfig(home_pin_channel=board_default)
+        return ChuteCalibrationConfig(home_pin_channel=board_default, endstop_active_high=default_active_high)
     if not isinstance(chute_params, dict):
         gc.logger.warning("Ignoring invalid chute config: expected object. Using defaults.")
-        return ChuteCalibrationConfig(home_pin_channel=board_default)
+        return ChuteCalibrationConfig(home_pin_channel=board_default, endstop_active_high=default_active_high)
 
-    board_default = (
-        board_input_aliases.get("chute_home", DEFAULT_CHUTE_HOME_PIN_CHANNEL)
-        if board_input_aliases is not None
-        else DEFAULT_CHUTE_HOME_PIN_CHANNEL
-    )
     home_pin_channel_raw = chute_params.get("home_pin_channel")
     if home_pin_channel_raw is None:
         home_pin_channel = board_default
@@ -675,7 +678,7 @@ def loadChuteCalibrationConfig(
     pillar_width_deg = chute_params.get(
         "pillar_width_deg", DEFAULT_CHUTE_PILLAR_WIDTH_DEG
     )
-    endstop_active_high = chute_params.get("endstop_active_high", True)
+    endstop_active_high = chute_params.get("endstop_active_high", default_active_high)
     operating_speed_microsteps_per_second = chute_params.get(
         "operating_speed_microsteps_per_second",
         DEFAULT_CHUTE_OPERATING_SPEED_MICROSTEPS_PER_SEC,
@@ -705,9 +708,9 @@ def loadChuteCalibrationConfig(
 
     if not isinstance(endstop_active_high, bool):
         gc.logger.warning(
-            f"Invalid chute.endstop_active_high={endstop_active_high!r}; using default True."
+            f"Invalid chute.endstop_active_high={endstop_active_high!r}; using default {default_active_high}."
         )
-        endstop_active_high = True
+        endstop_active_high = default_active_high
 
     if not isinstance(operating_speed_microsteps_per_second, int) or isinstance(
         operating_speed_microsteps_per_second, bool

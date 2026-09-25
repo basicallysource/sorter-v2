@@ -7,7 +7,7 @@ slug: hardware-software-setup
 kicker: Hardware — Software setup
 lede: The physical build is finished. Install the software, then carry on in the Sorter section.
 permalink: /hardware/software-setup/
-og_image: https://assets.basically.website/sorter-docs/software-setup-finished-machine-full-444179554df6.jpg
+og_image: https://assets.basically.website/sorter-docs/sorteros-first-load-sorter-ui-full-c7e8aae4ac07.png
 author: spencer
 ---
 
@@ -38,9 +38,9 @@ From here the order is:
 
 ## The finished result
 
-The software installed, the board flashed, and the machine sorting into its bins. Everything from here happens in a browser.
+The Sorter UI open in a browser on the machine's own address, the board answering on USB serial, and the setup wizard waiting. Everything from here happens in this window.
 
 <figure class="single-figure">
-  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/software-setup-finished-machine-full-444179554df6.jpg" alt="A built Sorter standing on its castors in a room: the plywood deck with the power supply and the funnels under it, and five layers of cardboard bins below that, each holding sorted LEGO by colour and type. A laptop is open on a desk beside it.">
-  <figcaption>A machine that has run. <cite>Photo: Basically.</cite></figcaption>
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/sorteros-first-load-sorter-ui-full-c7e8aae4ac07.png" alt="The Sorter UI's dashboard the first time it loads: the Dashboard, Bins, Profiles, Records and Settings tabs along the top, a feeder panel reading No Camera Assigned, the machine in System Standby with a Home button, no pieces yet, and the runtime stats all at zero.">
+  <figcaption>The Sorter UI, before the wizard has been through it. <cite>Screenshot recorded in a browser.</cite></figcaption>
 </figure>

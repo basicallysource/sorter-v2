@@ -537,6 +537,33 @@ body {
 	color: var(--muted);
 }
 
+/* A one-of-these-per-layer family (the bins, the funnels): each variant's
+   parts in their own block, with an "or" between, so a page listing all five
+   bins reads as a choice of two sets rather than as 30 bins. */
+.parts-choices {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: flex-start;
+	gap: 12px 18px;
+	margin: 0 0 0.4rem;
+}
+
+.parts-choice-or {
+	align-self: center;
+	font-size: 0.6rem;
+	font-weight: 700;
+	letter-spacing: 0.1em;
+	text-transform: uppercase;
+	color: var(--muted);
+}
+
+.parts-choice-name {
+	margin: 0 0 6px;
+	font-size: 0.66rem;
+	font-weight: 700;
+	color: var(--text);
+}
+
 .part-card {
 	display: flex;
 	flex-direction: column;

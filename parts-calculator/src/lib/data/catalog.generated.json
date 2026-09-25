@@ -24722,8 +24722,9 @@
 						"vendor": "Amazon",
 						"url": "https://amzn.to/4ceG5rm",
 						"price": 10.99,
-						"pack_qty": 3,
-						"as_of": "2026-04-16",
+						"pack_qty": 1,
+						"as_of": "2026-09-25",
+						"note": "This link lands on the single motor. Pick the Black-1.8\u00b0 option, not the Black-0.9\u00b0 one beside it: the firmware counts 200 steps per revolution. The same listing sells a 3-pack for $25.99, which is dearer than four singles for a 4-motor build.",
 						"affiliate_url": "https://amzn.to/4ceG5rm?tag=sorterv2-20"
 					},
 					{
@@ -24823,7 +24824,7 @@
 						"region": "EU",
 						"vendor": "StepperOnline",
 						"url": "https://www.omc-stepperonline.com/nema-23-bipolar-1-8deg-0-6nm-85oz-in-0-88a-6-6v-57x57x41mm-4-wires-23hs16-0884s",
-						"note": "23HS16-0884S is a different motor from the one specified above: 0.6 Nm, 0.88 A, 42 mm body and a \u00d86.35 mm shaft, which the 20T timing pulley's 8 mm bore does not fit. Nobody has run the machine on it. Order the 23HS32-4004S from StepperOnline's German warehouse instead."
+						"note": "23HS16-0884S is a different motor from the one specified above: 0.6 Nm, 0.88 A, 42 mm body and a \u00d86.35 mm shaft. The 20T timing pulley that carries the drive gear is bored 8 mm, so this motor also needs a pulley to suit its shaft. Order the 23HS32-4004S, which StepperOnline stock in their German warehouse, unless you have sorted the pulley out."
 					}
 				]
 			},

@@ -24433,7 +24433,7 @@
 			"description": "Classification top camera \u2014 the ENOMAKER IMX415 4K USB module.",
 			"note": null,
 			"created_at": "2026-07-18",
-			"updated_at": "2026-09-01",
+			"updated_at": "2026-09-25",
 			"attributes": [],
 			"sheet_qty": {
 				"per_machine": 1
@@ -24453,7 +24453,7 @@
 					}
 				]
 			},
-			"alternative": null,
+			"alternative": "Any UVC USB camera that offers 3840 \u00d7 2160 at 30 fps in MJPG and covers the whole 205 mm rotor. The printed clasp fits this board, so another module needs its own mount.",
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
@@ -24471,7 +24471,7 @@
 			"description": "C-channel and carousel drop plate detection cameras",
 			"note": null,
 			"created_at": "2026-07-18",
-			"updated_at": "2026-07-18",
+			"updated_at": "2026-09-25",
 			"attributes": [],
 			"sheet_qty": {
 				"per_machine": 2
@@ -24499,7 +24499,7 @@
 					}
 				]
 			},
-			"alternative": null,
+			"alternative": "Any UVC USB camera that offers 1280 \u00d7 720 at 30 fps in MJPG and covers the whole 205 mm rotor. The printed clasp fits this board, so another module needs its own mount.",
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,

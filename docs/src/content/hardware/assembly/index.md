@@ -19,14 +19,16 @@ author: spencer
 
 Before starting, source everything on the [Bill of materials](https://parts-calculator.basically.website/hardware) and print the required parts. [Printing the parts]({{ '/hardware/printing/' | relative_url }}) covers what printer they need and how they go on the plate, and [Parts]({{ '/hardware/parts/' | relative_url }}) has reference pages for individual parts. Then follow the sections below top to bottom.
 
-A few names recur across these sections and are worth fixing here, once: the feeder's three channels are C1, C2 and C3, first through third; "the control board" means basically board v1.3, the basically Embedded Control Board; and the printed enclosure around each of the PSU, Orange Pi and control board is the same kind of part even though each page names its own differently (housing, box, mount).
+A few names recur across these sections and are worth fixing here, once: the feeder's four channels are C1, C2, C3 and C4, top to bottom, and C4 is also called the classification channel; "the control board" means basically board v1.3, the basically Embedded Control Board; and the printed enclosure around each of the PSU, Orange Pi and control board is the same kind of part even though each page names its own differently (housing, box, mount).
 
 ## Order of operations
 
-1. **[Distribution]({{ '/hardware/assembly/distribution/' | relative_url }})** — bin frame, top interface, and chute. The interface layer is built as part of distribution.
-2. **[Feeder]({{ '/hardware/assembly/feeder/' | relative_url }})** — the C-channel stages that meter parts in.
-3. **[Electronics]({{ '/hardware/electronics/' | relative_url }})** — boards, wiring, and steppers.
-4. **[Install the bins]({{ '/hardware/assembly/install-bins/' | relative_url }})** — printed or laser cut, dropped into the finished tower.
-5. **[Software setup]({{ '/hardware/software-setup/' | relative_url }})** — flash and configure. Hands off to the [Sorter]({{ '/sorter/' | relative_url }}) section.
+<ol class="numbered-steps">
+  <li><strong><a href="{{ '/hardware/assembly/distribution/' | relative_url }}">Distribution</a></strong>. Bin frame, top interface, and chute. The interface layer is built as part of distribution.</li>
+  <li><strong><a href="{{ '/hardware/assembly/feeder/' | relative_url }}">Feeder</a></strong>. The C-channel stages that meter parts in.</li>
+  <li><strong><a href="{{ '/hardware/electronics/' | relative_url }}">Electronics</a></strong>. Boards, wiring, and steppers.</li>
+  <li><strong><a href="{{ '/hardware/assembly/install-bins/' | relative_url }}">Install the bins</a></strong>. Printed or laser cut, dropped into the finished tower.</li>
+  <li><strong><a href="{{ '/hardware/software-setup/' | relative_url }}">Software setup</a></strong>. Flash and configure. Hands off to the <a href="{{ '/sorter/' | relative_url }}">Sorter</a> section.</li>
+</ol>
 
 <div class="clear-float"></div>

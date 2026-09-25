@@ -19,13 +19,11 @@ Build the core four times, then finish each one on its own page.
 <ol class="numbered-steps">
   <li><strong><a href="{{ '/hardware/assembly/feeder/c-channels/channel-core/' | relative_url }}">Channel core</a></strong>. Stator, NEMA bracket, gear train, stepper. Build four.</li>
   <li><strong><a href="{{ '/hardware/assembly/feeder/c-channels/bulk-channel/' | relative_url }}">Bulk channel (C1)</a></strong>. The faceted rotor and the Bulk cap. No lamp, no output guide.</li>
-  <li><strong><a href="{{ '/hardware/assembly/feeder/c-channels/feeder-channels/' | relative_url }}">Feeder channels (C2 and C3)</a></strong>. The faceted rotor, an output guide and a camera lamp. Build two.</li>
-  <li><strong><a href="{{ '/hardware/assembly/feeder/c-channels/classification-channel/' | relative_url }}">Classification channel (C4)</a></strong>. The finned rotor, its cap, and a camera lamp with the 4K module.</li>
+  <li><strong><a href="{{ '/hardware/assembly/feeder/c-channels/feeder-channels/' | relative_url }}">Feeder channels (C2 and C3)</a></strong>. The faceted rotor and an output guide. Build two.</li>
+  <li><strong><a href="{{ '/hardware/assembly/feeder/c-channels/classification-channel/' | relative_url }}">Classification channel (C4)</a></strong>. The finned rotor and its cap.</li>
 </ol>
 
-**Build the three [camera lamps]({{ '/hardware/assembly/feeder/camera-lamp/' | relative_url }}) first.** C2, C3 and the classification channel each need one before their page starts. C1 has none.
-
-Once all four are built, [arranging C-channels]({{ '/hardware/assembly/feeder/arranging-c-channels/' | relative_url }}) sets their heights. The rotors, the output guides and the lamps go on there, with the channels standing, not on the bench.
+Each page finishes its channel on the bench, rotor in. Once all four are built, [arranging C-channels]({{ '/hardware/assembly/feeder/arranging-c-channels/' | relative_url }}) sets their heights and hangs the [camera lamps]({{ '/hardware/assembly/feeder/camera-lamp/' | relative_url }}) on C2, C3 and C4. C1 takes no lamp.
 
 ## The finished result
 

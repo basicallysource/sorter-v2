@@ -12,7 +12,8 @@ contributors: [spencer, danny, brickcyclealice, barthel]
 og_image: https://assets.basically.website/sorter-docs/camera-lamp-render-underside-full-0e2b1e5a0fb9.png
 warning: >-
   **Steps 1 to 4 are photographed on a real build.** Step 5, pressing the cover on, is not: nobody
-  has photographed the cover going on with no camera in the lamp. Fill the gaps in as you build.
+  has photographed the cover going on with no camera in the lamp.
+tools_needed: ["Hex key, 2 mm"]
 parts_needed:
   - part: c-channel-arm-mount
     qty: 1
@@ -38,7 +39,7 @@ This page builds the part of a camera lamp that is the same on every channel: th
 
 **The parts list above is one arm's worth. Build three**, for C2, C3 and the classification channel. **The bulk channel (C1) takes none**, because the machine does not look at it.
 
-Build these before the channels that carry them: two of the [C-channels]({{ '/hardware/assembly/feeder/c-channels/' | relative_url }}) pages need a lamp to start.
+A finished lamp hangs onto its channel at [arranging C-channels]({{ '/hardware/assembly/feeder/arranging-c-channels/' | relative_url }}), once the four channels are standing at their heights.
 
 <div class="prep-item">
   <div class="prep-item-body">
@@ -126,9 +127,11 @@ The strip itself is cut and wired on [Preparing the LED strip]({{ '/hardware/hel
 
 **Fitting it.** Two turns, LEDs facing inwards.
 
-1. Peel the blue film off the first stretch of the strip and start it under one of the hooks, adhesive against the inside of the skirt, with the wired end where you want the leads to leave the lamp.
-2. Work it round the skirt until you are back where you started. That is one turn.
-3. Drop down to the next clips and go round again for the second turn, peeling the film as you go.
+<ol class="numbered-steps">
+  <li>Peel the blue film off the first stretch of the strip and start it under one of the hooks, adhesive against the inside of the skirt, with the wired end where you want the leads to leave the lamp.</li>
+  <li>Work it round the skirt until you are back where you started. That is one turn.</li>
+  <li>Drop down to the next clips and go round again for the second turn, peeling the film as you go.</li>
+</ol>
 
 <div class="img-row">
   <figure>

@@ -28,7 +28,7 @@ A camera lamp is one arm carrying one light and one camera over a channel. The l
   <p><b>If you printed four sets, one is spare.</b> The parts list gave C1 a lamp of its own until 2026-09-08. It takes none.</p>
 </div>
 
-Build the lamps before the channels that carry them: two of the [C-channels]({{ '/hardware/assembly/feeder/c-channels/' | relative_url }}) pages need one to start. A lamp is built on the bench and hangs onto its channel later, once the channels are standing.
+A lamp is built on the bench and hangs onto its channel at [arranging C-channels]({{ '/hardware/assembly/feeder/arranging-c-channels/' | relative_url }}), once the four channels are standing at their heights. Nothing on the [C-channels]({{ '/hardware/assembly/feeder/c-channels/' | relative_url }}) pages needs a lamp.
 
 ## The finished result
 

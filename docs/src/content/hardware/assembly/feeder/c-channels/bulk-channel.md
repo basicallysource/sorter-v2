@@ -11,6 +11,7 @@ author: barthel
 contributors: [spencer, brickcyclealice]
 og_image: https://assets.basically.website/sorter-docs/assembly-bulk-channel-cap-fitted-w1600-f75843bda905.jpg
 last_verified: 2026-09-16
+tools_needed: ["Hex key, 2 mm"]
 parts_needed:
   - part: rotor-faceted
     qty: 1
@@ -78,8 +79,6 @@ Lower the rotor onto the raised hub in the middle of the NEMA bracket. The outpu
 
 Turn the rotor by hand. It should go all the way round without a tight spot.
 
-**On the machine this happens later**, once the channels are standing at their heights. See [arranging C-channels]({{ '/hardware/assembly/feeder/arranging-c-channels/' | relative_url }}), step 8.
-
 {% include step.html n="4" title="Fit the bulk cap" %}
 
 Slide the Bulk cap down onto the dovetail on the outside of the stator wall. No screws. There is one dovetail on the stator, so there is one way it goes on; the channel's own clocking is set later, at [arranging C-channels]({{ '/hardware/assembly/feeder/arranging-c-channels/' | relative_url }}), step 5.
@@ -96,7 +95,7 @@ Slide the Bulk cap down onto the dovetail on the outside of the stator wall. No 
 
 ## The finished result
 
-A channel core with the faceted rotor in it and the Bulk cap on the stator. That is all of C1 that is documented. The bucket over it is not published as a part yet, and it goes on the machine later, at [arranging C-channels]({{ '/hardware/assembly/feeder/arranging-c-channels/' | relative_url }}), once the channels are standing at their heights.
+A channel core with the faceted rotor in it and the Bulk cap on the stator. That is all of C1 that is documented: the bucket that goes over the cap is not published as a part yet. C1 stands at its height on [arranging C-channels]({{ '/hardware/assembly/feeder/arranging-c-channels/' | relative_url }}).
 
 <figure class="single-figure">
   <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-bulk-channel-cap-fitted-w1600-f75843bda905.jpg" alt="A finished C1 on the bench: the tall cylindrical bulk cap seated on the channel below it, its outlet opening at the front right, the stepper motor at the front with its lead coiled">

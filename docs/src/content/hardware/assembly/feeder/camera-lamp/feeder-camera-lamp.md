@@ -10,6 +10,7 @@ permalink: /hardware/assembly/feeder/camera-lamp/feeder-camera-lamp/
 author: reveryx
 contributors: [spencer, danny, brickcyclealice, barthel, daddyosbricksbill]
 og_image: https://assets.basically.website/sorter-docs/assembly-camera-lamp-ov9732-lead-routing-w1600-e5c818271b94.jpg
+tools_needed: ["Hex key, 2 mm"]
 parts_needed:
   - part: cam-ov9732
     qty: 1
@@ -40,6 +41,8 @@ This is the lamp that hangs over C2 and C3, the two feeder channels. **Build two
 {% include step.html n="1" title="Clasp the camera between the two halves" %}
 
 The camera board sits in the recess in the **Camera clasp top**. Put the **Camera clasp bottom** over it with the lens through the opening, and secure the two halves with 2 {% include fastener.html size="M3" variant="countersunk" length="8" %} screws. They go up through the bottom half into the top, one either side of the board, and seat flush in the countersinks.
+
+**Then plug the camera's cable into the board.** It ships with the camera. Do it now, while the board is still in your hand and the connector is easy to reach.
 
 <figure class="single-figure">
   <img class="doc-figure" src="https://assets.basically.website/sorter-docs/camera-clasp-board-seated-full-2c6684aef97a.jpg" alt="A camera board sitting in the square recess of a grey printed clasp half, component side up with the black cylindrical lens standing in the middle, and a screw hole in the plastic below the board">
@@ -102,7 +105,7 @@ The [lamp arm]({{ '/hardware/assembly/feeder/camera-lamp/lamp-arm/' | relative_u
 
 ## The finished result
 
-A finished lamp: the arm, the shaded lamp and the 720p camera trapped under the cover, with its lead out through the slot. Build two. They hang onto C2 and C3 later, at step 9 of [arranging C-channels]({{ '/hardware/assembly/feeder/arranging-c-channels/' | relative_url }}), once the channels are standing.
+A finished lamp: the arm, the shaded lamp and the 720p camera trapped under the cover, with its lead out through the slot. Build two. They hang onto C2 and C3 later, at step 8 of [arranging C-channels]({{ '/hardware/assembly/feeder/arranging-c-channels/' | relative_url }}), once the channels are standing.
 
 <figure class="single-figure">
   <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-camera-lamp-ov9732-lead-routing-w1600-e5c818271b94.jpg" alt="The lamp on channel 3 from a low angle: the camera board in the cover's opening, the red and black lamp leads cable-tied to the arm, and the rectangular slot in the cover below the board">

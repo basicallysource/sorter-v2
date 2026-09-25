@@ -9,7 +9,7 @@ lede: The two metering stages between the bulk channel and classification, with 
 permalink: /hardware/assembly/feeder/c-channels/feeder-channels/
 author: barthel
 contributors: [spencer, brickcyclealice, danny, reveryx, daddyosbricksbill]
-og_image: https://assets.basically.website/sorter-docs/render-feeder-channel-with-lamp-full-bcc210ac04d0.png
+og_image: https://assets.basically.website/sorter-docs/render-feeder-channel-with-lamp-full-1d39cf876df3.png
 warning: >-
   **Steps 1 to 3 come from a build**, BrickCycleAlice's. **Step 4 is not verified.**
 tools_needed: ["Hex key, 2 mm"]
@@ -102,7 +102,7 @@ Push the guide onto the drive at the exit, so it stands across the opening in th
 A channel core with the faceted rotor in it and an output guide at the exit. Build two. A camera lamp hangs over each one at [arranging C-channels]({{ '/hardware/assembly/feeder/arranging-c-channels/' | relative_url }}), which is what the render below shows.
 
 <figure class="single-figure">
-  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/render-feeder-channel-with-lamp-full-bcc210ac04d0.png" alt="Render of a finished feeder channel: the faceted rotor in the stator with the output guide at its exit, and the camera lamp hanging over the open top on its angled arm, which runs down the outside of the channel wall to a dovetail">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/render-feeder-channel-with-lamp-full-1d39cf876df3.png" alt="Render of a finished feeder channel: the faceted rotor in the stator with the output guide at its exit, and the camera lamp centred directly over the rotor on its angled arm, which runs down the outside of the channel wall to a dovetail">
   <figcaption>A feeder channel with its lamp over it. The stepper and the camera board are bought parts with no model, so they are not in the render. <cite>Rendered from the part geometry, not from a build.</cite></figcaption>
 </figure>
 

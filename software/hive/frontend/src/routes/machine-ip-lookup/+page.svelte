@@ -73,7 +73,9 @@
 		const pair = await crypto.subtle.generateKey(
 			{
 				name: 'RSA-OAEP',
-				modulusLength: 2048,
+				// 4096, not 2048: one OAEP block then holds 446 bytes instead of
+				// 190, and SorterOS 4.1.0 sends more than 190 on a typical network.
+				modulusLength: 4096,
 				publicExponent: new Uint8Array([1, 0, 1]),
 				hash: 'SHA-256'
 			},
@@ -202,9 +204,8 @@
 			<Spinner size={32} />
 			<div class="text-text">Waiting for your sorter to come online…</div>
 			<p class="max-w-sm text-sm text-text-muted">
-				Make sure you've rejoined your normal Wi-Fi. The sorter restarts to join it, which takes
-				about two minutes, then reports its address here. The address is encrypted end to end, so
-				only this browser can read it.
+				Make sure you've rejoined your normal Wi-Fi. Once the sorter is on it, its address shows up
+				here within seconds. The address is encrypted end to end, so only this browser can read it.
 			</p>
 			<p class="max-w-sm text-sm text-text-muted">
 				If the sorter's setup network (<span class="font-mono">SorterOS-Setup-…</span>) shows up in

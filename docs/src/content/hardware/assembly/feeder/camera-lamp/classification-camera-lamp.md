@@ -45,7 +45,7 @@ This is the lamp that hangs over the classification channel, the stage the machi
 
 The camera board sits in the recess in the **Camera clasp top**. Put the **Camera clasp bottom** over it with the lens through the opening, and secure the two halves with 2 {% include fastener.html size="M3" variant="countersunk" length="8" %} screws. They go up through the bottom half into the top, one either side of the board, and seat flush in the countersinks.
 
-**Then plug the camera's cable into the board.** It ships with the camera, and on this module it goes into the top of the board. Do it now, while the board is still in your hand and the connector is easy to reach.
+**Then plug the camera's cable into the board.** It ships with the camera, and on this module it goes into the top of the board.
 
 <figure class="single-figure">
   <img class="doc-figure" src="https://assets.basically.website/sorter-docs/camera-clasp-board-seated-full-2c6684aef97a.jpg" alt="A camera board sitting in the square recess of a grey printed clasp half, component side up with the black cylindrical lens standing in the middle, and a screw hole in the plastic below the board">
@@ -59,7 +59,7 @@ The camera board sits in the recess in the **Camera clasp top**. Put the **Camer
 
 <figure class="single-figure">
   <img class="doc-figure" src="https://assets.basically.website/sorter-docs/camera-lamp-camera-in-clasp-no-cable-w1600-79b5a08ea522.jpg" alt="A hand holding the closed camera clasp, the camera board seated in the round grey disc with its ribbon socket empty and a rectangular slot in the plastic beside it">
-  <figcaption>A camera in the clasp. Its cable is not on yet; that goes on in step 3. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+  <figcaption>A camera in the clasp, photographed before its cable went on. <cite>Photo: BrickCycleAlice.</cite></figcaption>
 </figure>
 
 {% include step.html n="2" title="Push the clasp into the ring" %}

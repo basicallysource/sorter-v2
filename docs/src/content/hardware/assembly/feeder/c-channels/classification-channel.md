@@ -42,7 +42,7 @@ The classification channel is the last stage before a part drops into the chute,
 - **The finned rotor, not the faceted one.** The fins carry a part smoothly across the stage, which is what the camera needs.
 - **The Rotor cap goes on this channel only.** It plugs the open bore through the middle of the finned rotor.
 - **No output guide.** A fin would sweep straight through where the guide sits. The two guides belong to C2 and C3.
-- **The camera lamp hangs on later**, at [arranging C-channels]({{ '/hardware/assembly/feeder/arranging-c-channels/' | relative_url }}), with the channel standing. It carries the IMX415 4K module, not the OV9732 that C2 and C3 use.
+- **The camera lamp hangs on later**, at [arranging C-channels]({{ '/hardware/assembly/feeder/arranging-c-channels/' | relative_url }}), with the channel standing.
 
 {% include fastener-legend.html %}
 

@@ -39,8 +39,6 @@ This page builds the part of a camera lamp that is the same on every channel: th
 
 **The parts list above is one arm's worth. Build three**, for C2, C3 and the classification channel. **The bulk channel (C1) takes none**, because the machine does not look at it.
 
-A finished lamp hangs onto its channel at [arranging C-channels]({{ '/hardware/assembly/feeder/arranging-c-channels/' | relative_url }}), once the four channels are standing at their heights.
-
 <div class="prep-item">
   <div class="prep-item-body">
     <p><strong>Prepare an <a href="{{ '/hardware/helpers/led-strip/' | relative_url }}">LED strip</a> before you start.</strong> One per lamp: a two-turn length cut off the roll, about 920 mm, with two wires on the end, either clamped on or soldered. That page has the strip, the connector and the lead; step 4 here only hooks it on.</p>

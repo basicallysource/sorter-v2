@@ -222,7 +222,7 @@ All three drops now feed an LED strip in a [camera lamp]({{ '/hardware/assembly/
 
 <div class="callout">
   <span class="callout-icon" aria-hidden="true">›</span>
-  <p>The strip is <b>6000K</b> daylight white, 8 mm COB, and each lamp takes <b>950 mm</b> of it: two turns around the inside of the reflector's skirt. Three lamps is 2.85 m, so one 5 m roll does a machine. The 220 mm figure that used to be here was two turns around the old classification dome's inner tube, which is retired.</p>
+  <p>The strip is <b>6000K</b> daylight white, 8 mm COB, and each lamp takes <b>two turns</b> around the inside of the reflector's skirt, about 920 mm. Three lamps is about 2.8 m, so one 5 m roll does a machine. The 220 mm figure that used to be here was two turns around the old classification dome's inner tube, which is retired.</p>
 </div>
 
 <div class="callout callout-warning">

@@ -38,15 +38,15 @@ Each layer takes the set that matches the funnel already fitted to it.
 - **A half-size layer** takes **12 bins**: 6 Bin (half, left) and 6 Bin (half, right).
 - **A third-size layer** takes **18 bins**: 6 each of Bin (third, left), Bin (third, center) and Bin (third, right-back).
 
-One set per bay, six bays around the hexagon. A machine can mix the two sizes, in any order up the stack.
+Six bays around the hexagon, with two bins in each bay on a half-size layer and three on a third-size one. A machine can mix the two sizes, in any order up the stack.
 
 Changing a layer to the other size at this point means printing a new funnel as well as new bins. [Funnel brackets]({{ '/hardware/assembly/distribution/chute/funnel/' | relative_url }}) is where that choice is made.
 
 {% include step.html n="2a" title="Either: print the bins" %}
 
-The five parts above are in the parts catalog with their STLs, printed the same way as everything else ([Printing the parts]({{ '/hardware/printing/' | relative_url }})). Nothing but a printer and time.
+Your layer's two or three bin parts are in the parts catalog with their STLs, printed the same way as everything else ([Printing the parts]({{ '/hardware/printing/' | relative_url }})). Nothing but a printer and time.
 
-Budget for it. A half set is about 2.1 kg of filament and 55 hours of printing per layer, a third set about 2.1 kg and 60 hours, so a five layer machine is roughly 10 kg and about 300 hours in bins alone. That is the single biggest print on the machine.
+Budget for it, and start it early. A half set is about 2.1 kg of filament and 55 hours of printing per layer, a third set about 2.1 kg and 60 hours, so a five layer machine is roughly 10 kg and about 300 hours in bins alone. That is the single biggest print on the machine.
 
 <figure class="single-figure">
   <img class="doc-figure" src="https://assets.basically.website/sorter-docs/install-bins-printed-bins-loaded-stack-w1600-bf2746b86680.jpg" alt="A five layer distribution stack on casters, every bay filled with blue 3D printed bins: three across on the top two layers, two across on the bottom three">
@@ -100,7 +100,7 @@ If the retainers are not on the frame yet, they go on first: 6 of each per layer
 
 {% include step.html n="4" title="Check the funnel clears every bin" %}
 
-The funnel lands right at the bin entrances by design, so there is very little gap for a piece to escape through, and very little room for a bin that is sitting proud of its bay. Before running the machine, turn the chute stack by hand to each of its limits in turn and watch that nothing touches. You will feel the chute stepper resisting; it should still turn smoothly against that. If a bin touches, push it fully back into its bay and turn again.
+The funnel lands right at the bin entrances by design, so there is very little gap for a piece to escape through, and very little room for a bin that is sitting proud of its bay. Before running the machine, turn the chute stack by hand to each end of its travel and watch that nothing touches. You will feel the chute stepper resisting; it should still turn smoothly against that. If a bin touches, push it fully back into its bay and turn again.
 
 ## The finished result
 

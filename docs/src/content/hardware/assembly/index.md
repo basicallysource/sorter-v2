@@ -33,7 +33,7 @@ A few names recur across these sections and are worth fixing here, once: the fee
 
 ## The finished result
 
-Each section ends in one of these. Together they are the machine, ready for [Software setup]({{ '/hardware/software-setup/' | relative_url }}).
+Assembly's three sections each end in one of these. The electronics go on between the feeder and the bins.
 
 <div class="img-row">
   <figure>

@@ -74,6 +74,22 @@ drawings:
     html: https://assets.basically.website/sorter-harness/steppers-258dcdd1f1c7.html
     bom_tsv: https://assets.basically.website/sorter-harness/steppers-bom-3ac179ba971c.tsv
     yml: https://assets.basically.website/sorter-harness/steppers-99da01343286.yml
+  - name: channel-stepper
+    title: Channel stepper lead
+    of: steppers
+    guide: /hardware/helpers/channel-stepper-lead/
+    caption: >-
+      One of the four c-channel motor leads. Board PHR-4 to the motor's own
+      PHR-6, and not straight through: two conductors change places, which is
+      the crossing pair in the middle of the drawing.
+  - name: chute-stepper
+    title: Chute stepper lead
+    of: steppers
+    guide: /hardware/helpers/chute-stepper-lead/
+    caption: >-
+      The one stepper lead that is spliced rather than plugged. The NEMA 23's
+      own leads are 20 AWG, too thick for a PH contact, so a 24 AWG tail
+      carries the last stretch to the board.
   - name: leds
     title: LED drops and limit switch
     caption: >-
@@ -86,3 +102,11 @@ drawings:
     html: https://assets.basically.website/sorter-harness/leds-a879d3ac5360.html
     bom_tsv: https://assets.basically.website/sorter-harness/leds-bom-8e56b3c7a6d4.tsv
     yml: https://assets.basically.website/sorter-harness/leds-49b1ed5fd9fd.yml
+  - name: limit-switch
+    title: Chute limit switch lead
+    of: leds
+    guide: /hardware/helpers/limit-switch-lead/
+    caption: >-
+      The switch that tells the machine where the chute is. Nothing on it is
+      soldered: two crimps into a keyed 1x3 Dupont at the board, two push-on
+      #187 receptacles at the switch.

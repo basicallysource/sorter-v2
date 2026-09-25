@@ -11,10 +11,10 @@ author: effreek
 contributors: [daddyosbricksbill, brickcyclealice]
 og_image: https://assets.basically.website/sorter-docs/harness-limit-switch-terminals-w1600-49cf87cbb757.jpg
 warning: >-
-  **The photographs are from a real build; two of the numbers are still guesses.** The harness
-  notes mark **which board pin is signal and which is ground**, and **which of the switch's three
-  tabs the two conductors land on**, as guesses, and no running machine has confirmed either. The
-  build shown below is wired the way this page says. Meter both before you rely on them.
+  **The photographs are from a real build; one number is still a guess.** Which of the switch's
+  three tabs the two conductors land on is marked as a guess in the harness notes, and no running
+  machine has confirmed it. The build shown below is wired the way this page says. Meter the
+  switch before you crimp.
 parts_needed:
   - part: wire-22awg-2c
     qty: 1
@@ -35,6 +35,7 @@ Nothing on this lead is soldered. The switch end pushes on, and the board end is
 
 <dl class="spec-list">
   <dt>Board end</dt><dd>Dupont housing, <b>1x3 female, 2.54 mm</b>, with a contact in only two of its three positions. The empty position is what keys it: it lines up with the 3.3 V pin on <code>J5</code>, so the housing cannot go on backwards.</dd>
+  <dt>Which way round</dt><dd>It does not matter. <code>J5</code> position 1 is ground and position 2 is the signal, and the switch simply closes the circuit between them, so either conductor can take either one.</dd>
   <dt>Switch end</dt><dd>Two <b>#187</b> insulated quick-connect receptacles, for a 4.75 x 0.5 mm blade. They push straight onto the switch's tabs.</dd>
   <dt>Wire</dt><dd>22 AWG, two conductor. Cut it 610 mm (24 in) long.</dd>
 </dl>
@@ -48,13 +49,16 @@ Nothing on this lead is soldered. The switch end pushes on, and the board end is
 Positions 1 to 3 of the Dupont housing, held as it goes onto `J5`:
 
 <table style="max-width:420px">
-  <thead><tr><th>Position</th><th>What it is</th><th>Switch tab</th></tr></thead>
+  <thead><tr><th>Position</th><th>What it is</th></tr></thead>
   <tbody>
-    <tr><td>1</td><td>Signal</td><td><code>COM</code></td></tr>
-    <tr><td>2</td><td>Ground</td><td><code>NC</code></td></tr>
-    <tr><td>3</td><td>Leave empty</td><td>none</td></tr>
+    <tr><td>1</td><td>Ground</td></tr>
+    <tr><td>2</td><td>Signal</td></tr>
+    <tr><td>3</td><td>Leave empty</td></tr>
   </tbody>
 </table>
+
+At the switch the two go on <code>COM</code> and <code>NC</code>, and which conductor takes which
+of those does not matter.
 
 **The switch prints its own tab names.** The body carries a little schematic with `NC` and `NO` against the two tabs on its side and `COM` against the one on its bottom edge, so you can read the three off the switch in your hand rather than counting positions.
 
@@ -73,7 +77,7 @@ The switch is an SPDT with three tabs and the third one, `NO`, stays bare. Wired
 
 <div class="callout callout-warning">
   <span class="callout-icon" aria-hidden="true">⚠</span>
-  <p><b>Both halves of that table are unverified.</b> The harness notes mark the board pin order and the choice of switch tabs as guesses, and no built machine has confirmed either. Before you crimp, meter the switch: continuity between two tabs with the lever free, and none with the lever pressed, is what confirms the pair the printing names.</p>
+  <p><b>The choice of tabs is unverified.</b> The harness notes mark it as a guess and no built machine has confirmed it. Before you crimp, meter the switch: continuity between two tabs with the lever free, and none with the lever pressed, is what confirms the pair the printing names.</p>
 </div>
 
 ## Build it
@@ -87,7 +91,7 @@ The switch is an SPDT with three tabs and the third one, `NO`, stays bare. Wired
   <li>Cut 610 mm (24 in) of the pair.</li>
   <li>Strip 3 mm off both conductors at the switch end. Crimp an insulated #187 receptacle onto each, in the die that matches the sleeve colour, then pull on the wire to check it holds.</li>
   <li>Strip 2 mm off both conductors at the board end. Crimp a Dupont contact onto each, seating the strands fully in the barrel.</li>
-  <li>Push the two contacts into the housing until they click: <b>signal into position 1, ground into position 2</b>. Position 3 stays empty.</li>
+  <li>Push the two contacts into the housing until they click, one into position 1 and one into position 2. <b>Position 3 stays empty</b>, and that is what keys the plug.</li>
   <li>Push the two receptacles onto <code>COM</code> and <code>NC</code>. They are a firm push; the switch does not need holding in anything to do it.</li>
 </ol>
 

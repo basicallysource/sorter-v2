@@ -68,7 +68,7 @@ parts_needed:
 
 The four stand at different heights, so a part cascades from one to the next under gravity and arrives at the [interface]({{ '/hardware/assembly/distribution/top-interface/' | relative_url }}) singulated.
 
-C1, C2 and C3 each stand on the same three-piece support structure: a **Layout guide** it stands on, three **support legs** standing in that, and a **Support dovetail adapter** on top of each leg that slides up into the C-channel drive from below. The legs are the only thing that differs between the three channels, and their lengths are what set the drop between one channel and the next. The classification channel has no support structure of its own: it stands on the top plate and is located by C3's layout guide (step 5), and it goes in before the other three.
+C1, C2 and C3 each stand on their own three-legged stand, and **the legs are the only thing that differs between them**: their lengths are what set the drop from one channel to the next. C4 has no stand at all. It sits flat on the top plate, located by C3's layout guide, and it goes in before the other three.
 
 Steps below use the names the software uses, C1 to C4, in the order a part travels: C1 highest, C4 lowest and flat on the plate.
 
@@ -165,7 +165,7 @@ The top plate itself has no mount holes for a C-channel, so nothing bolts down h
 
 Now the other three drives go on their stands. Lower each one onto its three dovetail adapters so the tangs engage it from below. It's a friction fit; the channel's own weight holds it.
 
-The rotors are out of both photographs below, which is the only way to see the joints — with a rotor in, the middle of a channel is covered. Yours arrive from the channel pages with their rotors already in. The photographs also show the clocking from step 4: every stepper ends up in the middle of the group.
+The drive in the photograph below has no rotor in it, which is the only way to see the joints; yours arrive from the channel pages with theirs already in. It also shows the clocking from step 4: every stepper ends up in the middle of the group.
 
 <figure class="single-figure">
     <img class="doc-figure" src="https://assets.basically.website/sorter-parts/c-channel-drives-three-on-full-0fb34fea7ae4.jpg" alt="Three C-channel drives sitting on their stands with no rotors fitted, the fourth stand still empty beside them, all the steppers pointing into the middle of the group">
@@ -215,7 +215,7 @@ Four channels standing at their own heights, each one dropping into the next.
 
 <figure class="single-figure">
   <img class="doc-figure" src="https://assets.basically.website/sorter-parts/c-channel-drives-all-four-full-44246243494e.jpg" alt="All four C-channel drives standing arranged on the top plate, seen from above, their stepper motors gathered together at the centre of the group">
-  <figcaption>The four arranged, seen from above. The drives here have no rotors in them, which is how the joints show; yours arrive from the channel pages with theirs already in. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+  <figcaption>The four arranged, seen from above. <cite>Photo: BrickCycleAlice.</cite></figcaption>
 </figure>
 
 Back to the [feeder]({{ '/hardware/assembly/feeder/' | relative_url }}).

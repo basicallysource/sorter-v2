@@ -24,28 +24,53 @@ parts_needed:
     qty: 9
 ---
 
+**Four finished channels go on this page. It does not build any of them.**
+
 <div class="prep-item">
   <div class="prep-item-body">
-    <p><strong>Build all four <a href="{{ '/hardware/assembly/feeder/c-channels/' | relative_url }}">C-channels</a> before you start.</strong> They're required components of this page, not optional or covered here — this page arranges and heights four already-built channels, it doesn't build them. Three with the faceted rotor, one with the finned one, each with its rotor already in.</p>
+    <p><strong>One <a href="{{ '/hardware/assembly/feeder/c-channels/bulk-channel/' | relative_url }}">bulk channel</a>, C1.</strong> The faceted rotor in, and the Bulk cap on the stator.</p>
   </div>
   <figure class="prep-item-figure">
-    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-c-channel-finished-stage-w1600-9bd3719c4180.jpg" alt="A finished C-channel: the grey finned rotor sitting down in the grey stator ring, with the stepper motor and its lead standing off one side">
-    <figcaption>A finished C-channel, from the C-channels pages. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-bulk-channel-cap-fitted-w1600-f75843bda905.jpg" alt="A finished C1 on the bench: the tall cylindrical bulk cap seated on the channel below it, its outlet opening at the front right, the stepper motor at the front with its lead coiled">
+    <figcaption>C1, cap on. <cite>Photo: BrickCycleAlice.</cite></figcaption>
   </figure>
 </div>
 
-Four [C-channels]({{ '/hardware/assembly/feeder/c-channels/' | relative_url }}) are built on the same core and then stood at different heights, so a part cascades from one to the next under gravity and arrives at the [interface]({{ '/hardware/assembly/distribution/top-interface/' | relative_url }}) singulated.
+<div class="prep-item">
+  <div class="prep-item-body">
+    <p><strong>Two <a href="{{ '/hardware/assembly/feeder/c-channels/feeder-channels/' | relative_url }}">feeder channels</a>, C2 and C3.</strong> The faceted rotor in and an output guide on. They are the same build; only the height differs, and that is set here.</p>
+  </div>
+  <figure class="prep-item-figure">
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-c-channel-finished-stage-w1600-9bd3719c4180.jpg" alt="A C-channel from above on a plain surface: the faceted rotor sitting down in the stator ring, with the stepper motor and its lead standing off one side">
+    <figcaption>A feeder channel, rotor in. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+  </figure>
+</div>
+
+<div class="prep-item">
+  <div class="prep-item-body">
+    <p><strong>One <a href="{{ '/hardware/assembly/feeder/c-channels/classification-channel/' | relative_url }}">classification channel</a>, C4.</strong> The finned rotor, capped. It is the only one of the four with no support structure of its own.</p>
+  </div>
+  <figure class="prep-item-figure">
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/render-classification-channel-finished-full-683c6f99f962.png" alt="Render of the finished classification channel: the finned rotor sitting down in the stator ring with its cap seated in the middle of it, its fins running out to the rim">
+    <figcaption>C4, capped rotor in. <cite>Rendered from the part geometry, not from a build.</cite></figcaption>
+  </figure>
+</div>
+
+<div class="prep-item">
+  <div class="prep-item-body">
+    <p><strong>Three <a href="{{ '/hardware/assembly/feeder/camera-lamp/' | relative_url }}">camera lamps</a>.</strong> Two feeder lamps and one classification lamp, built on the bench. They hang on at step 7; C1 takes none.</p>
+  </div>
+  <figure class="prep-item-figure">
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-camera-lamp-ov9732-lead-routing-w1600-e5c818271b94.jpg" alt="The lamp on channel 3 from a low angle: the camera board in the cover's opening, the red and black lamp leads cable-tied to the arm, and the rectangular slot in the cover below the board">
+    <figcaption>A finished camera lamp. <cite>Photo: Daddy-O's Bricks - Bill.</cite></figcaption>
+  </figure>
+</div>
+
+The four stand at different heights, so a part cascades from one to the next under gravity and arrives at the [interface]({{ '/hardware/assembly/distribution/top-interface/' | relative_url }}) singulated.
 
 C1, C2 and C3 each stand on the same three-piece support structure: a **Layout guide** it stands on, three **support legs** standing in that, and a **Support dovetail adapter** on top of each leg that slides up into the C-channel drive from below. The legs are the only thing that differs between the three channels, and their lengths are what set the drop between one channel and the next. The classification channel has no support structure of its own: it stands on the top plate and is located by C3's layout guide (step 5), and it goes in before the other three.
 
-Steps below refer to the channels by the names the software uses, in the order a part travels:
-
-- **C1**, the [bulk channel]({{ '/hardware/assembly/feeder/c-channels/bulk-channel/' | relative_url }}), where parts go in. Highest.
-- **C2**, with a [camera lamp]({{ '/hardware/assembly/feeder/camera-lamp/' | relative_url }}).
-- **C3**, the same again, and the last metering stage.
-- **C4**, the [classification channel]({{ '/hardware/assembly/feeder/c-channels/classification-channel/' | relative_url }}), which images the part before it drops into the chute. Lowest.
-
-**The camera lamps go on here**, once the channels are standing in their places rather than while a channel is on the bench: each one feeds up into one of the dovetails around the outside of that channel's wall, from the bottom edge, and clips over the top. C2, C3 and C4 take one each, and step 7 says which dovetail. See [camera lamp]({{ '/hardware/assembly/feeder/camera-lamp/' | relative_url }}).
+Steps below use the names the software uses, C1 to C4, in the order a part travels: C1 highest, C4 lowest and flat on the plate.
 
 {% include step.html n="1" title="Build C1's stand" %}
 

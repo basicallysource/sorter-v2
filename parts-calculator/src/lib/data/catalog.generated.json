@@ -12,8 +12,8 @@
 		"cost_per_kg": 24.99,
 		"commit_base_url": "https://github.com/basicallysource/sorter-v2/commit/",
 		"engrave": "33d9fa246b1a",
-		"all_parts_zip": "https://assets.basically.website/sorter-parts/all-parts-944e236993fb.zip",
-		"all_parts_plain_zip": "https://assets.basically.website/sorter-parts/all-parts-plain-060ec035b0d2.zip"
+		"all_parts_zip": "https://assets.basically.website/sorter-parts/all-parts-fa616d41a210.zip",
+		"all_parts_plain_zip": "https://assets.basically.website/sorter-parts/all-parts-plain-0081b42345e6.zip"
 	},
 	"sections": [
 		{
@@ -8165,7 +8165,7 @@
 					"stl_hash": "350de3f8e27e7d0bb1f00d2c070c7f255da73987c9b2d86f639664c5db81bfd6",
 					"render": "https://assets.basically.website/sorter-parts/rotor-faceted-v1-full-52fba49e5abb.png",
 					"stl": "https://assets.basically.website/sorter-parts/rotor-faceted-350de3f8e27e.stl",
-					"grams": 166.51
+					"grams": 166.5
 				},
 				{
 					"version": "2",
@@ -8185,7 +8185,7 @@
 			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 10668,
+			"print_seconds": 10670,
 			"color": {
 				"fixed": "ash-gray"
 			},
@@ -8309,15 +8309,15 @@
 					"commit": null,
 					"stl": "https://assets.basically.website/sorter-parts/output-gear-69ae2f998fe3.stl",
 					"render": "https://assets.basically.website/sorter-parts/output-gear-full-18ac70750f76.png",
-					"grams": 59.69
+					"grams": 59.67
 				}
 			],
 			"attributes": [],
-			"grams": 59.69,
+			"grams": 59.67,
 			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 7237,
+			"print_seconds": 7249,
 			"color": {
 				"role": "feeder"
 			},
@@ -8442,15 +8442,15 @@
 					"onshape_version": "https://cad.onshape.com/documents/60aa51fc61d18f2155b99910/v/b76489d0ca46a1169a2a6081/e/66109ce96b305bf318354f93",
 					"stl": "https://assets.basically.website/sorter-parts/nema-bracket-8b2bea87360e.stl",
 					"render": "https://assets.basically.website/sorter-parts/nema-bracket-full-91f60f914ef2.png",
-					"grams": 72.42
+					"grams": 72.45
 				}
 			],
 			"attributes": [],
-			"grams": 72.42,
+			"grams": 72.45,
 			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 7206,
+			"print_seconds": 7209,
 			"color": {
 				"by_section": {
 					"feeder": {
@@ -8592,10 +8592,10 @@
 			],
 			"attributes": [],
 			"grams": 13.16,
-			"support_grams": 2.51,
+			"support_grams": 2.47,
 			"support_used": true,
 			"support_intentional": true,
-			"print_seconds": 5161,
+			"print_seconds": 5172,
 			"color": {
 				"role": "feeder"
 			},
@@ -8679,7 +8679,7 @@
 			"support_grams": 4.62,
 			"support_used": true,
 			"support_intentional": true,
-			"print_seconds": 3246,
+			"print_seconds": 3240,
 			"color": {
 				"fixed": "ivory-white"
 			},
@@ -8803,7 +8803,7 @@
 			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 956,
+			"print_seconds": 955,
 			"color": {
 				"role": "feeder"
 			},
@@ -8901,7 +8901,7 @@
 			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 43772,
+			"print_seconds": 43773,
 			"color": {
 				"role": "feeder"
 			},
@@ -9030,7 +9030,7 @@
 			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 31045,
+			"print_seconds": 30870,
 			"color": {
 				"fixed": "ivory-white"
 			},
@@ -9199,7 +9199,7 @@
 					"stl_hash": "db2c0ecf58184c752a8d66035b2620a3d1570343167b8b2b7f3b7eedd402c58f",
 					"render": "https://assets.basically.website/sorter-parts/interface-bracket-v1-full-84aba44e6d1b.png",
 					"stl": "https://assets.basically.website/sorter-parts/interface-bracket-db2c0ecf5818.stl",
-					"grams": 159.64
+					"grams": 159.48
 				},
 				{
 					"version": "2",
@@ -9210,15 +9210,15 @@
 					"onshape_version": "https://cad.onshape.com/documents/36d65973fe08f685f790dc8b/v/f845b960415692451f2903b1/e/77f0be233cae0dcaf1c2a391",
 					"stl": "https://assets.basically.website/sorter-parts/interface-bracket-5835878c9a32.stl",
 					"render": "https://assets.basically.website/sorter-parts/interface-bracket-full-9bee4cdaf075.png",
-					"grams": 159.45
+					"grams": 159.46
 				}
 			],
 			"attributes": [],
-			"grams": 159.45,
+			"grams": 159.46,
 			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 14632,
+			"print_seconds": 14631,
 			"color": {
 				"role": "frame"
 			},
@@ -9485,7 +9485,7 @@
 			"support_grams": 9.29,
 			"support_used": true,
 			"support_intentional": false,
-			"print_seconds": 23661,
+			"print_seconds": 23969,
 			"color": {
 				"role": "chute-core"
 			},
@@ -9621,7 +9621,7 @@
 			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 2583,
+			"print_seconds": 2584,
 			"color": {
 				"role": "frame"
 			},
@@ -9753,7 +9753,7 @@
 			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 2606,
+			"print_seconds": 2604,
 			"color": {
 				"role": "frame"
 			},
@@ -10156,7 +10156,7 @@
 			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 18175,
+			"print_seconds": 18078,
 			"color": {
 				"role": "chute-core"
 			},
@@ -10300,7 +10300,7 @@
 			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 14392,
+			"print_seconds": 14391,
 			"color": {
 				"role": "frame"
 			},
@@ -10451,7 +10451,7 @@
 			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 7500,
+			"print_seconds": 7440,
 			"color": {
 				"role": "frame"
 			},
@@ -10713,7 +10713,7 @@
 			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 1456,
+			"print_seconds": 1458,
 			"color": {
 				"role": "frame"
 			},
@@ -10808,7 +10808,7 @@
 			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 6009,
+			"print_seconds": 6010,
 			"color": {
 				"role": "frame"
 			},
@@ -10933,15 +10933,15 @@
 					"onshape_version": "https://cad.onshape.com/documents/a4a1965bbaf3a15aff2b13ed/v/7279a42b05833c7b828efb0d/e/b0ee2e787191265cba1c1a31",
 					"stl": "https://assets.basically.website/sorter-parts/ext-bracket-bottom-vertical-313397afb08f.stl",
 					"render": "https://assets.basically.website/sorter-parts/ext-bracket-bottom-vertical-full-9d75356a3cf1.png",
-					"grams": 50.66
+					"grams": 50.62
 				}
 			],
 			"attributes": [],
-			"grams": 50.66,
-			"support_grams": 10.41,
+			"grams": 50.62,
+			"support_grams": 10.43,
 			"support_used": true,
 			"support_intentional": false,
-			"print_seconds": 8759,
+			"print_seconds": 8873,
 			"color": {
 				"role": "frame"
 			},
@@ -11220,7 +11220,7 @@
 			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 3585,
+			"print_seconds": 3584,
 			"color": {
 				"role": "frame"
 			},
@@ -11358,15 +11358,15 @@
 					"onshape_version": "https://cad.onshape.com/documents/36d65973fe08f685f790dc8b/v/3b8fafc8cab54b09332e14d2/e/8f693a0bd7ce7d62c0c00291",
 					"stl": "https://assets.basically.website/sorter-parts/interface-upper-fixed-section-47d71e76dcfa.stl",
 					"render": "https://assets.basically.website/sorter-parts/interface-upper-fixed-section-full-ab978b2f9123.png",
-					"grams": 164.13
+					"grams": 164.14
 				}
 			],
 			"attributes": [],
-			"grams": 164.13,
+			"grams": 164.14,
 			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 12159,
+			"print_seconds": 12186,
 			"color": {
 				"role": "frame"
 			},
@@ -11503,7 +11503,7 @@
 			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 3124,
+			"print_seconds": 3123,
 			"color": {
 				"role": "frame"
 			},
@@ -11759,7 +11759,7 @@
 					"stl_hash": "8ca345012b63e33064706c787705fa3d3f39229891319935beb58eeede6d1a14",
 					"render": "https://assets.basically.website/sorter-parts/interface-big-spacer-v1-full-320abf1a877e.png",
 					"stl": "https://assets.basically.website/sorter-parts/interface-big-spacer-8ca345012b63.stl",
-					"grams": 22.19
+					"grams": 22.18
 				},
 				{
 					"version": "2",
@@ -11778,7 +11778,7 @@
 			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 1484,
+			"print_seconds": 1485,
 			"color": {
 				"role": "frame"
 			},
@@ -11872,7 +11872,7 @@
 			"support_grams": 0.92,
 			"support_used": true,
 			"support_intentional": true,
-			"print_seconds": 1949,
+			"print_seconds": 1948,
 			"color": {
 				"role": "chute-core"
 			},
@@ -12013,10 +12013,10 @@
 			],
 			"attributes": [],
 			"grams": 19.76,
-			"support_grams": 6.97,
+			"support_grams": 6.9,
 			"support_used": true,
 			"support_intentional": true,
-			"print_seconds": 3555,
+			"print_seconds": 3550,
 			"color": {
 				"role": "chute-core"
 			},
@@ -12151,7 +12151,7 @@
 			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 1916,
+			"print_seconds": 1920,
 			"color": {
 				"role": "frame"
 			},
@@ -12246,7 +12246,7 @@
 			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 1989,
+			"print_seconds": 1993,
 			"color": {
 				"role": "frame"
 			},
@@ -12320,7 +12320,7 @@
 			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 5392,
+			"print_seconds": 5384,
 			"color": {
 				"role": "frame"
 			},
@@ -12464,7 +12464,7 @@
 			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 610,
+			"print_seconds": 609,
 			"color": {
 				"role": "frame"
 			},
@@ -12579,7 +12579,7 @@
 			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 2704,
+			"print_seconds": 2705,
 			"color": {
 				"role": "frame"
 			},
@@ -12712,7 +12712,7 @@
 					"commit": "6e02bf71",
 					"onshape_version": "https://cad.onshape.com/documents/36d65973fe08f685f790dc8b/v/ea31e1c51b28dfab1e6024f5/e/53b920a202f4d2547f109634",
 					"stl": "https://assets.basically.website/sorter-parts/interface-cage-bracket-cable-0dad6ad3b408.stl",
-					"render": "https://assets.basically.website/sorter-parts/interface-cage-bracket-cable-render-dd7105132e03.png",
+					"render": "https://assets.basically.website/sorter-parts/interface-cage-bracket-cable-full-de4012cabecf.png",
 					"grams": 15.97
 				}
 			],
@@ -12741,7 +12741,7 @@
 			"docs_page": null,
 			"conflicts": null,
 			"stl": "https://assets.basically.website/sorter-parts/interface-cage-bracket-cable-0dad6ad3b408.stl",
-			"render": "https://assets.basically.website/sorter-parts/interface-cage-bracket-cable-render-dd7105132e03.png",
+			"render": "https://assets.basically.website/sorter-parts/interface-cage-bracket-cable-full-de4012cabecf.png",
 			"stamped": [
 				{
 					"face": "bottom",
@@ -13245,15 +13245,15 @@
 					"commit": null,
 					"stl": "https://assets.basically.website/sorter-parts/top-interface-split-spur-gear-1-6a600fb6a6b3.stl",
 					"render": "https://assets.basically.website/sorter-parts/top-interface-split-spur-gear-1-full-fe39441babb2.png",
-					"grams": 59.95
+					"grams": 59.97
 				}
 			],
 			"attributes": [],
-			"grams": 59.95,
+			"grams": 59.97,
 			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 7668,
+			"print_seconds": 7684,
 			"color": {
 				"role": "chute-core"
 			},
@@ -13453,15 +13453,15 @@
 					"commit": null,
 					"stl": "https://assets.basically.website/sorter-parts/top-interface-split-spur-gear-3-11f50ca23d80.stl",
 					"render": "https://assets.basically.website/sorter-parts/top-interface-split-spur-gear-3-full-4cc66f4b00eb.png",
-					"grams": 588.15
+					"grams": 588.3
 				}
 			],
 			"attributes": [],
-			"grams": 588.15,
-			"support_grams": 400.62,
+			"grams": 588.3,
+			"support_grams": 400.58,
 			"support_used": true,
 			"support_intentional": false,
-			"print_seconds": 46282,
+			"print_seconds": 46254,
 			"color": {
 				"role": "chute-core"
 			},
@@ -13904,7 +13904,7 @@
 			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 12910,
+			"print_seconds": 12914,
 			"color": {
 				"fixed": "ash-gray"
 			},
@@ -14161,7 +14161,7 @@
 			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 1444,
+			"print_seconds": 1437,
 			"color": {
 				"role": "feeder"
 			},
@@ -14372,7 +14372,7 @@
 			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 3179,
+			"print_seconds": 3180,
 			"color": {
 				"fixed": "ash-gray"
 			},
@@ -14865,7 +14865,7 @@
 			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 2948,
+			"print_seconds": 2947,
 			"color": {
 				"role": "chute-core"
 			},
@@ -14993,7 +14993,7 @@
 					"commit": null,
 					"stl": "https://assets.basically.website/sorter-parts/bearing-holder-left-f0cc0eb5d575.stl",
 					"render": "https://assets.basically.website/sorter-parts/bearing-holder-left-full-5dff3021158c.png",
-					"grams": 7.9
+					"grams": 7.95
 				}
 			],
 			"attributes": [
@@ -15002,11 +15002,11 @@
 					"value": "Bearing holder (right)"
 				}
 			],
-			"grams": 7.9,
+			"grams": 7.95,
 			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 2226,
+			"print_seconds": 2231,
 			"color": {
 				"role": "chute-core"
 			},
@@ -15824,7 +15824,7 @@
 			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 2183,
+			"print_seconds": 2182,
 			"color": {
 				"role": "chute-core"
 			},
@@ -16349,7 +16349,7 @@
 			],
 			"attributes": [],
 			"grams": 46.85,
-			"support_grams": 3.53,
+			"support_grams": 3.54,
 			"support_used": true,
 			"support_intentional": false,
 			"print_seconds": 5504,
@@ -16660,7 +16660,7 @@
 			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 3507,
+			"print_seconds": 3504,
 			"color": {
 				"role": "feeder"
 			},
@@ -16789,7 +16789,7 @@
 			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 3320,
+			"print_seconds": 3321,
 			"color": {
 				"role": "feeder"
 			},
@@ -17041,15 +17041,15 @@
 					"commit": null,
 					"stl": "https://assets.basically.website/sorter-parts/camera-led-insert-14202c7b6732.stl",
 					"render": "https://assets.basically.website/sorter-parts/camera-led-insert-full-57cb3f47cdde.png",
-					"grams": 106.12
+					"grams": 106.11
 				}
 			],
 			"attributes": [],
-			"grams": 106.12,
+			"grams": 106.11,
 			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 10331,
+			"print_seconds": 10305,
 			"color": {
 				"fixed": "ivory-white"
 			},
@@ -17183,7 +17183,7 @@
 			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 4106,
+			"print_seconds": 4105,
 			"color": {
 				"fixed": "ash-gray"
 			},
@@ -17458,7 +17458,7 @@
 			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 2842,
+			"print_seconds": 2841,
 			"color": {
 				"role": "chute-core"
 			},
@@ -18108,15 +18108,15 @@
 					"commit": null,
 					"stl": "https://assets.basically.website/sorter-parts/bin-half-left-2073b94e6ea1.stl",
 					"render": "https://assets.basically.website/sorter-parts/bin-half-left-full-b416d103330a.png",
-					"grams": 171.55
+					"grams": 171.54
 				}
 			],
 			"attributes": [],
-			"grams": 171.55,
-			"support_grams": 0.73,
+			"grams": 171.54,
+			"support_grams": 0.69,
 			"support_used": true,
 			"support_intentional": false,
-			"print_seconds": 16592,
+			"print_seconds": 16584,
 			"color": {
 				"role": "bin"
 			},
@@ -18239,15 +18239,15 @@
 					"commit": null,
 					"stl": "https://assets.basically.website/sorter-parts/bin-half-right-93ccbb523ae5.stl",
 					"render": "https://assets.basically.website/sorter-parts/bin-half-right-full-3adcab197300.png",
-					"grams": 171.67
+					"grams": 171.5
 				}
 			],
 			"attributes": [],
-			"grams": 171.67,
-			"support_grams": 0.9,
+			"grams": 171.5,
+			"support_grams": 0.67,
 			"support_used": true,
 			"support_intentional": false,
-			"print_seconds": 16691,
+			"print_seconds": 16657,
 			"color": {
 				"role": "bin"
 			},
@@ -18370,15 +18370,15 @@
 					"commit": null,
 					"stl": "https://assets.basically.website/sorter-parts/bin-third-left-16b47a00d4e4.stl",
 					"render": "https://assets.basically.website/sorter-parts/bin-third-left-full-3e972427fc03.png",
-					"grams": 121.75
+					"grams": 121.81
 				}
 			],
 			"attributes": [],
-			"grams": 121.75,
-			"support_grams": 0.96,
+			"grams": 121.81,
+			"support_grams": 1.06,
 			"support_used": true,
 			"support_intentional": false,
-			"print_seconds": 12370,
+			"print_seconds": 12385,
 			"color": {
 				"role": "bin"
 			},
@@ -18882,7 +18882,7 @@
 			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 2427,
+			"print_seconds": 2426,
 			"color": {
 				"role": "chute-core"
 			},
@@ -19104,7 +19104,7 @@
 			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 10960,
+			"print_seconds": 10583,
 			"color": {
 				"role": "frame"
 			},
@@ -19367,7 +19367,7 @@
 			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 10898,
+			"print_seconds": 10845,
 			"color": {
 				"role": "frame"
 			},
@@ -19504,7 +19504,7 @@
 			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 15104,
+			"print_seconds": 15131,
 			"color": {
 				"role": "frame"
 			},
@@ -19774,7 +19774,7 @@
 			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 620,
+			"print_seconds": 619,
 			"color": {
 				"role": "frame"
 			},
@@ -20260,7 +20260,7 @@
 			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 26626,
+			"print_seconds": 26710,
 			"color": {
 				"role": "frame"
 			},
@@ -20390,7 +20390,7 @@
 			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 6676,
+			"print_seconds": 6680,
 			"color": {
 				"role": "frame"
 			},
@@ -20610,7 +20610,7 @@
 			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 3969,
+			"print_seconds": 3970,
 			"color": {
 				"role": "frame"
 			},
@@ -20692,15 +20692,15 @@
 					"onshape_version": "https://cad.onshape.com/documents/f7d34331a9a020dce9231dc1/v/13f56af58b306d7850aa3ea4/e/562fad1e09332ebe5efdd59c",
 					"stl": "https://assets.basically.website/sorter-parts/meanwell-psu-housing-front-panel-69dae822bcaf.stl",
 					"render": "https://assets.basically.website/sorter-parts/meanwell-psu-housing-front-panel-full-39145e845278.png",
-					"grams": 15.7
+					"grams": 15.69
 				}
 			],
 			"attributes": [],
-			"grams": 15.7,
+			"grams": 15.69,
 			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 3031,
+			"print_seconds": 3027,
 			"color": {
 				"role": "frame"
 			},
@@ -20803,7 +20803,7 @@
 		},
 		{
 			"id": "camera-clasp-top",
-			"uid": "u816",
+			"uid": "9i8p",
 			"name": "Camera clasp top",
 			"quantities": {
 				"feeder": 2,
@@ -20814,28 +20814,37 @@
 			"variant_group": null,
 			"variant_name": null,
 			"description": "Top half of the clasp that holds a camera board inside the Camera lamp.",
-			"version": "1",
+			"version": "2",
 			"created_at": "2026-09-02",
-			"updated_at": "2026-09-02",
+			"updated_at": "2026-09-25",
 			"versions": [
 				{
 					"version": "1",
 					"uid": "u816",
-					"date": "2026-09-02",
-					"message": "Initial version.",
-					"commit": null,
-					"onshape_version": "https://cad.onshape.com/documents/60aa51fc61d18f2155b99910/v/45a8c24919bf95a5560da0f8/e/5bf04274a6c68015096bd757",
-					"stl": "https://assets.basically.website/sorter-parts/camera-clasp-top-905c486b0df5.stl",
+					"message": "As recorded before the first stamped change.",
+					"stl_hash": "905c486b0df5f8a02d713f6238ad15253813ffaecf951a0c0514563e38617598",
 					"render": "https://assets.basically.website/sorter-parts/camera-clasp-top-full-29db295e20a0.png",
+					"stl": "https://assets.basically.website/sorter-parts/camera-clasp-top-905c486b0df5.stl",
 					"grams": 5.98
+				},
+				{
+					"version": "2",
+					"uid": "9i8p",
+					"date": "2026-09-25",
+					"message": "Reindex the camera alignment key and matching clasp sockets to align the camera image with the channel. Replace the ring and both clasp halves together.",
+					"breaking": true,
+					"commit": "1d53b683",
+					"stl": "https://assets.basically.website/sorter-parts/camera-clasp-top-577f34236a7c.stl",
+					"render": "https://assets.basically.website/sorter-parts/camera-clasp-top-full-e44904cee17f.png",
+					"grams": 5.94
 				}
 			],
 			"attributes": [],
-			"grams": 5.98,
+			"grams": 5.94,
 			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 1122,
+			"print_seconds": 1116,
 			"color": {
 				"role": "channel"
 			},
@@ -20849,24 +20858,24 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"stl": "https://assets.basically.website/sorter-parts/camera-clasp-top-905c486b0df5.stl",
-			"render": "https://assets.basically.website/sorter-parts/camera-clasp-top-full-29db295e20a0.png",
+			"stl": "https://assets.basically.website/sorter-parts/camera-clasp-top-577f34236a7c.stl",
+			"render": "https://assets.basically.website/sorter-parts/camera-clasp-top-full-e44904cee17f.png",
 			"stamped": [
 				{
 					"face": "bottom",
-					"stl": "https://assets.basically.website/sorter-parts/camera-clasp-top-u816-stamped-bottom-092ed8eabff2.stl",
+					"stl": "https://assets.basically.website/sorter-parts/camera-clasp-top-9i8p-stamped-bottom-f3cfe5acdb40.stl",
 					"normal": [
 						0.0,
 						0.0,
 						-1.0
 					],
 					"center": [
-						-209.99,
-						-18.33,
+						-200.05,
+						-21.33,
 						178.41
 					],
 					"size": [
-						8.75,
+						8.85,
 						2.55
 					],
 					"cap": 2.5,
@@ -20875,19 +20884,19 @@
 				},
 				{
 					"face": "top",
-					"stl": "https://assets.basically.website/sorter-parts/camera-clasp-top-u816-stamped-top-70d2f6f99549.stl",
+					"stl": "https://assets.basically.website/sorter-parts/camera-clasp-top-9i8p-stamped-top-a70957043a22.stl",
 					"normal": [
-						-0.0,
 						0.0,
+						-0.0,
 						1.0
 					],
 					"center": [
-						-202.06,
+						-201.99,
 						-23.53,
 						184.41
 					],
 					"size": [
-						12.24,
+						12.39,
 						3.56
 					],
 					"cap": 3.5,
@@ -20895,19 +20904,19 @@
 				},
 				{
 					"face": "angled face",
-					"stl": "https://assets.basically.website/sorter-parts/camera-clasp-top-u816-stamped-angled-face-b649b10f869f.stl",
+					"stl": "https://assets.basically.website/sorter-parts/camera-clasp-top-9i8p-stamped-angled-face-bceed13b6286.stl",
 					"normal": [
-						-0.612,
-						-0.7908,
+						-0.9077,
+						0.4196,
 						0.0
 					],
 					"center": [
-						-186.77,
-						25.84,
+						-177.45,
+						-4.0,
 						180.81
 					],
 					"size": [
-						8.75,
+						8.85,
 						2.55
 					],
 					"cap": 2.5,
@@ -20918,7 +20927,7 @@
 		},
 		{
 			"id": "camera-clasp-bottom",
-			"uid": "zub8",
+			"uid": "7tbs",
 			"name": "Camera clasp bottom",
 			"quantities": {
 				"feeder": 2,
@@ -20929,28 +20938,37 @@
 			"variant_group": null,
 			"variant_name": null,
 			"description": "Bottom half of the clasp that holds a camera board inside the Camera lamp.",
-			"version": "1",
+			"version": "2",
 			"created_at": "2026-09-02",
-			"updated_at": "2026-09-02",
+			"updated_at": "2026-09-25",
 			"versions": [
 				{
 					"version": "1",
 					"uid": "zub8",
-					"date": "2026-09-02",
-					"message": "Initial version.",
-					"commit": null,
-					"onshape_version": "https://cad.onshape.com/documents/60aa51fc61d18f2155b99910/v/45a8c24919bf95a5560da0f8/e/5bf04274a6c68015096bd757",
-					"stl": "https://assets.basically.website/sorter-parts/camera-clasp-bottom-938683ceb872.stl",
+					"message": "As recorded before the first stamped change.",
+					"stl_hash": "938683ceb872e0c5824b5c378b0d0cd62b5413dc0fc07a3fb092ce3dffff1317",
 					"render": "https://assets.basically.website/sorter-parts/camera-clasp-bottom-full-af076f5dade0.png",
+					"stl": "https://assets.basically.website/sorter-parts/camera-clasp-bottom-938683ceb872.stl",
 					"grams": 4.96
+				},
+				{
+					"version": "2",
+					"uid": "7tbs",
+					"date": "2026-09-25",
+					"message": "Reindex the camera alignment key and matching clasp sockets to align the camera image with the channel. Replace the ring and both clasp halves together.",
+					"breaking": true,
+					"commit": "1d53b683",
+					"stl": "https://assets.basically.website/sorter-parts/camera-clasp-bottom-b31a43151b66.stl",
+					"render": "https://assets.basically.website/sorter-parts/camera-clasp-bottom-full-c6a8b8b18de3.png",
+					"grams": 4.97
 				}
 			],
 			"attributes": [],
-			"grams": 4.96,
+			"grams": 4.97,
 			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 1043,
+			"print_seconds": 1041,
 			"color": {
 				"role": "channel"
 			},
@@ -20964,46 +20982,45 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"stl": "https://assets.basically.website/sorter-parts/camera-clasp-bottom-938683ceb872.stl",
-			"render": "https://assets.basically.website/sorter-parts/camera-clasp-bottom-full-af076f5dade0.png",
+			"stl": "https://assets.basically.website/sorter-parts/camera-clasp-bottom-b31a43151b66.stl",
+			"render": "https://assets.basically.website/sorter-parts/camera-clasp-bottom-full-c6a8b8b18de3.png",
 			"stamped": [
 				{
 					"face": "top",
-					"stl": "https://assets.basically.website/sorter-parts/camera-clasp-bottom-zub8-stamped-top-7a0b9194e95b.stl",
+					"stl": "https://assets.basically.website/sorter-parts/camera-clasp-bottom-7tbs-stamped-top-c511c0d4d231.stl",
 					"normal": [
-						-0.0,
+						0.0,
 						0.0,
 						1.0
 					],
 					"center": [
-						-201.59,
-						-21.33,
+						-203.58,
+						-19.53,
 						178.41
 					],
 					"size": [
-						8.76,
-						2.55
+						12.29,
+						3.63
 					],
-					"cap": 2.5,
-					"depth": 0.6,
-					"note": "smaller text"
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
 					"face": "angled face",
-					"stl": "https://assets.basically.website/sorter-parts/camera-clasp-bottom-zub8-stamped-angled-face-9e3796ae5958.stl",
+					"stl": "https://assets.basically.website/sorter-parts/camera-clasp-bottom-7tbs-stamped-angled-face-eea89150dabd.stl",
 					"normal": [
-						0.7908,
-						-0.612,
+						-0.4196,
+						-0.9077,
 						0.0
 					],
 					"center": [
-						-219.93,
-						9.13,
-						174.81
+						-201.12,
+						24.63,
+						174.83
 					],
 					"size": [
-						8.76,
-						2.55
+						8.78,
+						2.59
 					],
 					"cap": 2.5,
 					"depth": 0.6,
@@ -21011,20 +21028,20 @@
 				},
 				{
 					"face": "angled face 2",
-					"stl": "https://assets.basically.website/sorter-parts/camera-clasp-bottom-zub8-stamped-angled-face-2-f90397090b77.stl",
+					"stl": "https://assets.basically.website/sorter-parts/camera-clasp-bottom-7tbs-stamped-angled-face-2-3d3f89838b5e.stl",
 					"normal": [
-						-0.7908,
-						0.612,
+						0.4196,
+						0.9077,
 						0.0
 					],
 					"center": [
-						-181.67,
-						1.02,
-						174.81
+						-200.48,
+						-14.47,
+						174.83
 					],
 					"size": [
-						8.76,
-						2.55
+						8.78,
+						2.59
 					],
 					"cap": 2.5,
 					"depth": 0.6,
@@ -21032,20 +21049,20 @@
 				},
 				{
 					"face": "angled face 3",
-					"stl": "https://assets.basically.website/sorter-parts/camera-clasp-bottom-zub8-stamped-angled-face-3-c656cca1a4f9.stl",
+					"stl": "https://assets.basically.website/sorter-parts/camera-clasp-bottom-7tbs-stamped-angled-face-3-d5b764525082.stl",
 					"normal": [
-						-0.612,
-						-0.7908,
-						-0.0
+						0.9077,
+						-0.4196,
+						0.0
 					],
 					"center": [
-						-194.79,
-						24.46,
-						174.81
+						-221.03,
+						6.61,
+						174.83
 					],
 					"size": [
-						8.76,
-						2.55
+						8.78,
+						2.59
 					],
 					"cap": 2.5,
 					"depth": 0.6,
@@ -21087,7 +21104,7 @@
 			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 3589,
+			"print_seconds": 3588,
 			"color": {
 				"role": "channel"
 			},
@@ -21356,7 +21373,7 @@
 			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 3483,
+			"print_seconds": 3484,
 			"color": {
 				"role": "channel"
 			},
@@ -21594,7 +21611,7 @@
 		},
 		{
 			"id": "camera-lamp-ring",
-			"uid": "sb0m",
+			"uid": "t1ir",
 			"name": "Camera lamp ring",
 			"quantities": {
 				"feeder": 2,
@@ -21605,28 +21622,37 @@
 			"variant_group": null,
 			"variant_name": null,
 			"description": "The ring on the end of the Camera lamp arm; four through holes into the arm.",
-			"version": "1",
+			"version": "2",
 			"created_at": "2026-09-02",
-			"updated_at": "2026-09-02",
+			"updated_at": "2026-09-25",
 			"versions": [
 				{
 					"version": "1",
 					"uid": "sb0m",
-					"date": "2026-09-02",
-					"message": "Initial version.",
-					"commit": null,
-					"onshape_version": "https://cad.onshape.com/documents/60aa51fc61d18f2155b99910/v/45a8c24919bf95a5560da0f8/e/5bf04274a6c68015096bd757",
-					"stl": "https://assets.basically.website/sorter-parts/camera-lamp-ring-8b617c795d40.stl",
+					"message": "As recorded before the first stamped change.",
+					"stl_hash": "8b617c795d40c1a9a9a553e99dd43402014468b6b1720af90facdbe0dc4182b6",
 					"render": "https://assets.basically.website/sorter-parts/camera-lamp-ring-full-78b8adf2ec94.png",
-					"grams": 14.66
+					"stl": "https://assets.basically.website/sorter-parts/camera-lamp-ring-8b617c795d40.stl",
+					"grams": 36.1
+				},
+				{
+					"version": "2",
+					"uid": "t1ir",
+					"date": "2026-09-25",
+					"message": "Reindex the camera alignment key and matching clasp sockets to align the camera image with the channel. Replace the ring and both clasp halves together.",
+					"breaking": true,
+					"commit": "1d53b683",
+					"stl": "https://assets.basically.website/sorter-parts/camera-lamp-ring-7d729a3e60c2.stl",
+					"render": "https://assets.basically.website/sorter-parts/camera-lamp-ring-full-95127920d806.png",
+					"grams": 36.1
 				}
 			],
 			"attributes": [],
-			"grams": 14.66,
-			"support_grams": 0.0,
-			"support_used": false,
-			"support_intentional": false,
-			"print_seconds": 3096,
+			"grams": 36.1,
+			"support_grams": 25.33,
+			"support_used": true,
+			"support_intentional": true,
+			"print_seconds": 5220,
 			"color": {
 				"role": "channel"
 			},
@@ -21640,25 +21666,25 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"stl": "https://assets.basically.website/sorter-parts/camera-lamp-ring-8b617c795d40.stl",
-			"render": "https://assets.basically.website/sorter-parts/camera-lamp-ring-full-78b8adf2ec94.png",
+			"stl": "https://assets.basically.website/sorter-parts/camera-lamp-ring-7d729a3e60c2.stl",
+			"render": "https://assets.basically.website/sorter-parts/camera-lamp-ring-full-95127920d806.png",
 			"stamped": [
 				{
 					"face": "angled face",
-					"stl": "https://assets.basically.website/sorter-parts/camera-lamp-ring-sb0m-stamped-angled-face-b8143064d924.stl",
+					"stl": "https://assets.basically.website/sorter-parts/camera-lamp-ring-t1ir-stamped-angled-face-6f631e4ad5e3.stl",
 					"normal": [
-						0.9012,
-						-0.4333,
-						-0.0
+						-0.9012,
+						0.4333,
+						0.0
 					],
 					"center": [
-						-161.99,
-						48.86,
-						150.43
+						-190.4,
+						63.63,
+						150.39
 					],
 					"size": [
-						8.79,
-						2.59
+						9.02,
+						2.5
 					],
 					"cap": 2.5,
 					"depth": 0.6,
@@ -21666,20 +21692,20 @@
 				},
 				{
 					"face": "angled face 2",
-					"stl": "https://assets.basically.website/sorter-parts/camera-lamp-ring-sb0m-stamped-angled-face-2-615254c0ac17.stl",
+					"stl": "https://assets.basically.website/sorter-parts/camera-lamp-ring-t1ir-stamped-angled-face-2-586cc7823611.stl",
 					"normal": [
-						-0.9012,
-						0.4333,
+						0.9012,
+						-0.4333,
 						0.0
 					],
 					"center": [
-						-195.55,
-						52.92,
-						165.93
+						-161.94,
+						48.97,
+						150.39
 					],
 					"size": [
-						8.79,
-						2.59
+						9.02,
+						2.5
 					],
 					"cap": 2.5,
 					"depth": 0.6,
@@ -21687,20 +21713,20 @@
 				},
 				{
 					"face": "angled face 3",
-					"stl": "https://assets.basically.website/sorter-parts/camera-lamp-ring-sb0m-stamped-angled-face-3-09129685475e.stl",
+					"stl": "https://assets.basically.website/sorter-parts/camera-lamp-ring-t1ir-stamped-angled-face-3-c745bee2e93a.stl",
 					"normal": [
-						-0.9012,
-						0.4333,
-						0.0
+						0.9012,
+						-0.4333,
+						-0.0
 					],
 					"center": [
-						-166.48,
-						53.37,
-						148.93
+						-184.94,
+						61.14,
+						148.89
 					],
 					"size": [
-						8.79,
-						2.59
+						9.02,
+						2.5
 					],
 					"cap": 2.5,
 					"depth": 0.6,
@@ -21708,20 +21734,20 @@
 				},
 				{
 					"face": "angled face 4",
-					"stl": "https://assets.basically.website/sorter-parts/camera-lamp-ring-sb0m-stamped-angled-face-4-d3dd4cee1ea6.stl",
+					"stl": "https://assets.basically.website/sorter-parts/camera-lamp-ring-t1ir-stamped-angled-face-4-50f50db97f17.stl",
 					"normal": [
-						0.9012,
-						-0.4333,
-						-0.0
+						-0.9012,
+						0.4333,
+						0.0
 					],
 					"center": [
-						-185.09,
-						60.82,
-						148.93
+						-166.53,
+						53.26,
+						148.89
 					],
 					"size": [
-						8.79,
-						2.59
+						9.02,
+						2.5
 					],
 					"cap": 2.5,
 					"depth": 0.6,
@@ -21763,7 +21789,7 @@
 			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 6802,
+			"print_seconds": 6824,
 			"color": {
 				"fixed": "ivory-white"
 			},
@@ -21929,7 +21955,7 @@
 			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 1017,
+			"print_seconds": 1018,
 			"color": {
 				"fixed": "ivory-white"
 			},
@@ -21981,7 +22007,7 @@
 			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 4192,
+			"print_seconds": 4248,
 			"color": {
 				"fixed": "ash-gray"
 			},
@@ -22147,7 +22173,7 @@
 			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 8954,
+			"print_seconds": 8959,
 			"color": {
 				"fixed": "charcoal"
 			},
@@ -22535,11 +22561,11 @@
 					"onshape_version": "https://cad.onshape.com/documents/60aa51fc61d18f2155b99910/v/45a8c24919bf95a5560da0f8/e/7f9499df9d10e70a5d51b6a1",
 					"stl": "https://assets.basically.website/sorter-parts/channel-three-support-leg-b7b2900b9962.stl",
 					"render": "https://assets.basically.website/sorter-parts/channel-three-support-leg-full-0fd2e2fccc3c.png",
-					"grams": 14.18
+					"grams": 14.19
 				}
 			],
 			"attributes": [],
-			"grams": 14.18,
+			"grams": 14.19,
 			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,

@@ -45,7 +45,7 @@ tools_needed: ["Hex keys, 2 mm for M3 and 2.5 mm for M4, plus 3 mm for an M5 but
 
 The bottom interface is the Lazy Susan bearing assembly the chute rests and spins on, slung underneath the bottom layer's frame.
 
-**Build it on the bench whenever you like, but fit it last.** Its bearing carries the bottom of the chute stack, so it goes on once the frame is standing and the [chutes]({{ '/hardware/assembly/distribution/chute/' | relative_url }}) are in, not while the layers are being stacked.
+**Build it on the bench whenever you like, but fit it last.** It is the Lazy Susan the bottom of the chute stack sits on, so it goes on once the frame is standing and the [chutes]({{ '/hardware/assembly/distribution/chute/' | relative_url }}) are in.
 
 <div class="prep-item">
   <div class="prep-item-body">

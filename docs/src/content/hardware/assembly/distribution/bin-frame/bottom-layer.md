@@ -65,14 +65,14 @@ The bottom layer does not get an External bracket — cover, and it does not get
   <figcaption>One corner of a standing machine, close up. D runs from the caster, past this layer's corner, up to the layer above; C is the ordinary vertical between the layers further up. <cite>Photo courtesy of Christoph in the basically Discord.</cite></figcaption>
 </figure>
 
-The corner itself is the same as on any layer. Only the vertical changes: piece D takes the place of piece C, and it stands proud at the bottom instead of being capped.
+The corner itself is the same as on any layer. Only the vertical changes: piece D takes the place of piece C, and it runs on down through the corner instead of being capped.
 
 On each of the six corners:
 
 <ol class="numbered-steps">
   <li>Partially thread the 2 {% include fastener.html size="M5" variant="socket-button" length="16" %} screws that clamp the collar onto the extrusion, at the holes near the bottom of the External bracket — side, so they are started but not yet tight.</li>
-  <li>Slide a piece D down through the corner, from above, until it stands out below the foot cover.</li>
-  <li>Measure from the bottom before tightening anything, to check how far the exposed end will stand proud once the corner is clamped.</li>
+  <li>Slide a piece D down through the corner, from above.</li>
+  <li>Before tightening anything, measure from the bottom face of the External bracket — side to the end of piece D. It should stand out <strong>about 54 mm</strong>.</li>
   <li>Tighten the 2 collar screws, bracing against the extrusion.</li>
 </ol>
 
@@ -87,7 +87,7 @@ On each of the six corners:
   </figure>
 </div>
 
-Let the bottom end of piece D stand proud of the corner rather than sitting flush with it: the foot connector bolts into that exposed end, and the External bracket — foot cover is deliberately shorter than an ordinary cover so the extrusion pops out far enough to take it.
+With the External bracket — foot cover on, **the end of piece D finishes about 3 mm inside the end of the cover**, the same way piece C finishes 3 mm below the top of its bracket on a [regular layer]({{ '/hardware/assembly/distribution/bin-frame/regular-layers/' | relative_url }}).
 
 <figure class="figure-float-right">
   <a href="https://assets.basically.website/sorter-docs/assembly-bottom-two-layers-foot-corner-section-full-6ec3353ee6cf.png" target="_blank" rel="noopener">
@@ -100,10 +100,10 @@ The numbers on the drawing:
 
 <ol class="keyed-list">
   <li><strong>External bracket — side</strong>, the same collar as on any layer, at this layer's frame.</li>
-  <li><strong>External bracket — foot cover</strong> in place of the bottom vertical and cover. It closes the corner off but is far shorter, so the extrusion can leave the bottom of it.</li>
+  <li><strong>External bracket — foot cover</strong> in place of the bottom vertical and cover.</li>
   <li><strong>Piece D</strong>, 231 mm cut. It runs from below this layer, through its collar, and up to 3 mm below the flange face of the collar above, so it spans the whole gap to the next layer as well as reaching the floor.</li>
   <li class="key-screw"><strong>Two {% include fastener.html size="M5" variant="socket-button" length="16" %} screws</strong> clamp this layer's collar onto piece D, and two more clamp the External bracket — bottom vertical onto it in step 4. Same screws, same holes as on a regular layer.</li>
-  <li class="key-note"><strong>The exposed end of piece D</strong>, which takes the 2020 M6 foot connector and the caster. On the lengths as drawn it stands about 54 mm below the foot cover.</li>
+  <li class="key-note"><strong>The end of piece D</strong>, which takes the 2020 M6 foot connector and the caster. It stands about 54 mm below the External bracket — side, and finishes about 3 mm inside the end of the foot cover.</li>
   <li><strong>The collar of the layer above</strong>, sitting on the External bracket — bottom vertical fitted in step 4. From here up, every joint is the ordinary layer joint described on <a href="{{ '/hardware/assembly/distribution/stacking-the-layers/' | relative_url }}">Stacking the layers</a>.</li>
 </ol>
 

@@ -8,7 +8,7 @@ kicker: Helpers — T-nuts
 lede: How the machine's roll-in T-nuts go into the extrusion, and what changes if you buy a different style.
 permalink: /hardware/helpers/t-nuts/
 author: barthel
-og_image: https://assets.basically.website/sorter-docs/bottom-interface-tnuts-entering-extrusion-slot-w1600-1291f08f0d51.jpg
+og_image: https://assets.basically.website/sorter-docs/assembly-regular-layers-extrusion-tnut-holes-w1600-b5863688aeea.png
 parts_needed:
   - part: tnut-m5-2020
 ---
@@ -60,10 +60,10 @@ slot before you reach the part that uses it. Fit the part in the same session.
 
 ## The finished result
 
-A T-nut in the slot with its ends under the lips, holding its own position, ready for the
-screw to find it.
+T-nuts sitting in the slot with their ends under the lips, each holding its own position,
+with no screw in it yet.
 
 <figure class="single-figure">
-  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/bottom-interface-tnuts-entering-extrusion-slot-w1600-1291f08f0d51.jpg" alt="Two roll-in T-nuts meeting the slot of a 2020 extrusion, each threaded onto a screw through the printed mount behind it, with the open end of the extrusion showing the slot's two lips">
-  <figcaption>Two T-nuts going into the slot of a B spoke, at the <a href="{{ '/hardware/assembly/distribution/bin-frame/bottom-interface/' | relative_url }}">bottom interface</a>. They are threaded onto their screws first here, because they enter at the open end. The extrusion's cut end shows the two lips a T-nut turns under. <cite>Photo: Danny.</cite></figcaption>
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-regular-layers-extrusion-tnut-holes-w1600-b5863688aeea.png" alt="Side view along a 2020 aluminum extrusion with four roll-in T-nuts seated in its slot, evenly spaced, each showing its threaded hole, with an External bracket at the far end of the extrusion">
+  <figcaption>Four T-nuts in the slot of an A extrusion, which is what the <a href="{{ '/hardware/assembly/distribution/bin-frame/bin-retainers/' | relative_url }}">bin retainers</a> need on each face. They stay where you put them until the screws find them. <cite>Photo: zed0.</cite></figcaption>
 </figure>

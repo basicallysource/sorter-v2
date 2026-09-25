@@ -129,7 +129,7 @@
 			title: 'Motion Direction Check',
 			kicker: 'Step 4',
 			description:
-				'Jog each axis a tiny amount and confirm whether it moved clockwise or counter-clockwise. The wizard will flip any reversed logical directions automatically.',
+				'Jog each axis a tiny amount and say whether it turned clockwise or counter-clockwise, looking down from above. The wizard reverses any motor that runs the wrong way.',
 			requiresManualConfirm: true
 		},
 		{

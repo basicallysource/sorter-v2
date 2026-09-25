@@ -25,6 +25,7 @@
 		assembliesContaining,
 		bestUsVendor,
 		buyCost,
+		buyCostIn,
 		buyUnits,
 		hardwareOptional,
 		getHardware,
@@ -42,6 +43,7 @@
 		SIZE_COLORS,
 		usagePaths,
 		fmtPrice,
+		fmtMoney,
 		type Assembly,
 		type Hardware
 	} from '$lib/filament';
@@ -443,7 +445,7 @@
 							<!-- in-house part, not shipping yet — no link out, no price to show -->
 							<span class="text-xs italic text-text-muted/70">Coming soon to basically</span>
 						{:else}
-							{@const cost = buyCost(v, buyUnits(h, qty))}
+							{@const cost = buyCostIn(v, buyUnits(h, qty))}
 							<span class="inline-flex items-center gap-1 text-xs">
 								<a
 									href={v.affiliate_url ?? v.url}
@@ -461,7 +463,7 @@
 									{#if fmtPrice(v)}
 										{fmtPrice(v)}{v.pack_qty && v.pack_qty > 1 ? ` / ${v.pack_qty}` : ''}
 										{#if cost != null && v.pack_qty && cost !== v.price}
-											→ <span class="font-semibold text-text">${cost.toFixed(2)}</span>
+											→ <span class="font-semibold text-text">{fmtMoney(v, cost)}</span>
 										{/if}
 									{:else}
 										no price

@@ -136,6 +136,11 @@ for (const [path, raw] of Object.entries(dataFiles)) {
 			category: 'Printed parts',
 			page: pt.docs_page,
 			caption: pt.caption,
+			// Parts sharing a variant_group are alternatives chosen per layer (the
+			// bins, the funnels). A page that lists more than one of them is
+			// offering a choice, not a shopping list — see resolveParts.
+			variant_group: pt.variant_group,
+			variant_name: pt.variant_name,
 			conflicts: pt.conflicts,
 			detail: {
 				kind: 'printed',
@@ -404,6 +409,11 @@ export type ResolvedPart = {
 		note?: string;
 	}>;
 	missing?: boolean;
+	// One-of-these-per-layer families (the bins, the funnels). Only meaningful
+	// when a page lists more than one variant_name from the same group; see
+	// foldVariants.
+	variant_group?: string | null;
+	variant_name?: string | null;
 	/** Everything the part modal shows, taken straight off the calculator's
 	 *  generated catalog so the two never drift. Absent on a missing part. */
 	detail?: PartDetail;
@@ -449,7 +459,16 @@ export type PartDetail = {
 	// laser-cut
 	dxf?: string;
 };
-export type PartsGroup = { category: string; parts: ResolvedPart[] };
+/** One alternative within a category: every part a reader takes if they pick
+ *  this variant. `label` is the catalog's variant_name ("Half", "Third"). */
+export type PartsChoice = { label: string; parts: ResolvedPart[] };
+export type PartsGroup = {
+	category: string;
+	parts: ResolvedPart[];
+	// Rendered after `parts` as "one of these per layer", each choice separated
+	// by an "or". Empty on every page that lists at most one variant per group.
+	choices: PartsChoice[];
+};
 export type ResolvedPerson = { name: string; url?: string };
 
 function resolvePeople(ids: unknown): ResolvedPerson[] {
@@ -458,6 +477,35 @@ function resolvePeople(ids: unknown): ResolvedPerson[] {
 		const person = data.authors?.[id];
 		return person ? { name: person.name, url: person.url } : { name: String(id) };
 	});
+}
+
+/** Move a category's one-of-these-per-layer families out of its flat card list
+ *  and into `choices`, so the panel can show "Half OR Third" instead of every
+ *  variant side by side as though a reader needed all of them. A page listing
+ *  all five bins was reading as 30 bins where a layer takes 12 or 18.
+ *
+ *  Only folds a group the page offers a real choice from: one variant_name is
+ *  not a choice, so a page listing just the half bins renders unchanged. Order
+ *  follows the page's own parts_needed. */
+function foldVariants(group: PartsGroup): void {
+	const byGroup = new Map<string, Map<string, ResolvedPart[]>>();
+	for (const p of group.parts) {
+		if (!p.variant_group || !p.variant_name) continue;
+		let variants = byGroup.get(p.variant_group);
+		if (!variants) byGroup.set(p.variant_group, (variants = new Map()));
+		const bucket = variants.get(p.variant_name);
+		if (bucket) bucket.push(p);
+		else variants.set(p.variant_name, [p]);
+	}
+	const folded = new Set<ResolvedPart>();
+	for (const variants of byGroup.values()) {
+		if (variants.size < 2) continue;
+		for (const [label, parts] of variants) {
+			group.choices.push({ label, parts });
+			for (const p of parts) folded.add(p);
+		}
+	}
+	if (folded.size) group.parts = group.parts.filter((p) => !folded.has(p));
 }
 
 function resolveParts(partsNeeded: any[]): { groups: PartsGroup[]; conflicts: ResolvedPart[] } {
@@ -480,15 +528,18 @@ function resolveParts(partsNeeded: any[]): { groups: PartsGroup[]; conflicts: Re
 			conflicts: part.conflicts,
 			detail: part.detail,
 			qty,
-			category: part.category ?? 'Other'
+			category: part.category ?? 'Other',
+			variant_group: part.variant_group,
+			variant_name: part.variant_name
 		};
 	});
 	const groups: PartsGroup[] = [];
 	for (const p of resolved) {
 		let g = groups.find((g) => g.category === p.category);
-		if (!g) groups.push((g = { category: p.category, parts: [] }));
+		if (!g) groups.push((g = { category: p.category, parts: [], choices: [] }));
 		g.parts.push(p);
 	}
+	for (const g of groups) foldVariants(g);
 	return { groups, conflicts: resolved.filter((p) => p.conflicts?.length) };
 }
 

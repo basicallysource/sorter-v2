@@ -10,6 +10,7 @@ permalink: /hardware/assembly/feeder/c-channels/
 og_image: https://assets.basically.website/sorter-docs/assembly-channel-core-finished-top-w1600-4713962f4dfd.jpg
 author: spencer
 contributors: [barthel, brickcyclealice, christoph, danny]
+last_verified: 2026-09-25
 ---
 
 A C-channel is one drive unit: a rotor turning inside a stator, driven by a NEMA 17 stepper through a gear train. A machine has four, and **all four are built on the same core**. What differs is the rotor that drops in and what hangs off it.

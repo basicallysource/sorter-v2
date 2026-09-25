@@ -10,7 +10,7 @@ permalink: /hardware/assembly/feeder/c-channels/bulk-channel/
 author: barthel
 contributors: [spencer, brickcyclealice]
 og_image: https://assets.basically.website/sorter-docs/assembly-bulk-channel-cap-fitted-w1600-f75843bda905.jpg
-last_verified: 2026-09-16
+last_verified: 2026-09-25
 tools_needed: ["Hex key, 2 mm"]
 parts_needed:
   - part: rotor-faceted

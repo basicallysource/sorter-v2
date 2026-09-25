@@ -9,6 +9,7 @@ lede: The arm, the shaded lamp and the camera that hang over C2, C3 and the clas
 permalink: /hardware/assembly/feeder/camera-lamp/
 author: reveryx
 contributors: [spencer, danny, brickcyclealice, barthel]
+last_verified: 2026-09-25
 og_image: https://assets.basically.website/sorter-docs/camera-lamp-render-underside-full-0e2b1e5a0fb9.png
 ---
 

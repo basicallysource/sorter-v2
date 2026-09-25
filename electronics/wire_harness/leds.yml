@@ -57,7 +57,7 @@ cables:
   LIM:
     gauge: 22 AWG
     length: 24 in
-    colors: [WH, BK]
+    colors: [BK, WH]
     notes: "Limit switch. Gauge = GUESS, not covered by\nthe reference drawings."
 
 connections:

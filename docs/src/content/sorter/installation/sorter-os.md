@@ -22,6 +22,7 @@ last_verified: 2026-09-24
 - An [Orange Pi 5]({{ '/hardware/orange-pi-5/' | relative_url }}) with 8 GB of memory or more
 - **A 32 GB or larger microSD card from a name brand, like Samsung** ([the SD card part](https://parts-calculator.basically.website/u/7fvo/)). The Pi writes to it all day, and cheap cards corrupt.
 - A computer with an SD card reader, and [Balena Etcher](https://etcher.balena.io/)
+  - On Windows, open Etcher with right-click, **Run as administrator**. Otherwise the flash can fail with "Error starting flasher sidecar process".
 - A phone and your WiFi's password, or an Ethernet cable to your router
 
 ## 1. Download

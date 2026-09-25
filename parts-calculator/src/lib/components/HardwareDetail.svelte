@@ -10,9 +10,10 @@
 	import {
 		assembliesContaining,
 		bestUsVendor,
-		buyCost,
+		buyCostIn,
 		buyUnits,
 		fmtPrice,
+		fmtMoney,
 		hardwareOptional,
 		getHardware,
 		getPart,
@@ -290,7 +291,7 @@
 					<!-- in-house part, not shipping yet — no link out, no price to show -->
 					<div class="p-2 text-sm italic text-text-muted/70">Coming soon to basically</div>
 				{:else}
-					{@const cost = buyCost(v, buyUnits(h, qty))}
+					{@const cost = buyCostIn(v, buyUnits(h, qty))}
 					<div class="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 p-2 text-sm">
 						<span class="inline-flex items-center gap-2">
 							<a
@@ -317,7 +318,7 @@
 								{fmtPrice(v)}{v.pack_qty && v.pack_qty > 1 ? ` for ${v.pack_qty}` : ''}
 								{#if cost != null && v.pack_qty && qty != null}
 									· buy <span class="text-text">{packsNeeded(v, buyUnits(h, qty)!)}</span> =
-									<span class="font-semibold text-text">${cost.toFixed(2)}</span>
+									<span class="font-semibold text-text">{fmtMoney(v, cost)}</span>
 								{/if}
 							{:else}
 								no price recorded

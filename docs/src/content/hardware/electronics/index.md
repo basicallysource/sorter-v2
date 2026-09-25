@@ -12,7 +12,7 @@ author: barthel
 contributors: [spencer]
 ---
 
-The machine's electronics are one 24 V supply, two boards and the cables between them. The supply is a Mean Well LRS-350-24 in a printed box; **basically board v1.3**, the basically Embedded Control Board, drives the steppers, the lamps and the limit switch; and an **Orange Pi 5** runs the software and the cameras. Each of the three sits in its own printed enclosure bolted to the same frame.
+The machine's electronics are one 24 V supply, two boards and the cables between them. The supply is a Mean Well LRS-350-24 in a printed box; **basically board v1.3**, the basically Embedded Control Board, drives the steppers, the lamps and the limit switch; and an **Orange Pi 5** runs the software and the cameras. Each of the three has its own printed part bolted to the same frame: a box for the supply, a housing for the control board, and an open mount for the Pi.
 
 <ol class="numbered-steps">
   <li><strong><a href="{{ '/hardware/electronics/wire-harness/' | relative_url }}">Wire harness</a></strong>. The reference: the supply's spec, the interconnect diagram, every cable with its ends, lengths and gauges, the stepper pinout, and what is still undecided. Read it to know what a cable is; you do not build anything from this page.</li>

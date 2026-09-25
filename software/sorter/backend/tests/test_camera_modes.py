@@ -1,9 +1,11 @@
+import asyncio
 import os
 import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import patch
 
+import numpy as np
 import tomllib
 
 from irl.config import mkCameraConfig
@@ -112,6 +114,34 @@ class CameraListTests(unittest.TestCase):
             [(0, 1280, 720), (2, 3840, 2160), (4, 1280, 720)],
             [(c["index"], c["width"], c["height"]) for c in listed],
         )
+
+
+class PreviewStreamTests(unittest.TestCase):
+    def test_a_preview_lets_go_of_its_camera_once_a_role_claims_it(self) -> None:
+        class FakeCap:
+            released = False
+
+            def isOpened(self) -> bool:
+                return True
+
+            def read(self):
+                return True, np.zeros((480, 640, 3), np.uint8)
+
+            def release(self) -> None:
+                FakeCap.released = True
+
+        claims = iter([None, None, None, object()])
+        with patch.object(cameras, "_device_capturing_index", side_effect=lambda i: next(claims)), patch.object(
+            cameras, "_open_camera_for_preview", return_value=FakeCap()
+        ):
+            response = cameras.camera_stream(2)
+
+            async def drain() -> int:
+                return len([chunk async for chunk in response.body_iterator])
+
+            frames = asyncio.run(drain())
+        self.assertEqual(2, frames)
+        self.assertTrue(FakeCap.released)
 
 if __name__ == "__main__":
     unittest.main()

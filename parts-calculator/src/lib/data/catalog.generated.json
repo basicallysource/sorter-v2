@@ -24730,7 +24730,12 @@
 					{
 						"region": "EU",
 						"vendor": "StepperOnline",
-						"url": "https://www.omc-stepperonline.com/3-pcs-e-series-nema-17-bipolar-42ncm-59-49oz-in-1-5a-42x42x38mm-4-wires-w-1m-cable-connector-3-17he15-1504s"
+						"url": "https://www.omc-stepperonline.com/de/3-stueck-e-serie-nema-17-bipolar-42-ncm-59-49-oz-in-1-5a-42x42x38mm-4-draehte-3-17he15-1504s",
+						"price": 11.86,
+						"currency": "EUR",
+						"pack_qty": 3,
+						"as_of": "2026-09-25",
+						"note": "One unit is three motors. Pick Deutschland under \"Versendet von\". VAT is added at checkout, not in the price shown."
 					}
 				]
 			},

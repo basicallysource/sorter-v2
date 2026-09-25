@@ -77,12 +77,12 @@ On a phone or computer on the same WiFi, open **[http://sorter.local](http://sor
 
 <div class="img-row">
   <figure>
-    <img src="https://assets.basically.website/sorter-docs/sorteros-install-progress-full-581ee53decaa.png" alt="The installation progress page at sorter.local: a list of install stages, most checked off, one running, and a note that the page refreshes itself">
+    <img src="https://assets.basically.website/sorter-docs/sorteros-first-boot-progress-full-4a47b94fbcee.png" alt="The installation progress page at sorter.local: Installing the Sorter, and a list of steps, three done and one running">
     <figcaption>The installation progress. The page updates itself. <cite>Screenshot recorded in a browser.</cite></figcaption>
   </figure>
 </div>
 
-When it's done, the same page becomes the Sorter UI.
+When it's ready, the page opens the Sorter UI by itself.
 
 <div class="img-row">
   <figure>

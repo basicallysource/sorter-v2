@@ -48,10 +48,57 @@ Board 1 goes to motor 1, 2 to 4, 3 to 3 and 4 to 6, which is the crossing pair i
 the drawing. Motor positions 2 and 5 stay empty.
 
 <figure class="harness-figure">
-  <a href="https://assets.basically.website/sorter-harness/channel-stepper-full-c66a1f4a3f06.png" target="_blank" rel="noopener">
-    <img src="https://assets.basically.website/sorter-harness/channel-stepper-full-c66a1f4a3f06.png" alt="WireViz drawing of one channel stepper lead: a 4-pin PHR-4 at the board with positions A2, A1, B1 and B2, four coloured conductors, and a 6-pin PHR-6 at the motor, with the middle two wires crossing so board 2 lands on motor 4 and board 3 on motor 3">
-  </a>
-  <figcaption>One lead end to end. The green and red conductors cross in the middle: that is the whole difference between this cable and a straight-through one. Click for full size. <cite>WireViz-generated drawing, not a photo.</cite></figcaption>
+  <div class="diagram diagram-wide">
+    <svg viewBox="0 0 930 413" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="One channel stepper lead: a 4-pin board connector on the left with positions A2, A1, B1 and B2, four wires running to the motor's 6-pin socket on the right, the middle two crossing so board position 2 lands on motor position 4 and board position 3 on motor position 3, with motor positions 2 and 5 empty">
+      <text x="0" y="20" font-size="17" font-weight="700" fill="var(--ink)">One channel stepper lead</text>
+      <text x="0" y="41" font-size="12" fill="var(--muted)">basically board v1.3 to one c-channel motor. Four per machine, all the same.</text>
+      <line x1="0" y1="64" x2="26" y2="64" stroke="var(--primary)" stroke-width="2.6" stroke-linecap="round"/>
+      <text x="34" y="68" font-size="11" fill="var(--muted)">coil A</text>
+      <line x1="98" y1="64" x2="124" y2="64" stroke="var(--ink)" stroke-width="2.6" stroke-linecap="round"/>
+      <text x="132" y="68" font-size="11" fill="var(--muted)">coil B</text>
+      <rect x="0" y="92" width="250" height="273" rx="5" fill="var(--bg)" stroke="var(--ink)" stroke-width="1.5"/>
+      <text x="14" y="116" font-size="13" font-weight="700" fill="var(--ink)">basically board v1.3</text>
+      <text x="14" y="134" font-size="11" fill="var(--muted)">J27 / J31 / J35 / J39</text>
+      <circle cx="250" cy="181.0" r="4.5" fill="var(--primary)"/>
+      <text x="236" y="185.0" font-size="11" font-weight="700" fill="var(--muted)" text-anchor="end">1</text>
+      <text x="218" y="185.0" font-size="12" font-weight="600" fill="var(--ink)" text-anchor="end">A2</text>
+      <circle cx="250" cy="228.0" r="4.5" fill="var(--primary)"/>
+      <text x="236" y="232.0" font-size="11" font-weight="700" fill="var(--muted)" text-anchor="end">2</text>
+      <text x="218" y="232.0" font-size="12" font-weight="600" fill="var(--ink)" text-anchor="end">A1</text>
+      <circle cx="250" cy="275.0" r="4.5" fill="var(--ink)"/>
+      <text x="236" y="279.0" font-size="11" font-weight="700" fill="var(--muted)" text-anchor="end">3</text>
+      <text x="218" y="279.0" font-size="12" font-weight="600" fill="var(--ink)" text-anchor="end">B1</text>
+      <circle cx="250" cy="322.0" r="4.5" fill="var(--ink)"/>
+      <text x="236" y="326.0" font-size="11" font-weight="700" fill="var(--muted)" text-anchor="end">4</text>
+      <text x="218" y="326.0" font-size="12" font-weight="600" fill="var(--ink)" text-anchor="end">B2</text>
+      <rect x="680" y="92" width="250" height="273" rx="5" fill="var(--bg)" stroke="var(--ink)" stroke-width="1.5"/>
+      <text x="694" y="116" font-size="13" font-weight="700" fill="var(--ink)">NEMA 17 motor</text>
+      <text x="694" y="134" font-size="11" fill="var(--muted)">its own 6-pin socket</text>
+      <circle cx="680" cy="164" r="4.5" fill="var(--primary)"/>
+      <text x="694" y="168" font-size="11" font-weight="700" fill="var(--muted)">1</text>
+      <text x="712" y="168" font-size="12" font-weight="600" fill="var(--ink)">A2</text>
+      <circle cx="680" cy="199" r="4.5" fill="var(--surface)" stroke="var(--muted)" stroke-width="1.5"/>
+      <text x="694" y="203" font-size="11" font-weight="700" fill="var(--muted)">2</text>
+      <text x="712" y="203" font-size="12" fill="var(--muted)">empty</text>
+      <circle cx="680" cy="234" r="4.5" fill="var(--ink)"/>
+      <text x="694" y="238" font-size="11" font-weight="700" fill="var(--muted)">3</text>
+      <text x="712" y="238" font-size="12" font-weight="600" fill="var(--ink)">B1</text>
+      <circle cx="680" cy="269" r="4.5" fill="var(--primary)"/>
+      <text x="694" y="273" font-size="11" font-weight="700" fill="var(--muted)">4</text>
+      <text x="712" y="273" font-size="12" font-weight="600" fill="var(--ink)">A1</text>
+      <circle cx="680" cy="304" r="4.5" fill="var(--surface)" stroke="var(--muted)" stroke-width="1.5"/>
+      <text x="694" y="308" font-size="11" font-weight="700" fill="var(--muted)">5</text>
+      <text x="712" y="308" font-size="12" fill="var(--muted)">empty</text>
+      <circle cx="680" cy="339" r="4.5" fill="var(--ink)"/>
+      <text x="694" y="343" font-size="11" font-weight="700" fill="var(--muted)">6</text>
+      <text x="712" y="343" font-size="12" font-weight="600" fill="var(--ink)">B2</text>
+      <path d="M 256 181.0 C 465.0 181.0, 465.0 164, 674 164" fill="none" stroke="var(--primary)" stroke-width="2.6" stroke-linecap="round"/>
+      <path d="M 256 228.0 C 465.0 228.0, 465.0 269, 674 269" fill="none" stroke="var(--primary)" stroke-width="2.6" stroke-linecap="round"/>
+      <path d="M 256 275.0 C 465.0 275.0, 465.0 234, 674 234" fill="none" stroke="var(--ink)" stroke-width="2.6" stroke-linecap="round"/>
+      <path d="M 256 322.0 C 465.0 322.0, 465.0 339, 674 339" fill="none" stroke="var(--ink)" stroke-width="2.6" stroke-linecap="round"/>
+      <text x="465" y="397" font-size="12" fill="var(--muted)" text-anchor="middle">Two conductors change places: board 2 goes to motor 4, board 3 to motor 3. Keep each coil pair together.</text>
+    </svg>
+  </div>  <figcaption>One lead end to end. The two conductors that change places are the crossing pair in the middle.</figcaption>
 </figure>
 
 **Positions 1 and 2 on the board are one coil, 3 and 4 are the other.** Keeping each pair together is what matters. Swapping the two wires inside a coil only reverses which way the motor turns, and the direction is set in the software.
@@ -115,5 +162,5 @@ Onto the four channel stepper sockets at [connecting the components]({{ '/hardwa
 
 ## Reference
 
-The drawing above with its bill of materials and its downloads, and the whole stepper harness it
-is part of, are on the [WireViz drawings]({{ '/hardware/parts/harness-order/#channel-stepper' | relative_url }}) page.
+The vendor drawing for this cable, its bill of materials and its downloads are on the [WireViz
+drawings]({{ '/hardware/parts/harness-order/#channel-stepper' | relative_url }}) page. It shows the same lead in the form a cable supplier quotes from.

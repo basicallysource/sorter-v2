@@ -41,7 +41,7 @@ Put the card in the Orange Pi and power it on.
 
 ## 4. Put it on your WiFi from your phone
 
-About half a minute after power on, the Pi starts its own WiFi network, `SorterOS-Setup-` and six characters.
+About half a minute after power on, the Pi starts its own WiFi network, `SorterOS-Setup-` and six characters. For up to a minute after it appears, your phone may say it's unable to join. Wait and try again.
 
 <div class="img-row">
   <figure>

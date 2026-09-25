@@ -183,11 +183,6 @@
 					{#if parts.groups.length > 1 || group.category !== 'Other'}
 						<p class="parts-category">{group.category}</p>
 					{/if}
-					{#if group.parts.length}
-						<ul class="parts-list">
-							{#each group.parts as part (part.id)}{@render partCard(part)}{/each}
-						</ul>
-					{/if}
 					{#if group.choices.length}
 						<p class="parts-category">One of these per layer</p>
 						<div class="parts-choices">
@@ -201,6 +196,11 @@
 								</div>
 							{/each}
 						</div>
+					{/if}
+					{#if group.parts.length}
+						<ul class="parts-list">
+							{#each group.parts as part (part.id)}{@render partCard(part)}{/each}
+						</ul>
 					{/if}
 				{/each}
 				{#if parts.conflicts.length}

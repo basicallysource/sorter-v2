@@ -135,7 +135,7 @@ from server.routers.runtimes import router as runtimes_router
 from server.routers.chute_stress import router as chute_stress_router
 from server.routers.tuning import router as tuning_router
 from server.routers.telemetry import router as telemetry_router
-from server.routers.tailscale import router as tailscale_router
+from server.routers.tailscale import keep_installed as keep_tailscale_installed, router as tailscale_router
 from server.routers.wifi import router as wifi_router
 from server.routers.firmware import router as firmware_router
 from server.routers.versions import router as versions_router
@@ -196,6 +196,7 @@ async def onStartup() -> None:
     asyncio.create_task(_loop_lag_probe())
     getSetProgressSyncWorker().start()
     get_waveshare_inventory_manager().start()
+    keep_tailscale_installed()
     from status_ping import getStatusPinger
 
     getStatusPinger().start()

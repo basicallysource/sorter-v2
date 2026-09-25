@@ -14,6 +14,8 @@
 		ipv4?: string;
 		tailnet?: string;
 		error?: string;
+		installing?: boolean;
+		install_error?: string | null;
 	};
 
 	let status = $state<TailscaleStatus | null>(null);
@@ -90,6 +92,13 @@
 	onMount(() => {
 		void loadStatus();
 	});
+
+	// The machine installs Tailscale on its own; watch until it's there.
+	$effect(() => {
+		if (!status || status.installed || !status.installing) return;
+		const timer = setInterval(() => void loadStatus(), 5000);
+		return () => clearInterval(timer);
+	});
 </script>
 
 <div class="flex flex-col gap-4">
@@ -103,7 +112,11 @@
 			{:else if status !== null}
 				<WifiOff size={14} class="text-text-muted" />
 				<span class="text-sm font-medium text-text">
-					{status.installed ? 'Not connected' : 'Tailscale not installed'}
+					{status.installed
+						? 'Not connected'
+						: status.installing
+							? 'Installing Tailscale...'
+							: 'Tailscale not installed'}
 				</span>
 			{:else}
 				<span class="text-sm text-text-muted">Loading...</span>
@@ -129,6 +142,11 @@
 		{#if status && !status.connected && status.error}
 			<div class="mt-1 text-sm text-text-muted">{status.error}</div>
 		{/if}
+		{#if status && !status.installed && status.install_error}
+			<div class="mt-1 text-sm text-text-muted">
+				The last try failed ({status.install_error}). It tries again every few minutes.
+			</div>
+		{/if}
 	</div>
 
 	<!-- Warning -->
@@ -151,7 +169,7 @@
 			<Button
 				variant="primary"
 				size="sm"
-				disabled={!authKeyDraft.trim() || applying}
+				disabled={!authKeyDraft.trim() || applying || (status !== null && !status.installed)}
 				loading={applying}
 				onclick={() => void applyAuthKey()}
 			>

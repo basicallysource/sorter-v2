@@ -1,10 +1,20 @@
-"""Tailscale network management endpoints."""
+"""Tailscale network management endpoints.
+
+On SorterOS the backend also keeps Tailscale installed, so an auth key can be
+added from Settings at any time. First boot tries once and gives up for good
+when that one download fails.
+"""
 from __future__ import annotations
 
 import json
+import logging
 import os
 import shutil
 import subprocess
+import tempfile
+import threading
+import time
+from pathlib import Path
 from typing import Any, Dict
 
 from fastapi import APIRouter
@@ -14,8 +24,19 @@ from server.machine_naming import generate_hostname
 from server.security import refresh_device_identity
 
 router = APIRouter()
+log = logging.getLogger(__name__)
 
 _TAILSCALE_SOCKET = os.getenv("TAILSCALE_SOCKET_PATH", "").strip()
+
+SORTEROS_STAMP = Path("/etc/sorteros/version")
+# Where first boot keeps a key typed on the setup page until it has joined.
+SETUP_KEY_FILE = Path("/etc/sorteros/tailscale.env")
+INSTALL_SCRIPT_URL = "https://tailscale.com/install.sh"
+INSTALL_RETRY_S = 300.0
+FIRSTBOOT_POLL_S = 30.0
+
+_installer: threading.Thread | None = None
+_install_error: str | None = None
 
 
 def _cli(*args: str) -> list[str]:
@@ -27,7 +48,12 @@ def _cli(*args: str) -> list[str]:
 
 def _get_status() -> Dict[str, Any]:
     if not shutil.which("tailscale"):
-        return {"installed": False, "connected": False}
+        return {
+            "installed": False,
+            "connected": False,
+            "installing": _installer is not None and _installer.is_alive(),
+            "install_error": _install_error,
+        }
 
     try:
         result = subprocess.run(
@@ -94,7 +120,10 @@ def tailscale_up(payload: TailscaleUpPayload) -> Dict[str, Any]:
     auth_key = payload.auth_key.strip()
     if not auth_key:
         return {"ok": False, "error": "auth_key is required"}
+    return _join(auth_key)
 
+
+def _join(auth_key: str) -> Dict[str, Any]:
     if not shutil.which("tailscale"):
         return {"ok": False, "error": "Tailscale is not installed on this machine"}
 
@@ -149,3 +178,76 @@ def tailscale_logout() -> Dict[str, Any]:
 
     refresh_device_identity()
     return {"ok": True, "status": _get_status()}
+
+
+def keep_installed() -> None:
+    """On SorterOS, install Tailscale in the background whenever it is missing,
+    then join with a key from the setup page that first boot could not use."""
+    global _installer
+    if not SORTEROS_STAMP.exists() or os.geteuid() != 0:
+        return
+    _installer = threading.Thread(target=_install_until_done, name="tailscale-install", daemon=True)
+    _installer.start()
+
+
+def _install_until_done() -> None:
+    global _install_error
+    # First boot installs Tailscale and joins with the setup key itself; doing
+    # either beside it fights over apt's lock or spends a single-use key twice.
+    while _firstboot_running():
+        time.sleep(FIRSTBOOT_POLL_S)
+    while not shutil.which("tailscale"):
+        try:
+            _install()
+            _install_error = None
+            log.info("Tailscale installed")
+        except Exception as exc:
+            _install_error = str(exc)
+            log.warning("Tailscale install failed, trying again in %d minutes: %s", INSTALL_RETRY_S // 60, exc)
+            time.sleep(INSTALL_RETRY_S)
+    _join_with_setup_key()
+
+
+def _install() -> None:
+    with tempfile.TemporaryDirectory() as tmp:
+        script = Path(tmp) / "install.sh"
+        # Download, then run: `curl | sh` succeeds when the download fails.
+        _run(
+            ["curl", "-fsSL", "--retry", "5", "--retry-all-errors", "--connect-timeout", "20",
+             "-o", str(script), INSTALL_SCRIPT_URL],
+            timeout=600,
+        )
+        _run(["sh", str(script)], timeout=1800)
+    if not shutil.which("tailscale"):
+        raise RuntimeError("the Tailscale installer finished without installing tailscale")
+
+
+def _run(cmd: list[str], timeout: float) -> None:
+    result = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout, check=False)
+    if result.returncode != 0:
+        lines = (result.stderr or result.stdout or "").strip().splitlines()
+        raise RuntimeError(f"{cmd[0]} exited {result.returncode}: {lines[-1] if lines else 'no output'}")
+
+
+def _firstboot_running() -> bool:
+    try:
+        return subprocess.run(
+            ["systemctl", "is-active", "--quiet", "sorteros-firstboot.service"], timeout=10, check=False
+        ).returncode == 0
+    except (OSError, subprocess.TimeoutExpired):
+        return False
+
+
+def _join_with_setup_key() -> None:
+    """Join with a key typed on the setup page that first boot could not use."""
+    try:
+        lines = SETUP_KEY_FILE.read_text().splitlines()
+    except OSError:
+        return
+    key = next((ln.split("=", 1)[1].strip() for ln in lines if ln.strip().startswith("TAILSCALE_AUTH_KEY=")), "")
+    if key and not _get_status().get("connected"):
+        result = _join(key)
+        if not result.get("ok"):
+            log.warning("Tailscale: the setup page's key did not join: %s", result.get("error"))
+            return
+    SETUP_KEY_FILE.unlink(missing_ok=True)

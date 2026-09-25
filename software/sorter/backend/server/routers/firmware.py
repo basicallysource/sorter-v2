@@ -22,6 +22,7 @@ router = APIRouter()
 
 GITHUB_REPO = "basicallysource/sorter-v2"
 GITHUB_RELEASES_URL = f"https://api.github.com/repos/{GITHUB_REPO}/releases"
+GITHUB_RELEASES_PAGE = 100  # the most GitHub returns at once
 RELEASES_CACHE_TTL_S = 60.0
 UPLOAD_DIR = "/tmp/sorter-firmware-uploads"
 MAX_UF2_SIZE_BYTES = 16 * 1024 * 1024
@@ -372,6 +373,26 @@ def _parseChangelog(body: str) -> Optional[Dict[str, Any]]:
     return {"heading": heading, "entries": entries}
 
 
+def _fetchAllReleases() -> List[Dict[str, Any]]:
+    """Every release in the repo, newest first. Firmware shares the repo with
+    Hive and SorterOS, which release far more often: the newest firmware was
+    32nd on 2026-09-24, so a first page of 20 held none of it."""
+    releases: List[Dict[str, Any]] = []
+    for page in range(1, 21):
+        res = requests.get(
+            GITHUB_RELEASES_URL,
+            params={"per_page": GITHUB_RELEASES_PAGE, "page": page},
+            headers={"Accept": "application/vnd.github+json"},
+            timeout=10,
+        )
+        res.raise_for_status()
+        batch = res.json()
+        releases.extend(batch)
+        if len(batch) < GITHUB_RELEASES_PAGE:
+            break
+    return releases
+
+
 @router.get("/api/firmware/releases")
 def get_firmware_releases(refresh: bool = False) -> Dict[str, Any]:
     gc = _gc()
@@ -384,14 +405,7 @@ def get_firmware_releases(refresh: bool = False) -> Dict[str, Any]:
         return _releases_cache["data"]
 
     try:
-        res = requests.get(
-            GITHUB_RELEASES_URL,
-            params={"per_page": 20},
-            headers={"Accept": "application/vnd.github+json"},
-            timeout=10,
-        )
-        res.raise_for_status()
-        raw_releases = res.json()
+        raw_releases = _fetchAllReleases()
     except Exception as exc:
         if _releases_cache["data"] is not None:
             stale = dict(_releases_cache["data"])

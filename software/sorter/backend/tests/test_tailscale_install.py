@@ -75,3 +75,26 @@ def test_nothing_happens_off_sorteros(monkeypatch, tmp_path):
     monkeypatch.setattr(tailscale, "_installer", None)
     tailscale.keep_installed()
     assert tailscale._installer is None
+
+
+@pytest.mark.parametrize(
+    "unreachable, expected",
+    [
+        ("timed out", "can't reach Tailscale's servers (timed out)"),
+        (None, "didn't finish joining within 30 seconds: NeedsLogin"),
+    ],
+)
+def test_a_join_that_never_finishes_says_why(machine, monkeypatch, unreachable, expected):
+    machine["installed"] = True
+
+    def run(cmd, **kwargs):
+        raise subprocess.TimeoutExpired(cmd, kwargs["timeout"])
+
+    monkeypatch.setattr(tailscale.subprocess, "run", run)
+    monkeypatch.setattr(tailscale, "_get_status", lambda: {"installed": True, "connected": False, "error": "NeedsLogin"})
+    monkeypatch.setattr(tailscale, "_control_unreachable", lambda: unreachable)
+
+    result = tailscale._join("tskey-auth-test")
+
+    assert result["ok"] is False
+    assert expected in result["error"]

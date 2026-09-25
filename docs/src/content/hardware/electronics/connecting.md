@@ -231,7 +231,7 @@ The solder jumper beside each of these three ports should already be bridged, fr
 
 One flat 16-pin ribbon, 1.2 to 1.5 m, runs from `J17` on the control board down to `J3` on the first layer board in the chute stack. Both ends are keyed, so it only goes in one way up.
 
-The layer boards are already chained to each other with their own 30 cm ribbons, and their servos are already plugged in: both are done as each [layer adapter board]({{ '/hardware/assembly/distribution/chute/pcb/' | relative_url }}) is built and the chute tower goes together, because those sockets are hard to reach once the chute is in the frame.
+The layer boards are already chained to each other with their own 30 cm ribbons, and their servos are already plugged in. Both happen as each [layer adapter board]({{ '/hardware/assembly/distribution/chute/pcb/' | relative_url }}) is built and the chute tower goes together.
 
 {% include step.html n="6" title="Plug in the USB: the Pico, the hub and the Orange Pi" %}
 
@@ -326,7 +326,7 @@ Then plug the machine in and switch the inlet switch on. The red power light on 
 
 ## The finished result
 
-Every cable in, the PSU box closed, the inlet switched on and the red light on the Orange Pi lit.
+Every cable between the three boxes in, and the machine switched on for the first time.
 
 <div class="img-placeholder">Image coming: the three enclosures bolted to the hex frame with every cable run between them, the ribbon dropping into the chute stack and the Orange Pi's red LED lit</div>
 

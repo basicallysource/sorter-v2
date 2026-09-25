@@ -102,7 +102,7 @@ The fan is the **24 V** WINSINN 4010 on an XH2.54 2-pin lead, the same fan the [
 
 Take the lead down through the rectangular 18 × 10 mm slot at the near end of the arm, over the upright, while the arm is still off the machine.
 
-Leave the lead loose. Whether this fan is needed at all is not settled yet, and neither is where it would land: the Orange Pi has no 24 V rail of its own, and the control board's four LED ports are all spoken for.
+Leave the lead loose. It has nowhere to plug into yet, and whether this fan is needed at all is still being decided.
 
 {% include step.html n="4" title="Bolt the fan arm to the mount" %}
 

@@ -7567,10 +7567,43 @@
         },
         {
           "version": "2",
+          "uid": "c16o",
           "date": "2026-09-23",
           "message": "The four M4 heat inserts in the Interface upper fixed section, pressed in before anything is assembled to it. They take four of the eight M4 x 16 that clamp the top interface lazy Susan.",
           "breaking": false,
-          "commit": null
+          "commit": null,
+          "lines": [
+            {
+              "part": "interface-upper-fixed-section",
+              "qty": 1,
+              "uid": "kigs"
+            },
+            {
+              "part": "hsi-m4",
+              "qty": 4,
+              "uid": "naj8"
+            },
+            {
+              "part": "interface-rib",
+              "qty": 5,
+              "uid": "z9o2"
+            },
+            {
+              "part": "interface-rib-switch",
+              "qty": 1,
+              "uid": "19gx"
+            },
+            {
+              "part": "interface-big-spacer",
+              "qty": 1,
+              "uid": "vt50"
+            },
+            {
+              "part": "scr-m5-16-shcs",
+              "qty": 12,
+              "uid": "2e0s"
+            }
+          ]
         },
         {
           "version": "3",
@@ -10592,10 +10625,98 @@
         },
         {
           "version": "10",
+          "uid": "6et2",
           "date": "2026-09-25",
           "message": "The 12 M5 x 16 at the base of the six External bracket - side, bracing them against piece F (step 13). They used to arrive through the hex frame's corner node as the bottom vertical's screws, which is the wrong joint here: the top interface has no bottom vertical, the Interface spacer sleeves piece F instead and takes no screws. Same count, now on the joint that exists.",
           "breaking": false,
-          "commit": null
+          "commit": null,
+          "lines": [
+            {
+              "assembly": "interface-bracket-mount",
+              "qty": 6,
+              "uid": "ng7f"
+            },
+            {
+              "assembly": "hex-frame",
+              "qty": 1,
+              "uid": "l0xa"
+            },
+            {
+              "assembly": "fixed-upper-section",
+              "qty": 1,
+              "uid": "c16o"
+            },
+            {
+              "assembly": "cable-cage",
+              "qty": 1,
+              "uid": "ay0q"
+            },
+            {
+              "part": "scr-m5-30-shcs",
+              "qty": 6,
+              "uid": "92kv"
+            },
+            {
+              "assembly": "cable-clamp",
+              "qty": 1,
+              "uid": "rwaw"
+            },
+            {
+              "part": "scr-m3-12-bhcs",
+              "qty": 2,
+              "uid": "izrb"
+            },
+            {
+              "assembly": "limit-switch",
+              "qty": 1,
+              "uid": "apb5"
+            },
+            {
+              "part": "scr-m5-20-shcs",
+              "qty": 2,
+              "uid": "e4hi"
+            },
+            {
+              "assembly": "chute-stepper-gearing",
+              "qty": 1,
+              "uid": "ud8y"
+            },
+            {
+              "assembly": "harness-stepper-chute",
+              "qty": 1,
+              "uid": "ujmp"
+            },
+            {
+              "assembly": "interface-chute-drive",
+              "qty": 1,
+              "uid": "w4jv"
+            },
+            {
+              "part": "top-interface-split-spur-gear-2",
+              "qty": 1,
+              "uid": "izz5"
+            },
+            {
+              "part": "brg-lazy-susan",
+              "qty": 1,
+              "uid": "wrxu"
+            },
+            {
+              "part": "scr-m4-16-cs",
+              "qty": 8,
+              "uid": "ee5j"
+            },
+            {
+              "part": "scr-m5-35-fhcs",
+              "qty": 6,
+              "uid": "xkl4"
+            },
+            {
+              "part": "scr-m5-16-shcs",
+              "qty": 24,
+              "uid": "2e0s"
+            }
+          ]
         },
         {
           "version": "11",
@@ -11372,10 +11493,23 @@
         },
         {
           "version": "3",
+          "uid": "p0x7",
           "date": "2026-09-17",
           "breaking": false,
           "message": "Put the layer connector back: v2 dropped it on the reasoning that the spare pair belonged to the top interface, and that is not how it goes together. A pair sits on the top of the bottom interface and the bottommost chute slots onto it; the lazy susan chute mount carries the two M3 inserts it screws into.",
-          "commit": "becdd057"
+          "commit": "becdd057",
+          "lines": [
+            {
+              "assembly": "lazy-susan",
+              "qty": 1,
+              "uid": "hhpa"
+            },
+            {
+              "assembly": "layer-connector",
+              "qty": 1,
+              "uid": "6m38"
+            }
+          ]
         },
         {
           "version": "4",
@@ -12217,10 +12351,78 @@
         },
         {
           "version": "3",
+          "uid": "ud8y",
           "date": "2026-09-23",
           "message": "The NEMA 23 itself, its four M5 x 12 mounting screws, the six M5 inserts in its bracket, and the 20T timing pulley on its shaft. The motor and the pulley were both in the catalog with a hand count of 1 and in no assembly, and the two nodes that held them (interface-nema23-mount, interface-spur-gear-drive) are referenced from nothing, so browsing the machine never reached the chute drive motor. Tree totals are the same 1 and 1.",
           "breaking": false,
-          "commit": null
+          "commit": null,
+          "lines": [
+            {
+              "part": "interface-nema23-bracket",
+              "qty": 1,
+              "uid": "if4v"
+            },
+            {
+              "part": "hsi-m5",
+              "qty": 6,
+              "uid": "kd5o"
+            },
+            {
+              "part": "motor-nema23",
+              "qty": 1,
+              "uid": "pvi7"
+            },
+            {
+              "part": "scr-m5-12-shcs",
+              "qty": 4,
+              "uid": "kmah"
+            },
+            {
+              "part": "interface-spur-gear",
+              "qty": 1,
+              "uid": "ywxy"
+            },
+            {
+              "part": "pulley-20t-8mm",
+              "qty": 1,
+              "uid": "xjzk"
+            },
+            {
+              "part": "interface-idler-gear",
+              "qty": 1,
+              "uid": "ptl7"
+            },
+            {
+              "part": "brg-608-2rs",
+              "qty": 1,
+              "uid": "mi1l"
+            },
+            {
+              "part": "scr-m3-20-cs",
+              "qty": 1,
+              "uid": "60g4"
+            },
+            {
+              "part": "chute-stepper-idler-bearing-retainer-outer",
+              "qty": 1,
+              "uid": "wgsc"
+            },
+            {
+              "part": "chute-stepper-idler-bearing-retainer-inner",
+              "qty": 1,
+              "uid": "zzql"
+            },
+            {
+              "part": "scr-m3-8-cs",
+              "qty": 4,
+              "uid": "l6br"
+            },
+            {
+              "part": "hsi-m3",
+              "qty": 4,
+              "uid": "ksut"
+            }
+          ]
         },
         {
           "version": "4",
@@ -12321,10 +12523,33 @@
         },
         {
           "version": "2",
+          "uid": "w4jv",
           "date": "2026-09-23",
           "message": "The four M4 heat inserts in the Top interface chute mount, which take the other four M4 x 16 of the top interface lazy Susan sandwich.",
           "breaking": false,
-          "commit": null
+          "commit": null,
+          "lines": [
+            {
+              "part": "top-interface-split-spur-gear-1",
+              "qty": 1,
+              "uid": "1a0l"
+            },
+            {
+              "part": "top-interface-split-spur-gear-3",
+              "qty": 1,
+              "uid": "vrz8"
+            },
+            {
+              "part": "hsi-m4",
+              "qty": 4,
+              "uid": "naj8"
+            },
+            {
+              "part": "scr-m3-12-cs",
+              "qty": 5,
+              "uid": "0a9x"
+            }
+          ]
         },
         {
           "version": "3",
@@ -13466,10 +13691,63 @@
         },
         {
           "version": "4",
+          "uid": "ng7f",
           "date": "2026-09-23",
           "message": "The three M5 heat inserts each Interface bracket takes, and the two M5 x 22 countersunk that bolt it down through the top plate (holes I1-I6 and O1-O6, two per bracket). Six brackets, so 18 inserts and 12 screws, which with the two at S2/S3 is the M5 x 22 hand count of 14 exactly.",
           "breaking": false,
-          "commit": null
+          "commit": null,
+          "lines": [
+            {
+              "part": "interface-bracket",
+              "qty": 1,
+              "uid": "jk82"
+            },
+            {
+              "part": "hsi-m5",
+              "qty": 3,
+              "uid": "kd5o"
+            },
+            {
+              "part": "interface-spacer",
+              "qty": 1,
+              "uid": "bfoc"
+            },
+            {
+              "part": "ext-2020-e",
+              "qty": 1,
+              "uid": "rwuw"
+            },
+            {
+              "part": "ext-2020-f",
+              "qty": 1,
+              "uid": "dfbb"
+            },
+            {
+              "part": "scr-m5-16-shcs",
+              "qty": 4,
+              "uid": "2e0s"
+            },
+            {
+              "part": "scr-m5-20-shcs",
+              "qty": 4,
+              "uid": "e4hi"
+            },
+            {
+              "part": "scr-m5-8-cs",
+              "qty": 1,
+              "uid": "mqh4"
+            },
+            {
+              "part": "tnut-m5-2020",
+              "qty": 9,
+              "uid": "bpwm"
+            },
+            {
+              "part": "scr-m5-22-cs",
+              "qty": 2,
+              "uid": "hr49"
+            }
+          ]
         },
         {
           "version": "5",
@@ -13689,10 +13967,63 @@
         },
         {
           "version": "4",
+          "uid": "hhpa",
           "date": "2026-09-23",
           "message": "The eight M4 heat inserts of the bottom lazy Susan, four in the chute mount and four in the bottom static ring, which is what the eight M4 x 16 already listed here thread into.",
           "breaking": false,
-          "commit": null
+          "commit": null,
+          "lines": [
+            {
+              "part": "ls-mount-to-chute",
+              "qty": 1,
+              "uid": "lma9"
+            },
+            {
+              "part": "ls-bottom-static",
+              "qty": 1,
+              "uid": "4mmh"
+            },
+            {
+              "part": "hsi-m4",
+              "qty": 8,
+              "uid": "naj8"
+            },
+            {
+              "part": "ls-washer",
+              "qty": 1,
+              "uid": "9c4a"
+            },
+            {
+              "part": "ls-mount-to-extrusion",
+              "qty": 3,
+              "uid": "bmt4"
+            },
+            {
+              "part": "ls-hold-in-place",
+              "qty": 3,
+              "uid": "ss05"
+            },
+            {
+              "part": "brg-lazy-susan",
+              "qty": 1,
+              "uid": "wrxu"
+            },
+            {
+              "part": "scr-m4-16-cs",
+              "qty": 8,
+              "uid": "ee5j"
+            },
+            {
+              "part": "scr-m5-16-shcs",
+              "qty": 9,
+              "uid": "2e0s"
+            },
+            {
+              "part": "tnut-m5-2020",
+              "qty": 6,
+              "uid": "bpwm"
+            }
+          ]
         },
         {
           "version": "5",

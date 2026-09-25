@@ -11,12 +11,19 @@ from irl.parse_user_toml import (
     loadCarouselCalibrationConfig,
     loadChuteCalibrationConfig,
 )
-from machine_platform.control_board import SKR_PICO_FEEDER_PROFILE
+from machine_platform.control_board import (
+    BASICALLY_V1_2_DISTRIBUTION_PROFILE,
+    SKR_PICO_DISTRIBUTION_PROFILE,
+    SKR_PICO_FEEDER_PROFILE,
+)
 from server.routers import hardware
 
 
 class _Logger:
     def warning(self, *args, **kwargs) -> None:
+        pass
+
+    def info(self, *args, **kwargs) -> None:
         pass
 
     def warn(self, *args, **kwargs) -> None:
@@ -45,6 +52,24 @@ class EndstopConfigTests(unittest.TestCase):
 
         self.assertEqual(DEFAULT_CAROUSEL_HOME_PIN_CHANNEL, carousel["home_pin_channel"])
         self.assertEqual(DEFAULT_CHUTE_HOME_PIN_CHANNEL, chute["home_pin_channel"])
+
+    def test_chute_polarity_follows_the_board_unless_saved(self) -> None:
+        kit = BASICALLY_V1_2_DISTRIBUTION_PROFILE.chute_home_active_high
+        skr = SKR_PICO_DISTRIBUTION_PROFILE.chute_home_active_high
+        self.assertIs(False, kit)
+        self.assertIsNone(skr)
+        self.assertIs(False, loadChuteCalibrationConfig(self.gc, {}, None, kit).endstop_active_high)
+        self.assertIs(True, loadChuteCalibrationConfig(self.gc, {}, None, skr).endstop_active_high)
+        self.assertIs(False, loadChuteCalibrationConfig(self.gc, {"chute": {}}, None, kit).endstop_active_high)
+        saved = {"chute": {"endstop_active_high": True}}
+        self.assertIs(True, loadChuteCalibrationConfig(self.gc, saved, None, kit).endstop_active_high)
+
+    def test_router_reports_the_live_polarity_when_none_is_saved(self) -> None:
+        live = SimpleNamespace(chute=SimpleNamespace(endstop_active_high=False, home_pin=None))
+        with patch("server.routers.hardware._active_irl", return_value=live):
+            self.assertIs(False, hardware._chute_settings_from_config({})["endstop_active_high"])
+            saved = {"chute": {"endstop_active_high": True}}
+            self.assertIs(True, hardware._chute_settings_from_config(saved)["endstop_active_high"])
 
     def test_carousel_default_pin_matches_board_alias(self) -> None:
         self.assertEqual(

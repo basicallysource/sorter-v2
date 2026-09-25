@@ -234,12 +234,20 @@ def _stepper_attr_base(stepper_name: str) -> str:
     return LOGICAL_STEPPER_BINDING_BASES[config_key]
 
 
+# The boards the last scan or live machine reported. While a hardware worker
+# owns the serial ports the wizard shows these instead of an empty list, so a
+# step does not read as "no boards" for the seconds the motors power up.
+_last_board_summaries: list[dict[str, Any]] = []
+
+
 def _discover_control_board_summary() -> dict[str, Any]:
+    global _last_board_summaries
     active_irl = shared_state.getActiveIRL()
     if active_irl is not None:
         live_boards = getattr(active_irl, "control_boards", {})
         if isinstance(live_boards, dict) and live_boards:
             board_summaries = [_board_summary(board) for board in live_boards.values()]
+            _last_board_summaries = board_summaries
             return _build_discovery_payload(
                 board_summaries=board_summaries,
                 mcu_ports=sorted({summary["port"] for summary in board_summaries if summary.get("port")}),
@@ -255,6 +263,13 @@ def _discover_control_board_summary() -> dict[str, Any]:
         "homing",
         "initializing",
     ):
+        if _last_board_summaries:
+            return _build_discovery_payload(
+                board_summaries=_last_board_summaries,
+                mcu_ports=sorted({s["port"] for s in _last_board_summaries if s.get("port")}),
+                source="cached",
+                issue_messages=[],
+            )
         return _build_discovery_payload(
             board_summaries=[],
             mcu_ports=MCUBus.enumerate_buses(),
@@ -283,6 +298,7 @@ def _discover_control_board_summary() -> dict[str, Any]:
             retry_delay_s=0.2,
         )
         board_summaries = [_board_summary(board) for board in discovered_boards]
+        _last_board_summaries = board_summaries
         return _build_discovery_payload(
             board_summaries=board_summaries,
             mcu_ports=mcu_ports,

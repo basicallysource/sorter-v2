@@ -8,6 +8,7 @@ kicker: Assembly — Feeder
 lede: The C-channel stages that meter parts toward the distribution system.
 permalink: /hardware/assembly/feeder/
 author: spencer
+last_verified: 2026-09-25
 og_image: https://assets.basically.website/sorter-docs/assembly-camera-lamps-from-above-w1600-285496e1bd00.jpg
 ---
 

@@ -109,18 +109,20 @@ sections:
       - title: Helpers
         url: /hardware/helpers/
         children:
-          - title: Preparing Lazy Susan
-            url: /hardware/helpers/lazy-susan/
-          - title: Prepare timing pulley 20 tooth
-            url: /hardware/helpers/pulley-gear-mod/
-          - title: Soldering Pico headers
-            url: /hardware/helpers/pico-headers/
           - title: Installing heat inserts
             url: /hardware/helpers/heat-inserts/
           - title: Fitting T-nuts
             url: /hardware/helpers/t-nuts/
+          - title: Preparing the Lazy Susan
+            url: /hardware/helpers/lazy-susan/
+          - title: Preparing the 20-tooth timing pulley
+            url: /hardware/helpers/pulley-gear-mod/
+          - title: Soldering Pico headers
+            url: /hardware/helpers/pico-headers/
           - title: Preparing the LED strip
             url: /hardware/helpers/led-strip/
+          - title: Make your own PSU output pigtail
+            url: /hardware/helpers/psu-pigtail/
           - title: Make the control board's 24 V lead
             url: /hardware/helpers/board-24v-lead/
           - title: Make the Orange Pi's 24 V lead
@@ -131,8 +133,6 @@ sections:
             url: /hardware/helpers/chute-stepper-lead/
           - title: Make the chute limit switch lead
             url: /hardware/helpers/limit-switch-lead/
-          - title: Make your own PSU pigtail
-            url: /hardware/helpers/psu-pigtail/
       - title: Parts
         url: /hardware/parts/
         children:

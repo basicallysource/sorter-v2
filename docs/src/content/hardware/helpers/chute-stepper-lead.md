@@ -22,6 +22,8 @@ parts_needed:
     qty: 4
   - part: wire-24awg
     qty: 1
+  - part: connector-kit-crimp
+    qty: 1
 tools_needed: [Wire strippers, "Crimp tool for open-barrel contacts", "Soldering iron and adhesive-lined heat shrink", Multimeter]
 ---
 
@@ -85,6 +87,12 @@ The board gives the chute two sockets side by side and they are wired to the sam
 </dl>
 
 Both carry `A2`, `A1`, `B1`, `B2` on positions 1 to 4, and the board prints the coil name beside each pin, so the names can be read off the board rather than counted.
+
+## The finished result
+
+One lead: the motor with a 24 AWG tail spliced onto its four thick leads, ending in a 4-pin PHR-4 with each coil on one pair of positions.
+
+<div class="img-placeholder">Image coming: the finished lead, the four splices sleeved together and the PHR-4 at the end of the thin tail, with the motor in frame at the other end</div>
 
 ## Where it goes
 

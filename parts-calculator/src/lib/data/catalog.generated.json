@@ -24787,7 +24787,7 @@
 			},
 			"name": "White/daylight LED strip - 24v",
 			"category": "Wire harness",
-			"description": "The light in a Camera lamp: two turns inside the reflector's skirt, held by the six LED hooks. Bought as a 5 m roll and cut on the strip's own marks into three lamp rings of about 920 mm, so one roll covers a machine.",
+			"description": "The light in a Camera lamp: two turns inside the reflector's skirt, held by the six LED hooks. Three per machine, all from one roll. Cut on the strip's printed marks, not to a measurement: the solder pads are at the marks, and the pitch differs from roll to roll.",
 			"note": "Buy the 24 V roll: 5 m, 6000 K, 8 mm COB. The same listing also sells a 12 V one, and outside the US the link may not land on this product at all.",
 			"created_at": "2026-07-18",
 			"updated_at": "2026-09-14",
@@ -24836,7 +24836,7 @@
 				"cut_length_mm": 920,
 				"pieces_per_unit": 5,
 				"unit_label": "5 m (16.4 ft) roll",
-				"piece_label": "one lamp ring (about 920 mm)"
+				"piece_label": "one lamp ring, two turns (about 920 mm)"
 			},
 			"sourcing": {
 				"vendors": [

@@ -35,4 +35,4 @@ That is the whole of distribution. The [feeder]({{ '/hardware/assembly/feeder/' 
 
 <div class="img-placeholder">Photo of a finished distribution assembly on its casters: the standing hex frame with the top interface under its deck, a chute in every layer and the bottom interface under them, with no bins in it and no feeder on it yet.</div>
 
-The bins go in much later, after the feeder and the electronics, on [Install the bins]({{ '/hardware/assembly/install-bins/' | relative_url }}). The frame is empty when this section is done.
+The frame is empty at this point. The bins are the last thing to go in, on [Install the bins]({{ '/hardware/assembly/install-bins/' | relative_url }}).

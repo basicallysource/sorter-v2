@@ -9,6 +9,7 @@ lede: Pressing brass heat-set inserts into printed parts.
 permalink: /hardware/helpers/heat-inserts/
 author: spencer
 contributors: [brickcyclealice, barthel]
+og_image: https://assets.basically.website/sorter-docs/assembly-door-module-inserts-bearing-holder-w1600-9f39521a7c9b.jpg
 parts_needed:
   - part: hsi-m3
   - part: hsi-m4
@@ -81,9 +82,13 @@ A {% include affiliate-link.html url="https://www.amazon.com/Vertical-Machine-He
 
 ## The finished result
 
-Inserts sitting flush with the surface of the part, square to it, with no bulged or
-glossy plastic around the rim.
+Each insert flush with the surface it went into, and square to it. A small glossy ring
+where the plastic melted and closed around the brass is normal. Plastic that has bulged
+up around the rim, or a crater where the insert has sunk below the surface, is not.
 
-<div class="img-placeholder">Image coming: a printed part with two or three finished inserts, photographed square to the face so flush and square are both visible</div>
+<figure class="single-figure">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-door-module-inserts-bearing-holder-w1600-9f39521a7c9b.jpg" alt="A small printed bracket on a bench with three brass heat inserts fitted, each one seated flush in its own raised boss with the knurling on the brass visible and a faint ring of melted plastic closing around it">
+  <figcaption>Three finished inserts, on the door module's bearing holder. Flush with each boss, square to it, and the brass knurling still visible. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+</figure>
 
 {% include affiliate-footnotes.html %}

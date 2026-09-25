@@ -10,8 +10,7 @@ permalink: /hardware/assembly/feeder/c-channels/feeder-channels/
 author: barthel
 contributors: [spencer, brickcyclealice, danny, reveryx, daddyosbricksbill]
 og_image: https://assets.basically.website/sorter-docs/assembly-c-channel-finished-stage-w1600-9bd3719c4180.jpg
-warning: >-
-  **Steps 1 to 3 come from a build**, BrickCycleAlice's. **Step 4 is not verified.**
+last_verified: 2026-09-25
 tools_needed: ["Hex key, 2 mm"]
 parts_needed:
   - part: rotor-faceted

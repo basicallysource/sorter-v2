@@ -74,10 +74,12 @@ No setup page? Stay on the `SorterOS-Setup` network and open [http://10.42.0.1](
 
 On a phone or computer on the same WiFi, open **[http://sorter.local](http://sorter.local)**. It shows SorterOS installing the Sorter software, which takes a few minutes.
 
-<figure class="single-figure">
-  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/sorteros-setup-phone-7-first-boot-full-c61f9a7eaa82.png" alt="The installation progress page at sorter.local with every stage checked and a link to reload for the Sorter UI">
-  <figcaption>The installation progress. The page updates itself. <cite>Screenshot recorded on an iPhone.</cite></figcaption>
-</figure>
+<div class="img-row">
+  <figure>
+    <img src="https://assets.basically.website/sorter-docs/sorteros-install-progress-full-581ee53decaa.png" alt="The installation progress page at sorter.local: a list of install stages, most checked off, one running, and a note that the page refreshes itself">
+    <figcaption>The installation progress. The page updates itself. <cite>Screenshot recorded in a browser.</cite></figcaption>
+  </figure>
+</div>
 
 When it's done, the same page becomes the Sorter UI.
 

@@ -23,7 +23,7 @@ Build the core four times, then finish each one on its own page.
   <li><strong><a href="{{ '/hardware/assembly/feeder/c-channels/classification-channel/' | relative_url }}">Classification channel (C4)</a></strong>. The finned rotor and its cap.</li>
 </ol>
 
-Each page finishes its channel on the bench, rotor in. Once all four are built, [arranging C-channels]({{ '/hardware/assembly/feeder/arranging-c-channels/' | relative_url }}) sets their heights and hangs the [camera lamps]({{ '/hardware/assembly/feeder/camera-lamp/' | relative_url }}) on C2, C3 and C4. C1 takes no lamp.
+Each page finishes its channel on the bench, rotor in. Once all four are built, [arranging C-channels]({{ '/hardware/assembly/feeder/arranging-c-channels/' | relative_url }}) sets their heights and hangs the [camera lamps]({{ '/hardware/assembly/feeder/camera-lamp/' | relative_url }}).
 
 ## The finished result
 

@@ -334,5 +334,34 @@ class SetupWizardConfigTests(unittest.TestCase):
                     )
                 self.assertIs(payload["bootloader_board"], expected)
 
+    def test_simultaneous_requests_share_one_board_scan(self) -> None:
+        import threading
+        import time as _time
+
+        calls: list[int] = []
+
+        def slow_scan(gc):
+            calls.append(1)
+            _time.sleep(0.3)
+            return {"boards": [{"port": "/dev/ttyACM0"}], "source": "scan"}
+
+        setup._last_scan = None
+        results: list[dict] = []
+        with (
+            patch("server.routers.setup._scan_control_boards", side_effect=slow_scan),
+            patch("server.routers.setup.shared_state.getActiveIRL", return_value=None),
+            patch("server.routers.setup.shared_state.hardware_worker_thread", None),
+            patch("server.routers.setup.shared_state.hardware_state", "standby"),
+            patch("server.routers.setup.shared_state.gc_ref", object()),
+        ):
+            threads = [threading.Thread(target=lambda: results.append(setup._discover_control_board_summary())) for _ in range(3)]
+            for t in threads:
+                t.start()
+            for t in threads:
+                t.join()
+        setup._last_scan = None
+        self.assertEqual(1, len(calls))
+        self.assertEqual(3, len([r for r in results if r["boards"]]))
+
 if __name__ == "__main__":
     unittest.main()

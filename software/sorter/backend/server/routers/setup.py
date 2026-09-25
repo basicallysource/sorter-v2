@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import asdict, is_dataclass
+import threading
 import time
 from typing import Any, Dict, Literal, cast
 
@@ -238,10 +239,15 @@ def _stepper_attr_base(stepper_name: str) -> str:
 # owns the serial ports the wizard shows these instead of an empty list, so a
 # step does not read as "no boards" for the seconds the motors power up.
 _last_board_summaries: list[dict[str, Any]] = []
+# One scan at a time: two scans open the same serial ports and each can come
+# back empty. A request that arrives while one runs takes that scan's result.
+_scan_lock = threading.Lock()
+_last_scan: tuple[float, dict[str, Any]] | None = None
+_SCAN_REUSE_S = 2.0
 
 
 def _discover_control_board_summary() -> dict[str, Any]:
-    global _last_board_summaries
+    global _last_board_summaries, _last_scan
     active_irl = shared_state.getActiveIRL()
     if active_irl is not None:
         live_boards = getattr(active_irl, "control_boards", {})
@@ -288,6 +294,16 @@ def _discover_control_board_summary() -> dict[str, Any]:
             issue_messages=["Global config is not initialized yet."],
         )
 
+    with _scan_lock:
+        if _last_scan is not None and time.monotonic() - _last_scan[0] < _SCAN_REUSE_S:
+            return _last_scan[1]
+        payload = _scan_control_boards(gc)
+        _last_scan = (time.monotonic(), payload)
+        return payload
+
+
+def _scan_control_boards(gc: Any) -> dict[str, Any]:
+    global _last_board_summaries
     discovered_boards: list[Any] = []
     mcu_ports = MCUBus.enumerate_buses()
     try:

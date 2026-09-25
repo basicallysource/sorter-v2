@@ -19,7 +19,7 @@ author: spencer
 
 Before starting, source everything on the [Bill of materials](https://parts-calculator.basically.website/hardware) and print the required parts. [Printing the parts]({{ '/hardware/printing/' | relative_url }}) covers what printer they need and how they go on the plate, and [Parts]({{ '/hardware/parts/' | relative_url }}) has reference pages for individual parts. Then follow the sections below top to bottom.
 
-A few names recur across these sections and are worth fixing here, once: the feeder's four channels are C1, C2, C3 and C4, top to bottom, and C4 is also called the classification channel; "the control board" means basically board v1.3, the basically Embedded Control Board; and the printed enclosure around each of the PSU, Orange Pi and control board is the same kind of part even though each page names its own differently (housing, box, mount).
+A few names recur across these sections and are worth fixing here, once: the feeder's four channels are C1, C2, C3 and C4, top to bottom, and C4 is also called the classification channel; and "the control board" means basically board v1.3, the basically Embedded Control Board.
 
 ## Order of operations
 

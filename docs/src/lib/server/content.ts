@@ -289,6 +289,13 @@ function applyDefaults(relPath: string, fm: Frontmatter): Frontmatter {
 		}
 	}
 	Object.assign(merged, fm);
+	// A page carrying a draft warning has not been verified by anybody, so it must
+	// not inherit the site-wide last_verified date and print it in its own footer.
+	// A page that sets its own date still keeps it, which is what a partly-built
+	// page uses.
+	if (merged.warning != null && fm.last_verified == null) {
+		delete merged.last_verified;
+	}
 	// js-yaml parses bare YYYY-MM-DD as a Date — normalize back to a string.
 	if (merged.last_verified instanceof Date) {
 		merged.last_verified = merged.last_verified.toISOString().slice(0, 10);

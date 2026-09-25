@@ -50,6 +50,16 @@
 
 	const SKR_PICO_WIRING_DIAGRAM_URL = '/setup/skr-pico-v1.0-headers.png';
 
+	// Each axis from above with an arrow for clockwise, rendered from the CAD
+	// (the direction is checked by projecting the arrow, not drawn by eye).
+	const DIRECTION_PICTURES: Record<string, string> = {
+		c_channel_1_rotor: 'https://assets.basically.website/sorter-docs/setup-motion-c-channel-1-w1024-6755b34839a9.jpg',
+		c_channel_2_rotor: 'https://assets.basically.website/sorter-docs/setup-motion-c-channel-2-w1024-46dedaff70f3.jpg',
+		c_channel_3_rotor: 'https://assets.basically.website/sorter-docs/setup-motion-c-channel-3-w1024-05be25b17475.jpg',
+		carousel: 'https://assets.basically.website/sorter-docs/setup-motion-c-channel-4-w1024-b2a8701ff15a.jpg',
+		chute_stepper: 'https://assets.basically.website/sorter-docs/setup-motion-chute-w1024-944ab7fcd1a7.jpg',
+	};
+
 	const STEPPER_LOGICAL_TO_PHYSICAL: Record<string, string> = {
 		c_channel_1: 'c_channel_1_rotor',
 		c_channel_2: 'c_channel_2_rotor',
@@ -209,6 +219,7 @@
 	<div class="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
 		{#each stepperEntries as entry}
 			{@const isVerified = !!verifiedSteppers[entry.name]}
+			{@const picture = DIRECTION_PICTURES[STEPPER_LOGICAL_TO_PHYSICAL[entry.name] ?? entry.name]}
 			<div
 				class={`setup-panel relative p-4 transition-colors ${
 					isVerified ? '!border-success !bg-success/10' : ''
@@ -233,6 +244,15 @@
 						{entry.inverted ? 'Inverted' : 'Normal'}
 					</div>
 				</div>
+
+				{#if picture}
+					<img
+						src={picture}
+						alt={`${entry.label} seen from above, with an arrow showing clockwise`}
+						loading="lazy"
+						class="mt-3 aspect-[4/3] w-full border border-border bg-white object-cover"
+					/>
+				{/if}
 
 				<div class="mt-4 flex justify-center">
 					<button

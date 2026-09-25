@@ -717,21 +717,25 @@
 		goToNextStep();
 	}
 
+	let cameraLoadSeq = 0;
+
 	async function loadCameraInventory() {
+		const seq = ++cameraLoadSeq;
 		loadingCameras = true;
 		cameraError = null;
 		try {
 			const res = await fetch(`${currentBackendBaseUrl()}/api/cameras/list`);
 			if (!res.ok) throw new Error(await res.text());
 			const payload = await res.json();
+			if (seq !== cameraLoadSeq) return;
 			usbCameras = Array.isArray(payload?.usb)
 				? payload.usb.filter((camera: UsbCamera) => camera.index >= 0)
 				: [];
 			networkCameras = Array.isArray(payload?.network) ? payload.network : [];
 		} catch (e: any) {
-			cameraError = e.message ?? 'Failed to load camera inventory';
+			if (seq === cameraLoadSeq) cameraError = e.message ?? 'Failed to load camera inventory';
 		} finally {
-			loadingCameras = false;
+			if (seq === cameraLoadSeq) loadingCameras = false;
 		}
 	}
 

@@ -5,7 +5,7 @@ type: how-to
 section: hardware
 slug: assembly-arranging-c-channels
 kicker: Feeder — Arranging C-channels
-lede: How the four C-channels stand, at what heights, and what passes parts between them.
+lede: The stands the four C-channels sit on, the heights they set, and the order the channels go onto the top plate.
 permalink: /hardware/assembly/feeder/arranging-c-channels/
 author: barthel
 contributors: [brickcyclealice, daddyosbricksbill, reveryx]
@@ -58,7 +58,7 @@ parts_needed:
 
 <div class="prep-item">
   <div class="prep-item-body">
-    <p><strong>Three <a href="{{ '/hardware/assembly/feeder/camera-lamp/' | relative_url }}">camera lamps</a>.</strong> Two feeder lamps and one classification lamp, built on the bench. They hang on at step 7; C1 takes none.</p>
+    <p><strong>Three <a href="{{ '/hardware/assembly/feeder/camera-lamp/' | relative_url }}">camera lamps</a>.</strong> Two feeder lamps and one classification lamp. C1 takes none.</p>
   </div>
   <figure class="prep-item-figure">
     <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-camera-lamp-ov9732-lead-routing-w1600-e5c818271b94.jpg" alt="The lamp on channel 3 from a low angle: the camera board in the cover's opening, the red and black lamp leads cable-tied to the arm, and the rectangular slot in the cover below the board">
@@ -78,7 +78,7 @@ The tallest one. Three moves, and they are the same three on every channel:
 
 <ol class="numbered-steps">
   <li>Put a layout guide down flat, sockets up.</li>
-  <li>Stand the three legs in it. C1's are <strong>C-channel 1 support leg (J)</strong>, 2020 extrusion, ordered cut to length from the <a href="https://parts-calculator.basically.website/framing">cut list</a>. They are held by their own weight.</li>
+  <li>Stand the three legs in it. C1's are <strong>C-channel 1 support leg</strong>, 228 mm of 2020 extrusion, <strong>piece J</strong> on the <a href="https://parts-calculator.basically.website/framing">framing list</a>. They are held by their own weight.</li>
   <li>Drop a dovetail adapter over the top of each leg. <strong>The adapter's flat top face is what the channel sits on</strong>, not the tip of the tang above it.</li>
 </ol>
 

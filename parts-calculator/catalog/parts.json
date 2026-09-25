@@ -7215,9 +7215,9 @@
     },
     {
       "id": "camera-clasp-top",
-      "uid": "u816",
+      "uid": "9i8p",
       "name": "Camera clasp top",
-      "version": "1",
+      "version": "2",
       "created_at": "2026-09-02",
       "description": "Top half of the clasp that holds a camera board inside the Camera lamp.",
       "quantities": {
@@ -7227,14 +7227,30 @@
       "color": {
         "role": "channel"
       },
-      "stl_hash": "905c486b0df5f8a02d713f6238ad15253813ffaecf951a0c0514563e38617598",
-      "onshape_version": "https://cad.onshape.com/documents/60aa51fc61d18f2155b99910/v/45a8c24919bf95a5560da0f8/e/5bf04274a6c68015096bd757"
+      "stl_hash": "577f34236a7cfd3d4826d5cb56ddd9407a1402eaacc9be3462abc334963787b3",
+      "onshape_version": "https://cad.onshape.com/documents/60aa51fc61d18f2155b99910/v/75392748d3b24f8f29068313/e/01ed09e573d3abc6bf923c62",
+      "versions": [
+        {
+          "version": "1",
+          "uid": "u816",
+          "message": "As recorded before the first stamped change.",
+          "stl_hash": "905c486b0df5f8a02d713f6238ad15253813ffaecf951a0c0514563e38617598"
+        },
+        {
+          "version": "2",
+          "date": "2026-09-25",
+          "message": "Reindex the camera alignment key and matching clasp sockets to align the camera image with the channel. Replace the ring and both clasp halves together.",
+          "breaking": true,
+          "commit": null
+        }
+      ],
+      "updated_at": "2026-09-25"
     },
     {
       "id": "camera-clasp-bottom",
-      "uid": "zub8",
+      "uid": "7tbs",
       "name": "Camera clasp bottom",
-      "version": "1",
+      "version": "2",
       "created_at": "2026-09-02",
       "description": "Bottom half of the clasp that holds a camera board inside the Camera lamp.",
       "quantities": {
@@ -7244,8 +7260,24 @@
       "color": {
         "role": "channel"
       },
-      "stl_hash": "938683ceb872e0c5824b5c378b0d0cd62b5413dc0fc07a3fb092ce3dffff1317",
-      "onshape_version": "https://cad.onshape.com/documents/60aa51fc61d18f2155b99910/v/45a8c24919bf95a5560da0f8/e/5bf04274a6c68015096bd757"
+      "stl_hash": "b31a43151b66788c48462b75cb96486dce6d262effe6154849c9c4d2fb4f1812",
+      "onshape_version": "https://cad.onshape.com/documents/60aa51fc61d18f2155b99910/v/75392748d3b24f8f29068313/e/01ed09e573d3abc6bf923c62",
+      "versions": [
+        {
+          "version": "1",
+          "uid": "zub8",
+          "message": "As recorded before the first stamped change.",
+          "stl_hash": "938683ceb872e0c5824b5c378b0d0cd62b5413dc0fc07a3fb092ce3dffff1317"
+        },
+        {
+          "version": "2",
+          "date": "2026-09-25",
+          "message": "Reindex the camera alignment key and matching clasp sockets to align the camera image with the channel. Replace the ring and both clasp halves together.",
+          "breaking": true,
+          "commit": null
+        }
+      ],
+      "updated_at": "2026-09-25"
     },
     {
       "id": "c-channel-arm-mount",
@@ -7317,9 +7349,9 @@
     },
     {
       "id": "camera-lamp-ring",
-      "uid": "sb0m",
+      "uid": "t1ir",
       "name": "Camera lamp ring",
-      "version": "1",
+      "version": "2",
       "created_at": "2026-09-02",
       "description": "The ring on the end of the Camera lamp arm; four through holes into the arm.",
       "quantities": {
@@ -7329,8 +7361,24 @@
       "color": {
         "role": "channel"
       },
-      "stl_hash": "8b617c795d40c1a9a9a553e99dd43402014468b6b1720af90facdbe0dc4182b6",
-      "onshape_version": "https://cad.onshape.com/documents/60aa51fc61d18f2155b99910/v/45a8c24919bf95a5560da0f8/e/5bf04274a6c68015096bd757"
+      "stl_hash": "7d729a3e60c2072908fcf7889629d58aefd092bda045ec46b96952b703e0122d",
+      "onshape_version": "https://cad.onshape.com/documents/60aa51fc61d18f2155b99910/v/75392748d3b24f8f29068313/e/01ed09e573d3abc6bf923c62",
+      "versions": [
+        {
+          "version": "1",
+          "uid": "sb0m",
+          "message": "As recorded before the first stamped change.",
+          "stl_hash": "8b617c795d40c1a9a9a553e99dd43402014468b6b1720af90facdbe0dc4182b6"
+        },
+        {
+          "version": "2",
+          "date": "2026-09-25",
+          "message": "Reindex the camera alignment key and matching clasp sockets to align the camera image with the channel. Replace the ring and both clasp halves together.",
+          "breaking": true,
+          "commit": null
+        }
+      ],
+      "updated_at": "2026-09-25"
     },
     {
       "id": "lamp-inner-reflector",

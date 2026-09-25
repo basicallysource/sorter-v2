@@ -6,7 +6,7 @@
 
   ./check.py boot [--expect-ref sorter/stable/v0.2.0] [--expect-default-model]
       Follows a VM started with ./boot.sh through first boot, then checks the
-      running machine over HTTP (status page, UI, backend API) and SSH.
+      running machine over HTTP (progress page, UI, backend API) and SSH.
 
   ./check.py wifi [--only "3 6"]
       Simulated Wi-Fi (wifi-sim.sh) in the running VM: setup-site Wi-Fi right
@@ -145,14 +145,6 @@ def get(url: str, timeout: float = 10) -> tuple[int, str]:
         return 0, ""
 
 
-def stages_from_status_page(html: str) -> list[tuple[str, str, str]]:
-    rows = re.findall(
-        r'<tr class="(\w+)"><td class="icon">.*?</td><td class="name">(.*?)</td><td class="info">(.*?)</td></tr>',
-        html,
-    )
-    return [(name, cls, info) for cls, name, info in rows]
-
-
 def ssh(port: int, cmd: str) -> tuple[int, str]:
     # OpenSSH's own askpass hook feeds the password (no sshpass needed).
     with tempfile.NamedTemporaryFile("w", suffix=".sh", delete=False) as f:
@@ -172,31 +164,53 @@ def ssh(port: int, cmd: str) -> tuple[int, str]:
     return r.returncode, (r.stdout + r.stderr).strip()
 
 
+def first_boot_status(http: str) -> dict | None:
+    """The progress page's /status.json, or None once something else has port 80."""
+    code, body = get(http + "/status.json")
+    if code != 200:
+        return None
+    try:
+        status = json.loads(body)
+    except ValueError:
+        return None
+    return status if isinstance(status, dict) and "stages" in status else None
+
+
 def follow_first_boot(http: str, timeout_s: int) -> bool:
-    """Print stage changes until the UI replaces the status page."""
+    """Print stage changes until the UI replaces the progress page."""
     print(f"following first boot at {http} (up to {timeout_s // 60} min)")
     deadline = time.time() + timeout_s
     seen: dict[str, tuple[str, str]] = {}
+    phase = None
     status_seen = False
     while time.time() < deadline:
-        code, body = get(http + "/")
-        if code == 200 and "<title>SorterOS" in body:
+        status = first_boot_status(http)
+        if status is not None:
             status_seen = True
-            for name, state, info in stages_from_status_page(body):
-                if seen.get(name) != (state, info):
-                    seen[name] = (state, info)
-                    print(f"  {time.strftime('%H:%M:%S')}  {name:20s} {state:8s} {info}")
-        elif code == 200 and status_seen:
+            if status.get("phase") != phase:
+                phase = status.get("phase")
+                print(f"  {time.strftime('%H:%M:%S')}  -- {phase}")
+            for st in status["stages"]:
+                if seen.get(st["name"]) != (st["state"], st["info"]):
+                    seen[st["name"]] = (st["state"], st["info"])
+                    print(f"  {time.strftime('%H:%M:%S')}  {st['name']:20s} {st['state']:8s} {st['info']}")
+        elif status_seen and get(http + "/")[0] == 200:
             print(f"  {time.strftime('%H:%M:%S')}  the Sorter UI has port 80")
             return True
-        time.sleep(15)
+        time.sleep(5)
     return False
 
 
 def check_boot(args: argparse.Namespace) -> None:
     http = f"http://localhost:{args.http_port}"
     api = f"http://localhost:{args.api_port}"
-    check(follow_first_boot(http, args.timeout * 60), "first boot hands port 80 to the Sorter UI")
+    handed_over = follow_first_boot(http, args.timeout * 60)
+    check(handed_over, "first boot hands port 80 to the Sorter UI")
+    if handed_over:
+        # The page keeps port 80 until the backend answers, so the UI it
+        # opens has a machine to show.
+        code, _ = get(api + "/health", timeout=5)
+        check(code == 200, "the backend answers when the UI takes port 80", f"HTTP {code}")
     if failures:
         return
 

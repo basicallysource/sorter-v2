@@ -47,8 +47,8 @@ for a GitHub release.
 
 The Sorter software itself. First boot clones the repo (blobless), checks out
 the newest `sorter/stable/v*` tag (or the `--ref` baked into a test image),
-runs `uv sync` and `pnpm install`/`build`, installs the services, and hands
-port 80 to the UI. That keeps the image small and means an image never has to
+runs `uv sync` and `pnpm install`/`build`, installs the services, starts the
+backend, and once it answers hands port 80 to the UI. That keeps the image small and means an image never has to
 be rebuilt to ship a software release. Vision models are not in the repo
 either: the machine downloads Hive's default model for its hardware after
 first boot.

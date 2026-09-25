@@ -10,7 +10,7 @@ sha256 = "ae53507811323a4c6ac4db71df98e043fc64de07657440f14b079a0994e8810a"
 
 [output]
 dir = "out"
-version = "4.1.0"
+version = "4.1.1"
 name = "sorteros-v{version}-{date}.img"
 
 [chroot]

@@ -7,8 +7,9 @@ and retry next iteration when offline — boot is NEVER blocked, errors are
 NEVER fatal.
 
 The stages up to install-services are what it takes to run the Sorter UI.
-The moment those are done the status page hands port 80 to the UI, even if a
-later stage (Tailscale) is still retrying or has given up. A later stage that
+Once those are done the backend starts, and when it answers the progress page
+hands port 80 to the UI, even if a later stage (Tailscale) is still retrying
+or has given up. A later stage that
 keeps failing stops after LATE_STAGE_MAX_FAILURES tries so a bad key doesn't
 retry forever.
 
@@ -30,6 +31,8 @@ import socket
 import subprocess
 import threading
 import time
+import urllib.error
+import urllib.request
 from dataclasses import dataclass
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -84,6 +87,8 @@ LATE_STAGE_MAX_FAILURES = 10
 DOCS_URL = "https://docs.basically.website/sorter/installation/sorter-os/"
 INTERNET_PROBE_HOSTS = ("deb.debian.org", "github.com")
 INTERNET_PROBE_TIMEOUT = 5
+BACKEND_HEALTH_URL = "http://127.0.0.1:8000/health"
+BACKEND_START_TIMEOUT = 600
 
 
 log = logging.getLogger("sorteros-firstboot")
@@ -98,24 +103,23 @@ class Stage:
     before_ui: bool = True
 
 
-# ─── status server ─────────────────────────────────────────────────────────
+# ─── progress page ─────────────────────────────────────────────────────────
 #
-# A tiny HTTP server on port 80 that renders live firstboot progress so users
-# pointing a browser at the device see "what's happening" instead of an
-# ERR_CONNECTION_REFUSED. Hands port 80 over to sorter-ui-dev.service once
-# all stages complete — same URL transitions from setup status to the UI.
+# While first boot runs, port 80 shows what it is doing, so a browser pointed
+# at the machine sees progress instead of ERR_CONNECTION_REFUSED. It follows
+# the Sorter UI's style guide (software/sorter/frontend/AGENTS.md and its
+# /styleguide), as the setup page does, with the same two differences: system
+# fonts, and dark mode from the browser. Everything is inline: the page must
+# work with nothing else on the machine answering yet.
+#
+# When everything the UI needs is in place the backend starts first, while
+# this page keeps port 80. Once the backend answers, the page gives port 80 to
+# the UI, and the copy still open in the browser, which polls, opens the UI as
+# soon as it answers. It never offers a link to a UI that isn't there yet.
 
 _state_lock = threading.Lock()
 _stage_state: dict[str, dict] = {}
-_runtime: dict = {"net": False, "started_at": time.time()}
-
-STATUS_ICONS = {
-    "done":    ("✓", "done"),
-    "active":  ("●", "running"),
-    "waiting": ("…", "waiting"),
-    "pending": ("○", "pending"),
-    "failed":  ("✕", "failed"),
-}
+_runtime: dict = {"net": False, "started_at": time.time(), "starting_since": None}
 
 
 STEP_WORDS = {
@@ -130,6 +134,17 @@ STEP_WORDS = {
     "pnpm-build": "Building the interface",
     "install-services": "Starting the Sorter",
 }
+
+PHASE_WORDS = {
+    "installing": ("Installing the Sorter",
+                   "This takes a few minutes. This page opens the Sorter UI when it's ready."),
+    "waiting": ("Waiting for the internet",
+                "The Sorter needs the internet to install its software. It carries on as soon as it's online."),
+    "starting": ("Starting the Sorter",
+                 "It's installed. This page opens the Sorter UI when it's ready, in a couple of minutes."),
+}
+
+WAITING_FOR_INTERNET = "waiting for internet"
 
 
 def _set_state(name: str, status: str, info: str = "") -> None:
@@ -158,7 +173,7 @@ def _software_status() -> dict:
     nxt = next((s for s in needed if _stage_state.get(s.name, {}).get("status") != "done"), None)
     if nxt is None:
         return {"state": "ready", "step": None, "done": done, "total": len(needed)}
-    waiting = _stage_state.get(nxt.name, {}).get("info") == "waiting for internet"
+    waiting = _stage_state.get(nxt.name, {}).get("info") == WAITING_FOR_INTERNET
     return {"state": "waiting" if waiting else "installing", "step": STEP_WORDS.get(nxt.name, nxt.name),
             "done": done, "total": len(needed)}
 
@@ -187,115 +202,230 @@ def _checked_out_ref() -> str | None:
         return None
 
 
-STATUS_HTML = """<!doctype html>
-<html lang="en"><head><meta charset="utf-8">
-<title>SorterOS · {hostname}</title>
-<meta http-equiv="refresh" content="5">
-<style>
-*{{box-sizing:border-box}}
-body{{font-family:ui-monospace,'SF Mono',Menlo,monospace;background:#0a0a0a;color:#e5e5e5;margin:0;padding:2rem;line-height:1.45}}
-.head{{display:flex;justify-content:space-between;align-items:baseline;max-width:760px;margin:0 auto 1.5rem;flex-wrap:wrap;gap:.5rem}}
-h1{{font-size:1.25rem;font-weight:600;margin:0;letter-spacing:.02em}}
-.meta{{color:#666;font-size:.85rem}}
-.banner{{padding:.9rem 1.1rem;max-width:720px;margin:0 auto 1.5rem;font-size:.95rem}}
-.banner.done{{background:#0d1e10;color:#4ade80}}
-.banner.busy{{background:#1c1a0d;color:#fbbf24}}
-.banner a{{color:#60a5fa;font-weight:600;text-decoration:none}}
-.banner a:hover{{text-decoration:underline}}
-table{{border-collapse:collapse;width:100%;max-width:720px;margin:0 auto;font-size:.9rem}}
-td{{padding:.4rem .8rem;border-bottom:1px solid #1c1c1c;vertical-align:top}}
-.icon{{width:1.3rem;text-align:center;font-family:ui-sans-serif}}
-.done .icon{{color:#4ade80}}
-.running .icon{{color:#fbbf24}}
-.waiting .icon{{color:#888}}
-.pending .icon{{color:#444}}
-.name{{font-weight:500;width:14rem}}
-.info{{color:#777;font-size:.82rem}}
-.running .info{{color:#fbbf24}}
-.waiting .info{{color:#888}}
-.pending .info{{color:#555}}
-.failed .icon,.failed .info{{color:#f87171}}
-.foot{{color:#555;font-size:.8rem;margin:2rem auto 0;max-width:720px}}
-code{{background:#1a1a1a;padding:.1rem .35rem}}
-</style></head><body>
-<div class="head">
-<h1>SorterOS · {hostname}</h1>
-<div class="meta">v{version} · {ref} · {done}/{total} · {net_label}</div>
-</div>
-{banner}
-<table>{rows}</table>
-<div class="foot">Live log: <code>journalctl -fu sorteros-firstboot</code> · Stuck? <a href="{docs_url}" style="color:#60a5fa">Install guide</a></div>
-</body></html>
+def _elapsed(since: float | None) -> str:
+    if not since:
+        return ""
+    mins, secs = divmod(max(0, int(time.time() - since)), 60)
+    return f"{mins}m {secs:02d}s" if mins else f"{secs}s"
+
+
+def _progress() -> dict:
+    """Everything the page shows, from one look at the state."""
+    hostname, version, ref = _read_meta()
+    with _state_lock:
+        snapshot = {k: dict(v) for k, v in _stage_state.items()}
+        starting_since = _runtime.get("starting_since")
+        net = _runtime.get("net", False)
+
+    needed = [s for s in STAGES if s.before_ui]
+    nxt = next((s for s in needed if snapshot.get(s.name, {}).get("status") != "done"), None)
+    if starting_since or nxt is None:
+        phase = "starting"
+    elif snapshot.get(nxt.name, {}).get("info") == WAITING_FOR_INTERNET:
+        phase = "waiting"
+    else:
+        phase = "installing"
+
+    # One row per description, so the two Configuring stages are one row.
+    rows: list[dict] = []
+    for s in needed:
+        words = STEP_WORDS.get(s.name, s.name)
+        if rows and rows[-1]["words"] == words:
+            rows[-1]["stages"].append(s.name)
+        else:
+            rows.append({"words": words, "stages": [s.name]})
+    for row in rows:
+        states = [snapshot.get(n, {}) for n in row["stages"]]
+        # A stage that waits on an earlier one says "… yet"; that is not a failure.
+        errors = [st.get("info") for st in states
+                  if st.get("status") in ("waiting", "failed") and st.get("info")
+                  and st.get("info") != WAITING_FOR_INTERNET and not st.get("info", "").endswith(" yet")]
+        active = next((st for st in states if st.get("status") == "active"), None)
+        if "install-services" in row["stages"] and phase == "starting":
+            # Starting the Sorter is done when the UI has port 80, and then
+            # this page is gone: here it is running.
+            row["state"], row["detail"] = "active", _elapsed(starting_since)
+        elif all(st.get("status") == "done" for st in states):
+            row["state"], row["detail"] = "done", ""
+        elif active is not None:
+            row["state"], row["detail"] = "active", _elapsed(active.get("started_at"))
+        elif errors:
+            row["state"], row["detail"] = "retrying", errors[0]
+        elif any(st.get("info") == WAITING_FOR_INTERNET for st in states):
+            row["state"], row["detail"] = "waiting", "Waiting for the internet"
+        else:
+            row["state"], row["detail"] = "pending", ""
+
+    return {
+        "phase": phase,
+        "hostname": hostname,
+        "version": version,
+        "ref": ref,
+        "online": net,
+        "rows": rows,
+        "stages": [{"name": s.name,
+                    "state": snapshot.get(s.name, {}).get("status", "pending"),
+                    "info": snapshot.get(s.name, {}).get("info") or ""} for s in STAGES],
+    }
+
+
+_ICONS = {
+    "done": '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>',
+    "retrying": '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>',
+    "waiting": '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>',
+    "pending": '<i aria-hidden="true"></i>',
+}
+
+
+def _spinner(size: int) -> str:
+    return (f'<span class="spinner" style="--s:{size}px" role="status" aria-label="Working">'
+            '<i></i><i></i><i></i><i></i></span>')
+
+
+# The Sorter UI's tokens (software/sorter/frontend/src/routes/layout.css).
+PAGE_CSS = """
+:root{--bg:#f7f6f3;--surface:#fff;--border:#e2e0db;--text:#1a1a1a;--muted:#7a7770;--primary:#0055bf;
+--success:#00852b;--danger:#d01012;--edge:inset 0 1px 0 rgba(255,255,255,.9);color-scheme:light;
+--sans:'IBM Plex Sans',ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;
+--mono:'IBM Plex Mono',ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace}
+@media (prefers-color-scheme:dark){:root{--bg:#0d0d0c;--surface:#1a1918;--border:#2a2926;--text:#f5f4f1;
+--muted:#9a9890;--edge:inset 0 1px 0 rgba(255,255,255,.04);color-scheme:dark}}
+*,*::before,*::after{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font-family:var(--sans);line-height:1.5;-webkit-text-size-adjust:100%}
+h1,h2,p,ol{margin:0}
+.wrap{max-width:28rem;margin:0 auto;padding-left:1rem;padding-right:1rem}
+header{background:var(--surface);border-bottom:1px solid var(--border)}
+header .wrap{display:flex;align-items:center;justify-content:space-between;gap:.75rem;padding-top:.75rem;padding-bottom:.75rem}
+.brand{display:flex;align-items:center;gap:.625rem;font-family:var(--mono);font-size:1.125rem;line-height:1.75rem;
+font-weight:700;letter-spacing:-.025em;text-transform:uppercase}
+.brand i{width:1rem;height:1rem;flex:none;background:var(--primary)}
+.chip{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;border:1px solid var(--border);
+padding:.25rem .625rem;font-size:.875rem;line-height:1.25rem;font-weight:500;color:var(--muted)}
+main{display:flex;flex-direction:column;gap:1.5rem;padding-top:1.5rem;padding-bottom:4rem}
+.panel{border:1px solid var(--border);background:var(--surface);box-shadow:var(--edge),0 1px 2px rgba(32,28,20,.04)}
+.hero{display:flex;flex-direction:column;align-items:center;gap:1.25rem;padding:2.5rem 1.5rem;text-align:center;color:var(--primary)}
+.hero h1{color:var(--text);font-size:1.5rem;line-height:2rem;font-weight:700}
+.hero p{margin-top:.5rem;color:var(--muted);font-size:.875rem;line-height:1.25rem;text-wrap:balance}
+.label-row{display:flex;align-items:baseline;justify-content:space-between;gap:.75rem;margin-bottom:.75rem}
+.label{font-size:.75rem;line-height:1rem;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--muted)}
+.count{font-size:.875rem;line-height:1.25rem;color:var(--muted);font-variant-numeric:tabular-nums}
+.steps{list-style:none;padding:0}
+.steps li{display:flex;align-items:flex-start;gap:.75rem;padding:.75rem 1rem;border-top:1px solid var(--border);
+font-size:.875rem;line-height:1.25rem}
+.steps li:first-child{border-top:0}
+.icon{flex:none;display:flex;align-items:center;justify-content:center;width:1rem;height:1.25rem}
+.words{flex:1;min-width:0}
+.detail{flex:none;color:var(--muted);font-weight:400;font-variant-numeric:tabular-nums}
+.error{display:block;margin-top:.25rem;color:var(--danger);font-weight:400;overflow-wrap:anywhere}
+.done .icon{color:var(--success)}
+.active{font-weight:600}
+.active .icon{color:var(--primary)}
+.pending,.waiting{color:var(--muted)}
+.pending .icon i{width:.625rem;height:.625rem;border:1px solid currentColor}
+.retrying .icon{color:var(--danger)}
+svg{width:1rem;height:1rem;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.foot{display:flex;flex-direction:column;gap:.25rem;font-size:.875rem;line-height:1.25rem;color:var(--muted)}
+.foot a{color:var(--primary)}
+code{font-family:var(--mono);font-size:.875rem;overflow-wrap:anywhere}
+.opening{display:none}
+[data-opening] .opening{display:flex}
+[data-opening] .phase{display:none}
+.spinner{position:relative;display:inline-block;flex:none;width:var(--s);height:var(--s)}
+.spinner i{position:absolute;width:42%;height:42%;background:currentColor;opacity:.2;animation:quarter .667s linear infinite}
+.spinner i:nth-child(1){top:0;left:0}
+.spinner i:nth-child(2){top:0;right:0;animation-delay:.1667s}
+.spinner i:nth-child(3){bottom:0;right:0;animation-delay:.3333s}
+.spinner i:nth-child(4){bottom:0;left:0;animation-delay:.5s}
+@keyframes quarter{0%,24%{opacity:1}25%,100%{opacity:.2}}
+"""
+
+# Polls the page and swaps in the fresh <main>. While port 80 changes hands
+# nothing answers for a moment; then the first answer that isn't this page is
+# the Sorter UI, and the page reloads into it.
+PAGE_JS = """
+(function () {
+  var root = document.documentElement;
+  function tick() {
+    fetch(location.pathname, { cache: 'no-store' }).then(function (r) {
+      return r.text().then(function (html) {
+        if (html.indexOf('data-firstboot') !== -1) {
+          var doc = new DOMParser().parseFromString(html, 'text/html');
+          var fresh = doc.querySelector('main');
+          var main = document.querySelector('main');
+          if (fresh && main) main.replaceWith(fresh);
+          document.title = doc.title;
+          root.removeAttribute('data-opening');
+        } else if (r.ok) {
+          location.reload();
+          return true;
+        }
+      });
+    }, function () {
+      root.setAttribute('data-opening', '');
+    }).then(function (reloading) {
+      if (!reloading) setTimeout(tick, 2000);
+    });
+  }
+  setTimeout(tick, 2000);
+})();
 """
 
 
 def _render_status_page() -> bytes:
-    hostname, version, ref = _read_meta()
-    with _state_lock:
-        snapshot = {k: dict(v) for k, v in _stage_state.items()}
-        net = _runtime.get("net", False)
-
-    done = sum(1 for s in snapshot.values() if s.get("status") == "done")
-    total = len(STAGES)
-    complete = all(
-        snapshot.get(s.name, {}).get("status") == "done" for s in STAGES if s.before_ui
-    )
-
+    p = _progress()
+    esc = _html.escape
+    headline, lede = PHASE_WORDS[p["phase"]]
     rows = []
-    for stage in STAGES:
-        st = snapshot.get(stage.name, {"status": "pending", "info": ""})
-        status = st.get("status", "pending")
-        info = st.get("info") or ""
-        if status == "active" and st.get("started_at"):
-            elapsed = int(time.time() - st["started_at"])
-            mins, secs = divmod(elapsed, 60)
-            elapsed_str = f"{mins}m {secs:02d}s" if mins else f"{secs}s"
-            info = f"{info} · {elapsed_str}" if info else f"running · {elapsed_str}"
-        icon, cls = STATUS_ICONS.get(status, ("?", "pending"))
-        rows.append(
-            f'<tr class="{cls}">'
-            f'<td class="icon">{icon}</td>'
-            f'<td class="name">{_html.escape(stage.name)}</td>'
-            f'<td class="info">{_html.escape(info) if info else "—"}</td>'
-            f'</tr>'
-        )
+    for row in p["rows"]:
+        state, detail = row["state"], row["detail"]
+        icon = _spinner(16) if state == "active" else _ICONS[state]
+        side = f'<span class="detail">{esc(detail)}</span>' if state in ("active", "waiting") and detail else ""
+        error = f'<span class="error">Failed, trying again: {esc(detail)}</span>' if state == "retrying" else ""
+        rows.append(f'<li class="{state}"><span class="icon">{icon}</span>'
+                    f'<span class="words">{esc(row["words"])}{error}</span>{side}</li>')
+    done = sum(1 for row in p["rows"] if row["state"] == "done")
+    page = (
+        '<!doctype html>\n<html lang="en"><head><meta charset="utf-8">'
+        '<meta name="viewport" content="width=device-width, initial-scale=1">'
+        f'<title>{esc(headline)} · {esc(p["hostname"])}</title>'
+        '<noscript><meta http-equiv="refresh" content="5"></noscript>'
+        f'<style>{PAGE_CSS}</style></head><body>'
+        '<header><div class="wrap"><span class="brand"><i aria-hidden="true"></i>Sorter</span>'
+        f'<span class="chip">{esc(p["hostname"])}</span></div></header>'
+        f'<main class="wrap" data-firstboot="{p["phase"]}">'
+        f'<section class="panel hero phase">{_spinner(32)}'
+        f'<div><h1>{esc(headline)}</h1><p>{esc(lede)}</p></div></section>'
+        f'<section class="panel hero opening">{_spinner(32)}'
+        '<div><h1>Opening the Sorter UI</h1><p>It takes up to a minute the first time.</p></div></section>'
+        '<section class="phase"><div class="label-row"><h2 class="label">Steps</h2>'
+        f'<span class="count">{done} of {len(p["rows"])} done</span></div>'
+        f'<ol class="panel steps">{"".join(rows)}</ol></section>'
+        f'<footer class="foot phase"><p>SorterOS {esc(p["version"])} · {esc(p["ref"])}</p>'
+        f'<p>Stuck? See <a href="{esc(DOCS_URL)}#debugging">Debugging</a> in the install guide.</p>'
+        '<p>Live log: <code>journalctl -fu sorteros-firstboot</code></p></footer>'
+        '</main>'
+        f'<script>{PAGE_JS}</script></body></html>'
+    )
+    return page.encode("utf-8")
 
-    if complete:
-        # Relative reload — stay on whatever address the user reached this page
-        # on (IP, .local, hostname). sorter-ui takes over :80 on the same host,
-        # so a same-origin reload lands on the Sorter UI; a hardcoded .local
-        # link would wrongly bounce IP users off to an unresolvable name.
-        banner = (
-            '<div class="banner done">✓ Setup complete · '
-            '<a href="/">Reload for Sorter UI →</a></div>'
-        )
-    else:
-        banner = (
-            '<div class="banner busy">⏳ Setting up… first install can take 10–30 min. '
-            'Page auto-refreshes every 5s.</div>'
-        )
 
-    return STATUS_HTML.format(
-        hostname=_html.escape(hostname),
-        version=_html.escape(version),
-        ref=_html.escape(ref),
-        docs_url=_html.escape(DOCS_URL),
-        done=done, total=total,
-        net_label="online" if net else "offline",
-        banner=banner,
-        rows="".join(rows),
-    ).encode("utf-8")
+def _status_json() -> bytes:
+    p = _progress()
+    return json.dumps({k: p[k] for k in ("phase", "hostname", "version", "ref", "online", "stages")}).encode()
 
 
 class _StatusHandler(BaseHTTPRequestHandler):
     def do_GET(self) -> None:  # noqa: N802 (BaseHTTPRequestHandler convention)
-        if self.path != "/":
+        if self.path == "/":
+            body, kind = _render_status_page(), "text/html; charset=utf-8"
+        elif self.path == "/status.json":
+            body, kind = _status_json(), "application/json"
+        else:
             self.send_response(404)
             self.end_headers()
             return
-        body = _render_status_page()
         self.send_response(200)
-        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.send_header("Content-Type", kind)
         self.send_header("Content-Length", str(len(body)))
         self.send_header("Cache-Control", "no-store")
         self.end_headers()
@@ -655,14 +785,14 @@ def stage_install_services() -> None:
 
     sh(["systemctl", "daemon-reload"])
     # Prefer dev services for HMR during early setup; fall back to prod
-    # when dev templates aren't in this branch yet. Enable only — main()
-    # starts the services AFTER our status server releases port 80,
-    # otherwise vite-dev fights us for the same port.
+    # when dev templates aren't in this branch yet. Enable only: main()
+    # starts the backend, and the UI only after the progress page releases
+    # port 80, or vite-dev fights it for the port.
     to_start = [u for u in ("sorter-backend-dev.service", "sorter-ui-dev.service") if u in installed] or \
                [u for u in ("sorter-backend.service", "sorter-ui.service") if u in installed]
     sh(["systemctl", "enable", *to_start])
     Path("/var/lib/sorteros/active-services").write_text("\n".join(to_start) + "\n")
-    log.info("sorter services installed: %s (will start after firstboot exits)", ", ".join(to_start))
+    log.info("sorter services installed: %s", ", ".join(to_start))
 
 
 def _ensure_clock_synced() -> None:
@@ -745,13 +875,47 @@ def _finished(stage: Stage) -> bool:
     return stamp_path(stage.name).exists() or failed_path(stage.name).exists()
 
 
-def _start_sorter_services() -> None:
+def _sorter_services() -> list[str]:
     try:
-        services = Path("/var/lib/sorteros/active-services").read_text().split()
+        return Path("/var/lib/sorteros/active-services").read_text().split()
     except OSError:
-        services = ["sorter-backend.service", "sorter-ui.service"]
-    subprocess.run(["systemctl", "start", *services])
-    log.info("started %s", ", ".join(services))
+        return ["sorter-backend.service", "sorter-ui.service"]
+
+
+def _backend_answers() -> bool:
+    try:
+        with urllib.request.urlopen(BACKEND_HEALTH_URL, timeout=3) as r:
+            return r.status == 200
+    except (urllib.error.URLError, OSError):
+        return False
+
+
+def _start_sorter(keeper: threading.Thread | None, ui_ready: threading.Event) -> None:
+    """Start the Sorter. With the progress page up, the backend goes first and
+    the page keeps port 80 until the backend answers (about a minute and a half
+    on an Orange Pi 5), so the UI the page opens has a machine to show."""
+    services = _sorter_services()
+    if keeper is None:
+        subprocess.run(["systemctl", "start", *services])
+        log.info("started %s", ", ".join(services))
+        return
+    backend = [u for u in services if "backend" in u]
+    rest = [u for u in services if u not in backend]
+    with _state_lock:
+        _runtime["starting_since"] = started = time.time()
+    subprocess.run(["systemctl", "start", *backend])
+    log.info("started %s", ", ".join(backend))
+    while not _backend_answers():
+        if time.time() - started > BACKEND_START_TIMEOUT:
+            log.warning("the backend didn't answer in %ds; opening the UI anyway", BACKEND_START_TIMEOUT)
+            break
+        time.sleep(2)
+    else:
+        log.info("the backend answers after %ds", time.time() - started)
+    ui_ready.set()
+    keeper.join(timeout=15)
+    subprocess.run(["systemctl", "start", *rest])
+    log.info("started %s", ", ".join(rest))
 
 
 def main() -> int:
@@ -786,12 +950,7 @@ def main() -> int:
 
         if not ui_started and all(stamp_path(s.name).exists() for s in STAGES if s.before_ui):
             log.info("everything the UI needs is in place")
-            if keeper is not None:
-                time.sleep(5)  # let the "complete" page render once before port 80 changes hands
-            ui_ready.set()
-            if keeper is not None:
-                keeper.join(timeout=15)
-            _start_sorter_services()
+            _start_sorter(keeper, ui_ready)
             ui_started = True
 
         remaining = [s for s in STAGES if not _finished(s)]
@@ -828,7 +987,9 @@ def main() -> int:
                     log.warning("stage %s failed: %s — will retry", s.name, e)
                     _set_state(s.name, "waiting", str(e))
 
-        waiting = any(_stage_state.get(s.name, {}).get("info") == "waiting for internet" for s in remaining)
+        if not ui_started and all(stamp_path(s.name).exists() for s in STAGES if s.before_ui):
+            continue  # start the Sorter now, not a poll later
+        waiting = any(_stage_state.get(s.name, {}).get("info") == WAITING_FOR_INTERNET for s in remaining)
         time.sleep(WAITING_POLL_INTERVAL if waiting else POLL_INTERVAL)
 
 

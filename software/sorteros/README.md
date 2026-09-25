@@ -11,7 +11,7 @@ takes Wi-Fi details from a phone. See `build/overlay/usr/local/sbin/sorteros-net
 
 - **`build/`** — the image builder (Linux, arm64 or x86_64). See its README.
 - **`portal/`** — Captive-portal stack the image boots into when no Wi-Fi is configured. FastAPI backend + SvelteKit static frontend, both source-of-truth here. The build copies them into `/usr/local/sbin/sorteros-portal.py` and `/var/www/portal/` on the image.
-- **`test/`** — checks a built image, boots it in QEMU through first boot, and unit-tests the network decisions (`test_network.py`), before anyone flashes a card.
+- **`test/`** — checks a built image, boots it in QEMU through first boot, and unit-tests the network decisions (`test_network.py`) and the first-boot progress page (`test_firstboot.py`), before anyone flashes a card.
 - **`sorteros-setup/`** — the setup site: writes Wi-Fi, hostname, SSH key and Tailscale key into a downloaded `.img` before flashing.
 
 ## Boot story

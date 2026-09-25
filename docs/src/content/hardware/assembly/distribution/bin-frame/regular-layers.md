@@ -63,7 +63,7 @@ The hex frame's own 12 are on [its page]({{ '/hardware/assembly/distribution/bin
   <p>The External bracket — covers are already on, fitted in <a href="{{ '/hardware/assembly/distribution/bin-frame/hex-frame/' | relative_url }}#step-9">Build the hex frame, step 9</a>. If a corner is missing one, put it on before you stand piece C in it, because it is difficult to slide on afterwards.</p>
 </div>
 
-Slot a length of aluminum extrusion, **piece C (Layer vertical support), 154 mm**, between the External bracket — cover and the External bracket — side. Push it up so that **the end of piece C sits about 3 mm below the top of the bracket**. Use 2 {% include fastener.html size="M5" variant="socket-button" length="16" %} screws tapped through the holes near the bottom of the External bracket — side to secure the extrusion.
+Slot a length of aluminum extrusion, **piece C (Layer vertical support), 154 mm**, between the External bracket — cover and the External bracket — side. Push it up as far as it goes, then use 2 {% include fastener.html size="M5" variant="socket-button" length="16" %} screws tapped through the holes near the bottom of the External bracket — side to secure the extrusion.
 
 <div class="img-row">
   <figure>
@@ -76,10 +76,10 @@ Slot a length of aluminum extrusion, **piece C (Layer vertical support), 154 mm*
   </figure>
 </div>
 
-On each corner, slide an External bracket — bottom vertical onto piece C (Layer vertical support), ensuring the angles of the External bracket — bottom vertical align at the bottom. Secure them with 2 {% include fastener.html size="M5" variant="socket-button" length="16" %} screws through the outer holes on the External bracket — bottom vertical.
+On each corner, slide an External bracket — bottom vertical onto piece C (Layer vertical support), ensuring the angles of the External bracket — bottom vertical align at the bottom. Secure them with 2 {% include fastener.html size="M5" variant="socket-button" length="16" %} screws through the outer holes on the External bracket — bottom vertical. **The end of piece C should now sit about 3 mm below the top of the External bracket — bottom vertical**, as in the photos above.
 
 <div class="callout">
-  <p><strong>If the extrusion comes up flush with the top of the bracket, or stands proud of it, check which piece you have.</strong> Several of the framing lengths are close together, and piece B is 158 mm against piece C's 154 mm. The <a href="https://parts-calculator.basically.website/framing">framing cut list</a> has every length.</p>
+  <p><strong>If it comes up flush with the top of that bracket, or stands proud of it, check which piece you have.</strong> Several of the framing lengths are close together, and piece B is 158 mm against piece C's 154 mm. The <a href="https://parts-calculator.basically.website/framing">framing cut list</a> has every length.</p>
 </div>
 
 Matching parts from the same print run are embossed with a shared set code (e.g. **"b2"**) on both the External bracket — side and the External bracket — bottom vertical. Keep marked pairs together so brackets don't get mixed across corners.

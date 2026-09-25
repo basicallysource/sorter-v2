@@ -39,8 +39,8 @@ Each page ends in one of these.
     <figcaption><a href="{{ '/hardware/assembly/feeder/c-channels/bulk-channel/' | relative_url }}">Bulk channel</a>, the cap on. <cite>Photo: BrickCycleAlice.</cite></figcaption>
   </figure>
   <figure>
-    <img src="https://assets.basically.website/sorter-docs/render-feeder-channel-finished-full-d6b5b13558b5.png" alt="Render of a finished feeder channel: the faceted rotor in the stator with the output guide standing beside the NEMA bracket">
-    <figcaption><a href="{{ '/hardware/assembly/feeder/c-channels/feeder-channels/' | relative_url }}">Feeder channel</a>, rotor in and guide on. <cite>Rendered from the part geometry.</cite></figcaption>
+    <img src="https://assets.basically.website/sorter-docs/assembly-c-channel-finished-stage-w1600-9bd3719c4180.jpg" alt="A C-channel from above on a plain surface: the faceted rotor sitting down in the stator ring, with the stepper motor and its lead standing off one side">
+    <figcaption><a href="{{ '/hardware/assembly/feeder/c-channels/feeder-channels/' | relative_url }}">Feeder channel</a>, rotor in. The output guide is not in this shot. <cite>Photo: BrickCycleAlice.</cite></figcaption>
   </figure>
   <figure>
     <img src="https://assets.basically.website/sorter-docs/render-classification-channel-finished-full-683c6f99f962.png" alt="Render of the finished classification channel: the capped finned rotor sitting down in the stator ring">

@@ -9,7 +9,7 @@ lede: The two metering stages between the bulk channel and classification, with 
 permalink: /hardware/assembly/feeder/c-channels/feeder-channels/
 author: barthel
 contributors: [spencer, brickcyclealice, danny, reveryx, daddyosbricksbill]
-og_image: https://assets.basically.website/sorter-docs/render-feeder-channel-finished-full-d6b5b13558b5.png
+og_image: https://assets.basically.website/sorter-docs/assembly-c-channel-finished-stage-w1600-9bd3719c4180.jpg
 warning: >-
   **Steps 1 to 3 come from a build**, BrickCycleAlice's. **Step 4 is not verified.**
 tools_needed: ["Hex key, 2 mm"]
@@ -90,20 +90,14 @@ Turn the rotor by hand. It should go all the way round without a tight spot.
 
 The guide is a wall at the channel's exit. Without it, a part that does not drop off rides round the rotor again.
 
-Push the guide onto the dovetail on the stator wall beside the NEMA bracket, so it stands in across the rotor just before the exit opening. It is held by the fit alone: no screws, nothing to tighten.
+Push the guide onto the dovetail on the stator wall beside the NEMA bracket, so it stands in over the rotor just before the exit opening. It is held by the fit alone: no screws, nothing to tighten.
 
-<figure class="single-figure">
-  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/render-feeder-channel-output-guide-full-b03767a495af.png" alt="Render of a feeder channel from directly above: the faceted rotor filling the stator ring, the gear train and NEMA bracket below it, and the output guide standing as an angled wall on the dovetail beside the bracket, reaching in across the rotor toward the opening in the stator wall">
-  <figcaption>From above, with the guide fitted: it clips to the dovetail beside the NEMA bracket and reaches in across the rotor, just before the opening in the stator wall. <cite>Rendered from the part geometry, not from a build.</cite></figcaption>
-</figure>
+<div class="img-placeholder">Photo of a feeder channel from above with its output guide fitted: the dovetail it clips to beside the NEMA bracket, and how far it reaches in over the rotor.</div>
 
 ## The finished result
 
 A channel core with the faceted rotor in it and an output guide beside the NEMA bracket. Build two. The camera lamp goes on later, at [arranging C-channels]({{ '/hardware/assembly/feeder/arranging-c-channels/' | relative_url }}).
 
-<figure class="single-figure">
-  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/render-feeder-channel-finished-full-d6b5b13558b5.png" alt="Render of a finished feeder channel: the faceted rotor sitting down in the stator ring, with the output guide standing on the dovetail beside the NEMA bracket">
-  <figcaption>A finished feeder channel, rotor in and guide on. The stepper is a bought part with no model, so it is not in the render. <cite>Rendered from the part geometry, not from a build.</cite></figcaption>
-</figure>
+<div class="img-placeholder">Photo of a finished feeder channel: the faceted rotor down in the core and the output guide on, with the stepper on the outside.</div>
 
 Back to [C-channels]({{ '/hardware/assembly/feeder/c-channels/' | relative_url }}).

@@ -792,11 +792,26 @@ export function packsNeeded(v: Vendor, qty: number): number {
 	return v.pack_qty ? Math.ceil(qty / v.pack_qty) : 1;
 }
 
-/** Buy cost at a vendor for a total quantity (pack math), USD vendors only. */
+/** Buy cost at a vendor for a total quantity (pack math), USD vendors only.
+ *  The cart and the running totals are dollars, so they go through this one. */
 export function buyCost(v: Vendor, qty: number | null): number | null {
 	if (v.price == null || v.currency === 'EUR') return null;
 	if (qty == null) return null;
 	return packsNeeded(v, qty) * v.price;
+}
+
+/** Buy cost at a vendor in the vendor's OWN currency. For showing a row: a
+ *  EUR listing sold in bundles still has to say how many bundles to buy, which
+ *  `buyCost` cannot do because it drops every non-dollar vendor. Never feed a
+ *  total with this; the currencies do not add up. */
+export function buyCostIn(v: Vendor, qty: number | null): number | null {
+	if (v.price == null || qty == null) return null;
+	return packsNeeded(v, qty) * v.price;
+}
+
+/** An amount in a vendor's currency. */
+export function fmtMoney(v: Vendor, amount: number): string {
+	return v.currency === 'EUR' ? `€${amount.toFixed(2)}` : `$${amount.toFixed(2)}`;
 }
 
 /** Cheapest US vendor with a price, which is what the cart and totals use. */
@@ -810,11 +825,7 @@ export function bestUsVendor(h: Hardware): Vendor | null {
 
 /** Vendor price formatted in its own currency, or null when none is recorded. */
 export function fmtPrice(v: Vendor): string | null {
-	return v.price == null
-		? null
-		: v.currency === 'EUR'
-			? `€${v.price.toFixed(2)}`
-			: `$${v.price.toFixed(2)}`;
+	return v.price == null ? null : fmtMoney(v, v.price);
 }
 
 export function categoryMultiplier(categoryId: string, layers: number): number {

@@ -42,39 +42,45 @@ Nothing on this lead is soldered. The switch end pushes on, and the board end is
 
 <figure class="harness-figure">
   <div class="diagram diagram-wide">
-    <svg viewBox="0 0 930 334" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="The chute limit switch lead: a keyed 3-pin board housing on the left with position 1 ground, position 2 signal and position 3 empty over the 3.3 V pin, two wires running to the switch on the right where they land on the COM and NC tabs, the third tab NO left bare">
+    <svg viewBox="0 0 930 352" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="The chute limit switch lead: a keyed 3-pin board housing on the left with position 1 ground, position 2 signal and position 3 empty over the 3.3 V pin, two wires running to the switch on the right where they land on the COM and NC tabs, the third tab NO left bare">
       <text x="0" y="20" font-size="17" font-weight="700" fill="var(--ink)">The chute limit switch lead</text>
       <text x="0" y="41" font-size="12" fill="var(--muted)">basically board v1.3 to the switch on the chute. One per machine. Nothing on it is soldered.</text>
-      <rect x="0" y="74" width="265" height="186" rx="5" fill="var(--bg)" stroke="var(--ink)" stroke-width="1.5"/>
-      <text x="14" y="98" font-size="13" font-weight="700" fill="var(--ink)">basically board v1.3</text>
-      <text x="14" y="116" font-size="11" fill="var(--muted)">J5, printed HALL_SW_0</text>
-      <circle cx="265" cy="146" r="4.5" fill="var(--ink)"/>
-      <text x="251" y="150" font-size="11" font-weight="700" fill="var(--muted)" text-anchor="end">1</text>
-      <text x="233" y="150" font-size="12" font-weight="600" fill="var(--ink)" text-anchor="end">GND</text>
-      <circle cx="265" cy="190" r="4.5" fill="var(--ink)"/>
-      <text x="251" y="194" font-size="11" font-weight="700" fill="var(--muted)" text-anchor="end">2</text>
-      <text x="233" y="194" font-size="12" font-weight="600" fill="var(--ink)" text-anchor="end">SIG</text>
-      <circle cx="265" cy="234" r="4.5" fill="var(--surface)" stroke="var(--muted)" stroke-width="1.5"/>
-      <text x="251" y="238" font-size="11" font-weight="700" fill="var(--muted)" text-anchor="end">3</text>
-      <text x="233" y="238" font-size="12" fill="var(--muted)" text-anchor="end">+3.3 V</text>
-      <rect x="665" y="74" width="265" height="186" rx="5" fill="var(--bg)" stroke="var(--ink)" stroke-width="1.5"/>
-      <text x="679" y="98" font-size="13" font-weight="700" fill="var(--ink)">Roller-lever switch</text>
-      <text x="679" y="116" font-size="11" fill="var(--muted)">Omron V-155-1C25</text>
-      <circle cx="665" cy="146" r="4.5" fill="var(--ink)"/>
-      <text x="679" y="150" font-size="11" font-weight="700" fill="var(--muted)"></text>
-      <text x="697" y="150" font-size="12" font-weight="600" fill="var(--ink)">NC</text>
-      <circle cx="665" cy="190" r="4.5" fill="var(--ink)"/>
-      <text x="679" y="194" font-size="11" font-weight="700" fill="var(--muted)"></text>
-      <text x="697" y="194" font-size="12" font-weight="600" fill="var(--ink)">COM</text>
-      <circle cx="665" cy="234" r="4.5" fill="var(--surface)" stroke="var(--muted)" stroke-width="1.5"/>
-      <text x="679" y="238" font-size="11" font-weight="700" fill="var(--muted)"></text>
-      <text x="697" y="238" font-size="12" fill="var(--muted)">NO</text>
-      <path d="M 271 146 C 465.0 146, 465.0 146, 659 146" fill="none" stroke="var(--ink)" stroke-width="2.6" stroke-linecap="round"/>
-      <path d="M 271 190 C 465.0 190, 465.0 190, 659 190" fill="none" stroke="var(--ink)" stroke-width="2.6" stroke-linecap="round"/>
-      <line x1="271" y1="234" x2="659" y2="234" stroke="var(--muted)" stroke-width="1.5" stroke-dasharray="3 5"/>
-      <text x="465" y="224" font-size="11" fill="var(--muted)" text-anchor="middle">neither end carries a contact</text>
-      <text x="465" y="290" font-size="12" font-weight="600" fill="var(--ink)" text-anchor="middle">Position 3 is empty and sits over the board's 3.3 V pin. That is what stops the plug going on backwards.</text>
-      <text x="465" y="316" font-size="12" fill="var(--muted)" text-anchor="middle">The switch only closes the circuit between the two, so it does not matter which conductor takes which tab.</text>
+      <rect x="0" y="92" width="265" height="186" rx="5" fill="var(--bg)" stroke="var(--ink)" stroke-width="1.5"/>
+      <text x="14" y="116" font-size="13" font-weight="700" fill="var(--ink)">basically board v1.3</text>
+      <text x="14" y="134" font-size="11" fill="var(--muted)">J5, printed HALL_SW_0</text>
+      <circle cx="265" cy="164" r="4.5" fill="var(--ink)"/>
+      <text x="251" y="168" font-size="11" font-weight="700" fill="var(--muted)" text-anchor="end">1</text>
+      <text x="233" y="168" font-size="12" font-weight="600" fill="var(--ink)" text-anchor="end">GND</text>
+      <circle cx="265" cy="208" r="4.5" fill="var(--ink)"/>
+      <text x="251" y="212" font-size="11" font-weight="700" fill="var(--muted)" text-anchor="end">2</text>
+      <text x="233" y="212" font-size="12" font-weight="600" fill="var(--ink)" text-anchor="end">SIG</text>
+      <circle cx="265" cy="252" r="4.5" fill="var(--surface)" stroke="var(--muted)" stroke-width="1.5"/>
+      <text x="251" y="256" font-size="11" font-weight="700" fill="var(--muted)" text-anchor="end">3</text>
+      <text x="233" y="256" font-size="12" fill="var(--muted)" text-anchor="end">+3.3 V</text>
+      <rect x="665" y="92" width="265" height="186" rx="5" fill="var(--bg)" stroke="var(--ink)" stroke-width="1.5"/>
+      <text x="679" y="116" font-size="13" font-weight="700" fill="var(--ink)">Roller-lever switch</text>
+      <text x="679" y="134" font-size="11" fill="var(--muted)">Omron V-155-1C25</text>
+      <circle cx="665" cy="164" r="4.5" fill="var(--ink)"/>
+      <text x="679" y="168" font-size="11" font-weight="700" fill="var(--muted)"></text>
+      <text x="697" y="168" font-size="12" font-weight="600" fill="var(--ink)">NC</text>
+      <circle cx="665" cy="208" r="4.5" fill="var(--ink)"/>
+      <text x="679" y="212" font-size="11" font-weight="700" fill="var(--muted)"></text>
+      <text x="697" y="212" font-size="12" font-weight="600" fill="var(--ink)">COM</text>
+      <circle cx="665" cy="252" r="4.5" fill="var(--surface)" stroke="var(--muted)" stroke-width="1.5"/>
+      <text x="679" y="256" font-size="11" font-weight="700" fill="var(--muted)"></text>
+      <text x="697" y="256" font-size="12" fill="var(--muted)">NO</text>
+      <line x1="0" y1="64" x2="26" y2="64" stroke="#1a1a1a" stroke-width="2.6" stroke-linecap="round"/>
+      <text x="34" y="68" font-size="11" fill="var(--muted)">black</text>
+      <line x1="91" y1="64" x2="117" y2="64" stroke="var(--muted)" stroke-width="5" stroke-linecap="round"/>
+      <line x1="91" y1="64" x2="117" y2="64" stroke="#ffffff" stroke-width="2.6" stroke-linecap="round"/>
+      <text x="125" y="68" font-size="11" fill="var(--muted)">white</text>
+      <path d="M 271 164 C 465.0 164, 465.0 164, 659 164" fill="none" stroke="#1a1a1a" stroke-width="2.8" stroke-linecap="round"/>
+      <path d="M 271 208 C 465.0 208, 465.0 208, 659 208" fill="none" stroke="var(--muted)" stroke-width="4.8" stroke-linecap="round"/>
+      <path d="M 271 208 C 465.0 208, 465.0 208, 659 208" fill="none" stroke="#ffffff" stroke-width="2.8" stroke-linecap="round"/>
+      <line x1="271" y1="252" x2="659" y2="252" stroke="var(--muted)" stroke-width="1.5" stroke-dasharray="3 5"/>
+      <text x="465" y="242" font-size="11" fill="var(--muted)" text-anchor="middle">neither end carries a contact</text>
+      <text x="465" y="308" font-size="12" font-weight="600" fill="var(--ink)" text-anchor="middle">Position 3 is empty and sits over the board's 3.3 V pin. That is what stops the plug going on backwards.</text>
+      <text x="465" y="334" font-size="12" fill="var(--muted)" text-anchor="middle">The switch only closes the circuit between the two, so it does not matter which conductor takes which tab.</text>
     </svg>
   </div>  <figcaption>One lead end to end. The empty third position is what keys the plug.</figcaption>
 </figure>

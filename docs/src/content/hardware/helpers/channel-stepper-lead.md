@@ -49,20 +49,24 @@ the drawing. Motor positions 2 and 5 stay empty.
 
 <figure class="harness-figure">
   <div class="diagram diagram-wide">
-    <svg viewBox="0 0 930 413" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="One channel stepper lead: a 4-pin board connector on the left with positions A2, A1, B1 and B2, four wires running to the motor's 6-pin socket on the right, the middle two crossing so board position 2 lands on motor position 4 and board position 3 on motor position 3, with motor positions 2 and 5 empty">
+    <svg viewBox="0 0 930 435" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="One channel stepper lead: a 4-pin board connector on the left with positions A2, A1, B1 and B2, four wires running to the motor's 6-pin socket on the right, the middle two crossing so board position 2 lands on motor position 4 and board position 3 on motor position 3, with motor positions 2 and 5 empty">
       <text x="0" y="20" font-size="17" font-weight="700" fill="var(--ink)">One channel stepper lead</text>
       <text x="0" y="41" font-size="12" fill="var(--muted)">basically board v1.3 to one c-channel motor. Four per machine, all the same.</text>
-      <line x1="0" y1="64" x2="26" y2="64" stroke="var(--primary)" stroke-width="2.6" stroke-linecap="round"/>
-      <text x="34" y="68" font-size="11" fill="var(--muted)">coil A</text>
-      <line x1="98" y1="64" x2="124" y2="64" stroke="var(--ink)" stroke-width="2.6" stroke-linecap="round"/>
-      <text x="132" y="68" font-size="11" fill="var(--muted)">coil B</text>
+      <line x1="0" y1="64" x2="26" y2="64" stroke="#1f63c8" stroke-width="2.6" stroke-linecap="round"/>
+      <text x="34" y="68" font-size="11" fill="var(--muted)">blue</text>
+      <line x1="84" y1="64" x2="110" y2="64" stroke="#1f8a45" stroke-width="2.6" stroke-linecap="round"/>
+      <text x="118" y="68" font-size="11" fill="var(--muted)">green</text>
+      <line x1="175" y1="64" x2="201" y2="64" stroke="#d01012" stroke-width="2.6" stroke-linecap="round"/>
+      <text x="209" y="68" font-size="11" fill="var(--muted)">red</text>
+      <line x1="252" y1="64" x2="278" y2="64" stroke="#1a1a1a" stroke-width="2.6" stroke-linecap="round"/>
+      <text x="286" y="68" font-size="11" fill="var(--muted)">black</text>
       <rect x="0" y="92" width="250" height="273" rx="5" fill="var(--bg)" stroke="var(--ink)" stroke-width="1.5"/>
       <text x="14" y="116" font-size="13" font-weight="700" fill="var(--ink)">basically board v1.3</text>
       <text x="14" y="134" font-size="11" fill="var(--muted)">J27 / J31 / J35 / J39</text>
-      <circle cx="250" cy="181.0" r="4.5" fill="var(--primary)"/>
+      <circle cx="250" cy="181.0" r="4.5" fill="var(--ink)"/>
       <text x="236" y="185.0" font-size="11" font-weight="700" fill="var(--muted)" text-anchor="end">1</text>
       <text x="218" y="185.0" font-size="12" font-weight="600" fill="var(--ink)" text-anchor="end">A2</text>
-      <circle cx="250" cy="228.0" r="4.5" fill="var(--primary)"/>
+      <circle cx="250" cy="228.0" r="4.5" fill="var(--ink)"/>
       <text x="236" y="232.0" font-size="11" font-weight="700" fill="var(--muted)" text-anchor="end">2</text>
       <text x="218" y="232.0" font-size="12" font-weight="600" fill="var(--ink)" text-anchor="end">A1</text>
       <circle cx="250" cy="275.0" r="4.5" fill="var(--ink)"/>
@@ -71,10 +75,14 @@ the drawing. Motor positions 2 and 5 stay empty.
       <circle cx="250" cy="322.0" r="4.5" fill="var(--ink)"/>
       <text x="236" y="326.0" font-size="11" font-weight="700" fill="var(--muted)" text-anchor="end">4</text>
       <text x="218" y="326.0" font-size="12" font-weight="600" fill="var(--ink)" text-anchor="end">B2</text>
+      <path d="M 142 181.0 h 10 v 47.0 h -10" fill="none" stroke="var(--muted)" stroke-width="1.4"/>
+      <text x="158" y="208.5" font-size="11" font-weight="600" fill="var(--muted)">coil A</text>
+      <path d="M 142 275.0 h 10 v 47.0 h -10" fill="none" stroke="var(--muted)" stroke-width="1.4"/>
+      <text x="158" y="302.5" font-size="11" font-weight="600" fill="var(--muted)">coil B</text>
       <rect x="680" y="92" width="250" height="273" rx="5" fill="var(--bg)" stroke="var(--ink)" stroke-width="1.5"/>
       <text x="694" y="116" font-size="13" font-weight="700" fill="var(--ink)">NEMA 17 motor</text>
       <text x="694" y="134" font-size="11" fill="var(--muted)">its own 6-pin socket</text>
-      <circle cx="680" cy="164" r="4.5" fill="var(--primary)"/>
+      <circle cx="680" cy="164" r="4.5" fill="var(--ink)"/>
       <text x="694" y="168" font-size="11" font-weight="700" fill="var(--muted)">1</text>
       <text x="712" y="168" font-size="12" font-weight="600" fill="var(--ink)">A2</text>
       <circle cx="680" cy="199" r="4.5" fill="var(--surface)" stroke="var(--muted)" stroke-width="1.5"/>
@@ -83,7 +91,7 @@ the drawing. Motor positions 2 and 5 stay empty.
       <circle cx="680" cy="234" r="4.5" fill="var(--ink)"/>
       <text x="694" y="238" font-size="11" font-weight="700" fill="var(--muted)">3</text>
       <text x="712" y="238" font-size="12" font-weight="600" fill="var(--ink)">B1</text>
-      <circle cx="680" cy="269" r="4.5" fill="var(--primary)"/>
+      <circle cx="680" cy="269" r="4.5" fill="var(--ink)"/>
       <text x="694" y="273" font-size="11" font-weight="700" fill="var(--muted)">4</text>
       <text x="712" y="273" font-size="12" font-weight="600" fill="var(--ink)">A1</text>
       <circle cx="680" cy="304" r="4.5" fill="var(--surface)" stroke="var(--muted)" stroke-width="1.5"/>
@@ -92,11 +100,12 @@ the drawing. Motor positions 2 and 5 stay empty.
       <circle cx="680" cy="339" r="4.5" fill="var(--ink)"/>
       <text x="694" y="343" font-size="11" font-weight="700" fill="var(--muted)">6</text>
       <text x="712" y="343" font-size="12" font-weight="600" fill="var(--ink)">B2</text>
-      <path d="M 256 181.0 C 465.0 181.0, 465.0 164, 674 164" fill="none" stroke="var(--primary)" stroke-width="2.6" stroke-linecap="round"/>
-      <path d="M 256 228.0 C 465.0 228.0, 465.0 269, 674 269" fill="none" stroke="var(--primary)" stroke-width="2.6" stroke-linecap="round"/>
-      <path d="M 256 275.0 C 465.0 275.0, 465.0 234, 674 234" fill="none" stroke="var(--ink)" stroke-width="2.6" stroke-linecap="round"/>
-      <path d="M 256 322.0 C 465.0 322.0, 465.0 339, 674 339" fill="none" stroke="var(--ink)" stroke-width="2.6" stroke-linecap="round"/>
-      <text x="465" y="397" font-size="12" fill="var(--muted)" text-anchor="middle">Two conductors change places: board 2 goes to motor 4, board 3 to motor 3. Keep each coil pair together.</text>
+      <path d="M 256 181.0 C 465.0 181.0, 465.0 164, 674 164" fill="none" stroke="#1f63c8" stroke-width="2.8" stroke-linecap="round"/>
+      <path d="M 256 228.0 C 465.0 228.0, 465.0 269, 674 269" fill="none" stroke="#1f8a45" stroke-width="2.8" stroke-linecap="round"/>
+      <path d="M 256 275.0 C 465.0 275.0, 465.0 234, 674 234" fill="none" stroke="#d01012" stroke-width="2.8" stroke-linecap="round"/>
+      <path d="M 256 322.0 C 465.0 322.0, 465.0 339, 674 339" fill="none" stroke="#1a1a1a" stroke-width="2.8" stroke-linecap="round"/>
+      <text x="465" y="397" font-size="12" fill="var(--muted)" text-anchor="middle">Two conductors change places: board 2 goes to motor 4, board 3 to motor 3.</text>
+      <text x="465" y="417" font-size="12" fill="var(--muted)" text-anchor="middle">Colours are the ones on the harness drawing. Meter the coils rather than trusting them.</text>
     </svg>
   </div>  <figcaption>One lead end to end. The two conductors that change places are the crossing pair in the middle.</figcaption>
 </figure>

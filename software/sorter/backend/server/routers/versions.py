@@ -15,11 +15,12 @@ from pydantic import BaseModel
 
 router = APIRouter()
 
-# Release channels are tag namespaces. A machine "on" a channel is sitting on
-# one of the channel's tags; updating moves it to that channel's newest tag.
+# Machines on this release branch only move between stable releases: tagging
+# sorter/stable/vX is how a fix is rolled out, and the Versions page offers each
+# machine the newest one. Never a branch (an "update" to main is exactly what an
+# operator must not be offered) and never canary.
 STABLE_TAG_PREFIX = "sorter/stable/v"
-CANARY_TAG_PREFIX = "sorter/canary/v"
-RELEASE_CHANNELS = (("stable", STABLE_TAG_PREFIX), ("canary", CANARY_TAG_PREFIX))
+RELEASE_CHANNELS = (("stable", STABLE_TAG_PREFIX),)
 MAX_TAGS_LISTED = 20
 GIT_TIMEOUT_S = 30.0
 GIT_FETCH_TIMEOUT_S = 90.0
@@ -106,27 +107,6 @@ def _currentInfo() -> Dict[str, Any]:
     }
 
 
-def _branchEntries(current: Dict[str, Any]) -> List[Dict[str, Any]]:
-    # Only the branch the machine is actually on — no `main` unless that's it.
-    current_branch = current.get("branch")
-    if not isinstance(current_branch, str) or not current_branch:
-        return []
-    info = _commitInfo(f"origin/{current_branch}")
-    if info is None:
-        return []
-    return [
-        {
-            "kind": "branch",
-            "name": current_branch,
-            "sha": info["sha"],
-            "commit_unix": info["commit_unix"],
-            "subject": info["subject"],
-            "is_current": True,
-            "up_to_date": info["full_sha"] == current.get("full_sha"),
-        }
-    ]
-
-
 def _tagsForPrefix(prefix: str) -> List[Dict[str, Any]]:
     # Version-descending so the channel's newest *release number* is first,
     # independent of commit/tag dates (v1.10.0 > v1.9.0, not lexical).
@@ -189,41 +169,34 @@ def _deferredRestart() -> None:
     threading.Thread(target=_exit, daemon=True).start()
 
 
-# Self-service updates are switched off on this release branch. Machines on it
-# stay on a pinned, known version until a fix is deliberately rolled to them;
-# an "Update available" button pointing at main is exactly what we don't want
-# an operator clicking. Both the button and the toast key off `available`, so
-# returning none of them removes both, and the update endpoint refuses outright
-# in case anything calls it directly.
-UPDATES_DISABLED_MESSAGE = "Software updates are disabled on this machine's release branch."
-
-
 @router.get("/api/system/versions")
 def get_versions(refresh: bool = False) -> Dict[str, Any]:
+    fetch_error: Optional[str] = None
+    if refresh:
+        result = _git(
+            "fetch", "--tags", "--prune", "--prune-tags", "--force", "origin",
+            timeout=GIT_FETCH_TIMEOUT_S,
+        )
+        if result.returncode != 0:
+            fetch_error = result.stderr.strip() or "git fetch failed"
+
+    current = _currentInfo()
     return {
         "ok": True,
-        "current": _currentInfo(),
-        "available": [],
-        "fetch_error": None,
+        "current": current,
+        "available": _channelEntries(current),
+        "fetch_error": fetch_error,
         "update_in_progress": _update_target,
-        "updates_disabled": True,
     }
 
 
 @router.post("/api/system/update")
 def update_version(req: UpdateRequest) -> Dict[str, Any]:
     global _update_target
-    return {"ok": False, "message": UPDATES_DISABLED_MESSAGE}
-
-    if req.kind not in ("branch", "tag"):
-        return {"ok": False, "message": f"Unknown ref kind: {req.kind}"}
+    if req.kind != "tag" or not req.name.startswith(STABLE_TAG_PREFIX):
+        return {"ok": False, "message": f"Only stable releases ({STABLE_TAG_PREFIX}*) can be installed on this machine."}
     if not REF_NAME_PATTERN.match(req.name) or ".." in req.name:
         return {"ok": False, "message": f"Invalid ref name: {req.name}"}
-    if req.kind == "tag" and not any(
-        req.name.startswith(prefix) for _, prefix in RELEASE_CHANNELS
-    ):
-        allowed = " or ".join(prefix for _, prefix in RELEASE_CHANNELS)
-        return {"ok": False, "message": f"Release tags must start with {allowed}"}
 
     if not _update_lock.acquire(blocking=False):
         return {"ok": False, "message": f"Update already in progress: {_update_target}"}
@@ -237,7 +210,7 @@ def update_version(req: UpdateRequest) -> Dict[str, Any]:
         if fetch.returncode != 0:
             return {"ok": False, "message": f"git fetch failed: {fetch.stderr.strip()}"}
 
-        target_ref = f"origin/{req.name}" if req.kind == "branch" else f"refs/tags/{req.name}"
+        target_ref = f"refs/tags/{req.name}"
         target = _commitInfo(target_ref)
         if target is None:
             return {"ok": False, "message": f"Ref not found on origin: {target_ref}"}
@@ -256,10 +229,7 @@ def update_version(req: UpdateRequest) -> Dict[str, Any]:
                 return {"ok": False, "message": f"git stash failed: {stash.stderr.strip()}"}
             stashed = True
 
-        if req.kind == "branch":
-            checkout = _git("checkout", "-f", "-B", req.name, f"origin/{req.name}")
-        else:
-            checkout = _git("checkout", "-f", "--detach", f"refs/tags/{req.name}")
+        checkout = _git("checkout", "-f", "--detach", target_ref)
         if checkout.returncode != 0:
             return {"ok": False, "message": f"git checkout failed: {checkout.stderr.strip()}"}
 

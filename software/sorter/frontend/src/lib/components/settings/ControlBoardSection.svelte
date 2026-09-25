@@ -561,6 +561,8 @@
 					{#if flashSource === 'release'}
 						{#if releasesError}
 							<Alert variant="danger">{releasesError}</Alert>
+						{:else if !releasesLoading && !releases.length}
+							<Alert variant="warning">No firmware releases found on GitHub. Use Upload .uf2 instead.</Alert>
 						{:else}
 							<select
 								class="setup-control"

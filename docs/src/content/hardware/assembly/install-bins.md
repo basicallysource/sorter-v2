@@ -11,10 +11,7 @@ og_image: https://assets.basically.website/sorter-docs/install-bins-printed-bins
 author: spencer
 contributors: [brickcyclealice, daddyosbricksbill]
 tools_needed: ["Hot glue gun, for cardboard bins", "Laser cutter, or a cutting service, for cardboard bins"]
-warning: >-
-  **AI-generated first draft.** Written from the parts catalog, the bin generator and
-  what builders have posted, not from an actual build. No step here has been checked
-  against a machine. Correct it as you build.
+last_verified: 2026-09-25
 parts_needed:
   - part: bin-half-left
     qty: 6
@@ -32,6 +29,8 @@ Bins go in last, after the electronics, so the chutes can be connected and their
 
 The list above is per layer, and a layer takes **one** of the two sets, not both. Which set depends on the size of that layer's funnel, which is step 1.
 
+**Step 2 is two ways of getting the same bins**, printed or laser cut. They fit the same frame, so the choice is cost and what you own.
+
 {% include step.html n="1" title="Check which set each layer takes" %}
 
 Each layer takes the set that matches the funnel already fitted to it.
@@ -43,37 +42,41 @@ One set per bay, six bays around the hexagon. A machine can mix the two sizes, i
 
 Changing a layer to the other size at this point means printing a new funnel as well as new bins. [Funnel brackets]({{ '/hardware/assembly/distribution/chute/funnel/' | relative_url }}) is where that choice is made.
 
-{% include step.html n="2" title="Get the bins: print them or cut them" %}
+{% include step.html n="2a" title="Either: print the bins" %}
 
-Both are real options and the machine holds them identically.
+The five parts above are in the parts catalog with their STLs, printed the same way as everything else ([Printing the parts]({{ '/hardware/printing/' | relative_url }})). Nothing but a printer and time.
 
-<div class="img-row">
-  <figure>
-    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/install-bins-printed-bins-loaded-stack-w1600-bf2746b86680.jpg" alt="A five layer distribution stack on casters, every bay filled with blue 3D printed bins: three across on the top two layers, two across on the bottom three">
-    <figcaption>Printed bins. This machine mixes the sizes: third size on the top two layers, half size on the bottom three. <cite>Photo: Daddy-O's Bricks - Bill.</cite></figcaption>
-  </figure>
-  <figure>
-    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/install-bins-cardboard-bins-tower-full-97d68e720775.jpg" alt="A bin tower on castors under its plywood deck, five layers of folded cardboard bins with sorted LEGO in them">
-    <figcaption>Laser cut cardboard bins, on the same frame. <cite>Photo: Basically.</cite></figcaption>
-  </figure>
-</div>
+Budget for it. A half set is about 2.1 kg of filament and 55 hours of printing per layer, a third set about 2.1 kg and 60 hours, so a five layer machine is roughly 10 kg and about 300 hours in bins alone. That is the single biggest print on the machine.
 
-**Printed.** The five parts above, on the [parts calculator](https://parts-calculator.basically.website/), STLs and all, printed the same way as everything else ([Printing the parts]({{ '/hardware/printing/' | relative_url }})). Budget for them: a half set is about 2.1 kg of filament and 55 hours of printing per layer, a third set about 2.1 kg and 60 hours, so a five layer machine is roughly 10 kg of filament and about 300 hours of printing in bins alone. That is the single biggest print on the machine.
+<figure class="single-figure">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/install-bins-printed-bins-loaded-stack-w1600-bf2746b86680.jpg" alt="A five layer distribution stack on casters, every bay filled with blue 3D printed bins: three across on the top two layers, two across on the bottom three">
+  <figcaption>Printed bins. This machine mixes the sizes: third size on the top two layers, half size on the bottom three. <cite>Photo: Daddy-O's Bricks - Bill.</cite></figcaption>
+</figure>
 
-**Laser cut cardboard.** The bins were designed to be cut flat and folded, for cost and because pre-made boxes in the sizes needed ship mostly air. Cut them with the [laser cut bin generator](https://bin-gen.basically.website/), which turns a bin into a foldable flat pattern:
+{% include step.html n="2b" title="Or: laser cut them from cardboard" %}
 
-- It ships **built-in bins**, so you do not need a CAD file to use it. Drag in your own `.step` only if you have modified a bin.
-- Set **thickness** to your stock. 1/8 inch cardboard is 3.175 mm, which is the default.
-- Leave **kerf compensation** on, so the finger joints come out the size they were drawn.
-- Export **SVG or DXF** to hand to somebody else's laser, or the LightBurn file if you are driving your own.
-- The pattern comes out in three line colours, and the order you cut them in matters: **green first, then blue, then red**. Green is the fold score and only goes through the first outside wall of the corrugation, so it has to be cut while the sheet is still whole, and the green side has to be face up. Blue perforations and red outlines are both full through cuts.
+What the bins were designed for: cut flat, folded and glued. Cut them with the [laser cut bin generator](https://bin-gen.basically.website/), which turns a bin into a foldable flat pattern.
 
-**No laser of your own.** A makerspace or an online laser cutting service will cut the sheets from the exported file. Each bin is one connected piece and cannot be split across two smaller sheets, so give them the size up front: on the default 3.175 mm stock a half-size bin's flat pattern is about 410 x 390 mm, and the largest of the three third-size ones about 345 x 300 mm.
+<ol class="numbered-steps">
+  <li>Pick your bin from the <strong>built-in bins</strong> list. You only need a CAD file if you have modified one, and then you drag your own <code>.step</code> in instead.</li>
+  <li>Set <strong>thickness</strong> to your stock. 1/8 inch cardboard is 3.175 mm, which is the default.</li>
+  <li>Leave <strong>kerf compensation</strong> on, so the finger joints come out the size they were drawn.</li>
+  <li>Export <strong>SVG or DXF</strong> to hand to somebody else's laser, or the LightBurn file if you are driving your own.</li>
+  <li>Cut in colour order, <strong>green first, then blue, then red</strong>, with the green side face up. Green is the fold score and only goes through the first outside wall of the corrugation, so it has to be cut while the sheet is still whole. Blue perforations and red outlines are both full through cuts.</li>
+  <li>Fold the bin up and glue the corners.</li>
+</ol>
 
 <div class="callout callout-warning">
   <span class="callout-icon" aria-hidden="true">⚠</span>
   <p>Glue the corners of a cardboard bin. The folded finger joints on their own do not hold in corrugated stock: most of the volume is air, so a finger usually lands on two paper walls with nothing between them. Hot glue is what the bins at Basically are held together with.</p>
 </div>
+
+**No laser of your own.** A makerspace or an online laser cutting service will cut the sheets from the exported file. Each bin is one connected piece and cannot be split across two smaller sheets, so give them the size up front: on the default 3.175 mm stock a half-size bin's flat pattern is about 410 x 390 mm, and the largest of the three third-size ones about 345 x 300 mm.
+
+<figure class="single-figure">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/install-bins-cardboard-bins-tower-full-97d68e720775.jpg" alt="A bin tower on castors under its plywood deck, five layers of folded cardboard bins with sorted LEGO in them">
+  <figcaption>Laser cut cardboard bins, on the same frame. <cite>Photo: Basically.</cite></figcaption>
+</figure>
 
 {% include step.html n="3" title="Drop them in" %}
 

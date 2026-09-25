@@ -87,9 +87,9 @@ What the bins were designed for: cut flat, folded and glued. Cut them with the [
 
 Work around one layer at a time. Each bin sits in its bay with the wide open mouth facing outward and the narrow end toward the middle of the machine, resting on the frame, with its front edge behind the Bin retainer (left) and Bin retainer (right) on the front face of that bay's A extrusion. The retainers bolt to the frame and not to the bin, which is why cardboard and printed bins are held the same way and why swapping one for the other later costs nothing.
 
-**A printed bin does not just sit behind the rail, it keys into it.** The inner face of a retainer carries seven teeth just below its top edge, and the lower front edge of a printed bin is castellated to match, so a bin dropped into its bay lands with its notches over those teeth and is located along the rail rather than free to slide.
+**A bin does not just sit behind the rail, it keys into it.** The inner face of a retainer carries seven teeth just below its top edge, and the lower front edge of a bin is castellated to match, so a bin dropped into its bay lands with its notches over those teeth and is located along the rail rather than free to slide. Cut bins have the same edge: it is part of the flat pattern.
 
-Push each bin fully back until it seats. If a printed bin stands proud, it is sitting on a tooth rather than over one: lift it and drop it again.
+Push each bin fully back until it seats. If one stands proud, it is sitting on a tooth rather than over one: lift it and drop it again.
 
 <figure class="single-figure">
   <img class="doc-figure" src="https://assets.basically.website/sorter-docs/install-bins-bin-retainer-teeth-w1600-0ee7c319295d.jpg" alt="Close-up of two bin retainer rails: the upper bin is seated with its castellated front edge meshed into the rail, the lower bin is lifted clear so the rail's own teeth are visible">

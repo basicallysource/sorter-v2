@@ -243,7 +243,7 @@
 						Jog
 					</button>
 				</div>
-				<div class="mt-3 text-center text-xs text-text-muted">Which way did it move?</div>
+				<div class="mt-3 text-center text-xs text-text-muted">Which way did it turn, seen from above?</div>
 				<div class="mt-1 grid grid-cols-2 gap-2">
 					<button
 						onclick={() => onRecordObservedDirection(entry, 'cw')}

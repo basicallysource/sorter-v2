@@ -10502,10 +10502,98 @@
         },
         {
           "version": "9",
+          "uid": "izux",
           "date": "2026-09-25",
           "message": "Dropped the 2 M5 x 22 for the top plate's S2/S3 screws. That joint holds the plate to this assembly, so both its sides are members of superstructure and not of this node; it is recorded there. The 12 M5 x 22 through I1-I6 and O1-O6 are unaffected, they come from interface-bracket-mount.",
           "breaking": false,
-          "commit": null
+          "commit": null,
+          "lines": [
+            {
+              "assembly": "interface-bracket-mount",
+              "qty": 6,
+              "uid": "ng7f"
+            },
+            {
+              "assembly": "hex-frame",
+              "qty": 1,
+              "uid": "l0xa"
+            },
+            {
+              "assembly": "fixed-upper-section",
+              "qty": 1,
+              "uid": "c16o"
+            },
+            {
+              "assembly": "cable-cage",
+              "qty": 1,
+              "uid": "ay0q"
+            },
+            {
+              "part": "scr-m5-30-shcs",
+              "qty": 6,
+              "uid": "92kv"
+            },
+            {
+              "assembly": "cable-clamp",
+              "qty": 1,
+              "uid": "rwaw"
+            },
+            {
+              "part": "scr-m3-12-bhcs",
+              "qty": 2,
+              "uid": "izrb"
+            },
+            {
+              "assembly": "limit-switch",
+              "qty": 1,
+              "uid": "apb5"
+            },
+            {
+              "part": "scr-m5-20-shcs",
+              "qty": 2,
+              "uid": "e4hi"
+            },
+            {
+              "assembly": "chute-stepper-gearing",
+              "qty": 1,
+              "uid": "ud8y"
+            },
+            {
+              "assembly": "harness-stepper-chute",
+              "qty": 1,
+              "uid": "ujmp"
+            },
+            {
+              "assembly": "interface-chute-drive",
+              "qty": 1,
+              "uid": "w4jv"
+            },
+            {
+              "part": "top-interface-split-spur-gear-2",
+              "qty": 1,
+              "uid": "izz5"
+            },
+            {
+              "part": "brg-lazy-susan",
+              "qty": 1,
+              "uid": "wrxu"
+            },
+            {
+              "part": "scr-m4-16-cs",
+              "qty": 8,
+              "uid": "ee5j"
+            },
+            {
+              "part": "scr-m5-35-fhcs",
+              "qty": 6,
+              "uid": "xkl4"
+            },
+            {
+              "part": "scr-m5-16-shcs",
+              "qty": 12,
+              "uid": "2e0s"
+            }
+          ]
         },
         {
           "version": "10",
@@ -10809,10 +10897,58 @@
         },
         {
           "version": "4",
+          "uid": "oxj0",
           "date": "2026-09-25",
           "message": "The 12 M5 x 16 that fasten the six External bracket - bottom vertical onto the top of piece D, bottom-layer.md step 4. Every other layer gets these through external-bracket-with-support; the bottom layer's corners use external-bracket-with-foot, which carries neither the bracket nor its screws, so the screws were missing from the machine entirely.",
           "breaking": false,
-          "commit": null
+          "commit": null,
+          "lines": [
+            {
+              "assembly": "hex-frame-bottom",
+              "qty": 1,
+              "uid": "5l36"
+            },
+            {
+              "assembly": "chute",
+              "qty": 1,
+              "uid": "re1n"
+            },
+            {
+              "part": "bin-retainer-left",
+              "qty": 6,
+              "uid": "hqz0"
+            },
+            {
+              "part": "bin-retainer-right",
+              "qty": 6,
+              "uid": "ybpv"
+            },
+            {
+              "part": "ext-2020-d",
+              "qty": 6,
+              "uid": "h9ov"
+            },
+            {
+              "part": "foot-connector-2020-m6",
+              "qty": 6,
+              "uid": "sxxb"
+            },
+            {
+              "part": "caster-wheel-m6",
+              "qty": 6,
+              "uid": "l7ww"
+            },
+            {
+              "part": "scr-m5-16-shcs",
+              "qty": 48,
+              "uid": "2e0s"
+            },
+            {
+              "part": "tnut-m5-2020",
+              "qty": 24,
+              "uid": "bpwm"
+            }
+          ]
         },
         {
           "version": "5",
@@ -11116,10 +11252,53 @@
         },
         {
           "version": "7",
+          "uid": "y3bz",
           "date": "2026-09-25",
           "message": "The 12 M5 x 16 that fasten this node down onto the one below it, which stacking-the-layers.md has called for since it was written and the tree never carried. The stack has one joint per layer, so they belong on the node that lands rather than as a flat count on the superstructure: an N-layer machine now totals 12N of them instead of 6.",
           "breaking": false,
-          "commit": null
+          "commit": null,
+          "lines": [
+            {
+              "assembly": "layer-frame",
+              "qty": 1,
+              "uid": "yq92"
+            },
+            {
+              "assembly": "chute",
+              "qty": 1,
+              "uid": "re1n"
+            },
+            {
+              "part": "cable-idc-2x8-short",
+              "qty": 1,
+              "uid": "ncil"
+            },
+            {
+              "part": "bin-retainer-left",
+              "qty": 6,
+              "uid": "hqz0"
+            },
+            {
+              "part": "bin-retainer-right",
+              "qty": 6,
+              "uid": "ybpv"
+            },
+            {
+              "part": "ext-2020-c",
+              "qty": 6,
+              "uid": "pc3b"
+            },
+            {
+              "part": "scr-m5-16-shcs",
+              "qty": 48,
+              "uid": "2e0s"
+            },
+            {
+              "part": "tnut-m5-2020",
+              "qty": 24,
+              "uid": "bpwm"
+            }
+          ]
         },
         {
           "version": "8",
@@ -12190,10 +12369,33 @@
         },
         {
           "version": "2",
+          "uid": "5wdt",
           "date": "2026-08-31",
           "message": "Recording correction: the bottom vertical is screwed into the side bracket with 2 x M5 x 16, not 1, and the screws run from the bottom vertical into the side. No physical change.",
           "breaking": false,
-          "commit": "937a96e5"
+          "commit": "937a96e5",
+          "lines": [
+            {
+              "part": "ext-bracket-cover",
+              "qty": 1,
+              "uid": "1r5i"
+            },
+            {
+              "part": "ext-bracket-left",
+              "qty": 1,
+              "uid": "0b4g"
+            },
+            {
+              "part": "ext-bracket-bottom-vertical",
+              "qty": 1,
+              "uid": "xgzj"
+            },
+            {
+              "part": "scr-m5-16-shcs",
+              "qty": 2,
+              "uid": "2e0s"
+            }
+          ]
         },
         {
           "version": "3",

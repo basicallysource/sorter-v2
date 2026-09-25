@@ -555,7 +555,15 @@ def main() -> None:
     server = ThreadingHTTPServer((str(args.host), int(args.control_port)), _handler_factory(supervisor))
 
     def _shutdown(*_args: Any) -> None:
-        server.shutdown()
+        # server.shutdown() waits for serve_forever() to return, and that runs
+        # on this thread, so called here it deadlocks until systemd's SIGKILL.
+        # Mark the supervisor stopping first so it doesn't restart the backend
+        # that systemd's SIGTERM just stopped.
+        def _stop() -> None:
+            supervisor.shutdown()
+            server.shutdown()
+
+        threading.Thread(target=_stop, daemon=True).start()
 
     signal.signal(signal.SIGINT, _shutdown)
     signal.signal(signal.SIGTERM, _shutdown)

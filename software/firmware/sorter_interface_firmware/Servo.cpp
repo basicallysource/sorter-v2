@@ -217,7 +217,11 @@ void Servo::update() {
  * aborted.
  */
 void Servo::stopMotion() {
-    _state = SERVO_IDLE;
+    // A disabled servo stays disabled. Going to IDLE here would start driving it
+    // to its stored position, which is 0 on a servo nobody has moved since boot.
+    if (_state != SERVO_DISABLED) {
+        _state = SERVO_IDLE;
+    }
     _current_speed = 0;
     _current_speed_frac = 0;
     _current_dir = 0;

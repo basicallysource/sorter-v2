@@ -52,7 +52,6 @@ class InterfaceCommandCode(BaseCommandCode):
     SERVO_SET_ACCELERATION = 0x42
     SERVO_GET_POSITION = 0x43
     SERVO_IS_STOPPED = 0x44
-    SERVO_STOP = 0x45
     SERVO_SET_ENABLED = 0x46
     SERVO_SET_DUTY_LIMITS = 0x47
     SERVO_MOVE_TO_AND_RELEASE = 0x48  # payload: uint16 pos (0.1°), uint16 max_duration_ms (0 = firmware default)
@@ -718,9 +717,14 @@ class ServoMotor:
         return struct.unpack("<H", res.payload)[0] # 2 bytes, little-endian unsigned integer
 
     def stop(self):
-        """Stop the servo immediately"""
-        self._gc.logger.info(f"Servo '{self._name}' ch{self._channel}: stop (was at {self._current_angle}°)")
-        self._dev.send_command(InterfaceCommandCode.SERVO_STOP, self._channel, b'')
+        """Stop the servo and release it: no PWM signal at all.
+
+        The firmware's SERVO_STOP holds the servo at its stored position, and a
+        servo nobody has moved since boot is stored at 0°, so stopping one drove
+        it to 0° whether or not that is inside its calibrated range.
+        """
+        self._gc.logger.info(f"Servo '{self._name}' ch{self._channel}: stop and release (was at {self._current_angle}°)")
+        self.enabled = False
 
     @property
     def stopped(self) -> bool:

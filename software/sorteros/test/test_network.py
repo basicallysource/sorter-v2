@@ -19,6 +19,7 @@ WALL = 1_790_000_000.0
 AUTOCONNECT_S = 8  # NetworkManager joining a saved network on its own
 JOIN_S = 4  # an explicit join, when it works
 WRONG_PASSWORD_S = 11  # measured on the AP6275P
+RSA_2048_OAEP_MAX = 256 - 2 * 32 - 2  # bytes in one RSA-OAEP block: 2048-bit key, SHA-256
 
 
 class Router:
@@ -342,6 +343,8 @@ class Fake(net.System):
         return self.w.hive["pubkey"], self.w.hive["sealed_to"] == self.w.hive["pubkey"]
 
     def publish_address(self, state, pubkey, payload):
+        if len(net.address_blob(payload)) > RSA_2048_OAEP_MAX:
+            raise ValueError("Encryption failed")  # what OpenSSL says
         self._log("announced", pubkey, payload["ssid"], payload["ip"], self.w.t)
         self.w.hive["sealed_to"] = pubkey
 
@@ -898,6 +901,22 @@ class Announce(unittest.TestCase):
         w.hive = urllib.error.URLError("Forbidden")
         net.announce_address(n)
         self.assertIsNone(w.announce)
+
+    def test_the_longest_names_still_arrive(self):
+        # A 32-byte network name and a 63-character Sorter name, as long as
+        # either gets, still fit one RSA-OAEP block. With the network list in
+        # it the address came to 195 bytes on a real network, SpectrumSetup-8F,
+        # and never arrived.
+        ssid = "ü" * 16
+        w = World(routers={ssid: Router()})
+        w.config["hostname"] = "s" * 63
+        saved(w, ssid)
+        n = boot(w)
+        run_for(n, 30)
+        w.announce = {"rendezvous_id": "r" * 22, "hive_url": "https://hive.example"}
+        w.hive["pubkey"] = "key-1"
+        net.announce_address(n)
+        self.assertEqual([e[2] for e in w.log if e[0] == "announced"], [ssid])
 
 
 class Clock(unittest.TestCase):

@@ -3,12 +3,13 @@
 Used by the SorterOS onboarding flow to bridge the "what's my Pi's LAN IP?"
 gap. A fresh sorter has no Hive account and no mDNS guarantee, so:
 
-  1. The onboarding portal (running on the Pi's AP) generates an RSA keypair
-     in the user's browser and a random rendezvous id.
-  2. The browser hands the PUBLIC key + id to the Pi, keeps the PRIVATE key
-     locally (carried to /machine-ip-lookup via a URL fragment).
-  3. Once the Pi joins the real Wi-Fi it reads its own LAN IP, encrypts it
-     with the public key, and POSTs the ciphertext here under the id.
+  1. The setup page on the Pi's setup network makes a random rendezvous id,
+     sends it to the Pi with the Wi-Fi join, and links to /machine-ip-lookup
+     with the id in the URL fragment.
+  2. That page makes an RSA-OAEP keypair in the browser, keeps the private
+     key in memory, and POSTs the public key here under the id.
+  3. Once the Pi is on the real Wi-Fi it fetches the public key, encrypts its
+     address with it, and POSTs the ciphertext here under the id.
   4. The browser polls GET here, decrypts with the private key, and shows
      the user the sorter's address.
 
@@ -44,7 +45,7 @@ limiter = Limiter(key_func=get_remote_address)
 TTL_SECONDS = 600
 # Hard cap so a flood of junk POSTs can't exhaust memory. Each entry is tiny.
 MAX_ENTRIES = 1000
-# RSA-2048 OAEP ciphertext is 256 bytes → ~344 base64 chars. Cap generously
+# RSA-4096 OAEP ciphertext is 512 bytes → 684 base64 chars. Cap generously
 # but bounded so the store stays cheap.
 MAX_CIPHERTEXT_LEN = 4096
 # Browser-generated ids are base64url of ≥16 random bytes (~22 chars).
@@ -72,7 +73,7 @@ def _validate_id(rendezvous_id: str) -> str:
     return rendezvous_id
 
 
-# Browser-side public keys (SPKI DER, base64) are small; RSA-2048 ≈ 400 chars.
+# Browser-side public keys (SPKI DER, base64) are small; RSA-4096 is 736 chars.
 MAX_PUBKEY_LEN = 2048
 
 

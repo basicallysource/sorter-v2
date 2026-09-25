@@ -786,7 +786,7 @@ class System:
 
         key = serialization.load_der_public_key(base64.b64decode(pubkey))
         ciphertext = key.encrypt(
-            json.dumps(payload).encode(),
+            address_blob(payload),
             padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA256()), algorithm=hashes.SHA256(), label=None),
         )
         req = urllib.request.Request(
@@ -1300,6 +1300,13 @@ def settle_clock(sys_: System) -> float:
     return 0.0
 
 
+def address_blob(payload: dict) -> bytes:
+    """The address as the Find my sorter page gets it: one RSA-OAEP block,
+    which holds 190 bytes under the 2048-bit SHA-256 key the page used to
+    make, so compact JSON of only what the page shows."""
+    return json.dumps(payload, separators=(",", ":"), ensure_ascii=False).encode()
+
+
 def announce_address(net: Network) -> None:
     """If the setup page left a Find my sorter link, keep that page told
     where the Sorter is until the window closes: a reloaded page brings a new
@@ -1320,11 +1327,9 @@ def announce_address(net: Network) -> None:
             primary = net.primary_address()
             if primary:
                 with net.lock:
-                    networks = [{k: n[k] for k in ("kind", "name", "address", "internet")}
-                                for n in net.networks if n["kind"] != "tailscale"]
                     mdns = net.status.get("mdns") or "sorter.local"
                 payload = {"ip": primary["address"], "hostname": mdns, "port": UI_PORT,
-                           "ssid": primary["name"] if primary["kind"] == "wifi" else None, "networks": networks}
+                           "ssid": primary["name"] if primary["kind"] == "wifi" else None}
                 pubkey, ready = sys_.rendezvous(state)
                 if pubkey and ((pubkey, payload) != sent or not ready):
                     sys_.publish_address(state, pubkey, payload)

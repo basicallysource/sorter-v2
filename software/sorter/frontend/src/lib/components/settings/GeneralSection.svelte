@@ -287,7 +287,8 @@
 			if (!restart.ok) {
 				throw new Error('Saved, but the backend did not restart. Restart it from the power menu.');
 			}
-			const back = await waitForBackend(httpBase, { maxAttempts: 60 });
+			// Give the old process time to exit first, or it answers the wait.
+			const back = await waitForBackend(httpBase, { initialDelayMs: 5000, maxAttempts: 60 });
 			manager.connect(wsUrl, { force: true });
 			manager.refreshSelectedCameraFeeds();
 			cameraLayoutStatus = !back

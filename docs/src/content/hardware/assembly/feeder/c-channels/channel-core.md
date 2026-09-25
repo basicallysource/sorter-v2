@@ -10,6 +10,7 @@ permalink: /hardware/assembly/feeder/c-channels/channel-core/
 author: spencer
 contributors: [barthel, brickcyclealice, christoph, danny]
 og_image: https://assets.basically.website/sorter-docs/assembly-channel-core-finished-top-w1600-4713962f4dfd.jpg
+tools_needed: ["Hex key, 2 mm"]
 parts_needed:
   - part: stator
     qty: 1

@@ -26,7 +26,7 @@ parts_needed:
 
 <div class="prep-item">
   <div class="prep-item-body">
-    <p><strong>Build all four <a href="{{ '/hardware/assembly/feeder/c-channels/' | relative_url }}">C-channels</a> before you start.</strong> They're required components of this page, not optional or covered here — this page arranges and heights four already-built channels, it doesn't build them. Three with the faceted rotor, one with the finned one.</p>
+    <p><strong>Build all four <a href="{{ '/hardware/assembly/feeder/c-channels/' | relative_url }}">C-channels</a> before you start.</strong> They're required components of this page, not optional or covered here — this page arranges and heights four already-built channels, it doesn't build them. Three with the faceted rotor, one with the finned one, each with its rotor already in.</p>
   </div>
   <figure class="prep-item-figure">
     <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-c-channel-finished-stage-w1600-9bd3719c4180.jpg" alt="A finished C-channel: the grey finned rotor sitting down in the grey stator ring, with the stepper motor and its lead standing off one side">
@@ -43,9 +43,9 @@ Steps below refer to the channels by the names the software uses, in the order a
 - **C1**, the [bulk channel]({{ '/hardware/assembly/feeder/c-channels/bulk-channel/' | relative_url }}), where parts go in. Highest.
 - **C2**, with a [camera lamp]({{ '/hardware/assembly/feeder/camera-lamp/' | relative_url }}).
 - **C3**, the same again, and the last metering stage.
-- **The [classification channel]({{ '/hardware/assembly/feeder/c-channels/classification-channel/' | relative_url }})**, which images the part before it drops into the chute. Lowest.
+- **C4**, the [classification channel]({{ '/hardware/assembly/feeder/c-channels/classification-channel/' | relative_url }}), which images the part before it drops into the chute. Lowest.
 
-**The camera lamps go on here**, once the channels are standing in their places rather than while a channel is on the bench: each one feeds up into one of the dovetails around the outside of that channel's wall, from the bottom edge, and clips over the top. C2, C3 and the classification channel take one each, and step 9 says which dovetail. See [camera lamp]({{ '/hardware/assembly/feeder/camera-lamp/' | relative_url }}).
+**The camera lamps go on here**, once the channels are standing in their places rather than while a channel is on the bench: each one feeds up into one of the dovetails around the outside of that channel's wall, from the bottom edge, and clips over the top. C2, C3 and C4 take one each, and step 8 says which dovetail. See [camera lamp]({{ '/hardware/assembly/feeder/camera-lamp/' | relative_url }}).
 
 {% include step.html n="1" title="Preparation" %}
 
@@ -184,7 +184,7 @@ The top plate itself has no mount holes for a C-channel, so nothing bolts down h
 
 Now the other three drives go on their stands. Lower each one onto its three dovetail adapters so the tangs engage it from below. It's a friction fit; the channel's own weight holds it.
 
-The rotors are out of both photographs below, which is the only way to see the joints — with a rotor in, the middle of a channel is covered. They also show the clocking from step 5: every stepper ends up in the middle of the group.
+The rotors are out of both photographs below, which is the only way to see the joints — with a rotor in, the middle of a channel is covered. Yours arrive from the channel pages with their rotors already in. The photographs also show the clocking from step 5: every stepper ends up in the middle of the group.
 
 <div class="img-row">
   <figure>
@@ -197,22 +197,14 @@ The rotors are out of both photographs below, which is the only way to see the j
   </figure>
 </div>
 
-{% include step.html n="8" title="Fit the rotors and the output guides" %}
+{% include step.html n="8" title="Hang the camera lamps" %}
 
-With the channels standing, drop the rotor units in and fit the output guides at the same time. <cite>Order: BrickCycleAlice.</cite>
-
-One [output guide]({{ '/hardware/assembly/feeder/c-channels/feeder-channels/' | relative_url }}) on C2 and one on C3. Each belongs to the channel it is mounted on, not to the gap between two; C1 and the classification channel take none.
-
-<div class="img-placeholder">Image coming</div>
-
-{% include step.html n="9" title="Add the bulk input and the camera lamps" %}
-
-The [bulk cap and bucket]({{ '/hardware/assembly/feeder/c-channels/bulk-channel/' | relative_url }}) on C1. A [camera lamp]({{ '/hardware/assembly/feeder/camera-lamp/' | relative_url }}) on C2, on C3 and on the classification channel. C1 has neither a lamp nor an output guide, because it's fed in bulk and nothing reads vision off it.
+One [camera lamp]({{ '/hardware/assembly/feeder/camera-lamp/' | relative_url }}) on C2, one on C3 and one on C4. **C1 takes none**, because it's fed in bulk and nothing reads vision off it.
 
 **Which dovetail the arm goes in.** The outside of every channel wall carries a row of dovetails, evenly spaced all the way round except where the exit opening interrupts them. Count anticlockwise from the exit, seen from above, taking the first dovetail past the exit as number 1:
 
 - **C2 and C3**: the **5th**.
-- **Classification channel**: the **8th**, which is the last one before the channel above covers the wall.
+- **C4**: the **8th**, which is the last one before the channel above covers the wall.
 
 **It goes on from underneath.** Offer the arm mount up to the bottom edge of the channel wall, feed its rail into the dovetail, and push it up until it clips over the top edge. Nothing screws into this joint.
 
@@ -243,7 +235,7 @@ A camera has to see its channel's drop zone and its exit in the same frame. You 
   <figcaption>The three lamps in place, seen from above. <cite>Photo: Daddy-O's Bricks - Bill.</cite></figcaption>
 </figure>
 
-{% include step.html n="10" title="Turn it all by hand" %}
+{% include step.html n="9" title="Turn it all by hand" %}
 
 Run parts through the whole cascade by hand, one channel at a time, before wiring the steppers. Anything that needs a nudge here will jam under power. Wiring is on the [electronics]({{ '/hardware/electronics/' | relative_url }}) page.
 

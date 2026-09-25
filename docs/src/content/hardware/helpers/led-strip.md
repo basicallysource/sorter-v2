@@ -46,9 +46,11 @@ A prepared strip is a cut length of 24 V COB strip with its cable on the end of 
 
 {% include step.html n="1" title="Cut the strip to length, on a mark" %}
 
-**950 mm per [camera lamp]({{ '/hardware/assembly/feeder/camera-lamp/' | relative_url }})**, which is the only length this machine cuts, and one 5 m roll gives five of them.
+**Two turns of the [camera lamp]({{ '/hardware/assembly/feeder/camera-lamp/' | relative_url }})'s reflector skirt**, which is 924 mm of strip. One 5 m roll gives five lamps' worth.
 
-**Cut only on the printed marks**, never between them: the solder pads are at the marks, so a cut anywhere else leaves nothing to connect to. Take the nearest mark to the length you want rather than the exact measurement.
+**Cut only on the printed marks**, never between them: the solder pads are at the marks, so a cut anywhere else leaves nothing to connect to. **The marks are not the same pitch on every roll**, and 31 mm, 38 mm and 50 mm have all turned up on rolls people have bought, so work in marks rather than in millimetres: coil the strip dry inside the skirt and cut at the last mark before the free end reaches the start of the coil. That lands somewhere between 900 and 930 mm.
+
+**Take the mark under two turns rather than the one over it.** Strip past two turns has nowhere to sit: it lifts out from under the cover and the light leaves the lamp at an odd angle. A small gap where the ends do not quite meet does not show.
 
 Leave the blue protective film on until the strip is going where it lives. It is the only thing keeping grease off the adhesive.
 
@@ -108,7 +110,7 @@ Keep the iron on the pad briefly. The strip's backing and the LED next to the pa
 
 ## The finished result
 
-A 950 mm length of strip with a red and a black wire on one end and a dead end at the other, three of them for a machine. Nothing is joined end to end, so the far end of the strip stays dead.
+A two-turn length of strip, about 920 mm, with a red and a black wire on one end and a dead end at the other, three of them for a machine. Nothing is joined end to end, so the far end of the strip stays dead.
 
 <figure class="single-figure">
   <img class="doc-figure" src="https://assets.basically.website/sorter-parts/led-strip-connector-8mm-full-915e0ed03fdc.jpg" alt="A length of 8 mm COB LED strip with a clear clamp-on connector on its cut end, a red and a black wire leaving the other side of the connector in a white sheath">

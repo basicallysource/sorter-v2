@@ -42,7 +42,7 @@ Build these before the channels that carry them: two of the [C-channels]({{ '/ha
 
 <div class="prep-item">
   <div class="prep-item-body">
-    <p><strong>Prepare an <a href="{{ '/hardware/helpers/led-strip/' | relative_url }}">LED strip</a> before you start.</strong> One per lamp: a 950 mm length cut off the roll with two wires on the end, either clamped on or soldered. That page has the strip, the connector and the lead; step 4 here only hooks it on.</p>
+    <p><strong>Prepare an <a href="{{ '/hardware/helpers/led-strip/' | relative_url }}">LED strip</a> before you start.</strong> One per lamp: a two-turn length cut off the roll, about 920 mm, with two wires on the end, either clamped on or soldered. That page has the strip, the connector and the lead; step 4 here only hooks it on.</p>
   </div>
   <figure class="prep-item-figure">
     <img class="doc-figure" src="https://assets.basically.website/sorter-parts/led-strip-connector-8mm-full-915e0ed03fdc.jpg" alt="A length of 8 mm COB LED strip with a clear clamp-on connector on its cut end, a red and a black wire leaving the other side of the connector in a white sheath">
@@ -122,7 +122,7 @@ That is **12 M3 × 12 per arm**: 8 at the mount joint, 4 here. Six holes, a scre
 
 Push the six **Inner reflector LED hooks** into the sockets around the rim of the **Lamp inner reflector**, evenly spaced. They are a friction fit and there are no screws. Each hook holds the LED strip against the reflector.
 
-The strip itself is cut and wired on [Preparing the LED strip]({{ '/hardware/helpers/led-strip/' | relative_url }}): 950 mm, cut on a printed mark, with a red and a black wire on the cut end. Have one ready before you start this step.
+The strip itself is cut and wired on [Preparing the LED strip]({{ '/hardware/helpers/led-strip/' | relative_url }}): two turns of the skirt, about 920 mm, cut on a printed mark, with a red and a black wire on the cut end. Have one ready before you start this step.
 
 **Fitting it.** Two turns, LEDs facing inwards.
 

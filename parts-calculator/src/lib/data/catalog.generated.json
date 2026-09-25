@@ -1929,8 +1929,8 @@
 		},
 		{
 			"id": "superstructure",
-			"uid": "t2t9",
-			"version": "2",
+			"uid": "3pju",
+			"version": "3",
 			"name": "Superstructure",
 			"description": "What the feeder and the electronics mount onto: the top plate, the top interface, the distribution layers between the interfaces, and the bottom interface.",
 			"docs": "/hardware/assembly/distribution/",
@@ -1956,20 +1956,20 @@
 					"qty": 1
 				},
 				{
-					"part": "scr-m5-16-shcs",
-					"qty": 6
+					"part": "scr-m5-22-cs",
+					"qty": 2
 				}
 			],
 			"connections": [
 				{
 					"from": "top-plate",
 					"to": "interface",
-					"via": "scr-m5-16-shcs",
-					"qty": 6,
+					"via": "scr-m5-22-cs",
+					"qty": 2,
 					"method": "insert",
-					"through_mm": 9,
-					"thread_mm": 9,
-					"note": "Through the plate into the top interface's M5 heat-set inserts. The 16 mm length is assumed, not yet confirmed.",
+					"through_mm": 6.3,
+					"thread_mm": 10.2,
+					"note": "Through the plate into the two M5 inserts on the Interface NEMA 23 bracket, holes S2 and S3 (top-interface.md step 2). Measured off the STLs 2026-09-25: the plate is 6.3 mm and the two pockets are 10.2 mm deep, opening upward at the plate's underside. Length still to confirm at the bench: the page calls for M5 x 22 and the geometry leaves 10.7 mm below the plate.",
 					"draft": true
 				}
 			],
@@ -2012,7 +2012,47 @@
 					"date": "2026-09-05",
 					"breaking": false,
 					"message": "The stack is n bin layers plus one top interface, not n - 2 layers between two interfaces. The layer node now runs non-bottom-layers (n - 1) and the new bottom-layer node runs once, because the lowest layer carries foot covers instead of bracket covers and bottom verticals. Brings the tree onto the same counts the 3D-parts and framing models already used: n + 1 hexagons, 12n bin retainers, 6 foot covers. No physical change.",
-					"commit": "36826f49"
+					"commit": "36826f49",
+					"lines": [
+						{
+							"part": "top-plate",
+							"qty": 1,
+							"uid": "1g22"
+						},
+						{
+							"assembly": "interface",
+							"qty": 1,
+							"uid": "b84z"
+						},
+						{
+							"assembly": "layer",
+							"qty": "non-bottom-layers",
+							"uid": "y3bz"
+						},
+						{
+							"assembly": "bottom-layer",
+							"qty": 1,
+							"uid": "oxj0"
+						},
+						{
+							"assembly": "bottom-interface",
+							"qty": 1,
+							"uid": "p0x7"
+						},
+						{
+							"part": "scr-m5-16-shcs",
+							"qty": 6,
+							"uid": "2e0s"
+						}
+					]
+				},
+				{
+					"version": "3",
+					"uid": "3pju",
+					"date": "2026-09-25",
+					"message": "The top plate bolts to the Interface NEMA 23 bracket with 2 screws through holes S2 and S3, not 6. The two M5 inserts that take them were measured off the bracket's STL: Diameter 6.40 x 10.2 mm, 30 mm apart on its centre line, opening upward at the plate's underside, and they are the only upward-opening M5 pockets on the part. The joint also moves to the screw top-interface.md actually names, M5 x 22 countersunk, which was already counted once on the interface node; it is counted here instead, because this is the node where both the plate and the interface are members. Confirmed by barthel.",
+					"breaking": false,
+					"commit": null
 				}
 			]
 		},
@@ -2864,8 +2904,8 @@
 		},
 		{
 			"id": "interface",
-			"uid": "b84z",
-			"version": "8",
+			"uid": "izux",
+			"version": "9",
 			"name": "Top interface",
 			"description": "The interface between the feeder and the distribution layers. Its lazy Susan sandwiches the upper fixed section and the chute mount, 4 \u00d7 [[hw:scr-m4-12-cs]] a side, and the plywood top plate bolts down onto the six brackets' inserts.",
 			"docs": "/hardware/assembly/distribution/top-interface/",
@@ -2873,10 +2913,6 @@
 				{
 					"assembly": "interface-bracket-mount",
 					"qty": 6
-				},
-				{
-					"part": "scr-m5-22-cs",
-					"qty": 2
 				},
 				{
 					"assembly": "hex-frame",
@@ -3670,6 +3706,106 @@
 					"uid": "b84z",
 					"date": "2026-09-25",
 					"message": "The 12 M5 x 16 that fasten the interface's own hex frame down onto the topmost bin layer. The interface lands on the stack through the same joint every layer uses, so it carries the same 12 screws. The 12 M5 x 16 that fasten this node down onto the one below it, which stacking-the-layers.md has called for since it was written and the tree never carried.",
+					"breaking": false,
+					"commit": null,
+					"lines": [
+						{
+							"assembly": "interface-bracket-mount",
+							"qty": 6,
+							"uid": "ng7f"
+						},
+						{
+							"part": "scr-m5-22-cs",
+							"qty": 2,
+							"uid": "hr49"
+						},
+						{
+							"assembly": "hex-frame",
+							"qty": 1,
+							"uid": "l0xa"
+						},
+						{
+							"assembly": "fixed-upper-section",
+							"qty": 1,
+							"uid": "c16o"
+						},
+						{
+							"assembly": "cable-cage",
+							"qty": 1,
+							"uid": "ay0q"
+						},
+						{
+							"part": "scr-m5-30-shcs",
+							"qty": 6,
+							"uid": "92kv"
+						},
+						{
+							"assembly": "cable-clamp",
+							"qty": 1,
+							"uid": "rwaw"
+						},
+						{
+							"part": "scr-m3-12-bhcs",
+							"qty": 2,
+							"uid": "izrb"
+						},
+						{
+							"assembly": "limit-switch",
+							"qty": 1,
+							"uid": "apb5"
+						},
+						{
+							"part": "scr-m5-20-shcs",
+							"qty": 2,
+							"uid": "e4hi"
+						},
+						{
+							"assembly": "chute-stepper-gearing",
+							"qty": 1,
+							"uid": "ud8y"
+						},
+						{
+							"assembly": "harness-stepper-chute",
+							"qty": 1,
+							"uid": "ujmp"
+						},
+						{
+							"assembly": "interface-chute-drive",
+							"qty": 1,
+							"uid": "w4jv"
+						},
+						{
+							"part": "top-interface-split-spur-gear-2",
+							"qty": 1,
+							"uid": "izz5"
+						},
+						{
+							"part": "brg-lazy-susan",
+							"qty": 1,
+							"uid": "wrxu"
+						},
+						{
+							"part": "scr-m4-16-cs",
+							"qty": 8,
+							"uid": "ee5j"
+						},
+						{
+							"part": "scr-m5-35-fhcs",
+							"qty": 6,
+							"uid": "xkl4"
+						},
+						{
+							"part": "scr-m5-16-shcs",
+							"qty": 12,
+							"uid": "2e0s"
+						}
+					]
+				},
+				{
+					"version": "9",
+					"uid": "izux",
+					"date": "2026-09-25",
+					"message": "Dropped the 2 M5 x 22 for the top plate's S2/S3 screws. That joint holds the plate to this assembly, so both its sides are members of superstructure and not of this node; it is recorded there. The 12 M5 x 22 through I1-I6 and O1-O6 are unaffected, they come from interface-bracket-mount.",
 					"breaking": false,
 					"commit": null
 				}

@@ -24456,11 +24456,48 @@
 			},
 			"name": "IMX415 4K camera module",
 			"category": "Cameras",
-			"description": "Classification top camera \u2014 the ENOMAKER IMX415 4K USB module.",
+			"description": "Classification top camera. The innomaker IMX415 4K USB module.",
 			"note": null,
 			"created_at": "2026-07-18",
-			"updated_at": "2026-09-01",
-			"attributes": [],
+			"updated_at": "2026-09-25",
+			"attributes": [
+				{
+					"label": "Model",
+					"value": "innomaker USB 3.0 UVC camera module, IMX415 sensor"
+				},
+				{
+					"label": "Connection",
+					"value": "USB 3.0, UVC class. Plug and play, no driver"
+				},
+				{
+					"label": "Operating systems",
+					"value": "Linux, macOS, Windows, Android. The machine runs Linux"
+				},
+				{
+					"label": "Resolution",
+					"value": "4K: 3840 \u00d7 2160 at 30 fps in MJPG. Also 1920 \u00d7 1080 at 60 fps"
+				},
+				{
+					"label": "Field of view",
+					"value": "116\u00b0 diagonal, 105\u00b0 horizontal"
+				},
+				{
+					"label": "Sensor",
+					"value": "Sony IMX415, 1/2.8 in, rolling shutter"
+				},
+				{
+					"label": "Lens",
+					"value": "Fixed focus, M12 mount"
+				},
+				{
+					"label": "Board",
+					"value": "38 \u00d7 38 mm, four 2.2 mm mounting holes"
+				},
+				{
+					"label": "Cable",
+					"value": "1 m, fitted"
+				}
+			],
 			"sheet_qty": {
 				"per_machine": 1
 			},
@@ -24479,7 +24516,7 @@
 					}
 				]
 			},
-			"alternative": null,
+			"alternative": "Any UVC USB camera that matches the specs listed here and covers the whole 205 mm rotor (the printed clasp holds this one's lens 123.9 mm above the rotor apex). The clasp fits this board, so another module needs its own mount.",
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
@@ -24497,8 +24534,41 @@
 			"description": "C-channel and carousel drop plate detection cameras",
 			"note": null,
 			"created_at": "2026-07-18",
-			"updated_at": "2026-07-18",
-			"attributes": [],
+			"updated_at": "2026-09-25",
+			"attributes": [
+				{
+					"label": "Connection",
+					"value": "USB 2.0, UVC class. Plug and play, no driver"
+				},
+				{
+					"label": "Operating systems",
+					"value": "Linux, Windows, Android. The machine runs Linux"
+				},
+				{
+					"label": "Resolution",
+					"value": "720p: 1280 \u00d7 720 at 30 fps in MJPG"
+				},
+				{
+					"label": "Field of view",
+					"value": "100\u00b0 diagonal"
+				},
+				{
+					"label": "Sensor",
+					"value": "OmniVision OV9732, 1/4 in, 3.0 \u00b5m pixels"
+				},
+				{
+					"label": "Lens",
+					"value": "Fixed focus, 2.1 mm, f/2.0"
+				},
+				{
+					"label": "Cable",
+					"value": "2 m, fitted"
+				},
+				{
+					"label": "Buy",
+					"value": "Sold in packs of three; a machine uses two"
+				}
+			],
 			"sheet_qty": {
 				"per_machine": 2
 			},
@@ -24525,7 +24595,7 @@
 					}
 				]
 			},
-			"alternative": null,
+			"alternative": "Any UVC USB camera that matches the specs listed here and covers the whole 205 mm rotor (the printed clasp holds this one's lens 123.9 mm above the rotor apex). The clasp fits this board, so another module needs its own mount.",
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,

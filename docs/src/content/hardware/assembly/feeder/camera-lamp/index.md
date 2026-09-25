@@ -22,6 +22,8 @@ A camera lamp is one arm carrying one light and one camera over a channel. The l
   <li><strong><a href="{{ '/hardware/assembly/feeder/camera-lamp/classification-camera-lamp/' | relative_url }}">Classification camera lamp (C4)</a></strong>. A lamp arm finished with the IMX415 4K module in its clasp. Build one.</li>
 </ol>
 
+**Another USB camera can work in either clasp.** These two modules are what the build is drawn around and what the camera modes in [first setup]({{ '/sorter/first-setup/' | relative_url }}) assume, but the software is not tied to them: it takes any UVC camera Linux presents as a video device. Two things to check before you buy something else. It has to offer its channel's mode in MJPG, 1280x720 at 30 fps on C2 and C3 or 3840x2160 at 30 fps on C4, and a lens wide enough to take in the whole rotor, about 205 mm across, from the lamp's height (the lens looks down from roughly 125 mm above the rotor's apex). And the clasp is cut around these two boards, so another module, or a webcam in its own case, is a mount you work out yourself.
+
 **The bulk channel (C1) takes none**, because the machine does not look at it.
 
 <div class="callout">

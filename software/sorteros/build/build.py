@@ -468,8 +468,10 @@ def phase_portal(ctx: BuildCtx) -> None:
     # source file is newer than the existing build manifest.
     if _portal_frontend_needs_build(frontend_dir, frontend_build):
         log("building portal frontend (pnpm install + pnpm build)")
-        if not (frontend_dir / "node_modules").exists():
-            run(["pnpm", "install", "--frozen-lockfile"], cwd=str(frontend_dir))
+        # Every time, not only when node_modules is missing: one installed from
+        # an older lockfile builds against the wrong packages. It's a no-op
+        # when they match.
+        run(["pnpm", "install", "--frozen-lockfile"], cwd=str(frontend_dir))
         run(["pnpm", "build"], cwd=str(frontend_dir))
     else:
         log("portal frontend build/ up to date — skipping pnpm")

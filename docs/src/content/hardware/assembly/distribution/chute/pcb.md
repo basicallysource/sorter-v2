@@ -64,7 +64,7 @@ Full harness routing is covered in the [harness drawings]({{ '/hardware/parts/ha
 
 ## The finished result
 
-The board screwed down on its four inserts, the ribbon in `J3`, the next layer's ribbon in `J4` and the servo in `J5`.
+The board screwed down on its four inserts, the servo in `J5`, and the 30 cm ribbon in `J4` with its far end loose. `J3` is fed once the chute is in the frame.
 
 <div class="img-placeholder">Photo of the layer adapter board screwed to the chute core, with the ribbon cable and the servo lead plugged in.</div>
 

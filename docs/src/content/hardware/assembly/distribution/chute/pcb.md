@@ -14,6 +14,8 @@ tools_needed: ["Hex key, 2 mm for a button head or 2.5 mm for a socket head"]
 parts_needed:
   - part: layer-adapter-board-basically
     qty: 1
+  - part: cable-idc-2x8-short
+    qty: 1
   - part: scr-m3-6-bhcs
     qty: 4
 ---
@@ -43,7 +45,7 @@ Seat it over the four inserts and fasten it with 4 {% include fastener.html size
 
 {% include step.html n="2" title="Connect the ribbon cable and the servo" %}
 
-Do both now, while the chute is still on the bench. Once it is in the frame these three connectors are hard to reach.
+Do these now, while the chute is still on the bench. Once it is in the frame the three connectors are hard to reach.
 
 The board has two identical 16-pin sockets. **`J3` is the ribbon coming in and `J4` is the ribbon going on down to the next layer.** Nothing but the designator printed on the board tells them apart.
 
@@ -54,13 +56,15 @@ The board has two identical 16-pin sockets. **`J3` is the ribbon coming in and `
 
 This layer's servo plugs into `J5`, the 3-pin header beside them: pin 1 signal, pin 2 servo power, pin 3 ground.
 
-The ribbon that comes down from the control board to the top of the stack is [connecting the components]({{ '/hardware/electronics/connecting/' | relative_url }}), step 5.
+Put the 30 cm ribbon from the parts list into `J4` now and leave its far end loose. It only reaches the board below once the chutes are in the frame, so it is joined up there, at the same time as the [layer connectors]({{ '/hardware/assembly/distribution/chute/layer-connectors/' | relative_url }}).
+
+`J3` takes the ribbon coming down from the board above. On the topmost chute that is the long ribbon from the control board instead, at [connecting the components]({{ '/hardware/electronics/connecting/' | relative_url }}), step 5.
 
 Full harness routing is covered in the [harness drawings]({{ '/hardware/parts/harness-order/' | relative_url }}).
 
 ## The finished result
 
-The board screwed down on its four inserts, the ribbon in `J3`, the next layer's ribbon in `J4` and the servo in `J5`.
+The board screwed down on its four inserts, the servo in `J5`, and the 30 cm ribbon in `J4` with its far end loose. `J3` is fed once the chute is in the frame.
 
 <div class="img-placeholder">Photo of the layer adapter board screwed to the chute core, with the ribbon cable and the servo lead plugged in.</div>
 

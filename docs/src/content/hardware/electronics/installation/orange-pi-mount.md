@@ -11,6 +11,7 @@ author: barthel
 contributors: [spencer]
 og_image: https://assets.basically.website/sorter-docs/opi-mount-assembled-w1600-d65b122c4efc.jpg
 last_verified: 2026-09-17
+tools_needed: ["Hex key, 2 mm for a button head or 2.5 mm for a socket head", "Soldering iron or heat-set insert press"]
 parts_needed:
   - part: orange-pi-extrusion-mount
     qty: 1
@@ -28,7 +29,7 @@ parts_needed:
     qty: 6
 ---
 
-The fasteners and quantities in the parts list come from the parts calculator and are called out inline at each step.
+The fasteners and quantities are in the parts list above and are called out inline at each step.
 
 {% include fastener-legend.html %}
 
@@ -66,8 +67,6 @@ The Pi's heatsink fan fits under the arm: it stands 13 mm off the board and the 
 
 {% include step.html n="2" title="Stand the Pi off the mount" %}
 
-(Inserts already pressed in step 1.)
-
 <div class="callout callout-warning">
   <span class="callout-icon" aria-hidden="true">⚠</span>
   <p>Static caution: the Orange Pi is ESD-sensitive like any other bare board. Touch a grounded metal surface before handling it, and avoid doing this on carpet in dry weather.</p>
@@ -103,7 +102,7 @@ The fan is the **24 V** WINSINN 4010 on an XH2.54 2-pin lead, the same fan the [
 
 Take the lead down through the rectangular 18 × 10 mm slot at the near end of the arm, over the upright, while the arm is still off the machine.
 
-Leave it loose for now. Where it lands is not settled: the Orange Pi has no 24 V rail and no fan header of its own, so the fan has to come off the control board, and whether it goes on one of that board's LED ports (which is how the control board housing's own fan is wired) is still being decided.
+Leave the lead loose. It has nowhere to plug into yet, and whether this fan is needed at all is still being decided.
 
 {% include step.html n="4" title="Bolt the fan arm to the mount" %}
 

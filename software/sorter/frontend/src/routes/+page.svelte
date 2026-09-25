@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { goto } from '$app/navigation';
 	import Spinner from '$lib/components/Spinner.svelte';
 	import { getMachineContext, getMachinesContext } from '$lib/machines/context';
 	import {
@@ -836,6 +837,19 @@
 		}
 	}
 
+	// A brand-new machine should open on the setup wizard, not an empty Dashboard.
+	// Once per browser session, so Dashboard stays reachable while setting up.
+	async function openSetupIfNew(baseUrl: string) {
+		try {
+			if (sessionStorage.getItem('sorter.setup-offered')) return;
+			sessionStorage.setItem('sorter.setup-offered', '1');
+			const res = await fetch(`${baseUrl}/api/setup-wizard/needed`);
+			if (res.ok && (await res.json())?.needed) await goto('/setup');
+		} catch {
+			// no storage or no backend yet: stay on the Dashboard
+		}
+	}
+
 	$effect(() => {
 		if (!machine.machine) {
 			dashboardCrops = {};
@@ -848,6 +862,7 @@
 		cropBaseUrl = baseUrl;
 		void fetchDashboardCrops(baseUrl);
 		void loadMachineSetup(baseUrl);
+		void openSetupIfNew(baseUrl);
 	});
 
 	const CAMERA_LABELS: Record<string, string> = {

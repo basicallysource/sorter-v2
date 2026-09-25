@@ -10,8 +10,7 @@ permalink: /hardware/assembly/feeder/c-channels/classification-channel/
 author: spencer
 og_image: https://assets.basically.website/sorter-docs/assembly-c-channel-stator-and-rotor-fitted-w1600-60758bbee2d5.jpg
 contributors: [barthel, brickcyclealice, danny, daddyosbricksbill]
-warning: >-
-  **Every step comes from a build**, BrickCycleAlice's.
+last_verified: 2026-09-25
 tools_needed: ["Hex key, 2 mm"]
 parts_needed:
   - part: rotor-finned

@@ -18,4 +18,4 @@ The feeder takes unsorted parts from the bulk input and, through four C-channel 
   <li><strong><a href="{{ '/hardware/assembly/feeder/arranging-c-channels/' | relative_url }}">Arranging C-channels</a></strong>. The stands, the heights, and how the four sit together. The lamps hang on here, with the channels standing.</li>
 </ol>
 
-The channel core, the rotor units, the bulk channel and the arranging page are written from real builds. The output guide's placement is not, and that page says so at the top. The bulk bucket is not documented yet, because the part is not published.
+The channel core, the rotor units, the bulk channel, the classification channel and the arranging page are written from real builds. The output guide's placement is not, and that page says so at the top. The bulk bucket is not documented yet, because the part is not published.

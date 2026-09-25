@@ -128,7 +128,7 @@ The connections plate is a shallow tray, and the leads lie in it between the ter
 
 Fit the cap. It takes no screws and nothing else holds it: it sits on top, resting on the connections plate at one end and against the supply at the other. The box is closed before the machine sees mains.
 
-<div class="img-placeholder">Image coming</div>
+<div class="img-placeholder">Image coming: the cap fitted, resting on the connections plate at one end and on the supply at the other</div>
 
 ## The finished result
 
@@ -141,4 +141,6 @@ The supply with both printed plates bolted to its back, the mains inlet in the c
   <p><b>Once it is in service, pull the cord out of the wall before you open this box.</b> The rocker is not an isolator you can rely on: a plug that goes in either way round means the switch may be breaking the neutral rather than the live, so treat everything inside as live whenever the cord is in.</p>
 </div>
 
-**Bolting it to the frame is on the [installation overview]({{ '/hardware/electronics/installation/' | relative_url }})**. Everything that plugs into it is on the [wire harness]({{ '/hardware/electronics/wire-harness/' | relative_url }}) page.
+**Bolting it to the frame is on the [installation overview]({{ '/hardware/electronics/installation/' | relative_url }})**, once all three enclosures are built.
+
+Next: [preparing the control board]({{ '/hardware/electronics/installation/control-board-prep/' | relative_url }}).

@@ -14,6 +14,8 @@ tools_needed: ["Hex key, 2 mm for a button head or 2.5 mm for a socket head"]
 parts_needed:
   - part: layer-adapter-board-basically
     qty: 1
+  - part: cable-idc-2x8-short
+    qty: 1
   - part: scr-m3-6-bhcs
     qty: 4
 ---
@@ -47,6 +49,8 @@ Do both now, while the chute is still on the bench. Once it is in the frame thes
 
 The board has two identical 16-pin sockets. **`J3` is the ribbon coming in and `J4` is the ribbon going on down to the next layer.** Nothing but the designator printed on the board tells them apart.
 
+The ribbon out of `J4` is the 30 cm one in the parts list above, one per layer. On the topmost layer the ribbon into `J3` is the long one that comes down from the control board instead.
+
 <div class="callout callout-warning">
   <span class="callout-icon" aria-hidden="true">⚠</span>
   <p>A board fed on <code>J4</code> gets no signal at all, and every layer below it moves the wrong flap.</p>
@@ -54,7 +58,7 @@ The board has two identical 16-pin sockets. **`J3` is the ribbon coming in and `
 
 This layer's servo plugs into `J5`, the 3-pin header beside them: pin 1 signal, pin 2 servo power, pin 3 ground.
 
-The ribbon that comes down from the control board to the top of the stack is [connecting the components]({{ '/hardware/electronics/connecting/' | relative_url }}), step 5.
+Each 30 cm ribbon only reaches its neighbour once the chutes are in the frame, so plug in the end at this board now and join it to the layer below as the tower goes together, at the same point the [layer connectors]({{ '/hardware/assembly/distribution/chute/layer-connectors/' | relative_url }}) do. The long ribbon that comes down from the control board to the top of the stack is [connecting the components]({{ '/hardware/electronics/connecting/' | relative_url }}), step 5.
 
 Full harness routing is covered in the [harness drawings]({{ '/hardware/parts/harness-order/' | relative_url }}).
 

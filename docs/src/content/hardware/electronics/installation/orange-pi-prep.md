@@ -68,7 +68,7 @@ Slide the module in at a shallow angle, roughly 30°, gold contacts first, until
 
 Both the washer and the screw come in the box with the module, so there is nothing to buy for this and nothing to substitute.
 
-<div class="img-placeholder">Image coming</div>
+<div class="img-placeholder">Image coming: the module seated in the M.2 slot on the underside of the board, its free end held down by the retention screw with the washer under it</div>
 
 {% include step.html n="4" title="Connect the antennas" %}
 

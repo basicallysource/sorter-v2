@@ -24,7 +24,6 @@ parts_needed:
     qty: 1
   - part: cable-idc-2x8-long
     qty: 1
-  - part: cable-idc-2x8-short
 tools_needed: [Multimeter, Side cutters or a small screwdriver, "Only if you make your own W1 lead: wire strippers and a crimp tool"]
 ---
 
@@ -167,11 +166,11 @@ Everything in steps 1 to 5 plugs into this board. It is drawn from above, the wa
   <p>The housing's openings reach the sockets along the edges of the board. If one of the sockets below will not reach with the cover on, take out the four countersunk screws, lift the cover, plug the cable in, and put the cover back. See <a href="{{ '/hardware/electronics/installation/control-board-housing/' | relative_url }}">Control board housing</a>, step 6.</p>
 </div>
 
-{% include step.html n="1" title="24 V into the control board" %}
+{% include step.html n="1" title="Plug 24 V into the control board" %}
 
 The board's power input is `J1`, the big 2-pin socket in one corner of the board. It is the only connector of that size on the board, and the plug only goes in one way up. Pin 1 is +24 V and pin 2 is ground, and both are fused on the board.
 
-{% include step.html n="2" title="The five stepper cables" %}
+{% include step.html n="2" title="Plug in the five stepper cables" %}
 
 Each stepper has its own socket, and the socket decides which motor the software is driving. Plug them in as below.
 
@@ -190,16 +189,16 @@ Every socket has a row of 2.54 mm pins beside it carrying the same signals, so a
 
 <div class="callout callout-warning">
   <span class="callout-icon" aria-hidden="true">⚠</span>
-  <p><b>Check the coils before you plug a motor in.</b> A stepper has two coils, two wires each, and the plug has four holes: holes 1 and 2 feed one coil, 3 and 4 the other. Put a multimeter across the wires that should be a pair. A pair reads a few ohms; two wires from different coils read open circuit. If holes 2 and 3 are the pair, pull those two contacts out of the housing and swap them, or the motor will buzz and barely turn. Full pinout and the board-side footprint: <a href="{{ '/hardware/electronics/#31--stepper-pinout-and-polarity' | relative_url }}">the wire harness page</a>.</p>
+  <p><b>Check the coils before you plug a motor in.</b> A stepper has two coils, two wires each, and the plug has four holes: holes 1 and 2 feed one coil, 3 and 4 the other. Put a multimeter across the wires that should be a pair. A pair reads a few ohms; two wires from different coils read open circuit. If holes 2 and 3 are the pair, pull those two contacts out of the housing and swap them, or the motor will buzz and barely turn. Full pinout and the board-side footprint: <a href="{{ '/hardware/electronics/wire-harness/#21--stepper-pinout-and-polarity' | relative_url }}">the wire harness page</a>.</p>
 </div>
 
-{% include step.html n="3" title="The chute limit switch" %}
+{% include step.html n="3" title="Wire the chute limit switch" %}
 
 The switch tells the machine where the chute is. Its cable ends in a 3-pin Dupont housing with only two positions filled, and it goes on `J5`, the header the board prints `HALL_SW_0`. The filled positions are ground and signal, and the empty one lines up with the 3.3 V pin, so the housing cannot go on backwards.
 
 At the switch end, push the two #187 tabs onto the switch's `COM` and `NC` terminals. The switch has three tabs and one stays empty. Wired this way the circuit is closed while the lever is free and opens when the chute presses it, which is what the machine expects. If homing runs the wrong way round later, the setting is in the software, not the wiring.
 
-{% include step.html n="4" title="The three camera lamps" %}
+{% include step.html n="4" title="Plug in the three camera lamps" %}
 
 The board has four LED ports. The fan in the housing lid is already on one of them, so the three [camera lamps]({{ '/hardware/assembly/feeder/camera-lamp/' | relative_url }}) take the other three. Each arrives as a [prepared LED strip]({{ '/hardware/helpers/led-strip/' | relative_url }}) with about a metre of 22 AWG on it.
 
@@ -228,13 +227,13 @@ The solder jumper beside each of these three ports should already be bridged, fr
 
 **Then assign the output in software**: Settings, the channel, the LED button, pick which output that lamp is on and set the brightness. **Nothing lights until an output is assigned.** The lamps are `L1` to `L3` in the [wire harness]({{ '/hardware/electronics/wire-harness/' | relative_url }}) schedule, which still draws every drop split at a barrel jack.
 
-{% include step.html n="5" title="The ribbon down to the layers" %}
+{% include step.html n="5" title="Run the ribbon down to the layers" %}
 
-One flat 16-pin ribbon, 1 m, runs from `J17` on the control board down to `J3` on the first layer board in the chute stack. Both ends are keyed, so it only goes in one way up.
+One flat 16-pin ribbon, 1.2 to 1.5 m, runs from `J17` on the control board down to `J3` on the first layer board in the chute stack. Both ends are keyed, so it only goes in one way up.
 
-The layer boards are already chained to each other and their servos are already plugged in: both are done on the bench as each [layer adapter board]({{ '/hardware/assembly/distribution/chute/pcb/' | relative_url }}) is built, because those sockets are hard to reach once the chute is in the frame.
+The layer boards are already chained to each other with their own 30 cm ribbons, and their servos are already plugged in: both are done as each [layer adapter board]({{ '/hardware/assembly/distribution/chute/pcb/' | relative_url }}) is built and the chute tower goes together, because those sockets are hard to reach once the chute is in the frame.
 
-{% include step.html n="6" title="USB: the Pico, the hub and the Orange Pi" %}
+{% include step.html n="6" title="Plug in the USB: the Pico, the hub and the Orange Pi" %}
 
 The Orange Pi talks to the control board over USB, through the powered hub. The three cameras are on the same hub.
 
@@ -320,8 +319,15 @@ Before the machine sees mains:
 
 Then plug the machine in and switch the inlet switch on. The red power light on the Orange Pi comes on. The fan in the housing lid does not run yet, because the software switches it.
 
-Next: [software setup]({{ '/hardware/software-setup/' | relative_url }}), which flashes the Orange Pi and the control board and then asks you which output each lamp and each stepper is on.
-
 ## What is not recorded yet
 
-- **Where the arm fan's lead lands.** The Pi's own 2-pin `FAN` connector is 5 V and runs the official heatsink fan on the SoC, which goes on during [the Orange Pi mount]({{ '/hardware/electronics/installation/orange-pi-mount/' | relative_url }}). The 40 mm fan on that mount's arm is a 24 V one, so it has to come off the control board instead, and whether it goes on one of that board's LED ports is still being decided.
+- **Where the arm fan's lead lands.** The Pi's own 2-pin `FAN` connector is 5 V and runs the official heatsink fan on the SoC, which goes on during [the Orange Pi mount]({{ '/hardware/electronics/installation/orange-pi-mount/' | relative_url }}). The 40 mm fan on that mount's arm is a 24 V one, so it has to come off the control board instead, and whether that fan is needed at all is still being decided. Leave its lead loose.
+- **Where the USB hub mounts.** Its place on the machine is not settled, so it is not fastened to anything here.
+
+## The finished result
+
+Every cable in, the PSU box closed, the inlet switched on and the red light on the Orange Pi lit.
+
+<div class="img-placeholder">Image coming: the three enclosures bolted to the hex frame with every cable run between them, the ribbon dropping into the chute stack and the Orange Pi's red LED lit</div>
+
+Next: [software setup]({{ '/hardware/software-setup/' | relative_url }}), which flashes the Orange Pi and the control board and then asks you which output each lamp and each stepper is on.

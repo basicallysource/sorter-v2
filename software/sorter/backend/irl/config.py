@@ -47,6 +47,15 @@ class FeederMode(enum.Enum):
 # the same, so it never shows a mode the machine isn't running.
 DEFAULT_CLASSIFICATION_CHANNEL_MODE = ClassificationChannelMode.TWO_PIECE_STATE_MACHINE_REV01
 DEFAULT_FEEDER_MODE = FeederMode.PULSE_PERCEPTION_REV01
+# The camera layout when machine.toml names none: a camera per C-channel plus
+# the carousel. "default" is the single feeder camera, run only when named.
+DEFAULT_CAMERA_LAYOUT = "split_feeder"
+
+
+def cameraLayout(cameras: object) -> str:
+    """The layout a machine.toml [cameras] table runs."""
+    layout = cameras.get("layout") if isinstance(cameras, dict) else None
+    return layout if layout in ("default", "split_feeder") else DEFAULT_CAMERA_LAYOUT
 
 from global_config import GlobalConfig
 from hardware.bus import MCUBus, MCUBusError
@@ -92,7 +101,6 @@ from .parse_user_toml import (
     loadWaveshareServoConfig,
     loadCarouselCalibrationConfig,
     loadChuteCalibrationConfig,
-    loadCameraLayoutConfig,
     applyStepperCurrentOverride,
     applyStepperStallguard,
 )
@@ -612,7 +620,7 @@ class IRLConfig:
     machine_setup: MachineSetupDefinition
 
     def __init__(self):
-        self.camera_layout = "default"
+        self.camera_layout = DEFAULT_CAMERA_LAYOUT
         self.c_channel_2_camera = None
         self.c_channel_3_camera = None
         self.carousel_camera = None
@@ -971,7 +979,6 @@ def mkIRLConfig(machine_params: dict[str, object] | None = None) -> IRLConfig:
     from machine_toml import machine_toml_path
     from toml_config import loadTomlFile
     from .toml_migrations import applyTomlMigrations
-    camera_layout_type = "default"
     feeding_mode = "auto_channels"
     machine_setup_key = DEFAULT_MACHINE_SETUP
     raw_toml: dict[str, object] = {}
@@ -979,11 +986,7 @@ def mkIRLConfig(machine_params: dict[str, object] | None = None) -> IRLConfig:
     if params_path.exists():
         raw_toml = loadTomlFile(params_path)
         applyTomlMigrations(raw_toml)
-        cameras_section = raw_toml.get("cameras", {})
-        if isinstance(cameras_section, dict):
-            camera_layout_type = cameras_section.get("layout", "default")
-        if camera_layout_type not in ("default", "split_feeder"):
-            camera_layout_type = "default"
+    camera_layout_type = cameraLayout(raw_toml.get("cameras"))
 
     class _SilentLogger:
         def warning(self, *args: object, **kwargs: object) -> None:

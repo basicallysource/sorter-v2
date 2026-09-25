@@ -103,7 +103,7 @@ Camera layout and device index assignments.
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| `layout` | `"default"` \| `"split_feeder"` | `"default"` | `"default"`: single feeder camera + classification cameras. `"split_feeder"`: separate camera per C-channel + carousel. |
+| `layout` | `"split_feeder"` \| `"default"` | `"split_feeder"` | `"split_feeder"`: separate camera per C-channel + carousel. `"default"`: single feeder camera + classification cameras. |
 | `feeder` | int | — | OpenCV device index for the feeder camera. Used in `"default"` layout. |
 | `carousel` | int \| string (URL) | — | Device index or MJPEG URL for the carousel/classification camera. |
 | `classification_top` | int \| string (URL) | — | Device index or URL for the top classification camera. |

@@ -45,6 +45,43 @@ class SetupWizardConfigTests(unittest.TestCase):
         self.assertEqual(feeder["mode"], DEFAULT_FEEDER_MODE.value)
         self.assertEqual(feeder["default"], DEFAULT_FEEDER_MODE.value)
 
+    def test_split_feeder_is_the_layout_when_the_toml_names_none(self) -> None:
+        from irl.config import mkIRLConfig
+
+        no_boards = {
+            "scanned_at_ms": 0,
+            "source": "unavailable",
+            "mcu_ports": [],
+            "boards": [],
+            "roles": {"feeder": False, "distribution": False},
+            "missing_required_steppers": [],
+            "pca_available": False,
+            "waveshare_ports": [],
+            "issues": [],
+        }
+        cases = {
+            # What SorterOS's first boot wrote until 2026-09-25, then since.
+            "[cameras]\nfeeder = -1\nclassification_top = -1\nclassification_bottom = -1\n": "split_feeder",
+            "[cameras]\n": "split_feeder",
+            "": "split_feeder",
+            '[cameras]\nlayout = "default"\nfeeder = 0\n': "default",
+        }
+        for toml, layout in cases.items():
+            with self.subTest(toml=toml):
+                self.machine_params_path.write_text(toml, encoding="utf-8")
+                with (
+                    patch("server.routers.setup._discover_control_board_summary", return_value=no_boards),
+                    patch("server.routers.setup.getMachineNickname", return_value=None),
+                    patch("server.routers.setup.shared_state.hardware_state", "standby"),
+                    patch("server.routers.setup.shared_state.hardware_error", None),
+                    patch("server.routers.setup.shared_state.hardware_homing_step", None),
+                    patch("server.routers.setup.shared_state.getActiveIRL", return_value=None),
+                ):
+                    summary = setup.get_setup_wizard_summary()
+                self.assertEqual(layout, summary["discovery"]["recommended_camera_layout"])
+                self.assertEqual(layout, cameras.get_camera_config()["layout"])
+                self.assertEqual(layout, mkIRLConfig().camera_layout)
+
     def test_camera_layout_roundtrip_supports_default(self) -> None:
         response = cameras.save_camera_layout(cameras.CameraLayoutPayload(layout="default"))
 

@@ -188,7 +188,7 @@
 	let nameError = $state<string | null>(null);
 	let nameStatus = $state('');
 
-	let selectedLayout = $state<'default' | 'split_feeder'>('default');
+	let selectedLayout = $state<'default' | 'split_feeder'>('split_feeder');
 	let savingLayout = $state(false);
 	let layoutStatus = $state('');
 	let layoutError = $state<string | null>(null);

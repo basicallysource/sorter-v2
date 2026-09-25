@@ -40,8 +40,10 @@ from hardware.macos_camera_registry import refresh_macos_cameras
 from irl.bin_layout import getBinLayout
 from irl.config import (
     COLOR_CORRECTION_ENABLED,
+    DEFAULT_CAMERA_LAYOUT,
     cameraColorProfileToDict,
     cameraDeviceSettingsToDict,
+    cameraLayout,
     cameraPictureSettingsToDict,
     parseCameraColorProfile,
     parseCameraDeviceSettings,
@@ -3312,7 +3314,7 @@ def get_camera_config() -> Dict[str, Any]:
         if not isinstance(cameras, dict):
             cameras = {}
         return {
-            "layout": cameras.get("layout", "default"),
+            "layout": cameraLayout(cameras),
             "feeder": _camera_source_for_role(raw, "feeder"),
             "c_channel_2": _camera_source_for_role(raw, "c_channel_2"),
             "c_channel_3": _camera_source_for_role(raw, "c_channel_3"),
@@ -3323,7 +3325,7 @@ def get_camera_config() -> Dict[str, Any]:
         }
     except HTTPException:
         return {
-            "layout": "default",
+            "layout": DEFAULT_CAMERA_LAYOUT,
             "feeder": None,
             "c_channel_2": None,
             "c_channel_3": None,
@@ -4189,7 +4191,7 @@ def assign_cameras(assignment: CameraAssignment) -> Dict[str, Any]:
                 applied_live[key] = False
 
     assignment = {
-        "layout": cameras.get("layout", "default"),
+        "layout": cameraLayout(cameras),
         "feeder": cameras.get("feeder"),
         "c_channel_2": cameras.get("c_channel_2"),
         "c_channel_3": cameras.get("c_channel_3"),

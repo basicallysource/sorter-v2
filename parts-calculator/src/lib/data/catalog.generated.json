@@ -25357,11 +25357,11 @@
 					{
 						"region": "US",
 						"vendor": "Amazon",
-						"url": "https://www.amazon.com/dp/B0BN17BRYY",
-						"price": 195.99,
+						"url": "https://www.amazon.com/dp/B0BN17PWWB",
+						"affiliate_url": "https://www.amazon.com/dp/B0BN17PWWB?tag=sorterv2-20",
 						"pack_qty": 1,
-						"as_of": "2026-04-16",
-						"affiliate_url": "https://www.amazon.com/dp/B0BN17BRYY?tag=sorterv2-20"
+						"as_of": "2026-09-26",
+						"note": "Orange Pi's own listing for the board on its own, no power supply. Currently unavailable: as of 2026-09-26 Amazon US lists no 8 GB plain Orange Pi 5 in stock, with a supply or without, only 16 GB ones."
 					},
 					{
 						"region": "EU",
@@ -25370,7 +25370,8 @@
 						"price": 245.0,
 						"currency": "EUR",
 						"pack_qty": 1,
-						"as_of": "2026-09-15"
+						"as_of": "2026-09-26",
+						"note": "Board on its own. The 4 A USB-C supply their page recommends is not needed here: the machine feeds the board from the 24 V PSU through the buck converter."
 					}
 				]
 			},
@@ -25378,7 +25379,7 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"image": "https://assets.basically.website/sorter-parts/sbc-orange-pi-5-full-51ca8492b499.jpg"
+			"image": "https://assets.basically.website/sorter-parts/sbc-orange-pi-5-full-0ed5b951ffe2.jpg"
 		},
 		{
 			"id": "microsd-32gb",

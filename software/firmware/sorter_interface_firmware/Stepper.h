@@ -61,7 +61,10 @@ public:
     // still in progress" and the gate that refuses overlapping jitter requests.
     bool isJittering() { return _jitter_active.load(); }
     int32_t getPosition() { return _absolute_position; }
-    void setPosition(int32_t position) { _absolute_position = position; }
+    void setPosition(int32_t position) { _absolute_position = position; _position_reset.store(true); }
+    // True once after the counter was assigned instead of stepped (setPosition,
+    // homing zero); the shaft-encoder check re-captures its offset on it.
+    bool consumePositionReset() { return _position_reset.exchange(false); }
     void home(int32_t home_speed, int home_pin, bool home_pin_polarity);
 
     // StallGuard / DIAG. The TMC2209 drives its DIAG output high when SG_RESULT
@@ -77,6 +80,25 @@ public:
     }
     bool wasStalled() { return _stalled.load(); }
     void clearStall() { _stalled.store(false); }
+    // Software StallGuard for boards without a wired DIAG pin (SKR Pico): core0
+    // polls SG_RESULT/TSTEP over UART while the motor runs and calls
+    // latchStall() when the driver reports the condition that would raise DIAG.
+    bool stallDetectionEnabled() { return _stall_enabled.load(); }
+    bool hasStallPin() { return _stall_pin >= 0; }
+    // Software StallGuard only samples the cruise phase: SG_RESULT reads near
+    // zero while a stepper ramps (measured 4 on the B1 chute at 10000 µsteps/s²),
+    // which would look like a stall. Homing cruises too, but below the
+    // TCOOLTHRS velocity floor, so the poll skips it by TSTEP.
+    bool isCruisingForStallCheck() {
+        return _state.load() == STEPPER_CRUISING && !_jitter_active.load();
+    }
+    // Called from core 0 (the UART poll). Only *requests* the stop: the motion
+    // state machine is owned by core 1, and a state stored from core 0 could be
+    // overwritten by a transition core 1 was in the middle of (CRUISING ->
+    // BRAKING -> CRUISING), letting the motor resume after a detected stall.
+    // core 1 consumes the request at the top of its next motion tick.
+    void latchStall() { _stall_request.store(true); }
+    bool stallRequested() { return _stall_request.load(); }
 
 private:
     void beginJitterStroke();
@@ -98,6 +120,7 @@ private:
     std::atomic<int32_t> _mc_dir; // 1 = forward, -1 = reverse
     std::atomic<int32_t> _mc_home_pin; // Home switch pin, -1 if not homing
     std::atomic<bool> _mc_home_pin_polarity; // Home switch polarity, true if active high, false if active low
+    std::atomic<bool> _position_reset{false}; // _absolute_position was assigned, not stepped
 
     // Internal state
     std::atomic<int32_t> _steps_moved, _steps_frac; // How many steps have we moved in the current move, counted towards the _move_direction (if moving backwards we go negative)
@@ -112,6 +135,7 @@ private:
     // motion tick ever mutate these. core0 stop/move commands are REJECTED while
     // jittering rather than tearing the run down, so there is no cross-core race.
     std::atomic<bool> _jitter_active; // true from start until the last stroke completes
+    std::atomic<bool> _stall_request; // core 0 -> core 1: stop for a software-detected stall
     std::atomic<int32_t> _jitter_amplitude; // microsteps per stroke
     std::atomic<int32_t> _jitter_strokes_remaining; // strokes still to perform (2 per cycle)
     std::atomic<int32_t> _jitter_dir; // direction of the next stroke (1 / -1)

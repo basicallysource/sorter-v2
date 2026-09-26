@@ -10,11 +10,7 @@ permalink: /hardware/electronics/installation/psu-box/
 author: barthel
 contributors: [spencer, brickcyclealice]
 og_image: https://assets.basically.website/sorter-parts/meanwell-psu-housing-v2-render-full-f4b161896ea6.png
-warning: >-
-  **AI-generated first draft.** The steps for the printed housing are written from the models, not
-  from a build, so nobody has put this box together from this page yet. Step 2's screws and nuts and
-  step 4's terminal block wiring did come from builds. One step involves mains voltage: read the page
-  fully before you start.
+last_verified: 2026-09-26
 tools_needed: ["Hex keys, 2 mm and 2.5 mm", "Screwdriver for the supply's M3.5 terminal screws", "5.5 mm spanner or pliers, for the M3 nuts", "Multimeter, with a continuity buzzer"]
 parts_needed:
   - part: psu-24v-350w

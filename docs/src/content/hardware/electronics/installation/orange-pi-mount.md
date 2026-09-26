@@ -11,9 +11,10 @@ author: spencer
 contributors: [barthel]
 og_image: https://assets.basically.website/sorter-parts/orange-pi-housing-with-hub-render-full-7d14589d8944.png
 warning: >-
-  **AI-generated first draft.** These steps are written from the models, not from a build, so nobody
-  has put this housing together from this page yet. The parts and the screws come from the CAD
-  assembly.
+  **AI-generated first draft.** Written from the machine assembly tree in the [parts
+  calculator](https://parts-calculator.basically.website/assembly?focus=orange-pi-mount), not from an
+  actual build, so nobody has put this housing together from this page yet. The parts and the screws
+  come from the CAD assembly.
 tools_needed: ["Hex key, 2 mm", "Soldering iron or heat-set insert press"]
 parts_needed:
   - part: orange-pi-housing-base
@@ -86,6 +87,17 @@ Press 8 M3 inserts into the base while it is loose: four in the low posts the Pi
   </figure>
 </div>
 
+**Fit the plunger retainer now, while the base is loose.** Its screw goes in from underneath, and once the walls are in you cannot turn the base over without dropping them out.
+
+Sit the retainer on its landing beside the west wall's groove and fix it with 1 {% include fastener.html size="M3" variant="countersunk" length="12" %} up through the base from below. It cuts its own thread in the plastic, so take it by hand.
+
+<div class="img-row">
+  <figure>
+    <img src="https://assets.basically.website/sorter-docs/orange-pi-housing-step1-plunger-retainer-full-8ab6ba8049dc.png" alt="Render of the west end of the housing base seen from below and to one side, with the plunger retainer lifted above its landing, the countersunk screw below the base's floor, and a dashed line running from the screw up through the floor into the retainer">
+    <figcaption>The retainer on its landing at the west end of the base, and the screw that holds it coming up through the floor from underneath.</figcaption>
+  </figure>
+</div>
+
 {% include step.html n="2" title="Screw the Pi down" %}
 
 <div class="callout callout-warning">
@@ -93,7 +105,7 @@ Press 8 M3 inserts into the base while it is loose: four in the low posts the Pi
   <p>Static caution: the Orange Pi is ESD-sensitive like any other bare board. Touch a grounded metal surface before handling it, and avoid doing this on carpet in dry weather.</p>
 </div>
 
-Sit the Pi on the four posts and fasten it with 4 {% include fastener.html size="M3" variant="socket-button" length="6" %} screws into their inserts. The posts are the standoffs, so there are none to fit.
+Sit the Pi on the four posts and fasten it with 4 {% include fastener.html size="M3" variant="socket-button" length="6" %} screws into their inserts.
 
 <div class="img-row">
   <figure>
@@ -108,7 +120,7 @@ Each wall drops into its own groove in the base, and each one only fits one side
 
 - **West**, the short wall with a small square window for the power button plunger and a larger window onto the microSD card.
 - **East**, the short wall with the openings for the USB-A and Ethernet ports.
-- **North**, the long wall with the opening for the USB-C and HDMI ports and a block on its outside for the WiFi antennas. Feed the antennas out through the slot at the bottom of the wall, under that block, as it goes in.
+- **North**, the long wall with the opening for the USB-C and HDMI ports and a block on its outside that carries the WiFi antennas. The two antennas came with the WiFi module and are already plugged into it from [preparing the Orange Pi]({{ '/hardware/electronics/installation/orange-pi-prep/' | relative_url }}); feed them out through the slot at the bottom of the wall, under that block, as it goes in.
 - **South**, the long wall with the hex vent, and an opening at the bottom for a cable off the GPIO header.
 
 Nothing screws the walls in. The roof holds them down in step 6.
@@ -124,18 +136,18 @@ Nothing screws the walls in. The roof holds them down in step 6.
 
 The plunger reaches the Pi's power key from outside the west wall, so the Pi can be switched on with the housing shut.
 
-Screw the plunger retainer onto its landing beside the west wall with 1 {% include fastener.html size="M3" variant="countersunk" length="12" %} from underneath the base. Lay the plunger in it with its square face out through the small window in the west wall, and close the plunger cap over it with 1 {% include fastener.html size="M3" variant="countersunk" length="8" %}. Both screws cut their own thread in the plastic, so take them by hand. Press the face from outside and check that it reaches the power key.
+Lay the plunger in its retainer with its square face out through the small window in the west wall, and close the plunger cap over it with 1 {% include fastener.html size="M3" variant="countersunk" length="8" %}. The screw cuts its own thread in the plastic, so take it by hand. Press the face from outside and check that it reaches the power key.
 
 <div class="img-row">
   <figure>
-    <img src="https://assets.basically.website/sorter-docs/orange-pi-housing-step4-plunger-full-69c3970f218e.png" alt="Close-up exploded render of the west end of the base: the plunger retainer above its landing, the plunger above that with its square face pointing out towards the west wall, and the plunger cap above both">
-    <figcaption>The west bay, with the other three walls left out of the view. Bottom to top: the retainer onto its landing, the plunger laid into it, the cap over the top.</figcaption>
+    <img src="https://assets.basically.website/sorter-docs/orange-pi-housing-step4-plunger-full-dc18700f2ce1.png" alt="Close-up exploded render of the west end of the base with the retainer already fitted in grey, the plunger held above it with its square face pointing out towards the west wall, and the plunger cap above both">
+    <figcaption>The west bay, with the other three walls left out of the view. The plunger lays into the retainer, then the cap closes over it.</figcaption>
   </figure>
 </div>
 
 {% include step.html n="5" title="Clamp the antennas" %}
 
-Sit the two WiFi antennas in their saddles on the north wall's block, and screw the antenna clamp over them with 2 {% include fastener.html size="M3" variant="countersunk" length="12" %}, self-tapping into the wall. Skip this step if the Pi has no WiFi module.
+Sit the two WiFi antennas in the two channels in the north wall's block, and screw the antenna clamp over them with 2 {% include fastener.html size="M3" variant="countersunk" length="12" %}, self-tapping into the wall. Skip this step if the Pi has no WiFi module.
 
 <div class="img-row">
   <figure>
@@ -146,14 +158,18 @@ Sit the two WiFi antennas in their saddles on the north wall's block, and screw 
 
 {% include step.html n="6" title="Put the roof on" %}
 
-Lower the roof onto the walls, recessed side down, and fix it with 4 {% include fastener.html size="M3" variant="countersunk" length="12" %} into the inserts in the corner posts.
+Lower the roof onto the walls grooved side down. The groove runs all the way round the underside and the tops of the four walls sit in it; the other face is the flat one with the hex vent. Fix it with 4 {% include fastener.html size="M3" variant="countersunk" length="12" %} into the inserts in the corner posts.
 
 **The microSD card stays reachable with the roof on**, through the window in the west wall and the opening in the floor under it.
 
 <div class="img-row">
   <figure>
-    <img src="https://assets.basically.website/sorter-docs/orange-pi-housing-step6-roof-full-027c3aa73416.png" alt="Exploded render of the roof lifted above the closed walls, recessed side down, with a dashed line running from each corner of the roof to the corner post below it">
-    <figcaption>The roof goes on recessed side down, onto the four corner posts.</figcaption>
+    <img src="https://assets.basically.website/sorter-docs/orange-pi-housing-step6-roof-full-027c3aa73416.png" alt="Exploded render of the roof lifted above the closed walls, grooved side down, with a dashed line running from each corner of the roof to the corner post below it">
+    <figcaption>The roof goes on grooved side down, onto the four corner posts.</figcaption>
+  </figure>
+  <figure>
+    <img src="https://assets.basically.website/sorter-docs/orange-pi-housing-roof-underside-full-0770afc1f53f.png" alt="Render of the roof seen from underneath: a groove runs all the way round the inside of its rim, with four round bosses standing inside it and the hex vent showing through the middle">
+    <figcaption>The underside, and the groove round it that the wall tops sit in. The other face is flat.</figcaption>
   </figure>
 </div>
 

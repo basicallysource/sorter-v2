@@ -7,7 +7,7 @@ connectors:
     type: JST PH 4-pin (PHR-4)
     subtype: 2.0mm pitch, female
     pinlabels: [A2, A1, B1, B2]
-    notes: "basically board v1.3 J27/J31/J35/J39. One\ncable per jack, x4 identical."
+    notes: "controller board v1.3 J23/J27/J31/J35. One\ncable per jack, x4 identical."
     additional_components:
       - type: Terminal - SPH-002T-P0.5S
         qty: 1
@@ -29,7 +29,7 @@ connectors:
     type: JST PH 4-pin (PHR-4)
     subtype: female
     pinlabels: [A2, A1, B1, B2]
-    notes: "basically board v1.3 J23, or a 4-way Dupont\non J24 beside it: the same four nets."
+    notes: controller board v1.3 J39
   CH_LEADS:
     type: Bare tinned leads, labeled 1-4
     pinlabels: [A2, A1, B1, B2]

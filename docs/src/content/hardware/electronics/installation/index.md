@@ -37,7 +37,7 @@ The Pico is bought with its header pins already fitted, so there is nothing to p
 Each of the three printed enclosures bolts to the 2020 frame with 2 M5 screws into 2 {% include fastener.html size="M5" variant="t-nut" text="T-nuts" %}, 6 of each in total. The holes in all three are clearance, so the screw passes through the plastic and pulls down onto the nut.
 
 - **Orange Pi mount**: 2x {% include fastener.html size="M5" variant="socket-button" length="12" %}
-- **PSU box**: 2x {% include fastener.html size="M5" variant="socket-button" length="16" %}
+- **PSU box**: 2x {% include fastener.html size="M5" variant="socket-button" length="16" %}, each with an M5 washer under its head
 - **Control board housing**: 2x {% include fastener.html size="M5" variant="socket-button" length="16" %}
 
 The PSU box and the control board housing take the longer screw because both of those clamp bosses are 10 mm deep, against the Orange Pi mount's 8 mm.

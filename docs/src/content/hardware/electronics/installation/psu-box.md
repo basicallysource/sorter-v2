@@ -100,7 +100,7 @@ Run an {% include fastener.html size="M3" variant="countersunk" length="12" %} t
 
 Stop as soon as the flange is tight. The panel bows outward before the screw gives, so the screw will not tell you when to stop.
 
-If a screw bites in the panel on its own and pulls the flange down without a nut, use an {% include fastener.html size="M3" variant="countersunk" length="8" %} instead and leave the nut off. The 12 mm only earns its length when there is a nut on the back of it.
+A front panel printed from its v2 on has 2.8 mm pilots in those two holes, so expect the screw to bite in the panel on its own. If it pulls the flange down without a nut, use an {% include fastener.html size="M3" variant="countersunk" length="8" %} instead and leave the nut off. The 12 mm only earns its length when there is a nut on the back of it.
 
 {% include step.html n="3" title="Bolt the supply into the rear tray" %}
 

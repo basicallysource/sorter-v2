@@ -9,7 +9,7 @@ lede: The power supply, the control board and the Orange Pi, each built on the b
 permalink: /hardware/electronics/installation/
 author: barthel
 contributors: [spencer]
-og_image: https://assets.basically.website/sorter-docs/assembly-control-board-housing-on-the-extrusion-w1600-813fbb56a0d6.jpg
+og_image: https://assets.basically.website/sorter-docs/electronics-component-layout-topdown-full-2d38b86c4b2e.jpg
 tools_needed: ["Hex key, 3 mm for a button head or 4 mm for a socket head"]
 warning: >-
   One of these pages (PSU box) involves wiring mains voltage. Read it fully before starting, and do

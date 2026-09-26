@@ -17,7 +17,7 @@ Several pages ask you to test something with a multimeter before you commit to i
 
 All three are the same tool on one of two settings, and none of them needs an expensive meter. The one thing yours has to have is a **continuity buzzer**, because half this page listens for the beep. If you are buying one, Adafruit's [Multimeters guide](https://learn.adafruit.com/multimeters) opens with a checklist of what a cheap meter must do.
 
-If you have never picked one up, the video at the foot of this page walks through the whole tool in about ten minutes.
+If you have never picked one up, the video at the foot of this page walks through the whole tool, and the list under it goes straight to the part that matches the section you are on.
 
 ## Set the meter up once
 
@@ -159,7 +159,7 @@ The two things worth knowing: put the probes back in the `COM` and `V`/&Omega; p
 
 ## Watch somebody do it
 
-Ten minutes on the same tool, in the order this page uses it. The ports and the dial first, then resistance, then continuity, and it finishes on exactly the job the leads here need, probing a cable to find out which conductor reaches the tip of the plug.
+The same tool, in the same order. It opens on the ports, the dial and the kinds of probe, then works through voltage, resistance, current and continuity, and it finishes on exactly the job the leads here need, probing a cable to find out which conductor reaches the tip of the plug.
 
 <figure class="video-figure">
   <div class="video-embed video-embed-wide">
@@ -172,3 +172,12 @@ Ten minutes on the same tool, in the order this page uses it. The ports and the 
   </div>
   <figcaption>Covers the probe ports, the dial, voltage, resistance, current and continuity. <cite>Video: SparkFun Electronics, not a Basically video.</cite></figcaption>
 </figure>
+
+**Straight to the part you need**, by the section of this page you are on:
+
+- [**Set the meter up once**, from 0:00](https://www.youtube.com/watch?v=SLkPtmnglOI&t=0s). The display, the dial, the three ports and the kinds of probe tip.
+- [**Continuity**, from 8:15](https://www.youtube.com/watch?v=SLkPtmnglOI&t=495s). The chapter takes the diode test first and continuity after it, which is why the two so often share one position on the dial.
+- [**Resistance**, from 5:00](https://www.youtube.com/watch?v=SLkPtmnglOI&t=300s). Includes what to do when a manual range reads over.
+- [**Volts**, from 2:40](https://www.youtube.com/watch?v=SLkPtmnglOI&t=160s).
+
+Its other two chapters, current at 6:33 and the advanced features at 9:53, are not needed for anything on this machine.

@@ -70,14 +70,6 @@ The fasteners and quantities are in the parts list above and are called out inli
 
 {% include fastener-legend.html %}
 
-One per machine. Which Orange Pi 5 to buy, how much RAM and storage it needs, the WiFi module, the USB hub and cooling are all on the [Orange Pi 5]({{ '/hardware/orange-pi-5/' | relative_url }}) page. This page is the build on the bench: the Pi screws down into the base, four walls drop in around it, the roof screws down over them, and the USB hub and the buck converter that powers the Pi clamp onto the roof.
-
-**The parts come in the position they sit in the box, not the way they print.** Lay the four walls flat on the bed, and print the roof upside down, top face on the bed.
-
-**The pictures in the steps below are renders of the models, not photographs of a build.** Each one shows the parts that step adds in colour, lifted off along the way they go on, with the parts already fitted in grey. The Orange Pi itself and the WiFi antennas are drawn as plain blanks, on the real mounting positions.
-
-Twenty M3 screws go into the housing: eight into the eight inserts in the base, four holding the Pi down and four closing the roof, and twelve self-tapping straight into the plastic.
-
 {% include step.html n="1" title="Preparation" %}
 
 Press 8 M3 inserts into the base while it is loose: four in the low posts the Pi sits on, and four in the tall corner posts the roof screws into. See [installing heat inserts]({{ '/hardware/helpers/heat-inserts/' | relative_url }}).

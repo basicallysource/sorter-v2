@@ -12,8 +12,8 @@
 		"cost_per_kg": 24.99,
 		"commit_base_url": "https://github.com/basicallysource/sorter-v2/commit/",
 		"engrave": "33d9fa246b1a",
-		"all_parts_zip": "https://assets.basically.website/sorter-parts/all-parts-fa616d41a210.zip",
-		"all_parts_plain_zip": "https://assets.basically.website/sorter-parts/all-parts-plain-0081b42345e6.zip"
+		"all_parts_zip": "https://assets.basically.website/sorter-parts/all-parts-7892a7f431a9.zip",
+		"all_parts_plain_zip": "https://assets.basically.website/sorter-parts/all-parts-plain-32195b4648da.zip"
 	},
 	"sections": [
 		{
@@ -6531,10 +6531,10 @@
 		},
 		{
 			"id": "orange-pi-mount",
-			"uid": "zczw",
-			"version": "3",
+			"uid": "hus8",
+			"version": "4",
 			"name": "Orange Pi mount",
-			"description": "The Orange Pi 5 standing off its bracket, which bolts to the 2020 extrusion, with a 40 mm fan on a bracket cantilevered over it.",
+			"description": "The Orange Pi 5 standing off its plate, which bolts to the 2020 extrusion. Its cooling is the official heatsink fan on the SoC, fitted before the board goes on.",
 			"docs": "/hardware/electronics/installation/orange-pi-mount/",
 			"lines": [
 				{
@@ -6563,23 +6563,11 @@
 				},
 				{
 					"part": "hsi-m3",
-					"qty": 6
+					"qty": 4
 				},
 				{
 					"part": "standoff-m3-10mm",
 					"qty": 4
-				},
-				{
-					"part": "fan-bracket-40mm",
-					"qty": 1
-				},
-				{
-					"part": "fan-40mm-24v",
-					"qty": 1
-				},
-				{
-					"part": "scr-m3-16-shcs",
-					"qty": 6
 				},
 				{
 					"part": "scr-m5-12-shcs",
@@ -6592,30 +6580,6 @@
 				{
 					"assembly": "harness-buck-24v",
 					"qty": 1
-				}
-			],
-			"connections": [
-				{
-					"from": "fan-bracket-40mm",
-					"to": "orange-pi-extrusion-mount",
-					"via": "scr-m3-16-shcs",
-					"qty": 2,
-					"method": "insert",
-					"through_mm": 12,
-					"thread_mm": 5.7,
-					"draft": true,
-					"note": "The arm's foot stands against the mount's front edge face and bolts back into two M3 inserts on that face, 32 mm apart on the centreline. 12.0 mm of plain 3.50 mm bore through the foot, then the insert, whose pocket is 4.00 mm across and 6.00 mm deep. Measured off the two published STLs, not from a build."
-				},
-				{
-					"from": "fan-40mm-24v",
-					"to": "fan-bracket-40mm",
-					"via": "scr-m3-16-shcs",
-					"qty": 4,
-					"method": "self-tap",
-					"through_mm": 10,
-					"thread_mm": 12,
-					"draft": true,
-					"note": "The fan sits on the flat top face of the arm over its 38 mm opening, on the standard 32 x 32 mm pattern. The four 2.50 mm pilots run right through the 12.0 mm plate; the screws cut their own thread in it, no inserts. Measured off the STL, not from a build."
 				}
 			],
 			"versions": [
@@ -6736,6 +6700,86 @@
 					"uid": "zczw",
 					"date": "2026-09-23",
 					"message": "The Orange Pi's own peripherals and its 24 V lead join the mount. The official heatsink fan, the WiFi 6 and Bluetooth module and the microSD card all sit beside the Pi they fit into, and W3 on the power drawing is the barrel plug at the PSU box end with bare leads spliced to the buck converter. All four were hand counts from the BOM sheet before this and the tree totals are the same. The converter itself is not in the tree yet, so its lead sits on the mount the Pi it powers sits on.",
+					"breaking": false,
+					"commit": null,
+					"lines": [
+						{
+							"part": "orange-pi-extrusion-mount",
+							"qty": 1,
+							"uid": "nxh7"
+						},
+						{
+							"part": "sbc-orange-pi-5",
+							"qty": 1,
+							"uid": "ilqj"
+						},
+						{
+							"part": "fan-orange-pi-5-heatsink",
+							"qty": 1,
+							"uid": "z0ye"
+						},
+						{
+							"part": "wifi-module-opi5",
+							"qty": 1,
+							"uid": "b25j"
+						},
+						{
+							"part": "microsd-32gb",
+							"qty": 1,
+							"uid": "7fvo"
+						},
+						{
+							"part": "scr-m3-6-bhcs",
+							"qty": 4,
+							"uid": "e04c"
+						},
+						{
+							"part": "hsi-m3",
+							"qty": 6,
+							"uid": "ksut"
+						},
+						{
+							"part": "standoff-m3-10mm",
+							"qty": 4,
+							"uid": "hkor"
+						},
+						{
+							"part": "fan-bracket-40mm",
+							"qty": 1,
+							"uid": "3ufy"
+						},
+						{
+							"part": "fan-40mm-24v",
+							"qty": 1,
+							"uid": "7o57"
+						},
+						{
+							"part": "scr-m3-16-shcs",
+							"qty": 6,
+							"uid": "e0ud"
+						},
+						{
+							"part": "scr-m5-12-shcs",
+							"qty": 2,
+							"uid": "kmah"
+						},
+						{
+							"part": "tnut-m5-2020",
+							"qty": 2,
+							"uid": "bpwm"
+						},
+						{
+							"assembly": "harness-buck-24v",
+							"qty": 1,
+							"uid": "6odt"
+						}
+					]
+				},
+				{
+					"version": "4",
+					"uid": "hus8",
+					"date": "2026-09-26",
+					"message": "The 40 mm fan arm comes off. The Orange Pi's own heatsink fan on the SoC is the cooling now, so the printed bracket, the 40 mm 24 V fan it cantilevered over the board and all six M3 x 16 screws (2 into the mount, 4 into the fan) leave the assembly, and the insert count goes 6 -> 4: the two in the plate's front edge face were there only for the arm's foot. fan-bracket-40mm is retired in place; the 24 V fan stays one per machine, in the control board housing cover.",
 					"breaking": false,
 					"commit": null
 				}
@@ -8193,7 +8237,7 @@
 					"stl_hash": "350de3f8e27e7d0bb1f00d2c070c7f255da73987c9b2d86f639664c5db81bfd6",
 					"render": "https://assets.basically.website/sorter-parts/rotor-faceted-v1-full-52fba49e5abb.png",
 					"stl": "https://assets.basically.website/sorter-parts/rotor-faceted-350de3f8e27e.stl",
-					"grams": 166.5
+					"grams": 166.51
 				},
 				{
 					"version": "2",
@@ -8213,7 +8257,7 @@
 			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 10670,
+			"print_seconds": 10668,
 			"color": {
 				"fixed": "ash-gray"
 			},
@@ -8337,15 +8381,15 @@
 					"commit": null,
 					"stl": "https://assets.basically.website/sorter-parts/output-gear-69ae2f998fe3.stl",
 					"render": "https://assets.basically.website/sorter-parts/output-gear-full-18ac70750f76.png",
-					"grams": 59.67
+					"grams": 59.69
 				}
 			],
 			"attributes": [],
-			"grams": 59.67,
+			"grams": 59.69,
 			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 7249,
+			"print_seconds": 7237,
 			"color": {
 				"role": "feeder"
 			},
@@ -8470,15 +8514,15 @@
 					"onshape_version": "https://cad.onshape.com/documents/60aa51fc61d18f2155b99910/v/b76489d0ca46a1169a2a6081/e/66109ce96b305bf318354f93",
 					"stl": "https://assets.basically.website/sorter-parts/nema-bracket-8b2bea87360e.stl",
 					"render": "https://assets.basically.website/sorter-parts/nema-bracket-full-91f60f914ef2.png",
-					"grams": 72.45
+					"grams": 72.42
 				}
 			],
 			"attributes": [],
-			"grams": 72.45,
+			"grams": 72.42,
 			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 7209,
+			"print_seconds": 7206,
 			"color": {
 				"by_section": {
 					"feeder": {
@@ -8620,10 +8664,10 @@
 			],
 			"attributes": [],
 			"grams": 13.16,
-			"support_grams": 2.47,
+			"support_grams": 2.51,
 			"support_used": true,
 			"support_intentional": true,
-			"print_seconds": 5172,
+			"print_seconds": 5161,
 			"color": {
 				"role": "feeder"
 			},
@@ -8707,7 +8751,7 @@
 			"support_grams": 4.62,
 			"support_used": true,
 			"support_intentional": true,
-			"print_seconds": 3240,
+			"print_seconds": 3246,
 			"color": {
 				"fixed": "ivory-white"
 			},
@@ -8831,7 +8875,7 @@
 			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 955,
+			"print_seconds": 956,
 			"color": {
 				"role": "feeder"
 			},
@@ -8929,7 +8973,7 @@
 			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 43773,
+			"print_seconds": 43772,
 			"color": {
 				"role": "feeder"
 			},
@@ -9058,7 +9102,7 @@
 			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 30870,
+			"print_seconds": 31045,
 			"color": {
 				"fixed": "ivory-white"
 			},
@@ -9227,7 +9271,7 @@
 					"stl_hash": "db2c0ecf58184c752a8d66035b2620a3d1570343167b8b2b7f3b7eedd402c58f",
 					"render": "https://assets.basically.website/sorter-parts/interface-bracket-v1-full-84aba44e6d1b.png",
 					"stl": "https://assets.basically.website/sorter-parts/interface-bracket-db2c0ecf5818.stl",
-					"grams": 159.48
+					"grams": 159.64
 				},
 				{
 					"version": "2",
@@ -9238,15 +9282,15 @@
 					"onshape_version": "https://cad.onshape.com/documents/36d65973fe08f685f790dc8b/v/f845b960415692451f2903b1/e/77f0be233cae0dcaf1c2a391",
 					"stl": "https://assets.basically.website/sorter-parts/interface-bracket-5835878c9a32.stl",
 					"render": "https://assets.basically.website/sorter-parts/interface-bracket-full-9bee4cdaf075.png",
-					"grams": 159.46
+					"grams": 159.45
 				}
 			],
 			"attributes": [],
-			"grams": 159.46,
+			"grams": 159.45,
 			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 14631,
+			"print_seconds": 14632,
 			"color": {
 				"role": "frame"
 			},
@@ -9513,7 +9557,7 @@
 			"support_grams": 9.29,
 			"support_used": true,
 			"support_intentional": false,
-			"print_seconds": 23969,
+			"print_seconds": 23661,
 			"color": {
 				"role": "chute-core"
 			},
@@ -9649,7 +9693,7 @@
 			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 2584,
+			"print_seconds": 2583,
 			"color": {
 				"role": "frame"
 			},
@@ -9781,7 +9825,7 @@
 			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 2604,
+			"print_seconds": 2606,
 			"color": {
 				"role": "frame"
 			},
@@ -10184,7 +10228,7 @@
 			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 18078,
+			"print_seconds": 18175,
 			"color": {
 				"role": "chute-core"
 			},
@@ -10328,7 +10372,7 @@
 			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 14391,
+			"print_seconds": 14392,
 			"color": {
 				"role": "frame"
 			},
@@ -10479,7 +10523,7 @@
 			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 7440,
+			"print_seconds": 7500,
 			"color": {
 				"role": "frame"
 			},
@@ -10741,7 +10785,7 @@
 			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 1458,
+			"print_seconds": 1456,
 			"color": {
 				"role": "frame"
 			},
@@ -10836,7 +10880,7 @@
 			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 6010,
+			"print_seconds": 6009,
 			"color": {
 				"role": "frame"
 			},
@@ -10961,15 +11005,15 @@
 					"onshape_version": "https://cad.onshape.com/documents/a4a1965bbaf3a15aff2b13ed/v/7279a42b05833c7b828efb0d/e/b0ee2e787191265cba1c1a31",
 					"stl": "https://assets.basically.website/sorter-parts/ext-bracket-bottom-vertical-313397afb08f.stl",
 					"render": "https://assets.basically.website/sorter-parts/ext-bracket-bottom-vertical-full-9d75356a3cf1.png",
-					"grams": 50.62
+					"grams": 50.66
 				}
 			],
 			"attributes": [],
-			"grams": 50.62,
-			"support_grams": 10.43,
+			"grams": 50.66,
+			"support_grams": 10.41,
 			"support_used": true,
 			"support_intentional": false,
-			"print_seconds": 8873,
+			"print_seconds": 8759,
 			"color": {
 				"role": "frame"
 			},
@@ -11248,7 +11292,7 @@
 			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 3584,
+			"print_seconds": 3585,
 			"color": {
 				"role": "frame"
 			},
@@ -11386,15 +11430,15 @@
 					"onshape_version": "https://cad.onshape.com/documents/36d65973fe08f685f790dc8b/v/3b8fafc8cab54b09332e14d2/e/8f693a0bd7ce7d62c0c00291",
 					"stl": "https://assets.basically.website/sorter-parts/interface-upper-fixed-section-47d71e76dcfa.stl",
 					"render": "https://assets.basically.website/sorter-parts/interface-upper-fixed-section-full-ab978b2f9123.png",
-					"grams": 164.14
+					"grams": 164.13
 				}
 			],
 			"attributes": [],
-			"grams": 164.14,
+			"grams": 164.13,
 			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 12186,
+			"print_seconds": 12159,
 			"color": {
 				"role": "frame"
 			},
@@ -11531,7 +11575,7 @@
 			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 3123,
+			"print_seconds": 3124,
 			"color": {
 				"role": "frame"
 			},
@@ -11787,7 +11831,7 @@
 					"stl_hash": "8ca345012b63e33064706c787705fa3d3f39229891319935beb58eeede6d1a14",
 					"render": "https://assets.basically.website/sorter-parts/interface-big-spacer-v1-full-320abf1a877e.png",
 					"stl": "https://assets.basically.website/sorter-parts/interface-big-spacer-8ca345012b63.stl",
-					"grams": 22.18
+					"grams": 22.19
 				},
 				{
 					"version": "2",
@@ -11806,7 +11850,7 @@
 			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 1485,
+			"print_seconds": 1484,
 			"color": {
 				"role": "frame"
 			},
@@ -11900,7 +11944,7 @@
 			"support_grams": 0.92,
 			"support_used": true,
 			"support_intentional": true,
-			"print_seconds": 1948,
+			"print_seconds": 1949,
 			"color": {
 				"role": "chute-core"
 			},
@@ -12041,10 +12085,10 @@
 			],
 			"attributes": [],
 			"grams": 19.76,
-			"support_grams": 6.9,
+			"support_grams": 6.97,
 			"support_used": true,
 			"support_intentional": true,
-			"print_seconds": 3550,
+			"print_seconds": 3555,
 			"color": {
 				"role": "chute-core"
 			},
@@ -12179,7 +12223,7 @@
 			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 1920,
+			"print_seconds": 1916,
 			"color": {
 				"role": "frame"
 			},
@@ -12274,7 +12318,7 @@
 			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 1993,
+			"print_seconds": 1989,
 			"color": {
 				"role": "frame"
 			},
@@ -12348,7 +12392,7 @@
 			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 5384,
+			"print_seconds": 5392,
 			"color": {
 				"role": "frame"
 			},
@@ -12492,7 +12536,7 @@
 			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 609,
+			"print_seconds": 610,
 			"color": {
 				"role": "frame"
 			},
@@ -12607,7 +12651,7 @@
 			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 2705,
+			"print_seconds": 2704,
 			"color": {
 				"role": "frame"
 			},
@@ -13273,15 +13317,15 @@
 					"commit": null,
 					"stl": "https://assets.basically.website/sorter-parts/top-interface-split-spur-gear-1-6a600fb6a6b3.stl",
 					"render": "https://assets.basically.website/sorter-parts/top-interface-split-spur-gear-1-full-fe39441babb2.png",
-					"grams": 59.97
+					"grams": 59.95
 				}
 			],
 			"attributes": [],
-			"grams": 59.97,
+			"grams": 59.95,
 			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 7684,
+			"print_seconds": 7668,
 			"color": {
 				"role": "chute-core"
 			},
@@ -13481,15 +13525,15 @@
 					"commit": null,
 					"stl": "https://assets.basically.website/sorter-parts/top-interface-split-spur-gear-3-11f50ca23d80.stl",
 					"render": "https://assets.basically.website/sorter-parts/top-interface-split-spur-gear-3-full-4cc66f4b00eb.png",
-					"grams": 588.3
+					"grams": 588.15
 				}
 			],
 			"attributes": [],
-			"grams": 588.3,
-			"support_grams": 400.58,
+			"grams": 588.15,
+			"support_grams": 400.62,
 			"support_used": true,
 			"support_intentional": false,
-			"print_seconds": 46254,
+			"print_seconds": 46282,
 			"color": {
 				"role": "chute-core"
 			},
@@ -13932,7 +13976,7 @@
 			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 12914,
+			"print_seconds": 12910,
 			"color": {
 				"fixed": "ash-gray"
 			},
@@ -14189,7 +14233,7 @@
 			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 1437,
+			"print_seconds": 1444,
 			"color": {
 				"role": "feeder"
 			},
@@ -14400,7 +14444,7 @@
 			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 3180,
+			"print_seconds": 3179,
 			"color": {
 				"fixed": "ash-gray"
 			},
@@ -14893,7 +14937,7 @@
 			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 2947,
+			"print_seconds": 2948,
 			"color": {
 				"role": "chute-core"
 			},
@@ -15021,7 +15065,7 @@
 					"commit": null,
 					"stl": "https://assets.basically.website/sorter-parts/bearing-holder-left-f0cc0eb5d575.stl",
 					"render": "https://assets.basically.website/sorter-parts/bearing-holder-left-full-5dff3021158c.png",
-					"grams": 7.95
+					"grams": 7.9
 				}
 			],
 			"attributes": [
@@ -15030,11 +15074,11 @@
 					"value": "Bearing holder (right)"
 				}
 			],
-			"grams": 7.95,
+			"grams": 7.9,
 			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 2231,
+			"print_seconds": 2226,
 			"color": {
 				"role": "chute-core"
 			},
@@ -15852,7 +15896,7 @@
 			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 2182,
+			"print_seconds": 2183,
 			"color": {
 				"role": "chute-core"
 			},
@@ -16377,7 +16421,7 @@
 			],
 			"attributes": [],
 			"grams": 46.85,
-			"support_grams": 3.54,
+			"support_grams": 3.53,
 			"support_used": true,
 			"support_intentional": false,
 			"print_seconds": 5504,
@@ -16688,7 +16732,7 @@
 			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 3504,
+			"print_seconds": 3507,
 			"color": {
 				"role": "feeder"
 			},
@@ -16817,7 +16861,7 @@
 			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 3321,
+			"print_seconds": 3320,
 			"color": {
 				"role": "feeder"
 			},
@@ -17069,15 +17113,15 @@
 					"commit": null,
 					"stl": "https://assets.basically.website/sorter-parts/camera-led-insert-14202c7b6732.stl",
 					"render": "https://assets.basically.website/sorter-parts/camera-led-insert-full-57cb3f47cdde.png",
-					"grams": 106.11
+					"grams": 106.12
 				}
 			],
 			"attributes": [],
-			"grams": 106.11,
+			"grams": 106.12,
 			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 10305,
+			"print_seconds": 10331,
 			"color": {
 				"fixed": "ivory-white"
 			},
@@ -17211,7 +17255,7 @@
 			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 4105,
+			"print_seconds": 4106,
 			"color": {
 				"fixed": "ash-gray"
 			},
@@ -17486,7 +17530,7 @@
 			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 2841,
+			"print_seconds": 2842,
 			"color": {
 				"role": "chute-core"
 			},
@@ -18136,15 +18180,15 @@
 					"commit": null,
 					"stl": "https://assets.basically.website/sorter-parts/bin-half-left-2073b94e6ea1.stl",
 					"render": "https://assets.basically.website/sorter-parts/bin-half-left-full-b416d103330a.png",
-					"grams": 171.54
+					"grams": 171.55
 				}
 			],
 			"attributes": [],
-			"grams": 171.54,
-			"support_grams": 0.69,
+			"grams": 171.55,
+			"support_grams": 0.73,
 			"support_used": true,
 			"support_intentional": false,
-			"print_seconds": 16584,
+			"print_seconds": 16592,
 			"color": {
 				"role": "bin"
 			},
@@ -18267,15 +18311,15 @@
 					"commit": null,
 					"stl": "https://assets.basically.website/sorter-parts/bin-half-right-93ccbb523ae5.stl",
 					"render": "https://assets.basically.website/sorter-parts/bin-half-right-full-3adcab197300.png",
-					"grams": 171.5
+					"grams": 171.67
 				}
 			],
 			"attributes": [],
-			"grams": 171.5,
-			"support_grams": 0.67,
+			"grams": 171.67,
+			"support_grams": 0.9,
 			"support_used": true,
 			"support_intentional": false,
-			"print_seconds": 16657,
+			"print_seconds": 16691,
 			"color": {
 				"role": "bin"
 			},
@@ -18398,15 +18442,15 @@
 					"commit": null,
 					"stl": "https://assets.basically.website/sorter-parts/bin-third-left-16b47a00d4e4.stl",
 					"render": "https://assets.basically.website/sorter-parts/bin-third-left-full-3e972427fc03.png",
-					"grams": 121.81
+					"grams": 121.75
 				}
 			],
 			"attributes": [],
-			"grams": 121.81,
-			"support_grams": 1.06,
+			"grams": 121.75,
+			"support_grams": 0.96,
 			"support_used": true,
 			"support_intentional": false,
-			"print_seconds": 12385,
+			"print_seconds": 12370,
 			"color": {
 				"role": "bin"
 			},
@@ -18910,7 +18954,7 @@
 			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 2426,
+			"print_seconds": 2427,
 			"color": {
 				"role": "chute-core"
 			},
@@ -19128,7 +19172,7 @@
 			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 10583,
+			"print_seconds": 10960,
 			"color": {
 				"role": "frame"
 			},
@@ -19389,7 +19433,7 @@
 			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 10845,
+			"print_seconds": 10898,
 			"color": {
 				"role": "frame"
 			},
@@ -19526,7 +19570,7 @@
 			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 15131,
+			"print_seconds": 15104,
 			"color": {
 				"role": "frame"
 			},
@@ -19796,7 +19840,7 @@
 			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 619,
+			"print_seconds": 620,
 			"color": {
 				"role": "frame"
 			},
@@ -19998,10 +20042,10 @@
 			"folder": null,
 			"variant_group": null,
 			"variant_name": null,
-			"description": "Plate the Orange Pi 5 stands off, which bolts to the 2020 extrusion. Same design as the control board's mount with the opening and bolt pattern changed for the Pi. Six M3 inserts: four on the top face for the Pi's standoffs, two in the front edge face for the fan arm.",
+			"description": "Plate the Orange Pi 5 stands off, which bolts to the 2020 extrusion. Same design as the control board's mount with the opening and bolt pattern changed for the Pi. Four M3 inserts on the top face, one per standoff. The two pockets in the front edge face take no inserts: they held the 40 mm fan arm, which the machine no longer uses.",
 			"version": "1",
 			"created_at": "2026-08-22",
-			"updated_at": "2026-08-22",
+			"updated_at": "2026-09-26",
 			"versions": [
 				{
 					"version": "1",
@@ -20123,17 +20167,15 @@
 			"id": "fan-bracket-40mm",
 			"uid": "3ufy",
 			"name": "40 mm Fan Bracket",
-			"quantities": {
-				"electronics": 1
-			},
+			"quantities": {},
 			"assembly": null,
 			"folder": null,
 			"variant_group": null,
 			"variant_name": null,
-			"description": "L-shaped bracket that cantilevers a 40 mm fan over a board on its extrusion mount. Was on both the control board and the Orange Pi mounts; the control board's printed housing carries its own fan since 2026-08-23, so one per machine, on the Orange Pi. The foot bolts back into two M3 inserts on the mount's front edge face and the fan sits on the flat top of the arm.",
+			"description": "L-shaped bracket that cantilevered a 40 mm fan over a board on its extrusion mount. Unused as of 2026-09-26: the Orange Pi's own heatsink fan on the SoC replaced it, and the control board's printed housing had already taken over the control board's one in 2026-08-23. Retired in place per VERSIONING.md.",
 			"version": "1",
 			"created_at": "2026-08-22",
-			"updated_at": "2026-08-23",
+			"updated_at": "2026-09-26",
 			"versions": [
 				{
 					"version": "1",
@@ -20141,6 +20183,7 @@
 					"date": "2026-08-22",
 					"message": "Initial version.",
 					"commit": null,
+					"note": "Removed 2026-09-26: the Orange Pi is cooled by its own heatsink fan (fan-orange-pi-5-heatsink). Do not re-add. Older photos and renders still show the arm on the Orange Pi mount, and if a board ever needs a cantilevered fan again that is a new design with its own uid.",
 					"onshape_version": "https://cad.onshape.com/documents/10ae43b609bb2df0f86cce4b/v/226293ea2e329f1f548b78a1/e/6e1da7cee8967d584080406f",
 					"stl": "https://assets.basically.website/sorter-parts/fan-bracket-40mm-d4757b350b56.stl",
 					"render": "https://assets.basically.website/sorter-parts/fan-bracket-40mm-full-8afc4ec67733.png",
@@ -20284,7 +20327,7 @@
 			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 26710,
+			"print_seconds": 26626,
 			"color": {
 				"role": "frame"
 			},
@@ -20416,7 +20459,7 @@
 			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 6680,
+			"print_seconds": 6676,
 			"color": {
 				"role": "frame"
 			},
@@ -20640,7 +20683,7 @@
 			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 3970,
+			"print_seconds": 3969,
 			"color": {
 				"role": "frame"
 			},
@@ -20724,15 +20767,15 @@
 					"onshape_version": "https://cad.onshape.com/documents/f7d34331a9a020dce9231dc1/v/13f56af58b306d7850aa3ea4/e/562fad1e09332ebe5efdd59c",
 					"stl": "https://assets.basically.website/sorter-parts/meanwell-psu-housing-front-panel-69dae822bcaf.stl",
 					"render": "https://assets.basically.website/sorter-parts/meanwell-psu-housing-front-panel-full-39145e845278.png",
-					"grams": 15.69
+					"grams": 15.7
 				}
 			],
 			"attributes": [],
-			"grams": 15.69,
+			"grams": 15.7,
 			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 3027,
+			"print_seconds": 3031,
 			"color": {
 				"role": "frame"
 			},
@@ -21136,7 +21179,7 @@
 			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 3588,
+			"print_seconds": 3589,
 			"color": {
 				"role": "channel"
 			},
@@ -21405,7 +21448,7 @@
 			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 3484,
+			"print_seconds": 3483,
 			"color": {
 				"role": "channel"
 			},
@@ -21821,7 +21864,7 @@
 			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 6824,
+			"print_seconds": 6802,
 			"color": {
 				"fixed": "ivory-white"
 			},
@@ -21987,7 +22030,7 @@
 			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 1018,
+			"print_seconds": 1017,
 			"color": {
 				"fixed": "ivory-white"
 			},
@@ -22039,7 +22082,7 @@
 			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 4248,
+			"print_seconds": 4192,
 			"color": {
 				"fixed": "ash-gray"
 			},
@@ -22205,7 +22248,7 @@
 			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 8959,
+			"print_seconds": 8954,
 			"color": {
 				"fixed": "charcoal"
 			},
@@ -22593,11 +22636,11 @@
 					"onshape_version": "https://cad.onshape.com/documents/60aa51fc61d18f2155b99910/v/45a8c24919bf95a5560da0f8/e/7f9499df9d10e70a5d51b6a1",
 					"stl": "https://assets.basically.website/sorter-parts/channel-three-support-leg-b7b2900b9962.stl",
 					"render": "https://assets.basically.website/sorter-parts/channel-three-support-leg-full-0fd2e2fccc3c.png",
-					"grams": 14.19
+					"grams": 14.18
 				}
 			],
 			"attributes": [],
-			"grams": 14.19,
+			"grams": 14.18,
 			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
@@ -23243,10 +23286,10 @@
 			},
 			"name": "M3 \u00d7 16 mm socket/button head",
 			"category": "Screws",
-			"description": "No longer the C-channel stepper screw \u2014 those are countersunk (scr-m3-16-cs). Holds the 40 mm fan arm to the Orange Pi mount (2, into the mount's front-edge inserts), the fan to the arm (4, self-tapping), and the roller lever limit switch to its housing (2, into the housing's inserts).",
+			"description": "No longer the C-channel stepper screw: those are countersunk (scr-m3-16-cs). Holds the roller lever limit switch to its housing (2, into the housing's inserts).",
 			"note": null,
 			"created_at": "2026-07-18",
-			"updated_at": "2026-09-01",
+			"updated_at": "2026-09-26",
 			"attributes": [
 				{
 					"label": "Thread",
@@ -27333,10 +27376,10 @@
 			},
 			"name": "40 mm 24 V fan (WINSINN 4010)",
 			"category": "Electronics",
-			"description": "40 x 40 x 10 mm axial fan, 24 V, on the control board housing cover; mounted with four self-tapping M3 \u00d7 12 mm button head screws. Comes with an XH2.54 2-pin lead, which plugs straight into one of the board's LED ports.",
+			"description": "40 x 40 x 10 mm axial fan, 24 V, on the control board housing cover; mounted with four self-tapping M3 \u00d7 12 mm button head screws. Comes with an XH2.54 2-pin lead, which plugs straight into one of the board's LED ports. One per machine: the Orange Pi is cooled by its own heatsink fan instead.",
 			"note": null,
 			"created_at": "2026-08-22",
-			"updated_at": "2026-08-23",
+			"updated_at": "2026-09-26",
 			"attributes": [
 				{
 					"label": "Size",
@@ -27403,10 +27446,10 @@
 			},
 			"name": "Orange Pi 5 heatsink fan (official)",
 			"category": "Electronics",
-			"description": "Orange Pi's official aluminum-alloy heatsink and fan for the Orange Pi 5 (v1.3.2) and Orange Pi 5 Plus, which mounts directly on the SoC. 5 V DC, sleeve bearing; installing it means the official Orange Pi metal case no longer fits.",
+			"description": "Orange Pi's official aluminum-alloy heatsink and fan for the Orange Pi 5 (v1.3.2) and Orange Pi 5 Plus, which mounts directly on the SoC. 5 V DC, sleeve bearing, on two spring pins into the board's own holes.",
 			"note": null,
 			"created_at": "2026-09-15",
-			"updated_at": "2026-09-15",
+			"updated_at": "2026-09-26",
 			"attributes": [
 				{
 					"label": "Voltage",

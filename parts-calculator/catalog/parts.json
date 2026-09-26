@@ -2935,11 +2935,11 @@
       "id": "orange-pi-extrusion-mount",
       "uid": "nxh7",
       "name": "Orange Pi Extrusion Mount",
-      "description": "Plate the Orange Pi 5 stands off, which bolts to the 2020 extrusion. Same design as the control board's mount with the opening and bolt pattern changed for the Pi. Six M3 inserts: four on the top face for the Pi's standoffs, two in the front edge face for the fan arm.",
+      "description": "Plate the Orange Pi 5 stands off, which bolts to the 2020 extrusion. Same design as the control board's mount with the opening and bolt pattern changed for the Pi. Four M3 inserts on the top face, one per standoff. The two pockets in the front edge face take no inserts: they held the 40 mm fan arm, which the machine no longer uses.",
       "internal_notes": "From 'PCB Extrusion Mount (1).zip' (Sorter V2 STLs, 2026-08-22), a zip of two zips, one per board. Named 'basically board v1-3 open air fan - Orange Pi 5 to extrusion mount.stl' (the zip's own prefix says 'basically board'; the part inside is the Pi's).",
       "version": "1",
       "created_at": "2026-08-22",
-      "updated_at": "2026-08-22",
+      "updated_at": "2026-09-26",
       "quantities": {
         "electronics": 1
       },
@@ -2956,14 +2956,12 @@
       "id": "fan-bracket-40mm",
       "uid": "3ufy",
       "name": "40 mm Fan Bracket",
-      "description": "L-shaped bracket that cantilevers a 40 mm fan over a board on its extrusion mount. Was on both the control board and the Orange Pi mounts; the control board's printed housing carries its own fan since 2026-08-23, so one per machine, on the Orange Pi. The foot bolts back into two M3 inserts on the mount's front edge face and the fan sits on the flat top of the arm.",
-      "internal_notes": "Was 2 per machine — the control board and the Orange Pi each had one. The control board's housing carries its own fan as of ctrl-board-mount v2 (2026-08-23), so only the Orange Pi mount still uses this.",
+      "description": "L-shaped bracket that cantilevered a 40 mm fan over a board on its extrusion mount. Unused as of 2026-09-26: the Orange Pi's own heatsink fan on the SoC replaced it, and the control board's printed housing had already taken over the control board's one in 2026-08-23. Retired in place per VERSIONING.md.",
+      "internal_notes": "Was 2 per machine, then 1. The control board's housing carries its own fan as of ctrl-board-mount v2 (2026-08-23); the Orange Pi mount dropped the arm at orange-pi-mount v4 (2026-09-26). Kept as an unused entry so the uid stays resolvable.",
       "version": "1",
       "created_at": "2026-08-22",
-      "updated_at": "2026-08-23",
-      "quantities": {
-        "electronics": 1
-      },
+      "updated_at": "2026-09-26",
+      "quantities": {},
       "assembly": null,
       "stl_hash": "d4757b350b5690524838d0727a2e81c22135424104d47f4e102b73bbecdde995",
       "color": {
@@ -2971,7 +2969,8 @@
       },
       "optional": false,
       "support": false,
-      "onshape_version": "https://cad.onshape.com/documents/10ae43b609bb2df0f86cce4b/v/226293ea2e329f1f548b78a1/e/6e1da7cee8967d584080406f"
+      "onshape_version": "https://cad.onshape.com/documents/10ae43b609bb2df0f86cce4b/v/226293ea2e329f1f548b78a1/e/6e1da7cee8967d584080406f",
+      "note": "Removed 2026-09-26: the Orange Pi is cooled by its own heatsink fan (fan-orange-pi-5-heatsink). Do not re-add. Older photos and renders still show the arm on the Orange Pi mount, and if a board ever needs a cantilevered fan again that is a new design with its own uid."
     },
     {
       "id": "meanwell-psu-housing-shell-rear",
@@ -3430,9 +3429,9 @@
       "category": "Screws",
       "alternative": "Socket or button head",
       "image_url": "https://assets.basically.website/sorter-parts/scr-m3-16-shcs-full-26e52d7d5bcd.png",
-      "description": "No longer the C-channel stepper screw — those are countersunk (scr-m3-16-cs). Holds the 40 mm fan arm to the Orange Pi mount (2, into the mount's front-edge inserts), the fan to the arm (4, self-tapping), and the roller lever limit switch to its housing (2, into the housing's inserts).",
+      "description": "No longer the C-channel stepper screw: those are countersunk (scr-m3-16-cs). Holds the roller lever limit switch to its housing (2, into the housing's inserts).",
       "created_at": "2026-07-18",
-      "updated_at": "2026-09-01",
+      "updated_at": "2026-09-26",
       "attributes": [
         {
           "label": "Thread",
@@ -7000,9 +6999,9 @@
       },
       "name": "40 mm 24 V fan (WINSINN 4010)",
       "category": "Electronics",
-      "description": "40 x 40 x 10 mm axial fan, 24 V, on the control board housing cover; mounted with four self-tapping M3 × 12 mm button head screws. Comes with an XH2.54 2-pin lead, which plugs straight into one of the board's LED ports.",
+      "description": "40 x 40 x 10 mm axial fan, 24 V, on the control board housing cover; mounted with four self-tapping M3 × 12 mm button head screws. Comes with an XH2.54 2-pin lead, which plugs straight into one of the board's LED ports. One per machine: the Orange Pi is cooled by its own heatsink fan instead.",
       "created_at": "2026-08-22",
-      "updated_at": "2026-08-23",
+      "updated_at": "2026-09-26",
       "attributes": [
         {
           "label": "Size",
@@ -7062,10 +7061,10 @@
       },
       "name": "Orange Pi 5 heatsink fan (official)",
       "category": "Electronics",
-      "description": "Orange Pi's official aluminum-alloy heatsink and fan for the Orange Pi 5 (v1.3.2) and Orange Pi 5 Plus, which mounts directly on the SoC. 5 V DC, sleeve bearing; installing it means the official Orange Pi metal case no longer fits.",
+      "description": "Orange Pi's official aluminum-alloy heatsink and fan for the Orange Pi 5 (v1.3.2) and Orange Pi 5 Plus, which mounts directly on the SoC. 5 V DC, sleeve bearing, on two spring pins into the board's own holes.",
       "docs_page": "/hardware/electronics/installation/orange-pi-prep/",
       "created_at": "2026-09-15",
-      "updated_at": "2026-09-15",
+      "updated_at": "2026-09-26",
       "attributes": [
         {
           "label": "Voltage",
@@ -13467,10 +13466,10 @@
     },
     {
       "id": "orange-pi-mount",
-      "uid": "zczw",
-      "version": "3",
+      "uid": "hus8",
+      "version": "4",
       "name": "Orange Pi mount",
-      "description": "The Orange Pi 5 standing off its bracket, which bolts to the 2020 extrusion, with a 40 mm fan on a bracket cantilevered over it.",
+      "description": "The Orange Pi 5 standing off its plate, which bolts to the 2020 extrusion. Its cooling is the official heatsink fan on the SoC, fitted before the board goes on.",
       "docs": "/hardware/electronics/installation/orange-pi-mount/",
       "lines": [
         {
@@ -13499,23 +13498,11 @@
         },
         {
           "part": "hsi-m3",
-          "qty": 6
+          "qty": 4
         },
         {
           "part": "standoff-m3-10mm",
           "qty": 4
-        },
-        {
-          "part": "fan-bracket-40mm",
-          "qty": 1
-        },
-        {
-          "part": "fan-40mm-24v",
-          "qty": 1
-        },
-        {
-          "part": "scr-m3-16-shcs",
-          "qty": 6
         },
         {
           "part": "scr-m5-12-shcs",
@@ -13528,30 +13515,6 @@
         {
           "assembly": "harness-buck-24v",
           "qty": 1
-        }
-      ],
-      "connections": [
-        {
-          "from": "fan-bracket-40mm",
-          "to": "orange-pi-extrusion-mount",
-          "via": "scr-m3-16-shcs",
-          "qty": 2,
-          "method": "insert",
-          "through_mm": 12,
-          "thread_mm": 5.7,
-          "draft": true,
-          "note": "The arm's foot stands against the mount's front edge face and bolts back into two M3 inserts on that face, 32 mm apart on the centreline. 12.0 mm of plain 3.50 mm bore through the foot, then the insert, whose pocket is 4.00 mm across and 6.00 mm deep. Measured off the two published STLs, not from a build."
-        },
-        {
-          "from": "fan-40mm-24v",
-          "to": "fan-bracket-40mm",
-          "via": "scr-m3-16-shcs",
-          "qty": 4,
-          "method": "self-tap",
-          "through_mm": 10,
-          "thread_mm": 12,
-          "draft": true,
-          "note": "The fan sits on the flat top face of the arm over its 38 mm opening, on the standard 32 x 32 mm pattern. The four 2.50 mm pilots run right through the 12.0 mm plate; the screws cut their own thread in it, no inserts. Measured off the STL, not from a build."
         }
       ],
       "versions": [
@@ -13669,8 +13632,88 @@
         },
         {
           "version": "3",
+          "uid": "zczw",
           "date": "2026-09-23",
           "message": "The Orange Pi's own peripherals and its 24 V lead join the mount. The official heatsink fan, the WiFi 6 and Bluetooth module and the microSD card all sit beside the Pi they fit into, and W3 on the power drawing is the barrel plug at the PSU box end with bare leads spliced to the buck converter. All four were hand counts from the BOM sheet before this and the tree totals are the same. The converter itself is not in the tree yet, so its lead sits on the mount the Pi it powers sits on.",
+          "breaking": false,
+          "commit": null,
+          "lines": [
+            {
+              "part": "orange-pi-extrusion-mount",
+              "qty": 1,
+              "uid": "nxh7"
+            },
+            {
+              "part": "sbc-orange-pi-5",
+              "qty": 1,
+              "uid": "ilqj"
+            },
+            {
+              "part": "fan-orange-pi-5-heatsink",
+              "qty": 1,
+              "uid": "z0ye"
+            },
+            {
+              "part": "wifi-module-opi5",
+              "qty": 1,
+              "uid": "b25j"
+            },
+            {
+              "part": "microsd-32gb",
+              "qty": 1,
+              "uid": "7fvo"
+            },
+            {
+              "part": "scr-m3-6-bhcs",
+              "qty": 4,
+              "uid": "e04c"
+            },
+            {
+              "part": "hsi-m3",
+              "qty": 6,
+              "uid": "ksut"
+            },
+            {
+              "part": "standoff-m3-10mm",
+              "qty": 4,
+              "uid": "hkor"
+            },
+            {
+              "part": "fan-bracket-40mm",
+              "qty": 1,
+              "uid": "3ufy"
+            },
+            {
+              "part": "fan-40mm-24v",
+              "qty": 1,
+              "uid": "7o57"
+            },
+            {
+              "part": "scr-m3-16-shcs",
+              "qty": 6,
+              "uid": "e0ud"
+            },
+            {
+              "part": "scr-m5-12-shcs",
+              "qty": 2,
+              "uid": "kmah"
+            },
+            {
+              "part": "tnut-m5-2020",
+              "qty": 2,
+              "uid": "bpwm"
+            },
+            {
+              "assembly": "harness-buck-24v",
+              "qty": 1,
+              "uid": "6odt"
+            }
+          ]
+        },
+        {
+          "version": "4",
+          "date": "2026-09-26",
+          "message": "The 40 mm fan arm comes off. The Orange Pi's own heatsink fan on the SoC is the cooling now, so the printed bracket, the 40 mm 24 V fan it cantilevered over the board and all six M3 x 16 screws (2 into the mount, 4 into the fan) leave the assembly, and the insert count goes 6 -> 4: the two in the plate's front edge face were there only for the arm's foot. fan-bracket-40mm is retired in place; the 24 V fan stays one per machine, in the control board housing cover.",
           "breaking": false,
           "commit": null
         }

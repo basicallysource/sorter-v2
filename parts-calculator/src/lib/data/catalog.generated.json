@@ -12,8 +12,8 @@
 		"cost_per_kg": 24.99,
 		"commit_base_url": "https://github.com/basicallysource/sorter-v2/commit/",
 		"engrave": "33d9fa246b1a",
-		"all_parts_zip": "https://assets.basically.website/sorter-parts/all-parts-7892a7f431a9.zip",
-		"all_parts_plain_zip": "https://assets.basically.website/sorter-parts/all-parts-plain-32195b4648da.zip"
+		"all_parts_zip": "https://assets.basically.website/sorter-parts/all-parts-09a95650b884.zip",
+		"all_parts_plain_zip": "https://assets.basically.website/sorter-parts/all-parts-plain-1e0c25ac61dc.zip"
 	},
 	"sections": [
 		{
@@ -1592,8 +1592,8 @@
 		},
 		{
 			"id": "meanwell-psu-box",
-			"uid": "1d0t",
-			"version": "4",
+			"uid": "8bk1",
+			"version": "5",
 			"versions": [
 				{
 					"version": "1",
@@ -1763,6 +1763,86 @@
 					"date": "2026-09-23",
 					"message": "The five-piece printed housing replaces the three plates screwed onto the supply's own case, adopted from candidate 1d0t. The supply bolts into the shell rear tray on four M4 x 12 countersunk through a 9.00 mm pad, on the case's own 150 x 50 mm M4 pattern; the 12 is the only stock length that fits, because Mean Well's drawing caps that pattern at 3 mm of screw inside the case. The rear lid closes onto the tray on four self-tapping M3 x 12 countersunk and the front lid spans the joint with four more, two into the tray and two into the shell front module; every tapping boss is 2.6 mm and 12.0 mm deep and they are all in the shell parts, never in the lids. The front panel takes no fasteners of its own: it slots into the front module and the front lid traps it, and it carries the 47.5 x 28 mm mains inlet cutout and three 12 mm jack holes at 20 mm pitch. The M5 that bolts the box to the 2020 frame goes from x 12 to x 16: each shell carries one clamp boss with a 10.00 mm grip, where the v1 back mount's boss was 8 mm, which is the same boss depth and the same M5 x 16 as the control board housing. The mains inlet takes two M3 x 12 countersunk with an M3 nut behind each, because the panel's holes are 3.2 mm clearance with no pilot; confirmed on a print, tight at the lower hole but within tolerance, and a print whose holes grip an M3 can use an M3 x 8 with no nut instead. meanwell-psu-back-mount, meanwell-psu-connections and meanwell-psu-cap are retired in place. The pigtails, the mains lead and the supply itself carry over from v3 unchanged. sorter-v2#738 is open on the front panel's missing pilot and on supporting its long edges; #740 on engraving a TOP mark so it cannot go in upside down.",
 					"breaking": false,
+					"commit": null,
+					"lines": [
+						{
+							"part": "meanwell-psu-housing-shell-rear",
+							"qty": 1,
+							"uid": "7qz3"
+						},
+						{
+							"part": "psu-24v-350w",
+							"qty": 1,
+							"uid": "s3ru"
+						},
+						{
+							"part": "scr-m4-12-cs",
+							"qty": 4,
+							"uid": "h8h4"
+						},
+						{
+							"part": "meanwell-psu-housing-shell-front",
+							"qty": 1,
+							"uid": "1h8p"
+						},
+						{
+							"part": "meanwell-psu-housing-front-panel",
+							"qty": 1,
+							"uid": "n1oh"
+						},
+						{
+							"part": "psu-switch-fused",
+							"qty": 1,
+							"uid": "lmu7"
+						},
+						{
+							"part": "mains-cord-c13",
+							"qty": 1,
+							"uid": "nuya"
+						},
+						{
+							"assembly": "harness-psu-pigtail",
+							"qty": 3,
+							"uid": "kog5"
+						},
+						{
+							"part": "meanwell-psu-housing-lid-rear",
+							"qty": 1,
+							"uid": "m26o"
+						},
+						{
+							"part": "meanwell-psu-housing-lid-front",
+							"qty": 1,
+							"uid": "avux"
+						},
+						{
+							"part": "scr-m3-12-cs",
+							"qty": 10,
+							"uid": "0a9x"
+						},
+						{
+							"part": "nut-m3",
+							"qty": 2,
+							"uid": "sc1c"
+						},
+						{
+							"part": "scr-m5-16-shcs",
+							"qty": 2,
+							"uid": "2e0s"
+						},
+						{
+							"part": "tnut-m5-2020",
+							"qty": 2,
+							"uid": "bpwm"
+						}
+					]
+				},
+				{
+					"version": "5",
+					"uid": "8bk1",
+					"date": "2026-09-26",
+					"message": "An M5 washer under each of the two frame screws, as the CAD assembly has them. The same day, the front module and the front panel took their #738 revision (front module v2, front panel v2), and all five housing parts were re-exported from one CAD version; those are recorded on the parts. The inlet's two screws now cut their own thread in the panel's 2.8 mm pilots, and the nut behind each stays in the list because it is what makes a panel printed before v2 hold.",
+					"breaking": false,
 					"commit": null
 				}
 			],
@@ -1823,6 +1903,10 @@
 					"qty": 2
 				},
 				{
+					"part": "washer-m5",
+					"qty": 2
+				},
+				{
 					"part": "tnut-m5-2020",
 					"qty": 2
 				}
@@ -1830,7 +1914,7 @@
 			"joining": [
 				{
 					"method": "self-tap",
-					"note": "The lid screws are [[hw:scr-m3-12-cs]] cutting their own thread in 2.6 mm tapping holes in the shell parts, never in the lids, and there are no inserts. The mains inlet is the one nutted joint: its two [[hw:scr-m3-12-cs]] each take an [[hw:nut-m3]] behind the front panel, because the panel's own holes are 3.2 mm clearance with no pilot. Confirmed on a print by barthel, 2026-09-22, tight at the lower hole but within tolerance. A print whose holes grip an M3 can use a [[hw:scr-m3-8-cs]] with no nut instead, which is the length that finishes flush. sorter-v2#738 is open for the pilot and a nut pocket."
+					"note": "The lid screws are [[hw:scr-m3-12-cs]] cutting their own thread in 2.6 mm tapping holes in the shell parts, never in the lids, and there are no inserts. The mains inlet takes two [[hw:scr-m3-12-cs]] with an [[hw:nut-m3]] behind each. From front panel v2 the panel's two inlet holes are 2.8 mm pilots, so the screws cut their own thread there and the front module's rail is cut back to clear the lower screw and its nut. A panel printed before v2 has 3.2 mm clearance holes, where the nut is what holds; a print of either whose holes grip an M3 can use an [[hw:scr-m3-8-cs]] with no nut instead, which is the length that finishes flush."
 				}
 			]
 		},
@@ -20308,7 +20392,7 @@
 			"description": "Rear tray of the v2 PSU housing. The Meanwell supply bolts into it on four M4 countersunk screws, and both lids screw down into it.",
 			"version": "1",
 			"created_at": "2026-08-22",
-			"updated_at": "2026-09-21",
+			"updated_at": "2026-09-26",
 			"versions": [
 				{
 					"version": "1",
@@ -20316,18 +20400,18 @@
 					"date": "2026-08-22",
 					"message": "Initial version.",
 					"commit": null,
-					"onshape_version": "https://cad.onshape.com/documents/f7d34331a9a020dce9231dc1/v/13f56af58b306d7850aa3ea4/e/562fad1e09332ebe5efdd59c",
-					"stl": "https://assets.basically.website/sorter-parts/meanwell-psu-housing-shell-rear-f4bc36015be1.stl",
-					"render": "https://assets.basically.website/sorter-parts/meanwell-psu-housing-shell-rear-full-a4772482e0ad.png",
-					"grams": 207.01
+					"onshape_version": "https://cad.onshape.com/documents/d8339d00eaef603e65e5e050/v/32e64a3fe696f998a73a0f9f/e/52c259ec13c7da4fe13e8a63",
+					"stl": "https://assets.basically.website/sorter-parts/meanwell-psu-housing-shell-rear-9f50b91010c0.stl",
+					"render": "https://assets.basically.website/sorter-parts/meanwell-psu-housing-shell-rear-full-247b6d0d4cd6.png",
+					"grams": 207.2
 				}
 			],
 			"attributes": [],
-			"grams": 207.01,
+			"grams": 207.2,
 			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 26626,
+			"print_seconds": 26769,
 			"color": {
 				"role": "frame"
 			},
@@ -20341,12 +20425,12 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"stl": "https://assets.basically.website/sorter-parts/meanwell-psu-housing-shell-rear-f4bc36015be1.stl",
-			"render": "https://assets.basically.website/sorter-parts/meanwell-psu-housing-shell-rear-full-a4772482e0ad.png",
+			"stl": "https://assets.basically.website/sorter-parts/meanwell-psu-housing-shell-rear-9f50b91010c0.stl",
+			"render": "https://assets.basically.website/sorter-parts/meanwell-psu-housing-shell-rear-full-247b6d0d4cd6.png",
 			"stamped": [
 				{
 					"face": "bottom",
-					"stl": "https://assets.basically.website/sorter-parts/meanwell-psu-housing-shell-rear-7qz3-stamped-bottom-e138db4a7ef8.stl",
+					"stl": "https://assets.basically.website/sorter-parts/meanwell-psu-housing-shell-rear-7qz3-stamped-bottom-61c23d5a0a19.stl",
 					"normal": [
 						-0.0,
 						0.0,
@@ -20366,7 +20450,7 @@
 				},
 				{
 					"face": "top",
-					"stl": "https://assets.basically.website/sorter-parts/meanwell-psu-housing-shell-rear-7qz3-stamped-top-8491c2b0153a.stl",
+					"stl": "https://assets.basically.website/sorter-parts/meanwell-psu-housing-shell-rear-7qz3-stamped-top-febbad057154.stl",
 					"normal": [
 						-0.0,
 						0.0,
@@ -20386,7 +20470,7 @@
 				},
 				{
 					"face": "+y side",
-					"stl": "https://assets.basically.website/sorter-parts/meanwell-psu-housing-shell-rear-7qz3-stamped-plus-y-side-be233f812672.stl",
+					"stl": "https://assets.basically.website/sorter-parts/meanwell-psu-housing-shell-rear-7qz3-stamped-plus-y-side-5b69285c5051.stl",
 					"normal": [
 						-0.0,
 						1.0,
@@ -20406,7 +20490,7 @@
 				},
 				{
 					"face": "-y side",
-					"stl": "https://assets.basically.website/sorter-parts/meanwell-psu-housing-shell-rear-7qz3-stamped-minus-y-side-c5985a365050.stl",
+					"stl": "https://assets.basically.website/sorter-parts/meanwell-psu-housing-shell-rear-7qz3-stamped-minus-y-side-829f4f891ac4.stl",
 					"normal": [
 						-0.0,
 						-1.0,
@@ -20428,7 +20512,7 @@
 		},
 		{
 			"id": "meanwell-psu-housing-shell-front",
-			"uid": "1h8p",
+			"uid": "xxxt",
 			"name": "PSU Housing \u2014 Shell Front Module",
 			"quantities": {
 				"electronics": 1
@@ -20437,29 +20521,39 @@
 			"folder": null,
 			"variant_group": null,
 			"variant_name": null,
-			"description": "Front module of the v2 PSU housing. The front panel slots into it, and the front lid screws down into it and into the rear tray.",
-			"version": "1",
+			"description": "Front module of the v2 PSU housing. The front panel slots into it, and the front lid screws down into it and into the rear tray. Its bottom rail is cut back behind the mains inlet so the inlet's lower screw and nut clear it.",
+			"version": "2",
 			"created_at": "2026-08-22",
-			"updated_at": "2026-09-21",
+			"updated_at": "2026-09-26",
 			"versions": [
 				{
 					"version": "1",
 					"uid": "1h8p",
-					"date": "2026-08-22",
-					"message": "Initial version.",
-					"commit": null,
-					"onshape_version": "https://cad.onshape.com/documents/f7d34331a9a020dce9231dc1/v/13f56af58b306d7850aa3ea4/e/562fad1e09332ebe5efdd59c",
-					"stl": "https://assets.basically.website/sorter-parts/meanwell-psu-housing-shell-front-942fdcbb4197.stl",
+					"message": "As recorded before the first stamped change.",
+					"stl_hash": "942fdcbb41979c057a8e2fb77fc7bbb69439284c76182f973eea802497ecfa9c",
 					"render": "https://assets.basically.website/sorter-parts/meanwell-psu-housing-shell-front-full-20987fd1984b.png",
+					"stl": "https://assets.basically.website/sorter-parts/meanwell-psu-housing-shell-front-942fdcbb4197.stl",
 					"grams": 56.13
+				},
+				{
+					"version": "2",
+					"uid": "xxxt",
+					"date": "2026-09-26",
+					"message": "Room behind the mains inlet, for sorter-v2#738. The bottom rail behind the front panel is cut back over the 53.5 mm behind the inlet, down to 5 mm below the lower screw hole's centreline, so the lower inlet screw and a nut on it clear the rail. A 12 mm wide notch, 1.1 mm deep, in the lip under the panel at the inlet clears the inlet's lower flange. The four holes where this module meets the rear tray, two in each end wall, get a countersunk seat, with a clear bore in front of each for the driver. Nothing that mates with the rear tray, the lids or the panel moved, so an old print still fits: the nut behind the lower inlet screw goes on, just tightly.",
+					"breaking": false,
+					"commit": null,
+					"onshape_version": "https://cad.onshape.com/documents/d8339d00eaef603e65e5e050/v/32e64a3fe696f998a73a0f9f/e/52c259ec13c7da4fe13e8a63",
+					"stl": "https://assets.basically.website/sorter-parts/meanwell-psu-housing-shell-front-bd570cdebb65.stl",
+					"render": "https://assets.basically.website/sorter-parts/meanwell-psu-housing-shell-front-full-70b18c9fc6df.png",
+					"grams": 56.2
 				}
 			],
 			"attributes": [],
-			"grams": 56.13,
+			"grams": 56.2,
 			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 6676,
+			"print_seconds": 6656,
 			"color": {
 				"role": "frame"
 			},
@@ -20473,14 +20567,14 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"stl": "https://assets.basically.website/sorter-parts/meanwell-psu-housing-shell-front-942fdcbb4197.stl",
-			"render": "https://assets.basically.website/sorter-parts/meanwell-psu-housing-shell-front-full-20987fd1984b.png",
+			"stl": "https://assets.basically.website/sorter-parts/meanwell-psu-housing-shell-front-bd570cdebb65.stl",
+			"render": "https://assets.basically.website/sorter-parts/meanwell-psu-housing-shell-front-full-70b18c9fc6df.png",
 			"stamped": [
 				{
 					"face": "bottom",
-					"stl": "https://assets.basically.website/sorter-parts/meanwell-psu-housing-shell-front-1h8p-stamped-bottom-c042d4e06711.stl",
+					"stl": "https://assets.basically.website/sorter-parts/meanwell-psu-housing-shell-front-xxxt-stamped-bottom-79331ac3311d.stl",
 					"normal": [
-						-0.0,
+						0.0,
 						0.0,
 						-1.0
 					],
@@ -20490,68 +20584,68 @@
 						-9.0
 					],
 					"size": [
-						12.25,
-						3.56
+						12.62,
+						3.5
 					],
 					"cap": 3.5,
 					"depth": 0.6
 				},
 				{
 					"face": "top",
-					"stl": "https://assets.basically.website/sorter-parts/meanwell-psu-housing-shell-front-1h8p-stamped-top-b8ca71e8af18.stl",
+					"stl": "https://assets.basically.website/sorter-parts/meanwell-psu-housing-shell-front-xxxt-stamped-top-75b6bceb5958.stl",
 					"normal": [
 						0.0,
 						-0.0,
 						1.0
 					],
 					"center": [
-						-42.5,
-						116.84,
+						-42.31,
+						116.88,
 						0.0
 					],
 					"size": [
-						12.25,
-						3.56
+						12.62,
+						3.5
 					],
 					"cap": 3.5,
 					"depth": 0.6
 				},
 				{
 					"face": "+y side",
-					"stl": "https://assets.basically.website/sorter-parts/meanwell-psu-housing-shell-front-1h8p-stamped-plus-y-side-8dea25aa85b7.stl",
+					"stl": "https://assets.basically.website/sorter-parts/meanwell-psu-housing-shell-front-xxxt-stamped-plus-y-side-4111a2105592.stl",
 					"normal": [
 						-0.0,
 						1.0,
 						0.0
 					],
 					"center": [
-						-7.7,
+						-7.89,
 						126.0,
-						-5.04
+						-5.07
 					],
 					"size": [
-						12.25,
-						3.56
+						12.62,
+						3.5
 					],
 					"cap": 3.5,
 					"depth": 0.6
 				},
 				{
 					"face": "-y side",
-					"stl": "https://assets.basically.website/sorter-parts/meanwell-psu-housing-shell-front-1h8p-stamped-minus-y-side-e7b608285893.stl",
+					"stl": "https://assets.basically.website/sorter-parts/meanwell-psu-housing-shell-front-xxxt-stamped-minus-y-side-c1c140162bb4.stl",
 					"normal": [
 						-0.0,
 						-1.0,
 						-0.0
 					],
 					"center": [
-						-44.8,
+						-44.61,
 						-11.0,
-						42.84
+						42.88
 					],
 					"size": [
-						12.25,
-						3.56
+						12.62,
+						3.5
 					],
 					"cap": 3.5,
 					"depth": 0.6
@@ -20572,7 +20666,7 @@
 			"description": "Rear lid of the v2 PSU housing, vented over the supply. Screws into the rear tray on four self-tapping M3 countersunk screws.",
 			"version": "1",
 			"created_at": "2026-08-22",
-			"updated_at": "2026-09-21",
+			"updated_at": "2026-09-26",
 			"versions": [
 				{
 					"version": "1",
@@ -20580,9 +20674,9 @@
 					"date": "2026-08-22",
 					"message": "Initial version.",
 					"commit": null,
-					"onshape_version": "https://cad.onshape.com/documents/f7d34331a9a020dce9231dc1/v/13f56af58b306d7850aa3ea4/e/562fad1e09332ebe5efdd59c",
-					"stl": "https://assets.basically.website/sorter-parts/meanwell-psu-housing-lid-rear-83f226b5531d.stl",
-					"render": "https://assets.basically.website/sorter-parts/meanwell-psu-housing-lid-rear-full-9fe0805c6f8c.png",
+					"onshape_version": "https://cad.onshape.com/documents/d8339d00eaef603e65e5e050/v/32e64a3fe696f998a73a0f9f/e/52c259ec13c7da4fe13e8a63",
+					"stl": "https://assets.basically.website/sorter-parts/meanwell-psu-housing-lid-rear-d104aa332ae4.stl",
+					"render": "https://assets.basically.website/sorter-parts/meanwell-psu-housing-lid-rear-full-b3a44c02c5be.png",
 					"grams": 37.27
 				}
 			],
@@ -20591,7 +20685,7 @@
 			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 3979,
+			"print_seconds": 3978,
 			"color": {
 				"role": "frame"
 			},
@@ -20605,12 +20699,12 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"stl": "https://assets.basically.website/sorter-parts/meanwell-psu-housing-lid-rear-83f226b5531d.stl",
-			"render": "https://assets.basically.website/sorter-parts/meanwell-psu-housing-lid-rear-full-9fe0805c6f8c.png",
+			"stl": "https://assets.basically.website/sorter-parts/meanwell-psu-housing-lid-rear-d104aa332ae4.stl",
+			"render": "https://assets.basically.website/sorter-parts/meanwell-psu-housing-lid-rear-full-b3a44c02c5be.png",
 			"stamped": [
 				{
 					"face": "bottom",
-					"stl": "https://assets.basically.website/sorter-parts/meanwell-psu-housing-lid-rear-m26o-stamped-bottom-4a8feebd0e71.stl",
+					"stl": "https://assets.basically.website/sorter-parts/meanwell-psu-housing-lid-rear-m26o-stamped-bottom-d740a42e5c86.stl",
 					"normal": [
 						0.0,
 						0.0,
@@ -20630,7 +20724,7 @@
 				},
 				{
 					"face": "top",
-					"stl": "https://assets.basically.website/sorter-parts/meanwell-psu-housing-lid-rear-m26o-stamped-top-afc23a171e19.stl",
+					"stl": "https://assets.basically.website/sorter-parts/meanwell-psu-housing-lid-rear-m26o-stamped-top-aeff6c3be39f.stl",
 					"normal": [
 						-0.0,
 						0.0,
@@ -20664,7 +20758,7 @@
 			"description": "Front lid of the v2 PSU housing. Spans the joint, screwing two into the front module and two into the rear tray, and traps the front panel once fitted.",
 			"version": "1",
 			"created_at": "2026-08-22",
-			"updated_at": "2026-09-21",
+			"updated_at": "2026-09-26",
 			"versions": [
 				{
 					"version": "1",
@@ -20672,18 +20766,18 @@
 					"date": "2026-08-22",
 					"message": "Initial version.",
 					"commit": null,
-					"onshape_version": "https://cad.onshape.com/documents/f7d34331a9a020dce9231dc1/v/13f56af58b306d7850aa3ea4/e/562fad1e09332ebe5efdd59c",
-					"stl": "https://assets.basically.website/sorter-parts/meanwell-psu-housing-lid-front-126a70b01f4e.stl",
-					"render": "https://assets.basically.website/sorter-parts/meanwell-psu-housing-lid-front-full-32bba9969c1c.png",
-					"grams": 59.08
+					"onshape_version": "https://cad.onshape.com/documents/d8339d00eaef603e65e5e050/v/32e64a3fe696f998a73a0f9f/e/52c259ec13c7da4fe13e8a63",
+					"stl": "https://assets.basically.website/sorter-parts/meanwell-psu-housing-lid-front-702f87c0fdc1.stl",
+					"render": "https://assets.basically.website/sorter-parts/meanwell-psu-housing-lid-front-full-671f7ca43b59.png",
+					"grams": 59.07
 				}
 			],
 			"attributes": [],
-			"grams": 59.08,
+			"grams": 59.07,
 			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 3969,
+			"print_seconds": 3967,
 			"color": {
 				"role": "frame"
 			},
@@ -20697,12 +20791,12 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"stl": "https://assets.basically.website/sorter-parts/meanwell-psu-housing-lid-front-126a70b01f4e.stl",
-			"render": "https://assets.basically.website/sorter-parts/meanwell-psu-housing-lid-front-full-32bba9969c1c.png",
+			"stl": "https://assets.basically.website/sorter-parts/meanwell-psu-housing-lid-front-702f87c0fdc1.stl",
+			"render": "https://assets.basically.website/sorter-parts/meanwell-psu-housing-lid-front-full-671f7ca43b59.png",
 			"stamped": [
 				{
 					"face": "bottom",
-					"stl": "https://assets.basically.website/sorter-parts/meanwell-psu-housing-lid-front-avux-stamped-bottom-eacd61c0ab19.stl",
+					"stl": "https://assets.basically.website/sorter-parts/meanwell-psu-housing-lid-front-avux-stamped-bottom-4df80cd4431b.stl",
 					"normal": [
 						0.0,
 						0.0,
@@ -20722,10 +20816,10 @@
 				},
 				{
 					"face": "top",
-					"stl": "https://assets.basically.website/sorter-parts/meanwell-psu-housing-lid-front-avux-stamped-top-613f5ec54dd2.stl",
+					"stl": "https://assets.basically.website/sorter-parts/meanwell-psu-housing-lid-front-avux-stamped-top-f3749a0450c5.stl",
 					"normal": [
 						0.0,
-						0.0,
+						-0.0,
 						1.0
 					],
 					"center": [
@@ -20744,7 +20838,7 @@
 		},
 		{
 			"id": "meanwell-psu-housing-front-panel",
-			"uid": "n1oh",
+			"uid": "0le6",
 			"name": "PSU Housing \u2014 Front Panel",
 			"quantities": {
 				"electronics": 1
@@ -20753,20 +20847,30 @@
 			"folder": null,
 			"variant_group": null,
 			"variant_name": null,
-			"description": "Front panel of the v2 PSU housing, carrying the mains inlet cutout. No fasteners of its own: it slots into the front module and the front lid holds it in.",
-			"version": "1",
+			"description": "Front panel of the v2 PSU housing, carrying the mains inlet cutout, its two 2.8 mm screw pilots and the three jack holes. No fasteners of its own: it slots into the front module and the front lid holds it in.",
+			"version": "2",
 			"created_at": "2026-08-22",
-			"updated_at": "2026-09-21",
+			"updated_at": "2026-09-26",
 			"versions": [
 				{
 					"version": "1",
 					"uid": "n1oh",
-					"date": "2026-08-22",
-					"message": "Initial version.",
-					"commit": null,
-					"onshape_version": "https://cad.onshape.com/documents/f7d34331a9a020dce9231dc1/v/13f56af58b306d7850aa3ea4/e/562fad1e09332ebe5efdd59c",
-					"stl": "https://assets.basically.website/sorter-parts/meanwell-psu-housing-front-panel-69dae822bcaf.stl",
+					"message": "As recorded before the first stamped change.",
+					"stl_hash": "69dae822bcaf92f97b84be2b482a138e57b704db4104ab6440dbee550168964f",
 					"render": "https://assets.basically.website/sorter-parts/meanwell-psu-housing-front-panel-full-39145e845278.png",
+					"stl": "https://assets.basically.website/sorter-parts/meanwell-psu-housing-front-panel-69dae822bcaf.stl",
+					"grams": 15.7
+				},
+				{
+					"version": "2",
+					"uid": "0le6",
+					"date": "2026-09-26",
+					"message": "The mains inlet's two screw holes are 2.8 mm pilots through the panel's full 4.9 mm, where they were 3.2 mm clearance, so an M3 cuts its own thread instead of depending on how tight a printer makes a 3.2 mm hole (sorter-v2#738). The outline, the cutouts and the which-way-up difference between the two holes' edge distances are unchanged. An old print still works, with a nut behind each inlet screw.",
+					"breaking": false,
+					"commit": null,
+					"onshape_version": "https://cad.onshape.com/documents/d8339d00eaef603e65e5e050/v/32e64a3fe696f998a73a0f9f/e/52c259ec13c7da4fe13e8a63",
+					"stl": "https://assets.basically.website/sorter-parts/meanwell-psu-housing-front-panel-a0cecd801456.stl",
+					"render": "https://assets.basically.website/sorter-parts/meanwell-psu-housing-front-panel-full-a597e1c8f16b.png",
 					"grams": 15.7
 				}
 			],
@@ -20789,53 +20893,33 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"stl": "https://assets.basically.website/sorter-parts/meanwell-psu-housing-front-panel-69dae822bcaf.stl",
-			"render": "https://assets.basically.website/sorter-parts/meanwell-psu-housing-front-panel-full-39145e845278.png",
+			"stl": "https://assets.basically.website/sorter-parts/meanwell-psu-housing-front-panel-a0cecd801456.stl",
+			"render": "https://assets.basically.website/sorter-parts/meanwell-psu-housing-front-panel-full-a597e1c8f16b.png",
 			"stamped": [
 				{
 					"face": "bottom",
-					"stl": "https://assets.basically.website/sorter-parts/meanwell-psu-housing-front-panel-n1oh-stamped-bottom-f858b9b93fc5.stl",
+					"stl": "https://assets.basically.website/sorter-parts/meanwell-psu-housing-front-panel-0le6-stamped-bottom-c860fc1326ac.stl",
 					"normal": [
 						-0.0,
 						-0.0,
 						-1.0
 					],
 					"center": [
-						-52.62,
-						-2.52,
+						-52.6,
+						-2.49,
 						-4.0
 					],
 					"size": [
-						2.59,
-						8.7
+						2.55,
+						8.78
 					],
 					"cap": 2.5,
 					"depth": 0.6,
 					"note": "smaller text"
 				},
 				{
-					"face": "+x side",
-					"stl": "https://assets.basically.website/sorter-parts/meanwell-psu-housing-front-panel-n1oh-stamped-plus-x-side-d35582d2788b.stl",
-					"normal": [
-						1.0,
-						0.0,
-						0.0
-					],
-					"center": [
-						-50.2,
-						-0.53,
-						-0.81
-					],
-					"size": [
-						12.18,
-						3.63
-					],
-					"cap": 3.5,
-					"depth": 0.6
-				},
-				{
 					"face": "-x side",
-					"stl": "https://assets.basically.website/sorter-parts/meanwell-psu-housing-front-panel-n1oh-stamped-minus-x-side-321212f78d4a.stl",
+					"stl": "https://assets.basically.website/sorter-parts/meanwell-psu-housing-front-panel-0le6-stamped-minus-x-side-329ed5466f3f.stl",
 					"normal": [
 						-1.0,
 						0.0,
@@ -20843,32 +20927,52 @@
 					],
 					"center": [
 						-55.1,
-						115.53,
-						-0.81
+						115.48,
+						-0.84
 					],
 					"size": [
-						12.18,
-						3.63
+						12.29,
+						3.56
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "+x side",
+					"stl": "https://assets.basically.website/sorter-parts/meanwell-psu-housing-front-panel-0le6-stamped-plus-x-side-bc442d8aee1c.stl",
+					"normal": [
+						1.0,
+						0.0,
+						0.0
+					],
+					"center": [
+						-50.2,
+						-0.48,
+						-0.84
+					],
+					"size": [
+						12.29,
+						3.56
 					],
 					"cap": 3.5,
 					"depth": 0.6
 				},
 				{
 					"face": "top",
-					"stl": "https://assets.basically.website/sorter-parts/meanwell-psu-housing-front-panel-n1oh-stamped-top-2213f6e0e1cf.stl",
+					"stl": "https://assets.basically.website/sorter-parts/meanwell-psu-housing-front-panel-0le6-stamped-top-f55032af6b54.stl",
 					"normal": [
 						0.0,
 						-0.0,
 						1.0
 					],
 					"center": [
-						-52.68,
-						-2.52,
+						-52.7,
+						-2.49,
 						46.0
 					],
 					"size": [
-						2.59,
-						8.7
+						2.55,
+						8.78
 					],
 					"cap": 2.5,
 					"depth": 0.6,
@@ -24026,6 +24130,48 @@
 			"docs_page": null,
 			"conflicts": null,
 			"image": "https://assets.basically.website/sorter-parts/washer-m3-15-full-2d7e5321c11c.jpg"
+		},
+		{
+			"id": "washer-m5",
+			"uid": "6nu7",
+			"kind": "cots",
+			"cots": {
+				"type": "washer",
+				"size": "M5"
+			},
+			"name": "M5 washer",
+			"category": "Washers",
+			"description": "Plain M5 flat washer, 10 mm outer diameter, 1 mm thick. One under the head of each M5 screw that bolts an electronics enclosure to the 2020 frame.",
+			"note": null,
+			"created_at": "2026-09-26",
+			"updated_at": "2026-09-26",
+			"attributes": [
+				{
+					"label": "Thread",
+					"value": "M5"
+				},
+				{
+					"label": "Outer diameter",
+					"value": "10 mm"
+				},
+				{
+					"label": "Thickness",
+					"value": "1 mm"
+				},
+				{
+					"label": "Type",
+					"value": "Flat"
+				}
+			],
+			"sheet_qty": null,
+			"sheet_qty_text": null,
+			"stock": null,
+			"sourcing": null,
+			"alternative": null,
+			"caption": null,
+			"docs_page": null,
+			"conflicts": null,
+			"image": null
 		},
 		{
 			"id": "nut-m3",

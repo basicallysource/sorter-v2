@@ -5,7 +5,7 @@ type: how-to
 section: sorter
 slug: sorter-chute-calibration
 kicker: Sorter — Operate
-lede: Home the chute, teach it where the bins are, and test every bin it can reach. Do this once on a new machine, before you calibrate the cameras.
+lede: Home the chute, teach it where the bins are, and test every bin it can reach. Do this once on a new machine, after the cameras are focused.
 permalink: /sorter/chute-calibration/
 last_verified: 2026-09-18
 ---
@@ -19,8 +19,11 @@ It takes about fifteen minutes. Everything happens in **Settings**, and nothing 
 - The machine is powered on and the UI is open.
 - The bins are in their slots on every layer.
 - Nothing is resting in the chute.
-- You can stand where you see one whole section of bins.
-- The bin count for each layer is already set in **Settings → Storage Layers**.
+- You can stand where you can see one whole section of bins.
+
+**A section is one bay of bins on one layer.** There are six bays around the hexagon, so six sections per layer, each holding two or three bins depending on that layer's size.
+
+**Set the bin count for each layer first**, in **Settings → Storage Layers**: switch the layer on, and give it its number of sections and its number of bins in a section. The chute aims from those numbers, so a wrong count sends pieces to the wrong bin.
 
 Open **Settings → Chute Aiming** from the left sidebar. The top of the page shows the numbers the machine aims with today. Calibration replaces them.
 
@@ -105,13 +108,6 @@ Type a label if you want to recognise this calibration later. Press **Derive & l
 
 The calibration is saved at the bottom of the page and marked **ACTIVE**. Old calibrations stay in that list. To return to one, press **Lock in** on its row.
 
-<div class="img-row">
-  <figure>
-    <img src="https://assets.basically.website/sorter-docs/chute-calibration-saved-calibrations-w1600-e00c1fdc0720.jpg" alt="The saved calibrations list with one entry labelled Bin locations set and marked ACTIVE">
-    <figcaption>Saved calibrations. The active one is the one the machine aims with. <cite>UI screenshot. Render: Balloon.</cite></figcaption>
-  </figure>
-</div>
-
 ## 5. Test the range of motion
 
 Scroll down to **Reachable bins by layer size**. Each circle is one layer layout, from 1 bin per section up to 5, and each small ring on it is one bin.
@@ -160,6 +156,17 @@ If the chute jammed, the page shows a red stall message. Clear the jam by hand, 
 - The chute stalls.
 - Parts start landing in the wrong bin. See [Chute drift]({{ '/sorter/troubleshooting/#chute-drift--parts-land-in-the-wrong-bin-after-50-parts' | relative_url }}).
 
+## The finished result
+
+One calibration saved and marked **ACTIVE**, and a test aim landing the chute centred over every bin you tried.
+
+<div class="img-row">
+  <figure>
+    <img src="https://assets.basically.website/sorter-docs/chute-calibration-saved-calibrations-w1600-e00c1fdc0720.jpg" alt="The saved calibrations list with one entry labelled Bin locations set and marked ACTIVE">
+    <figcaption>Saved calibrations. The active one is the one the machine aims with. <cite>UI screenshot. Render: Balloon.</cite></figcaption>
+  </figure>
+</div>
+
 ## Next
 
-[Camera calibration]({{ '/sorter/camera-calibration/' | relative_url }}), then [your first sort run]({{ '/sorter/tutorials/first-sort-run/' | relative_url }}).
+[Before your first sort run]({{ '/sorter/before-first-sort-run/' | relative_url }}).

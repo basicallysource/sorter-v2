@@ -53,7 +53,7 @@ This is `W1` on the [harness drawings]({{ '/hardware/parts/harness-order/#board-
 <ol class="numbered-steps">
   <li>Cut the 18 AWG pair so the finished lead is 914 mm (36 in) end to end.</li>
   <li><b>Fit the barrel plug to one end.</b> On a <b>screw-terminal plug</b>, strip 5 mm off each conductor, get the bare strands fully under the screws, tighten firmly and pull on each wire. On a <b>moulded plug on a short lead</b>, splice the pair onto that lead: solder each conductor, cover each one with adhesive-lined heat shrink, then sleeve both together.</li>
-  <li>Find which conductor is the tip. Set the multimeter to continuity and hold one probe on the centre pin inside the plug. The conductor that beeps is <b>+24 V</b>. Red is the tip on most plugs, but a few are wired the other way, so this is the step where you find out rather than assume.</li>
+  <li>Find which conductor is the tip. Set the <a href="{{ '/hardware/helpers/multimeter/' | relative_url }}#continuity-for-tracing-a-cable">multimeter to continuity</a> and hold one probe on the centre pin inside the plug. The conductor that beeps is <b>+24 V</b>. Red is the tip on most plugs, but a few are wired the other way, so this is the step where you find out rather than assume.</li>
   <li>Strip 3 mm off the free end of each conductor.</li>
   <li>Crimp a VH contact onto each. Seat the bare strands fully in the barrel, crimp in the matching die, then pull on the wire to check it holds.</li>
   <li>Push each contact into the back of the VHR-2 housing until it clicks and will not pull out: <b>+24 V into position 1, ground into position 2</b>.</li>

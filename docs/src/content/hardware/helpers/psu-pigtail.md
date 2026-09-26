@@ -31,7 +31,7 @@ The jack's **2.1 mm pin** is the thing to check when you buy: a 2.5 mm one looks
 
 <ol class="numbered-steps">
   <li>Start from a panel-mount jack with its leads already attached.</li>
-  <li>Work out which lead is the tip (+24 V) and which is the sleeve (ground). The jack is <b>centre-positive</b>, so red is the tip and black is the sleeve. If the leads are not red and black, set a multimeter to continuity and hold one probe on the centre pin inside the jack: the lead that beeps is the tip.</li>
+  <li>Work out which lead is the tip (+24 V) and which is the sleeve (ground). The jack is <b>centre-positive</b>, so red is the tip and black is the sleeve. If the leads are not red and black, set a <a href="{{ '/hardware/helpers/multimeter/' | relative_url }}#continuity-for-tracing-a-cable">multimeter to continuity</a> and hold one probe on the centre pin inside the jack: the lead that beeps is the tip.</li>
   <li>Crimp a fork terminal onto the free end of each lead, one on the tip lead and one on the sleeve lead.</li>
 </ol>
 

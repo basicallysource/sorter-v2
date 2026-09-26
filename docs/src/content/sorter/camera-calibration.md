@@ -7,12 +7,16 @@ applies_to: Sorter V2 local software
 owner: sorter
 slug: sorter-camera-calibration
 kicker: Sorter — Operate
-lede: Set up focus, exposure, and color accuracy for the classification and feeder cameras. Do this once per camera or after swapping hardware.
+lede: Focus every camera on the machine against a printed chart. Do this once per camera, and again after swapping a camera or a lens.
 permalink: /sorter/camera-calibration/
 last_verified: 2026-09-18
+tools_needed:
+  - A printer, for the focus chart
 ---
 
-Camera calibration has two stages: **focus** (mechanical, done by hand) and **color** (automated via the Settings UI). Both matter — a soft image kills detection accuracy, and wrong color balance drifts classification.
+Focus is the whole of camera calibration today, and it is mechanical: you turn each lens by hand against a printed chart until the image is sharp. A soft image costs you detection accuracy on every piece that camera sees.
+
+Color calibration exists in the software but is switched off in the current build. There is nothing to set up for it, and the last section says what that means.
 
 ## Focus calibration
 
@@ -33,29 +37,31 @@ This preview isn't sized to print, it's just scaled to fit the column. Click it 
 
 ### Steps
 
-| # | Action |
-|---|--------|
-| 1 | Place the Siemens Star flat on the **classification chamber tray**, centered where parts normally sit. |
-| 2 | Open the Sorter UI → **Settings** → select the camera. The live feed shows the star pattern. |
-| 3 | Loosen the camera lens lock ring and rotate the lens until the **center spokes resolve sharply** — the point where individual black/white wedges stay distinct all the way to the middle. |
-| 4 | Tighten the lock ring. Remove the chart. |
+Do this for every camera on the machine, one at a time.
 
-**Tip:** The center of the Siemens Star is the most demanding part of the image. If the spokes merge into grey mush in the middle, focus is not tight enough.
+<ol class="numbered-steps">
+  <li>Lay the Siemens Star flat where that camera looks at parts. On a channel camera that is the <strong>rotor</strong>, the part the pieces ride on, at the point where the camera sees them. On a machine with a classification chamber it is the chamber tray, centred where parts sit.</li>
+  <li>Open the Sorter UI, then <strong>Settings</strong>, then pick that camera. The live feed shows the star pattern.</li>
+  <li>Loosen the lens lock ring and turn the lens until the <strong>centre spokes resolve sharply</strong>, the point where the individual black and white wedges stay separate all the way in to the middle.</li>
+  <li>Tighten the lock ring. Take the chart out.</li>
+</ol>
 
-For feeder cameras, place the chart on the C-channel belt at the detection point and repeat.
+**The centre of the star is the most demanding part of the image.** If the spokes merge into grey mush in the middle, focus is not tight enough yet.
 
 ## Color calibration
 
 <div class="callout callout-warning">
   <span class="callout-icon" aria-hidden="true">⚠</span>
-  <p><b>Color calibration is switched off in the current software.</b> No <b>Calibrate</b> button appears in Settings and no frames are corrected on any camera. Focus calibration above is unaffected, and any profile already saved on a machine is kept and applies again if it is switched back on.</p>
+  <p><b>Color calibration is switched off in the current software, so there is nothing to do here.</b> No <b>Calibrate</b> button appears in Settings and no frames are corrected on any camera. Focus above is unaffected. Any profile already saved on a machine is kept and applies again if it is switched back on.</p>
 </div>
 
-Color calibration uses a **6-color LEGO reference plate**, not a commercial color checker, and runs automatically from the UI.
+Skip to [Chute calibration]({{ '/sorter/chute-calibration/' | relative_url }}). The rest of this section is the reference for when color calibration comes back, so you do not need to read it or build anything for it now.
 
-### What you need
+### The reference plate, for later
 
-A 4-column x 6-row plate built from LEGO plates/tiles in six colors, placed in front of the camera being calibrated and filling most of its frame. This isn't only for the classification chamber: the same calibration flow runs per camera role (`classification_top`, `classification_bottom`, `classification_channel`, `c_channel_2`, `c_channel_3`, `carousel`), so the same plate design needs to work in front of each of those, not only the chamber. The grid (columns left to right, rows top to bottom):
+Color calibration uses a **6-color LEGO reference plate**, not a commercial color checker. The same flow runs per camera role (`classification_top`, `classification_bottom`, `classification_channel`, `c_channel_2`, `c_channel_3`, `carousel`), so one plate has to work in front of each of those.
+
+A 4-column x 6-row grid, columns left to right and rows top to bottom:
 
 | | Col 1 | Col 2 | Col 3 | Col 4 |
 |---|---|---|---|---|
@@ -66,7 +72,7 @@ A 4-column x 6-row plate built from LEGO plates/tiles in six colors, placed in f
 | Row 5 | green | green | yellow | yellow |
 | Row 6 | black | white | black | white |
 
-Reference colors the pipeline fits against, with the closest standard LEGO color name and ID in each cataloging system (these are the six basic colors LEGO has used since 1949, not exact hex matches to the photographed reference swatch below, which is measured under specific lighting, not a pigment spec):
+The six colors, with the closest standard LEGO color name and ID in each cataloging system. These are the six basic colors LEGO has used since 1949; the hex values are measured off a photographed reference swatch under specific lighting, not a pigment spec.
 
 | Color | Hex | RGB | LEGO name (ID) | BrickLink name (ID) | Rebrickable name (ID) |
 |---|---|---|---|---|---|
@@ -79,7 +85,7 @@ Reference colors the pipeline fits against, with the closest standard LEGO color
 
 <div class="callout callout-warning">
   <span class="callout-icon" aria-hidden="true">⚠</span>
-  <p><b>No official size exists for this plate.</b> Any size works, so check the build below against each camera's live preview in Settings before committing to it.</p>
+  <p><b>No official size exists for this plate.</b> Any size works, so check a build against each camera's live preview in Settings before committing to it.</p>
 </div>
 
 <figure class="figure-float-right">
@@ -89,32 +95,22 @@ Reference colors the pipeline fits against, with the closest standard LEGO color
   <figcaption>Click to enlarge. <cite>Rendered from the pattern above, not a photo. Render: Balloon.</cite></figcaption>
 </figure>
 
-One way to build it: 2x2 studs per grid cell, 8 studs wide x 12 studs tall overall. The four 2x2-cell color blocks (blue/red/green/yellow) are each 4x4 studs, so one plate or tile per color instead of four 2x2s; the alternating top and bottom rows need individual 2x2 plates/tiles, they don't form contiguous blocks.
+One way to build it: 2x2 studs per grid cell, 8 studs wide x 12 studs tall overall. The four 2x2-cell color blocks (blue, red, green, yellow) are each 4x4 studs, so one plate or tile per color instead of four 2x2s. The alternating top and bottom rows need individual 2x2 plates or tiles, because they do not form contiguous blocks.
 
 <div class="clear-float"></div>
 
-### Steps
+## Run this again when
 
-| # | Action |
-|---|--------|
-| 1 | Place the plate on the tray, angled so the full 4x6 grid is visible in the live feed. |
-| 2 | Go to **Settings** → select the camera → click **Calibrate**. |
-| 3 | The backend runs through exposure bracketing, white balance, and color matrix fitting. Progress appears in the sidebar. |
-| 4 | When done, the color profile is saved automatically and applied to every frame. |
+- You swap a camera or a lens.
+- You move a camera lamp to a different dovetail.
+- Detection starts missing pieces a camera used to see.
 
-The calibration pipeline:
+## The finished result
 
-1. **Exposure** — bracketed captures estimate the camera response curve, then sets optimal exposure directly.
-2. **Firmware neutralize** — resets white balance, saturation, gamma, contrast to defaults so the software pipeline has a clean input.
-3. **Detect target** — locates the 6-color plate in the frame.
-4. **Color correction matrix** — least-squares fit of a 3 x 3 affine CCM + per-channel gamma from measured vs. reference tile colors.
+Every camera on the machine sharp, with the centre of the star resolving cleanly in each live view.
 
-The resulting profile (CCM, response LUT, gamma curves) is stored in the machine config and applied at runtime with no per-frame overhead beyond a lookup + matrix multiply.
+<div class="img-placeholder">Screenshot of a channel camera's live view in Settings with the Siemens Star in frame and its centre spokes resolving sharply.</div>
 
-### Re-calibration
+## Next
 
-Re-run calibration when:
-
-- You swap a camera or lens.
-- Lighting hardware changes (new LED strip, different diffuser).
-- Color drift is visible in classification samples.
+[Chute calibration]({{ '/sorter/chute-calibration/' | relative_url }}), then [before your first sort run]({{ '/sorter/before-first-sort-run/' | relative_url }}).

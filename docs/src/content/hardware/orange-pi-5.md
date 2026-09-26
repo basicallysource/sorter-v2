@@ -67,7 +67,7 @@ If you order the wrong module for your board variant it will not physically seat
 
 ### Installing the module
 
-[Preparing the Orange Pi]({{ '/hardware/electronics/installation/orange-pi-prep/' | relative_url }}) is the procedure. Do it while the board is still loose on the bench, before it goes on its mount and before the first boot: the slot, the retention screw and the antenna leads are all on the underside of the board, and the mount sits under the board.
+[Preparing the Orange Pi]({{ '/hardware/electronics/installation/orange-pi-prep/' | relative_url }}) is the procedure. Do it while the board is still loose on the bench, before it goes into its housing and before the first boot: the slot, the retention screw and the antenna leads are all on the underside of the board, and the housing's base sits under the board.
 
 <div class="notice">
   <strong>Driver support</strong>

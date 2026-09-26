@@ -12,8 +12,8 @@
 		"cost_per_kg": 24.99,
 		"commit_base_url": "https://github.com/basicallysource/sorter-v2/commit/",
 		"engrave": "33d9fa246b1a",
-		"all_parts_zip": "https://assets.basically.website/sorter-parts/all-parts-b405c06085f9.zip",
-		"all_parts_plain_zip": "https://assets.basically.website/sorter-parts/all-parts-plain-940f9cf90195.zip"
+		"all_parts_zip": "https://assets.basically.website/sorter-parts/all-parts-5a23b105cd62.zip",
+		"all_parts_plain_zip": "https://assets.basically.website/sorter-parts/all-parts-plain-e3eacf75a1c5.zip"
 	},
 	"sections": [
 		{
@@ -6719,14 +6719,26 @@
 		},
 		{
 			"id": "orange-pi-mount",
-			"uid": "hus8",
-			"version": "4",
-			"name": "Orange Pi mount",
-			"description": "The Orange Pi 5 standing off its plate, which bolts to the 2020 extrusion. Its cooling is the official heatsink fan on the SoC, fitted before the board goes on.",
+			"uid": "hxqn",
+			"version": "5",
+			"name": "Orange Pi housing",
+			"description": "The Orange Pi 5 closed into a printed housing that bolts to the 2020 extrusion: a base with posts for the board, four walls that drop into it, and a roof that carries the powered USB hub and the buck converter that powers the Pi, each under its own clamp. The WiFi antennas stand in a clamp on one wall, and a plunger reaches the Pi's power button from outside.",
 			"docs": "/hardware/electronics/installation/orange-pi-mount/",
+			"images": [
+				{
+					"url": "https://assets.basically.website/sorter-parts/orange-pi-housing-with-hub-render-full-7d14589d8944.png",
+					"alt": "Render of the Orange Pi housing with the USB hub and the buck converter clamped to its roof and the two WiFi antennas standing in their clamp on its long wall",
+					"caption": "The housing with the hub and the buck converter on its roof. Rendered from the CAD, not from a build."
+				},
+				{
+					"url": "https://assets.basically.website/sorter-parts/orange-pi-housing-render-full-1f26a3ba6570.png",
+					"alt": "Render of the closed Orange Pi housing with its roof clamps empty, the WiFi antennas in their clamp and the port openings in the end wall",
+					"caption": "The housing alone. Rendered from the CAD, not from a build."
+				}
+			],
 			"lines": [
 				{
-					"part": "orange-pi-extrusion-mount",
+					"part": "orange-pi-housing-base",
 					"qty": 1
 				},
 				{
@@ -6750,24 +6762,80 @@
 					"qty": 4
 				},
 				{
-					"part": "hsi-m3",
-					"qty": 4
+					"part": "orange-pi-housing-plunger-retainer",
+					"qty": 1
 				},
 				{
-					"part": "standoff-m3-10mm",
-					"qty": 4
+					"part": "orange-pi-housing-plunger",
+					"qty": 1
 				},
 				{
-					"part": "scr-m5-12-shcs",
+					"part": "orange-pi-housing-plunger-cap",
+					"qty": 1
+				},
+				{
+					"part": "scr-m3-8-cs",
+					"qty": 1
+				},
+				{
+					"part": "orange-pi-housing-wall-west",
+					"qty": 1
+				},
+				{
+					"part": "orange-pi-housing-wall-east",
+					"qty": 1
+				},
+				{
+					"part": "orange-pi-housing-wall-north",
+					"qty": 1
+				},
+				{
+					"part": "orange-pi-housing-wall-south",
+					"qty": 1
+				},
+				{
+					"part": "orange-pi-housing-roof",
+					"qty": 1
+				},
+				{
+					"part": "scr-m3-12-cs",
+					"qty": 15
+				},
+				{
+					"part": "orange-pi-housing-antenna-clamp",
+					"qty": 1
+				},
+				{
+					"part": "usb-hub-powered-24v",
+					"qty": 1
+				},
+				{
+					"part": "orange-pi-housing-hub-clamp",
+					"qty": 1
+				},
+				{
+					"part": "buck-24v-5v-usbc",
+					"qty": 1
+				},
+				{
+					"part": "orange-pi-housing-buck-clamp",
+					"qty": 1
+				},
+				{
+					"assembly": "harness-buck-24v",
+					"qty": 1
+				},
+				{
+					"part": "scr-m5-16-shcs",
+					"qty": 2
+				},
+				{
+					"part": "washer-m5",
 					"qty": 2
 				},
 				{
 					"part": "tnut-m5-2020",
 					"qty": 2
-				},
-				{
-					"assembly": "harness-buck-24v",
-					"qty": 1
 				}
 			],
 			"versions": [
@@ -6969,24 +7037,85 @@
 					"date": "2026-09-26",
 					"message": "The 40 mm fan arm comes off. The Orange Pi's own heatsink fan on the SoC is the cooling now, so the printed bracket, the 40 mm 24 V fan it cantilevered over the board and all six M3 x 16 screws (2 into the mount, 4 into the fan) leave the assembly, and the insert count goes 6 -> 4: the two in the plate's front edge face were there only for the arm's foot. fan-bracket-40mm is retired in place; the 24 V fan stays one per machine, in the control board housing cover.",
 					"breaking": false,
+					"commit": null,
+					"lines": [
+						{
+							"part": "orange-pi-extrusion-mount",
+							"qty": 1,
+							"uid": "nxh7"
+						},
+						{
+							"part": "sbc-orange-pi-5",
+							"qty": 1,
+							"uid": "ilqj"
+						},
+						{
+							"part": "fan-orange-pi-5-heatsink",
+							"qty": 1,
+							"uid": "z0ye"
+						},
+						{
+							"part": "wifi-module-opi5",
+							"qty": 1,
+							"uid": "b25j"
+						},
+						{
+							"part": "microsd-32gb",
+							"qty": 1,
+							"uid": "7fvo"
+						},
+						{
+							"part": "scr-m3-6-bhcs",
+							"qty": 4,
+							"uid": "e04c"
+						},
+						{
+							"part": "hsi-m3",
+							"qty": 4,
+							"uid": "ksut"
+						},
+						{
+							"part": "standoff-m3-10mm",
+							"qty": 4,
+							"uid": "hkor"
+						},
+						{
+							"part": "scr-m5-12-shcs",
+							"qty": 2,
+							"uid": "kmah"
+						},
+						{
+							"part": "tnut-m5-2020",
+							"qty": 2,
+							"uid": "bpwm"
+						},
+						{
+							"assembly": "harness-buck-24v",
+							"qty": 1,
+							"uid": "6odt"
+						}
+					]
+				},
+				{
+					"version": "5",
+					"uid": "hxqn",
+					"date": "2026-09-26",
+					"message": "The printed housing replaces the open plate, as the control board's did at its v2. The Pi screws down to four posts in the base on heat inserts, where it stood on four 10 mm standoffs on the plate; four walls drop into grooves in the base and the roof screws down over them into four more inserts, so the base takes eight. The powered USB hub and the buck converter move onto the roof, each under a printed clamp, and so move into this assembly from Electronics. The WiFi antennas are clamped to the north wall, and a plunger through the west wall reaches the power button. Fasteners, from the CAD assembly: 4 M3 x 6 button heads for the board, 15 M3 x 12 countersunk (4 roof, 4 hub clamp, 4 buck clamp, 2 antenna clamp, 1 plunger retainer), 1 M3 x 8 countersunk for the plunger cap, and 2 M5 x 16 with a washer each into 2 T-nuts for the frame, where the plate took M5 x 12. Over the housing's earlier draft, the walls go in with less effort, the microSD card is easier to reach, and the roof's screws go into heat-set inserts. An old plate-mounted Pi still works in the machine, so this is not breaking. orange-pi-extrusion-mount and standoff-m3-10mm are retired in place.",
+					"breaking": false,
 					"commit": null
 				}
 			]
 		},
 		{
 			"id": "electronics",
-			"uid": "46xn",
-			"version": "4",
+			"uid": "40ok",
+			"version": "5",
 			"name": "Electronics",
-			"description": "The PSU, the control board and the Orange Pi, each in its own box bolted to the frame, plus the powered USB hub they share, its 24 V lead, and the converter that powers the Pi off the 24 V supply.",
+			"description": "The PSU, the control board and the Orange Pi, each in its own printed box bolted to the frame, plus the 24 V lead to the powered USB hub, which rides on the Orange Pi housing's roof with the converter that powers the Pi.",
 			"docs": "/hardware/electronics/installation/",
 			"lines": [
 				{
 					"assembly": "meanwell-psu-box",
-					"qty": 1
-				},
-				{
-					"part": "usb-hub-powered-24v",
 					"qty": 1
 				},
 				{
@@ -6995,10 +7124,6 @@
 				},
 				{
 					"assembly": "orange-pi-mount",
-					"qty": 1
-				},
-				{
-					"part": "buck-24v-5v-usbc",
 					"qty": 1
 				},
 				{
@@ -7099,6 +7224,46 @@
 					"uid": "46xn",
 					"date": "2026-09-23",
 					"message": "The 24 V to 5 V USB-C buck converter is a member of this group now, beside the Orange Pi mount rather than inside it. It was in the catalog with a hand-written per-machine count and in no assembly, so browsing the machine never reached it. Beside and not inside because nothing holds it: the converter is potted, has no mounting feature, and no page places or retains it, so a line inside the mount would assert a joint that does not exist. v3 placed the powered USB hub for the same reason and that line is untouched.",
+					"breaking": false,
+					"commit": null,
+					"lines": [
+						{
+							"assembly": "meanwell-psu-box",
+							"qty": 1,
+							"uid": "8bk1"
+						},
+						{
+							"part": "usb-hub-powered-24v",
+							"qty": 1,
+							"uid": "krx5"
+						},
+						{
+							"assembly": "ctrl-board-mount",
+							"qty": 1,
+							"uid": "y2yu"
+						},
+						{
+							"assembly": "orange-pi-mount",
+							"qty": 1,
+							"uid": "hus8"
+						},
+						{
+							"part": "buck-24v-5v-usbc",
+							"qty": 1,
+							"uid": "x1vg"
+						},
+						{
+							"assembly": "harness-hub-24v",
+							"qty": 1,
+							"uid": "8b59"
+						}
+					]
+				},
+				{
+					"version": "5",
+					"uid": "40ok",
+					"date": "2026-09-26",
+					"message": "The powered USB hub and the 24 V to 5 V buck converter move into the Orange Pi housing (orange-pi-mount v5), whose roof clamps both. Same parts, same counts across the machine; only where they sit in the tree changed. The hub's 24 V lead stays here.",
 					"breaking": false,
 					"commit": null
 				}
@@ -20322,14 +20487,12 @@
 			"id": "orange-pi-extrusion-mount",
 			"uid": "nxh7",
 			"name": "Orange Pi Extrusion Mount",
-			"quantities": {
-				"electronics": 1
-			},
-			"assembly": "orange-pi-mount",
+			"quantities": {},
+			"assembly": null,
 			"folder": null,
 			"variant_group": null,
 			"variant_name": null,
-			"description": "Plate the Orange Pi 5 stands off, which bolts to the 2020 extrusion. Same design as the control board's mount with the opening and bolt pattern changed for the Pi. Four M3 inserts on the top face, one per standoff. The two pockets in the front edge face take no inserts: they held the 40 mm fan arm, which the machine no longer uses.",
+			"description": "Plate the Orange Pi 5 stood off on four standoffs, bolted to the 2020 extrusion. Unused as of 2026-09-26: the printed Orange Pi housing replaced it. Retired in place per VERSIONING.md.",
 			"version": "1",
 			"created_at": "2026-08-22",
 			"updated_at": "2026-09-26",
@@ -20340,6 +20503,7 @@
 					"date": "2026-08-22",
 					"message": "Initial version.",
 					"commit": null,
+					"note": "Removed 2026-09-26: the Orange Pi sits in its printed housing (orange-pi-mount v5). Do not re-add. Older photos still show the Pi on this plate.",
 					"onshape_version": "https://cad.onshape.com/documents/10ae43b609bb2df0f86cce4b/v/226293ea2e329f1f548b78a1/e/745c16803d318039967603f7",
 					"stl": "https://assets.basically.website/sorter-parts/orange-pi-extrusion-mount-4832b4065aef.stl",
 					"render": "https://assets.basically.website/sorter-parts/orange-pi-extrusion-mount-full-1fecc8fc0be5.png",
@@ -20444,6 +20608,1447 @@
 					"size": [
 						12.2,
 						3.5
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				}
+			]
+		},
+		{
+			"id": "orange-pi-housing-base",
+			"uid": "ort0",
+			"name": "Orange Pi Housing \u2014 Base",
+			"quantities": {
+				"electronics": 1
+			},
+			"assembly": "orange-pi-mount",
+			"folder": null,
+			"variant_group": null,
+			"variant_name": null,
+			"description": "Base of the Orange Pi 5 housing. The Pi screws down to four posts on heat inserts, four corner posts carry heat inserts for the roof screws, the four walls drop into grooves along its edges, and two ears bolt it to the 2020 extrusion. An opening in the floor under the microSD slot leaves room for a finger, and the power button plunger's retainer screws to a landing in one corner.",
+			"version": "1",
+			"created_at": "2026-09-26",
+			"updated_at": "2026-09-26",
+			"versions": [
+				{
+					"version": "1",
+					"uid": "ort0",
+					"date": "2026-09-26",
+					"message": "Initial version.",
+					"commit": null,
+					"onshape_version": "https://cad.onshape.com/documents/d8339d00eaef603e65e5e050/v/32e64a3fe696f998a73a0f9f/e/b1ceeb1a7465fd41994edd80",
+					"stl": "https://assets.basically.website/sorter-parts/orange-pi-housing-base-686c71f100f0.stl",
+					"render": "https://assets.basically.website/sorter-parts/orange-pi-housing-base-full-1ab4a2c034ce.png",
+					"grams": 77.65
+				}
+			],
+			"attributes": [],
+			"grams": 77.65,
+			"support_grams": 0.0,
+			"support_used": false,
+			"support_intentional": false,
+			"print_seconds": 8972,
+			"color": {
+				"role": "frame"
+			},
+			"optional": false,
+			"onshape": null,
+			"info": null,
+			"low_tolerance": false,
+			"low_tolerance_note": null,
+			"layer_scope": "all",
+			"requires": [
+				{
+					"part": "hsi-m3",
+					"qty": 8
+				}
+			],
+			"caption": null,
+			"docs_page": null,
+			"conflicts": null,
+			"stl": "https://assets.basically.website/sorter-parts/orange-pi-housing-base-686c71f100f0.stl",
+			"render": "https://assets.basically.website/sorter-parts/orange-pi-housing-base-full-1ab4a2c034ce.png",
+			"stamped": [
+				{
+					"face": "bottom",
+					"stl": "https://assets.basically.website/sorter-parts/orange-pi-housing-base-ort0-stamped-bottom-6eeb3b723b5a.stl",
+					"normal": [
+						0.0,
+						-0.0,
+						-1.0
+					],
+					"center": [
+						30.5,
+						58.45,
+						-9.0
+					],
+					"size": [
+						12.38,
+						3.63
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "top",
+					"stl": "https://assets.basically.website/sorter-parts/orange-pi-housing-base-ort0-stamped-top-4156c2106c69.stl",
+					"normal": [
+						0.0,
+						-0.0,
+						1.0
+					],
+					"center": [
+						30.65,
+						47.6,
+						-5.8
+					],
+					"size": [
+						12.38,
+						3.63
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "-y side",
+					"stl": "https://assets.basically.website/sorter-parts/orange-pi-housing-base-ort0-stamped-minus-y-side-cea8d74a6c71.stl",
+					"normal": [
+						0.0,
+						-1.0,
+						0.0
+					],
+					"center": [
+						-35.14,
+						-9.0,
+						-5.81
+					],
+					"size": [
+						12.38,
+						3.63
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "-x side",
+					"stl": "https://assets.basically.website/sorter-parts/orange-pi-housing-base-ort0-stamped-minus-x-side-9ed114fb00fe.stl",
+					"normal": [
+						-1.0,
+						0.0,
+						-0.0
+					],
+					"center": [
+						-47.7,
+						91.64,
+						-5.81
+					],
+					"size": [
+						12.38,
+						3.63
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				}
+			]
+		},
+		{
+			"id": "orange-pi-housing-roof",
+			"uid": "2lrz",
+			"name": "Orange Pi Housing \u2014 Roof",
+			"quantities": {
+				"electronics": 1
+			},
+			"assembly": "orange-pi-mount",
+			"folder": null,
+			"variant_group": null,
+			"variant_name": null,
+			"description": "Roof of the Orange Pi 5 housing. Four M3 \u00d7 12 mm countersunk screws hold it down into the base's corner inserts, and it carries the USB hub and the buck converter on top, each under its own clamp on four self-tapping M3 \u00d7 12 mm countersunk screws into the roof's pilots. Its recessed side faces down in the box, so it prints upside down, top face on the bed.",
+			"version": "1",
+			"created_at": "2026-09-26",
+			"updated_at": "2026-09-26",
+			"versions": [
+				{
+					"version": "1",
+					"uid": "2lrz",
+					"date": "2026-09-26",
+					"message": "Initial version.",
+					"commit": null,
+					"onshape_version": "https://cad.onshape.com/documents/d8339d00eaef603e65e5e050/v/32e64a3fe696f998a73a0f9f/e/b1ceeb1a7465fd41994edd80",
+					"stl": "https://assets.basically.website/sorter-parts/orange-pi-housing-roof-509b20f01be2.stl",
+					"render": "https://assets.basically.website/sorter-parts/orange-pi-housing-roof-full-d6c7b399e477.png",
+					"grams": 52.44
+				}
+			],
+			"attributes": [],
+			"grams": 52.44,
+			"support_grams": 0.0,
+			"support_used": false,
+			"support_intentional": false,
+			"print_seconds": 5431,
+			"color": {
+				"role": "frame"
+			},
+			"optional": false,
+			"onshape": null,
+			"info": null,
+			"low_tolerance": false,
+			"low_tolerance_note": null,
+			"layer_scope": "all",
+			"requires": [],
+			"caption": null,
+			"docs_page": null,
+			"conflicts": null,
+			"stl": "https://assets.basically.website/sorter-parts/orange-pi-housing-roof-509b20f01be2.stl",
+			"render": "https://assets.basically.website/sorter-parts/orange-pi-housing-roof-full-d6c7b399e477.png",
+			"stamped": [
+				{
+					"face": "bottom",
+					"stl": "https://assets.basically.website/sorter-parts/orange-pi-housing-roof-2lrz-stamped-bottom-9bd27f68185c.stl",
+					"normal": [
+						0.0,
+						-0.0,
+						-1.0
+					],
+					"center": [
+						94.16,
+						-5.88,
+						38.0
+					],
+					"size": [
+						12.33,
+						3.5
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "top",
+					"stl": "https://assets.basically.website/sorter-parts/orange-pi-housing-roof-2lrz-stamped-top-0727f68e9ab7.stl",
+					"normal": [
+						0.0,
+						-0.0,
+						1.0
+					],
+					"center": [
+						-26.36,
+						-5.07,
+						46.0
+					],
+					"size": [
+						12.33,
+						3.5
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "+y side",
+					"stl": "https://assets.basically.website/sorter-parts/orange-pi-housing-roof-2lrz-stamped-plus-y-side-ac0d7021b4e8.stl",
+					"normal": [
+						-0.0,
+						1.0,
+						0.0
+					],
+					"center": [
+						96.16,
+						104.2,
+						41.12
+					],
+					"size": [
+						12.33,
+						3.5
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "-y side",
+					"stl": "https://assets.basically.website/sorter-parts/orange-pi-housing-roof-2lrz-stamped-minus-y-side-229c2fcf23d5.stl",
+					"normal": [
+						-0.0,
+						-1.0,
+						-0.0
+					],
+					"center": [
+						-35.16,
+						-9.0,
+						41.12
+					],
+					"size": [
+						12.33,
+						3.5
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				}
+			]
+		},
+		{
+			"id": "orange-pi-housing-wall-west",
+			"uid": "ehlv",
+			"name": "Orange Pi Housing \u2014 West Wall",
+			"quantities": {
+				"electronics": 1
+			},
+			"assembly": "orange-pi-mount",
+			"folder": null,
+			"variant_group": null,
+			"variant_name": null,
+			"description": "Short wall on the Pi's power button side. A small window lets the power button plunger through, and a larger one opens onto the microSD card. Drops into its groove in the base; the roof holds it down. Prints lying flat.",
+			"version": "1",
+			"created_at": "2026-09-26",
+			"updated_at": "2026-09-26",
+			"versions": [
+				{
+					"version": "1",
+					"uid": "ehlv",
+					"date": "2026-09-26",
+					"message": "Initial version.",
+					"commit": null,
+					"onshape_version": "https://cad.onshape.com/documents/d8339d00eaef603e65e5e050/v/32e64a3fe696f998a73a0f9f/e/b1ceeb1a7465fd41994edd80",
+					"stl": "https://assets.basically.website/sorter-parts/orange-pi-housing-wall-west-efdc2942399f.stl",
+					"render": "https://assets.basically.website/sorter-parts/orange-pi-housing-wall-west-full-7e673a3e3704.png",
+					"grams": 8.48
+				}
+			],
+			"attributes": [],
+			"grams": 8.48,
+			"support_grams": 0.0,
+			"support_used": false,
+			"support_intentional": false,
+			"print_seconds": 2130,
+			"color": {
+				"role": "frame"
+			},
+			"optional": false,
+			"onshape": null,
+			"info": null,
+			"low_tolerance": false,
+			"low_tolerance_note": null,
+			"layer_scope": "all",
+			"requires": [],
+			"caption": null,
+			"docs_page": null,
+			"conflicts": null,
+			"stl": "https://assets.basically.website/sorter-parts/orange-pi-housing-wall-west-efdc2942399f.stl",
+			"render": "https://assets.basically.website/sorter-parts/orange-pi-housing-wall-west-full-7e673a3e3704.png",
+			"stamped": [
+				{
+					"face": "+x side",
+					"stl": "https://assets.basically.website/sorter-parts/orange-pi-housing-wall-west-ehlv-stamped-plus-x-side-f58323cfdd00.stl",
+					"normal": [
+						1.0,
+						-0.0,
+						0.0
+					],
+					"center": [
+						-41.8,
+						10.23,
+						-0.18
+					],
+					"size": [
+						12.31,
+						3.5
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "-x side",
+					"stl": "https://assets.basically.website/sorter-parts/orange-pi-housing-wall-west-ehlv-stamped-minus-x-side-7feb080f8473.stl",
+					"normal": [
+						-1.0,
+						-0.0,
+						0.0
+					],
+					"center": [
+						-45.0,
+						85.67,
+						-0.18
+					],
+					"size": [
+						12.31,
+						3.5
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				}
+			]
+		},
+		{
+			"id": "orange-pi-housing-wall-east",
+			"uid": "yxiy",
+			"name": "Orange Pi Housing \u2014 East Wall",
+			"quantities": {
+				"electronics": 1
+			},
+			"assembly": "orange-pi-mount",
+			"folder": null,
+			"variant_group": null,
+			"variant_name": null,
+			"description": "Short wall on the Pi's USB-A and Ethernet side, with an opening for each port stack. Drops into its groove in the base; the roof holds it down. Prints lying flat.",
+			"version": "1",
+			"created_at": "2026-09-26",
+			"updated_at": "2026-09-26",
+			"versions": [
+				{
+					"version": "1",
+					"uid": "yxiy",
+					"date": "2026-09-26",
+					"message": "Initial version.",
+					"commit": null,
+					"onshape_version": "https://cad.onshape.com/documents/d8339d00eaef603e65e5e050/v/32e64a3fe696f998a73a0f9f/e/b1ceeb1a7465fd41994edd80",
+					"stl": "https://assets.basically.website/sorter-parts/orange-pi-housing-wall-east-47d41be8c011.stl",
+					"render": "https://assets.basically.website/sorter-parts/orange-pi-housing-wall-east-full-06e7196a51fe.png",
+					"grams": 8.2
+				}
+			],
+			"attributes": [],
+			"grams": 8.2,
+			"support_grams": 0.0,
+			"support_used": false,
+			"support_intentional": false,
+			"print_seconds": 2138,
+			"color": {
+				"role": "frame"
+			},
+			"optional": false,
+			"onshape": null,
+			"info": null,
+			"low_tolerance": false,
+			"low_tolerance_note": null,
+			"layer_scope": "all",
+			"requires": [],
+			"caption": null,
+			"docs_page": null,
+			"conflicts": null,
+			"stl": "https://assets.basically.website/sorter-parts/orange-pi-housing-wall-east-47d41be8c011.stl",
+			"render": "https://assets.basically.website/sorter-parts/orange-pi-housing-wall-east-full-06e7196a51fe.png",
+			"stamped": [
+				{
+					"face": "+x side",
+					"stl": "https://assets.basically.website/sorter-parts/orange-pi-housing-wall-east-yxiy-stamped-plus-x-side-4901f37d6ae8.stl",
+					"normal": [
+						1.0,
+						0.0,
+						0.0
+					],
+					"center": [
+						106.0,
+						10.43,
+						-0.18
+					],
+					"size": [
+						12.71,
+						3.5
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "-x side",
+					"stl": "https://assets.basically.website/sorter-parts/orange-pi-housing-wall-east-yxiy-stamped-minus-x-side-58d99f0188d1.stl",
+					"normal": [
+						-1.0,
+						0.0,
+						0.0
+					],
+					"center": [
+						102.8,
+						85.47,
+						-0.18
+					],
+					"size": [
+						12.71,
+						3.5
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				}
+			]
+		},
+		{
+			"id": "orange-pi-housing-wall-north",
+			"uid": "qz8d",
+			"name": "Orange Pi Housing \u2014 North Wall",
+			"quantities": {
+				"electronics": 1
+			},
+			"assembly": "orange-pi-mount",
+			"folder": null,
+			"variant_group": null,
+			"variant_name": null,
+			"description": "Long wall on the Pi's USB-C and HDMI side, with an opening for those ports. A block on its outside carries the two WiFi antennas in saddles under the antenna clamp, with an opening below for their leads. Drops into its groove in the base; the roof holds it down.",
+			"version": "1",
+			"created_at": "2026-09-26",
+			"updated_at": "2026-09-26",
+			"versions": [
+				{
+					"version": "1",
+					"uid": "qz8d",
+					"date": "2026-09-26",
+					"message": "Initial version.",
+					"commit": null,
+					"onshape_version": "https://cad.onshape.com/documents/d8339d00eaef603e65e5e050/v/32e64a3fe696f998a73a0f9f/e/b1ceeb1a7465fd41994edd80",
+					"stl": "https://assets.basically.website/sorter-parts/orange-pi-housing-wall-north-e9c94c3577b7.stl",
+					"render": "https://assets.basically.website/sorter-parts/orange-pi-housing-wall-north-full-04419ac4c713.png",
+					"grams": 13.76
+				}
+			],
+			"attributes": [],
+			"grams": 13.76,
+			"support_grams": 0.0,
+			"support_used": false,
+			"support_intentional": false,
+			"print_seconds": 2444,
+			"color": {
+				"role": "frame"
+			},
+			"optional": false,
+			"onshape": null,
+			"info": null,
+			"low_tolerance": false,
+			"low_tolerance_note": null,
+			"layer_scope": "all",
+			"requires": [],
+			"caption": null,
+			"docs_page": null,
+			"conflicts": null,
+			"stl": "https://assets.basically.website/sorter-parts/orange-pi-housing-wall-north-e9c94c3577b7.stl",
+			"render": "https://assets.basically.website/sorter-parts/orange-pi-housing-wall-north-full-04419ac4c713.png",
+			"stamped": [
+				{
+					"face": "+y side",
+					"stl": "https://assets.basically.website/sorter-parts/orange-pi-housing-wall-north-qz8d-stamped-plus-y-side-647f1dcc9474.stl",
+					"normal": [
+						0.0,
+						1.0,
+						0.0
+					],
+					"center": [
+						-24.38,
+						-3.1,
+						0.33
+					],
+					"size": [
+						12.49,
+						4.52
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "-y side",
+					"stl": "https://assets.basically.website/sorter-parts/orange-pi-housing-wall-north-qz8d-stamped-minus-y-side-d1838b004b97.stl",
+					"normal": [
+						-0.0,
+						-1.0,
+						-0.0
+					],
+					"center": [
+						-24.38,
+						-6.3,
+						0.33
+					],
+					"size": [
+						12.49,
+						4.52
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "-x side",
+					"stl": "https://assets.basically.website/sorter-parts/orange-pi-housing-wall-north-qz8d-stamped-minus-x-side-614e6cb6f45b.stl",
+					"normal": [
+						-1.0,
+						0.0,
+						0.0
+					],
+					"center": [
+						61.5,
+						-11.16,
+						14.58
+					],
+					"size": [
+						3.23,
+						8.92
+					],
+					"cap": 2.5,
+					"depth": 0.6,
+					"note": "smaller text"
+				},
+				{
+					"face": "+x side",
+					"stl": "https://assets.basically.website/sorter-parts/orange-pi-housing-wall-north-qz8d-stamped-plus-x-side-bbead40d2e9e.stl",
+					"normal": [
+						1.0,
+						-0.0,
+						0.0
+					],
+					"center": [
+						91.6,
+						-11.16,
+						14.58
+					],
+					"size": [
+						3.23,
+						8.92
+					],
+					"cap": 2.5,
+					"depth": 0.6,
+					"note": "smaller text"
+				}
+			]
+		},
+		{
+			"id": "orange-pi-housing-wall-south",
+			"uid": "yg6s",
+			"name": "Orange Pi Housing \u2014 South Wall",
+			"quantities": {
+				"electronics": 1
+			},
+			"assembly": "orange-pi-mount",
+			"folder": null,
+			"variant_group": null,
+			"variant_name": null,
+			"description": "Long wall on the Pi's GPIO side: a hex vent, and an opening at the bottom for a cable off the GPIO header. Drops into its groove in the base; the roof holds it down. Prints lying flat.",
+			"version": "1",
+			"created_at": "2026-09-26",
+			"updated_at": "2026-09-26",
+			"versions": [
+				{
+					"version": "1",
+					"uid": "yg6s",
+					"date": "2026-09-26",
+					"message": "Initial version.",
+					"commit": null,
+					"onshape_version": "https://cad.onshape.com/documents/d8339d00eaef603e65e5e050/v/32e64a3fe696f998a73a0f9f/e/b1ceeb1a7465fd41994edd80",
+					"stl": "https://assets.basically.website/sorter-parts/orange-pi-housing-wall-south-b508db54337c.stl",
+					"render": "https://assets.basically.website/sorter-parts/orange-pi-housing-wall-south-full-85297375673f.png",
+					"grams": 12.05
+				}
+			],
+			"attributes": [],
+			"grams": 12.05,
+			"support_grams": 0.0,
+			"support_used": false,
+			"support_intentional": false,
+			"print_seconds": 2605,
+			"color": {
+				"role": "frame"
+			},
+			"optional": false,
+			"onshape": null,
+			"info": null,
+			"low_tolerance": false,
+			"low_tolerance_note": null,
+			"layer_scope": "all",
+			"requires": [],
+			"caption": null,
+			"docs_page": null,
+			"conflicts": null,
+			"stl": "https://assets.basically.website/sorter-parts/orange-pi-housing-wall-south-b508db54337c.stl",
+			"render": "https://assets.basically.website/sorter-parts/orange-pi-housing-wall-south-full-85297375673f.png",
+			"stamped": [
+				{
+					"face": "-y side",
+					"stl": "https://assets.basically.website/sorter-parts/orange-pi-housing-wall-south-yg6s-stamped-minus-y-side-db89f79838fd.stl",
+					"normal": [
+						-0.0,
+						-1.0,
+						0.0
+					],
+					"center": [
+						-24.36,
+						98.3,
+						-0.11
+					],
+					"size": [
+						12.53,
+						3.63
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "+y side",
+					"stl": "https://assets.basically.website/sorter-parts/orange-pi-housing-wall-south-yg6s-stamped-plus-y-side-24fdf19e2ea6.stl",
+					"normal": [
+						0.0,
+						1.0,
+						-0.0
+					],
+					"center": [
+						88.26,
+						101.5,
+						-0.11
+					],
+					"size": [
+						12.53,
+						3.63
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				}
+			]
+		},
+		{
+			"id": "orange-pi-housing-hub-clamp",
+			"uid": "6lhm",
+			"name": "Orange Pi Housing \u2014 Hub Clamp",
+			"quantities": {
+				"electronics": 1
+			},
+			"assembly": "orange-pi-mount",
+			"folder": null,
+			"variant_group": null,
+			"variant_name": null,
+			"description": "Frame that holds the powered USB hub down on the housing's roof, on four self-tapping M3 \u00d7 12 mm countersunk screws into the roof's pilots. Drawn around the Waveshare USB3.2-Gen1-HUB-4U.",
+			"version": "1",
+			"created_at": "2026-09-26",
+			"updated_at": "2026-09-26",
+			"versions": [
+				{
+					"version": "1",
+					"uid": "6lhm",
+					"date": "2026-09-26",
+					"message": "Initial version.",
+					"commit": null,
+					"onshape_version": "https://cad.onshape.com/documents/d8339d00eaef603e65e5e050/v/32e64a3fe696f998a73a0f9f/e/b1ceeb1a7465fd41994edd80",
+					"stl": "https://assets.basically.website/sorter-parts/orange-pi-housing-hub-clamp-2c0dd5e077e1.stl",
+					"render": "https://assets.basically.website/sorter-parts/orange-pi-housing-hub-clamp-full-be7723ce539c.png",
+					"grams": 5.66
+				}
+			],
+			"attributes": [],
+			"grams": 5.66,
+			"support_grams": 0.0,
+			"support_used": false,
+			"support_intentional": false,
+			"print_seconds": 1110,
+			"color": {
+				"role": "frame"
+			},
+			"optional": false,
+			"onshape": null,
+			"info": null,
+			"low_tolerance": false,
+			"low_tolerance_note": null,
+			"layer_scope": "all",
+			"requires": [],
+			"caption": null,
+			"docs_page": null,
+			"conflicts": null,
+			"stl": "https://assets.basically.website/sorter-parts/orange-pi-housing-hub-clamp-2c0dd5e077e1.stl",
+			"render": "https://assets.basically.website/sorter-parts/orange-pi-housing-hub-clamp-full-be7723ce539c.png",
+			"stamped": [
+				{
+					"face": "top",
+					"stl": "https://assets.basically.website/sorter-parts/orange-pi-housing-hub-clamp-6lhm-stamped-top-605093fb3fb2.stl",
+					"normal": [
+						-0.0,
+						0.0,
+						1.0
+					],
+					"center": [
+						65.25,
+						6.66,
+						53.0
+					],
+					"size": [
+						12.25,
+						3.56
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "+x side",
+					"stl": "https://assets.basically.website/sorter-parts/orange-pi-housing-hub-clamp-6lhm-stamped-plus-x-side-dbd15ece4e45.stl",
+					"normal": [
+						1.0,
+						0.0,
+						0.0
+					],
+					"center": [
+						96.47,
+						15.0,
+						49.16
+					],
+					"size": [
+						12.25,
+						3.56
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "-x side",
+					"stl": "https://assets.basically.website/sorter-parts/orange-pi-housing-hub-clamp-6lhm-stamped-minus-x-side-93aec0598262.stl",
+					"normal": [
+						-1.0,
+						-0.0,
+						-0.0
+					],
+					"center": [
+						44.25,
+						82.0,
+						49.16
+					],
+					"size": [
+						12.25,
+						3.56
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "+x side 2",
+					"stl": "https://assets.basically.website/sorter-parts/orange-pi-housing-hub-clamp-6lhm-stamped-plus-x-side-2-e06b240dd1e1.stl",
+					"normal": [
+						1.0,
+						0.0,
+						-0.0
+					],
+					"center": [
+						45.85,
+						48.5,
+						49.5
+					],
+					"size": [
+						12.25,
+						3.56
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				}
+			]
+		},
+		{
+			"id": "orange-pi-housing-buck-clamp",
+			"uid": "9ggj",
+			"name": "Orange Pi Housing \u2014 Buck Clamp",
+			"quantities": {
+				"electronics": 1
+			},
+			"assembly": "orange-pi-mount",
+			"folder": null,
+			"variant_group": null,
+			"variant_name": null,
+			"description": "Frame that holds the 24 V to 5 V buck converter down on the housing's roof, on four self-tapping M3 \u00d7 12 mm countersunk screws into the roof's pilots.",
+			"version": "1",
+			"created_at": "2026-09-26",
+			"updated_at": "2026-09-26",
+			"versions": [
+				{
+					"version": "1",
+					"uid": "9ggj",
+					"date": "2026-09-26",
+					"message": "Initial version.",
+					"commit": null,
+					"onshape_version": "https://cad.onshape.com/documents/d8339d00eaef603e65e5e050/v/32e64a3fe696f998a73a0f9f/e/b1ceeb1a7465fd41994edd80",
+					"stl": "https://assets.basically.website/sorter-parts/orange-pi-housing-buck-clamp-c6e3d73bd71c.stl",
+					"render": "https://assets.basically.website/sorter-parts/orange-pi-housing-buck-clamp-full-c8ddf089a18f.png",
+					"grams": 6.14
+				}
+			],
+			"attributes": [],
+			"grams": 6.14,
+			"support_grams": 0.0,
+			"support_used": false,
+			"support_intentional": false,
+			"print_seconds": 1245,
+			"color": {
+				"role": "frame"
+			},
+			"optional": false,
+			"onshape": null,
+			"info": null,
+			"low_tolerance": false,
+			"low_tolerance_note": null,
+			"layer_scope": "all",
+			"requires": [],
+			"caption": null,
+			"docs_page": null,
+			"conflicts": null,
+			"stl": "https://assets.basically.website/sorter-parts/orange-pi-housing-buck-clamp-c6e3d73bd71c.stl",
+			"render": "https://assets.basically.website/sorter-parts/orange-pi-housing-buck-clamp-full-c8ddf089a18f.png",
+			"stamped": [
+				{
+					"face": "bottom",
+					"stl": "https://assets.basically.website/sorter-parts/orange-pi-housing-buck-clamp-9ggj-stamped-bottom-95d837d0b7a9.stl",
+					"normal": [
+						0.0,
+						0.0,
+						-1.0
+					],
+					"center": [
+						-19.66,
+						12.22,
+						46.0
+					],
+					"size": [
+						12.15,
+						3.63
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "top",
+					"stl": "https://assets.basically.website/sorter-parts/orange-pi-housing-buck-clamp-9ggj-stamped-top-5743629e8637.stl",
+					"normal": [
+						0.0,
+						0.0,
+						1.0
+					],
+					"center": [
+						-20.34,
+						17.22,
+						53.0
+					],
+					"size": [
+						12.15,
+						3.63
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "+x side",
+					"stl": "https://assets.basically.website/sorter-parts/orange-pi-housing-buck-clamp-9ggj-stamped-plus-x-side-197299bf279f.stl",
+					"normal": [
+						1.0,
+						0.0,
+						0.0
+					],
+					"center": [
+						0.79,
+						20.48,
+						49.19
+					],
+					"size": [
+						12.15,
+						3.63
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "-x side",
+					"stl": "https://assets.basically.website/sorter-parts/orange-pi-housing-buck-clamp-9ggj-stamped-minus-x-side-07edd42dfbad.stl",
+					"normal": [
+						-1.0,
+						0.0,
+						-0.0
+					],
+					"center": [
+						-4.21,
+						64.49,
+						49.19
+					],
+					"size": [
+						12.15,
+						3.63
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				}
+			]
+		},
+		{
+			"id": "orange-pi-housing-antenna-clamp",
+			"uid": "kvkg",
+			"name": "Orange Pi Housing \u2014 Antenna Clamp",
+			"quantities": {
+				"electronics": 1
+			},
+			"assembly": "orange-pi-mount",
+			"folder": null,
+			"variant_group": null,
+			"variant_name": null,
+			"description": "Cap that holds the two WiFi antennas in their saddles on the north wall, on two self-tapping M3 \u00d7 12 mm countersunk screws into the wall's pilots.",
+			"version": "1",
+			"created_at": "2026-09-26",
+			"updated_at": "2026-09-26",
+			"versions": [
+				{
+					"version": "1",
+					"uid": "kvkg",
+					"date": "2026-09-26",
+					"message": "Initial version.",
+					"commit": null,
+					"onshape_version": "https://cad.onshape.com/documents/d8339d00eaef603e65e5e050/v/32e64a3fe696f998a73a0f9f/e/b1ceeb1a7465fd41994edd80",
+					"stl": "https://assets.basically.website/sorter-parts/orange-pi-housing-antenna-clamp-475991b75276.stl",
+					"render": "https://assets.basically.website/sorter-parts/orange-pi-housing-antenna-clamp-full-9785ee767bcb.png",
+					"grams": 2.19
+				}
+			],
+			"attributes": [],
+			"grams": 2.19,
+			"support_grams": 0.0,
+			"support_used": false,
+			"support_intentional": false,
+			"print_seconds": 995,
+			"color": {
+				"role": "frame"
+			},
+			"optional": false,
+			"onshape": null,
+			"info": null,
+			"low_tolerance": false,
+			"low_tolerance_note": null,
+			"layer_scope": "all",
+			"requires": [],
+			"caption": null,
+			"docs_page": null,
+			"conflicts": null,
+			"stl": "https://assets.basically.website/sorter-parts/orange-pi-housing-antenna-clamp-475991b75276.stl",
+			"render": "https://assets.basically.website/sorter-parts/orange-pi-housing-antenna-clamp-full-9785ee767bcb.png",
+			"stamped": [
+				{
+					"face": "bottom",
+					"stl": "https://assets.basically.website/sorter-parts/orange-pi-housing-antenna-clamp-kvkg-stamped-bottom-2cae8f8bdc83.stl",
+					"normal": [
+						0.0,
+						0.0,
+						-1.0
+					],
+					"center": [
+						87.51,
+						-19.48,
+						9.0
+					],
+					"size": [
+						8.74,
+						2.59
+					],
+					"cap": 2.5,
+					"depth": 0.6,
+					"note": "smaller text"
+				},
+				{
+					"face": "-y side",
+					"stl": "https://assets.basically.website/sorter-parts/orange-pi-housing-antenna-clamp-kvkg-stamped-minus-y-side-6c9485a33f54.stl",
+					"normal": [
+						-0.0,
+						-1.0,
+						0.0
+					],
+					"center": [
+						70.99,
+						-21.9,
+						12.19
+					],
+					"size": [
+						12.23,
+						3.63
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "top",
+					"stl": "https://assets.basically.website/sorter-parts/orange-pi-housing-antenna-clamp-kvkg-stamped-top-dd7f04029d45.stl",
+					"normal": [
+						0.0,
+						0.0,
+						1.0
+					],
+					"center": [
+						67.99,
+						-19.48,
+						23.0
+					],
+					"size": [
+						8.74,
+						2.59
+					],
+					"cap": 2.5,
+					"depth": 0.6,
+					"note": "smaller text"
+				},
+				{
+					"face": "+y side",
+					"stl": "https://assets.basically.website/sorter-parts/orange-pi-housing-antenna-clamp-kvkg-stamped-plus-y-side-9ea21037d250.stl",
+					"normal": [
+						0.0,
+						1.0,
+						-0.0
+					],
+					"center": [
+						79.33,
+						-13.9,
+						14.49
+					],
+					"size": [
+						2.59,
+						8.74
+					],
+					"cap": 2.5,
+					"depth": 0.6,
+					"note": "smaller text"
+				}
+			]
+		},
+		{
+			"id": "orange-pi-housing-plunger",
+			"uid": "hbg5",
+			"name": "Orange Pi Housing \u2014 Plunger",
+			"quantities": {
+				"electronics": 1
+			},
+			"assembly": "orange-pi-mount",
+			"folder": null,
+			"variant_group": null,
+			"variant_name": null,
+			"description": "Reaches the Orange Pi's power key through the west wall, so the Pi can be switched on with the housing closed. Held by the plunger retainer and cap.",
+			"version": "1",
+			"created_at": "2026-09-26",
+			"updated_at": "2026-09-26",
+			"versions": [
+				{
+					"version": "1",
+					"uid": "hbg5",
+					"date": "2026-09-26",
+					"message": "Initial version.",
+					"commit": null,
+					"onshape_version": "https://cad.onshape.com/documents/d8339d00eaef603e65e5e050/v/32e64a3fe696f998a73a0f9f/e/b1ceeb1a7465fd41994edd80",
+					"stl": "https://assets.basically.website/sorter-parts/orange-pi-housing-plunger-0d8ec89646a6.stl",
+					"render": "https://assets.basically.website/sorter-parts/orange-pi-housing-plunger-full-d5edd3b9641c.png",
+					"grams": 1.43
+				}
+			],
+			"attributes": [],
+			"grams": 1.43,
+			"support_grams": 0.0,
+			"support_used": false,
+			"support_intentional": false,
+			"print_seconds": 820,
+			"color": {
+				"role": "frame"
+			},
+			"optional": false,
+			"onshape": null,
+			"info": null,
+			"low_tolerance": false,
+			"low_tolerance_note": null,
+			"layer_scope": "all",
+			"requires": [],
+			"caption": null,
+			"docs_page": null,
+			"conflicts": null,
+			"stl": "https://assets.basically.website/sorter-parts/orange-pi-housing-plunger-0d8ec89646a6.stl",
+			"render": "https://assets.basically.website/sorter-parts/orange-pi-housing-plunger-full-d5edd3b9641c.png",
+			"stamped": [
+				{
+					"face": "bottom",
+					"stl": "https://assets.basically.website/sorter-parts/orange-pi-housing-plunger-hbg5-stamped-bottom-a18027acf778.stl",
+					"normal": [
+						0.0,
+						0.0,
+						-1.0
+					],
+					"center": [
+						-25.0,
+						15.56,
+						7.8
+					],
+					"size": [
+						8.7,
+						2.59
+					],
+					"cap": 2.5,
+					"depth": 0.6,
+					"note": "smaller text"
+				},
+				{
+					"face": "top",
+					"stl": "https://assets.basically.website/sorter-parts/orange-pi-housing-plunger-hbg5-stamped-top-d9e8a48adea2.stl",
+					"normal": [
+						0.0,
+						-0.0,
+						1.0
+					],
+					"center": [
+						-17.53,
+						15.18,
+						13.4
+					],
+					"size": [
+						8.7,
+						2.59
+					],
+					"cap": 2.5,
+					"depth": 0.6,
+					"note": "smaller text"
+				},
+				{
+					"face": "-y side",
+					"stl": "https://assets.basically.website/sorter-parts/orange-pi-housing-plunger-hbg5-stamped-minus-y-side-04768a6aed89.stl",
+					"normal": [
+						0.0,
+						-1.0,
+						0.0
+					],
+					"center": [
+						-17.53,
+						12.76,
+						10.22
+					],
+					"size": [
+						8.7,
+						2.59
+					],
+					"cap": 2.5,
+					"depth": 0.6,
+					"note": "smaller text"
+				},
+				{
+					"face": "+y side",
+					"stl": "https://assets.basically.website/sorter-parts/orange-pi-housing-plunger-hbg5-stamped-plus-y-side-140e2bac3eac.stl",
+					"normal": [
+						-0.0,
+						1.0,
+						0.0
+					],
+					"center": [
+						-7.77,
+						18.36,
+						10.22
+					],
+					"size": [
+						8.7,
+						2.59
+					],
+					"cap": 2.5,
+					"depth": 0.6,
+					"note": "smaller text"
+				}
+			]
+		},
+		{
+			"id": "orange-pi-housing-plunger-retainer",
+			"uid": "dlgz",
+			"name": "Orange Pi Housing \u2014 Plunger Retainer",
+			"quantities": {
+				"electronics": 1
+			},
+			"assembly": "orange-pi-mount",
+			"folder": null,
+			"variant_group": null,
+			"variant_name": null,
+			"description": "Guides the power button plunger. Screws to its landing on the base with one M3 \u00d7 12 mm countersunk screw from underneath.",
+			"version": "1",
+			"created_at": "2026-09-26",
+			"updated_at": "2026-09-26",
+			"versions": [
+				{
+					"version": "1",
+					"uid": "dlgz",
+					"date": "2026-09-26",
+					"message": "Initial version.",
+					"commit": null,
+					"onshape_version": "https://cad.onshape.com/documents/d8339d00eaef603e65e5e050/v/32e64a3fe696f998a73a0f9f/e/b1ceeb1a7465fd41994edd80",
+					"stl": "https://assets.basically.website/sorter-parts/orange-pi-housing-plunger-retainer-2a004a7203d7.stl",
+					"render": "https://assets.basically.website/sorter-parts/orange-pi-housing-plunger-retainer-full-b1557de7fd71.png",
+					"grams": 1.92
+				}
+			],
+			"attributes": [],
+			"grams": 1.92,
+			"support_grams": 0.0,
+			"support_used": false,
+			"support_intentional": false,
+			"print_seconds": 962,
+			"color": {
+				"role": "frame"
+			},
+			"optional": false,
+			"onshape": null,
+			"info": null,
+			"low_tolerance": false,
+			"low_tolerance_note": null,
+			"layer_scope": "all",
+			"requires": [],
+			"caption": null,
+			"docs_page": null,
+			"conflicts": null,
+			"stl": "https://assets.basically.website/sorter-parts/orange-pi-housing-plunger-retainer-2a004a7203d7.stl",
+			"render": "https://assets.basically.website/sorter-parts/orange-pi-housing-plunger-retainer-full-b1557de7fd71.png",
+			"stamped": [
+				{
+					"face": "bottom",
+					"stl": "https://assets.basically.website/sorter-parts/orange-pi-housing-plunger-retainer-dlgz-stamped-bottom-435df9c0abb4.stl",
+					"normal": [
+						0.0,
+						0.0,
+						-1.0
+					],
+					"center": [
+						-33.29,
+						14.25,
+						0.0
+					],
+					"size": [
+						12.22,
+						3.63
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "+y side",
+					"stl": "https://assets.basically.website/sorter-parts/orange-pi-housing-plunger-retainer-dlgz-stamped-plus-y-side-b925a5c624d0.stl",
+					"normal": [
+						-0.0,
+						1.0,
+						0.0
+					],
+					"center": [
+						-32.79,
+						25.96,
+						2.42
+					],
+					"size": [
+						8.73,
+						2.59
+					],
+					"cap": 2.5,
+					"depth": 0.6,
+					"note": "smaller text"
+				},
+				{
+					"face": "-y side",
+					"stl": "https://assets.basically.website/sorter-parts/orange-pi-housing-plunger-retainer-dlgz-stamped-minus-y-side-1a1dbcbc604a.stl",
+					"normal": [
+						-0.0,
+						-1.0,
+						-0.0
+					],
+					"center": [
+						-34.01,
+						10.56,
+						2.42
+					],
+					"size": [
+						8.73,
+						2.59
+					],
+					"cap": 2.5,
+					"depth": 0.6,
+					"note": "smaller text"
+				},
+				{
+					"face": "+x side",
+					"stl": "https://assets.basically.website/sorter-parts/orange-pi-housing-plunger-retainer-dlgz-stamped-plus-x-side-75b435463a91.stl",
+					"normal": [
+						1.0,
+						0.0,
+						-0.0
+					],
+					"center": [
+						-25.3,
+						18.05,
+						2.42
+					],
+					"size": [
+						8.73,
+						2.59
+					],
+					"cap": 2.5,
+					"depth": 0.6,
+					"note": "smaller text"
+				}
+			]
+		},
+		{
+			"id": "orange-pi-housing-plunger-cap",
+			"uid": "bwbc",
+			"name": "Orange Pi Housing \u2014 Plunger Cap",
+			"quantities": {
+				"electronics": 1
+			},
+			"assembly": "orange-pi-mount",
+			"folder": null,
+			"variant_group": null,
+			"variant_name": null,
+			"description": "Closes over the plunger retainer on one M3 \u00d7 8 mm countersunk screw, keeping the plunger in.",
+			"version": "1",
+			"created_at": "2026-09-26",
+			"updated_at": "2026-09-26",
+			"versions": [
+				{
+					"version": "1",
+					"uid": "bwbc",
+					"date": "2026-09-26",
+					"message": "Initial version.",
+					"commit": null,
+					"onshape_version": "https://cad.onshape.com/documents/d8339d00eaef603e65e5e050/v/32e64a3fe696f998a73a0f9f/e/b1ceeb1a7465fd41994edd80",
+					"stl": "https://assets.basically.website/sorter-parts/orange-pi-housing-plunger-cap-126231ac1c49.stl",
+					"render": "https://assets.basically.website/sorter-parts/orange-pi-housing-plunger-cap-full-0969778c1932.png",
+					"grams": 0.67
+				}
+			],
+			"attributes": [],
+			"grams": 0.67,
+			"support_grams": 0.0,
+			"support_used": false,
+			"support_intentional": false,
+			"print_seconds": 530,
+			"color": {
+				"role": "frame"
+			},
+			"optional": false,
+			"onshape": null,
+			"info": null,
+			"low_tolerance": false,
+			"low_tolerance_note": null,
+			"layer_scope": "all",
+			"requires": [],
+			"caption": null,
+			"docs_page": null,
+			"conflicts": null,
+			"stl": "https://assets.basically.website/sorter-parts/orange-pi-housing-plunger-cap-126231ac1c49.stl",
+			"render": "https://assets.basically.website/sorter-parts/orange-pi-housing-plunger-cap-full-0969778c1932.png",
+			"stamped": [
+				{
+					"face": "bottom",
+					"stl": "https://assets.basically.website/sorter-parts/orange-pi-housing-plunger-cap-bwbc-stamped-bottom-ede8c29a027b.stl",
+					"normal": [
+						0.0,
+						0.0,
+						-1.0
+					],
+					"center": [
+						-33.54,
+						15.35,
+						13.7
+					],
+					"size": [
+						12.32,
+						3.63
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "top",
+					"stl": "https://assets.basically.website/sorter-parts/orange-pi-housing-plunger-cap-bwbc-stamped-top-ee18425c4e40.stl",
+					"normal": [
+						0.0,
+						-0.0,
+						1.0
+					],
+					"center": [
+						-33.96,
+						15.35,
+						16.7
+					],
+					"size": [
+						12.32,
+						3.63
 					],
 					"cap": 3.5,
 					"depth": 0.6
@@ -24780,10 +26385,10 @@
 			},
 			"name": "Standoff - M3 - 10mm",
 			"category": "Standoffs",
-			"description": "Stands the Orange Pi off its extrusion mount: one screws into each of the four inserts on the plate's top face, and the Pi sits on them.",
-			"note": "The control board housing uses none, its board sits on four printed bosses. The standoff's own thread is soft and strips easily, so start each one by hand, keep it square, and stop turning the moment it seats.",
+			"description": "Stood the Orange Pi off its extrusion mount plate. Unused as of 2026-09-26: the Orange Pi housing's base has printed posts with heat inserts instead. Retired in place per VERSIONING.md.",
+			"note": "Removed 2026-09-26 with the plate it screwed into. Do not re-add.",
 			"created_at": "2026-07-18",
-			"updated_at": "2026-07-18",
+			"updated_at": "2026-09-26",
 			"attributes": [],
 			"sheet_qty": {
 				"per_machine": 4
@@ -25692,7 +27297,7 @@
 			"name": "Orange Pi 5",
 			"category": "Computer",
 			"description": "Host computer (optional, see note)",
-			"note": "Buy the plain Orange Pi 5, 8 GB. The 5 Plus, 5 Pro, 5 Max and 5 Ultra are separate boards rather than options on this one: none of them share its mounting-hole pattern, so the printed extrusion mount does not line up, and the WiFi module listed in this catalog fits the plain 5 only. The 5B is not supported either: it does fit the mount, but SorterOS is built from the plain 5's image and there is no 5B build.",
+			"note": "Buy the plain Orange Pi 5, 8 GB. The 5 Plus, 5 Pro, 5 Max and 5 Ultra are separate boards rather than options on this one: none of them share its mounting-hole pattern, so the printed housing's posts do not line up, and the WiFi module listed in this catalog fits the plain 5 only. The 5B is not supported either: it does fit the housing's posts, but SorterOS is built from the plain 5's image and there is no 5B build.",
 			"created_at": "2026-07-18",
 			"updated_at": "2026-09-26",
 			"attributes": [
@@ -25896,9 +27501,9 @@
 			"name": "Powered USB Hub - 24v - 4 ports",
 			"category": "Computer",
 			"description": "Powered USB Hub(s) for webcams and Picos (see note)",
-			"note": "The hub is fed 24 V, so it has to take 24 V DC in. Waveshare sell four hubs of this shape: USB3.2-Gen1-HUB-4U and USB3.2-Gen1-HUB-2IN-4OUT take 7 to 36 V and both work. USB-HUB-4U and USB-HUB-2IN-4OUT are 5 V only and will not run. Check the DC input range on the listing before you buy; the model is printed on the case.",
+			"note": "The hub is fed 24 V, so it has to take 24 V DC in. Waveshare sell four hubs of this shape: USB3.2-Gen1-HUB-4U and USB3.2-Gen1-HUB-2IN-4OUT take 7 to 36 V and both work. USB-HUB-4U and USB-HUB-2IN-4OUT are 5 V only and will not run. Check the DC input range on the listing before you buy; the model is printed on the case. The hub clamp on the Orange Pi housing's roof is drawn around the USB3.2-Gen1-HUB-4U.",
 			"created_at": "2026-07-18",
-			"updated_at": "2026-09-23",
+			"updated_at": "2026-09-26",
 			"attributes": [
 				{
 					"label": "Part number",

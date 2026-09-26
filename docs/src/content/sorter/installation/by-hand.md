@@ -80,26 +80,32 @@ git clone https://github.com/basicallysource/sorter-v2.git
 cd sorter-v2/software
 ```
 
+Every path from here is relative to `software/`.
+
 Vision models are not in the repo: once the backend is running it downloads Hive's default detection model for this computer and puts it on every channel.
 
-### 6. Generate `.env`
+### 6. Config files
+
+From `software/`:
 
 ```bash
 cp .env.example .env
 $EDITOR .env
-cp ui/.env.example ui/.env
+cp machine.example.toml machine.toml
 ```
 
-This is the step that bites people manually: `.env.example` ships with placeholder paths like `/home/user/sorter-v2/...` which you must replace with the absolute path of your actual clone. The one-command installer does this automatically — by hand you have to.
+This is the step that bites people manually: `.env.example` ships with a placeholder path, `SORTING_PROFILE_PATH="/home/user/sorter-v2/software/..."`, which you must replace with the absolute path of your own clone.
+
+`machine.toml` is the machine's own config, and settings you save in the UI are written to it. Copy it rather than pointing the Sorter at the example, or those settings land in a file git tracks. The [machine.toml reference]({{ '/sorter/machine-toml-reference/' | relative_url }}) describes every field, and the setup wizard fills most of them in for you.
 
 ### 7. Install dependencies
 
 ```bash
-( cd client && uv sync )
-( cd ui && pnpm install )
+( cd sorter/backend && uv sync )
+( cd sorter/frontend && pnpm install --frozen-lockfile )
 ```
 
-`uv sync` is the slow step on first install because it downloads the Python interpreter and resolves all 53 backend dependencies including OpenCV and ONNX Runtime.
+`uv sync` is the slow step on first install because it downloads the Python interpreter and resolves the backend dependencies, OpenCV and ONNX Runtime among them.
 
 ### 8. Start the dev runner
 
@@ -111,7 +117,7 @@ This starts the Python backend on `:8000` and the Vite dev server on `:5173`.
 
 ## Verify the install
 
-Open `http://localhost:5173/` in a browser. You should see the Sorter UI. The first time you open it, the in-app **Setup Wizard** takes over; [First setup in the UI]({{ '/sorter/first-setup/' | relative_url }}) takes it step by step.
+Open `http://localhost:5173/` in a browser. You should see the Sorter UI.
 
 ```bash
 curl -fsS http://localhost:8000/api/health
@@ -122,6 +128,18 @@ Should return a JSON status response.
 ## If something goes wrong
 
 See [Sorter troubleshooting]({{ '/sorter/troubleshooting/' | relative_url }}) for the common failures and their fixes.
+
+## The finished result
+
+The Sorter UI open in a browser, with nothing set up on the machine yet.
+
+<div class="img-placeholder">Screenshot of the Sorter UI as it first loads on a by-hand install, before the setup wizard has been run.</div>
+
+## Next
+
+**Flash the control board before you open the setup wizard.** The wizard only lists boards that already answer on USB serial, so a board with no firmware on it does not appear and the wizard says `No MCU buses found`. [Software setup]({{ '/hardware/software-setup/' | relative_url }}) step 2 has the route.
+
+Then [First setup in the UI]({{ '/sorter/first-setup/' | relative_url }}) takes the setup wizard step by step.
 
 ## Related
 

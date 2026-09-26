@@ -16,7 +16,7 @@ warning: >-
   names in step 3 have not been checked against the list a real machine shows.
 ---
 
-Five things stand between a set-up machine and a first sort run. All of them are in the UI and none of them takes long. Skip step 3 and the machine sees nothing at all.
+Five things stand between a set-up machine and a first sort run. All of them are in the UI and none of them takes long. Four are checks; the one you have to do is step 4, deploying a profile.
 
 ## Before you start
 
@@ -34,7 +34,7 @@ It has to match the machine you built. If it is wrong, change it here before you
 
 Open **Settings** &rarr; **Storage Layers**. Each layer needs four things: switched on, its number of sections, the number of bins in a section, and the servo that opens its doors.
 
-The setup wizard assigned the servos. The bin counts are separate, and the chute aims from them, so a wrong count sends pieces to the wrong bin. If your chute test aim landed centred every time, the counts are already right.
+The setup wizard assigned the servos, and you set the counts at [chute calibration]({{ '/sorter/chute-calibration/' | relative_url }}). This is the check: if your chute test aim landed centred every time, the counts are already right.
 
 ## 3. Check the detection model
 
@@ -70,6 +70,12 @@ You need no account and no key for this. The **OpenRouter** key on the Settings 
 
 The aiming is saved. The homing is not. Home the chute from **Settings** &rarr; **Chute** &rarr; **Home to Endstop** before each run, and again after any stall. Until it is homed, the aiming numbers mean nothing.
 
+## The finished result
+
+A profile active, its categories assigned to bins, and the chute homed.
+
+<div class="img-placeholder">Screenshot of the dashboard with the Presort profile active and the machine reading READY.</div>
+
 ## Next
 
-[Your first sort run]({{ '/sorter/tutorials/first-sort-run/' | relative_url }}).
+[Preparing LEGO for a sort run]({{ '/sorter/preparing-lego/' | relative_url }}), which is what to take out of a tub of bulk LEGO before it goes in the bulk bucket, then [your first sort run]({{ '/sorter/tutorials/first-sort-run/' | relative_url }}).

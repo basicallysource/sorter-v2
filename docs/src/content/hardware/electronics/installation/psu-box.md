@@ -117,7 +117,7 @@ The supply's case has four threaded holes in its back face, and the tray's floor
     <figcaption>The four threaded holes on the back of the supply, and which end the terminal block is on. The hex-stamped holes beside them are the case's own screws, not these. <cite>Manufacturer photo, marked up.</cite></figcaption>
   </figure>
   <figure>
-    <img src="https://assets.basically.website/sorter-docs/psu-box-tray-m4-full-057784120f30.png" alt="Render of the shell rear tray seen from above and to one side, its honeycomb floor and vented walls visible, with the four round clearance holes the M4 screws pass through ringed">
+    <img src="https://assets.basically.website/sorter-docs/psu-box-tray-m4-full-09ec55ebc573.png" alt="Render of the shell rear tray seen from above and to one side, its honeycomb floor and vented walls visible, with the four round clearance holes the M4 screws pass through ringed">
     <figcaption>The same four, in the tray's floor. The screws go in from underneath. <cite>Rendered from the part's own STL.</cite></figcaption>
   </figure>
 </div>
@@ -164,7 +164,7 @@ Then the two lids, 8 {% include fastener.html size="M3" variant="countersunk" le
 </ol>
 
 <figure class="harness-figure">
-  <img src="https://assets.basically.website/sorter-docs/psu-box-lids-full-0b71799e77ad.png" alt="Render of the PSU housing with both lids lifted off and set down beside it, the plain front lid and the vented rear lid side by side, and all eight self-tapping bosses in the two shell parts ringed on the open box">
+  <img src="https://assets.basically.website/sorter-docs/psu-box-lids-full-bd00f0272ce4.png" alt="Render of the PSU housing with both lids lifted off and set down beside it, the plain front lid and the vented rear lid side by side, and all eight self-tapping bosses in the two shell parts ringed on the open box">
   <figcaption>Both lids lifted off, with all eight screw holes ringed. <cite>Rendered from the parts' own STLs.</cite></figcaption>
 </figure>
 

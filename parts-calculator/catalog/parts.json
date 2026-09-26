@@ -4908,20 +4908,67 @@
       "category": "Motors",
       "description": "Standard Servo for flap (serial upgrade see note)",
       "created_at": "2026-07-18",
-      "updated_at": "2026-07-18",
+      "updated_at": "2026-09-26",
       "sheet_qty": {
         "per_layer": 1
       },
-      "image_url": "https://assets.basically.website/sorter-parts/servo-mg995-full-8a8b0ae4bdd9.jpg",
+      "attributes": [
+        {
+          "label": "Model",
+          "value": "Deegoo-FPV MG995, standard size"
+        },
+        {
+          "label": "Type",
+          "value": "Digital, metal gear, dual ball bearing"
+        },
+        {
+          "label": "Travel",
+          "value": "180° positional, over a 500–2500 µs pulse; 1500 µs is centre"
+        },
+        {
+          "label": "Stall torque",
+          "value": "12 kgf·cm at 6 V and 13 kgf·cm at 7.2 V per the listing; TowerPro's MG995 datasheet rates 9.4 kgf·cm at 4.8 V and 11 kgf·cm at 6 V"
+        },
+        {
+          "label": "No-load speed",
+          "value": "0.17 s/60° at 4.8 V, 0.13 s/60° at 6 V"
+        },
+        {
+          "label": "Operating voltage",
+          "value": "4.8–7.2 V. The board feeds it 6.5 V on the ServoV rail"
+        },
+        {
+          "label": "Current",
+          "value": "10 mA idle, 170 mA no load, 1.2 A stalled"
+        },
+        {
+          "label": "Output spline",
+          "value": "25T metal, takes the MG995 servo horn"
+        },
+        {
+          "label": "Dimensions",
+          "value": "40.7 × 19.7 × 42.9 mm"
+        },
+        {
+          "label": "Weight",
+          "value": "55 g"
+        },
+        {
+          "label": "Lead",
+          "value": "300 mm, 3-wire JR/Futaba plug: brown GND, red +ServoV, orange signal"
+        }
+      ],
+      "note": "Sold in a 360° continuous-rotation version under the same name and in an identical case. The flap needs the positional one, so check the listing says 180°.",
+      "image_url": "https://assets.basically.website/sorter-parts/servo-mg995-full-a7a61e9b64c1.jpg",
       "sourcing": {
         "vendors": [
           {
             "region": "US",
             "vendor": "Amazon",
             "url": "https://www.amazon.com/dp/B07NQJ1VZ2",
-            "price": 17.98,
+            "price": 17.49,
             "pack_qty": 4,
-            "as_of": "2026-04-16",
+            "as_of": "2026-09-26",
             "affiliate_url": "https://www.amazon.com/dp/B07NQJ1VZ2?tag=sorterv2-20"
           }
         ]

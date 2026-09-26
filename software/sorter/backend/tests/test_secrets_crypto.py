@@ -93,16 +93,18 @@ class SecretsCryptoTests(unittest.TestCase):
         assert config is not None
         self.assertEqual("hive-token-xyz", config["targets"][0]["api_token"])
 
-    def test_seed_file_is_created_with_restrictive_mode(self) -> None:
+    def test_seed_is_persisted_in_state_db(self) -> None:
+        import base64
+
         from local_state import set_api_keys
+        from secrets_crypto import _SEED_STATE_KEY
 
         set_api_keys({"openrouter": "kick-off"})
 
-        self.assertTrue(self.seed_path.exists())
-        mode = self.seed_path.stat().st_mode & 0o777
-        # chmod may silently no-op on some filesystems; only assert when it stuck.
-        if mode != 0:
-            self.assertEqual(0o600, mode)
+        raw = self._raw_state_value(_SEED_STATE_KEY)
+        assert raw is not None
+        self.assertGreaterEqual(len(base64.b64decode(raw.strip('"'))), 32)
+        self.assertFalse(self.seed_path.exists())
 
     def test_missing_ciphertext_decrypts_to_empty_string(self) -> None:
         from secrets_crypto import decrypt_str

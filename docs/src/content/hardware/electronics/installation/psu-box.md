@@ -67,7 +67,7 @@ The fasteners and quantities are in the parts list above and are called out inli
 
 {% include step.html n="1" title="Fit and wire the three jacks" %}
 
-Push each jack through a round hole from behind and do its nut up on the outside, finger tight. Any of the three round holes will do, and the panel itself goes in either way up.
+Push each jack through a round hole from behind and do its nut up on the outside, finger tight. Any of the three round holes will do.
 
 <figure class="harness-figure">
   <img src="https://assets.basically.website/sorter-docs/psu-box-front-panel-v3-full-2fea8da2bd43.png" alt="Dimensioned drawing of the PSU housing front panel seen from outside: a landscape panel 131 by 50 mm, with three 12 mm round jack holes in a row on the left at 20 mm pitch, and on the right a 47.5 by 28 mm rectangular mains inlet cutout with a 2.8 mm screw pilot hole above it and another below it, 40 mm apart on its centreline">
@@ -154,7 +154,7 @@ For each one: back the screw off a few turns, slide the fork terminal in under i
 
 {% include step.html n="5" title="Close the box" %}
 
-Slot the front panel down into the front module, then bring the front module up against the tray so the two shells meet. Lay the leads so none of them rests against the mains screws.
+Slot the front panel down into the front module, either way up, then bring the front module up against the tray so the two shells meet. Lay the leads so none of them rests against the mains screws.
 
 Then the two lids, 8 {% include fastener.html size="M3" variant="countersunk" length="12" %}. They cut their own thread in the shell parts, so run each one in until the lid is tight and stop.
 

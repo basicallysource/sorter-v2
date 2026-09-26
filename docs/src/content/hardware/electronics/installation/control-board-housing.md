@@ -8,7 +8,7 @@ kicker: Electronics — Control board housing
 lede: Closing the control board into its printed housing, with the 40 mm fan on a GPIO-controlled port and the reset plunger in its lid.
 permalink: /hardware/electronics/installation/control-board-housing/
 author: spencer
-og_image: https://assets.basically.website/sorter-docs/assembly-control-board-housing-housing-angled-w1600-d8c3ed33682d.jpg
+og_image: https://assets.basically.website/sorter-docs/assembly-control-board-housing-closed-render-full-a4e91f346045.png
 tools_needed: ["Hex keys, 2 mm and 2.5 mm", "Soldering iron or heat-set insert press"]
 parts_needed:
   - part: ctrl-board-housing-base
@@ -41,13 +41,6 @@ The fasteners and quantities are in the parts list above and are called out inli
 
 {% include fastener-legend.html %}
 
-<div class="img-row">
-  <figure>
-    <img src="https://assets.basically.website/sorter-docs/assembly-control-board-housing-parts-laid-out-w1600-ce307f40e5fe.jpg" alt="All the housing parts laid out on a bench: the black printed cover on the left, the populated green control board in the middle, the black printed base with brass inserts on the right, and above them the 40 mm fan, four groups of screws, the plunger retainer and the plunger">
-    <figcaption>Cover left, board centre, base right. <cite>Photo: Spencer.</cite></figcaption>
-  </figure>
-</div>
-
 Eight screws go into the base: four hold the board down, four close the cover over it.
 
 {% include step.html n="1" title="Preparation" %}
@@ -70,8 +63,8 @@ Sit the board on the four inner bosses and fix it with 4 {% include fastener.htm
 
 <div class="img-row">
   <figure>
-    <img src="https://assets.basically.website/sorter-docs/assembly-control-board-housing-board-on-base-w1600-481484d82b53.jpg" alt="Left, the populated control board screwed flat onto the printed base with its two extrusion clamp bosses at the bottom. Right, the printed cover upside down with the 40 mm fan and the plunger retainer already fitted inside it">
-    <figcaption><cite>Photo: Spencer.</cite></figcaption>
+    <img src="https://assets.basically.website/sorter-docs/assembly-control-board-housing-board-on-base-crop-full-8ca7e7615927.jpg" alt="The populated control board screwed flat onto the printed base, its two extrusion clamp bosses at the bottom edge">
+    <figcaption>The board down on the four inner bosses. <cite>Photo: Spencer.</cite></figcaption>
   </figure>
 </div>
 
@@ -83,8 +76,8 @@ Take these four by hand and stop as soon as the retainer is down on its post. Th
 
 <div class="img-row">
   <figure>
-    <img src="https://assets.basically.website/sorter-docs/assembly-control-board-housing-fan-in-cover-w1600-73bbe941cbdb.jpg" alt="The inside of the printed cover with the 40 mm WINSINN fan screwed down over its vent opening on four screws, its red and black lead running off to the left, and the rectangular plunger slot beside it">
-    <figcaption>The earlier cover, where the fan screwed straight into the plastic through its own corners. The current one holds it with the two retainers. <cite>Photo: Spencer.</cite></figcaption>
+    <img src="https://assets.basically.website/sorter-docs/assembly-control-board-housing-fan-retainers-render-full-0d2aaecf74c2.png" alt="Render of the inside of the cover with both fan retainers in colour, each lying across the honeycomb vent on two posts with a countersunk screw hole at either end">
+    <figcaption>Both retainers on their posts, either side of the vent. The fan goes between them and the lid and is not drawn. <cite>Rendered from the parts' own geometry in assembly position, not from a build. Render: Balloon.</cite></figcaption>
   </figure>
 </div>
 
@@ -94,21 +87,17 @@ The plunger lands on the board's reset button, so the button can be pressed with
 
 <div class="img-row">
   <figure>
-    <img src="https://assets.basically.website/sorter-docs/assembly-control-board-housing-retainer-fitted-w1600-c7677da6c247.jpg" alt="Inside the cover, the retainer screwed down on two countersunk screws over the plunger, capturing it so it can slide but not fall out, with the fan behind">
-    <figcaption><cite>Photo: Spencer.</cite></figcaption>
+    <img src="https://assets.basically.website/sorter-docs/assembly-control-board-housing-plunger-retainer-render-full-8bfb22be786a.png" alt="Render of the inside of the cover with the plunger in colour standing up through its slot and the retainer in a second colour screwed down over it on two countersunk screws">
+    <figcaption>The plunger (orange) through the slot, the retainer (blue) holding it in. <cite>Rendered from the parts' own geometry in assembly position, not from a build. Render: Balloon.</cite></figcaption>
   </figure>
 </div>
 
-What that buys you is easier to see in section, once the cover is on: the plunger's head sits just below the lid's surface, the retainer holds it in the slot, and its foot sits over the button on the board. The renders below are of the earlier plunger, which stood proud of the lid.
+What that buys you is easier to see in section, once the cover is on: the plunger's head sits just below the lid's surface, the retainer holds it in the slot, and its foot sits over the button on the board.
 
 <div class="img-row">
   <figure>
-    <img class="doc-figure" src="https://assets.basically.website/sorter-parts/ctrl-board-housing-assembly-render-full-6f4acadd3ffc.png" alt="Onshape render of the control board housing, closed, standing on a length of 2020 extrusion, with the honeycomb fan vent and the square plunger head in the cover">
-    <figcaption>The housing closed. <cite>Rendered from the part geometry, not from a build. Render: Spencer.</cite></figcaption>
-  </figure>
-  <figure>
-    <img class="doc-figure" src="https://assets.basically.website/sorter-parts/ctrl-board-housing-plunger-section-full-a5319da2b902.png" alt="Section through the closed housing at the plunger: the plunger passes down through the cover, the retainer holds it in the slot, and its foot stands over the reset button on the board below">
-    <figcaption>The same housing cut at the plunger: through the cover, held by the retainer, standing over the board. <cite>Rendered from the part geometry, not from a build. Render: Spencer.</cite></figcaption>
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-control-board-housing-plunger-section-render-full-f69f823f6898.png" alt="Section through the closed housing at the plunger: the plunger passes down through the lid with its head ending below the lid's outer surface, the retainer holds it in the slot, and its foot stands over the base">
+    <figcaption>The joint cut through the plunger: the head (orange) ends below the lid's surface, and the retainer (blue) holds it in the slot. The board is not drawn. <cite>Rendered from the parts' own geometry in assembly position, not from a build. Render: Balloon.</cite></figcaption>
   </figure>
 </div>
 
@@ -135,46 +124,19 @@ The fan runs off one of the board's four LED ports. The red wire goes to `+V`.
 
 {% include step.html n="6" title="Close the housing" %}
 
-Lower the cover on, keeping the fan lead clear of the board, and fix it with 4 {% include fastener.html size="M3" variant="countersunk" length="12" %} screws into the corner inserts. The stepper connectors stay reachable through the slots in the wall.
-
-<div class="img-row">
-  <figure>
-    <img src="https://assets.basically.website/sorter-docs/assembly-control-board-housing-cover-on-base-w1600-a77ec49b9e64.jpg" alt="The cover set down on the base with the housing closed, the fan's lead emerging through the corner cutout, and four countersunk screws lying on the bench beside it ready to go in">
-    <figcaption><cite>Photo: Spencer.</cite></figcaption>
-  </figure>
-</div>
+Lower the cover on, keeping the fan lead clear of the board, and fix it with 4 {% include fastener.html size="M3" variant="countersunk" length="12" %} screws into the corner inserts. The stepper connectors stay reachable through the bays in the wall.
 
 {% include step.html n="7" title="Check the reset plunger" %}
 
 Press the plunger on the lid. Its head sits just below the surface, so it takes a fingertip pressed into the recess. You should hear the button click.
 
-<div class="img-row">
-  <figure>
-    <img src="https://assets.basically.website/sorter-docs/assembly-control-board-housing-plunger-outside-w1600-737114636bdb.jpg" alt="Close-up of the lid surface showing the small square head of the plunger standing proud of the textured black plastic, with the honeycomb vent and basically logo nearby">
-    <figcaption>The earlier plunger, which stood proud of the lid. <cite>Photo: Spencer.</cite></figcaption>
-  </figure>
-</div>
-
-<figure class="video-figure">
-  <div class="video-embed-self">
-    <video controls preload="none" playsinline
-      poster="https://assets.basically.website/sorter-docs/pressing-the-plunger-poster-6e2ab26816a2.jpg"
-      width="1280" height="2275"
-    >
-      <source src="https://assets.basically.website/sorter-docs/pressing-the-plunger-w960-0383f6a741bb.mp4" type="video/mp4">
-      <source src="https://assets.basically.website/sorter-docs/pressing-the-plunger-w1920-7d9064396d9c.mp4" type="video/mp4">
-    </video>
-  </div>
-  <figcaption><cite>Video: Spencer.</cite></figcaption>
-</figure>
-
 ## The finished result
 
-The housing closed, with the fan and the reset plunger in the cover and the stepper connectors still reachable through the slots in the wall.
+The housing closed, with the fan and the reset plunger in the cover and the stepper connectors still reachable through the bays in the wall.
 
 <figure class="single-figure">
-  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-control-board-housing-housing-angled-w1600-d8c3ed33682d.jpg" alt="The finished housing at an angle, showing the honeycomb vent and basically logo on the lid, the plunger standing proud of the surface, and the slots along the right edge that expose the stepper connectors">
-  <figcaption>The closed housing, from above and to one side. <cite>Photo: Spencer.</cite></figcaption>
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-control-board-housing-closed-render-full-a4e91f346045.png" alt="Render of the finished housing at an angle, showing the honeycomb vent and basically logo on the lid, the recessed square plunger head, and the bays along the right edge that expose the stepper connectors">
+  <figcaption>The closed housing, from above and to one side. <cite>Rendered from the parts' own geometry in assembly position, not from a build. Render: Balloon.</cite></figcaption>
 </figure>
 
 **Bolting it to the frame is on the [installation overview]({{ '/hardware/electronics/installation/' | relative_url }})**, once all three enclosures are built.

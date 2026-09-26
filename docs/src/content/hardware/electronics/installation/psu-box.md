@@ -5,13 +5,17 @@ type: how-to
 section: hardware
 slug: electronics-psu-box
 kicker: Electronics — PSU box
-lede: The printed enclosure around the Mean Well LRS-350-24, its mains inlet, and the wiring inside it.
+lede: The printed housing around the Mean Well LRS-350-24, its mains inlet, and the wiring inside it.
 permalink: /hardware/electronics/installation/psu-box/
 author: barthel
 contributors: [spencer, brickcyclealice]
-og_image: https://assets.basically.website/sorter-parts/psu-24v-350w-full-72bba2c3919b.jpg
-last_verified: 2026-09-18
-tools_needed: ["Hex keys, 2 mm and 2.5 mm", "Screwdriver for the supply's M3.5 terminal screws"]
+og_image: https://assets.basically.website/sorter-parts/meanwell-psu-housing-v2-render-full-f4b161896ea6.png
+warning: >-
+  **AI-generated first draft.** The steps for the printed housing are written from the models, not
+  from a build, so nobody has put this box together from this page yet. Step 2's screws and nuts and
+  step 4's terminal block wiring did come from builds. One step involves mains voltage: read the page
+  fully before you start.
+tools_needed: ["Hex keys, 2 mm and 2.5 mm", "Screwdriver for the supply's M3.5 terminal screws", "5.5 mm spanner or pliers, for the M3 nuts"]
 parts_needed:
   - part: psu-24v-350w
     qty: 1
@@ -19,16 +23,22 @@ parts_needed:
     qty: 1
   - part: mains-cord-c13
     qty: 1
-  - part: scr-m3-8-cs
-    qty: 2
-  - part: meanwell-psu-back-mount
+  - part: meanwell-psu-housing-shell-rear
     qty: 1
-  - part: meanwell-psu-connections
+  - part: meanwell-psu-housing-shell-front
     qty: 1
-  - part: meanwell-psu-cap
+  - part: meanwell-psu-housing-front-panel
     qty: 1
-  - part: scr-m4-6-cs
+  - part: meanwell-psu-housing-lid-rear
+    qty: 1
+  - part: meanwell-psu-housing-lid-front
+    qty: 1
+  - part: scr-m4-12-cs
     qty: 4
+  - part: scr-m3-12-cs
+    qty: 10
+  - part: nut-m3
+    qty: 2
 ---
 
 <div class="prep-item">
@@ -47,29 +57,37 @@ The fasteners and quantities are in the parts list above and are called out inli
 
 <div class="callout callout-warning">
   <span class="callout-icon" aria-hidden="true">⚠</span>
-  <p><b>Until this box is finished it has exposed mains wiring.</b> Observe basic electrical safety precautions: do not plug a cable into the IEC inlet until the assembly is complete, the wiring is verified and the cap is on.</p>
+  <p><b>Until this box is finished it has exposed mains wiring.</b> Observe basic electrical safety precautions: do not plug a cable into the IEC inlet until the assembly is complete, the wiring is verified and both lids are on.</p>
 </div>
 
-The connections plate is populated and wired in your hand, and goes onto the supply last. Everything in steps 1 and 2 is easier with the plate loose.
+## The five printed parts
+
+<figure class="harness-figure">
+  <img src="https://assets.basically.website/sorter-docs/psu-box-exploded-full-466158fc0f97.png" alt="Exploded render of the five printed parts of the PSU housing in build order: the blue front panel at the front left, the light grey shell front module behind it, the grey shell rear tray with its honeycomb floor and vented walls, and above them the plain front lid and the vented rear lid">
+  <figcaption>The five parts, in the order they go together. The blue front panel carries the mains inlet and the three jacks. The two lids screw down onto the two shells. <cite>Rendered from the parts' own STLs.</cite></figcaption>
+</figure>
+
+**Build the front panel in your hand first.** Both wiring steps are easier with it loose, and it is the last thing that goes on.
 
 {% include step.html n="1" title="Fit and wire the three jacks" %}
 
-Push each jack through the connections plate from behind and do its nut up on the outside, finger tight. The plate has six holes in two rows of three: use the top row.
-
-Then land each pigtail on the supply's terminal block, one pigtail per **+V/-V** pair: **7 with 4, 8 with 5, 9 with 6**, the red terminal on the +V screw and the black on the -V screw of the same pair. Each pigtail must keep to one pair.
-
-For each one: back the screw off a few turns, slide the fork terminal in under it, and tighten it down. Mean Well's figure for these M3.5 screws is 8 to 10 kgf&middot;cm, about 0.8 to 1.0 N&middot;m, which is firm rather than hard.
-
-The screw numbers are Mean Well's own, printed on the supply beside the block.
+**Get the panel the right way up first.** Its two small screw holes sit at different distances from the long edges. **The hole nearer its edge goes at the top.** If you are unsure, hold the panel against the front module and look at the lower hole from inside: the right way up it is clear, upside down the module's rail covers it.
 
 <figure class="harness-figure">
-  <img src="https://assets.basically.website/sorter-docs/psu-box-terminal-map-full-81629ce6a8e1.png" alt="Diagram of the Mean Well LRS-350-24 seen from above, its nine-way terminal block down the left edge numbered 1 at the bottom to 9 at the top, the numbers being Mean Well's own and printed on the supply. Red leads run from screws 9, 8 and 7 and black leads from 6, 5 and 4, pairing 9 with 6, 8 with 5 and 7 with 4 into three barrel jacks labelled PJ3 to the Orange Pi buck, PJ2 to the powered USB hub, and PJ1 to the basically board. Below them the IEC C14 inlet switch module is drawn upright with its illuminated rocker, fuse drawer and C14 socket, and its three factory leads run to screws 1, 2 and 3, labelled AC/L, AC/N and earth: red to screw 1 as the live, blue to screw 2 as the neutral, and yellow to screw 3 as the earth. A warning band says not to plug a cable into the IEC inlet until the assembly is complete, the wiring is verified and the cap is on.">
-  <figcaption>Every lead that lands on the block, and the screw it lands on. The mains leads at the bottom are step 2, and the red and blue drawn there are one module's: check which of yours is live rather than copying the colours. <cite>Drawn from the Mean Well LRS-350 spec sheet, the inlet's catalog entry and the harness drawings.</cite></figcaption>
+  <img src="https://assets.basically.website/sorter-docs/psu-box-panel-orientation-full-9f45190c1941.png" alt="Two renders of the front panel from inside the box, one above the other on the same camera, with the inlet's two screw holes ringed. In the upper one the panel is upside down and the lower ringed hole sits on the edge of the front module's bottom rail, half buried in it. In the lower one the panel is the right way up and the lower ringed hole sits clear above the rail">
+  <figcaption>The inlet's two holes from inside, upside down and the right way up. <cite>Rendered from the parts' own STLs. Orientation found by ReveryX.</cite></figcaption>
 </figure>
 
-Tug-test each terminal once it is down.
+Push each jack through a round hole from behind and do its nut up on the outside, finger tight. Any of the three round holes will do.
 
-{% include step.html n="2" title="Fit and wire the mains inlet" %}
+<figure class="harness-figure">
+  <img src="https://assets.basically.website/sorter-docs/psu-box-front-panel-v2-full-ab4155b24380.png" alt="Dimensioned drawing of the PSU housing front panel seen from outside and the right way up: a wide landscape panel with three 12 mm round jack holes in a row on the left at 20 mm pitch, and on the right a 47.5 by 28 mm rectangular mains inlet cutout with a 3.2 mm hole above it and another below it, 40 mm apart on its centreline. The upper hole is dimensioned 4 mm from the top edge and the lower one 6 mm from the bottom edge">
+  <figcaption>The front panel from outside, the right way up: inlet on the right, jacks on the left. The 4 mm hole is the top one, which is what tells you which way up it goes. <cite>Drawn from the part's STL, not from a build.</cite></figcaption>
+</figure>
+
+Set the panel down beside the supply for now. The leads land on the terminal block in step 4, once the supply is in the tray.
+
+{% include step.html n="2" title="Fit the mains inlet" %}
 
 <div class="callout callout-warning">
   <span class="callout-icon" aria-hidden="true">⚠</span>
@@ -80,14 +98,51 @@ The **IEC C14 inlet, switch + 10 A fuse** is the machine's mains entry and its o
 
 **The cable from the wall is an ordinary IEC C13 mains lead**, the cord a desktop PC or a monitor comes with, with the plug your country uses. It is in the parts above. Three core, because the machine earths through it and out to the supply's earth screw, and 10 A or better, which matches the module's own fuse and is far more than the machine draws. It is the one part of this build most people already own, so check a drawer before buying one.
 
-Push it into the rectangular cutout from the outside so its flange sits on the outer face of the plate. Fasten it with 2 {% include fastener.html size="M3" variant="countersunk" length="8" %} screws, one through each flange hole. The flange is countersunk for them, so the heads finish flush. They cut their own thread in the plate, so run them in until the flange is tight and stop.
+Push it into the rectangular cutout from the outside, so its flange sits flat on the outer face of the panel and its two holes line up with the panel's two small holes.
 
-<figure class="harness-figure">
-  <img src="https://assets.basically.website/sorter-docs/psu-box-inlet-mounting-full-9a711b1627f7.png" alt="The PSU connections plate drawn twice, one above the other, the way it sits on the machine: a wide landscape panel with a rectangular cutout on the left, a screw hole above and below it, and six round holes on the right in two rows of three. In the lower drawing the IEC C14 inlet switch module lies on its side in the cutout, C14 socket to the left and illuminated rocker to the right, its flange covering the hole. A warning says not to plug a cable into the inlet until the assembly is complete and the wiring verified.">
-  <figcaption>The connections plate from outside, and the same plate with the inlet in it. The cap closes the top, so that edge is up. <cite>Plate drawn from its STL and the module from its published flange size, both at the same scale, not from a build.</cite></figcaption>
-</figure>
+Run an {% include fastener.html size="M3" variant="countersunk" length="12" %} through each of the two holes and put an {% include fastener.html size="M3" variant="nut" %} on the back of each. Hold the nut while you tighten the screw. Do this while the panel is still loose, because the nuts go behind it.
 
-Then land its three leads on screws 1, 2 and 3: **live on 1** (AC/L), **neutral on 2** (AC/N), **earth on 3**. The earth lead is the green-yellow one. They arrive with their terminals already crimped on, so this is three screws and nothing else.
+Stop as soon as the flange is tight. The panel bows outward before the screw gives, so the screw will not tell you when to stop.
+
+If a screw bites in the panel on its own and pulls the flange down without a nut, use an {% include fastener.html size="M3" variant="countersunk" length="8" %} instead and leave the nut off. The 12 mm only earns its length when there is a nut on the back of it.
+
+{% include step.html n="3" title="Bolt the supply into the rear tray" %}
+
+<div class="callout callout-warning">
+  <span class="callout-icon" aria-hidden="true">⚠</span>
+  <p><b>Set the supply's input voltage selector before it goes in the tray.</b> The LRS-350-24 is not universal input: a small slide switch on the side of its case, marked <code>115V</code> and <code>230V</code>, sets which mains voltage it runs on, and it has to match the socket the machine will be plugged into. Check which way it is set now, while the supply is loose and nothing is plugged in, and slide it across if it is wrong. Once it is bolted into the tray with both lids over it you cannot reach it. Left on 115 V and plugged into 230 V mains, the supply is destroyed the moment the rocker goes on.</p>
+</div>
+
+The supply's case has four threaded holes in its back face, and the tray's floor has four plain round holes that line up with them. Sit the supply in the tray and run 4 {% include fastener.html size="M4" variant="countersunk" length="12" %} screws up through the floor into the case.
+
+<div class="callout callout-warning">
+  <span class="callout-icon" aria-hidden="true">⚠</span>
+  <p><b>Nothing longer than {% include fastener.html size="M4" variant="countersunk" length="12" %} here.</b> The supply's circuit board is right behind that face. If a screw stops before it pulls the supply down, back it out rather than force it.</p>
+</div>
+
+**Put the terminal-block end at the open end of the tray**, the end the front module butts up to. The other end is where the supply's own fan is, and that is the end the vented rear lid covers.
+
+<div class="img-row">
+  <figure>
+    <img src="https://assets.basically.website/sorter-docs/psu-box-case-screws-v2-full-ac920db03995.png" alt="Photograph of the Mean Well LRS-350-24 seen from its back, with its four plain M4 threaded holes ringed, two at each end of the case, and the finned terminal-block end labelled">
+    <figcaption>The four threaded holes on the back of the supply, and which end the terminal block is on. The hex-stamped holes beside them are the case's own screws, not these. <cite>Manufacturer photo, marked up.</cite></figcaption>
+  </figure>
+  <figure>
+    <img src="https://assets.basically.website/sorter-docs/psu-box-tray-m4-full-3ee0b9ebbe4e.png" alt="Render of the shell rear tray seen from above and to one side, its honeycomb floor and vented walls visible, with the four round clearance holes the M4 screws pass through ringed">
+    <figcaption>The same four, in the tray's floor. The screws go in from underneath. <cite>Rendered from the part's own STL.</cite></figcaption>
+  </figure>
+</div>
+
+{% include step.html n="4" title="Land every lead on the terminal block" %}
+
+The block is nine screws and the numbers are Mean Well's own, printed on the supply beside it.
+
+Hold the front panel up to the open end of the tray, close enough that its leads reach, and land them all:
+
+<ol class="numbered-steps">
+  <li><b>The three pigtails</b>, one per <b>+V/-V</b> pair: <b>7 with 4, 8 with 5, 9 with 6</b>, the red terminal on the +V screw and the black on the -V screw of the same pair. Each pigtail must keep to one pair.</li>
+  <li><b>The inlet's three leads</b>: <b>live on 1</b> (AC/L), <b>neutral on 2</b> (AC/N), <b>earth on 3</b>. The earth lead is the green-yellow one.</li>
+</ol>
 
 <div class="callout callout-warning">
   <span class="callout-icon" aria-hidden="true">⚠</span>
@@ -98,43 +153,42 @@ Then land its three leads on screws 1, 2 and 3: **live on 1** (AC/L), **neutral 
 
 <figure class="single-figure">
   <img class="doc-figure" src="https://assets.basically.website/sorter-docs/psu-box-inlet-leads-tested-w1600-152d058c81fe.jpg" alt="The Mean Well LRS-350-24 on a bench with the fused IEC inlet module beside it, its three factory leads running to the bottom three screws of the terminal block: the blue lead on the screw marked L, the red lead on N and the yellow lead on the earth symbol">
-  <figcaption>One module wired after testing it: on this one the live lead turned out to be the <b>blue</b> one, so blue is on <code>L</code> and red on <code>N</code>. Another unit of the same part can be the other way round, which is the whole reason for the test. Shown with the module out of its plate, where the build fits it first. <cite>Photo: BrickCycleAlice.</cite></figcaption>
+  <figcaption>One module wired after testing it: on this one the live lead turned out to be the <b>blue</b> one, so blue is on <code>L</code> and red on <code>N</code>. Another unit of the same part can be the other way round, which is the whole reason for the test. <cite>Photo: BrickCycleAlice.</cite></figcaption>
 </figure>
 
-{% include step.html n="3" title="Fasten the plates to the supply" %}
-
-<div class="callout callout-warning">
-  <span class="callout-icon" aria-hidden="true">⚠</span>
-  <p><b>Set the supply's input voltage selector before it goes in the box.</b> The LRS-350-24 is not universal input: a small slide switch on the side of its case, marked <code>115V</code> and <code>230V</code>, sets which mains voltage it runs on, and it has to match the socket the machine will be plugged into. Check which way it is set now, while the supply is loose and nothing is plugged in, and slide it across if it is wrong. Left on 115 V and plugged into 230 V mains, the supply is destroyed the moment the rocker goes on.</p>
-</div>
-
-Fasten the PSU connections plate and the PSU back mount to the supply's own case with the 4 {% include fastener.html size="M4" variant="countersunk" length="6" %} screws, two into each plate. The supply has four M4 threads in its case, two at each end.
-
-<ol class="numbered-steps">
-  <li><b>PSU connections plate</b>, on the end the terminal block is on. This is the plate you have just wired.</li>
-  <li><b>PSU back mount</b>, on the opposite end, which is the end that bolts to the frame. Its cutout leaves the supply's own fan clear.</li>
-</ol>
-
-**The PSU box cap takes none of the four**; it goes on in step 4.
+For each one: back the screw off a few turns, slide the fork terminal in under it, and tighten it down. Mean Well's figure for these M3.5 screws is 8 to 10 kgf&middot;cm, about 0.8 to 1.0 N&middot;m, which is firm rather than hard. Tug-test each terminal once it is down.
 
 <figure class="harness-figure">
-  <img src="https://assets.basically.website/sorter-docs/psu-box-case-screws-full-8fe11b7f0d7b.png" alt="Photograph of the Mean Well LRS-350-24 seen from its back, with four of its threaded holes ringed. The two nearer the terminal block are labelled as taking the PSU connections plate, the two at the opposite end as taking the PSU back mount, each with two M4 by 6 mm countersunk screws. A note says the hex-stamped screws beside them are the case's own.">
-  <figcaption>The four M4 threads on the back of the supply, and which plate each pair takes. <cite>Manufacturer photo, marked up.</cite></figcaption>
+  <img src="https://assets.basically.website/sorter-docs/psu-box-terminal-map-full-81629ce6a8e1.png" alt="Diagram of the Mean Well LRS-350-24 seen from above, its nine-way terminal block down the left edge numbered 1 at the bottom to 9 at the top, the numbers being Mean Well's own and printed on the supply. Red leads run from screws 9, 8 and 7 and black leads from 6, 5 and 4, pairing 9 with 6, 8 with 5 and 7 with 4 into three barrel jacks labelled PJ3 to the Orange Pi buck, PJ2 to the powered USB hub, and PJ1 to the basically board. Below them the IEC C14 inlet switch module is drawn upright with its illuminated rocker, fuse drawer and C14 socket, and its three factory leads run to screws 1, 2 and 3, labelled AC/L, AC/N and earth: red to screw 1 as the live, blue to screw 2 as the neutral, and yellow to screw 3 as the earth. A warning band says not to plug a cable into the IEC inlet until the assembly is complete, the wiring is verified and the cap is on.">
+  <figcaption>Every lead that lands on the block, and the screw it lands on. The red and blue drawn at the bottom are one module's: check which of yours is live rather than copying the colours. <cite>Drawn from the Mean Well LRS-350 spec sheet, the inlet's catalog entry and the harness drawings.</cite></figcaption>
 </figure>
 
-The connections plate is a shallow tray, and the leads lie in it between the terminal block and the panel. Lay them so none of them rests against the mains screws once the cap is on.
+{% include step.html n="5" title="Close the box" %}
 
-{% include step.html n="4" title="Close the box" %}
+Slot the front panel down into the front module, then bring the front module up against the tray so the two shells meet. Lay the leads so none of them rests against the mains screws.
 
-Fit the cap. It takes no screws and nothing else holds it: it sits on top, resting on the connections plate at one end and against the supply at the other. The box is closed before the machine sees mains.
+Then the two lids, 8 {% include fastener.html size="M3" variant="countersunk" length="12" %}. They cut their own thread in the shell parts, so run each one in until the lid is tight and stop.
 
-<div class="img-placeholder">Image coming: the cap fitted, resting on the connections plate at one end and on the supply at the other</div>
+<ol class="numbered-steps">
+  <li><b>Rear lid</b>, the vented one, over the supply's fan end.</li>
+  <li><b>Front lid</b>, over the other end. It traps the front panel, so check the panel is fully seated before it goes on.</li>
+</ol>
+
+<figure class="harness-figure">
+  <img src="https://assets.basically.website/sorter-docs/psu-box-lids-full-4b1c5bd906a1.png" alt="Render of the PSU housing with both lids lifted clear above it, the vented rear lid and the plain front lid side by side, and all eight self-tapping bosses in the two shell parts ringed below them">
+  <figcaption>Both lids lifted off, with all eight screw holes ringed. <cite>Rendered from the parts' own STLs.</cite></figcaption>
+</figure>
+
+The box is closed before the machine sees mains.
 
 ## The finished result
 
-The supply with both printed plates bolted to its back, the mains inlet in the connections plate, the three jacks beside it and every lead landed on the terminal block. Shown with the cap off, because with it on there is nothing to see.
+The supply inside the closed housing, both lids down, the mains inlet and the three jacks in the front panel, and the two clamp bosses ready for the frame.
 
-<div class="img-placeholder">Image coming: the supply on the bench, both plates on, the inlet and the three jacks in the connections plate, cap off</div>
+<figure class="harness-figure">
+  <img src="https://assets.basically.website/sorter-parts/meanwell-psu-housing-v2-render-full-f4b161896ea6.png" alt="Render of the closed PSU box bolted onto a 2020 extrusion by the clamp bosses at each end, its vented rear lid on top and its front panel carrying the mains inlet and the three output jacks">
+  <figcaption>The box closed and on its extrusion. <cite>Render from the models, not from a build.</cite></figcaption>
+</figure>
 
 <div class="callout callout-warning">
   <span class="callout-icon" aria-hidden="true">⚠</span>

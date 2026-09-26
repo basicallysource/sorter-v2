@@ -21,11 +21,86 @@ If you have never picked one up, the video at the foot of this page walks throug
 
 ## Set the meter up once
 
-<ol class="numbered-steps">
-  <li><b>Black probe into <code>COM</code>, red probe into the port marked <code>V</code> and &Omega;.</b> Both checks on this page use those two ports, so the probes go in once and stay there. The third port, usually <code>10A</code>, is for measuring current, and nothing on this build asks you to.</li>
-  <li><b>Find the two positions on the dial.</b> Resistance is the <b>&Omega;</b> mark. Continuity is the symbol that looks like a sound wave, often sharing its position with the diode test. A cheap meter has several numbered &Omega; ranges instead of one. Start on the lowest. If the display shows a lone <code>1</code> or <code>OL</code>, the reading is above that range, so move up to the next one.</li>
-  <li><b>Touch the two probe tips together before you trust anything.</b> Continuity should beep, and &Omega; should read close to zero. Test leads have a resistance of their own, usually 0.1 to 0.5 &Omega;, and it is added to every reading you take. That matters here, because every reading on this page is under an ohm. If nothing happens at all, the battery or a lead is the problem, not the thing you were about to measure.</li>
-</ol>
+<figure class="harness-figure">
+  <div class="diagram diagram-wide">
+    <svg viewBox="0 0 930 424" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="The front of a digital multimeter, drawn from the front. A display at the top, a rotary dial in the middle and three probe ports along the bottom. The dial carries OFF, DC volts, AC volts and current on one side, and on the other the continuity position, marked with a dot and three arcs, and three resistance ranges bracketed together under an omega. The pointer is parked on continuity. Of the three ports, the one marked V omega mA takes the red probe and the one marked COM takes the black probe, and the third, 10A, is unused. Three numbered notes beside the meter explain the continuity position, the resistance ranges and the two ports.">
+      <text x="0" y="20" font-size="17" font-weight="700" fill="var(--ink)">The two settings this build uses, and where the probes go</text>
+      <text x="0" y="41" font-size="12" fill="var(--muted)">Every meter is laid out differently. These are the marks to look for on yours.</text>
+      <rect x="0" y="70" width="300" height="330" rx="8" fill="var(--surface)" stroke="var(--ink)" stroke-width="1.5"/>
+      <rect x="34" y="90" width="232" height="44" rx="3" fill="var(--bg)" stroke="var(--line)" stroke-width="1"/>
+      <text x="256" y="122" font-size="22" font-weight="700" text-anchor="end" font-family="var(--font-mono), monospace" fill="var(--muted)">OL</text>
+      <circle cx="150" cy="226" r="58" fill="var(--bg)" stroke="var(--ink)" stroke-width="1.5"/>
+      <circle cx="150" cy="226" r="27" fill="var(--surface)" stroke="var(--ink)" stroke-width="1.5"/>
+      <line x1="150.0" y1="179.0" x2="150.0" y2="169.0" stroke="var(--ink)" stroke-width="1.2" stroke-linecap="round"/>
+      <text x="150.0" y="156.0" font-size="12" text-anchor="middle" fill="var(--ink)">OFF</text>
+      <line x1="183.2" y1="192.8" x2="190.3" y2="185.7" stroke="var(--ink)" stroke-width="1.2" stroke-linecap="round"/>
+      <text x="198.3259018078045" y="177.6740981921955" font-size="12" text-anchor="start" fill="var(--ink)">V</text>
+      <line x1="196.3" y1="217.8" x2="206.1" y2="216.1" stroke="var(--ink)" stroke-width="1.2" stroke-linecap="round"/>
+      <text x="218.87577372290338" y="217.15003485264717" font-size="12" text-anchor="start" fill="var(--ink)">V~</text>
+      <line x1="192.6" y1="245.9" x2="201.7" y2="250.1" stroke="var(--ink)" stroke-width="1.2" stroke-linecap="round"/>
+      <text x="213.0667762407121" y="261.27375136881176" font-size="12" text-anchor="start" fill="var(--ink)">A</text>
+      <line x1="145.9" y1="272.8" x2="145.0" y2="282.8" stroke="var(--primary)" stroke-width="2.2" stroke-linecap="round"/>
+      <line x1="116.8" y1="259.2" x2="109.7" y2="266.3" stroke="var(--primary)" stroke-width="2.2" stroke-linecap="round"/>
+      <text x="101.67409819219549" y="282.32590180780454" font-size="12" font-weight="700" text-anchor="end" fill="var(--primary)">200</text>
+      <line x1="103.5" y1="232.5" x2="93.6" y2="233.9" stroke="var(--primary)" stroke-width="2.2" stroke-linecap="round"/>
+      <text x="80.72016291312379" y="240.29880947104482" font-size="12" font-weight="700" text-anchor="end" fill="var(--primary)">2k</text>
+      <line x1="108.9" y1="203.2" x2="100.1" y2="198.4" stroke="var(--primary)" stroke-width="2.2" stroke-linecap="round"/>
+      <text x="89.27814167168471" y="194.12408810177106" font-size="12" font-weight="700" text-anchor="end" fill="var(--primary)">20k</text>
+      <circle cx="127.0" cy="305.7" r="2.6" fill="var(--primary)"/>
+      <path d="M 131.8 301.0 A 6 6 0 0 1 131.8 310.4" fill="none" stroke="var(--primary)" stroke-width="1.6" stroke-linecap="round"/>
+      <path d="M 133.3 297.1 A 11 11 0 0 1 133.3 314.3" fill="none" stroke="var(--primary)" stroke-width="1.6" stroke-linecap="round"/>
+      <path d="M 134.8 293.2 A 16 16 0 0 1 134.8 318.2" fill="none" stroke="var(--primary)" stroke-width="1.6" stroke-linecap="round"/>
+      <text x="40.0510485759104" y="246.03069490368705" font-size="17" font-weight="700" text-anchor="end" fill="var(--primary)">Ω</text>
+      <line x1="150" y1="226" x2="147.9" y2="249.9" stroke="var(--primary)" stroke-width="3.4" stroke-linecap="round"/>
+      <circle cx="66" cy="348" r="13" fill="var(--bg)" stroke="var(--muted)" stroke-width="1.2"/>
+      <circle cx="66" cy="348" r="4" fill="var(--ink)"/>
+      <text x="66" y="380" font-size="11" text-anchor="middle" fill="var(--muted)">10A</text>
+      <text x="66" y="396" font-size="10" text-anchor="middle" fill="var(--muted)">not used</text>
+      <circle cx="150" cy="348" r="13" fill="var(--bg)" stroke="#d01012" stroke-width="2.4"/>
+      <circle cx="150" cy="348" r="4" fill="var(--ink)"/>
+      <text x="150" y="380" font-size="11" font-weight="700" text-anchor="middle" fill="var(--ink)">VΩmA</text>
+      <text x="150" y="396" font-size="10" text-anchor="middle" fill="var(--muted)">red probe</text>
+      <circle cx="234" cy="348" r="13" fill="var(--bg)" stroke="#1a1a1a" stroke-width="2.4"/>
+      <circle cx="234" cy="348" r="4" fill="var(--ink)"/>
+      <text x="234" y="380" font-size="11" font-weight="700" text-anchor="middle" fill="var(--ink)">COM</text>
+      <text x="234" y="396" font-size="10" text-anchor="middle" fill="var(--muted)">black probe</text>
+      <rect x="344" y="68" width="586" height="104" rx="5" fill="var(--bg)" stroke="var(--line)" stroke-width="1"/>
+      <circle cx="374" cy="98" r="12" fill="var(--primary)"/>
+      <text x="374" y="102" font-size="12" font-weight="700" text-anchor="middle" fill="#ffffff">1</text>
+      <text x="452" y="96" font-size="13" font-weight="700" fill="var(--ink)">Continuity</text>
+      <text x="452" y="116" font-size="12" fill="var(--muted)">The meter beeps when the two probe tips are joined. Listen for it rather</text>
+      <text x="452" y="132" font-size="12" fill="var(--muted)">than watching the display. On many meters this position is shared with</text>
+      <text x="452" y="148" font-size="12" fill="var(--muted)">the diode test.</text>
+      <circle cx="394" cy="116" r="3.2" fill="var(--ink)"/>
+      <path d="M 400.4 109.8 A 8 8 0 0 1 400.4 122.2" fill="none" stroke="var(--ink)" stroke-width="1.8" stroke-linecap="round"/>
+      <path d="M 402.2 105.1 A 14 14 0 0 1 402.2 126.9" fill="none" stroke="var(--ink)" stroke-width="1.8" stroke-linecap="round"/>
+      <path d="M 404.0 100.4 A 20 20 0 0 1 404.0 131.6" fill="none" stroke="var(--ink)" stroke-width="1.8" stroke-linecap="round"/>
+      <rect x="344" y="184" width="586" height="104" rx="5" fill="var(--bg)" stroke="var(--line)" stroke-width="1"/>
+      <circle cx="374" cy="214" r="12" fill="var(--primary)"/>
+      <text x="374" y="218" font-size="12" font-weight="700" text-anchor="middle" fill="#ffffff">2</text>
+      <text x="452" y="212" font-size="13" font-weight="700" fill="var(--ink)">Resistance</text>
+      <text x="452" y="232" font-size="12" fill="var(--muted)">Reads how many ohms sit between the probes. A meter with numbered ranges</text>
+      <text x="452" y="248" font-size="12" fill="var(--muted)">instead of one Ω mark starts on the lowest, because every reading on this</text>
+      <text x="452" y="264" font-size="12" fill="var(--muted)">page is under an ohm.</text>
+      <text x="406" y="240" font-size="30" font-weight="700" text-anchor="middle" fill="var(--ink)">Ω</text>
+      <rect x="344" y="300" width="586" height="104" rx="5" fill="var(--bg)" stroke="var(--line)" stroke-width="1"/>
+      <circle cx="374" cy="330" r="12" fill="var(--primary)"/>
+      <text x="374" y="334" font-size="12" font-weight="700" text-anchor="middle" fill="#ffffff">3</text>
+      <text x="452" y="328" font-size="13" font-weight="700" fill="var(--ink)">Where the probes go</text>
+      <text x="452" y="348" font-size="12" fill="var(--muted)">Black into COM, red into the port marked V and Ω. Both checks use those</text>
+      <text x="452" y="364" font-size="12" fill="var(--muted)">two, so they go in once and stay there. The third port is for measuring</text>
+      <text x="452" y="380" font-size="12" fill="var(--muted)">current, which nothing here asks for.</text>
+      <circle cx="392" cy="352" r="9" fill="var(--bg)" stroke="#d01012" stroke-width="1.8"/>
+      <circle cx="392" cy="352" r="3" fill="var(--ink)"/>
+      <circle cx="420" cy="352" r="9" fill="var(--bg)" stroke="#1a1a1a" stroke-width="1.8"/>
+      <circle cx="420" cy="352" r="3" fill="var(--ink)"/>
+    </svg>
+  </div>  <figcaption>Yours will not look like this one. The marks are what carry over. It is drawn parked on continuity with nothing connected, which is the <code>OL</code> on the display.</figcaption>
+</figure>
+
+**Then check the meter itself, before you trust it on anything else.** Touch the two probe tips together. Continuity should beep, and &Omega; should read close to zero. Test leads have a resistance of their own, usually 0.1 to 0.5 &Omega;, and it is added to every reading you take. That matters here, because every reading on this page is under an ohm. If nothing happens at all, the battery or a lead is the problem, not the thing you were about to measure.
+
+**If the display shows a lone `1` or `OL` on a numbered &Omega; range**, the reading is above that range, so move up to the next one. An autoranging meter picks the range for you.
 
 <div class="callout callout-warning">
   <span class="callout-icon" aria-hidden="true">⚠</span>

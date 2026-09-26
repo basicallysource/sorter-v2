@@ -2766,15 +2766,13 @@
       "id": "meanwell-psu-back-mount",
       "uid": "15uh",
       "name": "PSU back mount",
-      "description": "Back mount that holds the Meanwell 24V PSU.",
-      "internal_notes": "Meanwell 24V PSU box assembly. Colour (frame) + qty 1/machine are DEFAULTS pending confirmation. Electronics section is experimental.",
+      "description": "Back mount that held the Meanwell 24V PSU on the v1 three-plate box.",
+      "internal_notes": "Unused from 2026-09-21. The three plates screwed onto the supply's own case were replaced by the five-piece PSU housing (meanwell-psu-housing-*), adopted from candidate 1d0t as meanwell-psu-box v3. Kept for uid resolvability and for anyone holding a print of the v1 box; do not re-add it to an assembly.",
       "version": "1",
       "created_at": "2026-07-03",
-      "updated_at": "2026-07-03",
-      "quantities": {
-        "electronics": 1
-      },
-      "assembly": "meanwell-psu-box",
+      "updated_at": "2026-09-21",
+      "quantities": {},
+      "assembly": null,
       "onshape": "https://cad.onshape.com/documents/ff3546ceb03f5fc907e6ed4c/w/76ea03e60d160b9d0990194d/e/b9f80b00e4dd34407e23b560",
       "stl_hash": "e09524f65ab42f6647abd8d41f7e4bbde08be8e8261d488d0fbd92c0e8bbddcc",
       "source": "Meanwell 24v PSU Box - psu back mount.stl",
@@ -2788,15 +2786,13 @@
       "id": "meanwell-psu-connections",
       "uid": "08id",
       "name": "PSU connections plate",
-      "description": "Connections plate for the Meanwell 24V PSU box.",
-      "internal_notes": "Meanwell 24V PSU box assembly. Colour (frame) + qty 1/machine are DEFAULTS pending confirmation. Electronics section is experimental.",
+      "description": "Connections plate of the v1 three-plate Meanwell 24V PSU box.",
+      "internal_notes": "Unused from 2026-09-21. The three plates screwed onto the supply's own case were replaced by the five-piece PSU housing (meanwell-psu-housing-*), adopted from candidate 1d0t as meanwell-psu-box v3. Kept for uid resolvability and for anyone holding a print of the v1 box; do not re-add it to an assembly.",
       "version": "1",
       "created_at": "2026-07-03",
-      "updated_at": "2026-07-03",
-      "quantities": {
-        "electronics": 1
-      },
-      "assembly": "meanwell-psu-box",
+      "updated_at": "2026-09-21",
+      "quantities": {},
+      "assembly": null,
       "onshape": "https://cad.onshape.com/documents/ff3546ceb03f5fc907e6ed4c/w/76ea03e60d160b9d0990194d/e/b9f80b00e4dd34407e23b560",
       "stl_hash": "f94f353956fde415361167f6aa391e85b8f13ad619204d60b202fcf09a3686e9",
       "source": "Meanwell 24v PSU Box - psu connections.stl",
@@ -2810,15 +2806,13 @@
       "id": "meanwell-psu-cap",
       "uid": "5nt1",
       "name": "PSU box cap",
-      "description": "Cap for the Meanwell 24V PSU box.",
-      "internal_notes": "Meanwell 24V PSU box assembly. Colour (frame) + qty 1/machine are DEFAULTS pending confirmation. Electronics section is experimental.",
+      "description": "Cap of the v1 three-plate Meanwell 24V PSU box.",
+      "internal_notes": "Unused from 2026-09-21. The three plates screwed onto the supply's own case were replaced by the five-piece PSU housing (meanwell-psu-housing-*), adopted from candidate 1d0t as meanwell-psu-box v3. Kept for uid resolvability and for anyone holding a print of the v1 box; do not re-add it to an assembly.",
       "version": "1",
       "created_at": "2026-07-03",
-      "updated_at": "2026-07-03",
-      "quantities": {
-        "electronics": 1
-      },
-      "assembly": "meanwell-psu-box",
+      "updated_at": "2026-09-21",
+      "quantities": {},
+      "assembly": null,
       "onshape": "https://cad.onshape.com/documents/ff3546ceb03f5fc907e6ed4c/w/76ea03e60d160b9d0990194d/e/b9f80b00e4dd34407e23b560",
       "stl_hash": "2fa72485f7b395f7cbcb898e99dff616475eb80bb80520b5dbd4b066032aed62",
       "source": "Meanwell 24v PSU Box - cap.stl",
@@ -2976,19 +2970,21 @@
       "optional": false,
       "support": false,
       "onshape_version": "https://cad.onshape.com/documents/10ae43b609bb2df0f86cce4b/v/226293ea2e329f1f548b78a1/e/6e1da7cee8967d584080406f",
-      "note": "Removed 2026-09-26: the Orange Pi is cooled by its own heatsink fan (fan-orange-pi-5-heatsink). Do not re-add — older photos and renders still show the arm on the Orange Pi mount, and if a board ever needs a cantilevered fan again that is a new design with its own uid."
+      "note": "Removed 2026-09-26: the Orange Pi is cooled by its own heatsink fan (fan-orange-pi-5-heatsink). Do not re-add. Older photos and renders still show the arm on the Orange Pi mount, and if a board ever needs a cantilevered fan again that is a new design with its own uid."
     },
     {
       "id": "meanwell-psu-housing-shell-rear",
       "uid": "7qz3",
       "name": "PSU Housing — Shell Rear Tray",
       "description": "Rear tray of the v2 PSU housing. The Meanwell supply bolts into it on four M4 countersunk screws, and both lids screw down into it.",
-      "internal_notes": "From 'meanwell psu housing v2.zip' (Sorter V2 STLs, 2026-08-22). Exists only inside candidate 1d0t on meanwell-psu-box, so quantities stay empty and it stays out of the all-parts bundle until that candidate is promoted. Named 'housing - shell rear tray.stl'. Carries the self-tapping M3 holes for both lids.",
+      "internal_notes": "From 'meanwell psu housing v2.zip' (Sorter V2 STLs, 2026-08-22). Adopted as the PSU box on 2026-09-21 with candidate 1d0t; was design-data only before that.",
       "version": "1",
       "created_at": "2026-08-22",
-      "updated_at": "2026-08-22",
-      "quantities": {},
-      "assembly": null,
+      "updated_at": "2026-09-21",
+      "quantities": {
+        "electronics": 1
+      },
+      "assembly": "meanwell-psu-box",
       "stl_hash": "f4bc36015be125fe42a7027f667c3e3a8db46efe7e588000beb38ef1face83ec",
       "color": {
         "role": "frame"
@@ -3002,12 +2998,14 @@
       "uid": "1h8p",
       "name": "PSU Housing — Shell Front Module",
       "description": "Front module of the v2 PSU housing. The front panel slots into it, and the front lid screws down into it and into the rear tray.",
-      "internal_notes": "From 'meanwell psu housing v2.zip' (Sorter V2 STLs, 2026-08-22). Exists only inside candidate 1d0t on meanwell-psu-box, so quantities stay empty and it stays out of the all-parts bundle until that candidate is promoted. Named 'housing - shell front module.stl'.",
+      "internal_notes": "From 'meanwell psu housing v2.zip' (Sorter V2 STLs, 2026-08-22). Adopted as the PSU box on 2026-09-21 with candidate 1d0t; was design-data only before that.",
       "version": "1",
       "created_at": "2026-08-22",
-      "updated_at": "2026-08-22",
-      "quantities": {},
-      "assembly": null,
+      "updated_at": "2026-09-21",
+      "quantities": {
+        "electronics": 1
+      },
+      "assembly": "meanwell-psu-box",
       "stl_hash": "942fdcbb41979c057a8e2fb77fc7bbb69439284c76182f973eea802497ecfa9c",
       "color": {
         "role": "frame"
@@ -3021,12 +3019,14 @@
       "uid": "m26o",
       "name": "PSU Housing — Lid Rear",
       "description": "Rear lid of the v2 PSU housing, vented over the supply. Screws into the rear tray on four self-tapping M3 countersunk screws.",
-      "internal_notes": "From 'meanwell psu housing v2.zip' (Sorter V2 STLs, 2026-08-22). Exists only inside candidate 1d0t on meanwell-psu-box, so quantities stay empty and it stays out of the all-parts bundle until that candidate is promoted. Named 'housing - lid rear.stl'.",
+      "internal_notes": "From 'meanwell psu housing v2.zip' (Sorter V2 STLs, 2026-08-22). Adopted as the PSU box on 2026-09-21 with candidate 1d0t; was design-data only before that.",
       "version": "1",
       "created_at": "2026-08-22",
-      "updated_at": "2026-08-22",
-      "quantities": {},
-      "assembly": null,
+      "updated_at": "2026-09-21",
+      "quantities": {
+        "electronics": 1
+      },
+      "assembly": "meanwell-psu-box",
       "stl_hash": "83f226b5531d7eae5310e53213eaa63ba3bc49996d7b43dc71e661be3b614706",
       "color": {
         "role": "frame"
@@ -3040,12 +3040,14 @@
       "uid": "avux",
       "name": "PSU Housing — Lid Front",
       "description": "Front lid of the v2 PSU housing. Spans the joint, screwing two into the front module and two into the rear tray, and traps the front panel once fitted.",
-      "internal_notes": "From 'meanwell psu housing v2.zip' (Sorter V2 STLs, 2026-08-22). Exists only inside candidate 1d0t on meanwell-psu-box, so quantities stay empty and it stays out of the all-parts bundle until that candidate is promoted. Named 'housing - lid front.stl'.",
+      "internal_notes": "From 'meanwell psu housing v2.zip' (Sorter V2 STLs, 2026-08-22). Adopted as the PSU box on 2026-09-21 with candidate 1d0t; was design-data only before that.",
       "version": "1",
       "created_at": "2026-08-22",
-      "updated_at": "2026-08-22",
-      "quantities": {},
-      "assembly": null,
+      "updated_at": "2026-09-21",
+      "quantities": {
+        "electronics": 1
+      },
+      "assembly": "meanwell-psu-box",
       "stl_hash": "126a70b01f4e677d0187902ad886ad4e310de50174889cb725b6edc8b46b0db0",
       "color": {
         "role": "frame"
@@ -3059,12 +3061,14 @@
       "uid": "n1oh",
       "name": "PSU Housing — Front Panel",
       "description": "Front panel of the v2 PSU housing, carrying the mains inlet cutout. No fasteners of its own: it slots into the front module and the front lid holds it in.",
-      "internal_notes": "From 'meanwell psu housing v2.zip' (Sorter V2 STLs, 2026-08-22). Exists only inside candidate 1d0t on meanwell-psu-box, so quantities stay empty and it stays out of the all-parts bundle until that candidate is promoted. Named 'housing - front panel.stl'.",
+      "internal_notes": "From 'meanwell psu housing v2.zip' (Sorter V2 STLs, 2026-08-22). Adopted as the PSU box on 2026-09-21 with candidate 1d0t; was design-data only before that.",
       "version": "1",
       "created_at": "2026-08-22",
-      "updated_at": "2026-08-22",
-      "quantities": {},
-      "assembly": null,
+      "updated_at": "2026-09-21",
+      "quantities": {
+        "electronics": 1
+      },
+      "assembly": "meanwell-psu-box",
       "stl_hash": "69dae822bcaf92f97b84be2b482a138e57b704db4104ab6440dbee550168964f",
       "color": {
         "role": "frame"
@@ -6840,7 +6844,7 @@
       "category": "Power supply",
       "description": "Power supply",
       "created_at": "2026-07-18",
-      "updated_at": "2026-07-18",
+      "updated_at": "2026-09-23",
       "sheet_qty": {
         "per_machine": 1
       },
@@ -6857,7 +6861,29 @@
             "affiliate_url": "https://www.amazon.com/dp/B013ETVO12?tag=sorterv2-20"
           }
         ]
-      }
+      },
+      "attributes": [
+        {
+          "label": "Input",
+          "value": "90 to 132 V or 180 to 264 V, selected by a slide switch on the side. Not universal input"
+        },
+        {
+          "label": "Output",
+          "value": "24 V, 14.6 A, 350 W"
+        },
+        {
+          "label": "Case",
+          "value": "215 x 115 x 30 mm, Mean Well Case No.207A"
+        },
+        {
+          "label": "Terminal block",
+          "value": "9-way, M3.5 screws, 8 to 10 kgf-cm"
+        },
+        {
+          "label": "Case screws",
+          "value": "4-M4 on the base at 150 x 50 mm, 3 mm max screw penetration; 4-M4 on each side, 5 mm max"
+        }
+      ]
     },
     {
       "id": "psu-switch-fused",
@@ -8523,8 +8549,8 @@
     },
     {
       "id": "meanwell-psu-box",
-      "uid": "6uhi",
-      "version": "3",
+      "uid": "1d0t",
+      "version": "4",
       "versions": [
         {
           "version": "1",
@@ -8625,26 +8651,83 @@
         },
         {
           "version": "3",
+          "uid": "6uhi",
           "date": "2026-09-23",
           "message": "The three PSU output pigtails and the mains lead join the box. Each pigtail is a panel-mount barrel jack on the connections plate with a fork terminal on each of its two leads, landing on one +V/-V screw pair of the LRS-350-24; the mains lead is the C13 cord into the fused inlet. Both were hand counts from the BOM sheet and the tree totals are the same.",
+          "breaking": false,
+          "commit": null,
+          "lines": [
+            {
+              "part": "meanwell-psu-back-mount",
+              "qty": 1,
+              "uid": "15uh"
+            },
+            {
+              "part": "meanwell-psu-connections",
+              "qty": 1,
+              "uid": "08id"
+            },
+            {
+              "part": "meanwell-psu-cap",
+              "qty": 1,
+              "uid": "5nt1"
+            },
+            {
+              "part": "psu-24v-350w",
+              "qty": 1,
+              "uid": "s3ru"
+            },
+            {
+              "assembly": "harness-psu-pigtail",
+              "qty": 3,
+              "uid": "kog5"
+            },
+            {
+              "part": "scr-m4-6-cs",
+              "qty": 4,
+              "uid": "5r29"
+            },
+            {
+              "part": "scr-m5-12-shcs",
+              "qty": 2,
+              "uid": "kmah"
+            },
+            {
+              "part": "tnut-m5-2020",
+              "qty": 2,
+              "uid": "bpwm"
+            },
+            {
+              "part": "psu-switch-fused",
+              "qty": 1,
+              "uid": "lmu7"
+            },
+            {
+              "part": "mains-cord-c13",
+              "qty": 1,
+              "uid": "nuya"
+            },
+            {
+              "part": "scr-m3-8-cs",
+              "qty": 2,
+              "uid": "l6br"
+            }
+          ]
+        },
+        {
+          "version": "4",
+          "date": "2026-09-23",
+          "message": "The five-piece printed housing replaces the three plates screwed onto the supply's own case, adopted from candidate 1d0t. The supply bolts into the shell rear tray on four M4 x 12 countersunk through a 9.00 mm pad, on the case's own 150 x 50 mm M4 pattern; the 12 is the only stock length that fits, because Mean Well's drawing caps that pattern at 3 mm of screw inside the case. The rear lid closes onto the tray on four self-tapping M3 x 12 countersunk and the front lid spans the joint with four more, two into the tray and two into the shell front module; every tapping boss is 2.6 mm and 12.0 mm deep and they are all in the shell parts, never in the lids. The front panel takes no fasteners of its own: it slots into the front module and the front lid traps it, and it carries the 47.5 x 28 mm mains inlet cutout and three 12 mm jack holes at 20 mm pitch. The M5 that bolts the box to the 2020 frame goes from x 12 to x 16: each shell carries one clamp boss with a 10.00 mm grip, where the v1 back mount's boss was 8 mm, which is the same boss depth and the same M5 x 16 as the control board housing. The mains inlet takes two M3 x 12 countersunk with an M3 nut behind each, because the panel's holes are 3.2 mm clearance with no pilot; confirmed on a print, tight at the lower hole but within tolerance, and a print whose holes grip an M3 can use an M3 x 8 with no nut instead. meanwell-psu-back-mount, meanwell-psu-connections and meanwell-psu-cap are retired in place. The pigtails, the mains lead and the supply itself carry over from v3 unchanged. sorter-v2#738 is open on the front panel's missing pilot and on supporting its long edges; #740 on engraving a TOP mark so it cannot go in upside down.",
           "breaking": false,
           "commit": null
         }
       ],
-      "name": "Meanwell 24V PSU box",
-      "description": "Enclosure for the Meanwell 24V power supply: back mount, connections plate, and cap, screwed to the supply's own case.",
+      "name": "Meanwell 24V PSU Housing",
+      "description": "Enclosure for the Meanwell 24V power supply: two shell parts, a front panel carrying the mains inlet and the three output jacks, and two lids. Replaces the three plates that screwed onto the supply's own case.",
       "docs": "/hardware/electronics/installation/psu-box/",
       "lines": [
         {
-          "part": "meanwell-psu-back-mount",
-          "qty": 1
-        },
-        {
-          "part": "meanwell-psu-connections",
-          "qty": 1
-        },
-        {
-          "part": "meanwell-psu-cap",
+          "part": "meanwell-psu-housing-shell-rear",
           "qty": 1
         },
         {
@@ -8652,20 +8735,16 @@
           "qty": 1
         },
         {
-          "assembly": "harness-psu-pigtail",
-          "qty": 3
-        },
-        {
-          "part": "scr-m4-6-cs",
+          "part": "scr-m4-12-cs",
           "qty": 4
         },
         {
-          "part": "scr-m5-12-shcs",
-          "qty": 2
+          "part": "meanwell-psu-housing-shell-front",
+          "qty": 1
         },
         {
-          "part": "tnut-m5-2020",
-          "qty": 2
+          "part": "meanwell-psu-housing-front-panel",
+          "qty": 1
         },
         {
           "part": "psu-switch-fused",
@@ -8676,63 +8755,38 @@
           "qty": 1
         },
         {
-          "part": "scr-m3-8-cs",
+          "assembly": "harness-psu-pigtail",
+          "qty": 3
+        },
+        {
+          "part": "meanwell-psu-housing-lid-rear",
+          "qty": 1
+        },
+        {
+          "part": "meanwell-psu-housing-lid-front",
+          "qty": 1
+        },
+        {
+          "part": "scr-m3-12-cs",
+          "qty": 10
+        },
+        {
+          "part": "nut-m3",
+          "qty": 2
+        },
+        {
+          "part": "scr-m5-16-shcs",
+          "qty": 2
+        },
+        {
+          "part": "tnut-m5-2020",
           "qty": 2
         }
       ],
-      "candidates": [
+      "joining": [
         {
-          "uid": "1d0t",
-          "name": "Meanwell 24V PSU Housing",
-          "created_at": "2026-08-22",
-          "message": "A five-piece printed housing around the supply in place of the three plates screwed to its own case. The Meanwell bolts into the shell rear tray on four [[hw:scr-m4-12-cs]]; the rear lid closes onto the tray with four [[hw:scr-m3-8-cs]] and the front lid spans the joint with four more, two into the rear tray and two into the shell front module; the front panel carries the mains inlet and simply slots into the front module, held by the front lid. Being test-printed; may become the next version, and renames this assembly if it does.",
-          "joining": [
-            {
-              "method": "self-tap",
-              "note": "Every [[hw:scr-m3-8-cs]] here cuts its own thread -- the tapping holes are in the printed shell parts, not the lids, and there are no inserts."
-            }
-          ],
-          "images": [
-            {
-              "url": "https://assets.basically.website/sorter-parts/meanwell-psu-housing-v2-render-full-f4b161896ea6.png",
-              "alt": "Onshape render of the v2 PSU housing, closed and mounted on a 2020 extrusion",
-              "caption": "The v2 housing closed: vented rear lid, front panel with the mains inlet, on its extrusion."
-            }
-          ],
-          "lines": [
-            {
-              "part": "meanwell-psu-housing-shell-rear",
-              "qty": 1
-            },
-            {
-              "part": "psu-24v-350w",
-              "qty": 1
-            },
-            {
-              "part": "scr-m4-12-cs",
-              "qty": 4
-            },
-            {
-              "part": "meanwell-psu-housing-shell-front",
-              "qty": 1
-            },
-            {
-              "part": "meanwell-psu-housing-front-panel",
-              "qty": 1
-            },
-            {
-              "part": "meanwell-psu-housing-lid-rear",
-              "qty": 1
-            },
-            {
-              "part": "meanwell-psu-housing-lid-front",
-              "qty": 1
-            },
-            {
-              "part": "scr-m3-8-cs",
-              "qty": 8
-            }
-          ]
+          "method": "self-tap",
+          "note": "The lid screws are [[hw:scr-m3-12-cs]] cutting their own thread in 2.6 mm tapping holes in the shell parts, never in the lids, and there are no inserts. The mains inlet is the one nutted joint: its two [[hw:scr-m3-12-cs]] each take an [[hw:nut-m3]] behind the front panel, because the panel's own holes are 3.2 mm clearance with no pilot. Confirmed on a print by barthel, 2026-09-22, tight at the lower hole but within tolerance. A print whose holes grip an M3 can use a [[hw:scr-m3-8-cs]] with no nut instead, which is the length that finishes flush. sorter-v2#738 is open for the pilot and a nut pocket."
         }
       ]
     },

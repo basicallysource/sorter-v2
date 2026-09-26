@@ -36,9 +36,11 @@ The Pico is bought with its header pins already fitted, so there is nothing to p
 
 Each of the three printed enclosures bolts to the 2020 frame with 2 M5 screws into 2 {% include fastener.html size="M5" variant="t-nut" text="T-nuts" %}, 6 of each in total. The holes in all three are clearance, so the screw passes through the plastic and pulls down onto the nut.
 
-- **PSU box**: 2x {% include fastener.html size="M5" variant="socket-button" length="12" %}
 - **Orange Pi mount**: 2x {% include fastener.html size="M5" variant="socket-button" length="12" %}
-- **Control board housing**: 2x {% include fastener.html size="M5" variant="socket-button" length="16" %}, longer because its clamp boss is 10 mm deep against the other two at 8 mm
+- **PSU box**: 2x {% include fastener.html size="M5" variant="socket-button" length="16" %}
+- **Control board housing**: 2x {% include fastener.html size="M5" variant="socket-button" length="16" %}
+
+The PSU box and the control board housing take the longer screw because both of those clamp bosses are 10 mm deep, against the Orange Pi mount's 8 mm.
 
 The six T-nuts go into the hex frame while the top interface is built, at [step 13]({{ '/hardware/assembly/distribution/top-interface/' | relative_url }}#step-13) of that page.
 
@@ -60,7 +62,7 @@ All three go on the same plane: the [hex frame]({{ '/hardware/assembly/distribut
 Collected here rather than left on the individual pages, because these are the things that block finishing them.
 
 - **Nothing says how the USB hub attaches.** The render above is the only record of where it goes, and it records placement, not a method. The hub has a slotted mounting flange at each end of its case, so it is meant to screw down, but no page says what it screws to or with what, and there is no printed mount or bracket for it in the build. Its 24 V lead is `W2` on the [wire harness]({{ '/hardware/electronics/wire-harness/' | relative_url }}) page.
-- **The PSU box has never been photographed bolted on.** The control board housing and the Orange Pi mount both have a picture of it on the frame in the row below; the PSU box carries a described placeholder instead. It has no photo on the bench either, so its own page carries one as well.
+- **The PSU box has never been photographed bolted on.** The control board housing and the Orange Pi mount both have a picture of them on the frame in the row below; the PSU box has a render there rather than a build. It has no photo on the bench either, so its own page carries a placeholder as well.
 
 ## The finished result
 
@@ -72,8 +74,8 @@ All three enclosures bolted onto the hex frame, each one once its own page has f
     <figcaption><a href="{{ '/hardware/electronics/installation/control-board-housing/' | relative_url }}">Control board housing</a>, its two clamp bosses pulled down onto the extrusion. <cite>Photo: Spencer.</cite></figcaption>
   </figure>
   <figure>
-    <div class="img-placeholder">Image coming: the PSU box bolted onto the hex frame, both clamp bosses down on the extrusion, the inlet and the output jacks reachable</div>
-    <figcaption><a href="{{ '/hardware/electronics/installation/psu-box/' | relative_url }}">PSU box</a>, bolted on. <cite>Not photographed on a build yet.</cite></figcaption>
+    <img src="https://assets.basically.website/sorter-parts/meanwell-psu-housing-v2-render-full-f4b161896ea6.png" alt="Render of the closed PSU box bolted onto a 2020 extrusion by the clamp bosses at each end, its vented rear lid on top and its front panel carrying the mains inlet and the three output jacks">
+    <figcaption><a href="{{ '/hardware/electronics/installation/psu-box/' | relative_url }}">PSU box</a>, bolted on. <cite>Render, not photographed on a build yet.</cite></figcaption>
   </figure>
   <figure>
     <img src="https://assets.basically.website/sorter-docs/opi-mount-on-frame-w1600-fcd05ae94e7b.jpg" alt="The Orange Pi mount bolted down onto a 2020 extrusion inside the machine, an M5 screw through each end of the plate, the Orange Pi standing off it on its four standoffs with its antenna leads run back, and a hand holding the USB hub above it">

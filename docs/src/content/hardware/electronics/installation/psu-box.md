@@ -8,7 +8,7 @@ kicker: Electronics — PSU box
 lede: The printed housing around the Mean Well LRS-350-24, its mains inlet, and the wiring inside it.
 permalink: /hardware/electronics/installation/psu-box/
 author: barthel
-contributors: [spencer, brickcyclealice]
+contributors: [spencer, brickcyclealice, reveryx]
 og_image: https://assets.basically.website/sorter-parts/meanwell-psu-housing-v2-render-full-f4b161896ea6.png
 last_verified: 2026-09-26
 tools_needed: ["Hex keys, 2 mm and 2.5 mm", "Screwdriver for the supply's M3.5 terminal screws", "5.5 mm spanner or pliers, for the M3 nuts", "Multimeter, with a continuity buzzer"]
@@ -74,11 +74,27 @@ The fasteners and quantities are in the parts list above and are called out inli
   <figcaption>The inlet's two holes from inside, the right way up and then the wrong way up. <cite>Rendered from the parts' own STLs. Orientation found by ReveryX.</cite></figcaption>
 </figure>
 
-Push each jack through a round hole from behind and do its nut up on the outside, finger tight. Any of the three round holes will do.
+Push each jack through a round hole **from the outside**, so its knurled bezel sits on the outer face of the panel and the threaded barrel and the two leads come through into the box. Any of the three round holes will do. The nut goes on inside, over a spring washer (see below).
 
 <figure class="harness-figure">
   <img src="https://assets.basically.website/sorter-docs/psu-box-front-panel-v2-full-ab4155b24380.png" alt="Dimensioned drawing of the PSU housing front panel seen from outside and the right way up: a wide landscape panel with three 12 mm round jack holes in a row on the left at 20 mm pitch, and on the right a 47.5 by 28 mm rectangular mains inlet cutout with a 3.2 mm hole above it and another below it, 40 mm apart on its centreline. The upper hole is dimensioned 4 mm from the top edge and the lower one 6 mm from the bottom edge">
   <figcaption>The front panel from outside, the right way up: inlet on the right, jacks on the left. The 4 mm hole is the top one, which is what tells you which way up it goes. <cite>Drawn from the part's STL, not from a build.</cite></figcaption>
+</figure>
+
+### Mounting the pigtails: spring washer, then nut
+
+Each jack comes with a hex nut and a **spring washer**, and both go on the thread inside the box, in that order:
+
+<ol class="numbered-steps">
+  <li><b>Spring washer first</b>, down the thread until it sits flat against the inside face of the panel.</li>
+  <li><b>Then the nut</b>, run down onto the washer and tightened until the washer has flattened out.</li>
+</ol>
+
+The washer is what keeps the joint tight. A nut clamped straight onto printed plastic slackens as the plastic creeps under it, and a jack that has gone loose turns in its hole every time a plug goes in, working its leads until one lets go at the terminal block.
+
+<figure class="single-figure">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/psu-box-jack-spring-washer-w1600-2bb508c8cf75.jpg" alt="The inside of the front panel with three barrel jacks through it: the left jack bare, the middle one with its spring washer down on the thread and its nut still loose on the leads below, and the right one with the washer flattened under a tightened nut">
+  <figcaption>The three jacks from inside, left to right in the order they go on: bare, spring washer down against the panel, then the nut tightened onto it. <cite>Photo: ReveryX.</cite></figcaption>
 </figure>
 
 Set the panel down beside the supply for now. The leads land on the terminal block in step 4, once the supply is in the tray.
@@ -151,6 +167,20 @@ Hold the front panel up to the open end of the tray, close enough that its leads
   <img class="doc-figure" src="https://assets.basically.website/sorter-docs/psu-box-inlet-leads-tested-w1600-152d058c81fe.jpg" alt="The Mean Well LRS-350-24 on a bench with the fused IEC inlet module beside it, its three factory leads running to the bottom three screws of the terminal block: the blue lead on the screw marked L, the red lead on N and the yellow lead on the earth symbol">
   <figcaption>One module wired after testing it: on this one the live lead turned out to be the <b>blue</b> one, so blue is on <code>L</code> and red on <code>N</code>. Another unit of the same part can be the other way round, which is the whole reason for the test. <cite>Photo: BrickCycleAlice.</cite></figcaption>
 </figure>
+
+<div class="callout callout-warning">
+  <span class="callout-icon" aria-hidden="true">⚠</span>
+  <p><b>Screw the inlet into the front panel before you land its leads on the supply.</b> The photo above is a bench test with the module loose, which is not the order to build in: its two M3 screws and nuts go on behind the panel (step 2), and once the three leads are under the terminal block screws there is no slack and no room to hold a nut back there. Fit it, then wire it.</p>
+</div>
+
+<div class="callout">
+  <p><b>The rocker can face either way.</b> The inlet goes into its cutout the same in both orientations, so the switch ending up on the left or on the right of the panel is not a mistake and nothing downstream depends on it. Which way round is nicer to use has not been settled yet.</p>
+</div>
+
+<div class="callout callout-warning">
+  <span class="callout-icon" aria-hidden="true">⚠</span>
+  <p><b>Nothing tinned goes under a screw terminal.</b> Solder cold-flows under a clamped screw, so a tinned end that is tight today is slack in a few months, and a slack joint carrying this much current heats up. Use the fork terminals this page calls for. If you would rather put a bare lead straight under the screw, cut the tinned end off first and clamp clean stranded copper.</p>
+</div>
 
 For each one: back the screw off a few turns, slide the fork terminal in under it, and tighten it down. Mean Well's figure for these M3.5 screws is 8 to 10 kgf&middot;cm, about 0.8 to 1.0 N&middot;m, which is firm rather than hard. Tug-test each terminal once it is down.
 

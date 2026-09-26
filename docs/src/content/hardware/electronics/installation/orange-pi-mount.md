@@ -77,18 +77,32 @@ One per machine. Which Orange Pi 5 to buy, how much RAM and storage it needs, th
   <figcaption>The housing closed, with the hub and the buck converter left off the roof so their clamps show. <cite>Rendered from the CAD, not from a build.</cite></figcaption>
 </figure>
 
+## The twelve printed parts
+
+<figure class="harness-figure">
+  <img src="https://assets.basically.website/sorter-docs/orange-pi-housing-twelve-printed-parts-full-ade32d01c603.png" alt="Exploded render of the twelve printed parts of the Orange Pi housing: the base at the bottom with its posts and floor opening, the four walls standing out to its four sides, the plunger retainer, plunger and plunger cap stacked above the west end, the antenna clamp below the north wall, the roof above everything and the hub clamp and buck clamp above that">
+  <figcaption>The twelve parts, spread the way they go together. The base is at the bottom, the four walls stand out to the side they drop into, the plunger, its retainer and its cap are the small stack above the west end, and the antenna clamp is the small block below the north wall. The roof is above them, and the two roof clamps above that: the open U is the buck clamp, the closed frame the hub clamp. <cite>Rendered from the parts' own STLs, not from a build.</cite></figcaption>
+</figure>
+
 **The parts come in the position they sit in the box, not the way they print.** Lay the four walls flat on the bed, and print the roof upside down, top face on the bed.
 
 **The pictures in the steps below are renders of the models, not photographs of a build.** Each one shows the parts that step adds in colour, lifted off along the way they go on, with the parts already fitted in grey. The Orange Pi itself and the WiFi antennas are drawn as plain blanks, on the real mounting positions.
 
+Twenty M3 screws go into the housing: eight into the eight inserts in the base, four holding the Pi down and four closing the roof, and twelve self-tapping straight into the plastic.
+
 {% include step.html n="1" title="Preparation" %}
 
-Press 8 M3 inserts into the base while it is loose: four in the posts the Pi sits on, and four in the corner posts the roof screws into. See [installing heat inserts]({{ '/hardware/helpers/heat-inserts/' | relative_url }}). Nothing else takes one.
+Press 8 M3 inserts into the base while it is loose: four in the low posts the Pi sits on, and four in the tall corner posts the roof screws into. See [installing heat inserts]({{ '/hardware/helpers/heat-inserts/' | relative_url }}).
 
-<div class="img-row">
-  <figure>
-    <img src="https://assets.basically.website/sorter-docs/orange-pi-housing-step1-inserts-full-0ede1a56f792.png" alt="Render of the housing base on its own, seen from above and one end, with a red ring round each of the eight heat-insert bores: four in the low posts in the middle of the floor and four in the tops of the tall corner posts">
-    <figcaption>The eight bores that take an insert, ringed: four low posts for the board, four corner posts for the roof. Nothing else on the base takes one.</figcaption>
+**Every insert in this housing is in the base.** The roof takes none: its four screws pass through it into the base's corner posts, and the clamps and the plunger parts all cut their own thread in the plastic.
+
+<div class="prep-item">
+  <div class="prep-item-body">
+    <p><strong>Orange Pi Housing base:</strong> 8 × M3</p>
+  </div>
+  <figure class="prep-item-figure">
+    <img class="doc-figure" src="https://assets.basically.website/sorter-docs/orange-pi-housing-step1-inserts-full-0ede1a56f792.png" alt="Render of the housing base on its own, seen from above and one end, with a red ring round each of the eight heat-insert bores: four in the low posts in the middle of the floor and four in the tops of the tall corner posts">
+    <figcaption>Four in the board posts, four at the corners. <cite>Rendered from the CAD, not from a build.</cite></figcaption>
   </figure>
 </div>
 
@@ -185,4 +199,6 @@ The housing closed on the bench, with the hub and the buck converter clamped to 
   <figcaption>The assembled housing, off the machine. <cite>Rendered from the CAD, not from a build.</cite></figcaption>
 </figure>
 
-**Bolting it to the frame is on the [installation overview]({{ '/hardware/electronics/installation/' | relative_url }})**, with the other two enclosures. Its power comes from the buck converter on its roof, fed 24 V from the PSU box rather than from the control board, and that, the USB hub and the cameras are all on [connecting the components]({{ '/hardware/electronics/connecting/' | relative_url }}), which is the next page.
+**Bolting it to the frame is on the [installation overview]({{ '/hardware/electronics/installation/' | relative_url }})**, with the other two enclosures. Its power comes from the buck converter on its roof, fed 24 V from the PSU box rather than from the control board.
+
+Next: [connecting the components]({{ '/hardware/electronics/connecting/' | relative_url }}).

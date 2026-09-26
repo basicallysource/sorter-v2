@@ -112,6 +112,10 @@ The **IEC C14 inlet, switch + 10 A fuse** is the machine's mains entry and its o
 
 Push it into the rectangular cutout from the outside, so its flange sits flat on the outer face of the panel and its two holes line up with the panel's two small holes.
 
+<div class="callout">
+  <p><b>The rocker can face either way.</b> The inlet fits its cutout the same in both orientations, so the switch ending up on the left or on the right of the panel is not a mistake and nothing downstream depends on it. Which way round is nicer to use has not been settled yet.</p>
+</div>
+
 Run an {% include fastener.html size="M3" variant="countersunk" length="12" %} through each of the two holes and put an {% include fastener.html size="M3" variant="nut" %} on the back of each. Hold the nut while you tighten the screw. Do this while the panel is still loose, because the nuts go behind it.
 
 Stop as soon as the flange is tight. The panel bows outward before the screw gives, so the screw will not tell you when to stop.
@@ -163,18 +167,9 @@ Hold the front panel up to the open end of the tray, close enough that its leads
 
 **The test**, with nothing plugged in: take the fuse out of its drawer, [set the meter to continuity]({{ '/hardware/helpers/multimeter/' | relative_url }}#continuity-for-tracing-a-cable), and probe from each coloured lead to each of the two flat pins inside the C14. The pair that still beeps with the fuse out is **neutral**. The one that beeps only with the fuse back in and the rocker on is **live**, because the fuse and the switch sit in the live side. That lead goes on screw 1.
 
-<figure class="single-figure">
-  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/psu-box-inlet-leads-tested-w1600-152d058c81fe.jpg" alt="The Mean Well LRS-350-24 on a bench with the fused IEC inlet module beside it, its three factory leads running to the bottom three screws of the terminal block: the blue lead on the screw marked L, the red lead on N and the yellow lead on the earth symbol">
-  <figcaption>One module wired after testing it: on this one the live lead turned out to be the <b>blue</b> one, so blue is on <code>L</code> and red on <code>N</code>. Another unit of the same part can be the other way round, which is the whole reason for the test. <cite>Photo: BrickCycleAlice.</cite></figcaption>
-</figure>
-
 <div class="callout callout-warning">
   <span class="callout-icon" aria-hidden="true">⚠</span>
-  <p><b>Screw the inlet into the front panel before you land its leads on the supply.</b> The photo above is a bench test with the module loose, which is not the order to build in: its two M3 screws and nuts go on behind the panel (step 2), and once the three leads are under the terminal block screws there is no slack and no room to hold a nut back there. Fit it, then wire it.</p>
-</div>
-
-<div class="callout">
-  <p><b>The rocker can face either way.</b> The inlet goes into its cutout the same in both orientations, so the switch ending up on the left or on the right of the panel is not a mistake and nothing downstream depends on it. Which way round is nicer to use has not been settled yet.</p>
+  <p><b>The inlet is already screwed into the front panel by now.</b> Its two M3 screws and nuts go on in step 2, while the panel is still loose; once these three leads are under the terminal block screws there is no slack left and no room to hold a nut behind the panel. If you have been testing the module on the bench, fit it before you wire it.</p>
 </div>
 
 <div class="callout callout-warning">

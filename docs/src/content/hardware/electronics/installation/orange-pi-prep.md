@@ -37,7 +37,7 @@ Peel the film off the thermal pad that comes in the box and lay it on the SoC. S
 
 This is the Pi's only cooling. Nothing sits above the board once it is on its mount, so the heatsink and its fan have the space to themselves.
 
-{% include step.html n="2" title="Check the WiFi module matches the board (optional)" %}
+{% include step.html n="2" title="Check the WiFi module (optional) matches the board" %}
 
 The M.2 formats used across the Orange Pi family are the same size and differ only in where the keying notch is cut into the row of gold contacts, so a module only seats in the slot it is keyed for. Which module goes with which board, and how to tell the two slots apart by eye, is on the [Orange Pi 5]({{ '/hardware/orange-pi-5/#wifi' | relative_url }}) page.
 
@@ -48,7 +48,7 @@ The M.2 formats used across the Orange Pi family are the same size and differ on
 
 Hold the module against the slot and check the notches line up before pushing. **If it does not want to go in, stop.** A module that will not seat is the wrong one for the board, not one that needs more force.
 
-{% include step.html n="3" title="Seat the module in the slot (optional)" %}
+{% include step.html n="3" title="Seat the module (optional) in the slot" %}
 
 With the board unplugged, turn it over and find the M.2 slot on the underside.
 

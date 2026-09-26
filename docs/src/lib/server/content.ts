@@ -111,6 +111,7 @@ for (const [path, raw] of Object.entries(dataFiles)) {
 			length_min_mm: h.cots?.length_min_mm ?? null,
 			length_max_mm: h.cots?.length_max_mm ?? null,
 			alternative: h.alternative,
+			optional: !!h.cots?.optional,
 			conflicts: h.conflicts,
 			detail: {
 				kind: 'cots',
@@ -405,6 +406,13 @@ export type ResolvedPart = {
 	// Interchangeable alternative (e.g. socket vs button head): true for a bare
 	// tag, or a string naming the alternative. Renders the green "A" badge.
 	alternative?: string | boolean;
+	// Bought item the build works without (the WiFi module, the crimp kit).
+	// Straight off the catalog's `cots.optional`, the same flag the parts
+	// calculator badges, so the two sites mark the same parts. Printed parts
+	// carry an `optional` of their own and it is deliberately not read here:
+	// there it marks the bin and funnel variants, and every bin card on a layer
+	// page would wear the badge.
+	optional?: boolean;
 	// Unresolved factual disagreement between the docs and parts-calculator
 	// catalogs, recorded at their 2026-08-21 merge. Renders the amber "?"
 	// badge and the legend below the cards. Resolving one = fixing the field
@@ -535,6 +543,7 @@ function resolveParts(partsNeeded: any[]): { groups: PartsGroup[]; conflicts: Re
 			length_min_mm: part.length_min_mm,
 			length_max_mm: part.length_max_mm,
 			alternative: part.alternative,
+			optional: part.optional,
 			conflicts: part.conflicts,
 			detail: part.detail,
 			qty,

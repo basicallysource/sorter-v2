@@ -786,6 +786,29 @@ body {
 	color: var(--muted);
 }
 
+/* "Optional": a bought part the build works without. Amber, the same pair the
+   parts calculator's own Optional badge uses, and the same sentence behind it.
+   Under the name rather than on the image like the "A" and the "?": the card
+   is 108px wide, so a word in a corner covers half the photo, and a one-letter
+   version would need its own legend line to decode. */
+.part-card-optional-pop {
+	align-self: flex-start;
+	margin-top: 4px;
+}
+
+.part-card-optional {
+	display: inline-flex;
+	align-items: center;
+	padding: 1px 6px;
+	font-size: 0.68rem;
+	font-weight: 700;
+	line-height: 1.4;
+	color: var(--color-warning-dark);
+	background: var(--color-warning);
+	border: 0;
+	cursor: help;
+}
+
 .fastener-todo {
 	display: inline-block;
 	padding: 0 6px;

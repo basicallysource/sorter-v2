@@ -5253,7 +5253,7 @@
       "name": "Orange Pi 5 WiFi 6 + Bluetooth module",
       "category": "Computer",
       "description": "WiFi and Bluetooth for the Orange Pi. Optional.",
-      "caption": "Optional. Only for a machine going on WiFi; skip it and run Ethernet.",
+      "caption": "Only for a machine going on WiFi; skip it and run Ethernet.",
       "docs_page": "/hardware/electronics/installation/orange-pi-prep/",
       "created_at": "2026-07-18",
       "updated_at": "2026-09-26",

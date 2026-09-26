@@ -19,7 +19,7 @@
 # an entry in the `drawings` list in electronics/wire_harness/build-harness.sh
 # (the supplier zip's member list), then the same paste.
 
-zip: https://assets.basically.website/sorter-harness/sorter-v2-harness-rfq-e4eca12ce165.zip
+zip: https://assets.basically.website/sorter-harness/sorter-v2-harness-rfq-7fa2e5f0dfd4.zip
 
 drawings:
   - name: power

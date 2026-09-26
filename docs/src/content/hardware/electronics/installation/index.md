@@ -60,7 +60,7 @@ All three go on the same plane: the [hex frame]({{ '/hardware/assembly/distribut
 Collected here rather than left on the individual pages, because these are the things that block finishing them.
 
 - **Nothing says how the USB hub attaches.** The render above is the only record of where it goes, and it records placement, not a method. The hub has a slotted mounting flange at each end of its case, so it is meant to screw down, but no page says what it screws to or with what, and there is no printed mount or bracket for it in the build. Its 24 V lead is `W2` on the [wire harness]({{ '/hardware/electronics/wire-harness/' | relative_url }}) page.
-- **Two of the three enclosures have never been photographed bolted on.** The control board housing is the only one anybody has a picture of on the frame; the row below carries a described placeholder for the other two. The finished PSU box has no photo on the bench either, so its own page carries one as well.
+- **The PSU box has never been photographed bolted on.** The control board housing and the Orange Pi mount both have a picture of it on the frame in the row below; the PSU box carries a described placeholder instead. It has no photo on the bench either, so its own page carries one as well.
 
 ## The finished result
 
@@ -76,8 +76,8 @@ All three enclosures bolted onto the hex frame, each one once its own page has f
     <figcaption><a href="{{ '/hardware/electronics/installation/psu-box/' | relative_url }}">PSU box</a>, bolted on. <cite>Not photographed on a build yet.</cite></figcaption>
   </figure>
   <figure>
-    <div class="img-placeholder">Image coming: the Orange Pi mount bolted onto the hex frame, the Pi standing off the plate on its four standoffs</div>
-    <figcaption><a href="{{ '/hardware/electronics/installation/orange-pi-mount/' | relative_url }}">Orange Pi mount</a>, bolted on. <cite>Not photographed on a build yet.</cite></figcaption>
+    <img src="https://assets.basically.website/sorter-docs/opi-mount-on-frame-w1600-fcd05ae94e7b.jpg" alt="The Orange Pi mount bolted down onto a 2020 extrusion inside the machine, an M5 screw through each end of the plate, the Orange Pi standing off it on its four standoffs with its antenna leads run back, and a hand holding the USB hub above it">
+    <figcaption><a href="{{ '/hardware/electronics/installation/orange-pi-mount/' | relative_url }}">Orange Pi mount</a>, an M5 through each end of the plate. The hub above it is not fastened to anything. <cite>Photo: BrickCycleAlice.</cite></figcaption>
   </figure>
 </div>
 

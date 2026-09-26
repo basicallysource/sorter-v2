@@ -3429,7 +3429,7 @@
       "category": "Screws",
       "alternative": "Socket or button head",
       "image_url": "https://assets.basically.website/sorter-parts/scr-m3-16-shcs-full-26e52d7d5bcd.png",
-      "description": "No longer the C-channel stepper screw — those are countersunk (scr-m3-16-cs). Holds the roller lever limit switch to its housing (2, into the housing's inserts).",
+      "description": "No longer the C-channel stepper screw: those are countersunk (scr-m3-16-cs). Holds the roller lever limit switch to its housing (2, into the housing's inserts).",
       "created_at": "2026-07-18",
       "updated_at": "2026-09-26",
       "attributes": [
@@ -7061,10 +7061,10 @@
       },
       "name": "Orange Pi 5 heatsink fan (official)",
       "category": "Electronics",
-      "description": "Orange Pi's official aluminum-alloy heatsink and fan for the Orange Pi 5 (v1.3.2) and Orange Pi 5 Plus, which mounts directly on the SoC. 5 V DC, sleeve bearing; installing it means the official Orange Pi metal case no longer fits.",
+      "description": "Orange Pi's official aluminum-alloy heatsink and fan for the Orange Pi 5 (v1.3.2) and Orange Pi 5 Plus, which mounts directly on the SoC. 5 V DC, sleeve bearing, on two spring pins into the board's own holes.",
       "docs_page": "/hardware/electronics/installation/orange-pi-prep/",
       "created_at": "2026-09-15",
-      "updated_at": "2026-09-15",
+      "updated_at": "2026-09-26",
       "attributes": [
         {
           "label": "Voltage",

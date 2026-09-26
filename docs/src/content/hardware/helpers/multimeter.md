@@ -111,7 +111,7 @@ If you have never picked one up, the video at the foot of this page walks throug
 
 In continuity mode the meter beeps when the two probe tips are joined by anything close to a short. The beep is the point: you can watch what your hands are doing instead of watching the display.
 
-That answers three questions that come up while making the leads.
+That answers three questions that come up while making the leads and plugging them in.
 
 **Which wire is the positive one.** A barrel plug or a panel-mount jack is centre-positive on this machine, and the lead hanging off it is usually red and black, but it came from somebody else and a few are wired the other way round. Hold one probe against the centre pin down inside the barrel and touch the other to each conductor in turn. The one that beeps is the tip, which is +24 V. You do this on [the PSU output pigtail]({{ '/hardware/helpers/psu-pigtail/' | relative_url }}), [the control board's 24 V lead]({{ '/hardware/helpers/board-24v-lead/' | relative_url }}) and [the Orange Pi's 24 V lead]({{ '/hardware/helpers/pi-24v-lead/' | relative_url }}).
 
@@ -155,7 +155,7 @@ Work through the combinations until you have both pairs, and write down which co
 
 This is the only setting you use with the power on, and no build step asks for it, so treat it as optional. Set the dial to **DC volts** (the straight line over a dashed line, `V` with a dash, or `DCV`), pick a range above 24 V if your meter is not autoranging, then hold the red probe on the tip inside a spare [PSU output]({{ '/hardware/helpers/psu-pigtail/' | relative_url }}) jack and the black probe against its sleeve. A healthy supply reads about 24 V. If the probes are the wrong way round the meter just shows a negative number, which harms nothing.
 
-The two things worth knowing: put the probes back in the `COM` and `V`/&Omega; ports if you ever move them for a current measurement, and never take a meter to the mains side of the PSU box.
+The two things worth knowing: put the probes back in the `COM` and `V`/&Omega; ports if you ever move them for a current measurement, and never measure voltage anywhere on the mains side of the PSU box.
 
 ## Watch somebody do it
 

@@ -71,7 +71,7 @@ The switch is an SPDT with three tabs and the third one, `NO`, stays bare. Wired
 
 <div class="callout callout-warning">
   <span class="callout-icon" aria-hidden="true">⚠</span>
-  <p><b>Both halves of that table are unverified.</b> The harness notes mark the board pin order and the choice of switch tabs as guesses, and no built machine has confirmed either. Before you crimp, <a href="{{ '/hardware/helpers/multimeter/' | relative_url }}">meter the switch</a>: continuity between two tabs with the lever free, and none with the lever pressed, is what confirms the pair the printing names.</p>
+  <p><b>Both halves of that table are unverified.</b> The harness notes mark the board pin order and the choice of switch tabs as guesses, and no built machine has confirmed either. Before you crimp, <a href="{{ '/hardware/helpers/multimeter/' | relative_url }}#continuity-for-a-switch">meter the switch</a>: continuity between two tabs with the lever free, and none with the lever pressed, is what confirms the pair the printing names.</p>
 </div>
 
 ## Build it

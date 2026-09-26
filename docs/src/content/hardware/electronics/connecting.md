@@ -221,7 +221,7 @@ The board prints `+V` beside one pin of each port and `GND` beside the other. Th
 
 The solder jumper beside each of these three ports should already be bridged, from [preparing the control board]({{ '/hardware/electronics/installation/control-board-prep/' | relative_url }}), step 4. If you skipped it, do it before the lamps go on: the 180 Ω resistor in each port is there for a COB LED board and only dims a strip.
 
-**Plugging one in.** Push the lamp's 2-pin 2.54 mm Dupont housing onto the port, red to `+V`, metering which pin that is first. A lead bought male-to-female has the male plug cut off; the female end is the plug you want. Cable-tie the pair along whatever it runs down so it is not left hanging.
+**Plugging one in.** Push the lamp's 2-pin 2.54 mm Dupont housing onto the port, red to `+V`, [metering which pin that is]({{ '/hardware/helpers/multimeter/' | relative_url }}) first. A lead bought male-to-female has the male plug cut off; the female end is the plug you want. Cable-tie the pair along whatever it runs down so it is not left hanging.
 
 **If you want a lamp to come off without unwiring**, put a 5.5 × 2.1 mm barrel pair in the run partway along, tip positive. Nothing on a v1.3 board needs it, and the same size fits a PSU output, so check what you are plugging into.
 

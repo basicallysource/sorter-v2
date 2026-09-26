@@ -11,7 +11,7 @@ author: barthel
 contributors: [spencer, brickcyclealice]
 og_image: https://assets.basically.website/sorter-parts/psu-24v-350w-full-72bba2c3919b.jpg
 last_verified: 2026-09-18
-tools_needed: ["Hex keys, 2 mm and 2.5 mm", "Screwdriver for the supply's M3.5 terminal screws"]
+tools_needed: ["Hex keys, 2 mm and 2.5 mm", "Screwdriver for the supply's M3.5 terminal screws", "Multimeter, with a continuity buzzer"]
 parts_needed:
   - part: psu-24v-350w
     qty: 1
@@ -94,7 +94,7 @@ Then land its three leads on screws 1, 2 and 3: **live on 1** (AC/L), **neutral 
   <p><b>Find out which of the other two is live. Do not go by colour.</b> These modules are sold with red and blue leads and <b>both orders have been found in the post</b>, so the colour tells you nothing about which one the fuse and the switch are in. Land them the wrong way round and the machine is fused and switched in its neutral: the supply stays live with the rocker off.</p>
 </div>
 
-**The test**, with nothing plugged in: take the fuse out of its drawer, set the meter to continuity, and probe from each coloured lead to each of the two flat pins inside the C14. The pair that still beeps with the fuse out is **neutral**. The one that beeps only with the fuse back in and the rocker on is **live**, because the fuse and the switch sit in the live side. That lead goes on screw 1.
+**The test**, with nothing plugged in: take the fuse out of its drawer, [set the meter to continuity]({{ '/hardware/helpers/multimeter/' | relative_url }}), and probe from each coloured lead to each of the two flat pins inside the C14. The pair that still beeps with the fuse out is **neutral**. The one that beeps only with the fuse back in and the rocker on is **live**, because the fuse and the switch sit in the live side. That lead goes on screw 1.
 
 <figure class="single-figure">
   <img class="doc-figure" src="https://assets.basically.website/sorter-docs/psu-box-inlet-leads-tested-w1600-152d058c81fe.jpg" alt="The Mean Well LRS-350-24 on a bench with the fused IEC inlet module beside it, its three factory leads running to the bottom three screws of the terminal block: the blue lead on the screw marked L, the red lead on N and the yellow lead on the earth symbol">

@@ -104,7 +104,7 @@ If you have never picked one up, the video at the foot of this page walks throug
 
 <div class="callout callout-warning">
   <span class="callout-icon" aria-hidden="true">⚠</span>
-  <p><b>Both checks want the power off.</b> Work on a loose cable, or switch the machine off at the inlet and unplug it. Continuity and resistance push the meter's own small current through whatever is between the probes, so a powered circuit gives a meaningless reading and can damage the meter. And nothing on this build ever asks you to put a probe into anything at mains voltage: the only two mains points are inside the <a href="{{ '/hardware/electronics/installation/psu-box/' | relative_url }}">PSU box</a>, and that box is closed before the machine is ever plugged in.</p>
+  <p><b>Both checks want the power off.</b> Work on a loose cable, or switch the machine off at the inlet and unplug it. Continuity and resistance push the meter's own small current through whatever is between the probes, so a powered circuit gives a meaningless reading and can damage the meter. And nothing on this build asks you to probe a <b>live</b> mains circuit. One test does touch the mains side, finding which of the inlet's three leads is the live one on the <a href="{{ '/hardware/electronics/installation/psu-box/' | relative_url }}">PSU box</a>, and that one is continuity with the module loose, the fuse out of its drawer and nothing plugged into the wall.</p>
 </div>
 
 ## Continuity, for tracing a cable

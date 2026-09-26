@@ -18,7 +18,7 @@ drafts; each page states its own status.
 
 You can build this on a bench. It does not need a workshop, and nothing in it
 is hard on its own. Hex keys, a screwdriver, side cutters, wire strippers and a
-multimeter cover most of it, plus a soldering iron or a [heat-set insert
+[multimeter]({{ '/hardware/helpers/multimeter/' | relative_url }}) cover most of it, plus a soldering iron or a [heat-set insert
 press]({{ '/hardware/helpers/heat-inserts/' | relative_url }}) for the brass
 inserts. Making your own leads also needs a crimp tool, or you can [order the
 harness ready made]({{ '/hardware/parts/harness-order/' | relative_url }}).

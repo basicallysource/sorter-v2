@@ -5137,10 +5137,73 @@
       "category": "Computer",
       "description": "Host computer (optional, see note)",
       "created_at": "2026-07-18",
-      "updated_at": "2026-07-18",
+      "updated_at": "2026-09-26",
       "sheet_qty": {
         "per_machine": 1
       },
+      "attributes": [
+        {
+          "label": "Memory",
+          "value": "8 GB LPDDR4/4X. The 4 GB board is not supported: the backend, the inference workers and the OS together exceed it. 16 GB works and is not required."
+        },
+        {
+          "label": "SoC",
+          "value": "Rockchip RK3588S, Samsung 8 nm LP"
+        },
+        {
+          "label": "CPU",
+          "value": "8-core 64-bit: 4 × Cortex-A76 at 2.4 GHz plus 4 × Cortex-A55 at 1.8 GHz"
+        },
+        {
+          "label": "NPU",
+          "value": "6 TOPS, INT4 / INT8 / INT16 mixed precision. This is the reason the board is specified: one detection worker per camera, over 30 fps each and over 100 fps across all three."
+        },
+        {
+          "label": "GPU",
+          "value": "Arm Mali-G610 MP4 (OpenGL ES 3.2, OpenCL 2.2, Vulkan 1.2)"
+        },
+        {
+          "label": "Storage",
+          "value": "MicroSD slot, 16 MB QSPI NOR flash, and an M.2 M-key PCIe 2.0 x1 socket for an NVMe SSD. SorterOS is flashed to a 32 GB or larger high-endurance microSD."
+        },
+        {
+          "label": "Network",
+          "value": "Gigabit Ethernet. No WiFi or Bluetooth on the board: that is the separate M.2 module in this catalog, or a Linux-compatible USB adapter."
+        },
+        {
+          "label": "USB",
+          "value": "1 × USB 3.0 Type-A, 2 × USB 2.0 Type-A, and a USB 3.1 Gen 1 Type-C that shares its lanes with DP 1.4. Three cameras and two Picos is five devices, so the machine puts them on a powered hub."
+        },
+        {
+          "label": "Power",
+          "value": "5 V at 4 A over USB-C, a fixed 5 V with no PD negotiation. The board carries two identical-looking USB-C connectors and only one of them takes power. In the machine that comes off the 24 V PSU through the buck converter."
+        },
+        {
+          "label": "Video",
+          "value": "HDMI 2.1 up to 8K60, DP 1.4 over the Type-C, and 2 × MIPI DSI. Camera inputs are MIPI CSI 4-lane plus 2 × MIPI D-PHY RX, none of which the sorter uses; its cameras are USB."
+        },
+        {
+          "label": "Expansion",
+          "value": "26-pin GPIO header (UART, PWM, I2C, SPI, CAN, GPIO), 3-pin debug UART, and a 5 V fan header"
+        },
+        {
+          "label": "Cooling",
+          "value": "Needs a fan. Pinned hard, and especially with a model running on the CPU rather than the NPU, it reaches thermal emergency shutdown at about 105 °C. The official SoC heatsink fan is its own line in this catalog."
+        },
+        {
+          "label": "Board",
+          "value": "100 × 62 mm, 46 g. Its four mounting holes sit on a roughly 95 × 56 mm rectangle, which is what the printed extrusion mount is drilled for."
+        },
+        {
+          "label": "Variants",
+          "value": "The 5 Pro, 5 Max and 5 Ultra are 89 mm wide boards with their mounting holes on a 58 × 49 mm rectangle; the 5 Plus is a 100 × 75 mm RK3588 board. The 5 Pro has Wi-Fi 5 on board and the 5 Plus takes a 2230 E-key module, while this catalog's WiFi module is M-key and fits the plain 5 only."
+        },
+        {
+          "label": "OS",
+          "value": "SorterOS, which is built on Orange Pi's own Ubuntu image for this board"
+        }
+      ],
+      "note": "Buy the plain Orange Pi 5, 8 GB. The 5 Plus, 5 Pro, 5 Max and 5 Ultra are separate boards rather than options on this one: none of them share its mounting-hole pattern, so the printed extrusion mount does not line up, and the WiFi module listed in this catalog fits the plain 5 only. SorterOS is built for the plain 5.",
       "image_url": "https://assets.basically.website/sorter-parts/sbc-orange-pi-5-full-51ca8492b499.jpg",
       "sourcing": {
         "vendors": [

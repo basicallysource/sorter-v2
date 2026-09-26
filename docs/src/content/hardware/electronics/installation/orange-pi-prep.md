@@ -12,7 +12,8 @@ last_verified: 2026-09-19
 author: barthel
 contributors: [brickcyclealice, spencer]
 warning: >-
-  The WiFi module seated in its slot is not photographed on a build yet.
+  The module in its slot is shown in the manufacturer's photo; nobody has
+  photographed this step on a build yet.
 parts_needed:
   - part: sbc-orange-pi-5
     qty: 1
@@ -60,7 +61,10 @@ Slide the module in at a shallow angle, roughly 30°, gold contacts first, until
 
 Both the washer and the screw come in the box with the module, so there is nothing to buy for this and nothing to substitute.
 
-<div class="img-placeholder">Image coming: the module seated in the M.2 slot on the underside of the board, its free end held down by the retention screw with the washer under it</div>
+<figure class="single-figure">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/wifi-module-opi5-seated-in-slot-full-1f7e6cdeeee3.jpg" alt="The underside of an Orange Pi 5 held at an angle, with the AP6275P module seated in the black M.2 connector and two antenna leads running off the edge of the board; a circle drawn over that part of the board magnifies it, showing the module's shielded can, the gold antenna socket at its near corner with a lead clipped on, and the row of gold contacts disappearing into the slot">
+  <figcaption>The module home in the slot, on the underside of the board. Its far end, the one the screw goes through, is outside the magnified circle. <cite>Manufacturer photo (Orange Pi), not a Basically photo; the magnified circle is theirs.</cite></figcaption>
+</figure>
 
 {% include step.html n="4" title="Connect the antennas" %}
 

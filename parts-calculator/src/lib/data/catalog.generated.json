@@ -20762,7 +20762,7 @@
 			"folder": null,
 			"variant_group": null,
 			"variant_name": null,
-			"description": "Roof of the Orange Pi 5 housing. Four M3 \u00d7 12 mm countersunk screws hold it down into the base's corner inserts, and it carries the USB hub and the buck converter on top, each under its own clamp on four self-tapping M3 \u00d7 12 mm countersunk screws into the roof's pilots. Its recessed side faces down in the box, so it prints upside down, top face on the bed.",
+			"description": "Roof of the Orange Pi 5 housing. Four M3 \u00d7 12 mm countersunk screws hold it down into the base's corner inserts, and it carries the USB hub and the buck converter on top, each under its own clamp on four self-tapping M3 \u00d7 12 mm countersunk screws into the roof's pilots. Its recessed side faces down in the box.",
 			"version": "1",
 			"created_at": "2026-09-26",
 			"updated_at": "2026-09-26",
@@ -20779,7 +20779,12 @@
 					"grams": 52.44
 				}
 			],
-			"attributes": [],
+			"attributes": [
+				{
+					"label": "Print orientation",
+					"value": "Upside down, top face on the bed"
+				}
+			],
 			"grams": 52.44,
 			"support_grams": 0.0,
 			"support_used": false,
@@ -20894,7 +20899,7 @@
 			"folder": null,
 			"variant_group": null,
 			"variant_name": null,
-			"description": "Short wall on the Pi's power button side. A small window lets the power button plunger through, and a larger one opens onto the microSD card. Drops into its groove in the base; the roof holds it down. Prints lying flat.",
+			"description": "Short wall on the Pi's power button side. A small window lets the power button plunger through, and a larger one opens onto the microSD card. Drops into its groove in the base; the roof holds it down.",
 			"version": "1",
 			"created_at": "2026-09-26",
 			"updated_at": "2026-09-26",
@@ -20911,7 +20916,12 @@
 					"grams": 8.48
 				}
 			],
-			"attributes": [],
+			"attributes": [
+				{
+					"label": "Print orientation",
+					"value": "Lay flat on the bed; the file has it standing up"
+				}
+			],
 			"grams": 8.48,
 			"support_grams": 0.0,
 			"support_used": false,
@@ -20986,7 +20996,7 @@
 			"folder": null,
 			"variant_group": null,
 			"variant_name": null,
-			"description": "Short wall on the Pi's USB-A and Ethernet side, with an opening for each port stack. Drops into its groove in the base; the roof holds it down. Prints lying flat.",
+			"description": "Short wall on the Pi's USB-A and Ethernet side, with an opening for each port stack. Drops into its groove in the base; the roof holds it down.",
 			"version": "1",
 			"created_at": "2026-09-26",
 			"updated_at": "2026-09-26",
@@ -21003,7 +21013,12 @@
 					"grams": 8.2
 				}
 			],
-			"attributes": [],
+			"attributes": [
+				{
+					"label": "Print orientation",
+					"value": "Lay flat on the bed; the file has it standing up"
+				}
+			],
 			"grams": 8.2,
 			"support_grams": 0.0,
 			"support_used": false,
@@ -21078,7 +21093,7 @@
 			"folder": null,
 			"variant_group": null,
 			"variant_name": null,
-			"description": "Long wall on the Pi's USB-C and HDMI side, with an opening for those ports. A block on its outside carries the two WiFi antennas in saddles under the antenna clamp, with an opening below for their leads. Drops into its groove in the base; the roof holds it down.",
+			"description": "Long wall on the Pi's USB-C and HDMI side, with an opening for those ports. A block on its outside carries the two WiFi antennas in channels under the antenna clamp, with an opening below for their leads. Drops into its groove in the base; the roof holds it down.",
 			"version": "1",
 			"created_at": "2026-09-26",
 			"updated_at": "2026-09-26",
@@ -21095,7 +21110,12 @@
 					"grams": 13.76
 				}
 			],
-			"attributes": [],
+			"attributes": [
+				{
+					"label": "Print orientation",
+					"value": "Lay flat on the bed; the file has it standing up"
+				}
+			],
 			"grams": 13.76,
 			"support_grams": 0.0,
 			"support_used": false,
@@ -21212,7 +21232,7 @@
 			"folder": null,
 			"variant_group": null,
 			"variant_name": null,
-			"description": "Long wall on the Pi's GPIO side: a hex vent, and an opening at the bottom for a cable off the GPIO header. Drops into its groove in the base; the roof holds it down. Prints lying flat.",
+			"description": "Long wall on the Pi's GPIO side: a hex vent, and an opening at the bottom for a cable off the GPIO header. Drops into its groove in the base; the roof holds it down.",
 			"version": "1",
 			"created_at": "2026-09-26",
 			"updated_at": "2026-09-26",
@@ -21229,7 +21249,12 @@
 					"grams": 12.05
 				}
 			],
-			"attributes": [],
+			"attributes": [
+				{
+					"label": "Print orientation",
+					"value": "Lay flat on the bed; the file has it standing up"
+				}
+			],
 			"grams": 12.05,
 			"support_grams": 0.0,
 			"support_used": false,

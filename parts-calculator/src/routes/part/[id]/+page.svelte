@@ -11,6 +11,7 @@
 		sectionQty,
 		primaryColorId,
 		hardwareImage,
+		fmtDate,
 		type PartVersion
 	} from '$lib/filament';
 	import { ChevronLeft, ChevronRight } from 'lucide-svelte';
@@ -35,6 +36,9 @@
 	const ogImage = $derived(part ? part.render : (hardware ? hardwareImage(hardware)?.src : undefined));
 	const title = $derived(part?.name ?? hardware?.name ?? '');
 	const description = $derived(part?.description || hardware?.description || undefined);
+	// Out of the current machine: no list, total or search shows it, but its page
+	// stays, because older versions and anything stamped with its id link here.
+	const retiredAt = $derived(part?.retired_at ?? hardware?.retired_at ?? null);
 
 	// Seed the preview to the shared colour choices + newest version, matching the
 	// modal. Not URL-synced: the page URL is already the shareable thing.
@@ -81,6 +85,12 @@
 		{#if hardware}<AlternativeBadge value={hardware.alternative} />{/if}
 		<ConflictBadge conflicts={hardware?.conflicts ?? part?.conflicts} />
 	</h1>
+	{#if retiredAt}
+		<p class="mb-4 border border-border px-3 py-2 text-sm text-text-muted">
+			<b class="text-text">Retired {fmtDate(retiredAt)}.</b> Not in the current machine, so the parts
+			lists, totals and search leave it out. Older versions that used it still show it.
+		</p>
+	{/if}
 
 	<div class="setup-card-shell overflow-hidden border">
 		{#if hardware}

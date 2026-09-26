@@ -63,17 +63,22 @@ worth more than any profile you copy from somebody else.
 
 ## Print each part the way the file comes
 
-**Every STL is already sitting the way it should print.** Drop it on the plate as it
-is and slice it.
+**Almost every STL is already sitting the way it should print.** Drop it on the plate
+as it is and slice it. The few parts that have to be turned say so on their card in
+the parts calculator, under **Print orientation**, and that line is the only reason to
+turn one.
 
 - **Do not use auto orient.** "Optimize orientation", "auto rotate" and the orient
   tools in Bambu Studio, Orca and PrusaSlicer will lay parts down on a different
   face. The face a part prints on is a design decision that is already made, and
   changing it is how a gear tooth or a bracket arm ends up printing across the layer
   lines and snapping in use.
-- **Moving a part is fine. Turning it over is not.** Sliding it around the plate,
-  dropping it onto the plate and spinning it flat (around Z) all leave the printing
-  face alone. Anything that tips it onto another face does not.
+- **Moving a part is fine. Turning it over is not, unless its card says so.** Sliding
+  it around the plate, dropping it onto the plate and spinning it flat (around Z) all
+  leave the printing face alone. Anything that tips it onto another face does not, so
+  only do it where the part's **Print orientation** line tells you which face goes
+  down. The Orange Pi housing's four walls and its roof are the parts that carry one
+  today.
 - **Parts import off centre, and some import below or above the plate.** They are
   exported in the coordinates they occupy in the machine, so the slicer puts them
   where the assembly puts them. Move it onto the plate and carry on. That is normal
@@ -85,9 +90,9 @@ is and slice it.
   only slides and spins them. Check the plate afterwards and make sure nothing has
   been turned over.
 
-If a part looks like it wants turning, do not turn it. Ask on
-[Discord](https://discord.gg/6PZtqkwtaS) first, because a part sitting wrong in the
-file is a fault worth fixing for everybody.
+If a part looks like it wants turning and its card says nothing, do not turn it. Ask
+on [Discord](https://discord.gg/6PZtqkwtaS) first, because a part sitting wrong in the
+file with nothing on its card is a fault worth fixing for everybody.
 
 ## Supports
 

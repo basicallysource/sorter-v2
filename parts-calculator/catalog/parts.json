@@ -3051,7 +3051,13 @@
       "id": "orange-pi-housing-roof",
       "uid": "2lrz",
       "name": "Orange Pi Housing — Roof",
-      "description": "Roof of the Orange Pi 5 housing. Four M3 × 12 mm countersunk screws hold it down into the base's corner inserts, and it carries the USB hub and the buck converter on top, each under its own clamp on four self-tapping M3 × 12 mm countersunk screws into the roof's pilots. Its recessed side faces down in the box, so it prints upside down, top face on the bed.",
+      "description": "Roof of the Orange Pi 5 housing. Four M3 × 12 mm countersunk screws hold it down into the base's corner inserts, and it carries the USB hub and the buck converter on top, each under its own clamp on four self-tapping M3 × 12 mm countersunk screws into the roof's pilots. Its recessed side faces down in the box.",
+      "attributes": [
+        {
+          "label": "Print orientation",
+          "value": "Upside down, top face on the bed"
+        }
+      ],
       "internal_notes": "New 2026-09-26 with orange-pi-mount v5, when the housing replaced the open plate. Exported in the CAD's assembly orientation, like the PSU box and control board housing parts.",
       "version": "1",
       "created_at": "2026-09-26",
@@ -3072,7 +3078,13 @@
       "id": "orange-pi-housing-wall-west",
       "uid": "ehlv",
       "name": "Orange Pi Housing — West Wall",
-      "description": "Short wall on the Pi's power button side. A small window lets the power button plunger through, and a larger one opens onto the microSD card. Drops into its groove in the base; the roof holds it down. Prints lying flat.",
+      "description": "Short wall on the Pi's power button side. A small window lets the power button plunger through, and a larger one opens onto the microSD card. Drops into its groove in the base; the roof holds it down.",
+      "attributes": [
+        {
+          "label": "Print orientation",
+          "value": "Lay flat on the bed; the file has it standing up"
+        }
+      ],
       "internal_notes": "New 2026-09-26 with orange-pi-mount v5, when the housing replaced the open plate. Exported in the CAD's assembly orientation, like the PSU box and control board housing parts.",
       "version": "1",
       "created_at": "2026-09-26",
@@ -3093,7 +3105,13 @@
       "id": "orange-pi-housing-wall-east",
       "uid": "yxiy",
       "name": "Orange Pi Housing — East Wall",
-      "description": "Short wall on the Pi's USB-A and Ethernet side, with an opening for each port stack. Drops into its groove in the base; the roof holds it down. Prints lying flat.",
+      "description": "Short wall on the Pi's USB-A and Ethernet side, with an opening for each port stack. Drops into its groove in the base; the roof holds it down.",
+      "attributes": [
+        {
+          "label": "Print orientation",
+          "value": "Lay flat on the bed; the file has it standing up"
+        }
+      ],
       "internal_notes": "New 2026-09-26 with orange-pi-mount v5, when the housing replaced the open plate. Exported in the CAD's assembly orientation, like the PSU box and control board housing parts.",
       "version": "1",
       "created_at": "2026-09-26",
@@ -3114,7 +3132,13 @@
       "id": "orange-pi-housing-wall-north",
       "uid": "qz8d",
       "name": "Orange Pi Housing — North Wall",
-      "description": "Long wall on the Pi's USB-C and HDMI side, with an opening for those ports. A block on its outside carries the two WiFi antennas in saddles under the antenna clamp, with an opening below for their leads. Drops into its groove in the base; the roof holds it down.",
+      "description": "Long wall on the Pi's USB-C and HDMI side, with an opening for those ports. A block on its outside carries the two WiFi antennas in channels under the antenna clamp, with an opening below for their leads. Drops into its groove in the base; the roof holds it down.",
+      "attributes": [
+        {
+          "label": "Print orientation",
+          "value": "Lay flat on the bed; the file has it standing up"
+        }
+      ],
       "internal_notes": "New 2026-09-26 with orange-pi-mount v5, when the housing replaced the open plate. Exported in the CAD's assembly orientation, like the PSU box and control board housing parts.",
       "version": "1",
       "created_at": "2026-09-26",
@@ -3135,7 +3159,13 @@
       "id": "orange-pi-housing-wall-south",
       "uid": "yg6s",
       "name": "Orange Pi Housing — South Wall",
-      "description": "Long wall on the Pi's GPIO side: a hex vent, and an opening at the bottom for a cable off the GPIO header. Drops into its groove in the base; the roof holds it down. Prints lying flat.",
+      "description": "Long wall on the Pi's GPIO side: a hex vent, and an opening at the bottom for a cable off the GPIO header. Drops into its groove in the base; the roof holds it down.",
+      "attributes": [
+        {
+          "label": "Print orientation",
+          "value": "Lay flat on the bed; the file has it standing up"
+        }
+      ],
       "internal_notes": "New 2026-09-26 with orange-pi-mount v5, when the housing replaced the open plate. Exported in the CAD's assembly orientation, like the PSU box and control board housing parts.",
       "version": "1",
       "created_at": "2026-09-26",

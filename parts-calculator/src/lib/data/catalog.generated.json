@@ -1592,8 +1592,8 @@
 		},
 		{
 			"id": "meanwell-psu-box",
-			"uid": "8bk1",
-			"version": "5",
+			"uid": "dxsv",
+			"version": "6",
 			"versions": [
 				{
 					"version": "1",
@@ -1843,6 +1843,91 @@
 					"date": "2026-09-26",
 					"message": "An M5 washer under each of the two frame screws, as the CAD assembly has them. The same day, the front module and the front panel took their #738 revision (front module v2, front panel v2), and all five housing parts were re-exported from one CAD version; those are recorded on the parts. The inlet's two screws now cut their own thread in the panel's 2.8 mm pilots, and the nut behind each stays in the list because it is what makes a panel printed before v2 hold.",
 					"breaking": false,
+					"commit": null,
+					"lines": [
+						{
+							"part": "meanwell-psu-housing-shell-rear",
+							"qty": 1,
+							"uid": "7qz3"
+						},
+						{
+							"part": "psu-24v-350w",
+							"qty": 1,
+							"uid": "s3ru"
+						},
+						{
+							"part": "scr-m4-12-cs",
+							"qty": 4,
+							"uid": "h8h4"
+						},
+						{
+							"part": "meanwell-psu-housing-shell-front",
+							"qty": 1,
+							"uid": "xxxt"
+						},
+						{
+							"part": "meanwell-psu-housing-front-panel",
+							"qty": 1,
+							"uid": "0le6"
+						},
+						{
+							"part": "psu-switch-fused",
+							"qty": 1,
+							"uid": "lmu7"
+						},
+						{
+							"part": "mains-cord-c13",
+							"qty": 1,
+							"uid": "nuya"
+						},
+						{
+							"assembly": "harness-psu-pigtail",
+							"qty": 3,
+							"uid": "kog5"
+						},
+						{
+							"part": "meanwell-psu-housing-lid-rear",
+							"qty": 1,
+							"uid": "m26o"
+						},
+						{
+							"part": "meanwell-psu-housing-lid-front",
+							"qty": 1,
+							"uid": "avux"
+						},
+						{
+							"part": "scr-m3-12-cs",
+							"qty": 10,
+							"uid": "0a9x"
+						},
+						{
+							"part": "nut-m3",
+							"qty": 2,
+							"uid": "sc1c"
+						},
+						{
+							"part": "scr-m5-16-shcs",
+							"qty": 2,
+							"uid": "2e0s"
+						},
+						{
+							"part": "washer-m5",
+							"qty": 2,
+							"uid": "6nu7"
+						},
+						{
+							"part": "tnut-m5-2020",
+							"qty": 2,
+							"uid": "bpwm"
+						}
+					]
+				},
+				{
+					"version": "6",
+					"uid": "dxsv",
+					"date": "2026-09-26",
+					"message": "The mains inlet's two screws lose their nuts and go from M3 x 12 to M3 x 8. Front panel v2 put a 2.8 mm pilot through the panel's full 4.9 mm in place of the 3.2 mm clearance hole, so an M3 cuts its own thread in the panel and the nut has nothing left to do; the M3 x 8 is the length that finishes flush, where the 12 only earned its length by reaching a nut. The panel also no longer has a right way up: front module v2 cuts its bottom rail back over the 53.5 mm behind the inlet to 3.75 mm below the lower screw's centreline, so both inlet holes clear at least 4 mm of radius out to 8 mm deep whichever way the panel goes in, where on the v1 module the lower hole was obstructed at r = 0.00 upside down. Measured off the two revised STLs. The eight lid screws stay M3 x 12 into the shells' 2.6 mm bosses, unchanged, and so does everything else. A panel printed before v2 still has 3.2 mm clearance holes and still wants an M3 x 12 with a nut behind it; that is on the joining note, not in the list.",
+					"breaking": false,
 					"commit": null
 				}
 			],
@@ -1892,10 +1977,10 @@
 				},
 				{
 					"part": "scr-m3-12-cs",
-					"qty": 10
+					"qty": 8
 				},
 				{
-					"part": "nut-m3",
+					"part": "scr-m3-8-cs",
 					"qty": 2
 				},
 				{
@@ -1914,7 +1999,7 @@
 			"joining": [
 				{
 					"method": "self-tap",
-					"note": "The lid screws are [[hw:scr-m3-12-cs]] cutting their own thread in 2.6 mm tapping holes in the shell parts, never in the lids, and there are no inserts. The mains inlet takes two [[hw:scr-m3-12-cs]] with an [[hw:nut-m3]] behind each. From front panel v2 the panel's two inlet holes are 2.8 mm pilots, so the screws cut their own thread there and the front module's rail is cut back to clear the lower screw and its nut. A panel printed before v2 has 3.2 mm clearance holes, where the nut is what holds; a print of either whose holes grip an M3 can use an [[hw:scr-m3-8-cs]] with no nut instead, which is the length that finishes flush."
+					"note": "The lid screws are [[hw:scr-m3-12-cs]] cutting their own thread in 2.6 mm tapping holes in the shell parts, never in the lids, and there are no inserts. The mains inlet takes two [[hw:scr-m3-8-cs]] and no nuts: from front panel v2 the panel's two inlet holes are 2.8 mm pilots through its full 4.9 mm, so the screws cut their own thread in the panel, and the front module's bottom rail is cut back behind the inlet so either hole clears whichever way up the panel goes in. A panel printed before v2 has 3.2 mm clearance holes with nothing to bite on: that one takes an [[hw:scr-m3-12-cs]] with an [[hw:nut-m3]] behind each instead."
 				}
 			]
 		},

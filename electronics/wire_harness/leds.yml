@@ -32,8 +32,8 @@ connectors:
   BOARD_LIM:
     type: Dupont 1x3 female, 2.54 mm
     pincount: 3
-    pinlabels: [SIG, GND, n/c]
-    notes: "On controller board v1.3. Position 3 is\ndeliberately unpopulated so the plug cannot go\non backwards. GUESS - verify pin order."
+    pinlabels: [GND, SIG, "+3V3"]
+    notes: "On basically board v1.3, J5 (HALL_SW_0). Pin\norder read off the v1.3 netlist. Position 3\nis deliberately unpopulated: it lines up with\nthe 3.3 V pin, so the plug cannot go on\nbackwards."
   SW:
     type: "Quick-connect receptacle, #187 (4.75 x 0.5 mm tab)"
     pinlabels: [SIG, GND]
@@ -57,7 +57,7 @@ cables:
   LIM:
     gauge: 22 AWG
     length: 24 in
-    colors: [WH, BK]
+    colors: [BK, WH]
     notes: "Limit switch. Gauge = GUESS, not covered by\nthe reference drawings."
 
 connections:

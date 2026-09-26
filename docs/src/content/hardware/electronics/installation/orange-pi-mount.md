@@ -79,9 +79,18 @@ One per machine. Which Orange Pi 5 to buy, how much RAM and storage it needs, th
 
 **The parts come in the position they sit in the box, not the way they print.** Lay the four walls flat on the bed, and print the roof upside down, top face on the bed.
 
+**The pictures in the steps below are renders of the models, not photographs of a build.** Each one shows the parts that step adds in colour, lifted off along the way they go on, with the parts already fitted in grey. The Orange Pi itself and the WiFi antennas are drawn as plain blanks, on the real mounting positions.
+
 {% include step.html n="1" title="Preparation" %}
 
 Press 8 M3 inserts into the base while it is loose: four in the posts the Pi sits on, and four in the corner posts the roof screws into. See [installing heat inserts]({{ '/hardware/helpers/heat-inserts/' | relative_url }}). Nothing else takes one.
+
+<div class="img-row">
+  <figure>
+    <img src="https://assets.basically.website/sorter-docs/orange-pi-housing-step1-inserts-full-0ede1a56f792.png" alt="Render of the housing base on its own, seen from above and one end, with a red ring round each of the eight heat-insert bores: four in the low posts in the middle of the floor and four in the tops of the tall corner posts">
+    <figcaption>The eight bores that take an insert, ringed: four low posts for the board, four corner posts for the roof. Nothing else on the base takes one.</figcaption>
+  </figure>
+</div>
 
 {% include step.html n="2" title="Screw the Pi down" %}
 
@@ -91,6 +100,13 @@ Press 8 M3 inserts into the base while it is loose: four in the posts the Pi sit
 </div>
 
 Sit the Pi on the four posts and fasten it with 4 {% include fastener.html size="M3" variant="socket-button" length="6" %} screws into their inserts. The posts are the standoffs, so there are none to fit.
+
+<div class="img-row">
+  <figure>
+    <img src="https://assets.basically.website/sorter-docs/orange-pi-housing-step2-board-full-4a5746c0fea3.png" alt="Exploded render of the Orange Pi held above the four posts in the base, with four button-head screws above the board again and dashed lines running from each screw down through the board into its post">
+    <figcaption>The board goes down onto the four posts, then the four screws into their inserts.</figcaption>
+  </figure>
+</div>
 
 {% include step.html n="3" title="Drop the walls in" %}
 
@@ -103,15 +119,36 @@ Each wall drops into its own groove in the base, and each one only fits one side
 
 Nothing screws the walls in. The roof holds them down in step 6.
 
+<div class="img-row">
+  <figure>
+    <img src="https://assets.basically.website/sorter-docs/orange-pi-housing-step3-walls-full-b22020fed729.png" alt="Exploded render of the four walls lifted clear of the base, each a different colour, with a dashed line from each one down into its groove: blue with a rounded window, teal with a long slot, orange with two square openings, purple with a hex vent pattern">
+    <figcaption>Each wall drops straight down into its own groove. Blue is west (the microSD window), teal north (USB-C and HDMI), orange east (USB-A and Ethernet), purple south (the hex vent).</figcaption>
+  </figure>
+</div>
+
 {% include step.html n="4" title="Fit the power button plunger" %}
 
 The plunger reaches the Pi's power key from outside the west wall, so the Pi can be switched on with the housing shut.
 
 Screw the plunger retainer onto its landing beside the west wall with 1 {% include fastener.html size="M3" variant="countersunk" length="12" %} from underneath the base. Lay the plunger in it with its square face out through the small window in the west wall, and close the plunger cap over it with 1 {% include fastener.html size="M3" variant="countersunk" length="8" %}. Both screws cut their own thread in the plastic, so take them by hand. Press the face from outside and check that it reaches the power key.
 
+<div class="img-row">
+  <figure>
+    <img src="https://assets.basically.website/sorter-docs/orange-pi-housing-step4-plunger-full-69c3970f218e.png" alt="Close-up exploded render of the west end of the base: the plunger retainer above its landing, the plunger above that with its square face pointing out towards the west wall, and the plunger cap above both">
+    <figcaption>The west bay, with the other three walls left out of the view. Bottom to top: the retainer onto its landing, the plunger laid into it, the cap over the top.</figcaption>
+  </figure>
+</div>
+
 {% include step.html n="5" title="Clamp the antennas" %}
 
 Sit the two WiFi antennas in their saddles on the north wall's block, and screw the antenna clamp over them with 2 {% include fastener.html size="M3" variant="countersunk" length="12" %}, self-tapping into the wall. Skip this step if the Pi has no WiFi module.
+
+<div class="img-row">
+  <figure>
+    <img src="https://assets.basically.website/sorter-docs/orange-pi-housing-step5-antenna-clamp-full-0bd9bc6b48eb.png" alt="Render of the north wall seen from outside the housing, with two antennas standing in the two channels in the block on the wall and the antenna clamp pulled straight out from them">
+    <figcaption>Seen from outside the north wall. The clamp closes over the two channels, so the antennas go in first.</figcaption>
+  </figure>
+</div>
 
 {% include step.html n="6" title="Put the roof on" %}
 
@@ -119,11 +156,25 @@ Lower the roof onto the walls, recessed side down, and fix it with 4 {% include 
 
 **The microSD card stays reachable with the roof on**, through the window in the west wall and the opening in the floor under it.
 
+<div class="img-row">
+  <figure>
+    <img src="https://assets.basically.website/sorter-docs/orange-pi-housing-step6-roof-full-027c3aa73416.png" alt="Exploded render of the roof lifted above the closed walls, recessed side down, with a dashed line running from each corner of the roof to the corner post below it">
+    <figcaption>The roof goes on recessed side down, onto the four corner posts.</figcaption>
+  </figure>
+</div>
+
 {% include step.html n="7" title="Clamp the hub and the buck converter to the roof" %}
 
 The powered USB hub sits on the roof under the hub clamp, and the 24 V to 5 V buck converter under the buck clamp. Each clamp takes 4 {% include fastener.html size="M3" variant="countersunk" length="12" %}, self-tapping into the pilots in the roof: take them by hand and stop as soon as the clamp is down.
 
 The hub clamp is drawn around the Waveshare USB3.2-Gen1-HUB-4U. The cables into the hub and the converter are on [connecting the components]({{ '/hardware/electronics/connecting/' | relative_url }}).
+
+<div class="img-row">
+  <figure>
+    <img src="https://assets.basically.website/sorter-docs/orange-pi-housing-step7-roof-clamps-full-cccfa381b135.png" alt="Exploded render of the two clamps lifted off the roof of the closed housing, a closed rectangular frame in blue and an open U-shaped one in orange, each with dashed lines down to its pilot holes">
+    <figcaption>Blue is the hub clamp, orange the buck clamp. Each takes four screws into the pilots in the roof.</figcaption>
+  </figure>
+</div>
 
 ## The finished result
 

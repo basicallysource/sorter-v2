@@ -55,7 +55,7 @@ The full pinout and the board-side footprint are on the [wire harness]({{ '/hard
 The motor's four leads are coloured, and the colours do not tell you which pair is which coil on every motor.
 
 <ol class="numbered-steps">
-  <li>Set the <a href="{{ '/hardware/helpers/multimeter/' | relative_url }}">multimeter to resistance</a>, the <b>&Omega;</b> position on its dial.</li>
+  <li>Set the <a href="{{ '/hardware/helpers/multimeter/' | relative_url }}#resistance-for-finding-a-steppers-coils">multimeter to resistance</a>, the <b>&Omega;</b> position on its dial.</li>
   <li>Put a probe on two of the four leads. <b>A pair from the same coil reads well under an ohm</b> on this motor, 0.65 &Omega; at the winding plus whatever your probe leads add. Two leads from different coils read open circuit, which most meters show as <code>OL</code> or a lone <code>1</code>.</li>
   <li>Work through the leads until you have both pairs. Write down which colour goes with which.</li>
 </ol>

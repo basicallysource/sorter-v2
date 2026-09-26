@@ -50,7 +50,7 @@ This is `W1` on the [harness drawings]({{ '/hardware/parts/harness-order/#board-
 
 <ol class="numbered-steps">
   <li>Start from a moulded barrel plug on a short lead. Splice the 18 AWG pair onto it so the finished lead is 914 mm (36 in) end to end: solder each conductor, cover each one with adhesive-lined heat shrink, then sleeve both together.</li>
-  <li>Find which conductor is the tip. Set the <a href="{{ '/hardware/helpers/multimeter/' | relative_url }}">multimeter to continuity</a> and hold one probe on the centre pin inside the plug. The conductor that beeps is <b>+24 V</b>. It is the red one on most moulded plugs, but the plug came from somebody else and a few are wired the other way, so this is the step where you find out.</li>
+  <li>Find which conductor is the tip. Set the <a href="{{ '/hardware/helpers/multimeter/' | relative_url }}#continuity-for-tracing-a-cable">multimeter to continuity</a> and hold one probe on the centre pin inside the plug. The conductor that beeps is <b>+24 V</b>. It is the red one on most moulded plugs, but the plug came from somebody else and a few are wired the other way, so this is the step where you find out.</li>
   <li>Strip 3 mm off the free end of each conductor.</li>
   <li>Crimp a VH contact onto each. Seat the bare strands fully in the barrel, crimp in the matching die, then pull on the wire to check it holds.</li>
   <li>Push each contact into the back of the VHR-2 housing until it clicks and will not pull out: <b>+24 V into position 1, ground into position 2</b>.</li>

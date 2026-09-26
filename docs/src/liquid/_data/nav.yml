@@ -121,6 +121,8 @@ sections:
             url: /hardware/helpers/t-nuts/
           - title: Preparing the LED strip
             url: /hardware/helpers/led-strip/
+          - title: Using a multimeter
+            url: /hardware/helpers/multimeter/
           - title: Make the control board's 24 V lead
             url: /hardware/helpers/board-24v-lead/
           - title: Make the Orange Pi's 24 V lead

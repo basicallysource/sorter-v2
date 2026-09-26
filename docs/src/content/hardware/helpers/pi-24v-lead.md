@@ -52,7 +52,7 @@ The converter takes 8 to 32 V in and gives 5 V out at up to 5 A. It is potted, s
 <ol class="numbered-steps">
   <li>Measure the converter's own input wires. <b>100 mm or more and nothing gets spliced</b>: they go straight into the plug, and the converter ends up hanging at the PSU box, which is where the long USB-C lead expects it to be. Shorter than 100 mm, do step 2 first; otherwise skip it.</li>
   <li><b>Only if they are short.</b> Splice a length of 22 AWG red and black on to make the lead up to about 150 mm (6 in): solder each joint, cover each one with adhesive-lined heat shrink, then sleeve the pair together. Red to red, black to black.</li>
-  <li>Work out which terminal of the plug is the tip. A screw-terminal plug is usually marked <code>+</code> and <code>-</code>; a moulded one is two wires. Either way, set the multimeter to continuity and hold one probe on the centre pin inside the plug: the terminal or wire that beeps is <b>+24 V</b>. This is the step where you find out rather than assume.</li>
+  <li>Work out which terminal of the plug is the tip. A screw-terminal plug is usually marked <code>+</code> and <code>-</code>; a moulded one is two wires. Either way, set the <a href="{{ '/hardware/helpers/multimeter/' | relative_url }}">multimeter to continuity</a> and hold one probe on the centre pin inside the plug: the terminal or wire that beeps is <b>+24 V</b>. This is the step where you find out rather than assume.</li>
   <li>Fit the plug, <b>the converter's red wire to the tip and its black wire to the sleeve</b>. On a screw-terminal plug, get the bare strands fully under the screws, tighten firmly and pull on each wire; on a moulded one, solder and heat shrink each joint as in step 2.</li>
 </ol>
 

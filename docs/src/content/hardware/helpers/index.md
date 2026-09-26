@@ -17,6 +17,7 @@ contributors: [barthel]
 - **[Installing heat inserts]({{ '/hardware/helpers/heat-inserts/' | relative_url }})**
 - **[Fitting T-nuts]({{ '/hardware/helpers/t-nuts/' | relative_url }})**
 - **[Preparing the LED strip]({{ '/hardware/helpers/led-strip/' | relative_url }})**
+- **[Using a multimeter]({{ '/hardware/helpers/multimeter/' | relative_url }})**
 - **[Make the control board's 24 V lead]({{ '/hardware/helpers/board-24v-lead/' | relative_url }})**
 - **[Make the Orange Pi's 24 V lead]({{ '/hardware/helpers/pi-24v-lead/' | relative_url }})**
 - **[Make the channel stepper leads]({{ '/hardware/helpers/channel-stepper-lead/' | relative_url }})**

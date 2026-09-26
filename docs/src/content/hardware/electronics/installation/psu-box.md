@@ -74,8 +74,8 @@ The fasteners and quantities are in the parts list above and are called out inli
 **Get the panel the right way up first.** Its two small screw holes sit at different distances from the long edges. **The hole nearer its edge goes at the top.** If you are unsure, hold the panel against the front module and look at the lower hole from inside: the right way up it is clear, upside down the module's rail covers it.
 
 <figure class="harness-figure">
-  <img src="https://assets.basically.website/sorter-docs/psu-box-panel-orientation-full-9f45190c1941.png" alt="Two renders of the front panel from inside the box, one above the other on the same camera, with the inlet's two screw holes ringed. In the upper one the panel is upside down and the lower ringed hole sits on the edge of the front module's bottom rail, half buried in it. In the lower one the panel is the right way up and the lower ringed hole sits clear above the rail">
-  <figcaption>The inlet's two holes from inside, upside down and the right way up. <cite>Rendered from the parts' own STLs. Orientation found by ReveryX.</cite></figcaption>
+  <img src="https://assets.basically.website/sorter-docs/psu-box-panel-orientation-full-f1d46d6b31b9.png" alt="Two renders of the front panel from inside the box, one above the other on the same camera, with the inlet's two screw holes ringed. The upper one is headed The right way up: the panel is the right way up and the lower ringed hole sits clear above the front module's bottom rail. The lower one is headed The wrong way up (upside down): the panel is flipped and the lower ringed hole sits on the edge of the rail, half buried in it">
+  <figcaption>The inlet's two holes from inside, the right way up and then the wrong way up. <cite>Rendered from the parts' own STLs. Orientation found by ReveryX.</cite></figcaption>
 </figure>
 
 Push each jack through a round hole from behind and do its nut up on the outside, finger tight. Any of the three round holes will do.

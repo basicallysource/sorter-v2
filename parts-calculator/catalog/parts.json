@@ -5184,21 +5184,68 @@
       "category": "Computer",
       "description": "Host computer (optional, see note)",
       "created_at": "2026-07-18",
-      "updated_at": "2026-07-18",
+      "updated_at": "2026-09-26",
       "sheet_qty": {
         "per_machine": 1
       },
-      "image_url": "https://assets.basically.website/sorter-parts/sbc-orange-pi-5-full-51ca8492b499.jpg",
+      "attributes": [
+        {
+          "label": "Memory",
+          "value": "8 GB. The 4 GB board is not supported: the backend, the inference workers and the OS together exceed it. 16 GB works and is not required."
+        },
+        {
+          "label": "SoC",
+          "value": "Rockchip RK3588S"
+        },
+        {
+          "label": "NPU",
+          "value": "6 TOPS. This is the reason the board is specified: one detection worker per camera, over 30 fps each and over 100 fps across all three."
+        },
+        {
+          "label": "Storage",
+          "value": "MicroSD slot, and one M.2 M-key socket that takes either an NVMe SSD or the WiFi module, not both. SorterOS is flashed to a 32 GB or larger high-endurance microSD."
+        },
+        {
+          "label": "Network",
+          "value": "Gigabit Ethernet. No WiFi or Bluetooth on the board: that is the separate M.2 module in this catalog, or a Linux-compatible USB adapter."
+        },
+        {
+          "label": "USB",
+          "value": "1 × USB 3.0 Type-A and 2 × USB 2.0 Type-A. Three cameras and two Picos is five devices, so the machine puts them on a powered hub."
+        },
+        {
+          "label": "Power",
+          "value": "5 V at 4 A over USB-C, a fixed 5 V with no PD negotiation. The board carries two identical-looking USB-C connectors and only one of them takes power. In the machine that comes off the 24 V PSU through the buck converter."
+        },
+        {
+          "label": "Cooling",
+          "value": "Needs a fan. Pinned hard, and especially with a model running on the CPU rather than the NPU, it reaches thermal emergency shutdown at about 105 °C. The official SoC heatsink fan is its own line in this catalog and plugs into the board's 5 V fan socket."
+        },
+        {
+          "label": "Board",
+          "value": "100 × 62 mm, 46 g. Its four mounting holes sit on a roughly 95 × 56 mm rectangle, which is what the printed extrusion mount is drilled for."
+        },
+        {
+          "label": "Variants",
+          "value": "The 5 Pro, 5 Max and 5 Ultra are 89 mm wide boards with their mounting holes on a 58 × 49 mm rectangle; the 5 Plus is a 100 × 75 mm RK3588 board. The 5 Pro has Wi-Fi 5 on board and the 5 Plus takes a 2230 E-key module, while this catalog's WiFi module is M-key and fits the plain 5 only. The 5B is the same board as the plain 5 with Wi-Fi 6 and eMMC added and the M.2 slot removed, so it does fit the mount, but SorterOS has no build for it."
+        },
+        {
+          "label": "OS",
+          "value": "SorterOS, which is built on Orange Pi's own Ubuntu image for this board"
+        }
+      ],
+      "note": "Buy the plain Orange Pi 5, 8 GB. The 5 Plus, 5 Pro, 5 Max and 5 Ultra are separate boards rather than options on this one: none of them share its mounting-hole pattern, so the printed extrusion mount does not line up, and the WiFi module listed in this catalog fits the plain 5 only. The 5B is not supported either: it does fit the mount, but SorterOS is built from the plain 5's image and there is no 5B build.",
+      "image_url": "https://assets.basically.website/sorter-parts/sbc-orange-pi-5-full-0ed5b951ffe2.jpg",
       "sourcing": {
         "vendors": [
           {
             "region": "US",
             "vendor": "Amazon",
-            "url": "https://www.amazon.com/dp/B0BN17BRYY",
-            "price": 195.99,
+            "url": "https://www.amazon.com/dp/B0BN17PWWB",
+            "affiliate_url": "https://www.amazon.com/dp/B0BN17PWWB?tag=sorterv2-20",
             "pack_qty": 1,
-            "as_of": "2026-04-16",
-            "affiliate_url": "https://www.amazon.com/dp/B0BN17BRYY?tag=sorterv2-20"
+            "as_of": "2026-09-26",
+            "note": "Orange Pi's own listing for the board on its own, no power supply. Currently unavailable: as of 2026-09-26 Amazon US lists no 8 GB plain Orange Pi 5 in stock, with a supply or without, only 16 GB ones."
           },
           {
             "region": "EU",
@@ -5207,7 +5254,8 @@
             "price": 245.0,
             "currency": "EUR",
             "pack_qty": 1,
-            "as_of": "2026-09-15"
+            "as_of": "2026-09-26",
+            "note": "Board on its own. The 4 A USB-C supply their page recommends is not needed here: the machine feeds the board from the 24 V PSU through the buck converter."
           }
         ]
       }

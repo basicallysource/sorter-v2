@@ -35,7 +35,7 @@ The [Orange Pi 5]({{ '/hardware/orange-pi-5/' | relative_url }}) already in the 
 
 ## 1. Download
 
-Download the `.zip` from the latest **SorterOS** release on [GitHub](https://github.com/basicallysource/sorter-v2/releases).
+Download the `.zip` from the newest **SorterOS** release, the top one in [this list on GitHub](https://github.com/basicallysource/sorter-v2/releases?q=SorterOS&expanded=true).
 
 ## 2. Flash
 

@@ -321,7 +321,6 @@ Then plug the machine in and switch the inlet switch on. The red power light on 
 
 ## What is not recorded yet
 
-- **Where the arm fan's lead lands.** The Pi's own 2-pin `FAN` connector is 5 V and runs the official heatsink fan on the SoC, which goes on during [the Orange Pi mount]({{ '/hardware/electronics/installation/orange-pi-mount/' | relative_url }}). The 40 mm fan on that mount's arm is a 24 V one, so it has to come off the control board instead, and whether that fan is needed at all is still being decided. Leave its lead loose.
 - **Where the USB hub mounts.** Its place on the machine is not settled, so it is not fastened to anything here.
 
 ## The finished result

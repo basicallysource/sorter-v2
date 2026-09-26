@@ -2977,105 +2977,137 @@
       "uid": "7qz3",
       "name": "PSU Housing — Shell Rear Tray",
       "description": "Rear tray of the v2 PSU housing. The Meanwell supply bolts into it on four M4 countersunk screws, and both lids screw down into it.",
-      "internal_notes": "From 'meanwell psu housing v2.zip' (Sorter V2 STLs, 2026-08-22). Adopted as the PSU box on 2026-09-21 with candidate 1d0t; was design-data only before that.",
+      "internal_notes": "From 'meanwell psu housing v2.zip' (Sorter V2 STLs, 2026-08-22). Adopted as the PSU box on 2026-09-21 with candidate 1d0t; was design-data only before that. Re-exported 2026-09-26 from the same CAD version as the front module and front panel revisions, so all five housing parts come from one version; geometry unchanged.",
       "version": "1",
       "created_at": "2026-08-22",
-      "updated_at": "2026-09-21",
+      "updated_at": "2026-09-26",
       "quantities": {
         "electronics": 1
       },
       "assembly": "meanwell-psu-box",
-      "stl_hash": "f4bc36015be125fe42a7027f667c3e3a8db46efe7e588000beb38ef1face83ec",
+      "stl_hash": "9f50b91010c0ee002c3a685f6909eb6384f65b965e178d6b2f6501f2c178e9e5",
       "color": {
         "role": "frame"
       },
       "optional": false,
       "support": false,
-      "onshape_version": "https://cad.onshape.com/documents/f7d34331a9a020dce9231dc1/v/13f56af58b306d7850aa3ea4/e/562fad1e09332ebe5efdd59c"
+      "onshape_version": "https://cad.onshape.com/documents/d8339d00eaef603e65e5e050/v/32e64a3fe696f998a73a0f9f/e/52c259ec13c7da4fe13e8a63"
     },
     {
       "id": "meanwell-psu-housing-shell-front",
-      "uid": "1h8p",
+      "uid": "xxxt",
       "name": "PSU Housing — Shell Front Module",
-      "description": "Front module of the v2 PSU housing. The front panel slots into it, and the front lid screws down into it and into the rear tray.",
-      "internal_notes": "From 'meanwell psu housing v2.zip' (Sorter V2 STLs, 2026-08-22). Adopted as the PSU box on 2026-09-21 with candidate 1d0t; was design-data only before that.",
-      "version": "1",
+      "description": "Front module of the v2 PSU housing. The front panel slots into it, and the front lid screws down into it and into the rear tray. Its bottom rail is cut back behind the mains inlet so the inlet's lower screw and nut clear it.",
+      "internal_notes": "From 'meanwell psu housing v2.zip' (Sorter V2 STLs, 2026-08-22). Adopted as the PSU box on 2026-09-21 with candidate 1d0t; was design-data only before that. v2 (2026-09-26) is exported from the electronics CAD document's version, which carries the #738 revision on top of the original design.",
+      "version": "2",
       "created_at": "2026-08-22",
-      "updated_at": "2026-09-21",
+      "updated_at": "2026-09-26",
       "quantities": {
         "electronics": 1
       },
       "assembly": "meanwell-psu-box",
-      "stl_hash": "942fdcbb41979c057a8e2fb77fc7bbb69439284c76182f973eea802497ecfa9c",
+      "stl_hash": "bd570cdebb655f1c9daa7d452c40c6de67ec1fb977d748d8064e5ee721d933a0",
       "color": {
         "role": "frame"
       },
       "optional": false,
       "support": false,
-      "onshape_version": "https://cad.onshape.com/documents/f7d34331a9a020dce9231dc1/v/13f56af58b306d7850aa3ea4/e/562fad1e09332ebe5efdd59c"
+      "onshape_version": "https://cad.onshape.com/documents/d8339d00eaef603e65e5e050/v/32e64a3fe696f998a73a0f9f/e/52c259ec13c7da4fe13e8a63",
+      "versions": [
+        {
+          "version": "1",
+          "uid": "1h8p",
+          "message": "As recorded before the first stamped change.",
+          "stl_hash": "942fdcbb41979c057a8e2fb77fc7bbb69439284c76182f973eea802497ecfa9c"
+        },
+        {
+          "version": "2",
+          "date": "2026-09-26",
+          "message": "Room behind the mains inlet, for sorter-v2#738. The bottom rail behind the front panel is cut back over the 53.5 mm behind the inlet, down to 5 mm below the lower screw hole's centreline, so the lower inlet screw and a nut on it clear the rail. A 12 mm wide notch, 1.1 mm deep, in the lip under the panel at the inlet clears the inlet's lower flange. The four holes where this module meets the rear tray, two in each end wall, get a countersunk seat, with a clear bore in front of each for the driver. Nothing that mates with the rear tray, the lids or the panel moved, so an old print still fits: the nut behind the lower inlet screw goes on, just tightly.",
+          "breaking": false,
+          "commit": null,
+          "onshape_version": "https://cad.onshape.com/documents/d8339d00eaef603e65e5e050/v/32e64a3fe696f998a73a0f9f/e/52c259ec13c7da4fe13e8a63"
+        }
+      ]
     },
     {
       "id": "meanwell-psu-housing-lid-rear",
       "uid": "m26o",
       "name": "PSU Housing — Lid Rear",
       "description": "Rear lid of the v2 PSU housing, vented over the supply. Screws into the rear tray on four self-tapping M3 countersunk screws.",
-      "internal_notes": "From 'meanwell psu housing v2.zip' (Sorter V2 STLs, 2026-08-22). Adopted as the PSU box on 2026-09-21 with candidate 1d0t; was design-data only before that.",
+      "internal_notes": "From 'meanwell psu housing v2.zip' (Sorter V2 STLs, 2026-08-22). Adopted as the PSU box on 2026-09-21 with candidate 1d0t; was design-data only before that. Re-exported 2026-09-26 from the same CAD version as the front module and front panel revisions, so all five housing parts come from one version; geometry unchanged.",
       "version": "1",
       "created_at": "2026-08-22",
-      "updated_at": "2026-09-21",
+      "updated_at": "2026-09-26",
       "quantities": {
         "electronics": 1
       },
       "assembly": "meanwell-psu-box",
-      "stl_hash": "83f226b5531d7eae5310e53213eaa63ba3bc49996d7b43dc71e661be3b614706",
+      "stl_hash": "d104aa332ae46a2ca627da00f2e8340b8e1558d0d1d16ca2e48801324c90e2c6",
       "color": {
         "role": "frame"
       },
       "optional": false,
       "support": false,
-      "onshape_version": "https://cad.onshape.com/documents/f7d34331a9a020dce9231dc1/v/13f56af58b306d7850aa3ea4/e/562fad1e09332ebe5efdd59c"
+      "onshape_version": "https://cad.onshape.com/documents/d8339d00eaef603e65e5e050/v/32e64a3fe696f998a73a0f9f/e/52c259ec13c7da4fe13e8a63"
     },
     {
       "id": "meanwell-psu-housing-lid-front",
       "uid": "avux",
       "name": "PSU Housing — Lid Front",
       "description": "Front lid of the v2 PSU housing. Spans the joint, screwing two into the front module and two into the rear tray, and traps the front panel once fitted.",
-      "internal_notes": "From 'meanwell psu housing v2.zip' (Sorter V2 STLs, 2026-08-22). Adopted as the PSU box on 2026-09-21 with candidate 1d0t; was design-data only before that.",
+      "internal_notes": "From 'meanwell psu housing v2.zip' (Sorter V2 STLs, 2026-08-22). Adopted as the PSU box on 2026-09-21 with candidate 1d0t; was design-data only before that. Re-exported 2026-09-26 from the same CAD version as the front module and front panel revisions, so all five housing parts come from one version; geometry unchanged.",
       "version": "1",
       "created_at": "2026-08-22",
-      "updated_at": "2026-09-21",
+      "updated_at": "2026-09-26",
       "quantities": {
         "electronics": 1
       },
       "assembly": "meanwell-psu-box",
-      "stl_hash": "126a70b01f4e677d0187902ad886ad4e310de50174889cb725b6edc8b46b0db0",
+      "stl_hash": "702f87c0fdc18d75dca1b85f809cf1a5a53b18733898cbf1ce94537618842fe2",
       "color": {
         "role": "frame"
       },
       "optional": false,
       "support": false,
-      "onshape_version": "https://cad.onshape.com/documents/f7d34331a9a020dce9231dc1/v/13f56af58b306d7850aa3ea4/e/562fad1e09332ebe5efdd59c"
+      "onshape_version": "https://cad.onshape.com/documents/d8339d00eaef603e65e5e050/v/32e64a3fe696f998a73a0f9f/e/52c259ec13c7da4fe13e8a63"
     },
     {
       "id": "meanwell-psu-housing-front-panel",
-      "uid": "n1oh",
+      "uid": "0le6",
       "name": "PSU Housing — Front Panel",
-      "description": "Front panel of the v2 PSU housing, carrying the mains inlet cutout. No fasteners of its own: it slots into the front module and the front lid holds it in.",
-      "internal_notes": "From 'meanwell psu housing v2.zip' (Sorter V2 STLs, 2026-08-22). Adopted as the PSU box on 2026-09-21 with candidate 1d0t; was design-data only before that.",
-      "version": "1",
+      "description": "Front panel of the v2 PSU housing, carrying the mains inlet cutout, its two 2.8 mm screw pilots and the three jack holes. No fasteners of its own: it slots into the front module and the front lid holds it in.",
+      "internal_notes": "From 'meanwell psu housing v2.zip' (Sorter V2 STLs, 2026-08-22). Adopted as the PSU box on 2026-09-21 with candidate 1d0t; was design-data only before that. v2 (2026-09-26) is exported from the electronics CAD document's version, which carries the #738 revision on top of the original design.",
+      "version": "2",
       "created_at": "2026-08-22",
-      "updated_at": "2026-09-21",
+      "updated_at": "2026-09-26",
       "quantities": {
         "electronics": 1
       },
       "assembly": "meanwell-psu-box",
-      "stl_hash": "69dae822bcaf92f97b84be2b482a138e57b704db4104ab6440dbee550168964f",
+      "stl_hash": "a0cecd8014568be34dccbebb940c065a0f3055ee6d0d6424addb34c891ed1d89",
       "color": {
         "role": "frame"
       },
       "optional": false,
       "support": false,
-      "onshape_version": "https://cad.onshape.com/documents/f7d34331a9a020dce9231dc1/v/13f56af58b306d7850aa3ea4/e/562fad1e09332ebe5efdd59c"
+      "onshape_version": "https://cad.onshape.com/documents/d8339d00eaef603e65e5e050/v/32e64a3fe696f998a73a0f9f/e/52c259ec13c7da4fe13e8a63",
+      "versions": [
+        {
+          "version": "1",
+          "uid": "n1oh",
+          "message": "As recorded before the first stamped change.",
+          "stl_hash": "69dae822bcaf92f97b84be2b482a138e57b704db4104ab6440dbee550168964f"
+        },
+        {
+          "version": "2",
+          "date": "2026-09-26",
+          "message": "The mains inlet's two screw holes are 2.8 mm pilots through the panel's full 4.9 mm, where they were 3.2 mm clearance, so an M3 cuts its own thread instead of depending on how tight a printer makes a 3.2 mm hole (sorter-v2#738). The outline, the cutouts and the which-way-up difference between the two holes' edge distances are unchanged. An old print still works, with a nut behind each inlet screw.",
+          "breaking": false,
+          "commit": null,
+          "onshape_version": "https://cad.onshape.com/documents/d8339d00eaef603e65e5e050/v/32e64a3fe696f998a73a0f9f/e/52c259ec13c7da4fe13e8a63"
+        }
+      ]
     },
     {
       "id": "scr-m3-tbd",
@@ -4023,6 +4055,38 @@
         }
       ],
       "image_url": "https://assets.basically.website/sorter-parts/washer-m3-15-full-2d7e5321c11c.jpg"
+    },
+    {
+      "id": "washer-m5",
+      "uid": "6nu7",
+      "kind": "cots",
+      "cots": {
+        "type": "washer",
+        "size": "M5"
+      },
+      "name": "M5 washer",
+      "category": "Washers",
+      "description": "Plain M5 flat washer, 10 mm outer diameter, 1 mm thick. One under the head of each M5 screw that bolts an electronics enclosure to the 2020 frame.",
+      "created_at": "2026-09-26",
+      "updated_at": "2026-09-26",
+      "attributes": [
+        {
+          "label": "Thread",
+          "value": "M5"
+        },
+        {
+          "label": "Outer diameter",
+          "value": "10 mm"
+        },
+        {
+          "label": "Thickness",
+          "value": "1 mm"
+        },
+        {
+          "label": "Type",
+          "value": "Flat"
+        }
+      ]
     },
     {
       "id": "nut-m3",
@@ -8644,8 +8708,8 @@
     },
     {
       "id": "meanwell-psu-box",
-      "uid": "1d0t",
-      "version": "4",
+      "uid": "8bk1",
+      "version": "5",
       "versions": [
         {
           "version": "1",
@@ -8811,8 +8875,88 @@
         },
         {
           "version": "4",
+          "uid": "1d0t",
           "date": "2026-09-23",
           "message": "The five-piece printed housing replaces the three plates screwed onto the supply's own case, adopted from candidate 1d0t. The supply bolts into the shell rear tray on four M4 x 12 countersunk through a 9.00 mm pad, on the case's own 150 x 50 mm M4 pattern; the 12 is the only stock length that fits, because Mean Well's drawing caps that pattern at 3 mm of screw inside the case. The rear lid closes onto the tray on four self-tapping M3 x 12 countersunk and the front lid spans the joint with four more, two into the tray and two into the shell front module; every tapping boss is 2.6 mm and 12.0 mm deep and they are all in the shell parts, never in the lids. The front panel takes no fasteners of its own: it slots into the front module and the front lid traps it, and it carries the 47.5 x 28 mm mains inlet cutout and three 12 mm jack holes at 20 mm pitch. The M5 that bolts the box to the 2020 frame goes from x 12 to x 16: each shell carries one clamp boss with a 10.00 mm grip, where the v1 back mount's boss was 8 mm, which is the same boss depth and the same M5 x 16 as the control board housing. The mains inlet takes two M3 x 12 countersunk with an M3 nut behind each, because the panel's holes are 3.2 mm clearance with no pilot; confirmed on a print, tight at the lower hole but within tolerance, and a print whose holes grip an M3 can use an M3 x 8 with no nut instead. meanwell-psu-back-mount, meanwell-psu-connections and meanwell-psu-cap are retired in place. The pigtails, the mains lead and the supply itself carry over from v3 unchanged. sorter-v2#738 is open on the front panel's missing pilot and on supporting its long edges; #740 on engraving a TOP mark so it cannot go in upside down.",
+          "breaking": false,
+          "commit": null,
+          "lines": [
+            {
+              "part": "meanwell-psu-housing-shell-rear",
+              "qty": 1,
+              "uid": "7qz3"
+            },
+            {
+              "part": "psu-24v-350w",
+              "qty": 1,
+              "uid": "s3ru"
+            },
+            {
+              "part": "scr-m4-12-cs",
+              "qty": 4,
+              "uid": "h8h4"
+            },
+            {
+              "part": "meanwell-psu-housing-shell-front",
+              "qty": 1,
+              "uid": "1h8p"
+            },
+            {
+              "part": "meanwell-psu-housing-front-panel",
+              "qty": 1,
+              "uid": "n1oh"
+            },
+            {
+              "part": "psu-switch-fused",
+              "qty": 1,
+              "uid": "lmu7"
+            },
+            {
+              "part": "mains-cord-c13",
+              "qty": 1,
+              "uid": "nuya"
+            },
+            {
+              "assembly": "harness-psu-pigtail",
+              "qty": 3,
+              "uid": "kog5"
+            },
+            {
+              "part": "meanwell-psu-housing-lid-rear",
+              "qty": 1,
+              "uid": "m26o"
+            },
+            {
+              "part": "meanwell-psu-housing-lid-front",
+              "qty": 1,
+              "uid": "avux"
+            },
+            {
+              "part": "scr-m3-12-cs",
+              "qty": 10,
+              "uid": "0a9x"
+            },
+            {
+              "part": "nut-m3",
+              "qty": 2,
+              "uid": "sc1c"
+            },
+            {
+              "part": "scr-m5-16-shcs",
+              "qty": 2,
+              "uid": "2e0s"
+            },
+            {
+              "part": "tnut-m5-2020",
+              "qty": 2,
+              "uid": "bpwm"
+            }
+          ]
+        },
+        {
+          "version": "5",
+          "date": "2026-09-26",
+          "message": "An M5 washer under each of the two frame screws, as the CAD assembly has them. The same day, the front module and the front panel took their #738 revision (front module v2, front panel v2), and all five housing parts were re-exported from one CAD version; those are recorded on the parts. The inlet's two screws now cut their own thread in the panel's 2.8 mm pilots, and the nut behind each stays in the list because it is what makes a panel printed before v2 hold.",
           "breaking": false,
           "commit": null
         }
@@ -8874,6 +9018,10 @@
           "qty": 2
         },
         {
+          "part": "washer-m5",
+          "qty": 2
+        },
+        {
           "part": "tnut-m5-2020",
           "qty": 2
         }
@@ -8881,7 +9029,7 @@
       "joining": [
         {
           "method": "self-tap",
-          "note": "The lid screws are [[hw:scr-m3-12-cs]] cutting their own thread in 2.6 mm tapping holes in the shell parts, never in the lids, and there are no inserts. The mains inlet is the one nutted joint: its two [[hw:scr-m3-12-cs]] each take an [[hw:nut-m3]] behind the front panel, because the panel's own holes are 3.2 mm clearance with no pilot. Confirmed on a print by barthel, 2026-09-22, tight at the lower hole but within tolerance. A print whose holes grip an M3 can use a [[hw:scr-m3-8-cs]] with no nut instead, which is the length that finishes flush. sorter-v2#738 is open for the pilot and a nut pocket."
+          "note": "The lid screws are [[hw:scr-m3-12-cs]] cutting their own thread in 2.6 mm tapping holes in the shell parts, never in the lids, and there are no inserts. The mains inlet takes two [[hw:scr-m3-12-cs]] with an [[hw:nut-m3]] behind each. From front panel v2 the panel's two inlet holes are 2.8 mm pilots, so the screws cut their own thread there and the front module's rail is cut back to clear the lower screw and its nut. A panel printed before v2 has 3.2 mm clearance holes, where the nut is what holds; a print of either whose holes grip an M3 can use an [[hw:scr-m3-8-cs]] with no nut instead, which is the length that finishes flush."
         }
       ]
     },

@@ -25486,7 +25486,7 @@
 				]
 			},
 			"alternative": null,
-			"caption": "Optional. Only for a machine going on WiFi; skip it and run Ethernet.",
+			"caption": "Only for a machine going on WiFi; skip it and run Ethernet.",
 			"docs_page": "/hardware/electronics/installation/orange-pi-prep/",
 			"conflicts": null,
 			"image": "https://assets.basically.website/sorter-parts/wifi-module-opi5-full-8ab3a6417605.jpg"

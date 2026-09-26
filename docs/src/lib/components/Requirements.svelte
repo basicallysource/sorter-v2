@@ -169,6 +169,26 @@
 										disabled={!part.detail}>{part.name}</button
 									>
 								</span>
+								{#if part.optional}<Popover
+										class="part-card-optional-pop"
+										label="Optional part"
+										width="17rem"
+									>
+										{#snippet trigger({ toggle, props })}
+											<button
+												type="button"
+												class="part-card-optional"
+												onclick={toggle}
+												aria-label="Optional part"
+												{...props}>Optional</button
+											>
+										{/snippet}
+										<p>
+											<strong>Optional</strong><br />The build works without this one. It is still
+											counted in the quantities and the totals, so take it off your own order if you
+											are skipping it.
+										</p>
+									</Popover>{/if}
 								{#if part.caption}<span class="part-card-caption">{part.caption}</span>{/if}
 							{/if}
 						</li>

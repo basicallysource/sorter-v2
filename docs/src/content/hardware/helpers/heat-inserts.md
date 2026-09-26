@@ -9,6 +9,7 @@ lede: Pressing brass heat-set inserts into printed parts.
 permalink: /hardware/helpers/heat-inserts/
 author: spencer
 contributors: [brickcyclealice, barthel]
+og_image: https://assets.basically.website/sorter-docs/assembly-door-module-inserts-bearing-holder-w1600-9f39521a7c9b.jpg
 parts_needed:
   - part: hsi-m3
   - part: hsi-m4
@@ -16,9 +17,11 @@ parts_needed:
 tools_needed: [Soldering iron or heat-set insert press, Needle-nose pliers]
 ---
 
-You can install the brass inserts with a soldering iron or a dedicated heat-set insert press.
+A soldering iron does this, and so does a dedicated heat-set insert press. Both are
+below.
 
-Heat inserts give printed threads that can be screwed and unscrewed repeatedly without stripping the plastic, unlike a self-tapping screw driven straight into a hole. This page is linked from wherever a part's assembly step calls for one; do the insert for that part before starting its steps.
+Eight assembly steps call for inserts. Do a part's inserts before you start its own
+steps, and use the size that part's list asks for.
 
 ## Using a soldering iron
 
@@ -29,22 +32,32 @@ Heat inserts give printed threads that can be screwed and unscrewed repeatedly w
   <figure><img src="https://assets.basically.website/sorter-docs/assembly-heat-inserts-soldering-iron-pressing-insert-w1600-b18b63647483.jpg" alt="Soldering iron tip centered on a heat insert, pressing it straight down into the part"><figcaption>Center the tip and press gently while it heats. <cite>Photo: BrickCycleAlice.</cite></figcaption></figure>
 </div>
 
-Place each insert above its cavity, straight and centered, with the thinner section going in first.
+Stand the insert on its hole, thinner section down, straight and centered.
 
 {% include step.html n="2" title="Heat it in" %}
 
-Set the iron to roughly 200-220C (390-430F) for PLA or PETG parts, or higher for ABS — check your filament's printing temperature as a rough guide. Line the tip up with the center of the insert and apply slight pressure. After about 20 seconds it will reach the plastic's melting point and start to sink into the part on its own. Push it down straight into the hole, not at an angle.
-
-It travels faster as it gets hotter, so keep a steady hand and check it from two sides as it sinks, not just from above. Larger inserts take longer to heat up before they sink. Keep the iron on the insert until it is flush with the top of the part, and straighten it before you remove the heat — once the plastic cools it won't move.
-
 <div class="callout callout-warning">
   <span class="callout-icon" aria-hidden="true">⚠</span>
-  <p>The iron tip, the insert, and the plastic around it are all hot enough to burn — use needle-nose pliers to hold small inserts steady, never your fingers, and rest the iron in its stand between inserts. Melting plastic gives off fumes, so do this somewhere ventilated, and don't lean over the part while it's heating.</p>
+  <p>The iron tip, the insert, and the plastic around it are all hot enough to burn. Hold small inserts with the needle-nose pliers, never your fingers, and rest the iron in its stand between inserts. Melting plastic gives off fumes, so work somewhere ventilated and do not lean over the part while it is heating.</p>
 </div>
 
-{% include step.html n="3" title="Fix a crooked or overheated insert" %}
+<ol class="numbered-steps">
+  <li>Set the iron to 200 to 220 C (390 to 430 F). For any other filament, use its printing temperature as a rough guide.</li>
+  <li>Line the tip up with the center of the insert and apply slight pressure.</li>
+  <li>Wait. After about 20 seconds the plastic reaches its melting point and the insert starts to sink on its own. A larger insert takes longer to get there.</li>
+  <li>Push it straight down into the hole, not at an angle. It travels faster as it gets hotter, so go steadily and check it from two sides as it sinks, not just from above.</li>
+  <li>Keep the iron on it until the top of the insert is flush with the surface of the part.</li>
+  <li>Straighten it before you take the heat away. Once the plastic cools it will not move.</li>
+</ol>
 
-If it's already crooked or has sunk too far, reheat it, gently pull it back up and straight with pliers while it's still soft, then let it re-set. If the surrounding plastic has visibly melted or bulged, that hole's threads may be weakened; back the insert out, let the part cool fully, and consider reprinting that part if it doesn't hold a screw firmly.
+### If one goes crooked or sinks too far
+
+Reheat it. Pull it back up and straight with the pliers while the plastic is still soft,
+then let it set again.
+
+If the plastic around it has visibly melted or bulged, that hole may not hold a thread.
+Back the insert out, let the part cool fully, and try a screw in it. Reprint the part if
+the screw does not bite.
 
 ## Using a heat press
 
@@ -53,7 +66,7 @@ If it's already crooked or has sunk too far, reheat it, gently pull it back up a
   <figcaption><cite>Manufacturer product photo, not a Basically photo.</cite></figcaption>
 </figure>
 
-A {% include affiliate-link.html url="https://www.amazon.com/Vertical-Machine-Heat-Insertion-Threaded-Components/dp/B0FRXF1ZH6" text="heat-set insert press" %} is the easiest way to install them: it holds the insert square and drives it straight down, so you just line it up over the hole and lower the arm. The video below shows the process.
+A {% include affiliate-link.html url="https://www.amazon.com/Vertical-Machine-Heat-Insertion-Threaded-Components/dp/B0FRXF1ZH6" text="heat-set insert press" %} holds the insert square and drives it straight down, so you line it up over the hole and lower the arm.
 
 <figure class="video-figure">
   <div class="video-embed video-embed-wide">
@@ -64,7 +77,18 @@ A {% include affiliate-link.html url="https://www.amazon.com/Vertical-Machine-He
       allowfullscreen
       loading="lazy"></iframe>
   </div>
-  <figcaption><cite>Video: Basically's own YouTube channel. Who filmed it isn't recorded.</cite></figcaption>
+  <figcaption>The press, start to finish. <cite>Video: Basically's own YouTube channel. Who filmed it isn't recorded.</cite></figcaption>
+</figure>
+
+## The finished result
+
+Each insert flush with the surface it went into, and square to it. A small glossy ring
+where the plastic melted and closed around the brass is normal. Plastic that has bulged
+up around the rim, or a crater where the insert has sunk below the surface, is not.
+
+<figure class="single-figure">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-door-module-inserts-bearing-holder-w1600-9f39521a7c9b.jpg" alt="A small printed bracket on a bench with three brass heat inserts fitted, each one seated flush in its own raised boss with the knurling on the brass visible and a faint ring of melted plastic closing around it">
+  <figcaption>Three finished inserts, on the door module's bearing holder. Flush with each boss, square to it, and the brass knurling still visible. <cite>Photo: BrickCycleAlice.</cite></figcaption>
 </figure>
 
 {% include affiliate-footnotes.html %}

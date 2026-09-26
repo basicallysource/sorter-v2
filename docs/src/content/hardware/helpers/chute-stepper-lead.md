@@ -22,6 +22,8 @@ parts_needed:
     qty: 4
   - part: wire-24awg
     qty: 1
+  - part: connector-kit-crimp
+    qty: 1
 tools_needed: [Wire strippers, "Crimp tool for open-barrel contacts", "Soldering iron and adhesive-lined heat shrink", Multimeter]
 ---
 
@@ -47,6 +49,74 @@ All five stepper outputs on the board have the same pinout, pin 1 to pin 4:
 </table>
 
 **Positions 1 and 2 are one coil, 3 and 4 are the other.** Swapping the two wires inside a coil only reverses the direction the motor turns. Splitting a coil across the 2 and 3 boundary is what stops it working, so keep each pair together.
+
+<figure class="harness-figure">
+  <div class="diagram diagram-wide">
+    <svg viewBox="0 0 930 347" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="The chute stepper lead: a 4-pin board connector on the left with positions A2, A1, B1 and B2, four wires running straight across to the NEMA 23's four bare flying leads on the right, with a splice marked in the middle where the thin tail you add meets the motor's thicker leads">
+      <text x="0" y="20" font-size="17" font-weight="700" fill="var(--ink)">The chute stepper lead</text>
+      <text x="0" y="41" font-size="12" fill="var(--muted)">basically board v1.3 to the chute motor. One per machine, and the only stepper lead you splice.</text>
+      <line x1="0" y1="64" x2="26" y2="64" stroke="#1a1a1a" stroke-width="2.6" stroke-linecap="round"/>
+      <text x="34" y="68" font-size="11" fill="var(--muted)">black</text>
+      <line x1="91" y1="64" x2="117" y2="64" stroke="#1f8a45" stroke-width="2.6" stroke-linecap="round"/>
+      <text x="125" y="68" font-size="11" fill="var(--muted)">green</text>
+      <line x1="182" y1="64" x2="208" y2="64" stroke="#d01012" stroke-width="2.6" stroke-linecap="round"/>
+      <text x="216" y="68" font-size="11" fill="var(--muted)">red</text>
+      <line x1="259" y1="64" x2="285" y2="64" stroke="#1f63c8" stroke-width="2.6" stroke-linecap="round"/>
+      <text x="293" y="68" font-size="11" fill="var(--muted)">blue</text>
+      <rect x="0" y="92" width="250" height="203" rx="5" fill="var(--bg)" stroke="var(--ink)" stroke-width="1.5"/>
+      <text x="14" y="116" font-size="13" font-weight="700" fill="var(--ink)">basically board v1.3</text>
+      <text x="14" y="134" font-size="11" fill="var(--muted)">J23, or J24 beside it</text>
+      <circle cx="250" cy="164" r="4.5" fill="var(--ink)"/>
+      <text x="236" y="168" font-size="11" font-weight="700" fill="var(--muted)" text-anchor="end">1</text>
+      <text x="218" y="168" font-size="12" font-weight="600" fill="var(--ink)" text-anchor="end">A2</text>
+      <circle cx="250" cy="199" r="4.5" fill="var(--ink)"/>
+      <text x="236" y="203" font-size="11" font-weight="700" fill="var(--muted)" text-anchor="end">2</text>
+      <text x="218" y="203" font-size="12" font-weight="600" fill="var(--ink)" text-anchor="end">A1</text>
+      <circle cx="250" cy="234" r="4.5" fill="var(--ink)"/>
+      <text x="236" y="238" font-size="11" font-weight="700" fill="var(--muted)" text-anchor="end">3</text>
+      <text x="218" y="238" font-size="12" font-weight="600" fill="var(--ink)" text-anchor="end">B1</text>
+      <circle cx="250" cy="269" r="4.5" fill="var(--ink)"/>
+      <text x="236" y="273" font-size="11" font-weight="700" fill="var(--muted)" text-anchor="end">4</text>
+      <text x="218" y="273" font-size="12" font-weight="600" fill="var(--ink)" text-anchor="end">B2</text>
+      <path d="M 132 164 h 10 v 35 h -10" fill="none" stroke="var(--muted)" stroke-width="1.4"/>
+      <text x="148" y="185.5" font-size="11" font-weight="600" fill="var(--muted)">coil A</text>
+      <path d="M 132 234 h 10 v 35 h -10" fill="none" stroke="var(--muted)" stroke-width="1.4"/>
+      <text x="148" y="255.5" font-size="11" font-weight="600" fill="var(--muted)">coil B</text>
+      <rect x="680" y="92" width="250" height="203" rx="5" fill="var(--bg)" stroke="var(--ink)" stroke-width="1.5"/>
+      <text x="694" y="116" font-size="13" font-weight="700" fill="var(--ink)">NEMA 23 motor</text>
+      <text x="694" y="134" font-size="11" fill="var(--muted)">four bare flying leads</text>
+      <circle cx="680" cy="164" r="4.5" fill="var(--ink)"/>
+      <text x="694" y="168" font-size="11" font-weight="700" fill="var(--muted)"></text>
+      <text x="712" y="168" font-size="12" font-weight="600" fill="var(--ink)">coil A</text>
+      <circle cx="680" cy="199" r="4.5" fill="var(--ink)"/>
+      <text x="694" y="203" font-size="11" font-weight="700" fill="var(--muted)"></text>
+      <text x="712" y="203" font-size="12" font-weight="600" fill="var(--ink)">coil A</text>
+      <circle cx="680" cy="234" r="4.5" fill="var(--ink)"/>
+      <text x="694" y="238" font-size="11" font-weight="700" fill="var(--muted)"></text>
+      <text x="712" y="238" font-size="12" font-weight="600" fill="var(--ink)">coil B</text>
+      <circle cx="680" cy="269" r="4.5" fill="var(--ink)"/>
+      <text x="694" y="273" font-size="11" font-weight="700" fill="var(--muted)"></text>
+      <text x="712" y="273" font-size="12" font-weight="600" fill="var(--ink)">coil B</text>
+      <line x1="256" y1="164" x2="412" y2="164" stroke="#1a1a1a" stroke-width="2.6" stroke-linecap="round"/>
+      <line x1="468" y1="164" x2="674" y2="164" stroke="#1a1a1a" stroke-width="5.4" stroke-linecap="round"/>
+      <rect x="412" y="156" width="56" height="16" rx="8" fill="var(--surface)" stroke="var(--muted)" stroke-width="1.5"/>
+      <line x1="256" y1="199" x2="412" y2="199" stroke="#1f8a45" stroke-width="2.6" stroke-linecap="round"/>
+      <line x1="468" y1="199" x2="674" y2="199" stroke="#1f8a45" stroke-width="5.4" stroke-linecap="round"/>
+      <rect x="412" y="191" width="56" height="16" rx="8" fill="var(--surface)" stroke="var(--muted)" stroke-width="1.5"/>
+      <line x1="256" y1="234" x2="412" y2="234" stroke="#d01012" stroke-width="2.6" stroke-linecap="round"/>
+      <line x1="468" y1="234" x2="674" y2="234" stroke="#d01012" stroke-width="5.4" stroke-linecap="round"/>
+      <rect x="412" y="226" width="56" height="16" rx="8" fill="var(--surface)" stroke="var(--muted)" stroke-width="1.5"/>
+      <line x1="256" y1="269" x2="412" y2="269" stroke="#1f63c8" stroke-width="2.6" stroke-linecap="round"/>
+      <line x1="468" y1="269" x2="674" y2="269" stroke="#1f63c8" stroke-width="5.4" stroke-linecap="round"/>
+      <rect x="412" y="261" width="56" height="16" rx="8" fill="var(--surface)" stroke="var(--muted)" stroke-width="1.5"/>
+      <text x="440" y="126" font-size="12" font-weight="700" fill="var(--ink)" text-anchor="middle">splice</text>
+      <text x="440" y="142" font-size="11" fill="var(--muted)" text-anchor="middle">solder, then heat shrink</text>
+      <text x="345.0" y="301" font-size="11" fill="var(--muted)" text-anchor="middle">24 AWG tail you add</text>
+      <text x="570.0" y="301" font-size="11" fill="var(--muted)" text-anchor="middle">the motor's own 20 AWG leads</text>
+      <text x="465" y="331" font-size="12" fill="var(--muted)" text-anchor="middle">The motor's leads are too thick for a JST-PH contact, so the last stretch to the board is a thinner tail. Find the coil pairs with a meter first.</text>
+    </svg>
+  </div>  <figcaption>One lead end to end, with the splice that makes it the only stepper lead you build.</figcaption>
+</figure>
 
 The full pinout and the board-side footprint are on the [wire harness]({{ '/hardware/electronics/wire-harness/#21--stepper-pinout-and-polarity' | relative_url }}) page.
 
@@ -85,6 +155,17 @@ The board gives the chute two sockets side by side and they are wired to the sam
 </dl>
 
 Both carry `A2`, `A1`, `B1`, `B2` on positions 1 to 4, and the board prints the coil name beside each pin, so the names can be read off the board rather than counted.
+
+## The finished result
+
+One lead: the motor with a 24 AWG tail spliced onto its four thick leads, ending in a 4-pin PHR-4 with each coil on one pair of positions.
+
+<div class="img-placeholder">Image coming: the finished lead, the four splices sleeved together and the PHR-4 at the end of the thin tail, with the motor in frame at the other end</div>
+
+## Reference
+
+The vendor drawing for this lead, its bill of materials and its downloads are on the [WireViz
+drawings]({{ '/hardware/parts/harness-order/#chute-stepper' | relative_url }}) page. It shows the same lead in the form a cable supplier quotes from.
 
 ## Where it goes
 

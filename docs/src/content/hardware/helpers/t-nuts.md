@@ -8,21 +8,29 @@ kicker: Helpers — T-nuts
 lede: How the machine's roll-in T-nuts go into the extrusion, and what changes if you buy a different style.
 permalink: /hardware/helpers/t-nuts/
 author: barthel
+og_image: https://assets.basically.website/sorter-docs/assembly-regular-layers-extrusion-tnut-holes-w1600-b5863688aeea.png
 parts_needed:
   - part: tnut-m5-2020
-tools_needed: [Hex key]
 ---
 
-Every M5 screw that fastens a printed part to aluminum extrusion, rather than tapping into plastic, lands in one of these. The parts list calls for a **spring-loaded roll-in T-nut** for 2020 extrusion, and that choice is what lets the assembly pages ask for T-nuts at the step that uses them instead of making you plan them in advance.
+Every M5 screw that fastens a printed part to aluminum extrusion, rather than tapping
+into plastic, lands in one of these. The parts list calls for a **spring-loaded roll-in
+T-nut** for 2020 extrusion.
 
-## Roll-in
+**This needs no tools.** The T-nut goes in and turns by hand.
 
-A roll-in T-nut goes into the slot **anywhere along its length**. Hold it so its long axis lines up with the slot opening, push it in, then turn it a quarter turn so the ends sit under the lips of the slot. A spring leaf or a spring-loaded ball on the back then holds it where you put it, so it stays in position while you line the part up and it does not fall out if you take the screw back out later.
+## Fitting one
 
-Two things follow, and they are why the machine specifies this style:
+<ol class="numbered-steps">
+  <li>Hold the T-nut with its long axis lined up with the opening of the slot.</li>
+  <li>Push it into the slot. Anywhere along the length will do.</li>
+  <li>Turn it a quarter turn, so its two ends sit under the lips of the slot.</li>
+</ol>
 
-- **You never have to fit one early.** No frame has to come apart, and no extrusion end has to be left open, to add a T-nut to a slot that is already built into the machine.
-- **You can undo a joint without losing the nut.** Take the screws out, lift the part off, and the T-nuts are still sitting in the slot where they were.
+The spring leaf or ball on the back then holds it where you put it. Two things follow:
+
+- **You never have to fit one early.** No frame has to come apart to add a T-nut to a slot that is already built into the machine.
+- **You can undo a joint without losing the nut.** Take the screws out, lift the part off, and the T-nuts stay in the slot.
 
 <figure class="video-figure">
   <div class="video-embed video-embed-wide">
@@ -38,11 +46,24 @@ Two things follow, and they are why the machine specifies this style:
 
 ## If you have a different style
 
-Cheaper T-nuts are usually **slide-in**: a plain rectangular block with no spring, which can only be loaded from an open end of the extrusion and then slid along to where it is needed. They work, but they change the order you have to build in, because a slot that has a bracket on both ends can no longer take one.
+Cheaper T-nuts are usually **slide-in**: a plain rectangular block with no spring. It can
+only go in at an open end of the extrusion and then slide along to where it is needed, so
+a slot with a bracket at both ends can no longer take one.
 
 If that is what you have, fit these before the frames close around them:
 
 - **4 per A extrusion** on each [hex frame]({{ '/hardware/assembly/distribution/bin-frame/hex-frame/' | relative_url }}), toward the outer end of the extrusion, for the [bin retainers]({{ '/hardware/assembly/distribution/bin-frame/bin-retainers/' | relative_url }}).
 - **2 each into 3 of the 6 B spokes** of the bottom layer's frame, alternating around the ring, for the [bottom interface]({{ '/hardware/assembly/distribution/bin-frame/bottom-interface/' | relative_url }})'s Lazy Susan mounts.
 
-Slide-in nuts also do not hold their position on their own, so a nut you fitted early can drift along the slot before you get to the part that uses it. Fitting the part in the same session is easier than trying to line up a nut you cannot see.
+A slide-in nut does not hold its position, so one you fitted early can drift along the
+slot before you reach the part that uses it. Fit the part in the same session.
+
+## The finished result
+
+T-nuts sitting in the slot with their ends under the lips, each holding its own position,
+with no screw in it yet.
+
+<figure class="single-figure">
+  <img class="doc-figure" src="https://assets.basically.website/sorter-docs/assembly-regular-layers-extrusion-tnut-holes-w1600-b5863688aeea.png" alt="Side view along a 2020 aluminum extrusion with four roll-in T-nuts seated in its slot, evenly spaced, each showing its threaded hole, with an External bracket at the far end of the extrusion">
+  <figcaption>Four T-nuts in the slot of an A extrusion, which is what the <a href="{{ '/hardware/assembly/distribution/bin-frame/bin-retainers/' | relative_url }}">bin retainers</a> need on each face. They stay where you put them until the screws find them. <cite>Photo: zed0.</cite></figcaption>
+</figure>

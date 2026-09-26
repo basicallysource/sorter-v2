@@ -56,12 +56,6 @@ parts_needed:
     qty: 1
 ---
 
-The fasteners and quantities are in the parts list above and are called out inline at each step.
-
-{% include fastener-legend.html %}
-
-One per machine. Which Orange Pi 5 to buy, how much RAM and storage it needs, the WiFi module, the USB hub and cooling are all on the [Orange Pi 5]({{ '/hardware/orange-pi-5/' | relative_url }}) page. This page is the build on the bench: the Pi screws down into the base, four walls drop in around it, the roof screws down over them, and the USB hub and the buck converter that powers the Pi clamp onto the roof.
-
 <div class="prep-item">
   <div class="prep-item-body">
     <p><strong><a href="{{ '/hardware/electronics/installation/orange-pi-prep/' | relative_url }}">Prepare the Orange Pi</a> before you start.</strong> The heatsink fan, the WiFi module and the first boot that sets the network all need both faces of the board reachable, and the housing closes around it. Not covered here.</p>
@@ -72,17 +66,11 @@ One per machine. Which Orange Pi 5 to buy, how much RAM and storage it needs, th
   </figure>
 </div>
 
-<figure class="single-figure">
-  <img class="doc-figure" src="https://assets.basically.website/sorter-parts/orange-pi-housing-render-full-1f26a3ba6570.png" alt="Render of the closed Orange Pi housing: a light blue printed box with a vented roof carrying two empty rectangular clamps, the WiFi antennas standing in a clamp on one long wall, and openings in the end wall for the Pi's USB and Ethernet ports">
-  <figcaption>The housing closed, with the hub and the buck converter left off the roof so their clamps show. <cite>Rendered from the CAD, not from a build.</cite></figcaption>
-</figure>
+The fasteners and quantities are in the parts list above and are called out inline at each step.
 
-## The twelve printed parts
+{% include fastener-legend.html %}
 
-<figure class="harness-figure">
-  <img src="https://assets.basically.website/sorter-docs/orange-pi-housing-twelve-printed-parts-full-ade32d01c603.png" alt="Exploded render of the twelve printed parts of the Orange Pi housing: the base at the bottom with its posts and floor opening, the four walls standing out to its four sides, the plunger retainer, plunger and plunger cap stacked above the west end, the antenna clamp below the north wall, the roof above everything and the hub clamp and buck clamp above that">
-  <figcaption>The twelve parts, spread the way they go together. The base is at the bottom, the four walls stand out to the side they drop into, the plunger, its retainer and its cap are the small stack above the west end, and the antenna clamp is the small block below the north wall. The roof is above them, and the two roof clamps above that: the open U is the buck clamp, the closed frame the hub clamp. <cite>Rendered from the parts' own STLs, not from a build.</cite></figcaption>
-</figure>
+One per machine. Which Orange Pi 5 to buy, how much RAM and storage it needs, the WiFi module, the USB hub and cooling are all on the [Orange Pi 5]({{ '/hardware/orange-pi-5/' | relative_url }}) page. This page is the build on the bench: the Pi screws down into the base, four walls drop in around it, the roof screws down over them, and the USB hub and the buck converter that powers the Pi clamp onto the roof.
 
 **The parts come in the position they sit in the box, not the way they print.** Lay the four walls flat on the bed, and print the roof upside down, top face on the bed.
 

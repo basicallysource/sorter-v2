@@ -19,6 +19,8 @@ parts_needed:
     qty: 1
   - part: ctrl-board-housing-plunger-retainer
     qty: 1
+  - part: ctrl-board-housing-fan-retainer
+    qty: 2
   - part: ctrl-board-basically
     qty: 1
   - part: fan-40mm-24v
@@ -27,12 +29,10 @@ parts_needed:
     qty: 8
   - part: scr-m3-6-bhcs
     qty: 4
-  - part: scr-m3-12-bhcs
-    qty: 4
   - part: scr-m3-12-cs
     qty: 4
   - part: scr-m3-8-cs
-    qty: 2
+    qty: 6
 ---
 
 The board needs its drivers, Pico and jumpers in first: see [preparing the control board]({{ '/hardware/electronics/installation/control-board-prep/' | relative_url }}).
@@ -77,17 +77,14 @@ Sit the board on the four inner bosses and fix it with 4 {% include fastener.htm
 
 {% include step.html n="3" title="Fit the fan inside the cover" %}
 
-Fan on the inside of the cover, over the vent, label facing into the enclosure so it blows inwards. 4 {% include fastener.html size="M3" variant="button" length="12" %} screws, self-tapping into the plastic. Route the lead to the corner cutout.
+With the cover upside down, lay the fan in over the vent, label facing into the enclosure so it blows inwards. The two fan retainers hold it: lay one across each of the fan's two edges, its two pegs down in the fan's corner holes, and screw each to the cover with 2 {% include fastener.html size="M3" variant="countersunk" length="8" %} screws, self-tapping into the posts beside the fan. Route the lead to the corner cutout.
 
-<div class="callout callout-warning">
-  <span class="callout-icon" aria-hidden="true">⚠</span>
-  <p>Take these four by hand. They cut their own thread in a printed boss only 6 mm across, and the boss snaps off long before the screw gives. Use a hand driver rather than a power tool, and stop as soon as the fan is pulled down onto the cover. If a screw stops turning before the fan is seated, back it out and clear the hole rather than forcing it. A bottomed screw is what breaks the boss.</p>
-</div>
+Take these four by hand and stop as soon as the retainer is down on its post. They cut their own thread in the plastic.
 
 <div class="img-row">
   <figure>
     <img src="https://assets.basically.website/sorter-docs/assembly-control-board-housing-fan-in-cover-w1600-73bbe941cbdb.jpg" alt="The inside of the printed cover with the 40 mm WINSINN fan screwed down over its vent opening on four screws, its red and black lead running off to the left, and the rectangular plunger slot beside it">
-    <figcaption><cite>Photo: Spencer.</cite></figcaption>
+    <figcaption>The earlier cover, where the fan screwed straight into the plastic through its own corners. The current one holds it with the two retainers. <cite>Photo: Spencer.</cite></figcaption>
   </figure>
 </div>
 
@@ -102,7 +99,7 @@ The plunger lands on the board's reset button, so the button can be pressed with
   </figure>
 </div>
 
-What that buys you is easier to see in section, once the cover is on: the plunger stands proud of the lid, the retainer holds it in the slot, and its foot sits over the button on the board.
+What that buys you is easier to see in section, once the cover is on: the plunger's head sits just below the lid's surface, the retainer holds it in the slot, and its foot sits over the button on the board. The renders below are of the earlier plunger, which stood proud of the lid.
 
 <div class="img-row">
   <figure>
@@ -149,12 +146,12 @@ Lower the cover on, keeping the fan lead clear of the board, and fix it with 4 {
 
 {% include step.html n="7" title="Check the reset plunger" %}
 
-Press the plunger on the lid. You should hear the button click.
+Press the plunger on the lid. Its head sits just below the surface, so it takes a fingertip pressed into the recess. You should hear the button click.
 
 <div class="img-row">
   <figure>
     <img src="https://assets.basically.website/sorter-docs/assembly-control-board-housing-plunger-outside-w1600-737114636bdb.jpg" alt="Close-up of the lid surface showing the small square head of the plunger standing proud of the textured black plastic, with the honeycomb vent and basically logo nearby">
-    <figcaption><cite>Photo: Spencer.</cite></figcaption>
+    <figcaption>The earlier plunger, which stood proud of the lid. <cite>Photo: Spencer.</cite></figcaption>
   </figure>
 </div>
 

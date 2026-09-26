@@ -38,7 +38,7 @@ Each of the three printed enclosures bolts to the 2020 frame with 2 M5 screws in
 
 - **Orange Pi mount**: 2x {% include fastener.html size="M5" variant="socket-button" length="12" %}
 - **PSU box**: 2x {% include fastener.html size="M5" variant="socket-button" length="16" %}, each with an M5 washer under its head
-- **Control board housing**: 2x {% include fastener.html size="M5" variant="socket-button" length="16" %}
+- **Control board housing**: 2x {% include fastener.html size="M5" variant="socket-button" length="16" %}, each with an M5 washer under its head
 
 The PSU box and the control board housing take the longer screw because both of those clamp bosses are 10 mm deep, against the Orange Pi mount's 8 mm.
 

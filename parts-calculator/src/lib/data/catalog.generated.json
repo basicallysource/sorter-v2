@@ -12,8 +12,8 @@
 		"cost_per_kg": 24.99,
 		"commit_base_url": "https://github.com/basicallysource/sorter-v2/commit/",
 		"engrave": "33d9fa246b1a",
-		"all_parts_zip": "https://assets.basically.website/sorter-parts/all-parts-09a95650b884.zip",
-		"all_parts_plain_zip": "https://assets.basically.website/sorter-parts/all-parts-plain-1e0c25ac61dc.zip"
+		"all_parts_zip": "https://assets.basically.website/sorter-parts/all-parts-b405c06085f9.zip",
+		"all_parts_plain_zip": "https://assets.basically.website/sorter-parts/all-parts-plain-940f9cf90195.zip"
 	},
 	"sections": [
 		{
@@ -6313,10 +6313,10 @@
 		},
 		{
 			"id": "ctrl-board-mount",
-			"uid": "esvy",
-			"version": "4",
+			"uid": "y2yu",
+			"version": "5",
 			"name": "basically Embedded Control Board Housing",
-			"description": "The basically Embedded Control Board closed into a two-part printed housing that bolts to the 2020 extrusion. The board screws straight to the base \u2014 no bracket, no standoffs \u2014 and the cover carries a 40 mm 24 V fan and a plunger that reaches the board's reset button from outside.",
+			"description": "The basically Embedded Control Board closed into a two-part printed housing that bolts to the 2020 extrusion. The board screws straight to the base, with no bracket and no standoffs, and the cover carries a 40 mm 24 V fan on two printed retainers and a recessed plunger that reaches the board's reset button from outside.",
 			"docs": "/hardware/electronics/installation/control-board-housing/",
 			"lines": [
 				{
@@ -6373,18 +6373,22 @@
 				},
 				{
 					"part": "scr-m3-8-cs",
-					"qty": 2
+					"qty": 6
 				},
 				{
 					"part": "fan-40mm-24v",
 					"qty": 1
 				},
 				{
-					"part": "scr-m3-12-bhcs",
-					"qty": 4
+					"part": "ctrl-board-housing-fan-retainer",
+					"qty": 2
 				},
 				{
 					"part": "scr-m5-16-shcs",
+					"qty": 2
+				},
+				{
+					"part": "washer-m5",
 					"qty": 2
 				},
 				{
@@ -6395,7 +6399,7 @@
 			"joining": [
 				{
 					"method": "self-tap",
-					"note": "The fan's four [[hw:scr-m3-12-bhcs]] cut their own threads in the cover; no inserts there."
+					"note": "The fan retainers' four [[hw:scr-m3-8-cs]] cut their own thread in 2.8 mm pilots in the cover's posts; no inserts there."
 				}
 			],
 			"versions": [
@@ -6608,6 +6612,106 @@
 					"uid": "esvy",
 					"date": "2026-09-23",
 					"message": "The board's cables join the housing. W1 on the power drawing is a barrel plug at the PSU box end and a VHR-2 with two SVH-21T contacts onto J1; the 16-pin ribbon RIB runs from J17 down to J3 on the first layer board; the micro USB cable runs from the Pico's own socket to a port on the USB hub. Each is listed beside the board or the Pico it plugs into, because that is the end that is in the tree and the end that decides the cable. All three were hand counts before this and the tree totals are the same.",
+					"breaking": false,
+					"commit": null,
+					"lines": [
+						{
+							"part": "ctrl-board-housing-base",
+							"qty": 1,
+							"uid": "204b"
+						},
+						{
+							"part": "ctrl-board-basically",
+							"qty": 1,
+							"uid": "yugu"
+						},
+						{
+							"part": "cable-idc-2x8-long",
+							"qty": 1,
+							"uid": "2iv3"
+						},
+						{
+							"assembly": "harness-board-24v",
+							"qty": 1,
+							"uid": "odr5"
+						},
+						{
+							"part": "drv-tmc2209",
+							"qty": 5,
+							"uid": "b7c2"
+						},
+						{
+							"part": "mcu-rpi-pico-presoldered",
+							"qty": 1,
+							"uid": "dq0q"
+						},
+						{
+							"part": "cable-micro-usb",
+							"qty": 1,
+							"uid": "e1so"
+						},
+						{
+							"part": "jumper-cap-254",
+							"qty": 10,
+							"uid": "46qm"
+						},
+						{
+							"part": "scr-m3-6-bhcs",
+							"qty": 4,
+							"uid": "e04c"
+						},
+						{
+							"part": "ctrl-board-housing-cover",
+							"qty": 1,
+							"uid": "ksh2"
+						},
+						{
+							"part": "scr-m3-12-cs",
+							"qty": 4,
+							"uid": "0a9x"
+						},
+						{
+							"part": "ctrl-board-housing-plunger",
+							"qty": 1,
+							"uid": "cljt"
+						},
+						{
+							"part": "ctrl-board-housing-plunger-retainer",
+							"qty": 1,
+							"uid": "g9sx"
+						},
+						{
+							"part": "scr-m3-8-cs",
+							"qty": 2,
+							"uid": "l6br"
+						},
+						{
+							"part": "fan-40mm-24v",
+							"qty": 1,
+							"uid": "7o57"
+						},
+						{
+							"part": "scr-m3-12-bhcs",
+							"qty": 4,
+							"uid": "izrb"
+						},
+						{
+							"part": "scr-m5-16-shcs",
+							"qty": 2,
+							"uid": "2e0s"
+						},
+						{
+							"part": "tnut-m5-2020",
+							"qty": 2,
+							"uid": "bpwm"
+						}
+					]
+				},
+				{
+					"version": "5",
+					"uid": "y2yu",
+					"date": "2026-09-26",
+					"message": "Two bracket pieces for the fan, so it takes the right type of screw, and a recessed reset button. The fan is now held by two printed fan retainers on four M3 x 8 countersunk, self-tapping into the cover, in place of four M3 x 12 button heads through the fan's own corners, so the M3 x 8 count goes from 2 to 6 and the M3 x 12 button heads leave the list. The plunger's head sits below the cover's surface. An M5 washer goes under each of the two frame screws, as the CAD assembly has them. Every part of the housing now comes from one CAD version: cover, plunger and retainer v2, the fan retainer new, the base re-exported unchanged.",
 					"breaking": false,
 					"commit": null
 				}
@@ -19498,7 +19602,7 @@
 			"description": "Base of the basically Embedded Control Board housing. The board screws straight to it on four heat inserts and the cover screws down onto four more; no standoffs.",
 			"version": "1",
 			"created_at": "2026-08-22",
-			"updated_at": "2026-08-23",
+			"updated_at": "2026-09-26",
 			"versions": [
 				{
 					"version": "1",
@@ -19506,9 +19610,9 @@
 					"date": "2026-08-22",
 					"message": "Initial version.",
 					"commit": null,
-					"onshape_version": "https://cad.onshape.com/documents/09541e2012f9c0d0a5643fe7/v/9901d0807c3f84ce0f00abc1/e/f6e7bc459ae4ed1576edc10c",
-					"stl": "https://assets.basically.website/sorter-parts/ctrl-board-housing-base-e20680585196.stl",
-					"render": "https://assets.basically.website/sorter-parts/ctrl-board-housing-base-full-0f1de39a059d.png",
+					"onshape_version": "https://cad.onshape.com/documents/d8339d00eaef603e65e5e050/v/32e64a3fe696f998a73a0f9f/e/43b5beb92ddd433860558e91",
+					"stl": "https://assets.basically.website/sorter-parts/ctrl-board-housing-base-17446a7aa16a.stl",
+					"render": "https://assets.basically.website/sorter-parts/ctrl-board-housing-base-full-a7310afd079c.png",
 					"grams": 89.65
 				}
 			],
@@ -19517,7 +19621,7 @@
 			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 10898,
+			"print_seconds": 10845,
 			"color": {
 				"role": "frame"
 			},
@@ -19536,15 +19640,15 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"stl": "https://assets.basically.website/sorter-parts/ctrl-board-housing-base-e20680585196.stl",
-			"render": "https://assets.basically.website/sorter-parts/ctrl-board-housing-base-full-0f1de39a059d.png",
+			"stl": "https://assets.basically.website/sorter-parts/ctrl-board-housing-base-17446a7aa16a.stl",
+			"render": "https://assets.basically.website/sorter-parts/ctrl-board-housing-base-full-a7310afd079c.png",
 			"stamped": [
 				{
 					"face": "bottom",
-					"stl": "https://assets.basically.website/sorter-parts/ctrl-board-housing-base-204b-stamped-bottom-959dbef3cb3f.stl",
+					"stl": "https://assets.basically.website/sorter-parts/ctrl-board-housing-base-204b-stamped-bottom-ce61d9606d0d.stl",
 					"normal": [
 						0.0,
-						-0.0,
+						0.0,
 						-1.0
 					],
 					"center": [
@@ -19561,7 +19665,7 @@
 				},
 				{
 					"face": "top",
-					"stl": "https://assets.basically.website/sorter-parts/ctrl-board-housing-base-204b-stamped-top-cf2bff323c34.stl",
+					"stl": "https://assets.basically.website/sorter-parts/ctrl-board-housing-base-204b-stamped-top-331bfedecf04.stl",
 					"normal": [
 						-0.0,
 						0.0,
@@ -19580,28 +19684,8 @@
 					"depth": 0.6
 				},
 				{
-					"face": "-y side",
-					"stl": "https://assets.basically.website/sorter-parts/ctrl-board-housing-base-204b-stamped-minus-y-side-ad16480b8632.stl",
-					"normal": [
-						0.0,
-						-1.0,
-						0.0
-					],
-					"center": [
-						21.08,
-						-159.5,
-						-11.44
-					],
-					"size": [
-						12.41,
-						3.56
-					],
-					"cap": 3.5,
-					"depth": 0.6
-				},
-				{
 					"face": "+y side",
-					"stl": "https://assets.basically.website/sorter-parts/ctrl-board-housing-base-204b-stamped-plus-y-side-a585b76e2f13.stl",
+					"stl": "https://assets.basically.website/sorter-parts/ctrl-board-housing-base-204b-stamped-plus-y-side-2ba27b6c6186.stl",
 					"normal": [
 						0.0,
 						1.0,
@@ -19618,12 +19702,32 @@
 					],
 					"cap": 3.5,
 					"depth": 0.6
+				},
+				{
+					"face": "-y side",
+					"stl": "https://assets.basically.website/sorter-parts/ctrl-board-housing-base-204b-stamped-minus-y-side-a2cec6b22279.stl",
+					"normal": [
+						0.0,
+						-1.0,
+						0.0
+					],
+					"center": [
+						21.08,
+						-159.5,
+						-11.44
+					],
+					"size": [
+						12.41,
+						3.56
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				}
 			]
 		},
 		{
 			"id": "ctrl-board-housing-cover",
-			"uid": "ksh2",
+			"uid": "kk9f",
 			"name": "Control Board Housing \u2014 Cover",
 			"quantities": {
 				"electronics": 1
@@ -19632,29 +19736,39 @@
 			"folder": null,
 			"variant_group": null,
 			"variant_name": null,
-			"description": "Cover of the basically Embedded Control Board housing. Screws to the base with four M3 \u00d7 12 mm countersunk screws, carries the 40 mm 24 V fan on four self-tapping M3 \u00d7 12 mm button head screws, and the plunger passes through it.",
-			"version": "1",
+			"description": "Cover of the basically Embedded Control Board housing. Screws to the base with four M3 \u00d7 12 mm countersunk screws, holds the 40 mm 24 V fan against its vent with two fan retainers on four M3 \u00d7 8 mm countersunk screws, and the plunger passes through it.",
+			"version": "2",
 			"created_at": "2026-08-22",
-			"updated_at": "2026-08-23",
+			"updated_at": "2026-09-26",
 			"versions": [
 				{
 					"version": "1",
 					"uid": "ksh2",
-					"date": "2026-08-22",
-					"message": "Initial version.",
-					"commit": null,
-					"onshape_version": "https://cad.onshape.com/documents/09541e2012f9c0d0a5643fe7/v/9901d0807c3f84ce0f00abc1/e/f6e7bc459ae4ed1576edc10c",
-					"stl": "https://assets.basically.website/sorter-parts/ctrl-board-housing-cover-462b02902222.stl",
+					"message": "As recorded before the first stamped change.",
+					"stl_hash": "462b029022221124347ea77f4ecb20339a91bbfa2eda70a63b7cab6751cb3446",
 					"render": "https://assets.basically.website/sorter-parts/ctrl-board-housing-cover-full-7a7d988f14cb.png",
+					"stl": "https://assets.basically.website/sorter-parts/ctrl-board-housing-cover-462b02902222.stl",
 					"grams": 130.39
+				},
+				{
+					"version": "2",
+					"uid": "kk9f",
+					"date": "2026-09-26",
+					"message": "The fan is held by two printed fan retainers instead of screws through its own corners: each retainer lies across one edge of the fan, locates on two pegs in the fan's corner holes, and screws to the cover with two M3 x 8 countersunk, self-tapping into 2.8 mm pilots in four new 8 mm posts beside the fan. The four old self-tapping holes for the fan are filled. The five openings over the stepper connectors become 20.2 mm wide bays, open through the top as well as the side. An old cover still works in its place, carrying the fan the old way on four M3 x 12 button heads.",
+					"breaking": false,
+					"commit": null,
+					"onshape_version": "https://cad.onshape.com/documents/d8339d00eaef603e65e5e050/v/32e64a3fe696f998a73a0f9f/e/43b5beb92ddd433860558e91",
+					"stl": "https://assets.basically.website/sorter-parts/ctrl-board-housing-cover-ce4d535abbfb.stl",
+					"render": "https://assets.basically.website/sorter-parts/ctrl-board-housing-cover-full-53aa3c36814d.png",
+					"grams": 122.05
 				}
 			],
 			"attributes": [],
-			"grams": 130.39,
+			"grams": 122.05,
 			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 15104,
+			"print_seconds": 14471,
 			"color": {
 				"role": "frame"
 			},
@@ -19668,87 +19782,85 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"stl": "https://assets.basically.website/sorter-parts/ctrl-board-housing-cover-462b02902222.stl",
-			"render": "https://assets.basically.website/sorter-parts/ctrl-board-housing-cover-full-7a7d988f14cb.png",
+			"stl": "https://assets.basically.website/sorter-parts/ctrl-board-housing-cover-ce4d535abbfb.stl",
+			"render": "https://assets.basically.website/sorter-parts/ctrl-board-housing-cover-full-53aa3c36814d.png",
 			"stamped": [
 				{
-					"face": "bottom",
-					"stl": "https://assets.basically.website/sorter-parts/ctrl-board-housing-cover-ksh2-stamped-bottom-8d62eebafca6.stl",
-					"normal": [
-						-0.0,
-						0.0,
-						-1.0
-					],
-					"center": [
-						17.22,
-						-23.0,
-						-5.6
-					],
-					"size": [
-						8.69,
-						2.59
-					],
-					"cap": 2.5,
-					"depth": 0.6,
-					"note": "smaller text"
-				},
-				{
-					"face": "bottom 2",
-					"stl": "https://assets.basically.website/sorter-parts/ctrl-board-housing-cover-ksh2-stamped-bottom-2-42b7d5ea00b8.stl",
-					"normal": [
-						0.0,
-						0.0,
-						-1.0
-					],
-					"center": [
-						19.55,
-						-157.08,
-						-5.6
-					],
-					"size": [
-						8.69,
-						2.59
-					],
-					"cap": 2.5,
-					"depth": 0.6,
-					"note": "smaller text"
-				},
-				{
 					"face": "top",
-					"stl": "https://assets.basically.website/sorter-parts/ctrl-board-housing-cover-ksh2-stamped-top-a64dee052360.stl",
+					"stl": "https://assets.basically.website/sorter-parts/ctrl-board-housing-cover-kk9f-stamped-top-e0c3effc6394.stl",
 					"normal": [
 						0.0,
 						-0.0,
 						1.0
 					],
 					"center": [
-						29.16,
-						-155.11,
+						29.17,
+						-155.14,
 						35.0
 					],
 					"size": [
-						12.17,
-						3.63
+						12.18,
+						3.56
 					],
 					"cap": 3.5,
 					"depth": 0.6
 				},
 				{
 					"face": "+y side",
-					"stl": "https://assets.basically.website/sorter-parts/ctrl-board-housing-cover-ksh2-stamped-plus-y-side-553065ae2c3f.stl",
+					"stl": "https://assets.basically.website/sorter-parts/ctrl-board-housing-cover-kk9f-stamped-plus-y-side-2c9d4b1583ac.stl",
 					"normal": [
 						0.0,
 						1.0,
+						-0.0
+					],
+					"center": [
+						159.03,
+						-10.5,
+						-2.44
+					],
+					"size": [
+						12.18,
+						3.56
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "-x side",
+					"stl": "https://assets.basically.website/sorter-parts/ctrl-board-housing-cover-kk9f-stamped-minus-x-side-b0f4c4c1f2a5.stl",
+					"normal": [
+						-1.0,
+						0.0,
 						0.0
 					],
 					"center": [
-						159.04,
-						-10.5,
-						-2.41
+						10.5,
+						-91.57,
+						-2.44
 					],
 					"size": [
-						12.17,
-						3.63
+						12.18,
+						3.56
+					],
+					"cap": 3.5,
+					"depth": 0.6
+				},
+				{
+					"face": "-x side 2",
+					"stl": "https://assets.basically.website/sorter-parts/ctrl-board-housing-cover-kk9f-stamped-minus-x-side-2-483cbec8e38f.stl",
+					"normal": [
+						-1.0,
+						0.0,
+						0.0
+					],
+					"center": [
+						10.5,
+						-20.97,
+						-2.44
+					],
+					"size": [
+						12.18,
+						3.56
 					],
 					"cap": 3.5,
 					"depth": 0.6
@@ -19757,7 +19869,7 @@
 		},
 		{
 			"id": "ctrl-board-housing-plunger",
-			"uid": "cljt",
+			"uid": "rl9k",
 			"name": "Control Board Housing \u2014 Plunger",
 			"quantities": {
 				"electronics": 1
@@ -19766,29 +19878,39 @@
 			"folder": null,
 			"variant_group": null,
 			"variant_name": null,
-			"description": "Plunger that passes through the housing cover, held in by the plunger retainer.",
-			"version": "1",
+			"description": "Plunger that passes through the housing cover, held in by the plunger retainer. Its head sits just below the cover's surface, so the reset button takes a deliberate press.",
+			"version": "2",
 			"created_at": "2026-08-22",
-			"updated_at": "2026-08-23",
+			"updated_at": "2026-09-26",
 			"versions": [
 				{
 					"version": "1",
 					"uid": "cljt",
-					"date": "2026-08-22",
-					"message": "Initial version.",
-					"commit": null,
-					"onshape_version": "https://cad.onshape.com/documents/09541e2012f9c0d0a5643fe7/v/9901d0807c3f84ce0f00abc1/e/f6e7bc459ae4ed1576edc10c",
-					"stl": "https://assets.basically.website/sorter-parts/ctrl-board-housing-plunger-ab938f5b08fd.stl",
+					"message": "As recorded before the first stamped change.",
+					"stl_hash": "ab938f5b08fd476aea7664bbb5d0d3bf50ccd722ed4f15d06b77aaa7b94257fd",
 					"render": "https://assets.basically.website/sorter-parts/ctrl-board-housing-plunger-full-17cc615306de.png",
+					"stl": "https://assets.basically.website/sorter-parts/ctrl-board-housing-plunger-ab938f5b08fd.stl",
 					"grams": 1.47
+				},
+				{
+					"version": "2",
+					"uid": "rl9k",
+					"date": "2026-09-26",
+					"message": "The reset button is recessed: the plunger's head is cut down by 3.2 mm, so its top sits 0.75 mm below the cover's surface instead of standing proud of it. An old plunger still fits and still works, standing proud as before.",
+					"breaking": false,
+					"commit": null,
+					"onshape_version": "https://cad.onshape.com/documents/d8339d00eaef603e65e5e050/v/32e64a3fe696f998a73a0f9f/e/43b5beb92ddd433860558e91",
+					"stl": "https://assets.basically.website/sorter-parts/ctrl-board-housing-plunger-be8eddcb497a.stl",
+					"render": "https://assets.basically.website/sorter-parts/ctrl-board-housing-plunger-full-aaf1d745c247.png",
+					"grams": 1.33
 				}
 			],
 			"attributes": [],
-			"grams": 1.47,
+			"grams": 1.33,
 			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 1626,
+			"print_seconds": 1515,
 			"color": {
 				"role": "frame"
 			},
@@ -19802,75 +19924,12 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"stl": "https://assets.basically.website/sorter-parts/ctrl-board-housing-plunger-ab938f5b08fd.stl",
-			"render": "https://assets.basically.website/sorter-parts/ctrl-board-housing-plunger-full-17cc615306de.png",
+			"stl": "https://assets.basically.website/sorter-parts/ctrl-board-housing-plunger-be8eddcb497a.stl",
+			"render": "https://assets.basically.website/sorter-parts/ctrl-board-housing-plunger-full-aaf1d745c247.png",
 			"stamped": [
 				{
-					"face": "+y side",
-					"stl": "https://assets.basically.website/sorter-parts/ctrl-board-housing-plunger-cljt-stamped-plus-y-side-ef74bc0ff840.stl",
-					"normal": [
-						-0.0,
-						1.0,
-						0.0
-					],
-					"center": [
-						102.33,
-						-50.25,
-						7.16
-					],
-					"size": [
-						2.59,
-						8.88
-					],
-					"cap": 2.5,
-					"depth": 0.6,
-					"note": "smaller text"
-				},
-				{
-					"face": "+x side",
-					"stl": "https://assets.basically.website/sorter-parts/ctrl-board-housing-plunger-cljt-stamped-plus-x-side-753f9b7e3148.stl",
-					"normal": [
-						1.0,
-						-0.0,
-						0.0
-					],
-					"center": [
-						104.75,
-						-52.83,
-						7.16
-					],
-					"size": [
-						2.59,
-						8.88
-					],
-					"cap": 2.5,
-					"depth": 0.6,
-					"note": "smaller text"
-				},
-				{
-					"face": "-y side",
-					"stl": "https://assets.basically.website/sorter-parts/ctrl-board-housing-plunger-cljt-stamped-minus-y-side-59d5c8d8ea83.stl",
-					"normal": [
-						-0.0,
-						-1.0,
-						-0.0
-					],
-					"center": [
-						102.17,
-						-55.25,
-						7.16
-					],
-					"size": [
-						2.59,
-						8.88
-					],
-					"cap": 2.5,
-					"depth": 0.6,
-					"note": "smaller text"
-				},
-				{
 					"face": "-x side",
-					"stl": "https://assets.basically.website/sorter-parts/ctrl-board-housing-plunger-cljt-stamped-minus-x-side-01fbd7c2dc60.stl",
+					"stl": "https://assets.basically.website/sorter-parts/ctrl-board-housing-plunger-rl9k-stamped-minus-x-side-30f102d315eb.stl",
 					"normal": [
 						-1.0,
 						0.0,
@@ -19878,12 +19937,75 @@
 					],
 					"center": [
 						99.75,
-						-52.67,
-						7.16
+						-52.65,
+						7.18
 					],
 					"size": [
-						2.59,
-						8.88
+						2.55,
+						8.91
+					],
+					"cap": 2.5,
+					"depth": 0.6,
+					"note": "smaller text"
+				},
+				{
+					"face": "+x side",
+					"stl": "https://assets.basically.website/sorter-parts/ctrl-board-housing-plunger-rl9k-stamped-plus-x-side-eeeeb6b08c76.stl",
+					"normal": [
+						1.0,
+						0.0,
+						0.0
+					],
+					"center": [
+						104.75,
+						-52.85,
+						7.18
+					],
+					"size": [
+						2.55,
+						8.91
+					],
+					"cap": 2.5,
+					"depth": 0.6,
+					"note": "smaller text"
+				},
+				{
+					"face": "+y side",
+					"stl": "https://assets.basically.website/sorter-parts/ctrl-board-housing-plunger-rl9k-stamped-plus-y-side-b0d536827aa4.stl",
+					"normal": [
+						-0.0,
+						1.0,
+						0.0
+					],
+					"center": [
+						102.35,
+						-50.25,
+						7.18
+					],
+					"size": [
+						2.55,
+						8.91
+					],
+					"cap": 2.5,
+					"depth": 0.6,
+					"note": "smaller text"
+				},
+				{
+					"face": "-y side",
+					"stl": "https://assets.basically.website/sorter-parts/ctrl-board-housing-plunger-rl9k-stamped-minus-y-side-9be2408e7be6.stl",
+					"normal": [
+						-0.0,
+						-1.0,
+						-0.0
+					],
+					"center": [
+						102.15,
+						-55.25,
+						7.18
+					],
+					"size": [
+						2.55,
+						8.91
 					],
 					"cap": 2.5,
 					"depth": 0.6,
@@ -19893,7 +20015,7 @@
 		},
 		{
 			"id": "ctrl-board-housing-plunger-retainer",
-			"uid": "g9sx",
+			"uid": "u368",
 			"name": "Control Board Housing \u2014 Plunger Retainer",
 			"quantities": {
 				"electronics": 1
@@ -19903,28 +20025,38 @@
 			"variant_group": null,
 			"variant_name": null,
 			"description": "Retains the plunger in the housing cover. Screws to the cover with two M3 \u00d7 8 mm countersunk screws.",
-			"version": "1",
+			"version": "2",
 			"created_at": "2026-08-22",
-			"updated_at": "2026-08-23",
+			"updated_at": "2026-09-26",
 			"versions": [
 				{
 					"version": "1",
 					"uid": "g9sx",
-					"date": "2026-08-22",
-					"message": "Initial version.",
-					"commit": null,
-					"onshape_version": "https://cad.onshape.com/documents/09541e2012f9c0d0a5643fe7/v/9901d0807c3f84ce0f00abc1/e/f6e7bc459ae4ed1576edc10c",
-					"stl": "https://assets.basically.website/sorter-parts/ctrl-board-housing-plunger-retainer-a3f84a1f2cd7.stl",
+					"message": "As recorded before the first stamped change.",
+					"stl_hash": "a3f84a1f2cd72fa919cedc1c62b762cc791b644118b57505002d7781189f249a",
 					"render": "https://assets.basically.website/sorter-parts/ctrl-board-housing-plunger-retainer-full-53df699b01c2.png",
+					"stl": "https://assets.basically.website/sorter-parts/ctrl-board-housing-plunger-retainer-a3f84a1f2cd7.stl",
 					"grams": 1.28
+				},
+				{
+					"version": "2",
+					"uid": "u368",
+					"date": "2026-09-26",
+					"message": "An 11.6 mm square pocket, 0.8 mm deep, in its top face around the plunger, which goes with the recessed plunger. An old retainer still fits and holds either plunger.",
+					"breaking": false,
+					"commit": null,
+					"onshape_version": "https://cad.onshape.com/documents/d8339d00eaef603e65e5e050/v/32e64a3fe696f998a73a0f9f/e/43b5beb92ddd433860558e91",
+					"stl": "https://assets.basically.website/sorter-parts/ctrl-board-housing-plunger-retainer-8ca00cee3c05.stl",
+					"render": "https://assets.basically.website/sorter-parts/ctrl-board-housing-plunger-retainer-full-252bd6176238.png",
+					"grams": 1.32
 				}
 			],
 			"attributes": [],
-			"grams": 1.28,
+			"grams": 1.32,
 			"support_grams": 0.0,
 			"support_used": false,
 			"support_intentional": false,
-			"print_seconds": 620,
+			"print_seconds": 637,
 			"color": {
 				"role": "frame"
 			},
@@ -19938,50 +20070,121 @@
 			"caption": null,
 			"docs_page": null,
 			"conflicts": null,
-			"stl": "https://assets.basically.website/sorter-parts/ctrl-board-housing-plunger-retainer-a3f84a1f2cd7.stl",
-			"render": "https://assets.basically.website/sorter-parts/ctrl-board-housing-plunger-retainer-full-53df699b01c2.png",
+			"stl": "https://assets.basically.website/sorter-parts/ctrl-board-housing-plunger-retainer-8ca00cee3c05.stl",
+			"render": "https://assets.basically.website/sorter-parts/ctrl-board-housing-plunger-retainer-full-252bd6176238.png",
 			"stamped": [
 				{
 					"face": "bottom",
-					"stl": "https://assets.basically.website/sorter-parts/ctrl-board-housing-plunger-retainer-g9sx-stamped-bottom-caa781cf3b01.stl",
+					"stl": "https://assets.basically.website/sorter-parts/ctrl-board-housing-plunger-retainer-u368-stamped-bottom-4016825edbcc.stl",
 					"normal": [
 						-0.0,
 						0.0,
 						-1.0
 					],
 					"center": [
-						111.64,
-						-58.33,
+						111.76,
+						-58.35,
 						20.9
 					],
 					"size": [
-						8.96,
-						2.59
+						8.73,
+						2.55
 					],
 					"cap": 2.5,
 					"depth": 0.6,
 					"note": "smaller text"
+				}
+			]
+		},
+		{
+			"id": "ctrl-board-housing-fan-retainer",
+			"uid": "4bgh",
+			"name": "Control Board Housing \u2014 Fan Retainer",
+			"quantities": {
+				"electronics": 2
+			},
+			"assembly": "ctrl-board-mount",
+			"folder": null,
+			"variant_group": null,
+			"variant_name": null,
+			"description": "One of two identical bars that hold the 40 mm fan against the inside of the control board housing's cover. It lies across one edge of the fan, two pegs locate in the fan's corner holes, and two M3 \u00d7 8 mm countersunk screws hold it to the cover.",
+			"version": "1",
+			"created_at": "2026-09-26",
+			"updated_at": "2026-09-26",
+			"versions": [
+				{
+					"version": "1",
+					"uid": "4bgh",
+					"date": "2026-09-26",
+					"message": "Initial version.",
+					"commit": null,
+					"onshape_version": "https://cad.onshape.com/documents/d8339d00eaef603e65e5e050/v/32e64a3fe696f998a73a0f9f/e/43b5beb92ddd433860558e91",
+					"stl": "https://assets.basically.website/sorter-parts/ctrl-board-housing-fan-retainer-a029826a2b98.stl",
+					"render": "https://assets.basically.website/sorter-parts/ctrl-board-housing-fan-retainer-full-dadc1b2fb8dd.png",
+					"grams": 1.25
+				}
+			],
+			"attributes": [],
+			"grams": 1.25,
+			"support_grams": 0.0,
+			"support_used": false,
+			"support_intentional": false,
+			"print_seconds": 635,
+			"color": {
+				"role": "frame"
+			},
+			"optional": false,
+			"onshape": null,
+			"info": null,
+			"low_tolerance": false,
+			"low_tolerance_note": null,
+			"layer_scope": "all",
+			"requires": [],
+			"caption": null,
+			"docs_page": null,
+			"conflicts": null,
+			"stl": "https://assets.basically.website/sorter-parts/ctrl-board-housing-fan-retainer-a029826a2b98.stl",
+			"render": "https://assets.basically.website/sorter-parts/ctrl-board-housing-fan-retainer-full-dadc1b2fb8dd.png",
+			"stamped": [
+				{
+					"face": "bottom",
+					"stl": "https://assets.basically.website/sorter-parts/ctrl-board-housing-fan-retainer-4bgh-stamped-bottom-2a78cd4ea7ce.stl",
+					"normal": [
+						0.0,
+						-0.0,
+						-1.0
+					],
+					"center": [
+						98.0,
+						-73.55,
+						14.5
+					],
+					"size": [
+						12.35,
+						3.63
+					],
+					"cap": 3.5,
+					"depth": 0.6
 				},
 				{
 					"face": "top",
-					"stl": "https://assets.basically.website/sorter-parts/ctrl-board-housing-plunger-retainer-g9sx-stamped-top-0561e4d684ce.stl",
+					"stl": "https://assets.basically.website/sorter-parts/ctrl-board-housing-fan-retainer-4bgh-stamped-top-7c9b990446a9.stl",
 					"normal": [
 						0.0,
-						0.0,
+						-0.0,
 						1.0
 					],
 					"center": [
-						92.86,
-						-58.33,
-						23.9
+						98.0,
+						-71.98,
+						16.9
 					],
 					"size": [
-						8.96,
-						2.59
+						12.35,
+						3.63
 					],
-					"cap": 2.5,
-					"depth": 0.6,
-					"note": "smaller text"
+					"cap": 3.5,
+					"depth": 0.6
 				}
 			]
 		},
@@ -27613,7 +27816,7 @@
 			},
 			"name": "40 mm 24 V fan (WINSINN 4010)",
 			"category": "Electronics",
-			"description": "40 x 40 x 10 mm axial fan, 24 V, on the control board housing cover; mounted with four self-tapping M3 \u00d7 12 mm button head screws. Comes with an XH2.54 2-pin lead, which plugs straight into one of the board's LED ports. One per machine: the Orange Pi is cooled by its own heatsink fan instead.",
+			"description": "40 x 40 x 10 mm axial fan, 24 V, on the control board housing cover, held against its vent by two printed fan retainers. Comes with an XH2.54 2-pin lead, which plugs straight into one of the board's LED ports. One per machine: the Orange Pi is cooled by its own heatsink fan instead.",
 			"note": null,
 			"created_at": "2026-08-22",
 			"updated_at": "2026-09-26",
